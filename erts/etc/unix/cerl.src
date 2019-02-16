@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2016. All Rights Reserved.
+# Copyright Ericsson AB 2003-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,15 +69,6 @@ cxargs_add() {
     done
 }
 
-eeargs=
-eeargs_add() {
-    while [ $# -gt 0 ]; do
-	cargs="$cargs $1"
-	eeargs="$eeargs $1"
-	shift
-    done
-}
-
 core=
 
 GDB=
@@ -96,8 +87,6 @@ TARGET=%TARGET%
 #BINDIR="$ROOTDIR/bin/%TARGET%"
 PROGNAME=$ROOTDIR/bin/cerl
 EMU=beam
-
-PRELOADED=$ROOTDIR/erts/preloaded/ebin
 
 
 while [ $# -gt 0 ]; do
@@ -235,7 +224,13 @@ while [ $# -gt 0 ]; do
 	    shift
 	    cargs="$cargs -rr"
 	    run_rr=yes
-	    skip_erlexec=yes
+            case "$1" in
+                "replay"|"ps")
+                    ;;
+                *)
+	            skip_erlexec=yes
+                    ;;
+            esac
 	    ;;
 	*)
 	    break
@@ -255,7 +250,7 @@ EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
-EMU_NAME=`$EXEC -emu_name_exit $eeargs`
+EMU_NAME=`$EXEC -emu_name_exit`
 
 if [ $skip_erlexec = yes ]; then
     emu_xargs=`echo $xargs | sed "s|+|-|g"`
@@ -269,21 +264,20 @@ if [ $skip_erlexec = yes ]; then
 '
     set -- $beam_args
     IFS="$SAVE_IFS"
-else
-    xargs="$xargs -pz $PRELOADED --"
 fi
 if [ "x$GDB" = "x" ]; then
     if [ $run_valgrind = yes ]; then
 	valversion=`valgrind --version`
 	valmajor=`echo $valversion | sed 's,[a-z]*\-\([0-9]*\).*,\1,'`
         valminor=`echo $valversion | sed 's,[a-z]*\-[0-9]*.\([0-9]*\).*,\1,'`
+	valint=`echo "$valmajor * 1000 + $valminor" | bc`
 	if [ "x$VALGRIND_LOG_XML" = "x" ]; then
 	    valgrind_xml=
 	    log_file_prefix="--log-file="
 	else
 	    export VALGRIND_LOG_XML
 	    valgrind_xml="--xml=yes"
-	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+	    if [ $valint -gt 3004 ]; then
 		log_file_prefix="--xml-file="
 	    else
 		log_file_prefix="--log-file="
@@ -292,7 +286,7 @@ if [ "x$GDB" = "x" ]; then
 	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
 	    valgrind_log=
 	else
-	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+	    if [ $valint -gt 3004 ]; then
 		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log.$$"
 	    else
 		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
@@ -316,12 +310,31 @@ if [ "x$GDB" = "x" ]; then
 	    sched_arg=
 	fi
 
-	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" -pz $PRELOADED
+	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
 
     elif [ $run_rr = yes ]; then
-	exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@" -pz $PRELOADED
+        if [ $1 = replay ]; then
+            shift
+            cmdfile="/tmp/.cerlgdb.$$"
+            echo "set \$etp_beam_executable = \"$BINDIR/$EMU_NAME\"" > $cmdfile
+            if [ "$1" = "-p" ]; then
+                echo 'set $etp_rr_run_until_beam = 1' >> $cmdfile
+            fi
+            cat $ROOTDIR/erts/etc/unix/etp-commands.in >> $cmdfile
+            exec rr replay -x $cmdfile $*
+        elif [ $1 = ps ]; then
+            shift
+            rr ps $* | head -1
+            ChildSetup=`rr ps $* | grep 'erl_child_setup' | awk '{ print $2 }'`
+            for CS in $ChildSetup; do
+                rr ps $* | grep -E "^$CS"
+            done
+            exit 0
+        else
+	    exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@"
+        fi
     else
-	exec $EXEC $eeargs $xargs ${1+"$@"}
+	exec $EXEC $xargs ${1+"$@"}
     fi
 elif [ "x$GDB" = "xgdb" ]; then
     case "x$core" in

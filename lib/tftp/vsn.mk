@@ -19,6 +19,6 @@
 # %CopyrightEnd%
 
 APPLICATION = tftp
-TFTP_VSN   = 1.0
+TFTP_VSN   = 1.0.1
 PRE_VSN     =
 APP_VSN     = "$(APPLICATION)-$(TFTP_VSN)$(PRE_VSN)"

@@ -4,12 +4,17 @@
     {modules, [
 	       %% TLS/SSL 
 	       tls_connection,
+	       tls_connection_1_3,
 	       tls_handshake,
+	       tls_handshake_1_3,
 	       tls_record,
+	       tls_record_1_3,
 	       tls_socket,
 	       tls_v1,
 	       ssl_v3,
 	       tls_connection_sup,
+	       tls_sender,
+	       ssl_dh_groups,
 	       %% DTLS
 	       dtls_connection,
 	       dtls_handshake,
@@ -17,12 +22,10 @@
 	       dtls_socket,
 	       dtls_v1,
 	       dtls_connection_sup,
-	       dtls_udp_listener,
-	       dtls_udp_sup,
+	       dtls_packet_demux,
+	       dtls_listener_sup,
 	       %% API
 	       ssl,  %% Main API		  
-	       tls,  %% TLS specific
-	       dtls, %% DTLS specific 
 	       ssl_session_cache_api,
 	       %% Both TLS/SSL and DTLS
 	       ssl_config,
@@ -30,6 +33,7 @@
 	       ssl_handshake,
 	       ssl_record,
 	       ssl_cipher,
+               ssl_cipher_format,
 	       ssl_srp_primes,
 	       ssl_alert,
 	       ssl_listen_tracker_sup, %% may be used by DTLS over SCTP	
@@ -51,6 +55,8 @@
 	       ssl_crl_cache, 
 	       ssl_crl_cache_api,
 	       ssl_crl_hash_dir,
+	       %% Logging
+	       ssl_logger,
 	       %% App structure
 	       ssl_app,
 	       ssl_sup,

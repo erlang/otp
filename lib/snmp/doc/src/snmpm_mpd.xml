@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpm_mpd.xml</file>
   </header>
-  <module>snmpm_mpd</module>
+  <module since="">snmpm_mpd</module>
   <modulesummary>Message Processing and Dispatch module for the SNMP manager</modulesummary>
   <description>
     <p>The module <c>snmpm_mpd</c> implements the version independent
@@ -48,7 +48,7 @@
 
   <funcs>
     <func>
-      <name>init_mpd(Vsns) -> mpd_state()</name>
+      <name since="">init_mpd(Vsns) -> mpd_state()</name>
       <fsummary>Initialize the MPD module</fsummary>
       <type>
         <v>Vsns = [Vsn]</v>
@@ -64,7 +64,7 @@
       </desc>
     </func>
     <func>
-      <name>process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
+      <name since="OTP 17.3">process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
       <fsummary>Process a message received from the network</fsummary>
       <type>
         <v>Msg = binary()</v>
@@ -92,7 +92,7 @@
       </desc>
     </func>
     <func>
-      <name>generate_msg(Vsn, NoteStore, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
+      <name since="">generate_msg(Vsn, NoteStore, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
       <fsummary>Generate a request message to be sent to the network</fsummary>
       <type>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
@@ -117,7 +117,7 @@
       </desc>
     </func>
     <func>
-      <name>generate_response_msg(Vsn, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
+      <name since="">generate_response_msg(Vsn, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
       <fsummary>Generate a response packet to be sent to the network</fsummary>
       <type>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>

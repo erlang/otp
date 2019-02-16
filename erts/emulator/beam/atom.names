@@ -182,6 +182,7 @@ atom control
 atom copy
 atom copy_literals
 atom counters
+atom count
 atom cpu
 atom cpu_timestamp
 atom cr
@@ -208,7 +209,6 @@ atom dirty_nif_finalizer
 atom disable_trace
 atom disabled
 atom discard
-atom display_items
 atom dist
 atom dist_cmd
 atom dist_ctrl_put_data
@@ -237,6 +237,7 @@ atom eof
 atom eol
 atom Eq='=:='
 atom Eqeq='=='
+atom erl_init
 atom erl_tracer
 atom erlang
 atom erl_signal_server
@@ -287,6 +288,7 @@ atom gc_minor_end
 atom gc_minor_start
 atom Ge='>='
 atom generational
+atom get_all_trap
 atom get_seq_token
 atom get_tcw
 atom gather_gc_info_result
@@ -325,6 +327,7 @@ atom index
 atom infinity
 atom info
 atom info_msg
+atom info_trap
 atom init
 atom initial_call
 atom input
@@ -393,6 +396,7 @@ atom microsecond
 atom microstate_accounting
 atom milli_seconds
 atom millisecond
+atom min
 atom min_heap_size
 atom min_bin_vheap_size
 atom minor
@@ -542,6 +546,7 @@ atom reload
 atom rem
 atom report_errors
 atom reset
+atom reset_seq_trace
 atom restart
 atom return_from
 atom return_to

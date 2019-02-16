@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -208,8 +208,8 @@ typedef struct _ac_trie {
 typedef struct _bm_data {
     byte *x;
     Sint len;
+    Sint *badshift;
     Sint *goodshift;
-    Sint badshift[ALPHABET_SIZE];
 } BMData;
 
 typedef struct _ac_find_all_state {
@@ -319,16 +319,104 @@ static void dump_ac_node(ACNode *node, int indent, int ch);
  * The needed size of binary data for a search structure - given the
  * accumulated string lengths.
  */
-#define BM_SIZE(StrLen) 	      /* StrLen: length of searchstring */ \
-((MYALIGN(sizeof(Sint) * (StrLen))) + /* goodshift array */                \
- MYALIGN(StrLen) +                    /* searchstring saved */             \
- (MYALIGN(sizeof(BMData))))           /* Structure */
+#define BM_SIZE_SINGLE()    /* Single byte search string */ \
+(MYALIGN(1) +               /* searchstring saved */        \
+ (MYALIGN(sizeof(BMData)))) /* Structure */
+
+#define BM_SIZE_MULTI(StrLen) 	           /* StrLen: length of searchstring */ \
+((MYALIGN(sizeof(Uint) * (StrLen))) +      /* goodshift array */                \
+ (MYALIGN(sizeof(Uint) * ALPHABET_SIZE)) + /* badshift array */                 \
+ MYALIGN(StrLen) +                         /* searchstring saved */             \
+ (MYALIGN(sizeof(BMData))))                /* Structure */
 
 #define AC_SIZE(StrLens)       /* StrLens: sum of all searchstring lengths */ \
 ((MYALIGN(sizeof(ACNode)) *                                                   \
 ((StrLens)+1)) + 	       /* The actual nodes (including rootnode) */    \
  MYALIGN(sizeof(ACTrie)))      /* Structure */
 
+/*
+ * Boyer Moore - most obviously implemented more or less exactly as
+ * Christian Charras and Thierry Lecroq describe it in "Handbook of
+ * Exact String-Matching Algorithms"
+ * http://www-igm.univ-mlv.fr/~lecroq/string/
+ */
+
+/*
+ * Call this to compute badshifts array
+ */
+static void compute_badshifts(BMData *bmd)
+{
+    Sint i;
+    Sint m = bmd->len;
+
+    for (i = 0; i < ALPHABET_SIZE; ++i) {
+	bmd->badshift[i] = m;
+    }
+    for (i = 0; i < m - 1; ++i) {
+	bmd->badshift[bmd->x[i]] = m - i - 1;
+    }
+}
+
+/* Helper for "compute_goodshifts" */
+static void compute_suffixes(byte *x, Sint m, Sint *suffixes)
+{
+    int f,g,i;
+
+    suffixes[m - 1] = m;
+
+    f = 0; /* To avoid use before set warning */
+
+    g = m - 1;
+
+    for (i = m - 2; i >= 0; --i) {
+	if (i > g && suffixes[i + m - 1 - f] < i - g) {
+	    suffixes[i] = suffixes[i + m - 1 - f];
+	} else {
+	    if (i < g) {
+		g = i;
+	    }
+	    f = i;
+	    while ( g >= 0 && x[g] == x[g + m - 1 - f] ) {
+		--g;
+	    }
+	    suffixes[i] = f - g;
+	}
+    }
+}
+
+/*
+ * Call this to compute goodshift array
+ */
+static void compute_goodshifts(BMData *bmd)
+{
+    Sint m = bmd->len;
+    byte *x = bmd->x;
+    Sint i, j;
+    Sint *suffixes = erts_alloc(ERTS_ALC_T_TMP, m * sizeof(Sint));
+
+    compute_suffixes(x, m, suffixes);
+
+    for (i = 0; i < m; ++i) {
+	bmd->goodshift[i] = m;
+    }
+
+    j = 0;
+
+    for (i = m - 1; i >= -1; --i) {
+	if (i == -1 || suffixes[i] == i + 1) {
+	    while (j < m - 1 - i) {
+		if (bmd->goodshift[j] == m) {
+		    bmd->goodshift[j] = m - 1 - i;
+		}
+		++j;
+	    }
+	}
+    }
+    for (i = 0; i <= m - 2; ++i) {
+	bmd->goodshift[m - 1 - suffixes[i]] = m - 1 - i;
+    }
+    erts_free(ERTS_ALC_T_TMP, suffixes);
+}
 
 /*
  * Callback for the magic binary
@@ -377,20 +465,37 @@ static ACTrie *create_acdata(MyAllocator *my, Uint len,
 
 /*
  * The same initialization of allocator and basic data for Boyer-Moore.
+ * For single byte, we don't use goodshift and badshift, only memchr.
  */
 static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 			     Binary **the_bin /* out */)
 {
-    Uint datasize = BM_SIZE(len);
+    Uint datasize;
     BMData *bmd;
-    Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data_bm);
-    byte *data = ERTS_MAGIC_BIN_DATA(mb);
+    Binary *mb;
+    byte *data;
+
+    if(len > 1) {
+	datasize = BM_SIZE_MULTI(len);
+    } else {
+	datasize = BM_SIZE_SINGLE();
+    }
+
+    mb = erts_create_magic_binary(datasize,cleanup_my_data_bm);
+    data = ERTS_MAGIC_BIN_DATA(mb);
     init_my_allocator(my, datasize, data);
     bmd = my_alloc(my, sizeof(BMData));
     bmd->x = my_alloc(my,len);
     sys_memcpy(bmd->x,x,len);
     bmd->len = len;
-    bmd->goodshift = my_alloc(my,sizeof(Uint) * len);
+
+    if(len > 1) {
+	bmd->goodshift = my_alloc(my, sizeof(Uint) * len);
+	bmd->badshift = my_alloc(my, sizeof(Uint) * ALPHABET_SIZE);
+	compute_badshifts(bmd);
+	compute_goodshifts(bmd);
+    }
+
     *the_bin = mb;
     return bmd;
 }
@@ -711,91 +816,8 @@ static BFReturn ac_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
     return (m == 0) ? BF_NOT_FOUND : BF_OK;
 }
 
-/*
- * Boyer Moore - most obviously implemented more or less exactly as
- * Christian Charras and Thierry Lecroq describe it in "Handbook of
- * Exact String-Matching Algorithms"
- * http://www-igm.univ-mlv.fr/~lecroq/string/
- */
-
-/*
- * Call this to compute badshifts array
- */
-static void compute_badshifts(BMData *bmd)
-{
-    Sint i;
-    Sint m = bmd->len;
-
-    for (i = 0; i < ALPHABET_SIZE; ++i) {
-	bmd->badshift[i] = m;
-    }
-    for (i = 0; i < m - 1; ++i) {
-	bmd->badshift[bmd->x[i]] = m - i - 1;
-    }
-}
-
-/* Helper for "compute_goodshifts" */
-static void compute_suffixes(byte *x, Sint m, Sint *suffixes)
-{
-    int f,g,i;
-
-    suffixes[m - 1] = m;
-
-    f = 0; /* To avoid use before set warning */
-
-    g = m - 1;
-
-    for (i = m - 2; i >= 0; --i) {
-	if (i > g && suffixes[i + m - 1 - f] < i - g) {
-	    suffixes[i] = suffixes[i + m - 1 - f];
-	} else {
-	    if (i < g) {
-		g = i;
-	    }
-	    f = i;
-	    while ( g >= 0 && x[g] == x[g + m - 1 - f] ) {
-		--g;
-	    }
-	    suffixes[i] = f - g;
-	}
-    }
-}
-
-/*
- * Call this to compute goodshift array
- */
-static void compute_goodshifts(BMData *bmd)
-{
-    Sint m = bmd->len;
-    byte *x = bmd->x;
-    Sint i, j;
-    Sint *suffixes = erts_alloc(ERTS_ALC_T_TMP, m * sizeof(Sint));
-
-    compute_suffixes(x, m, suffixes);
-
-    for (i = 0; i < m; ++i) {
-	bmd->goodshift[i] = m;
-    }
-
-    j = 0;
-
-    for (i = m - 1; i >= -1; --i) {
-	if (i == -1 || suffixes[i] == i + 1) {
-	    while (j < m - 1 - i) {
-		if (bmd->goodshift[j] == m) {
-		    bmd->goodshift[j] = m - 1 - i;
-		}
-		++j;
-	    }
-	}
-    }
-    for (i = 0; i <= m - 2; ++i) {
-	bmd->goodshift[m - 1 - suffixes[i]] = m - 1 - i;
-    }
-    erts_free(ERTS_ALC_T_TMP, suffixes);
-}
-
 #define BM_LOOP_FACTOR 10 /* Should we have a higher value? */
+#define MC_LOOP_FACTOR 8
 
 static void bm_init_find_first_match(BinaryFindContext *ctx)
 {
@@ -819,13 +841,38 @@ static BFReturn bm_find_first_match(BinaryFindContext *ctx, byte *haystack)
     Sint i;
     Sint j = state->pos;
     register Uint reds = *reductions;
+    byte *pos_pointer;
+    Sint needle_last = blen - 1;
+    Sint mem_read = len - needle_last - j;
 
-    while (j <= len - blen) {
+    if (mem_read <= 0) {
+	return BF_NOT_FOUND;
+    }
+    mem_read = MIN(mem_read, reds * MC_LOOP_FACTOR);
+    ASSERT(mem_read > 0);
+
+    pos_pointer = memchr(&haystack[j + needle_last], needle[needle_last], mem_read);
+    if (pos_pointer == NULL) {
+	reds -= mem_read / MC_LOOP_FACTOR;
+	j += mem_read;
+    } else {
+	reds -= (pos_pointer - &haystack[j]) / MC_LOOP_FACTOR;
+	j = pos_pointer - haystack - needle_last;
+    }
+
+    // Ensure we have at least one reduction before entering the loop
+    ++reds;
+
+    for(;;) {
+	if (j > len - blen) {
+	    *reductions = reds;
+	    return BF_NOT_FOUND;
+	}
 	if (--reds == 0) {
 	    state->pos = j;
 	    return BF_RESTART;
 	}
-	for (i = blen - 1; i >= 0 && needle[i] == haystack[i + j]; --i)
+	for (i = needle_last; i >= 0 && needle[i] == haystack[i + j]; --i)
 	    ;
 	if (i < 0) { /* found */
 	    *reductions = reds;
@@ -835,8 +882,6 @@ static BFReturn bm_find_first_match(BinaryFindContext *ctx, byte *haystack)
 	}
 	j += MAX(gs[i],bs[haystack[i+j]] - blen + 1 + i);
     }
-    *reductions = reds;
-    return BF_NOT_FOUND;
 }
 
 static void bm_init_find_all(BinaryFindContext *ctx)
@@ -875,14 +920,38 @@ static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
     Sint *gs = bmd->goodshift;
     Sint *bs = bmd->badshift;
     byte *needle = bmd->x;
-    Sint i;
+    Sint i = -1; /* Use memchr on start and on every match */
     Sint j = state->pos;
     Uint m = state->m;
     Uint allocated = state->allocated;
     FindallData *out = state->out;
     register Uint reds = *reductions;
+    byte *pos_pointer;
+    Sint needle_last = blen - 1;
+    Sint mem_read;
 
-    while (j <= len - blen) {
+    for(;;) {
+	if (i < 0) {
+	    mem_read = len - needle_last - j;
+	    if(mem_read <= 0) {
+		goto done;
+	    }
+	    mem_read = MIN(mem_read, reds * MC_LOOP_FACTOR);
+	    ASSERT(mem_read > 0);
+	    pos_pointer = memchr(&haystack[j + needle_last], needle[needle_last], mem_read);
+	    if (pos_pointer == NULL) {
+		reds -= mem_read / MC_LOOP_FACTOR;
+		j += mem_read;
+	    } else {
+		reds -= (pos_pointer - &haystack[j]) / MC_LOOP_FACTOR;
+		j = pos_pointer - haystack - needle_last;
+	    }
+	    // Ensure we have at least one reduction when resuming the loop
+	    ++reds;
+	}
+	if (j > len - blen) {
+	    goto done;
+	}
 	if (--reds == 0) {
 	    state->pos = j;
 	    state->m = m;
@@ -890,7 +959,7 @@ static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
 	    state->out = out;
 	    return BF_RESTART;
 	}
-	for (i = blen - 1; i >= 0 && needle[i] == haystack[i + j]; --i)
+	for (i = needle_last; i >= 0 && needle[i] == haystack[i + j]; --i)
 	    ;
 	if (i < 0) { /* found */
 	    if (m >= allocated) {
@@ -912,6 +981,7 @@ static BFReturn bm_find_all_non_overlapping(BinaryFindContext *ctx, byte *haysta
 	    j += MAX(gs[i],bs[haystack[i+j]] - blen + 1 + i);
 	}
     }
+ done:
     state->m = m;
     state->out = out;
     *reductions = reds;
@@ -931,6 +1001,7 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
     Eterm t, b, comp_term = NIL;
     Uint characters;
     Uint words;
+    Uint size;
 
     characters = 0;
     words = 0;
@@ -946,11 +1017,12 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	    if (binary_bitsize(b) != 0) {
 		goto badarg;
 	    }
-	    if (binary_size(b) == 0) {
+	    size = binary_size(b);
+	    if (size == 0) {
 		goto badarg;
 	    }
 	    ++words;
-	    characters += binary_size(b);
+	    characters += size;
 	}
 	if (is_not_nil(t)) {
 	    goto badarg;
@@ -979,16 +1051,13 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	Uint bitoffs, bitsize;
 	byte *temp_alloc = NULL;
 	MyAllocator my;
-	BMData *bmd;
 	Binary *bin;
 
 	ERTS_GET_BINARY_BYTES(comp_term, bytes, bitoffs, bitsize);
 	if (bitoffs != 0) {
 	    bytes = erts_get_aligned_binary_bytes(comp_term, &temp_alloc);
 	}
-	bmd = create_bmdata(&my, bytes, characters, &bin);
-	compute_badshifts(bmd);
-	compute_goodshifts(bmd);
+        create_bmdata(&my, bytes, characters, &bin);
 	erts_free_aligned_binary_bytes(temp_alloc);
 	CHECK_ALLOCATOR(my);
 	*tag = am_bm;
@@ -1901,9 +1970,7 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 	goto badarg;
     }
 
-
-
-    hp = HAlloc(p, ERL_SUB_BIN_SIZE);
+    hp = HeapFragOnlyAlloc(p, ERL_SUB_BIN_SIZE);
 
     ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
     sb = (ErlSubBin *) hp;
@@ -1921,100 +1988,6 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
     BIF_ERROR(p, BADARG);
 }
 
-#define ERTS_NEED_GC(p, need) ((HEAP_LIMIT((p)) - HEAP_TOP((p))) <= (need))
-
-BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple)
-{
-    Uint pos;
-    Sint len;
-    size_t orig_size;
-    Eterm orig;
-    Uint offset;
-    Uint bit_offset;
-    Uint bit_size;
-    Eterm* hp;
-    ErlSubBin* sb;
-    Eterm binary;
-    Eterm *tp;
-    Eterm epos, elen;
-    int extra_args;
-
-
-    if (range_is_tuple) {
-	Eterm tpl = reg[live];
-	extra_args = 1;
-	if (is_not_tuple(tpl)) {
-	    goto badarg;
-	}
-	tp = tuple_val(tpl);
-	if (arityval(*tp) != 2) {
-	    goto badarg;
-	}
-
-	epos = tp[1];
-	elen = tp[2];
-    } else {
-	extra_args = 2;
-	epos = reg[live-1];
-	elen = reg[live];
-    }
-    binary = reg[live-extra_args];
-
-    if (is_not_binary(binary)) {
-	goto badarg;
-    }
-    if (!term_to_Uint(epos, &pos)) {
-	goto badarg;
-    }
-    if (!term_to_Sint(elen, &len)) {
-	goto badarg;
-    }
-    if (len < 0) {
-	Uint lentmp = -(Uint)len;
-	/* overflow */
-	if ((Sint)lentmp < 0) {
-	    goto badarg;
-	}
-	len = lentmp;
-	if (len > pos) {
-	    goto badarg;
-	}
-	pos -= len;
-    }
-    /* overflow */
-    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
-	goto badarg;
-    }
-    if ((orig_size = binary_size(binary)) < pos ||
-	orig_size < (pos + len)) {
-	goto badarg;
-    }
-
-    if (ERTS_NEED_GC(p, ERL_SUB_BIN_SIZE)) {
-	erts_garbage_collect(p, ERL_SUB_BIN_SIZE, reg, live+1-extra_args); /* I don't need the tuple
-									      or indices any more */
-	binary = reg[live-extra_args];
-    }
-
-    hp = p->htop;
-    p->htop += ERL_SUB_BIN_SIZE;
-
-    ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
-
-    sb = (ErlSubBin *) hp;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = len;
-    sb->offs = offset + pos;
-    sb->orig = orig;
-    sb->bitoffs = bit_offset;
-    sb->bitsize = 0;
-    sb->is_writable = 0;
-
-    BIF_RET(make_binary(sb));
-
- badarg:
-    BIF_ERROR(p, BADARG);
-}
 /*************************************************************
  * The actual guard BIFs are in erl_bif_guard.c
  * but the implementation of both the non-gc and the gc
@@ -2762,7 +2735,7 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 	dsize_t num_parts = BIG_SIZE(bigp);
 	Eterm res;
 	byte *b;
-	ErtsDigit d;
+	ErtsDigit d = 0;
 
 	if(BIG_SIGN(bigp)) {
 	    goto badarg;
@@ -2778,26 +2751,22 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 	if (endianess == am_big) {
 	    Sint i,j;
 	    j = 0;
-	    d = BIG_DIGIT(bigp,0);
 	    for (i=n-1;i>=0;--i) {
-		b[i] = d & 0xFF;
-		if (!((++j) % sizeof(ErtsDigit))) {
+                if (!((j++) % sizeof(ErtsDigit))) {
 		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
-		} else {
-		    d >>= 8;
 		}
+                b[i] = d & 0xFF;
+                d >>= 8;
 	    }
 	} else {
 	    Sint i,j;
 	    j = 0;
-	    d = BIG_DIGIT(bigp,0);
 	    for (i=0;i<n;++i) {
-		b[i] = d & 0xFF;
-		if (!((++j) % sizeof(ErtsDigit))) {
+                if (!((j++) % sizeof(ErtsDigit))) {
 		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
-		} else {
-		    d >>= 8;
 		}
+                b[i] = d & 0xFF;
+                d >>= 8;
 	    }
 
 	}
@@ -3012,17 +2981,19 @@ static void dump_bm_data(BMData *bm)
 	}
     }
     erts_printf(">>\n");
-    erts_printf("GoodShift array:\n");
-    for (i = 0; i < bm->len; ++i) {
-	erts_printf("GoodShift[%d]: %ld\n", i, bm->goodshift[i]);
-    }
-    erts_printf("BadShift array:\n");
-    j = 0;
-    for (i = 0; i < ALPHABET_SIZE; i += j) {
-	for (j = 0; i + j < ALPHABET_SIZE && j < 6; ++j) {
-	    erts_printf("BS[%03d]:%02ld, ", i+j, bm->badshift[i+j]);
+    if(bm->len > 1) {
+	erts_printf("GoodShift array:\n");
+	for (i = 0; i < bm->len; ++i) {
+	    erts_printf("GoodShift[%d]: %ld\n", i, bm->goodshift[i]);
 	}
-	erts_printf("\n");
+	erts_printf("BadShift array:\n");
+	j = 0;
+	for (i = 0; i < ALPHABET_SIZE; i += j) {
+	    for (j = 0; i + j < ALPHABET_SIZE && j < 6; ++j) {
+		erts_printf("BS[%03d]:%02ld, ", i+j, bm->badshift[i+j]);
+	    }
+	    erts_printf("\n");
+	}
     }
 }
 

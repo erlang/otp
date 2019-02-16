@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,21 +123,23 @@ extern ErtsThrPrgr erts_thr_prgr__;
 
 void erts_thr_progress_pre_init(void);
 void erts_thr_progress_init(int no_schedulers, int managed, int unmanaged);
-void erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
-					       ErtsThrPrgrCallbacks *,
-					       int);
+ErtsThrPrgrData *erts_thr_progress_register_managed_thread(
+    ErtsSchedulerData *esdp, ErtsThrPrgrCallbacks *, int);
 void erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *);
-void erts_thr_progress_active(ErtsSchedulerData *esdp, int on);
-void erts_thr_progress_wakeup(ErtsSchedulerData *esdp,
+void erts_thr_progress_active(ErtsThrPrgrData *, int on);
+void erts_thr_progress_wakeup(ErtsThrPrgrData *,
 			      ErtsThrPrgrVal value);
-int erts_thr_progress_update(ErtsSchedulerData *esdp);
-int erts_thr_progress_leader_update(ErtsSchedulerData *esdp);
-void erts_thr_progress_prepare_wait(ErtsSchedulerData *esdp);
-void erts_thr_progress_finalize_wait(ErtsSchedulerData *esdp);
+int erts_thr_progress_update(ErtsThrPrgrData *);
+int erts_thr_progress_leader_update(ErtsThrPrgrData *);
+void erts_thr_progress_prepare_wait(ErtsThrPrgrData *);
+void erts_thr_progress_finalize_wait(ErtsThrPrgrData *);
 ErtsThrPrgrDelayHandle erts_thr_progress_unmanaged_delay__(void);
 void erts_thr_progress_unmanaged_continue__(int umrefc_ix);
+ErtsThrPrgrData *erts_thr_progress_data(void);
 
 void erts_thr_progress_dbg_print_state(void);
+
+ERTS_GLB_INLINE ErtsThrPrgrData *erts_thr_prgr_data(ErtsSchedulerData *esdp);
 
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_nob__(ERTS_THR_PRGR_ATOMIC *atmc);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_acqb__(ERTS_THR_PRGR_ATOMIC *atmc);
@@ -160,6 +162,15 @@ ERTS_GLB_INLINE int erts_thr_progress_cmp(ErtsThrPrgrVal val1, ErtsThrPrgrVal va
 ERTS_GLB_INLINE int erts_thr_progress_has_reached(ErtsThrPrgrVal val);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE ErtsThrPrgrData *
+erts_thr_prgr_data(ErtsSchedulerData *esdp) {
+    if (esdp) {
+        return &esdp->thr_progress_data;
+    } else {
+        return erts_thr_progress_data();
+    }
+}
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_prgr_read_nob__(ERTS_THR_PRGR_ATOMIC *atmc)

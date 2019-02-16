@@ -22,8 +22,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,
-	 test_size/1,flat_size_big/1,df/1,term_type/1,
-	 instructions/1, stack_check/1]).
+         test_size/1,flat_size_big/1,df/1,term_type/1,
+         instructions/1, stack_check/1, alloc_blocks_size/1]).
+
+-export([do_alloc_blocks_size/0]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -31,7 +33,7 @@ suite() ->
 
 all() -> 
     [test_size, flat_size_big, df, instructions, term_type,
-     stack_check].
+     stack_check, alloc_blocks_size].
 
 test_size(Config) when is_list(Config) ->
     ConsCell1 = id([a|b]),
@@ -209,6 +211,29 @@ instructions(Config) when is_list(Config) ->
     Is = erts_debug:instructions(),
     _ = [list_to_atom(I) || I <- Is],
     ok.
+
+alloc_blocks_size(Config) when is_list(Config) ->
+    F = fun(Args) ->
+                Node = start_slave(Args),
+                ok = rpc:call(Node, ?MODULE, do_alloc_blocks_size, []),
+                true = test_server:stop_node(Node)
+        end,
+    F("+Meamax"),
+    F("+Meamin"),
+    F(""),
+    ok.
+
+do_alloc_blocks_size() ->
+    _ = erts_debug:alloc_blocks_size(binary_alloc),
+    ok.
+
+start_slave(Args) ->
+    Name = ?MODULE_STRING ++ "_slave",
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, Node} = test_server:start_node(list_to_atom(Name),
+                                        slave,
+                                        [{args, "-pa " ++ Pa ++ " " ++ Args}]),
+    Node.
 
 id(I) ->
     I.

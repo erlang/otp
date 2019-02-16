@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2233,18 +2233,18 @@ variables(Conf) when is_list(Conf) ->
     {{error, _, _}, _} = xref_base:variables(S108, [{verbose,false}]),
     {ok, S109} = xref_base:set_library_path(S108, [], [{verbose,false}]),
 
-    Tabs = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
 
     {ok, S110} = eval("Eplus := closure E, TT := Eplus",
                       'closure()', S109),
     {{ok, [{user, ['Eplus','TT']}]}, S111} = xref_base:variables(S110),
     {ok, S112} = xref_base:forget(S111, ['TT','Eplus']),
-    true = Tabs =:= length(ets:all()),
+    true = NoOfTables =:= erlang:system_info(ets_count),
 
     {ok, NS0} = eval("Eplus := closure E", 'closure()', S112),
     {{ok, [{user, ['Eplus']}]}, NS} = xref_base:variables(NS0),
     ok = xref_base:delete(NS),
-    true = Tabs =:= length(ets:all()),
+    true = NoOfTables =:= erlang:system_info(ets_count),
 
     ok = file:delete(Beam),
     ok.

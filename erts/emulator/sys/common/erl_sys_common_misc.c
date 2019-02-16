@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -176,6 +176,7 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
     double af;
     Uint64 int_part, frac_part;
     int neg;
+    int  has_decimals = decimals != 0;
     char *p = buffer;
 
     if (decimals < 0)
@@ -257,7 +258,7 @@ sys_double_to_chars_fast(double f, char *buffer, int buffer_size, int decimals,
     }
 
     /* Delete trailing zeroes */
-    if (compact)
+    if (compact && has_decimals)
         p = find_first_trailing_zero(p);
     *p = '\0';
     return p - buffer;

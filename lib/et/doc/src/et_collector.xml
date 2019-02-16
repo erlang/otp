@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2016</year>
+      <year>2002</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,21 +32,22 @@
     <rev>%VSN%</rev>
     <file>et_collector.xml</file>
   </header>
-  <module>et_collector</module>
+  <module since="">et_collector</module>
   <modulesummary>Collect trace events and provide a backing storage appropriate for iteration </modulesummary>
   <description>
     <p>Interface module for the Event Trace (ET) application</p>
   </description>
   <funcs>
     <func>
-      <name>start_link(Options) -> {ok, CollectorPid} | {error, Reason}</name>
+      <name since="">start_link(Options) -> {ok, CollectorPid} | {error, Reason}</name>
       <fsummary>Start a collector process</fsummary>
       <type>
         <v>Options = [option()]</v>
         <v>option() = {parent_pid, pid()} | {event_order, event_order()} | {dict_insert, {filter, collector}, collector_fun()} | {dict_insert, {filter, event_filter_name()}, event_filter_fun()} | {dict_insert, {subscriber, pid()}, dict_val()} | {dict_insert, dict_key(), dict_val()} | {dict_delete, dict_key()} | {trace_client, trace_client()} | {trace_global, boolean()} |  {trace_pattern, trace_pattern()} | {trace_port, integer()} |  {trace_max_queue, integer()}</v>
         <v>event_order() = trace_ts | event_ts</v>
         <v>trace_pattern() = {report_module(), extended_dbg_match_spec()} | undefined</v>
-        <v>report_module() = atom() | undefined &lt;v>extended_dbg_match_spec()() = detail_level() | dbg_match_spec()</v>
+        <v>report_module() = atom() | undefined</v>
+        <v>extended_dbg_match_spec() = detail_level() | dbg_match_spec()</v>
         <v>detail_level() = min | max | integer(X) when X =&lt; 0, X >= 100</v>
         <v>trace_client() =  {event_file, file_name()} | {dbg_trace_type(), dbg_trace_parameters()}</v>
         <v>file_name() = string()</v>
@@ -104,7 +105,7 @@
       </desc>
     </func>
     <func>
-      <name>stop(CollectorPid) -> ok</name>
+      <name since="">stop(CollectorPid) -> ok</name>
       <fsummary>Stop a collector process</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -114,7 +115,7 @@
       </desc>
     </func>
     <func>
-      <name>save_event_file(CollectorPid, FileName, Options) -> ok | {error, Reason}</name>
+      <name since="">save_event_file(CollectorPid, FileName, Options) -> ok | {error, Reason}</name>
       <fsummary>Save the events to a file</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -138,7 +139,7 @@
       </desc>
     </func>
     <func>
-      <name>load_event_file(CollectorPid, FileName) -> {ok, BadBytes} | exit(Reason)</name>
+      <name since="">load_event_file(CollectorPid, FileName) -> {ok, BadBytes} | exit(Reason)</name>
       <fsummary>Load the event table from a file</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -151,9 +152,9 @@
       </desc>
     </func>
     <func>
-      <name>report(Handle, TraceOrEvent) -> {ok, Continuation} | exit(Reason)</name>
-      <name>report_event(Handle, DetailLevel, FromTo, Label, Contents) -> {ok, Continuation} | exit(Reason)</name>
-      <name>report_event(Handle, DetailLevel, From, To, Label, Contents) -> {ok, Continuation} | exit(Reason)</name>
+      <name since="">report(Handle, TraceOrEvent) -> {ok, Continuation} | exit(Reason)</name>
+      <name since="">report_event(Handle, DetailLevel, FromTo, Label, Contents) -> {ok, Continuation} | exit(Reason)</name>
+      <name since="">report_event(Handle, DetailLevel, From, To, Label, Contents) -> {ok, Continuation} | exit(Reason)</name>
       <fsummary>Report an event to the collector</fsummary>
       <type>
         <v>Handle = Initial | Continuation</v>
@@ -180,7 +181,7 @@
       </desc>
     </func>
     <func>
-      <name>make_key(Type, Stuff) -> Key</name>
+      <name since="">make_key(Type, Stuff) -> Key</name>
       <fsummary>Make a key out of an event record or an old key</fsummary>
       <type>
         <v>Type = record(table_handle) | trace_ts | event_ts</v>
@@ -192,7 +193,7 @@
       </desc>
     </func>
     <func>
-      <name>get_table_handle(CollectorPid) -> Handle</name>
+      <name since="">get_table_handle(CollectorPid) -> Handle</name>
       <fsummary>Return a table handle</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -203,7 +204,7 @@
       </desc>
     </func>
     <func>
-      <name>get_global_pid() -> CollectorPid | exit(Reason)</name>
+      <name since="">get_global_pid() -> CollectorPid | exit(Reason)</name>
       <fsummary>Return a the identity of the globally registered collector if there is any</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -215,13 +216,13 @@
       </desc>
     </func>
     <func>
-      <name>change_pattern(CollectorPid, RawPattern) -> {old_pattern, TracePattern}</name>
+      <name since="">change_pattern(CollectorPid, RawPattern) -> {old_pattern, TracePattern}</name>
       <fsummary>Change active trace pattern globally on all trace nodes</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
         <v>RawPattern = {report_module(), extended_dbg_match_spec()}</v>
         <v>report_module() = atom() | undefined</v>
-        <v>extended_dbg_match_spec()() = detail_level() | dbg_match_spec()</v>
+        <v>extended_dbg_match_spec() = detail_level() | dbg_match_spec()</v>
         <v>RawPattern = detail_level()</v>
         <v>detail_level() = min | max | integer(X) when X =&lt; 0, X >= 100</v>
         <v>TracePattern = {report_module(), dbg_match_spec_match_spec()}</v>
@@ -231,9 +232,9 @@
       </desc>
     </func>
     <func>
-      <name>dict_insert(CollectorPid, {filter, collector}, FilterFun) -> ok</name>
-      <name>dict_insert(CollectorPid, {subscriber, SubscriberPid}, Void) -> ok</name>
-      <name>dict_insert(CollectorPid, Key, Val) -> ok</name>
+      <name since="">dict_insert(CollectorPid, {filter, collector}, FilterFun) -> ok</name>
+      <name since="">dict_insert(CollectorPid, {subscriber, SubscriberPid}, Void) -> ok</name>
+      <name since="">dict_insert(CollectorPid, Key, Val) -> ok</name>
       <fsummary>Insert a dictionary entry and send a {et, {dict_insert, Key, Val}} tuple to all registered subscribers.</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -258,7 +259,7 @@
       </desc>
     </func>
     <func>
-      <name>dict_lookup(CollectorPid, Key) -> [Val]</name>
+      <name since="">dict_lookup(CollectorPid, Key) -> [Val]</name>
       <fsummary>Lookup a dictionary entry and return zero or one value</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -272,7 +273,7 @@
       </desc>
     </func>
     <func>
-      <name>dict_delete(CollectorPid, Key) -> ok</name>
+      <name since="">dict_delete(CollectorPid, Key) -> ok</name>
       <fsummary>Delete a dictionary entry and send a {et, {dict_delete, Key}} tuple to all registered subscribers.</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -289,7 +290,7 @@
       </desc>
     </func>
     <func>
-      <name>dict_match(CollectorPid, Pattern) -> [Match]</name>
+      <name since="">dict_match(CollectorPid, Pattern) -> [Match]</name>
       <fsummary>Match some dictionary entries</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -305,7 +306,7 @@
       </desc>
     </func>
     <func>
-      <name>multicast(_CollectorPid, Msg) -> ok</name>
+      <name since="">multicast(_CollectorPid, Msg) -> ok</name>
       <fsummary>Sends a message to all registered subscribers</fsummary>
       <type>
         <v>CollectorPid = pid()</v>
@@ -317,7 +318,7 @@
       </desc>
     </func>
     <func>
-      <name>start_trace_client(CollectorPid, Type, Parameters) -> file_loaded | {trace_client_pid, pid()} | exit(Reason)</name>
+      <name since="">start_trace_client(CollectorPid, Type, Parameters) -> file_loaded | {trace_client_pid, pid()} | exit(Reason)</name>
       <fsummary>Load raw Erlang trace from a file, port or process.</fsummary>
       <type>
         <v>Type       = dbg_trace_client_type()</v>
@@ -329,14 +330,14 @@
       </desc>
     </func>
     <func>
-      <name>iterate(Handle, Prev, Limit) -> NewAcc</name>
+      <name since="">iterate(Handle, Prev, Limit) -> NewAcc</name>
       <fsummary>Iterates over the currently stored events</fsummary>
       <desc>
         <p>Short for iterate(Handle, Prev, Limit, undefined, Prev) -&gt; NewAcc</p>
       </desc>
     </func>
     <func>
-      <name>iterate(Handle, Prev, Limit, Fun, Acc) -> NewAcc</name>
+      <name since="">iterate(Handle, Prev, Limit, Fun, Acc) -> NewAcc</name>
       <fsummary>Iterate over the currently stored events</fsummary>
       <type>
         <v>Handle = collector_pid() | table_handle()</v>
@@ -348,7 +349,8 @@
         <v>done() = 0</v>
         <v>forward() = infinity | integer(X) where X > 0</v>
         <v>backward() = '-infinity' | integer(X) where X &lt; 0</v>
-        <v>Fun = fun(Event, Acc) -> NewAcc &lt;v>Acc = NewAcc = term()</v>
+        <v>Fun = fun(Event, Acc) -> NewAcc</v>
+        <v>Acc = NewAcc = term()</v>
       </type>
       <desc>
         <p>Iterate over the currently stored events.</p>
@@ -359,7 +361,7 @@
       </desc>
     </func>
     <func>
-      <name>clear_table(Handle) -> ok</name>
+      <name since="">clear_table(Handle) -> ok</name>
       <fsummary>Clear the event table</fsummary>
       <type>
         <v>Handle = collector_pid() | table_handle()</v>

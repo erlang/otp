@@ -32,7 +32,7 @@
     <rev>A2</rev>
     <file>pg2.xml</file>
   </header>
-  <module>pg2</module>
+  <module since="">pg2</module>
   <modulesummary>Distributed named process groups.</modulesummary>
   <description>
     <p>This module implements process groups. Each message can be sent
@@ -66,7 +66,7 @@
 
   <funcs>
     <func>
-      <name name="create" arity="1"/>
+      <name name="create" arity="1" since=""/>
       <fsummary>Create a new, empty process group.</fsummary>
       <desc>
         <p>Creates a new, empty process group. The group is globally
@@ -75,7 +75,7 @@
     </func>
 
     <func>
-      <name name="delete" arity="1"/>
+      <name name="delete" arity="1" since=""/>
       <fsummary>Delete a process group.</fsummary>
       <desc>
         <p>Deletes a process group.</p>
@@ -83,7 +83,7 @@
     </func>
 
     <func>
-      <name name="get_closest_pid" arity="1"/>
+      <name name="get_closest_pid" arity="1" since=""/>
       <fsummary>Common dispatch function.</fsummary>
       <desc>
         <p>A useful dispatch function that can be used from
@@ -93,7 +93,7 @@
     </func>
 
     <func>
-      <name name="get_local_members" arity="1"/>
+      <name name="get_local_members" arity="1" since=""/>
       <fsummary>Return all local processes in a group.</fsummary>
       <desc>
         <p>Returns all processes running on the local node in the
@@ -104,7 +104,7 @@
     </func>
 
     <func>
-      <name name="get_members" arity="1"/>
+      <name name="get_members" arity="1" since=""/>
       <fsummary>Return all processes in a group.</fsummary>
       <desc>
         <p>Returns all processes in the group <c>Name</c>. This
@@ -114,7 +114,7 @@
     </func>
 
     <func>
-      <name name="join" arity="2"/>
+      <name name="join" arity="2" since=""/>
       <fsummary>Join a process to a group.</fsummary>
       <desc>
         <p>Joins the process <c>Pid</c> to the group <c>Name</c>.
@@ -124,7 +124,7 @@
     </func>
 
     <func>
-      <name name="leave" arity="2"/>
+      <name name="leave" arity="2" since=""/>
       <fsummary>Make a process leave a group.</fsummary>
       <desc>
         <p>Makes the process <c>Pid</c> leave the group <c>Name</c>.
@@ -134,8 +134,8 @@
     </func>
 
     <func>
-      <name name="start" arity="0"/>
-      <name name="start_link" arity="0"/>
+      <name name="start" arity="0" since=""/>
+      <name name="start_link" arity="0" since=""/>
       <fsummary>Start the <c>pg2</c> server.</fsummary>
       <desc>
         <p>Starts the <c>pg2</c> server. Normally, the server does not need
@@ -149,7 +149,7 @@
     </func>
 
     <func>
-      <name name="which_groups" arity="0"/>
+      <name name="which_groups" arity="0" since=""/>
       <fsummary>Return a list of all known groups.</fsummary>
       <desc>
         <p>Returns a list of all known groups.</p>

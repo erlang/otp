@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 -export([start/0, purge/1, soft_purge/1, pending_purge_lambda/3,
 	 finish_after_on_load/2]).
 
--spec start() -> term().
+-spec start() -> no_return().
 start() ->
     register(erts_code_purger, self()),
     process_flag(trap_exit, true),

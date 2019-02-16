@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,8 +41,8 @@
 #define MAX_REG 1024            /* Max number of x(N) registers used */
 
 /*
- * The new arithmetic operations need some extra X registers in the register array.
- * so does the gc_bif's (i_gc_bif3 need 3 extra).
+ * The new trapping length/1 implementation need 3 extra registers in the
+ * register array.
  */
 #define ERTS_X_REGS_ALLOCATED (MAX_REG+3)
 
@@ -146,6 +146,21 @@
       (HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
 #endif
 
+/*
+ * Always allocate in a heap fragment, never on the heap.
+ */
+#if defined(VALGRIND)
+/* Running under valgrind, allocate exactly as much as needed.*/
+#  define HeapFragOnlyAlloc(p, sz)              \
+  (ASSERT((sz) >= 0),                           \
+   ErtsHAllocLockCheck(p),                      \
+   erts_heap_alloc((p),(sz),0))
+#else
+#  define HeapFragOnlyAlloc(p, sz)              \
+  (ASSERT((sz) >= 0),                           \
+   ErtsHAllocLockCheck(p),                      \
+   erts_heap_alloc((p),(sz),512))
+#endif
 
 /*
  * Description for each instruction (defined here because the name and

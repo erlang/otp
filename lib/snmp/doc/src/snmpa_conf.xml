@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_conf.xml</file>
   </header>
-  <module>snmpa_conf</module>
+  <module since="">snmpa_conf</module>
   <modulesummary>Utility functions for handling the agent config files.</modulesummary>
   <description>
     <p>The module <c>snmpa_conf</c> contains various utility functions to 
@@ -92,7 +92,7 @@ word() = 0..65535
 
   <funcs>
     <func>
-      <name>agent_entry(Tag, Val) -> agent_entry()</name>
+      <name since="">agent_entry(Tag, Val) -> agent_entry()</name>
       <fsummary>Create an agent entry</fsummary>
       <type>
         <v>Tag = intAgentTransports | intAgentUDPPort | intAgentMaxPacketSize | snmpEngineMaxMessageSize | snmpEngineID</v>
@@ -111,8 +111,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_agent_config(Dir, Conf) -> ok</name>
-      <name>write_agent_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_agent_config(Dir, Conf) -> ok</name>
+      <name since="">write_agent_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -134,7 +134,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_agent_config(Dir, Conf) -> ok</name>
+      <name since="">append_agent_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -153,7 +153,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_agent_config(Dir) -> Conf</name>
+      <name since="">read_agent_config(Dir) -> Conf</name>
       <fsummary>Read the agent config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -172,7 +172,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>standard_entry(Tag, Val) -> standard_entry()</name>
+      <name since="">standard_entry(Tag, Val) -> standard_entry()</name>
       <fsummary>Create an standard entry</fsummary>
       <type>
         <v>Tag = sysDescr | sysObjectID | sysContact | sysName | sysLocation | sysServices | snmpEnableAuthenTraps</v>
@@ -192,8 +192,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_standard_config(Dir, Conf) -> ok</name>
-      <name>write_standard_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_standard_config(Dir, Conf) -> ok</name>
+      <name since="">write_standard_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent standard config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -216,7 +216,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_standard_config(Dir, Conf) -> ok</name>
+      <name since="">append_standard_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent standard config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -236,7 +236,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_standard_config(Dir) -> Conf</name>
+      <name since="">read_standard_config(Dir) -> Conf</name>
       <fsummary>Read the agent standard config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -255,7 +255,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>context_entry(Context) -> context_entry()</name>
+      <name since="">context_entry(Context) -> context_entry()</name>
       <fsummary>Create an context entry</fsummary>
       <type>
         <v>Context = string()</v>
@@ -273,8 +273,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_context_config(Dir, Conf) -> ok</name>
-      <name>write_context_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_context_config(Dir, Conf) -> ok</name>
+      <name since="">write_context_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent context(s) to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -297,7 +297,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_context_config(Dir, Conf) -> ok</name>
+      <name since="">append_context_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent context(s) to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -317,7 +317,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_context_config(Dir) -> Conf</name>
+      <name since="">read_context_config(Dir) -> Conf</name>
       <fsummary>Read the agent context config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -336,8 +336,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>community_entry(CommunityIndex) -> community_entry()</name>
-      <name>community_entry(CommunityIndex, CommunityName, SecName, ContextName, TransportTag) -> community_entry()</name>
+      <name since="">community_entry(CommunityIndex) -> community_entry()</name>
+      <name since="">community_entry(CommunityIndex, CommunityName, SecName, ContextName, TransportTag) -> community_entry()</name>
       <fsummary>Create an community entry</fsummary>
       <type>
         <v>CommunityIndex = string()</v>
@@ -364,8 +364,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_community_config(Dir, Conf) -> ok</name>
-      <name>write_community_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_community_config(Dir, Conf) -> ok</name>
+      <name since="">write_community_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent community config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -388,7 +388,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_community_config(Dir, Conf) -> ok</name>
+      <name since="">append_community_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent community config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -408,7 +408,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_community_config(Dir) -> Conf</name>
+      <name since="">read_community_config(Dir) -> Conf</name>
       <fsummary>Read the agent community config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -427,10 +427,10 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
+      <name since="">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId) -> target_addr_entry()</name>
+      <name since="OTP 17.3">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
+      <name since="">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
+      <name since="">target_addr_entry(Name, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
       <fsummary>Create an target_addr entry</fsummary>
       <type>
         <v>Name = string()</v>
@@ -464,8 +464,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_target_addr_config(Dir, Conf) -> ok</name>
-      <name>write_target_addr_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_target_addr_config(Dir, Conf) -> ok</name>
+      <name since="">write_target_addr_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent target_addr config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -488,7 +488,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_target_addr_config(Dir, Conf) -> ok</name>
+      <name since="">append_target_addr_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent target_addr config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -508,7 +508,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_target_addr_config(Dir) -> Conf</name>
+      <name since="">read_target_addr_config(Dir) -> Conf</name>
       <fsummary>Read the agent target_addr config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -527,9 +527,9 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>target_params_entry(Name, Vsn) -> target_params_entry()</name>
-      <name>target_params_entry(Name, Vsn, SecName, SecLevel) -> target_params_entry()</name>
-      <name>target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) -> target_params_entry()</name>
+      <name since="">target_params_entry(Name, Vsn) -> target_params_entry()</name>
+      <name since="">target_params_entry(Name, Vsn, SecName, SecLevel) -> target_params_entry()</name>
+      <name since="">target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) -> target_params_entry()</name>
       <fsummary>Create an target_params entry</fsummary>
       <type>
         <v>Name = string()</v>
@@ -564,8 +564,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_target_params_config(Dir, Conf) -> ok</name>
-      <name>write_target_params_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_target_params_config(Dir, Conf) -> ok</name>
+      <name since="">write_target_params_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent target_params config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -588,7 +588,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_target_params_config(Dir, Conf) -> ok</name>
+      <name since="">append_target_params_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent target_params config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -608,7 +608,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_target_params_config(Dir) -> Conf</name>
+      <name since="">read_target_params_config(Dir) -> Conf</name>
       <fsummary>Read the agent target_params config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -627,10 +627,10 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>vacm_s2g_entry(SecModel, SecName, GroupName) -> vacm_s2g_entry()</name>
-      <name>vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, ReadView, WriteView, NotifyView) -> vacm_acc_entry()</name>
-      <name>vacm_vtf_entry(ViewIndex, ViewSubtree) -> vacm_vtf_entry()</name>
-      <name>vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) -> vacm_vtf_entry()</name>
+      <name since="">vacm_s2g_entry(SecModel, SecName, GroupName) -> vacm_s2g_entry()</name>
+      <name since="">vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, ReadView, WriteView, NotifyView) -> vacm_acc_entry()</name>
+      <name since="">vacm_vtf_entry(ViewIndex, ViewSubtree) -> vacm_vtf_entry()</name>
+      <name since="">vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) -> vacm_vtf_entry()</name>
       <fsummary>Create an vacm entry</fsummary>
       <type>
         <v>SecModel = v1 | v2c | usm</v>
@@ -665,8 +665,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_vacm_config(Dir, Conf) -> ok</name>
-      <name>write_vacm_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_vacm_config(Dir, Conf) -> ok</name>
+      <name since="">write_vacm_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent vacm config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -690,7 +690,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_vacm_config(Dir, Conf) -> ok</name>
+      <name since="">append_vacm_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent vacm config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -710,7 +710,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_vacm_config(Dir) -> Conf</name>
+      <name since="">read_vacm_config(Dir) -> Conf</name>
       <fsummary>Read the agent vacm config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -729,8 +729,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>usm_entry(EngineId) -> usm_entry()</name>
-      <name>usm_entry(EngineID, UserName, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> usm_entry()</name>
+      <name since="">usm_entry(EngineId) -> usm_entry()</name>
+      <name since="">usm_entry(EngineID, UserName, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> usm_entry()</name>
       <fsummary>Create an usm entry</fsummary>
       <type>
         <v>EngineId = string()</v>
@@ -762,8 +762,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_usm_config(Dir, Conf) -> ok</name>
-      <name>write_usm_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_usm_config(Dir, Conf) -> ok</name>
+      <name since="">write_usm_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent usm config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -786,7 +786,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_usm_config(Dir, Conf) -> ok</name>
+      <name since="">append_usm_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent usm config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -805,7 +805,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_usm_config(Dir) -> Conf</name>
+      <name since="">read_usm_config(Dir) -> Conf</name>
       <fsummary>Read the agent usm config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -824,7 +824,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>notify_entry(Name, Tag, Type) -> notify_entry()</name>
+      <name since="">notify_entry(Name, Tag, Type) -> notify_entry()</name>
       <fsummary>Create an notify entry</fsummary>
       <type>
         <v>Name = string()</v>
@@ -845,8 +845,8 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>write_notify_config(Dir, Conf) -> ok</name>
-      <name>write_notify_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_notify_config(Dir, Conf) -> ok</name>
+      <name since="">write_notify_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the agent notify config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -869,7 +869,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>append_notify_config(Dir, Conf) -> ok</name>
+      <name since="">append_notify_config(Dir, Conf) -> ok</name>
       <fsummary>Append the agent notify config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -889,7 +889,7 @@ word() = 0..65535
     </func>
 
     <func>
-      <name>read_notify_config(Dir) -> Conf</name>
+      <name since="">read_notify_config(Dir) -> Conf</name>
       <fsummary>Read the agent notify config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>

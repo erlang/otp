@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -248,7 +248,7 @@ handle_int_msg({attached, AttPid}, Status, _Bs,
 	    tell_attached({attached, M, Line, get(trace)}),
 
 	    %% Give info about status and call level as well
-	    %% In this case, Status can not be exit_at
+	    %% In this case, Status cannot be exit_at
 	    Msg = case Status of
 		      idle -> {func_at,M,Line,Le};
 		      break -> {break_at,M,Line,Le};

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -186,11 +186,6 @@
 	<cell><marker id="atoms"></marker>Atoms</cell>
 	<cell>By default, the maximum number of atoms is 1,048,576. This
 	limit can be raised or lowered using the <c>+t</c> option.</cell>
-      </row>
-      <row>
-	<cell>Ets tables</cell>
-	<cell>Default is 1400. It can be changed with the environment
-	variable <c>ERL_MAX_ETS_TABLES</c>.</cell>
       </row>
       <row>
 	<cell>Elements in a tuple</cell>

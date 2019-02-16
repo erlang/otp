@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2017</year>
+      <year>2010</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct.xml</file>
   </header>
-  <module>ct</module>
+  <module since="">ct</module>
   <modulesummary>Main user interface for the Common Test framework.</modulesummary>
 
   <description>
@@ -139,7 +139,7 @@
 
   <funcs>
     <func>
-      <name>abort_current_testcase(Reason) -&gt; ok | {error, ErrorReason}</name>
+      <name since="">abort_current_testcase(Reason) -&gt; ok | {error, ErrorReason}</name>
       <fsummary>Aborts the currently executing test case.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -157,7 +157,7 @@
     </func>
 
     <func>
-      <name>add_config(Callback, Config) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R14B">add_config(Callback, Config) -&gt; ok | {error, Reason}</name>
       <fsummary>Loads configuration variables using the specified callback
         module and configuration string.</fsummary>
       <type>
@@ -176,7 +176,7 @@
     </func>
 
     <func>
-      <name>break(Comment) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B02">break(Comment) -&gt; ok | {error, Reason}</name>
       <fsummary>Cancels any active timetrap and pause the execution of the
         current test case until the user calls function continue/0.</fsummary>
       <type>
@@ -206,7 +206,7 @@
     </func>
 
     <func>
-      <name>break(TestCase, Comment) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B02">break(TestCase, Comment) -&gt; ok | {error, Reason}</name>
       <fsummary>Works the same way as break/1, only argument TestCase makes it
         possible to pause a test case executing in a parallel group.</fsummary>
       <type>
@@ -228,7 +228,7 @@
     </func>
 
     <func>
-      <name>capture_get() -&gt; ListOfStrings</name>
+      <name since="OTP R15B">capture_get() -&gt; ListOfStrings</name>
       <fsummary>Equivalent to capture_get([default]).</fsummary>
       <type>
         <v>ListOfStrings = [string()]</v>
@@ -240,7 +240,7 @@
     </func>
 
     <func>
-      <name>capture_get(ExclCategories) -&gt; ListOfStrings</name>
+      <name since="OTP R15B">capture_get(ExclCategories) -&gt; ListOfStrings</name>
       <fsummary>Returns and purges the list of text strings buffered during
         the latest session of capturing printouts to stdout.</fsummary>
       <type>
@@ -262,7 +262,7 @@
     </func>
 
     <func>
-      <name>capture_start() -&gt; ok</name>
+      <name since="OTP R15B">capture_start() -&gt; ok</name>
       <fsummary>Starts capturing all text strings printed to stdout
         during execution of the test case.</fsummary>
         <desc><marker id="capture_start-0"/>
@@ -276,7 +276,7 @@
     </func>
 
     <func>
-      <name>capture_stop() -&gt; ok</name>
+      <name since="OTP R15B">capture_stop() -&gt; ok</name>
       <fsummary>Stops capturing text strings (a session started with
         capture_start/0).</fsummary>
       <desc><marker id="capture_stop-0"/>
@@ -290,7 +290,7 @@
     </func>
 
     <func>
-      <name>comment(Comment) -&gt; ok</name>
+      <name since="">comment(Comment) -&gt; ok</name>
       <fsummary>Prints the specified Comment in the comment field in the
         table on the test suite result page.</fsummary>
       <type>
@@ -307,7 +307,7 @@
     </func>
 
     <func>
-      <name>comment(Format, Args) -&gt; ok</name>
+      <name since="OTP R15B">comment(Format, Args) -&gt; ok</name>
       <fsummary>Prints the formatted string in the comment field in the
         table on the test suite result page.</fsummary>
       <type>
@@ -326,7 +326,7 @@
     </func>
 
     <func>
-      <name>continue() -&gt; ok</name>
+      <name since="OTP R15B02">continue() -&gt; ok</name>
       <fsummary>This function must be called to continue after a test
         case (not executing in a parallel group) has called break/1.</fsummary>
       <desc><marker id="continue-0"/>
@@ -337,7 +337,7 @@
     </func>
 
     <func>
-      <name>continue(TestCase) -&gt; ok</name>
+      <name since="OTP R15B02">continue(TestCase) -&gt; ok</name>
       <fsummary>This function must be called to continue after a test case
         has called break/2.</fsummary>
       <type>
@@ -353,7 +353,7 @@
     </func>
 
     <func>
-      <name>decrypt_config_file(EncryptFileName, TargetFileName) -&gt; ok | {error, Reason}</name>
+      <name since="">decrypt_config_file(EncryptFileName, TargetFileName) -&gt; ok | {error, Reason}</name>
       <fsummary>Decrypts EncryptFileName, previously generated with
         encrypt_config_file/2,3.</fsummary>
       <type>
@@ -372,7 +372,7 @@
     </func>
 
     <func>
-      <name>decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <name since="">decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Decrypts EncryptFileName, previously generated with
         encrypt_config_file/2,3.</fsummary>
       <type>
@@ -390,7 +390,7 @@
     </func>
 
     <func>
-      <name>encrypt_config_file(SrcFileName, EncryptFileName) -&gt; ok | {error, Reason}</name>
+      <name since="">encrypt_config_file(SrcFileName, EncryptFileName) -&gt; ok | {error, Reason}</name>
       <fsummary>Encrypts the source configuration file with DES3 and saves the
         result in file EncryptFileName.</fsummary>
       <type>
@@ -416,7 +416,7 @@
     </func>
 
     <func>
-      <name>encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <name since="">encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Encrypts the source configuration file with DES3 and saves the
        result in the target file EncryptFileName.</fsummary>
       <type>
@@ -442,7 +442,7 @@
     </func>
 
     <func>
-      <name>fail(Reason) -&gt; ok</name>
+      <name since="">fail(Reason) -&gt; ok</name>
       <fsummary>Terminates a test case with the specified error
         Reason.</fsummary>
       <type>
@@ -454,7 +454,7 @@
     </func>
 
     <func>
-      <name>fail(Format, Args) -&gt; ok</name>
+      <name since="OTP R15B">fail(Format, Args) -&gt; ok</name>
       <fsummary>Terminates a test case with an error message specified by
         a format string and a list of values (used as arguments to
         io_lib:format/2).</fsummary>
@@ -470,7 +470,7 @@
     </func>
 
     <func>
-      <name>get_config(Required) -&gt; Value</name>
+      <name since="">get_config(Required) -&gt; Value</name>
       <fsummary>Equivalent to get_config(Required, undefined, []).</fsummary>
       <desc><marker id="get_config-1"/>
         <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
@@ -479,7 +479,7 @@
     </func>
 
     <func>
-      <name>get_config(Required, Default) -&gt; Value</name>
+      <name since="">get_config(Required, Default) -&gt; Value</name>
       <fsummary>Equivalent to get_config(Required, Default, []).</fsummary>
       <desc><marker id="get_config-2"/>
         <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
@@ -488,7 +488,7 @@
     </func>
 
     <func>
-      <name>get_config(Required, Default, Opts) -&gt; ValueOrElement</name>
+      <name since="">get_config(Required, Default, Opts) -&gt; ValueOrElement</name>
       <fsummary>Reads configuration data values.</fsummary>
       <type>
         <v>Required = KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey}</v>
@@ -554,7 +554,7 @@
     </func>
 
     <func>
-      <name>get_event_mgr_ref() -&gt; EvMgrRef</name>
+      <name since="OTP 17.5">get_event_mgr_ref() -&gt; EvMgrRef</name>
       <fsummary>Gets a reference to the <c>Common Test</c> event manager.</fsummary>
         <type>
           <v>EvMgrRef = atom()</v>
@@ -572,7 +572,7 @@
     </func>
 
     <func>
-      <name>get_progname() -&gt; string()</name>
+      <name since="OTP 21.0">get_progname() -&gt; string()</name>
       <fsummary>Returns the command used to start this Erlang instance.</fsummary>
       <desc><marker id="get_progname-0"/>
         <p>Returns the command used to start this Erlang instance.
@@ -582,7 +582,7 @@
     </func>
 
     <func>
-      <name>get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</name>
+      <name since="">get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</name>
       <fsummary>Returns status of ongoing test.</fsummary>
       <type>
         <v>TestStatus = [StatusElem]</v>
@@ -608,7 +608,7 @@
     </func>
 
     <func>
-      <name>get_target_name(Handle) -&gt; {ok, TargetName} | {error, Reason}</name>
+      <name since="">get_target_name(Handle) -&gt; {ok, TargetName} | {error, Reason}</name>
       <fsummary>Returns the name of the target that the specified connection
         belongs to.</fsummary>
       <type>
@@ -622,7 +622,7 @@
     </func>
 
     <func>
-      <name>get_testspec_terms() -&gt; TestSpecTerms | undefined</name>
+      <name since="OTP 18.0">get_testspec_terms() -&gt; TestSpecTerms | undefined</name>
       <fsummary>Gets a list of all test specification terms used to
         configure and run this test.</fsummary>
       <type>
@@ -636,7 +636,7 @@
     </func>
 
     <func>
-      <name>get_testspec_terms(Tags) -&gt; TestSpecTerms | undefined</name>
+      <name since="OTP 18.0">get_testspec_terms(Tags) -&gt; TestSpecTerms | undefined</name>
       <fsummary>Reads one or more terms from the test specification used to
         configure and run this test.</fsummary>
       <type>
@@ -663,7 +663,7 @@
     </func>
 
     <func>
-      <name>get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</name>
+      <name since="OTP R15B">get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</name>
       <fsummary>Reads information about the timetrap set for the current
         test case.</fsummary>
       <type>
@@ -682,7 +682,7 @@
     </func>
 
     <func>
-      <name>get_verbosity(Category) -&gt; Level | undefined</name>
+      <name since="OTP 19.1">get_verbosity(Category) -&gt; Level | undefined</name>
       <fsummary>Read the verbosity level for a logging category.</fsummary>
       <type>
         <v>Category = default | atom()</v>
@@ -697,7 +697,7 @@
     </func>
 
     <func>
-      <name>install(Opts) -&gt; ok | {error, Reason}</name>
+      <name since="">install(Opts) -&gt; ok | {error, Reason}</name>
       <fsummary>Installs configuration files and event handlers.</fsummary>
       <type>
         <v>Opts = [Opt]</v>
@@ -724,7 +724,7 @@
     </func>
 
     <func>
-      <name>listenv(Telnet) -&gt; [Env]</name>
+      <name since="">listenv(Telnet) -&gt; [Env]</name>
       <fsummary>Performs command listenv on the specified Telnet connection
         and returns the result as a list of key-value pairs.</fsummary>
       <type>
@@ -740,7 +740,7 @@
     </func>
 
     <func>
-      <name>log(Format) -&gt; ok</name>
+      <name since="">log(Format) -&gt; ok</name>
       <fsummary>Equivalent to log(default, 50, Format, [], []).</fsummary>
       <desc><marker id="log-1"/>
         <p>Equivalent to
@@ -749,7 +749,7 @@
     </func>
 
     <func>
-      <name>log(X1, X2) -&gt; ok</name>
+      <name since="">log(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, []).</fsummary>
       <type>
@@ -763,7 +763,7 @@
     </func>
 
     <func>
-      <name>log(X1, X2, X3) -&gt; ok</name>
+      <name since="">log(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -778,7 +778,7 @@
     </func>
 
     <func>
-      <name>log(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02">log(X1, X2, X3, X4) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -794,7 +794,7 @@
     </func>
 
     <func>
-      <name>log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 18.3">log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints from a test case to the log file.</fsummary>
       <type>
         <v>Category = atom()</v>
@@ -825,7 +825,7 @@
     </func>
 
     <func>
-      <name>make_priv_dir() -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B01">make_priv_dir() -&gt; ok | {error, Reason}</name>
       <fsummary>If the test has been started with option create_priv_dir
         set to manual_per_tc, in order for the test case to use the private
         directory, it must first create it by calling this function.</fsummary>
@@ -841,7 +841,7 @@
     </func>
 
     <func>
-      <name>notify(Name, Data) -&gt; ok</name>
+      <name since="OTP R15B02">notify(Name, Data) -&gt; ok</name>
       <fsummary>Sends an asynchronous notification of type Name with Data
         to the <c>Common Test</c> event manager.</fsummary>
       <type>
@@ -859,7 +859,7 @@
     </func>
 
     <func>
-      <name>pal(Format) -&gt; ok</name>
+      <name since="">pal(Format) -&gt; ok</name>
       <fsummary>Equivalent to pal(default, 50, Format, [], []).</fsummary>
       <desc><marker id="pal-1"/>
         <p>Equivalent to
@@ -869,7 +869,7 @@
     </func>
 
     <func>
-      <name>pal(X1, X2) -&gt; ok</name>
+      <name since="">pal(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, []).</fsummary>
       <type>
@@ -883,7 +883,7 @@
     </func>
 
     <func>
-      <name>pal(X1, X2, X3) -&gt; ok</name>
+      <name since="">pal(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -898,7 +898,7 @@
     </func>
 
     <func>
-      <name>pal(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02">pal(X1, X2, X3, X4) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -914,7 +914,7 @@
     </func>
 
     <func>
-      <name>pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 19.2">pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints and logs from a test case.</fsummary>
       <type>
         <v>Category = atom()</v>
@@ -945,7 +945,7 @@
     </func>
 
     <func>
-      <name>parse_table(Data) -&gt; {Heading, Table}</name>
+      <name since="">parse_table(Data) -&gt; {Heading, Table}</name>
       <fsummary>Parses the printout from an SQL table and returns a list of
         tuples.</fsummary>
       <type>
@@ -967,7 +967,7 @@
     </func>
 
     <func>
-      <name>print(Format) -&gt; ok</name>
+      <name since="">print(Format) -&gt; ok</name>
       <fsummary>Equivalent to print(default, 50, Format, [], []).</fsummary>
       <desc><marker id="print-1"/>
         <p>Equivalent to <seealso marker="#print-5"><c>ct:print(default,
@@ -976,7 +976,7 @@
     </func>
 
     <func>
-      <name>print(X1, X2) -&gt; ok</name>
+      <name since="OTP R15B02">print(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, []).</fsummary>
       <type>
@@ -990,7 +990,7 @@
     </func>
 
     <func>
-      <name>print(X1, X2, X3) -&gt; ok</name>
+      <name since="">print(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -1005,7 +1005,7 @@
     </func>
 
     <func>
-      <name>print(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02">print(X1, X2, X3, X4) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -1021,7 +1021,7 @@
     </func>
 
     <func>
-      <name>print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 19.2">print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints from a test case to the console.</fsummary>
       <type>
         <v>Category = atom()</v>
@@ -1048,7 +1048,7 @@
     </func>
 
     <func>
-      <name>reload_config(Required) -&gt; ValueOrElement | {error, Reason}</name>
+      <name since="OTP R14B">reload_config(Required) -&gt; ValueOrElement | {error, Reason}</name>
       <fsummary>Reloads configuration file containing specified configuration
         key.</fsummary>
       <type>
@@ -1071,7 +1071,7 @@
     </func>
 
      <func>
-      <name>remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</name>
+      <name since="OTP 20.2">remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</name>
       <fsummary>>This function will return the identity of test- and group
        leader processes that are still running at the time of this call.</fsummary>
       <type>
@@ -1107,7 +1107,7 @@
     </func>   
 
     <func>
-      <name>remove_config(Callback, Config) -&gt; ok</name>
+      <name since="OTP R14B">remove_config(Callback, Config) -&gt; ok</name>
       <fsummary>Removes configuration variables (together with
         their aliases) that were loaded with specified callback module and
         configuration string.</fsummary>
@@ -1124,7 +1124,7 @@
     </func>
 
     <func>
-      <name>require(Required) -&gt; ok | {error, Reason}</name>
+      <name since="">require(Required) -&gt; ok | {error, Reason}</name>
       <fsummary>Checks if the required configuration is available.</fsummary>
       <type>
         <v>Required = Key | {Key, SubKeys} | {Key, SubKey, SubKeys}</v>
@@ -1178,7 +1178,7 @@
     </func>
 
     <func>
-      <name>require(Name, Required) -&gt; ok | {error, Reason}</name>
+      <name since="">require(Name, Required) -&gt; ok | {error, Reason}</name>
       <fsummary>Checks if the required configuration is available and gives
         it a name.</fsummary>
       <type>
@@ -1237,7 +1237,7 @@
     </func>
 
     <func>
-      <name>run(TestDirs) -&gt; Result</name>
+      <name since="">run(TestDirs) -&gt; Result</name>
       <fsummary>Runs all test cases in all suites in the specified
         directories.</fsummary>
       <type>
@@ -1251,7 +1251,7 @@
     </func>
 
     <func>
-      <name>run(TestDir, Suite) -&gt; Result</name>
+      <name since="">run(TestDir, Suite) -&gt; Result</name>
       <fsummary>Runs all test cases in the specified suite.</fsummary>
       <desc><marker id="run-2"/>
         <p>Runs all test cases in the specified suite.</p>
@@ -1261,7 +1261,7 @@
     </func>
 
     <func>
-      <name>run(TestDir, Suite, Cases) -&gt; Result</name>
+      <name since="">run(TestDir, Suite, Cases) -&gt; Result</name>
       <fsummary>Runs the specified test cases.</fsummary>
       <type>
         <v>TestDir = string()</v>
@@ -1283,7 +1283,7 @@
     </func>
 
     <func>
-      <name>run_test(Opts) -&gt; Result</name>
+      <name since="">run_test(Opts) -&gt; Result</name>
       <fsummary>Runs tests as specified by the combination of options in
         Opts.</fsummary>
       <type>
@@ -1355,7 +1355,7 @@
     </func>
 
     <func>
-      <name>run_testspec(TestSpec) -&gt; Result</name>
+      <name since="">run_testspec(TestSpec) -&gt; Result</name>
       <fsummary>Runs a test specified by TestSpec.</fsummary>
       <type>
         <v>TestSpec = [term()]</v>
@@ -1375,7 +1375,7 @@
     </func>
 
     <func>
-      <name>set_verbosity(Category, Level) -&gt; ok</name>
+      <name since="OTP 19.1">set_verbosity(Category, Level) -&gt; ok</name>
       <fsummary>Set the verbosity level for a logging category.</fsummary>
       <type>
         <v>Category = default | atom()</v>
@@ -1390,7 +1390,7 @@
     </func>
 
     <func>
-      <name>sleep(Time) -&gt; ok</name>
+      <name since="OTP R14B">sleep(Time) -&gt; ok</name>
       <fsummary>This function, similar to timer:sleep/1, suspends the
         test case for a specified time.</fsummary>
       <type>
@@ -1412,7 +1412,7 @@
     </func>
 
     <func>
-      <name>start_interactive() -&gt; ok</name>
+      <name since="">start_interactive() -&gt; ok</name>
       <fsummary>Starts <c>Common Test</c> in interactive mode.</fsummary>
       <desc><marker id="start_interactive-0"/>
         <p>Starts <c>Common Test</c> in interactive mode.</p>
@@ -1440,7 +1440,7 @@
     </func>
 
     <func>
-      <name>step(TestDir, Suite, Case) -&gt; Result</name>
+      <name since="">step(TestDir, Suite, Case) -&gt; Result</name>
       <fsummary>Steps through a test case with the debugger.</fsummary>
       <type>
         <v>Case = atom()</v>
@@ -1453,7 +1453,7 @@
     </func>
 
     <func>
-      <name>step(TestDir, Suite, Case, Opts) -&gt; Result</name>
+      <name since="">step(TestDir, Suite, Case, Opts) -&gt; Result</name>
       <fsummary>Steps through a test case with the debugger.</fsummary>
       <type>
         <v>Case = atom()</v>
@@ -1470,7 +1470,7 @@
     </func>
 
     <func>
-      <name>stop_interactive() -&gt; ok</name>
+      <name since="">stop_interactive() -&gt; ok</name>
       <fsummary>Exits the interactive mode.</fsummary>
       <desc><marker id="stop_interactive-0"/>
         <p>Exits the interactive mode.</p>
@@ -1482,7 +1482,7 @@
     </func>
 
     <func>
-      <name>sync_notify(Name, Data) -&gt; ok</name>
+      <name since="OTP R15B02">sync_notify(Name, Data) -&gt; ok</name>
       <fsummary>Sends a synchronous notification of type Name with Data to
         the <c>Common Test</c> event manager.</fsummary>
       <type>
@@ -1501,7 +1501,7 @@
     </func>
 
     <func>
-      <name>testcases(TestDir, Suite) -&gt; Testcases | {error, Reason}</name>
+      <name since="">testcases(TestDir, Suite) -&gt; Testcases | {error, Reason}</name>
       <fsummary>Returns all test cases in the specified suite.</fsummary>
       <type>
         <v>TestDir = string()</v>
@@ -1515,14 +1515,14 @@
     </func>
 
     <func>
-      <name>timetrap(Time) -&gt; ok</name>
+      <name since="OTP R14B">timetrap(Time) -&gt; ok</name>
       <fsummary>Sets a new timetrap for the running test case.</fsummary>
       <type>
         <v>Time = {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity | Func</v>
         <v>Hours = integer()</v>
         <v>Mins = integer()</v>
         <v>Secs = integer()</v>
-        <v>Millisecs = integer() | float()</v>
+        <v>Millisecs = integer()</v>
         <v>Func = {M, F, A} | function()</v>
         <v>M = atom()</v>
         <v>F = atom()</v>
@@ -1539,7 +1539,7 @@
     </func>
 
     <func>
-      <name>userdata(TestDir, Suite) -&gt; SuiteUserData | {error, Reason}</name>
+      <name since="">userdata(TestDir, Suite) -&gt; SuiteUserData | {error, Reason}</name>
       <fsummary>Returns any data specified with tag userdata in the list of
         tuples returned from Suite:suite/0.</fsummary>
       <type>
@@ -1556,7 +1556,7 @@
     </func>
 
     <func>
-      <name>userdata(TestDir, Suite, Case::GroupOrCase) -&gt; TCUserData | {error, Reason}</name>
+      <name since="">userdata(TestDir, Suite, Case::GroupOrCase) -&gt; TCUserData | {error, Reason}</name>
       <fsummary>Returns any data specified with tag userdata in the list of
         tuples returned from Suite:group(GroupName) or Suite:Case().</fsummary>
       <type>

@@ -2093,17 +2093,6 @@ current_stacktrace(ErtsHeapFactory *hfact, Process* rp,
     return res;
 }
 
-#if defined(VALGRIND)
-static int check_if_xml(void)
-{
-    char buf[1];
-    size_t bufsz = sizeof(buf);
-    return erts_sys_explicit_8bit_getenv("VALGRIND_LOG_XML", buf, &bufsz) >= 0;
-}
-#else
-#define check_if_xml() 0
-#endif
-
 /*
  * This function takes care of calls to erlang:system_info/1 when the argument
  * is a tuple.
@@ -2200,15 +2189,9 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 #endif
 	} else if (is_list(*tp)) {
 #if defined(PURIFY)
-#define ERTS_ERROR_CHECKER_PRINTF purify_printf
-#define ERTS_ERROR_CHECKER_PRINTF_XML purify_printf
+#  define ERTS_ERROR_CHECKER_PRINTF purify_printf
 #elif defined(VALGRIND)
-#define ERTS_ERROR_CHECKER_PRINTF VALGRIND_PRINTF
-#  ifndef HAVE_VALGRIND_PRINTF_XML
-#    define ERTS_ERROR_CHECKER_PRINTF_XML VALGRIND_PRINTF
-#  else
-#    define ERTS_ERROR_CHECKER_PRINTF_XML VALGRIND_PRINTF_XML
-#  endif
+#  define ERTS_ERROR_CHECKER_PRINTF VALGRIND_PRINTF
 #endif
 	    ErlDrvSizeT buf_size = 8*1024; /* Try with 8KB first */
 	    char *buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
@@ -2224,12 +2207,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 		ASSERT(r == buf_size - 1);
 	    }
 	    buf[buf_size - 1 - r] = '\0';
-	    if (check_if_xml()) {
-		ERTS_ERROR_CHECKER_PRINTF_XML("<erlang_info_log>"
-					      "%s</erlang_info_log>\n", buf);
-	    } else {
-		ERTS_ERROR_CHECKER_PRINTF("%s\n", buf);
-	    }
+            ERTS_ERROR_CHECKER_PRINTF("%s\n", buf);
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(am_true);
 #undef ERTS_ERROR_CHECKER_PRINTF
@@ -2727,9 +2705,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	    goto bld_instruction_counts;
 	}
 
-#ifdef DEBUG
 	ASSERT(endp == hp);
-#endif
 
 	BIF_RET(res);
 #endif /* #ifndef ERTS_OPCODE_COUNTER_SUPPORT */
@@ -2989,7 +2965,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     } else if (ERTS_IS_ATOM_STR("context_reductions", BIF_ARG_1)) {
 	BIF_RET(make_small(CONTEXT_REDS));
     } else if (ERTS_IS_ATOM_STR("kernel_poll", BIF_ARG_1)) {
-#ifdef ERTS_ENABLE_KERNEL_POLL
+#if ERTS_ENABLE_KERNEL_POLL
 	BIF_RET(am_true);
 #else
 	BIF_RET(am_false);
@@ -3129,6 +3105,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     else if (ERTS_IS_ATOM_STR("ets_limit",BIF_ARG_1)) {
         BIF_RET(make_small(erts_db_get_max_tabs()));
     }
+    else if (ERTS_IS_ATOM_STR("ets_count",BIF_ARG_1)) {
+        BIF_RET(make_small(erts_ets_table_count()));
+    }
     else if (ERTS_IS_ATOM_STR("atom_limit",BIF_ARG_1)) {
         BIF_RET(make_small(erts_get_atom_limit()));
     }
@@ -3158,6 +3137,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	DECL_AM(tag);
 	BIF_RET(AM_tag);
 #endif
+    } else if (ERTS_IS_ATOM_STR("system_logger", BIF_ARG_1)) {
+        BIF_RET(erts_get_system_logger());
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -4627,6 +4608,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    }
 	}
         else if (ERTS_IS_ATOM_STR("broken_halt", BIF_ARG_1)) {
+            erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             broken_halt_test(BIF_ARG_2);
         }
 	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
@@ -4689,6 +4671,14 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 #else
             BIF_RET(am_notsup);
 #endif
+        }
+        else if (ERTS_IS_ATOM_STR("ets_force_split", BIF_ARG_1)) {
+            if (is_tuple(BIF_ARG_2)) {
+                Eterm* tpl = tuple_val(BIF_ARG_2);
+
+                if (erts_ets_force_split(tpl[1], tpl[2] == am_true))
+                    BIF_RET(am_ok);
+            }
         }
     }
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -450,7 +450,7 @@ get_tcp_address(Driver, Socket) ->
 get_address_resolver(EpmdModule) ->
     case erlang:function_exported(EpmdModule, address_please, 3) of
         true -> {EpmdModule, address_please};
-        _    -> {inet, getaddr}
+        _    -> {erl_epmd, address_please}
     end.
 
 %% ------------------------------------------------------------

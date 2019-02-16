@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2017</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -944,7 +944,7 @@ int suggested_stack_size;</code>
 
   <funcs>
     <func>
-      <name><ret>void</ret><nametext>add_driver_entry(ErlDrvEntry
+      <name since=""><ret>void</ret><nametext>add_driver_entry(ErlDrvEntry
         *de)</nametext></name>
       <fsummary>Add a driver entry.</fsummary>
       <desc>
@@ -968,7 +968,7 @@ int suggested_stack_size;</code>
     </func>
 
     <func>
-      <name><ret>void *</ret>
+      <name since=""><ret>void *</ret>
         <nametext>driver_alloc(ErlDrvSizeT size)</nametext></name>
       <fsummary>Allocate memory.</fsummary>
       <desc>
@@ -985,7 +985,7 @@ int suggested_stack_size;</code>
     </func>
 
     <func>
-      <name><ret>ErlDrvBinary *</ret>
+      <name since=""><ret>ErlDrvBinary *</ret>
         <nametext>driver_alloc_binary(ErlDrvSizeT size)</nametext></name>
       <fsummary>Allocate a driver binary.</fsummary>
       <desc>
@@ -1008,7 +1008,7 @@ int suggested_stack_size;</code>
     </func>
 
     <func>
-      <name><ret>long</ret><nametext>driver_async(ErlDrvPort port, unsigned
+      <name since=""><ret>long</ret><nametext>driver_async(ErlDrvPort port, unsigned
         int* key, void (*async_invoke)(void*), void* async_data, void
         (*async_free)(void*))</nametext></name>
       <fsummary>Perform an asynchronous call within a driver.</fsummary>
@@ -1076,7 +1076,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>unsigned int</ret><nametext>driver_async_port_key(ErlDrvPort
+      <name since="OTP R16B02"><ret>unsigned int</ret><nametext>driver_async_port_key(ErlDrvPort
         port)</nametext></name>
       <fsummary>Calculate an async key from an ErlDrvPort.</fsummary>
       <desc>
@@ -1096,7 +1096,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>long</ret>
+      <name since=""><ret>long</ret>
         <nametext>driver_binary_dec_refc(ErlDrvBinary *bin)</nametext></name>
       <fsummary>Decrement the reference count of a driver binary.</fsummary>
       <desc>
@@ -1117,7 +1117,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>long</ret>
+      <name since=""><ret>long</ret>
         <nametext>driver_binary_get_refc(ErlDrvBinary *bin)</nametext></name>
       <fsummary>Get the reference count of a driver binary.</fsummary>
       <desc>
@@ -1128,7 +1128,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>long</ret>
+      <name since=""><ret>long</ret>
         <nametext>driver_binary_inc_refc(ErlDrvBinary *bin)</nametext></name>
       <fsummary>Increment the reference count of a driver binary.</fsummary>
       <desc>
@@ -1140,7 +1140,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvTermData</ret><nametext>driver_caller(ErlDrvPort
+      <name since=""><ret>ErlDrvTermData</ret><nametext>driver_caller(ErlDrvPort
         port)</nametext></name>
       <fsummary>Return the process making the driver call.</fsummary>
       <desc>
@@ -1183,7 +1183,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since=""><ret>int</ret>
         <nametext>driver_cancel_timer(ErlDrvPort port)</nametext></name>
       <fsummary>Cancel a previously set timer.</fsummary>
       <desc>
@@ -1196,7 +1196,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_compare_monitors(const ErlDrvMonitor
+      <name since=""><ret>int</ret><nametext>driver_compare_monitors(const ErlDrvMonitor
         *monitor1, const ErlDrvMonitor *monitor2)</nametext></name>
       <fsummary>Compare two monitors.</fsummary>
       <desc>
@@ -1211,7 +1211,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvTermData</ret><nametext>driver_connected(ErlDrvPort
+      <name since=""><ret>ErlDrvTermData</ret><nametext>driver_connected(ErlDrvPort
         port)</nametext></name>
       <fsummary>Return the port owner process.</fsummary>
       <desc>
@@ -1223,7 +1223,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvPort</ret><nametext>driver_create_port(ErlDrvPort port,
+      <name since=""><ret>ErlDrvPort</ret><nametext>driver_create_port(ErlDrvPort port,
         ErlDrvTermData owner_pid, char* name,
         ErlDrvData drv_data)</nametext></name>
       <fsummary>Create a new port (driver instance).</fsummary>
@@ -1269,7 +1269,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_demonitor_process(ErlDrvPort port,
+      <name since=""><ret>int</ret><nametext>driver_demonitor_process(ErlDrvPort port,
         const ErlDrvMonitor *monitor)</nametext></name>
       <fsummary>Stop monitoring a process from a driver.</fsummary>
       <desc>
@@ -1281,7 +1281,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvSizeT</ret><nametext>driver_deq(ErlDrvPort port,
+      <name since=""><ret>ErlDrvSizeT</ret><nametext>driver_deq(ErlDrvPort port,
         ErlDrvSizeT size)</nametext></name>
       <fsummary>Dequeue data from the head of the driver queue.</fsummary>
       <desc>
@@ -1299,7 +1299,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_enq(ErlDrvPort port, char* buf,
+      <name since=""><ret>int</ret><nametext>driver_enq(ErlDrvPort port, char* buf,
         ErlDrvSizeT len)</nametext></name>
       <fsummary>Enqueue data in the driver queue.</fsummary>
       <desc>
@@ -1325,7 +1325,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_enq_bin(ErlDrvPort port,
+      <name since=""><ret>int</ret><nametext>driver_enq_bin(ErlDrvPort port,
         ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext>
       </name>
       <fsummary>Enqueue binary in the driver queue.</fsummary>
@@ -1346,7 +1346,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_enqv(ErlDrvPort port, ErlIOVec *ev,
+      <name since=""><ret>int</ret><nametext>driver_enqv(ErlDrvPort port, ErlIOVec *ev,
         ErlDrvSizeT skip)</nametext></name>
       <fsummary>Enqueue vector in the driver queue.</fsummary>
       <desc>
@@ -1365,11 +1365,11 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_failure(ErlDrvPort port, int
+      <name since=""><ret>int</ret><nametext>driver_failure(ErlDrvPort port, int
         error)</nametext></name>
-      <name><ret>int</ret><nametext>driver_failure_atom(ErlDrvPort port, char
+      <name since=""><ret>int</ret><nametext>driver_failure_atom(ErlDrvPort port, char
         *string)</nametext></name>
-      <name><ret>int</ret><nametext>driver_failure_posix(ErlDrvPort port, int
+      <name since=""><ret>int</ret><nametext>driver_failure_posix(ErlDrvPort port, int
         error)</nametext></name>
       <fsummary>Fail with error.</fsummary>
       <desc>
@@ -1393,7 +1393,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_failure_eof(ErlDrvPort
+      <name since=""><ret>int</ret><nametext>driver_failure_eof(ErlDrvPort
         port)</nametext></name>
       <fsummary>Fail with EOF.</fsummary>
       <desc>
@@ -1408,7 +1408,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>driver_free(void *ptr)</nametext></name>
+      <name since=""><ret>void</ret><nametext>driver_free(void *ptr)</nametext></name>
       <fsummary>Free an allocated memory block.</fsummary>
       <desc>
         <marker id="driver_free"></marker>
@@ -1422,7 +1422,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since=""><ret>void</ret>
         <nametext>driver_free_binary(ErlDrvBinary *bin)</nametext></name>
       <fsummary>Free a driver binary.</fsummary>
       <desc>
@@ -1436,7 +1436,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvTermData</ret>
+      <name since=""><ret>ErlDrvTermData</ret>
         <nametext>driver_get_monitored_process(ErlDrvPort port, const
         ErlDrvMonitor *monitor)</nametext></name>
       <fsummary>Retrieve the process ID from a monitor.</fsummary>
@@ -1452,7 +1452,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since=""><ret>int</ret>
         <nametext>driver_get_now(ErlDrvNowData *now)</nametext></name>
       <fsummary>Read a system time stamp.</fsummary>
       <desc>
@@ -1473,7 +1473,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_lock_driver(ErlDrvPort
+      <name since=""><ret>int</ret><nametext>driver_lock_driver(ErlDrvPort
         port)</nametext></name>
       <fsummary>Ensure the driver is never unloaded.</fsummary>
       <desc>
@@ -1486,7 +1486,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvTermData</ret><nametext>driver_mk_atom(char*
+      <name since=""><ret>ErlDrvTermData</ret><nametext>driver_mk_atom(char*
         string)</nametext></name>
       <fsummary>Make an atom from a name.</fsummary>
       <desc>
@@ -1501,7 +1501,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvTermData</ret><nametext>driver_mk_port(ErlDrvPort
+      <name since=""><ret>ErlDrvTermData</ret><nametext>driver_mk_port(ErlDrvPort
         port)</nametext></name>
       <fsummary>Make an Erlang term port from a port.</fsummary>
       <desc>
@@ -1517,7 +1517,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_monitor_process(ErlDrvPort port,
+      <name since=""><ret>int</ret><nametext>driver_monitor_process(ErlDrvPort port,
         ErlDrvTermData process, ErlDrvMonitor *monitor)</nametext></name>
       <fsummary>Monitor a process from a driver.</fsummary>
       <desc>
@@ -1540,7 +1540,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_output(ErlDrvPort port, char *buf,
+      <name since=""><ret>int</ret><nametext>driver_output(ErlDrvPort port, char *buf,
         ErlDrvSizeT len)</nametext></name>
       <fsummary>Send data from driver to port owner.</fsummary>
       <desc>
@@ -1560,7 +1560,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_output_binary(ErlDrvPort port, char
+      <name since=""><ret>int</ret><nametext>driver_output_binary(ErlDrvPort port, char
         *hbuf, ErlDrvSizeT hlen, ErlDrvBinary* bin, ErlDrvSizeT offset,
         ErlDrvSizeT len)</nametext></name>
       <fsummary>Send data from a driver binary to port owner.</fsummary>
@@ -1589,7 +1589,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_output_term(ErlDrvPort port,
+      <name since=""><ret>int</ret><nametext>driver_output_term(ErlDrvPort port,
         ErlDrvTermData* term, int n)</nametext></name>
       <fsummary>Send term data from driver to port owner.</fsummary>
       <desc>
@@ -1608,7 +1608,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_output2(ErlDrvPort port, char *hbuf,
+      <name since=""><ret>int</ret><nametext>driver_output2(ErlDrvPort port, char *hbuf,
         ErlDrvSizeT hlen, char *buf, ErlDrvSizeT len)</nametext></name>
       <fsummary>Send data and binary data to port owner.</fsummary>
       <desc>
@@ -1625,7 +1625,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_outputv(ErlDrvPort port, char* hbuf,
+      <name since=""><ret>int</ret><nametext>driver_outputv(ErlDrvPort port, char* hbuf,
         ErlDrvSizeT hlen, ErlIOVec *ev, ErlDrvSizeT skip)</nametext></name>
       <fsummary>Send vectorized data to port owner.</fsummary>
       <desc>
@@ -1654,7 +1654,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvPDL</ret>
+      <name since=""><ret>ErlDrvPDL</ret>
         <nametext>driver_pdl_create(ErlDrvPort port)</nametext></name>
       <fsummary>Create a port data lock.</fsummary>
       <desc>
@@ -1672,7 +1672,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>long</ret><nametext>driver_pdl_dec_refc(ErlDrvPDL
+      <name since=""><ret>long</ret><nametext>driver_pdl_dec_refc(ErlDrvPDL
         pdl)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -1686,7 +1686,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>long</ret>
+      <name since=""><ret>long</ret>
         <nametext>driver_pdl_get_refc(ErlDrvPDL pdl)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -1698,7 +1698,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>long</ret>
+      <name since=""><ret>long</ret>
         <nametext>driver_pdl_inc_refc(ErlDrvPDL pdl)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -1712,7 +1712,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since=""><ret>void</ret>
         <nametext>driver_pdl_lock(ErlDrvPDL pdl)</nametext></name>
       <fsummary>Lock port data lock.</fsummary>
       <desc>
@@ -1723,7 +1723,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since=""><ret>void</ret>
         <nametext>driver_pdl_unlock(ErlDrvPDL pdl)</nametext></name>
       <fsummary>Unlock port data lock.</fsummary>
       <desc>
@@ -1734,7 +1734,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>SysIOVec *</ret><nametext>driver_peekq(ErlDrvPort port, int
+      <name since=""><ret>SysIOVec *</ret><nametext>driver_peekq(ErlDrvPort port, int
         *vlen)</nametext></name>
       <fsummary>Get the driver queue as a vector.</fsummary>
       <desc>
@@ -1755,7 +1755,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvSizeT</ret><nametext>driver_peekqv(ErlDrvPort port,
+      <name since="OTP R15B"><ret>ErlDrvSizeT</ret><nametext>driver_peekqv(ErlDrvPort port,
         ErlIOVec *ev)</nametext></name>
       <fsummary>Get the driver queue as an I/O vector.</fsummary>
       <desc>
@@ -1775,7 +1775,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_pushq(ErlDrvPort port, char* buf,
+      <name since=""><ret>int</ret><nametext>driver_pushq(ErlDrvPort port, char* buf,
         ErlDrvSizeT len)</nametext></name>
       <fsummary>Push data at the head of the driver queue.</fsummary>
       <desc>
@@ -1792,7 +1792,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_pushq_bin(ErlDrvPort port,
+      <name since=""><ret>int</ret><nametext>driver_pushq_bin(ErlDrvPort port,
         ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext>
       </name>
       <fsummary>Push binary at the head of the driver queue.</fsummary>
@@ -1812,7 +1812,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_pushqv(ErlDrvPort port, ErlIOVec
+      <name since=""><ret>int</ret><nametext>driver_pushqv(ErlDrvPort port, ErlIOVec
         *ev, ErlDrvSizeT skip)</nametext></name>
       <fsummary>Push vector at the head of the driver queue.</fsummary>
       <desc>
@@ -1831,7 +1831,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_read_timer(ErlDrvPort port, unsigned
+      <name since=""><ret>int</ret><nametext>driver_read_timer(ErlDrvPort port, unsigned
         long *time_left)</nametext></name>
       <fsummary>Read the time left before time-out.</fsummary>
       <desc>
@@ -1844,7 +1844,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void *</ret>
+      <name since=""><ret>void *</ret>
         <nametext>driver_realloc(void *ptr, ErlDrvSizeT size)</nametext></name>
       <fsummary>Resize an allocated memory block.</fsummary>
       <desc>
@@ -1859,7 +1859,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvBinary *</ret>
+      <name since=""><ret>ErlDrvBinary *</ret>
         <nametext>driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size)
         </nametext></name>
       <fsummary>Resize a driver binary.</fsummary>
@@ -1873,7 +1873,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_select(ErlDrvPort port, ErlDrvEvent
+      <name since=""><ret>int</ret><nametext>driver_select(ErlDrvPort port, ErlDrvEvent
         event, int mode, int on)</nametext></name>
       <fsummary>Provides an event for having the emulator call the driver.
       </fsummary>
@@ -1932,7 +1932,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_send_term(ErlDrvPort port,
+      <name since=""><ret>int</ret><nametext>driver_send_term(ErlDrvPort port,
         ErlDrvTermData receiver, ErlDrvTermData* term, int n)</nametext></name>
       <fsummary>Send term data to other process than port owner process.
       </fsummary>
@@ -1958,7 +1958,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>driver_set_timer(ErlDrvPort port, unsigned
+      <name since=""><ret>int</ret><nametext>driver_set_timer(ErlDrvPort port, unsigned
         long time)</nametext></name>
       <fsummary>Set a timer to call the driver.</fsummary>
       <desc>
@@ -1977,7 +1977,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvSizeT</ret>
+      <name since=""><ret>ErlDrvSizeT</ret>
         <nametext>driver_sizeq(ErlDrvPort port)</nametext></name>
       <fsummary>Return the size of the driver queue.</fsummary>
       <desc>
@@ -1991,7 +1991,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>driver_system_info(ErlDrvSysInfo
+      <name since=""><ret>void</ret><nametext>driver_system_info(ErlDrvSysInfo
         *sys_info_ptr, size_t size)</nametext></name>
       <fsummary>Get information about the Erlang runtime system.</fsummary>
       <desc>
@@ -2008,7 +2008,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvSizeT</ret><nametext>driver_vec_to_buf(ErlIOVec *ev,
+      <name since=""><ret>ErlDrvSizeT</ret><nametext>driver_vec_to_buf(ErlIOVec *ev,
         char *buf, ErlDrvSizeT len)</nametext></name>
       <fsummary>Collect data segments into a buffer.</fsummary>
       <desc>
@@ -2029,7 +2029,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_busy_msgq_limits(ErlDrvPort port,
+      <name since="OTP R16B"><ret>void</ret><nametext>erl_drv_busy_msgq_limits(ErlDrvPort port,
         ErlDrvSizeT *low, ErlDrvSizeT *high)</nametext></name>
       <fsummary>Set and get limits for busy port message queue.</fsummary>
       <desc>
@@ -2083,7 +2083,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_cond_broadcast(ErlDrvCond
+      <name since=""><ret>void</ret><nametext>erl_drv_cond_broadcast(ErlDrvCond
         *cnd)</nametext></name>
       <fsummary>Broadcast on a condition variable.</fsummary>
       <desc>
@@ -2097,7 +2097,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvCond *</ret><nametext>erl_drv_cond_create(char
+      <name since=""><ret>ErlDrvCond *</ret><nametext>erl_drv_cond_create(char
         *name)</nametext></name>
       <fsummary>Create a condition variable.</fsummary>
       <desc>
@@ -2114,7 +2114,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_cond_destroy(ErlDrvCond
+      <name since=""><ret>void</ret><nametext>erl_drv_cond_destroy(ErlDrvCond
         *cnd)</nametext></name>
       <fsummary>Destroy a condition variable.</fsummary>
       <desc>
@@ -2128,7 +2128,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>char *</ret><nametext>erl_drv_cond_name(ErlDrvCond
+      <name since="OTP R16B02"><ret>char *</ret><nametext>erl_drv_cond_name(ErlDrvCond
         *cnd)</nametext></name>
       <fsummary>Get name of driver mutex.</fsummary>
       <desc>
@@ -2142,7 +2142,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_cond_signal(ErlDrvCond
+      <name since=""><ret>void</ret><nametext>erl_drv_cond_signal(ErlDrvCond
         *cnd)</nametext></name>
       <fsummary>Signal on a condition variable.</fsummary>
       <desc>
@@ -2156,7 +2156,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_cond_wait(ErlDrvCond *cnd,
+      <name since=""><ret>void</ret><nametext>erl_drv_cond_wait(ErlDrvCond *cnd,
         ErlDrvMutex *mtx)</nametext></name>
       <fsummary>Wait on a condition variable.</fsummary>
       <desc>
@@ -2185,7 +2185,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_consume_timeslice(ErlDrvPort port,
+      <name since="OTP R16B"><ret>int</ret><nametext>erl_drv_consume_timeslice(ErlDrvPort port,
         int percent)</nametext></name>
       <fsummary>Give the runtime system a hint about how much CPU time the
         current driver callback call has consumed.</fsummary>
@@ -2228,7 +2228,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvTime</ret><nametext>erl_drv_convert_time_unit(ErlDrvTime
+      <name since="OTP 18.3"><ret>ErlDrvTime</ret><nametext>erl_drv_convert_time_unit(ErlDrvTime
         val, ErlDrvTimeUnit from, ErlDrvTimeUnit to)</nametext></name>
       <fsummary>Convert time unit of a time value.</fsummary>
       <desc>
@@ -2254,7 +2254,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_equal_tids(ErlDrvTid tid1,
+      <name since=""><ret>int</ret><nametext>erl_drv_equal_tids(ErlDrvTid tid1,
         ErlDrvTid tid2)</nametext></name>
       <fsummary>Compare thread identifiers for equality.</fsummary>
       <desc>
@@ -2276,7 +2276,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_getenv(const char *key, char
+      <name since=""><ret>int</ret><nametext>erl_drv_getenv(const char *key, char
         *value, size_t *value_size)</nametext></name>
       <fsummary>Get the value of an environment variable.</fsummary>
       <desc>
@@ -2317,7 +2317,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_init_ack(ErlDrvPort port,
+      <name since="OTP 19.0"><ret>void</ret><nametext>erl_drv_init_ack(ErlDrvPort port,
         ErlDrvData res)</nametext></name>
       <fsummary>Acknowledge the start of the port.</fsummary>
       <desc>
@@ -2345,7 +2345,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvTime</ret>
+      <name since="OTP 18.3"><ret>ErlDrvTime</ret>
         <nametext>erl_drv_monotonic_time(ErlDrvTimeUnit time_unit)</nametext>
       </name>
       <fsummary>Get Erlang monotonic time.</fsummary>
@@ -2365,7 +2365,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvMutex *</ret><nametext>erl_drv_mutex_create(char
+      <name since=""><ret>ErlDrvMutex *</ret><nametext>erl_drv_mutex_create(char
         *name)</nametext></name>
       <fsummary>Create a mutex.</fsummary>
       <desc>
@@ -2380,7 +2380,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_mutex_destroy(ErlDrvMutex
+      <name since=""><ret>void</ret><nametext>erl_drv_mutex_destroy(ErlDrvMutex
         *mtx)</nametext></name>
       <fsummary>Destroy a mutex.</fsummary>
       <desc>
@@ -2395,7 +2395,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_mutex_lock(ErlDrvMutex
+      <name since=""><ret>void</ret><nametext>erl_drv_mutex_lock(ErlDrvMutex
         *mtx)</nametext></name>
       <fsummary>Lock a mutex.</fsummary>
       <desc>
@@ -2414,7 +2414,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>char *</ret><nametext>erl_drv_mutex_name(ErlDrvMutex
+      <name since="OTP R16B02"><ret>char *</ret><nametext>erl_drv_mutex_name(ErlDrvMutex
         *mtx)</nametext></name>
       <fsummary>Get name of driver mutex.</fsummary>
       <desc>
@@ -2428,7 +2428,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_mutex_trylock(ErlDrvMutex
+      <name since=""><ret>int</ret><nametext>erl_drv_mutex_trylock(ErlDrvMutex
         *mtx)</nametext></name>
       <fsummary>Try lock a mutex.</fsummary>
       <desc>
@@ -2447,7 +2447,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_mutex_unlock(ErlDrvMutex
+      <name since=""><ret>void</ret><nametext>erl_drv_mutex_unlock(ErlDrvMutex
         *mtx)</nametext></name>
       <fsummary>Unlock a mutex.</fsummary>
       <desc>
@@ -2460,7 +2460,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_output_term(ErlDrvTermData port,
+      <name since="OTP R16B"><ret>int</ret><nametext>erl_drv_output_term(ErlDrvTermData port,
         ErlDrvTermData* term, int n)</nametext></name>
       <fsummary>Send term data from driver to port owner.</fsummary>
       <desc>
@@ -2637,7 +2637,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_putenv(const char *key, char
+      <name since=""><ret>int</ret><nametext>erl_drv_putenv(const char *key, char
         *value)</nametext></name>
       <fsummary>Set the value of an environment variable.</fsummary>
       <desc>
@@ -2668,7 +2668,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>ErlDrvRWLock *</ret><nametext>erl_drv_rwlock_create(char
+      <name since=""><ret>ErlDrvRWLock *</ret><nametext>erl_drv_rwlock_create(char
         *name)</nametext></name>
       <fsummary>Create an rwlock.</fsummary>
       <desc>
@@ -2684,7 +2684,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_destroy(ErlDrvRWLock
+      <name since=""><ret>void</ret><nametext>erl_drv_rwlock_destroy(ErlDrvRWLock
         *rwlck)</nametext></name>
       <fsummary>Destroy an rwlock.</fsummary>
       <desc>
@@ -2699,7 +2699,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>char *</ret><nametext>erl_drv_rwlock_name(ErlDrvRWLock
+      <name since="OTP R16B02"><ret>char *</ret><nametext>erl_drv_rwlock_name(ErlDrvRWLock
         *rwlck)</nametext></name>
       <fsummary>Get name of driver mutex.</fsummary>
       <desc>
@@ -2713,7 +2713,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_rlock(ErlDrvRWLock
+      <name since=""><ret>void</ret><nametext>erl_drv_rwlock_rlock(ErlDrvRWLock
         *rwlck)</nametext></name>
       <fsummary>Read lock an rwlock.</fsummary>
       <desc>
@@ -2733,7 +2733,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_runlock(ErlDrvRWLock
+      <name since=""><ret>void</ret><nametext>erl_drv_rwlock_runlock(ErlDrvRWLock
         *rwlck)</nametext></name>
       <fsummary>Read unlock an rwlock.</fsummary>
       <desc>
@@ -2746,7 +2746,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_rwlock(ErlDrvRWLock
+      <name since=""><ret>void</ret><nametext>erl_drv_rwlock_rwlock(ErlDrvRWLock
         *rwlck)</nametext></name>
       <fsummary>Read/write lock an rwlock.</fsummary>
       <desc>
@@ -2766,7 +2766,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_rwunlock(ErlDrvRWLock
+      <name since=""><ret>void</ret><nametext>erl_drv_rwlock_rwunlock(ErlDrvRWLock
         *rwlck)</nametext></name>
       <fsummary>Read/write unlock an rwlock.</fsummary>
       <desc>
@@ -2779,7 +2779,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_rwlock_tryrlock(ErlDrvRWLock
+      <name since=""><ret>int</ret><nametext>erl_drv_rwlock_tryrlock(ErlDrvRWLock
         *rwlck)</nametext></name>
       <fsummary>Try to read lock an rwlock.</fsummary>
       <desc>
@@ -2799,7 +2799,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_rwlock_tryrwlock(ErlDrvRWLock
+      <name since=""><ret>int</ret><nametext>erl_drv_rwlock_tryrwlock(ErlDrvRWLock
         *rwlck)</nametext></name>
       <fsummary>Try to read/write lock an rwlock.</fsummary>
       <desc>
@@ -2819,7 +2819,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_send_term(ErlDrvTermData port,
+      <name since="OTP R16B"><ret>int</ret><nametext>erl_drv_send_term(ErlDrvTermData port,
         ErlDrvTermData receiver, ErlDrvTermData* term, int n)</nametext></name>
       <fsummary>Send term data to other process than port owner process.
       </fsummary>
@@ -2843,7 +2843,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_set_os_pid(ErlDrvPort port,
+      <name since="OTP 19.0"><ret>void</ret><nametext>erl_drv_set_os_pid(ErlDrvPort port,
         ErlDrvSInt pid)</nametext></name>
       <fsummary>Set the os_pid for the port.</fsummary>
       <desc>
@@ -2857,7 +2857,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_thread_create(char *name, ErlDrvTid
+      <name since=""><ret>int</ret><nametext>erl_drv_thread_create(char *name, ErlDrvTid
         *tid, void * (*func)(void *), void *arg, ErlDrvThreadOpts
         *opts)</nametext></name>
       <fsummary>Create a thread.</fsummary>
@@ -2920,7 +2920,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_thread_exit(void
+      <name since=""><ret>void</ret><nametext>erl_drv_thread_exit(void
         *exit_value)</nametext></name>
       <fsummary>Terminate calling thread.</fsummary>
       <desc>
@@ -2939,7 +2939,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_thread_join(ErlDrvTid tid, void
+      <name since=""><ret>int</ret><nametext>erl_drv_thread_join(ErlDrvTid tid, void
         **exit_value)</nametext></name>
       <fsummary>Join with another thread.</fsummary>
       <desc>
@@ -2962,7 +2962,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>char *</ret><nametext>erl_drv_thread_name(ErlDrvTid
+      <name since="OTP R16B02"><ret>char *</ret><nametext>erl_drv_thread_name(ErlDrvTid
         tid)</nametext></name>
       <fsummary>Get name of driver mutex.</fsummary>
       <desc>
@@ -2976,7 +2976,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>ErlDrvThreadOpts *</ret>
+      <name since=""><ret>ErlDrvThreadOpts *</ret>
         <nametext>erl_drv_thread_opts_create(char *name)</nametext></name>
       <fsummary>Create thread options.</fsummary>
       <desc>
@@ -3005,7 +3005,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since=""><ret>void</ret>
         <nametext>erl_drv_thread_opts_destroy(ErlDrvThreadOpts *opts)</nametext>
       </name>
       <fsummary>Destroy thread options.</fsummary>
@@ -3020,7 +3020,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>ErlDrvTid</ret>
+      <name since=""><ret>ErlDrvTid</ret>
         <nametext>erl_drv_thread_self(void)</nametext></name>
       <fsummary>Get the thread identifier of the current thread.</fsummary>
       <desc>
@@ -3031,7 +3031,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>ErlDrvTime</ret><nametext>erl_drv_time_offset(ErlDrvTimeUnit
+      <name since="OTP 18.3"><ret>ErlDrvTime</ret><nametext>erl_drv_time_offset(ErlDrvTimeUnit
         time_unit)</nametext></name>
       <fsummary>Get current time offset.</fsummary>
       <desc>
@@ -3054,7 +3054,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void *</ret><nametext>erl_drv_tsd_get(ErlDrvTSDKey
+      <name since=""><ret>void *</ret><nametext>erl_drv_tsd_get(ErlDrvTSDKey
         key)</nametext></name>
       <fsummary>Get thread-specific data.</fsummary>
       <desc>
@@ -3069,7 +3069,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_tsd_key_create(char *name,
+      <name since=""><ret>int</ret><nametext>erl_drv_tsd_key_create(char *name,
         ErlDrvTSDKey *key)</nametext></name>
       <fsummary>Create a thread-specific data key.</fsummary>
       <desc>
@@ -3086,7 +3086,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_tsd_key_destroy(ErlDrvTSDKey
+      <name since=""><ret>void</ret><nametext>erl_drv_tsd_key_destroy(ErlDrvTSDKey
         key)</nametext></name>
       <fsummary>Destroy a thread-specific data key.</fsummary>
       <desc>
@@ -3111,7 +3111,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_tsd_set(ErlDrvTSDKey key, void
+      <name since=""><ret>void</ret><nametext>erl_drv_tsd_set(ErlDrvTSDKey key, void
         *data)</nametext></name>
       <fsummary>Set thread-specific data.</fsummary>
       <desc>
@@ -3138,7 +3138,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>char *</ret><nametext>erl_errno_id(int error)</nametext></name>
+      <name since=""><ret>char *</ret><nametext>erl_errno_id(int error)</nametext></name>
       <fsummary>Get Erlang error atom name from error number.</fsummary>
       <desc>
         <marker id="erl_errno_id"></marker>
@@ -3150,7 +3150,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>remove_driver_entry(ErlDrvEntry
+      <name since=""><ret>int</ret><nametext>remove_driver_entry(ErlDrvEntry
         *de)</nametext></name>
       <fsummary>Remove a driver entry.</fsummary>
       <desc>
@@ -3164,7 +3164,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>set_busy_port(ErlDrvPort port, int
+      <name since=""><ret>void</ret><nametext>set_busy_port(ErlDrvPort port, int
         on)</nametext></name>
       <fsummary>Signal or unsignal port as busy.</fsummary>
       <desc>
@@ -3195,7 +3195,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>set_port_control_flags(ErlDrvPort port,
+      <name since=""><ret>void</ret><nametext>set_port_control_flags(ErlDrvPort port,
         int flags)</nametext></name>
       <fsummary>Set flags on how to handle control entry function.</fsummary>
       <desc>

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@
 #include "sys.h"
 
 #define ERTS_POLL_NO_TIMEOUT ERTS_MONOTONIC_TIME_MIN
+#define ERTS_POLL_INF_TIMEOUT ERTS_MONOTONIC_TIME_MAX
 
 #ifdef ERTS_ENABLE_KERNEL_POLL
 #  undef ERTS_ENABLE_KERNEL_POLL
@@ -130,6 +131,9 @@
 #endif
 
 #define ERTS_POLL_USE_FALLBACK (ERTS_POLL_USE_KQUEUE || ERTS_POLL_USE_EPOLL)
+#define ERTS_POLL_USE_SCHEDULER_POLLING (ERTS_POLL_USE_KQUEUE || ERTS_POLL_USE_EPOLL)
+#define ERTS_POLL_SCHEDULER_POLLING_TIMEOUT 10
+#define ERTS_POLL_USE_TIMERFD 0
 
 typedef Uint32 ErtsPollEvents;
 
@@ -155,6 +159,14 @@ typedef enum {
 #elif ERTS_POLL_USE_EPOLL_EVS	/* --- epoll ------------------------------- */
 
 #include <sys/epoll.h>
+
+#if ERTS_POLL_USE_EPOLL
+#ifdef HAVE_SYS_TIMERFD_H
+#include <sys/timerfd.h>
+#undef ERTS_POLL_USE_TIMERFD
+#define ERTS_POLL_USE_TIMERFD 1
+#endif
+#endif
 
 #define ERTS_POLL_EV_E2N(EV) \
   ((uint32_t) (EV))
@@ -276,7 +288,7 @@ typedef struct _ErtsPollResFd {
 
 #endif
 
-#define ERTS_POLL_EV_NONE (UINT_MAX & ~(ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT|ERTS_POLL_EV_NVAL|ERTS_POLL_EV_ERR))
+#define ERTS_POLL_EV_NONE ERTS_POLL_EV_N2E((UINT_MAX & ~(ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT|ERTS_POLL_EV_NVAL|ERTS_POLL_EV_ERR)))
 
 #define ev2str(ev)                                                     \
     (((ev) == 0 || (ev) == ERTS_POLL_EV_NONE) ? "NONE" :               \

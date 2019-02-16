@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,39 @@
   </header>
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
+
+<section><title>Runtime_Tools 1.13.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize <c>observer</c> by using new
+	    <c>system_info(ets_count)</c> instead of more expensive
+	    <c>length(ets:all())</c>.</p>
+          <p>
+	    Own Id: OTP-15163 Aux Id: PR-1844 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New utility module <c>scheduler</c> which makes it easier
+	    to measure scheduler utilization.</p>
+          <p>
+	    Own Id: OTP-14904</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Runtime_Tools 1.12.5</title>
 

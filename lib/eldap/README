@@ -23,7 +23,7 @@ system has been configured with SSL.
 In the test directory there are some hints and examples
 on how to test the code and how to setup and populate 
 an OpenLDAP server. The 'eldap' code has been tested
-agains OpenLDAP, IPlanet and ActiveDirectory servers.
+against OpenLDAP, IPlanet and ActiveDirectory servers.
 
 If you plan to incorporate this code into your system
 I suggest that you build a server/supervisor harnesk

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework callback module.
+%%% Common Test Framework callback module.
 %%%
-%%% <p>This module exports framework callback functions which are
-%%% called from the test_server.</p>
+%%% This module exports framework callback functions which are
+%%% called from the test_server.
 
 -module(ct_framework).
 
@@ -42,7 +42,7 @@
 -define(rev(L), lists:reverse(L)).
 
 %%%-----------------------------------------------------------------
-%%% @spec init_tc(Mod,Func,Args) -> {ok,NewArgs} | {error,Reason} |
+%%% -spec init_tc(Mod,Func,Args) -> {ok,NewArgs} | {error,Reason} |
 %%%         {skip,Reason} | {auto_skip,Reason}
 %%%      Mod = atom()
 %%%      Func = atom()
@@ -50,7 +50,7 @@
 %%%      NewArgs = list()
 %%%      Reason = term()
 %%%
-%%% @doc Test server framework callback, called by the test_server
+%%% Test server framework callback, called by the test_server
 %%% when a new test case is started.
 init_tc(_,{end_per_testcase_not_run,_},[Config]) ->
     %% Testcase is completed (skipped or failed), but end_per_testcase
@@ -314,8 +314,8 @@ add_defaults(Mod,Func, GroupPath) ->
 	    ErrStr = io_lib:format("~n*** ERROR *** "
 				   "~w:suite/0 failed: ~tp~n",
 				   [Suite,Reason]),
-	    io:format(ErrStr, []),
-	    io:format(?def_gl, ErrStr, []),
+	    io:format("~ts", [ErrStr]),
+	    io:format(?def_gl, "~ts", [ErrStr]),
 	    {suite0_failed,{exited,Reason}};
 	SuiteInfo when is_list(SuiteInfo) ->
 	    case lists:all(fun(E) when is_tuple(E) -> true;
@@ -337,16 +337,16 @@ add_defaults(Mod,Func, GroupPath) ->
 					   "Invalid return value from "
 					   "~w:suite/0: ~tp~n",
 					   [Suite,SuiteInfo]),
-		    io:format(ErrStr, []),
-		    io:format(?def_gl, ErrStr, []),
+		    io:format("~ts", [ErrStr]),
+		    io:format(?def_gl, "~ts", [ErrStr]),
 		    {suite0_failed,bad_return_value}
 	    end;
 	SuiteInfo ->
 	    ErrStr = io_lib:format("~n*** ERROR *** "
 				   "Invalid return value from "
 				   "~w:suite/0: ~tp~n", [Suite,SuiteInfo]),
-	    io:format(ErrStr, []),
-	    io:format(?def_gl, ErrStr, []),
+	    io:format("~ts", [ErrStr]),
+	    io:format(?def_gl, "~ts", [ErrStr]),
 	    {suite0_failed,bad_return_value}
     end.
 
@@ -373,8 +373,8 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
 				      "Invalid return value from "
 				      "~w:group(~tw): ~tp~n",
 				      [Mod,GrName,BadGr0Val]),
-	    io:format(Gr0ErrStr, []),
-	    io:format(?def_gl, Gr0ErrStr, []),
+	    io:format("~ts", [Gr0ErrStr]),
+	    io:format(?def_gl, "~ts", [Gr0ErrStr]),
 	    {group0_failed,bad_return_value};
 	_ ->
 	    Args = if Func == init_per_group ; Func == end_per_group ->
@@ -395,8 +395,8 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
 					      "Invalid return value from "
 					      "~w:~tw/0: ~tp~n",
 					      [Mod,Func,BadTC0Val]),
-		    io:format(TC0ErrStr, []),
-		    io:format(?def_gl, TC0ErrStr, []),
+		    io:format("~ts", [TC0ErrStr]),
+		    io:format(?def_gl, "~ts", [TC0ErrStr]),
 		    {testcase0_failed,bad_return_value};
 		_ ->
 		    %% let test case info (also for all config funcs) override
@@ -649,7 +649,7 @@ try_set_default(Name,Key,Info,Where) ->
 	    
 
 %%%-----------------------------------------------------------------
-%%% @spec end_tc(Mod,Func,Args) -> {ok,NewArgs}| {error,Reason} |
+%%% -spec end_tc(Mod,Func,Args) -> {ok,NewArgs}| {error,Reason} |
 %%%         {skip,Reason} | {auto_skip,Reason}
 %%%      Mod = atom()
 %%%      Func = atom()
@@ -657,7 +657,7 @@ try_set_default(Name,Key,Info,Where) ->
 %%%      NewArgs = list()
 %%%      Reason = term()
 %%%
-%%% @doc Test server framework callback, called by the test_server
+%%% Test server framework callback, called by the test_server
 %%% when a test case is finished.
 end_tc(Mod, Fun, Args) ->
     %% Have to keep end_tc/3 for backwards compatibility issues
@@ -903,15 +903,15 @@ tag(_Other) ->
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec error_notification(Mod,Func,Args,Error) -> ok
+%%% -spec error_notification(Mod,Func,Args,Error) -> ok
 %%%      Mod = atom()
 %%%      Func = atom()
 %%%      Args = list()
 %%%      Error = term()
 %%%
-%%% @doc This function is called as the result of testcase 
-%%% <code>Func</code> in suite <code>Mod</code> crashing. 
-%%% <code>Error</code> specifies the reason for failing.
+%%% This function is called as the result of testcase
+%%% Func in suite Mod crashing.
+%%% Error specifies the reason for failing.
 error_notification(Mod,Func,_Args,{Error,Loc}) ->
     ErrorSpec = case Error of
 		 {What={_E,_R},Trace} when is_list(Trace) ->
@@ -972,11 +972,10 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
     end,
 
     PrintError = fun(ErrorFormat, ErrorArgs) ->
-		       Div = "~n- - - - - - - - - - - - - - - - - - - "
-			     "- - - - - - - - - - - - - - - - - - - - -~n",
+                      Div = "\n- - - - - - - - - - - - - - - - - - - "
+                            "- - - - - - - - - - - - - - - - - - - - -\n",
 		       ErrorStr2 = io_lib:format(ErrorFormat, ErrorArgs),
-		       io:format(?def_gl, lists:concat([Div,ErrorStr2,Div,"~n"]),
-				 []),
+                      io:format(?def_gl, "~ts~n", [lists:concat([Div,ErrorStr2,Div])]),
 		       Link =
 			   "\n\n<a href=\"#end\">"
 			   "Full error description and stacktrace"
@@ -985,7 +984,8 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 		       ct_logs:tc_log(ct_error_notify,
 				      ?MAX_IMPORTANCE,
 				      "CT Error Notification",
-				      ErrorHtml2++Link, [], [])
+                                      "~ts", [ErrorHtml2++Link],
+                                      [])
 	       end,
     case Loc of
 	[{?MODULE,error_in_suite}] ->
@@ -1049,11 +1049,11 @@ group_or_func(Func, _Config) ->
     Func.
 
 %%%-----------------------------------------------------------------
-%%% @spec get_suite(Mod, Func) -> Tests
+%%% -spec get_suite(Mod, Func) -> Tests
 %%%
-%%% @doc Called from test_server for every suite (<code>Func==all</code>)
-%%%      and every test case. If the former, all test cases in the suite
-%%%      should be returned. 
+%%% Called from test_server for every suite (Func==all)
+%%% and every test case. If the former, all test cases in the suite
+%%% should be returned.
 
 get_suite(Mod, all) ->
     case catch apply(Mod, groups, []) of
@@ -1168,7 +1168,7 @@ get_all(Mod, ConfTests) ->
 		case code:which(Mod) of
 		    non_existing ->
 			list_to_atom(atom_to_list(Mod)++
-					 " can not be compiled or loaded");
+					 " cannot be compiled or loaded");
 		    _ ->
 			list_to_atom(atom_to_list(Mod)++":all/0 is missing")
 		end,
@@ -1181,7 +1181,7 @@ get_all(Mod, ConfTests) ->
 		    ErrStr = io_lib:format("~n*** ERROR *** "
 					   "~w:all/0 failed: ~tp~n",
 					   [Mod,ExitReason]),
-		    io:format(?def_gl, ErrStr, []),
+		    io:format(?def_gl, "~ts", [ErrStr]),
 		    %% save the error info so it doesn't get printed twice
 		    ct_util:set_testdata_async({{error_in_suite,Mod},
 						ExitReason});
@@ -1355,7 +1355,7 @@ end_per_group(GroupName, _) ->
     ok.
     
 %%%-----------------------------------------------------------------
-%%% @spec report(What,Data) -> ok
+%%% -spec report(What,Data) -> ok
 report(What,Data) ->
     case What of
 	loginfo ->
@@ -1519,14 +1519,14 @@ add_to_stats(Result) ->
     ct_util:update_testdata(stats, Update).
 
 %%%-----------------------------------------------------------------
-%%% @spec warn(What) -> true | false
+%%% -spec warn(What) -> true | false
 warn(What) when What==nodes; What==processes ->
     false;
 warn(_What) ->
     true.
 
 %%%-----------------------------------------------------------------
-%%% @spec add_data_dir(File0, Config) -> File1
+%%% -spec add_data_dir(File0, Config) -> File1
 add_data_dir(File,Config) when is_atom(File) ->
     add_data_dir(atom_to_list(File),Config);
 
@@ -1545,7 +1545,7 @@ add_data_dir(File,Config) when is_list(File) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec get_logopts() -> [LogOpt]
+%%% -spec get_logopts() -> [LogOpt]
 get_logopts() ->
     case ct_util:get_testdata(logopts) of
 	undefined ->
@@ -1555,12 +1555,12 @@ get_logopts() ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec format_comment(Comment) -> HtmlComment
+%%% -spec format_comment(Comment) -> HtmlComment
 format_comment(Comment) ->
     "<font color=\"green\">" ++ Comment ++ "</font>".
 
 %%%-----------------------------------------------------------------
-%%% @spec get_html_wrapper(TestName, PrintLabel, Cwd) -> Header
+%%% -spec get_html_wrapper(TestName, PrintLabel, Cwd) -> Header
 get_html_wrapper(TestName, PrintLabel, Cwd, TableCols) ->
     get_html_wrapper(TestName, PrintLabel, Cwd, TableCols, utf8).
 
@@ -1568,6 +1568,6 @@ get_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding) ->
     ct_logs:get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding).
 
 %%%-----------------------------------------------------------------
-%%% @spec get_log_dir() -> {ok,LogDir}
+%%% -spec get_log_dir() -> {ok,LogDir}
 get_log_dir() ->
     ct_logs:get_log_dir(true).

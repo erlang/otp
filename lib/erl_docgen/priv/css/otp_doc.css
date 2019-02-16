@@ -70,20 +70,48 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   text-align: center;
 }
 
-.bold_code {
-  font-family: monospace;
-  font-weight: bold;
-}
-.code {
-  font-family: monospace;
-  font-weight: normal;
-  background-color: #f3f3f3;
-}
 pre {
   font-family: monospace;
   font-weight: normal;
   font-size: 16px; /* like body */
   margin: 0;
+}
+
+.bold_code {
+  font-family: monospace;
+  font-weight: bold;
+}
+
+/* Invisible table for function specs,
+ * just to get since-version out in right margin */
+.func-table, .func-tr, .func-td, .func-since-td {
+    width: 200%;
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.func-tr:nth-child(n) {
+    background: inherit  /* turn off zebra striped rows */
+}
+
+.func-td {
+    width: 50%
+}
+
+.func-since-td {
+    width: 50%;
+    padding-left: 1em
+}
+
+.func-td:hover {
+ background-color: #f5f5f5;
+}
+
+.code {
+  font-family: monospace;
+  font-weight: normal;
+  background-color: #f3f3f3;
 }
 
 .note, .warning, .do, .dont {
@@ -284,4 +312,10 @@ a > .code {
 
 .func-types-title{
  font-size: 1em;
+}
+
+.since{
+    color: gray;
+    font-weight: normal;
+    font-size: small;
 }

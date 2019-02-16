@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,22 @@
 #define ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
-#include "erl_alloc_util.h"
 #include "erl_threads.h"
 #include "erl_mmap.h"
+
+typedef enum {
+    ERTS_ALC_S_INVALID = 0,
+
+    ERTS_ALC_S_GOODFIT,
+    ERTS_ALC_S_BESTFIT,
+    ERTS_ALC_S_AFIT,
+    ERTS_ALC_S_FIRSTFIT,
+
+    ERTS_ALC_S_MIN = ERTS_ALC_S_GOODFIT,
+    ERTS_ALC_S_MAX = ERTS_ALC_S_FIRSTFIT
+} ErtsAlcStrat_t;
+
+#include "erl_alloc_util.h"
 
 #ifdef DEBUG
 #  undef ERTS_ALC_WANT_INLINE
@@ -51,6 +64,14 @@
 
 #define ERTS_ALC_NO_FIXED_SIZES \
   (ERTS_ALC_N_MAX_A_FIXED_SIZE - ERTS_ALC_N_MIN_A_FIXED_SIZE + 1)
+
+#define ERTS_ALC_IS_FIX_TYPE(T) \
+    (ERTS_ALC_T2N(T) >= ERTS_ALC_N_MIN_A_FIXED_SIZE && \
+     ERTS_ALC_T2N(T) <= ERTS_ALC_N_MAX_A_FIXED_SIZE)
+
+#define ERTS_ALC_FIX_TYPE_IX(T) \
+  (ASSERT(ERTS_ALC_IS_FIX_TYPE(T)), \
+   ERTS_ALC_T2N((T)) - ERTS_ALC_N_MIN_A_FIXED_SIZE)
 
 void erts_sys_alloc_init(void);
 void *erts_sys_alloc(ErtsAlcType_t, void *, Uint);
@@ -228,7 +249,7 @@ void *erts_alloc(ErtsAlcType_t type, Uint size)
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
-            ERTS_ALC_T2N(type),
+            type,
             erts_allctrs[ERTS_ALC_T2A(type)].extra,
             size);
     if (!res)
@@ -243,7 +264,7 @@ void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size)
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
-	ERTS_ALC_T2N(type),
+	type,
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr,
 	size);
@@ -258,7 +279,7 @@ void erts_free(ErtsAlcType_t type, void *ptr)
 {
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     (*erts_allctrs[ERTS_ALC_T2A(type)].free)(
-	ERTS_ALC_T2N(type),
+	type,
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr);
     ERTS_MSACC_POP_STATE_X();
@@ -271,7 +292,7 @@ void *erts_alloc_fnf(ErtsAlcType_t type, Uint size)
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
-	ERTS_ALC_T2N(type),
+	type,
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	size);
     ERTS_MSACC_POP_STATE_X();
@@ -285,7 +306,7 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
-	ERTS_ALC_T2N(type),
+	type,
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr,
 	size);

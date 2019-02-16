@@ -409,6 +409,10 @@ message_to_string({extra_range, [M, F, A, ExtraRanges, SigRange]}) ->
   io_lib:format("The specification for ~w:~tw/~w states that the function"
 		" might also return ~ts but the inferred return is ~ts\n",
 		[M, F, A, ExtraRanges, SigRange]);
+message_to_string({missing_range, [M, F, A, ExtraRanges, ContrRange]}) ->
+  io_lib:format("The success typing for ~w:~tw/~w implies that the function"
+		" might also return ~ts but the specification return is ~ts\n",
+		[M, F, A, ExtraRanges, ContrRange]);
 message_to_string({overlapping_contract, [M, F, A]}) ->
   io_lib:format("Overloaded contract for ~w:~tw/~w has overlapping domains;"
 		" such contracts are currently unsupported and are simply ignored\n",

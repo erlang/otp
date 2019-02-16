@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2514,8 +2514,8 @@ Eterm erts_mmap_debug_info(Process* p)
                                             sizeof(values)/sizeof(*values),
                                             tags, values);
 
-        sa_list = TUPLE2(hp, am_atom_put("sa_free_segs",12), sa_list); hp+=3;
-        sua_list = TUPLE2(hp, am_atom_put("sua_free_segs",13), sua_list); hp+=3;
+        sa_list = TUPLE2(hp, ERTS_MAKE_AM("sa_free_segs"), sa_list); hp+=3;
+        sua_list = TUPLE2(hp, ERTS_MAKE_AM("sua_free_segs"), sua_list); hp+=3;
         list = CONS(hp, sua_list, list); hp+=2;
         list = CONS(hp, sa_list, list); hp+=2;
 

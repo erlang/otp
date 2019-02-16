@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,22 +21,27 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 undefined_label/1,ambiguous_catch_try_state/1]).
+	 undefined_label/1,ambiguous_catch_try_state/1,
+         unsafe_move_elimination/1,build_tuple/1,
+         coverage/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() ->
     [{p,[parallel],
       [undefined_label,
-       ambiguous_catch_try_state
+       ambiguous_catch_try_state,
+       unsafe_move_elimination,
+       build_tuple,
+       coverage
       ]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -72,3 +77,95 @@ river() -> song.
 checks(Wanted) ->
     %% Must be one line to cause the unsafe optimization.
     {catch case river() of sheet -> begin +Wanted, if "da" -> Wanted end end end, catch case river() of sheet -> begin + Wanted, if "da" -> Wanted end end end}.
+
+unsafe_move_elimination(_Config) ->
+    {{left,right,false},false} = unsafe_move_elimination(left, right, false),
+    {{false,right,false},false} = unsafe_move_elimination(false, right, true),
+    {{true,right,right},right} = unsafe_move_elimination(true, right, true),
+    ok.
+
+unsafe_move_elimination(Left, Right, Simple0) ->
+    id(1),
+
+    %% The move at label 29 would be removed by beam_jump, which is unsafe because
+    %% the two select_val instructions have different source registers.
+    %%
+    %%   {select_val,{y,0},{f,25},{list,[{atom,true},{f,27},{atom,false},{f,29}]}}.
+    %%               ^^^^^                                  ^^^^^^^^^^^^^^^^^^^
+    %% {label,27}.
+    %%   {kill,{y,0}}.
+    %%   {move,{y,2},{x,0}}.
+    %%   {line,...}.
+    %%   {call,1,{f,31}}.
+    %%   {select_val,{x,0},{f,33},{list,[{atom,true},{f,35},{atom,false},{f,29}]}}.
+    %%               ^^^^^                                  ^^^^^^^^^^^^^^^^^^^
+    %% {label,29}.
+    %%   {move,{atom,false},{y,0}}.  <=== REMOVED (unsafely).
+    %%   {jump,{f,37}}.
+
+    Simple = case case Simple0 of
+                      false -> false;
+                      true -> id(Left)
+                  end
+             of
+                 false ->
+                     false;
+                 true ->
+                     id(Right)
+             end,
+    {id({Left,Right,Simple}),Simple}.
+
+-record(message2, {id, p1}).
+-record(message3, {id, p1, p2}).
+
+build_tuple(_Config) ->
+    {'EXIT',{{badrecord,message3},_}} = (catch do_build_tuple(#message2{})),
+    ok.
+
+do_build_tuple(Message) ->
+    if is_record(Message, message2) ->
+	    Res = {res, rand:uniform(100)},
+	    {Message#message3.id, Res}
+    end.
+
+coverage(_Config) ->
+    ok = coverage_1(ok),
+    {error,badarg} = coverage_1({error,badarg}),
+
+    gt = coverage_2(100, 42),
+    le = coverage_2(100, 999),
+    le = coverage_2([], []),
+    gt = coverage_2([], xxx),
+
+    ok.
+
+coverage_1(Var) ->
+    case id(Var) of
+	ok -> ok;
+	Error -> Error
+    end.
+
+%% Cover beam_jump:invert_test(is_ne_exact).
+coverage_2(Pre1, Pre2) ->
+    case
+        case Pre1 == [] of
+            false ->
+                false;
+            true ->
+                Pre2 /= []
+        end
+    of
+        true ->
+            gt;
+        false ->
+            case Pre1 > Pre2 of
+                true ->
+                    gt;
+                false ->
+                    le
+            end
+    end.
+
+
+id(I) ->
+    I.

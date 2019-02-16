@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2017. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -244,7 +244,7 @@ if_end
 # Optimize for that case.
 raise x==2 x==1 => i_raise
 raise Trace=y Value=y => move Trace x=2 | move Value x=1 | i_raise
-raise Trace Value => move Trace x=3 | move Value x=1 | move x=3 x=2 | i_raise
+raise Trace Value => move Trace x | move Value x=1 | move x x=2 | i_raise
 
 i_raise
 
@@ -483,9 +483,16 @@ is_eq f? s s
 is_ne f? s s
 
 #
-# Putting things.
+# Putting tuples.
+#
+# Code compiled with OTP 22 and later uses put_tuple2 to
+# to construct a tuple.
+#
+# Code compiled before OTP 22 uses put_tuple + one put instruction
+# per element. Translate to put_tuple2.
 #
 
+i_put_tuple/2
 put_tuple Arity Dst => i_put_tuple Dst u
 
 i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
@@ -495,10 +502,12 @@ i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
 i_put_tuple Dst Arity Puts=* | put S => \
 	    tuple_append_put(Arity, Dst, Puts, S)
 
-i_put_tuple/2
+i_put_tuple Dst Arity Puts=* => put_tuple2 Dst Arity Puts
 
-i_put_tuple xy I
+put_tuple2 xy I
 
+#
+# Putting lists.
 #
 # The instruction "put_list Const [] Dst" were generated in rare
 # circumstances up to and including OTP 18. Starting with OTP 19,
@@ -710,11 +719,12 @@ is_boolean Fail=f ac => jump Fail
 is_boolean f? xy
 %hot
 
-is_function2 Fail=f Literal=q Arity | literal_is_export(Literal) =>
-is_function2 Fail=f c Arity => jump Fail
-is_function2 Fail=f Fun a => jump Fail
+is_function2 Fail=f Fun Arity => gen_is_function2(Fail, Fun, Arity)
 
-is_function2 f? S s
+%cold
+cold_is_function2 f? x x
+%hot
+hot_is_function2 f? S t
 
 # Allocating & initializing.
 allocate Need Regs | init Y => allocate_init Need Regs Y
@@ -993,10 +1003,11 @@ bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => gen_get(Src, Dst)
 
 bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d => gen_element(Jump, S1, S2, Dst)
 
-bif1 p Bif S1 Dst => bif1_body Bif S1 Dst
+bif1 p Bif S1 Dst         => i_bif1_body S1 Bif Dst
+bif1 Fail=f Bif S1 Dst    => i_bif1 S1 Fail Bif Dst
 
-bif2 p Bif S1 S2 Dst => i_bif2_body Bif S1 S2 Dst
-bif2 Fail Bif S1 S2 Dst => i_bif2 Fail Bif S1 S2 Dst
+bif2 p Bif S1 S2 Dst      => i_bif2_body S2 S1 Bif Dst
+bif2 Fail=f Bif S1 S2 Dst => i_bif2 S2 S1 Fail Bif Dst
 
 i_get_hash c I d
 i_get s d
@@ -1014,10 +1025,12 @@ i_fast_element xy j? I d
 
 i_element xy j? s d
 
-bif1 f? b s d
-bif1_body b s d
-i_bif2 f? b s s d
-i_bif2_body b s s d
+i_bif1 s f? b d
+i_bif1_body s b d
+i_bif2 s s f? b d
+i_bif2_body s s b d
+i_bif3 s s s f? b d
+i_bif3_body s s s b d
 
 #
 # Internal calls.
@@ -1080,67 +1093,73 @@ func_info M F A => i_func_info u M F A
 %warm
 bs_start_match2 Fail=f ica X Y D => jump Fail
 bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
-i_bs_start_match2 xy f t t x
+i_bs_start_match2 xy f t t d
 
 bs_save2 Reg Index => gen_bs_save(Reg, Index)
-i_bs_save2 x t
+i_bs_save2 xy t
 
 bs_restore2 Reg Index => gen_bs_restore(Reg, Index)
-i_bs_restore2 x t
+i_bs_restore2 xy t
 
 # Matching integers
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
 
-i_bs_match_string x f W W
+i_bs_match_string xy f W W
 
 # Fetching integers from binaries.
-bs_get_integer2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
+bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_integer_small_imm x W f? t x
-i_bs_get_integer_imm x W t f? t x
-i_bs_get_integer f? t t x s x
-i_bs_get_integer_8 x f? x
-i_bs_get_integer_16 x f? x
+i_bs_get_integer_small_imm Ms Bits Fail Flags Y=y => \
+   i_bs_get_integer_small_imm Ms Bits Fail Flags x | move x Y
+
+i_bs_get_integer_imm Ms Bits Live Fail Flags Y=y => \
+   i_bs_get_integer_imm Ms Bits Live Fail Flags x | move x Y
+
+i_bs_get_integer_small_imm xy W f? t x
+i_bs_get_integer_imm xy W t f? t x
+i_bs_get_integer f? t t xy s d
+i_bs_get_integer_8 xy f? d
+i_bs_get_integer_16 xy f? d
 
 %if ARCH_64
-i_bs_get_integer_32 x f? x
+i_bs_get_integer_32 xy f? d
 %endif
 
 # Fetching binaries from binaries.
-bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
+bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_binary_imm2 f? x t W t x
-i_bs_get_binary2 f x t? s t x
-i_bs_get_binary_all2 f? x t t x
-i_bs_get_binary_all_reuse x f? t
+i_bs_get_binary_imm2 f? xy t W t d
+i_bs_get_binary2 f xy t? s t d
+i_bs_get_binary_all2 f? xy t t d
+i_bs_get_binary_all_reuse xy f? t
 
 # Fetching float from binaries.
-bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
+bs_get_float2 Fail=f Ms=xy Live=u Sz=s Unit=u Flags=u Dst=d => \
 		gen_get_float2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
-i_bs_get_float2 f? x t s t x
+i_bs_get_float2 f? xy t s t d
 
 # Miscellanous
 
-bs_skip_bits2 Fail=f Ms=x Sz=sq Unit=u Flags=u => \
+bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => \
 			gen_skip_bits2(Fail, Ms, Sz, Unit, Flags)
 
-i_bs_skip_bits_imm2 f? x W
-i_bs_skip_bits2 f? x xy t
-i_bs_skip_bits_all2 f? x t
+i_bs_skip_bits_imm2 f? xy W
+i_bs_skip_bits2 f? xy xy t
+i_bs_skip_bits_all2 f? xy t
 
-bs_test_tail2 Fail=f Ms=x Bits=u==0 => bs_test_zero_tail2 Fail Ms
-bs_test_tail2 Fail=f Ms=x Bits=u => bs_test_tail_imm2 Fail Ms Bits
-bs_test_zero_tail2 f? x
-bs_test_tail_imm2 f? x W
+bs_test_tail2 Fail=f Ms=xy Bits=u==0 => bs_test_zero_tail2 Fail Ms
+bs_test_tail2 Fail=f Ms=xy Bits=u => bs_test_tail_imm2 Fail Ms Bits
+bs_test_zero_tail2 f? xy
+bs_test_tail_imm2 f? xy W
 
 bs_test_unit F Ms Unit=u==8 => bs_test_unit8 F Ms
-bs_test_unit f? x t
-bs_test_unit8 f? x
+bs_test_unit f? xy t
+bs_test_unit8 f? xy
 
 # An y register operand for bs_context_to_binary is rare,
 # but can happen because of inlining.
@@ -1152,23 +1171,55 @@ bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
 
 bs_context_to_binary x
 
+# Gets a bitstring from the tail of a context.
+bs_get_tail xy d t
+
+# New bs_start_match variant for contexts with external position storage.
+#
+# bs_get/set_position is used to save positions into registers instead of
+# "slots" in the context itself, which lets us continue matching even after
+# we've passed it off to another function.
+
+%if ARCH_64
+bs_start_match3 Fail Bin Live Ctx | bs_get_position Ctx Pos=x Ignored => \
+    i_bs_start_match3_gp Bin Live Fail Ctx Pos
+i_bs_start_match3_gp xy t f d x
+%endif
+
+bs_start_match3 Fail=f ica Live Dst => jump Fail
+bs_start_match3 Fail Bin Live Dst => i_bs_start_match3 Bin Live Fail Dst
+
+i_bs_start_match3 xy t f d
+
+# Match context position instructions. 64-bit assumes that all positions can
+# fit into an unsigned small.
+
+%if ARCH_64
+    bs_get_position Src Dst Live => i_bs_get_position Src Dst
+    i_bs_get_position xy xy
+    bs_set_position xy xy
+%else
+    bs_get_position xy d t?
+    bs_set_position xy xy
+%endif
+
 #
 # Utf8/utf16/utf32 support. (R12B-5)
 #
-bs_get_utf8 Fail=f Ms=x u u Dst=d => i_bs_get_utf8 Ms Fail Dst
-i_bs_get_utf8 x f? x
+bs_get_utf8 Fail=f Ms=xy u u Dst=d => i_bs_get_utf8 Ms Fail Dst
+i_bs_get_utf8 xy f? d
 
-bs_skip_utf8 Fail=f Ms=x u u => i_bs_get_utf8 Ms Fail x
+bs_skip_utf8 Fail=f Ms=xy u u => i_bs_get_utf8 Ms Fail x
 
-bs_get_utf16 Fail=f Ms=x u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
-bs_skip_utf16 Fail=f Ms=x u Flags=u => i_bs_get_utf16 Ms Fail Flags x
+bs_get_utf16 Fail=f Ms=xy u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
+bs_skip_utf16 Fail=f Ms=xy u Flags=u => i_bs_get_utf16 Ms Fail Flags x
 
-i_bs_get_utf16 x f? t x
+i_bs_get_utf16 xy f? t d
 
-bs_get_utf32 Fail=f Ms=x Live=u Flags=u Dst=d => \
+bs_get_utf32 Fail=f Ms=xy Live=u Flags=u Dst=d => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \
 	i_bs_validate_unicode_retract Fail Dst Ms
-bs_skip_utf32 Fail=f Ms=x Live=u Flags=u => \
+bs_skip_utf32 Fail=f Ms=xy Live=u Flags=u => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags x | \
 	i_bs_validate_unicode_retract Fail x Ms
 
@@ -1181,6 +1232,9 @@ i_bs_validate_unicode_retract j s S
 %warm
 
 bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
+
+bs_init2 Fail Sz Words Regs Flags Dst=y => \
+   bs_init2 Fail Sz Words Regs Flags x | move x Dst
 
 bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init Sz Regs Dst
 
@@ -1202,6 +1256,8 @@ i_bs_init_heap W I t? x
 
 
 bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
+bs_init_bits Fail Sz Words Regs Flags Dst=y => \
+   bs_init_bits Fail Sz Words Regs Flags x | move x Dst
 
 bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init_bits Sz Regs Dst
 bs_init_bits Fail Sz=u Words Regs Flags Dst =>  i_bs_init_bits_heap Sz Words Regs Dst
@@ -1230,7 +1286,7 @@ bs_private_append Fail Size Unit Bin Flags Dst => \
 
 bs_init_writable
 
-i_bs_append j? I t? t s x
+i_bs_append j? I t? t s xy
 i_bs_private_append j? t s S x
 
 #
@@ -1421,16 +1477,13 @@ get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
 
 i_get_map_elements f? s I
 
-i_get_map_element Fail Src=xy Key=y Dst => \
-    move Key x | i_get_map_element Fail Src x Dst
-
 i_get_map_element_hash Fail Src=c Key Hash Dst => \
     move Src x | i_get_map_element_hash Fail x Key Hash Dst
 i_get_map_element_hash f? xy c I xy
 
 i_get_map_element Fail Src=c Key Dst => \
     move Src x | i_get_map_element Fail x Key Dst
-i_get_map_element f? xy x xy
+i_get_map_element f? xy xy xy
 
 #
 # Convert the plus operations to a generic plus instruction.
@@ -1450,80 +1503,80 @@ gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst => \
 
 #
 # Optimize addition and subtraction of small literals using
-# the i_increment/4 instruction (in bodies, not in guards).
+# the i_increment/3 instruction (in bodies, not in guards).
 #
 
 gen_plus p Live Int=i Reg=d Dst => \
-	gen_increment(Reg, Int, Live, Dst)
+	gen_increment(Reg, Int, Dst)
 gen_plus p Live Reg=d Int=i Dst => \
-	gen_increment(Reg, Int, Live, Dst)
+	gen_increment(Reg, Int, Dst)
 
 gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
-	gen_increment_from_minus(Reg, Int, Live, Dst)
+	gen_increment_from_minus(Reg, Int, Dst)
 
 #
-# GCing arithmetic instructions.
+# Arithmetic instructions.
 #
 
-gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Live Dst
+gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Dst
 
-gen_minus Fail Live S1 S2 Dst => i_minus S1 S2 Fail Live Dst
+gen_minus Fail Live S1 S2 Dst => i_minus S1 S2 Fail Dst
 
 gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst => \
-  i_times Fail Live S1 S2 Dst
+  i_times Fail S1 S2 Dst
 
 gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst => \
-  i_m_div Fail Live S1 S2 Dst
+  i_m_div Fail S1 S2 Dst
 gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst => \
-  i_int_div Fail Live S1 S2 Dst
+  i_int_div Fail S1 S2 Dst
 
 gc_bif2 Fail Live u$bif:erlang:rem/2 S1 S2 Dst => \
-  i_rem S1 S2 Fail Live Dst
+  i_rem S1 S2 Fail Dst
 
 gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst => \
-  i_bsl S1 S2 Fail Live Dst
+  i_bsl S1 S2 Fail Dst
 gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst => \
-  i_bsr S1 S2 Fail Live Dst
+  i_bsr S1 S2 Fail Dst
 
 gc_bif2 Fail Live u$bif:erlang:band/2 S1 S2 Dst => \
-  i_band S1 S2 Fail Live Dst
+  i_band S1 S2 Fail Dst
 
 gc_bif2 Fail Live u$bif:erlang:bor/2 S1 S2 Dst => \
-  i_bor Fail Live S1 S2 Dst
+  i_bor Fail S1 S2 Dst
 
 gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst => \
-  i_bxor Fail Live S1 S2 Dst
+  i_bxor Fail S1 S2 Dst
 
-gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
+gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src Dst
 
-i_increment rxy W t d
+i_increment rxy W d
 
-i_plus x xy j? t d
-i_plus s s  j? t d
+i_plus x xy j? d
+i_plus s s  j? d
 
-i_minus x x j? t d
-i_minus s s j? t d
+i_minus x x j? d
+i_minus s s j? d
 
-i_times j? t s s d
+i_times j? s s d
 
-i_m_div j? t s s d
-i_int_div j? t s s d
+i_m_div j? s s d
+i_int_div j? s s d
 
-i_rem x x j? t d
-i_rem s s j? t d
+i_rem x x j? d
+i_rem s s j? d
 
-i_bsl s s j? t d
-i_bsr s s j? t d
+i_bsl s s j? d
+i_bsr s s j? d
 
-i_band x c j? t d
-i_band s s j? t d
+i_band x c j? d
+i_band s s j? d
 
-i_bor j? I s s d
-i_bxor j? I s s d
+i_bor j? s s d
+i_bxor j? s s d
 
-i_int_bnot Fail Src=c Live Dst => move Src x | i_int_bnot Fail x Live Dst
+i_int_bnot Fail Src=c Dst => move Src x | i_int_bnot Fail x Dst
 
-i_int_bnot j? S t d
+i_int_bnot j? S d
 
 #
 # Old guard BIFs that creates heap fragments are no longer allowed.
@@ -1536,29 +1589,27 @@ bif1 Fail u$bif:erlang:round/1 s d => too_old_compiler
 bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 
 #
+# Handle the length/1 guard BIF specially to make it trappable.
+#
+
+gc_bif1 Fail=j Live u$bif:erlang:length/1 Src Dst => \
+   i_length_setup Live Src | i_length Fail Live Dst
+
+i_length_setup t xyc
+
+i_length j? t d
+
+#
 # Guard BIFs.
 #
-gc_bif1 Fail I Bif Src Dst => \
-	gen_guard_bif1(Fail, I, Bif, Src, Dst)
+gc_bif1 p Live Bif Src Dst           => i_bif1_body Src Bif Dst
+gc_bif1 Fail=f Live Bif Src Dst      => i_bif1 Src Fail Bif Dst
 
-gc_bif2 Fail I Bif S1 S2 Dst => \
-	gen_guard_bif2(Fail, I, Bif, S1, S2, Dst)
+gc_bif2 p Live Bif S1 S2 Dst         => i_bif2_body S2 S1 Bif Dst
+gc_bif2 Fail=f Live Bif S1 S2 Dst    => i_bif2 S2 S1 Fail Bif Dst
 
-gc_bif3 Fail I Bif S1 S2 S3 Dst => \
-	gen_guard_bif3(Fail, I, Bif, S1, S2, S3, Dst)
-
-i_gc_bif1 j? W s t? d
-
-i_gc_bif2 j? W t? s s d
-
-ii_gc_bif3/7
-
-# A specific instruction can only have 6 operands, so we must
-# pass one of the arguments in an x register.
-ii_gc_bif3 Fail Bif Live S1 S2 S3 Dst => \
-  move S1 x | i_gc_bif3 Fail Bif Live S2 S3 Dst
-
-i_gc_bif3 j? W t? s s d
+gc_bif3 p Live Bif S1 S2 S3 Dst      => i_bif3_body S3 S2 S1 Bif Dst
+gc_bif3 Fail=f Live Bif S1 S2 S3 Dst => i_bif3 S3 S2 S1 Fail Bif Dst
 
 #
 # The following instruction is specially handled in beam_load.c

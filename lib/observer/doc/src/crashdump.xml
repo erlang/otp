@@ -34,7 +34,7 @@
     <rev>PA1</rev>
     <file>crashdump.xml</file>
   </header>
-  <module>crashdump_viewer</module>
+  <module since="">crashdump_viewer</module>
   <modulesummary>A WxWidgets based tool for browsing Erlang
   crashdumps.</modulesummary>
   <description>
@@ -46,8 +46,8 @@
   </description>
   <funcs>
     <func>
-      <name>start() -> ok</name>
-      <name>start(File) -> ok</name>
+      <name since="">start() -> ok</name>
+      <name since="OTP 17.0">start(File) -> ok</name>
       <fsummary>Start the Crashdump Viewer.</fsummary>
       <type>
         <v>File = string()</v>
@@ -62,7 +62,7 @@
       </desc>
     </func>
     <func>
-      <name>stop() -> ok</name>
+      <name since="">stop() -> ok</name>
       <fsummary>Terminate the Crashdump Viewer.</fsummary>
       <desc>
         <p>Terminates the Crashdump Viewer and closes

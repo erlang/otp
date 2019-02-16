@@ -33,7 +33,7 @@
     <rev>PA1</rev>
     <file>observer.xml</file>
   </header>
-  <module>observer</module>
+  <module since="OTP R15B">observer</module>
   <modulesummary>A GUI tool for observing an Erlang system.</modulesummary>
   <description>
     <p>Observer is a graphical tool for observing the characteristics of
@@ -48,7 +48,7 @@
   </description>
   <funcs>
     <func>
-      <name>start() -> ok</name>
+      <name since="OTP R15B">start() -> ok</name>
       <fsummary>Start the Observer GUI.</fsummary>
       <desc>
         <p>Starts the Observer GUI.

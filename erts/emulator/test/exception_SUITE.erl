@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,11 @@
 %% The range analysis of the HiPE compiler results in a system limit error
 %% during compilation instead of at runtime, so do not perform this analysis.
 -compile([{hipe, [no_icode_range]}]).
+
+%% Module-level type optimization propagates the constants used when testing
+%% increment1/1 and increment2/1, which makes it test something completely
+%% different, so we're turning it off.
+-compile(no_module_opt).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},

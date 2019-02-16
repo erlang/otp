@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -592,7 +592,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, {file,KeyFile}) ->
 
 encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
     _ = crypto:start(),
-    {Key,IVec} = make_crypto_key(Key),
+    {CryptoKey,IVec} = make_crypto_key(Key),
     case file:read_file(SrcFileName) of
 	{ok,Bin0} ->
 	    Bin1 = term_to_binary({SrcFileName,Bin0}),
@@ -600,7 +600,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
 		       0 -> Bin1;
 		       N -> list_to_binary([Bin1,random_bytes(8-N)])
 		   end,
-	    EncBin = crypto:block_encrypt(des3_cbc, Key, IVec, Bin2),
+	    EncBin = crypto:block_encrypt(des3_cbc, CryptoKey, IVec, Bin2),
 	    case file:write_file(EncryptFileName, EncBin) of
 		ok ->
 		    io:format("~ts --(encrypt)--> ~ts~n",
@@ -631,10 +631,10 @@ decrypt_config_file(EncryptFileName, TargetFileName, {file,KeyFile}) ->
 
 decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
     _ = crypto:start(),
-    {Key,IVec} = make_crypto_key(Key),
+    {CryptoKey,IVec} = make_crypto_key(Key),
     case file:read_file(EncryptFileName) of
 	{ok,Bin} ->
-	    DecBin = crypto:block_decrypt(des3_cbc, Key, IVec, Bin),
+	    DecBin = crypto:block_decrypt(des3_cbc, CryptoKey, IVec, Bin),
 	    case catch binary_to_term(DecBin) of
 		{'EXIT',_} ->
 		    {error,bad_file};

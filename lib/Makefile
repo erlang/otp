@@ -28,7 +28,7 @@ ERTS_APPLICATIONS = stdlib sasl kernel compiler
 ERLANG_APPLICATIONS = tools common_test runtime_tools inets parsetools
 
 # These are only build if -a is given to otp_build or make is used directly
-ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp otp_mibs erl_interface \
+ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp erl_interface \
 		  asn1 jinterface \
 	          wx debugger reltool \
 	          mnesia crypto os_mon syntax_tools \
@@ -58,7 +58,7 @@ else
       SUB_DIRECTORIES = hipe parsetools asn1/src
     else
       ifdef TERTIARY_BOOTSTRAP
-        SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
+        SUB_DIRECTORIES = snmp sasl jinterface syntax_tools wx
       else
         ifdef DOC_BOOTSTRAP
           SUB_DIRECTORIES = xmerl edoc erl_docgen

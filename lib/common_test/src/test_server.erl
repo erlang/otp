@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -850,17 +850,23 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 				"WARNING: end_per_testcase failed!</font>",
 			    {died,W}
 		    end,
-		try do_end_tc_call(Mod,EPTC,{Pid,Report,[EndConf]}, Why) of
-		    _ -> ok
-		catch
-		    _:FwEndTCErr ->
-			exit({fw_notify_done,end_tc,FwEndTCErr})
-		end,
-		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
+                FailLoc0 = proplists:get_value(tc_fail_loc, EndConf),
+                {RetVal1,FailLoc} =
+                    try do_end_tc_call(Mod,EPTC,{Pid,Report,[EndConf]}, Why) of
+                        Why ->
+                            {RetVal,FailLoc0};
+                        {failed,_} = R ->
+                            {R,[{Mod,Func}]};
+                        R ->
+                            {R,FailLoc0}
+                    catch
+                        _:FwEndTCErr ->
+                            exit({fw_notify_done,end_tc,FwEndTCErr})
+                    end,
 		%% finished, report back (if end_per_testcase fails, a warning
 		%% should be printed as part of the comment)
 		SendTo ! {self(),fw_notify_done,
-			  {Time,RetVal,FailLoc,[],Warn}}
+			  {Time,RetVal1,FailLoc,[],Warn}}
 	end,
     spawn_link(FwCall);
 
@@ -902,14 +908,25 @@ spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
 			      FwErrorNotifyErr})
 		end,
 		Conf = [{tc_status,{failed,Error}}|CurrConf],
-		try do_end_tc_call(Mod,EndTCFunc,{Pid,Error,[Conf]},Error) of
-		    _ -> ok
-		catch
-		    _:FwEndTCErr ->
-			exit({fw_notify_done,end_tc,FwEndTCErr})
-		end,
+                {Time,RetVal,Loc1} =
+                    try do_end_tc_call(Mod,EndTCFunc,{Pid,Error,[Conf]},Error) of
+                        Error ->
+                            {died, Error, Loc};
+                        {failed,Reason} = NewReturn ->
+                            fw_error_notify(Mod,Func1,Conf,Reason),
+                            {died, NewReturn, [{Mod,Func}]};
+                        NewReturn ->
+                            T = case Error of
+                                    {timetrap_timeout,TT} -> TT;
+                                    _ -> 0
+                                end,
+                            {T, NewReturn, Loc}
+                    catch
+                        _:FwEndTCErr ->
+                            exit({fw_notify_done,end_tc,FwEndTCErr})
+                    end,
 		%% finished, report back
-		SendTo ! {self(),fw_notify_done,{died,Error,Loc,[],undefined}}
+		SendTo ! {self(),fw_notify_done,{Time,RetVal,Loc1,[],undefined}}
 	end,
     spawn_link(FwCall).
 

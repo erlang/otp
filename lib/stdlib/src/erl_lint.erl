@@ -831,13 +831,15 @@ bif_clashes(Forms, #lint{nowarn_bif_clash=Nowarn} = St) ->
 
 %% not_deprecated(Forms, State0) -> State
 
-not_deprecated(Forms, St0) ->
+not_deprecated(Forms, #lint{compile=Opts}=St0) ->
     %% There are no line numbers in St0#lint.compile.
     MFAsL = [{MFA,L} ||
                 {attribute, L, compile, Args} <- Forms,
                 {nowarn_deprecated_function, MFAs0} <- lists:flatten([Args]),
                 MFA <- lists:flatten([MFAs0])],
-    Nowarn = [MFA || {MFA,_L} <- MFAsL],
+    Nowarn = [MFA ||
+                 {nowarn_deprecated_function, MFAs0} <- Opts,
+                 MFA <- lists:flatten([MFAs0])],
     ML = [{M,L} || {{M,_F,_A},L} <- MFAsL, is_atom(M)],
     St1 = foldl(fun ({M,L}, St2) ->
                         check_module_name(M, L, St2)
@@ -2262,8 +2264,7 @@ expr({'fun',Line,Body}, Vt, St) ->
 	    {[],St};
 	{function,M,F,A} ->
 	    %% New in R15.
-	    {Bvt, St1} = expr_list([M,F,A], Vt, St),
-	    {vtupdate(Bvt, Vt),St1}
+	    expr_list([M,F,A], Vt, St)
     end;
 expr({named_fun,_,'_',Cs}, Vt, St) ->
     fun_clauses(Cs, Vt, St);

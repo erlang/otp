@@ -138,7 +138,7 @@
          should be run through the erlang port was not compiled for
          your platform.</item>
         <item>Errors discovered by the ODBC driver - If calls to the
-         ODBC-driver fails due to circumstances that can not be
+         ODBC-driver fails due to circumstances that cannot be
          controlled by the Erlang ODBC application programmer, an
          error string will be dug up from the driver.  This string
          will be the <c>Reason</c> in the <c>{error, Reason} </c>

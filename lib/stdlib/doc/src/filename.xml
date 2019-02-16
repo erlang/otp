@@ -28,7 +28,7 @@
     <date>1997-11-13</date>
     <rev>B</rev>
   </header>
-  <module>filename</module>
+  <module since="">filename</module>
   <modulesummary>Filename manipulation functions.</modulesummary>
   <description>
     <p>This module provides functions
@@ -84,15 +84,10 @@
       reject such filenames.
     </p></warning>
   </description>
-  <datatypes>
-      <datatype>
-          <name name="basedir_type"/>
-      </datatype>
-  </datatypes>
  
   <funcs>
     <func>
-      <name name="absname" arity="1"/>
+      <name name="absname" arity="1" since=""/>
       <fsummary>Convert a filename to an absolute name, relative the working
         directory.</fsummary>
       <desc>
@@ -124,7 +119,7 @@
     </func>
 
     <func>
-      <name name="absname" arity="2"/>
+      <name name="absname" arity="2" since=""/>
       <fsummary>Convert a filename to an absolute name, relative a specified
         directory.</fsummary>
       <desc>
@@ -135,7 +130,7 @@
     </func>
 
     <func>
-      <name name="absname_join" arity="2"/>
+      <name name="absname_join" arity="2" since=""/>
       <fsummary>Join an absolute directory with a relative filename.</fsummary>
       <desc>
         <p>Joins an absolute directory with a relative filename. Similar to
@@ -149,18 +144,37 @@
     </func>
 
     <func>
-      <name name="basedir" arity="2"/>
-      <fsummary>Equivalent to <c>basedir(<anno>Type</anno>,<anno>Application</anno>,#{})</c>.</fsummary>
+      <name name="basedir" arity="2" clause_i="1" since="OTP 19.0"/>
+      <name name="basedir" arity="2" clause_i="2" since="OTP 19.0"/>
+      <fsummary>Equivalent to <c>basedir(<anno>PathType</anno>,
+           <anno>Application</anno>,#{})</c> or
+	   <c>basedir(<anno>PathsType</anno>, <anno>Application</anno>,#{})</c>.
+	 </fsummary>
+      <type variable="PathType" name_i="1"/>
+      <type name="basedir_path_type"/>
+      <type variable="PathsType" name_i="2"/>
+      <type name="basedir_paths_type"/>
+      <type variable="Application"/>
       <desc>
           <p>
-              Equivalent to <seealso marker="#basedir-3">
-                  basedir(<anno>Type</anno>, <anno>Application</anno>, #{})</seealso>.
+              Equivalent to <seealso marker="#basedir_3_1">
+              basedir(<anno>PathType</anno>, <anno>Application</anno>, #{})</seealso>
+	      or <seealso marker="#basedir_3_2">
+basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seealso>.
           </p>
       </desc>
     </func>
     <func>
-      <name name="basedir" arity="3"/>
+      <name name="basedir" arity="3" clause_i="1" anchor="basedir_3_1" since="OTP 19.0"/>
+      <name name="basedir" arity="3" clause_i="2" anchor="basedir_3_2" since="OTP 19.0"/>
       <fsummary></fsummary>
+      <type variable="PathType" name_i="1"/>
+      <type name="basedir_path_type"/>
+      <type variable="PathsType" name_i="2"/>
+      <type name="basedir_paths_type"/>
+      <type variable="Application"/>
+      <type variable="Opts"/>
+      <type name="basedir_opts"/>
       <desc><marker id="basedir-3"/>
           <p>
               Returns a suitable path, or paths, for a given type.  If
@@ -300,7 +314,7 @@ true
       </desc>
     </func>
     <func>
-      <name name="basename" arity="1"/>
+      <name name="basename" arity="1" since=""/>
       <fsummary>Return the last component of a filename.</fsummary>
       <desc>
         <p>Returns the last component of <c><anno>Filename</anno></c>, or
@@ -318,7 +332,7 @@ true
     </func>
 
     <func>
-      <name name="basename" arity="2"/>
+      <name name="basename" arity="2" since=""/>
       <fsummary>Return the last component of a filename, stripped of the
         specified extension.</fsummary>
       <desc>
@@ -343,7 +357,7 @@ true
     </func>
 
     <func>
-      <name name="dirname" arity="1"/>
+      <name name="dirname" arity="1" since=""/>
       <fsummary>Return the directory part of a path name.</fsummary>
       <desc>
         <p>Returns the directory part of <c><anno>Filename</anno></c>.</p>
@@ -360,7 +374,7 @@ true
     </func>
 
     <func>
-      <name name="extension" arity="1"/>
+      <name name="extension" arity="1" since=""/>
       <fsummary>Return the file extension.</fsummary>
       <desc>
         <p>Returns the file extension of <c><anno>Filename</anno></c>,
@@ -376,8 +390,8 @@ true
     </func>
 
     <func>
-      <name name="find_src" arity="1"/>
-      <name name="find_src" arity="2"/>
+      <name name="find_src" arity="1" since=""/>
+      <name name="find_src" arity="2" since=""/>
       <fsummary>Find the filename and compiler options for a module.</fsummary>
       <desc>
         <p>Finds the source filename and compiler options for a module.
@@ -424,7 +438,7 @@ true
     </func>
 
     <func>
-      <name name="flatten" arity="1"/>
+      <name name="flatten" arity="1" since=""/>
       <fsummary>Convert a filename to a flat string.</fsummary>
       <desc>
         <p>Converts a possibly deep list filename consisting of
@@ -434,7 +448,7 @@ true
     </func>
 
     <func>
-      <name name="join" arity="1"/>
+      <name name="join" arity="1" since=""/>
       <fsummary>Join a list of filename components with directory separators.
       </fsummary>
       <desc>
@@ -462,7 +476,7 @@ true
     </func>
 
     <func>
-      <name name="join" arity="2"/>
+      <name name="join" arity="2" since=""/>
       <fsummary>Join two filename components with directory separators.
       </fsummary>
       <desc>
@@ -473,7 +487,7 @@ true
     </func>
 
     <func>
-      <name name="nativename" arity="1"/>
+      <name name="nativename" arity="1" since=""/>
       <fsummary>Return the native form of a file path.</fsummary>
       <desc>
         <p>Converts <c><anno>Path</anno></c> to a form accepted by the command
@@ -492,7 +506,7 @@ true
     </func>
 
     <func>
-      <name name="pathtype" arity="1"/>
+      <name name="pathtype" arity="1" since=""/>
       <fsummary>Return the path type.</fsummary>
       <desc>
         <p>Returns the path type, which is one of the following:</p>
@@ -522,8 +536,8 @@ true
     </func>
 
     <func>
-      <name name="rootname" arity="1"/>
-      <name name="rootname" arity="2"/>
+      <name name="rootname" arity="1" since=""/>
+      <name name="rootname" arity="2" since=""/>
       <fsummary>Remove a filename extension.</fsummary>
       <desc>
         <p>Removes a filename extension. <c>rootname/2</c> works as
@@ -543,7 +557,7 @@ true
     </func>
 
     <func>
-      <name name="safe_relative_path" arity="1"/>
+      <name name="safe_relative_path" arity="1" since="OTP 19.3"/>
       <fsummary>Sanitize a relative path to avoid directory traversal attacks.</fsummary>
       <desc>
         <p>Sanitizes the relative path by eliminating ".." and "."
@@ -570,7 +584,7 @@ unsafe</pre>
     </func>
 
     <func>
-      <name name="split" arity="1"/>
+      <name name="split" arity="1" since=""/>
       <fsummary>Split a filename into its path components.</fsummary>
       <desc>
         <p>Returns a list whose elements are the path components of

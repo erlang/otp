@@ -989,8 +989,7 @@ erts_proc_sig_fetch(Process *proc)
     Sint res = 0;
     ErtsSignal *sig;
 
-    ERTS_LC_ASSERT(erts_thr_progress_is_blocking()
-                   || ERTS_PROC_IS_EXITING(proc)
+    ERTS_LC_ASSERT(ERTS_PROC_IS_EXITING(proc)
                    || ((erts_proc_lc_my_proc_locks(proc)
                         & (ERTS_PROC_LOCK_MAIN
                            | ERTS_PROC_LOCK_MSGQ))

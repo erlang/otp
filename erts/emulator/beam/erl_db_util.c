@@ -497,6 +497,7 @@ static erts_atomic32_t trace_control_word;
 /* This needs to be here, before the bif table... */
 
 static Eterm db_set_trace_control_word_fake_1(BIF_ALIST_1);
+static Eterm db_length_1(BIF_ALIST_1);
 
 /*
 ** The table of callable bif's, i e guard bif's and 
@@ -603,7 +604,7 @@ static DMCGuardBif guard_tab[] =
     },
     {
 	am_length,
-	&length_1,
+	&db_length_1,
 	1,
 	DBIF_ALL
     },
@@ -969,6 +970,26 @@ BIF_RETTYPE db_set_trace_control_word(Process *p, Eterm new)
 BIF_RETTYPE db_set_trace_control_word_1(BIF_ALIST_1)
 {
     BIF_RET(db_set_trace_control_word(BIF_P, BIF_ARG_1));
+}
+
+/*
+ * Implementation of length/1 for match specs (non-trapping).
+ */
+static Eterm db_length_1(BIF_ALIST_1)
+{
+    Eterm list;
+    Uint i;
+
+    list = BIF_ARG_1;
+    i = 0;
+    while (is_list(list)) {
+	i++;
+	list = CDR(list_val(list));
+    }
+    if (is_not_nil(list)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(make_small(i));
 }
 
 static Eterm db_set_trace_control_word_fake_1(BIF_ALIST_1)
@@ -2470,7 +2491,7 @@ restart:
 	case matchProcessDump: {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(0);
             ASSERT(c_p == self);
-	    print_process_info(ERTS_PRINT_DSBUF, (void *) dsbufp, c_p);
+	    print_process_info(ERTS_PRINT_DSBUF, (void *) dsbufp, c_p, ERTS_PROC_LOCK_MAIN);
 	    *esp++ = new_binary(build_proc, (byte *)dsbufp->str,
 				dsbufp->str_len);
 	    erts_destroy_tmp_dsbuf(dsbufp);
@@ -2770,9 +2791,7 @@ Eterm db_format_dmc_err_info(Process *p, DMCErrInfo *ei)
 	    sys_strcpy(buff,tmp->error_string);
 	sl = sys_strlen(buff);
 	shp = HAlloc(p, sl * 2 + 5);
-	sev = (tmp->severity == dmcWarning) ? 
-	    am_atom_put("warning",7) :
-	    am_error;
+	sev = (tmp->severity == dmcWarning) ? am_warning : am_error;
 	tlist = buf_to_intlist(&shp, buff, sl, NIL);
 	tpl = TUPLE2(shp, sev, tlist);
 	shp += 3;
@@ -3120,9 +3139,7 @@ void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
     Uint new_sz = offset + db_size_dbterm_comp(tb, obj);
     byte* basep;
     DbTerm* newp;
-#ifdef DEBUG
     byte* top;
-#endif
 
     ASSERT(tb->compress);
     if (old != 0) {
@@ -3144,11 +3161,8 @@ void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
     }
 
     newp->size = size_object(obj);
-#ifdef DEBUG
-    top = 
-#endif
-	copy_to_comp(tb, obj, newp, new_sz);
-    ASSERT(top <= basep + new_sz);
+    top = copy_to_comp(tb, obj, newp, new_sz);
+    ASSERT(top <= basep + new_sz); (void)top;
 
     /* ToDo: Maybe realloc if ((basep+new_sz) - top) > WASTED_SPACE_LIMIT */
 
@@ -5180,7 +5194,7 @@ BIF_RETTYPE match_spec_test_3(BIF_ALIST_3)
 {
     Eterm res;
 #ifdef DMC_DEBUG
-    if (BIF_ARG_3 == am_atom_put("dis",3)) {
+    if (BIF_ARG_3 == ERTS_MAKE_AM("dis")) {
 	test_disassemble_next = 1;
 	BIF_RET(am_true);
     } else
@@ -5291,7 +5305,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	    erts_free(ERTS_ALC_T_DB_TMP, arr);
 	}
 	erts_bin_free(mps);
-	ret = TUPLE4(hp, am_atom_put("ok",2), res, flg, lint_res);
+	ret = TUPLE4(hp, am_ok, res, flg, lint_res);
     }
     return ret;
 }

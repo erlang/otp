@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpc.xml</file>
   </header>
-  <module>snmpc</module>
+  <module since="">snmpc</module>
   <modulesummary>Interface Functions to the SNMP toolkit MIB compiler</modulesummary>
   <description>
     <p>The module <c>snmpc</c> contains interface functions to the 
@@ -43,8 +43,8 @@
 
   <funcs>
     <func>
-      <name>compile(File)</name>
-      <name>compile(File, Options) -> {ok, BinFileName} | {error, Reason}</name>
+      <name since="">compile(File)</name>
+      <name since="">compile(File, Options) -> {ok, BinFileName} | {error, Reason}</name>
       <fsummary>Compile the specified MIB</fsummary>
       <type>
         <v>File = string()</v>
@@ -236,7 +236,7 @@
     </func>
 
     <func>
-      <name>is_consistent(Mibs) -> ok | {error, Reason}</name>
+      <name since="">is_consistent(Mibs) -> ok | {error, Reason}</name>
       <fsummary>Check for OID conflicts between MIBs</fsummary>
       <type>
         <v>Mibs = [MibName]</v>
@@ -252,7 +252,7 @@
     </func>
 
     <func>
-      <name>mib_to_hrl(MibName) -> ok | {error, Reason}</name>
+      <name since="">mib_to_hrl(MibName) -> ok | {error, Reason}</name>
       <fsummary>Generate constants for the objects in the MIB</fsummary>
       <type>
         <v>MibName = string()</v>

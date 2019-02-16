@@ -179,15 +179,13 @@ int erl_xconnect(Erl_IpAddr addr, char *alivename)
  *
  *  API: erl_close_connection()
  *
- *  Close a connection. FIXME call ei_close_connection() later. 
- *
  *  Returns 0 on success and -1 on failure.
  *
  ***************************************************************************/
 
 int erl_close_connection(int fd)
 {
-    return closesocket(fd);
+    return ei_close_connection(fd);
 }
 
 /*
@@ -220,7 +218,10 @@ int erl_reg_send(int fd, char *server_name, ETERM *msg)
     ei_x_buff x;
     int r;
 
-    ei_x_new_with_version(&x);
+    if (ei_x_new_with_version(&x) < 0) {
+        erl_errno = ENOMEM;
+        return 0;
+    }
     if (ei_x_encode_term(&x, msg) < 0) {
 	erl_errno = EINVAL;
 	r = 0;

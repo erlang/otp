@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -251,7 +251,7 @@ pollset_size(Config) when is_list(Config) ->
 	  end.
 
 check_io_debug(Config) when is_list(Config) ->
-    case lists:keysearch(name, 1, erlang:system_info(check_io)) of
+    case lists:keysearch(name, 1, hd(erlang:system_info(check_io))) of
 	      {value, {name, erts_poll}} -> check_io_debug_test();
 	      _ -> {skipped, "Not implemented in this emulator"}
 	  end.

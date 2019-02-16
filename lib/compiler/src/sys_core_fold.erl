@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@
               t=#{} :: map(),                       %Types
               in_guard=false}).                     %In guard or not.
 
--type type_info() :: cerl:cerl() | 'bool' | 'integer'.
+-type type_info() :: cerl:cerl() | 'bool' | 'integer' | {'fun', pos_integer()}.
 -type yes_no_maybe() :: 'yes' | 'no' | 'maybe'.
 -type sub() :: #sub{}.
 
@@ -115,13 +115,6 @@ module(#c_module{defs=Ds0}=Mod, Opts) ->
     {ok,Mod#c_module{defs=Ds1},get_warnings()}.
 
 function_1({#c_var{name={F,Arity}}=Name,B0}) ->
-    %% Find a suitable starting value for the variable counter. Note
-    %% that this pass assumes that new_var_name/1 returns a variable
-    %% name distinct from any variable used in the entire body of
-    %% the function. We use integers as variable names to avoid
-    %% filling up the atom table when compiling huge functions.
-    Count = cerl_trees:next_free_variable_name(B0),
-    put(new_var_num, Count),
     try
         %% Find a suitable starting value for the variable
         %% counter. Note that this pass assumes that new_var_name/1
@@ -352,7 +345,12 @@ expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
     void();
 expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
     Fs1 = map(fun ({Name,Fb}) ->
-		      {Name,expr(Fb, {letrec,Ctxt}, Sub)}
+                      case Ctxt =:= effect andalso is_fun_effect_safe(Name, B0) of
+                          true ->
+                              {Name,expr(Fb, {letrec, effect}, Sub)};
+                          false ->
+                              {Name,expr(Fb, {letrec, value}, Sub)}
+                      end
 	      end, Fs0),
     B1 = body(B0, Ctxt, Sub),
     Letrec#c_letrec{defs=Fs1,body=B1};
@@ -480,8 +478,100 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
 	false ->
 	    {Evs1,Sub2} = var_list(Evs0, Sub0),
 	    H1 = body(H0, value, Sub2),
-	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H1}
+	    H2 = opt_try_handler(H1, lists:last(Evs1)),
+	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H2}
     end.
+
+%% Attempts to convert old erlang:get_stacktrace/0 calls into the new
+%% three-argument catch, with possibility of further optimisations.
+opt_try_handler(#c_call{anno=A,module=#c_literal{val=erlang},name=#c_literal{val=get_stacktrace},args=[]}, Var) ->
+    #c_primop{anno=A,name=#c_literal{val=build_stacktrace},args=[Var]};
+opt_try_handler(#c_case{clauses=Cs0} = Case, Var) ->
+    Cs = [C#c_clause{body=opt_try_handler(B, Var)} || #c_clause{body=B} = C <- Cs0],
+    Case#c_case{clauses=Cs};
+opt_try_handler(#c_let{arg=Arg} = Let, Var) ->
+    Let#c_let{arg=opt_try_handler(Arg, Var)};
+opt_try_handler(X, _) -> X.
+
+%% If a fun or its application is used as an argument, then it's unsafe to
+%% handle it in effect context as the side-effects may rely on its return
+%% value. The following is a minimal example of where it can go wrong:
+%%
+%% do letrec 'f'/0 = fun () -> ... whatever ...
+%%      in call 'side':'effect'(apply 'f'/0())
+%%   'ok'
+%%
+%% This function returns 'true' if Body definitely does not rely on a
+%% value produced by FVar, or 'false' if Body depends on or might depend on
+%% a value produced by FVar.
+
+is_fun_effect_safe(#c_var{}=FVar, Body) ->
+    ifes_1(FVar, Body, true).
+
+ifes_1(FVar, #c_alias{pat=Pat}, _Safe) ->
+    ifes_1(FVar, Pat, false);
+ifes_1(FVar, #c_apply{op=Op,args=Args}, Safe) ->
+    %% FVar(...) is safe as long its return value is ignored, but it's never
+    %% okay to pass FVar as an argument.
+    ifes_list(FVar, Args, false) andalso ifes_1(FVar, Op, Safe);
+ifes_1(FVar, #c_binary{segments=Segments}, _Safe) ->
+    ifes_list(FVar, Segments, false);
+ifes_1(FVar, #c_bitstr{val=Val,size=Size,unit=Unit}, _Safe) ->
+    ifes_list(FVar, [Val, Size, Unit], false);
+ifes_1(FVar, #c_call{args=Args}, _Safe) ->
+    ifes_list(FVar, Args, false);
+ifes_1(FVar, #c_case{arg=Arg,clauses=Clauses}, Safe) ->
+    ifes_1(FVar, Arg, false) andalso ifes_list(FVar, Clauses, Safe);
+ifes_1(FVar, #c_catch{body=Body}, _Safe) ->
+    ifes_1(FVar, Body, false);
+ifes_1(FVar, #c_clause{pats=Pats,guard=Guard,body=Body}, Safe) ->
+    ifes_list(FVar, Pats, false) andalso
+        ifes_1(FVar, Guard, false) andalso
+        ifes_1(FVar, Body, Safe);
+ifes_1(FVar, #c_cons{hd=Hd,tl=Tl}, _Safe) ->
+    ifes_1(FVar, Hd, false) andalso ifes_1(FVar, Tl, false);
+ifes_1(FVar, #c_fun{body=Body}, _Safe) ->
+    ifes_1(FVar, Body, false);
+ifes_1(FVar, #c_let{arg=Arg,body=Body}, Safe) ->
+    ifes_1(FVar, Arg, false) andalso ifes_1(FVar, Body, Safe);
+ifes_1(FVar, #c_letrec{defs=Defs,body=Body}, Safe) ->
+    Funs = [Fun || {_,Fun} <- Defs],
+    ifes_list(FVar, Funs, false) andalso ifes_1(FVar, Body, Safe);
+ifes_1(_FVar, #c_literal{}, _Safe) ->
+    true;
+ifes_1(FVar, #c_map{arg=Arg,es=Elements}, _Safe) ->
+    ifes_1(FVar, Arg, false) andalso ifes_list(FVar, Elements, false);
+ifes_1(FVar, #c_map_pair{key=Key,val=Val}, _Safe) ->
+    ifes_1(FVar, Key, false) andalso ifes_1(FVar, Val, false);
+ifes_1(FVar, #c_primop{args=Args}, _Safe) ->
+    ifes_list(FVar, Args, false);
+ifes_1(FVar, #c_receive{timeout=Timeout,action=Action,clauses=Clauses}, Safe) ->
+    ifes_1(FVar, Timeout, false) andalso
+        ifes_1(FVar, Action, Safe) andalso
+        ifes_list(FVar, Clauses, Safe);
+ifes_1(FVar, #c_seq{arg=Arg,body=Body}, Safe) ->
+    %% Arg of a #c_seq{} has no effect so it's okay to use FVar there even if
+    %% Safe=false.
+    ifes_1(FVar, Arg, true) andalso ifes_1(FVar, Body, Safe);
+ifes_1(FVar, #c_try{arg=Arg,handler=Handler,body=Body}, Safe) ->
+    ifes_1(FVar, Arg, false) andalso
+        ifes_1(FVar, Handler, Safe) andalso
+        ifes_1(FVar, Body, Safe);
+ifes_1(FVar, #c_tuple{es=Elements}, _Safe) ->
+    ifes_list(FVar, Elements, false);
+ifes_1(FVar, #c_values{es=Elements}, _Safe) ->
+    ifes_list(FVar, Elements, false);
+ifes_1(#c_var{name=Name}, #c_var{name=Name}, Safe) ->
+    %% It's safe to return FVar if it's unused.
+    Safe;
+ifes_1(_FVar, #c_var{}, _Safe) ->
+    true.
+
+ifes_list(FVar, [E|Es], Safe) ->
+    ifes_1(FVar, E, Safe) andalso ifes_list(FVar, Es, Safe);
+ifes_list(_FVar, [], _Safe) ->
+    true.
+
 
 expr_list(Es, Ctxt, Sub) ->
     [expr(E, Ctxt, Sub) || E <- Es].
@@ -883,6 +973,10 @@ fold_non_lit_args(Call, erlang, setelement, [Arg1,Arg2,Arg3], _) ->
     eval_setelement(Call, Arg1, Arg2, Arg3);
 fold_non_lit_args(Call, erlang, is_record, [Arg1,Arg2,Arg3], Sub) ->
     eval_is_record(Call, Arg1, Arg2, Arg3, Sub);
+fold_non_lit_args(Call, erlang, is_function, [Arg1], Sub) ->
+    eval_is_function_1(Call, Arg1, Sub);
+fold_non_lit_args(Call, erlang, is_function, [Arg1,Arg2], Sub) ->
+    eval_is_function_2(Call, Arg1, Arg2, Sub);
 fold_non_lit_args(Call, erlang, N, Args, Sub) ->
     NumArgs = length(Args),
     case erl_internal:comp_op(N, NumArgs) of
@@ -897,6 +991,22 @@ fold_non_lit_args(Call, erlang, N, Args, Sub) ->
 	    end
     end;
 fold_non_lit_args(Call, _, _, _, _) -> Call.
+
+eval_is_function_1(Call, Arg1, Sub) ->
+    case get_type(Arg1, Sub) of
+        none -> Call;
+        {'fun',_} -> #c_literal{anno=cerl:get_ann(Call),val=true};
+        _ -> #c_literal{anno=cerl:get_ann(Call),val=false}
+    end.
+
+eval_is_function_2(Call, Arg1, #c_literal{val=Arity}, Sub)
+  when is_integer(Arity), Arity > 0 ->
+    case get_type(Arg1, Sub) of
+        none -> Call;
+        {'fun',Arity} -> #c_literal{anno=cerl:get_ann(Call),val=true};
+        _ -> #c_literal{anno=cerl:get_ann(Call),val=false}
+    end;
+eval_is_function_2(Call, _Arg1, _Arg2, _Sub) -> Call.
 
 %% Evaluate a relational operation using type information.
 eval_rel_op(Call, Op, [#c_var{name=V},#c_var{name=V}], _) ->
@@ -1275,13 +1385,18 @@ let_subst_list([], [], _) -> {[],[],[]}.
 %%pattern(Pat, Sub) -> pattern(Pat, Sub, Sub).
 
 pattern(#c_var{}=Pat, Isub, Osub) ->
-    case sub_is_val(Pat, Isub) of
+    case sub_is_in_scope(Pat, Isub) of
 	true ->
+            %% This variable either has a substitution or is used in
+            %% the variable list of an enclosing `let`. In either
+            %% case, it must be renamed to an unused name to avoid
+            %% name capture problems.
 	    V1 = make_var_name(),
 	    Pat1 = #c_var{name=V1},
 	    {Pat1,sub_set_var(Pat, Pat1, sub_add_scope([V1], Osub))};
 	false ->
-	    {Pat,sub_del_var(Pat, Osub)}
+            %% This variable has never been used. Add it to the scope.
+	    {Pat,sub_add_scope([Pat#c_var.name], Osub)}
     end;
 pattern(#c_literal{}=Pat, _, Osub) -> {Pat,Osub};
 pattern(#c_cons{anno=Anno,hd=H0,tl=T0}, Isub, Osub0) ->
@@ -1460,8 +1575,8 @@ is_subst(_) -> false.
 %% sub_set_name(Name, Value, #sub{}) -> #sub{}.
 %% sub_del_var(Var, #sub{}) -> #sub{}.
 %% sub_subst_var(Var, Value, #sub{}) -> [{Name,Value}].
-%% sub_is_val(Var, #sub{}) -> boolean().
-%% sub_add_scope(#sub{}) -> #sub{}
+%% sub_is_in_scope(Var, #sub{}) -> boolean().
+%% sub_add_scope([Var], #sub{}) -> #sub{}
 %% sub_subst_scope(#sub{}) -> #sub{}
 %%
 %%  We use the variable name as key so as not have problems with
@@ -1496,18 +1611,6 @@ sub_set_name(V, Val, #sub{v=S,s=Scope,t=Tdb0}=Sub) ->
     Tdb = copy_type(V, Val, Tdb1),
     Sub#sub{v=orddict:store(V, Val, S),s=cerl_sets:add_element(V, Scope),t=Tdb}.
 
-sub_del_var(#c_var{name=V}, #sub{v=S,s=Scope,t=Tdb}=Sub) ->
-    %% Profiling shows that for programs with many record operations,
-    %% sub_del_var/2 is a bottleneck. Since the scope contains all
-    %% variables that are live, we know that V cannot be present in S
-    %% if it is not in the scope.
-    case cerl_sets:is_element(V, Scope) of
-	false ->
-	    Sub#sub{s=cerl_sets:add_element(V, Scope)};
-	true ->
-	    Sub#sub{v=orddict:erase(V, S),t=kill_types(V, Tdb)}
-    end.
-
 sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
     %% Fold chained substitutions.
     [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
@@ -1533,16 +1636,8 @@ sub_subst_scope_1([H|T], Key, Acc) ->
     sub_subst_scope_1(T, Key-1, [{Key,#c_var{name=H}}|Acc]);
 sub_subst_scope_1([], _, Acc) -> Acc.
 
-sub_is_val(#c_var{name=V}, #sub{v=S,s=Scope}) ->
-    %% When the bottleneck in sub_del_var/2 was eliminated, this
-    %% became the new bottleneck. Since the scope contains all
-    %% live variables, a variable V can only be the target for
-    %% a substitution if it is in the scope.
-    cerl_sets:is_element(V, Scope) andalso v_is_value(V, S).
-
-v_is_value(Var, [{_,#c_var{name=Var}}|_]) -> true;
-v_is_value(Var, [_|T]) -> v_is_value(Var, T);
-v_is_value(_, []) -> false.
+sub_is_in_scope(#c_var{name=V}, #sub{s=Scope}) ->
+    cerl_sets:is_element(V, Scope).
 
 %% warn_no_clause_match(CaseOrig, CaseOpt) -> ok
 %%  Generate a warning if none of the user-specified clauses
@@ -2572,12 +2667,20 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
         #c_call{module=#c_literal{val=erlang},
                 name=#c_literal{val=raise},
                 args=[Class,Exp,#c_var{name=Cooked}]} ->
-            %% The stacktrace is only used in a call to erlang:raise/3.
-            %% There is no need to build the stacktrace. Replace the
-            %% call to erlang:raise/3 with the the raw_raise/3 instruction,
-            %% which will use a raw stacktrace.
-            #c_primop{name=#c_literal{val=raw_raise},
-                      args=[Class,Exp,RawStk]};
+            case core_lib:is_var_used(Cooked, #c_cons{hd=Class,tl=Exp}) of
+                true ->
+                    %% Not safe. The stacktrace is used in the class or
+                    %% reason.
+                    Let;
+                false ->
+                    %% The stacktrace is only used in the last
+                    %% argument for erlang:raise/3. There is no need
+                    %% to build the stacktrace. Replace the call to
+                    %% erlang:raise/3 with the the raw_raise/3
+                    %% instruction, which will use a raw stacktrace.
+                    #c_primop{name=#c_literal{val=raw_raise},
+                              args=[Class,Exp,RawStk]}
+            end;
         #c_let{vars=[#c_var{name=V}],arg=Arg,body=B0} when V =/= Cooked ->
             case core_lib:is_var_used(Cooked, Arg) of
                 false ->
@@ -3120,6 +3223,10 @@ update_types_2(V, [#c_tuple{}=P], Types) ->
     Types#{V=>P};
 update_types_2(V, [#c_literal{val=Bool}], Types) when is_boolean(Bool) ->
     Types#{V=>bool};
+update_types_2(V, [#c_fun{vars=Vars}], Types) ->
+    Types#{V=>{'fun',length(Vars)}};
+update_types_2(V, [#c_var{name={_,Arity}}], Types) ->
+    Types#{V=>{'fun',Arity}};
 update_types_2(V, [Type], Types) when is_atom(Type) ->
     Types#{V=>Type};
 update_types_2(_, _, Types) -> Types.
@@ -3138,6 +3245,8 @@ kill_types2(V, [{_,#c_tuple{}=Tuple}=Entry|Tdb]) ->
 	false -> [Entry|kill_types2(V, Tdb)];
 	true -> kill_types2(V, Tdb)
     end;
+kill_types2(V, [{_, {'fun',_}}=Entry|Tdb]) ->
+    [Entry|kill_types2(V, Tdb)];
 kill_types2(V, [{_,Atom}=Entry|Tdb]) when is_atom(Atom) ->
     [Entry|kill_types2(V, Tdb)];
 kill_types2(_, []) -> [].

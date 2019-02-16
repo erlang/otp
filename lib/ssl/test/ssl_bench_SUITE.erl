@@ -25,10 +25,11 @@
 
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
-all() -> [{group, setup}, {group, payload}, {group, pem_cache}].
+all() -> [{group, basic}, {group, setup}, {group, payload}, {group, pem_cache}].
 
 groups() ->
-    [{setup, [{repeat, 3}], [setup_sequential, setup_concurrent]},
+    [{basic, [], [basic_pem_cache]},
+     {setup, [{repeat, 3}], [setup_sequential, setup_concurrent]},
      {payload, [{repeat, 3}], [payload_simple]},
      {pem_cache, [{repeat, 3}], [use_pem_cache, bypass_pem_cache]}
     ].
@@ -44,35 +45,28 @@ init_per_suite(Config) ->
         nonode@nohost ->
             {skipped, "Node not distributed"};
         _ ->
+            ssl_test_lib:clean_start(),
             [{server_node, ssl_bench_test_lib:setup(perf_server)}|Config]
     end.
 
 end_per_suite(_Config) ->
     ok.
 
-init_per_testcase(use_pem_cache, Conf) ->
+init_per_testcase(TC, Conf) when TC =:= use_pem_cache;
+                                 TC =:= bypass_pem_cache;
+                                 TC =:= basic_pem_cache ->
     case bypass_pem_cache_supported() of
         false -> {skipped, "PEM cache bypass support required"};
         true ->
             application:set_env(ssl, bypass_pem_cache, false),
             Conf
     end;
-init_per_testcase(bypass_pem_cache, Conf) ->
-    case bypass_pem_cache_supported() of
-        false -> {skipped, "PEM cache bypass support required"};
-        true ->
-            application:set_env(ssl, bypass_pem_cache, true),
-            Conf
-    end;
 init_per_testcase(_Func, Conf) ->
     Conf.
 
-end_per_testcase(use_pem_cache, _Config) ->
-    case bypass_pem_cache_supported() of
-        false -> ok;
-        true -> application:set_env(ssl, bypass_pem_cache, false)
-    end;
-end_per_testcase(bypass_pem_cache, _Config) ->
+end_per_testcase(TC, _Config) when TC =:= use_pem_cache;
+                                   TC =:= bypass_pem_cache;
+                                   TC =:= basic_pem_cache ->
     case bypass_pem_cache_supported() of
         false -> ok;
         true -> application:set_env(ssl, bypass_pem_cache, false)
@@ -117,6 +111,9 @@ payload_simple(Config) ->
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Payload simple"}]}),
     ok.
+
+basic_pem_cache(_Config) ->
+    do_test(ssl, pem_cache, 10, 5, node()).
 
 use_pem_cache(_Config) ->
     {ok, Result} = do_test(ssl, pem_cache, 100, 500, node()),

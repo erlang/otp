@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2009</year><year>2017</year>
+      <year>2009</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,53 @@
   </header>
   <p>This document describes the changes made to the wxErlang
     application.</p>
+
+<section><title>Wx 1.8.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed delayed delete bug which caused wx applications to
+	    crash on Mojave.</p>
+          <p>
+	    Own Id: OTP-15426 Aux Id: ERL-755 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed compilation warning on Darwin.</p>
+          <p>
+	    Own Id: OTP-15230 Aux Id: PR-1860 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changed implementation so wx can now be built towards
+	    wxWidgets-3.1.1.</p>
+          <p>
+	    Own Id: OTP-15027</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Wx 1.8.3</title>
 

@@ -48,6 +48,8 @@ send_format(char* format)
 
 TESTCASE(atoms)
 {
+    ei_init();
+
     send_format("''");
     send_format("'a'");
     send_format("'A'");
@@ -82,6 +84,8 @@ TESTCASE(atoms)
 
 TESTCASE(tuples)
 {
+    ei_init();
+
     send_format("{}");
     send_format("{a}");
     send_format("{a, b}");
@@ -107,6 +111,8 @@ TESTCASE(lists)
 */
     ei_x_buff x;
     static char str[65537];
+
+    ei_init();
 
     send_format("[]");
     send_format("[a]");
@@ -177,6 +183,8 @@ TESTCASE(format_wo_ver) {
  */
     ei_x_buff x;
     
+    ei_init();
+
     ei_x_new (&x);
     ei_x_format(&x, "[-1, +2, ~c, {~a,~s},{~a,~i}]", 'c', "a", "b", "c", 10);
     send_bin_term(&x);

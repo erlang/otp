@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2017. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,18 +52,17 @@ XML_REF3_EFILES = \
 	erlang.xml \
 	erl_tracer.xml \
 	init.xml \
+	persistent_term.xml \
+	atomics.xml \
+	counters.xml \
 	zlib.xml
 
 XML_REF3_FILES = \
+	$(XML_REF3_EFILES) \
 	driver_entry.xml \
 	erl_nif.xml \
-	erl_tracer.xml \
 	erl_driver.xml \
-	erl_prim_loader.xml \
-	erlang.xml \
-	erts_alloc.xml  \
-	init.xml \
-	zlib.xml
+	erts_alloc.xml
 
 XML_PART_FILES = \
 	part.xml
@@ -149,6 +148,7 @@ debug opt:
 
 clean:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)

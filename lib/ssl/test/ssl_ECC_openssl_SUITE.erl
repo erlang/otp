@@ -57,13 +57,13 @@ all_groups() ->
 groups() ->
     case ssl_test_lib:openssl_sane_dtls() of 
         true ->
-            [{'tlsv1.2', [], test_cases()},
+            [{'tlsv1.2', [], [mix_sign | test_cases()]},
              {'tlsv1.1', [], test_cases()},
              {'tlsv1', [], test_cases()},
-             {'dtlsv1.2', [], test_cases()},
+             {'dtlsv1.2', [],  [mix_sign | test_cases()]},
              {'dtlsv1', [], test_cases()}];
         false ->
-            [{'tlsv1.2', [], test_cases()},
+            [{'tlsv1.2', [], [mix_sign | test_cases()]},
              {'tlsv1.1', [], test_cases()},
              {'tlsv1', [], test_cases()}]
     end.
@@ -157,7 +157,7 @@ init_per_testcase(TestCase, Config) ->
     ct:log("Ciphers: ~p~n ", [ssl:cipher_suites(default, Version)]),
     end_per_testcase(TestCase, Config),
     ssl:start(),
-    ct:timetrap({seconds, 15}),
+    ct:timetrap({seconds, 30}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     
@@ -202,6 +202,17 @@ client_ecdh_ecdsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
     ssl_ECC:client_ecdh_ecdsa_server_ecdhe_ecdsa(Config).
 client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
      ssl_ECC:client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config).
+
+mix_sign(Config) ->
+    {COpts0, SOpts0} = ssl_test_lib:make_mix_cert(Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECDHE_ECDSA =
+        ssl:filter_cipher_suites(ssl:cipher_suites(default, 'tlsv1.2'), 
+                                 [{key_exchange, fun(ecdhe_ecdsa) -> true; (_) -> false end}]),
+    ssl_test_lib:basic_test(COpts, [{ciphers, ECDHE_ECDSA} | SOpts], [{client_type, erlang},
+                                                                      {server_type, openssl} | Config]).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------

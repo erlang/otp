@@ -63,7 +63,7 @@
       <list type="bulleted">
         <item>
           <p>The erlang odbc process will now die normally if a
-            connection can not be established. No connection no
+            connection cannot be established. No connection no
             process it is expected. And as the client has already
             received the error message that would be the reason with
             which the erlang process would be stopped, the supervisor
@@ -193,7 +193,7 @@
         </item>
         <item>
           <p>The erlang odbc process will now die normally if a
-            connection can not be established. No connection no
+            connection cannot be established. No connection no
             process it is expected. And as the client has already
             received the error message that would be the reason with
             which the erlang process would be stopped, the supervisor

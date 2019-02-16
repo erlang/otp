@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1393,7 +1393,7 @@ temp_nodename([Chr|Base], Acc) ->
 %%
 %% Counts the test cases that are about to run and returns that number.
 %% If there's a conf group in TestSpec with a repeat property, the total number
-%% of cases can not be calculated and NoOfCases = unknown.
+%% of cases cannot be calculated and NoOfCases = unknown.
 count_test_cases(TopCases, SkipCases) when is_list(TopCases) ->
     case collect_all_cases(TopCases, SkipCases) of
 	{error,_Why} = Error ->
@@ -1558,7 +1558,7 @@ do_test_cases(TopCases, SkipCases,
 			 Html1}
 		end,
 
-	    print(html, Header),
+	    print(html, "~ts", [Header]),
 
 	    print(html, xhtml("<p>", "<h4>")),
 	    print_timestamp(html, "Test started at "),
@@ -1605,10 +1605,10 @@ do_test_cases(TopCases, SkipCases,
 		  [?suitelog_name,CoverLog,?unexpected_io_log]),
 	    print(html,
 		  "<p>~ts</p>\n" ++
-		  xhtml(["<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">\n",
-			 "<thead>\n"],
-			["<table id=\"",?sortable_table_name,"\">\n",
-			 "<thead>\n"]) ++
+		  xhtml("<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">\n" ++
+			 "<thead>\n",
+			"<table id=\"" ++ ?sortable_table_name ++ "\">\n" ++
+			 "<thead>\n") ++
 		      "<tr><th>Num</th><th>Module</th><th>Group</th>" ++
 		      "<th>Case</th><th>Log</th><th>Time</th><th>Result</th>" ++
 		      "<th>Comment</th></tr>\n</thead>\n<tbody>\n",
@@ -3306,7 +3306,8 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
        true ->
 	    print(2,"*** Skipping test case #~w ~tw ***", [CaseNum,{Mod,Func}])
     end,
-    TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),	       
+    TR = xhtml("<tr valign=\"top\">",
+               "<tr class=\"" ++ odd_or_even() ++ "\">"),
     GroupName =	case get_name(Mode) of
 		    undefined -> "";
 		    Name      -> cast_to_list(Name)
@@ -3796,8 +3797,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     end,
 
     print(minor,
-	  escape_chars(io_lib:format("Config value:\n\n    ~tp\n", [Args2Print])),
-	  []),
+          "~ts",
+	  [escape_chars(io_lib:format("Config value:\n\n    ~tp\n", [Args2Print]))]),
     print(minor, "Current directory is ~tp\n", [Cwd]),
 
     GrNameStr =	case GrName of
@@ -3806,7 +3807,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		end,
     print(major, "=started       ~s", [lists:flatten(timestamp_get(""))]),
     {{Col0,Col1},Style} = get_font_style((RunInit==run_init), Mode),
-    TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),
+    TR = xhtml("<tr valign=\"top\">", "<tr class=\"" ++ odd_or_even() ++ "\">"),
     EncMinorBase = uri_encode(MinorBase),
     print(html,	TR ++ "<td>" ++ Col0 ++ "~ts" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "~w" ++ Col1 ++ "</td>"
@@ -3831,7 +3832,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     print(minor, "<a name=\"end\"></a>", [], internal_raw),
     print(minor, "\n", [], internal_raw),
     print_timestamp(minor, "Ended at "),
-    print(major, "=ended         ~s", [lists:flatten(timestamp_get(""))]),
+    print(major, "=ended         ~s", [timestamp_get("")]),
 
     do_unless_parallel(Main, fun() -> file:set_cwd(filename:dirname(TSDir)) end),
 
@@ -4075,9 +4076,9 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor,
-	  escape_chars(io_lib:format("=== Reason: {testcase_aborted,~tp}",
-				     [Reason])),
-	  []),
+          "~ts",
+	  [escape_chars(io_lib:format("=== Reason: {testcase_aborted,~tp}",
+				     [Reason]))]),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
@@ -4115,8 +4116,8 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
     print(minor, "=== Location: ~w", [unknown]),
     {FStr,FormattedReason} = format_exception(Reason),
     print(minor,
-	  escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason])),
-	  []),
+          "~ts",
+	  [escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason]))]),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
@@ -4150,8 +4151,9 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
     FormatLoc = test_server_sup:format_loc(LocMin),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     {FStr,FormattedReason} = format_exception(Reason),
-    print(minor, "=== Reason: " ++
-	      escape_chars(io_lib:format(FStr, [FormattedReason])), []),
+    print(minor, "~ts",
+          ["=== Reason: " ++
+           escape_chars(io_lib:format(FStr, [FormattedReason]))]),
     failed;
 
 progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
@@ -4184,8 +4186,8 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	  "~ts</tr>\n",
 	  [TimeStr,Comment]),
     print(minor,
-	  escape_chars(io_lib:format("=== Returned value: ~tp", [RetVal])),
-	  []),
+          "~ts",
+	  [escape_chars(io_lib:format("=== Returned value: ~tp", [RetVal]))]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -4542,7 +4544,7 @@ timestamp_get(Leader) ->
 
 timestamp_get_internal(Leader, Format) ->
     {YY,MM,DD,H,M,S} = time_get(),
-    io_lib:format(Format, [Leader,YY,MM,DD,H,M,S]).
+    lists:flatten(io_lib:format(Format, [Leader,YY,MM,DD,H,M,S])).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% time_get() -> {YY,MM,DD,H,M,S}
@@ -4906,7 +4908,7 @@ collect_files(Dir, Pattern, St, Mode) ->
 fullname_to_mod(Path) when is_list(Path) ->
     %% If this is called with a binary, then we are probably in +fnu
     %% mode and have found a beam file with name encoded as latin1. We
-    %% will let this crash since it can not work to load such a module
+    %% will let this crash since it cannot work to load such a module
     %% anyway. It should be removed or renamed!
     list_to_atom(filename:rootname(filename:basename(Path))).
 

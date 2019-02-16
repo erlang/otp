@@ -144,6 +144,8 @@ mk_node_cmdline(ListenPort, Name, Args) ->
 	++ integer_to_list(ListenPort) ++ " "
 	++ Args ++ " "
 	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ Name ++ " "
+        ++ "-kernel inet_dist_connect_options \"[{recbuf,12582912},{sndbuf,12582912},{high_watermark,8388608},{low_watermark,4194304}]\" "
+        ++ "-kernel inet_dist_listen_options \"[{recbuf,12582912},{sndbuf,12582912},{high_watermark,8388608},{low_watermark,4194304}]\" "
 	++ "-kernel error_logger \"{file,\\\"" ++ Pwd ++ "/error_log." ++ Name ++ "\\\"}\" "
 	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()).
 
@@ -179,8 +181,9 @@ check_ssl_node_up(Socket, Name, Bin) ->
 		    Parent = self(),
 		    Go = make_ref(),
 		    %% Spawn connection handler on test server side
-		    Pid = spawn_link(
+		    Pid = spawn(
 			    fun () ->
+                                    link(group_leader()),
 				    receive Go -> ok end,
                                     process_flag(trap_exit, true),
 				    tstsrvr_con_loop(Name, Socket, Parent)

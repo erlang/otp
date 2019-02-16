@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>instrument.sgml</file>
   </header>
-  <module>instrument</module>
+  <module since="">instrument</module>
   <modulesummary>Analysis and Utility Functions for Instrumentation</modulesummary>
   <description>
     <p>The module <c>instrument</c> contains support for studying the resource
@@ -92,7 +92,7 @@
   <funcs>
 
     <func>
-      <name name="allocations" arity="0"/>
+      <name name="allocations" arity="0" since="OTP 21.0"/>
       <fsummary>Return a summary of all allocations in the system.</fsummary>
       <desc>
         <p>Shorthand for
@@ -101,7 +101,7 @@
     </func>
 
     <func>
-      <name name="allocations" arity="1"/>
+      <name name="allocations" arity="1" since="OTP 21.0"/>
       <fsummary>Return a summary of all allocations filtered by allocator type
         and scheduler id.</fsummary>
       <desc>
@@ -111,15 +111,18 @@
           default, but this can be configured an a per-allocator basis with the
           <seealso marker="erts:erts_alloc#M_atags"><c>+M&lt;S&gt;atags</c>
           </seealso> emulator option.</p>
-        <p>If tagged allocations are not enabled on any of the specified
-          allocator types, the call will fail with
-          <c>{error, not_enabled}</c>.</p>
+        <p>If the specified allocator types are not enabled, the call will fail
+          with <c>{error, not_enabled}</c>.</p>
         <p>The following options can be used:</p>
         <taglist>
           <tag><c>allocator_types</c></tag>
           <item>
-            <p>The allocator types that will be searched. Defaults to all
-              <c>alloc_util</c> allocators.</p>
+            <p>The allocator types that will be searched. Note that blocks can
+              move freely between allocator types, so restricting the search to
+              certain allocators may return unexpected types (e.g. process
+              heaps when searching binary_alloc), or hide blocks that were
+              migrated out.</p>
+            <p>Defaults to all <c>alloc_util</c> allocators.</p>
           </item>
           <tag><c>scheduler_ids</c></tag>
           <item>
@@ -170,7 +173,7 @@
     </func>
 
     <func>
-      <name name="carriers" arity="0"/>
+      <name name="carriers" arity="0" since="OTP 21.0"/>
       <fsummary>Return a list of all carriers in the system.</fsummary>
       <desc>
         <p>Shorthand for
@@ -179,7 +182,7 @@
     </func>
 
     <func>
-      <name name="carriers" arity="1"/>
+      <name name="carriers" arity="1" since="OTP 21.0"/>
       <fsummary>Return a list of all carriers filtered by allocator type and
         scheduler id.</fsummary>
       <desc>

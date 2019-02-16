@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,7 +62,8 @@ expandable_term_body(Heading,[],_Tab) ->
 	 "Dictionary" -> "No dictionary was found";
 	 "ProcState"  -> "Information could not be retrieved,"
 			     " system messages may not be handled by this process.";
-         "SaslLog"    -> "No log entry was found"
+         "SaslLog"    -> "No log entry was found";
+         "Persistent Terms" -> "No persistent terms were found"
      end];
 expandable_term_body(Heading,Expanded,Tab) ->
     Attr = "BORDER=0 CELLPADDING=0 CELLSPACING=1 WIDTH=100%",

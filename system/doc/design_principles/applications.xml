@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -185,7 +185,7 @@ ch_app:stop([])</code>
           the directory with the highest version number, if more than one
           version of an application is present.</p>
       <section>
-          <title>Directory Structure guidelines for a Development Environment</title>
+          <title>Directory Structure Guidelines for a Development Environment</title>
           <p>Any directory structure for development will suffice as long as the released directory structure
               adhere to the <seealso marker="#app_dir_released">description below</seealso>,
               but it is encouraged that the same directory structure
@@ -363,9 +363,13 @@ ok
       application are running.</p>
     <marker id="application_master"></marker>
     <p>The application controller then creates an
-    <em>application master</em> for the application. The application master
-      is the group leader of all the processes in the application.
-      The application master starts the application by calling
+      <em>application master</em> for the application. The application
+      master becomes the group leader of all the processes in the
+      application. I/O is forwarded to the previous group leader,
+      though, this is just a way to identify processes that belong to
+      the application. Used for example to find itself from any process,
+      or, reciprocally, to kill them all when it terminates.</p>
+    <p>The application master starts the application by calling
       the application callback function <c>start/2</c> in the module,
       and with the start argument, defined by the <c>mod</c> key in
       the <c>.app</c> file.</p>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include("ei_accept_SUITE_data/ei_accept_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          ei_accept/1, ei_threaded_accept/1,
          monitor_ei_process/1]).
 
@@ -38,8 +39,11 @@ all() ->
     [ei_accept, ei_threaded_accept,
      monitor_ei_process].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
+
 ei_accept(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
 
     Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
@@ -77,12 +81,10 @@ ei_accept(Config) when is_list(Config) ->
 
 ei_threaded_accept(Config) when is_list(Config) ->
     Einode = filename:join(proplists:get_value(data_dir, Config), "eiaccnode"),
-    N = 1, % 3,
+    N = 3,
     Host = atom_to_list(node()),
-    Port = 6767,
-    start_einode(Einode, N, Host, Port),
+    start_einode(Einode, N, Host),
     io:format("started eiaccnode"),
-    %%spawn_link(fun() -> start_einode(Einode, N, Host, Port) end),
     TestServerPid = self(),
     [spawn_link(fun() -> send_rec_einode(I, TestServerPid) end) || I <- lists:seq(0, N-1)],
     [receive I -> ok end || I <- lists:seq(0, N-1) ],
@@ -91,7 +93,7 @@ ei_threaded_accept(Config) when is_list(Config) ->
 
 %% Test erlang:monitor toward erl_interface "processes"
 monitor_ei_process(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
 
     Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
@@ -99,7 +101,6 @@ monitor_ei_process(Config) when is_list(Config) ->
     EINode = list_to_atom("c42@"++Myname),
     io:format("EINode ~p ~n",  [EINode]),
 
-    Self = self(),
     Port = 6543,
     {ok, ListenFd} = ei_publish(P, Port),
     MRef1 = erlang:monitor(process, {any, EINode}),
@@ -156,10 +157,9 @@ send_rec_einode(N, TestServerPid) ->
               ct:fail(EINode)
     end.
 
-start_einode(Einode, N, Host, Port) ->
+start_einode(Einode, N, Host) ->
     Einodecmd = Einode ++ " " ++ atom_to_list(erlang:get_cookie())
-    ++ " " ++ integer_to_list(N) ++ " " ++ Host ++ " "
-    ++ integer_to_list(Port) ++ " nothreads",
+    ++ " " ++ integer_to_list(N) ++ " " ++ Host,
     io:format("Einodecmd  ~p ~n", [Einodecmd]),      
     open_port({spawn, Einodecmd}, []),
     ok.

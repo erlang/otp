@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,6 +64,10 @@ void * wxe_ps_init2() {
    size_t app_len = 127;
    char app_title_buf[128];
    char * app_title;
+   size_t app_icon_len = 1023;
+   char app_icon_buf[1024];
+   char * app_icon;
+
    // Setup and enable gui
    pool = [[NSAutoreleasePool alloc] init];
 
@@ -78,9 +82,15 @@ void * wxe_ps_init2() {
       if(!GetCurrentProcess(&psn)) {
       	 CPSSetProcessName(&psn, app_title?app_title:"Erlang");
       }
-      // Load and set icon
+      // Enable setting custom application icon for Mac OS X
+      res = erl_drv_getenv("WX_APP_ICON", app_icon_buf, &app_icon_len);
       NSMutableString *file = [[NSMutableString alloc] init];
-      [file appendFormat:@"%s/%s", erl_wx_privdir, "erlang-logo64.png"];
+      if (res >= 0) {
+          [file appendFormat:@"%s", app_icon_buf];
+      } else {
+          [file appendFormat:@"%s/%s", erl_wx_privdir, "erlang-logo128.png"];
+      }
+      // Load and set icon
       NSImage *icon = [[NSImage alloc] initWithContentsOfFile: file];
       [NSApp setApplicationIconImage: icon];
    };

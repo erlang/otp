@@ -28,7 +28,7 @@
     <date>1999-10-30</date>
     <rev>PA1</rev>
   </header>
-  <module>beam_lib</module>
+  <module since="">beam_lib</module>
   <modulesummary>An interface to the BEAM file format.</modulesummary>
   <description>
     <p>This module provides an interface to files created by
@@ -180,8 +180,8 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
       <name name="beam"/>
       <desc>
         <p>Each of the functions described below accept either the
-          module name, the filename, or a binary containing the BEAM
-          module.</p>
+        filename (as a string) or a binary containing the BEAM
+        module.</p>
       </desc>
     </datatype>
     <datatype>
@@ -267,7 +267,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
 
   <funcs>
     <func>
-      <name name="all_chunks" arity="1"/>
+      <name name="all_chunks" arity="1" since="OTP 18.2"/>
       <fsummary>Read all chunks from a BEAM file or binary</fsummary>
       <desc>
         <p>Reads chunk data for all chunks.</p>
@@ -275,7 +275,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </func>
 
     <func>
-      <name name="build_module" arity="1"/>
+      <name name="build_module" arity="1" since="OTP 18.2"/>
       <fsummary>Create a BEAM module from a list of chunks.</fsummary>
       <desc>
         <p>Builds a BEAM module (as a binary) from a list of chunks.</p>
@@ -283,7 +283,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </func>
 
     <func>
-      <name name="chunks" arity="2"/>
+      <name name="chunks" arity="2" since=""/>
       <fsummary>Read selected chunks from a BEAM file or binary.</fsummary>
       <desc>
         <p>Reads chunk data for selected chunks references. The order of
@@ -293,7 +293,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </func>
 
     <func>
-      <name name="chunks" arity="3"/>
+      <name name="chunks" arity="3" since=""/>
       <fsummary>Read selected chunks from a BEAM file or binary.</fsummary>
       <desc>
         <p>Reads chunk data for selected chunks references. The order of
@@ -312,7 +312,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </func>
 
     <func>
-      <name name="clear_crypto_key_fun" arity="0"/>
+      <name name="clear_crypto_key_fun" arity="0" since=""/>
       <fsummary>Unregister the current crypto key fun.</fsummary>
       <desc>
         <p>Unregisters the crypto key fun and terminates the process
@@ -327,7 +327,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </func>
 
     <func>
-      <name name="cmp" arity="2"/>
+      <name name="cmp" arity="2" since=""/>
       <fsummary>Compare two BEAM files.</fsummary>
       <type name="cmp_rsn"/>
       <desc>
@@ -341,7 +341,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </func>
 
     <func>
-      <name name="cmp_dirs" arity="2"/>
+      <name name="cmp_dirs" arity="2" since=""/>
       <fsummary>Compare the BEAM files in two directories.</fsummary>
       <desc>
         <p>Compares the BEAM files in
@@ -359,7 +359,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </func>
 
     <func>
-      <name name="crypto_key_fun" arity="1"/>
+      <name name="crypto_key_fun" arity="1" since=""/>
       <fsummary>Register a fun that provides a crypto key.</fsummary>
       <type name="crypto_fun"/>
       <type name="crypto_fun_arg"/>
@@ -398,7 +398,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="diff_dirs" arity="2"/>
+      <name name="diff_dirs" arity="2" since=""/>
       <fsummary>Compare the BEAM files in two directories.</fsummary>
       <desc>
         <p>Compares the BEAM files in two directories as
@@ -409,7 +409,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Return an English description of a BEAM read error reply.
       </fsummary>
       <desc>
@@ -422,7 +422,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="info" arity="1"/>
+      <name name="info" arity="1" since=""/>
       <fsummary>Information about a BEAM file.</fsummary>
       <desc>
         <p>Returns a list containing some information about a BEAM file
@@ -449,7 +449,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="md5" arity="1"/>
+      <name name="md5" arity="1" since=""/>
       <fsummary>Read the module version of the BEAM file.</fsummary>
       <desc>
         <p>Calculates an MD5 redundancy check for the code of the module
@@ -458,7 +458,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="strip" arity="1"/>
+      <name name="strip" arity="1" since=""/>
       <fsummary>Remove chunks not needed by the loader from a BEAM file.
       </fsummary>
       <desc>
@@ -470,7 +470,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="strip_files" arity="1"/>
+      <name name="strip_files" arity="1" since=""/>
       <fsummary>Removes chunks not needed by the loader from BEAM files.
       </fsummary>
       <desc>
@@ -483,7 +483,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="strip_release" arity="1"/>
+      <name name="strip_release" arity="1" since=""/>
       <fsummary>Remove chunks not needed by the loader from all BEAM files of
         a release.</fsummary>
       <desc>
@@ -497,7 +497,7 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
-      <name name="version" arity="1"/>
+      <name name="version" arity="1" since=""/>
       <fsummary>Read the module version of the BEAM file.</fsummary>
       <desc>
         <p>Returns the module version or versions. A version is defined by

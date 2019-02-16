@@ -43,10 +43,10 @@
 #endif
 #ifdef HAVE_WORKING_POSIX_OPENPT
 #  ifndef _XOPEN_SOURCE
-     /* On OS X and BSD, we must leave _XOPEN_SOURCE undefined in order for
-      * the prototype of vsyslog() to be included.
+     /* On OS X, BSD and Solaris, we must leave _XOPEN_SOURCE undefined in order
+      * for the prototype of vsyslog() to be included.
       */
-#    if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__DragonFly__))
+#    if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun))
 #      define _XOPEN_SOURCE 600
 #    endif
 #  endif

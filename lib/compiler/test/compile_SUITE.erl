@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,10 +33,10 @@
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
 	 cover/1, env/1, core_pp/1, tuple_calls/1,
-	 core_roundtrip/1, asm/1, optimized_guards/1,
+	 core_roundtrip/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
-         bc_options/1
+         bc_options/1, deterministic_include/1, deterministic_paths/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -46,20 +46,20 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 -spec all() -> all_return_type().
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
-     cover, env, core_pp, core_roundtrip, asm, optimized_guards,
+     cover, env, core_pp, core_roundtrip, asm,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
-     custom_compile_info].
+     custom_compile_info, deterministic_include, deterministic_paths].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -385,16 +385,17 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dcbsm, ".core_bsm"),
     do_listing(Simple, TargetDir, dsetel, ".dsetel"),
     do_listing(Simple, TargetDir, dkern, ".kernel"),
+    do_listing(Simple, TargetDir, dssa, ".ssa"),
+    do_listing(Simple, TargetDir, dssaopt, ".ssaopt"),
+    do_listing(Simple, TargetDir, dprecg, ".precodegen"),
     do_listing(Simple, TargetDir, dcg, ".codegen"),
     do_listing(Simple, TargetDir, dblk, ".block"),
     do_listing(Simple, TargetDir, dexcept, ".except"),
-    do_listing(Simple, TargetDir, dbs, ".bs"),
-    do_listing(Simple, TargetDir, dtype, ".type"),
-    do_listing(Simple, TargetDir, ddead, ".dead"),
     do_listing(Simple, TargetDir, djmp, ".jump"),
     do_listing(Simple, TargetDir, dclean, ".clean"),
     do_listing(Simple, TargetDir, dpeep, ".peep"),
     do_listing(Simple, TargetDir, dopt, ".optimize"),
+    do_listing(Simple, TargetDir, diffable, ".S"),
 
     %% First clean up.
     Listings = filename:join(PrivDir, listings),
@@ -424,6 +425,9 @@ listings_big(Config) when is_list(Config) ->
     do_listing(Big, TargetDir, 'E'),
     do_listing(Big, TargetDir, 'P'),
     do_listing(Big, TargetDir, dkern, ".kernel"),
+    do_listing(Big, TargetDir, dssa, ".ssa"),
+    do_listing(Big, TargetDir, dssaopt, ".ssaopt"),
+    do_listing(Big, TargetDir, dprecg, ".precodegen"),
     do_listing(Big, TargetDir, to_dis, ".dis"),
 
     TargetNoext = filename:rootname(Target, code:objfile_extension()),
@@ -920,7 +924,7 @@ do_core_pp_1(M, A, Outdir) ->
     ok = file:delete(CoreFile),
 
     %% Compile as usual (including optimizations).
-    compile_forms(M, Core, [clint,from_core,binary]),
+    compile_forms(M, Core, [clint,ssalint,from_core,binary]),
 
     %% Don't optimize to test that we are not dependent
     %% on the Core Erlang optmimization passes.
@@ -929,7 +933,7 @@ do_core_pp_1(M, A, Outdir) ->
     %% records; if sys_core_fold was run it would fix
     %% that; if sys_core_fold was not run v3_kernel would
     %% crash.)
-    compile_forms(M, Core, [clint,from_core,no_copt,binary]),
+    compile_forms(M, Core, [clint,ssalint,from_core,no_copt,binary]),
 
     ok.
 
@@ -1170,95 +1174,6 @@ do_asm(Beam, Outdir) ->
 	    error
     end.
 
-%% Make sure that guards are fully optimized. Guards should
-%% should use 'test' instructions, not 'bif' instructions.
-
-optimized_guards(_Config) ->
-    TestBeams = get_unique_beam_files(),
-    test_lib:p_run(fun(F) -> do_opt_guards(F) end, TestBeams).
-
-do_opt_guards(Beam) ->
-    {ok,{M,[{abstract_code,{raw_abstract_v1,A}}]}} =
-	beam_lib:chunks(Beam, [abstract_code]),
-    try
-	{ok,M,Asm} = compile:forms(A, ['S']),
-	do_opt_guards_mod(Asm)
-    catch Class:Error:Stk ->
-	    io:format("~p: ~p ~p\n~p\n", [M,Class,Error,Stk]),
-	    error
-    end.
-
-do_opt_guards_mod({Mod,_Exp,_Attr,Asm,_NumLabels}) ->
-    case do_opt_guards_fs(Mod, Asm) of
-	[] ->
-	    ok;
-	[_|_]=Bifs ->
-	    io:format("ERRORS FOR ~p:\n~p\n", [Mod,Bifs]),
-	    error
-    end.
-
-do_opt_guards_fs(Mod, [{function,Name,Arity,_,Is}|Fs]) ->
-    Bifs0 = do_opt_guards_fun(Is),
-
-    %% The compiler does not attempt to optimize 'xor'.
-    %% Therefore, ignore all functions that use 'xor' in
-    %% a guard.
-    Bifs = case lists:any(fun({bif,'xor',_,_,_}) -> true;
-			     (_) -> false
-			  end, Bifs0) of
-	       true -> [];
-	       false -> Bifs0
-	   end,
-
-    %% Filter out the allowed exceptions.
-    FA = {Name,Arity},
-    case {Bifs,is_exception(Mod, FA)} of
-	{[_|_],true} ->
-	    io:format("~p:~p/~p IGNORED:\n~p\n",
-		      [Mod,Name,Arity,Bifs]),
-	    do_opt_guards_fs(Mod, Fs);
-	{[_|_],false} ->
-	    [{FA,Bifs}|do_opt_guards_fs(Mod, Fs)];
-	{[],false} ->
-	    do_opt_guards_fs(Mod, Fs);
-	{[],true} ->
-	    io:format("Redundant exception for ~p:~p/~p\n",
-		      [Mod,Name,Arity]),
-	    error(redundant)
-    end;
-do_opt_guards_fs(_, []) -> [].
-
-do_opt_guards_fun([{bif,Name,{f,F},As,_}=I|Is]) when F =/= 0 ->
-    Arity = length(As),
-    case erl_internal:comp_op(Name, Arity) orelse
-	erl_internal:bool_op(Name, Arity) orelse
-	erl_internal:new_type_test(Name, Arity) of
-	true ->
-	    [I|do_opt_guards_fun(Is)];
-	false ->
-	    do_opt_guards_fun(Is)
-    end;
-do_opt_guards_fun([_|Is]) ->
-    do_opt_guards_fun(Is);
-do_opt_guards_fun([]) -> [].
-
-is_exception(bs_match_SUITE, {matching_and_andalso_2,2}) -> true;
-is_exception(bs_match_SUITE, {matching_and_andalso_3,2}) -> true;
-is_exception(guard_SUITE, {'-complex_not/1-fun-4-',1}) -> true;
-is_exception(guard_SUITE, {'-complex_not/1-fun-5-',1}) -> true;
-is_exception(guard_SUITE, {basic_andalso_orelse,1}) -> true;
-is_exception(guard_SUITE, {bad_guards,1}) -> true;
-is_exception(guard_SUITE, {bad_guards_2,2}) -> true;
-is_exception(guard_SUITE, {bad_guards_3,2}) -> true;
-is_exception(guard_SUITE, {cqlc,4}) -> true;
-is_exception(guard_SUITE, {csemi7,3}) -> true;
-is_exception(guard_SUITE, {misc,1}) -> true;
-is_exception(guard_SUITE, {nested_not_2b,4}) -> true;
-is_exception(guard_SUITE, {tricky_1,2}) -> true;
-is_exception(map_SUITE, {map_guard_update,2}) -> true;
-is_exception(map_SUITE, {map_guard_update_variables,3}) -> true;
-is_exception(_, _) -> false.
-
 sys_pre_attributes(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     File = filename:join(DataDir, "attributes.erl"),
@@ -1475,36 +1390,49 @@ env_compiler_options(_Config) ->
 bc_options(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    101 = highest_opcode(DataDir, small_float, [no_get_hd_tl,no_line_info]),
+    L = [{101, small_float, [no_get_hd_tl,no_line_info]},
+         {103, big, [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
+                     no_line_info,no_stack_trimming]},
+         {125, small_float, [no_get_hd_tl,no_line_info,no_ssa_opt_float]},
 
-    103 = highest_opcode(DataDir, big,
-                         [no_get_hd_tl,no_record_opt,
-                          no_line_info,no_stack_trimming]),
+         {132, small, [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
+                       no_ssa_opt_float,no_line_info,no_bsm3]},
 
-    125 = highest_opcode(DataDir, small_float,
-                         [no_get_hd_tl,no_line_info,no_float_opt]),
+         {153, small, [r20]},
+         {153, small, [r21]},
 
-    132 = highest_opcode(DataDir, small,
-                         [no_get_hd_tl,no_record_opt,no_float_opt,no_line_info]),
+         {136, big, [no_put_tuple2,no_get_hd_tl,
+                     no_ssa_opt_record,no_line_info]},
 
-    136 = highest_opcode(DataDir, big, [no_get_hd_tl,no_record_opt,no_line_info]),
+         {153, big, [no_put_tuple2,no_get_hd_tl, no_ssa_opt_record]},
+         {153, big, [r16]},
+         {153, big, [r17]},
+         {153, big, [r18]},
+         {153, big, [r19]},
+         {153, small_float, [r16]},
+         {153, small_float, []},
 
-    153 = highest_opcode(DataDir, big, [no_get_hd_tl,no_record_opt]),
-    153 = highest_opcode(DataDir, big, [r16]),
-    153 = highest_opcode(DataDir, big, [r17]),
-    153 = highest_opcode(DataDir, big, [r18]),
-    153 = highest_opcode(DataDir, big, [r19]),
-    153 = highest_opcode(DataDir, small_float, [r16]),
-    153 = highest_opcode(DataDir, small_float, []),
+         {158, small_maps, [r17]},
+         {158, small_maps, [r18]},
+         {158, small_maps, [r19]},
+         {158, small_maps, [r20]},
+         {158, small_maps, [r21]},
 
-    158 = highest_opcode(DataDir, small_maps, [r17]),
-    158 = highest_opcode(DataDir, small_maps, [r18]),
-    158 = highest_opcode(DataDir, small_maps, [r19]),
-    158 = highest_opcode(DataDir, small_maps, [r20]),
-    158 = highest_opcode(DataDir, small_maps, []),
+         {164, small_maps, []},
+         {164, big, []}
+        ],
 
-    163 = highest_opcode(DataDir, big, []),
-
+    Test = fun({Expected,Mod,Options}) ->
+                   case highest_opcode(DataDir, Mod, Options) of
+                       Expected ->
+                           ok;
+                       Got ->
+                           io:format("*** module ~p, options ~p => got ~p; expected ~p\n",
+                                     [Mod,Options,Got,Expected]),
+                           error
+                   end
+           end,
+    test_lib:p_run(Test, L),
     ok.
 
 highest_opcode(DataDir, Mod, Opt) ->
@@ -1513,6 +1441,47 @@ highest_opcode(DataDir, Mod, Opt) ->
     {ok,{Mod,[{"Code",Code}]}} = beam_lib:chunks(Beam, ["Code"]),
     <<16:32,0:32,HighestOpcode:32,_/binary>> = Code,
     HighestOpcode.
+
+deterministic_include(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Simple = filename:join(DataDir, "simple"),
+ 
+    %% Files without +deterministic should differ if their include paths do,
+    %% as their debug info will be different.
+    {ok,_,NonDetA} = compile:file(Simple, [binary, {i,"gurka"}]),
+    {ok,_,NonDetB} = compile:file(Simple, [binary, {i,"gaffel"}]),
+    true = NonDetA =/= NonDetB,
+
+    %% ... but files with +deterministic shouldn't.
+    {ok,_,DetC} = compile:file(Simple, [binary, deterministic, {i,"gurka"}]),
+    {ok,_,DetD} = compile:file(Simple, [binary, deterministic, {i,"gaffel"}]),
+    true = DetC =:= DetD,
+
+    ok.
+
+deterministic_paths(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+
+    %% Files without +deterministic should differ if they were compiled from a
+    %% different directory.
+    true = deterministic_paths_1(DataDir, "simple", []),
+
+    %% ... but files with +deterministic shouldn't.
+    false = deterministic_paths_1(DataDir, "simple", [deterministic]),
+
+    ok.
+
+deterministic_paths_1(DataDir, Name, Opts) ->
+    Simple = filename:join(DataDir, "simple"),
+    {ok, Cwd} = file:get_cwd(),
+    try
+        {ok,_,A} = compile:file(Simple, [binary | Opts]),
+        ok = file:set_cwd(DataDir),
+        {ok,_,B} = compile:file(Name, [binary | Opts]),
+        A =/= B
+    after
+        file:set_cwd(Cwd)
+    end.
 
 %%%
 %%% Utilities.

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev></rev>
     <file>sys.xml</file>
   </header>
-  <module>sys</module>
+  <module since="">sys</module>
   <modulesummary>A functional interface to system messages.</modulesummary>
   <description>
     <p>This module contains functions for sending system messages used by
@@ -114,6 +114,154 @@
     </datatype>
     <datatype>
       <name name="system_event"/>
+      <desc>
+	<taglist>
+	  <tag><c>{in,<anno>Msg</anno>}</c></tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_server</c> and <c>gen_event</c>
+	      when the message <c>Msg</c> arrives.
+	    </p>
+	  </item>
+	  <tag><c>{in,<anno>Msg</anno>,<anno>State</anno>}</c></tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the message <c>Msg</c> arrives in state <c>State</c>.
+	    </p>
+	    <p>
+	      For <c>gen_statem</c> the <c><anno>Msg</anno></c> term is
+	      an <c>{EventType,EventContent}</c> tuple.
+	    </p>
+	  </item>
+	  <tag><c>{out,<anno>Msg</anno>,<anno>To</anno>}</c></tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c> when the reply <c>Msg</c>
+	      is sent back to <c>To</c> by returning
+	      a <c>{reply,To,Msg}</c> action from the callback module.
+	    </p>
+	    <p>
+	      <c><anno>To</anno></c> is of the same type
+	      as the first argument to <c>gen_statem:reply/2</c>.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>{out,<anno>Msg</anno>,<anno>To</anno>,<anno>State</anno>}</c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_server</c>
+	      when the reply <c><anno>Msg</anno></c>
+	      is sent back to <c><anno>To</anno></c>
+	      by returning a <c>{reply,...}</c> tuple
+	      from the callback module.
+	    </p>
+	    <p>
+	      <c><anno>To</anno></c> is of the same type
+	      as the first argument to <c>gen_server:reply/2</c>.
+	    </p>
+	    <p>
+	      <c><anno>State</anno></c> is the new server state.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>{noreply,<anno>State</anno>}</c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_server</c>
+	      when a <c>{noreply,...}</c> tuple is returned
+	      from the callback module.
+	    </p>
+	    <p>
+	      <c><anno>State</anno></c> is the new server state.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>{continue,<anno>Continuation</anno>}</c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_server</c>
+	      when a <c>{continue,<anno>Continuation</anno>}</c>
+	      tuple is returned from the callback module.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>{code_change,<anno>Event</anno>,<anno>State</anno>}</c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the message <c><anno>Event</anno></c>
+	      arrives in state <c><anno>State</anno></c>
+	      as the first event after a code change.
+	    </p>
+	    <p>
+	      <c><anno>Event</anno></c> is
+	      an <c>{EventType,EventContent}</c> tuple.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      {postpone,<anno>Event</anno>,<anno>State</anno>,<anno>NextState</anno>}
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the message <c><anno>Event</anno></c>
+	      is postponed in state <c><anno>State</anno></c>.
+	      <c><anno>NextState</anno></c> is the new state.
+	    </p>
+	    <p>
+	      <c><anno>Event</anno></c> is
+	      an <c>{EventType,EventContent}</c> tuple.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      {consume,<anno>Event</anno>,<anno>State</anno>,<anno>NextState</anno>}
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the message <c><anno>Event</anno></c>
+	      is consumed in state <c><anno>State</anno></c>.
+	      <c><anno>NextState</anno></c> is the new state.
+	    </p>
+	    <p>
+	      <c><anno>Event</anno></c> is
+	      an <c>{EventType,EventContent}</c> tuple.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      {enter,<anno>State</anno>}
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when the first state <c><anno>State</anno></c> is entered.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>
+	      {terminate,<anno>Reason</anno>,<anno>State</anno>}
+	    </c>
+	  </tag>
+	  <item>
+	    <p>
+	      Is produced by <c>gen_statem</c>
+	      when it terminates with reason <c><anno>Reason</anno></c>
+	      in state <c><anno>State</anno></c>.
+	    </p>
+	  </item>
+	</taglist>
+      </desc>
     </datatype>
     <datatype>
       <name name="dbg_opt"/>
@@ -129,8 +277,8 @@
 
   <funcs>
     <func>
-      <name name="change_code" arity="4"/>
-      <name name="change_code" arity="5"/>
+      <name name="change_code" arity="4" since=""/>
+      <name name="change_code" arity="5" since=""/>
       <fsummary>Send the code change system message to the process.</fsummary>
       <desc>
         <p>Tells the process to change code. The process must be
@@ -143,8 +291,8 @@
     </func>
 
     <func>
-      <name name="get_state" arity="1"/>
-      <name name="get_state" arity="2"/>
+      <name name="get_state" arity="1" since="OTP R16B01"/>
+      <name name="get_state" arity="2" since="OTP R16B01"/>
       <fsummary>Get the state of the process.</fsummary>
       <desc>
         <p>Gets the state of the process.</p>
@@ -227,8 +375,8 @@
     </func>
 
     <func>
-      <name name="get_status" arity="1"/>
-      <name name="get_status" arity="2"/>
+      <name name="get_status" arity="1" since=""/>
+      <name name="get_status" arity="2" since=""/>
       <fsummary>Get the status of the process.</fsummary>
       <desc>
         <p>Gets the status of the process.</p>
@@ -265,8 +413,8 @@
     </func>
 
     <func>
-      <name name="install" arity="2"/>
-      <name name="install" arity="3"/>
+      <name name="install" arity="2" since=""/>
+      <name name="install" arity="3" since=""/>
       <fsummary>Install a debug function in the process.</fsummary>
       <desc>
         <p>Enables installation of alternative debug functions. An example of
@@ -283,8 +431,8 @@
     </func>
 
     <func>
-      <name name="log" arity="2"/>
-      <name name="log" arity="3"/>
+      <name name="log" arity="2" since=""/>
+      <name name="log" arity="3" since=""/>
       <fsummary>Log system events in memory.</fsummary>
       <desc>
         <p>Turns the logging of system events on or off. If on, a
@@ -302,8 +450,8 @@
     </func>
 
     <func>
-      <name name="log_to_file" arity="2"/>
-      <name name="log_to_file" arity="3"/>
+      <name name="log_to_file" arity="2" since=""/>
+      <name name="log_to_file" arity="3" since=""/>
       <fsummary>Log system events to the specified file.</fsummary>
       <desc>
         <p>Enables or disables the logging of all system events in text
@@ -315,8 +463,8 @@
     </func>
 
     <func>
-      <name name="no_debug" arity="1"/>
-      <name name="no_debug" arity="2"/>
+      <name name="no_debug" arity="1" since=""/>
+      <name name="no_debug" arity="2" since=""/>
       <fsummary>Turn off debugging.</fsummary>
       <desc>
         <p>Turns off all debugging for the process. This includes
@@ -327,8 +475,8 @@
     </func>
 
     <func>
-      <name name="remove" arity="2"/>
-      <name name="remove" arity="3"/>
+      <name name="remove" arity="2" since=""/>
+      <name name="remove" arity="3" since=""/>
       <fsummary>Remove a debug function from the process.</fsummary>
       <desc>
         <p>Removes an installed debug function from the
@@ -338,8 +486,8 @@
     </func>
 
     <func>
-      <name name="replace_state" arity="2"/>
-      <name name="replace_state" arity="3"/>
+      <name name="replace_state" arity="2" since="OTP R16B01"/>
+      <name name="replace_state" arity="3" since="OTP R16B01"/>
       <fsummary>Replace the state of the process.</fsummary>
       <desc>
         <p>Replaces the state of the process, and returns the new state.</p>
@@ -451,8 +599,8 @@
     </func>
 
     <func>
-      <name name="resume" arity="1"/>
-      <name name="resume" arity="2"/>
+      <name name="resume" arity="1" since=""/>
+      <name name="resume" arity="2" since=""/>
       <fsummary>Resume a suspended process.</fsummary>
       <desc>
         <p>Resumes a suspended process.</p>
@@ -460,8 +608,8 @@
     </func>
 
     <func>
-      <name name="statistics" arity="2"/>
-      <name name="statistics" arity="3"/>
+      <name name="statistics" arity="2" since=""/>
+      <name name="statistics" arity="3" since=""/>
       <fsummary>Enable or disable the collections of statistics.</fsummary>
       <desc>
         <p>Enables or disables the collection of statistics. If 
@@ -471,8 +619,8 @@
     </func>
 
     <func>
-      <name name="suspend" arity="1"/>
-      <name name="suspend" arity="2"/>
+      <name name="suspend" arity="1" since=""/>
+      <name name="suspend" arity="2" since=""/>
       <fsummary>Suspend the process.</fsummary>
       <desc>
         <p>Suspends the process. When the process is suspended, it
@@ -482,8 +630,8 @@
     </func>
 
     <func>
-      <name name="terminate" arity="2"/>
-      <name name="terminate" arity="3"/>
+      <name name="terminate" arity="2" since="OTP 18.0"/>
+      <name name="terminate" arity="3" since="OTP 18.0"/>
       <fsummary>Terminate the process.</fsummary>
       <desc>
         <p>Orders the process to terminate with the
@@ -494,8 +642,8 @@
     </func>
 
     <func>
-      <name name="trace" arity="2"/>
-      <name name="trace" arity="3"/>
+      <name name="trace" arity="2" since=""/>
+      <name name="trace" arity="3" since=""/>
       <fsummary>Print all system events on <c>standard_io</c>.</fsummary>
       <desc>
         <p>Prints all system events on <c>standard_io</c>. The events are
@@ -518,7 +666,7 @@
 
   <funcs>
     <func>
-      <name name="debug_options" arity="1"/>
+      <name name="debug_options" arity="1" since=""/>
       <fsummary>Convert a list of options to a debug structure.</fsummary>
       <desc>
         <p>Can be used by a process that initiates a debug
@@ -529,9 +677,15 @@
     </func>
 
     <func>
-      <name name="get_debug" arity="3"/>
+      <name name="get_debug" arity="3" since=""/>
       <fsummary>Get the data associated with a debug option.</fsummary>
       <desc>
+	<warning>
+	  <p>
+	    <c>get_debug/3</c> is deprecated since it returns
+	    data of an internal type only useful for debugging.
+	  </p>
+	</warning>
         <p>Gets the data associated with a debug option.
           <c><anno>Default</anno></c>
           is returned if <c><anno>Item</anno></c> is not found. Can be
@@ -541,7 +695,7 @@
     </func>
 
     <func>
-      <name name="handle_debug" arity="4"/>
+      <name name="handle_debug" arity="4" since=""/>
       <fsummary>Generate a system event.</fsummary>
       <desc>
         <p>This function is called by a process when it generates a
@@ -556,7 +710,7 @@
     </func>
 
     <func>
-      <name name="handle_system_msg" arity="6"/>
+      <name name="handle_system_msg" arity="6" since=""/>
       <fsummary>Take care of system messages.</fsummary>
       <desc>
         <p>This function is used by a process module to take care of system
@@ -594,7 +748,7 @@
     </func>
 
     <func>
-      <name name="print_log" arity="1"/>
+      <name name="print_log" arity="1" since=""/>
       <fsummary>Print the logged events in the debug structure.</fsummary>
       <desc>
         <p>Prints the logged system events in the debug structure,
@@ -605,7 +759,19 @@
     </func>
 
     <func>
-      <name>Module:system_code_change(Misc, Module, OldVsn, Extra) ->
+      <name name="get_log" arity="1" since="OTP-22.0"/>
+      <fsummary>Return the logged events in the debug structure.</fsummary>
+      <desc>
+        <p>
+	  Returns the logged system events in the debug structure,
+	  that is the last argument to
+          <seealso marker="#handle_debug/4"><c>handle_debug/4</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">Module:system_code_change(Misc, Module, OldVsn, Extra) ->
         {ok, NMisc}</name>
       <fsummary>Called when the process is to perform a code change.</fsummary>
       <type>
@@ -628,7 +794,7 @@
     </func>
 
     <func>
-      <name>Module:system_continue(Parent, Debug, Misc) -> none()</name>
+      <name since="">Module:system_continue(Parent, Debug, Misc) -> none()</name>
       <fsummary>Called when the process is to continue its execution.</fsummary>
       <type>
         <v>Parent = pid()</v>
@@ -644,7 +810,7 @@
     </func>
 
     <func>
-      <name>Module:system_get_state(Misc) -> {ok, State}</name>
+      <name since="OTP 17.0">Module:system_get_state(Misc) -> {ok, State}</name>
       <fsummary>Called when the process is to return its current state.
       </fsummary>
       <type>
@@ -661,7 +827,7 @@
     </func>
 
     <func>
-      <name>Module:system_replace_state(StateFun, Misc) ->
+      <name since="OTP 17.0">Module:system_replace_state(StateFun, Misc) ->
         {ok, NState, NMisc}</name>
       <fsummary>Called when the process is to replace its current state.
       </fsummary>
@@ -681,7 +847,7 @@
     </func>
 
     <func>
-      <name>Module:system_terminate(Reason, Parent, Debug, Misc) -> none()</name>
+      <name since="">Module:system_terminate(Reason, Parent, Debug, Misc) -> none()</name>
       <fsummary>Called when the process is to terminate.</fsummary>
       <type>
         <v>Reason = term()</v>

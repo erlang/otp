@@ -290,7 +290,7 @@ new(Size, Fixed, Default) ->
 	end,
     #array{size = Size, max = M, default = Default, elements = E}.
 
--spec find_max(integer(), integer()) -> integer().
+-spec find_max(integer(), non_neg_integer()) -> non_neg_integer().
 
 find_max(I, M) when I >= M ->
     find_max(I, ?extend(M));

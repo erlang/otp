@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,9 +57,9 @@
 
 #ifdef HAVE_GETHOSTBYNAME_R
 
-void ei_init_resolve(void)
+int ei_init_resolve(void)
 {
-    return;			/* Do nothing */
+    return 0;			/* Do nothing */
 }
 
 #else /* !HAVE_GETHOSTBYNAME_R */
@@ -103,7 +103,7 @@ static int verify_dns_configuration(void);
  * our own, which are just wrappers around hostGetByName() and
  * hostGetByAddr(). Here we look up the functions.
  */
-void ei_init_resolve(void)
+int ei_init_resolve(void)
 {
 
 #ifdef VXWORKS
@@ -134,9 +134,12 @@ void ei_init_resolve(void)
 
 #ifdef _REENTRANT
   ei_gethost_sem = ei_mutex_create();
+  if (!ei_gethost_sem)
+      return ENOMEM;
 #endif /* _REENTRANT */
 
   ei_resolve_initialized = 1;
+  return 0;
 }
 
 #ifdef VXWORKS
@@ -312,9 +315,11 @@ static struct hostent *my_gethostbyname_r(const char *name,
   struct hostent *src;
   struct hostent *rval = NULL;
 
-  /* FIXME this should have been done in 'erl'_init()? */
-  if (!ei_resolve_initialized) ei_init_resolve(); 
-
+  if (!ei_resolve_initialized) {
+    *h_errnop = NO_RECOVERY;
+    return NULL;
+  }
+  
 #ifdef _REENTRANT
   /* === BEGIN critical section === */
   if (ei_mutex_lock(ei_gethost_sem,0) != 0) {
@@ -377,7 +382,10 @@ static struct hostent *my_gethostbyaddr_r(const char *addr,
   struct hostent *rval = NULL;
 
   /* FIXME this should have been done in 'erl'_init()? */
-  if (!ei_resolve_initialized) ei_init_resolve();
+  if (!ei_resolve_initialized) {
+    *h_errnop = NO_RECOVERY;
+    return NULL;
+  }
 
 #ifdef _REENTRANT
   /* === BEGIN critical section === */

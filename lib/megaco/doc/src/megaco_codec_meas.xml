@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_codec_meas.xml</file>
   </header>
-  <module>megaco_codec_meas</module>
+  <module since="">megaco_codec_meas</module>
   <modulesummary>This module implements a simple megaco codec measurement tool.</modulesummary>
   <description>
     <p>This module implements a simple megaco codec measurement tool.</p>
@@ -43,8 +43,8 @@
 
   <funcs>
     <func>
-      <name>start() -> void()</name>
-      <name>start(MessagePackage) -> void()</name>
+      <name since="">start() -> void()</name>
+      <name since="">start(MessagePackage) -> void()</name>
       <fsummary></fsummary>
       <type>
         <v>MessagePackageRaw = message_package()</v>

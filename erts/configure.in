@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2017. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2018. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -25,11 +25,6 @@ AC_INIT(vsn.mk)
 AC_PREREQ(2.59)
 
 LM_PRECIOUS_VARS
-
-if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
-    # We do not want to use a common cache!
-    cache_file=/dev/null
-fi
 
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
@@ -388,6 +383,56 @@ if test X"$with_ets_write_concurrency_locks" != X""; then
 		      [Define to override the default number of write_concurrency locks])
 fi
 
+AC_ARG_WITH(spectre-mitigation,
+    AS_HELP_STRING([--with-spectre-mitigation={yes|incomplete}],
+                   [enable spectre mitigation, either fully or with mitigations
+                    disabled in a handful places like the interpreter])
+    AS_HELP_STRING([--without-spectre-mitigation],
+                   [build without spectre mitigation]),
+    [],[with_spectre_mitigation=no])
+
+case "$with_spectre_mitigation" in
+    no) ;;
+    yes) ;;
+    incomplete) ;;
+    *) AC_MSG_ERROR([Invalid spectre mitigation setting]) ;;
+esac
+
+i_noretpoline_attr=""
+
+if test X"$with_spectre_mitigation" != X"no"; then
+    CFLAGS="$CFLAGS -mindirect-branch=thunk"
+
+    AC_MSG_CHECKING([for spectre mitigation])
+    AC_COMPILE_IFELSE(
+        [AC_LANG_PROGRAM([],[return 0;])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_ERROR([no])])
+
+    if test X"$with_spectre_mitigation" = X"incomplete"; then
+        # gcc and clang support this attribute if they're recent enough. Note
+        # that we must compile with -Werror to check for actual support as they
+        # warn rather than error out on unsupported attributes.
+
+        i_noretpoline_attr='__attribute__((__indirect_branch__("keep")))'
+        i_preserve_cflags="$CFLAGS"
+        CFLAGS="$CFLAGS -Werror"
+
+        AC_MSG_CHECKING([whether spectre mitigation can be disabled on a per-function basis])
+        AC_COMPILE_IFELSE(
+            [AC_LANG_PROGRAM([$i_noretpoline_attr],[return 0;])],
+            [AC_MSG_RESULT([yes])],
+            [AC_MSG_ERROR([no])])
+
+        CFLAGS="$i_preserve_cflags"
+    fi
+fi
+
+AC_DEFINE_UNQUOTED(ERTS_NO_RETPOLINE, $i_noretpoline_attr,
+                   [Per-function attribute for disabling retpoline. This is
+                    *only* defined when --with-spectre-mitigation=incomplete
+                    and has no effects otherwise])
+
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
@@ -420,7 +465,10 @@ dnl
 dnl Make sure we find config.h
 dnl
 
-extra_flags="-I${ERL_TOP}/erts/$host $OTP_EXTRA_FLAGS"
+ERTS_CONFIG_H_IDIR="-I${ERL_TOP}/erts/$host"
+AC_SUBST(ERTS_CONFIG_H_IDIR)
+
+extra_flags="$ERTS_CONFIG_H_IDIR $OTP_EXTRA_FLAGS"
 CFLAGS="$CFLAGS $extra_flags"
 DEBUG_CFLAGS="-g $CPPFLAGS $extra_flags $DEBUG_CFLAGS"
 DEBUG_FLAGS=-g
@@ -450,23 +498,6 @@ case $CFLAGS in
 		;;
 	*)
 		;;
-esac
-
-
-
-CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-R"
-case $host_os in
-  darwin*)
-	CFLAG_RUNTIME_LIBRARY_PATH=
-	;;
-  win32)
-	CFLAG_RUNTIME_LIBRARY_PATH=
-	;;
-  osf*)
-	CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-rpath,"
-	;;
-  *)
-	;;
 esac
 
 lfs_conf=ok
@@ -539,12 +570,22 @@ else
   WFLAGS=""
   WERRORFLAGS=""
 fi
+
+AC_MSG_CHECKING([CFLAGS for -O switch])
+case "$CFLAGS" in
+     *-O*) AC_MSG_RESULT([yes]) ;;
+     *)
+       AC_MSG_ERROR([
+  CFLAGS must contain a -O flag. If you need to edit the CFLAGS you probably
+  also want to add the default CFLAGS. The default CFLAGS are "-O2 -g".
+  If you want to build erts without any optimization, pass -O0 to CFLAGS.]) ;;
+esac
+
 dnl DEBUG_FLAGS is obsolete (I hope)
 AC_SUBST(DEBUG_FLAGS)
 AC_SUBST(DEBUG_CFLAGS)
 AC_SUBST(WFLAGS)
 AC_SUBST(WERRORFLAGS)
-AC_SUBST(CFLAG_RUNTIME_LIBRARY_PATH)
 
 ## Check if we can do profile guided optimization of beam_emu
 LM_CHECK_ENABLE_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
@@ -581,7 +622,8 @@ if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
            PROFILE_INSTR_USE=false])
         rm -f default.profdata
       fi],
-     [])
+     [],
+     [AC_MSG_NOTICE([Disabling PGO when cross-compiling])])
    rm -f *.profraw
    CFLAGS=$saved_CFLAGS;
 fi
@@ -602,7 +644,7 @@ AC_MSG_CHECKING([whether to do PGO of erts])
 if test $enable_pgo = no; then
   AC_MSG_RESULT([no, disabled by user])
 elif test $CROSS_COMPILING = yes; then
-  if $enable_pgo = yes; then
+  if test $enable_pgo = yes; then
     AC_MSG_ERROR(cannot use PGO when cross-compiling)
   else
     AC_MSG_RESULT([no, cross compiling])
@@ -886,9 +928,6 @@ case $host_os in
 esac
 
 AC_SUBST(LD)
-
-LDFLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
-AC_SUBST(LDFLAG_RUNTIME_LIBRARY_PATH)
 
 dnl Check for cygwin and object/exe files extension
 dnl AC_CYGWIN is deprecated
@@ -1461,7 +1500,7 @@ dnl Some Linuxes needs <sys/socketio.h> instead of <sys/sockio.h>
 dnl
 AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
                  sys/types.h sys/stropts.h sys/sysctl.h \
-                 sys/ioctl.h sys/time.h sys/uio.h \
+                 sys/ioctl.h sys/time.h sys/uio.h sys/mman.h \
                  sys/socket.h sys/sockio.h sys/socketio.h \
                  net/errno.h malloc.h arpa/nameser.h libdlpi.h \
 		 pty.h util.h libutil.h utmp.h langinfo.h poll.h sdkddkver.h)
@@ -2011,29 +2050,6 @@ case $host_os in
 esac
 
 AC_CHECK_DECLS([posix2time, time2posix],,,[#include <time.h>])
-
-disable_vfork=false
-if test "x$EMU_THR_LIB_NAME" != "x"; then
-	AC_MSG_CHECKING([if vfork is known to hang multithreaded applications])
-	case $host_os in
-		osf*)
-			AC_MSG_RESULT(yes)
-			disable_vfork=true;;
-		*)
-			AC_MSG_RESULT(no);;
-	esac
-fi
-
-if test $disable_vfork = false; then
-	AC_FUNC_VFORK
-	if test $ac_cv_func_vfork_works = no; then
-		disable_vfork=true
-	fi
-fi
-
-if test $disable_vfork = true; then
-	AC_DEFINE(DISABLE_VFORK, 1, [Define if you want to disable vfork.])
-fi
 
 AC_FUNC_VPRINTF
 
@@ -2706,6 +2722,7 @@ dnl On x86/amd64, floating points exceptions have
 dnl unresolved stability issues.
 AC_MSG_CHECKING([for unreliable floating point exceptions])
 FPE=unreliable
+AC_SUBST(FPE)
 AC_MSG_RESULT([unreliable])
 AC_DEFINE(NO_FPE_SIGNALS,[],[Define if floating points exceptions are non-existing/not reliable])
 
@@ -2970,165 +2987,6 @@ dnl ----------------------------------------------------------------------
 dnl Stuff that should be moved into their respective application
 dnl ----------------------------------------------------------------------
 
-dnl crypto
-#--------------------------------------------------------------------
-# Dynamic Erlang Drivers
-#
-# Linking to produce dynamic Erlang drivers to be loaded by Erlang's
-# Dynamic Driver Loader and Linker (DDLL). Below the prefix DED is an
-# abbreviation for `Dynamic Erlang Driver'.
-#
-# For DED we need something quite sloppy, which allows undefined references 
-# (notably driver functions) in the resulting shared library. 
-# Example of Makefile rule (and settings of macros):
-#
-# LIBS = @LIBS@
-# LD = @DED_LD@
-# LDFLAGS = @DED_LDFLAGS@
-# soname = @ldsoname@
-#
-# my_drv.so:   my_drv.o my_utils.o
-#              $(LD) $(LDFLAGS) $(soname) $@ -o $@ $^ -lc $(LIBS)
-#
-#--------------------------------------------------------------------
-
-DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$ERLANG_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
-
-if test "X$ETHR_DEFS" = "X"; then
-    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
-else
-    DED_THR_DEFS="$ETHR_DEFS"
-fi
-DED_EMU_THR_DEFS=$EMU_THR_DEFS
-DED_CFLAGS="$CFLAGS $CPPFLAGS"
-if test "x$GCC" = xyes; then
-    DED_STATIC_CFLAGS="$DED_CFLAGS"
-    DED_CFLAGS="$DED_CFLAGS -fPIC"
-fi
-
-DED_EXT=so
-case $host_os in
-    win32) DED_EXT=dll;;
-    darwin*)
-	DED_CFLAGS="$DED_CFLAGS -fno-common"
-	DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -fno-common";;
-    *)
-	;;
-esac
-
-DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -DSTATIC_ERLANG_NIF -DSTATIC_ERLANG_DRIVER"
-
-# If DED_LD is set in environment, we expect all DED_LD* variables
-# to be specified (cross compiling)
-if test "x$DED_LD" = "x"; then
-
-DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
-case $host_os in
-	win32)
-		DED_LD="ld.sh"
-		DED_LDFLAGS="-dll"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
-	;;
-	solaris2*|sysv4*)
-		DED_LDFLAGS="-G"
-		if test X${enable_m64_build} = Xyes; then
-			DED_LDFLAGS="-64 $DED_LDFLAGS"
-		fi
-	;;
-	aix4*)
-		DED_LDFLAGS="-G -bnoentry -bexpall"
-	;;
-	freebsd2*)
-		# Non-ELF GNU linker
-		DED_LDFLAGS="-Bshareable"
-	;;
-	darwin*)
-		# Mach-O linker: a shared lib and a loadable
-		# object file is not the same thing.
-		DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
-		case $ARCH in
-			amd64)
-				DED_LDFLAGS="-m64 $DED_LDFLAGS"
-				;;
-			*)
-				;;
-		esac
-		DED_LD="$CC"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
-	;;
-	linux*)
-		DED_LD="$CC"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
-		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
-		if test X${enable_m64_build} = Xyes; then
-			DED_LDFLAGS="-m64 $DED_LDFLAGS"
-		fi;
-		if test X${enable_m32_build} = Xyes; then
-			DED_LDFLAGS="-m32 $DED_LDFLAGS"
-		fi
-	;;	
-	freebsd*)
-		DED_LD="$CC"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
-		DED_LDFLAGS="-shared"
-		if test X${enable_m64_build} = Xyes; then
-			DED_LDFLAGS="-m64 $DED_LDFLAGS"
-		fi;
-		if test X${enable_m32_build} = Xyes; then
-			DED_LDFLAGS="-m32 $DED_LDFLAGS"
-		fi
-	;;	
-	openbsd*)
-		DED_LD="$CC"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
-		DED_LDFLAGS="-shared"
-	;;
-	osf*)
-		# NOTE! Whitespace after -rpath is important.
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-rpath "
-		DED_LDFLAGS="-shared -expect_unresolved '*'"
-	;;
-	*)
-		# assume GNU linker and ELF
-		DED_LDFLAGS="-shared"
-		# GNU linker has no option for 64bit build, should not propagate -m64
-	;;
-esac
-
-if test "$DED_LD" = "" && test "$USER_LD" != ""; then
-    DED_LD="$USER_LD"
-    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
-fi
-
-fi # "x$DED_LD" = "x"
-
-AC_CHECK_TOOL(DED_LD, ld, false)
-test "$DED_LD" != "false" || AC_MSG_ERROR([No linker found])
-
-AC_MSG_CHECKING(for compiler flags for loadable drivers)
-AC_MSG_RESULT([$DED_CFLAGS])
-AC_MSG_CHECKING(for linker for loadable drivers)
-AC_MSG_RESULT([$DED_LD])
-AC_MSG_CHECKING(for linker flags for loadable drivers)
-AC_MSG_RESULT([$DED_LDFLAGS])
-AC_MSG_CHECKING(for 'runtime library path' linker flag)
-if test "x$DED_LD_FLAG_RUNTIME_LIBRARY_PATH" != "x"; then
-	AC_MSG_RESULT([$DED_LD_FLAG_RUNTIME_LIBRARY_PATH])
-else
-	AC_MSG_RESULT([not found])
-fi
-
-AC_SUBST(DED_EXT)
-AC_SUBST(DED_SYS_INCLUDE)
-AC_SUBST(DED_CFLAGS)
-AC_SUBST(DED_STATIC_CFLAGS)
-AC_SUBST(DED_LD)
-AC_SUBST(DED_LDFLAGS)
-AC_SUBST(DED_LD_FLAG_RUNTIME_LIBRARY_PATH)
-AC_SUBST(DED_THR_DEFS)
-AC_SUBST(DED_EMU_THR_DEFS)
-AC_SUBST(STATIC_CFLAGS)
-
 dnl
 dnl We should look for a compiler that handles jump tables, for beam_emu 
 dnl to be optimized
@@ -3154,7 +3012,11 @@ AC_TRY_RUN([
 ],
 erl_code_model_small=yes,
 erl_code_model_small=no,
-erl_code_model_small=no)
+[case X$erl_xcomp_code_model_small in
+      X) erl_code_model_small=no;;
+      Xyes|Xno) erl_code_model_small=$erl_xcomp_code_model_small;;
+      *) AC_MSG_ERROR([Bad erl_xcomp_code_model_small value: $erl_xcomp_code_model_small]);;
+ esac])
 AC_MSG_RESULT([$erl_code_model_small])
 LDFLAGS="$saved_LDFLAGS"
 case $erl_code_model_small in
@@ -3280,733 +3142,6 @@ if test "$enable_lttng_test" = "yes" ; then
     fi
 fi
 
-
-dnl
-dnl SSL, SSH and CRYPTO need the OpenSSL libraries
-dnl
-dnl Check flags --with-ssl, --without-ssl --with-ssl=PATH.
-dnl If no option is given or --with-ssl is set without a path then we
-dnl search for OpenSSL libraries and header files in the standard locations. 
-dnl If set to --without-ssl we disable the use of SSL, SSH and CRYPTO.
-dnl If set to --with-ssl=PATH we use that path as the prefix, i.e. we
-dnl use "PATH/include" and "PATH/lib".
-
-AC_SUBST(SSL_INCLUDE)
-AC_SUBST(SSL_INCDIR)
-AC_SUBST(SSL_LIBDIR)
-AC_SUBST(SSL_FLAGS)
-AC_SUBST(SSL_CRYPTO_LIBNAME)
-AC_SUBST(SSL_SSL_LIBNAME)
-AC_SUBST(SSL_CC_RUNTIME_LIBRARY_PATH)
-AC_SUBST(SSL_LD_RUNTIME_LIBRARY_PATH)
-AC_SUBST(SSL_DED_LD_RUNTIME_LIBRARY_PATH)
-AC_SUBST(SSL_DYNAMIC_ONLY)
-AC_SUBST(SSL_LINK_WITH_KERBEROS)
-AC_SUBST(STATIC_KERBEROS_LIBS)
-AC_SUBST(SSL_LINK_WITH_ZLIB)
-AC_SUBST(STATIC_ZLIB_LIBS)
-
-std_ssl_locations="/usr/local /usr/sfw /usr /opt/local /usr/pkg /usr/local/openssl /usr/lib/openssl /usr/openssl /usr/local/ssl /usr/lib/ssl /usr/ssl /"
-
-AC_ARG_WITH(ssl-zlib,
-AS_HELP_STRING([--with-ssl-zlib=PATH],
-               [specify location of ZLib to be used by OpenSSL])
-AS_HELP_STRING([--with-ssl-zlib],
-               [link SSL with  Zlib (default if found)])
-AS_HELP_STRING([--without-ssl-zlib],
-               [don't link SSL with ZLib]))
-
-
-if  test "x$with_ssl_zlib" = "xno"; then
-	SSL_LINK_WITH_ZLIB=no
-	STATIC_ZLIB_LIBS=
-elif test "x$with_ssl_zlib" = "xyes" || test "x$with_ssl_zlib" = "x"; then
-	if test $erl_xcomp_without_sysroot = yes; then
-		AC_MSG_WARN([Cannot search for zlib; missing cross system root (erl_xcomp_sysroot).])
-		SSL_LINK_WITH_ZLIB=no	
-		STATIC_ZLIB_LIBS=	
-	elif  test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
-		SSL_LINK_WITH_ZLIB=no	
-		STATIC_ZLIB_LIBS=	
-	else
-		SSL_LINK_WITH_ZLIB=no
-		STATIC_ZLIB_LIBS=
-		AC_MSG_CHECKING(for static ZLib to be used by SSL in standard locations) 
-		for rdir in $std_ssl_locations; do
-			dir="$erl_xcomp_sysroot$rdir"
-			if test "x$ac_cv_sizeof_void_p" = "x8"; then
-				if test -f "$dir/lib64/libz.a"; then
-					SSL_LINK_WITH_ZLIB=yes
-					STATIC_ZLIB_LIBS="$dir/lib64/libz.a"
-					break
-				elif test -f "$dir/lib/64/libz.a"; then
-					SSL_LINK_WITH_ZLIB=yes
-					STATIC_ZLIB_LIBS="$dir/lib/64/libz.a"
-					break
-				fi
-			fi
-			if test -f "$dir/lib/libz.a"; then
-					SSL_LINK_WITH_ZLIB=yes
-				STATIC_ZLIB_LIBS="$dir/lib/libz.a"
-				break
-			fi
-		done
-		if test "x$SSL_LINK_WITH_ZLIB" = "xno"; then
-		       	AC_MSG_RESULT([no])
-		else
-			AC_MSG_RESULT([$STATIC_ZLIB_LIBS])
-		fi
-	fi				
-else
-	SSL_LINK_WITH_ZLIB=no
-	STATIC_ZLIB_LIBS=
-	if test -f "$with_ssl_zlib/libz.a"; then
-		SSL_LINK_WITH_ZLIB=yes
-		STATIC_ZLIB_LIBS=$with_ssl_zlib/libz.a
-	elif test -f "$with_ssl_zlib/lib/libz.a"; then
-		SSL_LINK_WITH_ZLIB=yes
-		STATIC_ZLIB_LIBS=$with_ssl_zlib/lib/libz.a
-	fi
-	if test "x$ac_cv_sizeof_void_p" = "x8"; then
-		if test -f "$with_ssl_zlib/lib64/libz.a"; then
-			SSL_LINK_WITH_ZLIB=yes
-			STATIC_ZLIB_LIBS=$with_ssl_zlib/lib64/libz.a
-		elif test -f "$with_ssl_zlib/lib/64/libz.a"; then
-			SSL_LINK_WITH_ZLIB=yes
-			STATIC_ZLIB_LIBS=$with_ssl_zlib/lib/64/libz.a
-		fi
-	fi
-	if test "x$SSL_LINK_WITH_ZLIB" = "xno"; then
-	       	AC_MSG_ERROR(Invalid path to option --with-ssl-zlib=PATH)
-	fi
-fi
-		
-			
-AC_ARG_WITH(ssl,
-AS_HELP_STRING([--with-ssl=PATH], [specify location of OpenSSL include and lib])
-AS_HELP_STRING([--with-ssl], [use SSL (default)])
-AS_HELP_STRING([--without-ssl], [don't use SSL]))
-
-AC_ARG_WITH(ssl-incl,
-AS_HELP_STRING([--with-ssl-incl=PATH], [location of OpenSSL include dir, if different than specified by --with-ssl=PATH]),
-[
-case X$with_ssl in
-    X | Xyes | Xno) AC_MSG_ERROR([--with-ssl-incl=PATH set without --with-ssl=PATH]);;
-esac
-],
-[with_ssl_incl=$with_ssl]) #default
-
-AC_ARG_WITH(ssl-rpath,
-AS_HELP_STRING([--with-ssl-rpath=yes|no|PATHS],
-               [runtime library path for OpenSSL. Default is "yes", which equates to a
-	       number of standard locations. If "no", then no runtime
-	       library paths will be used. Anything else should be a
-	       comma separated list of paths.]),
-[
-case X$with_ssl in
-    Xno) AC_MSG_ERROR([--with-ssl-rpath set without --with-ssl]);;
-esac
-],
-[with_ssl_rpath=yes]) #default
-
-
-AC_ARG_ENABLE(dynamic-ssl-lib,
-AS_HELP_STRING([--disable-dynamic-ssl-lib],
-               [disable using dynamic openssl libraries]),
-[ case "$enableval" in
-    no) enable_dynamic_ssl=no ;;
-    *)  enable_dynamic_ssl=yes ;;
-  esac ], enable_dynamic_ssl=yes)
-
-#----------------------------------------------------------------------
-# We actually might do the SSL tests twice due to late discovery of 
-# kerberos problems with static linking, in case we redo it all trying
-# dynamic SSL libraries instead.
-#----------------------------------------------------------------------
-
-ssl_done=no
-
-while test "x$ssl_done" != "xyes"; do
-
-ssl_done=yes # Default only one run
-
-# Remove all SKIP files from previous runs
-for a in ssl crypto ssh; do
-  $RM -f $ERL_TOP/lib/$a/SKIP
-done
-
-SSL_DYNAMIC_ONLY=$enable_dynamic_ssl
-SSL_STATIC_ONLY=no
-
-case "$erl_xcomp_without_sysroot-$with_ssl" in
-  yes-* | no-no)
-    SSL_APP=
-    CRYPTO_APP=
-    SSH_APP=
-    if test "$with_ssl" = "no"; then
-	skip="User gave --without-ssl option"
-    else
-	skip="Cannot search for ssl; missing cross system root (erl_xcomp_sysroot)."
-    fi
-    for a in ssl crypto ssh; do
-        echo "$skip" > $ERL_TOP/lib/$a/SKIP
-    done
-    ;;
-  no-yes | no- )
-    # On windows, we could try to find the installation
-    # of Shining Light OpenSSL, which can be found by poking in
-    # the uninstall section in the registry, it's worth a try...
-    extra_dir=""
-    if  test "x$MIXED_CYGWIN" = "xyes"; then
-    	AC_CHECK_PROG(REGTOOL, regtool, regtool, false)
-	if test "$ac_cv_prog_REGTOOL" != false; then
-		wrp="/machine/software/microsoft/windows/currentversion/"
-	   	if test "x$ARCH" = "xamd64"; then
-		   urp="uninstall/openssl (64-bit)_is1/inno setup: app path"
-		   regtool_subsystem=-w
-		else
-		   urp="uninstall/openssl (32-bit)_is1/inno setup: app path"
-		   regtool_subsystem=-W
-		fi	
-		rp="$wrp$urp"
-		if regtool -q $regtool_subsystem get "$rp" > /dev/null; then
-		   true
-		else
-		   # Fallback to unspecified wordlength
-		   urp="uninstall/openssl_is1/inno setup: app path"
-		   rp="$wrp$urp"
-		fi	
-		if regtool -q $regtool_subsystem get "$rp" > /dev/null; then
-			ssl_install_dir=`regtool -q $regtool_subsystem get "$rp"`
-			# Try hard to get rid of spaces...
-			if cygpath -d "$ssl_install_dir" > /dev/null 2>&1; then
-				ssl_install_dir=`cygpath -d "$ssl_install_dir"`
-			fi
-			extra_dir=`cygpath $ssl_install_dir`
-		fi
-	fi
-    elif test "x$MIXED_MSYS" = "xyes"; then
-    	AC_CHECK_PROG(REGTOOL, reg_query.sh, reg_query.sh, false)
-	if test "$ac_cv_prog_REGTOOL" != false; then
-	   	if test "x$ARCH" = "xamd64"; then
-		   rp="HKLM/SOFTWARE/Microsoft/Windows/CurrentVersion/Uninstall/OpenSSL (64-bit)_is1"
-		else
-		   rp="HKLM/SOFTWARE/Microsoft/Windows/CurrentVersion/Uninstall/OpenSSL_is1"
-		fi	
-		key="Inno Setup: App Path"
-		if "$ac_cv_prog_REGTOOL" "$rp" "$key" > /dev/null; then
-			ssl_install_dir=`"$ac_cv_prog_REGTOOL" "$rp" "$key"`
-			extra_dir=`win2msys_path.sh "$ssl_install_dir"`
-		fi
-	fi
-    fi
-    # We search for OpenSSL in the common OS standard locations.
-    SSL_APP=ssl
-    CRYPTO_APP=crypto
-    SSH_APP=ssh
-
-    SSL_CRYPTO_LIBNAME=crypto
-    SSL_SSL_LIBNAME=ssl
-    
-    if  test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
-    	if test "x$ARCH" = "xamd64"; then
-	  std_win_ssl_locations="/cygdrive/c/OpenSSL-Win64 /c/OpenSSL-Win64 /opt/local64/pgm/OpenSSL"
-	else
-	  std_win_ssl_locations="/cygdrive/c/OpenSSL-Win32 /c/OpenSSL-Win32 /cygdrive/c/OpenSSL /c/OpenSSL /opt/local/pgm/OpenSSL"
-	fi
-    else
-        std_win_ssl_locations=""
-    fi
-
-
-    AC_MSG_CHECKING(for OpenSSL >= 0.9.8c in standard locations)
-    for rdir in $extra_dir $std_win_ssl_locations $std_ssl_locations; do
-	dir="$erl_xcomp_sysroot$rdir"
-	if test -f "$erl_xcomp_isysroot$rdir/include/openssl/opensslv.h"; then
-		is_real_ssl=yes
-		SSL_INCDIR="$dir"
-		if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
-			if test -f "$dir/lib/VC/libeay32.lib"; then
-				SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
-				SSL_LIBDIR="$dir/lib/VC"
-				SSL_CRYPTO_LIBNAME=libeay32
-				SSL_SSL_LIBNAME=ssleay32
-			elif test -f "$dir/lib/VC/openssl.lib"; then 
-				SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
-				SSL_LIBDIR="$dir/lib/VC"
-			elif test -f $dir/lib/VC/libeay32MD.lib; then
-		            SSL_CRYPTO_LIBNAME=libeay32MD
-		            SSL_SSL_LIBNAME=ssleay32MD
-			    if test "x$enable_dynamic_ssl" = "xno" && \
-	                       test -f  $dir/lib/VC/static/libeay32MD.lib; then
-				  SSL_RUNTIME_LIBDIR="$rdir/lib/VC/static"
-				  SSL_LIBDIR="$dir/lib/VC/static"
-		            else
-			          SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
-				  SSL_LIBDIR="$dir/lib/VC"
-                            fi 
-			elif test -f "$dir/lib/libeay32.lib"; then
-				SSL_RUNTIME_LIBDIR="$rdir/lib"
-				SSL_LIBDIR="$dir/lib"
-				SSL_CRYPTO_LIBNAME=libeay32
-				SSL_SSL_LIBNAME=ssleay32
-			elif test -f "$dir/lib/openssl.lib"; then
-				SSL_RUNTIME_LIBDIR="$rdir/lib"
-				SSL_LIBDIR="$dir/lib"
-			else
-				is_real_ssl=no
-			fi
-		elif test -f "$dir/lib/powerpc/libsslcrypto.a"; then
-			SSL_CRYPTO_LIBNAME=sslcrypto
-			SSL_LIBDIR="$dir/lib/powerpc/"
-			SSL_RUNTIME_LIBDIR="$rdir/lib/powerpc/"
-		else
-			if test "x$ac_cv_sizeof_void_p" = "x8"; then
-				if test -f "$dir/lib64/libcrypto.a"; then
-					SSL_RUNTIME_LIBDIR="$rdir/lib64"
-					SSL_LIBDIR="$dir/lib64"
-				elif test -f "$dir/lib/64/libcrypto.a"; then
-					SSL_RUNTIME_LIBDIR="$rdir/lib/64"
-					SSL_LIBDIR="$dir/lib/64"
-				elif test -f "$dir/lib64/libcrypto.so"; then
-					SSL_RUNTIME_LIBDIR="$rdir/lib64"
-					SSL_LIBDIR="$dir/lib64"
-				elif test -f "$dir/lib/64/libcrypto.so"; then
-					SSL_RUNTIME_LIBDIR="$rdir/lib/64"
-					SSL_LIBDIR="$dir/lib/64"
-				else
-					SSL_RUNTIME_LIBDIR="$rdir/lib"
-					SSL_LIBDIR="$dir/lib"
-				fi
-			else	 
-				SSL_RUNTIME_LIBDIR="$rdir/lib"
-				SSL_LIBDIR="$dir/lib"
-			fi
-		fi
-		if test '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.a"; then
-			SSL_DYNAMIC_ONLY=yes
-		elif test '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.so" -a '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.dylib"; then
-			SSL_STATIC_ONLY=yes
-		fi
-		SSL_BINDIR="$rdir/bin"
-		if test "x$is_real_ssl" = "xyes" ; then
-			SSL_INCLUDE="-I$dir/include"
-			old_CPPFLAGS=$CPPFLAGS
-			CPPFLAGS=$SSL_INCLUDE
-			AC_EGREP_CPP(^yes$,[
-#include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER >= 0x0090803fL
-yes
-#endif
-			],[
-			ssl_found=yes
-			],[
-			SSL_APP=
-			ssl_found=no
-         		])
-         		CPPFLAGS=$old_CPPFLAGS
-			if test "x$ssl_found" = "xyes"; then
-			   	if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes"; then
-				   	ssl_linkable=yes
-				elif test "x${SSL_CRYPTO_LIBNAME}" = "xsslcrypto"; then
-				# This should only be triggered seen OSE
-					ssl_linkable=yes
-				else
-					saveCFLAGS="$CFLAGS"
- 					saveLDFLAGS="$LDFLAGS"
-					saveLIBS="$LIBS"
- 					CFLAGS="$CFLAGS $SSL_INCLUDE"
-					if test "x$SSL_STATIC_ONLY" = "xyes"; then
-						LIBS="${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.a"
-					else
-						LDFLAGS="$LDFLAGS -L$SSL_LIBDIR"
-						LIBS="$LIBS -l${SSL_CRYPTO_LIBNAME}"
-					fi
- 					AC_TRY_LINK([
-					#include <stdio.h>
- 					#include <openssl/hmac.h>],
- 					[ 
-					HMAC(0, 0, 0, 0, 0, 0, 0);
- 					],
- 					[ssl_linkable=yes],
- 					[ssl_linkable=no])
- 					CFLAGS="$saveCFLAGS"
- 					LDFLAGS="$saveLDFLAGS"
-					LIBS="$saveLIBS"
-				fi
- 			fi
-	 		if test "x$ssl_found" = "xyes" && test "x$ssl_linkable" = "xyes"; then
-			 	AC_MSG_RESULT([$dir])
-	   			break;
-         		fi
-		fi	
-       fi
-    done
-
-    if test "x$ssl_found" != "xyes" ; then
-	dnl 
-	dnl If no SSL found above, check whether we are running on OpenBSD.
-	dnl
-	case $host_os in
-	openbsd*)
-	       if test -f "$erl_xcomp_isysroot/usr/include/openssl/opensslv.h"; then
-		  # Trust OpenBSD to have everything the in the correct locations.
-		  ssl_found=yes
-		  ssl_linkable=yes
-		  SSL_INCDIR="$erl_xcomp_sysroot/usr"
-	          AC_MSG_RESULT([$SSL_INCDIR])
-		  SSL_RUNTIME_LIB="/usr/lib"
-		  SSL_LIB="$erl_xcomp_sysroot/usr/lib"
-		  SSL_BINDIR="/usr/sbin"
-		  dnl OpenBSD requires us to link with -L and -l
-		  SSL_DYNAMIC_ONLY="yes" 
-		fi
-		;;
-	esac
-    fi
-dnl		Now, certain linuxes have a 64bit libcrypto
-dnl		that cannot build shared libraries (i.e. not PIC)
-dnl		One could argue that this is wrong, but
-dnl		so it is - be adoptable
-    if test "$ssl_found" = "yes" && test "$ssl_linkable" = "yes" && test "$SSL_DYNAMIC_ONLY" != "yes"; then
-	case $host_os in
-		linux*)
-			saveCFLAGS="$CFLAGS"
- 			saveLDFLAGS="$LDFLAGS"
-			saveLIBS="$LIBS"
- 			CFLAGS="$DED_CFLAGS $SSL_INCLUDE"
- 			LDFLAGS="$DED_LDFLAGS"
-			LIBS="$SSL_LIBDIR/libcrypto.a $STATIC_ZLIB_LIBS"
- 			AC_TRY_LINK([
-			#include <stdio.h>
- 			#include <openssl/hmac.h>],
- 			[ 
-			HMAC(0, 0, 0, 0, 0, 0, 0);
- 			],
- 			[ssl_dyn_linkable=yes],
- 			[ssl_dyn_linkable=no])
- 			CFLAGS="$saveCFLAGS"
- 			LDFLAGS="$saveLDFLAGS"
-			LIBS="$saveLIBS"
-			if test "x$ssl_dyn_linkable" != "xyes"; then
-				SSL_DYNAMIC_ONLY=yes
-				AC_MSG_WARN([SSL will be linked against dynamic lib as static lib is not purely relocatable])
-			fi
-			;;
-	esac
-    fi					
-	
-				
-
-
-    if test "x$ssl_found" != "xyes" || test  "x$ssl_linkable" != "xyes"; then
-       if test "x$ssl_found" = "xyes"; then 
-       		AC_MSG_RESULT([found; but not usable])
-       else
-       		AC_MSG_RESULT([no])
-       fi
-       SSL_APP=
-       CRYPTO_APP=
-       SSH_APP=
-       AC_MSG_WARN([No (usable) OpenSSL found, skipping ssl, ssh and crypto applications])
-
-       for a in ssl crypto ssh; do
-           echo "No usable OpenSSL found" > $ERL_TOP/lib/$a/SKIP
-       done
-    fi
-    ;;
-  *)
-    # Option given with PATH to package
-    if test ! -d "$with_ssl" ; then
-       AC_MSG_ERROR(Invalid path to option --with-ssl=PATH)
-    fi
-    if test ! -d "$with_ssl_incl" ; then
-       AC_MSG_ERROR(Invalid path to option --with-ssl-incl=PATH)
-    fi
-    SSL_INCDIR="$with_ssl_incl"
-    SSL_CRYPTO_LIBNAME=crypto
-    SSL_SSL_LIBNAME=ssl
-    if test "x$MIXED_CYGWIN" = "xyes" -o "x$MIXED_MSYS" = "xyes" && test -d "$with_ssl/lib/VC"; then
-	if test -f "$with_ssl/lib/VC/libeay32.lib"; then
-	    SSL_LIBDIR="$with_ssl/lib/VC"
-	    SSL_CRYPTO_LIBNAME=libeay32
-	    SSL_SSL_LIBNAME=ssleay32
-	elif test -f "$with_ssl/lib/VC/openssl.lib"; then 
-	    SSL_LIBDIR="$with_ssl/lib/VC"
-	elif test -f $with_ssl/lib/VC/libeay32MD.lib; then
-	    SSL_CRYPTO_LIBNAME=libeay32MD
-            SSL_SSL_LIBNAME=ssleay32MD
-	    if test "x$enable_dynamic_ssl" = "xno" && \
-	       test -f  $with_ssl/lib/VC/static/libeay32MD.lib; then
-		SSL_LIBDIR="$with_ssl/lib/VC/static"
-	    else
-		SSL_LIBDIR="$with_ssl/lib/VC"
-            fi 
-	elif test -f "$with_ssl/lib/libeay32.lib"; then
-	    SSL_LIBDIR="$with_ssl/lib"
-	    SSL_CRYPTO_LIBNAME=libeay32
-	    SSL_SSL_LIBNAME=ssleay32
-	else
-	    # This probably wont work, but that's what the user said, so...
-	    SSL_LIBDIR="$with_ssl/lib"
-	fi
-    elif test -f "$dir/lib/powerpc/libsslcrypto.a"; then
-	    SSL_CRYPTO_LIBNAME=sslcrypto
-	    SSL_LIBDIR="$with_ssl/lib/powerpc/"
-    elif test "x$ac_cv_sizeof_void_p" = "x8"; then
-	if test -f "$with_ssl/lib64/libcrypto.a"; then
-		SSL_LIBDIR="$with_ssl/lib64"
-	elif test -f "$with_ssl/lib/64/libcrypto.a"; then
-		SSL_LIBDIR="$with_ssl/lib/64"
-	elif test -f "$with_ssl/lib64/libcrypto.so"; then
-		SSL_LIBDIR="$with_ssl/lib64"
-	elif test -f "$with_ssl/lib/64/libcrypto.so"; then
-		SSL_LIBDIR="$with_ssl/lib/64"
-	else
-		SSL_LIBDIR="$with_ssl/lib"
-	fi
-    else	 
-	SSL_LIBDIR="$with_ssl/lib"
-    fi
-    if test '!' -f "${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.a"; then
-	SSL_DYNAMIC_ONLY=yes
-    elif test '!' -f ${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.so -a '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.dylib"; then
-	SSL_STATIC_ONLY=yes
-    fi
-    SSL_INCLUDE="-I$with_ssl_incl/include"
-    SSL_APP=ssl
-    CRYPTO_APP=crypto
-    SSH_APP=ssh
-    if test "$cross_compiling" = "yes"; then
-	SSL_RUNTIME_LIBDIR=`echo "$SSL_LIBDIR" | sed -n "s|^$erl_xcomp_sysroot\(/*\)\(.*\)\$|/\2|p"`
-    else
-	SSL_RUNTIME_LIBDIR="$SSL_LIBDIR"
-    fi
-esac
-
-if test "x$SSL_APP" != "x" ; then
-    dnl We found openssl, now check if we use kerberos 5 support
-    dnl FIXME: Do we still support platforms that have Kerberos?
-    AC_MSG_CHECKING(for OpenSSL kerberos 5 support)
-    old_CPPFLAGS=$CPPFLAGS
-    CPPFLAGS=$SSL_INCLUDE
-    AC_EGREP_CPP(^yes$,[
-#include <openssl/opensslv.h>
-#include <openssl/opensslconf.h>
-#if OPENSSL_VERSION_NUMBER < 0x1010000fL && !defined(OPENSSL_NO_KRB5)
-yes
-#endif
-      ],[
-      AC_MSG_RESULT([yes])
-      ssl_krb5_enabled=yes
-      if test "x$SSL_DYNAMIC_ONLY" != "xyes"; then
-          if test -f "$SSL_LIBDIR/libkrb5.a"; then
-              SSL_LINK_WITH_KERBEROS=yes
-	      STATIC_KERBEROS_LIBS="$SSL_LIBDIR/libkrb5.a"
-	      if test -f "$SSL_LIBDIR/libkrb5support.a"; then
-		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libkrb5support.a"
-	      fi
-	      if test -f "$SSL_LIBDIR/libk5crypto.a"; then
-		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libk5crypto.a"
-	      fi
-	      if test -f "$SSL_LIBDIR/libresolv.a"; then
-		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libresolv.a"
-	      fi
-	      if test -f "$SSL_LIBDIR/libcom_err.a"; then
-		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libcom_err.a"
-	      fi
-          else
-	      AC_MSG_WARN([Kerberos needed but no kerberos static libraries found])
-	      AC_MSG_WARN([Rescanning for dynamic SSL libraries])
-	      enable_dynamic_ssl=yes
-	      ssl_done=no
-	      SSL_LINK_WITH_KERBEROS=no
-	      STATIC_KERBEROS_LIBS=""
-	      ssl_krb5_enabled=no
-	      SSL_WITH_KERBEROS=no
-          fi
-      else 	
-	      SSL_LINK_WITH_KERBEROS=no
-	      STATIC_KERBEROS_LIBS=""
-      fi
-      ],[
-      AC_MSG_RESULT([no])
-      ssl_krb5_enabled=no
-      SSL_WITH_KERBEROS=no
-      ])
-    CPPFLAGS=$old_CPPFLAGS
-    SSL_KRB5_INCLUDE=
-    if test "x$ssl_krb5_enabled" = "xyes" ; then
-        AC_MSG_CHECKING(for krb5.h in standard locations)
-	for dir in $extra_dir "$SSL_INCDIR/include" "$SSL_INCDIR/include/openssl" \
-		"$SSL_INCDIR/include/kerberos" \
-		"$erl_xcomp_isysroot/cygdrive/c/kerberos/include" \
-		"$erl_xcomp_isysroot/usr/local/kerberos/include" \
-		"$erl_xcomp_isysroot/usr/kerberos/include" \
-		"$erl_xcomp_isysroot/usr/include"
-	do
-            if test -f "$dir/krb5.h" ; then
-                SSL_KRB5_INCLUDE="$dir"
-		break
-            fi
-        done
-        if test "x$SSL_KRB5_INCLUDE" = "x" ; then
-	    AC_MSG_RESULT([not found])
-	    SSL_APP=
-	    CRYPTO_APP=
-	    SSH_APP=
-	    AC_MSG_WARN([OpenSSL is configured for kerberos but no krb5.h found])
-	    for a in ssl crypto ssh ; do
-	 	echo "OpenSSL is configured for kerberos but no krb5.h found" > $ERL_TOP/lib/$a/SKIP
-	    done
-        else
-            AC_MSG_RESULT([found in $SSL_KRB5_INCLUDE])
-            SSL_INCLUDE="$SSL_INCLUDE -I$SSL_KRB5_INCLUDE"
-        fi
-    fi
-fi
-
-done # while test ssl_done != yes
-
-SSL_CC_RUNTIME_LIBRARY_PATH=
-SSL_LD_RUNTIME_LIBRARY_PATH=
-SSL_DED_LD_RUNTIME_LIBRARY_PATH=
-cc_rflg="$CFLAG_RUNTIME_LIBRARY_PATH"
-ld_rflg="$LDFLAG_RUNTIME_LIBRARY_PATH"
-ded_ld_rflg="$DED_LD_FLAG_RUNTIME_LIBRARY_PATH"
-
-
-case "$with_ssl_rpath" in
-
-yes)   # Use standard lib locations for ssl runtime library path
-
-  if test "$SSL_APP" != "" && test "$SSL_DYNAMIC_ONLY" = "yes" && \
-   { test "$cc_rflg" != "" || test "$ld_rflg" != "" || test "$ded_ld_rflg" != ""; } ; then
-
-    AC_MSG_CHECKING(for ssl runtime library path to use)
-
-    libdirs="/lib"
-
-    if test "$ac_cv_sizeof_void_p" = "8"; then
-	dir_lib64=no
-	dir_lib_64=no
-
-	case "$SSL_RUNTIME_LIBDIR" in
-	    */lib/64 | */lib/64/ ) dir_lib_64=yes;;
-	    */lib64 | */lib64/ ) dir_lib64=yes;;
-	    *) ;;
-	esac
-
-	for dir in $std_ssl_locations; do
-	    test $dir_lib_64 = no &&
-	    	test -d "$erl_xcomp_sysroot$dir/lib/64" &&
-		    dir_lib_64=yes
-	    test $dir_lib64 = no &&
-		test -d "$erl_xcomp_sysroot$dir/lib64" &&
-		    dir_lib64=yes
-	done
-
-	test $dir_lib_64 = yes && libdirs="/lib/64 $libdirs"
-	test $dir_lib64 = yes && libdirs="/lib64 $libdirs"
-    fi
-
-    for type in std x_std curr; do
-
-        cc_rpath="$cc_rflg$SSL_RUNTIME_LIBDIR"
-        ld_rpath="$ld_rflg$SSL_RUNTIME_LIBDIR"
-        ded_ld_rpath="$ded_ld_rflg$SSL_RUNTIME_LIBDIR"
-	rpath="$SSL_RUNTIME_LIBDIR"
-
-	if test $type != curr; then
-	    for ldir in $libdirs; do
-		for dir in $std_ssl_locations; do
-		    test "$SSL_LIBDIR" != "$dir$ldir" || continue
-		    test $type != x_std || test -d "$dir$ldir" || continue
-		    test "$cc_rflg" = "" ||
-			cc_rpath="$cc_rpath $cc_rflg$dir$ldir"
-		    test "$ld_rflg" = "" ||
-			ld_rpath="$ld_rpath $ld_rflg$dir$ldir"
-		    test "$ded_ld_rflg" = "" ||
-			ded_ld_rpath="$ded_ld_rpath $ded_ld_rflg$dir$ldir"
-		    rpath="$rpath:$dir$ldir"
-                done
-	    done
-	fi
-
-	saveCFLAGS="$CFLAGS"
-	saveLDFLAGS="$LDFLAGS"
-	saveLIBS="$LIBS"
-	CFLAGS="$CFLAGS $SSL_INCLUDE"
-	LDFLAGS="$LDFLAGS $ld_rpath -L$SSL_LIBDIR"
-	LIBS="-lcrypto"
-	AC_TRY_LINK([
-                         #include <stdio.h>
-                         #include <openssl/hmac.h>
-                    ],
-                    [ 
-			 HMAC(0, 0, 0, 0, 0, 0, 0);
-                    ],
-                    [rpath_success=yes],
-                    [rpath_success=no])
-	CFLAGS="$saveCFLAGS"
-	LDFLAGS="$saveLDFLAGS"
-	LIBS="$saveLIBS"
-
-	test "$rpath_success" = "yes" && break
-    done
-
-    test "$rpath_success" = "yes" || { cc_rpath=; ld_rpath=; ded_ld_rpath=; rpath=; }
-
-    SSL_CC_RUNTIME_LIBRARY_PATH="$cc_rpath"
-    SSL_LD_RUNTIME_LIBRARY_PATH="$ld_rpath"
-    SSL_DED_LD_RUNTIME_LIBRARY_PATH="$ded_ld_rpath"
-
-    AC_MSG_RESULT([$rpath])
-    test "$rpath" != "" || AC_MSG_WARN([Cannot set run path during linking])
-  fi
-  ;;
-
-no)   # Use no ssl runtime library path
-  SSL_DED_LD_RUNTIME_LIBRARY_PATH=
-  ;;
-
-*)    # Use ssl runtime library paths set by --with-ssl-rpath (without any check)
-  ded_ld_rpath=
-  delimit=
-  for dir in `echo $with_ssl_rpath | sed "s/,/ /g"`; do
-      ded_ld_rpath="$ded_ld_rpath$delimit$ded_ld_rflg$dir"
-      delimit=" "
-  done
-  SSL_DED_LD_RUNTIME_LIBRARY_PATH="$ded_ld_rpath"
-  ;;
-
-esac
-
-
-AC_ARG_ENABLE(fips,
-AS_HELP_STRING([--enable-fips], [enable OpenSSL FIPS mode support])
-AS_HELP_STRING([--disable-fips], [disable OpenSSL FIPS mode support (default)]),
-[ case "$enableval" in
-    yes) enable_fips_support=yes ;;
-    *)   enable_fips_support=no ;;
-  esac ], enable_fips_support=no)
-
-if test "x$enable_fips_support" = "xyes" && test "$CRYPTO_APP" != ""; then
-   saveCFLAGS="$CFLAGS"
-   saveLDFLAGS="$LDFLAGS"
-   saveLIBS="$LIBS"
-   CFLAGS="$CFLAGS $SSL_INCLUDE"
-   LDFLAGS="$LDFLAGS $SSL_LD_RUNTIME_LIBRARY_PATH -L$SSL_LIBDIR"
-   LIBS="-lcrypto"
-   AC_CHECK_FUNC([FIPS_mode_set],
-   [SSL_FLAGS="-DFIPS_SUPPORT"],
-   [SSL_FLAGS=])
-   CFLAGS="$saveCFLAGS"
-   LDFLAGS="$saveLDFLAGS"
-   LIBS="$saveLIBS"
-else
-   SSL_FLAGS=
-fi
 
 #--------------------------------------------------------------------
 # Os mon stuff.
@@ -4148,6 +3283,8 @@ AC_DEFINE_UNQUOTED(ERTS_EMU_CMDLINE_FLAGS,
 "$STATIC_CFLAGS $CFLAGS $DEBUG_CFLAGS $EMU_THR_DEFS $DEFS $WERRORFLAGS $WFLAGS",
 [The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification of config.h when the emulator command line flags are modified by configure])
 
+AC_SUBST(STATIC_CFLAGS)
+
 dnl ----------------------------------------------------------------------
 dnl Directories needed for the build
 dnl ----------------------------------------------------------------------
@@ -4250,7 +3387,6 @@ AC_CONFIG_FILES([
   include/internal/$host/erts_internal.mk:include/internal/erts_internal.mk.in
   lib_src/$host/Makefile:lib_src/Makefile.in
   ../make/$host/otp.mk:../make/otp.mk.in
-  ../make/$host/otp_ded.mk:../make/otp_ded.mk.in
 ])
 
 AC_CONFIG_FILES([../make/make_emakefile:../make/make_emakefile.in],
@@ -4262,7 +3398,6 @@ dnl
 dnl  ../lib/ssl/c_src/$host/Makefile:../lib/ssl/c_src/Makefile.in
 AC_CONFIG_FILES([
   ../lib/os_mon/c_src/$host/Makefile:../lib/os_mon/c_src/Makefile.in
-  ../lib/crypto/c_src/$host/Makefile:../lib/crypto/c_src/Makefile.in
   ../lib/runtime_tools/c_src/$host/Makefile:../lib/runtime_tools/c_src/Makefile.in
   ../lib/tools/c_src/$host/Makefile:../lib/tools/c_src/Makefile.in
   ])

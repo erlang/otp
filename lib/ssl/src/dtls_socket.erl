@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,33 +22,33 @@
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
 
--export([send/3, listen/3, accept/3, connect/4, socket/4, setopts/3, getopts/3, getstat/3, 
+-export([send/3, listen/2, accept/3, connect/4, socket/4, setopts/3, getopts/3, getstat/3, 
 	 peername/2, sockname/2, port/2, close/2]).
 -export([emulated_options/0, emulated_options/1, internal_inet_values/0, default_inet_values/0, default_cb_info/0]).
 
 send(Transport, {{IP,Port},Socket}, Data) ->
     Transport:send(Socket, IP, Port, Data).
 
-listen(gen_udp = Transport, Port, #config{transport_info = {Transport, _, _, _},
-					  ssl = SslOpts, 
-					  emulated = EmOpts,
-					  inet_user = Options} = Config) ->
+listen(Port, #config{transport_info = TransportInfo,
+                           ssl = SslOpts, 
+                           emulated = EmOpts,
+                           inet_user = Options} = Config) ->
     
     
-    case dtls_udp_sup:start_child([Port, emulated_socket_options(EmOpts, #socket_options{}), 
+    case dtls_listener_sup:start_child([Port, TransportInfo, emulated_socket_options(EmOpts, #socket_options{}), 
 				   Options ++ internal_inet_values(), SslOpts]) of
 	{ok, Pid} ->
-	    {ok, #sslsocket{pid = {udp, Config#config{udp_handler = {Pid, Port}}}}};
+	    {ok, #sslsocket{pid = {dtls, Config#config{dtls_handler = {Pid, Port}}}}};
 	Err = {error, _} ->
 	    Err
     end.
 
-accept(udp, #config{transport_info = {Transport = gen_udp,_,_,_},
+accept(dtls, #config{transport_info = {Transport,_,_,_},
 		    connection_cb = ConnectionCb,
-		    udp_handler = {Listner, _}}, _Timeout) -> 
-    case dtls_udp_listener:accept(Listner, self()) of
+		    dtls_handler = {Listner, _}}, _Timeout) -> 
+    case dtls_packet_demux:accept(Listner, self()) of
 	{ok, Pid, Socket} ->
-	    {ok, socket(Pid, Transport, {Listner, Socket}, ConnectionCb)};
+	    {ok, socket([Pid], Transport, {Listner, Socket}, ConnectionCb)};
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -69,28 +69,30 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _} = CbInfo,
     end.
 
 close(gen_udp, {_Client, _Socket}) ->
-    ok.
+    ok;
+close(Transport, {_Client, Socket}) ->
+    Transport:close(Socket).
 
-socket(Pid, gen_udp = Transport, {{_, _}, Socket}, ConnectionCb) ->
-    #sslsocket{pid = Pid, 
+socket(Pids, gen_udp = Transport, {{_, _}, Socket}, ConnectionCb) ->
+    #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb}};
-socket(Pid, Transport, Socket, ConnectionCb) ->
-    #sslsocket{pid = Pid, 
+socket(Pids, Transport, Socket, ConnectionCb) ->
+    #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb}}.
-setopts(_, #sslsocket{pid = {udp, #config{udp_handler = {ListenPid, _}}}}, Options) ->
+setopts(_, #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
     SplitOpts = tls_socket:split_options(Options),
-    dtls_udp_listener:set_sock_opts(ListenPid, SplitOpts);
+    dtls_packet_demux:set_sock_opts(ListenPid, SplitOpts);
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
 setopts(gen_udp, Socket, Options) ->
     inet:setopts(Socket, Options);
 setopts(Transport, Socket, Options) ->
     Transport:setopts(Socket, Options).
 
-getopts(_, #sslsocket{pid = {udp, #config{udp_handler = {ListenPid, _}}}}, Options) ->
+getopts(_, #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
     SplitOpts = tls_socket:split_options(Options),
-    dtls_udp_listener:get_sock_opts(ListenPid, SplitOpts);
+    dtls_packet_demux:get_sock_opts(ListenPid, SplitOpts);
 getopts(gen_udp,  #sslsocket{pid = {Socket, #config{emulated = EmOpts}}}, Options) ->
     {SockOptNames, EmulatedOptNames} = tls_socket:split_options(Options),
     EmulatedOpts = get_emulated_opts(EmOpts, EmulatedOptNames),
@@ -112,7 +114,7 @@ getstat(gen_udp, {_,Socket}, Options) ->
 	inet:getstat(Socket, Options);
 getstat(Transport, Socket, Options) ->
 	Transport:getstat(Socket, Options).
-peername(udp, _) ->
+peername(_, undefined) ->
     {error, enotconn};
 peername(gen_udp, {_, {Client, _Socket}}) ->
     {ok, Client};

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,10 +42,8 @@
 #include <inetLib.h>
 
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/times.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h> 
@@ -55,7 +53,6 @@
 
 #else /* some other unix */
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/times.h>
 
 #if TIME_WITH_SYS_TIME
@@ -84,6 +81,7 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
+#include <stddef.h>
 
 #include "eiext.h"
 #include "ei_portio.h"
@@ -98,10 +96,15 @@
 #include "ei_epmd.h"
 #include "ei_internal.h"
 
+static int ei_connect_initialized = 0;
 int ei_tracelevel = 0;
 
 #define COOKIE_FILE "/.erlang.cookie"
 #define EI_MAX_HOME_PATH 1024
+
+#define EI_SOCKET_CALLBACKS_SZ_V1                       \
+    (offsetof(ei_socket_callbacks, get_fd)              \
+     + sizeof(int (*)(void *)))
 
 /* FIXME why not macro? */
 static char *null_cookie = "";
@@ -113,30 +116,51 @@ static int get_home(char *buf, int size);
 static unsigned gen_challenge(void);
 static void gen_digest(unsigned challenge, char cookie[], 
 		       unsigned char digest[16]);
-static int send_status(int fd, char *status, unsigned ms);
-static int recv_status(int fd, unsigned ms);
-static int send_challenge(int fd, char *nodename, 
-			  unsigned challenge, unsigned version, unsigned ms);
-static int recv_challenge(int fd, unsigned *challenge, 
-			  unsigned *version,
-			  unsigned *flags, ErlConnect *namebuf, unsigned ms);
-static int send_challenge_reply(int fd, unsigned char digest[16], 
+static int send_status(ei_socket_callbacks *cbs, void *ctx,
+                       int pkt_sz, char *status, unsigned ms);
+static int recv_status(ei_socket_callbacks *cbs, void *ctx,
+                       int pkt_sz, unsigned ms);
+static int send_challenge(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
+                          char *nodename, unsigned challenge,
+                          unsigned version, unsigned ms);
+static int recv_challenge(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
+                          unsigned *challenge, unsigned *version,
+			  unsigned *flags, char *namebuf, unsigned ms);
+static int send_challenge_reply(ei_socket_callbacks *cbs, void *ctx,
+                                int pkt_sz, unsigned char digest[16], 
 				unsigned challenge, unsigned ms);
-static int recv_challenge_reply(int fd, 
-				unsigned our_challenge,
+static int recv_challenge_reply(ei_socket_callbacks *cbs, void *ctx,
+                                int pkt_sz, unsigned our_challenge,
 				char cookie[], 
 				unsigned *her_challenge, unsigned ms);
-static int send_challenge_ack(int fd, unsigned char digest[16], unsigned ms);
-static int recv_challenge_ack(int fd, 
-			      unsigned our_challenge,
+static int send_challenge_ack(ei_socket_callbacks *cbs, void *ctx,
+                              int pkt_sz, unsigned char digest[16],
+                              unsigned ms);
+static int recv_challenge_ack(ei_socket_callbacks *cbs, void *ctx, 
+			      int pkt_sz, unsigned our_challenge,
 			      char cookie[], unsigned ms);
-static int send_name(int fd, char *nodename, 
-		     unsigned version, unsigned ms); 
+static int send_name(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
+                     char *nodename, unsigned version, unsigned ms); 
 
-/* Common for both handshake types */
-static int recv_name(int fd, 
-		     unsigned *version,
-		     unsigned *flags, ErlConnect *namebuf, unsigned ms);
+static int recv_name(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
+                     unsigned *version, unsigned *flags, char *namebuf,
+                     unsigned ms);
+
+static struct hostent*
+dyn_gethostbyname_r(const char *name, struct hostent *hostp, char **buffer_p,
+                    int buflen, int *h_errnop);
+
+static void abort_connection(ei_socket_callbacks *cbs, void *ctx);
+static int close_connection(ei_socket_callbacks *cbs, void *ctx, int fd);
+
+static char *
+estr(int e)
+{
+    char *str = strerror(e);
+    if (!str)
+        return "unknown error";
+    return str;
+}
 
 
 /***************************************************************************
@@ -149,17 +173,12 @@ static int recv_name(int fd,
 
 typedef struct ei_socket_info_s {
     int socket;
+    ei_socket_callbacks *cbs;
+    void *ctx;
     int dist_version;
     ei_cnode cnode;	/* A copy, not a pointer. We don't know when freed */
     char cookie[EI_MAX_COOKIE_SIZE+1];
 } ei_socket_info;
-
-int ei_n_sockets = 0, ei_sz_sockets = 0;
-ei_socket_info *ei_sockets = NULL;
-#ifdef _REENTRANT
-ei_mutex_t* ei_sockets_lock = NULL;
-#endif /* _REENTRANT */
-
 
 /***************************************************************************
  *
@@ -167,7 +186,195 @@ ei_mutex_t* ei_sockets_lock = NULL;
  *
  ***************************************************************************/
 
-static int put_ei_socket_info(int fd, int dist_version, char* cookie, ei_cnode *ec)
+#ifndef ETHR_HAVE___atomic_compare_exchange_n
+#  define ETHR_HAVE___atomic_compare_exchange_n 0
+#endif
+#ifndef ETHR_HAVE___atomic_load_n
+#  define ETHR_HAVE___atomic_load_n 0
+#endif
+#ifndef ETHR_HAVE___atomic_store_n
+#  define ETHR_HAVE___atomic_store_n 0
+#endif
+
+#if defined(_REENTRANT)                                                 \
+    && (!(ETHR_HAVE___atomic_compare_exchange_n & SIZEOF_VOID_P)        \
+        || !(ETHR_HAVE___atomic_load_n & SIZEOF_VOID_P)                 \
+        || !(ETHR_HAVE___atomic_store_n & SIZEOF_VOID_P))
+#  undef EI_DISABLE_SEQ_SOCKET_INFO
+#  define EI_DISABLE_SEQ_SOCKET_INFO
+#endif
+
+#ifdef __WIN32__
+#  undef EI_DISABLE_SEQ_SOCKET_INFO
+#  define EI_DISABLE_SEQ_SOCKET_INFO
+#endif
+
+#ifndef EI_DISABLE_SEQ_SOCKET_INFO
+
+#ifdef _REENTRANT
+
+#define EI_ATOMIC_CMPXCHG_ACQ_REL(VARP, XCHGP, NEW) \
+    __atomic_compare_exchange_n((VARP), (XCHGP), (NEW), 0, \
+                                __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)
+#define EI_ATOMIC_LOAD_ACQ(VARP) \
+    __atomic_load_n((VARP), __ATOMIC_ACQUIRE)
+#define EI_ATOMIC_STORE_REL(VARP, NEW) \
+    __atomic_store_n((VARP), (NEW), __ATOMIC_RELEASE)
+
+#else /* ! _REENTRANT */
+
+#define EI_ATOMIC_CMPXCHG_ACQ_REL(VARP, XCHGP, NEW)    \
+    (*(VARP) == *(XCHGP)                               \
+     ? ((*(VARP) = (NEW)), !0)                         \
+     : ((*(XCHGP) = *(VARP)), 0))
+#define EI_ATOMIC_LOAD_ACQ(VARP) (*(VARP))
+#define EI_ATOMIC_STORE_REL(VARP, NEW) (*(VARP) = (NEW))
+
+#endif /* ! _REENTRANT */
+
+#define EI_SOCKET_INFO_SEG_BITS 5
+#define EI_SOCKET_INFO_SEG_SIZE (1 << EI_SOCKET_INFO_SEG_BITS)
+#define EI_SOCKET_INFO_SEG_MASK (EI_SOCKET_INFO_SEG_SIZE - 1)
+
+typedef struct {
+    int max_fds;
+    ei_socket_info *segments[1]; /* Larger in reality... */
+} ei_socket_info_data__;
+
+static ei_socket_info_data__ *socket_info_data = NULL;
+
+static int init_socket_info(int late)
+{
+    int max_fds;
+    int i;
+    size_t segments_len;
+    ei_socket_info_data__ *info_data, *xchg;
+
+    if (EI_ATOMIC_LOAD_ACQ(&socket_info_data) != NULL)
+        return 0; /* Already initialized... */
+    
+#if defined(HAVE_SYSCONF) && defined(_SC_OPEN_MAX)
+    max_fds = sysconf(_SC_OPEN_MAX);
+#else
+    max_fds = 1024;
+#endif
+
+    if (max_fds < 0)
+        return EIO;
+
+    segments_len = ((max_fds-1)/EI_SOCKET_INFO_SEG_SIZE + 1);
+    
+    info_data = malloc(sizeof(ei_socket_info_data__)
+                       + (sizeof(ei_socket_info *)*(segments_len-1)));
+    if (!info_data)
+        return ENOMEM;
+
+    info_data->max_fds = max_fds;
+    for (i = 0; i < segments_len; i++)
+        info_data->segments[i] = NULL;
+
+    xchg = NULL;
+    if (!EI_ATOMIC_CMPXCHG_ACQ_REL(&socket_info_data, &xchg, info_data))
+        free(info_data); /* Already initialized... */
+
+    return 0;
+}
+
+static int put_ei_socket_info(int fd, int dist_version, char* cookie, ei_cnode *ec,
+                              ei_socket_callbacks *cbs, void *ctx)
+{
+    int six;
+    ei_socket_info *seg, *si;
+    int socket;
+
+    if (fd < 0 || socket_info_data->max_fds <= fd)
+        return -1;
+
+    socket = fd;
+    six = fd >> EI_SOCKET_INFO_SEG_BITS;
+    seg = EI_ATOMIC_LOAD_ACQ(&socket_info_data->segments[six]);
+    
+    if (!seg) {
+        ei_socket_info *xchg;
+        int i;
+        seg = malloc(sizeof(ei_socket_info)*EI_SOCKET_INFO_SEG_SIZE);
+        if (!seg)
+            return -1;
+        for (i = 0; i < EI_SOCKET_INFO_SEG_SIZE; i++) {
+            seg[i].socket = -1;
+        }
+
+        xchg = NULL;
+        if (!EI_ATOMIC_CMPXCHG_ACQ_REL(&socket_info_data->segments[six], &xchg, seg)) {
+            free(seg);
+            seg = xchg;
+        }
+    }
+
+    si = &seg[fd & EI_SOCKET_INFO_SEG_MASK];
+
+    if (dist_version < 0) {
+        socket = -1;
+        si->cbs = NULL;
+        si->ctx = NULL;
+    }
+    else {
+        si->dist_version = dist_version;
+        si->cnode = *ec;
+        si->cbs = cbs;
+        si->ctx = ctx;
+        strcpy(si->cookie, cookie);
+    }
+
+    EI_ATOMIC_STORE_REL(&si->socket, socket);
+
+    return 0;
+}
+
+static ei_socket_info* get_ei_socket_info(int fd)
+{
+    int six, socket;
+    ei_socket_info *seg, *si;
+    
+    if (fd < 0 || socket_info_data->max_fds <= fd)
+        return NULL;
+    
+    six = fd >> EI_SOCKET_INFO_SEG_BITS;
+    seg = EI_ATOMIC_LOAD_ACQ(&socket_info_data->segments[six]);
+
+    if (!seg)
+        return NULL;
+    
+    si = &seg[fd & EI_SOCKET_INFO_SEG_MASK];
+    socket = EI_ATOMIC_LOAD_ACQ(&si->socket);
+    if (socket != fd)
+        return NULL;
+    return si;
+}
+    
+#else /* EI_DISABLE_SEQ_SOCKET_INFO */
+
+int ei_n_sockets = 0, ei_sz_sockets = 0;
+ei_socket_info *ei_sockets = NULL;
+
+#ifdef _REENTRANT
+ei_mutex_t* ei_sockets_lock = NULL;
+#endif /* _REENTRANT */
+
+static int init_socket_info(int late)
+{
+#ifdef _REENTRANT
+    if (late)
+        return ENOTSUP; /* Refuse doing unsafe initialization... */
+    ei_sockets_lock = ei_mutex_create();
+    if (!ei_sockets_lock)
+        return ENOMEM;
+#endif /* _REENTRANT */
+    return 0;
+}
+
+static int put_ei_socket_info(int fd, int dist_version, char* cookie, ei_cnode *ec,
+                              ei_socket_callbacks *cbs, void *ctx)
 {
     int i;
 
@@ -177,11 +384,13 @@ static int put_ei_socket_info(int fd, int dist_version, char* cookie, ei_cnode *
     for (i = 0; i < ei_n_sockets; ++i) {
 	if (ei_sockets[i].socket == fd) {
 	    if (dist_version == -1) {
-		memmove(&ei_sockets[i], &ei_sockets[i+1],
+                memmove(&ei_sockets[i], &ei_sockets[i+1],
 			sizeof(ei_sockets[0])*(ei_n_sockets-i-1));
 	    } else {
 		ei_sockets[i].dist_version = dist_version;
 		/* Copy the content, see ei_socket_info */
+                ei_sockets[i].cbs = cbs;
+                ei_sockets[i].ctx = ctx;
 		ei_sockets[i].cnode = *ec;
 		strcpy(ei_sockets[i].cookie, cookie);
 	    }
@@ -204,7 +413,9 @@ static int put_ei_socket_info(int fd, int dist_version, char* cookie, ei_cnode *
 	}
 	ei_sockets[ei_n_sockets].socket = fd;
 	ei_sockets[ei_n_sockets].dist_version = dist_version;
-	ei_sockets[i].cnode = *ec;
+	ei_sockets[ei_n_sockets].cnode = *ec;
+        ei_sockets[ei_n_sockets].cbs = cbs;
+        ei_sockets[ei_n_sockets].ctx = ctx;
 	strcpy(ei_sockets[ei_n_sockets].cookie, cookie);
 	++ei_n_sockets;
     }
@@ -213,14 +424,6 @@ static int put_ei_socket_info(int fd, int dist_version, char* cookie, ei_cnode *
 #endif /* _REENTRANT */
     return 0;
 }
-
-#if 0
-/* FIXME not used ?! */
-static int remove_ei_socket_info(int fd, int dist_version, char* cookie)
-{
-    return put_ei_socket_info(fd, -1, NULL);
-}
-#endif
 
 static ei_socket_info* get_ei_socket_info(int fd)
 {
@@ -243,6 +446,13 @@ static ei_socket_info* get_ei_socket_info(int fd)
     return NULL;
 }
 
+#endif /* EI_DISABLE_SEQ_SOCKET_INFO */
+
+static int remove_ei_socket_info(int fd)
+{
+    return put_ei_socket_info(fd, -1, NULL, NULL, NULL, NULL);
+}
+
 ei_cnode *ei_fd_to_cnode(int fd)
 {
     ei_socket_info *sockinfo = get_ei_socket_info(fd);
@@ -250,6 +460,19 @@ ei_cnode *ei_fd_to_cnode(int fd)
     return &sockinfo->cnode;
 }
 
+int ei_get_cbs_ctx__(ei_socket_callbacks **cbs, void **ctx, int fd)
+{
+    ei_socket_info *sockinfo = get_ei_socket_info(fd);
+    if (sockinfo) {
+        *cbs = sockinfo->cbs;
+        *ctx = sockinfo->ctx;
+        return 0;
+    }
+
+    *cbs = NULL;
+    *ctx = NULL;
+    return EBADF;
+}
 
 /***************************************************************************
  *  Get/Set tracelevel
@@ -328,21 +551,6 @@ const char *ei_getfdcookie(int fd)
     return r;
 }
 
-/* call with cookie to set value to use on descriptor fd,
-* or specify NULL to use default
-*/
-/* FIXME why defined but not used? */
-#if 0
-static int ei_setfdcookie(ei_cnode* ec, int fd, char *cookie)
-{
-    int dist_version = ei_distversion(fd);
-
-    if (cookie == NULL)
-	cookie = ec->ei_connect_cookie;
-    return put_ei_socket_info(fd, dist_version, cookie);
-}
-#endif
-
 static int get_int32(unsigned char *s)
 {
     return ((s[0] << 24) | (s[1] << 16) | (s[2] << 8) | (s[3] ));
@@ -395,34 +603,62 @@ static int initWinSock(void)
 }
 #endif
 
+static int init_connect(int late)
+{
+    int error;
+
+    /*
+     * 'late' is non-zero when not called via ei_init(). Such a
+     * call is not supported, but we for now save the day if
+     * it easy to do so; otherwise, return ENOTSUP.
+     */
+
+#ifdef __WIN32__
+    if (!initWinSock()) {
+	EI_TRACE_ERR0("ei_init_connect","can't initiate winsock");
+	return EIO;
+    }
+#endif /* win32 */
+
+    error = init_socket_info(late);
+    if (error) {
+        EI_TRACE_ERR0("ei_init_connect","can't initiate socket info");
+        return error;
+    }
+
+    ei_connect_initialized = !0;
+    return 0;
+}
+
+int ei_init_connect(void)
+{
+    return init_connect(0);
+}
+
 /*
 * Perhaps run this routine instead of ei_connect_init/2 ?
 * Initailize by setting:
 * thishostname, thisalivename, thisnodename and thisipaddr
 */
-int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
-		     const char *thisalivename, const char *thisnodename,
-		     Erl_IpAddr thisipaddr, const char *cookie,
-		     const short creation)
+int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
+                          const char *thisalivename, const char *thisnodename,
+                          Erl_IpAddr thisipaddr, const char *cookie,
+                          const short creation, ei_socket_callbacks *cbs,
+                          int cbs_sz, void *setup_context)
 {
     char *dbglevel;
+
+    if (!ei_connect_initialized)
+        init_connect(!0);
+
+    if (cbs != &ei_default_socket_callbacks)
+        EI_SET_HAVE_PLUGIN_SOCKET_IMPL__;
     
-/* FIXME this code was enabled for 'erl'_connect_xinit(), why not here? */
-#if 0    
-#ifdef __WIN32__
-    if (!initWinSock()) {
-	EI_TRACE_ERR0("ei_connect_xinit","can't initiate winsock");
-	return ERL_ERROR;
+    if (cbs_sz < EI_SOCKET_CALLBACKS_SZ_V1) {
+	EI_TRACE_ERR0("ei_connect_xinit","invalid size of ei_socket_callbacks struct");
+        return ERL_ERROR;
     }
-#endif
-#endif
-
-#ifdef _REENTRANT
-    if (ei_sockets_lock == NULL) {
-	ei_sockets_lock = ei_mutex_create();
-    }
-#endif /* _REENTRANT */
-
+    
     ec->creation = creation & 0x3; /* 2 bits */
     
     if (cookie) {
@@ -464,6 +700,9 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
     ec->self.serial = 0;
     ec->self.creation = creation & 0x3; /* 2 bits */
 
+    ec->cbs = cbs;
+    ec->setup_context = setup_context;
+
     if ((dbglevel = getenv("EI_TRACELEVEL")) != NULL ||
 	(dbglevel = getenv("ERL_DEBUG_DIST")) != NULL)
 	ei_tracelevel = atoi(dbglevel);
@@ -471,31 +710,39 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
     return 0;
 }
 
+int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
+                     const char *thisalivename, const char *thisnodename,
+                     Erl_IpAddr thisipaddr, const char *cookie,
+                     const short creation)
+{
+    return ei_connect_xinit_ussi(ec, thishostname, thisalivename, thisnodename,
+                                 thisipaddr, cookie, creation,
+                                 &ei_default_socket_callbacks,
+                                 sizeof(ei_default_socket_callbacks),
+                                 NULL);
+}
 
 /*
 * Initialize by set: thishostname, thisalivename, 
 * thisnodename and thisipaddr. At success return 0,
 * otherwise return -1.
 */
-int ei_connect_init(ei_cnode* ec, const char* this_node_name,
-		    const char *cookie, short creation)
+int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
+                         const char *cookie, short creation,
+                         ei_socket_callbacks *cbs, int cbs_sz,
+                         void *setup_context)
 {
-    struct hostent *hp;
     char thishostname[EI_MAXHOSTNAMELEN+1];
     char thisnodename[MAXNODELEN+1];
     char thisalivename[EI_MAXALIVELEN+1];
+    struct hostent host, *hp;
+    char buffer[1024];
+    char *buf = buffer;
+    int ei_h_errno;
+    int res;
 
-#ifdef __WIN32__
-    if (!initWinSock()) {
-	EI_TRACE_ERR0("ei_connect_xinit","can't initiate winsock");
-	return ERL_ERROR;
-    }
-#endif /* win32 */
-#ifdef _REENTRANT
-    if (ei_sockets_lock == NULL) {
-	ei_sockets_lock = ei_mutex_create();
-    }
-#endif /* _REENTRANT */
+    if (!ei_connect_initialized)
+        init_connect(!0);
     
     /* gethostname requires len to be max(hostname) + 1 */
     if (gethostname(thishostname, EI_MAXHOSTNAMELEN+1) == -1) {
@@ -517,10 +764,13 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name,
 	strcpy(thisalivename, this_node_name);
     }
     
-    if ((hp = ei_gethostbyname(thishostname)) == 0) {
+    hp = dyn_gethostbyname_r(thishostname,&host,&buf,sizeof(buffer),&ei_h_errno);
+    if (hp == NULL) {
 	/* Looking up IP given hostname fails. We must be on a standalone
 	   host so let's use loopback for communication instead. */
-	if ((hp = ei_gethostbyname("localhost")) == 0) {
+	hp = dyn_gethostbyname_r("localhost", &host, &buf, sizeof(buffer),
+                                 &ei_h_errno);
+        if (hp == NULL) {
 #ifdef __WIN32__
 	    char reason[1024];
 	
@@ -549,40 +799,22 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name,
 	    sprintf(thisnodename, "%s@%s", this_node_name, hp->h_name);
 	}
     }
-    return ei_connect_xinit(ec, thishostname, thisalivename, thisnodename,
-			    (struct in_addr *)*hp->h_addr_list, cookie, creation);
+    res = ei_connect_xinit_ussi(ec, thishostname, thisalivename, thisnodename,
+                                (struct in_addr *)*hp->h_addr_list, cookie, creation,
+                                cbs, cbs_sz, setup_context);
+    if (buf != buffer)
+        free(buf);
+    return res;
 }
 
-
-/* connects to port at ip-address ip_addr 
-* and returns fd to socket 
-* port has to be in host byte order 
-*/
-static int cnct(uint16 port, struct in_addr *ip_addr, int addr_len, unsigned ms)
+int ei_connect_init(ei_cnode* ec, const char* this_node_name,
+                    const char *cookie, short creation)
 {
-    int s, res;
-    struct sockaddr_in iserv_addr;
-    
-    if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-	erl_errno = errno;
-	return ERL_ERROR;
-    }
-    
-    memset((char*)&iserv_addr, 0, sizeof(struct sockaddr_in));
-    memcpy((char*)&iserv_addr.sin_addr, (char*)ip_addr, addr_len);
-    iserv_addr.sin_family = AF_INET;
-    iserv_addr.sin_port = htons(port);
-    
-    if ((res = ei_connect_t(s, (struct sockaddr*)&iserv_addr, 
-		      sizeof(iserv_addr),ms)) < 0) {
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-	closesocket(s);
-	return ERL_ERROR;
-    }
-    
-    return s;
-} /* cnct */
-
+    return ei_connect_init_ussi(ec, this_node_name, cookie, creation,
+                                &ei_default_socket_callbacks,
+                                sizeof(ei_default_socket_callbacks),
+                                NULL);
+}
 
 /*
  * Same as ei_gethostbyname_r, but also handles ERANGE error
@@ -595,6 +827,13 @@ struct hostent *dyn_gethostbyname_r(const char *name,
 				    int buflen,
 				    int *h_errnop)
 {
+#ifdef __WIN32__
+    /*
+     * Apparently ei_gethostbyname_r not implemented for Windows (?)
+     * Fall back on ei_gethostbyname like before.
+     */
+    return ei_gethostbyname(name);
+#else
     char* buf = *buffer_p;
     struct hostent *hp;
 
@@ -629,6 +868,7 @@ struct hostent *dyn_gethostbyname_r(const char *name,
         }
     }
     return hp;
+#endif
 }
 
   /* 
@@ -735,91 +975,218 @@ int ei_connect(ei_cnode* ec, char *nodename)
   *  the node through epmd at that host 
   *
 */
-int ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr adr, char *alivename, unsigned ms)
+int ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr ip_addr, char *alivename, unsigned ms)
 {
-    struct in_addr *ip_addr=(struct in_addr *) adr;
+    ei_socket_callbacks *cbs = ec->cbs;
+    void *ctx;
     int rport = 0; /*uint16 rport = 0;*/
     int sockd;
-    int one = 1;
     int dist = 0;
-    ErlConnect her_name;
     unsigned her_flags, her_version;
-
+    unsigned our_challenge, her_challenge;
+    unsigned char our_digest[16];
+    int err;
+    int pkt_sz;
+    struct sockaddr_in addr;
+    unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
+    
     erl_errno = EIO;		/* Default error code */
     
     EI_TRACE_CONN1("ei_xconnect","-> CONNECT attempt to connect to %s",
 		   alivename);
     
-    if ((rport = ei_epmd_port_tmo(ip_addr,alivename,&dist, ms)) < 0) {
+    if ((rport = ei_epmd_port_tmo(ip_addr,alivename,&dist, tmo)) < 0) {
 	EI_TRACE_ERR0("ei_xconnect","-> CONNECT can't get remote port");
 	/* ei_epmd_port_tmo() has set erl_errno */
 	return ERL_NO_PORT;
     }
-    
-    /* we now have port number to enode, try to connect */
-    if((sockd = cnct((uint16)rport, ip_addr, sizeof(struct in_addr),ms)) < 0) {
-	EI_TRACE_ERR0("ei_xconnect","-> CONNECT socket connect failed");
-	/* cnct() has set erl_errno */
-	return ERL_CONNECT_FAIL;
+
+    if (dist <= 4) {
+	EI_TRACE_ERR0("ei_xconnect","-> CONNECT remote version not compatible");
+	return ERL_ERROR;
+    }
+
+    err = ei_socket_ctx__(cbs, &ctx, ec->setup_context);
+    if (err) {
+        EI_TRACE_ERR2("ei_xconnect","-> SOCKET failed: %s (%d)",
+                      estr(err), err);
+        erl_errno = err;
+        return ERL_CONNECT_FAIL;
+    }
+
+    memset((void *) &addr, 0, sizeof(struct sockaddr_in));
+    memcpy((void *) &addr.sin_addr, (void *) ip_addr, sizeof(addr.sin_addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(rport);
+
+    err = ei_connect_ctx_t__(cbs, ctx, (void *) &addr, sizeof(addr), tmo);
+    if (err) {
+        EI_TRACE_ERR2("ei_xconnect","-> CONNECT socket connect failed: %s (%d)",
+                      estr(err), err);
+        abort_connection(cbs, ctx);
+        erl_errno = err;
+        return ERL_CONNECT_FAIL;
     }
     
     EI_TRACE_CONN0("ei_xconnect","-> CONNECT connected to remote");
 
-    /* FIXME why connect before checking 'dist' output from ei_epmd_port() ?! */
-    if (dist <= 4) {
-	EI_TRACE_ERR0("ei_xconnect","-> CONNECT remote version not compatible");
-	goto error;
+    err = EI_GET_FD__(cbs, ctx, &sockd);
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
+        goto error;
     }
-    else {
-	unsigned our_challenge, her_challenge;
-	unsigned char our_digest[16];
-	
-	if (send_name(sockd, ec->thisnodename, (unsigned) dist, ms))
-	    goto error;
-	if (recv_status(sockd, ms))
-	    goto error;
-	if (recv_challenge(sockd, &her_challenge, &her_version,
-	    &her_flags, &her_name, ms))
-	    goto error;
-	our_challenge = gen_challenge();
-	gen_digest(her_challenge, ec->ei_connect_cookie, our_digest);
-	if (send_challenge_reply(sockd, our_digest, our_challenge, ms))
-	    goto error;
-	if (recv_challenge_ack(sockd, our_challenge, 
-	    ec->ei_connect_cookie, ms))
-	    goto error;
-	put_ei_socket_info(sockd, dist, null_cookie, ec); /* FIXME check == 0 */
-    }
-    
-    setsockopt(sockd, IPPROTO_TCP, TCP_NODELAY, (char *)&one, sizeof(one));
-    setsockopt(sockd, SOL_SOCKET, SO_KEEPALIVE, (char *)&one, sizeof(one));
 
-    EI_TRACE_CONN1("ei_xconnect","-> CONNECT (ok) remote = %s",alivename);
+    err = cbs->handshake_packet_header_size(ctx, &pkt_sz);
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
+        goto error;
+    }
+        
+    if (send_name(cbs, ctx, pkt_sz, ec->thisnodename, (unsigned) dist, tmo))
+        goto error;
+    if (recv_status(cbs, ctx, pkt_sz, tmo))
+        goto error;
+    if (recv_challenge(cbs, ctx, pkt_sz, &her_challenge,
+                       &her_version, &her_flags, NULL, tmo))
+        goto error;
+    our_challenge = gen_challenge();
+    gen_digest(her_challenge, ec->ei_connect_cookie, our_digest);
+    if (send_challenge_reply(cbs, ctx, pkt_sz, our_digest, our_challenge, tmo))
+        goto error;
+    if (recv_challenge_ack(cbs, ctx, pkt_sz, our_challenge, 
+                           ec->ei_connect_cookie, tmo))
+        goto error;
+    if (put_ei_socket_info(sockd, dist, null_cookie, ec, cbs, ctx) != 0)
+        goto error;
+
+    if (cbs->connect_handshake_complete) {
+        err = cbs->connect_handshake_complete(ctx);
+        if (err) {
+            EI_TRACE_ERR2("ei_xconnect","-> CONNECT failed: %s (%d)",
+                          estr(err), err);
+            close_connection(cbs, ctx, sockd);
+            EI_CONN_SAVE_ERRNO__(err);
+            return ERL_ERROR;
+        }
+    }    
     
+    EI_TRACE_CONN1("ei_xconnect","-> CONNECT (ok) remote = %s",alivename);
+
     erl_errno = 0;
     return sockd;
     
 error:
     EI_TRACE_ERR0("ei_xconnect","-> CONNECT failed");
-    closesocket(sockd);
+    abort_connection(cbs, ctx);
     return ERL_ERROR;
 } /* ei_xconnect */
 
-int ei_xconnect(ei_cnode* ec, Erl_IpAddr adr, char *alivename)
+int ei_xconnect(ei_cnode* ec, Erl_IpAddr ip_addr, char *alivename)
 {
-    return ei_xconnect_tmo(ec, adr, alivename, 0);
+    return ei_xconnect_tmo(ec, ip_addr, alivename, 0);
 }
 
+int ei_listen(ei_cnode *ec, int *port, int backlog)
+{
+    struct in_addr ip_addr;
+    ip_addr.s_addr = htonl(INADDR_ANY);
+    return ei_xlisten(ec, &ip_addr, port, backlog);
+}
 
-  /* 
-  * For symmetry reasons
-*/
-#if 0
+int ei_xlisten(ei_cnode *ec, struct in_addr *ip_addr, int *port, int backlog)
+{
+    ei_socket_callbacks *cbs = ec->cbs;
+    struct sockaddr_in sock_addr;
+    void *ctx;
+    int fd, err, len;
+
+    err = ei_socket_ctx__(cbs, &ctx, ec->setup_context);
+    if (err) {
+        EI_TRACE_ERR2("ei_xlisten","-> SOCKET failed: %s (%d)",
+                      estr(err), err);
+        erl_errno = err;
+        return ERL_ERROR;
+    }
+
+    memset((void *) &sock_addr, 0, sizeof(struct sockaddr_in));
+    memcpy((void *) &sock_addr.sin_addr, (void *) ip_addr, sizeof(*ip_addr));
+    sock_addr.sin_family = AF_INET;
+    sock_addr.sin_port = htons((short) *port);
+
+    len = sizeof(sock_addr);
+    err = ei_listen_ctx__(cbs, ctx, (void *) &sock_addr, &len, backlog);
+    if (err) {
+        EI_TRACE_ERR2("ei_xlisten","-> listen failed: %s (%d)",
+                      estr(err), err);
+        erl_errno = err;
+        goto error;
+    }
+
+    if (len != sizeof(sock_addr)) {
+        if (len < offsetof(struct sockaddr_in, sin_addr) + sizeof(sock_addr.sin_addr)
+            || len < offsetof(struct sockaddr_in, sin_port) + sizeof(sock_addr.sin_port)) {
+            erl_errno = EIO;
+            EI_TRACE_ERR0("ei_xlisten","-> get info failed");
+            goto error;
+        }
+    }
+
+    memcpy((void *) ip_addr, (void *) &sock_addr.sin_addr, sizeof(*ip_addr));
+    *port = (int) ntohs(sock_addr.sin_port);
+    
+    err = EI_GET_FD__(cbs, ctx, &fd);
+    if (err) {
+        erl_errno = err;
+        goto error;
+    }
+
+    if (put_ei_socket_info(fd, 0, null_cookie, ec, cbs, ctx) != 0) {
+        EI_TRACE_ERR0("ei_xlisten","-> save socket info failed");
+        erl_errno = EIO;
+        goto error;
+    }
+    
+    erl_errno = 0;
+
+    return fd;
+    
+error:
+    abort_connection(cbs, ctx);
+    return ERL_ERROR;
+}
+    
+static int close_connection(ei_socket_callbacks *cbs, void *ctx, int fd)
+{
+    int err;
+    remove_ei_socket_info(fd);
+    err = ei_close_ctx__(cbs, ctx);
+    if (err) {
+        erl_errno = err;
+        return ERL_ERROR;
+    }
+    return 0;
+}
+
 int ei_close_connection(int fd)
 {
-    return closesocket(fd);
+    ei_socket_callbacks *cbs;
+    void *ctx;
+    int err = EI_GET_CBS_CTX__(&cbs, &ctx, fd);
+    if (err)
+        erl_errno = err;
+    else {
+        if (close_connection(cbs, ctx, fd) == 0)
+            return 0;
+    }
+    EI_TRACE_ERR2("ei_close_connection","<- CLOSE socket close failed: %s (%d)",
+                  estr(erl_errno), erl_errno);
+    return ERL_ERROR;
 } /* ei_close_connection */
-#endif
+
+static void abort_connection(ei_socket_callbacks *cbs, void *ctx)
+{
+    (void) ei_close_ctx__(cbs, ctx);
+}
 
   /*
   * Accept and initiate a connection from another
@@ -834,25 +1201,71 @@ int ei_accept(ei_cnode* ec, int lfd, ErlConnect *conp)
 int ei_accept_tmo(ei_cnode* ec, int lfd, ErlConnect *conp, unsigned ms)
 {
     int fd;
-    struct sockaddr_in cli_addr;
-    int cli_addr_len=sizeof(struct sockaddr_in);
     unsigned her_version, her_flags;
-    ErlConnect her_name;
+    char tmp_nodename[MAXNODELEN+1];
+    char *her_name;
+    int pkt_sz, err;
+    struct sockaddr_in addr;
+    int addr_len = sizeof(struct sockaddr_in);
+    ei_socket_callbacks *cbs;
+    void *ctx;
+    unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
 
     erl_errno = EIO;		/* Default error code */
+    
+    err = EI_GET_CBS_CTX__(&cbs, &ctx, lfd);
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
+        return ERL_ERROR;
+    }
+
 
     EI_TRACE_CONN0("ei_accept","<- ACCEPT waiting for connection");
+
+    if (conp) {
+        her_name = &conp->nodename[0];
+    }
+    else {
+        her_name = &tmp_nodename[0];
+    }
     
-    if ((fd = ei_accept_t(lfd, (struct sockaddr*) &cli_addr, 
-	&cli_addr_len, ms )) < 0) {
-	EI_TRACE_ERR0("ei_accept","<- ACCEPT socket accept failed");
-	erl_errno = (fd == -2) ? ETIMEDOUT : EIO;
-	goto error;
+    /*
+     * ei_accept_ctx_t__() replaces the pointer to the listen context
+     * with a pointer to the accepted connection context on success.
+     */
+    err = ei_accept_ctx_t__(cbs, &ctx, (void *) &addr, &addr_len, tmo);
+    if (err) {
+	EI_TRACE_ERR2("ei_accept","<- ACCEPT socket accept failed: %s (%d)",
+                      estr(err), err);
+        EI_CONN_SAVE_ERRNO__(err);
+        return ERL_ERROR;
+    }
+
+    err = EI_GET_FD__(cbs, ctx, &fd);
+    if (err) {
+	EI_TRACE_ERR2("ei_accept","<- ACCEPT get fd failed: %s (%d)",
+                      estr(err), err);
+        EI_CONN_SAVE_ERRNO__(err);
+    }
+
+    if (addr_len != sizeof(struct sockaddr_in)) {
+        if (addr_len < (offsetof(struct sockaddr_in, sin_addr)
+                        + sizeof(addr.sin_addr))) {
+            EI_TRACE_ERR0("ei_accept","<- ACCEPT get addr failed");
+            goto error;
+        }
+    }
+
+    err = cbs->handshake_packet_header_size(ctx, &pkt_sz);
+    if (err) {
+	EI_TRACE_ERR2("ei_accept","<- ACCEPT get packet size failed: %s (%d)",
+                      estr(err), err);
+        EI_CONN_SAVE_ERRNO__(err);
     }
     
     EI_TRACE_CONN0("ei_accept","<- ACCEPT connected to remote");
     
-    if (recv_name(fd, &her_version, &her_flags, &her_name, ms)) {
+    if (recv_name(cbs, ctx, pkt_sz, &her_version, &her_flags, her_name, tmo)) {
 	EI_TRACE_ERR0("ei_accept","<- ACCEPT initial ident failed");
 	goto error;
     }
@@ -865,34 +1278,45 @@ int ei_accept_tmo(ei_cnode* ec, int lfd, ErlConnect *conp, unsigned ms)
 	unsigned our_challenge;
 	unsigned her_challenge;
 	unsigned char our_digest[16];
-	
-	if (send_status(fd,"ok", ms))
+        
+	if (send_status(cbs, ctx, pkt_sz, "ok", tmo))
 	    goto error;
 	our_challenge = gen_challenge();
-	if (send_challenge(fd, ec->thisnodename, 
-	    our_challenge, her_version, ms))
+	if (send_challenge(cbs, ctx, pkt_sz, ec->thisnodename, 
+                           our_challenge, her_version, tmo))
 	    goto error;
-	if (recv_challenge_reply(fd, our_challenge, 
-	    ec->ei_connect_cookie, 
-	    &her_challenge, ms))
+	if (recv_challenge_reply(cbs, ctx, pkt_sz, our_challenge, 
+                                 ec->ei_connect_cookie, &her_challenge, tmo))
 	    goto error;
 	gen_digest(her_challenge, ec->ei_connect_cookie, our_digest);
-	if (send_challenge_ack(fd, our_digest, ms))
+	if (send_challenge_ack(cbs, ctx, pkt_sz, our_digest, tmo))
 	    goto error;
-	put_ei_socket_info(fd, her_version, null_cookie, ec);
+	if (put_ei_socket_info(fd, her_version, null_cookie, ec, cbs, ctx) != 0)
+            goto error;
     }
-    if (conp) 
-	*conp = her_name;
+    if (conp) {
+        memcpy((void *) conp->ipadr, (void *) &addr.sin_addr, sizeof(conp->ipadr));
+    }
+
+    if (cbs->accept_handshake_complete) {
+        err = cbs->accept_handshake_complete(ctx);
+        if (err) {
+            EI_TRACE_ERR2("ei_xconnect","-> ACCEPT handshake failed: %s (%d)",
+                          estr(err), err);
+            close_connection(cbs, ctx, fd);
+            EI_CONN_SAVE_ERRNO__(err);
+            return ERL_ERROR;
+        }
+    }
     
-    EI_TRACE_CONN1("ei_accept","<- ACCEPT (ok) remote = %s",her_name.nodename);
+    EI_TRACE_CONN1("ei_accept","<- ACCEPT (ok) remote = %s",her_name);
 
     erl_errno = 0;		/* No error */
     return fd;
     
 error:
     EI_TRACE_ERR0("ei_accept","<- ACCEPT failed");
-    if (fd>=0)
-      closesocket(fd);
+    abort_connection(cbs, ctx);
     return ERL_ERROR;
 } /* ei_accept */
 
@@ -904,36 +1328,57 @@ error:
  */
 int ei_receive_tmo(int fd, unsigned char *bufp, int bufsize, unsigned ms) 
 {
-    int len;
+    ssize_t len;
     unsigned char fourbyte[4]={0,0,0,0};
-    int res;
- 
-    if ((res = ei_read_fill_t(fd, (char *) bufp, 4, ms))  != 4) {
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
+    int err;
+    ei_socket_callbacks *cbs;
+    void *ctx;
+    unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
+
+    err = EI_GET_CBS_CTX__(&cbs, &ctx, fd);
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
+        return ERL_ERROR;
+    }
+
+    len = (ssize_t) 4;
+    err = ei_read_fill_ctx_t__(cbs, ctx, (char *) bufp, &len, tmo);
+    if (!err && len != (ssize_t) 4)
+        err = EIO;
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
 	return ERL_ERROR;
     }
     
     /* Tick handling */
-    if ((len = get_int32(bufp)) == ERL_TICK) 
-    {
-	ei_write_fill_t(fd, (char *) fourbyte, 4, ms);
+    len = get_int32(bufp);
+    if (len == ERL_TICK) {
+        len = 4;
+	ei_write_fill_ctx_t__(cbs, ctx, (char *) fourbyte, &len, tmo);
 	/* FIXME ok to ignore error or timeout? */
 	erl_errno = EAGAIN;
 	return ERL_TICK;
     }
-    else if (len > bufsize) 
-    {
+    
+    if (len > bufsize) {
 	/* FIXME: We should drain the message. */
 	erl_errno = EMSGSIZE;
 	return ERL_ERROR;
     }
-    else if ((res = ei_read_fill_t(fd, (char *) bufp, len, ms)) != len)
-    {
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-	return ERL_ERROR;
+    else {
+        ssize_t need = len;
+        err = ei_read_fill_ctx_t__(cbs, ctx, (char *) bufp, &len, tmo);
+        if (err) {
+            EI_CONN_SAVE_ERRNO__(err);
+            return ERL_ERROR;
+        }
+        if (len != need) {
+            erl_errno = EIO;
+            return ERL_ERROR;
+        }
     }
     
-    return len;
+    return (int) len;
     
 }
 
@@ -999,7 +1444,7 @@ int ei_do_receive_msg(int fd, int staticbuffer_p,
 	erl_errno = EMSGSIZE;
 	return ERL_ERROR;
     }
-    x->index = x->buffsz;
+    x->index = msglen;
     switch (msg->msgtype) {	/* FIXME does not handle trace tokens and monitors */
     case ERL_SEND:
     case ERL_REG_SEND:
@@ -1089,36 +1534,11 @@ int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun,
 int ei_rpc_from(ei_cnode *ec, int fd, int timeout, erlang_msg *msg,
 		ei_x_buff *x) 
 {
-    fd_set readmask;
-    struct timeval tv;
-    struct timeval *t = NULL;
-    
-    if (timeout >= 0) {
-	tv.tv_sec = timeout / 1000;
-	tv.tv_usec = (timeout % 1000) * 1000;
-	t = &tv;
-    }
-    
-    FD_ZERO(&readmask);
-    FD_SET(fd,&readmask);
-    
-    switch (select(fd+1, &readmask, NULL, NULL, t)) {
-    case -1: 
-	erl_errno = EIO;
-	return ERL_ERROR;
-	
-    case 0:
-	erl_errno = ETIMEDOUT;
-	return ERL_TIMEOUT;
-	
-    default:
-	if (FD_ISSET(fd, &readmask)) {
-	    return ei_xreceive_msg(fd, msg, x);
-	} else {
-	    erl_errno = EIO;
-	    return ERL_ERROR;
-	}
-    }
+    unsigned tmo = timeout < 0 ? EI_SCLBK_INF_TMO : (unsigned) timeout;
+    int res = ei_xreceive_msg_tmo(fd, msg, x, tmo);
+    if (res < 0 && erl_errno == ETIMEDOUT)
+        return ERL_TIMEOUT;
+    return res;
 } /* rpc_from */
 
   /*
@@ -1272,19 +1692,34 @@ static char *hex(char digest[16], char buff[33])
     return buff;
 }
 
-static int read_2byte_package(int fd, char **buf, int *buflen, 
-			      int *is_static, unsigned ms)
+static int read_hs_package(ei_socket_callbacks *cbs, void *ctx,
+                           int pkt_sz, char **buf, int *buflen, 
+                           int *is_static, unsigned ms)
 {
-    unsigned char nbuf[2];
+    unsigned char nbuf[4];
     unsigned char *x = nbuf;
-    unsigned len;
-    int res;
-    
-    if((res = ei_read_fill_t(fd, (char *)nbuf, 2, ms)) != 2) {
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
+    ssize_t len, need;
+    int err;
+
+    len = (ssize_t) pkt_sz;
+    err = ei_read_fill_ctx_t__(cbs, ctx, (char *)nbuf, &len, ms);
+    if (!err && len != (ssize_t) pkt_sz)
+        err = EIO;
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
 	return -1;
     }
-    len = get16be(x);
+    
+    switch (pkt_sz) {
+    case 2:
+        len = get16be(x);
+        break;
+    case 4:
+        len = get32be(x);
+        break;
+    default:
+        return -1;
+    }
     
     if (len > *buflen) {
 	if (*is_static) {
@@ -1306,20 +1741,26 @@ static int read_2byte_package(int fd, char **buf, int *buflen,
 	    *buflen = len;
 	}
     }
-    if ((res = ei_read_fill_t(fd, *buf, len, ms)) != len) {
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
+    need = len;
+    err = ei_read_fill_ctx_t__(cbs, ctx, *buf, &len, ms);
+    if (!err && len != need)
+        err = EIO;
+    if (err) {
+        EI_CONN_SAVE_ERRNO__(err);
 	return -1;
     }
     return len;
 }
 
 
-static int send_status(int fd, char *status, unsigned ms)
+static int send_status(ei_socket_callbacks *cbs, void *ctx,
+                       int pkt_sz, char *status, unsigned ms)
 {
     char *buf, *s;
     char dbuf[DEFBUF_SIZ];
-    int siz = strlen(status) + 1 + 2;
-    int res;
+    int siz = strlen(status) + 1 + pkt_sz;
+    int err;
+    ssize_t len;
 
     buf = (siz > DEFBUF_SIZ) ? malloc(siz) : dbuf;
     if (!buf) {
@@ -1327,14 +1768,28 @@ static int send_status(int fd, char *status, unsigned ms)
 	return -1;
     }
     s = buf;
-    put16be(s,siz - 2);
+    switch (pkt_sz) {
+    case 2:
+        put16be(s,siz - 2);
+        break;
+    case 4:
+        put32be(s,siz - 4);
+        break;
+    default:
+        return -1;
+    }
     put8(s, 's');
     memcpy(s, status, strlen(status));
-    if ((res = ei_write_fill_t(fd, buf, siz, ms)) != siz) {
-	EI_TRACE_ERR0("send_status","-> SEND_STATUS socket write failed");
+    len = (ssize_t) siz;
+    err = ei_write_fill_ctx_t__(cbs, ctx, buf, &len, ms);
+    if (!err && len != (ssize_t) siz)
+        err = EIO;
+    if (err) {
+	EI_TRACE_ERR2("send_status","-> SEND_STATUS socket write failed: %s (%d)",
+                      estr(err), err);
 	if (buf != dbuf)
-	    free(buf);
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
+	    free(buf);        
+        EI_CONN_SAVE_ERRNO__(err);
 	return -1;
     }
     EI_TRACE_CONN1("send_status","-> SEND_STATUS (%s)",status);
@@ -1344,7 +1799,8 @@ static int send_status(int fd, char *status, unsigned ms)
     return 0;
 }
 
-static int recv_status(int fd, unsigned ms)
+static int recv_status(ei_socket_callbacks *cbs, void *ctx,
+                       int pkt_sz, unsigned ms)
 {
     char dbuf[DEFBUF_SIZ];
     char *buf = dbuf;
@@ -1352,16 +1808,20 @@ static int recv_status(int fd, unsigned ms)
     int buflen = DEFBUF_SIZ;
     int rlen;
     
-    if ((rlen = read_2byte_package(fd, &buf, &buflen, &is_static, ms)) <= 0) {
+    if ((rlen = read_hs_package(cbs, ctx, pkt_sz,
+                                &buf, &buflen, &is_static, ms)) <= 0) {
 	EI_TRACE_ERR1("recv_status",
 		      "<- RECV_STATUS socket read failed (%d)", rlen);
 	goto error;
     }
-    if (rlen == 3 && buf[0] == 's' && buf[1] == 'o' && 
-	buf[2] == 'k') {
+
+    EI_TRACE_CONN2("recv_status",
+                   "<- RECV_STATUS (%.*s)", (rlen>20 ? 20 : rlen), buf);
+
+    if (rlen >= 3 && buf[0] == 's' && buf[1] == 'o' && buf[2] == 'k') {
+        /* Expecting "sok" or "sok_simultaneous" */
 	if (!is_static)
 	    free(buf);
-	EI_TRACE_CONN0("recv_status","<- RECV_STATUS (ok)");
 	return 0;
     }
 error:
@@ -1370,7 +1830,10 @@ error:
     return -1;
 }
 
-static int send_name_or_challenge(int fd, char *nodename,
+static int send_name_or_challenge(ei_socket_callbacks *cbs,
+                                  void *ctx,
+                                  int pkt_sz,
+                                  char *nodename,
 				  int f_chall,
 				  unsigned challenge,
 				  unsigned version,
@@ -1379,9 +1842,10 @@ static int send_name_or_challenge(int fd, char *nodename,
     char *buf;
     unsigned char *s;
     char dbuf[DEFBUF_SIZ];
-    int siz = 2 + 1 + 2 + 4 + strlen(nodename);
+    int siz = pkt_sz + 1 + 2 + 4 + strlen(nodename);
     const char* function[] = {"SEND_NAME", "SEND_CHALLENGE"};
-    int res;
+    int err;
+    ssize_t len;
 
     if (f_chall)
 	siz += 4;
@@ -1391,7 +1855,16 @@ static int send_name_or_challenge(int fd, char *nodename,
 	return -1;
     }
     s = (unsigned char *)buf;
-    put16be(s,siz - 2);
+    switch (pkt_sz) {
+    case 2:
+        put16be(s,siz - 2);
+        break;
+    case 4:
+        put32be(s,siz - 4);
+        break;
+    default:
+        return -1;
+    }
     put8(s, 'n');
     put16be(s, version);
     put32be(s, (DFLAG_EXTENDED_REFERENCES
@@ -1407,13 +1880,16 @@ static int send_name_or_challenge(int fd, char *nodename,
     if (f_chall)
 	put32be(s, challenge);
     memcpy(s, nodename, strlen(nodename));
-    
-    if ((res = ei_write_fill_t(fd, buf, siz, ms)) != siz) {
+    len = (ssize_t) siz;
+    err = ei_write_fill_ctx_t__(cbs, ctx, buf, &len, ms);
+    if (!err && len != (ssize_t) siz)
+        err = EIO;
+    if (err) {
 	EI_TRACE_ERR1("send_name_or_challenge",
 		      "-> %s socket write failed", function[f_chall]);
 	if (buf != dbuf)
 	    free(buf);
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
+        EI_CONN_SAVE_ERRNO__(err);
 	return -1;
     }
     
@@ -1422,9 +1898,9 @@ static int send_name_or_challenge(int fd, char *nodename,
     return 0;
 }
 
-static int recv_challenge(int fd, unsigned *challenge, 
-			  unsigned *version,
-			  unsigned *flags, ErlConnect *namebuf, unsigned ms)
+static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
+                          int pkt_sz, unsigned *challenge, unsigned *version,
+			  unsigned *flags, char *namebuf, unsigned ms)
 {
     char dbuf[DEFBUF_SIZ];
     char *buf = dbuf;
@@ -1432,13 +1908,13 @@ static int recv_challenge(int fd, unsigned *challenge,
     int buflen = DEFBUF_SIZ;
     int rlen;
     char *s;
-    struct sockaddr_in sin;
-    socklen_t sin_len = sizeof(sin);
     char tag;
-    
+    char tmp_nodename[MAXNODELEN+1];
+
     erl_errno = EIO;		/* Default */
 
-    if ((rlen = read_2byte_package(fd, &buf, &buflen, &is_static, ms)) <= 0) {
+    if ((rlen = read_hs_package(cbs, ctx, pkt_sz, &buf, &buflen,
+                                &is_static, ms)) <= 0) {
 	EI_TRACE_ERR1("recv_challenge",
 		      "<- RECV_CHALLENGE socket read failed (%d)",rlen);
 	goto error;
@@ -1479,22 +1955,19 @@ static int recv_challenge(int fd, unsigned *challenge,
 	goto error;
     }
 
-    if (getpeername(fd, (struct sockaddr *) &sin, &sin_len) < 0) {
-	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE can't get peername");
-	erl_errno = errno;
-	goto error;
-    }
-    memcpy(namebuf->ipadr, &(sin.sin_addr.s_addr), 
-	sizeof(sin.sin_addr.s_addr));
-    memcpy(namebuf->nodename, s, rlen - 11);
-    namebuf->nodename[rlen - 11] = '\0';
+    if (!namebuf)
+        namebuf = &tmp_nodename[0];
+    
+    memcpy(namebuf, s, rlen - 11);
+    namebuf[rlen - 11] = '\0';
+    
     if (!is_static)
 	free(buf);
     EI_TRACE_CONN4("recv_challenge","<- RECV_CHALLENGE (ok) node = %s, "
 	    "version = %u, "
 	    "flags = %u, "
 	    "challenge = %d",
-	    namebuf->nodename,
+	    namebuf,
 	    *version,
 	    *flags,
 	    *challenge
@@ -1507,24 +1980,40 @@ error:
     return -1;
 }
 
-static int send_challenge_reply(int fd, unsigned char digest[16], 
+static int send_challenge_reply(ei_socket_callbacks *cbs, void *ctx,
+                                int pkt_sz, unsigned char digest[16], 
 				unsigned challenge, unsigned ms) 
 {
     char *s;
     char buf[DEFBUF_SIZ];
-    int siz = 2 + 1 + 4 + 16;
-    int res;
+    int siz = pkt_sz + 1 + 4 + 16;
+    int err;
+    ssize_t len;
 
     s = buf;
-    put16be(s,siz - 2);
+    switch (pkt_sz) {
+    case 2:
+        put16be(s,siz - 2);
+        break;
+    case 4:
+        put32be(s,siz - 4);
+        break;
+    default:
+        return -1;
+    }
     put8(s, 'r');
     put32be(s, challenge);
     memcpy(s, digest, 16);
-    
-    if ((res = ei_write_fill_t(fd, buf, siz, ms)) != siz) {
-	EI_TRACE_ERR0("send_challenge_reply",
-		      "-> SEND_CHALLENGE_REPLY socket write failed");
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
+
+    len = (ssize_t) siz;
+    err = ei_write_fill_ctx_t__(cbs, ctx, buf, &len, ms);
+    if (!err && len != (ssize_t) siz)
+        err = EIO;
+    if (err) {
+	EI_TRACE_ERR2("send_challenge_reply",
+		      "-> SEND_CHALLENGE_REPLY socket write failed: %s (%d)",
+                      estr(err), err);
+        EI_CONN_SAVE_ERRNO__(err);
 	return -1;
     }
     
@@ -1537,11 +2026,13 @@ static int send_challenge_reply(int fd, unsigned char digest[16],
     return 0;
 }
 
-static int recv_challenge_reply (int fd, 
-				 unsigned our_challenge,
-				 char cookie[], 
-				 unsigned *her_challenge,
-				 unsigned ms)
+static int recv_challenge_reply(ei_socket_callbacks *cbs,
+                                void *ctx,
+                                int pkt_sz,
+                                unsigned our_challenge,
+                                char cookie[], 
+                                unsigned *her_challenge,
+                                unsigned ms)
 {
     char dbuf[DEFBUF_SIZ];
     char *buf = dbuf;
@@ -1554,7 +2045,7 @@ static int recv_challenge_reply (int fd,
     
     erl_errno = EIO;		/* Default */
 
-    if ((rlen = read_2byte_package(fd, &buf, &buflen, &is_static, ms)) != 21) {
+    if ((rlen = read_hs_package(cbs, ctx, pkt_sz, &buf, &buflen, &is_static, ms)) != 21) {
 	EI_TRACE_ERR1("recv_challenge_reply",
 		      "<- RECV_CHALLENGE_REPLY socket read failed (%d)",rlen);
 	goto error;
@@ -1594,23 +2085,38 @@ error:
     return -1;
 }
 
-static int send_challenge_ack(int fd, unsigned char digest[16], unsigned ms) 
+static int send_challenge_ack(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
+                              unsigned char digest[16], unsigned ms) 
 {
     char *s;
     char buf[DEFBUF_SIZ];
-    int siz = 2 + 1 + 16;
-    int res;
+    int siz = pkt_sz + 1 + 16;
+    int err;
+    ssize_t len;
 
     s = buf;
-    
-    put16be(s,siz - 2);
+    switch (pkt_sz) {
+    case 2:
+        put16be(s,siz - 2);
+        break;
+    case 4:
+        put32be(s,siz - 4);
+        break;
+    default:
+        return -1;
+    }
     put8(s, 'a');
     memcpy(s, digest, 16);
 
-    if ((res = ei_write_fill_t(fd, buf, siz, ms)) != siz) {
-	EI_TRACE_ERR0("recv_challenge_reply",
-		      "-> SEND_CHALLENGE_ACK socket write failed");
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
+    len = (ssize_t) siz;
+    err = ei_write_fill_ctx_t__(cbs, ctx, buf, &len, ms);
+    if (!err && len != (ssize_t) siz)
+        err = EIO;
+    if (err) {
+	EI_TRACE_ERR2("recv_challenge_reply",
+		      "-> SEND_CHALLENGE_ACK socket write failed: %s (%d)",
+                      estr(err), err);
+        EI_CONN_SAVE_ERRNO__(err);
 	return -1;
     }
     
@@ -1623,8 +2129,8 @@ static int send_challenge_ack(int fd, unsigned char digest[16], unsigned ms)
     return 0;
 }
 
-static int recv_challenge_ack(int fd, 
-			      unsigned our_challenge,
+static int recv_challenge_ack(ei_socket_callbacks *cbs, void *ctx,
+			      int pkt_sz, unsigned our_challenge,
 			      char cookie[], unsigned ms)
 {
     char dbuf[DEFBUF_SIZ];
@@ -1638,7 +2144,7 @@ static int recv_challenge_ack(int fd,
     
     erl_errno = EIO;		/* Default */
 
-    if ((rlen = read_2byte_package(fd, &buf, &buflen, &is_static, ms)) != 17) {
+    if ((rlen = read_hs_package(cbs, ctx, pkt_sz, &buf, &buflen, &is_static, ms)) != 17) {
 	EI_TRACE_ERR1("recv_challenge_ack",
 		      "<- RECV_CHALLENGE_ACK socket read failed (%d)",rlen);
 	goto error;
@@ -1675,20 +2181,24 @@ error:
     return -1;
 }
 
-static int send_name(int fd, char *nodename, unsigned version, unsigned ms) 
+static int send_name(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
+                     char *nodename, unsigned version, unsigned ms) 
 {
-    return send_name_or_challenge(fd, nodename, 0, 0, version, ms);
+    return send_name_or_challenge(cbs, ctx, pkt_sz, nodename, 0,
+                                  0, version, ms);
 }
 
-static int send_challenge(int fd, char *nodename, 
-			  unsigned challenge, unsigned version, unsigned ms)
+static int send_challenge(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
+                          char *nodename, unsigned challenge, unsigned version,
+                          unsigned ms)
 {
-    return send_name_or_challenge(fd, nodename, 1, challenge, version, ms);
+    return send_name_or_challenge(cbs, ctx, pkt_sz, nodename, 1,
+                                  challenge, version, ms);
 }
 
-static int recv_name(int fd, 
-		     unsigned *version,
-		     unsigned *flags, ErlConnect *namebuf, unsigned ms)
+static int recv_name(ei_socket_callbacks *cbs, void *ctx,
+                     int pkt_sz, unsigned *version,
+		     unsigned *flags, char *namebuf, unsigned ms)
 {
     char dbuf[DEFBUF_SIZ];
     char *buf = dbuf;
@@ -1696,13 +2206,13 @@ static int recv_name(int fd,
     int buflen = DEFBUF_SIZ;
     int rlen;
     char *s;
-    struct sockaddr_in sin;
-    socklen_t sin_len = sizeof(sin);
+    char tmp_nodename[MAXNODELEN+1];
     char tag;
     
     erl_errno = EIO;		/* Default */
 
-    if ((rlen = read_2byte_package(fd, &buf, &buflen, &is_static, ms)) <= 0) {
+    if ((rlen = read_hs_package(cbs, ctx, pkt_sz, &buf, &buflen,
+                                &is_static, ms)) <= 0) {
 	EI_TRACE_ERR1("recv_name","<- RECV_NAME socket read failed (%d)",rlen);
 	goto error;
     }
@@ -1733,21 +2243,18 @@ static int recv_name(int fd,
 	erl_errno = EIO;
 	goto error;
     }
-	  
-    if (getpeername(fd, (struct sockaddr *) &sin, &sin_len) < 0) {
-	EI_TRACE_ERR0("recv_name","<- RECV_NAME can't get peername");
-	erl_errno = errno;
-	goto error;
-    }
-    memcpy(namebuf->ipadr, &(sin.sin_addr.s_addr), 
-	sizeof(sin.sin_addr.s_addr));
-    memcpy(namebuf->nodename, s, rlen - 7);
-    namebuf->nodename[rlen - 7] = '\0';
+
+    if (!namebuf)
+        namebuf = &tmp_nodename[0];
+    
+    memcpy(namebuf, s, rlen - 7);
+    namebuf[rlen - 7] = '\0';
+
     if (!is_static)
 	free(buf);
     EI_TRACE_CONN3("recv_name",
 		   "<- RECV_NAME (ok) node = %s, version = %u, flags = %u",
-		   namebuf->nodename,*version,*flags);
+		   namebuf,*version,*flags);
     erl_errno = 0;
     return 0;
     
@@ -1841,3 +2348,4 @@ static int get_cookie(char *buf, int bufsize)
 
     return 1;			/* Success! */
 }
+

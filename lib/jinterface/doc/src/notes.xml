@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2017</year>
+      <year>2000</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,36 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
+
+<section><title>Jinterface 1.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add module package name for Java 9</p>
+          <p>
+	    Own Id: OTP-14844</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Jinterface 1.8.1</title>
 
@@ -690,7 +720,7 @@
         <item>
           <p><c>OtpMbox.receive()</c> and <c>OtpMbox.receive(long timeout)</c> can now throw
             <c>OtpErlangDecodeException</c> if the received message
-            can not be decoded. <c>null</c> is now only returned from
+            cannot be decoded. <c>null</c> is now only returned from
             <c>OtpMbox.receive(long timeout)</c> if a timeout occurs.
             <c>OtpMbox.receive()</c> will never return <c>null</c>.</p>
           <p>*** POTENTIAL INCOMPATIBILITY ***</p>

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2007</year><year>2017</year>
+      <year>2007</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,48 @@
   </header>
   <p>This document describes the changes made to the EDoc
     application.</p>
+
+<section><title>Edoc 0.9.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Edoc 0.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Types and function specifications including the
+	    <c>map()</c> type are pretty-printed correctly. </p>
+          <p>
+	    Own Id: OTP-15117</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update to use the new string api instead of the old.</p>
+          <p>
+	    Own Id: OTP-15036</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Edoc 0.9.2</title>
 

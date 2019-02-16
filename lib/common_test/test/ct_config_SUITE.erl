@@ -211,16 +211,10 @@ reformat_events(Events, EH) ->
 %%% Test related to 'localtime' will often fail if the test host is
 %%% time warping, so let's just skip the 'dynamic' tests then.
 skip_dynamic() ->
-    case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
-	TSExtraPlatformLabel when is_list(TSExtraPlatformLabel) ->
-	    case string:find(TSExtraPlatformLabel,"TimeWarpingOS") of
-		nomatch -> false;
-		_ -> true
-	    end;
-	_ ->
-	    false
+    case string:find(os:getenv("TS_EXTRA_PLATFORM_LABEL", ""), "TimeWarpingOS") of
+	nomatch -> false;
+	_ -> true
     end.
-
 
 
 %%%-----------------------------------------------------------------

@@ -33,6 +33,7 @@ MODULES= \
 	after_SUITE \
 	alloc_SUITE \
 	async_ports_SUITE \
+	atomics_SUITE \
 	beam_SUITE \
 	beam_literals_SUITE \
 	bif_SUITE \
@@ -50,6 +51,7 @@ MODULES= \
 	call_trace_SUITE \
 	code_SUITE \
 	code_parallel_load_SUITE \
+	counters_SUITE \
 	crypto_SUITE \
 	ddll_SUITE \
 	decode_packet_SUITE \
@@ -92,6 +94,7 @@ MODULES= \
 	port_SUITE \
 	port_bif_SUITE \
 	prim_eval_SUITE \
+	persistent_term_SUITE \
 	process_SUITE \
 	pseudoknot_SUITE \
 	receive_SUITE \
@@ -127,6 +130,7 @@ MODULES= \
 	ignore_cores \
 	dgawd_handler \
 	random_iolist \
+	erts_test_utils \
 	crypto_reference
 
 NO_OPT= bs_bincomp \

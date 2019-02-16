@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
          time/1,
          eval/1,
          eval_name/1,
-         get_stacktrace/0,
+         stacktrace/1,
          ipaddr/1,
          spawn_opts/2,
          wait/1,
@@ -42,15 +42,12 @@
          log/4]).
 
 %% ---------------------------------------------------------------------------
-%% # get_stacktrace/0
+%% # stacktrace/1
 %% ---------------------------------------------------------------------------
 
 %% Return a stacktrace with a leading, potentially large, argument
-%% list replaced by an arity. Trace on stacktrace/0 to see the
+%% list replaced by an arity. Trace on stacktrace/1 to see the
 %% original.
-
-get_stacktrace() ->
-    stacktrace(erlang:get_stacktrace()).
 
 stacktrace([{M,F,A,L} | T]) when is_list(A) ->
     [{M, F, length(A), L} | T];
@@ -268,8 +265,8 @@ ipaddr(Addr) ->
     try
         ip(Addr)
     catch
-        error: _ ->
-            erlang:error({invalid_address, erlang:get_stacktrace()})
+        error: _: Stack ->
+            erlang:error({invalid_address, Stack})
     end.
 
 %% Already a tuple: ensure non-negative integers of the right size.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -452,9 +452,9 @@ prepare_crash_dump(int secs)
 
     envsz = sizeof(env);
     i = erts_sys_explicit_8bit_getenv("ERL_CRASH_DUMP_NICE", env, &envsz);
-    if (i >= 0) {
+    if (i != 0) {
 	int nice_val;
-	nice_val = i != 1 ? 0 : atoi(env);
+	nice_val = (i != 1) ? 0 : atoi(env);
 	if (nice_val > 39) {
 	    nice_val = 39;
 	}

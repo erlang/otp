@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@
 %%% Properties:
 
 prop_seq(Config) ->
+    error_logger:tty(false),
     {ok,Pid} = ssh_eqc_event_handler:add_report_handler(),
     {_, _, Port} = init_daemon(Config),
     numtests(1000,
@@ -66,16 +67,25 @@ prop_seq(Config) ->
 			 send_bad_sequence(Port, Delay, Pid),
 			 not any_relevant_error_report(Pid)
 		     catch
-			 C:E -> io:format('~p:~p~n',[C,E]),
+			 C:E:S -> ct:log("~p:~p~n~p",[C,E,S]),
 				false
 		     end
 		    )).
 
 send_bad_sequence(Port, Delay, Pid) ->
-    {ok,S} = gen_tcp:connect("localhost",Port,[]),
-    gen_tcp:send(S,"Illegal info-string\r\n"),
-    ssh_test_lib:sleep_microsec(Delay),
-    gen_tcp:close(S).
+    send_bad_sequence(Port, Delay, Pid, 10).
+
+send_bad_sequence(Port, Delay, Pid, N) ->
+    case gen_tcp:connect("localhost",Port,[]) of
+        {ok,S} ->
+            gen_tcp:send(S,"Illegal info-string\r\n"),
+            ssh_test_lib:sleep_microsec(Delay),
+            gen_tcp:close(S);
+
+        {error,econnreset} when N>0 ->
+            timer:sleep(1),
+            send_bad_sequence(Port, Delay, Pid, N-1)
+    end.
 
 any_relevant_error_report(Pid) ->
     {ok, Reports} = ssh_eqc_event_handler:get_reports(Pid),

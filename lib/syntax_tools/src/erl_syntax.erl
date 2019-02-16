@@ -3897,7 +3897,7 @@ unfold_try_clauses(Cs) ->
 
 unfold_try_clause({clause, Pos, [{tuple, _, [{atom, _, throw},
                                              V,
-                                             [{var, _, '_'}]]}],
+                                             {var, _, '_'}]}],
 		   Guard, Body}) ->
     {clause, Pos, [V], Guard, Body};
 unfold_try_clause({clause, Pos, [{tuple, _, [C, V, Stacktrace]}],
@@ -5328,7 +5328,7 @@ revert_map_type_assoc(Node) ->
     Pos = get_pos(Node),
     Name = map_type_assoc_name(Node),
     Value = map_type_assoc_value(Node),
-    {type, Pos, map_type_assoc, [Name, Value]}.
+    {type, Pos, map_field_assoc, [Name, Value]}.
 
 
 %% =====================================================================
@@ -5386,7 +5386,7 @@ revert_map_type_exact(Node) ->
     Pos = get_pos(Node),
     Name = map_type_exact_name(Node),
     Value = map_type_exact_value(Node),
-    {type, Pos, map_type_exact, [Name, Value]}.
+    {type, Pos, map_field_exact, [Name, Value]}.
 
 
 %% =====================================================================
@@ -5455,8 +5455,12 @@ map_type(Fields) ->
 
 revert_map_type(Node) ->
     Pos = get_pos(Node),
-    {type, Pos, map, map_type_fields(Node)}.
-
+    case map_type_fields(Node) of
+        any_size ->
+            {type, Pos, map, any};
+        Fields ->
+            {type, Pos, map, Fields}
+    end.
 
 %% =====================================================================
 %% @doc Returns the list of field subtrees of a `map_type' node.
@@ -5714,7 +5718,12 @@ tuple_type(Elements) ->
 
 revert_tuple_type(Node) ->
     Pos = get_pos(Node),
-    {type, Pos, tuple, tuple_type_elements(Node)}.
+    case tuple_type_elements(Node) of
+        any_size ->
+            {type, Pos, tuple, any};
+        TypeElements ->
+            {type, Pos, tuple, TypeElements}
+    end.
 
 
 %% =====================================================================
@@ -7223,7 +7232,7 @@ macro_arguments(Node) ->
 %% @doc Returns the syntax tree corresponding to an Erlang term.
 %% `Term' must be a literal term, i.e., one that can be
 %% represented as a source code literal. Thus, it may not contain a
-%% process identifier, port, reference, binary or function value as a
+%% process identifier, port, reference or function value as a
 %% subterm. The function recognises printable strings, in order to get a
 %% compact and readable representation. Evaluation fails with reason
 %% `badarg' if `Term' is not a literal term.
@@ -7257,6 +7266,13 @@ abstract(T) when is_map(T) ->
 	      || {Key,Value} <- maps:to_list(T)]);
 abstract(T) when is_binary(T) ->
     binary([binary_field(integer(B)) || B <- binary_to_list(T)]);
+abstract(T) when is_bitstring(T) ->
+    S = bit_size(T),
+    ByteS = S div 8,
+    BitS = S rem 8,
+    <<Bin:ByteS/binary, I:BitS>> = T,
+    binary([binary_field(integer(B)) || B <- binary_to_list(Bin)]
+           ++ [binary_field(integer(I), integer(BitS), [])]);
 abstract(T) ->
     erlang:error({badarg, T}).
 
@@ -7332,15 +7348,20 @@ concrete(Node) ->
 		Node0 -> maps:merge(concrete(Node0),M0)
 	    end;
 	binary ->
-	    Fs = [revert_binary_field(
-		    binary_field(binary_field_body(F),
-				 case binary_field_size(F) of
-				     none -> none;
-				     S ->
-					 revert(S)
-				 end,
-				 binary_field_types(F)))
-		  || F <- binary_fields(Node)],
+            Fs = [begin
+                      B = binary_field_body(F),
+                      {Body, Size} =
+                          case type(B) of
+                              size_qualifier ->
+                                  {size_qualifier_body(B),
+                                   size_qualifier_argument(B)};
+                              _ ->
+                                  {B, none}
+                          end,
+                      revert_binary_field(
+                        binary_field(Body, Size, binary_field_types(F)))
+                  end
+                  || F <- binary_fields(Node)],
 	    {value, B, _} =
 		eval_bits:expr_grp(Fs, [],
 				   fun(F, _) ->
@@ -7413,7 +7434,14 @@ is_literal(T) ->
 
 is_literal_binary_field(F) ->
     case binary_field_types(F) of
-	[] -> is_literal(binary_field_body(F));
+	[] -> B = binary_field_body(F),
+              case type(B) of
+                  size_qualifier ->
+                      is_literal(size_qualifier_body(B)) andalso
+                          is_literal(size_qualifier_argument(B));
+                  _ ->
+                      is_literal(B)
+              end;
 	_  -> false
     end.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -289,12 +289,12 @@ encode(#ssh_msg_kex_dh_gex_reply{
     <<?Ebyte(?SSH_MSG_KEX_DH_GEX_REPLY), ?Ebinary(EncKey), ?Empint(F), ?Ebinary(EncSign)>>;
 
 encode(#ssh_msg_kex_ecdh_init{q_c = Q_c}) ->
-    <<?Ebyte(?SSH_MSG_KEX_ECDH_INIT), ?Empint(Q_c)>>;
+    <<?Ebyte(?SSH_MSG_KEX_ECDH_INIT), ?Ebinary(Q_c)>>;
 
 encode(#ssh_msg_kex_ecdh_reply{public_host_key = {Key,SigAlg}, q_s = Q_s, h_sig = Sign}) ->
     EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
     EncSign = encode_signature(Key, SigAlg, Sign),
-    <<?Ebyte(?SSH_MSG_KEX_ECDH_REPLY), ?Ebinary(EncKey), ?Empint(Q_s), ?Ebinary(EncSign)>>;
+    <<?Ebyte(?SSH_MSG_KEX_ECDH_REPLY), ?Ebinary(EncKey), ?Ebinary(Q_s), ?Ebinary(EncSign)>>;
 
 encode(#ssh_msg_ignore{data = Data}) ->
     <<?Ebyte(?SSH_MSG_IGNORE), ?Estring_utf8(Data)>>;
@@ -504,13 +504,13 @@ decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REPLY), ?DEC_BIN(Key,__0), ?DEC_MPINT(F,__1),
        h_sig = decode_signature(Hashsign)
       };
 
-decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_INIT), ?DEC_MPINT(Q_c,__0)>>) ->
+decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_INIT), ?DEC_BIN(Q_c,__0)>>) ->
     #ssh_msg_kex_ecdh_init{
        q_c = Q_c
       };
 
 decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
-	 ?DEC_BIN(Key,__1), ?DEC_MPINT(Q_s,__2), ?DEC_BIN(Sig,__3)>>) ->
+	 ?DEC_BIN(Key,__1), ?DEC_BIN(Q_s,__2), ?DEC_BIN(Sig,__3)>>) ->
     #ssh_msg_kex_ecdh_reply{
        public_host_key = public_key:ssh_decode(Key, ssh2_pubkey),
        q_s = Q_s,
@@ -611,7 +611,13 @@ encode_signature({_, #'Dss-Parms'{}}, _SigAlg, Signature) ->
     <<?Ebinary(<<"ssh-dss">>), ?Ebinary(Signature)>>;
 encode_signature({#'ECPoint'{}, {namedCurve,OID}}, _SigAlg, Signature) ->
     CurveName = public_key:oid2ssh_curvename(OID),
-    <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>.
+    <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>;
+encode_signature({ed_pub, ed25519,_}, _SigAlg, Signature) ->
+    <<?Ebinary(<<"ssh-ed25519">>), ?Ebinary(Signature)>>;
+encode_signature({ed_pub, ed448,_}, _SigAlg, Signature) ->
+    <<?Ebinary(<<"ssh-ed448">>), ?Ebinary(Signature)>>.
+    
+
 
 %%%################################################################
 %%%#

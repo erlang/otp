@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -302,7 +302,7 @@ check_file_result(Func, Target, {error,Reason}) ->
             logger ! {log,error,#{label=>{?MODULE,file_error},report=>Report},
                       #{pid=>self(),
                         gl=>group_leader(),
-                        time=>erlang:monotonic_time(microsecond),
+                        time=>erlang:system_time(microsecond),
                         error_logger=>#{tag=>error_report,
                                         type=>std_error}}},
             error

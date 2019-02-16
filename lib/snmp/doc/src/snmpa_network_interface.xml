@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_network_interface.xml</file>
   </header>
-  <module>snmpa_network_interface</module>
+  <module since="">snmpa_network_interface</module>
   <modulesummary>Behaviour module for the SNMP agent network interface.</modulesummary>
   <description>
     <p>This module defines the behaviour of the agent network
@@ -68,7 +68,7 @@
 
   <funcs>
     <func>
-      <name>start_link(Prio, NoteStore, MasterAgent, Opts) -> {ok, Pid} | {error, Reason}</name>
+      <name since="">start_link(Prio, NoteStore, MasterAgent, Opts) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Start-link the network interface process</fsummary>
       <type>
         <v>Prio        = priority()</v>
@@ -93,7 +93,7 @@
     </func>
 
     <func>
-      <name>info(Pid) -> [{Key, Value}]</name>
+      <name since="">info(Pid) -> [{Key, Value}]</name>
       <fsummary>Return information about the running network interface process</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -112,7 +112,7 @@
     </func>
 
     <func>
-      <name>verbosity(Pid, Verbosity) -> void()</name>
+      <name since="">verbosity(Pid, Verbosity) -> void()</name>
       <fsummary>Change the verbosity of a running network interface process</fsummary>
       <type>
         <v>Pid       = pid()</v>
@@ -126,7 +126,7 @@
     </func>
 
     <func>
-      <name>get_log_type(Pid) -> {ok, LogType} | {error, Reason}</name>
+      <name since="">get_log_type(Pid) -> {ok, LogType} | {error, Reason}</name>
       <fsummary>Get the Audit Trail Log type</fsummary>
       <type>
         <v>Pid     = pid()</v>
@@ -147,7 +147,7 @@
     </func>
 
     <func>
-      <name>set_log_type(Pid, NewType) -> {ok, OldType} | {error, Reason}</name>
+      <name since="">set_log_type(Pid, NewType) -> {ok, OldType} | {error, Reason}</name>
       <fsummary>Change the Audit Trail Log type</fsummary>
       <type>
         <v>Pid     = pid()</v>

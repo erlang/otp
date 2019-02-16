@@ -529,24 +529,41 @@ valid_date({Y, M, D}) ->
 
 %% day_to_year(DayOfEpoch) = {Year, DayOfYear}
 %%
-%% The idea here is to first guess a year, and then adjust. Although
-%% the implementation is recursive, at most 1 or 2 recursive steps
+%% The idea here is to first set the upper and lower bounds for a year,
+%% and then adjust a range by interpolation search. Although complexity
+%% of the algorithm is log(log(n)), at most 1 or 2 recursive steps
 %% are taken.
-%% If DayOfEpoch is very large, we need far more than 1 or 2 iterations,
-%% since we just subtract a yearful of days at a time until we're there.
 %%
 -spec day_to_year(non_neg_integer()) -> {year(), day_of_year()}.
 day_to_year(DayOfEpoch) when DayOfEpoch >= 0 ->
-    Y0 = DayOfEpoch div ?DAYS_PER_YEAR,
-    {Y1, D1} = dty(Y0, DayOfEpoch, dy(Y0)),
+    YMax = DayOfEpoch div ?DAYS_PER_YEAR,
+    YMin = DayOfEpoch div ?DAYS_PER_LEAP_YEAR,
+    {Y1, D1} = dty(YMin, YMax, DayOfEpoch, dy(YMin), dy(YMax)),
     {Y1, DayOfEpoch - D1}.
 
--spec dty(year(), non_neg_integer(), non_neg_integer()) ->
+-spec dty(year(), year(), non_neg_integer(), non_neg_integer(),
+    non_neg_integer()) ->
 		{year(), non_neg_integer()}.
-dty(Y, D1, D2) when D1 < D2 -> 
-    dty(Y-1, D1, dy(Y-1));
-dty(Y, _D1, D2) ->
-    {Y, D2}.
+dty(Min, Max, _D1, DMin, _DMax) when Min == Max ->
+    {Min, DMin};
+dty(Min, Max, D1, DMin, DMax) ->
+    Diff = Max - Min,
+    Mid = Min + (Diff * (D1 - DMin)) div (DMax - DMin),
+    MidLength =
+        case is_leap_year(Mid) of
+            true -> ?DAYS_PER_LEAP_YEAR;
+            false -> ?DAYS_PER_YEAR
+        end,
+    case dy(Mid) of
+        D2 when D1 < D2 ->
+            NewMax = Mid - 1,
+            dty(Min, NewMax, D1, DMin, dy(NewMax));
+        D2 when D1 - D2 >= MidLength ->
+            NewMin = Mid + 1,
+            dty(NewMin, Max, D1, dy(NewMin), DMax);
+        D2 ->
+            {Mid, D2}
+    end.
 
 %%
 %% The Gregorian days of the iso week 01 day 1 for a given year.
@@ -693,14 +710,11 @@ local_offset(SystemTime, Unit) ->
     UniversalSecs = datetime_to_gregorian_seconds(UniversalTime),
     LocalSecs - UniversalSecs.
 
+fraction_str(1, _Time) ->
+    "";
 fraction_str(Factor, Time) ->
-    case Time rem Factor of
-        0 ->
-            "";
-        Fraction ->
-            FS = io_lib:fwrite(".~*..0B", [log10(Factor), abs(Fraction)]),
-            string:trim(FS, trailing, "0")
-    end.
+    Fraction = Time rem Factor,
+    io_lib:fwrite(".~*..0B", [log10(Factor), abs(Fraction)]).
 
 fraction(second, _) ->
     0;

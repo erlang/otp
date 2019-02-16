@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>erl_tar.xml</file>
   </header>
-  <module>erl_tar</module>
+  <module since="">erl_tar</module>
   <modulesummary>Unix 'tar' utility for reading and writing tar archives.
   </modulesummary>
   <description>
@@ -127,7 +127,7 @@
 
   <funcs>
     <func>
-      <name>add(TarDescriptor, Filename, Options) -> RetValue</name>
+      <name since="">add(TarDescriptor, Filename, Options) -> RetValue</name>
       <fsummary>Add a file to an open tar file.</fsummary>
       <type>
         <v>TarDescriptor = term()</v>
@@ -211,7 +211,7 @@
     </func>
 
     <func>
-      <name>add(TarDescriptor, FilenameOrBin, NameInArchive, Options) ->
+      <name since="">add(TarDescriptor, FilenameOrBin, NameInArchive, Options) ->
         RetValue </name>
       <fsummary>Add a file to an open tar file.</fsummary>
       <type>
@@ -233,7 +233,7 @@
     </func>
 
     <func>
-      <name>close(TarDescriptor)</name>
+      <name since="">close(TarDescriptor)</name>
       <fsummary>Close an open tar file.</fsummary>
       <type>
         <v>TarDescriptor = term()</v>
@@ -245,7 +245,7 @@
     </func>
 
     <func>
-      <name>create(Name, FileList) ->RetValue </name>
+      <name since="">create(Name, FileList) ->RetValue </name>
       <fsummary>Create a tar archive.</fsummary>
       <type>
         <v>Name = filename()</v>
@@ -264,7 +264,7 @@
     </func>
 
     <func>
-      <name>create(Name, FileList, OptionList)</name>
+      <name since="">create(Name, FileList, OptionList)</name>
       <fsummary>Create a tar archive with options.</fsummary>
       <type>
         <v>Name = filename()</v>
@@ -315,7 +315,7 @@
     </func>
 
     <func>
-      <name>extract(Name) -> RetValue</name>
+      <name since="">extract(Name) -> RetValue</name>
       <fsummary>Extract all files from a tar file.</fsummary>
       <type>
         <v>Name = filename() | {binary,binary()} | {file,Fd}</v>
@@ -339,7 +339,7 @@
     </func>
 
     <func>
-      <name>extract(Name, OptionList)</name>
+      <name since="">extract(Name, OptionList)</name>
       <fsummary>Extract files from a tar file.</fsummary>
       <type>
         <v>Name = filename() | {binary,binary()} | {file,Fd}</v>
@@ -411,7 +411,7 @@
     </func>
 
     <func>
-      <name>format_error(Reason) -> string()</name>
+      <name since="">format_error(Reason) -> string()</name>
       <fsummary>Convert error term to a readable string.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -423,7 +423,7 @@
     </func>
 
     <func>
-      <name>init(UserPrivate, AccessMode, Fun) ->
+      <name since="OTP 17.4">init(UserPrivate, AccessMode, Fun) ->
         {ok,TarDescriptor} | {error,Reason}</name>
       <fsummary>Create a <c>TarDescriptor</c> used in subsequent tar operations
         when defining own low-level storage access functions.</fsummary>
@@ -518,7 +518,7 @@ erl_tar:close(TarDesc)</code>
     </func>
 
     <func>
-      <name>open(Name, OpenModeList) -> RetValue</name>
+      <name since="">open(Name, OpenModeList) -> RetValue</name>
       <fsummary>Open a tar file for writing.</fsummary>
       <type>
         <v>Name = filename()</v>
@@ -565,7 +565,7 @@ erl_tar:close(TarDesc)</code>
     </func>
 
     <func>
-      <name>table(Name) -> RetValue</name>
+      <name since="">table(Name) -> RetValue</name>
       <fsummary>Retrieve the name of all files in a tar file.</fsummary>
       <type>
         <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
@@ -578,7 +578,7 @@ erl_tar:close(TarDesc)</code>
     </func>
 
     <func>
-      <name>table(Name, Options)</name>
+      <name since="">table(Name, Options)</name>
       <fsummary>Retrieve name and information of all files in a tar file.
       </fsummary>
       <type>
@@ -590,7 +590,7 @@ erl_tar:close(TarDesc)</code>
     </func>
 
     <func>
-      <name>t(Name)</name>
+      <name since="">t(Name)</name>
       <fsummary>Print the name of each file in a tar file.</fsummary>
       <type>
         <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
@@ -602,7 +602,7 @@ erl_tar:close(TarDesc)</code>
     </func>
 
     <func>
-      <name>tt(Name)</name>
+      <name since="">tt(Name)</name>
       <fsummary>Print name and information for each file in a tar file.
       </fsummary>
       <type>

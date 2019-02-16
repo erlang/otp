@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_local_db.xml</file>
   </header>
-  <module>snmpa_local_db</module>
+  <module since="">snmpa_local_db</module>
   <modulesummary>The SNMP built-in database</modulesummary>
   <description>
     <p>The module <c>snmpa_local_db</c> contains functions for
@@ -86,7 +86,7 @@
   </section>
   <funcs>
     <func>
-      <name>dump() -> ok | {error, Reason}</name>
+      <name since="">dump() -> ok | {error, Reason}</name>
       <fsummary>Dump the database to disk</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -97,7 +97,7 @@
       </desc>
     </func>
     <func>
-      <name>match(NameDb, Pattern)</name>
+      <name since="">match(NameDb, Pattern)</name>
       <fsummary>Perform a match on the table</fsummary>
       <desc>
         <p>Performs an ets/dets matching on the table. 
@@ -106,9 +106,9 @@
       </desc>
     </func>
     <func>
-      <name>print()</name>
-      <name>print(TableName)</name>
-      <name>print(TableName, Db)</name>
+      <name since="">print()</name>
+      <name since="">print(TableName)</name>
+      <name since="">print(TableName, Db)</name>
       <fsummary>Print the database to screen</fsummary>
       <type>
         <v>TableName = atom()</v>
@@ -124,7 +124,7 @@
       </desc>
     </func>
     <func>
-      <name>table_create(NameDb) -> bool()</name>
+      <name since="">table_create(NameDb) -> bool()</name>
       <fsummary>Create a table</fsummary>
       <desc>
         <p>Creates a table. If the table already exist, the old copy
@@ -135,7 +135,7 @@
       </desc>
     </func>
     <func>
-      <name>table_create_row(NameDb, RowIndex, Row) -> bool()</name>
+      <name since="">table_create_row(NameDb, RowIndex, Row) -> bool()</name>
       <fsummary>Create a row in a table</fsummary>
       <type>
         <v>Row = {Val1, Val2, ..., ValN}</v>
@@ -147,28 +147,28 @@
       </desc>
     </func>
     <func>
-      <name>table_delete(NameDb) -> void()</name>
+      <name since="">table_delete(NameDb) -> void()</name>
       <fsummary>Delete a table</fsummary>
       <desc>
         <p>Deletes a table.</p>
       </desc>
     </func>
     <func>
-      <name>table_delete_row(NameDb, RowIndex) -> bool()</name>
+      <name since="">table_delete_row(NameDb, RowIndex) -> bool()</name>
       <fsummary>Delete the row in the table</fsummary>
       <desc>
         <p>Deletes the row in the table.</p>
       </desc>
     </func>
     <func>
-      <name>table_exists(NameDb) -> bool()</name>
+      <name since="">table_exists(NameDb) -> bool()</name>
       <fsummary>Check if a table exists</fsummary>
       <desc>
         <p>Checks if a table exists.</p>
       </desc>
     </func>
     <func>
-      <name>table_get_row(NameDb, RowIndex) -> Row | undefined</name>
+      <name since="">table_get_row(NameDb, RowIndex) -> Row | undefined</name>
       <fsummary>Get a row from the table</fsummary>
       <type>
         <v>Row = {Val1, Val2, ..., ValN}</v>

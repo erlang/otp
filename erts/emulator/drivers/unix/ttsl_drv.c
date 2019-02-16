@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 static int ttysl_init(void);
 static ErlDrvData ttysl_start(ErlDrvPort, char*);
 
-#ifdef HAVE_TERMCAP  /* else make an empty driver that can not be opened */
+#ifdef HAVE_TERMCAP  /* else make an empty driver that cannot be opened */
 
 #ifndef WANT_NONBLOCKING
 #define WANT_NONBLOCKING
@@ -394,6 +394,8 @@ static ErlDrvSSizeT ttysl_control(ErlDrvData drv_data,
 {
     char resbuff[2*sizeof(Uint32)];
     ErlDrvSizeT res_size;
+
+    command -= ERTS_TTYSL_DRV_CONTROL_MAGIC_NUMBER;
     switch (command) {
     case CTRL_OP_GET_WINSIZE:
 	{
@@ -419,7 +421,7 @@ static ErlDrvSSizeT ttysl_control(ErlDrvData drv_data,
 	}
 	break;
     default:
-	return 0;
+	return -1;
     }
     if (rlen < res_size) {
 	*rbuf = driver_alloc(res_size);

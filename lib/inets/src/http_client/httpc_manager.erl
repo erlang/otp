@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -863,7 +863,7 @@ select_session(Candidates, _, Max, pipeline) ->
     select_session(Candidates, Max).
 
 select_session([] = _Candidates, _Max) ->
-    ?hcrd("select session - no candicate", []),
+    ?hcrd("select session - no candidate", []),
     no_connection; 
 select_session(Candidates, Max) ->
     NewCandidates = 

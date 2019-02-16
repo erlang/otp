@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <rev>A</rev>
     <file>compile.sgml</file>
   </header>
-  <module>compile</module>
+  <module since="">compile</module>
   <modulesummary>Erlang Compiler</modulesummary>
   <description>
     <p>This module provides an interface to the standard Erlang
@@ -40,7 +40,7 @@
 
   <funcs>
     <func>
-      <name>env_compiler_options()</name>
+      <name since="OTP 19.0">env_compiler_options()</name>
       <fsummary>
 	Compiler options defined via the environment variable
 	<c>ERL_COMPILER_OPTIONS</c>
@@ -53,7 +53,7 @@
       </desc>
     </func>
     <func>
-      <name>file(File)</name>
+      <name since="">file(File)</name>
       <fsummary>Compiles a file.</fsummary>
       <desc>
         <p>Is the same as
@@ -63,7 +63,7 @@
     </func>
 
     <func>
-      <name>file(File, Options) -> CompRet</name>
+      <name since="">file(File, Options) -> CompRet</name>
       <fsummary>Compiles a file.</fsummary>
       <type>
         <v>CompRet = ModRet | BinRet | ErrRet</v>
@@ -203,7 +203,8 @@
           <tag><c>deterministic</c></tag>
           <item>
             <p>Omit the <c>options</c> and <c>source</c> tuples in
-	    the list returned by <c>Module:module_info(compile)</c>.
+            the list returned by <c>Module:module_info(compile)</c>, and
+            reduce the paths in stack traces to the module name alone.
 	    This option will make it easier to achieve reproducible builds.
 	    </p>
           </item>
@@ -347,8 +348,8 @@ module.beam: module.erl \
 
 	  <tag><c>{source,FileName}</c></tag>
           <item>
-            <p>Sets the value of the source, as returned by
-              <c>module_info(compile)</c>.</p>
+            <p>Overrides the source file name as presented in
+              <c>module_info(compile)</c> and stack traces.</p>
           </item>
 
 	  <tag><c>{outdir,Dir}</c></tag>
@@ -413,6 +414,17 @@ module.beam: module.erl \
             <p>The input file is expected to be core code (default
 	      file suffix ".core"). Notice that the format of core files
               is not documented, and can change between releases.</p>
+          </item>
+
+          <tag><c>no_spawn_compiler_process</c></tag>
+          <item>
+            <p>By default, all code is compiled in a separate process
+              which is terminated at the end of compilation. However,
+              some tools, like Dialyzer or compilers for other BEAM languages,
+              may already manage their own worker processes and spawning
+              an extra process may slow the compilation down.
+              In such scenarios, you can pass this option to stop the
+              compiler from spawning an additional process.</p>
           </item>
 
           <tag><c>no_strict_record_tests</c></tag>
@@ -683,12 +695,13 @@ module.beam: module.erl \
 	</note>
 	
 	<note>
-	<p>The options <c>{nowarn_unused_function, FAs}</c>,
-          <c>{nowarn_bif_clash, FAs}</c>, and 
-          <c>{nowarn_deprecated_function, MFAs}</c> are only
-          recognized when given in files. They are not affected by
-	  options <c>warn_unused_function</c>, <c>warn_bif_clash</c>, or 
-          <c>warn_deprecated_function</c>.</p>
+	<p>Before OTP 22, the option <c>{nowarn_deprecated_function,
+	MFAs}</c> was only recognized when given in the file with
+	attribute <c>-compile()</c>. (The option
+	<c>{nowarn_unused_function,FAs}</c> was incorrectly documented
+	to only work in a file, but it also worked when given in the
+	option list.) Starting from OTP 22, all options that can be
+	given in the file can also be given in the option list.</p>
 	</note>
 
         <p>For debugging of the compiler, or for pure curiosity,
@@ -717,7 +730,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>forms(Forms)</name>
+      <name since="">forms(Forms)</name>
       <fsummary>Compiles a list of forms.</fsummary>
       <desc>
         <p>Is the same as
@@ -727,7 +740,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>forms(Forms, Options) -> CompRet</name>
+      <name since="">forms(Forms, Options) -> CompRet</name>
       <fsummary>Compiles a list of forms.</fsummary>
       <type>
         <v>Forms = [Form]</v>
@@ -748,7 +761,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>format_error(ErrorDescriptor) -> chars()</name>
+      <name since="">format_error(ErrorDescriptor) -> chars()</name>
       <fsummary>Formats an error descriptor.</fsummary>
       <type>
         <v>ErrorDescriptor = errordesc()</v>
@@ -763,7 +776,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>output_generated(Options) -> true | false</name>
+      <name since="">output_generated(Options) -> true | false</name>
       <fsummary>Determines whether the compiler generates an output file.</fsummary>
       <type>
         <v>Options = [term()]</v>
@@ -778,7 +791,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>noenv_file(File, Options) -> CompRet</name>
+      <name since="">noenv_file(File, Options) -> CompRet</name>
       <fsummary>Compiles a file (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <desc>
       <p>Works like <seealso marker="#file/2">file/2</seealso>,
@@ -788,7 +801,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>noenv_forms(Forms, Options) -> CompRet</name>
+      <name since="">noenv_forms(Forms, Options) -> CompRet</name>
       <fsummary>Compiles a list of forms (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <desc>
         <p>Works like <seealso marker="#forms/2">forms/2</seealso>,
@@ -798,7 +811,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>noenv_output_generated(Options) -> true | false</name>
+      <name since="">noenv_output_generated(Options) -> true | false</name>
       <fsummary>Determines whether the compiler generates an output file 
       (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <type>

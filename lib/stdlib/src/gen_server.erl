@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -645,7 +645,7 @@ try_dispatch(Mod, Func, Msg, State) ->
                        #{label=>{gen_server,no_handle_info},
                          module=>Mod,
                          message=>Msg},
-                       #{domain=>[beam,erlang,otp],
+                       #{domain=>[otp],
                          report_cb=>fun gen_server:format_log/1,
                          error_logger=>#{tag=>warning_msg}}),
                     {ok, {noreply, State}};
@@ -773,10 +773,10 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, 
 	    terminate({bad_return_value, BadReply}, ?STACKTRACE(), Name, From, Msg, Mod, State, Debug)
     end.
 
-reply(Name, {To, Tag}, Reply, State, Debug) ->
-    reply({To, Tag}, Reply),
+reply(Name, From, Reply, State, Debug) ->
+    reply(From, Reply),
     sys:handle_debug(Debug, fun print_event/3, Name,
-		     {out, Reply, To, State} ).
+		     {out, Reply, From, State} ).
 
 
 %%-----------------------------------------------------------------
@@ -810,7 +810,7 @@ system_replace_state(StateFun, [Name, State, Mod, Time, HibernateAfterTimeout]) 
 print_event(Dev, {in, Msg}, Name) ->
     case Msg of
 	{'$gen_call', {From, _Tag}, Call} ->
-	    io:format(Dev, "*DBG* ~tp got call ~tp from ~w~n",
+	    io:format(Dev, "*DBG* ~tp got call ~tp from ~tw~n",
 		      [Name, Call, From]);
 	{'$gen_cast', Cast} ->
 	    io:format(Dev, "*DBG* ~tp got cast ~tp~n",
@@ -818,8 +818,8 @@ print_event(Dev, {in, Msg}, Name) ->
 	_ ->
 	    io:format(Dev, "*DBG* ~tp got ~tp~n", [Name, Msg])
     end;
-print_event(Dev, {out, Msg, To, State}, Name) ->
-    io:format(Dev, "*DBG* ~tp sent ~tp to ~w, new state ~tp~n",
+print_event(Dev, {out, Msg, {To,_Tag}, State}, Name) ->
+    io:format(Dev, "*DBG* ~tp sent ~tp to ~tw, new state ~tp~n",
 	      [Name, Msg, To, State]);
 print_event(Dev, {noreply, State}, Name) ->
     io:format(Dev, "*DBG* ~tp new state ~tp~n", [Name, State]);
@@ -885,16 +885,17 @@ error_info(_Reason, application_controller, _From, _Msg, _Mod, _State, _Debug) -
     %% of it instead
     ok;
 error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
+    Log = sys:get_log(Debug),
     ?LOG_ERROR(#{label=>{gen_server,terminate},
                  name=>Name,
                  last_message=>Msg,
                  state=>format_status(terminate, Mod, get(), State),
+                 log=>format_log_state(Mod, Log),
                  reason=>Reason,
                  client_info=>client_stacktrace(From)},
-               #{domain=>[beam,erlang,otp],
+               #{domain=>[otp],
                  report_cb=>fun gen_server:format_log/1,
                  error_logger=>#{tag=>error}}),
-    sys:print_log(Debug),
     ok.
 
 client_stacktrace(undefined) ->
@@ -917,6 +918,7 @@ format_log(#{label:={gen_server,terminate},
              name:=Name,
              last_message:=Msg,
              state:=State,
+             log:=Log,
              reason:=Reason,
              client_info:=Client}) ->
     Reason1 = 
@@ -934,20 +936,30 @@ format_log(#{label:={gen_server,terminate},
 			end
 		end;
 	    _ ->
-		logger:limit_term(Reason)
+		Reason
 	end,    
     {ClientFmt,ClientArgs} = format_client_log(Client),
+    [LimitedMsg,LimitedState,LimitedReason|LimitedLog] =
+        [error_logger:limit_term(D) || D <- [Msg,State,Reason1|Log]],
     {"** Generic server ~tp terminating \n"
      "** Last message in was ~tp~n"
      "** When Server state == ~tp~n"
-     "** Reason for termination == ~n** ~tp~n" ++ ClientFmt,
-     [Name, Msg, logger:limit_term(State), Reason1] ++ ClientArgs};
+     "** Reason for termination ==~n** ~tp~n" ++
+         case LimitedLog of
+             [] -> [];
+             _ -> "** Log ==~n** ~tp~n"
+         end ++ ClientFmt,
+     [Name, LimitedMsg, LimitedState, LimitedReason] ++
+         case LimitedLog of
+             [] -> [];
+             _ -> [LimitedLog]
+         end ++ ClientArgs};
 format_log(#{label:={gen_server,no_handle_info},
              module:=Mod,
              message:=Msg}) ->
     {"** Undefined handle_info in ~p~n"
      "** Unhandled message: ~tp~n",
-     [Mod, Msg]}.
+     [Mod, error_logger:limit_term(Msg)]}.
 
 format_client_log(undefined) ->
     {"", []};
@@ -958,7 +970,7 @@ format_client_log({From,remote}) ->
 format_client_log({_From,{Name,Stacktrace}}) ->
     {"** Client ~tp stacktrace~n"
      "** ~tp~n",
-     [Name, Stacktrace]}.
+     [Name, error_logger:limit_term(Stacktrace)]}.
 
 %%-----------------------------------------------------------------
 %% Status information
@@ -966,16 +978,25 @@ format_client_log({_From,{Name,Stacktrace}}) ->
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]] = StatusData,
     Header = gen:format_status_header("Status for generic server", Name),
-    Log = sys:get_debug(log, Debug, []),
-    Specfic = case format_status(Opt, Mod, PDict, State) of
+    Log = sys:get_log(Debug),
+    Specific = case format_status(Opt, Mod, PDict, State) of
 		  S when is_list(S) -> S;
 		  S -> [S]
 	      end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
-	     {"Logged events", Log}]} |
-     Specfic].
+	     {"Logged events", format_log_state(Mod, Log)}]} |
+     Specific].
+
+format_log_state(Mod, Log) ->
+    [case Event of
+         {out,Msg,From,State} ->
+             {out,Msg,From,format_status(terminate, Mod, get(), State)};
+         {noreply,State} ->
+             {noreply,format_status(terminate, Mod, get(), State)};
+         _ -> Event
+     end || Event <- Log].
 
 format_status(Opt, Mod, PDict, State) ->
     DefStatus = case Opt of

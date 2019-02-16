@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@
                 _ -> ?TEST(T)
             end).
 -define(EXPRS_TEST(L),
-        [?TEST(E) || E <- L]).
+        _ = [?TEST(E) || E <- L]).
 -define(TEST(T),
         %% Assumes that erl_anno has been compiled with DEBUG=true.
         %% erl_pp does not use the annoations, but test it anyway.

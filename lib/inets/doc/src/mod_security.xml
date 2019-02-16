@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1998</year><year>2016</year>
+      <year>1998</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <rev>1.0</rev>
     <file>mod_security.sgml</file>
   </header>
-  <module>mod_security</module>
+  <module since="">mod_security</module>
   <modulesummary>Security Audit and Trailing Functionality</modulesummary>
   <description>
     <p>Security Audit and Trailing Functionality</p>
@@ -37,8 +37,8 @@
   <funcs>
 
       <func>
-      <name>block_user(User, Port, Dir, Seconds) -> true | {error, Reason}</name>
-      <name>block_user(User, Address, Port, Dir, Seconds) -> true | {error, Reason}</name>
+      <name since="">block_user(User, Port, Dir, Seconds) -> true | {error, Reason}</name>
+      <name since="">block_user(User, Address, Port, Dir, Seconds) -> true | {error, Reason}</name>
       <fsummary>Blocks a user from access to a directory for a certain amount of time.</fsummary>
       <type>
         <v>User = string()</v>
@@ -56,10 +56,10 @@
     </func>
     
     <func>
-      <name>list_auth_users(Port) -> Users | []</name>
-      <name>list_auth_users(Address, Port) -> Users | []</name>
-      <name>list_auth_users(Port, Dir) -> Users | []</name>
-      <name>list_auth_users(Address, Port, Dir) -> Users | []</name>
+      <name since="">list_auth_users(Port) -> Users | []</name>
+      <name since="">list_auth_users(Address, Port) -> Users | []</name>
+      <name since="">list_auth_users(Port, Dir) -> Users | []</name>
+      <name since="">list_auth_users(Address, Port, Dir) -> Users | []</name>
       <fsummary>Lists users that have authenticated within the <c>SecurityAuthTimeout</c> 
       time for a given address (if specified), port number, and directory 
       (if specified).</fsummary>
@@ -77,10 +77,10 @@
       </desc>
     </func>
     <func>
-      <name>list_blocked_users(Port) -> Users | []</name>
-      <name>list_blocked_users(Address, Port) -> Users | []</name>
-      <name>list_blocked_users(Port, Dir) -> Users | []</name>
-      <name>list_blocked_users(Address, Port, Dir) -> Users | []</name>
+      <name since="">list_blocked_users(Port) -> Users | []</name>
+      <name since="">list_blocked_users(Address, Port) -> Users | []</name>
+      <name since="">list_blocked_users(Port, Dir) -> Users | []</name>
+      <name since="">list_blocked_users(Address, Port, Dir) -> Users | []</name>
       <fsummary>Lists users that are currently blocked from access to a 
       specified port number, for a given address (if specified).</fsummary>
       <type>
@@ -97,10 +97,10 @@
     </func>
   
     <func>
-      <name>unblock_user(User, Port) -> true | {error, Reason}</name>
-      <name>unblock_user(User, Address, Port) -> true | {error, Reason}</name>
-      <name>unblock_user(User, Port, Dir) -> true | {error, Reason}</name>
-      <name>unblock_user(User, Address, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">unblock_user(User, Port) -> true | {error, Reason}</name>
+      <name since="">unblock_user(User, Address, Port) -> true | {error, Reason}</name>
+      <name since="">unblock_user(User, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">unblock_user(User, Address, Port, Dir) -> true | {error, Reason}</name>
       <fsummary>Removes a blocked user from the block list.</fsummary>
       <type>
         <v>User = string()</v>
@@ -129,13 +129,14 @@
 
   <funcs>
     <func>
-      <name>Module:event(What, Port, Dir, Data) -> ignored</name>
-      <name>Module:event(What, Address, Port, Dir, Data) -> ignored</name>
+      <name since="OTP 18.1">Module:event(What, Port, Dir, Data) -> ignored</name>
+      <name since="OTP 18.1">Module:event(What, Address, Port, Dir, Data) -> ignored</name>
       <fsummary>Called whenever an event occurs in <c>mod_security</c>.</fsummary>
       <type>
         <v>What = atom()</v>
         <v>Port = integer()</v>
-        <v>Address = {A,B,C,D} | string() &lt;v>Dir   = string()</v>
+        <v>Address = {A,B,C,D} | string()</v>
+        <v>Dir   = string()</v>
         <v>Data = [Info]</v>
         <v>Info = {Name, Value}</v>
       </type>

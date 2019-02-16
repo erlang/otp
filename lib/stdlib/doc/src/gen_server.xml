@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>gen_server</module>
+  <module since="">gen_server</module>
   <modulesummary>Generic server behavior.</modulesummary>
   <description>
     <p>This behavior module provides the server of a client-server
@@ -101,8 +101,8 @@ gen_server:abcast     -----> Module:handle_cast/2
 
   <funcs>
     <func>
-      <name>abcast(Name, Request) -> abcast</name>
-      <name>abcast(Nodes, Name, Request) -> abcast</name>
+      <name since="">abcast(Name, Request) -> abcast</name>
+      <name since="">abcast(Nodes, Name, Request) -> abcast</name>
       <fsummary>Send an asynchronous request to many generic servers.</fsummary>
       <type>
         <v>Nodes = [Node]</v>
@@ -124,8 +124,8 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>call(ServerRef, Request) -> Reply</name>
-      <name>call(ServerRef, Request, Timeout) -> Reply</name>
+      <name since="">call(ServerRef, Request) -> Reply</name>
+      <name since="">call(ServerRef, Request, Timeout) -> Reply</name>
       <fsummary>Make a synchronous call to a generic server.</fsummary>
       <type>
         <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
@@ -175,7 +175,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>cast(ServerRef, Request) -> ok</name>
+      <name since="">cast(ServerRef, Request) -> ok</name>
       <fsummary>Send an asynchronous request to a generic server.</fsummary>
       <type>
         <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
@@ -200,10 +200,10 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>enter_loop(Module, Options, State)</name>
-      <name>enter_loop(Module, Options, State, ServerName)</name>
-      <name>enter_loop(Module, Options, State, Timeout)</name>
-      <name>enter_loop(Module, Options, State, ServerName, Timeout)</name>
+      <name since="">enter_loop(Module, Options, State)</name>
+      <name since="">enter_loop(Module, Options, State, ServerName)</name>
+      <name since="">enter_loop(Module, Options, State, Timeout)</name>
+      <name since="">enter_loop(Module, Options, State, ServerName, Timeout)</name>
       <fsummary>Enter the <c>gen_server</c> receive loop.</fsummary>
       <type>
         <v>Module = atom()</v>
@@ -248,9 +248,9 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>multi_call(Name, Request) -> Result</name>
-      <name>multi_call(Nodes, Name, Request) -> Result</name>
-      <name>multi_call(Nodes, Name, Request, Timeout) -> Result</name>
+      <name since="">multi_call(Name, Request) -> Result</name>
+      <name since="">multi_call(Nodes, Name, Request) -> Result</name>
+      <name since="">multi_call(Nodes, Name, Request, Timeout) -> Result</name>
       <fsummary>Make a synchronous call to many generic servers.</fsummary>
       <type>
         <v>Nodes = [Node]</v>
@@ -307,7 +307,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>reply(Client, Reply) -> Result</name>
+      <name since="">reply(Client, Reply) -> Result</name>
       <fsummary>Send a reply to a client.</fsummary>
       <type>
         <v>Client - see below</v>
@@ -332,8 +332,8 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>start(Module, Args, Options) -> Result</name>
-      <name>start(ServerName, Module, Args, Options) -> Result</name>
+      <name since="">start(Module, Args, Options) -> Result</name>
+      <name since="">start(ServerName, Module, Args, Options) -> Result</name>
       <fsummary>Create a standalone <c>gen_server</c> process.</fsummary>
       <type>
         <v>ServerName = {local,Name} | {global,GlobalName}</v>
@@ -361,8 +361,8 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>start_link(Module, Args, Options) -> Result</name>
-      <name>start_link(ServerName, Module, Args, Options) -> Result</name>
+      <name since="">start_link(Module, Args, Options) -> Result</name>
+      <name since="">start_link(ServerName, Module, Args, Options) -> Result</name>
       <fsummary>Create a <c>gen_server</c> process in a supervision tree.
       </fsummary>
       <type>
@@ -466,8 +466,8 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>stop(ServerRef) -> ok</name>
-      <name>stop(ServerRef, Reason, Timeout) -> ok</name>
+      <name since="OTP 18.0">stop(ServerRef) -> ok</name>
+      <name since="OTP 18.0">stop(ServerRef, Reason, Timeout) -> ok</name>
       <fsummary>Synchronously stop a generic server.</fsummary>
       <type>
         <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
@@ -486,8 +486,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           with the expected reason. Any other reason than <c>normal</c>,
           <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
           error report to be issued using
-          <seealso marker="kernel:error_logger#format/2">
-          <c>error_logger:format/2</c></seealso>.
+          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.
           The default <c>Reason</c> is <c>normal</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that
           specifies how many milliseconds to wait for the server to
@@ -509,7 +508,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 
   <funcs>
     <func>
-      <name>Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}</name>
+      <name since="">Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
       <type>
         <v>OldVsn = Vsn | {down, Vsn}</v>
@@ -551,7 +550,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>Module:format_status(Opt, [PDict, State]) -> Status</name>
+      <name since="OTP R13B04">Module:format_status(Opt, [PDict, State]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
         current <c>gen_server</c> status.</fsummary>
       <type>
@@ -611,7 +610,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>Module:handle_call(Request, From, State) -> Result</name>
+      <name since="">Module:handle_call(Request, From, State) -> Result</name>
       <fsummary>Handle a synchronous request.</fsummary>
       <type>
         <v>Request = term()</v>
@@ -678,7 +677,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>Module:handle_cast(Request, State) -> Result</name>
+      <name since="">Module:handle_cast(Request, State) -> Result</name>
       <fsummary>Handle an asynchronous request.</fsummary>
       <type>
         <v>Request = term()</v>
@@ -704,7 +703,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>Module:handle_continue(Continue, State) -> Result</name>
+      <name since="OTP 21.0">Module:handle_continue(Continue, State) -> Result</name>
       <fsummary>Handle a continue instruction.</fsummary>
       <type>
         <v>Continue = term()</v>
@@ -739,7 +738,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>Module:handle_info(Info, State) -> Result</name>
+      <name since="">Module:handle_info(Info, State) -> Result</name>
       <fsummary>Handle an incoming message.</fsummary>
       <type>
         <v>Info = timeout | term()</v>
@@ -771,7 +770,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>Module:init(Args) -> Result</name>
+      <name since="">Module:init(Args) -> Result</name>
       <fsummary>Initialize process and internal state.</fsummary>
       <type>
         <v>Args = term()</v>
@@ -812,7 +811,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>Module:terminate(Reason, State)</name>
+      <name since="">Module:terminate(Reason, State)</name>
       <fsummary>Clean up before termination.</fsummary>
       <type>
         <v>Reason = normal | shutdown | {shutdown,term()} | term()</v>
@@ -861,8 +860,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>shutdown</c>, or <c>{shutdown,Term}</c>, the <c>gen_server</c>
           process is assumed to terminate because of an error and
           an error report is issued using
-          <seealso marker="kernel:error_logger#format/2">
-          <c>error_logger:format/2</c></seealso>.</p>
+          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.</p>
       </desc>
     </func>
   </funcs>

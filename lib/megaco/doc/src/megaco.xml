@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco.xml</file>
   </header>
-  <module>megaco</module>
+  <module since="">megaco</module>
   <modulesummary>Main API of the Megaco application</modulesummary>
   <description>
     <p>Interface module for the Megaco application</p>
@@ -135,7 +135,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
 
   <funcs>
     <func>
-      <name>start() -> ok | {error, Reason}</name>
+      <name since="">start() -> ok | {error, Reason}</name>
       <fsummary>Starts the Megaco application</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -153,7 +153,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>stop() -> ok | {error, Reason}</name>
+      <name since="">stop() -> ok | {error, Reason}</name>
       <fsummary>Stops the Megaco application</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -166,7 +166,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>start_user(UserMid, Config) -> ok | {error, Reason}</name>
+      <name since="">start_user(UserMid, Config) -> ok | {error, Reason}</name>
       <fsummary>Initial configuration of a user</fsummary>
       <type>
         <v>UserMid = megaco_mid()</v>
@@ -188,7 +188,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>stop_user(UserMid) -> ok | {error, Reason}</name>
+      <name since="">stop_user(UserMid) -> ok | {error, Reason}</name>
       <fsummary>Delete the configuration of a user</fsummary>
       <type>
         <v>UserMid = megaco_mid()</v>
@@ -203,8 +203,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>user_info(UserMid) -> [{Item, Value}]</name>
-      <name>user_info(UserMid, Item) -> Value | exit(Reason)</name>
+      <name since="">user_info(UserMid) -> [{Item, Value}]</name>
+      <name since="">user_info(UserMid, Item) -> Value | exit(Reason)</name>
       <fsummary>Lookup user information</fsummary>
       <type>
         <v>Handle  = user_info_handle()</v>
@@ -703,7 +703,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>update_user_info(UserMid, Item, Value) -> ok | {error, Reason}</name>
+      <name since="">update_user_info(UserMid, Item, Value) -> ok | {error, Reason}</name>
       <fsummary>Update information about a user</fsummary>
       <type>
         <v>UserMid = megaco_mid() </v>
@@ -721,8 +721,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>conn_info(ConnHandle) -> [{Item, Value}]</name>
-      <name>conn_info(ConnHandle, Item) -> Value | exit(Reason)</name>
+      <name since="">conn_info(ConnHandle) -> [{Item, Value}]</name>
+      <name since="">conn_info(ConnHandle, Item) -> Value | exit(Reason)</name>
       <fsummary>Lookup information about an active connection</fsummary>
       <type>
         <v>ConnHandle = #megaco_conn_handle{}</v>
@@ -1222,7 +1222,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>update_conn_info(ConnHandle, Item, Value) -> ok | {error, Reason}</name>
+      <name since="">update_conn_info(ConnHandle, Item, Value) -> ok | {error, Reason}</name>
       <fsummary>Update information about an active connection</fsummary>
       <type>
         <v>ConnHandle = #megaco_conn_handle{}</v>
@@ -1241,8 +1241,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>system_info() -> [{Item, Value}] | exit(Reason)</name>
-      <name>system_info(Item) -> Value | exit(Reason)</name>
+      <name since="">system_info() -> [{Item, Value}] | exit(Reason)</name>
+      <name since="">system_info(Item) -> Value | exit(Reason)</name>
       <fsummary>Lookup system information</fsummary>
       <type>
         <v>Item = system_info_item()</v>
@@ -1289,7 +1289,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>info() -> Info</name>
+      <name since="">info() -> Info</name>
       <fsummary>All the information of the application</fsummary>
       <type>
         <v>Info = [{Key, Value}]</v>
@@ -1311,8 +1311,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid) -> {ok, ConnHandle} | {error, Reason}</name>
-      <name>connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra) -> {ok, ConnHandle} | {error, Reason}</name>
+      <name since="">connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid) -> {ok, ConnHandle} | {error, Reason}</name>
+      <name since="">connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra) -> {ok, ConnHandle} | {error, Reason}</name>
       <fsummary>Establish a "virtual" connection</fsummary>
       <type>
         <v>ReceiveHandle = #megaco_receive_handle{}</v>
@@ -1436,7 +1436,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>disconnect(ConnHandle, DiscoReason) -> ok | {error, ErrReason}</name>
+      <name since="">disconnect(ConnHandle, DiscoReason) -> ok | {error, ErrReason}</name>
       <fsummary>Tear down a "virtual" connection</fsummary>
       <type>
         <v>ConnHandle  = conn_handle()</v>
@@ -1454,7 +1454,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>call(ConnHandle, Actions, Options) -> {ProtocolVersion, UserReply}</name>
+      <name since="">call(ConnHandle, Actions, Options) -> {ProtocolVersion, UserReply}</name>
       <fsummary>Sends one or more transaction request(s) and waits for the reply</fsummary>
       <type>
         <v>ConnHandle     = conn_handle()</v>
@@ -1545,7 +1545,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>cast(ConnHandle, Actions, Options) -> ok | {error, Reason}</name>
+      <name since="">cast(ConnHandle, Actions, Options) -> ok | {error, Reason}</name>
       <fsummary>Sends one or more transaction request(s) but does NOT wait for a reply</fsummary>
       <type>
         <v>ConnHandle     = conn_handle()</v>
@@ -1582,7 +1582,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>encode_actions(ConnHandle, Actions, Options) -> {ok, BinOrBins} | {error, Reason}</name>
+      <name since="">encode_actions(ConnHandle, Actions, Options) -> {ok, BinOrBins} | {error, Reason}</name>
       <fsummary>Encode action requests for one or more transaction request(s)</fsummary>
       <type>
         <v>ConnHandle     = conn_handle()</v>
@@ -1607,9 +1607,9 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>token_tag2string(Tag) -> Result</name>
-      <name>token_tag2string(Tag, EncoderMod) -> Result</name>
-      <name>token_tag2string(Tag, EncoderMod, Version) -> Result</name>
+      <name since="">token_tag2string(Tag) -> Result</name>
+      <name since="">token_tag2string(Tag, EncoderMod) -> Result</name>
+      <name since="">token_tag2string(Tag, EncoderMod, Version) -> Result</name>
       <fsummary>Convert a token tag to a string</fsummary>
       <type>
         <v>Tag = atom()</v>
@@ -1635,7 +1635,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>cancel(ConnHandle, CancelReason) -> ok | {error, ErrReason}</name>
+      <name since="">cancel(ConnHandle, CancelReason) -> ok | {error, ErrReason}</name>
       <fsummary>Cancel all outstanding messages for this connection</fsummary>
       <type>
         <v>ConnHandle   = conn_handle()</v>
@@ -1655,8 +1655,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) -> ok</name>
-      <name>process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) -> ok</name>
+      <name since="">process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) -> ok</name>
+      <name since="">process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) -> ok</name>
       <fsummary>Process a received message</fsummary>
       <type>
         <v>ReceiveHandle = #megaco_receive_handle{}</v>
@@ -1755,8 +1755,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) -> ok</name>
-      <name>receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) -> ok</name>
+      <name since="">receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) -> ok</name>
+      <name since="">receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) -> ok</name>
       <fsummary>Process a received message</fsummary>
       <type>
         <v>ReceiveHandle = #megaco_receive_handle{}</v>
@@ -1783,7 +1783,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>parse_digit_map(DigitMapBody) -> {ok, ParsedDigitMap} | {error, Reason}</name>
+      <name since="">parse_digit_map(DigitMapBody) -> {ok, ParsedDigitMap} | {error, Reason}</name>
       <fsummary>Parses a digit map body</fsummary>
       <type>
         <v>DigitMapBody       = string()</v>
@@ -1802,8 +1802,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>eval_digit_map(DigitMap) -> {ok, MatchResult} | {error, Reason}</name>
-      <name>eval_digit_map(DigitMap, Timers) -> {ok, MatchResult} | {error, Reason}</name>
+      <name since="">eval_digit_map(DigitMap) -> {ok, MatchResult} | {error, Reason}</name>
+      <name since="">eval_digit_map(DigitMap, Timers) -> {ok, MatchResult} | {error, Reason}</name>
       <fsummary>Collect digit map letters according to the digit map</fsummary>
       <type>
         <v>DigitMap           = #'DigitMapValue'{} | parsed_digit_map()</v>
@@ -1839,7 +1839,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>report_digit_event(DigitMapEvalPid, Events) -> ok | {error, Reason}</name>
+      <name since="">report_digit_event(DigitMapEvalPid, Events) -> ok | {error, Reason}</name>
       <fsummary>Send one or more events to the event collector process</fsummary>
       <type>
         <v>DigitMapEvalPid = pid()</v>
@@ -1866,7 +1866,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>test_digit_event(DigitMap, Events) -> {ok, Kind, Letters} | {error, Reason}</name>
+      <name since="">test_digit_event(DigitMap, Events) -> {ok, Kind, Letters} | {error, Reason}</name>
       <fsummary>Feed digit map collector with events and return the result</fsummary>
       <type>
         <v>DigitMap           = #'DigitMapValue'{} | parsed_digit_map()</v>
@@ -1900,7 +1900,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>encode_sdp(SDP) -> {ok, PP} | {error, Reason}</name>
+      <name since="">encode_sdp(SDP) -> {ok, PP} | {error, Reason}</name>
       <fsummary>Encode an SDP construct</fsummary>
       <type>
         <v>SDP = sdp_property_parm() | sdp_property_group() | sdp_property_groups() | asn1_NOVALUE</v>
@@ -1929,7 +1929,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>decode_sdp(PP) -> {ok, SDP} | {error, Reason}</name>
+      <name since="">decode_sdp(PP) -> {ok, SDP} | {error, Reason}</name>
       <fsummary>Decode an property parameter construct</fsummary>
       <type>
 	<v>PP = property_parm() | property_group() | property_groups() | asn1_NOVALUE</v>
@@ -1969,7 +1969,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>get_sdp_record_from_PropertGroup(Type, PG) -> [sdp()]</name>
+      <name since="">get_sdp_record_from_PropertGroup(Type, PG) -> [sdp()]</name>
       <fsummary>Get all sdp records of a certain type from a property group</fsummary>
       <type>
         <v>Type = v | c | m | o | a | b | t | r | z | k | s | i | u | e | p</v>
@@ -1986,8 +1986,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>versions1() -> {ok, VersionInfo} | {error, Reason}</name>
-      <name>versions2() -> {ok, Info} | {error, Reason}</name>
+      <name since="">versions1() -> {ok, VersionInfo} | {error, Reason}</name>
+      <name since="">versions2() -> {ok, Info} | {error, Reason}</name>
       <fsummary>Retreive various system and application info</fsummary>
       <type>
         <v>VersionInfo = [version_info()]</v>
@@ -2007,8 +2007,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>print_version_info() -> void()</name>
-      <name>print_version_info(VersionInfo) -> void()</name>
+      <name since="">print_version_info() -> void()</name>
+      <name since="">print_version_info(VersionInfo) -> void()</name>
       <fsummary>Formated print of result of the versions functions</fsummary>
       <type>
         <v>VersionInfo = [version_info()]</v>
@@ -2029,7 +2029,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>enable_trace(Level, Destination) -> void()</name>
+      <name since="">enable_trace(Level, Destination) -> void()</name>
       <fsummary>Start megaco tracing</fsummary>
       <type>
         <v>Level       = max | min | 0 &lt;= integer() &lt;= 100</v>
@@ -2057,7 +2057,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>disable_trace() -> void()</name>
+      <name since="">disable_trace() -> void()</name>
       <fsummary>Stop megaco tracing</fsummary>
       <desc>
         <p>This function is used to stop megaco tracing.</p>
@@ -2065,7 +2065,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
       </desc>
     </func>
     <func>
-      <name>set_trace(Level) -> void()</name>
+      <name since="">set_trace(Level) -> void()</name>
       <fsummary>Change megaco trace level</fsummary>
       <type>
         <v>Level = max | min | 0 &lt;= integer() &lt;= 100</v>
@@ -2081,10 +2081,10 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>get_stats() -> {ok, TotalStats} | {error, Reason}</name>
-      <name>get_stats(GlobalCounter) -> {ok, CounterStats} | {error, Reason}</name>
-      <name>get_stats(ConnHandle) -> {ok, ConnHandleStats} | {error, Reason}</name>
-      <name>get_stats(ConnHandle, Counter) -> {ok, integer()} | {error, Reason}</name>
+      <name since="">get_stats() -> {ok, TotalStats} | {error, Reason}</name>
+      <name since="">get_stats(GlobalCounter) -> {ok, CounterStats} | {error, Reason}</name>
+      <name since="">get_stats(ConnHandle) -> {ok, ConnHandleStats} | {error, Reason}</name>
+      <name since="">get_stats(ConnHandle, Counter) -> {ok, integer()} | {error, Reason}</name>
       <fsummary></fsummary>
       <type>
         <v>TotalStats = [total_stats()]</v>
@@ -2110,8 +2110,8 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>reset_stats() -> void()</name>
-      <name>reset_stats(ConnHandle) -> void()</name>
+      <name since="">reset_stats() -> void()</name>
+      <name since="">reset_stats(ConnHandle) -> void()</name>
       <fsummary></fsummary>
       <type>
         <v>ConnHandle = conn_handle()</v>
@@ -2123,7 +2123,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>test_request(ConnHandle, Version, EncodingMod, EncodingConfig, Actions) -> {MegaMsg, EncodeRes}</name>
+      <name since="">test_request(ConnHandle, Version, EncodingMod, EncodingConfig, Actions) -> {MegaMsg, EncodeRes}</name>
       <fsummary>Tests if the Actions argument is correct</fsummary>
       <type>
         <v>ConnHandle     = conn_handle()</v>
@@ -2150,7 +2150,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name>test_reply(ConnHandle, Version, EncodingMod, EncodingConfig, Reply) -> {MegaMsg, EncodeRes}</name>
+      <name since="">test_reply(ConnHandle, Version, EncodingMod, EncodingConfig, Reply) -> {MegaMsg, EncodeRes}</name>
       <fsummary>Tests if the Reply argument is correct</fsummary>
       <type>
         <v>ConnHandle     = conn_handle()</v>

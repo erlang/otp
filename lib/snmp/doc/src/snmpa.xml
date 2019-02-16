@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa.xml</file>
   </header>
-  <module>snmpa</module>
+  <module since="">snmpa</module>
   <modulesummary>Interface Functions to the SNMP toolkit agent</modulesummary>
   <description>
     <p>The module <c>snmpa</c> contains interface functions to the 
@@ -77,7 +77,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 
   <funcs>
     <func>
-      <name>add_agent_caps(SysORID, SysORDescr) -> SysORIndex</name>
+      <name since="">add_agent_caps(SysORID, SysORDescr) -> SysORIndex</name>
       <fsummary>Add an AGENT-CAPABILITY definition to the agent</fsummary>
       <type>
         <v>SysORID = oid()</v>
@@ -93,7 +93,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>del_agent_caps(SysORIndex) -> void()</name>
+      <name since="">del_agent_caps(SysORIndex) -> void()</name>
       <fsummary>Delete an AGENT-CAPABILITY definition from the agent</fsummary>
       <type>
         <v>SysORIndex = integer()</v>
@@ -108,7 +108,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>get_agent_caps() -> [[SysORIndex, SysORID, SysORDescr, SysORUpTime]]</name>
+      <name since="">get_agent_caps() -> [[SysORIndex, SysORID, SysORDescr, SysORUpTime]]</name>
       <fsummary>Return all AGENT-CAPABILITY definitions in the agent</fsummary>
       <type>
         <v>SysORIndex = integer()</v>
@@ -125,8 +125,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>get(Agent, Vars) -> Values | {error, Reason}</name>
-      <name>get(Agent, Vars, Context) -> Values | {error, Reason}</name>
+      <name since="">get(Agent, Vars) -> Values | {error, Reason}</name>
+      <name since="">get(Agent, Vars, Context) -> Values | {error, Reason}</name>
       <fsummary>Perform a get operation on the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -150,8 +150,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>get_next(Agent, Vars) -> Values | {error, Reason}</name>
-      <name>get_next(Agent, Vars, Context) -> Values | {error, Reason}</name>
+      <name since="">get_next(Agent, Vars) -> Values | {error, Reason}</name>
+      <name since="">get_next(Agent, Vars, Context) -> Values | {error, Reason}</name>
       <fsummary>Perform a get-next operation on the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -176,7 +176,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 
 <!--
     <func>
-      <name>get_symbolic_store_db() -> Db</name>
+      <name since="">get_symbolic_store_db() -> Db</name>
       <fsummary>Retrieve the symbolic store database reference</fsummary>
       <type>
         <v>Db = term()</v>
@@ -193,8 +193,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 
 -->
     <func>
-      <name>backup(BackupDir) -> ok | {error, Reason}</name>
-      <name>backup(Agent, BackupDir) -> ok | {error, Reason}</name>
+      <name since="">backup(BackupDir) -> ok | {error, Reason}</name>
+      <name since="">backup(Agent, BackupDir) -> ok | {error, Reason}</name>
       <fsummary>Backup agent data</fsummary>
       <type>
         <v>BackupDir = string()</v>
@@ -216,8 +216,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       </desc>
     </func>
     <func>
-      <name>info() -> [{Key, Value}]</name>
-      <name>info(Agent) -> [{Key, Value}]</name>
+      <name since="">info() -> [{Key, Value}]</name>
+      <name since="">info(Agent) -> [{Key, Value}]</name>
       <fsummary>Return information about the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -236,7 +236,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>old_info_format(NewInfo) -> OldInfo</name>
+      <name since="">old_info_format(NewInfo) -> OldInfo</name>
       <fsummary>Return information about the agent</fsummary>
       <type>
         <v>OldInfo = NewInfo = [{Key, Value}]</v>
@@ -251,8 +251,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>load_mib(Mib) -> ok | {error, Reason}</name>
-      <name>load_mib(Agent, Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">load_mib(Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">load_mib(Agent, Mib) -> ok | {error, Reason}</name>
       <fsummary>Load single MIB into the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -273,10 +273,10 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>load_mibs(Mibs) -> ok | {error, Reason}</name>
-      <name>load_mibs(Mibs, Force) -> ok | {error, Reason}</name>
-      <name>load_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
-      <name>load_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
+      <name since="">load_mibs(Mibs) -> ok | {error, Reason}</name>
+      <name since="">load_mibs(Mibs, Force) -> ok | {error, Reason}</name>
+      <name since="">load_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">load_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
       <fsummary>Load MIBs into the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -305,8 +305,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>unload_mib(Mib) -> ok | {error, Reason}</name>
-      <name>unload_mib(Agent, Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">unload_mib(Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">unload_mib(Agent, Mib) -> ok | {error, Reason}</name>
       <fsummary>Unload single MIB from the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -321,10 +321,10 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>unload_mibs(Mibs) -> ok | {error, Reason}</name>
-      <name>unload_mibs(Mibs, Force) -> ok | {error, Reason}</name>
-      <name>unload_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
-      <name>unload_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
+      <name since="">unload_mibs(Mibs) -> ok | {error, Reason}</name>
+      <name since="">unload_mibs(Mibs, Force) -> ok | {error, Reason}</name>
+      <name since="">unload_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">unload_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
       <fsummary>Unload MIBs from the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -347,8 +347,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>which_mibs() -> Mibs</name>
-      <name>which_mibs(Agent) -> Mibs</name>
+      <name since="">which_mibs() -> Mibs</name>
+      <name since="">which_mibs(Agent) -> Mibs</name>
       <fsummary>Get a list of all the loaded mibs</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -365,8 +365,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>whereis_mib(MibName) -> {ok, MibFile} | {error, Reason}</name>
-      <name>whereis_mib(Agent, MibName) -> {ok, MibFile} | {error, Reason}</name>
+      <name since="">whereis_mib(MibName) -> {ok, MibFile} | {error, Reason}</name>
+      <name since="">whereis_mib(Agent, MibName) -> {ok, MibFile} | {error, Reason}</name>
       <fsummary>Get the path to the mib file</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -385,10 +385,10 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>current_request_id() -> {value, RequestId} | false</name>
-      <name>current_context() -> {value, Context} | false</name>
-      <name>current_community() -> {value, Community} | false</name>
-      <name>current_address() -> {value, Address} | false</name>
+      <name since="">current_request_id() -> {value, RequestId} | false</name>
+      <name since="">current_context() -> {value, Context} | false</name>
+      <name since="">current_community() -> {value, Community} | false</name>
+      <name since="">current_address() -> {value, Address} | false</name>
       <fsummary>Get the request-id, context, community and address of the current request</fsummary>
       <type>
         <v>RequestId = integer()</v>
@@ -409,8 +409,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>enum_to_int(Name, Enum) -> {value, Int} | false</name>
-      <name>enum_to_int(Db, Name, Enum) -> {value, Int} | false</name>
+      <name since="">enum_to_int(Name, Enum) -> {value, Int} | false</name>
+      <name since="">enum_to_int(Db, Name, Enum) -> {value, Int} | false</name>
       <fsummary>Convert an enum value to an integer</fsummary>
       <type>
         <v>Db   = term()</v>
@@ -435,8 +435,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>int_to_enum(Name, Int) -> {value, Enum} | false</name>
-      <name>int_to_enum(Db, Name, Int) -> {value, Enum} | false</name>
+      <name since="">int_to_enum(Name, Int) -> {value, Enum} | false</name>
+      <name since="">int_to_enum(Db, Name, Int) -> {value, Enum} | false</name>
       <fsummary>Convert an integer to an enum value</fsummary>
       <type>
         <v>Db   = term()</v>
@@ -461,8 +461,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>name_to_oid(Name) -> {value, oid()} | false</name>
-      <name>name_to_oid(Db, Name) -> {value, oid()} | false</name>
+      <name since="">name_to_oid(Name) -> {value, oid()} | false</name>
+      <name since="">name_to_oid(Db, Name) -> {value, oid()} | false</name>
       <fsummary>Convert a symbolic name to an OID</fsummary>
       <type>
         <v>Db   = term()</v>
@@ -482,8 +482,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>oid_to_name(OID) -> {value, Name} | false</name>
-      <name>oid_to_name(Db, OID) -> {value, Name} | false</name>
+      <name since="">oid_to_name(OID) -> {value, Name} | false</name>
+      <name since="">oid_to_name(Db, OID) -> {value, Name} | false</name>
       <fsummary>Convert an OID to a symbolic name</fsummary>
       <type>
         <v>Db   = term()</v>
@@ -503,7 +503,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>which_aliasnames() -> Result</name>
+      <name since="">which_aliasnames() -> Result</name>
       <fsummary>Get all alias-names known to the agent</fsummary>
       <type>
         <v>Result = [atom()]</v>
@@ -515,7 +515,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>which_tables() -> Result</name>
+      <name since="">which_tables() -> Result</name>
       <fsummary>Get all tables known to the agent</fsummary>
       <type>
         <v>Result = [atom()]</v>
@@ -528,7 +528,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>which_variables() -> Result</name>
+      <name since="">which_variables() -> Result</name>
       <fsummary>Get all variables known to the agent</fsummary>
       <type>
         <v>Result = [atom()]</v>
@@ -541,7 +541,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>which_notifications() -> Result</name>
+      <name since="">which_notifications() -> Result</name>
       <fsummary>Get all notifications known to the agent</fsummary>
       <type>
         <v>Result = [{Name, MibName, Info}]</v>
@@ -557,15 +557,15 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>log_to_txt(LogDir)</name>
-      <name>log_to_txt(LogDir, Block | Mibs)</name>
-      <name>log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_txt(LogDir)</name>
+      <name since="">log_to_txt(LogDir, Block | Mibs)</name>
+      <name since="">log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -576,6 +576,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
@@ -597,14 +600,14 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>log_to_io(LogDir) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Block | Mibs) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, Block | LogFile) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> ok | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Block | Mibs) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, Block | LogFile) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -614,6 +617,9 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
@@ -635,7 +641,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>change_log_size(NewSize) -> ok | {error, Reason}</name>
+      <name since="">change_log_size(NewSize) -> ok | {error, Reason}</name>
       <fsummary>Change the size of the Audit Trail Log</fsummary>
       <type>
         <v>NewSize = {MaxBytes, MaxFiles}</v>
@@ -656,8 +662,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>set_log_type(NewType) -> {ok, OldType} | {error, Reason}</name>
-      <name>set_log_type(Agent, NewType) -> {ok, OldType} | {error, Reason}</name>
+      <name since="">set_log_type(NewType) -> {ok, OldType} | {error, Reason}</name>
+      <name since="">set_log_type(Agent, NewType) -> {ok, OldType} | {error, Reason}</name>
       <fsummary>Change the type of the Audit Trail Log</fsummary>
       <type>
         <v>NewType = OldType = atl_type()</v>
@@ -678,8 +684,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>mib_of(Oid) -> {ok, MibName} | {error, Reason}</name>
-      <name>mib_of(Agent, Oid) -> {ok, MibName} | {error, Reason}</name>
+      <name since="">mib_of(Oid) -> {ok, MibName} | {error, Reason}</name>
+      <name since="">mib_of(Agent, Oid) -> {ok, MibName} | {error, Reason}</name>
       <fsummary>Which mib an Oid belongs to</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -698,8 +704,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>me_of(Oid) -> {ok, Me} | {error, Reason}</name>
-      <name>me_of(Agent, Oid) -> {ok, Me} | {error, Reason}</name>
+      <name since="">me_of(Oid) -> {ok, Me} | {error, Reason}</name>
+      <name since="">me_of(Agent, Oid) -> {ok, Me} | {error, Reason}</name>
       <fsummary>Retrieve the mib-entry of an Oid</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -718,8 +724,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>invalidate_mibs_cache() -> void()</name>
-      <name>invalidate_mibs_cache(Agent) -> void()</name>
+      <name since="">invalidate_mibs_cache() -> void()</name>
+      <name since="">invalidate_mibs_cache(Agent) -> void()</name>
       <fsummary>Invalidate the mib server cache</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -733,8 +739,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>enable_mibs_cache() -> void()</name>
-      <name>enable_mibs_cache(Agent) -> void()</name>
+      <name since="">enable_mibs_cache() -> void()</name>
+      <name since="">enable_mibs_cache(Agent) -> void()</name>
       <fsummary>Enable the mib server cache</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -747,8 +753,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>disable_mibs_cache() -> void()</name>
-      <name>disable_mibs_cache(Agent) -> void()</name>
+      <name since="">disable_mibs_cache() -> void()</name>
+      <name since="">disable_mibs_cache(Agent) -> void()</name>
       <fsummary>Disable the mib server cache</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -761,8 +767,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>which_mibs_cache_size() -> void()</name>
-      <name>which_mibs_cache_size(Agent) -> void()</name>
+      <name since="OTP R14B">which_mibs_cache_size() -> void()</name>
+      <name since="OTP R14B">which_mibs_cache_size(Agent) -> void()</name>
       <fsummary>The size of the mib server cache</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -775,12 +781,12 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>gc_mibs_cache() -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name>gc_mibs_cache(Agent) -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name>gc_mibs_cache(Age) -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name>gc_mibs_cache(Agent, Age) -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name>gc_mibs_cache(Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason}</name>
-      <name>gc_mibs_cache(Agent, Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache() -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Agent) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Age) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Agent, Age) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason}</name>
+      <name since="">gc_mibs_cache(Agent, Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason}</name>
       <fsummary>Perform mib server cache gc</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -802,8 +808,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>enable_mibs_cache_autogc() -> void()</name>
-      <name>enable_mibs_cache_autogc(Agent) -> void()</name>
+      <name since="">enable_mibs_cache_autogc() -> void()</name>
+      <name since="">enable_mibs_cache_autogc(Agent) -> void()</name>
       <fsummary>Enable automatic gc of the mib server cache</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -816,8 +822,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>disable_mibs_cache_autogc() -> void()</name>
-      <name>disable_mibs_cache_autogc(Agent) -> void()</name>
+      <name since="">disable_mibs_cache_autogc() -> void()</name>
+      <name since="">disable_mibs_cache_autogc(Agent) -> void()</name>
       <fsummary>Disable automatic gc of the mib server cache</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -830,8 +836,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>update_mibs_cache_age(NewAge) -> ok | {error, Reason}</name>
-      <name>update_mibs_cache_age(Agent, NewAge) -> ok | {error, Reason}</name>
+      <name since="">update_mibs_cache_age(NewAge) -> ok | {error, Reason}</name>
+      <name since="">update_mibs_cache_age(Agent, NewAge) -> ok | {error, Reason}</name>
       <fsummary>Change the mib server cache age property</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -846,8 +852,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>update_mibs_cache_gclimit(NewGcLimit) -> ok | {error, Reason}</name>
-      <name>update_mibs_cache_gclimit(Agent, NewGCLimit) -> ok | {error, Reason}</name>
+      <name since="">update_mibs_cache_gclimit(NewGcLimit) -> ok | {error, Reason}</name>
+      <name since="">update_mibs_cache_gclimit(Agent, NewGCLimit) -> ok | {error, Reason}</name>
       <fsummary>Change the mib server cache gclimit property</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -863,10 +869,10 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 
 
     <func>
-      <name>register_notification_filter(Id, Mod, Data) -> ok | {error, Reason}</name>
-      <name>register_notification_filter(Agent, Id, Mod, Data) -> ok | {error, Reason}</name>
-      <name>register_notification_filter(Id, Mod, Data, Where) -> ok | {error, Reason}</name>
-      <name>register_notification_filter(Agent, Id, Mod, Data, Where) -> ok | {error, Reason}</name>
+      <name since="">register_notification_filter(Id, Mod, Data) -> ok | {error, Reason}</name>
+      <name since="">register_notification_filter(Agent, Id, Mod, Data) -> ok | {error, Reason}</name>
+      <name since="">register_notification_filter(Id, Mod, Data, Where) -> ok | {error, Reason}</name>
+      <name since="">register_notification_filter(Agent, Id, Mod, Data, Where) -> ok | {error, Reason}</name>
       <fsummary>Register a notification filter</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -891,8 +897,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>unregister_notification_filter(Id) -> ok | {error, Reason}</name>
-      <name>unregister_notification_filter(Agent, Id) -> ok | {error, Reason}</name>
+      <name since="">unregister_notification_filter(Id) -> ok | {error, Reason}</name>
+      <name since="">unregister_notification_filter(Agent, Id) -> ok | {error, Reason}</name>
       <fsummary>Unregister a notification filter</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -907,8 +913,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>which_notification_filter() -> Filters</name>
-      <name>which_notification_filter(Agent) -> Filters</name>
+      <name since="">which_notification_filter() -> Filters</name>
+      <name since="">which_notification_filter(Agent) -> Filters</name>
       <fsummary>Which notification filter</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -923,8 +929,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
    <func>
-      <name>set_request_limit(NewLimit) -> {ok, OldLimit} | {error, Reason}</name>
-      <name>set_request_limit(Agent, NewLimit) -> {ok, OldLimit} | {error, Reason}</name>
+      <name since="">set_request_limit(NewLimit) -> {ok, OldLimit} | {error, Reason}</name>
+      <name since="">set_request_limit(Agent, NewLimit) -> {ok, OldLimit} | {error, Reason}</name>
       <fsummary>Change the request limit</fsummary>
       <type>
         <v>NewLimit = OldLimit = infinity | integer() >= 0</v>
@@ -944,7 +950,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>register_subagent(Agent, SubTreeOid, Subagent) -> ok | {error, Reason}</name>
+      <name since="">register_subagent(Agent, SubTreeOid, Subagent) -> ok | {error, Reason}</name>
       <fsummary>Register a sub-agent under a sub-tree</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -969,7 +975,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>unregister_subagent(Agent, SubagentOidOrPid) -> ok | {ok, SubAgentPid} | {error, Reason}</name>
+      <name since="">unregister_subagent(Agent, SubagentOidOrPid) -> ok | {ok, SubAgentPid} | {error, Reason}</name>
       <fsummary>Unregister a sub-agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -986,7 +992,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 
     <func>
-      <name>send_notification2(Agent, Notification, SendOpts) -> void()</name>
+      <name since="OTP R14B03">send_notification2(Agent, Notification, SendOpts) -> void()</name>
       <fsummary>Send notification</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -1113,11 +1119,11 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 
     <func>
-      <name>send_notification(Agent, Notification, Receiver)</name>
-      <name>send_notification(Agent, Notification, Receiver, Varbinds)</name>
-      <name>send_notification(Agent, Notification, Receiver, NotifyName, Varbinds)</name>
-      <name>send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds) -> void() </name>
-      <name>send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds, LocalEngineID) -> void() </name>
+      <name since="">send_notification(Agent, Notification, Receiver)</name>
+      <name since="">send_notification(Agent, Notification, Receiver, Varbinds)</name>
+      <name since="">send_notification(Agent, Notification, Receiver, NotifyName, Varbinds)</name>
+      <name since="">send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds) -> void() </name>
+      <name since="OTP R14B">send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds, LocalEngineID) -> void() </name>
       <fsummary>Send a notification</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -1318,13 +1324,13 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 
     <func>
-      <name>discovery(TargetName, Notification) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name>discovery(TargetName, Notification, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name>discovery(TargetName, Notification, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name>discovery(TargetName, Notification, ContextName, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name>discovery(TargetName, Notification, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name>discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
-      <name>discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, ExtraInfo) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, ContextName, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}</name>
+      <name since="">discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, ExtraInfo) -> {ok, ManagerEngineID} | {error, Reason}</name>
       <fsummary>Initiate the discovery process with a manager</fsummary>
       <type>
         <v>TargetName = string()</v>
@@ -1373,7 +1379,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>convert_config(OldConfig) -> AgentConfig</name>
+      <name since="">convert_config(OldConfig) -> AgentConfig</name>
       <fsummary>Convert old snmp config to new agent config</fsummary>
       <type>
         <v>OldConfig = list()</v>
@@ -1397,8 +1403,8 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>restart_worker() -> void()</name>
-      <name>restart_worker(Agent) -> void()</name>
+      <name since="">restart_worker() -> void()</name>
+      <name since="">restart_worker(Agent) -> void()</name>
       <fsummary>Restart the worker process of a multi-threaded agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -1413,8 +1419,8 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>restart_set_worker() -> void()</name>
-      <name>restart_set_worker(Agent) -> void()</name>
+      <name since="">restart_set_worker() -> void()</name>
+      <name since="">restart_set_worker(Agent) -> void()</name>
       <fsummary>Restart the set worker process of a multi-threaded agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -1429,7 +1435,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>print_mib_info() -> void()</name>
+      <name since="OTP R14B02">print_mib_info() -> void()</name>
       <fsummary>Print mib info</fsummary>
       <desc>
         <p>Prints the content of all the (snmp) tables and variables 
@@ -1440,7 +1446,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>print_mib_tables() -> void()</name>
+      <name since="OTP R14B02">print_mib_tables() -> void()</name>
       <fsummary>Print mib tables</fsummary>
       <desc>
         <p>Prints the content of all the (snmp) tables 
@@ -1451,7 +1457,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>print_mib_variables() -> void()</name>
+      <name since="OTP R14B02">print_mib_variables() -> void()</name>
       <fsummary>Print mib variables</fsummary>
       <desc>
         <p>Prints the content of all the (snmp) variables 
@@ -1462,7 +1468,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>verbosity(Ref,Verbosity) -> void()</name>
+      <name since="">verbosity(Ref,Verbosity) -> void()</name>
       <fsummary>Assign a new verbosity for the process</fsummary>
       <type>
         <v>Ref = pid() | sub_agents | master_agent | net_if | mib_server | symbolic_store | note_store | local_db</v>

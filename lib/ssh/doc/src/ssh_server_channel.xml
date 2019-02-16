@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>ssh_server_channel</module>
+  <module since="OTP 21.0">ssh_server_channel</module>
   <modulesummary>-behaviour(ssh_server_channel). (Replaces ssh_daemon_channel)
   </modulesummary>
   <description>
@@ -70,7 +70,7 @@
 
   <funcs>
     <func>
-      <name>Module:init(Args) -> {ok, State} | {ok, State, timeout()} |
+      <name since="OTP 21.0">Module:init(Args) -> {ok, State} | {ok, State, timeout()} |
       {stop, Reason}</name>
       <fsummary>Makes necessary initializations and returns the
       initial channel state if the initializations succeed.</fsummary>
@@ -93,7 +93,7 @@
     </func>
    
     <func>
-      <name>Module:handle_msg(Msg, State) -> {ok, State} |
+      <name since="OTP 21.0">Module:handle_msg(Msg, State) -> {ok, State} |
       {stop, ChannelId, State}</name>
 
       <fsummary>Handles other messages than SSH connection protocol,
@@ -125,7 +125,7 @@
     </func>
 
     <func>
-      <name>Module:handle_ssh_msg(Msg, State) -> {ok, State} | {stop,
+      <name since="OTP 21.0">Module:handle_ssh_msg(Msg, State) -> {ok, State} | {stop,
       ChannelId, State}</name>
       <fsummary>Handles <c>ssh</c> connection protocol messages.</fsummary>
       <type>
@@ -152,7 +152,7 @@
     </func>
 
     <func>
-      <name>Module:terminate(Reason, State) -> _</name>
+      <name since="OTP 21.0">Module:terminate(Reason, State) -> _</name>
       <fsummary>Does cleaning up before channel process termination.
       </fsummary>
       <type>

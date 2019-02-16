@@ -27,6 +27,7 @@
 -define(dtls_handshake, true).
 
 -include("ssl_handshake.hrl"). %% Common TLS and DTLS records and Constantes
+-include("ssl_api.hrl").
 
 -define(HELLO_VERIFY_REQUEST, 3).
 -define(HELLO_VERIFY_REQUEST_VERSION, {254, 255}).
@@ -55,5 +56,12 @@
 	  fragment_length,
 	  fragment
 	 }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% RFC 7764  Datagram Transport Layer Security (DTLS) Extension to Establish Keys
+%% for the Secure Real-time Transport Protocol (SRTP)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Not supported
+-define(USE_SRTP, 14).
 
 -endif. % -ifdef(dtls_handshake).

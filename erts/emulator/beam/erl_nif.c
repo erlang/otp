@@ -453,8 +453,18 @@ static void full_flush_env(ErlNifEnv* env)
 
 static void full_cache_env(ErlNifEnv* env)
 {    
-    if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC)
+    if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
 	erts_cache_dirty_shadow_proc(env->proc);
+        /*
+         * If shadow proc had heap fragments when flushed
+         * those have now been moved to the real proc.
+         * Ensure heap pointers do not point into a heap
+         * fragment on real proc...
+         */
+        ASSERT(!env->proc->mbuf);
+	env->hp_end = HEAP_LIMIT(env->proc);
+	env->hp = HEAP_TOP(env->proc);
+    }
     cache_env(env);
 }
 
@@ -697,6 +707,29 @@ error:
     return reds;
 }
 
+/** @brief Create a message with the content of process independent \c msg_env.
+ *  Invalidates \c msg_env.
+ */
+ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env)
+{
+    struct enif_msg_environment_t* menv = (struct enif_msg_environment_t*)msg_env;
+    ErtsMessage* mp;
+
+    flush_env(msg_env);
+    mp = erts_alloc_message(0, NULL);
+    mp->data.heap_frag = menv->env.heap_frag;
+    ASSERT(mp->data.heap_frag == MBUF(&menv->phony_proc));
+    if (mp->data.heap_frag != NULL) {
+        /* Move all offheap's from phony proc to the first fragment.
+           Quick and dirty... */
+        ASSERT(!is_offheap(&mp->data.heap_frag->off_heap));
+        mp->data.heap_frag->off_heap = MSO(&menv->phony_proc);
+        clear_offheap(&MSO(&menv->phony_proc));
+        menv->env.heap_frag = NULL;
+        MBUF(&menv->phony_proc) = NULL;
+    }
+    return mp;
+}
 
 int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	      ErlNifEnv* msg_env, ERL_NIF_TERM msg)
@@ -744,19 +777,57 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	rp_locks = ERTS_PROC_LOCK_MAIN;
 
     if (menv) {
-        flush_env(msg_env);
-        mp = erts_alloc_message(0, NULL);
-        mp->data.heap_frag = menv->env.heap_frag;
-        ASSERT(mp->data.heap_frag == MBUF(&menv->phony_proc));
-        if (mp->data.heap_frag != NULL) {
-            /* Move all offheap's from phony proc to the first fragment.
-               Quick and dirty... */
-            ASSERT(!is_offheap(&mp->data.heap_frag->off_heap));
-            mp->data.heap_frag->off_heap = MSO(&menv->phony_proc);
-            clear_offheap(&MSO(&menv->phony_proc));
-            menv->env.heap_frag = NULL;
-            MBUF(&menv->phony_proc) = NULL;
+        Eterm token = c_p ? SEQ_TRACE_TOKEN(c_p) : am_undefined;
+        if (token != NIL && token != am_undefined) {
+            /* This code is copied from erts_send_message */
+            Eterm stoken = SEQ_TRACE_TOKEN(c_p);
+#ifdef USE_VM_PROBES
+            DTRACE_CHARBUF(sender_name, 64);
+            DTRACE_CHARBUF(receiver_name, 64);
+            Sint tok_label = 0;
+            Sint tok_lastcnt = 0;
+            Sint tok_serial = 0;
+            Eterm utag = NIL;
+            *sender_name = *receiver_name = '\0';
+            if (DTRACE_ENABLED(message_send)) {
+                erts_snprintf(sender_name, sizeof(DTRACE_CHARBUF_NAME(sender_name)),
+                              "%T", c_p->common.id);
+                erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
+                              "%T", rp->common.id);
+            }
+#endif
+            if (have_seqtrace(stoken)) {
+                seq_trace_update_send(c_p);
+                seq_trace_output(stoken, msg, SEQ_TRACE_SEND,
+                                 rp->common.id, c_p);
+            }
+#ifdef USE_VM_PROBES
+            if (!(DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING)) {
+                stoken = NIL;
+            }
+#endif
+            token = enif_make_copy(msg_env, stoken);
+
+#ifdef USE_VM_PROBES
+            if (DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING) {
+                if (is_immed(DT_UTAG(c_p)))
+                    utag = DT_UTAG(c_p);
+                else
+                    utag = enif_make_copy(msg_env, DT_UTAG(c_p));
+            }
+            if (DTRACE_ENABLED(message_send)) {
+                if (have_seqtrace(stoken)) {
+                    tok_label = SEQ_TRACE_T_DTRACE_LABEL(stoken);
+                    tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(stoken));
+                    tok_serial = signed_val(SEQ_TRACE_T_SERIAL(stoken));
+                }
+                DTRACE6(message_send, sender_name, receiver_name,
+                        size_object(msg), tok_label, tok_lastcnt, tok_serial);
+            }
+#endif
         }
+        mp = erts_create_message_from_nif_env(msg_env);
+        ERL_MESSAGE_TOKEN(mp) = token;
     } else {
         erts_literal_area_t litarea;
 	ErlOffHeap *ohp;
@@ -783,6 +854,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 		ohp = &bp->off_heap;
 	    }
 	}
+        ERL_MESSAGE_TOKEN(mp) = am_undefined;
         msg = copy_struct_litopt(msg, sz, &hp, ohp, &litarea);
     }
 
@@ -826,6 +898,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
             ERL_MESSAGE_TERM(mp) = msg;
             ERL_MESSAGE_FROM(mp) = from;
+            ERL_MESSAGE_TOKEN(mp) = am_undefined;
 
             if (!msgq) {
                 msgq = erts_alloc(ERTS_ALC_T_TRACE_MSG_QUEUE,
@@ -978,7 +1051,7 @@ ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
     Eterm* hp;
     /*
      * No preserved sharing allowed as long as literals are also preserved.
-     * Process independent environment can not be reached by purge.
+     * Process independent environment cannot be reached by purge.
      */
     sz = size_object(src_term);
     hp = alloc_heap(dst_env, sz);
@@ -2292,6 +2365,13 @@ static void dtor_demonitor(ErtsMonitor* mon, void* context)
     erts_proc_sig_send_demonitor(mon);
 }
 
+#ifdef DEBUG
+int erts_dbg_is_resource_dying(ErtsResource* resource)
+{
+    return resource->monitors && rmon_is_dying(resource->monitors);
+}
+#endif
+
 #  define NIF_RESOURCE_DTOR &nif_resource_dtor
 
 static int nif_resource_dtor(Binary* bin)
@@ -3287,6 +3367,12 @@ int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
         erts_ref_to_driver_monitor(ref,monitor);
 
     return 0;
+}
+
+ERL_NIF_TERM enif_make_monitor_term(ErlNifEnv* env, const ErlNifMonitor* monitor)
+{
+    Eterm* hp = alloc_heap(env, ERTS_REF_THING_SIZE);
+    return erts_driver_monitor_to_ref(hp, monitor);
 }
 
 int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monitor)

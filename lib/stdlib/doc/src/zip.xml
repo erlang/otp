@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>zip.xml</file>
   </header>
-  <module>zip</module>
+  <module since="">zip</module>
   <modulesummary>Utility for reading and creating 'zip' archives.
   </modulesummary>
   <description>
@@ -180,7 +180,7 @@
 
   <funcs>
     <func>
-      <name name="foldl" arity="3"/>
+      <name name="foldl" arity="3" since="OTP R14B"/>
       <fsummary>Fold a function over all files in a zip archive.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno>(<anno>FileInArchive</anno>, <anno>GetInfo
@@ -234,10 +234,10 @@
     </func>
 
     <func>
-      <name name="list_dir" arity="1"/>
-      <name name="list_dir" arity="2"/>
-      <name name="table" arity="1" />
-      <name name="table" arity="2"/>
+      <name name="list_dir" arity="1" since=""/>
+      <name name="list_dir" arity="2" since=""/>
+      <name name="table" arity="1"  since=""/>
+      <name name="table" arity="2" since=""/>
       <fsummary>Retrieve the name of all files in a zip archive.</fsummary>
       <desc>
         <p><c>list_dir/1</c> retrieves all filenames in the zip archive
@@ -263,7 +263,7 @@
     </func>
 
     <func>
-      <name name="t" arity="1"/>
+      <name name="t" arity="1" since=""/>
       <fsummary>Print the name of each file in a zip archive.</fsummary>
       <desc>
         <p>Prints all filenames in the zip archive <c><anno>Archive</anno></c>
@@ -272,7 +272,7 @@
     </func>
 
     <func>
-      <name name="tt" arity="1"/>
+      <name name="tt" arity="1" since=""/>
       <fsummary>Print name and information for each file in a zip archive.
       </fsummary>
       <desc>
@@ -283,10 +283,10 @@
     </func>
 
     <func>
-      <name name="unzip" arity="1"/>
-      <name name="unzip" arity="2"/>
-      <name name="extract" arity="1"/>
-      <name name="extract" arity="2"/>
+      <name name="unzip" arity="1" since=""/>
+      <name name="unzip" arity="2" since=""/>
+      <name name="extract" arity="1" since=""/>
+      <name name="extract" arity="2" since=""/>
       <fsummary>Extract files from a zip archive.</fsummary>
       <desc>
         <p><c>unzip/1</c> extracts all files from a zip archive.</p>
@@ -353,10 +353,10 @@
     </func>
 
     <func>
-      <name name="zip" arity="2"/>
-      <name name="zip" arity="3"/>
-      <name name="create" arity="2"/>
-      <name name="create" arity="3"/>
+      <name name="zip" arity="2" since=""/>
+      <name name="zip" arity="3" since=""/>
+      <name name="create" arity="2" since=""/>
+      <name name="create" arity="3" since=""/>
       <fsummary>Create a zip archive with options.</fsummary>
       <desc>
         <p>Creates a zip archive containing the files specified in
@@ -481,7 +481,7 @@
     </func>
 
     <func>
-      <name name="zip_close" arity="1"/>
+      <name name="zip_close" arity="1" since=""/>
       <fsummary>Close an open archive.</fsummary>
       <desc>
         <p>Closes a zip archive, previously opened with
@@ -492,8 +492,8 @@
     </func>
 
     <func>
-      <name name="zip_get" arity="1"/>
-      <name name="zip_get" arity="2"/>
+      <name name="zip_get" arity="1" since=""/>
+      <name name="zip_get" arity="2" since=""/>
       <fsummary>Extract files from an open archive.</fsummary>
       <desc>
         <p>Extracts one or all files from an open archive.</p>
@@ -505,7 +505,7 @@
     </func>
 
     <func>
-      <name name="zip_list_dir" arity="1"/>
+      <name name="zip_list_dir" arity="1" since=""/>
       <fsummary>Return a table of files in open zip archive.</fsummary>
       <desc>
         <p>Returns the file list of an open zip archive. The first returned
@@ -514,8 +514,8 @@
     </func>
 
     <func>
-      <name name="zip_open" arity="1"/>
-      <name name="zip_open" arity="2"/>
+      <name name="zip_open" arity="1" since=""/>
+      <name name="zip_open" arity="2" since=""/>
       <fsummary>Open an archive and return a handle to it.</fsummary>
       <desc>
         <p>Opens a zip archive, and reads and saves its directory. This

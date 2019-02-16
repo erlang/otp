@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@
 	 server_userpassword_option/1, 
 	 server_pwdfun_option/1,
 	 server_pwdfun_4_option/1,
-	 server_pwdfun_4_option_repeat/1,
+	 server_keyboard_interactive/1,
 	 ssh_connect_arg4_timeout/1, 
 	 ssh_connect_negtimeout_parallel/1, 
 	 ssh_connect_negtimeout_sequential/1, 
@@ -99,7 +99,7 @@ all() ->
      server_userpassword_option,
      server_pwdfun_option,
      server_pwdfun_4_option,
-     server_pwdfun_4_option_repeat,
+     server_keyboard_interactive,
      {group, dir_options},
      ssh_connect_timeout,
      ssh_connect_arg4_timeout,
@@ -381,7 +381,7 @@ server_pwdfun_4_option(Config) ->
 
     
 %%--------------------------------------------------------------------
-server_pwdfun_4_option_repeat(Config) ->
+server_keyboard_interactive(Config) ->
     UserDir = proplists:get_value(user_dir, Config),
     SysDir = proplists:get_value(data_dir, Config),	  
     %% Test that the state works
@@ -396,19 +396,28 @@ server_pwdfun_4_option_repeat(Config) ->
 					     {pwdfun,PWDFUN}]),
 
     %% Try with passwords "incorrect", "Bad again" and finally "bar"
-    KIFFUN = fun(_,_,_) -> 
+    KIFFUN = fun(_Name, _Instr, _PromptInfos) ->
 		     K={k,self()},
-		     case get(K) of 
-			 undefined -> 
-			     put(K,1),
-			     ["incorrect"]; 
-			 2 ->
-			     put(K,3),
-			     ["bar"];
-			 S->
-			     put(K,S+1),
-			     ["Bad again"]
-		     end
+                     Answer =
+                         case get(K) of
+                             undefined ->
+                                 put(K,1),
+                                 ["incorrect"];
+                             2 ->
+                                 put(K,3),
+                                 ["bar"];
+                             S->
+                                 put(K,S+1),
+                                 ["Bad again"]
+                         end,
+                     ct:log("keyboard_interact_fun:~n"
+                            " Name        = ~p~n"
+                            " Instruction = ~p~n"
+                            " Prompts     = ~p~n"
+                            "~nAnswer:~n  ~p~n",
+                            [_Name, _Instr, _PromptInfos, Answer]),
+
+                     Answer
 	     end,
     
     ConnectionRef2 = 

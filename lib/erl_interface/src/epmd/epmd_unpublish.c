@@ -58,7 +58,9 @@ int ei_unpublish_tmo(const char *alive, unsigned ms)
     char buf[EPMDBUF];
     char *s = (char*)buf;
     int len = 1 + strlen(alive);
-    int fd, res;
+    int fd, err;
+    ssize_t dlen;
+    unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
 
     if (len > sizeof(buf)-3) {
 	erl_errno = ERANGE;
@@ -72,20 +74,29 @@ int ei_unpublish_tmo(const char *alive, unsigned ms)
     /* FIXME can't connect, return success?! At least commen whats up */
     if ((fd = ei_epmd_connect_tmo(NULL,ms)) < 0) return fd;
 
-    if ((res = ei_write_fill_t(fd, buf, len+2,ms)) != len+2) {
-	closesocket(fd);
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-	return -1;
+    dlen = (ssize_t) len+2;
+    err = ei_write_fill_t__(fd, buf, &dlen, tmo);
+    if (!err && dlen != (ssize_t) len + 2)
+        erl_errno = EIO;
+    if (err) {
+        ei_close__(fd);
+        EI_CONN_SAVE_ERRNO__(err);
+        return -1;
     }
 
     EI_TRACE_CONN1("ei_unpublish_tmo","-> STOP %s",alive);
-  
-    if ((res = ei_read_fill_t(fd, buf, 7, ms)) != 7) {
-	closesocket(fd);
-	erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-	return -1; 
+
+    dlen = (ssize_t) 7;
+    err = ei_read_fill_t__(fd, buf, &dlen, tmo);
+    if (!err && dlen != (ssize_t) 7)
+        erl_errno = EIO;
+    if (err) {
+        ei_close__(fd);
+        EI_CONN_SAVE_ERRNO__(err);
+        return -1;
     }
-    closesocket(fd);
+    
+    ei_close__(fd);
     buf[7]=(char)0;		/* terminate the string */
   
     if (!strcmp("STOPPED",(char *)buf)) {

@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,6 +35,14 @@
   <app>HiPE</app>
   <appsummary>The HiPE Application</appsummary>
   <description>
+    <note>
+      <p>
+	HiPE and execution of HiPE compiled code only have limited support by
+	the OTP team at Ericsson. The OTP team only does limited maintenance
+	of HiPE and does not actively develop HiPE. HiPE is mainly supported
+	by the HiPE team at Uppsala University.
+      </p>
+    </note>
     <p>
       The normal way to native-compile an Erlang module using HiPE is to include the atom native 
       in the Erlang compiler options, as in:</p>
@@ -54,6 +62,13 @@
       and the runtime system that have limited or no support for HiPE compiled modules.
     </p>
     <taglist>
+      <tag>Binary matching</tag>
+      <item><p>The HiPE compiler will crash on modules containing binary
+      matching unless they have been compiled with the <c>+no_bsm3</c> flag.
+      Note that this will disable all related optimizations done by the BEAM
+      compiler.</p>
+      </item>
+
       <tag>Stack traces</tag>
       <item><p>Stack traces returned from <seealso marker="erts:erlang#get_stacktrace/0">
       <c>erlang:get_stacktrace/0</c></seealso> or as part of <c>'EXIT'</c> terms
@@ -70,12 +85,12 @@
       </item>
 
       <tag>NIFs</tag>
-      <item><p>Modules compiled with HiPE can not call <seealso marker="erts:erlang#load_nif-2">
+      <item><p>Modules compiled with HiPE cannot call <seealso marker="erts:erlang#load_nif-2">
       <c>erlang:load_nif/2</c></seealso> to load NIFs.</p>
       </item>
 
       <tag>-on_load</tag>
-      <item><p>Modules compiled with HiPE can not use
+      <item><p>Modules compiled with HiPE cannot use
       <seealso marker="doc/reference_manual:code_loading#on_load"><c>-on_load()</c></seealso>
       directives.</p>
       </item>
@@ -108,7 +123,7 @@
 	  queue when the reference was created will be bypassed, as they
 	  cannot possibly contain the reference. HiPE currently has an
 	  optimization similar this, but it is not guaranteed to
-	  bypass all messages. In the worst case scenario it, cannot
+	  bypass all messages. In the worst case scenario, it cannot
 	  bypass any messages at all.
 	</p>
 	<p>
@@ -117,21 +132,55 @@
 	</p>
       </item>
 
+      <tag>Garbage collection after BIFs</tag>
+      <item>
+	<p>
+	  The condition for determining whether a garbage collection
+	  is needed or not has changed in later releases. HiPE has not
+	  been updated regarding this which may cause premature garbage
+	  collections after BIF calls.
+	</p>
+      </item>
+
     </taglist>
   </section>
   <section>
     <title>Stability Issues</title>
     <taglist>
-      <tag>Not yielding in <c>receive</c> statements</tag>
+      <tag>Not checking reduction count on function returns</tag>
       <item>
-	<p>HiPE will not yield in <c>receive</c> statements where
-	appropriate. If a process have lots of signals in its signal
-	queue and execute a HiPE compiled <c>receive</c> statement,
-	the scheduler thread performing the execution may be stuck
-	in the <c>receive</c> statement for a very long time. This
-	can in turn cause various severe issues such as for example
-	prevent the runtime system from being able to release
-	memory.
+	<p>
+	  BEAM checks the reduction count and schedules out the executing
+	  process if needed both when calling a function and when returning
+	  from a function call that was not called using a tail call.
+	  HiPE only checks the reduction count when calling a function.
+	</p>
+	<p>
+	  The runtime system might need to schedule out a process
+	  in order to reclaim memory. If the process isn't scheduled
+	  out soon after the process has entered this state, memory
+	  consumption will quickly grow. Maintaining this state is also
+	  quite expensive performance wise.
+	</p>
+	<p>
+	  Processes executing code that performs large recursions and
+	  produce data after returning from recursive calls may have to
+	  be scheduled out when returning from a function call. Since
+	  HiPE does not check reductions on returns, processes executing
+	  such HiPE compiled code may cause huge peeks in memory
+	  consumption as well as severe performance degradation.
+	</p>
+      </item>
+
+      <tag>Not bumping appropriate amount of reductions in <c>receive</c> statements</tag>
+      <item>
+	<p>
+	  The process signaling improvements made in ERTS version
+	  10.0 moved potentially significant amounts of work into the
+	  receive statement from other places. In order to account for
+	  this work, the reduction count should be bumped on the
+	  executing process. Reductions are not bumped when entering
+	  the <c>receive</c> statement from HiPE compiled code.
 	</p>
       </item>
     </taglist>

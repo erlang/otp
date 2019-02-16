@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,14 +71,17 @@ MODULES= \
 	init_SUITE \
 	kernel_config_SUITE \
 	logger_SUITE \
-	logger_bench_SUITE \
 	logger_disk_log_h_SUITE \
 	logger_env_var_SUITE \
 	logger_filters_SUITE \
 	logger_formatter_SUITE \
 	logger_legacy_SUITE \
-	logger_simple_SUITE \
+	logger_olp_SUITE \
+	logger_proxy_SUITE \
+	logger_simple_h_SUITE \
 	logger_std_h_SUITE \
+	logger_stress_SUITE \
+	logger_test_lib \
 	os_SUITE \
 	pg2_SUITE \
 	seq_trace_SUITE \

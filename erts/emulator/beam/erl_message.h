@@ -405,8 +405,6 @@ typedef struct erl_trace_message_queue__ {
 #define SAVE_MESSAGE(p) \
      (p)->sig_qs.save = &(*(p)->sig_qs.save)->next
 
-#define ERTS_SND_FLG_NO_SEQ_TRACE		(((unsigned) 1) << 0)
-
 #define ERTS_HEAP_FRAG_SIZE(DATA_WORDS) \
    (sizeof(ErlHeapFragment) - sizeof(Eterm) + (DATA_WORDS)*sizeof(Eterm))
 
@@ -429,7 +427,7 @@ typedef struct erl_trace_message_queue__ {
     do {                                                \
         (MP)->next = NULL;                              \
         ERL_MESSAGE_TERM(MP) = THE_NON_VALUE;           \
-        ERL_MESSAGE_TOKEN(MP) = NIL;                    \
+        ERL_MESSAGE_TOKEN(MP) = THE_NON_VALUE;          \
         ERL_MESSAGE_FROM(MP) = NIL;                     \
         ERL_MESSAGE_DT_UTAG_INIT(MP);                   \
         MP->data.attached = NULL;                       \
@@ -446,7 +444,7 @@ void erts_queue_proc_message(Process* from,Process* to, ErtsProcLocks,ErtsMessag
 void erts_queue_proc_messages(Process* from, Process* to, ErtsProcLocks,
                               ErtsMessage*, ErtsMessage**, Uint);
 void erts_deliver_exit_message(Eterm, Process*, ErtsProcLocks *, Eterm, Eterm);
-void erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
+void erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm);
 void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
 
 Uint erts_msg_attached_data_size_aux(ErtsMessage *msg);

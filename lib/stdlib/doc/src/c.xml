@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1996-10-30</date>
     <rev>B</rev>
   </header>
-  <module>c</module>
+  <module since="">c</module>
   <modulesummary>Command interface module.</modulesummary>
   <description>
     <p>This module enables users to enter the short form of
@@ -41,7 +41,7 @@
 
   <funcs>
     <func>
-      <name name="bt" arity="1"/>
+      <name name="bt" arity="1" since=""/>
       <fsummary>Stack backtrace for a process.</fsummary>
       <desc>
         <p>Stack backtrace for a process. Equivalent to
@@ -50,9 +50,9 @@
     </func>
 
     <func>
-      <name name="c" arity="1"/>
-      <name name="c" arity="2"/>
-      <name name="c" arity="3"/>
+      <name name="c" arity="1" since=""/>
+      <name name="c" arity="2" since=""/>
+      <name name="c" arity="3" since="OTP 20.0"/>
       <fsummary>Compile and load a file or module.</fsummary>
       <desc>
         <p>Compiles and then purges and loads the code for a module.
@@ -80,7 +80,7 @@
     </func>
 
     <func>
-      <name name="cd" arity="1"/>
+      <name name="cd" arity="1" since=""/>
       <fsummary>Change working directory.</fsummary>
       <desc>
         <p>Changes working directory to <c><anno>Dir</anno></c>, which can be a
@@ -94,7 +94,7 @@
     </func>
 
     <func>
-      <name name="erlangrc" arity="1"/>
+      <name name="erlangrc" arity="1" since="OTP 21.0"/>
       <fsummary>Load an erlang resource file.</fsummary>
       <desc>
         <p>Search <c>PathList</c> and load <c>.erlang</c> resource file if
@@ -103,7 +103,7 @@
     </func>
 
     <func>
-      <name name="flush" arity="0"/>
+      <name name="flush" arity="0" since=""/>
       <fsummary>Flush any messages sent to the shell.</fsummary>
       <desc>
         <p>Flushes any messages sent to the shell.</p>
@@ -111,7 +111,7 @@
     </func>
 
     <func>
-      <name name="help" arity="0"/>
+      <name name="help" arity="0" since=""/>
       <fsummary>Help information.</fsummary>
       <desc>
         <p>Displays help information: all valid shell internal commands,
@@ -120,8 +120,8 @@
     </func>
 
     <func>
-      <name name="i" arity="0"/>
-      <name name="ni" arity="0"/>
+      <name name="i" arity="0" since=""/>
+      <name name="ni" arity="0" since=""/>
       <fsummary>System information.</fsummary>
       <desc>
         <p><c>i/0</c> displays system information, listing
@@ -131,7 +131,7 @@
     </func>
 
     <func>
-      <name name="i" arity="3"/>
+      <name name="i" arity="3" since=""/>
       <fsummary>Information about pid &lt;X.Y.Z&gt;.</fsummary>
       <desc>
         <p>Displays information about a process, Equivalent to
@@ -141,7 +141,7 @@
     </func>
 
     <func>
-      <name name="l" arity="1"/>
+      <name name="l" arity="1" since=""/>
       <fsummary>Load or reload a module.</fsummary>
       <desc>
         <p>Purges and loads, or reloads, a module by calling
@@ -154,7 +154,7 @@
     </func>
 
     <func>
-      <name>lc(Files) -> ok</name>
+      <name since="">lc(Files) -> ok</name>
       <fsummary>Compile a list of files.</fsummary>
       <type>
         <v>Files = [File]</v>
@@ -171,7 +171,7 @@
     </func>
 
     <func>
-      <name name="lm" arity="0"/>
+      <name name="lm" arity="0" since="OTP 20.0"/>
       <fsummary>Loads all modified modules.</fsummary>
       <desc>
         <p>Reloads all currently loaded modules that have changed on disk (see <c>mm()</c>).
@@ -180,7 +180,7 @@
     </func>
 
     <func>
-      <name name="ls" arity="0"/>
+      <name name="ls" arity="0" since=""/>
       <fsummary>List files in the current directory.</fsummary>
       <desc>
         <p>Lists files in the current directory.</p>
@@ -188,7 +188,7 @@
     </func>
 
     <func>
-      <name name="ls" arity="1"/>
+      <name name="ls" arity="1" since=""/>
       <fsummary>List files in a directory or a single file.</fsummary>
       <desc>
         <p>Lists files in directory <c><anno>Dir</anno></c> or, if <c>Dir</c>
@@ -197,7 +197,7 @@
     </func>
 
     <func>
-      <name name="m" arity="0"/>
+      <name name="m" arity="0" since=""/>
       <fsummary>Which modules are loaded.</fsummary>
       <desc>
         <p>Displays information about the loaded modules, including
@@ -206,7 +206,7 @@
     </func>
 
     <func>
-      <name name="m" arity="1"/>
+      <name name="m" arity="1" since=""/>
       <fsummary>Information about a module.</fsummary>
       <desc>
         <p>Displays information about <c><anno>Module</anno></c>.</p>
@@ -214,7 +214,7 @@
     </func>
 
     <func>
-      <name name="mm" arity="0"/>
+      <name name="mm" arity="0" since="OTP 20.0"/>
       <fsummary>Lists all modified modules.</fsummary>
       <desc>
         <p>Lists all modified modules. Shorthand for
@@ -223,7 +223,7 @@
     </func>
 
     <func>
-      <name name="memory" arity="0"/>
+      <name name="memory" arity="0" since=""/>
       <fsummary>Memory allocation information.</fsummary>
       <desc>
         <p>Memory allocation information. Equivalent to
@@ -232,8 +232,8 @@
     </func>
 
     <func>
-      <name name="memory" arity="1" clause_i="1"/>
-      <name name="memory" arity="1" clause_i="2"/>
+      <name name="memory" arity="1" clause_i="1" since=""/>
+      <name name="memory" arity="1" clause_i="2" since=""/>
       <fsummary>Memory allocation information.</fsummary>
       <desc>
         <p>Memory allocation information. Equivalent to
@@ -242,8 +242,8 @@
     </func>
 
     <func>
-      <name name="nc" arity="1"/>
-      <name name="nc" arity="2"/>
+      <name name="nc" arity="1" since=""/>
+      <name name="nc" arity="2" since=""/>
       <fsummary>Compile and load code in a file on all nodes.</fsummary>
       <desc>
         <p>Compiles and then loads the code for a file on all nodes.
@@ -255,7 +255,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="nl" arity="1"/>
+      <name name="nl" arity="1" since=""/>
       <fsummary>Load module on all nodes.</fsummary>
       <desc>
         <p>Loads <c><anno>Module</anno></c> on all nodes.</p>
@@ -263,7 +263,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="pid" arity="3"/>
+      <name name="pid" arity="3" since=""/>
       <fsummary>Convert <c>X,Y,Z</c> to a pid.</fsummary>
       <desc>
         <p>Converts <c><anno>X</anno></c>, <c><anno>Y</anno></c>,
@@ -273,7 +273,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="pwd" arity="0"/>
+      <name name="pwd" arity="0" since=""/>
       <fsummary>Print working directory.</fsummary>
       <desc>
         <p>Prints the name of the working directory.</p>
@@ -281,7 +281,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="q" arity="0"/>
+      <name name="q" arity="0" since=""/>
       <fsummary>Quit - shorthand for <c>init:stop()</c>.</fsummary>
       <desc>
         <p>This function is shorthand for <c>init:stop()</c>, that is,
@@ -290,8 +290,8 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="regs" arity="0"/>
-      <name name="nregs" arity="0"/>
+      <name name="regs" arity="0" since=""/>
+      <name name="nregs" arity="0" since=""/>
       <fsummary>Information about registered processes.</fsummary>
       <desc>
         <p><c>regs/0</c> displays information about all registered
@@ -301,7 +301,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="uptime" arity="0"/>
+      <name name="uptime" arity="0" since="OTP 18.0"/>
       <fsummary>Print node uptime.</fsummary>
       <desc>
         <p>Prints the node uptime (as specified by
@@ -310,7 +310,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name>xm(ModSpec) -> void()</name>
+      <name since="">xm(ModSpec) -> void()</name>
       <fsummary>Cross-reference check a module.</fsummary>
       <type>
         <v>ModSpec = Module | Filename</v>
@@ -325,7 +325,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name>y(File) -> YeccRet</name>
+      <name since="">y(File) -> YeccRet</name>
       <fsummary>Generate an LALR-1 parser.</fsummary>
       <type>
         <v>File = name()</v>
@@ -344,7 +344,7 @@ yecc:file(File)</code>
     </func>
 
     <func>
-      <name>y(File, Options) -> YeccRet</name>
+      <name since="">y(File, Options) -> YeccRet</name>
       <fsummary>Generate an LALR-1 parser.</fsummary>
       <type>
         <v>File = name()</v>

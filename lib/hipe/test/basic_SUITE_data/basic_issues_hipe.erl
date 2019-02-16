@@ -8,8 +8,9 @@
 
 -export([test/0]).
 
-%% functions that need to be exported so that they are retained.
--export([auth/4]).
+%% functions that need to be exported so that they are retained and/or
+%% not specialized away by the compiler.
+-export([auth/4, wxSizer_replace/2, parent_class/1]).
 
 test() ->
   ok = test_dominance_trees(),
@@ -18,6 +19,7 @@ test() ->
   ok = test_bif_fails(),
   ok = test_find_catches(),
   ok = test_heap_allocate_trim(),
+  ok = wxSizer_replace(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -151,3 +153,25 @@ get_next_retry(Error, Count) ->
   end.
 
 pair(A, B) -> {A, B}.
+
+%%--------------------------------------------------------------------
+%% Date: June 11, 2018
+%%
+%% Stripped down test case (from `wxSizer') that crashed the lazy code
+%% motion pass of the HiPE compiler in a pre-release of Erlang/OTP 21.
+%% A similar crash existed in `ssl_correction'.
+%%--------------------------------------------------------------------
+
+wxSizer_replace() ->
+  wxSizer_replace(?MODULE, ?MODULE).
+
+-define(CLASS(Type, Class), ((Type) =:= Class) orelse (Type):parent_class(Class)).
+
+wxSizer_replace(OldwinT, NewwinT) -> % this function was the culprit
+  ?CLASS(OldwinT, ?MODULE),
+  ?CLASS(NewwinT, ?MODULE),
+  ok.
+
+parent_class(wxWindow) -> true;
+parent_class(wxEvtHandler) -> true;
+parent_class(_Class) -> erlang:error({badtype, ?MODULE}).

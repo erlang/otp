@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2017</year>
+      <year>1999</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -26,6 +26,525 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
+
+<section><title>SSL 9.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix encoding of the SRP extension length field in ssl.
+	    The old encoding of the SRP extension length could cause
+	    interoperability problems with third party SSL
+	    implementations when SRP was used.</p>
+          <p>
+	    Own Id: OTP-15477 Aux Id: ERL-790 </p>
+        </item>
+        <item>
+          <p>
+	    Guarantee active once data delivery, handling TCP stream
+	    properly.</p>
+          <p>
+	    Own Id: OTP-15504 Aux Id: ERL-371 </p>
+        </item>
+        <item>
+          <p>
+	    Correct gen_statem returns for some error cases</p>
+          <p>
+	    Own Id: OTP-15505</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed renegotiation bug. Client did not handle server
+	    initiated renegotiation correctly after rewrite to two
+	    connection processes, due to ERL-622 commit
+	    d87ac1c55188f5ba5cdf72384125d94d42118c18. This could
+	    manifest it self as a " bad_record_mac" alert.</p>
+          <p>
+	    Also included are some optimizations</p>
+          <p>
+	    Own Id: OTP-15489 Aux Id: ERL-308 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    PEM cache was not evicting expired entries due to due to
+	    timezone confusion.</p>
+          <p>
+	    Own Id: OTP-15368</p>
+        </item>
+        <item>
+          <p>
+	    Make sure an error is returned if a "transport_accept
+	    socket" is used in some other call than ssl:handshake* or
+	    ssl:controlling_process</p>
+          <p>
+	    Own Id: OTP-15384 Aux Id: ERL-756 </p>
+        </item>
+        <item>
+          <p>
+	    Fix timestamp handling in the PEM-cache could cause
+	    entries to not be invalidated at the correct time.</p>
+          <p>
+	    Own Id: OTP-15402</p>
+        </item>
+        <item>
+          <p>
+	    Extend check for undelivered data at closing, could under
+	    some circumstances fail to deliver all data that was
+	    actually received.</p>
+          <p>
+	    Own Id: OTP-15412 Aux Id: ERL-731 </p>
+        </item>
+        <item>
+          <p>
+	    Correct signature check for TLS-1.2 that allows different
+	    algorithms for signature of peer cert and peer cert key.
+	    Not all allowed combinations where accepted.</p>
+          <p>
+	    Own Id: OTP-15415 Aux Id: ERL-763 </p>
+        </item>
+        <item>
+          <p>
+	    Correct gen_statem return value, could cause
+	    renegotiation to fail.</p>
+          <p>
+	    Own Id: OTP-15418 Aux Id: ERL-770 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add engine support for RSA key exchange</p>
+          <p>
+	    Own Id: OTP-15420 Aux Id: ERIERL-268 </p>
+        </item>
+        <item>
+          <p>
+	    ssl now uses active n internally to boost performance.
+	    Old active once behavior can be restored by setting
+	    application variable see manual page for ssl application
+	    (man 6).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15449</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct alert handling with new TLS sender process, from
+	    ssl-9.0.2. CLOSE ALERTS could under some circumstances be
+	    encoded using an incorrect cipher state. This would cause
+	    the peer to regard them as unknown messages.</p>
+          <p>
+	    Own Id: OTP-15337 Aux Id: ERL-738 </p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of socket packet option with new TLS
+	    sender process, from ssl-9.0.2. When changing the socket
+	    option {packet, 1|2|3|4} with ssl:setopts/2 the option
+	    must internally be propagated to the sender process as
+	    well as the reader process as this particular option also
+	    affects the data to be sent.</p>
+          <p>
+	    Own Id: OTP-15348 Aux Id: ERL-747 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Use separate processes for sending and receiving
+	    application data for TLS connections to avoid potential
+	    deadlock that was most likely to occur when using TLS for
+	    Erlang distribution. Note does not change the API.</p>
+          <p>
+	    Own Id: OTP-15122</p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of empty server SNI extension</p>
+          <p>
+	    Own Id: OTP-15168</p>
+        </item>
+        <item>
+          <p>
+	    Correct PSK cipher suite handling and add
+	    selected_cipher_suite to connection information</p>
+          <p>
+	    Own Id: OTP-15172</p>
+        </item>
+        <item>
+          <p>
+	    Adopt to the fact that cipher suite sign restriction are
+	    relaxed in TLS-1.2</p>
+          <p>
+	    Own Id: OTP-15173</p>
+        </item>
+        <item>
+          <p>
+	    Enhance error handling of non existing PEM files</p>
+          <p>
+	    Own Id: OTP-15174</p>
+        </item>
+        <item>
+          <p>
+	    Correct close handling of transport accepted sockets in
+	    the error state</p>
+          <p>
+	    Own Id: OTP-15216</p>
+        </item>
+        <item>
+          <p>
+	    Correct PEM cache to not add references to empty entries
+	    when PEM file does not exist.</p>
+          <p>
+	    Own Id: OTP-15224</p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of all PSK cipher suites</p>
+          <p>
+	    Before only some PSK suites would be correctly negotiated
+	    and most PSK ciphers suites would fail the connection.</p>
+          <p>
+	    Own Id: OTP-15285</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    TLS will now try to order certificate chains if they
+	    appear to be unordered. That is prior to TLS 1.3,
+	    “certificate_list” ordering was required to be
+	    strict, however some implementations already allowed for
+	    some flexibility. For maximum compatibility, all
+	    implementations SHOULD be prepared to handle potentially
+	    extraneous certificates and arbitrary orderings from any
+	    TLS version.</p>
+          <p>
+	    Own Id: OTP-12983</p>
+        </item>
+        <item>
+          <p>
+	    TLS will now try to reconstructed an incomplete
+	    certificate chains from its local CA-database and use
+	    that data for the certificate path validation. This
+	    especially makes sense for partial chains as then the
+	    peer might not send an intermediate CA as it is
+	    considered the trusted root in that case.</p>
+          <p>
+	    Own Id: OTP-15060</p>
+        </item>
+        <item>
+          <p>
+	    Option keyfile defaults to certfile and should be trumped
+	    with key. This failed for engine keys.</p>
+          <p>
+	    Own Id: OTP-15193</p>
+        </item>
+        <item>
+          <p>
+	    Error message improvement when own certificate has
+	    decoding issues, see also issue ERL-668.</p>
+          <p>
+	    Own Id: OTP-15234</p>
+        </item>
+        <item>
+          <p>
+	    Correct dialyzer spec for key option</p>
+          <p>
+	    Own Id: OTP-15281</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct cipher suite handling for ECDHE_*, the incorrect
+	    handling could cause an incorrrect suite to be selected
+	    and most likly fail the handshake.</p>
+          <p>
+	    Own Id: OTP-15203</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of ECDH suites.</p>
+          <p>
+	    Own Id: OTP-14974</p>
+        </item>
+        <item>
+          <p>
+	    Proper handling of clients that choose to send an empty
+	    answer to a certificate request</p>
+          <p>
+	    Own Id: OTP-15050</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Distribution over SSL (inet_tls) has, to improve
+	    performance, been rewritten to not use intermediate
+	    processes and ports.</p>
+          <p>
+	    Own Id: OTP-14465</p>
+        </item>
+        <item>
+          <p>
+	    Add suport for ECDHE_PSK cipher suites</p>
+          <p>
+	    Own Id: OTP-14547</p>
+        </item>
+        <item>
+          <p>
+	    For security reasons no longer support 3-DES cipher
+	    suites by default</p>
+          <p>
+	    *** INCOMPATIBILITY with possibly ***</p>
+          <p>
+	    Own Id: OTP-14768</p>
+        </item>
+        <item>
+          <p>
+	    For security reasons RSA-key exchange cipher suites are
+	    no longer supported by default</p>
+          <p>
+	    *** INCOMPATIBILITY with possible ***</p>
+          <p>
+	    Own Id: OTP-14769</p>
+        </item>
+        <item>
+          <p>
+	    The interoperability option to fallback to insecure
+	    renegotiation now has to be explicitly turned on.</p>
+          <p>
+	    *** INCOMPATIBILITY with possibly ***</p>
+          <p>
+	    Own Id: OTP-14789</p>
+        </item>
+        <item>
+          <p>
+	    Drop support for SSLv2 enabled clients. SSLv2 has been
+	    broken for decades and never supported by the Erlang
+	    SSL/TLS implementation. This option was by default
+	    disabled and enabling it has proved to sometimes break
+	    connections not using SSLv2 enabled clients.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14824</p>
+        </item>
+        <item>
+          <p>
+	    Remove CHACHA20_POLY1305 ciphers form default for now. We
+	    have discovered interoperability problems, ERL-538, that
+	    we believe needs to be solved in crypto.</p>
+          <p>
+	    *** INCOMPATIBILITY with possibly ***</p>
+          <p>
+	    Own Id: OTP-14882</p>
+        </item>
+        <item>
+          <p>
+	    Generalize DTLS packet multiplexing to make it easier to
+	    add future DTLS features and uses.</p>
+          <p>
+	    Own Id: OTP-14888</p>
+        </item>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+        <item>
+          <p>
+	    The SSL distribution protocol <c>-proto inet_tls</c> has
+	    stopped setting the SSL option
+	    <c>server_name_indication</c>. New verify funs for client
+	    and server in <c>inet_tls_dist</c> has been added, not
+	    documented yet, that checks node name if present in peer
+	    certificate. Usage is still also yet to be documented.</p>
+          <p>
+	    Own Id: OTP-14969 Aux Id: OTP-14465, ERL-598 </p>
+        </item>
+        <item>
+          <p>
+	    Deprecate ssl:ssl_accept/[1,2,3] in favour of
+	    ssl:handshake/[1,2,3]</p>
+          <p>
+	    Own Id: OTP-15056</p>
+        </item>
+        <item>
+          <p>
+	    Customizes the hostname verification of the peer
+	    certificate, as different protocols that use TLS such as
+	    HTTP or LDAP may want to do it differently</p>
+          <p>
+	    Own Id: OTP-15102 Aux Id: ERL-542, OTP-14962 </p>
+        </item>
+        <item>
+          <p>
+	    Add utility function for converting erlang cipher suites
+	    to a string represenation (ERL-600).</p>
+          <p>
+	    Own Id: OTP-15106</p>
+        </item>
+        <item>
+          <p>
+	    First version with support for DTLS</p>
+          <p>
+	    Own Id: OTP-15142</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.2.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add engine support for RSA key exchange</p>
+          <p>
+	    Own Id: OTP-15420</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.2.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Extend check for undelivered data at closing, could under
+	    some circumstances fail to deliverd all data that was
+	    acctualy recivied.</p>
+          <p>
+	    Own Id: OTP-15412</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.2.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of empty server SNI extension</p>
+          <p>
+	    Own Id: OTP-15168</p>
+        </item>
+        <item>
+          <p>
+	    Correct cipher suite handling for ECDHE_*, the incorrect
+	    handling could cause an incorrrect suite to be selected
+	    and most likly fail the handshake.</p>
+          <p>
+	    Own Id: OTP-15203</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.2.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve cipher suite handling correcting ECC and TLS-1.2
+	    requierments. Backport of solution for ERL-641</p>
+          <p>
+	    Own Id: OTP-15178</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Option keyfile defaults to certfile and should be trumped
+	    with key. This failed for engine keys.</p>
+          <p>
+	    Own Id: OTP-15193</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SSL 8.2.6</title>
 
@@ -196,7 +715,7 @@
           <p>
 	    TLS sessions must be registered with SNI if provided, so
 	    that sessions where client hostname verification would
-	    fail can not connect reusing a session created when the
+	    fail cannot connect reusing a session created when the
 	    server name verification succeeded.</p>
           <p>
 	    Own Id: OTP-14632</p>
@@ -374,7 +893,7 @@
 	    public_key:pkix_verify_hostname/2 to verify the hostname
 	    of the connection with the server certificates specified
 	    hostname during certificate path validation. The user may
-	    explicitly disables it. Also if the hostname can not be
+	    explicitly disables it. Also if the hostname cannot be
 	    derived from the first argument to connect or is not
 	    supplied by the server name indication option, the check
 	    will not be performed.</p>
@@ -2805,5 +3324,3 @@
     </section>
     </section>
 </chapter>
-
-

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -558,23 +558,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'I':
         case 'W':
 	    switch (op) {
-	    case op_i_gc_bif1_jWstd:
-	    case op_i_gc_bif2_jWtssd:
-	    case op_i_gc_bif3_jWtssd:
-		{
-		    const ErtsGcBif* p;
-		    BifFunction gcf = (BifFunction) *ap;
-		    for (p = erts_gc_bifs; p->bif != 0; p++) {
-			if (p->gc_bif == gcf) {
-			    print_bif_name(to, to_arg, p->bif);
-			    break;
-			}
-		    }
-		    if (p->bif == 0) {
-			erts_print(to, to_arg, "%d", (Uint)gcf);
-		    }
-		    break;
-		}
 	    case op_i_make_fun_Wt:
                 if (*sign == 'W') {
                     ErlFunEntry* fe = (ErlFunEntry *) *ap;
@@ -667,7 +650,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'l':		/* fr(N) */
-	    erts_print(to, to_arg, "fr(%d)", loader_reg_index(ap[0]));
+	    erts_print(to, to_arg, "fr(%d)", ap[0] / sizeof(FloatDef));
 	    ap++;
 	    break;
 	default:
@@ -786,8 +769,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_put_tuple_xI:
-    case op_i_put_tuple_yI:
+    case op_put_tuple2_xI:
+    case op_put_tuple2_yI:
     case op_new_map_dtI:
     case op_update_map_assoc_sdtI:
     case op_update_map_exact_jsdtI:
@@ -1191,6 +1174,7 @@ dirty_send_message(Process *c_p, Eterm to, Eterm tag)
     mp = erts_alloc_message_heap(rp, &rp_locks, 3, &hp, &ohp);
 
     msg = TUPLE2(hp, tag, c_p->common.id);
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     erts_queue_proc_message(c_p, rp, rp_locks, mp, msg);
 
     if (rp == real_c_p)

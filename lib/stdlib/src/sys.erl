@@ -30,7 +30,8 @@
 	 log_to_file/2, log_to_file/3, no_debug/1, no_debug/2,
 	 install/2, install/3, remove/2, remove/3]).
 -export([handle_system_msg/6, handle_system_msg/7, handle_debug/4,
-	 print_log/1, get_debug/3, debug_options/1, suspend_loop_hib/6]).
+	 print_log/1, get_log/1, get_debug/3, debug_options/1, suspend_loop_hib/6]).
+-deprecated([{get_debug,3,eventually}]).
 
 %%-----------------------------------------------------------------
 %% Types
@@ -42,10 +43,17 @@
                       | {'global', term()}
                       | {'via', module(), term()}.
 -type system_event() :: {'in', Msg :: _}
-                      | {'in', Msg :: _, From :: _}
+                      | {'in', Msg :: _, State :: _}
                       | {'out', Msg :: _, To :: _}
                       | {'out', Msg :: _, To :: _, State :: _}
-                        | term().
+                      | {'noreply', State :: _}
+                      | {'continue', Continuation :: _}
+                      | {'code_change', Event :: _, State :: _}
+                      | {'postpone', Event :: _, State :: _, NextState :: _}
+                      | {'consume', Event :: _, State :: _, NextState :: _}
+                      | {'enter', State :: _}
+                      | {'terminate', Reason :: _, State :: _}
+                      | term().
 -opaque dbg_opt()    :: {'trace', 'true'}
                       | {'log',
                          {N :: non_neg_integer(),
@@ -385,31 +393,41 @@ handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
       FormFunc :: format_fun(),
       Extra :: term(),
       Event :: system_event().
-handle_debug([{trace, true} | T], FormFunc, State, Event) ->
+handle_debug([{trace, true} = DbgOpt | T], FormFunc, State, Event) ->
     print_event({Event, State, FormFunc}),
-    [{trace, true} | handle_debug(T, FormFunc, State, Event)];
-handle_debug([{log, {N, LogData}} | T], FormFunc, State, Event) ->
-    NLogData = [{Event, State, FormFunc} | trim(N, LogData)],
-    [{log, {N, NLogData}} | handle_debug(T, FormFunc, State, Event)];
-handle_debug([{log_to_file, Fd} | T], FormFunc, State, Event) ->
+    [DbgOpt | handle_debug(T, FormFunc, State, Event)];
+handle_debug([{log, NLog} | T], FormFunc, State, Event) ->
+    Item = {Event, State, FormFunc},
+    [{log, nlog_put(Item, NLog)} | handle_debug(T, FormFunc, State, Event)];
+handle_debug([{log_to_file, Fd} = DbgOpt | T], FormFunc, State, Event) ->
     print_event(Fd, {Event, State, FormFunc}),
-    [{log_to_file, Fd} | handle_debug(T, FormFunc, State, Event)];
+    [DbgOpt | handle_debug(T, FormFunc, State, Event)];
 handle_debug([{statistics, StatData} | T], FormFunc, State, Event) ->
     NStatData = stat(Event, StatData),
     [{statistics, NStatData} | handle_debug(T, FormFunc, State, Event)];
 handle_debug([{FuncId, {Func, FuncState}} | T], FormFunc, State, Event) ->
-    case catch Func(FuncState, Event, State) of
+    try Func(FuncState, Event, State) of
         done -> handle_debug(T, FormFunc, State, Event);
-        {'EXIT', _} -> handle_debug(T, FormFunc, State, Event);
         NFuncState ->
-            [{FuncId, {Func, NFuncState}} | handle_debug(T, FormFunc, State, Event)]
+            [{FuncId, {Func, NFuncState}} |
+             handle_debug(T, FormFunc, State, Event)]
+    catch
+        done -> handle_debug(T, FormFunc, State, Event);
+        NFuncState ->
+            [{FuncId, {Func, NFuncState}} |
+             handle_debug(T, FormFunc, State, Event)];
+        _:_ -> handle_debug(T, FormFunc, State, Event)
     end;
 handle_debug([{Func, FuncState} | T], FormFunc, State, Event) ->
-    case catch Func(FuncState, Event, State) of
+    try Func(FuncState, Event, State) of
 	done -> handle_debug(T, FormFunc, State, Event);
-	{'EXIT', _} -> handle_debug(T, FormFunc, State, Event);
-	NFuncState ->		     
+	NFuncState ->
 	    [{Func, NFuncState} | handle_debug(T, FormFunc, State, Event)]
+    catch
+	done -> handle_debug(T, FormFunc, State, Event);
+	NFuncState ->
+	    [{Func, NFuncState} | handle_debug(T, FormFunc, State, Event)];
+        _:_ -> handle_debug(T, FormFunc, State, Event)
     end;
 handle_debug([], _FormFunc, _State, _Event) ->
     [].
@@ -526,19 +544,19 @@ debug_cmd({trace, true}, Debug) ->
 debug_cmd({trace, false}, Debug) ->
     {ok, remove_debug(trace, Debug)};
 debug_cmd({log, true}, Debug) ->
-    {_N, Logs} = get_debug(log, Debug, {0, []}),
-    {ok, install_debug(log, {10, trim(10, Logs)}, Debug)};
-debug_cmd({log, {true, N}}, Debug) when is_integer(N), N > 0 ->
-    {_N, Logs} = get_debug(log, Debug, {0, []}),
-    {ok, install_debug(log, {N, trim(N, Logs)}, Debug)};
+    NLog = get_debug(log, Debug, nlog_new()),
+    {ok, install_debug(log, nlog_new(NLog), Debug)};
+debug_cmd({log, {true, N}}, Debug) when is_integer(N), 1 =< N ->
+    NLog = get_debug(log, Debug, nlog_new(N)),
+    {ok, install_debug(log, nlog_new(N, NLog), Debug)};
 debug_cmd({log, false}, Debug) ->
     {ok, remove_debug(log, Debug)};
 debug_cmd({log, print}, Debug) ->
     print_log(Debug),
     {ok, Debug};
 debug_cmd({log, get}, Debug) ->
-    {_N, Logs} = get_debug(log, Debug, {0, []}),
-    {{ok, lists:reverse(Logs)}, Debug};
+    NLog = get_debug(log, Debug, nlog_new()),
+    {{ok, [Event || {Event, _State, _FormFunc} <- nlog_get(NLog)]}, Debug};
 debug_cmd({log_to_file, false}, Debug) ->
     NDebug = close_log_file(Debug),
     {ok, NDebug};
@@ -595,9 +613,6 @@ stat({out, _Msg, _To}, {Time, Reds, In, Out}) -> {Time, Reds, In, Out+1};
 stat({out, _Msg, _To, _State}, {Time, Reds, In, Out}) -> {Time, Reds, In, Out+1};
 stat(_, StatData) -> StatData.
 
-trim(N, LogData) ->
-    lists:sublist(LogData, 1, N-1).
-
 %%-----------------------------------------------------------------
 %% Debug structure manipulating functions
 %%-----------------------------------------------------------------
@@ -625,9 +640,14 @@ get_debug2(Item, Debug, Default) ->
 -spec print_log(Debug) -> 'ok' when
       Debug :: [dbg_opt()].
 print_log(Debug) ->
-    {_N, Logs} = get_debug(log, Debug, {0, []}),
-    lists:foreach(fun print_event/1,
-		  lists:reverse(Logs)).
+    NLog = get_debug(log, Debug, nlog_new()),
+    lists:foreach(fun print_event/1, nlog_get(NLog)).
+
+-spec get_log(Debug) -> [system_event()] when
+      Debug :: [dbg_opt()].
+get_log(Debug) ->
+    NLog = get_debug(log, Debug, nlog_new()),
+    [Event || {Event, _State, _FormFunc} <- nlog_get(NLog)].
     
 close_log_file(Debug) ->
     case get_debug2(log_to_file, Debug, []) of
@@ -637,6 +657,74 @@ close_log_file(Debug) ->
 	    ok = file:close(Fd),
 	    remove_debug(log_to_file, Debug)
     end.
+
+%%-----------------------------------------------------------------
+%% Keep the last N Log functions
+%%-----------------------------------------------------------------
+%%
+%% Streamlined Okasaki queue as base for "keep the last N" log.
+%%
+%% To the reverse list head we cons new items.
+%% The forward list contains elements in insertion order,
+%% so the head is the oldest and the one to drop off
+%% when the log is full.
+%%
+%% Here is how we can get away with only using one cons cell
+%% to wrap the forward and reverse list, and the log size:
+%%
+%% A full log does not need a counter; we just cons one
+%% and drop one:
+%%
+%%     [ReverseList|ForwardList]
+%%
+%% A non-full log is filling up to N elements;
+%% use a down counter instead of a list as first element:
+%%
+%%     [RemainingToFullCount|ReverseList]
+
+nlog_new() ->
+    nlog_new(10).
+%%
+nlog_new([_|_] = NLog) ->
+    nlog_new(10, NLog);
+nlog_new(N) ->
+    [N]. % Empty log size N >= 1
+%%
+nlog_new(N, NLog) ->
+    lists:foldl(
+      fun (Item, NL) -> nlog_put(Item, NL) end,
+      nlog_new(N),
+      nlog_get(NLog)).
+
+%%
+nlog_put(Item, NLog) ->
+    case NLog of
+        [R|FF] when is_list(R) ->
+            %% Full log
+            case FF of
+                [_|F] ->
+                    %% Cons to reverse list, drop from forward list
+                    [[Item|R]|F];
+                [] ->
+                    %% Create new forward list from reverse list,
+                    %% create new empty reverse list
+                    [_|F] = lists:reverse(R, [Item]),
+                    [[]|F]
+            end;
+        [1|R] ->
+            %% Log now gets full
+            [[Item|R]];
+        [J|R] ->
+            %% Filling up to N elements
+            [J - 1,Item|R]
+    end.
+
+nlog_get([[]|F]) ->
+    F;
+nlog_get([[_|_] = R|F]) ->
+    F ++ lists:reverse(R);
+nlog_get([_J|R]) ->
+    lists:reverse(R).
 
 %%-----------------------------------------------------------------
 %% Func: debug_options/1
@@ -665,9 +753,9 @@ debug_options(Options) ->
 debug_options([trace | T], Debug) ->
     debug_options(T, install_debug(trace, true, Debug));
 debug_options([log | T], Debug) ->
-    debug_options(T, install_debug(log, {10, []}, Debug));
+    debug_options(T, install_debug(log, nlog_new(), Debug));
 debug_options([{log, N} | T], Debug) when is_integer(N), N > 0 ->
-    debug_options(T, install_debug(log, {N, []}, Debug));
+    debug_options(T, install_debug(log, nlog_new(N), Debug));
 debug_options([statistics | T], Debug) ->
     debug_options(T, install_debug(statistics, init_stat(), Debug));
 debug_options([{log_to_file, FileName} | T], Debug) ->

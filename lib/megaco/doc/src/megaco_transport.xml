@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_transport.xml</file>
   </header>
-  <module>megaco_transport</module>
+  <module since="">megaco_transport</module>
   <modulesummary>Megaco transport behaviour.</modulesummary>
   <description>
     <p>The following functions should be exported from a 
@@ -54,8 +54,8 @@
   </description>
   <funcs>
     <func>
-      <name>Module:send_message(Handle, Msg) -> ok | {cancel, Reason} | Error</name>
-      <name>Module:send_message(Handle, Msg, Resend) -> ok | {cancel, Reason} | Error</name>
+      <name since="">Module:send_message(Handle, Msg) -> ok | {cancel, Reason} | Error</name>
+      <name since="">Module:send_message(Handle, Msg, Resend) -> ok | {cancel, Reason} | Error</name>
       <fsummary>Send a megaco message.</fsummary>
       <type>
         <v>Handle = term()</v>
@@ -99,7 +99,7 @@
     </func>
 
     <func>
-      <name>Module:resend_message(Handle, Msg) -> ok | {cancel, Reason} | Error</name>
+      <name since="">Module:resend_message(Handle, Msg) -> ok | {cancel, Reason} | Error</name>
       <fsummary>Re-send a megaco message.</fsummary>
       <type>
         <v>Handle = term()</v>

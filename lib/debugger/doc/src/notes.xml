@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,36 @@
   
   <p>This document describes the changes made to the Debugger
     application.</p>
+
+<section><title>Debugger 4.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 4.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug where calling a fun inside a binary would
+	    crash the Debugger. </p>
+          <p>
+	    Own Id: OTP-14957 Aux Id: PR-1741 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Debugger 4.2.4</title>
 

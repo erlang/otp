@@ -34,8 +34,7 @@ Solution
 --------
 
 In order to prevent scenarios like this we've implemented support for
-migration of multi-block carriers between allocator instances of the
-same type.
+migration of multi-block carriers between allocator instances.
 
 ### Management of Free Blocks ###
 
@@ -130,10 +129,6 @@ threads may have references to it via the pool.
 
 ### Migration ###
 
-There exists one pool for each allocator type enabling migration of
-carriers between scheduler specific allocator instances of the same
-allocator type.
-
 Each allocator instance keeps track of the current utilization of its
 multi-block carriers. When the total utilization falls below the "abandon
 carrier utilization limit" it starts to inspect the utilization of the
@@ -208,8 +203,8 @@ limited. We only inspect a limited number of carriers. If none of
 those carriers had a free block large enough to satisfy the allocation
 request, the search will fail. A carrier in the pool can also be BUSY
 if another thread is currently doing block deallocation work on the
-carrier. A BUSY carrier will also be skipped by the search as it can
-not satisfy the request. The pool is lock-free and we do not want to
+carrier. A BUSY carrier will also be skipped by the search as it cannot
+satisfy the request. The pool is lock-free and we do not want to
 block, waiting for the other thread to finish.
 
 ### The bad cluster problem ###
@@ -286,12 +281,4 @@ data structure of free blocks. This performance penalty is however
 reduced using the `aoffcbf` strategy. A trade off between memory
 consumption and performance is however inevitable, and it is up to
 the user to decide what is most important. 
-
-Further work
-------------
-
-It would be quite easy to extend this to allow migration of multi-block
-carriers between all allocator types. More or less the only obstacle
-is maintenance of the statistics information.
-
 

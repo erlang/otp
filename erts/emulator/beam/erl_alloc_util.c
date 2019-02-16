@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@
 
 #include "global.h"
 #include "big.h"
+#include "erl_mmap.h"
 #include "erl_mtrace.h"
 #define GET_ERL_ALLOC_UTIL_IMPL
 #include "erl_alloc_util.h"
@@ -90,15 +91,18 @@ static int initialized = 0;
 #define SYS_ALLOC_CARRIER_FLOOR(X)	((X) & SYS_ALLOC_CARRIER_MASK)
 #define SYS_ALLOC_CARRIER_CEILING(X) \
   SYS_ALLOC_CARRIER_FLOOR((X) + INV_SYS_ALLOC_CARRIER_MASK)
+#define SYS_PAGE_SIZE                   (sys_page_size)
+#define SYS_PAGE_SZ_MASK                ((UWord)(SYS_PAGE_SIZE - 1))
 
 #if 0
 /* Can be useful for debugging */
 #define MBC_REALLOC_ALWAYS_MOVES
 #endif
 
-
 /* alloc_util global parameters */
 static Uint sys_alloc_carrier_size;
+static Uint sys_page_size;
+
 #if HAVE_ERTS_MSEG
 static Uint max_mseg_carriers;
 #endif
@@ -113,32 +117,38 @@ static int allow_sys_alloc_carriers;
 
 #define DEC_CC(CC) ((CC)--)
 
-/* Multi block carrier (MBC) memory layout in R16: 
+/* Multi block carrier (MBC) memory layout in OTP 22:
 
 Empty MBC:
-[Carrier_t|pad|Block_t L0T|fhdr| free... ]
+[Carrier_t|pad|Block_t L0T0|fhdr| free... ]
 
 MBC after allocating first block:
-[Carrier_t|pad|Block_t 000|        udata        |pad|Block_t L0T|fhdr| free... ]
+[Carrier_t|pad|Block_t 0000|        udata        |pad|Block_t L0T0|fhdr| free... ]
 
 MBC after allocating second block:
-[Carrier_t|pad|Block_t 000|        udata        |pad|Block_t 000|   udata   |pad|Block_t L0T|fhdr| free... ]
+[Carrier_t|pad|Block_t 0000|        udata        |pad|Block_t 0000|   udata   |pad|Block_t L0T0|fhdr| free... ]
 
 MBC after deallocating first block:
-[Carrier_t|pad|Block_t 00T|fhdr| free  |FreeBlkFtr_t|Block_t 0P0|   udata   |pad|Block_t L0T|fhdr| free... ]
+[Carrier_t|pad|Block_t 00T0|fhdr| free  |FreeBlkFtr_t|Block_t 0P00|   udata   |pad|Block_t L0T0|fhdr| free... ]
 
+MBC after allocating first block, with allocation tagging enabled:
+[Carrier_t|pad|Block_t 000A|        udata        |atag|pad|Block_t L0T0|fhdr| free... ]
 
     udata = Allocated user data
+    atag  = A tag with basic metadata about this allocation
     pad   = Padding to ensure correct alignment for user data
     fhdr  = Allocator specific header to keep track of free block
     free  = Unused free memory
     T     = This block is free (THIS_FREE_BLK_HDR_FLG)
     P     = Previous block is free (PREV_FREE_BLK_HDR_FLG)
     L     = Last block in carrier (LAST_BLK_HDR_FLG)
+    A     = Block has an allocation tag footer, only valid for allocated blocks
+            (ATAG_BLK_HDR_FLG)
 */
 
 /* Single block carrier (SBC):
-[Carrier_t|pad|Block_t 111| udata... ]
+[Carrier_t|pad|Block_t 1110| udata... ]
+[Carrier_t|pad|Block_t 111A| udata | atag]
 */
 
 /* Allocation tags ...
@@ -154,20 +164,20 @@ MBC after deallocating first block:
 
 typedef UWord alcu_atag_t;
 
-#define MAKE_ATAG(IdAtom, Type) \
-    (ASSERT((Type) >= ERTS_ALC_N_MIN && (Type) <= ERTS_ALC_N_MAX), \
+#define MAKE_ATAG(IdAtom, TypeNum) \
+    (ASSERT((TypeNum) >= ERTS_ALC_N_MIN && (TypeNum) <= ERTS_ALC_N_MAX), \
      ASSERT(atom_val(IdAtom) <= MAX_ATAG_ATOM_ID), \
-     (atom_val(IdAtom) << ERTS_ALC_N_BITS) | (Type))
+     (atom_val(IdAtom) << ERTS_ALC_N_BITS) | (TypeNum))
 
 #define ATAG_ID(AT) (make_atom((AT) >> ERTS_ALC_N_BITS))
 #define ATAG_TYPE(AT) ((AT) & ERTS_ALC_N_MASK)
 
 #define MAX_ATAG_ATOM_ID (ERTS_UWORD_MAX >> ERTS_ALC_N_BITS)
 
-#define DBG_IS_VALID_ATAG(Allocator, AT) \
+#define DBG_IS_VALID_ATAG(AT) \
     (ATAG_TYPE(AT) >= ERTS_ALC_N_MIN && \
      ATAG_TYPE(AT) <= ERTS_ALC_N_MAX && \
-     (Allocator)->alloc_no == ERTS_ALC_T2A(ERTS_ALC_N2T(ATAG_TYPE(AT))))
+     ATAG_ID(AT) <= MAX_ATAG_ATOM_ID)
 
 /* Blocks ... */
 
@@ -182,10 +192,15 @@ typedef UWord alcu_atag_t;
 #endif
 #define FBLK_FTR_SZ (sizeof(FreeBlkFtr_t))
 
+#define BLK_HAS_ATAG(B) \
+    (!!((B)->bhdr & ATAG_BLK_HDR_FLG))
+
 #define GET_BLK_ATAG(B) \
-    (((alcu_atag_t *) (((char *) (B)) + (BLK_SZ(B))))[-1])
+    (ASSERT(BLK_HAS_ATAG(B)), \
+     ((alcu_atag_t *) (((char *) (B)) + (BLK_SZ(B))))[-1])
 #define SET_BLK_ATAG(B, T) \
-    (((alcu_atag_t *) (((char *) (B)) + (BLK_SZ(B))))[-1] = (T))
+    ((B)->bhdr |= ATAG_BLK_HDR_FLG, \
+     ((alcu_atag_t *) (((char *) (B)) + (BLK_SZ(B))))[-1] = (T))
 
 #define BLK_ATAG_SZ(AP) ((AP)->atags ? sizeof(alcu_atag_t) : 0)
 
@@ -203,13 +218,13 @@ typedef UWord alcu_atag_t;
   (((FreeBlkFtr_t *) (((char *) (B)) + (SZ)))[-1] = (SZ))
 
 #define SET_MBC_ABLK_SZ(B, SZ) \
-  (ASSERT(((SZ) & FLG_MASK) == 0), \
+  (ASSERT(((SZ) & BLK_FLG_MASK) == 0), \
    (B)->bhdr = (((B)->bhdr) & ~MBC_ABLK_SZ_MASK) | (SZ))
 #define SET_MBC_FBLK_SZ(B, SZ) \
-  (ASSERT(((SZ) & FLG_MASK) == 0), \
+  (ASSERT(((SZ) & BLK_FLG_MASK) == 0), \
    (B)->bhdr = (((B)->bhdr) & ~MBC_FBLK_SZ_MASK) | (SZ))
 #define SET_SBC_BLK_SZ(B, SZ) \
-  (ASSERT(((SZ) & FLG_MASK) == 0), \
+  (ASSERT(((SZ) & BLK_FLG_MASK) == 0), \
    (B)->bhdr = (((B)->bhdr) & ~SBC_BLK_SZ_MASK) | (SZ))
 #define SET_PREV_BLK_FREE(AP,B) \
   (ASSERT(!IS_MBC_FIRST_BLK(AP,B)), \
@@ -235,12 +250,12 @@ typedef UWord alcu_atag_t;
 
 #  define SET_MBC_ABLK_HDR(B, Sz, F, C) \
     (ASSERT(((Sz) & ~MBC_ABLK_SZ_MASK) == 0), \
-     ASSERT(!((UWord)(F) & (~FLG_MASK|THIS_FREE_BLK_HDR_FLG))), \
+     ASSERT(!((UWord)(F) & (~BLK_FLG_MASK|THIS_FREE_BLK_HDR_FLG))), \
      (B)->bhdr = ((Sz) | (F) | (BLK_CARRIER_OFFSET(B,C) << MBC_ABLK_OFFSET_SHIFT)))
 
 #  define SET_MBC_FBLK_HDR(B, Sz, F, C) \
     (ASSERT(((Sz) & ~MBC_FBLK_SZ_MASK) == 0), \
-     ASSERT(((UWord)(F) & (~FLG_MASK|THIS_FREE_BLK_HDR_FLG|PREV_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
+     ASSERT(((UWord)(F) & (~BLK_FLG_MASK|THIS_FREE_BLK_HDR_FLG|PREV_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
      (B)->bhdr = ((Sz) | (F)), \
      (B)->u.carrier = (C))
 
@@ -257,8 +272,8 @@ typedef UWord alcu_atag_t;
 #  define SET_BLK_FREE(B) \
   (ASSERT(!IS_PREV_BLK_FREE(B)), \
    (B)->u.carrier = ABLK_TO_MBC(B), \
-   (B)->bhdr |= THIS_FREE_BLK_HDR_FLG, \
-   (B)->bhdr &= (MBC_ABLK_SZ_MASK|FLG_MASK))
+   (B)->bhdr &= (MBC_ABLK_SZ_MASK|LAST_BLK_HDR_FLG), \
+   (B)->bhdr |= THIS_FREE_BLK_HDR_FLG)
 
 #  define SET_BLK_ALLOCED(B) \
   (ASSERT(((B)->bhdr & (MBC_ABLK_OFFSET_MASK|THIS_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
@@ -270,15 +285,16 @@ typedef UWord alcu_atag_t;
 #  define MBC_SZ_MAX_LIMIT ((UWord)~0)
 
 #  define SET_MBC_ABLK_HDR(B, Sz, F, C) \
-    (ASSERT(((Sz) & FLG_MASK) == 0), \
-     ASSERT(!((UWord)(F) & (~FLG_MASK|THIS_FREE_BLK_HDR_FLG))), \
-     ASSERT((UWord)(F) < SBC_BLK_HDR_FLG), \
+    (ASSERT(((Sz) & BLK_FLG_MASK) == 0), \
+     ASSERT(((F) & ~BLK_FLG_MASK) == 0), \
+     ASSERT(!((UWord)(F) & (~BLK_FLG_MASK|THIS_FREE_BLK_HDR_FLG))), \
      (B)->bhdr = ((Sz) | (F)), \
      (B)->carrier = (C))
 
 #  define SET_MBC_FBLK_HDR(B, Sz, F, C) \
-    (ASSERT(((Sz) & FLG_MASK) == 0), \
-     ASSERT(((UWord)(F) & (~FLG_MASK|THIS_FREE_BLK_HDR_FLG|PREV_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
+    (ASSERT(((Sz) & BLK_FLG_MASK) == 0), \
+     ASSERT(((F) & ~BLK_FLG_MASK) == 0), \
+     ASSERT(((UWord)(F) & (~BLK_FLG_MASK|THIS_FREE_BLK_HDR_FLG|PREV_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
      (B)->bhdr = ((Sz) | (F)), \
      (B)->carrier = (C))
 
@@ -297,7 +313,7 @@ typedef UWord alcu_atag_t;
 #endif /* !MBC_ABLK_OFFSET_BITS */
 
 #define SET_SBC_BLK_HDR(B, Sz) \
-  (ASSERT(((Sz) & FLG_MASK) == 0), (B)->bhdr = ((Sz) | (SBC_BLK_HDR_FLG)))
+  (ASSERT(((Sz) & BLK_FLG_MASK) == 0), (B)->bhdr = ((Sz) | (SBC_BLK_HDR_FLG)))
 
 
 #define BLK_UMEM_SZ(B) \
@@ -320,7 +336,7 @@ typedef UWord alcu_atag_t;
 #define GET_PREV_FREE_BLK_HDR_FLG(B) \
   ((B)->bhdr & PREV_FREE_BLK_HDR_FLG)
 #define GET_BLK_HDR_FLGS(B) \
-  ((B)->bhdr & FLG_MASK)
+  ((B)->bhdr & BLK_FLG_MASK)
 
 #define NXT_BLK(B) \
   (ASSERT(IS_MBC_BLK(B)), \
@@ -419,7 +435,7 @@ do {										\
 #define SCH_SBC				SBC_CARRIER_HDR_FLAG
 
 #define SET_CARRIER_HDR(C, Sz, F, AP) \
-  (ASSERT(((Sz) & FLG_MASK) == 0), (C)->chdr = ((Sz) | (F)), \
+  (ASSERT(((Sz) & CRR_FLG_MASK) == 0), (C)->chdr = ((Sz) | (F)), \
    erts_atomic_init_nob(&(C)->allctr, (erts_aint_t) (AP)))
 
 #define BLK_TO_SBC(B) \
@@ -444,8 +460,8 @@ do {										\
   (!IS_SB_CARRIER((C)))
 
 #define SET_CARRIER_SZ(C, SZ) \
-  (ASSERT(((SZ) & FLG_MASK) == 0), \
-   ((C)->chdr = ((C)->chdr & FLG_MASK) | (SZ)))
+  (ASSERT(((SZ) & CRR_FLG_MASK) == 0), \
+   ((C)->chdr = ((C)->chdr & CRR_FLG_MASK) | (SZ)))
 
 #define CFLG_SBC				(1 << 0)
 #define CFLG_MBC				(1 << 1)
@@ -575,10 +591,12 @@ do {									\
 	STAT_MSEG_MBC_ALLOC((AP), csz__);				\
     else								\
 	STAT_SYS_ALLOC_MBC_ALLOC((AP), csz__);				\
-    (AP)->mbcs.blocks.curr.no += (CRR)->cpool.blocks;			\
+    set_new_allctr_abandon_limit(AP);                                   \
+    (AP)->mbcs.blocks.curr.no += (CRR)->cpool.blocks[(AP)->alloc_no];   \
     if ((AP)->mbcs.blocks.max.no < (AP)->mbcs.blocks.curr.no)		\
 	(AP)->mbcs.blocks.max.no = (AP)->mbcs.blocks.curr.no;		\
-    (AP)->mbcs.blocks.curr.size += (CRR)->cpool.blocks_size;		\
+    (AP)->mbcs.blocks.curr.size +=                                      \
+       (CRR)->cpool.blocks_size[(AP)->alloc_no];                        \
     if ((AP)->mbcs.blocks.max.size < (AP)->mbcs.blocks.curr.size)	\
 	(AP)->mbcs.blocks.max.size = (AP)->mbcs.blocks.curr.size;	\
 } while (0)
@@ -601,25 +619,33 @@ do {									\
     DEBUG_CHECK_CARRIER_NO_SZ((AP));					\
 } while (0)
 
-#define STAT_MBC_ABANDON(AP, CRR)					\
-do {									\
-    UWord csz__ = CARRIER_SZ((CRR));					\
-    if (IS_MSEG_CARRIER((CRR)))						\
-	STAT_MSEG_MBC_FREE((AP), csz__);				\
-    else								\
-	STAT_SYS_ALLOC_MBC_FREE((AP), csz__);				\
-    ERTS_ALC_CPOOL_ASSERT((AP)->mbcs.blocks.curr.no			\
-			  >= (CRR)->cpool.blocks);			\
-    (AP)->mbcs.blocks.curr.no -= (CRR)->cpool.blocks;			\
-    ERTS_ALC_CPOOL_ASSERT((AP)->mbcs.blocks.curr.size 			\
-			  >= (CRR)->cpool.blocks_size);			\
-    (AP)->mbcs.blocks.curr.size -= (CRR)->cpool.blocks_size;		\
+#define STAT_MBC_FREE(AP, CRR)                                               \
+do {                                                                         \
+    UWord csz__ = CARRIER_SZ((CRR));                                         \
+    if (IS_MSEG_CARRIER((CRR))) {                                            \
+        STAT_MSEG_MBC_FREE((AP), csz__);                                     \
+    } else {                                                                 \
+        STAT_SYS_ALLOC_MBC_FREE((AP), csz__);                                \
+    }                                                                        \
+    set_new_allctr_abandon_limit(AP);                                        \
 } while (0)
 
-#define STAT_MBC_BLK_ALLOC_CRR(CRR, BSZ)				\
+#define STAT_MBC_ABANDON(AP, CRR)                                            \
+do {                                                                         \
+    STAT_MBC_FREE(AP, CRR);                                                  \
+    ERTS_ALC_CPOOL_ASSERT((AP)->mbcs.blocks.curr.no                          \
+                          >= (CRR)->cpool.blocks[(AP)->alloc_no]);           \
+    (AP)->mbcs.blocks.curr.no -= (CRR)->cpool.blocks[(AP)->alloc_no];        \
+    ERTS_ALC_CPOOL_ASSERT((AP)->mbcs.blocks.curr.size                        \
+                          >= (CRR)->cpool.blocks_size[(AP)->alloc_no]);      \
+    (AP)->mbcs.blocks.curr.size -= (CRR)->cpool.blocks_size[(AP)->alloc_no]; \
+} while (0)
+
+#define STAT_MBC_BLK_ALLOC_CRR(AP, CRR, BSZ)				\
 do {									\
-    (CRR)->cpool.blocks++;						\
-    (CRR)->cpool.blocks_size += (BSZ);					\
+    (CRR)->cpool.blocks[(AP)->alloc_no]++;				\
+    (CRR)->cpool.blocks_size[(AP)->alloc_no] += (BSZ);			\
+    (CRR)->cpool.total_blocks_size += (BSZ);				\
 } while (0)
 
 #define STAT_MBC_BLK_ALLOC(AP, CRR, BSZ, FLGS)	       			\
@@ -631,50 +657,67 @@ do {									\
     cstats__->blocks.curr.size += (BSZ);				\
     if (cstats__->blocks.max.size < cstats__->blocks.curr.size)		\
 	cstats__->blocks.max.size = cstats__->blocks.curr.size;		\
-    STAT_MBC_BLK_ALLOC_CRR((CRR), (BSZ));				\
+    STAT_MBC_BLK_ALLOC_CRR((AP), (CRR), (BSZ));				\
 } while (0)
 
 static ERTS_INLINE int
 stat_cpool_mbc_blk_free(Allctr_t *allctr,
+                        ErtsAlcType_t type,
 			Carrier_t *crr,
 			Carrier_t **busy_pcrr_pp,
 			UWord blksz)
 {
+    Allctr_t *orig_allctr;
+    int alloc_no;
 
-    ERTS_ALC_CPOOL_ASSERT(crr->cpool.blocks > 0);
-    crr->cpool.blocks--;
-    ERTS_ALC_CPOOL_ASSERT(crr->cpool.blocks_size >= blksz);
-    crr->cpool.blocks_size -= blksz;
+    alloc_no = ERTS_ALC_T2A(type);
 
-    if (!busy_pcrr_pp || !*busy_pcrr_pp)
-	return 0;
+    ERTS_ALC_CPOOL_ASSERT(crr->cpool.blocks[alloc_no] > 0);
+    crr->cpool.blocks[alloc_no]--;
+    ERTS_ALC_CPOOL_ASSERT(crr->cpool.blocks_size[alloc_no] >= blksz);
+    crr->cpool.blocks_size[alloc_no] -= blksz;
+    ERTS_ALC_CPOOL_ASSERT(crr->cpool.total_blocks_size >= blksz);
+    crr->cpool.total_blocks_size -= blksz;
 
-    ERTS_ALC_CPOOL_ASSERT(crr == *busy_pcrr_pp);
+    if (allctr->alloc_no == alloc_no && (!busy_pcrr_pp || !*busy_pcrr_pp)) {
+        /* This is a local block, so we should not update the pool
+         * statistics. */
+        return 0;
+    }
+
+    /* This is either a foreign block that's been fetched from the pool, or any
+     * block that's in the pool. The carrier's owner keeps the statistics for
+     * both pooled and foreign blocks. */
+
+    orig_allctr = crr->cpool.orig_allctr;
+
+    ERTS_ALC_CPOOL_ASSERT(alloc_no != allctr->alloc_no ||
+        (crr == *busy_pcrr_pp && allctr == orig_allctr));
 
 #ifdef ERTS_ALC_CPOOL_DEBUG
     ERTS_ALC_CPOOL_ASSERT(
-	erts_atomic_dec_read_nob(&allctr->cpool.stat.no_blocks) >= 0);
+	erts_atomic_dec_read_nob(&orig_allctr->cpool.stat.no_blocks[alloc_no]) >= 0);
     ERTS_ALC_CPOOL_ASSERT(
-	erts_atomic_add_read_nob(&allctr->cpool.stat.blocks_size,
+	erts_atomic_add_read_nob(&orig_allctr->cpool.stat.blocks_size[alloc_no],
 				 -((erts_aint_t) blksz)) >= 0);
 #else
-    erts_atomic_dec_nob(&allctr->cpool.stat.no_blocks);
-    erts_atomic_add_nob(&allctr->cpool.stat.blocks_size,
+    erts_atomic_dec_nob(&orig_allctr->cpool.stat.no_blocks[alloc_no]);
+    erts_atomic_add_nob(&orig_allctr->cpool.stat.blocks_size[alloc_no],
 			-((erts_aint_t) blksz));
 #endif
 
     return 1;
 }
 
-#define STAT_MBC_BLK_FREE(AP, CRR, BPCRRPP, BSZ, FLGS)			\
-do {									\
-    if (!stat_cpool_mbc_blk_free((AP), (CRR), (BPCRRPP), (BSZ))) {	\
-	CarriersStats_t *cstats__ = &(AP)->mbcs;			\
-	ASSERT(cstats__->blocks.curr.no > 0);				\
-	cstats__->blocks.curr.no--;					\
-	ASSERT(cstats__->blocks.curr.size >= (BSZ));			\
-	cstats__->blocks.curr.size -= (BSZ);				\
-    }									\
+#define STAT_MBC_BLK_FREE(AP, TYPE, CRR, BPCRRPP, BSZ, FLGS)               \
+do {                                                                       \
+    if (!stat_cpool_mbc_blk_free((AP), (TYPE), (CRR), (BPCRRPP), (BSZ))) { \
+        CarriersStats_t *cstats__ = &(AP)->mbcs;                           \
+        ASSERT(cstats__->blocks.curr.no > 0);                              \
+        cstats__->blocks.curr.no--;                                        \
+        ASSERT(cstats__->blocks.curr.size >= (BSZ));                       \
+        cstats__->blocks.curr.size -= (BSZ);                               \
+    }                                                                      \
 } while (0)
 
 /* Debug stuff... */
@@ -721,8 +764,8 @@ static void make_name_atoms(Allctr_t *allctr);
 
 static Block_t *create_carrier(Allctr_t *, Uint, UWord);
 static void destroy_carrier(Allctr_t *, Block_t *, Carrier_t **);
-static void mbc_free(Allctr_t *allctr, void *p, Carrier_t **busy_pcrr_pp);
-static void dealloc_block(Allctr_t *, void *, ErtsAlcFixList_t *, int);
+static void mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp);
+static void dealloc_block(Allctr_t *, ErtsAlcType_t, Uint32, void *, ErtsAlcFixList_t *);
 
 static alcu_atag_t determine_alloc_tag(Allctr_t *allocator, ErtsAlcType_t type)
 {
@@ -764,14 +807,14 @@ static alcu_atag_t determine_alloc_tag(Allctr_t *allocator, ErtsAlcType_t type)
         }
     }
 
-    return MAKE_ATAG(id, type);
+    return MAKE_ATAG(id, ERTS_ALC_T2N(type));
 }
 
 static void set_alloc_tag(Allctr_t *allocator, void *p, alcu_atag_t tag)
 {
     Block_t *block;
 
-    ASSERT(DBG_IS_VALID_ATAG(allocator, tag));
+    ASSERT(DBG_IS_VALID_ATAG(tag));
     ASSERT(allocator->atags && p);
     (void)allocator;
 
@@ -834,12 +877,16 @@ static ERTS_INLINE void clr_bit(UWord* map, Uint ix)
         &= ~((UWord)1 << (ix % ERTS_VSPACE_WORD_BITS));
 }
 
+#ifdef DEBUG
+
 static ERTS_INLINE int is_bit_set(UWord* map, Uint ix)
 {
     ASSERT(ix / ERTS_VSPACE_WORD_BITS < VSPACE_MAP_SZ);
     return map[ix / ERTS_VSPACE_WORD_BITS]
         & ((UWord)1 << (ix % ERTS_VSPACE_WORD_BITS));
 }
+
+#endif
 
 UWord erts_literal_vspace_map[VSPACE_MAP_SZ];
 
@@ -1308,27 +1355,8 @@ chk_fix_list(Allctr_t *allctr, ErtsAlcFixList_t *fix, int ix, int before)
 #define ERTS_DBG_CHK_FIX_LIST(A, FIX, IX, B)
 #endif
 
+static ERTS_INLINE Allctr_t *get_pref_allctr(void *extra);
 static void *mbc_alloc(Allctr_t *allctr, Uint size);
-
-typedef struct {
-    ErtsAllctrDDBlock_t ddblock__; /* must be first */
-    ErtsAlcType_t fix_type;
-} ErtsAllctrFixDDBlock_t;
-
-#define ERTS_ALC_FIX_NO_UNUSE (((ErtsAlcType_t) 1) << ERTS_ALC_N_BITS)
-
-static ERTS_INLINE void
-dealloc_fix_block(Allctr_t *allctr,
-		  ErtsAlcType_t type,
-		  void *ptr,
-		  ErtsAlcFixList_t *fix,
-		  int dec_cc_on_redirect)
-{
-    /* May be redirected... */
-    ASSERT((type & ERTS_ALC_FIX_NO_UNUSE) == 0);
-    ((ErtsAllctrFixDDBlock_t *) ptr)->fix_type = type | ERTS_ALC_FIX_NO_UNUSE;
-    dealloc_block(allctr, ptr, fix, dec_cc_on_redirect);
-}
 
 static ERTS_INLINE void
 sched_fix_shrink(Allctr_t *allctr, int on)
@@ -1371,7 +1399,7 @@ fix_cpool_check_shrink(Allctr_t *allctr,
 	    if (fix->u.cpool.min_list_size > fix->list_size)
 		fix->u.cpool.min_list_size = fix->list_size;
 
-	    dealloc_fix_block(allctr, type, p, fix, 0);
+	    dealloc_block(allctr, type, DEALLOC_FLG_FIX_SHRINK, p, fix);
 	}
     }
 }
@@ -1382,11 +1410,9 @@ fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
     void *res;
     ErtsAlcFixList_t *fix;
 
-    ASSERT(ERTS_ALC_N_MIN_A_FIXED_SIZE <= type
-	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
-
-    fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
-    ASSERT(size == fix->type_size);
+    fix = &allctr->fix[ERTS_ALC_FIX_TYPE_IX(type)];
+    ASSERT(type == fix->type && size == fix->type_size);
+    ASSERT(size >= sizeof(ErtsAllctrDDBlock_t));
 
     res = fix->list;
     if (res) {
@@ -1415,21 +1441,39 @@ fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 static ERTS_INLINE void
 fix_cpool_free(Allctr_t *allctr,
 	       ErtsAlcType_t type,
+               Uint32 flags,
 	       void *p,
-	       Carrier_t **busy_pcrr_pp,
-	       int unuse)
+	       Carrier_t **busy_pcrr_pp)
 {
     ErtsAlcFixList_t *fix;
+    Allctr_t *fix_allctr;
 
-    ASSERT(ERTS_ALC_N_MIN_A_FIXED_SIZE <= type
-	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
+    /* If this isn't a fix allocator we need to update the fix list of our
+     * neighboring fix_alloc to keep the statistics consistent. */
+    if (!allctr->fix) {
+        ErtsAllocatorThrSpec_t *tspec = &erts_allctr_thr_spec[ERTS_ALC_A_FIXED_SIZE];
+        fix_allctr = get_pref_allctr(tspec);
+        ASSERT(!fix_allctr->thread_safe);
+        ASSERT(allctr != fix_allctr);
+    }
+    else {
+        fix_allctr = allctr;
+    }
 
-    fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
+    ASSERT(ERTS_ALC_IS_CPOOL_ENABLED(fix_allctr));
+    ASSERT(ERTS_ALC_IS_CPOOL_ENABLED(allctr));
 
-    if (unuse)
-	fix->u.cpool.used--;
+    fix = &fix_allctr->fix[ERTS_ALC_FIX_TYPE_IX(type)];
+    ASSERT(type == fix->type);
 
-    if ((!busy_pcrr_pp || !*busy_pcrr_pp)
+    if (!(flags & DEALLOC_FLG_FIX_SHRINK)) {
+        fix->u.cpool.used--;
+    }
+
+    /* We don't want foreign blocks to be long-lived, so we skip recycling if
+     * allctr != fix_allctr. */
+    if (allctr == fix_allctr
+        && (!busy_pcrr_pp || !*busy_pcrr_pp)
 	&& !fix->u.cpool.shrink_list
 	&& fix->list_size < ERTS_ALCU_FIX_MAX_LIST_SZ) {
 	*((void **) p) = fix->list;
@@ -1442,7 +1486,7 @@ fix_cpool_free(Allctr_t *allctr,
 	if (IS_SBC_BLK(blk))
 	    destroy_carrier(allctr, blk, NULL);
 	else
-	    mbc_free(allctr, p, busy_pcrr_pp);
+	    mbc_free(allctr, type, p, busy_pcrr_pp);
 	fix->u.cpool.allocated--;
 	fix_cpool_check_shrink(allctr, type, fix, busy_pcrr_pp);
     }
@@ -1469,7 +1513,7 @@ fix_cpool_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
 	    fix->u.cpool.shrink_list = fix->u.cpool.min_list_size;
 	    fix->u.cpool.min_list_size = fix->list_size;
 	}
-	type = (ErtsAlcType_t) (ix + ERTS_ALC_N_MIN_A_FIXED_SIZE);
+	type = ERTS_ALC_N2T((ErtsAlcType_t) (ix + ERTS_ALC_N_MIN_A_FIXED_SIZE));
 	for (o = 0; o < ERTS_ALC_FIX_MAX_SHRINK_OPS || flush; o++) {
 	    void *ptr;
 
@@ -1483,7 +1527,7 @@ fix_cpool_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
 	    fix->list = *((void **) ptr);
 	    fix->list_size--;
 	    fix->u.cpool.shrink_list--;
-	    dealloc_fix_block(allctr, type, ptr, fix, 0);
+	    dealloc_block(allctr, type, DEALLOC_FLG_FIX_SHRINK, ptr, fix);
 	}
 	if (fix->u.cpool.min_list_size > fix->list_size)
 	    fix->u.cpool.min_list_size = fix->list_size;
@@ -1509,11 +1553,9 @@ fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
     ErtsAlcFixList_t *fix;
     void *res;
 
-    ASSERT(ERTS_ALC_N_MIN_A_FIXED_SIZE <= type
-	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
-
-    fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
-    ASSERT(size == fix->type_size);
+    fix = &allctr->fix[ERTS_ALC_FIX_TYPE_IX(type)];
+    ASSERT(type == fix->type && size == fix->type_size);
+    ASSERT(size >= sizeof(ErtsAllctrDDBlock_t));
 
     ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
     fix->u.nocpool.used++;
@@ -1530,7 +1572,7 @@ fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	    if (IS_SBC_BLK(blk))
 		destroy_carrier(allctr, blk, NULL);
 	    else
-		mbc_free(allctr, p, NULL);
+		mbc_free(allctr, type, p, NULL);
 	    fix->u.nocpool.allocated--;
 	}
 	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
@@ -1565,10 +1607,8 @@ fix_nocpool_free(Allctr_t *allctr,
     Block_t *blk;
     ErtsAlcFixList_t *fix;
 
-    ASSERT(ERTS_ALC_N_MIN_A_FIXED_SIZE <= type
-	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
-
-    fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
+    fix = &allctr->fix[ERTS_ALC_T2N(type) - ERTS_ALC_N_MIN_A_FIXED_SIZE];
+    ASSERT(fix->type == type);
 
     ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
     fix->u.nocpool.used--;
@@ -1587,7 +1627,7 @@ fix_nocpool_free(Allctr_t *allctr,
 	if (IS_SBC_BLK(blk))
 	    destroy_carrier(allctr, blk, NULL);
 	else
-	    mbc_free(allctr, p, NULL);
+	    mbc_free(allctr, type, p, NULL);
 	p = fix->list;
 	fix->list = *((void **) p);
 	fix->list_size--;
@@ -1598,7 +1638,7 @@ fix_nocpool_free(Allctr_t *allctr,
     if (IS_SBC_BLK(blk))
 	destroy_carrier(allctr, blk, NULL);
     else
-	mbc_free(allctr, p, NULL);
+	mbc_free(allctr, type, p, NULL);
     ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
 }
 
@@ -1639,7 +1679,7 @@ fix_nocpool_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
 	    ptr = fix->list;
 	    fix->list = *((void **) ptr);
 	    fix->list_size--;
-	    dealloc_block(allctr, ptr, NULL, 0);
+	    dealloc_block(allctr, fix->type, 0, ptr, NULL);
 	    fix->u.nocpool.allocated--;
 	}
 	if (fix->list_size != 0) {
@@ -1681,6 +1721,7 @@ dealloc_mbc(Allctr_t *allctr, Carrier_t *crr)
 }
 
 
+static UWord allctr_abandon_limit(Allctr_t *allctr);
 static void set_new_allctr_abandon_limit(Allctr_t*);
 static void abandon_carrier(Allctr_t*, Carrier_t*);
 static void poolify_my_carrier(Allctr_t*, Carrier_t*);
@@ -1802,7 +1843,7 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 static void
 init_dd_queue(ErtsAllctrDDQueue_t *ddq)
 {
-    erts_atomic_init_nob(&ddq->tail.data.marker.atmc_next, ERTS_AINT_NULL);
+    erts_atomic_init_nob(&ddq->tail.data.marker.u.atmc_next, ERTS_AINT_NULL);
     erts_atomic_init_nob(&ddq->tail.data.last,
 			 (erts_aint_t) &ddq->tail.data.marker);
     erts_atomic_init_nob(&ddq->tail.data.um_refc[0], 0);
@@ -1823,17 +1864,17 @@ ddq_managed_thread_enqueue(ErtsAllctrDDQueue_t *ddq, void *ptr, int cinit)
     erts_aint_t itmp;
     ErtsAllctrDDBlock_t *enq, *this = ptr;
 
-    erts_atomic_init_nob(&this->atmc_next, ERTS_AINT_NULL);
+    erts_atomic_init_nob(&this->u.atmc_next, ERTS_AINT_NULL);
     /* Enqueue at end of list... */
 
     enq = (ErtsAllctrDDBlock_t *) erts_atomic_read_nob(&ddq->tail.data.last);
-    itmp = erts_atomic_cmpxchg_relb(&enq->atmc_next,
+    itmp = erts_atomic_cmpxchg_relb(&enq->u.atmc_next,
 				    (erts_aint_t) this,
 				    ERTS_AINT_NULL);
     if (itmp == ERTS_AINT_NULL) {
 	/* We are required to move last pointer */
 #ifdef DEBUG
-	ASSERT(ERTS_AINT_NULL == erts_atomic_read_nob(&this->atmc_next));
+	ASSERT(ERTS_AINT_NULL == erts_atomic_read_nob(&this->u.atmc_next));
 	ASSERT(((erts_aint_t) enq)
 	       == erts_atomic_xchg_relb(&ddq->tail.data.last,
 					(erts_aint_t) this));
@@ -1851,8 +1892,8 @@ ddq_managed_thread_enqueue(ErtsAllctrDDQueue_t *ddq, void *ptr, int cinit)
 
 	while (1) {
 	    erts_aint_t itmp2;
-	    erts_atomic_set_nob(&this->atmc_next, itmp);
-	    itmp2 = erts_atomic_cmpxchg_relb(&enq->atmc_next,
+	    erts_atomic_set_nob(&this->u.atmc_next, itmp);
+	    itmp2 = erts_atomic_cmpxchg_relb(&enq->u.atmc_next,
 					     (erts_aint_t) this,
 					     itmp);
 	    if (itmp == itmp2)
@@ -1861,7 +1902,7 @@ ddq_managed_thread_enqueue(ErtsAllctrDDQueue_t *ddq, void *ptr, int cinit)
 		itmp = itmp2;
 	    else {
 		enq = (ErtsAllctrDDBlock_t *) itmp2;
-		itmp = erts_atomic_read_acqb(&enq->atmc_next);
+		itmp = erts_atomic_read_acqb(&enq->u.atmc_next);
 		ASSERT(itmp != ERTS_AINT_NULL);
 	    }
 	    i++;
@@ -1877,8 +1918,8 @@ check_insert_marker(ErtsAllctrDDQueue_t *ddq, erts_aint_t ilast)
 	erts_aint_t itmp;
 	ErtsAllctrDDBlock_t *last = (ErtsAllctrDDBlock_t *) ilast;
 
-	erts_atomic_init_nob(&ddq->tail.data.marker.atmc_next, ERTS_AINT_NULL);
-	itmp = erts_atomic_cmpxchg_relb(&last->atmc_next,
+	erts_atomic_init_nob(&ddq->tail.data.marker.u.atmc_next, ERTS_AINT_NULL);
+	itmp = erts_atomic_cmpxchg_relb(&last->u.atmc_next,
 					(erts_aint_t) &ddq->tail.data.marker,
 					ERTS_AINT_NULL);
 	if (itmp == ERTS_AINT_NULL) {
@@ -1929,7 +1970,7 @@ ddq_dequeue(ErtsAllctrDDQueue_t *ddq)
 	ASSERT(ddq->head.used_marker);
 	ddq->head.used_marker = 0;
 	blk = ((ErtsAllctrDDBlock_t *)
-	       erts_atomic_read_nob(&blk->atmc_next));
+	       erts_atomic_read_nob(&blk->u.atmc_next));
 	if (blk == ddq->head.unref_end) {
 	    ddq->head.first = blk;
 	    return NULL;
@@ -1937,7 +1978,7 @@ ddq_dequeue(ErtsAllctrDDQueue_t *ddq)
     }
 
     ddq->head.first = ((ErtsAllctrDDBlock_t *)
-		       erts_atomic_read_nob(&blk->atmc_next));
+		       erts_atomic_read_nob(&blk->u.atmc_next));
 
     ASSERT(ddq->head.first);
 
@@ -1999,19 +2040,13 @@ check_pending_dealloc_carrier(Allctr_t *allctr,
 			      int *need_more_work);
 
 static void
-handle_delayed_fix_dealloc(Allctr_t *allctr, void *ptr)
+handle_delayed_fix_dealloc(Allctr_t *allctr, ErtsAlcType_t type, Uint32 flags,
+                           void *ptr)
 {
-    ErtsAlcType_t type;
-
-    type = ((ErtsAllctrFixDDBlock_t *) ptr)->fix_type;
-
-    ASSERT(ERTS_ALC_N_MIN_A_FIXED_SIZE
-	   <= (type & ~ERTS_ALC_FIX_NO_UNUSE));
-    ASSERT((type & ~ERTS_ALC_FIX_NO_UNUSE)
-	   <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
+    ASSERT(ERTS_ALC_IS_FIX_TYPE(type));
 
     if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr))
-	fix_nocpool_free(allctr, (type & ~ERTS_ALC_FIX_NO_UNUSE), ptr);
+	fix_nocpool_free(allctr, type, ptr);
     else {
 	Block_t *blk = UMEM2BLK(ptr);
 	Carrier_t *busy_pcrr_p;
@@ -2026,20 +2061,24 @@ handle_delayed_fix_dealloc(Allctr_t *allctr, void *ptr)
 				      NULL, &busy_pcrr_p);
 	if (used_allctr == allctr) {
 	doit:
-	    fix_cpool_free(allctr, (type & ~ERTS_ALC_FIX_NO_UNUSE),
-			   ptr, &busy_pcrr_p,
-			   !(type & ERTS_ALC_FIX_NO_UNUSE));
+	    fix_cpool_free(allctr, type, flags, ptr, &busy_pcrr_p);
 	    clear_busy_pool_carrier(allctr, busy_pcrr_p);
 	}
 	else {
 	    /* Carrier migrated; need to redirect block to new owner... */
-	    int cinit = used_allctr->dd.ix - allctr->dd.ix;
+            ErtsAllctrDDBlock_t *dd_block;
+            int cinit;
+
+            dd_block = (ErtsAllctrDDBlock_t*)ptr;
+            dd_block->flags = flags;
+            dd_block->type = type;
 
             ERTS_ALC_CPOOL_ASSERT(!busy_pcrr_p);
 
             DEC_CC(allctr->calls.this_free);
 
-	    ((ErtsAllctrFixDDBlock_t *) ptr)->fix_type = type;
+            cinit = used_allctr->dd.ix - allctr->dd.ix;
+
 	    if (ddq_enqueue(&used_allctr->dd.q, ptr, cinit))
 		erts_alloc_notify_delayed_dealloc(used_allctr->ix);
 	}
@@ -2063,7 +2102,6 @@ handle_delayed_dealloc(Allctr_t *allctr,
     int need_mr_wrk = 0;
     int have_checked_incoming = 0;
     int ops = 0;
-    ErtsAlcFixList_t *fix;
     int res;
     ErtsAllctrDDQueue_t *ddq;
 
@@ -2071,8 +2109,6 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	erts_mtx_lock(&allctr->mutex);
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
-
-    fix = allctr->fix;
 
     ddq = &allctr->dd.q;
 
@@ -2162,16 +2198,27 @@ handle_delayed_dealloc(Allctr_t *allctr,
             }
 	}
 	else {
+            ErtsAllctrDDBlock_t *dd_block;
+            ErtsAlcType_t type;
+            Uint32 flags;
+        
+            dd_block = (ErtsAllctrDDBlock_t*)ptr;
+            flags = dd_block->flags;
+            type = dd_block->type;
+
+            flags |= DEALLOC_FLG_REDIRECTED;
+
             ASSERT(IS_SBC_BLK(blk) || (ABLK_TO_MBC(blk) !=
                                        ErtsContainerStruct(blk, Carrier_t,
                                                            cpool.homecoming_dd.blk)));
 
 	    INC_CC(allctr->calls.this_free);
 
-	    if (fix)
-		handle_delayed_fix_dealloc(allctr, ptr);
-	    else
-		dealloc_block(allctr, ptr, NULL, 1);
+	    if (ERTS_ALC_IS_FIX_TYPE(type)) {
+		handle_delayed_fix_dealloc(allctr, type, flags, ptr);
+	    } else {
+		dealloc_block(allctr, type, flags, ptr, NULL);
+            }
 	}
     }
 
@@ -2199,8 +2246,10 @@ enqueue_dealloc_other_instance(ErtsAlcType_t type,
 			       void *ptr,
 			       int cinit)
 {
-    if (allctr->fix)
-	((ErtsAllctrFixDDBlock_t*) ptr)->fix_type = type;
+    ErtsAllctrDDBlock_t *dd_block = ((ErtsAllctrDDBlock_t*)ptr);
+
+    dd_block->type = type;
+    dd_block->flags = 0;
 
     if (ddq_enqueue(&allctr->dd.q, ptr, cinit))
 	erts_alloc_notify_delayed_dealloc(allctr->ix);
@@ -2230,10 +2279,7 @@ check_abandon_carrier(Allctr_t *allctr, Block_t *fblk, Carrier_t **busy_pcrr_pp)
     if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	return;
 
-    allctr->cpool.check_limit_count--;
-    if (--allctr->cpool.check_limit_count <= 0)
-	set_new_allctr_abandon_limit(allctr);
-
+    ASSERT(allctr->cpool.abandon_limit == allctr_abandon_limit(allctr));
     ASSERT(erts_thr_progress_is_managed_thread());
 
     if (allctr->cpool.disable_abandon)
@@ -2251,7 +2297,7 @@ check_abandon_carrier(Allctr_t *allctr, Block_t *fblk, Carrier_t **busy_pcrr_pp)
     if (allctr->main_carrier == crr)
 	return;
 
-    if (crr->cpool.blocks_size > crr->cpool.abandon_limit)
+    if (crr->cpool.total_blocks_size > crr->cpool.abandon_limit)
 	return;
 
     if (crr->cpool.thr_prgr != ERTS_THR_PRGR_INVALID
@@ -2287,9 +2333,12 @@ erts_alcu_check_delayed_dealloc(Allctr_t *allctr,
 			   ERTS_ALCU_DD_OPS_LIM_LOW, NULL, NULL, NULL)
 
 static void
-dealloc_block(Allctr_t *allctr, void *ptr, ErtsAlcFixList_t *fix, int dec_cc_on_redirect)
+dealloc_block(Allctr_t *allctr, ErtsAlcType_t type, Uint32 flags, void *ptr,
+              ErtsAlcFixList_t *fix)
 {
     Block_t *blk = UMEM2BLK(ptr);
+
+    ASSERT(!fix || type == fix->type);
 
     ERTS_LC_ASSERT(!allctr->thread_safe
 		       || erts_lc_mtx_is_locked(&allctr->mutex));
@@ -2297,14 +2346,13 @@ dealloc_block(Allctr_t *allctr, void *ptr, ErtsAlcFixList_t *fix, int dec_cc_on_
     if (IS_SBC_BLK(blk)) {
 	destroy_carrier(allctr, blk, NULL);
 	if (fix && ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
-	    ErtsAlcType_t type = ((ErtsAllctrFixDDBlock_t *) ptr)->fix_type;
-	    if (!(type & ERTS_ALC_FIX_NO_UNUSE))
+	    if (!(flags & DEALLOC_FLG_FIX_SHRINK))
 		fix->u.cpool.used--;
 	    fix->u.cpool.allocated--;
 	}
     }
     else if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr))
-	mbc_free(allctr, ptr, NULL);
+	mbc_free(allctr, type, ptr, NULL);
     else {
 	Carrier_t *busy_pcrr_p;
 	Allctr_t *used_allctr;
@@ -2313,22 +2361,29 @@ dealloc_block(Allctr_t *allctr, void *ptr, ErtsAlcFixList_t *fix, int dec_cc_on_
 				      NULL, &busy_pcrr_p);
 	if (used_allctr == allctr) {
 	    if (fix) {
-		ErtsAlcType_t type = ((ErtsAllctrFixDDBlock_t *) ptr)->fix_type;
-		if (!(type & ERTS_ALC_FIX_NO_UNUSE))
+	        if (!(flags & DEALLOC_FLG_FIX_SHRINK))
 		    fix->u.cpool.used--;
 		fix->u.cpool.allocated--;
 	    }
-	    mbc_free(allctr, ptr, &busy_pcrr_p);
+	    mbc_free(allctr, type, ptr, &busy_pcrr_p);
 	    clear_busy_pool_carrier(allctr, busy_pcrr_p);
 	}
 	else {
 	    /* Carrier migrated; need to redirect block to new owner... */
-	    int cinit = used_allctr->dd.ix - allctr->dd.ix;
+            ErtsAllctrDDBlock_t *dd_block;
+            int cinit;
+
+            dd_block = (ErtsAllctrDDBlock_t*)ptr;
+            dd_block->flags = flags;
+            dd_block->type = type;
 
             ERTS_ALC_CPOOL_ASSERT(!busy_pcrr_p);
 
-            if (dec_cc_on_redirect)
+            if (flags & DEALLOC_FLG_REDIRECTED)
                 DEC_CC(allctr->calls.this_free);
+
+            cinit = used_allctr->dd.ix - allctr->dd.ix;
+
 	    if (ddq_enqueue(&used_allctr->dd.q, ptr, cinit))
 		erts_alloc_notify_delayed_dealloc(used_allctr->ix);
 	}
@@ -2494,9 +2549,155 @@ mbc_alloc(Allctr_t *allctr, Uint size)
     return BLK2UMEM(blk);
 }
 
-static void
-mbc_free(Allctr_t *allctr, void *p, Carrier_t **busy_pcrr_pp)
+typedef struct {
+    char *ptr;
+    UWord size;
+} ErtsMemDiscardRegion;
+
+/* Construct a discard region for the user memory of a free block, letting the
+ * OS reclaim its physical memory when required.
+ *
+ * Note that we're ignoring both the footer and everything that comes before
+ * the minimum block size as the allocator uses those areas to manage the
+ * block. */
+static void ERTS_INLINE
+mem_discard_start(Allctr_t *allocator, Block_t *block,
+                  ErtsMemDiscardRegion *out)
 {
+    UWord size = BLK_SZ(block);
+
+    ASSERT(size >= allocator->min_block_size);
+
+    if (size > (allocator->min_block_size + FBLK_FTR_SZ)) {
+        out->size = size - allocator->min_block_size - FBLK_FTR_SZ;
+    } else {
+        out->size = 0;
+    }
+
+    out->ptr = (char*)block + allocator->min_block_size;
+}
+
+/* Expands a discard region into a neighboring free block, allowing us to
+ * discard the block header and first page.
+ *
+ * This is very important in small-allocation scenarios where no single block
+ * is large enough to be discarded on its own. */
+static void ERTS_INLINE
+mem_discard_coalesce(Allctr_t *allocator, Block_t *neighbor,
+                     ErtsMemDiscardRegion *region)
+{
+    char *neighbor_start;
+
+    ASSERT(IS_FREE_BLK(neighbor));
+
+    neighbor_start = (char*)neighbor;
+
+    if (region->ptr >= neighbor_start) {
+        char *region_start_page;
+
+        region_start_page = region->ptr - SYS_PAGE_SIZE;
+        region_start_page = (char*)((UWord)region_start_page & ~SYS_PAGE_SZ_MASK);
+
+        /* Expand if our first page begins within the previous free block's
+         * unused data. */
+        if (region_start_page >= (neighbor_start + allocator->min_block_size)) {
+            region->size += (region->ptr - region_start_page) - FBLK_FTR_SZ;
+            region->ptr = region_start_page;
+        }
+    } else {
+        char *region_end_page;
+        UWord neighbor_size;
+
+        ASSERT(region->ptr <= neighbor_start);
+
+        region_end_page = region->ptr + region->size + SYS_PAGE_SIZE;
+        region_end_page = (char*)((UWord)region_end_page & ~SYS_PAGE_SZ_MASK);
+
+        neighbor_size = BLK_SZ(neighbor) - FBLK_FTR_SZ;
+
+        /* Expand if our last page ends anywhere within the next free block,
+         * sans the footer we'll inherit. */
+        if (region_end_page < neighbor_start + neighbor_size) {
+            region->size += region_end_page - (region->ptr + region->size);
+        }
+    }
+}
+
+static void ERTS_INLINE
+mem_discard_finish(Allctr_t *allocator, Block_t *block,
+                   ErtsMemDiscardRegion *region)
+{
+#ifdef DEBUG
+    char *block_start, *block_end;
+    UWord block_size;
+
+    block_size = BLK_SZ(block);
+
+    /* Ensure that the region is completely covered by the legal area of the
+     * free block. This must hold even when the region is too small to be
+     * discarded. */
+    if (region->size > 0) {
+        ASSERT(block_size > allocator->min_block_size + FBLK_FTR_SZ);
+
+        block_start = (char*)block + allocator->min_block_size;
+        block_end = (char*)block + block_size - FBLK_FTR_SZ;
+
+        ASSERT(region->size == 0 ||
+            (region->ptr + region->size <= block_end &&
+             region->ptr >= block_start &&
+             region->size <= block_size));
+    }
+#else
+    (void)allocator;
+    (void)block;
+#endif
+
+    if (region->size > SYS_PAGE_SIZE) {
+        UWord align_offset, size;
+        char *ptr;
+
+        align_offset = SYS_PAGE_SIZE - ((UWord)region->ptr & SYS_PAGE_SZ_MASK);
+
+        size = (region->size - align_offset) & ~SYS_PAGE_SZ_MASK;
+        ptr = region->ptr + align_offset;
+
+        if (size > 0) {
+            ASSERT(!((UWord)ptr & SYS_PAGE_SZ_MASK));
+            ASSERT(!(size & SYS_PAGE_SZ_MASK));
+
+            erts_mem_discard(ptr, size);
+        }
+    }
+}
+
+static void
+carrier_mem_discard_free_blocks(Allctr_t *allocator, Carrier_t *carrier)
+{
+    static const int MAX_BLOCKS_TO_DISCARD = 100;
+    Block_t *block;
+    int i;
+
+    block = allocator->first_fblk_in_mbc(allocator, carrier);
+    i = 0;
+
+    while (block != NULL && i < MAX_BLOCKS_TO_DISCARD) {
+        ErtsMemDiscardRegion region;
+
+        ASSERT(IS_FREE_BLK(block));
+
+        mem_discard_start(allocator, block, &region);
+        mem_discard_finish(allocator, block, &region);
+
+        block = allocator->next_fblk_in_mbc(allocator, carrier, block);
+        i++;
+    }
+}
+
+static void
+mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp)
+{
+    ErtsMemDiscardRegion discard_region = {0};
+    int discard;
     Uint is_first_blk;
     Uint is_last_blk;
     Uint blk_sz;
@@ -2512,12 +2713,28 @@ mbc_free(Allctr_t *allctr, void *p, Carrier_t **busy_pcrr_pp)
     ASSERT(IS_MBC_BLK(blk));
     ASSERT(blk_sz >= allctr->min_block_size);
 
+#ifndef DEBUG
+    /* We want to mark freed blocks as reclaimable to the OS, but it's a fairly
+     * expensive operation which doesn't do much good if we use it again soon
+     * after, so we limit it to deallocations on pooled carriers. */
+    discard = busy_pcrr_pp && *busy_pcrr_pp;
+#else
+    /* Always discard in debug mode, regardless of whether we're in the pool or
+     * not. */
+    discard = 1;
+#endif
+
+    if (discard) {
+        mem_discard_start(allctr, blk, &discard_region);
+    }
+
     HARD_CHECK_BLK_CARRIER(allctr, blk);
 
     crr = ABLK_TO_MBC(blk);
 
     ERTS_ALC_CPOOL_FREE_OP(allctr);
-    STAT_MBC_BLK_FREE(allctr, crr, busy_pcrr_pp, blk_sz, alcu_flgs);
+
+    STAT_MBC_BLK_FREE(allctr, type, crr, busy_pcrr_pp, blk_sz, alcu_flgs);
 
     is_first_blk = IS_MBC_FIRST_ABLK(allctr, blk);
     is_last_blk = IS_LAST_BLK(blk);
@@ -2527,6 +2744,10 @@ mbc_free(Allctr_t *allctr, void *p, Carrier_t **busy_pcrr_pp)
 	/* Coalesce with previous block... */
 	blk = PREV_BLK(blk);
 	(*allctr->unlink_free_block)(allctr, blk);
+
+        if (discard) {
+            mem_discard_coalesce(allctr, blk, &discard_region);
+        }
 
 	blk_sz += MBC_FBLK_SZ(blk);
 	is_first_blk = IS_MBC_FIRST_FBLK(allctr, blk);
@@ -2543,6 +2764,11 @@ mbc_free(Allctr_t *allctr, void *p, Carrier_t **busy_pcrr_pp)
 	if (IS_FREE_BLK(nxt_blk)) {
 	    /* Coalesce with next block... */
 	    (*allctr->unlink_free_block)(allctr, nxt_blk);
+
+            if (discard) {
+                mem_discard_coalesce(allctr, nxt_blk, &discard_region);
+            }
+
 	    blk_sz += MBC_FBLK_SZ(nxt_blk);
 	    SET_MBC_FBLK_SZ(blk, blk_sz);
 
@@ -2578,16 +2804,22 @@ mbc_free(Allctr_t *allctr, void *p, Carrier_t **busy_pcrr_pp)
     else {
 	(*allctr->link_free_block)(allctr, blk);
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
-        if (busy_pcrr_pp && *busy_pcrr_pp)
+
+        if (discard) {
+            mem_discard_finish(allctr, blk, &discard_region);
+        }
+
+        if (busy_pcrr_pp && *busy_pcrr_pp) {
             update_pooled_tree(allctr, crr, blk_sz);
-        else
+        } else {
             check_abandon_carrier(allctr, blk, busy_pcrr_pp);
+        }
     }
 }
 
 static void *
-mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
-	    Carrier_t **busy_pcrr_pp)
+mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
+            Uint32 alcu_flgs, Carrier_t **busy_pcrr_pp)
 {
     void *new_p;
     Uint old_blk_sz;
@@ -2625,7 +2857,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
         new_blk = UMEM2BLK(new_p);
         ASSERT(!(IS_MBC_BLK(new_blk) && ABLK_TO_MBC(new_blk) == *busy_pcrr_pp));
         sys_memcpy(new_p, p, MIN(size, old_blk_sz - ABLK_HDR_SZ));
-        mbc_free(allctr, p, busy_pcrr_pp);
+        mbc_free(allctr, type, p, busy_pcrr_pp);
         return new_p;
     }
 
@@ -2702,7 +2934,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 	crr = ABLK_TO_MBC(blk);
 
 	ERTS_ALC_CPOOL_REALLOC_OP(allctr);
-	STAT_MBC_BLK_FREE(allctr, crr, NULL, old_blk_sz, alcu_flgs);
+	STAT_MBC_BLK_FREE(allctr, type, crr, NULL, old_blk_sz, alcu_flgs);
 	STAT_MBC_BLK_ALLOC(allctr, crr, blk_sz, alcu_flgs);
 
 	ASSERT(MBC_BLK_SZ(blk) >= allctr->min_block_size);
@@ -2806,7 +3038,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 	    }
 
 	    ERTS_ALC_CPOOL_REALLOC_OP(allctr);
-	    STAT_MBC_BLK_FREE(allctr, crr, NULL, old_blk_sz, alcu_flgs);
+	    STAT_MBC_BLK_FREE(allctr, type, crr, NULL, old_blk_sz, alcu_flgs);
 	    STAT_MBC_BLK_ALLOC(allctr, crr, blk_sz, alcu_flgs);
 
 	    ASSERT(IS_ALLOCED_BLK(blk));
@@ -2867,7 +3099,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 	if (!new_p)
 	    return NULL;
 	sys_memcpy(new_p, p, MIN(size, old_blk_sz - ABLK_HDR_SZ));
-	mbc_free(allctr, p, busy_pcrr_pp);
+	mbc_free(allctr, type, p, busy_pcrr_pp);
 
 	return new_p;
 
@@ -2897,7 +3129,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 			       1);
 	    new_p = BLK2UMEM(new_blk);
 	    sys_memcpy(new_p, p, MIN(size, old_blk_sz - ABLK_HDR_SZ));
-	    mbc_free(allctr, p, NULL);
+	    mbc_free(allctr, type, p, NULL);
 	    return new_p;
 	}
 	else {
@@ -2954,7 +3186,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 			       0);
 
 	    ERTS_ALC_CPOOL_FREE_OP(allctr);
-	    STAT_MBC_BLK_FREE(allctr, crr, NULL, old_blk_sz, alcu_flgs);
+	    STAT_MBC_BLK_FREE(allctr, type, crr, NULL, old_blk_sz, alcu_flgs);
 
 	    return new_p;
 	}
@@ -2965,7 +3197,6 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 
 #define ERTS_ALC_MAX_DEALLOC_CARRIER		10
 #define ERTS_ALC_CPOOL_MAX_FETCH_INSPECT	100
-#define ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT	100
 #define ERTS_ALC_CPOOL_MAX_FAILED_STAT_READS	3
 
 #define ERTS_ALC_CPOOL_PTR_MOD_MRK		(((erts_aint_t) 1) << 0)
@@ -2992,14 +3223,11 @@ typedef union {
 #  error "Carrier pool implementation assumes ERTS_ALC_A_MIN > ERTS_ALC_A_INVALID"
 #endif
 
-/*
- * The pool is only allowed to be manipulated by managed
- * threads except in the alloc_SUITE:cpool case. In this
- * test case carrier_pool[ERTS_ALC_A_INVALID] will be
- * used.
- */
+/* The pools are only allowed to be manipulated by managed threads except in
+ * the alloc_SUITE:cpool test, where only test_carrier_pool is used. */
 
-static ErtsAlcCrrPool_t carrier_pool[ERTS_ALC_A_MAX+1] erts_align_attribute(ERTS_CACHE_LINE_SIZE);
+static ErtsAlcCrrPool_t firstfit_carrier_pool;
+static ErtsAlcCrrPool_t test_carrier_pool;
 
 #define ERTS_ALC_CPOOL_MAX_BACKOFF (1 << 8)
 
@@ -3020,12 +3248,12 @@ backoff(int n)
 static int
 cpool_dbg_is_in_pool(Allctr_t *allctr, Carrier_t *crr)
 {
-    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    ErtsAlcCPoolData_t *sentinel = allctr->cpool.sentinel;
     ErtsAlcCPoolData_t *cpdp = sentinel;
     Carrier_t *tmp_crr;
 
     while (1) {
-	cpdp = (ErtsAlcCPoolData_t *) (erts_atomic_read_ddrb(&cpdp->next) & ~FLG_MASK);
+	cpdp = (ErtsAlcCPoolData_t *) (erts_atomic_read_ddrb(&cpdp->next) & ~CRR_FLG_MASK);
 	if (cpdp == sentinel)
 	    return 0;
 	tmp_crr = (Carrier_t *) (((char *) cpdp) - offsetof(Carrier_t, cpool));
@@ -3037,7 +3265,7 @@ cpool_dbg_is_in_pool(Allctr_t *allctr, Carrier_t *crr)
 static int
 cpool_is_empty(Allctr_t *allctr)
 {
-    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    ErtsAlcCPoolData_t *sentinel = allctr->cpool.sentinel;
     return ((erts_atomic_read_rb(&sentinel->next) == (erts_aint_t) sentinel)
 	    && (erts_atomic_read_rb(&sentinel->prev) == (erts_aint_t) sentinel));
 }
@@ -3127,16 +3355,31 @@ cpool_insert(Allctr_t *allctr, Carrier_t *crr)
 {
     ErtsAlcCPoolData_t *cpd1p, *cpd2p;
     erts_aint_t val;
-    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    ErtsAlcCPoolData_t *sentinel = allctr->cpool.sentinel;
     Allctr_t *orig_allctr = crr->cpool.orig_allctr;
 
-    ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_INVALID /* testcase */
+    ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_TEST /* testcase */
 			  || erts_thr_progress_is_managed_thread());
 
-    erts_atomic_add_nob(&orig_allctr->cpool.stat.blocks_size,
-			(erts_aint_t) crr->cpool.blocks_size);
-    erts_atomic_add_nob(&orig_allctr->cpool.stat.no_blocks,
-			(erts_aint_t) crr->cpool.blocks);
+    {
+        int alloc_no = allctr->alloc_no;
+
+        ERTS_ALC_CPOOL_ASSERT(
+            erts_atomic_read_nob(&orig_allctr->cpool.stat.blocks_size[alloc_no]) >= 0 &&
+            crr->cpool.blocks_size[alloc_no] >= 0);
+
+        ERTS_ALC_CPOOL_ASSERT(
+            erts_atomic_read_nob(&orig_allctr->cpool.stat.no_blocks[alloc_no]) >= 0 &&
+            crr->cpool.blocks[alloc_no] >= 0);
+
+        /* We only modify the counter for our current type since the others are
+         * conceptually still in the pool. */
+        erts_atomic_add_nob(&orig_allctr->cpool.stat.blocks_size[alloc_no],
+                            ((erts_aint_t) crr->cpool.blocks_size[alloc_no]));
+        erts_atomic_add_nob(&orig_allctr->cpool.stat.no_blocks[alloc_no],
+                            ((erts_aint_t) crr->cpool.blocks[alloc_no]));
+    }
+
     erts_atomic_add_nob(&orig_allctr->cpool.stat.carriers_size,
 			(erts_aint_t) CARRIER_SZ(crr));
     erts_atomic_inc_nob(&orig_allctr->cpool.stat.no_carriers);
@@ -3209,10 +3452,10 @@ cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
     ErtsAlcCPoolData_t *cpd1p, *cpd2p;
     erts_aint_t val;
 #ifdef ERTS_ALC_CPOOL_DEBUG
-    ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    ErtsAlcCPoolData_t *sentinel = allctr->cpool.sentinel;
 #endif
 
-    ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_INVALID /* testcase */
+    ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_TEST /* testcase */
 			  || erts_thr_progress_is_managed_thread());
     ERTS_ALC_CPOOL_ASSERT(sentinel != &crr->cpool);
 
@@ -3288,28 +3531,43 @@ cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
 
     crr->cpool.thr_prgr = erts_thr_progress_later(NULL);
 
-    erts_atomic_add_nob(&prev_allctr->cpool.stat.blocks_size,
-			-((erts_aint_t) crr->cpool.blocks_size));
-    erts_atomic_add_nob(&prev_allctr->cpool.stat.no_blocks,
-			-((erts_aint_t) crr->cpool.blocks));
-    erts_atomic_add_nob(&prev_allctr->cpool.stat.carriers_size,
+    {
+        Allctr_t *orig_allctr = crr->cpool.orig_allctr;
+        int alloc_no = allctr->alloc_no;
+
+        ERTS_ALC_CPOOL_ASSERT(orig_allctr == prev_allctr);
+
+        ERTS_ALC_CPOOL_ASSERT(crr->cpool.blocks_size[alloc_no] <=
+            erts_atomic_read_nob(&orig_allctr->cpool.stat.blocks_size[alloc_no]));
+
+        ERTS_ALC_CPOOL_ASSERT(crr->cpool.blocks[alloc_no] <=
+            erts_atomic_read_nob(&orig_allctr->cpool.stat.no_blocks[alloc_no]));
+
+        /* We only modify the counters for our current type since the others
+         * were, conceptually, never taken out of the pool. */
+        erts_atomic_add_nob(&orig_allctr->cpool.stat.blocks_size[alloc_no],
+                            -((erts_aint_t) crr->cpool.blocks_size[alloc_no]));
+        erts_atomic_add_nob(&orig_allctr->cpool.stat.no_blocks[alloc_no],
+                            -((erts_aint_t) crr->cpool.blocks[alloc_no]));
+
+        erts_atomic_add_nob(&orig_allctr->cpool.stat.carriers_size,
 			-((erts_aint_t) CARRIER_SZ(crr)));
-    erts_atomic_dec_wb(&prev_allctr->cpool.stat.no_carriers);
+        erts_atomic_dec_wb(&orig_allctr->cpool.stat.no_carriers);
+    }
 
 }
 
 static Carrier_t *
 cpool_fetch(Allctr_t *allctr, UWord size)
 {
-    enum { IGNORANT, HAS_SEEN_SENTINEL, THE_LAST_ONE } loop_state;
-    int i;
+    int i, seen_sentinel;
     Carrier_t *crr;
     Carrier_t *reinsert_crr = NULL;
     ErtsAlcCPoolData_t *cpdp;
     ErtsAlcCPoolData_t *cpool_entrance = NULL;
     ErtsAlcCPoolData_t *sentinel;
 
-    ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_INVALID /* testcase */
+    ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_TEST /* testcase */
 			  || erts_thr_progress_is_managed_thread());
 
     i = ERTS_ALC_CPOOL_MAX_FETCH_INSPECT;
@@ -3411,48 +3669,39 @@ cpool_fetch(Allctr_t *allctr, UWord size)
     /*
      * Finally search the shared pool and try employ foreign carriers
      */
-    sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    sentinel = allctr->cpool.sentinel;
     if (cpool_entrance) {
         /*
          * We saw a pooled carried above, use it as entrance into the pool
 	 */
-	cpdp = cpool_entrance;
     }
     else {
         /*
-         * No pooled carried seen above. Start search at cpool sentinel,
+         * No pooled carrier seen above. Start search at cpool sentinel,
 	 * but begin by passing one element before trying to fetch.
 	 * This in order to avoid contention with threads inserting elements.
 	 */
-	cpool_entrance = sentinel;
-	cpdp = cpool_aint2cpd(cpool_read(&cpool_entrance->prev));
-	if (cpdp == sentinel)
+        cpool_entrance = cpool_aint2cpd(cpool_read(&sentinel->prev));
+	if (cpool_entrance == sentinel)
 	    goto check_dc_list;
     }
 
-    loop_state = IGNORANT;
+    cpdp = cpool_entrance;
+    seen_sentinel = 0;
     do {
 	erts_aint_t exp;
 	cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-	if (cpdp == cpool_entrance) {
-	    if (cpool_entrance == sentinel) {
-		cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-		if (cpdp == sentinel)
-		    break;
-	    }
-            loop_state = THE_LAST_ONE;
-	}
-	else if (cpdp == sentinel) {
-	    if (loop_state == HAS_SEEN_SENTINEL) {
+        if (cpdp == sentinel) {
+	    if (seen_sentinel) {
 		/* We been here before. cpool_entrance must have been removed */
                 INC_CC(allctr->cpool.stat.entrance_removed);
 		break;
 	    }
-	    cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
-	    if (cpdp == sentinel)
-                break;
-            loop_state = HAS_SEEN_SENTINEL;
+            seen_sentinel = 1;
+            continue;
 	}
+        ASSERT(cpdp != cpool_entrance || seen_sentinel);
+
 	crr = ErtsContainerStruct(cpdp, Carrier_t, cpool);
 	exp = erts_atomic_read_rb(&crr->allctr);
 
@@ -3485,7 +3734,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
             INC_CC(allctr->cpool.stat.fail_shared);
 	    return NULL;
         }
-    }while (loop_state != THE_LAST_ONE);
+    }while (cpdp != cpool_entrance);
 
 check_dc_list:
     /* Last; check our own pending dealloc carrier list... */
@@ -3664,8 +3913,9 @@ cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
     crr->cpool.orig_allctr = allctr;
     crr->cpool.thr_prgr = ERTS_THR_PRGR_INVALID;
     erts_atomic_init_nob(&crr->cpool.max_size, 0);
-    crr->cpool.blocks = 0;
-    crr->cpool.blocks_size = 0;
+    sys_memset(&crr->cpool.blocks_size, 0, sizeof(crr->cpool.blocks_size));
+    sys_memset(&crr->cpool.blocks, 0, sizeof(crr->cpool.blocks));
+    crr->cpool.total_blocks_size = 0;
     if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	crr->cpool.abandon_limit = 0;
     else {
@@ -3680,13 +3930,13 @@ cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
     crr->cpool.state = ERTS_MBC_IS_HOME;
 }
 
-static void
-set_new_allctr_abandon_limit(Allctr_t *allctr)
+
+
+static UWord
+allctr_abandon_limit(Allctr_t *allctr)
 {
     UWord limit;
     UWord csz;
-
-    allctr->cpool.check_limit_count = ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT;
 
     csz = allctr->mbcs.curr.norm.mseg.size;
     csz += allctr->mbcs.curr.norm.sys_alloc.size;
@@ -3697,7 +3947,13 @@ set_new_allctr_abandon_limit(Allctr_t *allctr)
     else
 	limit = (csz/100)*allctr->cpool.util_limit;
 
-    allctr->cpool.abandon_limit = limit;
+    return limit;
+}
+
+static void ERTS_INLINE
+set_new_allctr_abandon_limit(Allctr_t *allctr)
+{
+    allctr->cpool.abandon_limit = allctr_abandon_limit(allctr);
 }
 
 static void
@@ -3709,7 +3965,9 @@ abandon_carrier(Allctr_t *allctr, Carrier_t *crr)
 
     unlink_carrier(&allctr->mbc_list, crr);
     allctr->remove_mbc(allctr, crr);
-    set_new_allctr_abandon_limit(allctr);
+
+    /* Mark our free blocks as unused and reclaimable to the OS. */
+    carrier_mem_discard_free_blocks(allctr, crr);
 
     cpool_insert(allctr, crr);
 
@@ -3762,7 +4020,8 @@ poolify_my_carrier(Allctr_t *allctr, Carrier_t *crr)
 }
 
 static void
-cpool_read_stat(Allctr_t *allctr, UWord *nocp, UWord *cszp, UWord *nobp, UWord *bszp)
+cpool_read_stat(Allctr_t *allctr, int alloc_no,
+                UWord *nocp, UWord *cszp, UWord *nobp, UWord *bszp)
 {
     int i;
     UWord noc = 0, csz = 0, nob = 0, bsz = 0;
@@ -3782,10 +4041,10 @@ cpool_read_stat(Allctr_t *allctr, UWord *nocp, UWord *cszp, UWord *nobp, UWord *
 			? erts_atomic_read_nob(&allctr->cpool.stat.carriers_size)
 			: 0);
 	tnob = (UWord) (nobp
-			? erts_atomic_read_nob(&allctr->cpool.stat.no_blocks)
+			? erts_atomic_read_nob(&allctr->cpool.stat.no_blocks[alloc_no])
 			: 0);
 	tbsz = (UWord) (bszp
-			? erts_atomic_read_nob(&allctr->cpool.stat.blocks_size)
+			? erts_atomic_read_nob(&allctr->cpool.stat.blocks_size[alloc_no])
 			: 0);
 	if (tnoc == noc && tcsz == csz && tnob == nob && tbsz == bsz)
 	    break;
@@ -4040,6 +4299,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 #if HAVE_ERTS_MSEG
     mbc_final_touch:
 #endif
+        set_new_allctr_abandon_limit(allctr);
 
 	blk = MBC_TO_FIRST_BLK(allctr, crr);
 
@@ -4258,7 +4518,6 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
     else {
 	ASSERT(IS_MBC_FIRST_FBLK(allctr, blk));
 	crr = FIRST_BLK_TO_MBC(allctr, blk);
-	crr_sz = CARRIER_SZ(crr);
 
 #ifdef DEBUG
 	if (!allctr->stopped) {
@@ -4290,15 +4549,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 	else
 	{
 	    unlink_carrier(&allctr->mbc_list, crr);
-#if HAVE_ERTS_MSEG
-	    if (IS_MSEG_CARRIER(crr)) {
-		ASSERT(crr_sz % ERTS_SACRR_UNIT_SZ == 0);
-		STAT_MSEG_MBC_FREE(allctr, crr_sz);
-	    }
-	    else
-#endif
-		STAT_SYS_ALLOC_MBC_FREE(allctr, crr_sz);
-
+            STAT_MBC_FREE(allctr, crr);
             if (allctr->remove_mbc)
                 allctr->remove_mbc(allctr, crr);
 	}
@@ -4312,7 +4563,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
             LTTNG5(carrier_destroy,
                 ERTS_ALC_A2AD(allctr->alloc_no),
                 allctr->ix,
-                crr_sz,
+                CARRIER_SZ(crr),
                 mbc_stats,
                 sbc_stats);
         }
@@ -4389,6 +4640,8 @@ static struct {
     Eterm carriers;
     Eterm blocks_size;
     Eterm blocks;
+
+    Eterm foreign_blocks;
 
     Eterm calls;
     Eterm sys_alloc;
@@ -4490,6 +4743,7 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(carriers);
 	AM_INIT(blocks_size);
 	AM_INIT(blocks);
+	AM_INIT(foreign_blocks);
 
 	AM_INIT(calls);
 	AM_INIT(sys_alloc);
@@ -4625,7 +4879,6 @@ sz_info_fix(Allctr_t *allctr,
 		ErtsAlcFixList_t *fix = &allctr->fix[ix];
 		UWord alloced = fix->type_size * fix->u.cpool.allocated;
 		UWord used = fix->type_size * fix->u.cpool.used;
-                ErtsAlcType_t n = ERTS_ALC_N_MIN_A_FIXED_SIZE + ix;
 
 		if (print_to_p) {
 		    fmtfn_t to = *print_to_p;
@@ -4633,14 +4886,14 @@ sz_info_fix(Allctr_t *allctr,
 		    erts_print(to,
 			       arg,
 			       "fix type internal: %s %bpu %bpu\n",
-			       (char *) ERTS_ALC_N2TD(n),
+			       (char *) ERTS_ALC_T2TD(fix->type),
 			       alloced,
 			       used);
 		}
 
 		if (hpp || szp) {
 		    add_3tup(hpp, szp, &res,
-			     alloc_type_atoms[n],
+			     alloc_type_atoms[ERTS_ALC_T2N(fix->type)],
 			     bld_unstable_uint(hpp, szp, alloced),
 			     bld_unstable_uint(hpp, szp, used));
 		}
@@ -4653,7 +4906,6 @@ sz_info_fix(Allctr_t *allctr,
 	    ErtsAlcFixList_t *fix = &allctr->fix[ix];
 	    UWord alloced = fix->type_size * fix->u.nocpool.allocated;
 	    UWord used = fix->type_size*fix->u.nocpool.used;
-            ErtsAlcType_t n = ERTS_ALC_N_MIN_A_FIXED_SIZE + ix;
 
 	    if (print_to_p) {
 		fmtfn_t to = *print_to_p;
@@ -4661,14 +4913,14 @@ sz_info_fix(Allctr_t *allctr,
 		erts_print(to,
 			   arg,
 			   "fix type: %s %bpu %bpu\n",
-			   (char *) ERTS_ALC_N2TD(n),
+			   (char *) ERTS_ALC_T2TD(fix->type),
 			   alloced,
 			   used);
 	    }
 
 	    if (hpp || szp) {
 		add_3tup(hpp, szp, &res,
-			 alloc_type_atoms[n],
+			 alloc_type_atoms[ERTS_ALC_T2N(fix->type)],
 			 bld_unstable_uint(hpp, szp, alloced),
 			 bld_unstable_uint(hpp, szp, used));
 	    }
@@ -4741,9 +4993,9 @@ info_cpool(Allctr_t *allctr,
     noc = csz = nob = bsz = ~0;
     if (print_to_p || hpp) {
 	if (sz_only)
-	    cpool_read_stat(allctr, NULL, &csz, NULL, &bsz);
+	    cpool_read_stat(allctr, allctr->alloc_no, NULL, &csz, NULL, &bsz);
 	else
-	    cpool_read_stat(allctr, &noc, &csz, &nob, &bsz);
+	    cpool_read_stat(allctr, allctr->alloc_no, &noc, &csz, &nob, &bsz);
     }
 
     if (print_to_p) {
@@ -4758,6 +5010,10 @@ info_cpool(Allctr_t *allctr,
     }
 
     if (hpp || szp) {
+        Eterm foreign_blocks;
+        int i;
+
+        foreign_blocks = NIL;
 	res = NIL;
 
       if (!sz_only) {
@@ -4804,22 +5060,61 @@ info_cpool(Allctr_t *allctr,
         add_3tup(hpp, szp, &res, am.entrance_removed,
                  bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.entrance_removed)),
                  bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.entrance_removed)));
+       }
 
 	add_2tup(hpp, szp, &res,
 		 am.carriers_size,
 		 bld_unstable_uint(hpp, szp, csz));
-      }
-	if (!sz_only)
-	    add_2tup(hpp, szp, &res,
-		     am.carriers,
-		     bld_unstable_uint(hpp, szp, noc));
+
+        if (!sz_only) {
+            add_2tup(hpp, szp, &res,
+                     am.carriers,
+                     bld_unstable_uint(hpp, szp, noc));
+        }
+
 	add_2tup(hpp, szp, &res,
 		 am.blocks_size,
 		 bld_unstable_uint(hpp, szp, bsz));
-	if (!sz_only)
+
+	if (!sz_only) {
 	    add_2tup(hpp, szp, &res,
 		     am.blocks,
 		     bld_unstable_uint(hpp, szp, nob));
+        }
+
+        for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
+            const char *name_str;
+            Eterm name, info;
+
+            if (i == allctr->alloc_no) {
+                continue;
+            }
+
+            cpool_read_stat(allctr, i, NULL, NULL, &nob, &bsz);
+
+            if (bsz == 0 && (nob == 0 || sz_only)) {
+                continue;
+            }
+
+            name_str = ERTS_ALC_A2AD(i);
+            info = NIL;
+
+            add_2tup(hpp, szp, &info,
+                     am.blocks_size,
+                     bld_unstable_uint(hpp, szp, bsz));
+
+            if (!sz_only) {
+                add_2tup(hpp, szp, &info,
+                     am.blocks,
+                     bld_unstable_uint(hpp, szp, nob));
+            }
+
+            name = am_atom_put(name_str, sys_strlen(name_str));
+
+            add_2tup(hpp, szp, &foreign_blocks, name, info);
+        }
+
+        add_2tup(hpp, szp, &res, am.foreign_blocks, foreign_blocks);
     }
 
     return res;
@@ -5455,6 +5750,19 @@ erts_alcu_info(Allctr_t *allctr,
     return res;
 }
 
+void
+erts_alcu_foreign_size(Allctr_t *allctr, ErtsAlcType_t alloc_no, AllctrSize_t *size)
+{
+    if (ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
+        UWord csz, bsz;
+        cpool_read_stat(allctr, alloc_no, NULL, &csz, NULL, &bsz);
+        size->carriers = csz;
+        size->blocks = bsz;
+    } else {
+        size->carriers = 0;
+        size->blocks = 0;
+    }
+}
 
 void
 erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size, ErtsAlcUFixInfo_t *fi, int fisz)
@@ -5473,7 +5781,7 @@ erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size, ErtsAlcUFixInfo_t *
 
     if (ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
 	UWord csz, bsz;
-	cpool_read_stat(allctr, NULL, &csz, NULL, &bsz);
+	cpool_read_stat(allctr, allctr->alloc_no, NULL, &csz, NULL, &bsz);
 	size->blocks += bsz;
 	size->carriers += csz;
     }
@@ -5517,6 +5825,11 @@ do_erts_alcu_alloc(ErtsAlcType_t type, Allctr_t *allctr, Uint size)
 		       || erts_lc_mtx_is_locked(&allctr->mutex));
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
+
+    /* Reject sizes that can't fit into the header word. */
+    if (size > ~BLK_FLG_MASK) {
+        return NULL;
+    }
 
 #if ALLOC_ZERO_EQ_NULL
     if (!size)
@@ -5684,12 +5997,11 @@ do_erts_alcu_free(ErtsAlcType_t type, Allctr_t *allctr, void *p,
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
     if (p) {
-
 	INC_CC(allctr->calls.this_free);
 
-	if (allctr->fix) {
+        if (ERTS_ALC_IS_FIX_TYPE(type)) {
 	    if (ERTS_ALC_IS_CPOOL_ENABLED(allctr))
-		fix_cpool_free(allctr, type, p, busy_pcrr_pp, 1);
+		fix_cpool_free(allctr, type, 0, p, busy_pcrr_pp);
 	    else
 		fix_nocpool_free(allctr, type, p);
 	}
@@ -5698,7 +6010,7 @@ do_erts_alcu_free(ErtsAlcType_t type, Allctr_t *allctr, void *p,
 	    if (IS_SBC_BLK(blk))
 		destroy_carrier(allctr, blk, NULL);
 	    else
-		mbc_free(allctr, p, busy_pcrr_pp);
+		mbc_free(allctr, type, p, busy_pcrr_pp);
 	}
     }
 }
@@ -5800,6 +6112,11 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 	return res;
     }
 
+    /* Reject sizes that can't fit into the header word. */
+    if (size > ~BLK_FLG_MASK) {
+        return NULL;
+    }
+
 #if ALLOC_ZERO_EQ_NULL
     if (!size) {
 	ASSERT(p);
@@ -5816,7 +6133,7 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 
     if (size < allctr->sbc_threshold) {
 	if (IS_MBC_BLK(blk))
-	    res = mbc_realloc(allctr, p, size, alcu_flgs, busy_pcrr_pp);
+	    res = mbc_realloc(allctr, type, p, size, alcu_flgs, busy_pcrr_pp);
 	else {
 	    Uint used_sz = SBC_HEADER_SIZE + ABLK_HDR_SZ + size;
 	    Uint crr_sz;
@@ -5875,7 +6192,7 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 		sys_memcpy((void *) res,
 			   (void *) p,
 			   MIN(MBC_ABLK_SZ(blk) - ABLK_HDR_SZ, size));
-		mbc_free(allctr, p, busy_pcrr_pp);
+		mbc_free(allctr, type, p, busy_pcrr_pp);
 	    }
 	    else
 		res = NULL;
@@ -6243,6 +6560,7 @@ int
 erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 {
     /* erts_alcu_start assumes that allctr has been zeroed */
+    int i;
 
     if (((UWord)allctr & ERTS_CRR_ALCTR_FLG_MASK) != 0) {
         erts_exit(ERTS_ABORT_EXIT, "%s:%d:erts_alcu_start: Alignment error\n",
@@ -6266,6 +6584,11 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 
     allctr->ix				= init->ix;
     allctr->alloc_no			= init->alloc_no;
+    allctr->alloc_strat			= init->alloc_strat;
+
+    ASSERT(allctr->alloc_no >= ERTS_ALC_A_MIN &&
+           allctr->alloc_no <= ERTS_ALC_A_MAX);
+
     if (allctr->alloc_no < ERTS_ALC_A_MIN
 	|| ERTS_ALC_A_MAX < allctr->alloc_no)
 	allctr->alloc_no = ERTS_ALC_A_INVALID;
@@ -6318,8 +6641,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 						       + sizeof(FreeBlkFtr_t));
     if (init->tpref) {
 	Uint sz = ABLK_HDR_SZ;
-	sz += (init->fix ? 
-	       sizeof(ErtsAllctrFixDDBlock_t) : sizeof(ErtsAllctrDDBlock_t));
+	sz += sizeof(ErtsAllctrDDBlock_t);
 	sz = UNIT_CEILING(sz);
 	if (sz > allctr->min_block_size)
 	    allctr->min_block_size = sz;
@@ -6330,20 +6652,40 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     allctr->cpool.dc_list.last = NULL;
     allctr->cpool.abandon_limit = 0;
     allctr->cpool.disable_abandon = 0;
-    erts_atomic_init_nob(&allctr->cpool.stat.blocks_size, 0);
-    erts_atomic_init_nob(&allctr->cpool.stat.no_blocks, 0);
+    for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
+        erts_atomic_init_nob(&allctr->cpool.stat.blocks_size[i], 0);
+        erts_atomic_init_nob(&allctr->cpool.stat.no_blocks[i], 0);
+    }
     erts_atomic_init_nob(&allctr->cpool.stat.carriers_size, 0);
     erts_atomic_init_nob(&allctr->cpool.stat.no_carriers, 0);
-    allctr->cpool.check_limit_count = ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT;
     if (!init->ts && init->acul && init->acnl) {
+        ASSERT(allctr->add_mbc);
+        ASSERT(allctr->remove_mbc);
+        ASSERT(allctr->largest_fblk_in_mbc);
+        ASSERT(allctr->first_fblk_in_mbc);
+        ASSERT(allctr->next_fblk_in_mbc);
+
         allctr->cpool.util_limit = init->acul;
         allctr->cpool.in_pool_limit = init->acnl;
         allctr->cpool.fblk_min_limit = init->acfml;
+
+        if (allctr->alloc_strat == ERTS_ALC_S_FIRSTFIT) {
+            allctr->cpool.sentinel = &firstfit_carrier_pool.sentinel;
+        }
+        else if (allctr->alloc_no != ERTS_ALC_A_TEST) {
+            ERTS_INTERNAL_ERROR("Impossible carrier migration config.");
+        }
     }
     else {
         allctr->cpool.util_limit = 0;
         allctr->cpool.in_pool_limit = 0;
         allctr->cpool.fblk_min_limit = 0;
+    }
+
+    /* The invasive tests don't really care whether the pool is enabled or not,
+     * so we need to set this unconditionally for this allocator type. */
+    if (allctr->alloc_no == ERTS_ALC_A_TEST) {
+        allctr->cpool.sentinel = &test_carrier_pool.sentinel;
     }
 
     allctr->sbc_threshold = adjust_sbct(allctr, init->sbct);
@@ -6457,9 +6799,9 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	allctr->fix_shrink_scheduled = 0;
 	for (i = 0; i < ERTS_ALC_NO_FIXED_SIZES; i++) {
 	    allctr->fix[i].type_size = init->fix_type_size[i];
+	    allctr->fix[i].type = ERTS_ALC_N2T(i + ERTS_ALC_N_MIN_A_FIXED_SIZE);
 	    allctr->fix[i].list_size = 0;
 	    allctr->fix[i].list = NULL;
-	    ASSERT(allctr->fix[i].type_size >= sizeof(ErtsAllctrFixDDBlock_t));
 	    if (ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
 		allctr->fix[i].u.cpool.min_list_size = 0;
 		allctr->fix[i].u.cpool.shrink_list = 0;
@@ -6508,12 +6850,16 @@ erts_alcu_stop(Allctr_t *allctr)
 void
 erts_alcu_init(AlcUInit_t *init)
 {
-    int i;
-    for (i = 0; i <= ERTS_ALC_A_MAX; i++) {
-	ErtsAlcCPoolData_t *sentinel = &carrier_pool[i].sentinel;
-	erts_atomic_init_nob(&sentinel->next, (erts_aint_t) sentinel);
-	erts_atomic_init_nob(&sentinel->prev, (erts_aint_t) sentinel);
-    }
+    ErtsAlcCPoolData_t *sentinel;
+
+    sentinel = &firstfit_carrier_pool.sentinel;
+    erts_atomic_init_nob(&sentinel->next, (erts_aint_t) sentinel);
+    erts_atomic_init_nob(&sentinel->prev, (erts_aint_t) sentinel);
+
+    sentinel = &test_carrier_pool.sentinel;
+    erts_atomic_init_nob(&sentinel->next, (erts_aint_t) sentinel);
+    erts_atomic_init_nob(&sentinel->prev, (erts_aint_t) sentinel);
+
     ERTS_CT_ASSERT(SBC_BLK_SZ_MASK == MBC_FBLK_SZ_MASK); /* see BLK_SZ */
 #if HAVE_ERTS_MSEG
     ASSERT(erts_mseg_unit_size() == ERTS_SACRR_UNIT_SZ);
@@ -6523,6 +6869,8 @@ erts_alcu_init(AlcUInit_t *init)
     sys_alloc_carrier_size = ((init->ycs + 4095) / 4096) * 4096;
 #endif
     allow_sys_alloc_carriers = init->sac;
+
+    sys_page_size = erts_sys_get_page_size();
 
 #ifdef DEBUG
     carrier_alignment = sizeof(Unit_t);
@@ -6695,7 +7043,7 @@ static int blockscan_cpool_yielding(blockscan_t *state)
 {
     ErtsAlcCPoolData_t *sentinel, *cursor;
 
-    sentinel = &carrier_pool[(state->allocator)->alloc_no].sentinel;
+    sentinel = (state->allocator)->cpool.sentinel;
     cursor = blockscan_restore_cpool_cursor(state);
 
     if (ERTS_PROC_IS_EXITING(state->process)) {
@@ -6827,11 +7175,8 @@ static int blockscan_sweep_mbcs(blockscan_t *state)
 static int blockscan_sweep_cpool(blockscan_t *state)
 {
     if (state->current_op != blockscan_sweep_cpool) {
-        ErtsAlcCPoolData_t *sentinel;
-
         SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_MBC, state->allocator);
-        sentinel = &carrier_pool[(state->allocator)->alloc_no].sentinel;
-        state->cpool_cursor = sentinel;
+        state->cpool_cursor = (state->allocator)->cpool.sentinel;
     }
 
     state->current_op = blockscan_sweep_cpool;
@@ -7115,11 +7460,14 @@ static int gather_ahist_scan(Allctr_t *allocator,
         alcu_atag_t tag;
 
         block = SBC2BLK(allocator, carrier);
-        tag = GET_BLK_ATAG(block);
 
-        ASSERT(DBG_IS_VALID_ATAG(allocator, tag));
+        if (BLK_HAS_ATAG(block)) {
+            tag = GET_BLK_ATAG(block);
 
-        gather_ahist_update(state, tag, SBC_BLK_SZ(block));
+            ASSERT(DBG_IS_VALID_ATAG(tag));
+
+            gather_ahist_update(state, tag, SBC_BLK_SZ(block));
+        }
     } else {
         UWord scanned_bytes = MBC_HEADER_SIZE(allocator);
 
@@ -7130,10 +7478,10 @@ static int gather_ahist_scan(Allctr_t *allocator,
         while (1) {
             UWord block_size = MBC_BLK_SZ(block);
 
-            if (IS_ALLOCED_BLK(block)) {
+            if (IS_ALLOCED_BLK(block) && BLK_HAS_ATAG(block)) {
                 alcu_atag_t tag = GET_BLK_ATAG(block);
 
-                ASSERT(DBG_IS_VALID_ATAG(allocator, tag));
+                ASSERT(DBG_IS_VALID_ATAG(tag));
 
                 gather_ahist_update(state, tag, block_size);
             }
@@ -7292,8 +7640,6 @@ int erts_alcu_gather_alloc_histograms(Process *p, int allocator_num,
     if (!blockscan_get_specific_allocator(allocator_num,
                                           sched_id,
                                           &allocator)) {
-        return 0;
-    } else if (!allocator->atags) {
         return 0;
     }
 

@@ -31,7 +31,7 @@
     <rev></rev>
   </header>
 
-  <module>xmerl_sax_parser</module>
+  <module since="">xmerl_sax_parser</module>
   <modulesummary>XML SAX parser API</modulesummary>
 
   <description>
@@ -325,7 +325,7 @@
   <funcs>
 
     <func>
-      <name>file(Filename, Options) -> Result</name>
+      <name since="">file(Filename, Options) -> Result</name>
       <fsummary>Parse file containing an XML document.</fsummary>
       <type>
         <v>Filename = string()</v>
@@ -347,7 +347,7 @@
     </func>
 
     <func>
-      <name>stream(Xml, Options) -> Result</name>
+      <name since="">stream(Xml, Options) -> Result</name>
       <fsummary>Parse a stream containing an XML document.</fsummary>
       <type>
         <v>Xml = unicode_binary() | latin1_binary() | [unicode_char()]</v>
@@ -381,7 +381,7 @@
   <funcs>
 
     <func>
-      <name>ContinuationFun(State) -> {NewBytes, NewState}</name>
+      <name since="">ContinuationFun(State) -> {NewBytes, NewState}</name>
       <fsummary>Continuation call back function.</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -402,7 +402,7 @@
     </func>
 
     <func>
-      <name>EventFun(Event, Location, State) -> NewState</name>
+      <name since="">EventFun(Event, Location, State) -> NewState</name>
       <fsummary>Event call back function.</fsummary>
       <type>
         <v>Event = event()</v>

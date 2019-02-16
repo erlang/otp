@@ -47,7 +47,7 @@
 
   <funcs>
     <func>
-      <name><ret>void</ret><nametext>erl_err_msg(FormatStr, ... )</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_err_msg(FormatStr, ... )</nametext></name>
       <fsummary>Non-fatal error, and not system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
@@ -59,7 +59,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_err_quit(FormatStr, ... )</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_err_quit(FormatStr, ... )</nametext></name>
       <fsummary>Fatal error, but not system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
@@ -73,7 +73,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_err_ret(FormatStr, ... )</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_err_ret(FormatStr, ... )</nametext></name>
       <fsummary>Non-fatal system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
@@ -86,7 +86,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_err_sys(FormatStr, ... )</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_err_sys(FormatStr, ... )</nametext></name>
       <fsummary>Fatal system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
@@ -113,7 +113,7 @@
 
   <funcs>
     <func>
-      <name><ret>volatile int</ret><nametext>erl_errno</nametext></name>
+      <name since=""><ret>volatile int</ret><nametext>erl_errno</nametext></name>
       <fsummary>Variable <c>erl_errno</c> contains the
         Erl_Interface error number. You can change the value if you wish.
       </fsummary>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -164,7 +164,7 @@ listen(Port, Opts) ->
 %% Accept
 %%
 accept(L) ->
-    case prim_inet:accept(L) of
+    case prim_inet:accept(L, accept_family_opts()) of
 	{ok, S} ->
 	    inet_db:register_socket(S, ?MODULE),
 	    {ok,S};
@@ -172,12 +172,14 @@ accept(L) ->
     end.
 
 accept(L, Timeout) ->
-    case prim_inet:accept(L, Timeout) of
+    case prim_inet:accept(L, Timeout, accept_family_opts()) of
 	{ok, S} ->
 	    inet_db:register_socket(S, ?MODULE),
 	    {ok,S};
 	Error -> Error
     end.
+
+accept_family_opts() -> [tos, ttl, recvtos, recvttl].
 
 %%
 %% Create a port/socket from a file descriptor 

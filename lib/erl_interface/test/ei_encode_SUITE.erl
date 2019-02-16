@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include("ei_encode_SUITE_data/ei_encode_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          test_ei_encode_long/1,
          test_ei_encode_ulong/1,
          test_ei_encode_longlong/1,
@@ -45,6 +46,9 @@ all() ->
      test_ei_encode_fails, test_ei_encode_utf8_atom,
      test_ei_encode_utf8_atom_len].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
+
 
 %% ---------------------------------------------------------------------------
 
@@ -55,7 +59,7 @@ all() ->
 %% ######################################################################## %%
 
 test_ei_encode_long(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_encode_long),
+    P = runner:start(Config, ?test_ei_encode_long),
 
     {<<97,0>>                        ,0}   = get_buf_and_term(P),
     {<<97,255>>                      ,255} = get_buf_and_term(P),
@@ -77,7 +81,7 @@ test_ei_encode_long(Config) when is_list(Config) ->
 %% ######################################################################## %%
 
 test_ei_encode_ulong(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_encode_ulong),
+    P = runner:start(Config, ?test_ei_encode_ulong),
 
     {<<97,0>>                          ,0}   = get_buf_and_term(P),
     {<<97,255>>                        ,255} = get_buf_and_term(P),
@@ -101,7 +105,7 @@ test_ei_encode_longlong(Config) when is_list(Config) ->
         vxworks ->
             {skip,"Skipped on VxWorks"};
         _ ->
-            P = runner:start(?test_ei_encode_longlong),
+            P = runner:start(Config, ?test_ei_encode_longlong),
 
             {<<97,0>>                        ,0}   = get_buf_and_term(P),
             {<<97,255>>                      ,255} = get_buf_and_term(P),
@@ -132,7 +136,7 @@ test_ei_encode_ulonglong(Config) when is_list(Config) ->
         vxworks ->
             {skip,"Skipped on VxWorks"};
         _ ->
-            P = runner:start(?test_ei_encode_ulonglong),
+            P = runner:start(Config, ?test_ei_encode_ulonglong),
 
             {<<97,0>>                          ,0} = get_buf_and_term(P),
             {<<97,255>>                        ,255} = get_buf_and_term(P),
@@ -158,7 +162,7 @@ test_ei_encode_ulonglong(Config) when is_list(Config) ->
 %% FIXME maybe the API should change to use "unsigned char" to be clear?!
 
 test_ei_encode_char(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_encode_char),
+    P = runner:start(Config, ?test_ei_encode_char),
 
     {<<97,  0>>,0} = get_buf_and_term(P),
     {<<97,127>>,16#7f} = get_buf_and_term(P),
@@ -171,7 +175,7 @@ test_ei_encode_char(Config) when is_list(Config) ->
 %% ######################################################################## %%
 
 test_ei_encode_misc(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_encode_misc),
+    P = runner:start(Config, ?test_ei_encode_misc),
 
     <<131>>  = get_binaries(P),
 
@@ -217,7 +221,7 @@ test_ei_encode_misc(Config) when is_list(Config) ->
 %% ######################################################################## %%
 
 test_ei_encode_fails(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_encode_fails),
+    P = runner:start(Config, ?test_ei_encode_fails),
 
     XAtom = list_to_atom(lists:duplicate(255, $x)),
     YAtom = list_to_atom(lists:duplicate(255, $y)),
@@ -236,7 +240,7 @@ test_ei_encode_fails(Config) when is_list(Config) ->
 %% ######################################################################## %%
 
 test_ei_encode_utf8_atom(Config) ->
-    P = runner:start(?test_ei_encode_utf8_atom),
+    P = runner:start(Config, ?test_ei_encode_utf8_atom),
 
     {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
     {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
@@ -251,7 +255,7 @@ test_ei_encode_utf8_atom(Config) ->
 
 %% ######################################################################## %%
 test_ei_encode_utf8_atom_len(Config) ->
-    P = runner:start(?test_ei_encode_utf8_atom_len),
+    P = runner:start(Config, ?test_ei_encode_utf8_atom_len),
 
     {<<119,2,195,133>>,'Å'} = get_buf_and_term(P),
     {<<119,4,195,133,195,132>>,'ÅÄ'} = get_buf_and_term(P),

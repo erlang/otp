@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>rb.sgml</file>
   </header>
-  <module>rb</module>
+  <module since="">rb</module>
   <modulesummary>The Report Browser Tool</modulesummary>
   <description>
     <p>The Report Browser (RB) tool is used to browse and
@@ -43,8 +43,8 @@
 
   <funcs>
     <func>
-      <name>filter(Filters)</name>
-      <name>filter(Filters, Dates)</name>
+      <name since="OTP R13B04">filter(Filters)</name>
+      <name since="OTP R13B04">filter(Filters, Dates)</name>
       <fsummary>Filters reports and displays them on the screen.</fsummary>
       <type>
         <v>Filters = [filter()]</v>
@@ -86,7 +86,7 @@
     </func>
 
     <func>
-      <name>grep(RegExp)</name>
+      <name since="">grep(RegExp)</name>
       <fsummary>Searches the reports for a regular expression.</fsummary>
       <type>
         <v>RegExp = string() | {string(), Options} | re:mp() | {re:mp(), Options}</v>
@@ -109,8 +109,8 @@
     </func>
 
     <func>
-      <name>h()</name>
-      <name>help()</name>
+      <name since="">h()</name>
+      <name since="">help()</name>
       <fsummary>Displays help information.</fsummary>
       <desc>
         <p>Displays online help information.</p>
@@ -118,8 +118,8 @@
     </func>
 
     <func>
-      <name>list()</name>
-      <name>list(Type)</name>
+      <name since="">list()</name>
+      <name since="">list(Type)</name>
       <fsummary>Lists all reports.</fsummary>
       <type>
         <v>Type = type()</v>
@@ -137,8 +137,8 @@
     </func>
 
     <func>
-      <name>log_list()</name>
-      <name>log_list(Type)</name>
+      <name since="OTP R16B02">log_list()</name>
+      <name since="OTP R16B02">log_list(Type)</name>
       <fsummary>Logs report lists.</fsummary>
       <type>
         <v>Type = type()</v>
@@ -157,8 +157,8 @@
     </func>
 
     <func>
-      <name>rescan()</name>
-      <name>rescan(Options)</name>
+      <name since="">rescan()</name>
+      <name since="">rescan(Options)</name>
       <fsummary>Rescans the report directory.</fsummary>
       <type>
         <v>Options = [opt()]</v>
@@ -171,8 +171,8 @@
     </func>
 
     <func>
-      <name>show()</name>
-      <name>show(Report)</name>
+      <name since="">show()</name>
+      <name since="">show(Report)</name>
       <fsummary>Displays reports.</fsummary>
       <type>
         <v>Report = integer() | type()</v>
@@ -186,8 +186,8 @@
     </func>
 
     <func>
-      <name>start()</name>
-      <name>start(Options)</name>
+      <name since="">start()</name>
+      <name since="">start(Options)</name>
       <fsummary>Starts the <c>rb_server</c>.</fsummary>
       <type>
         <v>Options = [opt()]</v>
@@ -256,7 +256,7 @@
     </func>
 
     <func>
-      <name>start_log(FileName)</name>
+      <name since="">start_log(FileName)</name>
       <fsummary>Redirects all output to <c>FileName</c>.</fsummary>
       <type>
         <v>FileName = string() | atom() | pid()</v>
@@ -268,7 +268,7 @@
     </func>
 
     <func>
-      <name>stop()</name>
+      <name since="">stop()</name>
       <fsummary>Stops the <c>rb_server</c>.</fsummary>
       <desc>
         <p>Stops <c>rb_server</c>.</p>
@@ -276,7 +276,7 @@
     </func>
 
     <func>
-      <name>stop_log()</name>
+      <name since="">stop_log()</name>
       <fsummary>Stops logging to file.</fsummary>
       <desc>
         <p>Closes the log file. The output from the RB tool is

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -434,6 +434,18 @@ default(client) ->
             class => user_options
            },
 
+%%% Not yet implemented      {ed25519_pass_phrase, def} =>
+%%% Not yet implemented          #{default => undefined,
+%%% Not yet implemented            chk => fun check_string/1,
+%%% Not yet implemented            class => user_options
+%%% Not yet implemented           },
+%%% Not yet implemented
+%%% Not yet implemented      {ed448_pass_phrase, def} =>
+%%% Not yet implemented          #{default => undefined,
+%%% Not yet implemented            chk => fun check_string/1,
+%%% Not yet implemented            class => user_options
+%%% Not yet implemented           },
+%%% Not yet implemented
       {silently_accept_hosts, def} =>
           #{default => false,
             chk => fun check_silently_accept_hosts/1,
@@ -449,12 +461,6 @@ default(client) ->
       {save_accepted_host, def} =>
           #{default => true,
             chk => fun erlang:is_boolean/1,
-            class => user_options
-           },
-
-      {pref_public_key_algs, def} =>
-          #{default => ssh_transport:default_algorithms(public_key),
-            chk => fun check_pref_public_key_algs/1,
             class => user_options
            },
 
@@ -522,6 +528,12 @@ default(common) ->
              chk => fun(V) -> check_string(V) andalso check_dir(V) end,
              class => user_options
             },
+
+      {pref_public_key_algs, def} =>
+          #{default => ssh_transport:default_algorithms(public_key),
+            chk => fun check_pref_public_key_algs/1,
+            class => user_options
+           },
 
        {preferred_algorithms, def} =>
            #{default => ssh:default_algorithms(),

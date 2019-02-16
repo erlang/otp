@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_error_logger.xml</file>
   </header>
-  <module>snmpa_error_logger</module>
+  <module since="">snmpa_error_logger</module>
   <modulesummary>Functions for Reporting SNMP Errors through the error_logger</modulesummary>
   <description>
     <p>The module <c>snmpa_error_logger</c> implements the 
@@ -54,7 +54,7 @@
   </description>
   <funcs>
     <func>
-      <name>config_err(Format, Args) -> void()</name>
+      <name since="">config_err(Format, Args) -> void()</name>
       <fsummary>Called if a configuration error occurs</fsummary>
       <type>
         <v>Format = string()</v>
@@ -70,7 +70,7 @@
       </desc>
     </func>
     <func>
-      <name>user_err(Format, Args) -> void()</name>
+      <name since="">user_err(Format, Args) -> void()</name>
       <fsummary>Called if a user related error occurs</fsummary>
       <type>
         <v>Format = string()</v>

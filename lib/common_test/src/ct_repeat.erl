@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework module that handles repeated test runs
+%%% doc Common Test Framework module that handles repeated test runs
 %%%
-%%% <p>This module exports functions for repeating tests. The following
+%%% This module exports functions for repeating tests. The following
 %%% start flags (or equivalent ct:run_test/1 options) are supported:
 %%% -until <StopTime>, StopTime = YYMoMoDDHHMMSS | HHMMSS
 %%% -duration <DurTime>, DurTime = HHMMSS
 %%% -force_stop [skip_rest]
-%%% -repeat <N>, N = integer()</p>
+%%% -repeat <N>, N = integer()
 
 -module(ct_repeat).
 
@@ -278,7 +278,7 @@ log_loop_info(Args) ->
 		    ForceStop ->
 			io_lib:format("force_stop is set to: ~w",[ForceStop])
 		end,			
-	    ct_logs:log("Test loop info",LogStr1++LogStr2++LogStr3++LogStr4,[])
+	    ct_logs:log("Test loop info","~ts", [LogStr1++LogStr2++LogStr3++LogStr4])
     end.
 
 ts(Secs) ->

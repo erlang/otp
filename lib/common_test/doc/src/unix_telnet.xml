@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>unix_telnet.xml</file>
   </header>
-  <module>unix_telnet</module>
+  <module since="">unix_telnet</module>
   <modulesummary>Callback module for ct_telnet, for connecting to a Telnet
     server on a UNIX host.</modulesummary>
 
@@ -80,7 +80,7 @@
 
   <funcs>
     <func>
-      <name>connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="OTP 18.3.3">connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Callback for ct_telnet.erl.</fsummary>
         <type>
           <v>ConnName = target_name()</v>
@@ -107,7 +107,7 @@
     </func>
 
     <func>
-      <name>get_prompt_regexp() -&gt; PromptRegexp</name>
+      <name since="">get_prompt_regexp() -&gt; PromptRegexp</name>
       <fsummary>Callback for ct_telnet.erl.</fsummary>
         <type>
           <v>PromptRegexp = prompt_regexp()</v>

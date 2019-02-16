@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2486,7 +2486,8 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     enum ErlNifSelectFlags mode;
     void* obj;
     ErlNifPid nifpid, *pid = NULL;
-    ERL_NIF_TERM ref;
+    ERL_NIF_TERM ref_or_msg;
+    ErlNifEnv* msg_env = NULL;
     int retval;
 
     if (!get_fd(env, argv[0], &fdr)
@@ -2501,11 +2502,27 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	    return enif_make_badarg(env);
 	pid = &nifpid;
     }
-    ref = argv[4];
+    ref_or_msg = argv[4];
+    if (argv[5] != atom_null) {
+        msg_env = enif_alloc_env();
+        ref_or_msg = enif_make_copy(msg_env, ref_or_msg);
+    }
 
     fdr->was_selected = 1;
     enif_self(env, &fdr->pid);
-    retval = enif_select(env, fdr->fd, mode, obj, pid, ref);
+    switch (mode) {
+    case ERL_NIF_SELECT_CUSTOM_MSG | ERL_NIF_SELECT_READ:
+        retval = enif_select_read(env, fdr->fd, obj, pid, ref_or_msg, msg_env);
+        break;
+    case ERL_NIF_SELECT_CUSTOM_MSG | ERL_NIF_SELECT_WRITE:
+        retval = enif_select_write(env, fdr->fd, obj, pid, ref_or_msg, msg_env);
+        break;
+    default:
+        retval = enif_select(env, fdr->fd, mode, obj, pid, ref_or_msg);
+    }
+
+    if (msg_env)
+        enif_free_env(msg_env);
 
     return enif_make_int(env, retval);
 }
@@ -2828,6 +2845,16 @@ static ERL_NIF_TERM compare_monitors_nif(ErlNifEnv* env, int argc, const ERL_NIF
     }
 
     return enif_make_int(env, enif_compare_monitors(&m1, &m2));
+}
+
+static ERL_NIF_TERM make_monitor_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifMonitor m;
+    if (!get_monitor(env, argv[0], &m)) {
+        return enif_make_badarg(env);
+    }
+
+    return enif_make_monitor_term(env, &m);
 }
 
 
@@ -3565,7 +3592,7 @@ static ErlNifFunc nif_funcs[] =
     {"binary_to_term_nif", 3, binary_to_term},
     {"port_command_nif", 2, port_command},
     {"format_term_nif", 2, format_term},
-    {"select_nif", 5, select_nif},
+    {"select_nif", 6, select_nif},
 #ifndef __WIN32__
     {"pipe_nif", 0, pipe_nif},
     {"write_nif", 2, write_nif},
@@ -3579,6 +3606,7 @@ static ErlNifFunc nif_funcs[] =
     {"monitor_process_nif", 4, monitor_process_nif},
     {"demonitor_process_nif", 2, demonitor_process_nif},
     {"compare_monitors_nif", 2, compare_monitors_nif},
+    {"make_monitor_term_nif", 1, make_monitor_term_nif},
     {"monitor_frenzy_nif", 4, monitor_frenzy_nif},
     {"whereis_send", 3, whereis_send},
     {"whereis_term", 2, whereis_term},

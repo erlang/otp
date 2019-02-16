@@ -112,12 +112,6 @@ get_vars([], name, [], Result) ->
 get_vars(_, _, _, _) ->
     {error, fatal_bad_conf_vars}.
 
-config_flags() ->
-    case os:getenv("CONFIG_FLAGS") of
-	false -> [];
-	CF -> string:lexemes(CF, " \t\n")
-    end.
-
 unix_autoconf(XConf) ->
     Configure = filename:absname("configure"),
     Flags = proplists:get_value(crossflags,XConf,[]),
@@ -128,7 +122,7 @@ unix_autoconf(XConf) ->
 		  erlang:system_info(threads) /= false],
     Debug = [" --enable-debug-mode" ||
 		string:find(erlang:system_info(system_version),"debug") =/= nomatch],
-    MXX_Build = [Y || Y <- config_flags(),
+    MXX_Build = [Y || Y <- string:lexemes(os:getenv("CONFIG_FLAGS", ""), " \t\n"),
 		      Y == "--enable-m64-build"
 			  orelse Y == "--enable-m32-build"],
     Args = Host ++ Build ++ Threads ++ Debug ++ " " ++ MXX_Build,
@@ -164,7 +158,7 @@ assign_vars(FlagsStr) ->
 
 assign_all_vars([$$ | Rest], FlagSoFar) ->
     {VarName,Rest1} = get_var_name(Rest, []),
-    assign_all_vars(Rest1, FlagSoFar ++ assign_var(VarName));
+    assign_all_vars(Rest1, FlagSoFar ++ os:getenv(VarName, ""));
 assign_all_vars([Char | Rest], FlagSoFar) ->
     assign_all_vars(Rest, FlagSoFar ++ [Char]);
 assign_all_vars([], Flag) ->
@@ -177,12 +171,6 @@ get_var_name([Ch | Rest] = Str, VarR) ->
     end;
 get_var_name([], VarR) ->
     {lists:reverse(VarR),[]}.
-	    
-assign_var(VarName) ->
-    case os:getenv(VarName) of
-	false -> "";
-	Val   -> Val
-    end.
 
 valid_char(Ch) when Ch >= $a, Ch =< $z -> true;
 valid_char(Ch) when Ch >= $A, Ch =< $Z -> true;
@@ -280,7 +268,7 @@ add_vars(Vars0, Opts0) ->
     {Opts, [{longnames, LongNames},
 	    {platform_id, PlatformId},
 	    {platform_filename, PlatformFilename},
-	    {rsh_name, get_rsh_name()},
+	    {rsh_name, os:getenv("ERL_RSH", "rsh")},
 	    {platform_label, PlatformLabel},
 	    {ts_net_dir, Mounted},
 	    {erl_flags, []},
@@ -301,16 +289,10 @@ get_testcase_callback() ->
 	    end
     end.
 
-get_rsh_name() ->
-    case os:getenv("ERL_RSH") of
-	false -> "rsh";
-	Str -> Str
-    end.
-
 platform_id(Vars) ->
     {Id,_,_,_} = platform(Vars),
     Id.
-    
+
 platform(Vars) ->
     Hostname = hostname(),
 

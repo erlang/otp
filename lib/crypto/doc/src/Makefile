@@ -39,7 +39,7 @@ XML_REF3_FILES = crypto.xml
 XML_REF6_FILES = crypto_app.xml
 
 XML_PART_FILES = usersguide.xml
-XML_CHAPTER_FILES = notes.xml licenses.xml fips.xml engine_load.xml engine_keys.xml
+XML_CHAPTER_FILES = notes.xml licenses.xml fips.xml engine_load.xml engine_keys.xml algorithm_details.xml
 
 BOOK_FILES = book.xml
 
@@ -62,10 +62,16 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 XML_FLAGS +=
+
+#in ssh it looks like this: SPECS_FLAGS = -I../../../public_key/include -I../../../public_key/src -I../../..
 
 # ----------------------------------------------------
 # Targets
@@ -89,9 +95,11 @@ debug opt valgrind:
 
 clean clean_docs clean_tex:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f $(SPECS_FILES)
 	rm -f errs core *~
 
 # ----------------------------------------------------

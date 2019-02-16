@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 -module(beam_jump).
 
 -export([module/2,
-	 is_unreachable_after/1,is_exit_instruction/1,
+	 is_exit_instruction/1,
 	 remove_unused_labels/1]).
 
 %%% The following optimisations are done:
@@ -101,6 +101,10 @@
 %%%      always keep the label. (beam_clean will remove any unused
 %%%      labels.)
 %%%
+%%% (7)  Replace a jump to a return instruction with a return instruction.
+%%%      Similarly, replace a jump to deallocate + return with those
+%%%      instructions.
+%%%
 %%% Note: This modules depends on (almost) all branches and jumps only
 %%% going forward, so that we can remove instructions (including definition
 %%% of labels) after any label that has not been referenced by the code
@@ -128,27 +132,132 @@
 %%% on the program state.
 %%% 
 
--import(lists, [reverse/1,reverse/2,foldl/3]).
+-import(lists, [foldl/3,mapfoldl/3,reverse/1,reverse/2]).
 
 -type instruction() :: beam_utils:instruction().
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
-module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
-    Fs = [function(F) || F <- Fs0],
+module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
+    {Fs,Lc} = mapfoldl(fun function/2, Lc0, Fs0),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% function(Function) -> Function'
 %%  Optimize jumps and branches.
 %%
 %%  NOTE: This function assumes that there are no labels inside blocks.
-function({function,Name,Arity,CLabel,Asm0}) ->
-    Asm1 = share(Asm0),
-    Asm2 = move(Asm1),
-    Asm3 = opt(Asm2, CLabel),
-    Asm = remove_unused_labels(Asm3),
-    {function,Name,Arity,CLabel,Asm}.
+function({function,Name,Arity,CLabel,Asm0}, Lc0) ->
+    try
+        Asm1 = eliminate_moves(Asm0),
+        {Asm2,Lc} = insert_labels(Asm1, Lc0, []),
+        Asm3 = share(Asm2),
+        Asm4 = move(Asm3),
+        Asm5 = opt(Asm4, CLabel),
+        Asm6 = unshare(Asm5),
+        Asm = remove_unused_labels(Asm6),
+        {{function,Name,Arity,CLabel,Asm},Lc}
+    catch
+        Class:Error:Stack ->
+	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
+	    erlang:raise(Class, Error, Stack)
+    end.
+
+%%%
+%%% Scan instructions in execution order and remove redundant 'move'
+%%% instructions. 'move' instructions are redundant if we know that
+%%% the register already contains the value being assigned, as in the
+%%% following code:
+%%%
+%%%           select_val Register FailLabel [... Literal => L1...]
+%%%                      .
+%%%                      .
+%%%                      .
+%%%   L1:     move Literal Register
+%%%
+
+eliminate_moves(Is) ->
+    eliminate_moves(Is, #{}, []).
+
+eliminate_moves([{select,select_val,Reg,_,List}=I|Is], D0, Acc) ->
+    D = update_value_dict(List, Reg, D0),
+    eliminate_moves(Is, D, [I|Acc]);
+eliminate_moves([{test,is_eq_exact,_,[Reg,Val]}=I,
+                 {block,BlkIs0}|Is], D0, Acc) ->
+    D = update_unsafe_labels(I, D0),
+    RegVal = {Reg,Val},
+    BlkIs = eliminate_moves_blk(BlkIs0, RegVal),
+    eliminate_moves([{block,BlkIs}|Is], D, [I|Acc]);
+eliminate_moves([{label,Lbl},{block,BlkIs0}=Blk|Is], D, Acc0) ->
+    Acc = [{label,Lbl}|Acc0],
+    case {no_fallthrough(Acc0),D} of
+        {true,#{Lbl:={_,_}=RegVal}} ->
+            BlkIs = eliminate_moves_blk(BlkIs0, RegVal),
+            eliminate_moves([{block,BlkIs}|Is], D, Acc);
+        {_,_} ->
+            eliminate_moves([Blk|Is], D, Acc)
+    end;
+eliminate_moves([{block,[]}|Is], D, Acc) ->
+    %% Empty blocks can prevent further jump optimizations.
+    eliminate_moves(Is, D, Acc);
+eliminate_moves([I|Is], D0, Acc) ->
+    D = update_unsafe_labels(I, D0),
+    eliminate_moves(Is, D, [I|Acc]);
+eliminate_moves([], _, Acc) -> reverse(Acc).
+
+eliminate_moves_blk([{set,[Dst],[_],move}|_]=Is, {_,Dst}) ->
+    Is;
+eliminate_moves_blk([{set,[Dst],[Lit],move}|Is], {Dst,Lit}) ->
+    %% Remove redundant 'move' instruction.
+    Is;
+eliminate_moves_blk([{set,[Dst],[_],move}|_]=Is, {Dst,_}) ->
+    Is;
+eliminate_moves_blk([{set,[_],[_],move}=I|Is], {_,_}=RegVal) ->
+    [I|eliminate_moves_blk(Is, RegVal)];
+eliminate_moves_blk(Is, _) -> Is.
+
+no_fallthrough([I|_]) ->
+    is_unreachable_after(I).
+
+update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
+    D = case D0 of
+            #{Lbl:=unsafe} -> D0;
+            #{Lbl:={Reg,Lit}} -> D0;
+            #{Lbl:=_} -> D0#{Lbl:=unsafe};
+            #{} -> D0#{Lbl=>{Reg,Lit}}
+        end,
+    update_value_dict(T, Reg, D);
+update_value_dict([], _, D) -> D.
+
+update_unsafe_labels(I, D) ->
+    Ls = instr_labels(I),
+    update_unsafe_labels_1(Ls, D).
+
+update_unsafe_labels_1([L|Ls], D) ->
+    update_unsafe_labels_1(Ls, D#{L=>unsafe});
+update_unsafe_labels_1([], D) -> D.
+
+%%%
+%%% It seems to be useful to insert extra labels after certain
+%%% test instructions. This used to be done by beam_dead.
+%%%
+
+insert_labels([{test,Op,_,_}=I|Is], Lc, Acc) ->
+    Useful = case Op of
+                 is_lt -> true;
+                 is_ge -> true;
+                 is_eq_exact -> true;
+                 is_ne_exact -> true;
+                 _ -> false
+             end,
+    case Useful of
+	false -> insert_labels(Is, Lc, [I|Acc]);
+	true -> insert_labels(Is, Lc+1, [{label,Lc},I|Acc])
+    end;
+insert_labels([I|Is], Lc, Acc) ->
+    insert_labels(Is, Lc, [I|Acc]);
+insert_labels([], Lc, Acc) ->
+    {reverse(Acc),Lc}.
 
 %%%
 %%% (1) We try to share the code for identical code segments by replacing all
@@ -164,17 +273,19 @@ share(Is0) ->
 
 share_1([{label,L}=Lbl|Is], Dict0, Lbls0, [_|_]=Seq, Acc) ->
     case maps:find(Seq, Dict0) of
-	error ->
-	    Dict = maps:put(Seq, L, Dict0),
-	    share_1(Is, Dict, Lbls0, [], [Lbl|Seq ++ Acc]);
-	{ok,Label} ->
+        error ->
+            Dict = maps:put(Seq, L, Dict0),
+            share_1(Is, Dict, Lbls0, [], [[Lbl|Seq]|Acc]);
+        {ok,Label} ->
             Lbls = maps:put(L, Label, Lbls0),
-	    share_1(Is, Dict0, Lbls, [], [Lbl,{jump,{f,Label}}|Acc])
+            share_1(Is, Dict0, Lbls, [], [[Lbl,{jump,{f,Label}}]|Acc])
     end;
-share_1([{func_info,_,_,_}|_]=Is, _, Lbls, [], Acc) when Lbls =/= #{} ->
-    beam_utils:replace_labels(Acc, Is, Lbls, fun(Old) -> Old end);
+share_1([{func_info,_,_,_}|_]=Is0, _, Lbls, [], Acc0) when Lbls =/= #{} ->
+    lists:foldl(fun(Is, Acc) ->
+        beam_utils:replace_labels(Is, Acc, Lbls, fun(Old) -> Old end)
+    end, Is0, Acc0);
 share_1([{func_info,_,_,_}|_]=Is, _, Lbls, [], Acc) when Lbls =:= #{} ->
-    reverse(Acc, Is);
+    lists:foldl(fun lists:reverse/2, Is, Acc);
 share_1([{'catch',_,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
     {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
     share_1(Is, Dict, Lbls, [I|Seq], Acc);
@@ -187,6 +298,9 @@ share_1([{try_case,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
 share_1([{catch_end,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
     {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
     share_1(Is, Dict, Lbls, [I|Seq], Acc);
+share_1([{jump,{f,To}}=I,{label,L}=Lbl|Is], Dict0, Lbls0, _Seq, Acc) ->
+    Lbls = maps:put(L, To, Lbls0),
+    share_1(Is, Dict0, Lbls, [], [[Lbl,I]|Acc]);
 share_1([I|Is], Dict, Lbls, Seq, Acc) ->
     case is_unreachable_after(I) of
 	false ->
@@ -266,8 +380,6 @@ extract_seq([{line,_}=Line|Is], Acc) ->
     extract_seq(Is, [Line|Acc]);
 extract_seq([{block,_}=Bl|Is], Acc) ->
     extract_seq_1(Is, [Bl|Acc]);
-extract_seq([{bs_context_to_binary,_}=I|Is], Acc) ->
-    extract_seq_1(Is, [I|Acc]);
 extract_seq([{label,_}|_]=Is, Acc) ->
     extract_seq_1(Is, Acc);
 extract_seq(_, _) -> no.
@@ -291,14 +403,13 @@ extract_seq_1(_, _) -> no.
 	{
 	  entry :: beam_asm:label(), %Entry label (must not be moved).
 	  replace :: #{beam_asm:label() := beam_asm:label()}, %Labels to replace.
-	  labels :: cerl_sets:set(),         %Set of referenced labels.
-          index :: beam_utils:code_index() | {lazy,[beam_utils:instruction()]} %Index built lazily only if needed
+	  labels :: cerl_sets:set()         %Set of referenced labels.
 	}).
 
 opt(Is0, CLabel) ->
     find_fixpoint(fun(Is) ->
 			  Lbls = initial_labels(Is),
-			  St = #st{entry=CLabel,replace=#{},labels=Lbls,index={lazy,Is}},
+			  St = #st{entry=CLabel,replace=#{},labels=Lbls},
 			  opt(Is, [], St)
 		  end, Is0).
 
@@ -308,7 +419,7 @@ find_fixpoint(OptFun, Is0) ->
 	Is -> find_fixpoint(OptFun, Is)
     end.
 
-opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc0, St0) ->
+opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc, St) ->
     %% We have
     %%    Test Label Ops
     %%    jump Label
@@ -317,23 +428,10 @@ opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc0, St0) ->
     case beam_utils:is_pure_test(I) of
 	false ->
 	    %% Test is not pure; we must keep it.
-	    opt(Is, [I|Acc0], label_used(Lbl, St0));
+	    opt(Is, [I|Acc], label_used(Lbl, St));
 	true ->
 	    %% The test is pure and its failure label is the same
 	    %% as in the jump that follows -- thus it is not needed.
-            %% Check if any of the previous instructions could also be eliminated.
-            {Acc,St} = opt_useless_loads(Acc0, L, St0),
-	    opt(Is, Acc, St)
-    end;
-opt([{test,_,{f,L}=Lbl,_}=I|[{label,L}|_]=Is], Acc0, St0) ->
-    %% Similar to the above, except we have a fall-through rather than jump
-    %%    Test Label Ops
-    %%    label Label
-    case beam_utils:is_pure_test(I) of
-	false ->
-	    opt(Is, [I|Acc0], label_used(Lbl, St0));
-	true ->
-            {Acc,St} = opt_useless_loads(Acc0, L, St0),
 	    opt(Is, Acc, St)
     end;
 opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
@@ -399,46 +497,6 @@ normalize_replace([{From,To0}|Rest], Replace, Acc) ->
     end;
 normalize_replace([], _Replace, Acc) ->
     maps:from_list(Acc).
-
-%% After eliminating a test, it might happen, that a register was only used
-%% in this test. Let's check if that was the case and if it was so, we can
-%% eliminate the load into the register completely.
-opt_useless_loads([{block,_}|_]=Is, L, #st{index={lazy,FIs}}=St) ->
-    opt_useless_loads(Is, L, St#st{index=beam_utils:index_labels(FIs)});
-opt_useless_loads([{block,Block0}|Is], L, #st{index=Index}=St) ->
-    case opt_useless_block_loads(Block0, L, Index) of
-        [] ->
-            opt_useless_loads(Is, L, St);
-        [_|_]=Block ->
-            {[{block,Block}|Is],St}
-    end;
-%% After eliminating the test and useless blocks, it might happen,
-%% that the previous test could also be eliminated.
-%% It might be that the label was already marked as used, even if ultimately,
-%% it never will be - we can't do much about it at that point, though
-opt_useless_loads([{test,_,{f,L},_}=I|Is], L, St) ->
-    case beam_utils:is_pure_test(I) of
-        false ->
-            {[I|Is],St};
-        true ->
-            opt_useless_loads(Is, L, St)
-    end;
-opt_useless_loads(Is, _L, St) ->
-    {Is,St}.
-
-opt_useless_block_loads([{set,[Dst],_,_}=I|Is], L, Index) ->
-    BlockJump = [{block,Is},{jump,{f,L}}],
-    case beam_utils:is_killed(Dst, BlockJump, Index) of
-        true ->
-            %% The register is killed and not used, we can remove the load
-            opt_useless_block_loads(Is, L, Index);
-        false ->
-            [I|opt_useless_block_loads(Is, L, Index)]
-    end;
-opt_useless_block_loads([I|Is], L, Index) ->
-    [I|opt_useless_block_loads(Is, L, Index)];
-opt_useless_block_loads([], _L, _Index) ->
-    [].
 
 collect_labels(Is, Label, #st{entry=Entry,replace=Replace} = St) ->
     collect_labels_1(Is, Label, Entry, Replace, St).
@@ -566,52 +624,109 @@ drop_upto_label([{label,_}|_]=Is) -> Is;
 drop_upto_label([_|Is]) -> drop_upto_label(Is);
 drop_upto_label([]) -> [].
 
-%% ulbl(Instruction, UsedGbSet) -> UsedGbSet'
-%%  Update the gb_set UsedGbSet with any function-local labels
+%% unshare([Instruction]) -> [Instruction].
+%%  Replace a jump to a return sequence (a `return` instruction
+%%  optionally preced by a `deallocate` instruction) with the return
+%%  sequence. This always saves execution time and may also save code
+%%  space (depending on the architecture). Eliminating `jump`
+%%  instructions also gives beam_trim more opportunities to trim the
+%%  stack.
+
+unshare(Is) ->
+    Short = unshare_collect_short(Is, #{}),
+    unshare_short(Is, Short).
+
+unshare_collect_short([{label,L},return|Is], Map) ->
+    unshare_collect_short(Is, Map#{L=>[return]});
+unshare_collect_short([{label,L},{deallocate,_}=D,return|Is], Map) ->
+    %% `deallocate` and `return` are combined into one instruction by
+    %% the loader.
+    unshare_collect_short(Is, Map#{L=>[D,return]});
+unshare_collect_short([_|Is], Map) ->
+    unshare_collect_short(Is, Map);
+unshare_collect_short([], Map) -> Map.
+
+unshare_short([{jump,{f,F}}=I|Is], Map) ->
+    case Map of
+        #{F:=Seq} ->
+            Seq ++ unshare_short(Is, Map);
+        #{} ->
+            [I|unshare_short(Is, Map)]
+    end;
+unshare_short([I|Is], Map) ->
+    [I|unshare_short(Is, Map)];
+unshare_short([], _Map) -> [].
+
+%% ulbl(Instruction, UsedCerlSet) -> UsedCerlSet'
+%%  Update the cerl_set UsedCerlSet with any function-local labels
 %%  (i.e. not with labels in call instructions) referenced by
 %%  the instruction Instruction.
 %%
 %%  NOTE: This function does NOT look for labels inside blocks.
 
-ulbl({test,_,Fail,_}, Used) ->
-    mark_used(Fail, Used);
-ulbl({test,_,Fail,_,_,_}, Used) ->
-    mark_used(Fail, Used);
-ulbl({select,_,_,Fail,Vls}, Used) ->
-    mark_used_list(Vls, mark_used(Fail, Used));
-ulbl({'try',_,Lbl}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({'catch',_,Lbl}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({jump,Lbl}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({loop_rec,Lbl,_}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({loop_rec_end,Lbl}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({wait,Lbl}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({wait_timeout,Lbl,_To}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({bif,_Name,Lbl,_As,_R}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({gc_bif,_Name,Lbl,_Live,_As,_R}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({bs_init,Lbl,_,_,_,_}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({bs_put,Lbl,_,_}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({get_map_elements,Lbl,_Src,_List}, Used) ->
-    mark_used(Lbl, Used);
-ulbl(_, Used) -> Used.
+ulbl(I, Used) ->
+    case instr_labels(I) of
+        [] ->
+            Used;
+        [Lbl] ->
+            cerl_sets:add_element(Lbl, Used);
+        [_|_]=L ->
+            ulbl_list(L, Used)
+    end.
 
-mark_used({f,0}, Used) -> Used;
-mark_used({f,L}, Used) -> cerl_sets:add_element(L, Used).
+ulbl_list([L|Ls], Used) ->
+    ulbl_list(Ls, cerl_sets:add_element(L, Used));
+ulbl_list([], Used) -> Used.
 
-mark_used_list([{f,L}|T], Used) ->
-    mark_used_list(T, cerl_sets:add_element(L, Used));
-mark_used_list([_|T], Used) ->
-    mark_used_list(T, Used);
-mark_used_list([], Used) -> Used.
+-spec instr_labels(Instruction) -> Labels when
+      Instruction :: instruction(),
+      Labels :: [beam_asm:label()].
+
+instr_labels({test,_,Fail,_}) ->
+    do_instr_labels(Fail);
+instr_labels({test,_,Fail,_,_,_}) ->
+    do_instr_labels(Fail);
+instr_labels({select,_,_,Fail,Vls}) ->
+    do_instr_labels_list(Vls, do_instr_labels(Fail));
+instr_labels({'try',_,Lbl}) ->
+    do_instr_labels(Lbl);
+instr_labels({'catch',_,Lbl}) ->
+    do_instr_labels(Lbl);
+instr_labels({jump,Lbl}) ->
+    do_instr_labels(Lbl);
+instr_labels({loop_rec,Lbl,_}) ->
+    do_instr_labels(Lbl);
+instr_labels({loop_rec_end,Lbl}) ->
+    do_instr_labels(Lbl);
+instr_labels({wait,Lbl}) ->
+    do_instr_labels(Lbl);
+instr_labels({wait_timeout,Lbl,_To}) ->
+    do_instr_labels(Lbl);
+instr_labels({bif,_Name,Lbl,_As,_R}) ->
+    do_instr_labels(Lbl);
+instr_labels({gc_bif,_Name,Lbl,_Live,_As,_R}) ->
+    do_instr_labels(Lbl);
+instr_labels({bs_init,Lbl,_,_,_,_}) ->
+    do_instr_labels(Lbl);
+instr_labels({bs_put,Lbl,_,_}) ->
+    do_instr_labels(Lbl);
+instr_labels({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}) ->
+    do_instr_labels(Lbl);
+instr_labels({get_map_elements,Lbl,_Src,_List}) ->
+    do_instr_labels(Lbl);
+instr_labels({recv_mark,Lbl}) ->
+    do_instr_labels(Lbl);
+instr_labels({recv_set,Lbl}) ->
+    do_instr_labels(Lbl);
+instr_labels({fcheckerror,Lbl}) ->
+    do_instr_labels(Lbl);
+instr_labels(_) -> [].
+
+do_instr_labels({f,0}) -> [];
+do_instr_labels({f,F}) -> [F].
+
+do_instr_labels_list([{f,F}|T], Acc) ->
+    do_instr_labels_list(T, [F|Acc]);
+do_instr_labels_list([_|T], Acc) ->
+    do_instr_labels_list(T, Acc);
+do_instr_labels_list([], Acc) -> Acc.

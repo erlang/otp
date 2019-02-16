@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>release_handler</module>
+  <module since="">release_handler</module>
   <modulesummary>Unpacking and Installation of Release Packages</modulesummary>
   <description>
     <p>The <em>release handler</em> process belongs to the SASL
@@ -168,8 +168,8 @@
 
   <funcs>
     <func>
-      <name>check_install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
-      <name>check_install_release(Vsn,Opts) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name since="">check_install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name since="OTP R14B04">check_install_release(Vsn,Opts) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
       <fsummary>Checks installation of a release in the system.</fsummary>
       <type>
         <v>Vsn = OtherVsn = string()</v>
@@ -202,7 +202,7 @@
     </func>
 
     <func>
-      <name>create_RELEASES(Root, RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
+      <name since="">create_RELEASES(Root, RelDir, RelFile, AppDirs) -> ok | {error, Reason}</name>
       <fsummary>Creates an initial <c>RELEASES</c> file.</fsummary>
       <type>
         <v>Root = RelDir = RelFile = string()</v>
@@ -233,7 +233,7 @@
     </func>
 
     <func>
-      <name>install_file(Vsn, File) -> ok | {error, Reason}</name>
+      <name since="">install_file(Vsn, File) -> ok | {error, Reason}</name>
       <fsummary>Installs a release file in the release structure.</fsummary>
       <type>
         <v>Vsn = File = string()</v>
@@ -252,8 +252,8 @@
     </func>
 
     <func>
-      <name>install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
-      <name>install_release(Vsn, [Opt]) -> {ok, OtherVsn, Descr} | {continue_after_restart, OtherVsn, Descr} | {error, Reason}</name>
+      <name since="">install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name since="">install_release(Vsn, [Opt]) -> {ok, OtherVsn, Descr} | {continue_after_restart, OtherVsn, Descr} | {error, Reason}</name>
       <fsummary>Installs a release in the system.</fsummary>
       <type>
         <v>Vsn = OtherVsn = string()</v>
@@ -383,7 +383,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>make_permanent(Vsn) -> ok | {error, Reason}</name>
+      <name since="">make_permanent(Vsn) -> ok | {error, Reason}</name>
       <fsummary>Makes the specified release version permanent.</fsummary>
       <type>
         <v>Vsn = string()</v>
@@ -396,7 +396,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>remove_release(Vsn) -> ok | {error, Reason}</name>
+      <name since="">remove_release(Vsn) -> ok | {error, Reason}</name>
       <fsummary>Removes a release from the system.</fsummary>
       <type>
         <v>Vsn = string()</v>
@@ -410,7 +410,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
 
     </func>
     <func>
-      <name>reboot_old_release(Vsn) -> ok | {error, Reason}</name>
+      <name since="">reboot_old_release(Vsn) -> ok | {error, Reason}</name>
       <fsummary>Reboots the system from an old release.</fsummary>
       <type>
         <v>Vsn = string()</v>
@@ -425,7 +425,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>set_removed(Vsn) -> ok | {error, Reason}</name>
+      <name since="">set_removed(Vsn) -> ok | {error, Reason}</name>
       <fsummary>Marks a release as removed.</fsummary>
       <type>
         <v>Vsn = string()</v>
@@ -440,7 +440,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>set_unpacked(RelFile, AppDirs) -> {ok, Vsn} | {error, Reason}</name>
+      <name since="">set_unpacked(RelFile, AppDirs) -> {ok, Vsn} | {error, Reason}</name>
       <fsummary>Marks a release as unpacked.</fsummary>
       <type>
         <v>RelFile = string()</v>
@@ -466,7 +466,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>unpack_release(Name) -> {ok, Vsn} | {error, Reason}</name>
+      <name since="">unpack_release(Name) -> {ok, Vsn} | {error, Reason}</name>
       <fsummary>Unpacks a release package.</fsummary>
       <type>
         <v>Name = Vsn = string()</v>
@@ -482,7 +482,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>which_releases() -> [{Name, Vsn, Apps, Status}]</name>
+      <name since="">which_releases() -> [{Name, Vsn, Apps, Status}]</name>
       <fsummary>Returns all known releases.</fsummary>
       <type>
         <v>Name = Vsn = string()</v>
@@ -495,7 +495,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>which_releases(Status) -> [{Name, Vsn, Apps, Status}]</name>
+      <name since="OTP R15B">which_releases(Status) -> [{Name, Vsn, Apps, Status}]</name>
       <fsummary>Returns all known releases of a specific status.</fsummary>
       <type>
         <v>Name = Vsn = string()</v>
@@ -537,7 +537,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
 
   <funcs>
     <func>
-      <name>upgrade_app(App, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
+      <name since="">upgrade_app(App, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
       <fsummary>Upgrades to a new application version.</fsummary>
       <type>
         <v>App = atom()</v>
@@ -586,8 +586,8 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>downgrade_app(App, Dir) -></name>
-      <name>downgrade_app(App, OldVsn, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
+      <name since="">downgrade_app(App, Dir) -></name>
+      <name since="">downgrade_app(App, OldVsn, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
       <fsummary>Downgrades to a previous application version.</fsummary>
       <type>
         <v>App = atom()</v>
@@ -633,7 +633,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>upgrade_script(App, Dir) -> {ok, NewVsn, Script}</name>
+      <name since="">upgrade_script(App, Dir) -> {ok, NewVsn, Script}</name>
       <fsummary>Finds an application upgrade script.</fsummary>
       <type>
         <v>App = atom()</v>
@@ -671,7 +671,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>downgrade_script(App, OldVsn, Dir) -> {ok, Script}</name>
+      <name since="">downgrade_script(App, OldVsn, Dir) -> {ok, Script}</name>
       <fsummary>Finds an application downgrade script.</fsummary>
       <type>
         <v>App = atom()</v>
@@ -710,7 +710,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>eval_appup_script(App, ToVsn, ToDir, Script) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
+      <name since="">eval_appup_script(App, ToVsn, ToDir, Script) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
       <fsummary>Evaluates an application upgrade or downgrade script.</fsummary>
       <type>
         <v>App = atom()</v>

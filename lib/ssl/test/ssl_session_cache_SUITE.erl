@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,8 @@ all() ->
      session_cache_process_list,
      session_cache_process_mnesia,
      client_unique_session,
-     max_table_size
+     max_table_size,
+     save_specific_session
      ].
 
 groups() ->
@@ -60,10 +61,7 @@ init_per_suite(Config0) ->
 	ok ->
 	    ssl_test_lib:clean_start(),
 	    %% make rsa certs using 
-	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
-				     proplists:get_value(priv_dir, Config0)),
-	    Config = ssl_test_lib:make_dsa_cert(Config0),
-	    ssl_test_lib:cert_options(Config)
+            ssl_test_lib:make_rsa_cert(Config0)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -97,7 +95,10 @@ init_per_testcase(session_cleanup, Config) ->
 init_per_testcase(client_unique_session, Config) ->
     ct:timetrap({seconds, 40}),
     Config;
-
+init_per_testcase(save_specific_session, Config) ->
+    ssl_test_lib:clean_start(),
+    ct:timetrap({seconds, 5}),
+    Config;
 init_per_testcase(max_table_size, Config) ->
     ssl:stop(),
     application:load(ssl),
@@ -141,7 +142,7 @@ end_per_testcase(max_table_size, Config) ->
     end_per_testcase(default_action, Config);
 end_per_testcase(Case, Config) when Case == session_cache_process_list;
 				    Case == session_cache_process_mnesia ->
-    ets:delete(ssl_test),
+    catch ets:delete(ssl_test),
     Config;
 end_per_testcase(_, Config) ->
     Config.
@@ -154,8 +155,8 @@ client_unique_session() ->
       "sets up many connections"}].
 client_unique_session(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = proplists:get_value(client_opts, Config),
-    ServerOpts = proplists:get_value(server_opts, Config),
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -164,8 +165,7 @@ client_unique_session(Config) when is_list(Config) ->
 				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    LastClient = clients_start(Server, 
-			    ClientNode, Hostname, Port, ClientOpts, client_unique_session, 20),
+    LastClient = clients_start(Server, ClientNode, Hostname, Port, ClientOpts, 20),
     receive 
 	{LastClient, {ok, _}} ->
 	    ok
@@ -185,8 +185,8 @@ session_cleanup() ->
      "does not grow and grow ..."}].
 session_cleanup(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
@@ -254,13 +254,75 @@ session_cache_process_mnesia(Config) when is_list(Config) ->
     session_cache_process(mnesia,Config).
 
 %%--------------------------------------------------------------------
+save_specific_session() ->
+    [{doc, "Test that we can save a specific client session"
+     }].
+save_specific_session(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {tcp_options, [{active, false}]},
+				   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, ClientOpts}]),
+    Server ! listen,
+    
+    Client2 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),    
+    SessionID1 =
+        receive 
+            {Client1, S1} ->
+                S1
+        end,
+    
+    SessionID2 =
+        receive 
+            {Client2, S2} ->
+                S2
+        end,
+    
+    true = SessionID1 =/= SessionID2,
+
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    ClientCache = element(2, State),
+    2 = ssl_session_cache:size(ClientCache),
+
+    Server ! listen,
+
+    Client3 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, [{reuse_session, SessionID2} | ClientOpts]}]), 
+    receive 
+        {Client3, SessionID2} ->
+            ok;
+        {Client3, SessionID3}->
+            ct:fail({got, SessionID3, expected, SessionID2});
+        Other ->
+            ct:fail({got,Other})
+    end.
+
+%%--------------------------------------------------------------------
 
 max_table_size() ->
     [{doc,"Test max limit on session table"}].
 max_table_size(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = proplists:get_value(client_verification_opts, Config),
-    ServerOpts = proplists:get_value(server_verification_opts, Config),
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -270,7 +332,7 @@ max_table_size(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     LastClient = clients_start(Server, 
-			    ClientNode, Hostname, Port, ClientOpts, max_table_size, 20),
+			    ClientNode, Hostname, Port, ClientOpts, 20),
     receive 
 	{LastClient, {ok, _}} ->
 	    ok
@@ -426,25 +488,27 @@ session_loop(Sess) ->
 %%--------------------------------------------------------------------
 
 session_cache_process(_Type,Config) when is_list(Config) ->
-    ssl_basic_SUITE:reuse_session(Config).
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
 
 
-clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, Test, 0) ->
+clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0) ->
     %% Make sure session is registered
     ct:sleep(?SLEEP * 2),
     ssl_test_lib:start_client([{node, ClientNode},
 			       {port, Port}, {host, Hostname},
 			       {mfa, {?MODULE, connection_info_result, []}},
-			       {from, self()},  {options, test_copts(Test, 0, ClientOpts)}]);
-clients_start(Server, ClientNode, Hostname, Port, ClientOpts, Test, N) ->
+			       {from, self()},  {options, ClientOpts}]);
+clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N) ->
     spawn_link(ssl_test_lib, start_client, 
 	       [[{node, ClientNode},
 		 {port, Port}, {host, Hostname},
 		 {mfa, {ssl_test_lib, no_result, []}},
-		 {from, self()},  {options, test_copts(Test, N, ClientOpts)}]]),
+		 {from, self()},  {options, ClientOpts}]]),
     Server ! listen,
     wait_for_server(),
-    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, Test, N-1).
+    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1).
 	
 connection_info_result(Socket) ->
     ssl:connection_information(Socket, [protocol, cipher_suite]).
@@ -481,21 +545,3 @@ get_delay_timers() ->
     
 wait_for_server() ->
     ct:sleep(100).	
-
-
-test_copts(_, 0, ClientOpts) ->
-      ClientOpts;		 
-test_copts(max_table_size, N, ClientOpts) ->
-    Version = tls_record:highest_protocol_version([]),		   
-    CipherSuites = %%lists:map(fun(X) -> ssl_cipher:suite_definition(X) end, ssl_cipher:filter_suites(ssl_cipher:suites(Version))),
-[ Y|| Y = {Alg,_, _, _} <- lists:map(fun(X) -> ssl_cipher:suite_definition(X) end, ssl_cipher:filter_suites(ssl_cipher:suites(Version))), Alg =/=  ecdhe_ecdsa,  Alg =/=  ecdh_ecdsa, Alg =/=  ecdh_rsa, Alg =/=  ecdhe_rsa, Alg =/= dhe_dss, Alg =/= dss], 
-    case length(CipherSuites) of 
-        M when M >= N ->		      
-          Cipher = lists:nth(N, CipherSuites),
-	  ct:pal("~p",[Cipher]),
-          [{ciphers, [Cipher]} | ClientOpts];
-       _ -> 	   		 
-        ClientOpts
-    end;
-test_copts(_, _, ClientOpts) ->
-     ClientOpts.

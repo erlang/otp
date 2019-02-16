@@ -21,7 +21,7 @@
 {application, os_mon,
    [{description, "CPO  CXC 138 46"},
     {vsn, "%VSN%"},
-    {modules, [os_mon, os_mon_mib, os_sup,
+    {modules, [os_mon, os_sup,
                disksup, memsup, cpu_sup, os_mon_sysinfo, nteventlog]},
     {registered, [os_mon_sup, os_mon_sysinfo, disksup, memsup, cpu_sup, 
                   os_sup_server]},
@@ -31,6 +31,4 @@
 	   {start_memsup, true},
 	   {start_os_sup, false}]},
     {mod, {os_mon, []}},
-    {runtime_dependencies, ["stdlib-2.0","snmp-4.25.1","sasl-2.4",
-			    "otp_mibs-1.0.9","mnesia-4.12","kernel-3.0",
-			    "erts-6.0"]}]}.
+    {runtime_dependencies, ["stdlib-2.0","sasl-2.4","kernel-3.0","erts-6.0"]}]}.

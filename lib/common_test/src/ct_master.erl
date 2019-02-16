@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,9 +18,6 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Distributed test execution control for Common Test.
-%%% <p>This module exports functions for running Common Test nodes
-%%% on multiple hosts in parallel.</p>
 -module(ct_master).
 
 -export([run/1,run/3,run/4]).
@@ -45,50 +42,14 @@
 		blocked=[]
 		}).
 
-%%%-----------------------------------------------------------------
-%%% @spec run_test(Node,Opts) -> ok
-%%%       Node = atom()
-%%%       Opts = [OptTuples]
-%%%   OptTuples = {config,CfgFiles} | {dir,TestDirs} | {suite,Suites} |
-%%%               {testcase,Cases} | {spec,TestSpecs} | {allow_user_terms,Bool} | 
-%%%               {logdir,LogDir} | {event_handler,EventHandlers} | 
-%%%               {silent_connections,Conns} | {cover,CoverSpecFile} |
-%%%		  {cover_stop,Bool} | {userconfig, UserCfgFiles}
-%%%       CfgFiles = string() | [string()]
-%%%       TestDirs = string() | [string()]
-%%%       Suites = atom() | [atom()]
-%%%       Cases = atom() | [atom()]
-%%%       TestSpecs = string() | [string()]
-%%%       LogDir = string()
-%%%       EventHandlers = EH | [EH]
-%%%       EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
-%%%       InitArgs = [term()] 
-%%%       Conns = all | [atom()]
-%%%
-%%% @doc Tests are spawned on <code>Node</code> using <code>ct:run_test/1</code>.
 run_test(Node,Opts) ->
     run_test([{Node,Opts}]).
 
-%%% @hidden
 run_test({Node,Opts}) ->
     run_test([{Node,Opts}]);
 run_test(NodeOptsList) when is_list(NodeOptsList) ->
     start_master(NodeOptsList).
 
-%%%-----------------------------------------------------------------
-%%% @spec run(TestSpecs,AllowUserTerms,InclNodes,ExclNodes) -> ok
-%%%       TestSpecs = string() | [SeparateOrMerged]
-%%%       SeparateOrMerged = string() | [string()]
-%%%       AllowUserTerms = bool()
-%%%       InclNodes = [atom()]
-%%%       ExclNodes = [atom()]
-%%%
-%%% @doc Tests are spawned on the nodes as specified in <code>TestSpecs</code>.
-%%% Each specification in TestSpec will be handled separately. It is however
-%%% possible to also specify a list of specifications that should be merged
-%%% into one before the tests are executed. Any test without a particular node
-%%% specification will also be executed on the nodes in <code>InclNodes</code>.
-%%% Nodes in the <code>ExclNodes</code> list will be excluded from the test.
 run([TS|TestSpecs],AllowUserTerms,InclNodes,ExclNodes) when is_list(TS),
 							    is_list(InclNodes),
 							    is_list(ExclNodes) ->
@@ -128,22 +89,9 @@ run(TS,AllowUserTerms,InclNodes,ExclNodes) when is_list(InclNodes),
 						is_list(ExclNodes) ->
     run([TS],AllowUserTerms,InclNodes,ExclNodes).
 
-%%%-----------------------------------------------------------------
-%%% @spec run(TestSpecs,InclNodes,ExclNodes) -> ok
-%%%       TestSpecs = string() | [SeparateOrMerged]
-%%%       SeparateOrMerged = string() | [string()]
-%%%       InclNodes = [atom()]
-%%%       ExclNodes = [atom()]
-%%%
-%%% @equiv run(TestSpecs,false,InclNodes,ExclNodes)
 run(TestSpecs,InclNodes,ExclNodes) ->
     run(TestSpecs,false,InclNodes,ExclNodes).
 
-%%%-----------------------------------------------------------------
-%%% @spec run(TestSpecs) -> ok
-%%%       TestSpecs = string() | [SeparateOrMerged]
-%%%
-%%% @equiv run(TestSpecs,false,[],[]) 
 run(TestSpecs=[TS|_]) when is_list(TS) ->
     run(TestSpecs,false,[],[]);
 run(TS) ->
@@ -156,15 +104,6 @@ exclude_nodes([],RunSkipPerNode) ->
     RunSkipPerNode.
 
 
-%%%-----------------------------------------------------------------
-%%% @spec run_on_node(TestSpecs,AllowUserTerms,Node) -> ok
-%%%       TestSpecs = string() | [SeparateOrMerged]
-%%%       SeparateOrMerged = string() | [string()]
-%%%       AllowUserTerms = bool()
-%%%       Node = atom()
-%%%
-%%% @doc Tests are spawned on <code>Node</code> according to 
-%%%      <code>TestSpecs</code>.
 run_on_node([TS|TestSpecs],AllowUserTerms,Node) when is_list(TS),is_atom(Node) ->
     case catch ct_testspec:collect_tests_from_file([TS],[Node],
 						   AllowUserTerms) of
@@ -194,13 +133,6 @@ run_on_node([],_,_) ->
 run_on_node(TS,AllowUserTerms,Node) when is_atom(Node) ->
     run_on_node([TS],AllowUserTerms,Node).
 
-%%%-----------------------------------------------------------------
-%%% @spec run_on_node(TestSpecs,Node) -> ok
-%%%       TestSpecs = string() | [SeparateOrMerged]
-%%%       SeparateOrMerged = string() | [string()]
-%%%       Node = atom()
-%%%
-%%% @equiv run_on_node(TestSpecs,false,Node)
 run_on_node(TestSpecs,Node) ->
     run_on_node(TestSpecs,false,Node).
 
@@ -264,64 +196,25 @@ run_all([],AllLogDirs,_,AllEvHs,_AllIncludes,
     ok.
     
 
-%%%-----------------------------------------------------------------
-%%% @spec abort() -> ok
-%%%
-%%% @doc Stops all running tests.
 abort() ->
     call(abort).
 
-%%%-----------------------------------------------------------------
-%%% @spec abort(Nodes) -> ok
-%%%       Nodes = atom() | [atom()]
-%%%
-%%% @doc Stops tests on specified nodes.
 abort(Nodes) when is_list(Nodes) ->
     call({abort,Nodes});
 
 abort(Node) when is_atom(Node) ->
     abort([Node]).
     
-%%%-----------------------------------------------------------------
-%%% @spec progress() -> [{Node,Status}]
-%%%       Node = atom()
-%%%       Status = finished_ok | ongoing | aborted | {error,Reason}
-%%%       Reason = term()
-%%%
-%%% @doc Returns test progress. If <code>Status</code> is <code>ongoing</code>,
-%%% tests are running on the node and have not yet finished.
 progress() ->
     call(progress).
 
-%%%-----------------------------------------------------------------
-%%% @spec get_event_mgr_ref() -> MasterEvMgrRef
-%%%       MasterEvMgrRef = atom()
-%%%
-%%% @doc <p>Call this function in order to get a reference to the
-%%%         CT master event manager. The reference can be used to e.g.
-%%%         add a user specific event handler while tests are running.
-%%%         Example:
-%%%         <c>gen_event:add_handler(ct_master:get_event_mgr_ref(), my_ev_h, [])</c></p>
 get_event_mgr_ref() ->
     ?CT_MEVMGR_REF.
 
-%%%-----------------------------------------------------------------
-%%% @spec basic_html(Bool) -> ok
-%%%       Bool = true | false
-%%%
-%%% @doc If set to true, the ct_master logs will be written on a
-%%%      primitive html format, not using the Common Test CSS style
-%%%      sheet.
 basic_html(Bool) ->
     application:set_env(common_test_master, basic_html, Bool),
     ok.
 
-%%%-----------------------------------------------------------------
-%%% @spec esc_chars(Bool) -> ok
-%%%       Bool = true | false
-%%%
-%%% @doc If set to false, the ct_master logs will be written without
-%%%      special characters being escaped in the HTML logs.
 esc_chars(Bool) ->
     application:set_env(common_test_master, esc_chars, Bool),
     ok.
@@ -340,7 +233,6 @@ start_master(NodeOptsList,EvHandlers,MasterLogDir,LogDirs,InitOptions,Specs) ->
 	{Master,Result} -> Result
     end.	    
 
-%%% @hidden
 init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,
 	    InitOptions,Specs) ->
     case whereis(ct_master) of
@@ -458,7 +350,7 @@ master_loop(#state{node_ctrl_pids=[],
 			  io_lib:format("~-40.40.*ts~tp\n",
 					[$_,atom_to_list(Node),Result])
 		  end,lists:reverse(Finished)),
-    log(all,"TEST RESULTS",Str,[]),
+    log(all,"TEST RESULTS","~ts", [Str]),
     log(all,"Info","Updating log files",[]),
     refresh_logs(LogDirs,[]),
     
@@ -682,12 +574,11 @@ refresh_logs([],Refreshed) ->
 			  io_lib:format("Refreshing logs in ~tp... ~tp",
 					[D,Result])
 		  end,Refreshed),
-    log(all,"Info",Str,[]).
+    log(all,"Info","~ts", [Str]).
 
 %%%-----------------------------------------------------------------
 %%% NODE CONTROLLER, runs and controls tests on a test node.
 %%%-----------------------------------------------------------------
-%%% @hidden
 init_node_ctrl(MasterPid,Cookie,Opts) ->
     %% make sure tests proceed even if connection to master is lost
     process_flag(trap_exit, true),
@@ -742,7 +633,6 @@ start_ct_event() ->
 %%%-----------------------------------------------------------------
 %%% Event handling
 %%%-----------------------------------------------------------------
-%%% @hidden
 status(MasterPid,Event=#event{name=start_make}) ->
     call(MasterPid,Event);
 status(MasterPid,Event=#event{name=finished_make}) ->

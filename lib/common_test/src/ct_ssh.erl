@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,44 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
-%%% @doc SSH/SFTP client module. 
-%%%
-%%% <p>ct_ssh uses the OTP ssh application and more detailed information 
-%%% about e.g. functions, types and options can be found in the 
-%%% documentation for this application.</p>
-%%%
-%%% <p>The <code>Server</code> argument in the SFTP functions should
-%%% only be used for SFTP sessions that have been started on existing
-%%% SSH connections (i.e. when the original connection type is 
-%%% <code>ssh</code>). Whenever the connection type is
-%%% <code>sftp</code>, use the SSH connection reference only.</p>
-%%%
-%%% <p>The following options are valid for specifying an SSH/SFTP
-%%% connection (i.e. may be used as config elements):</p> 
-%%%
-%%% <pre>
-%%%
-%%%  [{ConnType, Addr},
-%%%   {port, Port},
-%%%   {user, UserName}
-%%%   {password, Pwd}
-%%%   {user_dir, String}
-%%%   {public_key_alg, PubKeyAlg}
-%%%   {connect_timeout, Timeout}
-%%%   {key_cb, KeyCallbackMod}]
-%%% </pre>
-%%%
-%%% <p><code>ConnType = ssh | sftp</code>.</p> 
-%%% <p>Please see ssh(3) for other types.</p>
-%%%
-%%% <p>All timeout parameters in ct_ssh functions are values in
-%%% milliseconds.</p>
-%%%
-%%% @type connection() = handle() | ct:target_name()
-%%% @type handle() = ct_gen_conn:handle(). Handle for a specific
-%%% SSH/SFTP connection.
-%%% @type ssh_sftp_return() = term(). A return value from an ssh_sftp function.
 
 -module(ct_ssh).
 
@@ -100,64 +62,15 @@
 %%%-----------------------------------------------------------------
 %%%------------------------ SSH COMMANDS ---------------------------
 
-%%%-----------------------------------------------------------------
-%%% @spec connect(KeyOrName) -> {ok,Handle} | {error,Reason}
-%%% @equiv connect(KeyOrName,host,[])
 connect(KeyOrName) ->
     connect(KeyOrName, host).
 
-%%%-----------------------------------------------------------------
-%%% @spec connect(KeyOrName,ConnType) -> {ok,Handle} | {error,Reason}
-%%% @equiv connect(KeyOrName,ConnType,[])
 connect(KeyOrName, ConnType) when is_atom(ConnType) ->
     connect(KeyOrName, ConnType, []);
 
-%%%-----------------------------------------------------------------
-%%% @spec connect(KeyOrName,ExtraOpts) -> {ok,Handle} | {error,Reason}
-%%% @equiv connect(KeyOrName,host,ExtraOpts)
 connect(KeyOrName, ExtraOpts) when is_list(ExtraOpts) ->
     connect(KeyOrName, host, ExtraOpts).
 
-%%%-----------------------------------------------------------------
-%%% @spec connect(KeyOrName,ConnType,ExtraOpts) -> 
-%%%          {ok,Handle} | {error,Reason}
-%%%      KeyOrName = Key | Name
-%%%      Key = atom()
-%%%      Name = ct:target_name()
-%%%      ConnType = ssh | sftp | host
-%%%      ExtraOpts = ssh_connect_options()
-%%%      Handle = handle()
-%%%      Reason = term()
-%%%
-%%% @doc Open an SSH or SFTP connection using the information
-%%%      associated with <code>KeyOrName</code>. 
-%%%
-%%%      <p>If <code>Name</code> (an alias name for <code>Key</code>), 
-%%%      is used to identify the connection, this name may
-%%%      be used as connection reference for subsequent calls.
-%%%      It's only possible to have one open connection at a time 
-%%%      associated with <code>Name</code>. If <code>Key</code> is
-%%%      used, the returned handle must be used for subsequent calls
-%%%      (multiple connections may be opened using the config
-%%%      data specified by <code>Key</code>). See <c>ct:require/2</c>
-%%%      for how to create a new <c>Name</c></p>
-%%%
-%%%      <p><code>ConnType</code> will always override the type
-%%%      specified in the address tuple in the configuration data (and
-%%%      in <code>ExtraOpts</code>). So it is possible to for example 
-%%%      open an sftp connection directly using data originally
-%%%      specifying an ssh connection. The value <code>host</code>
-%%%      means the connection type specified by the host option
-%%%      (either in the configuration data or in <code>ExtraOpts</code>)
-%%%      will be used.</p>
-%%%
-%%%      <p><code>ExtraOpts</code> (optional) are extra SSH options 
-%%%      to be added to the config data for <code>KeyOrName</code>. 
-%%%      The extra options will override any existing options with the
-%%%      same key in the config data. For details on valid SSH
-%%%      options, see the documentation for the OTP ssh application.</p>
-%%%
-%%% @see ct:require/2
 connect(KeyOrName, ConnType, ExtraOpts) ->
     case ct:get_config(KeyOrName) of
 	undefined ->
@@ -232,12 +145,6 @@ connect(KeyOrName, ConnType, ExtraOpts) ->
 	    end
     end.
 
-%%%-----------------------------------------------------------------
-%%% @spec disconnect(SSH) -> ok | {error,Reason}
-%%%      SSH = connection()
-%%%      Reason = term()
-%%%
-%%% @doc Close an SSH/SFTP connection.
 disconnect(SSH) ->
     case get_handle(SSH) of
 	{ok,Pid} ->
@@ -252,242 +159,78 @@ disconnect(SSH) ->
 	    Error
     end.
 
-%%%-----------------------------------------------------------------
-%%% @spec session_open(SSH) -> {ok,ChannelId} | {error, Reason}
-%%% @equiv session_open(SSH,DefaultTimeout) 
 session_open(SSH) ->
     call(SSH, {session_open,?DEFAULT_TIMEOUT}).
 
-%%%-----------------------------------------------------------------
-%%% @spec session_open(SSH,Timeout) -> {ok,ChannelId} | {error, Reason}
-%%%      SSH = connection()
-%%%      Timeout = integer()
-%%%      ChannelId = integer()
-%%%      Reason = term()
-%%%
-%%% @doc Opens a channel for an SSH session.
 session_open(SSH, Timeout) ->
     call(SSH, {session_open,Timeout}).
 
-%%%-----------------------------------------------------------------
-%%% @spec session_close(SSH,ChannelId) -> ok | {error, Reason}
-%%%      SSH = connection()
-%%%      ChannelId = integer()
-%%%      Reason = term()
-%%%
-%%% @doc Closes an SSH session channel.
 session_close(SSH, ChannelId) ->
     call(SSH, {session_close,ChannelId}).
 
-%%%-----------------------------------------------------------------
-%%% @spec exec(SSH,Command) -> {ok,Data} | {error,Reason}
-%%% @equiv exec(SSH,Command,DefaultTimeout)
 exec(SSH, Command) ->
     exec(SSH, undefined, Command, ?DEFAULT_TIMEOUT).
 
-%%%-----------------------------------------------------------------
-%%% @spec exec(SSH,Command,Timeout) -> {ok,Data} | {error,Reason}
-%%%      SSH = connection()
-%%%      Command = string()
-%%%      Timeout = integer()
-%%%      Data = list()
-%%%      Reason = term()
-%%% 
-%%% @doc Requests server to perform <code>Command</code>. A session
-%%%      channel is opened automatically for the request.
-%%%      <code>Data</code> is received from the server as a result
-%%%      of the command.
 exec(SSH, Command, Timeout) when is_list(Command) ->
     exec(SSH, undefined, Command, Timeout);
 
-%%%-----------------------------------------------------------------
-%%% @spec exec(SSH,ChannelId,Command) -> {ok,Data} | {error,Reason}
-%%% @equiv exec(SSH,ChannelId,Command,DefaultTimeout)
 exec(SSH, ChannelId, Command) when is_integer(ChannelId) ->
     exec(SSH, ChannelId, Command, ?DEFAULT_TIMEOUT).
 
-%%%-----------------------------------------------------------------
-%%% @spec exec(SSH,ChannelId,Command,Timeout) -> {ok,Data} | {error,Reason}
-%%%      SSH = connection()
-%%%      ChannelId = integer()
-%%%      Command = string()
-%%%      Timeout = integer()
-%%%      Data = list()
-%%%      Reason = term()
-%%% 
-%%% @doc Requests server to perform <code>Command</code>. A previously
-%%%      opened session channel is used for the request.
-%%%      <code>Data</code> is received from the server as a result
-%%%      of the command.
 exec(SSH, ChannelId, Command, Timeout) ->
     call(SSH, {exec,ChannelId,Command,Timeout}).
 
-%%%-----------------------------------------------------------------
-%%% @spec receive_response(SSH,ChannelId) -> {ok,Data} | {error,Reason}
-%%% @equiv receive_response(SSH,ChannelId,close)
 receive_response(SSH, ChannelId) ->
     receive_response(SSH, ChannelId, close, ?DEFAULT_TIMEOUT).
 
-%%%-----------------------------------------------------------------
-%%% @spec receive_response(SSH,ChannelId,End) -> {ok,Data} | {error,Reason}
-%%% @equiv receive_response(SSH,ChannelId,End,DefaultTimeout)
 receive_response(SSH, ChannelId, End) when is_function(End) ->
     receive_response(SSH, ChannelId, End, ?DEFAULT_TIMEOUT);
 
-%%%-----------------------------------------------------------------
-%%% @spec receive_response(SSH,ChannelId,Timeout) -> {ok,Data} | {error,Reason}
-%%% @equiv receive_response(SSH,ChannelId,close,Timeout)
 receive_response(SSH, ChannelId, Timeout) when is_integer(Timeout) ->
     receive_response(SSH, ChannelId, close, Timeout).
 
-%%%-----------------------------------------------------------------
-%%% @spec receive_response(SSH,ChannelId,End,Timeout) -> 
-%%%                    {ok,Data} | {timeout,Data} | {error,Reason}
-%%%      SSH = connection()
-%%%      ChannelId = integer()
-%%%      End = Fun | close | timeout
-%%%      Timeout = integer()
-%%%      Data = list()
-%%%      Reason = term()
-%%%      
-%%% @doc Receives expected data from server on the specified
-%%%      session channel. 
-%%%
-%%%      <p>If <code>End == close</code>, data is returned
-%%%      to the caller when the channel is closed by the
-%%%      server. If a timeout occurs before this happens,
-%%%      the function returns <code>{timeout,Data}</code>
-%%%      (where <code>Data</code> is the data received so far).
-%%%      If <code>End == timeout</code>, a timeout is expected
-%%%      and <code>{ok,Data}</code> is returned both in the case
-%%%      of a timeout and when the channel is closed. If 
-%%%      <code>End</code> is a fun, this fun will be
-%%%      called with one argument - the data value in a received
-%%%      <code>ssh_cm</code> message (see ssh_connection(3)). The
-%%%      fun should return <code>true</code> to end the receiving 
-%%%      operation (and have the so far collected data returned), or
-%%%      <code>false</code> to wait for more data from the server.
-%%%      (Note that even if a fun is supplied, the function returns
-%%%      immediately if the server closes the channel).</p>
 receive_response(SSH, ChannelId, End, Timeout) ->
     call(SSH, {receive_response,ChannelId,End,Timeout}).
 
-%%%-----------------------------------------------------------------
-%%% @spec send(SSH,ChannelId,Data) -> ok | {error,Reason}
-%%% @equiv send(SSH,ChannelId,0,Data,DefaultTimeout)
 send(SSH, ChannelId, Data) ->
     send(SSH, ChannelId, 0, Data, ?DEFAULT_TIMEOUT).
 
-%%%-----------------------------------------------------------------
-%%% @spec send(SSH,ChannelId,Data,Timeout) -> ok | {error,Reason}
-%%% @equiv send(SSH,ChannelId,0,Data,Timeout)
 send(SSH, ChannelId, Data, Timeout) when is_integer(Timeout) ->
     send(SSH, ChannelId, 0, Data, Timeout);
 
-%%%-----------------------------------------------------------------
-%%% @spec send(SSH,ChannelId,Type,Data) -> ok | {error,Reason}
-%%% @equiv send(SSH,ChannelId,Type,Data,DefaultTimeout)
 send(SSH, ChannelId, Type, Data) when is_integer(Type) ->
     send(SSH, ChannelId, Type, Data, ?DEFAULT_TIMEOUT).
 
-%%%-----------------------------------------------------------------
-%%% @spec send(SSH,ChannelId,Type,Data,Timeout) -> ok | {error,Reason}
-%%%      SSH = connection()
-%%%      ChannelId = integer()
-%%%      Type = integer()
-%%%      Data = list()
-%%%      Timeout = integer()
-%%%      Reason = term()
-%%% 
-%%% @doc Send data to server on specified session channel.
 send(SSH, ChannelId, Type, Data, Timeout) ->
     call(SSH, {send,ChannelId,Type,Data,Timeout}).
 
-%%%-----------------------------------------------------------------
-%%% @spec send_and_receive(SSH,ChannelId,Data) -> 
-%%%                   {ok,Data} | {error,Reason}
-%%% @equiv send_and_receive(SSH,ChannelId,Data,close)
 send_and_receive(SSH, ChannelId, Data) ->
     send_and_receive(SSH, ChannelId, 0, Data, close, ?DEFAULT_TIMEOUT).
 
-%%%-----------------------------------------------------------------
-%%% @spec send_and_receive(SSH,ChannelId,Data,End) -> 
-%%%                   {ok,Data} | {error,Reason}
-%%% @equiv send_and_receive(SSH,ChannelId,0,Data,End,DefaultTimeout)
 send_and_receive(SSH, ChannelId, Data, End) when is_function(End) ->
     send_and_receive(SSH, ChannelId, 0, Data, End, ?DEFAULT_TIMEOUT);
 
-%%%-----------------------------------------------------------------
-%%% @spec send_and_receive(SSH,ChannelId,Data,Timeout) -> 
-%%%                   {ok,Data} | {error,Reason}
-%%% @equiv send_and_receive(SSH,ChannelId,0,Data,close,Timeout)
 send_and_receive(SSH, ChannelId, Data, Timeout) when is_integer(Timeout) ->
     send_and_receive(SSH, ChannelId, 0, Data, close, Timeout);
 
-%%%-----------------------------------------------------------------
-%%% @spec send_and_receive(SSH,ChannelId,Type,Data) -> 
-%%%                   {ok,Data} | {error,Reason}
-%%% @equiv send_and_receive(SSH,ChannelId,Type,Data,close,DefaultTimeout)
 send_and_receive(SSH, ChannelId, Type, Data) when is_integer(Type) ->
     send_and_receive(SSH, ChannelId, Type, Data, close, ?DEFAULT_TIMEOUT).
 
-%%%-----------------------------------------------------------------
-%%% @spec send_and_receive(SSH,ChannelId,Data,End,Timeout) -> 
-%%%                   {ok,Data} | {error,Reason}
-%%% @equiv send_and_receive(SSH,ChannelId,0,Data,End,Timeout)
 send_and_receive(SSH, ChannelId, Data, End, Timeout) when is_integer(Timeout) ->
     send_and_receive(SSH, ChannelId, 0, Data, End, Timeout);
 
-%%%-----------------------------------------------------------------
-%%% @spec send_and_receive(SSH,ChannelId,Type,Data,Timeout) -> 
-%%%                   {ok,Data} | {error,Reason}
-%%% @equiv send_and_receive(SSH,ChannelId,Type,Data,close,Timeout)
 send_and_receive(SSH, ChannelId, Type, Data, Timeout) when is_integer(Type) ->
     send_and_receive(SSH, ChannelId, Type, Data, close, Timeout);
 
-%%%-----------------------------------------------------------------
-%%% @spec send_and_receive(SSH,ChannelId,Type,Data,End) -> 
-%%%                   {ok,Data} | {error,Reason}
-%%% @equiv send_and_receive(SSH,ChannelId,Type,Data,End,DefaultTimeout)
 send_and_receive(SSH, ChannelId, Type, Data, End) when is_function(End) ->
     send_and_receive(SSH, ChannelId, Type, Data, End, ?DEFAULT_TIMEOUT).
 
-%%%-----------------------------------------------------------------
-%%% @spec send_and_receive(SSH,ChannelId,Type,Data,End,Timeout) -> 
-%%%                   {ok,Data} | {error,Reason}
-%%%      SSH = connection()
-%%%      ChannelId = integer()
-%%%      Type = integer()
-%%%      Data = list()
-%%%      End = Fun | close | timeout
-%%%      Timeout = integer()
-%%%      Reason = term()
-%%%
-%%% @doc Send data to server on specified session channel and wait
-%%%      to receive the server response. 
-%%%
-%%%      <p>See <code>receive_response/4</code> for details on the 
-%%%      <code>End</code> argument.</p>
 send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) ->
     call(SSH, {send_and_receive,ChannelId,Type,Data,End,Timeout}).
 
-%%%-----------------------------------------------------------------
-%%% @spec subsystem(SSH,ChannelId,Subsystem) -> Status | {error,Reason}
-%%% @equiv subsystem(SSH,ChannelId,Subsystem,DefaultTimeout)
 subsystem(SSH, ChannelId, Subsystem) ->
     subsystem(SSH, ChannelId, Subsystem, ?DEFAULT_TIMEOUT).
 
-%%%-----------------------------------------------------------------
-%%% @spec subsystem(SSH,ChannelId,Subsystem,Timeout) -> 
-%%%             Status | {error,Reason}
-%%%      SSH = connection()
-%%%      ChannelId = integer()
-%%%      Subsystem = string()
-%%%      Timeout = integer()
-%%%      Status = success | failure
-%%%      Reason = term()
-%%% 
-%%% @doc Sends a request to execute a predefined subsystem.
 subsystem(SSH, ChannelId, Subsystem, Timeout) ->
     call(SSH, {subsystem,ChannelId,Subsystem,Timeout}).
 
@@ -511,439 +254,157 @@ shell(SSH, ChannelId, Timeout) ->
 %%%-----------------------------------------------------------------
 %%%------------------------ SFTP COMMANDS --------------------------
 
-%%%-----------------------------------------------------------------
-%%% @spec sftp_connect(SSH) -> {ok,Server} | {error,Reason}
-%%%      SSH = connection()
-%%%      Server = pid()
-%%%      Reason = term()
-%%% @doc Starts an SFTP session on an already existing SSH connection.
-%%%      <code>Server</code> identifies the new session and must be
-%%%      specified whenever SFTP requests are to be sent.
 sftp_connect(SSH) ->
     call(SSH, sftp_connect).
 
-%%%-----------------------------------------------------------------
-%%% @spec read_file(SSH, File) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 read_file(SSH, File) ->
     call(SSH, {read_file,sftp,File}).
-%%%-----------------------------------------------------------------
-%%% @spec read_file(SSH, Server, File) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 read_file(SSH, Server, File) ->
     call(SSH, {read_file,Server,File}).
 
-%%%-----------------------------------------------------------------
-%%% @spec write_file(SSH, File, Iolist) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 write_file(SSH, File, Iolist) ->
     call(SSH, {write_file,sftp,File,Iolist}).
-%%%-----------------------------------------------------------------
-%%% @spec write_file(SSH, Server, File, Iolist) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 write_file(SSH, Server, File, Iolist) ->
     call(SSH, {write_file,Server,File,Iolist}).
 
-%%%-----------------------------------------------------------------
-%%% @spec list_dir(SSH, Path) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 list_dir(SSH, Path) ->
     call(SSH, {list_dir,sftp,Path}).
-%%%-----------------------------------------------------------------
-%%% @spec list_dir(SSH, Server, Path) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 list_dir(SSH, Server, Path) ->
     call(SSH, {list_dir,Server,Path}).
 
-%%%-----------------------------------------------------------------
-%%% @spec open(SSH, File, Mode) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 open(SSH, File, Mode) ->
     call(SSH, {open,sftp,File,Mode}).
-%%%-----------------------------------------------------------------
-%%% @spec open(SSH, Server, File, Mode) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 open(SSH, Server, File, Mode) ->
     call(SSH, {open,Server,File,Mode}).
 
-%%%-----------------------------------------------------------------
-%%% @spec opendir(SSH, Path) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 opendir(SSH, Path) ->
     call(SSH, {opendir,sftp,Path}).
-%%%-----------------------------------------------------------------
-%%% @spec opendir(SSH, Server, Path) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 opendir(SSH, Server, Path) ->
     call(SSH, {opendir,Server,Path}).
 
-%%%-----------------------------------------------------------------
-%%% @spec close(SSH, Handle) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 close(SSH, Handle) ->
     call(SSH, {close,sftp,Handle}).
-%%%-----------------------------------------------------------------
-%%% @spec close(SSH, Server, Handle) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 close(SSH, Server, Handle) ->
     call(SSH, {close,Server,Handle}).
 
-%%%-----------------------------------------------------------------
-%%% @spec read(SSH, Handle, Len) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 read(SSH, Handle, Len) ->
     call(SSH, {read,sftp,Handle,Len}).
-%%%-----------------------------------------------------------------
-%%% @spec read(SSH, Server, Handle, Len) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 read(SSH, Server, Handle, Len) ->
     call(SSH, {read,Server,Handle,Len}).
 
-%%%-----------------------------------------------------------------
-%%% @spec pread(SSH, Handle, Position, Length) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 pread(SSH, Handle, Position, Length) ->
     call(SSH, {pread,sftp,Handle,Position,Length}).
-%%%-----------------------------------------------------------------
-%%% @spec pread(SSH, Server, Handle, Position, Length) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 pread(SSH, Server, Handle, Position, Length) ->
     call(SSH, {pread,Server,Handle,Position,Length}).
 
-%%%-----------------------------------------------------------------
-%%% @spec aread(SSH, Handle, Len) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 aread(SSH, Handle, Len) ->
     call(SSH, {aread,sftp,Handle,Len}).
-%%%-----------------------------------------------------------------
-%%% @spec aread(SSH, Server, Handle, Len) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 aread(SSH, Server, Handle, Len) ->
     call(SSH, {aread,Server,Handle,Len}).
 
-%%%-----------------------------------------------------------------
-%%% @spec apread(SSH, Handle, Position, Length) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 apread(SSH, Handle, Position, Length) ->
     call(SSH, {apread,sftp,Handle,Position,Length}).
-%%%-----------------------------------------------------------------
-%%% @spec apread(SSH, Server, Handle, Position, Length) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 apread(SSH, Server, Handle, Position, Length) ->
     call(SSH, {apread,Server,Handle,Position,Length}).
 
-%%%-----------------------------------------------------------------
-%%% @spec write(SSH, Handle, Data) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 write(SSH, Handle, Data) ->
     call(SSH, {write,sftp,Handle,Data}).
-%%%-----------------------------------------------------------------
-%%% @spec write(SSH, Server, Handle, Data) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 write(SSH, Server, Handle, Data) ->
     call(SSH, {write,Server,Handle,Data}).
 
-%%%-----------------------------------------------------------------
-%%% @spec pwrite(SSH, Handle, Position, Data) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 pwrite(SSH, Handle, Position, Data) ->
     call(SSH, {pwrite,sftp,Handle,Position,Data}).
-%%%-----------------------------------------------------------------
-%%% @spec pwrite(SSH, Server, Handle, Position, Data) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 pwrite(SSH, Server, Handle, Position, Data) ->
     call(SSH, {pwrite,Server,Handle,Position,Data}).
 
-%%%-----------------------------------------------------------------
-%%% @spec awrite(SSH, Handle, Data) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 awrite(SSH, Handle, Data) ->
     call(SSH, {awrite,sftp,Handle, Data}).
-%%%-----------------------------------------------------------------
-%%% @spec awrite(SSH, Server, Handle, Data) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 awrite(SSH, Server, Handle, Data) ->
     call(SSH, {awrite,Server,Handle, Data}).
 
-%%%-----------------------------------------------------------------
-%%% @spec apwrite(SSH, Handle, Position, Data) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 apwrite(SSH, Handle, Position, Data) ->
     call(SSH, {apwrite,sftp,Handle,Position,Data}).
-%%%-----------------------------------------------------------------
-%%% @spec apwrite(SSH, Server, Handle, Position, Data) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 apwrite(SSH, Server, Handle, Position, Data) ->
     call(SSH, {apwrite,Server,Handle,Position,Data}).
 
-%%%-----------------------------------------------------------------
-%%% @spec position(SSH, Handle, Location) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 position(SSH, Handle, Location) ->
     call(SSH, {position,sftp,Handle,Location}).
-%%%-----------------------------------------------------------------
-%%% @spec position(SSH, Server, Handle, Location) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 position(SSH, Server, Handle, Location) ->
     call(SSH, {position,Server,Handle,Location}).
 
-%%%-----------------------------------------------------------------
-%%% @spec read_file_info(SSH, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 read_file_info(SSH, Name) ->
     call(SSH, {read_file_info,sftp,Name}).
-%%%-----------------------------------------------------------------
-%%% @spec read_file_info(SSH, Server, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 read_file_info(SSH, Server, Name) ->
     call(SSH, {read_file_info,Server,Name}).
 
-%%%-----------------------------------------------------------------
-%%% @spec get_file_info(SSH, Handle) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 get_file_info(SSH, Handle) ->
     call(SSH, {get_file_info,sftp,Handle}).
-%%%-----------------------------------------------------------------
-%%% @spec get_file_info(SSH, Server, Handle) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 get_file_info(SSH, Server, Handle) ->
     call(SSH, {get_file_info,Server,Handle}).
 
-%%%-----------------------------------------------------------------
-%%% @spec read_link_info(SSH, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 read_link_info(SSH, Name) ->
     call(SSH, {read_link_info,sftp,Name}).
-%%%-----------------------------------------------------------------
-%%% @spec read_link_info(SSH, Server, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 read_link_info(SSH, Server, Name) ->
     call(SSH, {read_link_info,Server,Name}).
 
-%%%-----------------------------------------------------------------
-%%% @spec write_file_info(SSH, Name, Info) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 write_file_info(SSH, Name, Info) ->
     call(SSH, {write_file_info,sftp,Name,Info}).
-%%%-----------------------------------------------------------------
-%%% @spec write_file_info(SSH, Server, Name, Info) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 write_file_info(SSH, Server, Name, Info) ->
     call(SSH, {write_file_info,Server,Name,Info}).
 
-%%%-----------------------------------------------------------------
-%%% @spec read_link(SSH, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 read_link(SSH, Name) ->
     call(SSH, {read_link,sftp,Name}).
-%%%-----------------------------------------------------------------
-%%% @spec read_link(SSH, Server, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 read_link(SSH, Server, Name) ->
     call(SSH, {read_link,Server,Name}).
 
-%%%-----------------------------------------------------------------
-%%% @spec make_symlink(SSH, Name, Target) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 make_symlink(SSH, Name, Target) ->
     call(SSH, {make_symlink,sftp,Name,Target}).
-%%%-----------------------------------------------------------------
-%%% @spec make_symlink(SSH, Server, Name, Target) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 make_symlink(SSH, Server, Name, Target) ->
     call(SSH, {make_symlink,Server,Name,Target}).
 
-%%%-----------------------------------------------------------------
-%%% @spec rename(SSH, OldName, NewName) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 rename(SSH, OldName, NewName) ->
     call(SSH, {rename,sftp,OldName,NewName}).
-%%%-----------------------------------------------------------------
-%%% @spec rename(SSH, Server, OldName, NewName) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 rename(SSH, Server, OldName, NewName) ->
     call(SSH, {rename,Server,OldName,NewName}).
 
-%%%-----------------------------------------------------------------
-%%% @spec delete(SSH, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 delete(SSH, Name) ->
     call(SSH, {delete,sftp,Name}).
-%%%-----------------------------------------------------------------
-%%% @spec delete(SSH, Server, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 delete(SSH, Server, Name) ->
     call(SSH, {delete,Server,Name}).
 
-%%%-----------------------------------------------------------------
-%%% @spec make_dir(SSH, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 make_dir(SSH, Name) ->
     call(SSH, {make_dir,sftp,Name}).
-%%%-----------------------------------------------------------------
-%%% @spec make_dir(SSH, Server, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 make_dir(SSH, Server, Name) ->
     call(SSH, {make_dir,Server,Name}).
 
-%%%-----------------------------------------------------------------
-%%% @spec del_dir(SSH, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
 del_dir(SSH, Name) ->
     call(SSH, {del_dir,sftp,Name}).
-%%%-----------------------------------------------------------------
-%%% @spec del_dir(SSH, Server, Name) -> Result
-%%%      SSH = connection()
-%%%      Result = ssh_sftp_return() | {error,Reason}
-%%%      Reason = term()
-%%% @doc For info and other types, see ssh_sftp(3).
+
 del_dir(SSH, Server, Name) ->
     call(SSH, {del_dir,Server,Name}).
 
@@ -952,7 +413,6 @@ del_dir(SSH, Server, Name) ->
 %%% Callback functions
 %%%=================================================================
 
-%% @hidden
 init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
     User = proplists:get_value(user, AllOpts),
     Password = case proplists:get_value(password, AllOpts) of
@@ -1002,7 +462,6 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 			      target=KeyOrName}}
     end.
 
-%% @hidden
 handle_msg(sftp_connect, State) ->
     #state{ssh_ref=SSHRef, target=Target} = State,
     try_log(heading(sftp_connect,Target), "SSH Ref: ~p", [SSHRef]),
@@ -1246,15 +705,12 @@ handle_msg({del_dir,Srv,Name}=Cmd, S=#state{ssh_ref=SSHRef}) ->
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:del_dir(ref(Srv,SSHRef), Name),S}.
 
-%% @hidden
 reconnect(_Addr,_State) ->
     {error,no_reconnection_of_ssh}.
 
-%% @hidden
 close(SSHRef) ->
     disconnect(SSHRef).
 
-%% @hidden
 terminate(SSHRef, State) ->
     case State#state.conn_type of
 	ssh ->
@@ -1271,8 +727,6 @@ terminate(SSHRef, State) ->
 %%%=================================================================
 %%% Internal functions
 
-%%%-----------------------------------------------------------------
-%%% 
 do_recv_response(SSH, Chn, Data, End, Timeout) ->
     receive
 	{ssh_cm, SSH, {open,Chn,RemoteChn,{session}}} ->
@@ -1351,8 +805,6 @@ do_recv_response(SSH, Chn, Data, End, Timeout) ->
 	    end
     end.
 
-%%%-----------------------------------------------------------------
-%%% 
 get_handle(SSH) when is_pid(SSH) ->
     {ok,SSH};
 get_handle(SSH) ->
@@ -1365,8 +817,6 @@ get_handle(SSH) ->
 	    Error
     end.
 
-%%%-----------------------------------------------------------------
-%%% 
 call(SSH, Msg) ->
     call(SSH, Msg, infinity).
 	
@@ -1378,29 +828,19 @@ call(SSH, Msg, Timeout) ->
 	    Error
     end.
 
-%%%-----------------------------------------------------------------
-%%% 
 ref(sftp, SSHRef) -> SSHRef;
 ref(Server, _) -> Server.
 
-%%%-----------------------------------------------------------------
-%%% 
 mod(Cmd) ->
     [Op,_Server|Args] = tuple_to_list(Cmd),
     list_to_tuple([Op|Args]).
 
-%%%-----------------------------------------------------------------
-%%% 	  
 heading(Function, Ref) ->
     io_lib:format("ct_ssh:~tw ~tp",[Function,Ref]).
 
-%%%-----------------------------------------------------------------
-%%% 
 log(Heading, Str, Args) ->
     ct_gen_conn:log(Heading, Str, Args).  
 
-%%%-----------------------------------------------------------------
-%%% 
 try_log(Heading, Str, Args) ->
     try_log(Heading, Str, Args, infinity).
 
@@ -1414,8 +854,6 @@ try_log(Heading, Str, Args, Timeout) ->
 	    ok
     end.
 
-%%%-----------------------------------------------------------------
-%%% 
 debug(Str) ->
     debug(Str, []).
 

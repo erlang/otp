@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2017</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -194,7 +194,7 @@ ok
         <p>Binaries are sequences of whole bytes. Bitstrings with an arbitrary
           bit length have no support yet.</p>
       </item>
-      <tag>Resource objects</tag>
+      <tag><marker id="resource_objects"/>Resource objects</tag>
       <item>
         <p>The use of resource objects is a safe way to return pointers to
           native data structures from a NIF. A resource object is
@@ -293,7 +293,7 @@ return term;</code>
           arguments. When you write to a shared state either through
           static variables or <seealso marker="#enif_priv_data">
           <c>enif_priv_data</c></seealso>, you need to supply your own explicit
-          synchronization. This includes terms in process-independent
+          synchronization. This includes terms in process independent
           environments that are shared between threads. Resource objects also
           require synchronization if you treat them as mutable.</p>
         <p>The library initialization callbacks <c>load</c> and
@@ -596,7 +596,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
           <c>--enable-static-nifs</c>, you must define <c>STATIC_ERLANG_NIF</c>
            before the <c>ERL_NIF_INIT</c> declaration.</p>
       </item>
-      <tag><marker id="load"/><c>int (*load)(ErlNifEnv* env, void** priv_data,
+      <tag><marker id="load"/><c>int (*load)(ErlNifEnv* caller_env, void** priv_data,
         ERL_NIF_TERM load_info)</c></tag>
       <item>
         <p><c>load</c> is called when the NIF library is loaded
@@ -612,7 +612,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
           anything other than <c>0</c>. <c>load</c> can be <c>NULL</c> if
           initialization is not needed.</p> 
       </item>
-      <tag><marker id="upgrade"/><c>int (*upgrade)(ErlNifEnv* env, void**
+      <tag><marker id="upgrade"/><c>int (*upgrade)(ErlNifEnv* caller_env, void**
         priv_data, void** old_priv_data, ERL_NIF_TERM load_info)</c></tag>
       <item>
         <p><c>upgrade</c> is called when the NIF library is loaded
@@ -626,7 +626,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
         <p>The library fails to load if <c>upgrade</c> returns
            anything other than <c>0</c> or if <c>upgrade</c> is <c>NULL</c>.</p>
       </item>
-      <tag><marker id="unload"/><c>void (*unload)(ErlNifEnv* env, void*
+      <tag><marker id="unload"/><c>void (*unload)(ErlNifEnv* caller_env, void*
         priv_data)</c></tag>
       <item>
         <p><c>unload</c> is called when the module code that
@@ -654,27 +654,41 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
         <p><c>ErlNifEnv</c> represents an environment that can host Erlang
           terms. All terms in an environment are valid as long as the
           environment is valid. <c>ErlNifEnv</c> is an opaque type; pointers to
-          it can only be passed on to API functions. Two types of environments
+          it can only be passed on to API functions. Three types of environments
           exist:</p>
         <taglist>
-          <tag>Process-bound environment</tag>
+          <tag>Process bound environment</tag>
           <item>
             <p>Passed as the first argument to all NIFs. All function arguments
               passed to a NIF belong to that environment. The return value from
               a NIF must also be a term belonging to the same environment.</p>
-            <p>A process-bound environment contains transient information
+            <p>A process bound environment contains transient information
               about the calling Erlang process. The environment is only valid
               in the thread where it was supplied as argument until the NIF
               returns. It is thus useless and dangerous to store pointers to
-              process-bound environments between NIF calls.</p>
+              process bound environments between NIF calls.</p>
           </item>
-          <tag>Process-independent environment</tag>
+	  <tag>Callback environment</tag>
+          <item>
+            <p>Passed as the first argument to all the non-NIF callback functions
+	    (<seealso marker="#load"><c>load</c></seealso>,
+	    <seealso marker="#upgrade"><c>upgrade</c></seealso>,
+	    <seealso marker="#unload"><c>unload</c></seealso>,
+	    <seealso marker="#ErlNifResourceDtor"><c>dtor</c></seealso>,
+	    <seealso marker="#ErlNifResourceDown"><c>down</c></seealso> and
+	    <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso>).
+	    Works like a process bound environment but with a temporary
+	    pseudo process that "terminates" when the callback has
+	    returned. Terms may be created in this environment but they will
+	    only be accessible during the callback.</p>
+          </item>
+          <tag>Process independent environment</tag>
           <item>
             <p>Created by calling <seealso marker="#enif_alloc_env">
               <c>enif_alloc_env</c></seealso>. This environment can be
               used to store terms between NIF calls and to send terms with
               <seealso marker="#enif_send"><c>enif_send</c></seealso>. A
-              process-independent environment with all its terms is valid until
+              process independent environment with all its terms is valid until
               you explicitly invalidate it with
               <seealso marker="#enif_free_env"><c>enif_free_env</c></seealso>
               or <c>enif_send</c>.</p>
@@ -799,7 +813,7 @@ typedef struct {
       <tag><marker id="ErlNifResourceDtor"/><c>ErlNifResourceDtor</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
+typedef void ErlNifResourceDtor(ErlNifEnv* caller_env, void* obj);</code>
         <p>The function prototype of a resource destructor function.</p>
 	<p>The <c>obj</c> argument is a pointer to the resource. The only
 	allowed use for the resource in the destructor is to access its
@@ -809,7 +823,7 @@ typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
       <tag><marker id="ErlNifResourceDown"/><c>ErlNifResourceDown</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);</code>
+typedef void ErlNifResourceDown(ErlNifEnv* caller_env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);</code>
         <p>The function prototype of a resource down function,
 	  called on the behalf of <seealso marker="#enif_monitor_process">
 	  enif_monitor_process</seealso>. <c>obj</c> is the resource, <c>pid</c>
@@ -820,7 +834,7 @@ typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNi
       <tag><marker id="ErlNifResourceStop"/><c>ErlNifResourceStop</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceStop(ErlNifEnv* env, void* obj, ErlNifEvent event, int is_direct_call);</code>
+typedef void ErlNifResourceStop(ErlNifEnv* caller_env, void* obj, ErlNifEvent event, int is_direct_call);</code>
         <p>The function prototype of a resource stop function,
 	  called on the behalf of <seealso marker="#enif_select">
 	  enif_select</seealso>. <c>obj</c> is the resource, <c>event</c> is OS event,
@@ -949,7 +963,7 @@ typedef struct {
 
   <funcs>
     <func>
-      <name><ret>void *</ret><nametext>enif_alloc(size_t size)</nametext></name>
+      <name since=""><ret>void *</ret><nametext>enif_alloc(size_t size)</nametext></name>
       <fsummary>Allocate dynamic memory.</fsummary>
       <desc>
         <p>Allocates memory of <c>size</c> bytes.</p>
@@ -960,7 +974,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since=""><ret>int</ret>
         <nametext>enif_alloc_binary(size_t size, ErlNifBinary* bin)</nametext>
       </name>
       <fsummary>Create a new binary.</fsummary>
@@ -984,10 +998,10 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>ErlNifEnv *</ret><nametext>enif_alloc_env()</nametext></name>
+      <name since="OTP R14B"><ret>ErlNifEnv *</ret><nametext>enif_alloc_env()</nametext></name>
       <fsummary>Create a new environment.</fsummary>
       <desc>
-        <p>Allocates a new process-independent environment. The environment can
+        <p>Allocates a new process independent environment. The environment can
           be used to hold terms that are not bound to any process. Such terms
           can later be copied to a process environment with
           <seealso marker="#enif_make_copy"><c>enif_make_copy</c></seealso> or
@@ -998,7 +1012,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>void *</ret><nametext>enif_alloc_resource(ErlNifResourceType*
+      <name since="OTP R13B04"><ret>void *</ret><nametext>enif_alloc_resource(ErlNifResourceType*
         type, unsigned size)</nametext></name>
       <fsummary>Allocate a memory-managed resource object.</fsummary>
       <desc>
@@ -1008,7 +1022,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>size_t</ret><nametext>enif_binary_to_term(ErlNifEnv *env,
+      <name since="OTP 19.0"><ret>size_t</ret><nametext>enif_binary_to_term(ErlNifEnv *env,
         const unsigned char* data, size_t size, ERL_NIF_TERM *term,
         ErlNifBinaryToTerm opts)</nametext></name>
       <fsummary>Create a term from the external format.</fsummary>
@@ -1033,7 +1047,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>enif_clear_env(ErlNifEnv* env)</nametext>
+      <name since="OTP R14B"><ret>void</ret><nametext>enif_clear_env(ErlNifEnv* env)</nametext>
       </name>
       <fsummary>Clear an environment for reuse.</fsummary>
       <desc>
@@ -1044,7 +1058,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext>
       </name>
       <fsummary>Compare two terms.</fsummary>
@@ -1059,7 +1073,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_compare_monitors(const ErlNifMonitor
+      <name since="OTP 20.0"><ret>int</ret><nametext>enif_compare_monitors(const ErlNifMonitor
         *monitor1, const ErlNifMonitor *monitor2)</nametext></name>
       <fsummary>Compare two monitors.</fsummary>
       <desc>
@@ -1074,7 +1088,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_cond_broadcast(ErlNifCond *cnd)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -1084,7 +1098,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>ErlNifCond *</ret>
+      <name since="OTP R13B04"><ret>ErlNifCond *</ret>
         <nametext>enif_cond_create(char *name)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -1094,7 +1108,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_cond_destroy(ErlNifCond *cnd)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -1104,7 +1118,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>char*</ret>
+      <name since="OTP 21.0"><ret>char*</ret>
         <nametext>enif_cond_name(ErlNifCond* cnd)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -1114,7 +1128,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_cond_signal(ErlNifCond *cnd)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -1124,7 +1138,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_cond_wait(ErlNifCond *cnd, ErlNifMutex *mtx)</nametext>
       </name>
       <fsummary></fsummary>
@@ -1135,7 +1149,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R16B"><ret>int</ret>
         <nametext>enif_consume_timeslice(ErlNifEnv *env, int percent)</nametext>
       </name>
       <fsummary></fsummary>
@@ -1170,7 +1184,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime
+      <name since="OTP 18.3"><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime
         val, ErlNifTimeUnit from, ErlNifTimeUnit to)</nametext></name>
       <fsummary>Convert time unit of a time value.</fsummary>
       <desc>
@@ -1195,7 +1209,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP 19.0"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_cpu_time(ErlNifEnv *)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -1211,14 +1225,17 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_demonitor_process(ErlNifEnv* env, void* obj,
-      const ErlNifMonitor* mon)</nametext></name>
+      <name since="OTP 20.0"><ret>int</ret><nametext>enif_demonitor_process(ErlNifEnv* caller_env,
+      void* obj, const ErlNifMonitor* mon)</nametext></name>
       <fsummary>Cancel a process monitor.</fsummary>
       <desc>
         <marker id="enif_demonitor_process"></marker>
         <p>Cancels a monitor created earlier with <seealso marker="#enif_monitor_process">
 	<c>enif_monitor_process</c></seealso>. Argument <c>obj</c> is a pointer
-	to the resource holding the monitor and	<c>*mon</c> identifies the monitor.</p>
+	to the resource holding the monitor and	<c>*mon</c> identifies the
+	monitor.</p>
+	<p>Argument <c>caller_env</c> is the environment of the calling process
+	or callback. Must only be NULL if calling from a custom thread.</p>
         <p>Returns <c>0</c> if the monitor was successfully identified and removed.
 	Returns	a non-zero value if the monitor could not be identified, which means
 	it was either</p>
@@ -1235,7 +1252,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</nametext>
       </name>
       <fsummary></fsummary>
@@ -1246,19 +1263,20 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_fprintf(FILE *stream, const char *format, ...)</nametext></name>
+      <name since="OTP 21.0"><ret>int</ret><nametext>enif_fprintf(FILE *stream, const char *format, ...)</nametext></name>
       <fsummary>Format strings and Erlang terms.</fsummary>
       <desc>
         <p>Similar to <c>fprintf</c> but this format string also accepts
-          <c>"%T"</c>, which formats Erlang terms.</p>
-	<p>This function was originally intenden for debugging purpose. It is not
+        <c>"%T"</c>, which formats Erlang terms of type
+	<seealso marker="#ERL_NIF_TERM"><c>ERL_NIF_TERM</c></seealso>.</p>
+	<p>This function is primarily intended for debugging purpose. It is not
 	  recommended to print very large terms with <c>%T</c>. The function may
 	  change <c>errno</c>, even if successful.</p>
       </desc>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>enif_free(void* ptr)</nametext></name>
+      <name since=""><ret>void</ret><nametext>enif_free(void* ptr)</nametext></name>
       <fsummary>Free dynamic memory.</fsummary>
       <desc>
         <p>Frees memory allocated by
@@ -1267,7 +1285,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R14B"><ret>void</ret>
         <nametext>enif_free_env(ErlNifEnv* env)</nametext></name>
       <fsummary>Free an environment allocated with enif_alloc_env.</fsummary>
       <desc>
@@ -1278,7 +1296,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP 20.1"><ret>void</ret>
         <nametext>enif_free_iovec(ErlNifIOvec* iov)</nametext></name>
       <fsummary>Free an ErlIOVec</fsummary>
       <desc>
@@ -1303,7 +1321,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_atom(ErlNifEnv* env, ERL_NIF_TERM
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_atom(ErlNifEnv* env, ERL_NIF_TERM
         term, char* buf, unsigned size, ErlNifCharEncoding encode)</nametext>
       </name>
       <fsummary>Get the text representation of an atom term.</fsummary>
@@ -1319,7 +1337,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv* env,
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv* env,
         ERL_NIF_TERM term, unsigned* len, ErlNifCharEncoding encode)</nametext>
       </name>
       <fsummary>Get the length of atom <c>term</c>.</fsummary>
@@ -1333,7 +1351,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_double(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_double(ErlNifEnv* env,
         ERL_NIF_TERM term, double* dp)</nametext></name>
       <fsummary>Read a floating-point number term.</fsummary>
       <desc>
@@ -1344,7 +1362,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_int(ErlNifEnv* env, ERL_NIF_TERM
+      <name since=""><ret>int</ret><nametext>enif_get_int(ErlNifEnv* env, ERL_NIF_TERM
         term, int* ip)</nametext></name>
       <fsummary>Read an integer term.</fsummary>
       <desc>
@@ -1355,7 +1373,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_int64(ErlNifEnv* env, ERL_NIF_TERM
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_get_int64(ErlNifEnv* env, ERL_NIF_TERM
         term, ErlNifSInt64* ip)</nametext></name>
       <fsummary>Read a 64-bit integer term.</fsummary>
       <desc>
@@ -1366,7 +1384,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_local_pid(ErlNifEnv* env,
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_get_local_pid(ErlNifEnv* env,
         ERL_NIF_TERM term, ErlNifPid* pid)</nametext></name>
       <fsummary>Read a local pid term.</fsummary>
       <desc>
@@ -1378,7 +1396,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_local_port(ErlNifEnv* env,
+      <name since="OTP 19.0"><ret>int</ret><nametext>enif_get_local_port(ErlNifEnv* env,
         ERL_NIF_TERM term, ErlNifPort* port_id)</nametext></name>
       <fsummary>Read a local port term.</fsummary>
       <desc>
@@ -1390,7 +1408,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env,
+      <name since=""><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env,
         ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</nametext>
       </name>
       <fsummary>Get head and tail from a list.</fsummary>
@@ -1402,7 +1420,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_list_length(ErlNifEnv* env,
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_get_list_length(ErlNifEnv* env,
         ERL_NIF_TERM term, unsigned* len)</nametext></name>
       <fsummary>Get the length of list <c>term</c>.</fsummary>
       <desc>
@@ -1413,7 +1431,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM
         term, long int* ip)</nametext></name>
       <fsummary>Read a long integer term.</fsummary>
       <desc>
@@ -1424,7 +1442,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_map_size(ErlNifEnv* env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_get_map_size(ErlNifEnv* env,
         ERL_NIF_TERM term, size_t *size)</nametext></name>
       <fsummary>Read the size of a map term.</fsummary>
       <desc>
@@ -1436,7 +1454,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_map_value(ErlNifEnv* env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_get_map_value(ErlNifEnv* env,
         ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value)</nametext>
       </name>
       <fsummary>Get the value of a key in a map.</fsummary>
@@ -1449,7 +1467,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env,
         ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</nametext>
       </name>
       <fsummary>Get the pointer to a resource object.</fsummary>
@@ -1462,7 +1480,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_string(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_string(ErlNifEnv* env,
         ERL_NIF_TERM list, char* buf, unsigned size,
         ErlNifCharEncoding encode)</nametext></name>
       <fsummary>Get a C-string from a list.</fsummary>
@@ -1486,7 +1504,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM
         term, int* arity, const ERL_NIF_TERM** array)</nametext></name>
       <fsummary>Inspect the elements of a tuple.</fsummary>
       <desc>
@@ -1502,7 +1520,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_uint(ErlNifEnv* env, ERL_NIF_TERM
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_uint(ErlNifEnv* env, ERL_NIF_TERM
         term, unsigned int* ip)</nametext></name>
       <fsummary>Read an unsigned integer term.</fsummary>
       <desc>
@@ -1514,7 +1532,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_uint64(ErlNifEnv* env,
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_get_uint64(ErlNifEnv* env,
         ERL_NIF_TERM term, ErlNifUInt64* ip)</nametext></name>
       <fsummary>Read an unsigned 64-bit integer term.</fsummary>
       <desc>
@@ -1526,7 +1544,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM
+      <name since=""><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM
         term, unsigned long* ip)</nametext></name>
       <fsummary>Read an unsigned integer term.</fsummary>
       <desc>
@@ -1539,7 +1557,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_getenv(const char* key, char* value,
+      <name since="OTP 18.2"><ret>int</ret><nametext>enif_getenv(const char* key, char* value,
         size_t *value_size)</nametext></name>
       <fsummary>Get the value of an environment variable.</fsummary>
       <desc>
@@ -1549,7 +1567,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_has_pending_exception(ErlNifEnv* env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_has_pending_exception(ErlNifEnv* env,
         ERL_NIF_TERM* reason)</nametext></name>
       <fsummary>Check if an exception has been raised.</fsummary>
       <desc>
@@ -1570,7 +1588,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name>
+      <name since="OTP 20.0">
         <ret>ErlNifUInt64</ret>
         <nametext>enif_hash(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt)</nametext>
       </name>
@@ -1583,7 +1601,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env,
+      <name since=""><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env,
         ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
       <fsummary>Inspect the content of a binary.</fsummary>
       <desc>
@@ -1595,7 +1613,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_inspect_iolist_as_binary(ErlNifEnv*
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_inspect_iolist_as_binary(ErlNifEnv*
         env, ERL_NIF_TERM term, ErlNifBinary* bin)</nametext></name>
       <fsummary>Inspect the content of an iolist.</fsummary>
       <desc>
@@ -1609,7 +1627,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_inspect_iovec(ErlNifEnv*
+      <name since="OTP 20.1"><ret>int</ret><nametext>enif_inspect_iovec(ErlNifEnv*
         env, size_t max_elements, ERL_NIF_TERM iovec_term, ERL_NIF_TERM* tail,
         ErlNifIOVec** iovec)</nametext></name>
       <fsummary>Inspect a list of binaries as an ErlNifIOVec.</fsummary>
@@ -1649,7 +1667,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ErlNifIOQueue *</ret>
+      <name since="OTP 20.1"><ret>ErlNifIOQueue *</ret>
       <nametext>enif_ioq_create(ErlNifIOQueueOpts opts)</nametext></name>
       <fsummary>Create a new IO Queue</fsummary>
       <desc>
@@ -1660,7 +1678,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP 20.1"><ret>void</ret>
       <nametext>enif_ioq_destroy(ErlNifIOQueue *q)</nametext></name>
       <fsummary>Destroy an IO Queue and free it's content</fsummary>
       <desc>
@@ -1669,7 +1687,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 20.1"><ret>int</ret>
       <nametext>enif_ioq_deq(ErlNifIOQueue *q, size_t count, size_t *size)</nametext></name>
       <fsummary>Dequeue count bytes from the IO Queue</fsummary>
       <desc>
@@ -1682,7 +1700,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 20.1"><ret>int</ret>
       <nametext>enif_ioq_enq_binary(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip)</nametext></name>
       <fsummary>Enqueue the binary into the IO Queue</fsummary>
       <desc>
@@ -1695,7 +1713,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 20.1"><ret>int</ret>
       <nametext>enif_ioq_enqv(ErlNifIOQueue *q, ErlNifIOVec *iovec, size_t skip)</nametext></name>
       <fsummary>Enqueue the iovec into the IO Queue</fsummary>
       <desc>
@@ -1706,7 +1724,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>SysIOVec *</ret>
+      <name since="OTP 20.1"><ret>SysIOVec *</ret>
       <nametext>enif_ioq_peek(ErlNifIOQueue *q, int *iovlen)</nametext></name>
       <fsummary>Peek inside the IO Queue</fsummary>
       <desc>
@@ -1720,7 +1738,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 21.0"><ret>int</ret>
       <nametext>enif_ioq_peek_head(ErlNifEnv *env, ErlNifIOQueue *q, size_t *size, ERL_NIF_TERM *bin_term)</nametext></name>
       <fsummary>Peek the head of the IO Queue.</fsummary>
       <desc>
@@ -1735,7 +1753,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>size_t</ret>
+      <name since="OTP 20.1"><ret>size_t</ret>
       <nametext>enif_ioq_size(ErlNifIOQueue *q)</nametext></name>
       <fsummary>Get the current size of the IO Queue</fsummary>
       <desc>
@@ -1744,7 +1762,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)</nametext>
       </name>
       <fsummary>Determine if a term is an atom.</fsummary>
@@ -1754,7 +1772,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since=""><ret>int</ret>
         <nametext>enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)</nametext>
       </name>
       <fsummary>Determine if a term is a binary.</fsummary>
@@ -1764,7 +1782,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 19.0"><ret>int</ret>
         <nametext>enif_is_current_process_alive(ErlNifEnv* env)</nametext>
       </name>
       <fsummary>Determine if currently executing process is alive.</fsummary>
@@ -1777,7 +1795,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_is_empty_list(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_is_empty_list(ErlNifEnv* env,
         ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an empty list.</fsummary>
       <desc>
@@ -1786,7 +1804,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_is_exception(ErlNifEnv* env,
+      <name since="OTP R14B03"><ret>int</ret><nametext>enif_is_exception(ErlNifEnv* env,
         ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an exception.</fsummary>
       <desc><marker id="enif_is_exception"/>
@@ -1795,7 +1813,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM
         term)</nametext></name>
       <fsummary>Determine if a term is a fun.</fsummary>
       <desc>
@@ -1804,7 +1822,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_is_identical(ERL_NIF_TERM lhs,
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_is_identical(ERL_NIF_TERM lhs,
         ERL_NIF_TERM rhs)</nametext></name>
       <fsummary>Erlang operator =:=.</fsummary>
       <desc>
@@ -1814,7 +1832,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R14B"><ret>int</ret>
         <nametext>enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)</nametext>
       </name>
       <fsummary>Determine if a term is a list.</fsummary>
@@ -1824,7 +1842,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_is_map(ErlNifEnv* env, ERL_NIF_TERM
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_is_map(ErlNifEnv* env, ERL_NIF_TERM
         term)</nametext></name>
       <fsummary>Determine if a term is a map.</fsummary>
       <desc>
@@ -1834,7 +1852,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_is_number(ErlNifEnv* env, ERL_NIF_TERM
+      <name since="OTP R15B"><ret>int</ret><nametext>enif_is_number(ErlNifEnv* env, ERL_NIF_TERM
         term)</nametext></name>
       <fsummary>Determine if a term is a number (integer or float).</fsummary>
       <desc>
@@ -1843,7 +1861,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</nametext>
       </name>
       <fsummary>Determine if a term is a pid.</fsummary>
@@ -1853,7 +1871,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term)</nametext>
       </name>
       <fsummary>Determine if a term is a port.</fsummary>
@@ -1863,7 +1881,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_is_port_alive(ErlNifEnv* env,
+      <name since="OTP 19.0"><ret>int</ret><nametext>enif_is_port_alive(ErlNifEnv* env,
         ErlNifPort *port_id)</nametext></name>
       <fsummary>Determine if a local port is alive.</fsummary>
       <desc>
@@ -1875,7 +1893,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_is_process_alive(ErlNifEnv* env,
+      <name since="OTP 19.0"><ret>int</ret><nametext>enif_is_process_alive(ErlNifEnv* env,
         ErlNifPid *pid)</nametext></name>
       <fsummary>Determine if a local process is alive.</fsummary>
       <desc>
@@ -1887,7 +1905,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)</nametext>
       </name>
       <fsummary>Determine if a term is a reference.</fsummary>
@@ -1897,7 +1915,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R14B"><ret>int</ret>
         <nametext>enif_is_tuple(ErlNifEnv* env, ERL_NIF_TERM term)</nametext>
       </name>
       <fsummary>Determine if a term is a tuple.</fsummary>
@@ -1907,7 +1925,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R14B"><ret>int</ret>
         <nametext>enif_keep_resource(void* obj)</nametext>
       </name>
       <fsummary>Add a reference to a resource object.</fsummary>
@@ -1923,7 +1941,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext>
       </name>
       <fsummary>Create an atom term.</fsummary>
@@ -1937,7 +1955,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env,
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env,
         const char* name, size_t len)</nametext></name>
       <fsummary>Create an atom term.</fsummary>
       <desc>
@@ -1951,7 +1969,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
       <fsummary>Make a badarg exception.</fsummary>
       <desc>
@@ -1979,7 +1997,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext>
       </name>
       <fsummary>Make a binary term.</fsummary>
@@ -1992,7 +2010,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_copy(ErlNifEnv* dst_env,
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_copy(ErlNifEnv* dst_env,
         ERL_NIF_TERM src_term)</nametext></name>
       <fsummary>Make a copy of a term.</fsummary>
       <desc>
@@ -2003,7 +2021,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_double(ErlNifEnv* env, double d)</nametext></name>
       <fsummary>Create a floating-point term.</fsummary>
       <desc>
@@ -2015,7 +2033,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env,
         const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding
         encode)</nametext></name>
       <fsummary>Create an existing atom term.</fsummary>
@@ -2031,7 +2049,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env,
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env,
         const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create an existing atom term.</fsummary>
@@ -2047,7 +2065,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
       </desc>
     </func>
 
-    <func><name><ret>ERL_NIF_TERM</ret>
+    <func><name since=""><ret>ERL_NIF_TERM</ret>
       <nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
       <fsummary>Create an integer term.</fsummary>
       <desc>
@@ -2056,7 +2074,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_int64(ErlNifEnv* env, ErlNifSInt64 i)</nametext>
       </name>
       <fsummary>Create an integer term.</fsummary>
@@ -2066,7 +2084,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_list(ErlNifEnv* env, unsigned cnt, ...)</nametext>
       </name>
       <fsummary>Create a list term.</fsummary>
@@ -2079,24 +2097,24 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_list1(ErlNifEnv* env, ERL_NIF_TERM e1)</nametext>
       </name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list2(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_list2(ErlNifEnv* env,
         ERL_NIF_TERM e1, ERL_NIF_TERM e2)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list3(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_list3(ErlNifEnv* env,
         ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list4(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_list4(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list5(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_list5(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list6(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_list6(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list7(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_list7(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list8(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_list8(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list9(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_list9(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</nametext></name>
       <fsummary>Create a list term.</fsummary>
       <desc>
@@ -2108,7 +2126,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv*
+      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv*
         env, ERL_NIF_TERM head, ERL_NIF_TERM tail)</nametext></name>
       <fsummary>Create a list cell.</fsummary>
       <desc>
@@ -2117,7 +2135,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM
           arr[], unsigned cnt)</nametext></name>
       <fsummary>Create a list term from an array.</fsummary>
@@ -2129,7 +2147,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_long(ErlNifEnv* env, long int i)</nametext></name>
       <fsummary>Create an integer term from a long int.</fsummary>
       <desc>
@@ -2138,7 +2156,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_make_map_put(ErlNifEnv* env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_make_map_put(ErlNifEnv* env,
         ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value,
         ERL_NIF_TERM* map_out)</nametext></name>
       <fsummary>Insert key-value pair in map.</fsummary>
@@ -2154,7 +2172,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_make_map_remove(ErlNifEnv* env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_make_map_remove(ErlNifEnv* env,
         ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out)</nametext>
       </name>
       <fsummary>Remove key from map.</fsummary>
@@ -2170,7 +2188,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_make_map_update(ErlNifEnv* env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_make_map_update(ErlNifEnv* env,
         ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM new_value,
         ERL_NIF_TERM* map_out)</nametext></name>
       <fsummary>Replace value for key in map.</fsummary>
@@ -2185,7 +2203,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 21.0"><ret>int</ret>
         <nametext>enif_make_map_from_arrays(ErlNifEnv* env, ERL_NIF_TERM keys[],
         ERL_NIF_TERM values[], size_t cnt, ERL_NIF_TERM *map_out)</nametext></name>
       <fsummary>Make map term from the given keys and values.</fsummary>
@@ -2199,7 +2217,19 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv*
+      <name since="OTP @OTP-15362@"><ret>ERL_NIF_TERM</ret>
+        <nametext>enif_make_monitor_term(ErlNifEnv* env, const ErlNifMonitor* mon)</nametext></name>
+      <fsummary>Make monitor term from the given monitor identifier.</fsummary>
+      <desc>
+        <p>Creates a term identifying the given monitor received from
+	<seealso marker="#enif_monitor_process"><c>enif_monitor_process</c>
+	</seealso>.</p>
+	<p>This function is primarily intended for debugging purpose.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B"><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv*
         env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
       <fsummary>Allocate and create a new binary term.</fsummary>
       <desc>
@@ -2215,7 +2245,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP 18.0"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_new_map(ErlNifEnv* env)</nametext></name>
       <fsummary>Make an empty map term.</fsummary>
       <desc>
@@ -2224,7 +2254,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid)</nametext>
       </name>
       <fsummary>Make a pid term.</fsummary>
@@ -2234,7 +2264,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_ref(ErlNifEnv* env)</nametext></name>
       <fsummary>Create a reference.</fsummary>
       <desc>
@@ -2244,7 +2274,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_resource(ErlNifEnv* env, void* obj)</nametext>
       </name>
       <fsummary>Create an opaque handle to a resource object.</fsummary>
@@ -2267,7 +2297,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
 	  between nodes.</p>
 	  <list type="bulleted">
 	    <item>
-	      <p>Two resource terms will compare equal iff they
+	      <p>Two resource terms will compare equal if and only if they
 	      would yield the same resource object pointer when passed to
 	      <seealso marker="#enif_get_resource"><c>enif_get_resource</c></seealso>.</p>
 	    </item>
@@ -2292,7 +2322,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_resource_binary(ErlNifEnv* env, void* obj, const
         void* data, size_t size)</nametext></name>
       <fsummary>Create a custom binary term.</fsummary>
@@ -2318,7 +2348,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R15B"><ret>int</ret>
         <nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM list_in,
         ERL_NIF_TERM *list_out)</nametext></name>
       <fsummary>Create the reverse of a list.</fsummary>
@@ -2334,7 +2364,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env,
+      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env,
         const char* string, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
       <desc>
@@ -2345,7 +2375,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv*
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv*
         env, const char* string, size_t len, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
@@ -2358,7 +2388,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_sub_binary(ErlNifEnv*
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_sub_binary(ErlNifEnv*
         env, ERL_NIF_TERM bin_term, size_t pos, size_t size)</nametext></name>
       <fsummary>Make a subbinary term.</fsummary>
       <desc>
@@ -2370,7 +2400,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env,
+      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env,
         unsigned cnt, ...)</nametext></name>
       <fsummary>Creates a tuple term.</fsummary>
       <desc>
@@ -2381,23 +2411,23 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple1(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple1(ErlNifEnv* env,
         ERL_NIF_TERM e1)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple2(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple2(ErlNifEnv* env,
         ERL_NIF_TERM e1, ERL_NIF_TERM e2)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple3(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple3(ErlNifEnv* env,
         ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple4(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple4(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple5(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple5(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple6(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple6(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple7(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple7(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple8(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple8(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)</nametext></name>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple9(ErlNifEnv* env,
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple9(ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</nametext></name>
       <fsummary>Create a tuple term.</fsummary>
       <desc>
@@ -2409,7 +2439,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM
         arr[], unsigned cnt)</nametext></name>
       <fsummary>Create a tuple term from an array.</fsummary>
@@ -2420,7 +2450,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R13B04"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_uint(ErlNifEnv* env, unsigned int i)</nametext>
       </name>
       <fsummary>Create an unsigned integer term.</fsummary>
@@ -2430,7 +2460,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)</nametext>
       </name>
       <fsummary>Create an unsigned integer term.</fsummary>
@@ -2440,7 +2470,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext>
       </name>
       <fsummary>Create an integer term from an unsigned long int.</fsummary>
@@ -2450,7 +2480,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_unique_integer(ErlNifEnv
+      <name since="OTP 19.0"><ret>ERL_NIF_TERM</ret><nametext>enif_make_unique_integer(ErlNifEnv
         *env, ErlNifUniqueInteger properties)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2468,7 +2498,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_map_iterator_create(ErlNifEnv *env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_map_iterator_create(ErlNifEnv *env,
         ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry
         entry)</nametext></name>
       <fsummary>Create a map iterator.</fsummary>
@@ -2503,7 +2533,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>enif_map_iterator_destroy(ErlNifEnv *env,
+      <name since="OTP 18.0"><ret>void</ret><nametext>enif_map_iterator_destroy(ErlNifEnv *env,
         ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Destroy a map iterator.</fsummary>
       <desc>
@@ -2514,7 +2544,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_map_iterator_get_pair(ErlNifEnv *env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_map_iterator_get_pair(ErlNifEnv *env,
         ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM
         *value)</nametext></name>
       <fsummary>Get key and value at current map iterator position.</fsummary>
@@ -2527,7 +2557,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_map_iterator_is_head(ErlNifEnv *env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_map_iterator_is_head(ErlNifEnv *env,
         ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Check if map iterator is positioned before first.</fsummary>
       <desc>
@@ -2537,7 +2567,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_map_iterator_is_tail(ErlNifEnv *env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_map_iterator_is_tail(ErlNifEnv *env,
         ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Check if map iterator is positioned after last.</fsummary>
       <desc>
@@ -2547,7 +2577,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_map_iterator_next(ErlNifEnv *env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_map_iterator_next(ErlNifEnv *env,
         ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Increment map iterator to point to next entry.</fsummary>
       <desc>
@@ -2559,7 +2589,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_map_iterator_prev(ErlNifEnv *env,
+      <name since="OTP 18.0"><ret>int</ret><nametext>enif_map_iterator_prev(ErlNifEnv *env,
         ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Decrement map iterator to point to previous entry.</fsummary>
       <desc>
@@ -2571,8 +2601,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_monitor_process(ErlNifEnv* env, void* obj,
-      const ErlNifPid* target_pid, ErlNifMonitor* mon)</nametext></name>
+      <name since="OTP 20.0"><ret>int</ret><nametext>enif_monitor_process(ErlNifEnv* caller_env,
+      void* obj, const ErlNifPid* target_pid, ErlNifMonitor* mon)</nametext></name>
       <fsummary>Monitor a process from a resource.</fsummary>
       <desc>
         <marker id="enif_monitor_process"></marker>
@@ -2592,6 +2622,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<seealso marker="#enif_compare_monitors"><c>enif_compare_monitors</c></seealso>.
 	A monitor is automatically removed when it triggers or when
 	the resource is deallocated.</p>
+	<p>Argument <c>caller_env</c> is the environment of the calling process
+	or callback. Must only be NULL if calling from a custom thread.</p>
         <p>Returns <c>0</c> on success, &lt; 0 if no <c>down</c> callback is
           provided, and &gt; 0 if the process is no longer alive.</p>
         <p>This function is only thread-safe when the emulator with SMP support
@@ -2601,7 +2633,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>ErlNifTime</ret>
+      <name since="OTP 18.3"><ret>ErlNifTime</ret>
         <nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext>
       </name>
       <fsummary>Get Erlang monotonic time.</fsummary>
@@ -2622,7 +2654,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>ErlNifMutex *</ret>
+      <name since="OTP R13B04"><ret>ErlNifMutex *</ret>
         <nametext>enif_mutex_create(char *name)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2632,7 +2664,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_mutex_destroy(ErlNifMutex *mtx)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2642,7 +2674,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_mutex_lock(ErlNifMutex *mtx)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2652,7 +2684,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>char*</ret>
+      <name since="OTP 21.0"><ret>char*</ret>
         <nametext>enif_mutex_name(ErlNifMutex* mtx)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2662,7 +2694,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
       <nametext>enif_mutex_trylock(ErlNifMutex *mtx)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2672,7 +2704,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_mutex_unlock(ErlNifMutex *mtx)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2682,7 +2714,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since="OTP 19.0"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_now_time(ErlNifEnv *env)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2693,7 +2725,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>ErlNifResourceType *</ret>
+      <name since="OTP R13B04"><ret>ErlNifResourceType *</ret>
         <nametext>enif_open_resource_type(ErlNifEnv* env, const char*
         module_str, const char* name, ErlNifResourceDtor* dtor,
         ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext>
@@ -2732,7 +2764,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>ErlNifResourceType *</ret>
+      <name since="OTP 20.0"><ret>ErlNifResourceType *</ret>
         <nametext>enif_open_resource_type_x(ErlNifEnv* env, const char* name,
 	const ErlNifResourceTypeInit* init,
         ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext>
@@ -2751,7 +2783,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-     <name><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const
+     <name since="OTP 19.0"><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const
        ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext>
      </name>
      <fsummary>Send a port_command to to_port.</fsummary>
@@ -2767,7 +2799,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
          <item>The port ID of the receiving port. The port ID is to refer to a
            port on the local node.</item>
          <tag><c>msg_env</c></tag>
-         <item>The environment of the message term. Can be a process-independent
+         <item>The environment of the message term. Can be a process independent
            environment allocated with <seealso marker="#enif_alloc_env">
            <c>enif_alloc_env</c></seealso> or <c>NULL</c>.</item>
          <tag><c>msg</c></tag>
@@ -2794,7 +2826,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void *</ret>
+      <name since="OTP R13B04"><ret>void *</ret>
         <nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
       <fsummary>Get the private data of a NIF library.</fsummary>
       <desc>
@@ -2805,7 +2837,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_raise_exception(ErlNifEnv*
+      <name since="OTP 18.0"><ret>ERL_NIF_TERM</ret><nametext>enif_raise_exception(ErlNifEnv*
         env, ERL_NIF_TERM reason)</nametext></name>
       <fsummary>Raise a NIF error exception.</fsummary>
       <desc>
@@ -2828,7 +2860,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void *</ret>
+      <name since="OTP 20.2"><ret>void *</ret>
         <nametext>enif_realloc(void* ptr, size_t size)</nametext></name>
       <fsummary>Reallocate dynamic memory.</fsummary>
       <desc>
@@ -2842,7 +2874,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_realloc_binary(ErlNifBinary* bin, size_t size)</nametext>
       </name>
       <fsummary>Change the size of a binary.</fsummary>
@@ -2856,7 +2888,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since=""><ret>void</ret>
         <nametext>enif_release_binary(ErlNifBinary* bin)</nametext></name>
       <fsummary>Release a binary.</fsummary>
       <desc>
@@ -2867,7 +2899,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_release_resource(void* obj)</nametext></name>
       <fsummary>Release a resource object.</fsummary>
       <desc>
@@ -2886,7 +2918,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>ErlNifRWLock *</ret>
+      <name since="OTP R13B04"><ret>ErlNifRWLock *</ret>
         <nametext>enif_rwlock_create(char *name)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2896,7 +2928,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_rwlock_destroy(ErlNifRWLock *rwlck)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2906,7 +2938,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>char*</ret>
+      <name since="OTP 21.0"><ret>char*</ret>
         <nametext>enif_rwlock_name(ErlNifRWLock* rwlck)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2916,7 +2948,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_rwlock_rlock(ErlNifRWLock *rwlck)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2926,7 +2958,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_rwlock_runlock(ErlNifRWLock *rwlck)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2936,7 +2968,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_rwlock_rwlock(ErlNifRWLock *rwlck)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2946,7 +2978,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_rwlock_rwunlock(ErlNifRWLock *rwlck)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2956,7 +2988,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_rwlock_tryrlock(ErlNifRWLock *rwlck)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2966,7 +2998,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_rwlock_tryrwlock(ErlNifRWLock *rwlck)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2976,7 +3008,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_schedule_nif(ErlNifEnv* env,
+      <name since="OTP 17.3"><ret>ERL_NIF_TERM</ret><nametext>enif_schedule_nif(ErlNifEnv* env,
         const char* fun_name, int flags, ERL_NIF_TERM (*fp)(ErlNifEnv* env, int
         argc, const ERL_NIF_TERM argv[]), int argc, const ERL_NIF_TERM
         argv[])</nametext></name>
@@ -3021,7 +3053,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 20.0"><ret>int</ret>
         <nametext>enif_select(ErlNifEnv* env, ErlNifEvent event, enum ErlNifSelectFlags mode,
 	void* obj, const ErlNifPid* pid, ERL_NIF_TERM ref)</nametext>
       </name>
@@ -3036,12 +3068,18 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<p>Argument <c>mode</c> describes the type of events to wait for. It can be
 	  <c>ERL_NIF_SELECT_READ</c>, <c>ERL_NIF_SELECT_WRITE</c> or a bitwise
 	  OR combination to wait for both. It can also be <c>ERL_NIF_SELECT_STOP</c>
-	  which is described further below. When a read or write event is triggered,
+	  or <c>ERL_NIF_SELECT_CANCEL</c> which are described further
+	  below. When a read or write event is triggered,
 	  a notification message like this is sent to the process identified by
 	  <c>pid</c>:</p>
 	<code type="none">{select, Obj, Ref, ready_input | ready_output}</code>
 	<p><c>ready_input</c> or <c>ready_output</c> indicates if the event object
 	  is ready for reading or writing.</p>
+	<note><p>For complete control over the message format use the newer functions
+	  <seealso marker="#enif_select_read"><c>enif_select_read</c></seealso> or
+	  <seealso marker="#enif_select_write"><c>enif_select_write</c></seealso>
+	  introduced in erts-11.0 (OTP-22.0).</p>
+	</note>
 	<p>Argument <c>pid</c> may be <c>NULL</c> to indicate the calling process.</p>
 	<p>Argument <c>obj</c> is a resource object obtained from
           <seealso marker="#enif_alloc_resource"><c>enif_alloc_resource</c></seealso>.
@@ -3057,13 +3095,21 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<p>The notifications are one-shot only. To receive further notifications of the same
 	  type (read or write), repeated calls to <c>enif_select</c> must be made
 	  after receiving each notification.</p>
+	<p><c>ERL_NIF_SELECT_CANCEL</c> can be used to cancel previously
+	  selected events. It must be used in a bitwise OR combination with
+	  <c>ERL_NIF_SELECT_READ</c> and/or <c>ERL_NIF_SELECT_WRITE</c> to
+	  indicate which type of event to cancel. The return value will
+	  tell if the event was actualy cancelled or if a notification may
+	  already have been sent.</p>
 	<p>Use <c>ERL_NIF_SELECT_STOP</c> as <c>mode</c> in order to safely
 	  close an event object that has been passed to <c>enif_select</c>. The
 	  <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso> callback
 	  of the resource <c>obj</c> will be called when it is safe to close
 	  the event object. This safe way of closing event objects must be used
-	  even if all notifications have been received and no further calls to
-	  <c>enif_select</c> have been made.</p>
+	  even if all notifications have been received (or cancelled) and no
+	  further calls to <c>enif_select</c> have been made.
+	  <c>ERL_NIF_SELECT_STOP</c> will first cancel any selected events
+	  before it calls or schedules the <c>stop</c> callback.</p>
 	<p>The first call to <c>enif_select</c> for a specific OS <c>event</c> will establish
 	  a relation between the event object and the containing resource. All subsequent calls
 	  for an <c>event</c> must pass its containing resource as argument
@@ -3085,7 +3131,15 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <item>The stop callback was called directly by <c>enif_select</c>.</item>
           <tag><c>ERL_NIF_SELECT_STOP_SCHEDULED</c></tag>
           <item>The stop callback was scheduled to run on some other thread
-	    or later by this thread.</item>
+	  or later by this thread.</item>
+	  <tag><c>ERL_NIF_SELECT_READ_CANCELLED</c></tag>
+          <item>A read event was cancelled by <c>ERL_NIF_SELECT_CANCEL</c> or
+	  <c>ERL_NIF_SELECT_STOP</c> and is guaranteed not to generate a
+	  <c>ready_input</c> notification message.</item>
+	  <tag><c>ERL_NIF_SELECT_WRITE_CANCELLED</c></tag>
+          <item>A write event was cancelled by <c>ERL_NIF_SELECT_CANCEL</c> or
+	  <c>ERL_NIF_SELECT_STOP</c> and is guaranteed not to generate a
+	  <c>ready_output</c> notification message.</item>
 	</taglist>
 	<p>Returns a negative value if the call failed where the following bits can be set:</p>
         <taglist>
@@ -3111,11 +3165,44 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
 }
 </code>
         </note>
+	<note><p>The mode flag <c>ERL_NIF_SELECT_CANCEL</c> and the return flags
+	  <c>ERL_NIF_SELECT_READ_CANCELLED</c> and
+	  <c>ERL_NIF_SELECT_WRITE_CANCELLED</c> were introduced in erts-11.0
+	  (OTP-22.0).</p>
+	</note>
       </desc>
     </func>
 
     <func>
-      <name><ret>ErlNifPid *</ret>
+      <name since="OTP 22.0"><ret>int</ret>
+      <nametext>enif_select_read(ErlNifEnv* env, ErlNifEvent event, void* obj,
+      const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env)</nametext>
+      </name>
+      <name since="OTP 22.0"><ret>int</ret>
+      <nametext>enif_select_write(ErlNifEnv* env, ErlNifEvent event, void* obj,
+      const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env)</nametext>
+      </name>
+      <fsummary>Manage subscription on IO event.</fsummary>
+      <desc>
+	<p>These are variants of <seealso marker="#enif_select">enif_select</seealso>
+	where you can supply your own message term <c>msg</c> that will be sent to
+	the process instead of the predefined tuple <c>{select,_,_,_}.</c></p>
+        <p>Argument <c>msg_env</c> must either be <c>NULL</c> or the environment of
+	<c>msg</c> allocated with <seealso marker="#enif_alloc_env">
+	<c>enif_alloc_env</c></seealso>. If argument <c>msg_env</c> is
+	<c>NULL</c> the term <c>msg</c> will be copied, otherwise both
+	<c>msg</c> and <c>msg_env</c> will be invalidated by a successful call
+	to <c>enif_select_read</c> or <c>enif_select_write</c>.</p>
+	<p>Apart from the message format <c>enif_select_read</c> and
+	<c>enif_select_write</c> behaves exactly the same as <seealso
+	marker="#enif_select">enif_select</seealso> with argument <c>mode</c> as
+	either <c>ERL_NIF_SELECT_READ</c> or <c>ERL_NIF_SELECT_WRITE</c>. To
+	cancel or close events use <seealso marker="#enif_select">enif_select</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R14B"><ret>ErlNifPid *</ret>
         <nametext>enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</nametext>
       </name>
       <fsummary>Get the pid of the calling process.</fsummary>
@@ -3123,26 +3210,26 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
         <p>Initializes the <seealso marker="#ErlNifPid"><c>ErlNifPid</c></seealso>
 	variable at <c>*pid</c> to represent the calling process.</p>
         <p>Returns <c>pid</c> if successful, or NULL if <c>caller_env</c> is not
-	a <seealso marker="#ErlNifEnv">process-bound environment</seealso>.</p>
+	a <seealso marker="#ErlNifEnv">process bound environment</seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_send(ErlNifEnv* env, ErlNifPid* to_pid,
-        ErlNifEnv* msg_env, ERL_NIF_TERM msg)</nametext></name>
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_send(ErlNifEnv* caller_env,
+      ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg)</nametext></name>
       <fsummary>Send a message to a process.</fsummary>
       <desc>
         <p>Sends a message to a process.</p>
         <taglist>
-          <tag><c>env</c></tag>
-          <item>The environment of the calling process. Must be <c>NULL</c>
-            only if calling from a created thread.</item>
+          <tag><c>caller_env</c></tag>
+          <item>The environment of the calling process or callback. Must be <c>NULL</c>
+            only if calling from a custom thread not spawned by ERTS.</item>
           <tag><c>*to_pid</c></tag>
           <item>The pid of the receiving process. The pid is to refer to a
             process on the local node.</item>
           <tag><c>msg_env</c></tag>
           <item>The environment of the message term. Must be a
-            process-independent environment allocated with
+            process independent environment allocated with
             <seealso marker="#enif_alloc_env"><c>enif_alloc_env</c></seealso>
             or NULL.</item>
           <tag><c>msg</c></tag>
@@ -3175,7 +3262,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>unsigned</ret>
+      <name since="OTP R13B04"><ret>unsigned</ret>
         <nametext>enif_sizeof_resource(void* obj)</nametext></name>
       <fsummary>Get the byte size of a resource object.</fsummary>
       <desc>
@@ -3186,20 +3273,21 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_snprintf(char *str, size_t size, const
+      <name since="OTP 19.0"><ret>int</ret><nametext>enif_snprintf(char *str, size_t size, const
         char *format, ...)</nametext></name>
       <fsummary>Format strings and Erlang terms.</fsummary>
       <desc>
         <p>Similar to <c>snprintf</c> but this format string also accepts
-          <c>"%T"</c>, which formats Erlang terms.</p>
-	<p>This function was originally intenden for debugging purpose. It is not
+        <c>"%T"</c>, which formats Erlang terms of type
+	<seealso marker="#ERL_NIF_TERM"><c>ERL_NIF_TERM</c></seealso>.</p>
+	<p>This function is primarily intended for debugging purpose. It is not
 	  recommended to print very large terms with <c>%T</c>. The function may
 	  change <c>errno</c>, even if successful.</p>
       </desc>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>enif_system_info(ErlNifSysInfo
+      <name since="OTP R13B04"><ret>void</ret><nametext>enif_system_info(ErlNifSysInfo
         *sys_info_ptr, size_t size)</nametext></name>
       <fsummary>Get information about the Erlang runtime system.</fsummary>
       <desc>
@@ -3209,7 +3297,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_term_to_binary(ErlNifEnv *env,
+      <name since="OTP 19.0"><ret>int</ret><nametext>enif_term_to_binary(ErlNifEnv *env,
         ERL_NIF_TERM term, ErlNifBinary *bin)</nametext></name>
       <fsummary>Convert a term to the external format.</fsummary>
       <desc>
@@ -3226,7 +3314,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_thread_create(char *name,ErlNifTid
         *tid,void * (*func)(void *),void *args,ErlNifThreadOpts
         *opts)</nametext></name>
@@ -3238,7 +3326,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_thread_exit(void *resp)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -3248,7 +3336,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_thread_join(ErlNifTid, void **respp)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -3258,7 +3346,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>char*</ret>
+      <name since="OTP 21.0"><ret>char*</ret>
         <nametext>enif_thread_name(ErlNifTid tid)</nametext></name>
       <fsummary>Thread name</fsummary>
       <desc>
@@ -3268,7 +3356,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>ErlNifThreadOpts *</ret>
+      <name since="OTP R13B04"><ret>ErlNifThreadOpts *</ret>
         <nametext>enif_thread_opts_create(char *name)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -3278,7 +3366,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_thread_opts_destroy(ErlNifThreadOpts *opts)</nametext>
       </name>
       <fsummary></fsummary>
@@ -3289,7 +3377,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>ErlNifTid</ret>
+      <name since="OTP R13B04"><ret>ErlNifTid</ret>
         <nametext>enif_thread_self(void)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -3299,7 +3387,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 19.0"><ret>int</ret>
       <nametext>enif_thread_type(void)</nametext></name>
       <fsummary>Determine type of current thread</fsummary>
       <desc>
@@ -3321,7 +3409,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>ErlNifTime</ret>
+      <name since="OTP 18.3"><ret>ErlNifTime</ret>
         <nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
       <fsummary>Get current time offset.</fsummary>
       <desc>
@@ -3343,7 +3431,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>void *</ret>
+      <name since="OTP R13B04"><ret>void *</ret>
         <nametext>enif_tsd_get(ErlNifTSDKey key)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -3353,7 +3441,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_tsd_key_create(char *name, ErlNifTSDKey *key)</nametext>
       </name>
       <fsummary></fsummary>
@@ -3364,7 +3452,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
    </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_tsd_key_destroy(ErlNifTSDKey key)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -3374,7 +3462,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_tsd_set(ErlNifTSDKey key, void *data)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -3384,7 +3472,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 21.0"><ret>int</ret>
       <nametext>enif_vfprintf(FILE *stream, const char *format, va_list ap)
       </nametext></name>
       <fsummary>Format strings and Erlang terms.</fsummary>
@@ -3396,7 +3484,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 21.0"><ret>int</ret>
       <nametext>enif_vsnprintf(char *str, size_t size, const char *format, va_list ap)
       </nametext></name>
       <fsummary>Format strings and Erlang terms.</fsummary>
@@ -3408,7 +3496,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 20.0"><ret>int</ret>
         <nametext>enif_whereis_pid(ErlNifEnv *env,
           ERL_NIF_TERM name, ErlNifPid *pid)</nametext></name>
       <fsummary>Looks up a process by its registered name.</fsummary>
@@ -3436,7 +3524,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since="OTP 20.0"><ret>int</ret>
         <nametext>enif_whereis_port(ErlNifEnv *env,
           ERL_NIF_TERM name, ErlNifPort *port)</nametext></name>
       <fsummary>Looks up a port by its registered name.</fsummary>

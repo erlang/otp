@@ -36,7 +36,8 @@
          map_info/1, same/2, set_internal_state/2,
          size_shared/1, copy_shared/1, dirty_cpu/2, dirty_io/2, dirty/3,
          lcnt_control/1, lcnt_control/2, lcnt_collect/0, lcnt_clear/0,
-         lc_graph/0, lc_graph_to_dot/2, lc_graph_merge/2]).
+         lc_graph/0, lc_graph_to_dot/2, lc_graph_merge/2,
+         alloc_blocks_size/1]).
 
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
@@ -495,3 +496,58 @@ lcg_print_locks(Out, [LastLock]) ->
 lcg_print_locks(Out, [Lock | Rest]) ->
     io:format(Out, "~w,\n", [Lock]),
     lcg_print_locks(Out, Rest).
+
+
+%% Returns the amount of memory allocated by the given allocator type.
+-spec alloc_blocks_size(Type) -> non_neg_integer() | undefined when
+      Type :: atom().
+
+alloc_blocks_size(Type) ->
+    Allocs = erlang:system_info(alloc_util_allocators),
+    Sizes = erlang:system_info({allocator_sizes, Allocs}),
+    alloc_blocks_size_1(Sizes, Type, 0).
+
+alloc_blocks_size_1([], _Type, 0) ->
+    undefined;
+alloc_blocks_size_1([{_Type, false} | Rest], Type, Acc) ->
+    alloc_blocks_size_1(Rest, Type, Acc);
+alloc_blocks_size_1([{Type, Instances} | Rest], Type, Acc0) ->
+    F = fun ({instance, _, L}, Acc) ->
+                MBCSPool = case lists:keyfind(mbcs_pool, 1, L) of
+                               {_, Pool} -> Pool;
+                               false -> []
+                           end,
+                {_,MBCS} = lists:keyfind(mbcs, 1, L),
+                {_,SBCS} = lists:keyfind(sbcs, 1, L),
+                Acc +
+                    sum_block_sizes(MBCSPool) +
+                    sum_block_sizes(MBCS) +
+                    sum_block_sizes(SBCS)
+        end,
+    alloc_blocks_size_1(Rest, Type, lists:foldl(F, Acc0, Instances));
+alloc_blocks_size_1([{_Type, Instances} | Rest], Type, Acc0) ->
+    F = fun ({instance, _, L}, Acc) ->
+                Acc + sum_foreign_sizes(Type, L)
+        end,
+    alloc_blocks_size_1(Rest, Type, lists:foldl(F, Acc0, Instances));
+alloc_blocks_size_1([], _Type, Acc) ->
+    Acc.
+
+sum_foreign_sizes(Type, L) ->
+    case lists:keyfind(mbcs_pool, 1, L) of
+        {_,Pool} ->
+            {_,ForeignBlocks} = lists:keyfind(foreign_blocks, 1, Pool),
+            case lists:keyfind(Type, 1, ForeignBlocks) of
+                {_,TypeSizes} -> sum_block_sizes(TypeSizes);
+                false -> 0
+            end;
+        _ ->
+            0
+    end.
+
+sum_block_sizes(Blocks) ->
+    lists:foldl(
+      fun({blocks_size, Sz,_,_}, Sz0) -> Sz0+Sz;
+         ({blocks_size, Sz}, Sz0) -> Sz0+Sz;
+         (_, Sz) -> Sz
+      end, 0, Blocks).

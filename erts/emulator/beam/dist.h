@@ -136,6 +136,7 @@ typedef struct {
     Eterm cid;
     Eterm connection_id;
     int no_suspend;
+    Uint32 flags;
 } ErtsDSigData;
 
 #define ERTS_DE_BUSY_LIMIT (1024*1024)
@@ -235,6 +236,7 @@ retry:
     dsdp->cid = dep->cid;
     dsdp->connection_id = dep->connection_id;
     dsdp->no_suspend = no_suspend;
+    dsdp->flags = dep->flags;
     if (dspl == ERTS_DSP_NO_LOCK)
 	erts_de_runlock(dep);
     return res;
@@ -254,9 +256,9 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 	ASSERT((erts_atomic32_read_nob(&prt->state)
 		& ERTS_PORT_SFLGS_DEAD) == 0);
-	ASSERT(prt->dist_entry);
 
-	dep = prt->dist_entry;
+        dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+        ASSERT(dep);
 	id = prt->common.id;
     }
     else {
@@ -376,6 +378,7 @@ typedef struct {
 #define ERTS_DSIG_SEND_OK	0
 #define ERTS_DSIG_SEND_YIELD	1
 #define ERTS_DSIG_SEND_CONTINUE 2
+#define ERTS_DSIG_SEND_TOO_LRG  3
 
 extern int erts_dsig_send_link(ErtsDSigData *, Eterm, Eterm);
 extern int erts_dsig_send_msg(Eterm, Eterm, ErtsSendContext*);
@@ -398,6 +401,8 @@ extern void erts_dist_port_not_busy(Port *prt);
 extern void erts_kill_dist_connection(DistEntry *dep, Uint32);
 
 extern Uint erts_dist_cache_size(void);
+
+extern Sint erts_abort_connection_rwunlock(DistEntry *dep);
 
 
 #endif

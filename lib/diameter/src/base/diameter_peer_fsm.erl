@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -901,7 +901,7 @@ outgoing(#diameter_packet{header = #diameter_header{is_request = false}}
     ok;
 
 %% Outgoing request: discard.
-outgoing(Msg, #state{dpr = {_,_,_}}) ->
+outgoing(Msg, #state{}) ->
     invalid(false, send_after_dpr, header(Msg)).
 
 header(#diameter_packet{header = H}) ->

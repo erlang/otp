@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -48,7 +48,7 @@
       System Principles</seealso></p>
       <p>Starting and stopping, boot scripts, code loading,
       <seealso marker="doc/system_principles:error_logging">
-      error logging</seealso>,
+      logging</seealso>,
       <seealso marker="doc/system_principles:create_target">
       creating target systems</seealso></p>
       </item>

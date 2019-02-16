@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,9 +23,7 @@
 %% Description:
 %%    This file contains the test cases for the ct_netconfc API.
 %%
-%% @author Support
-%% @doc Netconf Client Interface.
-%% @end
+%% Netconf Client Interface.
 %%----------------------------------------------------------------------
 %%----------------------------------------------------------------------
 -module(netconfc1_SUITE).
@@ -207,7 +205,7 @@ hello_required_exists(Config) ->
     SshDir = ?config(ssh_dir,Config),
     {ok,_Client1} = open_configured_success(my_named_connection,SshDir),
 
-    %% Check that same name can not be used twice
+    %% Check that same name cannot be used twice
     {error,{connection_exists,_Client1}} =
 	ct_netconfc:open(my_named_connection,[{user_dir,SshDir}]),
 
@@ -387,7 +385,7 @@ timeout_get(Config) ->
 %% received, the timeout message might already be sent when the timer
 %% is cancelled. This test checks that the timeout message is flushed
 %% from the message queue. If it isn't, the client crashes and the
-%% session can not be closed afterwards.
+%% session cannot be closed afterwards.
 %% Note that we can only hope that the test case triggers the problem
 %% every now and then, as it is very timing dependent...
 flush_timeout_get(Config) ->
@@ -442,6 +440,12 @@ edit_config(Config) ->
     ?ok = ct_netconfc:edit_config(Client,running,
 				  {server,[{xmlns,"myns"}],
 				   [{name,["myserver"]}]}),
+    ?NS:expect_reply('edit-config',ok),
+    ?ok = ct_netconfc:edit_config(Client,running,
+				  [{server,[{xmlns,"myns"}],
+                                    [{name,["server1"]}]},
+                                   {server,[{xmlns,"myns"}],
+                                    [{name,["server2"]}]}]),
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2013-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2013-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -175,5 +175,62 @@ void hard_dbg_remove_mseg(void* seg, UWord sz);
 #endif
 
 #endif /* HAVE_ERTS_MMAP */
+
+/* Marks the given memory region as unused without freeing it, letting the OS
+ * reclaim its physical memory with the promise that we'll get it back (without
+ * its contents) the next time it's accessed. */
+ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+#ifdef VALGRIND
+    #include <valgrind/memcheck.h>
+
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        VALGRIND_MAKE_MEM_UNDEFINED(ptr, size);
+    }
+#elif defined(DEBUG)
+    /* Try to provoke crashes by filling the discard region with garbage. It's
+     * extremely hard to find bugs where we've discarded too much, as the
+     * region often retains its old contents if it's accessed before the OS
+     * reclaims it. */
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        static const char pattern[] = "DISCARDED";
+        char *data;
+        int i;
+
+        for(i = 0, data = ptr; i < size; i++) {
+            data[i] = pattern[i % sizeof(pattern)];
+        }
+    }
+#elif defined(HAVE_SYS_MMAN_H)
+    #include <sys/mman.h>
+
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+    #ifdef MADV_FREE
+        /* This is preferred as it doesn't necessarily free the pages right
+         * away, which is a bit faster than MADV_DONTNEED. */
+        madvise(ptr, size, MADV_FREE);
+    #else
+        madvise(ptr, size, MADV_DONTNEED);
+    #endif
+    }
+#elif defined(_WIN32)
+    #include <winbase.h>
+
+    /* MEM_RESET is defined on all supported versions of Windows, and has the
+     * same semantics as MADV_FREE. */
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        VirtualAlloc(ptr, size, MEM_RESET, PAGE_READWRITE);
+    }
+#else
+    /* Dummy implementation. */
+    ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
+        (void)ptr;
+        (void)size;
+    }
+#endif
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif /* ERL_MMAP_H__ */

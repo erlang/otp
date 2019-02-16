@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>proplists.xml</file>
   </header>
-  <module>proplists</module>
+  <module since="">proplists</module>
   <modulesummary>Support functions for property lists.</modulesummary>
   <description>
     <p>Property lists are ordinary lists containing entries in the form
@@ -57,11 +57,16 @@
     <datatype>
       <name name="property"/>
     </datatype>
+
+    <datatype>
+      <name name="proplist"/>
+    </datatype>
+
   </datatypes>
 
   <funcs>
     <func>
-      <name name="append_values" arity="2"/>
+      <name name="append_values" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Similar to
@@ -79,7 +84,7 @@ append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code>
     </func>
 
     <func>
-      <name name="compact" arity="1"/>
+      <name name="compact" arity="1" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Minimizes the representation of all entries in the list. This is
@@ -91,7 +96,7 @@ append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code>
     </func>
 
     <func>
-      <name name="delete" arity="2"/>
+      <name name="delete" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Deletes all entries associated with <c><anno>Key</anno></c> from
@@ -100,7 +105,7 @@ append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code>
     </func>
 
     <func>
-      <name name="expand" arity="2"/>
+      <name name="expand" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Expands particular properties to corresponding sets of
@@ -133,7 +138,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="get_all_values" arity="2"/>
+      <name name="get_all_values" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Similar to 
@@ -145,7 +150,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="get_bool" arity="2"/>
+      <name name="get_bool" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the value of a boolean key/value option. If
@@ -159,7 +164,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="get_keys" arity="1"/>
+      <name name="get_keys" arity="1" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns an unordered list of the keys used in
@@ -168,7 +173,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="get_value" arity="2"/>
+      <name name="get_value" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Equivalent to
@@ -177,7 +182,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="get_value" arity="3"/>
+      <name name="get_value" arity="3" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the value of a simple key/value property in
@@ -194,7 +199,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="is_defined" arity="2"/>
+      <name name="is_defined" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>List</anno></c> contains at least
@@ -204,7 +209,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="lookup" arity="2"/>
+      <name name="lookup" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the first entry associated with <c><anno>Key</anno></c> in
@@ -219,7 +224,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="lookup_all" arity="2"/>
+      <name name="lookup_all" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the list of all entries associated with
@@ -231,7 +236,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="normalize" arity="2"/>
+      <name name="normalize" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Passes <c><anno>ListIn</anno></c> through a sequence of
@@ -263,7 +268,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="property" arity="1"/>
+      <name name="property" arity="1" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Creates a normal form (minimal) representation of a property. If
@@ -276,7 +281,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="property" arity="2"/>
+      <name name="property" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Creates a normal form (minimal) representation of a simple key/value
@@ -289,7 +294,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
     </func>
 
     <func>
-      <name name="split" arity="2"/>
+      <name name="split" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Partitions <c><anno>List</anno></c> into a list of sublists and a
@@ -310,7 +315,7 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
     </func>
 
     <func>
-      <name name="substitute_aliases" arity="2"/>
+      <name name="substitute_aliases" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Substitutes keys of properties. For each entry in
@@ -332,7 +337,7 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
     </func>
 
     <func>
-      <name name="substitute_negations" arity="2"/>
+      <name name="substitute_negations" arity="2" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Substitutes keys of boolean-valued properties and
@@ -360,7 +365,7 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
     </func>
 
     <func>
-      <name name="unfold" arity="1"/>
+      <name name="unfold" arity="1" since=""/>
       <fsummary></fsummary>
       <desc>
         <p>Unfolds all occurrences of atoms in <c><anno>ListIn</anno></c> to

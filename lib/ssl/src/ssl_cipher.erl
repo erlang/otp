@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,45 +31,33 @@
 -include("ssl_cipher.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").
+-include("tls_handshake_1_3.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([security_parameters/2, security_parameters/3, suite_definition/1,
-	 erl_suite_definition/1,
-	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
-	 suite/1, suites/1, all_suites/1,  crypto_support_filters/0,
+-export([security_parameters/2, security_parameters/3, security_parameters_1_3/2,
+	 cipher_init/3, nonce_seed/2, decipher/6, cipher/5, aead_encrypt/5, aead_decrypt/6,
+	 suites/1, all_suites/1,  crypto_support_filters/0,
 	 chacha_suites/1, anonymous_suites/1, psk_suites/1, psk_suites_anon/1, 
          srp_suites/0, srp_suites_anon/0,
-	 rc4_suites/1, des_suites/1, rsa_suites/1, openssl_suite/1, openssl_suite_name/1, 
+	 rc4_suites/1, des_suites/1, rsa_suites/1, 
          filter/3, filter_suites/1, filter_suites/2,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
-         is_stream_ciphersuite/1]).
+         is_stream_ciphersuite/1, signature_scheme/1,
+         scheme_to_components/1, hash_size/1, effective_key_bits/1,
+         key_material/1]).
 
--export_type([cipher_suite/0,
-	      erl_cipher_suite/0, old_erl_cipher_suite/0, openssl_cipher_suite/0,
-	      hash/0, key_algo/0, sign_algo/0]).
-
--type cipher()            :: null |rc4_128 | des_cbc | '3des_ede_cbc' | aes_128_cbc |  aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305.
--type hash()              :: null | md5 | sha | sha224 | sha256 | sha384 | sha512.
--type sign_algo()         :: rsa | dsa | ecdsa.
--type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
--type erl_cipher_suite()  :: #{key_exchange := key_algo(),
-                               cipher := cipher(),
-                               mac    := hash() | aead,
-                               prf    := hash() | default_prf %% Old cipher suites, version dependent
-                              }.  
--type old_erl_cipher_suite() :: {key_algo(), cipher(), hash()} % Pre TLS 1.2 
-                                %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
-                              | {key_algo(), cipher(), hash(), hash() | default_prf}. 
--type cipher_suite()      :: binary().
--type cipher_enum()        :: integer().
--type openssl_cipher_suite()  :: string().
-
+%% RFC 8446 TLS 1.3
+-export([generate_client_shares/1, generate_server_share/1, add_zero_padding/2]).
 
 -compile(inline).
 
+-type cipher_enum()        :: integer().
+
+-export_type([cipher_enum/0]).
+
 %%--------------------------------------------------------------------
--spec security_parameters(cipher_suite(), #security_parameters{}) ->
+-spec security_parameters(ssl_cipher_format:cipher_suite(), #security_parameters{}) ->
 				 #security_parameters{}.
 %% Only security_parameters/2 should call security_parameters/3 with undefined as
 %% first argument.
@@ -79,7 +67,8 @@ security_parameters(?TLS_NULL_WITH_NULL_NULL = CipherSuite, SecParams) ->
     security_parameters(undefined, CipherSuite, SecParams).
 
 %%--------------------------------------------------------------------
--spec security_parameters(ssl_record:ssl_version() | undefined, cipher_suite(), #security_parameters{}) ->
+-spec security_parameters(ssl_record:ssl_version() | undefined, 
+                          ssl_cipher_format:cipher_suite(), #security_parameters{}) ->
 				 #security_parameters{}.
 %%
 %% Description: Returns a security parameters record where the
@@ -87,7 +76,7 @@ security_parameters(?TLS_NULL_WITH_NULL_NULL = CipherSuite, SecParams) ->
 %%-------------------------------------------------------------------
 security_parameters(Version, CipherSuite, SecParams) ->
     #{cipher := Cipher, mac := Hash, 
-      prf := PrfHashAlg} = suite_definition(CipherSuite),
+      prf := PrfHashAlg} = ssl_cipher_format:suite_definition(CipherSuite),
     SecParams#security_parameters{
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
@@ -100,6 +89,15 @@ security_parameters(Version, CipherSuite, SecParams) ->
       prf_algorithm = prf_algorithm(PrfHashAlg, Version),
       hash_size = hash_size(Hash)}.
 
+security_parameters_1_3(SecParams, CipherSuite) ->
+     #{cipher := Cipher, prf := PrfHashAlg} =
+        ssl_cipher_format:suite_definition(CipherSuite),
+    SecParams#security_parameters{
+      cipher_suite = CipherSuite,
+      bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
+      prf_algorithm = PrfHashAlg,  %% HKDF hash algorithm
+      cipher_type = ?AEAD}.
+
 %%--------------------------------------------------------------------
 -spec cipher_init(cipher_enum(), binary(), binary()) -> #cipher_state{}.
 %%
@@ -110,9 +108,14 @@ cipher_init(?RC4, IV, Key) ->
     #cipher_state{iv = IV, key = Key, state = State};
 cipher_init(?AES_GCM, IV, Key) ->
     <<Nonce:64>> = random_bytes(8),
-    #cipher_state{iv = IV, key = Key, nonce = Nonce};
+    #cipher_state{iv = IV, key = Key, nonce = Nonce, tag_len = 16};
+cipher_init(?CHACHA20_POLY1305, IV, Key) ->
+    #cipher_state{iv = IV, key = Key, tag_len = 16};
 cipher_init(_BCA, IV, Key) ->
     #cipher_state{iv = IV, key = Key}.
+
+nonce_seed(Seed, CipherState) ->
+    CipherState#cipher_state{nonce = Seed}.
 
 %%--------------------------------------------------------------------
 -spec cipher(cipher_enum(), #cipher_state{}, binary(), iodata(), ssl_record:ssl_version()) ->
@@ -145,32 +148,16 @@ cipher(?AES_CBC, CipherState, Mac, Fragment, Version) ->
 			 crypto:block_encrypt(aes_cbc256, Key, IV, T)
 		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment, Version).
 
-%%--------------------------------------------------------------------
--spec cipher_aead(cipher_enum(), #cipher_state{}, integer(), binary(), iodata(), ssl_record:ssl_version()) ->
-		    {binary(), #cipher_state{}}.
-%%
-%% Description: Encrypts the data and protects associated data (AAD) using chipher
-%% described by cipher_enum() and updating the cipher state
-%% Use for suites that use authenticated encryption with associated data (AEAD)
-%%-------------------------------------------------------------------
-cipher_aead(?AES_GCM, CipherState, SeqNo, AAD, Fragment, Version) ->
-    aead_cipher(aes_gcm, CipherState, SeqNo, AAD, Fragment, Version);
-cipher_aead(?CHACHA20_POLY1305, CipherState, SeqNo, AAD, Fragment, Version) ->
-    aead_cipher(chacha20_poly1305, CipherState, SeqNo, AAD, Fragment, Version).
+aead_encrypt(Type, Key, Nonce, Fragment, AdditionalData) ->
+    crypto:block_encrypt(aead_type(Type), Key, Nonce, {AdditionalData, Fragment}).
 
-aead_cipher(chacha20_poly1305, #cipher_state{key=Key} = CipherState, SeqNo, AAD0, Fragment, _Version) ->
-    CipherLen = erlang:iolist_size(Fragment),
-    AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = ?uint64(SeqNo),
-    {Content, CipherTag} = crypto:block_encrypt(chacha20_poly1305, Key, Nonce, {AAD, Fragment}),
-    {<<Content/binary, CipherTag/binary>>, CipherState};
-aead_cipher(Type, #cipher_state{key=Key, iv = IV0, nonce = Nonce} = CipherState, _SeqNo, AAD0, Fragment, _Version) ->
-    CipherLen = erlang:iolist_size(Fragment),
-    AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    <<Salt:4/bytes, _/binary>> = IV0,
-    IV = <<Salt/binary, Nonce:64/integer>>,
-    {Content, CipherTag} = crypto:block_encrypt(Type, Key, IV, {AAD, Fragment}),
-    {<<Nonce:64/integer, Content/binary, CipherTag/binary>>, CipherState#cipher_state{nonce = Nonce + 1}}.
+aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AdditionalData) ->
+    crypto:block_decrypt(aead_type(Type), Key, Nonce, {AdditionalData, CipherText, CipherTag}).
+
+aead_type(?AES_GCM) ->
+    aes_gcm;
+aead_type(?CHACHA20_POLY1305) ->
+    chacha20_poly1305.
 
 build_cipher_block(BlockSz, Mac, Fragment) ->
     TotSz = byte_size(Mac) + erlang:iolist_size(Fragment) + 1,
@@ -187,7 +174,7 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
 	     Mac, Fragment, {3, N})
-  when N == 2; N == 3 ->
+  when N == 2; N == 3; N == 4 ->
     NextIV = random_iv(IV),
     L0 = build_cipher_block(BlockSz, Mac, Fragment),
     L = [NextIV|L0],
@@ -237,19 +224,6 @@ decipher(?AES_CBC, HashSz, CipherState, Fragment, Version, PaddingCheck) ->
 			   crypto:block_decrypt(aes_cbc256, Key, IV, T)
 		   end, CipherState, HashSz, Fragment, Version, PaddingCheck).
 
-%%--------------------------------------------------------------------
--spec decipher_aead(cipher_enum(),  #cipher_state{}, integer(), binary(), binary(), ssl_record:ssl_version()) ->
-			   {binary(), #cipher_state{}} | #alert{}.
-%%
-%% Description: Decrypts the data and checks the associated data (AAD) MAC using
-%% cipher described by cipher_enum() and updating the cipher state.
-%% Use for suites that use authenticated encryption with associated data (AEAD)
-%%-------------------------------------------------------------------
-decipher_aead(?AES_GCM, CipherState, SeqNo, AAD, Fragment, Version) ->
-    aead_decipher(aes_gcm, CipherState, SeqNo, AAD, Fragment, Version);
-decipher_aead(?CHACHA20_POLY1305, CipherState, SeqNo, AAD, Fragment, Version) ->
-    aead_decipher(chacha20_poly1305, CipherState, SeqNo, AAD, Fragment, Version).
-
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
 	       HashSz, Fragment, Version, PaddingCheck) ->
     try 
@@ -280,36 +254,8 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end.
 
-aead_ciphertext_to_state(chacha20_poly1305, SeqNo, _IV, AAD0, Fragment, _Version) ->
-    CipherLen = size(Fragment) - 16,
-    <<CipherText:CipherLen/bytes, CipherTag:16/bytes>> = Fragment,
-    AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = ?uint64(SeqNo),
-    {Nonce, AAD, CipherText, CipherTag};
-aead_ciphertext_to_state(_, _SeqNo, <<Salt:4/bytes, _/binary>>, AAD0, Fragment, _Version) ->
-    CipherLen = size(Fragment) - 24,
-    <<ExplicitNonce:8/bytes, CipherText:CipherLen/bytes,  CipherTag:16/bytes>> = Fragment,
-    AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = <<Salt/binary, ExplicitNonce/binary>>,
-    {Nonce, AAD, CipherText, CipherTag}.
-
-aead_decipher(Type, #cipher_state{key = Key, iv = IV} = CipherState,
-	      SeqNo, AAD0, Fragment, Version) ->
-    try
-	{Nonce, AAD, CipherText, CipherTag} = aead_ciphertext_to_state(Type, SeqNo, IV, AAD0, Fragment, Version),
-	case crypto:block_decrypt(Type, Key, Nonce, {AAD, CipherText, CipherTag}) of
-	    Content when is_binary(Content) ->
-		{Content, CipherState};
-	    _ ->
-                ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
-	end
-    catch
-	_:_ ->
-            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
-    end.
-
 %%--------------------------------------------------------------------
--spec suites(ssl_record:ssl_version()) -> [cipher_suite()].
+-spec suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of supported cipher suites.
 %%--------------------------------------------------------------------
@@ -332,7 +278,8 @@ all_suites({3, _} = Version) ->
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 %%--------------------------------------------------------------------
--spec chacha_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
+-spec chacha_suites(ssl_record:ssl_version() | integer()) ->
+                           [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns list of the chacha cipher suites, only supported
 %% if explicitly set by user for now due to interop problems, proably need
@@ -346,7 +293,8 @@ chacha_suites(_) ->
     [].
 
 %%--------------------------------------------------------------------
--spec anonymous_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
+-spec anonymous_suites(ssl_record:ssl_version() | integer()) ->
+                              [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the anonymous cipher suites, only supported
 %% if explicitly set by user. Intended only for testing.
@@ -355,6 +303,8 @@ anonymous_suites({3, N}) ->
     srp_suites_anon() ++ anonymous_suites(N);
 anonymous_suites({254, _} = Version) ->
     dtls_v1:anonymous_suites(Version);
+anonymous_suites(4) ->
+    []; %% Raw public key negotiation may be used instead
 anonymous_suites(N)
   when N >= 3 ->
     psk_suites_anon(N) ++
@@ -382,13 +332,15 @@ anonymous_suites(N)  when N == 0;
         ].
 
 %%--------------------------------------------------------------------
--spec psk_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
+-spec psk_suites(ssl_record:ssl_version() | integer()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the PSK cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
 psk_suites({3, N}) ->
     psk_suites(N);
+psk_suites(4) ->
+    []; %% TODO Add new PSK, PSK_(EC)DHE suites
 psk_suites(N)
   when N >= 3 ->
     [
@@ -404,7 +356,7 @@ psk_suites(_) ->
      ?TLS_RSA_PSK_WITH_RC4_128_SHA].
 
 %%--------------------------------------------------------------------
--spec psk_suites_anon(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
+-spec psk_suites_anon(ssl_record:ssl_version() | integer()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the anonymous PSK cipher suites, only supported
 %% if explicitly set by user.
@@ -439,7 +391,7 @@ psk_suites_anon(_) ->
 	 ?TLS_DHE_PSK_WITH_RC4_128_SHA,
 	 ?TLS_PSK_WITH_RC4_128_SHA].
 %%--------------------------------------------------------------------
--spec srp_suites() -> [cipher_suite()].
+-spec srp_suites() -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the SRP cipher suites, only supported
 %% if explicitly set by user.
@@ -453,7 +405,7 @@ srp_suites() ->
      ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA].
 
 %%--------------------------------------------------------------------
--spec srp_suites_anon() -> [cipher_suite()].
+-spec srp_suites_anon() -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the SRP anonymous cipher suites, only supported
 %% if explicitly set by user.
@@ -464,7 +416,8 @@ srp_suites_anon() ->
      ?TLS_SRP_SHA_WITH_AES_256_CBC_SHA].
 
 %%--------------------------------------------------------------------
--spec rc4_suites(Version::ssl_record:ssl_version() | integer()) -> [cipher_suite()].
+-spec rc4_suites(Version::ssl_record:ssl_version() | integer()) -> 
+                        [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the RSA|(ECDH/RSA)| (ECDH/ECDSA) 
 %% with RC4 cipher suites, only supported if explicitly set by user. 
@@ -478,13 +431,14 @@ rc4_suites({3, Minor}) ->
 rc4_suites(0) ->
     [?TLS_RSA_WITH_RC4_128_SHA,
      ?TLS_RSA_WITH_RC4_128_MD5];
-rc4_suites(N) when N =< 3 ->
+rc4_suites(N) when N =< 4 ->
     [?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
      ?TLS_ECDHE_RSA_WITH_RC4_128_SHA,
      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
      ?TLS_ECDH_RSA_WITH_RC4_128_SHA].
+
 %%--------------------------------------------------------------------
--spec des_suites(Version::ssl_record:ssl_version()) -> [cipher_suite()].
+-spec des_suites(Version::ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the cipher suites
 %% with DES cipher, only supported if explicitly set by user. 
@@ -502,7 +456,7 @@ des_suites(_)->
     ].
 
 %%--------------------------------------------------------------------
--spec rsa_suites(Version::ssl_record:ssl_version() | integer()) -> [cipher_suite()].
+-spec rsa_suites(Version::ssl_record:ssl_version() | integer()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the RSA key exchange 
 %% cipher suites, only supported if explicitly set by user. 
@@ -517,1702 +471,17 @@ rsa_suites(0) ->
      ?TLS_RSA_WITH_AES_128_CBC_SHA,
      ?TLS_RSA_WITH_3DES_EDE_CBC_SHA
     ];  
-rsa_suites(N) when N =< 3 ->
+rsa_suites(N) when N =< 4 ->
     [
      ?TLS_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256
     ].
-%%--------------------------------------------------------------------
--spec suite_definition(cipher_suite()) -> erl_cipher_suite().
-%%
-%% Description: Return erlang cipher suite definition.
-%% Note: Currently not supported suites are commented away.
-%% They should be supported or removed in the future.
-%%-------------------------------------------------------------------
-%% TLS v1.1 suites
-suite_definition(?TLS_NULL_WITH_NULL_NULL) ->
-    #{key_exchange => null,
-      cipher => null, 
-      mac => null, 
-      prf => null};
-%% RFC 5746 - Not a real cipher suite used to signal empty "renegotiation_info" extension
-%% to avoid handshake failure from old servers that do not ignore
-%% hello extension data as they should.
-suite_definition(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV) ->
-    #{key_exchange => null,
-      cipher => null, 
-      mac => null,
-      prf => null};
-suite_definition(?TLS_RSA_WITH_RC4_128_MD5) ->	
-    #{key_exchange => rsa,
-      cipher => rc4_128, 
-      mac => md5, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_WITH_RC4_128_SHA) ->
-    #{key_exchange => rsa,
-      cipher => rc4_128,
-      mac => sha,
-      prf => default_prf};
-suite_definition(?TLS_RSA_WITH_DES_CBC_SHA) ->
-    #{key_exchange => rsa,
-      cipher => des_cbc,
-      mac => sha,
-      prf => default_prf};
-suite_definition(?TLS_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => rsa,
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_DSS_WITH_DES_CBC_SHA) ->
-    #{key_exchange => dhe_dss, 
-      cipher => des_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => dhe_dss, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
-    #{key_exchange => dhe_rsa, 
-      cipher => des_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => dhe_rsa, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-%%% TSL V1.1 AES suites
-suite_definition(?TLS_RSA_WITH_AES_128_CBC_SHA) -> 
-    #{key_exchange => rsa,
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => dhe_dss, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => dhe_rsa, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_WITH_AES_256_CBC_SHA) -> 
-    #{key_exchange => rsa, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => dhe_dss, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => dhe_rsa, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-%% TLS v1.2 suites
-%% suite_definition(?TLS_RSA_WITH_NULL_SHA) ->
-%%     {rsa, null, sha, default_prf};
-suite_definition(?TLS_RSA_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => rsa, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_WITH_AES_256_CBC_SHA256) ->
-    #{key_exchange => rsa, 
-      cipher => aes_256_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => dhe_dss, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => dhe_rsa, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256) ->
-    #{key_exchange => dhe_dss, 
-      cipher => aes_256_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256) ->
-    #{key_exchange => dhe_rsa, 
-      cipher => aes_256_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-%% not defined YET:
-%%   TLS_DH_DSS_WITH_AES_128_CBC_SHA256      DH_DSS       AES_128_CBC  SHA256
-%%   TLS_DH_RSA_WITH_AES_128_CBC_SHA256      DH_RSA       AES_128_CBC  SHA256
-%%   TLS_DH_DSS_WITH_AES_256_CBC_SHA256      DH_DSS       AES_256_CBC  SHA256
-%%   TLS_DH_RSA_WITH_AES_256_CBC_SHA256      DH_RSA       AES_256_CBC  SHA256
-%%% DH-ANON deprecated by TLS spec and not available
-%%% by default, but good for testing purposes.
-suite_definition(?TLS_DH_anon_WITH_RC4_128_MD5) ->
-    #{key_exchange => dh_anon, 
-      cipher => rc4_128, 
-      mac => md5, 
-      prf => default_prf};
-suite_definition(?TLS_DH_anon_WITH_DES_CBC_SHA) ->
-    #{key_exchange => dh_anon, 
-      cipher => des_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => dh_anon, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => dh_anon, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => dh_anon, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => dh_anon, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA256) ->
-    #{key_exchange => dh_anon, 
-      cipher => aes_256_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-%%% PSK Cipher Suites RFC 4279
-suite_definition(?TLS_PSK_WITH_RC4_128_SHA) ->
-    #{key_exchange => psk, 
-      cipher => rc4_128, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_PSK_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => psk, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_PSK_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => psk, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_PSK_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => psk, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_PSK_WITH_RC4_128_SHA) ->
-    #{key_exchange => dhe_psk, 
-      cipher => rc4_128, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => dhe_psk, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_PSK_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => dhe_psk, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_PSK_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => dhe_psk, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_PSK_WITH_RC4_128_SHA) ->
-    #{key_exchange => rsa_psk, 
-      cipher => rc4_128, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => rsa_psk, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_PSK_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => rsa_psk, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_PSK_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => rsa_psk, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-%%% PSK NULL Cipher Suites RFC 4785
-suite_definition(?TLS_PSK_WITH_NULL_SHA) ->
-    #{key_exchange => psk, 
-      cipher => null, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_PSK_WITH_NULL_SHA) ->
-    #{key_exchange => dhe_psk,
-      cipher => null, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_PSK_WITH_NULL_SHA) ->
-    #{key_exchange => rsa_psk,
-      cipher => null, 
-      mac => sha, 
-      prf => default_prf};  
-%%% TLS 1.2 PSK Cipher Suites RFC 5487
-suite_definition(?TLS_PSK_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => psk, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_PSK_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => psk, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => dhe_psk, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => dhe_psk, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => rsa_psk, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => rsa_psk, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_PSK_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => psk, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_PSK_WITH_AES_256_CBC_SHA384) ->
-    #{key_exchange => psk, 
-      cipher => aes_256_cbc, 
-      mac => sha384, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_PSK_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => dhe_psk, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384) ->
-    #{key_exchange => dhe_psk, 
-      cipher => aes_256_cbc, 
-      mac => sha384, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => rsa_psk, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384) ->
-    #{key_exchange => rsa_psk, 
-      cipher => aes_256_cbc, 
-      mac => sha384, 
-      prf => default_prf};
-suite_definition(?TLS_PSK_WITH_NULL_SHA256) ->
-    #{key_exchange => psk, 
-      cipher => null, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_PSK_WITH_NULL_SHA384) ->
-    #{key_exchange => psk, 
-      cipher => null, 
-      mac => sha384, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_PSK_WITH_NULL_SHA256) ->
-    #{key_exchange => dhe_psk, 
-      cipher => null, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_DHE_PSK_WITH_NULL_SHA384) ->
-    #{key_exchange => dhe_psk, 
-      cipher => null, 
-      mac => sha384, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_PSK_WITH_NULL_SHA256) ->
-    #{key_exchange => rsa_psk, 
-      cipher => null, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_RSA_PSK_WITH_NULL_SHA384) ->
-    #{key_exchange => rsa_psk, 
-      cipher => null, 
-      mac => sha384, 
-      prf => default_prf};
-%%% ECDHE PSK Cipher Suites RFC 5489
-suite_definition(?TLS_ECDHE_PSK_WITH_RC4_128_SHA) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => rc4_128, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_PSK_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => '3des_ede_cbc',
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA384) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => aes_256_cbc, 
-      mac => sha384, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_PSK_WITH_NULL_SHA256) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => null, 
-      mac => sha256, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_PSK_WITH_NULL_SHA384) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => null, mac => sha384, 
-      prf => default_prf};
-%%% ECDHE_PSK with AES-GCM and AES-CCM Cipher Suites, draft-ietf-tls-ecdhe-psk-aead-05
-suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => aes_128_gcm, 
-      mac => null, 
-      prf => sha256};
-suite_definition(?TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => ecdhe_psk, 
-      cipher => aes_256_gcm, 
-      mac => null, 
-      prf => sha384};
-%% suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256) ->
-%%     #{key_exchange => ecdhe_psk, 
-%%       cipher => aes_128_ccm, 
-%%       mac => null, 
-%%       prf =>sha256};
-%% suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256) ->
-%%     #{key_exchange => ecdhe_psk, 
-%%       cipher => aes_256_ccm, 
-%%       mac => null, 
-%%       prf => sha256};
-%%% SRP Cipher Suites RFC 5054
-suite_definition(?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => srp_anon, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => srp_rsa, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => srp_dss, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_SRP_SHA_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => srp_anon, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => srp_rsa, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => srp_dss, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_SRP_SHA_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => srp_anon, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => srp_rsa, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => srp_dss, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-%% RFC 4492 EC TLS suites
-suite_definition(?TLS_ECDH_ECDSA_WITH_NULL_SHA) ->
-    #{key_exchange => ecdh_ecdsa, 
-      cipher => null, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_ECDSA_WITH_RC4_128_SHA) ->
-    #{key_exchange => ecdh_ecdsa, 
-      cipher => rc4_128, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => ecdh_ecdsa, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => ecdh_ecdsa, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => ecdh_ecdsa, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_ECDSA_WITH_NULL_SHA) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => null, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => rc4_128, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_RSA_WITH_NULL_SHA) ->
-    #{key_exchange => ecdh_rsa, 
-      cipher => null, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_RSA_WITH_RC4_128_SHA) ->
-    #{key_exchange => ecdh_rsa, 
-      cipher => rc4_128, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => ecdh_rsa, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => ecdh_rsa, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => ecdh_rsa, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_RSA_WITH_NULL_SHA) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => null, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_RSA_WITH_RC4_128_SHA) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => rc4_128, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_anon_WITH_NULL_SHA) ->
-    #{key_exchange => ecdh_anon, 
-      cipher => null, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_anon_WITH_RC4_128_SHA) ->
-    #{key_exchange => ecdh_anon, 
-      cipher => rc4_128, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA) ->
-    #{key_exchange => ecdh_anon, 
-      cipher => '3des_ede_cbc', 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_anon_WITH_AES_128_CBC_SHA) ->
-    #{key_exchange => ecdh_anon, 
-      cipher => aes_128_cbc, 
-      mac => sha, 
-      prf => default_prf};
-suite_definition(?TLS_ECDH_anon_WITH_AES_256_CBC_SHA) ->
-    #{key_exchange => ecdh_anon, 
-      cipher => aes_256_cbc, 
-      mac => sha, 
-      prf => default_prf};
-%% RFC 5289 EC TLS suites
-suite_definition(?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => sha256};
-suite_definition(?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => aes_256_cbc, 
-      mac => sha384, 
-      prf => sha384};
-suite_definition(?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => ecdh_ecdsa, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => sha256};
-suite_definition(?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384) ->
-    #{key_exchange => ecdh_ecdsa, 
-      cipher => aes_256_cbc, 
-      mac => sha384, 
-      prf => sha384};
-suite_definition(?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => sha256};
-suite_definition(?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => aes_256_cbc, 
-      mac => sha384, 
-      prf => sha384};
-suite_definition(?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256) ->
-    #{key_exchange => ecdh_rsa, 
-      cipher => aes_128_cbc, 
-      mac => sha256, 
-      prf => sha256};
-suite_definition(?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384) ->
-    #{key_exchange => ecdh_rsa, 
-      cipher => aes_256_cbc, 
-      mac => sha384, 
-      prf => sha384};
-%% RFC 5288 AES-GCM Cipher Suites
-suite_definition(?TLS_RSA_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => rsa, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_RSA_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => rsa, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => dhe_rsa, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => dhe_rsa, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_DH_RSA_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => dh_rsa, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_DH_RSA_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => dh_rsa, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => dhe_dss, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => dhe_dss, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_DH_DSS_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => dh_dss, 
-      cipher => aes_128_gcm, 
-      mac => null, 
-      prf => sha256};
-suite_definition(?TLS_DH_DSS_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => dh_dss, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_DH_anon_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => dh_anon, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_DH_anon_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => dh_anon, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-%% RFC 5289 ECC AES-GCM Cipher Suites
-suite_definition(?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => ecdh_ecdsa, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => ecdh_ecdsa, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-suite_definition(?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256) ->
-    #{key_exchange => ecdh_rsa, 
-      cipher => aes_128_gcm, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384) ->
-    #{key_exchange => ecdh_rsa, 
-      cipher => aes_256_gcm, 
-      mac => aead, 
-      prf => sha384};
-%% draft-agl-tls-chacha20poly1305-04 Chacha20/Poly1305 Suites
-suite_definition(?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256) ->
-    #{key_exchange => ecdhe_rsa, 
-      cipher => chacha20_poly1305, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256) ->
-    #{key_exchange => ecdhe_ecdsa, 
-      cipher => chacha20_poly1305, 
-      mac => aead, 
-      prf => sha256};
-suite_definition(?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256) ->
-    #{key_exchange => dhe_rsa, 
-      cipher => chacha20_poly1305, 
-      mac => aead, 
-      prf => sha256}.
 
 %%--------------------------------------------------------------------
--spec erl_suite_definition(cipher_suite() | erl_cipher_suite()) -> old_erl_cipher_suite().
-%%
-%% Description: Return erlang cipher suite definition. Filters last value
-%% for now (compatibility reasons).
-%%--------------------------------------------------------------------
-erl_suite_definition(Bin) when is_binary(Bin) ->
-    erl_suite_definition(suite_definition(Bin));    
-erl_suite_definition(#{key_exchange := KeyExchange, cipher := Cipher,
-                       mac := Hash, prf := Prf}) ->
-    case Prf of
-        default_prf ->
-	    {KeyExchange, Cipher, Hash};
-	_ ->
-            {KeyExchange, Cipher, Hash, Prf}
-    end.
-
-%%--------------------------------------------------------------------
--spec suite(erl_cipher_suite()) -> cipher_suite().
-%%
-%% Description: Return TLS cipher suite definition.
-%%--------------------------------------------------------------------
-%% TLS v1.1 suites
-suite(#{key_exchange := rsa, 
-        cipher := rc4_128, 
-        mac := md5}) ->
-    ?TLS_RSA_WITH_RC4_128_MD5;
-suite(#{key_exchange := rsa, 
-        cipher := rc4_128, 
-        mac := sha}) ->
-    ?TLS_RSA_WITH_RC4_128_SHA;
-suite(#{key_exchange := rsa, 
-        cipher := des_cbc, 
-        mac := sha}) ->
-    ?TLS_RSA_WITH_DES_CBC_SHA; 
-suite(#{key_exchange := rsa, 
-        cipher :='3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_RSA_WITH_3DES_EDE_CBC_SHA; 
-suite(#{key_exchange := dhe_dss,  
-        cipher:= des_cbc, 
-        mac := sha}) ->
-    ?TLS_DHE_DSS_WITH_DES_CBC_SHA;
-suite(#{key_exchange := dhe_dss, 
-        cipher:= '3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := dhe_rsa, 
-        cipher:= des_cbc,
-        mac := sha}) ->
-    ?TLS_DHE_RSA_WITH_DES_CBC_SHA;
-suite(#{key_exchange := dhe_rsa, 
-        cipher:= '3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA; 
-suite(#{key_exchange := dh_anon, 
-        cipher:= rc4_128,
-        mac := md5}) ->
-    ?TLS_DH_anon_WITH_RC4_128_MD5;
-suite(#{key_exchange := dh_anon, 
-        cipher:= des_cbc,  
-        mac := sha}) ->
-    ?TLS_DH_anon_WITH_DES_CBC_SHA;
-suite(#{key_exchange := dh_anon, 
-        cipher:= '3des_ede_cbc',
-        mac := sha}) ->
-    ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA;
-%%% TSL V1.1 AES suites
-suite(#{key_exchange := rsa, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_RSA_WITH_AES_128_CBC_SHA; 
-suite(#{key_exchange := dhe_dss, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA; 
-suite(#{key_exchange := dhe_rsa, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := dh_anon, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_DH_anon_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := rsa, 
-        cipher := aes_256_cbc,  
-        mac := sha}) ->
-    ?TLS_RSA_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := dhe_dss, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := dhe_rsa, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := dh_anon, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_DH_anon_WITH_AES_256_CBC_SHA;
-%% TLS v1.2 suites
-suite(#{key_exchange := rsa, 
-        cipher := aes_128_cbc, 
-        mac := sha256}) ->
-    ?TLS_RSA_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := rsa, 
-        cipher := aes_256_cbc, 
-        mac := sha256}) ->
-    ?TLS_RSA_WITH_AES_256_CBC_SHA256;
-suite(#{key_exchange := dhe_dss, 
-        cipher := aes_128_cbc, 
-        mac := sha256}) ->
-    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := dhe_rsa, 
-        cipher := aes_128_cbc, 
-        mac := sha256}) ->
-    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := dhe_dss, 
-        cipher := aes_256_cbc, 
-        mac := sha256}) ->
-    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256;
-suite(#{key_exchange := dhe_rsa, 
-        cipher := aes_256_cbc, 
-        mac := sha256}) ->
-    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256;
-suite(#{key_exchange := dh_anon, 
-        cipher := aes_128_cbc, 
-        mac := sha256}) ->
-    ?TLS_DH_anon_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := dh_anon, 
-        cipher := aes_256_cbc, 
-        mac := sha256}) ->
-    ?TLS_DH_anon_WITH_AES_256_CBC_SHA256;
-%%% PSK Cipher Suites RFC 4279
-suite(#{key_exchange := psk, 
-        cipher := rc4_128,
-        mac := sha}) ->
-    ?TLS_PSK_WITH_RC4_128_SHA;
-suite(#{key_exchange := psk, 
-        cipher := '3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_PSK_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := psk, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_PSK_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := psk, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_PSK_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := dhe_psk, 
-        cipher := rc4_128, 
-        mac := sha})  ->
-    ?TLS_DHE_PSK_WITH_RC4_128_SHA;
-suite(#{key_exchange := dhe_psk, 
-        cipher := '3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := dhe_psk, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := dhe_psk, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := rsa_psk, 
-        cipher := rc4_128, 
-        mac := sha}) ->
-    ?TLS_RSA_PSK_WITH_RC4_128_SHA;
-suite(#{key_exchange := rsa_psk, 
-        cipher := '3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := rsa_psk, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := rsa_psk, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA;
-%%% PSK NULL Cipher Suites RFC 4785
-suite(#{key_exchange := psk, 
-        cipher := null, 
-        mac := sha}) ->
-    ?TLS_PSK_WITH_NULL_SHA;
-suite(#{key_exchange := dhe_psk, 
-        cipher := null, 
-        mac := sha}) ->
-    ?TLS_DHE_PSK_WITH_NULL_SHA;
-suite(#{key_exchange := rsa_psk, 
-       cipher := null, 
-       mac := sha}) ->
-    ?TLS_RSA_PSK_WITH_NULL_SHA;
-%%% TLS 1.2 PSK Cipher Suites RFC 5487
-suite(#{key_exchange := psk, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_PSK_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := psk, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_PSK_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := dhe_psk, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := dhe_psk, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := rsa_psk, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := rsa_psk, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := psk, 
-        cipher := aes_128_cbc, 
-        mac := sha256}) ->
-    ?TLS_PSK_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := psk, 
-        cipher := aes_256_cbc, 
-        mac := sha384}) ->
-    ?TLS_PSK_WITH_AES_256_CBC_SHA384;
-suite(#{key_exchange := dhe_psk, 
-        cipher := aes_128_cbc, 
-        mac := sha256}) ->
-    ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := dhe_psk, 
-        cipher := aes_256_cbc, 
-        mac := sha384}) ->
-    ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384;
-suite(#{key_exchange := rsa_psk, 
-        cipher := aes_128_cbc, 
-        mac := sha256}) ->
-    ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := rsa_psk, 
-        cipher := aes_256_cbc, 
-        mac := sha384}) ->
-    ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384;
-suite(#{key_exchange := psk, 
-        cipher := null, 
-        mac := sha256}) ->
-    ?TLS_PSK_WITH_NULL_SHA256;
-suite(#{key_exchange := psk, 
-        cipher := null,
-        mac := sha384}) ->
-    ?TLS_PSK_WITH_NULL_SHA384;
-suite(#{key_exchange := dhe_psk, 
-        cipher := null, 
-        mac := sha256}) ->
-    ?TLS_DHE_PSK_WITH_NULL_SHA256;
-suite(#{key_exchange := dhe_psk, 
-        cipher := null, 
-        mac := sha384}) ->
-    ?TLS_DHE_PSK_WITH_NULL_SHA384;
-suite(#{key_exchange := rsa_psk, 
-        cipher := null,  
-        mac := sha256}) ->
-    ?TLS_RSA_PSK_WITH_NULL_SHA256;
-suite(#{key_exchange := rsa_psk, 
-       cipher := null, 
-       mac := sha384}) ->
-    ?TLS_RSA_PSK_WITH_NULL_SHA384;
-%%% ECDHE PSK Cipher Suites RFC 5489
-suite(#{key_exchange := ecdhe_psk, 
-        cipher := rc4_128,
-        mac := sha}) ->
-    ?TLS_ECDHE_PSK_WITH_RC4_128_SHA;
-suite(#{key_exchange := ecdhe_psk, 
-        cipher :='3des_ede_cbc',
-        mac := sha}) ->
-    ?TLS_ECDHE_PSK_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := ecdhe_psk, 
-        cipher := aes_128_cbc,
-        mac := sha}) ->
-    ?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := ecdhe_psk, 
-        cipher := aes_256_cbc,
-        mac := sha}) ->
-    ?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := ecdhe_psk, 
-       cipher := aes_128_cbc, 
-       mac := sha256}) ->
-    ?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := ecdhe_psk, 
-       cipher := aes_256_cbc, 
-       mac := sha384}) ->
-    ?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA384;
-suite(#{key_exchange := ecdhe_psk, 
-       cipher := null, 
-       mac := sha256}) ->
-    ?TLS_ECDHE_PSK_WITH_NULL_SHA256;
-suite(#{key_exchange := ecdhe_psk, 
-       cipher := null, 
-       mac := sha384}) ->
-    ?TLS_ECDHE_PSK_WITH_NULL_SHA384;
-%%% ECDHE_PSK with AES-GCM and AES-CCM Cipher Suites, draft-ietf-tls-ecdhe-psk-aead-05
-suite(#{key_exchange := ecdhe_psk, 
-       cipher := aes_128_gcm, 
-       mac := null, 
-       prf := sha256}) ->
-    ?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := ecdhe_psk, 
-       cipher := aes_256_gcm, 
-       mac := null, 
-       prf := sha384}) ->
-    ?TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384;
- %% suite(#{key_exchange := ecdhe_psk, 
- %%        cipher := aes_128_ccm, 
- %%        mac := null, 
- %%        prf := sha256}) ->
- %%    ?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256;
- %% suite(#{key_exchange := ecdhe_psk, 
- %%         cipher := aes_256_ccm, 
- %%         mac := null, 
- %%         prf := sha256}) ->
- %%    ?TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256;
-%%% SRP Cipher Suites RFC 5054
-suite(#{key_exchange := srp_anon, 
-        cipher := '3des_ede_cbc',
-        mac :=  sha}) ->
-    ?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := srp_rsa, 
-        cipher := '3des_ede_cbc',
-        mac := sha}) ->
-    ?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := srp_dss, 
-        cipher := '3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := srp_anon, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_SRP_SHA_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := srp_rsa, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := srp_dss, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := srp_anon, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_SRP_SHA_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := srp_rsa, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := srp_dss, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA;
-%%% RFC 4492 EC TLS suites
-suite(#{key_exchange := ecdh_ecdsa, 
-        cipher := null, 
-        mac := sha}) ->
-    ?TLS_ECDH_ECDSA_WITH_NULL_SHA;
-suite(#{key_exchange := ecdh_ecdsa, 
-        cipher := rc4_128,  
-        mac := sha})  ->
-    ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA;
-suite(#{key_exchange := ecdh_ecdsa, 
-        cipher := '3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := ecdh_ecdsa, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := ecdh_ecdsa, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := null, 
-        mac := sha}) ->
-    ?TLS_ECDHE_ECDSA_WITH_NULL_SHA;
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := rc4_128, 
-        mac := sha}) ->
-    ?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA;
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := '3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := ecdh_rsa, 
-        cipher := null, 
-        mac := sha}) ->
-    ?TLS_ECDH_RSA_WITH_NULL_SHA;
-suite(#{key_exchange := ecdh_rsa, 
-        cipher := rc4_128, 
-        mac := sha}) ->
-    ?TLS_ECDH_RSA_WITH_RC4_128_SHA;
-suite(#{key_exchange := ecdh_rsa, 
-        cipher := '3des_ede_cbc', mac := sha}) ->
-    ?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := ecdh_rsa, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := ecdh_rsa, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := null, 
-        mac := sha}) ->
-    ?TLS_ECDHE_RSA_WITH_NULL_SHA;
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := rc4_128, 
-        mac := sha}) ->
-    ?TLS_ECDHE_RSA_WITH_RC4_128_SHA;
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := '3des_ede_cbc', 
-        mac := sha}) ->
-    ?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA;
-suite(#{key_exchange := ecdh_anon, 
-        cipher := null, 
-        mac := sha}) ->
-    ?TLS_ECDH_anon_WITH_NULL_SHA;
-suite(#{key_exchange := ecdh_anon, 
-        cipher := rc4_128, 
-        mac := sha}) ->
-    ?TLS_ECDH_anon_WITH_RC4_128_SHA;
-suite(#{key_exchange := ecdh_anon, 
-        cipher := '3des_ede_cbc', 
-        mac :=  sha}) ->
-    ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA;
-suite(#{key_exchange := ecdh_anon, 
-        cipher := aes_128_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDH_anon_WITH_AES_128_CBC_SHA;
-suite(#{key_exchange := ecdh_anon, 
-        cipher := aes_256_cbc, 
-        mac := sha}) ->
-    ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA;
-%%% RFC 5289 EC TLS suites
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := aes_128_cbc, 
-        mac:= sha256, 
-        prf := sha256}) ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := aes_256_cbc, 
-        mac := sha384, 
-        prf := sha384}) ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384;
-suite(#{key_exchange := ecdh_ecdsa, 
-        cipher := aes_128_cbc, 
-        mac := sha256, 
-        prf := sha256}) ->
-    ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := ecdh_ecdsa, 
-        cipher := aes_256_cbc, 
-        mac := sha384, 
-        prf := sha384}) ->
-    ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384;
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := aes_128_cbc, 
-        mac := sha256, 
-        prf := sha256}) ->
-    ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := aes_256_cbc, 
-        mac := sha384, 
-        prf := sha384}) ->
-    ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384;
-suite(#{key_exchange := ecdh_rsa, 
-        cipher := aes_128_cbc, 
-        mac := sha256, 
-        prf := sha256}) ->
-    ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256;
-suite(#{key_exchange := ecdh_rsa, 
-        cipher := aes_256_cbc, 
-        mac := sha384, 
-        prf := sha384}) ->
-    ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384;
-%% RFC 5288 AES-GCM Cipher Suites
-suite(#{key_exchange := rsa, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_RSA_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := rsa, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_RSA_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := dhe_rsa, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := dhe_rsa, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := dh_rsa, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_DH_RSA_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := dh_rsa, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_DH_RSA_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := dhe_dss, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := dhe_dss, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := dh_dss, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := dh_dss, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := dh_anon, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_DH_anon_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := dh_anon, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_DH_anon_WITH_AES_256_GCM_SHA384;
-%% RFC 5289 ECC AES-GCM Cipher Suites
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := ecdh_ecdsa, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := ecdh_ecdsa, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384;
-suite(#{key_exchange := ecdh_rsa, 
-        cipher := aes_128_gcm, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256;
-suite(#{key_exchange := ecdh_rsa, 
-        cipher := aes_256_gcm, 
-        mac := aead, 
-        prf := sha384}) ->
-    ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384;
-%% draft-agl-tls-chacha20poly1305-04 Chacha20/Poly1305 Suites
-suite(#{key_exchange := ecdhe_rsa, 
-        cipher := chacha20_poly1305,  
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256;
-suite(#{key_exchange := ecdhe_ecdsa, 
-        cipher := chacha20_poly1305, 
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256;
-suite(#{key_exchange := dhe_rsa, 
-        cipher := chacha20_poly1305,  
-        mac := aead, 
-        prf := sha256}) ->
-    ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256.
-
-%%--------------------------------------------------------------------
--spec openssl_suite(openssl_cipher_suite()) -> cipher_suite().
-%%
-%% Description: Return TLS cipher suite definition.
-%%--------------------------------------------------------------------
-%% translate constants <-> openssl-strings
-openssl_suite("DHE-RSA-AES256-SHA256") ->
-    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256;
-openssl_suite("DHE-DSS-AES256-SHA256") ->
-    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256;
-openssl_suite("AES256-SHA256") ->
-    ?TLS_RSA_WITH_AES_256_CBC_SHA256;
-openssl_suite("DHE-RSA-AES128-SHA256") ->
-    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256;
-openssl_suite("DHE-DSS-AES128-SHA256") ->
-    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256;
-openssl_suite("AES128-SHA256") ->
-    ?TLS_RSA_WITH_AES_128_CBC_SHA256;
-openssl_suite("DHE-RSA-AES256-SHA") ->
-    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
-openssl_suite("DHE-DSS-AES256-SHA") ->
-    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA;
-openssl_suite("AES256-SHA") ->
-    ?TLS_RSA_WITH_AES_256_CBC_SHA;
-openssl_suite("EDH-RSA-DES-CBC3-SHA") ->
-    ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA;
-openssl_suite("EDH-DSS-DES-CBC3-SHA") ->
-    ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA;
-openssl_suite("DES-CBC3-SHA") ->
-    ?TLS_RSA_WITH_3DES_EDE_CBC_SHA;
-openssl_suite("DHE-RSA-AES128-SHA") ->
-    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA;
-openssl_suite("DHE-DSS-AES128-SHA") ->
-    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA;
-openssl_suite("AES128-SHA") ->
-    ?TLS_RSA_WITH_AES_128_CBC_SHA;
-openssl_suite("RC4-SHA") ->
-    ?TLS_RSA_WITH_RC4_128_SHA;
-openssl_suite("RC4-MD5") -> 
-    ?TLS_RSA_WITH_RC4_128_MD5;
-openssl_suite("EDH-RSA-DES-CBC-SHA") ->
-    ?TLS_DHE_RSA_WITH_DES_CBC_SHA;
-openssl_suite("DES-CBC-SHA") ->
-    ?TLS_RSA_WITH_DES_CBC_SHA;
-
-%%% SRP Cipher Suites RFC 5054
-
-openssl_suite("SRP-DSS-AES-256-CBC-SHA") ->
-    ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA;
-openssl_suite("SRP-RSA-AES-256-CBC-SHA") ->
-    ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA;
-openssl_suite("SRP-DSS-3DES-EDE-CBC-SHA") ->
-    ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA;
-openssl_suite("SRP-RSA-3DES-EDE-CBC-SHA") ->
-    ?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA;
-openssl_suite("SRP-DSS-AES-128-CBC-SHA") ->
-    ?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA;
-openssl_suite("SRP-RSA-AES-128-CBC-SHA") ->
-    ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA;
-
-%% RFC 4492 EC TLS suites
-openssl_suite("ECDH-ECDSA-RC4-SHA") ->
-    ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA;
-openssl_suite("ECDH-ECDSA-DES-CBC3-SHA") ->
-    ?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA;
-openssl_suite("ECDH-ECDSA-AES128-SHA") ->
-    ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA;
-openssl_suite("ECDH-ECDSA-AES256-SHA") ->
-    ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA;
-
-openssl_suite("ECDHE-ECDSA-RC4-SHA") ->
-    ?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA;
-openssl_suite("ECDHE-ECDSA-DES-CBC3-SHA") ->
-    ?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA;
-openssl_suite("ECDHE-ECDSA-AES128-SHA") ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA;
-openssl_suite("ECDHE-ECDSA-AES256-SHA") ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA;
-
-openssl_suite("ECDHE-RSA-RC4-SHA") ->
-    ?TLS_ECDHE_RSA_WITH_RC4_128_SHA;
-openssl_suite("ECDHE-RSA-DES-CBC3-SHA") ->
-    ?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA;
-openssl_suite("ECDHE-RSA-AES128-SHA") ->
-    ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
-openssl_suite("ECDHE-RSA-AES256-SHA") ->
-    ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA;
-
-openssl_suite("ECDH-RSA-RC4-SHA") ->
-    ?TLS_ECDH_RSA_WITH_RC4_128_SHA;
-openssl_suite("ECDH-RSA-DES-CBC3-SHA") ->
-    ?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA;
-openssl_suite("ECDH-RSA-AES128-SHA") ->
-    ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA;
-openssl_suite("ECDH-RSA-AES256-SHA") ->
-    ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA;
-
-%% RFC 5289 EC TLS suites
-openssl_suite("ECDHE-ECDSA-AES128-SHA256") ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256;
-openssl_suite("ECDHE-ECDSA-AES256-SHA384") ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384;
-openssl_suite("ECDH-ECDSA-AES128-SHA256") ->
-    ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256;
-openssl_suite("ECDH-ECDSA-AES256-SHA384") ->
-    ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384;
-openssl_suite("ECDHE-RSA-AES128-SHA256") ->
-    ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256;
-openssl_suite("ECDHE-RSA-AES256-SHA384") ->
-    ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384;
-openssl_suite("ECDH-RSA-AES128-SHA256") ->
-    ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256;
-openssl_suite("ECDH-RSA-AES256-SHA384") ->
-    ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384;
-
-%% RFC 5288 AES-GCM Cipher Suites
-openssl_suite("AES128-GCM-SHA256") ->
-    ?TLS_RSA_WITH_AES_128_GCM_SHA256;
-openssl_suite("AES256-GCM-SHA384") ->
-    ?TLS_RSA_WITH_AES_256_GCM_SHA384;
-openssl_suite("DHE-RSA-AES128-GCM-SHA256") ->
-    ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256;
-openssl_suite("DHE-RSA-AES256-GCM-SHA384") ->
-    ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384;
-openssl_suite("DH-RSA-AES128-GCM-SHA256") ->
-    ?TLS_DH_RSA_WITH_AES_128_GCM_SHA256;
-openssl_suite("DH-RSA-AES256-GCM-SHA384") ->
-    ?TLS_DH_RSA_WITH_AES_256_GCM_SHA384;
-openssl_suite("DHE-DSS-AES128-GCM-SHA256") ->
-    ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256;
-openssl_suite("DHE-DSS-AES256-GCM-SHA384") ->
-    ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384;
-openssl_suite("DH-DSS-AES128-GCM-SHA256") ->
-    ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256;
-openssl_suite("DH-DSS-AES256-GCM-SHA384") ->
-    ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384;
-
-%% RFC 5289 ECC AES-GCM Cipher Suites
-openssl_suite("ECDHE-ECDSA-AES128-GCM-SHA256") ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
-openssl_suite("ECDHE-ECDSA-AES256-GCM-SHA384") ->
-    ?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384;
-openssl_suite("ECDH-ECDSA-AES128-GCM-SHA256") ->
-    ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256;
-openssl_suite("ECDH-ECDSA-AES256-GCM-SHA384") ->
-    ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384;
-openssl_suite("ECDHE-RSA-AES128-GCM-SHA256") ->
-    ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
-openssl_suite("ECDHE-RSA-AES256-GCM-SHA384") ->
-    ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384;
-openssl_suite("ECDH-RSA-AES128-GCM-SHA256") ->
-    ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256;
-openssl_suite("ECDH-RSA-AES256-GCM-SHA384") ->
-    ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384.
-
-%%--------------------------------------------------------------------
--spec openssl_suite_name(cipher_suite()) -> openssl_cipher_suite() | erl_cipher_suite().
-%%
-%% Description: Return openssl cipher suite name if possible
-%%-------------------------------------------------------------------
-openssl_suite_name(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
-    "DHE-RSA-AES256-SHA";
-openssl_suite_name(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
-    "DHE-DSS-AES256-SHA";
-openssl_suite_name(?TLS_RSA_WITH_AES_256_CBC_SHA) ->
-    "AES256-SHA";
-openssl_suite_name(?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    "EDH-RSA-DES-CBC3-SHA";
-openssl_suite_name(?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA) ->
-    "EDH-DSS-DES-CBC3-SHA";
-openssl_suite_name(?TLS_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    "DES-CBC3-SHA";
-openssl_suite_name( ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA) ->
-    "DHE-RSA-AES128-SHA";
-openssl_suite_name(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA) ->
-    "DHE-DSS-AES128-SHA";
-openssl_suite_name(?TLS_RSA_WITH_AES_128_CBC_SHA) ->
-    "AES128-SHA";
-openssl_suite_name(?TLS_RSA_WITH_RC4_128_SHA) ->
-    "RC4-SHA";
-openssl_suite_name(?TLS_RSA_WITH_RC4_128_MD5) -> 
-    "RC4-MD5";
-openssl_suite_name(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
-    "EDH-RSA-DES-CBC-SHA";
-openssl_suite_name(?TLS_RSA_WITH_DES_CBC_SHA) ->
-    "DES-CBC-SHA";
-openssl_suite_name(?TLS_RSA_WITH_NULL_SHA256) ->
-    "NULL-SHA256";
-openssl_suite_name(?TLS_RSA_WITH_AES_128_CBC_SHA256) ->
-    "AES128-SHA256";
-openssl_suite_name(?TLS_RSA_WITH_AES_256_CBC_SHA256) ->
-    "AES256-SHA256";
-openssl_suite_name(?TLS_DH_DSS_WITH_AES_128_CBC_SHA256) ->
-    "DH-DSS-AES128-SHA256";
-openssl_suite_name(?TLS_DH_RSA_WITH_AES_128_CBC_SHA256) ->
-    "DH-RSA-AES128-SHA256";
-openssl_suite_name(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256) ->
-    "DHE-DSS-AES128-SHA256";
-openssl_suite_name(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256) ->
-    "DHE-RSA-AES128-SHA256";
-openssl_suite_name(?TLS_DH_DSS_WITH_AES_256_CBC_SHA256) ->
-    "DH-DSS-AES256-SHA256";
-openssl_suite_name(?TLS_DH_RSA_WITH_AES_256_CBC_SHA256) ->
-    "DH-RSA-AES256-SHA256";
-openssl_suite_name(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256) ->
-    "DHE-DSS-AES256-SHA256";
-openssl_suite_name(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256) ->
-    "DHE-RSA-AES256-SHA256";
-
-%%% PSK Cipher Suites RFC 4279
-
-openssl_suite_name(?TLS_PSK_WITH_AES_256_CBC_SHA) ->
-    "PSK-AES256-CBC-SHA";
-openssl_suite_name(?TLS_PSK_WITH_3DES_EDE_CBC_SHA) ->
-    "PSK-3DES-EDE-CBC-SHA";
-openssl_suite_name(?TLS_PSK_WITH_AES_128_CBC_SHA) ->
-    "PSK-AES128-CBC-SHA";
-openssl_suite_name(?TLS_PSK_WITH_RC4_128_SHA) ->
-    "PSK-RC4-SHA";
-
-%%% SRP Cipher Suites RFC 5054
-
-openssl_suite_name(?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    "SRP-RSA-3DES-EDE-CBC-SHA";
-openssl_suite_name(?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA) ->
-    "SRP-DSS-3DES-EDE-CBC-SHA";
-openssl_suite_name(?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA) ->
-    "SRP-RSA-AES-128-CBC-SHA";
-openssl_suite_name(?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA) ->
-    "SRP-DSS-AES-128-CBC-SHA";
-openssl_suite_name(?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA) ->
-    "SRP-RSA-AES-256-CBC-SHA";
-openssl_suite_name(?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA) ->
-    "SRP-DSS-AES-256-CBC-SHA";
-
-%% RFC 4492 EC TLS suites
-openssl_suite_name(?TLS_ECDH_ECDSA_WITH_RC4_128_SHA) ->
-    "ECDH-ECDSA-RC4-SHA";
-openssl_suite_name(?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA) ->
-    "ECDH-ECDSA-DES-CBC3-SHA";
-openssl_suite_name(?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA) ->
-    "ECDH-ECDSA-AES128-SHA";
-openssl_suite_name(?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA) ->
-    "ECDH-ECDSA-AES256-SHA";
-
-openssl_suite_name(?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA) ->
-    "ECDHE-ECDSA-RC4-SHA";
-openssl_suite_name(?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA) ->
-    "ECDHE-ECDSA-DES-CBC3-SHA";
-openssl_suite_name(?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA) ->
-    "ECDHE-ECDSA-AES128-SHA";
-openssl_suite_name(?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA) ->
-    "ECDHE-ECDSA-AES256-SHA";
-
-openssl_suite_name(?TLS_ECDH_RSA_WITH_RC4_128_SHA) ->
-    "ECDH-RSA-RC4-SHA";
-openssl_suite_name(?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    "ECDH-RSA-DES-CBC3-SHA";
-openssl_suite_name(?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA) ->
-    "ECDH-RSA-AES128-SHA";
-openssl_suite_name(?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA) ->
-    "ECDH-RSA-AES256-SHA";
-
-openssl_suite_name(?TLS_ECDHE_RSA_WITH_RC4_128_SHA) ->
-    "ECDHE-RSA-RC4-SHA";
-openssl_suite_name(?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    "ECDHE-RSA-DES-CBC3-SHA";
-openssl_suite_name(?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA) ->
-    "ECDHE-RSA-AES128-SHA";
-openssl_suite_name(?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA) ->
-    "ECDHE-RSA-AES256-SHA";
-
-%% RFC 5289 EC TLS suites
-openssl_suite_name(?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256) ->
-    "ECDHE-ECDSA-AES128-SHA256";
-openssl_suite_name(?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384) ->
-    "ECDHE-ECDSA-AES256-SHA384";
-openssl_suite_name(?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256) ->
-    "ECDH-ECDSA-AES128-SHA256";
-openssl_suite_name(?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384) ->
-    "ECDH-ECDSA-AES256-SHA384";
-openssl_suite_name(?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256) ->
-    "ECDHE-RSA-AES128-SHA256";
-openssl_suite_name(?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384) ->
-    "ECDHE-RSA-AES256-SHA384";
-openssl_suite_name(?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256) ->
-    "ECDH-RSA-AES128-SHA256";
-openssl_suite_name(?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384) ->
-    "ECDH-RSA-AES256-SHA384";
-
-%% RFC 5288 AES-GCM Cipher Suites
-openssl_suite_name(?TLS_RSA_WITH_AES_128_GCM_SHA256) ->
-    "AES128-GCM-SHA256";
-openssl_suite_name(?TLS_RSA_WITH_AES_256_GCM_SHA384) ->
-    "AES256-GCM-SHA384";
-openssl_suite_name(?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256) ->
-    "DHE-RSA-AES128-GCM-SHA256";
-openssl_suite_name(?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384) ->
-    "DHE-RSA-AES256-GCM-SHA384";
-openssl_suite_name(?TLS_DH_RSA_WITH_AES_128_GCM_SHA256) ->
-    "DH-RSA-AES128-GCM-SHA256";
-openssl_suite_name(?TLS_DH_RSA_WITH_AES_256_GCM_SHA384) ->
-    "DH-RSA-AES256-GCM-SHA384";
-openssl_suite_name(?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256) ->
-    "DHE-DSS-AES128-GCM-SHA256";
-openssl_suite_name(?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384) ->
-    "DHE-DSS-AES256-GCM-SHA384";
-openssl_suite_name(?TLS_DH_DSS_WITH_AES_128_GCM_SHA256) ->
-    "DH-DSS-AES128-GCM-SHA256";
-openssl_suite_name(?TLS_DH_DSS_WITH_AES_256_GCM_SHA384) ->
-    "DH-DSS-AES256-GCM-SHA384";
-
-%% RFC 5289 ECC AES-GCM Cipher Suites
-openssl_suite_name(?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256) ->
-    "ECDHE-ECDSA-AES128-GCM-SHA256";
-openssl_suite_name(?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384) ->
-    "ECDHE-ECDSA-AES256-GCM-SHA384";
-openssl_suite_name(?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256) ->
-    "ECDH-ECDSA-AES128-GCM-SHA256";
-openssl_suite_name(?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384) ->
-    "ECDH-ECDSA-AES256-GCM-SHA384";
-openssl_suite_name(?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) ->
-    "ECDHE-RSA-AES128-GCM-SHA256";
-openssl_suite_name(?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) ->
-    "ECDHE-RSA-AES256-GCM-SHA384";
-openssl_suite_name(?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256) ->
-    "ECDH-RSA-AES128-GCM-SHA256";
-openssl_suite_name(?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384) ->
-    "ECDH-RSA-AES256-GCM-SHA384";
-
-%% No oppenssl name
-openssl_suite_name(Cipher) ->
-    suite_definition(Cipher).
-
-%%--------------------------------------------------------------------
--spec filter(undefined | binary(), [cipher_suite()], ssl_record:ssl_version()) -> [cipher_suite()].
+-spec filter(undefined | binary(), [ssl_cipher_format:cipher_suite()], 
+             ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Select the cipher suites that can be used together with the 
 %% supplied certificate. (Server side functionality)  
@@ -2232,8 +501,8 @@ filter(DerCert, Ciphers0, Version) ->
     filter_suites_signature(Sign, Ciphers, Version).
 
 %%--------------------------------------------------------------------
--spec filter_suites([erl_cipher_suite()] | [cipher_suite()], map()) ->
-                           [erl_cipher_suite()] |  [cipher_suite()].
+-spec filter_suites([ssl:erl_cipher_suite()] | [ssl_cipher_format:cipher_suite()], map()) ->
+                           [ssl:erl_cipher_suite()] |  [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Filter suites using supplied filter funs
 %%-------------------------------------------------------------------	
@@ -2256,11 +525,11 @@ filter_suite(#{key_exchange := KeyExchange,
         all_filters(Hash, HashFilters) andalso
         all_filters(Prf, PrfFilters);
 filter_suite(Suite, Filters) ->
-    filter_suite(suite_definition(Suite), Filters).
+    filter_suite(ssl_cipher_format:suite_definition(Suite), Filters).
 
 %%--------------------------------------------------------------------
--spec filter_suites([erl_cipher_suite()] | [cipher_suite()]) -> 
-                           [erl_cipher_suite()] | [cipher_suite()].
+-spec filter_suites([ssl:erl_cipher_suite()] | [ssl_cipher_format:cipher_suite()]) -> 
+                           [ssl:erl_cipher_suite()] | [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Filter suites for algorithms supported by crypto.
 %%-------------------------------------------------------------------
@@ -2301,7 +570,8 @@ crypto_support_filters() ->
           end]}.
 
 is_acceptable_keyexchange(KeyExchange, _Algos) when KeyExchange == psk;
-                                                    KeyExchange == null ->
+                                                    KeyExchange == null;
+                                                    KeyExchange == any ->
     true;
 is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == dh_anon;
                                                    KeyExchange == dhe_psk ->
@@ -2344,7 +614,7 @@ is_acceptable_cipher(rc4_128, Algos) ->
 is_acceptable_cipher(des_cbc, Algos) ->
     proplists:get_bool(des_cbc, Algos);
 is_acceptable_cipher('3des_ede_cbc', Algos) ->
-    proplists:get_bool(des3_cbc, Algos);
+    proplists:get_bool(des_ede3, Algos);
 is_acceptable_cipher(aes_128_cbc, Algos) ->
     proplists:get_bool(aes_cbc128, Algos);
 is_acceptable_cipher(aes_256_cbc, Algos) ->
@@ -2395,6 +665,28 @@ is_stream_ciphersuite(#{cipher := rc4_128}) ->
     true;
 is_stream_ciphersuite(_) ->
     false.
+
+-spec  hash_size(atom()) -> integer().
+hash_size(null) ->
+    0;
+%% The AEAD MAC hash size is not used in the context 
+%% of calculating the master secret. See RFC 5246 Section 6.2.3.3.
+hash_size(aead) ->
+    0;
+hash_size(md5) ->
+    16;
+hash_size(sha) ->
+    20;
+%% Uncomment when adding cipher suite that needs it
+%hash_size(sha224) ->
+%    28;
+hash_size(sha256) ->
+    32;
+hash_size(sha384) ->
+    48;
+hash_size(sha512) ->
+    64.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -2404,7 +696,7 @@ mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
     ssl_v3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
 mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
-  when N =:= 1; N =:= 2; N =:= 3 ->
+  when N =:= 1; N =:= 2; N =:= 3; N =:= 4 ->
     tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
 		      Length, Fragment).
 
@@ -2552,26 +844,58 @@ sign_algorithm(?ECDSA) -> ecdsa;
 sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 4) and (Other =< 223)) -> unassigned;
 sign_algorithm(Other) when is_integer(Other) andalso ((Other >= 224) and (Other =< 255)) -> Other.
 
-hash_size(null) ->
-    0;
-%% The AEAD MAC hash size is not used in the context 
-%% of calculating the master secret. See RFC 5246 Section 6.2.3.3.
-hash_size(aead) ->
-    0;
-hash_size(md5) ->
-    16;
-hash_size(sha) ->
-    20;
-%% Uncomment when adding cipher suite that needs it
-%hash_size(sha224) ->
-%    28;
-hash_size(sha256) ->
-    32;
-hash_size(sha384) ->
-    48.
-%% Uncomment when adding cipher suite that needs it
-%hash_size(sha512) ->
-%    64.
+
+signature_scheme(rsa_pkcs1_sha256) -> ?RSA_PKCS1_SHA256;
+signature_scheme(rsa_pkcs1_sha384) -> ?RSA_PKCS1_SHA384;
+signature_scheme(rsa_pkcs1_sha512) -> ?RSA_PKCS1_SHA512;
+signature_scheme(ecdsa_secp256r1_sha256) -> ?ECDSA_SECP256R1_SHA256;
+signature_scheme(ecdsa_secp384r1_sha384) -> ?ECDSA_SECP384R1_SHA384;
+signature_scheme(ecdsa_secp521r1_sha512) -> ?ECDSA_SECP521R1_SHA512;
+signature_scheme(rsa_pss_rsae_sha256) -> ?RSA_PSS_RSAE_SHA256;
+signature_scheme(rsa_pss_rsae_sha384) -> ?RSA_PSS_RSAE_SHA384;
+signature_scheme(rsa_pss_rsae_sha512) -> ?RSA_PSS_RSAE_SHA512;
+signature_scheme(ed25519) -> ?ED25519;
+signature_scheme(ed448) -> ?ED448;
+signature_scheme(rsa_pss_pss_sha256) -> ?RSA_PSS_PSS_SHA256;
+signature_scheme(rsa_pss_pss_sha384) -> ?RSA_PSS_PSS_SHA384;
+signature_scheme(rsa_pss_pss_sha512) -> ?RSA_PSS_PSS_SHA512;
+signature_scheme(rsa_pkcs1_sha1) -> ?RSA_PKCS1_SHA1;
+signature_scheme(ecdsa_sha1) -> ?ECDSA_SHA1;
+signature_scheme(?RSA_PKCS1_SHA256) -> rsa_pkcs1_sha256;
+signature_scheme(?RSA_PKCS1_SHA384) -> rsa_pkcs1_sha384;
+signature_scheme(?RSA_PKCS1_SHA512) -> rsa_pkcs1_sha512;
+signature_scheme(?ECDSA_SECP256R1_SHA256) -> ecdsa_secp256r1_sha256;
+signature_scheme(?ECDSA_SECP384R1_SHA384) -> ecdsa_secp384r1_sha384;
+signature_scheme(?ECDSA_SECP521R1_SHA512) -> ecdsa_secp521r1_sha512;
+signature_scheme(?RSA_PSS_RSAE_SHA256) -> rsa_pss_rsae_sha256;
+signature_scheme(?RSA_PSS_RSAE_SHA384) -> rsa_pss_rsae_sha384;
+signature_scheme(?RSA_PSS_RSAE_SHA512) -> rsa_pss_rsae_sha512;
+signature_scheme(?ED25519) -> ed25519;
+signature_scheme(?ED448) -> ed448;
+signature_scheme(?RSA_PSS_PSS_SHA256) -> rsa_pss_pss_sha256;
+signature_scheme(?RSA_PSS_PSS_SHA384) -> rsa_pss_pss_sha384;
+signature_scheme(?RSA_PSS_PSS_SHA512) -> rsa_pss_pss_sha512;
+signature_scheme(?RSA_PKCS1_SHA1) -> rsa_pkcs1_sha1;
+signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
+signature_scheme(_) -> unassigned.
+%% TODO: reserved code points?
+
+scheme_to_components(rsa_pkcs1_sha256) -> {sha256, rsa_pkcs1, undefined};
+scheme_to_components(rsa_pkcs1_sha384) -> {sha384, rsa_pkcs1, undefined};
+scheme_to_components(rsa_pkcs1_sha512) -> {sha512, rsa_pkcs1, undefined};
+scheme_to_components(ecdsa_secp256r1_sha256) -> {sha256, ecdsa, secp256r1};
+scheme_to_components(ecdsa_secp384r1_sha384) -> {sha384, ecdsa, secp384r1};
+scheme_to_components(ecdsa_secp521r1_sha512) -> {sha512, ecdsa, secp521r1};
+scheme_to_components(rsa_pss_rsae_sha256) -> {sha256, rsa_pss_rsae, undefined};
+scheme_to_components(rsa_pss_rsae_sha384) -> {sha384, rsa_pss_rsae, undefined};
+scheme_to_components(rsa_pss_rsae_sha512) -> {sha512, rsa_pss_rsae, undefined};
+scheme_to_components(ed25519) -> {undefined, undefined, undefined};
+scheme_to_components(ed448) -> {undefined, undefined, undefined};
+scheme_to_components(rsa_pss_pss_sha256) -> {sha256, rsa_pss_pss, undefined};
+scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
+scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
+scheme_to_components(rsa_pkcs1_sha1) -> {sha1, rsa_pkcs1, undefined};
+scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined}.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%
@@ -2609,7 +933,7 @@ generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
 			  next_iv = IV};
 
 generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
-  when N == 2; N == 3 ->
+  when N == 2; N == 3; N == 4 ->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
     IVLength = byte_size(IV),
@@ -2640,7 +964,7 @@ is_correct_padding(GenBlockCipher, {3, 1}, false) ->
 is_correct_padding(#generic_block_cipher{padding_length = Len,
 					 padding = Padding}, _, _) ->
     Len == byte_size(Padding) andalso
-		list_to_binary(lists:duplicate(Len, Len)) == Padding.
+        binary:copy(?byte(Len), Len) == Padding.
 
 get_padding(Length, BlockSize) ->
     get_padding_aux(BlockSize, Length rem BlockSize).
@@ -2649,7 +973,7 @@ get_padding_aux(_, 0) ->
     {0, <<>>};
 get_padding_aux(BlockSize, PadLength) ->
     N = BlockSize - PadLength,
-    {N, list_to_binary(lists:duplicate(N, N))}.
+    {N, binary:copy(?byte(N), N)}.
 
 random_iv(IV) ->
     IVSz = byte_size(IV),
@@ -2683,6 +1007,8 @@ filter_suites_pubkey(ec, Ciphers, _, OtpCert) ->
                                    ec_ecdhe_suites(Ciphers)),
     filter_keyuse_suites(keyAgreement, Uses, CiphersSuites, ec_ecdh_suites(Ciphers)).
 
+filter_suites_signature(_, Ciphers, {3, N}) when N >= 3 ->
+     Ciphers;
 filter_suites_signature(rsa, Ciphers, Version) ->
     (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers, Version);
 filter_suites_signature(dsa, Ciphers, Version) ->
@@ -2749,6 +1075,8 @@ ecdsa_signed_suites(Ciphers, Version) ->
 
 rsa_keyed(dhe_rsa) -> 
     true;
+rsa_keyed(ecdhe_rsa) -> 
+    true;
 rsa_keyed(rsa) -> 
     true;
 rsa_keyed(rsa_psk) -> 
@@ -2812,6 +1140,8 @@ ec_keyed(ecdh_ecdsa) ->
     true;
 ec_keyed(ecdh_rsa) ->
     true;
+ec_keyed(ecdhe_ecdsa) ->
+    true;
 ec_keyed(_) -> 
     false.
 
@@ -2871,3 +1201,55 @@ filter_keyuse_suites(Use, KeyUse, CipherSuits, Suites) ->
 	false ->
 	    CipherSuits -- Suites
     end.
+
+generate_server_share(Group) ->
+    Key = generate_key_exchange(Group),
+    #key_share_server_hello{
+       server_share = #key_share_entry{
+                         group = Group,
+                         key_exchange = Key
+                        }}.
+
+generate_client_shares([]) ->
+    #key_share_client_hello{client_shares = []};
+generate_client_shares(Groups) ->
+    generate_client_shares(Groups, []).
+%%
+generate_client_shares([], Acc) ->
+    #key_share_client_hello{client_shares = lists:reverse(Acc)};
+generate_client_shares([Group|Groups], Acc) ->
+    Key = generate_key_exchange(Group),
+    KeyShareEntry = #key_share_entry{
+                       group = Group,
+                       key_exchange = Key
+                      },
+    generate_client_shares(Groups, [KeyShareEntry|Acc]).
+
+
+generate_key_exchange(secp256r1) ->
+    public_key:generate_key({namedCurve, secp256r1});
+generate_key_exchange(secp384r1) ->
+    public_key:generate_key({namedCurve, secp384r1});
+generate_key_exchange(secp521r1) ->
+    public_key:generate_key({namedCurve, secp521r1});
+generate_key_exchange(x25519) ->
+    crypto:generate_key(ecdh, x25519);
+generate_key_exchange(x448) ->
+    crypto:generate_key(ecdh, x448);
+generate_key_exchange(FFDHE) ->
+    public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
+
+
+%% TODO: Move this functionality to crypto!
+%% 7.4.1.  Finite Field Diffie-Hellman
+%%
+%%    For finite field groups, a conventional Diffie-Hellman [DH76]
+%%    computation is performed.  The negotiated key (Z) is converted to a
+%%    byte string by encoding in big-endian form and left-padded with zeros
+%%    up to the size of the prime.  This byte string is used as the shared
+%%    secret in the key schedule as specified above.
+add_zero_padding(Bin, PrimeSize)
+  when byte_size (Bin) =:= PrimeSize ->
+    Bin;
+add_zero_padding(Bin, PrimeSize) ->
+    add_zero_padding(<<0, Bin/binary>>, PrimeSize).

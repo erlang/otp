@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Test support functions
+%%% Test support functions
 %%%
-%%% <p>This is a support module for testing the Common Test Framework.</p>
+%%% This is a support module for testing the Common Test Framework.
 %%%
 -module(ct_test_support).
 

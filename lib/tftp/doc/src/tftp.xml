@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>tftp</module>
+  <module since="">tftp</module>
   <modulesummary>Trivial FTP.</modulesummary>
   <description>
     <p>Interface module for the <c>tftp</c> application.</p>
@@ -150,7 +150,7 @@
 
    <tag><c>{logger, Module}</c></tag>
       <item>
-        <p><c>Module = module()()</c></p>
+        <p><c>Module = module()</c></p>
 
         <p>Callback module for customized logging of errors, warnings, and
 	  info messages. The callback module must implement the
@@ -172,7 +172,7 @@
 
   <funcs>
     <func>
-      <name>change_config(daemons, Options) -> [{Pid, Result}]</name>
+      <name since="">change_config(daemons, Options) -> [{Pid, Result}]</name>
       <fsummary>Changes configuration for all daemons.
       </fsummary>
       <type>
@@ -187,7 +187,7 @@
     </func>
 
     <func>
-      <name>change_config(servers, Options) -> [{Pid, Result}]</name>
+      <name since="">change_config(servers, Options) -> [{Pid, Result}]</name>
       <fsummary>Changes configuration for all servers.
       </fsummary>
       <type>
@@ -202,7 +202,7 @@
     </func>
 
     <func>
-      <name>change_config(Pid, Options) -> Result</name>
+      <name since="">change_config(Pid, Options) -> Result</name>
       <fsummary>Changes configuration for a TFTP daemon, server, 
       or client process.</fsummary>
       <type>
@@ -217,10 +217,10 @@
     </func>
     
     <func>
-      <name>info(daemons) -> [{Pid, Options}]</name>
+      <name since="">info(daemons) -> [{Pid, Options}]</name>
       <fsummary>Returns information about all daemons.</fsummary>
       <type>
-        <v>Pid = [pid()()]</v>
+        <v>Pid = [pid()]</v>
         <v>Options = [option()]</v>
         <v>Reason = term()</v>
       </type>
@@ -230,10 +230,10 @@
     </func>
 
     <func>
-      <name>info(servers) -> [{Pid, Options}]</name>
+      <name since="">info(servers) -> [{Pid, Options}]</name>
       <fsummary>Returns information about all servers.</fsummary>
       <type>
-        <v>Pid = [pid()()]</v>
+        <v>Pid = [pid()]</v>
         <v>Options = [option()]</v>
         <v>Reason = term()</v>
       </type>
@@ -243,7 +243,7 @@
     </func>
 
     <func>
-      <name>info(Pid) -> {ok, Options} | {error, Reason}</name>
+      <name since="">info(Pid) -> {ok, Options} | {error, Reason}</name>
       <fsummary>Returns information about a daemon, server, or client process.</fsummary>
       <type>
         <v>Options = [option()]</v>
@@ -255,7 +255,7 @@
     </func>
        
     <func>
-      <name>read_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
+      <name since="">read_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
       <fsummary>Reads a (virtual) file from a TFTP server.</fsummary>
       <type>
         <v>RemoteFilename = string()</v>
@@ -285,7 +285,7 @@
     </func>
     
     <func>
-       <name>start(Options) -> {ok, Pid} | {error, Reason}</name>
+       <name since="">start(Options) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Starts a daemon process.</fsummary>
       <type>
         <v>Options = [option()]</v>
@@ -301,7 +301,7 @@
     </func>
 
     <func>
-      <name>write_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
+      <name since="">write_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
       <fsummary>Writes a (virtual) file to a TFTP server.</fsummary>
       <type>
         <v>RemoteFilename = string()</v>
@@ -389,7 +389,7 @@
 
   <funcs>
      <func>
-      <name>Module:abort(Code, Text, State) -> ok</name>
+      <name since="OTP 18.1">Module:abort(Code, Text, State) -> ok</name>
       <fsummary>Aborts the file transfer.</fsummary>
       <type>
         <v>Code = undef | enoent | eacces | enospc</v>
@@ -413,7 +413,7 @@
     </func>
     
       <func>
-      <name>Module:open(Peer, Access, Filename, Mode, SuggestedOptions, State) -> {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</name>
+      <name since="OTP 18.1">Module:open(Peer, Access, Filename, Mode, SuggestedOptions, State) -> {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</name>
       <fsummary>Opens a file for read or write access.</fsummary>
       <type>
         <v>Peer = {PeerType, PeerHost, PeerPort}</v>
@@ -448,7 +448,7 @@
     </func>
     
     <func>
-      <name>Module:prepare(Peer, Access, Filename, Mode, SuggestedOptions, InitialState) -> {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</name>
+      <name since="OTP 18.1">Module:prepare(Peer, Access, Filename, Mode, SuggestedOptions, InitialState) -> {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</name>
       <fsummary>Prepares to open a file on the client side.</fsummary>
       <type>
         <v>Peer = {PeerType, PeerHost, PeerPort}</v>
@@ -483,7 +483,7 @@
     </func>
 
     <func>
-      <name>Module:read(State) -> {more, Bin, NewState} | {last, Bin, FileSize} | {error, {Code, Text}}</name>
+      <name since="OTP 18.1">Module:read(State) -> {more, Bin, NewState} | {last, Bin, FileSize} | {error, {Code, Text}}</name>
       <fsummary>Reads a chunk from the file.</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -510,7 +510,7 @@
     </func>
 
     <func>
-      <name>Module:write(Bin, State) -> {more, NewState} | {last, FileSize} | {error, {Code, Text}}</name>
+      <name since="OTP 18.1">Module:write(Bin, State) -> {more, NewState} | {last, FileSize} | {error, {Code, Text}}</name>
       <fsummary>Writes a chunk to the file.</fsummary>
       <type>
         <v>Bin = binary()</v>
@@ -549,7 +549,7 @@
 
   <funcs>
     <func>
-      <name>Logger:error_msg(Format, Data) -> ok | exit(Reason)</name>
+      <name since="OTP 18.1">Logger:error_msg(Format, Data) -> ok | exit(Reason)</name>
       <fsummary>Logs an error message.</fsummary>
       <type>
         <v>Format = string()</v>
@@ -565,7 +565,7 @@
     </func>
 
     <func>
-      <name>Logger:info_msg(Format, Data) -> ok | exit(Reason)</name>
+      <name since="OTP 18.1">Logger:info_msg(Format, Data) -> ok | exit(Reason)</name>
       <fsummary>Logs an info message.</fsummary>
       <type>
         <v>Format = string()</v>
@@ -579,7 +579,7 @@
     </func>
     
     <func>
-      <name>Logger:warning_msg(Format, Data) -> ok | exit(Reason)</name>
+      <name since="OTP 18.1">Logger:warning_msg(Format, Data) -> ok | exit(Reason)</name>
       <fsummary>Logs a warning message.</fsummary>
       <type>
         <v>Format = string()</v>

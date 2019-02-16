@@ -38,11 +38,20 @@ suite() ->
      {timetrap,{seconds,60}}].
 
 all() -> 
-    [basic,
-     dbg_alg_terminate,
-     dbg_ssh_messages,
-     dbg_connections,
-     dbg_channels
+    [{group, dbg},
+     {group, circ_buf}
+    ].
+
+groups() ->
+    [{dbg, [], [dbg_basic,
+                dbg_alg_terminate,
+                dbg_ssh_messages,
+                dbg_connections,
+                dbg_channels]},
+     {circ_buf, [], [cb_basic,
+                     cb_print,
+                     cb_macros_print
+                    ]}
     ].
 
 %%--------------------------------------------------------------------
@@ -82,7 +91,7 @@ end_per_testcase(_TC, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 
-basic(_Config) ->
+dbg_basic(_Config) ->
     L0 = ssh_dbg:start(),
     true = is_pid(whereis(ssh_dbg)),
     true = is_list(L0),
@@ -340,6 +349,53 @@ dbg_channels(Config) ->
     ?DBG_RECEIVE("Server Channel Terminating:", Ref, _, Pid),
 
     stop_and_fail_if_unhandled_dbg_msgs(Ref, [C,D], Pid).
+
+%%--------------------------------------------------------------------
+cb_basic(_Config) ->
+    %% Check that the circular buffer is disabled at start:
+    [] = ssh_dbg:cbuf_list(),
+    disabled = ssh_dbg:cbuf_in(anything),
+    [] = ssh_dbg:cbuf_list(),
+    %% Start it and enter three values, first is duplicated;
+    ok = ssh_dbg:cbuf_start(3),
+    ok = ssh_dbg:cbuf_in(v1),
+    ok = ssh_dbg:cbuf_in(v1),
+    ok = ssh_dbg:cbuf_in(v2),
+    ok = ssh_dbg:cbuf_in(v3),
+    [{v3,_,1}, {v2,_,1}, {v1,_,2}] = ssh_dbg:cbuf_list(),
+    %% Check that a fourth value erase the first entered:
+    ok = ssh_dbg:cbuf_in(v4),
+    [{v4,_,1}, {v3,_,1}, {v2,_,1}] = ssh_dbg:cbuf_list(),
+    %% Check that entering a value that is in the tail but not in the head is treated as a new value:
+    ok = ssh_dbg:cbuf_in(v2),
+    [{v2,_,1}, {v4,_,1}, {v3,_,1}] = ssh_dbg:cbuf_list(),
+    %% Stop and check that the buffer is returned:
+    [{v2,_,1}, {v4,_,1}, {v3,_,1}] = ssh_dbg:cbuf_stop_clear(),
+    %% Stopping a stopped buffer returns empty:
+    [] = ssh_dbg:cbuf_stop_clear(),
+    %% Check that a value can't be entered in a stopped buffer:
+    disabled = ssh_dbg:cbuf_in(v2).
+
+%%--------------------------------------------------------------------
+cb_print(_Config) ->
+    ssh_dbg:cbuf_start(),
+    [begin
+         ssh_dbg:cbuf_in(V),
+         ct:log("Enter ~p",[V])
+     end || V <- lists:seq(1,10)],
+    ct:log("~s",[ssh_dbg:fmt_cbuf_items()]),
+    ssh_dbg:cbuf_stop_clear().
+
+%%--------------------------------------------------------------------
+cb_macros_print(_Config) ->
+    ssh_dbg:cbuf_start(),
+    [begin
+         V = {test,V0},
+         ?CIRC_BUF_IN(V),
+         ct:log("Enter ~p",[V])
+     end || V0 <- lists:seq(1,5)],
+    ct:log("~s",[ssh_dbg:fmt_cbuf_items()]),
+    ssh_dbg:cbuf_stop_clear().
 
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------

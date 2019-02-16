@@ -47,8 +47,6 @@
 #define MAIN main
 #endif
 
-static int my_listen(int port);
-
 /*
    A small einode.
    To be called from the test case ei_accept_SUITE:multi_thread
@@ -64,7 +62,6 @@ static int my_listen(int port);
 */
 
 static const char* cookie, * desthost;
-static int port; /* actually base port */
 
 #ifndef SD_SEND
 #ifdef SHUTWR
@@ -72,10 +69,6 @@ static int port; /* actually base port */
 #else
 #define SD_SEND 1
 #endif
-#endif
-
-#ifndef __WIN32__
-#define closesocket(fd) close(fd)
 #endif
 
 #ifdef __WIN32__
@@ -86,26 +79,32 @@ static void*
     einode_thread(void* num)
 {
     int n = (int)num;
+    int port;
     ei_cnode ec;
-    char myname[100], destname[100];
+    char myname[100], destname[100], filename[100];
     int r, fd, listen;
     ErlConnect conn;
     erlang_msg msg;
-/*    FILE* f;*/
+    FILE* file;
 
-    sprintf(myname, "eiacc%d", n);
-    printf("thread %d (%s) listening\n", n, myname, destname);
+    sprintf(filename, "eiacc%d_trace.txt", n);
+    file = fopen(filename, "w");
+
+    sprintf(myname, "eiacc%d", n); fflush(file);
     r = ei_connect_init(&ec, myname, cookie, 0);
-    if ((listen = my_listen(port+n)) <= 0) {
-	printf("listen err\n");
+    port = 0;
+    listen = ei_listen(&ec, &port, 5);
+    if (listen <= 0) {
+	fprintf(file, "listen err\n"); fflush(file);
 	exit(7);
     }
-    if (ei_publish(&ec, port + n) == -1) {
-	printf("ei_publish port %d\n", port+n);
+    fprintf(file, "thread %d (%s:%s) listening on port %d\n", n, myname, destname, port);
+    if (ei_publish(&ec, port) == -1) {
+	fprintf(file, "ei_publish port %d\n", port+n); fflush(file);
 	exit(8);
     }
     fd = ei_accept(&ec, listen, &conn);
-    printf("ei_accept %d\n", fd);
+    fprintf(file, "ei_accept %d\n", fd); fflush(file);
     if (fd >= 0) {
 	ei_x_buff x, xs;
 	int index, version;
@@ -117,37 +116,38 @@ static void*
 	    if (got == ERL_TICK)
 		continue;
 	    if (got == ERL_ERROR) {
-		printf("receive error %d\n", n);
+		fprintf(file, "receive error %d\n", n); fflush(file);
 		return 0;
 	    }
-	    printf("received %d\n", got);
+	    fprintf(file, "received %d\n", got); fflush(file);
 	    break;
 	}
 	index = 0;
 	if (ei_decode_version(x.buff, &index, &version) != 0) {
-	    printf("ei_decode_version %d\n", n);
+	    fprintf(file, "ei_decode_version %d\n", n); fflush(file);
 	    return 0;
 	}
 	if (ei_decode_pid(x.buff, &index, &pid) != 0) {
-	    printf("ei_decode_pid %d\n", n);
+	    fprintf(file, "ei_decode_pid %d\n", n); fflush(file);
 	    return 0;
 	}
-/*	fprintf(f, "got pid from %s \n", pid.node);*/
+	fprintf(file, "got pid from %s \n", pid.node); fflush(file);
 	ei_x_new_with_version(&xs);
 	ei_x_encode_tuple_header(&xs, 2);
 	ei_x_encode_long(&xs, n);
 	ei_x_encode_pid(&xs, &pid);
 	r = ei_send(fd, &pid, xs.buff, xs.index);
-/*	fprintf(f, "sent %d bytes %d\n", xs.index, r);*/
+	fprintf(file, "sent %d bytes %d\n", xs.index, r); fflush(file);
 	shutdown(fd, SD_SEND);
-	closesocket(fd);
+        ei_close_connection(fd);
 	ei_x_free(&x);
 	ei_x_free(&xs);
     } else {
-	printf("coudn't connect fd %d r %d\n", fd, r);
+	fprintf(file, "coudn't connect fd %d r %d\n", fd, r); fflush(file);
     }
-    printf("done thread %d\n", n);
-/*    fclose(f);*/
+    ei_close_connection(listen);
+    fprintf(file, "done thread %d\n", n);
+    fclose(file);
     return 0;
 }
 
@@ -170,12 +170,16 @@ MAIN(int argc, char *argv[])
     if (n > 100)
 	exit(2);
     desthost = argv[3];
-    port = atoi(argv[4]);
-#ifndef VXWORKS	   
-    no_threads = argv[5] != NULL && strcmp(argv[5], "nothreads") == 0;
-#else
+    if (argc == 3)
+        no_threads = 0;
+    else
+        no_threads = argv[4] != NULL && strcmp(argv[4], "nothreads") == 0;
+#ifdef VXWORKS
     no_threads = 1;
 #endif
+
+    ei_init();
+
     for (i = 0; i < n; ++i) {
 	if (!no_threads) {
 #ifndef VXWORKS
@@ -209,27 +213,3 @@ MAIN(int argc, char *argv[])
     printf("ok\n");
     return 0;
 }
-
-static int my_listen(int port)
-{
-    int listen_fd;
-    struct sockaddr_in addr;
-    const char *on = "1";
-    
-    if ((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-	return -1;
-    
-    setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, on, sizeof(on));
-    
-    memset((void*) &addr, 0, (size_t) sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    
-    if (bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr)) < 0)
-	return -1;
-
-    listen(listen_fd, 5);
-    return listen_fd;
-}
-

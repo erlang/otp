@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_codec_mstone2.xml</file>
   </header>
-  <module>megaco_codec_mstone2</module>
+  <module since="">megaco_codec_mstone2</module>
   <modulesummary>This module implements a simple megaco codec-based performance tool.</modulesummary>
   <description>
     <p>This module implements the <em>mstone2</em> tool, 
@@ -44,8 +44,8 @@
 
   <funcs>
     <func>
-      <name>start() -> void()</name>
-      <name>start(MessagePackage) -> void()</name>
+      <name since="">start() -> void()</name>
+      <name since="">start(MessagePackage) -> void()</name>
       <fsummary></fsummary>
       <type>
         <v>MessagePackage = message_package()</v>

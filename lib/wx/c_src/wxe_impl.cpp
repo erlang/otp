@@ -70,7 +70,7 @@ void push_command(int op,char * buf,int len, wxe_data *sd)
   /* fprintf(stderr, "Op %d %d [%ld] %d\r\n", op, (int) driver_caller(sd->port_handle),
      wxe_batch->size(), wxe_batch_caller),fflush(stderr); */
   erl_drv_mutex_lock(wxe_batch_locker_m);
-  wxe_queue->Add(op, buf, len, sd);
+  int n = wxe_queue->Add(op, buf, len, sd);
 
   if(wxe_needs_signal) {
     // wx-thread is waiting on batch end in cond_wait
@@ -79,7 +79,7 @@ void push_command(int op,char * buf,int len, wxe_data *sd)
   } else {
     // wx-thread is waiting gui-events
     erl_drv_mutex_unlock(wxe_batch_locker_m);
-    wxWakeUpIdle();
+    if(n < 2) wxWakeUpIdle();
   }
 }
 
@@ -591,7 +591,7 @@ int WxeApp::newPtr(void * ptr, int type, wxeMemEnv *memenv) {
   return ref;
 }
 
-int WxeApp::getRef(void * ptr, wxeMemEnv *memenv) {
+int WxeApp::getRef(void * ptr, wxeMemEnv *memenv, int type) {
   if(!ptr) return 0;  // NULL and zero is the same
   ptrMap::iterator it = ptr2ref.find(ptr);
   if(it != ptr2ref.end()) {
@@ -618,7 +618,7 @@ int WxeApp::getRef(void * ptr, wxeMemEnv *memenv) {
   }
 
   memenv->ref2ptr[ref] = ptr;
-  ptr2ref[ptr] = new wxeRefData(ref, 0, false, memenv);
+  ptr2ref[ptr] = new wxeRefData(ref, type, false, memenv);
   return ref;
 }
 

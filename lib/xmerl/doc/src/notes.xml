@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,66 @@
   </header>
   <p>This document describes the changes made to the Xmerl application.</p>
 
+
+<section><title>Xmerl 1.3.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The charset detection parsing crash in some cases when
+	    the XML directive is not syntactic correct.</p>
+          <p>
+	    Own Id: OTP-15492 Aux Id: ERIERL-283 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix typos in documentation.</p>
+          <p>
+	    Own Id: OTP-15039</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The charset detection parsing crash in some cases when
+	    the XML directive is not syntactic correct.</p>
+          <p>
+	    Own Id: OTP-15492 Aux Id: ERIERL-283 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Xmerl 1.3.16</title>
 
@@ -1382,4 +1442,3 @@
     </section>
   </section>
 </chapter>
-

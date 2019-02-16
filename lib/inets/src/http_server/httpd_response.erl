@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,8 +61,12 @@ generate_and_send_response(#mod{config_db = ConfigDB} = ModData) ->
 			{StatusCode, Response} ->   %% Old way
 			    send_response_old(ModData, StatusCode, Response),
 			    ok;
-			undefined ->
-			    send_status(ModData, 500, none),
+			undefined -> 
+                            %% Happens when no mod_* 
+                            %% handles the request
+			    send_status(ModData, 501, {ModData#mod.method,
+                                                       ModData#mod.request_uri,
+                                                       ModData#mod.http_version}),
 			    ok
 		    end
 	    end

@@ -2749,6 +2749,11 @@ static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle, Boolean ext
 	    errmsg_buffer_size = errmsg_buffer_size - errmsg_size;
 	    acc_errmsg_size = acc_errmsg_size + errmsg_size;
 	    current_errmsg_pos = current_errmsg_pos + errmsg_size;
+	} else if(result == SQL_SUCCESS_WITH_INFO && errmsg_size >= errmsg_buffer_size) {
+	    memcpy(diagnos.sqlState, current_sql_state, SQL_STATE_SIZE);
+	    diagnos.nativeError = nativeError;
+	    acc_errmsg_size = errmsg_buffer_size;
+	    break;
 	} else {
 	    break;
 	}

@@ -32,14 +32,14 @@
     <rev></rev>
     <file>system_information.xml</file>
   </header>
-  <module>system_information</module>
+  <module since="OTP 17.0">system_information</module>
   <modulesummary>System Information</modulesummary>
   <description>
     <p></p>
   </description>
   <funcs>
     <func>
-      <name name="sanity_check" arity="0"/>
+      <name name="sanity_check" arity="0" since="OTP 17.0"/>
       <fsummary>Perform a sanity check</fsummary>
       <desc>
         <p>Performs a sanity check on the system. If no issues
@@ -88,7 +88,7 @@
       </desc>
     </func>
     <func>
-      <name name="to_file" arity="1"/>
+      <name name="to_file" arity="1" since="OTP 17.0"/>
       <fsummary>Write miscellaneous system information to file</fsummary>
       <desc><p>Writes  miscellaneous system information to file. This
       information will typically be requested by the Erlang/OTP team

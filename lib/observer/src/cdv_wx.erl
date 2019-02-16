@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@
 -define(DIST_STR,  "Nodes").
 -define(MOD_STR,   "Modules").
 -define(MEM_STR,   "Memory").
+-define(PERSISTENT_STR, "Persistent Terms").
 -define(INT_STR,   "Internal Tables").
 
 %% Records
@@ -74,6 +75,7 @@
 	 dist_panel,
 	 mod_panel,
 	 mem_panel,
+         persistent_panel,
 	 int_panel,
 	 active_tab
 	}).
@@ -193,6 +195,10 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
     %% Memory Panel
     MemPanel = add_page(Notebook, ?MEM_STR, cdv_multi_wx, cdv_mem_cb),
 
+    %% Persistent Terms Panel
+    PersistentPanel = add_page(Notebook, ?PERSISTENT_STR,
+                               cdv_html_wx, cdv_persistent_cb),
+
     %% Memory Panel
     IntPanel = add_page(Notebook, ?INT_STR, cdv_multi_wx, cdv_int_tab_cb),
 
@@ -215,6 +221,7 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
 			dist_panel = DistPanel,
 			mod_panel = ModPanel,
 			mem_panel = MemPanel,
+                        persistent_panel = PersistentPanel,
 			int_panel = IntPanel,
 			active_tab = GenPid
 		       }}.
@@ -250,6 +257,7 @@ handle_event(#wx{id = ?wxID_OPEN,
 			  State#state.dist_panel,
 			  State#state.mod_panel,
 			  State#state.mem_panel,
+			  State#state.persistent_panel,
 			  State#state.int_panel],
 		_ = [wx_object:call(Panel,new_dump) || Panel<-Panels],
 		wxNotebook:setSelection(State#state.notebook,0),
@@ -343,8 +351,8 @@ check_page_title(Notebook) ->
 get_active_pid(#state{notebook=Notebook, gen_panel=Gen, pro_panel=Pro,
 		      port_panel=Ports, ets_panel=Ets, timer_panel=Timers,
 		      fun_panel=Funs, atom_panel=Atoms, dist_panel=Dist,
-		      mod_panel=Mods, mem_panel=Mem, int_panel=Int,
-		      sched_panel=Sched
+		      mod_panel=Mods, mem_panel=Mem, persistent_panel=Persistent,
+                      int_panel=Int, sched_panel=Sched
 		     }) ->
     Panel = case check_page_title(Notebook) of
 		?GEN_STR -> Gen;
@@ -358,6 +366,7 @@ get_active_pid(#state{notebook=Notebook, gen_panel=Gen, pro_panel=Pro,
 		?DIST_STR -> Dist;
 		?MOD_STR -> Mods;
 		?MEM_STR -> Mem;
+		?PERSISTENT_STR -> Persistent;
 		?INT_STR -> Int
 	    end,
     wx_object:get_pid(Panel).
@@ -365,7 +374,7 @@ get_active_pid(#state{notebook=Notebook, gen_panel=Gen, pro_panel=Pro,
 pid2panel(Pid, #state{gen_panel=Gen, pro_panel=Pro, port_panel=Ports,
 		      ets_panel=Ets, timer_panel=Timers, fun_panel=Funs,
 		      atom_panel=Atoms, dist_panel=Dist, mod_panel=Mods,
-		      mem_panel=Mem, int_panel=Int}) ->
+		      mem_panel=Mem, persistent_panel=Persistent, int_panel=Int}) ->
     case Pid of
 	Gen -> ?GEN_STR;
 	Pro -> ?PRO_STR;
@@ -377,6 +386,7 @@ pid2panel(Pid, #state{gen_panel=Gen, pro_panel=Pro, port_panel=Ports,
 	Dist -> ?DIST_STR;
 	Mods -> ?MOD_STR;
 	Mem -> ?MEM_STR;
+        ?PERSISTENT_STR -> Persistent;
 	Int -> ?INT_STR;
 	_ -> "unknown"
     end.
@@ -448,10 +458,7 @@ maybe_warn_filename(FileName) ->
         true ->
             continue;
         false ->
-            DumpName = case os:getenv("ERL_CRASH_DUMP") of
-                           false -> filename:absname("erl_crash.dump");
-                           Name -> filename:absname(Name)
-                       end,
+            DumpName = filename:absname(os:getenv("ERL_CRASH_DUMP", "erl_crash.dump")),
             case filename:absname(FileName) of
                 DumpName ->
                     Warning =

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,9 @@ suite() ->
      {timetrap,{seconds,40}}].
 
 all() -> 
-    [{group, all_tests}].
+    [{group, all_tests},
+     daemon_already_started
+    ].
 
 groups() ->
     [{all_tests, [parallel], [{group, ssh_renegotiate_SUITE},
@@ -56,6 +58,8 @@ groups() ->
                             {group, ecdsa_sha2_nistp256_key},
                             {group, ecdsa_sha2_nistp384_key},
                             {group, ecdsa_sha2_nistp521_key},
+                            {group, ed25519_key},
+                            {group, ed448_key},
                             {group, dsa_pass_key},
                             {group, rsa_pass_key},
                             {group, ecdsa_sha2_nistp256_pass_key},
@@ -94,6 +98,8 @@ groups() ->
      {ecdsa_sha2_nistp256_key, [], [{group, basic}]},
      {ecdsa_sha2_nistp384_key, [], [{group, basic}]},
      {ecdsa_sha2_nistp521_key, [], [{group, basic}]},
+     {ed25519_key, [], [{group, basic}]},
+     {ed448_key,   [], [{group, basic}]},
      {rsa_host_key_is_actualy_ecdsa, [], [fail_daemon_start]},
      {host_user_key_differs, [parallel], [exec_key_differs1,
                                           exec_key_differs2,
@@ -218,6 +224,28 @@ init_per_group(ecdsa_sha2_nistp521_key, Config) ->
 	    DataDir = proplists:get_value(data_dir, Config),
 	    PrivDir = proplists:get_value(priv_dir, Config),
 	    ssh_test_lib:setup_ecdsa("521", DataDir, PrivDir),
+	    Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
+init_per_group(ed25519_key, Config) ->
+    case lists:member('ssh-ed25519',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+	    DataDir = proplists:get_value(data_dir, Config),
+	    PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_eddsa(ed25519, DataDir, PrivDir),
+	    Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
+init_per_group(ed448_key, Config) ->
+    case lists:member('ssh-ed448',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+	    DataDir = proplists:get_value(data_dir, Config),
+	    PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_eddsa(ed448, DataDir, PrivDir),
 	    Config;
 	false ->
 	    {skip, unsupported_pub_key}
@@ -773,6 +801,24 @@ daemon_already_started(Config) when is_list(Config) ->
 						     {failfun,
 						      fun ssh_test_lib:failfun/2}]),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that a failed daemon start does not leave the port open
+daemon_error_closes_port(Config) ->
+    GoodSystemDir = proplists:get_value(data_dir, Config),
+    Port = ssh_test_lib:inet_port(),
+    {error,_} = ssh_test_lib:daemon(Port, []), % No system dir
+    case ssh_test_lib:daemon(Port, [{system_dir, GoodSystemDir}]) of
+        {error,eaddrinuse} ->
+            {fail, "Port leakage"};
+        {error,Error} ->
+            ct:log("Strange error: ~p",[Error]),
+            {fail, "Strange error"};
+        {Pid, _Host, Port} ->
+            %% Ok
+            ssh:stop_daemon(Pid)
+    end.
+    
 
 %%--------------------------------------------------------------------
 %%% check that known_hosts is updated correctly

@@ -47,7 +47,7 @@ limitations under the License.
 <file>diameter_sctp.xml</file>
 </header>
 
-<module>diameter_sctp</module>
+<module since="OTP R14B03">diameter_sctp</module>
 <modulesummary>Diameter transport over SCTP.</modulesummary>
 
 <description>
@@ -67,7 +67,7 @@ and implements the behaviour documented in
 <funcs>
 
 <func>
-<name>start({Type, Ref}, Svc, [Opt])
+<name since="OTP R14B03">start({Type, Ref}, Svc, [Opt])
          -> {ok, Pid, [LAddr]} | {error, Reason}</name>
 <fsummary>Start a transport process.</fsummary>
 <type>

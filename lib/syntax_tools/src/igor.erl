@@ -660,7 +660,7 @@ merge_files1(Files, Opts) ->
 %% transitions), code replacement is expected to be detected. Then, if
 %% we in the merged code do not check at these points if the
 %% <em>target</em> module (the result of the merge) has been replaced,
-%% we can not be sure in general that we will be able to do code
+%% we cannot be sure in general that we will be able to do code
 %% replacement of the merged state machine - it could run forever
 %% without detecting the code change. Therefore, all such calls must
 %% remain remote-calls (detecting code changes), but may call the target

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2017</year>
+      <year>2006</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,82 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to HiPE.</p>
+
+<section><title>Hipe 3.18.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The code was updated to avoid causing a dialyzer
+	    warning because of a tightened spec for
+	    <c>beam_lib:info/1</c>.</p>
+          <p>
+	    Own Id: OTP-15482</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.18.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.18</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize <c>receive</c> statements that are only waiting
+	    for messages containing a reference created before the
+	    receive. All messages that existed in the queue when the
+	    reference was created will be bypassed, as they cannot
+	    possibly contain the reference. This optimization has
+	    existed for vanilla BEAM since OTP R14.</p>
+          <p>
+	    Own Id: OTP-14785 Aux Id: PR-1632 </p>
+        </item>
+        <item>
+          <p>
+	    Add validation pass to hipe compiler to detect internal
+	    errors causing primop calls that may trigger an unsafe GC
+	    at run-time. The pass can be disabled with option
+	    <c>no_verify_gcsafe</c>.</p>
+          <p>
+	    Own Id: OTP-14900 Aux Id: PR-1685, PR-1621 </p>
+        </item>
+        <item>
+          <p>
+	    Make hipe compiled code work on x86_64 (amd64) with OS
+	    security feature PIE, where executable code can be loaded
+	    into a random location. Old behavior, if hipe was
+	    enabled, was to disable PIE build options for the VM.</p>
+          <p>
+	    Own Id: OTP-14903</p>
+        </item>
+        <item>
+          <p>
+	    Inline more type test BIFs; <c>is_number</c>,
+	    <c>is_bitstring</c>, <c>is_map</c>.</p>
+          <p>
+	    Own Id: OTP-14941 Aux Id: PR-1718 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Hipe 3.17.1</title>
 

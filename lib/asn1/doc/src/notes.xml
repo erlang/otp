@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,97 @@
   </header>
   <p>This document describes the changes made to the asn1 application.</p>
 
+
+<section><title>Asn1 5.0.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle erroneous length during decode (BER only) without
+	    crashing.</p>
+          <p>
+	    Own Id: OTP-15470 Aux Id: ERIERL-278 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A bug in ASN.1 BER decoding has been fixed. When
+	    decoding a recursively enclosed term the length was not
+	    propagated to that term decoding, so if the length of the
+	    enclosed term was longer than the enclosing that error
+	    was not detected.</p> <p>A hard coded C stack limitation
+	    for decoding recursive ASN.1 terms has been introduced.
+	    This is currently set to 8 kWords giving a nesting depth
+	    of about 1000 levels. Deeper terms can not be decoded,
+	    which should not be much of a real world limitation.</p>
+          <p>
+	    Own Id: OTP-14440 Aux Id: ERIERL-220 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update to use the new string api instead of the old.</p>
+          <p>
+	    Own Id: OTP-15036</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle erroneous length during decode (BER only) without
+	    crashing.</p>
+          <p>
+	    Own Id: OTP-15470 Aux Id: ERIERL-278 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.5.1</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+	    <p>A bug in ASN.1 BER decoding has been fixed. When
+	    decoding a recursively enclosed term the length was not
+	    propagated to that term decoding, so if the length of the
+	    enclosed term was longer than the enclosing that error
+	    was not dectected</p> <p>A hard coded C stack limitation
+	    for decoding recursive ASN.1 terms has been introduced.
+	    This is currently set to 8 kWords giving a nesting depth
+	    of about 1000 levels. Deeper terms can not be decoded,
+	    which should not be much of a real world limitation.</p>
+          <p>
+	    Own Id: OTP-14440 Aux Id: ERIERL-220 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Asn1 5.0.5</title>
 
@@ -1921,4 +2012,3 @@
     <!-- p>There are also release notes for <url href="notes_history.html">older versions</url>.</p -->
   </section>
 </chapter>
-

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,7 +39,96 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.15.3</title>
+  <section><title>Mnesia 4.15.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed type spec for <c>mnesia:change_config/2</c>.</p>
+          <p>
+	    Own Id: OTP-15201 Aux Id: PR-1881 </p>
+        </item>
+        <item>
+          <p>
+	    When master node is set do not force a load from
+	    ram_copies replica when there are no available
+	    disc_copies, since that would load an empty table. Wait
+	    until a disk replica is available or until user
+	    explicitly force_loads the table.</p>
+          <p>
+	    Own Id: OTP-15221 Aux Id: ERIERL-217 </p>
+        </item>
+        <item>
+          <p>
+	    Allow to add replicas even if all other replicas are down
+	    when the other replicas are not stored on disk.</p>
+          <p>
+	    Own Id: OTP-15226 Aux Id: ERIERL-221 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed <c>mnesia:delete_object/1</c> bug, where
+	    delete_object was deleting the record if it was written
+	    in the same transaction even if it was written to a
+	    different value.</p>
+          <p>
+	    Own Id: OTP-15231 Aux Id: PR-1858 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where the bag table index data was not
+	    deleted when objects were deleted.</p>
+          <p>
+	    Own Id: OTP-15243</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Calls to <c>erlang:get_stacktrace()</c> are removed.
+	    </p>
+          <p>
+	    Own Id: OTP-14861</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When master node is set do not force a load from
+	    ram_copies replica when there are no available
+	    disc_copies, since that would load an empty table. Wait
+	    until a disk replica is available or until user
+	    explicitly force_loads the table.</p>
+          <p>
+	    Own Id: OTP-15221 Aux Id: ERIERL-217 </p>
+        </item>
+        <item>
+          <p>
+	    Allow to add replicas even if all other replicas are down
+	    when the other replicase are not stored on disk.</p>
+          <p>
+	    Own Id: OTP-15226 Aux Id: ERIERL-221 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -648,7 +737,7 @@
           <p>
 	    Returns the same value for
 	    mnesia_loader:disc_load_table/2 as
-	    mnesia_loader:net_load_table/4 if a table copy can not be
+	    mnesia_loader:net_load_table/4 if a table copy cannot be
 	    found. (Thanks to Uwe Dauernheim)</p>
           <p>
 	    Own Id: OTP-10015</p>

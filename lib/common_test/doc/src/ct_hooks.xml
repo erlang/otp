@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>ct_hooks.sgml</file>
   </header>
-  <module>ct_hooks</module> 
+  <module since="OTP R14B02">ct_hooks</module> 
   <modulesummary>A callback interface on top of Common Test.</modulesummary>
 
   <description>
@@ -75,7 +75,7 @@
   
   <funcs>
     <func>
-      <name>Module:init(Id, Opts) -&gt; {ok, State} | {ok, State, Priority}</name>
+      <name since="OTP R14B02">Module:init(Id, Opts) -&gt; {ok, State} | {ok, State, Priority}</name>
       <fsummary>Initiates the Common Test Hook.</fsummary>
       <type>
         <v>Id = reference() | term()</v>
@@ -109,7 +109,7 @@
     </func>
 
     <func>
-      <name>Module:pre_init_per_suite(SuiteName, InitData, CTHState) -&gt; Result</name>
+      <name since="OTP R14B02">Module:pre_init_per_suite(SuiteName, InitData, CTHState) -&gt; Result</name>
       <fsummary>Called before init_per_suite.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -161,7 +161,7 @@
     </func>
 
     <func>
-      <name>Module:post_init_per_suite(SuiteName, Config, Return, CTHState) -&gt; Result</name>
+      <name since="OTP R14B02">Module:post_init_per_suite(SuiteName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after init_per_suite.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -208,7 +208,7 @@
     </func>
 
     <func>
-      <name>Module:pre_init_per_group(SuiteName, GroupName, InitData, CTHState) -&gt; Result</name>
+      <name since="OTP 19.3">Module:pre_init_per_group(SuiteName, GroupName, InitData, CTHState) -&gt; Result</name>
       <fsummary>Called before init_per_group.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -241,7 +241,7 @@
     </func>
 
     <func>
-      <name>Module:post_init_per_group(SuiteName, GroupName, Config, Return, CTHState) -&gt; Result</name>
+      <name since="OTP 19.3">Module:post_init_per_group(SuiteName, GroupName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after init_per_group.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -274,7 +274,7 @@
     </func>
 
     <func>
-      <name>Module:pre_init_per_testcase(SuiteName, TestcaseName, InitData, CTHState) -&gt; Result</name>
+      <name since="OTP 19.3">Module:pre_init_per_testcase(SuiteName, TestcaseName, InitData, CTHState) -&gt; Result</name>
       <fsummary>Called before init_per_testcase.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -311,7 +311,7 @@
     </func>
 
     <func>
-      <name>Module:post_init_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -&gt; Result</name>
+      <name since="OTP 19.3">Module:post_init_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after init_per_testcase.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -344,7 +344,7 @@
     </func>
 
     <func>
-      <name>Module:pre_end_per_testcase(SuiteName, TestcaseName, EndData, CTHState) -&gt; Result</name>
+      <name since="OTP 19.3">Module:pre_end_per_testcase(SuiteName, TestcaseName, EndData, CTHState) -&gt; Result</name>
       <fsummary>Called before end_per_testcase.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -368,7 +368,7 @@
           <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso>
           instead.</p>
 
-        <p>This function can not change the result of the test case by returning skip or fail
+        <p>This function cannot change the result of the test case by returning skip or fail
 	tuples, but it may insert items in <c>Config</c> that can be read in
 	<c>end_per_testcase/2</c> or in <c>post_end_per_testcase/5</c>.</p>
 
@@ -380,7 +380,7 @@
     </func>
 
     <func>
-      <name>Module:post_end_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -&gt; Result</name>
+      <name since="OTP 19.3">Module:post_end_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after end_per_testcase.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -413,7 +413,7 @@
     </func>
 
     <func>
-      <name>Module:pre_end_per_group(SuiteName, GroupName, EndData, CTHState) -&gt; Result</name>
+      <name since="OTP 19.3">Module:pre_end_per_group(SuiteName, GroupName, EndData, CTHState) -&gt; Result</name>
       <fsummary>Called before end_per_group.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -446,7 +446,7 @@
     </func>
 
     <func>
-      <name>Module:post_end_per_group(SuiteName, GroupName, Config, Return, CTHState) -&gt; Result</name>
+      <name since="OTP 19.3">Module:post_end_per_group(SuiteName, GroupName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after end_per_group.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -479,7 +479,7 @@
     </func>
 
     <func>
-      <name>Module:pre_end_per_suite(SuiteName, EndData, CTHState) -&gt; Result</name>
+      <name since="OTP R14B02">Module:pre_end_per_suite(SuiteName, EndData, CTHState) -&gt; Result</name>
       <fsummary>Called before end_per_suite.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -506,7 +506,7 @@
     </func>
 
     <func>
-      <name>Module:post_end_per_suite(SuiteName, Config, Return, CTHState) -&gt; Result</name>
+      <name since="OTP R14B02">Module:post_end_per_suite(SuiteName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after end_per_suite.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -533,7 +533,7 @@
     </func>
 
     <func>
-      <name>Module:on_tc_fail(SuiteName, TestName, Reason, CTHState) -&gt; NewCTHState</name>
+      <name since="OTP 19.3">Module:on_tc_fail(SuiteName, TestName, Reason, CTHState) -&gt; NewCTHState</name>
       <fsummary>Called after the CTH scope ends.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -577,7 +577,7 @@
     </func>
 
     <func>
-      <name>Module:on_tc_skip(SuiteName, TestName, Reason, CTHState) -&gt; NewCTHState</name>
+      <name since="OTP 19.3">Module:on_tc_skip(SuiteName, TestName, Reason, CTHState) -&gt; NewCTHState</name>
       <fsummary>Called after the CTH scope ends.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -623,7 +623,7 @@
     </func>
 
     <func>
-      <name>Module:terminate(CTHState)</name>
+      <name since="OTP R14B02">Module:terminate(CTHState)</name>
       <fsummary>Called after the CTH scope ends.</fsummary>
       <type>
         <v>CTHState = term()</v>
@@ -637,7 +637,7 @@
     </func>
 
     <func>
-      <name>Module:id(Opts) -&gt; Id</name>
+      <name since="OTP R14B02">Module:id(Opts) -&gt; Id</name>
       <fsummary>Called before the init function of a CTH.</fsummary>
       <type>
         <v>Opts = term()</v>

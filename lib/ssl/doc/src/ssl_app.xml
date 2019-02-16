@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -169,6 +169,20 @@
 	  closing the connection. Waiting a little while improves the
 	  peers chances to properly receiving the alert so it may
 	  shutdown gracefully. Defaults to 5000 milliseconds.   
+	</p>
+      </item>
+
+      <tag><c><![CDATA[internal_active_n = integer() <optional>]]></c></tag>
+        <item>
+	<p>
+	  For TLS connections this value is used to handle the
+	  internal socket. As the implementation was changed from an
+	  active once to an active N behavior (N = 100), for
+	  performance reasons, this option exist for possible tweaking
+	  or restoring of the old behavior (internal_active_n = 1) in
+	  unforeseen scenarios.  The option will not affect erlang
+	  distribution over TLS that will always run in active N mode.
+	  Added in ssl-9.1 (OTP-21.2).
 	</p>
       </item>
     </taglist>

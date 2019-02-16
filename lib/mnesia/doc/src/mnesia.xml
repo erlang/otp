@@ -32,7 +32,7 @@
     <rev></rev>
     <file></file>
   </header>
-  <module>mnesia</module>
+  <module since="">mnesia</module>
   <modulesummary>A distributed telecommunications DBMS</modulesummary>
   <description>
 
@@ -183,7 +183,7 @@
 
   <funcs>
     <func>
-      <name>abort(Reason) -> transaction abort</name>
+      <name since="">abort(Reason) -> transaction abort</name>
       <fsummary>Terminates the current transaction.</fsummary>
       <desc>
         <p>Makes the transaction silently
@@ -195,7 +195,7 @@
       </desc>
     </func>
     <func>
-      <name>activate_checkpoint(Args) -> {ok,Name,Nodes} | {error,Reason}</name>
+      <name since="">activate_checkpoint(Args) -> {ok,Name,Nodes} | {error,Reason}</name>
       <fsummary>Activates a checkpoint.</fsummary>
       <desc>
       <marker id="activate_checkpoint"></marker>
@@ -259,7 +259,7 @@
       </desc>
     </func>
     <func>
-      <name>activity(AccessContext, Fun [, Args]) -> ResultOfFun | exit(Reason)</name>
+      <name since="">activity(AccessContext, Fun [, Args]) -> ResultOfFun | exit(Reason)</name>
       <fsummary>Executes <c>Fun</c> in <c>AccessContext</c>.</fsummary>
       <desc>
       <marker id="activity_2_3"></marker>
@@ -271,7 +271,7 @@
       </desc>
     </func>
     <func>
-      <name>activity(AccessContext, Fun, Args, AccessMod) -> ResultOfFun | exit(Reason)</name>
+      <name since="">activity(AccessContext, Fun, Args, AccessMod) -> ResultOfFun | exit(Reason)</name>
       <fsummary>Executes <c>Fun</c> in <c>AccessContext</c>.</fsummary>
       <desc>
       <marker id="activity_4"></marker>
@@ -403,7 +403,7 @@
       </desc>
     </func>
     <func>
-      <name>add_table_copy(Tab, Node, Type) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">add_table_copy(Tab, Node, Type) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Copies a table to a remote node.</fsummary>
       <desc>
       <marker id="add_table_copy"></marker>
@@ -420,7 +420,7 @@ mnesia:add_table_copy(person, Node, disc_copies)</code>
       </desc>
     </func>
     <func>
-      <name>add_table_index(Tab, AttrName) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">add_table_index(Tab, AttrName) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Creates an index for a table.</fsummary>
       <desc>
       <marker id="add_table_index"></marker>
@@ -441,7 +441,7 @@ mnesia:add_table_index(person, age)</code>
       </desc>
     </func>
     <func>
-      <name>all_keys(Tab) -> KeyList | transaction abort</name>
+      <name since="">all_keys(Tab) -> KeyList | transaction abort</name>
       <fsummary>Returns all keys in a table.</fsummary>
       <desc>
       <marker id="all_keys"></marker>
@@ -453,7 +453,7 @@ mnesia:add_table_index(person, age)</code>
       </desc>
     </func>
     <func>
-      <name>async_dirty(Fun, [, Args]) -> ResultOfFun | exit(Reason)</name>
+      <name since="">async_dirty(Fun, [, Args]) -> ResultOfFun | exit(Reason)</name>
       <fsummary>Calls the <c>Fun</c> in a context that is not protected by a transaction.</fsummary>
       <desc>
       <marker id="async_dirty"></marker>
@@ -493,7 +493,7 @@ mnesia:add_table_index(person, age)</code>
       </desc>
     </func>
     <func>
-      <name>backup(Opaque [, BackupMod]) -> ok | {error,Reason}</name>
+      <name since="">backup(Opaque [, BackupMod]) -> ok | {error,Reason}</name>
       <fsummary>Backs up all tables in the database.</fsummary>
       <desc>
       <marker id="backup"></marker>
@@ -505,7 +505,7 @@ mnesia:add_table_index(person, age)</code>
       </desc>
     </func>
     <func>
-      <name>backup_checkpoint(Name, Opaque [, BackupMod]) -> ok | {error,Reason}</name>
+      <name since="">backup_checkpoint(Name, Opaque [, BackupMod]) -> ok | {error,Reason}</name>
       <fsummary>Backs up all tables in a checkpoint.</fsummary>
       <desc>
       <marker id="backup_checkpoint"></marker>
@@ -520,7 +520,7 @@ mnesia:add_table_index(person, age)</code>
       </desc>
     </func>
     <func>
-      <name>change_config(Config, Value) -> {error, Reason} | {ok, ReturnValue}</name>
+      <name since="">change_config(Config, Value) -> {error, Reason} | {ok, ReturnValue}</name>
       <fsummary>Changes a configuration parameter.</fsummary>
       <desc>
       <marker id="change_config"></marker>
@@ -554,7 +554,7 @@ mnesia:add_table_index(person, age)</code>
       </desc>
     </func>
     <func>
-      <name>change_table_access_mode(Tab, AccessMode) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">change_table_access_mode(Tab, AccessMode) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Changes the access mode for the table.</fsummary>
       <desc>
       <marker id="change_table_access_mode"></marker>
@@ -568,7 +568,7 @@ mnesia:add_table_index(person, age)</code>
       </desc>
     </func>
     <func>
-      <name>change_table_copy_type(Tab, Node, To) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">change_table_copy_type(Tab, Node, To) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Changes the storage type of a table.</fsummary>
       <desc>
       <marker id="change_table_copy_type"></marker>
@@ -585,7 +585,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
       </desc>
     </func>
     <func>
-      <name>change_table_load_order(Tab, LoadOrder) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">change_table_load_order(Tab, LoadOrder) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Changes the load order priority for the table.</fsummary>
       <desc>
       <marker id="change_table_load_order"></marker>
@@ -595,7 +595,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
       </desc>
     </func>
     <func>
-      <name>change_table_majority(Tab, Majority) -> {aborted, R} | {atomic, ok}</name>
+      <name since="OTP R14B03">change_table_majority(Tab, Majority) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Changes the majority check setting for the table.</fsummary>
       <desc>
         <p><c>Majority</c> must be a boolean. Default is <c>false</c>.
@@ -607,7 +607,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
       </desc>
     </func>
     <func>
-      <name>clear_table(Tab) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">clear_table(Tab) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Deletes all entries in a table.</fsummary>
       <desc>
       <marker id="clear_table"></marker>
@@ -615,7 +615,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
       </desc>
     </func>
     <func>
-      <name>create_schema(DiscNodes) -> ok | {error,Reason}</name>
+      <name since="">create_schema(DiscNodes) -> ok | {error,Reason}</name>
       <fsummary>Creates a new schema on the specified nodes.</fsummary>
       <desc>
       <marker id="create_schema"></marker>
@@ -637,7 +637,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
       </desc>
     </func>
     <func>
-      <name>create_table(Name, TabDef) -> {atomic, ok} | {aborted, Reason}</name>
+      <name since="">create_table(Name, TabDef) -> {atomic, ok} | {aborted, Reason}</name>
       <fsummary>Creates a Mnesia table called <c>Name</c>with properties as described by argument <c>TabDef</c>.</fsummary>
       <desc>
       <marker id="create_table"></marker>
@@ -799,7 +799,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>deactivate_checkpoint(Name) -> ok | {error, Reason}</name>
+      <name since="">deactivate_checkpoint(Name) -> ok | {error, Reason}</name>
       <fsummary>Deactivates a checkpoint.</fsummary>
       <desc>
       <marker id="deactivate_checkpoint"></marker>
@@ -811,7 +811,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>del_table_copy(Tab, Node) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">del_table_copy(Tab, Node) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Deletes the replica of table <c>Tab</c> at node <c>Node</c>.</fsummary>
       <desc>
       <marker id="del_table_copy"></marker>
@@ -825,7 +825,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>del_table_index(Tab, AttrName) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">del_table_index(Tab, AttrName) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Deletes an index in a table.</fsummary>
       <desc>
       <marker id="del_table_index"></marker>
@@ -834,7 +834,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>delete({Tab, Key}) -> transaction abort | ok</name>
+      <name since="">delete({Tab, Key}) -> transaction abort | ok</name>
       <fsummary>Deletes all records in table <c>Tab</c> with the key <c>Key</c>.</fsummary>
       <desc>
       <marker id="delete_2"></marker>
@@ -842,7 +842,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>delete(Tab, Key, LockKind) -> transaction abort | ok</name>
+      <name since="">delete(Tab, Key, LockKind) -> transaction abort | ok</name>
       <fsummary>Deletes all records in table <c>Tab</c>with the key <c>Key</c>.</fsummary>
       <desc>
       <marker id="delete_3"></marker>
@@ -857,7 +857,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>delete_object(Record) -> transaction abort | ok</name>
+      <name since="">delete_object(Record) -> transaction abort | ok</name>
       <fsummary>Delete a record.</fsummary>
       <desc>
       <marker id="delete_object_1"></marker>
@@ -866,7 +866,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>delete_object(Tab, Record, LockKind) -> transaction abort | ok</name>
+      <name since="">delete_object(Tab, Record, LockKind) -> transaction abort | ok</name>
       <fsummary>Deletes a record.</fsummary>
       <desc>
       <marker id="delete_object_3"></marker>
@@ -883,7 +883,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>delete_schema(DiscNodes) -> ok | {error,Reason}</name>
+      <name since="">delete_schema(DiscNodes) -> ok | {error,Reason}</name>
       <fsummary>Deletes the schema on the given nodes.</fsummary>
       <desc>
       <marker id="delete_schema"></marker>
@@ -904,7 +904,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>delete_table(Tab) -> {aborted, Reason} | {atomic, ok}</name>
+      <name since="">delete_table(Tab) -> {aborted, Reason} | {atomic, ok}</name>
       <fsummary>Deletes permanently all replicas of table <c>Tab</c>.</fsummary>
       <desc>
       <marker id="delete_table"></marker>
@@ -912,7 +912,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_all_keys(Tab) -> KeyList | exit({aborted, Reason})</name>
+      <name since="">dirty_all_keys(Tab) -> KeyList | exit({aborted, Reason})</name>
       <fsummary>Dirty search for all record keys in table.</fsummary>
       <desc>
       <marker id="delete_all_keys"></marker>
@@ -920,7 +920,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_delete({Tab, Key}) -> ok | exit({aborted, Reason})</name>
+      <name since="">dirty_delete({Tab, Key}) -> ok | exit({aborted, Reason})</name>
       <fsummary>Dirty delete of a record.</fsummary>
       <desc>
       <marker id="dirty_delete"></marker>
@@ -928,14 +928,14 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_delete(Tab, Key) -> ok | exit({aborted, Reason})</name>
+      <name since="">dirty_delete(Tab, Key) -> ok | exit({aborted, Reason})</name>
       <fsummary>Dirty delete of a record.</fsummary>
       <desc>
         <p>Dirty equivalent of the function <c>mnesia:delete/3</c>.</p>
       </desc>
     </func>
     <func>
-      <name>dirty_delete_object(Record)</name>
+      <name since="">dirty_delete_object(Record)</name>
       <fsummary>Dirty delete of a record.</fsummary>
       <desc>
       <marker id="dirty_delete_object_1"></marker>
@@ -944,14 +944,14 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_delete_object(Tab, Record)</name>
+      <name since="">dirty_delete_object(Tab, Record)</name>
       <fsummary>Dirty delete of a record.</fsummary>
       <desc>
         <p>Dirty equivalent of the function <c>mnesia:delete_object/3</c>.</p>
       </desc>
     </func>
     <func>
-      <name>dirty_first(Tab) ->  Key | exit({aborted, Reason})</name>
+      <name since="">dirty_first(Tab) ->  Key | exit({aborted, Reason})</name>
       <fsummary>Returns the key for the first record in a table.</fsummary>
       <desc>
       <marker id="dirty_first"></marker>
@@ -967,7 +967,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_index_match_object(Pattern, Pos)</name>
+      <name since="">dirty_index_match_object(Pattern, Pos)</name>
       <fsummary>Dirty pattern match using index.</fsummary>
       <desc>
       <marker id="dirty_index_match_object_2"></marker>
@@ -977,7 +977,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_index_match_object(Tab, Pattern, Pos)</name>
+      <name since="">dirty_index_match_object(Tab, Pattern, Pos)</name>
       <fsummary>Dirty pattern match using index.</fsummary>
       <desc>
         <p>Dirty equivalent of the function
@@ -985,7 +985,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_index_read(Tab, SecondaryKey, Pos)</name>
+      <name since="">dirty_index_read(Tab, SecondaryKey, Pos)</name>
       <fsummary>Dirty read using index.</fsummary>
       <desc>
       <marker id="dirty_index_read"></marker>
@@ -994,7 +994,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_last(Tab) -> Key | exit({aborted, Reason})</name>
+      <name since="">dirty_last(Tab) -> Key | exit({aborted, Reason})</name>
       <fsummary>Returns the key for the last record in a table.</fsummary>
       <desc>
       <marker id="dirty_last"></marker>
@@ -1006,7 +1006,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_match_object(Pattern) -> RecordList | exit({aborted, Reason})</name>
+      <name since="">dirty_match_object(Pattern) -> RecordList | exit({aborted, Reason})</name>
       <fsummary>Dirty pattern match pattern.</fsummary>
       <desc>
       <marker id="dirty_match_object_1"></marker>
@@ -1015,7 +1015,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_match_object(Tab, Pattern) -> RecordList | exit({aborted, Reason})</name>
+      <name since="">dirty_match_object(Tab, Pattern) -> RecordList | exit({aborted, Reason})</name>
       <fsummary>Dirty pattern match pattern.</fsummary>
       <desc>
         <p>Dirty equivalent of the function
@@ -1023,7 +1023,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_next(Tab, Key) -> Key | exit({aborted, Reason})</name>
+      <name since="">dirty_next(Tab, Key) -> Key | exit({aborted, Reason})</name>
       <fsummary>Return the next key in a table.</fsummary>
       <desc>
       <marker id="dirty_next"></marker>
@@ -1038,7 +1038,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_prev(Tab, Key) -> Key | exit({aborted, Reason})</name>
+      <name since="">dirty_prev(Tab, Key) -> Key | exit({aborted, Reason})</name>
       <fsummary>Returns the previous key in a table.</fsummary>
       <desc>
       <marker id="dirty_prev"></marker>
@@ -1050,7 +1050,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_read({Tab, Key}) -> ValueList | exit({aborted, Reason}</name>
+      <name since="">dirty_read({Tab, Key}) -> ValueList | exit({aborted, Reason}</name>
       <fsummary>Dirty read of records.</fsummary>
       <desc>
       <marker id="dirty_read"></marker>
@@ -1058,14 +1058,14 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_read(Tab, Key) -> ValueList | exit({aborted, Reason}</name>
+      <name since="">dirty_read(Tab, Key) -> ValueList | exit({aborted, Reason}</name>
       <fsummary>Dirty read of records.</fsummary>
       <desc>
         <p>Dirty equivalent of the function <c>mnesia:read/3</c>.</p>
       </desc>
     </func>
     <func>
-      <name>dirty_select(Tab, MatchSpec) -> ValueList | exit({aborted, Reason}</name>
+      <name since="">dirty_select(Tab, MatchSpec) -> ValueList | exit({aborted, Reason}</name>
       <fsummary>Dirty matches the objects in <c>Tab</c> against <c>MatchSpec</c>.</fsummary>
       <desc>
       <marker id="dirty_select"></marker>
@@ -1073,7 +1073,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_slot(Tab, Slot) -> RecordList | exit({aborted, Reason})</name>
+      <name since="">dirty_slot(Tab, Slot) -> RecordList | exit({aborted, Reason})</name>
       <fsummary>Returns the list of records that are associated with <c>Slot</c> in a table.</fsummary>
       <desc>
       <marker id="dirty_slot"></marker>
@@ -1089,7 +1089,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_update_counter({Tab, Key}, Incr) -> NewVal | exit({aborted, Reason})</name>
+      <name since="">dirty_update_counter({Tab, Key}, Incr) -> NewVal | exit({aborted, Reason})</name>
       <fsummary>Dirty update of a counter record.</fsummary>
       <desc>
       <marker id="dirty_update_counter"></marker>
@@ -1097,7 +1097,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_update_counter(Tab, Key, Incr) -> NewVal | exit({aborted, Reason})</name>
+      <name since="">dirty_update_counter(Tab, Key, Incr) -> NewVal | exit({aborted, Reason})</name>
       <fsummary>Dirty update of a counter record.</fsummary>
       <desc>
         <p>Mnesia has no special counter records. However,
@@ -1126,7 +1126,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_write(Record) -> ok | exit({aborted, Reason})</name>
+      <name since="">dirty_write(Record) -> ok | exit({aborted, Reason})</name>
       <fsummary>Dirty write of a record.</fsummary>
       <desc>
       <marker id="dirty_write_1"></marker>
@@ -1135,14 +1135,14 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dirty_write(Tab, Record) -> ok | exit({aborted, Reason})</name>
+      <name since="">dirty_write(Tab, Record) -> ok | exit({aborted, Reason})</name>
       <fsummary>Dirty write of a record.</fsummary>
       <desc>
         <p>Dirty equivalent of the function <c>mnesia:write/3</c>.</p>
       </desc>
     </func>
     <func>
-      <name>dump_log() -> dumped</name>
+      <name since="">dump_log() -> dumped</name>
       <fsummary>Performs a user-initiated dump of the local log file.</fsummary>
       <desc>
       <marker id="dump_log"></marker>
@@ -1156,7 +1156,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dump_tables(TabList) -> {atomic, ok} | {aborted, Reason}</name>
+      <name since="">dump_tables(TabList) -> {atomic, ok} | {aborted, Reason}</name>
       <fsummary>Dumps all RAM tables to disc.</fsummary>
       <desc>
       <marker id="dump_tables"></marker>
@@ -1168,7 +1168,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>dump_to_textfile(Filename)</name>
+      <name since="">dump_to_textfile(Filename)</name>
       <fsummary>Dumps local tables into a text file.</fsummary>
       <desc>
       <marker id="dump_to_textfile"></marker>
@@ -1181,7 +1181,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>error_description(Error) -> String</name>
+      <name since="">error_description(Error) -> String</name>
       <fsummary>Returns a string describing a particular Mnesia error.</fsummary>
       <desc>
       <marker id="error_description"></marker>
@@ -1259,7 +1259,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>ets(Fun, [, Args]) -> ResultOfFun | exit(Reason)</name>
+      <name since="">ets(Fun, [, Args]) -> ResultOfFun | exit(Reason)</name>
       <fsummary>Calls the <c>Fun</c> in a raw context that is not protected by a transaction.</fsummary>
       <desc>
       <marker id="ets"></marker>
@@ -1278,7 +1278,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>first(Tab) ->  Key | transaction abort</name>
+      <name since="">first(Tab) ->  Key | transaction abort</name>
       <fsummary>Returns the key for the first record in a table.</fsummary>
       <desc>
       <marker id="first"></marker>
@@ -1293,7 +1293,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>foldl(Function, Acc, Table) -> NewAcc | transaction abort</name>
+      <name since="">foldl(Function, Acc, Table) -> NewAcc | transaction abort</name>
       <fsummary>Calls <c>Function</c> for each record in <c>Table</c>.</fsummary>
       <desc>
       <marker id="foldl"></marker>
@@ -1306,7 +1306,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>foldr(Function, Acc, Table) -> NewAcc | transaction abort</name>
+      <name since="">foldr(Function, Acc, Table) -> NewAcc | transaction abort</name>
       <fsummary>Calls <c>Function</c> for each record in <c>Table</c>.</fsummary>
       <desc>
       <marker id="foldr"></marker>
@@ -1317,7 +1317,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>force_load_table(Tab) -> yes | ErrorDescription</name>
+      <name since="">force_load_table(Tab) -> yes | ErrorDescription</name>
       <fsummary>Forces a table to be loaded into the system.</fsummary>
       <desc>
       <marker id="force_load_table"></marker>
@@ -1335,7 +1335,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>index_match_object(Pattern, Pos) -> transaction abort | ObjList</name>
+      <name since="">index_match_object(Pattern, Pos) -> transaction abort | ObjList</name>
       <fsummary>Matches records and uses index information.</fsummary>
       <desc>
       <marker id="index_match_object_2"></marker>
@@ -1345,7 +1345,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>index_match_object(Tab, Pattern, Pos, LockKind) -> transaction abort | ObjList</name>
+      <name since="">index_match_object(Tab, Pattern, Pos, LockKind) -> transaction abort | ObjList</name>
       <fsummary>Matches records and uses index information.</fsummary>
       <desc>
       <marker id="index_match_object_4"></marker>
@@ -1377,7 +1377,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>index_read(Tab, SecondaryKey, Pos) -> transaction abort | RecordList</name>
+      <name since="">index_read(Tab, SecondaryKey, Pos) -> transaction abort | RecordList</name>
       <fsummary>Reads records through index table.</fsummary>
       <desc>
       <marker id="index_read"></marker>
@@ -1397,7 +1397,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>info() -> ok</name>
+      <name since="">info() -> ok</name>
       <fsummary>Prints system information on the terminal.</fsummary>
       <desc>
       <marker id="info"></marker>
@@ -1408,7 +1408,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>install_fallback(Opaque) -> ok | {error,Reason}</name>
+      <name since="">install_fallback(Opaque) -> ok | {error,Reason}</name>
       <fsummary>Installs a backup as fallback.</fsummary>
       <desc>
       <marker id="install_fallback_1"></marker>
@@ -1417,7 +1417,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>install_fallback(Opaque), BackupMod) -> ok | {error,Reason}</name>
+      <name since="">install_fallback(Opaque), BackupMod) -> ok | {error,Reason}</name>
       <fsummary>Installs a backup as fallback.</fsummary>
       <desc>
         <p>Calls <c>mnesia:install_fallback(Opaque, Args)</c>, where
@@ -1425,7 +1425,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>install_fallback(Opaque, Args) -> ok | {error,Reason}</name>
+      <name since="">install_fallback(Opaque, Args) -> ok | {error,Reason}</name>
       <fsummary>Installs a backup as fallback.</fsummary>
       <desc>
         <p>Installs a backup as fallback. The fallback is used to
@@ -1483,7 +1483,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>is_transaction() -> boolean</name>
+      <name since="">is_transaction() -> boolean</name>
       <fsummary>Checks if code is running in a transaction.</fsummary>
       <desc>
       <marker id="is_transaction"></marker>
@@ -1492,7 +1492,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>last(Tab) -> Key | transaction abort</name>
+      <name since="">last(Tab) -> Key | transaction abort</name>
       <fsummary>Returns the key for the last record in a table.</fsummary>
       <desc>
         <p>Works exactly like
@@ -1503,7 +1503,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>load_textfile(Filename)</name>
+      <name since="">load_textfile(Filename)</name>
       <fsummary>Loads tables from a text file.</fsummary>
       <desc>
       <marker id="load_textfile"></marker>
@@ -1516,7 +1516,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>lock(LockItem, LockKind) -> Nodes | ok | transaction abort</name>
+      <name since="">lock(LockItem, LockKind) -> Nodes | ok | transaction abort</name>
       <fsummary>Explicit grab lock.</fsummary>
       <desc>
       <marker id="lock"></marker>
@@ -1605,7 +1605,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>match_object(Pattern) -> transaction abort | RecList</name>
+      <name since="">match_object(Pattern) -> transaction abort | RecList</name>
       <fsummary>Matches <c>Pattern</c> for records.</fsummary>
       <desc>
       <marker id="match_object_1"></marker>
@@ -1614,7 +1614,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>match_object(Tab, Pattern, LockKind) -> transaction abort | RecList</name>
+      <name since="">match_object(Tab, Pattern, LockKind) -> transaction abort | RecList</name>
       <fsummary>Matches <c>Pattern</c> for records.</fsummary>
       <desc>
       <marker id="match_object_3"></marker>
@@ -1639,7 +1639,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>move_table_copy(Tab, From, To) -> {aborted, Reason} | {atomic, ok}</name>
+      <name since="">move_table_copy(Tab, From, To) -> {aborted, Reason} | {atomic, ok}</name>
       <fsummary>Moves the copy of table <c>Tab</c> from node <c>From</c> to node <c>To</c>.</fsummary>
       <desc>
       <marker id="move_table_copy"></marker>
@@ -1653,7 +1653,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>next(Tab, Key) -> Key | transaction abort</name>
+      <name since="">next(Tab, Key) -> Key | transaction abort</name>
       <fsummary>Returns the next key in a table.</fsummary>
       <desc>
       <marker id="next"></marker>
@@ -1665,7 +1665,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>prev(Tab, Key) -> Key | transaction abort</name>
+      <name since="">prev(Tab, Key) -> Key | transaction abort</name>
       <fsummary>Returns the previous key in a table.</fsummary>
       <desc>
         <p>Works exactly like
@@ -1676,7 +1676,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>read({Tab, Key}) -> transaction abort | RecordList</name>
+      <name since="">read({Tab, Key}) -> transaction abort | RecordList</name>
       <fsummary>Reads records(s) with a given key.</fsummary>
       <desc>
       <marker id="read_2"></marker>
@@ -1684,14 +1684,14 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>read(Tab, Key) -> transaction abort | RecordList</name>
+      <name since="">read(Tab, Key) -> transaction abort | RecordList</name>
       <fsummary>Reads records(s) with a given key.</fsummary>
       <desc>
         <p>Calls function <c>mnesia:read(Tab, Key, read)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>read(Tab, Key, LockKind) -> transaction abort | RecordList</name>
+      <name since="">read(Tab, Key, LockKind) -> transaction abort | RecordList</name>
       <fsummary>Reads records(s) with a given key.</fsummary>
       <desc>
       <marker id="read_3"></marker>
@@ -1716,7 +1716,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>read_lock_table(Tab) -> ok | transaction abort</name>
+      <name since="">read_lock_table(Tab) -> ok | transaction abort</name>
       <fsummary>Sets a read lock on an entire table.</fsummary>
       <desc>
       <marker id="read_lock_table"></marker>
@@ -1725,7 +1725,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>report_event(Event) -> ok</name>
+      <name since="">report_event(Event) -> ok</name>
       <fsummary>Reports a user event to the Mnesia event handler.</fsummary>
       <desc>
       <marker id="report_event"></marker>
@@ -1743,7 +1743,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>restore(Opaque, Args) -> {atomic, RestoredTabs} |{aborted, Reason}</name>
+      <name since="">restore(Opaque, Args) -> {atomic, RestoredTabs} |{aborted, Reason}</name>
       <fsummary>Online restore of backup.</fsummary>
       <desc>
       <marker id="restore"></marker>
@@ -1803,7 +1803,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>s_delete({Tab, Key}) -> ok | transaction abort</name>
+      <name since="">s_delete({Tab, Key}) -> ok | transaction abort</name>
       <fsummary>Sets sticky lock and delete records.</fsummary>
       <desc>
       <marker id="s_delete"></marker>
@@ -1812,7 +1812,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>s_delete_object(Record) -> ok | transaction abort</name>
+      <name since="">s_delete_object(Record) -> ok | transaction abort</name>
       <fsummary>Sets sticky lock and delete record.</fsummary>
       <desc>
       <marker id="s_delete_object"></marker>
@@ -1822,7 +1822,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>s_write(Record) -> ok | transaction abort</name>
+      <name since="">s_write(Record) -> ok | transaction abort</name>
       <fsummary>Writes <c>Record</c> and sets sticky lock.</fsummary>
       <desc>
       <marker id="s_write"></marker>
@@ -1832,21 +1832,21 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name>schema() -> ok</name>
+      <name since="">schema() -> ok</name>
       <fsummary>Prints information about all table definitions on the terminal.</fsummary>
       <desc>
         <p>Prints information about all table definitions on the terminal.</p>
       </desc>
     </func>
     <func>
-      <name>schema(Tab) -> ok</name>
+      <name since="">schema(Tab) -> ok</name>
       <fsummary>Prints information about one table definition on the terminal.</fsummary>
       <desc>
         <p>Prints information about one table definition on the terminal.</p>
       </desc>
     </func>
     <func>
-      <name>select(Tab, MatchSpec [, Lock]) -> transaction abort | [Object]</name>
+      <name since="">select(Tab, MatchSpec [, Lock]) -> transaction abort | [Object]</name>
       <fsummary>Matches the objects in <c>Tab</c> against <c>MatchSpec</c>.</fsummary>
       <desc>
       <marker id="select_2_3"></marker>
@@ -1884,7 +1884,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name>select(Tab, MatchSpec, NObjects, Lock) -> transaction abort | {[Object],Cont} | '$end_of_table'</name>
+      <name since="">select(Tab, MatchSpec, NObjects, Lock) -> transaction abort | {[Object],Cont} | '$end_of_table'</name>
       <fsummary>Matches the objects in <c>Tab</c> against <c>MatchSpec</c>.</fsummary>
       <desc>
       <marker id="select_4"></marker>
@@ -1907,7 +1907,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name>select(Cont) -> transaction abort | {[Object],Cont} | '$end_of_table'</name>
+      <name since="">select(Cont) -> transaction abort | {[Object],Cont} | '$end_of_table'</name>
       <fsummary>Continues selecting objects.</fsummary>
       <desc>
         <p>Selects more objects with the match specification initiated
@@ -1919,7 +1919,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name>set_debug_level(Level) -> OldLevel</name>
+      <name since="">set_debug_level(Level) -> OldLevel</name>
       <fsummary>Changes the internal debug level of Mnesia.</fsummary>
       <desc>
       <marker id="set_debug_level"></marker>
@@ -1930,7 +1930,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name>set_master_nodes(MasterNodes) -> ok | {error, Reason}</name>
+      <name since="">set_master_nodes(MasterNodes) -> ok | {error, Reason}</name>
       <fsummary>Sets the master nodes for all tables.</fsummary>
       <desc>
       <marker id="set_master_nodes_1"></marker>
@@ -1943,7 +1943,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name>set_master_nodes(Tab, MasterNodes) -> ok | {error, Reason}</name>
+      <name since="">set_master_nodes(Tab, MasterNodes) -> ok | {error, Reason}</name>
       <fsummary>Sets the master nodes for a table.</fsummary>
       <desc>
       <marker id="set_master_nodes_2"></marker>
@@ -1968,14 +1968,14 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name>snmp_close_table(Tab) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">snmp_close_table(Tab) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Removes the possibility for SNMP to manipulate the table.</fsummary>
       <desc>
         <p>Removes the possibility for SNMP to manipulate the table.</p>
       </desc>
     </func>
     <func>
-      <name>snmp_get_mnesia_key(Tab, RowIndex) -> {ok, Key} | undefined</name>
+      <name since="">snmp_get_mnesia_key(Tab, RowIndex) -> {ok, Key} | undefined</name>
       <fsummary>Gets the corresponding Mnesia key from an SNMP index.</fsummary>
       <type>
         <v>Tab ::= atom()</v>
@@ -1990,7 +1990,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name>snmp_get_next_index(Tab, RowIndex) -> {ok, NextIndex} | endOfTable</name>
+      <name since="">snmp_get_next_index(Tab, RowIndex) -> {ok, NextIndex} | endOfTable</name>
       <fsummary>Gets the index of the next lexicographical row.</fsummary>
       <type>
         <v>Tab ::= atom()</v>
@@ -2006,7 +2006,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name>snmp_get_row(Tab, RowIndex) -> {ok, Row} | undefined</name>
+      <name since="">snmp_get_row(Tab, RowIndex) -> {ok, Row} | undefined</name>
       <fsummary>Retrieves a row indexed by an SNMP index.</fsummary>
       <type>
         <v>Tab ::= atom()</v>
@@ -2019,7 +2019,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name>snmp_open_table(Tab, SnmpStruct) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">snmp_open_table(Tab, SnmpStruct) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Organizes a Mnesia table as an SNMP table.</fsummary>
       <type>
         <v>Tab ::= atom()</v>
@@ -2073,10 +2073,17 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>start() -> ok | {error, Reason}</name>
+      <name since="">start() -> ok | {error, Reason}</name>
       <fsummary>Starts a local Mnesia system.</fsummary>
       <desc>
       <marker id="start"></marker>
+        <p>Mnesia startup is asynchronous. The function call
+	        <c>mnesia:start()</c> returns the atom <c>ok</c> and then
+          starts to initialize the different tables. Depending on the
+          size of the database, this can take some time, and the
+          application programmer must wait for the tables that the
+          application needs before they can be used. This is achieved
+          by using the function <c>mnesia:wait_for_tables/2</c>.</p>
         <p>The startup procedure for a set of Mnesia nodes is a
           fairly complicated operation. A Mnesia system consists
           of a set of nodes, with Mnesia started locally on all
@@ -2108,7 +2115,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>stop() -> stopped</name>
+      <name since="">stop() -> stopped</name>
       <fsummary>Stops Mnesia locally.</fsummary>
       <desc>
       <marker id="stop"></marker>
@@ -2117,7 +2124,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>subscribe(EventCategory) -> {ok, Node} | {error, Reason}</name>
+      <name since="">subscribe(EventCategory) -> {ok, Node} | {error, Reason}</name>
       <fsummary>Subscribes to events of type <c>EventCategory</c>.</fsummary>
       <desc>
       <marker id="subscribe"></marker>
@@ -2127,7 +2134,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>sync_dirty(Fun, [, Args]) -> ResultOfFun | exit(Reason)</name>
+      <name since="">sync_dirty(Fun, [, Args]) -> ResultOfFun | exit(Reason)</name>
       <fsummary>Calls the <c>Fun</c> in a context that is not protected by a transaction.</fsummary>
       <desc>
       <marker id="sync_dirty"></marker>
@@ -2143,7 +2150,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>sync_log() -> ok | {error, Reason}</name>
+      <name since="OTP 17.0">sync_log() -> ok | {error, Reason}</name>
       <fsummary>Performs a file sync of the local log file.</fsummary>
       <desc>
         <p>Ensures that the local transaction log file is synced to disk.
@@ -2153,7 +2160,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>sync_transaction(Fun, [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name since="">sync_transaction(Fun, [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
       <fsummary>Synchronously executes a transaction.</fsummary>
       <desc>
       <marker id="sync_transaction"></marker>
@@ -2166,7 +2173,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>system_info(InfoKey) -> Info | exit({aborted, Reason})</name>
+      <name since="">system_info(InfoKey) -> Info | exit({aborted, Reason})</name>
       <fsummary>Returns information about the Mnesia system.</fsummary>
       <desc>
       <marker id="system_info"></marker>
@@ -2353,7 +2360,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>table(Tab [,[Option]]) -> QueryHandle</name>
+      <name since="">table(Tab [,[Option]]) -> QueryHandle</name>
       <fsummary>Return a QLC query handle.</fsummary>
       <desc>
       <marker id="table"></marker>
@@ -2408,7 +2415,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>table_info(Tab, InfoKey) -> Info | exit({aborted, Reason})</name>
+      <name since="">table_info(Tab, InfoKey) -> Info | exit({aborted, Reason})</name>
       <fsummary>Returns local information about table.</fsummary>
       <desc>
       <marker id="table_info"></marker>
@@ -2560,7 +2567,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>transaction(Fun [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name since="">transaction(Fun [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
       <fsummary>Executes a transaction.</fsummary>
       <desc>
       <marker id="transaction"></marker>
@@ -2628,7 +2635,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>transform_table(Tab, Fun, NewAttributeList, NewRecordName) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">transform_table(Tab, Fun, NewAttributeList, NewRecordName) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Changes format on all records in table <c>Tab</c>.</fsummary>
       <desc>
       <marker id="transform_table_4"></marker>
@@ -2649,7 +2656,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>transform_table(Tab, Fun, NewAttributeList) -> {aborted, R} | {atomic, ok}</name>
+      <name since="">transform_table(Tab, Fun, NewAttributeList) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Changes format on all records in table <c>Tab</c>.</fsummary>
       <desc>
         <p>Calls <c>mnesia:transform_table(Tab, Fun,
@@ -2658,7 +2665,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc) -> {ok, LastAcc} | {error, Reason}</name>
+      <name since="">traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc) -> {ok, LastAcc} | {error, Reason}</name>
       <fsummary>Traversal of a backup.</fsummary>
       <desc>
       <marker id="traverse_backup"></marker>
@@ -2689,7 +2696,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>uninstall_fallback() -> ok | {error,Reason}</name>
+      <name since="">uninstall_fallback() -> ok | {error,Reason}</name>
       <fsummary>Uninstalls a fallback.</fsummary>
       <desc>
       <marker id="uninstall_fallback_0"></marker>
@@ -2698,7 +2705,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>uninstall_fallback(Args) -> ok | {error,Reason}</name>
+      <name since="">uninstall_fallback(Args) -> ok | {error,Reason}</name>
       <fsummary>Uninstalls a fallback.</fsummary>
       <desc>
         <p>Deinstalls a fallback before it
@@ -2725,7 +2732,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>unsubscribe(EventCategory) -> {ok, Node} | {error, Reason}</name>
+      <name since="">unsubscribe(EventCategory) -> {ok, Node} | {error, Reason}</name>
       <fsummary>Subscribes to events of type <c>EventCategory</c>.</fsummary>
       <desc>
       <marker id="unsubscribe"></marker>
@@ -2735,7 +2742,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>wait_for_tables(TabList, Timeout) -> ok | {timeout, BadTabList} | {error, Reason}</name>
+      <name since="">wait_for_tables(TabList, Timeout) -> ok | {timeout, BadTabList} | {error, Reason}</name>
       <fsummary>Waits for tables to be accessible.</fsummary>
       <desc>
       <marker id="wait_for_tables"></marker>
@@ -2746,7 +2753,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>wread({Tab, Key}) -> transaction abort | RecordList</name>
+      <name since="">wread({Tab, Key}) -> transaction abort | RecordList</name>
       <fsummary>Reads records with given key.</fsummary>
       <desc>
       <marker id="wread"></marker>
@@ -2754,7 +2761,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>write(Record) -> transaction abort | ok</name>
+      <name since="">write(Record) -> transaction abort | ok</name>
       <fsummary>Writes a record into the database.</fsummary>
       <desc>
       <marker id="write_1"></marker>
@@ -2763,7 +2770,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>write(Tab, Record, LockKind) -> transaction abort | ok</name>
+      <name since="">write(Tab, Record, LockKind) -> transaction abort | ok</name>
       <fsummary>Writes a record into the database.</fsummary>
       <desc>
       <marker id="write_3"></marker>
@@ -2779,7 +2786,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>write_lock_table(Tab) -> ok | transaction abort</name>
+      <name since="">write_lock_table(Tab) -> ok | transaction abort</name>
       <fsummary>Sets write lock on an entire table.</fsummary>
       <desc>
       <marker id="write_lock_table"></marker>

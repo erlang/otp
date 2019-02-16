@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 	 connection_init/3, cache_pem_file/2,
 	 lookup_trusted_cert/4,
 	 new_session_id/1, clean_cert_db/2,
-	 register_session/2, register_session/3, invalidate_session/2,
+	 register_session/2, register_session/4, invalidate_session/2,
 	 insert_crls/2, insert_crls/3, delete_crls/1, delete_crls/2, 
 	 invalidate_session/3, name/1]).
 
@@ -42,6 +42,8 @@
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_api.hrl").
+
 -include_lib("kernel/include/file.hrl").
 
 -record(state, {
@@ -127,7 +129,13 @@ cache_pem_file(File, DbHandle) ->
 	[Content]  ->
 	    {ok, Content};
 	undefined ->
-            ssl_pem_cache:insert(File)
+            case ssl_pkix_db:decode_pem_file(File) of
+                {ok, Content} ->
+                    ssl_pem_cache:insert(File, Content),
+                    {ok, Content};
+                Error ->
+                    Error
+            end
     end.
 
 %%--------------------------------------------------------------------
@@ -142,7 +150,7 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
     ssl_pkix_db:lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer).
 
 %%--------------------------------------------------------------------
--spec new_session_id(integer()) -> session_id().
+-spec new_session_id(integer()) -> ssl:session_id().
 %%
 %% Description: Creates a session id for the server.
 %%--------------------------------------------------------------------
@@ -164,9 +172,11 @@ clean_cert_db(Ref, File) ->
 %%
 %% Description: Make the session available for reuse.
 %%--------------------------------------------------------------------
--spec register_session(host(), inet:port_number(), #session{}) -> ok.
-register_session(Host, Port, Session) ->
-    cast({register_session, Host, Port, Session}).
+-spec register_session(ssl:host(), inet:port_number(), #session{}, unique | true) -> ok.
+register_session(Host, Port, Session, true) ->
+    call({register_session, Host, Port, Session});
+register_session(Host, Port, Session, unique = Save) ->
+    cast({register_session, Host, Port, Session, Save}).
 
 -spec register_session(inet:port_number(), #session{}) -> ok.
 register_session(Port, Session) ->
@@ -177,7 +187,7 @@ register_session(Port, Session) ->
 %% a the session has been marked "is_resumable = false" for some while
 %% it will be safe to remove the data from the session database.
 %%--------------------------------------------------------------------
--spec invalidate_session(host(), inet:port_number(), #session{}) -> ok.
+-spec invalidate_session(ssl:host(), inet:port_number(), #session{}) -> ok.
 invalidate_session(Host, Port, Session) ->
     load_mitigation(),
     cast({invalidate_session, Host, Port, Session}).
@@ -295,7 +305,10 @@ handle_call({{new_session_id, Port}, _},
 	    _, #state{session_cache_cb = CacheCb,
 		      session_cache_server = Cache} = State) ->
     Id = new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb),
-    {reply, Id, State}.
+    {reply, Id, State};
+handle_call({{register_session, Host, Port, Session},_}, _, State0) ->
+    State = client_register_session(Host, Port, Session, State0), 
+    {reply, ok, State}.
 
 %%--------------------------------------------------------------------
 -spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
@@ -305,8 +318,12 @@ handle_call({{new_session_id, Port}, _},
 %%
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast({register_session, Host, Port, Session}, State0) ->
-    State = ssl_client_register_session(Host, Port, Session, State0), 
+handle_cast({register_session, Host, Port, Session, unique}, State0) ->
+    State = client_register_unique_session(Host, Port, Session, State0), 
+    {noreply, State};
+
+handle_cast({register_session, Host, Port, Session, true}, State0) ->
+    State = client_register_session(Host, Port, Session, State0), 
     {noreply, State};
 
 handle_cast({register_session, Port, Session}, State0) ->    
@@ -499,10 +516,10 @@ last_delay_timer({{_,_},_}, TRef, {LastServer, _}) ->
 last_delay_timer({_,_}, TRef, {_, LastClient}) ->
     {TRef, LastClient}.
 
-%% If we can not generate a not allready in use session ID in
+%% If we cannot generate a not allready in use session ID in
 %% ?GEN_UNIQUE_ID_MAX_TRIES we make the new session uncacheable The
 %% value of ?GEN_UNIQUE_ID_MAX_TRIES is stolen from open SSL which
-%% states : "If we can not find a session id in
+%% states : "If we cannot find a session id in
 %% ?GEN_UNIQUE_ID_MAX_TRIES either the RAND code is broken or someone
 %% is trying to open roughly very close to 2^128 (or 2^256) SSL
 %% sessions to our server"
@@ -513,7 +530,7 @@ new_id(Port, Tries, Cache, CacheCb) ->
     case CacheCb:lookup(Cache, {Port, Id}) of
 	undefined ->
 	    Now = erlang:monotonic_time(),
-	    %% New sessions can not be set to resumable
+	    %% New sessions cannot be set to resumable
 	    %% until handshake is compleate and the
 	    %% other session values are set.
 	    CacheCb:update(Cache, {Port, Id}, #session{session_id = Id,
@@ -534,10 +551,10 @@ clean_cert_db(Ref, CertDb, RefDb, FileMapDb, File) ->
 	    ok
     end.
 
-ssl_client_register_session(Host, Port, Session, #state{session_cache_client = Cache,
-							session_cache_cb = CacheCb,
-							session_cache_client_max = Max,
-							session_client_invalidator = Pid0} = State) ->
+client_register_unique_session(Host, Port, Session, #state{session_cache_client = Cache,
+                                                           session_cache_cb = CacheCb,
+                                                           session_cache_client_max = Max,
+                                                           session_client_invalidator = Pid0} = State) ->
     TimeStamp = erlang:monotonic_time(),
     NewSession = Session#session{time_stamp = TimeStamp},
     
@@ -550,6 +567,17 @@ ssl_client_register_session(Host, Port, Session, #state{session_cache_client = C
 	Sessions ->
 	    register_unique_session(Sessions, NewSession, {Host, Port}, State)
     end.
+
+client_register_session(Host, Port, Session, #state{session_cache_client = Cache,
+                                                    session_cache_cb = CacheCb,
+                                                    session_cache_client_max = Max,
+                                                    session_client_invalidator = Pid0} = State) ->
+    TimeStamp = erlang:monotonic_time(),
+    NewSession = Session#session{time_stamp = TimeStamp},
+    Pid = do_register_session({{Host, Port}, 
+                               NewSession#session.session_id}, 
+                              NewSession, Max, Pid0, Cache, CacheCb),
+    State#state{session_client_invalidator = Pid}.
 
 server_register_session(Port, Session, #state{session_cache_server_max = Max,
 					      session_cache_server = Cache,

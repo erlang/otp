@@ -79,23 +79,23 @@ void erts_init_unicode(void)
     max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
     /* Non visual BIFs to trap to. */
     erts_init_trap_export(&characters_to_utf8_trap_exp,
-			  am_erlang, am_atom_put("characters_to_utf8_trap",23), 3,
+			  am_erlang, ERTS_MAKE_AM("characters_to_utf8_trap"), 3,
 			  &characters_to_utf8_trap);
 
     erts_init_trap_export(&characters_to_list_trap_1_exp,
-			  am_erlang, am_atom_put("characters_to_list_trap_1",25), 3,
+			  am_erlang, ERTS_MAKE_AM("characters_to_list_trap_1"), 3,
 			  &characters_to_list_trap_1);
 
     erts_init_trap_export(&characters_to_list_trap_2_exp,
-			  am_erlang, am_atom_put("characters_to_list_trap_2",25), 3,
+			  am_erlang, ERTS_MAKE_AM("characters_to_list_trap_2"), 3,
 			  &characters_to_list_trap_2);
 
     erts_init_trap_export(&characters_to_list_trap_3_exp,
-			  am_erlang, am_atom_put("characters_to_list_trap_3",25), 3,
+			  am_erlang, ERTS_MAKE_AM("characters_to_list_trap_3"), 3,
 			  &characters_to_list_trap_3);
 
     erts_init_trap_export(&characters_to_list_trap_4_exp,
-			  am_erlang, am_atom_put("characters_to_list_trap_4",25), 1,
+			  am_erlang, ERTS_MAKE_AM("characters_to_list_trap_4"), 1,
 			  &characters_to_list_trap_4);
 
     c_to_b_int_trap_exportp =  erts_export_put(am_unicode,am_characters_to_binary_int,2);
@@ -1358,11 +1358,9 @@ Uint erts_atom_to_string_length(Eterm atom)
     else {
         byte* err_pos;
         Uint num_chars;
-#ifdef DEBUG
         int ares =
-#endif
             erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
-        ASSERT(ares == ERTS_UTF8_OK);
+        ASSERT(ares == ERTS_UTF8_OK); (void)ares;
 
         return num_chars;
     }

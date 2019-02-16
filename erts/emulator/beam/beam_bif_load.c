@@ -1752,26 +1752,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	finalize_purge_operation(BIF_P, ret == am_true);
 
 	if (literals) {
-	    ErtsLiteralAreaRef *ref;
-	    ref = erts_alloc(ERTS_ALC_T_LITERAL_REF,
-			     sizeof(ErtsLiteralAreaRef));
-	    ref->literal_area = literals;
-	    ref->next = NULL;
-	    erts_mtx_lock(&release_literal_areas.mtx);
-	    if (release_literal_areas.last) {
-		release_literal_areas.last->next = ref;
-		release_literal_areas.last = ref;
-	    }
-	    else {
-		release_literal_areas.first = ref;
-		release_literal_areas.last = ref;
-	    }
-	    erts_mtx_unlock(&release_literal_areas.mtx);
-	    erts_queue_proc_message(BIF_P,
-                               erts_literal_area_collector,
-			       0,
-			       erts_alloc_message(0, NULL),
-			       am_copy_literals);
+            erts_queue_release_literals(BIF_P, literals);
 	}
 
 	return ret;
@@ -1780,6 +1761,41 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
     default:
 	BIF_ERROR(BIF_P, BADARG);
 
+    }
+}
+
+void
+erts_queue_release_literals(Process* c_p, ErtsLiteralArea* literals)
+{
+    ErtsLiteralAreaRef *ref;
+    ErtsMessage *mp;
+    ref = erts_alloc(ERTS_ALC_T_LITERAL_REF,
+                     sizeof(ErtsLiteralAreaRef));
+    ref->literal_area = literals;
+    ref->next = NULL;
+    erts_mtx_lock(&release_literal_areas.mtx);
+    if (release_literal_areas.last) {
+        release_literal_areas.last->next = ref;
+        release_literal_areas.last = ref;
+    } else {
+        release_literal_areas.first = ref;
+        release_literal_areas.last = ref;
+    }
+    erts_mtx_unlock(&release_literal_areas.mtx);
+    mp = erts_alloc_message(0, NULL);
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
+    if (c_p == NULL) {
+        erts_queue_message(erts_literal_area_collector,
+                           0,
+                           mp,
+                           am_copy_literals,
+                           am_system);
+    } else {
+        erts_queue_proc_message(c_p,
+                                erts_literal_area_collector,
+                                0,
+                                mp,
+                                am_copy_literals);
     }
 }
 

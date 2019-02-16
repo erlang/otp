@@ -141,7 +141,7 @@ statistics_detail
   following atoms: normal, debug and debug2. debug enables a
   finer grain of statistics to be reported, but since it requires
   more counters, to be updated by the generator processes it may
-  cause slightly worse benchmark performace figures than the brief
+  cause slightly worse benchmark performance figures than the brief
   default case, that is normal. debug2 prints out the debug info
   and formats it according to LMC's benchmark program.
 
@@ -160,7 +160,7 @@ n_fragments
 
   Defines how many fragments each table should be divided in.
   Default is 100. The fragments are evenly distributed over
-  all table nodes. The group table not devided in fragments.
+  all table nodes. The group table not divided in fragments.
 
 n_replicas
 

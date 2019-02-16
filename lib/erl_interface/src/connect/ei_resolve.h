@@ -20,6 +20,6 @@
 #ifndef _EI_RESOLVE_H
 #define _EI_RESOLVE_H
 
-void ei_init_resolve(void);
+int ei_init_resolve(void);
 
 #endif /* _EI_RESOLVE_H */

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ print(Label, Term) ->
 -spec reset_trace() -> 'true'.
 
 reset_trace() ->
-    erlang:system_flag(1, 0).
+    erlang:system_flag(reset_seq_trace, true).
 
 %% reset_trace(Pid) -> % this might be a useful function too
 

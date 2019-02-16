@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>epp.xml</file>
   </header>
-  <module>epp</module>
+  <module since="">epp</module>
   <modulesummary>An Erlang code preprocessor.</modulesummary>
   <description>
     <p>The Erlang code preprocessor includes functions that are used by the
@@ -76,7 +76,7 @@
 
   <funcs>
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close the preprocessing of the file associated with <c>Epp</c>.
       </fsummary>
       <desc>
@@ -85,7 +85,7 @@
     </func>
 
     <func>
-      <name name="default_encoding" arity="0"/>
+      <name name="default_encoding" arity="0" since="OTP R16B"/>
       <fsummary>Return the default encoding of Erlang source files.</fsummary>
       <desc>
         <p>Returns the default encoding of Erlang source files.</p>
@@ -93,7 +93,7 @@
     </func>
 
     <func>
-      <name name="encoding_to_string" arity="1"/>
+      <name name="encoding_to_string" arity="1" since="OTP R16B"/>
       <fsummary>Return a string representation of an encoding.</fsummary>
       <desc>
         <p>Returns a string representation of an encoding. The string
@@ -107,7 +107,7 @@
     </func>
 
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since="OTP R14B03"/>
       <fsummary>Format an error descriptor.</fsummary>
       <desc>
         <p>Takes an <c><anno>ErrorDescriptor</anno></c> and returns
@@ -120,10 +120,14 @@
     </func>
 
     <func>
-      <name name="open" arity="1"/>
+      <name name="open" arity="1" since="OTP 17.0"/>
       <fsummary>Open a file for preprocessing.</fsummary>
       <desc>
         <p>Opens a file for preprocessing.</p>
+        <p>If you want to change the file name of the implicit -file()
+          attributes inserted during preprocessing, you can do with
+          <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will
+          default to the name of the opened file.</p>
         <p>If <c>extra</c> is specified in
           <c><anno>Options</anno></c>, the return value is
           <c>{ok, <anno>Epp</anno>, <anno>Extra</anno>}</c> instead
@@ -132,7 +136,7 @@
     </func>
 
     <func>
-      <name name="open" arity="2"/>
+      <name name="open" arity="2" since=""/>
       <fsummary>Open a file for preprocessing.</fsummary>
       <desc>
         <p>Equivalent to
@@ -141,7 +145,7 @@
     </func>
 
     <func>
-      <name name="open" arity="3"/>
+      <name name="open" arity="3" since=""/>
       <fsummary>Open a file for preprocessing.</fsummary>
       <desc>
         <p>Equivalent to <c>epp:open([{name, FileName}, {includes, IncludePath},
@@ -150,7 +154,7 @@
     </func>
 
     <func>
-      <name name="parse_erl_form" arity="1"/>
+      <name name="parse_erl_form" arity="1" since=""/>
       <fsummary>Return the next Erlang form from the opened Erlang source file.
       </fsummary>
       <type name="warning_info"/>
@@ -163,12 +167,16 @@
     </func>
 
     <func>
-      <name name="parse_file" arity="2"/>
+      <name name="parse_file" arity="2" since="OTP 17.0"/>
       <fsummary>Preprocess and parse an Erlang source file.</fsummary>
       <desc>
         <p>Preprocesses and parses an Erlang source file.
           Notice that tuple <c>{eof, <anno>Line</anno>}</c> returned at the
           end of the file is included as a "form".</p>
+        <p>If you want to change the file name of the implicit -file()
+          attributes inserted during preprocessing, you can do with
+          <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will
+          default to the name of the opened file.</p>
         <p>If <c>extra</c> is specified in
          <c><anno>Options</anno></c>, the return value is
          <c>{ok, [<anno>Form</anno>], <anno>Extra</anno>}</c> instead
@@ -177,7 +185,7 @@
     </func>
 
     <func>
-      <name name="parse_file" arity="3"/>
+      <name name="parse_file" arity="3" since=""/>
       <fsummary>Preprocess and parse an Erlang source file.</fsummary>
       <desc>
         <p>Equivalent to <c>epp:parse_file(FileName, [{includes, IncludePath},
@@ -186,8 +194,8 @@
     </func>
 
     <func>
-      <name name="read_encoding" arity="1"/>
-      <name name="read_encoding" arity="2"/>
+      <name name="read_encoding" arity="1" since="OTP R16B"/>
+      <name name="read_encoding" arity="2" since="OTP R16B"/>
       <fsummary>Read the encoding from a file.</fsummary>
       <desc>
         <p>Read the <seealso marker="#encoding">encoding</seealso> from
@@ -201,8 +209,8 @@
     </func>
 
     <func>
-      <name name="read_encoding_from_binary" arity="1"/>
-      <name name="read_encoding_from_binary" arity="2"/>
+      <name name="read_encoding_from_binary" arity="1" since="OTP R16B"/>
+      <name name="read_encoding_from_binary" arity="2" since="OTP R16B"/>
       <fsummary>Read the encoding from a binary.</fsummary>
       <desc>
         <p>Read the <seealso marker="#encoding">encoding</seealso> from
@@ -216,7 +224,7 @@
     </func>
 
     <func>
-      <name name="set_encoding" arity="1"/>
+      <name name="set_encoding" arity="1" since="OTP R16B"/>
       <fsummary>Read and set the encoding of an I/O device.</fsummary>
       <desc>
         <p>Reads the <seealso marker="#encoding">encoding</seealso> from
@@ -231,7 +239,7 @@
     </func>
 
     <func>
-      <name name="set_encoding" arity="2"/>
+      <name name="set_encoding" arity="2" since="OTP 17.0"/>
       <fsummary>Read and set the encoding of an I/O device.</fsummary>
       <desc>
         <p>Reads the <seealso marker="#encoding">encoding</seealso> from

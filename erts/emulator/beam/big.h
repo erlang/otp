@@ -42,7 +42,7 @@ typedef Uint16   ErtsHalfDigit;
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint32   ErtsHalfDigit;
 #else
-#error "can not determine machine size"
+#error "cannot determine machine size"
 #endif
 
 typedef Uint  dsize_t;	 /* Vector size type */
@@ -81,7 +81,11 @@ typedef Uint  dsize_t;	 /* Vector size type */
  * a Uint64 argument. Therefore, we must test the size of the argument
  * to ensure that the cast does not discard the high-order 32 bits.
  */
-#define _IS_SSMALL32(x) (((Uint32) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#if defined(ARCH_32)
+#  define _IS_SSMALL32(x) (((Uint32) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#else
+#  define _IS_SSMALL32(x) (1)
+#endif
 #define _IS_SSMALL64(x) (((Uint64) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
 #define IS_SSMALL(x) (sizeof(x) == sizeof(Uint32) ? _IS_SSMALL32(x) : _IS_SSMALL64(x))
 
@@ -119,10 +123,10 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #endif
 
-int big_decimal_estimate(Wterm);
-Eterm erts_big_to_list(Eterm, Eterm**);
-char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz);
-Uint erts_big_to_binary_bytes(Eterm x, char *buf, Uint buf_sz);
+int big_integer_estimate(Wterm, Uint base);
+Eterm erts_big_to_list(Eterm, int base, Eterm**);
+char *erts_big_to_string(Wterm x, int base, char *buf, Uint buf_sz);
+Uint erts_big_to_binary_bytes(Eterm x, int base, char *buf, Uint buf_sz);
 
 Eterm small_times(Sint, Sint, Eterm*);
 

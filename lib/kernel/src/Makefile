@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2017. All Rights Reserved.
+# Copyright Ericsson AB 1996-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -112,13 +112,16 @@ MODULES = \
         logger \
         logger_backend \
         logger_config \
-        logger_std_h \
+	logger_handler_watcher \
+	logger_std_h \
 	logger_disk_log_h \
 	logger_h_common \
 	logger_filters \
         logger_formatter \
+	logger_olp \
+	logger_proxy \
         logger_server \
-        logger_simple \
+        logger_simple_h \
         logger_sup \
 	net \
 	net_adm \
@@ -150,7 +153,7 @@ INTERNAL_HRL_FILES= application_master.hrl disk_log.hrl \
         inet_dns.hrl inet_res.hrl \
         inet_boot.hrl inet_config.hrl inet_int.hrl \
 	inet_dns_record_adts.hrl \
-	logger_internal.hrl logger_h_common.hrl
+	logger_internal.hrl logger_olp.hrl logger_h_common.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -278,8 +281,10 @@ $(EBIN)/logger_config.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_disk_log_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
 $(EBIN)/logger_filters.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_formatter.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_olp.beam: logger_olp.hrl logger_internal.hrl
+$(EBIN)/logger_proxy.beam: logger_internal.hrl
 $(EBIN)/logger_server.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_simple.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_simple_h.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_std_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
 $(EBIN)/logger_h_common.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl
 $(EBIN)/net_kernel.beam: ../include/net_address.hrl

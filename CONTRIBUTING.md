@@ -3,6 +3,7 @@
 ## License
 
 By making a contribution to this project, I certify that:
+
 (a) The contribution was created in whole or in part by me and I
     have the right to submit it under the open source license
     indicated in the file; or
@@ -43,6 +44,7 @@ for more information.
 You can contribute to Erlang/OTP by opening a Pull Request.
 
 Make sure you create a new branch for your pull request with `git checkout -b new-branch-name`.
+Give the branch a short but descriptive name, like `stdlib/lists-length-fix`.
 Never do your work directly on `maint` or `master`.
 
 ## Fixing a bug
@@ -108,6 +110,7 @@ conflicts or include the latest changes.
 compiled and that it works.
 
 * Check for unnecessary whitespace before committing with `git diff --check`.
+However, do not fix preexisting whitespace errors in otherwise untouched source lines.
 
 Check your coding style:
 

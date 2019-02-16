@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpm_network_interface_filter.xml</file>
   </header>
-  <module>snmpm_network_interface_filter</module>
+  <module since="">snmpm_network_interface_filter</module>
   <modulesummary>Behaviour module for the SNMP manager network-interface filter.</modulesummary>
   <description>
     <p>This module defines the behaviour of the manager network interface
@@ -100,7 +100,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
 
   <funcs>
     <func>
-      <name>accept_recv(Domain, Addr) -> boolean()</name>
+      <name since="">accept_recv(Domain, Addr) -> boolean()</name>
       <fsummary>Shall the received message be accepted</fsummary>
       <type>
 	<v>Domain = transportDomain()</v>
@@ -116,7 +116,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
     </func>
 
     <func>
-      <name>accept_send(Domain, Addr) -> boolean()</name>
+      <name since="">accept_send(Domain, Addr) -> boolean()</name>
       <fsummary>Shall the message be sent</fsummary>
       <type>
 	<v>Domain = transportDomain()</v>
@@ -132,7 +132,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
     </func>
 
     <func>
-      <name>accept_recv_pdu(Domain, Addr, PduType) -> boolean()</name>
+      <name since="">accept_recv_pdu(Domain, Addr, PduType) -> boolean()</name>
       <fsummary>Shall the received pdu be accepted</fsummary>
       <type>
 	<v>Domain = transportDomain()</v>
@@ -150,7 +150,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
     </func>
 
     <func>
-      <name>accept_send_pdu(Domain, Addr, PduType) -> boolean()</name>
+      <name since="">accept_send_pdu(Domain, Addr, PduType) -> boolean()</name>
       <fsummary>Shall the pdu be sent</fsummary>
       <type>
 	<v>Domain = transportDomain()</v>

@@ -267,14 +267,17 @@ try_insert_expr_last(CFG0, Label, Instr) ->
 %% with the new code inserted second to last (assuming the last expression
 %% is a branch operation).
 insert_expr_last_work(_Instr, [#call{}]) ->
-  %% Call instructions clobber all expressions; we musn't insert the expression
-  %% before it
+  %% Call instructions clobber all expressions; we must not insert the
+  %% expression before it
   not_safe;
 insert_expr_last_work(Instr, [Code1]) ->
   %% We insert the code next to last.
   [Instr, Code1];
 insert_expr_last_work(Instr, [Code|Codes]) ->
-  [Code|insert_expr_last_work(Instr, Codes)].
+  case insert_expr_last_work(Instr, Codes) of
+    not_safe -> not_safe;
+    NewCodes -> [Code|NewCodes]
+  end.
 
 %%=============================================================================
 %% Inserts expression first in the block for the given label.

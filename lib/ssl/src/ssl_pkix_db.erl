@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -export([create/1, create_pem_cache/1, 
 	 add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
@@ -157,7 +158,7 @@ extract_trusted_certs(File) ->
             {error, {badmatch, Error}}
     end.
 
--spec decode_pem_file(binary()) -> {ok, term()}.
+-spec decode_pem_file(binary()) -> {ok, term()} | {error, term()}.
 decode_pem_file(File) ->
     case file:read_file(File) of
         {ok, PemBin} ->
@@ -311,16 +312,21 @@ decode_certs(Ref, Cert) ->
 	error:_ ->
 	    Report = io_lib:format("SSL WARNING: Ignoring a CA cert as "
 				   "it could not be correctly decoded.~n", []),
-	    error_logger:info_report(Report),
+	    ?LOG_NOTICE(Report),
 	    undefined
     end.
 
 new_trusted_cert_entry(File, [CertsDb, RefsDb, _ | _]) ->
-    Ref = make_ref(),
-    init_ref_db(Ref, File, RefsDb),
-    {ok, Content} = ssl_pem_cache:insert(File),
-    add_certs_from_pem(Content, Ref, CertsDb),
-    {ok, Ref}.
+    case decode_pem_file(File) of
+        {ok, Content} ->
+            Ref = make_ref(),
+            init_ref_db(Ref, File, RefsDb),
+            ok = ssl_pem_cache:insert(File, Content),
+            add_certs_from_pem(Content, Ref, CertsDb),
+            {ok, Ref};
+        Error ->
+            Error
+    end.
 
 add_crls([_,_,_, {_, Mapping} | _], ?NO_DIST_POINT, CRLs) ->
     [add_crls(CRL, Mapping) || CRL <- CRLs];

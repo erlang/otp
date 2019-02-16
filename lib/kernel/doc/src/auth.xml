@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>auth</module>
+  <module since="">auth</module>
   <modulesummary>Erlang network authentication server.</modulesummary>
   <description>
     <p>This module is deprecated. For a description of the Magic
@@ -42,7 +42,7 @@
   </datatypes>
   <funcs>
     <func>
-      <name name="cookie" arity="0"/>
+      <name name="cookie" arity="0" since=""/>
       <fsummary>Magic cookie for local node (deprecated).</fsummary>
       <desc>
         <p>Use
@@ -51,7 +51,7 @@
       </desc>
     </func>
     <func>
-      <name name="cookie" arity="1"/>
+      <name name="cookie" arity="1" since=""/>
       <fsummary>Set the magic for the local node (deprecated).</fsummary>
       <type_desc variable="TheCookie">
         The cookie can also be specified as a list with a single atom element.
@@ -63,7 +63,7 @@
       </desc>
     </func>
     <func>
-      <name name="is_auth" arity="1"/>
+      <name name="is_auth" arity="1" since=""/>
       <fsummary>Status of communication authorization (deprecated).</fsummary>
       <desc>
         <p>Returns <c>yes</c> if communication with <c><anno>Node</anno></c> is
@@ -76,7 +76,7 @@
       </desc>
     </func>
     <func>
-      <name>node_cookie([Node, Cookie]) -> yes | no</name>
+      <name since="">node_cookie([Node, Cookie]) -> yes | no</name>
       <fsummary>Set the magic cookie for a node and verify authorization (deprecated).</fsummary>
       <type>
         <v>Node = node()</v>
@@ -88,7 +88,7 @@
       </desc>
     </func>
     <func>
-      <name name="node_cookie" arity="2"/>
+      <name name="node_cookie" arity="2" since=""/>
       <fsummary>Set the magic cookie for a node and verify authorization (deprecated).</fsummary>
       <desc>
         <p>Sets the magic cookie of <c><anno>Node</anno></c> to

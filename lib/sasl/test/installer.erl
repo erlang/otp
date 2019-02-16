@@ -905,7 +905,7 @@ start_client(TestNode,Client,Sname) ->
             wait_started(TestNode,Node)
     after 30000 ->
 	    ?print([{start_client,failed,Node},net_adm:ping(Node)]),
-            ?fail({"can not start", Node})
+            ?fail({"cannot start", Node})
     end.
 
 start_client_unix(TestNode,Sname,Node) ->

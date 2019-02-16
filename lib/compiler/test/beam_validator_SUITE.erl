@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
-         receive_stacked/1]).
+         receive_stacked/1,aliased_types/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -49,7 +49,6 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -64,9 +63,10 @@ groups() ->
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
        bad_tuples,bad_try_catch_nesting,
-       receive_stacked]}].
+       receive_stacked,aliased_types]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -579,6 +579,58 @@ receive_stacked(Config) ->
 
     ok.
 
+aliased_types(Config) ->
+    Seq = lists:seq(1, 5),
+    1 = aliased_types_1(Seq, Config),
+
+    {1,1} = aliased_types_2(Seq),
+    {42,none} = aliased_types_2([]),
+
+    gurka = aliased_types_3([gurka]),
+    gaffel = aliased_types_3([gaffel]),
+
+    ok.
+
+%% ERL-735: validator failed to track types on aliased registers, rejecting
+%% legitimate optimizations.
+%%
+%%    move x0 y0
+%%    bif hd L1 x0
+%%    get_hd y0     %% The validator failed to see that y0 was a list
+%%
+aliased_types_1(Bug, Config) ->
+    if
+        Config =/= [gurka, gaffel] -> %% Pointless branch.
+            _ = hd(Bug),
+            lists:seq(1, 5),
+            hd(Bug)
+    end.
+
+%% ERL-832: validator failed to realize that a Y register was a cons.
+aliased_types_2(Bug) ->
+    Res = case Bug of
+              [] -> id(42);
+              _ -> hd(Bug)
+          end,
+    {Res,case Bug of
+             [] -> none;
+             _ -> hd(Bug)
+         end}.
+
+%% ERL-832 part deux; validator failed to realize that an aliased register was
+%% a cons.
+aliased_types_3(Bug) ->
+    List = [Y || Y <- Bug],
+    case List of
+        [] -> Bug;
+        _ ->
+            if
+                hd(List) -> a:a();
+                true -> ok
+            end,
+            hd(List)
+    end.
+
 %%%-------------------------------------------------------------------------
 
 transform_remove(Remove, Module) ->
@@ -637,3 +689,6 @@ night(Turned) ->
     ok.
 
 participating(_, _, _, _) -> ok.
+
+id(I) ->
+    I.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -102,6 +102,7 @@ all() ->
      create_release,
      create_release_sort,
      create_script,
+     create_script_without_dot_erlang,
      create_script_sort,
      create_target,
      create_target_unicode,
@@ -142,7 +143,8 @@ all() ->
      use_selected_vsn,
      use_selected_vsn_relative_path,
      non_standard_vsn_id,
-     undefined_regexp].
+     undefined_regexp,
+     windows_erl_libs].
 
 groups() -> 
     [].
@@ -247,9 +249,9 @@ get_config(_Config) ->
 		    {app,stdlib,[{incl_cond,include},{vsn,undefined},
 				 {lib_dir,StdLibDir}]},
 		    {boot_rel,"start_clean"},
-                    {rel,"no_dot_erlang","1.0",[]},
-		    {rel,"start_clean","1.0",[]},
-		    {rel,"start_sasl","1.0",[sasl]},
+                    {rel,"no_dot_erlang","1.0",[],[{load_dot_erlang,false}]},
+		    {rel,"start_clean","1.0",[],[{load_dot_erlang,true}]},
+		    {rel,"start_sasl","1.0",[sasl],[{load_dot_erlang,true}]},
 		    {emu_name,"beam"},
 		    {relocatable,true},
 		    {profile,development},
@@ -278,9 +280,9 @@ get_config(_Config) ->
 		    {app,stdlib,[{incl_cond,include},{vsn,StdVsn},
 				 {lib_dir,StdLibDir},{mod,_,[]}|_]},
 		    {boot_rel,"start_clean"},
-                    {rel,"no_dot_erlang","1.0",[]},
-		    {rel,"start_clean","1.0",[]},
-		    {rel,"start_sasl","1.0",[sasl]},
+                    {rel,"no_dot_erlang","1.0",[],[{load_dot_erlang,false}]},
+		    {rel,"start_clean","1.0",[],[{load_dot_erlang,true}]},
+		    {rel,"start_sasl","1.0",[sasl],[{load_dot_erlang,true}]},
 		    {emu_name,"beam"},
 		    {relocatable,true},
 		    {profile,development},
@@ -547,6 +549,32 @@ create_script(_Config) ->
     %% ?m(OrigScript2, Script2),
     
     ?m(equal, diff_script(OrigScript, Script)),
+
+    %% A release defaults to load_dot_erlang == true
+    {script, {RelName, RelVsn}, ScriptInstructions} = Script,
+    ?m(true, lists:member({apply,{c,erlangrc,[]}}, ScriptInstructions)),
+
+    %% Stop server
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+create_script_without_dot_erlang(_Config) ->
+    %% Configure the server
+    RelName = "Just testing",
+    RelVsn = "1.0",
+    Config =
+        {sys,
+         [
+          {lib_dirs, []},
+          {boot_rel, RelName},
+          {rel, RelName, RelVsn, [stdlib, kernel], [{load_dot_erlang, false}]}
+         ]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Config}])),
+
+    %% Confirm that load_dot_erlang == false was used
+    {ok, Script} = ?msym({ok, _}, reltool:get_script(Pid, RelName)),
+    {script, {RelName, RelVsn}, ScriptInstructions} = Script,
+    ?m(false, lists:member({apply,{c,erlangrc,[]}}, ScriptInstructions)),
 
     %% Stop server
     ?m(ok, reltool:stop(Pid)),
@@ -1038,7 +1066,7 @@ create_standalone_app(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate standalone system with inlined archived application
-%% Check that the inlined app can not be explicitly configured
+%% Check that the inlined app cannot be explicitly configured
 
 create_standalone_app_clash(Config) ->
     %% Create archive
@@ -1658,7 +1686,7 @@ set_apps_inlined(Config) ->
     ?m(true, Someapp1#app.is_included),
     ?m(true, Someapp1#app.is_pre_included),
 
-    %% Check that inlined app can not be configured
+    %% Check that inlined app cannot be configured
     Someapp2 = Someapp1#app{incl_cond=exclude},
     ?msym({error,
 	   "Application someapp is inlined in '*escript* someapp'. "
@@ -2106,9 +2134,9 @@ save_config(Config) ->
 		     {app,stdlib,[{incl_cond,include},{vsn,undefined},
 				  {lib_dir,undefined}]},
 		     {boot_rel,"start_clean"},
-                     {rel,"no_dot_erlang","1.0",[]},
-		     {rel,"start_clean","1.0",[]},
-		     {rel,"start_sasl","1.0",[sasl]},
+                     {rel,"no_dot_erlang","1.0",[],[{load_dot_erlang,false}]},
+		     {rel,"start_clean","1.0",[],[{load_dot_erlang,true}]},
+		     {rel,"start_sasl","1.0",[sasl],[{load_dot_erlang,true}]},
 		     {emu_name,"beam"},
 		     {relocatable,true},
 		     {profile,development},
@@ -2147,9 +2175,9 @@ save_config(Config) ->
 		     {app,stdlib,[{incl_cond,include},{vsn,StdVsn},
 				  {lib_dir,StdLibDir},{mod,_,[]}|_]},
 		     {boot_rel,"start_clean"},
-                     {rel,"no_dot_erlang","1.0",[]},
-		     {rel,"start_clean","1.0",[]},
-		     {rel,"start_sasl","1.0",[sasl]},
+                     {rel,"no_dot_erlang","1.0",[],[{load_dot_erlang,false}]},
+		     {rel,"start_clean","1.0",[],[{load_dot_erlang,true}]},
+		     {rel,"start_sasl","1.0",[sasl],[{load_dot_erlang,true}]},
 		     {emu_name,"beam"},
 		     {relocatable,true},
 		     {profile,development},
@@ -2546,10 +2574,21 @@ undefined_regexp(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Checks that reltool_utils can correctly read Windows ERL_LIBS
+
+windows_erl_libs(_Config) ->
+    WinErlLibs =
+        "C:\\Program Files\\Erlang Libs;C:\\Program Files\\More Erlang Libs",
+    Ret = reltool_utils:erl_libs(WinErlLibs, {win32, nt}),
+    ?m(["C:\\Program Files\\Erlang Libs","C:\\Program Files\\More Erlang Libs"],
+       Ret),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Library functions
 
 erl_libs() ->
-    string:lexemes(os:getenv("ERL_LIBS", ""), ":;").
+    reltool_utils:erl_libs().
 
 datadir(Config) ->
     %% Removes the trailing slash...

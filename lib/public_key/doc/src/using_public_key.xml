@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2011</year><year>2016</year>
+      <year>2011</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -570,6 +570,7 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
      <c>fqdn_fun</c> and <c>match_fun</c>.
      </p>
      <section>
+       <marker id="hostname_extraction"></marker>
        <title>Hostname extraction</title>
        <p>The <c>fqdn_fun</c> extracts hostnames (Fully Qualified Domain Names) from uri_id
        or other ReferenceIDs that are not pre-defined in the public_key function.
@@ -595,7 +596,8 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
        </code>
      </section>
      <section>
-       <title>Re-defining the match operations</title>
+       <marker id="redefining_match_op"></marker>
+       <title>Re-defining the match operation</title>
        <p>The default matching handles dns_id and uri_id. In an uri_id the value is tested for
        equality with a value from the <c>Subject Alternate Name</c>. If som other kind of matching
        is needed, use the  <c>match_fun</c> option.

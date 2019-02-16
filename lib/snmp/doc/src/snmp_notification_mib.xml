@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp_notification_mib.xml</file>
   </header>
-  <module>snmp_notification_mib</module>
+  <module since="">snmp_notification_mib</module>
   <modulesummary>Instrumentation Functions for SNMP-NOTIFICATION-MIB</modulesummary>
   <description>
     <p>The module <c>snmp_notification_mib</c> implements the
@@ -43,7 +43,7 @@
   </description>
   <funcs>
     <func>
-      <name>configure(ConfDir) -> void()</name>
+      <name since="">configure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-NOTIFICATION-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -70,7 +70,7 @@
       </desc>
     </func>
     <func>
-      <name>reconfigure(ConfDir) -> void()</name>
+      <name since="">reconfigure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-NOTIFICATION-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -98,7 +98,7 @@
       </desc>
     </func>
     <func>
-      <name>add_notify(Name, Tag, Type) -> Ret</name>
+      <name since="">add_notify(Name, Tag, Type) -> Ret</name>
       <fsummary>Added one notify definition</fsummary>
       <type>
         <v>Name = string()</v>
@@ -115,7 +115,7 @@
       </desc>
     </func>
     <func>
-      <name>delete_notify(Key) -> Ret</name>
+      <name since="">delete_notify(Key) -> Ret</name>
       <fsummary>Delete one notify definition</fsummary>
       <type>
         <v>Key = term()</v>

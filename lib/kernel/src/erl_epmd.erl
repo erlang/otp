@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,8 +77,8 @@ stop() ->
 %%
 
 -spec port_please(Name, Host) -> {ok, Port, Version} | noport when
-	  Name :: string(),
-	  Host :: inet:ip_address(),
+	  Name :: atom() | string(),
+	  Host :: atom() | string() | inet:ip_address(),
 	  Port :: non_neg_integer(),
 	  Version :: non_neg_integer().
 
@@ -86,8 +86,8 @@ port_please(Node, Host) ->
   port_please(Node, Host, infinity).
 
 -spec port_please(Name, Host, Timeout) -> {ok, Port, Version} | noport when
-	  Name :: string(),
-	  Host :: inet:ip_address(),
+	  Name :: atom() | string(),
+	  Host :: atom() | string() | inet:ip_address(),
 	  Timeout :: non_neg_integer() | infinity,
 	  Port :: non_neg_integer(),
 	  Version :: non_neg_integer().

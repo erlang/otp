@@ -122,10 +122,10 @@ you can use the `configure' options `--x-includes=DIR' and
 Specifying the System Type
 ==========================
 
-   There may be some features `configure' can not figure out
+   There may be some features `configure' cannot figure out
 automatically, but needs to determine by the type of host the package
 will run on.  Usually `configure' can figure that out, but if it prints
-a message saying it can not guess the host type, give it the
+a message saying it cannot guess the host type, give it the
 `--host=TYPE' option.  TYPE can either be a short name for the system
 type, such as `sun4', or a canonical name with three fields:
      CPU-COMPANY-SYSTEM

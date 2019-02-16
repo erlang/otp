@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -213,15 +213,18 @@ update_body(Headers, Body) ->
 update_headers(Headers, ContentType, Body, []) ->
     case Body of
         [] ->
-            Headers#http_request_h{'content-length' = "0"};
+            Headers1 = Headers#http_request_h{'content-length' = "0"},
+            handle_content_type(Headers1, ContentType);
         <<>> ->
-            Headers#http_request_h{'content-length' = "0"};
+            Headers1 = Headers#http_request_h{'content-length' = "0"},
+            handle_content_type(Headers1, ContentType);
         {Fun, _Acc} when is_function(Fun, 1) ->
             %% A client MUST NOT generate a 100-continue expectation in a request
             %% that does not include a message body. This implies that either the
             %% Content-Length or the Transfer-Encoding header MUST be present.
             %% DO NOT send content-type when Body is empty.
-            Headers#http_request_h{'content-type' = ContentType};
+            Headers1 = Headers#http_request_h{'content-type' = ContentType},
+            handle_transfer_encoding(Headers1);
         _ ->
             Headers#http_request_h{
               'content-length' = body_length(Body),
@@ -230,11 +233,25 @@ update_headers(Headers, ContentType, Body, []) ->
 update_headers(_, _, _, HeadersAsIs) ->
     HeadersAsIs.
 
+handle_transfer_encoding(Headers = #http_request_h{'transfer-encoding' = undefined}) ->
+    Headers;
+handle_transfer_encoding(Headers) ->
+    %% RFC7230 3.3.2
+    %% A sender MUST NOT send a 'Content-Length' header field in any message
+    %% that contains a 'Transfer-Encoding' header field.
+    Headers#http_request_h{'content-length' = undefined}.
+
 body_length(Body) when is_binary(Body) ->
    integer_to_list(size(Body));
 
 body_length(Body) when is_list(Body) ->
   integer_to_list(length(Body)).
+
+%% Set 'Content-Type' when it is explicitly set.
+handle_content_type(Headers, "") ->
+    Headers;
+handle_content_type(Headers, ContentType) ->
+    Headers#http_request_h{'content-type' = ContentType}.
 
 method(Method) ->
     http_util:to_upper(atom_to_list(Method)).

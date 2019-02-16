@@ -67,7 +67,8 @@
          record_errors/1, otp_11879_cont/1,
          non_latin1_module/1, otp_14323/1,
          stacktrace_syntax/1,
-         otp_14285/1, otp_14378/1]).
+         otp_14285/1, otp_14378/1,
+         external_funs/1,otp_15456/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -88,7 +89,8 @@ all() ->
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
-     stacktrace_syntax, otp_14285, otp_14378].
+     stacktrace_syntax, otp_14285, otp_14378, external_funs,
+     otp_15456].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -2118,6 +2120,61 @@ otp_5362(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
+%% OTP-15456. All compiler options can now be given in the option list
+%% (as opposed to only in files).
+otp_15456(Config) when is_list(Config) ->
+    Ts = [
+          %% {nowarn_deprecated_function,[{M,F,A}]} can now be given
+          %% in the option list as well as in an attribute.
+          %% Wherever it occurs, it is not affected by
+          %% warn_deprecated_function.
+          {otp_15456_1,
+           <<"-compile({nowarn_deprecated_function,{erlang,now,0}}).
+              -export([foo/0]).
+
+              foo() ->
+                  {erlang:now(), random:seed0(), random:seed(1, 2, 3),
+                   random:uniform(), random:uniform(42)}.
+           ">>,
+           {[{nowarn_deprecated_function,{random,seed0,0}},
+             {nowarn_deprecated_function,[{random,uniform,0},
+                                          {random,uniform,1}]},
+             %% There should be no warnings when attempting to
+             %% turn of warnings for functions that are not
+             %% deprecated or not used in the module.
+             {nowarn_deprecated_function,{random,uniform_s,1}},
+             {nowarn_deprecated_function,{erlang,abs,1}},
+             warn_deprecated_function]},
+           {warnings,[{5,erl_lint,
+                       {deprecated,{random,seed,3},
+                        "the 'random' module is deprecated; "
+                        "use the 'rand' module instead"}}]}},
+
+          %% {nowarn_unused_function,[{M,F,A}]} can be given
+          %% in the option list as well as in an attribute.
+          %% It was incorrectly documented to only work when
+          %% given in an attribute.
+          {otp_15456_2,
+           <<"-compile({nowarn_unused_function,foo/0}).
+              foo() -> ok.
+              bar() -> ok.
+              foobar() -> ok.
+              barf(_) -> ok.
+              other() -> ok.
+           ">>,
+           {[{nowarn_unused_function,[{bar,0},{foobar,0}]},
+             {nowarn_unused_function,{barf,1}},
+             %% There should be no warnings when attempting to
+             %% turn of warnings for unused functions that are not
+             %% defined in the module.
+             {nowarn_unused_function,{not_defined_in_module,1}},
+             warn_unused_function]},
+           {warnings,[{6,erl_lint,{unused_function,{other,0}}}]}
+          }],
+
+    [] = run(Config, Ts),
+    ok.
+
 %% OTP-5371. Aliases for bit syntax expressions are no longer allowed.
 otp_5371(Config) when is_list(Config) ->
     Ts = [{otp_5371_1,
@@ -2730,7 +2787,7 @@ bif_clash(Config) when is_list(Config) ->
            [],
 	   {errors,[{2,erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
 
-	  %% Verify that warnings can not be turned off in the old way.
+	  %% Verify that warnings cannot be turned off in the old way.
 	  {clash2,
            <<"-export([t/1,size/1]).
               t(X) ->
@@ -4131,6 +4188,21 @@ otp_14285(Config) ->
            {errors,
             [{1,erl_lint,E4}],
             []}}],
+    run(Config, Ts),
+    ok.
+
+external_funs(Config) when is_list(Config) ->
+    Ts = [{external_funs_1,
+           %% ERL-762: Unused variable warning not being emitted.
+           <<"f() ->
+                BugVar = process_info(self()),
+                if true -> fun m:f/1 end.
+              f(M, F) ->
+                BugVar = process_info(self()),
+                if true -> fun M:F/1 end.">>,
+           [],
+           {warnings,[{2,erl_lint,{unused_var,'BugVar'}},
+                      {5,erl_lint,{unused_var,'BugVar'}}]}}],
     run(Config, Ts),
     ok.
 

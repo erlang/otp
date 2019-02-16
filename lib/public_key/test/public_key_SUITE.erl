@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,9 @@ all() ->
      encrypt_decrypt,
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name,
+     pkix_iso_rsa_oid, pkix_iso_dsa_oid, 
+     pkix_dsa_sha2_oid,
+     pkix_crl, general_name,
      pkix_verify_hostname_cn,
      pkix_verify_hostname_subjAltName,
      pkix_verify_hostname_subjAltName_IP,
@@ -64,6 +66,7 @@ all() ->
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, ec_pem, encrypted_pem,
 			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
+			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
                               ec_pem_encode_generated,
                               gen_ec_param_prime_field, gen_ec_param_char_2_field
                              ]},
@@ -181,6 +184,19 @@ dsa_pem(Config) when is_list(Config) ->
     DSAPubPemNoEndNewLines = strip_superfluous_newlines(DSAPubPem),
     DSAPubPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])).
 
+dsa_priv_pkcs8() ->
+    [{doc, "DSA PKCS8 private key decode/encode"}].
+dsa_priv_pkcs8(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, DsaPem} = file:read_file(filename:join(Datadir, "dsa_key_pkcs8.pem")),
+    [{'PrivateKeyInfo', DerDSAKey, not_encrypted} = Entry0 ] = public_key:pem_decode(DsaPem),
+    DSAKey = public_key:der_decode('PrivateKeyInfo', DerDSAKey),
+    DSAKey = public_key:pem_entry_decode(Entry0),
+    true = check_entry_type(DSAKey, 'DSAPrivateKey'),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', DSAKey),
+    DSAPemNoEndNewLines = strip_superfluous_newlines(DsaPem),
+    DSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
 %%--------------------------------------------------------------------
 
 rsa_pem() ->
@@ -215,6 +231,19 @@ rsa_pem(Config) when is_list(Config) ->
     RSAPubKey = public_key:pem_entry_decode(PubEntry1),
     RSARawPemNoEndNewLines = strip_superfluous_newlines(RSARawPem),
     RSARawPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry1])).
+
+rsa_priv_pkcs8() ->
+    [{doc, "RSA PKCS8 private key decode/encode"}].
+rsa_priv_pkcs8(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, RsaPem} = file:read_file(filename:join(Datadir, "rsa_key_pkcs8.pem")),
+    [{'PrivateKeyInfo', DerRSAKey, not_encrypted} = Entry0 ] = public_key:pem_decode(RsaPem),
+    RSAKey = public_key:der_decode('PrivateKeyInfo', DerRSAKey),
+    RSAKey = public_key:pem_entry_decode(Entry0),
+    true = check_entry_type(RSAKey, 'RSAPrivateKey'),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', RSAKey),
+    RSAPemNoEndNewLines = strip_superfluous_newlines(RsaPem),
+    RSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 %%--------------------------------------------------------------------
 
@@ -262,6 +291,18 @@ ec_pem2(Config) when is_list(Config) ->
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
 
+ec_priv_pkcs8() ->
+    [{doc, "EC PKCS8 private key decode/encode"}].
+ec_priv_pkcs8(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, ECPrivPem} = file:read_file(filename:join(Datadir, "ec_key_pkcs8.pem")),
+    [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(ECPrivPem),
+    ECPrivKey = public_key:pem_entry_decode(PKCS8Key),
+    true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
+    true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', ECPrivKey),
+    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 init_ec_pem_encode_generated(Config) ->
     case catch true = lists:member('secp384r1', crypto:ec_curves()) of
@@ -271,7 +312,7 @@ init_ec_pem_encode_generated(Config) ->
 
 ec_pem_encode_generated() ->
     [{doc, "PEM-encode generated EC key"}].
-ec_pem_encode_generated(Config) ->
+ec_pem_encode_generated(_Config) ->
 
     Key1 = public_key:generate_key({namedCurve, 'secp384r1'}),
     public_key:pem_entry_encode('ECPrivateKey', Key1),
@@ -679,12 +720,8 @@ encrypt_decrypt(Config) when is_list(Config) ->
     Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
     RsaEncrypted = public_key:encrypt_private(Msg, PrivateKey),
     Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),
-    Msg = public_key:decrypt_public(RsaEncrypted, PrivateKey),
     RsaEncrypted2 = public_key:encrypt_public(Msg, PublicKey),
-    RsaEncrypted3 = public_key:encrypt_public(Msg, PrivateKey),
     Msg = public_key:decrypt_private(RsaEncrypted2, PrivateKey),
-    Msg = public_key:decrypt_private(RsaEncrypted3, PrivateKey),
-
     ok.
        
 %%--------------------------------------------------------------------
@@ -926,7 +963,7 @@ pkix_verify_hostname_cn(Config) ->
 %% openssl req -x509 -nodes -newkey rsa:1024 -keyout /dev/null -extensions SAN -config  public_key_SUITE_data/verify_hostname.conf 2>/dev/null > public_key_SUITE_data/pkix_verify_hostname_subjAltName.pem
 %%
 %% Subject: C=SE, CN=example.com
-%% Subject Alternative Name: DNS:kb.example.org, URI:http://www.example.org, URI:https://wws.example.org
+%% Subject Alternative Name: DNS:kb.example.org, DNS:*.example.org, URI:http://www.example.org, URI:https://wws.example.org
 
 pkix_verify_hostname_subjAltName(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -945,7 +982,25 @@ pkix_verify_hostname_subjAltName(Config) ->
 						   {dns_id,"wws.example.org"}]),
 
     %% Check that a dns_id matches a DNS subjAltName:
-    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}]).
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}]),
+
+    %% Check that a dns_id does not match a DNS subjAltName wiht wildcard
+    false =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}]),
+
+    %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
+    true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}],
+                                            [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+                                            ]
+                                             ),
+
+    %% Check that a uri_id does not match a DNS subjAltName wiht wildcard
+    false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}]),
+
+    %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
+    true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}],
+                                            [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+                                            ]
+                                             ).
 
 %%--------------------------------------------------------------------
 %% Uses the pem-file for pkix_verify_hostname_cn
@@ -992,7 +1047,14 @@ pkix_verify_hostname_options(Config) ->
 					      end}]),
     true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://example.com"}],
 					    [{fqdn_fun, fun(_) -> default end}]),
-    false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"some://very.wrong.domain"}]).
+    false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"some://very.wrong.domain"}]),
+
+    true = public_key:pkix_verify_hostname(Cert, [{dns_id,"example.com"}]),
+    true = public_key:pkix_verify_hostname(Cert, [{dns_id,"abb.bar.example.com"}]),
+    false = public_key:pkix_verify_hostname(Cert, [{dns_id,"example.com"},
+                                                   {dns_id,"abb.bar.example.com"}],
+                                            [{fqdn_fun,fun(_)->undefined end}]).
+    
 
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
@@ -1053,6 +1115,13 @@ pkix_iso_dsa_oid(Config) when is_list(Config) ->
     SigAlg = OTPCert#'OTPCertificate'.signatureAlgorithm,
     {_, dsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
 
+%%--------------------------------------------------------------------
+pkix_dsa_sha2_oid() ->
+ [{doc, "Test support dsa_sha2 oid"}].
+pkix_dsa_sha2_oid(Config) when is_list(Config) ->
+    {sha224, dsa} = public_key:pkix_sign_types(?'id-dsa-with-sha224'),
+    {sha256, dsa} = public_key:pkix_sign_types(?'id-dsa-with-sha256').
+    
 %%--------------------------------------------------------------------
 
 pkix_crl() ->
@@ -1312,7 +1381,7 @@ do_gen_ec_param(File) ->
             ct:fail({key_gen_fail, File})
     end.
 
-init_per_testcase_gen_ec_param(TC, Curve, Config) ->
+init_per_testcase_gen_ec_param(_TC, Curve, Config) ->
     case crypto:ec_curves() of
         [] ->
             {skip, missing_ec_support};
@@ -1328,7 +1397,7 @@ init_per_testcase_gen_ec_param(TC, Curve, Config) ->
     end.
 
 
-crypto_supported_curve(Curve, Curves) ->
+crypto_supported_curve(Curve, _Curves) ->
     try crypto:generate_key(ecdh, Curve) of
         {error,_} -> false; % Just in case crypto is changed in the future...
         _-> true

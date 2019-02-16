@@ -42,6 +42,7 @@
 #include "erl_term.h"
 #include "erl_threads.h"
 #include "erl_atom_table.h"
+#include "erl_utils.h"
 
 typedef struct {
     char *name;
@@ -91,12 +92,16 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"db_tab",				"address"		},
     {	"db_tab_fix",				"address"		},
     {	"db_hash_slot",				"address"		},
+    {	"erl_db_catree_base_node",		NULL		        },
+    {	"erl_db_catree_route_node",		"index"		        },
     {	"resource_monitors",			"address"	        },
     {   "driver_list",                          NULL                    },
     {	"proc_msgq",				"pid"			},
     {	"proc_btm",				"pid"			},
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
+    {   "update_persistent_term_permission",    NULL                    },
+    {   "persistent_term_delete_permission",    NULL                    },
     {   "code_write_permission",                NULL                    },
     {	"purge_state",		      		NULL			},
     {	"proc_status",				"pid"			},
@@ -191,6 +196,12 @@ struct lc_locked_lock_t_ {
     unsigned int line;
     erts_lock_flags_t flags;
     erts_lock_options_t taken_options;
+    /*
+     * Pointer back to the lock instance if it exists or NULL for proc locks.
+     * If set, we use it to allow trylock of other lock instance
+     * but with identical lock order as an already locked lock.
+     */
+    erts_lc_lock_t *lck;
 };
 
 typedef struct {
@@ -404,6 +415,10 @@ new_locked_lock(lc_thread_t* thr,
     ll->line = line;
     ll->flags = lck->flags;
     ll->taken_options = options;
+    if ((lck->flags & ERTS_LOCK_FLAGS_MASK_TYPE) == ERTS_LOCK_FLAGS_TYPE_PROCLOCK)
+        ll->lck = NULL;
+    else
+        ll->lck = lck;
     return ll;
 }
 
@@ -707,6 +722,14 @@ erts_lc_get_lock_order_id(char *name)
     return (Sint16) -1;
 }
 
+static int
+lc_is_term_order(Sint16 id)
+{
+    return erts_lock_order[id].internal_order != NULL
+        && sys_strcmp(erts_lock_order[id].internal_order, "term") == 0;
+}
+
+
 static int compare_locked_by_id(lc_locked_lock_t *locked_lock, erts_lc_lock_t *comparand)
 {
     if(locked_lock->id < comparand->id) {
@@ -718,18 +741,23 @@ static int compare_locked_by_id(lc_locked_lock_t *locked_lock, erts_lc_lock_t *c
     return 0;
 }
 
-static int compare_locked_by_id_extra(lc_locked_lock_t *locked_lock, erts_lc_lock_t *comparand)
+static int compare_locked_by_id_extra(lc_locked_lock_t *ll, erts_lc_lock_t *comparand)
 {
-    int order = compare_locked_by_id(locked_lock, comparand);
+    int order = compare_locked_by_id(ll, comparand);
 
     if(order) {
         return order;
-    } else if(locked_lock->extra < comparand->extra) {
-        return -1;
-    } else if(locked_lock->extra > comparand->extra) {
-        return 1;
+    }
+    if (ll->flags & ERTS_LOCK_FLAGS_PROPERTY_TERM_ORDER) {
+        ASSERT(!is_header(ll->extra) && !is_header(comparand->extra));
+        return CMP(ll->extra, comparand->extra);
     }
 
+    if(ll->extra < comparand->extra) {
+        return -1;
+    } else if(ll->extra > comparand->extra) {
+        return 1;
+    }
     return 0;
 }
 
@@ -968,7 +996,8 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 	return 0;
     }
     else {
-	lc_locked_lock_t *tl_lck;
+        lc_locked_lock_t *ll;
+        int order;
 
 	ASSERT(thr->locked.last);
 
@@ -977,25 +1006,25 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 	    type_order_violation("trylocking ", thr, lck);
 #endif
 
-	if (thr->locked.last->id < lck->id
-	    || (thr->locked.last->id == lck->id
-		&& thr->locked.last->extra < lck->extra))
-	    return 0;
+        ll = thr->locked.last;
+        order = compare_locked_by_id_extra(ll, lck);
+
+	if (order < 0)
+            return 0;
 
 	/*
-	 * Lock order violation
+	 * TryLock order violation
 	 */
 
-
-	/* Check that we are not trying to lock this lock twice */
-	for (tl_lck = thr->locked.last; tl_lck; tl_lck = tl_lck->prev) {
-	    if (tl_lck->id < lck->id
-		|| (tl_lck->id == lck->id && tl_lck->extra <= lck->extra)) {
-		if (tl_lck->id == lck->id && tl_lck->extra == lck->extra)
-		    lock_twice("Trylocking", thr, lck, options);
-		break;
-	    }
-	}
+        /* Check that we are not trying to lock this lock twice */
+        do {
+            if (order == 0 && (ll->lck == lck || !ll->lck))
+                lock_twice("Trylocking", thr, lck, options);
+            ll = ll->prev;
+            if (!ll)
+                break;
+            order = compare_locked_by_id_extra(ll, lck);
+        } while (order >= 0);
 
 #ifndef ERTS_LC_ALLWAYS_FORCE_BUSY_TRYLOCK_ON_LOCK_ORDER_VIOLATION
 	/* We only force busy if a lock order violation would occur
@@ -1042,10 +1071,10 @@ void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t 
 #endif
 
 	for (tl_lck = thr->locked.last; tl_lck; tl_lck = tl_lck->prev) {
-	    if (tl_lck->id < lck->id
-		|| (tl_lck->id == lck->id && tl_lck->extra <= lck->extra)) {
-		if (tl_lck->id == lck->id && tl_lck->extra == lck->extra)
-		    lock_twice("Trylocking", thr, lck, options);
+            int order = compare_locked_by_id_extra(tl_lck, lck);
+	    if (order <= 0) {
+                if (order == 0 && (tl_lck->lck == lck || !tl_lck->lck))
+                    lock_twice("Trylocking", thr, lck, options);
 		if (locked) {
 		    ll->next = tl_lck->next;
 		    ll->prev = tl_lck;
@@ -1087,10 +1116,10 @@ void erts_lc_require_lock_flg(erts_lc_lock_t *lck, erts_lock_options_t options,
 	for (l_lck2 = thr->required.last;
 	     l_lck2;
 	     l_lck2 = l_lck2->prev) {
-	    if (l_lck2->id < lck->id
-		|| (l_lck2->id == lck->id && l_lck2->extra < lck->extra))
+            int order = compare_locked_by_id_extra(l_lck2, lck);
+	    if (order < 0)
 		break;
-	    else if (l_lck2->id == lck->id && l_lck2->extra == lck->extra)
+	    if (order == 0)
 		require_twice(thr, lck);
 	}
 	if (!l_lck2) {
@@ -1148,6 +1177,7 @@ void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
 {
     lc_thread_t *thr;
     lc_locked_lock_t *new_ll;
+    int order;
 
     if (lck->inited != ERTS_LC_INITITALIZED)
 	uninitialized_lock();
@@ -1163,10 +1193,10 @@ void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
 	thr->locked.last = thr->locked.first = new_ll;
         ASSERT(0 < lck->id && lck->id < ERTS_LOCK_ORDER_SIZE);
         thr->matrix.m[lck->id][0] = 1;
+        return;
     }
-    else if (thr->locked.last->id < lck->id
-	     || (thr->locked.last->id == lck->id
-		 && thr->locked.last->extra < lck->extra)) {
+    order = compare_locked_by_id_extra(thr->locked.last, lck);
+    if (order < 0) {
         lc_locked_lock_t* ll;
 	if (LOCK_IS_TYPE_ORDER_VIOLATION(lck->flags, thr->locked.last->flags)) {
 	    type_order_violation("locking ", thr, lck);
@@ -1184,7 +1214,7 @@ void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
 	thr->locked.last->next = new_ll;
 	thr->locked.last = new_ll;
     }
-    else if (thr->locked.last->id == lck->id && thr->locked.last->extra == lck->extra)
+    else if (order == 0)
 	lock_twice("Locking", thr, lck, options);
     else
 	lock_order_violation(thr, lck);
@@ -1296,7 +1326,6 @@ void
 erts_lc_init_lock(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags)
 {
     lck->id = erts_lc_get_lock_order_id(name);
-
     lck->extra = (UWord) &lck->extra;
     ASSERT(is_not_immed(lck->extra));
     lck->flags = flags;
@@ -1309,8 +1338,13 @@ erts_lc_init_lock_x(erts_lc_lock_t *lck, char *name, erts_lock_flags_t flags, Et
 {
     lck->id = erts_lc_get_lock_order_id(name);
     lck->extra = extra;
-    ASSERT(is_immed(lck->extra));
     lck->flags = flags;
+    if (lc_is_term_order(lck->id)) {
+        lck->flags |= ERTS_LOCK_FLAGS_PROPERTY_TERM_ORDER;
+        ASSERT(!is_header(lck->extra));
+    }
+    else
+        ASSERT(is_immed(lck->extra));
     lck->taken_options = 0;
     lck->inited = ERTS_LC_INITITALIZED;
 }

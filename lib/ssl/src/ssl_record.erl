@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -module(ssl_record).
 
 -include("ssl_record.hrl").
+-include("ssl_connection.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
@@ -39,13 +40,14 @@
 	 set_renegotiation_flag/2,
 	 set_client_verify_data/3,
 	 set_server_verify_data/3,
-	 empty_connection_state/2, initial_connection_state/2, record_protocol_role/1]).
+	 empty_connection_state/2, initial_connection_state/2, record_protocol_role/1,
+         step_encryption_state/1]).
 
 %% Compression
 -export([compress/3, uncompress/3, compressions/0]).
 
 %% Payload encryption/decryption
--export([cipher/4, decipher/4, cipher_aead/4, is_correct_mac/2]).
+-export([cipher/4, decipher/4, cipher_aead/4, decipher_aead/5, is_correct_mac/2, nonce_seed/3]).
 
 -export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
@@ -116,6 +118,22 @@ activate_pending_connection_state(#{current_write := Current,
     States#{current_write => NewCurrent,
 	    pending_write => NewPending
 	   }.
+
+%%--------------------------------------------------------------------
+-spec step_encryption_state(connection_states()) -> connection_states().
+%%
+%% Description: Activates the next encyrption state (e.g. handshake
+%% encryption).
+%%--------------------------------------------------------------------
+step_encryption_state(#state{connection_states =
+                                 #{pending_read := PendingRead,
+                                   pending_write := PendingWrite} = ConnStates} = State) ->
+    NewRead = PendingRead#{sequence_number => 0},
+    NewWrite = PendingWrite#{sequence_number => 0},
+    State#state{connection_states =
+                    ConnStates#{current_read => NewRead,
+                                current_write => NewWrite}}.
+
 
 %%--------------------------------------------------------------------
 -spec set_security_params(#security_parameters{}, #security_parameters{},
@@ -278,13 +296,12 @@ compress(?NULL, Data, CS) ->
     {Data, CS}.
 
 %%--------------------------------------------------------------------
--spec compressions() -> [binary()].
+-spec compressions() -> [integer()].
 %%
 %% Description: return a list of compressions supported (currently none)
 %%--------------------------------------------------------------------
 compressions() ->
-    [?byte(?NULL)].
-
+    [?NULL].
 
 %%====================================================================
 %% Payload encryption/decryption
@@ -306,22 +323,20 @@ cipher(Version, Fragment,
     {CipherFragment, CipherS1} =
 	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
     {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
-%% %%--------------------------------------------------------------------
-%% -spec cipher_aead(ssl_version(), iodata(), connection_state(), MacHash::binary()) ->
-%% 			 {CipherFragment::binary(), connection_state()}.
-%% %%
-%% %% Description: Payload encryption
+%%--------------------------------------------------------------------
+-spec cipher_aead(ssl_version(), iodata(), connection_state(), AAD::binary()) ->
+ 			 {CipherFragment::binary(), connection_state()}.
+
+%% Description: Payload encryption
 %% %%--------------------------------------------------------------------
 cipher_aead(Version, Fragment,
 	    #{cipher_state := CipherS0,
-	      sequence_number := SeqNo,
 	      security_parameters :=
 		  #security_parameters{bulk_cipher_algorithm =
 					   BulkCipherAlgo}
 	     } = WriteState0, AAD) ->
-    
     {CipherFragment, CipherS1} =
-	ssl_cipher:cipher_aead(BulkCipherAlgo, CipherS0, SeqNo, AAD, Fragment, Version),
+	cipher_aead(BulkCipherAlgo, CipherS0, AAD, Fragment, Version),
     {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
 
 %%--------------------------------------------------------------------
@@ -344,10 +359,39 @@ decipher(Version, CipherFragment,
 	#alert{} = Alert ->
 	    Alert
     end.
+%%--------------------------------------------------------------------
+-spec decipher_aead(ssl_cipher:cipher_enum(),  #cipher_state{}, 
+                    binary(), binary(), ssl_record:ssl_version()) ->
+			   {binary(), #cipher_state{}} | #alert{}.
+%%
+%% Description: Decrypts the data and checks the associated data (AAD) MAC using
+%% cipher described by cipher_enum() and updating the cipher state.
+%% Use for suites that use authenticated encryption with associated data (AEAD)
+%%-------------------------------------------------------------------
+decipher_aead(Type, #cipher_state{key = Key} = CipherState, AAD0, CipherFragment, _) ->
+    try
+        Nonce = decrypt_nonce(Type, CipherState, CipherFragment),
+        {AAD, CipherText, CipherTag} = aead_ciphertext_split(Type, CipherState, CipherFragment, AAD0),
+	case ssl_cipher:aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AAD) of
+	    Content when is_binary(Content) ->
+		{Content, CipherState};
+	    _ ->
+                ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
+	end
+    catch
+	_:_ ->
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
+    end.
+
+nonce_seed(?CHACHA20_POLY1305, Seed, CipherState) ->
+    ssl_cipher:nonce_seed(Seed, CipherState);
+nonce_seed(_,_, CipherState) ->
+    CipherState.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
 empty_connection_state(ConnectionEnd, BeastMitigation) ->
     SecParams = empty_security_params(ConnectionEnd),
     #{security_parameters => SecParams,
@@ -400,3 +444,37 @@ initial_security_params(ConnectionEnd) ->
 				     compression_algorithm = ?NULL},
     ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, SecParams).
 
+cipher_aead(?CHACHA20_POLY1305 = Type, #cipher_state{key=Key} = CipherState, AAD0, Fragment, _Version) ->
+    AAD = end_additional_data(AAD0, erlang:iolist_size(Fragment)),
+    Nonce = encrypt_nonce(Type, CipherState),
+    {Content, CipherTag} = ssl_cipher:aead_encrypt(Type, Key, Nonce, Fragment, AAD),
+    {<<Content/binary, CipherTag/binary>>, CipherState};
+cipher_aead(Type, #cipher_state{key=Key, nonce = ExplicitNonce} = CipherState, AAD0, Fragment, _Version) ->
+    AAD = end_additional_data(AAD0, erlang:iolist_size(Fragment)),
+    Nonce = encrypt_nonce(Type, CipherState),
+    {Content, CipherTag} = ssl_cipher:aead_encrypt(Type, Key, Nonce, Fragment, AAD),
+    {<<ExplicitNonce:64/integer, Content/binary, CipherTag/binary>>, CipherState#cipher_state{nonce = ExplicitNonce + 1}}.
+
+encrypt_nonce(?CHACHA20_POLY1305, #cipher_state{nonce = Nonce, iv = IV}) ->
+    crypto:exor(<<?UINT32(0), Nonce/binary>>, IV);
+encrypt_nonce(?AES_GCM, #cipher_state{iv = IV, nonce = ExplicitNonce}) ->
+    <<Salt:4/bytes, _/binary>> = IV,
+    <<Salt/binary, ExplicitNonce:64/integer>>.
+
+decrypt_nonce(?CHACHA20_POLY1305, #cipher_state{nonce = Nonce, iv = IV}, _) ->
+    crypto:exor(<<Nonce:96/unsigned-big-integer>>, IV);
+decrypt_nonce(?AES_GCM, #cipher_state{iv = <<Salt:4/bytes, _/binary>>}, <<ExplicitNonce:8/bytes, _/binary>>) ->   
+     <<Salt/binary, ExplicitNonce/binary>>.
+
+aead_ciphertext_split(?CHACHA20_POLY1305, #cipher_state{tag_len = Len}, CipherTextFragment, AAD) ->
+    CipherLen = size(CipherTextFragment) - Len,
+    <<CipherText:CipherLen/bytes, CipherTag:Len/bytes>> = CipherTextFragment,
+    {end_additional_data(AAD, CipherLen), CipherText, CipherTag};
+aead_ciphertext_split(?AES_GCM,  #cipher_state{tag_len = Len}, CipherTextFragment, AAD) ->
+    CipherLen = size(CipherTextFragment) - (Len + 8), %% 8 is length of explicit Nonce
+    << _:8/bytes, CipherText:CipherLen/bytes, CipherTag:Len/bytes>> = CipherTextFragment,
+    {end_additional_data(AAD, CipherLen), CipherText, CipherTag}.
+
+end_additional_data(AAD, Len) ->
+    <<AAD/binary, ?UINT16(Len)>>.
+        

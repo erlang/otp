@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
-      <year>2017</year>
+      <year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -74,16 +74,17 @@
     <marker id="Running an Erlang ssh Daemon"></marker>
     <title>Running an Erlang ssh Daemon</title>
 
-    <p>The <c>system_dir</c> option must be a directory containing a host
-    key file and it defaults to <c>/etc/ssh</c>. For details, see Section
-    Configuration Files in <seealso
-    marker="SSH_app">ssh(6)</seealso>.
+    <p>The
+    <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>
+    option must be a directory containing a host key file and it defaults to <c>/etc/ssh</c>.
+    For details, see Section Configuration Files in <seealso marker="SSH_app">ssh(6)</seealso>.
     </p>
 
     <note><p>Normally, the <c>/etc/ssh</c> directory is only readable by root.</p>
     </note>
 
-    <p>The option <c>user_dir</c> defaults to directory <c>users ~/.ssh</c>.</p>
+    <p>The option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+    defaults to directory <c>users ~/.ssh</c>.</p>
 
     <p><em>Step 1.</em> To run the example without root privileges,
     generate new keys and host keys:</p>

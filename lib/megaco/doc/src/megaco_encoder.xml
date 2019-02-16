@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_encoder.xml</file>
   </header>
-  <module>megaco_encoder</module>
+  <module since="">megaco_encoder</module>
   <modulesummary>Megaco encoder behaviour.</modulesummary>
   <description>
     <p>The following functions should be exported from a 
@@ -64,7 +64,7 @@ action_reply() = #'ActionReply'{}
 
   <funcs>
     <func>
-      <name>Module:encode_message(EncodingConfig, Version, Message) -> {ok, Bin} | Error</name>
+      <name since="">Module:encode_message(EncodingConfig, Version, Message) -> {ok, Bin} | Error</name>
       <fsummary>Encode a megaco message.</fsummary>
       <type>
         <v>EncodingConfig = list()</v>
@@ -81,7 +81,7 @@ action_reply() = #'ActionReply'{}
     </func>
 
     <func>
-      <name>Module:decode_message(EncodingConfig, Version, Bin) -> {ok, Message} | Error</name>
+      <name since="">Module:decode_message(EncodingConfig, Version, Bin) -> {ok, Message} | Error</name>
       <fsummary>Decode a megaco message.</fsummary>
       <type>
         <v>EncodingConfig = list()</v>
@@ -104,7 +104,7 @@ action_reply() = #'ActionReply'{}
     </func>
 
     <func>
-      <name>Module:decode_mini_message(EncodingConfig, Version, Bin) -> {ok, Message} | Error</name>
+      <name since="">Module:decode_mini_message(EncodingConfig, Version, Bin) -> {ok, Message} | Error</name>
       <fsummary>Perform a minimal decode of a megaco message.</fsummary>
       <type>
         <v>EncodingConfig = list()</v>
@@ -129,7 +129,7 @@ action_reply() = #'ActionReply'{}
     </func>
 
     <func>
-      <name>Module:encode_transaction(EncodingConfig, Version, Transaction) -> OK | Error</name>
+      <name since="">Module:encode_transaction(EncodingConfig, Version, Transaction) -> OK | Error</name>
       <fsummary>Encode a megaco transaction.</fsummary>
       <type>
         <v>EncodingConfig = list()</v>
@@ -155,7 +155,7 @@ action_reply() = #'ActionReply'{}
     </func>
 
     <func>
-      <name>Module:encode_action_requests(EncodingConfig, Version, ARs) -> OK | Error</name>
+      <name since="">Module:encode_action_requests(EncodingConfig, Version, ARs) -> OK | Error</name>
       <fsummary>Encode megaco action requests.</fsummary>
       <type>
         <v>EncodingConfig = list()</v>
@@ -181,7 +181,7 @@ action_reply() = #'ActionReply'{}
     </func>
 
     <func>
-      <name>Module:encode_action_reply(EncodingConfig, Version, AR) -> OK | Error</name>
+      <name since="">Module:encode_action_reply(EncodingConfig, Version, AR) -> OK | Error</name>
       <fsummary>Encode a megaco action reply.</fsummary>
       <type>
         <v>EncodingConfig = list()</v>

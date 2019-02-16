@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2005</year><year>2016</year>
+      <year>2005</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <rev></rev>
     <file>ssh_sftpd.sgml</file>
   </header>
-  <module>ssh_sftpd</module>
+  <module since="">ssh_sftpd</module>
   <modulesummary>Specifies the channel process to handle an SFTP subsystem.</modulesummary>
   <description>
     <p>Specifies a channel process to handle an SFTP subsystem.</p>
@@ -51,7 +51,7 @@
   </section>
   <funcs>
     <func>
-      <name>subsystem_spec(Options) -> subsystem_spec()</name>
+      <name since="">subsystem_spec(Options) -> subsystem_spec()</name>
       <fsummary>Returns the subsystem specification that allows an SSH daemon to handle the subsystem "sftp".</fsummary>
       <type>
 	<v>Options = [{Option, Value}]</v>

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,7 +90,8 @@ enum DbIterSafety {
     ITER_SAFE         /* No need to fixate at all */
 };
 #  define ITERATION_SAFETY(Proc,Tab) \
-    ((IS_TREE_TABLE((Tab)->common.status) || ONLY_WRITER(Proc,Tab)) ? ITER_SAFE \
+    ((IS_TREE_TABLE((Tab)->common.status) || IS_CATREE_TABLE((Tab)->common.status) \
+      || ONLY_WRITER(Proc,Tab)) ? ITER_SAFE                             \
      : (((Tab)->common.status & DB_FINE_LOCKED) ? ITER_UNSAFE : ITER_SAFE_LOCKED))
 
 #define DID_TRAP(P,Ret) (!is_value(Ret) && ((P)->freason == TRAP))
@@ -322,10 +323,10 @@ erts_db_make_tid(Process *c_p, DbTableCommon *tb)
 /* 
 ** The meta hash table of all NAMED ets tables
 */
-#  define META_NAME_TAB_LOCK_CNT 16
+#  define META_NAME_TAB_LOCK_CNT 256
 union {
     erts_rwmtx_t lck;
-    byte _cache_line_alignment[64];
+    byte align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_rwmtx_t))];
 }meta_name_tab_rwlocks[META_NAME_TAB_LOCK_CNT];
 static struct meta_name_tab_entry {
     union {
@@ -359,6 +360,7 @@ typedef enum {
 
 extern DbTableMethod db_hash;
 extern DbTableMethod db_tree;
+extern DbTableMethod db_catree;
 
 int user_requested_db_max_tabs;
 int erts_ets_realloc_always_moves;
@@ -407,21 +409,17 @@ static void
 free_dbtable(void *vtb)
 {
     DbTable *tb = (DbTable *) vtb;
-#ifdef HARDDEBUG
-	if (erts_atomic_read_nob(&tb->common.memory_size) != sizeof(DbTable)) {
-	    erts_fprintf(stderr, "ets: free_dbtable memory remain=%ld fix=%x\n",
-			 erts_atomic_read_nob(&tb->common.memory_size)-sizeof(DbTable),
-			 tb->common.fixations);
-	}
-#endif
-	erts_rwmtx_destroy(&tb->common.rwlock);
-	erts_mtx_destroy(&tb->common.fixlock);
-	ASSERT(is_immed(tb->common.heir_data));
 
-        if (tb->common.btid)
-            erts_bin_release(tb->common.btid);
+    ASSERT(erts_atomic_read_nob(&tb->common.memory_size) == sizeof(DbTable));
 
-	erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
+    erts_rwmtx_destroy(&tb->common.rwlock);
+    erts_mtx_destroy(&tb->common.fixlock);
+    ASSERT(is_immed(tb->common.heir_data));
+
+    if (tb->common.btid)
+        erts_bin_release(tb->common.btid);
+
+    erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
 }
 
 static void schedule_free_dbtable(DbTable* tb)
@@ -450,7 +448,7 @@ save_sched_table(Process *c_p, DbTable *tb)
     DbTable *first;
 
     ASSERT(esdp);
-    esdp->ets_tables.count++;
+    erts_atomic_inc_nob(&esdp->ets_tables.count);
     erts_refc_inc(&tb->common.refc, 1);
 
     first = esdp->ets_tables.clist;
@@ -474,8 +472,8 @@ remove_sched_table(ErtsSchedulerData *esdp, DbTable *tb)
     ASSERT(erts_get_ref_numbers_thr_id(ERTS_MAGIC_BIN_REFN(tb->common.btid))
            == (Uint32) esdp->no);
 
-    ASSERT(esdp->ets_tables.count > 0);
-    esdp->ets_tables.count--;
+    ASSERT(erts_atomic_read_nob(&esdp->ets_tables.count) > 0);
+    erts_atomic_dec_nob(&esdp->ets_tables.count);
 
     eaydp = ERTS_SCHED_AUX_YIELD_DATA(esdp, ets_all);
     if (eaydp->ongoing) {
@@ -1076,7 +1074,7 @@ BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_update_element_3);
 
     UseTmpHeap(2,BIF_P);
-    if (!(tb->common.status & (DB_SET | DB_ORDERED_SET))) {
+    if (!(tb->common.status & (DB_SET | DB_ORDERED_SET | DB_CA_ORDERED_SET))) {
 	goto bail_out;
     }
     if (is_tuple(BIF_ARG_3)) {
@@ -1165,7 +1163,7 @@ do_update_counter(Process *p, DbTable* tb,
 
     UseTmpHeap(5, p);
 
-    if (!(tb->common.status & (DB_SET | DB_ORDERED_SET))) {
+    if (!(tb->common.status & (DB_SET | DB_ORDERED_SET | DB_CA_ORDERED_SET))) {
 	goto bail_out;
     }
     if (is_integer(arg3)) { /* Incr */
@@ -1647,15 +1645,15 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	val = CAR(list_val(list));
 	if (val == am_bag) {
 	    status |= DB_BAG;
-	    status &= ~(DB_SET | DB_DUPLICATE_BAG | DB_ORDERED_SET);
+	    status &= ~(DB_SET | DB_DUPLICATE_BAG | DB_ORDERED_SET | DB_CA_ORDERED_SET);
 	}
 	else if (val == am_duplicate_bag) {
 	    status |= DB_DUPLICATE_BAG;
-	    status &= ~(DB_SET | DB_BAG | DB_ORDERED_SET);
+	    status &= ~(DB_SET | DB_BAG | DB_ORDERED_SET | DB_CA_ORDERED_SET);
 	}
 	else if (val == am_ordered_set) {
 	    status |= DB_ORDERED_SET;
-	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG);
+	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_CA_ORDERED_SET);
 	}
 	else if (is_tuple(val)) {
 	    Eterm *tp = tuple_val(val);
@@ -1716,7 +1714,13 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     if (is_not_nil(list)) { /* bad opt or not a well formed list */
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (IS_HASH_TABLE(status)) {
+    if (IS_TREE_TABLE(status) && is_fine_locked && !(status & DB_PRIVATE)) {
+        meth = &db_catree;
+        status |= DB_CA_ORDERED_SET;
+        status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_ORDERED_SET);
+        status |= DB_FINE_LOCKED;
+    }
+    else if (IS_HASH_TABLE(status)) {
 	meth = &db_hash;
 	if (is_fine_locked && !(status & DB_PRIVATE)) {
 	    status |= DB_FINE_LOCKED;
@@ -1776,9 +1780,11 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
         ret = make_tid(BIF_P, tb);
 
     save_sched_table(BIF_P, tb);
+    save_owned_table(BIF_P, tb);
 
     if (is_named && !insert_named_tab(BIF_ARG_1, tb, 0)) {
         tid_clear(BIF_P, tb);
+        delete_owned_table(BIF_P, tb);
 
 	db_lock(tb,LCK_WRITE);
 	free_heir_data(tb);
@@ -1789,7 +1795,6 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     }
     
     BIF_P->flags |= F_USING_DB; /* So we can remove tb if p dies */
-    save_owned_table(BIF_P, tb);
 
 #ifdef HARDDEBUG
     erts_fprintf(stderr,
@@ -1968,8 +1973,6 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
         save_owned_table(BIF_P, tb);
     }
 
-    tid_clear(BIF_P, tb);
-
     if (is_table_named(tb))
 	remove_named_tab(tb, 0);
     
@@ -1978,6 +1981,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     tb->common.heir = am_none;
 
     reds -= free_fixations_locked(BIF_P, tb);
+    tid_clear(BIF_P, tb);
     db_unlock(tb, LCK_WRITE);
 
     reds = free_table_continue(BIF_P, tb, reds);
@@ -2445,7 +2449,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
         ASSERT(!*tablepp);
 
         /* Max heap size needed... */
-        sz = esdp->ets_tables.count;
+        sz = erts_atomic_read_nob(&esdp->ets_tables.count);
         sz *= ERTS_MAGIC_REF_THING_SIZE + 2;
         sz += 3 + ERTS_REF_THING_SIZE;
         hfragp = new_message_buffer(sz);
@@ -2529,7 +2533,8 @@ erts_handle_yielded_ets_all_request(ErtsSchedulerData *esdp,
             if (!eaydp->queue)
                 return 0; /* All work completed! */
 
-            if (yc < ERTS_ETS_ALL_TB_YCNT_START && yc > esdp->ets_tables.count)
+            if (yc < ERTS_ETS_ALL_TB_YCNT_START &&
+                yc > erts_atomic_read_nob(&esdp->ets_tables.count))
                 return 1; /* Yield! */
 
             eaydp->ongoing = ongoing = eaydp->queue;
@@ -2607,7 +2612,6 @@ BIF_RETTYPE ets_internal_request_all_0(BIF_ALIST_0)
     handle_ets_all_request((void *) req);
     BIF_RET(ref);
 }
-
 
 /*
 ** db_slot(Db, Slot) -> [Items].
@@ -3490,7 +3494,11 @@ void init_db(ErtsDbSpinCount db_spin_count)
 		 db_max_tabs, ((Uint)1)<<SMALL_BITS);
     }
 
-    meta_name_tab_mask = (((Uint) 1)<<(bits-1)) - 1; /* At least half the size of main tab */
+    /*
+     * We don't have ony hard limit for number of tables anymore,                                                                            .
+     * but we use 'db_max_tabs' to determine size of name hash table.
+     */
+    meta_name_tab_mask = (((Uint) 1)<<bits) - 1;
     size = sizeof(struct meta_name_tab_entry)*(meta_name_tab_mask+1);
     meta_name_tab = erts_db_alloc_nt(ERTS_ALC_T_DB_TABLES, size);
     ERTS_ETS_MISC_MEM_ADD(size);
@@ -3502,30 +3510,31 @@ void init_db(ErtsDbSpinCount db_spin_count)
 
     db_initialize_hash();
     db_initialize_tree();
+    db_initialize_catree();
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_delete_continue_exp,
-			  am_ets, am_atom_put("delete_trap",11), 1,
+			  am_ets, ERTS_MAKE_AM("select_delete_trap"), 1,
 			  &ets_select_delete_trap_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_count_continue_exp,
-			  am_ets, am_atom_put("count_trap",11), 1,
+			  am_ets, ERTS_MAKE_AM("count_trap"), 1,
 			  &ets_select_count_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_replace_continue_exp,
-                          am_ets, am_atom_put("replace_trap",11), 1,
+                          am_ets, ERTS_MAKE_AM("replace_trap"), 1,
                           &ets_select_replace_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_select_continue_exp,
-			  am_ets, am_atom_put("select_trap",11), 1,
+			  am_ets, ERTS_MAKE_AM("select_trap"), 1,
 			  &ets_select_trap_1);
 
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&ets_delete_continue_exp,
-			  am_ets, am_atom_put("delete_trap",11), 1,
+			  am_ets, ERTS_MAKE_AM("delete_trap"), 1,
 			  &ets_delete_trap);
 }
 
@@ -3538,7 +3547,7 @@ erts_ets_sched_spec_data_init(ErtsSchedulerData *esdp)
     eaydp->tab = NULL;
     eaydp->queue = NULL;
     esdp->ets_tables.clist = NULL;
-    esdp->ets_tables.count = 0;
+    erts_atomic_init_nob(&esdp->ets_tables.count, 0);
 }
 
 
@@ -3643,6 +3652,7 @@ send_ets_transfer_message(Process *c_p, Process *proc,
         hd_copy = copy_struct(heir_data, hd_sz, &hp, ohp);
     sender = c_p->common.id;
     msg = TUPLE4(hp, am_ETS_TRANSFER, tid, sender, hd_copy);
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     erts_queue_proc_message(c_p, proc, *locks, mp, msg);
 }
 
@@ -3750,7 +3760,6 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
                 && give_away_to_heir(c_p, tb)) {
                 break;
             }
-            tid_clear(c_p, tb);
             /* Clear all access bits. */
             tb->common.status &= ~(DB_PROTECTED | DB_PUBLIC | DB_PRIVATE);
             tb->common.status |= DB_DELETE;
@@ -3760,6 +3769,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 
             free_heir_data(tb);
             reds -= free_fixations_locked(c_p, tb);
+            tid_clear(c_p, tb);
             db_unlock(tb, LCK_WRITE);
             state->op = FREE_OWNED_TABLE;
             break;
@@ -3907,7 +3917,7 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
     struct free_fixations_ctx* ctx = (struct free_fixations_ctx*) vctx;
     erts_aint_t diff;
 
-    ASSERT(!btid2tab(fix->tabs.btid));
+    ASSERT(btid2tab(fix->tabs.btid) == ctx->tb);
     ASSERT(fix->counter > 0);
     ASSERT(ctx->tb->common.status & DB_DELETE);
 
@@ -4109,6 +4119,8 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_duplicate_bag;
 	} else if (tb->common.status & DB_ORDERED_SET) {
 	    ret = am_ordered_set;
+	} else if (tb->common.status & DB_CA_ORDERED_SET) {
+	    ret = am_ordered_set;
 	} else { /*TT*/
 	    ASSERT(tb->common.status & DB_BAG);
 	    ret = am_bag;
@@ -4154,7 +4166,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
     else if (What == am_data) {
 	print_table(ERTS_PRINT_STDOUT, NULL, 1, tb);
 	ret = am_true;
-    } else if (What == am_atom_put("fixed",5)) { 
+    } else if (ERTS_IS_ATOM_STR("fixed",What)) {
 	if (IS_FIXED(tb))
 	    ret = am_true;
 	else
@@ -4206,7 +4218,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_false;
 	}
 	erts_mtx_unlock(&tb->common.fixlock);
-    } else if (What == am_atom_put("stats",5)) {
+    } else if (ERTS_IS_ATOM_STR("stats",What)) {
 	if (IS_HASH_TABLE(tb->common.status)) {
 	    FloatDef f;
 	    DbHashStats stats;
@@ -4235,9 +4247,20 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 			 make_small(stats.max_chain_len),
 			 make_small(stats.kept_items));
 	}
-	else {
+	else if (IS_CATREE_TABLE(tb->common.status)) {
+            DbCATreeStats stats;
+            Eterm* hp;
+
+            db_calc_stats_catree(&tb->catree, &stats);
+            hp = HAlloc(p, 4);
+            ret = TUPLE3(hp,
+                         make_small(stats.route_nodes),
+                         make_small(stats.base_nodes),
+                         make_small(stats.max_depth));
+
+        }
+        else
 	    ret = am_false;
-	}
     }
     return ret;
 }
@@ -4346,6 +4369,18 @@ erts_db_get_max_tabs()
     return db_max_tabs;
 }
 
+Uint erts_ets_table_count(void)
+{
+    Uint tb_count = 0;
+    Uint six;
+
+    for (six = 0; six < erts_no_schedulers; six++) {
+        ErtsSchedulerData *esdp = &erts_aligned_scheduler_data[six].esd;
+        tb_count += erts_atomic_read_nob(&esdp->ets_tables.count);
+    }
+    return tb_count;
+}
+
 /*
  * For testing of meta tables only.
  *
@@ -4392,6 +4427,12 @@ void erts_lcnt_enable_db_lock_count(DbTable *tb, int enable) {
 
     if(IS_HASH_TABLE(tb->common.status)) {
         erts_lcnt_enable_db_hash_lock_count(&tb->hash, enable);
+    } else if(IS_CATREE_TABLE(tb->common.status)) {
+        /* erts_lcnt_enable_db_catree_lock_count is not thread safe so
+           the table needs to get locked */
+        db_lock(tb, LCK_WRITE);
+        erts_lcnt_enable_db_catree_lock_count(&tb->catree, enable);
+        db_unlock(tb, LCK_WRITE);
     }
 }
 
@@ -4424,3 +4465,16 @@ void erts_lcnt_update_db_locks(int enable) {
 #ifdef ETS_DBG_FORCE_TRAP
 erts_aint_t erts_ets_dbg_force_trap = 0;
 #endif
+
+int erts_ets_force_split(Eterm tid, int on)
+{
+    DbTable* tb = tid2tab(tid);
+    if (!tb || !IS_CATREE_TABLE(tb->common.type))
+        return 0;
+
+    db_lock(tb, LCK_WRITE);
+    if (!(tb->common.status & DB_DELETE))
+        db_catree_force_split(&tb->catree, on);
+    db_unlock(tb, LCK_WRITE);
+    return 1;
+}

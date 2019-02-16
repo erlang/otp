@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1996-09-10</date>
     <rev>A</rev>
   </header>
-  <module>net_kernel</module>
+  <module since="">net_kernel</module>
   <modulesummary>Erlang networking kernel.</modulesummary>
   <description>
     <p>The net kernel is a system process, registered as
@@ -81,7 +81,7 @@ $ <input>erl -sname foobar</input></pre>
 
   <funcs>
     <func>
-      <name name="allow" arity="1"/>
+      <name name="allow" arity="1" since=""/>
       <fsummary>Permit access to a specified set of nodes</fsummary>
       <desc>
         <p>Permits access to the specified set of nodes.</p>
@@ -98,17 +98,19 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="connect_node" arity="1"/>
+      <name name="connect_node" arity="1" since=""/>
       <fsummary>Establish a connection to a node.</fsummary>
       <desc>
         <p>Establishes a connection to <c><anno>Node</anno></c>. Returns
-          <c>true</c> if successful, <c>false</c> if not, and <c>ignored</c>
-          if the local node is not alive.</p>
+          <c>true</c> if a connection was established or was already
+	  established or if <c><anno>Node</anno></c> is the local node
+	  itself. Returns <c>false</c> if the connection attempt failed, and
+	  <c>ignored</c> if the local node is not alive.</p>
       </desc>
     </func>
 
     <func>
-      <name name="get_net_ticktime" arity="0"/>
+      <name name="get_net_ticktime" arity="0" since=""/>
       <fsummary>Get <c>net_ticktime</c>.</fsummary>
       <desc>
         <p>Gets <c>net_ticktime</c> (see
@@ -129,7 +131,7 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="getopts" arity="2"/>
+      <name name="getopts" arity="2" since="OTP 19.1"/>
       <fsummary>Get distribution socket options.</fsummary>
       <desc>
         <p>Get one or more options for the distribution socket
@@ -144,8 +146,8 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="monitor_nodes" arity="1"/>
-      <name name="monitor_nodes" arity="2"/>
+      <name name="monitor_nodes" arity="1" since=""/>
+      <name name="monitor_nodes" arity="2" since=""/>
       <fsummary>Subscribe to node status change messages.</fsummary>
       <desc>
         <p>The calling process subscribes or unsubscribes to node
@@ -265,8 +267,8 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="set_net_ticktime" arity="1"/>
-      <name name="set_net_ticktime" arity="2"/>
+      <name name="set_net_ticktime" arity="1" since=""/>
+      <name name="set_net_ticktime" arity="2" since=""/>
       <fsummary>Set <c>net_ticktime</c>.</fsummary>
       <desc>
         <p>Sets <c>net_ticktime</c> (see
@@ -322,7 +324,7 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="setopts" arity="2"/>
+      <name name="setopts" arity="2" since="OTP 19.1"/>
       <fsummary>Set distribution socket options.</fsummary>
       <desc>
         <p>Set one or more options for distribution sockets.
@@ -343,9 +345,9 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name>start([Name]) -> {ok, pid()} | {error, Reason}</name>
-      <name>start([Name, NameType]) -> {ok, pid()} | {error, Reason}</name>
-      <name>start([Name, NameType, Ticktime]) -> {ok, pid()} | {error, Reason}</name>
+      <name since="">start([Name]) -> {ok, pid()} | {error, Reason}</name>
+      <name since="">start([Name, NameType]) -> {ok, pid()} | {error, Reason}</name>
+      <name since="">start([Name, NameType, Ticktime]) -> {ok, pid()} | {error, Reason}</name>
       <fsummary>Turn an Erlang runtime system into a distributed node.</fsummary>
       <type>
         <v>Name = atom()</v>
@@ -362,7 +364,7 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since=""/>
       <fsummary>Turn a node into a non-distributed Erlang runtime system.</fsummary>
       <desc>
         <p>Turns a distributed node into a non-distributed node. For

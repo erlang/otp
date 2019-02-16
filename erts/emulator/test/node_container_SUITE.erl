@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,7 +50,8 @@
          bad_nc/1,
          unique_pid/1,
          iter_max_procs/1,
-         magic_ref/1]).
+         magic_ref/1,
+         dist_entry_gc/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -58,7 +59,7 @@ suite() ->
 
 
 all() -> 
-    [term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
+    [dist_entry_gc, term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
      node_table_gc, dist_link_refc, dist_monitor_refc,
      node_controller_refc, ets_refc, match_spec_refc,
      timer_refc, pid_wrap, port_wrap, bad_nc,
@@ -894,6 +895,29 @@ magic_ref(Config) when is_list(Config) ->
     true = is_reference(MRef2),
     true = erts_debug:get_internal_state({magic_ref,MRef2}),
     ok.
+
+
+lost_pending_connection(Node) ->
+    _ = (catch erts_internal:new_connection(Node)),
+    ok.
+
+dist_entry_gc(Config) when is_list(Config) ->
+    Me = self(),
+    {ok, Node} = start_node(get_nodefirstname(), "+zdntgc 0"),
+    P = spawn_link(Node,
+                   fun () ->
+                           LostNode = list_to_atom("lost_pending_connection@" ++ hostname()),
+                           lost_pending_connection(LostNode),
+                           garbage_collect(), %% Could crash...
+                           Me ! {self(), ok}
+                   end),
+    receive
+        {P, ok} -> ok
+    end,
+    unlink(P),
+    stop_node(Node),
+    ok.
+
 %%
 %% -- Internal utils ---------------------------------------------------------
 %%
@@ -914,15 +938,11 @@ nc_refc_check(Node) when is_atom(Node) ->
     io:format("Starting reference count check of node ~w~n", [Node]),
     spawn_link(Node,
                fun () ->
-                       {{node_references, NodeRefs},
-                        {dist_references, DistRefs}} = ?ND_REFS,
-                       check_nd_refc({node(), erlang:system_info(creation)},
-                                     NodeRefs,
-                                     DistRefs,
-                                     fun (ErrMsg) ->
-                                             Self ! {Ref, ErrMsg, failed},
-                                             exit(normal)
-                                     end),
+                       erts_test_utils:check_node_dist(
+                         fun (ErrMsg) ->
+                                 Self ! {Ref, ErrMsg, failed},
+                                 exit(normal)
+                         end),
                        Self ! {Ref, succeded}
                end),
     receive
@@ -934,98 +954,26 @@ nc_refc_check(Node) when is_atom(Node) ->
             ok
     end.
 
-check_nd_refc({ThisNodeName, ThisCreation}, NodeRefs, DistRefs, Fail) ->
-    case catch begin
-                   check_refc(ThisNodeName,ThisCreation,"node table",NodeRefs),
-                   check_refc(ThisNodeName,ThisCreation,"dist table",DistRefs),
-                   ok
-               end of
-        ok ->
-            ok;
-        {'EXIT', Reason} ->
-            {Y,Mo,D} = date(),
-            {H,Mi,S} = time(),
-            ErrMsg = io_lib:format("~n"
-                                   "*** Reference count check of node ~w "
-                                   "failed (~p) at ~w~w~w ~w:~w:~w~n"
-                                   "*** Node table references:~n ~p~n"
-                                   "*** Dist table references:~n ~p~n",
-                                   [node(), Reason, Y, Mo, D, H, Mi, S,
-                                    NodeRefs, DistRefs]),
-            Fail(lists:flatten(ErrMsg))
-    end.
-
-
-check_refc(ThisNodeName,ThisCreation,Table,EntryList) when is_list(EntryList) ->
-    lists:foreach(
-      fun ({Entry, Refc, ReferrerList}) ->
-              {DelayedDeleteTimer,
-               FoundRefs} =
-              lists:foldl(
-                fun ({Referrer, ReferencesList}, {DDT, A1}) ->
-                        {case Referrer of
-                             {system,delayed_delete_timer} ->
-                                 true;
-                             {system,thread_progress_delete_timer} ->
-                                 true;
-                             _ ->
-                                 DDT
-                         end,
-                         A1 + lists:foldl(fun ({_T,Rs},A2) ->
-                                                  A2+Rs
-                                          end,
-                                          0,
-                                          ReferencesList)}
-                end,
-                {false, 0},
-                ReferrerList),
-
-              %% Reference count equals found references?
-              case {Refc, FoundRefs, DelayedDeleteTimer} of
-                  {X, X, _} ->
-                      ok;
-                  {0, 1, true} ->
-                      ok;
-                  _ ->
-                      exit({invalid_reference_count, Table, Entry})
-              end,
-
-              %% All entries in table referred to?
-              case {Entry, Refc} of
-                  {ThisNodeName, 0} -> ok;
-                  {{ThisNodeName, ThisCreation}, 0} -> ok;
-                  {_, 0} when DelayedDeleteTimer == false ->
-                      exit({not_referred_entry_in_table, Table, Entry});
-                  {_, _} -> ok 
-              end
-
-      end,
-      EntryList),
-    ok.
-
 get_node_references({NodeName, Creation} = Node) when is_atom(NodeName),
                                                       is_integer(Creation) ->
     {{node_references, NodeRefs},
      {dist_references, DistRefs}} = ?ND_REFS,
-    check_nd_refc({node(), erlang:system_info(creation)},
-                  NodeRefs,
-                  DistRefs,
-                  fun (ErrMsg) ->
-                          io:format("~s", [ErrMsg]),
-                          ct:fail(reference_count_check_failed)
-                  end),
+    erts_test_utils:check_node_dist(
+      fun (ErrMsg) ->
+              io:format("~s", [ErrMsg]),
+              ct:fail(reference_count_check_failed)
+      end,
+      NodeRefs, DistRefs),
     find_references(Node, NodeRefs).
 
 get_dist_references(NodeName) when is_atom(NodeName) ->
     {{node_references, NodeRefs},
      {dist_references, DistRefs}} = ?ND_REFS,
-    check_nd_refc({node(), erlang:system_info(creation)},
-                  NodeRefs,
-                  DistRefs,
-                  fun (ErrMsg) ->
-                          io:format("~s", [ErrMsg]),
-                          ct:fail(reference_count_check_failed)
-                  end),
+    erts_test_utils:check_node_dist(fun (ErrMsg) ->
+                                            io:format("~s", [ErrMsg]),
+                                            ct:fail(reference_count_check_failed)
+                                    end,
+                                    NodeRefs, DistRefs),
     find_references(NodeName, DistRefs).
 
 find_references(N, NRefList) ->
@@ -1114,133 +1062,15 @@ get_nodename() ->
                  ++ "@"
                  ++ hostname()).
 
-
-
--define(VERSION_MAGIC,       131).
-
--define(ATOM_EXT,            100).
--define(REFERENCE_EXT,       101).
--define(PORT_EXT,            102).
--define(PID_EXT,             103).
--define(NEW_REFERENCE_EXT,   114).
--define(NEW_PID_EXT,         $X).
--define(NEW_PORT_EXT,        $Y).
--define(NEWER_REFERENCE_EXT, $Z).
-
-uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
-    [(Uint bsr 24) band 16#ff,
-     (Uint bsr 16) band 16#ff,
-     (Uint bsr 8) band 16#ff,
-     Uint band 16#ff];
-uint32_be(Uint) ->
-    exit({badarg, uint32_be, [Uint]}).
-
-
-uint16_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 16 ->
-    [(Uint bsr 8) band 16#ff,
-     Uint band 16#ff];
-uint16_be(Uint) ->
-    exit({badarg, uint16_be, [Uint]}).
-
-uint8(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 8 ->
-    Uint band 16#ff;
-uint8(Uint) ->
-    exit({badarg, uint8, [Uint]}).
-
-
-pid_tag(bad_creation) -> ?PID_EXT;
-pid_tag(Creation) when Creation =< 3 -> ?PID_EXT;
-pid_tag(_Creation) -> ?NEW_PID_EXT.
-
-enc_creation(bad_creation) -> uint8(4);
-enc_creation(Creation) when Creation =< 3 -> uint8(Creation);
-enc_creation(Creation) -> uint32_be(Creation).
-
-mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
-    mk_pid({atom_to_list(NodeName), Creation}, Number, Serial);
 mk_pid({NodeName, Creation}, Number, Serial) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      pid_tag(Creation),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      uint32_be(Number),
-					      uint32_be(Serial),
-					      enc_creation(Creation)])) of
-	Pid when is_pid(Pid) ->
-	    Pid;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_pid, [{NodeName, Creation}, Number, Serial]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
-    end.
+    erts_test_utils:mk_ext_pid({NodeName, Creation}, Number, Serial).
 
-port_tag(bad_creation) -> ?PORT_EXT;
-port_tag(Creation) when Creation =< 3 -> ?PORT_EXT;
-port_tag(_Creation) -> ?NEW_PORT_EXT.
-
-mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
-    mk_port({atom_to_list(NodeName), Creation}, Number);
 mk_port({NodeName, Creation}, Number) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      port_tag(Creation),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      uint32_be(Number),
-					      enc_creation(Creation)])) of
-	Port when is_port(Port) ->
-	    Port;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_port, [{NodeName, Creation}, Number]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
-    end.
+    erts_test_utils:mk_ext_port({NodeName, Creation}, Number).
 
-ref_tag(bad_creation) -> ?NEW_REFERENCE_EXT;
-ref_tag(Creation) when Creation =< 3 -> ?NEW_REFERENCE_EXT;
-ref_tag(_Creation) -> ?NEWER_REFERENCE_EXT.
+mk_ref({NodeName, Creation}, Numbers) ->
+    erts_test_utils:mk_ext_ref({NodeName, Creation}, Numbers).
 
-mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
-					   is_list(Numbers) ->
-    mk_ref({atom_to_list(NodeName), Creation}, Numbers);
-mk_ref({NodeName, Creation}, [Number]) when is_list(NodeName),
-					    Creation =< 3,
-					    is_integer(Number) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?REFERENCE_EXT,
-                                              ?ATOM_EXT,
-                                              uint16_be(length(NodeName)),
-                                              NodeName,
-                                              uint32_be(Number),
-                                              uint8(Creation)])) of
-        Ref when is_reference(Ref) ->
-            Ref;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_ref, [{NodeName, Creation}, [Number]]});
-        Other ->
-            exit({unexpected_binary_to_term_result, Other})
-    end;
-mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
-					   is_list(Numbers) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      ref_tag(Creation),
-					      uint16_be(length(Numbers)),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      enc_creation(Creation),
-					      lists:map(fun (N) ->
-								uint32_be(N)
-							end,
-							Numbers)])) of
-	Ref when is_reference(Ref) ->
-	    Ref;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, Numbers]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
-    end.
 
 exec_loop() ->
     receive

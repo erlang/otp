@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -161,6 +161,7 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.000",1.0,   [{decimals,   3}]),
     test_fts("1.0",1.0, [{decimals, 1}]),
     test_fts("1.0",1.0, [{decimals, 3}, compact]),
+    test_fts("10",10.0, [{decimals, 0}, compact]),
     test_fts("1.12",1.123, [{decimals, 2}]),
     test_fts("1.123",1.123, [{decimals, 3}]),
     test_fts("1.123",1.123, [{decimals, 3}, compact]),
@@ -503,6 +504,10 @@ t_integer_to_string(Config) when is_list(Config) ->
     test_its("A", 10, 16),
     test_its("D4BE", 54462, 16),
     test_its("-D4BE", -54462, 16),
+    test_its("FFFFFFFFFF", 1099511627775, 16),
+    test_its("123456789ABCDEF123456789ABCDEF123456789ABCDEF",
+             108977460683796539709587792812439445667270661579197935,
+             16),
 
     lists:foreach(fun(Value) ->
 			  {'EXIT', {badarg, _}} =
@@ -514,12 +519,14 @@ t_integer_to_string(Config) when is_list(Config) ->
     ok.
 
 test_its(List,Int) ->
-    Int = list_to_integer(List),
-    Int = binary_to_integer(list_to_binary(List)).
+    List = integer_to_list(Int),
+    Binary = list_to_binary(List),
+    Binary = integer_to_binary(Int).
 
 test_its(List,Int,Base) ->
-    Int = list_to_integer(List, Base),
-    Int = binary_to_integer(list_to_binary(List), Base).
+    List = integer_to_list(Int, Base),
+    Binary = list_to_binary(List),
+    Binary = integer_to_binary(Int, Base).
 
 %% Tests binary_to_integer/1.
 

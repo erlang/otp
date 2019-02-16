@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,9 +91,9 @@ init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, server
     end;
 init_certificates(Cert, Config, _, _) ->
     {ok, Config#{own_certificate => Cert}}.
-init_private_key(_, #{algorithm := Alg} = Key, <<>>, _Password, _Client) when Alg == ecdsa;
-                                                                              Alg == rsa;
-                                                                              Alg == dss ->
+init_private_key(_, #{algorithm := Alg} = Key, _, _Password, _Client) when Alg == ecdsa;
+                                                                           Alg == rsa;
+                                                                           Alg == dss ->
     case maps:is_key(engine, Key) andalso maps:is_key(key_id, Key) of
         true ->
             Key;

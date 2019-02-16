@@ -81,9 +81,9 @@ message_1(el2hlt) -> <<"level 2 halted">>;
 message_1(el2nsync) -> <<"level 2 not synchronized">>;
 message_1(el3hlt) -> <<"level 3 halted">>;
 message_1(el3rst) -> <<"level 3 reset">>;
-message_1(elibacc) -> <<"can not access a needed shared library">>;
+message_1(elibacc) -> <<"cannot access a needed shared library">>;
 message_1(elibbad) -> <<"accessing a corrupted shared library">>;
-message_1(elibexec) -> <<"can not exec a shared library directly">>;
+message_1(elibexec) -> <<"cannot exec a shared library directly">>;
 message_1(elibmax) ->
     <<"attempting to link in more shared libraries than system limit">>;
 message_1(elibscn) -> <<".lib section in a.out corrupted">>;

@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp_standard_mib.xml</file>
   </header>
-  <module>snmp_standard_mib</module>
+  <module since="">snmp_standard_mib</module>
   <modulesummary>Instrumentation Functions for STANDARD-MIB and SNMPv2-MIB</modulesummary>
   <description>
     <p>The module <c>snmp_standard_mib</c> implements the instrumentation functions for the
@@ -42,7 +42,7 @@
   </description>
   <funcs>
     <func>
-      <name>configure(ConfDir) -> void()</name>
+      <name since="">configure(ConfDir) -> void()</name>
       <fsummary>Configure the STANDARD-MIB and SNMPv2-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -71,8 +71,8 @@
       </desc>
     </func>
     <func>
-      <name>inc(Name) -> void()</name>
-      <name>inc(Name, N) -> void()</name>
+      <name since="">inc(Name) -> void()</name>
+      <name since="">inc(Name, N) -> void()</name>
       <fsummary>Increment a variable in the MIB</fsummary>
       <type>
         <v>Name = atom()</v>
@@ -84,7 +84,7 @@
       </desc>
     </func>
     <func>
-      <name>reconfigure(ConfDir) -> void()</name>
+      <name since="">reconfigure(ConfDir) -> void()</name>
       <fsummary>Configure the STANDARD-MIB and SNMPv2-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -114,14 +114,14 @@
       </desc>
     </func>
     <func>
-      <name>reset() -> void()</name>
+      <name since="">reset() -> void()</name>
       <fsummary>Reset all <c>snmp</c>counters to 0</fsummary>
       <desc>
         <p>Resets all <c>snmp</c> counters to 0.</p>
       </desc>
     </func>
     <func>
-      <name>sys_up_time() -> Time</name>
+      <name since="">sys_up_time() -> Time</name>
       <fsummary>Get the system up time</fsummary>
       <type>
         <v>Time = int()</v>

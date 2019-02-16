@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp_pdus.xml</file>
   </header>
-  <module>snmp_pdus</module>
+  <module since="">snmp_pdus</module>
   <modulesummary>Encode and Decode Functions for SNMP PDUs</modulesummary>
   <description>
     <p>RFC1157, RFC1905 and/or RFC2272 should be studied carefully
@@ -55,7 +55,7 @@
   </description>
   <funcs>
     <func>
-      <name>dec_message([byte()]) -> Message</name>
+      <name since="">dec_message([byte()]) -> Message</name>
       <fsummary>Decode an SNMP Message</fsummary>
       <type>
         <v>Message = #message</v>
@@ -71,7 +71,7 @@
       </desc>
     </func>
     <func>
-      <name>dec_message_only([byte()]) -> Message</name>
+      <name since="">dec_message_only([byte()]) -> Message</name>
       <fsummary>Decode an SNMP Message, but not the data part</fsummary>
       <type>
         <v>Message = #message</v>
@@ -84,7 +84,7 @@
       </desc>
     </func>
     <func>
-      <name>dec_pdu([byte()]) -> Pdu</name>
+      <name since="">dec_pdu([byte()]) -> Pdu</name>
       <fsummary>Decode an SNMP Pdu</fsummary>
       <type>
         <v>Pdu = #pdu</v>
@@ -94,7 +94,7 @@
       </desc>
     </func>
     <func>
-      <name>dec_scoped_pdu([byte()]) -> ScopedPdu</name>
+      <name since="">dec_scoped_pdu([byte()]) -> ScopedPdu</name>
       <fsummary>Decode an SNMP ScopedPdu</fsummary>
       <type>
         <v>ScopedPdu = #scoped_pdu</v>
@@ -104,7 +104,7 @@
       </desc>
     </func>
     <func>
-      <name>dec_scoped_pdu_data([byte()]) -> ScopedPduData</name>
+      <name since="">dec_scoped_pdu_data([byte()]) -> ScopedPduData</name>
       <fsummary>Decode an SNMP ScopedPduData</fsummary>
       <type>
         <v>ScopedPduData = #scoped_pdu | EncryptedPDU</v>
@@ -116,7 +116,7 @@
       </desc>
     </func>
     <func>
-      <name>dec_usm_security_parameters([byte()]) -> UsmSecParams</name>
+      <name since="">dec_usm_security_parameters([byte()]) -> UsmSecParams</name>
       <fsummary>Decode SNMP UsmSecurityParameters</fsummary>
       <type>
         <v>UsmSecParams = #usmSecurityParameters</v>
@@ -126,7 +126,7 @@
       </desc>
     </func>
     <func>
-      <name>enc_encrypted_scoped_pdu(EncryptedScopedPdu) -> [byte()]</name>
+      <name since="">enc_encrypted_scoped_pdu(EncryptedScopedPdu) -> [byte()]</name>
       <fsummary>Encode an encrypted SNMP scopedPDU</fsummary>
       <type>
         <v>EncryptedScopedPdu = [byte()]</v>
@@ -142,7 +142,7 @@
       </desc>
     </func>
     <func>
-      <name>enc_message(Message) -> [byte()]</name>
+      <name since="">enc_message(Message) -> [byte()]</name>
       <fsummary>Encode an SNMP Message</fsummary>
       <type>
         <v>Message = #message</v>
@@ -152,7 +152,7 @@
       </desc>
     </func>
     <func>
-      <name>enc_message_only(Message) -> [byte()]</name>
+      <name since="">enc_message_only(Message) -> [byte()]</name>
       <fsummary>Encode an SNMP Message, but not the data part</fsummary>
       <type>
         <v>Message = #message</v>
@@ -166,7 +166,7 @@
       </desc>
     </func>
     <func>
-      <name>enc_pdu(Pd) -> [byte()]</name>
+      <name since="">enc_pdu(Pd) -> [byte()]</name>
       <fsummary>Encode an SNMP Pdu</fsummary>
       <type>
         <v>Pdu = #pdu</v>
@@ -176,7 +176,7 @@
       </desc>
     </func>
     <func>
-      <name>enc_scoped_pdu(ScopedPdu) -> [byte()]</name>
+      <name since="">enc_scoped_pdu(ScopedPdu) -> [byte()]</name>
       <fsummary>Encode an SNMP scopedPDU</fsummary>
       <type>
         <v>ScopedPdu = #scoped_pdu</v>
@@ -190,7 +190,7 @@
       </desc>
     </func>
     <func>
-      <name>enc_usm_security_parameters(UsmSecParams) -> [byte()]</name>
+      <name since="">enc_usm_security_parameters(UsmSecParams) -> [byte()]</name>
       <fsummary>Encode SNMP UsmSecurityParameters</fsummary>
       <type>
         <v>UsmSecParams = #usmSecurityParameters</v>

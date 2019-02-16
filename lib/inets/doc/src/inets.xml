@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2016</year>
+      <year>2007</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>inets</module>
+  <module since="">inets</module>
   <modulesummary>The Inets services API.</modulesummary>
   <description>
     <p>This module provides the most basic API to the 
@@ -51,7 +51,7 @@
 
   <funcs>
     <func>
-      <name>services() -> [{Service, Pid}]</name>
+      <name since="">services() -> [{Service, Pid}]</name>
       <fsummary>Returns a list of currently running services.</fsummary>
       <type>
         <v>Service = service()</v>
@@ -68,7 +68,7 @@
     </func>
 
     <func>
-      <name>services_info() -> [{Service, Pid, Info}]</name>
+      <name since="">services_info() -> [{Service, Pid, Info}]</name>
       <fsummary>Returns a list of currently running services where
       each service is described by an <c>[{Option, Value}]</c>
       list.</fsummary>
@@ -91,7 +91,7 @@
     </func>
     
     <func>
-      <name>service_names() -> [Service] </name>
+      <name since="">service_names() -> [Service] </name>
       <fsummary>Returns a list of available service names.</fsummary>
       <type>
 	<v>Service = service()</v>
@@ -104,8 +104,8 @@
     </func>
     
     <func>
-      <name>start() -> </name>
-      <name>start(Type) -> ok | {error, Reason}</name>
+      <name since="">start() -> </name>
+      <name since="">start(Type) -> ok | {error, Reason}</name>
       <fsummary>Starts the <c>Inets</c> application.</fsummary>
       <type>
         <v>Type = permanent | transient | temporary</v>
@@ -120,8 +120,8 @@
     </func>
 
     <func>
-      <name>start(Service, ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
-      <name>start(Service, ServiceConfig, How) -> {ok, Pid} | {error, Reason}</name>
+      <name since="">start(Service, ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
+      <name since="">start(Service, ServiceConfig, How) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Dynamically starts an <c>Inets</c>
       service after the <c>Inets</c> application has been started.</fsummary>
       <type>
@@ -156,7 +156,7 @@
     </func>
 
      <func>
-      <name>stop() -> ok </name>
+      <name since="">stop() -> ok </name>
       <fsummary>Stops the <c>Inets</c> application.</fsummary>
       <desc>
         <p>Stops the <c>Inets</c> application. See also
@@ -167,7 +167,7 @@
     </func>
     
     <func>
-      <name>stop(Service, Reference) -> ok | {error, Reason} </name>
+      <name since="">stop(Service, Reference) -> ok | {error, Reason} </name>
       <fsummary>Stops a started service of the <c>Inets</c> application or takes
           down a <c>stand_alone </c>service gracefully.</fsummary>
       <type>

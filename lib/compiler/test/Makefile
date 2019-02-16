@@ -14,6 +14,7 @@ MODULES= \
 	beam_except_SUITE \
 	beam_jump_SUITE \
 	beam_reorder_SUITE \
+	beam_ssa_SUITE \
 	beam_type_SUITE \
 	beam_utils_SUITE \
 	bif_SUITE \
@@ -52,6 +53,7 @@ NO_OPT= \
 	beam_except \
 	beam_jump \
 	beam_reorder \
+	beam_ssa \
 	beam_type \
 	beam_utils \
 	bif \
@@ -75,6 +77,7 @@ INLINE= \
 	andor \
 	apply \
 	beam_block \
+	beam_ssa \
 	beam_utils \
 	bif \
 	bs_bincomp \
@@ -94,9 +97,15 @@ INLINE= \
 	receive \
 	record
 
+R21= \
+        bs_construct \
+        bs_match
+
 CORE_MODULES = \
 	lfe_andor_SUITE \
 	lfe_guard_SUITE
+
+NO_MOD_OPT = $(NO_OPT)
 
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
@@ -104,6 +113,10 @@ POST_OPT_MODULES= $(NO_OPT:%=%_post_opt_SUITE)
 POST_OPT_ERL_FILES= $(POST_OPT_MODULES:%=%.erl)
 INLINE_MODULES= $(INLINE:%=%_inline_SUITE)
 INLINE_ERL_FILES= $(INLINE_MODULES:%=%.erl)
+R21_MODULES= $(R21:%=%_r21_SUITE)
+R21_ERL_FILES= $(R21_MODULES:%=%.erl)
+NO_MOD_OPT_MODULES= $(NO_MOD_OPT:%=%_no_module_opt_SUITE)
+NO_MOD_OPT_ERL_FILES= $(NO_MOD_OPT_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
 CORE_FILES= $(CORE_MODULES:%=%.core)
@@ -124,7 +137,7 @@ RELSYSDIR = $(RELEASE_PATH)/compiler_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += +clint +clint0
+ERL_COMPILE_FLAGS += +clint +clint0 +ssalint
 
 EBIN = .
 
@@ -132,15 +145,21 @@ EBIN = .
 # Targets
 # ----------------------------------------------------
 
-make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(INLINE_ERL_FILES)
+make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
+  $(INLINE_ERL_FILES) $(R21_ERL_FILES) $(NO_MOD_OPT_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt $(ERL_COMPILE_FLAGS) \
+	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt \
+	+no_ssa_opt +no_recv_opt $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(POST_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +inline $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(INLINE_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +r21 $(ERL_COMPILE_FLAGS) \
+	-o$(EBIN) $(R21_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +no_module_opt $(ERL_COMPILE_FLAGS) \
+	-o$(EBIN) $(NO_MOD_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +from_core $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(CORE_MODULES) >> $(EMAKEFILE)
 
@@ -167,6 +186,12 @@ docs:
 %_inline_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
+%_r21_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
+%_no_module_opt_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -179,7 +204,8 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) compiler.spec compiler.cover \
 		$(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
-		$(INLINE_ERL_FILES) "$(RELSYSDIR)"
+		$(INLINE_ERL_FILES) $(R21_ERL_FILES) \
+		$(NO_MOD_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(CORE_FILES) "$(RELSYSDIR)"
 	for file in $(ERL_DUMMY_FILES); do \
 	    module=`basename $$file .erl`; \

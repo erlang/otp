@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework Utilities.
+%%% Common Test Framework Utilities.
 %%%
-%%% <p>This is a support module for the Common Test Framework. It
+%%% This is a support module for the Common Test Framework. It
 %%% implements the process ct_util_server which acts like a data
-%%% holder for suite, configuration and connection data.</p>
+%%% holder for suite, configuration and connection data.
 %%%
 -module(ct_util).
 
@@ -83,20 +83,20 @@
 %%%-----------------------------------------------------------------
 start() ->
     start(normal, ".", ?default_verbosity).
-%%% @spec start(Mode) -> Pid | exit(Error)
+%%% -spec start(Mode) -> Pid | exit(Error)
 %%%       Mode = normal | interactive
 %%%       Pid = pid()
 %%%
-%%% @doc Start start the ct_util_server process 
+%%% Start start the ct_util_server process
 %%% (tool-internal use only).
 %%%
-%%% <p>This function is called from ct_run.erl. It starts and initiates
-%%% the <code>ct_util_server</code></p>
+%%% This function is called from ct_run.erl. It starts and initiates
+%%% the ct_util_server
 %%% 
-%%% <p>Returns the process identity of the
-%%% <code>ct_util_server</code>.</p>
+%%% Returns the process identity of the
+%%% ct_util_server.
 %%%
-%%% @see ct
+%%% See ct.
 start(LogDir) when is_list(LogDir) ->
     start(normal, LogDir, ?default_verbosity);
 start(Mode) ->
@@ -192,7 +192,10 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	    ok
     end,
 
-    ct_default_gl:start_link(group_leader()),
+    case ct_default_gl:start_link(group_leader()) of
+        {ok, _} -> ok;
+        ignore -> ok
+    end,
 
     {StartTime,TestLogDir} = ct_logs:init(Mode, Verbosity),
 
@@ -520,19 +523,19 @@ get_key_from_name(Name)->
     ct_config:get_key_from_name(Name).
 
 %%%-----------------------------------------------------------------
-%%% @spec register_connection(TargetName,Address,Callback,Handle) -> 
+%%% -spec register_connection(TargetName,Address,Callback,Handle) ->
 %%%                                              ok | {error,Reason}
 %%%      TargetName = ct:target_name()
 %%%      Address = term()
 %%%      Callback = atom()
 %%%      Handle = term
 %%%
-%%% @doc Register a new connection (tool-internal use only).
+%%% Register a new connection (tool-internal use only).
 %%%
-%%% <p>This function can be called when a new connection is
+%%% This function can be called when a new connection is
 %%% established. The connection data is stored in the connection
 %%% table, and ct_util will close all registered connections when the
-%%% test is finished by calling <code>Callback:close/1</code>.</p>
+%%% test is finished by calling Callback:close/1.
 register_connection(TargetName,Address,Callback,Handle) ->
     %% If TargetName is a registered alias for a config
     %% variable, use it as reference for the connection,
@@ -553,28 +556,28 @@ register_connection(TargetName,Address,Callback,Handle) ->
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec unregister_connection(Handle) -> ok
+%%% -spec unregister_connection(Handle) -> ok
 %%%      Handle = term
 %%%
-%%% @doc Unregister a connection (tool-internal use only).
+%%% Unregister a connection (tool-internal use only).
 %%%
-%%% <p>This function should be called when a registered connection is
+%%% This function should be called when a registered connection is
 %%% closed. It removes the connection data from the connection
-%%% table.</p>
+%%% table.
 unregister_connection(Handle) ->
     ets:delete(?conn_table,Handle),
     ok.
 
 
 %%%-----------------------------------------------------------------
-%%% @spec does_connection_exist(TargetName,Address,Callback) -> 
+%%% -spec does_connection_exist(TargetName,Address,Callback) ->
 %%%                                              {ok,Handle} | false
 %%%      TargetName = ct:target_name()
 %%%      Address = address
 %%%      Callback = atom()
 %%%      Handle = term()
 %%%
-%%% @doc Check if a connection already exists.
+%%% Check if a connection already exists.
 does_connection_exist(TargetName,Address,Callback) ->
     case ct_config:get_key_from_name(TargetName) of
 	{ok,_Key} ->
@@ -594,7 +597,7 @@ does_connection_exist(TargetName,Address,Callback) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec get_connection(TargetName,Callback) -> 
+%%% -spec get_connection(TargetName,Callback) ->
 %%%                                {ok,Connection} | {error,Reason}
 %%%      TargetName = ct:target_name()
 %%%      Callback = atom()
@@ -602,8 +605,8 @@ does_connection_exist(TargetName,Address,Callback) ->
 %%%      Handle = term()
 %%%      Address = term()
 %%%
-%%% @doc Return the connection for <code>Callback</code> on the
-%%% given target (<code>TargetName</code>).
+%%% Return the connection for Callback on the
+%%% given target (TargetName).
 get_connection(TargetName,Callback) ->
     %% check that TargetName is a registered alias
     case ct_config:get_key_from_name(TargetName) of
@@ -624,7 +627,7 @@ get_connection(TargetName,Callback) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec get_connections(ConnPid) -> 
+%%% -spec get_connections(ConnPid) ->
 %%%                                {ok,Connections} | {error,Reason}
 %%%      Connections = [Connection]
 %%%      Connection = {TargetName,Handle,Callback,Address}
@@ -633,8 +636,8 @@ get_connection(TargetName,Callback) ->
 %%%      Callback = atom()
 %%%      Address = term()
 %%%
-%%% @doc Get data for all connections associated with a particular
-%%%      connection pid (see Callback:init/3).
+%%% Get data for all connections associated with a particular
+%%% connection pid (see Callback:init/3).
 get_connections(ConnPid) ->
     Conns = ets:tab2list(?conn_table),
     lists:flatmap(fun(#conn{targetref=TargetName,
@@ -654,8 +657,7 @@ get_connections(ConnPid) ->
 		  end, Conns).
 
 %%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:get_target_name/1
+%%% Equivalent to ct:get_target_name/1
 get_target_name(Handle) ->
     case ets:select(?conn_table,[{#conn{handle=Handle,targetref='$1',_='_'},
 				  [],
@@ -667,17 +669,14 @@ get_target_name(Handle) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec close_connections() -> ok
+%%% -spec close_connections() -> ok
 %%%
-%%% @doc Close all open connections.
+%%% Close all open connections.
 close_connections() ->
     close_connections(ets:tab2list(?conn_table)),
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec 
-%%%
-%%% @doc 
 override_silence_all_connections() ->
     Protocols = [telnet,ftp,rpc,snmp,ssh],
     override_silence_connections(Protocols),
@@ -738,12 +737,12 @@ reset_silent_connections() ->
     
 
 %%%-----------------------------------------------------------------
-%%% @spec stop(Info) -> ok
+%%% -spec stop(Info) -> ok
 %%%
-%%% @doc Stop the ct_util_server and close all existing connections
+%%% Stop the ct_util_server and close all existing connections
 %%% (tool-internal use only).
 %%%
-%%% @see ct
+%%% See ct.
 stop(Info) ->
     case whereis(ct_util_server) of
 	undefined -> 
@@ -757,26 +756,25 @@ stop(Info) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec update_last_run_index() -> ok
+%%% -spec update_last_run_index() -> ok
 %%%
-%%% @doc Update <code>ct_run.&lt;timestamp&gt;/index.html</code> 
+%%% Update ct_run.<timestamp>/index.html
 %%% (tool-internal use only).
 update_last_run_index() ->
     call(update_last_run_index).
 
 
 %%%-----------------------------------------------------------------
-%%% @spec get_mode() -> Mode
+%%% -spec get_mode() -> Mode
 %%%   Mode = normal | interactive
 %%%
-%%% @doc Return the current mode of the ct_util_server
+%%% Return the current mode of the ct_util_server
 %%% (tool-internal use only).
 get_mode() ->
     call(get_mode).
 
 %%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:listenv/1
+%%% Equivalent to ct:listenv/1
 listenv(Telnet) ->
     case ct_telnet:send(Telnet,"listenv") of
 	ok ->
@@ -790,8 +788,7 @@ listenv(Telnet) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:parse_table/1
+%%% Equivalent to ct:parse_table/1
 parse_table(Data) ->
     {Heading, Rest} = get_headings(Data),
     Lines = parse_row(Rest,[],size(Heading)),
@@ -831,16 +828,10 @@ remove_space([],Acc) ->
 
 
 %%%-----------------------------------------------------------------
-%%% @spec 
-%%%
-%%% @doc
 is_test_dir(Dir) ->
     lists:last(string:lexemes(filename:basename(Dir), "_")) == "test".
 
 %%%-----------------------------------------------------------------
-%%% @spec 
-%%%
-%%% @doc
 get_testdir(Dir, all) ->
     Abs = abs_name(Dir),
     case is_test_dir(Abs) of
@@ -884,9 +875,6 @@ get_testdir(Dir, _) ->
     get_testdir(Dir, all).
 
 %%%-----------------------------------------------------------------
-%%% @spec 
-%%%
-%%% @doc
 get_attached(TCPid) ->
     case dbg_iserver:safe_call({get_attpid,TCPid}) of
 	{ok,AttPid} when is_pid(AttPid) ->
@@ -896,9 +884,6 @@ get_attached(TCPid) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec 
-%%%
-%%% @doc
 kill_attached(undefined,_AttPid) ->
     ok;
 kill_attached(_TCPid,undefined) ->
@@ -913,9 +898,6 @@ kill_attached(TCPid,AttPid) ->
 	    
 
 %%%-----------------------------------------------------------------
-%%% @spec 
-%%%
-%%% @doc
 warn_duplicates(Suites) ->
     Warn = 
 	fun(Mod) ->
@@ -934,9 +916,6 @@ warn_duplicates(Suites) ->
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec
-%%%
-%%% @doc
 mark_process() ->
     mark_process(system).
 
@@ -998,9 +977,6 @@ remaining_test_procs() ->
     {TestProcs, SharedGL, OtherGLs}.
 
 %%%-----------------------------------------------------------------
-%%% @spec
-%%%
-%%% @doc
 get_profile_data() ->
     get_profile_data(all).
 

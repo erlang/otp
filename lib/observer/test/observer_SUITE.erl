@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -301,7 +301,7 @@ table_win(Config) when is_list(Config) ->
     Notebook = setup_whitebox_testing(),
     Parent = get_top_level_parent(Notebook),
     TObj = observer_tv_table:start_link(Parent, [{node,node()}, {type,ets}, {table,#tab{name=foo, id=Table}}]),
-    %% Modal can not test edit..
+    %% Modal cannot test edit..
     %% TPid = wx_object:get_pid(TObj),
     %% TPid ! #wx{event=#wxList{type=command_list_item_activated, itemIndex=12}},
     timer:sleep(3000),

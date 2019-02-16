@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2017. All Rights Reserved.
+# Copyright Ericsson AB 1998-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -142,8 +142,7 @@ BEAM_FORMAT_NUMBER=0
 20: send/0
 
 ## @spec remove_message
-## @doc  Unlink the current message from the message queue and store a
-##       pointer to the message in x(0). Remove any timeout.
+## @doc  Unlink the current message from the message queue. Remove any timeout.
 21: remove_message/0
 
 ## @spec timeout
@@ -574,3 +573,26 @@ BEAM_FORMAT_NUMBER=0
 ## @doc  Get the tail (or cdr) part of a list (a cons cell) from Source and
 ##       put it into the register Tail.
 163: get_tl/2
+
+# OTP 22
+
+## @spec put_tuple2  Destination Elements
+## @doc  Build a tuple with the elements in the list Elements and put it
+##       put into register Destination.
+164: put_tuple2/2
+
+## @spec bs_get_tail Ctx Dst Live
+## @doc  Sets Dst to the tail of Ctx at the current position
+165: bs_get_tail/3
+
+## @spec bs_start_match3 Fail Bin Live Dst
+## @doc  Starts a binary match sequence
+166: bs_start_match3/4
+
+## @spec bs_get_position Ctx Dst Live
+## @doc  Sets Dst to the current position of Ctx
+167: bs_get_position/3
+
+## @spec bs_set_positon Ctx Pos
+## @doc  Sets the current position of Ctx to Pos
+168: bs_set_position/2

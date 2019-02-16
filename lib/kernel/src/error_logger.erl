@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
          which_report_handlers/0]).
 
 %% logger callbacks
--export([adding_handler/2, removing_handler/2, log/2]).
+-export([adding_handler/1, removing_handler/1, log/2]).
 
 -export([get_format_depth/0, limit_term/1]).
 
@@ -74,8 +74,8 @@ start() ->
                   type => worker,
                   modules => dynamic},
             case supervisor:start_child(logger_sup, ErrorLogger) of
-                {ok,_} ->
-                    ok;
+                {ok,Pid} ->
+                    ok = logger_handler_watcher:register_handler(?MODULE,Pid);
                 Error ->
                     Error
             end;
@@ -95,15 +95,20 @@ start_link() ->
 %%% Stop the event manager
 -spec stop() -> ok.
 stop() ->
-    _ = supervisor:terminate_child(logger_sup,?MODULE),
-    _ = supervisor:delete_child(logger_sup,?MODULE),
-    ok.
+    case whereis(?MODULE) of
+        undefined ->
+            ok;
+        _Pid ->
+            _ = gen_event:stop(?MODULE,{shutdown,stopped},infinity),
+            _ = supervisor:delete_child(logger_sup,?MODULE),
+            ok
+    end.
 
 %%%-----------------------------------------------------------------
 %%% Callbacks for logger
--spec adding_handler(logger:handler_id(),logger:config()) ->
-                            {ok,logger:config()} | {error,term()}.
-adding_handler(?MODULE,Config) ->
+-spec adding_handler(logger:handler_config()) ->
+                            {ok,logger:handler_config()} | {error,term()}.
+adding_handler(#{id:=?MODULE}=Config) ->
     case start() of
         ok ->
             {ok,Config};
@@ -111,12 +116,12 @@ adding_handler(?MODULE,Config) ->
             Error
     end.
 
--spec removing_handler(logger:handler_id(),logger:config()) -> ok.
-removing_handler(?MODULE,_Config) ->
+-spec removing_handler(logger:handler_config()) -> ok.
+removing_handler(#{id:=?MODULE}) ->
     stop(),
     ok.
 
--spec log(logger:log(),logger:config()) -> ok.
+-spec log(logger:log_event(),logger:handler_config()) -> ok.
 log(#{level:=Level,msg:=Msg,meta:=Meta},_Config) ->
     do_log(Level,Msg,Meta).
 
@@ -142,14 +147,27 @@ do_log(Level,{report,Msg},#{?MODULE:=#{tag:=Tag}}=Meta) ->
             _ ->
                 %% From logger call which added error_logger data to
                 %% obtain backwards compatibility with error_logger:*_msg/1,2
-                RCBFun=maps:get(report_cb,Meta,fun logger:format_report/1),
-                try RCBFun(Msg) of
-                    {F,A} when is_list(F), is_list(A) ->
-                        {F,A};
-                    Other ->
-                        {"REPORT_CB ERROR: ~tp; Returned: ~tp",[Msg,Other]}
-                catch C:R ->
-                        {"REPORT_CB CRASH: ~tp; Reason: ~tp",[Msg,{C,R}]}
+                case maps:get(report_cb,Meta,fun logger:format_report/1) of
+                    RCBFun when is_function(RCBFun,1) ->
+                        try RCBFun(Msg) of
+                            {F,A} when is_list(F), is_list(A) ->
+                                {F,A};
+                            Other ->
+                                {"REPORT_CB ERROR: ~tp; Returned: ~tp",[Msg,Other]}
+                        catch C:R ->
+                                {"REPORT_CB CRASH: ~tp; Reason: ~tp",[Msg,{C,R}]}
+                        end;
+                    RCBFun when is_function(RCBFun,2) ->
+                        try RCBFun(Msg,#{depth=>get_format_depth(),
+                                         chars_limit=>unlimited,
+                                         single_line=>false}) of
+                            Chardata when ?IS_STRING(Chardata) ->
+                                {"~ts",[Chardata]};
+                            Other ->
+                                {"REPORT_CB ERROR: ~tp; Returned: ~tp",[Msg,Other]}
+                        catch C:R ->
+                                {"REPORT_CB CRASH: ~tp; Reason: ~tp",[Msg,{C,R}]}
+                        end
                 end
         end,
     notify(Level,Tag,Format,Args,Meta);
@@ -169,16 +187,25 @@ do_log(_Level,_Msg,_Meta) ->
 
 -spec notify(logger:level(), msg_tag(), any(), any(), map()) -> 'ok'.
 notify(Level,Tag0,FormatOrType0,ArgsOrReport,#{pid:=Pid0,gl:=GL,?MODULE:=My}) ->
-    Tag = fix_warning_tag(Level,Tag0),
+    {Tag,FormatOrType} = maybe_map_warnings(Level,Tag0,FormatOrType0),
     Pid = case maps:get(emulator,My,false) of
               true -> emulator;
               _ -> Pid0
           end,
-    FormatOrType = fix_warning_type(Level,FormatOrType0),
     gen_event:notify(?MODULE,{Tag,GL,{Pid,FormatOrType,ArgsOrReport}}).
 
-%% This is to fix the case when the client has explicitly added the
-%% error logger tag and type in metadata, and not checked the warning map.
+%% For backwards compatibility with really old even handlers, check
+%% the warning map and update tag and type.
+maybe_map_warnings(warning,Tag,FormatOrType) ->
+    case error_logger:warning_map() of
+        warning ->
+            {Tag,FormatOrType};
+        Level ->
+            {fix_warning_tag(Level,Tag),fix_warning_type(Level,FormatOrType)}
+    end;
+maybe_map_warnings(_,Tag,FormatOrType) ->
+    {Tag,FormatOrType}.
+
 fix_warning_tag(error,warning_msg) -> error;
 fix_warning_tag(error,warning_report) -> error_report;
 fix_warning_tag(info,warning_msg) -> info_msg;
@@ -263,29 +290,10 @@ warning_report(Report) ->
       Report :: report().
 
 warning_report(Type, Report) ->
-    Level = error_logger:warning_map(),
-    {Tag, NType} = case Level of
-		       info ->
-			   if 
-			       Type =:= std_warning ->
-				   {info_report, std_info};
-			       true ->
-				   {info_report, Type}
-			   end;
-		       warning ->
-			   {warning_report, Type};
-		       error ->
-			   if
-			       Type =:= std_warning ->
-				   {error_report, std_error};
-			       true ->
-				   {error_report, Type}
-			   end
-		   end,
-    logger:log(Level,
+    logger:log(warning,
                #{label=>{?MODULE,warning_report},
                  report=>Report},
-               meta(Tag,NType)).
+               meta(warning_report,Type)).
 
 %%-----------------------------------------------------------------
 %% This function provides similar functions as error_msg for
@@ -304,20 +312,11 @@ warning_msg(Format) ->
       Data :: list().
 
 warning_msg(Format, Args) ->
-    Level = error_logger:warning_map(),
-    Tag = case Level of
-	      warning ->
-		  warning_msg;
-	      info ->
-		  info_msg;
-	      error ->
-		  error
-	  end,
-    logger:log(Level,
+    logger:log(warning,
                #{label=>{?MODULE,warning_msg},
                  format=>Format,
                  args=>Args},
-               meta(Tag)).
+               meta(warning_msg)).
 
 %%-----------------------------------------------------------------
 %% This function should be used for information reports.  Events
@@ -336,7 +335,7 @@ info_report(Report) ->
       Report :: report().
 
 info_report(Type, Report) ->
-    logger:log(info,
+    logger:log(notice,
                #{label=>{?MODULE,info_report},
                  report=>Report},
                meta(info_report,Type)).
@@ -357,7 +356,7 @@ info_msg(Format) ->
       Data :: list().
 
 info_msg(Format, Args) ->
-    logger:log(info,
+    logger:log(notice,
                #{label=>{?MODULE,info_msg},
                  format=>Format,
                  args=>Args},
@@ -377,7 +376,7 @@ error_info(Error) ->
             false -> {"~p",[Error]}
         end,
     MyMeta = #{tag=>info,type=>Error},
-    logger:log(info, Format, Args, #{?MODULE=>MyMeta,domain=>[Error]}).
+    logger:log(notice, Format, Args, #{?MODULE=>MyMeta,domain=>[Error]}).
 
 %%-----------------------------------------------------------------
 %% Create metadata
@@ -529,18 +528,38 @@ logfile(filename) ->
       Flag :: boolean().
 
 tty(true) ->
-    case lists:member(error_logger_tty_h, which_report_handlers()) of
-	false ->
-	    add_report_handler(error_logger_tty_h, []);
-	true ->
-	    ignore
-    end,
+    _ = case lists:member(error_logger_tty_h, which_report_handlers()) of
+            false ->
+                case logger:get_handler_config(default) of
+                    {ok,#{module:=logger_std_h,config:=#{type:=standard_io}}} ->
+                        logger:remove_handler_filter(default,
+                                                     error_logger_tty_false);
+                    _ ->
+                        logger:add_handler(error_logger_tty_true,logger_std_h,
+                                           #{filter_default=>stop,
+                                             filters=>?DEFAULT_HANDLER_FILTERS(
+                                                         [otp]),
+                                             formatter=>{?DEFAULT_FORMATTER,
+                                                         ?DEFAULT_FORMAT_CONFIG},
+                                             config=>#{type=>standard_io}})
+                end;
+            true ->
+                ok
+        end,
     ok;
 tty(false) ->
-    delete_report_handler(error_logger_tty_h).
+    delete_report_handler(error_logger_tty_h),
+    _ = logger:remove_handler(error_logger_tty_true),
+    _ = case logger:get_handler_config(default) of
+            {ok,#{module:=logger_std_h,config:=#{type:=standard_io}}} ->
+                logger:add_handler_filter(default,error_logger_tty_false,
+                                          {fun(_,_) -> stop end, ok});
+            _ ->
+                ok
+        end,
+    ok.
 
 %%%-----------------------------------------------------------------
-
 -spec limit_term(term()) -> term().
 
 limit_term(Term) ->
@@ -552,4 +571,11 @@ limit_term(Term) ->
 -spec get_format_depth() -> 'unlimited' | pos_integer().
 
 get_format_depth() ->
-    logger:get_format_depth().
+    case application:get_env(kernel, error_logger_format_depth) of
+	{ok, Depth} when is_integer(Depth) ->
+	    max(10, Depth);
+        {ok, unlimited} ->
+            unlimited;
+	undefined ->
+	    unlimited
+    end.

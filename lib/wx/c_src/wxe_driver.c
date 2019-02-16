@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,10 +38,8 @@
 
 #define TEMP_BINARY_SIZE 512
 
-static ErlDrvData wxe_driver_start(ErlDrvPort port, char *buff);
-static int  wxe_driver_load(void);
+static ErlDrvData wxe_driver_start(ErlDrvPort port, char *command);
 static void wxe_driver_stop(ErlDrvData handle);
-static void wxe_driver_unload(void);
 static ErlDrvSSizeT wxe_driver_control(ErlDrvData handle,
 				       unsigned int command,  
 				       char* buf, ErlDrvSizeT count,
@@ -63,30 +61,30 @@ char * erl_wx_privdir;
 ** The driver struct
 */
 static ErlDrvEntry wxe_driver_entry = {
-   wxe_driver_load,	  /* F_PTR init,   called at loading */
-   wxe_driver_start,      /* L_PTR start,  called when port is opened */
-   wxe_driver_stop,       /* F_PTR stop,   called when port is closed  */
-   NULL,	          /* F_PTR output, called when erlang has sent */
-   NULL,                  /* F_PTR ready_input, called when input descriptor 
-			     ready */
-   NULL,                  /* F_PTR ready_output, called when output 
-			     descriptor ready */
-   "wxe_driver",          /* char *driver_name, the argument to open_port */
-   wxe_driver_unload,     /* F_PTR finish, called when unloaded */
-   NULL,                  /* void * that is not used (BC) */
-   wxe_driver_control,     /* F_PTR control, port_control callback */
-   NULL,                  /* F_PTR timeout, reserved */
-   standard_outputv,	  /* F_PTR outputv, reserved */
-   NULL,                  /* async */ 
-   NULL,                  /* flush */
-   wxe_driver_call,       /* call */
-   NULL,                  /* Event */
+   NULL,                           /* F_PTR init, called at loading */
+   wxe_driver_start,               /* L_PTR start, called when port is opened */
+   wxe_driver_stop,                /* F_PTR stop, called when port is closed  */
+   NULL,                           /* F_PTR output, called when erlang has sent */
+   NULL,                           /* F_PTR ready_input, called when 
+                                      input descriptor ready */
+   NULL,                           /* F_PTR ready_output, called when 
+                                      output descriptor ready */
+   "wxe_driver",                   /* char *driver_name, the argument to open_port */
+   NULL,                           /* F_PTR finish, called when unloaded */
+   NULL,                           /* void * that is not used (BC) */
+   wxe_driver_control,             /* F_PTR control, port_control callback */
+   NULL,                           /* F_PTR timeout, reserved */
+   standard_outputv,               /* F_PTR outputv, reserved */
+   NULL,                           /* async */
+   NULL,                           /* flush */
+   wxe_driver_call,                /* call */
+   NULL,                           /* Event */
    ERL_DRV_EXTENDED_MARKER,
    ERL_DRV_EXTENDED_MAJOR_VERSION,
    ERL_DRV_EXTENDED_MINOR_VERSION,
-   ERL_DRV_FLAG_USE_PORT_LOCKING, /* Port lock */ 
-   NULL,                  /* Reserved Handle */
-   wxe_process_died,      /* Process Exited */
+   ERL_DRV_FLAG_USE_PORT_LOCKING,  /* Port lock */
+   NULL,                           /* Reserved Handle */
+   wxe_process_died,               /* Process Exited */
 };
 
 DRIVER_INIT(wxe_driver)
@@ -94,60 +92,56 @@ DRIVER_INIT(wxe_driver)
    return &wxe_driver_entry;
 }
 
-int wxe_driver_load() 
-{
-   if(load_native_gui())
-      return 0;
-   else 
-      return -1;
-}
-
 ErlDrvPort WXE_DRV_PORT_HANDLE = 0;
 ErlDrvTermData WXE_DRV_PORT = 0;
 
 static ErlDrvData 
-wxe_driver_start(ErlDrvPort port, char *buff)
-{      
-   wxe_data *data;
+wxe_driver_start(ErlDrvPort port, char *command)
+{
+    wxe_data *data;
 
-   data = (wxe_data *) malloc(sizeof(wxe_data));
-   wxe_debug = 0;
-  
-   if (data == NULL) {
-      fprintf(stderr, " Couldn't alloc mem\r\n");
-      return(ERL_DRV_ERROR_GENERAL);  /* ENOMEM */      
-   } else {
-      ErlDrvTermData term_port = driver_mk_port(port);
-      set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
-      data->driver_data = NULL;
-      data->bin = (WXEBinRef*) driver_alloc(sizeof(WXEBinRef)*DEF_BINS);
-      data->bin[0].from = 0;
-      data->bin[1].from = 0;
-      data->bin[2].from = 0;
-      data->max_bins = DEF_BINS;
-      data->port_handle = port;
-      data->port = term_port;
-      data->pdl = driver_pdl_create(port);
-      if(WXE_DRV_PORT_HANDLE == 0) {
-	 for(; *buff != 32; buff++); 
-	 buff++; 
-	 erl_wx_privdir = strdup(buff);
-	 
-	 WXE_DRV_PORT_HANDLE = port;
-	 WXE_DRV_PORT = term_port;
-	 wxe_master = data;
-	 if(!(start_native_gui(data) == 1))
-	    return(ERL_DRV_ERROR_GENERAL);  /* ENOMEM */
-      } else {
-	  meta_command(CREATE_PORT,data);
-      }
-      return (ErlDrvData) data;	 
-   }
+    data = (wxe_data *) malloc(sizeof(wxe_data));
+    wxe_debug = 0;
+
+    if (data == NULL) {
+        fprintf(stderr, " Couldn't alloc mem\r\n");
+        return(ERL_DRV_ERROR_GENERAL);  /* ENOMEM */
+    } else {
+        ErlDrvTermData term_port = driver_mk_port(port);
+        set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
+        data->driver_data = NULL;
+        data->bin = (WXEBinRef*) driver_alloc(sizeof(WXEBinRef)*DEF_BINS);
+        data->bin[0].from = 0;
+        data->bin[1].from = 0;
+        data->bin[2].from = 0;
+        data->max_bins = DEF_BINS;
+        data->port_handle = port;
+        data->port = term_port;
+        data->pdl = driver_pdl_create(port);
+        if(WXE_DRV_PORT_HANDLE == 0) {
+            char *first_space = strchr(command, ' ');
+            if (first_space) {
+              char *priv_dir = first_space + 1;
+              erl_wx_privdir = strdup(priv_dir);
+
+              WXE_DRV_PORT_HANDLE = port;
+              WXE_DRV_PORT = term_port;
+              wxe_master = data;
+              if(start_native_gui(data) != 1)
+                  return ERL_DRV_ERROR_GENERAL;  /* ENOMEM */
+            } else {
+              return ERL_DRV_ERROR_BADARG;
+            }
+        } else {
+            meta_command(CREATE_PORT, data);
+        }
+        return (ErlDrvData) data;
+    }
 }
 
 static void
 wxe_driver_stop(ErlDrvData handle) 
-{  
+{
    wxe_data *sd = ((wxe_data *)handle);
    if(sd->port_handle != WXE_DRV_PORT_HANDLE) {
       // fprintf(stderr, "%s:%d: STOP \r\n", __FILE__,__LINE__);
@@ -155,16 +149,9 @@ wxe_driver_stop(ErlDrvData handle)
    } else {
        // fprintf(stderr, "%s:%d: STOP \r\n", __FILE__,__LINE__);
        stop_native_gui(wxe_master);
-       unload_native_gui();
        free(wxe_master);
        wxe_master = NULL;
    }
-}
-
-static void
-wxe_driver_unload(void) 
-{
-   // fprintf(stderr, "%s:%d: UNLOAD \r\n", __FILE__,__LINE__);
 }
 
 static ErlDrvSSizeT
@@ -194,7 +181,7 @@ wxe_driver_call(ErlDrvData handle, unsigned int command,
    if (len > rlen)
       *res = driver_alloc(len);
    memcpy((void *) *res, (void *) buf, len);
-   return len;   
+   return len;
 }
 
 
@@ -219,20 +206,20 @@ standard_outputv(ErlDrvData drv_data, ErlIOVec* ev)
    int i, max;
 
    for(i = 0; i < sd->max_bins; i++) {
-       if(sd->bin[i].from == 0) {
-	   binref = &sd->bin[i];
-	   break;
-       }
+     if(sd->bin[i].from == 0) {
+       binref = &sd->bin[i];
+       break;
+     }
    }
 
    if(binref == NULL) { /* realloc */
-       max = sd->max_bins + DEF_BINS;
-       driver_realloc(sd->bin, sizeof(WXEBinRef)*max);
-       for(i=sd->max_bins; i < max; i++) {
-	   sd->bin[i].from = 0;
-       }
-       binref = &sd->bin[sd->max_bins];
-       sd->max_bins = max;
+     max = sd->max_bins + DEF_BINS;
+     driver_realloc(sd->bin, sizeof(WXEBinRef)*max);
+     for(i=sd->max_bins; i < max; i++) {
+       sd->bin[i].from = 0;
+     }
+     binref = &sd->bin[sd->max_bins];
+     sd->max_bins = max;
    }
 
    if(ev->size > 0) {

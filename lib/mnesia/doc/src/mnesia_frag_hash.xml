@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2002</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -34,7 +34,7 @@
     <rev>A</rev>
     <file>mnesia_frag_hash.sgml</file>
   </header>
-  <module>mnesia_frag_hash</module>
+  <module since="">mnesia_frag_hash</module>
   <modulesummary>Defines mnesia_frag_hash callback behavior</modulesummary>
   <description>
     <p>This module defines a callback behavior for user-defined hash
@@ -50,7 +50,7 @@
 
   <funcs>
     <func>
-      <name>init_state(Tab, State) -> NewState | abort(Reason)</name>
+      <name since="">init_state(Tab, State) -> NewState | abort(Reason)</name>
       <fsummary>Initiates the hash state for a new table.</fsummary>
       <type>
         <v>Tab = atom()</v>
@@ -72,7 +72,7 @@
       </desc>
     </func>
     <func>
-      <name>add_frag(State) -> {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)</name>
+      <name since="">add_frag(State) -> {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)</name>
       <fsummary>Starts when a new fragment is added to a fragmented table.</fsummary>
       <type>
         <v>State = term()</v>
@@ -100,7 +100,7 @@
       </desc>
     </func>
     <func>
-      <name>del_frag(State) ->  {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)</name>
+      <name since="">del_frag(State) ->  {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)</name>
       <fsummary>Starts when a fragment is deleted from a fragmented table.</fsummary>
       <type>
         <v>State = term()</v>
@@ -127,10 +127,10 @@
       </desc>
     </func>
     <func>
-      <name>key_to_frag_number(State, Key) -> FragNum | abort(Reason)</name>
+      <name since="">key_to_frag_number(State, Key) -> FragNum | abort(Reason)</name>
       <fsummary>Resolves the key of a record into a fragment number.</fsummary>
       <type>
-        <v>FragNum = integer()()</v>
+        <v>FragNum = integer()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
@@ -140,7 +140,7 @@
       </desc>
     </func>
     <func>
-      <name>match_spec_to_frag_numbers(State, MatchSpec) -> FragNums | abort(Reason)</name>
+      <name since="">match_spec_to_frag_numbers(State, MatchSpec) -> FragNums | abort(Reason)</name>
       <fsummary>Resolves a <c>MatchSpec</c> into a list of fragment numbers.</fsummary>
       <type>
         <v>MatcSpec = ets_select_match_spec()</v>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -108,6 +108,8 @@ t_without_2(_Config) ->
     %% error case
     ?badmap(a,without,[[a,b],a]) = (catch maps:without([a,b],id(a))),
     ?badmap(a,without,[{a,b},a]) = (catch maps:without({a,b},id(a))),
+    ?badmap({0,<<>>,97},without,[[],{0,<<>>,97}]) = (catch maps:without([], {0,<<>>,97})),
+    ?badmap({0,<<>>,97},without,[[false, -20, -8],{0,<<>>,97}]) = (catch maps:without([false, -20, -8], {0, <<>>, 97})),
     ?badarg(without,[a,#{}]) = (catch maps:without(a,#{})),
     ok.
 
@@ -120,6 +122,8 @@ t_with_2(_Config) ->
     %% error case
     ?badmap(a,with,[[a,b],a]) = (catch maps:with([a,b],id(a))),
     ?badmap(a,with,[{a,b},a]) = (catch maps:with({a,b},id(a))),
+    ?badmap({0,<<>>,97},with,[[],{0,<<>>,97}]) = (catch maps:with([], {0,<<>>,97})),
+    ?badmap({0,<<>>,97},with,[[false, -20, -8],{0,<<>>,97}]) = (catch maps:with([false, -20, -8], {0, <<>>, 97})),
     ?badarg(with,[a,#{}]) = (catch maps:with(a,#{})),
     ok.
 

@@ -74,7 +74,7 @@
 -define(INITIAL_BYTES, 5).
 
 -define(MAX_SEQENCE_NUMBER, 18446744073709551615). %% (1 bsl 64) - 1 = 18446744073709551615
-%% Sequence numbers can not wrap so when max is about to be reached we should renegotiate.
+%% Sequence numbers cannot wrap so when max is about to be reached we should renegotiate.
 %% We will renegotiate a little before so that there will be sequence numbers left
 %% for the rehandshake and a little data. Currently we decided to renegotiate a little more
 %% often as we can have a cheaper test to check if it is time to renegotiate. It will still
@@ -140,6 +140,7 @@
 -define(ALERT, 21).
 -define(HANDSHAKE, 22).
 -define(APPLICATION_DATA, 23).
+-define(HEARTBEAT, 24).
 -define(MAX_PLAIN_TEXT_LENGTH, 16384).
 -define(MAX_COMPRESSED_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+1024)).
 -define(MAX_CIPHER_TEXT_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+2048)).

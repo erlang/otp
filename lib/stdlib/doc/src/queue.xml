@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>queue.xml</file>
   </header>
-  <module>queue</module>
+  <module since="">queue</module>
   <modulesummary>Abstract data type for FIFO queues.</modulesummary>
   <description>
     <p>This module provides (double-ended) FIFO queues
@@ -113,7 +113,7 @@
 
   <funcs>
     <func>
-      <name name="filter" arity="2"/>
+      <name name="filter" arity="2" since=""/>
       <fsummary>Filter a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of calling
@@ -134,7 +134,7 @@
     </func>
 
     <func>
-      <name name="from_list" arity="1"/>
+      <name name="from_list" arity="1" since=""/>
       <fsummary>Convert a list to a queue.</fsummary>
       <desc>
         <p>Returns a queue containing the items in <c><anno>L</anno></c> in the
@@ -144,7 +144,7 @@
     </func>
 
     <func>
-      <name name="in" arity="2"/>
+      <name name="in" arity="2" since=""/>
       <fsummary>Insert an item at the rear of a queue.</fsummary>
       <desc>
         <p>Inserts <c><anno>Item</anno></c> at the rear of queue
@@ -154,7 +154,7 @@
     </func>
 
     <func>
-      <name name="in_r" arity="2"/>
+      <name name="in_r" arity="2" since=""/>
       <fsummary>Insert an item at the front of a queue.</fsummary>
       <desc>
         <p>Inserts <c><anno>Item</anno></c> at the front of queue
@@ -164,7 +164,7 @@
     </func>
 
     <func>
-      <name name="is_empty" arity="1"/>
+      <name name="is_empty" arity="1" since=""/>
       <fsummary>Test if a queue is empty.</fsummary>
       <desc>
         <p>Tests if <c><anno>Q</anno></c> is empty and returns <c>true</c> if
@@ -173,7 +173,7 @@
     </func>
 
     <func>
-      <name name="is_queue" arity="1"/>
+      <name name="is_queue" arity="1" since=""/>
       <fsummary>Test if a term is a queue.</fsummary>
       <desc>
         <p>Tests if <c><anno>Term</anno></c> is a queue and returns <c>true</c>
@@ -182,7 +182,7 @@
     </func>
 
     <func>
-      <name name="join" arity="2"/>
+      <name name="join" arity="2" since=""/>
       <fsummary>Join two queues.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q3</anno></c> that is the result of joining
@@ -192,7 +192,7 @@
     </func>
 
     <func>
-      <name name="len" arity="1"/>
+      <name name="len" arity="1" since=""/>
       <fsummary>Get the length of a queue.</fsummary>
       <desc>
         <p>Calculates and returns the length of queue <c><anno>Q</anno></c>.</p>
@@ -200,7 +200,7 @@
     </func>
 
     <func>
-      <name name="member" arity="2"/>
+      <name name="member" arity="2" since=""/>
       <fsummary>Test if an item is in a queue.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Item</anno></c> matches some element
@@ -209,7 +209,7 @@
     </func>
 
     <func>
-      <name name="new" arity="0"/>
+      <name name="new" arity="0" since=""/>
       <fsummary>Create an empty queue.</fsummary>
       <desc>
         <p>Returns an empty queue.</p>
@@ -217,7 +217,7 @@
     </func>
 
     <func>
-      <name name="out" arity="1"/>
+      <name name="out" arity="1" since=""/>
       <fsummary>Remove the front item from a queue.</fsummary>
       <desc>
         <p>Removes the item at the front of queue <c><anno>Q1</anno></c>.
@@ -230,7 +230,7 @@
     </func>
 
     <func>
-      <name name="out_r" arity="1"/>
+      <name name="out_r" arity="1" since=""/>
       <fsummary>Remove the rear item from a queue.</fsummary>
       <desc>
         <p>Removes the item at the rear of queue <c><anno>Q1</anno></c>.
@@ -242,7 +242,7 @@
     </func>
 
     <func>
-      <name name="reverse" arity="1"/>
+      <name name="reverse" arity="1" since=""/>
       <fsummary>Reverse a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> containing the items of
@@ -251,7 +251,7 @@
     </func>
 
     <func>
-      <name name="split" arity="2"/>
+      <name name="split" arity="2" since=""/>
       <fsummary>Split a queue in two.</fsummary>
       <desc>
         <p>Splits <c><anno>Q1</anno></c> in two. The <c><anno>N</anno></c>
@@ -261,7 +261,7 @@
     </func>
 
     <func>
-      <name name="to_list" arity="1"/>
+      <name name="to_list" arity="1" since=""/>
       <fsummary>Convert a queue to a list.</fsummary>
       <desc>
         <p>Returns a list of the items in the queue in the same order;
@@ -276,7 +276,7 @@
 
   <funcs>
     <func>
-      <name name="drop" arity="1"/>
+      <name name="drop" arity="1" since=""/>
       <fsummary>Remove the front item from a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
@@ -286,7 +286,7 @@
     </func>
 
     <func>
-      <name name="drop_r" arity="1"/>
+      <name name="drop_r" arity="1" since=""/>
       <fsummary>Remove the rear item from a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
@@ -296,7 +296,7 @@
     </func>
 
     <func>
-      <name name="get" arity="1"/>
+      <name name="get" arity="1" since=""/>
       <fsummary>Return the front item of a queue.</fsummary>
       <desc>
         <p>Returns <c><anno>Item</anno></c> at the front of queue
@@ -306,7 +306,7 @@
     </func>
 
     <func>
-      <name name="get_r" arity="1"/>
+      <name name="get_r" arity="1" since=""/>
       <fsummary>Return the rear item of a queue.</fsummary>
       <desc>
         <p>Returns <c><anno>Item</anno></c> at the rear of queue
@@ -316,7 +316,7 @@
     </func>
 
     <func>
-      <name name="peek" arity="1"/>
+      <name name="peek" arity="1" since=""/>
       <fsummary>Return the front item of a queue.</fsummary>
       <desc>
         <p>Returns tuple <c>{value, <anno>Item</anno>}</c>, where
@@ -326,7 +326,7 @@
     </func>
 
     <func>
-      <name name="peek_r" arity="1"/>
+      <name name="peek_r" arity="1" since=""/>
       <fsummary>Return the rear item of a queue.</fsummary>
       <desc>
         <p>Returns tuple <c>{value, <anno>Item</anno>}</c>, where
@@ -342,7 +342,7 @@
 
   <funcs>
     <func>
-      <name name="cons" arity="2"/>
+      <name name="cons" arity="2" since=""/>
       <fsummary>Insert an item at the head of a queue.</fsummary>
       <desc>
         <p>Inserts <c><anno>Item</anno></c> at the head of queue
@@ -352,7 +352,7 @@
     </func>
 
     <func>
-      <name name="daeh" arity="1"/>
+      <name name="daeh" arity="1" since=""/>
       <fsummary>Return the tail item of a queue.</fsummary>
       <desc>
         <p>Returns the tail item of queue <c><anno>Q</anno></c>.</p>
@@ -361,7 +361,7 @@
     </func>
 
     <func>
-      <name name="head" arity="1"/>
+      <name name="head" arity="1" since=""/>
       <fsummary>Return the item at the head of a queue.</fsummary>
       <desc>
         <p>Returns <c><anno>Item</anno></c> from the head of queue
@@ -371,7 +371,7 @@
     </func>
 
     <func>
-      <name name="init" arity="1"/>
+      <name name="init" arity="1" since=""/>
       <fsummary>Remove the tail item from a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
@@ -381,7 +381,7 @@
     </func>
 
     <func>
-      <name name="lait" arity="1"/>
+      <name name="lait" arity="1" since=""/>
       <fsummary>Remove the tail item from a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
@@ -392,7 +392,7 @@
     </func>
 
     <func>
-      <name name="last" arity="1"/>
+      <name name="last" arity="1" since=""/>
       <fsummary>Return the tail item of a queue.</fsummary>
       <desc>
         <p>Returns the tail item of queue <c><anno>Q</anno></c>.</p>
@@ -401,7 +401,7 @@
     </func>
 
     <func>
-      <name name="liat" arity="1"/>
+      <name name="liat" arity="1" since=""/>
       <fsummary>Remove the tail item from a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
@@ -411,7 +411,7 @@
     </func>
 
     <func>
-      <name name="snoc" arity="2"/>
+      <name name="snoc" arity="2" since=""/>
       <fsummary>Insert an item at the tail of a queue.</fsummary>
       <desc>
         <p>Inserts <c><anno>Item</anno></c> as the tail item of queue
@@ -421,7 +421,7 @@
     </func>
 
     <func>
-      <name name="tail" arity="1"/>
+      <name name="tail" arity="1" since=""/>
       <fsummary>Remove the head item from a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing

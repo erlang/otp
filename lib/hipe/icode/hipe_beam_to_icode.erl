@@ -647,6 +647,13 @@ trans_fun([{put_tuple,_Size,Reg}|Instructions], Env) ->
   Primop = hipe_icode:mk_primop(Dest,mktuple,Src),
   Moves ++ [Primop | trans_fun(Instructions2,Env2)];
 %%--- put --- SHOULD NOT REALLY EXIST HERE; put INSTRUCTIONS ARE HANDLED ABOVE.
+%%--- put_tuple2 ---
+trans_fun([{put_tuple2,Reg,{list,Elements}}|Instructions], Env) ->
+  Dest = [mk_var(Reg)],
+  {Moves,Vars,Env2} = trans_elements(Elements, [], [], Env),
+  Src = lists:reverse(Vars),
+  Primop = hipe_icode:mk_primop(Dest, mktuple, Src),
+  Moves ++ [Primop | trans_fun(Instructions, Env2)];
 %%--- badmatch ---
 trans_fun([{badmatch,Arg}|Instructions], Env) ->
   BadVar = trans_arg(Arg),
@@ -1139,9 +1146,10 @@ trans_fun([{test,has_map_fields,{f,Lbl},Map,{list,Keys}}|Instructions], Env) ->
 		    lists:flatten([[K, {r, 0}] || K <- Keys])),
   [MapMove, TestInstructions | trans_fun(Instructions, Env2)];
 trans_fun([{get_map_elements,{f,Lbl},Map,{list,KVPs}}|Instructions], Env) ->
+  KVPs1 = overwrite_map_last(Map, KVPs),
   {MapMove, MapVar, Env1} = mk_move_and_var(Map, Env),
   {TestInstructions, GetInstructions, Env2} =
-    trans_map_query(MapVar, map_label(Lbl), Env1, KVPs),
+    trans_map_query(MapVar, map_label(Lbl), Env1, KVPs1),
   [MapMove, TestInstructions, GetInstructions | trans_fun(Instructions, Env2)];
 %%--- put_map_assoc ---
 trans_fun([{put_map_assoc,{f,Lbl},Map,Dst,_N,{list,Pairs}}|Instructions], Env) ->
@@ -1563,6 +1571,21 @@ trans_type_test2(function2, Lbl, Arg, Arity, Env) ->
 			 hipe_icode:label_name(True), map_label(Lbl)),
   {[Move1,Move2,I,True],Env2}.
 
+
+%%
+%% Makes sure that if a get_map_elements instruction will overwrite
+%% the map source, it will be done last.
+%%
+overwrite_map_last(Map, KVPs) ->
+  overwrite_map_last2(Map, KVPs, []).
+
+overwrite_map_last2(Map, [Key,Map|KVPs], _Last) ->
+  overwrite_map_last2(Map, KVPs, [Key,Map]);
+overwrite_map_last2(Map, [Key,Val|KVPs], Last) ->
+  [Key,Val|overwrite_map_last2(Map, KVPs, Last)];
+overwrite_map_last2(_Map, [], Last) ->
+  Last.
+
 %%
 %% Handles the get_map_elements instruction and the has_map_fields
 %% test instruction.
@@ -1682,6 +1705,19 @@ trans_puts([{put,X}|Code], Vars, Moves, Env) ->
   end;
 trans_puts(Code, Vars, Moves, Env) ->    %% No more put operations
   {Moves, Code, Vars, Env}.
+
+trans_elements([X|Code], Vars, Moves, Env) ->
+  case type(X) of
+    var ->
+      Var = mk_var(X),
+      trans_elements(Code, [Var|Vars], Moves, Env);
+    #beam_const{value=C} ->
+      Var = mk_var(new),
+      Move = hipe_icode:mk_move(Var, hipe_icode:mk_const(C)),
+      trans_elements(Code, [Var|Vars], [Move|Moves], Env)
+  end;
+trans_elements([], Vars, Moves, Env) ->
+  {Moves, Vars, Env}.
 
 %%-----------------------------------------------------------------------
 %% The code for this instruction is a bit large because we are treating

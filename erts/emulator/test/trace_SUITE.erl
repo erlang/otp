@@ -38,7 +38,8 @@
 	 system_monitor_long_gc_1/1, system_monitor_long_gc_2/1, 
 	 system_monitor_large_heap_1/1, system_monitor_large_heap_2/1,
 	 system_monitor_long_schedule/1,
-	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1]).
+	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1,
+         trace_info_badarg/1, erl_704/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -62,7 +63,7 @@ all() ->
      system_monitor_long_gc_2, system_monitor_large_heap_1,
      system_monitor_long_schedule,
      system_monitor_large_heap_2, bad_flag, trace_delivered,
-     trap_exit_self_receive].
+     trap_exit_self_receive, trace_info_badarg, erl_704].
 
 init_per_testcase(_Case, Config) ->
     [{receiver,spawn(fun receiver/0)}|Config].
@@ -1733,6 +1734,25 @@ trap_exit_self_receive(Config) ->
     {trace, Proc, 'receive', {exit_please, Reason2}} = receive_first_trace(),
     receive_nothing(),
     ok.
+
+trace_info_badarg(Config) when is_list(Config) ->
+    catch erlang:trace_info({a,b,c},d),
+    ok.
+
+%% An incoming suspend monitor down wasn't handled
+%% correct when the local monitor half had been
+%% removed with an emulator crash as result.
+erl_704(Config) ->
+    erl_704_test(100).
+
+erl_704_test(0) ->
+    ok;
+erl_704_test(N) ->
+    P = spawn(fun () -> receive infinity -> ok end end),
+    erlang:suspend_process(P),
+    exit(P, kill),
+    (catch erlang:resume_process(P)),
+    erl_704_test(N-1).
 
 drop_trace_until_down(Proc, Mon) ->
     drop_trace_until_down(Proc, Mon, false, 0, 0).

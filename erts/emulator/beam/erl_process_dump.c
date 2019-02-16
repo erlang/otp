@@ -58,6 +58,7 @@ static void dump_externally(fmtfn_t to, void *to_arg, Eterm term);
 static void mark_literal(Eterm* ptr);
 static void init_literal_areas(void);
 static void dump_literals(fmtfn_t to, void *to_arg);
+static void dump_persistent_terms(fmtfn_t to, void *to_arg);
 static void dump_module_literals(fmtfn_t to, void *to_arg,
                                  ErtsLiteralArea* lit_area);
 
@@ -74,6 +75,7 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
 
     all_binaries = NULL;
     init_literal_areas();
+    erts_init_persistent_dumping();
 
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
@@ -93,6 +95,7 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
        }
     }
 
+    dump_persistent_terms(to, to_arg);
     dump_literals(to, to_arg);
     dump_binaries(to, to_arg, all_binaries);
 }
@@ -775,6 +778,9 @@ init_literal_areas(void)
     qsort(lit_areas, num_lit_areas, sizeof(ErtsLiteralArea *),
           compare_areas);
 
+    qsort(erts_persistent_areas, erts_num_persistent_areas,
+          sizeof(ErtsLiteralArea *), compare_areas);
+
     erts_runlock_old_code(code_ix);
 }
 
@@ -796,6 +802,13 @@ static void mark_literal(Eterm* ptr)
 
     ap = bsearch(ptr, lit_areas, num_lit_areas, sizeof(ErtsLiteralArea*),
                  search_areas);
+    if (ap == 0) {
+        ap = bsearch(ptr, erts_persistent_areas,
+                     erts_num_persistent_areas,
+                     sizeof(ErtsLiteralArea*),
+                     search_areas);
+    }
+
 
     /*
      * If the literal was created by native code, this search will not
@@ -807,12 +820,12 @@ static void mark_literal(Eterm* ptr)
     }
 }
 
-
 static void
 dump_literals(fmtfn_t to, void *to_arg)
 {
     ErtsCodeIndex code_ix;
     int i;
+    Uint idx;
 
     code_ix = erts_active_code_ix();
     erts_rlock_old_code(code_ix);
@@ -825,6 +838,28 @@ dump_literals(fmtfn_t to, void *to_arg)
     }
 
     erts_runlock_old_code(code_ix);
+
+    for (idx = 0; idx < erts_num_persistent_areas; idx++) {
+        dump_module_literals(to, to_arg, erts_persistent_areas[idx]);
+    }
+}
+
+static void
+dump_persistent_terms(fmtfn_t to, void *to_arg)
+{
+    Uint idx;
+
+    erts_print(to, to_arg, "=persistent_terms\n");
+
+    for (idx = 0; idx < erts_num_persistent_areas; idx++) {
+        ErtsLiteralArea* ap = erts_persistent_areas[idx];
+        Eterm tuple = make_tuple(ap->start);
+        Eterm* tup_val = tuple_val(tuple);
+
+	dump_element(to, to_arg, tup_val[1]);
+        erts_putc(to, to_arg, '|');
+	dump_element_nl(to, to_arg, tup_val[2]);
+    }
 }
 
 static void
@@ -963,12 +998,17 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                     }
                     erts_putc(to, to_arg, '\n');
                 }
-            } else if (is_export_header(w)) {
+            } else {
+                /* Dump everything else in the external format */
                 dump_externally(to, to_arg, term);
                 erts_putc(to, to_arg, '\n');
             }
             size = 1 + header_arity(w);
             switch (w & _HEADER_SUBTAG_MASK) {
+            case FUN_SUBTAG:
+                ASSERT(((ErlFunThing*)(htop))->num_free == 0);
+                size += 1;
+                break;
             case MAP_SUBTAG:
                 if (is_flatmap_header(w)) {
                     size += 1 + flatmap_get_size(htop);

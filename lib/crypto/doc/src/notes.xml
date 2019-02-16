@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2017</year>
+      <year>1999</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,264 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
+
+<section><title>Crypto 4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Updated the RSA options part in the crypto application's
+	    C-code, documentation and tests.</p>
+          <p>
+	    Own Id: OTP-15302</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added ed25519 and ed448 sign/verify.</p>
+          <p>
+	    Requires OpenSSL 1.1.1 or higher as cryptolib under the
+	    OTP application <c>crypto</c>.</p>
+          <p>
+	    Own Id: OTP-15419 Aux Id: OTP-15094 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed valgrind warnings.</p>
+          <p>
+	    Own Id: OTP-15467</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The RSA options <c>rsa_mgf1_md</c>, <c>rsa_oaep_md</c>,
+	    and <c>rsa_oaep_label</c> were always disabled. They will
+	    now be enabled when a suitable cryptolib is used.</p>
+          <p>
+	    They are still experimental and may change without prior
+	    notice.</p>
+          <p>
+	    Own Id: OTP-15212 Aux Id: ERL-675, PR1899, PR838 </p>
+        </item>
+        <item>
+          <p>
+	    The ciphers <c>aes_ige256</c> and <c>blowfish_cbc</c> had
+	    naming issues in <c>crypto:next_iv/2</c>.</p>
+          <p>
+	    Own Id: OTP-15283</p>
+        </item>
+        <item>
+          <p>
+	    the <c>RSA_SSLV23_PADDING</c> is disabled if LibreSSL is
+	    used as cryptlib. This is due to compilation problems.</p>
+          <p>
+	    This will be investigated further in the future.</p>
+          <p>
+	    Own Id: OTP-15303</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The supported named elliptic curves are now reported in
+	    <c>crypto:supports/0</c> in a new entry tagged by
+	    <c>'curves'</c>.</p>
+          <p>
+	    The function <c>crypto:ec_curves/0</c> is kept for
+	    compatibility.</p>
+          <p>
+	    Own Id: OTP-14717 Aux Id: OTP-15244 </p>
+        </item>
+        <item>
+          <p>
+	    The typing in the CRYPTO and PUBLIC_KEY applications are
+	    reworked and a few mistakes are corrected.</p>
+          <p>
+	    The documentation is now generated from the typing and
+	    some clarifications are made.</p>
+          <p>
+	    A new chapter on Algorithm Details such as key sizes and
+	    availability is added to the CRYPTO User's Guide.</p>
+          <p>
+	    Own Id: OTP-15134</p>
+        </item>
+        <item>
+          <p>
+	    Support for SHA3 both as a separate hash and in HMAC is
+	    now available if OpenSSL 1.1.1 or higher is used as
+	    cryptolib.</p>
+          <p>
+	    Available lengths are reported in the <c>'hashs'</c>
+	    entry in <c>crypto:supports/0</c> as <c>sha3_*</c>.</p>
+          <p>
+	    Own Id: OTP-15153</p>
+        </item>
+        <item>
+          <p>
+	    The mac algorithm <c>poly1305</c> and the cipher
+	    algorithm <c>chacha20</c> are now supported if OpenSSL
+	    1.1.1 or higher is used as cryptolib.</p>
+          <p>
+	    Own Id: OTP-15164 Aux Id: OTP-15209 </p>
+        </item>
+        <item>
+          <p>
+	    The key exchange Edward curves <c>x25519</c> and
+	    <c>x448</c> are now supported if OpenSSL 1.1.1 or higher
+	    is used as cryptolib.</p>
+          <p>
+	    Own Id: OTP-15240 Aux Id: OTP-15133 </p>
+        </item>
+        <item>
+          <p>
+	    The supported RSA options for sign/verify and
+	    encrypt/decrypt are now reported in
+	    <c>crypto:supports/0</c> in a new entry tagged by
+	    '<c>rsa_opts</c>'.</p>
+          <p>
+	    The exakt set is still experimental and may change
+	    without prior notice.</p>
+          <p>
+	    Own Id: OTP-15260</p>
+        </item>
+        <item>
+          <p>
+	    The cipher <c>aes_ccm</c> is added.</p>
+          <p>
+	    Own Id: OTP-15286</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Update the crypto engine functions to handle multiple
+	    loads of an engine. </p> <p><c>engine_load/3/4</c> is
+	    updated so it doesn't add the engine ID to OpenSSLs
+	    internal list of engines which makes it possible to run
+	    the engine_load more than once if it doesn't contain
+	    global data.</p> <p>Added <c>ensure_engine_loaded/2/3</c>
+	    which guarantees that the engine just is loaded once and
+	    the following calls just returns a reference to it. This
+	    is done by add the ID to the internal OpenSSL list and
+	    check if it is already registered when the function is
+	    called.</p> <p>Added <c>ensure_engine_unloaded/1/2</c> to
+	    unload engines loaded with ensure_engine_loaded.</p>
+	    <p>Then some more utility functions are added.</p>
+	    <p><c>engine_add/1</c>, adds the engine to OpenSSL
+	    internal list</p> <p><c>engine_remove/1</c>, remove the
+	    engine from OpenSSL internal list</p>
+	    <p><c>engine_get_id/1</c>, fetch the engines id</p>
+	    <p><c>engine_get_name/1</c>, fetch the engine name</p>
+          <p>
+	    Own Id: OTP-15233</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a node crash in <c>crypto:compute_key(ecdh,
+	    ...)</c> when passing a wrongly typed Others
+	    argument.</p>
+          <p>
+	    Own Id: OTP-15194 Aux Id: ERL-673 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed two undocumented and erroneous functions
+	    (<c>crypto:dh_generate_parameters/2</c> and
+	    <c>crypto:dh_check/1</c>).</p>
+          <p>
+	    Own Id: OTP-14956 Aux Id: ERL-579 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug causing VM crash if doing runtime upgrade of a
+	    crypto module built against OpenSSL older than 0.9.8h.
+	    Bug exists since OTP-20.2.</p>
+          <p>
+	    Own Id: OTP-15088</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new <c>rand</c> plugin algorithm has been implemented
+	    in <c>crypto</c>, that is: <c>crypto_cache</c>. It uses
+	    strong random bytes as randomness source and caches them
+	    to get good speed. See <c>crypto:rand_seed_alg/1</c>.</p>
+          <p>
+	    Own Id: OTP-13370 Aux Id: PR-1573 </p>
+        </item>
+        <item>
+          <p>
+	    Diffie-Hellman key functions are re-written with the
+	    EVP_PKEY api.</p>
+          <p>
+	    Own Id: OTP-14864</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 4.2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a node crash in <c>crypto:compute_key(ecdh,
+	    ...)</c> when passing a wrongly typed Others
+	    argument.</p>
+          <p>
+	    Own Id: OTP-15194 Aux Id: ERL-673 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Crypto 4.2.2</title>
 

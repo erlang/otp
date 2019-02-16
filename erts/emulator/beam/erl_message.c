@@ -409,6 +409,11 @@ ErtsMessage* prepend_pending_sig_maybe(Process* sender, Process* receiver,
  *
  * @brief Send one message from *NOT* a local process.
  *
+ * seq_trace does not work with this type of messages
+ * to it is set to am_undefined which means that the
+ * receiving process will not remove the seq_trace token
+ * when it gets this message.
+ *
  */
 void
 erts_queue_message(Process* receiver, ErtsProcLocks receiver_locks,
@@ -417,11 +422,19 @@ erts_queue_message(Process* receiver, ErtsProcLocks receiver_locks,
     ASSERT(is_not_internal_pid(from));
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = from;
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     queue_messages(receiver, receiver_locks, mp, &mp->next, 1);
 }
 
 /**
  * @brief Send one message from a local process.
+ *
+ * It is up to the caller of this function to set the
+ * correct seq_trace. The general rule of thumb is that
+ * it should be set to am_undefined if the message
+ * cannot be traced using seq_trace, if it can be
+ * traced it should be set to the trace token. It should
+ * very rarely be explicitly set to NIL!
  */
 void
 erts_queue_proc_message(Process* sender,
@@ -519,9 +532,7 @@ erts_try_alloc_message_on_heap(Process *pp,
 
     if ((*psp) & ERTS_PSFLGS_VOLATILE_HEAP)
 	goto in_message_fragment;
-    else if (
-	*plp & ERTS_PROC_LOCK_MAIN
-	) {
+    else if (*plp & ERTS_PROC_LOCK_MAIN) {
     try_on_heap:
 	if (((*psp) & ERTS_PSFLGS_VOLATILE_HEAP)
 	    || (pp->flags & F_DISABLE_GC)
@@ -584,8 +595,7 @@ void
 erts_send_message(Process* sender,
 		  Process* receiver,
 		  ErtsProcLocks *receiver_locks,
-		  Eterm message,
-		  unsigned flags)
+		  Eterm message)
 {
     Uint msize;
     ErtsMessage* mp;
@@ -619,7 +629,7 @@ erts_send_message(Process* sender,
 
     receiver_state = erts_atomic32_read_nob(&receiver->state);
 
-    if (SEQ_TRACE_TOKEN(sender) != NIL && !(flags & ERTS_SND_FLG_NO_SEQ_TRACE)) {
+    if (SEQ_TRACE_TOKEN(sender) != NIL) {
         Eterm* hp;
 	Eterm stoken = SEQ_TRACE_TOKEN(sender);
 	Uint seq_trace_size = 0;

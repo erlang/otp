@@ -1,50 +1,22 @@
-
-%%%-----------------------------------------------------------------
-%%% Overload protection configuration
-
-%%! *** NOTE *** 
-%%! It's important that:
-%%! TOGGLE_SYNC_QLEN < DROP_NEW_REQS_QLEN < FLUSH_REQS_QLEN
-%%! and that DROP_NEW_REQS_QLEN >= 2.
-%%! Otherwise the handler could end up in drop mode with no new
-%%! log requests to process. This would cause all future requests
-%%! to be dropped (no switch to async mode would ever take place).
-
-%% This specifies the message_queue_len value where the log
-%% requests switch from asynchronous casts to synchronous calls.
--define(TOGGLE_SYNC_QLEN, 10).
-%% Above this message_queue_len, log requests will be dropped,
-%% i.e. no log requests get sent to the handler process.
--define(DROP_NEW_REQS_QLEN, 200).
-%% Above this message_queue_len, the handler process will flush
-%% its mailbox and only leave this number of messages in it.
--define(FLUSH_REQS_QLEN, 1000).
-
-%% Never flush more than this number of messages in one go,
-%% or the handler will be unresponsive for seconds (keep this
-%% number as large as possible or the mailbox could grow large).
--define(FLUSH_MAX_N, 5000).
-
-%% BURST_LIMIT is the max number of log requests allowed to be
-%% written within a BURST_WINDOW_TIME time frame.
--define(ENABLE_BURST_LIMIT, true).
--define(BURST_LIMIT_SIZE, 500).
--define(BURST_WINDOW_TIME, 1000).
-
-%% This enables/disables the feature to automatically get the
-%% handler terminated if it gets too loaded (and can't keep up).
--define(ENABLE_KILL_OVERLOADED, false).
-%% If the message_queue_len goes above this size even after
-%% flushing has been performed, the handler is terminated.
--define(HANDLER_OVERLOADED_QLEN, 20000).
-%% If the memory usage exceeds this level
--define(HANDLER_OVERLOADED_MEM, 3000000).
-
-%% This is the default time that the handler will wait before
-%% restarting and accepting new requests. The value 'never'
-%% disables restarts.
--define(HANDLER_RESTART_AFTER, 5000).
-%%-define(HANDLER_RESTART_AFTER, never).
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
 
 %% The handler sends asynchronous write requests to the process
 %% controlling the i/o device, but every once in this interval
@@ -65,58 +37,16 @@
 -define(FILESYNC_REPEAT_INTERVAL, 5000).
 %%-define(FILESYNC_REPEAT_INTERVAL, no_repeat).
 
-%% This is the time after last message received that we think/hope
-%% that the handler has an empty mailbox (no new log request has
-%% come in).
--define(IDLE_DETECT_TIME_MSEC, 100).
--define(IDLE_DETECT_TIME_USEC, 100000).
-
 %% Default disk log option values
 -define(DISK_LOG_TYPE, wrap).
 -define(DISK_LOG_MAX_NO_FILES, 10).
 -define(DISK_LOG_MAX_NO_BYTES, 1048576).
 
 %%%-----------------------------------------------------------------
-%%% Overload protection macros
+%%% Utility macros
 
--define(timestamp(), erlang:monotonic_time(microsecond)).
-
--define(get_mode(HandlerName),
-        case ets:lookup(HandlerName, mode) of
-            [{mode,sync}] ->
-                case whereis(HandlerName)==self() of
-                    true -> async;
-                    _ -> sync
-                end;
-            [{mode,M}] -> M;
-            _          -> async
-        end).
-
--define(set_mode(HandlerName, M),
-        begin ets:insert(HandlerName, {mode,M}), M end).
-
--define(change_mode(HandlerName, M0, M1),
-        if M0 == M1 ->
-                M0;
-           true ->
-                ets:insert(HandlerName, {mode,M1}),
-                M1
-        end).
-
--define(min(X1, X2),
-        if X2 == undefined -> X1;
-           X2 < X1 -> X2;
-           true -> X1
-        end).
-
--define(max(X1, X2),
-        if 
-            X2 == undefined -> X1;
-            X2 > X1 -> X2;
-            true -> X1
-        end).
-
--define(diff_time(OS_T1, OS_T0), OS_T1-OS_T0).
+-define(name_to_reg_name(MODULE,Name),
+        list_to_atom(lists:concat([MODULE,"_",Name]))).
 
 %%%-----------------------------------------------------------------
 %%% The test hook macros make it possible to observe and manipulate
@@ -124,7 +54,7 @@
 %%% slow down execution and therefore should not be include in code
 %%% to be officially released.
 
--define(TEST_HOOKS, true).
+%%-define(TEST_HOOKS, true).
 -ifdef(TEST_HOOKS).
   -define(TEST_HOOKS_TAB, logger_h_test_hooks).
 
@@ -136,7 +66,7 @@
           ets:insert(?TEST_HOOKS_TAB, {internal_log,{logger,internal_log}}),
           ets:insert(?TEST_HOOKS_TAB, {file_write,ok}),
           ets:insert(?TEST_HOOKS_TAB, {file_datasync,ok}),
-          ets:insert(?TEST_HOOKS_TAB, {disk_log_blog,ok}),
+          ets:insert(?TEST_HOOKS_TAB, {disk_log_write,ok}),
           ets:insert(?TEST_HOOKS_TAB, {disk_log_sync,ok})).
 
   -define(set_internal_log(MOD_FUNC),
@@ -149,7 +79,7 @@
           ets:insert(?TEST_HOOKS_TAB, {internal_log,{logger,internal_log}}),
           ets:insert(?TEST_HOOKS_TAB, {file_write,ok}),
           ets:insert(?TEST_HOOKS_TAB, {file_datasync,ok}),
-          ets:insert(?TEST_HOOKS_TAB, {disk_log_blog,ok}),
+          ets:insert(?TEST_HOOKS_TAB, {disk_log_write,ok}),
           ets:insert(?TEST_HOOKS_TAB, {disk_log_sync,ok})).
 
   -define(internal_log(TYPE, TERM),
@@ -170,11 +100,11 @@
               [{_,ERROR}] -> ERROR
           catch _:_       -> file:datasync(DEVICE) end).
 
-  -define(disk_log_blog(LOG, DATA),
-          try ets:lookup(?TEST_HOOKS_TAB, disk_log_blog) of
-              [{_,ok}]    -> disk_log:blog(LOG, DATA);
+  -define(disk_log_write(LOG, MODE, DATA),
+          try ets:lookup(?TEST_HOOKS_TAB, disk_log_write) of
+              [{_,ok}]    -> disk_log_write(LOG, MODE, DATA);
               [{_,ERROR}] -> ERROR
-          catch _:_       -> disk_log:blog(LOG, DATA) end).
+          catch _:_       -> disk_log_write(LOG, MODE, DATA) end).
 
   -define(disk_log_sync(LOG),
           try ets:lookup(?TEST_HOOKS_TAB, disk_log_sync) of
@@ -182,7 +112,6 @@
               [{_,ERROR}] -> ERROR
           catch _:_       -> disk_log:sync(LOG) end).
 
-  -define(DEFAULT_CALL_TIMEOUT, 5000).
 
 -else.                                          % DEFAULTS!
   -define(TEST_HOOKS_TAB, undefined).
@@ -193,70 +122,6 @@
   -define(internal_log(TYPE, TERM), logger:internal_log(TYPE, TERM)).
   -define(file_write(DEVICE, DATA), file:write(DEVICE, DATA)).
   -define(file_datasync(DEVICE), file:datasync(DEVICE)).
-  -define(disk_log_blog(LOG, DATA), disk_log:blog(LOG, DATA)).
+  -define(disk_log_write(LOG, MODE, DATA), disk_log_write(LOG, MODE, DATA)).
   -define(disk_log_sync(LOG), disk_log:sync(LOG)).
-  -define(DEFAULT_CALL_TIMEOUT, 10000).
 -endif.
-
-%%%-----------------------------------------------------------------
-%%% These macros enable statistics counters in the state of the
-%%% handler which is useful for analysing the overload protection
-%%% behaviour. These counters should not be included in code to be
-%%% officially released (as some counters will grow very large
-%%% over time).
-
-%%-define(SAVE_STATS, true).
--ifdef(SAVE_STATS).
-  -define(merge_with_stats(STATE),
-          STATE#{flushes => 0, flushed => 0, drops => 0,
-                 casts => 0, calls => 0,
-                 max_qlen => 0, max_time => 0}).
-
-  -define(update_max_qlen(QLEN, STATE),
-          begin #{max_qlen := QLEN0} = STATE,
-                STATE#{max_qlen => ?max(QLEN0,QLEN)} end).
-
-  -define(update_calls_or_casts(CALL_OR_CAST, INC, STATE),
-          case CALL_OR_CAST of
-              cast ->
-                  #{casts := CASTS0} = STATE,
-                  STATE#{casts => CASTS0+INC};
-              call ->
-                  #{calls := CALLS0} = STATE,
-                  STATE#{calls => CALLS0+INC}
-          end).
-
-  -define(update_max_time(TIME, STATE),
-          begin #{max_time := TIME0} = STATE,
-                STATE#{max_time => ?max(TIME0,TIME)} end).
-
-  -define(update_other(OTHER, VAR, INCVAL, STATE),
-          begin #{OTHER := VAR} = STATE,
-                STATE#{OTHER => VAR+INCVAL} end).
-          
--else.                                          % DEFAULT!
-  -define(merge_with_stats(STATE), STATE).
-  -define(update_max_qlen(_QLEN, STATE), STATE).
-  -define(update_calls_or_casts(_CALL_OR_CAST, _INC, STATE), STATE).
-  -define(update_max_time(_TIME, STATE), STATE).
-  -define(update_other(_OTHER, _VAR, _INCVAL, STATE), STATE).
--endif.
-
-%%%-----------------------------------------------------------------
-%%% These macros enable callbacks that make it possible to analyse
-%%% the overload protection behaviour from outside the handler
-%%% process (including dropped requests on the client side).
-%%% An external callback module (?OBSERVER_MOD) is required which
-%%% is not part of the kernel application. For this reason, these
-%%% callbacks should not be included in code to be officially released.
-
-%%-define(OBSERVER_MOD, logger_test).
--ifdef(OBSERVER_MOD).
-  -define(start_observation(NAME), ?OBSERVER:start_observation(NAME)).
-  -define(observe(NAME,EVENT), ?OBSERVER:observe(NAME,EVENT)).
-
--else.                                          % DEFAULT!
-  -define(start_observation(_NAME), ok).
-  -define(observe(_NAME,_EVENT), ok).
--endif.
-%%! <---

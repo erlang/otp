@@ -5,7 +5,7 @@
     <header>
 	<copyright>
 	    <year>2009</year>
-	    <year>2017</year>
+	    <year>2018</year>
 	    <holder>Ericsson AB, All Rights Reserved</holder>
 	</copyright>
 	<legalnotice>
@@ -34,7 +34,7 @@
 	<rev>PA1</rev>
 	<file>lcnt.xml</file>
     </header>
-    <module>lcnt</module>
+    <module since="OTP R13B04">lcnt</module>
     <modulesummary>A runtime system Lock Profiling tool.</modulesummary>
     <description>
 	<p>The <c>lcnt</c> module is used to profile the internal ethread locks in the
@@ -71,7 +71,7 @@
     <funcs>
 
 	<func>
-	    <name>start() -> {ok, Pid} | {error, {already_started, Pid}} </name>
+	    <name since="OTP R13B04">start() -> {ok, Pid} | {error, {already_started, Pid}} </name>
 	    <fsummary>Starts the lock profiler server.</fsummary>
 	    <type>
 		<v>Pid = pid()</v>
@@ -84,7 +84,7 @@
 	</func>
 
 	<func>
-	    <name>stop() -> ok</name>
+	    <name since="OTP R13B04">stop() -> ok</name>
 	    <fsummary>Stops the lock profiler server.</fsummary>
 	    <desc>
 		<p>Stops the lock profiler server.</p>
@@ -92,13 +92,13 @@
 	</func>
 
 	<func>
-	    <name>collect() -> ok</name>
+	    <name since="OTP R13B04">collect() -> ok</name>
 	    <fsummary>Same as <c>collect(node())</c>.</fsummary>
 	    <desc><p>Same as <c>collect(node())</c>.</p></desc>
 	</func>
 
 	<func>
-	    <name>collect(Node) -> ok</name>
+	    <name since="OTP R13B04">collect(Node) -> ok</name>
 	    <fsummary>Collects lock statistics from the runtime system.</fsummary>
 	    <type>
 		<v>Node = node()</v>
@@ -113,13 +113,13 @@
 	</func>
 
 	<func>
-	    <name>clear() -> ok</name>
+	    <name since="OTP R13B04">clear() -> ok</name>
 	    <fsummary>Same as <c>clear(node())</c>.</fsummary>
 	    <desc><p>Same as <c>clear(node())</c>.</p></desc>
 	</func>
 
 	<func>
-	    <name>clear(Node) -> ok</name>
+	    <name since="OTP R13B04">clear(Node) -> ok</name>
 	    <fsummary>Clears the internal lock statistics from runtime system.</fsummary>
 	    <type>
 		<v>Node = node()</v>
@@ -133,12 +133,12 @@
 	    </desc>
 	</func>
 	<func>
-	    <name>conflicts() -> ok</name>
+	    <name since="OTP R13B04">conflicts() -> ok</name>
 	    <fsummary>Same as <c>conflicts([])</c>.</fsummary>
 	    <desc><p>Same as <c>conflicts([])</c>.</p></desc>
 	</func>
 	<func>
-	    <name>conflicts([Option]) -> ok</name>
+	    <name since="OTP R13B04">conflicts([Option]) -> ok</name>
 	    <fsummary>Prints a list of internal lock counters.</fsummary>
 	    <type>
 		<v>Option     = {sort, Sort} | {reverse, bool()} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()}</v>
@@ -154,14 +154,14 @@
 	</func>
 
 	<func>
-	    <name>locations() -> ok</name>
+	    <name since="OTP R13B04">locations() -> ok</name>
 	    <fsummary>Same as <c>locations([])</c>.</fsummary>
 	    <desc>
 		<p>Same as <c>locations([])</c>.</p>
 	    </desc>
 	</func>
 	<func>
-	    <name>locations([Option]) -> ok</name>
+	    <name since="OTP R13B04">locations([Option]) -> ok</name>
 	    <fsummary>Prints a list of internal lock counters by source code locations.</fsummary>
 	    <type>
 		<v>Option     = {sort, Sort} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()}</v>
@@ -177,12 +177,12 @@
 	</func>
 
 	<func>
-	    <name>inspect(Lock) -> ok</name>
+	    <name since="OTP R13B04">inspect(Lock) -> ok</name>
 	    <fsummary>Same as <c>inspect(Lock, [])</c>.</fsummary>
 	    <desc><p>Same as <c>inspect(Lock, [])</c>.</p></desc>
 	</func>
 	<func>
-	    <name>inspect(Lock, [Option]) -> ok</name>
+	    <name since="OTP R13B04">inspect(Lock, [Option]) -> ok</name>
 	    <fsummary>Prints a list of internal lock counters for a specific lock.</fsummary>
 	    <type>
 		<v>Lock       = Name | {Name, Id | [Id]}</v>
@@ -268,7 +268,7 @@
 	</func>
 
 	<func>
-	    <name>information() -> ok</name>
+	    <name since="OTP R13B04">information() -> ok</name>
 	    <fsummary>Prints lcnt server state and generic information about collected lock statistics.</fsummary>
 	    <desc>
 		<p>Prints lcnt server state and generic information about collected lock statistics.</p>
@@ -276,7 +276,7 @@
 	</func>
 
 	<func>
-	    <name>swap_pid_keys() -> ok</name>
+	    <name since="OTP R13B04">swap_pid_keys() -> ok</name>
 	    <fsummary>Swaps places on <c>Name</c> and <c>Id</c> space for ports and processes.</fsummary>
 	    <desc>
 		<p>Swaps places on <c>Name</c> and <c>Id</c> space for ports and processes.</p>
@@ -284,7 +284,7 @@
 	</func>
 
 	<func>
-	    <name>load(Filename) -> ok</name>
+	    <name since="OTP R13B04">load(Filename) -> ok</name>
 	    <fsummary>Restores previously saved data to the server.</fsummary>
 	    <type>
 		<v>Filename = filename()</v>
@@ -295,7 +295,7 @@
 	</func>
 
 	<func>
-	    <name>save(Filename) -> ok</name>
+	    <name since="OTP R13B04">save(Filename) -> ok</name>
 	    <fsummary>Saves the collected data to file.</fsummary>
 	    <type>
 		<v>Filename = filename()</v>
@@ -312,7 +312,7 @@
     </section>
     <funcs>
 	<func>
-	    <name>apply(Fun) -> term()</name>
+	    <name since="OTP R13B04">apply(Fun) -> term()</name>
 	    <fsummary>Same as <c>apply(Fun, [])</c>.</fsummary>
 	    <type>
 		<v>Fun = fun()</v>
@@ -322,7 +322,7 @@
 	    </desc>
 	</func>
 	<func>
-	    <name>apply(Fun, Args) -> term()</name>
+	    <name since="OTP R13B04">apply(Fun, Args) -> term()</name>
 	    <fsummary>Same as <c>apply(Module, Function, Args)</c>.</fsummary>
 	    <type>
 		<v>Fun = fun()</v>
@@ -333,7 +333,7 @@
 	    </desc>
 	</func>
 	<func>
-	    <name>apply(Module, Function, Args) -> term()</name>
+	    <name since="OTP R13B04">apply(Module, Function, Args) -> term()</name>
 	    <fsummary>Clears counters, applies function and collects the profiling results.</fsummary>
 	    <type>
 		<v>Module = atom()</v>
@@ -358,12 +358,12 @@
 	</func>
 
 	<func>
-	    <name>pid(Id, Serial) -> pid()</name>
+	    <name since="OTP R13B04">pid(Id, Serial) -> pid()</name>
 	    <fsummary>Same as <c>pid(node(), Id, Serial)</c>.</fsummary>
 	    <desc><p>Same as <c>pid(node(), Id, Serial)</c>.</p></desc>
 	</func>
 	<func>
-	    <name>pid(Node, Id, Serial) -> pid()</name>
+	    <name since="OTP R13B04">pid(Node, Id, Serial) -> pid()</name>
 	    <fsummary>Creates a process id with creation 0.</fsummary>
 	    <type>
 		<v>Node = node()</v>
@@ -376,12 +376,12 @@
 	</func>
 
 	<func>
-	    <name>port(Id) -> port()</name>
+	    <name since="OTP R13B04">port(Id) -> port()</name>
 	    <fsummary>Same as <c>port(node(), Id)</c>.</fsummary>
 	    <desc><p>Same as <c>port(node(), Id)</c>.</p></desc>
 	</func>
 	<func>
-	    <name>port(Node, Id) -> port()</name>
+	    <name since="OTP R13B04">port(Node, Id) -> port()</name>
 	    <fsummary>Creates a port id with creation 0.</fsummary>
 	    <type>
 		<v>Node = node()</v>
@@ -399,12 +399,12 @@
 
     <funcs>
 	<func>
-	    <name>rt_collect() -> [lock_counter_data()]</name>
+	    <name since="OTP R13B04">rt_collect() -> [lock_counter_data()]</name>
 	    <fsummary>Same as <c>rt_collect(node())</c>.</fsummary>
 	    <desc> <p>Same as <c>rt_collect(node())</c>.</p> </desc>
 	</func>
 	<func>
-	    <name>rt_collect(Node) -> [lock_counter_data()]</name>
+	    <name since="OTP R13B04">rt_collect(Node) -> [lock_counter_data()]</name>
 	    <fsummary>Returns a list of raw lock counter data.</fsummary>
 	    <type>
 		<v>Node = node()</v>
@@ -413,12 +413,12 @@
 	</func>
 
 	<func>
-	    <name>rt_clear() -> ok</name>
+	    <name since="OTP R13B04">rt_clear() -> ok</name>
 	    <fsummary>Same as <c>rt_clear(node())</c>.</fsummary>
 	    <desc> <p>Same as <c>rt_clear(node())</c>.</p> </desc>
 	</func>
 	<func>
-	    <name>rt_clear(Node) -> ok</name>
+	    <name since="OTP R13B04">rt_clear(Node) -> ok</name>
 	    <fsummary>Clears the internal counters.</fsummary>
 	    <type>
 		<v>Node = node()</v>
@@ -427,13 +427,13 @@
 	</func>
 
         <func>
-            <name>rt_mask() -> [category_atom()]</name>
+            <name since="OTP 20.1">rt_mask() -> [category_atom()]</name>
             <fsummary>Same as <c>rt_mask(node())</c>.</fsummary>
             <desc><p>Same as <c>rt_mask(node())</c>.</p></desc>
         </func>
 
         <func>
-            <name>rt_mask(Node) -> [category_atom()]</name>
+            <name since="OTP 20.1">rt_mask(Node) -> [category_atom()]</name>
             <fsummary>Returns the current lock category mask.</fsummary>
             <type>
                 <v>Node = node()</v>
@@ -447,7 +447,7 @@
         </func>
 
         <func>
-            <name>rt_mask(Categories) -> ok | {error, copy_save_enabled}</name>
+            <name since="OTP 20.1">rt_mask(Categories) -> ok | {error, copy_save_enabled}</name>
             <fsummary>Same as <c>rt_mask(node(), Categories)</c>.</fsummary>
             <type>
                 <v>Categories = [atom()]</v>
@@ -456,7 +456,7 @@
         </func>
 
         <func>
-            <name>rt_mask(Node, Categories) -> ok | {error, copy_save_enabled}</name>
+            <name since="OTP 20.1">rt_mask(Node, Categories) -> ok | {error, copy_save_enabled}</name>
             <fsummary>Changes the lock category mask.</fsummary>
             <type>
                 <v>Node = node()</v>
@@ -489,12 +489,12 @@
         </func>
 
 	<func>
-	    <name>rt_opt({Type, bool()}) -> bool()</name>
+	    <name since="OTP R13B04">rt_opt({Type, bool()}) -> bool()</name>
 	    <fsummary>Same as <c>rt_opt(node(), {Type, Opt})</c>.</fsummary>
 	    <desc> <p>Same as <c>rt_opt(node(), {Type, Opt})</c>.</p> </desc>
 	</func>
 	<func>
-	    <name>rt_opt(Node, {Type, bool()}) -> bool()</name>
+	    <name since="OTP R13B04">rt_opt(Node, {Type, bool()}) -> bool()</name>
 	    <fsummary>Changes the lock counter behavior and returns the previous behaviour.</fsummary>
 	    <type>
 		<v>Node = node()</v>

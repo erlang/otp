@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,10 @@
 -include_lib("public_key/include/public_key.hrl"). 
 
 -behaviour(ssl_crl_cache_api).
+
+-export_type([crl_src/0, uri/0]).
+-type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
+-type uri()     :: uri_string:uri_string().
 
 -export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).

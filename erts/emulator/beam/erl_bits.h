@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,12 +73,16 @@ struct erl_bits_state {
 typedef struct erl_bin_match_struct{
   Eterm thing_word;
   ErlBinMatchBuffer mb;		/* Present match buffer */
-  Eterm save_offset[1];		/* Saved offsets */
+  Eterm save_offset[1];         /* Saved offsets, only valid for contexts
+                                 * created through bs_start_match2. */
 } ErlBinMatchState;
 
-#define ERL_BIN_MATCHSTATE_SIZE(_Max) ((sizeof(ErlBinMatchState) + (_Max)*sizeof(Eterm))/sizeof(Eterm)) 
-#define HEADER_BIN_MATCHSTATE(_Max) _make_header(ERL_BIN_MATCHSTATE_SIZE((_Max))-1, _TAG_HEADER_BIN_MATCHSTATE)
-#define HEADER_NUM_SLOTS(hdr) (header_arity(hdr)-sizeof(ErlBinMatchState)/sizeof(Eterm)+1)
+#define ERL_BIN_MATCHSTATE_SIZE(_Max) \
+    ((offsetof(ErlBinMatchState, save_offset) + (_Max)*sizeof(Eterm))/sizeof(Eterm))
+#define HEADER_BIN_MATCHSTATE(_Max) \
+    _make_header(ERL_BIN_MATCHSTATE_SIZE((_Max)) - 1, _TAG_HEADER_BIN_MATCHSTATE)
+#define HEADER_NUM_SLOTS(hdr) \
+    (header_arity(hdr) - (offsetof(ErlBinMatchState, save_offset) / sizeof(Eterm)) + 1)
 
 #define make_matchstate(_Ms) make_boxed((Eterm*)(_Ms))  
 #define ms_matchbuffer(_Ms) &(((ErlBinMatchState*) boxed_val(_Ms))->mb)
@@ -144,6 +148,7 @@ void erts_bits_destroy_state(ERL_BITS_PROTO_0);
  */
 
 Eterm erts_bs_start_match_2(Process *p, Eterm Bin, Uint Max);
+ErlBinMatchState *erts_bs_start_match_3(Process *p, Eterm Bin);
 Eterm erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);
 Eterm erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);
 Eterm erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb);

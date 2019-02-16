@@ -196,7 +196,7 @@
  	 file/1,
 	 file/2,
 	 get_llvm_version/0,
-	 llvm_support_available/0,
+	 erllvm_is_supported/0,
 	 load/1,
 	 help/0,
 	 help_hiper/0,
@@ -218,12 +218,11 @@
 %% Basic type declaration for exported functions of the 'hipe' module
 %%-------------------------------------------------------------------
 
--type mod() :: atom().
--type f_unit() :: mod() | binary().
+-type mod() :: module().
+-type file_or_bin() :: file:filename() | binary().
 -type ret_rtl() :: [_].
 -type c_ret() :: {'ok', mod()} | {'error', term()} |
                  {'ok', mod(), ret_rtl()}. %% The last for debugging only
--type compile_file() :: atom() | string() | binary().
 -type compile_ret() :: {hipe_architecture(), binary()} | list().
 
 %%-------------------------------------------------------------------
@@ -233,26 +232,26 @@
 
 %%-------------------------------------------------------------------
 
-%% @spec load(Mod) -> {module, Mod} | {error, Reason}
-%%     Mod = mod()
+%% @spec load(Module) -> {module, Module} | {error, Reason}
+%%     Module = mod()
 %%     Reason = term()
 %% 
 %% @doc Like load/2, but tries to locate a BEAM file automatically.
 %%
 %% @see load/2
 
--spec load(Mod) -> {'module', Mod} | {'error', term()} when Mod :: mod().
+-spec load(Module) -> {'module', Module} | {'error', Reason :: term()}
+                   when Module :: mod().
 
-load(Mod) ->
-  load(Mod, beam_file(Mod)).
+load(Module) ->
+  load(Module, beam_file(Module)).
 
-%% @spec load(Mod, BeamFileName) -> {module, Mod} | {error, Reason}
-%%     Mod = mod()
+%% @spec load(Module, BeamFileName) -> {module, Module} | {error, Reason}
+%%     Module = mod()
+%%     BeamFileName = file:filename()
 %%     Reason = term()
-%%     BeamFileName = string()
-%%     filename() = term()
 %%
-%% @type mod() = atom(). A module name.
+%% @type mod() = module(). A module name.
 %% 
 %% @doc User interface for loading code into memory. The code can be
 %% given as a native code binary or as the file name of a BEAM file
@@ -262,8 +261,8 @@ load(Mod) ->
 %%
 %% @see load/1
 
--spec load(Mod, string()) -> {'module', Mod} | {'error', term()}
-				   when Mod :: mod().
+-spec load(Module, file:filename()) -> {'module', Module} | {'error', term()}
+				    when Module :: mod().
 
 load(Mod, BeamFileName) when is_list(BeamFileName) ->
   Architecture = erlang:system_info(hipe_architecture),
@@ -273,26 +272,22 @@ load(Mod, BeamFileName) when is_list(BeamFileName) ->
     Error -> {error, Error}
   end.
 
-%% @spec c(Name) -> {ok, Name} | {error, Reason}
-%%       Name = mod()
+%% @spec c(Mod) -> {ok, Mod} | {error, Reason}
+%%       Mod = mod()
 %%       Reason = term()
 %%
-%% @equiv c(Name, [])
+%% @equiv c(Mod, [])
 
 -spec c(mod()) -> c_ret().
 
-c(Name) ->
-  c(Name, []).
+c(Mod) ->
+  c(Mod, []).
 
-%% @spec c(Name, options()) -> {ok, Name} | {error, Reason}
-%%     Name = mod()
+%% @spec c(Module, options()) -> {ok, Module} | {error, Reason}
+%%     Module = mod()
 %%     options() = [option()]
 %%     option() = term()
 %%     Reason = term()
-%%
-%% @type fun() = atom(). A function identifier.
-%%
-%% @type arity() = integer(). A function arity; always nonnegative.
 %% 
 %% @doc User-friendly native code compiler interface. Reads BEAM code
 %% from the corresponding "Module<code>.beam</code>" file in the
@@ -307,12 +302,12 @@ c(Name) ->
 
 -spec c(mod(), comp_options()) -> c_ret().
 
-c(Name, Options) ->
-  c(Name, beam_file(Name), Options).
+c(Module, Options) ->
+  c(Module, beam_file(Module), Options).
 
-%% @spec c(Name, File, options()) -> {ok, Name} | {error, Reason}
-%%     Name = mod()
-%%     File = filename() | binary()
+%% @spec c(Module, File, options()) -> {ok, Module} | {error, Reason}
+%%     Module = mod()
+%%     File = file:filename() | binary()
 %%     Reason = term()
 %%
 %% @doc Like <code>c/2</code>, but reads BEAM code from the specified
@@ -321,32 +316,32 @@ c(Name, Options) ->
 %% @see c/2
 %% @see f/2
 
-c(Name, File, Opts) ->
+c(Module, File, Opts) ->
   Opts1 = user_compile_opts(Opts),
-  case compile(Name, File, Opts1) of
+  case compile(Module, File, Opts1) of
     {ok, Res} ->
       case proplists:get_bool(to_rtl, Opts1) of
-	true -> {ok, Name, Res};
-	false -> {ok, Name}
+	true  -> {ok, Module, Res};
+	false -> {ok, Module}
       end;
     Other ->
       Other
   end.
 
 %% @spec f(File) -> {ok, Name} | {error, Reason}
-%%     File = filename() | binary()
+%%     File = file:filename() | binary()
 %%     Name = mod()
 %%     Reason = term()
 %%
 %% @equiv f(File, [])
 
--spec f(f_unit()) -> {'ok', mod()} | {'error', term()}.
+-spec f(file_or_bin()) -> {'ok', mod()} | {'error', term()}.
 
 f(File) ->
   f(File, []).
 
 %% @spec f(File, options()) -> {ok, Name} | {error, Reason}
-%%     File = filename() | binary()
+%%     File = file:filename() | binary()
 %%     Name = mod()
 %%     Reason = term()
 %%
@@ -355,7 +350,7 @@ f(File) ->
 %%
 %% @see c/3
 
--spec f(f_unit(), comp_options()) -> {'ok', mod()} | {'error', term()}.
+-spec f(file_or_bin(), comp_options()) -> {'ok', mod()} | {'error', term()}.
 
 f(File, Opts) ->
   case file(File, user_compile_opts(Opts)) of
@@ -371,20 +366,20 @@ user_compile_opts(Opts) ->
   Opts ++ ?USER_DEFAULTS.
 
 
-%% @spec compile(Name) -> {ok, {Target,Binary}} | {error, Reason}
-%%       Name = mod()
+%% @spec compile(Module) -> {ok, {Target,Binary}} | {error, Reason}
+%%       Module = mod()
 %%       Binary = binary()
 %%       Reason = term()
 %% 
-%% @equiv compile(Name, [])
+%% @equiv compile(Module, [])
 
 -spec compile(mod()) -> {'ok', compile_ret()} | {'error', term()}.
 
-compile(Name) ->
-  compile(Name, []).
+compile(Module) ->
+  compile(Module, []).
 
-%% @spec compile(Name, options()) -> {ok, {Target,Binary}} | {error, Reason}
-%%       Name = mod()
+%% @spec compile(Module, options()) -> {ok, {Target,Binary}} | {error, Reason}
+%%       Module = mod()
 %%       Binary = binary()
 %%       Reason = term()
 %%
@@ -403,26 +398,26 @@ compile(Name) ->
 %% @see file/2
 %% @see load/2
 
--spec compile(mod(), comp_options()) -> {'ok', compile_ret()} | {'error', _}.
+-spec compile(mod(), comp_options()) -> {'ok', compile_ret()} | {'error', term()}.
 
-compile(Name, Options) ->
-  compile(Name, beam_file(Name), Options).
+compile(Module, Options) ->
+  compile(Module, beam_file(Module), Options).
 
--spec beam_file(mod()) -> string().
+-spec beam_file(mod()) -> file:filename().
 
 beam_file(Module) when is_atom(Module) ->
   case code:which(Module) of
     non_existing ->
-      ?error_msg("Cannot find ~w.beam file.",[Module]),
+      ?error_msg("Cannot find ~w.beam file.", [Module]),
       ?EXIT({cant_find_beam_file,Module});
-    File -> % string()
+    File when is_list(File) ->
       File
   end.
 
 %% @spec compile(Name, File, options()) ->
 %%           {ok, {Target, Binary}} | {error, Reason}
 %%       Name = mod()
-%%       File = filename() | binary()
+%%       File = file:filename() | binary()
 %%       Binary = binary()
 %%       Reason = term()
 %% 
@@ -431,7 +426,7 @@ beam_file(Module) when is_atom(Module) ->
 %%
 %% @see compile/2
 
--spec compile(mod(), compile_file(), comp_options()) ->
+-spec compile(mod(), file_or_bin(), comp_options()) ->
 	 {'ok', compile_ret()} | {'error', term()}.
 
 compile(Name, File, Opts0) when is_atom(Name) ->
@@ -475,18 +470,18 @@ compile(Name, File, Opts0) when is_atom(Name) ->
       run_compiler(Name, DisasmFun, IcodeFun, Opts)
   end.
 
--spec compile_core(mod(), cerl:c_module(), compile_file(), comp_options()) ->
+-spec compile_core(mod(), cerl:c_module(), file_or_bin(), comp_options()) ->
 	 {'ok', compile_ret()} | {'error', term()}.
 
 compile_core(Name, Core0, File, Opts) ->
   Core = cerl:from_records(Core0),
   compile(Name, Core, File, Opts).
 
-%% @spec compile(Name, Core, File, options()) ->
+%% @spec compile(Module, Core, File, options()) ->
 %%           {ok, {Target, Binary}} | {error, Reason}
-%%       Name = mod()
+%%       Module = mod()
 %%       Core = coreErlang() | []
-%%       File = filename() | binary()
+%%       File = file:filename() | binary()
 %%       Binary = binary()
 %%       Reason = term()
 %% 
@@ -499,7 +494,7 @@ compile_core(Name, Core0, File, Opts) ->
 %%
 %% @see compile/3
 
--spec compile(mod(), cerl:c_module() | [], compile_file(), comp_options()) ->
+-spec compile(mod(), cerl:c_module() | [], file_or_bin(), comp_options()) ->
 	 {'ok', compile_ret()} | {'error', term()}.
 
 compile(Name, [], File, Opts) ->
@@ -511,37 +506,35 @@ compile(Name, Core, File, Opts) when is_atom(Name) ->
 	     end,
   run_compiler(Name, DisasmFun, IcodeFun, Opts).
 
-%% @spec file(File) -> {ok, Name, {Target, Binary}} | {error, Reason}
-%%       File = filename() | binary()
-%%       Name = mod() | mfa()
+%% @spec file(File) -> {ok, Mod, {Target, Binary}} | {error, Reason}
+%%       File = file:filename()
+%%       Mod = mod()
 %%       Binary = binary()
 %%       Reason = term()
 %% 
 %% @equiv file(File, [])
 
--spec file(Mod) -> {'ok', Mod, compile_ret()} | {'error', term()}
-		     when Mod :: mod().
+-spec file(file:filename()) -> {'ok', mod(), compile_ret()} | {'error', term()}.
 
 file(File) ->
   file(File, []).
 
-%% @spec file(File, options()) -> {ok, Name, {Target,Binary}} | {error, Reason}
-%%       File = filename()
-%%       Name = mod() | mfa()
+%% @spec file(File, options()) -> {ok, Mod, {Target, Binary}} | {error, Reason}
+%%       File = file:filename()
+%%       Mod = mod()
 %%       Binary = binary()
 %%       Reason = term()
 %% 
 %% @doc Like <code>compile/2</code>, but takes the module name from the
-%% specified <code>File</code>. Returns both the name and the final
+%% specified <code>File</code>. Returns both the module name and the final
 %% binary if successful.
 %%
 %% @see file/1
 %% @see compile/2
 
--spec file(Mod, comp_options()) -> {'ok', Mod, compile_ret()}
-				|  {'error', term()}
-				     when Mod :: mod().
-file(File, Options) when is_atom(File) ->
+-spec file(file:filename(), comp_options()) -> {'ok', mod(), compile_ret()}
+				             | {'error', Reason :: term()}.
+file(File, Options) when is_list(File) ->
   case beam_lib:info(File) of
     L when is_list(L) ->
       {module, Mod} = lists:keyfind(module, 1, L),
@@ -653,7 +646,7 @@ run_compiler_1(Name, DisasmFun, IcodeFun, Options) ->
 				   get(hipe_target_arch)),
 	    Opts =
 	      case proplists:get_bool(to_llvm, Opts0) andalso
-		not llvm_support_available() of
+		not llvm_version_is_OK() of
 		true ->
 		  ?error_msg("No LLVM version 3.9 or greater "
 			     "found in $PATH; aborting "
@@ -1607,9 +1600,15 @@ check_options(Opts) ->
       ok
   end.
 
--spec llvm_support_available() -> boolean().
+-spec erllvm_is_supported() -> boolean().
+erllvm_is_supported() ->
+  %% XXX: The test should really check the _target_ architecture,
+  %%      (hipe_target_arch), but there's no guarantee it's set.
+  Arch = erlang:system_info(hipe_architecture),
+  lists:member(Arch, [amd64, x86]) andalso llvm_version_is_OK().
 
-llvm_support_available() ->
+-spec llvm_version_is_OK() -> boolean().
+llvm_version_is_OK() ->
   get_llvm_version() >= {3,9}.
 
 -type llvm_version() :: {Major :: integer(), Minor :: integer()}.

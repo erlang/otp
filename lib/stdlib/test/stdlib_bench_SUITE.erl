@@ -29,7 +29,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 
 all() ->
-    [{group,unicode},{group,base64},
+    [{group,unicode},{group,base64},{group,binary},
      {group,gen_server},{group,gen_statem},
      {group,gen_server_comparison},{group,gen_statem_comparison}].
 
@@ -38,6 +38,13 @@ groups() ->
       [norm_nfc_list, norm_nfc_deep_l, norm_nfc_binary,
        string_lexemes_list, string_lexemes_binary
       ]},
+     %% Only run 1 binary match repeat as it is very slow pre OTP-22.
+     %% The results seem to be stable enough anyway
+     {binary, [{repeat, 1}],
+      [match_single_pattern_no_match,
+       matches_single_pattern_no_match,
+       matches_single_pattern_eventual_match,
+       matches_single_pattern_frequent_match]},
      {base64,[{repeat,5}],
       [decode_binary, decode_binary_to_string,
        decode_list, decode_list_to_string,
@@ -60,9 +67,9 @@ cases(gen_server) ->
       [simple, simple_timer, simple_mon, simple_timer_mon,
        generic, generic_timer];
 cases(gen_statem) ->
-    [generic, generic_fsm, generic_fsm_transit,
-     generic_statem, generic_statem_transit,
-     generic_statem_complex].
+    [generic, generic_log, generic_log100, generic_fsm, generic_fsm_transit,
+     generic_statem, generic_statem_log, generic_statem_log100,
+     generic_statem_transit, generic_statem_complex].
 
 init_per_group(gen_server, Config) ->
     compile_servers(Config),
@@ -157,41 +164,59 @@ norm_data(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+match_single_pattern_no_match(_Config) ->
+    Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
+    comment(test(100, binary, match, [Binary, <<"o">>])).
+
+matches_single_pattern_no_match(_Config) ->
+    Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
+    comment(test(100, binary, matches, [Binary, <<"o">>])).
+
+matches_single_pattern_eventual_match(_Config) ->
+    Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsal\n">>, 1000000),
+    comment(test(100, binary, matches, [Binary, <<"\n">>])).
+
+matches_single_pattern_frequent_match(_Config) ->
+    Binary = binary:copy(<<"abc\n">>, 1000000),
+    comment(test(100, binary, matches, [Binary, <<"abc">>])).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 decode_binary(_Config) ->
-    comment(test(decode, encoded_binary())).
+    comment(test(base64, decode, [encoded_binary()])).
 
 decode_binary_to_string(_Config) ->
-    comment(test(decode_to_string, encoded_binary())).
+    comment(test(base64, decode_to_string, [encoded_binary()])).
 
 decode_list(_Config) ->
-    comment(test(decode, encoded_list())).
+    comment(test(base64, decode, [encoded_list()])).
 
 decode_list_to_string(_Config) ->
-    comment(test(decode_to_string, encoded_list())).
+    comment(test(base64, decode_to_string, [encoded_list()])).
 
 encode_binary(_Config) ->
-    comment(test(encode, binary())).
+    comment(test(base64, encode, [binary()])).
 
 encode_binary_to_string(_Config) ->
-    comment(test(encode_to_string, binary())).
+    comment(test(base64, encode_to_string, [binary()])).
 
 encode_list(_Config) ->
-    comment(test(encode, list())).
+    comment(test(base64, encode, [list()])).
 
 encode_list_to_string(_Config) ->
-    comment(test(encode_to_string, list())).
+    comment(test(base64, encode_to_string, [list()])).
 
 mime_binary_decode(_Config) ->
-    comment(test(mime_decode, encoded_binary())).
+    comment(test(base64, mime_decode, [encoded_binary()])).
 
 mime_binary_decode_to_string(_Config) ->
-    comment(test(mime_decode_to_string, encoded_binary())).
+    comment(test(base64, mime_decode_to_string, [encoded_binary()])).
 
 mime_list_decode(_Config) ->
-    comment(test(mime_decode, encoded_list())).
+    comment(test(base64, mime_decode, [encoded_list()])).
 
 mime_list_decode_to_string(_Config) ->
-    comment(test(mime_decode_to_string, encoded_list())).
+    comment(test(base64, mime_decode_to_string, [encoded_list()])).
 
 -define(SIZE, 10000).
 -define(N, 1000).
@@ -209,15 +234,17 @@ binary() ->
 list() ->
     random_byte_list(?SIZE).
 
-test(Func, Data) ->
-    F = fun() -> loop(?N, Func, Data) end,
+test(Mod, Fun, Args) ->
+    test(?N, Mod, Fun, Args).
+test(Iter, Mod, Fun, Args) ->
+    F = fun() -> loop(Iter, Mod, Fun, Args) end,
     {Time, ok} = timer:tc(fun() -> lspawn(F) end),
-    report_base64(Time).
+    report_mfa(Iter, Time, Mod).
 
-loop(0, _F, _D) -> garbage_collect(), ok;
-loop(N, F, D) ->
-    _ = base64:F(D),
-    loop(N - 1, F, D).
+loop(0, _M, _F, _A) -> garbage_collect(), ok;
+loop(N, M, F, A) ->
+    _ = apply(M, F, A),
+    loop(N - 1, M, F, A).
 
 lspawn(Fun) ->
     {Pid, Ref} = spawn_monitor(fun() -> exit(Fun()) end),
@@ -225,10 +252,10 @@ lspawn(Fun) ->
         {'DOWN', Ref, process, Pid, Rep} -> Rep
     end.
 
-report_base64(Time) ->
-    Tps = round((?N*1000000)/Time),
+report_mfa(Iter, Time, Mod) ->
+    Tps = round((Iter*1000000)/Time),
     ct_event:notify(#event{name = benchmark_data,
-                           data = [{suite, "stdlib_base64"},
+                           data = [{suite, "stdlib_" ++ atom_to_list(Mod)},
                                    {value, Tps}]}),
     Tps.
 
@@ -267,11 +294,23 @@ simple_timer_mon(Config) when is_list(Config) ->
 generic(Config) when is_list(Config) ->
     comment(do_tests(generic, single_small, Config)).
 
+generic_log(Config) when is_list(Config) ->
+    comment(do_tests(generic_log, single_small, Config)).
+
+generic_log100(Config) when is_list(Config) ->
+    comment(do_tests(generic_log100, single_small, Config)).
+
 generic_timer(Config) when is_list(Config) ->
     comment(do_tests(generic_timer, single_small, Config)).
 
 generic_statem(Config) when is_list(Config) ->
     comment(do_tests(generic_statem, single_small, Config)).
+
+generic_statem_log(Config) when is_list(Config) ->
+    comment(do_tests(generic_statem_log, single_small, Config)).
+
+generic_statem_log100(Config) when is_list(Config) ->
+    comment(do_tests(generic_statem_log100, single_small, Config)).
 
 generic_statem_transit(Config) when is_list(Config) ->
     comment(do_tests(generic_statem_transit, single_small, Config)).
@@ -344,9 +383,9 @@ norm(T, Ref) ->
 
 do_tests(Test, ParamSet, Config) ->
     BenchmarkSuite = ?config(benchmark_suite, Config),
-    {Client, ServerMod} = bench(Test),
+    {Client, ServerMod, ServerArg} = bench(Test),
     {Parallelism, Message} = bench_params(ParamSet),
-    Fun = create_clients(Message, ServerMod, Client, Parallelism),
+    Fun = create_clients(Message, ServerMod, ServerArg, Client, Parallelism),
     {TotalLoops, AllPidTime} = run_test(Fun),
     try ?CALLS_PER_LOOP * round((1000 * TotalLoops) / AllPidTime) of
         PerSecond ->
@@ -461,27 +500,35 @@ generic_fsm_transit_client(N, M, P) ->
     generic_fsm_transit_client(N+1, M, P).
 
 bench(simple) ->
-    {fun simple_client/3, simple_server};
+    {fun simple_client/3, simple_server, term};
 bench(simple_timer) ->
-    {fun simple_client_timer/3, simple_server_timer};
+    {fun simple_client_timer/3, simple_server_timer, term};
 bench(simple_mon) ->
-    {fun simple_client_mon/3, simple_server_mon};
+    {fun simple_client_mon/3, simple_server_mon, term};
 bench(simple_timer_mon) ->
-    {fun simple_client_timer_mon/3, simple_server_timer_mon};
+    {fun simple_client_timer_mon/3, simple_server_timer_mon, term};
 bench(generic) ->
-    {fun generic_client/3, generic_server};
+    {fun generic_client/3, generic_server, [term]};
+bench(generic_log) ->
+    {fun generic_client/3, generic_server, [term,{debug,[log]}]};
+bench(generic_log100) ->
+    {fun generic_client/3, generic_server, [term,{debug,[{log,100}]}]};
 bench(generic_timer) ->
-    {fun generic_timer_client/3, generic_server_timer};
+    {fun generic_timer_client/3, generic_server_timer, term};
 bench(generic_statem) ->
-    {fun generic_statem_client/3, generic_statem};
+    {fun generic_statem_client/3, generic_statem, [term]};
+bench(generic_statem_log) ->
+    {fun generic_statem_client/3, generic_statem, [term,{debug,[log]}]};
+bench(generic_statem_log100) ->
+    {fun generic_statem_client/3, generic_statem, [term,{debug,[{log,100}]}]};
 bench(generic_statem_transit) ->
-    {fun generic_statem_transit_client/3, generic_statem};
+    {fun generic_statem_transit_client/3, generic_statem, [term]};
 bench(generic_statem_complex) ->
-    {fun generic_statem_complex_client/3, generic_statem_complex};
+    {fun generic_statem_complex_client/3, generic_statem_complex, term};
 bench(generic_fsm) ->
-    {fun generic_fsm_client/3, generic_fsm};
+    {fun generic_fsm_client/3, generic_fsm, term};
 bench(generic_fsm_transit) ->
-    {fun generic_fsm_transit_client/3, generic_fsm}.
+    {fun generic_fsm_transit_client/3, generic_fsm, term}.
 
 %% -> {Parallelism, MessageTerm}
 bench_params(single_small) -> {1, small()};
@@ -509,10 +556,9 @@ parallelism() ->
         _ -> 1
     end.
 
-create_clients(M, ServerMod, Client, Parallel) ->
+create_clients(M, ServerMod, ServerArg, Client, Parallel) ->
     fun() ->
-            State = term,
-            ServerPid = ServerMod:start(State),
+            ServerPid = ServerMod:start(ServerArg),
             PidRefs = [spawn_monitor(fun() -> Client(0, M, ServerPid) end) ||
                           _ <- lists:seq(1, Parallel)],
             timer:sleep(?MAX_TIME),

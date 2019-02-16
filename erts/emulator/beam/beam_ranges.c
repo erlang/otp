@@ -35,10 +35,8 @@ typedef struct {
 
 /*
  * Used for crash dumping of literals. The size of erts_dump_lit_areas is
- * always twice the number of active ranges (to allow for literals in both
- * current and old code).
+ * always at least the number of active ranges.
  */
-
 ErtsLiteralArea** erts_dump_lit_areas;
 Uint erts_dump_num_lit_areas;
 
@@ -180,8 +178,8 @@ erts_end_staging_ranges(int commit)
 				(erts_aint_t) (r[dst].modules +
 					       r[dst].n / 2));
 
-        if (r[dst].allocated * 2 > erts_dump_num_lit_areas) {
-            erts_dump_num_lit_areas *= 2;
+        if (r[dst].allocated > erts_dump_num_lit_areas) {
+            erts_dump_num_lit_areas = r[dst].allocated * 2;
             erts_dump_lit_areas = (ErtsLiteralArea **)
                 erts_realloc(ERTS_ALC_T_CRASH_DUMP,
                              (void *) erts_dump_lit_areas,

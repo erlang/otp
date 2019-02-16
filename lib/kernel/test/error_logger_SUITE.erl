@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
          off_heap/1,
 	 error_report/1, info_report/1, error/1, info/1,
 	 emulator/1, via_logger_process/1, other_node/1,
-         tty/1, logfile/1, add/1, delete/1]).
+         tty/1, logfile/1, add/1, delete/1, format_depth/1]).
 
 -export([generate_error/2]).
 
@@ -48,7 +48,8 @@ suite() ->
 
 all() -> 
     [off_heap, error_report, info_report, error, info, emulator,
-     via_logger_process, other_node, tty, logfile, add, delete].
+     via_logger_process, other_node, tty, logfile, add, delete,
+     format_depth].
 
 groups() -> 
     [].
@@ -306,6 +307,21 @@ add(Config) when is_list(Config) ->
 delete(Config) when is_list(Config) ->
     {'EXIT',_} = (catch error_logger:delete_report_handler("dummy")),
     {error,_} = error_logger:delete_report_handler(non_existing),
+    ok.
+
+%%-----------------------------------------------------------------
+
+format_depth(_Config) ->
+    ok = application:set_env(kernel,error_logger_format_depth,30),
+    30 = error_logger:get_format_depth(),
+    ok = application:set_env(kernel,error_logger_format_depth,3),
+    10 = error_logger:get_format_depth(),
+    ok = application:set_env(kernel,error_logger_format_depth,11),
+    11 = error_logger:get_format_depth(),
+    ok = application:set_env(kernel,error_logger_format_depth,unlimited),
+    unlimited = error_logger:get_format_depth(),
+    ok = application:unset_env(kernel,error_logger_format_depth),
+    unlimited = error_logger:get_format_depth(),
     ok.
 
 %%-----------------------------------------------------------------

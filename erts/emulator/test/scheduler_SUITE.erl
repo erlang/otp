@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1452,11 +1452,11 @@ poll_threads(Config) when is_list(Config) ->
 
     [1, 1] = get_ionum(Config,"+IOt 2 +IOp 2"),
     [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 5"),
-
     [1, 1] = get_ionum(Config, "+S 2 +IOPt 100 +IOPp 100"),
 
     if
         Conc ->
+
             [5] = get_ionum(Config,"+IOt 5 +IOp 1"),
             [3, 2] = get_ionum(Config,"+IOt 5 +IOp 2"),
             [2, 2, 2, 2, 2] = get_ionum(Config,"+IOt 10 +IOPp 50"),
@@ -1470,6 +1470,7 @@ poll_threads(Config) when is_list(Config) ->
 
             ok;
         not Conc ->
+
             [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 1"),
             [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 2"),
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 10 +IOPp 50"),
@@ -1512,7 +1513,8 @@ get_iostate(Config, Cmd)->
                                              erlang:system_info(check_io)
                                      end]),
             IO = [IOState || IOState <- IOStates,
-                             proplists:get_value(fallback, IOState) == false],
+                             proplists:get_value(fallback, IOState) == false,
+                             proplists:get_value(poll_threads, IOState) /= 0],
             stop_node(Node),
             IO;
         {error,timeout} ->
@@ -2155,13 +2157,15 @@ workers_exit([Ps|Pss])  ->
     workers_exit(Pss).
 
 do_work(PartTime) ->
-    lists:reverse(lists:seq(1, 50)),
+    _ = id(lists:seq(1, 50)),
     receive stop_work -> receive after infinity -> ok end after 0 -> ok end,
     case PartTime of
 	true -> receive after 1 -> ok end;
 	false -> ok
     end,
     do_work(PartTime).
+
+id(I) -> I.
 
 workers(N, _Prio, _PartTime) when N =< 0 ->
     [];

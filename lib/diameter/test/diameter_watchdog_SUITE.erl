@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -638,10 +638,9 @@ run1([F|A]) ->
              apply(?MODULE, F, A),
              ok
          catch
-             E:R ->
-                 S = erlang:get_stacktrace(),
-                 ?WARN("~p", [{A, E, R, S}]),
-                 S
+             E:R:Stack ->
+                 ?WARN("~p", [{A, E, R, Stack}]),
+                 Stack
          end.
 
 %% jitter/2

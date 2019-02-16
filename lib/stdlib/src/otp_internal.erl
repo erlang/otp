@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,6 +54,14 @@ obsolete_1(erlang, now, 0) ->
 
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
+
+%% *** STDLIB added in OTP 22 ***
+
+obsolete_1(sys, get_debug, 3) ->
+    {deprecated,
+     "Deprecated function. "
+     "Incorrectly documented and in fact only for internal use. "
+     "Can often be replaced with sys:get_log/1."};
 
 %% *** STDLIB added in OTP 20 ***
 
@@ -398,10 +406,8 @@ obsolete_1(megaco, format_versions, 1) ->
 
 %% *** OS-MON-MIB ***
 
-obsolete_1(os_mon_mib, init, 1) ->
-    {deprecated, {os_mon_mib, load, 1}};
-obsolete_1(os_mon_mib, stop, 1) ->
-    {deprecated, {os_mon_mib, unload, 1}};
+obsolete_1(os_mon_mib, _, _) ->
+    {removed, "was removed in 22.0"};
 
 obsolete_1(auth, is_auth, 1) ->
     {deprecated, {net_adm, ping, 1}};
@@ -620,6 +626,8 @@ obsolete_1(ssl, ssl_accept, 2) ->
     {deprecated, "deprecated; use ssl:handshake/2 instead"};
 obsolete_1(ssl, ssl_accept, 3) ->
     {deprecated, "deprecated; use ssl:handshake/3 instead"};
+obsolete_1(otp_mib, F, _) when F =:= load; F =:= unload ->
+    {deprecated, "deprecated; functionality will be removed in a future release"};
 
 %% not obsolete
 

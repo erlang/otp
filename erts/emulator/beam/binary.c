@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -322,40 +322,102 @@ BIF_RETTYPE binary_to_integer_2(BIF_ALIST_2)
 
 }
 
+static Eterm integer_to_binary(Process *c_p, Eterm num, int base)
+{
+    Eterm res;
+
+    if (is_small(num)) {
+        char s[128];
+        char *c = s;
+        Uint digits;
+
+        digits = Sint_to_buf(signed_val(num), base, &c, sizeof(s));
+        res = new_binary(c_p, (byte*)c, digits);
+    } else {
+        const int DIGITS_PER_RED = 16;
+        Uint digits, n;
+        byte *bytes;
+
+        digits = big_integer_estimate(num, base);
+
+        if ((digits / DIGITS_PER_RED) > ERTS_BIF_REDS_LEFT(c_p)) {
+            ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+            /* This could take a very long time, tell the caller to reschedule
+             * us to a dirty CPU scheduler if we aren't already on one. */
+            if (esdp->type == ERTS_SCHED_NORMAL) {
+                return THE_NON_VALUE;
+            }
+        } else {
+            BUMP_REDS(c_p, digits / DIGITS_PER_RED);
+        }
+
+        bytes = (byte*)erts_alloc(ERTS_ALC_T_TMP, sizeof(byte) * digits);
+        n = erts_big_to_binary_bytes(num, base, (char*)bytes, digits);
+        res = new_binary(c_p, bytes + digits - n, n);
+        erts_free(ERTS_ALC_T_TMP, (void*)bytes);
+    }
+
+    return res;
+}
+
 BIF_RETTYPE integer_to_binary_1(BIF_ALIST_1)
-{   
-    Uint size;
+{
     Eterm res;
 
     if (is_not_integer(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
+        BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (is_small(BIF_ARG_1)) {
-	char *c;
-	struct Sint_buf ibuf;
+    res = integer_to_binary(BIF_P, BIF_ARG_1, 10);
 
-	/* Enhancement: If we can calculate the buffer size exactly
-	 * we could avoid an unnecessary copy of buffers.
-	 * Useful if size determination is faster than a copy.
-	 */
-	c = Sint_to_buf(signed_val(BIF_ARG_1), &ibuf);
-	size = sys_strlen(c);
-	res = new_binary(BIF_P, (byte *)c, size);
-    } else {
-	byte* bytes;
-	Uint n = 0;
-
-	/* Here we also have multiple copies of buffers
-	 * due to new_binary interface
-	 */
-	size = big_decimal_estimate(BIF_ARG_1) - 1; /* remove null */
-	bytes = (byte*) erts_alloc(ERTS_ALC_T_TMP, sizeof(byte)*size);
-	n = erts_big_to_binary_bytes(BIF_ARG_1, (char *)bytes, size);
-	res = new_binary(BIF_P, bytes + size - n, n);
-	erts_free(ERTS_ALC_T_TMP, (void *) bytes);
+    if (is_non_value(res)) {
+        Eterm args[1];
+        args[0] = BIF_ARG_1;
+        return erts_schedule_bif(BIF_P,
+                                 args,
+                                 BIF_I,
+                                 integer_to_binary_1,
+                                 ERTS_SCHED_DIRTY_CPU,
+                                 am_erlang,
+                                 am_integer_to_binary,
+                                 1);
     }
-    BIF_RET(res);
+
+    return res;
+}
+
+BIF_RETTYPE integer_to_binary_2(BIF_ALIST_2)
+{
+    Eterm res;
+    SWord base;
+
+    if (is_not_integer(BIF_ARG_1) || is_not_small(BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    base = signed_val(BIF_ARG_2);
+    if (base < 2 || base > 36) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    res = integer_to_binary(BIF_P, BIF_ARG_1, base);
+
+    if (is_non_value(res)) {
+        Eterm args[2];
+        args[0] = BIF_ARG_1;
+        args[1] = BIF_ARG_2;
+        return erts_schedule_bif(BIF_P,
+                                 args,
+                                 BIF_I,
+                                 integer_to_binary_2,
+                                 ERTS_SCHED_DIRTY_CPU,
+                                 am_erlang,
+                                 am_integer_to_binary,
+                                 2);
+    }
+
+    return res;
 }
 
 #define ERTS_B2L_BYTES_PER_REDUCTION 256

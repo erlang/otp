@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>erl_scan.xml</file>
   </header>
-  <module>erl_scan</module>
+  <module since="">erl_scan</module>
   <modulesummary>The Erlang token scanner.</modulesummary>
   <description>
     <p>This module contains functions for tokenizing (scanning) characters into
@@ -74,7 +74,7 @@
  
   <funcs>
     <func>
-      <name name="category" arity="1"/>
+      <name name="category" arity="1" since="OTP 18.0"/>
       <fsummary>Return the category.</fsummary>
       <desc>
         <p>Returns the category of <c><anno>Token</anno></c>.</p>
@@ -82,7 +82,7 @@
     </func>
 
     <func>
-      <name name="column" arity="1"/>
+      <name name="column" arity="1" since="OTP 18.0"/>
       <fsummary>Return the column.</fsummary>
       <desc>
         <p>Returns the column of <c><anno>Token</anno></c>'s
@@ -91,7 +91,7 @@
     </func>
 
     <func>
-      <name name="end_location" arity="1"/>
+      <name name="end_location" arity="1" since="OTP 18.0"/>
       <fsummary>Return the end location of the text.</fsummary>
       <desc>
         <p>Returns the end location of the text of
@@ -101,7 +101,7 @@
     </func>
 
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Format an error descriptor.</fsummary>
       <desc>
         <p>Uses an <c><anno>ErrorDescriptor</anno></c> and returns a string 
@@ -113,7 +113,7 @@
     </func>
 
     <func>
-      <name name="line" arity="1"/>
+      <name name="line" arity="1" since="OTP 18.0"/>
       <fsummary>Return the line.</fsummary>
       <desc>
         <p>Returns the line of <c><anno>Token</anno></c>'s collection
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name name="location" arity="1"/>
+      <name name="location" arity="1" since="OTP 18.0"/>
       <fsummary>Return the location.</fsummary>
       <desc>
         <p>Returns the location of <c><anno>Token</anno></c>'s
@@ -131,7 +131,7 @@
     </func>
 
     <func>
-      <name name="reserved_word" arity="1"/>
+      <name name="reserved_word" arity="1" since=""/>
       <fsummary>Test for a reserved word.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Atom</anno></c> is an
@@ -140,9 +140,9 @@
     </func>
 
     <func>
-      <name name="string" arity="1"/>
-      <name name="string" arity="2"/>
-      <name name="string" arity="3"/>
+      <name name="string" arity="1" since=""/>
+      <name name="string" arity="2" since=""/>
+      <name name="string" arity="3" since=""/>
       <fsummary>Scan a string and return the Erlang tokens.</fsummary>
       <desc>
         <p>Takes the list of characters <c><anno>String</anno></c> and tries to
@@ -229,7 +229,7 @@
     </func>
 
     <func>
-      <name name="symbol" arity="1"/>
+      <name name="symbol" arity="1" since="OTP 18.0"/>
       <fsummary>Return the symbol.</fsummary>
       <desc>
         <p>Returns the symbol of <c><anno>Token</anno></c>.</p>
@@ -237,7 +237,7 @@
     </func>
 
     <func>
-      <name name="text" arity="1"/>
+      <name name="text" arity="1" since="OTP 18.0"/>
       <fsummary>Return the text.</fsummary>
       <desc>
         <p>Returns the text of <c><anno>Token</anno></c>'s collection
@@ -247,8 +247,8 @@
     </func>
 
     <func>
-      <name name="tokens" arity="3"/>
-      <name name="tokens" arity="4"/>
+      <name name="tokens" arity="3" since=""/>
+      <name name="tokens" arity="4" since=""/>
       <fsummary>Re-entrant scanner.</fsummary>
       <type name="char_spec"/>
       <type name="return_cont"/>

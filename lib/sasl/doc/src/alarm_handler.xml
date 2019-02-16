@@ -34,7 +34,7 @@
     <rev>A</rev>
     <file>alarm_handler.sgml.t1</file>
   </header>
-  <module>alarm_handler</module>
+  <module since="">alarm_handler</module>
   <modulesummary>An Alarm Handling Process</modulesummary>
   <description>
     <p>The alarm handler process is a 
@@ -81,7 +81,7 @@
 
   <funcs>
     <func>
-      <name>clear_alarm(AlarmId) -> void()</name>
+      <name since="">clear_alarm(AlarmId) -> void()</name>
       <fsummary>Clears the specified alarms.</fsummary>
       <type>
         <v>AlarmId = term()</v>
@@ -94,7 +94,7 @@
     </func>
 
     <func>
-      <name>get_alarms() -> [alarm()]</name>
+      <name since="">get_alarms() -> [alarm()]</name>
       <fsummary>Gets all active alarms.</fsummary>
       <desc>
         <p>Returns a list of all active alarms. This function can only
@@ -103,7 +103,7 @@
     </func>
 
     <func>
-      <name>set_alarm(alarm())</name>
+      <name since="">set_alarm(alarm())</name>
       <fsummary>Sets an alarm with an id.</fsummary>
       <type>
         <v>alarm() = {AlarmId, AlarmDescription}</v>

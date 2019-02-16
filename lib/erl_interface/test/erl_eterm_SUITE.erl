@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          build_terms/1, round_trip_conversion/1,
          decode_terms/1, decode_float/1,
          t_erl_mk_int/1, t_erl_mk_list/1,
@@ -94,6 +95,9 @@ all() ->
      high_chaparal, broken_data, cnode_1].
 
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%%	1.   B a s i c    t e s t s
@@ -104,7 +108,7 @@ all() ->
 %% a list and verifies that the result is as expected.
 
 build_terms(Config) when is_list(Config) ->
-    P = runner:start(?build_terms),
+    P = runner:start(Config, ?build_terms),
     {term, Term} = get_term(P),
     io:format("Received: ~p", [Term]),
     [ARefLN, ARef, APortLN, APort, APidLN, APid,
@@ -136,7 +140,7 @@ build_terms(Config) when is_list(Config) ->
 %% This test is run entirely in C code.
 
 round_trip_conversion(Config) when is_list(Config) ->
-    runner:test(?round_trip_conversion),
+    runner:test(Config, ?round_trip_conversion),
     ok.
 
 %% This test sends a list of all data types to the C code function,
@@ -156,7 +160,7 @@ decode_terms(Config) when is_list(Config) ->
              {element1, 42, 767}, "A string",
              1, -1, 0, 3.0, ABinary, 'I am an atom'],
 
-    P = runner:start(?decode_terms),
+    P = runner:start(Config, ?decode_terms),
     runner:send_term(P, Terms),
     runner:recv_eot(P),
 
@@ -165,7 +169,7 @@ decode_terms(Config) when is_list(Config) ->
 %% Decodes the floating point number 3.1415.
 
 decode_float(Config) when is_list(Config) ->
-    P = runner:start(?decode_float),
+    P = runner:start(Config, ?decode_float),
     runner:send_term(P, 3.1415),
     runner:recv_eot(P),
     ok.
@@ -173,7 +177,7 @@ decode_float(Config) when is_list(Config) ->
 %% Tests the erl_free_compound() function.
 
 t_erl_free_compound(Config) when is_list(Config) ->
-    runner:test(?t_erl_free_compound),
+    runner:test(Config, ?t_erl_free_compound),
     ok.
 
 
@@ -186,7 +190,7 @@ t_erl_free_compound(Config) when is_list(Config) ->
 %% This tests the erl_mk_list() function.
 
 t_erl_mk_list(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_list),
+    P = runner:start(Config, ?t_erl_mk_list),
 
     {term, []} = get_term(P),
     {term, [abc]} = get_term(P),
@@ -200,7 +204,7 @@ t_erl_mk_list(Config) when is_list(Config) ->
 %% This tests the erl_mk_int() function.
 
 t_erl_mk_int(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_int),
+    P = runner:start(Config, ?t_erl_mk_int),
 
     {term, 0} = get_term(P),
     {term, 127} = get_term(P),
@@ -255,14 +259,14 @@ t_erl_mk_int(Config) when is_list(Config) ->
 %% Basic test of erl_copy_term().
 
 basic_copy(Config) when is_list(Config) ->
-    runner:test(?basic_copy),
+    runner:test(Config, ?basic_copy),
     ok.
 
 
 %% This tests the erl_mk_tuple() function.
 
 t_erl_mk_tuple(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_tuple),
+    P = runner:start(Config, ?t_erl_mk_tuple),
 
     {term, {madonna, 21, 'mad donna', 12}} = get_term(P),
     {term, {'Madonna',21,{children,{"Isabella",2}},
@@ -275,7 +279,7 @@ t_erl_mk_tuple(Config) when is_list(Config) ->
 %% This tests the erl_mk_atom() function.
 
 t_erl_mk_atom(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_atom),
+    P = runner:start(Config, ?t_erl_mk_atom),
 
     {term, madonna} = (get_term(P)),
     {term, 'Madonna'} = (get_term(P)),
@@ -295,7 +299,7 @@ t_erl_mk_atom(Config) when is_list(Config) ->
 %% This tests the erl_mk_binary() function.
 
 t_erl_mk_binary(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_binary),
+    P = runner:start(Config, ?t_erl_mk_binary),
 
     {term, Bin} = (get_term(P)),
     "{madonna,21,'mad donna',1234.567.890, !#$%&/()=?+-@, \" \\}" = binary_to_list(Bin),
@@ -307,7 +311,7 @@ t_erl_mk_binary(Config) when is_list(Config) ->
 %% This tests the erl_mk_empty_list() function.
 
 t_erl_mk_empty_list(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_empty_list),
+    P = runner:start(Config, ?t_erl_mk_empty_list),
 
     {term, []} = get_term(P),
 
@@ -322,7 +326,7 @@ t_erl_mk_float(Config) when is_list(Config) ->
         vxworks ->
             {skipped, "Floating point numbers never compare equal on PPC"};
         _ ->
-            P = runner:start(?t_erl_mk_float),
+            P = runner:start(Config, ?t_erl_mk_float),
             {term, {3.1415, 1.999999, 2.000000, 2.000001,
                     2.000002, 12345.67890}} = get_term(P),
             runner:recv_eot(P),
@@ -333,7 +337,7 @@ t_erl_mk_float(Config) when is_list(Config) ->
 %% This tests the erl_mk_pid() function.
 
 t_erl_mk_pid(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_pid),
+    P = runner:start(Config, ?t_erl_mk_pid),
 
     {term, A_pid} = (get_term(P)),
     {pid, kalle@localhost, 3, 2} = nc2vinfo(A_pid),
@@ -342,7 +346,7 @@ t_erl_mk_pid(Config) when is_list(Config) ->
     ok.
 
 t_erl_mk_xpid(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_xpid),
+    P = runner:start(Config, ?t_erl_mk_xpid),
 
     {term, A_pid} = (get_term(P)),
     {pid, kalle@localhost, 32767, 8191} = nc2vinfo(A_pid),
@@ -354,7 +358,7 @@ t_erl_mk_xpid(Config) when is_list(Config) ->
 %% This tests the erl_mk_port() function.
 
 t_erl_mk_port(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_port),
+    P = runner:start(Config, ?t_erl_mk_port),
 
     {term, A_port} = (get_term(P)),
     {port, kalle@localhost, 4} = nc2vinfo(A_port),
@@ -363,7 +367,7 @@ t_erl_mk_port(Config) when is_list(Config) ->
     ok.
 
 t_erl_mk_xport(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_xport),
+    P = runner:start(Config, ?t_erl_mk_xport),
 
     {term, A_port} = (get_term(P)),
     {port, kalle@localhost, 268435455} = nc2vinfo(A_port),
@@ -375,7 +379,7 @@ t_erl_mk_xport(Config) when is_list(Config) ->
 %% This tests the erl_mk_ref() function.
 
 t_erl_mk_ref(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_ref),
+    P = runner:start(Config, ?t_erl_mk_ref),
 
     {term, A_ref} = (get_term(P)),
     {ref, kalle@localhost, _Length, [6]} = nc2vinfo(A_ref),
@@ -384,7 +388,7 @@ t_erl_mk_ref(Config) when is_list(Config) ->
     ok.
 
 t_erl_mk_long_ref(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_long_ref),
+    P = runner:start(Config, ?t_erl_mk_long_ref),
 
     {term, A_ref} = (get_term(P)),
     {ref, kalle@localhost, _Length, [4294967295,4294967295,262143]}
@@ -397,7 +401,7 @@ t_erl_mk_long_ref(Config) when is_list(Config) ->
 %% This tests the erl_mk_string() function.
 
 t_erl_mk_string(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_string),
+    P = runner:start(Config, ?t_erl_mk_string),
 
     {term, "madonna"} = (get_term(P)),
     {term, "Madonna"} = (get_term(P)),
@@ -417,7 +421,7 @@ t_erl_mk_string(Config) when is_list(Config) ->
 %% This tests the erl_mk_estring() function.
 
 t_erl_mk_estring(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_estring),
+    P = runner:start(Config, ?t_erl_mk_estring),
 
     {term, "madonna"} = (get_term(P)),
     {term, "Madonna"} = (get_term(P)),
@@ -437,7 +441,7 @@ t_erl_mk_estring(Config) when is_list(Config) ->
 %% This tests the erl_mk_uint() function.
 
 t_erl_mk_uint(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_uint),
+    P = runner:start(Config, ?t_erl_mk_uint),
 
     {term, 54321} = (get_term(P)),
     {term, 2147483647} = (get_term(P)),
@@ -453,7 +457,7 @@ t_erl_mk_uint(Config) when is_list(Config) ->
 %% This tests the erl_mk_var() function.
 
 t_erl_mk_var(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_mk_var),
+    P = runner:start(Config, ?t_erl_mk_var),
 
     {term, 1} = (get_term(P)),
     {term, 0} = (get_term(P)),
@@ -470,7 +474,7 @@ t_erl_mk_var(Config) when is_list(Config) ->
 %% This tests the erl_cons() function.
 
 t_erl_cons(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_cons),
+    P = runner:start(Config, ?t_erl_cons),
 
     {term, [madonna, 21]} = get_term(P),
 
@@ -490,7 +494,7 @@ t_erl_cons(Config) when is_list(Config) ->
 %% Tests the erl_length() function.
 
 t_erl_length(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_length),
+    P = runner:start(Config, ?t_erl_length),
 
     0 = erl_length(P, []),
     1 = erl_length(P, [a]),
@@ -513,7 +517,7 @@ erl_length(Port, List) ->
 %% Tests the erl_hd() function.
 
 t_erl_hd(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_hd),
+    P = runner:start(Config, ?t_erl_hd),
 
     'NULL' = erl_hd(P, 42),
     'NULL' = erl_hd(P, abc),
@@ -537,7 +541,7 @@ erl_hd(Port, List) ->
 %% Tests the erl_tail() function.
 
 t_erl_tl(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_tl),
+    P = runner:start(Config, ?t_erl_tl),
 
     'NULL' = erl_tl(P, 42),
     'NULL' = erl_tl(P, abc),
@@ -561,20 +565,20 @@ erl_tl(Port, List) ->
 %% Tests the type checking macros (done in the C program).
 
 type_checks(Config) when is_list(Config) ->
-    runner:test(?type_checks),
+    runner:test(Config, ?type_checks),
     ok.
 
 %% Tests the extractor macros (done in the C program).
 
 extractor_macros(Config) when is_list(Config) ->
-    runner:test(?extractor_macros),
+    runner:test(Config, ?extractor_macros),
     ok.
 
 
 %% This tests the erl_size() function.
 
 t_erl_size(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_size),
+    P = runner:start(Config, ?t_erl_size),
 
     {term, 0} = (get_term(P)),
     {term, 4} = (get_term(P)),
@@ -589,7 +593,7 @@ t_erl_size(Config) when is_list(Config) ->
 %% This tests the erl_var_content() function.
 
 t_erl_var_content(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_var_content),
+    P = runner:start(Config, ?t_erl_var_content),
 
     {term, 17} = (get_term(P)),
     {term, "http://www.madonna.com"} = (get_term(P)),
@@ -604,7 +608,7 @@ t_erl_var_content(Config) when is_list(Config) ->
 %% This tests the erl_element() function.
 
 t_erl_element(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_element),
+    P = runner:start(Config, ?t_erl_element),
 
     {term, madonna} = get_term(P),
     {term, 21} = get_term(P),
@@ -630,7 +634,7 @@ t_erl_element(Config) when is_list(Config) ->
 %% Tests the erl_iolist_length() function.
 
 t_erl_iolist_length(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_iolist_length),
+    P = runner:start(Config, ?t_erl_iolist_length),
 
     %% Flat lists.
 
@@ -697,7 +701,7 @@ erl_iolist_length(Port, List) ->
 %% Tests the erl_iolist_to_binary() function.
 
 t_erl_iolist_to_binary(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_iolist_to_binary),
+    P = runner:start(Config, ?t_erl_iolist_to_binary),
 
     %% Flat lists.
 
@@ -768,7 +772,7 @@ iolist_to_list(Port, Term) ->
 %% Tests the erl_iolist_to_string() function.
 
 t_erl_iolist_to_string(Config) when is_list(Config) ->
-    P = runner:start(?t_erl_iolist_to_string),
+    P = runner:start(Config, ?t_erl_iolist_to_string),
 
     %% Flat lists.
 
@@ -947,14 +951,14 @@ collect_line1([C|Rest], Result) ->
 %% Test case submitted by Per Lundgren, ERV.
 
 high_chaparal(Config) when is_list(Config) ->
-    P = runner:start(?high_chaparal),
+    P = runner:start(Config, ?high_chaparal),
     {term, [hello, world]} = get_term(P),
     runner:recv_eot(P),
     ok.
 
 %% OTP-7448
 broken_data(Config) when is_list(Config) ->
-    P = runner:start(?broken_data),
+    P = runner:start(Config, ?broken_data),
     runner:recv_eot(P),
     ok.
 

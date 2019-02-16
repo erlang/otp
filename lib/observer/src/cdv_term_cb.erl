@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ format_term_fun(Format,Term,Tab) ->
 	    try io_lib:format(Format,[Term]) of
 		Str -> {expand, plain_html(Str), Tab}
 	    catch error:badarg ->
-		    Warning = "This term can not be formatted with " ++ Format,
+		    Warning = "This term cannot be formatted with " ++ Format,
 		    observer_html_lib:warning(Warning)
             after
                     observer_lib:report_progress({ok,stop_pulse})

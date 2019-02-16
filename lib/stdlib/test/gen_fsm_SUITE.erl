@@ -124,8 +124,10 @@ start2(Config) when is_list(Config) ->
     {ok, Pid0} = gen_fsm:start(gen_fsm_SUITE, [], []),
     ok = do_func_test(Pid0),
     ok = do_sync_func_test(Pid0),
+    MRef = monitor(process,Pid0),
     shutdown_stopped =
 	gen_fsm:sync_send_all_state_event(Pid0, stop_shutdown),
+    receive {'DOWN',MRef,_,_,shutdown} -> ok end,
     {'EXIT', {noproc,_}} =
 	(catch gen_fsm:sync_send_event(Pid0, hej)),
 
@@ -519,14 +521,16 @@ error_format_status(Config) when is_list(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
     StateData = "called format_status",
+    Parent = self(),
     {ok, Pid} = gen_fsm:start(gen_fsm_SUITE, {state_data, StateData}, []),
     %% bad return value in the gen_fsm loop
     {'EXIT',{{bad_return_value, badreturn},_}} =
 	(catch gen_fsm:sync_send_event(Pid, badreturn)),
     receive
 	{error,_GroupLeader,{Pid,
-			     "** State machine"++_,
-			     [Pid,{_,_,badreturn},idle,{formatted,StateData},_]}} ->
+			     "** State machine "++_,
+			     [Pid,badreturn,Parent,idle,{formatted,StateData},
+                              {bad_return_value,badreturn}|_]}} ->
 	    ok;
 	Other ->
 	    io:format("Unexpected: ~p", [Other]),
@@ -539,12 +543,14 @@ terminate_crash_format(Config) when is_list(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
     StateData = crash_terminate,
+    Parent = self(),
     {ok, Pid} = gen_fsm:start(gen_fsm_SUITE, {state_data, StateData}, []),
     stop_it(Pid),
     receive
 	{error,_GroupLeader,{Pid,
-			     "** State machine"++_,
-			     [Pid,{_,_,_},idle,{formatted, StateData},_]}} ->
+			     "** State machine "++_,
+			     [Pid,stop,Parent,idle,{formatted, StateData},
+                              {crash,terminate}|_]}} ->
 	    ok;
 	Other ->
 	    io:format("Unexpected: ~p", [Other]),

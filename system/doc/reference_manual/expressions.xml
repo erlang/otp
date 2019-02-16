@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -567,6 +567,10 @@ Expr1 <input>op</input> Expr2</pre>
       order is defined:</p>
     <pre>
 number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map &lt; nil &lt; list &lt; bit string</pre>
+    <p><c>nil</c> in the previous expression represents the empty list
+      (<c>[]</c>), which is regarded as a separate type from
+      <c>list/0</c>. That is why <c>nil &lt; list</c>.
+    </p>
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
@@ -574,6 +578,7 @@ number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map 
         ascending term order and then by values in key order.
         In maps key order integers types are considered less than floats types.
     </p>
+    <p>Atoms are compared using their string value, codepoint by codepoint.</p>
       <p>When comparing an integer to a float, the term with the lesser
       precision is converted into the type of the other term, unless the
       operator is one of <c>=:=</c> or <c>=/=</c>. A float is more precise than

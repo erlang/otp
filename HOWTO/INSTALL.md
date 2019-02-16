@@ -77,8 +77,6 @@ also find the utilities needed for building the documentation.
 
     Download from <http://www.oracle.com/technetwork/java/javase/downloads>.
     We have also tested with IBM's JDK 1.6.0.
-*   X Windows -- Development headers and libraries are needed
-    to build the Erlang/OTP application `gs` on Unix/Linux.
 *   `flex` -- Headers and libraries are needed to build the flex
     scanner for the `megaco` application on Unix/Linux.
 *   wxWidgets -- Toolkit for GUI applications.
@@ -340,6 +338,8 @@ use the `--prefix` argument like this: `./configure --prefix=<Dir>`.
 Some of the available `configure` options are:
 
 *   `--prefix=PATH` - Specify installation prefix.
+*   `--disable-parallel-configure` - Disable parallel execution of
+    `configure` scripts (parallel execution is enabled by default)
 *   `--{enable,disable}-kernel-poll` - Kernel poll support (enabled by
     default if possible)
 *   `--{enable,disable}-hipe` - HiPE support (enabled by default on supported

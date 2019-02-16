@@ -167,12 +167,12 @@ NOTE!!!! Sending a "char" to macros like isupper(), isalpha() where
 the character is > 127 will cause serios problems on some
 machines/OS. The reason is that
 
-   'char' may be unsigned, i.e. the Swedish char 'ä' will 
+   'char' may be unsigned, i.e. the Swedish char 'Ã¤' will 
    as a number be negativ.
 
    The implementation of isupper() and others will on some
    machines use an array that is indexed with the incoming
-   character code. The Swedish 'ä' will then create an access
+   character code. The Swedish 'Ã¤' will then create an access
    on memory outside the array!
 
 This may give a random value as a result or a segmentation
@@ -219,7 +219,7 @@ There are some functions in the 'ei' library that uses the GCC and
 VC++ "long long" type. Unfortunately this can lead to some trouble.
 
 When user code is linked with the "libei.a" the linker will extract
-all objects files needed for resolving all symbol referenses
+all objects files needed for resolving all symbol references
 found. This means that you want to follow the rule that
 
  * To reduce executable code size we use resonably small C source
@@ -252,7 +252,7 @@ example is that in plain R9C the ei_x_encode_longlong() function is
 located in the file "ei_x_encode.c". So if any "long long" ei_x
 function is used we have an unessesary dependency on
 "ei_encode_longlong.o" and then need to link with GNU ld on with the
-user code or explicitely link with "libgcc.a". The situation can be
+user code or explicitly link with "libgcc.a". The situation can be
 visible in in plain R9C using
 
      % nm -A erl_interface-3.4/lib/libei.a | \

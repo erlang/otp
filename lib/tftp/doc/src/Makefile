@@ -103,6 +103,7 @@ pdf: $(TOP_PDF_FILE)
 html: gifs $(HTML_REF_MAN_FILE)
 
 clean clean_docs: clean_html clean_man clean_pdf
+	rm -rf $(XMLDIR)
 	rm -f errs core *~
 
 man: $(MAN3_FILES)

@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>erl_parse.xml</file>
   </header>
-  <module>erl_parse</module>
+  <module since="">erl_parse</module>
   <modulesummary>The Erlang parser.</modulesummary>
   <description>
     <p>This module is the basic Erlang parser that converts tokens into
@@ -89,7 +89,7 @@
 
   <funcs>
     <func>
-      <name name="abstract" arity="1"/>
+      <name name="abstract" arity="1" since=""/>
       <fsummary>Convert an Erlang term into an abstract form.</fsummary>
       <desc>
         <p>Converts the Erlang data structure <c><anno>Data</anno></c> into an
@@ -102,7 +102,7 @@
     </func>
 
     <func>
-      <name name="abstract" arity="2"/>
+      <name name="abstract" arity="2" since="OTP R16B01"/>
       <fsummary>Convert an Erlang term into an abstract form.</fsummary>
       <type name="encoding_func"/>
       <desc>
@@ -124,7 +124,7 @@
     </func>
 
     <func>
-      <name name="anno_from_term" arity="1"/>
+      <name name="anno_from_term" arity="1" since="OTP 18.0"/>
       <fsummary>Return annotations as terms.</fsummary>
       <desc>
         <p>Assumes that <c><anno>Term</anno></c> is a term with the same
@@ -140,7 +140,7 @@
     </func>
 
     <func>
-      <name name="anno_to_term" arity="1"/>
+      <name name="anno_to_term" arity="1" since="OTP 18.0"/>
       <fsummary>Return the representation of annotations.</fsummary>
       <desc>
         <p>Returns a term where each collection of annotations
@@ -154,7 +154,7 @@
     </func>
 
     <func>
-      <name name="fold_anno" arity="3"/>
+      <name name="fold_anno" arity="3" since="OTP 18.0"/>
       <fsummary>Fold a function over the annotations of an <c>erl_parse</c> tree.
       </fsummary>
       <desc>
@@ -171,7 +171,7 @@
     </func>
 
     <func>
-      <name>format_error(ErrorDescriptor) -> Chars</name>
+      <name since="">format_error(ErrorDescriptor) -> Chars</name>
       <fsummary>Format an error descriptor.</fsummary>
       <type>
         <v>ErrorDescriptor = <seealso
@@ -188,7 +188,7 @@
     </func>
 
     <func>
-      <name name="map_anno" arity="2"/>
+      <name name="map_anno" arity="2" since="OTP 18.0"/>
       <fsummary>Map a function over the annotations of an <c>erl_parse</c> tree.
       </fsummary>
       <desc>
@@ -201,7 +201,7 @@
     </func>
 
     <func>
-      <name name="mapfold_anno" arity="3"/>
+      <name name="mapfold_anno" arity="3" since="OTP 18.0"/>
       <fsummary>Map and fold a function over the annotations of an
         <c>erl_parse</c> tree.</fsummary>
       <desc>
@@ -220,7 +220,7 @@
     </func>
 
     <func>
-      <name name="new_anno" arity="1"/>
+      <name name="new_anno" arity="1" since="OTP 18.0"/>
       <fsummary>Create new annotations.</fsummary>
       <desc>
         <p>Assumes that <c><anno>Term</anno></c> is a term with the same
@@ -236,7 +236,7 @@
     </func>
 
     <func>
-      <name name="normalise" arity="1"/>
+      <name name="normalise" arity="1" since=""/>
       <fsummary>Convert abstract form to an Erlang term.</fsummary>
       <desc>
         <p>Converts the abstract form <c><anno>AbsTerm</anno></c> of a
@@ -247,7 +247,7 @@
     </func>
 
     <func>
-      <name name="parse_exprs" arity="1"/>
+      <name name="parse_exprs" arity="1" since=""/>
       <fsummary>Parse Erlang expressions.</fsummary>
       <desc>
         <p>Parses <c><anno>Tokens</anno></c> as if it was a list of expressions.
@@ -267,7 +267,7 @@
     </func>
 
     <func>
-      <name name="parse_form" arity="1"/>
+      <name name="parse_form" arity="1" since=""/>
       <fsummary>Parse an Erlang form.</fsummary>
       <desc>
         <p>Parses <c><anno>Tokens</anno></c> as if it was a form. Returns one
@@ -287,7 +287,7 @@
     </func>
 
     <func>
-      <name name="parse_term" arity="1"/>
+      <name name="parse_term" arity="1" since=""/>
       <fsummary>Parse an Erlang term.</fsummary>
       <desc>
         <p>Parses <c><anno>Tokens</anno></c> as if it was a term. Returns
@@ -307,8 +307,8 @@
     </func>
 
     <func>
-      <name name="tokens" arity="1"/>
-      <name name="tokens" arity="2"/>
+      <name name="tokens" arity="1" since=""/>
+      <name name="tokens" arity="2" since=""/>
       <fsummary>Generate a list of tokens for an expression.</fsummary>
       <desc>
         <p>Generates a list of tokens representing the abstract

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2007</year><year>2017</year>
+      <year>2007</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,69 @@
   </header>
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
+
+<section><title>Syntax_Tools 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the <c>TypeName</c> type in erl_syntax_lib.</p>
+          <p>
+	    Own Id: OTP-15207 Aux Id: PR-1888 </p>
+        </item>
+        <item>
+	    <p> Correct unfolding of the stacktrace variable. </p>
+          <p>
+	    Own Id: OTP-15291 Aux Id: ERL-719 </p>
+        </item>
+        <item>
+	    <p> Correct <c>erl_syntax:revert/1</c> bug regarding the
+	    types <c>map()</c> and <c>tuple()</c>. </p>
+          <p>
+	    Own Id: OTP-15294</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Support bitstrings as literals in module
+	    <c>erl_syntax</c>. </p>
+          <p>
+	    Own Id: OTP-15165 Aux Id: PR-1842 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.1.5</title>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update to use the new string api instead of the old.</p>
+          <p>
+	    Own Id: OTP-15036</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Syntax_Tools 2.1.4.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug regarding reverting map types. </p>
+          <p>
+	    Own Id: OTP-15098 Aux Id: ERIERL-177 </p>
+        </item>
+      </list>
+    </section>
+</section>
 
 <section><title>Syntax_Tools 2.1.4</title>
 
@@ -77,6 +140,20 @@
 	    arbitrary Unicode characters. </p>
           <p>
 	    Own Id: OTP-14285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug regarding reverting map types. </p>
+          <p>
+	    Own Id: OTP-15098 Aux Id: ERIERL-177 </p>
         </item>
       </list>
     </section>

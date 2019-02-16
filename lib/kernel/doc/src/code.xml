@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>code</module>
+  <module since="">code</module>
   <modulesummary>Erlang code server.</modulesummary>
   <description>
     <p>This module contains the interface to the Erlang
@@ -322,7 +322,7 @@ zip:create("mnesia-4.4.7.ez",
 
   <funcs>
     <func>
-      <name name="set_path" arity="1"/>
+      <name name="set_path" arity="1" since=""/>
       <fsummary>Set the code server search path.</fsummary>
       <desc>
         <p>Sets the code path to the list of directories <c><anno>Path</anno></c>.</p>
@@ -336,15 +336,15 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="get_path" arity="0"/>
+      <name name="get_path" arity="0" since=""/>
       <fsummary>Return the code server search path.</fsummary>
       <desc>
         <p>Returns the code path.</p>
       </desc>
     </func>
     <func>
-      <name name="add_path" arity="1"/>
-      <name name="add_pathz" arity="1"/>
+      <name name="add_path" arity="1" since=""/>
+      <name name="add_pathz" arity="1" since=""/>
       <fsummary>Add a directory to the end of the code path.</fsummary>
       <type name="add_path_ret"/>
       <desc>
@@ -357,7 +357,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="add_patha" arity="1"/>
+      <name name="add_patha" arity="1" since=""/>
       <fsummary>Add a directory to the beginning of the code path.</fsummary>
       <type name="add_path_ret"/>
       <desc>
@@ -370,8 +370,8 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="add_paths" arity="1"/>
-      <name name="add_pathsz" arity="1"/>
+      <name name="add_paths" arity="1" since=""/>
+      <name name="add_pathsz" arity="1" since=""/>
       <fsummary>Add directories to the end of the code path.</fsummary>
       <desc>
         <p>Adds the directories in <c><anno>Dirs</anno></c> to the end of the code
@@ -381,7 +381,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="add_pathsa" arity="1"/>
+      <name name="add_pathsa" arity="1" since=""/>
       <fsummary>Add directories to the beginning of the code path.</fsummary>
       <desc>
 	<p>Traverses <c><anno>Dirs</anno></c> and adds
@@ -397,7 +397,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="del_path" arity="1"/>
+      <name name="del_path" arity="1" since=""/>
       <fsummary>Delete a directory from the code path.</fsummary>
       <desc>
         <p>Deletes a directory from the code path. The argument can be
@@ -417,7 +417,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="replace_path" arity="2"/>
+      <name name="replace_path" arity="2" since=""/>
       <fsummary>Replace a directory with another in the code path.</fsummary>
       <desc>
         <p>Replaces an old occurrence of a directory
@@ -441,7 +441,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="load_file" arity="1"/>
+      <name name="load_file" arity="1" since=""/>
       <fsummary>Load a module.</fsummary>
       <type name="load_ret"/>
       <desc>
@@ -460,7 +460,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="load_abs" arity="1"/>
+      <name name="load_abs" arity="1" since=""/>
       <fsummary>Load a module, residing in a specified file.</fsummary>
       <type name="load_ret"/>
       <type name="loaded_filename"/>
@@ -477,7 +477,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="ensure_loaded" arity="1"/>
+      <name name="ensure_loaded" arity="1" since=""/>
       <fsummary>Ensure that a module is loaded.</fsummary>
       <desc>
         <p>Tries to load a module in the same way as
@@ -489,7 +489,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="load_binary" arity="3"/>
+      <name name="load_binary" arity="3" since=""/>
       <fsummary>Load object code for a module.</fsummary>
       <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
@@ -507,7 +507,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="atomic_load" arity="1"/>
+      <name name="atomic_load" arity="1" since="OTP 19.0"/>
       <fsummary>Load a list of modules atomically</fsummary>
       <desc>
         <p>Tries to load all of the modules in the list
@@ -538,7 +538,7 @@ zip:create("mnesia-4.4.7.ez",
 	  </item>
 	  <tag><c>not_purged</c></tag>
 	  <item>
-	    <p>The object code can not be loaded because an old version
+	    <p>The object code cannot be loaded because an old version
 	    of the code already exists.</p>
 	  </item>
 	  <tag><c>sticky_directory</c></tag>
@@ -566,7 +566,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="prepare_loading" arity="1"/>
+      <name name="prepare_loading" arity="1" since="OTP 19.0"/>
       <fsummary>Prepare a list of modules atomically</fsummary>
       <desc>
         <p>Prepares to load the modules in the list
@@ -598,7 +598,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="finish_loading" arity="1"/>
+      <name name="finish_loading" arity="1" since="OTP 19.0"/>
       <fsummary>Finish loading a list of prepared modules atomically</fsummary>
       <desc>
         <p>Tries to load code for all modules that have been previously
@@ -611,7 +611,7 @@ ok = code:finish_loading(Prepared),
 	<taglist>
 	  <tag><c>not_purged</c></tag>
 	  <item>
-	    <p>The object code can not be loaded because an old version
+	    <p>The object code cannot be loaded because an old version
 	    of the code already exists.</p>
 	  </item>
 	  <tag><c>sticky_directory</c></tag>
@@ -627,7 +627,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="ensure_modules_loaded" arity="1"/>
+      <name name="ensure_modules_loaded" arity="1" since="OTP 19.0"/>
       <fsummary>Ensure that a list of modules is loaded</fsummary>
       <desc>
         <p>Tries to load any modules not already loaded in the list
@@ -639,7 +639,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="delete" arity="1"/>
+      <name name="delete" arity="1" since=""/>
       <fsummary>Remove current code for a module.</fsummary>
       <desc>
         <p>Removes the current code for <c><anno>Module</anno></c>, that is,
@@ -652,7 +652,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="purge" arity="1"/>
+      <name name="purge" arity="1" since=""/>
       <fsummary>Remove old code for a module.</fsummary>
       <desc>
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
@@ -668,7 +668,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="soft_purge" arity="1"/>
+      <name name="soft_purge" arity="1" since=""/>
       <fsummary>Remove old code for a module, unless no process uses it.</fsummary>
       <desc>
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
@@ -683,7 +683,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="is_loaded" arity="1"/>
+      <name name="is_loaded" arity="1" since=""/>
       <fsummary>Check if a module is loaded.</fsummary>
       <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
@@ -702,7 +702,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="all_loaded" arity="0"/>
+      <name name="all_loaded" arity="0" since=""/>
       <fsummary>Get all loaded modules.</fsummary>
       <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
@@ -716,7 +716,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="which" arity="1"/>
+      <name name="which" arity="1" since=""/>
       <fsummary>The object code file of a module.</fsummary>
       <type name="loaded_ret_atoms"/>
       <desc>
@@ -731,7 +731,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="get_object_code" arity="1"/>
+      <name name="get_object_code" arity="1" since=""/>
       <fsummary>Gets the object code for a module.</fsummary>
       <desc>
         <p>Searches the code path for the object code of module
@@ -750,7 +750,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="root_dir" arity="0"/>
+      <name name="root_dir" arity="0" since=""/>
       <fsummary>Root directory of Erlang/OTP.</fsummary>
       <desc>
         <p>Returns the root directory of Erlang/OTP, which is
@@ -762,7 +762,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="lib_dir" arity="0"/>
+      <name name="lib_dir" arity="0" since=""/>
       <fsummary>Library directory of Erlang/OTP.</fsummary>
       <desc>
         <p>Returns the library directory, <c>$OTPROOT/lib</c>, where
@@ -774,7 +774,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="lib_dir" arity="1"/>
+      <name name="lib_dir" arity="1" since=""/>
       <fsummary>Library directory for an application.</fsummary>
       <desc>
         <p>Returns the path
@@ -807,7 +807,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="lib_dir" arity="2"/>
+      <name name="lib_dir" arity="2" since=""/>
       <fsummary>Subdirectory for an application.</fsummary>
       <desc>
         <p>Returns the path to a subdirectory directly under the top
@@ -827,7 +827,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="compiler_dir" arity="0"/>
+      <name name="compiler_dir" arity="0" since=""/>
       <fsummary>Library directory for the compiler.</fsummary>
       <desc>
         <p>Returns the compiler library directory. Equivalent to
@@ -835,7 +835,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="priv_dir" arity="1"/>
+      <name name="priv_dir" arity="1" since=""/>
       <fsummary>Priv directory for an application.</fsummary>
       <desc>
         <p>Returns the path to the <c>priv</c> directory in an
@@ -846,7 +846,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="objfile_extension" arity="0"/>
+      <name name="objfile_extension" arity="0" since=""/>
       <fsummary>Object code file extension.</fsummary>
       <desc>
         <p>Returns the object code file extension corresponding to
@@ -854,7 +854,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="stick_dir" arity="1"/>
+      <name name="stick_dir" arity="1" since=""/>
       <fsummary>Mark a directory as sticky.</fsummary>
       <desc>
         <p>Marks <c><anno>Dir</anno></c> as sticky.</p>
@@ -862,7 +862,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="unstick_dir" arity="1"/>
+      <name name="unstick_dir" arity="1" since=""/>
       <fsummary>Remove a sticky directory mark.</fsummary>
       <desc>
         <p>Unsticks a directory that is marked as
@@ -871,7 +871,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="is_sticky" arity="1"/>
+      <name name="is_sticky" arity="1" since=""/>
       <fsummary>Test if a module is sticky.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Module</anno></c> is the
@@ -882,7 +882,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="where_is_file" arity="1"/>
+      <name name="where_is_file" arity="1" since=""/>
       <fsummary>Full name of a file located in the code path.</fsummary>
       <desc>
         <p>Searches the code path for <c><anno>Filename</anno></c>, a file of
@@ -893,7 +893,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="clash" arity="0"/>
+      <name name="clash" arity="0" since=""/>
       <fsummary>Search for modules with identical names.</fsummary>
       <desc>
         <p>Searches all directories in the code path for module names with
@@ -901,7 +901,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="module_status" arity="1"/>
+      <name name="module_status" arity="1" since="OTP 20.0"/>
       <fsummary>Return the status of the module in relation to object file on disk.</fsummary>
       <desc>
 	<p>Returns:</p>
@@ -934,7 +934,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="modified_modules" arity="0"/>
+      <name name="modified_modules" arity="0" since="OTP 20.0"/>
       <fsummary>Return a list of all modules modified on disk.</fsummary>
       <desc>
         <p>Returns the list of all currently loaded modules for which
@@ -943,7 +943,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="is_module_native" arity="1"/>
+      <name name="is_module_native" arity="1" since=""/>
       <fsummary>Test if a module has native code.</fsummary>
       <desc>
 	<p>Returns:</p>
@@ -961,7 +961,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
     </func>
 
     <func>
-      <name name="get_mode" arity="0"/>
+      <name name="get_mode" arity="0" since="OTP R16B"/>
       <fsummary>The mode of the code server.</fsummary>
       <desc>
         <p>Returns an atom describing the mode of the code server:

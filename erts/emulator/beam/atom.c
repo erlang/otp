@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -174,7 +174,7 @@ atom_alloc(Atom* tmpl)
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
-     * This is used by utils.c:erts_cmp_atoms().
+     * This is used by erl_utils.h:erts_cmp_atoms().
      * We cannot use the full 32 bits of the first 4 bytes,
      * since we use the sign of the difference between two
      * ordinal values to represent their relative order.

@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>FTP 1.0</title>
+  <section><title>Ftp 1.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>FTP 1.0</title>
 
     <section><title>First released version</title>
       <list>

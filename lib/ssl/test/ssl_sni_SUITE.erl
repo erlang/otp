@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -236,8 +236,8 @@ dns_name_reuse(Config) ->
                                          {mfa, {ssl_test_lib, session_info_result, []}},
                                          {from, self()},  {options, [{verify, verify_peer} | ClientConf]}]),
     
-    ssl_test_lib:check_result(Client1, {error, {tls_alert, "handshake failure"}}),
-    ssl_test_lib:close(Client0).
+    ssl_test_lib:check_client_alert(Client1, handshake_failure).
+
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -370,8 +370,8 @@ unsuccessfull_connect(ServerOptions, ClientOptions, Hostname0, Config) ->
 					      {from, self()}, 
 					      {options, ClientOptions}]),
     
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "handshake failure"}},
-			      Client, {error, {tls_alert, "handshake failure"}}).
+    ssl_test_lib:check_server_alert(Server, Client, handshake_failure).
+
 host_name(undefined, Hostname) ->
     Hostname;
 host_name(Hostname, _) ->

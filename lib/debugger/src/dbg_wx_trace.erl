@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -518,8 +518,8 @@ gui_cmd({user_command, Cmd}, State) ->
 gui_cmd({edit, {Var, Value}}, State) ->
     Window = dbg_wx_trace_win:get_window(State#state.win),
     Val = case State#state.strings of
-              []        -> dbg_wx_win:to_string("~999999lp",[Value]);
-              [str_on]  -> dbg_wx_win:to_string("~999999tp",[Value])
+              []        -> dbg_wx_win:to_string("~0lp",[Value]);
+              [str_on]  -> dbg_wx_win:to_string("~0tp",[Value])
           end,
     case dbg_wx_win:entry(Window, "Edit variable", Var, {term, Val}) of
 	cancel ->

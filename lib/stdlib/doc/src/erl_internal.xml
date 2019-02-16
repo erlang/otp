@@ -34,7 +34,7 @@
     <rev>B</rev>
     <file>erl_internal.xml</file>
   </header>
-  <module>erl_internal</module>
+  <module since="">erl_internal</module>
   <modulesummary>Internal Erlang definitions.</modulesummary>
   <description>
     <p>This module defines Erlang BIFs, guard tests, and operators.
@@ -44,7 +44,7 @@
 
   <funcs>
     <func>
-      <name name="add_predefined_functions" arity="1"/>
+      <name name="add_predefined_functions" arity="1" since="OTP 20.0"/>
       <fsummary>Add code for pre-defined functions.</fsummary>
       <desc>
         <p>Adds to <c><anno>Forms</anno></c> the code for the standard
@@ -54,7 +54,7 @@
     </func>
 
     <func>
-      <name name="arith_op" arity="2"/>
+      <name name="arith_op" arity="2" since=""/>
       <fsummary>Test for an arithmetic operator.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
@@ -63,7 +63,7 @@
     </func>
 
     <func>
-      <name name="bif" arity="2"/>
+      <name name="bif" arity="2" since=""/>
       <fsummary>Test for an Erlang BIF.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c>
@@ -73,7 +73,7 @@
     </func>
 
     <func>
-      <name name="bool_op" arity="2"/>
+      <name name="bool_op" arity="2" since=""/>
       <fsummary>Test for a Boolean operator.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
@@ -82,7 +82,7 @@
     </func>
 
     <func>
-      <name name="comp_op" arity="2"/>
+      <name name="comp_op" arity="2" since=""/>
       <fsummary>Test for a comparison operator.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
@@ -91,7 +91,7 @@
     </func>
 
     <func>
-      <name name="guard_bif" arity="2"/>
+      <name name="guard_bif" arity="2" since=""/>
       <fsummary>Test for an Erlang BIF allowed in guards.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is
@@ -100,7 +100,7 @@
     </func>
 
     <func>
-      <name name="list_op" arity="2"/>
+      <name name="list_op" arity="2" since=""/>
       <fsummary>Test for a list operator.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
@@ -109,7 +109,7 @@
     </func>
 
     <func>
-      <name name="op_type" arity="2"/>
+      <name name="op_type" arity="2" since=""/>
       <fsummary>Return operator type.</fsummary>
       <desc>
         <p>Returns the <c><anno>Type</anno></c> of operator that
@@ -120,7 +120,7 @@
     </func>
 
     <func>
-      <name name="send_op" arity="2"/>
+      <name name="send_op" arity="2" since=""/>
       <fsummary>Test for a send operator.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
@@ -129,7 +129,7 @@
     </func>
 
     <func>
-      <name name="type_test" arity="2"/>
+      <name name="type_test" arity="2" since=""/>
       <fsummary>Test for a valid type test.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is

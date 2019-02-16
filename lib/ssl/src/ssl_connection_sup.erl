@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,12 +51,12 @@ init([]) ->
     ListenOptionsTracker = listen_options_tracker_child_spec(), 
     
     DTLSConnetionManager = dtls_connection_manager_child_spec(),
-    DTLSUdpListeners = dtls_udp_listeners_spec(),
+    DTLSListeners = dtls_listeners_spec(),
 
     {ok, {{one_for_one, 10, 3600}, [TLSConnetionManager, 
 				    ListenOptionsTracker,
 				    DTLSConnetionManager, 
-				    DTLSUdpListeners
+				    DTLSListeners
 				   ]}}.
 
     
@@ -91,9 +91,9 @@ listen_options_tracker_child_spec() ->
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-dtls_udp_listeners_spec() ->
-    Name = dtls_udp_listener,  
-    StartFunc = {dtls_udp_sup, start_link, []},
+dtls_listeners_spec() ->
+    Name = dtls_listener,  
+    StartFunc = {dtls_listener_sup, start_link, []},
     Restart = permanent, 
     Shutdown = 4000,
     Modules = [],

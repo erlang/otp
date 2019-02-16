@@ -32,7 +32,7 @@
     <rev></rev>
     <file>scheduler.xml</file>
   </header>
-  <module>scheduler</module>
+  <module since="OTP 21.0">scheduler</module>
   <modulesummary>Measure scheduler utilization</modulesummary>
   <description>
     <p>This module contains utility functions for easier measurement and
@@ -84,7 +84,7 @@
   <funcs>
 
     <func>
-      <name name="sample" arity="0"/>
+      <name name="sample" arity="0" since="OTP 21.0"/>
       <fsummary>Get scheduler utilization sample.</fsummary>
       <desc>
         <p>Return a scheduler utilization sample for normal and dirty-cpu
@@ -93,7 +93,7 @@
     </func>
 
     <func>
-      <name name="sample_all" arity="0"/>
+      <name name="sample_all" arity="0" since="OTP 21.0"/>
       <fsummary>Get scheduler utilization sample.</fsummary>
       <desc>
         <p>Return a scheduler utilization sample for all schedulers,
@@ -102,7 +102,7 @@
     </func>
 
     <func>
-      <name name="utilization" arity="1" clause_i="1"/>
+      <name name="utilization" arity="1" clause_i="1" since="OTP 21.0"/>
       <fsummary>Measure scheduler utilizations during a period of time.</fsummary>
       <desc>
         <p>Measure utilization for normal and dirty-cpu schedulers during
@@ -111,7 +111,7 @@
     </func>
 
     <func>
-      <name name="utilization" arity="1" clause_i="2"/>
+      <name name="utilization" arity="1" clause_i="2" since="OTP 21.0"/>
       <fsummary>Measure scheduler utilizations since sample.</fsummary>
       <desc>
         <p>Calculate scheduler utilizations for the time interval from when
@@ -121,7 +121,7 @@
     </func>
 
     <func>
-      <name name="utilization" arity="2"/>
+      <name name="utilization" arity="2" since="OTP 21.0"/>
       <fsummary>Measure scheduler utilizations between two samples.</fsummary>
       <desc>
 	<p>Calculates scheduler utilizations for the time interval between

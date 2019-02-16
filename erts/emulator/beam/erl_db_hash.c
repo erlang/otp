@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -150,6 +150,22 @@ static ERTS_INLINE Uint hash_to_ix(DbTableHash* tb, HashValue hval)
 }
 
 
+static ERTS_INLINE FixedDeletion* alloc_fixdel(DbTableHash* tb)
+{
+    FixedDeletion* fixd = (FixedDeletion*) erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
+                                                         (DbTable *) tb,
+                                                         sizeof(FixedDeletion));
+    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
+    return fixd;
+}
+
+static ERTS_INLINE void free_fixdel(DbTableHash* tb, FixedDeletion* fixd)
+{
+    erts_db_free(ERTS_ALC_T_DB_FIX_DEL, (DbTable*)tb,
+                 fixd, sizeof(FixedDeletion));
+    ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
+}
+
 static ERTS_INLINE int link_fixdel(DbTableHash* tb,
                                    FixedDeletion* fixd,
                                    erts_aint_t fixated_by_me)
@@ -160,8 +176,7 @@ static ERTS_INLINE int link_fixdel(DbTableHash* tb,
     was_next = erts_atomic_read_acqb(&tb->fixdel);
     do { /* Lockless atomic insertion in linked list: */
         if (NFIXED(tb) <= fixated_by_me) {
-            erts_db_free(ERTS_ALC_T_DB_FIX_DEL, (DbTable*)tb,
-                         fixd, sizeof(FixedDeletion));
+            free_fixdel(tb, fixd);
             return 0; /* raced by unfixer */
         }
         exp_next = was_next;
@@ -180,10 +195,7 @@ static ERTS_INLINE int link_fixdel(DbTableHash* tb,
 static int add_fixed_deletion(DbTableHash* tb, int ix,
                               erts_aint_t fixated_by_me)
 {
-    FixedDeletion* fixd = (FixedDeletion*) erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
-							 (DbTable *) tb,
-							 sizeof(FixedDeletion));
-    ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
+    FixedDeletion* fixd = alloc_fixdel(tb);
     fixd->slot = ix;
     fixd->all = 0;
     return link_fixdel(tb, fixd, fixated_by_me);
@@ -637,11 +649,7 @@ restart:
 
         free_me = fixdel;
         fixdel = fixdel->next;
-        erts_db_free(ERTS_ALC_T_DB_FIX_DEL,
-                     (DbTable *) tb,
-                     (void *) free_me,
-                     sizeof(FixedDeletion));
-        ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
+        free_fixdel(tb, free_me);
         work++;
     }
 
@@ -2338,11 +2346,10 @@ static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
     }
     else {
         /* First call */
-        fixdel = erts_db_alloc(ERTS_ALC_T_DB_FIX_DEL,
-                               (DbTable *) tb,
-                               sizeof(FixedDeletion));
-        ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
-        link_fixdel(tb, fixdel, 0);
+        int ok;
+        fixdel = alloc_fixdel(tb);
+        ok = link_fixdel(tb, fixdel, 0);
+        ASSERT(ok); (void)ok;
         i = 0;
     }
 
@@ -2444,11 +2451,7 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 	FixedDeletion *fx = fixdel;
 
 	fixdel = fx->next;
-	erts_db_free(ERTS_ALC_T_DB_FIX_DEL,
-		     (DbTable *) tb,
-		     (void *) fx,
-		     sizeof(FixedDeletion));
-	ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
+        free_fixdel(tb, fx);
 	if (--reds < 0) {
 	    erts_atomic_set_relb(&tb->fixdel, (erts_aint_t)fixdel);
 	    return reds;		/* Not done */
@@ -2728,13 +2731,9 @@ static int free_seg(DbTableHash *tb, int free_records)
                  * sure no lingering threads are still hanging in BUCKET macro
                  * with an old segtab pointer.
                  */
-                Uint sz = SIZEOF_EXT_SEGTAB(est->nsegs);
-                ASSERT(sz == ERTS_ALC_DBG_BLK_SZ(est));
-                ERTS_DB_ALC_MEM_UPDATE_(tb, sz, 0);
-                erts_schedule_thr_prgr_later_cleanup_op(dealloc_ext_segtab,
-                                                        est,
-                                                        &est->lop,
-                                                        sz);
+                erts_schedule_db_free(&tb->common, dealloc_ext_segtab,
+                                      est, &est->lop,
+                                      SIZEOF_EXT_SEGTAB(est->nsegs));
             }
             else
                 erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable*)tb, est,
@@ -3104,7 +3103,7 @@ Ldone:
     handle->dbterm = &b->dbterm;
     handle->flags = flags;
     handle->new_size = b->dbterm.size;
-    handle->lck = lck;
+    handle->u.hash.lck = lck;
     return 1;
 }
 
@@ -3117,7 +3116,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     DbTableHash *tb = &tbl->hash;
     HashDbTerm **bp = (HashDbTerm **) handle->bp;
     HashDbTerm *b = *bp;
-    erts_rwmtx_t* lck = (erts_rwmtx_t*) handle->lck;
+    erts_rwmtx_t* lck = handle->u.hash.lck;
     HashDbTerm* free_me = NULL;
 
     ERTS_LC_ASSERT(IS_HASH_WLOCKED(tb, lck));  /* locked by db_lookup_dbterm_hash */

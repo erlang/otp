@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@
 -define(MIN_READLINE_SIZE, 256).
 -define(LARGEFILESIZE, (1 bsl 63)).
 
--export([copy/3]).
+-export([copy/3, start/0]).
 
 -include("file_int.hrl").
 
@@ -83,7 +83,23 @@ internal_normalize_utf8(_) ->
 is_translatable(_) ->
     erlang:nif_error(undefined).
 
-%%
+%% This is a janitor process used to close files whose controlling process has
+%% died. The emulator will be torn down if this is killed.
+start() ->
+    helper_loop().
+
+helper_loop() ->
+    receive
+        {close, FRef} when is_reference(FRef) -> delayed_close_nif(FRef);
+        _ -> ok
+    end,
+    helper_loop().
+
+on_load() ->
+    %% This is spawned as a system process to prevent init:restart/0 from
+    %% killing it.
+    Pid = erts_internal:spawn_system_process(?MODULE, start, []),
+    ok = erlang:load_nif(atom_to_list(?MODULE), Pid).
 
 %% Returns {error, Reason} | {ok, BytesCopied}
 copy(#file_descriptor{module = ?MODULE} = Source,
@@ -93,9 +109,6 @@ copy(#file_descriptor{module = ?MODULE} = Source,
        is_atom(Length) ->
     %% XXX Should be moved down to the driver for optimization.
     file:copy_opened(Source, Dest, Length).
-
-on_load() ->
-    ok = erlang:load_nif(atom_to_list(?MODULE), 0).
 
 open(Name, Modes) ->
     %% The try/catch pattern seen here is used throughout the file to adhere to
@@ -482,6 +495,8 @@ truncate_nif(_FileRef) ->
     erlang:nif_error(undef).
 get_handle_nif(_FileRef) ->
     erlang:nif_error(undef).
+delayed_close_nif(_FileRef) ->
+    erlang:nif_error(undef).
 
 %%
 %% Quality-of-life helpers
@@ -562,7 +577,7 @@ list_dir_convert([RawName | Rest], SkipInvalid, Result) ->
             logger ! {log,warning,"Non-unicode filename ~p ignored\n", [RawName],
                       #{pid=>self(),
                         gl=>group_leader(),
-                        time=>erlang:monotonic_time(microsecond),
+                        time=>erlang:system_time(microsecond),
                         error_logger=>#{tag=>warning_msg}}},
             list_dir_convert(Rest, SkipInvalid, Result);
         {error, _} ->
@@ -580,15 +595,20 @@ read_link_info(Name, Opts) ->
     read_info_1(Name, 0, proplist_get_value(time, Opts, local)).
 
 read_info_1(Name, FollowLinks, TimeType) ->
-    try read_info_nif(encode_path(Name), FollowLinks) of
-        {error, Reason} -> {error, Reason};
-        FileInfo ->
-            CTime = from_posix_seconds(FileInfo#file_info.ctime, TimeType),
-            MTime = from_posix_seconds(FileInfo#file_info.mtime, TimeType),
-            ATime = from_posix_seconds(FileInfo#file_info.atime, TimeType),
-            {ok, FileInfo#file_info{ ctime = CTime, mtime = MTime, atime = ATime }}
+    try
+        case read_info_nif(encode_path(Name), FollowLinks) of
+            {error, Reason} ->
+                {error, Reason};
+            FileInfo ->
+                CTime = from_posix_seconds(FileInfo#file_info.ctime, TimeType),
+                MTime = from_posix_seconds(FileInfo#file_info.mtime, TimeType),
+                ATime = from_posix_seconds(FileInfo#file_info.atime, TimeType),
+                {ok, FileInfo#file_info{ ctime = CTime,
+                                         mtime = MTime,
+                                         atime = ATime }}
+        end
     catch
-        error:badarg -> {error, badarg}
+        error:_ -> {error, badarg}
     end.
 
 write_file_info(Filename, Info) ->
@@ -781,7 +801,7 @@ altname_nif(_Path) ->
 
 %% We know for certain that lists:reverse/2 is a BIF, so it's safe to use it
 %% even though this module is preloaded.
-reverse_list(List) -> lists:reverse(List).
+reverse_list(List) -> lists:reverse(List, []).
 
 proplist_get_value(_Key, [], Default) ->
     Default;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -716,7 +716,7 @@ tls_handshake(_, false, S) ->
 tls(connect, Sock, Opts) ->
     ssl:connect(Sock, Opts);
 tls(accept, Sock, Opts) ->
-    ssl:ssl_accept(Sock, Opts).
+    ssl:handshake(Sock, Opts).  %% assume no handshake option
 
 %% recv/2
 %%
@@ -839,7 +839,7 @@ start_fragment_timer(#transport{timeout = Tmo} = S) ->
 accept(ssl, LSock) ->
     case ssl:transport_accept(LSock) of
         {ok, Sock} ->
-            {ssl:ssl_accept(Sock), Sock};
+            ssl:handshake(Sock);
         {error, _} = No ->
             No
     end;

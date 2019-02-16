@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -809,7 +809,7 @@ connect_and_send_first_request(Address, Request, #state{options = Options0} = St
     SocketType  = socket_type(Request),
     ConnTimeout = (Request#request.settings)#http_options.connect_timeout,
     Options = handle_unix_socket_options(Request, Options0),
-    case connect(SocketType, Address, Options, ConnTimeout) of
+    case connect(SocketType, format_address(Address), Options, ConnTimeout) of
         {ok, Socket} ->
             ClientClose =
 		httpc_request:is_client_closing(
@@ -961,13 +961,23 @@ handle_http_body(_, #state{status = {ssl_tunnel, Request},
     NewState     = answer_request(Request, ClientErrMsg, State),
     {stop, normal, NewState};
 
-handle_http_body(<<>>, #state{status_line = {_,304, _}} = State) ->
+%% All 1xx (informational), 204 (no content), and 304 (not modified)
+%% responses MUST NOT include a message-body, and thus are always
+%% terminated by the first empty line after the header fields.
+%% This implies that chunked encoding MUST NOT be used for these
+%% status codes.
+handle_http_body(<<>>, #state{headers = Headers,
+                              status_line = {_,StatusCode, _}} = State)
+  when Headers#http_response_h.'transfer-encoding' =/= "chunked" andalso
+       (StatusCode =:= 204 orelse                       %% No Content
+        StatusCode =:= 304 orelse                       %% Not Modified
+        100 =< StatusCode andalso StatusCode =< 199) -> %% Informational
     handle_response(State#state{body = <<>>});
 
-handle_http_body(<<>>, #state{status_line = {_,204, _}} = State) ->
-    handle_response(State#state{body = <<>>});
 
-handle_http_body(<<>>, #state{request = #request{method = head}} = State) ->
+handle_http_body(<<>>, #state{headers = Headers,
+                              request = #request{method = head}} = State)
+  when Headers#http_response_h.'transfer-encoding' =/= "chunked" ->
     handle_response(State#state{body = <<>>});
 
 handle_http_body(Body, #state{headers       = Headers, 
@@ -1728,4 +1738,8 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
                      {stacktrace, Stacktrace}]}}
     end.
 
-
+format_address({[$[|T], Port}) ->
+    {ok, Address} = inet:parse_address(string:strip(T, right, $])),
+    {Address, Port};
+format_address(HostPort) ->
+    HostPort.

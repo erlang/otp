@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2017</year><year>2017</year>
+      <year>2017</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,6 +42,9 @@
       operations. The hardware implementation usually offers improved performance over its
       software-based counterpart, which is known as cryptographic acceleration.
     </p>
+    <note>
+      <p>The file name requirement on the engine dynamic library can differ between SSL versions.</p>
+    </note>
   </section>
 
   <section>
@@ -54,9 +57,6 @@
       <code>
 1> {ok, Engine} = crypto:engine_load(&lt;&lt;"otp_test_engine">>, [], []).
  {ok, #Ref}</code>
-       <note>
-	<p>The file name requirement on the engine dynamic library can differ between SSL versions.</p>
-      </note>
     </section>
 
     <section>
@@ -72,9 +72,6 @@
                                        &lt;&lt;"LOAD">>],
                                       []).
  {ok, #Ref}</code>
-      <note>
-	<p>The dynamic engine is not supported in LibreSSL from version 2.2.1</p>
-      </note>
     </section>
 
     <section>
@@ -98,6 +95,28 @@ engine_method_pkey_meths, engine_method_pkey_asn1_meths].
 		                      Methods).
  {ok, #Ref}</code>
     </section>
+
+    <section>
+      <title>Load with the ensure loaded function</title>
+      <p>
+	This function makes sure the engine is loaded just once and the ID is added to the internal
+	engine list of OpenSSL. The following calls to the function will check if the ID is loaded
+	and then just get a new reference to the engine.
+      </p>
+      <code>
+ 5> {ok, Engine} = crypto:ensure_engine_loaded(&lt;&lt;"MD5">>,
+                                               &lt;&lt;"/some/path/otp_test_engine.so">>).
+ {ok, #Ref}</code>
+      <p>
+	To unload it use crypto:ensure_engine_unloaded/1 which removes the ID from the internal list
+	before unloading the engine.
+      </p>
+      <code>
+ 6> crypto:ensure_engine_unloaded(&lt;&lt;"MD5">>).
+ ok</code>
+    </section>
+
+
 
     <section>
       <title>List all engines currently loaded</title>

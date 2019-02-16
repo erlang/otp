@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,10 +54,16 @@
 ** 2.13: 20.1 add enif_ioq
 ** 2.14: 21.0 add enif_ioq_peek_head, enif_(mutex|cond|rwlock|thread)_name
 **                enif_vfprintf, enif_vsnprintf, enif_make_map_from_arrays
+** 2.15: 22.0 ERL_NIF_SELECT_CANCEL, enif_select_(read|write)
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 14
-#define ERL_NIF_MIN_ERTS_VERSION "erts-10.0 (OTP-21)"
+#define ERL_NIF_MINOR_VERSION 15
+/*
+ * WHEN CHANGING INTERFACE VERSION, also replace erts version below
+ * with ticket syntax like "erts-@OTP-12345@", or a temporary placeholder
+ * between two @ like "erts-@MyName@", if you don't know what a ticket is.
+ */
+#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-15095@ (OTP-22)"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -160,6 +166,8 @@ typedef int ErlNifEvent;
 #define ERL_NIF_SELECT_STOP_SCHEDULED (1 << 1)
 #define ERL_NIF_SELECT_INVALID_EVENT  (1 << 2)
 #define ERL_NIF_SELECT_FAILED         (1 << 3)
+#define ERL_NIF_SELECT_READ_CANCELLED (1 << 4)
+#define ERL_NIF_SELECT_WRITE_CANCELLED (1 << 5)
 
 typedef enum
 {

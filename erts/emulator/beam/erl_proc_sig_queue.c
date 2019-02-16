@@ -52,8 +52,8 @@
 
 #define ERTS_SIG_Q_OP_MAX 13
 
-#define ERTS_SIG_Q_OP_EXIT                      0
-#define ERTS_SIG_Q_OP_EXIT_LINKED               1
+#define ERTS_SIG_Q_OP_EXIT                      0  /* Exit signal due to bif call */
+#define ERTS_SIG_Q_OP_EXIT_LINKED               1  /* Exit signal due to link break*/
 #define ERTS_SIG_Q_OP_MONITOR_DOWN              2
 #define ERTS_SIG_Q_OP_MONITOR                   3
 #define ERTS_SIG_Q_OP_DEMONITOR                 4
@@ -423,13 +423,13 @@ sig_enqueue_trace(Process *c_p, ErtsMessage **sigp, int op,
 }
 
 static void
-sig_enqueue_trace_cleanup(ErtsMessage *first, ErtsSignal *sig, ErtsMessage *last)
+sig_enqueue_trace_cleanup(ErtsMessage *first, ErtsSignal *sig)
 {
     ErtsMessage *tmp;
 
     /* The usual case; no tracing signals... */
-    if (sig == (ErtsSignal *) first && sig == (ErtsSignal *) last) {
-        sig->common.next = NULL;
+    if (sig == (ErtsSignal *) first) {
+        ASSERT(sig->common.next == NULL);
         return;
     }
 
@@ -445,6 +445,8 @@ sig_enqueue_trace_cleanup(ErtsMessage *first, ErtsSignal *sig, ErtsMessage *last
             case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
                 destroy_trace_info((ErtsSigTraceInfo *) tmp_free);
                 break;
+            case ERTS_SIG_Q_OP_MONITOR:
+                break; /* ignore flushed pending signal */
             default:
                 ERTS_INTERNAL_ERROR("Unexpected signal op");
                 break;
@@ -667,7 +669,7 @@ proc_queue_signal(Process *c_p, Eterm pid, ErtsSignal *sig, int op)
 first_last_done:
     sig->common.specific.next = NULL;
 
-    /* may add signals before and/or after sig */
+    /* may add signals before sig */
     sig_enqueue_trace(c_p, sigp, op, rp, &last_next);
 
     last->next = NULL;
@@ -688,22 +690,18 @@ first_last_done:
     erts_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
 
     if (res == 0) {
+        sig_enqueue_trace_cleanup(first, sig);
         if (pend_sig) {
+            erts_proc_sig_send_monitor_down((ErtsMonitor*)pend_sig, am_noproc);
             if (sig == pend_sig) {
                 /* We did a switch, callers signal is now pending (still ok) */
                 ASSERT(esdp->pending_signal.sig);
                 res = 1;
             }
-            else {
-                ASSERT(first == (ErtsMessage*)pend_sig);
-                first = first->next;
-            }
-            erts_proc_sig_send_monitor_down((ErtsMonitor*)pend_sig, am_noproc);
         }
-        sig_enqueue_trace_cleanup(first, sig, last);
     }
-
-    erts_proc_notify_new_sig(rp, state, 0);
+    else
+        erts_proc_notify_new_sig(rp, state, 0);
 
     if (!is_normal_sched)
         erts_proc_dec_refc(rp);
@@ -1169,10 +1167,7 @@ erts_proc_sig_send_persistent_monitor_msg(Uint16 type, Eterm key,
     ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_PERSISTENT_MON_MSG,
                                                   type, 0);
     ERL_MESSAGE_FROM(mp) = from;
-    ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-    ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
 
     if (!proc_queue_signal(NULL, to, (ErtsSignal *) mp,
                            ERTS_SIG_Q_OP_PERSISTENT_MON_MSG)) {
@@ -1566,11 +1561,6 @@ erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to, Eterm ref)
     ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_IS_ALIVE,
                                                   ERTS_SIG_Q_TYPE_UNDEFINED,
                                                   0);
-    ERL_MESSAGE_TOKEN(mp) = NIL;
-    ERL_MESSAGE_FROM(mp) = am_system;
-#ifdef USE_VM_PROBES
-    ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
 
     if (proc_queue_signal(c_p, to, (ErtsSignal *) mp, ERTS_SIG_Q_OP_IS_ALIVE))
         (void) maybe_elevate_sig_handling_prio(c_p, to);
@@ -1674,11 +1664,6 @@ erts_proc_sig_send_sync_suspend(Process *c_p, Eterm to, Eterm tag, Eterm reply)
     ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_SYNC_SUSPEND,
                                                   ERTS_SIG_Q_TYPE_UNDEFINED,
                                                   0);
-    ERL_MESSAGE_TOKEN(mp) = NIL;
-    ERL_MESSAGE_FROM(mp) = am_system;
-#ifdef USE_VM_PROBES
-    ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
 
     if (proc_queue_signal(c_p, to, (ErtsSignal *) mp, ERTS_SIG_Q_OP_SYNC_SUSPEND))
         (void) maybe_elevate_sig_handling_prio(c_p, to);
@@ -1792,7 +1777,7 @@ handle_rpc(Process *c_p, ErtsProcSigRPC *rpc, int cnt, int limit, int *yieldp)
         msg = TUPLE2(hp, ref, res);
 
         mp->hfrag.next = bp;
-
+        ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(c_p, rp, 0, mp, msg);
     }
 
@@ -2157,10 +2142,7 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
                 pid = STORE_NC(&hp, ohp, from);
 
                 ERL_MESSAGE_TERM(mp) = TUPLE3(hp, am_EXIT, pid, reason);
-                ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-                ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
+                ERL_MESSAGE_TOKEN(mp) = am_undefined;
                 if (is_immed(pid))
                     ERL_MESSAGE_FROM(mp) = pid;
                 else {
@@ -2348,10 +2330,7 @@ convert_to_down_message(Process *c_p,
                                   type, from, reason);
     hp += 6;
 
-    ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-    ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
     /* Replace original signal with the exit message... */
     convert_to_msg(c_p, sig, mp, next_nm_sig);
 
@@ -2399,10 +2378,7 @@ convert_to_nodedown_messages(Process *c_p,
 
             ERL_MESSAGE_TERM(mp) = TUPLE2(hp, am_nodedown, node);
             ERL_MESSAGE_FROM(mp) = am_system;
-            ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-            ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
+            ERL_MESSAGE_TOKEN(mp) = am_undefined;
             mp->next = nd_first;
             nd_first = mp;
             if (!nd_last)
@@ -2725,6 +2701,9 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
     Uint reds = 0;
     Process *rp;
 
+    ASSERT(!!is_alive == !(erts_atomic32_read_nob(&c_p->state)
+                           & ERTS_PSFLG_EXITING));
+
     if (pisig->msgq_len_offset != ERTS_PROC_SIG_PI_MSGQ_LEN_IGNORE) {
         /*
          * Request requires message queue data to be updated
@@ -2829,6 +2808,7 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
         if (is_alive)
             erts_factory_trim_and_close(&hfact, &msg, 1);
 
+        ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(c_p, rp, locks, mp, msg);
 
         if (!is_alive && locks)
@@ -2930,6 +2910,7 @@ sync_suspend_reply(Process *c_p, ErtsMessage *mp, erts_aint32_t state)
                 tp[2] = ssusp->async ? am_not_suspended : am_internal_error;
             }
         }
+        ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(c_p, rp, 0, mp, ssusp->message);
     }
 }
@@ -3009,10 +2990,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
 
-    if (local_only)
-        state = -1; /* can never be a valid state... */
-    else {
-        state = erts_atomic32_read_nob(&c_p->state);
+    state = erts_atomic32_read_nob(&c_p->state);
+    if (!local_only) {
         if (ERTS_PSFLG_SIG_IN_Q & state) {
             erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
             erts_proc_sig_fetch(c_p);
@@ -3025,11 +3004,13 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     yield = 0;
 
     if (!c_p->sig_qs.cont) {
-        if (state == -1)
-            *statep = erts_atomic32_read_nob(&c_p->state);
-        else
-            *statep = state;
+        *statep = state;
         return !0;
+    }
+
+    if (state & ERTS_PSFLG_EXITING) {
+        *statep = state;
+        return 0;
     }
 
     next_nm_sig = &c_p->sig_qs.nmsigs.next;
@@ -3145,8 +3126,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p),
                                              &mdp->origin);
                     omon = &mdp->origin;
+                    remove_nm_sig(c_p, sig, next_nm_sig);
                 }
-                remove_nm_sig(c_p, sig, next_nm_sig);
                 break;
             default:
                 ERTS_INTERNAL_ERROR("invalid monitor type");
@@ -3831,7 +3812,6 @@ clear_seq_trace_token(ErtsMessage *sig)
 void
 erts_proc_sig_clear_seq_trace_tokens(Process *c_p)
 {
-    ASSERT(erts_thr_progress_is_blocking());
     erts_proc_sig_fetch(c_p);
     ERTS_FOREACH_SIG_PRIVQS(c_p, sig, clear_seq_trace_token(sig));
 }

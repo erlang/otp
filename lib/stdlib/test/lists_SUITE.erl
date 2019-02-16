@@ -158,6 +158,20 @@ append_2(Config) when is_list(Config) ->
     "abcdef"=lists:append("abc", "def"),
     [hej, du]=lists:append([hej], [du]),
     [10, [elem]]=lists:append([10], [[elem]]),
+
+    %% Trapping, both crashing and otherwise.
+    [append_trapping_1(N) || N <- lists:seq(0, 20)],
+
+    ok.
+
+append_trapping_1(N) ->
+    List = lists:duplicate(N + (1 bsl N), gurka),
+    ImproperList = List ++ crash,
+
+    {'EXIT',_} = (catch (ImproperList ++ [])),
+
+    [3, 2, 1 | List] = lists:reverse(List ++ [1, 2, 3]),
+
     ok.
 
 %% Tests the lists:reverse() implementation. The function is
@@ -1679,7 +1693,7 @@ make_fun() ->
     receive {Pid, Fun} -> Fun end.
 
 make_fun(Pid) ->
-    Pid ! {self(), fun make_fun/1}.
+    Pid ! {self(), fun (X) -> {X, Pid} end}.
 
 fun_pid(Fun) ->
     erlang:fun_info(Fun, pid).
@@ -2597,6 +2611,20 @@ subtract(Config) when is_list(Config) ->
     {'EXIT',_} = (catch sub([a|b], [])),
     {'EXIT',_} = (catch sub([a|b], [a])),
 
+    %% Trapping, both crashing and otherwise.
+    [sub_trapping(N) || N <- lists:seq(0, 18)],
+
+    %% The current implementation chooses which algorithm to use based on
+    %% certain thresholds, and we need proper coverage for all corner cases.
+    [sub_thresholds(N) || N <- lists:seq(0, 32)],
+
+    %% Trapping, both crashing and otherwise.
+    [sub_trapping(N) || N <- lists:seq(0, 18)],
+
+    %% The current implementation chooses which algorithm to use based on
+    %% certain thresholds, and we need proper coverage for all corner cases.
+    [sub_thresholds(N) || N <- lists:seq(0, 32)],
+
     ok.
 
 sub_non_matching(A, B) ->
@@ -2605,6 +2633,41 @@ sub_non_matching(A, B) ->
 sub(A, B) ->
     Res = A -- B,
     Res = lists:subtract(A, B).
+
+sub_trapping(N) ->
+    List = lists:duplicate(N + (1 bsl N), gurka),
+    ImproperList = List ++ crash,
+
+    {'EXIT',_} = (catch sub_trapping_1(ImproperList, [])),
+    {'EXIT',_} = (catch sub_trapping_1(List, ImproperList)),
+
+    List = List -- lists:duplicate(N + (1 bsl N), gaffel),
+    ok = sub_trapping_1(List, []).
+
+sub_trapping_1([], _) -> ok;
+sub_trapping_1(L, R) -> sub_trapping_1(L -- R, [gurka | R]).
+
+sub_thresholds(N) ->
+    %% This needs to be long enough to cause trapping.
+    OtherLen = 1 bsl 18,
+    Other = lists:seq(0, OtherLen - 1),
+
+    Disjoint = lists:seq(-N, -1),
+    Subset = lists:seq(1, N),
+
+    %% LHS is disjoint from RHS, so all elements must be retained.
+    Disjoint = Disjoint -- Other,
+
+    %% LHS is covered by RHS, so all elements must be removed.
+    [] = Subset -- Other,
+
+    %% RHS is disjoint from LHS, so all elements must be retained.
+    Other = Other -- Disjoint,
+
+    %% RHS is covered by LHS, so N elements must be removed.
+    N = OtherLen - length(Other -- Subset),
+
+    ok.
 
 %% Test lists:droplast/1
 droplast(Config) when is_list(Config) ->

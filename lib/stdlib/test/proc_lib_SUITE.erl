@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -542,13 +542,14 @@ system_terminate(Reason,_Parent,_Deb,_State) ->
 
 
 t_format(_Config) ->
-    logger:add_handler_filter(logger_std_h,stop_all,{fun(_,_) -> stop end,ok}),
+    {ok,#{level:=Level}} = logger:get_handler_config(default),
+    logger:set_handler_config(default,level,none),
     error_logger:add_report_handler(?MODULE, self()),
     try
 	t_format()
     after
         error_logger:delete_report_handler(?MODULE),
-        logger:remove_handler_filter(logger_std_h,stop_all)
+        logger:set_handler_config(default,level,Level)
     end,
     ok.
 
@@ -585,11 +586,12 @@ t_format() ->
     ok.
 
 t_format_arbitrary(_Config) ->
-    logger:add_handler_filter(logger_std_h,stop_all,{fun(_,_) -> stop end,ok}),
+    {ok,#{level:=Level}} = logger:get_handler_config(default),
+    logger:set_handler_config(default,level,none),
     try
         t_format_arbitrary()
     after
-        logger:remove_handler_filter(logger_std_h,stop_all)
+        logger:set_handler_config(default,level,Level)
     end,
     ok.
 

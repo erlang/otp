@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,9 +49,8 @@
 	 is_acceptable_version/2, hello_version/2]).
 
 
--export_type([dtls_version/0, dtls_atom_version/0]).
+-export_type([dtls_atom_version/0]).
 
--type dtls_version()       :: ssl_record:ssl_version().
 -type dtls_atom_version()  :: dtlsv1 | 'dtlsv1.2'.
 
 -define(REPLAY_WINDOW_SIZE, 64).
@@ -135,7 +134,7 @@ set_connection_state_by_epoch(ReadState, Epoch, #{saved_read := #{epoch := Epoch
     States#{saved_read := ReadState}.
 
 %%--------------------------------------------------------------------
--spec init_connection_state_seq(dtls_version(), ssl_record:connection_states()) ->
+-spec init_connection_state_seq(ssl_record:ssl_version(), ssl_record:connection_states()) ->
 				       ssl_record:connection_state().
 %%
 %% Description: Copy the read sequence number to the write sequence number
@@ -163,7 +162,7 @@ current_connection_state_epoch(#{current_write := #{epoch := Epoch}},
     Epoch.
 
 %%--------------------------------------------------------------------
--spec get_dtls_records(binary(), [dtls_version()], binary()) -> {[binary()], binary()} | #alert{}.
+-spec get_dtls_records(binary(), [ssl_record:ssl_version()], binary()) -> {[binary()], binary()} | #alert{}.
 %%
 %% Description: Given old buffer and new data from UDP/SCTP, packs up a records
 %% and returns it as a list of tls_compressed binaries also returns leftover
@@ -188,7 +187,7 @@ get_dtls_records(Data, Versions, Buffer) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec encode_handshake(iolist(), dtls_version(), integer(), ssl_record:connection_states()) ->
+-spec encode_handshake(iolist(), ssl_record:ssl_version(), integer(), ssl_record:connection_states()) ->
 			      {iolist(), ssl_record:connection_states()}.
 %
 %% Description: Encodes a handshake message to send on the ssl-socket.
@@ -198,7 +197,7 @@ encode_handshake(Frag, Version, Epoch, ConnectionStates) ->
 
 
 %%--------------------------------------------------------------------
--spec encode_alert_record(#alert{}, dtls_version(), ssl_record:connection_states()) ->
+-spec encode_alert_record(#alert{}, ssl_record:ssl_version(), ssl_record:connection_states()) ->
 				 {iolist(), ssl_record:connection_states()}.
 %%
 %% Description: Encodes an alert message to send on the ssl-socket.
@@ -210,7 +209,7 @@ encode_alert_record(#alert{level = Level, description = Description},
 		      ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_change_cipher_spec(dtls_version(), integer(), ssl_record:connection_states()) ->
+-spec encode_change_cipher_spec(ssl_record:ssl_version(), integer(), ssl_record:connection_states()) ->
 				       {iolist(), ssl_record:connection_states()}.
 %%
 %% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
@@ -219,7 +218,7 @@ encode_change_cipher_spec(Version, Epoch, ConnectionStates) ->
     encode_plain_text(?CHANGE_CIPHER_SPEC, Version, Epoch, ?byte(?CHANGE_CIPHER_SPEC_PROTO), ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_data(binary(), dtls_version(), ssl_record:connection_states()) ->
+-spec encode_data(binary(), ssl_record:ssl_version(), ssl_record:connection_states()) ->
 			 {iolist(),ssl_record:connection_states()}.
 %%
 %% Description: Encodes data to send on the ssl-socket.
@@ -248,8 +247,8 @@ decode_cipher_text(#ssl_tls{epoch = Epoch} = CipherText, ConnnectionStates0) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec protocol_version(dtls_atom_version() | dtls_version()) ->
-			      dtls_version() | dtls_atom_version().
+-spec protocol_version(dtls_atom_version() | ssl_record:ssl_version()) ->
+			      ssl_record:ssl_version() | dtls_atom_version().
 %%
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
@@ -263,7 +262,7 @@ protocol_version({254, 253}) ->
 protocol_version({254, 255}) ->
     dtlsv1.
 %%--------------------------------------------------------------------
--spec lowest_protocol_version(dtls_version(), dtls_version()) -> dtls_version().
+-spec lowest_protocol_version(ssl_record:ssl_version(), ssl_record:ssl_version()) -> ssl_record:ssl_version().
 %%
 %% Description: Lowes protocol version of two given versions
 %%--------------------------------------------------------------------
@@ -277,7 +276,7 @@ lowest_protocol_version(_,Version) ->
     Version.
 
 %%--------------------------------------------------------------------
--spec lowest_protocol_version([dtls_version()]) -> dtls_version().
+-spec lowest_protocol_version([ssl_record:ssl_version()]) -> ssl_record:ssl_version().
 %%     
 %% Description: Lowest protocol version present in a list
 %%--------------------------------------------------------------------
@@ -288,7 +287,7 @@ lowest_protocol_version(Versions) ->
     lowest_list_protocol_version(Ver, Vers).
 
 %%--------------------------------------------------------------------
--spec highest_protocol_version([dtls_version()]) -> dtls_version().
+-spec highest_protocol_version([ssl_record:ssl_version()]) -> ssl_record:ssl_version().
 %%
 %% Description: Highest protocol version present in a list
 %%--------------------------------------------------------------------
@@ -299,7 +298,7 @@ highest_protocol_version(Versions) ->
     highest_list_protocol_version(Ver, Vers).
 
 %%--------------------------------------------------------------------
--spec highest_protocol_version(dtls_version(), dtls_version()) -> dtls_version().
+-spec highest_protocol_version(ssl_record:ssl_version(), ssl_record:ssl_version()) -> ssl_record:ssl_version().
 %%
 %% Description: Highest protocol version of two given versions
 %%--------------------------------------------------------------------
@@ -315,7 +314,7 @@ highest_protocol_version(_,Version) ->
     Version.
 
 %%--------------------------------------------------------------------
--spec is_higher(V1 :: dtls_version(), V2::dtls_version()) -> boolean().
+-spec is_higher(V1 :: ssl_record:ssl_version(), V2::ssl_record:ssl_version()) -> boolean().
 %%
 %% Description: Is V1 > V2
 %%--------------------------------------------------------------------
@@ -327,7 +326,7 @@ is_higher(_, _) ->
     false.
 
 %%--------------------------------------------------------------------
--spec supported_protocol_versions() -> [dtls_version()].
+-spec supported_protocol_versions() -> [ssl_record:ssl_version()].
 %%
 %% Description: Protocol versions supported
 %%--------------------------------------------------------------------
@@ -370,7 +369,7 @@ supported_protocol_versions([_|_] = Vsns) ->
     end.
 
 %%--------------------------------------------------------------------
--spec is_acceptable_version(dtls_version(), Supported :: [dtls_version()]) -> boolean().
+-spec is_acceptable_version(ssl_record:ssl_version(), Supported :: [ssl_record:ssl_version()]) -> boolean().
 %%
 %% Description: ssl version 2 is not acceptable security risks are too big.
 %%
@@ -378,7 +377,7 @@ supported_protocol_versions([_|_] = Vsns) ->
 is_acceptable_version(Version, Versions) ->
     lists:member(Version, Versions).
 
--spec hello_version(dtls_version(), [dtls_version()]) -> dtls_version().
+-spec hello_version(ssl_record:ssl_version(), [ssl_record:ssl_version()]) -> ssl_record:ssl_version().
 hello_version(Version, Versions) ->
     case dtls_v1:corresponding_tls_version(Version) of
         TLSVersion when TLSVersion >= {3, 3} ->
@@ -499,23 +498,22 @@ encode_dtls_cipher_text(Type, {MajVer, MinVer}, Fragment,
      WriteState#{sequence_number => Seq + 1}}.
 
 encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
+                                         cipher_state := CipherS0,
 					 epoch := Epoch,
 					 sequence_number := Seq,
-                                         cipher_state := CipherS0,
 					 security_parameters :=
 					     #security_parameters{
 						cipher_type = ?AEAD,
-                                                  bulk_cipher_algorithm =
-                                                    BulkCipherAlgo,
+                                                bulk_cipher_algorithm = BCAlg,
 						compression_algorithm = CompAlg}
 					} = WriteState0) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
-    AAD = calc_aad(Type, Version, Epoch, Seq),
+    AAD = start_additional_data(Type, Version, Epoch, Seq),
+    CipherS = ssl_record:nonce_seed(BCAlg, <<?UINT16(Epoch), ?UINT48(Seq)>>, CipherS0),
+    WriteState = WriteState0#{compression_state => CompS1,
+                              cipher_state => CipherS},
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
-    {CipherFragment, CipherS1} =
-	ssl_cipher:cipher_aead(BulkCipherAlgo, CipherS0, Seq, AAD, Comp, TLSVersion),
-    {CipherFragment,  WriteState0#{compression_state => CompS1,
-                                   cipher_state => CipherS1}};
+    ssl_record:cipher_aead(TLSVersion, Comp, WriteState, AAD);
 encode_plain_text(Type, Version, Fragment, #{compression_state := CompS0,
 					 epoch := Epoch,
 					 sequence_number := Seq,
@@ -547,9 +545,10 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
                                 BulkCipherAlgo,
 			    compression_algorithm = CompAlg}} = ReadState0, 
 		   ConnnectionStates0) ->
-    AAD = calc_aad(Type, Version, Epoch, Seq),
+    AAD = start_additional_data(Type, Version, Epoch, Seq),
+    CipherS1 = ssl_record:nonce_seed(BulkCipherAlgo, <<?UINT16(Epoch), ?UINT48(Seq)>>, CipherS0),
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
-    case  ssl_cipher:decipher_aead(BulkCipherAlgo, CipherS0, Seq, AAD, CipherFragment, TLSVersion) of
+    case  ssl_record:decipher_aead(BulkCipherAlgo, CipherS1, AAD, CipherFragment, TLSVersion) of
 	{PlainFragment, CipherState} ->
 	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 							   PlainFragment, CompressionS0),
@@ -600,7 +599,7 @@ mac_hash({Major, Minor}, MacAlg, MacSecret, Epoch, SeqNo, Type, Length, Fragment
      Fragment],
     dtls_v1:hmac_hash(MacAlg, MacSecret, Value).
     
-calc_aad(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
+start_additional_data(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
     <<?UINT16(Epoch), ?UINT48(SeqNo), ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
 
 %%--------------------------------------------------------------------

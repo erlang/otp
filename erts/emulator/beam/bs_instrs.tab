@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017. All Rights Reserved.
+// Copyright Ericsson AB 2017-2018. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -102,6 +102,7 @@ i_bs_get_binary_all2(Fail, Ms, Live, Unit, Dst) {
         LIGHT_SWAPIN;
         HEAP_SPACE_VERIFIED(0);
         ASSERT(is_value(_result));
+        $REFRESH_GEN_DEST();
         $Dst = _result;
     } else {
 	HEAP_SPACE_VERIFIED(0);
@@ -123,6 +124,7 @@ i_bs_get_binary2(Fail, Ms, Live, Sz, Flags, Dst) {
     if (is_non_value(_result)) {
         $FAIL($Fail);
     } else {
+        $REFRESH_GEN_DEST();
         $Dst = _result;
     }
 }
@@ -139,6 +141,7 @@ i_bs_get_binary_imm2(Fail, Ms, Live, Sz, Flags, Dst) {
     if (is_non_value(_result)) {
         $FAIL($Fail);
     } else {
+        $REFRESH_GEN_DEST();
         $Dst = _result;
     }
 }
@@ -161,6 +164,7 @@ i_bs_get_float2(Fail, Ms, Live, Sz, Flags, Dst) {
     if (is_non_value(_result)) {
         $FAIL($Fail);
     } else {
+        $REFRESH_GEN_DEST();
         $Dst = _result;
     }
 }
@@ -724,26 +728,34 @@ bs_start_match.execute(Fail, Live, Slots, Dst) {
         $FAIL($Fail);
     }
     header = *boxed_val(context);
-    slots = $Slots;
+
+    /* Reserve a slot for the start position. */
+    slots = $Slots + 1;
     live = $Live;
+
     if (header_is_bin_matchstate(header)) {
         ErlBinMatchState* ms = (ErlBinMatchState *) boxed_val(context);
         Uint actual_slots = HEADER_NUM_SLOTS(header);
+
+        /* We're not compatible with contexts created by bs_start_match3. */
+        ASSERT(actual_slots >= 1);
+
         ms->save_offset[0] = ms->mb.offset;
-        if (actual_slots < slots) {
-            ErlBinMatchState* dst;
+        if (ERTS_UNLIKELY(actual_slots < slots)) {
+            ErlBinMatchState* expanded;
             Uint live = $Live;
             Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
-
             $GC_TEST_PRESERVE(wordsneeded, live, context);
             ms = (ErlBinMatchState *) boxed_val(context);
-            dst = (ErlBinMatchState *) HTOP;
-            *dst = *ms;
+            expanded = (ErlBinMatchState *) HTOP;
+            *expanded = *ms;
             *HTOP = HEADER_BIN_MATCHSTATE(slots);
             HTOP += wordsneeded;
             HEAP_SPACE_VERIFIED(0);
-            $Dst = make_matchstate(dst);
+            context = make_matchstate(expanded);
+            $REFRESH_GEN_DEST();
         }
+        $Dst = context;
     } else if (is_binary_header(header)) {
         Eterm result;
         Uint wordsneeded = ERL_BIN_MATCHSTATE_SIZE(slots);
@@ -758,6 +770,7 @@ bs_start_match.execute(Fail, Live, Slots, Dst) {
         if (is_non_value(result)) {
             $FAIL($Fail);
         }
+        $REFRESH_GEN_DEST();
         $Dst = result;
     } else {
         $FAIL($Fail);
@@ -906,6 +919,7 @@ i_bs_get_integer(Fail, Live, FlagsAndUnit, Ms, Sz, Dst) {
         }
         wordsneeded = 1+WSIZE(NBYTES((Uint) size));
         $GC_TEST_PRESERVE(wordsneeded, $Live, ms);
+        $REFRESH_GEN_DEST();
     }
     mb = ms_matchbuffer(ms);
     LIGHT_SWAPOUT;
@@ -939,6 +953,7 @@ i_bs_get_utf8(Ctx, Fail, Dst) {
     if (is_non_value(result)) {
         $FAIL($Fail);
     }
+    $REFRESH_GEN_DEST();
     $Dst = result;
 }
 
@@ -949,6 +964,7 @@ i_bs_get_utf16(Ctx, Fail, Flags, Dst) {
     if (is_non_value(result)) {
         $FAIL($Fail);
     }
+    $REFRESH_GEN_DEST();
     $Dst = result;
 }
 
@@ -1029,10 +1045,289 @@ i_bs_match_string(Ctx, Fail, Bits, Ptr) {
 
 i_bs_save2(Src, Slot) {
     ErlBinMatchState* _ms = (ErlBinMatchState*) boxed_val((Eterm) $Src);
+    ASSERT(HEADER_NUM_SLOTS(_ms->thing_word) > $Slot);
     _ms->save_offset[$Slot] = _ms->mb.offset;
 }
 
 i_bs_restore2(Src, Slot) {
     ErlBinMatchState* _ms = (ErlBinMatchState*) boxed_val((Eterm) $Src);
+    ASSERT(HEADER_NUM_SLOTS(_ms->thing_word) > $Slot);
     _ms->mb.offset = _ms->save_offset[$Slot];
 }
+
+bs_get_tail(Src, Dst, Live) {
+    ErlBinMatchBuffer* mb;
+    Uint size, offs;
+    ErlSubBin* sb;
+    Eterm context;
+
+    context = $Src;
+
+    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
+
+    $GC_TEST_PRESERVE(ERL_SUB_BIN_SIZE, $Live, context);
+
+    mb = ms_matchbuffer(context);
+
+    offs = mb->offset;
+    size = mb->size - offs;
+
+    sb = (ErlSubBin *) HTOP;
+    HTOP += ERL_SUB_BIN_SIZE;
+
+    sb->thing_word = HEADER_SUB_BIN;
+    sb->size = BYTE_OFFSET(size);
+    sb->bitsize = BIT_OFFSET(size);
+    sb->offs = BYTE_OFFSET(offs);
+    sb->bitoffs = BIT_OFFSET(offs);
+    sb->is_writable = 0;
+    sb->orig = mb->orig;
+
+    $REFRESH_GEN_DEST();
+    $Dst = make_binary(sb);
+}
+
+
+%if ARCH_64
+
+i_bs_start_match3_gp(Src, Live, Fail, Dst, Pos) {
+    Eterm context, header;
+    Uint position, live;
+
+    context = $Src;
+    live = $Live;
+
+    if (!is_boxed(context)) {
+        $FAIL($Fail);
+    }
+
+    header = *boxed_val(context);
+
+    if (header_is_bin_matchstate(header)) {
+        ErlBinMatchBuffer *mb;
+
+        ASSERT(HEADER_NUM_SLOTS(header) == 0);
+
+        mb = ms_matchbuffer(context);
+        position = mb->offset;
+
+        $Dst = context;
+    } else if (is_binary_header(header)) {
+        ErlBinMatchState *ms;
+
+        $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(0), live, context);
+        HEAP_TOP(c_p) = HTOP;
+#ifdef DEBUG
+        c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
+#endif
+        ms = erts_bs_start_match_3(c_p, context);
+        HTOP = HEAP_TOP(c_p);
+        HEAP_SPACE_VERIFIED(0);
+
+        if (ms == NULL) {
+            $FAIL($Fail);
+        }
+
+        $REFRESH_GEN_DEST();
+        $Dst = make_matchstate(ms);
+        position = ms->mb.offset;
+    } else {
+        $FAIL($Fail);
+    }
+
+    ASSERT(IS_USMALL(0, position));
+    $Pos = make_small(position);
+}
+
+i_bs_start_match3(Src, Live, Fail, Dst) {
+    Eterm context, header;
+    Uint live;
+
+    context = $Src;
+    live = $Live;
+
+    if (!is_boxed(context)) {
+        $FAIL($Fail);
+    }
+
+    header = *boxed_val(context);
+
+    if (header_is_bin_matchstate(header)) {
+        ASSERT(HEADER_NUM_SLOTS(header) == 0);
+        $Dst = context;
+    } else if (is_binary_header(header)) {
+        ErlBinMatchState *ms;
+
+        $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(0), live, context);
+        HEAP_TOP(c_p) = HTOP;
+#ifdef DEBUG
+        c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
+#endif
+        ms = erts_bs_start_match_3(c_p, context);
+        HTOP = HEAP_TOP(c_p);
+        HEAP_SPACE_VERIFIED(0);
+
+        if (ms == NULL) {
+            $FAIL($Fail);
+        }
+
+        $REFRESH_GEN_DEST();
+        $Dst = make_matchstate(ms);
+    } else {
+        $FAIL($Fail);
+    }
+}
+
+bs_set_position(Ctx, Pos) {
+    ErlBinMatchBuffer* mb;
+    Eterm context;
+
+    context = $Ctx;
+    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
+
+    mb = ms_matchbuffer(context);
+    mb->offset = unsigned_val($Pos);
+}
+
+i_bs_get_position(Ctx, Dst) {
+    ErlBinMatchBuffer* mb;
+    Eterm context;
+
+    context = $Ctx;
+    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
+
+    mb = ms_matchbuffer(context);
+    $Dst = make_small(mb->offset);
+}
+
+%else
+
+#
+# Unlike their 64-bit counterparts, the 32-bit position instructions operate on
+# an offset from the "base position" of the context because storing raw
+# positions would lead to the creation of far too many bigints.
+#
+# When a match context is reused we check whether its position fits into an
+# immediate, and create a new match context if it does not. This means we only
+# have to allocate stuff roughly once every 16MB rather than every time we
+# match at a position beyond 16MB.
+#
+
+bs_set_position(Ctx, Pos) {
+    Eterm context, position;
+    ErlBinMatchState *ms;
+
+    context = $Ctx;
+    position = $Pos;
+
+    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
+    ms = (ErlBinMatchState*)boxed_val(context);
+
+    if (ERTS_LIKELY(is_small(position))) {
+        ms->mb.offset = ms->save_offset[0] + unsigned_val(position);
+    } else {
+        ASSERT(is_big(position));
+        ms->mb.offset = ms->save_offset[0] + *BIG_V(big_val(position));
+    }
+}
+
+bs_get_position(Ctx, Dst, Live) {
+    ErlBinMatchState *ms;
+    Eterm context;
+    Uint position;
+
+    context = $Ctx;
+
+    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
+    ms = (ErlBinMatchState*)boxed_val(context);
+
+    position = ms->mb.offset - ms->save_offset[0];
+
+    if (ERTS_LIKELY(IS_USMALL(0, position))) {
+        $Dst = make_small(position);
+    } else {
+        Eterm *hp;
+
+        $GC_TEST_PRESERVE(BIG_UINT_HEAP_SIZE, $Live, context);
+
+        hp = HTOP;
+        HTOP += BIG_UINT_HEAP_SIZE;
+
+        *hp = make_pos_bignum_header(1);
+        BIG_DIGIT(hp, 0) = position;
+
+        $REFRESH_GEN_DEST();
+        $Dst = make_big(hp);
+    }
+}
+
+i_bs_start_match3(Src, Live, Fail, Dst) {
+    Eterm context, header;
+    Uint live;
+
+    context = $Src;
+    live = $Live;
+
+    if (!is_boxed(context)) {
+        $FAIL($Fail);
+    }
+
+    header = *boxed_val(context);
+
+    if (header_is_bin_matchstate(header)) {
+        ErlBinMatchState *current_ms;
+        Uint position;
+
+        ASSERT(HEADER_NUM_SLOTS(header) == 1);
+
+        current_ms = (ErlBinMatchState*)boxed_val(context);
+        position = current_ms->mb.offset - current_ms->save_offset[0];
+
+        if (ERTS_LIKELY(IS_USMALL(0, position))) {
+            $Dst = context;
+        } else {
+            ErlBinMatchState *new_ms;
+
+            $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(1), live, context);
+            current_ms = (ErlBinMatchState*)boxed_val(context);
+
+            new_ms = (ErlBinMatchState*)HTOP;
+            HTOP += ERL_BIN_MATCHSTATE_SIZE(1);
+
+            new_ms->thing_word = HEADER_BIN_MATCHSTATE(1);
+            new_ms->save_offset[0] = current_ms->mb.offset;
+            new_ms->mb = current_ms->mb;
+
+            $REFRESH_GEN_DEST();
+            $Dst = make_matchstate(new_ms);
+        }
+    } else if (is_binary_header(header)) {
+        Eterm result;
+
+        $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(1), live, context);
+        HEAP_TOP(c_p) = HTOP;
+
+#ifdef DEBUG
+        c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
+#endif
+
+        /* We intentionally use erts_bs_start_match_2 so that we can use
+         * save_offset as a base for all saved positions on this context,
+         * allowing us to avoid bigints for much longer. */
+        result = erts_bs_start_match_2(c_p, context, 1);
+
+        HTOP = HEAP_TOP(c_p);
+        HEAP_SPACE_VERIFIED(0);
+
+        if (is_non_value(result)) {
+            $FAIL($Fail);
+        }
+
+        $REFRESH_GEN_DEST();
+        $Dst = result;
+    } else {
+        $FAIL($Fail);
+    }
+}
+
+%endif

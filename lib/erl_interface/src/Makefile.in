@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,12 +31,11 @@
 
 .PHONY : debug opt release clean distclean depend
 
-TARGET = @TARGET@
-
 # ----------------------------------------------------
 # Application version and release dir specification
 # ----------------------------------------------------
 include ../vsn.mk
+include $(ERL_TOP)/make/target.mk
 include $(TARGET)/eidefs.mk
 
 include $(ERL_TOP)/make/output.mk
@@ -417,7 +416,8 @@ MISCSRC = \
 	misc/eimd5.c \
 	misc/get_type.c \
 	misc/show_msg.c \
-	misc/ei_compat.c
+	misc/ei_compat.c \
+	misc/ei_init.c
 
 REGISTRYSRC = \
 	registry/hash_dohash.c \

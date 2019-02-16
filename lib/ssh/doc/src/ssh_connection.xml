@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2015</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>ssh_connection</module>
+  <module since="">ssh_connection</module>
   <modulesummary>
     This module provides API functions to send SSH Connection Protocol 
     events to the other side of an SSH channel.
@@ -201,7 +201,7 @@
   <funcs>
    
    <func>
-     <name>adjust_window(ConnectionRef, ChannelId, NumOfBytes) -> ok</name>
+     <name since="">adjust_window(ConnectionRef, ChannelId, NumOfBytes) -> ok</name>
      <fsummary>Adjusts the SSH flow control window.</fsummary>
      <type>
        <v>ConnectionRef = connection_ref()</v>
@@ -221,7 +221,7 @@
    </func>
    
    <func>
-     <name>close(ConnectionRef, ChannelId) -> ok</name>
+     <name since="">close(ConnectionRef, ChannelId) -> ok</name>
      <fsummary>Sends a close message on the channel <c>ChannelId</c>.</fsummary>
      <type>
        <v>ConnectionRef = connection_ref()</v>
@@ -240,7 +240,7 @@
    </func>
    
    <func>
-     <name>exec(ConnectionRef, ChannelId, Command, TimeOut) -> ssh_request_status() |
+     <name since="">exec(ConnectionRef, ChannelId, Command, TimeOut) -> ssh_request_status() |
      {error, reason()}</name>
      <fsummary>Requests that the server starts the execution of the given command.</fsummary>
      <type>
@@ -284,7 +284,7 @@
    </func>
 
    <func>
-     <name>exit_status(ConnectionRef, ChannelId, Status) -> ok</name>
+     <name since="">exit_status(ConnectionRef, ChannelId, Status) -> ok</name>
      <fsummary>Sends the exit status of a command to the client.</fsummary>
      <type>
        <v>ConnectionRef = connection_ref() </v>
@@ -298,8 +298,8 @@
    </func>
    
    <func>
-     <name>ptty_alloc(ConnectionRef, ChannelId, Options) -></name>
-     <name>ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) ->  > ssh_request_status() |
+     <name since="OTP 17.5">ptty_alloc(ConnectionRef, ChannelId, Options) -></name>
+     <name since="OTP 17.4">ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) ->  > ssh_request_status() |
      {error, reason()}</name>
        <fsummary>Sends an SSH Connection Protocol <c>pty_req</c>,
        to allocate a pseudo-terminal.</fsummary>
@@ -339,7 +339,7 @@
      </func>
 
      <func>
-       <name>reply_request(ConnectionRef, WantReply, Status, ChannelId) -> ok</name>
+       <name since="">reply_request(ConnectionRef, WantReply, Status, ChannelId) -> ok</name>
        <fsummary>Sends status replies to requests that want such replies.</fsummary>
       <type>
 	<v>ConnectionRef = connection_ref()</v>
@@ -357,10 +357,10 @@
      </func>
     
      <func>
-       <name>send(ConnectionRef, ChannelId, Data) -></name>
-       <name>send(ConnectionRef, ChannelId, Data, Timeout) -></name>
-       <name>send(ConnectionRef, ChannelId, Type, Data) -></name>
-       <name>send(ConnectionRef, ChannelId, Type, Data, TimeOut) ->
+       <name since="">send(ConnectionRef, ChannelId, Data) -></name>
+       <name since="">send(ConnectionRef, ChannelId, Data, Timeout) -></name>
+       <name since="">send(ConnectionRef, ChannelId, Type, Data) -></name>
+       <name since="">send(ConnectionRef, ChannelId, Type, Data, TimeOut) ->
        ok | {error, timeout} | {error, closed}</name>
        <fsummary>Sends channel data.</fsummary>
        <type>
@@ -380,7 +380,7 @@
      </func>
      
      <func>
-       <name>send_eof(ConnectionRef, ChannelId) -> ok | {error, closed}</name>
+       <name since="">send_eof(ConnectionRef, ChannelId) -> ok | {error, closed}</name>
        <fsummary>Sends EOF on channel <c>ChannelId</c>.</fsummary>
        <type>
 	<v>ConnectionRef = connection_ref()</v>
@@ -392,8 +392,8 @@
      </func>
 
      <func>
-       <name>session_channel(ConnectionRef, Timeout) -></name>
-       <name>session_channel(ConnectionRef, InitialWindowSize,
+       <name since="">session_channel(ConnectionRef, Timeout) -></name>
+       <name since="">session_channel(ConnectionRef, InitialWindowSize,
        MaxPacketSize, Timeout) -> {ok, channel_id()} | {error, reason()}</name>
        <fsummary>Opens a channel for an SSH session.</fsummary>
        <type>
@@ -410,7 +410,7 @@
      </func>
 
     <func>
-      <name>setenv(ConnectionRef, ChannelId, Var, Value, TimeOut) -> ssh_request_status() |
+      <name since="">setenv(ConnectionRef, ChannelId, Var, Value, TimeOut) -> ssh_request_status() |
       {error, reason()}</name>
       <fsummary>Environment variables can be passed to the
       shell/command to be started later.</fsummary>
@@ -428,7 +428,7 @@
     </func>
     
     <func>
-      <name>shell(ConnectionRef, ChannelId) -> ok | failure | {error, closed}
+      <name since="">shell(ConnectionRef, ChannelId) -> ok | failure | {error, closed}
       </name>
       <fsummary>Requests that the user default shell (typically defined in
       /etc/passwd in Unix systems) is to be executed at the server end.</fsummary>
@@ -448,7 +448,7 @@
     </func>
 
     <func>
-      <name>subsystem(ConnectionRef, ChannelId, Subsystem, Timeout) -> ssh_request_status() |
+      <name since="">subsystem(ConnectionRef, ChannelId, Subsystem, Timeout) -> ssh_request_status() |
       {error, reason()}</name>
       <fsummary>Requests to execute a predefined subsystem on the server.</fsummary>
        <type>

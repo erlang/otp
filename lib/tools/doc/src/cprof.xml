@@ -34,7 +34,7 @@
     <rev>PA1</rev>
     <file>cprof.sgml</file>
   </header>
-  <module>cprof</module>
+  <module since="">cprof</module>
   <modulesummary>A simple Call Count Profiling Tool using breakpoints for minimal runtime performance impact.</modulesummary>
   <description>
     <p>The <c>cprof</c> module is used to profile a program
@@ -65,10 +65,10 @@
   </description>
   <funcs>
     <func>
-      <name>analyse() -> {AllCallCount, ModAnalysisList}</name>
-      <name>analyse(Limit) -> {AllCallCount, ModAnalysisList}</name>
-      <name>analyse(Mod) -> ModAnalysis</name>
-      <name>analyse(Mod, Limit) -> ModAnalysis</name>
+      <name since="">analyse() -> {AllCallCount, ModAnalysisList}</name>
+      <name since="">analyse(Limit) -> {AllCallCount, ModAnalysisList}</name>
+      <name since="">analyse(Mod) -> ModAnalysis</name>
+      <name since="">analyse(Mod, Limit) -> ModAnalysis</name>
       <fsummary>Collect and analyse call counters.</fsummary>
       <type>
         <v>Limit = integer()</v>
@@ -122,7 +122,7 @@
       </desc>
     </func>
     <func>
-      <name>pause() -> integer()</name>
+      <name since="">pause() -> integer()</name>
       <fsummary>Pause running call count trace for all functions.</fsummary>
       <desc>
         <p>Pause call count tracing for all functions in all modules
@@ -137,9 +137,9 @@
       </desc>
     </func>
     <func>
-      <name>pause(FuncSpec) -> integer()</name>
-      <name>pause(Mod, Func) -> integer()</name>
-      <name>pause(Mod, Func, Arity) -> integer()</name>
+      <name since="">pause(FuncSpec) -> integer()</name>
+      <name since="">pause(Mod, Func) -> integer()</name>
+      <name since="">pause(Mod, Func, Arity) -> integer()</name>
       <fsummary>Pause running call count trace for matching functions.</fsummary>
       <type>
         <v>FuncSpec = Mod | {Mod,Func,Arity}, {FS}</v>
@@ -167,10 +167,10 @@
       </desc>
     </func>
     <func>
-      <name>restart() -> integer()</name>
-      <name>restart(FuncSpec) -> integer()</name>
-      <name>restart(Mod, Func) -> integer()</name>
-      <name>restart(Mod, Func, Arity) -> integer()</name>
+      <name since="">restart() -> integer()</name>
+      <name since="">restart(FuncSpec) -> integer()</name>
+      <name since="">restart(Mod, Func) -> integer()</name>
+      <name since="">restart(Mod, Func, Arity) -> integer()</name>
       <fsummary>Restart existing call counters for matching functions.</fsummary>
       <type>
         <v>FuncSpec = Mod | {Mod,Func,Arity}, {FS}</v>
@@ -197,7 +197,7 @@
       </desc>
     </func>
     <func>
-      <name>start() -> integer()</name>
+      <name since="">start() -> integer()</name>
       <fsummary>Start call count tracing for all functions.</fsummary>
       <desc>
         <p>Start call count tracing for all functions in all modules, 
@@ -212,9 +212,9 @@
       </desc>
     </func>
     <func>
-      <name>start(FuncSpec) -> integer()</name>
-      <name>start(Mod, Func) -> integer()</name>
-      <name>start(Mod, Func, Arity) -> integer()</name>
+      <name since="">start(FuncSpec) -> integer()</name>
+      <name since="">start(Mod, Func) -> integer()</name>
+      <name since="">start(Mod, Func, Arity) -> integer()</name>
       <fsummary>Start call count tracing for matching functions.</fsummary>
       <type>
         <v>FuncSpec = Mod | {Mod,Func,Arity}, {FS}</v>
@@ -240,7 +240,7 @@
       </desc>
     </func>
     <func>
-      <name>stop() -> integer()</name>
+      <name since="">stop() -> integer()</name>
       <fsummary>Stop call count tracing for all functions.</fsummary>
       <desc>
         <p>Stop call count tracing for all functions in all modules, 
@@ -255,9 +255,9 @@
       </desc>
     </func>
     <func>
-      <name>stop(FuncSpec) -> integer()</name>
-      <name>stop(Mod, Func) -> integer()</name>
-      <name>stop(Mod, Func, Arity) -> integer()</name>
+      <name since="">stop(FuncSpec) -> integer()</name>
+      <name since="">stop(Mod, Func) -> integer()</name>
+      <name since="">stop(Mod, Func, Arity) -> integer()</name>
       <fsummary>Stop call count tracing for matching functions.</fsummary>
       <type>
         <v>FuncSpec = Mod | {Mod,Func,Arity}, {FS}</v>

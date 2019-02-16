@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -423,7 +423,7 @@ start_stop_log(Config) ->
     StdioResult2 = capture(fun() -> rb:log_list() end),
     {ok,<<>>} = file:read_file(OutFile),
     
-    %% Test that standard_io is used if log file can not be opened
+    %% Test that standard_io is used if log file cannot be opened
     ok = rb:start_log(filename:join(nonexistingdir,"newfile.txt")),
     StdioResult = capture(fun() -> rb:show(1) end),
     {ok,<<>>} = file:read_file(OutFile),

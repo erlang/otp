@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>application</module>
+  <module since="">application</module>
   <modulesummary>Generic OTP application functions</modulesummary>
   <description>
     <p>In OTP, <em>application</em> denotes a component implementing
@@ -67,8 +67,8 @@
   </datatypes>
   <funcs>
     <func>
-        <name name="ensure_all_started" arity="1"/>
-        <name name="ensure_all_started" arity="2"/>
+        <name name="ensure_all_started" arity="1" since="OTP R16B02"/>
+        <name name="ensure_all_started" arity="2" since="OTP R16B02"/>
         <fsummary>Load and start an application and its dependencies, recursively.</fsummary>
         <desc>
           <p>Equivalent to calling
@@ -85,8 +85,8 @@
         </desc>
     </func>
     <func>
-      <name name="ensure_started" arity="1"/>
-      <name name="ensure_started" arity="2"/>
+      <name name="ensure_started" arity="1" since="OTP R16B01"/>
+      <name name="ensure_started" arity="2" since="OTP R16B01"/>
       <fsummary>Load and start an application.</fsummary>
       <desc>
 	<p>Equivalent to
@@ -95,8 +95,8 @@
       </desc>
     </func>
     <func>
-      <name name="get_all_env" arity="0"/>
-      <name name="get_all_env" arity="1"/>
+      <name name="get_all_env" arity="0" since=""/>
+      <name name="get_all_env" arity="1" since=""/>
       <fsummary>Get the configuration parameters for an application.</fsummary>
       <desc>
         <p>Returns the configuration parameters and their values for
@@ -108,8 +108,8 @@
       </desc>
     </func>
     <func>
-      <name name="get_all_key" arity="0"/>
-      <name name="get_all_key" arity="1"/>
+      <name name="get_all_key" arity="0" since=""/>
+      <name name="get_all_key" arity="1" since=""/>
       <fsummary>Get the application specification keys.</fsummary>
       <desc>
         <p>Returns the application specification keys and their values
@@ -122,8 +122,8 @@
       </desc>
     </func>
     <func>
-      <name name="get_application" arity="0"/>
-      <name name="get_application" arity="1"/>
+      <name name="get_application" arity="0" since=""/>
+      <name name="get_application" arity="1" since=""/>
       <fsummary>Get the name of an application containing a certain process or module.</fsummary>
       <desc>
         <p>Returns the name of the application to which the process
@@ -136,8 +136,8 @@
       </desc>
     </func>
     <func>
-      <name name="get_env" arity="1"/>
-      <name name="get_env" arity="2"/>
+      <name name="get_env" arity="1" since=""/>
+      <name name="get_env" arity="2" since=""/>
       <fsummary>Get the value of a configuration parameter.</fsummary>
       <desc>
         <p>Returns the value of configuration parameter <c><anno>Par</anno></c>
@@ -153,7 +153,7 @@
       </desc>
     </func>
     <func>
-      <name name="get_env" arity="3"/>
+      <name name="get_env" arity="3" since="OTP R16B"/>
       <fsummary>Get the value of a configuration parameter using a default.</fsummary>
       <desc>
         <p>Works like <seealso marker="#get_env/2"><c>get_env/2</c></seealso> but returns
@@ -162,8 +162,8 @@
       </desc>
     </func>
     <func>
-      <name name="get_key" arity="1"/>
-      <name name="get_key" arity="2"/>
+      <name name="get_key" arity="1" since=""/>
+      <name name="get_key" arity="2" since=""/>
       <fsummary>Get the value of an application specification key.</fsummary>
       <desc>
         <p>Returns the value of the application specification key
@@ -180,8 +180,8 @@
       </desc>
     </func>
     <func>
-      <name name="load" arity="1"/>
-      <name name="load" arity="2"/>
+      <name name="load" arity="1" since=""/>
+      <name name="load" arity="2" since=""/>
       <fsummary>Load an application.</fsummary>
       <type name="application_spec"/>
       <type name="application_opt"/>
@@ -226,7 +226,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="loaded_applications" arity="0"/>
+      <name name="loaded_applications" arity="0" since=""/>
       <fsummary>Get the currently loaded applications.</fsummary>
       <desc>
         <p>Returns a list with information about the applications, and included
@@ -238,7 +238,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="permit" arity="2"/>
+      <name name="permit" arity="2" since=""/>
       <fsummary>Change the permission for an application to run at a node.</fsummary>
       <desc>
         <p>Changes the permission for <c><anno>Application</anno></c> to run at
@@ -271,8 +271,8 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="set_env" arity="3"/>
-      <name name="set_env" arity="4"/>
+      <name name="set_env" arity="3" since=""/>
+      <name name="set_env" arity="4" since=""/>
       <fsummary>Set the value of a configuration parameter.</fsummary>
       <desc>
         <p>Sets the value of configuration parameter <c><anno>Par</anno></c> for
@@ -302,8 +302,8 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="start" arity="1"/>
-      <name name="start" arity="2"/>
+      <name name="start" arity="1" since=""/>
+      <name name="start" arity="2" since=""/>
       <fsummary>Load and start an application.</fsummary>
        <desc>
         <p>Starts <c><anno>Application</anno></c>. If it is not loaded,
@@ -318,8 +318,13 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           <c>{error,{not_started,App}}</c> is returned, where <c>App</c>
           is the name of the missing application.</p>
         <p>The application controller then creates an <em>application master</em>
-	  for the application. The application master is
-          the group leader of all the processes in the application.
+          for the application. The application master becomes the
+          group leader of all the processes in the application. I/O is
+          forwarded to the previous group leader, though, this is just
+          a way to identify processes that belong to the application.
+          Used for example to find itself from any process, or,
+          reciprocally, to kill them all when it terminates.</p>
+        <p>
           The application master starts the application by calling
           the application callback function <c>Module:start/2</c> as
           defined by the application specification key <c>mod</c>.</p>
@@ -348,7 +353,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="start_type" arity="0"/>
+      <name name="start_type" arity="0" since=""/>
       <fsummary>Get the start type of an ongoing application startup.</fsummary>
       <desc>
         <p>This function is intended to be called by a process belonging
@@ -365,7 +370,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="stop" arity="1"/>
+      <name name="stop" arity="1" since=""/>
       <fsummary>Stop an application.</fsummary>
       <desc>
         <p>Stops <c><anno>Application</anno></c>. The application master calls
@@ -394,7 +399,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="takeover" arity="2"/>
+      <name name="takeover" arity="2" since=""/>
       <fsummary>Take over a distributed application.</fsummary>
       <desc>
         <p>Takes over the distributed application
@@ -419,7 +424,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="unload" arity="1"/>
+      <name name="unload" arity="1" since=""/>
       <fsummary>Unload an application.</fsummary>
       <desc>
         <p>Unloads the application specification for <c><anno>Application</anno></c>
@@ -430,8 +435,8 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="unset_env" arity="2"/>
-      <name name="unset_env" arity="3"/>
+      <name name="unset_env" arity="2" since=""/>
+      <name name="unset_env" arity="3" since=""/>
       <fsummary>Unset the value of a configuration parameter.</fsummary>
       <desc>
         <p>Removes the configuration parameter <c><anno>Par</anno></c> and its value
@@ -454,8 +459,8 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="which_applications" arity="0"/>
-      <name name="which_applications" arity="1"/>
+      <name name="which_applications" arity="0" since=""/>
+      <name name="which_applications" arity="1" since=""/>
       <fsummary>Get the currently running applications.</fsummary>
       <desc>
         <p>Returns a list with information about the applications that
@@ -479,7 +484,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
   </section>
   <funcs>
     <func>
-      <name>Module:start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State} | {error, Reason}</name>
+      <name since="">Module:start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State} | {error, Reason}</name>
       <fsummary>Start an application.</fsummary>
       <type>
         <v>StartType = <seealso marker="#type-start_type"><c>start_type()</c></seealso></v>
@@ -521,7 +526,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>Module:start_phase(Phase, StartType, PhaseArgs) -> ok | {error, Reason}</name>
+      <name since="">Module:start_phase(Phase, StartType, PhaseArgs) -> ok | {error, Reason}</name>
       <fsummary>Extended start of an application.</fsummary>
       <type>
         <v>Phase = atom()</v>
@@ -546,7 +551,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>Module:prep_stop(State) -> NewState</name>
+      <name since="">Module:prep_stop(State) -> NewState</name>
       <fsummary>Prepare an application for termination.</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -564,7 +569,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>Module:stop(State)</name>
+      <name since="">Module:stop(State)</name>
       <fsummary>Clean up after termination of an application.</fsummary>
       <type>
         <v>State = term()</v>
@@ -580,7 +585,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name>Module:config_change(Changed, New, Removed) -> ok</name>
+      <name since="">Module:config_change(Changed, New, Removed) -> ok</name>
       <fsummary>Update the configuration parameters for an application.</fsummary>
       <type>
         <v>Changed = [{Par,Val}]</v>
@@ -608,4 +613,3 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       <seealso marker="app">app(4)</seealso></p>
   </section>
 </erlref>
-

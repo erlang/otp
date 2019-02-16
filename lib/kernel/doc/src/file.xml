@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>file</module>
+  <module since="">file</module>
   <modulesummary>File interface module.</modulesummary>
   <description>
     <p>This module provides an interface to the file system.</p>
@@ -186,7 +186,7 @@
 
   <funcs>
     <func>
-      <name name="advise" arity="4"/>
+      <name name="advise" arity="4" since="OTP R14B"/>
       <fsummary>Predeclare an access pattern for file data.</fsummary>
       <type name="posix_file_advise"/>
       <desc>
@@ -197,7 +197,7 @@
       </desc>
     </func>
     <func>
-      <name name="allocate" arity="3"/>
+      <name name="allocate" arity="3" since="OTP R16B"/>
       <fsummary>Allocate file space.</fsummary>
       <desc>
         <p><c>allocate/3</c> can be used to preallocate space for a file.</p>
@@ -209,7 +209,7 @@
       </desc>
     </func>
     <func>
-      <name name="change_group" arity="2"/>
+      <name name="change_group" arity="2" since=""/>
       <fsummary>Change group of a file.</fsummary>
       <desc>
         <p>Changes group of a file. See
@@ -217,7 +217,7 @@
       </desc>
     </func>
     <func>
-      <name name="change_mode" arity="2"/>
+      <name name="change_mode" arity="2" since="OTP R14B"/>
       <fsummary>Change permissions of a file.</fsummary>
       <desc>
         <p>Changes permissions of a file. See
@@ -225,7 +225,7 @@
       </desc>
     </func>
     <func>
-      <name name="change_owner" arity="2"/>
+      <name name="change_owner" arity="2" since=""/>
       <fsummary>Change owner of a file.</fsummary>
       <desc>
         <p>Changes owner of a file. See
@@ -233,7 +233,7 @@
       </desc>
     </func>
     <func>
-      <name name="change_owner" arity="3"/>
+      <name name="change_owner" arity="3" since=""/>
       <fsummary>Change owner and group of a file.</fsummary>
       <desc>
         <p>Changes owner and group of a file. See
@@ -241,7 +241,7 @@
       </desc>
     </func>
     <func>
-      <name name="change_time" arity="2"/>
+      <name name="change_time" arity="2" since=""/>
       <fsummary>Change the modification time of a file.</fsummary>
       <desc>
         <p>Changes the modification and access times of a file. See
@@ -249,7 +249,7 @@
       </desc>
     </func>
     <func>
-      <name name="change_time" arity="3"/>
+      <name name="change_time" arity="3" since=""/>
       <fsummary>Change the modification and last access time of a file.</fsummary>
       <desc>
         <p>Changes the modification and last access times of a file. See
@@ -257,7 +257,7 @@
       </desc>
     </func>
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close a file.</fsummary>
       <desc>
         <p>Closes the file referenced by <c><anno>IoDevice</anno></c>. It mostly
@@ -270,7 +270,7 @@
       </desc>
     </func>
     <func>
-      <name name="consult" arity="1"/>
+      <name name="consult" arity="1" since=""/>
       <fsummary>Read Erlang terms from a file.</fsummary>
       <desc>
         <p>Reads Erlang terms, separated by '.', from
@@ -308,8 +308,8 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="copy" arity="2"/>
-      <name name="copy" arity="3"/>
+      <name name="copy" arity="2" since=""/>
+      <name name="copy" arity="3" since=""/>
       <fsummary>Copy file contents.</fsummary>
       <desc>
         <p>Copies <c><anno>ByteCount</anno></c> bytes from
@@ -346,7 +346,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="datasync" arity="1"/>
+      <name name="datasync" arity="1" since="OTP R14B"/>
       <fsummary>Synchronize the in-memory data of a file, ignoring most of its metadata, with that on the physical medium.</fsummary>
       <desc>
         <p>Ensures that any buffers kept by the operating system
@@ -369,7 +369,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="del_dir" arity="1"/>
+      <name name="del_dir" arity="1" since=""/>
       <fsummary>Delete a directory.</fsummary>
       <desc>
         <p>Tries to delete directory <c><anno>Dir</anno></c>.
@@ -405,7 +405,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="delete" arity="1"/>
+      <name name="delete" arity="1" since=""/>
       <fsummary>Delete a file.</fsummary>
       <desc>
         <p>Tries to delete file <c><anno>Filename</anno></c>.
@@ -442,7 +442,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="eval" arity="1"/>
+      <name name="eval" arity="1" since=""/>
       <fsummary>Evaluate Erlang expressions in a file.</fsummary>
       <desc>
         <p>Reads and evaluates Erlang expressions, separated by '.' (or
@@ -476,7 +476,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="eval" arity="2"/>
+      <name name="eval" arity="2" since=""/>
       <fsummary>Evaluate Erlang expressions in a file.</fsummary>
       <desc>
         <p>The same as <c>eval/1</c>, but the variable bindings
@@ -486,7 +486,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Return a descriptive string for an error reason.</fsummary>
       <desc>
         <p>Given the error reason returned by any function in this
@@ -494,7 +494,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="get_cwd" arity="0"/>
+      <name name="get_cwd" arity="0" since=""/>
       <fsummary>Get the current working directory.</fsummary>
       <desc>
         <p>Returns <c>{ok, <anno>Dir</anno>}</c>, where <c><anno>Dir</anno></c>
@@ -516,7 +516,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="get_cwd" arity="1"/>
+      <name name="get_cwd" arity="1" since=""/>
       <fsummary>Get the current working directory for the specified drive.</fsummary>
       <desc>
 	<p>Returns <c>{ok, <anno>Dir</anno>}</c> or
@@ -547,7 +547,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="list_dir" arity="1"/>
+      <name name="list_dir" arity="1" since=""/>
       <fsummary>List files in a directory.</fsummary>
       <desc>
         <p>Lists all files in a directory, <em>except</em> files
@@ -578,7 +578,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="list_dir_all" arity="1"/>
+      <name name="list_dir_all" arity="1" since="OTP R16B"/>
       <fsummary>List all files in a directory.</fsummary>
       <desc>
         <p><marker id="list_dir_all"/>Lists all the files in a directory,
@@ -603,7 +603,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="make_dir" arity="1"/>
+      <name name="make_dir" arity="1" since=""/>
       <fsummary>Make a directory.</fsummary>
       <desc>
         <p>Tries to create directory <c><anno>Dir</anno></c>. Missing parent
@@ -637,7 +637,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="make_link" arity="2"/>
+      <name name="make_link" arity="2" since=""/>
       <fsummary>Make a hard link to a file.</fsummary>
       <desc>
         <p>Makes a hard link from <c><anno>Existing</anno></c> to
@@ -666,7 +666,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="make_symlink" arity="2"/>
+      <name name="make_symlink" arity="2" since=""/>
       <fsummary>Make a symbolic link to a file or directory.</fsummary>
       <desc>
         <p>Creates a symbolic link <c><anno>New</anno></c> to
@@ -702,7 +702,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="native_name_encoding" arity="0"/>
+      <name name="native_name_encoding" arity="0" since="OTP R14B01"/>
       <fsummary>Return the configured filename encoding of the VM.</fsummary>
       <desc>
 	<p><marker id="native_name_encoding"/>Returns
@@ -714,7 +714,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="open" arity="2"/>
+      <name name="open" arity="2" since=""/>
       <fsummary>Open a file.</fsummary>
       <desc>
         <p>Opens file <c><anno>File</anno></c> in the mode determined
@@ -997,7 +997,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="path_consult" arity="2"/>
+      <name name="path_consult" arity="2" since=""/>
       <fsummary>Read Erlang terms from a file.</fsummary>
       <desc>
         <p>Searches the path <c><anno>Path</anno></c> (a list of directory
@@ -1039,7 +1039,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="path_eval" arity="2"/>
+      <name name="path_eval" arity="2" since=""/>
       <fsummary>Evaluate Erlang expressions in a file.</fsummary>
       <desc>
         <p>Searches the path <c><anno>Path</anno></c> (a list of directory
@@ -1085,7 +1085,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="path_open" arity="3"/>
+      <name name="path_open" arity="3" since=""/>
       <fsummary>Open a file.</fsummary>
       <desc>
         <p>Searches the path <c><anno>Path</anno></c> (a list of directory
@@ -1114,7 +1114,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="path_script" arity="2"/>
+      <name name="path_script" arity="2" since=""/>
       <fsummary>Evaluate and return the value of Erlang expressions in a file.</fsummary>
       <desc>
         <p>Searches the path <c><anno>Path</anno></c> (a list of directory
@@ -1158,7 +1158,7 @@ f.txt:  {person, "kalle", 25}.
    </desc>
     </func>
     <func>
-      <name name="path_script" arity="3"/>
+      <name name="path_script" arity="3" since=""/>
       <fsummary>Evaluate and return the value of Erlang expressions in a file.</fsummary>
       <desc>
         <p>The same as <c>path_script/2</c> but the variable bindings
@@ -1168,7 +1168,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="pid2name" arity="1"/>
+      <name name="pid2name" arity="1" since=""/>
       <fsummary>Return the name of the file handled by a pid.</fsummary>
       <desc>
         <p>If <c><anno>Pid</anno></c> is an I/O device, that is, a pid returned from
@@ -1193,7 +1193,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="position" arity="2"/>
+      <name name="position" arity="2" since=""/>
       <fsummary>Set position in a file.</fsummary>
       <desc>
         <p>Sets the position of the file referenced by <c><anno>IoDevice</anno></c>
@@ -1245,7 +1245,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="pread" arity="2"/>
+      <name name="pread" arity="2" since=""/>
       <fsummary>Read from a file at certain positions.</fsummary>
       <desc>
         <p>Performs a sequence of <c>pread/3</c> in one operation, 
@@ -1263,7 +1263,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="pread" arity="3"/>
+      <name name="pread" arity="3" since=""/>
       <fsummary>Read from a file at a certain position.</fsummary>
       <desc>
         <p>Combines <c>position/2</c> and <c>read/2</c> in one
@@ -1283,7 +1283,7 @@ f.txt:  {person, "kalle", 25}.
         </desc>
     </func>
     <func>
-      <name name="pwrite" arity="2"/>
+      <name name="pwrite" arity="2" since=""/>
       <fsummary>Write to a file at certain positions.</fsummary>
       <desc>
         <p>Performs a sequence of <c>pwrite/3</c> in one operation, 
@@ -1298,7 +1298,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="pwrite" arity="3"/>
+      <name name="pwrite" arity="3" since=""/>
       <fsummary>Write to a file at a certain position.</fsummary>
       <desc>
         <p>Combines <c>position/2</c> and <c>write/2</c> in one
@@ -1317,7 +1317,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="read" arity="2"/>
+      <name name="read" arity="2" since=""/>
       <fsummary>Read from a file.</fsummary>
       <desc>
         <p>Reads <c><anno>Number</anno></c> bytes/characters from the file
@@ -1371,7 +1371,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="read_file" arity="1"/>
+      <name name="read_file" arity="1" since=""/>
       <fsummary>Read a file.</fsummary>
       <desc>
         <p>Returns <c>{ok, <anno>Binary</anno>}</c>, where
@@ -1407,8 +1407,8 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="read_file_info" arity="1"/>
-      <name name="read_file_info" arity="2"/>
+      <name name="read_file_info" arity="1" since=""/>
+      <name name="read_file_info" arity="2" since="OTP R15B"/>
       <fsummary>Retrieve information about a file.</fsummary>
       <desc>
         <p>Retrieves information about a file. Returns
@@ -1562,7 +1562,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="read_line" arity="1"/>
+      <name name="read_line" arity="1" since=""/>
       <fsummary>Read a line from a file.</fsummary>
       <desc>
         <p>Reads a line of bytes/characters from the file referenced by
@@ -1619,7 +1619,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="read_link" arity="1"/>
+      <name name="read_link" arity="1" since=""/>
       <fsummary>See what a link is pointing to.</fsummary>
       <desc>
         <p><marker id="read_link_all"/>Returns
@@ -1649,7 +1649,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="read_link_all" arity="1"/>
+      <name name="read_link_all" arity="1" since="OTP R16B"/>
       <fsummary>See what a link is pointing to.</fsummary>
       <desc>
         <p>Returns <c>{ok, <anno>Filename</anno>}</c> if
@@ -1677,8 +1677,8 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="read_link_info" arity="1"/>
-      <name name="read_link_info" arity="2"/>
+      <name name="read_link_info" arity="1" since=""/>
+      <name name="read_link_info" arity="2" since="OTP R15B"/>
       <fsummary>Retrieve information about a link or file.</fsummary>
       <desc>
 	<p>Works like
@@ -1699,7 +1699,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="rename" arity="2"/>
+      <name name="rename" arity="2" since=""/>
       <fsummary>Rename a file.</fsummary>
       <desc>
         <p>Tries to rename the file <c><anno>Source</anno></c> to
@@ -1762,7 +1762,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="script" arity="1"/>
+      <name name="script" arity="1" since=""/>
       <fsummary>Evaluate and return the value of Erlang expressions in a file.</fsummary>
       <desc>
         <p>Reads and evaluates Erlang expressions, separated by '.' (or
@@ -1797,7 +1797,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="script" arity="2"/>
+      <name name="script" arity="2" since=""/>
       <fsummary>Evaluate and return the value of Erlang expressions in a file.</fsummary>
       <desc>
         <p>The same as <c>script/1</c> but the variable bindings
@@ -1807,7 +1807,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="sendfile" arity="2"/>
+      <name name="sendfile" arity="2" since="OTP R15B"/>
       <fsummary>Send a file to a socket.</fsummary>
       <desc>
         <p>Sends the file <c>Filename</c> to <c>Socket</c>.
@@ -1816,7 +1816,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="sendfile" arity="5"/>
+      <name name="sendfile" arity="5" since="OTP R15B"/>
       <fsummary>Send a file to a socket.</fsummary>
       <type name="sendfile_option"/>
       <desc>
@@ -1843,7 +1843,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="set_cwd" arity="1"/>
+      <name name="set_cwd" arity="1" since=""/>
       <fsummary>Set the current working directory.</fsummary>
       <desc>
         <p>Sets the current working directory of the file server to
@@ -1890,7 +1890,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="sync" arity="1"/>
+      <name name="sync" arity="1" since=""/>
       <fsummary>Synchronize the in-memory state of a file with that on the physical medium.</fsummary>
       <desc>
         <p>Ensures that any buffers kept by the operating system
@@ -1906,7 +1906,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="truncate" arity="1"/>
+      <name name="truncate" arity="1" since=""/>
       <fsummary>Truncate a file.</fsummary>
       <desc>
         <p>Truncates the file referenced by <c><anno>IoDevice</anno></c> at
@@ -1915,7 +1915,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="write" arity="2"/>
+      <name name="write" arity="2" since=""/>
       <fsummary>Write to a file.</fsummary>
       <desc>
         <p>Writes <c><anno>Bytes</anno></c> to the file referenced by
@@ -1941,7 +1941,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="write_file" arity="2"/>
+      <name name="write_file" arity="2" since=""/>
       <fsummary>Write a file.</fsummary>
       <desc>
         <p>Writes the contents of the <c>iodata</c> term <c><anno>Bytes</anno></c>
@@ -1978,7 +1978,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="write_file" arity="3"/>
+      <name name="write_file" arity="3" since=""/>
       <fsummary>Write a file.</fsummary>
       <desc>
         <p>Same as <c>write_file/2</c>, but takes a third argument
@@ -1989,8 +1989,8 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="write_file_info" arity="2"/>
-      <name name="write_file_info" arity="3"/>
+      <name name="write_file_info" arity="2" since=""/>
+      <name name="write_file_info" arity="3" since="OTP R15B"/>
       <fsummary>Change file information.</fsummary>
       <desc>
         <p>Changes file information. Returns <c>ok</c> if successful,

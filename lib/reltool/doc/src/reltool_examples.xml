@@ -160,7 +160,7 @@ Eshell V9.0  (abort with ^G)
                        {mod,erts_internal,[]},
                        {mod,erts_literal_area_collector,[]},
                        {mod,init,[]},
-                       {mod,otp_ring0,...},
+                       {mod,erl_init,...},
                        {mod,...},
                        {...}|...]}]},
           {app,compiler,
@@ -313,9 +313,12 @@ Erlang/OTP 20 [erts-10.0] [source-c13b302] [64-bit] [smp:4:4] [ds:4:4:10] [async
 [hipe] [kernel-poll:false]
 Eshell V10.0  (abort with ^G)
 1&gt;
-1&gt; {ok, Server} = reltool:start_server([{config, {sys, [{boot_rel, "NAME"},
-                                                        {rel, "NAME", "VSN",
-                                                        [sasl]}]}}]).
+1&gt; {ok, Server} = reltool:start_server([{config,
+                                         {sys,
+                                          [{boot_rel, "NAME"},
+                                           {rel, "NAME", "VSN",
+                                            [sasl],
+                                            [{load_dot_erlang, false}]}]}}]).
 {ok,&lt;0.1288.0&gt;}
 2&gt;
 2&gt; reltool:get_config(Server).
@@ -331,7 +334,7 @@ Eshell V10.0  (abort with ^G)
 {ok,{script,{"NAME","VSN"},
             [{preLoaded,[erl_prim_loader,erl_tracer,erlang,
                          erts_code_purger,erts_dirty_process_signal_handler,
-                         erts_internal,erts_literal_area_collector,init,otp_ring0,
+                         erts_internal,erts_literal_area_collector,init,erl_init,
                          prim_eval,prim_file,prim_inet,prim_zip,zlib]},
              {progress,preloaded},
              {path,["$ROOT/lib/kernel-5.2/ebin",

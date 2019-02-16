@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@
 %%%-----------------------------------------------------------------
 %%% The default logger backend
 log_allowed(Log, Tid) ->
-    {ok,Config} = logger_config:get(Tid,logger),
+    {ok,Config} = logger_config:get(Tid,primary),
     Filters = maps:get(filters,Config,[]),
-    case apply_filters(logger,Log,Filters,Config) of
+    case apply_filters(primary,Log,Filters,Config) of
         stop ->
             ok;
         Log1 ->
@@ -41,7 +41,7 @@ log_allowed(Log, Tid) ->
 
 call_handlers(#{level:=Level}=Log,[Id|Handlers],Tid) ->
     case logger_config:get(Tid,Id,Level) of
-        {ok,{Module,Config}} ->
+        {ok,#{module:=Module}=Config} ->
             Filters = maps:get(filters,Config,[]),
             case apply_filters(Id,Log,Filters,Config) of
                 stop ->
@@ -58,7 +58,7 @@ call_handlers(#{level:=Level}=Log,[Id|Handlers],Tid) ->
                                        debug,
                                        [{logger,removed_failing_handler},
                                         {handler,{Id,Module}},
-                                        {log,Log1},
+                                        {log_event,Log1},
                                         {config,Config1},
                                         {reason,{C,R,filter_stacktrace(S)}}]);
                                 {error,{not_found,_}} ->
@@ -122,7 +122,7 @@ handle_filter_failed({Id,_}=Filter,Owner,Log,Reason) ->
                           [{logger,removed_failing_filter},
                            {filter,Filter},
                            {owner,Owner},
-                           {log,Log},
+                           {log_event,Log},
                            {reason,Reason}]);
         _ ->
             ok

@@ -1193,6 +1193,8 @@ ot_name(Es, T) ->
                             {atom,0,list_to_atom(Atom)},T]};
         "tuple" when T =:= [] ->
             {type,0,tuple,any};
+        "map" when T =:= [] ->
+            {type,0,map,any};
         Atom ->
             {type,0,list_to_atom(Atom),T}
     end.

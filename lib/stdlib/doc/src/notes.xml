@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,573 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
+
+<section><title>STDLIB 3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Document <c>bit_size</c> in match specifications and
+	    allow it in <c>ets:fun2ms</c>.</p>
+          <p>
+	    Own Id: OTP-15343 Aux Id: PR-1962 </p>
+        </item>
+        <item>
+	    <p>The <c>beam()</c> type in <c>beam_lib</c> is defined
+	    as <c>module() | file:filename() | binary()</c>. The
+	    <c>module()</c> is misleading. Giving the module name as
+	    an atom will only work if the BEAM file is in a current
+	    directory.</p>
+	    <p>To avoid confusion, <c>module()</c> has been removed
+	    from the type. That means that there will be a Dialyzer
+	    warning for code that call <c>beam_lib</c> with an atom
+	    as filename, but the calls will still work.</p>
+          <p>
+	    Own Id: OTP-15378 Aux Id: ERL-696 </p>
+        </item>
+        <item>
+          <p>
+	    <c>unicode_util</c> crashed on certain emoji grapheme
+	    clusters in binary strings.</p>
+          <p>
+	    Own Id: OTP-15428 Aux Id: ERL-777 </p>
+        </item>
+        <item>
+	    <p>When an external fun was used, warnings for unused
+	    variables could be suppressed.</p>
+          <p>
+	    Own Id: OTP-15437 Aux Id: ERL-762 </p>
+        </item>
+        <item>
+          <p>
+	    Fix reduction count in lists:member/2</p>
+          <p>
+	    Own Id: OTP-15474 Aux Id: ERIERL-229 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>When specified, the <c>+{source,Name}</c> option will
+	    now override the actual file name in stack traces,
+	    instead of only affecting the return value of
+	    <c>Mod:module_info()</c>.</p>
+	    <p>The <c>+deterministic</c> flag will also affect stack
+	    traces now, omitting all path information except the file
+	    name, fixing a long-standing issue where deterministic
+	    builds required deterministic paths.</p>
+          <p>
+	    Own Id: OTP-15245 Aux Id: ERL-706 </p>
+        </item>
+        <item>
+	    <p>List subtraction (The <c>--</c> operator) will now
+	    yield properly on large inputs.</p>
+          <p>
+	    Own Id: OTP-15371</p>
+        </item>
+        <item>
+          <p>
+	    <c>calendar:system_time_to_rfc3339/1,2</c> no longer
+	    remove trailing zeros from fractions.</p>
+          <p>
+	    Own Id: OTP-15464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The specs of <c>filename:basedir/2,3</c> are
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-15252 Aux Id: ERL-667 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Let <c>dets:open_file()</c> exit with a <c>badarg</c>
+	    message if given a raw file name (a binary). </p>
+          <p>
+	    Own Id: OTP-15253 Aux Id: OTP-13229, ERL-55 </p>
+        </item>
+        <item>
+	    <p> The <c>Format</c> argument of the formatting
+	    functions in modules <c>io</c> and <c>io_lib</c> is
+	    accepted even if it is, for example, a list of binaries.
+	    This is how it used to be before Erlang/OTP 21.0. </p>
+          <p>
+	    Own Id: OTP-15304</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 3.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug that could cause a crash when formatting a
+	    list of non-characters using the control sequences
+	    <c>p</c> or <c>P</c> and limiting the output with the
+	    option <c>chars_limit</c>. </p>
+          <p>
+	    Own Id: OTP-15159</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>gen_statem</c> improvements.</p> <p> When using an
+	    exception that is valid but not allowed in a state enter
+	    call, the reason has been changed from
+	    <c>{bad_action_from_state_function,Action}</c> to
+	    <c>{bad_state_enter_action_from_state_function,Action}</c>.
+	    </p><p> Timer parsing has been improved. Many erroneous
+	    timeout tuples was not handled correctly. </p><p> The
+	    documentation has been updated, in particular the User's
+	    Guide and the pointer to it from the Reference Manual is
+	    much more obvious. </p>
+          <p>
+	    Own Id: OTP-14015</p>
+        </item>
+        <item>
+          <p>
+	    The type specifications for <c>file:posix/0</c> and
+	    <c>inet:posix/0</c> have been updated according to which
+	    errors file and socket operations should be able to
+	    return.</p>
+          <p>
+	    Own Id: OTP-14019 Aux Id: ERL-550 </p>
+        </item>
+        <item>
+	    <p> File operations used to accept <seealso
+	    marker="kernel:file#type-name_all">filenames</seealso>
+	    containing null characters (integer value zero). This
+	    caused the name to be truncated and in some cases
+	    arguments to primitive operations to be mixed up.
+	    Filenames containing null characters inside the filename
+	    are now <em>rejected</em> and will cause primitive file
+	    operations to fail. </p> <p> Also environment variable
+	    operations used to accept <seealso
+	    marker="kernel:os#type-env_var_name">names</seealso> and
+	    <seealso
+	    marker="kernel:os#type-env_var_value">values</seealso> of
+	    environment variables containing null characters (integer
+	    value zero). This caused operations to silently produce
+	    erroneous results. Environment variable names and values
+	    containing null characters inside the name or value are
+	    now <em>rejected</em> and will cause environment variable
+	    operations to fail. </p> <p>Primitive environment
+	    variable operations also used to accept the <c>$=</c>
+	    character in environment variable names causing various
+	    problems. <c>$=</c> characters in environment variable
+	    names are now also <em>rejected</em>. </p> <p>Also
+	    <seealso
+	    marker="kernel:os#cmd/1"><c>os:cmd/1</c></seealso> now
+	    reject null characters inside its <seealso
+	    marker="kernel:os#type-os_command">command</seealso>.
+	    </p> <p><seealso
+	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seealso>
+	    will also reject null characters inside the port name
+	    from now on.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14543 Aux Id: ERL-370 </p>
+        </item>
+        <item>
+	    <p> Make <c>io_lib:unscan_format/1</c> work with pad char
+	    and default precision. </p>
+          <p>
+	    Own Id: OTP-14958 Aux Id: PR-1735 </p>
+        </item>
+        <item>
+	    <p> The control sequence modifiers <c>t</c> and <c>l</c>
+	    can be used together in the same control sequence which
+	    makes it possible to have Unicode atoms and no detection
+	    of printable character lists at the same time. </p>
+          <p>
+	    Own Id: OTP-14971 Aux Id: PR-1743 </p>
+        </item>
+        <item>
+	    <p> Fix a bug in the Erlang code linter: the check of
+	    guard expressions no longer returns <c>false</c> if the
+	    map syntax is used. The bug affected the Erlang shell,
+	    the Debugger, and other modules evaluating abstract code.
+	    </p>
+          <p>
+	    Own Id: OTP-15035 Aux Id: ERL-613 </p>
+        </item>
+        <item>
+          <p>
+	    A sys debug fun of type {Fun,State} should not be
+	    possible to install twice. This was, however, possible if
+	    the current State was 'undefined', which was mistaken for
+	    non-existing fun. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-15049</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>io:putchars/2</c> stacktrace rewriting at errors
+	    to point to a valid function.</p>
+          <p>
+	    Own Id: OTP-15101</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The <c>gen_server</c> has gotten a new callback
+	    <c>handle_continue/2</c> for check pointing the state.
+	    This is useful at least when implementing behaviours on
+	    top of <c>gen_server</c> and for some start up scenarios.</p>
+          <p>
+	    Own Id: OTP-13019 Aux Id: PR-1490 </p>
+        </item>
+        <item>
+	    <p> The semantics of timeout parameter
+	    <c>{clean_timeout,infinity}</c> to
+	    <c>gen_statem:call/3</c> has been changed to use a proxy
+	    process for the call. With this change
+	    <c>clean_timeout</c> implicates a proxy process with no
+	    exceptions. This may be a hard to observe
+	    incompatibility: in the presence of network problems a
+	    late reply could arrive in the caller's message queue
+	    when catching errors. That will not happen after this
+	    correction. </p><p> The semantics of timeout parameter
+	    <c>infinity</c> has not been changed. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13073 Aux Id: PR-1595 </p>
+        </item>
+        <item>
+	    <p>A new logging API is added to Erlang/OTP, see the
+	    <seealso
+	    marker="kernel:logger"><c>logger(3)</c></seealso> manual
+	    page, and section <seealso
+	    marker="kernel:logger_chapter">Logging</seealso> in the
+	    Kernel User's Guide.</p>
+	    <p>Calls to <c>error_logger</c> are automatically
+	    redirected to the new API, and legacy error logger event
+	    handlers can still be used. It is, however, recommended
+	    to use the Logger API directly when writing new code.</p>
+	    <p>Notice the following potential incompatibilities:</p>
+	    <list> <item><p>Kernel configuration parameters
+	    <c>error_logger</c> still works, but is overruled if the
+	    default handler's output destination is configured with
+	    Kernel configuration parameter <c>logger</c>.</p> <p>In
+	    general, parameters for configuring error logger are
+	    overwritten by new parameters for configuring
+	    Logger.</p></item> <item><p>The concept of SASL error
+	    logging is deprecated, meaning that by default the SASL
+	    application does not affect which log events are
+	    logged.</p> <p>By default, supervisor reports and crash
+	    reports are logged by the default Logger handler started
+	    by Kernel, and end up at the same destination (terminal
+	    or file) as other standard log event from Erlang/OTP.</p>
+	    <p>Progress reports are not logged by default, but can be
+	    enabled by setting the primary log level to info, for
+	    example with the Kernel configuration parameter
+	    <c>logger_level</c>.</p> <p>To obtain backwards
+	    compatibility with the SASL error logging functionality
+	    from earlier releases, set Kernel configuration parameter
+	    <c>logger_sasl_compatible</c> to <c>true</c>. This
+	    prevents the default Logger handler from logging any
+	    supervisor-, crash-, or progress reports. Instead, SASL
+	    adds a separate Logger handler during application start,
+	    which takes care of these log events. The SASL
+	    configuration parameters <c>sasl_error_logger</c> and
+	    <c>sasl_errlog_type</c> specify the destination (terminal
+	    or file) and severity level to log for these
+	    events.</p></item></list>
+          <p>
+	    Since Logger is new in Erlang/OTP 21.0, we do reserve the
+	    right to introduce changes to the Logger API and
+	    functionality in patches following this release. These
+	    changes might or might not be backwards compatible with
+	    the initial version.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13295</p>
+        </item>
+        <item>
+	    <p> Add functions
+	    <c>calendar:system_time_to_local_time/2</c> and
+	    <c>calendar:system_time_to_universal_time/2</c>. </p>
+          <p>
+	    Own Id: OTP-13413</p>
+        </item>
+        <item>
+	    <p> Functions <c>rand:uniform_real/0</c> and
+	    <c>rand:uniform_real_s/1</c> have been added. They
+	    produce uniformly distributed numbers in the range <c>0.0
+	    =&lt; X &lt; 1.0</c> that are as close to random real
+	    numbers as Normalized IEEE 754 Double Precision allows.
+	    Because the random real number exactly <c>0.0</c> is
+	    infinitely improbable they will never return exactly
+	    <c>0.0</c>. </p><p> These properties are useful when you
+	    need to call for example <c>math:log(X)</c> or <c>1 /
+	    X</c> on a random value <c>X</c>, since that will never
+	    fail with a number from these new functions. </p>
+          <p>
+	    Own Id: OTP-13764 Aux Id: PR-1574 </p>
+        </item>
+        <item>
+          <p>
+	    Added maps:iterator/0 and maps:next/1 to be used for
+	    iterating over the key-value associations in a map.</p>
+          <p>
+	    Own Id: OTP-14012</p>
+        </item>
+        <item>
+	    <p>Changed the default behaviour of <c>.erlang</c>
+	    loading: <c>.erlang</c> is no longer loaded from the
+	    current directory. <c>c:erlangrc(PathList)</c> can be
+	    used to search and load an <c>.erlang</c> file from user
+	    specified directories.</p> <p><c>escript</c>,
+	    <c>erlc</c>, <c>dialyzer</c> and <c>typer</c> no longer
+	    load an <c>.erlang</c> at all.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14439</p>
+        </item>
+        <item>
+          <p>
+	    Added new uri_string module to stdlib for handling URIs
+	    (RFC 3986).</p>
+          <p>
+	    Own Id: OTP-14496</p>
+        </item>
+        <item>
+          <p>
+	    Update Unicode specification to version 10.0.</p>
+          <p>
+	    Own Id: OTP-14503</p>
+        </item>
+        <item>
+	    <p><c>filelib:wildcard()</c> now allows characters with a
+	    special meaning to be escaped using backslashes.</p>
+	    <p>This is an incompatible change, but note that the use
+	    of backslashes in wildcards would already work
+	    differently on Windows and Unix. Existing calls to
+	    <c>filelib:wildcard()</c> needs to be updated. On
+	    Windows, directory separators must always be written as a
+	    slash.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14577</p>
+        </item>
+        <item>
+          <p>
+	    The supervisor now stores its child specifications in a
+	    map instead of a list. This causes a significant
+	    improvement when starting many children under a
+	    non-simple_one_for_one supervisor.</p>
+          <p>
+	    Own Id: OTP-14586</p>
+        </item>
+        <item>
+	    <p> The <c>base64</c> module is optimized. </p> <p> Note
+	    that the functions <c>encode/1</c>, <c>decode/1</c>, and
+	    <c>mime_decode/1</c> fail unless called with an argument
+	    of the documented type. They used to accept any
+	    <c>iodata()</c>. </p>
+          <p>
+	    Own Id: OTP-14624 Aux Id: PR-1565 </p>
+        </item>
+        <item>
+	    <p> Add function <c>lists:search/2</c>. </p>
+          <p>
+	    Own Id: OTP-14675 Aux Id: PR-102 </p>
+        </item>
+        <item>
+          <p>
+	    uri_string module extended with functions for handling
+	    application/x-www-form-urlencoded query strings based on
+	    the HTML5 specification.</p>
+          <p>
+	    Own Id: OTP-14747</p>
+        </item>
+        <item>
+	    <p> Add functions
+	    <c>calendar:rfc3339_to_system_time/1,2</c> and
+	    <c>calendar:system_time_to_rfc3339/1,2</c>. </p>
+          <p>
+	    Own Id: OTP-14764</p>
+        </item>
+        <item>
+	    <p> The stack traces returned by the functions of the
+	    <c>erl_eval</c> module more accurately reflect where the
+	    exception occurred. </p>
+          <p>
+	    Own Id: OTP-14826 Aux Id: PR 1540 </p>
+        </item>
+        <item>
+	    <p> Add options <c>atime</c>, <c>mtime</c>, <c>ctime</c>,
+	    <c>uid</c>, and <c>gid</c> to the <c>erl_tar:add/3,4</c>
+	    functions. </p>
+          <p>
+	    Own Id: OTP-14834 Aux Id: PR 1608 </p>
+        </item>
+        <item>
+	    <p>Added <c>ets:whereis/1</c> for retrieving the table
+	    identifier of a named table.</p>
+          <p>
+	    Own Id: OTP-14884</p>
+        </item>
+        <item>
+          <p>
+	    Improved URI normalization functions in the uri_string
+	    module.</p>
+          <p>
+	    Own Id: OTP-14910</p>
+        </item>
+        <item>
+	    <p> The new functions <c>io_lib:fwrite/3</c> and
+	    <c>io_lib:format/3</c> take a third argument, an option
+	    list. The only option is <c>chars_limit</c>, which is
+	    used for limiting the number of returned characters. The
+	    limit is soft, which means that the number of returned
+	    characters exceeds the limit with at most a smallish
+	    amount. If the limit is set, the functions
+	    <c>format/3</c> and <c>fwrite/3</c> try to distribute the
+	    number of characters evenly over the control sequences
+	    <c>pPswW</c>. Furthermore, the control sequences
+	    <c>pPwP</c> try to distribute the number of characters
+	    evenly over substructures. </p> <p> A modification of the
+	    control sequences <c>pPwW</c> is that even if there is no
+	    limit on the number of returned characters, all
+	    associations of a map are printed to the same depth. The
+	    aim is to give a more consistent output as the order of
+	    map keys is not defined. As before, if the depth is less
+	    than the number of associations of a map, the selection
+	    of associations to print is arbitrary. </p>
+          <p>
+	    Own Id: OTP-14983</p>
+        </item>
+        <item>
+	    <p> Add functions <c>ordsets:is_empty/1</c> and
+	    <c>sets:is_empty/1</c>. </p>
+          <p>
+	    Own Id: OTP-14996 Aux Id: ERL-557, PR-1703 </p>
+        </item>
+        <item>
+          <p>
+	    Improve performance of <c>string:uppercase/1</c>,
+	    <c>string:lowercase/1</c> and <c>string:casefold/1</c>
+	    when handling ASCII characters.</p>
+          <p>
+	    Own Id: OTP-14998</p>
+        </item>
+        <item>
+	    <p>External funs with literal values for module, name,
+	    and arity (e.g. <c>erlang:abs/1</c>) are now treated as
+	    literals. That means more efficient code that produces
+	    less garbage on the heap.</p>
+          <p>
+	    Own Id: OTP-15003</p>
+        </item>
+        <item>
+          <p>
+	    sys:statistics(Pid,get) did not report 'out' messages
+	    from gen_server. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15047</p>
+        </item>
+        <item>
+          <p>
+	    A sys debug function can now have the format
+	    {Id,Fun,State} in addition to the old {Fun,State}. This
+	    allows installing multiple instances of a debug fun.</p>
+          <p>
+	    Own Id: OTP-15048</p>
+        </item>
+        <item>
+	    <p> The <c>lib</c> module is removed:</p> <list
+	    type="bulleted"> <item><c>lib:error_message/2</c> is
+	    removed.</item> <item><c>lib:flush_receive/0</c> is
+	    removed.</item> <item><c>lib:nonl/1</c> is
+	    removed.</item> <item><c>lib:progname/0</c> is replaced
+	    by <c>ct:get_progname/0</c>.</item>
+	    <item><c>lib:send/2</c> is removed.</item>
+	    <item><c>lib:sendw/2</c> is removed.</item> </list>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15072 Aux Id: PR 1786, OTP-15114 </p>
+        </item>
+        <item>
+          <p>
+	    Function <c>ets:delete_all_objects/1</c> now yields the
+	    scheduler thread for large tables that take significant
+	    time to clear. This to improve real time characteristics
+	    of other runnable processes.</p>
+          <p>
+	    Own Id: OTP-15078</p>
+        </item>
+        <item>
+	    <p> In control sequences of the functions
+	    <c>io:fwrite/2,3</c> and <c>io_lib:fwrite/2,3</c>
+	    containing <c>p</c> or <c>P</c>, a field width of value
+	    <c>0</c> means that no line breaks are inserted. This is
+	    in contrast to the old behaviour, where <c>0</c> used to
+	    insert line breaks after every subterm. To insert line
+	    breaks after every subterm, a field width of value
+	    <c>1</c> can be used. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15103 Aux Id: ERL-607 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 3.4.5.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>List subtraction (The <c>--</c> operator) will now
+	    yield properly on large inputs.</p>
+          <p>
+	    Own Id: OTP-15371</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>STDLIB 3.4.5</title>
 
@@ -1179,6 +1746,21 @@
 	    <c>liat/1</c>) is now deprecated.</p>
           <p>
 	    Own Id: OTP-13658</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 2.8.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>List subtraction (The <c>--</c> operator) will now
+	    yield properly on large inputs.</p>
+          <p>
+	    Own Id: OTP-15371</p>
         </item>
       </list>
     </section>
@@ -3221,7 +3803,7 @@
 	    you use erlang:halt/2 with an integer first argument and
 	    an option list containing {flush,false} as the second
 	    argument. Note that now is flushing not dependant of the
-	    exit code, and you can not only flush async threads
+	    exit code, and you cannot only flush async threads
 	    operations which we deemed as a strange behaviour anyway.
 	    </p>
 	    <p>Also, erlang:halt/1,2 has gotten a new feature: If the
@@ -3735,9 +4317,9 @@
 	    Supervisors should not save child-specs for temporary
 	    processes when they terminate as they should not be
 	    restarted. Saving the temporary child spec will result in
-	    that you can not start a new temporary process with the
+	    that you cannot start a new temporary process with the
 	    same child spec as an already terminated temporary
-	    process. Since R14B02 you can not restart a temporary
+	    process. Since R14B02 you cannot restart a temporary
 	    temporary process as arguments are no longer saved, it
 	    has however always been semantically incorrect to restart
 	    a temporary process. Thanks to Filipe David Manana for
@@ -7354,4 +7936,3 @@
     </section>
   </section>
 </chapter>
-

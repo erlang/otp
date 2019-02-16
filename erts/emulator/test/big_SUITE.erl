@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, big_literals/1,
 	 borders/1, negative/1, big_float_1/1, big_float_2/1,
-         bxor_2pow/1,
+         bxor_2pow/1, band_2pow/1,
 	 shift_limit_1/1, powmod/1, system_limit/1, toobig/1, otp_6692/1]).
 
 %% Internal exports.
@@ -43,7 +43,7 @@ suite() ->
 all() -> 
     [t_div, eq_28, eq_32, eq_big, eq_math, big_literals,
      borders, negative, {group, big_float}, shift_limit_1,
-     bxor_2pow,
+     bxor_2pow, band_2pow,
      powmod, system_limit, toobig, otp_6692].
 
 groups() -> 
@@ -168,7 +168,11 @@ eval({op,_,Op,A0,B0}, LFH) ->
     Res = eval_op(Op, A, B),
     erlang:garbage_collect(),
     Res;
-eval({integer,_,I}, _) -> I;
+eval({integer,_,I}, _) ->
+    %% "Parasitic" ("symbiotic"?) test of squaring all numbers
+    %% found in the test data.
+    test_squaring(I),
+    I;
 eval({call,_,{atom,_,Local},Args0}, LFH) ->
     Args = eval_list(Args0, LFH),
     LFH(Local, Args).
@@ -191,6 +195,18 @@ eval_op('bor', A, B) -> A bor B;
 eval_op('bxor', A, B) -> A bxor B;
 eval_op('bsl', A, B) -> A bsl B;
 eval_op('bsr', A, B) -> A bsr B.
+
+test_squaring(I) ->
+    %% Multiplying an integer by itself is specially optimized, so we
+    %% should take special care to test squaring.  The optimization
+    %% will kick in when the two operands have the same address.
+    Sqr = I * I,
+
+    %% This expression will be multiplied in the usual way, because
+    %% the the two operands for '*' are stored at different addresses.
+    Sqr = I * ((I + id(1)) - id(1)),
+
+    ok.
 
 %% Built in test functions
 
@@ -456,3 +472,38 @@ my_bxor(A, B, N, Acc0) ->
                false -> Acc0 bor (1 bsl N)
           end,
     my_bxor(A bsr 1, B bsr 1, N+1, Acc1).
+
+
+%% ERL-804
+band_2pow(_Config) ->
+    IL = lists:seq(8*3, 8*16, 4),
+    JL = lists:seq(0, 64),
+    [band_2pow_1((1 bsl I), (1 bsl J))
+     || I <- IL, J <- JL],
+    ok.
+
+band_2pow_1(A, B) ->
+    for(-1,1, fun(Ad) ->
+                      for(-1,1, fun(Bd) ->
+                                        band_2pow_2(A+Ad, B+Bd),
+                                        band_2pow_2(-A+Ad, B+Bd),
+                                        band_2pow_2(A+Ad, -B+Bd),
+                                        band_2pow_2(-A+Ad, -B+Bd)
+                                end)
+              end).
+
+band_2pow_2(A, B) ->
+    Correct = my_band(A, B),
+    case A band B of
+        Correct -> ok;
+        Wrong ->
+            io:format("~.16# band ~.16#\n", [A,B]),
+            io:format("Expected ~.16#\n", [Correct]),
+            io:format("Got      ~.16#\n", [Wrong]),
+            ct:fail({failed, 'band'})
+
+    end.
+
+%% Implement band without band
+my_band(A, B) ->
+    bnot ((bnot A) bor (bnot B)).

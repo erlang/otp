@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework Event Handler
+%%% Common Test Framework Event Handler
 %%%
-%%% <p>This module implements an event handler that the CT Master
+%%% This module implements an event handler that the CT Master
 %%% uses to handle status and progress notifications sent to the
 %%% master node during test runs. This module may be used as a 
 %%% template for other event handlers that can be plugged in to 
-%%% handle logging and reporting on the master node.</p>
+%%% handle logging and reporting on the master node.
 -module(ct_master_event).
 
 -behaviour(gen_event).

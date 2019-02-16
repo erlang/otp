@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,9 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework callback module.
-%%%
-%%% <p>This module contains CT internal help functions for searching
-%%%    through groups specification trees and producing resulting
-%%%    tests.</p>
+%%% This module contains CT internal help functions for searching
+%%% through groups specification trees and producing resulting
+%%% tests.
 
 -module(ct_groups).
 

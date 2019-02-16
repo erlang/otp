@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -949,6 +949,12 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
     unsigned char *tmp_out_buff;
     ERL_NIF_TERM term = 0, curr_head = 0;
 
+    /* Recursion depth limitation, borrow a signed int: maybe_ret */
+    maybe_ret = (int) (ErlNifSInt) ((char *)value - (char *)ib_index);
+    maybe_ret = maybe_ret < 0 ? -maybe_ret : maybe_ret;
+    if (maybe_ret >= sizeof(void *) * 8192) /* 8 k pointer words */
+        return ASN1_ERROR;
+
     if (((in_buf[*ib_index]) & 0x80) == ASN1_SHORT_DEFINITE_LENGTH) {
 	len = in_buf[*ib_index];
     } else if (in_buf[*ib_index] == ASN1_INDEFINITE_LENGTH) {
@@ -993,7 +999,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
 	while (*ib_index < end_index) {
 
 	    if ((maybe_ret = ber_decode(env, &term, in_buf, ib_index,
-		    in_buf_len)) <= ASN1_ERROR
+                   end_index )) <= ASN1_ERROR
 	    )
 		return maybe_ret;
 	    curr_head = enif_make_list_cell(env, term, curr_head);

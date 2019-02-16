@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,21 +20,22 @@
 -module(float_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1]).
+	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1,
+         subtract_number_type/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [pending, bif_calls, math_functions,
-     mixed_float_and_int].
+     mixed_float_and_int, subtract_number_type].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -175,6 +176,16 @@ mixed_float_and_int(Config) when is_list(Config) ->
 
 pc(Cov, NotCov, X) ->
     round(Cov/(Cov+NotCov)*100) + 42 + 2.0*X.
+
+subtract_number_type(Config) when is_list(Config) ->
+    120 = fact(5).
+
+fact(N) ->
+    fact(N, 1).
+
+fact(0, P) -> P;
+fact(1, P) -> P;
+fact(N, P) -> fact(N-1, P*N).
 
 id(I) -> I.
 

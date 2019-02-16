@@ -71,44 +71,46 @@ encode_and_decode_client_hello_test(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>, #ssl_options{}),
-    NextProtocolNegotiation = (DecodedHandshakeMessage#client_hello.extensions)#hello_extensions.next_protocol_negotiation,
-    NextProtocolNegotiation = undefined.
+    Extensions = DecodedHandshakeMessage#client_hello.extensions,
+    #{next_protocol_negotiation := undefined} = Extensions.
 %%--------------------------------------------------------------------
 encode_and_decode_npn_client_hello_test(Config) ->
     HandShakeData = create_client_handshake(#next_protocol_negotiation{extension_data = <<>>}),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,  #ssl_options{}),
-    NextProtocolNegotiation = (DecodedHandshakeMessage#client_hello.extensions)#hello_extensions.next_protocol_negotiation,
-    NextProtocolNegotiation = #next_protocol_negotiation{extension_data = <<>>}.
+    Extensions = DecodedHandshakeMessage#client_hello.extensions,
+    #{next_protocol_negotiation := #next_protocol_negotiation{extension_data = <<>>}} = Extensions.
 %%--------------------------------------------------------------------
 encode_and_decode_server_hello_test(Config) ->
     HandShakeData = create_server_handshake(undefined),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>, #ssl_options{}),
-    NextProtocolNegotiation = (DecodedHandshakeMessage#server_hello.extensions)#hello_extensions.next_protocol_negotiation,
-    NextProtocolNegotiation = undefined.
+    Extensions = DecodedHandshakeMessage#server_hello.extensions,
+    #{next_protocol_negotiation := undefined} = Extensions.
+
 %%--------------------------------------------------------------------
 encode_and_decode_npn_server_hello_test(Config) ->
     HandShakeData = create_server_handshake(#next_protocol_negotiation{extension_data = <<6, "spdy/2">>}),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
 	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,  #ssl_options{}),
-    NextProtocolNegotiation = (DecodedHandshakeMessage#server_hello.extensions)#hello_extensions.next_protocol_negotiation,
-    ct:log("~p ~n", [NextProtocolNegotiation]),
-    NextProtocolNegotiation = #next_protocol_negotiation{extension_data = <<6, "spdy/2">>}.
+    Extensions = DecodedHandshakeMessage#server_hello.extensions, 
+    ct:log("~p ~n", [Extensions]),
+    #{next_protocol_negotiation := #next_protocol_negotiation{extension_data = <<6, "spdy/2">>}} = Extensions.
 
 %%--------------------------------------------------------------------
 create_server_hello_with_no_advertised_protocols_test(_Config) ->
-    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(), #hello_extensions{}),
-    undefined = (Hello#server_hello.extensions)#hello_extensions.next_protocol_negotiation.
+    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(), #{}),
+    Extensions = Hello#server_hello.extensions,
+    #{} = Extensions.
 %%--------------------------------------------------------------------
 create_server_hello_with_advertised_protocols_test(_Config) ->
     Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),
-				       #hello_extensions{next_protocol_negotiation = [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]}),
-    [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>] =
-	(Hello#server_hello.extensions)#hello_extensions.next_protocol_negotiation.
+				       #{next_protocol_negotiation => [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]}),
+    Extensions = Hello#server_hello.extensions,
+    #{next_protocol_negotiation := [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]} = Extensions.
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -120,9 +122,8 @@ create_client_handshake(Npn) ->
 				      session_id = <<>>,
 				      cipher_suites = [?TLS_DHE_DSS_WITH_DES_CBC_SHA],
 				      compression_methods = "",
-				      extensions = #hello_extensions{
-						      next_protocol_negotiation = Npn,
-						      renegotiation_info = #renegotiation_info{}}
+				      extensions = #{next_protocol_negotiation => Npn,
+						      renegotiation_info => #renegotiation_info{}}
 				     }, Vsn).
 
 create_server_handshake(Npn) ->
@@ -133,9 +134,8 @@ create_server_handshake(Npn) ->
 				      session_id = <<>>,
 				      cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA,
 				      compression_method = 1,
-				      extensions = #hello_extensions{
-						      next_protocol_negotiation = Npn,
-						      renegotiation_info = #renegotiation_info{}}
+				      extensions = #{next_protocol_negotiation => Npn,
+                                                     renegotiation_info => #renegotiation_info{}}
 				     }, Vsn).
 
 create_connection_states() ->
@@ -146,5 +146,5 @@ create_connection_states() ->
 						 }
 		       },
       current_read => #{secure_renegotiation => false
-       }
+                       }
      }.

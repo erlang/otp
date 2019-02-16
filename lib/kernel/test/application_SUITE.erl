@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,8 @@
 -export([config_change/1, persistent_env/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
-	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1]).
+	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1,
+         config_relative_paths/1]).
 
 -define(TESTCASE, testcase_name).
 -define(testcase, proplists:get_value(?TESTCASE, Config)).
@@ -55,7 +56,7 @@ all() ->
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env, ensure_all_started,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
-     shutdown_deadlock,
+     shutdown_deadlock, config_relative_paths,
      persistent_env].
 
 groups() -> 
@@ -2073,6 +2074,42 @@ shutdown_deadlock(Config) when is_list(Config) ->
     application:unload(deadlock), % clean up!
     ok.
 
+
+%%-----------------------------------------------------------------
+%% Relative paths in sys.config
+%%-----------------------------------------------------------------
+config_relative_paths(Config) ->
+    Dir = ?config(priv_dir,Config),
+    SubDir = filename:join(Dir,"subdir"),
+    Sys = filename:join(SubDir,"sys.config"),
+    ok = filelib:ensure_dir(Sys),
+    ok = file:write_file(Sys,"[\"../up.config\",\"current\"].\n"),
+
+    Up = filename:join(Dir,"up.config"),
+    ok = file:write_file(Up,"[{app1,[{key1,value}]}].\n"),
+
+    {ok,Cwd} = file:get_cwd(),
+    Current1 = filename:join(Cwd,"current.config"),
+    ok = file:write_file(Current1,"[{app1,[{key2,value1}]}].\n"),
+
+    N1 = list_to_atom(lists:concat([?FUNCTION_NAME,"_1"])),
+    {ok,Node1} = start_node(N1,filename:rootname(Sys)),
+    ok = rpc:call(Node1, application, load, [app1()]),
+    {ok, value} = rpc:call(Node1, application, get_env,[app1,key1]),
+    {ok, value1} = rpc:call(Node1, application, get_env,[app1,key2]),
+
+    Current2 = filename:join(SubDir,"current.config"),
+    ok = file:write_file(Current2,"[{app1,[{key2,value2}]}].\n"),
+
+    N2 = list_to_atom(lists:concat([?FUNCTION_NAME,"_2"])),
+    {ok, Node2} = start_node(N2,filename:rootname(Sys)),
+    ok = rpc:call(Node2, application, load, [app1()]),
+    {ok, value} = rpc:call(Node2, application, get_env,[app1,key1]),
+    {ok, value2} = rpc:call(Node2, application, get_env,[app1,key2]),
+
+    stop_node_nice([Node1,Node2]),
+
+    ok.
 
 %%-----------------------------------------------------------------
 %% Utility functions

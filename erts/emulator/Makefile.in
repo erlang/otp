@@ -517,7 +517,9 @@ release_docs_spec:
 # Generated source code. Put in $(TARGET) directory
 #
 
+ifneq ($(strip $(CREATE_DIRS)),)
 _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+endif
 
 
 # has to be run after _create_dirs
@@ -631,21 +633,24 @@ GENERATE += $(TTF_DIR)/driver_tab.c
 # This list must be consistent with PRE_LOADED_MODULES in
 # erts/preloaded/src/Makefile.
 
-PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erl_tracer.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_signal_handler.beam
+PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erl_init.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/init.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erl_tracer.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_signal_handler.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/atomics.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/counters.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/persistent_term.beam
 
 ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.
@@ -837,6 +842,8 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_bif_ddll.o  	$(OBJDIR)/erl_bif_guard.o \
 	$(OBJDIR)/erl_bif_info.o	$(OBJDIR)/erl_bif_op.o \
 	$(OBJDIR)/erl_bif_os.o		$(OBJDIR)/erl_bif_lists.o \
+	$(OBJDIR)/erl_bif_persistent.o \
+	$(OBJDIR)/erl_bif_atomics.o    	$(OBJDIR)/erl_bif_counters.o \
 	$(OBJDIR)/erl_bif_trace.o	$(OBJDIR)/erl_bif_unique.o \
 	$(OBJDIR)/erl_bif_wrap.o	$(OBJDIR)/erl_nfunc_sched.o \
 	$(OBJDIR)/erl_guard_bifs.o 	$(OBJDIR)/erl_dirty_bif_wrap.o \
@@ -872,7 +879,7 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
-	$(OBJDIR)/erl_io_queue.o
+	$(OBJDIR)/erl_io_queue.o	$(OBJDIR)/erl_db_catree.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 NIF_OBJS = \

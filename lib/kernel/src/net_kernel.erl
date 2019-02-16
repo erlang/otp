@@ -53,7 +53,7 @@
 
 %% Documented API functions.
 
--export([allow/1,
+-export([allow/1, allowed/0,
 	 connect_node/1,
 	 monitor_nodes/1,
 	 monitor_nodes/2,
@@ -171,6 +171,8 @@ kernel_apply(M,F,A) ->         request({apply,M,F,A}).
       Nodes :: [node()].
 allow(Nodes) ->                request({allow, Nodes}).
 
+allowed() ->                   request(allowed).
+
 longnames() ->                 request(longnames).
 
 -spec stop() -> ok | {error, Reason} when
@@ -277,24 +279,18 @@ passive_connect_monitor(From, Node) ->
     ok = monitor_nodes(true,[{node_type,all}]),
     Reply = case lists:member(Node,nodes([connected])) of
                 true ->
-                    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
                     true;
                 _ ->
                     receive
                         {nodeup,Node,_} ->
-                            io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
                             true
                     after connecttime() ->
-                            io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
                             false
                     end
             end,
     ok = monitor_nodes(false,[{node_type,all}]),
-    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
     {Pid, Tag} = From,
-    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]),
-    erlang:send(Pid, {Tag, Reply}),
-    io:format("~p: passive_connect_monitor ~p\n", [self(), ?LINE]).
+    erlang:send(Pid, {Tag, Reply}).
 
 
 %% If the net_kernel isn't running we ignore all requests to the
@@ -356,20 +352,34 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
 	    {stop, Error}
     end.
 
-
-do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State) ->
-    ConnLookup = ets:lookup(sys_dist, Node),
-
-    case ConnLookup of
+do_auto_connect_1(Node, ConnId, From, State) ->
+    case ets:lookup(sys_dist, Node) of
         [#barred_connection{}] ->
-            case WaitForBarred of
-                false ->
-                    {reply, false, State};
-                true ->
+            case ConnId of
+                passive_cnct ->
                     spawn(?MODULE,passive_connect_monitor,[From,Node]),
-                    {noreply, State}
+                    {noreply, State};
+                _ ->
+                    erts_internal:abort_connection(Node, ConnId),
+                    {reply, false, State}
             end;
 
+        ConnLookup ->
+            do_auto_connect_2(Node, ConnId, From, State, ConnLookup)
+    end.
+   
+do_auto_connect_2(Node, passive_cnct, From, State, ConnLookup) ->
+    try erts_internal:new_connection(Node) of
+        ConnId ->
+            do_auto_connect_2(Node, ConnId, From, State, ConnLookup)
+    catch
+        _:_ ->
+            error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
+                                   [Node]),
+            {reply, false, State}
+    end;
+do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
+    case ConnLookup of
         [#connection{conn_id=ConnId, state = up}] ->
             {reply, true, State};
         [#connection{conn_id=ConnId, waiting=Waiting}=Conn] ->
@@ -383,6 +393,7 @@ do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State) ->
             case application:get_env(kernel, dist_auto_connect) of
                 {ok, never} ->
                     ?connect_failure(Node,{dist_auto_connect,never}),
+                    erts_internal:abort_connection(Node, ConnId),                    
                     {reply, false, State};
 
                 %% This might happen due to connection close
@@ -392,14 +403,16 @@ do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State) ->
                                 (hd(ConnLookup))#connection.state =:= up ->
                     ?connect_failure(Node,{barred_connection,
                                            ets:lookup(sys_dist, Node)}),
+                    erts_internal:abort_connection(Node, ConnId),
                     {reply, false, State};
                 _ ->
-                    case setup(ConnLookup, Node,ConnId,Type,From,State) of
+                    case setup(Node, ConnId, normal, From, State) of
                         {ok, SetupPid} ->
                             Owners = [{SetupPid, Node} | State#state.conn_owners],
                             {noreply,State#state{conn_owners=Owners}};
                         _Error  ->
                             ?connect_failure(Node, {setup_call, failed, _Error}),
+                            erts_internal:abort_connection(Node, ConnId),
                             {reply, false, State}
                     end
             end
@@ -417,8 +430,8 @@ do_explicit_connect([#connection{conn_id = ConnId}=Conn], _, _, ConnId, From, St
 do_explicit_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
     %% Barred connection only affects auto_connect, ignore it.
     do_explicit_connect([], Type, Node, ConnId, From , State);
-do_explicit_connect(ConnLookup, Type, Node, ConnId, From , State) ->
-    case setup(ConnLookup, Node,ConnId,Type,From,State) of
+do_explicit_connect(_ConnLookup, Type, Node, ConnId, From , State) ->
+    case setup(Node,ConnId,Type,From,State) of
         {ok, SetupPid} ->
             Owners = [{SetupPid, Node} | State#state.conn_owners],
             {noreply,State#state{conn_owners=Owners}};
@@ -426,18 +439,6 @@ do_explicit_connect(ConnLookup, Type, Node, ConnId, From , State) ->
             ?connect_failure(Node, {setup_call, failed, _Error}),
             {reply, false, State}
     end.
-
--define(ERTS_DIST_CON_ID_MASK, 16#ffffff).  % also in external.h
-
-verify_new_conn_id([], {Nr,_DHandle})
-  when (Nr band (bnot ?ERTS_DIST_CON_ID_MASK)) =:= 0 ->
-    true;
-verify_new_conn_id([#connection{conn_id = {Old,_}}], {New,_})
-  when New =:= ((Old+1) band ?ERTS_DIST_CON_ID_MASK) ->
-    true;
-verify_new_conn_id(_, _) ->
-    false.
-                                                              
 
 
 %% ------------------------------------------------------------
@@ -452,34 +453,33 @@ handle_call({passive_cnct, Node}, From, State) when Node =:= node() ->
     async_reply({reply, true, State}, From);
 handle_call({passive_cnct, Node}, From, State) ->
     verbose({passive_cnct, Node}, 1, State),
-    Type = normal,
-    WaitForBarred = true,
-    R = case (catch erts_internal:new_connection(Node)) of
-            {Nr,_DHandle}=ConnId when is_integer(Nr) ->
-                do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State);
-
-            _Error ->
-                error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
-                                       [Node]),
-                {reply, false, State}
-        end,
-
+    R = do_auto_connect_1(Node, passive_cnct, From, State),
     return_call(R, From);
 
 %%
 %% Explicit connect
 %% The response is delayed until the connection is up and running.
 %%
-handle_call({connect, _, Node, _, _}, From, State) when Node =:= node() ->
+handle_call({connect, _, Node}, From, State) when Node =:= node() ->
     async_reply({reply, true, State}, From);
 handle_call({connect, Type, Node}, From, State) ->
     verbose({connect, Type, Node}, 1, State),
     ConnLookup = ets:lookup(sys_dist, Node),
-    R = case (catch erts_internal:new_connection(Node)) of
-            {Nr,_DHandle}=ConnId when is_integer(Nr) ->
-                do_explicit_connect(ConnLookup, Type, Node, ConnId, From, State);
+    R = try erts_internal:new_connection(Node) of
+            ConnId ->
+                R1 = do_explicit_connect(ConnLookup, Type, Node, ConnId, From, State),
+                case R1 of
+                    {reply, true, _S} -> %% already connected
+                        ok;
+                    {noreply, _S} -> %% connection pending
+                        ok;
+                    {reply, false, _S} -> %% connection refused
+                        erts_internal:abort_connection(Node, ConnId)
+                end,
+                R1
                     
-            _Error ->
+        catch
+            _:_ ->
                 error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
                                        [Node]),
                 {reply, false, State}                    
@@ -527,6 +527,9 @@ handle_call({allow, Nodes}, From, State) ->
 	false ->
 	    async_reply({reply,error,State}, From)
     end;
+
+handle_call(allowed, From, #state{allowed = Allowed} = State) ->
+    async_reply({reply,{ok,Allowed},State}, From);
 
 %%
 %% authentication, used by auth. Simply works as this:
@@ -694,11 +697,11 @@ terminate(_Reason, State) ->
 %%
 %% Asynchronous auto connect request
 %%
-handle_info({auto_connect,Node, Nr, DHandle}, State) ->
-    verbose({auto_connect, Node, Nr, DHandle}, 1, State),
-    ConnId = {Nr, DHandle},
+handle_info({auto_connect,Node, DHandle}, State) ->
+    verbose({auto_connect, Node, DHandle}, 1, State),
+    ConnId = DHandle,
     NewState =
-        case do_auto_connect(normal, Node, ConnId, false, noreply, State) of
+        case do_auto_connect_1(Node, ConnId, noreply, State) of
             {noreply, S} ->           %% Pending connection
                 S;
 
@@ -706,7 +709,6 @@ handle_info({auto_connect,Node, Nr, DHandle}, State) ->
                 S;
 
             {reply, false, S} -> %% Connection refused
-                erts_internal:abort_connection(Node, ConnId),
                 S
         end,
     {noreply, NewState};
@@ -791,8 +793,8 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
 	    AcceptPid ! {self(), {accept_pending, already_pending}},
 	    {noreply, State};
 	_ ->
-            case (catch erts_internal:new_connection(Node)) of
-                {Nr,_DHandle}=ConnId when is_integer(Nr) ->
+            try erts_internal:new_connection(Node) of
+                ConnId ->
                     ets:insert(sys_dist, #connection{node = Node,
                                                      conn_id = ConnId,
                                                      state = pending,
@@ -801,12 +803,13 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
                                                      type = Type}),
                     AcceptPid ! {self(),{accept_pending,ok}},
                     Owners = [{AcceptPid,Node} | State#state.conn_owners],
-                    {noreply, State#state{conn_owners = Owners}};
-
-                _ ->
+                    {noreply, State#state{conn_owners = Owners}}
+            catch
+                _:_ ->
                     error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
                                            [Node]),
-                    AcceptPid ! {self(),{accept_pending,nok_pending}}
+                    AcceptPid ! {self(),{accept_pending,nok_pending}},
+                    {noreply, State}
             end
     end;
 
@@ -1270,8 +1273,8 @@ spawn_func(_,{From,Tag},M,F,A,Gleader) ->
 %% Set up connection to a new node.
 %% -----------------------------------------------------------
 
-setup(ConnLookup, Node,ConnId,Type,From,State) ->
-    case setup_check(ConnLookup, Node, ConnId, State) of
+setup(Node, ConnId, Type, From, State) ->
+    case setup_check(Node, State) of
 		{ok, L} ->
 		    Mod = L#listen.module,
 		    LAddr = L#listen.address,
@@ -1300,7 +1303,7 @@ setup(ConnLookup, Node,ConnId,Type,From,State) ->
 		    Error
     end.
 
-setup_check(ConnLookup, Node, ConnId, State) ->
+setup_check(Node, State) ->
     Allowed = State#state.allowed,    
     case lists:member(Node, Allowed) of
 	false when Allowed =/= [] ->
@@ -1308,16 +1311,9 @@ setup_check(ConnLookup, Node, ConnId, State) ->
 		      "disallowed node ~w ** ~n", [Node]),
 	    {error, bad_node};
        _ ->
-            case verify_new_conn_id(ConnLookup, ConnId) of
-                false ->
-                    error_msg("** Connection attempt to ~w with "
-                              "bad connection id ~w ** ~n", [Node, ConnId]),
-                    {error, bad_conn_id};
-                true ->
-                    case select_mod(Node, State#state.listen) of
-                        {ok, _L}=OK -> OK;
-                        Error -> Error
-                    end
+            case select_mod(Node, State#state.listen) of
+                {ok, _L}=OK -> OK;
+                Error -> Error
             end
     end.                    
 
@@ -1437,7 +1433,7 @@ validate_hostname([$@|HostPart] = Host) ->
     end.
 
 valid_name_head(Head) ->
-    {ok, MP} = re:compile("^[0-9A-Za-z_\\-]*$", [unicode]),
+    {ok, MP} = re:compile("^[0-9A-Za-z_\\-]+$", [unicode]),
         case re:run(Head, MP) of
             {match, _} ->
                 true;

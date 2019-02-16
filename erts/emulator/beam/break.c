@@ -82,7 +82,7 @@ process_info(fmtfn_t to, void *to_arg)
 	     * they are most likely just created and has invalid data
 	     */
 	    if (!ERTS_PROC_IS_EXITING(p) && p->heap != NULL)
-		print_process_info(to, to_arg, p);
+		print_process_info(to, to_arg, p, 0);
 	}
     }
 
@@ -101,13 +101,14 @@ process_killer(void)
 	rp = erts_pix2proc(i);
 	if (rp && rp->i != ENULL) {
 	    int br;
-	    print_process_info(ERTS_PRINT_STDOUT, NULL, rp);
+	    print_process_info(ERTS_PRINT_STDOUT, NULL, rp, 0);
 	    erts_printf("(k)ill (n)ext (r)eturn:\n");
 	    while(1) {
 		if ((j = sys_get_key(0)) <= 0)
 		    erts_exit(0, "");
 		switch(j) {
 		case 'k':
+                    ASSERT(erts_init_process_id != ERTS_INVALID_PID);
                     /* Send a 'kill' exit signal from init process */
                     erts_proc_sig_send_exit(NULL, erts_init_process_id,
                                             rp->common.id, am_kill, NIL,
@@ -199,13 +200,14 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 			       
 /* Display info about an individual Erlang process */
 void
-print_process_info(fmtfn_t to, void *to_arg, Process *p)
+print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_locks)
 {
     int garbing = 0;
     int running = 0;
     Sint len;
     struct saved_calls *scb;
     erts_aint32_t state;
+    ErtsProcLocks locks = orig_locks;
 
     /* display the PID */
     erts_print(to, to_arg, "=proc:%T\n", p->common.id);
@@ -221,6 +223,22 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     } else if (state & (ERTS_PSFLG_RUNNING
 			| ERTS_PSFLG_DIRTY_RUNNING))
         running = 1;
+
+    if (!(locks & ERTS_PROC_LOCK_MAIN)) {
+        locks |= ERTS_PROC_LOCK_MAIN;
+        if (ERTS_IS_CRASH_DUMPING && running) {
+            if (erts_proc_trylock(p, locks)) {
+                /* crash dumping and main lock taken, this probably means that
+                   the process is doing a GC on a dirty-scheduler... so we cannot
+                   do erts_proc_sig_fetch as that would potentially cause a segfault */
+                locks = 0;
+            }
+        } else {
+            erts_proc_lock(p, locks);
+        }
+    } else {
+        ERTS_ASSERT(locks == ERTS_PROC_LOCK_MAIN && "Only main lock should be held");
+    }
 
     /*
      * If the process is registered as a global process, display the
@@ -251,13 +269,19 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
 
-    erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
-    len = erts_proc_sig_fetch(p);
-    erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+    if (locks & ERTS_PROC_LOCK_MAIN) {
+        erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+        len = erts_proc_sig_fetch(p);
+        erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+    } else {
+        len = p->sig_qs.len;
+    }
     erts_print(to, to_arg, "Message queue length: %d\n", len);
 
-    /* display the message queue only if there is anything in it */
-    if (!ERTS_IS_CRASH_DUMPING && p->sig_qs.first != NULL && !garbing) {
+    /* display the message queue only if there is anything in it
+       and we can do it safely */
+    if (!ERTS_IS_CRASH_DUMPING && p->sig_qs.first != NULL && !garbing
+        && (locks & ERTS_PROC_LOCK_MAIN)) {
 	erts_print(to, to_arg, "Message queue: [");
         ERTS_FOREACH_SIG_PRIVQS(
             p, mp,
@@ -357,6 +381,8 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     /* Display all states */
     erts_print(to, to_arg, "Internal State: ");
     erts_dump_extended_process_state(to, to_arg, state);
+
+    erts_proc_unlock(p, locks & ~orig_locks);
 }
 
 static void

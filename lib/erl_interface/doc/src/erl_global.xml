@@ -48,7 +48,7 @@
 
   <funcs>
     <func>
-      <name><ret>char **</ret><nametext>erl_global_names(fd,count)</nametext></name>
+      <name since=""><ret>char **</ret><nametext>erl_global_names(fd,count)</nametext></name>
       <fsummary>Obtain list of global names.</fsummary>
       <type>
         <v>int fd;</v>
@@ -79,7 +79,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_global_register(fd,name,pid)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_global_register(fd,name,pid)</nametext></name>
       <fsummary>Register a name in global.</fsummary>
       <type>
         <v>int fd;</v>
@@ -103,7 +103,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_global_unregister(fd,name)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_global_unregister(fd,name)</nametext></name>
       <fsummary>Unregister a name from global.</fsummary>
       <type>
         <v>int fd;</v>
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name><ret>ETERM *</ret><nametext>erl_global_whereis(fd,name,node)</nametext></name>
+      <name since=""><ret>ETERM *</ret><nametext>erl_global_whereis(fd,name,node)</nametext></name>
       <fsummary>Look up a name in global.</fsummary>
       <type>
         <v>int fd;</v>

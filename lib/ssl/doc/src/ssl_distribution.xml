@@ -191,7 +191,7 @@ Eshell V5.0  (abort with ^G)
       Any available SSL/TLS option can be specified in an options file,
       but note that options that take a <c>fun()</c> has to use
       the syntax <c>fun Mod:Func/Arity</c> since a function
-      body can not be compiled when consulting a file.
+      body cannot be compiled when consulting a file.
     </p>
     <p>
       Do not tamper with the socket options

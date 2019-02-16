@@ -31,25 +31,6 @@ include ../../vsn.mk
 VSN=$(MEGACO_VSN)
 
 # ----------------------------------------------------
-# Dynamic Erlang Driver
-# ----------------------------------------------------
-HAVE_USABLE_OTP_DED_MK = @HAVE_USABLE_OTP_DED_MK@
-
-ifeq ($(HAVE_USABLE_OTP_DED_MK),yes)
-# otp_ded.mk will be used on R13B04 and later
-include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
-else
-# megacos configure provide the info instead
-DED_CC				= @CC@
-DED__NOWARN_NOTHR_CFLAGS	= @DED_CFLAGS@
-DED_THR_DEFS			= @DED_THR_DEFS@
-DED_LD				= @DED_LD@
-DED_LDFLAGS			= @DED_LDFLAGS@
-DED_INCLUDES			= @DED_INCLUDES@
-DED_EXT				= so
-endif
-
-# ----------------------------------------------------
 # The following variables differ on different systems, we set
 # reasonable defaults, if something different is needed it should
 # be set for that system only.
@@ -57,20 +38,19 @@ endif
 
 FLEX_VSN = $(shell flex --version)
 
-TMP_CFLAGS  = $(DED__NOWARN_NOTHR_CFLAGS) @OTP_EXTRA_FLAGS@
+TMP_CFLAGS  = @DED_BASIC_CFLAGS@ @OTP_EXTRA_FLAGS@
 ifeq ($(TYPE),valgrind)
 CFLAGS = $(subst -O2, , $(TMP_CFLAGS)) -DVALGRIND
 else
 CFLAGS = $(TMP_CFLAGS)
 endif
-CC      = $(DED_CC)
-CFLAGS_MT = $(CFLAGS) $(DED_THR_DEFS)
-LD      = $(DED_LD)
-LDFLAGS = $(DED_LDFLAGS)
+CC      = @DED_CC@
+CFLAGS_MT = $(CFLAGS) @DED_THR_DEFS@
+LD      = @DED_LD@
+LDFLAGS = @DED_LDFLAGS@
 LEX     = @LEX@
 LEXLIB  = @LEXLIB@
 PERL    = @PERL@
-ERLANG_OSTYPE = @ERLANG_OSTYPE@
 
 # Shall we build the flex scanner or not.
 # We assume that it does not exist on windows...
@@ -143,8 +123,8 @@ ifeq ($(findstring win32,$(TARGET)), win32)
 FLEX_SCANNER_SO = 
 SOLIBS = $(FLEX_SCANNER_SO)
 else
-FLEX_SCANNER_SO = $(LIBDIR)/$(STD_DRV).$(DED_EXT) 
-FLEX_SCANNER_MT_SO = $(LIBDIR)/$(MT_DRV).$(DED_EXT) 
+FLEX_SCANNER_SO = $(LIBDIR)/$(STD_DRV).@DED_EXT@ 
+FLEX_SCANNER_MT_SO = $(LIBDIR)/$(MT_DRV).@DED_EXT@ 
 SOLIBS = $(FLEX_SCANNER_SO) $(FLEX_SCANNER_MT_SO) 
 endif
 
@@ -179,7 +159,7 @@ else
 CFLAGS += -DMFS_FLEX_DEBUG=0
 endif
 
-CFLAGS += $(DED_INCLUDES) -I$(ERL_TOP)/erts/$(TARGET) $(DRV_FLAGS) -funroll-loops -Wall
+CFLAGS += @DED_INCLUDE@ -I$(ERL_TOP)/erts/$(TARGET) $(DRV_FLAGS) -funroll-loops -Wall
 
 #ifneq ($(FLEX_VSN),)
 #CFLAGS += -DFLEX_VERSION="$(FLEX_VSN)"
@@ -398,10 +378,10 @@ $(OBJDIR)/$(MT_DRV).o: $(MT_DRV).c
 
 # No need to link with -lfl as we have also defined %option noyywrap - 
 # and having -lfl doesn't work under Darwin for some reason. - Sean
-$(LIBDIR)/$(STD_DRV).$(DED_EXT): $(OBJDIR)/$(STD_DRV).o
+$(LIBDIR)/$(STD_DRV).@DED_EXT@: $(OBJDIR)/$(STD_DRV).o
 	$(V_colon)@echo "linking std driver:"
 	$(V_LD) $(LDFLAGS) -o $@ $<
 
-$(LIBDIR)/$(MT_DRV).$(DED_EXT): $(OBJDIR)/$(MT_DRV).o
+$(LIBDIR)/$(MT_DRV).@DED_EXT@: $(OBJDIR)/$(MT_DRV).o
 	$(V_colon)@echo "linking multi-threaded driver:"
 	$(V_LD) $(LDFLAGS) -o $@ $<

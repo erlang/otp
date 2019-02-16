@@ -34,7 +34,7 @@
     <rev>D</rev>
     <file>disk_log.sgml</file>
   </header>
-  <module>disk_log</module>
+  <module since="">disk_log</module>
   <modulesummary>A disk-based term logging facility.</modulesummary>
   <description>
     <p><c>disk_log</c> is a disk-based term logger that enables
@@ -238,7 +238,7 @@
   </datatypes>
   <funcs>
     <func>
-      <name name="accessible_logs" arity="0"/>
+      <name name="accessible_logs" arity="0" since=""/>
       <fsummary>Return the accessible disk logs on the current node.</fsummary>
       <desc>
         <p>Returns the names of the disk logs accessible on the current node.
@@ -248,8 +248,8 @@
       </desc>
     </func>
     <func>
-      <name name="alog" arity="2"/>
-      <name name="balog" arity="2"/>
+      <name name="alog" arity="2" since=""/>
+      <name name="balog" arity="2" since=""/>
       <fsummary>Asynchronously log an item on to a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="Term" name_i="1"/>
@@ -275,8 +275,8 @@
       </desc>
     </func>
     <func>
-      <name name="alog_terms" arity="2"/>
-      <name name="balog_terms" arity="2"/>
+      <name name="alog_terms" arity="2" since=""/>
+      <name name="balog_terms" arity="2" since=""/>
       <fsummary>Asynchronously log many items on to a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="TermList" name_i="1"/>
@@ -303,8 +303,8 @@
       </desc>
     </func>
     <func>
-      <name name="block" arity="1"/>
-      <name name="block" arity="2"/>
+      <name name="block" arity="1" since=""/>
+      <name name="block" arity="2" since=""/>
       <fsummary>Block a disk log.</fsummary>
       <type name="block_error_rsn"/>
       <desc>
@@ -330,21 +330,21 @@
       </desc>
     </func>
     <func>
-      <name name="change_header" arity="2"/>
+      <name name="change_header" arity="2" since=""/>
       <fsummary>Change option head or head_func for an owner of a disk log.</fsummary>
       <desc>
         <p>Changes the value of option <c>head</c> or <c>head_func</c> for an owner of a disk log.</p>
       </desc>
     </func>
     <func>
-      <name name="change_notify" arity="3"/>
+      <name name="change_notify" arity="3" since=""/>
       <fsummary>Change option notify for an owner of a disk log.</fsummary>
       <desc>
         <p>Changes the value of option <c>notify</c> for an owner of a disk log. </p>
       </desc>
     </func>
     <func>
-      <name name="change_size" arity="2"/>
+      <name name="change_size" arity="2" since=""/>
       <fsummary>Change the size of an open disk log.</fsummary>
       <desc>
         <p>Changes the size of an open log.
@@ -384,10 +384,10 @@
       </desc>
     </func>
     <func>
-      <name name="chunk" arity="2"/>
-      <name name="chunk" arity="3"/>
-      <name name="bchunk" arity="2"/>
-      <name name="bchunk" arity="3"/>
+      <name name="chunk" arity="2" since=""/>
+      <name name="chunk" arity="3" since=""/>
+      <name name="bchunk" arity="2" since=""/>
+      <name name="bchunk" arity="3" since=""/>
       <fsummary>Read a chunk of items written to a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="Continuation"/>
@@ -447,7 +447,7 @@
       </desc>
     </func>
     <func>
-      <name name="chunk_info" arity="1"/>
+      <name name="chunk_info" arity="1" since=""/>
       <fsummary>Return information about a chunk continuation of a disk log.</fsummary>
       <desc>
         <p>Returns the pair <c>{node, <anno>Node</anno>}</c>,
@@ -457,7 +457,7 @@
       </desc>
     </func>
     <func>
-      <name name="chunk_step" arity="3"/>
+      <name name="chunk_step" arity="3" since=""/>
       <fsummary>Step forward or backward among the wrap log files of a disk log.</fsummary>
       <desc>
         <p>Can be used with <c>chunk/2,3</c> and <c>bchunk/2,3</c>
@@ -480,7 +480,7 @@
       </desc>
     </func>
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close a disk log.</fsummary>
       <type name="close_error_rsn"/>
       <desc>
@@ -505,7 +505,7 @@
       </desc>
     </func>
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Return an English description of a disk log error reply.</fsummary>
       <desc>
         <p>Given the error returned by any function in this module, 
@@ -517,7 +517,7 @@
       </desc>
     </func>
     <func>
-      <name name="inc_wrap_file" arity="1"/>
+      <name name="inc_wrap_file" arity="1" since=""/>
       <fsummary>Change to the next wrap log file of a disk log.</fsummary>
       <type name="inc_wrap_error_rsn"/>
       <type name="invalid_header"/>
@@ -534,7 +534,7 @@
       </desc>
     </func>
     <func>
-      <name name="info" arity="1"/>
+      <name name="info" arity="1" since=""/>
       <fsummary>Return information about a disk log.</fsummary>
       <type name="dlog_info"/>
       <desc>
@@ -685,8 +685,8 @@
       </desc>
     </func>
     <func>
-      <name name="lclose" arity="1"/>
-      <name name="lclose" arity="2"/>
+      <name name="lclose" arity="1" since=""/>
+      <name name="lclose" arity="2" since=""/>
       <fsummary>Close a disk log on one node.</fsummary>
       <type name="lclose_error_rsn"/>
       <desc>
@@ -704,8 +704,8 @@
       </desc>
     </func>
     <func>
-      <name name="log" arity="2"/>
-      <name name="blog" arity="2"/>
+      <name name="log" arity="2" since=""/>
+      <name name="blog" arity="2" since=""/>
       <fsummary>Log an item onto a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="Term" name_i="1"/>
@@ -739,8 +739,8 @@
       </desc>
     </func>
     <func>
-      <name name="log_terms" arity="2"/>
-      <name name="blog_terms" arity="2"/>
+      <name name="log_terms" arity="2" since=""/>
+      <name name="blog_terms" arity="2" since=""/>
       <fsummary>Log many items onto a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="TermList" name_i="1"/>
@@ -768,7 +768,7 @@
       </desc>
     </func>
     <func>
-      <name name="open" arity="1"/>
+      <name name="open" arity="1" since=""/>
       <fsummary>Open a disk log file.</fsummary>
       <type name="dlog_options"/>
       <type name="dlog_option"/>
@@ -1041,7 +1041,7 @@
       </desc>
     </func>
     <func>
-      <name name="pid2name" arity="1"/>
+      <name name="pid2name" arity="1" since=""/>
       <fsummary>Return the name of the disk log handled by a pid.</fsummary>
       <desc>
         <p>Returns the log name
@@ -1053,9 +1053,9 @@
       </desc>
     </func>
     <func>
-      <name name="reopen" arity="2"/>
-      <name name="reopen" arity="3"/>
-      <name name="breopen" arity="3"/>
+      <name name="reopen" arity="2" since=""/>
+      <name name="reopen" arity="3" since=""/>
+      <name name="breopen" arity="3" since=""/>
       <fsummary>Reopen a disk log and save the old log.</fsummary>
       <type variable="Log"/>
       <type variable="File" name_i="1"/>
@@ -1087,7 +1087,7 @@
       </desc>
     </func>
     <func>
-      <name name="sync" arity="1"/>
+      <name name="sync" arity="1" since=""/>
       <fsummary>Flush the contents of a disk log to the disk.</fsummary>
       <type name="sync_error_rsn"/>
       <desc>
@@ -1097,9 +1097,9 @@
       </desc>
     </func>
     <func>
-      <name name="truncate" arity="1"/>
-      <name name="truncate" arity="2"/>
-      <name name="btruncate" arity="2"/>
+      <name name="truncate" arity="1" since=""/>
+      <name name="truncate" arity="2" since=""/>
+      <name name="btruncate" arity="2" since=""/>
       <fsummary>Truncate a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="Head" name_i="2"/>
@@ -1129,7 +1129,7 @@
       </desc>
     </func>
     <func>
-      <name name="unblock" arity="1"/>
+      <name name="unblock" arity="1" since=""/>
       <fsummary>Unblock a disk log.</fsummary>
       <type name="unblock_error_rsn"/>
       <desc>

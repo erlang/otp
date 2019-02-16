@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,19 +26,21 @@
 		erl_prim_loader,
 		erts_internal,
 		init,
-		otp_ring0,
+		erl_init,
 		erts_code_purger,
 		prim_buffer,
 		prim_eval,
 		prim_file,
 		prim_inet,
 		prim_zip,
+                atomics,
+                counters,
 		zlib
 	    ]},
 	{registered, []},
 	{applications, []},
 	{env, []},
-	{runtime_dependencies, ["stdlib-3.5", "kernel-6.0", "sasl-3.0.1"]}
+	{runtime_dependencies, ["stdlib-3.5", "kernel-6.1", "sasl-3.3"]}
     ]}.
 
 %% vim: ft=erlang

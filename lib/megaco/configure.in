@@ -22,10 +22,6 @@ dnl
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
-    # We do not want to use a common cache!
-    cache_file=/dev/null
-fi
 
 AC_INIT(vsn.mk)
 
@@ -42,10 +38,13 @@ else
     host_os=win32
 fi
 
-
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
+
+AC_PROG_CC
+
+LM_WINDOWS_ENVIRONMENT
 
 AC_DEFUN(ERL_REENTRANT_FLEX,
 [flex_compile='$LEX -R -Pconftest -oconftest.c conftest.flex 1>&AC_FD_CC'
@@ -188,111 +187,7 @@ CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 ])
 
-dnl
-dnl If ${ERL_TOP}/make/otp_ded.mk.in exists and contains DED_MK_VSN > 0,
-dnl every thing releted to compiling Dynamic Erlang Drivers can be found
-dnl in $(ERL_TOP)/make/$(TARGET)/ded.mk at compile time. If not, try to
-dnl figure these things out.
-dnl
-
-AC_MSG_CHECKING([for usable Dynamic Erlang Driver configuration])
-[
-  ded_mk_in="${ERL_TOP}/make/otp_ded.mk.in"
-  ded_mk_vsn=
-  test -r "$ded_mk_in" &&
-    ded_mk_vsn=`sed -n "s/^DED_MK_VSN[	 ]*=[	 ]*\(.*\)/\1/p" < "$ded_mk_in"`
-  test "$ded_mk_vsn" != "" || ded_mk_vsn=0
-]
-
-if test $ded_mk_vsn -gt 0; then
-
-HAVE_USABLE_OTP_DED_MK=yes
-AC_MSG_RESULT([yes])
-
-CC=false
-AC_SUBST(CC)
-DED_LD=false
-AC_SUBST(DED_LD)
-
-else dnl --- begin no usable otp_ded.mk.in ---
-
-HAVE_USABLE_OTP_DED_MK=no
-AC_MSG_RESULT([no])
-
-dnl
-dnl C compiler (related) defs
-dnl
-
-AC_PROG_CC
-
-dnl
-dnl Flags to the C compiler
-dnl
-
-if test "X$host" = "Xwin32"; then
-  DED_CFLAGS="$CFLAGS"
-else
-  case $host_os in
-    darwin*)
-	CFLAGS="$CFLAGS -fno-common"
-	;;
-  esac
-
-  if test "x$GCC" = xyes; then
-	DED_CFLAGS="$CFLAGS -fPIC $DED_CFLAGS"
-  else
-	DED_CFLAGS="$CFLAGS $DED_CFLAGS"
-  fi
-fi
-
-dnl emulator includes needed
-DED_INCLUDES="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$ERLANG_OSTYPE"
-
-DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
-
-case $host_os in
-	win32)
-		DED_LDFLAGS="-dll"
-	;;
-	solaris2*|sysv4*)
-		DED_LDFLAGS="-G"
-	;;
-	aix4*)
-		DED_LDFLAGS="-G -bnoentry -bexpall"
-	;;
-	freebsd2*)
-		# Non-ELF GNU linker
-		DED_LDFLAGS="-Bshareable"
-	;;
-	darwin*)
-		# Mach-O linker, a shared lib and a loadable
-		# object file is not the same thing.
-		DED_LDFLAGS="-bundle -flat_namespace -undefined suppress"
-		DED_LD="$CC"
-	;;
-	*)
-		# assume GNU linker and ELF
-		DED_LDFLAGS="-shared"
-	;;
-esac
-
-AC_CHECK_PROGS(DED_LD, [$LD ld.sh])
-AC_CHECK_TOOL(DED_LD, ld, no_ld)
-if test "$DED_LD" = no_ld; then
-  AC_MSG_ERROR([ld is required to build the flex scanner!])
-fi
-
-AC_MSG_CHECKING(for linker flags for loadable drivers)
-DED_LDFLAGS="$LDFLAGS $DED_LDFLAGS"
-AC_MSG_RESULT([$DED_LDFLAGS])
-
-fi dnl --- end no usable otp_ded.mk.in ---
-
-AC_SUBST(HAVE_USABLE_OTP_DED_MK)
-AC_SUBST(DED_CFLAGS)
-AC_SUBST(DED_INCLUDES)
-AC_SUBST(DED_THR_DEFS)
-AC_SUBST(DED_LDFLAGS)
+ERL_DED
 
 AC_CHECK_PROG(PERL, perl, perl, no_perl)
 if test "$PERL" = no_perl; then

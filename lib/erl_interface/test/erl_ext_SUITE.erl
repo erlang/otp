@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include("erl_ext_SUITE_data/ext_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          compare_tuple/1,
          compare_list/1,
          compare_string/1,
@@ -40,28 +41,30 @@ all() ->
     [compare_tuple, compare_list, compare_string,
      compare_list_string, compare_nc_ext].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
 
 compare_tuple(Config) when is_list(Config) ->
-    P = runner:start(?compare_tuple),
+    P = runner:start(Config, ?compare_tuple),
     runner:recv_eot(P),
     ok.
 
 compare_list(Config) when is_list(Config) ->
-    P = runner:start(?compare_list),
+    P = runner:start(Config, ?compare_list),
     runner:recv_eot(P),
     ok.
 
 compare_string(Config) when is_list(Config) ->
-    P = runner:start(?compare_string),
+    P = runner:start(Config, ?compare_string),
     runner:recv_eot(P),
     ok.
 
 compare_list_string(Config) when is_list(Config) ->
-    P = runner:start(?compare_list_string),
+    P = runner:start(Config, ?compare_list_string),
     runner:recv_eot(P),
     ok.
 
 compare_nc_ext(Config) when is_list(Config) ->
-    P = runner:start(?compare_nc_ext),
+    P = runner:start(Config, ?compare_nc_ext),
     runner:recv_eot(P),
     ok.

@@ -80,7 +80,7 @@ typedef volatile __int64 * ethr_native_dw_ptr_t;
  * runtime. We, therefore, need an extra word allocated.
  */
 #define ETHR_DW_NATMC_MEM__(VAR) \
-   (&var->c[(int) ((ethr_uint_t) &(VAR)->c[0]) & ETHR_DW_NATMC_ALIGN_MASK__])
+   (&(VAR)->c[(int) ((ethr_uint_t) &(VAR)->c[0]) & ETHR_DW_NATMC_ALIGN_MASK__])
 typedef union {
 #ifdef ETHR_NATIVE_SU_DW_SINT_T
     volatile ETHR_NATIVE_SU_DW_SINT_T dw_sint;

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,6 +95,8 @@ TESTCASE(framework_check)
     int version;
     int i;
 #endif
+
+    ei_init();
 
     OPEN_DEBUGFILE(1);
     
@@ -340,6 +342,7 @@ TESTCASE(recv_tmo)
     int com_sock = -1;
     ei_cnode nodeinfo;
 
+    ei_init();
 
     OPEN_DEBUGFILE(5);
 
@@ -450,6 +453,7 @@ TESTCASE(send_tmo)
     int com_sock = -1;
     ei_cnode nodeinfo;
 
+    ei_init();
 
     OPEN_DEBUGFILE(4);
 
@@ -591,7 +595,7 @@ TESTCASE(connect_tmo)
     int com_sock = -1;
     ei_cnode nodeinfo;
     
-
+    ei_init();
 
     OPEN_DEBUGFILE(3);
 
@@ -680,7 +684,7 @@ TESTCASE(accept_tmo)
     ErlConnect peer;
     ei_cnode nodeinfo;
     
-
+    ei_init();
 
     OPEN_DEBUGFILE(2);
 

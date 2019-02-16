@@ -147,7 +147,7 @@ split_instructions([], Before) ->
 %%          If PrePurgeMethod == soft_purge, the function will succeed
 %%          only if there is no process running old code of any of the
 %%          modules. Else it will throw {error,Mod}, where Mod is the
-%%          first module found that can not be soft_purged.
+%%          first module found that cannot be soft_purged.
 %%
 %%          If PrePurgeMethod == brutal_purge, the function will
 %%          always succeed and return a list of all modules that are

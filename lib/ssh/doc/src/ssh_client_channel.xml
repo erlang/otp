@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>ssh_client_channel</module>
+  <module since="OTP 21.0">ssh_client_channel</module>
   <modulesummary>-behaviour(ssh_client_channel). (Replaces ssh_channel)
   </modulesummary>
   <description>
@@ -68,8 +68,8 @@
 
   <funcs>
     <func>
-      <name>call(ChannelRef, Msg) -></name>
-      <name>call(ChannelRef, Msg, Timeout) -> Reply | {error, Reason}</name>
+      <name since="OTP 21.0">call(ChannelRef, Msg) -></name>
+      <name since="OTP 21.0">call(ChannelRef, Msg, Timeout) -> Reply | {error, Reason}</name>
       <fsummary>Makes a synchronous call to a channel.</fsummary>
       <type>
 	<v>ChannelRef = pid() </v>
@@ -92,7 +92,7 @@
     </func>
     
     <func>
-      <name>cast(ChannelRef, Msg) -> ok </name>
+      <name since="OTP 21.0">cast(ChannelRef, Msg) -> ok </name>
       <fsummary>Sends an asynchronous message to the channel
 	ChannelRef and returns ok.</fsummary>
       <type>
@@ -111,7 +111,7 @@
     </func>
 
     <func>
-      <name>enter_loop(State) -> _ </name>
+      <name since="OTP 21.0">enter_loop(State) -> _ </name>
       <fsummary>Makes an existing process an ssh_client_channel (replaces ssh_channel) process.</fsummary>
       <type>
 	<v>State = term()</v>
@@ -131,7 +131,7 @@
     </func>
     
     <func>
-      <name>init(Options) -> {ok, State} |  {ok, State, Timeout} | {stop, Reason} </name>
+      <name since="OTP 21.0">init(Options) -> {ok, State} |  {ok, State, Timeout} | {stop, Reason} </name>
       <fsummary>Initiates an <c>ssh_client_channel</c> process.</fsummary>
       <type>
 	<v>Options = [{Option, Value}]</v>
@@ -173,7 +173,7 @@
     </func>
 
     <func>
-      <name>reply(Client, Reply) -> _</name>
+      <name since="OTP 21.0">reply(Client, Reply) -> _</name>
       <fsummary>Sends a reply to a client.</fsummary>
       <type>
         <v>Client = opaque()</v>
@@ -193,8 +193,8 @@
     </func>
 
     <func>
-      <name>start(SshConnection, ChannelId, ChannelCb, CbInitArgs) -> </name>
-      <name>start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) ->
+      <name since="OTP 21.0">start(SshConnection, ChannelId, ChannelCb, CbInitArgs) -> </name>
+      <name since="OTP 21.0">start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) ->
       {ok, ChannelRef} | {error, Reason}</name>
       <fsummary>Starts a process that handles an SSH channel.</fsummary>
       <type>
@@ -244,7 +244,7 @@
 
   <funcs>
     <func>
-      <name>Module:code_change(OldVsn, State, Extra) -> {ok,
+      <name since="OTP 21.0">Module:code_change(OldVsn, State, Extra) -> {ok,
       NewState}</name>
       <fsummary>Converts process state when code is changed.</fsummary>
       <type>
@@ -287,7 +287,7 @@
     </func>
     
     <func>
-      <name>Module:init(Args) -> {ok, State} | {ok, State, timeout()} |
+      <name since="OTP 21.0">Module:init(Args) -> {ok, State} | {ok, State, timeout()} |
       {stop, Reason}</name>
       <fsummary>Makes necessary initializations and returns the
       initial channel state if the initializations succeed.</fsummary>
@@ -307,7 +307,7 @@
     </func>
    
     <func>
-      <name>Module:handle_call(Msg, From, State) -> Result</name>
+      <name since="OTP 21.0">Module:handle_call(Msg, From, State) -> Result</name>
       <fsummary>Handles messages sent by calling
       <c>call/[2,3]</c>.</fsummary>
       <type>
@@ -334,7 +334,7 @@
     </func>
 
     <func>
-      <name>Module:handle_cast(Msg, State) -> Result</name>
+      <name since="OTP 21.0">Module:handle_cast(Msg, State) -> Result</name>
       <fsummary>Handles messages sent by calling
       <c>cast/2</c>.</fsummary>
       <type>
@@ -355,7 +355,7 @@
     </func>
  
     <func>
-      <name>Module:handle_msg(Msg, State) -> {ok, State} |
+      <name since="OTP 21.0">Module:handle_msg(Msg, State) -> {ok, State} |
       {stop, ChannelId, State}</name>
 
       <fsummary>Handles other messages than SSH connection protocol,
@@ -389,7 +389,7 @@
     </func>
 
     <func>
-      <name>Module:handle_ssh_msg(Msg, State) -> {ok, State} | {stop,
+      <name since="OTP 21.0">Module:handle_ssh_msg(Msg, State) -> {ok, State} | {stop,
       ChannelId, State}</name>
       <fsummary>Handles <c>ssh</c> connection protocol messages.</fsummary>
       <type>
@@ -416,7 +416,7 @@
     </func>
 
     <func>
-      <name>Module:terminate(Reason, State) -> _</name>
+      <name since="OTP 21.0">Module:terminate(Reason, State) -> _</name>
       <fsummary>Does cleaning up before channel process termination.
       </fsummary>
       <type>

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2017. All Rights Reserved.
+ * Copyright Ericsson AB 2017-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,15 @@ static int compare_env_keys(const erts_osenv_data_t a, const erts_osenv_data_t b
 #include "erl_rbtree.h"
 
 static int compare_env_keys(const erts_osenv_data_t a, const erts_osenv_data_t b) {
-    int relation = sys_memcmp(a.data, b.data, MIN(a.length, b.length));
+    int relation;
+
+#ifdef __WIN32__
+    /* Environment variables are case-insensitive on Windows. */
+    relation = _wcsnicmp((const WCHAR*)a.data, (const WCHAR*)b.data,
+                         MIN(a.length, b.length) / sizeof(WCHAR));
+#else
+    relation = sys_memcmp(a.data, b.data, MIN(a.length, b.length));
+#endif
 
     if(relation != 0) {
         return relation;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -526,7 +526,7 @@ analyse(#state{sys=Sys} = S, Apps, Status) ->
     %% is included in a release (rel spec - see apps_in_rels above).
     %% Then initiate the same for each module, and check that there
     %% are no duplicated module names (in different applications)
-    %% where we can not decide which one to use.
+    %% where we cannot decide which one to use.
     %% Write all #app to app_tab and all #mod to mod_tab.
     Status2 = apps_init_is_included(S, Apps, RelApps, Status),
 
@@ -1482,6 +1482,18 @@ decode(#sys{rels = Rels} = Sys, [{rel, Name, Vsn, RelApps} | SysKeyVals])
   when is_list(Name), is_list(Vsn), is_list(RelApps) ->
     Rel = #rel{name = Name, vsn = Vsn, rel_apps = []},
     Rel2 = decode(Rel, RelApps),
+    decode(Sys#sys{rels = [Rel2 | Rels]}, SysKeyVals);
+decode(#sys{rels = Rels} = Sys, [{rel, Name, Vsn, RelApps, Opts} | SysKeyVals])
+  when is_list(Name), is_list(Vsn), is_list(RelApps), is_list(Opts) ->
+    Rel1 = lists:foldl(fun(Opt, Rel0) ->
+        case Opt of
+            {load_dot_erlang, Value} when is_boolean(Value) ->
+                Rel0#rel{load_dot_erlang = Value};
+            _ ->
+                reltool_utils:throw_error("Illegal rel option: ~tp", [Opt])
+        end
+    end, #rel{name = Name, vsn = Vsn, rel_apps = []}, Opts),
+    Rel2 = decode(Rel1, RelApps),
     decode(Sys#sys{rels = [Rel2 | Rels]}, SysKeyVals);
 decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
     Sys3 =

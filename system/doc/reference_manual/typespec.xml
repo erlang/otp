@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -113,8 +113,8 @@
         | Erlang_Atom           %% 'foo', 'bar', ...
 
   Bitstring :: <<>>
-             | <<_:M>>          %% M is a positive integer
-             | <<_:_*N>>        %% N is a positive integer
+             | <<_:M>>          %% M is an Integer_Value that evaluates to a positive integer
+             | <<_:_*N>>        %% N is an Integer_Value that evaluates to a positive integer
              | <<_:M, _:_*N>>
 
   Fun :: fun()                  %% any function
@@ -123,8 +123,17 @@
        | fun((TList) -> Type)
 
   Integer :: integer()
-           | Erlang_Integer                    %% ..., -1, 0, 1, ... 42 ...
-           | Erlang_Integer..Erlang_Integer    %% specifies an integer range
+           | Integer_Value
+           | Integer_Value..Integer_Value      %% specifies an integer range
+
+  Integer_Value :: Erlang_Integer              %% ..., -1, 0, 1, ... 42 ...
+                 | Erlang_Character            %% $a, $b ...
+                 | Integer_Value BinaryOp Integer_Value
+                 | UnaryOp Integer_Value
+
+  BinaryOp :: '*' | 'div' | 'rem' | 'band' | '+' | '-' | 'bor' | 'bxor' | 'bsl' | 'bsr'
+
+  UnaryOp :: '+' | '-' | 'bnot'
 
   List :: list(Type)                           %% Proper list ([]-terminated)
         | maybe_improper_list(Type1, Type2)    %% Type1=contents, Type2=termination
@@ -151,8 +160,13 @@
   Union :: Type1 | Type2
 ]]></pre>
   <p>
+    Integer values are either integer or character literals or expressions
+    consisting of possibily nested unary or binary operations that evaluate to
+    an integer. Such expressions can also be used in bit strings and ranges.
+  </p>
+  <p>
     The general form of bit strings is <c>&lt;&lt;_:M, _:_*N&gt;&gt;</c>,
-    where <c>M</c> and <c>N</c> are positive integers. It denotes a
+    where <c>M</c> and <c>N</c> must evaluate to positive integers. It denotes a
     bit string that is <c>M + (k*N)</c> bits long (that is, a bit string that
     starts with <c>M</c> bits and continues with <c>k</c> segments of
     <c>N</c> bits each, where <c>k</c> is also a positive integer).

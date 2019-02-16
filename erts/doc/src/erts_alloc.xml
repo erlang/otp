@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2002</year><year>2017</year>
+      <year>2002</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -487,11 +487,10 @@
             utilization value used. Once a carrier is abandoned, no new
             allocations are made in it. When an allocator instance gets an
             increased multiblock carrier need, it first tries to fetch an
-            abandoned carrier from an allocator instance of the same
-            allocator type. If no abandoned carrier can be fetched, it
-            creates a new empty carrier. When an abandoned carrier has been
-            fetched, it will function as an ordinary carrier. This feature has
-            special requirements on the
+            abandoned carrier from another allocator instance. If no abandoned
+            carrier can be fetched, it creates a new empty carrier. When an
+            abandoned carrier has been fetched, it will function as an ordinary
+            carrier. This feature has special requirements on the
             <seealso marker="#M_as">allocation strategy</seealso> used. Only
             the strategies <c>aoff</c>, <c>aoffcbf</c>, <c>aoffcaobf</c>,
 	    <c>ageffcaoff</c>m, <c>ageffcbf</c> and <c>ageffcaobf</c>
@@ -584,7 +583,7 @@
             carriers are decided in section
             <seealso marker="#mseg_mbc_sizes">
             The alloc_util Framework</seealso>. On
-            32-bit Unix style OS this limit cannot be set &gt; 128 MB.</p>
+            32-bit Unix style OS this limit cannot be set &gt; 64 MB.</p>
         </item>
         <tag><marker id="M_mbcgs"/><c><![CDATA[+M<S>mbcgs <ratio>]]></c></tag>
         <item>

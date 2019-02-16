@@ -62,31 +62,38 @@
 int ei_epmd_connect_tmo(struct in_addr *inaddr, unsigned ms)
 {
   static unsigned int epmd_port = 0;
-  struct sockaddr_in saddr;
-  int sd;
-  int res;
+  int port, sd, err;
+  struct in_addr ip_addr;
+  struct sockaddr_in addr;
+  unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
+
+  err = ei_socket__(&sd);
+  if (err) {
+      erl_errno = err;
+      return -1;
+  }
 
   if (epmd_port == 0) {
       char* port_str = getenv("ERL_EPMD_PORT");
       epmd_port = (port_str != NULL) ? atoi(port_str) : EPMD_PORT;
   }
-  memset(&saddr, 0, sizeof(saddr)); 
-  saddr.sin_port = htons(epmd_port);
-  saddr.sin_family = AF_INET;
 
-  if (!inaddr) saddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-  else memmove(&saddr.sin_addr,inaddr,sizeof(saddr.sin_addr));
+  port = (int) epmd_port;
 
-  if (((sd = socket(PF_INET, SOCK_STREAM, 0)) < 0))
-  {
-      erl_errno = errno;
-      return -1;
+  if (!inaddr) {      
+      ip_addr.s_addr = htonl(INADDR_LOOPBACK);
+      inaddr = &ip_addr;
   }
+  
+  memset((void *) &addr, 0, sizeof(struct sockaddr_in));
+  memcpy((void *) &addr.sin_addr, (void *) inaddr, sizeof(addr.sin_addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(port);
 
-  if ((res = ei_connect_t(sd,(struct sockaddr *)&saddr,sizeof(saddr),ms)) < 0) 
-  {
-      erl_errno = (res == -2) ? ETIMEDOUT : errno;
-      closesocket(sd);
+  err = ei_connect_t__(sd, (void *) &addr, sizeof(addr), tmo);
+  if (err) {
+      erl_errno = err;
+      ei_close__(sd);
       return -1;
   }
 
@@ -104,6 +111,9 @@ static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
   int port;
   int dist_high, dist_low, proto;
   int res;
+  int err;
+  ssize_t dlen;
+  unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
 #if defined(VXWORKS)
   char ntoabuf[32];
 #endif
@@ -124,10 +134,14 @@ static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
       return -1;
   }
 
-  if ((res = ei_write_fill_t(fd, buf, len+2, ms)) != len+2) {
-    closesocket(fd);
-    erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-    return -1;
+  dlen = len + 2;
+  err = ei_write_fill_t__(fd, buf, &dlen, tmo);
+  if (!err && dlen != (ssize_t) len + 2)
+      erl_errno = EIO;
+  if (err) {
+      ei_close__(fd);
+      EI_CONN_SAVE_ERRNO__(err);
+      return -1;
   }
 
 #ifdef VXWORKS
@@ -142,12 +156,15 @@ static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
 		 "-> PORT2_REQ alive=%s ip=%s",alive,inet_ntoa(*addr));
 #endif
 
-  /* read first two bytes (response type, response) */
-  if ((res = ei_read_fill_t(fd, buf, 2, ms)) != 2) {
-    EI_TRACE_ERR0("ei_epmd_r4_port","<- CLOSE");
-    erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-    closesocket(fd);
-    return -2;			/* version mismatch */
+  dlen = (ssize_t) 2;
+  err = ei_read_fill_t__(fd, buf, &dlen, tmo);
+  if (!err && dlen != (ssize_t) 2)
+      erl_errno = EIO;
+  if (err) {
+      EI_TRACE_ERR0("ei_epmd_r4_port","<- CLOSE");
+      ei_close__(fd);
+      EI_CONN_SAVE_ERRNO__(err);
+      return -2;
   }
 
   s = buf;
@@ -156,7 +173,7 @@ static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
   if (res != EI_EPMD_PORT2_RESP) { /* response type */
     EI_TRACE_ERR1("ei_epmd_r4_port","<- unknown (%d)",res);
     EI_TRACE_ERR0("ei_epmd_r4_port","-> CLOSE");
-    closesocket(fd);
+    ei_close__(fd);
     erl_errno = EIO;
     return -1;
   }
@@ -167,7 +184,7 @@ static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
   if ((res = get8(s))) {
     /* got negative response */
     EI_TRACE_ERR1("ei_epmd_r4_port","<- PORT2_RESP result=%d (failure)",res);
-    closesocket(fd);
+    ei_close__(fd);
     erl_errno = EIO;
     return -1;
   }
@@ -175,14 +192,18 @@ static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
   EI_TRACE_CONN1("ei_epmd_r4_port","<- PORT2_RESP result=%d (ok)",res);
 
   /* expecting remaining 8 bytes */
-  if ((res = ei_read_fill_t(fd,buf,8,ms)) != 8) {
+  dlen = (ssize_t) 8;
+  err = ei_read_fill_t__(fd, buf, &dlen, tmo);
+  if (!err && dlen != (ssize_t) 8)
+      err = EIO;
+  if (err) {
     EI_TRACE_ERR0("ei_epmd_r4_port","<- CLOSE");
-    erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-    closesocket(fd);
+    ei_close__(fd);
+    EI_CONN_SAVE_ERRNO__(err);
     return -1;
   }
   
-  closesocket(fd);
+  ei_close__(fd);
   s = buf;
 
   port = get16be(s);

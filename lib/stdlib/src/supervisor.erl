@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@
                               {errorContext,Error},
                               {reason,Reason},
                               {offender,extract_child(Child)}]},
-                   #{domain=>[beam,erlang,otp,sasl],
+                   #{domain=>[otp,sasl],
                      report_cb=>fun logger:format_otp_report/1,
                      logger_formatter=>#{title=>"SUPERVISOR REPORT"},
                      error_logger=>#{tag=>error_report,
@@ -580,7 +580,7 @@ handle_info({'EXIT', Pid, Reason}, State) ->
 
 handle_info(Msg, State) ->
     ?LOG_ERROR("Supervisor received unexpected message: ~tp~n",[Msg],
-               #{domain=>[beam,erlang,otp],
+               #{domain=>[otp],
                  error_logger=>#{tag=>error}}),
     {noreply, State}.
 
@@ -1419,7 +1419,7 @@ report_progress(Child, SupName) ->
     ?LOG_INFO(#{label=>{supervisor,progress},
                 report=>[{supervisor,SupName},
                          {started,extract_child(Child)}]},
-              #{domain=>[beam,erlang,otp,sasl],
+              #{domain=>[otp,sasl],
                 report_cb=>fun logger:format_otp_report/1,
                 logger_formatter=>#{title=>"PROGRESS REPORT"},
                 error_logger=>#{tag=>info_report,type=>progress}}).

@@ -50,6 +50,7 @@ static int link_unlink(int fd, const erlang_pid *from, const erlang_pid *to,
   char *s;
   int index = 0;
   int n;
+  unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
 
   index = 5;                                     /* max sizes: */
   ei_encode_version(msgbuf,&index);                     /*   1 */
@@ -69,7 +70,7 @@ static int link_unlink(int fd, const erlang_pid *from, const erlang_pid *to,
   if (ei_trace_distribution > 1) ei_show_sendmsg(stderr,msgbuf,NULL);
 #endif
 
-  n = ei_write_fill_t(fd,msgbuf,index,ms); 
+  n = ei_write_fill_t__(fd,msgbuf,index,tmo); 
 
   return (n==index ? 0 : -1);
 }

@@ -33,7 +33,7 @@
     <rev>PA1</rev>
     <file>ttb.xml</file>
   </header>
-  <module>ttb</module>
+  <module since="">ttb</module>
   <modulesummary>A base for building trace tools for distributed systems.</modulesummary>
   <description>
     <p>The Trace Tool Builder, <c>ttb</c>, is a base for building trace
@@ -44,7 +44,7 @@
   </description>
   <funcs>
     <func>
-      <name>start_trace(Nodes, Patterns, FlagSpec, Opts) -> Result</name>
+      <name since="OTP R15B">start_trace(Nodes, Patterns, FlagSpec, Opts) -> Result</name>
       <fsummary>Start a trace port on each specified node.</fsummary>
       <type>
         <v>Result = see p/2</v>
@@ -76,7 +76,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tracer() -> Result</name>
+      <name since="">tracer() -> Result</name>
       <fsummary>Equivalent to tracer(node()).</fsummary>
       <desc>
         <p>Equivalent to <c>tracer(node())</c>.</p>
@@ -84,7 +84,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tracer(Shortcut) -> Result</name>
+      <name since="">tracer(Shortcut) -> Result</name>
       <fsummary>Handy shortcuts for common tracing settings.</fsummary>
       <type>
         <v>Shortcut = shell | dbg</v>
@@ -97,7 +97,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tracer(Nodes) -> Result</name>
+      <name since="">tracer(Nodes) -> Result</name>
       <fsummary>Equivalent to tracer(Nodes,[]).</fsummary>
       <desc>
         <p>Equivalent to <c>tracer(Nodes,[])</c>.</p>
@@ -105,7 +105,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tracer(Nodes,Opts) -> Result</name>
+      <name since="">tracer(Nodes,Opts) -> Result</name>
       <fsummary>Start a trace port on each specified node.</fsummary>
       <type>
         <v>Result = {ok, ActivatedNodes} | {error,Reason}</v>
@@ -243,7 +243,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>p(Item,Flags) -> Return</name>
+      <name since="">p(Item,Flags) -> Return</name>
       <fsummary>Set the specified trace flags on the specified processes or ports.</fsummary>
       <type>
         <v>Return  = {ok,[{Item,MatchDesc}]}</v>
@@ -277,7 +277,8 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tp, tpl, tpe, ctp, ctpl, ctpg, ctpe</name>
+      <name since="">tp, tpl, ctp, ctpl, ctpg</name>
+      <name since="OTP 19.0">tpe, ctpe</name>
       <fsummary>Set and clear trace patterns.</fsummary>
       <desc>
         <p>These functions are to be used with trace
@@ -338,7 +339,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>list_history() -> History</name>
+      <name since="">list_history() -> History</name>
       <fsummary>Return all calls stored in history.</fsummary>
       <type>
         <v>History = [{N,Func,Args}]</v>
@@ -352,7 +353,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>run_history(N) -> ok | {error, Reason}</name>
+      <name since="">run_history(N) -> ok | {error, Reason}</name>
       <fsummary>Execute one entry of the history.</fsummary>
       <type>
         <v>N = integer() | [integer()]</v>
@@ -364,7 +365,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>write_config(ConfigFile,Config)</name>
+      <name since="">write_config(ConfigFile,Config)</name>
       <fsummary>Equivalent to write_config(ConfigFile,Config,[]).</fsummary>
       <desc>
         <p>Equivalent to <c>write_config(ConfigFile,Config,[])</c>.</p>
@@ -372,7 +373,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>write_config(ConfigFile,Config,Opts) -> ok | {error,Reason}</name>
+      <name since="">write_config(ConfigFile,Config,Opts) -> ok | {error,Reason}</name>
       <fsummary>Create a configuration file.</fsummary>
       <type>
         <v>ConfigFile = string()</v>
@@ -405,7 +406,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>run_config(ConfigFile) -> ok | {error,Reason}</name>
+      <name since="">run_config(ConfigFile) -> ok | {error,Reason}</name>
       <fsummary>Execute all entries in a configuration file.</fsummary>
       <type>
         <v>ConfigFile = string()</v>
@@ -418,7 +419,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>run_config(ConfigFile,NumList) -> ok | {error,Reason}</name>
+      <name since="">run_config(ConfigFile,NumList) -> ok | {error,Reason}</name>
       <fsummary>Execute selected entries from a configuration file.</fsummary>
       <type>
         <v>ConfigFile = string()</v>
@@ -437,7 +438,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>list_config(ConfigFile) -> Config | {error,Reason}</name>
+      <name since="">list_config(ConfigFile) -> Config | {error,Reason}</name>
       <fsummary>List all entries in a configuration file.</fsummary>
       <type>
         <v>ConfigFile = string()</v>
@@ -449,7 +450,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>write_trace_info(Key,Info) -> ok</name>
+      <name since="">write_trace_info(Key,Info) -> ok</name>
       <fsummary>Write any information to file <c>.ti</c>.</fsummary>
       <type>
         <v>Key = term()</v>
@@ -465,7 +466,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>seq_trigger_ms() -> MatchSpec</name>
+      <name since="">seq_trigger_ms() -> MatchSpec</name>
       <fsummary>Equivalent to seq_trigger_ms(all).</fsummary>
       <desc>
         <p>Equivalent to <c>seq_trigger_ms(all)</c>.</p>
@@ -473,7 +474,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>seq_trigger_ms(Flags) -> MatchSpec</name>
+      <name since="">seq_trigger_ms(Flags) -> MatchSpec</name>
       <fsummary>Return a match_spec() which starts sequential tracing.</fsummary>
       <type>
         <v>MatchSpec = match_spec()</v>
@@ -521,7 +522,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>stop()</name>
+      <name since="">stop()</name>
       <fsummary>Equivalent to stop([]).</fsummary>
       <desc>
         <p>Equivalent to <c>stop([])</c>.</p>
@@ -529,7 +530,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>stop(Opts) -> stopped | {stopped, Dir}</name>
+      <name since="">stop(Opts) -> stopped | {stopped, Dir}</name>
       <fsummary>Stop tracing and fetch/format logs from all nodes.</fsummary>
       <type>
         <v>Opts = Opt | [Opt]</v>
@@ -573,7 +574,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>get_et_handler()</name>
+      <name since="OTP R15B">get_et_handler()</name>
       <fsummary>Return the <c>et</c> handler.</fsummary>
       <desc>
         <p>Returns the <c>et</c> handler, which can be used with <c>format/2</c>
@@ -583,7 +584,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>format(File)</name>
+      <name since="">format(File)</name>
       <fsummary>Equivalent to <c>format(File,[])</c>.</fsummary>
       <desc>
         <p>Equivalent to <c>format(File,[])</c>.</p>
@@ -591,7 +592,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>format(File,Options) -> ok | {error, Reason}</name>
+      <name since="">format(File,Options) -> ok | {error, Reason}</name>
       <fsummary>Format a binary trace log.</fsummary>
       <type>
         <v>File = string() | [string()]</v>

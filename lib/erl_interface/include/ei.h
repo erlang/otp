@@ -35,6 +35,9 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <winbase.h>
+typedef LONG_PTR ssize_t; /* Sigh... */
+#else
+#include <sys/types.h>          /* ssize_t */
 #endif
 
 #include <stdio.h>		/* Need type FILE */
@@ -286,6 +289,31 @@ typedef struct {
   char nodename[MAXNODELEN+1];
 } ErlConnect;
 
+#define EI_SCLBK_INF_TMO (~((unsigned) 0))
+
+#define EI_SCLBK_FLG_FULL_IMPL (1 << 0)
+
+typedef struct {
+    int flags;
+
+    int (*socket)(void **ctx, void *setup_ctx);
+    int	(*close)(void *ctx);
+    int (*listen)(void *ctx, void *addr, int *len, int backlog);
+    int (*accept)(void **ctx, void *addr, int *len, unsigned tmo);
+    int (*connect)(void *ctx, void *addr, int len, unsigned tmo);
+    int (*writev)(void *ctx, const void *iov, int iovcnt, ssize_t *len, unsigned tmo);
+    int (*write)(void *ctx, const char *buf, ssize_t *len, unsigned tmo);
+    int (*read)(void *ctx, char *buf, ssize_t *len, unsigned tmo);
+
+    int (*handshake_packet_header_size)(void *ctx, int *sz);
+    int (*connect_handshake_complete)(void *ctx);
+    int (*accept_handshake_complete)(void *ctx);
+    int (*get_fd)(void *ctx, int *fd);
+
+    /* end of version 1 */
+    
+} ei_socket_callbacks;
+
 typedef struct ei_cnode_s {
     char thishostname[EI_MAXHOSTNAMELEN+1];
     char thisnodename[MAXNODELEN+1];
@@ -295,6 +323,8 @@ typedef struct ei_cnode_s {
     char ei_connect_cookie[EI_MAX_COOKIE_SIZE+1];
     short creation;
     erlang_pid self;
+    ei_socket_callbacks *cbs;
+    void *setup_context;
 } ei_cnode;
 
 typedef struct in_addr *Erl_IpAddr; 
@@ -308,7 +338,6 @@ typedef struct ei_x_buff_TAG {
     int index;
 } ei_x_buff;
 
-
 /* -------------------------------------------------------------------- */
 /*    Function definitions (listed in same order as documentation)      */
 /* -------------------------------------------------------------------- */
@@ -321,6 +350,16 @@ int ei_connect_xinit (ei_cnode* ec, const char *thishostname,
 		      const char *thisalivename, const char *thisnodename,
 		      Erl_IpAddr thisipaddr, const char *cookie,
 		      const short creation);
+
+int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
+                         const char *cookie, short creation,
+                         ei_socket_callbacks *cbs, int cbs_sz,
+                         void *setup_context);
+int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
+                          const char *thisalivename, const char *thisnodename,
+                          Erl_IpAddr thisipaddr, const char *cookie,
+                          const short creation, ei_socket_callbacks *cbs,
+                          int cbs_sz, void *setup_context);
 
 int ei_connect(ei_cnode* ec, char *nodename);
 int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms);
@@ -348,10 +387,14 @@ int ei_rpc_from(ei_cnode* ec, int fd, int timeout, erlang_msg* msg,
 
 int ei_publish(ei_cnode* ec, int port);
 int ei_publish_tmo(ei_cnode* ec, int port, unsigned ms);
+int ei_listen(ei_cnode *ec, int *port, int backlog);
+int ei_xlisten(ei_cnode *ec, Erl_IpAddr adr, int *port, int backlog);    
 int ei_accept(ei_cnode* ec, int lfd, ErlConnect *conp);
 int ei_accept_tmo(ei_cnode* ec, int lfd, ErlConnect *conp, unsigned ms);
 int ei_unpublish(ei_cnode* ec);
 int ei_unpublish_tmo(const char *alive, unsigned ms);
+
+int ei_close_connection(int fd);
 
 const char *ei_thisnodename(const ei_cnode* ec);
 const char *ei_thishostname(const ei_cnode* ec);
@@ -625,6 +668,8 @@ struct ei_reg_tabstat {
   int collisions; /* number of positions with more than one element */
 };
 
+
+int ei_init(void);
 
 /* -------------------------------------------------------------------- */
 /*                               XXXXXXXXXXX                            */

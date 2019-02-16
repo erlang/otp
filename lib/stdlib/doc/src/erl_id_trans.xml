@@ -34,7 +34,7 @@
     <rev>B</rev>
     <file>erl_id_trans.xml</file>
   </header>
-  <module>erl_id_trans</module>
+  <module since="">erl_id_trans</module>
   <modulesummary>An identity parse transform.</modulesummary>
   <description>
     <p>This module performs an identity parse transformation of Erlang code.
@@ -46,7 +46,7 @@
 
   <funcs>
     <func>
-      <name>parse_transform(Forms, Options) -> Forms</name>
+      <name since="">parse_transform(Forms, Options) -> Forms</name>
       <fsummary>Transform Erlang forms.</fsummary>
       <type>
         <v>Forms = [<seealso marker="erl_parse#type-abstract_form">erl_parse:abstract_form()</seealso>

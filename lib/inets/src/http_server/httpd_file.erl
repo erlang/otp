@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,9 @@ handle_error(enoent, Op, ModData, Path) ->
 handle_error(enotdir, Op, ModData, Path) ->
     handle_error(404, Op, ModData, Path,
 	         ": A component of the file name is not a directory");
+handle_error(eisdir, Op, ModData, Path) ->
+    handle_error(403, Op, ModData, Path,
+	         ":Ilegal operation expected a file not a directory");
 handle_error(emfile, Op, _ModData, Path) ->
     handle_error(500, Op, none, Path, ": Too many open files");
 handle_error({enfile,_}, Op, _ModData, Path) ->

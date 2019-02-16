@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ void erts_init_bif_chksum(void)
 {
     /* Non visual BIF to trap to. */
     erts_init_trap_export(&chksum_md5_2_exp,
-			  am_erlang, am_atom_put("md5_trap",8), 2,
+			  am_erlang, ERTS_MAKE_AM("md5_trap"), 2,
 			  &md5_2);
 }
     

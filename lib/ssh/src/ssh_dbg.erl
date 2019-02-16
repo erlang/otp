@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,7 +54,13 @@
          start_tracer/0, start_tracer/1,
          on/1,  on/0,
          off/1, off/0,
-         go_on/0
+         go_on/0,
+         %% Circular buffer
+         cbuf_start/0, cbuf_start/1,
+         cbuf_stop_clear/0,
+         cbuf_in/1,
+         cbuf_list/0,
+         fmt_cbuf_items/0, fmt_cbuf_item/1
 	]).
 
 -export([shrink_bin/1,
@@ -70,6 +76,8 @@
 
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
+
+-define(CALL_TIMEOUT, 15000). % 3x the default
 
 %%%================================================================
 
@@ -107,7 +115,7 @@ start_tracer(WriteFun) when is_function(WriteFun,3) ->
 start_tracer(WriteFun, InitAcc) when is_function(WriteFun, 3) ->
     Handler = 
         fun(Arg, Acc0) ->
-                try_all_types_in_all_modules(gen_server:call(?SERVER, get_on),
+                try_all_types_in_all_modules(gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT),
                                              Arg, WriteFun,
                                              Acc0)
         end,
@@ -122,7 +130,7 @@ off() -> off(?ALL_DBG_TYPES). % A bit overkill...
 off(Type) -> switch(off, Type).
     
 go_on() ->
-    IsOn = gen_server:call(?SERVER, get_on),
+    IsOn = gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT),
     on(IsOn).
 
 %%%----------------------------------------------------------------
@@ -253,7 +261,7 @@ switch(X, Types) when is_list(Types) ->
     end,
     case lists:usort(Types) -- ?ALL_DBG_TYPES of
         [] ->
-            gen_server:call(?SERVER, {switch,X,Types});
+            gen_server:call(?SERVER, {switch,X,Types}, ?CALL_TIMEOUT);
         L ->
             {error, {unknown, L}}
     end.
@@ -331,3 +339,103 @@ ts({_,_,Usec}=Now) when is_integer(Usec) ->
     io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.6.0w",[HH,MM,SS,Usec]);
 ts(_) ->
     "-".
+
+%%%================================================================
+-define(CIRC_BUF, circ_buf).
+
+cbuf_start() ->
+    cbuf_start(20).
+
+cbuf_start(CbufMaxLen) ->
+    put(?CIRC_BUF, {CbufMaxLen,queue:new()}),
+    ok.
+
+
+cbuf_stop_clear() ->
+    case erase(?CIRC_BUF) of
+        undefined ->
+            [];
+        {_CbufMaxLen,Queue} ->
+            queue:to_list(Queue)
+    end.
+
+
+cbuf_in(Value) ->
+    case get(?CIRC_BUF) of
+        undefined ->
+            disabled;
+        {CbufMaxLen,Queue} ->
+            UpdatedQueue =
+                try queue:head(Queue) of
+                    {Value, TS0, Cnt0} ->
+                        %% Same Value as last saved in the queue
+                        queue:in_r({Value, TS0, Cnt0+1},
+                                 queue:drop(Queue)
+                                );
+                    _ ->
+                        queue:in_r({Value, erlang:timestamp(), 1},
+                                   truncate_cbuf(Queue, CbufMaxLen)
+                                )
+                catch
+                    error:empty ->
+                        queue:in_r({Value, erlang:timestamp(), 1}, Queue)
+                end,
+            put(?CIRC_BUF, {CbufMaxLen,UpdatedQueue}),
+            ok
+    end.
+
+
+cbuf_list() ->
+    case get(?CIRC_BUF) of
+        undefined ->
+            [];
+        {_CbufMaxLen,Queue} ->
+            queue:to_list(Queue)
+    end.
+
+
+truncate_cbuf(Q, CbufMaxLen) ->
+    case queue:len(Q) of
+        N when N>=CbufMaxLen ->
+            truncate_cbuf(element(2,queue:out_r(Q)), CbufMaxLen);
+        _ ->
+            Q
+    end.
+
+fmt_cbuf_items() ->
+    lists:flatten(
+      io_lib:format("Circular trace buffer. Latest item first.~n~s~n",
+                    [case get(?CIRC_BUF) of
+                         {Max,_} ->
+                             L = cbuf_list(),
+                             [io_lib:format("==== ~.*w: ~s~n",[num_digits(Max),N,fmt_cbuf_item(X)]) ||
+                                 {N,X} <- lists:zip(lists:seq(1,length(L)), L)
+                             ];
+                         _ ->
+                             io_lib:format("Not started.~n",[])
+                     end])).
+                   
+
+num_digits(0) -> 1;
+num_digits(N) when N>0 -> 1+trunc(math:log10(N)).
+    
+
+fmt_cbuf_item({Value, TimeStamp, N}) ->
+    io_lib:format("~s~s~n~s~n",
+                  [fmt_ts(TimeStamp),
+                   [io_lib:format(" (Repeated ~p times)",[N]) || N>1],
+                   fmt_value(Value)]).
+
+
+fmt_ts(TS = {_,_,Us}) ->
+    {{YY,MM,DD},{H,M,S}} = calendar:now_to_universal_time(TS),
+    io_lib:format("~w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~.6.0w UTC",[YY,MM,DD,H,M,S,Us]).
+    
+fmt_value(#circ_buf_entry{module = M,
+                          line = L,
+                          function = {F,A},
+                          pid = Pid,
+                          value = V}) ->
+    io_lib:format("~p:~p  ~p/~p ~p~n~s",[M,L,F,A,Pid,fmt_value(V)]);
+fmt_value(Value) ->
+    io_lib:format("~p",[Value]).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -498,25 +498,24 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    data = Data},
 	   #connection{channel_cache = Cache} = Connection, server) ->
     <<?DEC_BIN(SsName,_SsLen)>> = Data,
-    
-    #channel{remote_id = RemoteId} = Channel0 = 
+    #channel{remote_id=RemoteId} = Channel = 
 	ssh_client_channel:cache_lookup(Cache, ChannelId), 
-    
-    ReplyMsg =  {subsystem, ChannelId, WantReply, binary_to_list(SsName)},
-    
-    try
-	{ok, Pid} = start_subsystem(SsName, Connection, Channel0, ReplyMsg),
-	erlang:monitor(process, Pid),
-	Channel = Channel0#channel{user = Pid},
-	ssh_client_channel:cache_update(Cache, Channel),
-	Reply = {connection_reply,
-		 channel_success_msg(RemoteId)},
-	{[Reply], Connection}
-    catch
-	_:_ ->
-	    ErrorReply = {connection_reply, channel_failure_msg(RemoteId)},
-	    {[ErrorReply], Connection}
-    end;	
+    Reply =
+        try
+            start_subsystem(SsName, Connection, Channel,
+                            {subsystem, ChannelId, WantReply, binary_to_list(SsName)})
+        of
+            {ok, Pid} ->
+                erlang:monitor(process, Pid),
+                ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
+                channel_success_msg(RemoteId);
+            {error,_Error} ->
+                channel_failure_msg(RemoteId)
+        catch
+            _:_ ->
+                channel_failure_msg(RemoteId)
+        end,
+    {[{connection_reply,Reply}], Connection};
 
 handle_msg(#ssh_msg_channel_request{request_type = "subsystem"},
 	   Connection, client) ->
@@ -822,7 +821,12 @@ start_channel(Cb, Id, Args, SubSysSup, Exec, Opts) ->
     ChannelSup = ssh_subsystem_sup:channel_supervisor(SubSysSup),
     case max_num_channels_not_exceeded(ChannelSup, Opts) of
         true ->
-            ssh_server_channel_sup:start_child(ChannelSup, Cb, Id, Args, Exec);
+            case ssh_server_channel_sup:start_child(ChannelSup, Cb, Id, Args, Exec) of
+                {error,{Error,_Info}} ->
+                    throw(Error);
+                Others ->
+                    Others
+            end;
         false ->
 	    throw(max_num_channels_exceeded)
     end.

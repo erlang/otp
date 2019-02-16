@@ -400,7 +400,6 @@ os_getenv_erts_specific() ->
 	    "ERL_MALLOC_LIB",
 	    "ERL_MAX_PORTS",
 	    "ERL_MAX_ETS_TABLES",
-	    "ERL_NO_VFORK",
 	    "ERL_NO_KERNEL_POLL",
 	    "ERL_THREAD_POOL_SIZE",
 	    "ERLC_EMULATOR",

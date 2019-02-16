@@ -27,7 +27,7 @@
     <date>2018-02-07</date>
     <rev>A</rev>
   </header>
-  <module>uri_string</module>
+  <module since="OTP 21.0">uri_string</module>
   <modulesummary>URI processing functions.</modulesummary>
   <description>
     <p>This module contains functions for parsing and handling URIs
@@ -150,7 +150,7 @@
   <funcs>
 
     <func>
-      <name name="compose_query" arity="1"/>
+      <name name="compose_query" arity="1" since="OTP 21.0"/>
       <fsummary>Compose urlencoded query string.</fsummary>
       <desc>
         <p>Composes a form-urlencoded <c><anno>QueryString</anno></c> based on a
@@ -176,7 +176,7 @@
     </func>
 
     <func>
-      <name name="compose_query" arity="2"/>
+      <name name="compose_query" arity="2" since="OTP 21.0"/>
       <fsummary>Compose urlencoded query string.</fsummary>
       <desc>
         <p>Same as <c>compose_query/1</c> but with an additional
@@ -210,7 +210,7 @@
     </func>
 
     <func>
-      <name name="dissect_query" arity="1"/>
+      <name name="dissect_query" arity="1" since="OTP 21.0"/>
       <fsummary>Dissect query string.</fsummary>
       <desc>
         <p>Dissects an urlencoded <c><anno>QueryString</anno></c> and returns a
@@ -236,7 +236,7 @@
     </func>
 
     <func>
-      <name name="normalize" arity="1"/>
+      <name name="normalize" arity="1" since="OTP 21.0"/>
       <fsummary>Syntax-based normalization.</fsummary>
       <desc>
         <p>Transforms an <c><anno>URI</anno></c> into a normalized form
@@ -261,7 +261,7 @@
     </func>
 
     <func>
-      <name name="normalize" arity="2"/>
+      <name name="normalize" arity="2" since="OTP 21.0"/>
       <fsummary>Syntax-based normalization.</fsummary>
       <desc>
 	<p>Same as <c>normalize/1</c> but with an additional
@@ -285,7 +285,7 @@
     </func>
 
     <func>
-      <name name="parse" arity="1"/>
+      <name name="parse" arity="1" since="OTP 21.0"/>
       <fsummary>Parse URI into a map.</fsummary>
       <desc>
         <p>Parses an <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>
@@ -309,7 +309,7 @@
     </func>
 
     <func>
-      <name name="recompose" arity="1"/>
+      <name name="recompose" arity="1" since="OTP 21.0"/>
       <fsummary>Recompose URI.</fsummary>
       <desc>
         <p>Creates an <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url> compliant
@@ -332,7 +332,7 @@
     </func>
 
     <func>
-      <name name="transcode" arity="2"/>
+      <name name="transcode" arity="2" since="OTP 21.0"/>
       <fsummary>Transcode URI.</fsummary>
       <desc>
         <p>Transcodes an <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>

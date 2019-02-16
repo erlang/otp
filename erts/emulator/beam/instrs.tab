@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017. All Rights Reserved.
+// Copyright Ericsson AB 2017-2018. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -238,6 +238,7 @@ HANDLE_APPLY_FUN_ERROR() {
 }
 
 DISPATCH_FUN(I) {
+    //| -no_next
     SET_I($I);
     Dispatchfun();
 }
@@ -299,6 +300,7 @@ i_call_fun_last(Fun, Deallocate) {
 }
 
 return() {
+    //| -no_next
     SET_I(c_p->cp);
     DTRACE_RETURN_FROM_PC(c_p);
 
@@ -559,17 +561,19 @@ update_list(Hd, Dst) {
     HTOP += 2;
 }
 
-i_put_tuple := i_put_tuple.make.fill;
-
-i_put_tuple.make(Dst) {
-    $Dst = make_tuple(HTOP);
-}
-
-i_put_tuple.fill(Arity) {
+put_tuple2(Dst, Arity) {
     Eterm* hp = HTOP;
     Eterm arity = $Arity;
 
+    /*
+     * If operands are not packed (in the 32-bit VM),
+     * is is not safe to use $Dst directly after I
+     * has been updated.
+     */
+    Eterm* dst_ptr = &($Dst);
+
     //| -no_next
+    ASSERT(arity != 0);
     *hp++ = make_arityval(arity);
     I = $NEXT_INSTRUCTION;
     do {
@@ -586,6 +590,7 @@ i_put_tuple.fill(Arity) {
             break;
         }
     } while (--arity != 0);
+    *dst_ptr = make_tuple(HTOP);
     HTOP = hp;
     ASSERT(VALID_INSTR(* (Eterm *)I));
     Goto(*I);
@@ -704,8 +709,14 @@ is_function(Fail, Src) {
     }
 }
 
-is_function2(Fail, Fun, Arity) {
+cold_is_function2(Fail, Fun, Arity) {
     if (erl_is_function(c_p, $Fun, $Arity) != am_true ) {
+        $FAIL($Fail);
+    }
+}
+
+hot_is_function2(Fail, Fun, Arity) {
+    if (!is_function2($Fun, $Arity)) {
         $FAIL($Fail);
     }
 }
@@ -948,6 +959,7 @@ build_stacktrace() {
 }
 
 raw_raise() {
+    //| -no_prefetch
     Eterm class = x(0);
     Eterm value = x(1);
     Eterm stacktrace = x(2);

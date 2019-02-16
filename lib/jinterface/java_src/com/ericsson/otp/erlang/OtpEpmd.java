@@ -102,7 +102,7 @@ public class OtpEpmd {
     /**
      * Set the port number to be used to contact the epmd process. Only needed
      * when the default port is not desired and system environment variable
-     * ERL_EPMD_PORT can not be read (applet).
+     * ERL_EPMD_PORT cannot be read (applet).
      */
     public static void useEpmdPort(final int port) {
         EpmdPort.set(port);

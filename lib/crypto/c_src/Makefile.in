@@ -19,7 +19,6 @@
 #
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
-include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
 
 # ----------------------------------------------------
 # Application version
@@ -31,23 +30,20 @@ VSN=$(CRYPTO_VSN)
 # The following variables differ between systems.
 # Set by configure.
 # ----------------------------------------------------
-CC = $(DED_CC)
-LD = $(DED_LD)
+CC = @DED_CC@
+LD = @DED_LD@
 SHELL = /bin/sh
-LIBS = $(DED_LIBS)
-LDFLAGS += $(DED_LDFLAGS)
-CFLAGS = $(DED_CFLAGS)
+LIBS = @DED_LIBS@
+LDFLAGS += @DED_LDFLAGS@
+CFLAGS = @DED_CFLAGS@ @SSL_FLAGS@
 
 # From erts/configure
 SSL_LIBDIR = @SSL_LIBDIR@
 SSL_INCLUDE = @SSL_INCLUDE@
 SSL_CRYPTO_LIBNAME = @SSL_CRYPTO_LIBNAME@
 SSL_SSL_LIBNAME = @SSL_SSL_LIBNAME@
-SSL_FLAGS = @SSL_FLAGS@
 
-
-INCLUDES = $(SSL_INCLUDE) $(DED_INCLUDES)
-CFLAGS += $(SSL_FLAGS)
+INCLUDES = $(SSL_INCLUDE) @DED_INCLUDE@
 
 ifeq ($(TYPE),debug)
 TYPEMARKER = .debug
@@ -70,7 +66,40 @@ RELSYSDIR = $(RELEASE_PATH)/lib/crypto-$(VSN)
 # ----------------------------------------------------
 # Misc Macros
 # ----------------------------------------------------
-CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o
+
+PRIVDIR = ../priv
+OBJDIR = $(PRIVDIR)/obj/$(TARGET)
+LIBDIR = $(PRIVDIR)/lib/$(TARGET)
+
+CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
+	$(OBJDIR)/aead$(TYPEMARKER).o \
+	$(OBJDIR)/aes$(TYPEMARKER).o \
+	$(OBJDIR)/algorithms$(TYPEMARKER).o \
+	$(OBJDIR)/atoms$(TYPEMARKER).o \
+	$(OBJDIR)/block$(TYPEMARKER).o \
+	$(OBJDIR)/bn$(TYPEMARKER).o \
+	$(OBJDIR)/chacha20$(TYPEMARKER).o \
+	$(OBJDIR)/cipher$(TYPEMARKER).o \
+	$(OBJDIR)/cmac$(TYPEMARKER).o \
+	$(OBJDIR)/dh$(TYPEMARKER).o \
+	$(OBJDIR)/digest$(TYPEMARKER).o \
+	$(OBJDIR)/dss$(TYPEMARKER).o \
+	$(OBJDIR)/ec$(TYPEMARKER).o \
+	$(OBJDIR)/ecdh$(TYPEMARKER).o \
+	$(OBJDIR)/eddsa$(TYPEMARKER).o \
+	$(OBJDIR)/engine$(TYPEMARKER).o \
+	$(OBJDIR)/evp$(TYPEMARKER).o \
+	$(OBJDIR)/fips$(TYPEMARKER).o \
+	$(OBJDIR)/hash$(TYPEMARKER).o \
+	$(OBJDIR)/hmac$(TYPEMARKER).o \
+	$(OBJDIR)/info$(TYPEMARKER).o \
+	$(OBJDIR)/math$(TYPEMARKER).o \
+	$(OBJDIR)/pkey$(TYPEMARKER).o \
+	$(OBJDIR)/poly1305$(TYPEMARKER).o \
+	$(OBJDIR)/rand$(TYPEMARKER).o \
+	$(OBJDIR)/rc4$(TYPEMARKER).o \
+	$(OBJDIR)/rsa$(TYPEMARKER).o \
+	$(OBJDIR)/srp$(TYPEMARKER).o
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
 NIF_MAKEFILE = $(PRIVDIR)/Makefile
 CRYPTO_STATIC_OBJS = $(OBJDIR)/crypto_static$(TYPEMARKER).o\
@@ -80,19 +109,10 @@ NIF_ARCHIVE = $(LIBDIR)/crypto$(TYPEMARKER).a
 
 TEST_ENGINE_OBJS = $(OBJDIR)/otp_test_engine$(TYPEMARKER).o
 
-ifeq ($(findstring win32,$(TARGET)), win32)
-NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).dll
-CALLBACK_LIB = $(LIBDIR)/crypto_callback$(TYPEMARKER).dll
-TEST_ENGINE_LIB = $(LIBDIR)/otp_test_engine$(TYPEMARKER).dll
-else
-NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).so
-CALLBACK_LIB = $(LIBDIR)/crypto_callback$(TYPEMARKER).so
-TEST_ENGINE_LIB = $(LIBDIR)/otp_test_engine$(TYPEMARKER).so
-endif
+NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).@DED_EXT@
+CALLBACK_LIB = $(LIBDIR)/crypto_callback$(TYPEMARKER).@DED_EXT@
+TEST_ENGINE_LIB = $(LIBDIR)/otp_test_engine$(TYPEMARKER).@DED_EXT@
 
-ifeq ($(HOST_OS),)
-HOST_OS := $(shell $(ERL_TOP)/erts/autoconf/config.guess)
-endif
 DYNAMIC_CRYPTO_LIB=@SSL_DYNAMIC_ONLY@
 
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
@@ -125,7 +145,7 @@ RANLIB=true
 endif
 
 ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(INCLUDES)
-ALL_STATIC_CFLAGS = $(DED_STATIC_CFLAGS) $(INCLUDES)
+ALL_STATIC_CFLAGS = @DED_STATIC_CFLAGS@ $(INCLUDES)
 
 # ----------------------------------------------------
 # Targets
@@ -180,32 +200,21 @@ $(LIBDIR)/crypto_callback$(TYPEMARKER).dll: $(CALLBACK_OBJS)
 endif
 
 
-clean:
-ifeq ($(findstring win32,$(TARGET)), win32)
-	rm -f $(LIBDIR)/crypto.dll
-	rm -f $(LIBDIR)/crypto.debug.dll
-	rm -f $(LIBDIR)/crypto_callback.dll
-	rm -f $(LIBDIR)/crypto_callback.debug.dll
-	rm -f $(LIBDIR)/otp_test_engine.dll
-else
-	rm -f $(LIBDIR)/crypto.so
-	rm -f $(LIBDIR)/crypto.debug.so
-	rm -f $(LIBDIR)/crypto.valgrind.so
-	rm -f $(LIBDIR)/crypto_callback.so
-	rm -f $(LIBDIR)/crypto_callback.debug.so
-	rm -f $(LIBDIR)/crypto_callback.valgrind.so
-	rm -f $(LIBDIR)/otp_test_engine.so
-endif
-	rm -f $(OBJDIR)/crypto.o
-	rm -f $(OBJDIR)/crypto_static.o
-	rm -f $(OBJDIR)/crypto.debug.o
-	rm -f $(OBJDIR)/crypto_static.debug.o
-	rm -f $(OBJDIR)/crypto.valgrind.o
-	rm -f $(OBJDIR)/crypto_static.valgrind.o
-	rm -f $(OBJDIR)/crypto_callback.o
-	rm -f $(OBJDIR)/crypto_callback.debug.o
-	rm -f $(OBJDIR)/crypto_callback.valgrind.o
-	rm -f $(OBJDIR)/otp_test_engine.o
+CLEAN_OBJS_RAW = $(CRYPTO_OBJS) $(CALLBACK_OBJS) $(CRYPTO_STATIC_OBJS) $(TEST_ENGINE_OBJS)
+CLEAN_OBJS_O = $(patsubst %.debug.o,%.o,$(CLEAN_OBJS_RAW:.valgrind.o=.o))
+
+CLEAN_LIBS_RAW = $(NIF_LIB) $(CALLBACK_LIB) $(TEST_ENGINE_LIB)
+CLEAN_LIBS_SO = $(patsubst %.debug.@DED_EXT@,%.@DED_EXT@,$(CLEAN_LIBS_RAW:.valgrind.@DED_EXT@=.@DED_EXT@))
+
+clean_dynamic_libs:
+	rm -f $(CLEAN_LIBS_SO)
+	rm -f $(foreach T,.valgrind.@DED_EXT@ .debug.@DED_EXT@,$(CLEAN_LIBS_SO:.@DED_EXT@=$T))
+
+clean_objs:
+	rm -f $(CLEAN_OBJS_O)
+	rm -f $(foreach T,.valgrind.o .debug.o,$(CLEAN_OBJS_O:.o=$T))
+
+clean: clean_objs clean_dynamic_libs
 	rm -f core *~
 
 docs:

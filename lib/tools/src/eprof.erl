@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@
 
 -export([start/0,
 	 stop/0,
-	 dump/0,
+	 dump/0, dump_data/0,
 	 start_profiling/1, start_profiling/2, start_profiling/3,
 	 profile/1, profile/2, profile/3, profile/4, profile/5,
 	 stop_profiling/0,
-	 analyze/0, analyze/1, analyze/2,
+	 analyze/0, analyze/1, analyze/2, analyze/4,
 	 log/1]).
 
 %% Internal exports 
@@ -117,6 +117,9 @@ profile(Rootset, M, F, A, Pattern, Options) ->
 dump() -> 
     gen_server:call(?MODULE, dump, infinity).
 
+dump_data() ->
+    gen_server:call(?MODULE, dump_data, infinity).
+
 log(File) ->
     gen_server:call(?MODULE, {logfile, File}, infinity).
 
@@ -151,22 +154,18 @@ init([]) ->
 
 %% analyze
 
-handle_call({analyze, _, _}, _, #state{ bpd = #bpd{ p = {0,nil}, us = 0, n = 0} = Bpd } = S) when is_record(Bpd, bpd) ->
+handle_call(
+  {analyze, _, _}, _,
+  #state{ bpd = #bpd{ p = {0,nil}, us = 0, n = 0 } } = S) ->
     {reply, nothing_to_analyze, S};
 
-handle_call({analyze, procs, Opts}, _, #state{ bpd = #bpd{ p = Ps, us = Tus} = Bpd, fd = Fd} = S) when is_record(Bpd, bpd) ->
-    lists:foreach(fun
-	    ({Pid, Mfas}) ->
-		{Pn, Pus} =  sum_bp_total_n_us(Mfas),
-		format(Fd, "~n****** Process ~w    -- ~s % of profiled time *** ~n", [Pid, s("~.2f", [100.0*divide(Pus,Tus)])]),
-		print_bp_mfa(Mfas, {Pn,Pus}, Fd, Opts),
-		ok
-	end, gb_trees:to_list(Ps)),
-    {reply, ok, S};
+handle_call({analyze, procs, Opts}, _, #state{ bpd = Bpd, fd = Fd } = S)
+  when is_record(Bpd, bpd) ->
+    {reply, analyze(Fd, procs, Opts, Bpd), S};
 
-handle_call({analyze, total, Opts}, _, #state{ bpd = #bpd{ mfa = Mfas, n = Tn, us = Tus} = Bpd, fd = Fd} = S) when is_record(Bpd, bpd) ->
-    print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts),
-    {reply, ok, S};
+handle_call({analyze, total, Opts}, _, #state{ bpd = Bpd, fd = Fd } = S)
+  when is_record(Bpd, bpd) ->
+    {reply, analyze(Fd, total, Opts, Bpd), S};
 
 handle_call({analyze, Type, _Opts}, _, S) ->
     {reply, {error, {undefined, Type}}, S};
@@ -259,6 +258,10 @@ handle_call({logfile, File}, _From, #state{ fd = OldFd } = S) ->
 
 handle_call(dump, _From, #state{ bpd = Bpd } = S) when is_record(Bpd, bpd) ->
     {reply, gb_trees:to_list(Bpd#bpd.p), S};
+
+handle_call(dump_data, _, #state{ bpd = #bpd{} = Bpd } = S)
+  when is_record(Bpd, bpd) ->
+    {reply, Bpd, S};
 
 handle_call(stop, _FromTag, S) ->
     {stop, normal, stopped, S}.
@@ -437,6 +440,23 @@ collect_bpdfp(Mfa, Tree, Data) ->
 	    end,
 	    {PTno + Ni, PTuso + Time, Ti1}
     end, {0,0, Tree}, Data).
+
+
+
+analyze(Fd, procs, Opts, #bpd{ p = Ps, us = Tus }) ->
+    lists:foreach(
+      fun
+          ({Pid, Mfas}) ->
+              {Pn, Pus} =  sum_bp_total_n_us(Mfas),
+              format(
+                Fd,
+                "~n****** Process ~w    -- ~s % of profiled time *** ~n",
+                [Pid, s("~.2f", [100.0*divide(Pus, Tus)])]),
+              print_bp_mfa(Mfas, {Pn,Pus}, Fd, Opts),
+              ok
+      end, gb_trees:to_list(Ps));
+analyze(Fd, total, Opts, #bpd{ mfa = Mfas, n = Tn, us = Tus } ) ->
+    print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts).
 
 %% manipulators
 sort_mfa(Bpfs, mfa) when is_list(Bpfs) ->

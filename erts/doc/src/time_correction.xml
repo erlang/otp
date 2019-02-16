@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -940,7 +940,7 @@ EventTag = {Time, UMI}</code>
       </item>
       <item>
         <seealso marker="erlang#system_info_os_system_time_source">
-	<c>erlang:system_info(os_system_time_source)</c></seealso>)
+	<c>erlang:system_info(os_system_time_source)</c></seealso>
       </item>
     </list>
 

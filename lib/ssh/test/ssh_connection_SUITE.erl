@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1124,12 +1124,12 @@ start_our_shell(_User, _Peer) ->
 
 ssh_exec_echo(Cmd) ->
     spawn(fun() ->
-                  io:format("echo "++Cmd ++ "\n")
+                  io:format("echo ~s\n", [Cmd])
           end).
 
 ssh_exec_echo(Cmd, User) ->
     spawn(fun() ->
-                  io:format(io_lib:format("echo ~s ~s\n",[User,Cmd]))
+                  io:format("echo ~s ~s\n",[User,Cmd])
           end).
 ssh_exec_echo(Cmd, User, _PeerAddr) ->
     ssh_exec_echo(Cmd,User).

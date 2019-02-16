@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include("erl_format_SUITE_data/format_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          atoms/1, tuples/1, lists/1]).
 
 -import(runner, [get_term/1]).
@@ -38,10 +39,13 @@ suite() ->
 all() -> 
     [atoms, tuples, lists].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
+
 %% Tests formatting various atoms.
 
 atoms(Config) when is_list(Config) ->
-    P = runner:start(?atoms),
+    P = runner:start(Config, ?atoms),
 
     {term, ''} = get_term(P),
     {term, 'a'} = get_term(P),
@@ -79,7 +83,7 @@ atoms(Config) when is_list(Config) ->
 %% Tests formatting various tuples
 
 tuples(Config) when is_list(Config) ->
-    P = runner:start(?tuples),
+    P = runner:start(Config, ?tuples),
 
     {term, {}} = get_term(P),
     {term, {a}} = get_term(P),
@@ -100,7 +104,7 @@ tuples(Config) when is_list(Config) ->
 %% Tests formatting various lists
 
 lists(Config) when is_list(Config) ->
-    P = runner:start(?lists),
+    P = runner:start(Config, ?lists),
 
     {term, []} = get_term(P),
     {term, [a]} = get_term(P),

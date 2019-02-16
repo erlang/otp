@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,80 +39,71 @@
     <code type="none"><![CDATA[
 =ERROR REPORT==== 9-Dec-2003::13:25:02 ===
 Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,eval_loop,2}]}]]></code>
-    <p>The error information is handled by the <em>error logger</em>, a
-      system process registered as <c>error_logger</c>. This process
-      receives all error messages from the Erlang runtime system as
-      well as from the standard behaviours and different Erlang/OTP
-      applications.</p>
+    <p>The error information is handled by Logger, which is part of
+      the Kernel application.</p>
     <p>The exit reasons (such as <c>badarg</c>) used by
       the runtime system are described in
       <seealso marker="doc/reference_manual:errors#exit_reasons">
       Errors and Error Handling</seealso>.</p>
-    <p>For information about the process <c>error_logger</c> and its user
-      interface (with the same name), see the
-      <seealso marker="kernel:error_logger">error_logger(3)</seealso>
-      manual page in Kernel. The system can be configured so that
-      error information
-      is written to file or to tty, or both. In addition, user-defined
-      applications can send and format error information using
-      <c>error_logger</c>.</p>
+    <p>For information about Logger and its user
+      interface, see the
+      <seealso marker="kernel:logger">logger(3)</seealso>
+      manual page and
+      the <seealso marker="kernel:logger_chapter">Logging</seealso>
+      section in the Kernel User's Guide. The system can be configured so that
+      log events are
+      written to file or to tty, or both. In addition, user-defined
+      applications can send and format log events using
+      Logger.</p>
   </section>
 
   <section>
-    <title>SASL Error Logging</title>
+    <title>Log events from OTP behaviours</title>
     <p>The standard behaviours (<c>supervisor</c>, <c>gen_server</c>,
-      and so on) send progress and error information to <c>error_logger</c>.
-      If the SASL application is started, this information is
-      written to tty as well. For more information, see
+      and so on) send progress and error information to
+      Logger. Progress reports are by default not logged, but can be
+      enabled by setting the primary log level to <c>info</c>, for
+      example by using the Kernel configuration
+      parameter <c>logger_level</c>. Supervisor reports, crash reports
+      and other error and information reports are by default logged
+      through the log handler which is set up when the Kernel
+      application is started.</p>
+    <p>Prior to Erlang/OTP 21.0, supervisor, crash, and progress
+      reports were only logged when the SASL application was
+      running. This behaviour can, for backwards compatibility, be
+      enabled by setting the Kernel configuration
+      parameter <seealso marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seealso>
+      to <c>true</c>. For more information, see
       <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
       in the SASL User's Guide.</p>
     <pre>
-% <input>erl -boot start_sasl</input>
-Erlang (BEAM) emulator version 5.4.13 [hipe] [threads:0] [kernel-poll]
+% <input>erl -kernel logger_level info</input>
+Erlang/OTP 21 [erts-10.0] [source-13c50db] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [hipe]
 
-
-=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
-          supervisor: {local,sasl_safe_sup}
-             started: [{pid,&lt;0.33.0>},
-                       {name,alarm_handler},
-                       {mfa,{alarm_handler,start_link,[]}},
-                       {restart_type,permanent},
-                       {shutdown,2000},
-                       {child_type,worker}]
-
-=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
-          supervisor: {local,sasl_safe_sup}
-             started: [{pid,&lt;0.34.0>},
-                       {name,overload},
-                       {mfa,{overload,start_link,[]}},
-                       {restart_type,permanent},
-                       {shutdown,2000},
-                       {child_type,worker}]
-
-=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
-          supervisor: {local,sasl_sup}
-             started: [{pid,&lt;0.32.0>},
-                       {name,sasl_safe_sup},
-                       {mfa,{supervisor,
-                                start_link,
-                                [{local,sasl_safe_sup},sasl,safe]}},
-                       {restart_type,permanent},
-                       {shutdown,infinity},
-                       {child_type,supervisor}]
-
-=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
-          supervisor: {local,sasl_sup}
-             started: [{pid,&lt;0.35.0>},
-                       {name,release_handler},
-                       {mfa,{release_handler,start_link,[]}},
-                       {restart_type,permanent},
-                       {shutdown,2000},
-                       {child_type,worker}]
-
-=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
-         application: sasl
-          started_at: nonode@nohost
-Eshell V5.4.13  (abort with ^G)
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.916404 ===
+    application: kernel
+    started_at: nonode@nohost
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.922908 ===
+    application: stdlib
+    started_at: nonode@nohost
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.925755 ===
+    supervisor: {local,kernel_safe_sup}
+    started: [{pid,&lt;0.74.0>},
+              {id,disk_log_sup},
+              {mfargs,{disk_log_sup,start_link,[]}},
+              {restart_type,permanent},
+              {shutdown,1000},
+              {child_type,supervisor}]
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.926056 ===
+    supervisor: {local,kernel_safe_sup}
+    started: [{pid,&lt;0.75.0>},
+              {id,disk_log_server},
+              {mfargs,{disk_log_server,start_link,[]}},
+              {restart_type,permanent},
+              {shutdown,2000},
+              {child_type,worker}]
+Eshell V10.0  (abort with ^G)
 1> </pre>
   </section>
 </chapter>

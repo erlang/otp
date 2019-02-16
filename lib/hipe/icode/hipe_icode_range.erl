@@ -1633,7 +1633,7 @@ inf_bsl(_, pos_inf) -> neg_inf;
 inf_bsl(Number, neg_inf) when is_integer(Number), Number >= 0 -> 0;
 inf_bsl(_Number, neg_inf) -> -1;
 inf_bsl(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
-  %% We can not shift left with a number which is not a fixnum. We
+  %% We cannot shift left with a number which is not a fixnum. We
   %% don't have enough memory.
   Bits = ?BITS,
   if Number2 > (Bits bsl 1) -> inf_bsl(Number1, pos_inf);

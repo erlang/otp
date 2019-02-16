@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -168,6 +168,9 @@
 -type snmp_struct() :: [{atom(), snmp_type() | tuple_of(snmp_type())}].
 -type snmp_type() :: 'fix_string' | 'string' | 'integer'.
 -type tuple_of(_T) :: tuple().
+-type config_key() :: extra_db_nodes | dc_dump_limit.
+-type config_value() :: [node()] | number().
+-type config_result() :: {ok, config_value()} | {error, term()}.
 
 -define(DEFAULT_ACCESS, ?MODULE).
 
@@ -278,7 +281,8 @@ stop() ->
 	Other -> Other
     end.
 
--spec change_config(Config::atom(), Value::_) -> ok | {error, term()}.
+-spec change_config(Config::config_key(), Value::config_value()) ->
+	  config_result().
 change_config(extra_db_nodes, Ns) when is_list(Ns) ->
     mnesia_controller:connect_nodes(Ns);
 change_config(dc_dump_limit, N) when is_number(N), N > 0 ->
@@ -779,12 +783,16 @@ do_delete_object(Tid, Ts, Tab, Val, LockKind) ->
 		      ?ets_insert(Store, {Oid, Val, delete_object});
 		  _ ->
 		      case ?ets_match_object(Store, {Oid, '_', write}) of
-			  [] ->
-			      ?ets_match_delete(Store, {Oid, Val, '_'}),
-			      ?ets_insert(Store, {Oid, Val, delete_object});
-			  _  ->
-			      ?ets_delete(Store, Oid),
-			      ?ets_insert(Store, {Oid, Oid, delete})
+			      [] ->
+			          ?ets_match_delete(Store, {Oid, Val, '_'}),
+			          ?ets_insert(Store, {Oid, Val, delete_object});
+			      Ops  ->
+			          case lists:member({Oid, Val, write}, Ops) of
+			              true ->
+			                  ?ets_delete(Store, Oid),
+			                  ?ets_insert(Store, {Oid, Oid, delete});
+			              false -> ok
+			          end
 		      end
 	      end,
 	      ok;
@@ -830,18 +838,20 @@ read(Tid, Ts, Tab, Key, LockKind)
 	tid ->
 	    Store = Ts#tidstore.store,
 	    Oid = {Tab, Key},
-	    Objs =
-		case LockKind of
-		    read ->
-			mnesia_locker:rlock(Tid, Store, Oid);
-		    write ->
-			mnesia_locker:rwlock(Tid, Store, Oid);
-		    sticky_write ->
-			mnesia_locker:sticky_rwlock(Tid, Store, Oid);
-		    _ ->
-			abort({bad_type, Tab, LockKind})
-		end,
-	    add_written(?ets_lookup(Store, Oid), Tab, Objs);
+	    ObjsFun =
+                fun() ->
+                        case LockKind of
+                            read ->
+                                mnesia_locker:rlock(Tid, Store, Oid);
+                            write ->
+                                mnesia_locker:rwlock(Tid, Store, Oid);
+                            sticky_write ->
+                                mnesia_locker:sticky_rwlock(Tid, Store, Oid);
+                            _ ->
+                                abort({bad_type, Tab, LockKind})
+                        end
+                end,
+	    add_written(?ets_lookup(Store, Oid), Tab, ObjsFun, LockKind);
 	_Protocol ->
 	    dirty_read(Tab, Key)
     end;
@@ -1194,14 +1204,20 @@ add_previous(_Tid, Ts, _Type, Tab) ->
 %% This routine fixes up the return value from read/1 so that
 %% it is correct with respect to what this particular transaction
 %% has already written, deleted .... etc
+%% The actual read from the table is not done if not needed due to local
+%% transaction context, and if so, no extra read lock is needed either.
 
-add_written([], _Tab, Objs) ->
-    Objs;  % standard normal fast case
-add_written(Written, Tab, Objs) ->
+add_written([], _Tab, ObjsFun, _LockKind) ->
+    ObjsFun();  % standard normal fast case
+add_written(Written, Tab, ObjsFun, LockKind) ->
     case val({Tab, setorbag}) of
 	bag ->
-	    add_written_to_bag(Written, Objs, []);
+	    add_written_to_bag(Written, ObjsFun(), []);
+        _ when LockKind == read;
+               LockKind == write ->
+	    add_written_to_set(Written);
 	_   ->
+            _ = ObjsFun(),  % Fall back to request new lock and read from source
 	    add_written_to_set(Written)
     end.
 

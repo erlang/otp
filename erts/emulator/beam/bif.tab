@@ -40,7 +40,8 @@
 # Note: Guards BIFs usually require special support in the compiler.
 #
 
-gcbif erlang:abs/1
+
+ubif erlang:abs/1
 bif erlang:adler32/1
 bif erlang:adler32/2
 bif erlang:adler32_combine/3
@@ -65,7 +66,7 @@ bif erlang:exit/2
 bif erlang:exit_signal/2
 bif erlang:external_size/1
 bif erlang:external_size/2
-gcbif erlang:float/1
+ubif erlang:float/1
 bif erlang:float_to_list/1
 bif erlang:float_to_list/2
 bif erlang:fun_info/2
@@ -83,7 +84,7 @@ bif erlang:phash2/2
 ubif erlang:hd/1
 bif erlang:integer_to_list/1
 bif erlang:is_alive/0
-gcbif erlang:length/1
+ubif erlang:length/1
 bif erlang:link/1
 bif erlang:list_to_atom/1
 bif erlang:list_to_binary/1
@@ -132,10 +133,10 @@ bif erlang:processes/0
 bif erlang:put/2
 bif erlang:register/2
 bif erlang:registered/0
-gcbif erlang:round/1
+ubif erlang:round/1
 ubif erlang:self/0
 bif erlang:setelement/3
-gcbif erlang:size/1
+ubif erlang:size/1
 bif erlang:spawn/3
 bif erlang:spawn_link/3
 bif erlang:split_binary/2
@@ -145,7 +146,7 @@ bif erlang:term_to_binary/2
 bif erlang:throw/1
 bif erlang:time/0
 ubif erlang:tl/1
-gcbif erlang:trunc/1
+ubif erlang:trunc/1
 bif erlang:tuple_to_list/1
 bif erlang:universaltime/0
 bif erlang:universaltime_to_localtime/1
@@ -480,8 +481,8 @@ bif erlang:list_to_existing_atom/1
 #
 ubif erlang:is_bitstring/1
 ubif erlang:tuple_size/1
-gcbif erlang:byte_size/1
-gcbif erlang:bit_size/1
+ubif erlang:byte_size/1
+ubif erlang:bit_size/1
 bif erlang:list_to_bitstring/1
 bif erlang:bitstring_to_list/1
 
@@ -533,8 +534,8 @@ bif erlang:binary_to_term/2
 #
 # The searching/splitting/substituting thingies
 #
-gcbif erlang:binary_part/2
-gcbif erlang:binary_part/3
+ubif erlang:binary_part/2
+ubif erlang:binary_part/3
 
 bif binary:compile_pattern/1
 bif binary:match/2
@@ -622,14 +623,13 @@ bif io:printable_range/0
 bif re:inspect/2
 
 ubif erlang:is_map/1
-gcbif erlang:map_size/1
+ubif erlang:map_size/1
 bif maps:find/2
 bif maps:get/2
 bif maps:from_list/1
 bif maps:is_key/2
 bif maps:keys/1
 bif maps:merge/2
-bif maps:new/0
 bif maps:put/3
 bif maps:remove/2
 bif maps:update/3
@@ -671,8 +671,8 @@ bif maps:take/2
 # New in 20.0
 #
 
-gcbif erlang:floor/1
-gcbif erlang:ceil/1
+ubif erlang:floor/1
+ubif erlang:ceil/1
 bif math:floor/1
 bif math:ceil/1
 bif math:fmod/2
@@ -698,3 +698,43 @@ ubif erlang:map_get/2
 ubif erlang:is_map_key/2
 bif ets:internal_delete_all/2
 bif ets:internal_select_delete/2
+
+#
+# New in 21.2
+#
+
+bif persistent_term:put/2
+bif persistent_term:get/1
+bif persistent_term:get/0
+bif persistent_term:erase/1
+bif persistent_term:info/0
+bif erts_internal:erase_persistent_terms/0
+
+bif erts_internal:atomics_new/2
+bif atomics:get/2
+bif atomics:put/3
+bif atomics:add/3
+bif atomics:add_get/3
+bif atomics:exchange/3
+bif atomics:compare_exchange/4
+bif atomics:info/1
+
+bif erts_internal:counters_new/1
+bif erts_internal:counters_get/2
+bif erts_internal:counters_add/3
+bif erts_internal:counters_put/3
+bif erts_internal:counters_info/1
+
+#
+# New in 21.2.3
+#
+
+bif erts_internal:spawn_system_process/3
+
+#
+# New in 21.3
+#
+
+bif erlang:integer_to_list/2
+bif erlang:integer_to_binary/2
+bif persistent_term:get/2

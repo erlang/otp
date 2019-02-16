@@ -11,7 +11,7 @@
 <header>
 <copyright>
 <year>2011</year>
-<year>2017</year>
+<year>2018</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -42,6 +42,59 @@ Releases are listed in reverse chronological order, most recent
 first.</p>
 
 <!-- ===================================================================== -->
+
+<section><title>diameter 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix function_clause when sending an outgoing request
+	    after DPA has been sent in response to an incoming DPR.
+	    The caused the diameter_peer_fsm gen_server associated
+	    with the peer connection to fail, which could then result
+	    in the transport connection being reset before the peer
+	    closed it upon reception of DPA.</p>
+          <p>
+	    Own Id: OTP-15198 Aux Id: ERIERL-213 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix documentation typos.</p>
+          <p>
+	    Own Id: OTP-15045</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix failure of incoming answer message with faulty
+	    Experimental-Result-Code. Failure to decode the AVP
+	    resulted in an uncaught exception, with no no
+	    handle_answer/error callback as a consequence.</p>
+          <p>
+	    Own Id: OTP-15569 Aux Id: ERIERL-302 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>diameter 2.1.4</title>
 

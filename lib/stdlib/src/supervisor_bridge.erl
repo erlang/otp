@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ report_progress(Pid, Mod, StartArgs, SupName) ->
                 report=>[{supervisor, SupName},
                          {started, [{pid, Pid},
                                     {mfa, {Mod, init, [StartArgs]}}]}]},
-              #{domain=>[beam,erlang,otp,sasl],
+              #{domain=>[otp,sasl],
                 report_cb=>fun logger:format_otp_report/1,
                 logger_formatter=>#{title=>"PROGRESS REPORT"},
                 error_logger=>#{tag=>info_report,type=>progress}}).
@@ -146,7 +146,7 @@ report_error(Error, Reason, #state{name = Name, pid = Pid, mod = Mod}) ->
                           {errorContext, Error},
                           {reason, Reason},
                           {offender, [{pid, Pid}, {mod, Mod}]}]},
-               #{domain=>[beam,erlang,otp,sasl],
+               #{domain=>[otp,sasl],
                  report_cb=>fun logger:format_otp_report/1,
                  logger_formatter=>#{title=>"SUPERVISOR REPORT"},
                  error_logger=>#{tag=>error_report,type=>supervisor_report}}).

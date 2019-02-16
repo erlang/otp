@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
+-include("beam_ssa.hrl").
 -include("beam_disasm.hrl").
 
 -import(lists, [foreach/2]).
@@ -41,6 +42,12 @@ module(File, #k_mdef{}=Kern) ->
     %% This is a kernel module.
     io:put_chars(File, v3_kernel_pp:format(Kern));
     %%io:put_chars(File, io_lib:format("~p~n", [Kern]));
+module(File, #b_module{name=Mod,exports=Exp,attributes=Attr,body=Fs}) ->
+    io:format(File, "module ~p.\n", [Mod]),
+    io:format(File, "exports ~p.\n", [Exp]),
+    io:format(File, "attributes ~p.\n\n", [Attr]),
+    PP = [beam_ssa_pp:format_function(F) || F <- Fs],
+    io:put_chars(File, lists:join($\n, PP));
 module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
     %% This is output from v3_codegen.
     io:format(Stream, "{module, ~p}.  %% version = ~w\n",
@@ -59,7 +66,7 @@ module(Stream, [_|_]=Fs) ->
     foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Fs).
 
 format_asm([{label,L}|Is]) ->
-    ["  {label,",integer_to_list(L),"}.\n"|format_asm(Is)];
+    [io_lib:format("  {label,~p}.\n", [L])|format_asm(Is)];
 format_asm([I|Is]) ->
     [io_lib:format("    ~p", [I]),".\n"|format_asm(Is)];
 format_asm([]) -> [].

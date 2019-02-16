@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1998</year><year>2017</year>
+      <year>1998</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1998-04-16</date>
     <rev>A</rev>
   </header>
-  <module>seq_trace</module>
+  <module since="">seq_trace</module>
   <modulesummary>Sequential tracing of messages.</modulesummary>
   <description>
     <p>Sequential tracing makes it possible to trace all messages
@@ -51,7 +51,7 @@
   </datatypes>
   <funcs>
     <func>
-      <name name="set_token" arity="1"/>
+      <name name="set_token" arity="1" since=""/>
       <fsummary>Set the trace token</fsummary>
       <desc>
         <p>Sets the trace token for the calling process to <c><anno>Token</anno></c>.
@@ -71,7 +71,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name name="set_token" arity="2"/>
+      <name name="set_token" arity="2" since=""/>
       <fsummary>Set a component of the trace token</fsummary>
       <type name="component"/>
       <type name="flag"/>
@@ -158,7 +158,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name name="get_token" arity="0"/>
+      <name name="get_token" arity="0" since=""/>
       <fsummary>Return the value of the trace token</fsummary>
       <desc>
         <p>Returns the value of the trace token for the calling process.
@@ -169,7 +169,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name name="get_token" arity="1"/>
+      <name name="get_token" arity="1" since=""/>
       <fsummary>Return the value of a trace token component</fsummary>
       <type name="component"/>
       <type name="flag"/>
@@ -182,7 +182,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name name="print" arity="1"/>
+      <name name="print" arity="1" since=""/>
       <fsummary>Put the Erlang term <c>TraceInfo</c>into the sequential trace output</fsummary>
       <desc>
         <p>Puts the Erlang term <c><anno>TraceInfo</anno></c> into the sequential
@@ -192,7 +192,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name name="print" arity="2"/>
+      <name name="print" arity="2" since=""/>
       <fsummary>Put the Erlang term <c>TraceInfo</c>into the sequential trace output</fsummary>
       <desc>
         <p>Same as <c>print/1</c> with the additional condition that
@@ -201,7 +201,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name name="reset_trace" arity="0"/>
+      <name name="reset_trace" arity="0" since=""/>
       <fsummary>Stop all sequential tracing on the local node</fsummary>
       <desc>
         <p>Sets the trace token to empty for all processes on the
@@ -213,7 +213,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name name="set_system_tracer" arity="1"/>
+      <name name="set_system_tracer" arity="1" since=""/>
       <fsummary>Set the system tracer</fsummary>
       <type name="tracer"/>
       <desc>
@@ -227,7 +227,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name name="get_system_tracer" arity="0"/>
+      <name name="get_system_tracer" arity="0" since=""/>
       <fsummary>Return the pid() or port() of the current system tracer.</fsummary>
       <type name="tracer"/>
       <desc>

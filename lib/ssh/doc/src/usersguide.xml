@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2012</year><year>2016</year>
+      <year>2012</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,5 +36,6 @@
   </description>
   <xi:include href="introduction.xml"/>
   <xi:include href="using_ssh.xml"/>
+  <xi:include href="terminology.xml"/>
   <xi:include href="configure_algos.xml"/>
 </part>

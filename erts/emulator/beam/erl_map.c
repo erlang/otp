@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,15 +125,20 @@ BIF_RETTYPE map_size_1(BIF_ALIST_1) {
 	flatmap_t *mp = (flatmap_t*)flatmap_val(BIF_ARG_1);
 	BIF_RET(make_small(flatmap_get_size(mp)));
     } else if (is_hashmap(BIF_ARG_1)) {
-	Eterm *head, *hp, res;
-	Uint size, hsz=0;
+	Eterm *head;
+	Uint size;
 
 	head = hashmap_val(BIF_ARG_1);
 	size = head[1];
-	(void) erts_bld_uint(NULL, &hsz, size);
-	hp = HAlloc(BIF_P, hsz);
-	res = erts_bld_uint(&hp, NULL, size);
-	BIF_RET(res);
+
+        /*
+         * As long as a small has 28 bits (on a 32-bit machine) for
+         * the integer itself, it is impossible to build a map whose
+         * size would not fit in a small. Add an assertion in case we
+         * ever decreases the number of bits in a small.
+         */
+        ASSERT(IS_USMALL(0, size));
+        BIF_RET(make_small(size));
     }
 
     BIF_P->fvalue = BIF_ARG_1;
@@ -475,7 +480,7 @@ Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n,
 
 Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks0, Eterm *vs0, Uint n)
 {
-    if (n < MAP_SMALL_MAP_LIMIT) {
+    if (n <= MAP_SMALL_MAP_LIMIT) {
         Eterm *ks, *vs, *hp;
 	flatmap_t *mp;
 	Eterm keys;
@@ -1505,25 +1510,6 @@ int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp)
     return ap ? -1 : 1;
 }
 
-/* maps:new/0 */
-
-BIF_RETTYPE maps_new_0(BIF_ALIST_0) {
-    Eterm* hp;
-    Eterm tup;
-    flatmap_t *mp;
-
-    hp    = HAlloc(BIF_P, (MAP_HEADER_FLATMAP_SZ + 1));
-    tup   = make_tuple(hp);
-    *hp++ = make_arityval(0);
-
-    mp    = (flatmap_t*)hp;
-    mp->thing_word = MAP_HEADER_FLATMAP;
-    mp->size = 0;
-    mp->keys = tup;
-
-    BIF_RET(make_flatmap(mp));
-}
-
 /* maps:put/3 */
 
 BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
@@ -1707,11 +1693,16 @@ int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) 
 	return 0;
 
 found_key:
-	*hp++ = value;
-	vs++;
-	if (++i < n)
-	    sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
-	*res = make_flatmap(shp);
+        if(*vs == value) {
+            HRelease(p, shp + MAP_HEADER_FLATMAP_SZ + n, shp);
+            *res = map;
+        } else {
+	    *hp++ = value;
+	    vs++;
+	    if (++i < n)
+	       sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
+	    *res = make_flatmap(shp);
+        }
 	return 1;
     }
 
@@ -1767,9 +1758,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	if (is_immed(key)) {
 	    for( i = 0; i < n; i ++) {
 		if (ks[i] == key) {
-		    *hp++ = value;
-		    vs++;
-		    c = 1;
+                    goto found_key;
 		} else {
 		    *hp++ = *vs++;
 		}
@@ -1777,17 +1766,12 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	} else {
 	    for( i = 0; i < n; i ++) {
 		if (EQ(ks[i], key)) {
-		    *hp++ = value;
-		    vs++;
-		    c = 1;
+		    goto found_key;
 		} else {
 		    *hp++ = *vs++;
 		}
 	    }
 	}
-
-	if (c)
-	    return res;
 
 	/* the map will grow */
 
@@ -1843,6 +1827,18 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	 */
 	*shp = make_pos_bignum_header(0);
 	return res;
+
+found_key:
+        if(*vs == value) {
+            HRelease(p, shp + MAP_HEADER_FLATMAP_SZ + n, shp);
+            return map;
+        } else {
+            *hp++ = value;
+            vs++;
+            if (++i < n)
+               sys_memcpy(hp, vs, (n - i)*sizeof(Eterm));
+            return res;
+        }
     }
     ASSERT(is_hashmap(map));
 

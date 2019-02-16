@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp_target_mib.xml</file>
   </header>
-  <module>snmp_target_mib</module>
+  <module since="">snmp_target_mib</module>
   <modulesummary>Instrumentation Functions for SNMP-TARGET-MIB</modulesummary>
   <description>
     <p>The module <c>snmp_target_mib</c> implements the instrumentation
@@ -57,7 +57,7 @@
 
   <funcs>
     <func>
-      <name>configure(ConfDir) -> void()</name>
+      <name since="">configure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-TARGET-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -85,7 +85,7 @@
     </func>
 
     <func>
-      <name>reconfigure(ConfDir) -> void()</name>
+      <name since="">reconfigure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-TARGET-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -113,7 +113,7 @@
     </func>
 
     <func>
-      <name>set_target_engine_id(TargetAddrName, EngineId) -> boolean()</name>
+      <name since="">set_target_engine_id(TargetAddrName, EngineId) -> boolean()</name>
       <fsummary>Set the engine id for a targetAddr row.</fsummary>
       <type>
         <v>TargetAddrName = string()</v>
@@ -130,7 +130,7 @@
     </func>
 
     <func>
-      <name>add_addr(Name, Domain, Addr, Timeout, Retry, TagList, Params, EngineId, TMask, MMS) -> Ret</name>
+      <name since="">add_addr(Name, Domain, Addr, Timeout, Retry, TagList, Params, EngineId, TMask, MMS) -> Ret</name>
       <fsummary>Add one target address definition</fsummary>
       <type>
         <v>Name = string()</v>
@@ -156,7 +156,7 @@
     </func>
 
     <func>
-      <name>delete_addr(Key) -> Ret</name>
+      <name since="">delete_addr(Key) -> Ret</name>
       <fsummary>Delete one target address definition</fsummary>
       <type>
         <v>Key = term()</v>
@@ -171,7 +171,7 @@
     </func>
 
     <func>
-      <name>add_params(Name, MPModel, SecModel, SecName, SecLevel) -> Ret</name>
+      <name since="">add_params(Name, MPModel, SecModel, SecName, SecLevel) -> Ret</name>
       <fsummary>Add one target parameter definition</fsummary>
       <type>
         <v>Name = string()</v>
@@ -191,7 +191,7 @@
       </desc>
     </func>
     <func>
-      <name>delete_params(Key) -> Ret</name>
+      <name since="">delete_params(Key) -> Ret</name>
       <fsummary>Delete one target parameter definition</fsummary>
       <type>
         <v>Key = term()</v>

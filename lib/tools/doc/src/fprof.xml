@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>fprof.sgml</file>
   </header>
-  <module>fprof</module>
+  <module since="">fprof</module>
   <modulesummary>A Time Profiling Tool using trace to file for minimal runtime performance impact.</modulesummary>
   <description>
     <p>This module is used to profile a program
@@ -101,7 +101,7 @@
   </description>
   <funcs>
     <func>
-      <name>start() -> {ok, Pid} | {error, {already_started, Pid}}</name>
+      <name since="">start() -> {ok, Pid} | {error, {already_started, Pid}}</name>
       <fsummary>Starts the <c>fprof</c>&nbsp;server.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -117,14 +117,14 @@
       </desc>
     </func>
     <func>
-      <name>stop() -> ok</name>
+      <name since="">stop() -> ok</name>
       <fsummary>Same as <c>stop(normal)</c>.</fsummary>
       <desc>
         <p>Same as <c>stop(normal)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>stop(Reason) -> ok</name>
+      <name since="">stop(Reason) -> ok</name>
       <fsummary>Stops the <c>fprof</c>&nbsp;server.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -149,7 +149,7 @@
       </desc>
     </func>
     <func>
-      <name>apply(Func, Args) -> term()</name>
+      <name since="">apply(Func, Args) -> term()</name>
       <fsummary>Same as <c>apply(Func, Args, [])</c>.</fsummary>
       <type>
         <v>Func = function() | {Module, Function}</v>
@@ -162,7 +162,7 @@
       </desc>
     </func>
     <func>
-      <name>apply(Module, Function, Args) -> term()</name>
+      <name since="">apply(Module, Function, Args) -> term()</name>
       <fsummary>Same as <c>apply({Module, Function}, Args, [])</c>.</fsummary>
       <type>
         <v>Args = [term()]</v>
@@ -174,7 +174,7 @@
       </desc>
     </func>
     <func>
-      <name>apply(Func, Args, OptionList) -> term()</name>
+      <name since="">apply(Func, Args, OptionList) -> term()</name>
       <fsummary>Calls <c>erlang:apply(Func, Args)</c>surrounded by<c>trace([start | OptionList])</c>and<c>trace(stop)</c>.</fsummary>
       <type>
         <v>Func = function() | {Module, Function}</v>
@@ -210,7 +210,7 @@
       </desc>
     </func>
     <func>
-      <name>apply(Module, Function, Args, OptionList) -> term()</name>
+      <name since="">apply(Module, Function, Args, OptionList) -> term()</name>
       <fsummary>Same as <c>apply({Module, Function}, Args, OptionList)</c>.</fsummary>
       <type>
         <v>Module = atom()</v>
@@ -228,7 +228,7 @@
       </desc>
     </func>
     <func>
-      <name>trace(start, Filename) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">trace(start, Filename) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>trace([start, {file, Filename}])</c>.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -238,7 +238,7 @@
       </desc>
     </func>
     <func>
-      <name>trace(verbose, Filename) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">trace(verbose, Filename) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>trace([start, verbose, {file, Filename}])</c>.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -249,7 +249,7 @@
       </desc>
     </func>
     <func>
-      <name>trace(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">trace(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>trace([{OptionName, OptionValue}])</c>.</fsummary>
       <type>
         <v>OptionName = atom()</v>
@@ -262,7 +262,7 @@
       </desc>
     </func>
     <func>
-      <name>trace(verbose) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">trace(verbose) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>trace([start, verbose])</c>.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -272,7 +272,7 @@
       </desc>
     </func>
     <func>
-      <name>trace(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">trace(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>trace([OptionName])</c>.</fsummary>
       <type>
         <v>OptionName = atom()</v>
@@ -283,7 +283,7 @@
       </desc>
     </func>
     <func>
-      <name>trace({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">trace({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>trace([{OptionName, OptionValue}])</c>.</fsummary>
       <type>
         <v>OptionName = atom()</v>
@@ -296,7 +296,7 @@
       </desc>
     </func>
     <func>
-      <name>trace([Option]) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">trace([Option]) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Starts or stops tracing.</fsummary>
       <type>
         <v>Option = start | stop | {procs, PidSpec} | {procs, [PidSpec]} | verbose | {verbose, bool()} |  file | {file, Filename} | {tracer, Tracer}</v>
@@ -360,7 +360,7 @@
       </desc>
     </func>
     <func>
-      <name>profile() -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">profile() -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>profile([])</c>.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -370,7 +370,7 @@
       </desc>
     </func>
     <func>
-      <name>profile(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">profile(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>profile([{OptionName, OptionValue}])</c>.</fsummary>
       <type>
         <v>OptionName = atom()</v>
@@ -383,7 +383,7 @@
       </desc>
     </func>
     <func>
-      <name>profile(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">profile(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>profile([OptionName])</c>.</fsummary>
       <type>
         <v>OptionName = atom()</v>
@@ -394,7 +394,7 @@
       </desc>
     </func>
     <func>
-      <name>profile({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">profile({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>profile([{OptionName, OptionValue}])</c>.</fsummary>
       <type>
         <v>OptionName = atom()</v>
@@ -407,7 +407,7 @@
       </desc>
     </func>
     <func>
-      <name>profile([Option]) -> ok | {ok, Tracer} | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">profile([Option]) -> ok | {ok, Tracer} | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Compiles a trace into raw profile data held by the <c>fprof</c>&nbsp;server.</fsummary>
       <type>
         <v>Option = file | {file, Filename} | dump | {dump, Dump} |  append | start | stop</v>
@@ -465,7 +465,7 @@
       </desc>
     </func>
     <func>
-      <name>analyse() -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">analyse() -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>analyse([])</c>.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -475,7 +475,7 @@
       </desc>
     </func>
     <func>
-      <name>analyse(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">analyse(OptionName, OptionValue) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>analyse([{OptionName, OptionValue}])</c>.</fsummary>
       <type>
         <v>OptionName = atom()</v>
@@ -488,7 +488,7 @@
       </desc>
     </func>
     <func>
-      <name>analyse(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">analyse(OptionName) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>analyse([OptionName])</c>.</fsummary>
       <type>
         <v>OptionName = atom()</v>
@@ -499,7 +499,7 @@
       </desc>
     </func>
     <func>
-      <name>analyse({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">analyse({OptionName, OptionValue}) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Same as <c>analyse([{OptionName, OptionValue}])</c>.</fsummary>
       <type>
         <v>OptionName = atom()</v>
@@ -512,7 +512,7 @@
       </desc>
     </func>
     <func>
-      <name>analyse([Option]) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
+      <name since="">analyse([Option]) -> ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</name>
       <fsummary>Analyses raw profile data in the <c>fprof</c>&nbsp;server.</fsummary>
       <type>
         <v>Option = dest | {dest, Dest} | append | {cols, Cols} |  callers | {callers, bool()} | no_callers | {sort, SortSpec} | totals | {totals, bool()} |  details | {details, bool()} | no_details</v>

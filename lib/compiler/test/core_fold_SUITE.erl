@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 	 mixed_matching_clauses/1,unnecessary_building/1,
 	 no_no_file/1,configuration/1,supplies/1,
          redundant_stack_frame/1,export_from_case/1,
-         empty_values/1]).
+         empty_values/1,cover_letrec_effect/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -37,7 +37,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -49,10 +48,11 @@ groups() ->
        mixed_matching_clauses,unnecessary_building,
        no_no_file,configuration,supplies,
        redundant_stack_frame,export_from_case,
-       empty_values]}].
+       empty_values,cover_letrec_effect]}].
 
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -212,9 +212,14 @@ bifs(Config) when is_list(Config) ->
     {ok,#{K:=V}} = id(list_to_tuple([ok,#{K=>V}])),
     ok.
 
--define(CMP_SAME(A0, B), (fun(A) -> true = A == B, false = A /= B end)(id(A0))).
--define(CMP_DIFF(A0, B), (fun(A) -> false = A == B, true = A /= B end)(id(A0))).
-	       
+-define(CMP_SAME0(A0, B), (fun(A) -> true = A == B, false = A /= B end)(id(A0))).
+-define(CMP_SAME1(A0, B), (fun(A) -> false = A /= B, true = A == B end)(id(A0))).
+-define(CMP_SAME(A0, B), (true = ?CMP_SAME0(A0, B) =:= not ?CMP_SAME1(A0, B))).
+
+-define(CMP_DIFF0(A0, B), (fun(A) -> false = A == B, true = A /= B end)(id(A0))).
+-define(CMP_DIFF1(A0, B), (fun(A) -> true = A /= B, false = A == B end)(id(A0))).
+-define(CMP_DIFF(A0, B), (true = ?CMP_DIFF0(A0, B) =:= not ?CMP_DIFF1(A0, B))).
+
 eq(Config) when is_list(Config) ->
     ?CMP_SAME([a,b,c], [a,b,c]),
     ?CMP_SAME([42.0], [42.0]),
@@ -278,6 +283,8 @@ coverage(Config) when is_list(Config) ->
     a = cover_remove_non_vars_alias({a,b,c}),
     error = cover_will_match_lit_list(),
     {ok,[a]} = cover_is_safe_bool_expr(a),
+    false = cover_is_safe_bool_expr2(a),
+    ok = cover_eval_is_function(fun id/1),
 
     ok = cover_opt_guard_try(#cover_opt_guard_try{list=[a]}),
     error = cover_opt_guard_try(#cover_opt_guard_try{list=[]}),
@@ -341,12 +348,27 @@ cover_is_safe_bool_expr(X) ->
 	    false
     end.
 
+cover_is_safe_bool_expr2(X) ->
+    try
+	V = [X],
+    is_function(V, 1)
+    catch
+	_:_ ->
+	    false
+    end.
+
 cover_opt_guard_try(Msg) ->
     if
 	length(Msg#cover_opt_guard_try.list) =/= 1 ->
 	    error;
 	true ->
 	    ok
+    end.
+
+cover_eval_is_function(X) ->
+    case X of
+        {a,_} -> is_function(X);
+        _ -> ok
     end.
 
 bsm_an_inlined(<<_:8>>, _) -> ok;
@@ -356,7 +378,7 @@ unused_multiple_values_error(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Dir = test_lib:get_data_dir(Config),
     Core = filename:join(Dir, "unused_multiple_values_error"),
-    Opts = [no_copt,clint,return,from_core,{outdir,PrivDir}
+    Opts = [no_copt,clint,ssalint,return,from_core,{outdir,PrivDir}
 	   |test_lib:opt_opts(?MODULE)],
     {error,[{unused_multiple_values_error,
 	     [{none,core_lint,{return_mismatch,{hello,1}}}]}],
@@ -480,7 +502,7 @@ source(true, Activities) ->
 	    Activities
     end.
 
-tim(#{reduction := Emergency}) ->
+tim(#{reduction := _Emergency}) ->
     try
 	fun() -> surgery end
     catch
@@ -598,5 +620,25 @@ empty_values(_Config) ->
 do_empty_values() when (#{})#{} ->
     c.
 
+cover_letrec_effect(_Config) ->
+    self() ! {tag,42},
+    _ = try
+            try
+                ignore
+            after
+                receive
+                    {tag,Int}=Term ->
+                        Res = #{k => {Term,<<Int:16>>}},
+                        self() ! Res
+                end
+            end
+        after
+            ok
+        end,
+    receive
+        Any ->
+            #{k := {{tag,42},<<42:16>>}} = Any
+    end,
+    ok.
 
 id(I) -> I.

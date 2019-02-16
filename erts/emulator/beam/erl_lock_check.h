@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ Eterm erts_lc_dump_graph(void);
 
 #define erts_lc_lock(lck) erts_lc_lock_x(lck,__FILE__,__LINE__)
 #define erts_lc_trylock(res,lck) erts_lc_trylock_x(res,lck,__FILE__,__LINE__)
-#define erts_lc_lock_flg(lck) erts_lc_lock_flg_x(lck,__FILE__,__LINE__)
-#define erts_lc_trylock_flg(res,lck) erts_lc_trylock_flg_x(res,lck,__FILE__,__LINE__)
+#define erts_lc_lock_flg(lck,flg) erts_lc_lock_flg_x(lck,flg,__FILE__,__LINE__)
+#define erts_lc_trylock_flg(res,lck,flg) erts_lc_trylock_flg_x(res,lck,flg,__FILE__,__LINE__)
 
 #endif /* #ifndef ERTS_LOCK_CHECK_H__ */

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>dbg.sgml</file>
   </header>
-  <module>dbg</module>
+  <module since="">dbg</module>
   <modulesummary>The Text Based Trace Facility</modulesummary>
   <description>
     <p>This module implements a text based interface to the
@@ -68,7 +68,7 @@
   </description>
   <funcs>
     <func>
-      <name>fun2ms(LiteralFun) -> MatchSpec</name>
+      <name since="">fun2ms(LiteralFun) -> MatchSpec</name>
       <fsummary>Pseudo function that transforms fun syntax to match_spec.</fsummary>
       <type>
         <v>LiteralFun = fun() literal</v>
@@ -113,7 +113,7 @@
         <p>The imported variables will be replaced by match_spec
           <c>const</c> expressions, which is consistent with the
           static scoping for Erlang <c>fun()</c>s. Local or global
-          function calls can not be in the guard or body of the fun
+          function calls cannot be in the guard or body of the fun
           however. Calls to builtin match_spec functions of course is
           allowed:</p>
         <pre>
@@ -145,14 +145,14 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>h() -> ok </name>
+      <name since="">h() -> ok </name>
       <fsummary>Give a list of available help items on standard output.</fsummary>
       <desc>
         <p>Gives a list of items for brief online help.</p>
       </desc>
     </func>
     <func>
-      <name>h(Item) -> ok </name>
+      <name since="">h(Item) -> ok </name>
       <fsummary>Give brief help for an item.</fsummary>
       <type>
         <v>Item = atom()</v>
@@ -163,14 +163,14 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>p(Item) -> {ok, MatchDesc} | {error, term()} </name>
+      <name since="">p(Item) -> {ok, MatchDesc} | {error, term()} </name>
       <fsummary>Trace messages to and from Item.</fsummary>
       <desc>
         <p>Equivalent to <c>p(Item, [m])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>p(Item, Flags) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="">p(Item, Flags) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Trace Item according to Flags.</fsummary>
       <type>
         <v>MatchDesc = [MatchNum]</v>
@@ -303,14 +303,14 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>c(Mod, Fun, Args)</name>
+      <name since="">c(Mod, Fun, Args)</name>
       <fsummary>Evaluate <c>apply(M,F,Args)</c>with <c>all</c>trace flags set.</fsummary>
       <desc>
         <p>Equivalent to <c>c(Mod, Fun, Args, all)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>c(Mod, Fun, Args, Flags)</name>
+      <name since="">c(Mod, Fun, Args, Flags)</name>
       <fsummary>Evaluate <c>apply(M,F,Args)</c>with <c>Flags</c>trace flags set.</fsummary>
       <desc>
         <p>Evaluates the expression <c>apply(Mod, Fun, Args)</c> with the trace
@@ -319,35 +319,35 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>i() -> ok</name>
+      <name since="">i() -> ok</name>
       <fsummary>Display information about all traced processes and ports.</fsummary>
       <desc>
         <p>Displays information about all traced processes and ports.</p>
       </desc>
     </func>
     <func>
-      <name>tp(Module,MatchSpec)</name>
+      <name since="">tp(Module,MatchSpec)</name>
       <fsummary>Set pattern for traced global function calls</fsummary>
       <desc>
         <p>Same as tp({Module, '_', '_'}, MatchSpec)</p>
       </desc>
     </func>
     <func>
-      <name>tp(Module,Function,MatchSpec)</name>
+      <name since="">tp(Module,Function,MatchSpec)</name>
       <fsummary>Set pattern for traced global function calls</fsummary>
       <desc>
         <p>Same as tp({Module, Function, '_'}, MatchSpec)</p>
       </desc>
     </func>
     <func>
-      <name>tp(Module, Function, Arity, MatchSpec)</name>
+      <name since="">tp(Module, Function, Arity, MatchSpec)</name>
       <fsummary>Set pattern for traced global function calls</fsummary>
       <desc>
         <p>Same as tp({Module, Function, Arity}, MatchSpec)</p>
       </desc>
     </func>
     <func>
-      <name>tp({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="">tp({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Set pattern for traced global function calls</fsummary>
       <type>
         <v>Module = atom() | '_'</v>
@@ -410,28 +410,28 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>tpl(Module,MatchSpec)</name>
+      <name since="">tpl(Module,MatchSpec)</name>
       <fsummary>Set pattern for traced local (as well as global) function calls</fsummary>
       <desc>
         <p>Same as tpl({Module, '_', '_'}, MatchSpec)</p>
       </desc>
     </func>
     <func>
-      <name>tpl(Module,Function,MatchSpec)</name>
+      <name since="">tpl(Module,Function,MatchSpec)</name>
       <fsummary>Set pattern for traced local (as well as global) function calls</fsummary>
       <desc>
         <p>Same as tpl({Module, Function, '_'}, MatchSpec)</p>
       </desc>
     </func>
     <func>
-      <name>tpl(Module, Function, Arity, MatchSpec)</name>
+      <name since="">tpl(Module, Function, Arity, MatchSpec)</name>
       <fsummary>Set pattern for traced local (as well as global) function calls</fsummary>
       <desc>
         <p>Same as tpl({Module, Function, Arity}, MatchSpec)</p>
       </desc>
     </func>
     <func>
-      <name>tpl({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="">tpl({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Set pattern for traced local (as well as global) function calls</fsummary>
       <desc>
           <p>This function works as <seealso marker="#tp-2"><c>tp/2</c></seealso>, but enables
@@ -442,7 +442,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
 
 
     <func>
-      <name>tpe(Event, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="OTP 19.0">tpe(Event, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Set pattern for traced event</fsummary>
       <type>
 	<v>Event = send | 'receive'</v>
@@ -484,35 +484,35 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>ctp()</name>
+      <name since="">ctp()</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctp({'_', '_', '_'})</p>
       </desc>
     </func>
     <func>
-      <name>ctp(Module)</name>
+      <name since="">ctp(Module)</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctp({Module, '_', '_'})</p>
       </desc>
     </func>
     <func>
-      <name>ctp(Module, Function)</name>
+      <name since="">ctp(Module, Function)</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctp({Module, Function, '_'})</p>
       </desc>
     </func>
     <func>
-      <name>ctp(Module, Function, Arity)</name>
+      <name since="">ctp(Module, Function, Arity)</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctp({Module, Function, Arity})</p>
       </desc>
     </func>
     <func>
-      <name>ctp({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="">ctp({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <type>
         <v>Module = atom() | '_'</v>
@@ -533,35 +533,35 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>ctpl()</name>
+      <name since="">ctpl()</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctpl({'_', '_', '_'})</p>
       </desc>
     </func>
     <func>
-      <name>ctpl(Module)</name>
+      <name since="">ctpl(Module)</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctpl({Module, '_', '_'})</p>
       </desc>
     </func>
     <func>
-      <name>ctpl(Module, Function)</name>
+      <name since="">ctpl(Module, Function)</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctpl({Module, Function, '_'})</p>
       </desc>
     </func>
     <func>
-      <name>ctpl(Module, Function, Arity)</name>
+      <name since="">ctpl(Module, Function, Arity)</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctpl({Module, Function, Arity})</p>
       </desc>
     </func>
     <func>
-      <name>ctpl({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="">ctpl({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
           <p>This function works as <seealso marker="#ctp-1"><c>ctp/1</c></seealso>, but only disables
@@ -570,35 +570,35 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>ctpg()</name>
+      <name since="">ctpg()</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctpg({'_', '_', '_'})</p>
       </desc>
     </func>
     <func>
-      <name>ctpg(Module)</name>
+      <name since="">ctpg(Module)</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctpg({Module, '_', '_'})</p>
       </desc>
     </func>
     <func>
-      <name>ctpg(Module, Function)</name>
+      <name since="">ctpg(Module, Function)</name>
       <fsummary>>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctpg({Module, Function, '_'})</p>
       </desc>
     </func>
     <func>
-      <name>ctpg(Module, Function, Arity)</name>
+      <name since="">ctpg(Module, Function, Arity)</name>
       <fsummary>>Clear call trace pattern for the specified functions</fsummary>
       <desc>
         <p>Same as ctpg({Module, Function, Arity})</p>
       </desc>
     </func>
     <func>
-      <name>ctpg({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="">ctpg({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
           <p>This function works as <seealso marker="#ctp-1"><c>ctp/1</c></seealso>, but only disables
@@ -607,7 +607,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>ctpe(Event) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="OTP 19.0">ctpe(Event) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Clear trace pattern for the specified event</fsummary>
       <type>
         <v>Event = send | 'receive'</v>
@@ -623,7 +623,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>ltp() -> ok</name>
+      <name since="">ltp() -> ok</name>
       <fsummary>List saved and built-in match specifications on the console.</fsummary>
       <desc>
         <p>Use this function to recall all match specifications previously
@@ -654,7 +654,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>dtp() -> ok</name>
+      <name since="">dtp() -> ok</name>
       <fsummary>Delete all saved match specifications.</fsummary>
       <desc>
         <p>Use this function to "forget" all match specifications
@@ -665,7 +665,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>dtp(N) -> ok</name>
+      <name since="">dtp(N) -> ok</name>
       <fsummary>Delete a specific saved match_spec.</fsummary>
       <type>
         <v>N = integer()</v>
@@ -676,7 +676,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>wtp(Name) -> ok | {error, IOError}</name>
+      <name since="">wtp(Name) -> ok | {error, IOError}</name>
       <fsummary>Write all saved and built-in match specifications to a file</fsummary>
       <type>
         <v>Name = string()</v>
@@ -699,7 +699,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>rtp(Name) -> ok | {error, Error}</name>
+      <name since="">rtp(Name) -> ok | {error, Error}</name>
       <fsummary>Read saved match specifications from file.</fsummary>
       <type>
         <v>Name = string()</v>
@@ -728,7 +728,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>n(Nodename) -> {ok, Nodename} | {error, Reason}</name>
+      <name since="">n(Nodename) -> {ok, Nodename} | {error, Reason}</name>
       <fsummary>Add a remote node to the list of traced nodes</fsummary>
       <type>
         <v>Nodename = atom()</v>
@@ -756,7 +756,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           <c>cant_add_local_node</c> is returned.
           </p>
         <p>If a trace port (see <seealso marker="#trace_port-2"><c>trace_port/2</c></seealso>) is
-          running on the local node, remote nodes can not be traced with
+          running on the local node, remote nodes cannot be traced with
           a tracer process. The error reason
           <c>cant_trace_remote_pid_to_local_port</c> is returned. A
           trace port can however be started on the remote node with the
@@ -767,7 +767,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>cn(Nodename) -> ok</name>
+      <name since="">cn(Nodename) -> ok</name>
       <fsummary>Clear a node from the list of traced nodes.</fsummary>
       <type>
         <v>Nodename = atom()</v>
@@ -782,14 +782,14 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>ln() -> ok</name>
+      <name since="">ln() -> ok</name>
       <fsummary>Show the list of traced nodes on the console.</fsummary>
       <desc>
         <p>Shows the list of traced nodes on the console.</p>
       </desc>
     </func>
     <func>
-      <name>tracer() -> {ok, pid()} | {error, already_started}</name>
+      <name since="">tracer() -> {ok, pid()} | {error, already_started}</name>
       <fsummary>Start a tracer server that handles trace messages.</fsummary>
       <desc>
         <p>This function starts a server on the local node that will
@@ -805,7 +805,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>tracer(Type, Data) -> {ok, pid()} | {error, Error}</name>
+      <name since="">tracer(Type, Data) -> {ok, pid()} | {error, Error}</name>
       <fsummary>Start a tracer server with additional parameters</fsummary>
       <type>
         <v>Type = port | process | module</v>
@@ -859,7 +859,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>tracer(Nodename, Type, Data) -> {ok, Nodename} | {error, Reason}</name>
+      <name since="">tracer(Nodename, Type, Data) -> {ok, Nodename} | {error, Reason}</name>
       <fsummary>Start a tracer server on given node with additional parameters</fsummary>
       <type>
         <v>Nodename = atom()</v>
@@ -881,7 +881,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>trace_port(Type, Parameters) -> fun()</name>
+      <name since="">trace_port(Type, Parameters) -> fun()</name>
       <fsummary>Create and returns a trace port generating<em>fun</em></fsummary>
       <type>
         <v>Type = ip | file</v>
@@ -958,28 +958,28 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>flush_trace_port()</name>
+      <name since="">flush_trace_port()</name>
       <fsummary>Equivalent to flush_trace_port(node()).</fsummary>
       <desc>
         <p>Equivalent to <c>flush_trace_port(node())</c>.</p>
       </desc>
     </func>
     <func>
-      <name>flush_trace_port(Nodename) -> ok | {error, Reason}</name>
+      <name since="">flush_trace_port(Nodename) -> ok | {error, Reason}</name>
       <fsummary>Flush internal data buffers in a trace driver on the given node.</fsummary>
       <desc>
         <p>Equivalent to <c>trace_port_control(Nodename,flush)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>trace_port_control(Operation)</name>
+      <name since="">trace_port_control(Operation)</name>
       <fsummary>Equivalent to trace_port_control(node(),Operation).</fsummary>
       <desc>
         <p>Equivalent to <c>trace_port_control(node(),Operation)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>trace_port_control(Nodename,Operation) ->  ok | {ok, Result} | {error, Reason}</name>
+      <name since="">trace_port_control(Nodename,Operation) ->  ok | {ok, Result} | {error, Reason}</name>
       <fsummary>Perform a control operation on the active trace port driver on the given node.</fsummary>
       <type>
         <v>Nodename = atom()</v>
@@ -1013,7 +1013,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>trace_client(Type, Parameters) -> pid()</name>
+      <name since="">trace_client(Type, Parameters) -> pid()</name>
       <fsummary>Start a trace client that reads messages created by a trace port driver</fsummary>
       <type>
         <v>Type = ip | file | follow_file</v>
@@ -1080,7 +1080,7 @@ hello</pre>
       </desc>
     </func>
     <func>
-      <name>trace_client(Type, Parameters, HandlerSpec) -> pid()</name>
+      <name since="">trace_client(Type, Parameters, HandlerSpec) -> pid()</name>
       <fsummary>Start a trace client that reads messages created by a trace port driver, with a user defined handler</fsummary>
       <type>
         <v>Type = ip | file | follow_file</v>
@@ -1110,7 +1110,7 @@ hello</pre>
       </desc>
     </func>
     <func>
-      <name>stop_trace_client(Pid) -> ok</name>
+      <name since="">stop_trace_client(Pid) -> ok</name>
       <fsummary>Stop a trace client gracefully.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -1123,14 +1123,14 @@ hello</pre>
       </desc>
     </func>
     <func>
-      <name>get_tracer()</name>
+      <name since="">get_tracer()</name>
       <fsummary>Equivalent to get_tracer(node()).</fsummary>
       <desc>
         <p>Equivalent to <c>get_tracer(node())</c>.</p>
       </desc>
     </func>
     <func>
-      <name>get_tracer(Nodename) -> {ok, Tracer}</name>
+      <name since="">get_tracer(Nodename) -> {ok, Tracer}</name>
       <fsummary>Return the process or port to which all trace messages are sent.</fsummary>
       <type>
         <v>Nodename = atom()</v>
@@ -1142,7 +1142,7 @@ hello</pre>
       </desc>
     </func>
     <func>
-      <name>stop() -> ok</name>
+      <name since="">stop() -> ok</name>
       <fsummary>Stop the <c>dbg</c>server and the tracing of all processes.</fsummary>
       <desc>
         <p>Stops the <c>dbg</c> server and clears all trace flags for
@@ -1153,7 +1153,7 @@ hello</pre>
       </desc>
     </func>
     <func>
-      <name>stop_clear() -> ok</name>
+      <name since="">stop_clear() -> ok</name>
       <fsummary>Stop the <c>dbg</c>server and the tracing of all processes, and clears trace patterns.</fsummary>
       <desc>
         <p>Same as stop/0, but also clears all trace patterns on global functions calls.</p>

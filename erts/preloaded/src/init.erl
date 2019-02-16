@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -199,12 +199,6 @@ stop_1(Status) -> init ! {stop,{stop,Status}}, ok.
 boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
-
-    %% Load the static nifs
-    zlib:on_load(),
-    erl_tracer:on_load(),
-    prim_buffer:on_load(),
-    prim_file:on_load(),
 
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     %% We don't get to profile parsing of BootArgs
@@ -485,7 +479,7 @@ do_handle_msg(Msg,State) ->
 	X ->
 	    case whereis(user) of
 		undefined ->
-		    Time = erlang:monotonic_time(microsecond),
+		    Time = erlang:system_time(microsecond),
                     catch logger ! {log, info, "init got unexpected: ~p", [X],
                                     #{pid=>self(),
                                       gl=>self(),
@@ -552,6 +546,7 @@ stop(Reason,State) ->
 do_stop(restart,#state{start = Start, flags = Flags, args = Args}) ->
     %% Make sure we don't have any outstanding messages before doing the restart.
     flush(),
+    erts_internal:erase_persistent_terms(),
     boot(Start,Flags,Args);
 do_stop(reboot,_) ->
     halt();

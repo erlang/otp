@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -113,6 +113,7 @@
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
         <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
+        <c><![CDATA[bit_size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
         <c><![CDATA['*']]></c> | <c><![CDATA['div']]></c> |
@@ -194,6 +195,7 @@
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
         <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
+        <c><![CDATA[bit_size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
         <c><![CDATA['*']]></c> | <c><![CDATA['div']]></c> |
@@ -269,8 +271,9 @@
             other <c>false</c> to return <c><![CDATA[true]]></c>; otherwise
             <c><![CDATA['xor']]></c> returns false.</p>
         </item>
-        <tag><c>abs</c>, <c>element</c>, <c>hd</c>, <c>length</c>, <c>node</c>,
-          <c>round</c>, <c>size</c>, <c>tl</c>, <c>trunc</c>, <c>'+'</c>,
+        <tag><c>abs</c>, <c>element</c>, <c>hd</c>, <c>length</c>,
+          <c>map_get</c>, <c>map_size</c>, <c>node</c>, <c>round</c>,
+          <c>size</c>, <c>bit_size</c>, <c>tl</c>, <c>trunc</c>, <c>'+'</c>,
           <c>'-'</c>, <c>'*'</c>, <c>'div'</c>, <c>'rem'</c>, <c>'band'</c>,
           <c>'bor'</c>, <c>'bxor'</c>, <c>'bnot'</c>, <c>'bsl'</c>,
           <c>'bsr'</c>, <c>'>'</c>, <c>'>='</c>, <c>'&lt;'</c>, <c>'=&lt;'</c>,

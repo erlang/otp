@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2017</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -384,8 +384,8 @@ export ERL_COMPILER_OPTIONS=bin_opt_info]]></code>
     <p>The warnings look as follows:</p>
 
   <code type="erl"><![CDATA[
-./efficiency_guide.erl:60: Warning: NOT OPTIMIZED: sub binary is used or returned
-./efficiency_guide.erl:62: Warning: OPTIMIZED: creation of sub binary delayed]]></code>
+./efficiency_guide.erl:60: Warning: NOT OPTIMIZED: binary is returned from the function
+./efficiency_guide.erl:62: Warning: OPTIMIZED: match context reused]]></code>
 
     <p>To make it clearer exactly what code the warnings refer to, the
     warnings in the following examples are inserted as comments
@@ -393,10 +393,10 @@ export ERL_COMPILER_OPTIONS=bin_opt_info]]></code>
 
   <code type="erl"><![CDATA[
 after_zero(<<0,T/binary>>) ->
-         %% NOT OPTIMIZED: sub binary is used or returned
+         %% BINARY CREATED: binary is returned from the function
     T;
 after_zero(<<_,T/binary>>) ->
-         %% OPTIMIZED: creation of sub binary delayed
+         %% OPTIMIZED: match context reused
     after_zero(T);
 after_zero(<<>>) ->
     <<>>.]]></code>

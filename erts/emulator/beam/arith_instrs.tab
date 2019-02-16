@@ -19,21 +19,22 @@
 // %CopyrightEnd%
 //
 
-OUTLINED_ARITH_2(Fail, Live, Name, BIF, Op1, Op2, Dst) {
+OUTLINED_ARITH_2(Fail, Name, BIF, Op1, Op2, Dst) {
     Eterm result;
-    Uint live = $Live;
-    HEAVY_SWAPOUT;
-    reg[live] = $Op1;
-    reg[live+1] = $Op2;
-    result = erts_gc_$Name (c_p, reg, live);
-    HEAVY_SWAPIN;
+#ifdef DEBUG
+    Eterm* orig_htop = HTOP;
+    Eterm* orig_stop = E;
+#endif
+    DEBUG_SWAPOUT;
+    result = erts_$Name (c_p, $Op1, $Op2);
+    DEBUG_SWAPIN;
+    ASSERT(orig_htop == HTOP && orig_stop == E);
     ERTS_HOLE_CHECK(c_p);
     if (ERTS_LIKELY(is_value(result))) {
-        $REFRESH_GEN_DEST();
         $Dst = result;
         $NEXT0();
     }
-    $BIF_ERROR_ARITY_2($Fail, $BIF, reg[live], reg[live+1]);
+    $BIF_ERROR_ARITY_2($Fail, $BIF, $Op1, $Op2);
 }
 
 
@@ -48,7 +49,7 @@ plus.fetch(Op1, Op2) {
     PlusOp2 = $Op2;
 }
 
-plus.execute(Fail, Live, Dst) {
+plus.execute(Fail, Dst) {
     if (ERTS_LIKELY(is_both_small(PlusOp1, PlusOp2))) {
         Sint i = signed_val(PlusOp1) + signed_val(PlusOp2);
         if (ERTS_LIKELY(IS_SSMALL(i))) {
@@ -56,7 +57,7 @@ plus.execute(Fail, Live, Dst) {
             $NEXT0();
         }
     }
-    $OUTLINED_ARITH_2($Fail, $Live, mixed_plus, BIF_splus_2, PlusOp1, PlusOp2, $Dst);
+    $OUTLINED_ARITH_2($Fail, mixed_plus, BIF_splus_2, PlusOp1, PlusOp2, $Dst);
 }
 
 i_minus := minus.fetch.execute;
@@ -70,7 +71,7 @@ minus.fetch(Op1, Op2) {
     MinusOp2 = $Op2;
 }
 
-minus.execute(Fail, Live, Dst) {
+minus.execute(Fail, Dst) {
     if (ERTS_LIKELY(is_both_small(MinusOp1, MinusOp2))) {
         Sint i = signed_val(MinusOp1) - signed_val(MinusOp2);
         if (ERTS_LIKELY(IS_SSMALL(i))) {
@@ -78,7 +79,7 @@ minus.execute(Fail, Live, Dst) {
             $NEXT0();
         }
     }
-    $OUTLINED_ARITH_2($Fail, $Live, mixed_minus, BIF_sminus_2, MinusOp1, MinusOp2, $Dst);
+    $OUTLINED_ARITH_2($Fail, mixed_minus, BIF_sminus_2, MinusOp1, MinusOp2, $Dst);
 }
 
 i_increment := increment.fetch.execute;
@@ -91,9 +92,8 @@ increment.fetch(Src) {
     increment_reg_val = $Src;
 }
 
-increment.execute(IncrementVal, Live, Dst) {
+increment.execute(IncrementVal, Dst) {
     Eterm increment_val = $IncrementVal;
-    Uint live;
     Eterm result;
 
     if (ERTS_LIKELY(is_small(increment_reg_val))) {
@@ -103,15 +103,9 @@ increment.execute(IncrementVal, Live, Dst) {
             $NEXT0();
         }
     }
-    live = $Live;
-    HEAVY_SWAPOUT;
-    reg[live] = increment_reg_val;
-    reg[live+1] = make_small(increment_val);
-    result = erts_gc_mixed_plus(c_p, reg, live);
-    HEAVY_SWAPIN;
+    result = erts_mixed_plus(c_p, increment_reg_val, make_small(increment_val));
     ERTS_HOLE_CHECK(c_p);
     if (ERTS_LIKELY(is_value(result))) {
-        $REFRESH_GEN_DEST();
         $Dst = result;
         $NEXT0();
     }
@@ -119,19 +113,19 @@ increment.execute(IncrementVal, Live, Dst) {
     goto find_func_info;
 }
 
-i_times(Fail, Live, Op1, Op2, Dst) {
+i_times(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
-    $OUTLINED_ARITH_2($Fail, $Live, mixed_times, BIF_stimes_2, op1, op2, $Dst);
+    $OUTLINED_ARITH_2($Fail, mixed_times, BIF_stimes_2, op1, op2, $Dst);
 }
 
-i_m_div(Fail, Live, Op1, Op2, Dst) {
+i_m_div(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
-    $OUTLINED_ARITH_2($Fail, $Live, mixed_div, BIF_div_2, op1, op2, $Dst);
+    $OUTLINED_ARITH_2($Fail, mixed_div, BIF_div_2, op1, op2, $Dst);
 }
 
-i_int_div(Fail, Live, Op1, Op2, Dst) {
+i_int_div(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
     if (ERTS_UNLIKELY(op2 == SMALL_ZERO)) {
@@ -144,7 +138,7 @@ i_int_div(Fail, Live, Op1, Op2, Dst) {
             $NEXT0();
         }
     }
-    $OUTLINED_ARITH_2($Fail, $Live, int_div, BIF_intdiv_2, op1, op2, $Dst);
+    $OUTLINED_ARITH_2($Fail, int_div, BIF_intdiv_2, op1, op2, $Dst);
 }
 
 i_rem := rem.fetch.execute;
@@ -158,7 +152,7 @@ rem.fetch(Src1, Src2) {
     RemOp2 = $Src2;
 }
 
-rem.execute(Fail, Live, Dst) {
+rem.execute(Fail, Dst) {
     if (ERTS_UNLIKELY(RemOp2 == SMALL_ZERO)) {
         c_p->freason = BADARITH;
         $BIF_ERROR_ARITY_2($Fail, BIF_rem_2, RemOp1, RemOp2);
@@ -166,7 +160,7 @@ rem.execute(Fail, Live, Dst) {
         $Dst = make_small(signed_val(RemOp1) % signed_val(RemOp2));
         $NEXT0();
     } else {
-        $OUTLINED_ARITH_2($Fail, $Live, int_rem, BIF_rem_2, RemOp1, RemOp2, $Dst);
+        $OUTLINED_ARITH_2($Fail, int_rem, BIF_rem_2, RemOp1, RemOp2, $Dst);
     }
 }
 
@@ -181,7 +175,7 @@ band.fetch(Src1, Src2) {
     BandOp2 = $Src2;
 }
 
-band.execute(Fail, Live, Dst) {
+band.execute(Fail, Dst) {
     if (ERTS_LIKELY(is_both_small(BandOp1, BandOp2))) {
         /*
          * No need to untag -- TAG & TAG == TAG.
@@ -189,10 +183,10 @@ band.execute(Fail, Live, Dst) {
         $Dst = BandOp1 & BandOp2;
         $NEXT0();
     }
-    $OUTLINED_ARITH_2($Fail, $Live, band, BIF_band_2, BandOp1, BandOp2, $Dst);
+    $OUTLINED_ARITH_2($Fail, band, BIF_band_2, BandOp1, BandOp2, $Dst);
 }
 
-i_bor(Fail, Live, Src1, Src2, Dst) {
+i_bor(Fail, Src1, Src2, Dst) {
     if (ERTS_LIKELY(is_both_small($Src1, $Src2))) {
         /*
          * No need to untag -- TAG | TAG == TAG.
@@ -200,10 +194,10 @@ i_bor(Fail, Live, Src1, Src2, Dst) {
         $Dst = $Src1 | $Src2;
         $NEXT0();
     }
-    $OUTLINED_ARITH_2($Fail, $Live, bor, BIF_bor_2, $Src1, $Src2, $Dst);
+    $OUTLINED_ARITH_2($Fail, bor, BIF_bor_2, $Src1, $Src2, $Dst);
 }
 
-i_bxor(Fail, Live, Src1, Src2, Dst) {
+i_bxor(Fail, Src1, Src2, Dst) {
     if (ERTS_LIKELY(is_both_small($Src1, $Src2))) {
         /*
          * TAG ^ TAG == 0.
@@ -214,7 +208,7 @@ i_bxor(Fail, Live, Src1, Src2, Dst) {
         $Dst = ($Src1 ^ $Src2) | make_small(0);
         $NEXT0();
     }
-    $OUTLINED_ARITH_2($Fail, $Live, bxor, BIF_bxor_2, $Src1, $Src2, $Dst);
+    $OUTLINED_ARITH_2($Fail, bxor, BIF_bxor_2, $Src1, $Src2, $Dst);
 }
 
 i_bsl := shift.setup_bsl.execute;
@@ -265,7 +259,7 @@ shift.setup_bsl(Src1, Src2) {
     }
 }
 
-shift.execute(Fail, Live, Dst) {
+shift.execute(Fail, Dst) {
     Uint big_words_needed;
 
     if (ERTS_LIKELY(is_small(Op1))) {
@@ -320,7 +314,9 @@ shift.execute(Fail, Live, Dst) {
         }
         {
             Eterm tmp_big[2];
-            Sint big_need_size = BIG_NEED_SIZE(big_words_needed+1);
+            Sint big_need_size = 1 + BIG_NEED_SIZE(big_words_needed+1);
+            Eterm* hp;
+            Eterm* hp_end;
 
             /*
              * Slightly conservative check the size to avoid
@@ -331,15 +327,16 @@ shift.execute(Fail, Live, Dst) {
             if (big_need_size-8 > BIG_ARITY_MAX) {
                 $SYSTEM_LIMIT($Fail);
             }
-            $GC_TEST_PRESERVE(big_need_size+1, $Live, Op1);
+            hp = HeapFragOnlyAlloc(c_p, big_need_size);
             if (is_small(Op1)) {
                 Op1 = small_to_big(signed_val(Op1), tmp_big);
             }
-            Op1 = big_lshift(Op1, shift_left_count, HTOP);
+            Op1 = big_lshift(Op1, shift_left_count, hp);
+            hp_end = hp + big_need_size;
             if (is_big(Op1)) {
-                HTOP += bignum_header_arity(*HTOP) + 1;
+                hp += bignum_header_arity(*hp) + 1;
             }
-            HEAP_SPACE_VERIFIED(0);
+            HRelease(c_p, hp_end, hp);
             if (ERTS_UNLIKELY(is_nil(Op1))) {
                 /*
                  * This result must have been only slighty larger
@@ -349,7 +346,6 @@ shift.execute(Fail, Live, Dst) {
                 $SYSTEM_LIMIT($Fail);
             }
             ERTS_HOLE_CHECK(c_p);
-            $REFRESH_GEN_DEST();
             $Dst = Op1;
             $NEXT0();
         }
@@ -366,31 +362,28 @@ shift.execute(Fail, Live, Dst) {
         reg[0] = Op1;
         reg[1] = Op2;
         SWAPOUT;
-        if (IsOpCode(I[0], i_bsl_ssjtd)) {
+        if (IsOpCode(I[0], i_bsl_ssjd)) {
             I = handle_error(c_p, I, reg, &bif_export[BIF_bsl_2]->info.mfa);
         } else {
-            ASSERT(IsOpCode(I[0], i_bsr_ssjtd));
+            ASSERT(IsOpCode(I[0], i_bsr_ssjd));
             I = handle_error(c_p, I, reg, &bif_export[BIF_bsr_2]->info.mfa);
         }
         goto post_error_handling;
     }
 }
 
-i_int_bnot(Fail, Src, Live, Dst) {
+i_int_bnot(Fail, Src, Dst) {
     Eterm bnot_val = $Src;
+    Eterm result;
+
     if (ERTS_LIKELY(is_small(bnot_val))) {
-        bnot_val = make_small(~signed_val(bnot_val));
+        result = make_small(~signed_val(bnot_val));
     } else {
-        Uint live = $Live;
-        HEAVY_SWAPOUT;
-        reg[live] = bnot_val;
-        bnot_val = erts_gc_bnot(c_p, reg, live);
-        HEAVY_SWAPIN;
+        result = erts_bnot(c_p, bnot_val);
         ERTS_HOLE_CHECK(c_p);
-        if (ERTS_UNLIKELY(is_nil(bnot_val))) {
-            $BIF_ERROR_ARITY_1($Fail, BIF_bnot_1, reg[live]);
+        if (ERTS_UNLIKELY(is_nil(result))) {
+            $BIF_ERROR_ARITY_1($Fail, BIF_bnot_1, bnot_val);
         }
-        $REFRESH_GEN_DEST();
     }
-    $Dst = bnot_val;
+    $Dst = result;
 }

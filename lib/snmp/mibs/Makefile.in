@@ -41,14 +41,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/snmp-$(VSN)
 # Common macros
 # ----------------------------------------------------
 
-# NOTE: 
-#    The OTP-REG mib actually belongs to another
-#    application (otp_mibs), and is exported by this
-#    app. But since that app is built later, we have 
-#    to built it here in order to be able to build 
-#    OTP-SNMPEA-MIB (that needs otpModules and
-#    otpApplications).
-MIBS_A = \
+MIBS = \
 	RFC1213-MIB \
 	STANDARD-MIB \
 	SNMPv2-TM \
@@ -62,16 +55,10 @@ MIBS_A = \
 	SNMP-VIEW-BASED-ACM-MIB \
 	SNMP-USM-AES-MIB \
 	INET-ADDRESS-MIB \
-	TRANSPORT-ADDRESS-MIB
-
-MIBS_B = OTP-SNMPEA-MIB
-
-BUILD_MIBS = \
-	$(MIBS_A) \
+	TRANSPORT-ADDRESS-MIB \
 	OTP-REG \
-	$(MIBS_B)
-
-MIBS = $(MIBS_A) $(MIBS_B)
+	OTP-TC \
+	OTP-SNMPEA-MIB
 
 STD_v1_MIB_FILES = \
 	RFC1155-SMI.mib \
@@ -100,8 +87,8 @@ HRL_FILES = $(SNMP_HRL_TARGET_DIR)/SNMPv2-TC.hrl \
 
 TARGET_FILES = \
 	$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 \
-	$(BUILD_MIBS:%=$(SNMP_BIN_TARGET_DIR)/%.bin) \
-	$(HRL_TARGETS)  \
+	$(MIBS:%=$(SNMP_BIN_TARGET_DIR)/%.bin) \
+	$(HRL_TARGETS) \
 	$(V1_MIB_FILES)
 
 
@@ -136,20 +123,17 @@ endif
 # Targets
 # ----------------------------------------------------
 
-OTP_MIBDIR = $(shell if test -d ../../otp_mibs; then echo otp_mibs; \
-		      else echo sasl; fi)
-
 debug opt: $(TARGET_FILES)
 
 $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1: $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1.src
 	$(gen_verbose)$(PERL) -p -e 's?%PERL%?$(PERL)? ' < $< > $@
 	$(V_at)chmod 755 $@
 
-$(SNMP_BIN_TARGET_DIR)/OTP-REG.bin:	$(ERL_TOP)/lib/$(OTP_MIBDIR)/mibs/OTP-REG.mib
-	$(snmp_verbose)$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
-
 # To support parallel make, we'll need explicit dependencies
 # to ensure that an imported MIB has been compiled when it's needed.
+
+$(SNMP_BIN_TARGET_DIR)/OTP-TC.bin: \
+	$(SNMP_BIN_TARGET_DIR)/OTP-REG.bin
 
 $(SNMP_BIN_TARGET_DIR)/STANDARD-MIB.bin: \
 	$(SNMP_BIN_TARGET_DIR)/RFC1213-MIB.bin
@@ -207,8 +191,6 @@ info:
 	@echo "HRL_TARGETS     = $(HRL_TARGETS)"
 	@echo ""
 	@echo "TARGET_FILES = $(TARGET_FILES)"
-	@echo ""
-	@echo "OTP_MIBDIR   = $(OTP_MIBDIR)"
 	@echo ""
 	@echo "SNMP_VSN    = $(SNMP_VSN)"
 	@echo "VSN         = $(VSN)"

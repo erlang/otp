@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -86,30 +86,27 @@
           <c>RELDIR</c> is used. By default, this is
           <c>$OTP_ROOT/releases</c>.</p>
       </item>
-      <tag><c><![CDATA[utc_log = true | false ]]></c></tag>
-      <item>
-        <p>If set to <c>true</c>, all dates in textual log outputs are
-          displayed in Universal Coordinated Time with the string
-          <c>UTC</c> appended.</p>
-      </item>
     </taglist>
   </section>
 
   <section>
+    <marker id="deprecated_error_logger_config"/>
     <title>Deprecated Error Logger Event Handlers and Configuration</title>
-    <p>In OTP-21, a new API for logging was added to Erlang/OTP. The
+    <p>In Erlang/OTP 21.0, a new API for logging was added. The
       old <c>error_logger</c> event manager, and event handlers
-      running on this manager, will still work, but they are not used
+      running on this manager, still work, but they are not used
       by default.</p>
     <p>The error logger event handlers <c>sasl_report_tty_h</c>
-      and <c>sasl_report_file_h</c>, were earliger used for printing
+      and <c>sasl_report_file_h</c>, were earlier used for printing
       the so called SASL reports, i.e. <em>supervisor
       reports</em>, <em>crash reports</em>, and <em>progress
-      reports</em>. These reports are now also printed by the standard
+      reports</em>. These reports are now also printed by the default
       logger handler started by the Kernel application. Progress
-      reports are by default stopped by a filter, but can easily be
-      added by setting the Kernel configuration
-      parameter <seealso marker="kernel:kernel_app#logger_log_progress"><c>logger_log_progress=true</c></seealso>.</p>
+      reports are by default stopped by the primary log level, but can
+      be enabled by setting this level to <c>info</c>, for example by
+      using the Kernel configuration
+      parameter <seealso marker="kernel:kernel_app#logger_level">
+      <c>logger_level</c></seealso>.</p>
     <p>If the old error logger event handlers are still desired, they
       must be added by
       calling <c>error_logger:add_report_handler/1,2</c>.</p>
@@ -119,34 +116,29 @@
         <p>Formats and writes <em>supervisor reports</em>, <em>crash
         reports</em>, and <em>progress reports</em> to <c>stdio</c>.
         This error logger event handler uses
-	<seealso marker="kernel:kernel_app#logger_format_depth"><c>logger_format_depth</c></seealso>
+	<seealso marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seealso>
 	in the Kernel application to limit how much detail is printed
-	in crash and supervisor reports. If <c>logger_format_depth</c>
-	is not set, it uses the old <c>error_logger_format_depth</c>
-	instead.</p>
+	in crash and supervisor reports.</p>
       </item>
       <tag><c>sasl_report_file_h</c></tag>
       <item>
         <p>Formats and writes <em>supervisor reports</em>, <em>crash
         report</em>, and <em>progress report</em> to a single file.
         This error logger event handler uses
-	<seealso marker="kernel:kernel_app#logger_format_depth"><c>logger_format_depth</c></seealso>
+	<seealso marker="kernel:kernel_app#deprecated-configuration-parameters"><c>error_logger_format_depth</c></seealso>
 	in the Kernel application to limit the details printed in
-	crash and supervisor reports. If <c>logger_format_depth</c> is
-	not set, it uses the old <c>error_logger_format_depth</c>
-	instead.</p>
+	crash and supervisor reports.</p>
       </item>
     </taglist>
     <p>A similar behaviour, but still using the new logger API, can be
       obtained by setting the Kernel application environment
-      variable <seealso marker="kernel:kernel_app#logger_sasl_compatible"><c>logger_sasl_compatible=true</c></seealso>. This will add a
-      second instance of the standard logger handler
-      named <c>sasl_h</c>, which will only print the SASL reports. No
-      SASL reports will then be printed by the Kernel logger
-      handler.</p>
-    <p>The <c>sasl_h</c> handler will be configured according to the
-      values of the following SASL application environment
-      variables.</p>
+      variable <seealso marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seealso> to <c>true</c>. This
+      adds a second instance of the standard Logger handler,
+      named <c>sasl</c>, which only prints the SASL reports. No SASL
+      reports are then printed by the Kernel logger handler.</p>
+    <p>The <c>sasl</c> handler is configured according to the values
+      of the following SASL application environment variables.</p>
     <taglist>
       <tag><c><![CDATA[sasl_error_logger = Value ]]></c></tag>
       <item>
@@ -178,6 +170,12 @@
         <p>Restricts the error logging performed by the specified
           <c>sasl_error_logger</c> to error reports or progress reports,
           or both. Default is <c>all</c>.</p>
+      </item>
+      <tag><marker id="utc_log"/><c><![CDATA[utc_log = true | false ]]></c></tag>
+      <item>
+        <p>If set to <c>true</c>, all dates in textual log outputs are
+          displayed in Universal Coordinated Time with the string
+          <c>UTC</c> appended.</p>
       </item>
     </taglist>
 
@@ -222,6 +220,7 @@
     <title>See Also</title>
     <p><seealso marker="alarm_handler"><c>alarm_handler(3)</c></seealso>,
       <seealso marker="kernel:error_logger"><c>error_logger(3)</c></seealso>,
+      <seealso marker="kernel:logger"><c>logger(3)</c></seealso>,
       <seealso marker="stdlib:log_mf_h"><c>log_mf_h(3)</c></seealso>,
       <seealso marker="rb"><c>rb(3)</c></seealso>,
       <seealso marker="release_handler"><c>release_handler(3)</c></seealso>,

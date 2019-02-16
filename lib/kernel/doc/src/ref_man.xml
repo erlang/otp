@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,9 +32,11 @@
 
   </description>
   <xi:include href="kernel_app.xml"/>
+  <xi:include href="app.xml"/>
   <xi:include href="application.xml"/>
   <xi:include href="auth.xml"/>
   <xi:include href="code.xml"/>
+  <xi:include href="config.xml"/>
   <xi:include href="disk_log.xml"/>
   <xi:include href="erl_boot_server.xml"/>
   <xi:include href="erl_ddll.xml"/>
@@ -67,6 +69,4 @@
   <xi:include href="user.xml"/>
   <xi:include href="wrap_log_reader.xml"/>
   <xi:include href="zlib_stub.xml"/>
-  <xi:include href="app.xml"/>
-  <xi:include href="config.xml"/>
 </application>

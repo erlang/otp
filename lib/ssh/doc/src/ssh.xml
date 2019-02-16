@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>2007-10-06</date>
     <rev></rev>
   </header>
-  <module>ssh</module>
+  <module since="">ssh</module>
   <modulesummary>Main API of the ssh application</modulesummary>
   <description>
     <p>This is the interface module for the <c>SSH</c> application.
@@ -46,7 +46,7 @@
     In that encrypted connection one or more channels could be opened with
     <seealso marker="ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</seealso>.
     </p>
-    <p>Each channel is an isolated "pipe" between a client-side process and a server-side process. Thoose process
+    <p>Each channel is an isolated "pipe" between a client-side process and a server-side process. Those process
     pairs could handle for example file transfers (sftp) or remote command execution (shell, exec and/or cli).
     If a custom shell is implemented, the user of the client could execute the special commands remotely. Note that
     the user is not necessarily a human but probably a system interfacing the SSH app.
@@ -99,8 +99,8 @@
     </p>
 
     <p>The paths could easily be changed by options:
-    <seealso marker="#type-user_dir_common_option"><c>user_dir</c></seealso> and
-    <seealso marker="#type-system_dir_daemon_option"><c>system_dir</c></seealso>.
+    <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso> and
+    <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>.
     </p>
     <p>A completly different storage could be interfaced by writing call-back modules
     using the behaviours
@@ -123,12 +123,12 @@
 	  <item><c>ssh_host_ecdsa_key</c> and <c>ssh_host_ecdsa_key.pub</c></item>
 	</list>
 	<p>The host keys directory could be changed with the option 
-	<seealso marker="#type-system_dir_daemon_option"><c>system_dir</c></seealso>.</p>
+	<seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>.</p>
 	</item>
 	<item>Optional: one or more <i>User's public key</i> in case of <c>publickey</c> authorization.
 	Default is to store them concatenated in the file <c>.ssh/authorized_keys</c> in the user's home directory.
 	<p>The user keys directory could be changed with the option 
-	<seealso marker="#type-user_dir_common_option"><c>user_dir</c></seealso>.</p>
+	<seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>.</p>
 	</item>
       </list>
     </section>
@@ -138,7 +138,7 @@
       <p>The keys and some other data are by default stored in files in the directory <c>.ssh</c>
       in the user's home directory.</p>
       <p>The directory could be changed with the option 
-      <seealso marker="#type-user_dir_common_option"><c>user_dir</c></seealso>.
+      <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>.
       </p>
       <list>
 	<item>Optional: a list of <i>Host public key(s)</i> for previously connected hosts. This list
@@ -183,31 +183,6 @@
     </datatype>
 
     <datatype>
-      <name name="pref_public_key_algs_client_option"/>
-      <desc>
-        <p>List of user (client) public key algorithms to try to use.</p>
-	<p>The default value is the <c>public_key</c> entry in the list returned by
-	<seealso marker="#default_algorithms/0">ssh:default_algorithms/0</seealso>.
-	</p>
-	<p>If there is no public key of a specified type available, the corresponding entry is ignored.
-	Note that the available set is dependent on the underlying cryptolib and current user's public keys.
-	</p>
-        <p>See also the option <seealso marker="#type-user_dir_common_option"><c>user_dir</c></seealso>
-        for specifying the path to the user's keys.
-	</p>
-      </desc>
-    </datatype>
-
-    <datatype>
-      <name name="pubkey_passphrase_client_options"/>
-      <desc>
-	<p>If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
-	supplied with thoose options.
-	</p>
-      </desc>
-    </datatype>
-
-    <datatype>
       <name name="host_accepting_client_options"/>
       <name name="accept_hosts"/>
       <name name="fp_digest_alg"/>
@@ -220,7 +195,7 @@
             <p>This option guides the <c>connect</c> function on how to act when the connected server presents a Host 
             Key that the client has not seen before. The default is to ask the user with a question on stdio of whether to
             accept or reject the new Host Key.
-            See the option <seealso marker="#type-user_dir_common_option"><c>user_dir</c></seealso>
+            See the option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
             for specifying the path to the file <c>known_hosts</c> where previously accepted Host Keys are recorded.
 	    See also the option 
 	    <seealso marker="#type-key_cb_common_option">key_cb</seealso>
@@ -276,7 +251,7 @@
 	    accept question the next time the same host is connected. If the option
 	    <seealso marker="#type-key_cb_common_option"><c>key_cb</c></seealso>
 	    is not present, the key is saved in the file "known_hosts". See option
-	    <seealso marker="#type-user_dir_common_option"><c>user_dir</c></seealso> for
+	    <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso> for
 	    the location of that file.
 	    </p>
 	    <p>If <c>false</c>, the key is not saved and the key will still be unknown
@@ -406,9 +381,20 @@
 
     <datatype>
       <name name="exec_daemon_option"/>
+      <name name="exec_spec"/>
+      <desc/>
+    </datatype>
+    <datatype>
+      <name name="exec_fun"/>
+      <desc/>
+    </datatype>
+    <datatype>
       <name name="'exec_fun/1'"/>
       <name name="'exec_fun/2'"/>
       <name name="'exec_fun/3'"/>
+      <desc/>
+    </datatype>
+    <datatype>
       <name name="exec_result"/>
       <desc>
 	<p>This option changes how the daemon execute exec-requests from clients. The term in the return value
@@ -478,18 +464,6 @@
       <name name="pwdfun_4"/>
       <desc>
 	<taglist>
-          <tag><marker id="type-system_dir_daemon_option"/><c>system_dir</c></tag>
-          <item>
-            <p>Sets the system directory, containing the host key files
-            that identify the host keys for <c>ssh</c>. Defaults to
-            <c>/etc/ssh</c>.</p>
-	    <p>For security reasons, this directory is normally accessible only to the root user.</p>
-	    <p>See also the option 
-	    <seealso marker="#type-key_cb_common_option">key_cb</seealso>
-	    for the general way to handle keys.
-	    </p>
-	  </item>
-
 	  <tag><c>auth_method_kb_interactive_data</c></tag>
 	  <item>
 	    <p>Sets the text strings that the daemon sends to the client for presentation to the user when
@@ -502,7 +476,7 @@
 	    </p>
           </item>
 
-	  <tag><c>user_passwords</c></tag>
+	  <tag><marker id="option-user_passwords"/><c>user_passwords</c></tag>
 	  <item>
             <p>Provides passwords for password authentication. The passwords are used when someone tries
 	    to connect to the server and public key user-authentication fails. The option provides
@@ -510,7 +484,7 @@
 	    </p>
           </item>
 
-          <tag><c>password</c></tag>
+          <tag><marker id="option-password"/><c>password</c></tag>
           <item>
             <p>Provides a global password that authenticates any user.</p>
 	    <warning>
@@ -519,7 +493,9 @@
 	    </warning>
 	  </item>
 
-	  <tag><c>pwdfun</c> with <c>pwdfun_4()</c></tag>
+	  <tag><marker id="option-pwdfun"/><c>pwdfun</c> with 
+	  <seealso marker="#type-pwdfun_4"><c>pwdfun_4()</c></seealso>
+	  </tag>
 	  <item>
 	    <p>Provides a function for password validation. This could used for calling an external system or handeling
 	    passwords stored as hash values.
@@ -546,7 +522,9 @@
 	    can be used for this. The return value <c>disconnect</c> is useful for this.</p>
 	  </item>
 
-	  <tag><c>pwdfun</c> with <c>pwdfun_2()</c></tag>
+	  <tag><c>pwdfun</c> with
+	  <seealso marker="#type-pwdfun_2"><c>pwdfun_2()</c></seealso>
+	  </tag>
 	  <item>
 	    <p>Provides a function for password validation. This function is called with user and password
 	    as strings, and returns:</p>
@@ -725,21 +703,6 @@
     </datatype>
 
     <datatype>
-      <name name="user_dir_common_option"/>
-      <desc>
-	<p>Sets the user directory. That is, the directory containing <c>ssh</c> configuration
-	files for the user, such as 
-	<c>known_hosts</c>, <c>id_rsa</c>, <c>id_dsa</c>>, <c>id_ecdsa</c> and <c>authorized_key</c>.
-	Defaults to the directory normally referred to as <c>~/.ssh</c>.
-	</p>
-	<p>See also the option 
-	<seealso marker="#type-key_cb_common_option">key_cb</seealso>
-	for the general way to handle keys.
-	</p>
-      </desc>
-    </datatype>
-
-    <datatype>
       <name name="profile_common_option"/>
       <desc>
 	<p>Used together with <c>ip-address</c> and <c>port</c> to
@@ -795,7 +758,8 @@
 	</p>
 	<p>The <c>Opts</c> defaults to <c>[]</c> when only the <c>Module</c> is specified.
 	</p>
-	<p>The default value of this option is <c>{ssh_file, []}</c>.
+	<p>The default value of this option is <c>{ssh_file, []}</c>. See also the manpage of
+	<seealso marker="ssh:ssh_file">ssh_file</seealso>.
 	</p>
 	<p>A call to the call-back function <c>F</c> will be</p>
 	<code>
@@ -804,9 +768,28 @@
 	<p>where <c>...</c> are arguments to <c>F</c> as in 
 	<seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and/or
 	<seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
-	The <c>UserOptions</c> are the options given to <c>ssh:connect</c>, <c>ssh:shell</c> or <c>ssh:daemon</c>.
+	The <c>UserOptions</c> are the options given to 
+	<seealso marker="ssh:ssh#connect-3">ssh:connect</seealso>,
+	<seealso marker="ssh:ssh#shell-1">ssh:shell</seealso> or
+	<seealso marker="ssh:ssh#daemon-2">ssh:daemon</seealso>.
 	</p>
 
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="pref_public_key_algs_common_option"/>
+      <desc>
+        <p>List of user (client) public key algorithms to try to use.</p>
+	<p>The default value is the <c>public_key</c> entry in the list returned by
+	<seealso marker="#default_algorithms/0">ssh:default_algorithms/0</seealso>.
+	</p>
+	<p>If there is no public key of a specified type available, the corresponding entry is ignored.
+	Note that the available set is dependent on the underlying cryptolib and current user's public keys.
+	</p>
+        <p>See also the option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+        for specifying the path to the user's keys.
+	</p>
       </desc>
     </datatype>
 
@@ -1076,17 +1059,17 @@
 
 <!-- CLOSE/1 -->
    <func>
-     <name name="close" arity="1"/>
+     <name name="close" arity="1" since=""/>
       <fsummary>Closes an SSH connection.</fsummary>
       <desc><p>Closes an SSH connection.</p></desc>
     </func>
     
 <!-- CONNECT/2 etc -->
    <func>
-     <name>connect(Host, Port, Options) -> Result </name>
-     <name>connect(Host, Port, Options, NegotiationTimeout) -> Result </name>
-     <name>connect(TcpSocket, Options) -> Result</name>
-     <name>connect(TcpSocket, Options, NegotiationTimeout) -> Result</name>
+     <name since="">connect(Host, Port, Options) -> Result </name>
+     <name since="">connect(Host, Port, Options, NegotiationTimeout) -> Result </name>
+     <name since="OTP 19.0">connect(TcpSocket, Options) -> Result</name>
+     <name since="">connect(TcpSocket, Options, NegotiationTimeout) -> Result</name>
      <fsummary>Connects to an SSH server.</fsummary>
      <type>
        <v>Host = <seealso marker="#type-host">host()</seealso></v>
@@ -1115,7 +1098,7 @@
 
 <!-- CONNECTION_INFO/1, CONNECTION_INFO/2 -->
    <func>
-     <name name="connection_info" arity="2"/>
+     <name name="connection_info" arity="2" since=""/>
      <fsummary>Retrieves information about a connection.</fsummary>
      <desc>
        <p>Retrieves information about a connection. The list <c>Keys</c> defines which information that
@@ -1125,9 +1108,9 @@
 
 <!-- DEAMON/1,2,3 -->
    <func>
-     <name>daemon(Port | TcpSocket) -> Result</name>
-     <name>daemon(Port | TcpSocket, Options) -> Result</name>
-     <name>daemon(HostAddress, Port, Options) -> Result</name>
+     <name since="">daemon(Port | TcpSocket) -> Result</name>
+     <name since="">daemon(Port | TcpSocket, Options) -> Result</name>
+     <name since="">daemon(HostAddress, Port, Options) -> Result</name>
      <fsummary>Starts a server listening for SSH connections.</fsummary>
      <type>
        <v>Port = integer()</v>
@@ -1171,7 +1154,7 @@
 
 <!-- DAEMON_INFO/1 -->   
    <func>
-     <name name="daemon_info" arity="1"/>
+     <name name="daemon_info" arity="1" since="OTP 19.0"/>
      <fsummary>Get info about a daemon</fsummary>
      <desc>
        <p>Returns a key-value list with information about the daemon.</p>
@@ -1181,7 +1164,7 @@
 
 <!-- DEFAULT_ALGORITHMS/0 -->
     <func>
-      <name name="default_algorithms" arity="0"/>
+      <name name="default_algorithms" arity="0" since="OTP 18.0"/>
       <fsummary>Get a list declaring the supported algorithms</fsummary>
       <desc>
 	<p>Returns a key-value list, where the keys are the different types of algorithms and the values are the
@@ -1193,9 +1176,9 @@
 
 <!-- SHELL/1,2,3 -->
     <func>
-      <name>shell(Host | TcpSocket) -> Result </name>
-      <name>shell(Host | TcpSocket, Options) -> Result </name>
-      <name>shell(Host, Port, Options) -> Result </name>
+      <name since="">shell(Host | TcpSocket) -> Result </name>
+      <name since="">shell(Host | TcpSocket, Options) -> Result </name>
+      <name since="">shell(Host, Port, Options) -> Result </name>
       <fsummary>Starts an interactive shell on a remote SSH server.</fsummary>
       <type>
 	<v>Host = <seealso marker="#type-host">host()</seealso></v>
@@ -1220,8 +1203,8 @@
     </func>
 
     <func>
-      <name name="start" arity="0"/>
-      <name name="start" arity="1"/>
+      <name name="start" arity="0" since=""/>
+      <name name="start" arity="1" since=""/>
       <fsummary>Starts the SSH application.</fsummary>
       <desc>
         <p>Utility function that starts the applications <c>crypto</c>, <c>public_key</c>,
@@ -1232,7 +1215,7 @@
     </func>
 
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since=""/>
       <fsummary>Stops the <c>ssh</c> application.</fsummary>
       <desc>
         <p>Stops the <c>ssh</c> application.
@@ -1242,9 +1225,9 @@
     </func>
     
     <func>
-      <name name="stop_daemon" arity="1"/>
-      <name name="stop_daemon" arity="2"/>
-      <name name="stop_daemon" arity="3"/>
+      <name name="stop_daemon" arity="1" since=""/>
+      <name name="stop_daemon" arity="2" since=""/>
+      <name name="stop_daemon" arity="3" since="OTP 21.0"/>
       <fsummary>Stops the listener and all connections started by the listener.</fsummary>
       <desc>
 	<p>Stops the listener and all connections started by the listener.</p>
@@ -1252,9 +1235,9 @@
     </func>
 
     <func>
-      <name name="stop_listener" arity="1"/>
-      <name name="stop_listener" arity="2"/>
-      <name name="stop_listener" arity="3"/>
+      <name name="stop_listener" arity="1" since=""/>
+      <name name="stop_listener" arity="2" since=""/>
+      <name name="stop_listener" arity="3" since="OTP 21.0"/>
       <fsummary>Stops the listener, but leaves existing connections started by the listener operational.</fsummary>
       <desc>
 	<p>Stops the listener, but leaves existing connections started by the listener operational.</p>

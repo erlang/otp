@@ -174,7 +174,7 @@ extern int erts_dio_sched_thread_suggested_stack_size;
 #define ERTS_RUNQ_FLG_HALTING \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 10))
 
-#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 11)
+#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 12)
 
 #define ERTS_RUNQ_FLGS_MIGRATION_QMASKS	\
   (ERTS_RUNQ_FLGS_EMIGRATE_QMASK	\
@@ -293,7 +293,7 @@ typedef enum {
  * highest index...
  *
  * Remember to update description in erts_pre_init_process()
- * when adding new flags...
+ * and etp-commands when adding new flags...
  */
 
 typedef enum {
@@ -357,7 +357,7 @@ typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
 typedef struct {
     erts_spinlock_t lock;
-    ErtsSchedulerSleepInfo *list;
+    ErtsSchedulerSleepInfo *list; /* circular lifo list; points to last out */
 } ErtsSchedulerSleepList;
 
 struct ErtsSchedulerSleepInfo_ {

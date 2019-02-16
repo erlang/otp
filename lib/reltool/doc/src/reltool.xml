@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -33,7 +33,7 @@
     <date></date>
     <rev>%VSN%</rev>
   </header>
-  <module>reltool</module>
+  <module since="">reltool</module>
   <modulesummary>Main API of the Reltool application</modulesummary>
   <description>
     <p>This is an interface module for the Reltool application.</p>
@@ -503,6 +503,7 @@ sys()               = {root_dir, root_dir()}
                     | {incl_cond, incl_cond()}
                     | {boot_rel, boot_rel()}
                     | {rel, rel_name(), rel_vsn(), [rel_app()]}
+                    | {rel, rel_name(), rel_vsn(), [rel_app()], [rel_opt()]}
                     | {relocatable, relocatable()}
                     | {app_file, app_file()}
                     | {debug_info, debug_info()}
@@ -534,6 +535,7 @@ rel_app()           = app_name()
                     | {app_name(), app_type()} 
                     | {app_name(), [incl_app()]}
                     | {app_name(), app_type(), [incl_app()]}
+rel_opt()           = {load_dot_erlang, boolean()}
 app_name()          = atom()
 app_type()          = permanent | transient | temporary | load | none
 app_vsn()           = string()
@@ -591,7 +593,7 @@ target_spec()       = [target_spec()]
 
   <funcs>
     <func>
-      <name>create_target(Server, TargetDir) -> ok | {error, Reason}</name>
+      <name since="">create_target(Server, TargetDir) -> ok | {error, Reason}</name>
       <fsummary>Create a target system</fsummary>
       <type>
         <v>Server     = server()</v>
@@ -604,7 +606,7 @@ target_spec()       = [target_spec()]
     </func>
     
     <func>
-      <name>eval_target_spec(TargetSpec, RootDir, TargetDir) -> ok | {error, Reason}</name>
+      <name since="">eval_target_spec(TargetSpec, RootDir, TargetDir) -> ok | {error, Reason}</name>
       <fsummary>Create a target system</fsummary>
       <type>
         <v>TargetSpec = target_spec()</v>
@@ -655,7 +657,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_config(Server) -> {ok, Config} | {error, Reason}</name>
+      <name since="">get_config(Server) -> {ok, Config} | {error, Reason}</name>
       <fsummary>Get reltool configuration</fsummary>
       <type>
         <v>Server  = server()</v>
@@ -667,7 +669,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_config(Server, InclDefaults, InclDerived) -> {ok, Config} | {error, Reason}</name>
+      <name since="">get_config(Server, InclDefaults, InclDerived) -> {ok, Config} | {error, Reason}</name>
       <fsummary>Get reltool configuration</fsummary>
       <type>
         <v>Server        = server()</v>
@@ -685,7 +687,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_rel(Server, Relname) -> {ok, RelFile} | {error, Reason}</name>
+      <name since="">get_rel(Server, Relname) -> {ok, RelFile} | {error, Reason}</name>
       <fsummary>Get contents of a release file</fsummary>
       <type>
         <v>Server  = server()</v>
@@ -698,7 +700,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_script(Server, Relname) -> {ok, ScriptFile | {error, Reason}</name>
+      <name since="">get_script(Server, Relname) -> {ok, ScriptFile | {error, Reason}</name>
       <fsummary>Get contents of a boot script file</fsummary>
       <type>
         <v>Server     = server()</v>
@@ -711,7 +713,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_status(Server) -> {ok, [Warning]} | {error, Reason}</name>
+      <name since="OTP R14B">get_status(Server) -> {ok, [Warning]} | {error, Reason}</name>
       <fsummary>Get contents of a release file</fsummary>
       <type>
         <v>Server  = server()</v>
@@ -722,7 +724,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_server(WindowPid) -> {ok, ServerPid} | {error, Reason}</name>
+      <name since="">get_server(WindowPid) -> {ok, ServerPid} | {error, Reason}</name>
       <fsummary>Start server process with options</fsummary>
       <type>
         <v>WindowPid   = window_pid()</v>
@@ -733,7 +735,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_target_spec(Server) -> {ok, TargetSpec} | {error, Reason}</name>
+      <name since="">get_target_spec(Server) -> {ok, TargetSpec} | {error, Reason}</name>
       <fsummary>Return a specification of the target system</fsummary>
       <type>
         <v>Server     = server()</v>
@@ -747,7 +749,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>install(RelName, TargetDir) -> ok | {error, Reason}</name>
+      <name since="">install(RelName, TargetDir) -> ok | {error, Reason}</name>
       <fsummary>Install a target system</fsummary>
       <type>
         <v>RelName    = rel_name()</v>
@@ -758,7 +760,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>start() -> {ok, WindowPid} | {error, Reason}</name>
+      <name since="">start() -> {ok, WindowPid} | {error, Reason}</name>
       <fsummary>Start main window process</fsummary>
       <type>
         <v>WindowPid   = window_pid()</v>
@@ -768,7 +770,7 @@ target_spec()       = [target_spec()]
     </func>
   
     <func>
-      <name>start(Options) -> {ok, WindowPid} | {error, Reason}</name>
+      <name since="">start(Options) -> {ok, WindowPid} | {error, Reason}</name>
       <fsummary>Start main window process with options</fsummary>
       <type>
         <v>Options     = options()</v>
@@ -779,7 +781,7 @@ target_spec()       = [target_spec()]
     </func>
   
     <func>
-      <name>start_link(Options) -> {ok, WindowPid} | {error, Reason}</name>
+      <name since="">start_link(Options) -> {ok, WindowPid} | {error, Reason}</name>
       <fsummary>Start main window process with options</fsummary>
       <type>
         <v>Options     = options()</v>
@@ -790,7 +792,7 @@ target_spec()       = [target_spec()]
     </func>
   
     <func>
-      <name>start_server(Options) -> {ok, ServerPid} | {error, Reason}</name>
+      <name since="">start_server(Options) -> {ok, ServerPid} | {error, Reason}</name>
       <fsummary>Start server process with options</fsummary>
       <type>
         <v>Options     = options()</v>
@@ -803,10 +805,10 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>stop(Pid) -> ok | {error, Reason}</name>
+      <name since="">stop(Pid) -> ok | {error, Reason}</name>
       <fsummary>Stop a server or window process</fsummary>
       <type>
-        <v>Pid     = server_pid() | window_pid()()</v>
+        <v>Pid     = server_pid() | window_pid()</v>
         <v>Reason  = reason()</v>
       </type>
       <desc><p>Stop a server or window process</p></desc>

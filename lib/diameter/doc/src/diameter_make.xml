@@ -45,7 +45,7 @@ limitations under the License.
 <file>diameter_make.xml</file>
 </header>
 
-<module>diameter_make</module>
+<module since="OTP R14B03">diameter_make</module>
 <modulesummary>Diameter dictionary compilation.</modulesummary>
 
 <description>
@@ -67,7 +67,7 @@ interface.</p>
 <funcs>
 
 <func>
-<name>codec(File :: iolist() | binary(), [Opt]) -> ok
+<name since="OTP R15B">codec(File :: iolist() | binary(), [Opt]) -> ok
                                                  | {ok, [Out]}
                                                  | {error, Reason}</name>
 <fsummary>Compile a dictionary file into Erlang source.</fsummary>
@@ -186,7 +186,7 @@ A returned error reason can be converted into a readable string using
 <!-- ===================================================================== -->
 
 <func>
-<name>format(Parsed) -> iolist()</name>
+<name since="OTP R16B03">format(Parsed) -> iolist()</name>
 <fsummary>Format a parsed dictionary.</fsummary>
 <desc>
 <p>
@@ -198,7 +198,7 @@ dictionary format.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>flatten(Parsed) -> term()</name>
+<name since="OTP R16B03">flatten(Parsed) -> term()</name>
 <fsummary>Flatten a parsed dictionary.</fsummary>
 <desc>
 
@@ -214,7 +214,7 @@ The return value is also a parsed dictionary.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>format_error(Reason) -> string()</name>
+<name since="OTP 17.0">format_error(Reason) -> string()</name>
 <fsummary>Turn an error reason into a readable string.</fsummary>
 <desc>
 

@@ -28,7 +28,7 @@
     <date>1996-09-10</date>
     <rev>A</rev>
   </header>
-  <module>net_adm</module>
+  <module since="">net_adm</module>
   <modulesummary>Various Erlang net administration routines.</modulesummary>
   <description>
     <p>This module contains various network utility functions.</p>
@@ -36,7 +36,7 @@
 
   <funcs>
     <func>
-      <name name="dns_hostname" arity="1"/>
+      <name name="dns_hostname" arity="1" since=""/>
       <fsummary>Official name of a host.</fsummary>
       <desc>
         <p>Returns the official name of <c><anno>Host</anno></c>, or
@@ -46,7 +46,7 @@
     </func>
 
     <func>
-      <name name="host_file" arity="0"/>
+      <name name="host_file" arity="0" since=""/>
       <fsummary>Read file <c>.hosts.erlang</c>.</fsummary>
       <desc>
         <p>Reads file <c>.hosts.erlang</c>, see section
@@ -58,7 +58,7 @@
     </func>
 
     <func>
-      <name name="localhost" arity="0"/>
+      <name name="localhost" arity="0" since=""/>
       <fsummary>Name of the local host.</fsummary>
       <desc>
         <p>Returns the name of the local host. If Erlang was started
@@ -68,8 +68,8 @@
     </func>
 
     <func>
-      <name name="names" arity="0"/>
-      <name name="names" arity="1"/>
+      <name name="names" arity="0" since=""/>
+      <name name="names" arity="1" since=""/>
       <fsummary>Names of Erlang nodes at a host.</fsummary>
       <desc>
         <p>Similar to <c>epmd -names</c>, see
@@ -86,7 +86,7 @@
     </func>
 
     <func>
-      <name name="ping" arity="1"/>
+      <name name="ping" arity="1" since=""/>
       <fsummary>Set up a connection to a node.</fsummary>
       <desc>
         <p>Sets up a connection to <c><anno>Node</anno></c>. Returns
@@ -95,8 +95,8 @@
     </func>
 
     <func>
-      <name name="world" arity="0"/>
-      <name name="world" arity="1"/>
+      <name name="world" arity="0" since=""/>
+      <name name="world" arity="1" since=""/>
       <fsummary>Lookup and connect to all nodes at all hosts in
         <c>.hosts.erlang</c>.</fsummary>
       <type name="verbosity"/>
@@ -117,8 +117,8 @@
     </func>
 
     <func>
-      <name name="world_list" arity="1"/>
-      <name name="world_list" arity="2"/>
+      <name name="world_list" arity="1" since=""/>
+      <name name="world_list" arity="2" since=""/>
       <fsummary>Lookup and connect to all nodes at specified hosts.</fsummary>
       <type name="verbosity"/>
       <desc>

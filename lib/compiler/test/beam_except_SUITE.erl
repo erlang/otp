@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,20 +21,21 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 multiple_allocs/1,coverage/1]).
+	 multiple_allocs/1,bs_get_tail/1,coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() ->
     [{p,[parallel],
       [multiple_allocs,
+       bs_get_tail,
        coverage]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -63,6 +64,17 @@ place(lee) ->
 conditions() ->
     (talking = going) = storage + [large = wanted].
 
+bs_get_tail(Config) ->
+    {<<"abc">>,0,0,Config} = bs_get_tail_1(id(<<0:32, "abc">>), 0, 0, Config),
+    {'EXIT',
+     {function_clause,
+      [{?MODULE,bs_get_tail_1,[<<>>,0,0,Config],_}|_]}} =
+        (catch bs_get_tail_1(id(<<>>), 0, 0, Config)),
+    ok.
+
+bs_get_tail_1(<<_:32, Rest/binary>>, Z1, Z2, F1) ->
+    {Rest,Z1,Z2,F1}.
+
 coverage(_) ->
     File = {file,"fake.erl"},
     ok = fc(a),
@@ -83,7 +95,23 @@ coverage(_) ->
 	(catch bar(x)),
     {'EXIT',{{case_clause,{1}},[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
 	(catch bar(0)),
+
+    Self = self(),
+    {'EXIT',{{strange,Self},[{?MODULE,foo,[any],[File,{line,14}]}|_]}} =
+        (catch foo(any)),
+
+    {ok,succeed,1,2} = foobar(succeed, 1, 2),
+    {'EXIT',{function_clause,[{?MODULE,foobar,[[fail],1,2],
+                               [{file,"fake.erl"},{line,16}]}|_]}} =
+        (catch foobar([fail], 1, 2)),
+    {'EXIT',{function_clause,[{?MODULE,fake_function_clause,[{a,b},42.0],_}|_]}} =
+        (catch fake_function_clause({a,b})),
+
     ok.
+
+fake_function_clause(A) -> error(function_clause, [A,42.0]).
+
+id(I) -> I.
 
 -file("fake.erl", 1).
 fc(a) ->	                                %Line 2
@@ -96,3 +124,9 @@ bar(X) ->					%Line 8
     case {X+1} of				%Line 9
 	1 -> ok					%Line 10
     end.					%Line 11
+%% Cover collection code for function_clause exceptions.
+foo(A) ->                                       %Line 13
+    error({strange,self()}, [A]).               %Line 14
+%% Cover beam_except:tag_literal/1.
+foobar(A, B, C) when is_atom(A) ->              %Line 16
+    {ok,A,B,C}.                                 %Line 17

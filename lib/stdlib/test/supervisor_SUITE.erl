@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2339,6 +2339,13 @@ order_of_children(_Config) ->
 %% Test that a non-simple supervisor scales well for starting and
 %% stopping many children.
 scale_start_stop_many_children(_Config) ->
+    case erlang:system_info(build_type) of
+        opt -> scale_start_stop_many_children();
+        Other -> {skip,"Run on build type 'opt' only (current: '" ++
+                      atom_to_list(Other)++"')"}
+    end.
+
+scale_start_stop_many_children() ->
     process_flag(trap_exit, true),
     {ok, _Pid}  = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     N1 = 1000,

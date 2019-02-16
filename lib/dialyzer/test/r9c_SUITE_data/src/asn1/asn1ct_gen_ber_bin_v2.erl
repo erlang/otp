@@ -290,7 +290,7 @@ gen_encode_prim(_Erules,D,DoTag,Value) when record(D,type) ->
 	'ASN1_OPEN_TYPE' ->
 	    emit_encode_func('open_type', Value,DoTag);
 	XX ->
-	    exit({'can not encode' ,XX})
+	    exit({'cannot encode' ,XX})
     end.
 
 
@@ -602,7 +602,7 @@ gen_dec_prim(_Erules,Att,BytesVar,DoTag,_TagIn,_Form,_OptOrMand) ->
 		  BytesVar,","]),
 	    add_func({decode_open_type_as_binary,2});
 	Other ->
-	    exit({'can not decode' ,Other})
+	    exit({'cannot decode' ,Other})
     end,
 
     case {DoTag,NewTypeName} of

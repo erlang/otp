@@ -314,7 +314,7 @@ local_remove_monitor(Config) when is_list(Config) ->
 
 remote_remove_monitor(Config) when is_list(Config) ->
     {ok, N} = test_server:start_node(demonitor_flush, slave, []),
-    Gs = generate(fun () -> start_remove_monitor_group(node()) end,
+    Gs = generate(fun () -> start_remove_monitor_group(N) end,
                   ?RM_MON_GROUPS),
     {True, False} = lists:foldl(fun (G, {T, F}) ->
                                         receive

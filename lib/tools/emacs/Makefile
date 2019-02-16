@@ -46,6 +46,7 @@ EMACS_FILES= \
 	erlang-eunit \
 	erlang-edoc \
 	erlang-flymake \
+	erlang-test \
 	erlang
 
 README_FILES= README

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -671,30 +671,37 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 		      byte *ext,
 		      Uint size,
 		      DistEntry *dep,
-		      ErtsAtomCache *cache,
-                      Uint32 *connection_id)
+                      Uint32 conn_id,
+		      ErtsAtomCache *cache)
 {
-#undef ERTS_EXT_FAIL
-#undef ERTS_EXT_HDR_FAIL
-#if 1
-#define ERTS_EXT_FAIL goto fail
-#define ERTS_EXT_HDR_FAIL goto bad_hdr
-#else
-#define ERTS_EXT_FAIL abort()
-#define ERTS_EXT_HDR_FAIL abort()
-#endif
-
-    register byte *ep = ext;
-    ASSERT(dep->flags & DFLAG_UTF8_ATOMS);
+    register byte *ep;
 
     edep->heap_size = -1;
-    edep->ext_endp = ext+size;
+    edep->flags = 0;
+    edep->dep = dep;
+
+    ASSERT(dep);
+    erts_de_rlock(dep);
+
+    ASSERT(dep->flags & DFLAG_UTF8_ATOMS);
+
+    if ((dep->state != ERTS_DE_STATE_CONNECTED &&
+         dep->state != ERTS_DE_STATE_PENDING)
+        || dep->connection_id != conn_id) {
+        erts_de_runlock(dep);
+        return ERTS_PREP_DIST_EXT_CLOSED;
+    }
+
+    if (!(dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)) {
+        /* Skip PASS_THROUGH */
+        ext++;
+        size--;
+    }
+    edep->ext_endp = ext + size;
+    ep = ext;
 
     if (size < 2)
-	ERTS_EXT_FAIL;
-
-    if (!dep)
-        ERTS_INTERNAL_ERROR("Invalid use");
+        goto fail;
 
     if (ep[0] != VERSION_MAGIC) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
@@ -703,28 +710,17 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
                       "channel %d\n",
                       dist_entry_channel_no(dep));
 	erts_send_error_to_logger_nogl(dsbufp);
-	ERTS_EXT_FAIL;
+	goto fail;
     }
 
-    edep->flags = 0;
-    edep->dep = dep;
-
-    erts_de_rlock(dep);
-
-    if (dep->state != ERTS_DE_STATE_CONNECTED &&
-	dep->state != ERTS_DE_STATE_PENDING) {
-        erts_de_runlock(dep);
-        return ERTS_PREP_DIST_EXT_CLOSED;
-    }
     if (dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)
         edep->flags |= ERTS_DIST_EXT_DFLAG_HDR;
 
-    *connection_id = dep->connection_id;
     edep->connection_id = dep->connection_id;
 
     if (ep[1] != DIST_HEADER) {
 	if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR)
-	    ERTS_EXT_HDR_FAIL;
+	    goto bad_hdr;
 	edep->attab.size = 0;
 	edep->extp = ext;
     }
@@ -733,17 +729,17 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	int no_atoms;
 
 	if (!(edep->flags & ERTS_DIST_EXT_DFLAG_HDR))
-	    ERTS_EXT_HDR_FAIL;
+	    goto bad_hdr;
 
 #undef CHKSIZE
 #define CHKSIZE(SZ) \
-	do { if ((SZ) > edep->ext_endp - ep) ERTS_EXT_HDR_FAIL; } while(0)
+	do { if ((SZ) > edep->ext_endp - ep) goto bad_hdr; } while(0)
 
 	CHKSIZE(1+1+1);
 	ep += 2;
 	no_atoms = (int) get_int8(ep);
 	if (no_atoms < 0 || ERTS_ATOM_CACHE_SIZE < no_atoms)
-	    ERTS_EXT_HDR_FAIL;
+	    goto bad_hdr;
 	ep++;
 	if (no_atoms) {
 	    int long_atoms = 0;
@@ -821,18 +817,18 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 		    /* atom already cached */
 		    cix += (int) get_int8(ep);
 		    if (cix >= ERTS_ATOM_CACHE_SIZE)
-			ERTS_EXT_HDR_FAIL;
+			goto bad_hdr;
 		    ep++;
 		    atom = cache->in_arr[cix];
 		    if (!is_atom(atom))
-			ERTS_EXT_HDR_FAIL;
+			goto bad_hdr;
 		    edep->attab.atom[tix] = atom;
 		}
 		else {
 		    /* new cached atom */
 		    cix += (int) get_int8(ep);
 		    if (cix >= ERTS_ATOM_CACHE_SIZE)
-			ERTS_EXT_HDR_FAIL;
+			goto bad_hdr;
 		    ep++;
 		    if (long_atoms) {
 			CHKSIZE(2);
@@ -850,7 +846,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
                                          ERTS_ATOM_ENC_UTF8,
 					 0);
 		    if (is_non_value(atom))
-			ERTS_EXT_HDR_FAIL;
+			goto bad_hdr;
 		    ep += len;
 		    cache->in_arr[cix] = atom;
 		    edep->attab.atom[tix] = atom;
@@ -870,12 +866,12 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	edep->extp = ep;
 #ifdef ERTS_DEBUG_USE_DIST_SEP
 	if (*ep != VERSION_MAGIC)
-	    ERTS_EXT_HDR_FAIL;
+	    goto bad_hdr;
 #endif
     }
 #ifdef ERTS_DEBUG_USE_DIST_SEP
     if (*ep != VERSION_MAGIC)
-	ERTS_EXT_FAIL;
+	goto fail;
 #endif
 
     erts_de_runlock(dep);
@@ -883,8 +879,6 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
     return ERTS_PREP_DIST_EXT_SUCCESS;
 
 #undef CHKSIZE
-#undef ERTS_EXT_FAIL
-#undef ERTS_EXT_HDR_FAIL
 
  bad_hdr: {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
@@ -901,7 +895,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
     }
  fail: {
 	erts_de_runlock(dep);
-	erts_kill_dist_connection(dep, *connection_id);
+	erts_kill_dist_connection(dep, conn_id);
     }
     return ERTS_PREP_DIST_EXT_FAILED;
 }
@@ -1959,7 +1953,8 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 
 #define RETURN_STATE()							\
     do {								\
-	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE+3);                    \
+	static const int TUPLE2_SIZE = 2 + 1;				\
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + TUPLE2_SIZE);        \
 	c_term = erts_mk_magic_ref(&hp, &MSO(p), context_b);            \
 	res = TUPLE2(hp, Term, c_term);					\
 	BUMP_ALL_REDS(p);                                               \

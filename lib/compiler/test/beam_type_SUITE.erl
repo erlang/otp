@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,19 +21,20 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
-	 tuple/1,record_float/1,binary_float/1,float_compare/1,
-	 arity_checks/1,elixir_binaries/1]).
+	 integers/1,numbers/1,coverage/1,booleans/1,setelement/1,
+	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
+	 arity_checks/1,elixir_binaries/1,find_best/1,
+         test_size/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() ->
     [{p,[parallel],
       [integers,
+       numbers,
        coverage,
        booleans,
        setelement,
@@ -43,10 +44,13 @@ groups() ->
        binary_float,
        float_compare,
        arity_checks,
-       elixir_binaries
+       elixir_binaries,
+       find_best,
+       test_size
       ]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -112,8 +116,8 @@ do_integers_4(_, _, Res) ->
     Res.
 
 do_integers_5(X0, Y0) ->
-    %% X and Y will use the same register.
-    X = X0 band 1,
+    %% _X and Y will use the same register.
+    _X = X0 band 1,
     Y = Y0 band 3,
     case Y of
         0 -> zero;
@@ -121,6 +125,59 @@ do_integers_5(X0, Y0) ->
         2 -> two;
         3 -> three
     end.
+
+numbers(_Config) ->
+    Int = id(42),
+    true = is_integer(Int),
+    true = is_number(Int),
+    false = is_float(Int),
+
+    Float = id(42.0),
+    true = is_float(Float),
+    true = is_number(Float),
+    false = is_integer(Float),
+
+    Number = id(1) + id(2),
+    true = is_number(Number),
+    true = is_integer(Number),
+    false = is_float(Number),
+
+    AnotherNumber = id(99.0) + id(1),
+    true = is_float(AnotherNumber),
+    true = is_number(AnotherNumber),
+    false = is_integer(AnotherNumber),
+
+    NotNumber = id(atom),
+    true = is_atom(NotNumber),
+    false = is_number(NotNumber),
+    false = is_integer(NotNumber),
+    false = is_float(NotNumber),
+
+    true = is_number(Int),
+    true = is_number(Float),
+    true = is_number(Number),
+    true = is_number(AnotherNumber),
+
+    %% Cover beam_ssa_type:join/2.
+
+    Join1 = case id(a) of
+                a -> 3 + id(7);                 %Number.
+                b -> id(5) / id(2)              %Float.
+            end,
+    true = is_integer(Join1),
+
+    Join2 = case id(a) of
+                a -> id(5) / 2;                 %Float.
+                b -> 3 + id(7)                  %Number.
+            end,
+    true = is_float(Join2),
+
+    %% Cover beam_ssa_type:meet/2.
+
+    Meet1 = id(0) + -10.0,                       %Float.
+    10.0 = abs(Meet1),                           %Number.
+
+    ok.
 
 coverage(Config) ->
     {'EXIT',{badarith,_}} = (catch id(1) bsl 0.5),
@@ -156,17 +213,58 @@ coverage(Config) ->
              [_|_] ->
                  ok
          end,
+
+    %% Cover beam_type:verified_type(none).
+    {'EXIT',{badarith,_}} = (catch (id(2) / id(1)) band 16#ff),
+
     ok.
 
 booleans(_Config) ->
-    {'EXIT',{{case_clause,_},_}} = (catch do_booleans(42)),
+    {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
+
+    ok = do_booleans_2(42, 41),
+    error = do_booleans_2(42, 42),
+
+    AnyAtom = id(atom),
+    true = is_atom(AnyAtom),
+    false = is_boolean(AnyAtom),
+
+    MaybeBool = id(maybe),
+    case MaybeBool of
+        true -> ok;
+        maybe -> ok;
+        false -> ok
+    end,
+    false = is_boolean(MaybeBool),
+
+    NotBool = id(a),
+    case NotBool of
+        a -> ok;
+        b -> ok;
+        c -> ok
+    end,
+    false = is_boolean(NotBool),
+
     ok.
 
-do_booleans(B) ->
+do_booleans_1(B) ->
     case is_integer(B) of
 	yes -> yes;
 	no -> no
     end.
+
+do_booleans_2(A, B) ->
+    Not = not do_booleans_cmp(A, B),
+    case Not of
+        true ->
+            case Not of
+                true -> error;
+                false -> ok
+            end;
+        false -> ok
+    end.
+
+do_booleans_cmp(A, B) -> A > B.
 
 setelement(_Config) ->
     T0 = id({a,42}),
@@ -176,13 +274,59 @@ setelement(_Config) ->
 
 cons(_Config) ->
     [did] = cons(assigned, did),
+
+    true = cons_is_empty_list([]),
+    false = cons_is_empty_list([a]),
+
+    false = cons_not(true),
+    true = cons_not(false),
+
+    {$a,"bc"} = cons_hdtl(true),
+    {$d,"ef"} = cons_hdtl(false),
     ok.
 
 cons(assigned, Instrument) ->
     [Instrument] = [did].
 
+cons_is_empty_list(L) ->
+    Cons = case L of
+               [] -> "true";
+               _ -> "false"
+           end,
+    id(1),
+    case Cons of
+        "true" -> true;
+        "false" -> false
+    end.
+
+cons_not(B) ->
+    Cons = case B of
+               true -> "true";
+               false -> "false"
+           end,
+    id(1),
+    case Cons of
+        "true" -> false;
+        "false" -> true
+    end.
+
+cons_hdtl(B) ->
+    Cons = case B of
+               true -> "abc";
+               false -> "def"
+           end,
+    id(1),
+    {id(hd(Cons)),id(tl(Cons))}.
+
+-record(bird, {a=a,b=id(42)}).
+
 tuple(_Config) ->
     {'EXIT',{{badmatch,{necessary}},_}} = (catch do_tuple()),
+
+    [] = [X || X <- [], #bird{a = a} == {r,X,foo}],
+    [] = [X || X <- [], #bird{b = b} == {bird,X}],
+    [] = [X || X <- [], 3 == X#bird.a],
+
     ok.
 
 do_tuple() ->
@@ -292,6 +436,42 @@ elixir_bitstring_3(Bar) when is_bitstring(Bar) ->
               list_to_bitstring(Rewrite)
       end/bitstring>>.
 
+find_best(_Config) ->
+    ok = find_best([a], nil),
+    ok = find_best([<<"a">>], nil),
+    {error,_} = find_best([], nil),
+    ok.
+
+%% Failed because beam_type assumed that the operand
+%% for bs_context_binary must be a binary. Not true!
+find_best([a|Tail], Best) ->
+    find_best(Tail,
+      case Best of
+          X when X =:= nil orelse X =:= false -> a;
+          X -> X
+      end);
+find_best([<<"a">>|Tail], Best) ->
+    find_best(Tail,
+      case Best of
+          X when X =:= nil orelse X =:= false -> <<"a">>;
+          X -> X
+      end);
+find_best([], a) ->
+    ok;
+find_best([], <<"a">>) ->
+    ok;
+find_best([], nil) ->
+    {error,<<"should not get here">>}.
+
+test_size(_Config) ->
+    2 = do_test_size({a,b}),
+    4 = do_test_size(<<42:32>>),
+    ok.
+
+do_test_size(Term) when is_tuple(Term) ->
+    size(Term);
+do_test_size(Term) when is_binary(Term) ->
+    size(Term).
 
 id(I) ->
     I.

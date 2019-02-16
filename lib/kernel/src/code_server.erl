@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1437,7 +1437,7 @@ error_msg(Format, Args) ->
     logger ! {log,error,Format,Args,
               #{pid=>self(),
                 gl=>group_leader(),
-                time=>erlang:monotonic_time(microsecond),
+                time=>erlang:system_time(microsecond),
                 error_logger=>#{tag=>error}}},
     ok.
 
@@ -1446,7 +1446,7 @@ info_msg(Format, Args) ->
     logger ! {log,info,Format,Args,
               #{pid=>self(),
                 gl=>group_leader(),
-                time=>erlang:monotonic_time(microsecond),
+                time=>erlang:system_time(microsecond),
                 error_logger=>#{tag=>info_msg}}},
     ok.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -398,7 +398,7 @@ redirect(Response = {_, Headers, _}, Request) ->
                     THost = http_util:maybe_add_brackets(maps:get(host, URIMap), Brackets),
                     TPort = maps:get(port, URIMap),
                     TPath = maps:get(path, URIMap),
-                    TQuery = maps:get(query, URIMap, ""),
+                    TQuery = add_question_mark(maps:get(query, URIMap, "")),
                     NewURI = uri_string:normalize(
                                uri_string:recompose(URIMap)),
                     HostPort = http_request:normalize_host(TScheme, THost, TPort),
@@ -417,29 +417,38 @@ redirect(Response = {_, Headers, _}, Request) ->
             end
     end.
 
+add_question_mark(<<>>) ->
+    <<>>;
+add_question_mark([]) ->
+    [];
+add_question_mark(Comp) when is_binary(Comp) ->
+    <<$?, Comp/binary>>;
+add_question_mark(Comp) when is_list(Comp) ->
+    [$?|Comp].
 
 %% RFC3986 - 5.2.2.  Transform References
 resolve_uri(Scheme, Host, Port, Path, Query, URI) ->
     resolve_uri(Scheme, Host, Port, Path, Query, URI, #{}).
 %%
 resolve_uri(Scheme, Host, Port, Path, Query, URI, Map0) ->
-    case maps:is_key(scheme, URI) of
-        true ->
-            Port = get_port(URI),
+    case maps:get(scheme, URI, undefined) of
+        undefined ->
+            Port0 = get_port(Scheme, URI),
+            Map = Map0#{scheme => Scheme,
+                        port => Port0},
+            resolve_authority(Host, Port, Path, Query, URI, Map);
+        URIScheme ->
+            Port0 = get_port(URIScheme, URI),
             maybe_add_query(
-              Map0#{scheme => maps:get(scheme, URI),
-                   host => maps:get(host, URI),
-                   port => Port,
-                   path => maps:get(path, URI)},
-              URI);
-        false ->
-            Map = Map0#{scheme => Scheme},
-            resolve_authority(Host, Port, Path, Query, URI, Map)
+              Map0#{scheme => URIScheme,
+                    host => maps:get(host, URI),
+                    port => Port0,
+                    path => maps:get(path, URI)},
+              URI)
     end.
 
 
-get_port(URI) ->
-    Scheme = maps:get(scheme, URI),
+get_port(Scheme, URI) ->
     case maps:get(port, URI, undefined) of
         undefined ->
             get_default_port(Scheme);
@@ -457,15 +466,13 @@ get_default_port("https") ->
 resolve_authority(Host, Port, Path, Query, RelURI, Map) ->
     case maps:is_key(host, RelURI) of
         true ->
-            Port = get_port(RelURI),
             maybe_add_query(
               Map#{host => maps:get(host, RelURI),
-                   port => Port,
                    path => maps:get(path, RelURI)},
               RelURI);
         false ->
             Map1 = Map#{host => Host,
-                    port => Port},
+                        port => Port},
             resolve_path(Path, Query, RelURI, Map1)
     end.
 

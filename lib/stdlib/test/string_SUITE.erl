@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -409,8 +409,8 @@ uppercase(_) ->
     ?TEST("abc", [], "ABC"),
     ?TEST("ABC", [], "ABC"),
     ?TEST("abcdefghiljklmnopqrstvxyzåäö",[], "ABCDEFGHILJKLMNOPQRSTVXYZÅÄÖ"),
-    ?TEST("åäö", [], "ÅÄÖ"),
-    ?TEST("ÅÄÖ", [], "ÅÄÖ"),
+    ?TEST("åäö  ", [], "ÅÄÖ  "),
+    ?TEST("ÅÄÖ  ", [], "ÅÄÖ  "),
     ?TEST("Michał", [], "MICHAŁ"),
     ?TEST(["Mic",<<"hał"/utf8>>], [], "MICHAŁ"),
     ?TEST("ǉǇ", [], "ǇǇ"),
@@ -423,8 +423,8 @@ lowercase(_) ->
     ?TEST("123", [], "123"),
     ?TEST("abc", [], "abc"),
     ?TEST("ABC", [], "abc"),
-    ?TEST("åäö", [], "åäö"),
-    ?TEST("ÅÄÖ", [], "åäö"),
+    ?TEST("åäö  ", [], "åäö  "),
+    ?TEST("ÅÄÖ  ", [], "åäö  "),
     ?TEST("MICHAŁ", [], "michał"),
     ?TEST(["Mic",<<"HAŁ"/utf8>>], [], "michał"),
     ?TEST("ß SHARP S", [], "ß sharp s"),
@@ -449,8 +449,8 @@ casefold(_) ->
     ?TEST("123", [], "123"),
     ?TEST("abc", [], "abc"),
     ?TEST("ABC", [], "abc"),
-    ?TEST("åäö", [], "åäö"),
-    ?TEST("ÅÄÖ", [], "åäö"),
+    ?TEST("åäö  ", [], "åäö  "),
+    ?TEST("ÅÄÖ  ", [], "åäö  "),
     ?TEST("MICHAŁ", [], "michał"),
     ?TEST(["Mic",<<"HAŁ"/utf8>>], [], "michał"),
     ?TEST("ß SHARP S", [], "ss sharp s"),

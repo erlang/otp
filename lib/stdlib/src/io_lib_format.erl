@@ -38,18 +38,16 @@
 %%  and it also splits the handling of the control characters into two
 %%  parts.
 
--spec fwrite(Format, Data) -> FormatList when
+-spec fwrite(Format, Data) -> io_lib:chars() when
       Format :: io:format(),
-      Data :: [term()],
-      FormatList :: [char() | io_lib:format_spec()].
+      Data :: [term()].
 
 fwrite(Format, Args) ->
     build(scan(Format, Args)).
 
--spec fwrite(Format, Data, Options) -> FormatList when
+-spec fwrite(Format, Data, Options) -> io_lib:chars() when
       Format :: io:format(),
       Data :: [term()],
-      FormatList :: [char() | io_lib:format_spec()],
       Options :: [Option],
       Option :: {'chars_limit', CharsLimit},
       CharsLimit :: io_lib:chars_limit().
@@ -248,7 +246,8 @@ count_small([#{control_char := $W}|Cs], #{w := W} = Cnts) ->
     count_small(Cs, Cnts#{w := W + 1});
 count_small([#{control_char := $s}|Cs], #{w := W} = Cnts) ->
     count_small(Cs, Cnts#{w := W + 1});
-count_small([S|Cs], #{other := Other} = Cnts) when is_list(S) ->
+count_small([S|Cs], #{other := Other} = Cnts) when is_list(S);
+                                                   is_binary(S) ->
     count_small(Cs, Cnts#{other := Other + string:length(S)});
 count_small([C|Cs], #{other := Other} = Cnts) when is_integer(C) ->
     count_small(Cs, Cnts#{other := Other + 1});

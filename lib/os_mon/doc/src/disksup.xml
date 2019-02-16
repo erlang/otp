@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>disksup</module>
+  <module since="">disksup</module>
   <modulesummary>A Disk Supervisor Process</modulesummary>
   <description>
     <p><c>disksup</c> is a process which supervises the available disk
@@ -92,7 +92,7 @@
   </section>
   <funcs>
     <func>
-      <name>get_disk_data() -> [DiskData]</name>
+      <name since="">get_disk_data() -> [DiskData]</name>
       <fsummary>Get data for the disks in the system</fsummary>
       <type>
         <v>DiskData = {Id, KByte, Capacity}</v>
@@ -112,7 +112,7 @@
       </desc>
     </func>
     <func>
-      <name>get_check_interval() -> MS</name>
+      <name since="">get_check_interval() -> MS</name>
       <fsummary>Get time interval, in milliseconds, for the periodic disk space check</fsummary>
       <type>
         <v>MS = int()</v>
@@ -123,7 +123,7 @@
       </desc>
     </func>
     <func>
-      <name>set_check_interval(Minutes) -> ok</name>
+      <name since="">set_check_interval(Minutes) -> ok</name>
       <fsummary>Set time interval, in minutes, for the periodic disk space check</fsummary>
       <type>
         <v>Minutes = int()>=1</v>
@@ -138,7 +138,7 @@
       </desc>
     </func>
     <func>
-      <name>get_almost_full_threshold() -> Percent</name>
+      <name since="">get_almost_full_threshold() -> Percent</name>
       <fsummary>Get threshold, in percent, for disk space utilization</fsummary>
       <type>
         <v>Percent = int()</v>
@@ -148,7 +148,7 @@
       </desc>
     </func>
     <func>
-      <name>set_almost_full_threshold(Float) -> ok</name>
+      <name since="">set_almost_full_threshold(Float) -> ok</name>
       <fsummary>Set threshold, as percentage represented by a float, for disk space utilization</fsummary>
       <type>
         <v>Float = float(), 0=&lt;Float=&lt;1</v>

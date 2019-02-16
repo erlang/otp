@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp.xml</file>
   </header>
-  <module>snmp</module>
+  <module since="">snmp</module>
   <modulesummary>Interface functions to the SNMP toolkit</modulesummary>
   <description>
     <p>The module <c>snmp</c> contains interface functions to the 
@@ -56,7 +56,7 @@
 
   <funcs>
     <func>
-      <name>config() -> ok | {error, Reason}</name>
+      <name since="">config() -> ok | {error, Reason}</name>
       <fsummary>Configure with a simple interactive tool</fsummary>
       <desc>
         <p>A simple interactive configuration tool. Simple
@@ -78,8 +78,8 @@
     </func>
 
     <func>
-      <name>start() -> ok | {error, Reason}</name>
-      <name>start(Type) -> ok | {error, Reason}</name>
+      <name since="">start() -> ok | {error, Reason}</name>
+      <name since="">start(Type) -> ok | {error, Reason}</name>
       <fsummary>Start the SNMP application</fsummary>
       <type>
         <v>Type = start_type()</v>
@@ -93,8 +93,8 @@
     </func>
 
     <func>
-      <name>start_agent() -> ok | {error, Reason}</name>
-      <name>start_agent(Type) -> ok | {error, Reason}</name>
+      <name since="">start_agent() -> ok | {error, Reason}</name>
+      <name since="">start_agent(Type) -> ok | {error, Reason}</name>
       <fsummary>Start the agent part of the SNMP application</fsummary>
       <type>
         <v>Type = start_type()</v>
@@ -117,8 +117,8 @@
     </func>
 
     <func>
-      <name>start_manager() -> ok | {error, Reason}</name>
-      <name>start_manager(Type) -> ok | {error, Reason}</name>
+      <name since="">start_manager() -> ok | {error, Reason}</name>
+      <name since="">start_manager(Type) -> ok | {error, Reason}</name>
       <fsummary>Start the manager part of the SNMP application</fsummary>
       <type>
         <v>Type = start_type()</v>
@@ -141,7 +141,7 @@
     </func>
 
     <func>
-      <name>date_and_time() -> DateAndTime</name>
+      <name since="">date_and_time() -> DateAndTime</name>
       <fsummary>Return the current date and time as an OCTET STRING</fsummary>
       <type>
         <v>DateAndTime = [int()]</v>
@@ -155,7 +155,7 @@
     </func>
 
     <func>
-      <name>date_and_time_to_universal_time_dst(DateAndTime) -> [utc()]</name>
+      <name since="">date_and_time_to_universal_time_dst(DateAndTime) -> [utc()]</name>
       <fsummary>Convert a DateAndTime value to a list of possible utc()</fsummary>
       <type>
         <v>DateAndTime = [int()]</v>
@@ -171,8 +171,8 @@
     </func>
 
     <func>
-      <name>date_and_time_to_string(DateAndTime) -> string()</name>
-      <name>date_and_time_to_string(DateAndTime, Validate) -> string()</name>
+      <name since="">date_and_time_to_string(DateAndTime) -> string()</name>
+      <name since="">date_and_time_to_string(DateAndTime, Validate) -> string()</name>
       <fsummary>Convert a DateAndTime value to a string</fsummary>
       <type>
         <v>DateAndTime = [int()]</v>
@@ -194,7 +194,7 @@
     </func>
 
     <func>
-      <name>date_and_time_to_string2(DateAndTime) -> string()</name>
+      <name since="">date_and_time_to_string2(DateAndTime) -> string()</name>
       <fsummary>Convert a DateAndTime value to a string</fsummary>
       <type>
         <v>DateAndTime = [int()]</v>
@@ -210,7 +210,7 @@
     </func>
 
     <func>
-      <name>local_time_to_date_and_time_dst(Local) -> [DateAndTime]</name>
+      <name since="">local_time_to_date_and_time_dst(Local) -> [DateAndTime]</name>
       <fsummary>Convert a Local time value to a list of possible DateAndTime(s)</fsummary>
       <type>
         <v>Local = {{Y,Mo,D},{H,M,S}}</v>
@@ -226,7 +226,7 @@
     </func>
 
     <func>
-      <name>universal_time_to_date_and_time(UTC) -> DateAndTime</name>
+      <name since="">universal_time_to_date_and_time(UTC) -> DateAndTime</name>
       <fsummary>Convert a UTC value to DateAndTime</fsummary>
       <type>
         <v>UTC = {{Y,Mo,D},{H,M,S}}</v>
@@ -241,8 +241,8 @@
     </func>
 
     <func>
-      <name>validate_date_and_time(DateAndTime) -> bool()</name>
-      <name>validate_date_and_time(DateAndTime, Validate) -> bool()</name>
+      <name since="">validate_date_and_time(DateAndTime) -> bool()</name>
+      <name since="">validate_date_and_time(DateAndTime, Validate) -> bool()</name>
       <fsummary>Check if a DateAndTime value is correct</fsummary>
       <type>
         <v>DateAndTime = term()</v>
@@ -279,7 +279,7 @@
     </func>
 
     <func>
-      <name>passwd2localized_key(Alg, Passwd, EngineID) -> Key</name>
+      <name since="">passwd2localized_key(Alg, Passwd, EngineID) -> Key</name>
       <fsummary>Generates an localized key</fsummary>
       <type>
         <v>Alg = algorithm()</v>
@@ -298,7 +298,7 @@
     </func>
 
     <func>
-      <name>octet_string_to_bits(S) -> Val</name>
+      <name since="">octet_string_to_bits(S) -> Val</name>
       <fsummary>Convert an OCTET-STRING to BITS</fsummary>
       <type>
         <v>Val = bits()</v>
@@ -312,7 +312,7 @@
     </func>
 
     <func>
-      <name>bits_to_octet_string(B) -> Val</name>
+      <name since="">bits_to_octet_string(B) -> Val</name>
       <fsummary>Convert an OCTET-STRING to BITS</fsummary>
       <type>
         <v>Val = octet_string()</v>
@@ -326,7 +326,7 @@
     </func>
 
     <func>
-      <name>read_mib(FileName) -> {ok, mib()} | {error, Reason}</name>
+      <name since="">read_mib(FileName) -> {ok, mib()} | {error, Reason}</name>
       <fsummary></fsummary>
       <type>
         <v>FileName = string()</v>
@@ -341,10 +341,10 @@
     </func>
 
     <func>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Block | Stop) -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop, Block) -> ok | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Block | Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop, Block) -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -355,6 +355,9 @@
         <v>LogFile = string()</v>
         <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
         <v>Block = boolean()</v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
@@ -394,16 +397,25 @@
 	and <c>Vsn</c> is the SNMP version. <c>PDU</c> is a textual
 	version of the protocol data unit. There is a new line
 	between <c>Vsn</c> and <c>PDU</c>.</p>
+
+	<p>If the entire log is successfully converted, the function 
+	will return <c>ok</c>. 
+	If one of more entries fail to convert, the function will instead
+	return <c>{ok, {NumOK, NumERR}}</c>, where the counters indicate
+	how many valid and erroneous entries where found. 
+	If instead <c>{error, Reason}</c> is returned, the conversion 
+	encountered a fatal error and where either never done of aborted
+	midway. </p>
 	
         <marker id="log_to_io"></marker>
       </desc>
     </func>
 
     <func>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Block | Stop) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop, Block) -> ok | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Block | Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop, Block) -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -412,6 +424,9 @@
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
@@ -425,7 +440,7 @@
     </func>
 
     <func>
-      <name>change_log_size(LogName, NewSize) -> ok | {error, Reason}</name>
+      <name since="">change_log_size(LogName, NewSize) -> ok | {error, Reason}</name>
       <fsummary>Change the size of the Audit Trail Log</fsummary>
       <type>
         <v>LogName = string()</v>
@@ -448,8 +463,8 @@
     </func>
 
     <func>
-      <name>print_version_info() -> void()</name>
-      <name>print_version_info(Prefix) -> void()</name>
+      <name since="">print_version_info() -> void()</name>
+      <name since="">print_version_info(Prefix) -> void()</name>
       <fsummary>Formatted print of result of the versions functions</fsummary>
       <type>
         <v>Prefix = string() | integer()</v>
@@ -469,8 +484,8 @@
     </func>
 
     <func>
-      <name>versions1() -> {ok, Info} | {error, Reason}</name>
-      <name>versions2() -> {ok, Info} | {error, Reason}</name>
+      <name since="">versions1() -> {ok, Info} | {error, Reason}</name>
+      <name since="">versions2() -> {ok, Info} | {error, Reason}</name>
       <fsummary>Retrieve various system and application info</fsummary>
       <type>
         <v>Info = [info()]</v>
@@ -489,8 +504,8 @@
     </func>
 
     <func>
-      <name>print_versions(VersionInfo) -> void()</name>
-      <name>print_versions(Prefix, VersionInfo) -> void()</name>
+      <name since="">print_versions(VersionInfo) -> void()</name>
+      <name since="">print_versions(Prefix, VersionInfo) -> void()</name>
       <fsummary>Formatted print of result of the versions functions</fsummary>
       <type>
         <v>VersionInfo = [version_info()]</v>
@@ -512,7 +527,7 @@
     </func>
 
     <func>
-      <name>enable_trace() -> void()</name>
+      <name since="">enable_trace() -> void()</name>
       <fsummary>Starts a tracer</fsummary>
       <!--
       <type>
@@ -528,7 +543,7 @@
     </func>
 
     <func>
-      <name>disable_trace() -> void()</name>
+      <name since="">disable_trace() -> void()</name>
       <fsummary>Stop the tracer</fsummary>
       <!--
       <type>
@@ -543,7 +558,7 @@
     </func>
 
     <func>
-      <name>set_trace(Targets) -> void()</name>
+      <name since="">set_trace(Targets) -> void()</name>
       <fsummary>Set trace target</fsummary>
       <type>
         <v>Targets = target() | targets()</v>
@@ -567,7 +582,7 @@
     </func>
 
     <func>
-      <name>reset_trace(Targets) -> void()</name>
+      <name since="">reset_trace(Targets) -> void()</name>
       <fsummary>Reset trace target</fsummary>
       <type>
         <v>Targets = module() | modules()</v>
@@ -583,7 +598,7 @@
     </func>
 
     <func>
-      <name>set_trace(Targets, Opts) -> void()</name>
+      <name since="">set_trace(Targets, Opts) -> void()</name>
       <fsummary>Set trace target</fsummary>
       <type>
         <v>Targets = target() | targets()</v>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@
 	 busy_send/1, busy_disconnect_passive/1, busy_disconnect_active/1,
 	 fill_sendq/1, partial_recv_and_close/1, 
 	 partial_recv_and_close_2/1,partial_recv_and_close_3/1,so_priority/1,
+         recvtos/1, recvttl/1, recvtosttl/1, recvtclass/1,
 	 %% Accept tests
 	 primitive_accept/1,multi_accept_close_listen/1,accept_timeout/1,
 	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,
@@ -51,7 +52,8 @@
 	 several_accepts_in_one_go/1, accept_system_limit/1,
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
          otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
-         wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1]).
+         wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1,
+         otp_12242/1, delay_send_error/1]).
 
 %% Internal exports.
 -export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, 
@@ -83,7 +85,8 @@ all() ->
      busy_disconnect_passive, busy_disconnect_active,
      fill_sendq, partial_recv_and_close,
      partial_recv_and_close_2, partial_recv_and_close_3,
-     so_priority, primitive_accept,
+     so_priority, recvtos, recvttl, recvtosttl,
+     recvtclass, primitive_accept,
      multi_accept_close_listen, accept_timeout,
      accept_timeouts_in_order, accept_timeouts_in_order2,
      accept_timeouts_in_order3, accept_timeouts_in_order4,
@@ -93,7 +96,8 @@ all() ->
      killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
      active_once_closed, send_timeout, send_timeout_active, otp_7731,
      wrapping_oct,
-     zombie_sockets, otp_7816, otp_8102, otp_9389].
+     zombie_sockets, otp_7816, otp_8102, otp_9389,
+     otp_12242, delay_send_error].
 
 groups() -> 
     [].
@@ -1914,6 +1918,233 @@ so_priority(Config) when is_list(Config) ->
 	    end
     end.
 
+
+
+%% IP_RECVTOS and IP_RECVTCLASS for IP_PKTOPTIONS
+%% does not seem to be implemented in Linux until kernel 3.1
+%%
+%% It seems pktoptions does not return valid values
+%% for IPv4 connect sockets.  On the accept socket
+%% we get valid values, but on the connect socket we get
+%% the default values for TOS and TTL.
+%%
+%% Therefore the argument CheckConnect that enables
+%% checking the returned values for the connect socket.
+%% It is only used for recvtclass that is an IPv6 option
+%% and there we get valid values from both socket ends.
+
+recvtos(_Config) ->
+    test_pktoptions(
+      inet, [{recvtos,tos,96}],
+      fun recvtos_ok/2,
+      false).
+
+recvtosttl(_Config) ->
+    test_pktoptions(
+      inet, [{recvtos,tos,96},{recvttl,ttl,33}],
+      fun (OSType, OSVer) ->
+              recvtos_ok(OSType, OSVer) andalso recvttl_ok(OSType, OSVer)
+      end,
+      false).
+
+recvttl(_Config) ->
+    test_pktoptions(
+      inet, [{recvttl,ttl,33}],
+      fun recvttl_ok/2,
+      false).
+
+recvtclass(_Config) ->
+    {ok,IFs} = inet:getifaddrs(),
+    case
+        [Name ||
+            {Name,Opts} <- IFs,
+            lists:member({addr,{0,0,0,0,0,0,0,1}}, Opts)]
+    of
+        [_] ->
+            test_pktoptions(
+              inet6, [{recvtclass,tclass,224}],
+              fun recvtclass_ok/2,
+              true);
+        [] ->
+            {skip,{ipv6_not_supported,IFs}}
+    end.
+
+%% These version numbers are above the highest noted
+%% in daily tests where the test fails for a plausible reason,
+%% so skip on platforms of lower version, i.e they are future
+%% versions where it is possible that it might not fail.
+%%
+%% When machines with newer versions gets installed,
+%% if the test still fails for a plausible reason these
+%% version numbers simply should be increased.
+%% Or maybe we should change to only test on known good
+%% platforms - change {unix,_} to false?
+
+%% pktoptions is not supported for IPv4
+recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
+%% Using the option returns einval, so it is not implemented.
+recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
+recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
+%% Does not return any value - not implemented for pktoptions
+recvtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
+%%
+recvtos_ok({unix,_}, _) -> true;
+recvtos_ok(_, _) -> false.
+
+%% pktoptions is not supported for IPv4
+recvttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+recvttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
+%% Using the option returns einval, so it is not implemented.
+recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
+recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
+%% Does not return any value - not implemented for pktoptions
+recvttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {2,7,0});
+%%
+recvttl_ok({unix,_}, _) -> true;
+recvttl_ok(_, _) -> false.
+
+%% pktoptions is not supported for IPv6
+recvtclass_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
+recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
+%% Using the option returns einval, so it is not implemented.
+recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
+%% Does not return any value - not implemented for pktoptions
+recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
+%%
+recvtclass_ok({unix,_}, _) -> true;
+recvtclass_ok(_, _) -> false.
+
+semver_lt({X1,Y1,Z1}, {X2,Y2,Z2}) ->
+    if
+        X1 > X2 -> false;
+        X1 < X2 -> true;
+        Y1 > Y2 -> false;
+        Y1 < Y2 -> true;
+        Z1 > Z2 -> false;
+        Z1 < Z2 -> true;
+        true -> false
+    end;
+semver_lt(_, {_,_,_}) -> false.
+
+test_pktoptions(Family, Spec, OSFilter, CheckConnect) ->
+    OSType = os:type(),
+    OSVer = os:version(),
+    case OSFilter(OSType, OSVer) of
+        true ->
+            io:format("Os: ~p, ~p~n", [OSType,OSVer]),
+            test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer);
+        false ->
+            {skip,{not_supported_for_os_version,{OSType,OSVer}}}
+    end.
+%%
+test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
+    Timeout = 5000,
+    RecvOpts = [RecvOpt || {RecvOpt,_,_} <- Spec],
+    TrueRecvOpts = [{RecvOpt,true} || {RecvOpt,_,_} <- Spec],
+    FalseRecvOpts = [{RecvOpt,false} || {RecvOpt,_,_} <- Spec],
+    Opts = [Opt || {_,Opt,_} <- Spec],
+    OptsVals = [{Opt,Val} || {_,Opt,Val} <- Spec],
+    Address =
+        case Family of
+            inet ->
+                {127,0,0,1};
+            inet6 ->
+                {0,0,0,0,0,0,0,1}
+        end,
+    %%
+    %% Set RecvOpts on listen socket
+    {ok,L} =
+        gen_tcp:listen(
+          0,
+          [Family,binary,{active,false},{send_timeout,Timeout}
+           |TrueRecvOpts]),
+    {ok,P} = inet:port(L),
+    {ok,TrueRecvOpts} = inet:getopts(L, RecvOpts),
+    {ok,OptsValsDefault} = inet:getopts(L, Opts),
+    %%
+    %% Set RecvOpts and Option values on connect socket
+    {ok,S2} =
+        gen_tcp:connect(
+          Address, P,
+          [Family,binary,{active,false},{send_timeout,Timeout}
+           |TrueRecvOpts ++ OptsVals],
+          Timeout),
+    {ok,TrueRecvOpts} = inet:getopts(S2, RecvOpts),
+    {ok,OptsVals} = inet:getopts(S2, Opts),
+    %%
+    %% Accept socket inherits the options from listen socket
+    {ok,S1} = gen_tcp:accept(L, Timeout),
+    {ok,TrueRecvOpts} = inet:getopts(S1, RecvOpts),
+    {ok,OptsValsDefault} = inet:getopts(S1, Opts),
+%%%    %%
+%%%    %% Handshake
+%%%    ok = gen_tcp:send(S1, <<"hello">>),
+%%%    {ok,<<"hello">>} = gen_tcp:recv(S2, 5, Timeout),
+%%%    ok = gen_tcp:send(S2, <<"hi">>),
+%%%    {ok,<<"hi">>} = gen_tcp:recv(S1, 2, Timeout),
+    %%
+    %% Verify returned remote options
+    {ok,[{pktoptions,OptsVals1}]} = inet:getopts(S1, [pktoptions]),
+    {ok,[{pktoptions,OptsVals2}]} = inet:getopts(S2, [pktoptions]),
+    (Result1 = sets_eq(OptsVals1, OptsVals))
+        orelse io:format(
+                 "Accept differs: ~p neq ~p~n", [OptsVals1,OptsVals]),
+    (Result2 = sets_eq(OptsVals2, OptsValsDefault))
+        orelse io:format(
+                 "Connect differs: ~p neq ~p~n",
+                 [OptsVals2,OptsValsDefault]),
+    %%
+    ok = gen_tcp:close(S2),
+    ok = gen_tcp:close(S1),
+    %%
+    %%
+    %% Clear RecvOpts on listen socket and set Option values
+    ok = inet:setopts(L, FalseRecvOpts ++ OptsVals),
+    {ok,FalseRecvOpts} = inet:getopts(L, RecvOpts),
+    {ok,OptsVals} = inet:getopts(L, Opts),
+    %%
+    %% Set RecvOpts on connecting socket
+    %%
+    {ok,S4} =
+        gen_tcp:connect(
+          Address, P,
+          [Family,binary,{active,false},{send_timeout,Timeout}
+          |TrueRecvOpts],
+          Timeout),
+    {ok,TrueRecvOpts} = inet:getopts(S4, RecvOpts),
+    {ok,OptsValsDefault} = inet:getopts(S4, Opts),
+    %%
+    %% Accept socket inherits the options from listen socket
+    {ok,S3} = gen_tcp:accept(L, Timeout),
+    {ok,FalseRecvOpts} = inet:getopts(S3, RecvOpts),
+    {ok,OptsVals} = inet:getopts(S3, Opts),
+    %%
+    %% Verify returned remote options
+    {ok,[{pktoptions,[]}]} = inet:getopts(S3, [pktoptions]),
+    {ok,[{pktoptions,OptsVals4}]} = inet:getopts(S4, [pktoptions]),
+    (Result3 = sets_eq(OptsVals4, OptsVals))
+        orelse io:format(
+                 "Accept2 differs: ~p neq ~p~n", [OptsVals4,OptsVals]),
+    %%
+    ok = gen_tcp:close(S4),
+    ok = gen_tcp:close(S3),
+    ok = gen_tcp:close(L),
+    (Result1 and ((not CheckConnect) or (Result2 and Result3)))
+        orelse
+        exit({failed,
+              [{OptsVals1,OptsVals4,OptsVals},
+               {OptsVals2,OptsValsDefault}],
+              {OSType,OSVer}}),
+%%    exit({{OSType,OSVer},success}), % In search for the truth
+    ok.
+
+sets_eq(L1, L2) ->
+    lists:sort(L1) == lists:sort(L2).
+
+
+
 %% Accept test utilities (suites are below)
 
 millis() ->
@@ -2205,7 +2436,7 @@ wait_until_accepting(Proc,0) ->
     exit({timeout_waiting_for_accepting,Proc});
 wait_until_accepting(Proc,N) ->
     case process_info(Proc,current_function) of
-        {current_function,{prim_inet,accept0,2}} ->
+        {current_function,{prim_inet,accept0,3}} ->
             case process_info(Proc,status) of
                 {status,waiting} -> 
                     ok;
@@ -3056,3 +3287,172 @@ otp_13939(Config) when is_list(Config) ->
         exit(Pid, normal),
         ct:fail("Server process blocked on send.")
     end.
+
+otp_12242(Config) when is_list(Config) ->
+    case os:type() of
+        {win32,_} ->
+            %% Even if we set sndbuf and recbuf to small sizes
+            %% Windows either happily accepts to send GBytes of data
+            %% in no time, so the second send below that is supposed
+            %% to time out just succedes, or the first send that
+            %% is supposed to fill the inet_drv I/O queue and
+            %% start waiting for when more data can be sent
+            %% instead sends all data but suffers a send
+            %% failure that closes the socket
+            {skipped,backpressure_broken_on_win32};
+        _ ->
+            %% Find the IPv4 address of an up and running interface
+            %% that is not loopback nor pointtopoint
+            {ok,IFList} = inet:getifaddrs(),
+            ct:pal("IFList ~p~n", [IFList]),
+            case
+                lists:flatten(
+                  [lists:filtermap(
+                     fun ({addr,Addr}) when tuple_size(Addr) =:= 4 ->
+                             {true,Addr};
+                         (_) ->
+                             false
+                     end, Opts)
+                   || {_,Opts} <- IFList,
+                      case lists:keyfind(flags, 1, Opts) of
+                          {_,Flags} ->
+                              lists:member(up, Flags)
+                                  andalso
+                                  lists:member(running, Flags)
+                                  andalso
+                                  not lists:member(loopback, Flags)
+                                  andalso
+                                  not lists:member(pointtopoint, Flags);
+                          false ->
+                              false
+                      end])
+            of
+                [Addr|_] ->
+                    otp_12242(Addr);
+                Other ->
+                    {skipped,{no_external_address,Other}}
+            end
+    end;
+%%
+otp_12242(Addr) when tuple_size(Addr) =:= 4 ->
+    ct:timetrap(30000),
+    ct:pal("Using address ~p~n", [Addr]),
+    Bufsize = 16 * 1024,
+    Datasize = 128 * 1024 * 1024, % At least 1 s on GBit interface
+    Blob = binary:copy(<<$x>>, Datasize),
+    LOpts =
+        [{backlog,4},{reuseaddr,true},{ip,Addr},
+         binary,{active,false},
+         {recbuf,Bufsize},{sndbuf,Bufsize},{buffer,Bufsize}],
+    COpts =
+        [binary,{active,false},{ip,Addr},
+         {linger,{true,1}}, % 1 s
+         {send_timeout,500},
+         {recbuf,Bufsize},{sndbuf,Bufsize},{buffer,Bufsize}],
+    Dir = filename:dirname(code:which(?MODULE)),
+    {ok,ListenerNode} =
+        test_server:start_node(
+          ?UNIQ_NODE_NAME, slave, [{args,"-pa " ++ Dir}]),
+    Tester = self(),
+    Listener =
+        spawn(
+          ListenerNode,
+          fun () ->
+                  {ok,L} = gen_tcp:listen(0, LOpts),
+                  {ok,LPort} = inet:port(L),
+                  Tester ! {self(),port,LPort},
+                  {ok,A} = gen_tcp:accept(L),
+                  ok = gen_tcp:close(L),
+                  receive
+                      {Tester,stop} ->
+                          ok = gen_tcp:close(A)
+                  end
+          end),
+    ListenerMref = monitor(process, Listener),
+    LPort = receive {Listener,port,P} -> P end,
+    {ok,C} = gen_tcp:connect(Addr, LPort, COpts, infinity),
+    {ok,ReadCOpts} = inet:getopts(C, [recbuf,sndbuf,buffer]),
+    ct:pal("ReadCOpts ~p~n", [ReadCOpts]),
+    %%
+    %% Fill the buffers
+    ct:pal("Sending ~p bytes~n", [Datasize]),
+    ok = gen_tcp:send(C, Blob),
+    ct:pal("Sent ~p bytes~n", [Datasize]),
+    %% Spawn the Closer,
+    %% try to ensure that the close call is in progress
+    %% before the owner proceeds with sending
+    Owner = self(),
+    {_Closer,CloserMref} =
+        spawn_opt(
+          fun () ->
+                  Owner ! {tref, erlang:start_timer(50, Owner, closing)},
+                  ct:pal("Calling gen_tcp:close(C)~n"),
+                  try gen_tcp:close(C) of
+                      Result ->
+                          ct:pal("gen_tcp:close(C) -> ~p~n", [Result]),
+                          ok = Result
+                  catch
+                      Class:Reason:Stacktrace ->
+                          ct:pal(
+                            "gen_tcp:close(C) >< ~p:~p~n    ~p~n",
+                            [Class,Reason,Stacktrace]),
+                          erlang:raise(Class, Reason, Stacktrace)
+                  end
+          end, [link,monitor]),
+    receive
+        {tref,Tref} ->
+            receive {timeout,Tref,_} -> ok end,
+            ct:pal("Sending ~p bytes again~n", [Datasize]),
+            %% Now should the close be in progress...
+            %% All buffers are full, remote end is not reading,
+            %% and the send timeout is 1 s so this will timeout:
+            {error,timeout} = gen_tcp:send(C, Blob),
+            ct:pal("Sending ~p bytes again timed out~n", [Datasize]),
+            ok = inet:setopts(C, [{send_timeout,10000}]),
+            %% There is a hidden timeout here.  Port close is sampled
+            %% every 5 s by prim_inet:send_recv_reply.
+            %% Linger is 3 s so the Closer will finish this send:
+            ct:pal("Sending ~p bytes with 10 s timeout~n", [Datasize]),
+            {error,closed} = gen_tcp:send(C, Blob),
+            ct:pal("Sending ~p bytes with 10 s timeout was closed~n",
+                   [Datasize]),
+            normal = wait(CloserMref),
+            ct:pal("The Closer has exited~n"),
+            Listener ! {Tester,stop},
+            receive {'DOWN',ListenerMref,_,_,_} -> ok end,
+            ct:pal("The Listener has exited~n"),
+            test_server:stop_node(ListenerNode),
+            ok
+    end.
+
+wait(Mref) ->
+    receive {'DOWN',Mref,_,_,Reason} -> Reason end.
+
+%% OTP-15536
+%% Test that send error works correctly for delay_send
+delay_send_error(Config) ->
+    {ok, LS} = gen_tcp:listen(0, [{reuseaddr, true}, {packet, 1}, {active, false}]),
+    {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
+    P = spawn_link(
+          fun() ->
+                  {ok, S} = gen_tcp:accept(LS),
+                  receive die -> gen_tcp:close(S) end
+          end),
+    erlang:monitor(process, P),
+    {ok, S} = gen_tcp:connect("localhost", PortNum,
+                              [{packet, 1}, {active, false}, {delay_send, true}]),
+
+    %% Do a couple of sends first to see that it works
+    ok = gen_tcp:send(S, "hello"),
+    ok = gen_tcp:send(S, "hello"),
+    ok = gen_tcp:send(S, "hello"),
+
+    %% Make the receiver close
+    P ! die,
+    receive _Down -> ok end,
+
+    ok = gen_tcp:send(S, "hello"),
+    timer:sleep(500), %% Sleep in order for delay_send to have time to trigger
+
+    %% This used to result in a double free
+    {error, closed} = gen_tcp:send(S, "hello").

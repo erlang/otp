@@ -112,8 +112,10 @@ typedef struct line_buf {  /* Buffer used in line oriented I/O */
  */
 
 #define ERTS_PRTSD_SCHED_ID 0
+#define ERTS_PRTSD_DIST_ENTRY 1
+#define ERTS_PRTSD_CONN_ID 2
 
-#define ERTS_PRTSD_SIZE 1
+#define ERTS_PRTSD_SIZE 3
 
 typedef struct {
     void *data[ERTS_PRTSD_SIZE];
@@ -154,7 +156,6 @@ struct _erl_drv_port {
     Uint bytes_out;		/* Number of bytes written */
 
     ErlPortIOQueue ioq;          /* driver accessible i/o queue */
-    DistEntry *dist_entry;       /* Dist entry used in DISTRIBUTION */
     char *name;		         /* String used in the open */
     erts_driver_t* drv_ptr;
     UWord drv_data;
@@ -257,6 +258,8 @@ ERTS_GLB_INLINE void *
 erts_prtsd_get(Port *prt, int ix)
 {
     ErtsPrtSD *psd = (ErtsPrtSD *) erts_atomic_read_nob(&prt->psd);
+
+    ASSERT((unsigned)ix < ERTS_PRTSD_SIZE);
     if (!psd)
 	return NULL;
     ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
@@ -272,6 +275,7 @@ erts_prtsd_set(Port *prt, int ix, void *data)
 
     psd = (ErtsPrtSD *) erts_atomic_read_nob(&prt->psd);
 
+    ASSERT((unsigned)ix < ERTS_PRTSD_SIZE);
     if (psd) {
 #ifdef ETHR_ORDERED_READ_DEPEND
 	ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
@@ -330,6 +334,8 @@ Eterm erts_request_io_bytes(Process *c_p);
 #define ERTS_PORT_SFLG_INVALID		((Uint32) (1 << 11))
 /* Last port to terminate halts the emulator */
 #define ERTS_PORT_SFLG_HALT		((Uint32) (1 << 12))
+/* Check if the event in ready_input should be cleaned */
+#define ERTS_PORT_SFLG_CHECK_FD_CLEANUP ((Uint32) (1 << 13))
 #ifdef DEBUG
 /* Only debug: make sure all flags aren't cleared unintentionally */
 #define ERTS_PORT_SFLG_PORT_DEBUG	((Uint32) (1 << 31))
@@ -459,7 +465,7 @@ erts_port_unlock(Port *prt)
   ERTS_INVALID_PORT_OPT((PP), (ID), ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP)
 
 #define ERTS_PORT_SCHED_ID(P, ID) \
-  ((Uint) (UWord) erts_prtsd_set((P), ERTS_PSD_SCHED_ID, (void *) (UWord) (ID)))
+  ((Uint) (UWord) erts_prtsd_set((P), ERTS_PRTSD_SCHED_ID, (void *) (UWord) (ID)))
 
 extern const Port erts_invalid_port;
 #define ERTS_PORT_LOCK_BUSY ((Port *) &erts_invalid_port)
@@ -1012,6 +1018,6 @@ int erts_port_output_async(Port *, Eterm, Eterm);
 /*
  * Signals from ports to ports. Used by sys drivers.
  */
-int erl_drv_port_control(Eterm, char, char*, ErlDrvSizeT);
+int erl_drv_port_control(Eterm, unsigned int, char*, ErlDrvSizeT);
 
 #endif

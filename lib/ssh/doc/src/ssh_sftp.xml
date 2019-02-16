@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2005</year><year>2017</year>
+      <year>2005</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <rev></rev>
     <file>ssh_sftp.sgml</file>
   </header>
-  <module>ssh_sftp</module>
+  <module since="">ssh_sftp</module>
   <modulesummary>SFTP client.</modulesummary>
   <description>
     <p>This module implements an SSH FTP (SFTP) client. SFTP is a
@@ -46,9 +46,9 @@
     <taglist>
       <tag><c>reason()</c></tag>
       <item>
-	<p>= <c>atom()</c> A description of the reason why an operation failed.</p>
+	<p>= <c>atom() | string() | tuple() </c>A description of the reason why an operation failed.</p>
 	<p>
-	  The value is formed from the sftp error codes in the protocol-level responses as defined in 
+	  The <c>atom()</c> value is formed from the sftp error codes in the protocol-level responses as defined in 
 	  <url href="https://tools.ietf.org/id/draft-ietf-secsh-filexfer-13.txt">draft-ietf-secsh-filexfer-13.txt</url>
 	  section 9.1.
 	</p>
@@ -56,6 +56,10 @@
 	  The codes are named as <c>SSH_FX_*</c> which are transformed into lowercase of the star-part.
 	  E.g. the error code <c>SSH_FX_NO_SUCH_FILE</c>
 	  will cause the <c>reason()</c> to be <c>no_such_file</c>.
+	</p>
+	<p>The <c>string()</c> reason is the error information from the server in case of an exit-signal.  If that information is empty, the reason is the exit signal name.
+	</p>
+	<p>The <c>tuple()</c> reason are other errors like the <c>{exit_status,integer()}</c> if the exit status is not 0.
 	</p>
       </item>
 
@@ -78,7 +82,7 @@
 
   <funcs>
      <func>
-       <name>apread(ChannelPid, Handle, Position, Len) -> {async, N} | {error, reason()}</name>
+       <name since="">apread(ChannelPid, Handle, Position, Len) -> {async, N} | {error, reason()}</name>
        <fsummary>Reads asynchronously from an open file.</fsummary>
        <type>
 	 <v>ChannelPid = pid()</v>
@@ -94,7 +98,7 @@
      </func>
      
      <func>
-	<name>apwrite(ChannelPid, Handle, Position, Data) -> {async, N} | {error, reason()}</name>
+	<name since="">apwrite(ChannelPid, Handle, Position, Data) -> {async, N} | {error, reason()}</name>
 	<fsummary>Writes asynchronously to an open file.</fsummary>
 	<type>
 	  <v>ChannelPid = pid()</v>
@@ -112,7 +116,7 @@
       </func>
       
       <func>
-	<name>aread(ChannelPid, Handle, Len) -> {async, N} | {error, reason()}</name>
+	<name since="">aread(ChannelPid, Handle, Len) -> {async, N} | {error, reason()}</name>
 	<fsummary>Reads asynchronously from an open file.</fsummary>
 	<type>
 	  <v>ChannelPid = pid()</v>
@@ -133,7 +137,7 @@
     </func>
 
     <func>
-      <name>awrite(ChannelPid, Handle, Data) -> {async, N} | {error, reason()}</name>
+      <name since="">awrite(ChannelPid, Handle, Data) -> {async, N} | {error, reason()}</name>
       <fsummary>Writes asynchronously to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -155,8 +159,8 @@
     </func>
 
     <func>
-      <name>close(ChannelPid, Handle) -></name>
-      <name>close(ChannelPid, Handle, Timeout) -> ok | {error, reason()}</name>
+      <name since="">close(ChannelPid, Handle) -></name>
+      <name since="">close(ChannelPid, Handle, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Closes an open handle.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -169,8 +173,8 @@
     </func>
 
     <func>
-      <name>delete(ChannelPid, Name) -></name>
-      <name>delete(ChannelPid, Name, Timeout) -> ok | {error, reason()}</name>
+      <name since="">delete(ChannelPid, Name) -></name>
+      <name since="">delete(ChannelPid, Name, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Deletes a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -184,8 +188,8 @@
     </func>
 
     <func>
-      <name>del_dir(ChannelPid, Name) -></name>
-      <name>del_dir(ChannelPid, Name, Timeout) -> ok | {error, reason()}</name>
+      <name since="">del_dir(ChannelPid, Name) -></name>
+      <name since="">del_dir(ChannelPid, Name, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Deletes an empty directory.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -200,8 +204,8 @@
     </func>
 
      <func>
-      <name>list_dir(ChannelPid, Path) -></name>
-      <name>list_dir(ChannelPid, Path, Timeout) -> {ok, Filenames} | {error, reason()}</name>
+      <name since="">list_dir(ChannelPid, Path) -></name>
+      <name since="">list_dir(ChannelPid, Path, Timeout) -> {ok, Filenames} | {error, reason()}</name>
       <fsummary>Lists the directory.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -217,8 +221,8 @@
     </func>
 
     <func>
-      <name>make_dir(ChannelPid, Name) -></name>
-      <name>make_dir(ChannelPid, Name, Timeout) -> ok | {error, reason()}</name>
+      <name since="">make_dir(ChannelPid, Name) -></name>
+      <name since="">make_dir(ChannelPid, Name, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Creates a directory.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -233,8 +237,8 @@
     </func>
 
     <func>
-      <name>make_symlink(ChannelPid, Name, Target) -></name>
-      <name>make_symlink(ChannelPid, Name, Target, Timeout) -> ok | {error, reason()}</name>
+      <name since="">make_symlink(ChannelPid, Name, Target) -></name>
+      <name since="">make_symlink(ChannelPid, Name, Target, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Creates a symbolic link.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -249,8 +253,8 @@
     </func>
 
        <func>
-      <name>open(ChannelPid, File, Mode) -></name>
-      <name>open(ChannelPid, File, Mode, Timeout) -> {ok, Handle} | {error, reason()}</name>
+      <name since="">open(ChannelPid, File, Mode) -></name>
+      <name since="">open(ChannelPid, File, Mode, Timeout) -> {ok, Handle} | {error, reason()}</name>
       <fsummary>Opens a file and returns a handle.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -266,8 +270,8 @@
       </desc>
     </func>
     <func>
-      <name>opendir(ChannelPid, Path) -></name>
-      <name>opendir(ChannelPid, Path, Timeout) -> {ok, Handle} | {error, reason()}</name>
+      <name since="">opendir(ChannelPid, Path) -></name>
+      <name since="">opendir(ChannelPid, Path, Timeout) -> {ok, Handle} | {error, reason()}</name>
       <fsummary>Opens a directory and returns a handle.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -281,8 +285,8 @@
     </func>
 
     <func>
-      <name>open_tar(ChannelPid, Path, Mode) -></name>
-      <name>open_tar(ChannelPid, Path, Mode, Timeout) -> {ok, Handle} | {error, reason()}</name>
+      <name since="OTP 17.4">open_tar(ChannelPid, Path, Mode) -></name>
+      <name since="OTP 17.4">open_tar(ChannelPid, Path, Mode, Timeout) -> {ok, Handle} | {error, reason()}</name>
       <fsummary>Opens a tar file on the server to which <c>ChannelPid</c>
       is connected and returns a handle.</fsummary>
       <type>
@@ -335,8 +339,8 @@
     </func>
 
     <func>
-      <name>position(ChannelPid, Handle, Location) -></name>
-      <name>position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition | {error, reason()}</name>
+      <name since="">position(ChannelPid, Handle, Location) -></name>
+      <name since="">position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition | {error, reason()}</name>
       <fsummary>Sets the file position of a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -380,8 +384,8 @@
     </func>
 
     <func>
-      <name>pread(ChannelPid, Handle, Position, Len) -></name>
-      <name>pread(ChannelPid, Handle, Position, Len, Timeout) -> {ok, Data} | eof | {error, reason()}</name>
+      <name since="">pread(ChannelPid, Handle, Position, Len) -></name>
+      <name since="">pread(ChannelPid, Handle, Position, Len, Timeout) -> {ok, Data} | eof | {error, reason()}</name>
       <fsummary>Reads from an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -398,8 +402,8 @@
      </func>
 
     <func>
-      <name>pwrite(ChannelPid, Handle, Position, Data) -> ok</name>
-      <name>pwrite(ChannelPid, Handle, Position, Data, Timeout) -> ok | {error, reason()}</name>
+      <name since="">pwrite(ChannelPid, Handle, Position, Data) -> ok</name>
+      <name since="">pwrite(ChannelPid, Handle, Position, Data, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Writes to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -415,13 +419,12 @@
     </func>
 
     <func>
-      <name>read(ChannelPid, Handle, Len) -></name>
-      <name>read(ChannelPid, Handle, Len, Timeout) -> {ok, Data} | eof | {error, reason()}</name>
+      <name since="">read(ChannelPid, Handle, Len) -></name>
+      <name since="">read(ChannelPid, Handle, Len, Timeout) -> {ok, Data} | eof | {error, reason()}</name>
       <fsummary>Reads from an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
         <v>Handle = term()</v>
-        <v>Position = integer()</v>
         <v>Len = integer()</v>
 	<v>Timeout = timeout()</v>
         <v>Data = string() | binary()</v>
@@ -438,8 +441,8 @@
     </func>
 
       <func>
-      <name>read_file(ChannelPid, File) -></name>
-      <name>read_file(ChannelPid, File, Timeout) -> {ok, Data} | {error, reason()}</name>
+      <name since="">read_file(ChannelPid, File) -></name>
+      <name since="">read_file(ChannelPid, File, Timeout) -> {ok, Data} | {error, reason()}</name>
       <fsummary>Reads a file.</fsummary>
       <type>
 	<v>ChannelPid = pid()</v>
@@ -453,8 +456,8 @@
     </func>
 
       <func>
-      <name>read_file_info(ChannelPid, Name) -></name>
-      <name>read_file_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, reason()}</name>
+      <name since="">read_file_info(ChannelPid, Name) -></name>
+      <name since="">read_file_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, reason()}</name>
       <fsummary>Gets information about a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -478,8 +481,8 @@
     </func>
 
      <func>
-      <name>read_link(ChannelPid, Name) -></name>
-      <name>read_link(ChannelPid, Name, Timeout) -> {ok, Target} | {error, reason()}</name>
+      <name since="">read_link(ChannelPid, Name) -></name>
+      <name since="">read_link(ChannelPid, Name, Timeout) -> {ok, Target} | {error, reason()}</name>
       <fsummary>Reads symbolic link.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -493,8 +496,8 @@
     </func>
 
      <func>
-      <name>read_link_info(ChannelPid, Name) -> {ok, FileInfo} | {error, reason()}</name>
-      <name>read_link_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, reason()}</name>
+      <name since="">read_link_info(ChannelPid, Name) -> {ok, FileInfo} | {error, reason()}</name>
+      <name since="">read_link_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, reason()}</name>
       <fsummary>Gets information about a symbolic link.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -514,8 +517,8 @@
     </func>
 
     <func>
-      <name>rename(ChannelPid, OldName, NewName) -> </name>
-      <name>rename(ChannelPid, OldName, NewName, Timeout) -> ok | {error, reason()}</name>
+      <name since="">rename(ChannelPid, OldName, NewName) -> </name>
+      <name since="">rename(ChannelPid, OldName, NewName, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Renames a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -531,16 +534,16 @@
     </func>
 
     <func>
-      <name>start_channel(ConnectionRef) -></name>
-      <name>start_channel(ConnectionRef, Options) ->
+      <name since="">start_channel(ConnectionRef) -></name>
+      <name since="">start_channel(ConnectionRef, Options) ->
       {ok, Pid} | {error, reason()|term()}</name>
 
-      <name>start_channel(Host, Options) -></name>
-      <name>start_channel(Host, Port, Options) -> 
+      <name since="">start_channel(Host, Options) -></name>
+      <name since="">start_channel(Host, Port, Options) -> 
       {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
 
-      <name>start_channel(TcpSocket) -></name>
-      <name>start_channel(TcpSocket, Options) ->
+      <name since="">start_channel(TcpSocket) -></name>
+      <name since="">start_channel(TcpSocket, Options) ->
       {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
 
       <fsummary>Starts an SFTP client.</fsummary>
@@ -591,7 +594,7 @@
     </func>
 
      <func>
-      <name>stop_channel(ChannelPid) -> ok</name>
+      <name since="">stop_channel(ChannelPid) -> ok</name>
       <fsummary>Stops the SFTP client channel.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -603,8 +606,8 @@
     </func>
 
     <func>
-      <name>write(ChannelPid, Handle, Data) -></name>
-      <name>write(ChannelPid, Handle, Data, Timeout) -> ok | {error, reason()}</name>
+      <name since="">write(ChannelPid, Handle, Data) -></name>
+      <name since="">write(ChannelPid, Handle, Data, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Writes to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -622,8 +625,8 @@
     </func>
     
     <func>
-      <name>write_file(ChannelPid, File, Iolist) -></name>
-      <name>write_file(ChannelPid, File, Iolist, Timeout) -> ok | {error, reason()}</name>
+      <name since="">write_file(ChannelPid, File, Iolist) -></name>
+      <name since="">write_file(ChannelPid, File, Iolist, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Writes a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -638,8 +641,8 @@
     </func>
     
     <func>
-      <name>write_file_info(ChannelPid, Name, Info) -></name>
-      <name>write_file_info(ChannelPid, Name, Info, Timeout) -> ok | {error, reason()}</name>
+      <name since="">write_file_info(ChannelPid, Name, Info) -></name>
+      <name since="">write_file_info(ChannelPid, Name, Info, Timeout) -> ok | {error, reason()}</name>
       <fsummary>Writes information for a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>

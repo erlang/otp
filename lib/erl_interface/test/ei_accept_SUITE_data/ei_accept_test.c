@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,12 +74,10 @@ TESTCASE(interpret)
     int i;
     ei_term term;
 
+    ei_init();
+
     ei_x_new(&x);
-    for (;;) {
-	if (get_bin_term(&x, &term)) {
-	    report(1);
-	    return;
-	} else {
+    while (get_bin_term(&x, &term) == 0) {
 	    char* buf = x.buff, func[MAXATOMLEN];
 	    int index = x.index, arity;
 	    if (term.ei_type != ERL_SMALL_TUPLE_EXT || term.arity != 2)
@@ -100,8 +98,9 @@ TESTCASE(interpret)
 		message("\"%d\" \n", func);
 		fail("bad command");
 	    }
-	}
-    }	
+    }
+    report(1);
+    ei_x_free(&x);
 }
 
 static void cmd_ei_connect_init(char* buf, int len)
@@ -128,45 +127,26 @@ static void cmd_ei_connect_init(char* buf, int len)
     ei_x_free(&res);
 }
 
-static int my_listen(int port)
-{
-    int listen_fd;
-    struct sockaddr_in addr;
-    const char *on = "1";
-    
-    if ((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-	return -1;
-    
-    setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, on, sizeof(on));
-    
-    memset((void*) &addr, 0, (size_t) sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    
-    if (bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr)) < 0)
-	return -1;
-
-    listen(listen_fd, 5);
-    return listen_fd;
-}
-
 static void cmd_ei_publish(char* buf, int len)
 {
     int index = 0;
-    int listen, r;
-    long port;
+    int iport, lfd, r;
+    long lport;
     ei_x_buff x;
     int i;
 
     /* get port */
-    if (ei_decode_long(buf, &index, &port) < 0)
+    if (ei_decode_long(buf, &index, &lport) < 0)
 	fail("expected int (port)");
     /* Make a listen socket */
-    if ((listen = my_listen(port)) <= 0)
+
+    iport = (int) lport;
+    lfd = ei_listen(&ec, &iport, 5);
+    if (lfd < 0)
 	fail("listen");
+    lport = (long) iport;
     
-    if ((i = ei_publish(&ec, port)) == -1)
+    if ((i = ei_publish(&ec, lport)) == -1)
 	fail("ei_publish");
 #ifdef VXWORKS
     save_fd(i);
@@ -174,7 +154,7 @@ static void cmd_ei_publish(char* buf, int len)
     /* send listen-fd, result and errno */
     ei_x_new_with_version(&x);
     ei_x_encode_tuple_header(&x, 3);
-    ei_x_encode_long(&x, listen);
+    ei_x_encode_long(&x, (long) lfd);
     ei_x_encode_long(&x, i);
     ei_x_encode_long(&x, erl_errno);
     send_bin_term(&x);

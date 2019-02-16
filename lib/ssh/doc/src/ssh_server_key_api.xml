@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
-      <year>2015</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>ssh_server_key_api</module>
+  <module since="OTP R16B">ssh_server_key_api</module>
   <modulesummary>
     -behaviour(ssh_server_key_api).
   </modulesummary>
@@ -87,7 +87,7 @@
 
   <funcs>
     <func>
-      <name>Module:host_key(Algorithm, DaemonOptions) ->
+      <name since="OTP R16B">Module:host_key(Algorithm, DaemonOptions) ->
       {ok, Key} | {error, Reason}</name>
       <fsummary>Fetches the host’s private key.</fsummary>
       <type>
@@ -111,7 +111,7 @@
     </func>
 
     <func>
-      <name>Module:is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
+      <name since="OTP R16B">Module:is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
       <fsummary>Checks if the user key is authorized.</fsummary>
       <type>
 	<v>PublicUserKey = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>

@@ -34,7 +34,7 @@
     <rev>A</rev>
     <file>mnesia_registry.sgml</file>
   </header>
-  <module>mnesia_registry</module>
+  <module since="">mnesia_registry</module>
   <modulesummary>Dump support for registries in erl_interface.</modulesummary>
   <description>
     <p>This module is usually part of the <c>erl_interface</c>
@@ -57,7 +57,7 @@
 
   <funcs>
     <func>
-      <name>create_table(Tab) -> ok | exit(Reason)</name>
+      <name since="">create_table(Tab) -> ok | exit(Reason)</name>
       <fsummary>Creates a registry table in Mnesia.</fsummary>
       <desc>
         <p>A wrapper function for <c>mnesia:create_table/2</c>,
@@ -73,7 +73,7 @@
       </desc>
     </func>
     <func>
-      <name>create_table(Tab, TabDef) -> ok | exit(Reason)</name>
+      <name since="">create_table(Tab, TabDef) -> ok | exit(Reason)</name>
       <fsummary>Creates a customized registry table in Mnesia.</fsummary>
       <desc>
         <p>A wrapper function for <c>mnesia:create_table/2</c>,

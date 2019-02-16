@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -631,14 +631,16 @@
           of process heaps is destroyed by the crash dump generation.</p>
         <p>Option <c>+d</c> instructs the emulator to produce only a
           core dump and no crash dump if an internal error is detected.</p>
-        <p>Calling <seealso marker="erlang:halt/1">
+        <p>Calling <seealso marker="erlang#halt/1">
           <c>erlang:halt/1</c></seealso> with a string argument still
           produces a crash dump. On Unix systems, sending an emulator process
           a <c>SIGUSR1</c> signal also forces a crash dump.</p>
       </item>
       <tag><marker id="+e"/><c><![CDATA[+e Number]]></c></tag>
       <item>
-        <p>Sets the maximum number of ETS tables.</p>
+        <p>Sets the maximum number of ETS tables. This limit is
+	<seealso marker="stdlib:ets#max_ets_tables">partially obsolete</seealso>.
+	</p>
       </item>
       <tag><c><![CDATA[+ec]]></c></tag>
       <item>

@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,4 +50,5 @@
   <xi:include href="fips.xml"/>
   <xi:include href="engine_load.xml"/>
   <xi:include href="engine_keys.xml"/>
+  <xi:include href="algorithm_details.xml"/>
 </part>

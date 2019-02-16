@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>file_sorter.xml</file>
   </header>
-  <module>file_sorter</module>
+  <module since="">file_sorter</module>
   <modulesummary>File sorter.</modulesummary>
   <description>
     <p>This module contains functions for sorting terms on files, merging
@@ -334,8 +334,8 @@ output(L) ->
 
   <funcs>
     <func>
-      <name name="check" arity="1"/>
-      <name name="check" arity="2"/>
+      <name name="check" arity="1" since=""/>
+      <name name="check" arity="2" since=""/>
       <fsummary>Check whether terms on files are sorted.</fsummary>
       <desc>
         <p>Checks files for sortedness. If a file is not sorted, the
@@ -347,8 +347,8 @@ output(L) ->
     </func>
 
     <func>
-      <name name="keycheck" arity="2"/>
-      <name name="keycheck" arity="3"/>
+      <name name="keycheck" arity="2" since=""/>
+      <name name="keycheck" arity="3" since=""/>
       <fsummary>Check whether terms on files are sorted by key.</fsummary>
       <desc>
         <p>Checks files for sortedness. If a file is not sorted, the
@@ -360,8 +360,8 @@ output(L) ->
     </func>
 
     <func>
-      <name name="keymerge" arity="3"/>
-      <name name="keymerge" arity="4"/>
+      <name name="keymerge" arity="3" since=""/>
+      <name name="keymerge" arity="4" since=""/>
       <fsummary>Merge terms on files by key.</fsummary>
       <desc>
         <p>Merges tuples on files. Each input file is assumed to be
@@ -372,7 +372,7 @@ output(L) ->
     </func>
 
     <func>
-      <name name="keysort" arity="2"/>
+      <name name="keysort" arity="2" since=""/>
       <fsummary>Sort terms on files by key.</fsummary>
       <desc>
         <p>Sorts tuples on files.</p>
@@ -382,8 +382,8 @@ output(L) ->
     </func>
 
     <func>
-      <name name="keysort" arity="3"/>
-      <name name="keysort" arity="4"/>
+      <name name="keysort" arity="3" since=""/>
+      <name name="keysort" arity="4" since=""/>
       <fsummary>Sort terms on files by key.</fsummary>
       <desc>
         <p>Sorts tuples on files. The sort is performed on the
@@ -397,8 +397,8 @@ output(L) ->
     </func>
 
     <func>
-      <name name="merge" arity="2"/>
-      <name name="merge" arity="3"/>
+      <name name="merge" arity="2" since=""/>
+      <name name="merge" arity="3" since=""/>
       <fsummary>Merge terms on files.</fsummary>
       <desc>
         <p>Merges terms on files. Each input file is assumed to be
@@ -409,7 +409,7 @@ output(L) ->
     </func>
 
     <func>
-      <name name="sort" arity="1"/>
+      <name name="sort" arity="1" since=""/>
       <fsummary>Sort terms on files.</fsummary>
       <desc>
         <p>Sorts terms on files.</p>
@@ -419,8 +419,8 @@ output(L) ->
     </func>
 
     <func>
-      <name name="sort" arity="2"/>
-      <name name="sort" arity="3"/>
+      <name name="sort" arity="2" since=""/>
+      <name name="sort" arity="3" since=""/>
       <fsummary>Sort terms on files.</fsummary>
       <desc>
         <p>Sorts terms on files.</p>

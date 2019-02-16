@@ -1,6 +1,6 @@
 {application, ftp,
  [{description, "FTP client"},
-  {vsn, "1.0"},
+  {vsn, "%VSN%"},
   {registered, []},
   {mod, { ftp_app, []}},
   {applications,

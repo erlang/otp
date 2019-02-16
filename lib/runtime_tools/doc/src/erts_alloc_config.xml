@@ -29,7 +29,7 @@
     <rev>1</rev>
     <file>erts_alloc_config.sgml</file>
   </header>
-  <module>erts_alloc_config</module>
+  <module since="">erts_alloc_config</module>
   <modulesummary>Configuration tool for erts_alloc</modulesummary>
   <description>
     <note>
@@ -136,7 +136,7 @@
   </description>
   <funcs>
     <func>
-      <name>save_scenario() -> ok | {error, Error}</name>
+      <name since="">save_scenario() -> ok | {error, Error}</name>
       <fsummary>Saves information about current runtime scenario</fsummary>
       <type>
         <v>Error = term()</v>
@@ -154,7 +154,7 @@
       </desc>
     </func>
     <func>
-      <name>make_config() -> ok | {error, Error}</name>
+      <name since="">make_config() -> ok | {error, Error}</name>
       <fsummary>Creates an erts_alloc configuration</fsummary>
       <type>
         <v>Error = term()</v>
@@ -165,7 +165,7 @@
       </desc>
     </func>
     <func>
-      <name>make_config(FileNameOrIODev) -> ok | {error, Error}</name>
+      <name since="">make_config(FileNameOrIODev) -> ok | {error, Error}</name>
       <fsummary>Creates an erts_alloc configuration</fsummary>
       <type>
         <v>FileNameOrIODev = string() | io_device()</v>
@@ -190,7 +190,7 @@
       </desc>
     </func>
     <func>
-      <name>stop() -> ok | {error, Error}</name>
+      <name since="">stop() -> ok | {error, Error}</name>
       <fsummary></fsummary>
       <type>
         <v>Error = term()</v>

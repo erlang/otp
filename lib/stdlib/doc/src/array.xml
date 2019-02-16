@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>array.xml</file>
   </header>
-  <module>array</module>
+  <module since="">array</module>
   <modulesummary>Functional, extendible arrays.</modulesummary>
   <description>
     <p>Functional, extendible arrays. Arrays can have fixed size, or can grow
@@ -137,7 +137,7 @@ A3 = array:fix(A2).</pre>
 
   <funcs>
     <func>
-      <name name="default" arity="1"/>
+      <name name="default" arity="1" since=""/>
       <fsummary>Get the value used for uninitialized entries.</fsummary>
       <desc><marker id="default-1"/>
         <p>Gets the value used for uninitialized entries.</p>
@@ -146,7 +146,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="fix" arity="1"/>
+      <name name="fix" arity="1" since=""/>
       <fsummary>Fix the array size.</fsummary>
       <desc><marker id="fix-1"/>
         <p>Fixes the array size. This prevents it from growing automatically
@@ -157,7 +157,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="foldl" arity="3"/>
+      <name name="foldl" arity="3" since=""/>
       <fsummary>Fold the array elements using the specified function and initial
         accumulator value.</fsummary>
       <desc><marker id="foldl-3"/>
@@ -172,7 +172,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="foldr" arity="3"/>
+      <name name="foldr" arity="3" since=""/>
       <fsummary>Fold the array elements right-to-left using the specified
         function and initial accumulator value.</fsummary>
       <desc><marker id="foldr-3"/>
@@ -186,7 +186,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="from_list" arity="1"/>
+      <name name="from_list" arity="1" since=""/>
       <fsummary>Equivalent to <c>from_list(List, undefined)</c>.</fsummary>
       <desc><marker id="from_list-1"/>
         <p>Equivalent to
@@ -195,7 +195,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="from_list" arity="2"/>
+      <name name="from_list" arity="2" since=""/>
       <fsummary>Convert a list to an extendible array.</fsummary>
       <desc><marker id="from_list-2"/>
         <p>Converts a list to an extendible array. <c><anno>Default</anno></c>
@@ -208,7 +208,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="from_orddict" arity="1"/>
+      <name name="from_orddict" arity="1" since=""/>
       <fsummary>Equivalent to <c>from_orddict(Orddict, undefined)</c>.
       </fsummary>
       <desc><marker id="from_orddict-1"/>
@@ -218,7 +218,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="from_orddict" arity="2"/>
+      <name name="from_orddict" arity="2" since=""/>
       <fsummary>Convert an ordered list of pairs <c>{Index, Value}</c> to a
         corresponding extendible array.</fsummary>
       <desc><marker id="from_orddict-2"/>
@@ -234,7 +234,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="get" arity="2"/>
+      <name name="get" arity="2" since=""/>
       <fsummary>Get the value of entry <c>I</c>.</fsummary>
       <desc><marker id="get-2"/>
         <p>Gets the value of entry <c><anno>I</anno></c>. If
@@ -249,7 +249,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="is_array" arity="1"/>
+      <name name="is_array" arity="1" since=""/>
       <fsummary>Returns <c>true</c> if <c>X</c> is an array, otherwise
         <c>false</c>.</fsummary>
       <desc><marker id="is_array-1"/>
@@ -261,7 +261,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="is_fix" arity="1"/>
+      <name name="is_fix" arity="1" since=""/>
       <fsummary>Check if the array has fixed size.</fsummary>
       <desc><marker id="is_fix-1"/>
         <p>Checks if the array has fixed size. Returns <c>true</c> if the array
@@ -271,7 +271,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="map" arity="2"/>
+      <name name="map" arity="2" since=""/>
       <fsummary>Map the specified function onto each array element.</fsummary>
       <desc><marker id="map-2"/>
         <p>Maps the specified function onto each array element. The elements are
@@ -285,7 +285,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="new" arity="0"/>
+      <name name="new" arity="0" since=""/>
       <fsummary>Create a new, extendible array with initial size zero.
       </fsummary>
       <desc><marker id="new-0"/>
@@ -296,7 +296,7 @@ A3 = array:fix(A2).</pre>
     </func>
 
     <func>
-      <name name="new" arity="1"/>
+      <name name="new" arity="1" since=""/>
       <fsummary>Create a new array according to the specified options.
       </fsummary>
       <desc><marker id="new-1"/>
@@ -346,7 +346,7 @@ array:new([{size,10},{fixed,false},{default,-1}])</pre>
     </func>
 
     <func>
-      <name name="new" arity="2"/>
+      <name name="new" arity="2" since=""/>
       <fsummary>Create a new array according to the specified size and options.
       </fsummary>
       <desc><marker id="new-2"/>
@@ -370,7 +370,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="relax" arity="1"/>
+      <name name="relax" arity="1" since=""/>
       <fsummary>Make the array resizable.</fsummary>
       <desc><marker id="relax-1"/>
         <p>Makes the array resizable. (Reverses the effects of
@@ -380,7 +380,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="reset" arity="2"/>
+      <name name="reset" arity="2" since=""/>
       <fsummary>Reset entry <c>I</c> to the default value for the array.
       </fsummary>
       <desc><marker id="reset-2"/>
@@ -399,7 +399,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="resize" arity="1"/>
+      <name name="resize" arity="1" since=""/>
       <fsummary>Change the array size to that reported by <c>sparse_size/1</c>.
       </fsummary>
       <desc><marker id="resize-1"/>
@@ -413,7 +413,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="resize" arity="2"/>
+      <name name="resize" arity="2" since=""/>
       <fsummary>Change the array size.</fsummary>
       <desc><marker id="resize-2"/>
         <p>Change the array size. If <c><anno>Size</anno></c> is not a
@@ -424,7 +424,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="set" arity="3"/>
+      <name name="set" arity="3" since=""/>
       <fsummary>Set entry <c>I</c> of the array to <c>Value</c>.</fsummary>
       <desc><marker id="set-3"/>
         <p>Sets entry <c><anno>I</anno></c> of the array to
@@ -441,7 +441,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="size" arity="1"/>
+      <name name="size" arity="1" since=""/>
       <fsummary>Get the number of entries in the array.</fsummary>
       <desc><marker id="size-1"/>
         <p>Gets the number of entries in the array. Entries are numbered from
@@ -454,7 +454,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="sparse_foldl" arity="3"/>
+      <name name="sparse_foldl" arity="3" since=""/>
       <fsummary>Fold the array elements using the specified function and initial
         accumulator value, skipping default-valued entries.</fsummary>
       <desc><marker id="sparse_foldl-3"/>
@@ -469,7 +469,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="sparse_foldr" arity="3"/>
+      <name name="sparse_foldr" arity="3" since=""/>
       <fsummary>Fold the array elements right-to-left using the specified
         function and initial accumulator value, skipping default-valued
         entries.</fsummary>
@@ -485,7 +485,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="sparse_map" arity="2"/>
+      <name name="sparse_map" arity="2" since=""/>
       <fsummary>Map the specified function onto each array element, skipping
         default-valued entries.</fsummary>
       <desc><marker id="sparse_map-2"/>
@@ -498,7 +498,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="sparse_size" arity="1"/>
+      <name name="sparse_size" arity="1" since=""/>
       <fsummary>Get the number of entries in the array up until the last
         non-default-valued entry.</fsummary>
       <desc><marker id="sparse_size-1"/>
@@ -512,7 +512,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="sparse_to_list" arity="1"/>
+      <name name="sparse_to_list" arity="1" since=""/>
       <fsummary>Convert the array to a list, skipping default-valued entries.
       </fsummary>
       <desc><marker id="sparse_to_list-1"/>
@@ -522,7 +522,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="sparse_to_orddict" arity="1"/>
+      <name name="sparse_to_orddict" arity="1" since=""/>
       <fsummary>Convert the array to an ordered list of pairs <c>{Index,
         Value}</c>, skipping default-valued entries.</fsummary>
       <desc><marker id="sparse_to_orddict-1"/>
@@ -534,7 +534,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="to_list" arity="1"/>
+      <name name="to_list" arity="1" since=""/>
       <fsummary>Convert the array to a list.</fsummary>
       <desc><marker id="to_list-1"/>
         <p>Converts the array to a list.</p>
@@ -545,7 +545,7 @@ array:new(100, {default,0})</pre>
     </func>
 
     <func>
-      <name name="to_orddict" arity="1"/>
+      <name name="to_orddict" arity="1" since=""/>
       <fsummary>Convert the array to an ordered list of pairs <c>{Index,
         Value}</c>.</fsummary>
       <desc><marker id="to_orddict-1"/>

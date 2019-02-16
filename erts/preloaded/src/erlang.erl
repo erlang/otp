@@ -86,15 +86,15 @@
       | 'nano_seconds'.
 
 -opaque prepared_code() :: reference().
-
 -export_type([prepared_code/0]).
 
--opaque dist_handle() :: atom().
+-opaque nif_resource() :: reference().
+-export_type([nif_resource/0]).
 
+-opaque dist_handle() :: atom().
 -export_type([dist_handle/0]).
 
 -type iovec() :: [binary()].
-
 -export_type([iovec/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2295,7 +2295,7 @@ process_flag(_Flag, _Value) ->
                             non_neg_integer()}]} |
       {catchlevel, CatchLevel :: non_neg_integer()} |
       {current_function,
-       {Module :: module(), Function :: atom(), Arity :: arity()}} |
+       {Module :: module(), Function :: atom(), Arity :: arity()} | undefined} |
       {current_location,
        {Module :: module(), Function :: atom(), Arity :: arity(),
         Location :: [{file, Filename :: string()} | % not a stack_item()!
@@ -2316,7 +2316,7 @@ process_flag(_Flag, _Value) ->
       {min_heap_size, MinHeapSize :: non_neg_integer()} |
       {min_bin_vheap_size, MinBinVHeapSize :: non_neg_integer()} |
       {max_heap_size, MaxHeapSize :: max_heap_size()} |
-      {monitored_by, Pids :: [pid()]} |
+      {monitored_by, MonitoredBy :: [pid() | port() | nif_resource()]} |
       {monitors,
        Monitors :: [{process | port, Pid :: pid() | port() |
                                      {RegName :: atom(), Node :: node()}}]} |
@@ -2526,6 +2526,9 @@ subtract(_,_) ->
                                 OldSchedulersOnline when
       SchedulersOnline :: pos_integer(),
       OldSchedulersOnline :: pos_integer();
+                        (system_logger, Logger) -> PrevLogger when
+      Logger :: logger | undefined | pid(),
+      PrevLogger :: logger | undefined | pid();
                         (trace_control_word, TCW) -> OldTCW when
       TCW :: non_neg_integer(),
       OldTCW :: non_neg_integer();
@@ -2534,7 +2537,7 @@ subtract(_,_) ->
                         %% These are deliberately not documented
 			(internal_cpu_topology, term()) -> term();
                         (sequential_tracer, pid() | port() | {module(), term()} | false) -> pid() | port() | false;
-                        (1,0) -> true.
+                        (reset_seq_trace,true) -> true.
 
 system_flag(_Flag, _Value) ->
     erlang:nif_error(undefined).
@@ -2681,11 +2684,12 @@ tuple_to_list(_Tuple) ->
          (dist_ctrl) -> {Node :: node(),
                          ControllingEntity :: port() | pid()};
          (driver_version) -> string();
-	 (dynamic_trace) -> none | dtrace | systemtap;
+         (dynamic_trace) -> none | dtrace | systemtap;
          (dynamic_trace_probes) -> boolean();
          (end_time) -> non_neg_integer();
          (elib_malloc) -> false;
          (eager_check_io) -> boolean();
+         (ets_count) -> pos_integer();
          (ets_limit) -> pos_integer();
          (fullsweep_after) -> {fullsweep_after, non_neg_integer()};
          (garbage_collection) -> [{atom(), integer()}];
@@ -2730,8 +2734,9 @@ tuple_to_list(_Tuple) ->
          (schedulers | schedulers_online) -> pos_integer();
          (smp_support) -> boolean();
          (start_time) -> integer();
-         (system_version) -> string();
          (system_architecture) -> string();
+         (system_logger) -> logger | undefined | pid();
+         (system_version) -> string();
          (threads) -> boolean();
          (thread_pool_size) -> non_neg_integer();
          (time_correction) -> true | false;
@@ -3394,60 +3399,15 @@ get_cookie() ->
 -spec integer_to_list(Integer, Base) -> string() when
       Integer :: integer(),
       Base :: 2..36.
-integer_to_list(I, 10) ->
-    erlang:integer_to_list(I);
-integer_to_list(I, Base) 
-  when erlang:is_integer(I), erlang:is_integer(Base),
-       Base >= 2, Base =< 1+$Z-$A+10 ->
-    if I < 0 ->
-	    [$-|integer_to_list(-I, Base, [])];
-       true ->
-	    integer_to_list(I, Base, [])
-    end;
-integer_to_list(I, Base) ->
-    erlang:error(badarg, [I, Base]).
-
-integer_to_list(I0, Base, R0) ->
-    D = I0 rem Base,
-    I1 = I0 div Base,
-    R1 = if D >= 10 ->
-		 [D-10+$A|R0];
-	    true ->
-		 [D+$0|R0]
-	 end,
-    if I1 =:= 0 ->
-	    R1;
-       true ->
-	    integer_to_list(I1, Base, R1)
-    end.
+integer_to_list(_I, _Base) ->
+    erlang:nif_error(undefined).
 
 -spec integer_to_binary(Integer, Base) -> binary() when
       Integer :: integer(),
       Base :: 2..36.
-integer_to_binary(I, 10) ->
-    erlang:integer_to_binary(I);
-integer_to_binary(I, Base) 
-  when erlang:is_integer(I), erlang:is_integer(Base),
-       Base >= 2, Base =< 1+$Z-$A+10 ->
-    if I < 0 ->
-	    <<$-,(integer_to_binary(-I, Base, <<>>))/binary>>;
-       true ->
-	    integer_to_binary(I, Base, <<>>)
-    end;
-integer_to_binary(I, Base) ->
-    erlang:error(badarg, [I, Base]).
+integer_to_binary(_I, _Base) ->
+    erlang:nif_error(undefined).
 
-integer_to_binary(I0, Base, R0) ->
-    D = I0 rem Base,
-    I1 = I0 div Base,
-    R1 = if
-             D >= 10 -> <<(D-10+$A),R0/binary>>;
-             true -> <<(D+$0),R0/binary>>
-         end,
-    if
-        I1 =:= 0 -> R1;
-        true -> integer_to_binary(I1, Base, R1)
-    end.
 
 -record(cpu, {node = -1,
 	      processor = -1,
@@ -3653,90 +3613,28 @@ memory() ->
 -spec erlang:memory(Type :: memory_type()) -> non_neg_integer();
                    (TypeList :: [memory_type()]) -> [{memory_type(), non_neg_integer()}].
 memory(Type) when erlang:is_atom(Type) ->
-    {AA, ALCU, ChkSup, BadArgZero} = need_mem_info(Type),
-    case get_mem_data(ChkSup, ALCU, AA) of
-	notsup ->
-	    erlang:error(notsup, [Type]);
-	Mem ->
-	    Value = get_memval(Type, Mem),
-	    case {BadArgZero, Value} of
-		{true, 0} -> erlang:error(badarg, [Type]);
-		_ -> Value
-	    end
+    try
+        case aa_mem_data(au_mem_data(?ALL_NEEDED_ALLOCS)) of
+            notsup -> erlang:error(notsup);
+            Mem -> get_memval(Type, Mem)
+        end
+    catch
+        error:badarg -> erlang:error(badarg)
     end;
 memory(Types) when erlang:is_list(Types) ->
-    {AA, ALCU, ChkSup, BadArgZeroList} = need_mem_info_list(Types),
-    case get_mem_data(ChkSup, ALCU, AA) of
-	notsup ->
-	    erlang:error(notsup, [Types]);
-	Mem ->
-	    case memory_result_list(Types, BadArgZeroList, Mem) of
-		badarg -> erlang:error(badarg, [Types]);
-		Result -> Result
-	    end
+    try
+        case aa_mem_data(au_mem_data(?ALL_NEEDED_ALLOCS)) of
+            notsup -> erlang:error(notsup);
+            Mem -> memory_1(Types, Mem)
+        end
+    catch
+        error:badarg -> erlang:error(badarg)
     end.
 
-memory_result_list([], [], _Mem) ->
-    [];
-memory_result_list([T|Ts], [BAZ|BAZs], Mem) ->
-    case memory_result_list(Ts, BAZs, Mem) of
-	badarg -> badarg;
-	TVs ->
-	    V = get_memval(T, Mem),
-	    case {BAZ, V} of
-		{true, 0} -> badarg;
-		_ -> [{T, V}| TVs]
-	    end
-    end.
-
-get_mem_data(true, AlcUAllocs, NeedAllocatedAreas) ->
-    case memory_is_supported() of
-	false -> notsup;
-	true -> get_mem_data(false, AlcUAllocs, NeedAllocatedAreas)
-    end;
-get_mem_data(false, AlcUAllocs, NeedAllocatedAreas) ->
-    AlcUMem = case AlcUAllocs of
-		  [] -> #memory{};
-		  _ ->
-		      au_mem_data(AlcUAllocs)
-	      end,
-    case NeedAllocatedAreas of
-	true -> aa_mem_data(AlcUMem);
-	false -> AlcUMem
-    end.
-
-need_mem_info_list([]) ->
-    {false, [], false, []};
-need_mem_info_list([T|Ts]) ->
-    {MAA, MALCU, MChkSup, MBadArgZero} = need_mem_info_list(Ts),
-    {AA, ALCU, ChkSup, BadArgZero} = need_mem_info(T),
-    {case AA of
-	 true -> true;
-	 _ -> MAA
-     end,
-     ALCU ++ (MALCU -- ALCU),
-     case ChkSup of
-	 true -> true;
-	 _ -> MChkSup
-     end,
-     [BadArgZero|MBadArgZero]}.
-
-need_mem_info(Type) when Type == total;
-			 Type == system ->
-    {true, ?ALL_NEEDED_ALLOCS, false, false};
-need_mem_info(Type) when Type == processes;
-			 Type == processes_used ->
-    {true, [eheap_alloc, fix_alloc], true, false};
-need_mem_info(Type) when Type == atom;
-			 Type == atom_used;
-			 Type == code ->
-    {true, [], true, false};
-need_mem_info(binary) ->
-    {false, [binary_alloc], true, false};
-need_mem_info(ets) ->
-    {true, [ets_alloc], true, false};
-need_mem_info(_) ->
-    {false, [], false, true}.
+memory_1([Type | Types], Mem) ->
+    [{Type, get_memval(Type, Mem)} | memory_1(Types, Mem)];
+memory_1([], _Mem) ->
+    [].
 
 get_memval(total, #memory{total = V}) -> V;
 get_memval(processes, #memory{processes = V}) -> V;
@@ -3747,16 +3645,7 @@ get_memval(atom_used, #memory{atom_used = V}) -> V;
 get_memval(binary, #memory{binary = V}) -> V;
 get_memval(code, #memory{code = V}) -> V;
 get_memval(ets, #memory{ets = V}) -> V;
-get_memval(_, #memory{}) -> 0.
-
-memory_is_supported() ->
-    {_, _, FeatureList, _} = erlang:system_info(allocator),
-    case ((erlang:system_info(alloc_util_allocators) 
-	   -- ?CARRIER_ALLOCS)
-	  -- FeatureList) of
-	[] -> true;
-	_ -> false
-    end.
+get_memval(_, #memory{}) -> erlang:error(badarg).
 
 get_blocks_size([{blocks_size, Sz, _, _} | Rest], Acc) ->
     get_blocks_size(Rest, Acc+Sz);
@@ -3767,19 +3656,9 @@ get_blocks_size([_ | Rest], Acc) ->
 get_blocks_size([], Acc) ->
     Acc.
 
-
-blocks_size([{Carriers, SizeList} | Rest], Acc) when Carriers == mbcs;
-						     Carriers == mbcs_pool;
-						     Carriers == sbcs ->
-    blocks_size(Rest, get_blocks_size(SizeList, Acc));
-blocks_size([_ | Rest], Acc) ->
-    blocks_size(Rest, Acc);
-blocks_size([], Acc) ->
-    Acc.
-
 get_fix_proc([{ProcType, A1, U1}| Rest], {A0, U0}) when ProcType == proc;
-							ProcType == monitor_sh;
-							ProcType == nlink_sh;
+							ProcType == monitor;
+							ProcType == link;
 							ProcType == msg_ref;
 							ProcType == ll_ptimer;
 							ProcType == hl_ptimer;
@@ -3801,64 +3680,78 @@ fix_proc([_ | Rest], Acc) ->
 fix_proc([], Acc) ->
     Acc.
 
+au_mem_fix(#memory{ processes = Proc,
+                    processes_used = ProcU,
+                    system = Sys } = Mem, Data) ->
+    case fix_proc(Data, {0, 0}) of
+        {A, U} ->
+            Mem#memory{ processes = Proc+A,
+                        processes_used = ProcU+U,
+                        system = Sys-A };
+        {Mask, A, U} ->
+            Mem#memory{ processes = Mask band (Proc+A),
+                        processes_used = Mask band (ProcU+U),
+                        system = Mask band (Sys-A) }
+    end.
+
+au_mem_acc(#memory{ total = Tot,
+                    processes = Proc,
+                    processes_used = ProcU } = Mem,
+           eheap_alloc, Data) ->
+    Sz = get_blocks_size(Data, 0),
+    Mem#memory{ total = Tot+Sz,
+                processes = Proc+Sz,
+                processes_used = ProcU+Sz};
+au_mem_acc(#memory{ total = Tot,
+                    system = Sys,
+                    ets = Ets } = Mem, ets_alloc, Data) ->
+    Sz = get_blocks_size(Data, 0),
+    Mem#memory{ total = Tot+Sz,
+                system = Sys+Sz,
+                ets = Ets+Sz };
+au_mem_acc(#memory{total = Tot,
+		    system = Sys,
+		    binary = Bin } = Mem,
+	    binary_alloc, Data) ->
+    Sz = get_blocks_size(Data, 0),
+    Mem#memory{ total = Tot+Sz,
+                system = Sys+Sz,
+                binary = Bin+Sz};
+au_mem_acc(#memory{ total = Tot,
+                    system = Sys } = Mem,
+           _Type, Data) ->
+    Sz = get_blocks_size(Data, 0),
+    Mem#memory{ total = Tot+Sz,
+                system = Sys+Sz }.
+
+au_mem_foreign(Mem, [{Type, SizeList} | Rest]) ->
+    au_mem_foreign(au_mem_acc(Mem, Type, SizeList), Rest);
+au_mem_foreign(Mem, []) ->
+    Mem.
+
+au_mem_current(Mem0, Type, [{mbcs_pool, MBCS} | Rest]) ->
+    [Foreign] = [Foreign || {foreign_blocks, Foreign} <- MBCS],
+    SizeList = MBCS -- [Foreign],
+    Mem = au_mem_foreign(Mem0, Foreign),
+    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
+au_mem_current(Mem, Type, [{mbcs, SizeList} | Rest]) ->
+    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
+au_mem_current(Mem, Type, [{sbcs, SizeList} | Rest]) ->
+    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
+au_mem_current(Mem, Type, [_ | Rest]) ->
+    au_mem_current(Mem, Type, Rest);
+au_mem_current(Mem, _Type, []) ->
+    Mem.
+
 au_mem_data(notsup, _) ->
     notsup;
 au_mem_data(_, [{_, false} | _]) ->
     notsup;
-au_mem_data(#memory{total = Tot,
-		    processes = Proc,
-		    processes_used = ProcU} = Mem,
-	    [{eheap_alloc, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   processes = Proc+Sz,
-			   processes_used = ProcU+Sz},
-		Rest);
-au_mem_data(#memory{total = Tot,
-		    system = Sys,
-		    ets = Ets} = Mem,
-	    [{ets_alloc, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   system = Sys+Sz,
-			   ets = Ets+Sz},
-		Rest);
-au_mem_data(#memory{total = Tot,
-		    system = Sys,
-		    binary = Bin} = Mem,
-	    [{binary_alloc, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   system = Sys+Sz,
-			   binary = Bin+Sz},
-		Rest);
-au_mem_data(#memory{total = Tot,
-		    processes = Proc,
-		    processes_used = ProcU,
-		    system = Sys} = Mem,
-	    [{fix_alloc, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    case fix_proc(Data, {0, 0}) of
-	{A, U} ->
-	    au_mem_data(Mem#memory{total = Tot+Sz,
-				   processes = Proc+A,
-				   processes_used = ProcU+U,
-				   system = Sys+Sz-A},
-			Rest);
-	{Mask, A, U} ->
-	    au_mem_data(Mem#memory{total = Tot+Sz,
-				   processes = Mask band (Proc+A),
-				   processes_used = Mask band (ProcU+U),
-				   system = Mask band (Sys+Sz-A)},
-			Rest)
-    end;
-au_mem_data(#memory{total = Tot,
-		    system = Sys} = Mem,
-	    [{_, _, Data} | Rest]) ->
-    Sz = blocks_size(Data, 0),
-    au_mem_data(Mem#memory{total = Tot+Sz,
-			   system = Sys+Sz},
-		Rest);
+au_mem_data(#memory{} = Mem0, [{fix_alloc, _, Data} | Rest]) ->
+    Mem = au_mem_fix(Mem0, Data),
+    au_mem_data(au_mem_current(Mem, fix_alloc, Data), Rest);
+au_mem_data(#memory{} = Mem, [{Type, _, Data} | Rest]) ->
+    au_mem_data(au_mem_current(Mem, Type, Data), Rest);
 au_mem_data(EMD, []) ->
     EMD.
 
@@ -3903,7 +3796,6 @@ aa_mem_data(#memory{processes = Proc,
 		    processes_used = ProcU,
 		    system = Sys} = Mem,
 	    [{ProcData, Sz} | Rest]) when ProcData == bif_timer;
-					  ProcData == link_lh;
 					  ProcData == process_table ->
     aa_mem_data(Mem#memory{processes = Proc+Sz,
 			   processes_used = ProcU+Sz,

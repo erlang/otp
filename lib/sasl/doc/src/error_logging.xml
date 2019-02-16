@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,22 +32,52 @@
     <rev>B</rev>
     <file>error_logging.xml</file>
     </header>
+  <note>
+    <p>The SASL error logging concept described in this section is
+      deprecated since Erlang/OTP 21.0, when the
+      new <seealso marker="kernel:logger_chapter">logging
+      API</seealso> was introduced.</p>
+    <p>The new default behaviour is that the SASL application no
+      longer affects which log events that are logged.
+      <seealso marker="#supervisor_report">Supervisor
+      reports</seealso> and <seealso marker="#crash_report">crash
+      reports</seealso> are logged via the default logger handler
+      which is setup by
+      Kernel. <seealso marker="#progress_report">Progress
+      reports</seealso> are by default not logged, but can be enabled
+      by setting the primary log level to <c>info</c>, for example by
+      using the Kernel configuration
+      parameter <seealso marker="kernel:kernel_app#logger_level">
+	<c>logger_level</c></seealso>.</p>
+    <p>The old SASL error logging behaviour can be re-enabled by setting the
+      Kernel configuration
+      parameter <seealso marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seealso> to <c>true</c>.</p>
+    <p>The mechanism
+      for <seealso marker="#multi_file_logging">multi-file error report
+      logging</seealso> as described in this section is also kept for
+      backwards compatibility. However, the new logging API also
+      introduces <seealso marker="kernel:logger_disk_log_h">
+	<c>logger_disk_log_h(3)</c></seealso>, which is a logger
+      handler that can print to multiple files
+      using <seealso marker="kernel:disk_log"><c>disk_log(3)</c></seealso>.</p>
+  </note>
+
+  <section>
+    <title>SASL reports</title>
   <p>The SASL application introduces three types of reports:</p>
   <list type="bulleted">
     <item>Supervisor report</item>
     <item>Progress report</item>
     <item>Crash report</item>
   </list>
-  <p>When the SASL application is started, it adds a handler that
-    formats and writes these reports, as specified in the configuration
-    parameters for SASL, that is, the environment variables
-    in the SASL application specification, which is found in the
-    <c>.app</c> file of SASL. For details, see the
-    <seealso marker="sasl_app"><c>sasl(6)</c></seealso> application in the
-    Reference Manual and the <seealso marker="kernel:app"><c>app(4)</c></seealso>
-    file in the Kernel Reference Manual.</p>
+  <p>When the SASL application is started, it adds a Logger handler
+    that formats and writes these reports, as specified in
+    the <seealso marker="sasl_app#deprecated_error_logger_config">configuration
+    parameters for SASL</seealso>.</p>
 
   <section>
+    <marker id="supervisor_report"/>
     <title>Supervisor Report</title>
     <p>A supervisor report is issued when a supervised child terminates
       unexpectedly. A supervisor report contains the following
@@ -68,6 +98,7 @@
   </section>
 
   <section>
+    <marker id="progress_report"/>
     <title>Progress Report</title>
     <p>A progress report is issued when a supervisor starts or
       restarts a child. A progress report contains the following items:</p>
@@ -82,6 +113,7 @@
   </section>
 
   <section>
+    <marker id="crash_report"/>
     <title>Crash Report</title>
     <p>Processes started with functions 
       <seealso marker="stdlib:proc_lib#spawn/1"><c>proc_lib:spawn</c></seealso> or
@@ -105,6 +137,7 @@
        crash. The information gathered is the same as the information
        for Crasher, described in the previous item.</p></item>
     </taglist>
+    </section>
 
     <section>
       <title>Example</title>
@@ -163,6 +196,7 @@
   </section>
 
   <section>
+    <marker id="multi_file_logging"/>
     <title>Multi-File Error Report Logging</title>
     <p>Multi-file error report logging is used to store error messages
       received by <c>error_logger</c>. The error messages
@@ -171,7 +205,8 @@
       of files exist at the same time. The logging is very fast, as
       each error message is written as a binary term.</p>
     <p>For more details, see the
-      <seealso marker="sasl_app"><c>sasl(6)</c></seealso>
+      <seealso marker="sasl_app#deprecated_error_logger_config">
+	<c>sasl(6)</c></seealso>
       application in the Reference Manual.</p>
   </section>
 

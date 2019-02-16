@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@
 -record(k_receive_next, {anno=[]}).
 -record(k_try, {anno=[],arg,vars,body,evars,handler,ret=[]}).
 -record(k_try_enter, {anno=[],arg,vars,body,evars,handler}).
--record(k_protected, {anno=[],arg,ret=[]}).
+-record(k_protected, {anno=[],arg,ret=[],inner}).
 -record(k_catch, {anno=[],body,ret=[]}).
 
 -record(k_guard_match, {anno=[],vars,body,ret=[]}).

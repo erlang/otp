@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -808,8 +808,8 @@ remotes(F) ->
             error_report(invalid_return, share_peers, F),
             []
     catch
-        E:R ->
-            ?LOG(failure, {E, R, F, diameter_lib:get_stacktrace()}),
+        E:R:S ->
+            ?LOG(failure, {E, R, F, diameter_lib:stacktrace(S)}),
             error_report(failure, share_peers, F),
             []
     end.
@@ -1146,11 +1146,11 @@ peer_cb(App, F, A) ->
             mod_state(App#diameter_app.alias, ModS),
             true
     catch
-        E:R ->
+        E:R:S ->
             %% Don't include arguments since a #diameter_caps{} strings
             %% from the peer, which could be anything (especially, large).
             [Mod|X] = App#diameter_app.module,
-            ?LOG(failure, {E, R, Mod, F, diameter_lib:get_stacktrace()}),
+            ?LOG(failure, {E, R, Mod, F, diameter_lib:stacktrace(S)}),
             error_report(failure, F, {Mod, F, A ++ X}),
             false
     end.
@@ -1376,9 +1376,9 @@ cm([#diameter_app{alias = Alias} = App], Req, From, Svc) ->
             ?LOG(invalid_return, {ModX, handle_call, Args, T}),
             invalid
     catch
-        E: Reason ->
+        E: Reason: S ->
             ModX = App#diameter_app.module,
-            Stack = diameter_lib:get_stacktrace(),
+            Stack = diameter_lib:stacktrace(S),
             ?LOG(failure, {E, Reason, ModX, handle_call, Stack}),
             failure
     end;
@@ -1585,10 +1585,10 @@ pick_peer(Local,
             ?LOG(invalid_return, {ModX, pick_peer, T}),
             false
     catch
-        E: Reason when M ->
+        E: Reason: Stack when M ->
             ModX = App#diameter_app.module,
-            Stack = diameter_lib:get_stacktrace(),
-            ?LOG(failure, {E, Reason, ModX, pick_peer, Stack}),
+            Z = diameter_lib:stacktrace(Stack),
+            ?LOG(failure, {E, Reason, ModX, pick_peer, Z}),
             false
     end.
 

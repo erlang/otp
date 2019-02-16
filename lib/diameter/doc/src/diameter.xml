@@ -55,7 +55,7 @@ limitations under the License.
 <!-- ===================================================================== -->
 <!-- ===================================================================== -->
 
-<module>diameter</module>
+<module since="OTP R14B03">diameter</module>
 <modulesummary>Main API of the diameter application.</modulesummary>
 
 <description>
@@ -1574,7 +1574,7 @@ identifies the configuration.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>add_transport(SvcName, {connect|listen, [Opt]})
+<name since="OTP R14B03">add_transport(SvcName, {connect|listen, [Opt]})
         -> {ok, Ref} | {error, Reason}</name>
 <fsummary>Add transport capability to a service.</fsummary>
 <type>
@@ -1624,7 +1624,7 @@ its transports.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>call(SvcName, App, Request, [Opt]) -> Answer | ok | {error, Reason}</name>
+<name since="OTP R14B03">call(SvcName, App, Request, [Opt]) -> Answer | ok | {error, Reason}</name>
 <fsummary>Send a Diameter request message.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -1730,7 +1730,7 @@ transport connection.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>origin_state_id() -> &dict_Unsigned32;</name>
+<name since="OTP R14B03">origin_state_id() -> &dict_Unsigned32;</name>
 <fsummary>Returns a reasonable Origin-State-Id.</fsummary>
 <desc>
 <p>
@@ -1748,7 +1748,7 @@ at the time the diameter application was started.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>remove_transport(SvcName, Pred) -> ok | {error, Reason}</name>
+<name since="OTP R14B03">remove_transport(SvcName, Pred) -> ok | {error, Reason}</name>
 <fsummary>Remove previously added transports.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -1795,7 +1795,7 @@ configured on the transport.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>service_info(SvcName, Info) -> term()</name>
+<name since="OTP R14B03">service_info(SvcName, Info) -> term()</name>
 <fsummary>Return information about a started service.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2114,7 +2114,7 @@ For example:</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>services() -> [SvcName]</name>
+<name since="OTP R14B03">services() -> [SvcName]</name>
 <fsummary>Return the list of started services.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2129,7 +2129,7 @@ Return the list of started services.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>session_id(Ident) -> &dict_OctetString;</name>
+<name since="OTP R14B03">session_id(Ident) -> &dict_OctetString;</name>
 <fsummary>Return a value for a Session-Id AVP.</fsummary>
 <type>
 <v>Ident = &dict_DiameterIdentity;</v>
@@ -2148,7 +2148,7 @@ the message containing the returned value will be sent.</p>
 
 <!-- ===================================================================== -->
 <func>
-<name>start() -> ok | {error, Reason}</name>
+<name since="OTP R14B03">start() -> ok | {error, Reason}</name>
 <fsummary>Start the diameter application.</fsummary>
 <desc>
 <p>
@@ -2164,7 +2164,7 @@ file, not by calling <c>start/0</c> explicitly.</p>
 
 <!-- ===================================================================== -->
 <func>
-<name>start_service(SvcName, Options) -> ok | {error, Reason}</name>
+<name since="OTP R14B03">start_service(SvcName, Options) -> ok | {error, Reason}</name>
 <fsummary>Start a Diameter service.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2194,7 +2194,7 @@ necessarily the case.</p>
 
 <!-- ===================================================================== -->
 <func>
-<name>stop() -> ok | {error, Reason}</name>
+<name since="OTP R14B03">stop() -> ok | {error, Reason}</name>
 <fsummary>Stop the diameter application.</fsummary>
 <desc>
 <p>
@@ -2208,7 +2208,7 @@ Stop the diameter application.</p>
 
 <!-- ===================================================================== -->
 <func>
-<name>stop_service(SvcName) -> ok | {error, Reason}</name>
+<name since="OTP R14B03">stop_service(SvcName) -> ok | {error, Reason}</name>
 <fsummary>Stop a Diameter service.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2236,7 +2236,7 @@ be called to remove transport configuration.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>subscribe(SvcName) -> true</name>
+<name since="OTP R14B03">subscribe(SvcName) -> true</name>
 <fsummary>Subscribe to event messages.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>
@@ -2258,7 +2258,7 @@ reception of all transport-related events.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>unsubscribe(SvcName) -> true</name>
+<name since="OTP R14B03">unsubscribe(SvcName) -> true</name>
 <fsummary>Unsubscribe to event messages.</fsummary>
 <type>
 <v>SvcName = &service_name;</v>

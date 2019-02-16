@@ -771,7 +771,11 @@ ensure_sasl_started(Node) ->
 
 ensure_mf_h_handler_used(Node) ->
    %% is log_mf_h used ?
-   Handlers = rpc:block_call(Node, gen_event, which_handlers, [error_logger]),
+   Handlers =
+        case rpc:block_call(Node, gen_event, which_handlers, [error_logger]) of
+            {badrpc,{'EXIT',noproc}} -> []; % OTP-21+ and no event handler exists
+            Hs -> Hs
+        end,
    case lists:any(fun(L)-> L == log_mf_h end, Handlers) of
        false -> throw("Error: log_mf_h handler not used in sasl."),
                 error;
@@ -806,7 +810,7 @@ is_rb_compatible(Node) ->
 
 is_rb_server_running(Node, LogState) ->
    %% If already started, somebody else may use it.
-   %% We can not use it too, as far log file would be overriden. Not fair.
+   %% We cannot use it too, as far log file would be overriden. Not fair.
    case rpc:block_call(Node, erlang, whereis, [rb_server]) of
        Pid when is_pid(Pid), (LogState == false) ->
 	   throw("Error: rb_server is already started and maybe used by someone.");

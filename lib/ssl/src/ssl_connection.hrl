@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,72 +33,145 @@
 -include("ssl_cipher.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
+-record(static_env, {
+                     role                  :: client | server,
+                     transport_cb          :: atom(),   % callback module
+                     protocol_cb           :: tls_connection | dtls_connection,
+                     data_tag              :: atom(),   % ex tcp.
+                     close_tag             :: atom(),   % ex tcp_closed
+                     error_tag             :: atom(),   % ex tcp_error
+                     host                  :: string() | inet:ip_address(),
+                     port                  :: integer(),
+                     socket                :: port() | tuple(), %% TODO: dtls socket
+                     cert_db               :: reference() | 'undefined',
+                     session_cache         :: db_handle(),
+                     session_cache_cb      :: atom(),
+                     crl_db                :: term(),
+                     file_ref_db          :: db_handle(),
+                     cert_db_ref          :: certdb_ref() | 'undefined',
+                     tracker              :: pid() | 'undefined' %% Tracker process for listen socket
+                    }).
+
+-record(handshake_env, {
+                        client_hello_version  :: ssl_record:ssl_version() | 'undefined',
+                        unprocessed_handshake_events = 0    :: integer(),
+                        tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
+                                               | 'undefined',
+                        renegotiation        :: undefined | {boolean(), From::term() | internal | peer}
+                       }).
+
 -record(state, {
-          role                  :: client | server,
-	  user_application      :: {Monitor::reference(), User::pid()},
-          transport_cb          :: atom(),   % callback module
-	  protocol_cb           :: tls_connection | dtls_connection,
-          data_tag              :: atom(),   % ex tcp.
-	  close_tag             :: atom(),   % ex tcp_closed
-	  error_tag             :: atom(),   % ex tcp_error
-          host                  :: string() | inet:ip_address(),
-          port                  :: integer(),
-          socket                :: port() | tuple(), %% TODO: dtls socket
-          ssl_options           :: #ssl_options{},
-          socket_options        :: #socket_options{},
-          connection_states     :: ssl_record:connection_states() | secret_printout(),
-	  protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hrl
-	  unprocessed_handshake_events = 0    :: integer(),
-          tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
-                                 | 'undefined',
-	  cert_db               :: reference() | 'undefined',
-          session               :: #session{} | secret_printout(),
-	  session_cache         :: db_handle(),
-	  session_cache_cb      :: atom(),
-	  crl_db                :: term(), 
-          negotiated_version    :: ssl_record:ssl_version() | 'undefined',
-          client_hello_version  :: ssl_record:ssl_version() | 'undefined',
-          client_certificate_requested = false :: boolean(),
-	  key_algorithm         :: ssl_cipher:key_algo(),
-	  hashsign_algorithm = {undefined, undefined},
-	  cert_hashsign_algorithm = {undefined, undefined},
-          public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
-          private_key          :: public_key:private_key() | secret_printout() | 'undefined',
-	  diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
-	  diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),  
-	  psk_identity         :: binary() | 'undefined', % server psk identity hint
-	  srp_params           :: #srp_user{} | secret_printout() | 'undefined',
-	  srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
-          premaster_secret     :: binary() | secret_printout() | 'undefined',
-	  file_ref_db          :: db_handle(),
-          cert_db_ref          :: certdb_ref() | 'undefined',
-          bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
-          user_data_buffer     :: undefined | binary() | secret_printout(), 
-	  renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
-	  start_or_recv_from   :: term(),
-	  timer                :: undefined | reference(), % start_or_recive_timer
-          %%send_queue           :: queue:queue(),
-          hello,                %%:: #client_hello{} | #server_hello{}, 
-	  terminated = false                          ::boolean(),
-	  allow_renegotiate = true                    ::boolean(),
-          expecting_next_protocol_negotiation = false ::boolean(),
-	  expecting_finished =                  false ::boolean(),
-          next_protocol = undefined                   :: undefined | binary(),
-	  negotiated_protocol,
-	  tracker              :: pid() | 'undefined', %% Tracker process for listen socket
-	  sni_hostname = undefined,
-	  downgrade,
-	  flight_buffer = []   :: list() | map(),  %% Buffer of TLS/DTLS records, used during the TLS handshake
-          %% to when possible pack more than one TLS record into the 
-          %% underlaying packet format. Introduced by DTLS - RFC 4347.
-          %% The mecahnism is also usefull in TLS although we do not
-          %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
-          flight_state = reliable,  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.   
-          protocol_specific = #{}      :: map()                    
-	 }).
+                static_env            :: #static_env{},
+                handshake_env         :: #handshake_env{} | secret_printout(),
+                %% Change seldome
+                user_application      :: {Monitor::reference(), User::pid()},
+                ssl_options           :: #ssl_options{},
+                socket_options        :: #socket_options{},
+                session               :: #session{} | secret_printout(),
+                allow_renegotiate = true                    ::boolean(),
+                terminated = false                          ::boolean() | closed,
+                negotiated_version    :: ssl_record:ssl_version() | 'undefined',
+                bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
+                downgrade,
+
+                %% Changed often
+                connection_states     :: ssl_record:connection_states() | secret_printout(),
+                protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
+                user_data_buffer     :: undefined | binary() | secret_printout(),
+                
+                %% Used only in HS
+                
+                client_certificate_requested = false :: boolean(),
+                key_algorithm         :: ssl:key_algo(),
+                hashsign_algorithm = {undefined, undefined},
+                cert_hashsign_algorithm = {undefined, undefined},
+                public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
+                private_key          :: public_key:private_key() | secret_printout() | 'undefined',
+                diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
+                diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),
+                psk_identity         :: binary() | 'undefined', % server psk identity hint
+                srp_params           :: #srp_user{} | secret_printout() | 'undefined',
+                srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
+                premaster_secret     :: binary() | secret_printout() | 'undefined',
+                start_or_recv_from   :: term(),
+                timer                :: undefined | reference(), % start_or_recive_timer
+                hello,                %%:: #client_hello{} | #server_hello{},
+                expecting_next_protocol_negotiation = false ::boolean(),
+                expecting_finished =                  false ::boolean(),
+                next_protocol = undefined                   :: undefined | binary(),
+                negotiated_protocol,
+                sni_hostname = undefined,
+                flight_buffer = []   :: list() | map(),  %% Buffer of TLS/DTLS records, used during the TLS handshake
+                %% to when possible pack more than one TLS record into the
+                %% underlaying packet format. Introduced by DTLS - RFC 4347.
+                %% The mecahnism is also usefull in TLS although we do not
+                %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
+                flight_state = reliable,  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.   
+                erl_dist_handle = undefined :: erlang:dist_handle() | undefined,
+                protocol_specific = #{}      :: map(),
+                key_share
+               }).
+
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,
 	#'DHParameter'{prime = ?DEFAULT_DIFFIE_HELLMAN_PRIME,
 		       base = ?DEFAULT_DIFFIE_HELLMAN_GENERATOR}).
 -define(WAIT_TO_ALLOW_RENEGOTIATION, 12000).
+
+
+%%----------------------------------------------------------------------
+%% TLS 1.3
+%%----------------------------------------------------------------------
+
+%% TLS 1.3 uses the same state record with the following differences:
+%%
+%% state :: record()
+%%
+%%   session_cache                - not implemented
+%%   session_cache_cb             - not implemented
+%%   crl_db                       - not implemented
+%%   client_hello_version         - Bleichenbacher mitigation in TLS 1.2
+%%   client_certificate_requested - Built into TLS 1.3 state machine
+%%   key_algorithm                - not used
+%%   diffie_hellman_params        - used in TLS 1.2 ECDH key exchange
+%%   diffie_hellman_keys          - used in TLS 1.2 ECDH key exchange
+%%   psk_identity                 - not used
+%%   srp_params                   - not used, no srp extension in TLS 1.3
+%%   srp_keys                     - not used, no srp extension in TLS 1.3
+%%   premaster_secret             - not used
+%%   renegotiation                - TLS 1.3 forbids renegotiation
+%%   hello                        - used in user_hello, handshake continue
+%%   allow_renegotiate            - TLS 1.3 forbids renegotiation
+%%   expecting_next_protocol_negotiation - ALPN replaced NPN, depricated in TLS 1.3
+%%   expecting_finished           - not implemented, used by abbreviated
+%%   next_protocol                - ALPN replaced NPN, depricated in TLS 1.3
+%%
+%% connection_state :: map()
+%%
+%%   compression_state            - not used
+%%   mac_secret                   - not used
+%%   sequence_number              - not used
+%%   secure_renegotiation         - not used, no renegotiation_info in TLS 1.3
+%%   client_verify_data           - not used, no renegotiation_info in TLS 1.3
+%%   server_verify_data           - not used, no renegotiation_info in TLS 1.3
+%%   beast_mitigation             - not used
+%%
+%% security_parameters :: map()
+%%
+%%   cipher_type                  - TLS 1.3 uses only AEAD ciphers
+%%   iv_size                      - not used
+%%   key_size                     - not used
+%%   key_material_length          - not used
+%%   expanded_key_material_length - used in SSL 3.0
+%%   mac_algorithm                - not used
+%%   prf_algorithm                - not used
+%%   hash_size                    - not used
+%%   compression_algorithm        - not used
+%%   master_secret                - used for multiple secret types in TLS 1.3
+%%   client_random                - not used
+%%   server_random                - not used
+%%   exportable                   - not used
+%%
+%% cipher_state :: record()
+%%   nonce - used for sequence_number
 
 -endif. % -ifdef(ssl_connection).

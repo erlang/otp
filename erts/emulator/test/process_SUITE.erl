@@ -59,6 +59,7 @@
 	 no_priority_inversion2/1,
 	 system_task_blast/1,
 	 system_task_on_suspended/1,
+         system_task_failed_enqueue/1,
 	 gc_request_when_gc_disabled/1,
 	 gc_request_blast_when_gc_disabled/1]).
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
@@ -106,7 +107,7 @@ groups() ->
        otp_7738_resume]},
      {system_task, [],
       [no_priority_inversion, no_priority_inversion2,
-       system_task_blast, system_task_on_suspended,
+       system_task_blast, system_task_on_suspended, system_task_failed_enqueue,
        gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled]}].
 
 init_per_suite(Config) ->
@@ -2103,6 +2104,13 @@ spawn_opt_max_heap_size(_Config) ->
 
     error_logger:add_report_handler(?MODULE, self()),
 
+    %% flush any prior messages in error_logger
+    Pid = spawn(fun() -> ok = nok end),
+    receive
+        {error, _, {emulator, _, [Pid|_]}} ->
+            flush()
+    end,
+
     %% Test that numerical limit works
     max_heap_size_test(1024, 1024, true, true),
 
@@ -2207,6 +2215,13 @@ receive_unexpected() ->
             ok
     end.
 
+flush() ->
+    receive
+        _M -> flush()
+    after 0 ->
+            ok
+    end.
+
 %% error_logger report handler proxy
 init(Pid) ->
     {ok, Pid}.
@@ -2232,8 +2247,8 @@ processes_term_proc_list(Config) when is_list(Config) ->
     %% We have to run this test case with +S1 since instrument:allocations()
     %% will report a free()'d block as present until it's actually deallocated
     %% by its employer.
-    Run("+MSe true +MSatags false +S1"),
-    Run("+MSe true +MSatags true +S1"),
+    Run("+MSe true +Muatags false +S1"),
+    Run("+MSe true +Muatags true +S1"),
 
     ok.
 
@@ -2241,9 +2256,11 @@ processes_term_proc_list(Config) when is_list(Config) ->
 	chk_term_proc_list(?LINE, MC, XB)).
 
 chk_term_proc_list(Line, MustChk, ExpectBlks) ->
-    Allocs = instrument:allocations(#{ allocator_types => [sl_alloc] }),
+    Allocs = instrument:allocations(),
     case {MustChk, Allocs} of
 	{false, {error, not_enabled}} ->
+	    not_enabled;
+	{false, {ok, {_Shift, _Unscanned, ByOrigin}}} when ByOrigin =:= #{} ->
 	    not_enabled;
 	{_, {ok, {_Shift, _Unscanned, ByOrigin}}} ->
             ByType = maps:get(system, ByOrigin, #{}),
@@ -2624,6 +2641,57 @@ system_task_on_suspended(Config) when is_list(Config) ->
 	{'DOWN', M, process, P, killed} ->
 	    ok
     end.
+
+%% When a system task couldn't be enqueued due to the process being in an
+%% incompatible state, it would linger in the system task list and get executed
+%% anyway the next time the process was scheduled. This would result in a
+%% double-free at best.
+%%
+%% This test continuously purges modules while other processes run dirty code,
+%% which will provoke this error as ERTS_PSTT_CPC can't be enqueued while a
+%% process is running dirty code.
+system_task_failed_enqueue(Config) when is_list(Config) ->
+    case erlang:system_info(dirty_cpu_schedulers) of
+        N when N > 0 ->
+            system_task_failed_enqueue_1(Config);
+        _ ->
+            {skipped, "No dirty scheduler support"}
+    end.
+
+system_task_failed_enqueue_1(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+
+    Purgers = [spawn_link(fun() -> purge_loop(Priv, Id) end)
+               || Id <- lists:seq(1, erlang:system_info(schedulers))],
+    Hogs = [spawn_link(fun() -> dirty_loop() end)
+            || _ <- lists:seq(1, erlang:system_info(dirty_cpu_schedulers))],
+
+    ct:sleep(5000),
+
+    [begin
+         unlink(Pid),
+         exit(Pid, kill)
+     end || Pid <- (Purgers ++ Hogs)],
+
+    ok.
+
+purge_loop(PrivDir, Id) ->
+    Mod = "failed_enq_" ++ integer_to_list(Id),
+    Path = PrivDir ++ "/" ++ Mod,
+    file:write_file(Path ++ ".erl",
+                    "-module('" ++ Mod ++ "').\n" ++
+                        "-export([t/0]).\n" ++
+                        "t() -> ok."),
+    purge_loop_1(Path).
+purge_loop_1(Path) ->
+    {ok, Mod} = compile:file(Path, []),
+    erlang:delete_module(Mod),
+    erts_code_purger:purge(Mod),
+    purge_loop_1(Path).
+
+dirty_loop() ->
+    ok = erts_debug:dirty_cpu(reschedule, 10000),
+    dirty_loop().
 
 gc_request_when_gc_disabled(Config) when is_list(Config) ->
     AIS = erts_debug:set_internal_state(available_internal_state, true),

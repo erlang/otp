@@ -21,11 +21,10 @@
 
 # Global configuration variables
 #
-# NOTE: lazy_configure depends on '.' always being last directory
 if [ -z "$ONLY_ERTS" ]; then
     AUTOCONF_SUBDIRS="lib lib/* lib/common_test/test_server"
 fi
-AUTOCONF_SUBDIRS="$AUTOCONF_SUBDIRS erts ."
+AUTOCONF_SUBDIRS="$AUTOCONF_SUBDIRS make erts"
 
 # `bootstrap_apps' should include application that are built, or
 # partly built in one of the bootstrap phases. Applications that
@@ -212,55 +211,10 @@ set_config_flags ()
 
 NL="\
 "
-create_lib_configure_in()
-{
-    cd $ERL_TOP
-
-    # Multiple versions of autoconf generates code that
-    # don't work on all platforms (e.g. SunOS 5.8) if
-    # sub directories are soft links. Internally at Ericsson
-    # some OTP application directories are soft links.
-    # An added "/." solves this problem.
-
-    sdirs=
-    for lib_app in $bootstrap_apps; do
-	case $lib_app in
-	    lib/*)
-		if [ -f "$lib_app/configure.in" ]; then
-		    app=`echo "$lib_app" | sed "s|lib/\(.*\)|\1|"`
-		    sdirs="${sdirs}test ! -f $app/configure || AC_CONFIG_SUBDIRS($app/.)${NL}"
-		fi;;
-	    *)
-		;;
-	esac
-    done
-
-    sed_bootstrap="s%@BOOTSTRAP_CONFIGURE_APPS@%$sdirs%g"
-
-    sdirs=
-    for lib_app in lib/*; do
-	is_bapp=false
-	for bapp in $bootstrap_apps; do
-	    test $bapp != $lib_app || { is_bapp=true; break; }
-	done
-	if [ $is_bapp = false ] && [ -f "$lib_app/configure.in" ]; then
-	    app=`echo "$lib_app" | sed "s|lib/\(.*\)|\1|"`
-	    sdirs="${sdirs}    test ! -f $app/configure || AC_CONFIG_SUBDIRS($app/.)${NL}"
-	fi
-    done
-
-    sed_non_bootstrap="s%@NON_BOOTSTRAP_CONFIGURE_APPS@%$sdirs%g"
-    
-    rm -f lib/configure.in
-    sed "$sed_bootstrap;$sed_non_bootstrap" > lib/configure.in < lib/configure.in.src || {
-	echo "Failed to create lib/configure.in"
-	exit 1
-    }
-}
 
 distribute_config_helpers ()
 {
-    aclocal_dirs=". ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
+    aclocal_dirs="make ./lib/crypto ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
     autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/common_test/test_server ./lib/wx/autoconf"
 
     aclocal_master="./erts/aclocal.m4"
@@ -282,7 +236,6 @@ distribute_config_helpers ()
 
 do_autoconf ()		
 {
-        create_lib_configure_in
 	distribute_config_helpers
 
 	if [ ! -z "$OVERRIDE_CONFIGURE" ]; then
@@ -323,6 +276,15 @@ do_autoconf ()
 	    ( cd "$d" && autoheader ) || exit 1
 	done
 
+	echo ""
+	echo "=== creating ./configure"
+	otp_version=`cat "$ERL_TOP/OTP_VERSION"`
+	bootstrap_lib_apps=`echo $bootstrap_apps | sed "s|erts||g"`
+	cat "$ERL_TOP/configure.src" \
+	    | sed "s|@OTP_VERSION@|$otp_version|g;s|@BOOTSTRAP_LIB_APP_DIRS@|$bootstrap_lib_apps|" \
+		  > "$ERL_TOP/configure"
+	chmod +x "$ERL_TOP/configure"
+	
 	restore_vars OVERRIDE_TARGET TARGET
 }
 
@@ -385,8 +347,8 @@ try_cross_configure ()
 
 	    test "X$build_value" != "X" || build_value="$BUILDSYS"
 
-	    build_sys=`$ERL_TOP/erts/autoconf/config.sub "$build_value"` || exit 1
-	    host_sys=`$ERL_TOP/erts/autoconf/config.sub "$host_value"` || exit 1
+	    build_sys=`"$ERL_TOP/erts/autoconf/config.sub" "$build_value"` || exit 1
+	    host_sys=`"$ERL_TOP/erts/autoconf/config.sub" "$host_value"` || exit 1
 
 	    
 	    test "$host_sys" = "$build_sys" || cross_configure=yes
@@ -500,7 +462,7 @@ do_configure ()
 	case $TARGET in
 	    vxworks_*)
 		( cd erts/autoconf && \
-		  $ERL_TOP/erts/autoconf/configure.vxworks $TARGET )
+		  "$ERL_TOP/erts/autoconf/configure.vxworks" $TARGET )
 		  echo "Configuring for build system too..." >&2
 		  hide_vars OVERRIDE_TARGET TARGET
 		  TARGET=$BUILDSYS
@@ -525,105 +487,6 @@ do_configure ()
 	fi
     fi
 }
-
-do_lazy_configure ()
-{
-    setup_make
-    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	echo "Not supported for cross compilation" >&2
-	exit 1
-    fi
-    maybe_copy_static_cache
-    CONFIG_FLAGS=
-    set_config_flags "$@"
-    CONFIGURE_FLAGS="$@"
-    [ "$CONFIG_FLAGS" = "" ] || CONFIGURE_FLAGS="$CONFIG_FLAGS $CONFIGURE_FLAGS"
-    for c_dir in $AUTOCONF_SUBDIRS; do
-	if test -f $ERL_TOP/$c_dir/configure.in; then
-	    dir=$ERL_TOP/$c_dir
-	    echo ""
-	    echo "=== Begin configuring $dir"
-	    xc_dep= ;
-	    xcs_dep= ;
-	    test -d $dir/$TARGET || mkdir $dir/$TARGET
-	    test -f $dir/aclocal.m4 && xc_dep="$xcs_dep $dir/aclocal.m4"
-	    test -f $dir/acsite.m4 && xc_dep="$xcs_dep $dir/acsite.m4"
-	    test x$c_dir = x"erts" && xcs_dep="$xcs_dep $dir/config.h.in"
-	    $MAKE -f $ERL_TOP/make/lazy_configure.mk                         \
-		MAKE="$MAKE" TARGET=$TARGET                                  \
-		ERL_TOP=$ERL_TOP                                             \
-		CONFIGURE_FLAGS="$CONFIGURE_FLAGS"                           \
-		CONFIGURE_DIR=$dir                                           \
-		EXTRA_CONFIGURE_DEPENDENCIES=$xc_dep                         \
-		EXTRA_CONFIG_STATUS_DEPENDENCIES=$xcs_dep                    \
-		lazy_configure
-	    echo "=== Done configuring $dir"
-	    echo ""
-	fi
-    done
-}
-
-do_lazy_configure_clean ()
-{
-    setup_make
-    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	echo "Not supported for cross compilation" >&2
-	exit 1
-    fi
-    for c_dir in $AUTOCONF_SUBDIRS; do
-	if test -f $ERL_TOP/$c_dir/configure.in; then
-	    dir=$ERL_TOP/$c_dir
-	    echo ""
-	    echo "=== Begin cleaning configure in $dir"
-	    xc_dep= ;
-	    xcs_dep= ;
-	    test -d $dir/$TARGET || mkdir $dir/$TARGET
-	    test -f $dir/aclocal.m4 && xc_dep="$xcs_dep $dir/aclocal.m4"
-	    test -f $dir/acsite.m4 && xc_dep="$xcs_dep $dir/acsite.m4"
-	    test x$c_dir = x"erts" && xcs_dep="$xcs_dep $dir/config.h.in"
-	    $MAKE -f $ERL_TOP/make/lazy_configure.mk                         \
-		MAKE="$MAKE" TARGET=$TARGET                                  \
-		ERL_TOP=$ERL_TOP                                             \
-		CONFIGURE_DIR=$dir                                           \
-		lazy_configure_clean
-	    echo "=== Done cleaning configure in $dir"
-	    echo ""
-	fi
-    done
-
-}
-
-do_lazy_configure_target_clean ()
-{
-    setup_make
-    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	echo "Not supported for cross compilation" >&2
-	exit 1
-    fi
-    for c_dir in $AUTOCONF_SUBDIRS; do
-	if test -f $ERL_TOP/$c_dir/configure.in; then
-	    dir=$ERL_TOP/$c_dir
-	    echo ""
-	    echo "=== Begin target cleaning configure in $dir"
-	    xc_dep= ;
-	    xcs_dep= ;
-	    test -d $dir/$TARGET || mkdir $dir/$TARGET
-	    test -f $dir/aclocal.m4 && xc_dep="$xcs_dep $dir/aclocal.m4"
-	    test -f $dir/acsite.m4 && xc_dep="$xcs_dep $dir/acsite.m4"
-	    test x$c_dir = x"erts" && xcs_dep="$xcs_dep $dir/config.h.in"
-	    $MAKE -f $ERL_TOP/make/lazy_configure.mk                         \
-		MAKE="$MAKE" TARGET=$TARGET                                  \
-		ERL_TOP=$ERL_TOP                                             \
-		CONFIGURE_DIR=$dir                                           \
-		lazy_configure_target_clean
-	    echo "=== Done target cleaning configure in $dir"
-	    echo ""
-	fi
-    done
-
-}
-
-    
 
 echo_setenv ()
 {
@@ -1075,11 +938,11 @@ do_update_prel_git ()
 {
     get_do_commit $1
     setup_make
-    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET clean)
+    (cd "$ERL_TOP/erts/preloaded/src" && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET clean)
     $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET preloaded || exit 1
-    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET copy)
+    (cd "$ERL_TOP/erts/preloaded/src" && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET copy)
     if [ $do_commit = true ]; then
-	git add -A $ERL_TOP/erts/preloaded/ebin/*.beam
+	git add -A "$ERL_TOP/erts/preloaded/ebin/*.beam"
 	git commit -m 'Update preloaded modules'
 	echo "Preloaded updated and commited."
     else
@@ -1149,11 +1012,11 @@ do_debuginfo_win32 ()
     (cd erts/emulator && $MAKE MAKE="$MAKE" TARGET=$TARGET FLAVOR=smp debug &&\
 	$MAKE MAKE="$MAKE" TARGET=$TARGET FLAVOR=plain debug) || exit 1
     if [ -z "$1" ]; then
-	RELDIR=$ERL_TOP/release/$TARGET
+	RELDIR="$ERL_TOP/release/$TARGET"
     else
 	RELDIR="$1"
     fi
-    BINDIR=$ERL_TOP/bin/$TARGET
+    BINDIR="$ERL_TOP/bin/$TARGET"
     EVSN=`grep '^VSN' erts/vsn.mk | sed 's,^VSN.*=[^0-9]*\([0-9].*\)$,@\1,g;s,^[^@].*,,g;s,^@,,g'`
     for f in beam.debug.dll beam.debug.smp.dll beam.pdb beam.smp.pdb erl.pdb werl.pdb erlexec.pdb; do
 	if [ -f $BINDIR/$f ]; then
@@ -1166,7 +1029,7 @@ do_debuginfo_win32 ()
 do_installer_win32 ()
 {
     setup_make
-    installer_dir=$ERL_TOP/erts/etc/win32/nsis
+    installer_dir="$ERL_TOP/erts/etc/win32/nsis"
     (cd $installer_dir; $MAKE MAKE="$MAKE" TARGET=$TARGET TESTROOT=$1 release) || exit 1
 }
 
@@ -1210,7 +1073,7 @@ do_copy_primary_bootstrap ()
     cp -f $lib_src/compiler/ebin/*.beam $bootstrap/lib/compiler/ebin
 
     # bootstrap bin
-    if [ $bootstrap_src_top != $ERL_TOP ]; then
+    if [ $bootstrap_src_top != "$ERL_TOP" ]; then
 	test -d $bootstrap/bin || mkdir -p  $bootstrap/bin
 	cp -f $bootstrap_src_top/bin/* $bootstrap/bin
     fi
@@ -1219,22 +1082,22 @@ do_copy_primary_bootstrap ()
 
 do_save_bootstrap ()
 {
-    if [ ! -f $ERL_TOP/prebuilt.files ]; then
+    if [ ! -f "$ERL_TOP/prebuilt.files" ]; then
 	echo "This is not a pre-built source distribution" 1>&2
 	exit 1
     fi
-    if  [ -d $ERL_TOP/bootstrap/lib ]; then
+    if  [ -d "$ERL_TOP/bootstrap/lib" ]; then
 	echo "Bootstrap already exist" 1>&2
 	exit 1
     fi
 
-    do_copy_primary_bootstrap $ERL_TOP $ERL_TOP
+    do_copy_primary_bootstrap "$ERL_TOP" "$ERL_TOP"
 }
 
 do_remove_prebuilt_files ()
 {
     do_save_bootstrap
-    for file in $ERL_TOP/`cat $ERL_TOP/prebuilt.files` ; do
+    for file in "$ERL_TOP"/`cat "$ERL_TOP/prebuilt.files"` ; do
 	rm -f $file
     done
 }
@@ -1243,7 +1106,7 @@ do_remove_prebuilt_files ()
 
 check_erltop
 
-cd $ERL_TOP
+cd "$ERL_TOP"
 
 determine_version_controller
 
@@ -1257,7 +1120,7 @@ unset ${erl_otp_flags}
 # Target first guess, won't necessarily hold, may be changed for 
 # certain parameters.
 if [ X"$TARGET" = X"" ]; then
-	TARGET=`$ERL_TOP/erts/autoconf/config.guess`
+	TARGET=`"$ERL_TOP/erts/autoconf/config.guess"`
 fi
 BUILDSYS=$TARGET
 
@@ -1335,27 +1198,11 @@ case "$1" in
 		do_autoconf; 
 		do_configure "$@";
 		do_boot;;
-	lazy_setup)
-		shift;
-		if [ $minus_a_flag = true ]; then 
-		    shift
-		fi;
-		do_lazy_configure "$@";
-		do_boot;;
 	autoconf)
 		do_autoconf;;
 	configure)
 		shift;
 		do_configure "$@";;
-	lazy_configure)
-		shift;
-		do_lazy_configure "$@";;
-	lazy_configure_clean)
-		shift;
-		do_lazy_configure_clean;;
-	lazy_configure_target_clean)
-		shift;
-		do_lazy_configure_target_clean;;
 	opt)
 		do_boot;;
 	plain|smp)

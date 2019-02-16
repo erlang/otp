@@ -44,7 +44,7 @@
 
   <funcs>
     <func>
-      <name><ret>int</ret><nametext>ei_reg_close(reg)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_close(reg)</nametext></name>
       <fsummary>Close a registry.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -59,7 +59,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_delete(reg,key)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_delete(reg,key)</nametext></name>
       <fsummary>Delete an object from the registry.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -85,7 +85,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_dump(fd,reg,mntab,flags)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_dump(fd,reg,mntab,flags)</nametext></name>
       <fsummary>Back up a registry to Mnesia.</fsummary>
       <type>
         <v>int fd;</v>
@@ -125,7 +125,7 @@
     </func>
 
     <func>
-      <name><ret>double</ret><nametext>ei_reg_getfval(reg,key)</nametext></name>
+      <name since=""><ret>double</ret><nametext>ei_reg_getfval(reg,key)</nametext></name>
       <fsummary>Get a floating point object.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -151,7 +151,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_getival(reg,key)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_getival(reg,key)</nametext></name>
       <fsummary>Get an integer object.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -177,7 +177,7 @@
     </func>
 
     <func>
-      <name><ret>const void *</ret><nametext>ei_reg_getpval(reg,key,size)</nametext></name>
+      <name since=""><ret>const void *</ret><nametext>ei_reg_getpval(reg,key,size)</nametext></name>
       <fsummary>Get a binary object.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -207,7 +207,7 @@
     </func>
 
     <func>
-      <name><ret>const char *</ret><nametext>ei_reg_getsval(reg,key)</nametext></name>
+      <name since=""><ret>const char *</ret><nametext>ei_reg_getsval(reg,key)</nametext></name>
       <fsummary>Get a string object.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -232,7 +232,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_getval(reg,key,flags,v,...)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_getval(reg,key,flags,v,...)</nametext></name>
       <fsummary>Get any object.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -278,7 +278,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_markdirty(reg,key)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_markdirty(reg,key)</nametext></name>
       <fsummary>Mark an object as dirty.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -305,7 +305,7 @@
     </func>
 
     <func>
-      <name><ret>ei_reg *</ret><nametext>ei_reg_open(size)</nametext></name>
+      <name since=""><ret>ei_reg *</ret><nametext>ei_reg_open(size)</nametext></name>
       <fsummary>Create and open a registry.</fsummary>
       <type>
         <v>int size;</v>
@@ -326,7 +326,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_purge(reg)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_purge(reg)</nametext></name>
       <fsummary>Remove deleted objects.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -346,7 +346,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_resize(reg,newsize)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_resize(reg,newsize)</nametext></name>
       <fsummary>Resize a registry.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -363,7 +363,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_restore(fd,reg,mntab)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_restore(fd,reg,mntab)</nametext></name>
       <fsummary>Restore a registry from Mnesia.</fsummary>
       <type>
         <v>int fd;</v>
@@ -399,7 +399,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_setfval(reg,key,f)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_setfval(reg,key,f)</nametext></name>
       <fsummary>Assign a floating point object.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -424,7 +424,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_setival(reg,key,i)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_setival(reg,key,i)</nametext></name>
       <fsummary>Assign an integer object.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -448,7 +448,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_setpval(reg,key,p,size)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_setpval(reg,key,p,size)</nametext></name>
       <fsummary>Assign a binary object.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -479,7 +479,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_setsval(reg,key,s)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_setsval(reg,key,s)</nametext></name>
       <fsummary>Assign a string object.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -507,7 +507,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_setval(reg,key,flags,v,...)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_setval(reg,key,flags,v,...)</nametext></name>
       <fsummary>Assign a value to any object type.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -552,7 +552,7 @@
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_stat(reg,key,obuf)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_stat(reg,key,obuf)</nametext></name>
       <fsummary>Get object information.</fsummary>
       <type>
         <v>ei_reg *reg;</v>
@@ -590,7 +590,7 @@ struct ei_reg_stat {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_reg_tabstat(reg,obuf)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_reg_tabstat(reg,obuf)</nametext></name>
       <fsummary>Get registry information.</fsummary>
       <type>
         <v>ei_reg *reg;</v>

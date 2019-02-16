@@ -2868,6 +2868,7 @@ load_code(LoaderState* stp)
 	    break;
 	case op_bs_put_string_WW:
 	case op_i_bs_match_string_xfWW:
+	case op_i_bs_match_string_yfWW:
 	    new_string_patch(stp, ci-1);
 	    break;
 
@@ -3579,38 +3580,36 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
 }
 
 static GenOp*
-gen_increment(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
-	      GenOpArg Live, GenOpArg Dst)
+gen_increment(LoaderState* stp, GenOpArg Reg,
+              GenOpArg Integer, GenOpArg Dst)
 {
     GenOp* op;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_increment_4;
-    op->arity = 4;
+    op->op = genop_i_increment_3;
+    op->arity = 3;
     op->next = NULL;
     op->a[0] = Reg;
     op->a[1].type = TAG_u;
     op->a[1].val = Integer.val;
-    op->a[2] = Live;
-    op->a[3] = Dst;
+    op->a[2] = Dst;
     return op;
 }
 
 static GenOp*
-gen_increment_from_minus(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
-			 GenOpArg Live, GenOpArg Dst)
+gen_increment_from_minus(LoaderState* stp, GenOpArg Reg,
+                         GenOpArg Integer, GenOpArg Dst)
 {
     GenOp* op;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_increment_4;
-    op->arity = 4;
+    op->op = genop_i_increment_3;
+    op->arity = 3;
     op->next = NULL;
     op->a[0] = Reg;
     op->a[1].type = TAG_u;
     op->a[1].val = -Integer.val;
-    op->a[2] = Live;
-    op->a[3] = Dst;
+    op->a[2] = Dst;
     return op;
 }
 
@@ -4245,115 +4244,123 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
 {
     ErlFunEntry* fe;
     GenOp* op;
+    Uint arity, num_free;
 
     if (idx.val >= stp->num_lambdas) {
-	stp->lambda_error = "missing or short chunk 'FunT'";
-	fe = 0;
+        stp->lambda_error = "missing or short chunk 'FunT'";
+        fe = 0;
+        num_free = 0;
+        arity = 0;
     } else {
-	fe = stp->lambdas[idx.val].fe;
+        fe = stp->lambdas[idx.val].fe;
+        num_free = stp->lambdas[idx.val].num_free;
+        arity = fe->arity;
     }
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_make_fun_2;
-    op->arity = 2;
-    op->a[0].type = TAG_u;
-    op->a[0].val = (BeamInstr) fe;
-    op->a[1].type = TAG_u;
-    op->a[1].val = stp->lambdas[idx.val].num_free;
+
+    /*
+     * It's possible this is called before init process is started,
+     * skip the optimisation in such case.
+     */
+    if (num_free == 0 && erts_init_process_id != ERTS_INVALID_PID) {
+        Uint lit;
+        Eterm* hp;
+        ErlFunThing* funp;
+
+        lit = new_literal(stp, &hp, ERL_FUN_SIZE);
+        funp = (ErlFunThing *) hp;
+        erts_refc_inc(&fe->refc, 2);
+        funp->thing_word = HEADER_FUN;
+        funp->next = NULL;
+        funp->fe = fe;
+        funp->num_free = 0;
+        funp->creator = erts_init_process_id;
+        funp->arity = arity;
+
+        op->op = genop_move_2;
+        op->arity = 2;
+        op->a[0].type = TAG_q;
+        op->a[0].val = lit;
+        op->a[1].type = TAG_x;
+        op->a[1].val = 0;
+    } else {
+        op->op = genop_i_make_fun_2;
+        op->arity = 2;
+        op->a[0].type = TAG_u;
+        op->a[0].val = (BeamInstr) fe;
+        op->a[1].type = TAG_u;
+        op->a[1].val = num_free;
+    }
+
     op->next = NULL;
     return op;
 }
 
 static GenOp*
-translate_gc_bif(LoaderState* stp, GenOp* op, GenOpArg Bif)
+gen_is_function2(LoaderState* stp, GenOpArg Fail, GenOpArg Fun, GenOpArg Arity)
 {
-    const ErtsGcBif* p;
-    BifFunction bf;
+    GenOp* op;
+    int literal_arity =  Arity.type == TAG_i;
+    int fun_is_reg = Fun.type == TAG_x || Fun.type == TAG_y;
 
-    bf = stp->import[Bif.val].bf;
-    for (p = erts_gc_bifs; p->bif != 0; p++) {
-	if (p->bif == bf) {
-	    op->a[1].type = TAG_u;
-	    op->a[1].val = (BeamInstr) p->gc_bif;
-	    return op;
-	}
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+
+    if (fun_is_reg &&literal_arity) {
+        /*
+         * Most common case. Fun in a register and arity
+         * is an integer literal.
+         */
+        if (Arity.val > MAX_ARG) {
+            /* Arity is negative or too big. */
+            op->op = genop_jump_1;
+            op->arity = 1;
+            op->a[0] = Fail;
+            return op;
+        } else {
+            op->op = genop_hot_is_function2_3;
+            op->arity = 3;
+            op->a[0] = Fail;
+            op->a[1] = Fun;
+            op->a[2].type = TAG_u;
+            op->a[2].val = Arity.val;
+            return op;
+        }
+    } else {
+        /*
+         * Handle extremely uncommon cases by a slower sequence.
+         */
+        GenOp* move_fun;
+        GenOp* move_arity;
+
+        NEW_GENOP(stp, move_fun);
+        NEW_GENOP(stp, move_arity);
+
+        move_fun->next = move_arity;
+        move_arity->next = op;
+
+        move_fun->arity = 2;
+        move_fun->op = genop_move_2;
+        move_fun->a[0] = Fun;
+        move_fun->a[1].type = TAG_x;
+        move_fun->a[1].val = 1022;
+
+        move_arity->arity = 2;
+        move_arity->op = genop_move_2;
+        move_arity->a[0] = Arity;
+        move_arity->a[1].type = TAG_x;
+        move_arity->a[1].val = 1023;
+
+        op->op = genop_cold_is_function2_3;
+        op->arity = 3;
+        op->a[0] = Fail;
+        op->a[1].type = TAG_x;
+        op->a[1].val = 1022;
+        op->a[2].type = TAG_x;
+        op->a[2].val = 1023;
+        return move_fun;
     }
-
-    op->op = genop_unsupported_guard_bif_3;
-    op->arity = 3;
-    op->a[0].type = TAG_a;
-    op->a[0].val = stp->import[Bif.val].module;
-    op->a[1].type = TAG_a;
-    op->a[1].val = stp->import[Bif.val].function;
-    op->a[2].type = TAG_u;
-    op->a[2].val = stp->import[Bif.val].arity;
-    return op;
-}
-
-/*
- * Rewrite gc_bifs with one parameter (the common case).
- */
-static GenOp*
-gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
-	      GenOpArg Src, GenOpArg Dst)
-{
-    GenOp* op;
-
-    NEW_GENOP(stp, op);
-    op->next = NULL;
-    op->op = genop_i_gc_bif1_5;
-    op->arity = 5;
-    op->a[0] = Fail;
-    /* op->a[1] is set by translate_gc_bif() */
-    op->a[2] = Src;
-    op->a[3] = Live;
-    op->a[4] = Dst;
-    return translate_gc_bif(stp, op, Bif);
-}
-
-/*
- * This is used by the ops.tab rule that rewrites gc_bifs with two parameters.
- */
-static GenOp*
-gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
-	      GenOpArg S1, GenOpArg S2, GenOpArg Dst)
-{
-    GenOp* op;
-
-    NEW_GENOP(stp, op);
-    op->next = NULL;
-    op->op = genop_i_gc_bif2_6;
-    op->arity = 6;
-    op->a[0] = Fail;
-    /* op->a[1] is set by translate_gc_bif() */
-    op->a[2] = Live;
-    op->a[3] = S1;
-    op->a[4] = S2;
-    op->a[5] = Dst;
-    return translate_gc_bif(stp, op, Bif);
-}
-
-/*
- * This is used by the ops.tab rule that rewrites gc_bifs with three parameters.
- */
-static GenOp*
-gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
-	      GenOpArg S1, GenOpArg S2, GenOpArg S3, GenOpArg Dst)
-{
-    GenOp* op;
-
-    NEW_GENOP(stp, op);
-    op->next = NULL;
-    op->op = genop_ii_gc_bif3_7;
-    op->arity = 7;
-    op->a[0] = Fail;
-    /* op->a[1] is set by translate_gc_bif() */
-    op->a[2] = Live;
-    op->a[3] = S1;
-    op->a[4] = S2;
-    op->a[5] = S3;
-    op->a[6] = Dst;
-    return translate_gc_bif(stp, op, Bif);
 }
 
 static GenOp*
@@ -4519,19 +4526,6 @@ is_empty_map(LoaderState* stp, GenOpArg Lit)
     }
     term = stp->literals[Lit.val].term;
     return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
-}
-
-/*
- * Predicate to test whether the given literal is an export.
- */
-static int
-literal_is_export(LoaderState* stp, GenOpArg Lit)
-{
-    Eterm term;
-
-    ASSERT(Lit.type == TAG_q);
-    term = stp->literals[Lit.val].term;
-    return is_export(term);
 }
 
 /*

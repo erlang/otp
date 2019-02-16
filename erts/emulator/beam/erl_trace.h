@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,6 +94,8 @@ void erts_foreach_sys_msg_in_q(void (*func)(Eterm,
 					    Eterm,
 					    Eterm,
 					    ErlHeapFragment *));
+Eterm erts_set_system_logger(Eterm);
+Eterm erts_get_system_logger(void);
 void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);
 void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 

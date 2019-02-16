@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,17 +30,13 @@
 %%% Callback functions for the kernel application.
 %%%-----------------------------------------------------------------
 start(_, []) ->
+    %% Setup the logger and configure the kernel logger environment
+    ok = logger:internal_init_logger(),
     case supervisor:start_link({local, kernel_sup}, kernel, []) of
 	{ok, Pid} ->
             ok = erl_signal_handler:start(),
-            %% add error handler
-            case logger:setup_standard_handler() of
-                ok -> {ok, Pid, []};
-                Error ->
-                    %% Not necessary since the node will crash anyway:
-                    exit(Pid, shutdown),
-                    Error
-            end;
+            ok = logger:add_handlers(kernel),
+            {ok, Pid, []};
 	Error -> Error
     end.
 
@@ -147,7 +143,7 @@ init([]) ->
     case init:get_argument(mode) of
         {ok, [["minimal"]]} ->
             {ok, {SupFlags,
-                  [Code, File, StdError, User, Config, RefC, SafeSup, LoggerSup]}};
+                  [Code, File, StdError, User, LoggerSup, Config, RefC, SafeSup]}};
         _ ->
             Rpc = #{id => rex,
                     start => {rpc, start_link, []},

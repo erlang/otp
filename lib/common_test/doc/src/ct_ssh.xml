@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_ssh.xml</file>
   </header>
-  <module>ct_ssh</module>
+  <module since="">ct_ssh</module>
   <modulesummary>SSH/SFTP client module.</modulesummary>
 
 <description>
@@ -95,7 +95,7 @@
 
   <funcs>
     <func>
-      <name>apread(SSH, Handle, Position, Length) -&gt; Result</name>
+      <name since="">apread(SSH, Handle, Position, Length) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -109,7 +109,7 @@
     </func>
 
     <func>
-      <name>apread(SSH, Server, Handle, Position, Length) -&gt; Result</name>
+      <name since="">apread(SSH, Server, Handle, Position, Length) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -123,7 +123,7 @@
     </func>
 
     <func>
-      <name>apwrite(SSH, Handle, Position, Data) -&gt; Result</name>
+      <name since="">apwrite(SSH, Handle, Position, Data) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -137,7 +137,7 @@
     </func>
 
     <func>
-      <name>apwrite(SSH, Server, Handle, Position, Data) -&gt; Result</name>
+      <name since="">apwrite(SSH, Server, Handle, Position, Data) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -151,7 +151,7 @@
     </func>
 
     <func>
-      <name>aread(SSH, Handle, Len) -&gt; Result</name>
+      <name since="">aread(SSH, Handle, Len) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -165,7 +165,7 @@
     </func>
 
     <func>
-      <name>aread(SSH, Server, Handle, Len) -&gt; Result</name>
+      <name since="">aread(SSH, Server, Handle, Len) -&gt; Result</name>
       <fsummary>For inforamtion and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -179,7 +179,7 @@
     </func>
 
     <func>
-      <name>awrite(SSH, Handle, Data) -&gt; Result</name>
+      <name since="">awrite(SSH, Handle, Data) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -193,7 +193,7 @@
     </func>
 
     <func>
-      <name>awrite(SSH, Server, Handle, Data) -&gt; Result</name>
+      <name since="">awrite(SSH, Server, Handle, Data) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -207,7 +207,7 @@
     </func>
 
     <func>
-      <name>close(SSH, Handle) -&gt; Result</name>
+      <name since="">close(SSH, Handle) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -221,7 +221,7 @@
     </func>
 
     <func>
-      <name>close(SSH, Server, Handle) -&gt; Result</name>
+      <name since="">close(SSH, Server, Handle) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -235,7 +235,7 @@
     </func>
 
     <func>
-      <name>connect(KeyOrName) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">connect(KeyOrName) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Equivalent to connect(KeyOrName, host, []).</fsummary>
       <desc><marker id="connect-1"/>
         <p>Equivalent to
@@ -245,7 +245,7 @@
     </func>
 
     <func>
-      <name>connect(KeyOrName, ConnType) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">connect(KeyOrName, ConnType) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Equivalent to connect(KeyOrName, ConnType, []).</fsummary>
       <desc><marker id="connect-2"/>
         <p>Equivalent to
@@ -255,7 +255,7 @@
     </func>
 
     <func>
-      <name>connect(KeyOrName, ConnType, ExtraOpts) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">connect(KeyOrName, ConnType, ExtraOpts) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Opens an SSH or SFTP connection using the information
         associated with KeyOrName.</fsummary>
       <type>
@@ -301,7 +301,7 @@
     </func>
 
     <func>
-      <name>del_dir(SSH, Name) -&gt; Result</name>
+      <name since="">del_dir(SSH, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -315,7 +315,7 @@
     </func>
 
     <func>
-      <name>del_dir(SSH, Server, Name) -&gt; Result</name>
+      <name since="">del_dir(SSH, Server, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -329,7 +329,7 @@
     </func>
 
     <func>
-      <name>delete(SSH, Name) -&gt; Result</name>
+      <name since="">delete(SSH, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -343,7 +343,7 @@
     </func>
 
     <func>
-      <name>delete(SSH, Server, Name) -&gt; Result</name>
+      <name since="">delete(SSH, Server, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -357,7 +357,7 @@
     </func>
 
     <func>
-      <name>disconnect(SSH) -&gt; ok | {error, Reason}</name>
+      <name since="">disconnect(SSH) -&gt; ok | {error, Reason}</name>
       <fsummary>Closes an SSH/SFTP connection.</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -369,7 +369,7 @@
     </func>
 
     <func>
-      <name>exec(SSH, Command) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">exec(SSH, Command) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to exec(SSH, Command, DefaultTimeout).</fsummary>
       <desc><marker id="exec-2"/>
         <p>Equivalent to
@@ -379,7 +379,7 @@
     </func>
 
     <func>
-      <name>exec(SSH, Command, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">exec(SSH, Command, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Requests server to perform Command.</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -396,7 +396,7 @@
     </func>
 
     <func>
-      <name>exec(SSH, ChannelId, Command, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">exec(SSH, ChannelId, Command, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Requests server to perform Command.</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -414,7 +414,7 @@
     </func>
 
     <func>
-      <name>get_file_info(SSH, Handle) -&gt; Result</name>
+      <name since="">get_file_info(SSH, Handle) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -428,7 +428,7 @@
     </func>
 
     <func>
-      <name>get_file_info(SSH, Server, Handle) -&gt; Result</name>
+      <name since="">get_file_info(SSH, Server, Handle) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -442,7 +442,7 @@
     </func>
 
     <func>
-      <name>list_dir(SSH, Path) -&gt; Result</name>
+      <name since="">list_dir(SSH, Path) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -456,7 +456,7 @@
     </func>
 
     <func>
-      <name>list_dir(SSH, Server, Path) -&gt; Result</name>
+      <name since="">list_dir(SSH, Server, Path) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -470,7 +470,7 @@
     </func>
 
     <func>
-      <name>make_dir(SSH, Name) -&gt; Result</name>
+      <name since="">make_dir(SSH, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -484,7 +484,7 @@
     </func>
 
     <func>
-      <name>make_dir(SSH, Server, Name) -&gt; Result</name>
+      <name since="">make_dir(SSH, Server, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -498,7 +498,7 @@
     </func>
 
     <func>
-      <name>make_symlink(SSH, Name, Target) -&gt; Result</name>
+      <name since="">make_symlink(SSH, Name, Target) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -512,7 +512,7 @@
     </func>
 
     <func>
-      <name>make_symlink(SSH, Server, Name, Target) -&gt; Result</name>
+      <name since="">make_symlink(SSH, Server, Name, Target) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -526,7 +526,7 @@
     </func>
 
     <func>
-      <name>open(SSH, File, Mode) -&gt; Result</name>
+      <name since="">open(SSH, File, Mode) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -540,7 +540,7 @@
     </func>
 
     <func>
-      <name>open(SSH, Server, File, Mode) -&gt; Result</name>
+      <name since="">open(SSH, Server, File, Mode) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -554,7 +554,7 @@
     </func>
 
     <func>
-      <name>opendir(SSH, Path) -&gt; Result</name>
+      <name since="">opendir(SSH, Path) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -568,7 +568,7 @@
     </func>
 
     <func>
-      <name>opendir(SSH, Server, Path) -&gt; Result</name>
+      <name since="">opendir(SSH, Server, Path) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -582,7 +582,7 @@
     </func>
 
     <func>
-      <name>position(SSH, Handle, Location) -&gt; Result</name>
+      <name since="">position(SSH, Handle, Location) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -596,7 +596,7 @@
     </func>
 
     <func>
-      <name>position(SSH, Server, Handle, Location) -&gt; Result</name>
+      <name since="">position(SSH, Server, Handle, Location) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -610,7 +610,7 @@
     </func>
 
     <func>
-      <name>pread(SSH, Handle, Position, Length) -&gt; Result</name>
+      <name since="">pread(SSH, Handle, Position, Length) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -624,7 +624,7 @@
     </func>
 
     <func>
-      <name>pread(SSH, Server, Handle, Position, Length) -&gt; Result</name>
+      <name since="">pread(SSH, Server, Handle, Position, Length) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -638,7 +638,7 @@
     </func>
 
     <func>
-      <name>pwrite(SSH, Handle, Position, Data) -&gt; Result</name>
+      <name since="">pwrite(SSH, Handle, Position, Data) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -652,7 +652,7 @@
     </func>
 
     <func>
-      <name>pwrite(SSH, Server, Handle, Position, Data) -&gt; Result</name>
+      <name since="">pwrite(SSH, Server, Handle, Position, Data) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -666,7 +666,7 @@
     </func>
 
     <func>
-      <name>read(SSH, Handle, Len) -&gt; Result</name>
+      <name since="">read(SSH, Handle, Len) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -680,7 +680,7 @@
     </func>
 
     <func>
-      <name>read(SSH, Server, Handle, Len) -&gt; Result</name>
+      <name since="">read(SSH, Server, Handle, Len) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -694,7 +694,7 @@
     </func>
 
     <func>
-      <name>read_file(SSH, File) -&gt; Result</name>
+      <name since="">read_file(SSH, File) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -708,7 +708,7 @@
     </func>
 
     <func>
-      <name>read_file(SSH, Server, File) -&gt; Result</name>
+      <name since="">read_file(SSH, Server, File) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -722,7 +722,7 @@
     </func>
 
     <func>
-      <name>read_file_info(SSH, Name) -&gt; Result</name>
+      <name since="">read_file_info(SSH, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -736,7 +736,7 @@
     </func>
 
     <func>
-      <name>read_file_info(SSH, Server, Name) -&gt; Result</name>
+      <name since="">read_file_info(SSH, Server, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -750,7 +750,7 @@
     </func>
 
     <func>
-      <name>read_link(SSH, Name) -&gt; Result</name>
+      <name since="">read_link(SSH, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -764,7 +764,7 @@
     </func>
 
     <func>
-      <name>read_link(SSH, Server, Name) -&gt; Result</name>
+      <name since="">read_link(SSH, Server, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -778,7 +778,7 @@
     </func>
 
     <func>
-      <name>read_link_info(SSH, Name) -&gt; Result</name>
+      <name since="">read_link_info(SSH, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -792,7 +792,7 @@
     </func>
 
     <func>
-      <name>read_link_info(SSH, Server, Name) -&gt; Result</name>
+      <name since="">read_link_info(SSH, Server, Name) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -806,7 +806,7 @@
     </func>
 
     <func>
-      <name>receive_response(SSH, ChannelId) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">receive_response(SSH, ChannelId) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to receive_response(SSH, ChannelId,
         close).</fsummary>
       <desc><marker id="receive_response-2"/>
@@ -817,7 +817,7 @@ ChannelId, close)</c></seealso>.</p>
     </func>
 
      <func>
-       <name>receive_response(SSH, ChannelId, End) -&gt; {ok, Data} | {error, Reason}</name>
+       <name since="">receive_response(SSH, ChannelId, End) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to receive_response(SSH, ChannelId, End,
         DefaultTimeout).</fsummary>
       <desc><marker id="receive_response-3"/>
@@ -828,7 +828,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>receive_response(SSH, ChannelId, End, Timeout) -&gt; {ok, Data} | {timeout, Data} | {error, Reason}</name>
+      <name since="">receive_response(SSH, ChannelId, End, Timeout) -&gt; {ok, Data} | {timeout, Data} | {error, Reason}</name>
       <fsummary>Receives expected data from server on the specified session
         channel.</fsummary>
       <type>
@@ -863,7 +863,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>rename(SSH, OldName, NewName) -&gt; Result</name>
+      <name since="">rename(SSH, OldName, NewName) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -877,7 +877,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>rename(SSH, Server, OldName, NewName) -&gt; Result</name>
+      <name since="">rename(SSH, Server, OldName, NewName) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -891,7 +891,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>send(SSH, ChannelId, Data) -&gt; ok | {error, Reason}</name>
+      <name since="">send(SSH, ChannelId, Data) -&gt; ok | {error, Reason}</name>
       <fsummary>Equivalent to send(SSH, ChannelId, 0, Data,
         DefaultTimeout).</fsummary>
       <desc><marker id="send-3"/>
@@ -901,7 +901,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>send(SSH, ChannelId, Data, Timeout) -&gt; ok | {error, Reason}</name>
+      <name since="">send(SSH, ChannelId, Data, Timeout) -&gt; ok | {error, Reason}</name>
       <fsummary>Equivalent to send(SSH, ChannelId, 0, Data, Timeout).</fsummary>
       <desc><marker id="send-4"/>
         <p>Equivalent to <seealso marker="#send-5"><c>ct_ssh:send(SSH,
@@ -910,7 +910,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>send(SSH, ChannelId, Type, Data, Timeout) -&gt; ok | {error, Reason}</name>
+      <name since="">send(SSH, ChannelId, Type, Data, Timeout) -&gt; ok | {error, Reason}</name>
       <fsummary>Sends data to server on specified session channel.</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -926,7 +926,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>send_and_receive(SSH, ChannelId, Data) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">send_and_receive(SSH, ChannelId, Data) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to send_and_receive(SSH, ChannelId, Data,
         close).</fsummary>
       <desc><marker id="send_and_receive-3"/>
@@ -937,7 +937,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>send_and_receive(SSH, ChannelId, Data, End) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">send_and_receive(SSH, ChannelId, Data, End) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to send_and_receive(SSH, ChannelId, 0, Data, End,
         DefaultTimeout).</fsummary>
       <desc><marker id="send_and_receive-4"/>
@@ -948,7 +948,7 @@ ChannelId, 0, Data, End, DefaultTimeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>send_and_receive(SSH, ChannelId, Data, End, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">send_and_receive(SSH, ChannelId, Data, End, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to send_and_receive(SSH, ChannelId, 0, Data, End,
         Timeout).</fsummary>
       <desc><marker id="send_and_receive-5"/>
@@ -959,7 +959,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Sends data to server on specified session channel and waits
         to receive the server response.</fsummary>
       <type>
@@ -981,7 +981,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>session_close(SSH, ChannelId) -&gt; ok | {error, Reason}</name>
+      <name since="">session_close(SSH, ChannelId) -&gt; ok | {error, Reason}</name>
       <fsummary>Closes an SSH session channel.</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -994,7 +994,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>session_open(SSH) -&gt; {ok, ChannelId} | {error, Reason}</name>
+      <name since="">session_open(SSH) -&gt; {ok, ChannelId} | {error, Reason}</name>
       <fsummary>Equivalent to session_open(SSH, DefaultTimeout).</fsummary>
       <desc><marker id="session_open-1"/>
         <p>Equivalent to
@@ -1004,7 +1004,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>session_open(SSH, Timeout) -&gt; {ok, ChannelId} | {error, Reason}</name>
+      <name since="">session_open(SSH, Timeout) -&gt; {ok, ChannelId} | {error, Reason}</name>
       <fsummary>Opens a channel for an SSH session.</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -1018,7 +1018,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>sftp_connect(SSH) -&gt; {ok, Server} | {error, Reason}</name>
+      <name since="">sftp_connect(SSH) -&gt; {ok, Server} | {error, Reason}</name>
       <fsummary>Starts an SFTP session on an already existing SSH
         connection.</fsummary>
       <type>
@@ -1034,7 +1034,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>shell(SSH, ChannelId) -&gt; ok | {error, Reason}</name>
+      <name since="OTP 20.0">shell(SSH, ChannelId) -&gt; ok | {error, Reason}</name>
       <fsummary>Equivalent to shell(SSH, ChannelId, DefaultTimeout).</fsummary>
       <desc><marker id="shell-2"/>
         <p>Equivalent to
@@ -1044,7 +1044,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>shell(SSH, ChannelId, Timeout) -&gt; ok | {error, Reason}</name>
+      <name since="OTP 20.0">shell(SSH, ChannelId, Timeout) -&gt; ok | {error, Reason}</name>
       <fsummary>Requests that the user default shell is executed at the
         server end.</fsummary>
       <type>
@@ -1061,7 +1061,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>subsystem(SSH, ChannelId, Subsystem) -&gt; Status | {error, Reason}</name>
+      <name since="">subsystem(SSH, ChannelId, Subsystem) -&gt; Status | {error, Reason}</name>
       <fsummary>Equivalent to subsystem(SSH, ChannelId, Subsystem,
         DefaultTimeout).</fsummary>
       <desc><marker id="subsystem-3"/>
@@ -1072,7 +1072,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>subsystem(SSH, ChannelId, Subsystem, Timeout) -&gt; Status | {error, Reason}</name>
+      <name since="">subsystem(SSH, ChannelId, Subsystem, Timeout) -&gt; Status | {error, Reason}</name>
       <fsummary>Sends a request to execute a predefined subsystem.</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -1088,7 +1088,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>write(SSH, Handle, Data) -&gt; Result</name>
+      <name since="">write(SSH, Handle, Data) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -1102,7 +1102,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>write(SSH, Server, Handle, Data) -&gt; Result</name>
+      <name since="">write(SSH, Server, Handle, Data) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -1116,7 +1116,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>write_file(SSH, File, Iolist) -&gt; Result</name>
+      <name since="">write_file(SSH, File, Iolist) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -1130,7 +1130,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>write_file(SSH, Server, File, Iolist) -&gt; Result</name>
+      <name since="">write_file(SSH, Server, File, Iolist) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -1144,7 +1144,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>write_file_info(SSH, Name, Info) -&gt; Result</name>
+      <name since="">write_file_info(SSH, Name, Info) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>
@@ -1158,7 +1158,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>write_file_info(SSH, Server, Name, Info) -&gt; Result</name>
+      <name since="">write_file_info(SSH, Server, Name, Info) -&gt; Result</name>
       <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
       <type>
         <v>SSH = connection()</v>

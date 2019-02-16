@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2016</year>
+      <year>2002</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>et_selector.xml</file>
   </header>
-  <module>et_selector</module>
+  <module since="">et_selector</module>
   <modulesummary>Define event transforms and trace patterns</modulesummary>
   <description>
     <p></p>
@@ -40,7 +40,7 @@
   
   <funcs>
     <func>
-      <name>make_pattern(RawPattern) -> TracePattern</name>
+      <name since="">make_pattern(RawPattern) -> TracePattern</name>
       <fsummary>Makes a trace pattern suitable to feed change_pattern/1</fsummary>
 
       <type>
@@ -61,7 +61,7 @@
     </func>
 
     <func>
-      <name>change_pattern(Pattern) -> ok</name>
+      <name since="">change_pattern(Pattern) -> ok</name>
 
       <fsummary>Activates/deactivates tracing by changing the current trace pattern</fsummary>
 
@@ -85,12 +85,14 @@
       </desc>
     </func>
     <func>
-      <name>parse_event(Mod, ValidTraceData) -> false | true | {true, Event}</name>
+      <name since="">parse_event(Mod, ValidTraceData) -> false | true | {true, Event}</name>
 
       <fsummary>Transforms trace data and makes an event record out of it</fsummary>
 
       <type>
-        <v>Mod = module_name() | undefined &lt;v>module_name() = atom() &lt;v>ValidTraceData = erlang_trace_data() | record(event)</v>
+          <v>Mod = module_name() | undefined</v>
+          <v>module_name() = atom()</v>
+          <v>ValidTraceData = erlang_trace_data() | record(event)</v>
         <v>erlang_trace_data() = {trace, Pid, Label, Info} |  {trace, Pid, Label, Info, Extra} |  {trace_ts, Pid, Label, Info, ReportedTS} |  {trace_ts, Pid, Label, Info, Extra, ReportedTS} |  {seq_trace, Label, Info} |  {seq_trace, Label, Info, ReportedTS} |  {drop, NumberOfDroppedItems}</v>
       </type>
 

@@ -793,8 +793,8 @@ handle_info(#wx{event = #wxScroll{type = scroll_changed}} = Wx, S) ->
     N = round(S#state.n_events * Pos / Range),
     Diff = 
 	case N - event_pos(S) of
-	    D when D < 0 -> D  - 1;
-	    D            -> D  + 1
+	    D when D < 0 -> D;
+	    D            -> D
 	end,
     S2 = scroll_changed(S, Diff),
     noreply(S2);
@@ -1002,7 +1002,7 @@ scroll_changed(S, Expected) ->
 		    scroll_first(S);
 		last ->
 		    scroll_last(S)
-	    end;
+            end;
 	true ->
 	    %% Down
 	    OldPos = event_pos(S),
@@ -1018,19 +1018,24 @@ scroll_changed(S, Expected) ->
     end.
 
 jump_up(S, OldKey, OldPos, NewPos) ->
-    Try = NewPos - OldPos,
+    Try = NewPos - OldPos -1,
     Order = S#state.event_order,
-    Fun = fun(Event, #e{pos = P}) when P >= NewPos ->
-		  Key = et_collector:make_key(Order, Event),
-		  #e{event = Event, key = Key, pos = P - 1};
-	     (_, Acc) ->
-		  Acc
-	  end,
-    PrevE = et_collector:iterate(S#state.collector_pid,
-				 OldKey, 
-				 Try, 
-				 Fun,
-				 #e{key = OldKey, pos = OldPos}),
+    PrevE =
+        if NewPos =:= 0 ->
+                first;
+           true ->
+                Fun = fun(Event, #e{pos = P}) when P >= NewPos ->
+                              Key = et_collector:make_key(Order, Event),
+                              #e{event = Event, key = Key, pos = P - 1};
+                         (_E, Acc) ->
+                              Acc
+                      end,
+                et_collector:iterate(S#state.collector_pid,
+                                     OldKey,
+                                     Try,
+                                     Fun,
+                                     #e{key = OldKey, pos = OldPos})
+        end,
     case collect_more_events(S, PrevE, S#state.events_per_page) of
 	{_, []} ->
 	    S;
@@ -2013,7 +2018,7 @@ update_scroll_bar(#state{scroll_bar      = ScrollBar,
 	    PixelsPerEvent = Range / EventsPerPage,
 	    Share = EventsPerPage / N,
 	    wxScrollBar:setScrollbar(ScrollBar,
-				     trunc(EventPos * Share * PixelsPerEvent),
+                                     trunc(EventPos * Share * PixelsPerEvent),
 				     round(Share * Range),
 				     Range,
 				     round(Share * Range),

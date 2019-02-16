@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,7 +34,62 @@
   </header>
 
 
-  <section><title>SNMP 5.2.10</title>
+  <section><title>SNMP 5.2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Conversion of (agent) Audit Trail Log (ATL) failed due
+	    to invalid log entries.</p> <p>The conversion aborted
+	    completely midway because the ATL contained invalid
+	    entries. The conversion has been improved so that it now
+	    firstly handles encountered errors and write an
+	    informative message (into the converted stream) and
+	    secondly keeps count of the number of successful or
+	    failed entry conversions. See <seealso
+	    marker="snmpa#log_to_txt">log_to_txt</seealso> for more
+	    info. </p> <p>The reason the ATL contained invalid
+	    entries have also been fixed. The reason was that for
+	    some outgoing messages (not response):</p> <list
+	    type="bulleted"> <item> <p>encrypted (v3 messages)</p>
+	    <p>Was logged "as is" (encrypted) without the info to
+	    decrypt, making conversion impossible (which was the
+	    reason the log contained bad entries).</p> </item> <item>
+	    <p>un-encrypted</p> <p>Was not logged at all. </p>
+	    </item> </list>
+          <p>
+	    Own Id: OTP-15287 Aux Id: ERIERL-206 </p>
+        </item>
+        <item>
+          <p>
+	    [compiler] Spurious version message removed. The snmp mib
+	    compiler printed an spurious version message if the
+	    'version' option was provided.</p>
+          <p>
+	    Own Id: OTP-15290</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The Snmp MIB compiler now allows using a
+	    TEXTUAL-CONVENTION type before defining it.</p>
+          <p>
+	    Own Id: OTP-14196 Aux Id: ERIERL-161 </p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+<section><title>SNMP 5.2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -28,8 +28,8 @@
 
 %% API
 
-start(Data) ->
-    {ok, Pid} = gen_statem:start(?MODULE, Data, []),
+start([Data|Opts]) ->
+    {ok, Pid} = gen_statem:start(?MODULE, Data, Opts),
     Pid.
 
 stop(P) ->
@@ -52,7 +52,9 @@ init(Data) ->
 state1({call, From}, {reply, M}, Data) ->
     {keep_state, Data, {reply, From, M}};
 state1({call, From}, {transit, M}, Data) ->
-    {next_state, state2, Data, {reply, From, M}}.
+    {next_state, state2, Data,
+     [{reply, From, M},{state_timeout,5000,5000}]}.
 
 state2({call, From}, {transit, M}, Data) ->
-    {next_state, state1, Data, {reply, From, M}}.
+    {next_state, state1, Data,
+     [{reply, From, M},{state_timeout,5000,5000}]}.

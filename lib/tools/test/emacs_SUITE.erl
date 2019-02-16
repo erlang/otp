@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,18 +23,28 @@
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2]).
 
--export([bif_highlight/1, indent/1]).
+-export([bif_highlight/1,
+         load_interpreted/1,  compile_and_load/1,
+         indent/1,
+         tests_interpreted/1, tests_compiled/1
+        ]).
 
 all() ->
-    [bif_highlight, indent].
+    [bif_highlight, load_interpreted, compile_and_load,
+     indent,
+     tests_interpreted, tests_compiled
+    ].
 
-init_per_testcase(_Case, Config) ->
+init_per_testcase(Case, Config) ->
     ErlangEl = filename:join([code:lib_dir(tools),"emacs","erlang.el"]),
     case file:read_file_info(ErlangEl) of
-	{ok, _} ->
-	    [{el, ErlangEl}|Config];
-	_ ->
-	    {skip, "Could not find erlang.el"}
+        {ok, _} ->
+            case Case =:= bif_highlight orelse emacs_version_ok(24.1) of
+                false -> {skip, "Old or no emacs found"};
+                _ -> [{el, ErlangEl}|Config]
+            end;
+        _ ->
+            {skip, "Could not find erlang.el"}
     end.
 
 end_per_testcase(_Case, _Config) ->
@@ -46,26 +56,26 @@ bif_highlight(Config) ->
 
     %% All auto-imported bifs
     IntBifs = lists:usort(
-		[F  || {F,A} <- erlang:module_info(exports),
-		       erl_internal:bif(F,A)]),
+                [F  || {F,A} <- erlang:module_info(exports),
+                       erl_internal:bif(F,A)]),
 
     %% all bif which need erlang: prefix and are not operands
     ExtBifs = lists:usort(
-		[F  || {F,A} <- erlang:module_info(exports),
-		       not erl_internal:bif(F,A) andalso
-			   not is_atom(catch erl_internal:op_type(F,A))]),
+                [F  || {F,A} <- erlang:module_info(exports),
+                       not erl_internal:bif(F,A) andalso
+                           not is_atom(catch erl_internal:op_type(F,A))]),
 
     check_bif_highlight(Bin, <<"erlang-int-bifs">>, IntBifs),
     check_bif_highlight(Bin, <<"erlang-ext-bifs">>, ExtBifs).
-    
+
 
 check_bif_highlight(Bin, Tag, Compare) ->
-    [_H,IntMatch,_T] = 
-	re:split(Bin,<<"defvar ",Tag/binary,
-		       "[^(]*\\(([^)]*)">>,[]),
-    EmacsIntBifs = [list_to_atom(S) || 
-		  S <- string:tokens(binary_to_list(IntMatch)," '\"\n")],
-    
+    [_H,IntMatch,_T] =
+        re:split(Bin,<<"defvar ",Tag/binary,
+                       "[^(]*\\(([^)]*)">>,[]),
+    EmacsIntBifs = [list_to_atom(S) ||
+                  S <- string:tokens(binary_to_list(IntMatch)," '\"\n")],
+
     ct:log("Emacs ~p",[EmacsIntBifs]),
     ct:log("Int ~p",[Compare]),
 
@@ -73,26 +83,91 @@ check_bif_highlight(Bin, Tag, Compare) ->
     ct:log("Diff2 ~p",[EmacsIntBifs -- Compare]),
     [] = Compare -- EmacsIntBifs,
     [] = EmacsIntBifs -- Compare.
-    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+load_interpreted(_Config) ->
+    _ = emacs(["-l erlang.el -f erlang-mode"]),
+    ok.
+
+compile_and_load(_Config) ->
+    Dir = emacs_dir(),
+    Files0 = filelib:wildcard("*.el", Dir),
+    Files = case emacs_version_ok(24.3) of
+                %% erldoc.el depends on cl-lib which was introduced in 24.3.
+                false -> Files0 -- ["erldoc.el"];
+                _ -> Files0
+            end,
+    Unforgiving =
+        case emacs_version_ok(24) of
+            Ver when Ver < 25 ->
+                "";
+            Ver when Ver < 26 ->
+                %% Workaround byte-compile-error-on-warn which seem broken in
+                %% Emacs 25.
+                "\"(advice-add #'display-warning :after "
+                    "(lambda (_ f _ _) (error \"%s\" f)))\"";
+            _ ->
+                "\"(setq byte-compile-error-on-warn t)\""
+        end,
+    %% Add files here whenever they are cleaned of warnings.
+    NoWarn = ["erlang.el", "erlang-test.el", "erlang-edoc.el", "erlang-start.el", "erldoc.el"],
+    Compile = fun(File) ->
+                      Pedantic = case lists:member(File, NoWarn) andalso Unforgiving /= "" of
+                                     true -> ["--eval ", Unforgiving, " "];
+                                     false -> " "
+                                 end,
+                      emacs([Pedantic,
+                             " -f batch-byte-compile ",filename:join(Dir, File)]),
+                      true
+              end,
+    lists:foreach(Compile, Files),
+    emacs(["-l erlang.elc -f erlang-mode"]),
+    ok.
+
+tests_interpreted(_Config) ->
+    case emacs_version_ok(25) of
+        false -> {skip, "Old or no emacs found"};
+        _ ->
+            emacs(["-l erlang.el ",
+                   "-l erlang-test.el -f ert-run-tests-batch-and-exit"]),
+            ok
+    end.
+
+tests_compiled(_Config) ->
+    case emacs_version_ok(25) of
+        false -> {skip, "Old or no emacs found"};
+        _ ->
+            emacs(["-l erlang.elc ",
+                   "-l erlang-test.elc -f ert-run-tests-batch-and-exit"]),
+            ok
+    end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 indent(Config) ->
-    case emacs_version_ok() of
-        false -> {skip, "Old or no emacs found"};
-        true ->
-            Def = filename:dirname(code:which(?MODULE)) ++ "/" ++ ?MODULE_STRING ++ "_data",
-            Dir = proplists:get_value(data_dir, Config, Def),
-            OrigFs = filelib:wildcard(Dir ++ "/*"),
-            io:format("Dir: ~s~nFs: ~p~n", [Dir, OrigFs]),
-            Fs = [{File, unindent(File)} || File <- OrigFs,
-                                            filename:extension(File) =:= ""],
-            Indent = fun emacs/1,
-            [Indent(File) || {_, File} <- Fs],
-            Res = [diff(Orig, File) || {Orig, File} <- Fs],
-            [file:delete(File) || {ok, File} <- Res],       %% Cleanup
-            [] = [Fail || {fail, Fail} <- Res],
-            ok
-    end.
+    Def = filename:dirname(code:which(?MODULE))
+        ++ "/"
+        ++ ?MODULE_STRING
+        ++ "_data",
+    Dir = proplists:get_value(data_dir, Config, Def),
+    OrigFs = filelib:wildcard(Dir ++ "/*"),
+    io:format("Dir: ~s~nFs: ~p~n", [Dir, OrigFs]),
+    Fs = [{File, unindent(File)} || File <- OrigFs,
+                                    filename:extension(File) =:= ""],
+    Indent = fun(File) ->
+                     emacs([
+                            File, " ",
+                            "--eval '(indent-region (point-min) (point-max) nil)' ",
+                            "--eval '(save-buffer 0)'"
+                           ]),
+                     ok
+             end,
+    [Indent(File) || {_, File} <- Fs],
+    Res = [diff(Orig, File) || {Orig, File} <- Fs],
+    [file:delete(File) || {ok, File} <- Res],       %% Cleanup
+    [] = [Fail || {fail, Fail} <- Res],
+    ok.
 
 unindent(Input) ->
     Output = Input ++ ".erl",
@@ -112,14 +187,13 @@ diff(Orig, File) ->
             {fail, File}
     end.
 
-emacs_version_ok() ->
+emacs_version_ok(AcceptVer) ->
     case os:cmd("emacs --version | head -1") of
         "GNU Emacs " ++ Ver ->
             case string:to_float(Ver) of
-                {Vsn, _} when Vsn >= 24.1 ->
-                    true;
+                {Vsn, _} when Vsn >= AcceptVer ->
+                    Vsn;
                 _ ->
-                    io:format("Emacs version fail~n~s~n~n",[Ver]),
                     false
             end;
         Res ->
@@ -127,16 +201,19 @@ emacs_version_ok() ->
             false
     end.
 
-emacs(File) ->
-    EmacsErlDir = filename:join([code:lib_dir(tools), "emacs"]),
+emacs(EmacsCmds) when is_list(EmacsCmds) ->
     Cmd = ["emacs ",
            "--batch --quick ",
-           "--directory ", EmacsErlDir, " ",
-           "--eval \"(require 'erlang-start)\" ",
-           File, " ",
-           "--eval '(indent-region (point-min) (point-max) nil)' ",
-           "--eval '(save-buffer 0)'"
-          ],
-    _Res = os:cmd(Cmd),
-    % io:format("cmd ~s:~n=> ~s~n", [Cmd, _Res]),
-    ok.
+           "--directory ", emacs_dir(), " ",
+           "--eval \"(require 'erlang-start)\" "
+           | EmacsCmds],
+    Res0 = os:cmd(Cmd ++ " ; echo $?"),
+    Rows = string:lexemes(Res0, ["\r\n", $\n]),
+    Res = lists:last(Rows),
+    Output = string:join(lists:droplast(Rows), "\n"),
+    io:format("Cmd ~s:~n  => ~s ~ts~n", [Cmd, Res, Output]),
+    "0" = Res,
+    Output.
+
+emacs_dir() ->
+    filename:join([code:lib_dir(tools), "emacs"]).

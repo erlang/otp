@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <rev>2.2</rev>
     <file>httpd.sgml</file>
   </header>
-  <module>httpd</module> 
+  <module since="">httpd</module> 
   <modulesummary>
     HTTP server API
   </modulesummary>
@@ -173,7 +173,7 @@
       <item>
 	<p>For <c>ip_comm</c> configuration options, see 
 	<seealso marker="kernel:gen_tcp#listen-2">gen_tcp:listen/2</seealso>, some options
-	that are used internally by httpd can not be set.</p>
+	that are used internally by httpd cannot be set.</p>
 	<p>For <c>SSL</c> configuration options, see 
 	<seealso marker="ssl:ssl#listen-2">ssl:listen/2</seealso>.</p>
 	<p>Default is <c>ip_comm</c>.</p> 
@@ -874,8 +874,8 @@ text/plain	asc txt</pre>
 
   <funcs>
     <func>
-      <name>info(Pid) -></name>
-      <name>info(Pid, Properties) -> [{Option, Value}]</name>
+      <name since="">info(Pid) -></name>
+      <name since="">info(Pid, Properties) -> [{Option, Value}]</name>
       <fsummary>Fetches information about the HTTP server.</fsummary>
       <type>
         <v>Properties = [property()]</v>
@@ -899,10 +899,10 @@ text/plain	asc txt</pre>
     </func>
 
     <func>
-      <name>info(Address, Port) ->  </name>
-      <name>info(Address, Port, Profile) ->  </name>
-      <name>info(Address, Port, Profile, Properties) -> [{Option, Value}] </name>
-      <name>info(Address, Port, Properties) -> [{Option, Value}] </name>
+      <name since="">info(Address, Port) ->  </name>
+      <name since="">info(Address, Port, Profile) ->  </name>
+      <name since="OTP 18.0">info(Address, Port, Profile, Properties) -> [{Option, Value}] </name>
+      <name since="">info(Address, Port, Properties) -> [{Option, Value}] </name>
       <fsummary>Fetches information about the HTTP server.</fsummary>
       <type>
 	<v>Address = ip_address()</v>
@@ -927,7 +927,7 @@ text/plain	asc txt</pre>
     </func>
     
     <func>
-      <name>reload_config(Config, Mode) -> ok | {error, Reason}</name>
+      <name since="">reload_config(Config, Mode) -> ok | {error, Reason}</name>
       <fsummary>Reloads the HTTP server configuration without
 	restarting the server.</fsummary>
       <type>
@@ -1051,7 +1051,7 @@ text/plain	asc txt</pre>
   </section>
   <funcs>
     <func>
-      <name>Module:do(ModData)-> {proceed, OldData} | {proceed, NewData} | {break, NewData} | done</name>
+      <name since="">Module:do(ModData)-> {proceed, OldData} | {proceed, NewData} | {break, NewData} | done</name>
       <fsummary>Called for each request to the web server.</fsummary>
       <type>
         <v>OldData = list()</v>
@@ -1105,7 +1105,7 @@ text/plain	asc txt</pre>
     </func>
 
     <func>
-      <name>Module:load(Line, AccIn)-> eof | ok | {ok, AccOut} | {ok, AccOut, {Option, Value}} | {ok, AccOut, [{Option, Value}]} | {error, Reason}</name>
+      <name since="">Module:load(Line, AccIn)-> eof | ok | {ok, AccOut} | {ok, AccOut, {Option, Value}} | {ok, AccOut, [{Option, Value}]} | {error, Reason}</name>
       <fsummary>Converts a line in an Apache-like config 
 	file to an <c>{Option, Value}</c> tuple.</fsummary>
       <type>
@@ -1128,7 +1128,7 @@ text/plain	asc txt</pre>
     </func>
     
     <func>
-      <name>Module:remove(ConfigDB) -> ok | {error, Reason} </name>
+      <name since="">Module:remove(ConfigDB) -> ok | {error, Reason} </name>
       <fsummary>Callback function that is called when the web server is closed.</fsummary>
       <type>
         <v>ConfigDB = ets_table()</v>
@@ -1143,7 +1143,7 @@ text/plain	asc txt</pre>
     </func>
     
     <func>
-      <name>Module:store({Option, Value}, Config)-> {ok, {Option, NewValue}} | {error, Reason}</name>
+      <name since="">Module:store({Option, Value}, Config)-> {ok, {Option, NewValue}} | {error, Reason}</name>
       <fsummary>Checks the validity of the configuration options.</fsummary>
       <type>
         <v>Line = string()</v>
@@ -1171,7 +1171,7 @@ text/plain	asc txt</pre>
   </section>
   <funcs>
     <func>
-      <name>parse_query(QueryString) -> [{Key,Value}]</name>
+      <name since="">parse_query(QueryString) -> [{Key,Value}]</name>
       <fsummary>Parses incoming data to <c>erl</c> and <c>eval</c> scripts.</fsummary>
       <type>
         <v>QueryString = string()</v>

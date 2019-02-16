@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 
 -define(upgr_sname,otp_upgrade).
 
-%% Applications that are excluded from this test because they can not
+%% Applications that are excluded from this test because they cannot
 %% just be started in a new node with out specific configuration.
 -define(start_exclude,
 	[cosEvent,cosEventDomain,cosFileTransfer,cosNotification,

@@ -34,7 +34,7 @@
     <rev>A</rev>
     <file>re.xml</file>
   </header>
-  <module>re</module>
+  <module since="">re</module>
   <modulesummary>Perl-like regular expressions for Erlang.</modulesummary>
   <description>
     <p>This module contains regular expression matching functions for
@@ -79,7 +79,7 @@
 
   <funcs>
     <func>
-      <name name="version" arity="0"/>
+      <name name="version" arity="0" since="OTP 20.0"/>
       <fsummary>Gives the PCRE version of the system in a string format</fsummary>
       <desc>
       <p>The return of this function is a string with the PCRE version of the system that was used in the Erlang/OTP compilation.</p>
@@ -87,7 +87,7 @@
     </func>
 
     <func>
-      <name name="compile" arity="1"/>
+      <name name="compile" arity="1" since=""/>
       <fsummary>Compile a regular expression into a match program</fsummary>
       <desc>
       <p>The same as <c>compile(<anno>Regexp</anno>,[])</c></p>
@@ -95,7 +95,7 @@
     </func> 
 
     <func>
-      <name name="compile" arity="2"/>
+      <name name="compile" arity="2" since=""/>
       <fsummary>Compile a regular expression into a match program.</fsummary>
       <desc>
         <p>Compiles a regular expression, with the syntax
@@ -304,7 +304,7 @@
     </func> 
 
     <func>
-      <name name="inspect" arity="2"/>
+      <name name="inspect" arity="2" since="OTP 17.0"/>
       <fsummary>Inspects a compiled regular expression.</fsummary>
       <desc>
         <p>Takes a compiled regular expression and an item, and returns the
@@ -348,7 +348,7 @@
     </func>
 
     <func>
-      <name name="replace" arity="3"/>
+      <name name="replace" arity="3" since=""/>
       <fsummary>Match a subject against regular expression and replace matching
         elements with Replacement.</fsummary>
       <desc>
@@ -358,7 +358,7 @@
     </func> 
 
     <func>
-      <name name="replace" arity="4"/>
+      <name name="replace" arity="4" since=""/>
       <fsummary>Match a subject against regular expression and replace matching
         elements with Replacement.</fsummary>
       <desc>
@@ -408,7 +408,7 @@ re:replace("abcd","c","[\\&amp;]",[{return,list}]).</code>
     </func>
 
     <func>
-      <name name="run" arity="2"/>
+      <name name="run" arity="2" since=""/>
       <fsummary>Match a subject against regular expression and capture
         subpatterns.</fsummary>
       <desc>
@@ -417,7 +417,7 @@ re:replace("abcd","c","[\\&amp;]",[{return,list}]).</code>
     </func> 
 
     <func>
-      <name name="run" arity="3"/>
+      <name name="run" arity="3" since=""/>
       <fsummary>Match a subject against regular expression and capture
         subpatterns.</fsummary>
       <type_desc variable="CompileOpt">See <seealso marker="#compile_options">
@@ -992,7 +992,7 @@ re:run("cacb","c(a|b)",[global,{capture,[1],list}]).</code>
     </func>
 
     <func>
-      <name name="split" arity="2"/>
+      <name name="split" arity="2" since=""/>
       <fsummary>Split a string by tokens specified as a regular expression.
       </fsummary>
       <desc>
@@ -1001,7 +1001,7 @@ re:run("cacb","c(a|b)",[global,{capture,[1],list}]).</code>
     </func>
 
     <func>
-      <name name="split" arity="3"/>
+      <name name="split" arity="3" since=""/>
       <fsummary>Split a string by tokens specified as a regular expression</fsummary>
       <type_desc variable="CompileOpt">See <seealso marker="#compile_options">
         <c>compile/2</c></seealso>.</type_desc>

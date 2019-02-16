@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -270,25 +270,38 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
     try
         {Host1, UserOptions} = handle_daemon_args(Host0, UserOptions0),
         #{} = Options0 = ssh_options:handle_options(server, UserOptions),
-
-        {{Host,Port}, ListenSocket} =
-            open_listen_socket(Host1, Port0, Options0),
-
-        %% Now Host,Port is what to use for the supervisor to register its name,
-        %% and ListenSocket is for listening on connections. But it is still owned
-        %% by self()...
-
-        finalize_start(Host, Port, ?GET_OPT(profile, Options0),
-                       ?PUT_INTERNAL_OPT({lsocket,{ListenSocket,self()}}, Options0),
-                       fun(Opts, Result) ->
-                               {_, Callback, _} = ?GET_OPT(transport, Opts),
-                               receive
-                                   {request_control, ListenSocket, ReqPid} ->
-                                       ok = Callback:controlling_process(ListenSocket, ReqPid),
-                                       ReqPid ! {its_yours,ListenSocket},
-                                       Result
-                               end
-                       end)
+        {open_listen_socket(Host1, Port0, Options0), Options0}
+    of
+        {{{Host,Port}, ListenSocket}, Options1} ->
+            try
+                %% Now Host,Port is what to use for the supervisor to register its name,
+                %% and ListenSocket is for listening on connections. But it is still owned
+                %% by self()...
+                finalize_start(Host, Port, ?GET_OPT(profile, Options1),
+                               ?PUT_INTERNAL_OPT({lsocket,{ListenSocket,self()}}, Options1),
+                               fun(Opts, Result) ->
+                                       {_, Callback, _} = ?GET_OPT(transport, Opts),
+                                       receive
+                                           {request_control, ListenSocket, ReqPid} ->
+                                               ok = Callback:controlling_process(ListenSocket, ReqPid),
+                                               ReqPid ! {its_yours,ListenSocket},
+                                               Result
+                                       end
+                               end)
+            of
+                {error,Err} ->
+                    close_listen_socket(ListenSocket, Options1),
+                    {error,Err};
+                OK ->
+                    OK
+            catch
+                error:Error ->
+                    close_listen_socket(ListenSocket, Options1),
+                    error(Error);
+                exit:Exit ->
+                    close_listen_socket(ListenSocket, Options1),
+                    exit(Exit)
+            end
     catch
         throw:bad_fd ->
             {error,bad_fd};
@@ -522,6 +535,15 @@ open_listen_socket(_Host0, Port0, Options0) ->
         end,
     {ok,{LHost,LPort}} = inet:sockname(LSock),
     {{LHost,LPort}, LSock}.
+
+%%%----------------------------------------------------------------
+close_listen_socket(ListenSocket, Options) ->
+    try
+        {_, Callback, _} = ?GET_OPT(transport, Options),
+        Callback:close(ListenSocket)
+    catch
+        _C:_E -> ok
+    end.
 
 %%%----------------------------------------------------------------
 finalize_start(Host, Port, Profile, Options0, F) ->

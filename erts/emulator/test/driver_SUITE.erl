@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,6 +81,7 @@
          thr_msg_blast/1,
          consume_timeslice/1,
          env/1,
+         poll_pipe/1,
          z_test/1]).
 
 -export([bin_prefix/2]).
@@ -168,6 +169,7 @@ all() -> %% Keep a_test first and z_test last...
      thr_msg_blast,
      consume_timeslice,
      env,
+     poll_pipe,
      z_test].
 
 groups() -> 
@@ -1067,14 +1069,19 @@ get_stable_check_io_info(N) ->
 get_check_io_total(ChkIo) ->
     ct:log("ChkIo = ~p~n",[ChkIo]),
     {Fallback, Rest} = get_fallback(ChkIo),
+    OnlyPollThreads = [PS || PS <- Rest, not is_scheduler_pollset(PS)],
     add_fallback_infos(Fallback,
-      lists:foldl(fun(Pollset, Acc) ->
-                          lists:zipwith(fun(A, B) ->
-                                                add_pollset_infos(A,B)
-                                        end,
-                                        Pollset, Acc)
-                  end,
-                  hd(Rest), tl(Rest))).
+      lists:foldl(
+        fun(Pollset, Acc) ->
+                lists:zipwith(fun(A, B) ->
+                                      add_pollset_infos(A,B)
+                              end,
+                              Pollset, Acc)
+        end,
+        hd(OnlyPollThreads), tl(OnlyPollThreads))).
+
+is_scheduler_pollset(Pollset) ->
+    proplists:get_value(poll_threads, Pollset) == 0.
 
 add_pollset_infos({Tag, A}=TA , {Tag, B}=TB) ->
     case tag_type(Tag) of
@@ -1752,7 +1759,7 @@ smp_select0(Config) ->
     ProcFun = fun()-> io:format("Worker ~p starting\n",[self()]),	
                       Port = open_port({spawn, DrvName}, []),
                       smp_select_loop(Port, 100000),
-                      sleep(1000), % wait for driver to handle pending events
+                      smp_select_done(Port),
                       true = erlang:port_close(Port),
                       Master ! {ok,self()},
                       io:format("Worker ~p finished\n",[self()])
@@ -1780,6 +1787,21 @@ smp_select_loop(Port, N) ->
             ok
     after 0 ->
               smp_select_loop(Port, N-1)
+    end.
+
+smp_select_done(Port) ->
+    case erlang:port_control(Port, ?CHKIO_SMP_SELECT, "done") of
+        "wait" ->
+            receive
+                {Port, done} ->
+                    ok
+            after 10*1000 ->
+                    %% Seems we have a lost ready_input event.
+                    %% Go ahead anyway, port will crash VM when closed.
+                    ok
+            end;
+
+        "ok" -> ok
     end.
 
 smp_select_wait([], _) ->
@@ -2643,24 +2665,7 @@ wait_deallocations() ->
 
 driver_alloc_size() ->
     wait_deallocations(),
-    case erlang:system_info({allocator_sizes, driver_alloc}) of
-        false ->
-            undefined;
-        MemInfo ->
-            CS = lists:foldl(
-                   fun ({instance, _, L}, Acc) ->
-                           {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
-                           {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-                           [MBCS,SBCS | Acc]
-                   end,
-                   [],
-                   MemInfo),
-            lists:foldl(
-              fun(L, Sz0) ->
-                      {value,{_,Sz,_,_}} = lists:keysearch(blocks_size, 1, L),
-                      Sz0+Sz
-              end, 0, CS)
-    end.
+    erts_debug:alloc_blocks_size(driver_alloc).
 
 rpc(Config, Fun) ->
     case proplists:get_value(node, Config) of
@@ -2692,4 +2697,26 @@ rpc(Config, Fun) ->
                 Other ->
                     ct:fail(Other)
             end
+    end.
+
+poll_pipe(Config) when is_list(Config) ->
+    %% ERL-647; we wouldn't see any events on EOF when polling a pipe using
+    %% kqueue(2).
+    case os:type() of
+        {unix, _} ->
+            Command = "erl -noshell -eval "
+                      "'\"DATA\n\" = io:get_line(\"\"),"
+                      "eof = io:get_line(\"\"),"
+                      "halt()' <<< 'DATA'",
+            Ref = make_ref(),
+            Self = self(),
+            Pid = spawn(fun() -> os:cmd(Command), Self ! Ref end),
+            receive
+                Ref -> ok
+            after 5000 ->
+                exit(Pid, kill),
+                ct:fail("Stuck reading from stdin.")
+            end;
+        _ ->
+            {skipped, "Unix-only test"}
     end.

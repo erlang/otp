@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -408,6 +408,21 @@ ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file
     setup_ecdsa_known_host(Size, System, UserDir),
     setup_ecdsa_auth_keys(Size, DataDir, UserDir).
 
+setup_eddsa(Alg, DataDir, UserDir) ->
+    {IdPriv, IdPub, HostPriv, HostPub} =
+        case Alg of
+            ed25519 -> {"id_ed25519", "id_ed25519.pub", "ssh_host_ed25519_key", "ssh_host_ed25519_key.pub"};
+            ed448   -> {"id_ed448",   "id_ed448.pub",   "ssh_host_ed448_key",   "ssh_host_ed448_key.pub"}
+        end,
+    file:copy(filename:join(DataDir, IdPriv), filename:join(UserDir, IdPriv)),
+    System = filename:join(UserDir, "system"),
+    file:make_dir(System),
+    file:copy(filename:join(DataDir, HostPriv), filename:join(System, HostPriv)),
+    file:copy(filename:join(DataDir, HostPub), filename:join(System, HostPub)),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+    setup_eddsa_known_host(HostPub, DataDir, UserDir),
+    setup_eddsa_auth_keys(IdPriv, DataDir, UserDir).
+
 clean_dsa(UserDir) ->
     del_dirs(filename:join(UserDir, "system")),
     file:delete(filename:join(UserDir,"id_dsa")),
@@ -487,6 +502,11 @@ setup_ecdsa_known_host(_Size, SystemDir, UserDir) ->
     [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
     setup_known_hosts(Key, UserDir).
 
+setup_eddsa_known_host(HostPub, SystemDir, UserDir) ->
+    {ok, SshBin} = file:read_file(filename:join(SystemDir, HostPub)),
+    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
+    setup_known_hosts(Key, UserDir).
+
 setup_known_hosts(Key, UserDir) ->
     {ok, Hostname} = inet:gethostname(),
     {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
@@ -528,6 +548,11 @@ setup_ecdsa_auth_keys(Size, Dir, UserDir) ->
 		    parameters = Param = {namedCurve,_Id0}} = ECDSA,
     PKey = #'ECPoint'{point = Q},
     setup_auth_keys([{ {PKey,Param}, [{comment, "Test"}]}], UserDir).
+
+setup_eddsa_auth_keys(IdPriv, Dir, UserDir) ->
+    {ok, Pem} = file:read_file(filename:join(Dir, IdPriv)),
+    {ed_pri, Alg, Pub, _} = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
+    setup_auth_keys([{{ed_pub,Alg,Pub}, [{comment, "Test"}]}], UserDir).
 
 setup_auth_keys(Keys, Dir) ->
     AuthKeys = public_key:ssh_encode(Keys, auth_keys),

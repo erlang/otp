@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,7 +61,6 @@ suite() ->
 
 -spec all() -> misc_SUITE_test_cases().
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -70,6 +69,7 @@ groups() ->
        confused_literals,integer_encoding,override_bif]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -171,7 +171,7 @@ silly_coverage(Config) when is_list(Config) ->
     expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
     expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
 
-    %% v3_codegen
+    %% beam_kernel_to_ssa
     BadKernel = {k_mdef,[],?MODULE,
 		 [{foo,0}],
 		 [],
@@ -179,7 +179,33 @@ silly_coverage(Config) when is_list(Config) ->
 		   {k,[],[],[]},
 		   f,0,[],
 		   seriously_bad_body}]},
-    expect_error(fun() -> v3_codegen:module(BadKernel, []) end),
+    expect_error(fun() -> beam_kernel_to_ssa:module(BadKernel, []) end),
+
+    %% beam_ssa_lint
+    %% beam_ssa_recv
+    %% beam_ssa_share
+    %% beam_ssa_pre_codegen
+    %% beam_ssa_opt
+    %% beam_ssa_codegen
+    BadSSA = {b_module,#{},a,b,c,
+              [{b_function,#{func_info=>{mod,foo,0}},args,bad_blocks,0}]},
+    expect_error(fun() -> beam_ssa_lint:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_recv:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_share:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_pre_codegen:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_opt:module(BadSSA, []) end),
+    expect_error(fun() -> beam_ssa_codegen:module(BadSSA, []) end),
+
+    %% beam_ssa_lint, beam_ssa_pp
+    {error,[{_,Errors}]} = beam_ssa_lint:module(bad_ssa_lint_input(), []),
+    _ = [io:put_chars(Mod:format_error(Reason)) ||
+            {Mod,Reason} <- Errors],
+
+    %% Cover printing of annotations in beam_ssa_pp
+    PPAnno = #{func_info=>{mod,foo,0},other_anno=>value,map_anno=>#{k=>v}},
+    PPBlocks = #{0=>{b_blk,#{},[],{b_ret,#{},{b_literal,42}}}},
+    PP = {b_function,PPAnno,[],PPBlocks,0},
+    io:put_chars(beam_ssa_pp:format_function(PP)),
 
     %% beam_a
     BeamAInput = {?MODULE,[{foo,0}],[],
@@ -189,14 +215,6 @@ silly_coverage(Config) when is_list(Config) ->
 		     {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_a:module(BeamAInput, []) end),
 
-    %% beam_reorder
-    BlockInput = {?MODULE,[{foo,0}],[],
-		  [{function,foo,0,2,
-		    [{label,1},
-		     {func_info,{atom,?MODULE},{atom,foo},0},
-		     {label,2}|non_proper_list]}],99},
-    expect_error(fun() -> beam_reorder:module(BlockInput, []) end),
-
     %% beam_block
     BlockInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
@@ -204,19 +222,6 @@ silly_coverage(Config) when is_list(Config) ->
 		     {func_info,{atom,?MODULE},{atom,foo},0},
 		     {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_block:module(BlockInput, []) end),
-
-    %% beam_bs
-    BsInput = BlockInput,
-    expect_error(fun() -> beam_bs:module(BsInput, []) end),
-
-    %% beam_type
-    TypeInput = {?MODULE,[{foo,0}],[],
-		   [{function,foo,0,2,
-		     [{label,1},
-		      {line,loc},
-		      {func_info,{atom,?MODULE},{atom,foo},0},
-		      {label,2}|non_proper_list]}],99},
-    expect_error(fun() -> beam_type:module(TypeInput, []) end),
 
     %% beam_except
     ExceptInput = {?MODULE,[{foo,0}],[],
@@ -227,15 +232,9 @@ silly_coverage(Config) when is_list(Config) ->
 		      {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_except:module(ExceptInput, []) end),
 
-    %% beam_dead. This is tricky. Our function must look OK to
-    %% beam_utils:clean_labels/1, but must crash beam_dead.
-    DeadInput = {?MODULE,[{foo,0}],[],
-		  [{function,foo,0,2,
-		    [{label,1},
-		     {func_info,{atom,?MODULE},{atom,foo},0},
-		     {label,2},
-		     {test,is_eq_exact,{f,1},[bad,operands]}]}],99},
-    expect_error(fun() -> beam_dead:module(DeadInput, []) end),
+    %% beam_jump
+    JumpInput = BlockInput,
+    expect_error(fun() -> beam_jump:module(JumpInput, []) end),
 
     %% beam_clean
     CleanInput = {?MODULE,[{foo,0}],[],
@@ -246,6 +245,10 @@ silly_coverage(Config) when is_list(Config) ->
 		     {jump,{f,42}}]}],99},
     expect_error(fun() -> beam_clean:module(CleanInput, []) end),
 
+    %% beam_jump
+    TrimInput = BlockInput,
+    expect_error(fun() -> beam_trim:module(TrimInput, []) end),
+
     %% beam_peep. This is tricky. Use a select instruction with
     %% an odd number of elements in the list to crash
     %% prune_redundant_values/2 but not beam_clean:clean_labels/1.
@@ -253,47 +256,9 @@ silly_coverage(Config) when is_list(Config) ->
 		 [{function,foo,0,2,
 		   [{label,1},
 		    {func_info,{atom,?MODULE},{atom,foo},0},
-		    {label,2},{select,op,r,{f,2},[{f,2}]}]}],
+		    {label,2},{select,select_val,r,{f,2},[{f,2}]}]}],
 		 2},
     expect_error(fun() -> beam_peep:module(PeepInput, []) end),
-
-    %% beam_bsm. This is tricky. Our function must be sane enough to not crash
-    %% btb_index/1, but must crash the main optimization pass.
-    BsmInput = {?MODULE,[{foo,0}],[],
-		[{function,foo,0,2,
-		  [{label,1},
-		   {func_info,{atom,?MODULE},{atom,foo},0},
-		   {label,2},
-		   {test,bs_get_binary2,{f,99},0,[{x,0},{atom,all},1,[]],{x,0}},
-		   {block,[a|b]}]}],0},
-    expect_error(fun() -> beam_bsm:module(BsmInput, []) end),
-
-    %% beam_receive.
-    ReceiveInput = {?MODULE,[{foo,0}],[],
-		    [{function,foo,0,2,
-		      [{label,1},
-		       {func_info,{atom,?MODULE},{atom,foo},0},
-		       {label,2},
-		       {call_ext,0,{extfunc,erlang,make_ref,0}},
-		       {block,[a|b]}]}],0},
-    expect_error(fun() -> beam_receive:module(ReceiveInput, []) end),
-
-    %% beam_record.
-    RecordInput = {?MODULE,[{foo,0}],[],
-		    [{function,foo,1,2,
-		      [{label,1},
-		       {func_info,{atom,?MODULE},{atom,foo},1},
-                       {label,2},
-                       {test,is_tuple,{f,1},[{x,0}]},
-                       {test,test_arity,{f,1},[{x,0},3]},
-                       {block,[{set,[{x,1}],[{x,0}],{get_tuple_element,0}}]},
-                       {test,is_eq_exact,{f,1},[{x,1},{atom,bar}]},
-                       {block,[{set,[{x,2}],[{x,0}],{get_tuple_element,1}}|a]},
-                       {test,is_eq_exact,{f,1},[{x,2},{integer,1}]},
-                       {block,[{set,[{x,0}],[{atom,ok}],move}]},
-                       return]}],0},
-
-    expect_error(fun() -> beam_record:module(RecordInput, []) end),
 
     BeamZInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
@@ -311,6 +276,31 @@ silly_coverage(Config) when is_list(Config) ->
     expect_error(fun() -> beam_validator:module(BeamValInput, []) end),
 
     ok.
+
+bad_ssa_lint_input() ->
+    {b_module,#{},t,
+     [{foobar,1},{module_info,0},{module_info,1}],
+     [],
+     [{b_function,
+       #{func_info => {t,foobar,1},location => {"t.erl",4}},
+       [{b_var,0}],
+       #{0 => {b_blk,#{},[],{b_ret,#{},{b_var,'@undefined_var'}}}},
+       3},
+      {b_function,
+       #{func_info => {t,module_info,0}},
+       [],
+       #{0 =>
+             {b_blk,#{},
+              [{b_set,#{},
+                {b_var,{'@ssa_ret',3}},
+                call,
+                [{b_remote,
+                  {b_literal,erlang},
+                  {b_literal,get_module_info},
+                  1},
+                 {b_var,'@unknown_variable'}]}],
+              {b_ret,#{},{b_var,{'@ssa_ret',3}}}}},
+       4}]}.
 
 expect_error(Fun) ->
     try	Fun() of

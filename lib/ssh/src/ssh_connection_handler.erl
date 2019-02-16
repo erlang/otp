@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -356,6 +356,8 @@ alg(ConnectionHandler) ->
                                                  | undefined,
 	  encrypted_data_buffer     = <<>>      :: binary()
                                                  | undefined,
+	  aead_data                 = <<>>      :: binary()
+                                                 | undefined,
 	  undecrypted_packet_length             :: undefined | non_neg_integer(),
 	  key_exchange_init_msg                 :: #ssh_msg_kexinit{}
 						 | undefined,
@@ -445,7 +447,6 @@ init_ssh_record(Role, Socket, Opts) ->
 init_ssh_record(Role, Socket, PeerAddr, Opts) ->
     AuthMethods = ?GET_OPT(auth_methods, Opts),
     S0 = #ssh{role = Role,
-	      key_cb = ?GET_OPT(key_cb, Opts),
 	      opts = Opts,
 	      userauth_supported_methods = AuthMethods,
 	      available_host_keys = available_hkey_algorithms(Role, Opts),
@@ -470,10 +471,11 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
             S1 =
                 S0#ssh{c_vsn = Vsn,
                        c_version = Version,
-                       io_cb = case ?GET_OPT(user_interaction, Opts) of
-                                   true ->  ssh_io;
-                                   false -> ssh_no_io
-                               end,
+                       opts = ?PUT_INTERNAL_OPT({io_cb, case ?GET_OPT(user_interaction, Opts) of
+                                                            true ->  ssh_io;
+                                                            false -> ssh_no_io
+                                                        end},
+                                                Opts),
                        userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
                        peer = {PeerName, PeerAddr},
                        local = LocalName
@@ -486,7 +488,6 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
 	server ->
 	    S0#ssh{s_vsn = Vsn,
 		   s_version = Version,
-		   io_cb = ?GET_INTERNAL_OPT(io_cb, Opts, ssh_io),
 		   userauth_methods = string:tokens(AuthMethods, ","),
 		   kb_tries_left = 3,
 		   peer = {undefined, PeerAddr},
@@ -981,6 +982,10 @@ handle_event(_, #ssh_msg_userauth_info_request{}, {userauth_keyboard_interactive
 
 %%% ######## {connected, client|server} ####
 
+%% Skip ext_info messages in connected state (for example from OpenSSH >= 7.7)
+handle_event(_, #ssh_msg_ext_info{}, {connected,_Role}, D) ->
+    {keep_state, D};
+
 handle_event(_, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
     {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(D0#data.ssh_params),
     D = D0#data{ssh_params = Ssh,
@@ -1308,14 +1313,16 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
     try ssh_transport:handle_packet_part(
 	  D0#data.decrypted_data_buffer,
 	  <<(D0#data.encrypted_data_buffer)/binary, NewData/binary>>,
-	  D0#data.undecrypted_packet_length,
+          D0#data.aead_data,
+          D0#data.undecrypted_packet_length,
 	  D0#data.ssh_params)
     of
 	{packet_decrypted, DecryptedBytes, EncryptedDataRest, Ssh1} ->
 	    D1 = D0#data{ssh_params =
 			    Ssh1#ssh{recv_sequence = ssh_transport:next_seqnum(Ssh1#ssh.recv_sequence)},
 			decrypted_data_buffer = <<>>,
-			undecrypted_packet_length = undefined,
+                        undecrypted_packet_length = undefined,
+                        aead_data = <<>>,
 			encrypted_data_buffer = EncryptedDataRest},
 	    try
 		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D1))
@@ -1345,22 +1352,23 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
                                       {next_event, internal, Msg}
 				    ]}
 	    catch
-		C:E  ->
+		C:E:ST  ->
                     {Shutdown, D} =  
                         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
                                          io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
-                                                       [C,E,erlang:get_stacktrace()]),
+                                                       [C,E,ST]),
                                          StateName, D1),
                     {stop, Shutdown, D}
 	    end;
-        
-	{get_more, DecryptedBytes, EncryptedDataRest, RemainingSshPacketLen, Ssh1} ->
+
+	{get_more, DecryptedBytes, EncryptedDataRest, AeadData, RemainingSshPacketLen, Ssh1} ->
 	    %% Here we know that there are not enough bytes in
 	    %% EncryptedDataRest to use. We must wait for more.
 	    inet:setopts(Sock, [{active, once}]),
 	    {keep_state, D0#data{encrypted_data_buffer = EncryptedDataRest,
 				 decrypted_data_buffer = DecryptedBytes,
-				 undecrypted_packet_length = RemainingSshPacketLen,
+                                 undecrypted_packet_length = RemainingSshPacketLen,
+                                 aead_data = AeadData,
 				 ssh_params = Ssh1}};
 
 	{bad_mac, Ssh1} ->
@@ -1378,10 +1386,10 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
                                  StateName, D0),
             {stop, Shutdown, D}
     catch
-	C:E ->
+	C:E:ST ->
             {Shutdown, D} =  
                 ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",[C,E,erlang:get_stacktrace()]),
+                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",[C,E,ST]),
                                  StateName, D0),
             {stop, Shutdown, D}
     end;
@@ -1677,18 +1685,19 @@ peer_role(client) -> server;
 peer_role(server) -> client.
 
 %%--------------------------------------------------------------------
-available_hkey_algorithms(Role, Options) ->
-    KeyCb = ?GET_OPT(key_cb, Options),
+available_hkey_algorithms(client, Options) ->
+    case available_hkey_algos(Options) of
+        [] ->
+            error({shutdown, "No public key algs"});
+        Algs ->
+	    [atom_to_list(A) || A<-Algs]
+    end;
+
+available_hkey_algorithms(server, Options) ->
     case [A || A <- available_hkey_algos(Options),
-               (Role==client) orelse available_host_key(KeyCb, A, Options)
-         ] of
-        
-        [] when Role==client ->
-	    error({shutdown, "No public key algs"});
-
-        [] when Role==server ->
-	    error({shutdown, "No host key available"});
-
+               is_usable_host_key(A, Options)] of
+        [] ->
+            error({shutdown, "No host key available"});
 	Algs ->
 	    [atom_to_list(A) || A<-Algs]
     end.
@@ -1702,18 +1711,6 @@ available_hkey_algos(Options) ->
     NonSupported =  HKeys -- SupAlgos,
     AvailableAndSupported = HKeys -- NonSupported,
     AvailableAndSupported.
-
-
-%% Alg :: atom()
-available_host_key({KeyCb,KeyCbOpts}, Alg, Opts) ->
-    UserOpts = ?GET_OPT(user_options, Opts),
-    case KeyCb:host_key(Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
-        {ok,Key} ->
-            %% Check the key - the KeyCb may be a buggy plugin
-            ssh_transport:valid_key_sha_alg(Key, Alg);
-        _ ->
-            false
-    end.
 
 
 send_msg(Msg, State=#data{ssh_params=Ssh0}) when is_tuple(Msg) ->
@@ -1769,6 +1766,10 @@ set_kex_overload_prefix(Msg = <<?BYTE(Op),_/binary>>, #data{ssh_params=SshParams
        ->
     case catch atom_to_list(kex(SshParams)) of
 	"ecdh-sha2-" ++ _ ->
+	    <<"ecdh",Msg/binary>>;
+        "curve25519-" ++ _ ->
+	    <<"ecdh",Msg/binary>>;
+        "curve448-" ++ _ ->
 	    <<"ecdh",Msg/binary>>;
 	"diffie-hellman-group-exchange-" ++ _ ->
 	    <<"dh_gex",Msg/binary>>;
@@ -1831,10 +1832,21 @@ ext_info(_, D0) ->
     D0.
 
 %%%----------------------------------------------------------------
-is_usable_user_pubkey(A, Ssh) ->
-    case ssh_auth:get_public_key(A, Ssh) of
+is_usable_user_pubkey(Alg, Ssh) ->
+    try ssh_auth:get_public_key(Alg, Ssh) of
         {ok,_} -> true;
         _ -> false
+    catch
+        _:_ -> false
+    end.
+
+%%%----------------------------------------------------------------
+is_usable_host_key(Alg, Opts) ->
+    try ssh_transport:get_host_key(Alg, Opts)
+    of
+        _PrivHostKey -> true
+    catch
+        _:_ -> false
     end.
 
 %%%----------------------------------------------------------------

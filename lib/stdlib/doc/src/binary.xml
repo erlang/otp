@@ -34,7 +34,7 @@
     <rev>A</rev>
     <file>binary.xml</file>
   </header>
-  <module>binary</module>
+  <module since="OTP R14B">binary</module>
   <modulesummary>Library for handling binary data.</modulesummary>
   <description>
 
@@ -79,7 +79,7 @@
 
   <funcs>
     <func>
-    <name name="at" arity="2"/>
+    <name name="at" arity="2" since="OTP R14B"/>
       <fsummary>Return the byte at a specific position in a binary.</fsummary>
       <desc>
       <p>Returns the byte at position <c><anno>Pos</anno></c> (zero-based) in
@@ -90,7 +90,7 @@
     </func>
 
     <func>
-      <name name="bin_to_list" arity="1"/>
+      <name name="bin_to_list" arity="1" since="OTP R14B"/>
       <fsummary>Convert a binary to a list of integers.</fsummary>
       <desc>
       <p>Same as <c>bin_to_list(<anno>Subject</anno>, {0,byte_size(<anno>Subject</anno>)})</c>.</p>
@@ -98,7 +98,7 @@
     </func>
 
     <func>
-      <name name="bin_to_list" arity="2"/>
+      <name name="bin_to_list" arity="2" since="OTP R14B"/>
       <fsummary>Convert a binary to a list of integers.</fsummary>
       <desc>
       <p>Converts <c><anno>Subject</anno></c> to a list of <c>byte()</c>s, each
@@ -118,7 +118,7 @@
     </func>
 
     <func>
-      <name name="bin_to_list" arity="3"/>
+      <name name="bin_to_list" arity="3" since="OTP R14B"/>
       <fsummary>Convert a binary to a list of integers.</fsummary>
       <desc>
       <p>Same as<c> bin_to_list(<anno>Subject</anno>, {<anno>Pos</anno>, <anno>Len</anno>})</c>.</p>
@@ -126,7 +126,7 @@
     </func>
 
     <func>
-      <name name="compile_pattern" arity="1"/>
+      <name name="compile_pattern" arity="1" since="OTP R14B"/>
       <fsummary>Precompile a binary search pattern.</fsummary>
       <desc>
       <p>Builds an internal structure representing a compilation of a
@@ -158,7 +158,7 @@
     </func>
 
     <func>
-      <name name="copy" arity="1"/>
+      <name name="copy" arity="1" since="OTP R14B"/>
       <fsummary>Create a duplicate of a binary.</fsummary>
       <desc>
       <p>Same as <c>copy(<anno>Subject</anno>, 1)</c>.</p>
@@ -166,7 +166,7 @@
     </func>
 
     <func>
-      <name name="copy" arity="2"/>
+      <name name="copy" arity="2" since="OTP R14B"/>
       <fsummary>Duplicate a binary <c>N</c> times and create a new.</fsummary>
       <desc>
       <p>Creates a binary with the content of <c><anno>Subject</anno></c>
@@ -193,7 +193,7 @@
     </func>
 
     <func>
-      <name name="decode_unsigned" arity="1"/>
+      <name name="decode_unsigned" arity="1" since="OTP R14B"/>
       <fsummary>Decode a whole binary into an integer of arbitrary size.
       </fsummary>
       <desc>
@@ -202,7 +202,7 @@
     </func>
 
     <func>
-      <name name="decode_unsigned" arity="2"/>
+      <name name="decode_unsigned" arity="2" since="OTP R14B"/>
       <fsummary>Decode a whole binary into an integer of arbitrary size.
       </fsummary>
       <desc>
@@ -219,7 +219,7 @@
     </func>
 
     <func>
-      <name name="encode_unsigned" arity="1"/>
+      <name name="encode_unsigned" arity="1" since="OTP R14B"/>
       <fsummary>Encode an unsigned integer into the minimal binary.</fsummary>
       <desc>
       <p>Same as <c>encode_unsigned(<anno>Unsigned</anno>, big)</c>.</p>
@@ -227,7 +227,7 @@
     </func>
 
     <func>
-      <name name="encode_unsigned" arity="2"/>
+      <name name="encode_unsigned" arity="2" since="OTP R14B"/>
       <fsummary>Encode an unsigned integer into the minimal binary.</fsummary>
       <desc>
       <p>Converts a positive integer to the smallest possible
@@ -243,7 +243,7 @@
     </func>
 
     <func>
-      <name name="first" arity="1"/>
+      <name name="first" arity="1" since="OTP R14B"/>
       <fsummary>Return the first byte of a binary.</fsummary>
       <desc>
       <p>Returns the first byte of binary <c><anno>Subject</anno></c> as an
@@ -253,7 +253,7 @@
     </func>
 
     <func>
-      <name name="last" arity="1"/>
+      <name name="last" arity="1" since="OTP R14B"/>
       <fsummary>Return the last byte of a binary.</fsummary>
       <desc>
       <p>Returns the last byte of binary <c><anno>Subject</anno></c> as an
@@ -263,7 +263,7 @@
     </func>
 
     <func>
-      <name name="list_to_bin" arity="1"/>
+      <name name="list_to_bin" arity="1" since="OTP R14B"/>
       <fsummary>Convert a list of integers and binaries to a binary.</fsummary>
       <desc>
       <p>Works exactly as
@@ -273,7 +273,7 @@
     </func>
 
     <func>
-      <name name="longest_common_prefix" arity="1"/>
+      <name name="longest_common_prefix" arity="1" since="OTP R14B"/>
       <fsummary>Return length of longest common prefix for a set of binaries.
       </fsummary>
       <desc>
@@ -294,7 +294,7 @@
     </func>
 
     <func>
-      <name name="longest_common_suffix" arity="1"/>
+      <name name="longest_common_suffix" arity="1" since="OTP R14B"/>
       <fsummary>Return length of longest common suffix for a set of binaries.
       </fsummary>
       <desc>
@@ -315,7 +315,7 @@
     </func>
 
     <func>
-      <name name="match" arity="2"/>
+      <name name="match" arity="2" since="OTP R14B"/>
       <fsummary>Search for the first match of a pattern in a binary.</fsummary>
       <desc>
       <p>Same as <c>match(<anno>Subject</anno>, <anno>Pattern</anno>, [])</c>.
@@ -324,7 +324,7 @@
     </func>
 
     <func>
-      <name name="match" arity="3"/>
+      <name name="match" arity="3" since="OTP R14B"/>
       <fsummary>Search for the first match of a pattern in a binary.</fsummary>
       <type name="part"/>
       <desc>
@@ -372,7 +372,7 @@
     </func>
 
     <func>
-      <name name="matches" arity="2"/>
+      <name name="matches" arity="2" since="OTP R14B"/>
       <fsummary>Search for all matches of a pattern in a binary.</fsummary>
       <desc>
       <p>Same as <c>matches(<anno>Subject</anno>, <anno>Pattern</anno>, [])</c>.
@@ -381,7 +381,7 @@
     </func>
 
     <func>
-      <name name="matches" arity="3"/>
+      <name name="matches" arity="3" since="OTP R14B"/>
       <fsummary>Search for all matches of a pattern in a binary.</fsummary>
       <type name="part"/>
       <desc>
@@ -425,7 +425,7 @@
     </func>
 
     <func>
-      <name name="part" arity="2"/>
+      <name name="part" arity="2" since="OTP R14B"/>
       <fsummary>Extract a part of a binary.</fsummary>
       <desc>
       <p>Extracts the part of binary <c><anno>Subject</anno></c> described by
@@ -453,7 +453,7 @@
     </func>
 
     <func>
-      <name name="part" arity="3"/>
+      <name name="part" arity="3" since="OTP R14B"/>
       <fsummary>Extract a part of a binary.</fsummary>
       <desc>
       <p>Same as <c>part(<anno>Subject</anno>, {<anno>Pos</anno>,
@@ -462,7 +462,7 @@
     </func>
 
     <func>
-      <name name="referenced_byte_size" arity="1"/>
+      <name name="referenced_byte_size" arity="1" since="OTP R14B"/>
       <fsummary>Determine the size of the binary pointed out by a subbinary.
       </fsummary>
       <desc>
@@ -525,7 +525,7 @@ store(Binary, GBSet) ->
     </func>
 
     <func>
-      <name name="replace" arity="3"/>
+      <name name="replace" arity="3" since="OTP R14B"/>
       <fsummary>Replace bytes in a binary according to a pattern.</fsummary>
       <desc>
       <p>Same as <c>replace(<anno>Subject</anno>, <anno>Pattern</anno>, <anno>Replacement</anno>,[])</c>.</p>
@@ -533,7 +533,7 @@ store(Binary, GBSet) ->
     </func>
 
     <func>
-      <name name="replace" arity="4"/>
+      <name name="replace" arity="4" since="OTP R14B"/>
       <fsummary>Replace bytes in a binary according to a pattern.</fsummary>
       <type_desc variable="OnePos">An integer() =&lt; byte_size(<anno>Replacement</anno>)
       </type_desc>
@@ -575,7 +575,7 @@ store(Binary, GBSet) ->
     </func>
 
     <func>
-      <name name="split" arity="2"/>
+      <name name="split" arity="2" since="OTP R14B"/>
       <fsummary>Split a binary according to a pattern.</fsummary>
       <desc>
       <p>Same as <c>split(<anno>Subject</anno>, <anno>Pattern</anno>,
@@ -584,7 +584,7 @@ store(Binary, GBSet) ->
     </func>
 
     <func>
-      <name name="split" arity="3"/>
+      <name name="split" arity="3" since="OTP R14B"/>
       <fsummary>Split a binary according to a pattern.</fsummary>
       <desc>
       <p>Splits <c><anno>Subject</anno></c> into a list of binaries based on

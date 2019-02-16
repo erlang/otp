@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_mpd.xml</file>
   </header>
-  <module>snmpa_mpd</module>
+  <module since="">snmpa_mpd</module>
   <modulesummary>Message Processing and Dispatch module for the SNMP agent</modulesummary>
   <description>
     <p>The module <c>snmpa_mpd</c> implements the version independent
@@ -52,7 +52,7 @@
 
   <funcs>
     <func>
-      <name>init(Vsns) -> mpd_state()</name>
+      <name since="">init(Vsns) -> mpd_state()</name>
       <fsummary>Initialize the MPD module</fsummary>
       <type>
         <v>Vsns = [Vsn]</v>
@@ -70,8 +70,8 @@
     </func>
 
     <func>
-      <name>process_packet(Packet, From, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
-      <name>process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
+      <name since="OTP 17.3">process_packet(Packet, From, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
+      <name since="OTP R14B">process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
       <fsummary>Process a packet received from the network</fsummary>
       <type>
         <v>Packet = binary()</v>
@@ -108,8 +108,8 @@
     </func>
 
     <func>
-      <name>generate_response_msg(Vsn, RePdu, Type, ACMData, Log) -> {ok, Packet} | {discarded, Reason}</name>
-      <name>generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) -> {ok, Packet} | {discarded, Reason}</name>
+      <name since="OTP R14B">generate_response_msg(Vsn, RePdu, Type, ACMData, Log) -> {ok, Packet} | {discarded, Reason}</name>
+      <name since="OTP R14B">generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) -> {ok, Packet} | {discarded, Reason}</name>
       <fsummary>Generate a response packet to be sent to the network</fsummary>
       <type>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
@@ -136,8 +136,8 @@
     </func>
 
     <func>
-      <name>generate_msg(Vsn, NoteStore, Pdu, MsgData, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
-      <name>generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
+      <name since="OTP R14B">generate_msg(Vsn, NoteStore, Pdu, MsgData, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
+      <name since="OTP R14B">generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
       <fsummary>Generate a request message to be sent to the network</fsummary>
       <type>
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
@@ -185,7 +185,7 @@
     </func>
 
     <func>
-      <name>process_taddrs(TDests) -> Dests</name>
+      <name since="OTP 17.3">process_taddrs(TDests) -> Dests</name>
       <fsummary>Transform addresses from internal MIB format to a less internal
       </fsummary>
       <type>
@@ -211,7 +211,7 @@
     </func>
 
     <func>
-      <name>discarded_pdu(Variable) -> void()</name>
+      <name since="">discarded_pdu(Variable) -> void()</name>
       <fsummary>Increment the variable associated with a discarded pdu</fsummary>
       <type>
         <v>Variable = atom()</v>

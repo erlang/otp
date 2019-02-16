@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -616,12 +616,18 @@ next(Tab, Key) ->
 %% Assuming that a file already exists, open it with the
 %% parameters as already specified in the file itself.
 %% Return a ref leading to the file.
-open_file(File) ->
-    case dets_server:open_file(to_list(File)) of
-        badarg -> % Should not happen.
-            erlang:error(dets_process_died, [File]);
-        Reply -> 
-            einval(Reply, [File])
+open_file(File0) ->
+    File = to_list(File0),
+    case is_list(File) of
+        true ->
+            case dets_server:open_file(File) of
+                badarg -> % Should not happen.
+                    erlang:error(dets_process_died, [File]);
+                Reply ->
+                    einval(Reply, [File])
+            end;
+        false ->
+	    erlang:error(badarg, [File0])
     end.
 
 -spec open_file(Name, Args) -> {'ok', Name} | {'error', Reason} when
@@ -1088,6 +1094,7 @@ defaults(Tab, Args) ->
                            debug = false},
     Fun = fun repl/2,
     Defaults = lists:foldl(Fun, Defaults0, Args),
+    true = is_list(Defaults#open_args.file),
     is_comp_min_max(Defaults).
 
 to_list(T) when is_atom(T) -> atom_to_list(T);
@@ -1112,9 +1119,7 @@ repl({delayed_write, {Delay,Size} = C}, Defs)
     Defs#open_args{delayed_write = C};
 repl({estimated_no_objects, I}, Defs)  ->
     repl({min_no_slots, I}, Defs);
-repl({file, File}, Defs) when is_list(File) ->
-    Defs#open_args{file = File};
-repl({file, File}, Defs) when is_atom(File) ->
+repl({file, File}, Defs) ->
     Defs#open_args{file = to_list(File)};
 repl({keypos, P}, Defs) when is_integer(P), P > 0 ->
     Defs#open_args{keypos =P};

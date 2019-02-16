@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>wrap_log_reader.sgml</file>
   </header>
-  <module>wrap_log_reader</module>
+  <module since="">wrap_log_reader</module>
   <modulesummary>A service to read internally formatted wrap disk logs.
   </modulesummary>
   <description>
@@ -65,8 +65,8 @@
 
   <funcs>
     <func>
-      <name name="chunk" arity="1"/>
-      <name name="chunk" arity="2"/>
+      <name name="chunk" arity="1" since=""/>
+      <name name="chunk" arity="2" since=""/>
       <fsummary>Read a chunk of objects written to a wrap log.</fsummary>
       <type name="chunk_ret"/>
       <desc>
@@ -105,7 +105,7 @@
     </func>
 
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close a log.</fsummary>
       <desc>
         <p>Closes a log file properly.</p>
@@ -113,8 +113,8 @@
     </func>
 
     <func>
-      <name name="open" arity="1"/>
-      <name name="open" arity="2"/>
+      <name name="open" arity="1" since=""/>
+      <name name="open" arity="2" since=""/>
       <fsummary>Open a log file.</fsummary>
       <type name="open_ret"/>
       <desc>

@@ -19,7 +19,12 @@
  */
 
 /*
- * Numeric guard BIFs.
+ * This file implements the former GC BIFs. They used to do a GC when
+ * they needed heap space. Because of changes to the implementation of
+ * literals, those BIFs are now allowed to allocate heap fragments
+ * (using HeapFragOnlyAlloc()). Note that they must NOT call HAlloc(),
+ * because the caller does not do any SWAPIN / SWAPOUT (that is,
+ * HEAP_TOP(p) and HEAP_LIMIT(p) contain stale values).
  */
 
 #ifdef HAVE_CONFIG_H
@@ -36,14 +41,16 @@
 #include "erl_binary.h"
 #include "erl_map.h"
 
-static Eterm gc_double_to_integer(Process* p, double x, Eterm* reg, Uint live);
-
 static Eterm double_to_integer(Process* p, double x);
+static BIF_RETTYPE erlang_length_trap(BIF_ALIST_3);
+static Export erlang_length_export;
 
-/*
- * Guard BIFs called using apply/3 and guard BIFs that never build
- * anything on the heap.
- */
+void erts_init_bif_guard(void)
+{
+    erts_init_trap_export(&erlang_length_export,
+			  am_erlang, am_length, 3,
+			  &erlang_length_trap);
+}
 
 BIF_RETTYPE abs_1(BIF_ALIST_1)
 {
@@ -56,7 +63,7 @@ BIF_RETTYPE abs_1(BIF_ALIST_1)
 	i0 = signed_val(BIF_ARG_1);
 	i = ERTS_SMALL_ABS(i0);
 	if (i0 == MIN_SMALL) {
-	    hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
+	    hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
 	    BIF_RET(uint_to_big(i, hp));
 	} else {
 	    BIF_RET(make_small(i));
@@ -68,7 +75,7 @@ BIF_RETTYPE abs_1(BIF_ALIST_1)
 	    int sz = big_arity(BIF_ARG_1) + 1;
 	    Uint* x;
 
-	    hp = HAlloc(BIF_P, sz);	/* See note at beginning of file */
+	    hp = HeapFragOnlyAlloc(BIF_P, sz);	/* See note at beginning of file */
 	    sz--;
 	    res = make_big(hp);
 	    x = big_val(BIF_ARG_1);
@@ -83,7 +90,7 @@ BIF_RETTYPE abs_1(BIF_ALIST_1)
 
 	GET_DOUBLE(BIF_ARG_1, f);
 	if (f.fd < 0.0) {
-	    hp = HAlloc(BIF_P, FLOAT_SIZE_OBJECT);
+	    hp = HeapFragOnlyAlloc(BIF_P, FLOAT_SIZE_OBJECT);
 	    f.fd = fabs(f.fd);
 	    res = make_float(hp);
 	    PUT_DOUBLE(f, hp);
@@ -116,7 +123,7 @@ BIF_RETTYPE float_1(BIF_ALIST_1)
     } else if (big_to_double(BIF_ARG_1, &f.fd) < 0) {
 	goto badarg;
     }
-    hp = HAlloc(BIF_P, FLOAT_SIZE_OBJECT);
+    hp = HeapFragOnlyAlloc(BIF_P, FLOAT_SIZE_OBJECT);
     res = make_float(hp);
     PUT_DOUBLE(f, hp);
     BIF_RET(res);
@@ -194,26 +201,113 @@ BIF_RETTYPE round_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
+/*
+ * This version of length/1 is called from native code and apply/3.
+ */
+
 BIF_RETTYPE length_1(BIF_ALIST_1)
+{
+    Eterm args[3];
+
+    /*
+     * Arrange argument registers the way expected by
+     * erts_trapping_length_1(). We save the original argument in
+     * args[2] in case an error should signaled.
+     */
+
+    args[0] = BIF_ARG_1;
+    args[1] = make_small(0);
+    args[2] = BIF_ARG_1;
+    return erlang_length_trap(BIF_P, args, A__I);
+}
+
+static BIF_RETTYPE erlang_length_trap(BIF_ALIST_3)
+{
+    Eterm res;
+
+    res = erts_trapping_length_1(BIF_P, BIF__ARGS);
+    if (is_value(res)) {        /* Success. */
+        BIF_RET(res);
+    } else {                    /* Trap or error. */
+        if (BIF_P->freason == TRAP) {
+            /*
+             * The available reductions were exceeded. Trap.
+             */
+            BIF_TRAP3(&erlang_length_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+        } else {
+            /*
+             * Signal an error. The original argument was tucked away in BIF_ARG_3.
+             */
+            ERTS_BIF_ERROR_TRAPPED1(BIF_P, BIF_P->freason,
+                                    bif_export[BIF_length_1], BIF_ARG_3);
+        }
+    }
+}
+
+/*
+ * Trappable helper function for calculating length/1.
+ *
+ * When calling this function, entries in args[] should be set up as
+ * follows:
+ *
+ *   args[0] = List to calculate length for.
+ *   args[1] = Length accumulator (tagged integer).
+ *
+ * If the return value is a tagged integer, the length was calculated
+ * successfully.
+ *
+ * Otherwise, if return value is THE_NON_VALUE and p->freason is TRAP,
+ * the available reductions were exceeded and this function must be called
+ * again after rescheduling. args[0] and args[1] have been updated to
+ * contain the next part of the list and length so far, respectively.
+ *
+ * Otherwise, if return value is THE_NON_VALUE, the list did not end
+ * in an empty list (and p->freason is BADARG).
+ */
+
+Eterm erts_trapping_length_1(Process* p, Eterm* args)
 {
     Eterm list;
     Uint i;
-     
-    if (is_nil(BIF_ARG_1)) 
-	BIF_RET(SMALL_ZERO);
-    if (is_not_list(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    list = BIF_ARG_1;
-    i = 0;
-    while (is_list(list)) {
-	i++;
+    Uint max_iter;
+    Uint saved_max_iter;
+
+#if defined(DEBUG) || defined(VALGRIND)
+    max_iter = 50;
+#else
+    max_iter = ERTS_BIF_REDS_LEFT(p) * 16;
+#endif
+    saved_max_iter = max_iter;
+    ASSERT(max_iter > 0);
+
+    list = args[0];
+    i = unsigned_val(args[1]);
+    while (is_list(list) && max_iter != 0) {
 	list = CDR(list_val(list));
+	i++, max_iter--;
     }
-    if (is_not_nil(list))  {
-	BIF_ERROR(BIF_P, BADARG);
+
+    if (is_list(list)) {
+        /*
+         * We have exceeded the alloted number of iterations.
+         * Save the result so far and signal a trap.
+         */
+        args[0] = list;
+        args[1] = make_small(i);
+        p->freason = TRAP;
+        BUMP_ALL_REDS(p);
+        return THE_NON_VALUE;
+    } else if (is_not_nil(list))  {
+        /* Error. Should be NIL. */
+	BIF_ERROR(p, BADARG);
     }
-    BIF_RET(make_small(i));
+
+    /*
+     * We reached the end of the list successfully. Bump reductions
+     * and return result.
+     */
+    BUMP_REDS(p, saved_max_iter / 16);
+    return make_small(i);
 }
 
 /* returns the size of a tuple or a binary */
@@ -229,7 +323,7 @@ BIF_RETTYPE size_1(BIF_ALIST_1)
 	if (IS_USMALL(0, sz)) {
 	    return make_small(sz);
 	} else {
-	    Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
+	    Eterm* hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
 	    BIF_RET(uint_to_big(sz, hp));
 	}
     }
@@ -252,12 +346,12 @@ BIF_RETTYPE bit_size_1(BIF_ALIST_1)
 	    if (IS_USMALL(0,low_bits)) {
 		BIF_RET(make_small(low_bits));
 	    } else {
-		Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
+		Eterm* hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
 		BIF_RET(uint_to_big(low_bits, hp));
 	    }
 	} else {
 	    Uint sz = BIG_UINT_HEAP_SIZE+1;
-	    Eterm* hp = HAlloc(BIF_P, sz);
+	    Eterm* hp = HeapFragOnlyAlloc(BIF_P, sz);
 	    hp[0] = make_pos_bignum_header(sz-1);
 	    BIG_DIGIT(hp,0) = low_bits;
 	    BIG_DIGIT(hp,1) = high_bits;
@@ -281,7 +375,7 @@ BIF_RETTYPE byte_size_1(BIF_ALIST_1)
 	if (IS_USMALL(0, bytesize)) {
 	    BIF_RET(make_small(bytesize));
 	} else {
-	    Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
+	    Eterm* hp = HeapFragOnlyAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
 	    BIF_RET(uint_to_big(bytesize, hp));
 	}
     } else {
@@ -325,7 +419,7 @@ double_to_integer(Process* p, double x)
     }
     sz = BIG_NEED_SIZE(ds);          /* number of words including arity */
 
-    hp = HAlloc(p, sz);
+    hp = HeapFragOnlyAlloc(p, sz);
     res = make_big(hp);
     xp = (ErtsDigit*) (hp + 1);
 
@@ -370,390 +464,4 @@ BIF_RETTYPE binary_part_2(BIF_ALIST_2)
     return erts_binary_part(BIF_P,BIF_ARG_1,tp[1], tp[2]);
  badarg:
    BIF_ERROR(BIF_P,BADARG);
-}
-
-
-/*
- * The following code is used when a guard that may build on the
- * heap is called directly. They must not use HAlloc(), but must
- * do a garbage collection if there is insufficient heap space.
- *
- * Important note: All error checking MUST be done before doing
- * a garbage collection. The compiler assumes that all registers
- * are still valid if a guard BIF generates an exception.
- */
-
-#define ERTS_NEED_GC(p, need) ((HEAP_LIMIT((p)) - HEAP_TOP((p))) <= (need))
-
-Eterm erts_gc_length_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm list = reg[live];
-    int i;
-
-    if (is_nil(list)) 
-	return SMALL_ZERO;
-    i = 0;
-    while (is_list(list)) {
-	i++;
-	list = CDR(list_val(list));
-    }
-    if (is_not_nil(list))  {
-	BIF_ERROR(p, BADARG);
-    }
-    return make_small(i);
-}
-
-Eterm erts_gc_size_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg = reg[live];
-    if (is_tuple(arg)) {
-	Eterm* tupleptr = tuple_val(arg);
-	return make_small(arityval(*tupleptr));
-    } else if (is_binary(arg)) {
-	Uint sz = binary_size(arg);
-	if (IS_USMALL(0, sz)) {
-	    return make_small(sz);
-	} else {
-	    Eterm* hp;
-	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
-		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
-	    }
-	    hp = p->htop;
-	    p->htop += BIG_UINT_HEAP_SIZE;
-	    return uint_to_big(sz, hp);
-	}
-    }
-    BIF_ERROR(p, BADARG);
-}
-
-Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg = reg[live];
-    if (is_binary(arg)) {
-	Uint low_bits;
-	Uint bytesize;
-	Uint high_bits;
-	bytesize = binary_size(arg);
-	high_bits = bytesize >>  ((sizeof(Uint) * 8)-3);
-	low_bits = (bytesize << 3) + binary_bitsize(arg);
-	if (high_bits == 0) {
-	    if (IS_USMALL(0,low_bits)) {
-		return make_small(low_bits);
-	    } else {
-		Eterm* hp; 
-		if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
-		    erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
-		}
-		hp = p->htop;
-		p->htop += BIG_UINT_HEAP_SIZE;
-		return uint_to_big(low_bits, hp);
-	    }
-	} else {
-	    Uint sz = BIG_UINT_HEAP_SIZE+1;
-	    Eterm* hp;
-	    if (ERTS_NEED_GC(p, sz)) {
-		erts_garbage_collect(p, sz, reg, live);
-	    }
-	    hp = p->htop;
-	    p->htop += sz;
-	    hp[0] = make_pos_bignum_header(sz-1);
-	    BIG_DIGIT(hp,0) = low_bits;
-	    BIG_DIGIT(hp,1) = high_bits;
-	    return make_big(hp);
-	}
-    } else {
-	BIF_ERROR(p, BADARG);
-    }
-}
-
-Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg = reg[live];
-    if (is_binary(arg)) {
-	Uint bytesize = binary_size(arg);
-	if (binary_bitsize(arg) > 0) {
-	    bytesize++;
-	}
-	if (IS_USMALL(0, bytesize)) {
-	    return make_small(bytesize);
-	} else {
-	    Eterm* hp;
-	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
-		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
-	    }
-	    hp = p->htop;
-	    p->htop += BIG_UINT_HEAP_SIZE;
-	    return uint_to_big(bytesize, hp);
-	}
-    } else {
-	BIF_ERROR(p, BADARG);
-    }
-}
-
-Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg = reg[live];
-    if (is_flatmap(arg)) {
-	flatmap_t *mp = (flatmap_t*)flatmap_val(arg);
-        return make_small(flatmap_get_size(mp));
-    } else if (is_hashmap(arg)) {
-        Eterm* hp;
-        Uint size;
-	size = hashmap_size(arg);
-        if (IS_USMALL(0, size)) {
-            return make_small(size);
-        }
-        if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
-            erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
-        }
-        hp = p->htop;
-        p->htop += BIG_UINT_HEAP_SIZE;
-        return uint_to_big(size, hp);
-    }
-    p->fvalue = arg;
-    BIF_ERROR(p, BADMAP);
-}
-
-Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg;
-    Eterm res;
-    Sint i0, i;
-    Eterm* hp;
-
-    arg = reg[live];
-
-    /* integer arguments */
-    if (is_small(arg)) {
-	i0 = signed_val(arg);
-	i = ERTS_SMALL_ABS(i0);
-	if (i0 == MIN_SMALL) {
-	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
-		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live+1);
-		arg = reg[live];
-	    }
-	    hp = p->htop;
-	    p->htop += BIG_UINT_HEAP_SIZE;
-	    return uint_to_big(i, hp);
-	} else {
-	    return make_small(i);
-	}
-    } else if (is_big(arg)) {
-	if (!big_sign(arg)) {
-	    return arg;
-	} else {
-	    int sz = big_arity(arg) + 1;
-	    Uint* x;
-
-	    if (ERTS_NEED_GC(p, sz)) {
-		erts_garbage_collect(p, sz, reg, live+1);
-		arg = reg[live];
-	    }
-	    hp = p->htop;
-	    p->htop += sz;
-	    sz--;
-	    res = make_big(hp);
-	    x = big_val(arg);
-	    *hp++ = make_pos_bignum_header(sz);
-	    x++;                          /* skip thing */
-	    while(sz--)
-		*hp++ = *x++;
-	    return res;
-	}
-    } else if (is_float(arg)) {
-	FloatDef f;
-
-	GET_DOUBLE(arg, f);
-	if (f.fd < 0.0) {
-	    if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
-		erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live+1);
-		arg = reg[live];
-	    }
-	    hp = p->htop;
-	    p->htop += FLOAT_SIZE_OBJECT;
-	    f.fd = fabs(f.fd);
-	    res = make_float(hp);
-	    PUT_DOUBLE(f, hp);
-	    return res;
-	}
-	else
-	    return arg;
-    }
-    BIF_ERROR(p, BADARG);
-}
-
-Eterm erts_gc_float_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg;
-    Eterm res;
-    Eterm* hp;
-    FloatDef f;
-     
-    /* check args */
-    arg = reg[live];
-    if (is_not_integer(arg)) {
-	if (is_float(arg))  {
-	    return arg;
-	} else {
-	badarg:
-	    BIF_ERROR(p, BADARG);
-	}
-    }
-    if (is_small(arg)) {
-	Sint i = signed_val(arg);
-	f.fd = i;		/* use "C"'s auto casting */
-    } else if (big_to_double(arg, &f.fd) < 0) {
-	goto badarg;
-    }
-    if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
-	erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live+1);
-	arg = reg[live];
-    }
-    hp = p->htop;
-    p->htop += FLOAT_SIZE_OBJECT;
-    res = make_float(hp);
-    PUT_DOUBLE(f, hp);
-    return res;
-}
-
-Eterm erts_gc_round_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg;
-    FloatDef f;
-     
-    arg = reg[live];
-    if (is_not_float(arg)) {
-	if (is_integer(arg))  {
-	    return arg;
-	}
-	BIF_ERROR(p, BADARG);
-    }
-    GET_DOUBLE(arg, f);
-
-    return gc_double_to_integer(p, round(f.fd), reg, live);
-}
-
-Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg;
-    FloatDef f;
-     
-    arg = reg[live];
-    if (is_not_float(arg)) {
-	if (is_integer(arg))  {
-	    return arg;
-	}
-	BIF_ERROR(p, BADARG);
-    }
-    /* get the float */
-    GET_DOUBLE(arg, f);
-
-    /* truncate it and return the resultant integer */
-    return gc_double_to_integer(p, (f.fd >= 0.0) ? floor(f.fd) : ceil(f.fd),
-				reg, live);
-}
-
-Eterm erts_gc_floor_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg;
-    FloatDef f;
-
-    arg = reg[live];
-    if (is_not_float(arg)) {
-	if (is_integer(arg))  {
-	    return arg;
-	}
-	BIF_ERROR(p, BADARG);
-    }
-    GET_DOUBLE(arg, f);
-    return gc_double_to_integer(p, floor(f.fd), reg, live);
-}
-
-Eterm erts_gc_ceil_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg;
-    FloatDef f;
-
-    arg = reg[live];
-    if (is_not_float(arg)) {
-	if (is_integer(arg))  {
-	    return arg;
-	}
-	BIF_ERROR(p, BADARG);
-    }
-    GET_DOUBLE(arg, f);
-    return gc_double_to_integer(p, ceil(f.fd), reg, live);
-}
-
-static Eterm
-gc_double_to_integer(Process* p, double x, Eterm* reg, Uint live)
-{
-    int is_negative;
-    int ds;
-    ErtsDigit* xp;
-    int i;
-    Eterm res;
-    size_t sz;
-    Eterm* hp;
-    double dbase;
-
-    if ((x < (double) (MAX_SMALL+1)) && (x > (double) (MIN_SMALL-1))) {
-	Sint xi = x;
-	return make_small(xi);
-    }
-
-    if (x >= 0) {
-	is_negative = 0;
-    } else {
-	is_negative = 1;
-	x = -x;
-    }
-
-    /* Unscale & (calculate exponent) */
-    ds = 0;
-    dbase = ((double)(D_MASK)+1);
-    while(x >= 1.0) {
-	x /= dbase;         /* "shift" right */
-	ds++;
-    }
-    sz = BIG_NEED_SIZE(ds);          /* number of words including arity */
-    if (ERTS_NEED_GC(p, sz)) {
-	erts_garbage_collect(p, sz, reg, live);
-    }
-    hp = p->htop;
-    p->htop += sz;
-    res = make_big(hp);
-    xp = (ErtsDigit*) (hp + 1);
-
-    for (i = ds-1; i >= 0; i--) {
-	ErtsDigit d;
-
-	x *= dbase;      /* "shift" left */
-	d = x;            /* trunc */
-	xp[i] = d;        /* store digit */
-	x -= d;           /* remove integer part */
-    }
-    while ((ds & (BIG_DIGITS_PER_WORD-1)) != 0) {
-	xp[ds++] = 0;
-    }
-
-    if (is_negative) {
-	*hp = make_neg_bignum_header(sz-1);
-    } else {
-	*hp = make_pos_bignum_header(sz-1);
-    }
-    return res;
-}
-
-/********************************************************************************
- * binary_part guards. The actual implementation is in erl_bif_binary.c
- ********************************************************************************/
-Eterm erts_gc_binary_part_3(Process* p, Eterm* reg, Uint live)
-{
-    return erts_gc_binary_part(p,reg,live,0);
-}
-
-Eterm erts_gc_binary_part_2(Process* p, Eterm* reg, Uint live)
-{
-    return erts_gc_binary_part(p,reg,live,1);
 }

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
-	 wait/1]).
+	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,15 +40,16 @@ suite() ->
      {timetrap,{minutes,2}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [recv,coverage,otp_7980,ref_opt,export,wait]}].
+      [recv,coverage,otp_7980,ref_opt,export,wait,
+       recv_in_try,double_recv,receive_var_zero]}].
 
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -304,5 +305,100 @@ wait_1(r, _, _) ->
 %% to the next clause.
 wait_1(A, B, C) ->
     {A,B,C}.
+
+recv_in_try(_Config) ->
+    self() ! {ok,fh}, {ok,fh} = recv_in_try(infinity, native),
+    self() ! {ok,ignored}, {ok,42} = recv_in_try(infinity, plain),
+    self() ! {error,ignored}, nok = recv_in_try(infinity, plain),
+    timeout = recv_in_try(1, plain),
+    ok.
+
+recv_in_try(Timeout, Format) ->
+    try
+	receive
+	    {Status,History} ->
+                %% {test,is_tuple,{f,148},[{x,0}]}.
+                %% {test,test_arity,{f,148},[{x,0},2]}.
+                %% {get_tuple_element,{x,0},0,{y,1}}.  %y1 is fragile.
+                %%
+                %% %% Here the fragility of y1 would be be progated to
+                %% %% the 'catch' below. Incorrect, since get_tuple_element
+                %% %% can't fail.
+                %% {get_tuple_element,{x,0},1,{x,2}}.
+                %%
+                %% remove_message.                     %y1 fragility cleared.
+		FH = case Format of
+			native ->
+                             id(History);
+			plain ->
+                             id(42)
+		    end,
+		case Status of
+		    ok ->
+			{ok,FH};
+		    error ->
+			nok
+		end
+	after Timeout ->
+		timeout
+	end
+    catch
+        %% The fragility of y1 incorrectly propagated to here.
+        %% beam_validator would complain.
+	throw:{error,Reason} ->
+	    {nok,Reason}
+    end.
+
+%% ERL-703. The compiler would crash because beam_utils:anno_defs/1
+%% failed to take into account that code after loop_rec_end is
+%% unreachable.
+
+double_recv(_Config) ->
+    self() ! {more,{a,term}},
+    ok = do_double_recv({more,{a,term}}, any),
+    self() ! message,
+    ok = do_double_recv(whatever, message),
+
+    error = do_double_recv({more,42}, whatever),
+    error = do_double_recv(whatever, whatever),
+    ok.
+
+do_double_recv({more, Rest}, _Msg) ->
+    receive
+        {more, Rest} ->
+            ok
+    after 0 ->
+            error
+    end;
+do_double_recv(_, Msg) ->
+    receive
+        Msg ->
+            ok
+    after 0 ->
+            error
+    end.
+
+%% Test 'after Z', when Z =:= 0 been propagated as an immediate by the type
+%% optimization pass.
+receive_var_zero(Config) when is_list(Config) ->
+    self() ! x,
+    self() ! y,
+    Z = zero(),
+    timeout = receive
+                  z -> ok
+              after Z -> timeout
+              end,
+    timeout = receive
+              after Z -> timeout
+              end,
+    self() ! w,
+    receive
+	x -> ok;
+	Other ->
+	    ct:fail({bad_message,Other})
+    end.
+
+zero() -> 0.
+
 
 id(I) -> I.

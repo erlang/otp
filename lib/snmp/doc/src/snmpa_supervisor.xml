@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_supervisor.xml</file>
   </header>
-  <module>snmpa_supervisor</module>
+  <module since="">snmpa_supervisor</module>
   <modulesummary>A supervisor for the SNMP agent Processes</modulesummary>
   <description>
     <p>This is the top supervisor for the agent part of the SNMP 
@@ -42,7 +42,7 @@
   </description>
   <funcs>
     <func>
-      <name>start_sub_sup(Opts) -> {ok, pid()} | {error, {already_started, pid()}} | {error, Reason}</name>
+      <name since="">start_sub_sup(Opts) -> {ok, pid()} | {error, {already_started, pid()}} | {error, Reason}</name>
       <fsummary>Start the SNMP supervisor for sub-agents only</fsummary>
       <type>
         <v>Opts = [opt()]</v>
@@ -60,7 +60,7 @@
       </desc>
     </func>
     <func>
-      <name>start_master_sup(Opts) -> {ok, pid()} |  {error, {already_started, pid()}} | {error, Reason}</name>
+      <name since="">start_master_sup(Opts) -> {ok, pid()} |  {error, {already_started, pid()}} | {error, Reason}</name>
       <fsummary>Start the SNMP supervisor for all agents</fsummary>
       <type>
         <v>Opts = [opt()]</v>
@@ -82,7 +82,7 @@
       </desc>
     </func>
     <func>
-      <name>start_sub_agent(ParentAgent,Subtree,Mibs) -> {ok, pid()} | {error, Reason}</name>
+      <name since="">start_sub_agent(ParentAgent,Subtree,Mibs) -> {ok, pid()} | {error, Reason}</name>
       <fsummary>Start a sub-agent</fsummary>
       <type>
         <v>ParentAgent = pid()</v>
@@ -99,7 +99,7 @@
       </desc>
     </func>
     <func>
-      <name>stop_sub_agent(SubAgent) -> ok | no_such_child</name>
+      <name since="">stop_sub_agent(SubAgent) -> ok | no_such_child</name>
       <fsummary>Stop a sub-agent</fsummary>
       <type>
         <v>SubAgent = pid()</v>

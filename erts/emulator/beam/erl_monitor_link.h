@@ -1387,11 +1387,14 @@ ERTS_GLB_INLINE void
 erts_monitor_release(ErtsMonitor *mon)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
-    ERTS_ML_ASSERT(!(mon->flags & ERTS_ML_FLG_IN_TABLE));
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&mdp->refc) > 0);
 
-    if (erts_atomic32_dec_read_nob(&mdp->refc) == 0)
+    if (erts_atomic32_dec_read_nob(&mdp->refc) == 0) {
+        ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
+        ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
+
         erts_monitor_destroy__(mdp);
+    }
 }
 
 ERTS_GLB_INLINE void
@@ -1399,12 +1402,14 @@ erts_monitor_release_both(ErtsMonitorData *mdp)
 {
     ERTS_ML_ASSERT((mdp->origin.flags & ERTS_ML_FLGS_SAME)
                    == (mdp->target.flags & ERTS_ML_FLGS_SAME));
-    ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&mdp->refc) >= 2);
 
-    if (erts_atomic32_add_read_nob(&mdp->refc, (erts_aint32_t) -2) == 0)
+    if (erts_atomic32_add_read_nob(&mdp->refc, (erts_aint32_t) -2) == 0) {
+        ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
+        ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
+
         erts_monitor_destroy__(mdp);
+    }
 }
 
 ERTS_GLB_INLINE int

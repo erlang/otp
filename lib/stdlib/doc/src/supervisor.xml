@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>supervisor</module>
+  <module since="">supervisor</module>
   <modulesummary>Generic supervisor behavior.</modulesummary>
   <description>
     <p>This behavior module provides a supervisor, a process that
@@ -208,8 +208,16 @@ child_spec() = #{id => child_id(),       % mandatory
           the child process is unconditionally terminated using
           <c>exit(Child,kill)</c>.</p>
         <p>If the child process is another supervisor, the shutdown time
-          is to be set to <c>infinity</c> to give the subtree ample
-          time to shut down. It is also allowed to set it to <c>infinity</c>,
+          must be set to <c>infinity</c> to give the subtree ample
+          time to shut down.</p>
+	<warning>
+	  <p>Setting the shutdown time to anything other
+	    than <c>infinity</c> for a child of type <c>supervisor</c>
+	    can cause a race condition where the child in question
+	    unlinks its own children, but fails to terminate them
+	    before it is killed.</p>
+	</warning>
+	<p>It is also allowed to set it to <c>infinity</c>,
           if the child process is a worker.</p>
         <warning>
           <p>Be careful when setting the shutdown time to
@@ -310,7 +318,7 @@ child_spec() = #{id => child_id(),       % mandatory
 
   <funcs>
     <func>
-      <name name="check_childspecs" arity="1"/>
+      <name name="check_childspecs" arity="1" since=""/>
       <fsummary>Check if children specifications are syntactically correct.
       </fsummary>
       <desc>
@@ -321,7 +329,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="count_children" arity="1"/>
+      <name name="count_children" arity="1" since="OTP R13B04"/>
       <fsummary>Return counts for the number of child specifications,
         active children, supervisors, and workers.</fsummary>
       <desc>
@@ -358,7 +366,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="delete_child" arity="2"/>
+      <name name="delete_child" arity="2" since=""/>
       <fsummary>Delete a child specification from a supervisor.</fsummary>
       <desc>
         <p>Tells supervisor <c><anno>SupRef</anno></c> to delete the child
@@ -379,7 +387,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="get_childspec" arity="2"/>
+      <name name="get_childspec" arity="2" since="OTP 18.0"/>
       <fsummary>Return the child specification map for the specified
         child.</fsummary>
       <desc>
@@ -392,7 +400,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="restart_child" arity="2"/>
+      <name name="restart_child" arity="2" since=""/>
       <fsummary>Restart a terminated child process belonging to a supervisor.
       </fsummary>
       <desc>
@@ -428,7 +436,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="start_child" arity="2"/>
+      <name name="start_child" arity="2" since=""/>
       <fsummary>Dynamically add a child process to a supervisor.</fsummary>
       <type name="startchild_ret"/>
       <type name="startchild_err"/>
@@ -495,8 +503,8 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="start_link" arity="2"/>
-      <name name="start_link" arity="3"/>
+      <name name="start_link" arity="2" since=""/>
+      <name name="start_link" arity="3" since=""/>
       <fsummary>Create a supervisor process.</fsummary>
       <type name="startlink_ret"/>
       <type name="startlink_err"/>
@@ -576,7 +584,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="terminate_child" arity="2"/>
+      <name name="terminate_child" arity="2" since=""/>
       <fsummary>Terminate a child process belonging to a supervisor.</fsummary>
       <desc>
         <p>Tells supervisor <c><anno>SupRef</anno></c> to terminate the
@@ -613,7 +621,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="which_children" arity="1"/>
+      <name name="which_children" arity="1" since=""/>
       <fsummary>Return information about all children specifications and
         child processes belonging to a supervisor.</fsummary>
       <desc>
@@ -658,7 +666,7 @@ child_spec() = #{id => child_id(),       % mandatory
 
   <funcs>
     <func>
-      <name>Module:init(Args) -> Result</name>
+      <name since="">Module:init(Args) -> Result</name>
       <fsummary>Return a supervisor specification.</fsummary>
       <type>
         <v>Args = term()</v>

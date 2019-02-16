@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 -compile(export_all).
 
-all() -> [recompose].
+all() -> [recompose, normalize].
 
 init_per_suite(Config) ->
     ct_property_test:init_per_suite(Config).
@@ -36,4 +36,9 @@ end_per_suite(Config) ->
 recompose(Config) ->
     ct_property_test:quickcheck(
       uri_string_recompose:prop_recompose(),
+      Config).
+
+normalize(Config) ->
+    ct_property_test:quickcheck(
+      uri_string_recompose:prop_normalize(),
       Config).

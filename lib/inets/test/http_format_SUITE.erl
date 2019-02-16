@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -435,7 +435,7 @@ http_request(Config) when is_list(Config) ->
 			[<<>>, Length1], HttpBody1)).
 %%-------------------------------------------------------------------------
 validate_request_line() ->
-    [{doc, "Test httpd_request:validate/3. Makes sure you can not get past"
+    [{doc, "Test httpd_request:validate/3. Makes sure you cannot get past"
      " the server_root and that the request is recognized by the server"
      " and protcol version."}].
 validate_request_line(Config) when is_list(Config) ->

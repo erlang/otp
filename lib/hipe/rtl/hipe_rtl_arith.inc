@@ -118,8 +118,8 @@ eval_alu(Op, Arg1, Arg2) ->
 
 %% Björn & Bjarni:
 %% We need to be able to do evaluations based only on the bits, since
-%% there are cases where we can evaluate a subset of the bits, but can
-%% not do a full eval-alub call (eg. a + 0 gives no carry)
+%% there are cases where we can evaluate a subset of the bits, but
+%% cannot do a full eval-alub call (eg. a + 0 gives no carry)
 %%
 -spec eval_cond_bits(hipe_rtl:alub_cond(), boolean(),
 		     boolean(), boolean(), boolean()) -> boolean().

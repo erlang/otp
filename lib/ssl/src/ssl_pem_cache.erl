@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 20016-2017. All Rights Reserved.
+%% Copyright Ericsson AB 20016-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 -export([start_link/1, 
 	 start_link_dist/1,
 	 name/1,
-	 insert/1,
+	 insert/2,
 	 clear/0]).
 
 % Spawn export
@@ -45,7 +45,7 @@
 
 -record(state, {
 	  pem_cache,                  
-	  last_pem_check             :: erlang:timestamp(),
+	  last_pem_check             :: integer(),
 	  clear            :: integer()
 	 }).
 
@@ -90,19 +90,17 @@ start_link_dist(_) ->
 
 
 %%--------------------------------------------------------------------
--spec insert(binary()) -> {ok, term()} | {error, reason()}.
+-spec insert(binary(), term()) -> ok | {error, reason()}.
 %%		    
 %% Description: Cache a pem file and return its content.
 %%--------------------------------------------------------------------
-insert(File) ->    
-    {ok, PemBin} = file:read_file(File),
-    Content = public_key:pem_decode(PemBin),
+insert(File, Content) ->    
     case bypass_cache() of
 	true ->
-	    {ok, Content};
+	    ok;
 	false ->
 	    cast({cache_pem, File, Content}),
-	    {ok, Content}
+            ok
     end.
 
 %%--------------------------------------------------------------------
@@ -136,8 +134,9 @@ init([Name]) ->
     PemCache = ssl_pkix_db:create_pem_cache(Name),
     Interval = pem_check_interval(),
     erlang:send_after(Interval, self(), clear_pem_cache),
+    erlang:system_time(second),
     {ok, #state{pem_cache = PemCache,
-		last_pem_check =  os:timestamp(),
+		last_pem_check =  erlang:convert_time_unit(os:system_time(), native, second),
 		clear = Interval 	
 	       }}.
 
@@ -185,7 +184,7 @@ handle_cast({invalidate_pem, File}, #state{pem_cache = Db} = State) ->
 handle_info(clear_pem_cache, #state{pem_cache = PemCache,
 				    clear = Interval,
 				    last_pem_check = CheckPoint} = State) ->
-    NewCheckPoint = os:timestamp(),
+    NewCheckPoint = erlang:convert_time_unit(os:system_time(), native, second),
     start_pem_cache_validator(PemCache, CheckPoint),
     erlang:send_after(Interval, self(), clear_pem_cache),
     {noreply, State#state{last_pem_check = NewCheckPoint}};
@@ -231,23 +230,13 @@ init_pem_cache_validator([CacheName, PemCache, CheckPoint]) ->
 		      CheckPoint, PemCache).
 
 pem_cache_validate({File, _}, CheckPoint) ->
-    case file:read_file_info(File, []) of
-	{ok, #file_info{mtime = Time}} ->
-	    case is_before_checkpoint(Time, CheckPoint) of
-		true ->
-		    ok;
-		false ->
-		    invalidate_pem(File)
-	    end;
+    case file:read_file_info(File, [{time, posix}]) of
+	{ok, #file_info{mtime = Time}} when Time < CheckPoint ->
+	    ok;
 	_  ->
 	    invalidate_pem(File)
     end,
     CheckPoint.
-
-is_before_checkpoint(Time, CheckPoint) ->
-    calendar:datetime_to_gregorian_seconds(
-      calendar:now_to_datetime(CheckPoint)) -
-	calendar:datetime_to_gregorian_seconds(Time) > 0.
 
 pem_check_interval() ->
     case application:get_env(ssl, ssl_pem_cache_clean) of

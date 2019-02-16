@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -66,7 +66,7 @@ ssl:listen(9999, [{certfile, "cert.pem"}, {keyfile, "key.pem"},{reuseaddr, true}
 {ok,{sslsocket, [...]}}</code>
       
       <p><em>Step 3:</em> Do a transport accept on the TLS listen socket:</p>
-      <code type="erl">3 server> {ok, Socket} = ssl:transport_accept(ListenSocket).
+      <code type="erl">3 server> {ok, TLSTransportSocket} = ssl:transport_accept(ListenSocket).
 {ok,{sslsocket, [...]}}</code>
 
       <p><em>Step 4:</em> Start the client side: </p>
@@ -77,7 +77,7 @@ ok</code>
 {ok,{sslsocket, [...]}}</code>
       
       <p><em>Step 5:</em> Do the TLS handshake:</p>
-      <code type="erl">4 server> ok = ssl:ssl_accept(Socket).
+      <code type="erl">4 server> {ok, Socket} = ssl:handshake(TLSTransportSocket).
 ok</code>
       
       <p><em>Step 6:</em> Send a message over TLS:</p>
@@ -126,13 +126,13 @@ ok</code>
 ok</code>
       
       <p><em>Step 6:</em> Do the TLS handshake:</p>
-      <code type="erl">5 server> {ok, TLSSocket} = ssl:ssl_accept(Socket, [{cacertfile, "cacerts.pem"},
+      <code type="erl">5 server> {ok, TLSSocket} = ssl:handshake(Socket, [{cacertfile, "cacerts.pem"},
 {certfile, "cert.pem"}, {keyfile, "key.pem"}]).
 {ok,{sslsocket,[...]}}</code>
       
       <p><em>Step 7:</em> Upgrade to an TLS connection. The client and server
       must agree upon the upgrade. The server must call
-      <c>ssl:accept/2</c> before the client calls <c>ssl:connect/3.</c></p>
+      <c>ssl:handshake/2</c> before the client calls <c>ssl:connect/3.</c></p>
       <code type="erl">3 client>{ok, TLSSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
 {certfile, "cert.pem"}, {keyfile, "key.pem"}], infinity).
 {ok,{sslsocket,[...]}}</code>

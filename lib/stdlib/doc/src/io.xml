@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>io</module>
+  <module since="">io</module>
   <modulesummary>Standard I/O server interface functions.</modulesummary>
   <description>
     <p>This module provides an interface to standard Erlang I/O servers.
@@ -104,8 +104,8 @@
 
   <funcs>
     <func>
-      <name name="columns" arity="0"/>
-      <name name="columns" arity="1"/>
+      <name name="columns" arity="0" since=""/>
+      <name name="columns" arity="1" since=""/>
       <fsummary>Get the number of columns of an I/O device.</fsummary>
       <desc>
           <p>Retrieves the number of columns of the
@@ -116,12 +116,12 @@
     </func>
 
     <func>
-      <name name="format" arity="1"/>
-      <name name="format" arity="2"/>
-      <name name="format" arity="3"/>
-      <name name="fwrite" arity="1"/>
-      <name name="fwrite" arity="2"/>
-      <name name="fwrite" arity="3"/>
+      <name name="format" arity="1" since=""/>
+      <name name="format" arity="2" since=""/>
+      <name name="format" arity="3" since=""/>
+      <name name="fwrite" arity="1" since=""/>
+      <name name="fwrite" arity="2" since=""/>
+      <name name="fwrite" arity="3" since=""/>
       <fsummary>Write formatted output.</fsummary>
       <desc>
         <p>Writes the items in <c><anno>Data</anno></c> (<c>[]</c>) on the
@@ -332,11 +332,22 @@ Here T = [{attributes,[[{id,age,1.5},
           {tag,{'PRIVATE',3}},
           {mode,implicit}]
 ok</pre>
+
+            <p>As from Erlang/OTP 21.0, a field width of value
+	      <c>0</c> can be used for specifying that a line is
+	      infinitely long, which means that no line breaks
+	      are inserted. For example:</p>
+
+	    <pre>
+5> <input>io:fwrite("~0p~n", [lists:seq(1, 30)]).</input>
+[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+ok</pre>
+
             <p>When the modifier <c>l</c> is specified, no detection of
               printable character lists takes place, for example:</p>
             <pre>
-5> <input>S = [{a,"a"}, {b, "b"}].</input>
-6> <input>io:fwrite("~15p~n", [S]).</input>
+6> <input>S = [{a,"a"}, {b, "b"}],
+   io:fwrite("~15p~n", [S]).</input>
 [{a,"a"},
  {b,"b"}]
 ok
@@ -512,8 +523,8 @@ ok
     </func>
 
     <func>
-      <name name="fread" arity="2"/>
-      <name name="fread" arity="3"/>
+      <name name="fread" arity="2" since=""/>
+      <name name="fread" arity="3" since=""/>
       <fsummary>Read formatted input.</fsummary>
       <type name="server_no_data"/>
       <desc>
@@ -679,8 +690,8 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
     </func>
 
     <func>
-      <name name="get_chars" arity="2"/>
-      <name name="get_chars" arity="3"/>
+      <name name="get_chars" arity="2" since=""/>
+      <name name="get_chars" arity="3" since=""/>
       <fsummary>Read a specified number of characters.</fsummary>
       <type name="server_no_data"/>
       <desc>
@@ -711,8 +722,8 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
     </func>
 
     <func>
-      <name name="get_line" arity="1"/>
-      <name name="get_line" arity="2"/>
+      <name name="get_line" arity="1" since=""/>
+      <name name="get_line" arity="2" since=""/>
       <fsummary>Read a line.</fsummary>
       <type name="server_no_data"/>
       <desc>
@@ -743,8 +754,8 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
     </func>
 
     <func>
-      <name name="getopts" arity="0"/>
-      <name name="getopts" arity="1"/>
+      <name name="getopts" arity="0" since=""/>
+      <name name="getopts" arity="1" since=""/>
       <fsummary>Get the supported options and values from an I/O server.
       </fsummary>
       <desc>
@@ -770,8 +781,8 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
     </func>
 
     <func>
-      <name name="nl" arity="0"/>
-      <name name="nl" arity="1"/>
+      <name name="nl" arity="0" since=""/>
+      <name name="nl" arity="1" since=""/>
       <fsummary>Write a newline.</fsummary>
       <desc>
         <p>Writes new line to the standard output
@@ -780,10 +791,10 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
     </func>
 
     <func>
-      <name name="parse_erl_exprs" arity="1"/>
-      <name name="parse_erl_exprs" arity="2"/>
-      <name name="parse_erl_exprs" arity="3"/>
-      <name name="parse_erl_exprs" arity="4"/>
+      <name name="parse_erl_exprs" arity="1" since=""/>
+      <name name="parse_erl_exprs" arity="2" since=""/>
+      <name name="parse_erl_exprs" arity="3" since=""/>
+      <name name="parse_erl_exprs" arity="4" since="OTP R16B"/>
       <fsummary>Read, tokenize, and parse Erlang expressions.</fsummary>
       <type name="parse_ret"/>
       <type name="server_no_data"/>
@@ -833,10 +844,10 @@ enter><input>abc("hey".</input>
     </func>
 
     <func>
-      <name name="parse_erl_form" arity="1"/>
-      <name name="parse_erl_form" arity="2"/>
-      <name name="parse_erl_form" arity="3"/>
-      <name name="parse_erl_form" arity="4"/>
+      <name name="parse_erl_form" arity="1" since=""/>
+      <name name="parse_erl_form" arity="2" since=""/>
+      <name name="parse_erl_form" arity="3" since=""/>
+      <name name="parse_erl_form" arity="4" since="OTP R16B"/>
       <fsummary>Read, tokenize, and parse an Erlang form.</fsummary>
       <type name="parse_form_ret"/>
       <type name="server_no_data"/>
@@ -877,7 +888,7 @@ enter><input>abc("hey".</input>
     </func>
 
     <func>
-      <name name="printable_range" arity="0"/>
+      <name name="printable_range" arity="0" since="OTP R16B"/>
       <fsummary>Get user-requested printable character range.</fsummary>
       <desc>
         <p>Returns the user-requested range of printable Unicode characters.</p>
@@ -907,8 +918,8 @@ enter><input>abc("hey".</input>
     </func>
 
     <func>
-      <name name="put_chars" arity="1"/>
-      <name name="put_chars" arity="2"/>
+      <name name="put_chars" arity="1" since=""/>
+      <name name="put_chars" arity="2" since=""/>
       <fsummary>Write a list of characters.</fsummary>
       <desc>
         <p>Writes the characters of <c><anno>CharData</anno></c> to the I/O
@@ -917,8 +928,8 @@ enter><input>abc("hey".</input>
     </func>
 
     <func>
-      <name name="read" arity="1"/>
-      <name name="read" arity="2"/>
+      <name name="read" arity="1" since=""/>
+      <name name="read" arity="2" since=""/>
       <fsummary>Read a term.</fsummary>
       <type name="server_no_data"/>
       <desc>
@@ -949,8 +960,8 @@ enter><input>abc("hey".</input>
     </func>
 
     <func>
-      <name name="read" arity="3"/>
-      <name name="read" arity="4"/>
+      <name name="read" arity="3" since=""/>
+      <name name="read" arity="4" since="OTP R16B"/>
       <fsummary>Read a term.</fsummary>
       <type name="server_no_data"/>
       <desc>
@@ -986,8 +997,8 @@ enter><input>abc("hey".</input>
     </func>
 
     <func>
-      <name name="rows" arity="0"/>
-      <name name="rows" arity="1"/>
+      <name name="rows" arity="0" since=""/>
+      <name name="rows" arity="1" since=""/>
       <fsummary>Get the number of rows of an I/O device.</fsummary>
       <desc>
           <p>Retrieves the number of rows of <c><anno>IoDevice</anno></c>
@@ -998,10 +1009,10 @@ enter><input>abc("hey".</input>
     </func>
 
     <func>
-      <name name="scan_erl_exprs" arity="1"/>
-      <name name="scan_erl_exprs" arity="2"/>
-      <name name="scan_erl_exprs" arity="3"/>
-      <name name="scan_erl_exprs" arity="4"/>
+      <name name="scan_erl_exprs" arity="1" since=""/>
+      <name name="scan_erl_exprs" arity="2" since=""/>
+      <name name="scan_erl_exprs" arity="3" since=""/>
+      <name name="scan_erl_exprs" arity="4" since="OTP R16B"/>
       <fsummary>Read and tokenize Erlang expressions.</fsummary>
       <type name="server_no_data"/>
       <desc>
@@ -1049,10 +1060,10 @@ enter><input>1.0er.</input>
     </func>
 
     <func>
-      <name name="scan_erl_form" arity="1"/>
-      <name name="scan_erl_form" arity="2"/>
-      <name name="scan_erl_form" arity="3"/>
-      <name name="scan_erl_form" arity="4"/>
+      <name name="scan_erl_form" arity="1" since=""/>
+      <name name="scan_erl_form" arity="2" since=""/>
+      <name name="scan_erl_form" arity="3" since=""/>
+      <name name="scan_erl_form" arity="4" since="OTP R16B"/>
       <fsummary>Read and tokenize an Erlang form.</fsummary>
       <type name="server_no_data"/>
       <desc>
@@ -1072,8 +1083,8 @@ enter><input>1.0er.</input>
     </func>
 
     <func>
-      <name name="setopts" arity="1"/>
-      <name name="setopts" arity="2"/>
+      <name name="setopts" arity="1" since=""/>
+      <name name="setopts" arity="2" since=""/>
       <fsummary>Set options.</fsummary>
       <desc>
         <p>Set options for the standard I/O device
@@ -1187,8 +1198,8 @@ fun("") -> {yes, "quit", []};
     </func>
 
     <func>
-      <name name="write" arity="1"/>
-      <name name="write" arity="2"/>
+      <name name="write" arity="1" since=""/>
+      <name name="write" arity="2" since=""/>
       <fsummary>Write a term.</fsummary>
       <desc>
         <p>Writes term <c><anno>Term</anno></c> to the standard output

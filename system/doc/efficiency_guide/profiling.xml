@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -94,7 +94,7 @@
     <p>The above slogan is one of the more common reasons for Erlang to terminate.
       For unknown reasons the Erlang Run-Time System failed to allocate memory to
       use. When this happens a crash dump is generated that contains information
-      about the state of the system as it ran out of mmeory. Use the
+      about the state of the system as it ran out of memory. Use the
       <seealso marker="observer:cdv"><c>crashdump_viewer</c></seealso> to get a
       view of the memory is being used. Look for processes with large heaps or
       many messages, large ets tables, etc.</p>

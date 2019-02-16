@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>gb_trees</module>
+  <module since="">gb_trees</module>
   <modulesummary>General balanced trees.</modulesummary>
   <description>
     <p>This module provides Prof. Arne Andersson's General
@@ -75,7 +75,7 @@
 
   <funcs>
     <func>
-      <name name="balance" arity="1"/>
+      <name name="balance" arity="1" since=""/>
       <fsummary>Rebalance a tree.</fsummary>
       <desc>
         <p>Rebalances <c><anno>Tree1</anno></c>. Notice that this is
@@ -88,7 +88,7 @@
     </func>
 
     <func>
-      <name name="delete" arity="2"/>
+      <name name="delete" arity="2" since=""/>
       <fsummary>Remove a node from a tree.</fsummary>
       <desc>
         <p>Removes the node with key <c><anno>Key</anno></c> from
@@ -98,7 +98,7 @@
     </func>
 
     <func>
-      <name name="delete_any" arity="2"/>
+      <name name="delete_any" arity="2" since=""/>
       <fsummary>Remove a (possibly non-existing) node from a tree.</fsummary>
       <desc>
         <p>Removes the node with key <c><anno>Key</anno></c> from
@@ -109,7 +109,7 @@
     </func>
 
     <func>
-      <name name="take" arity="2"/>
+      <name name="take" arity="2" since="OTP 20.0"/>
       <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
       <desc>
         <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
@@ -120,7 +120,7 @@
     </func>
 
     <func>
-      <name name="take_any" arity="2"/>
+      <name name="take_any" arity="2" since="OTP 20.0"/>
       <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
       <desc>
         <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
@@ -131,7 +131,7 @@
     </func>
 
     <func>
-      <name name="empty" arity="0"/>
+      <name name="empty" arity="0" since=""/>
       <fsummary>Return an empty tree.</fsummary>
       <desc>
         <p>Returns a new empty tree.</p>
@@ -139,7 +139,7 @@
     </func>
 
     <func>
-      <name name="enter" arity="3"/>
+      <name name="enter" arity="3" since=""/>
       <fsummary>Insert or update key with value in a tree.</fsummary>
       <desc>
         <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Value</anno></c>
@@ -151,7 +151,7 @@
     </func>
 
     <func>
-      <name name="from_orddict" arity="1"/>
+      <name name="from_orddict" arity="1" since=""/>
       <fsummary>Make a tree from an orddict.</fsummary>
       <desc>
         <p>Turns an ordered list <c><anno>List</anno></c> of key-value tuples
@@ -160,7 +160,7 @@
     </func>
 
     <func>
-      <name name="get" arity="2"/>
+      <name name="get" arity="2" since=""/>
       <fsummary>Look up a key in a tree, if present.</fsummary>
       <desc>
         <p>Retrieves the value stored with <c><anno>Key</anno></c> in
@@ -171,7 +171,7 @@
     </func>
 
     <func>
-      <name name="insert" arity="3"/>
+      <name name="insert" arity="3" since=""/>
       <fsummary>Insert a new key and value in a tree.</fsummary>
       <desc>
         <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Value</anno></c>
@@ -182,7 +182,7 @@
     </func>
 
     <func>
-      <name name="is_defined" arity="2"/>
+      <name name="is_defined" arity="2" since=""/>
       <fsummary>Test for membership of a tree.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Key</anno></c> is present in
@@ -191,7 +191,7 @@
     </func>
 
     <func>
-      <name name="is_empty" arity="1"/>
+      <name name="is_empty" arity="1" since=""/>
       <fsummary>Test for empty tree.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Tree</anno></c> is an empty tree,
@@ -200,7 +200,7 @@
     </func>
 
     <func>
-      <name name="iterator" arity="1"/>
+      <name name="iterator" arity="1" since=""/>
       <fsummary>Return an iterator for a tree.</fsummary>
       <desc>
         <p>Returns an iterator that can be used for traversing the
@@ -218,7 +218,7 @@
     </func>
 
     <func>
-      <name name="iterator_from" arity="2"/>
+      <name name="iterator_from" arity="2" since="OTP 18.0"/>
       <fsummary>Return an iterator for a tree starting from a specified key.
       </fsummary>
       <desc>
@@ -233,7 +233,7 @@
     </func>
 
     <func>
-      <name name="keys" arity="1"/>
+      <name name="keys" arity="1" since=""/>
       <fsummary>Return a list of the keys in a tree.</fsummary>
       <desc>
         <p>Returns the keys in <c><anno>Tree</anno></c> as an ordered list.</p>
@@ -241,7 +241,7 @@
     </func>
 
     <func>
-      <name name="largest" arity="1"/>
+      <name name="largest" arity="1" since=""/>
       <fsummary>Return largest key and value.</fsummary>
       <desc>
         <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>}</c>, where
@@ -253,7 +253,7 @@
     </func>
 
     <func>
-      <name name="lookup" arity="2"/>
+      <name name="lookup" arity="2" since=""/>
       <fsummary>Look up a key in a tree.</fsummary>
       <desc>
         <p>Looks up <c><anno>Key</anno></c> in <c><anno>Tree</anno></c>.
@@ -263,7 +263,7 @@
     </func>
 
     <func>
-      <name name="map" arity="2"/>
+      <name name="map" arity="2" since=""/>
       <fsummary>Return largest key and value.</fsummary>
       <desc>
         <p>Maps function F(<anno>K</anno>, <anno>V1</anno>) -> <anno>V2</anno>
@@ -275,7 +275,7 @@
     </func>
 
     <func>
-      <name name="next" arity="1"/>
+      <name name="next" arity="1" since=""/>
       <fsummary>Traverse a tree with an iterator.</fsummary>
       <desc>
         <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>,
@@ -288,7 +288,7 @@
     </func>
 
     <func>
-      <name name="size" arity="1"/>
+      <name name="size" arity="1" since=""/>
       <fsummary>Return the number of nodes in a tree.</fsummary>
       <desc>
         <p>Returns the number of nodes in <c><anno>Tree</anno></c>.</p>
@@ -296,7 +296,7 @@
     </func>
 
     <func>
-      <name name="smallest" arity="1"/>
+      <name name="smallest" arity="1" since=""/>
       <fsummary>Return smallest key and value.</fsummary>
       <desc>
         <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>}</c>, where
@@ -308,7 +308,7 @@
     </func>
 
     <func>
-      <name name="take_largest" arity="1"/>
+      <name name="take_largest" arity="1" since=""/>
       <fsummary>Extract largest key and value.</fsummary>
       <desc>
         <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>,
@@ -321,7 +321,7 @@
     </func>
 
     <func>
-      <name name="take_smallest" arity="1"/>
+      <name name="take_smallest" arity="1" since=""/>
       <fsummary>Extract smallest key and value.</fsummary>
       <desc>
         <p>Returns <c>{<anno>Key</anno>, <anno>Value</anno>,
@@ -334,7 +334,7 @@
     </func>
 
     <func>
-      <name name="to_list" arity="1"/>
+      <name name="to_list" arity="1" since=""/>
       <fsummary>Convert a tree into a list.</fsummary>
       <desc>
         <p>Converts a tree into an ordered list of key-value tuples.</p>
@@ -342,7 +342,7 @@
     </func>
 
     <func>
-      <name name="update" arity="3"/>
+      <name name="update" arity="3" since=""/>
       <fsummary>Update a key to new value in a tree.</fsummary>
       <desc>
         <p>Updates <c><anno>Key</anno></c> to value <c><anno>Value</anno></c>
@@ -352,7 +352,7 @@
     </func>
 
     <func>
-      <name name="values" arity="1"/>
+      <name name="values" arity="1" since=""/>
       <fsummary>Return a list of the values in a tree.</fsummary>
       <desc>
         <p>Returns the values in <c><anno>Tree</anno></c> as an ordered list,

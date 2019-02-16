@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2012</year><year>2017</year>
+      <year>2012</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,7 +30,7 @@
     <rev></rev>
   </header>
 
-  <module>http_uri</module>
+  <module since="OTP R15B01">http_uri</module>
   <modulesummary>URI utility module</modulesummary>
 
   <description>
@@ -79,7 +79,7 @@
   
   <funcs>
     <func>
-      <name>decode(HexEncodedURI) -> URI</name>
+      <name since="OTP R15B01">decode(HexEncodedURI) -> URI</name>
       
       <fsummary>Decodes a hexadecimal encoded URI.</fsummary>
       <type>
@@ -93,7 +93,7 @@
       </desc>
     </func>
     <func>
-      <name>encode(URI) -> HexEncodedURI</name>
+      <name since="OTP R15B01">encode(URI) -> HexEncodedURI</name>
       
       <fsummary>Encodes a hexadecimal encoded URI.</fsummary>
       <type>
@@ -109,8 +109,8 @@
     </func>
 
     <func>
-      <name>parse(URI) -> {ok, Result} | {error, Reason}</name>
-      <name>parse(URI, Options) -> {ok, Result} | {error, Reason}</name>
+      <name since="OTP R15B01">parse(URI) -> {ok, Result} | {error, Reason}</name>
+      <name since="OTP R15B01">parse(URI, Options) -> {ok, Result} | {error, Reason}</name>
       <fsummary>Parses a URI.</fsummary>
       <type>
         <v>URI = uri()</v> 
@@ -165,7 +165,7 @@ fun(SchemeStr :: string() | binary()) ->
     </func>
 
     <func>
-      <name>scheme_defaults() -> SchemeDefaults</name>
+      <name since="OTP R15B01">scheme_defaults() -> SchemeDefaults</name>
       <fsummary>A list of the scheme and their default ports.</fsummary>
       <type>
         <v>SchemeDefaults = [{scheme(), default_scheme_port_number()}] </v> 

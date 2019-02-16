@@ -29,7 +29,7 @@
     <rev>2.3</rev>
     <file>mod_auth.sgml</file>
   </header>
-  <module>mod_auth</module>
+  <module since="">mod_auth</module>
   <modulesummary>User authentication using text files, Dets, or Mnesia database.</modulesummary>
   <description>
     <p>This module provides for basic user authentication using
@@ -38,9 +38,9 @@
 
   <funcs>
      <func>
-      <name>add_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
-      <name>add_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
-      <name>add_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">add_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
+      <name since="">add_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">add_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
       <fsummary>Adds a user to a group.</fsummary>
       <type>
         <v>GroupName = string()</v>
@@ -65,9 +65,9 @@
     </func>
     
     <func>
-      <name>add_user(UserName, Options) -> true| {error, Reason}</name>
-      <name>add_user(UserName, Password, UserData, Port, Dir) -> true | {error, Reason}</name>
-      <name>add_user(UserName, Password, UserData, Address, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">add_user(UserName, Options) -> true| {error, Reason}</name>
+      <name since="">add_user(UserName, Password, UserData, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">add_user(UserName, Password, UserData, Address, Port, Dir) -> true | {error, Reason}</name>
       <fsummary>Adds a user to the user database.</fsummary>
       <type>
         <v>UserName = string()</v>
@@ -92,8 +92,8 @@
     </func>
 
      <func>
-      <name>delete_group(GroupName, Options) -> true | {error,Reason} &lt;name>delete_group(GroupName, Port, Dir) -> true | {error, Reason}</name>
-      <name>delete_group(GroupName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">delete_group(GroupName, Options) -> true | {error,Reason} &lt;name>delete_group(GroupName, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">delete_group(GroupName, Address, Port, Dir) -> true | {error, Reason}</name>
       <fsummary>Deletes a group.</fsummary>
       <type>
         <v>Options = [Option]</v>
@@ -115,9 +115,9 @@
     </func>
 
      <func>
-      <name>delete_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
-      <name>delete_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
-      <name>delete_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">delete_group_member(GroupName, UserName, Options) -> true | {error, Reason}</name>
+      <name since="">delete_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">delete_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason}</name>
       <fsummary>Removes a user from a group.</fsummary>
       <type>
         <v>GroupName = string()</v>
@@ -141,9 +141,9 @@
     </func>
     
     <func>
-      <name>delete_user(UserName,Options) -> true | {error, Reason}</name>
-      <name>delete_user(UserName, Port, Dir) -> true | {error, Reason}</name>
-      <name>delete_user(UserName, Address, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">delete_user(UserName,Options) -> true | {error, Reason}</name>
+      <name since="">delete_user(UserName, Port, Dir) -> true | {error, Reason}</name>
+      <name since="">delete_user(UserName, Address, Port, Dir) -> true | {error, Reason}</name>
       <fsummary>Deletes a user from the user database.</fsummary>
       <type>
         <v>UserName = string()</v>
@@ -166,9 +166,9 @@
     </func>
 
     <func>
-      <name>get_user(UserName,Options) -> {ok, #httpd_user} |{error, Reason}</name>
-      <name>get_user(UserName, Port, Dir) -> {ok, #httpd_user} | {error, Reason}</name>
-      <name>get_user(UserName, Address, Port, Dir) -> {ok, #httpd_user} | {error, Reason}</name>
+      <name since="">get_user(UserName,Options) -> {ok, #httpd_user} |{error, Reason}</name>
+      <name since="">get_user(UserName, Port, Dir) -> {ok, #httpd_user} | {error, Reason}</name>
+      <name since="">get_user(UserName, Address, Port, Dir) -> {ok, #httpd_user} | {error, Reason}</name>
       <fsummary>Returns a user from the user database.</fsummary>
       <type>
         <v>UserName = string()</v>
@@ -190,9 +190,9 @@
     </func>
 
      <func>
-      <name>list_groups(Options) -> {ok, Groups} | {error, Reason}</name>
-      <name>list_groups(Port, Dir) -> {ok, Groups} | {error, Reason}</name>
-      <name>list_groups(Address, Port, Dir) -> {ok, Groups} | {error, Reason}</name>
+      <name since="">list_groups(Options) -> {ok, Groups} | {error, Reason}</name>
+      <name since="">list_groups(Port, Dir) -> {ok, Groups} | {error, Reason}</name>
+      <name since="">list_groups(Address, Port, Dir) -> {ok, Groups} | {error, Reason}</name>
       <fsummary>Lists all the groups.</fsummary>
       <type>
         <v>Options = [Option]</v>
@@ -214,9 +214,9 @@
     </func>
    
     <func>
-      <name>list_group_members(GroupName, Options) -> {ok, Users} | {error, Reason}</name>
-      <name>list_group_members(GroupName, Port, Dir) -> {ok, Users} | {error, Reason}</name>
-      <name>list_group_members(GroupName, Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name since="">list_group_members(GroupName, Options) -> {ok, Users} | {error, Reason}</name>
+      <name since="">list_group_members(GroupName, Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name since="">list_group_members(GroupName, Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
       <fsummary>Lists the members of a group.</fsummary>
       <type>
         <v>GroupName = string()</v>
@@ -240,9 +240,9 @@
     </func>
 
      <func>
-      <name>list_users(Options) -> {ok, Users} | {error, Reason}</name>
-      <name>list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
-      <name>list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name since="">list_users(Options) -> {ok, Users} | {error, Reason}</name>
+      <name since="OTP R14B01">list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name since="">list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
       <fsummary>Lists users in the user database.</fsummary>
       <type>
         <v>Options = [Option]</v>
@@ -264,8 +264,8 @@
     </func>
     
     <func>
-      <name>update_password(Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason}</name>
-      <name>update_password(Address,Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason}</name>
+      <name since="">update_password(Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason}</name>
+      <name since="">update_password(Address,Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason}</name>
       <fsummary>Changes <c>AuthAcessPassword</c>.</fsummary>
       <type>
         <v>Port = integer()</v>

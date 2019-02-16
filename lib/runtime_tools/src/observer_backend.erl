@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ sys_info() ->
      {port_limit, erlang:system_info(port_limit)},
      {port_count, erlang:system_info(port_count)},
      {ets_limit,  erlang:system_info(ets_limit)},
-     {ets_count, length(ets:all())},
+     {ets_count, erlang:system_info(ets_count)},
      {dist_buf_busy_limit, erlang:system_info(dist_buf_busy_limit)}
      | MemInfo].
 

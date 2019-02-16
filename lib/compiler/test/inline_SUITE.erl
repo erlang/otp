@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -42,13 +41,10 @@ groups() ->
        coverage]}].
 
 init_per_suite(Config) ->
-    Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
-    {ok,Node} = start_node(compiler, Pa),
-    [{testing_node,Node}|Config].
+    test_lib:recompile(?MODULE),
+    Config.
 
-end_per_suite(Config) ->
-    Node = proplists:get_value(testing_node, Config),
-    test_server:stop_node(Node),
+end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
@@ -89,26 +85,26 @@ attribute(Config) when is_list(Config) ->
 ?comp(maps_inline_test).
 
 try_inline(Mod, Config) ->
-    Node = proplists:get_value(testing_node, Config),
     Src = filename:join(proplists:get_value(data_dir, Config),
 			atom_to_list(Mod)),
     Out = proplists:get_value(priv_dir,Config),
 
     %% Normal compilation.
     io:format("Compiling: ~s\n", [Src]),
-    {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,clint]),
+    {ok,Mod} = compile:file(Src, [{outdir,Out},report,
+                                  bin_opt_info,clint,ssalint]),
 
     ct:timetrap({minutes,10}),
-    NormalResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
+    NormalResult = load_and_call(Out, Mod),
 
     %% Inlining.
     io:format("Compiling with old inliner: ~s\n", [Src]),
     {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,
-					{inline,1000},clint]),
+                                  {inline,1000},clint,ssalint]),
 
     %% Run inlined code.
     ct:timetrap({minutes,10}),
-    OldInlinedResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
+    OldInlinedResult = load_and_call(Out, Mod),
 
     %% Compare results.
     compare(NormalResult, OldInlinedResult),
@@ -117,11 +113,11 @@ try_inline(Mod, Config) ->
     %% Inlining.
     io:format("Compiling with new inliner: ~s\n", [Src]),
     {ok,Mod} = compile:file(Src, [{outdir,Out},report,
-					bin_opt_info,inline,clint]),
+					bin_opt_info,inline,clint,ssalint]),
 
     %% Run inlined code.
     ct:timetrap({minutes,10}),
-    InlinedResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
+    InlinedResult = load_and_call(Out, Mod),
 
     %% Compare results.
     compare(NormalResult, InlinedResult),
@@ -129,6 +125,11 @@ try_inline(Mod, Config) ->
 
     %% Delete Beam file.
     ok = file:delete(filename:join(Out, atom_to_list(Mod)++code:objfile_extension())),
+
+    %% Delete loaded module.
+    _ = code:purge(Mod),
+    _ = code:delete(Mod),
+    _ = code:purge(Mod),
 
     ok.
 
@@ -142,12 +143,6 @@ compare([H1|_], [H2|_]) ->
     io:format("Normal = ~p, Inlined = ~p\n", [H1,H2]),
     ct:fail(different);
 compare([], []) -> ok.
-
-start_node(Name, Args) ->
-    case test_server:start_node(Name, slave, [{args,Args}]) of
-	{ok,Node} -> {ok, Node};
-	Error  -> ct:fail(Error)
-    end.
 
 load_and_call(Out, Module) ->
     io:format("Loading...\n",[]),
@@ -351,7 +346,8 @@ otp_7223_2({a}) ->
 coverage(Config) when is_list(Config) ->
     Mod = bsdecode,
     Src = filename:join(proplists:get_value(data_dir, Config), Mod),
-    {ok,Mod,_} = compile:file(Src, [binary,report,{inline,0},clint]),
+    {ok,Mod,_} = compile:file(Src, [binary,report,{inline,0},
+                                    clint,ssalint]),
     {ok,Mod,_} = compile:file(Src, [binary,report,{inline,20},
-				    verbose,clint]),
+				    verbose,clint,ssalint]),
     ok.

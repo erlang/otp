@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -362,11 +362,11 @@ is_io_ready(ErtsPollSet *ps)
 }
 
 static ERTS_INLINE void
-woke_up(ErtsPollSet *ps)
+woke_up(ErtsPollSet *ps, int waketype)
 {
     if (erts_atomic32_read_nob(&ps->wakeup_state) == ERTS_POLL_NOT_WOKEN)
 	erts_atomic32_cmpxchg_nob(&ps->wakeup_state,
-				  ERTS_POLL_WOKEN_TIMEDOUT,
+				  waketype,
 				  ERTS_POLL_NOT_WOKEN);
 #ifdef DEBUG
     {
@@ -960,12 +960,12 @@ static int cancel_driver_select(ErtsPollSet *ps, HANDLE event)
 
 void  erts_poll_interrupt(ErtsPollSet *ps, int set /* bool */)
 {
-    HARDTRACEF(("In erts_poll_interrupt(%d)",set));
+    HARDTRACEF(("In erts_poll_interrupt(%p, %d)",ps,set));
     if (!set)
 	reset_interrupt(ps);
     else
 	set_interrupt(ps);
-    HARDTRACEF(("Out erts_poll_interrupt(%d)",set));
+    HARDTRACEF(("Out erts_poll_interrupt(%p, %d)",ps,set));
 }
 
 
@@ -1017,10 +1017,12 @@ ErtsPollEvents erts_poll_control(ErtsPollSet *ps,
 
 int erts_poll_wait(ErtsPollSet *ps,
 		   ErtsPollResFd pr[],
-		   int *len)
+		   int *len,
+                   ErtsThrPrgrData *tpd,
+                   Sint64 timeout_in)
 {
     int no_fds;
-    DWORD timeout = INFINITE;
+    DWORD timeout = timeout_in == -1 ? INFINITE : timeout_in;
     EventData* ev;
     int res = 0;
     int num = 0;
@@ -1051,19 +1053,20 @@ int erts_poll_wait(ErtsPollSet *ps,
 
     if (!erts_atomic32_read_nob(&break_waiter_state)) {
 	HANDLE harr[2] = {ps->event_io_ready, break_happened_event};
-	int num_h = 2;
+	int num_h = 2, handle;
         ERTS_MSACC_PUSH_STATE();
 
 	HARDDEBUGF(("Start waiting %d [%d]",num_h, (int) timeout));
 	ERTS_POLLSET_UNLOCK(ps);
-	erts_thr_progress_prepare_wait(NULL);
+	erts_thr_progress_prepare_wait(tpd);
         ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_SLEEP);
-	WaitForMultipleObjects(num_h, harr, FALSE, timeout);
-	erts_thr_progress_finalize_wait(NULL);
+	handle = WaitForMultipleObjects(num_h, harr, FALSE, timeout);
+	erts_thr_progress_finalize_wait(tpd);
         ERTS_MSACC_POP_STATE();
 	ERTS_POLLSET_LOCK(ps);
 	HARDDEBUGF(("Stop waiting %d [%d]",num_h, (int) timeout));
-	woke_up(ps);
+        if (handle == WAIT_OBJECT_0)
+            woke_up(ps, ERTS_POLL_WOKEN_TIMEDOUT);
     }
 
     ERTS_UNSET_BREAK_REQUESTED;
@@ -1075,7 +1078,10 @@ int erts_poll_wait(ErtsPollSet *ps,
 	erts_mtx_unlock(&break_waiter_lock);
 	switch (break_state) {
 	case  BREAK_WAITER_GOT_BREAK:
+            woke_up(ps, ERTS_POLL_WOKEN_INTR);
 	    ERTS_SET_BREAK_REQUESTED;
+            /* Wake aux thread to get handle break */
+            erts_aux_thread_poke();
 	    break;
 	case  BREAK_WAITER_GOT_HALT:
 	    erts_exit(0,"");

@@ -28,7 +28,7 @@
     <date>1998-02-04</date>
     <rev>A</rev>
   </header>
-  <module>inet</module>
+  <module since="">inet</module>
   <modulesummary>Access to TCP/IP protocols.</modulesummary>
   <description>
     <p>This module provides access to TCP/IP protocols.</p>
@@ -177,6 +177,100 @@ fe80::204:acff:fe17:bf38
       </desc>
     </datatype>
     <datatype>
+      <name name="ancillary_data"/>
+      <desc>
+	<p>
+	  Ancillary data received with the data packet
+	  or read with the socket option
+	  <seealso marker="gen_tcp#type-pktoptions_value">
+	    <c>pktoptions</c>
+	  </seealso>
+	  from a TCP socket.
+	</p>
+	<p>
+	  The value(s) correspond to the currently active socket
+	  <seealso marker="#type-socket_setopt">options</seealso>
+	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
+	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  and
+	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="getifaddrs_ifopts"/>
+      <desc>
+	<p>
+	  Interface address description list returned from
+	  <seealso marker="#getifaddrs/0"><c>getifaddrs/0,1</c></seealso>
+	  for a named interface, translated from the returned
+	  data of the POSIX API function <c>getaddrinfo()</c>.
+	</p>
+        <p>
+	  <c><anno>Hwaddr</anno></c> is hardware dependent,
+	  for example, on Ethernet interfaces it is
+	the 6-byte Ethernet address (MAC address (EUI-48 address)).
+	</p>
+        <p>
+	  The tuples <c>{addr,<anno>Addr</anno>}</c>,
+	  <c>{netmask,<anno>Netmask</anno>}</c>, and possibly
+	  <c>{broadaddr,<anno>Broadaddr</anno>}</c> or
+	  <c>{dstaddr,<anno>Dstaddr</anno>}</c>
+	  are repeated in the list
+	  if the interface has got multiple addresses.
+	  An interface may have multiple <c>{flag,_}</c> tuples
+	  for example if it has different flags
+	  for different address families.
+	  Multiple <c>{hwaddr,<anno>Hwaddr</anno>}</c> tuples
+	  is hard to say anything definite about, though.
+	  The tuple <c>{flag,<anno>Flags</anno>}</c> is mandatory,
+	  all others are optional.
+	</p>
+        <p>
+	  Do not rely too much on the order
+	  of <c><anno>Flags</anno></c> atoms
+          or the <c><anno>Ifopt</anno></c> tuples.
+	  There are however some rules:
+	</p>
+        <list type="bulleted">
+	  <item><p>
+	    A <c>{flag,_}</c> tuple applies to all other tuples that follow.
+	  </p></item>
+          <item><p>
+	    Immediately after <c>{addr,_}</c> follows <c>{netmask,_}</c>.
+	  </p></item>
+          <item><p>
+	    Immediately thereafter may <c>{broadaddr,_}</c> follow
+	    if <c>broadcast</c> is member of <c><anno>Flags</anno></c>,
+	    or <c>{dstaddr,_}</c> if <c>pointtopoint</c>
+	    is member of <c><anno>Flags</anno></c>.
+	    Both <c>{dstaddr,_}</c> and <c>{broadaddr,_}</c>
+	    does not occur for the same <c>{addr,_}</c>.
+	  </p></item>
+          <item><p>
+	    Any <c>{netmask,_}</c>, <c>{broadaddr,_}</c>, or
+            <c>{dstaddr,_}</c> tuples that follow an
+	    <c>{addr,<anno>Addr</anno>}</c>
+            tuple concerns the address <c><anno>Addr</anno></c>.
+	  </p></item>
+        </list>
+        <p>
+	  The tuple <c>{hwaddr,_}</c> is not returned on Solaris, as the
+          hardware address historically belongs to the link layer
+	  and it is not returned by the Solaris API function
+	  <c>getaddrinfo()</c>.
+	</p>
+	<warning>
+	  <p>
+	    On Windows, the data is fetched from different
+	    OS API functions, so the <c><anno>Netmask</anno></c>
+	    and <c><anno>Broadaddr</anno></c> values may be calculated,
+	    just as some <c><anno>Flags</anno></c> values.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="posix"/>
       <desc>
         <p>An atom that is named from the POSIX error codes used in Unix,
@@ -204,7 +298,7 @@ fe80::204:acff:fe17:bf38
 
   <funcs>
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close a socket of any type.</fsummary>
       <desc>
         <p>Closes a socket of any type.</p>
@@ -212,7 +306,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Return a descriptive string for an error reason.</fsummary>
       <desc>
         <p>Returns a diagnostic error string. For possible POSIX values and
@@ -222,7 +316,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="get_rc" arity="0"/>
+      <name name="get_rc" arity="0" since=""/>
       <fsummary>Return a list of IP configuration parameters.</fsummary>
       <desc>
         <p>
@@ -241,7 +335,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="getaddr" arity="2"/>
+      <name name="getaddr" arity="2" since=""/>
       <fsummary>Return the IP address for a host.</fsummary>
       <desc>
         <p>Returns the IP address for <c><anno>Host</anno></c> as a tuple of
@@ -251,7 +345,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="getaddrs" arity="2"/>
+      <name name="getaddrs" arity="2" since=""/>
       <fsummary>Return the IP addresses for a host.</fsummary>
       <desc>
         <p>Returns a list of all IP addresses for <c><anno>Host</anno></c>.
@@ -261,7 +355,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="gethostbyaddr" arity="1"/>
+      <name name="gethostbyaddr" arity="1" since=""/>
       <fsummary>Return a hostent record for the host with the specified
         address.</fsummary>
       <desc>
@@ -270,7 +364,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="gethostbyname" arity="1"/>
+      <name name="gethostbyname" arity="1" since=""/>
       <fsummary>Return a hostent record for the host with the specified name.
       </fsummary>
       <desc>
@@ -282,7 +376,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="gethostbyname" arity="2"/>
+      <name name="gethostbyname" arity="2" since=""/>
       <fsummary>Return a hostent record for the host with the specified name.
       </fsummary>
       <desc>
@@ -292,7 +386,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="gethostname" arity="0"/>
+      <name name="gethostname" arity="0" since=""/>
       <fsummary>Return the local hostname.</fsummary>
       <desc>
         <p>Returns the local hostname. Never fails.</p>
@@ -300,51 +394,81 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="getifaddrs" arity="0"/>
+      <name name="getifaddrs" arity="0" since="OTP R14B01"/>
       <fsummary>Return a list of interfaces and their addresses.</fsummary>
       <desc>
-        <p>Returns a list of 2-tuples containing interface names and the
-          interface addresses. <c><anno>Ifname</anno></c> is a Unicode string.
-          <c><anno>Hwaddr</anno></c> is hardware dependent, for example, on
-          Ethernet interfaces
-          it is the 6-byte Ethernet address (MAC address (EUI-48 address)).</p>
-        <p>The tuples <c>{addr,<anno>Addr</anno>}</c>, <c>{netmask,_}</c>, and
-          <c>{broadaddr,_}</c> are repeated in the result list if the interface
-          has multiple addresses. If you come across an interface with
-          multiple <c>{flag,_}</c> or <c>{hwaddr,_}</c> tuples, you have
-          a strange interface or possibly a bug in this function. The tuple
-          <c>{flag,_}</c> is mandatory, all others are optional.</p>
-        <p>Do not rely too much on the order of <c><anno>Flag</anno></c> atoms
-          or <c><anno>Ifopt</anno></c> tuples. There are however some rules:</p>
-        <list type="bulleted">
-          <item><p>Immediately after
-            <c>{addr,_}</c> follows <c>{netmask,_}</c>.</p></item>
-          <item><p>Immediately thereafter follows <c>{broadaddr,_}</c> if flag
-            <c>broadcast</c> is <em>not</em> set and flag
-            <c>pointtopoint</c> <em>is</em> set.</p></item>
-          <item><p>Any <c>{netmask,_}</c>, <c>{broadaddr,_}</c>, or
-            <c>{dstaddr,_}</c> tuples that follow an <c>{addr,_}</c>
-            tuple concerns that address.</p></item>
-        </list>
-        <p>The tuple <c>{hwaddr,_}</c> is not returned on Solaris, as the
-          hardware address historically belongs to the link layer and only
-          the superuser can read such addresses.</p>
-	<warning>
-	  <p>On Windows, the data is fetched from different OS API functions,
-            so the <c><anno>Netmask</anno></c> and <c><anno>Broadaddr</anno></c>
-            values can be calculated, just as some <c><anno>Flag</anno></c>
-            values. Report flagrant bugs.</p>
-	</warning>
+        <p>
+	  Returns a list of 2-tuples containing interface names and
+	  the interfaces' addresses. <c><anno>Ifname</anno></c>
+	  is a Unicode string and
+	  <c><anno>Ifopts</anno></c> is a list of
+	  interface address description tuples.
+	</p>
+        <p>
+	  The interface address description tuples
+	  are documented under the type of the
+          <seealso marker="#type-getifaddrs_ifopts">
+	    <c><anno>Ifopts</anno></c>
+	  </seealso>
+	  value.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name name="getopts" arity="2"/>
+      <name since="OTP 21.2">getifaddrs(Opts) ->
+        {ok, [{Ifname, Ifopts}]} | {error, Posix}
+      </name>
+      <fsummary>Return a list of interfaces and their addresses.</fsummary>
+      <type>
+	<v>
+	  Opts = [{netns, Namespace}]
+	</v>
+	<v>
+	  Namespace =
+	  <seealso marker="file#type-filename_all">
+	    file:filename_all()
+	  </seealso>
+	</v>
+	<v>Ifname = string()</v>
+	<v>
+	  Ifopts =
+	  <seealso marker="#type-getifaddrs_ifopts">
+	    getifaddrs_ifopts()
+	  </seealso>
+	</v>
+	<v>Posix = <seealso marker="#type-posix">posix()</seealso></v>
+      </type>
+      <desc>
+	<p>
+	  The same as
+	  <seealso marker="#getifaddrs/0"><c>getifaddrs/0</c></seealso>
+	  but the <c>Option</c>
+	  <c>{netns, Namespace}</c> sets a network namespace
+	  for the OS call, on platforms that supports that feature.
+	</p>
+	<p>
+	  See the socket option
+	  <seealso marker="#option-netns">
+	    <c>{netns, Namespace}</c>
+	  </seealso>
+	  under
+	  <seealso marker="#setopts/2"><c>setopts/2</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="getopts" arity="2" since=""/>
       <fsummary>Get one or more options for a socket.</fsummary>
       <desc>
         <p>Gets one or more options for a socket. For a list of available
           options, see
-          <seealso marker="#setopts/2"><c>setopts/2</c></seealso>.</p>
+          <seealso marker="#setopts/2"><c>setopts/2</c></seealso>.
+	  See also the description for the type
+          <seealso marker="gen_tcp#type-pktoptions_value">
+	    <c>gen_tcp:pktoptions_value()</c>
+	  </seealso>.</p>
         <p>The number of elements in the returned
           <c><anno>OptionValues</anno></c>
           list does not necessarily correspond to the number of options
@@ -360,7 +484,7 @@ fe80::204:acff:fe17:bf38
           socket options not (explicitly) supported by the emulator. The
           use of raw socket options makes the code non-portable, but
           allows the Erlang programmer to take advantage of unusual features
-          present on the current platform.</p>
+          present on a particular platform.</p>
         <p><c>RawOptReq</c> consists of tag <c>raw</c> followed
           by the protocol level, the option number, and either a binary
           or the size, in bytes, of the
@@ -405,8 +529,8 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="getstat" arity="1"/>
-      <name name="getstat" arity="2"/>
+      <name name="getstat" arity="1" since=""/>
+      <name name="getstat" arity="2" since=""/>
       <fsummary>Get one or more statistic options for a socket.</fsummary>
       <type name="stat_option"/>
       <desc>
@@ -462,9 +586,9 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="i" arity="0" />
-      <name name="i" arity="1" />
-      <name name="i" arity="2" />
+      <name name="i" arity="0"  since="OTP 21.0"/>
+      <name name="i" arity="1"  since="OTP 21.0"/>
+      <name name="i" arity="2"  since="OTP 21.0"/>
       <fsummary>Displays information and statistics about sockets on the terminal</fsummary>
       <desc>
         <p>
@@ -517,7 +641,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="ntoa" arity="1" />
+      <name name="ntoa" arity="1"  since="OTP R16B02"/>
       <fsummary>Convert IPv6/IPV4 address to ASCII.</fsummary>
       <desc>
 	<p>Parses an
@@ -527,7 +651,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_address" arity="1" />
+      <name name="parse_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv4 or IPv6 address.</fsummary>
       <desc>
 	<p>Parses an IPv4 or IPv6 address string and returns an
@@ -538,7 +662,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_ipv4_address" arity="1" />
+      <name name="parse_ipv4_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv4 address.</fsummary>
       <desc>
 	<p>Parses an IPv4 address string and returns an
@@ -548,7 +672,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_ipv4strict_address" arity="1" />
+      <name name="parse_ipv4strict_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv4 address strict.</fsummary>
       <desc>
 	<p>Parses an IPv4 address string containing four fields, that is,
@@ -559,7 +683,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_ipv6_address" arity="1" />
+      <name name="parse_ipv6_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv6 address.</fsummary>
       <desc>
 	<p>Parses an IPv6 address string and returns an
@@ -570,7 +694,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_ipv6strict_address" arity="1" />
+      <name name="parse_ipv6strict_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv6 address strict.</fsummary>
       <desc>
 	<p>Parses an IPv6 address string and returns an
@@ -580,7 +704,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="ipv4_mapped_ipv6_address" arity="1" />
+      <name name="ipv4_mapped_ipv6_address" arity="1"  since="OTP 21.0"/>
       <fsummary>Convert to and from IPv4-mapped IPv6 address.</fsummary>
       <desc>
 	<p>
@@ -593,7 +717,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_strict_address" arity="1" />
+      <name name="parse_strict_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv4 or IPv6 address strict.</fsummary>
       <desc>
 	<p>Parses an IPv4 or IPv6 address string and returns an
@@ -604,7 +728,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="peername" arity="1"/>
+      <name name="peername" arity="1" since=""/>
       <fsummary>Return the address and port for the other end of a connection.
       </fsummary>
       <desc>
@@ -617,7 +741,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="peernames" arity="1"/>
+      <name name="peernames" arity="1" since="OTP R16B03"/>
       <fsummary>Return all address/port numbers for the other end of a
         connection.</fsummary>
       <desc>
@@ -631,7 +755,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="peernames" arity="2"/>
+      <name name="peernames" arity="2" since="OTP R16B03"/>
       <fsummary>Return all address/port numbers for the other end of a
         connection.</fsummary>
       <desc>
@@ -650,7 +774,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="port" arity="1"/>
+      <name name="port" arity="1" since=""/>
       <fsummary>Return the local port number for a socket.</fsummary>
       <desc>
         <p>Returns the local port number for a socket.</p>
@@ -658,7 +782,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="setopts" arity="2"/>
+      <name name="setopts" arity="2" since=""/>
       <fsummary>Set one or more options for a socket.</fsummary>
       <desc>
         <p>Sets one or more options for a socket.</p>
@@ -734,22 +858,23 @@ get_tcpi_sacked(Sock) ->
           </item>
           <tag><c>{buffer, Size}</c></tag>
           <item>
-            <p>The size of the user-level software buffer used by
-              the driver. 
-              Not to be confused with options <c>sndbuf</c>
+            <p>The size of the user-level buffer used by
+              the driver. Not to be confused with options <c>sndbuf</c>
               and <c>recbuf</c>, which correspond to the
-              Kernel socket buffers. It is recommended
-              to have <c>val(buffer) &gt;= max(val(sndbuf),val(recbuf))</c> to
+              Kernel socket buffers. For TCP it is recommended
+              to have <c>val(buffer) &gt;= val(recbuf)</c> to
               avoid performance issues because of unnecessary copying.
+              For UDP the same recommendation applies, but the max should
+              not be larger than the MTU of the network path.
               <c>val(buffer)</c> is automatically set to the above
-              maximum when values <c>sndbuf</c> or <c>recbuf</c> are set.
-              However, as the sizes set for <c>sndbuf</c> and <c>recbuf</c>
+              maximum when <c>recbuf</c> is set.
+              However, as the size set for <c>recbuf</c>
               usually become larger, you are encouraged to use
               <seealso marker="#getopts/2"><c>getopts/2</c></seealso>
               to analyze the behavior of your operating system.</p>
             <p>Note that this is also the maximum amount of data that can be
-	       received from a single recv call. If you are using higher than 
-	       normal MTU consider setting buffer higher.</p> 
+	       received from a single recv call. If you are using higher than
+	       normal MTU consider setting buffer higher.</p>
           </item>
           <tag><c>{delay_send, Boolean}</c></tag>
           <item>
@@ -882,13 +1007,34 @@ get_tcpi_sacked(Sock) ->
             <marker id="option-linger"></marker>
           </item>
           <tag><c>{linger, {true|false, Seconds}}</c></tag>
-          <item>
+	  <item>
             <p>Determines the time-out, in seconds, for flushing unsent data
-              in the <c>close/1</c> socket call. If the first component of
-              the value tuple is <c>false</c>, the second is ignored. This
-              means that <c>close/1</c> returns immediately, not waiting
-              for data to be flushed. Otherwise, the second component is
-              the flushing time-out, in seconds.</p>
+              in the <c>close/1</c> socket call. </p>
+	    <p>The first component is if linger is enabled, the second component
+	    is the flushing time-out, in seconds. There are 3 alternatives:</p>
+	    <taglist>
+	      <tag><c>{false, _}</c></tag>
+	      <item>
+		<p>close/1 or shutdown/2 returns immediately,
+		not waiting for data to be flushed, with closing
+		happening in the background.</p>
+	      </item>
+	      <tag><c>{true, 0}</c></tag>
+	      <item>
+		<p>Aborts the connection when it is closed.
+		Discards any data still remaining in the send buffers
+		and sends RST to the peer.</p>
+		<p>This avoids TCP's TIME_WAIT state, but leaves open
+		the possibility that another "incarnation" of this connection
+		being created.</p>
+	      </item>
+	      <tag><c>{true, Time} when Time > 0</c></tag>
+	      <item>
+		<p>close/1 or shutdown/2 will not return until
+		all queued messages for the socket have been successfully
+		sent or the linger timeout (Time) has been reached.</p>
+	      </item>
+	    </taglist>
           </item>
           <tag><c>{low_msgq_watermark, Size}</c></tag>
           <item>
@@ -924,20 +1070,29 @@ get_tcpi_sacked(Sock) ->
           </item>
           <tag><c>{mode, Mode :: binary | list}</c></tag>
           <item>
-            <p>Received <c>Packet</c> is delivered as defined by <c>Mode</c>.
+            <p>
+	      Received <c>Packet</c> is delivered as defined by <c>Mode</c>.
             </p>
           </item>
-	  <tag><c>{netns, Namespace :: file:filename_all()}</c></tag>
+	  <tag>
+	    <marker id="option-netns"/>
+	    <c>{netns, Namespace :: file:filename_all()}</c>
+	  </tag>
 	  <item>
-	    <p>Sets a network namespace for the socket. Parameter
+	    <p>
+	      Sets a network namespace for the socket. Parameter
 	      <c>Namespace</c> is a filename defining the namespace, for
 	      example, <c>"/var/run/netns/example"</c>, typically created by
 	      command <c>ip netns add example</c>. This option must be used in
 	      a function call that creates a socket, that is,
 	      <seealso marker="gen_tcp#connect/3"><c>gen_tcp:connect/3,4</c></seealso>,
 	      <seealso marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seealso>,
-	      <seealso marker="gen_udp#open/1"><c>gen_udp:open/1,2</c></seealso>, or
-	    <seealso marker="gen_sctp#open/0"><c>gen_sctp:open/0,1,2</c></seealso>.</p>
+	      <seealso marker="gen_udp#open/1"><c>gen_udp:open/1,2</c></seealso>
+	      or
+	      <seealso marker="gen_sctp#open/0"><c>gen_sctp:open/0,1,2</c></seealso>,
+	      and also
+	      <seealso marker="#getifaddrs/1"><c>getifaddrs/1</c></seealso>.
+	    </p>
 	    <p>This option uses the Linux-specific syscall
 	      <c>setns()</c>, such as in Linux kernel 3.0 or later,
 	      and therefore only exists when the runtime system
@@ -1012,6 +1167,18 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
             <p>If <c>Boolean == true</c>, option <c>TCP_NODELAY</c>
               is turned on for the socket, which means that also small
               amounts of data are sent immediately.</p>
+          </item>
+          <tag><c>{nopush, Boolean}</c>(TCP/IP sockets)</tag>
+          <item>
+            <p>This translates to <c>TCP_NOPUSH</c> on BSD and
+              to <c>TCP_CORK</c> on Linux.</p>
+            <p>If <c>Boolean == true</c>, the corresponding option
+              is turned on for the socket, which means that small
+              amounts of data are accumulated until a full MSS-worth
+              of data is available or this option is turned off.</p>
+            <p>Note that while <c>TCP_NOPUSH</c> socket option is available on OSX, its semantics
+              is very different (e.g., unsetting it does not cause immediate send
+              of accumulated data). Hence, <c>nopush</c> option is intentionally ignored on OSX.</p>
           </item>
           <tag><c>{packet, PacketType}</c>(TCP/IP sockets)</tag>
           <item>
@@ -1114,6 +1281,100 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               the socket. You are encouraged to use
               <seealso marker="#getopts/2"><c>getopts/2</c></seealso>
               to retrieve the size set by your operating system.</p>
+	    <marker id="option-recvtclass"></marker>
+          </item>
+          <tag><c>{recvtclass, Boolean}</c></tag>
+          <item>
+            <p>
+	      If set to <c>true</c> activates returning the received
+	      <c>TCLASS</c> value on platforms that implements
+	      the protocol <c>IPPROTO_IPV6</c>
+	      option <c>IPV6_RECVTCLASS</c> or <c>IPV6_2292RECVTCLASS</c>
+	      for the socket.
+	      The value is returned as a <c>{tclass,TCLASS}</c> tuple
+	      regardless of if the platform returns an <c>IPV6_TCLASS</c>
+	      or an <c>IPV6_RECVTCLASS</c> CMSG value.
+	    </p>
+	    <p>
+	      For packet oriented sockets that supports receiving
+	      ancillary data with the payload data
+	      (<c>gen_udp</c> and <c>gen_sctp</c>),
+	      the <c>TCLASS</c> value is returned
+	      in an extended return tuple contained in an
+	      <seealso marker="inet#type-ancillary_data">
+		ancillary data
+	      </seealso>
+	      list.
+	      For stream oriented sockets (<c>gen_tcp</c>)
+	      the only way to get the <c>TCLASS</c>
+	      value is if the platform supports the
+	      <seealso marker="gen_tcp#type-pktoptions_value">
+		<c>pktoptions</c>
+	      </seealso>
+	      option.
+	    </p>
+	    <marker id="option-recvtos"></marker>
+          </item>
+          <tag><c>{recvtos, Boolean}</c></tag>
+          <item>
+            <p>
+	      If set to <c>true</c> activates returning the received
+	      <c>TOS</c> value on platforms that implements
+	      the protocol <c>IPPROTO_IP</c> option <c>IP_RECVTOS</c>
+	      for the socket.
+	      The value is returned as a <c>{tos,TOS}</c> tuple
+	      regardless of if the platform returns an <c>IP_TOS</c>
+	      or an <c>IP_RECVTOS</c> CMSG value.
+	    </p>
+	    <p>
+	      For packet oriented sockets that supports receiving
+	      ancillary data with the payload data
+	      (<c>gen_udp</c> and <c>gen_sctp</c>),
+	      the <c>TOS</c> value is returned
+	      in an extended return tuple contained in an
+	      <seealso marker="inet#type-ancillary_data">
+		ancillary data
+	      </seealso>
+	      list.
+	      For stream oriented sockets (<c>gen_tcp</c>)
+	      the only way to get the <c>TOS</c>
+	      value is if the platform supports the
+	      <seealso marker="gen_tcp#type-pktoptions_value">
+		<c>pktoptions</c>
+	      </seealso>
+	      option.
+	    </p>
+	    <marker id="option-recvttl"></marker>
+          </item>
+          <tag><c>{recvttl, Boolean}</c></tag>
+          <item>
+            <p>
+	      If set to <c>true</c> activates returning the received
+	      <c>TTL</c> value on platforms that implements
+	      the protocol <c>IPPROTO_IP</c> option <c>IP_RECVTTL</c>
+	      for the socket.
+	      The value is returned as a <c>{ttl,TTL}</c> tuple
+	      regardless of if the platform returns an <c>IP_TTL</c>
+	      or an <c>IP_RECVTTL</c> CMSG value.
+	    </p>
+	    <p>
+	      For packet oriented sockets that supports receiving
+	      ancillary data with the payload data
+	      (<c>gen_udp</c> and <c>gen_sctp</c>),
+	      the <c>TTL</c> value is returned
+	      in an extended return tuple contained in an
+	      <seealso marker="inet#type-ancillary_data">
+		ancillary data
+	      </seealso>
+	      list.
+	      For stream oriented sockets (<c>gen_tcp</c>)
+	      the only way to get the <c>TTL</c>
+	      value is if the platform supports the
+	      <seealso marker="gen_tcp#type-pktoptions_value">
+		<c>pktoptions</c>
+	      </seealso>
+	      option.
+	    </p>
           </item>
           <tag><c>{reuseaddr, Boolean}</c></tag>
           <item>
@@ -1149,7 +1410,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               <seealso marker="gen_tcp#recv/2"><c>gen_tcp:recv/2</c></seealso>
               gets <c>{error, closed}</c>. In active
               mode, the controlling process receives a
-              <c>{tcp_close, Socket}</c> message, indicating that the
+              <c>{tcp_closed, Socket}</c> message, indicating that the
               peer has closed the connection.</p>
             <p>Setting this option to <c>true</c> allows you to
               distinguish between a connection that was closed normally,
@@ -1246,7 +1507,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
     </func>
 
     <func>
-      <name name="sockname" arity="1"/>
+      <name name="sockname" arity="1" since=""/>
       <fsummary>Return the local address and port number for a socket.
       </fsummary>
       <desc>
@@ -1259,7 +1520,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
     </func>
 
     <func>
-      <name name="socknames" arity="1"/>
+      <name name="socknames" arity="1" since="OTP R16B03"/>
       <fsummary>Return all local address/port numbers for a socket.</fsummary>
       <desc>
 	<p>Equivalent to
@@ -1269,7 +1530,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
     </func>
 
     <func>
-      <name name="socknames" arity="2"/>
+      <name name="socknames" arity="2" since="OTP R16B03"/>
       <fsummary>Return all local address/port numbers for a socket.</fsummary>
       <desc>
 	<p>Returns a list of all local address/port number pairs for a socket

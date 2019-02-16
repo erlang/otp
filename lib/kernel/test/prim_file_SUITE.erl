@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1300,7 +1300,8 @@ e_delete(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    %% Remove a character device.
-	    {error, eacces} = ?PRIM_FILE:delete("nul");
+	    expect({error, eacces}, {error, einval},
+                   ?PRIM_FILE:delete("nul"));
 	_ ->
 	    ?PRIM_FILE:write_file_info(
 	       Base, #file_info {mode=0}),

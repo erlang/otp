@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,7 +58,8 @@
 	 otp_10799/1, 
 	 otp_10808/1,
 	 otp_14145/1,
-         otp_13014/1
+         otp_13014/1,
+         otp_14196/1
 	]).
 
 %%----------------------------------------------------------------------
@@ -138,7 +139,7 @@ all() ->
 groups() -> 
     [{tickets, [],
       [otp_6150, otp_8574, otp_8595, otp_10799, otp_10808, otp_14145,
-       otp_13014]}].
+       otp_13014, otp_14196]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -233,14 +234,14 @@ agent_capabilities(Config) when is_list(Config) ->
     AcMib = join(Dir,"AC-TEST-MIB.mib"),
     ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
 						 version,
-						 {i,         [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {i,         [SnmpMibsDir]}, 
 						 {outdir,    Dir}, 
 						 {verbosity, trace}]),
     ?line {ok, Mib1} = snmp_misc:read_mib(MibFile1), 
     ?line {ok, MibFile2} = snmpc:compile(AcMib, [options,
 						 version,
 						 agent_capabilities,
-						 {i,         [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {i,         [SnmpMibsDir]}, 
 						 {outdir,    Dir}, 
 						 {verbosity, trace}]),
     ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
@@ -289,7 +290,7 @@ module_compliance(Config) when is_list(Config) ->
     ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
     MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
     %% This is a rather pathetic test, but it is somthing...
-    io:format("agent_capabilities -> "
+    io:format("module_compliance -> "
 	      "~n   MEDiff: ~p"
 	      "~n   Mib1:   ~p"
 	      "~n   Mib2:   ~p"
@@ -487,6 +488,22 @@ otp_13014(Config) when is_list(Config) ->
        not_accessible = [],
        index_types = {augments,{lldpLocManAddrEntry,undefined}}} =
         TableInfo,
+    ok.
+
+%%======================================================================
+
+otp_14196(suite) ->
+    [];
+otp_14196(Config) when is_list(Config) ->
+    put(tname, otp14196),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir     = ?config(case_top_dir, Config),
+    MibDir  = ?config(mib_dir,      Config),
+    MibFile = join(MibDir, "OTP14196-MIB.mib"),
+    ?line {ok, Mib} =
+	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
+    p("Mib: ~n~p~n", [Mib]),
     ok.
 
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson 2017. All Rights Reserved.
+ * Copyright Ericsson 2017-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -202,21 +202,24 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
     return errno;
 }
 
-int efile_close(efile_data_t *d) {
+int efile_close(efile_data_t *d, posix_errno_t *error) {
     efile_unix_t *u = (efile_unix_t*)d;
     int fd;
 
+    ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
     ASSERT(erts_atomic32_read_nob(&d->state) == EFILE_STATE_CLOSED);
     ASSERT(u->fd != -1);
 
     fd = u->fd;
     u->fd = -1;
 
+    enif_release_resource(d);
+
     /* close(2) either always closes (*BSD, Linux) or leaves the fd in an
      * undefined state (POSIX 2008, Solaris), so we must not retry on EINTR. */
 
     if(close(fd) < 0) {
-        u->common.posix_errno = errno;
+        *error = errno;
         return 0;
     }
 

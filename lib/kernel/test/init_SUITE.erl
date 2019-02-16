@@ -295,7 +295,7 @@ is_real_system(KernelVsn, StdlibVsn) ->
 %% before restart.
 %% ------------------------------------------------
 many_restarts() ->
-    [{timetrap,{minutes,8}}].
+    [{timetrap,{minutes,16}}].
 
 many_restarts(Config) when is_list(Config) ->
     {ok, Node} = loose_node:start(init_test, "", ?DEFAULT_TIMEOUT_SEC),
@@ -315,7 +315,7 @@ loop_restart(N,Node,EHPid) ->
 	    loose_node:stop(Node),
 	    ct:fail(not_stopping)
     end,
-    ok = wait_for(30, Node, EHPid),
+    ok = wait_for(60, Node, EHPid),
     loop_restart(N-1,Node,rpc:call(Node,erlang,whereis,[logger])).
 
 wait_for(0,Node,_) ->
@@ -367,7 +367,8 @@ restart(Config) when is_list(Config) ->
     SysProcs0 = rpc:call(Node, ?MODULE, find_system_processes, []),
     io:format("SysProcs0=~p~n", [SysProcs0]),
     [InitPid, PurgerPid, LitCollectorPid,
-     DirtySigNPid, DirtySigHPid, DirtySigMPid] = SysProcs0,
+     DirtySigNPid, DirtySigHPid, DirtySigMPid,
+     PrimFilePid] = SysProcs0,
     InitPid = rpc:call(Node, erlang, whereis, [init]),
     PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
     Procs = rpc:call(Node, erlang, processes, []),
@@ -385,7 +386,8 @@ restart(Config) when is_list(Config) ->
     SysProcs1 = rpc:call(Node, ?MODULE, find_system_processes, []),
     io:format("SysProcs1=~p~n", [SysProcs1]),
     [InitPid1, PurgerPid1, LitCollectorPid1,
-     DirtySigNPid1, DirtySigHPid1, DirtySigMPid1] = SysProcs1,
+     DirtySigNPid1, DirtySigHPid1, DirtySigMPid1,
+     PrimFilePid1] = SysProcs1,
 
     %% Still the same init process!
     InitPid1 = rpc:call(Node, erlang, whereis, [init]),
@@ -410,6 +412,10 @@ restart(Config) when is_list(Config) ->
     %% and same max dirty signal handler process!
     DirtySigMP = pid_to_list(DirtySigMPid),
     DirtySigMP = pid_to_list(DirtySigMPid1),
+
+    %% and same prim_file helper process!
+    PrimFileP = pid_to_list(PrimFilePid),
+    PrimFileP = pid_to_list(PrimFilePid1),
 
     NewProcs0 = rpc:call(Node, erlang, processes, []),
     NewProcs = NewProcs0 -- SysProcs1,
@@ -437,7 +443,8 @@ restart(Config) when is_list(Config) ->
 		    literal_collector,
 		    dirty_sig_handler_normal,
 		    dirty_sig_handler_high,
-		    dirty_sig_handler_max}).
+		    dirty_sig_handler_max,
+                    prim_file}).
 
 find_system_processes() ->
     find_system_procs(processes(), #sys_procs{}).
@@ -448,10 +455,11 @@ find_system_procs([], SysProcs) ->
      SysProcs#sys_procs.literal_collector,
      SysProcs#sys_procs.dirty_sig_handler_normal,
      SysProcs#sys_procs.dirty_sig_handler_high,
-     SysProcs#sys_procs.dirty_sig_handler_max];
+     SysProcs#sys_procs.dirty_sig_handler_max,
+     SysProcs#sys_procs.prim_file];
 find_system_procs([P|Ps], SysProcs) ->
     case process_info(P, [initial_call, priority]) of
-	[{initial_call,{otp_ring0,start,2}},_] ->
+	[{initial_call,{erl_init,start,2}},_] ->
 	    undefined = SysProcs#sys_procs.init,
 	    find_system_procs(Ps, SysProcs#sys_procs{init = P});
 	[{initial_call,{erts_code_purger,start,0}},_] ->
@@ -472,6 +480,9 @@ find_system_procs([P|Ps], SysProcs) ->
          {priority,max}] ->
 	    undefined = SysProcs#sys_procs.dirty_sig_handler_max,
 	    find_system_procs(Ps, SysProcs#sys_procs{dirty_sig_handler_max = P});
+        [{initial_call,{prim_file,start,0}},_] ->
+	    undefined = SysProcs#sys_procs.prim_file,
+	    find_system_procs(Ps, SysProcs#sys_procs{prim_file = P});
 	_ ->
 	    find_system_procs(Ps, SysProcs)
     end.

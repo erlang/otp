@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -685,7 +685,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 
         /* we send the request to do the fork */
         if ((res = writev(ofd[1], io_vector, iov_len > MAXIOV ? MAXIOV : iov_len)) < 0) {
-            if (errno == ERRNO_BLOCK) {
+            if (errno == ERRNO_BLOCK || errno == EINTR) {
                 res = 0;
             } else {
                 int err = errno;
@@ -732,7 +732,8 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
         proto->u.start.fds[1] = ifd[1];
         proto->u.start.fds[2] = stderrfd;
         proto->u.start.port_id = opts->exit_status ? erts_drvport2id(port_num) : THE_NON_VALUE;
-        if (erl_drv_port_control(forker_port, 'S', (char*)proto, sizeof(*proto))) {
+        if (erl_drv_port_control(forker_port, ERTS_FORKER_DRV_CONTROL_MAGIC_NUMBER,
+                                 (char*)proto, sizeof(*proto))) {
             /* The forker port has been killed, we close both fd's which will
                make open_port throw an epipe error */
             close(ofd[0]);
@@ -758,6 +759,9 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
 {
     ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
     ErtsSysForkerProto *proto = (ErtsSysForkerProto *)buf;
+
+    if (cmd != ERTS_SPAWN_DRV_CONTROL_MAGIC_NUMBER)
+        return -1;
 
     ASSERT(len == sizeof(*proto));
     ASSERT(proto->action == ErtsSysForkerProtoAction_SigChld);
@@ -799,6 +803,8 @@ static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
 {
     int fd = (int)(long)drv_data;
     char resbuff[2*sizeof(Uint32)];
+
+    command -= ERTS_TTYSL_DRV_CONTROL_MAGIC_NUMBER;
     switch (command) {
     case FD_CTRL_OP_GET_WINSIZE:
 	{
@@ -810,7 +816,7 @@ static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
 	}
 	break;
     default:
-	return 0;
+	return -1;
     }
     if (rlen < 2*sizeof(Uint32)) {
 	*rbuf = driver_alloc(2*sizeof(Uint32));
@@ -998,9 +1004,9 @@ static void clear_fd_data(ErtsSysFdData *fdd)
     fdd->psz = 0;
 }
 
-static void nbio_stop_fd(ErlDrvPort prt, ErtsSysFdData *fdd)
+static void nbio_stop_fd(ErlDrvPort prt, ErtsSysFdData *fdd, int use)
 {
-    driver_select(prt, abs(fdd->fd), DO_READ|DO_WRITE, 0);
+    driver_select(prt, abs(fdd->fd), use ? ERL_DRV_USE_NO_CALLBACK : 0|DO_READ|DO_WRITE, 0);
     clear_fd_data(fdd);
     SET_BLOCKING(abs(fdd->fd));
 
@@ -1020,11 +1026,11 @@ static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
 
     if (dd->ifd) {
         sz += sizeof(ErtsSysFdData);
-        nbio_stop_fd(prt, dd->ifd);
+        nbio_stop_fd(prt, dd->ifd, 1);
     }
     if (dd->ofd && dd->ofd != dd->ifd) {
         sz += sizeof(ErtsSysFdData);
-        nbio_stop_fd(prt, dd->ofd);
+        nbio_stop_fd(prt, dd->ofd, 1);
     }
 
      erts_free(ERTS_ALC_T_DRV_TAB, dd);
@@ -1070,12 +1076,12 @@ static void stop(ErlDrvData ev)
     ErlDrvPort prt = dd->port_num;
 
     if (dd->ifd) {
-        nbio_stop_fd(prt, dd->ifd);
+        nbio_stop_fd(prt, dd->ifd, 0);
         driver_select(prt, abs(dd->ifd->fd), ERL_DRV_USE, 0);  /* close(ifd); */
     }
 
     if (dd->ofd && dd->ofd != dd->ifd) {
-	nbio_stop_fd(prt, dd->ofd);
+	nbio_stop_fd(prt, dd->ofd, 0);
 	driver_select(prt, abs(dd->ofd->fd), ERL_DRV_USE, 0);  /* close(ofd); */
     }
 
@@ -1257,6 +1263,8 @@ static int port_inp_failure(ErtsSysDriverData *dd, int res)
         }
        driver_failure_eof(dd->port_num);
     } else if (dd->ifd) {
+        if (dd->alive == -1)
+            errno = dd->status;
         erl_drv_init_ack(dd->port_num, ERL_DRV_ERROR_ERRNO);
     } else {
 	driver_failure_posix(dd->port_num, err);
@@ -1287,10 +1295,10 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
         int res;
 
         if((res = read(ready_fd, &proto, sizeof(proto))) <= 0) {
+            if (res < 0 && (errno == ERRNO_BLOCK || errno == EINTR))
+                return;
             /* hmm, child setup seems to have closed the pipe too early...
                we close the port as there is not much else we can do */
-            if (res < 0 && errno == ERRNO_BLOCK)
-                return;
             driver_select(port_num, ready_fd, ERL_DRV_READ, 0);
             if (res == 0)
                 errno = EPIPE;
@@ -1424,7 +1432,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 		    continue;
 		}
 		else {		/* The last message we got was split */
-		        char *buf = erts_alloc_fnf(ERTS_ALC_T_FD_ENTRY_BUF, h);
+                    char *buf = erts_alloc_fnf(ERTS_ALC_T_FD_ENTRY_BUF, h);
 		    if (!buf) {
 			errno = ENOMEM;
 			port_inp_failure(dd, -1);
@@ -1670,15 +1678,38 @@ static void forker_stop(ErlDrvData e)
        the port has been closed by the user. */
 }
 
+static ErlDrvSizeT forker_deq(ErlDrvPort port_num, ErtsSysForkerProto *proto)
+{
+    close(proto->u.start.fds[0]);
+    close(proto->u.start.fds[1]);
+    if (proto->u.start.fds[1] != proto->u.start.fds[2])
+        close(proto->u.start.fds[2]);
+
+    return driver_deq(port_num, sizeof(*proto));
+}
+
+static void forker_sigchld(Eterm port_id, int error)
+{
+    ErtsSysForkerProto *proto = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, sizeof(*proto));
+    proto->action = ErtsSysForkerProtoAction_SigChld;
+    proto->u.sigchld.error_number = error;
+    proto->u.sigchld.port_id = port_id;
+
+    /* ideally this would be a port_command call, but as command is
+       already used by the spawn_driver, we use control instead.
+       Note that when using erl_drv_port_control it is an asynchronous
+       control. */
+    erl_drv_port_control(port_id, ERTS_SPAWN_DRV_CONTROL_MAGIC_NUMBER,
+                         (char*)proto, sizeof(*proto));
+}
+
 static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
 {
     int res;
-    ErtsSysForkerProto *proto;
+    ErtsSysForkerProto proto;
 
-    proto = erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, sizeof(*proto));
-
-    if ((res = read(fd, proto, sizeof(*proto))) < 0) {
-        if (errno == ERRNO_BLOCK)
+    if ((res = read(fd, &proto, sizeof(proto))) < 0) {
+        if (errno == ERRNO_BLOCK || errno == EINTR)
             return;
         erts_exit(ERTS_DUMP_EXIT, "Failed to read from erl_child_setup: %d\n", errno);
     }
@@ -1686,10 +1717,10 @@ static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
     if (res == 0)
         erts_exit(ERTS_DUMP_EXIT, "erl_child_setup closed\n");
 
-    ASSERT(res == sizeof(*proto));
+    ASSERT(res == sizeof(proto));
 
 #ifdef FORKER_PROTO_START_ACK
-    if (proto->action == ErtsSysForkerProtoAction_StartAck) {
+    if (proto.action == ErtsSysForkerProtoAction_StartAck) {
         /* Ideally we would like to not have to ack each Start
            command being sent over the uds, but it would seem
            that some operating systems (only observed on FreeBSD)
@@ -1699,28 +1730,15 @@ static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
         ErlDrvPort port_num = (ErlDrvPort)e;
         int vlen;
         SysIOVec *iov = driver_peekq(port_num, &vlen);
-        ErtsSysForkerProto *proto = (ErtsSysForkerProto *)iov[0].iov_base;
+        ErtsSysForkerProto *qproto = (ErtsSysForkerProto *)iov[0].iov_base;
 
-        close(proto->u.start.fds[0]);
-        close(proto->u.start.fds[1]);
-        if (proto->u.start.fds[1] != proto->u.start.fds[2])
-            close(proto->u.start.fds[2]);
-
-        driver_deq(port_num, sizeof(*proto));
-
-        if (driver_sizeq(port_num) > 0)
+        if (forker_deq(port_num, qproto))
             driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
     } else
 #endif
     {
-        ASSERT(proto->action == ErtsSysForkerProtoAction_SigChld);
-
-        /* ideally this would be a port_command call, but as command is
-           already used by the spawn_driver, we use control instead.
-           Note that when using erl_drv_port_control it is an asynchronous
-           control. */
-        erl_drv_port_control(proto->u.sigchld.port_id, 'S',
-                             (char*)proto, sizeof(*proto));
+        ASSERT(proto.action == ErtsSysForkerProtoAction_SigChld);
+        forker_sigchld(proto.u.sigchld.port_id, proto.u.sigchld.error_number);
     }
 
 }
@@ -1730,7 +1748,8 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
     ErlDrvPort port_num = (ErlDrvPort)e;
 
 #ifndef FORKER_PROTO_START_ACK
-    while (driver_sizeq(port_num) > 0) {
+    int loops = 10;
+    while (driver_sizeq(port_num) > 0 && --loops) {
 #endif
         int vlen;
         SysIOVec *iov = driver_peekq(port_num, &vlen);
@@ -1738,20 +1757,24 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
         ASSERT(iov[0].iov_len >= (sizeof(*proto)));
         if (sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
                           proto->u.start.fds, 3, 0) < 0) {
-            if (errno == ERRNO_BLOCK)
+            if (errno == ERRNO_BLOCK || errno == EINTR) {
                 return;
-            erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+            } else if (errno == EMFILE) {
+                forker_sigchld(proto->u.start.port_id, errno);
+                if (forker_deq(port_num, proto) == 0)
+                    driver_select(port_num, forker_fd, ERL_DRV_WRITE, 0);
+                return;
+            } else {
+                erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+            }
         }
 #ifndef FORKER_PROTO_START_ACK
-        close(proto->u.start.fds[0]);
-        close(proto->u.start.fds[1]);
-        if (proto->u.start.fds[1] != proto->u.start.fds[2])
-            close(proto->u.start.fds[2]);
-        driver_deq(port_num, sizeof(*proto));
+        if (forker_deq(port_num, proto) == 0)
+            driver_select(port_num, forker_fd, ERL_DRV_WRITE, 0);
     }
-#endif
-
+#else
     driver_select(port_num, forker_fd, ERL_DRV_WRITE, 0);
+#endif
 }
 
 static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
@@ -1761,6 +1784,9 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
     ErtsSysForkerProto *proto = (ErtsSysForkerProto *)buf;
     ErlDrvPort port_num = (ErlDrvPort)e;
     int res;
+
+    if (cmd != ERTS_FORKER_DRV_CONTROL_MAGIC_NUMBER)
+        return -1;
 
     if (first_call) {
         /*
@@ -1777,20 +1803,21 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
 
     if ((res = sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
                              proto->u.start.fds, 3, 0)) < 0) {
-        if (errno == ERRNO_BLOCK) {
+        if (errno == ERRNO_BLOCK || errno == EINTR) {
             driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
             return 0;
+        } else if (errno == EMFILE) {
+            forker_sigchld(proto->u.start.port_id, errno);
+            forker_deq(port_num, proto);
+            return 0;
+        } else {
+            erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
         }
-        erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
     }
 
 #ifndef FORKER_PROTO_START_ACK
     ASSERT(res == sizeof(*proto));
-    close(proto->u.start.fds[0]);
-    close(proto->u.start.fds[1]);
-    if (proto->u.start.fds[1] != proto->u.start.fds[2])
-        close(proto->u.start.fds[2]);
-    driver_deq(port_num, sizeof(*proto));
+    forker_deq(port_num, proto);
 #endif
 
     return 0;

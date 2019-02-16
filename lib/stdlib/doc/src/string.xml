@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>string.xml</file>
   </header>
-  <module>string</module>
+  <module since="">string</module>
   <modulesummary>String processing functions.</modulesummary>
   <description>
     <p>This module provides functions for string processing.</p>
@@ -130,7 +130,7 @@
   <funcs>
 
     <func>
-      <name name="casefold" arity="1"/>
+      <name name="casefold" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to a comparable string.</fsummary>
       <desc>
         <p>
@@ -147,7 +147,7 @@
     </func>
 
     <func>
-      <name name="chomp" arity="1"/>
+      <name name="chomp" arity="1" since="OTP 20.0"/>
       <fsummary>Remove trailing end of line control characters.</fsummary>
       <desc>
         <p>
@@ -164,9 +164,9 @@
     </func>
 
     <func>
-      <name name="equal" arity="2"/>
-      <name name="equal" arity="3"/>
-      <name name="equal" arity="4"/>
+      <name name="equal" arity="2" since=""/>
+      <name name="equal" arity="3" since="OTP 20.0"/>
+      <name name="equal" arity="4" since="OTP 20.0"/>
       <fsummary>Test string equality.</fsummary>
       <desc>
         <p>
@@ -201,8 +201,8 @@ true</pre>
     </func>
 
     <func>
-      <name name="find" arity="2"/>
-      <name name="find" arity="3"/>
+      <name name="find" arity="2" since="OTP 20.0"/>
+      <name name="find" arity="3" since="OTP 20.0"/>
       <fsummary>Find start of substring.</fsummary>
       <desc>
         <p>
@@ -230,7 +230,7 @@ nomatch</pre>
     </func>
 
     <func>
-      <name name="is_empty" arity="1"/>
+      <name name="is_empty" arity="1" since="OTP 20.0"/>
       <fsummary>Check if the string is empty.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>String</anno></c> is the
@@ -245,7 +245,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="length" arity="1"/>
+      <name name="length" arity="1" since="OTP 20.0"/>
       <fsummary>Calculate length of the string.</fsummary>
       <desc>
         <p>
@@ -261,7 +261,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="lexemes" arity="2"/>
+      <name name="lexemes" arity="2" since="OTP 20.0"/>
       <fsummary>Split string into lexemes.</fsummary>
       <desc>
 	<p>
@@ -287,7 +287,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="lowercase" arity="1"/>
+      <name name="lowercase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to lowercase</fsummary>
       <desc>
         <p>
@@ -306,7 +306,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="next_codepoint" arity="1"/>
+      <name name="next_codepoint" arity="1" since="OTP 20.0"/>
       <fsummary>Pick the first codepoint.</fsummary>
       <desc>
         <p>
@@ -323,7 +323,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="next_grapheme" arity="1"/>
+      <name name="next_grapheme" arity="1" since="OTP 20.0"/>
       <fsummary>Pick the first grapheme cluster.</fsummary>
       <desc>
         <p>
@@ -340,7 +340,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="nth_lexeme" arity="3"/>
+      <name name="nth_lexeme" arity="3" since="OTP 20.0"/>
       <fsummary>Pick the nth lexeme.</fsummary>
       <desc>
 	<p>Returns lexeme number <c><anno>N</anno></c> in
@@ -355,9 +355,9 @@ true</pre>
     </func>
 
     <func>
-      <name name="pad" arity="2"/>
-      <name name="pad" arity="3"/>
-      <name name="pad" arity="4"/>
+      <name name="pad" arity="2" since="OTP 20.0"/>
+      <name name="pad" arity="3" since="OTP 20.0"/>
+      <name name="pad" arity="4" since="OTP 20.0"/>
       <fsummary>Pad a string to given length.</fsummary>
       <desc>
         <p>
@@ -381,7 +381,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="prefix" arity="2"/>
+      <name name="prefix" arity="2" since="OTP 20.0"/>
       <fsummary>Remove prefix from string.</fsummary>
       <desc>
         <p>
@@ -400,8 +400,8 @@ nomatch</pre>
     </func>
 
     <func>
-      <name name="replace" arity="3"/>
-      <name name="replace" arity="4"/>
+      <name name="replace" arity="3" since="OTP 20.0"/>
+      <name name="replace" arity="4" since="OTP 20.0"/>
       <fsummary>Replace a pattern in string.</fsummary>
       <desc>
         <p>
@@ -423,7 +423,7 @@ nomatch</pre>
     </func>
 
     <func>
-      <name name="reverse" arity="1"/>
+      <name name="reverse" arity="1" since="OTP 20.0"/>
       <fsummary>Reverses a string</fsummary>
       <desc>
         <p>
@@ -439,8 +439,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="slice" arity="2"/>
-      <name name="slice" arity="3"/>
+      <name name="slice" arity="2" since="OTP 20.0"/>
+      <name name="slice" arity="3" since="OTP 20.0"/>
       <fsummary>Extract a part of string</fsummary>
       <desc>
 	<p>Returns a substring of <c><anno>String</anno></c> of
@@ -459,8 +459,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="split" arity="2"/>
-      <name name="split" arity="3"/>
+      <name name="split" arity="2" since="OTP 20.0"/>
+      <name name="split" arity="3" since="OTP 20.0"/>
       <fsummary>Split a string into substrings.</fsummary>
       <desc>
         <p>
@@ -482,9 +482,9 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="take" arity="2"/>
-      <name name="take" arity="3"/>
-      <name name="take" arity="4"/>
+      <name name="take" arity="2" since="OTP 20.0"/>
+      <name name="take" arity="3" since="OTP 20.0"/>
+      <name name="take" arity="4" since="OTP 20.0"/>
       <fsummary>Take leading or trailing parts.</fsummary>
       <desc>
         <p>Takes characters from <c><anno>String</anno></c> as long as
@@ -508,7 +508,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="titlecase" arity="1"/>
+      <name name="titlecase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to titlecase.</fsummary>
       <desc>
         <p>
@@ -522,7 +522,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="to_float" arity="1"/>
+      <name name="to_float" arity="1" since=""/>
       <fsummary>Return a float whose text representation is the integers
         (ASCII values) of a string.</fsummary>
       <desc>
@@ -544,7 +544,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="to_integer" arity="1"/>
+      <name name="to_integer" arity="1" since=""/>
       <fsummary>Return an integer whose text representation is the integers
         (ASCII values) of a string.</fsummary>
       <desc>
@@ -566,7 +566,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="to_graphemes" arity="1"/>
+      <name name="to_graphemes" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to a list of grapheme clusters.</fsummary>
       <desc>
         <p>
@@ -582,9 +582,9 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="trim" arity="1"/>
-      <name name="trim" arity="2"/>
-      <name name="trim" arity="3"/>
+      <name name="trim" arity="1" since="OTP 20.0"/>
+      <name name="trim" arity="2" since="OTP 20.0"/>
+      <name name="trim" arity="3" since="OTP 20.0"/>
       <fsummary>Trim leading or trailing, or both, characters.</fsummary>
       <desc>
 	<p>
@@ -616,7 +616,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="uppercase" arity="1"/>
+      <name name="uppercase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to uppercase.</fsummary>
       <desc>
         <p>
@@ -649,8 +649,8 @@ ÖÄÅ</pre>
 
   <funcs>
     <func>
-      <name name="centre" arity="2"/>
-      <name name="centre" arity="3"/>
+      <name name="centre" arity="2" since=""/>
+      <name name="centre" arity="3" since=""/>
       <fsummary>Center a string.</fsummary>
       <desc>
         <p>Returns a string, where <c><anno>String</anno></c> is centered in the
@@ -664,8 +664,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="chars" arity="2"/>
-      <name name="chars" arity="3"/>
+      <name name="chars" arity="2" since=""/>
+      <name name="chars" arity="3" since=""/>
       <fsummary>Return a string consisting of numbers of characters.</fsummary>
       <desc>
         <p>Returns a string consisting of <c><anno>Number</anno></c> characters
@@ -678,7 +678,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="chr" arity="2"/>
+      <name name="chr" arity="2" since=""/>
       <fsummary>Return the index of the first occurrence of
         a character in a string.</fsummary>
       <desc>
@@ -692,7 +692,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="concat" arity="2"/>
+      <name name="concat" arity="2" since=""/>
       <fsummary>Concatenate two strings.</fsummary>
       <desc>
         <p>Concatenates <c><anno>String1</anno></c> and
@@ -712,7 +712,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="copies" arity="2"/>
+      <name name="copies" arity="2" since=""/>
       <fsummary>Copy a string.</fsummary>
       <desc>
         <p>Returns a string containing <c><anno>String</anno></c> repeated
@@ -724,7 +724,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="cspan" arity="2"/>
+      <name name="cspan" arity="2" since=""/>
       <fsummary>Span characters at start of a string.</fsummary>
       <desc>
         <p>Returns the length of the maximum initial segment of
@@ -741,7 +741,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="join" arity="2"/>
+      <name name="join" arity="2" since=""/>
       <fsummary>Join a list of strings with separator.</fsummary>
       <desc>
         <p>Returns a string with the elements of <c><anno>StringList</anno></c>
@@ -757,8 +757,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="left" arity="2"/>
-      <name name="left" arity="3"/>
+      <name name="left" arity="2" since=""/>
+      <name name="left" arity="3" since=""/>
       <fsummary>Adjust left end of a string.</fsummary>
       <desc>
         <p>Returns <c><anno>String</anno></c> with the length adjusted in
@@ -778,7 +778,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="len" arity="1"/>
+      <name name="len" arity="1" since=""/>
       <fsummary>Return the length of a string.</fsummary>
       <desc>
         <p>Returns the number of characters in <c><anno>String</anno></c>.</p>
@@ -789,7 +789,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="rchr" arity="2"/>
+      <name name="rchr" arity="2" since=""/>
       <fsummary>Return the index of the last occurrence of
         a character in a string.</fsummary>
       <desc>
@@ -803,8 +803,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="right" arity="2"/>
-      <name name="right" arity="3"/>
+      <name name="right" arity="2" since=""/>
+      <name name="right" arity="3" since=""/>
       <fsummary>Adjust right end of a string.</fsummary>
       <desc>
         <p>Returns <c><anno>String</anno></c> with the length adjusted in
@@ -823,7 +823,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="rstr" arity="2"/>
+      <name name="rstr" arity="2" since=""/>
       <fsummary>Find the index of a substring.</fsummary>
       <desc>
         <p>Returns the position where the last occurrence of
@@ -841,7 +841,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="span" arity="2"/>
+      <name name="span" arity="2" since=""/>
       <fsummary>Span characters at start of a string.</fsummary>
       <desc>
         <p>Returns the length of the maximum initial segment of
@@ -858,7 +858,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="str" arity="2"/>
+      <name name="str" arity="2" since=""/>
       <fsummary>Find the index of a substring.</fsummary>
       <desc>
         <p>Returns the position where the first occurrence of
@@ -876,9 +876,9 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="strip" arity="1"/>
-      <name name="strip" arity="2"/>
-      <name name="strip" arity="3"/>
+      <name name="strip" arity="1" since=""/>
+      <name name="strip" arity="2" since=""/>
+      <name name="strip" arity="3" since=""/>
       <fsummary>Strip leading or trailing characters.</fsummary>
       <desc>
         <p>Returns a string, where leading or trailing, or both, blanks or a
@@ -898,8 +898,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="sub_string" arity="2"/>
-      <name name="sub_string" arity="3"/>
+      <name name="sub_string" arity="2" since=""/>
+      <name name="sub_string" arity="3" since=""/>
       <fsummary>Extract a substring.</fsummary>
       <desc>
         <p>Returns a substring of <c><anno>String</anno></c>, starting at
@@ -916,8 +916,8 @@ sub_string("Hello World", 4, 8).
     </func>
 
     <func>
-      <name name="substr" arity="2"/>
-      <name name="substr" arity="3"/>
+      <name name="substr" arity="2" since=""/>
+      <name name="substr" arity="3" since=""/>
       <fsummary>Return a substring of a string.</fsummary>
       <desc>
         <p>Returns a substring of <c><anno>String</anno></c>, starting at
@@ -934,8 +934,8 @@ sub_string("Hello World", 4, 8).
     </func>
 
     <func>
-      <name name="sub_word" arity="2"/>
-      <name name="sub_word" arity="3"/>
+      <name name="sub_word" arity="2" since=""/>
+      <name name="sub_word" arity="3" since=""/>
       <fsummary>Extract subword.</fsummary>
       <desc>
         <p>Returns the word in position <c><anno>Number</anno></c> of
@@ -952,10 +952,10 @@ sub_string("Hello World", 4, 8).
     </func>
 
     <func>
-      <name name="to_lower" arity="1" clause_i="1"/>
-      <name name="to_lower" arity="1" clause_i="2"/>
-      <name name="to_upper" arity="1" clause_i="1"/>
-      <name name="to_upper" arity="1" clause_i="2"/>
+      <name name="to_lower" arity="1" clause_i="1" since=""/>
+      <name name="to_lower" arity="1" clause_i="2" since=""/>
+      <name name="to_upper" arity="1" clause_i="1" since=""/>
+      <name name="to_upper" arity="1" clause_i="2" since=""/>
       <fsummary>Convert case of string (ISO/IEC 8859-1).</fsummary>
       <type variable="String" name_i="1"/>
       <type variable="Result" name_i="1"/>
@@ -974,7 +974,7 @@ sub_string("Hello World", 4, 8).
     </func>
 
     <func>
-      <name name="tokens" arity="2"/>
+      <name name="tokens" arity="2" since=""/>
       <fsummary>Split string into tokens.</fsummary>
       <desc>
         <p>Returns a list of tokens in <c><anno>String</anno></c>, separated
@@ -994,8 +994,8 @@ sub_string("Hello World", 4, 8).
     </func>
 
     <func>
-      <name name="words" arity="1"/>
-      <name name="words" arity="2"/>
+      <name name="words" arity="1" since=""/>
+      <name name="words" arity="2" since=""/>
       <fsummary>Count blank separated words.</fsummary>
       <desc>
         <p>Returns the number of words in <c><anno>String</anno></c>, separated

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,8 +45,9 @@
 	 api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1,
 	 resource_takeover/1,
-	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1,
-	 is_checks/1,
+	 threading/1, send/1, send2/1, send3/1, send_threaded/1,
+         send_trace/1, send_seq_trace/1,
+         neg/1, is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
 	 otp_9828/1,
 	 otp_9668/1, consume_timeslice/1, nif_schedule/1,
@@ -484,91 +485,118 @@ t_on_load(Config) when is_list(Config) ->
 -define(ERL_NIF_SELECT_READ, (1 bsl 0)).
 -define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
 -define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
+-define(ERL_NIF_SELECT_CANCEL, (1 bsl 3)).
+-define(ERL_NIF_SELECT_CUSTOM_MSG, (1 bsl 4)).
 
 -define(ERL_NIF_SELECT_STOP_CALLED, (1 bsl 0)).
 -define(ERL_NIF_SELECT_STOP_SCHEDULED, (1 bsl 1)).
 -define(ERL_NIF_SELECT_INVALID_EVENT, (1 bsl 2)).
 -define(ERL_NIF_SELECT_FAILED, (1 bsl 3)).
-
+-define(ERL_NIF_SELECT_READ_CANCELLED, (1 bsl 4)).
+-define(ERL_NIF_SELECT_WRITE_CANCELLED, (1 bsl 5)).
 
 select(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
+    select_do(0, make_ref(), make_ref(), null),
 
-    Ref = make_ref(),
-    Ref2 = make_ref(),
+    RefBin = list_to_binary(lists:duplicate(100, $x)),
+    [select_do(?ERL_NIF_SELECT_CUSTOM_MSG,
+               small, {a, tuple, with, "some", RefBin}, MSG_ENV)
+     || MSG_ENV <- [null, alloc_env]],
+    ok.
+
+select_do(Flag, Ref, Ref2, MSG_ENV) ->
+    io:format("select_do(~p, ~p, ~p)\n", [Ref, Ref2, MSG_ENV]),
+
     {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
     ok = write_nif(W, <<"hej">>),
     <<"hej">> = read_nif(R, 3),
 
     %% Wait for read
     eagain = read_nif(R, 3),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag, R,null,Ref,MSG_ENV),
     [] = flush(0),
     ok = write_nif(W, <<"hej">>),
-    [{select, R, Ref, ready_input}] = flush(),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
-    [{select, R, Ref2, ready_input}] = flush(),
+    receive_ready(R, Ref, ready_input),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag,R,self(),Ref2,MSG_ENV),
+    receive_ready(R, Ref2, ready_input),
     Papa = self(),
     Pid = spawn_link(fun() ->
-                             [{select, R, Ref, ready_input}] = flush(),
+                             receive_ready(R, Ref, ready_input),
                              Papa ! {self(), done}
                      end),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Pid,Ref),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, Pid, Ref,MSG_ENV),
     {Pid, done} = receive_any(1000),
+
+    %% Cancel read
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref,null),
     <<"hej">> = read_nif(R, 3),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref, MSG_ENV),
+    ?ERL_NIF_SELECT_READ_CANCELLED =
+        select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref,null),
+    ok = write_nif(W, <<"hej again">>),
+    [] = flush(0),
+    <<"hej again">> = read_nif(R, 9),
 
     %% Wait for write
     Written = write_full(W, $a),
-    0 = select_nif(W,?ERL_NIF_SELECT_WRITE,W,self(),Ref),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, self(), Ref, MSG_ENV),
     [] = flush(0),
     Written = read_nif(R,byte_size(Written)),
-    [{select, W, Ref, ready_output}] = flush(),
+    receive_ready(W, Ref, ready_output),
+
+    %% Cancel write
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref, null),
+    Written2 = write_full(W, $b),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, null, Ref, MSG_ENV),
+    ?ERL_NIF_SELECT_WRITE_CANCELLED =
+        select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref, null),
+    Written2 = read_nif(R,byte_size(Written2)),
+    [] = flush(0),
 
     %% Close write and wait for EOF
     eagain = read_nif(R, 1),
-    check_stop_ret(select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref)),
+    check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref, null)),
     [{fd_resource_stop, W_ptr, _}] = flush(),
     {1, {W_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(W),
     [] = flush(0),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref),
-    [{select, R, Ref, ready_input}] = flush(),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref, MSG_ENV),
+    receive_ready(R, Ref, ready_input),
     eof = read_nif(R,1),
 
-    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref)),
+    check_stop_ret(select_nif(R, ?ERL_NIF_SELECT_STOP, R, null, Ref, null)),
     [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
-    select_2(Config).
+    select_2(Flag, Ref, Ref2, MSG_ENV).
 
-select_2(Config) ->
+select_2(Flag, Ref1, Ref2, MSG_ENV) ->
     erlang:garbage_collect(),
     {_,_,2} = last_resource_dtor_call(),
 
-    Ref1 = make_ref(),
-    Ref2 = make_ref(),
     {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
 
     %% Change ref
     eagain = read_nif(R, 1),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1, MSG_ENV),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref2, MSG_ENV),
 
     [] = flush(0),
     ok = write_nif(W, <<"hej">>),
-    [{select, R, Ref2, ready_input}] = flush(),
+    receive_ready(R, Ref2, ready_input),
     <<"hej">> = read_nif(R, 3),
 
     %% Change pid
     eagain = read_nif(R, 1),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1, MSG_ENV),
     Papa = self(),
     spawn_link(fun() ->
-                       0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
+                       0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1, MSG_ENV),
                        [] = flush(0),
                        Papa ! sync,
-                       [{select, R, Ref1, ready_input}] = flush(),
+                       receive_ready(R, Ref1, ready_input),
                        <<"hej">> = read_nif(R, 3),
                        Papa ! done
                end),
@@ -577,23 +605,29 @@ select_2(Config) ->
     done = receive_any(),
     [] = flush(0),
 
-    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref1)),
+    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref1, null)),
     [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
     %% Stop without previous read/write select
-    ?ERL_NIF_SELECT_STOP_CALLED = select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref1),
+    ?ERL_NIF_SELECT_STOP_CALLED = select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref1,null),
     [{fd_resource_stop, W_ptr, 1}] = flush(),
     {1, {W_ptr,1}} = last_fd_stop_call(),
     true = is_closed_nif(W),
 
-    select_3(Config).
+    select_3().
 
-select_3(_Config) ->
+select_3() ->
     erlang:garbage_collect(),
     {_,_,2} = last_resource_dtor_call(),
     ok.
+
+receive_ready(R, Ref, IOatom) when is_reference(Ref) ->
+    [{select, R, Ref, IOatom}] = flush();
+receive_ready(_, Msg, _) ->
+    [Got] = flush(),
+    {true,_,_} = {Got=:=Msg, Got, Msg}.
 
 %% @doc The stealing child process for the select_steal test. Duplicates given
 %% W/RFds and runs select on them to steal
@@ -603,7 +637,7 @@ select_steal_child_process(Parent, RFd) ->
     Ref2 = make_ref(),
 
     %% Try to select from the child pid (steal from parent)
-    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2)),
+    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2, null)),
     ?assertEqual([], flush(0)),
     ?assertEqual(eagain, read_nif(R2Fd, 1)),
 
@@ -611,7 +645,7 @@ select_steal_child_process(Parent, RFd) ->
     Parent ! {self(), stage1}, % signal parent to send the <<"stolen1">>
 
     %% Receive <<"stolen1">> via enif_select
-    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2)),
+    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2, null)),
     ?assertMatch([{select, R2Fd, Ref2, ready_input}], flush()),
     ?assertEqual(<<"stolen1">>, read_nif(R2Fd, 7)),
 
@@ -629,7 +663,7 @@ select_steal(Config) when is_list(Config) ->
     {{RFd, RPtr}, {WFd, WPtr}} = pipe_nif(),
 
     %% Bind the socket to current pid in enif_select
-    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, null, Ref)),
+    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, null, Ref, null)),
     ?assertEqual([], flush(0)),
 
     %% Spawn a process and do some stealing
@@ -643,15 +677,15 @@ select_steal(Config) when is_list(Config) ->
     ?assertMatch([{Pid, done}], flush(1)),  % synchronize with the child
 
     %% Try to select from the parent pid (steal back)
-    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, Pid, Ref)),
+    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, Pid, Ref, null)),
 
     %% Ensure that no data is hanging and close.
     %% Rfd is stolen at this point.
-    check_stop_ret(select_nif(WFd, ?ERL_NIF_SELECT_STOP, WFd, null, Ref)),
+    check_stop_ret(select_nif(WFd, ?ERL_NIF_SELECT_STOP, WFd, null, Ref, null)),
     ?assertMatch([{fd_resource_stop, WPtr, _}], flush()),
     {1, {WPtr, 1}} = last_fd_stop_call(),
 
-    check_stop_ret(select_nif(RFd, ?ERL_NIF_SELECT_STOP, RFd, null, Ref)),
+    check_stop_ret(select_nif(RFd, ?ERL_NIF_SELECT_STOP, RFd, null, Ref, null)),
     ?assertMatch([{fd_resource_stop, RPtr, _}], flush()),
     {1, {RPtr, _DirectCall}} = last_fd_stop_call(),
 
@@ -788,8 +822,11 @@ demonitor_process(Config) ->
                      end),
     R_ptr = alloc_monitor_resource_nif(),
     {0,MonBin1} = monitor_process_nif(R_ptr, Pid, true, self()),
+    MonTerm1 = make_monitor_term_nif(MonBin1),
     [R_ptr] = monitored_by(Pid),
     {0,MonBin2} = monitor_process_nif(R_ptr, Pid, true, self()),
+    MonTerm2 = make_monitor_term_nif(MonBin2),
+    true = (MonTerm1 =/= MonTerm2),
     [R_ptr, R_ptr] = monitored_by(Pid),
     0 = demonitor_process_nif(R_ptr, MonBin1),
     [R_ptr] = monitored_by(Pid),
@@ -803,6 +840,10 @@ demonitor_process(Config) ->
     {R_ptr, _, 1} = last_resource_dtor_call(),
     [] = monitored_by(Pid),
     Pid ! return,
+
+    erlang:garbage_collect(),
+    true = (MonTerm1 =/= MonTerm2),
+    io:format("MonTerm1 = ~p\nMonTerm2 = ~p\n", [MonTerm1, MonTerm2]),
     ok.
 
 
@@ -1173,6 +1214,15 @@ maps(Config) when is_list(Config) ->
     M1 = maps_from_list_nif(maps:to_list(M1)),
     M2 = maps_from_list_nif(maps:to_list(M2)),
     M3 = maps_from_list_nif(maps:to_list(M3)),
+
+    %% Test different map sizes (OTP-15567)
+    repeat_while(fun({35,_}) -> false;
+                    ({K,Map}) ->
+                         Map = maps_from_list_nif(maps:to_list(Map)),
+                         Map = maps:filter(fun(K,V) -> V =:= K*100 end, Map),
+                         {K+1, maps:put(K,K*100,Map)}
+                 end,
+                 {1,#{}}),
 
     has_duplicate_keys = maps_from_list_nif([{1,1},{1,1}]),
 
@@ -1788,6 +1838,59 @@ send(Config) when is_list(Config) ->
     {'DOWN', DeadMon, process, DeadPid, normal} = receive_any(),
     {ok,0} = send_list_seq(7, DeadPid),
     ok.
+
+
+%% Test tracing of enif_send
+send_trace(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Papa = self(),
+    N = 1500,
+    List = lists:seq(1,N),
+
+    Tracer = spawn_link(fun F() -> receive get -> Papa ! receive_any(), F() end end),
+
+    erlang:trace(self(), true, [send,'receive',{tracer,Tracer}]),
+    {ok,1} = send_list_seq(N, self()),
+    List = receive_any(),
+    timeout = receive_any(0),
+    Tracer ! get,
+    {trace,Papa,send,List,Papa} = receive_any(),
+    Tracer ! get,
+    {trace,Papa,'receive',List} = receive_any().
+
+%% Test that seq_trace works with nif trace
+send_seq_trace(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    Papa = self(),
+    N = 1500,
+    List = lists:seq(1,N),
+    Label = make_ref(),
+
+    Tracer = spawn_link(fun F() -> receive get -> Papa ! receive_any(), F() end end),
+
+    seq_trace:set_system_tracer(Tracer),
+    seq_trace:set_token(label,Label),
+    seq_trace:set_token(send,true),
+    seq_trace:set_token('receive',true),
+
+    {ok,1} = send_list_seq(N, self()),
+    List = receive_any(),
+    timeout = receive_any(0),
+    {ok,1} = send_list_seq(N, self()),
+    List = receive_any(),
+    timeout = receive_any(0),
+
+    Tracer ! get,
+    {seq_trace,Label,{send,{0,1},Papa,Papa,List}} = receive_any(),
+    Tracer ! get,
+    {seq_trace,Label,{'receive',{0,1},Papa,Papa,List}} = receive_any(),
+    Tracer ! get,
+    {seq_trace,Label,{send,{1,2},Papa,Papa,List}} = receive_any(),
+    Tracer ! get,
+    {seq_trace,Label,{'receive',{1,2},Papa,Papa,List}} = receive_any().
+
 
 %% More NIF message sending
 send2(Config) when is_list(Config) ->
@@ -2416,6 +2519,13 @@ repeat(0, _, Arg) ->
     Arg;
 repeat(N, Fun, Arg0) ->
     repeat(N-1, Fun, Fun(Arg0)).
+
+repeat_while(Fun, Acc0) ->
+    case Fun(Acc0) of
+        false -> ok;
+        Acc1 ->
+            repeat_while(Fun, Acc1)
+    end.
 
 check(Exp,Got,Line) ->
     case Got of
@@ -3322,7 +3432,7 @@ term_to_binary_nif(_, _) -> ?nif_stub.
 binary_to_term_nif(_, _, _) -> ?nif_stub.
 port_command_nif(_, _) -> ?nif_stub.
 format_term_nif(_,_) -> ?nif_stub.
-select_nif(_,_,_,_,_) -> ?nif_stub.
+select_nif(_,_,_,_,_,_) -> ?nif_stub.
 dupe_resource_nif(_) -> ?nif_stub.
 pipe_nif() -> ?nif_stub.
 write_nif(_,_) -> ?nif_stub.
@@ -3334,6 +3444,7 @@ alloc_monitor_resource_nif() -> ?nif_stub.
 monitor_process_nif(_,_,_,_) -> ?nif_stub.
 demonitor_process_nif(_,_) -> ?nif_stub.
 compare_monitors_nif(_,_) -> ?nif_stub.
+make_monitor_term_nif(_) -> ?nif_stub.
 monitor_frenzy_nif(_,_,_,_) -> ?nif_stub.
 ioq_nif(_) -> ?nif_stub.
 ioq_nif(_,_) -> ?nif_stub.

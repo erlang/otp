@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>yecc.sgml</file>
   </header>
-  <module>yecc</module>
+  <module since="">yecc</module>
   <modulesummary>LALR-1 Parser Generator</modulesummary>
   <description>
     <p>An LALR-1 parser generator for Erlang, similar to <c>yacc</c>.
@@ -46,7 +46,7 @@
   </description>
   <funcs>
     <func>
-      <name>file(Grammarfile [, Options]) -> YeccRet</name>
+      <name since="">file(Grammarfile [, Options]) -> YeccRet</name>
       <fsummary>Give information about resolved and unresolved parse action conflicts.</fsummary>
       <type>
         <v>Grammarfile = filename()</v>
@@ -137,7 +137,7 @@
       </desc>
     </func>
     <func>
-      <name>format_error(Reason) -> Chars</name>
+      <name since="">format_error(Reason) -> Chars</name>
       <fsummary>Return an English description of a an error tuple.</fsummary>
       <type>
         <v>Reason =&nbsp;-&nbsp;as returned by yecc:file/1,2&nbsp;-</v>

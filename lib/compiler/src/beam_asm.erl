@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -424,8 +424,8 @@ encode_arg({f, W}, Dict) ->
     {encode(?tag_f, W), Dict};
 %% encode_arg({'char', C}, Dict) ->
 %%     {encode(?tag_h, C), Dict};
-encode_arg({string, String}, Dict0) ->
-    {Offset, Dict} = beam_dict:string(String, Dict0),
+encode_arg({string, BinString}, Dict0) when is_binary(BinString) ->
+    {Offset, Dict} = beam_dict:string(BinString, Dict0),
     {encode(?tag_u, Offset), Dict};
 encode_arg({extfunc, M, F, A}, Dict0) ->
     {Index, Dict} = beam_dict:import(M, F, A, Dict0),
@@ -475,7 +475,7 @@ encode_alloc_list_1([{floats,Floats}|T], Dict, Acc0) ->
 encode_alloc_list_1([], Dict, Acc) ->
     {iolist_to_binary(Acc),Dict}.
 
--spec encode(non_neg_integer(), integer()) -> iodata().
+-spec encode(non_neg_integer(), integer()) -> iolist() | integer().
 
 encode(Tag, N) when N < 0 ->
     encode1(Tag, negative_to_bytes(N));

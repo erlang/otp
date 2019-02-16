@@ -26,7 +26,7 @@
          init_per_suite/1, end_per_suite/1,
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1,
 	 not_used/1, in_guard/1,
-	 mem_leak/1, coerce_to_float/1, bjorn/1,
+	 mem_leak/1, coerce_to_float/1, bjorn/1, append_empty_is_same/1,
 	 huge_float_field/1, huge_binary/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_add_overflow/1]).
@@ -39,7 +39,7 @@ suite() ->
 
 all() -> 
     [test1, test2, test3, test4, test5, testf, not_used,
-     in_guard, mem_leak, coerce_to_float, bjorn,
+     in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
      huge_float_field, huge_binary, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
      bad_append, bs_add_overflow].
@@ -519,6 +519,16 @@ do_more(Bin, Sz) ->
 
 do_something() ->
     throw(blurf).
+
+append_empty_is_same(Config) when is_list(Config) ->
+    NonWritableBin = <<"123">>,
+    true = erts_debug:same(NonWritableBin, append(NonWritableBin, <<>>)),
+    WritableBin = <<(id(<<>>))/binary,0,1,2,3,4,5,6,7>>,
+    true = erts_debug:same(WritableBin, append(WritableBin, <<>>)),
+    ok.
+
+append(A, B) ->
+    <<A/binary, B/binary>>.
 
 huge_float_field(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch <<0.0:9/float-unit:8>>),

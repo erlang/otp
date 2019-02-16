@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,6 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework code coverage support module.
-%%%
-%%% <p>This module exports help functions for performing code 
-%%%    coverage analysis.</p>
-
 -module(ct_cover).
 
 -export([get_spec/1, add_nodes/1, remove_nodes/1, cross_cover_analyse/2]).
@@ -31,16 +26,6 @@
 
 -include_lib("kernel/include/file.hrl").
 
-%%%-----------------------------------------------------------------
-%%% @spec add_nodes(Nodes) -> {ok,StartedNodes} | {error,Reason}
-%%%    Nodes = [atom()]
-%%%    StartedNodes = [atom()]
-%%%    Reason = cover_not_running | not_main_node
-%%%
-%%% @doc Add nodes to current cover test (only works if cover support 
-%%%      is active!). To have effect, this function should be called
-%%%      from init_per_suite/1 before any actual tests are performed.
-%%% 
 add_nodes([]) ->
     {ok,[]};
 add_nodes(Nodes) ->
@@ -67,17 +52,6 @@ add_nodes(Nodes) ->
 	    end
     end.
 
-
-%%%-----------------------------------------------------------------
-%%% @spec remove_nodes(Nodes) -> ok | {error,Reason}
-%%%    Nodes = [atom()]
-%%%    Reason = cover_not_running | not_main_node
-%%%
-%%% @doc Remove nodes from current cover test. Call this function
-%%%      to stop cover test on nodes previously added with add_nodes/1. 
-%%%      Results on the remote node are transferred to the Common Test 
-%%%      node.
-%%% 
 remove_nodes([]) ->
     ok;
 remove_nodes(Nodes) ->
@@ -103,25 +77,11 @@ remove_nodes(Nodes) ->
 	    end
     end.
     
-    
-%%%-----------------------------------------------------------------
-%%% @spec cross_cover_analyse(Level,Tests) -> ok
-%%%    Level = overview | details
-%%%    Tests = [{Tag,Dir}]
-%%%    Tag = atom()
-%%%    Dir = string()
-%%%
-%%% @doc Accumulate cover results over multiple tests.
-%%%      See the chapter about <seealso
-%%%      marker="cover_chapter#cross_cover">cross cover
-%%%      analysis</seealso> in the users's guide.
-%%%
 cross_cover_analyse(Level,Tests) ->
     test_server_ctrl:cross_cover_analyse(Level,Tests).
 
 
 %%%-----------------------------------------------------------------
-%%% @hidden 
 
 %% Read cover specification file and return the parsed info.
 %% -> CoverSpec: {CoverFile,Nodes,Import,Export,AppCoverInfo}
@@ -301,6 +261,11 @@ get_app_info(App=#cover{app=none}, [{src_files,Src1}|Terms], Dir) ->
 get_app_info(App=#cover{app=Name}, [{src_files,Name,Src1}|Terms], Dir) ->
     Src = App#cover.src,
     get_app_info(App#cover{src=Src++Src1},Terms,Dir);
+
+get_app_info(App=#cover{app=none}, [{local_only,Bool}|Terms], Dir) ->
+    get_app_info(App, [{local_only,none,Bool}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{local_only,Name,Bool}|Terms], Dir) ->
+    get_app_info(App#cover{local_only=Bool},Terms,Dir);
 
 get_app_info(App, [_|Terms], Dir) ->
     get_app_info(App, Terms, Dir);

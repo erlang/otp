@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,8 +92,8 @@ encode(Mod, Opts, #diameter_packet{} = Pkt) ->
             %% count encode errors.
             ?LOG(encode_error, {Reason, Stack, H}),
             exit({?MODULE, encode, T});
-        error: Reason ->
-            T = {Reason, diameter_lib:get_stacktrace()},
+        error: Reason: Stack ->
+            T = {Reason, diameter_lib:stacktrace(Stack)},
             ?LOG(encode_error, T),
             exit({?MODULE, encode, T})
     end;
@@ -134,8 +134,8 @@ enc(_, Opts, #diameter_packet{msg = [#diameter_header{} = Hdr | As]}
                                         Eid:32,
                                         Bin/binary>>}
     catch
-        error: Reason ->
-            exit({Reason, diameter_lib:get_stacktrace(), Hdr})
+        error: Reason: Stack ->
+            exit({Reason, diameter_lib:stacktrace(Stack), Hdr})
     end;
 
 enc(Mod, Opts, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
@@ -179,14 +179,14 @@ enc(Mod, Opts, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
                                         Eid:32,
                                         Bin/binary>>}
     catch
-        error: Reason ->
+        error: Reason: Stack ->
             Hdr = Hdr0#diameter_header{cmd_code = Code,
                                        application_id = Aid,
                                        is_request       = RB,
                                        is_proxiable     = PB,
                                        is_error         = EB,
                                        is_retransmitted = TB},
-            exit({Reason, diameter_lib:get_stacktrace(), Hdr})
+            exit({Reason, diameter_lib:stacktrace(Stack), Hdr})
     end.
 
 %% values/1

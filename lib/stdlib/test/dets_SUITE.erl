@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3417,11 +3417,26 @@ otp_11709(Config) when is_list(Config) ->
     ok.
 
 %% OTP-13229. open_file() exits with badarg when given binary file name.
+%% Also OTP-15253.
 otp_13229(_Config) ->
     F = <<"binfile.tab">>,
     try dets:open_file(name, [{file, F}]) of
         R ->
             exit({open_succeeded, R})
+    catch
+        error:badarg ->
+            ok
+    end,
+    try dets:open_file(F, []) of % OTP-15253
+        R2 ->
+            exit({open_succeeded, R2})
+    catch
+        error:badarg ->
+            ok
+    end,
+    try dets:open_file(F) of
+        R3 ->
+            exit({open_succeeded, R3})
     catch
         error:badarg ->
             ok

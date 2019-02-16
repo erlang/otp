@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2011</year><year>2017</year>
+      <year>2011</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -379,7 +379,7 @@
        (in Kernel):
      </p>
      <code>
- %%% @doc Common Test Example Common Test Hook module.
+ %%% Common Test Example Common Test Hook module.
  -module(example_cth).
 
  %% Callbacks
@@ -408,51 +408,51 @@
 
  -record(state, { file_handle, total, suite_total, ts, tcs, data }).
 
- %% @doc Return a unique id for this CTH.
+ %% Return a unique id for this CTH.
  id(Opts) ->
    proplists:get_value(filename, Opts, "/tmp/file.log").
 
- %% @doc Always called before any other callback function. Use this to initiate
+ %% Always called before any other callback function. Use this to initiate
  %% any common state. 
  init(Id, Opts) ->
      {ok,D} = file:open(Id,[write]),
      {ok, #state{ file_handle = D, total = 0, data = [] }}.
 
- %% @doc Called before init_per_suite is called. 
+ %% Called before init_per_suite is called.
  pre_init_per_suite(Suite,Config,State) ->
      {Config, State#state{ suite_total = 0, tcs = [] }}.
 
- %% @doc Called after init_per_suite.
+ %% Called after init_per_suite.
  post_init_per_suite(Suite,Config,Return,State) ->
      {Return, State}.
 
- %% @doc Called before end_per_suite. 
+ %% Called before end_per_suite.
  pre_end_per_suite(Suite,Config,State) ->
      {Config, State}.
 
- %% @doc Called after end_per_suite. 
+ %% Called after end_per_suite.
  post_end_per_suite(Suite,Config,Return,State) ->
      Data = {suites, Suite, State#state.suite_total, lists:reverse(State#state.tcs)},
      {Return, State#state{ data = [Data | State#state.data] ,
                            total = State#state.total + State#state.suite_total } }.
 
- %% @doc Called before each init_per_group.
+ %% Called before each init_per_group.
  pre_init_per_group(Suite,Group,Config,State) ->
      {Config, State}.
 
- %% @doc Called after each init_per_group.
+ %% Called after each init_per_group.
  post_init_per_group(Suite,Group,Config,Return,State) ->
      {Return, State}.
 
- %% @doc Called before each end_per_group. 
+ %% Called before each end_per_group.
  pre_end_per_group(Suite,Group,Config,State) ->
      {Config, State}.
 
- %% @doc Called after each end_per_group. 
+ %% Called after each end_per_group.
  post_end_per_group(Suite,Group,Config,Return,State) ->
      {Return, State}.
 
- %% @doc Called before each init_per_testcase.
+ %% Called before each init_per_testcase.
  pre_init_per_testcase(Suite,TC,Config,State) ->
      {Config, State#state{ ts = now(), total = State#state.suite_total + 1 } }.
 
@@ -460,26 +460,26 @@
  post_init_per_testcase(Suite,TC,Config,Return,State) ->
      {Return, State}
 
-%% @doc Called before each end_per_testcase (immediately after the test case).
+%% Called before each end_per_testcase (immediately after the test case).
  pre_end_per_testcase(Suite,TC,Config,State) ->
      {Config, State}.
 
- %% @doc Called after each end_per_testcase.
+ %% Called after each end_per_testcase.
  post_end_per_testcase(Suite,TC,Config,Return,State) ->
      TCInfo = {testcase, Suite, TC, Return, timer:now_diff(now(), State#state.ts)},
      {Return, State#state{ ts = undefined, tcs = [TCInfo | State#state.tcs] } }.
 
- %% @doc Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
+ %% Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
  %% post_end_per_group and post_end_per_testcase if the suite, group or test case failed.
  on_tc_fail(Suite, TC, Reason, State) ->
      State.
 
- %% @doc Called when a test case is skipped by either user action
+ %% Called when a test case is skipped by either user action
  %% or due to an init function failing.  
  on_tc_skip(Suite, TC, Reason, State) ->
      State.
 
- %% @doc Called when the scope of the CTH is done
+ %% Called when the scope of the CTH is done
  terminate(State) ->
      io:format(State#state.file_handle, "~p.~n",
                 [{test_run, State#state.total, State#state.data}]),
@@ -501,12 +501,13 @@
        <tag><c>cth_log_redirect</c></tag>
        <item>
        <p>Built-in</p>
-       <p>Captures all <c>error_logger</c> and SASL logging
-	events and prints them to the current test case log. If an event cannot be 
-	associated with a test case, it is printed in the <c>Common Test</c> framework log. 
+       <p>Captures all log events that would normally be printed by the default
+        logger handler, and prints them to the current test case log.
+	If an event cannot be associated with a test case, it is printed in
+	the <c>Common Test</c> framework log.
 	This happens for test cases running in parallel and events occuring
 	in-between test cases. You can configure the level of
-	<seealso marker="sasl:sasl_app">SASL</seealso> events report
+	<seealso marker="sasl:sasl_app">SASL</seealso> reports
 	using the normal SASL mechanisms.</p>
        </item>
        <tag><c>cth_surefire</c></tag>

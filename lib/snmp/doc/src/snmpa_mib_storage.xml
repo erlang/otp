@@ -30,7 +30,7 @@
     <file>snmpa_mib_storage.xml</file>
   </header>
 
-  <module>snmpa_mib_storage</module>
+  <module since="OTP R16B01">snmpa_mib_storage</module>
   <modulesummary>
     Behaviour module for the SNMP agent mib storage. 
   </modulesummary>
@@ -96,7 +96,7 @@
 
   <funcs>
     <func>
-      <name>Module:open(Name, RecordName, Fields, Type, Options) -> {ok, TabId} | {error, Reason}</name>
+      <name since="OTP R16B01">Module:open(Name, RecordName, Fields, Type, Options) -> {ok, TabId} | {error, Reason}</name>
       <fsummary>Create new (mib-server) data instance</fsummary>
       <type>
         <v>Name = atom()</v>
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name>Module:close(TabId) -> void()</name>
+      <name since="OTP R16B01">Module:close(TabId) -> void()</name>
       <fsummary>Close the mib-storage table</fsummary>
       <type>
         <v>State = term()</v>
@@ -135,7 +135,7 @@
     </func>
 
     <func>
-      <name>Module:read(TabId, Key) -> false | {value, Record}</name>
+      <name since="OTP R16B01">Module:read(TabId, Key) -> false | {value, Record}</name>
       <fsummary>Read a record from the mib-storage table</fsummary>
       <type>
         <v>TabId = term()</v>
@@ -150,7 +150,7 @@
     </func>
 
     <func>
-      <name>Module:write(TabId, Record) -> ok | {error, Reason}</name>
+      <name since="OTP R16B01">Module:write(TabId, Record) -> ok | {error, Reason}</name>
       <fsummary>Write a record to the mib-storage table</fsummary>
       <type>
         <v>TabId = term()</v>
@@ -165,7 +165,7 @@
     </func>
 
     <func>
-      <name>Module:delete(TabId) -> void()</name>
+      <name since="OTP R16B01">Module:delete(TabId) -> void()</name>
       <fsummary>Delete an entire mib-storage table</fsummary>
       <type>
         <v>TabId = term()</v>
@@ -178,7 +178,7 @@
     </func>
 
     <func>
-      <name>Module:delete(TabId, Key) -> ok | {error, Reason}</name>
+      <name since="OTP R16B01">Module:delete(TabId, Key) -> ok | {error, Reason}</name>
       <fsummary>Delete a record from the mib-storage table</fsummary>
       <type>
         <v>TabId = term()</v>
@@ -193,7 +193,7 @@
     </func>
 
     <func>
-      <name>Module:match_object(TabId, Pattern) -> {ok, Recs} | {error, Reason}</name>
+      <name since="OTP R16B01">Module:match_object(TabId, Pattern) -> {ok, Recs} | {error, Reason}</name>
       <fsummary>Search the mib-storage table for record matching pattern</fsummary>
       <type>
         <v>TabId = term()</v>
@@ -210,7 +210,7 @@
     </func>
 
     <func>
-      <name>Module:match_delete(TabId, Pattern) -> {ok, Recs} | {error, Reason}</name>
+      <name since="OTP R16B01">Module:match_delete(TabId, Pattern) -> {ok, Recs} | {error, Reason}</name>
       <fsummary>Delete records in the mib-storage table matching pattern</fsummary>
       <type>
         <v>TabId = term()</v>
@@ -228,7 +228,7 @@
     </func>
 
     <func>
-      <name>Module:tab2list(TabId) -> Recs</name>
+      <name since="OTP R16B01">Module:tab2list(TabId) -> Recs</name>
       <fsummary>Return all records of the mib-storage table</fsummary>
       <type>
         <v>TabId = term()</v>
@@ -243,7 +243,7 @@
     </func>
 
     <func>
-      <name>Module:info(TabId) -> {ok, Info} | {error, Reason}</name>
+      <name since="OTP R16B01">Module:info(TabId) -> {ok, Info} | {error, Reason}</name>
       <fsummary>Returns information about the mib-storage table. </fsummary>
       <type>
         <v>TabId = term()</v>
@@ -259,7 +259,7 @@
     </func>
 
     <func>
-      <name>Module:sync(TabId) -> void()</name>
+      <name since="OTP R16B01">Module:sync(TabId) -> void()</name>
       <fsummary>Synchronize mib-storage table</fsummary>
       <type>
         <v>TabId = term()</v>
@@ -273,7 +273,7 @@
     </func>
 
     <func>
-      <name>Module:backup(TabId, BackupDir) -> ok | {error, Reason}</name>
+      <name since="OTP R16B01">Module:backup(TabId, BackupDir) -> ok | {error, Reason}</name>
       <fsummary>Perform a backup of the mib-storage table</fsummary>
       <type>
         <v>TabId = term()</v>

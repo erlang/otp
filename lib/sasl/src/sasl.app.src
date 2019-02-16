@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,5 +43,5 @@
     {env, []},
     {mod, {sasl, []}},
     {runtime_dependencies, ["tools-2.6.14","stdlib-3.4","kernel-5.3",
-			    "erts-9.0"]}]}.
+			    "erts-10.2"]}]}.
 

@@ -1,0 +1,110 @@
+module 'name_capture' ['module_info'/0,
+		       'module_info'/1,
+		       'name_capture'/0]
+    attributes ['compile' =
+		    [{'inline',[{'badarg_exit',2}]}]]
+'name_capture'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0> =
+		  catch
+		      apply 'first'/1
+			  ('badarg')
+	      in  case _0 of
+		    <{'EXIT',{'badarg',_7}}> when 'true' ->
+			let <Seq> =
+			    call 'lists':'seq'
+				(7, 17)
+			in  case apply 'first'/1
+				     ({'ok',Seq}) of
+			      <_8>
+				  when call 'erlang':'=:='
+					(_8,
+					 Seq) ->
+				  let <SomeOtherTerm> =
+				      {'some','other','term'}
+				  in  let <_5> =
+					  catch
+					      apply 'first'/1
+						  (SomeOtherTerm)
+				      in  case _5 of
+					    <{'EXIT',_9}>
+						when call 'erlang':'=:='
+						      (_9,
+						       SomeOtherTerm) ->
+						'ok'
+					    <_6> when 'true' ->
+						primop 'match_fail'
+						    ({'badmatch',_6})
+					  end
+			      <_3> when 'true' ->
+				  primop 'match_fail'
+				      ({'badmatch',_3})
+			    end
+		    <_1> when 'true' ->
+			primop 'match_fail'
+			    ({'badmatch',_1})
+		  end
+	  <> when 'true' ->
+	      primop 'match_fail'
+		  ({'function_clause'})
+	end
+'first'/1 =
+    fun (_0) ->
+	case _0 of
+	  <Tab> when 'true' ->
+	      let <_1> =
+		  apply 'treq'/2
+		      (Tab, 'first')
+		      %% The _1 variable in the `let` must be renamed
+		      %% to avoid a name capture problem.
+	      in  let <_0,_1> =
+		      <_1,[Tab|[]]>
+		  in  case <_0,_1> of
+			<'badarg',A> when 'true' ->
+			    call 'erlang':'error'
+				('badarg', A)
+			<{'ok',Reply},_X_A> when 'true' ->
+			    Reply
+			<Reply,_X_A> when 'true' ->
+			    call 'erlang':'exit'
+				(Reply)
+			<_3,_2> when 'true' ->
+			    primop 'match_fail'
+				({'function_clause',_3,_2})
+		      end
+	  <_2> when 'true' ->
+	      primop 'match_fail'
+		  ({'function_clause',_2})
+	end
+'treq'/2 =
+    fun (_0,_1) ->
+	case <_0,_1> of
+	  <Action,_4> when 'true' ->
+	      Action
+	  <_3,_2> when 'true' ->
+	      primop 'match_fail'
+		  ({'function_clause',_3,_2})
+	end
+'module_info'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('name_capture')
+	  <> when 'true' ->
+	      primop 'match_fail'
+		  ({'function_clause'})
+	end
+'module_info'/1 =
+    fun (_0) ->
+	case _0 of
+	  <X> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('name_capture', X)
+	  <_1> when 'true' ->
+	      primop 'match_fail'
+		  ({'function_clause',_1})
+	end
+end

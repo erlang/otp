@@ -189,6 +189,18 @@ gencrl(Root, CA, C, CrlHours) ->
     Env = [{"ROOTDIR", filename:absname(Root)}], 
     cmd(Cmd, Env).
 
+%% This function sets the number of seconds until the next CRL is due.
+gencrl_sec(Root, CA, C, CrlSecs) ->
+    CACnfFile = filename:join([Root, CA, "ca.cnf"]),
+    CACRLFile = filename:join([Root, CA, "crl.pem"]),
+    Cmd = [C#config.openssl_cmd, " ca"
+	   " -gencrl ",
+	   " -crlsec ", integer_to_list(CrlSecs),
+	   " -out ", CACRLFile,
+	   " -config ", CACnfFile],
+    Env = [{"ROOTDIR", filename:absname(Root)}],
+    cmd(Cmd, Env).
+
 can_generate_expired_crls(C) ->
     %% OpenSSL can generate CRLs with an expiration date in the past,
     %% if we pass a negative number for -crlhours.  However, LibreSSL
@@ -365,7 +377,7 @@ req_cnf(Root, C) ->
      "default_bits	= ", integer_to_list(C#config.default_bits), "\n"
      "RANDFILE		= $ROOTDIR/RAND\n"
      "encrypt_key	= no\n"
-     "default_md	= md5\n"
+     "default_md	= sha1\n"
      "#string_mask	= pkix\n"
      "x509_extensions	= ca_ext\n"
      "prompt		= no\n"
@@ -415,7 +427,7 @@ ca_cnf(
      ["crl_extensions = crl_ext\n" || C#config.v2_crls],
      "unique_subject  = no\n"
      "default_days	= 3600\n"
-     "default_md	= md5\n"
+     "default_md	= sha1\n"
      "preserve	        = no\n"
      "policy		= policy_match\n"
      "\n"
@@ -499,7 +511,7 @@ ca_cnf(
      ["crl_extensions = crl_ext\n" || C#config.v2_crls],
      "unique_subject  = no\n"
      "default_days	= 3600\n"
-     "default_md	= md5\n"
+     "default_md	= sha1\n"
      "preserve	        = no\n"
      "policy		= policy_match\n"
      "\n"

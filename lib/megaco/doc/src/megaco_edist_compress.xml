@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_edist_compress.xml</file>
   </header>
-  <module>megaco_edist_compress</module>
+  <module since="">megaco_edist_compress</module>
   <modulesummary>Megaco erlang dist compress behaviour.</modulesummary>
   <description>
     <p>The following functions should be exported from a 
@@ -40,7 +40,7 @@
   </description>
   <funcs>
     <func>
-      <name>Module:encode(R, Version) -> T</name>
+      <name since="">Module:encode(R, Version) -> T</name>
       <fsummary>Encode (compress) a megaco component.</fsummary>
       <type>
         <v>R = megaco_message() | transaction() | action_reply() | action_request() | command_request()</v>
@@ -53,7 +53,7 @@
       </desc>
     </func>
     <func>
-      <name>Module:decode(T, Version) -> R</name>
+      <name since="">Module:decode(T, Version) -> R</name>
       <fsummary>Decode (decompress) a megaco component.</fsummary>
       <type>
         <v>T = term()</v>

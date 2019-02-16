@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2017</year>
+      <year>2006</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,75 @@
   </header>
   <p>This document describes the changes made to the Dialyzer
     application.</p>
+
+<section><title>Dialyzer 3.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Optimize Dialyzer's handling of left-associative use
+	    of <c>andalso</c> and <c>orelse</c> in guards. </p>
+          <p>
+	    Own Id: OTP-15268 Aux Id: ERL-680 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Changed the default behaviour of <c>.erlang</c>
+	    loading: <c>.erlang</c> is no longer loaded from the
+	    current directory. <c>c:erlangrc(PathList)</c> can be
+	    used to search and load an <c>.erlang</c> file from user
+	    specified directories.</p> <p><c>escript</c>,
+	    <c>erlc</c>, <c>dialyzer</c> and <c>typer</c> no longer
+	    load an <c>.erlang</c> at all.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14439</p>
+        </item>
+        <item>
+	    <p> Dialyzer can no longer read BEAM files created with
+	    OTP 19 or earlier. </p>
+          <p>
+	    Own Id: OTP-14493 Aux Id: PR-1434 </p>
+        </item>
+        <item>
+	    <p> Speed up the computation of MD5 sums. </p>
+          <p>
+	    Own Id: OTP-14937 Aux Id: PR-1719 </p>
+        </item>
+        <item>
+	    <p> Fix a situation where Dialyzer unnecessarily
+	    discarded contract information, resulting in missed
+	    warnings. </p>
+          <p>
+	    Own Id: OTP-14970 Aux Id: PR-1722 </p>
+        </item>
+        <item>
+	    <p> The (not recommended) option <c>-Woverspecs</c> is
+	    somewhat refined, and generates warnings in a few more
+	    cases. </p>
+          <p>
+	    Own Id: OTP-14982 Aux Id: OTP-14970, PR-1722 </p>
+        </item>
+        <item>
+	    <p> Do not emit warnings for fun expressions residing in
+	    code that cannot be run. This is consistent with how
+	    Dialyzer treats other code that cannot be run. </p>
+          <p>
+	    Own Id: OTP-15079 Aux Id: ERL-593 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Dialyzer 3.2.4</title>
 

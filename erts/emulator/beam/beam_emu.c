@@ -206,8 +206,12 @@ void** beam_ops;
 #ifdef DEBUG
 #  /* The stack pointer is used in an assertion. */
 #  define LIGHT_SWAPOUT SWAPOUT
+#  define DEBUG_SWAPOUT SWAPOUT
+#  define DEBUG_SWAPIN  SWAPIN
 #else
 #  define LIGHT_SWAPOUT HEAP_TOP(c_p) = HTOP
+#  define DEBUG_SWAPOUT
+#  define DEBUG_SWAPIN
 #endif
 
 /*
@@ -386,7 +390,6 @@ do {                                            \
  */
 static void init_emulator_finish(void) NOINLINE;
 static ErtsCodeMFA *ubif2mfa(void* uf) NOINLINE;
-static ErtsCodeMFA *gcbif2mfa(void* gcf) NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
 			       Eterm* reg, ErtsCodeMFA* bif_mfa) NOINLINE;
 static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
@@ -401,6 +404,7 @@ static BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg) NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) NOINLINE;
+static int is_function2(Eterm Term, Uint arity);
 static Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
                              Uint n, BeamInstr* ptr) NOINLINE;
 static Eterm erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
@@ -579,6 +583,7 @@ init_emulator(void)
  * the instructions' C labels to the loader.
  * The second call starts execution of BEAM code. This call never returns.
  */
+ERTS_NO_RETPOLINE
 void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 {
     static int init_done = 0;
@@ -1300,18 +1305,6 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 }
 
 static ErtsCodeMFA *
-gcbif2mfa(void* gcf)
-{
-    int i;
-    for (i = 0; erts_gc_bifs[i].bif; i++) {
-	if (erts_gc_bifs[i].gc_bif == gcf)
-	    return &bif_export[erts_gc_bifs[i].exp_ix]->info.mfa;
-    }
-    erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
-    return NULL;
-}
-
-static ErtsCodeMFA *
 ubif2mfa(void* uf)
 {
     int i;
@@ -1319,7 +1312,7 @@ ubif2mfa(void* uf)
 	if (erts_u_bifs[i].bif == uf)
 	    return &bif_export[erts_u_bifs[i].exp_ix]->info.mfa;
     }
-    erts_exit(ERTS_ERROR_EXIT, "bad u bif");
+    erts_exit(ERTS_ERROR_EXIT, "bad u bif: %p\n", uf);
     return NULL;
 }
 
@@ -2670,6 +2663,19 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     return make_fun(funp);
 }
 
+static int
+is_function2(Eterm Term, Uint arity)
+{
+    if (is_fun(Term)) {
+	ErlFunThing* funp = (ErlFunThing *) fun_val(Term);
+	return funp->arity == arity;
+    } else if (is_export(Term)) {
+	Export* exp = (Export *) (export_val(Term)[1]);
+	return exp->info.mfa.arity == arity;
+    }
+    return 0;
+}
+
 static Eterm get_map_element(Eterm map, Eterm key)
 {
     Uint32 hx;
@@ -3061,12 +3067,14 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p
     Uint need;
     flatmap_t *old_mp, *mp;
     Eterm res;
+    Eterm* old_hp;
     Eterm* hp;
     Eterm* E;
     Eterm* old_keys;
     Eterm* old_vals;
     Eterm new_key;
     Eterm map;
+    int changed = 0;
 
     n /= 2;		/* Number of values to be updated */
     ASSERT(n > 0);
@@ -3133,6 +3141,7 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p
      * Update map, keeping the old key tuple.
      */
 
+    old_hp = p->htop;
     hp = p->htop;
     E = p->stop;
 
@@ -3155,20 +3164,26 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p
 	    /* Not same keys */
 	    *hp++ = *old_vals;
 	} else {
-	    GET_TERM(new_p[1], *hp);
-	    hp++;
-	    n--;
+            GET_TERM(new_p[1], *hp);
+            if(*hp != *old_vals) changed = 1;
+            hp++;
+            n--;
 	    if (n == 0) {
-		/*
-		 * All updates done. Copy remaining values
-		 * and return the result.
-		 */
-		for (i++, old_vals++; i < num_old; i++) {
-		    *hp++ = *old_vals++;
-		}
-		ASSERT(hp == p->htop + need);
-		p->htop = hp;
-		return res;
+                /*
+                * All updates done. Copy remaining values
+                * if any changed or return the original one.
+                */
+                if(changed) {
+		    for (i++, old_vals++; i < num_old; i++) {
+		        *hp++ = *old_vals++;
+		    }
+		    ASSERT(hp == p->htop + need);
+		    p->htop = hp;
+		    return res;
+                } else {
+                    p->htop = old_hp;
+                    return map;
+                }
 	    } else {
 		new_p += 2;
 		GET_TERM(*new_p, new_key);

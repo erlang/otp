@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1563,7 +1563,8 @@ trans_update_visible_inside_trans(Config) when is_list(Config) ->
     ?match({atomic, ok},  mnesia:create_table([{name, Tab}, 
 					     {ram_copies, [Node1]}])), 
     ValPos = 3, 
-    RecA = {Tab, a, 1}, 
+    RecA = {Tab, a, 1},
+    RecA2 = {Tab, a, 2},
     PatA = {Tab, '$1', 1}, 
     RecB = {Tab, b, 3}, 
     PatB = {Tab, '$1', 3}, 
@@ -1598,6 +1599,14 @@ trans_update_visible_inside_trans(Config) when is_list(Config) ->
 		  ?match([], mnesia:index_read(Tab, 3, ValPos)), 
 
 		  %% delete_object
+		  ?match(ok, mnesia:delete_object(RecA2)),
+		  ?match([RecA], mnesia:read({Tab, a})),
+		  ?match([RecA], mnesia:wread({Tab, a})),
+		  ?match([RecA], mnesia:match_object(PatA)),
+		  ?match([a], mnesia:all_keys(Tab)),
+		  ?match([RecA], mnesia:index_match_object(PatA, ValPos)),
+		  ?match([RecA], mnesia:index_read(Tab, 1, ValPos)),
+
 		  ?match(ok, mnesia:delete_object(RecA)), 
 		  ?match([], mnesia:read({Tab, a})), 
 		  ?match([], mnesia:wread({Tab, a})), 

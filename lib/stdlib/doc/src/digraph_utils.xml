@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>digraph_utils.xml</file>
   </header>
-  <module>digraph_utils</module>
+  <module since="">digraph_utils</module>
   <modulesummary>Algorithms for directed graphs.</modulesummary>
   <description>
     <p>This module provides algorithms based on depth-first traversal of
@@ -154,7 +154,7 @@
 
   <funcs>
     <func>
-      <name name="arborescence_root" arity="1"/>
+      <name name="arborescence_root" arity="1" since=""/>
       <fsummary>Check if a digraph is an arborescence.</fsummary>
       <desc>
         <p>Returns <c>{yes, <anno>Root</anno>}</c> if <c><anno>Root</anno></c>
@@ -164,7 +164,7 @@
     </func>
 
     <func>
-      <name name="components" arity="1"/>
+      <name name="components" arity="1" since=""/>
       <fsummary>Return the components of a digraph.</fsummary>
       <desc>
         <p>Returns a list
@@ -177,7 +177,7 @@
     </func>
 
     <func>
-      <name name="condensation" arity="1"/>
+      <name name="condensation" arity="1" since=""/>
       <fsummary>Return a condensed graph of a digraph.</fsummary>
       <desc>
         <p>Creates a digraph where the vertices are
@@ -202,7 +202,7 @@
     </func>
 
     <func>
-      <name name="cyclic_strong_components" arity="1"/>
+      <name name="cyclic_strong_components" arity="1" since=""/>
       <fsummary>Return the cyclic strong components of a digraph.</fsummary>
       <desc>
         <p>Returns a list of <seealso marker="#strong_components">strongly
@@ -218,7 +218,7 @@
     </func>
 
     <func>
-      <name name="is_acyclic" arity="1"/>
+      <name name="is_acyclic" arity="1" since=""/>
       <fsummary>Check if a digraph is acyclic.</fsummary>
       <desc>
         <p>Returns <c>true</c> if and only if digraph
@@ -228,7 +228,7 @@
     </func>
 
     <func>
-      <name name="is_arborescence" arity="1"/>
+      <name name="is_arborescence" arity="1" since=""/>
       <fsummary>Check if a digraph is an arborescence.</fsummary>
       <desc>
         <p>Returns <c>true</c> if and only if digraph
@@ -238,7 +238,7 @@
     </func>
 
     <func>
-      <name name="is_tree" arity="1"/>
+      <name name="is_tree" arity="1" since=""/>
       <fsummary>Check if a digraph is a tree.</fsummary>
       <desc>
         <p>Returns <c>true</c> if and only if digraph
@@ -248,7 +248,7 @@
     </func>
 
     <func>
-      <name name="loop_vertices" arity="1"/>
+      <name name="loop_vertices" arity="1" since=""/>
       <fsummary>Return the vertices of a digraph included in some loop.
       </fsummary>
       <desc>
@@ -258,7 +258,7 @@
     </func>
 
     <func>
-      <name name="postorder" arity="1"/>
+      <name name="postorder" arity="1" since=""/>
       <fsummary>Return the vertices of a digraph in postorder.</fsummary>
       <desc>
         <p>Returns all vertices of digraph <c><anno>Digraph</anno></c>.
@@ -273,7 +273,7 @@
     </func>
 
     <func>
-      <name name="preorder" arity="1"/>
+      <name name="preorder" arity="1" since=""/>
       <fsummary>Return the vertices of a digraph in preorder.</fsummary>
       <desc>
         <p>Returns all vertices of digraph <c><anno>Digraph</anno></c>.
@@ -285,7 +285,7 @@
     </func>
 
     <func>
-      <name name="reachable" arity="2"/>
+      <name name="reachable" arity="2" since=""/>
       <fsummary>Return the vertices reachable from some vertices of a digraph.
       </fsummary>
       <desc>
@@ -300,7 +300,7 @@
     </func>
 
     <func>
-      <name name="reachable_neighbours" arity="2"/>
+      <name name="reachable_neighbours" arity="2" since=""/>
       <fsummary>Return the neighbors reachable from some vertices of a
         digraph.</fsummary>
       <desc>
@@ -316,7 +316,7 @@
     </func>
 
     <func>
-      <name name="reaching" arity="2"/>
+      <name name="reaching" arity="2" since=""/>
       <fsummary>Return the vertices that reach some vertices of a digraph.
       </fsummary>
       <desc>
@@ -330,7 +330,7 @@
     </func>
 
     <func>
-      <name name="reaching_neighbours" arity="2"/>
+      <name name="reaching_neighbours" arity="2" since=""/>
       <fsummary>Return the neighbors that reach some vertices of a digraph.
       </fsummary>
       <desc>
@@ -345,7 +345,7 @@
     </func>
 
     <func>
-      <name name="strong_components" arity="1"/>
+      <name name="strong_components" arity="1" since=""/>
       <fsummary>Return the strong components of a digraph.</fsummary>
       <desc>
         <p>Returns a list of <seealso marker="#strong_components">strongly
@@ -359,8 +359,8 @@
     </func>
 
     <func>
-      <name name="subgraph" arity="2"/>
-      <name name="subgraph" arity="3"/>
+      <name name="subgraph" arity="2" since=""/>
+      <name name="subgraph" arity="3" since=""/>
       <fsummary>Return a subgraph of a digraph.</fsummary>
       <desc>
         <p>Creates a maximal <seealso marker="#subgraph">subgraph</seealso>
@@ -387,7 +387,7 @@
     </func>
 
     <func>
-      <name name="topsort" arity="1"/>
+      <name name="topsort" arity="1" since=""/>
       <fsummary>Return a topological sorting of the vertices of a digraph.
       </fsummary>
       <desc>

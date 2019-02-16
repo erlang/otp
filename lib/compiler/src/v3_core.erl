@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -228,7 +228,8 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
 
 body(Cs0, Name, Arity, St0) ->
     Anno = lineno_anno(element(2, hd(Cs0)), St0),
-    {Args,St1} = new_vars(Anno, Arity, St0),
+    {Args0,St1} = new_vars(Anno, Arity, St0),
+    Args = reverse(Args0),                      %Nicer order
     case clauses(Cs0, St1) of
 	{Cs1,[],St2} ->
 	    {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
@@ -328,14 +329,16 @@ gexpr({protect,Line,Arg}, Bools0, St0) ->
             Anno = lineno_anno(Line, St),
 	    {#iprotect{anno=#a{anno=Anno},body=Eps++[E]},[],Bools0,St}
     end;
-gexpr({op,L,'andalso',E1,E2}, Bools, St0) ->
+gexpr({op,_,'andalso',_,_}=E0, Bools, St0) ->
+    {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso', St0),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
     E = make_bool_switch_guard(L, E1, V, E2, False),
     gexpr(E, Bools, St);
-gexpr({op,L,'orelse',E1,E2}, Bools, St0) ->
+gexpr({op,_,'orelse',_,_}=E0, Bools, St0) ->
+    {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse', St0),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
@@ -764,14 +767,16 @@ expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     {Qs,St2} = preprocess_quals(Llc, Qs0, St1),
     {Y,Yps,St} = lc_tq(Llc, E, Qs, Mc, St2),
     {Y,Mps++Yps,St};
-expr({op,L,'andalso',E1,E2}, St0) ->
+expr({op,_,'andalso',_,_}=E0, St0) ->
+    {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso', St0),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
     E = make_bool_switch(L, E1, V, E2, False, St0),
     expr(E, St);
-expr({op,L,'orelse',E1,E2}, St0) ->
+expr({op,_,'orelse',_,_}=E0, St0) ->
+    {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse', St0),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
@@ -1501,7 +1506,7 @@ bc_initial_size(E0, Q, St0) ->
     end.
 
 bc_elem_size({bin,_,El}, St0) ->
-    case bc_elem_size_1(El, 0, []) of
+    case bc_elem_size_1(El, ordsets:new(), 0, []) of
 	{Bits,[]} ->
 	    {#c_literal{val=Bits},[],[],St0};
 	{Bits,Vars0} ->
@@ -1515,19 +1520,33 @@ bc_elem_size(_, _) ->
     throw(impossible).
 
 bc_elem_size_1([{bin_element,_,{string,_,String},{integer,_,N},_}=El|Es],
-	       Bits, Vars) ->
+	       DefVars, Bits, SizeVars) ->
     U = get_unit(El),
-    bc_elem_size_1(Es, Bits+U*N*length(String), Vars);
-bc_elem_size_1([{bin_element,_,_,{integer,_,N},_}=El|Es], Bits, Vars) ->
+    bc_elem_size_1(Es, DefVars, Bits+U*N*length(String), SizeVars);
+bc_elem_size_1([{bin_element,_,Expr,{integer,_,N},_}=El|Es],
+               DefVars0, Bits, SizeVars) ->
     U = get_unit(El),
-    bc_elem_size_1(Es, Bits+U*N, Vars);
-bc_elem_size_1([{bin_element,_,_,{var,_,Var},_}=El|Es], Bits, Vars) ->
-    U = get_unit(El),
-    bc_elem_size_1(Es, Bits, [{U,#c_var{name=Var}}|Vars]);
-bc_elem_size_1([_|_], _, _) ->
+    DefVars = bc_elem_size_def_var(Expr, DefVars0),
+    bc_elem_size_1(Es, DefVars, Bits+U*N, SizeVars);
+bc_elem_size_1([{bin_element,_,Expr,{var,_,Src},_}=El|Es],
+               DefVars0, Bits, SizeVars) ->
+    case ordsets:is_element(Src, DefVars0) of
+        false ->
+            U = get_unit(El),
+            DefVars = bc_elem_size_def_var(Expr, DefVars0),
+            bc_elem_size_1(Es, DefVars, Bits, [{U,#c_var{name=Src}}|SizeVars]);
+        true ->
+            throw(impossible)
+    end;
+bc_elem_size_1([_|_], _, _, _) ->
     throw(impossible);
-bc_elem_size_1([], Bits, Vars) ->
-    {Bits,Vars}.
+bc_elem_size_1([], _DefVars, Bits, SizeVars) ->
+    {Bits,SizeVars}.
+
+bc_elem_size_def_var({var,_,Var}, DefVars) ->
+    ordsets:add_element(Var, DefVars);
+bc_elem_size_def_var(_Expr, DefVars) ->
+    DefVars.
 
 bc_elem_size_combine([{U,V}|T], U, UVars, Acc) ->
     bc_elem_size_combine(T, U, [V|UVars], Acc);
@@ -2039,6 +2058,19 @@ fail_clause(Pats, Anno, Arg) ->
 	     pats=Pats,guard=[],
 	     body=[#iprimop{anno=#a{anno=Anno},name=#c_literal{val=match_fail},
 			    args=[Arg]}]}.
+
+%% Optimization for Dialyzer.
+right_assoc(E, Op, St) ->
+    case member(dialyzer, St#core.opts) of
+        true ->
+            right_assoc2(E, Op);
+        false ->
+            E
+    end.
+
+right_assoc2({op,L1,Op,{op,L2,Op,E1,E2},E3}, Op) ->
+    right_assoc2({op,L2,Op,E1,{op,L1,Op,E2,E3}}, Op);
+right_assoc2(E, _Op) -> E.
 
 annotate_tuple(A, Es, St) ->
     case member(dialyzer, St#core.opts) of
@@ -2597,7 +2629,8 @@ cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
      [],A#a.us,St2}.
 
 c_call_erl(Fun, Args) ->
-    cerl:c_call(cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
+    As = [compiler_generated],
+    cerl:ann_c_call(As, cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
 
 %% lit_vars(Literal) -> [Var].
 

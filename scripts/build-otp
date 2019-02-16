@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 function progress {
     local file=$1
     ls=$(ls -l $file)
@@ -14,15 +16,19 @@ function progress {
 }
 
 function do_and_log {
+    start_time=`date +%s`
     log="logs/latest-log.$$"
     echo "" >$log
     echo -n "$1..."
     (progress $log) &
     pid=$!
     disown
-    if ./otp_build $2 $3 >$log 2>&1; then
+    shift
+    if $* >$log 2>&1; then
 	kill $pid >/dev/null 2>&1
-        echo " done."
+        stop_time=`date +%s`
+        diff_time=$((stop_time-start_time))
+        echo " done, took $diff_time seconds"
     else
 	kill $pid >/dev/null 2>&1
         echo " failed."
@@ -36,12 +42,38 @@ if [ ! -d "logs" ]; then
     mkdir logs
 fi
 
-do_and_log "Autoconfing" autoconf
-do_and_log "Configuring" configure
-do_and_log "Building OTP" boot -a
+do_and_log "Autoconfing" ./otp_build autoconf
+do_and_log "Configuring" ./otp_build configure
+do_and_log "Building OTP" ./otp_build boot -a
 
-if [ $1 = "release" ]; then
-    do_and_log "Releasing OTP" release -a
+if [ "$1" = "release" ]; then
+    do_and_log "Releasing OTP" ./otp_build release -a
+fi
+
+if [ "$1" = "docs" ]; then
+    DOC_TARGET=${TRAVIS_BRANCH:-release/`erts/autoconf/config.guess`}
+    DOC_TARGET=${TRAVIS_TAG:-$DOC_TARGET}
+    TESTROOT=$PWD/$DOC_TARGET do_and_log "Building documentation" make release_docs
+    do_and_log "Linting documentation" make xmllint
+    # The code below prepares this build to be used as a deploy to
+    # github pages for documentation.
+    if [ "$TRAVIS_PULL_REQUEST" = "false" -a "$TRAVIS_TAG" = "" -a "$TRAVIS_REPO_SLUG" = "erlang/otp" ]; then
+        set -x
+        rm -rf logs
+        SHA=`git rev-parse --verify HEAD`
+        DATE=`git show -s --format=%ci`
+        git clean -xfdq -e $DOC_TARGET
+        git fetch https://github.com/erlang/cd master
+        git checkout -f FETCH_HEAD
+        rm -rf _docs/$DOC_TARGET
+        mv $DOC_TARGET _docs/$DOC_TARGET
+        echo "---" > _docs/$DOC_TARGET.md
+        echo "title: $DOC_TARGET" >> _docs/$DOC_TARGET.md
+        echo "sha: $SHA" >> _docs/$DOC_TARGET.md
+        echo "generated: $DATE" >> _docs/$DOC_TARGET.md
+        echo "---" >> _docs/$DOC_TARGET.md
+        set +x
+    fi
 fi
 
 exit 0

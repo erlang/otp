@@ -5770,7 +5770,7 @@ format_error({missing_ocft,Component}) ->
 format_error(multiple_uniqs) ->
     "implementation limitation: only one UNIQUE field is allowed in CLASS";
 format_error({namelist_redefinition,Name}) ->
-    io_lib:format("the name '~s' can not be redefined", [Name]);
+    io_lib:format("the name '~s' cannot be redefined", [Name]);
 format_error({param_bad_type, Ref}) ->
     io_lib:format("'~p' is not a parameterized type", [Ref]);
 format_error(param_wrong_number_of_arguments) ->

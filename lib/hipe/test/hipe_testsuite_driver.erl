@@ -170,7 +170,7 @@ run(TestCase, Dir, _OutDir) ->
     {ok, TestCase} = hipe:c(TestCase, [o0|HiPEOpts]),
     ok = TestCase:test(),
     ToLLVM = try TestCase:to_llvm() catch error:undef -> true end,
-    case ToLLVM andalso hipe:llvm_support_available() of
+    case ToLLVM andalso hipe:erllvm_is_supported() of
 	true ->
 	    {ok, TestCase} = hipe:c(TestCase, [to_llvm|HiPEOpts]),
 	    ok = TestCase:test();

@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>error_handler</module>
+  <module since="">error_handler</module>
   <modulesummary>Default system error handler.</modulesummary>
   <description>
     <p>This module defines what happens when certain types
@@ -38,7 +38,7 @@
   </description>
   <funcs>
     <func>
-      <name name="raise_undef_exception" arity="3"/>
+      <name name="raise_undef_exception" arity="3" since="OTP R16B"/>
       <fsummary>Raise an undef exception.</fsummary>
       <type_desc variable="Args">
         A (possibly empty) list of arguments <c>Arg1,..,ArgN</c>
@@ -51,7 +51,7 @@
       </desc>
     </func>
     <func>
-      <name name="undefined_function" arity="3"/>
+      <name name="undefined_function" arity="3" since=""/>
       <fsummary>Called when an undefined function is encountered.</fsummary>
       <type_desc variable="Args">
         A (possibly empty) list of arguments <c>Arg1,..,ArgN</c>
@@ -93,7 +93,7 @@
       </desc>
     </func>
     <func>
-      <name name="undefined_lambda" arity="3"/>
+      <name name="undefined_lambda" arity="3" since=""/>
       <fsummary>Called when an undefined lambda (fun) is encountered.</fsummary>
       <type_desc variable="Args">
         A (possibly empty) list of arguments <c>Arg1,..,ArgN</c>

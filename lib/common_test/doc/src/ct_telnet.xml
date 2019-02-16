@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_telnet.xml</file>
   </header>
-  <module>ct_telnet</module>
+  <module since="">ct_telnet</module>
   <modulesummary>Common Test specific layer on top of Telnet client ct_telnet_client.erl</modulesummary>
 
   <description>
@@ -205,7 +205,7 @@
 
   <funcs>
     <func>
-      <name>close(Connection) -&gt; ok | {error, Reason}</name>
+      <name since="">close(Connection) -&gt; ok | {error, Reason}</name>
       <fsummary>Closes the Telnet connection and stops the process managing
         it.</fsummary>
       <type>
@@ -223,7 +223,7 @@
     </func>
 
     <func>
-      <name>cmd(Connection, Cmd) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">cmd(Connection, Cmd) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to cmd(Connection, Cmd, []).</fsummary>
       <desc><marker id="cmd-2"/>
         <p>Equivalent to
@@ -233,24 +233,27 @@
     </func>
 
     <func>
-      <name>cmd(Connection, Cmd, Opts) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">cmd(Connection, Cmd, Opts) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Sends a command through Telnet and waits for prompt.</fsummary>
       <type>
         <v>Connection = connection()</v>
         <v>Cmd = string()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {timeout, timeout()} | {newline, boolean()}</v>
+        <v>Opt = {timeout, timeout()} | {newline, boolean() | string()}</v>
         <v>Data = [string()]</v>
         <v>Reason = term()</v>
       </type>
       <desc><marker id="cmd-3"/>
         <p>Sends a command through Telnet and waits for prompt.</p>
 
-        <p>By default, this function adds a new line to the end of the
+        <p>By default, this function adds "\n" to the end of the
           specified command. If this is not desired, use option
           <c>{newline,false}</c>. This is necessary, for example, when
           sending Telnet command sequences prefixed with character
-          Interprete As Command (IAC).</p>
+          Interpret As Command (IAC). Option <c>{newline,string()}</c>
+          can also be used if a different line end than "\n" is
+          required, for instance <c>{newline,"\r\n"}</c>, to add both
+          carriage return and newline characters.</p>
 
         <p>Option <c>timeout</c> specifies how long the client must wait
           for prompt. If the time expires, the function returns
@@ -262,7 +265,7 @@
     </func>
 
     <func>
-      <name>cmdf(Connection, CmdFormat, Args) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">cmdf(Connection, CmdFormat, Args) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Equivalent to cmdf(Connection, CmdFormat, Args, []).</fsummary>
       <desc><marker id="cmdf-3"/>
         <p>Equivalent to
@@ -272,7 +275,7 @@
     </func>
 
     <func>
-      <name>cmdf(Connection, CmdFormat, Args, Opts) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">cmdf(Connection, CmdFormat, Args, Opts) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Sends a Telnet command and waits for prompt (uses a format
         string and a list of arguments to build the command).</fsummary>
       <type>
@@ -280,7 +283,7 @@
         <v>CmdFormat = string()</v>
         <v>Args = list()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {timeout, timeout()} | {newline, boolean()}</v>
+        <v>Opt = {timeout, timeout()} | {newline, boolean() | string()}</v>
         <v>Data = [string()]</v>
         <v>Reason = term()</v>
       </type>
@@ -294,7 +297,7 @@
     </func>
 
     <func>
-      <name>expect(Connection, Patterns) -&gt; term()</name>
+      <name since="">expect(Connection, Patterns) -&gt; term()</name>
       <fsummary>Equivalent to expect(Connections, Patterns, []).</fsummary>
       <desc><marker id="expect-2"/>
         <p>Equivalent to
@@ -304,7 +307,7 @@
     </func>
 
     <func>
-      <name>expect(Connection, Patterns, Opts) -&gt; {ok, Match} | {ok, MatchList, HaltReason} | {error, Reason}</name>
+      <name since="">expect(Connection, Patterns, Opts) -&gt; {ok, Match} | {ok, MatchList, HaltReason} | {error, Reason}</name>
       <fsummary>Gets data from Telnet and waits for the expected
         pattern.</fsummary>
       <type>
@@ -339,7 +342,7 @@
           subexpression number <c>N</c>. Subexpressions are denoted with
           <c>'(' ')'</c> in the regular expression.</p>
 
-        <p>If a <c>Tag</c> is speciifed, the returned <c>Match</c> also
+        <p>If a <c>Tag</c> is specified, the returned <c>Match</c> also
           includes the matched <c>Tag</c>. Otherwise, only <c>RxMatch</c>
           is returned.</p>
 
@@ -382,7 +385,7 @@
             can abort the operation of waiting for prompt.</p></item>
           <tag><c>repeat | repeat, N</c></tag>
           <item><p>The pattern(s) must be matched multiple times. If <c>N</c>
-            is speciified, the pattern(s) are matched <c>N</c> times, and
+            is specified, the pattern(s) are matched <c>N</c> times, and
             the function returns <c>HaltReason = done</c>. This option can be
             interrupted by one or more <c>HaltPatterns</c>. <c>MatchList</c>
             is always returned, that is, a list of <c>Match</c> instead of
@@ -422,7 +425,7 @@
     </func>
 
     <func>
-      <name>get_data(Connection) -&gt; {ok, Data} | {error, Reason}</name>
+      <name since="">get_data(Connection) -&gt; {ok, Data} | {error, Reason}</name>
       <fsummary>Gets all data received by the Telnet client since the last
         command was sent.</fsummary>
       <type>
@@ -446,7 +449,7 @@
     </func>
 
     <func>
-      <name>open(Name) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">open(Name) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Equivalent to open(Name, telnet).</fsummary>
       <desc><marker id="open-1"/>
         <p>Equivalent to
@@ -456,7 +459,7 @@
     </func>
 
     <func>
-      <name>open(Name, ConnType) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">open(Name, ConnType) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Opens a Telnet connection to the specified target
         host.</fsummary>
       <type>
@@ -471,7 +474,7 @@
     </func>
 
     <func>
-      <name>open(KeyOrName, ConnType, TargetMod) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">open(KeyOrName, ConnType, TargetMod) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Equivalent to open(KeyOrName, ConnType, TargetMod, []).</fsummary>
       <desc><marker id="open-3"/>
         <p>Equivalent to
@@ -481,7 +484,7 @@
     </func>
 
     <func>
-      <name>open(KeyOrName, ConnType, TargetMod, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">open(KeyOrName, ConnType, TargetMod, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Opens a Telnet connection to the specified target
         host.</fsummary>
       <type>
@@ -531,7 +534,7 @@
     </func>
 
     <func>
-      <name>send(Connection, Cmd) -&gt; ok | {error, Reason}</name>
+      <name since="">send(Connection, Cmd) -&gt; ok | {error, Reason}</name>
       <fsummary>Equivalent to send(Connection, Cmd, []).</fsummary>
       <desc><marker id="send-2"/>
         <p>Equivalent to
@@ -541,23 +544,26 @@
     </func>
 
     <func>
-      <name>send(Connection, Cmd, Opts) -&gt; ok | {error, Reason}</name>
+      <name since="OTP 17.4">send(Connection, Cmd, Opts) -&gt; ok | {error, Reason}</name>
       <fsummary>Sends a Telnet command and returns immediately.</fsummary>
       <type>
         <v>Connection = connection()</v>
         <v>Cmd = string()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {newline, boolean()}</v>
+        <v>Opt = {newline, boolean() | string()}</v>
         <v>Reason = term()</v>
       </type>
       <desc><marker id="send-3"/>
         <p>Sends a Telnet command and returns immediately.</p>
 
-        <p>By default, this function adds a newline to the end of the
+        <p>By default, this function adds "\n" to the end of the
           specified command. If this is not desired, option
           <c>{newline,false}</c> can be used. This is necessary, for example,
           when sending Telnet command sequences prefixed with character   
-          Interprete As Command (IAC).</p>
+          Interpret As Command (IAC). Option <c>{newline,string()}</c>
+          can also be used if a different line end than "\n" is
+          required, for instance <c>{newline,"\r\n"}</c>, to add both
+          carriage return and newline characters.</p>
 
         <p>The resulting output from the command can be read with
           <seealso marker="#get_data-1"><c>ct_telnet:get_data/2</c></seealso> or
@@ -566,7 +572,7 @@
     </func>
 
     <func>
-      <name>sendf(Connection, CmdFormat, Args) -&gt; ok | {error, Reason}</name>
+      <name since="">sendf(Connection, CmdFormat, Args) -&gt; ok | {error, Reason}</name>
       <fsummary>Equivalent to sendf(Connection, CmdFormat, Args, []).</fsummary>
       <desc><marker id="sendf-3"/>
         <p>Equivalent to
@@ -576,7 +582,7 @@
     </func>
 
     <func>
-    <name>sendf(Connection, CmdFormat, Args, Opts) -&gt; ok | {error, Reason}</name>
+    <name since="OTP 17.4">sendf(Connection, CmdFormat, Args, Opts) -&gt; ok | {error, Reason}</name>
     <fsummary>Sends a Telnet command and returns immediately (uses a format
       string and a list of arguments to build the command).</fsummary>
       <type>
@@ -584,12 +590,15 @@
         <v>CmdFormat = string()</v>
         <v>Args = list()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {newline, boolean()}</v>
+        <v>Opt = {newline, boolean() | string()}</v>
         <v>Reason = term()</v>
       </type>
       <desc><marker id="sendf-4"/>
         <p>Sends a Telnet command and returns immediately (uses a format
           string and a list of arguments to build the command).</p>
+
+        <p>For details, see
+          <seealso marker="#send-3"><c>ct_telnet:send/3</c></seealso>.</p>
       </desc>
     </func>
   </funcs>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,6 +74,7 @@ guard_bif(element, 2) -> true;
 guard_bif(float, 1) -> true;
 guard_bif(floor, 1) -> true;
 guard_bif(hd, 1) -> true;
+guard_bif(is_map_key, 2) -> true;
 guard_bif(length, 1) -> true;
 guard_bif(map_size, 1) -> true;
 guard_bif(map_get, 2) -> true;
@@ -109,7 +110,6 @@ new_type_test(is_function, 2) -> true;
 new_type_test(is_integer, 1) -> true;
 new_type_test(is_list, 1) -> true;
 new_type_test(is_map, 1) -> true;
-new_type_test(is_map_key, 2) -> true;
 new_type_test(is_number, 1) -> true;
 new_type_test(is_pid, 1) -> true;
 new_type_test(is_port, 1) -> true;

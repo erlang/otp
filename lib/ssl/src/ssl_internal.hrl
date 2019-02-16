@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,14 +25,13 @@
 
 -include_lib("public_key/include/public_key.hrl"). 
 
+-define(VSN, "8.2.6").
 -define(SECRET_PRINTOUT, "***").
 
 -type reason()            :: term().
 -type reply()             :: term().
 -type msg()               :: term().
 -type from()              :: term().
--type host()		  :: inet:ip_address() | inet:hostname().
--type session_id()        :: 0 | binary().
 -type certdb_ref()        :: reference().
 -type db_handle()         :: term().
 -type der_cert()          :: binary().
@@ -60,6 +59,7 @@
 
 -define(CDR_MAGIC, "GIOP").
 -define(CDR_HDR_SIZE, 12).
+-define(INTERNAL_ACTIVE_N, 100).
 
 -define(DEFAULT_TIMEOUT, 5000).
 -define(NO_DIST_POINT, "http://dummy/no_distribution_point").
@@ -71,13 +71,38 @@
 -define(FALSE, 1).
 
 %% sslv3 is considered insecure due to lack of padding check (Poodle attack)
-%% Keep as interop with legacy software but do not support as default 
--define(ALL_AVAILABLE_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+%% Keep as interop with legacy software but do not support as default
+%% tlsv1.3 is under development (experimental).
+-define(ALL_AVAILABLE_VERSIONS, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
 -define(ALL_AVAILABLE_DATAGRAM_VERSIONS, ['dtlsv1.2', dtlsv1]).
+%% Defines the default versions when not specified by an ssl option.
 -define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1]).
 -define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1]).
+
+%% Versions allowed in TLSCiphertext.version (TLS 1.2 and prior) and
+%% TLSCiphertext.legacy_record_version (TLS 1.3).
+%% TLS 1.3 sets TLSCiphertext.legacy_record_version to 0x0303 for all records
+%% generated other than an than an initial ClientHello, where it MAY also be 0x0301.
+%% Thus, the allowed range is limited to 0x0300 - 0x0303.
+-define(ALL_TLS_RECORD_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+
 -define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, [dtlsv1]).
+
+%% TLS 1.3 - Section 4.1.3
+%%
+%% If negotiating TLS 1.2, TLS 1.3 servers MUST set the last eight bytes
+%% of their Random value to the bytes:
+%%
+%%   44 4F 57 4E 47 52 44 01
+%%
+%% If negotiating TLS 1.1 or below, TLS 1.3 servers MUST and TLS 1.2
+%% servers SHOULD set the last eight bytes of their Random value to the
+%% bytes:
+%%
+%%   44 4F 57 4E 47 52 44 00
+-define(RANDOM_OVERRIDE_TLS12, <<16#44,16#4F,16#57,16#4E,16#47,16#52,16#44,16#01>>).
+-define(RANDOM_OVERRIDE_TLS11, <<16#44,16#4F,16#57,16#4E,16#47,16#52,16#44,16#00>>).
 
 -define('24H_in_msec', 86400000).
 -define('24H_in_sec', 86400).
@@ -110,24 +135,24 @@
 	  %% Local policy for the server if it want's to reuse the session
 	  %% or not. Defaluts to allways returning true.
 	  %% fun(SessionId, PeerCert, Compression, CipherSuite) -> boolean()
-	  reuse_session,  
+	  reuse_session        :: fun() | binary() | undefined, %% Server side is a fun()
 	  %% If false sessions will never be reused, if true they
 	  %% will be reused if possible.
-	  reuse_sessions       :: boolean(),
+	  reuse_sessions       :: boolean() | save,  %% Only client side can use value save
 	  renegotiate_at,
 	  secure_renegotiate,
 	  client_renegotiation,
 	  %% undefined if not hibernating, or number of ms of
 	  %% inactivity after which ssl_connection will go into
 	  %% hibernation
-	  hibernate_after      :: timeout(),
+	  hibernate_after      :: timeout(),          
 	  %% This option should only be set to true by inet_tls_dist
 	  erl_dist = false     :: boolean(),
           alpn_advertised_protocols = undefined :: [binary()] | undefined ,
           alpn_preferred_protocols = undefined  :: [binary()] | undefined,
 	  next_protocols_advertised = undefined :: [binary()] | undefined,
 	  next_protocol_selector = undefined,  %% fun([binary()]) -> binary())
-	  log_alert             :: boolean(),
+	  log_level = notice :: atom(),
 	  server_name_indication = undefined,
 	  sni_hosts  :: [{inet:hostname(), [tuple()]}],
 	  sni_fun :: function() | undefined,
@@ -142,10 +167,15 @@
 	  crl_check                  :: boolean() | peer | best_effort, 
 	  crl_cache,
 	  signature_algs,
+	  signature_algs_cert,
 	  eccs,
+	  supported_groups,  %% RFC 8422, RFC 8446
 	  honor_ecc_order            :: boolean(),
           max_handshake_size         :: integer(),
-          handshake
+          handshake,
+          customize_hostname_check
+    %%                 ,
+      %%    save_session               :: boolean()            
          }).
 
 -record(socket_options,
@@ -160,7 +190,7 @@
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
 		 emulated,          %% Emulated option list or "inherit_tracker" pid
-		 udp_handler,
+		 dtls_handler,
 		 inet_ssl,          %% inet options for internal ssl socket
 		 transport_info,                 %% Callback info
 		 connection_cb
@@ -179,6 +209,8 @@
 -type gen_fsm_state_return() :: {next_state, state_name(), term()} |
 				{next_state, state_name(), term(), timeout()} |
 				{stop, term(), term()}.
+-type ssl_options()          :: #ssl_options{}.
+
 -endif. % -ifdef(ssl_internal).
 
 

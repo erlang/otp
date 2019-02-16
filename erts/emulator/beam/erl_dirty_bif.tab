@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2016. All Rights Reserved.
+# Copyright Ericsson AB 2016-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,10 +57,6 @@ dirty-cpu erts_debug:lcnt_clear/0
 #  and debug purposes only. We really do *not* want to execute these
 #  on dirty schedulers on a real system.
 
-dirty-cpu-test erlang:'++'/2
-dirty-cpu-test erlang:append/2
-dirty-cpu-test erlang:'--'/2
-dirty-cpu-test erlang:subtract/2
 dirty-cpu-test erlang:iolist_size/1
 dirty-cpu-test erlang:make_tuple/2
 dirty-cpu-test erlang:make_tuple/3

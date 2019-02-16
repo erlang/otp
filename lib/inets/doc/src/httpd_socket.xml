@@ -29,7 +29,7 @@
     <rev>2.2</rev>
     <file>httpd_socket.sgml</file>
   </header>
-  <module>httpd_socket</module>
+  <module since="">httpd_socket</module>
   <modulesummary>Communication utility functions to be used by the Erlang
     web server API programmer.</modulesummary>
   <description>
@@ -43,7 +43,7 @@
 
   <funcs>
     <func>
-      <name>deliver(SocketType, Socket, Data) -> Result</name>
+      <name since="">deliver(SocketType, Socket, Data) -> Result</name>
       <fsummary>Sends binary data over socket.</fsummary>
       <type>
         <v>SocketType = socket_type()</v>
@@ -63,7 +63,7 @@
     </func>
 
     <func>
-      <name>peername(SocketType,Socket) -> {Port,IPAddress}</name>
+      <name since="">peername(SocketType,Socket) -> {Port,IPAddress}</name>
       <fsummary>Returns the port and IP address of the remote socket.</fsummary>
       <type>
         <v>SocketType = socket_type()</v>
@@ -81,7 +81,7 @@
     </func>
 
     <func>
-      <name>resolve() -> HostName</name>
+      <name since="">resolve() -> HostName</name>
       <fsummary>Returns the official name of the current host.</fsummary>
       <type>
         <v>HostName = string()</v>

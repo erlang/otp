@@ -801,7 +801,8 @@
           <c>{ann_type,LINE,[Rep(A),Rep(T_0)]}</c>.</p>
       </item>
       <item>
-        <p>If T is an atom or integer literal L, then Rep(T) = Rep(L).</p>
+        <p>If T is an atom, a character, or an integer literal L,
+	  then Rep(T) = Rep(L).</p>
       </item>
       <item>
         <p>If T is a bitstring type <c>&lt;&lt;_:M,_:_*N>></c>,
@@ -810,7 +811,9 @@
       </item>
       <item>
         <p>If T is the empty list type <c>[]</c>, then Rep(T) =
-          <c>{type,Line,nil,[]}</c>.</p>
+          <c>{type,Line,nil,[]}</c>, that is, the empty list type
+          <c>[]</c> cannot be distinguished from the predefined type
+          <c>nil()</c>.</p>
       </item>
       <item>
         <p>If T is a fun type <c>fun()</c>, then Rep(T) =

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,15 +135,6 @@ get_env(char *key)
     }
 #else
     return getenv(key);
-#endif
-}
-
-static void
-free_env_val(char *value)
-{
-#ifdef __WIN32__
-    if (value)
-	efree(value);
 #endif
 }
 
@@ -422,7 +413,6 @@ main(int argc, char** argv)
     int eargv_size;
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
-    char* env;
     char* basename;
     char* def_emu_lookup_path;
     char scriptname[PMAX];
@@ -504,7 +494,7 @@ main(int argc, char** argv)
     }
 
     /* Determine path to emulator */
-    emulator = env = get_env("ESCRIPT_EMULATOR");
+    emulator = get_env("ESCRIPT_EMULATOR");
 
     if (emulator == NULL) {
 	emulator = get_default_emulator(def_emu_lookup_path);
@@ -518,7 +508,6 @@ main(int argc, char** argv)
      */
 
     PUSH(emulator);
-    free_env_val(env);
 
     PUSH("+B");
     PUSH2("-boot", "no_dot_erlang");

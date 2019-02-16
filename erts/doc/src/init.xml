@@ -29,7 +29,7 @@
     <rev></rev>
     <file>init.xml</file>
   </header>
-  <module>init</module>
+  <module since="">init</module>
   <modulesummary>Coordination of system startup.</modulesummary>
   <description>
     <p>This module is preloaded and contains the code for
@@ -50,7 +50,7 @@
 
   <funcs>
     <func>
-      <name name="boot" arity="1"/>
+      <name name="boot" arity="1" since=""/>
       <fsummary>Start the Erlang runtime system.</fsummary>
       <desc>
         <p>Starts the Erlang runtime system. This function is called
@@ -69,7 +69,7 @@
     </func>
 
     <func>
-      <name name="get_argument" arity="1"/>
+      <name name="get_argument" arity="1" since=""/>
       <fsummary>Get the values associated with a command-line user flag.
       </fsummary>
       <desc>
@@ -112,7 +112,7 @@
     </func>
 
     <func>
-      <name name="get_arguments" arity="0"/>
+      <name name="get_arguments" arity="0" since=""/>
       <fsummary>Get all command-line user flags.</fsummary>
       <desc>
         <p>Returns all command-line flags and the system-defined flags, see
@@ -121,7 +121,7 @@
     </func>
 
     <func>
-      <name name="get_plain_arguments" arity="0"/>
+      <name name="get_plain_arguments" arity="0" since=""/>
       <fsummary>Get all non-flag command-line arguments.</fsummary>
       <desc>
         <p>Returns any plain command-line arguments as a list of strings
@@ -130,7 +130,7 @@
     </func>
 
     <func>
-      <name name="get_status" arity="0"/>
+      <name name="get_status" arity="0" since=""/>
       <fsummary>Get system status information.</fsummary>
       <type name="internal_status"/>
       <desc>
@@ -146,7 +146,7 @@
     </func>
 
     <func>
-      <name name="reboot" arity="0"/>
+      <name name="reboot" arity="0" since=""/>
       <fsummary>Take down and restart an Erlang node smoothly.</fsummary>
       <desc>
         <p>All applications are taken down smoothly, all code is
@@ -162,7 +162,7 @@
     </func>
 
     <func>
-      <name name="restart" arity="0"/>
+      <name name="restart" arity="0" since=""/>
       <fsummary>Restart the running Erlang node.</fsummary>
       <desc>
         <p>The system is restarted <em>inside</em> the running Erlang
@@ -178,7 +178,7 @@
     </func>
 
     <func>
-      <name name="script_id" arity="0"/>
+      <name name="script_id" arity="0" since=""/>
       <fsummary>Get the identity of the used boot script.</fsummary>
       <desc>
         <p>Gets the identity of the boot script used to boot the system.
@@ -189,7 +189,7 @@
     </func>
 
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since=""/>
       <fsummary>Take down an Erlang node smoothly.</fsummary>
       <desc>
         <p>The same as
@@ -198,7 +198,7 @@
     </func>
 
     <func>
-      <name name="stop" arity="1"/>
+      <name name="stop" arity="1" since=""/>
       <fsummary>Take down an Erlang node smoothly.</fsummary>
       <desc>
         <p>All applications are taken down smoothly, all code is

@@ -24,7 +24,7 @@
     <file>ssl_crl_cache_api.xml</file>
   </header>
   
-  <module>ssl_crl_cache_api</module>
+  <module since="OTP 18.0">ssl_crl_cache_api</module>
   <modulesummary>API for a SSL/TLS CRL (Certificate Revocation List) cache.</modulesummary>
   <description>
     <p>
@@ -39,35 +39,44 @@
       a CRL cache.
     </p>
   </description>
+
+
+  <!--
+      ================================================================
+      =  Data types                                                  =
+      ================================================================
+  -->
+
+  <datatypes>
+    
+     <datatype>
+	<name name="crl_cache_ref"/>
+	<desc>
+	  <p>Reference to the CRL cache.</p>
+	</desc>
+      </datatype>
+
+
+     <datatype>
+	<name name="dist_point"/>
+	<desc>
+	  <p>For description see <seealso 
+	  marker="public_key:public_key_records"> X509 certificates records</seealso></p>
+	</desc>
+     </datatype>      
+   </datatypes>
   
-  <section>
-    <title>DATA TYPES</title>
-    
-    <p>The following data types are used in the functions below:
-    </p>
-    
-    <taglist>
-      
-    <tag><c>cache_ref() =</c></tag> 
-    <item>opaque()</item>
-    <tag><c>dist_point() =</c></tag>
-    <item><p>#'DistributionPoint'{} see <seealso
-    marker="public_key:public_key_records"> X509 certificates records</seealso></p></item>
-    
-    </taglist>
-    
-  </section>
   <funcs>
       <func>
-      <name>fresh_crl(DistributionPoint, CRL) -> FreshCRL</name>
+      <name since="OTP 18.0">fresh_crl(DistributionPoint, CRL) -> FreshCRL</name>
       <fsummary> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
       public_key:pkix_crls_validate/3 </fsummary>
       <type>
-	<v> DistributionPoint = dist_point() </v>
+	<v> DistributionPoint = <seealso marker="#type-dist_point"> dist_point() </seealso> </v>
 	<v> CRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
+	marker="public_key:public_key#type-der_encoded">public_key:der_encoded()</seealso>] </v>
 	<v> FreshCRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
+	marker="public_key:public_key#type-der_encoded">public_key:der_encoded()</seealso>] </v>
       </type>
       <desc>
 	<p> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
@@ -76,16 +85,16 @@
     </func>
     
     <func>
-      <name>lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs </name>
-      <name>lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
+      <name since="OTP 19.0">lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs </name>
+      <name since="OTP 18.0">lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
       <fsummary> </fsummary>
       <type>
-        <v> DistributionPoint = dist_point() </v>
+	<v> DistributionPoint = <seealso marker="#type-dist_point"> dist_point() </seealso> </v>
         <v> Issuer = <seealso
-	marker="public_key:public_key">public_key:issuer_name()</seealso> </v>
-	<v> DbHandle  = cache_ref() </v>
+	marker="public_key:public_key#type-issuer_name">public_key:issuer_name()</seealso> </v>
+	<v> DbHandle = <seealso marker="#type-crl_cache_ref"> crl_cache_ref() </seealso></v>
 	<v> CRLs = [<seealso
-	   marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
+	   marker="public_key:public_key#type-der_encoded">public_key:der_encoded()</seealso>] </v>
 	</type>
 	<desc> <p>Lookup the CRLs belonging to the distribution point <c> Distributionpoint</c>.
 	This function may choose to only look in the cache or to follow distribution point
@@ -106,12 +115,12 @@
     </func>
     
     <func>
-      <name>select(Issuer, DbHandle) -> CRLs </name>
+      <name since="OTP 18.0">select(Issuer, DbHandle) -> CRLs </name>
       <fsummary>Select the CRLs in the cache that are issued by <c>Issuer</c></fsummary>
       <type>
 	<v> Issuer = <seealso
-	marker="public_key:public_key">public_key:issuer_name()</seealso></v>
-	<v> DbHandle  = cache_ref() </v>
+	marker="public_key:public_key#type-issuer_name">public_key:issuer_name()</seealso></v>
+	<v> DbHandle = <seealso marker="#type-crl_cache_ref"> cache_ref() </seealso></v>
 	</type>
 	<desc>
 	  <p>Select the CRLs in the cache that are issued by <c>Issuer</c> </p>

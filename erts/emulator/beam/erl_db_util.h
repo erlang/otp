@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,16 @@ typedef struct {
     void** bp;         /* {Hash|Tree}DbTerm** */
     Uint new_size;
     int flags;
-    void* lck;
+    union {
+        struct {
+            erts_rwmtx_t* lck;
+        } hash;
+        struct {
+            struct DbTableCATreeNode* base_node;
+            struct DbTableCATreeNode* parent;
+            int current_level;
+        } catree;
+    } u;
 } DbUpdateHandle;
 
 
@@ -274,23 +283,28 @@ typedef struct db_table_common {
 } DbTableCommon;
 
 /* These are status bit patterns */
-#define DB_PRIVATE       (1 << 0)
-#define DB_PROTECTED     (1 << 1)
-#define DB_PUBLIC        (1 << 2)
-#define DB_DELETE        (1 << 3) /* table is being deleted */
-#define DB_SET           (1 << 4)
-#define DB_BAG           (1 << 5)
-#define DB_DUPLICATE_BAG (1 << 6)
-#define DB_ORDERED_SET   (1 << 7)
-#define DB_FINE_LOCKED   (1 << 8) /* write_concurrency */
-#define DB_FREQ_READ     (1 << 9) /* read_concurrency */
-#define DB_NAMED_TABLE   (1 << 10)
-#define DB_BUSY          (1 << 11)
+#define DB_PRIVATE        (1 << 0)
+#define DB_PROTECTED      (1 << 1)
+#define DB_PUBLIC         (1 << 2)
+#define DB_DELETE         (1 << 3) /* table is being deleted */
+#define DB_SET            (1 << 4)
+#define DB_BAG            (1 << 5)
+#define DB_DUPLICATE_BAG  (1 << 6)
+#define DB_ORDERED_SET    (1 << 7)
+#define DB_CA_ORDERED_SET (1 << 8)
+#define DB_FINE_LOCKED    (1 << 9)  /* write_concurrency */
+#define DB_FREQ_READ      (1 << 10) /* read_concurrency */
+#define DB_NAMED_TABLE    (1 << 11)
+#define DB_BUSY           (1 << 12)
+
+#define DB_CATREE_FORCE_SPLIT (1 << 31)  /* erts_debug */
 
 #define IS_HASH_TABLE(Status) (!!((Status) & \
 				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
 #define IS_TREE_TABLE(Status) (!!((Status) & \
 				  DB_ORDERED_SET))
+#define IS_CATREE_TABLE(Status) (!!((Status) & \
+                                    DB_CA_ORDERED_SET))
 #define NFIXED(T) (erts_refc_read(&(T)->common.fix_count,0))
 #define IS_FIXED(T) (NFIXED(T) != 0) 
 

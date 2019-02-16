@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2017</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -312,12 +312,17 @@ child_spec() = #{id => child_id(),       % mandatory
            signal back. If no exit signal is received within
            the specified time, the child process is unconditionally
            terminated using <c>exit(Child, kill)</c>.</item>
-          <item>If the child process is another supervisor, it is to be
+          <item>If the child process is another supervisor, it must be
            set to <c>infinity</c> to give the subtree enough time to
            shut down. It is also allowed to set it to <c>infinity</c>,
-          if the child process is a worker. See the warning below:</item>
+           if the child process is a worker. See the warning below:</item>
         </list>
         <warning>
+	  <p>Setting the shutdown time to anything other
+	    than <c>infinity</c> for a child of type <c>supervisor</c>
+	    can cause a race condition where the child in question
+	    unlinks its own children, but fails to terminate them
+	    before it is killed.</p>
           <p>Be careful when setting the shutdown time to
           <c>infinity</c> when the child process is a worker. Because, in this
           situation, the termination of the supervision tree depends on the

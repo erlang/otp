@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -133,6 +133,7 @@ static int sigchld_pipe[2];
 static int
 start_new_child(int pipes[])
 {
+    struct sigaction sa;
     int errln = -1;
     int size, res, i, pos = 0;
     char *buff, *o_buff;
@@ -143,6 +144,16 @@ start_new_child(int pipes[])
 
     /* only child executes here */
 
+    /* Restore default handling of sigterm... */
+    sa.sa_handler = SIG_DFL;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGTERM, &sa, 0) == -1) {
+        perror(NULL);
+        exit(1);
+    }
+    
     do {
         res = read(pipes[0], (char*)&size, sizeof(size));
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));

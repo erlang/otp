@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -347,9 +347,9 @@ connect_in_callback(Config) ->
     %% such that new events are not fired until the previous
     %% callback have returned.
 
-    %% That means that a callback can not wait for other events
+    %% That means that a callback cannot wait for other events
     %% in receive since they will not come.
-    %% It also means that you can not attach a new callback directly from
+    %% It also means that you cannot attach a new callback directly from
     %% the callback since that callback will be removed when the temporary
     %% process that executes the outer callback (may) die(s) before the callback
     %% is invoked

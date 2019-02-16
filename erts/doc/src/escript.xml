@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>2007</year><year>2017</year>
+      <year>2007</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -155,9 +155,12 @@ io:setopts([{encoding, unicode}])</code>
           for example:</p>
         <pre>
 halt(1).</pre>
-        <p>To retrieve the pathname of the script, call
-          <seealso marker="#script_name_0">
-          <c>escript:script_name()</c></seealso> from your script
+        <p>
+	  To retrieve the pathname of the script, call
+	  <seealso marker="#script_name-0">
+	    <c>escript:script_name()</c>
+	  </seealso>
+	  from your script
 	  (the pathname is usually, but not always, absolute).</p>
         <p>If the file contains source code (as in the example above),
           it is processed by the
@@ -229,6 +232,7 @@ $ <input>escript factorial.beam 5</input>
 factorial 5 = 120
 $ <input>escript factorial.zip 5</input>
 factorial 5 = 120</pre>
+        <marker id="create-2"/>
       </desc>
     </func>
 
@@ -259,7 +263,7 @@ factorial 5 = 120</pre>
           zip:create_option()</seealso>]</v>
       </type>
       <desc>
-        <p><marker id="create_2"></marker>
+        <p>
           Creates an escript from a list of sections. The
           sections can be specified in any order. An escript begins with an
           optional <c>Header</c> followed by a mandatory <c>Body</c>. If
@@ -344,6 +348,7 @@ ok
                  {{2010,3,2},{0,59,22}},
                  54,1,0,0,0,0,0},
       &lt;&lt;"%% demo.erl\n-module(demo).\n-export([main/1]).\n\n%% Demo\nmain(_Arg"...&gt;&gt;}]}</pre>
+        <marker id="extract-2"/>
       </desc>
     </func>
 
@@ -368,9 +373,11 @@ ok
         <v>SourceCode = BeamCode = ZipArchive = binary()</v>
       </type>
       <desc>
-        <p><marker id="extract_2"></marker>
-          Parses an escript and extracts its sections. This is the reverse
-          of <seealso marker="#create_2"><c>create/2</c></seealso>.</p>
+        <p>
+	  Parses an escript and extracts its sections.
+	  This is the reverse of
+	  <seealso marker="#create-2"><c>create/2</c></seealso>.
+	</p>
         <p>All sections are returned even if they do not exist in the
           escript. If a particular section happens to have the same
           value as the default value, the extracted value is set to the
@@ -393,6 +400,7 @@ ok
 {ok,[{{archive,&lt;&lt;80,75,3,4,20,0,0,0,8,0,118,7,98,60,105,
                 152,61,93,107,0,0,0,118,0,...&gt;&gt;}
      {emu_args,undefined}]}</pre>
+        <marker id="script_name-0"/>
       </desc>
     </func>
 
@@ -403,7 +411,7 @@ ok
         <v>File = filename()</v>
       </type>
       <desc>
-        <p><marker id="script_name_0"></marker>
+        <p>
           Returns the name of the escript that is executed.
           If the function is invoked outside the context
           of an escript, the behavior is undefined.</p>

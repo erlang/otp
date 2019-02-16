@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>shell.xml</file>
   </header>
-  <module>shell</module>
+  <module since="">shell</module>
   <modulesummary>The Erlang shell.</modulesummary>
   <description>
     <p>This module provides an Erlang shell.</p>
@@ -874,7 +874,7 @@ q                 - quit erlang
 
   <funcs>
     <func>
-      <name>catch_exception(Bool) -> boolean()</name>
+      <name since="">catch_exception(Bool) -> boolean()</name>
       <fsummary>Set the exception handling of the shell.</fsummary>
       <type>
         <v>Bool = boolean()</v>
@@ -892,7 +892,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="history" arity="1"/>
+      <name name="history" arity="1" since=""/>
       <fsummary>Set the number of previous commands to keep.</fsummary>
       <desc>
         <p>Sets the number of previous commands to keep in the
@@ -902,7 +902,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="prompt_func" arity="1"/>
+      <name name="prompt_func" arity="1" since="OTP R13B04"/>
       <fsummary>Set the shell prompt.</fsummary>
       <desc>
         <p>Sets the shell prompt function to <c><anno>PromptFunc</anno></c>.
@@ -911,7 +911,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="results" arity="1"/>
+      <name name="results" arity="1" since=""/>
       <fsummary>Set the number of previous results to keep.</fsummary>
       <desc>
         <p>Sets the number of results from previous commands to keep in
@@ -921,7 +921,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="start_restricted" arity="1"/>
+      <name name="start_restricted" arity="1" since=""/>
       <fsummary>Exit a normal shell and starts a restricted shell.</fsummary>
       <desc>
         <p>Exits a normal shell and starts a restricted shell.
@@ -936,7 +936,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="stop_restricted" arity="0"/>
+      <name name="stop_restricted" arity="0" since=""/>
       <fsummary>Exit a restricted shell and starts a normal shell.</fsummary>
       <desc>
         <p>Exits a restricted shell and starts a normal shell. The function
@@ -945,7 +945,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="strings" arity="1"/>
+      <name name="strings" arity="1" since="OTP R16B"/>
       <fsummary>Set the shell's string recognition flag.</fsummary>
       <desc>
         <p>Sets pretty printing of lists to <c><anno>Strings</anno></c>.

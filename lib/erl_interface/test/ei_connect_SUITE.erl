@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include("ei_connect_SUITE_data/ei_connect_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          ei_send/1,
          ei_reg_send/1,
          ei_format_pid/1,
@@ -44,8 +45,11 @@ all() ->
     [ei_send, ei_reg_send, ei_rpc, ei_format_pid, ei_send_funs,
      ei_threaded_send, ei_set_get_tracelevel].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
+
 ei_send(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
     {ok,Fd} = ei_connect(P, node()),
 
@@ -58,7 +62,7 @@ ei_send(Config) when is_list(Config) ->
 
 ei_format_pid(Config) when is_list(Config) ->
     S = self(),
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
     {ok,Fd} = ei_connect(P, node()),
 
@@ -70,7 +74,7 @@ ei_format_pid(Config) when is_list(Config) ->
     ok.
 
 ei_send_funs(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
     {ok,Fd} = ei_connect(P, node()),
 
@@ -88,7 +92,7 @@ ei_send_funs(Config) when is_list(Config) ->
     ok.
 
 ei_reg_send(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
     {ok,Fd} = ei_connect(P, node()),
 
@@ -137,7 +141,7 @@ start_einode(Einode, N, Host) ->
     ok.
 
 ei_rpc(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
     {ok,Fd} = ei_connect(P, node()),
 
@@ -150,7 +154,7 @@ ei_rpc(Config) when is_list(Config) ->
     ok.
 
 ei_set_get_tracelevel(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     5 = ei_set_get_tracelevel(P, 5),
     0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
     {ok,Fd} = ei_connect(P, node()),

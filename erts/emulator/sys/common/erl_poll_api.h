@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,11 +72,15 @@ ErtsPollEvents ERTS_POLL_EXPORT(erts_poll_control)(ErtsPollSet *ps,
  * @param res an array of fd results that the ready fds are put in.
  * @param[in] length the length of the res array
  * @param[out] length the number of ready events returned in res
+ * @param tpd the thread progress data to note sleep state in
+ * @param timeout_time the time in native to wake up at
  * @return 0 on success, else the ERRNO of the error that happened.
  */
 int ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet *ps,
                                      ErtsPollResFd res[],
-                                     int *length);
+                                     int *length,
+                                     ErtsThrPrgrData *tpd,
+                                     ErtsMonotonicTime timeout_time);
 /**
  * Interrupt the thread waiting in the pollset. This function should be called
  * with set = 0 before any thread calls erts_poll_wait in order to clear any

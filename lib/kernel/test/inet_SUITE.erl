@@ -97,7 +97,7 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(lookup_bad_search_option, Config) ->
     Db = inet_db,
     Key = res_lookup,
-    %% The bad option can not enter through inet_db:set_lookup/1,
+    %% The bad option cannot enter through inet_db:set_lookup/1,
     %% but through e.g .inetrc.
     Prev = ets:lookup(Db, Key),
     ets:delete(Db, Key),
@@ -1060,28 +1060,26 @@ getservbyname_overflow(Config) when is_list(Config) ->
 getifaddrs(Config) when is_list (Config) ->
     {ok,IfAddrs} = inet:getifaddrs(),
     io:format("IfAddrs = ~p.~n", [IfAddrs]),
-    case
-	{os:type(),
-	 [If ||
-	     {If,Opts} <- IfAddrs,
-	     lists:keymember(hwaddr, 1, Opts)]} of
-	{{unix,sunos},[]} -> ok;
-	{OT,[]} ->
-	    ct:fail({should_have_hwaddr,OT});
-	_ -> ok
+    case [If || {If,Opts} <- IfAddrs, lists:keymember(hwaddr, 1, Opts)] of
+        [] ->
+            case os:type() of
+                {unix,sunos} -> ok;
+                OT ->
+                    ct:fail({should_have_hwaddr,OT})
+            end;
+        [_|_] -> ok
     end,
-    Addrs =
-	[element(1, A) || A <- ifaddrs(IfAddrs)],
+    Addrs = ifaddrs(IfAddrs),
     io:format("Addrs = ~p.~n", [Addrs]),
     [check_addr(Addr) || Addr <- Addrs],
     ok.
 
-check_addr({addr,Addr})
+check_addr(Addr)
   when tuple_size(Addr) =:= 8,
        element(1, Addr) band 16#FFC0 =:= 16#FE80 ->
     io:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
     ok;
-check_addr({addr,Addr}) ->
+check_addr(Addr) ->
     io:format("Addr: ~p.~n", [Addr]),
     Ping = "ping",
     Pong = "pong",
@@ -1097,78 +1095,86 @@ check_addr({addr,Addr}) ->
     ok = gen_tcp:close(S2),
     ok = gen_tcp:close(L).
 
--record(ifopts, {name,flags,addrs=[],hwaddr}).
+ifaddrs(IfOpts) ->
+    IfMap = collect_ifopts(IfOpts),
+    ChkFun =
+        fun Self({{_,Flags} = Key, Opts}, ok) ->
+                Broadcast = lists:member(broadcast, Flags),
+                P2P = lists:member(pointtopoint, Flags),
+                case Opts of
+                    [{addr,_},{netmask,_},{broadaddr,_}|Os]
+                      when Broadcast ->
+                        Self({Key, Os}, ok);
+                    [{addr,_},{netmask,_},{dstaddr,_}|Os]
+                      when P2P ->
+                        Self({Key, Os}, ok);
+                    [{addr,_},{netmask,_}|Os] ->
+                        Self({Key, Os}, ok);
+                    [{hwaddr,_}|Os] ->
+                        Self({Key, Os}, ok);
+                    [] ->
+                        ok
+                end
+        end,
+    fold_ifopts(ChkFun, ok, IfMap),
+    AddrsFun =
+        fun ({{_,Flags}, Opts}, Acc) ->
+                case
+                    lists:member(running, Flags)
+                    andalso (not lists:member(pointtopoint, Flags))
+                of
+                    true ->
+                        lists:reverse(
+                          [Addr || {addr,Addr} <- Opts],
+                          Acc);
+                    false ->
+                        Acc
+                end
+        end,
+    fold_ifopts(AddrsFun, [], IfMap).
 
-ifaddrs([]) -> [];
-ifaddrs([{If,Opts}|IOs]) ->
-    #ifopts{flags=F} = Ifopts = check_ifopts(Opts, #ifopts{name=If}),
-    case F of
-	{flags,Flags} ->
-	    case lists:member(running, Flags) of
-		true -> Ifopts#ifopts.addrs;
-		false -> []
-	    end ++ ifaddrs(IOs);
-	undefined ->
-	    ifaddrs(IOs)
+collect_ifopts(IfOpts) ->
+    collect_ifopts(IfOpts, #{}).
+%%
+collect_ifopts(IfOpts, IfMap) ->
+    case IfOpts of
+        [{If,[{flags,Flags}|Opts]}|IfOs] ->
+            Key = {If,Flags},
+            case maps:is_key(Key, IfMap) of
+                true ->
+                    ct:fail({unexpected_ifopts,IfOpts,IfMap});
+                false ->
+                    collect_ifopts(IfOs, IfMap, Opts, Key, [])
+            end;
+        [] ->
+            IfMap;
+        _ ->
+            ct:fail({unexpected_ifopts,IfOpts,IfMap})
+    end.
+%%
+collect_ifopts(IfOpts, IfMap, Opts, Key, R) ->
+    case Opts of
+        [{flags,_}|_] ->
+            {If,_} = Key,
+            collect_ifopts(
+              [{If,Opts}|IfOpts], maps:put(Key, lists:reverse(R), IfMap));
+        [OptVal|Os] ->
+            collect_ifopts(IfOpts, IfMap, Os, Key, [OptVal|R]);
+        [] ->
+            collect_ifopts(IfOpts, maps:put(Key, lists:reverse(R), IfMap))
     end.
 
-check_ifopts([], #ifopts{flags=F,addrs=Raddrs}=Ifopts) ->
-    Addrs = lists:reverse(Raddrs),
-    R = Ifopts#ifopts{addrs=Addrs},
-    io:format("~p.~n", [R]),
-    %% See how we did...
-    {flags,Flags} = F,
-    case lists:member(broadcast, Flags) of
-	true ->
-	    [case A of
-		 {{addr,_},{netmask,_},{broadaddr,_}} ->
-		     A;
-		 {{addr,T},{netmask,_}} when tuple_size(T) =:= 8 ->
-		     A
-	     end || A <- Addrs];
-	false ->
-	    case lists:member(pointtopoint, Flags) of
-		true ->
-		    [case A of
-			 {{addr,_},{netmask,_},{dstaddr,_}} ->
-			     A
-		     end || A <- Addrs];
-		false ->
-		    [case A of
-			 {{addr,_},{netmask,_}} ->
-			     A
-		     end || A <- Addrs]
-	    end
-    end,
-    R;
-check_ifopts([{flags,_}=F|Opts], #ifopts{flags=undefined}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{flags=F});
-check_ifopts([{flags,_}=F|Opts], #ifopts{flags=Flags}=Ifopts) ->
-    case F of
-	Flags ->
-	    check_ifopts(Opts, Ifopts);
-	_ ->
-	    ct:fail({multiple_flags,F,Ifopts})
-    end;
-check_ifopts(
-  [{addr,_}=A,{netmask,_}=N,{dstaddr,_}=D|Opts],
-  #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A,N,D}|Addrs]});
-check_ifopts(
-  [{addr,_}=A,{netmask,_}=N,{broadaddr,_}=B|Opts],
-  #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A,N,B}|Addrs]});
-check_ifopts(
-  [{addr,_}=A,{netmask,_}=N|Opts],
-  #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A,N}|Addrs]});
-check_ifopts([{addr,_}=A|Opts], #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A}|Addrs]});
-check_ifopts([{hwaddr,Hwaddr}=H|Opts], #ifopts{hwaddr=undefined}=Ifopts)
-  when is_list(Hwaddr) ->
-    check_ifopts(Opts, Ifopts#ifopts{hwaddr=H});
-check_ifopts([{hwaddr,_}=H|_], #ifopts{}=Ifopts) ->
-    ct:fail({multiple_hwaddrs,H,Ifopts}).
+fold_ifopts(Fun, Acc, IfMap) ->
+    fold_ifopts(Fun, Acc, IfMap, maps:keys(IfMap)).
+%%
+fold_ifopts(Fun, Acc, IfMap, Keys) ->
+    case Keys of
+        [Key|Ks] ->
+            Opts = maps:get(Key, IfMap),
+            fold_ifopts(Fun, Fun({Key,Opts}, Acc), IfMap, Ks);
+        [] ->
+            Acc
+    end.
 
 %% Works just like lists:member/2, except that any {127,_,_,_} tuple
 %% matches any other {127,_,_,_}. We do this to handle Linux systems

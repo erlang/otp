@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2017</year><year>2017</year>
+      <year>2017</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -40,7 +40,7 @@
     </p>
     <p>
       An engine could among other tasks provide a storage for
-      private or public keys. Such a storage could be made safer than the normal file system. Thoose techniques are not 
+      private or public keys. Such a storage could be made safer than the normal file system. Those techniques are not
       described in this User's Guide.  Here we concentrate on how to use private or public keys stored in
       such an engine.
     </p>
@@ -51,7 +51,7 @@
     <p>
       OTP/Crypto requires that the user provides two or three items of information about the key. The application used
       by the user is usually on a higher level, for example in
-      <seealso marker="ssl:ssl#key_option_def">SSL</seealso>. If using
+      <seealso marker="ssl:ssl#type-key">SSL</seealso>. If using
       the crypto application directly, it is required that:
     </p>
     <list>
@@ -62,7 +62,7 @@
       on the Engine loaded
       </item>
       <item>an Erlang map is constructed with the Engine reference, the key reference and possibly a key passphrase if
-      needed by the Engine. See the <seealso marker="crypto:crypto#engine_key_ref_type">Reference Manual</seealso> for
+      needed by the Engine. See the <seealso marker="crypto:crypto#type-engine_key_ref">Reference Manual</seealso> for
       details of the map.
       </item>
     </list>

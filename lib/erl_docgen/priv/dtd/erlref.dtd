@@ -25,6 +25,7 @@
 <!ELEMENT erlref              (header,module,modulesummary,description, 
 			       (section|funcs|datatypes)*,authors?) >
 <!ELEMENT module              (#PCDATA) >
+<!ATTLIST module               since CDATA #IMPLIED>
 <!ELEMENT modulesummary       (#PCDATA) >
 
 <!-- `name' is used in common.refs.dtd and must therefore 
@@ -34,4 +35,5 @@
                                arity CDATA #IMPLIED
 	                       clause_i CDATA #IMPLIED
                                anchor CDATA #IMPLIED
+	                       since CDATA #IMPLIED
                                n_vars CDATA #IMPLIED>

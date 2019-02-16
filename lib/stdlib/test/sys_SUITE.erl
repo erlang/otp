@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -219,7 +219,7 @@ spec_proc(Mod) ->
 		       {Mod,system_get_state},{throw,fail}},_}} ->
 		 ok
 	 end,
-    ok = sys:terminate(Mod, normal),
+    ok = sync_terminate(Mod),
     {ok,_} = Mod:start_link(4),
     ok = case catch sys:replace_state(Mod, fun(_) -> {} end) of
 	     {} ->
@@ -228,7 +228,7 @@ spec_proc(Mod) ->
 		       {Mod,system_replace_state},{throw,fail}},_}} ->
 		 ok
 	 end,
-    ok = sys:terminate(Mod, normal),
+    ok = sync_terminate(Mod),
     {ok,_} = Mod:start_link(4),
     StateFun = fun(_) -> error(fail) end,
     ok = case catch sys:replace_state(Mod, StateFun) of
@@ -240,7 +240,18 @@ spec_proc(Mod) ->
 	     {'EXIT',{{callback_failed,StateFun,{error,fail}},_}} ->
 		 ok
 	 end,
-    ok = sys:terminate(Mod, normal).
+    ok = sync_terminate(Mod).
+
+sync_terminate(Mod) ->
+    P = whereis(Mod),
+    MRef = erlang:monitor(process,P),
+    ok = sys:terminate(Mod, normal),
+    receive
+        {'DOWN',MRef,_,_,normal} ->
+            ok
+    end,
+    undefined = whereis(Mod),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%
 %% Dummy server

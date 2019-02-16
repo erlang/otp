@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,11 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
-%%% @doc Common Test Framework test execution control module.
-%%%
-%%% <p>This module exports functions for installing and running tests
-%%% withing the Common Test Framework.</p>
 
 -module(ct_run).
 
@@ -84,17 +79,6 @@
 	       tests,
 	       starter}).
 
-%%%-----------------------------------------------------------------
-%%% @spec script_start() -> term()
-%%%
-%%% @doc Start tests via the ct_run program or script.
-%%%
-%%% <p>Example:<br/><code>./ct_run -config config.ctc -dir
-%%% $TEST_DIR</code></p>
-%%%
-%%% <p>Example:<br/><code>./ct_run -config config.ctc -suite
-%%% $SUITE_PATH/$SUITE_NAME [-case $CASE_NAME]</code></p>
-%%%
 script_start() ->
     process_flag(trap_exit, true),
     Init = init:get_arguments(),
@@ -799,9 +783,6 @@ script_start4(#opts{shell = true, cover = Cover}, _) ->
 script_start4(Opts = #opts{tests = Tests}, Args) ->
     do_run(Tests, [], Opts, Args).
 
-%%%-----------------------------------------------------------------
-%%% @spec script_usage() -> ok
-%%% @doc Print usage information for <code>ct_run</code>.
 script_usage() ->
     io:format("\nUsage:\n\n"),
     io:format("Run tests from command line:\n\n"
@@ -885,9 +866,6 @@ script_usage() ->
 	      "\n\t [-basic_html]"
 	      "\n\t [-no_esc_chars]\n\n").
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:install/1
 install(Opts) ->
     install(Opts, ".").
 
@@ -930,15 +908,6 @@ install(Opts, LogDir) ->
 
 variables_file_name(Dir) ->
     filename:join(Dir, "variables-"++atom_to_list(node())).
-
-%%%-----------------------------------------------------------------
-%%% @spec run_test(Opts) -> Result
-%%%   Opts = [tuple()]
-%%%   Result = [TestResult] | {error,Reason}
-%%%
-%%% @doc Start tests from the erlang shell or from an erlang program.
-%%% @equiv ct:run_test/1
-%%%-----------------------------------------------------------------
 
 run_test(StartOpt) when is_tuple(StartOpt) ->
     run_test([StartOpt]);
@@ -1427,14 +1396,6 @@ run_dir(Opts = #opts{logdir = LogDir,
 	    exit({error,{incorrect_start_options,{Dir,Suite,GsAndCs}}})
     end.
 
-%%%-----------------------------------------------------------------
-%%% @spec run_testspec(TestSpec) -> Result
-%%%   TestSpec = [term()]
-%%%
-%%% @doc Run test specified by <code>TestSpec</code>. The terms are
-%%% the same as those used in test specification files.
-%%% @equiv ct:run_testspec/1
-%%%-----------------------------------------------------------------
 run_testspec(TestSpec) ->
     CTPid = spawn(run_testspec1_fun(TestSpec)),
     Ref = monitor(process, CTPid),
@@ -1634,9 +1595,6 @@ delistify([E]) -> E;
 delistify(E)   -> E.
 
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:run/3
 run(TestDir, Suite, Cases) ->
     case install([]) of
 	ok ->
@@ -1645,9 +1603,6 @@ run(TestDir, Suite, Cases) ->
 	    Error
     end.
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:run/2
 run(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
     case install([]) of
 	ok ->
@@ -1656,9 +1611,6 @@ run(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
 	    Error
     end.
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:run/1
 run(TestDirs) ->
     case install([]) of
 	ok ->
@@ -1957,7 +1909,8 @@ auto_compile(TestSuites) ->
     SuiteMakeErrors =
 	lists:flatmap(fun({TestDir,Suite} = TS) ->
 			      case run_make(suites, TestDir, 
-					    Suite, UserInclude) of
+					    Suite, UserInclude,
+                                            [nowarn_export_all]) of
 				  {error,{make_failed,Bad}} ->
 				      [{TS,Bad}];
 				  {error,_} ->
@@ -1975,7 +1928,7 @@ auto_compile(TestSuites) ->
 		  case lists:member(Dir, Done) of
 		      false ->
 			  Failed1 =
-			      case run_make(helpmods, Dir, Suite, UserInclude) of
+			      case run_make(helpmods, Dir, Suite, UserInclude, []) of
 				  {error,{make_failed,BadMods}} ->
 				      [{{Dir,all},BadMods}|Failed];
 				  {error,_} ->
@@ -2068,16 +2021,9 @@ get_bad_suites([], BadSuites) ->
     BadSuites.
 
 
-
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:step/3
 step(TestDir, Suite, Case) ->
     step(TestDir, Suite, Case, []).
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:step/4
 step(TestDir, Suite, Case, Opts) when is_list(TestDir),
 				      is_atom(Suite), is_atom(Case),
 				      Suite =/= all, Case =/= all ->
@@ -2399,18 +2345,24 @@ start_cover(Opts=#opts{coverspec=CovData,cover_stop=CovStop},LogDir) ->
      CovImport,
      _CovExport,
      #cover{app        = CovApp,
+            local_only = LocalOnly,
 	    level      = CovLevel,
 	    excl_mods  = CovExcl,
 	    incl_mods  = CovIncl,
 	    cross      = CovCross,
 	    src        = _CovSrc}} = CovData,
+    case LocalOnly of
+        true -> cover:local_only();
+        false -> ok
+    end,
     ct_logs:log("COVER INFO",
 		"Using cover specification file: ~ts~n"
 		"App: ~w~n"
+                "Local only: ~w~n"
 		"Cross cover: ~w~n"
 		"Including ~w modules~n"
 		"Excluding ~w modules",
-		[CovFile,CovApp,CovCross,
+		[CovFile,CovApp,LocalOnly,CovCross,
 		 length(CovIncl),length(CovExcl)]),
 
     %% Tell test_server to print a link in its coverlog
@@ -2724,12 +2676,12 @@ get_name(Dir) ->
 
 
 run_make(TestDir, Mod, UserInclude) ->
-    run_make(suites, TestDir, Mod, UserInclude).
+    run_make(suites, TestDir, Mod, UserInclude, [nowarn_export_all]).
 
-run_make(Targets, TestDir0, Mod, UserInclude) when is_list(Mod) ->
-    run_make(Targets, TestDir0, list_to_atom(Mod), UserInclude);
+run_make(Targets, TestDir0, Mod, UserInclude, COpts) when is_list(Mod) ->
+    run_make(Targets, TestDir0, list_to_atom(Mod), UserInclude, COpts);
 
-run_make(Targets, TestDir0, Mod, UserInclude) ->
+run_make(Targets, TestDir0, Mod, UserInclude, COpts) ->
     case locate_test_dir(TestDir0, Mod) of
 	{ok,TestDir} ->
 	    %% send a start_make notification which may suspend
@@ -2744,7 +2696,7 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 	    XmerlInclude = get_dir(xmerl, "include"),
 	    ErlFlags = UserInclude ++ [{i,CtInclude},
 				       {i,XmerlInclude},
-				       debug_info],
+				       debug_info] ++ COpts,
 	    Result =
 		if Mod == all ; Targets == helpmods ->
 			case (catch ct_make:all([noexec|ErlFlags])) of

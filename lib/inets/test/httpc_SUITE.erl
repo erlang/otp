@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,8 @@ all() ->
      {group, http_unix_socket},
      {group, https},
      {group, sim_https},
-     {group, misc}
+     {group, misc},
+     {group, sim_mixed} % HTTP and HTTPS sim servers
     ].
 
 groups() ->
@@ -74,7 +75,8 @@ groups() ->
      {http_unix_socket, [], simulated_unix_socket()},
      {https, [], real_requests()},
      {sim_https, [], only_simulated()},
-     {misc, [], misc()}
+     {misc, [], misc()},
+     {sim_mixed, [], sim_mixed()}
     ].
 
 real_requests()->
@@ -154,6 +156,7 @@ only_simulated() ->
      multipart_chunks,
      get_space,
      delete_no_body,
+     post_with_content_type,
      stream_fun_server_close
     ].
 
@@ -167,7 +170,15 @@ misc() ->
     [
      server_does_not_exist,
      timeout_memory_leak,
-     wait_for_whole_response
+     wait_for_whole_response,
+     post_204_chunked,
+     chunkify_fun
+    ].
+
+sim_mixed() ->
+    [
+     redirect_http_to_https,
+     redirect_relative_different_port
     ].
 
 %%--------------------------------------------------------------------
@@ -195,7 +206,8 @@ init_per_group(misc = Group, Config) ->
     Config;
 
 
-init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https->
+init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https;
+                                    Group =:= sim_mixed ->
     catch crypto:stop(),
     try crypto:start() of
         ok ->
@@ -238,6 +250,13 @@ end_per_group(http_unix_socket,_Config) ->
 end_per_group(_, _Config) ->
     ok.
 
+do_init_per_group(Group=sim_mixed, Config0) ->
+    % The mixed group uses two server ports (http and https), so we use
+    % different config names here.
+    Config1 = init_ssl(Config0),
+    Config2 = proplists:delete(http_port, proplists:delete(https_port, Config1)),
+    {HttpPort, HttpsPort} = server_start(Group, server_config(sim_https, Config2)),
+    [{http_port, HttpPort} | [{https_port, HttpsPort} | Config2]];
 do_init_per_group(Group, Config0) ->
     Config1 =
         case Group of
@@ -733,6 +752,48 @@ redirect_loop(Config) when is_list(Config) ->
     {ok, {{_,300,_}, [_ | _], _}}
 	= httpc:request(get, {URL, []}, [], []).
 
+%%-------------------------------------------------------------------------
+redirect_http_to_https() ->
+    [{doc, "Test that a 30X redirect from one scheme to another is handled "
+      "correctly."}].
+redirect_http_to_https(Config) when is_list(Config) ->
+    URL301 = mixed_url(http, "/301_custom_url.html", Config),
+    TargetUrl = mixed_url(https, "/dummy.html", Config),
+    Headers = [{"x-test-301-url", TargetUrl}],
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, {URL301, Headers}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], []}}
+	= httpc:request(head, {URL301, Headers}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
+			[], []).
+%%-------------------------------------------------------------------------
+redirect_relative_different_port() ->
+    [{doc, "Test that a 30X redirect with a relative target, but different "
+      "port, is handled correctly."}].
+redirect_relative_different_port(Config) when is_list(Config) ->
+    URL301 = mixed_url(http, "/301_custom_url.html", Config),
+
+    % We need an extra server of the same protocol here, so spawn a new
+    % HTTP-protocol one
+    Port = server_start(sim_http, []),
+    {ok, Host} = inet:gethostname(),
+    % Prefix the URI with '/' instead of a scheme
+    TargetUrl = "//" ++ Host ++ ":" ++ integer_to_list(Port) ++ "/dummy.html",
+    Headers = [{"x-test-301-url", TargetUrl}],
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, {URL301, Headers}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], []}}
+	= httpc:request(head, {URL301, Headers}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
+			[], []).
 %%-------------------------------------------------------------------------
 cookie() ->
     [{doc, "Test cookies."}].
@@ -1333,6 +1394,109 @@ wait_for_whole_response(Config) when is_list(Config) ->
      ReqSeqNumServer ! shutdown.
 
 %%--------------------------------------------------------------------
+post_204_chunked() ->
+    [{doc,"Test that chunked encoded 204 responses do not freeze the http client"}].
+post_204_chunked(_Config) ->
+    Msg = "HTTP/1.1 204 No Content\r\n" ++
+        "Date: Thu, 23 Aug 2018 13:36:29 GMT\r\n" ++
+        "Content-Type: text/html\r\n" ++
+        "Server: inets/6.5.2.3\r\n" ++
+        "Cache-Control: no-cache\r\n" ++
+        "Pragma: no-cache\r\n" ++
+        "Expires: Fri, 24 Aug 2018 07:49:35 GMT\r\n" ++
+        "Transfer-Encoding: chunked\r\n" ++
+        "\r\n",
+    Chunk = "0\r\n\r\n",
+
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
+    {ok,{_,Port}} = inet:sockname(ListenSocket),
+    spawn(fun () -> custom_server(Msg, Chunk, ListenSocket,
+                                  fun post_204_receive/0) end),
+
+    {ok,Host} = inet:gethostname(),
+    End = "/cgi-bin/erl/httpd_example:post_204",
+    URL = ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End,
+    {ok, _} = httpc:request(post, {URL, [], "text/html", []}, [], []),
+    timer:sleep(500),
+    %% Second request times out in the faulty case.
+    {ok, _} = httpc:request(post, {URL, [], "text/html", []}, [], []).
+
+post_204_receive() ->
+    receive
+        {tcp, _, Msg} ->
+            ct:log("Message received: ~p", [Msg])
+    after
+        1000 ->
+            ct:fail("Timeout: did not recive packet")
+    end.
+
+%% Custom server is used to test special cases when using chunked encoding
+custom_server(Msg, Chunk, ListenSocket, ReceiveFun) ->
+    {ok, Accept} = gen_tcp:accept(ListenSocket),
+    ReceiveFun(),
+    send_response(Msg, Chunk, Accept),
+    custom_server_loop(Msg, Chunk, Accept, ReceiveFun).
+
+custom_server_loop(Msg, Chunk, Accept, ReceiveFun) ->
+    ReceiveFun(),
+    send_response(Msg, Chunk, Accept),
+    custom_server_loop(Msg, Chunk, Accept, ReceiveFun).
+
+send_response(Msg, Chunk, Socket) ->
+    inet:setopts(Socket, [{active, once}]),
+    gen_tcp:send(Socket, Msg),
+    timer:sleep(250),
+    gen_tcp:send(Socket, Chunk).
+
+%%--------------------------------------------------------------------
+chunkify_fun() ->
+    [{doc,"Test that a chunked encoded request does not include the 'Content-Length header'"}].
+chunkify_fun(_Config) ->
+    Msg = "HTTP/1.1 204 No Content\r\n" ++
+        "Date: Thu, 23 Aug 2018 13:36:29 GMT\r\n" ++
+        "Content-Type: text/html\r\n" ++
+        "Server: inets/6.5.2.3\r\n" ++
+        "Cache-Control: no-cache\r\n" ++
+        "Pragma: no-cache\r\n" ++
+        "Expires: Fri, 24 Aug 2018 07:49:35 GMT\r\n" ++
+        "Transfer-Encoding: chunked\r\n" ++
+        "\r\n",
+    Chunk = "0\r\n\r\n",
+
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
+    {ok,{_,Port}} = inet:sockname(ListenSocket),
+    spawn(fun () -> custom_server(Msg, Chunk, ListenSocket,
+                                  fun chunkify_receive/0) end),
+
+    {ok,Host} = inet:gethostname(),
+    End = "/cgi-bin/erl/httpd_example",
+    URL = ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End,
+    Fun = fun(_) -> {ok,<<1>>,eof_body} end,
+    Acc = start,
+
+    {ok, {{_,204,_}, _, _}} =
+        httpc:request(put, {URL, [], "text/html", {chunkify, Fun, Acc}}, [], []).
+
+chunkify_receive() ->
+    Error = "HTTP/1.1 500 Internal Server Error\r\n" ++
+        "Content-Length: 0\r\n\r\n",
+    receive
+        {tcp, Port, Msg} ->
+            case binary:match(Msg, <<"content-length">>) of
+                nomatch ->
+                    ct:log("Message received: ~s", [binary_to_list(Msg)]);
+                {_, _} ->
+                    ct:log("Message received (negative): ~s", [binary_to_list(Msg)]),
+                    %% Signal a testcase failure when the received HTTP request
+                    %% contains a 'Content-Length' header.
+                    gen_tcp:send(Port, Error),
+                    ct:fail("Content-Length present in received headers.")
+            end
+    after
+        1000 ->
+            ct:fail("Timeout: did not recive packet")
+    end.
+%%--------------------------------------------------------------------
 stream_fun_server_close() ->
     [{doc, "Test that an error msg is received when using a receiver fun as stream target"}].
 stream_fun_server_close(Config) when is_list(Config) ->
@@ -1436,6 +1600,15 @@ delete_no_body(Config) when is_list(Config) ->
         httpc:request(delete, {URL, []}, [], []),
     {ok, {{_,500,_}, _, _}} =
         httpc:request(delete, {URL, [], "text/plain", "TEST"}, [], []).
+
+%%--------------------------------------------------------------------
+post_with_content_type(doc) ->
+    ["Test that a POST request with explicit 'Content-Type' does not drop the 'Content-Type' header - Solves ERL-736"];
+post_with_content_type(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/delete_no_body.html", Config),
+    %% Simulated server replies 500 if 'Content-Type' header is present
+    {ok, {{_,500,_}, _, _}} =
+        httpc:request(post, {URL, [], "application/x-www-form-urlencoded", ""}, [], []).
 
 %%--------------------------------------------------------------------
 request_options() ->
@@ -1559,6 +1732,21 @@ url(sim_http, UserInfo, End, Config) ->
 url(sim_https, UserInfo, End, Config) ->
     url(https, UserInfo, End, Config).
 
+% Only for use in the `mixed` test group, where both http and https
+% URLs are possible.
+mixed_url(http, End, Config) ->
+    mixed_url(http_port, End, Config);
+mixed_url(https, End, Config) ->
+    mixed_url(https_port, End, Config);
+mixed_url(PortType, End, Config) ->
+    Port = proplists:get_value(PortType, Config),
+    {ok, Host} = inet:gethostname(),
+    Start = case PortType of
+        http_port -> ?URL_START;
+        https_port -> ?TLS_URL_START
+    end,
+    Start ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
+
 group_name(Config) ->
     GroupProp = proplists:get_value(tc_group_properties, Config),
     proplists:get_value(name, GroupProp).
@@ -1587,6 +1775,9 @@ server_start(http_ipv6, HttpdConfig) ->
     Serv = inets:services_info(),
     {value, {_, _, Info}} = lists:keysearch(Pid, 2, Serv),
     proplists:get_value(port, Info);
+server_start(sim_mixed, Config) ->
+    % For the mixed http/https case, we start two servers and return both ports.
+    {server_start(sim_http, []), server_start(sim_https, Config)};
 server_start(_, HttpdConfig) ->
     {ok, Pid} = inets:start(httpd, HttpdConfig),
     Serv = inets:services_info(),
@@ -1644,6 +1835,8 @@ esi_post(Sid, _Env, _Input) ->
 start_apps(https) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(sim_https) ->
+    inets_test_lib:start_apps([crypto, public_key, ssl]);
+start_apps(sim_mixed) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(_) ->
     ok.
@@ -2089,6 +2282,20 @@ handle_uri(_,"/301_rel_uri.html",_,_,_,_) ->
 	"Content-Length:" ++ integer_to_list(length(Body))
 	++ "\r\n\r\n" ++ Body;
 
+handle_uri("HEAD","/301_custom_url.html",_,Headers,_,_) ->
+    NewUri = proplists:get_value("x-test-301-url", Headers),
+    "HTTP/1.1 301 Moved Permanently\r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:0\r\n\r\n";
+
+handle_uri(_,"/301_custom_url.html",_,Headers,_,_) ->
+    NewUri = proplists:get_value("x-test-301-url", Headers),
+    Body = "<HTML><BODY><a href=" ++ NewUri ++
+	">New place</a></BODY></HTML>",
+    "HTTP/1.1 301 Moved Permanently\r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:" ++ integer_to_list(length(Body))
+	++ "\r\n\r\n" ++ Body;
 
 handle_uri("HEAD","/302.html",Port,_,Socket,_) ->
     NewUri = url_start(Socket) ++

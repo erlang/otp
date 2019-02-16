@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1996-09-28</date>
     <rev>A</rev>
   </header>
-  <module>lists</module>
+  <module since="">lists</module>
   <modulesummary>List processing functions.</modulesummary>
   <description>
     <p>This module contains functions for list processing.</p>
@@ -63,7 +63,7 @@
 
   <funcs>
     <func>
-      <name name="all" arity="2"/>
+      <name name="all" arity="2" since=""/>
       <fsummary>Return <c>true</c> if all elements in a list satisfy
         <c>Pred</c>.</fsummary>
       <desc>
@@ -74,7 +74,7 @@
     </func>
 
     <func>
-      <name name="any" arity="2"/>
+      <name name="any" arity="2" since=""/>
       <fsummary>Return <c>true</c> if any of the elements in a list
         satisfies <c>Pred</c>.</fsummary>
       <desc>
@@ -85,7 +85,7 @@
     </func>
 
     <func>
-      <name name="append" arity="1"/>
+      <name name="append" arity="1" since=""/>
       <fsummary>Append a list of lists.</fsummary>
       <desc>
         <p>Returns a list in which all the sublists of
@@ -98,7 +98,7 @@
     </func>
 
     <func>
-      <name name="append" arity="2"/>
+      <name name="append" arity="2" since=""/>
       <fsummary>Append two lists.</fsummary>
       <desc>
         <p>Returns a new list <c><anno>List3</anno></c>, which is made from
@@ -113,7 +113,7 @@
     </func>
 
     <func>
-      <name name="concat" arity="1"/>
+      <name name="concat" arity="1" since=""/>
       <fsummary>Concatenate a list of atoms.</fsummary>
       <desc>
         <p>Concatenates the text representation of the elements of
@@ -127,7 +127,7 @@
     </func>
 
     <func>
-      <name name="delete" arity="2"/>
+      <name name="delete" arity="2" since=""/>
       <fsummary>Delete an element from a list.</fsummary>
       <desc>
         <p>Returns a copy of <c><anno>List1</anno></c> where the first element
@@ -137,7 +137,7 @@
     </func>
 
     <func>
-      <name name="droplast" arity="1"/>
+      <name name="droplast" arity="1" since="OTP 17.0"/>
       <fsummary>Drop the last element of a list.</fsummary>
       <desc>
         <p>Drops the last element of a <c><anno>List</anno></c>. The list is to
@@ -147,7 +147,7 @@
     </func>
 
     <func>
-      <name name="dropwhile" arity="2"/>
+      <name name="dropwhile" arity="2" since=""/>
       <fsummary>Drop elements from a list while a predicate is <c>true</c>.
       </fsummary>
       <desc>
@@ -159,7 +159,7 @@
     </func>
 
     <func>
-      <name name="duplicate" arity="2"/>
+      <name name="duplicate" arity="2" since=""/>
       <fsummary>Make <c>N</c> copies of element.</fsummary>
       <desc>
         <p>Returns a list containing <c><anno>N</anno></c> copies of term
@@ -172,7 +172,7 @@
     </func>
 
     <func>
-      <name name="filter" arity="2"/>
+      <name name="filter" arity="2" since=""/>
       <fsummary>Select elements that satisfy a predicate.</fsummary>
       <desc>
         <p><c><anno>List2</anno></c> is a list of all elements
@@ -182,7 +182,7 @@
     </func>
 
     <func>
-      <name name="filtermap" arity="2"/>
+      <name name="filtermap" arity="2" since="OTP R16B01"/>
       <fsummary>Filter and map elements that satisfy a function.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>)</c> on successive
@@ -211,7 +211,7 @@ filtermap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="flatlength" arity="1"/>
+      <name name="flatlength" arity="1" since=""/>
       <fsummary>Length of flattened deep list.</fsummary>
       <desc>
         <p>Equivalent to <c>length(flatten(<anno>DeepList</anno>))</c>, but
@@ -220,7 +220,7 @@ filtermap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="flatmap" arity="2"/>
+      <name name="flatmap" arity="2" since=""/>
       <fsummary>Map and flatten in one pass.</fsummary>
       <desc>
         <p>Takes a function from <c><anno>A</anno></c>s to lists of
@@ -241,7 +241,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="flatten" arity="1"/>
+      <name name="flatten" arity="1" since=""/>
       <fsummary>Flatten a deep list.</fsummary>
       <desc>
         <p>Returns a flattened version of <c><anno>DeepList</anno></c>.</p>
@@ -249,7 +249,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="flatten" arity="2"/>
+      <name name="flatten" arity="2" since=""/>
       <fsummary>Flatten a deep list.</fsummary>
       <desc>
         <p>Returns a flattened version of <c><anno>DeepList</anno></c> with tail
@@ -258,7 +258,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="foldl" arity="3"/>
+      <name name="foldl" arity="3" since=""/>
       <fsummary>Fold a function over a list.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>, <anno>AccIn</anno>)</c>
@@ -278,7 +278,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="foldr" arity="3"/>
+      <name name="foldr" arity="3" since=""/>
       <fsummary>Fold a function over a list.</fsummary>
       <desc>
         <p>Like <seealso marker="#foldl/3"><c>foldl/3</c></seealso>, but the
@@ -297,7 +297,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="join" arity="2"/>
+      <name name="join" arity="2" since="OTP 19.0"/>
       <fsummary>Insert an element between elements in a list</fsummary>
       <desc>
         <p>Inserts <c><anno>Sep</anno></c> between each element in <c><anno>List1</anno></c>. Has no
@@ -312,7 +312,7 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name name="foreach" arity="2"/>
+      <name name="foreach" arity="2" since=""/>
       <fsummary>Apply a function to each element of a list.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>)</c> for each element
@@ -324,7 +324,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keydelete" arity="3"/>
+      <name name="keydelete" arity="3" since=""/>
       <fsummary>Delete an element from a list of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -336,7 +336,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keyfind" arity="3"/>
+      <name name="keyfind" arity="3" since=""/>
       <fsummary>Search for an element in a list of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -349,7 +349,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keymap" arity="3"/>
+      <name name="keymap" arity="3" since=""/>
       <fsummary>Map a function over a list of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -368,7 +368,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keymember" arity="3"/>
+      <name name="keymember" arity="3" since=""/>
       <fsummary>Test for membership of a list of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -379,7 +379,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keymerge" arity="3"/>
+      <name name="keymerge" arity="3" since=""/>
       <fsummary>Merge two key-sorted lists of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -395,7 +395,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keyreplace" arity="4"/>
+      <name name="keyreplace" arity="4" since=""/>
       <fsummary>Replace an element in a list of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -407,7 +407,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keysearch" arity="3"/>
+      <name name="keysearch" arity="3" since=""/>
       <fsummary>Search for an element in a list of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -425,7 +425,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keysort" arity="2"/>
+      <name name="keysort" arity="2" since=""/>
       <fsummary>Sort a list of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -436,7 +436,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keystore" arity="4"/>
+      <name name="keystore" arity="4" since=""/>
       <fsummary>Store an element in a list of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -452,7 +452,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="keytake" arity="3"/>
+      <name name="keytake" arity="3" since=""/>
       <fsummary>Extract an element from a list of tuples.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -467,7 +467,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="last" arity="1"/>
+      <name name="last" arity="1" since=""/>
       <fsummary>Return last element in a list.</fsummary>
       <desc>
         <p>Returns the last element in <c><anno>List</anno></c>.</p>
@@ -475,7 +475,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="map" arity="2"/>
+      <name name="map" arity="2" since=""/>
       <fsummary>Map a function over a list.</fsummary>
       <desc>
         <p>Takes a function from <c><anno>A</anno></c>s to
@@ -488,7 +488,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="mapfoldl" arity="3"/>
+      <name name="mapfoldl" arity="3" since=""/>
       <fsummary>Map and fold in one pass.</fsummary>
       <desc>
         <p>Combines the operations of
@@ -504,7 +504,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="mapfoldr" arity="3"/>
+      <name name="mapfoldr" arity="3" since=""/>
       <fsummary>Map and fold in one pass.</fsummary>
       <desc>
         <p>Combines the operations of
@@ -514,7 +514,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="max" arity="1"/>
+      <name name="max" arity="1" since=""/>
       <fsummary>Return maximum element of a list.</fsummary>
       <desc>
         <p>Returns the first element of <c><anno>List</anno></c> that compares
@@ -524,7 +524,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="member" arity="2"/>
+      <name name="member" arity="2" since=""/>
       <fsummary>Test for membership of a list.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Elem</anno></c> matches some element
@@ -533,7 +533,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="merge" arity="1"/>
+      <name name="merge" arity="1" since=""/>
       <fsummary>Merge a list of sorted lists.</fsummary>
       <desc>
         <p>Returns the sorted list formed by merging all the sublists of
@@ -546,7 +546,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="merge" arity="2"/>
+      <name name="merge" arity="2" since=""/>
       <fsummary>Merge two sorted lists.</fsummary>
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>
@@ -559,7 +559,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="merge" arity="3"/>
+      <name name="merge" arity="3" since=""/>
       <fsummary>Merge two sorted list.</fsummary>
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>
@@ -577,7 +577,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="merge3" arity="3"/>
+      <name name="merge3" arity="3" since=""/>
       <fsummary>Merge three sorted lists.</fsummary>
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>,
@@ -593,7 +593,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="min" arity="1"/>
+      <name name="min" arity="1" since=""/>
       <fsummary>Return minimum element of a list.</fsummary>
       <desc>
         <p>Returns the first element of <c><anno>List</anno></c> that compares
@@ -603,7 +603,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="nth" arity="2"/>
+      <name name="nth" arity="2" since=""/>
       <fsummary>Return the <c>N</c>th element of a list.</fsummary>
       <type_desc variable="N">1..length(<anno>List</anno>)</type_desc>
       <desc>
@@ -617,7 +617,7 @@ c</pre>
     </func>
 
     <func>
-      <name name="nthtail" arity="2"/>
+      <name name="nthtail" arity="2" since=""/>
       <fsummary>Return the <c>N</c>th tail of a list.</fsummary>
       <type_desc variable="N">0..length(<anno>List</anno>)</type_desc>
       <desc>
@@ -638,7 +638,7 @@ c</pre>
     </func>
 
     <func>
-      <name name="partition" arity="2"/>
+      <name name="partition" arity="2" since=""/>
       <fsummary>Partition a list into two lists based on a predicate.</fsummary>
       <desc>
         <p>Partitions <c><anno>List</anno></c> into two lists, where the first
@@ -658,7 +658,7 @@ c</pre>
     </func>
 
     <func>
-      <name name="prefix" arity="2"/>
+      <name name="prefix" arity="2" since=""/>
       <fsummary>Test for list prefix.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>List1</anno></c> is a prefix of
@@ -667,7 +667,7 @@ c</pre>
     </func>
 
     <func>
-      <name name="reverse" arity="1"/>
+      <name name="reverse" arity="1" since=""/>
       <fsummary>Reverse a list.</fsummary>
       <desc>
         <p>Returns a list with the elements in <c><anno>List1</anno></c>
@@ -676,7 +676,7 @@ c</pre>
     </func>
 
     <func>
-      <name name="reverse" arity="2"/>
+      <name name="reverse" arity="2" since=""/>
       <fsummary>Reverse a list appending a tail.</fsummary>
       <desc>
         <p>Returns a list with the elements in <c><anno>List1</anno></c>
@@ -689,8 +689,20 @@ c</pre>
     </func>
 
     <func>
-      <name name="seq" arity="2"/>
-      <name name="seq" arity="3"/>
+      <name name="search" arity="2" since="OTP 21.0"/>
+      <fsummary>Find the first element that satisfies a predicate.</fsummary>
+      <desc>
+        <p>If there is a <c><anno>Value</anno></c> in <c><anno>List</anno></c>
+          such that <c><anno>Pred</anno>(<anno>Value</anno>)</c> returns
+          <c>true</c>, returns <c>{value, <anno>Value</anno>}</c>
+          for the first such <c><anno>Value</anno></c>,
+          otherwise returns <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="seq" arity="2" since=""/>
+      <name name="seq" arity="3" since=""/>
       <fsummary>Generate a sequence of integers.</fsummary>
       <desc>
         <p>Returns a sequence of integers that starts with
@@ -736,7 +748,7 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
     </func>
 
     <func>
-      <name name="sort" arity="1"/>
+      <name name="sort" arity="1" since=""/>
       <fsummary>Sort a list.</fsummary>
       <desc>
         <p>Returns a list containing the sorted elements of
@@ -745,7 +757,7 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
     </func>
 
     <func>
-      <name name="sort" arity="2"/>
+      <name name="sort" arity="2" since=""/>
       <fsummary>Sort a list.</fsummary>
       <desc>
         <p>Returns a list containing the sorted elements of
@@ -759,7 +771,7 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
     </func>
 
     <func>
-      <name name="split" arity="2"/>
+      <name name="split" arity="2" since=""/>
       <fsummary>Split a list into two lists.</fsummary>
       <type_desc variable="N">0..length(<anno>List1</anno>)</type_desc>
       <desc>
@@ -771,19 +783,7 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
     </func>
 
     <func>
-      <name name="search" arity="2"/>
-      <fsummary>Find the first element that satisfies a predicate.</fsummary>
-      <desc>
-        <p>If there is a <c><anno>Value</anno></c> in <c><anno>List</anno></c>
-          such that <c><anno>Pred</anno>(<anno>Value</anno>)</c> returns
-          <c>true</c>, returns <c>{value, <anno>Value</anno>}</c>
-          for the first such <c><anno>Value</anno></c>,
-          otherwise returns <c>false</c>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="splitwith" arity="2"/>
+      <name name="splitwith" arity="2" since=""/>
       <fsummary>Split a list into two lists based on a predicate.</fsummary>
       <desc>
         <p>Partitions <c><anno>List</anno></c> into two lists according to
@@ -804,7 +804,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="sublist" arity="2"/>
+      <name name="sublist" arity="2" since=""/>
       <fsummary>Return a sublist of a certain length, starting at the first
         position.</fsummary>
       <desc>
@@ -816,7 +816,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="sublist" arity="3"/>
+      <name name="sublist" arity="3" since=""/>
       <fsummary>Return a sublist starting at a specified position and with a
         specified number of elements.</fsummary>
       <type_desc variable="Start">1..(length(<anno>List1</anno>)+1)</type_desc>
@@ -838,7 +838,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="subtract" arity="2"/>
+      <name name="subtract" arity="2" since=""/>
       <fsummary>Subtract the element in one list from another list.</fsummary>
       <desc>
         <p>Returns a new list <c><anno>List3</anno></c> that is a copy of
@@ -850,19 +850,11 @@ splitwith(Pred, List) ->
 > <input>lists:subtract("123212", "212").</input>
 "312".</pre>
         <p><c>lists:subtract(A, B)</c> is equivalent to <c>A -- B</c>.</p>
-        <warning>
-          <p>The complexity of <c>lists:subtract(A, B)</c> is proportional to
-            <c>length(A)*length(B)</c>, meaning that it is very slow if both
-            <c>A</c> and <c>B</c> are long lists. (If both lists are long, it
-            is a much better choice to use ordered lists and
-            <seealso marker="ordsets#subtract/2">
-            <c>ordsets:subtract/2</c></seealso>.</p>
-        </warning>
       </desc>
     </func>
 
     <func>
-      <name name="suffix" arity="2"/>
+      <name name="suffix" arity="2" since=""/>
       <fsummary>Test for list suffix.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>List1</anno></c> is a suffix of
@@ -871,7 +863,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="sum" arity="1"/>
+      <name name="sum" arity="1" since=""/>
       <fsummary>Return the sum of elements in a list.</fsummary>
       <desc>
         <p>Returns the sum of the elements in <c><anno>List</anno></c>.</p>
@@ -879,7 +871,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="takewhile" arity="2"/>
+      <name name="takewhile" arity="2" since=""/>
       <fsummary>Take elements from a list while a predicate is <c>true</c>.
       </fsummary>
       <desc>
@@ -892,7 +884,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="ukeymerge" arity="3"/>
+      <name name="ukeymerge" arity="3" since=""/>
       <fsummary>Merge two key-sorted lists of tuples, removing duplicates.
       </fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
@@ -910,7 +902,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="ukeysort" arity="2"/>
+      <name name="ukeysort" arity="2" since=""/>
       <fsummary>Sort a list of tuples, removing duplicates.</fsummary>
       <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
@@ -922,7 +914,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="umerge" arity="1"/>
+      <name name="umerge" arity="1" since=""/>
       <fsummary>Merge a list of sorted lists, removing duplicates.</fsummary>
       <desc>
         <p>Returns the sorted list formed by merging all the sublists
@@ -935,7 +927,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="umerge" arity="2"/>
+      <name name="umerge" arity="2" since=""/>
       <fsummary>Merge two sorted lists, removing duplicates.</fsummary>
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>
@@ -949,7 +941,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="umerge" arity="3"/>
+      <name name="umerge" arity="3" since=""/>
       <fsummary>Merge two sorted lists, removing duplicates.</fsummary>
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>
@@ -966,7 +958,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="umerge3" arity="3"/>
+      <name name="umerge3" arity="3" since=""/>
       <fsummary>Merge three sorted lists, removing duplicates.</fsummary>
       <desc>
         <p>Returns the sorted list formed by merging <c><anno>List1</anno></c>,
@@ -981,7 +973,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="unzip" arity="1"/>
+      <name name="unzip" arity="1" since=""/>
       <fsummary>Unzip a list of two-tuples into two lists.</fsummary>
       <desc>
         <p>"Unzips" a list of two-tuples into two lists, where the first
@@ -991,7 +983,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="unzip3" arity="1"/>
+      <name name="unzip3" arity="1" since=""/>
       <fsummary>Unzip a list of three-tuples into three lists.</fsummary>
       <desc>
         <p>"Unzips" a list of three-tuples into three lists, where
@@ -1002,7 +994,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="usort" arity="1"/>
+      <name name="usort" arity="1" since=""/>
       <fsummary>Sort a list, removing duplicates.</fsummary>
       <desc>
         <p>Returns a list containing the sorted elements of
@@ -1012,7 +1004,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="usort" arity="2"/>
+      <name name="usort" arity="2" since=""/>
       <fsummary>Sort a list, removing duplicates.</fsummary>
       <desc>
         <p>Returns a list containing the sorted elements of
@@ -1027,7 +1019,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="zip" arity="2"/>
+      <name name="zip" arity="2" since=""/>
       <fsummary>Zip two lists into a list of two-tuples.</fsummary>
       <desc>
         <p>"Zips" two lists of equal length into one list of two-tuples,
@@ -1038,7 +1030,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="zip3" arity="3"/>
+      <name name="zip3" arity="3" since=""/>
       <fsummary>Zip three lists into a list of three-tuples.</fsummary>
       <desc>
         <p>"Zips" three lists of equal length into one list of
@@ -1050,7 +1042,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="zipwith" arity="3"/>
+      <name name="zipwith" arity="3" since=""/>
       <fsummary>Zip two lists into one list according to a fun.</fsummary>
       <desc>
         <p>Combines the elements of two lists of equal length into one list.
@@ -1067,7 +1059,7 @@ splitwith(Pred, List) ->
     </func>
 
     <func>
-      <name name="zipwith3" arity="4"/>
+      <name name="zipwith3" arity="4" since=""/>
       <fsummary>Zip three lists into one list according to a fun.</fsummary>
       <desc>
         <p>Combines the elements of three lists of equal length into one

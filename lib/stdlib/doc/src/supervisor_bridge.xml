@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>supervisor_bridge</module>
+  <module since="">supervisor_bridge</module>
   <modulesummary>Generic supervisor bridge behavior.</modulesummary>
   <description>
     <p>This behavior module provides a supervisor bridge, a process
@@ -57,8 +57,8 @@
 
   <funcs>
     <func>
-      <name name="start_link" arity="2"/>
-      <name name="start_link" arity="3"/>
+      <name name="start_link" arity="2" since=""/>
+      <name name="start_link" arity="3" since=""/>
       <fsummary>Create a supervisor bridge process.</fsummary>
       <desc>
         <p>Creates a supervisor bridge process, linked to the calling process,
@@ -133,7 +133,7 @@
 
   <funcs>
     <func>
-      <name>Module:init(Args) -> Result</name>
+      <name since="">Module:init(Args) -> Result</name>
       <fsummary>Initialize process and start subsystem.</fsummary>
       <type>
         <v>Args = term()</v>
@@ -164,7 +164,7 @@
     </func>
 
     <func>
-      <name>Module:terminate(Reason, State)</name>
+      <name since="">Module:terminate(Reason, State)</name>
       <fsummary>Clean up and stop subsystem.</fsummary>
       <type>
         <v>Reason = shutdown | term()</v>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -345,6 +345,7 @@ browse_file(File) ->
     {ok,_AllocINfo,_AllocInfoTW} = crashdump_viewer:allocator_info(),
     {ok,_HashTabs,_HashTabsTW} = crashdump_viewer:hash_tables(),
     {ok,_IndexTabs,_IndexTabsTW} = crashdump_viewer:index_tables(),
+    {ok,_PTs,_PTsTW} = crashdump_viewer:persistent_terms(),
 
     io:format("  info read",[]),
 
@@ -398,6 +399,13 @@ special(File,Procs) ->
 	    {ok,<<_:SSize/binary>>} =
 		crashdump_viewer:expand_binary({SOffset,SSize,SPos}),
 	    io:format("  expand binary ok",[]),
+
+            ProcBins = proplists:get_value(proc_bins,Dict),
+            {['#CDVBin',0,65,ProcBin],
+             ['#CDVBin',65,65,ProcBin],
+             ['#CDVBin',130,125,ProcBin]} = ProcBins,
+            io:format("  ProcBins ok",[]),
+
 
             Binaries = crashdump_helper:create_binaries(),
             verify_binaries(Binaries, proplists:get_value(bins,Dict)),
@@ -595,6 +603,22 @@ special(File,Procs) ->
             Maps = proplists:get_value(maps,Dict),
             io:format("  maps ok",[]),
             ok;
+        ".persistent_terms" ->
+	    %% I registered a process as aaaaaaaa_persistent_term in
+	    %% the dump to make sure it will be the first in the list
+	    %% when sorted on names.
+	    [#proc{pid=Pid0,name=Name}|_Rest] = lists:keysort(#proc.name,Procs),
+            "aaaaaaaa_persistent_terms" = Name,
+	    Pid = pid_to_list(Pid0),
+	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    io:format("  process details ok",[]),
+
+	    #proc{dict=Dict} = ProcDetails,
+            %% io:format("~p\n", [Dict]),
+            Pts = crashdump_helper:create_persistent_terms(),
+            Pts = proplists:get_value(pts,Dict),
+            io:format("  persistent terms ok",[]),
+            ok;
 	_ ->
 	    ok
     end,
@@ -679,9 +703,11 @@ do_create_dumps(DataDir,Rel) ->
             CD5 = dump_with_size_limit_reached(DataDir,Rel,"trunc_bytes"),
             CD6 = dump_with_unicode_atoms(DataDir,Rel,"unicode"),
             CD7 = dump_with_maps(DataDir,Rel,"maps"),
+            CD8 = dump_with_persistent_terms(DataDir,Rel,"persistent_terms"),
             TruncDumpMod = truncate_dump_mod(CD1),
             TruncatedDumpsBinary = truncate_dump_binary(CD1),
-	    {[CD1,CD2,CD3,CD4,CD5,CD6,CD7,TruncDumpMod|TruncatedDumpsBinary],
+	    {[CD1,CD2,CD3,CD4,CD5,CD6,CD7,CD8,
+              TruncDumpMod|TruncatedDumpsBinary],
              DosDump};
 	_ ->
 	    {[CD1,CD2], DosDump}
@@ -846,6 +872,16 @@ dump_with_maps(DataDir,Rel,DumpName) ->
     PzOpt = [{args,Pz}],
     {ok,N1} = ?t:start_node(n1,peer,Opt ++ PzOpt),
     {ok,_Pid} = rpc:call(N1,crashdump_helper,dump_maps,[]),
+    CD = dump(N1,DataDir,Rel,DumpName),
+    ?t:stop_node(n1),
+    CD.
+
+dump_with_persistent_terms(DataDir,Rel,DumpName) ->
+    Opt = rel_opt(Rel),
+    Pz = "-pz \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
+    PzOpt = [{args,Pz}],
+    {ok,N1} = ?t:start_node(n1,peer,Opt ++ PzOpt),
+    {ok,_Pid} = rpc:call(N1,crashdump_helper,dump_persistent_terms,[]),
     CD = dump(N1,DataDir,Rel,DumpName),
     ?t:stop_node(n1),
     CD.

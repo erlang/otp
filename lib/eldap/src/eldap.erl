@@ -957,10 +957,19 @@ do_modify_dn_0(Data, Entry, NewRDN, DelOldRDN, NewSup, Controls) ->
 do_unbind(Data) ->
     Req = "",
     log2(Data, "unbind request = ~p (has no reply)~n", [Req]),
-    send_request(Data#eldap.fd, Data, Data#eldap.id, {unbindRequest, Req}),
     case Data#eldap.using_tls of
-	true -> ssl:close(Data#eldap.fd);
-	false -> gen_tcp:close(Data#eldap.fd)
+	true ->
+            send_request(Data#eldap.fd, Data, Data#eldap.id, {unbindRequest, Req}),
+            ssl:close(Data#eldap.fd);
+	false ->
+            OldTrapExit = process_flag(trap_exit, true),
+            catch send_request(Data#eldap.fd, Data, Data#eldap.id, {unbindRequest, Req}),
+            catch gen_tcp:close(Data#eldap.fd),
+            receive
+                {'EXIT', _From, _Reason} -> ok
+            after 0 -> ok
+            end,
+            process_flag(trap_exit, OldTrapExit)
     end,
     {no_reply, Data#eldap{binddn = (#eldap{})#eldap.binddn,
 			  passwd = (#eldap{})#eldap.passwd,

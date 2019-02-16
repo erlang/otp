@@ -29,7 +29,7 @@
     <rev></rev>
     <file>base64.xml</file>
   </header>
-  <module>base64</module>
+  <module since="">base64</module>
   <modulesummary>Provides base64 encode and decode, see
     RFC 2045.</modulesummary>
   <description>
@@ -51,10 +51,10 @@
 
   <funcs>
     <func>
-      <name name="decode" arity="1"/>
-      <name name="decode_to_string" arity="1"/>
-      <name name="mime_decode" arity="1"/>
-      <name name="mime_decode_to_string" arity="1"/>
+      <name name="decode" arity="1" since=""/>
+      <name name="decode_to_string" arity="1" since=""/>
+      <name name="mime_decode" arity="1" since=""/>
+      <name name="mime_decode_to_string" arity="1" since=""/>
       <fsummary>Decode a base64 encoded string to data.</fsummary>
       <type variable="Base64" name_i="1"/>
       <type variable="Data" name_i="1"/>
@@ -69,8 +69,8 @@
     </func>
 
     <func>
-      <name name="encode" arity="1"/>
-      <name name="encode_to_string" arity="1"/>
+      <name name="encode" arity="1" since=""/>
+      <name name="encode_to_string" arity="1" since=""/>
       <fsummary>Encode data into base64.</fsummary>
       <type variable="Data"/>
       <type variable="Base64" name_i="1"/>

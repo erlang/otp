@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ init_per_suite(Config) ->
 	   ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
 	   ssh:start(),
 	   [{std_simple_sftp_size,25000} % Sftp transferred data size
-	    | setup_pubkey(Config)]
+	    | Config]
        end
       ).
 
@@ -184,12 +184,15 @@ init_per_testcase(TC, {public_key,Alg}, Config) ->
                                 | ExtraOpts],
                                 [{extra_daemon,true}|Config]);
         {{ok,_}, {error,Err}} ->
+            ct:log("Alg = ~p~nOpts = ~p",[Alg,Opts]),
             {skip, io_lib:format("No host key: ~p",[Err])};
         
         {{error,Err}, {ok,_}} ->
+            ct:log("Alg = ~p~nOpts = ~p",[Alg,Opts]),
             {skip, io_lib:format("No user key: ~p",[Err])};
         
         _ ->
+            ct:log("Alg = ~p~nOpts = ~p",[Alg,Opts]),
             {skip, "Neither host nor user key"}
     end;
 
@@ -459,17 +462,6 @@ pubkey_opts(Config) ->
      {system_dir, SystemDir}].
 
 
-setup_pubkey(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    UserDir = proplists:get_value(priv_dir, Config),
-    Keys =
-        [ssh_test_lib:setup_dsa(DataDir, UserDir),
-         ssh_test_lib:setup_rsa(DataDir, UserDir),
-         ssh_test_lib:setup_ecdsa("256", DataDir, UserDir)
-        ],
-    ssh_test_lib:write_auth_keys(Keys, UserDir), % 'authorized_keys' shall contain ALL pub keys
-    Config.
-
 setup_pubkey(Alg, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
@@ -481,7 +473,9 @@ setup_pubkey(Alg, Config) ->
         'rsa-sha2-512' -> ssh_test_lib:setup_rsa(DataDir, UserDir);
         'ecdsa-sha2-nistp256' -> ssh_test_lib:setup_ecdsa("256", DataDir, UserDir);
         'ecdsa-sha2-nistp384' -> ssh_test_lib:setup_ecdsa("384", DataDir, UserDir);
-        'ecdsa-sha2-nistp521' -> ssh_test_lib:setup_ecdsa("521", DataDir, UserDir)
+        'ecdsa-sha2-nistp521' -> ssh_test_lib:setup_ecdsa("521", DataDir, UserDir);
+        'ssh-ed25519' -> ssh_test_lib:setup_eddsa(ed25519, DataDir, UserDir);
+        'ssh-ed448'   -> ssh_test_lib:setup_eddsa(ed448, DataDir, UserDir)
     end,
     Config.
 

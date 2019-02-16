@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -210,6 +210,10 @@ ERL_NIF_API_FUNC_DECL(int,enif_vsnprintf,(char*, size_t, const char *fmt, va_lis
 
 ERL_NIF_API_FUNC_DECL(int,enif_make_map_from_arrays,(ErlNifEnv *env, ERL_NIF_TERM keys[], ERL_NIF_TERM values[], size_t cnt, ERL_NIF_TERM *map_out));
 
+ERL_NIF_API_FUNC_DECL(int,enif_select_x,(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_monitor_term,(ErlNifEnv* env, const ErlNifMonitor*));
+
+
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
 */
@@ -392,6 +396,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_make_map_from_arrays,(ErlNifEnv *env, ERL_NIF_TER
 #  define enif_vfprintf ERL_NIF_API_FUNC_MACRO(enif_vfprintf)
 #  define enif_vsnprintf ERL_NIF_API_FUNC_MACRO(enif_vsnprintf)
 #  define enif_make_map_from_arrays ERL_NIF_API_FUNC_MACRO(enif_make_map_from_arrays)
+#  define enif_select_x ERL_NIF_API_FUNC_MACRO(enif_select_x)
+#  define enif_make_monitor_term ERL_NIF_API_FUNC_MACRO(enif_make_monitor_term)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
@@ -623,6 +629,12 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 #ifndef enif_make_pid
 
 #  define enif_make_pid(ENV, PID) ((void)(ENV),(const ERL_NIF_TERM)((PID)->pid))
+#  define enif_select_read(ENV, E, OBJ, PID, MSG, MSG_ENV) \
+    enif_select_x(ENV, E, ERL_NIF_SELECT_READ | ERL_NIF_SELECT_CUSTOM_MSG, \
+                  OBJ, PID, MSG, MSG_ENV)
+#  define enif_select_write(ENV, E, OBJ, PID, MSG, MSG_ENV) \
+    enif_select_x(ENV, E, ERL_NIF_SELECT_WRITE | ERL_NIF_SELECT_CUSTOM_MSG, \
+                  OBJ, PID, MSG, MSG_ENV)
 
 #if SIZEOF_LONG == 8
 #  define enif_get_int64 enif_get_long

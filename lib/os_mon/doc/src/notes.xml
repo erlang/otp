@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,55 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
+
+<section><title>Os_Mon 2.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Due to <c>/proc</c> restrictions in newer Android
+	    releases enforced by SELinux, cpu_sup is fixed so that it
+	    gets some basic CPU stats using the <c>sysinfo</c>
+	    syscall rather than reading <c>/proc/loadavg</c>.</p>
+          <p>
+	    Own Id: OTP-15387 Aux Id: PR-1966 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>disksup</c> to handle mount paths with spaces in
+	    them.</p>
+          <p>
+	    Own Id: OTP-14513</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Os_Mon 2.4.4</title>
 

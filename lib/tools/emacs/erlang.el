@@ -9,7 +9,7 @@
 
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 1996-2017. All Rights Reserved.
+;; Copyright Ericsson AB 1996-2018. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -77,6 +77,9 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl))
+(require 'align)
+(require 'comint)
+(require 'tempo)
 
 ;; Variables:
 
@@ -333,6 +336,7 @@ when a new function header is generated.  When nil, no blank line is
 inserted between the current line and the new header.  When bound to a
 number it represents the number of blank lines which should be
 inserted."
+  :type '(restricted-sexp :match-alternatives (integerp 'nil))
   :group 'erlang)
 
 (defvar erlang-electric-semicolon-criteria
@@ -1405,6 +1409,19 @@ Other commands:
     (add-function :before-until (local 'eldoc-documentation-function)
                   #'erldoc-eldoc-function))
   (run-hooks 'erlang-mode-hook)
+
+  ;; Align maps.
+  (add-to-list 'align-rules-list
+               '(erlang-maps
+                 (regexp  . "\\(\\s-*\\)\\(=>\\)\\s-*")
+                 (modes   . '(erlang-mode))
+                 (repeat  . t)))
+  ;; Align records and :: specs
+  (add-to-list 'align-rules-list
+               '(erlang-record-specs
+                 (regexp  . "\\(\\s-*\\)\\(=\\).*\\(::\\)*\\s-*")
+                 (modes   . '(erlang-mode))
+                 (repeat  . t)))
   (if (zerop (buffer-size))
       (run-hooks 'erlang-new-file-hook)))
 
@@ -1697,10 +1714,10 @@ Personal extensions could be added to `erlang-menu-personal-items'.
 
 This function should be called if any variable describing the
 menu configuration is changed."
-  (erlang-menu-install "Erlang" erlang-menu-items erlang-mode-map t))
+  (erlang-menu-install "Erlang" erlang-menu-items erlang-mode-map))
 
 
-(defun erlang-menu-install (name items keymap &optional popup)
+(defun erlang-menu-install (name items keymap)
   "Install a menu in Emacs based on an abstract description.
 
 NAME is the name of the menu.
@@ -3680,16 +3697,17 @@ retried without regard to module.
 4. Arity - Integer in case of functions and macros if the number
 of arguments could be found, otherwise nil."
   (save-excursion
-    (save-match-data
-      (if (eq (char-syntax (following-char)) ? )
-          (skip-chars-backward " \t"))
-      (skip-chars-backward "[:word:]_:'")
-      (cond ((looking-at erlang-module-function-regexp)
-             (erlang-get-qualified-function-id-at-point))
-            ((looking-at (concat erlang-atom-regexp ":"))
-             (erlang-get-module-id-at-point))
-            ((looking-at erlang-name-regexp)
-             (erlang-get-some-other-id-at-point))))))
+    (let (case-fold-search)
+      (save-match-data
+        (if (eq (char-syntax (following-char)) ? )
+            (skip-chars-backward " \t"))
+        (skip-chars-backward "[:word:]_:'")
+        (cond ((looking-at erlang-module-function-regexp)
+               (erlang-get-qualified-function-id-at-point))
+              ((looking-at (concat erlang-atom-regexp ":"))
+               (erlang-get-module-id-at-point))
+              ((looking-at erlang-name-regexp)
+               (erlang-get-some-other-id-at-point)))))))
 
 (defun erlang-get-qualified-function-id-at-point ()
   (let ((kind 'qualified-function)
@@ -4193,22 +4211,18 @@ Return t if criteria fulfilled, nil otherwise."
           nil)))))
 
 
-(defun erlang-in-literal (&optional lim)
+(defun erlang-in-literal ()
   "Test if point is in string, quoted atom or comment.
 
 Return one of the three atoms `atom', `string', and `comment'.
 Should the point be inside none of the above mentioned types of
 context, nil is returned."
   (save-excursion
-    (let* ((lim (or lim (save-excursion
-                          (erlang-beginning-of-clause)
-                          (point))))
-           (state (funcall (symbol-function 'syntax-ppss))))
-      (cond
-       ((eq (nth 3 state) ?') 'atom)
-       ((nth 3 state) 'string)
-       ((nth 4 state) 'comment)
-       (t nil)))))
+    (let ((state (funcall (symbol-function 'syntax-ppss))))
+      (cond ((eq (nth 3 state) ?') 'atom)
+            ((nth 3 state) 'string)
+            ((nth 4 state) 'comment)
+            (t nil)))))
 
 
 (defun erlang-at-end-of-function-p ()
@@ -5027,7 +5041,10 @@ considered first when it is time to jump to the definition.")
 (defun erlang-visit-tags-table-buffer (cont cbuf)
   (if (< emacs-major-version 26)
       (visit-tags-table-buffer cont)
-    (visit-tags-table-buffer cont cbuf)))
+    ;; Remove this with-no-warnings when Emacs 26 is the required
+    ;; version minimum.
+    (with-no-warnings
+      (visit-tags-table-buffer cont cbuf))))
 
 (defun erlang-xref-find-definitions-module-tag (module
                                                 tag
@@ -5522,7 +5539,7 @@ Return the position after the newly inserted command."
     (+ insert-point insert-length)))
 
 
-(defun inferior-erlang-strip-delete (&optional s)
+(defun inferior-erlang-strip-delete (&optional _s)
   "Remove `^H' (delete) and the characters it was supposed to remove."
   (interactive)
   (if (and (boundp 'comint-last-input-end)
@@ -5540,7 +5557,7 @@ Return the position after the newly inserted command."
 
 
 ;; Basically `comint-strip-ctrl-m', with a few extra checks.
-(defun inferior-erlang-strip-ctrl-m (&optional string)
+(defun inferior-erlang-strip-ctrl-m (&optional _string)
   "Strip trailing `^M' characters from the current output group."
   (interactive)
   (if (and (boundp 'comint-last-input-end)
@@ -5577,8 +5594,8 @@ There exists two workarounds for this bug:
   (let* ((dir (inferior-erlang-compile-outdir))
          (noext (substring (erlang-local-buffer-file-name) 0 -4))
          (opts (append (list (cons 'outdir dir))
-                       (if current-prefix-arg
-                           (list 'debug_info 'export_all))
+                       (when arg
+                         (list 'debug_info 'export_all))
                        erlang-compile-extra-opts))
          end)
     (with-current-buffer inferior-erlang-buffer
@@ -5627,7 +5644,6 @@ unless the optional NO-DISPLAY is non-nil."
 
 (defun inferior-erlang-compute-compile-command (module-name opts)
   (let ((ccfn erlang-compile-command-function-alist)
-        (res (inferior-erlang-compute-erl-compile-command module-name opts))
         ccfn-entry
         done
         result)

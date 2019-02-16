@@ -18,23 +18,23 @@
  * %CopyrightEnd%
  */
 /*
- * Note: This file assumes that you're using the non-SMP-enabled Erlang
- *       virtual machine, "beam".  The SMP-enabled VM is called "beam.smp".
+ * Note: This file assumes that you're using the SMP-enabled Erlang
+ *       virtual machine, "beam.smp".
  *       Note that other variations of the virtual machine also have
  *       different names, e.g. the debug build of the SMP-enabled VM
  *       is "beam.debug.smp".
  *
  *       To use a different virtual machine, replace each instance of
- *       "beam" with "beam.smp" or the VM name appropriate to your
- *       environment.
+ *       "beam.smp" with "beam.debug.smp" or the VM name appropriate
+ *       to your environment.
  */
 
-probe process("beam").mark("user_trace-s1")
+probe process("beam.smp").mark("user_trace-s1")
 {
     printf("%s\n", user_string($arg1));
 }
 
-probe process("beam").mark("user_trace-i4s4")
+probe process("beam.smp").mark("user_trace-i4s4")
 {
     printf("%s %s %d %d %d %d '%s' '%s' '%s' '%s'\n",
            user_string($arg1),

@@ -41,13 +41,16 @@ PRE_LOADED_ERL_MODULES = \
 	prim_inet \
 	zlib \
 	prim_zip \
-	otp_ring0 \
+	erl_init \
 	erts_code_purger \
 	erlang \
 	erts_internal \
 	erl_tracer \
 	erts_literal_area_collector \
-	erts_dirty_process_signal_handler
+	erts_dirty_process_signal_handler \
+	atomics \
+	counters \
+        persistent_term
 
 PRE_LOADED_BEAM_MODULES = \
 	prim_eval

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpm.xml</file>
   </header>
-  <module>snmpm</module>
+  <module since="">snmpm</module>
   <modulesummary>Interface functions to the SNMP toolkit manager</modulesummary>
   <description>
     <p>The module <c>snmpm</c> contains interface functions to the 
@@ -77,7 +77,7 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
   </section>
   <funcs>
     <func>
-      <name>monitor() -> Ref</name>
+      <name since="">monitor() -> Ref</name>
       <fsummary>Monitor the snmp manager</fsummary>
       <type>
         <v>Ref = reference()</v>
@@ -92,7 +92,7 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>demonitor(Ref) -> void()</name>
+      <name since="">demonitor(Ref) -> void()</name>
       <fsummary>Turn off monitoring of the snmp manager</fsummary>
       <type>
         <v>Ref = reference()</v>
@@ -105,7 +105,7 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>notify_started(Timeout) -> Pid</name>
+      <name since="">notify_started(Timeout) -> Pid</name>
       <fsummary>Request to be notified when manager started</fsummary>
       <type>
         <v>Timeout = integer()</v>
@@ -148,7 +148,7 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>cancel_notify_started(Pid) -> void()</name>
+      <name since="">cancel_notify_started(Pid) -> void()</name>
       <fsummary>Cancel request to be notified when manager started</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -161,8 +161,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>register_user(Id, Module, Data) -> ok | {error, Reason}</name>
-      <name>register_user(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason}</name>
+      <name since="">register_user(Id, Module, Data) -> ok | {error, Reason}</name>
+      <name since="">register_user(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason}</name>
       <fsummary>Register a user of the manager</fsummary>
       <type>
         <v>Id = term()</v>
@@ -204,8 +204,8 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>register_user_monitor(Id, Module, Data) -> ok | {error, Reason}</name>
-      <name>register_user_monitor(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason}</name>
+      <name since="">register_user_monitor(Id, Module, Data) -> ok | {error, Reason}</name>
+      <name since="">register_user_monitor(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason}</name>
       <fsummary>Register a monitored user of the manager</fsummary>
       <type>
         <v>Id = term()</v>
@@ -252,7 +252,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>unregister_user(Id) -> ok | {error, Reason}</name>
+      <name since="">unregister_user(Id) -> ok | {error, Reason}</name>
       <fsummary>Unregister the user</fsummary>
       <type>
         <v>Id = term()</v>
@@ -265,7 +265,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>which_users() -> Users</name>
+      <name since="">which_users() -> Users</name>
       <fsummary>Get a list of all users</fsummary>
       <type>
         <v>Users = [UserId]</v>
@@ -279,7 +279,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>register_agent(UserId, TargetName, Config) -> ok | {error, Reason}</name>
+      <name since="">register_agent(UserId, TargetName, Config) -> ok | {error, Reason}</name>
       <fsummary>Register this agent</fsummary>
       <type>
         <v>UserId = term()</v>
@@ -325,7 +325,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>unregister_agent(UserId, TargetName) -> ok | {error, Reason}</name>
+      <name since="">unregister_agent(UserId, TargetName) -> ok | {error, Reason}</name>
       <fsummary>Unregister the user</fsummary>
       <type>
         <v>UserId = term()</v>
@@ -339,7 +339,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>agent_info(TargetName, Item) -> {ok, Val} | {error, Reason}</name>
+      <name since="">agent_info(TargetName, Item) -> {ok, Val} | {error, Reason}</name>
       <fsummary>Retrieve agent config</fsummary>
       <type>
         <v>TargetName = target_name()</v>
@@ -354,8 +354,8 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>update_agent_info(UserId, TargetName, Info) -> ok | {error, Reason}</name>
-      <name>update_agent_info(UserId, TargetName, Item, Val) -> ok | {error, Reason}</name>
+      <name since="OTP R14B04">update_agent_info(UserId, TargetName, Info) -> ok | {error, Reason}</name>
+      <name since="">update_agent_info(UserId, TargetName, Item, Val) -> ok | {error, Reason}</name>
       <fsummary>Update agent config</fsummary>
       <type>
         <v>UserId = term()</v>
@@ -379,8 +379,8 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>which_agents() -> Agents</name>
-      <name>which_agents(UserId) -> Agents</name>
+      <name since="">which_agents() -> Agents</name>
+      <name since="">which_agents(UserId) -> Agents</name>
       <fsummary>List the registered agents</fsummary>
       <type>
         <v>UserId = term()</v>
@@ -396,7 +396,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name>register_usm_user(EngineID, UserName, Conf) -> ok | {error, Reason}</name>
+      <name since="">register_usm_user(EngineID, UserName, Conf) -> ok | {error, Reason}</name>
       <fsummary>Register this USM user</fsummary>
       <type>
         <v>EngineID = string()</v>
@@ -427,7 +427,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>unregister_usm_user(EngineID, UserName) -> ok | {error, Reason}</name>
+      <name since="">unregister_usm_user(EngineID, UserName) -> ok | {error, Reason}</name>
       <fsummary>Unregister this USM user</fsummary>
       <type>
         <v>EngineID = string()</v>
@@ -442,7 +442,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>usm_user_info(EngineID, UserName, Item) -> {ok, Val} | {error, Reason}</name>
+      <name since="">usm_user_info(EngineID, UserName, Item) -> {ok, Val} | {error, Reason}</name>
       <fsummary>Retrieve usm user config</fsummary>
       <type>
         <v>EngineID = string()</v>
@@ -458,7 +458,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>update_usm_user_info(EngineID, UserName, Item, Val) -> ok | {error, Reason}</name>
+      <name since="">update_usm_user_info(EngineID, UserName, Item, Val) -> ok | {error, Reason}</name>
       <fsummary>Update agent config</fsummary>
       <type>
         <v>EngineID = string()</v>
@@ -475,7 +475,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>which_usm_users() -> UsmUsers</name>
+      <name since="">which_usm_users() -> UsmUsers</name>
       <fsummary>List all the registered usm users</fsummary>
       <type>
         <v>UsmUsers = [{EngineID,UserName}]</v>
@@ -490,7 +490,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>which_usm_users(EngineID) -> UsmUsers</name>
+      <name since="">which_usm_users(EngineID) -> UsmUsers</name>
       <fsummary>List the registered usm users</fsummary>
       <type>
         <v>UsmUsers = [UserName]</v>
@@ -505,8 +505,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>sync_get2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_get2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_get2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -559,11 +559,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
    <func>
-      <name>sync_get(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get(UserId, TargetName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get(UserId, TargetName, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get(UserId, TargetName, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get(UserId, TargetName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get(UserId, TargetName, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get(UserId, TargetName, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -605,8 +605,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_get2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -647,11 +647,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>async_get(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get(UserId, TargetName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get(UserId, TargetName, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get(UserId, TargetName, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get(UserId, TargetName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get(UserId, TargetName, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get(UserId, TargetName, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -683,8 +683,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>sync_get_next2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_get_next2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-next-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -737,11 +737,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>sync_get_next(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_next(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_next(UserId, TargetName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_next(UserId, TargetName, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_next(UserId, TargetName, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_next(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_next(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_next(UserId, TargetName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_next(UserId, TargetName, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_next(UserId, TargetName, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-next-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -775,8 +775,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>async_get_next2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_get_next2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-next-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -814,11 +814,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>async_get_next(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_next(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_next(UserId, TargetName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_next(UserId, TargetName, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_next(UserId, TargetName, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_next(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_next(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_next(UserId, TargetName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_next(UserId, TargetName, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_next(UserId, TargetName, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-next-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -849,8 +849,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>sync_set2(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_set2(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>set-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -906,11 +906,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>sync_set(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_set(UserId, TargetName, VarsAndVals, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_set(UserId, TargetName, ContextName, VarsAndVals, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_set(UserId, TargetName, ContextName, VarsAndVals, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_set(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_set(UserId, TargetName, VarsAndVals, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_set(UserId, TargetName, ContextName, VarsAndVals, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_set(UserId, TargetName, ContextName, VarsAndVals, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>set-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -946,8 +946,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>async_set2(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_set2(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>set-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -990,11 +990,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>async_set(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_set(UserId, TargetName, VarsAndVals, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_set(UserId, TargetName, ContextName, VarsAndVals, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_set(UserId, TargetName, ContextName, VarsAndVals, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_set(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_set(UserId, TargetName, VarsAndVals, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_set(UserId, TargetName, ContextName, VarsAndVals, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_set(UserId, TargetName, ContextName, VarsAndVals, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>set-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -1026,8 +1026,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="OTP R14B03">sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-bulk-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -1082,11 +1082,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-bulk-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -1121,8 +1121,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="OTP R14B03">async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-bulk-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -1162,11 +1162,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-bulk-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -1199,7 +1199,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>cancel_async_request(UserId, ReqId) -> ok | {error, Reason}</name>
+      <name since="">cancel_async_request(UserId, ReqId) -> ok | {error, Reason}</name>
       <fsummary>Cancel a asynchronous request</fsummary>
       <type>
         <v>UserId = term()</v>
@@ -1214,15 +1214,15 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>log_to_txt(LogDir)</name>
-      <name>log_to_txt(LogDir, Block | Mibs)</name>
-      <name>log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_txt(LogDir)</name>
+      <name since="">log_to_txt(LogDir, Block | Mibs)</name>
+      <name since="">log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -1233,6 +1233,9 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
@@ -1254,15 +1257,15 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>log_to_io(LogDir) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Block | Mibs) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, Block | LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)  -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop)  -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop)  -> ok | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Block | Mibs) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs) -> ok | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -1272,6 +1275,9 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
@@ -1293,7 +1299,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>change_log_size(NewSize) -> ok | {error, Reason}</name>
+      <name since="">change_log_size(NewSize) -> ok | {error, Reason}</name>
       <fsummary>Change the size of the Audit Trail Log</fsummary>
       <type>
         <v>NewSize = {MaxBytes, MaxFiles}</v>
@@ -1315,7 +1321,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>set_log_type(NewType) -> {ok, OldType} | {error, Reason}</name>
+      <name since="">set_log_type(NewType) -> {ok, OldType} | {error, Reason}</name>
       <fsummary>Change the Audit Trail Log type</fsummary>
       <type>
         <v>NewType = OldType = atl_type()</v>
@@ -1334,7 +1340,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>load_mib(Mib) -> ok | {error, Reason}</name>
+      <name since="">load_mib(Mib) -> ok | {error, Reason}</name>
       <fsummary>Load a MIB into the manager</fsummary>
       <type>
         <v>Mib = MibName</v>
@@ -1355,7 +1361,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>unload_mib(Mib) -> ok | {error, Reason}</name>
+      <name since="">unload_mib(Mib) -> ok | {error, Reason}</name>
       <fsummary>Unload a MIB from the manager</fsummary>
       <type>
         <v>Mib = MibName</v>
@@ -1376,7 +1382,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>which_mibs() -> Mibs</name>
+      <name since="">which_mibs() -> Mibs</name>
       <fsummary>Which mibs are loaded into the manager</fsummary>
       <type>
         <v>Mibs = [{MibName, MibFile}]</v>
@@ -1391,7 +1397,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>name_to_oid(Name) -> {ok, Oids} | {error, Reason}</name>
+      <name since="">name_to_oid(Name) -> {ok, Oids} | {error, Reason}</name>
       <fsummary>Get all the possible oid's for an alias-name</fsummary>
       <type>
         <v>Name = atom()</v>
@@ -1408,7 +1414,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>oid_to_name(Oid) -> {ok, Name} | {error, Reason}</name>
+      <name since="">oid_to_name(Oid) -> {ok, Name} | {error, Reason}</name>
       <fsummary>Get the alias-name of the oid </fsummary>
       <type>
         <v>Oid = oid()</v>
@@ -1423,7 +1429,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>oid_to_type(Oid) -> {ok, Type} | {error, Reason}</name>
+      <name since="">oid_to_type(Oid) -> {ok, Type} | {error, Reason}</name>
       <fsummary>Get the type of the the oid</fsummary>
       <type>
         <v>Oid = oid()</v>
@@ -1438,7 +1444,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>backup(BackupDir) -> ok | {error, Reason}</name>
+      <name since="">backup(BackupDir) -> ok | {error, Reason}</name>
       <fsummary>Backup manager data</fsummary>
       <type>
         <v>BackupDir = string()</v>
@@ -1452,7 +1458,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>info() -> [{Key, Value}]</name>
+      <name since="">info() -> [{Key, Value}]</name>
       <fsummary>Return information about the manager</fsummary>
       <type>
         <v>Key = atom()</v>
@@ -1469,7 +1475,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>verbosity(Ref, Verbosity) -> void()</name>
+      <name since="">verbosity(Ref, Verbosity) -> void()</name>
       <fsummary>Assign a new verbosity for the process</fsummary>
       <type>
         <v>Ref = server | config | net_if | note_store | all</v>
@@ -1486,8 +1492,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>format_reason(Reason) -> string()</name>
-      <name>format_reason(Prefix, Reason) -> string()</name>
+      <name since="">format_reason(Reason) -> string()</name>
+      <name since="">format_reason(Prefix, Reason) -> string()</name>
       <fsummary>Assign a new verbosity for the process</fsummary>
       <type>
         <v>Reason = term()</v>

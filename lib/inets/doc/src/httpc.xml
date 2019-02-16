@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,7 +30,7 @@
     <rev></rev>
   </header>
 
-  <module>httpc</module>
+  <module since="OTP R13B04">httpc</module>
   <modulesummary>An HTTP/1.1 client</modulesummary>
 
   <description>
@@ -151,8 +151,8 @@
   <funcs>
    
     <func>
-      <name>cancel_request(RequestId) -></name>
-      <name>cancel_request(RequestId, Profile) -> ok</name>
+      <name since="OTP R13B04">cancel_request(RequestId) -></name>
+      <name since="OTP R13B04">cancel_request(RequestId, Profile) -> ok</name>
       <fsummary>Cancels an asynchronous HTTP request.</fsummary>
       <type>
         <v>RequestId = request_id() - A unique identifier as returned
@@ -169,9 +169,9 @@
     </func>
 
     <func>
-      <name>cookie_header(Url) -> </name>
-      <name>cookie_header(Url, Profile | Opts) -> header() | {error, Reason}</name>
-      <name>cookie_header(Url, Opts, Profile) -> header() | {error, Reason}</name>
+      <name since="OTP R13B04">cookie_header(Url) -> </name>
+      <name since="OTP R13B04">cookie_header(Url, Profile | Opts) -> header() | {error, Reason}</name>
+      <name since="OTP R15B">cookie_header(Url, Opts, Profile) -> header() | {error, Reason}</name>
       <fsummary>Returns the cookie header that would have been sent when
       making a request to URL using the profile <c>Profile</c>.</fsummary>
       <type>
@@ -193,8 +193,8 @@
     </func>
 
      <func>
-      <name>get_options(OptionItems) -> {ok, Values} | {error, Reason}</name>
-      <name>get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}</name>
+      <name since="OTP R15B01">get_options(OptionItems) -> {ok, Values} | {error, Reason}</name>
+      <name since="OTP R15B01">get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}</name>
       <fsummary>Gets the currently used options.</fsummary>
       <type>
         <v>OptionItems = all | [option_item()]</v>
@@ -223,8 +223,8 @@
     </func>
 
     <func>
-      <name>info() -> list()</name>
-      <name>info(Profile) -> list()</name>
+      <name since="OTP R15B02">info() -> list()</name>
+      <name since="OTP R15B02">info(Profile) -> list()</name>
       <fsummary>Produces a list of miscellaneous information.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
@@ -239,8 +239,8 @@
 
     
     <func>
-      <name>reset_cookies() -> void()</name>
-      <name>reset_cookies(Profile) -> void()</name>
+      <name since="OTP R13B04">reset_cookies() -> void()</name>
+      <name since="OTP R13B04">reset_cookies(Profile) -> void()</name>
       <fsummary>Resets the cookie database.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
@@ -254,8 +254,8 @@
     </func>
     
     <func>
-      <name>request(Url) -> </name>
-      <name>request(Url, Profile) -> {ok, Result} | {error, Reason}</name>
+      <name since="OTP R13B04">request(Url) -> </name>
+      <name since="OTP R13B04">request(Url, Profile) -> {ok, Result} | {error, Reason}</name>
       <fsummary>Sends a get HTTP request.</fsummary>
       <type>
         <v>Url = url()</v> 
@@ -272,8 +272,8 @@
     </func>
 
     <func>
-      <name>request(Method, Request, HTTPOptions, Options) -></name>
-      <name>request(Method, Request, HTTPOptions, Options, Profile) -> {ok, Result} | {ok, saved_to_file} | {error, Reason}</name>
+      <name since="OTP R13B04">request(Method, Request, HTTPOptions, Options) -></name>
+      <name since="OTP R13B04">request(Method, Request, HTTPOptions, Options, Profile) -> {ok, Result} | {ok, saved_to_file} | {error, Reason}</name>
       
       <fsummary>Sends an HTTP request.</fsummary>
       <type>
@@ -521,8 +521,8 @@
 
   
     <func>
-      <name>set_options(Options) -> </name>
-      <name>set_options(Options, Profile) -> ok | {error, Reason}</name>
+      <name since="OTP R13B04">set_options(Options) -> </name>
+      <name since="OTP R13B04">set_options(Options, Profile) -> ok | {error, Reason}</name>
       <fsummary>Sets options to be used for subsequent requests.</fsummary>
       <type>
         <v>Options = [Option]</v>
@@ -639,8 +639,8 @@
     </func>
      
     <func>
-      <name>store_cookies(SetCookieHeaders, Url) -> </name>
-      <name>store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>
+      <name since="OTP R14B02">store_cookies(SetCookieHeaders, Url) -> </name>
+      <name since="OTP R14B02">store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>
       <fsummary>Saves the cookies defined in <c>SetCookieHeaders</c> in the 
       client profile cookie database.</fsummary>
       <type>
@@ -658,7 +658,7 @@
     </func>
 
     <func>
-      <name>stream_next(Pid) -> ok</name>
+      <name since="OTP R13B04">stream_next(Pid) -> ok</name>
       <fsummary>Triggers the next message to be streamed, that is,
 	the same behavior as active one for sockets.
       </fsummary>
@@ -676,8 +676,8 @@
     </func>
     
     <func>
-      <name>which_cookies() -> cookies()</name>
-      <name>which_cookies(Profile) -> cookies()</name>
+      <name since="OTP R13B04">which_cookies() -> cookies()</name>
+      <name since="OTP R13B04">which_cookies(Profile) -> cookies()</name>
       <fsummary>Dumps the entire cookie database.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>
@@ -695,8 +695,8 @@
     </func>
 
     <func>
-      <name>which_sessions() -> session_info()</name>
-      <name>which_sessions(Profile) -> session_info()</name>
+      <name since="OTP R15B02">which_sessions() -> session_info()</name>
+      <name since="OTP R15B02">which_sessions(Profile) -> session_info()</name>
       <fsummary>Produces a slightly processed dump of the sessions database.</fsummary>
       <type>
 	<v>Profile = profile() | pid()</v>

@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>slave</module>
+  <module since="">slave</module>
   <modulesummary>Functions for starting and controlling slave nodes.
   </modulesummary>
   <description>
@@ -68,7 +68,7 @@
 
   <funcs>
     <func>
-      <name>pseudo([Master | ServerList]) -> ok</name>
+      <name since="">pseudo([Master | ServerList]) -> ok</name>
       <fsummary>Start a number of pseudo servers.</fsummary>
       <type>
         <v>Master = node()</v>
@@ -84,7 +84,7 @@
     </func>
 
     <func>
-      <name name="pseudo" arity="2"/>
+      <name name="pseudo" arity="2" since=""/>
       <fsummary>Start a number of pseudo servers.</fsummary>
       <desc>
         <p>Starts a number of pseudo servers. A pseudo server is a
@@ -102,7 +102,7 @@ rpc:call(N, slave, pseudo, [node(), [pxw_server]]).</code>
     </func>
 
     <func>
-      <name name="relay" arity="1"/>
+      <name name="relay" arity="1" since=""/>
       <fsummary>Run a pseudo server.</fsummary>
       <desc>
         <p>Runs a pseudo server. This function never returns any value
@@ -113,9 +113,9 @@ rpc:call(N, slave, pseudo, [node(), [pxw_server]]).</code>
     </func>
 
     <func>
-      <name name="start" arity="1"/>
-      <name name="start" arity="2"/>
-      <name name="start" arity="3"/>
+      <name name="start" arity="1" since=""/>
+      <name name="start" arity="2" since=""/>
+      <name name="start" arity="3" since=""/>
       <fsummary>Start a slave node on a host.</fsummary>
       <desc>
         <p>Starts a slave node on host <c><anno>Host</anno></c>. Host names
@@ -178,9 +178,9 @@ slave:start(H, Name, Arg).</code>
     </func>
 
     <func>
-      <name name="start_link" arity="1"/>
-      <name name="start_link" arity="2"/>
-      <name name="start_link" arity="3"/>
+      <name name="start_link" arity="1" since=""/>
+      <name name="start_link" arity="2" since=""/>
+      <name name="start_link" arity="3" since=""/>
       <fsummary>Start and link to a slave node on a host.</fsummary>
       <desc>
         <p>Starts a slave node in the same way as <c>start/1,2,3</c>,
@@ -193,7 +193,7 @@ slave:start(H, Name, Arg).</code>
     </func>
 
     <func>
-      <name name="stop" arity="1"/>
+      <name name="stop" arity="1" since=""/>
       <fsummary>Stop (kill) a node.</fsummary>
       <desc>
         <p>Stops (kills) a node.</p>

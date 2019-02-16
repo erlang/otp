@@ -891,10 +891,6 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 
 	    driver = &spawn_driver;
 	} else if (*tp == am_fd) { /* An fd port */
-	    int n;
-	    struct Sint_buf sbuf;
-	    char* p;
-
 	    if (arity != make_arityval(3)) {
 		goto badarg;
 	    }
@@ -904,15 +900,9 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	    opts.ifd = unsigned_val(tp[1]);
 	    opts.ofd = unsigned_val(tp[2]);
 
-	    /* Syntesize name from input and output descriptor. */
-	    name_buf = erts_alloc(ERTS_ALC_T_TMP,
-				  2*sizeof(struct Sint_buf) + 2); 
-	    p = Sint_to_buf(opts.ifd, &sbuf);
-	    n = sys_strlen(p);
-	    sys_strncpy(name_buf, p, n);
-	    name_buf[n] = '/';
-	    p = Sint_to_buf(opts.ofd, &sbuf);
-	    sys_strcpy(name_buf+n+1, p);
+            /* Syntesize name from input and output descriptor. */
+            name_buf = erts_alloc(ERTS_ALC_T_TMP, 256);
+            erts_snprintf(name_buf, 256, "%i/%i", opts.ifd, opts.ofd);
 
 	    driver = &fd_driver;
 	} else {

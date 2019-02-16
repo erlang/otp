@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>cover</module>
+  <module since="">cover</module>
   <modulesummary>A Coverage Analysis Tool for Erlang</modulesummary>
   <description>
     <p>The module <c>cover</c> provides a set of functions for coverage
@@ -115,7 +115,7 @@
   </description>
   <funcs>
     <func>
-      <name>start() -> {ok,Pid} | {error,Reason}</name>
+      <name since="">start() -> {ok,Pid} | {error,Reason}</name>
       <fsummary>Start Cover.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -128,21 +128,33 @@
       </desc>
     </func>
     <func>
-      <name>start(Nodes) -> {ok,StartedNodes} | {error,not_main_node}</name>
+      <name since="OTP 22.0">local_only() -> ok | {error,too_late}</name>
+      <fsummary>Only support running Cover on the local node.</fsummary>
+      <desc>
+        <p>Only support running Cover on the local node. This function
+	must be called before any modules have been compiled or any
+	nodes added. When running in this mode, modules will be Cover
+	compiled in a more efficient way, but the resulting code will
+	only work on the same node they were compiled on.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">start(Nodes) -> {ok,StartedNodes} | {error,not_main_node} | {error,local_only}</name>
       <fsummary>Start Cover on remote nodes.</fsummary>
       <type>
         <v>Nodes = StartedNodes = [atom()]</v>
       </type>
       <desc>
         <p>Starts a Cover server on the each of given nodes, and loads
-          all cover compiled modules.</p>
+          all cover compiled modules. This call will fail if
+	<c>cover:local_only/0</c> has been called.</p>
       </desc>
     </func>
     <func>
-      <name>compile(ModFiles) -> Result | [Result]</name>
-      <name>compile(ModFiles, Options) -> Result | [Result]</name>
-      <name>compile_module(ModFiles) -> Result | [Result]</name>
-      <name>compile_module(ModFiles, Options) -> Result | [Result]</name>
+      <name since="">compile(ModFiles) -> Result | [Result]</name>
+      <name since="">compile(ModFiles, Options) -> Result | [Result]</name>
+      <name since="">compile_module(ModFiles) -> Result | [Result]</name>
+      <name since="">compile_module(ModFiles, Options) -> Result | [Result]</name>
       <fsummary>Compile one or more modules for Cover analysis.</fsummary>
       <type>
 	<v>ModFiles = ModFile | [ModFile]</v>
@@ -176,9 +188,9 @@
       </desc>
     </func>
     <func>
-      <name>compile_directory() -> [Result] | {error,Reason}</name>
-      <name>compile_directory(Dir) -> [Result] | {error,Reason}</name>
-      <name>compile_directory(Dir, Options) -> [Result] | {error,Reason}</name>
+      <name since="">compile_directory() -> [Result] | {error,Reason}</name>
+      <name since="">compile_directory(Dir) -> [Result] | {error,Reason}</name>
+      <name since="">compile_directory(Dir, Options) -> [Result] | {error,Reason}</name>
       <fsummary>Compile all modules in a directory for Cover analysis.</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -199,7 +211,7 @@
       </desc>
     </func>
     <func>
-      <name>compile_beam(ModFiles) -> Result | [Result]</name>
+      <name since="">compile_beam(ModFiles) -> Result | [Result]</name>
       <fsummary>Compile one or more modules for Cover analysis, using existing beam(s).</fsummary>
       <type>
 	<v>ModFiles = ModFile | [ModFile]</v>
@@ -234,15 +246,15 @@
           <c>{already_cover_compiled,no_beam_found,Module}</c> is
           returned.</p>
         <p><c>{error,BeamFile}</c> is returned if the compiled code
-          can not be loaded on the node.</p>
+          cannot be loaded on the node.</p>
 	<p>If a list of <c>ModFiles</c> is given as input, a list
 	  of <c>Result</c> will be returned. The order of the returned
 	  list is undefined.</p>
       </desc>
     </func>
     <func>
-      <name>compile_beam_directory() -> [Result] | {error,Reason}</name>
-      <name>compile_beam_directory(Dir) -> [Result] | {error,Reason}</name>
+      <name since="">compile_beam_directory() -> [Result] | {error,Reason}</name>
+      <name since="">compile_beam_directory(Dir) -> [Result] | {error,Reason}</name>
       <fsummary>Compile all .beam files in a directory for Cover analysis.</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -260,14 +272,14 @@
       </desc>
     </func>
     <func>
-      <name>analyse() -> {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse(Modules) -> OneResult | {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse(Analysis) -> {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse(Level) -> {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse(Modules, Analysis) -> OneResult | {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse(Modules, Level) -> OneResult | {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse(Analysis, Level) -> {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse(Modules, Analysis, Level) -> OneResult | {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="OTP 18.0">analyse() -> {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse(Modules) -> OneResult | {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse(Analysis) -> {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse(Level) -> {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse(Modules, Analysis) -> OneResult | {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse(Modules, Level) -> OneResult | {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse(Analysis, Level) -> {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse(Modules, Analysis, Level) -> OneResult | {result,Ok,Fail} | {error,not_main_node}</name>
       <fsummary>Analyse one or more Cover compiled modules.</fsummary>
       <type>
 	<v>Modules = Module | [Module]</v>
@@ -305,10 +317,10 @@
       </desc>
     </func>
     <func>
-      <name>analyse_to_file() -> {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse_to_file(Modules) ->  Answer | {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse_to_file(Options) -> {result,Ok,Fail} | {error,not_main_node}</name>
-      <name>analyse_to_file(Modules,Options) -> Answer | {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="OTP 18.0">analyse_to_file() -> {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse_to_file(Modules) ->  Answer | {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse_to_file(Options) -> {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="">analyse_to_file(Modules,Options) -> Answer | {result,Ok,Fail} | {error,not_main_node}</name>
       <fsummary>Detailed coverage analysis of one or more Cover compiled modules.</fsummary>
       <type>
         <v>Modules = Module | [Module]</v>
@@ -359,10 +371,10 @@
       </desc>
     </func>
     <func>
-      <name>async_analyse_to_file(Module) -> </name>
-      <name>async_analyse_to_file(Module,Options) -> </name>
-      <name>async_analyse_to_file(Module, OutFile) -> </name>
-      <name>async_analyse_to_file(Module, OutFile, Options) ->  pid()</name>
+      <name since="OTP R14B02">async_analyse_to_file(Module) -> </name>
+      <name since="OTP R14B02">async_analyse_to_file(Module,Options) -> </name>
+      <name since="OTP R14B02">async_analyse_to_file(Module, OutFile) -> </name>
+      <name since="OTP R14B02">async_analyse_to_file(Module, OutFile, Options) ->  pid()</name>
       <fsummary>Asynchronous call to analyse_to_file.</fsummary>
       <type>
         <v>Module = atom()</v>
@@ -384,7 +396,7 @@
       </desc>
     </func>
     <func>
-      <name>modules() -> [Module] | {error,not_main_node}</name>
+      <name since="">modules() -> [Module] | {error,not_main_node}</name>
       <fsummary>Return all Cover compiled modules.</fsummary>
       <type>
         <v>Module = atom()</v>
@@ -395,7 +407,7 @@
       </desc>
     </func>
     <func>
-      <name>imported_modules() -> [Module] | {error,not_main_node}</name>
+      <name since="">imported_modules() -> [Module] | {error,not_main_node}</name>
       <fsummary>Return all modules for which there are imported data.</fsummary>
       <type>
         <v>Module = atom()</v>
@@ -406,7 +418,7 @@
       </desc>
     </func>
     <func>
-      <name>imported() -> [File] | {error,not_main_node}</name>
+      <name since="">imported() -> [File] | {error,not_main_node}</name>
       <fsummary>Return all imported files.</fsummary>
       <type>
         <v>File = string()</v>
@@ -416,7 +428,7 @@
       </desc>
     </func>
     <func>
-      <name>which_nodes() -> [Node] | {error,not_main_node}</name>
+      <name since="">which_nodes() -> [Node] | {error,not_main_node}</name>
       <fsummary>Return all nodes that are part of the coverage analysis.</fsummary>
       <type>
         <v>Node = atom()</v>
@@ -428,7 +440,7 @@
       </desc>
     </func>
     <func>
-      <name>is_compiled(Module) -> {file,File} | false |  {error,not_main_node}</name>
+      <name since="">is_compiled(Module) -> {file,File} | false |  {error,not_main_node}</name>
       <fsummary>Check if a module is Cover compiled.</fsummary>
       <type>
         <v>Module = atom()</v>
@@ -442,8 +454,8 @@
       </desc>
     </func>
     <func>
-      <name>reset(Module) -></name>
-      <name>reset() ->  ok | {error,not_main_node}</name>
+      <name since="">reset(Module) -></name>
+      <name since="">reset() ->  ok | {error,not_main_node}</name>
       <fsummary>Reset coverage data for Cover compiled modules.</fsummary>
       <type>
         <v>Module = atom()</v>
@@ -458,8 +470,8 @@
       </desc>
     </func>
     <func>
-      <name>export(ExportFile)</name>
-      <name>export(ExportFile,Module) -> ok | {error,Reason}</name>
+      <name since="">export(ExportFile)</name>
+      <name since="">export(ExportFile,Module) -> ok | {error,Reason}</name>
       <fsummary>Reset coverage data for Cover compiled modules.</fsummary>
       <type>
         <v>ExportFile = string()</v>
@@ -470,7 +482,7 @@
         <p>Exports the current coverage data for <c>Module</c> to the
           file <c>ExportFile</c>. It is recommended to name the
           <c>ExportFile</c> with the extension <c>.coverdata</c>, since
-          other filenames can not be read by the web based interface to
+          other filenames cannot be read by the web based interface to
           cover.</p>
         <p>If <c>Module</c> is not given, data for all Cover compiled
           or earlier imported modules is exported.</p>
@@ -480,7 +492,7 @@
       </desc>
     </func>
     <func>
-      <name>import(ExportFile) -> ok | {error,Reason}</name>
+      <name since="">import(ExportFile) -> ok | {error,Reason}</name>
       <fsummary>Reset coverage data for Cover compiled modules.</fsummary>
       <type>
         <v>ExportFile = string()</v>
@@ -496,7 +508,7 @@
         <p>Coverage data from several export files can be imported
           into one system. The coverage data is then added up when
           analysing.</p>
-        <p>Coverage data for a module can not be imported from the
+        <p>Coverage data for a module cannot be imported from the
           same file twice unless the module is first reset or
           compiled. The check is based on the filename, so you can
           easily fool the system by renaming your export file.</p>
@@ -504,14 +516,14 @@
       </desc>
     </func>
     <func>
-      <name>stop() -> ok | {error,not_main_node}</name>
+      <name since="">stop() -> ok | {error,not_main_node}</name>
       <fsummary>Stop Cover.</fsummary>
       <desc>
         <p>Stops the Cover server and unloads all Cover compiled code.</p>
       </desc>
     </func>
     <func>
-      <name>stop(Nodes) -> ok | {error,not_main_node}</name>
+      <name since="">stop(Nodes) -> ok | {error,not_main_node}</name>
       <fsummary>Stop Cover on remote nodes.</fsummary>
       <type>
         <v>Nodes = [atom()]</v>
@@ -523,7 +535,7 @@
       </desc>
     </func>
     <func>
-      <name>flush(Nodes) -> ok | {error,not_main_node}</name>
+      <name since="OTP R16B">flush(Nodes) -> ok | {error,not_main_node}</name>
       <fsummary>Collect cover data from remote nodes.</fsummary>
       <type>
         <v>Nodes = [atom()]</v>

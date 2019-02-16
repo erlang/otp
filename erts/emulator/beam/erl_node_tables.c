@@ -60,6 +60,10 @@ static int references_atoms_need_init = 1;
 static ErtsMonotonicTime orig_node_tab_delete_delay;
 static ErtsMonotonicTime node_tab_delete_delay;
 
+
+static void report_gc_active_dist_entry(Eterm sysname, enum dist_entry_state);
+
+
 /* -- The distribution table ---------------------------------------------- */
 
 #define ErtsBin2DistEntry(B) \
@@ -366,31 +370,43 @@ DistEntry *erts_find_dist_entry(Eterm sysname)
 }
 
 DistEntry *
-erts_dhandle_to_dist_entry(Eterm dhandle)
+erts_dhandle_to_dist_entry(Eterm dhandle, Uint32 *conn_id)
 {
+    Eterm *tpl;
     Binary *bin;
-    if (!is_internal_magic_ref(dhandle))
+
+    if (!is_boxed(dhandle))
         return NULL;
-    bin = erts_magic_ref2bin(dhandle);
+    tpl = boxed_val(dhandle);
+    if (tpl[0] != make_arityval(2) || !is_small(tpl[1])
+        || !is_internal_magic_ref(tpl[2]))
+        return NULL;
+    *conn_id = unsigned_val(tpl[1]);
+    bin = erts_magic_ref2bin(tpl[2]);
     if (ERTS_MAGIC_BIN_DESTRUCTOR(bin) != erts_dist_entry_destructor)
         return NULL;
     return ErtsBin2DistEntry(bin);
 }
 
 Eterm
-erts_build_dhandle(Eterm **hpp, ErlOffHeap* ohp, DistEntry *dep)
+erts_build_dhandle(Eterm **hpp, ErlOffHeap* ohp,
+                   DistEntry *dep, Uint32 conn_id)
 {
     Binary *bin = ErtsDistEntry2Bin(dep);
+    Eterm mref, dhandle;
     ASSERT(bin);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == erts_dist_entry_destructor);
-    return erts_mk_magic_ref(hpp, ohp, bin);
+    mref = erts_mk_magic_ref(hpp, ohp, bin);
+    dhandle = TUPLE2(*hpp, make_small(conn_id), mref);
+    *hpp += 3;
+    return dhandle;
 }
 
 Eterm
-erts_make_dhandle(Process *c_p, DistEntry *dep)
+erts_make_dhandle(Process *c_p, DistEntry *dep, Uint32 conn_id)
 {
-    Eterm *hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
-    return erts_build_dhandle(&hp, &c_p->off_heap, dep);
+    Eterm *hp = HAlloc(c_p, ERTS_DHANDLE_SIZE);
+    return erts_build_dhandle(&hp, &c_p->off_heap, dep, conn_id);
 }
 
 static void start_timer_delete_dist_entry(void *vdep);
@@ -405,8 +421,25 @@ static void schedule_delete_dist_entry(DistEntry* dep)
      *
      * Note that timeouts do not guarantee thread progress.
      */
-    erts_schedule_thr_prgr_later_op(start_timer_delete_dist_entry,
-                                    dep, &dep->later_op);
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    if (esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+        erts_schedule_thr_prgr_later_op(start_timer_delete_dist_entry,
+                                        dep, &dep->later_op);
+    } else {
+        /*
+         * Since OTP 20, it's possible that destructor is executed on
+         *  a dirty scheduler. Aux work cannot be done on a dirty
+         *  scheduler, and scheduling any aux work on a dirty scheduler
+         *  makes the scheduler to loop infinitely.
+         * To avoid this, make a spot jump: schedule this function again
+         *  on a first normal scheduler. It is guaranteed to be always
+         *  online. Since it's a rare event, this shall not pose a big
+         *  utilisation hit.
+         */
+        erts_schedule_misc_aux_work(1,
+                                    (void (*)(void *))schedule_delete_dist_entry,
+                                    (void *) dep);
+    }
 }
 
 static void
@@ -451,6 +484,19 @@ static void try_delete_dist_entry(DistEntry* dep)
 {
     erts_aint_t refc;
 
+    erts_de_rwlock(dep);
+    if (dep->state != ERTS_DE_STATE_IDLE && de_refc_read(dep,0) == 0) {
+        Eterm sysname = dep->sysname;
+        enum dist_entry_state state  = dep->state;
+
+        if (dep->state != ERTS_DE_STATE_PENDING)
+            ERTS_INTERNAL_ERROR("Garbage collecting connected distribution entry");
+        erts_abort_connection_rwunlock(dep);
+        report_gc_active_dist_entry(sysname, state);
+    }
+    else
+        erts_de_rwunlock(dep);
+
     erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
     /*
      * Another thread might have looked up this dist entry after
@@ -475,6 +521,34 @@ static void try_delete_dist_entry(DistEntry* dep)
     if (refc == 0) {
         schedule_delete_dist_entry(dep);
     }
+}
+
+static void report_gc_active_dist_entry(Eterm sysname,
+                                        enum dist_entry_state state)
+{
+    char *state_str;
+    erts_dsprintf_buf_t *dsbuf = erts_create_logger_dsbuf();
+    switch (state) {
+    case ERTS_DE_STATE_CONNECTED:
+        state_str = "connected";
+        break;
+    case ERTS_DE_STATE_PENDING:
+        state_str = "pending connect";
+        break;
+    case ERTS_DE_STATE_EXITING:
+        state_str = "exiting";
+        break;
+    case ERTS_DE_STATE_IDLE:
+        state_str = "idle";
+        break;
+    default:
+        state_str = "unknown";
+        break;
+    }
+    erts_dsprintf(dsbuf, "Garbage collecting distribution "
+                  "entry for node %T in state: %s",
+                  sysname, state_str);
+    erts_send_error_to_logger_nogl(dsbuf);
 }
 
 int erts_dist_entry_destructor(Binary *bin)
@@ -582,7 +656,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
     if(dep->next)
 	dep->next->prev = dep->prev;
 
-    dep->state = ERTS_DE_STATE_EXITING;
+    dep->state = ERTS_DE_STATE_IDLE;
     dep->flags = 0;
     dep->prev = NULL;
     dep->cid = NIL;
@@ -1863,8 +1937,9 @@ setup_reference_table(void)
 	if (ohp)
 	    insert_offheap(ohp, HEAP_REF, prt->common.id);
 	/* Insert controller */
-	if (prt->dist_entry)
-	    insert_dist_entry(prt->dist_entry,
+	dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+        if (dep)
+            insert_dist_entry(dep,
 			      CTRL_REF,
 			      prt->common.id,
 			      0);

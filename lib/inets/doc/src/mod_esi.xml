@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -25,7 +25,7 @@
     <title>mod_esi</title>
     <file>mod_esi.sgml</file>
   </header>
-  <module>mod_esi</module>
+  <module since="">mod_esi</module>
   <modulesummary>Erlang Server Interface</modulesummary>
   <description>
     <p>This module defines the Erlang Server Interface (ESI) API.
@@ -88,7 +88,7 @@
 
  <funcs>
    <func>
-     <name>deliver(SessionID, Data) -> ok | {error, Reason}</name>
+     <name since="">deliver(SessionID, Data) -> ok | {error, Reason}</name>
      <fsummary>Sends <c>Data</c> back to client.</fsummary>
      <type>
         <v>SessionID = term()</v>
@@ -121,7 +121,7 @@
 
  <funcs>
    <func>
-     <name>Module:Function(SessionID, Env, Input)-> {continue, State} | _ </name>
+     <name since="">Module:Function(SessionID, Env, Input)-> {continue, State} | _ </name>
      <fsummary>Creates a dynamic web page and returns it chunk by chunk 
      to the server process by calling <c>mod_esi:deliver/2</c>.</fsummary>
      <type>
@@ -179,7 +179,7 @@
    </func>
 
    <func>
-     <name>Module:Function(Env, Input)-> Response </name>
+     <name since="">Module:Function(Env, Input)-> Response </name>
      <fsummary>Creates a dynamic web page and returns it as a list. 
      This function is deprecated and is only kept for backwards compatibility.</fsummary>
      <type>

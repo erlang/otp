@@ -178,11 +178,11 @@ fread(Cont, Chars, Format) ->
       Data :: [term()].
 
 format(Format, Args) ->
-    case catch io_lib_format:fwrite(Format, Args) of
-	{'EXIT',_} ->
-	    erlang:error(badarg, [Format, Args]);
-	Other ->
-	    Other
+    try io_lib_format:fwrite(Format, Args)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [Format, Args])
     end.
 
 -spec format(Format, Data, Options) -> chars() when
@@ -193,11 +193,11 @@ format(Format, Args) ->
       CharsLimit :: chars_limit().
 
 format(Format, Args, Options) ->
-    case catch io_lib_format:fwrite(Format, Args, Options) of
-	{'EXIT',_} ->
-	    erlang:error(badarg, [Format, Args, Options]);
-	Other ->
-	    Other
+    try io_lib_format:fwrite(Format, Args, Options)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [Format, Args])
     end.
 
 -spec scan_format(Format, Data) -> FormatList when
@@ -208,7 +208,9 @@ format(Format, Args, Options) ->
 scan_format(Format, Args) ->
     try io_lib_format:scan(Format, Args)
     catch
-        _:_ -> erlang:error(badarg, [Format, Args])
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [Format, Args])
     end.
 
 -spec unscan_format(FormatList) -> {Format, Data} when
@@ -223,7 +225,12 @@ unscan_format(FormatList) ->
       FormatList :: [char() | format_spec()].
 
 build_text(FormatList) ->
-    io_lib_format:build(FormatList).
+    try io_lib_format:build(FormatList)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [FormatList])
+    end.
 
 -spec build_text(FormatList, Options) -> chars() when
       FormatList :: [char() | format_spec()],
@@ -232,7 +239,23 @@ build_text(FormatList) ->
       CharsLimit :: chars_limit().
 
 build_text(FormatList, Options) ->
-    io_lib_format:build(FormatList, Options).
+    try io_lib_format:build(FormatList, Options)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [FormatList, Options])
+    end.
+
+%% Failure to load a module must not be labeled as badarg.
+%% C, R, and S are included so that the original error, which could be
+%% a bug in io_lib_format, can be found by tracing on
+%% test_modules_loaded/3.
+test_modules_loaded(_C, _R, _S) ->
+    Modules = [io_lib_format, io_lib_pretty, string, unicode],
+    case code:ensure_modules_loaded(Modules) of
+        ok -> ok;
+        Error -> erlang:error(Error)
+    end.
 
 -spec print(Term) -> chars() when
       Term :: term().

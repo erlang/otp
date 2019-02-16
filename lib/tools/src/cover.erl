@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 %% This module implements the Erlang coverage tool.
 %% 
 %% ARCHITECTURE
+%%
 %% The coverage tool consists of one process on each node involved in
 %% coverage analysis. The process is registered as 'cover_server'
 %% (?SERVER).  The cover_server on the 'main' node is in charge, and
@@ -30,45 +31,62 @@
 %% 'DOWN' message for another cover_server, it marks the node as
 %% 'lost'. If a nodeup is received for a lost node the main node
 %% ensures that the cover compiled modules are loaded again. If the
-%% remote node was alive during the disconnected periode, cover data
-%% for this periode will also be included in the analysis.
+%% remote node was alive during the disconnected period, cover data
+%% for this period will also be included in the analysis.
 %%
 %% The cover_server process on the main node is implemented by the
 %% functions init_main/1 and main_process_loop/1. The cover_server on
 %% the remote nodes are implemented by the functions init_remote/2 and
 %% remote_process_loop/1.
 %%
+%% COUNTERS
+%%
+%% The 'counters' modules is used for counting how many time each line
+%% executed. Each cover-compiled module will have its own array of
+%% counters.
+%%
+%% The counter reference for module Module is stored in a persistent
+%% term with the key {cover,Module}.
+%%
+%% When the cover:local_only/0 function has been called, the reference
+%% for the counter array will be compiled into each cover-compiled
+%% module directly (instead of retrieving it from a persistent term).
+%% That will be faster, but the resulting code can be only be used on
+%% the main node.
+%%
 %% TABLES
-%% Each nodes has two tables: cover_internal_data_table (?COVER_TABLE) and.
-%% cover_internal_clause_table (?COVER_CLAUSE_TABLE). 
-%% ?COVER_TABLE contains the bump data i.e. the data about which lines
-%% have been executed how many times.
+%%
+%% Each node has two tables: ?COVER_MAPPING_TABLE and ?COVER_CLAUSE_TABLE.
+%% ?COVER_MAPPING_TABLE maps from a #bump{} record to an index in the
+%% counter array for the module. It is used both during instrumentation
+%% of cover-compiled modules and when collecting the counter values.
+%%
 %% ?COVER_CLAUSE_TABLE contains information about which clauses in which modules
 %% cover is currently collecting statistics.
-%% 
-%% The main node owns tables named
-%% 'cover_collected_remote_data_table' (?COLLECTION_TABLE) and
-%% 'cover_collected_remote_clause_table' (?COLLECTION_CLAUSE_TABLE). 
-%% These tables contain data which is collected from remote nodes (either when a
-%% remote node is stopped with cover:stop/1 or when analysing). When
-%% analysing, data is even moved from the COVER tables on the main
-%% node to the COLLECTION tables.
 %%
-%% The main node also has a table named 'cover_binary_code_table'
-%% (?BINARY_TABLE). This table contains the binary code for each cover
-%% compiled module. This is necessary so that the code can be loaded
-%% on remote nodes that are started after the compilation.
+%% The main node owns the tables ?COLLECTION_TABLE and
+%% ?COLLECTION_CLAUSE_TABLE. The counter data is consolidated into those
+%% tables from the counters on both the main node and from remote nodes.
+%% This consolidation is done when a remote node is stopped with
+%% cover:stop/1 or just before starting an analysis.
+%%
+%% The main node also has a table named ?BINARY_TABLE. This table
+%% contains the abstract code code for each cover-compiled
+%% module. This is necessary so that the code can be loaded on remote
+%% nodes that are started after the compilation.
 %%
 %% PARALLELISM
+%%
 %% To take advantage of SMP when doing the cover analysis both the data 
 %% collection and analysis has been parallelized. One process is spawned for
 %% each node when collecting data, and on the remote node when collecting data
 %% one process is spawned per module. 
 %% 
-%% When analyzing data it is possible to issue multiple analyse(_to_file)/X 
-%% calls at once. They are however all calls (for backwards compatibility
-%% reasons) so the user of cover will have to spawn several processes to to the
-%% calls ( or use async_analyse_to_file ). 
+%% When analyzing data it is possible to issue multiple
+%% analyse(_to_file)/X calls at once. They are, however, all calls
+%% (for backwards compatibility reasons), so the user of cover will
+%% have to spawn several processes to to the calls (or use
+%% async_analyse_to_file/X).
 %%
 
 %% External exports
@@ -89,7 +107,8 @@
 	 modules/0, imported/0, imported_modules/0, which_nodes/0, is_compiled/1,
 	 reset/1, reset/0,
 	 flush/1,
-	 stop/0, stop/1]).
+	 stop/0, stop/1,
+         local_only/0]).
 -export([remote_start/1,get_main_node/0]).
 
 %% Used internally to ensure we upgrade the code to the latest version.
@@ -98,8 +117,15 @@
 -record(main_state, {compiled=[],           % [{Module,File}]
 		     imported=[],           % [{Module,File,ImportFile}]
 		     stopper,               % undefined | pid()
+                     local_only=false,      % true | false
 		     nodes=[],              % [Node]
 		     lost_nodes=[]}).       % [Node]
+
+-record(remote_data, {module,
+                      file,
+                      code,
+                      mapping,
+                      clauses}).
 
 -record(remote_state, {compiled=[],         % [{Module,File}]
 		       main_node}).         % atom()
@@ -126,11 +152,12 @@
 	       is_guard=false               % boolean
 	      }).
 
--define(COVER_TABLE, 'cover_internal_data_table').
+-define(COVER_MAPPING_TABLE, 'cover_internal_mapping_table').
 -define(COVER_CLAUSE_TABLE, 'cover_internal_clause_table').
 -define(BINARY_TABLE, 'cover_binary_code_table').
 -define(COLLECTION_TABLE, 'cover_collected_remote_data_table').
 -define(COLLECTION_CLAUSE_TABLE, 'cover_collected_remote_clause_table').
+
 -define(TAG, cover_compiled).
 -define(SERVER, cover_server).
 
@@ -144,6 +171,8 @@
         end).
 
 -define(SPAWN_DBG(Tag,Value),put(Tag,Value)).
+-define(STYLESHEET, "styles.css").
+-define(TOOLS_APP, tools).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -183,6 +212,11 @@ start(Node) when is_atom(Node) ->
     start([Node]);
 start(Nodes) ->
     call({start_nodes,remove_myself(Nodes,[])}).
+
+%% local_only() -> ok | {error,too_late}
+
+local_only() ->
+    call(local_only).
 
 %% compile(ModFiles) ->
 %% compile(ModFiles, Options) ->
@@ -253,14 +287,7 @@ compile_directory(Dir, Options) when is_list(Dir), is_list(Options) ->
 
 compile_modules(Files,Options) ->
     Options2 = filter_options(Options),
-    %% compile_modules(Files,Options2,[]).
     call({compile, Files, Options2}).
-
-%% compile_modules([File|Files], Options, Result) ->
-%%     R = call({compile, File, Options}),
-%%     compile_modules(Files,Options,[R|Result]);
-%% compile_modules([],_Opts,Result) ->
-%%     lists:reverse(Result).
 
 filter_options(Options) ->
     lists:filter(fun(Option) ->
@@ -559,16 +586,6 @@ flush(Nodes) ->
 get_main_node() ->
     call(get_main_node).
 
-%% bump(Module, Function, Arity, Clause, Line)
-%%   Module = Function = atom()
-%%   Arity = Clause = Line = integer()
-%% This function is inserted into Cover compiled modules, once for each
-%% executable line.
-%bump(Module, Function, Arity, Clause, Line) ->
-%    Key = #bump{module=Module, function=Function, arity=Arity, clause=Clause,
-%		line=Line},
-%    ets:update_counter(?COVER_TABLE, Key, 1).
-
 call(Request) ->
     Ref = erlang:monitor(process,?SERVER),
     receive {'DOWN', Ref, _Type, _Object, noproc} -> 
@@ -629,10 +646,8 @@ remote_reply(MainNode,Reply) ->
 
 init_main(Starter) ->
     register(?SERVER,self()),
-    %% Having write concurrancy here gives a 40% performance boost
-    %% when collect/1 is called. 
-    ?COVER_TABLE = ets:new(?COVER_TABLE, [set, public, named_table,
-                                          {write_concurrency, true}]),
+    ?COVER_MAPPING_TABLE = ets:new(?COVER_MAPPING_TABLE,
+                                   [ordered_set, public, named_table]),
     ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
                                                         named_table]),
     ?BINARY_TABLE = ets:new(?BINARY_TABLE, [set, public, named_table]),
@@ -646,10 +661,26 @@ init_main(Starter) ->
 
 main_process_loop(State) ->
     receive
+        {From, local_only} ->
+            case State of
+                #main_state{compiled=[],nodes=[]} ->
+                    reply(From, ok),
+                    main_process_loop(State#main_state{local_only=true});
+                #main_state{} ->
+                    reply(From, {error,too_late}),
+                    main_process_loop(State)
+            end;
+
 	{From, {start_nodes,Nodes}} ->
-	    {StartedNodes,State1} = do_start_nodes(Nodes, State),
-	    reply(From, {ok,StartedNodes}),
-	    main_process_loop(State1);
+            case State#main_state.local_only of
+                false ->
+                    {StartedNodes,State1} = do_start_nodes(Nodes, State),
+                    reply(From, {ok,StartedNodes}),
+                    main_process_loop(State1);
+                true ->
+                    reply(From, {error,local_only}),
+                    main_process_loop(State)
+            end;
 
 	{From, {compile, Files, Options}} ->
 	    {R,S} = do_compile(Files, Options, State),
@@ -740,11 +771,12 @@ main_process_loop(State) ->
 	      end,
 	      State#main_state.nodes),
 	    reload_originals(State#main_state.compiled),
-            ets:delete(?COVER_TABLE),
+            ets:delete(?COVER_MAPPING_TABLE),
             ets:delete(?COVER_CLAUSE_TABLE),
             ets:delete(?BINARY_TABLE),
             ets:delete(?COLLECTION_TABLE),
             ets:delete(?COLLECTION_CLAUSE_TABLE),
+            delete_all_counters(),
             unregister(?SERVER),
 	    reply(From, ok);
 
@@ -876,10 +908,8 @@ main_process_loop(State) ->
 
 init_remote(Starter,MainNode) ->
     register(?SERVER,self()),
-    %% write_concurrency here makes otp_8270 break :(
-    ?COVER_TABLE = ets:new(?COVER_TABLE, [set, public, named_table
-                                          %,{write_concurrency, true}
-                                         ]),
+    ?COVER_MAPPING_TABLE = ets:new(?COVER_MAPPING_TABLE,
+                                   [ordered_set, public, named_table]),
     ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
                                                         named_table]),
     Starter ! {self(),started},
@@ -902,7 +932,7 @@ remote_process_loop(State) ->
 	    remote_process_loop(State#remote_state{compiled=Compiled});
 
 	{remote,reset,Module} ->
-	    do_reset(Module),
+	    reset_counters(Module),
 	    remote_reply(State#remote_state.main_node, ok),
 	    remote_process_loop(State);
 
@@ -923,8 +953,9 @@ remote_process_loop(State) ->
 
 	{remote,stop} ->
 	    reload_originals(State#remote_state.compiled),
-	    ets:delete(?COVER_TABLE),
+	    ets:delete(?COVER_MAPPING_TABLE),
             ets:delete(?COVER_CLAUSE_TABLE),
+            delete_all_counters(),
             unregister(?SERVER),
 	    ok; % not replying since 'DOWN' message will be received anyway
 
@@ -959,27 +990,11 @@ remote_process_loop(State) ->
     end.
 
 do_collect(Modules, CollectorPid, From) ->
-    _ = pmap(
-          fun(Module) ->
-                  Pattern = {#bump{module=Module, _='_'}, '$1'},
-                  MatchSpec = [{Pattern,[{'=/=','$1',0}],['$_']}],
-                  Match = ets:select(?COVER_TABLE,MatchSpec,?CHUNK_SIZE),
-                  send_chunks(Match, CollectorPid, [])
-          end,Modules),
+    _ = pmap(fun(Module) ->
+                     send_counters(Module, CollectorPid)
+             end, Modules),
     CollectorPid ! done,
     remote_reply(From, ok).
-
-send_chunks('$end_of_table', _CollectorPid, Mons) ->
-    get_downs(Mons);
-send_chunks({Chunk,Continuation}, CollectorPid, Mons) ->
-    Mon = spawn_monitor(
-	    fun() ->
-		    lists:foreach(fun({Bump,_N}) ->
-					  ets:insert(?COVER_TABLE, {Bump,0})
-				  end,
-				  Chunk) end),
-    send_chunk(CollectorPid,Chunk),
-    send_chunks(ets:select(Continuation), CollectorPid, [Mon|Mons]).
 
 send_chunk(CollectorPid,Chunk) ->
     CollectorPid ! {chunk,Chunk,self()},
@@ -1019,10 +1034,15 @@ do_reload_original(Module) ->
 	    ignore
     end.
 
-load_compiled([{Module,File,Binary,InitialTable}|Compiled],Acc) ->
-    %% Make sure the #bump{} records are available *before* the
-    %% module is loaded.
-    insert_initial_data(InitialTable),
+load_compiled([Data|Compiled],Acc) ->
+    %% Make sure the #bump{} records and counters are available *before*
+    %% compiling and loading the code.
+    #remote_data{module=Module,file=File,code=Beam,
+                 mapping=InitialMapping,clauses=InitialClauses} = Data,
+    ets:insert(?COVER_MAPPING_TABLE, InitialMapping),
+    ets:insert(?COVER_CLAUSE_TABLE, InitialClauses),
+    maybe_create_counters(Module, true),
+
     Sticky = case code:is_sticky(Module) of
                  true ->
                      code:unstick_mod(Module),
@@ -1030,7 +1050,7 @@ load_compiled([{Module,File,Binary,InitialTable}|Compiled],Acc) ->
                  false ->
                      false
              end,
-    NewAcc = case code:load_binary(Module, ?TAG, Binary) of
+    NewAcc = case code:load_binary(Module, ?TAG, Beam) of
                  {module,Module} ->
                      add_compiled(Module, File, Acc);
                  _  ->
@@ -1044,16 +1064,6 @@ load_compiled([{Module,File,Binary,InitialTable}|Compiled],Acc) ->
     load_compiled(Compiled,NewAcc);
 load_compiled([],Acc) ->
     Acc.
-
-insert_initial_data([Item|Items]) when is_atom(element(1,Item)) ->
-    ets:insert(?COVER_CLAUSE_TABLE, Item),
-    insert_initial_data(Items);
-insert_initial_data([Item|Items]) ->
-    ets:insert(?COVER_TABLE, Item),
-    insert_initial_data(Items);
-insert_initial_data([]) ->
-    ok.
-    
 
 unload([Module|Modules]) ->
     do_clear(Module),
@@ -1175,7 +1185,7 @@ get_downs_r([]) ->
     [];
 get_downs_r(Mons) ->
     receive
-	{'DOWN', Ref, _Type, Pid, R={_,_,_,_}} ->
+	{'DOWN', Ref, _Type, Pid, #remote_data{}=R} ->
 	    [R|get_downs_r(lists:delete({Pid,Ref},Mons))];
 	{'DOWN', Ref, _Type, Pid, Reason} = Down ->
 	    case lists:member({Pid,Ref},Mons) of
@@ -1194,19 +1204,13 @@ get_downs_r(Mons) ->
 %% Binary is the beam code for the module and InitialTable is the initial
 %% data to insert in ?COVER_TABLE.
 get_data_for_remote_loading({Module,File}) ->
-    [{Module,Binary}] = ets:lookup(?BINARY_TABLE,Module),
+    [{Module,Code}] = ets:lookup(?BINARY_TABLE, Module),
     %%! The InitialTable list will be long if the module is big - what to do??
-    InitialBumps = ets:select(?COVER_TABLE,ms(Module)),
+    Mapping = counters_mapping_table(Module),
     InitialClauses = ets:lookup(?COVER_CLAUSE_TABLE,Module),
 
-    {Module,File,Binary,InitialBumps ++ InitialClauses}.
-
-%% Create a match spec which returns the clause info {Module,InitInfo} and 
-%% all #bump keys for the given module with 0 number of calls.
-ms(Module) ->
-    ets:fun2ms(fun({Key,_}) when Key#bump.module=:=Module -> 
-		       {Key,0}
-	       end).
+    #remote_data{module=Module,file=File,code=Code,
+                 mapping=Mapping,clauses=InitialClauses}.
 
 %% Unload modules on remote nodes
 remote_unload(Nodes,UnloadedModules) ->
@@ -1462,7 +1466,7 @@ get_compiled_still_loaded(Nodes,Compiled0) ->
 
 do_compile_beams(ModsAndFiles, State) ->
     Result0 = pmap(fun({ok,Module,File}) ->
-			  do_compile_beam(Module,File,State);
+			  do_compile_beam(Module, File, State);
 		     (Error) ->
 			  Error
 		  end,
@@ -1474,8 +1478,10 @@ do_compile_beams(ModsAndFiles, State) ->
 do_compile_beam(Module,BeamFile0,State) ->
     case get_beam_file(Module,BeamFile0,State#main_state.compiled) of
 	{ok,BeamFile} ->
+            LocalOnly = State#main_state.local_only,
 	    UserOptions = get_compile_options(Module,BeamFile),
-	    case do_compile_beam1(Module,BeamFile,UserOptions) of
+	    case do_compile_beam1(Module,BeamFile,
+                                  UserOptions,LocalOnly) of
 		{ok, Module} ->
 		    {ok,Module,BeamFile};
 		error ->
@@ -1501,41 +1507,39 @@ fix_state_and_result([],State,Acc) ->
 
 
 do_compile(Files, Options, State) ->
+    LocalOnly = State#main_state.local_only,
     Result0 = pmap(fun(File) ->
-			   do_compile(File, Options)
+			   do_compile1(File, Options, LocalOnly)
 		   end,
 		   Files),
     Compiled = [{M,F} || {ok,M,F} <- Result0],
     remote_load_compiled(State#main_state.nodes,Compiled),
     fix_state_and_result(Result0,State,[]).
 
-do_compile(File, Options) ->    
-    case do_compile1(File, Options) of
+do_compile1(File, Options, LocalOnly) ->
+    case do_compile2(File, Options, LocalOnly) of
 	{ok, Module} ->
 	    {ok,Module,File};
 	error ->
 	    {error,File}
     end.
 
-%% do_compile1(File, Options) -> {ok,Module} | error
-do_compile1(File, UserOptions) ->
+%% do_compile2(File, Options) -> {ok,Module} | error
+do_compile2(File, UserOptions, LocalOnly) ->
     Options = [debug_info,binary,report_errors,report_warnings] ++ UserOptions,
     case compile:file(File, Options) of
 	{ok, Module, Binary} ->
-	    do_compile_beam1(Module,Binary,UserOptions);
+	    do_compile_beam1(Module,Binary,UserOptions,LocalOnly);
 	error ->
 	    error
     end.
 
 %% Beam is a binary or a .beam file name
-do_compile_beam1(Module,Beam,UserOptions) ->
+do_compile_beam1(Module,Beam,UserOptions,LocalOnly) ->
     %% Clear database
     do_clear(Module),
     
-    %% Extract the abstract format and insert calls to bump/6 at
-    %% every executable line and, as a side effect, initiate
-    %% the database
-    
+    %% Extract the abstract format.
     case get_abstract_code(Module, Beam) of
 	no_abstract_code=E ->
 	    {error,E};
@@ -1545,7 +1549,8 @@ do_compile_beam1(Module,Beam,UserOptions) ->
             Forms0 = epp:interpret_file_attribute(Code),
 	    case find_main_filename(Forms0) of
 		{ok,MainFile} ->
-		    do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile);
+		    do_compile_beam2(Module,Beam,UserOptions,
+                                     Forms0,MainFile,LocalOnly);
 		Error ->
 		    Error
 	    end;
@@ -1564,26 +1569,35 @@ get_abstract_code(Module, Beam) ->
 	Error -> Error
     end.
 
-do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile) ->
-    {Forms,Vars} = transform(Forms0, Module, MainFile),
+do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile,LocalOnly) ->
+    init_counter_mapping(Module),
+
+    %% Instrument the abstract code by inserting
+    %% calls to update the counters.
+    {Forms,Vars} = transform(Forms0, Module, MainFile, LocalOnly),
+
+    %% Create counters.
+    maybe_create_counters(Module, not LocalOnly),
 
     %% We need to recover the source from the compilation
     %% info otherwise the newly compiled module will have
     %% source pointing to the current directory
     SourceInfo = get_source_info(Module, Beam),
 
-    %% Compile and load the result
+    %% Compile and load the result.
     %% It's necessary to check the result of loading since it may
-    %% fail, for example if Module resides in a sticky directory
-    {ok, Module, Binary} = compile:forms(Forms, SourceInfo ++ UserOptions),
+    %% fail, for example if Module resides in a sticky directory.
+    Options = SourceInfo ++ UserOptions,
+    {ok, Module, Binary} = compile:forms(Forms, Options),
+
     case code:load_binary(Module, ?TAG, Binary) of
 	{module, Module} ->
 
-	    %% Store info about all function clauses in database
+	    %% Store info about all function clauses in database.
 	    InitInfo = lists:reverse(Vars#vars.init_info),
 	    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
 
-	    %% Store binary code so it can be loaded on remote nodes
+	    %% Store binary code so it can be loaded on remote nodes.
 	    ets:insert(?BINARY_TABLE, {Module, Binary}),
 
 	    {ok, Module};
@@ -1615,11 +1629,12 @@ get_compile_info(Module, Beam) ->
 		[]
     end.
 
-transform(Code, Module, MainFile) ->
+transform(Code, Module, MainFile, LocalOnly) ->
     Vars0 = #vars{module=Module},
-    {ok,MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
+    {ok,MungedForms0,Vars} = transform_2(Code, [], Vars0, MainFile, on),
+    MungedForms = patch_code(Module, MungedForms0, LocalOnly),
     {MungedForms,Vars}.
-    
+
 %% Helpfunction which returns the first found file-attribute, which can
 %% be interpreted as the name of the main erlang source file.
 find_main_filename([{attribute,_,file,{MainFile,_}}|_]) ->
@@ -1786,19 +1801,7 @@ munge_body([Expr|Body], Vars, MungedBody, LastExprBumpLines) ->
             MungedExprs1 = [MungedExpr|MungedBody1],
 	    munge_body(Body, Vars3, MungedExprs1, NewBumps);
 	false ->
-	    ets:insert(?COVER_TABLE, {#bump{module   = Vars#vars.module,
-					    function = Vars#vars.function,
-					    arity    = Vars#vars.arity,
-					    clause   = Vars#vars.clause,
-					    line     = Line},
-				      0}),
             Bump = bump_call(Vars, Line),
-%	    Bump = {call, 0, {remote, 0, {atom,0,cover}, {atom,0,bump}},
-%		    [{atom, 0, Vars#vars.module},
-%		     {atom, 0, Vars#vars.function},
-%		     {integer, 0, Vars#vars.arity},
-%		     {integer, 0, Vars#vars.clause},
-%		     {integer, 0, Line}]},
 	    Lines2 = [Line|Lines],
 	    {MungedExpr, Vars2} = munge_expr(Expr, Vars#vars{lines=Lines2}),
             NewBumps = new_bumps(Vars2, Vars),
@@ -1853,8 +1856,10 @@ maybe_fix_last_expr(MungedExprs, Vars, LastExprBumpLines) ->
 
 last_expr_needs_fixing(Vars, LastExprBumpLines) ->
     case common_elems(Vars#vars.no_bump_lines, LastExprBumpLines) of
-        [Line] -> {yes, Line};
-        _ -> no
+        [Line] ->
+            {yes, Line};
+        _ ->
+            no
     end.
 
 fix_last_expr([MungedExpr|MungedExprs], Line, Vars) ->
@@ -1919,9 +1924,7 @@ fix_cls([Cl | Cls], Line, Bump) ->
 bumps_line(E, L) ->
     try bumps_line1(E, L) catch true -> true end.
 
-bumps_line1({call,_,{remote,_,{atom,_,ets},{atom,_,update_counter}},
-             [{atom,_,?COVER_TABLE},{tuple,_,[_,_,_,_,_,{integer,_,Line}]},_]},
-            Line) ->
+bumps_line1({'BUMP',Line,_}, Line) ->
     throw(true);
 bumps_line1([E | Es], Line) ->
     bumps_line1(E, Line),
@@ -1931,19 +1934,12 @@ bumps_line1(T, Line) when is_tuple(T) ->
 bumps_line1(_, _) ->
     false.
 
-%%% End of fix of last expression.
-
+%% Insert a place holder for the call to counters:add/3 in the
+%% abstract code.
 bump_call(Vars, Line) ->
-    A = erl_anno:new(0),
-    {call,A,{remote,A,{atom,A,ets},{atom,A,update_counter}},
-     [{atom,A,?COVER_TABLE},
-      {tuple,A,[{atom,A,?BUMP_REC_NAME},
-                {atom,A,Vars#vars.module},
-                {atom,A,Vars#vars.function},
-                {integer,A,Vars#vars.arity},
-                {integer,A,Vars#vars.clause},
-                {integer,A,Line}]},
-      {integer,A,1}]}.
+    {'BUMP',Line,counter_index(Vars, Line)}.
+
+%%% End of fix of last expression.
 
 munge_expr({match,Line,ExprL,ExprR}, Vars) ->
     {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
@@ -2103,6 +2099,159 @@ subtract(L1, L2) ->
 common_elems(L1, L2) ->
     [E || E <- L1, lists:member(E, L2)].
 
+%%%--Counters------------------------------------------------------------
+
+init_counter_mapping(Mod) ->
+    true = ets:insert_new(?COVER_MAPPING_TABLE, {Mod,0}),
+    ok.
+
+counter_index(Vars, Line) ->
+    #vars{module=Mod,function=F,arity=A,clause=C} = Vars,
+    Key = #bump{module=Mod,function=F,arity=A,
+                clause=C,line=Line},
+    case ets:lookup(?COVER_MAPPING_TABLE, Key) of
+        [] ->
+            Index = ets:update_counter(?COVER_MAPPING_TABLE,
+                                       Mod, {2,1}),
+            true = ets:insert(?COVER_MAPPING_TABLE, {Key,Index}),
+            Index;
+        [{Key,Index}] ->
+            Index
+    end.
+
+%% Create the counter array and store as a persistent term.
+maybe_create_counters(Mod, true) ->
+    Cref = create_counters(Mod),
+    Key = {?MODULE,Mod},
+    persistent_term:put(Key, Cref),
+    ok;
+maybe_create_counters(_Mod, false) ->
+    ok.
+
+create_counters(Mod) ->
+    Size0 = ets:lookup_element(?COVER_MAPPING_TABLE, Mod, 2),
+    Size = max(1, Size0),                       %Size must not be 0.
+    Cref = counters:new(Size, [write_concurrency]),
+    ets:insert(?COVER_MAPPING_TABLE, {{counters,Mod},Cref}),
+    Cref.
+
+patch_code(Mod, Forms, false) ->
+    A = erl_anno:new(0),
+    AbstrKey = {tuple,A,[{atom,A,?MODULE},{atom,A,Mod}]},
+    patch_code1(Forms, {distributed,AbstrKey});
+patch_code(Mod, Forms, true) ->
+    Cref = create_counters(Mod),
+    AbstrCref = cid_to_abstract(Cref),
+    patch_code1(Forms, {local_only,AbstrCref}).
+
+%% Go through the abstract code and replace 'BUMP' forms
+%% with the actual code to increment the counters.
+patch_code1({'BUMP',_Line,Index}, {distributed,AbstrKey}) ->
+    %% Replace with counters:add(persistent_term:get(Key), Index, 1).
+    %% This code will work on any node.
+    A = element(2, AbstrKey),
+    GetCref = {call,A,{remote,A,{atom,A,persistent_term},{atom,A,get}},
+               [AbstrKey]},
+    {call,A,{remote,A,{atom,A,counters},{atom,A,add}},
+     [GetCref,{integer,A,Index},{integer,A,1}]};
+patch_code1({'BUMP',_Line,Index}, {local_only,AbstrCref}) ->
+    %% Replace with counters:add(Cref, Index, 1). This code
+    %% will only work on the local node.
+    A = element(2, AbstrCref),
+    {call,A,{remote,A,{atom,A,counters},{atom,A,add}},
+     [AbstrCref,{integer,A,Index},{integer,A,1}]};
+patch_code1({clauses,Cs}, Key) ->
+    {clauses,[patch_code1(El, Key) || El <- Cs]};
+patch_code1([_|_]=List, Key) ->
+    [patch_code1(El, Key) || El <- List];
+patch_code1(Tuple, Key) when tuple_size(Tuple) >= 3 ->
+    Acc = [element(2, Tuple),element(1, Tuple)],
+    patch_code_tuple(3, tuple_size(Tuple), Tuple, Key, Acc);
+patch_code1(Other, _Key) ->
+    Other.
+
+patch_code_tuple(I, Size, Tuple, Key, Acc) when I =< Size ->
+    El = patch_code1(element(I, Tuple), Key),
+    patch_code_tuple(I + 1, Size, Tuple, Key, [El|Acc]);
+patch_code_tuple(_I, _Size, _Tuple, _Key, Acc) ->
+    list_to_tuple(lists:reverse(Acc)).
+
+%% Don't try this at home! Assumes knowledge of the internal
+%% representation of a counter ref.
+cid_to_abstract(Cref0) ->
+    A = erl_anno:new(0),
+    %% Disable dialyzer warning for breaking opacity.
+    Cref = binary_to_term(term_to_binary(Cref0)),
+    {write_concurrency,Ref} = Cref,
+    {tuple,A,[{atom,A,write_concurrency},{integer,A,Ref}]}.
+
+%% Called on the remote node. Collect and send counters to
+%% the main node. Also zero the counters.
+send_counters(Mod, CollectorPid) ->
+    Process = fun(Chunk) -> send_chunk(CollectorPid, Chunk) end,
+    move_counters(Mod, Process).
+
+%% Called on the main node. Collect the counters and consolidate
+%% them into the collection table. Also zero the counters.
+move_counters(Mod) ->
+    move_counters(Mod, fun insert_in_collection_table/1).
+
+move_counters(Mod, Process) ->
+    Pattern = {#bump{module=Mod,_='_'},'_'},
+    Matches = ets:match_object(?COVER_MAPPING_TABLE, Pattern, ?CHUNK_SIZE),
+    Cref = get_counters_ref(Mod),
+    move_counters1(Matches, Cref, Process).
+
+move_counters1({Mappings,Continuation}, Cref, Process) ->
+    Move = fun({Key,Index}) ->
+                   Count = counters:get(Cref, Index),
+                   ok = counters:sub(Cref, Index, Count),
+                   {Key,Count}
+           end,
+    Process(lists:map(Move, Mappings)),
+    move_counters1(ets:match_object(Continuation), Cref, Process);
+move_counters1('$end_of_table', _Cref, _Process) ->
+    ok.
+
+counters_mapping_table(Mod) ->
+    Mapping = counters_mapping(Mod),
+    Cref = get_counters_ref(Mod),
+    #{size:=Size} = counters:info(Cref),
+    [{Mod,Size}|Mapping].
+
+get_counters_ref(Mod) ->
+    ets:lookup_element(?COVER_MAPPING_TABLE, {counters,Mod}, 2).
+
+counters_mapping(Mod) ->
+    Pattern = {#bump{module=Mod,_='_'},'_'},
+    ets:match_object(?COVER_MAPPING_TABLE, Pattern).
+
+clear_counters(Mod) ->
+    _ = persistent_term:erase({?MODULE,Mod}),
+    ets:delete(?COVER_MAPPING_TABLE, Mod),
+    Pattern = {#bump{module=Mod,_='_'},'_'},
+    _ = ets:match_delete(?COVER_MAPPING_TABLE, Pattern),
+    ok.
+
+%% Reset counters (set counters to 0).
+reset_counters(Mod) ->
+    Pattern = {#bump{module=Mod,_='_'},'$1'},
+    MatchSpec = [{Pattern,[],['$1']}],
+    Matches = ets:select(?COVER_MAPPING_TABLE,
+                         MatchSpec, ?CHUNK_SIZE),
+    Cref = get_counters_ref(Mod),
+    reset_counters1(Matches, Cref).
+
+reset_counters1({Indices,Continuation}, Cref) ->
+    _ = [counters:put(Cref, N, 0) || N <- Indices],
+    reset_counters1(ets:select(Continuation), Cref);
+reset_counters1('$end_of_table', _Cref) ->
+    ok.
+
+delete_all_counters() ->
+    _ = [persistent_term:erase(Key) || {?MODULE,_}=Key <- persistent_term:get()],
+    ok.
+
 %%%--Analysis------------------------------------------------------------
 
 %% Collect data for all modules
@@ -2138,20 +2287,7 @@ collect(Module,Clauses,Nodes) ->
 %% ?COLLECTION_TABLE. Resetting data in ?COVER_TABLE
 move_modules({Module,Clauses}) ->
     ets:insert(?COLLECTION_CLAUSE_TABLE,{Module,Clauses}),
-    Pattern = {#bump{module=Module, _='_'}, '_'},
-    MatchSpec = [{Pattern,[],['$_']}],
-    Match = ets:select(?COVER_TABLE,MatchSpec,?CHUNK_SIZE),
-    do_move_module(Match).
-    
-do_move_module({Bumps,Continuation}) ->
-    lists:foreach(fun({Key,Val}) ->
-			  ets:insert(?COVER_TABLE, {Key,0}),
-			  insert_in_collection_table(Key,Val)
-		  end,
-		  Bumps),
-    do_move_module(ets:select(Continuation));
-do_move_module('$end_of_table') ->
-    ok.
+    move_counters(Module).
 
 %% Given a .beam file, find the .erl file. Look first in same directory as
 %% the .beam file, then in ../src, then in compile info.
@@ -2415,20 +2551,8 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 	    case file:open(OutFile, [write,raw,delayed_write]) of
 		{ok, OutFd} ->
                     Enc = encoding(ErlFile),
-		    if HTML -> 
-                           Header =
-                               ["<!DOCTYPE HTML PUBLIC "
-                                "\"-//W3C//DTD HTML 3.2 Final//EN\">\n"
-                                "<html>\n"
-                                "<head>\n"
-                                "<meta http-equiv=\"Content-Type\""
-                                " content=\"text/html; charset=",
-                                html_encoding(Enc),"\"/>\n"
-                                "<title>",OutFile,"</title>\n"
-                                "</head>"
-                                "<body style='background-color: white;"
-                                " color: black'>\n"
-                                "<pre>\n"],
+		    if HTML ->
+                            Header = create_header(OutFile, Enc),
                             H1Bin = unicode:characters_to_binary(Header,Enc,Enc),
                             ok = file:write(OutFd,H1Bin);
 		       true -> ok
@@ -2445,14 +2569,19 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                                       string:pad(integer_to_list(Mi), 2, leading, $0),
                                       string:pad(integer_to_list(S),  2, leading, $0)]),
 
-                    H2Bin = unicode:characters_to_binary(
-                              ["File generated from ",ErlFile," by COVER ",
-                                Timestamp,"\n\n"
-                                "**************************************"
-                                "**************************************"
-                                "\n\n"],
-                              Enc, Enc),
-                    ok = file:write(OutFd, H2Bin),
+                   OutFileInfo =
+                       if HTML ->
+                            create_footer(ErlFile, Timestamp);
+                          true ->
+                            ["File generated from ",ErlFile," by COVER ",
+                             Timestamp, "\n\n",
+                             "**************************************"
+                             "**************************************"
+                             "\n\n"]
+                          end,
+
+                   H2Bin = unicode:characters_to_binary(OutFileInfo,Enc,Enc),
+                   ok = file:write(OutFd, H2Bin),
 
 		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
 		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
@@ -2462,7 +2591,7 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    
 		    if HTML ->
-                           ok = file:write(OutFd, "</pre>\n</body>\n</html>\n");
+                           ok = file:write(OutFd, close_html());
 		       true -> ok
 		    end,
 
@@ -2497,12 +2626,11 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
 	    case CovLines of
 	       [{L,N}|CovLines1] ->
                     if N=:=0, HTML=:=true ->
-                           LineNoNL = Line -- "\n",
-                           Str = "     0",
-                           %%Str = string:pad("0", 6, leading, $\s),
-                           RedLine = ["<font color=red>",Str,fill1(),
-                                      LineNoNL,"</font>\n"],
-                           ok = file:write(OutFd, RedLine);
+                           MissedLine = table_row("miss", Line, L, N),
+                           ok = file:write(OutFd, MissedLine);
+                       HTML=:=true ->
+                           HitLine = table_row("hit", Line, L, N),
+                           ok = file:write(OutFd, HitLine);
                        N < 1000000 ->
                            Str = string:pad(integer_to_list(N), 6, leading, $\s),
                            ok = file:write(OutFd, [Str,fill1(),Line]);
@@ -2515,7 +2643,11 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
                     end,
 		    print_lines(Module, CovLines1, InFd, OutFd, L+1, HTML);
 		_ ->                            %Including comment lines
-		    ok = file:write(OutFd, [tab(),Line]),
+        NonCoveredContent =
+                    if HTML -> table_row(Line, L);
+                    true -> [tab(),Line]
+                    end,
+		    ok = file:write(OutFd, NonCoveredContent),
 		    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML)
 	    end
     end.
@@ -2524,6 +2656,61 @@ tab() ->  "        |  ".
 fill1() ->      "..|  ".
 fill2() ->       ".|  ".
 fill3() ->        "|  ".
+
+%% HTML sections
+create_header(OutFile, Enc) ->
+    ["<!doctype html>\n"
+    "<html>\n"
+    "<head>\n"
+    "<meta charset=\"",html_encoding(Enc),"\">\n"
+    "<title>",OutFile,"</title>\n"
+    "<style>"] ++
+    read_stylesheet() ++
+    ["</style>\n",
+    "</head>\n"
+    "<body>\n"
+    "<h1><code>",OutFile,"</code></h1>\n"].
+
+create_footer(ErlFile, Timestamp) ->
+    ["<footer><p>File generated from <code>",ErlFile,
+    "</code> by <a href=\"http://erlang.org/doc/man/cover.html\">cover</a> at ",
+    Timestamp,"</p></footer>\n<table>\n<tbody>\n"].
+
+close_html() ->
+    ["</tbody>\n",
+     "<thead>\n",
+     "<tr>\n",
+     "<th>Line</th>\n",
+     "<th>Hits</th>\n",
+     "<th>Source</th>\n",
+     "</tr>\n",
+     "</thead>\n",
+     "</table>\n",
+     "</body>\n"
+     "</html>\n"].
+
+table_row(CssClass, Line, L, N) ->
+    ["<tr class=\"",CssClass,"\">\n", table_data(Line, L, N)].
+table_row(Line, L) ->
+    ["<tr>\n", table_data(Line, L, "")].
+
+table_data(Line, L, N) ->
+   LineNoNL = Line -- "\n",
+   ["<td class=\"line\" id=\"L",integer_to_list(L),"\">",
+    "<a href=\"#L",integer_to_list(L),"\">",
+    integer_to_list(L),
+    "</a></td>\n",
+   "<td class=\"hits\">",maybe_integer_to_list(N),"</td>\n",
+   "<td class=\"source\"><code>",LineNoNL,"</code></td>\n</tr>\n"].
+
+maybe_integer_to_list(0) -> "<pre style=\"display: inline;\">:-(</pre>";
+maybe_integer_to_list(N) when is_integer(N) -> integer_to_list(N);
+maybe_integer_to_list(_) -> "".
+
+read_stylesheet() ->
+    PrivDir = code:priv_dir(?TOOLS_APP),
+    {ok, Css} = file:read_file(filename:join(PrivDir, ?STYLESHEET)),
+    [Css].
 
 %%%--Export--------------------------------------------------------------
 do_export(Module, OutFile, From, State) ->
@@ -2656,7 +2843,7 @@ get_term(Fd) ->
 
 %% Reset main node and all remote nodes
 do_reset_main_node(Module,Nodes) ->
-    do_reset(Module),
+    reset_counters(Module),
     do_reset_collection_table(Module),
     remote_reset(Module,Nodes).
 
@@ -2664,27 +2851,9 @@ do_reset_collection_table(Module) ->
     ets:delete(?COLLECTION_CLAUSE_TABLE,Module),
     ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'}).
 
-%% do_reset(Module) -> ok
-%% The reset is done on ?CHUNK_SIZE number of bumps to avoid building
-%% long lists in the case of very large modules
-do_reset(Module) ->
-    Pattern = {#bump{module=Module, _='_'}, '$1'},
-    MatchSpec = [{Pattern,[{'=/=','$1',0}],['$_']}],
-    Match = ets:select(?COVER_TABLE,MatchSpec,?CHUNK_SIZE),
-    do_reset2(Match).
-
-do_reset2({Bumps,Continuation}) ->
-    lists:foreach(fun({Bump,_N}) ->
-			  ets:insert(?COVER_TABLE, {Bump,0})
-		  end,
-		  Bumps),
-    do_reset2(ets:select(Continuation));
-do_reset2('$end_of_table') ->
-    ok.    
-
 do_clear(Module) ->
     ets:match_delete(?COVER_CLAUSE_TABLE, {Module,'_'}),
-    ets:match_delete(?COVER_TABLE, {#bump{module=Module},'_'}),
+    clear_counters(Module),
     case lists:member(?COLLECTION_TABLE, ets:all()) of
 	true ->
 	    %% We're on the main node

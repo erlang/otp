@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2017</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>ets</module>
+  <module since="">ets</module>
   <modulesummary>Built-in term storage.</modulesummary>
   <description>
     <p>This module is an interface to the Erlang built-in term storage
@@ -49,14 +49,16 @@
       associated with each key. A <c>bag</c> or <c>duplicate_bag</c> table can
       have many objects associated with each key.</p>
 
+   <marker id="max_ets_tables"></marker>
    <note>
      <p>
        The number of tables stored at one Erlang node <em>used</em> to
        be limited. This is no longer the case (except by memory usage).
        The previous default limit was about 1400 tables and
        could be increased by setting the environment variable
-       <c>ERL_MAX_ETS_TABLES</c> before starting the Erlang runtime
-       system. This hard limit has been removed, but it is currently
+       <c>ERL_MAX_ETS_TABLES</c> or the command line option
+       <seealso marker="erts:erl#+e"><c>+e</c></seealso> before starting the
+       Erlang runtime system. This hard limit has been removed, but it is currently
        useful to set the <c>ERL_MAX_ETS_TABLES</c> anyway. It should be
        set to an approximate of the maximum amount of tables used. This since
        an internal table for named tables is sized using this value. If
@@ -136,23 +138,96 @@
        operation. In database terms the isolation level can be seen as
        "serializable", as if all isolated operations are carried out serially,
        one after the other in a strict order.</p>
+  </section>
 
-      <p>No other support is available within this module that would guarantee
-       consistency between objects. However, function
-       <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
-       can be used to guarantee that a sequence of
-       <seealso marker="#first/1"><c>first/1</c></seealso> and
-       <seealso marker="#next/2"><c>next/2</c></seealso> calls traverse the
-       table without errors and that each existing object in the table is
-       visited exactly once, even if another (or the same) process
-       simultaneously deletes or inserts objects into the table.
-       Nothing else is guaranteed; in particular objects that are inserted
-       or deleted during such a traversal can be visited once or not at all.
-       Functions that internally traverse over a table, like
-       <seealso marker="#select/1"><c>select</c></seealso> and
-       <seealso marker="#match/1"><c>match</c></seealso>,
-       give the same guarantee as
-       <seealso marker="#safe_fixtable/2"><c>safe_fixtable</c></seealso>.</p>
+  <section><marker id="traversal"></marker>
+    <title>Table traversal</title>
+    <p>There are different ways to traverse through the objects of a table.</p>
+    <list type="bulleted">
+      <item><p><em>Single-step</em> traversal one key at at time, using
+	<seealso marker="#first/1"><c>first/1</c></seealso>,
+	<seealso marker="#next/2"><c>next/2</c></seealso>,
+	<seealso marker="#last/1"><c>last/1</c></seealso> and
+	<seealso marker="#prev/2"><c>prev/2</c></seealso>.</p>
+      </item>
+      <item><p>Search with simple <em>match patterns</em>, using
+	<seealso marker="#match/1"><c>match/1/2/3</c></seealso>,
+	<seealso marker="#match_delete/2"><c>match_delete/2</c></seealso> and
+	<seealso marker="#match_object/1"><c>match_object/1/2/3</c></seealso>.</p>
+      </item>
+      <item><p>Search with more powerful <em>match specifications</em>, using
+	<seealso marker="#select/1"><c>select/1/2/3</c></seealso>,
+	<seealso marker="#select_count/2"><c>select_count/2</c></seealso>,
+	<seealso marker="#select_delete/2"><c>select_delete/2</c></seealso>,
+	<seealso marker="#select_replace/2"><c>select_replace/2</c></seealso> and
+	<seealso marker="#select_reverse/1"><c>select_reverse/1/2/3</c></seealso>.</p>
+      </item>
+      <item><p><em>Table conversions</em>, using
+	<seealso marker="#tab2file/2"><c>tab2file/2/3</c></seealso> and
+        <seealso marker="#tab2list/1"><c>tab2list/1</c></seealso>.</p>
+      </item>
+    </list>
+    <p>None of these ways of table traversal will guarantee a consistent table snapshot
+    if the table is also updated during the traversal. Moreover, traversals not
+    done in a <em>safe</em> way, on tables where keys are inserted or deleted
+    during the traversal, may yield the following undesired effects:</p>
+    <list type="bulleted">
+      <item><p>Any key may be missed.</p></item>
+      <item><p>Any key may be found more than once.</p></item>
+      <item><p>The traversal may fail with <c>badarg</c> exception if keys are deleted.</p>
+      </item>
+    </list>
+    <p>A table traversal is <em>safe</em> if either</p>
+    <list type="bulleted">
+      <item><p>the table is of type <c>ordered_set</c>.</p>
+      </item>
+      <item><p>the entire table traversal is done within one ETS function
+        call.</p>
+      </item>
+      <item><p>function <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+        is used to keep the table fixated during the entire traversal.</p>
+      </item>
+    </list>
+    <note>
+      <p>Even though the access of a single object is always guaranteed to be
+      <seealso marker="#concurrency">atomic and isolated</seealso>, each traversal
+      through a table to find the next key is not done with such guarantees. This is often
+      not a problem, but may cause rare subtle "unexpected" effects if a concurrent
+      process inserts objects during a traversal. For example, consider one
+      process doing</p>
+<pre>
+ets:new(t, [ordered_set, named_table]),
+ets:insert(t, {1}),
+ets:insert(t, {2}),
+ets:insert(t, {3}),
+</pre>
+      <p>A concurrent call to <c>ets:first(t)</c>, done by another
+      process, may then in rare cases return <c>2</c> even though
+      <c>2</c> has never existed in the table ordered as the first key. In
+      the same way, a concurrent call to <c>ets:next(t, 1)</c> may return
+      <c>3</c> even though <c>3</c> never existed in the table
+      ordered directly after <c>1</c>.</p>
+      <p>Effects like this are improbable but possible. The probability will
+      further be reduced (if not vanish) if table option
+      <seealso marker="#new_2_write_concurrency"><c>write_concurrency</c></seealso>
+      is not enabled. This can also only be a potential concern for
+      <c>ordered_set</c> where the traversal order is defined.</p>
+    </note>
+    <p>Traversals using <c>match</c> and <c>select</c> functions may not need to
+    scan the entire table depending on how the key is specified. A match
+    pattern with a <em>fully bound key</em> (without any match variables) will
+    optimize the operation to a single key lookup without any table traversal
+    at all. For <c>ordered_set</c> a <em>partially bound key</em> will limit the
+    traversal to only scan a subset of the table based on term order. A
+    partially bound key is either a list or a tuple with a prefix that is fully
+    bound. Example:</p>
+<pre>
+1> <input>T = ets:new(t,[ordered_set]), ets:insert(T, {"555-1234", "John Smith"}).</input>
+true
+2> <input>%% Efficient search of all with area code 555</input>
+2> <input>ets:match(T,{[$5,$5,$5,$- |'$1'],'$2'}).</input>
+[["1234","John Smith"]]
+</pre>
   </section>
 
   <section>
@@ -205,7 +280,7 @@
 
   <funcs>
     <func>
-      <name name="all" arity="0"/>
+      <name name="all" arity="0" since=""/>
       <fsummary>Return a list of all ETS tables.</fsummary>
       <desc>
         <p>Returns a list of all tables at the node. Named tables are
@@ -220,7 +295,7 @@
     </func>
 
     <func>
-      <name name="delete" arity="1"/>
+      <name name="delete" arity="1" since=""/>
       <fsummary>Delete an entire ETS table.</fsummary>
       <desc>
         <p>Deletes the entire table <c><anno>Tab</anno></c>.</p>
@@ -228,7 +303,7 @@
     </func>
 
     <func>
-      <name name="delete" arity="2"/>
+      <name name="delete" arity="2" since=""/>
       <fsummary>Delete all objects with a specified key from an ETS
         table.</fsummary>
       <desc>
@@ -238,7 +313,7 @@
     </func>
 
     <func>
-      <name name="delete_all_objects" arity="1"/>
+      <name name="delete_all_objects" arity="1" since=""/>
       <fsummary>Delete all objects in an ETS table.</fsummary>
       <desc>
         <p>Delete all objects in the ETS table <c><anno>Tab</anno></c>.
@@ -248,7 +323,7 @@
     </func>
 
     <func>
-      <name name="delete_object" arity="2"/>
+      <name name="delete_object" arity="2" since=""/>
       <fsummary>Deletes a specific from an ETS table.</fsummary>
       <desc>
         <p>Delete the exact object <c><anno>Object</anno></c> from the
@@ -260,7 +335,7 @@
     </func>
 
     <func>
-      <name name="file2tab" arity="1"/>
+      <name name="file2tab" arity="1" since=""/>
       <fsummary>Read an ETS table from a file.</fsummary>
       <desc>
         <p>Reads a file produced by <seealso marker="#tab2file/2">
@@ -272,7 +347,7 @@
     </func>
 
     <func>
-      <name name="file2tab" arity="2"/>
+      <name name="file2tab" arity="2" since=""/>
       <fsummary>Read an ETS table from a file.</fsummary>
       <desc>
         <p>Reads a file produced by <seealso marker="#tab2file/2">
@@ -304,7 +379,7 @@
     </func>
 
     <func>
-      <name name="first" arity="1"/>
+      <name name="first" arity="1" since=""/>
       <fsummary>Return the first key in an ETS table.</fsummary>
       <desc>
         <p>Returns the first key <c><anno>Key</anno></c> in table
@@ -319,7 +394,7 @@
     </func>
 
     <func>
-      <name name="foldl" arity="3"/>
+      <name name="foldl" arity="3" since=""/>
       <fsummary>Fold a function over an ETS table.</fsummary>
       <desc>
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
@@ -335,7 +410,7 @@
     </func>
 
     <func>
-      <name name="foldr" arity="3"/>
+      <name name="foldr" arity="3" since=""/>
       <fsummary>Fold a function over an ETS table.</fsummary>
       <desc>
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
@@ -351,7 +426,7 @@
     </func>
 
     <func>
-      <name name="from_dets" arity="2"/>
+      <name name="from_dets" arity="2" since=""/>
       <fsummary>Fill an ETS table with objects from a Dets
         table.</fsummary>
       <desc>
@@ -365,7 +440,7 @@
     </func>
 
     <func>
-      <name name="fun2ms" arity="1"/>
+      <name name="fun2ms" arity="1" since=""/>
       <fsummary>Pseudo function that transforms fun syntax to a match
         specification.</fsummary>
       <desc>
@@ -434,7 +509,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="give_away" arity="3"/>
+      <name name="give_away" arity="3" since=""/>
       <fsummary>Change owner of a table.</fsummary>
       <desc>
         <p>Make process <c><anno>Pid</anno></c> the new owner of table
@@ -452,7 +527,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="i" arity="0"/>
+      <name name="i" arity="0" since=""/>
       <fsummary>Display information about all ETS tables on a terminal.
       </fsummary>
       <desc>
@@ -461,7 +536,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="i" arity="1"/>
+      <name name="i" arity="1" since=""/>
       <fsummary>Browse an ETS table on a terminal.</fsummary>
       <desc>
         <p>Browses table <c><anno>Tab</anno></c> on a terminal.</p>
@@ -469,7 +544,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="info" arity="1"/>
+      <name name="info" arity="1" since=""/>
       <fsummary>Return information about an <c>table</c>.</fsummary>
       <desc>
         <p>Returns information about table <c><anno>Tab</anno></c> as a list of
@@ -545,7 +620,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="info" arity="2"/>
+      <name name="info" arity="2" since=""/>
       <fsummary>Return the information associated with the specified item for
         an ETS table.</fsummary>
       <desc>
@@ -609,15 +684,14 @@ Error: fun containing local Erlang function calls
           </item>
           <item>
             <p><c>Item=stats, Value=tuple()</c></p>
-            <p>Returns internal statistics about <c>set</c>, <c>bag</c>, and
-              <c>duplicate_bag</c> tables on an internal format used by OTP
-              test suites. Not for production use.</p></item>
+            <p>Returns internal statistics about tables on an internal format
+	    used by OTP test suites. Not for production use.</p></item>
         </list>
       </desc>
     </func>
 
     <func>
-      <name name="init_table" arity="2"/>
+      <name name="init_table" arity="2" since=""/>
       <fsummary>Replace all objects of an ETS table.</fsummary>
       <desc>
         <p>Replaces the existing objects of table <c><anno>Tab</anno></c> with
@@ -647,7 +721,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="insert" arity="2"/>
+      <name name="insert" arity="2" since=""/>
       <fsummary>Insert an object into an ETS table.</fsummary>
       <desc>
         <p>Inserts the object or all of the objects in list
@@ -679,7 +753,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="insert_new" arity="2"/>
+      <name name="insert_new" arity="2" since=""/>
       <fsummary>Insert an object into an ETS table if the key is not
         already present.</fsummary>
       <desc>
@@ -698,7 +772,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="is_compiled_ms" arity="1"/>
+      <name name="is_compiled_ms" arity="1" since=""/>
       <fsummary>Check if an Erlang term is the result of
         <c>match_spec_compile</c>.</fsummary>
       <desc>
@@ -730,7 +804,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="last" arity="1"/>
+      <name name="last" arity="1" since=""/>
       <fsummary>Return the last key in an ETS table of type
         <c>ordered_set</c>.</fsummary>
       <desc>
@@ -745,7 +819,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="lookup" arity="2"/>
+      <name name="lookup" arity="2" since=""/>
       <fsummary>Return all objects with a specified key in an ETS table.
       </fsummary>
       <desc>
@@ -785,7 +859,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="lookup_element" arity="3"/>
+      <name name="lookup_element" arity="3" since=""/>
       <fsummary>Return the <c>Pos</c>:th element of all objects with a
         specified key in an ETS table.</fsummary>
       <desc>
@@ -808,7 +882,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match" arity="1"/>
+      <name name="match" arity="1" since=""/>
       <fsummary>Continues matching objects in an ETS table.</fsummary>
       <desc>
         <p>Continues a match started with
@@ -822,7 +896,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match" arity="2"/>
+      <name name="match" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a pattern.
       </fsummary>
       <desc>
@@ -854,7 +928,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match" arity="3"/>
+      <name name="match" arity="3" since=""/>
       <fsummary>Match the objects in an ETS table against a pattern
         and return part of the answers.</fsummary>
       <desc>
@@ -869,11 +943,14 @@ ets:is_compiled_ms(Broken).</code>
           <seealso marker="#first/1"><c>first/1</c></seealso> and
           <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
         <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
+	<p>Use <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+	  to guarantee <seealso marker="#traversal">safe traversal</seealso>
+	  for subsequent calls to <seealso marker="#match/1"><c>match/1</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="match_delete" arity="2"/>
+      <name name="match_delete" arity="2" since=""/>
       <fsummary>Delete all objects that match a specified pattern from an
         ETS table.</fsummary>
       <desc>
@@ -884,7 +961,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_object" arity="1"/>
+      <name name="match_object" arity="1" since=""/>
       <fsummary>Continues matching objects in an ETS table.</fsummary>
       <desc>
         <p>Continues a match started with
@@ -899,7 +976,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_object" arity="2"/>
+      <name name="match_object" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a pattern.
       </fsummary>
       <desc>
@@ -918,7 +995,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_object" arity="3"/>
+      <name name="match_object" arity="3" since=""/>
       <fsummary>Match the objects in an ETS table against a pattern and
         return part of the answers.</fsummary>
       <desc>
@@ -934,11 +1011,15 @@ ets:is_compiled_ms(Broken).</code>
           <seealso marker="#first/1"><c>first/1</c></seealso> and
           <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
         <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
+	<p>Use <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+	  to guarantee <seealso marker="#traversal">safe traversal</seealso>
+	  for subsequent calls to <seealso marker="#match_object/1">
+	  <c>match_object/1</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="match_spec_compile" arity="1"/>
+      <name name="match_spec_compile" arity="1" since=""/>
       <fsummary>Compile a match specification into its internal representation.
       </fsummary>
       <desc>
@@ -966,7 +1047,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_spec_run" arity="2"/>
+      <name name="match_spec_run" arity="2" since=""/>
       <fsummary>Perform matching, using a compiled match specification on a
         list of terms.</fsummary>
       <desc>
@@ -1003,7 +1084,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="member" arity="2"/>
+      <name name="member" arity="2" since=""/>
       <fsummary>Tests for occurrence of a key in an ETS table.</fsummary>
       <desc>
         <p>Works like <seealso marker="#lookup/2"><c>lookup/2</c></seealso>,
@@ -1014,14 +1095,14 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="new" arity="2"/>
+      <name name="new" arity="2" since=""/>
       <fsummary>Create a new ETS table.</fsummary>
       <desc>
         <p>Creates a new table and returns a table identifier that can
           be used in subsequent operations. The table identifier can be
           sent to other processes so that a table can be shared between
           different processes within a node.</p>
-        <p>Parameter <c><anno>Options</anno></c> is a list of atoms that
+        <p>Parameter <c><anno>Options</anno></c> is a list of options that
           specifies table type, access rights, key position, and whether the
           table is named. Default values are used for omitted options.
           This means that not specifying any options (<c>[]</c>) is the same
@@ -1133,11 +1214,17 @@ ets:select(Table, MatchSpec),</code>
               Functions that makes such promises over many objects (like
               <seealso marker="#insert/2"><c>insert/2</c></seealso>)
               gain less (or nothing) from this option.</p>
-            <p>Table type <c>ordered_set</c> is not affected by this option.
-              Also, the memory consumption inflicted by
-              both <c>write_concurrency</c> and <c>read_concurrency</c> is a
-              constant overhead per table. This overhead can be especially
-              large when both options are combined.</p>
+            <p>The memory consumption inflicted by both <c>write_concurrency</c>
+	      and <c>read_concurrency</c> is a constant overhead per table for
+	      <c>set</c>, <c>bag</c> and <c>duplicate_bag</c>. For
+	      <c>ordered_set</c> the memory overhead depends on the number
+	      of inserted objects and the amount of actual detected
+	      concurrency in runtime. The memory overhead can be especially
+	      large when both options are combined.</p>
+	    <note>
+              <p>Prior to stdlib-3.7 (OTP-22.0) <c>write_concurrency</c> had no
+	      effect on <c>ordered_set</c>.</p>
+            </note>
             <marker id="new_2_read_concurrency"></marker>
           </item>
           <tag><c>{read_concurrency,boolean()}</c></tag>
@@ -1178,7 +1265,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="next" arity="2"/>
+      <name name="next" arity="2" since=""/>
       <fsummary>Return the next key in an ETS table.</fsummary>
       <desc>
         <p>Returns the next key <c><anno>Key2</anno></c>, following key
@@ -1190,17 +1277,18 @@ ets:select(Table, MatchSpec),</code>
         <p>To find the first key in the table, use
           <seealso marker="#first/1"><c>first/1</c></seealso>.</p>
         <p>Unless a table of type <c>set</c>, <c>bag</c>, or
-          <c>duplicate_bag</c> is protected using
+          <c>duplicate_bag</c> is fixated using
           <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>,
-          a traversal can fail if
-          concurrent updates are made to the table. For table
-          type <c>ordered_set</c>, the function returns the next key in
-          order, even if the object does no longer exist.</p>
+          a call to <c>next/2</c> will fail if <c><anno>Key1</anno></c> no longer
+	  exists in the table. For table type <c>ordered_set</c>, the function
+	  always returns the next key after <c><anno>Key1</anno></c> in term
+	  order, regardless whether <c><anno>Key1</anno></c> ever existed in the
+	  table.</p>
       </desc>
     </func>
 
     <func>
-      <name name="prev" arity="2"/>
+      <name name="prev" arity="2" since=""/>
       <fsummary>Return the previous key in an ETS table of type
         <c>ordered_set</c>.</fsummary>
       <desc>
@@ -1210,13 +1298,13 @@ ets:select(Table, MatchSpec),</code>
           table types, the function is synonymous to
           <seealso marker="#next/2"><c>next/2</c></seealso>.
           If no previous key exists, <c>'$end_of_table'</c> is returned.</p>
-        <p>To find the last key in the table, use
+        <p>To find the last key in an <c>ordered_set</c> table, use
           <seealso marker="#last/1"><c>last/1</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="rename" arity="2"/>
+      <name name="rename" arity="2" since=""/>
       <fsummary>Rename a named ETS table.</fsummary>
       <desc>
         <p>Renames the named table <c><anno>Tab</anno></c> to the new name
@@ -1226,7 +1314,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="repair_continuation" arity="2"/>
+      <name name="repair_continuation" arity="2" since=""/>
       <fsummary>Repair a continuation from <c>ets:select/1 or ets:select/3</c>
         that has passed through external representation.</fsummary>
       <desc>
@@ -1281,11 +1369,20 @@ ets:select(ets:repair_continuation(Broken,MS)).</code>
     </func>
 
     <func>
-      <name name="safe_fixtable" arity="2"/>
+      <name name="safe_fixtable" arity="2" since=""/>
       <fsummary>Fix an ETS table for safe traversal.</fsummary>
       <desc>
         <p>Fixes a table of type <c>set</c>, <c>bag</c>, or
-          <c>duplicate_bag</c> for safe traversal.</p>
+        <c>duplicate_bag</c> for <seealso marker="#traversal">
+	safe traversal</seealso> using
+	<seealso marker="#first/1"><c>first/1</c></seealso> &amp;
+	<seealso marker="#next/2"><c>next/2</c></seealso>,
+	<seealso marker="#match/3"><c>match/3</c></seealso> &amp;
+	<seealso marker="#match/1"><c>match/1</c></seealso>,
+	<seealso marker="#match_object/3"><c>match_object/3</c></seealso> &amp;
+	<seealso marker="#match_object/1"><c>match_object/1</c></seealso>, or
+	<seealso marker="#select/3"><c>select/3</c></seealso> &amp;
+	<seealso marker="#select/1"><c>select/1</c></seealso>.</p>
         <p>A process fixes a table by calling
           <c>safe_fixtable(<anno>Tab</anno>, true)</c>. The table remains
           fixed until the process releases it by calling
@@ -1298,11 +1395,11 @@ ets:select(ets:repair_continuation(Broken,MS)).</code>
         <p>When a table is fixed, a sequence of
           <seealso marker="#first/1"><c>first/1</c></seealso> and
           <seealso marker="#next/2"><c>next/2</c></seealso> calls are
-          guaranteed to succeed, and each object in
-          the table is returned only once, even if objects
-          are removed or inserted during the traversal. The keys for new
-          objects inserted during the traversal <em>can</em> be returned by
-          <c>next/2</c> (it depends on the internal ordering of the keys).</p>
+          guaranteed to succeed even if keys are removed during the
+	  traversal. The keys for objects inserted or deleted during a
+	  traversal may or may not be returned by <c>next/2</c> depending on
+	  the ordering of keys within the table and if the key exists at the time
+	  <c>next/2</c> is called.</p>
         <p><em>Example:</em></p>
         <code type="none">
 clean_all_with_value(Tab,X) ->
@@ -1320,7 +1417,7 @@ clean_all_with_value(Tab,X,Key) ->
             true
     end,
     clean_all_with_value(Tab,X,ets:next(Tab,Key)).</code>
-        <p>Notice that no deleted objects are removed from a
+        <p>Notice that deleted objects are not freed from a
           fixed table until it has been released. If a process fixes a
           table but never releases it, the memory used by the deleted
           objects is never freed. The performance of operations on
@@ -1330,14 +1427,14 @@ clean_all_with_value(Tab,X,Key) ->
           <c>info(Tab, safe_fixed_monotonic_time)</c></seealso>. A system with
           many processes fixing tables can need a monitor that sends alarms
           when tables have been fixed for too long.</p>
-        <p>Notice that for table type <c>ordered_set</c>,
-          <c>safe_fixtable/2</c> is not necessary, as calls to
-          <c>first/1</c> and <c>next/2</c> always succeed.</p>
+        <p>Notice that <c>safe_fixtable/2</c> is not necessary for table type
+	<c>ordered_set</c> and for traversals done by a single ETS function call,
+	like <seealso marker="#select/2"><c>select/2</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="select" arity="1"/>
+      <name name="select" arity="1" since=""/>
       <fsummary>Continue matching objects in an ETS table.</fsummary>
       <desc>
         <p>Continues a match started with
@@ -1351,7 +1448,7 @@ clean_all_with_value(Tab,X,Key) ->
     </func>
 
     <func>
-      <name name="select" arity="2"/>
+      <name name="select" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a
         match specification.</fsummary>
       <desc>
@@ -1446,7 +1543,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
     </func>
 
     <func>
-      <name name="select" arity="3"/>
+      <name name="select" arity="3" since=""/>
       <fsummary>Match the objects in an ETS table against a match
         specification and return part of the answers.</fsummary>
       <desc>
@@ -1460,12 +1557,15 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
           table, which is still faster than traversing the table object by
           object using <seealso marker="#first/1"><c>first/1</c></seealso>
           and <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
-        <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
+          <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
+	  <p>Use <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+	  to guarantee <seealso marker="#traversal">safe traversal</seealso>
+	  for subsequent calls to <seealso marker="#select/1"><c>select/1</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name name="select_count" arity="2"/>
+      <name name="select_count" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a match
         specification and return the number of objects for which the match
         specification returned <c>true</c>.</fsummary>
@@ -1484,7 +1584,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
     </func>
 
     <func>
-      <name name="select_delete" arity="2"/>
+      <name name="select_delete" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a match
         specification and delete objects where the match specification
         returns <c>true</c>.</fsummary>
@@ -1508,7 +1608,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
     </func>
 
     <func>
-      <name name="select_replace" arity="2"/>
+      <name name="select_replace" arity="2" since="OTP 20.0"/>
       <fsummary>Match and replace objects atomically in an ETS table</fsummary>
       <desc>
         <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
@@ -1517,7 +1617,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
           the match specification result.</p>
 	<p>The match-and-replace operation for each individual object is guaranteed to be
 	  <seealso marker="#concurrency">atomic and isolated</seealso>. The
-	  <c>select_replace</c> table iteration as a whole, like all other select functions,
+	  <c>select_replace</c> table traversal as a whole, like all other select functions,
 	  does not give such guarantees.</p>
 	<p>The match specifiction must be guaranteed to <em>retain the key</em>
 	  of any matched object. If not, <c>select_replace</c> will fail with <c>badarg</c>
@@ -1547,7 +1647,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="select_reverse" arity="1"/>
+      <name name="select_reverse" arity="1" since="OTP R14B"/>
       <fsummary>Continue matching objects in an ETS table.</fsummary>
       <desc>
       <p>Continues a match started with <seealso marker="#select_reverse/3">
@@ -1580,7 +1680,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="select_reverse" arity="2"/>
+      <name name="select_reverse" arity="2" since="OTP R14B"/>
       <fsummary>Match the objects in an ETS table against a
         match specification.</fsummary>
       <desc>
@@ -1592,7 +1692,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="select_reverse" arity="3"/>
+      <name name="select_reverse" arity="3" since="OTP R14B"/>
       <fsummary>Match the objects in an ETS table against a
         match specification and return part of the answers.</fsummary>
       <desc>
@@ -1610,7 +1710,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="setopts" arity="2"/>
+      <name name="setopts" arity="2" since=""/>
       <fsummary>Set table options.</fsummary>
       <desc>
         <p>Sets table options. The only allowed option to be set after the
@@ -1621,7 +1721,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="slot" arity="2"/>
+      <name name="slot" arity="2" since=""/>
       <fsummary>Return all objects in a specified slot of an ETS table.
       </fsummary>
       <desc>
@@ -1646,7 +1746,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="tab2file" arity="2"/>
+      <name name="tab2file" arity="2" since=""/>
       <fsummary>Dump an ETS table to a file.</fsummary>
       <desc>
         <p>Dumps table <c><anno>Tab</anno></c> to file
@@ -1657,7 +1757,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="tab2file" arity="3"/>
+      <name name="tab2file" arity="3" since=""/>
       <fsummary>Dump an ETS table to a file.</fsummary>
       <desc>
         <p>Dumps table <c><anno>Tab</anno></c> to file
@@ -1704,7 +1804,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="tab2list" arity="1"/>
+      <name name="tab2list" arity="1" since=""/>
       <fsummary>Return a list of all objects in an ETS table.</fsummary>
       <desc>
         <p>Returns a list of all objects in table <c><anno>Tab</anno></c>.</p>
@@ -1712,7 +1812,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="tabfile_info" arity="1"/>
+      <name name="tabfile_info" arity="1" since=""/>
       <fsummary>Return a list of all objects in an ETS table.</fsummary>
       <desc>
         <p>Returns information about the table dumped to file by
@@ -1790,8 +1890,8 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="table" arity="1"/>
-      <name name="table" arity="2"/>
+      <name name="table" arity="1" since=""/>
+      <name name="table" arity="2" since=""/>
       <fsummary>Return a QLC query handle.</fsummary>
       <desc>
         <p>Returns a Query List
@@ -1867,7 +1967,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="take" arity="2"/>
+      <name name="take" arity="2" since="OTP 18.0"/>
       <fsummary>Return and remove all objects with a specified key from an
         ETS table.</fsummary>
       <desc>
@@ -1882,7 +1982,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name name="test_ms" arity="2"/>
+      <name name="test_ms" arity="2" since=""/>
       <fsummary>Test a match specification for use in <c>select/2</c>.
       </fsummary>
       <desc>
@@ -1909,7 +2009,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="to_dets" arity="2"/>
+      <name name="to_dets" arity="2" since=""/>
       <fsummary>Fill a Dets table with objects from an ETS table.
       </fsummary>
       <desc>
@@ -1920,12 +2020,12 @@ true</pre>
     </func>
 
     <func> 
-      <name name="update_counter" arity="3" clause_i="1"/>
-      <name name="update_counter" arity="4" clause_i="1"/>
-      <name name="update_counter" arity="3" clause_i="2"/>
-      <name name="update_counter" arity="4" clause_i="2"/>
-      <name name="update_counter" arity="3" clause_i="3"/>
-      <name name="update_counter" arity="4" clause_i="3"/>
+      <name name="update_counter" arity="3" clause_i="1" since=""/>
+      <name name="update_counter" arity="4" clause_i="1" since="OTP 18.0"/>
+      <name name="update_counter" arity="3" clause_i="2" since=""/>
+      <name name="update_counter" arity="4" clause_i="2" since="OTP 18.0"/>
+      <name name="update_counter" arity="3" clause_i="3" since=""/>
+      <name name="update_counter" arity="4" clause_i="3" since="OTP 18.0"/>
       <fsummary>Update a counter object in an ETS table.</fsummary>
       <type variable="Tab"/>
       <type variable="Key"/>
@@ -2004,8 +2104,8 @@ true</pre>
     </func>
 
     <func>
-      <name name="update_element" arity="3" clause_i="1"/>
-      <name name="update_element" arity="3" clause_i="2"/>
+      <name name="update_element" arity="3" clause_i="1" since=""/>
+      <name name="update_element" arity="3" clause_i="2" since=""/>
       <fsummary>Update the <c>Pos</c>:th element of the object with a
         specified key in an ETS table.</fsummary>
       <type variable="Tab"/>
@@ -2047,7 +2147,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="whereis" arity="1"/>
+      <name name="whereis" arity="1" since="OTP 21.0"/>
       <fsummary>Retrieves the tid() of a named table.</fsummary>
       <desc>
         <p>This function returns the

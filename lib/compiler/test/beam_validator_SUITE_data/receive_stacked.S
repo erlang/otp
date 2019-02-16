@@ -172,7 +172,7 @@
     {allocate_zero,1,0}.
   {label,28}.
     {loop_rec,{f,30},{x,0}}.
-    {test,bs_start_match2,{f,29},1,[{x,0},0],{x,0}}.
+    {test,bs_start_match3,{f,29},1,[{x,0}],{x,0}}.
     {test,bs_get_integer2,
           {f,29},
           1,
@@ -219,7 +219,7 @@
     {allocate_zero,1,0}.
   {label,33}.
     {loop_rec,{f,35},{x,0}}.
-    {test,bs_start_match2,{f,34},1,[{x,0},0],{x,0}}.
+    {test,bs_start_match3,{f,34},1,[{x,0}],{x,0}}.
     {test,bs_get_integer2,
           {f,34},
           1,
@@ -262,7 +262,7 @@
     {allocate_zero,1,0}.
   {label,38}.
     {loop_rec,{f,40},{x,0}}.
-    {test,bs_start_match2,{f,39},1,[{x,0},0],{x,1}}.
+    {test,bs_start_match3,{f,39},1,[{x,0}],{x,1}}.
     {test,bs_get_integer2,
           {f,39},
           2,

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2017</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,87 @@
   </header>
   <p>This document describes the changes made to the Observer
     application.</p>
+
+<section><title>Observer 2.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Literals such as <c>#{"one"=>1}</c> dumped to a crash
+	    dump would cause <c>crashdump_viewer</c> to crash.</p>
+          <p>
+	    Own Id: OTP-15365 Aux Id: ERL-722 </p>
+        </item>
+        <item>
+          <p>
+	    <c>crashdump_viewer</c> would sometimes crash when
+	    processing a dump which was truncated in the
+	    <c>literals</c> area. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15377</p>
+        </item>
+        <item>
+          <p>
+	    Since OTP-20.2, <c>crashdump_viewer</c> was very slow
+	    when opening a crash dump with many processes. An
+	    ets:select per process could be removed, which improved
+	    the performance a lot.</p>
+          <p>
+	    A bug when parsing heap data in a crashdump caused
+	    <c>crashdump_viewer</c> to crash when multiple <c>Yc</c>
+	    lines referenced the same reference counted binary. This
+	    is now corrected.</p>
+          <p>
+	    Own Id: OTP-15391</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added possibility to garbage collect selected processes
+	    and fixed a crash when the saved config file contained
+	    bad data.</p>
+          <p>
+	    Own Id: OTP-14993 Aux Id: PR-1666 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Observer 2.7</title>
 

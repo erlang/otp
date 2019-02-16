@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017. All Rights Reserved.
+// Copyright Ericsson AB 2017-2018. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,13 +31,20 @@
 
 CALL_GUARD_BIF(BF, TmpReg, Dst) {
     Eterm result;
+#ifdef DEBUG
+    Eterm* orig_htop = HTOP;
+    Eterm* orig_stop = E;
+#endif
 
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
     c_p->fcalls = FCALLS;
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     ERTS_CHK_MBUF_SZ(c_p);
+    DEBUG_SWAPOUT;
     result = (*$BF)(c_p, $TmpReg, I);
+    DEBUG_SWAPIN;
+    ASSERT(orig_htop == HTOP && orig_stop == E);
     ERTS_CHK_MBUF_SZ(c_p);
     ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -51,15 +58,32 @@ CALL_GUARD_BIF(BF, TmpReg, Dst) {
     }
 }
 
-// Guard BIF in head.  On failure, ignore the error and jump
-// to the code for the next clause.  We don't support tracing
+// Guard BIF in head. On failure, ignore the error and jump
+// to the code for the next clause. We don't support tracing
 // of guard BIFs.
 
-bif1(Fail, Bif, Src, Dst) {
-    ErtsBifFunc bf;
-    Eterm tmp_reg[1];
+i_bif1 := i_bif.fetch0.call;
+i_bif2 := i_bif.fetch1.fetch0.call;
+i_bif3 := i_bif.fetch2.fetch1.fetch0.call;
 
+i_bif.head() {
+    ErtsBifFunc bf;
+    Eterm tmp_reg[3];
+}
+
+i_bif.fetch0(Src) {
     tmp_reg[0] = $Src;
+}
+
+i_bif.fetch1(Src) {
+    tmp_reg[1] = $Src;
+}
+
+i_bif.fetch2(Src) {
+    tmp_reg[2] = $Src;
+}
+
+i_bif.call(Fail, Bif, Dst) {
     bf = (BifFunction) $Bif;
     $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
 
@@ -67,206 +91,121 @@ bif1(Fail, Bif, Src, Dst) {
 }
 
 //
-// Guard BIF in body.  It can fail like any BIF.  No trace support.
+// Guard BIF in body. It can fail like any BIF. No trace support.
 //
 
-bif1_body(Bif, Src, Dst) {
-    ErtsBifFunc bf;
-    Eterm tmp_reg[1];
+i_bif1_body := i_bif_body.fetch0.call;
+i_bif2_body := i_bif_body.fetch1.fetch0.call;
+i_bif3_body := i_bif_body.fetch2.fetch1.fetch0.call;
 
+i_bif_body.head() {
+    ErtsBifFunc bf;
+    Eterm tmp_reg[3];
+}
+
+i_bif_body.fetch0(Src) {
     tmp_reg[0] = $Src;
+}
+
+i_bif_body.fetch1(Src) {
+    tmp_reg[1] = $Src;
+}
+
+i_bif_body.fetch2(Src) {
+    tmp_reg[2] = $Src;
+}
+
+i_bif_body.call(Bif, Dst) {
     bf = (BifFunction) $Bif;
     $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
 
-    reg[0] = tmp_reg[0];
-    SWAPOUT;
-    I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
-    goto post_error_handling;
-}
-
-//
-// Guard bif in guard with two arguments ('and'/2, 'or'/2, 'xor'/2).
-//
-
-i_bif2(Fail, Bif, Src1, Src2, Dst) {
-    Eterm tmp_reg[2];
-    ErtsBifFunc bf;
-
-    tmp_reg[0] = $Src1;
-    tmp_reg[1] = $Src2;
-    bf = (ErtsBifFunc) $Bif;
-    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
-    $FAIL($Fail);
-}
-
-//
-// Guard bif in body with two arguments ('and'/2, 'or'/2, 'xor'/2).
-//
-
-i_bif2_body(Bif, Src1, Src2, Dst) {
-    Eterm tmp_reg[2];
-    ErtsBifFunc bf;
-
-    tmp_reg[0] = $Src1;
-    tmp_reg[1] = $Src2;
-    bf = (ErtsBifFunc) $Bif;
-    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
     reg[0] = tmp_reg[0];
     reg[1] = tmp_reg[1];
+    reg[2] = tmp_reg[2];
     SWAPOUT;
     I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
     goto post_error_handling;
 }
 
 //
-// Garbage-collecting BIF with one argument in either guard or body.
+// length/1 is the only guard BIF that does not execute in constant
+// time. Here follows special instructions to allow the calculation of
+// the list length to be broken in several chunks to avoid hogging
+// the scheduler for a long time.
 //
 
-i_gc_bif1(Fail, Bif, Src, Live, Dst) {
-    typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
-    GcBifFunction bf;
-    Eterm result;
-    Uint live = (Uint) $Live;
+i_length_setup(Live, Src) {
+    Uint live = $Live;
+    Eterm src = $Src;
 
-    x(live) = $Src;
-    bf = (GcBifFunction) $Bif;
-    ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    c_p->fcalls = FCALLS;
-    SWAPOUT;
-    PROCESS_MAIN_CHK_LOCKS(c_p);
-    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    ERTS_CHK_MBUF_SZ(c_p);
-    result = (*bf)(c_p, reg, live);
-    ERTS_CHK_MBUF_SZ(c_p);
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-    ERTS_REQ_PROC_MAIN_LOCK(c_p);
-    PROCESS_MAIN_CHK_LOCKS(c_p);
-    SWAPIN;
-    ERTS_HOLE_CHECK(c_p);
-    FCALLS = c_p->fcalls;
-    ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    if (ERTS_LIKELY(is_value(result))) {
-        $REFRESH_GEN_DEST();
-        $Dst = result;
-        $NEXT0();
-    }
-    if (ERTS_LIKELY($Fail != 0)) { /* Handle error in guard. */
-        $JUMP($Fail);
-    }
+    reg[live] = src;
+    reg[live+1] = make_small(0);
+    reg[live+2] = src;
 
-    /* Handle error in body. */
-    x(0) = x(live);
-    I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
-    goto post_error_handling;
+    /* This instruction is always followed by i_length */
+    SET_I($NEXT_INSTRUCTION);
+    goto i_length_start__;
+    //| -no_next
 }
 
 //
-// Garbage-collecting BIF with two arguments in either guard or body.
+// This instruction can be executed one or more times. When entering
+// this instruction, the X registers have the following contents:
+//
+// reg[live+0] The remainder of the list.
+// reg[live+1] The length so far (tagged integer).
+// reg[live+2] The original list. Only used if an error is generated
+//             (if the final tail of the list is not []).
 //
 
-i_gc_bif2(Fail, Bif, Live, Src1, Src2, Dst) {
-    typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
-    GcBifFunction bf;
-    Eterm result;
-    Uint live = (Uint) $Live;
+i_length := i_length.start.execute;
 
-    /*
-     * XXX This calling convention does not make sense. 'live'
-     * should point out the first argument, not the second
-     * (i.e. 'live' should not be incremented below).
-     */
-    x(live) = $Src1;
-    x(live+1) = $Src2;
-    live++;
-
-    bf = (GcBifFunction) $Bif;
-    ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    c_p->fcalls = FCALLS;
-    SWAPOUT;
-    PROCESS_MAIN_CHK_LOCKS(c_p);
-    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    ERTS_CHK_MBUF_SZ(c_p);
-    result = (*bf)(c_p, reg, live);
-    ERTS_CHK_MBUF_SZ(c_p);
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-    ERTS_REQ_PROC_MAIN_LOCK(c_p);
-    PROCESS_MAIN_CHK_LOCKS(c_p);
-    SWAPIN;
-    ERTS_HOLE_CHECK(c_p);
-    FCALLS = c_p->fcalls;
-    ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    if (ERTS_LIKELY(is_value(result))) {
-        $REFRESH_GEN_DEST();
-        $Dst = result;
-        $NEXT0();
-    }
-
-    if (ERTS_LIKELY($Fail != 0)) { /* Handle error in guard. */
-        $JUMP($Fail);
-    }
-
-    /* Handle error in body. */
-    live--;
-    x(0) = x(live);
-    x(1) = x(live+1);
-    I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
-    goto post_error_handling;
+i_length.start() {
+ i_length_start__:
+    ;
 }
 
-//
-// Garbage-collecting BIF with three arguments in either guard or body.
-//
-
-i_gc_bif3(Fail, Bif, Live, Src2, Src3, Dst) {
-    typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
-    GcBifFunction bf;
+i_length.execute(Fail, Live, Dst) {
     Eterm result;
-    Uint live = (Uint) $Live;
+    Uint live;
 
-    /*
-     * XXX This calling convention does not make sense. 'live'
-     * should point out the first argument, not the third
-     * (i.e. 'live' should not be incremented below).
-     */
-    x(live) = x(SCRATCH_X_REG);
-    x(live+1) = $Src2;
-    x(live+2) = $Src3;
-    live += 2;
-
-    bf = (GcBifFunction) $Bif;
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
     c_p->fcalls = FCALLS;
-    SWAPOUT;
     PROCESS_MAIN_CHK_LOCKS(c_p);
-    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     ERTS_CHK_MBUF_SZ(c_p);
-    result = (*bf)(c_p, reg, live);
+    DEBUG_SWAPOUT;
+
+    live = $Live;
+    result = erts_trapping_length_1(c_p, reg+live);
+
+    DEBUG_SWAPIN;
     ERTS_CHK_MBUF_SZ(c_p);
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-    ERTS_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
-    SWAPIN;
     ERTS_HOLE_CHECK(c_p);
     FCALLS = c_p->fcalls;
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
     if (ERTS_LIKELY(is_value(result))) {
+        /* Successful calculation of the list length. */
         $REFRESH_GEN_DEST();
         $Dst = result;
         $NEXT0();
+    } else if (c_p->freason == TRAP) {
+        /*
+         * Good so far, but there is more work to do. Yield.
+         */
+        $SET_CP_I_ABS(I);
+        SWAPOUT;
+        c_p->arity = live + 3;
+        c_p->current = NULL;
+        goto context_switch3;
+    } else {
+        /* Error. */
+        $BIF_ERROR_ARITY_1($Fail, BIF_length_1, reg[live+2]);
     }
-
-    /* Handle error in guard. */
-    if (ERTS_LIKELY($Fail != 0)) {
-        $JUMP($Fail);
-    }
-
-    /* Handle error in body. */
-    live -= 2;
-    x(0) = x(live);
-    x(1) = x(live+1);
-    x(2) = x(live+2);
-    I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
-    goto post_error_handling;
+    //| -no_next
 }
 
 //

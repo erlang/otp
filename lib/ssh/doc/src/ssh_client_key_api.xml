@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>ssh_client_key_api</module>
+  <module since="OTP R16B">ssh_client_key_api</module>
   <modulesummary>
      -behaviour(ssh_client_key_api).
   </modulesummary>
@@ -86,7 +86,7 @@
 
   <funcs>
     <func>
-      <name>Module:add_host_key(HostNames, PublicHostKey, ConnectOptions) -> ok | {error, Reason}</name>
+      <name since="OTP R16B">Module:add_host_key(HostNames, PublicHostKey, ConnectOptions) -> ok | {error, Reason}</name>
       <fsummary>Adds a host key to the set of trusted host keys.</fsummary>
       <type>
 	<v>HostNames = string()</v>
@@ -103,7 +103,7 @@
     </func>
 
     <func>
-      <name>Module:is_host_key(Key, Host, Algorithm, ConnectOptions) -> Result</name>
+      <name since="OTP R16B">Module:is_host_key(Key, Host, Algorithm, ConnectOptions) -> Result</name>
       <fsummary>Checks if a host key is trusted.</fsummary>
       <type>
 	<v>Key = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>
@@ -125,7 +125,7 @@
     </func>
 
     <func>
-      <name>Module:user_key(Algorithm, ConnectOptions) ->
+      <name since="OTP R16B">Module:user_key(Algorithm, ConnectOptions) ->
       {ok, PrivateKey}  | {error, Reason}</name>
       <fsummary>Fetches the users <em>public key</em> matching the <c>Algorithm</c>.</fsummary>
       <type>

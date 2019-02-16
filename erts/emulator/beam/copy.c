@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1074,6 +1074,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
     Eterm* ptr;
     Eterm *lit_purge_ptr = info->lit_purge_ptr;
     Uint lit_purge_sz = info->lit_purge_sz;
+    int copy_literals = info->copy_literals;
 #ifdef DEBUG
     Eterm mypid = erts_get_current_pid();
 #endif
@@ -1119,7 +1120,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    /* off heap list pointers are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
-                if (in_literal_purge_area(ptr))
+                if (copy_literals || in_literal_purge_area(ptr))
                     info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
@@ -1170,7 +1171,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
-                if (in_literal_purge_area(ptr))
+                if (copy_literals || in_literal_purge_area(ptr))
                     info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
@@ -1338,6 +1339,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
     unsigned remaining;
     Eterm *lit_purge_ptr = info->lit_purge_ptr;
     Uint lit_purge_sz = info->lit_purge_sz;
+    int copy_literals = info->copy_literals;
 #ifdef DEBUG
     Eterm mypid = erts_get_current_pid();
     Eterm saved_obj = obj;
@@ -1387,7 +1389,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    ptr = list_val(obj);
 	    /* off heap list pointers are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
-                if (!in_literal_purge_area(ptr)) {
+                if (!(copy_literals || in_literal_purge_area(ptr))) {
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
@@ -1455,7 +1457,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
-                if (!in_literal_purge_area(ptr)) {
+                if (!(copy_literals || in_literal_purge_area(ptr))) {
                     *resp = obj;
                 } else {
                     Uint bsz = 0;

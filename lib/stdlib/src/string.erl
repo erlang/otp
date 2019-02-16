@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -691,9 +691,9 @@ uppercase_list(CPs0, Changed) ->
 uppercase_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
   when $a =< CP1, CP1 =< $z, CP2 < 256 ->
     [CP1-32|uppercase_bin(CP2, Bin, true)];
-uppercase_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
+uppercase_bin(CP1, <<CP2/utf8, Bin/binary>>, Changed)
   when CP1 < 128, CP2 < 256 ->
-    [CP1|uppercase_bin(CP2, Bin, false)];
+    [CP1|uppercase_bin(CP2, Bin, Changed)];
 uppercase_bin(CP1, Bin, Changed) ->
     case unicode_util:uppercase([CP1|Bin]) of
         [CP1|CPs] ->
@@ -732,9 +732,9 @@ lowercase_list(CPs0, Changed) ->
 lowercase_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
   when $A =< CP1, CP1 =< $Z, CP2 < 256 ->
     [CP1+32|lowercase_bin(CP2, Bin, true)];
-lowercase_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
+lowercase_bin(CP1, <<CP2/utf8, Bin/binary>>, Changed)
   when CP1 < 128, CP2 < 256 ->
-    [CP1|lowercase_bin(CP2, Bin, false)];
+    [CP1|lowercase_bin(CP2, Bin, Changed)];
 lowercase_bin(CP1, Bin, Changed) ->
     case unicode_util:lowercase([CP1|Bin]) of
         [CP1|CPs] ->
@@ -773,9 +773,9 @@ casefold_list(CPs0, Changed) ->
 casefold_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
   when $A =< CP1, CP1 =< $Z, CP2 < 256 ->
     [CP1+32|casefold_bin(CP2, Bin, true)];
-casefold_bin(CP1, <<CP2/utf8, Bin/binary>>, _Changed)
+casefold_bin(CP1, <<CP2/utf8, Bin/binary>>, Changed)
   when CP1 < 128, CP2 < 256 ->
-    [CP1|casefold_bin(CP2, Bin, false)];
+    [CP1|casefold_bin(CP2, Bin, Changed)];
 casefold_bin(CP1, Bin, Changed) ->
     case unicode_util:casefold([CP1|Bin]) of
         [CP1|CPs] ->

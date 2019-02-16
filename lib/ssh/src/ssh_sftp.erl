@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -798,13 +798,22 @@ handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
     %% Ignore signals according to RFC 4254 section 6.9.
     {ok, State};
 
-handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, Error, _}},
+handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, Signal, Error0, _}},
 	       State0) ->
+    Error =
+        case Error0 of
+            "" -> Signal;
+            _ -> Error0
+        end,
     State = reply_all(State0, {error, Error}),
     {stop, ChannelId,  State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State0) ->
-    State = reply_all(State0, {error, {exit_status, Status}}),
+    State = 
+        case State0 of
+            0 -> State0;
+            _ -> reply_all(State0, {error, {exit_status, Status}})
+        end,
     {stop, ChannelId, State}.
 
 %%--------------------------------------------------------------------

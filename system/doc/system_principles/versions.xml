@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2014</year><year>2016</year>
+      <year>2014</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,9 +32,9 @@
     <rev></rev>
     <file>versions.xml</file>
   </header>
-  <marker id="versions section"></marker>
 
   <section>
+    <marker id="versions section"></marker>
     <title>OTP Version</title>
     <p>As of OTP release 17, the OTP release number corresponds to
     the major part of the OTP version. The OTP version as a concept was
@@ -136,8 +136,8 @@
   </section>
 
   <section>
-    <title>Version Scheme</title>
     <marker id="version_scheme"/>
+    <title>Version Scheme</title>
     <note><p>The version scheme was changed as of OTP 17.0. This implies
     that application versions used prior to OTP 17.0 do not adhere to this
     version scheme. <seealso marker="#otp_17_0_app_versions">A list of
@@ -181,7 +181,7 @@
       goes for application versions.</p>
       <p>In general, versions can have more than three parts.
       The versions are then only partially ordered. Such
-      versions are only used in exceptional cases. When an extra
+      versions are only used when branching off from another branch. When an extra
       part (out of the normal three parts) is added to a version number,
       a new branch of versions is made. The new branch has a linear
       order against the base version. However, versions on different
@@ -207,8 +207,68 @@
   </section>
 
   <section>
-    <title>OTP 17.0 Application Versions</title>
+    <marker id="releases_and_patches"/>
+    <title>Releases and Patches</title>
+    <p>
+      When a new OTP release is released it will have an OTP
+      version on the form <c>&lt;Major&gt;.0</c> where the
+      major OTP version number equals the release number.
+      The major version number is increased one step since the
+      last major version. All other OTP versions with the same
+      major OTP version number are patches on that OTP release.
+    </p>
+    <p>
+      Patches are either released as maintenance patch packages
+      or emergency patch packages. The only difference is that
+      maintenance patch packages are planned and usually contain
+      more changes than emergency patch packages. Emergency patch
+      packages are released to solve one or more specific issues
+      when such are discovered.
+    </p>
+    <p>
+      The release of a maintenance patch package usually imply
+      an increase of the OTP <c>&lt;Minor&gt;</c> version while
+      the release of an emergency patch package usually imply an
+      increase of the OTP <c>&lt;Patch&gt;</c> version. This is
+      however not necessarily always the case since changes of
+      OTP versions are based on the actual changes in the code
+      and not based on whether the patch was planned or not.
+      For more information see the
+      <seealso marker="#version_scheme">Version Scheme</seealso>
+      section above.
+    </p>
+  </section>
+
+  <section>
+    <marker id="otp_versions_tree"/>
+    <title>OTP Versions Tree</title>
+    <p>
+      All released OTP versions can be found in the
+      <url href="http://www.erlang.org/download/otp_versions_tree.html">OTP
+      Versions Tree</url> which is automatically updated whenever
+      we release a new OTP version. Note that every version number as
+      such explicitly define its position in the version tree. Nothing
+      more than the version numbers are needed in order to construct
+      the tree. The root of the tree is OTP version 17.0 which is when
+      we introduced the new
+      <seealso marker="#version_scheme">version scheme</seealso>. The
+      green versions are normal versions released on the main track.
+      Old <seealso marker="#releases_and_patches">OTP releases</seealso>
+      will be maintained for a while on <c>maint</c> branches that have
+      branched off from the main track. Old <c>maint</c> branches always
+      branch off from the main track when the next OTP release is
+      introduced into the main track. Versions on these old <c>maint</c>
+      branches are marked blue. Besides the green and blue versions,
+      there are also gray versions. These are versions on branches
+      introduced in order to fix a specific problem for a specific
+      customer on a specific base version. Branches with gray versions
+      will typically become dead ends very quickly if not immediately.
+    </p>
+  </section>
+
+  <section>
     <marker id="otp_17_0_app_versions"/>
+    <title>OTP 17.0 Application Versions</title>
     <p>The following list details the application versions that
     were part of OTP 17.0. If
     the normal part of an application version number compares

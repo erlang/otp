@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,8 +94,9 @@ return_results2({NewFail, NewSuccess, NewMal, NewNotMal}, NumSucc, SkippedN, Tot
                   _ -> io_lib:format("These ~p  skipped tests were malicious, but succeeds now: ~p~n",
                                      [length(NewNotMal), NewNotMal])
               end,
-    ct:comment(io_lib:format("~p successful tests, ~p skipped tests of totally ~p test cases. ~n" ++
-			     NFComm ++ NSComm ++ NMComm ++ NNMComm, [NumSucc, SkippedN, TotN])),
+    ct:comment(io_lib:format("~p successful tests, ~p skipped tests of totally ~p test cases. ~n~ts",
+                             [NumSucc, SkippedN, TotN,
+                              NFComm ++ NSComm ++ NMComm ++ NNMComm])),
     [] = NewFail.
 
 %% return_results2(Diff,{STErrs,STOther},{ITErrs,ITOther},TotN) ->

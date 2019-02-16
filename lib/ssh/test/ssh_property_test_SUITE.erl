@@ -46,8 +46,9 @@ groups() ->
     [{messages, [], [decode,
 		     decode_encode]},
      {client_server, [], [client_server_sequential,
-			  client_server_parallel,
-			  client_server_parallel_multi]}
+                          client_server_parallel
+			  %% client_server_parallel_multi
+                         ]}
     ].
 
 
@@ -62,7 +63,7 @@ end_per_suite(Config) ->
 %%% if we run proper.
 init_per_group(client_server, Config) ->
     case proplists:get_value(property_test_tool,Config) of
-	eqc -> Config;
+	proper -> Config;
 	X -> {skip, lists:concat([X," is not supported"])}
     end;
 init_per_group(_, Config) ->

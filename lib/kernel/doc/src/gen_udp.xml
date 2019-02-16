@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date>1997-12-03</date>
     <rev>A</rev>
   </header>
-  <module>gen_udp</module>
+  <module since="">gen_udp</module>
   <modulesummary>Interface to UDP sockets.</modulesummary>
   <description>
     <p>This module provides functions for communicating
@@ -53,7 +53,7 @@
 
   <funcs>
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close a UDP socket.</fsummary>
       <desc>
         <p>Closes a UDP socket.</p>
@@ -61,7 +61,7 @@
     </func>
 
     <func>
-      <name name="controlling_process" arity="2"/>
+      <name name="controlling_process" arity="2" since=""/>
       <fsummary>Change controlling process of a socket.</fsummary>
       <desc>
         <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
@@ -77,8 +77,8 @@
     </func>
 
     <func>
-      <name name="open" arity="1"/>
-      <name name="open" arity="2"/>
+      <name name="open" arity="1" since=""/>
+      <name name="open" arity="2" since=""/>
       <fsummary>Associate a UDP port number with the process calling it.</fsummary>
       <desc>
         <p>Associates a UDP port number (<c><anno>Port</anno></c>) with the
@@ -147,7 +147,21 @@
           at the opened port, if the socket is in an active mode, the packets
           are delivered as messages to the controlling process:</p>
         <code type="none">
-{udp, Socket, IP, InPortNo, Packet}</code>
+{udp, Socket, IP, InPortNo, Packet} % Without ancillary data
+{udp, Socket, IP, InPortNo, AncData, Packet} % With ancillary data
+	</code>
+	<p>
+	  The message contains an <c>AncData</c> field
+	  if any of the socket
+	  <seealso marker="#type-option">options</seealso>
+	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
+	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  or
+	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>
+	  are active, otherwise it does not.
+	</p>
+	<p>
+	</p>
         <p>If the socket is not in an active mode, data can be
           retrieved through the
           <seealso marker="#recv/2"><c>recv/2,3</c></seealso> calls.
@@ -175,18 +189,31 @@
     </func>
 
     <func>
-      <name name="recv" arity="2"/>
-      <name name="recv" arity="3"/>
+      <name name="recv" arity="2" since=""/>
+      <name name="recv" arity="3" since=""/>
       <fsummary>Receive a packet from a passive socket.</fsummary>
       <desc>
-        <p>Receives a packet from a socket in passive mode. Optional parameter
+        <p>
+	  Receives a packet from a socket in passive mode. Optional parameter
           <c><anno>Timeout</anno></c> specifies a time-out in milliseconds.
-          Defaults to <c>infinity</c>.</p>
+          Defaults to <c>infinity</c>.
+	</p>
+	<p>
+	  If any of the socket
+	  <seealso marker="#type-option">options</seealso>
+	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
+	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  or
+	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>
+	  are active, the <c><anno>RecvData</anno></c> tuple contains an
+	  <c><anno>AncData</anno></c> field,
+	  otherwise it does not.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name name="send" arity="4"/>
+      <name name="send" arity="4" since=""/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>

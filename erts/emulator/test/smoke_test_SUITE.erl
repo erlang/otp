@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%%
 
 boot_combo(Config) when is_list(Config) ->
-    ZFlags = os:getenv("ERL_ZFLAGS"),
+    ZFlags = os:getenv("ERL_ZFLAGS", ""),
     NOOP = fun () -> ok end,
     A42 = fun () ->
 		  case erlang:system_info(threads) of
@@ -87,10 +87,7 @@ boot_combo(Config) when is_list(Config) ->
 	%% A lot more combos could be implemented...
 	ok
     after
-	os:putenv("ERL_ZFLAGS", case ZFlags of
-				    false -> "";
-				    _ -> ZFlags
-				end)
+	os:putenv("ERL_ZFLAGS", ZFlags)
     end.
 
 native_atomics(Config) when is_list(Config) ->

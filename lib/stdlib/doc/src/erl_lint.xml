@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>erl_lint.xml</file>
   </header>
-  <module>erl_lint</module>
+  <module since="">erl_lint</module>
   <modulesummary>The Erlang code linter.</modulesummary>
   <description>
     <p>This module is used to check Erlang code for illegal syntax and
@@ -78,7 +78,7 @@
 
   <funcs>
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Format an error descriptor.</fsummary>
       <desc>
         <p>Takes an <c><anno>ErrorDescriptor</anno></c> and returns a string
@@ -90,7 +90,7 @@
     </func>
 
     <func>
-      <name name="is_guard_test" arity="1"/>
+      <name name="is_guard_test" arity="1" since=""/>
       <fsummary>Test for a guard test.</fsummary>
       <desc>
         <p>Tests if <c><anno>Expr</anno></c> is a legal guard test.
@@ -102,9 +102,9 @@
     </func>
 
     <func>
-      <name name="module" arity="1"/>
-      <name name="module" arity="2"/>
-      <name name="module" arity="3"/>
+      <name name="module" arity="1" since=""/>
+      <name name="module" arity="2" since=""/>
+      <name name="module" arity="3" since=""/>
       <fsummary>Check a module for errors.</fsummary>
       <desc>
         <p>Checks all the forms in a module for errors. It returns:</p>

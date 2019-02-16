@@ -141,6 +141,7 @@ socket_active_packet_tests() ->
      packet_4_active_some_big,
      packet_wait_active,
      packet_size_active,
+     packet_switch,
      %% inet header option should be deprecated!
      header_decode_one_byte_active,
      header_decode_two_bytes_active,
@@ -701,6 +702,34 @@ packet_size_passive(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+
+%%--------------------------------------------------------------------
+packet_switch() ->
+    [{doc,"Test packet option {packet, 2} followd by {packet, 4}"}].
+
+packet_switch(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, send_switch_packet ,["Hello World", 4]}},
+					{options, [{nodelay, true},{packet, 2} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, recv_switch_packet, ["Hello World", 4]}},
+					{options, [{nodelay, true}, {packet, 2} |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Client, ok, Server, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 packet_cdr_decode() ->
@@ -2093,26 +2122,13 @@ active_once_packet(Socket, Data, N) ->
     active_once_packet(Socket, Data, N-1).
 
 active_raw(Socket, Data, N) ->
-    active_raw(Socket, Data, N, []).
-
-active_raw(_Socket, _, 0, _) ->
+    active_raw(Socket, (length(Data) * N)).
+active_raw(_Socket, 0) ->
     ok;
-active_raw(Socket, Data, N, Acc) ->
+active_raw(Socket, N) ->
     receive 
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    receive
-		{ssl, Socket, _} ->
-		    active_raw(Socket, Data, N -1)
-	    end;
-	{ssl, Socket, Data} ->
-	    active_raw(Socket, Data, N-1, []);
-	{ssl, Socket, Other} ->
-	    case Acc ++ Other of
-		Data ->
-		    active_raw(Socket, Data, N-1, []);
-		NewAcc ->
-		    active_raw(Socket, Data, NewAcc)
-	    end
+	{ssl, Socket, Bytes} ->
+            active_raw(Socket, N-length(Bytes))
     end.
 
 active_packet(Socket, _, 0) ->
@@ -2286,3 +2302,26 @@ client_reject_packet_opt(Config, PacketOpt) ->
                                                          ClientOpts]}]),
     
     ssl_test_lib:check_result(Client, {error, {options, {not_supported, PacketOpt}}}).
+
+
+send_switch_packet(SslSocket, Data, NextPacket) ->
+    ssl:send(SslSocket, Data),
+    receive
+        {ssl, SslSocket, "Hello World"} ->
+            ssl:setopts(SslSocket, [{packet, NextPacket}]),
+            ssl:send(SslSocket, Data),
+            receive 
+                {ssl, SslSocket, "Hello World"} ->
+                    ok
+            end
+    end.
+recv_switch_packet(SslSocket, Data, NextPacket) ->
+    receive
+        {ssl, SslSocket, "Hello World"} ->
+            ssl:send(SslSocket, Data),
+            ssl:setopts(SslSocket, [{packet, NextPacket}]),
+            receive 
+                {ssl, SslSocket, "Hello World"} ->
+                    ssl:send(SslSocket, Data)
+            end
+    end.

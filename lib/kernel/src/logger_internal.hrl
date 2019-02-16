@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,22 +19,21 @@
 %%
 -include_lib("kernel/include/logger.hrl").
 -define(LOGGER_TABLE,logger).
--define(LOGGER_KEY,'$logger_config$').
+-define(PROXY_KEY,'$proxy_config$').
+-define(PRIMARY_KEY,'$primary_config$').
 -define(HANDLER_KEY,'$handler_config$').
 -define(LOGGER_META_KEY,'$logger_metadata$').
--define(STANDARD_HANDLER, logger_std_h).
--define(DEFAULT_HANDLER_FILTERS,
-        ?DEFAULT_HANDLER_FILTERS([beam,erlang,otp])).
+-define(STANDARD_HANDLER, default).
+-define(DEFAULT_HANDLER_FILTERS,?DEFAULT_HANDLER_FILTERS([otp])).
 -define(DEFAULT_HANDLER_FILTERS(Domain),
         [{remote_gl,{fun logger_filters:remote_gl/2,stop}},
-         {domain,{fun logger_filters:domain/2,{log,prefix_of,Domain}}},
-         {no_domain,{fun logger_filters:domain/2,{log,no_domain,[]}}}]).
+         {domain,{fun logger_filters:domain/2,{log,super,Domain}}},
+         {no_domain,{fun logger_filters:domain/2,{log,undefined,[]}}}]).
 -define(DEFAULT_FORMATTER,logger_formatter).
 -define(DEFAULT_FORMAT_CONFIG,#{legacy_header=>true,
-                                single_line=>false,
-                                template=>?DEFAULT_FORMAT_TEMPLATE_HEADER}).
+                                single_line=>false}).
 -define(DEFAULT_FORMAT_TEMPLATE_HEADER,
-        [{logger_formatter,header},"\n",msg,"\n"]).
+        [[logger_formatter,header],"\n",msg,"\n"]).
 -define(DEFAULT_FORMAT_TEMPLATE_SINGLE,
         [time," ",level,": ",msg,"\n"]).
 -define(DEFAULT_FORMAT_TEMPLATE,
@@ -42,12 +41,14 @@
 
 -define(DEFAULT_LOGGER_CALL_TIMEOUT, infinity).
 
--define(LOG_INTERNAL(Level,Report),
+-define(LOG_INTERNAL(Level,Report),?DO_LOG_INTERNAL(Level,[Report])).
+-define(LOG_INTERNAL(Level,Format,Args),?DO_LOG_INTERNAL(Level,[Format,Args])).
+-define(DO_LOG_INTERNAL(Level,Data),
         case logger:allow(Level,?MODULE) of
             true ->
                 %% Spawn this to avoid deadlocks
-                _ = spawn(logger,macro_log,[?LOCATION,Level,Report,
-                                            logger:add_default_metadata(#{})]),
+                _ = spawn(logger,macro_log,[?LOCATION,Level|Data]++
+                              [logger:add_default_metadata(#{})]),
                 ok;
             false ->
                 ok
@@ -56,14 +57,17 @@
 %%%-----------------------------------------------------------------
 %%% Levels
 %%% Using same as syslog
--define(LEVELS,[emergency,
+-define(LEVELS,[none,
+                emergency,
                 alert,
                 critical,
                 error,
                 warning,
                 notice,
                 info,
-                debug]).
+                debug,
+                all]).
+-define(LOG_NONE,-1).
 -define(EMERGENCY,0).
 -define(ALERT,1).
 -define(CRITICAL,2).
@@ -72,6 +76,7 @@
 -define(NOTICE,5).
 -define(INFO,6).
 -define(DEBUG,7).
+-define(LOG_ALL,10).
 
 -define(IS_LEVEL(L),
         (L=:=emergency orelse

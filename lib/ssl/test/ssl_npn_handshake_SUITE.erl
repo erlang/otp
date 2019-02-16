@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,13 +64,12 @@ next_protocol_not_supported() ->
      npn_not_supported_server
     ].
 
-init_per_suite(Config) ->
+init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
 	    ssl_test_lib:clean_start(),
-	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config),
-				      proplists:get_value(priv_dir, Config)),
+	    Config = ssl_test_lib:make_rsa_cert(Config0),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -196,10 +195,10 @@ client_negotiate_server_does_not_support(Config) when is_list(Config) ->
 renegotiate_from_client_after_npn_handshake(Config) when is_list(Config) ->
     Data = "hello world",
     
-    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ClientOpts = [{client_preferred_next_protocols,
 		   {client, [<<"http/1.0">>], <<"http/1.1">>}}] ++ ClientOpts0,
-    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = [{next_protocols_advertised,
 		   [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
     ExpectedProtocol = {ok, <<"http/1.0">>},
@@ -221,7 +220,7 @@ renegotiate_from_client_after_npn_handshake(Config) when is_list(Config) ->
 
 %--------------------------------------------------------------------------------
 npn_not_supported_client(Config) when is_list(Config) ->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     PrefProtocols = {client_preferred_next_protocols,
 		     {client, [<<"http/1.0">>], <<"http/1.1">>}},
     ClientOpts = [PrefProtocols] ++ ClientOpts0,
@@ -236,7 +235,7 @@ npn_not_supported_client(Config) when is_list(Config) ->
 
 %--------------------------------------------------------------------------------
 npn_not_supported_server(Config) when is_list(Config)->
-    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     AdvProtocols = {next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]},
     ServerOpts = [AdvProtocols] ++  ServerOpts0,
   
@@ -244,63 +243,24 @@ npn_not_supported_server(Config) when is_list(Config)->
 
 %--------------------------------------------------------------------------------
 npn_handshake_session_reused(Config) when  is_list(Config)->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ClientOpts = [{client_preferred_next_protocols,
 		   {client, [<<"http/1.0">>], <<"http/1.1">>}}] ++ ClientOpts0,
-    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts =[{next_protocols_advertised,
 		   [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}]  ++ ServerOpts0,
 
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-                    {from, self()},
-                    {mfa, {ssl_test_lib, session_info_result, []}},
-					{options, ServerOpts}]),
-
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-               {host, Hostname},
-               {from, self()},
-               {mfa, {ssl_test_lib, no_result_msg, []}},
-               {options, ClientOpts}]),
-
-    SessionInfo = 
-	receive
-	    {Server, Info} ->
-		Info
-	end,
-        
-    Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
+    ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
     
-    %% Make sure session is registered
-    ct:sleep(?SLEEP),
-
-    Client1 =
-	ssl_test_lib:start_client([{node, ClientNode},
-				   {port, Port}, {host, Hostname},
-				   {mfa, {ssl_test_lib, session_info_result, []}},
-				   {from, self()},  {options, ClientOpts}]),
-
-      receive
-	{Client1, SessionInfo} ->
-	    ok;
-	{Client1, Other} ->
-	    ct:fail(Other)
-      end,
-    
-    ssl_test_lib:close(Server), 
-    ssl_test_lib:close(Client),
-    ssl_test_lib:close(Client1).
-
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 run_npn_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
     Data = "hello world",
 
-    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ClientOpts = ClientExtraOpts ++ ClientOpts0,
-    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = ServerExtraOpts ++  ServerOpts0,
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),

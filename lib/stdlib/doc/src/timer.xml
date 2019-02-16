@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>D</rev>
     <file>timer.xml</file>
   </header>
-  <module>timer</module>
+  <module since="">timer</module>
   <modulesummary>Timer functions.</modulesummary>
   <description>
     <p>This module provides useful functions related to time. Unless otherwise
@@ -62,7 +62,7 @@
 
   <funcs>
     <func>
-      <name name="apply_after" arity="4"/>
+      <name name="apply_after" arity="4" since=""/>
       <fsummary>Apply <c>Module:Function(Arguments)</c> after a specified
         <c>Time</c>.</fsummary>
       <desc>
@@ -75,7 +75,7 @@
     </func>
 
     <func>
-      <name name="apply_interval" arity="4"/>
+      <name name="apply_interval" arity="4" since=""/>
       <fsummary>Evaluate <c>Module:Function(Arguments)</c> repeatedly at
         intervals of <c>Time</c>.</fsummary>
       <desc>
@@ -88,7 +88,7 @@
     </func>
 
     <func>
-      <name name="cancel" arity="1"/>
+      <name name="cancel" arity="1" since=""/>
       <fsummary>Cancel a previously requested time-out identified by
         <c>TRef</c>.</fsummary>
       <desc>
@@ -101,8 +101,8 @@
     </func>
 
     <func>
-      <name name="exit_after" arity="2"/>
-      <name name="exit_after" arity="3"/>
+      <name name="exit_after" arity="2" since=""/>
+      <name name="exit_after" arity="3" since=""/>
       <fsummary>Send an exit signal with <c>Reason</c> after a specified
         <c>Time</c>.</fsummary>
       <desc>
@@ -117,7 +117,7 @@
     </func>
 
     <func>
-      <name name="hms" arity="3"/>
+      <name name="hms" arity="3" since=""/>
       <fsummary>Convert <c>Hours</c>+<c>Minutes</c>+<c>Seconds</c> to
         <c>Milliseconds</c>.</fsummary>
       <desc>
@@ -127,7 +127,7 @@
     </func>
 
     <func>
-      <name name="hours" arity="1"/>
+      <name name="hours" arity="1" since=""/>
       <fsummary>Convert <c>Hours</c> to <c>Milliseconds</c>.</fsummary>
       <desc>
         <p>Returns the number of milliseconds in <c><anno>Hours</anno></c>.</p>
@@ -135,8 +135,8 @@
     </func>
 
     <func>
-      <name name="kill_after" arity="1"/>
-      <name name="kill_after" arity="2"/>
+      <name name="kill_after" arity="1" since=""/>
+      <name name="kill_after" arity="2" since=""/>
       <fsummary>Send an exit signal with <c>Reason</c> after a specified
         <c>Time</c>.</fsummary>
       <desc>
@@ -148,7 +148,7 @@
     </func>
 
     <func>
-      <name name="minutes" arity="1"/>
+      <name name="minutes" arity="1" since=""/>
       <fsummary>Converts <c>Minutes</c> to <c>Milliseconds</c>.</fsummary>
       <desc>
         <p>Returns the number of milliseconds in
@@ -157,7 +157,7 @@
     </func>
 
     <func>
-      <name name="now_diff" arity="2"/>
+      <name name="now_diff" arity="2" since=""/>
       <fsummary>Calculate time difference between time stamps.</fsummary>
       <type_desc variable="Tdiff">In microseconds</type_desc>
       <desc>
@@ -173,7 +173,7 @@
     </func>
 
     <func>
-      <name name="seconds" arity="1"/>
+      <name name="seconds" arity="1" since=""/>
       <fsummary>Convert <c>Seconds</c> to <c>Milliseconds</c>.</fsummary>
       <desc>
         <p>Returns the number of milliseconds in
@@ -182,8 +182,8 @@
     </func>
 
     <func>
-      <name name="send_after" arity="2"/>
-      <name name="send_after" arity="3"/>
+      <name name="send_after" arity="2" since=""/>
+      <name name="send_after" arity="3" since=""/>
       <fsummary>Send <c>Message</c> to <c>Pid</c> after a specified
         <c>Time</c>.</fsummary>
       <desc>
@@ -206,8 +206,8 @@
     </func>
 
     <func>
-      <name name="send_interval" arity="2"/>
-      <name name="send_interval" arity="3"/>
+      <name name="send_interval" arity="2" since=""/>
+      <name name="send_interval" arity="3" since=""/>
       <fsummary>Send <c>Message</c> repeatedly at intervals of <c>Time</c>.
       </fsummary>
       <desc>
@@ -231,7 +231,7 @@
     </func>
 
     <func>
-      <name name="sleep" arity="1"/>
+      <name name="sleep" arity="1" since=""/>
       <fsummary>Suspend the calling process for <c>Time</c> milliseconds.
       </fsummary>
       <desc>
@@ -244,7 +244,7 @@
     </func>
 
     <func>
-      <name name="start" arity="0"/>
+      <name name="start" arity="0" since=""/>
       <fsummary>Start a global timer server (named <c>timer_server</c>).
       </fsummary>
       <desc>
@@ -258,9 +258,9 @@
     </func>
 
     <func>
-      <name name="tc" arity="1"/>
-      <name name="tc" arity="2"/>
-      <name name="tc" arity="3"/>
+      <name name="tc" arity="1" since="OTP R14B03"/>
+      <name name="tc" arity="2" since="OTP R14B"/>
+      <name name="tc" arity="3" since=""/>
       <fsummary>Measure the real time it takes to evaluate <c>apply(Module,
         Function, Arguments)</c> or <c>apply(Fun, Arguments)</c>.</fsummary>
       <type_desc variable="Time">In microseconds</type_desc>

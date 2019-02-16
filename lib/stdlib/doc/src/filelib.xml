@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>filelib.xml</file>
   </header>
-  <module>filelib</module>
+  <module since="">filelib</module>
   <modulesummary>File utilities, such as wildcard matching of filenames.
   </modulesummary>
   <description>
@@ -94,7 +94,7 @@
 
   <funcs>
     <func>
-      <name name="ensure_dir" arity="1"/>
+      <name name="ensure_dir" arity="1" since=""/>
       <fsummary>Ensure that all parent directories for a file or directory
         exist.</fsummary>
       <desc>
@@ -108,7 +108,7 @@
     </func>
 
     <func>
-      <name name="file_size" arity="1"/>
+      <name name="file_size" arity="1" since=""/>
       <fsummary>Return the size in bytes of a file.</fsummary>
       <desc>
         <p>Returns the size of the specified file.</p>
@@ -116,7 +116,7 @@
     </func>
 
     <func>
-      <name name="fold_files" arity="5"/>
+      <name name="fold_files" arity="5" since=""/>
       <fsummary>Fold over all files matching a regular expression.</fsummary>
       <desc>
         <p>Folds function <c><anno>Fun</anno></c> over all (regular) files
@@ -142,7 +142,7 @@
     </func>
 
     <func>
-      <name name="is_dir" arity="1"/>
+      <name name="is_dir" arity="1" since=""/>
       <fsummary>Test whether <c>Name</c> refers to a directory.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Name</anno></c>
@@ -151,7 +151,7 @@
     </func>
 
     <func>
-      <name name="is_file" arity="1"/>
+      <name name="is_file" arity="1" since=""/>
       <fsummary>Test whether <c>Name</c> refers to a file or directory.
       </fsummary>
       <desc>
@@ -161,7 +161,7 @@
     </func>
 
     <func>
-      <name name="is_regular" arity="1"/>
+      <name name="is_regular" arity="1" since=""/>
       <fsummary>Test whether <c>Name</c> refers to a (regular) file.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Name</anno></c>
@@ -170,7 +170,7 @@
     </func>
 
     <func>
-      <name name="last_modified" arity="1"/>
+      <name name="last_modified" arity="1" since=""/>
       <fsummary>Return the local date and time when a file was last modified.
       </fsummary>
       <desc>
@@ -180,7 +180,7 @@
     </func>
 
     <func>
-      <name name="wildcard" arity="1"/>
+      <name name="wildcard" arity="1" since=""/>
       <fsummary>Match filenames using Unix-style wildcards.</fsummary>
       <desc>
         <p>Returns a list of all files that match Unix-style wildcard string
@@ -252,7 +252,7 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
     </func>
 
     <func>
-      <name name="wildcard" arity="2"/>
+      <name name="wildcard" arity="2" since=""/>
       <fsummary>Match filenames using Unix-style wildcards starting at a
         specified directory.</fsummary>
       <desc>
@@ -263,8 +263,8 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
     </func>
 
     <func>
-      <name name="find_file" arity="2"/>
-      <name name="find_file" arity="3"/>
+      <name name="find_file" arity="2" since="OTP 20.0"/>
+      <name name="find_file" arity="3" since="OTP 20.0"/>
       <fsummary>Find a file relative to a given directory.</fsummary>
       <desc>
         <p>Looks for a file of the given name by applying suffix rules to
@@ -278,7 +278,7 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
       </desc>
     </func>
     <func>
-      <name name="find_source" arity="1"/>
+      <name name="find_source" arity="1" since="OTP 20.0"/>
       <fsummary>Find the source file for a given object file.</fsummary>
       <desc>
         <p>Equivalent to <c>find_source(Base, Dir)</c>, where <c>Dir</c> is
@@ -287,8 +287,8 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
       </desc>
     </func>
     <func>
-      <name name="find_source" arity="2"/>
-      <name name="find_source" arity="3"/>
+      <name name="find_source" arity="2" since="OTP 20.0"/>
+      <name name="find_source" arity="3" since="OTP 20.0"/>
       <fsummary>Find a source file relative to a given directory.</fsummary>
       <desc>
         <p>Applies file extension specific rules to find the source file for

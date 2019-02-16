@@ -36,9 +36,13 @@ endif
 # -------------------------------------------------------
 # Take the XML files and add the github link info to them
 # -------------------------------------------------------
+ifneq ($(strip $(XMLDIR)),)
 _create_xml_dirs := $(shell mkdir -p $(XMLDIR))
+endif
 
 XML_GEN_FILES+=$(patsubst %.xml,$(XMLDIR)/%.xml,$(XML_FILES))
+
+ifeq ($(strip $(NO_GITHUB_DOC_LINKS)),)
 $(XMLDIR)/%.xml: %.xml
 	$(gen_verbose)escript $(DOCGEN)/priv/bin/github_link.escript $< \
 	"$(subst $(ERL_TOP)/,,$(CURDIR)/$^)" "NA" $@
@@ -46,6 +50,13 @@ $(XMLDIR)/%.xml: %.xml
 $(XMLDIR)/%.xmlsrc: %.xmlsrc
 	$(gen_verbose)escript $(DOCGEN)/priv/bin/github_link.escript $< \
 	"$(subst $(ERL_TOP)/,,$(CURDIR)/$^)" "NA" $@
+else
+## Just copy the files if the application does not want github edit links
+$(XMLDIR)/%.xml: %.xml
+	$(gen_verbose)$(CP) $< $@
+$(XMLDIR)/%.xmlsrc: %.xmlsrc
+	$(gen_verbose)$(CP) $< $@
+endif
 
 ifeq ($(TOPDOC),)
 

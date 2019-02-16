@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -531,7 +531,7 @@ edns0(Config) when is_list(Config) ->
 		    case os:version() of
 			{M,V,_} when M < 5;  M == 5, V =< 8 ->
 			    %% In our test park only known platform
-			    %% with an DNS resolver that can not do
+			    %% with an DNS resolver that cannot do
 			    %% EDNS0.
 			    {comment,"No EDNS0"}
 		    end

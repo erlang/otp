@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_ftp.xml</file>
   </header>
-  <module>ct_ftp</module>
+  <module since="">ct_ftp</module>
   <modulesummary>FTP client module (based on the FTP application).</modulesummary>
 
   <description>
@@ -59,7 +59,7 @@
 
   <funcs>
     <func>
-      <name>cd(Connection, Dir) -&gt; ok | {error, Reason}</name>
+      <name since="">cd(Connection, Dir) -&gt; ok | {error, Reason}</name>
       <fsummary>Changes directory on remote host.</fsummary>
       <type>
         <v>Connection = connection()</v>
@@ -71,7 +71,7 @@
     </func>
 
     <func>
-      <name>close(Connection) -&gt; ok | {error, Reason}</name>
+      <name since="">close(Connection) -&gt; ok | {error, Reason}</name>
       <fsummary>Closes the FTP connection.</fsummary>
       <type>
         <v>Connection = connection()</v>
@@ -82,7 +82,7 @@
     </func>
 
     <func>
-      <name>delete(Connection, File) -&gt; ok | {error, Reason}</name>
+      <name since="">delete(Connection, File) -&gt; ok | {error, Reason}</name>
       <fsummary>Deletes a file on remote host.</fsummary>
       <type>
         <v>Connection = connection()</v>
@@ -94,7 +94,7 @@
     </func>
 
     <func>
-      <name>get(KeyOrName, RemoteFile, LocalFile) -&gt; ok | {error, Reason}</name>
+      <name since="">get(KeyOrName, RemoteFile, LocalFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Opens an FTP connection and fetches a file from the remote
         host.</fsummary>
       <type>
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name>ls(Connection, Dir) -&gt; {ok, Listing} | {error, Reason}</name>
+      <name since="">ls(Connection, Dir) -&gt; {ok, Listing} | {error, Reason}</name>
       <fsummary>Lists directory Dir.</fsummary>
       <type>
         <v>Connection = connection()</v>
@@ -135,7 +135,7 @@
     </func>
 
     <func>
-      <name>open(KeyOrName) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="">open(KeyOrName) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Opens an FTP connection to the specified node.</fsummary>
       <type>
         <v>KeyOrName = Key | Name</v>
@@ -164,7 +164,7 @@
     </func>
 
     <func>
-      <name>put(KeyOrName, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</name>
+      <name since="">put(KeyOrName, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Opens an FTP connection and sends a file to the remote
         host.</fsummary>
       <type>
@@ -203,7 +203,7 @@
     </func>
 
     <func>
-      <name>recv(Connection, RemoteFile) -&gt; ok | {error, Reason}</name>
+      <name since="">recv(Connection, RemoteFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Fetches a file over FTP.</fsummary>
       <desc><marker id="recv-2"/>
         <p>Fetches a file over FTP.</p>
@@ -215,7 +215,7 @@
     </func>
 
     <func>
-      <name>recv(Connection, RemoteFile, LocalFile) -&gt; ok | {error, Reason}</name>
+      <name since="">recv(Connection, RemoteFile, LocalFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Fetches a file over FTP.</fsummary>
       <type>
         <v>Connection = connection()</v>
@@ -230,7 +230,7 @@
     </func>
 
     <func>
-      <name>send(Connection, LocalFile) -&gt; ok | {error, Reason}</name>
+      <name since="">send(Connection, LocalFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Sends a file over FTP.</fsummary>
       <desc><marker id="send-2"/>
         <p>Sends a file over FTP.</p>
@@ -243,7 +243,7 @@
     </func>
 
     <func>
-      <name>send(Connection, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</name>
+      <name since="">send(Connection, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Sends a file over FTP.</fsummary>
       <type>
         <v>Connection = connection()</v>
@@ -258,7 +258,7 @@
     </func>
 
     <func>
-      <name>type(Connection, Type) -&gt; ok | {error, Reason}</name>
+      <name since="">type(Connection, Type) -&gt; ok | {error, Reason}</name>
       <fsummary>Changes the file transfer type.</fsummary>
       <type>
         <v>Connection = connection()</v>

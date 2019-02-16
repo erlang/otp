@@ -1,7 +1,7 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2016. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2018. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -122,6 +122,9 @@ dnl
 
 AC_DEFUN(LM_WINDOWS_ENVIRONMENT,
 [
+
+if test "X$windows_environment_" != "Xchecked"; then
+windows_environment_=checked
 MIXED_CYGWIN=no
 MIXED_MSYS=no
 
@@ -197,6 +200,8 @@ else
 fi
 
 AC_SUBST(MIXED_MSYS)
+
+fi
 ])		
 	
 dnl ----------------------------------------------------------------------
@@ -2855,4 +2860,249 @@ AC_DEFUN([LM_HARDWARE_ARCH], [
     esac
 
     AC_SUBST(ARCH)
+])
+
+dnl
+dnl--------------------------------------------------------------------
+dnl Dynamic Erlang Drivers
+dnl
+dnl Linking to produce dynamic Erlang drivers to be loaded by Erlang's
+dnl Dynamic Driver Loader and Linker (DDLL). Below the prefix DED is an
+dnl abbreviation for `Dynamic Erlang Driver'.
+dnl
+dnl For DED we need something quite sloppy, which allows undefined references 
+dnl (notably driver functions) in the resulting shared library. 
+dnl Example of Makefile rule (and settings of macros):
+dnl
+dnl LIBS = @LIBS@
+dnl LD = @DED_LD@
+dnl LDFLAGS = @DED_LDFLAGS@
+dnl soname = @ldsoname@
+dnl
+dnl my_drv.so:   my_drv.o my_utils.o
+dnl              $(LD) $(LDFLAGS) $(soname) $@ -o $@ $^ -lc $(LIBS)
+dnl
+dnl--------------------------------------------------------------------
+dnl
+
+AC_DEFUN(ERL_DED,
+	[
+
+USER_LD=$LD
+USER_LDFLAGS="$LDFLAGS"
+
+LM_CHECK_THR_LIB
+
+DED_CC=$CC
+DED_GCC=$GCC
+
+DED_CFLAGS=
+DED_OSTYPE=unix
+case $host_os in
+     linux*)
+	DED_CFLAGS="-D_GNU_SOURCE" ;;
+     win32)
+	DED_CFLAGS="-D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
+        DED_OSTYPE=win32 ;;
+     *)
+        ;;
+esac
+
+
+DED_WARN_FLAGS="-Wall -Wstrict-prototypes"
+case "$host_cpu" in
+  tile*)
+    # tile-gcc is a bit stricter with -Wmissing-prototypes than other gccs,
+    # and too strict for our taste.
+    ;;
+  *)
+    DED_WARN_FLAGS="$DED_WARN_FLAGS -Wmissing-prototypes";;
+esac
+  
+LM_TRY_ENABLE_CFLAG([-Wdeclaration-after-statement], [DED_WARN_FLAGS])
+
+LM_TRY_ENABLE_CFLAG([-Werror=return-type], [DED_WERRORFLAGS])
+LM_TRY_ENABLE_CFLAG([-Werror=implicit], [DED_WERRORFLAGS])
+LM_TRY_ENABLE_CFLAG([-Werror=undef], [DED_WERRORFLAGS])
+
+DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$DED_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
+DED_INCLUDE=$DED_SYS_INCLUDE
+
+if test "$THR_DEFS" = ""; then
+    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
+else
+    DED_THR_DEFS="$THR_DEFS"
+fi
+# DED_EMU_THR_DEFS=$EMU_THR_DEFS
+DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
+if test "x$GCC" = xyes; then
+    DED_STATIC_CFLAGS="$DED_CFLAGS"
+    DED_CFLAGS="$DED_CFLAGS -fPIC"
+fi
+
+DED_EXT=so
+case $host_os in
+    win32) DED_EXT=dll;;
+    darwin*)
+	DED_CFLAGS="$DED_CFLAGS -fno-common"
+	DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -fno-common";;
+    *)
+	;;
+esac
+
+DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -DSTATIC_ERLANG_NIF -DSTATIC_ERLANG_DRIVER"
+
+if test "$CFLAG_RUNTIME_LIBRARY_PATH" = ""; then
+
+  CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-R"
+  case $host_os in
+    darwin*)
+	CFLAG_RUNTIME_LIBRARY_PATH=
+	;;
+    win32)
+	CFLAG_RUNTIME_LIBRARY_PATH=
+	;;
+    osf*)
+	CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-rpath,"
+	;;
+    *)
+	;;
+  esac
+
+fi
+
+# If DED_LD is set in environment, we expect all DED_LD* variables
+# to be specified (cross compiling)
+if test "x$DED_LD" = "x"; then
+
+DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
+case $host_os in
+	win32)
+		DED_LD="ld.sh"
+		DED_LDFLAGS="-dll"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
+	;;
+	solaris2*|sysv4*)
+		DED_LDFLAGS="-G"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-64 $DED_LDFLAGS"
+		fi
+	;;
+	aix4*)
+		DED_LDFLAGS="-G -bnoentry -bexpall"
+	;;
+	freebsd2*)
+		# Non-ELF GNU linker
+		DED_LDFLAGS="-Bshareable"
+	;;
+	darwin*)
+		# Mach-O linker: a shared lib and a loadable
+		# object file is not the same thing.
+		DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+		if test X${enable_m64_build} = Xyes; then
+		  DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		else
+		  if test X${enable_m32_build} = Xyes; then
+		    DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		  else
+		    AC_CHECK_SIZEOF(void *)
+		    case "$ac_cv_sizeof_void_p" in
+		      8)
+			DED_LDFLAGS="-m64 $DED_LDFLAGS";;
+		      *)
+		        ;;
+		    esac
+		  fi
+		fi
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+	;;
+	linux*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi;
+		if test X${enable_m32_build} = Xyes; then
+			DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		fi
+	;;	
+	freebsd*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi;
+		if test X${enable_m32_build} = Xyes; then
+			DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		fi
+	;;	
+	openbsd*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared"
+	;;
+	osf*)
+		# NOTE! Whitespace after -rpath is important.
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-rpath "
+		DED_LDFLAGS="-shared -expect_unresolved '*'"
+	;;
+	*)
+		# assume GNU linker and ELF
+		DED_LDFLAGS="-shared"
+		# GNU linker has no option for 64bit build, should not propagate -m64
+	;;
+esac
+
+if test "$DED_LD" = "" && test "$USER_LD" != ""; then
+    DED_LD="$USER_LD"
+    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
+fi
+
+DED_LIBS=$LIBS
+
+fi # "x$DED_LD" = "x"
+
+AC_CHECK_TOOL(DED_LD, ld, false)
+test "$DED_LD" != "false" || AC_MSG_ERROR([No linker found])
+
+AC_MSG_CHECKING(for static compiler flags)
+DED_STATIC_CFLAGS="$DED_WERRORFLAGS $DED_WFLAGS $DED_THR_DEFS $DED_STATIC_CFLAGS"
+AC_MSG_RESULT([$DED_STATIC_CFLAGS])
+AC_MSG_CHECKING(for basic compiler flags for loadable drivers)
+DED_BASIC_CFLAGS=$DED_CFLAGS
+AC_MSG_RESULT([$DED_CFLAGS])
+AC_MSG_CHECKING(for compiler flags for loadable drivers)
+DED_CFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS $DED_THR_DEFS $DED_CFLAGS"
+AC_MSG_RESULT([$DED_CFLAGS])
+AC_MSG_CHECKING(for linker for loadable drivers)
+AC_MSG_RESULT([$DED_LD])
+AC_MSG_CHECKING(for linker flags for loadable drivers)
+AC_MSG_RESULT([$DED_LDFLAGS])
+AC_MSG_CHECKING(for 'runtime library path' linker flag)
+if test "x$DED_LD_FLAG_RUNTIME_LIBRARY_PATH" != "x"; then
+	AC_MSG_RESULT([$DED_LD_FLAG_RUNTIME_LIBRARY_PATH])
+else
+	AC_MSG_RESULT([not found])
+fi
+
+AC_SUBST(DED_CC)
+AC_SUBST(DED_GCC)
+AC_SUBST(DED_EXT)
+AC_SUBST(DED_SYS_INCLUDE)
+AC_SUBST(DED_INCLUDE)
+AC_SUBST(DED_BASIC_CFLAGS)
+AC_SUBST(DED_CFLAGS)
+AC_SUBST(DED_STATIC_CFLAGS)
+AC_SUBST(DED_WARN_FLAGS)
+AC_SUBST(DED_WERRORFLAGS)
+AC_SUBST(DED_LD)
+AC_SUBST(DED_LDFLAGS)
+AC_SUBST(DED_LD_FLAG_RUNTIME_LIBRARY_PATH)
+AC_SUBST(DED_LIBS)
+AC_SUBST(DED_THR_DEFS)
+AC_SUBST(DED_OSTYPE)
+
 ])
