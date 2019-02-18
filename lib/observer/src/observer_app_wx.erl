@@ -117,16 +117,19 @@ init([Notebook, Parent, _Config]) ->
 
     UseGC = haveGC(),
     Version28 = ?wxMAJOR_VERSION =:= 2 andalso ?wxMINOR_VERSION =:= 8,
+    Scale = observer_wx:get_scale(),
     Font = case os:type() of
 	       {unix,_} when UseGC, Version28 ->
-		   wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_NORMAL);
+		   wxFont:new(Scale * 12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_NORMAL);
 	       _ ->
-		   wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT)
+		   Font0 = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+           wxFont:setPointSize(Font0, Scale * wxFont:getPointSize(Font0)),
+           Font0
 	   end,
     SelCol   = wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT),
     GreyBrush = wxBrush:new({230,230,240}),
     SelBrush = wxBrush:new(SelCol),
-    LinkPen  = wxPen:new(SelCol, [{width, 2}]),
+    LinkPen  = wxPen:new(SelCol, [{width, Scale * 2}]),
     process_flag(trap_exit, true),
     {Panel, #state{parent=Parent,
 		   panel =Panel,
@@ -134,7 +137,7 @@ init([Notebook, Parent, _Config]) ->
 		   app_w =DrawingArea,
 		   usegc = UseGC,
 		   paint=#paint{font = Font,
-				pen  = wxPen:new({80,80,80}, [{width, 2}]),
+				pen  = wxPen:new({80,80,80}, [{width, Scale * 2}]),
 				brush= GreyBrush,
 				sel  = SelBrush,
 				links= LinkPen

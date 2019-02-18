@@ -101,8 +101,9 @@ init(File0) ->
     {ok,CdvServer} = crashdump_viewer:start_link(),
 
     catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
+    Scale = observer_wx:get_scale(),
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Crashdump Viewer",
-			[{size, {850, 600}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
+			[{size, {Scale*850, Scale*600}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
     IconFile = filename:join(code:priv_dir(observer), "erlang_observer.png"),
     Icon = wxIcon:new(IconFile, [{type,?wxBITMAP_TYPE_PNG}]),
     wxFrame:setIcon(Frame, Icon),
