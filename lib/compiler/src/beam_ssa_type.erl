@@ -452,10 +452,19 @@ simplify(#b_set{op={bif,'=='},args=Args}=I, Ts) ->
     end;
 simplify(#b_set{op={bif,'=:='},args=[Same,Same]}, _Ts) ->
     #b_literal{val=true};
-simplify(#b_set{op={bif,'=:='},args=Args}=I, Ts) ->
-    case meet(get_types(Args, Ts)) of
-        none -> #b_literal{val=false};
-        _ -> eval_bif(I, Ts)
+simplify(#b_set{op={bif,'=:='},args=[A1,_A2]=Args}=I, Ts) ->
+    [T1,T2] = get_types(Args, Ts),
+    case meet(T1, T2) of
+        none ->
+            #b_literal{val=false};
+        _ ->
+            case {t_is_boolean(T1),T2} of
+                {true,#t_atom{elements=[true]}} ->
+                    %% Bool =:= true  ==>  Bool
+                    A1;
+                {_,_} ->
+                    eval_bif(I, Ts)
+            end
     end;
 simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
     Types = get_types(Args, Ts),
@@ -598,20 +607,8 @@ anno_float_arg(_) -> convert.
 
 opt_terminator(#b_br{bool=#b_literal{}}=Br, _Ts, _Ds) ->
     beam_ssa:normalize(Br);
-opt_terminator(#b_br{bool=#b_var{}=V}=Br, Ts, Ds) ->
-    #{V:=Set} = Ds,
-    case Set of
-        #b_set{op={bif,'=:='},args=[Bool,#b_literal{val=true}]} ->
-            case t_is_boolean(get_type(Bool, Ts)) of
-                true ->
-                    %% Bool =:= true   ==>  Bool
-                    simplify_not(Br#b_br{bool=Bool}, Ts, Ds);
-                false ->
-                    Br
-            end;
-        #b_set{} ->
-            simplify_not(Br, Ts, Ds)
-    end;
+opt_terminator(#b_br{bool=#b_var{}}=Br, Ts, Ds) ->
+    simplify_not(Br, Ts, Ds);
 opt_terminator(#b_switch{arg=#b_literal{}}=Sw, _Ts, _Ds) ->
     beam_ssa:normalize(Sw);
 opt_terminator(#b_switch{arg=#b_var{}=V}=Sw0, Ts, Ds) ->
