@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3377,6 +3377,22 @@ wxdebug_table() ->
  {3597, {wxDropFilesEvent, getPosition, 0}},
  {3598, {wxDropFilesEvent, getNumberOfFiles, 0}},
  {3599, {wxDropFilesEvent, getFiles, 0}},
+ {3600, {wxDisplay, new, 1}},
+ {3601, {wxDisplay, destruct, 0}},
+ {3602, {wxDisplay, isOk, 0}},
+ {3603, {wxDisplay, getClientArea, 0}},
+ {3604, {wxDisplay, getGeometry, 0}},
+ {3605, {wxDisplay, getName, 0}},
+ {3606, {wxDisplay, isPrimary, 0}},
+ {3607, {wxDisplay, getCount, 0}},
+ {3608, {wxDisplay, getFromPoint, 1}},
+ {3609, {wxDisplay, getFromWindow, 1}},
+ {3610, {wxDisplay, getPPI, 0}},
+ {3611, {wxGCDC, new_1, 1}},
+ {3612, {wxGCDC, new_0, 0}},
+ {3613, {wxGCDC, destruct, 0}},
+ {3614, {wxGCDC, getGraphicsContext, 0}},
+ {3615, {wxGCDC, setGraphicsContext, 1}},
  {-1, {mod, func, -1}}
 ].
 

@@ -398,6 +398,14 @@
 -define(wxCYAN,  wxe_util:get_const(wxCYAN)).
 -define(wxCYAN_BRUSH,  wxe_util:get_const(wxCYAN_BRUSH)).
 -define(wxCYAN_PEN,  wxe_util:get_const(wxCYAN_PEN)).
+-define(wxFONTWEIGHT_EXTRABOLD,  wxe_util:get_const(wxFONTWEIGHT_EXTRABOLD)).
+-define(wxFONTWEIGHT_EXTRAHEAVY,  wxe_util:get_const(wxFONTWEIGHT_EXTRAHEAVY)).
+-define(wxFONTWEIGHT_EXTRALIGHT,  wxe_util:get_const(wxFONTWEIGHT_EXTRALIGHT)).
+-define(wxFONTWEIGHT_HEAVY,  wxe_util:get_const(wxFONTWEIGHT_HEAVY)).
+-define(wxFONTWEIGHT_INVALID,  wxe_util:get_const(wxFONTWEIGHT_INVALID)).
+-define(wxFONTWEIGHT_MEDIUM,  wxe_util:get_const(wxFONTWEIGHT_MEDIUM)).
+-define(wxFONTWEIGHT_SEMIBOLD,  wxe_util:get_const(wxFONTWEIGHT_SEMIBOLD)).
+-define(wxFONTWEIGHT_THIN,  wxe_util:get_const(wxFONTWEIGHT_THIN)).
 -define(wxGREEN,  wxe_util:get_const(wxGREEN)).
 -define(wxGREEN_BRUSH,  wxe_util:get_const(wxGREEN_BRUSH)).
 -define(wxGREEN_PEN,  wxe_util:get_const(wxGREEN_PEN)).
@@ -1685,10 +1693,10 @@
 -define(wxFONTSTYLE_SLANT, ?wxSLANT).
 -define(wxFONTSTYLE_MAX, (?wxSLANT+1)).
 % From "font.h": wxFontWeight
--define(wxFONTWEIGHT_NORMAL, ?wxNORMAL).
--define(wxFONTWEIGHT_LIGHT, ?wxLIGHT).
--define(wxFONTWEIGHT_BOLD, ?wxBOLD).
--define(wxFONTWEIGHT_MAX, (?wxBOLD+1)).
+-define(wxFONTWEIGHT_NORMAL, wxe_util:get_const(wxFONTWEIGHT_NORMAL)).
+-define(wxFONTWEIGHT_LIGHT, wxe_util:get_const(wxFONTWEIGHT_LIGHT)).
+-define(wxFONTWEIGHT_BOLD, wxe_util:get_const(wxFONTWEIGHT_BOLD)).
+-define(wxFONTWEIGHT_MAX, wxe_util:get_const(wxFONTWEIGHT_MAX)).
 % From "fontenc.h": wxFontEncoding
 -define(wxFONTENCODING_SYSTEM, -1).
 -define(wxFONTENCODING_DEFAULT, 0).
