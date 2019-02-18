@@ -161,14 +161,13 @@ md5_1(Beam) ->
 %% Cover some code that handles internal errors.
 
 silly_coverage(Config) when is_list(Config) ->
-    %% sys_core_fold, sys_core_alias, sys_core_bsm, sys_core_setel, v3_kernel
+    %% sys_core_fold, sys_core_alias, sys_core_bsm, v3_kernel
     BadCoreErlang = {c_module,[],
 		     name,[],[],
 		     [{{c_var,[],{foo,2}},seriously_bad_body}]},
     expect_error(fun() -> sys_core_fold:module(BadCoreErlang, []) end),
     expect_error(fun() -> sys_core_alias:module(BadCoreErlang, []) end),
     expect_error(fun() -> sys_core_bsm:module(BadCoreErlang, []) end),
-    expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
     expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
 
     %% beam_kernel_to_ssa

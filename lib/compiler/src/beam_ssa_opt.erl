@@ -2196,7 +2196,6 @@ insert_def_is([#b_set{op=Op}=I|Is]=Is0, V, Def) ->
     Action0 = case Op of
                   call -> beyond;
                   'catch_end' -> beyond;
-                  set_tuple_element -> beyond;
                   timeout -> beyond;
                   _ -> here
               end,

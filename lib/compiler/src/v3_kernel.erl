@@ -1414,7 +1414,6 @@ is_remote_bif(_, _, _) -> false.
 %%  return multiple values.  Only used in bodies where a BIF may be
 %%  called for effect only.
 
-bif_vals(dsetelement, 3) -> 0;
 bif_vals(_, _) -> 1.
 
 bif_vals(_, _, _) -> 1.

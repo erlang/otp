@@ -65,7 +65,6 @@
 	     rec_env,
 	     sys_core_alias,
 	     sys_core_bsm,
-	     sys_core_dsetel,
 	     sys_core_fold,
 	     sys_core_fold_lists,
 	     sys_core_inline,
