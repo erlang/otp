@@ -1018,7 +1018,7 @@ do_debuginfo_win32 ()
     fi
     BINDIR="$ERL_TOP/bin/$TARGET"
     EVSN=`grep '^VSN' erts/vsn.mk | sed 's,^VSN.*=[^0-9]*\([0-9].*\)$,@\1,g;s,^[^@].*,,g;s,^@,,g'`
-    for f in beam.debug.dll beam.debug.smp.dll beam.pdb beam.smp.pdb erl.pdb werl.pdb erlexec.pdb; do
+    for f in beam.debug.smp.dll beam.smp.pdb erl.pdb werl.pdb erlexec.pdb; do
 	if [ -f $BINDIR/$f ]; then
 	    rm -f $RELDIR/erts-$EVSN/bin/$f
 	    cp $BINDIR/$f $RELDIR/erts-$EVSN/bin/$f
