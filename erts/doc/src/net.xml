@@ -75,7 +75,7 @@
       <desc>
         <p>Address-to-name translation in a protocol-independant manner.</p>
 	<p>This function is the inverse of
-	<seealso marker="#getaddrinfo"><c>getaddrinfo</c></seealso>.
+	<seealso marker="#getaddrinfo/1"><c>getaddrinfo</c></seealso>.
 	It converts a socket address to a corresponding host and service.</p>
       </desc>
     </func>
@@ -89,7 +89,7 @@
       <desc>
 	<p>Network address and service translation.</p>
 	<p>This function is the inverse of
-	<seealso marker="#getnameinfo"><c>getnameinfo</c></seealso>.
+	<seealso marker="#getnameinfo/1"><c>getnameinfo</c></seealso>.
 	It converts host and service to a corresponding socket address.</p>
 	<p>One of the <c>Host</c> and <c>Service</c> may be <c>undefined</c>
 	but <em>not</em> both.</p>

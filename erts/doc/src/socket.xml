@@ -84,6 +84,12 @@
       <name name="port_number"/>
     </datatype>
     <datatype>
+      <name name="in6_flow_info"/>
+    </datatype>
+    <datatype>
+      <name name="in6_scope_id"/>
+    </datatype>
+    <datatype>
       <name name="accept_flags"/>
     </datatype>
     <datatype>
@@ -94,6 +100,12 @@
     </datatype>
     <datatype>
       <name name="send_flag"/>
+    </datatype>
+    <datatype>
+      <name name="recv_flags"/>
+    </datatype>
+    <datatype>
+      <name name="recv_flag"/>
     </datatype>
     <datatype>
       <name name="shutdown_how"/>
@@ -476,7 +488,7 @@
 	The <c>MsgHdr</c> may also contain an list of optional <c>cmsghdr_send()</c>
 	(depends on what the protocol and platform supports).</p>
 
-	<p>Unlike the <seealso marker="#send"><c>send</c></seealso> function,
+	<p>Unlike the <seealso marker="#send/2"><c>send</c></seealso> function,
 	this one sends <em>one message</em>.
 	This means that if, for whatever reason, its not possible to send the
 	message in one go, the function will instead return with the

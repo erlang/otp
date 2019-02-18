@@ -77,6 +77,9 @@
               send_flags/0,
               send_flag/0,
 
+              recv_flags/0,
+              recv_flag/0,
+
               shutdown_how/0,
 
               sockopt_level/0,
@@ -99,6 +102,8 @@
               ip_pktinfo/0,
               ipv6_mreq/0,
               ipv6_pmtudisc/0,
+              in6_flow_info/0,
+              in6_scope_id/0,
               sctp_assoc_id/0,
               sctp_sndrcvinfo/0,
               sctp_event_subscribe/0,
