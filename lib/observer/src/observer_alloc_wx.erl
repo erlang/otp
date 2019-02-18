@@ -282,11 +282,12 @@ create_mem_info(Parent) ->
     Grid = wxListCtrl:new(Parent, [{style, Style}]),
 
     Li = wxListItem:new(),
+    Scale = observer_wx:get_scale(),
     AddListEntry = fun({Name, Align, DefSize}, Col) ->
 			   wxListItem:setText(Li, Name),
 			   wxListItem:setAlign(Li, Align),
 			   wxListCtrl:insertColumn(Grid, Col, Li),
-			   wxListCtrl:setColumnWidth(Grid, Col, DefSize),
+			   wxListCtrl:setColumnWidth(Grid, Col, DefSize*Scale),
 			   Col + 1
 		   end,
     ListItems = [{"Allocator Type",  ?wxLIST_FORMAT_LEFT,  200},

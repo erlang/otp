@@ -132,11 +132,12 @@ create_list_box(Panel, Holder, Callback, Owner) ->
 				       end}
 				     ]),
     Li = wxListItem:new(),
+    Scale = observer_wx:get_scale(),
     AddListEntry = fun({Name, Align, DefSize}, Col) ->
 			   wxListItem:setText(Li, Name),
 			   wxListItem:setAlign(Li, Align),
 			   wxListCtrl:insertColumn(ListCtrl, Col, Li),
-			   wxListCtrl:setColumnWidth(ListCtrl, Col, DefSize),
+			   wxListCtrl:setColumnWidth(ListCtrl, Col, DefSize*Scale),
 			   Col + 1
 		   end,
     ListItems = Callback:col_spec(),

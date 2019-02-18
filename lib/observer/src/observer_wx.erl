@@ -22,7 +22,7 @@
 
 -export([start/0, stop/0]).
 -export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0, get_menubar/0,
-	 set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
+     get_scale/0, set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2, check_page_title/1]).
@@ -91,14 +91,24 @@ get_active_node() ->
 get_menubar() ->
     wx_object:call(observer, get_menubar).
 
+get_scale() ->
+    ScaleStr = os:getenv("OBSERVER_SCALE", "1"),
+    try list_to_integer(ScaleStr) of
+        Scale when Scale < 1 -> 1;
+        Scale -> Scale
+    catch _:_ ->
+        1
+    end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(_Args) ->
     register(observer, self()),
     wx:new(),
     catch wxSystemOptions:setOption("mac.listctrl.always_use_generic", 1),
+    Scale = get_scale(),
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Observer",
-			[{size, {850, 600}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
+			[{size, {Scale * 850, Scale * 600}}, {style, ?wxDEFAULT_FRAME_STYLE}]),
     IconFile = filename:join(code:priv_dir(observer), "erlang_observer.png"),
     Icon = wxIcon:new(IconFile, [{type,?wxBITMAP_TYPE_PNG}]),
     wxFrame:setIcon(Frame, Icon),

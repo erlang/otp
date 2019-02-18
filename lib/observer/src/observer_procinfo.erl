@@ -59,8 +59,9 @@ init([Pid, ParentFrame, Parent]) ->
 		  {registered_name, Registered} -> io_lib:format("~tp (~p)",[Registered, Pid]);
 		  undefined -> throw(process_undefined)
 	      end,
+    Scale = observer_wx:get_scale(),
 	Frame=wxFrame:new(ParentFrame, ?wxID_ANY, [atom_to_list(node(Pid)), $:, Title],
-			  [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {850,600}}]),
+			  [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {Scale * 850, Scale * 600}}]),
 	MenuBar = wxMenuBar:new(),
 	create_menus(MenuBar),
 	wxFrame:setMenuBar(Frame, MenuBar),
@@ -245,12 +246,13 @@ init_dict_page(Parent, Pid, Table) ->
 init_stack_page(Parent, Pid) ->
     LCtrl = wxListCtrl:new(Parent, [{style, ?wxLC_REPORT bor ?wxLC_HRULES}]),
     Li = wxListItem:new(),
+    Scale = observer_wx:get_scale(),
     wxListItem:setText(Li, "Module:Function/Arg"),
     wxListCtrl:insertColumn(LCtrl, 0, Li),
-    wxListCtrl:setColumnWidth(LCtrl, 0, 300),
+    wxListCtrl:setColumnWidth(LCtrl, 0, Scale * 300),
     wxListItem:setText(Li, "File:LineNumber"),
     wxListCtrl:insertColumn(LCtrl, 1, Li),
-    wxListCtrl:setColumnWidth(LCtrl, 1, 300),
+    wxListCtrl:setColumnWidth(LCtrl, 1, Scale * 300),
     wxListItem:destroy(Li),
     Update = fun() ->
 		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
