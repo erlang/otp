@@ -94,6 +94,25 @@
 
 </section>
 
+<section><title>Common_Test 1.15.4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The status of a test case which failed with timetrap
+	    timeout in <c>end_per_testcase</c> could not be modified
+	    by returning <c>{fail,Reason}</c> from a
+	    <c>post_end_per_testcase</c> hook function. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-15584 Aux Id: ERIERL-282 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.15.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
