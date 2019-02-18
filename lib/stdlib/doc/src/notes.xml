@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Optimize pretty printing of terms. The slower
+	    behaviour was introduced in Erlang/OTP 20. </p>
+          <p>
+	    Own Id: OTP-15573 Aux Id: ERIERL-306 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
