@@ -16672,18 +16672,9 @@ char* esock_send_abort_msg(ErlNifEnv*   env,
                            ERL_NIF_TERM reason,
                            ErlNifPid*   pid)
 {
-    ErlNifEnv* msg_env = enif_alloc_env();
-    ERL_NIF_TERM info = MKT2(msg_env, enif_make_copy(msg_env, recvRef),
-                             enif_make_copy(msg_env, reason));
-
-    /*
-    esock_dbg_printf("SEND MSG",
-                     "try send abort message to %T:\r\n",
-                     "\r\n   sockRef: %T"
-                     "\r\n   recvRef: %T"
-                     "\r\n   reason:  %T"
-                     "\r\n", *pid, sockRef, recvRef, reason);
-    */
+    ErlNifEnv*   msg_env = enif_alloc_env();
+    ERL_NIF_TERM info    = MKT2(msg_env, enif_make_copy(msg_env, recvRef),
+                                enif_make_copy(msg_env, reason));
 
     return esock_send_socket_msg(env, sockRef, esock_atom_abort, info, pid,
                                  msg_env);
@@ -17319,15 +17310,13 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 {
 #if !defined(__WIN32__)
     SocketDescriptor* descP = (SocketDescriptor*) obj;
-
-    /*
-    esock_dbg_printf("STOP", "[%d] begin\r\n", descP->sock);
-    */
+    ERL_NIF_TERM      sockRef;
 
     SSDBG( descP,
            ("SOCKET", "socket_stop -> entry when %s"
             "\r\n   sock: %d (%d)"
-            "\r\n", ((is_direct_call) ? "called" : "scheduled"), descP->sock, fd) );
+            "\r\n",
+            ((is_direct_call) ? "called" : "scheduled"), descP->sock, fd) );
     
     MLOCK(descP->writeMtx);
     MLOCK(descP->readMtx);
@@ -17357,6 +17346,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                    descP->readTries,
                    descP->readWaits) );
 
+    sockRef           = enif_make_resource(env, descP),
     descP->state      = SOCKET_STATE_CLOSING; // Just in case...???
     descP->isReadable = FALSE;
     descP->isWritable = FALSE;
@@ -17390,7 +17380,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                            "send abort message to current writer %T\r\n",
                            descP->currentWriter.pid) );
             if (esock_send_abort_msg(env,
-                                     esock_atom_undefined,
+                                     sockRef,
                                      descP->currentWriter.ref,
                                      atom_closed,
                                      &descP->currentWriter.pid) != NULL) {
@@ -17430,7 +17420,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                            "send abort message to current reader %T\r\n",
                            descP->currentReader.pid) );
             if (esock_send_abort_msg(env,
-                                     esock_atom_undefined,
+                                     sockRef,
                                      descP->currentReader.ref,
                                      atom_closed,
                                      &descP->currentReader.pid) != NULL) {
@@ -17469,7 +17459,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                            "send abort message to current acceptor %T\r\n",
                            descP->currentWriter.pid) );
             if (esock_send_abort_msg(env,
-                                     esock_atom_undefined,
+                                     sockRef,
                                      descP->currentAcceptor.ref,
                                      atom_closed,
                                      &descP->currentAcceptor.pid) != NULL) {
@@ -17496,7 +17486,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          *
          * WE NEED TO CHECK IF THIS OPERATION IS TRIGGERED
          * LOCALLY (VIA A CALL TO CLOSE) OR REMOTELLY
-         * (VIA I.E. ECONSRESET).
+         * (VIA I.E. ECONRESET).
          *
          * </KOLLA>
          */
@@ -17512,14 +17502,24 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
              *
              * WHAT HAPPENS IF THE RECEIVER HAS DIED IN THE MEANTIME????
              *
-             * Also, we should really *always* use a tag unique to this
-             * (nif-) module. Some like (in this case):
-             *
-             *      {'$socket', undefined, close, CloseRef}
-             *
              * </KOLLA>
              */
 
+            /* We should actually move the sending out of the 
+             * safe region (after the MUNLOCK).
+             * Construct it here, but do the actual send later.
+             * Here:
+             * cpid     = descP->closePid;
+             * cenv     = enif_alloc_env();
+             * closeMsg = esock_mk_close_msg(env, 
+             *                               CP_TERM(cenv, sockRef),
+             *                               CP_TERM(cenv, descP->closeRef));
+             * And after MUNLOCK:
+             * if (cenv != NULL) {
+             *     esock_send_msg(env, closeMsg, &cpid, cenv);
+             *    
+             * }
+             */
             esock_send_close_msg(env, descP->closeRef, &descP->closerPid);
             
             DEMONP("socket_stop -> closer", env, descP, &descP->closerMon);
@@ -17537,16 +17537,6 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     }
     
 
-    if (!is_direct_call) {
-        if (descP->closeLocal) {
-            DEMONP("socket_stop -> closer",
-                   env, descP, &descP->closerMon);
-        }
-        descP->sock  = INVALID_SOCKET;
-        descP->event = INVALID_EVENT;
-        descP->state = SOCKET_STATE_CLOSED;
-    }
-
     SSDBG( descP, ("SOCKET", "socket_stop -> unlock all mutex(s)\r\n") );
 
     MUNLOCK(descP->closeMtx);
@@ -17554,12 +17544,9 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     MUNLOCK(descP->readMtx);
     MUNLOCK(descP->writeMtx);
 
-    /*
-    esock_dbg_printf("STOP", "[%d] end\r\n", descP->sock);
-    */
-
     SSDBG( descP,
            ("SOCKET", "socket_stop -> done (%d, %d)\r\n", descP->sock, fd) );
+
 #endif // if !defined(__WIN32__)
 }
 
