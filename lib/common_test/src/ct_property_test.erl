@@ -32,27 +32,34 @@
 
 %% API
 -export([init_per_suite/1,
-	 quickcheck/2]).
+         init_tool/1,
+         quickcheck/2]).
 
 -include_lib("common_test/include/ct.hrl").
 
 init_per_suite(Config) ->
-    case which_module_exists([eqc,proper,triq]) of
-	{ok,ToolModule} ->
- 	    ct:pal("Found property tester ~p",[ToolModule]),
-	    Path = property_tests_path("property_test", Config),
-	    case compile_tests(Path,ToolModule) of
-		error -> 
-		    {fail, "Property test compilation failed in "++Path};
-		up_to_date ->
-		    add_code_pathz(Path),
-		    [{property_dir,Path},
-		     {property_test_tool,ToolModule} | Config]
-	    end;
+    case init_tool(Config) of
+        {skip, _}=Skip ->
+            Skip;
+        Config1 ->
+            Path = property_tests_path("property_test", Config1),
+            case compile_tests(Path, Config1) of
+                error ->
+                    {fail, "Property test compilation failed in "++Path};
+                up_to_date ->
+                    add_code_pathz(Path),
+                    [{property_dir, Path} | Config1]
+            end
+    end.
 
-	not_found ->
- 	    ct:pal("No property tester found",[]),
-	    {skip, "No property testing tool found"}
+init_tool(Config) ->
+    case which_module_exists([eqc,proper,triq]) of
+        {ok, ToolModule} ->
+            ct:pal("Found property tester ~p",[ToolModule]),
+            [{property_test_tool, ToolModule} | Config];
+        not_found ->
+            ct:pal("No property tester found",[]),
+            {skip, "No property testing tool found"}
     end.
 	
 quickcheck(Property, Config) ->
@@ -105,7 +112,8 @@ add_code_pathz(Dir) ->
 	    ok
     end.
 
-compile_tests(Path, ToolModule) ->
+compile_tests(Path, Config) ->
+    ToolModule = proplists:get_value(property_test_tool, Config),
     MacroDefs = macro_def(ToolModule),
     {ok,Cwd} = file:get_cwd(),
     ok = file:set_cwd(Path),
