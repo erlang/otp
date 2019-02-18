@@ -344,10 +344,8 @@ otp_7223_2({a}) ->
     1.
 
 coverage(Config) when is_list(Config) ->
-    Mod = bsdecode,
+    Mod = attribute,
     Src = filename:join(proplists:get_value(data_dir, Config), Mod),
     {ok,Mod,_} = compile:file(Src, [binary,report,{inline,0},
                                     clint,ssalint]),
-    {ok,Mod,_} = compile:file(Src, [binary,report,{inline,20},
-				    verbose,clint,ssalint]),
     ok.

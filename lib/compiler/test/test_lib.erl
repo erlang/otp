@@ -50,12 +50,8 @@ smoke_disasm(File) when is_list(File) ->
     Res = beam_disasm:file(File),
     {beam_file,_Mod} = {element(1, Res),element(2, Res)}.
 
-%% If we are running cover, we don't want to run test cases that
-%% invokes the compiler in parallel, as doing so would probably
-%% be slower than running them sequentially.
-
 parallel() ->
-    case test_server:is_cover() orelse erlang:system_info(schedulers) =:= 1 of
+    case erlang:system_info(schedulers) =:= 1 of
 	true -> [];
 	false -> [parallel]
     end.
@@ -70,21 +66,24 @@ uniq() ->
 opt_opts(Mod) ->
     Comp = Mod:module_info(compile),
     {options,Opts} = lists:keyfind(options, 1, Comp),
-    lists:filter(fun(no_copt) -> true;
-		    (no_postopt) -> true;
-                    (no_ssa_opt) -> true;
-                    (no_recv_opt) -> true;
-		    (no_ssa_float) -> true;
-		    (no_stack_trimming) -> true;
-		    (debug_info) -> true;
-		    (inline) -> true;
-                    (no_put_tuple2) -> true;
-                    (no_bsm3) -> true;
-                    (no_bsm_opt) -> true;
-                    (no_module_opt) -> true;
-                    (no_type_opt) -> true;
-		    (_) -> false
-		 end, Opts).
+    lists:filter(fun
+                     (debug_info) -> true;
+                     (inline) -> true;
+                     (no_bsm3) -> true;
+                     (no_bsm_opt) -> true;
+                     (no_copt) -> true;
+                     (no_fun_opt) -> true;
+                     (no_module_opt) -> true;
+                     (no_postopt) -> true;
+                     (no_put_tuple2) -> true;
+                     (no_recv_opt) -> true;
+                     (no_share_opt) -> true;
+                     (no_ssa_float) -> true;
+                     (no_ssa_opt) -> true;
+                     (no_stack_trimming) -> true;
+                     (no_type_opt) -> true;
+                     (_) -> false
+                end, Opts).
 
 %% Some test suites gets cloned (e.g. to "record_SUITE" to
 %% "record_no_opt_SUITE"), but the data directory is not cloned.
@@ -97,7 +96,8 @@ get_data_dir(Config) ->
     Data2 = re:replace(Data1, "_post_opt_SUITE", "_SUITE", Opts),
     Data3 = re:replace(Data2, "_inline_SUITE", "_SUITE", Opts),
     Data4 = re:replace(Data3, "_r21_SUITE", "_SUITE", Opts),
-    re:replace(Data4, "_no_module_opt_SUITE", "_SUITE", Opts).
+    Data = re:replace(Data4, "_no_module_opt_SUITE", "_SUITE", Opts),
+    re:replace(Data, "_no_ssa_opt_SUITE", "_SUITE", Opts).
 
 is_cloned_mod(Mod) ->
     is_cloned_mod_1(atom_to_list(Mod)).
@@ -105,6 +105,7 @@ is_cloned_mod(Mod) ->
 %% Test whether Mod is a cloned module.
 
 is_cloned_mod_1("_no_opt_SUITE") -> true;
+is_cloned_mod_1("_no_ssa_opt_SUITE") -> true;
 is_cloned_mod_1("_post_opt_SUITE") -> true;
 is_cloned_mod_1("_inline_SUITE") -> true;
 is_cloned_mod_1("_21_SUITE") -> true;
@@ -117,18 +118,7 @@ is_cloned_mod_1([]) -> false.
 
 p_run(Test, List) ->
     S = erlang:system_info(schedulers),
-    N = case test_server:is_cover() of
-	    false ->
-		S + 1;
-	    true ->
-		%% Cover is running. Using too many processes
-		%% could slow us down. Measurements on my computer
-		%% showed that using 4 parallel processes was
-		%% slightly faster than using 3. Using more than
-		%% 4 would not buy us much and could actually be
-		%% slower.
-		min(S, 4)
-	end,
+    N = S + 1,
     io:format("p_run: ~p parallel processes\n", [N]),
     p_run_loop(Test, List, N, [], 0, 0).
 

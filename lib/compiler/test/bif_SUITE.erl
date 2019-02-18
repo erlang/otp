@@ -23,7 +23,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 beam_validator/1,trunc_and_friends/1,cover_safe_bifs/1]).
+	 beam_validator/1,trunc_and_friends/1,cover_safe_and_pure_bifs/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -35,7 +35,7 @@ groups() ->
     [{p,[parallel],
       [beam_validator,
        trunc_and_friends,
-       cover_safe_bifs
+       cover_safe_and_pure_bifs
       ]}].
 
 init_per_suite(Config) ->
@@ -106,7 +106,7 @@ trunc_template(Func, Bif) ->
         catch error:badarg -> ok end,
         ok.").
 
-cover_safe_bifs(Config) ->
+cover_safe_and_pure_bifs(Config) ->
     _ = get(),
     _ = get_keys(a),
     _ = group_leader(),
@@ -118,5 +118,6 @@ cover_safe_bifs(Config) ->
     _ = processes(),
     _ = registered(),
     _ = term_to_binary(Config),
+    42 = list_to_integer("2A", 16),
 
     ok.
