@@ -122,7 +122,8 @@
 	  cert                 :: public_key:der_encoded() | secret_printout() | 'undefined',
 	  keyfile              :: binary(),
 	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', 
-                                   public_key:der_encoded()} | ssl:key() | secret_printout() | 'undefined',
+                                   public_key:der_encoded()} | map()  %%map() -> ssl:key() how to handle dialyzer?
+                                | secret_printout() | 'undefined',
 	  password	       :: string() | secret_printout() | 'undefined',
 	  cacerts              :: [public_key:der_encoded()] | secret_printout() | 'undefined',
 	  cacertfile           :: binary(),
