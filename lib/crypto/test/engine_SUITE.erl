@@ -345,13 +345,13 @@ engine_list(Config) when is_list(Config) ->
             {skip, "OTP Test engine not found"};
         {ok, Engine} ->
             try
-                EngineList0 = crypto:engine_list(),
                 case crypto:engine_load(<<"dynamic">>,
                                         [{<<"SO_PATH">>, Engine},
                                          <<"LOAD">>],
                                         []) of
                     {ok, E} ->
                         EngineList0 = crypto:engine_list(),
+                        false = lists:member(<<"MD5">>, EngineList0),
                         ok = crypto:engine_add(E),
                         [<<"MD5">>] = lists:subtract(crypto:engine_list(), EngineList0),
                         ok = crypto:engine_remove(E),
