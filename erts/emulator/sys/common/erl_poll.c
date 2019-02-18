@@ -872,8 +872,8 @@ update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
         }
     }
 
-#if defined(EV_DISPATCH) && !defined(__OpenBSD__)
-    /* If we have EV_DISPATCH we use it, unless we are on OpenBSD as the
+#if defined(EV_DISPATCH) && !(defined(__OpenBSD__) || defined(__NetBSD__))
+    /* If we have EV_DISPATCH we use it, unless we are on OpenBSD/NetBSD as the
        behavior of EV_EOF seems to be edge triggered there and we need it
        to be level triggered.
 
