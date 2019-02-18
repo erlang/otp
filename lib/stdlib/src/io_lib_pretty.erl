@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -507,20 +507,20 @@ print_length(#{}=M, _D, _T, _RF, _Enc, _Str) when map_size(M) =:= 0 ->
     {"#{}", 3, 0, no_more};
 print_length(Atom, _D, _T, _RF, Enc, _Str) when is_atom(Atom) ->
     S = write_atom(Atom, Enc),
-    {S, string:length(S), 0, no_more};
+    {S, io_lib:chars_length(S), 0, no_more};
 print_length(List, D, T, RF, Enc, Str) when is_list(List) ->
     %% only flat lists are "printable"
     case Str andalso printable_list(List, D, T, Enc) of
         true ->
             %% print as string, escaping double-quotes in the list
             S = write_string(List, Enc),
-            {S, string:length(S), 0, no_more};
+            {S, io_lib:chars_length(S), 0, no_more};
         {true, Prefix} ->
             %% Truncated lists when T < 0 could break some existing code.
             S = write_string(Prefix, Enc),
             %% NumOfDots = 0 to avoid looping--increasing the depth
             %% does not make Prefix longer.
-            {[S | "..."], 3 + string:length(S), 0, no_more};
+            {[S | "..."], 3 + io_lib:chars_length(S), 0, no_more};
         false ->
             case print_length_list(List, D, T, RF, Enc, Str) of
                 {What, Len, Dots, _More} when Dots > 0 ->
@@ -564,7 +564,7 @@ print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str) ->
             {[$<,$<,S,$>,$>], 4 + length(S), 0, no_more};
         {false, List} when is_list(List) ->
             S = io_lib:write_string(List, $"), %"
-            {[$<,$<,S,"/utf8>>"], 9 + string:length(S), 0, no_more};
+            {[$<,$<,S,"/utf8>>"], 9 + io_lib:chars_length(S), 0, no_more};
         {true, true, Prefix} ->
             S = io_lib:write_string(Prefix, $"), %"
             More = fun(T1, Dd) ->
@@ -576,7 +576,7 @@ print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str) ->
             More = fun(T1, Dd) ->
                            ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str)
                    end,
-            {[$<,$<,S|"/utf8...>>"], 12 + string:length(S), 3, More};
+            {[$<,$<,S|"/utf8...>>"], 12 + io_lib:chars_length(S), 3, More};
         false ->
             case io_lib:write_binary(Bin, D, T) of
                 {S, <<>>} ->
@@ -591,7 +591,7 @@ print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str) ->
 print_length(Term, _D, _T, _RF, _Enc, _Str) ->
     S = io_lib:write(Term),
     %% S can contain unicode, so iolist_size(S) cannot be used here
-    {S, string:length(S), 0, no_more}.
+    {S, io_lib:chars_length(S), 0, no_more}.
 
 print_length_map(Map, 1, _T, RF, Enc, Str) ->
     More = fun(T1, Dd) -> ?FUNCTION_NAME(Map, 1+Dd, T1, RF, Enc, Str) end,
@@ -651,7 +651,7 @@ print_length_record(Tuple, 1, _T, RF, RDefs, Enc, Str) ->
     {"{...}", 5, 3, More};
 print_length_record(Tuple, D, T, RF, RDefs, Enc, Str) ->
     Name = [$# | write_atom(element(1, Tuple), Enc)],
-    NameL = string:length(Name),
+    NameL = io_lib:chars_length(Name),
     T1 = tsub(T, NameL+2),
     L = print_length_fields(RDefs, D - 1, T1, Tuple, 2, RF, Enc, Str),
     {Len, Dots} = list_length(L, NameL + 2, 0),
@@ -677,7 +677,7 @@ print_length_fields([Def | Defs], D, T, Tuple, I, RF, Enc, Str) ->
 
 print_length_field(Def, D, T, E, RF, Enc, Str) ->
     Name = write_atom(Def, Enc),
-    NameL = string:length(Name) + 3,
+    NameL = io_lib:chars_length(Name) + 3,
     {_, Len, Dots, _} =
         Field = print_length(E, D, tsub(T, NameL), RF, Enc, Str),
     {{field, Name, NameL, Field}, NameL + Len, Dots, no_more}.
@@ -738,7 +738,7 @@ printable_list(L, _D, T, _Uni) when T < 0->
     io_lib:printable_list(L).
 
 slice(L, N) ->
-    try string:length(L) =< N of
+    try io_lib:chars_length(L) =< N of
         true ->
             all;
         false ->
