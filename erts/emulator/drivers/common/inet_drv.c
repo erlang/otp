@@ -6772,8 +6772,12 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     if ( ((desc->stype == SOCK_STREAM) && IS_CONNECTED(desc)) ||
 	((desc->stype == SOCK_DGRAM) && IS_OPEN(desc))) {
 
-	if (desc->active != old_active)
+	if (desc->active != old_active) {
+            /* Need to cancel the read_packet timer if we go from active to passive. */
+            if (desc->active == INET_PASSIVE && desc->stype == SOCK_DGRAM)
+                driver_cancel_timer(desc->port);
 	    sock_select(desc, (FD_READ|FD_CLOSE), (desc->active>0));
+        }
 
 	/* XXX: UDP sockets could also trigger immediate read here NIY */
 	if ((desc->stype==SOCK_STREAM) && desc->active) {
@@ -12539,9 +12543,12 @@ static void packet_inet_timeout(ErlDrvData e)
 {
     udp_descriptor  * udesc = (udp_descriptor*) e;
     inet_descriptor * desc  = INETP(udesc);
-    if (!(desc->active))
+    if (!(desc->active)) {
 	sock_select(desc, FD_READ, 0);
-    async_error_am (desc, am_timeout);
+        async_error_am (desc, am_timeout);
+    } else {
+        (void)packet_inet_input(udesc, desc->s);
+    }
 }
 
 
@@ -12897,6 +12904,15 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	sock_select(desc, FD_READ, 1);
     }
 #endif
+
+    /* We set a timer on the port to trigger now.
+       This emulates a "yield" operation as that is
+       what we want to do here. We do *NOT* do a deselect
+       as that is expensive, instead we check if the
+       socket it still active when the timeout triggers
+       and if it is not, then we just ignore the timeout */
+    driver_set_timer(desc->port, 0);
+
     return count;
 }
 
