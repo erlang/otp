@@ -169,6 +169,7 @@ wait_finished(Type, Msg, State, Connection) ->
 
 
 update_state(#state{connection_states = ConnectionStates0,
+                    connection_env = CEnv,
                     session = Session} = State,
              #{cipher := Cipher,
                key_share := KeyShare,
@@ -185,4 +186,4 @@ update_state(#state{connection_states = ConnectionStates0,
     State#state{connection_states = ConnectionStates,
                 key_share = KeyShare,
                 session = Session#session{session_id = SessionId},
-                negotiated_version = {3,4}}.
+                connection_env = CEnv#connection_env{negotiated_version = {3,4}}}.
