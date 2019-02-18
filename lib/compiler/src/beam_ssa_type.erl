@@ -260,22 +260,33 @@ opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is],
             opt_is(Is, Ts, Ds, Fdb, D, Sub0, [I|Acc])
     end;
 opt_is([#b_set{op=call,args=Args0,dst=Dst}=I0|Is],
-       Ts0, Ds0, Fdb0, D, Sub, Acc) ->
-    Args = simplify_args(Args0, Sub, Ts0),
+       Ts0, Ds0, Fdb0, D, Sub0, Acc) ->
+    Args = simplify_args(Args0, Sub0, Ts0),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
-    {Ts,Ds,Fdb,I} = opt_call(I1, D, Ts0, Ds0, Fdb0),
-    case {map_get(Dst, Ts),Is} of
-        {none,[#b_set{op=succeeded}]} ->
+    {Ts1,Ds,Fdb,I2} = opt_call(I1, D, Ts0, Ds0, Fdb0),
+    case {map_get(Dst, Ts1),Is} of
+        {_,[#b_set{op=succeeded}]} ->
             %% This call instruction is inside a try/catch
             %% block. Don't attempt to optimize it.
-            opt_is(Is, Ts, Ds, Fdb, D, Sub, [I|Acc]);
+            opt_is(Is, Ts1, Ds, Fdb, D, Sub0, [I2|Acc]);
         {none,_} ->
             %% This call never returns. The rest of the
             %% instructions will not be executed.
             Ret = #b_ret{arg=Dst},
-            {no_return,Ret,reverse(Acc, [I]),Ds,Fdb,Sub};
-        _ ->
-            opt_is(Is, Ts, Ds, Fdb, D, Sub, [I|Acc])
+            {no_return,Ret,reverse(Acc, [I2]),Ds,Fdb,Sub0};
+        {_,_} ->
+            case simplify_call(I2) of
+                #b_set{}=I ->
+                    opt_is(Is, Ts1, Ds, Fdb, D, Sub0, [I|Acc]);
+                #b_literal{}=Lit ->
+                    Sub = Sub0#{Dst=>Lit},
+                    Ts = maps:remove(Dst, Ts1),
+                    opt_is(Is, Ts, Ds0, Fdb, D, Sub, Acc);
+                #b_var{}=Var ->
+                    Ts = maps:remove(Dst, Ts1),
+                    Sub = Sub0#{Dst=>Var},
+                    opt_is(Is, Ts, Ds0, Fdb, D, Sub, Acc)
+            end
     end;
 opt_is([#b_set{op=succeeded,args=[Arg],dst=Dst}=I],
        Ts0, Ds0, Fdb, D, Sub0, Acc) ->
@@ -327,6 +338,48 @@ opt_is([#b_set{args=Args0,dst=Dst}=I0|Is],
     end;
 opt_is([], Ts, Ds, Fdb, _D, Sub, Acc) ->
     {reverse(Acc), Ts, Ds, Fdb, Sub}.
+
+simplify_call(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I) ->
+    case Rem of
+        #b_remote{mod=#b_literal{val=Mod},
+                  name=#b_literal{val=Name}} ->
+            case erl_bifs:is_pure(Mod, Name, length(Args)) of
+                true ->
+                    simplify_remote_call(Mod, Name, Args, I);
+                false ->
+                    I
+            end;
+         #b_remote{} ->
+            I
+    end;
+simplify_call(I) -> I.
+
+%% Simplify a remote call to a pure BIF.
+simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _I) ->
+    Tl;
+simplify_remote_call(Mod, Name, Args0, I) ->
+    case make_literal_list(Args0) of
+        none ->
+            I;
+        Args ->
+            %% The arguments are literals. Try to evaluate the BIF.
+            try apply(Mod, Name, Args) of
+                Val ->
+                    case cerl:is_literal_term(Val) of
+                        true ->
+                            #b_literal{val=Val};
+                        false ->
+                            %% The value can't be expressed as a literal
+                            %% (e.g. a pid).
+                            I
+                    end
+            catch
+                _:_ ->
+                    %% Failed. Don't bother trying to optimize
+                    %% the call.
+                    I
+            end
+    end.
 
 opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, D, Ts0, Ds0, Fdb0) ->
     {Ts, Ds, I} = opt_local_call(I0, Ts0, Ds0, Fdb0),
