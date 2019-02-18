@@ -272,17 +272,12 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 	    end
     end,
     D = Rec#commit.disc_copies,
-    ExtOps = commit_ext(Rec),
     insert_ops(Tid, disc_copies, D, InPlace, InitBy, LogV),
-    [insert_ops(Tid, Ext, Ops, InPlace, InitBy, LogV) ||
-	{Ext, Ops} <- ExtOps,
-	storage_semantics(Ext) == disc_copies],
+    insert_ext_ops(Tid, commit_ext(Rec), InPlace, InitBy),
     case InitBy of
 	startup ->
 	    DO = Rec#commit.disc_only_copies,
-	    insert_ops(Tid, disc_only_copies, DO, InPlace, InitBy, LogV),
-	    [insert_ops(Tid, Ext, Ops, InPlace, InitBy, LogV) ||
-		{Ext, Ops} <- ExtOps, storage_semantics(Ext) == disc_only_copies];
+	    insert_ops(Tid, disc_only_copies, DO, InPlace, InitBy, LogV);
 	_ ->
 	    ignore
     end.
@@ -290,11 +285,8 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 commit_ext(#commit{ext = []}) -> [];
 commit_ext(#commit{ext = Ext}) ->
     case lists:keyfind(ext_copies, 1, Ext) of
-	{_, C} ->
-	    lists:foldl(fun({Ext0, Op}, D) ->
-				orddict:append(Ext0, Op, D)
-			end, orddict:new(), C);
-	false -> []
+        {_, C} -> C;
+        false -> []
     end.
 
 update(_Tid, [], _DumperMode) ->
@@ -329,6 +321,21 @@ perform_update(Tid, SchemaOps, _DumperMode, _UseDir) ->
 	    close_files(InPlace, Error, InitBy),
             fatal("Schema update error ~tp ~tp", [{Reason,ST}, SchemaOps])
     end.
+
+insert_ext_ops(Tid, ExtOps, InPlace, InitBy) ->
+  %% Note: ext ops cannot be part of pre-4.3 logs, so there's no need
+  %% to support the old operation order, as in `insert_ops'
+  lists:foreach(
+    fun ({Ext, Op}) ->
+        case storage_semantics(Ext) of
+          Semantics when Semantics == disc_copies;
+                         Semantics == disc_only_copies, InitBy == startup ->
+            insert_op(Tid, Ext, Op, InPlace, InitBy);
+          _Other ->
+            ok
+        end
+    end,
+    ExtOps).
 
 insert_ops(_Tid, _Storage, [], _InPlace, _InitBy, _) ->    ok;
 insert_ops(Tid, Storage, [Op], InPlace, InitBy, Ver)  when Ver >= "4.3"->
