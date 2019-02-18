@@ -158,7 +158,9 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     (Context, Data, IV) */
     int i;
     ErlNifBinary   data_bin;
-    ERL_NIF_TERM new_argv[argc];
+    ERL_NIF_TERM new_argv[3];
+
+    ASSERT(argc =< 3);
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data_bin))
         return ERROR_Str(env, "iodata expected as data");
