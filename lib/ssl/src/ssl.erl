@@ -87,6 +87,7 @@
               private_key_type/0,
               cipher/0,
               hash/0,
+              key/0,
               key_algo/0,
               sign_algo/0
              ]).

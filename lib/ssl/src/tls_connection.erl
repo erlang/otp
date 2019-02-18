@@ -587,8 +587,8 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
                                      Renegotiation) of
                 #alert{} = Alert ->
                     ssl_connection:handle_own_alert(Alert, ClientVersion, hello,
-                                                    State#state{connection_env = #connection_env{negotiated_version
-                                                                                                 = ClientVersion}});
+                                                    State#state{connection_env = CEnv#connection_env{negotiated_version
+                                                                                                     = ClientVersion}});
                 {Version, {Type, Session},
                  ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
                     Protocol = case Protocol0 of
