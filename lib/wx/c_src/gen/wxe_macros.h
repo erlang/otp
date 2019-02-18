@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2017. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include <wx/fontdlg.h>
 #include <wx/progdlg.h>
 #include <wx/printdlg.h>
+#include <wx/display.h>
 #include <wx/dcbuffer.h>
 #include <wx/dcmirror.h>
 #include <wx/glcanvas.h>
@@ -46,6 +47,7 @@
 #include <wx/sashwin.h>
 #include <wx/laywin.h>
 #include <wx/graphics.h>
+#include <wx/dcgraph.h>
 #include <wx/aui/aui.h>
 #include <wx/datectrl.h>
 #include <wx/filepicker.h>
@@ -3426,5 +3428,21 @@
 #define wxDropFilesEvent_GetPosition 3597
 #define wxDropFilesEvent_GetNumberOfFiles 3598
 #define wxDropFilesEvent_GetFiles 3599
+#define wxDisplay_new 3600
+#define wxDisplay_destruct 3601
+#define wxDisplay_IsOk 3602
+#define wxDisplay_GetClientArea 3603
+#define wxDisplay_GetGeometry 3604
+#define wxDisplay_GetName 3605
+#define wxDisplay_IsPrimary 3606
+#define wxDisplay_GetCount 3607
+#define wxDisplay_GetFromPoint 3608
+#define wxDisplay_GetFromWindow 3609
+#define wxDisplay_GetPPI 3610
+#define wxGCDC_new_1 3611
+#define wxGCDC_new_0 3612
+#define wxGCDC_destruct 3613
+#define wxGCDC_GetGraphicsContext 3614
+#define wxGCDC_SetGraphicsContext 3615
 
 

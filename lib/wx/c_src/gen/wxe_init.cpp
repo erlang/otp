@@ -55,6 +55,14 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
  rt.addTupleCount(2);
  rt.addAtom("wxFONTENCODING_UTF32"); rt.addInt(wxFONTENCODING_UTF32);
  rt.addTupleCount(2);
+ rt.addAtom("wxFONTWEIGHT_BOLD"); rt.addInt(wxFONTWEIGHT_BOLD);
+ rt.addTupleCount(2);
+ rt.addAtom("wxFONTWEIGHT_LIGHT"); rt.addInt(wxFONTWEIGHT_LIGHT);
+ rt.addTupleCount(2);
+ rt.addAtom("wxFONTWEIGHT_MAX"); rt.addInt(wxFONTWEIGHT_MAX);
+ rt.addTupleCount(2);
+ rt.addAtom("wxFONTWEIGHT_NORMAL"); rt.addInt(wxFONTWEIGHT_NORMAL);
+ rt.addTupleCount(2);
  rt.addAtom("wxMOD_CMD"); rt.addInt(wxMOD_CMD);
  rt.addTupleCount(2);
  rt.addAtom("wxLANGUAGE_ABKHAZIAN"); rt.addInt(wxLANGUAGE_ABKHAZIAN);
@@ -654,6 +662,62 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
    rt.addTupleCount(2);
    rt.addAtom("wxCYAN_PEN"); rt.addRef(getRef((void *)wxCYAN_PEN,memenv),"wxPen");
    rt.addTupleCount(2);
+#if wxCHECK_VERSION(3,1,2)
+ rt.addAtom("wxFONTWEIGHT_EXTRABOLD"); rt.addInt(wxFONTWEIGHT_EXTRABOLD);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxFONTWEIGHT_EXTRABOLD"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,2)
+ rt.addAtom("wxFONTWEIGHT_EXTRAHEAVY"); rt.addInt(wxFONTWEIGHT_EXTRAHEAVY);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxFONTWEIGHT_EXTRAHEAVY"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,2)
+ rt.addAtom("wxFONTWEIGHT_EXTRALIGHT"); rt.addInt(wxFONTWEIGHT_EXTRALIGHT);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxFONTWEIGHT_EXTRALIGHT"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,2)
+ rt.addAtom("wxFONTWEIGHT_HEAVY"); rt.addInt(wxFONTWEIGHT_HEAVY);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxFONTWEIGHT_HEAVY"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,2)
+ rt.addAtom("wxFONTWEIGHT_INVALID"); rt.addInt(wxFONTWEIGHT_INVALID);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxFONTWEIGHT_INVALID"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,2)
+ rt.addAtom("wxFONTWEIGHT_MEDIUM"); rt.addInt(wxFONTWEIGHT_MEDIUM);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxFONTWEIGHT_MEDIUM"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,2)
+ rt.addAtom("wxFONTWEIGHT_SEMIBOLD"); rt.addInt(wxFONTWEIGHT_SEMIBOLD);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxFONTWEIGHT_SEMIBOLD"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,2)
+ rt.addAtom("wxFONTWEIGHT_THIN"); rt.addInt(wxFONTWEIGHT_THIN);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxFONTWEIGHT_THIN"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
    rt.addAtom("wxGREEN"); rt.add(*(wxGREEN));
    rt.addTupleCount(2);
    rt.addAtom("wxGREEN_BRUSH"); rt.addRef(getRef((void *)wxGREEN_BRUSH,memenv),"wxBrush");
@@ -723,7 +787,7 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
  rt.addAtom("wx_GL_COMPAT_PROFILE"); rt.addAtom("undefined");
  rt.addTupleCount(2);
 #endif
- rt.endList(309);
+ rt.endList(321);
  rt.addTupleCount(2);
   rt.send();
 }

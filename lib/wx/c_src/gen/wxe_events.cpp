@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -910,7 +910,7 @@ case 238: {// wxDropFilesEvent
  } else {
    send_res =  rt.send();
    if(cb->skip) event->Skip();
-   if(app->recurse_level < 1 && Etype->cID != 168) {
+   if(app->recurse_level < 1 && (Etype->cID == 171 || Etype->cID == 172)) {
      app->recurse_level++;
      app->dispatch_cmds();
      app->recurse_level--;
