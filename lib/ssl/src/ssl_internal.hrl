@@ -122,7 +122,7 @@
 	  cert                 :: public_key:der_encoded() | secret_printout() | 'undefined',
 	  keyfile              :: binary(),
 	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', 
-                                   public_key:der_encoded()} | key_map() | secret_printout() | 'undefined',
+                                   public_key:der_encoded()} | ssl:key() | secret_printout() | 'undefined',
 	  password	       :: string() | secret_printout() | 'undefined',
 	  cacerts              :: [public_key:der_encoded()] | secret_printout() | 'undefined',
 	  cacertfile           :: binary(),
@@ -196,15 +196,6 @@
 		 connection_cb
 		}).
 
--type key_map()              :: #{algorithm := rsa | dss | ecdsa,
-                                  %% engine and key_id ought to 
-                                  %% be :=, but putting it in
-                                  %% the spec gives dialyzer warning
-                                  %% of correct code!
-                                  engine => crypto:engine_ref(),
-                                  key_id => crypto:key_id(),
-                                  password => crypto:password()
-                                 }.
 -type state_name()           :: hello | abbreviated | certify | cipher | connection.
 -type gen_fsm_state_return() :: {next_state, state_name(), term()} |
 				{next_state, state_name(), term(), timeout()} |
