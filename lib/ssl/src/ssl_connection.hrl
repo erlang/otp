@@ -57,58 +57,63 @@
                         unprocessed_handshake_events = 0    :: integer(),
                         tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
                                                | 'undefined',
-                        renegotiation        :: undefined | {boolean(), From::term() | internal | peer}
+                        expecting_finished =                  false ::boolean(),
+                        renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
+                        allow_renegotiate = true                    ::boolean(),
+                        %% Ext handling
+                        hello,                %%:: #client_hello{} | #server_hello{}            
+                        sni_hostname = undefined,
+                        expecting_next_protocol_negotiation = false ::boolean(),
+                        next_protocol = undefined                   :: undefined | binary(),
+                        negotiated_protocol,
+                        hashsign_algorithm = {undefined, undefined},
+                        cert_hashsign_algorithm = {undefined, undefined},
+                        %% key exchange
+                        kex_algorithm         :: ssl:key_algo(),  
+                        kex_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),        
+                        diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
+                        srp_params           :: #srp_user{} | secret_printout() | 'undefined',
+                        public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
+                        premaster_secret     :: binary() | secret_printout() | 'undefined',
+                        server_psk_identity         :: binary() | 'undefined' % server psk identity hint
                        }).
+
+-record(connection_env, { 
+                          user_application      :: {Monitor::reference(), User::pid()},
+                          downgrade,
+                          terminated = false                          ::boolean() | closed,  
+                          negotiated_version    :: ssl_record:ssl_version() | 'undefined',
+                          erl_dist_handle = undefined :: erlang:dist_handle() | undefined,
+                          private_key          :: public_key:private_key() | secret_printout() | 'undefined'
+                        }).
 
 -record(state, {
                 static_env            :: #static_env{},
-                handshake_env         :: #handshake_env{} | secret_printout(),
-                %% Change seldome
-                user_application      :: {Monitor::reference(), User::pid()},
+                connection_env        :: #connection_env{} | secret_printout(),
                 ssl_options           :: #ssl_options{},
                 socket_options        :: #socket_options{},
-                session               :: #session{} | secret_printout(),
-                allow_renegotiate = true                    ::boolean(),
-                terminated = false                          ::boolean() | closed,
-                negotiated_version    :: ssl_record:ssl_version() | 'undefined',
-                bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
-                downgrade,
 
-                %% Changed often
+                %% Hanshake %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                handshake_env         :: #handshake_env{} | secret_printout(),
+                %% Buffer of TLS/DTLS records, used during the TLS
+                %% handshake to when possible pack more than one TLS
+                %% record into the underlaying packet
+                %% format. Introduced by DTLS - RFC 4347.  The
+                %% mecahnism is also usefull in TLS although we do not
+                %% need to worry about packet loss in TLS. In DTLS we
+                %% need to track DTLS handshake seqnr
+                flight_buffer = []   :: list() | map(),  
+                client_certificate_requested = false :: boolean(),
+                protocol_specific = #{}      :: map(),
+                session               :: #session{} | secret_printout(),
+                %% Data shuffling %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 connection_states     :: ssl_record:connection_states() | secret_printout(),
                 protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
                 user_data_buffer     :: undefined | binary() | secret_printout(),
-                
-                %% Used only in HS
-                
-                client_certificate_requested = false :: boolean(),
-                key_algorithm         :: ssl:key_algo(),
-                hashsign_algorithm = {undefined, undefined},
-                cert_hashsign_algorithm = {undefined, undefined},
-                public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
-                private_key          :: public_key:private_key() | secret_printout() | 'undefined',
-                diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
-                diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),
-                psk_identity         :: binary() | 'undefined', % server psk identity hint
-                srp_params           :: #srp_user{} | secret_printout() | 'undefined',
-                srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
-                premaster_secret     :: binary() | secret_printout() | 'undefined',
-                start_or_recv_from   :: term(),
-                timer                :: undefined | reference(), % start_or_recive_timer
-                hello,                %%:: #client_hello{} | #server_hello{},
-                expecting_next_protocol_negotiation = false ::boolean(),
-                expecting_finished =                  false ::boolean(),
-                next_protocol = undefined                   :: undefined | binary(),
-                negotiated_protocol,
-                sni_hostname = undefined,
-                flight_buffer = []   :: list() | map(),  %% Buffer of TLS/DTLS records, used during the TLS handshake
-                %% to when possible pack more than one TLS record into the
-                %% underlaying packet format. Introduced by DTLS - RFC 4347.
-                %% The mecahnism is also usefull in TLS although we do not
-                %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
-                flight_state = reliable,  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.
-                erl_dist_handle = undefined :: erlang:dist_handle() | undefined,
-                protocol_specific = #{}      :: map()
+                bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
+
+                %% recv and start handling
+                start_or_recv_from   :: term()
                }).
 
 
