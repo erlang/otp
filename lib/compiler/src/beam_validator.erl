@@ -710,8 +710,7 @@ valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     assert_term(Src, Vst0),
     assert_choices(Choices),
-    Vst = branch_state(Fail, Vst0),
-    kill_state(select_val_branches(Src, Choices, Vst));
+    select_val_branches(Fail, Src, Choices, Vst0);
 valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst0) ->
     assert_type(tuple, Tuple, Vst0),
     assert_arities(Choices),
@@ -1346,15 +1345,21 @@ bsm_restore(Reg, SavePoint, Vst) ->
 	_ -> error({illegal_restore,SavePoint,range})
     end.
 
-select_val_branches(Src, Choices, Vst) ->
-    Infer = infer_types(Src, Vst),
-    select_val_branches_1(Choices, Src, Infer, Vst).
+select_val_branches(Fail, Src, Choices, Vst0) ->
+    Vst = svb_1(Choices, Src, Vst0),
+    kill_state(branch_state(Fail, Vst)).
 
-select_val_branches_1([Val,{f,L}|T], Src, Infer, Vst0) ->
-    Vst1 = set_aliased_type(Val, Src, Infer(Val, Vst0)),
-    Vst = branch_state(L, Vst1),
-    select_val_branches_1(T, Src, Infer, Vst);
-select_val_branches_1([], _, _, Vst) -> Vst.
+svb_1([Val,{f,L}|T], Src, Vst0) ->
+    Vst = complex_test(L,
+                       fun(BranchVst) ->
+                               update_eq_types(Val, Src, BranchVst)
+                       end,
+                       fun(FailVst) ->
+                               update_ne_types(Val, Src, FailVst)
+                       end, Vst0),
+    svb_1(T, Src, Vst);
+svb_1([], _, Vst) ->
+    Vst.
 
 infer_types(Src, Vst) ->
     case get_def(Src, Vst) of
