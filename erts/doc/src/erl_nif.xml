@@ -3091,16 +3091,18 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  or the atom <c>undefined</c>. It will be passed as <c>Ref</c> in the notifications.
 	  If a selective <c>receive</c> statement is used to wait for the notification
 	  then a reference created just before the <c>receive</c> will exploit a runtime
-	  optimization that bypasses all earlier received messages in the queue.</p>
+	  optimization that bypasses all earlier received messages in the
+	  queue.</p>
 	<p>The notifications are one-shot only. To receive further notifications of the same
 	  type (read or write), repeated calls to <c>enif_select</c> must be made
 	  after receiving each notification.</p>
 	<p><c>ERL_NIF_SELECT_CANCEL</c> can be used to cancel previously
 	  selected events. It must be used in a bitwise OR combination with
 	  <c>ERL_NIF_SELECT_READ</c> and/or <c>ERL_NIF_SELECT_WRITE</c> to
-	  indicate which type of event to cancel. The return value will
-	  tell if the event was actualy cancelled or if a notification may
-	  already have been sent.</p>
+	  indicate which type of event to cancel. Arguments <c>pid</c> and
+	  <c>ref</c> are ignored when <c>ERL_NIF_SELECT_CANCEL</c> is specified.
+	  The return value will tell if the event was actualy cancelled or if a
+	  notification may already have been sent.</p>
 	<p>Use <c>ERL_NIF_SELECT_STOP</c> as <c>mode</c> in order to safely
 	  close an event object that has been passed to <c>enif_select</c>. The
 	  <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso> callback
@@ -3109,7 +3111,9 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  even if all notifications have been received (or cancelled) and no
 	  further calls to <c>enif_select</c> have been made.
 	  <c>ERL_NIF_SELECT_STOP</c> will first cancel any selected events
-	  before it calls or schedules the <c>stop</c> callback.</p>
+	  before it calls or schedules the <c>stop</c> callback. Arguments
+	  <c>pid</c> and <c>ref</c> are ignored when <c>ERL_NIF_SELECT_STOP</c>
+	  is specified.</p>
 	<p>The first call to <c>enif_select</c> for a specific OS <c>event</c> will establish
 	  a relation between the event object and the containing resource. All subsequent calls
 	  for an <c>event</c> must pass its containing resource as argument
@@ -3192,7 +3196,11 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
 	<c>enif_alloc_env</c></seealso>. If argument <c>msg_env</c> is
 	<c>NULL</c> the term <c>msg</c> will be copied, otherwise both
 	<c>msg</c> and <c>msg_env</c> will be invalidated by a successful call
-	to <c>enif_select_read</c> or <c>enif_select_write</c>.</p>
+	to <c>enif_select_read</c> or <c>enif_select_write</c>. The environment
+	is then to either be freed with <seealso marker="#enif_free_env">
+        <c>enif_free_env</c></seealso> or cleared for reuse with
+	<seealso marker="#enif_clear_env"><c>enif_clear_env</c></seealso>. An
+	unsuccessful call will leave <c>msg</c> and <c>msg_env</c> still valid.</p>
 	<p>Apart from the message format <c>enif_select_read</c> and
 	<c>enif_select_write</c> behaves exactly the same as <seealso
 	marker="#enif_select">enif_select</seealso> with argument <c>mode</c> as
@@ -3246,8 +3254,9 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
           <c>msg</c>) is invalidated by a successful call to <c>enif_send</c>.
           The environment is to either be freed with
           <seealso marker="#enif_free_env">
-          <c>enif_free_env</c></seealso> of cleared for reuse with
-          <seealso marker="#enif_clear_env"><c>enif_clear_env</c></seealso>.</p>
+          <c>enif_free_env</c></seealso> or cleared for reuse with
+          <seealso marker="#enif_clear_env"><c>enif_clear_env</c></seealso>. An
+	  unsuccessful call will leave <c>msg</c> and <c>msg_env</c> still valid.</p>
         <p>If <c>msg_env</c> is set to <c>NULL</c>, the <c>msg</c> term is
           copied and the original term and its environment is still valid after
           the call.</p>
