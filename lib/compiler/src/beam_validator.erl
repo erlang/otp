@@ -358,7 +358,7 @@ valfun_1({bif,Op,{f,_},Src,Dst}=I, Vst) ->
 	    %% It can't fail, so we finish handling it here (not updating
 	    %% catch state).
 	    validate_src(Src, Vst),
-	    Type = bif_type(Op, Src, Vst),
+	    Type = bif_return_type(Op, Src, Vst),
 	    set_type_reg_expr(Type, I, Dst, Vst)
     end;
 %% Put instructions.
@@ -423,7 +423,7 @@ valfun_1({line,_}, Vst) ->
     Vst;
 %% Exception generating calls
 valfun_1({call_ext,Live,Func}=I, Vst) ->
-    case return_type(Func, Vst) of
+    case call_return_type(Func, Vst) of
 	exception ->
 	    verify_live(Live, Vst),
             %% The stack will be scanned, so Y registers
@@ -638,7 +638,7 @@ valfun_4({bif,Op,{f,Fail},[Cons]=Ss,Dst}, Vst0)
   when Op =:= hd; Op =:= tl ->
     validate_src(Ss, Vst0),
     Vst = type_test(Fail, cons, Cons, Vst0),
-    Type = bif_type(Op, Ss, Vst),
+    Type = bif_return_type(Op, Ss, Vst),
     extract_term(Type, Ss, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
     validate_src(Ss, Vst0),
@@ -651,7 +651,7 @@ valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
                         update_type(fun meet/2, T, Arg, Vsti)
                 end, Vst1, zip(Ss, ArgTypes)),
 
-    Type = bif_type(Op, Ss, Vst),
+    Type = bif_return_type(Op, Ss, Vst),
     extract_term(Type, Ss, Dst, Vst);
 valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
     validate_src(Ss, Vst0),
@@ -666,7 +666,7 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
                          update_type(fun meet/2, T, Arg, Vsti)
                  end, Vst2, zip(Ss, ArgTypes)),
 
-    Type = bif_type(Op, Ss, Vst3),
+    Type = bif_return_type(Op, Ss, Vst3),
     Vst = prune_x_regs(Live, Vst3),
     extract_term(Type, Ss, Dst, Vst, Vst0);
 valfun_4(return, #vst{current=#st{numy=none}}=Vst) ->
@@ -1042,7 +1042,7 @@ kill_state(Vst) ->
 call(Name, Live, #vst{current=St}=Vst) ->
     verify_call_args(Name, Live, Vst),
     verify_y_init(Vst),
-    case return_type(Name, Vst) of
+    case call_return_type(Name, Vst) of
 	Type when Type =/= exception ->
 	    %% Type is never 'exception' because it has been handled earlier.
 	    Xs = gb_trees_from_list([{0,Type}]),
@@ -1665,10 +1665,10 @@ assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 %%			used by the catch instructions; NOT safe to use in other
 %%			instructions.
 %%
-%% exception		Can only be used as a type returned by return_type/2
-%%			(which gives the type of the value returned by a BIF).
-%%			Thus 'exception' is never stored as type descriptor
-%%			for a register.
+%% exception            Can only be used as a type returned by
+%%                      call_return_type/2 (which gives the type of the value
+%%                      returned by a call). Thus 'exception' is never stored
+%%                      as type descriptor for a register.
 %%
 %% #ms{}	        A match context for bit syntax matching. We do allow
 %%			it to moved/to from stack, but otherwise it must only
@@ -2244,6 +2244,77 @@ propagate_fragility(Type, Ss, Vst) ->
         false -> Type
     end.
 
+%%%
+%%% Return/argument types of BIFs
+%%%
+
+bif_return_type('-', Src, Vst) ->
+    arith_return_type(Src, Vst);
+bif_return_type('+', Src, Vst) ->
+    arith_return_type(Src, Vst);
+bif_return_type('*', Src, Vst) ->
+    arith_return_type(Src, Vst);
+bif_return_type(abs, [Num], Vst) ->
+    case get_durable_term_type(Num, Vst) of
+        {float,_}=T -> T;
+        {integer,_}=T -> T;
+        _ -> number
+    end;
+bif_return_type(float, _, _) -> {float,[]};
+bif_return_type('/', _, _) -> {float,[]};
+%% Binary operations
+bif_return_type('byte_size', _, _) -> {integer,[]};
+bif_return_type('bit_size', _, _) -> {integer,[]};
+%% Integer operations.
+bif_return_type(ceil, [_], _) -> {integer,[]};
+bif_return_type('div', [_,_], _) -> {integer,[]};
+bif_return_type(floor, [_], _) -> {integer,[]};
+bif_return_type('rem', [_,_], _) -> {integer,[]};
+bif_return_type(length, [_], _) -> {integer,[]};
+bif_return_type(size, [_], _) -> {integer,[]};
+bif_return_type(trunc, [_], _) -> {integer,[]};
+bif_return_type(round, [_], _) -> {integer,[]};
+bif_return_type('band', [_,_], _) -> {integer,[]};
+bif_return_type('bor', [_,_], _) -> {integer,[]};
+bif_return_type('bxor', [_,_], _) -> {integer,[]};
+bif_return_type('bnot', [_], _) -> {integer,[]};
+bif_return_type('bsl', [_,_], _) -> {integer,[]};
+bif_return_type('bsr', [_,_], _) -> {integer,[]};
+%% Booleans.
+bif_return_type('==', [_,_], _) -> bool;
+bif_return_type('/=', [_,_], _) -> bool;
+bif_return_type('=<', [_,_], _) -> bool;
+bif_return_type('<', [_,_], _) -> bool;
+bif_return_type('>=', [_,_], _) -> bool;
+bif_return_type('>', [_,_], _) -> bool;
+bif_return_type('=:=', [_,_], _) -> bool;
+bif_return_type('=/=', [_,_], _) -> bool;
+bif_return_type('not', [_], _) -> bool;
+bif_return_type('and', [_,_], _) -> bool;
+bif_return_type('or', [_,_], _) -> bool;
+bif_return_type('xor', [_,_], _) -> bool;
+bif_return_type(is_atom, [_], _) -> bool;
+bif_return_type(is_boolean, [_], _) -> bool;
+bif_return_type(is_binary, [_], _) -> bool;
+bif_return_type(is_float, [_], _) -> bool;
+bif_return_type(is_function, [_], _) -> bool;
+bif_return_type(is_integer, [_], _) -> bool;
+bif_return_type(is_list, [_], _) -> bool;
+bif_return_type(is_map, [_], _) -> bool;
+bif_return_type(is_number, [_], _) -> bool;
+bif_return_type(is_pid, [_], _) -> bool;
+bif_return_type(is_port, [_], _) -> bool;
+bif_return_type(is_reference, [_], _) -> bool;
+bif_return_type(is_tuple, [_], _) -> bool;
+%% Misc.
+bif_return_type(tuple_size, [_], _) -> {integer,[]};
+bif_return_type(node, [], _) -> {atom,[]};
+bif_return_type(node, [_], _) -> {atom,[]};
+bif_return_type(hd, [_], _) -> term;
+bif_return_type(tl, [_], _) -> term;
+bif_return_type(get, [_], _) -> term;
+bif_return_type(Bif, _, _) when is_atom(Bif) -> term.
+
 %% Generic
 bif_arg_types(tuple_size, [_]) -> [{tuple,[0],#{}}];
 bif_arg_types(map_size, [_]) -> [map];
@@ -2280,73 +2351,6 @@ bif_arg_types('bsr', [_,_]) -> [{integer,[]}, {integer,[]}];
 bif_arg_types(is_function, [_,_]) -> [term, {integer,[]}];
 bif_arg_types(_, Args) -> [term || _Arg <- Args].
 
-bif_type('-', Src, Vst) ->
-    arith_type(Src, Vst);
-bif_type('+', Src, Vst) ->
-    arith_type(Src, Vst);
-bif_type('*', Src, Vst) ->
-    arith_type(Src, Vst);
-bif_type(abs, [Num], Vst) ->
-    case get_durable_term_type(Num, Vst) of
-	{float,_}=T -> T;
-	{integer,_}=T -> T;
-	_ -> number
-    end;
-bif_type(float, _, _) -> {float,[]};
-bif_type('/', _, _) -> {float,[]};
-%% Binary operations
-bif_type('byte_size', _, _) -> {integer,[]};
-bif_type('bit_size', _, _) -> {integer,[]};
-%% Integer operations.
-bif_type(ceil, [_], _) -> {integer,[]};
-bif_type('div', [_,_], _) -> {integer,[]};
-bif_type(floor, [_], _) -> {integer,[]};
-bif_type('rem', [_,_], _) -> {integer,[]};
-bif_type(length, [_], _) -> {integer,[]};
-bif_type(size, [_], _) -> {integer,[]};
-bif_type(trunc, [_], _) -> {integer,[]};
-bif_type(round, [_], _) -> {integer,[]};
-bif_type('band', [_,_], _) -> {integer,[]};
-bif_type('bor', [_,_], _) -> {integer,[]};
-bif_type('bxor', [_,_], _) -> {integer,[]};
-bif_type('bnot', [_], _) -> {integer,[]};
-bif_type('bsl', [_,_], _) -> {integer,[]};
-bif_type('bsr', [_,_], _) -> {integer,[]};
-%% Booleans.
-bif_type('==', [_,_], _) -> bool;
-bif_type('/=', [_,_], _) -> bool;
-bif_type('=<', [_,_], _) -> bool;
-bif_type('<', [_,_], _) -> bool;
-bif_type('>=', [_,_], _) -> bool;
-bif_type('>', [_,_], _) -> bool;
-bif_type('=:=', [_,_], _) -> bool;
-bif_type('=/=', [_,_], _) -> bool;
-bif_type('not', [_], _) -> bool;
-bif_type('and', [_,_], _) -> bool;
-bif_type('or', [_,_], _) -> bool;
-bif_type('xor', [_,_], _) -> bool;
-bif_type(is_atom, [_], _) -> bool;
-bif_type(is_boolean, [_], _) -> bool;
-bif_type(is_binary, [_], _) -> bool;
-bif_type(is_float, [_], _) -> bool;
-bif_type(is_function, [_], _) -> bool;
-bif_type(is_integer, [_], _) -> bool;
-bif_type(is_list, [_], _) -> bool;
-bif_type(is_map, [_], _) -> bool;
-bif_type(is_number, [_], _) -> bool;
-bif_type(is_pid, [_], _) -> bool;
-bif_type(is_port, [_], _) -> bool;
-bif_type(is_reference, [_], _) -> bool;
-bif_type(is_tuple, [_], _) -> bool;
-%% Misc.
-bif_type(tuple_size, [_], _) -> {integer,[]};
-bif_type(node, [], _) -> {atom,[]};
-bif_type(node, [_], _) -> {atom,[]};
-bif_type(hd, [_], _) -> term;
-bif_type(tl, [_], _) -> term;
-bif_type(get, [_], _) -> term;
-bif_type(Bif, _, _) when is_atom(Bif) -> term.
-
 is_bif_safe('/=', 2) -> true;
 is_bif_safe('<', 2) -> true;
 is_bif_safe('=/=', 2) -> true;
@@ -2374,14 +2378,14 @@ is_bif_safe(self, 0) -> true;
 is_bif_safe(node, 0) -> true;
 is_bif_safe(_, _) -> false.
 
-arith_type([A], Vst) ->
+arith_return_type([A], Vst) ->
     %% Unary '+' or '-'.
     case get_durable_term_type(A, Vst) of
 	{integer,_} -> {integer,[]};
 	{float,_} -> {float,[]};
         _ -> number
     end;
-arith_type([A,B], Vst) ->
+arith_return_type([A,B], Vst) ->
     TypeA = get_durable_term_type(A, Vst),
     TypeB = get_durable_term_type(B, Vst),
     case {TypeA, TypeB} of
@@ -2390,12 +2394,16 @@ arith_type([A,B], Vst) ->
 	{_,{float,_}} -> {float,[]};
 	{_,_} -> number
     end;
-arith_type(_, _) -> number.
+arith_return_type(_, _) -> number.
 
-return_type({extfunc,M,F,A}, Vst) -> return_type_1(M, F, A, Vst);
-return_type(_, _) -> term.
+%%%
+%%% Return/argument types of calls
+%%%
 
-return_type_1(erlang, setelement, 3, Vst) ->
+call_return_type({extfunc,M,F,A}, Vst) -> call_return_type_1(M, F, A, Vst);
+call_return_type(_, _) -> term.
+
+call_return_type_1(erlang, setelement, 3, Vst) ->
     IndexType = get_term_type({x,0}, Vst),
     TupleType =
         case get_term_type({x,1}, Vst) of
@@ -2418,53 +2426,53 @@ return_type_1(erlang, setelement, 3, Vst) ->
             %% information.
             setelement(3, TupleType, #{})
     end;
-return_type_1(erlang, '++', 2, Vst) ->
+call_return_type_1(erlang, '++', 2, Vst) ->
     case get_term_type({x,0}, Vst) =:= cons orelse
         get_term_type({x,1}, Vst) =:= cons of
         true -> cons;
         false -> list
     end;
-return_type_1(erlang, '--', 2, _Vst) ->
+call_return_type_1(erlang, '--', 2, _Vst) ->
     list;
-return_type_1(erlang, F, A, _) ->
-    return_type_erl(F, A);
-return_type_1(math, F, A, _) ->
-    return_type_math(F, A);
-return_type_1(M, F, A, _) when is_atom(M), is_atom(F), is_integer(A), A >= 0 ->
+call_return_type_1(erlang, F, A, _) ->
+    erlang_mod_return_type(F, A);
+call_return_type_1(math, F, A, _) ->
+    math_mod_return_type(F, A);
+call_return_type_1(M, F, A, _) when is_atom(M), is_atom(F), is_integer(A), A >= 0 ->
     term.
 
-return_type_erl(exit, 1) -> exception;
-return_type_erl(throw, 1) -> exception;
-return_type_erl(error, 1) -> exception;
-return_type_erl(error, 2) -> exception;
-return_type_erl(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
+erlang_mod_return_type(exit, 1) -> exception;
+erlang_mod_return_type(throw, 1) -> exception;
+erlang_mod_return_type(error, 1) -> exception;
+erlang_mod_return_type(error, 2) -> exception;
+erlang_mod_return_type(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 
-return_type_math(cos, 1) -> {float,[]};
-return_type_math(cosh, 1) -> {float,[]};
-return_type_math(sin, 1) -> {float,[]};
-return_type_math(sinh, 1) -> {float,[]};
-return_type_math(tan, 1) -> {float,[]};
-return_type_math(tanh, 1) -> {float,[]};
-return_type_math(acos, 1) -> {float,[]};
-return_type_math(acosh, 1) -> {float,[]};
-return_type_math(asin, 1) -> {float,[]};
-return_type_math(asinh, 1) -> {float,[]};
-return_type_math(atan, 1) -> {float,[]};
-return_type_math(atanh, 1) -> {float,[]};
-return_type_math(erf, 1) -> {float,[]};
-return_type_math(erfc, 1) -> {float,[]};
-return_type_math(exp, 1) -> {float,[]};
-return_type_math(log, 1) -> {float,[]};
-return_type_math(log2, 1) -> {float,[]};
-return_type_math(log10, 1) -> {float,[]};
-return_type_math(sqrt, 1) -> {float,[]};
-return_type_math(atan2, 2) -> {float,[]};
-return_type_math(pow, 2) -> {float,[]};
-return_type_math(ceil, 1) -> {float,[]};
-return_type_math(floor, 1) -> {float,[]};
-return_type_math(fmod, 2) -> {float,[]};
-return_type_math(pi, 0) -> {float,[]};
-return_type_math(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
+math_mod_return_type(cos, 1) -> {float,[]};
+math_mod_return_type(cosh, 1) -> {float,[]};
+math_mod_return_type(sin, 1) -> {float,[]};
+math_mod_return_type(sinh, 1) -> {float,[]};
+math_mod_return_type(tan, 1) -> {float,[]};
+math_mod_return_type(tanh, 1) -> {float,[]};
+math_mod_return_type(acos, 1) -> {float,[]};
+math_mod_return_type(acosh, 1) -> {float,[]};
+math_mod_return_type(asin, 1) -> {float,[]};
+math_mod_return_type(asinh, 1) -> {float,[]};
+math_mod_return_type(atan, 1) -> {float,[]};
+math_mod_return_type(atanh, 1) -> {float,[]};
+math_mod_return_type(erf, 1) -> {float,[]};
+math_mod_return_type(erfc, 1) -> {float,[]};
+math_mod_return_type(exp, 1) -> {float,[]};
+math_mod_return_type(log, 1) -> {float,[]};
+math_mod_return_type(log2, 1) -> {float,[]};
+math_mod_return_type(log10, 1) -> {float,[]};
+math_mod_return_type(sqrt, 1) -> {float,[]};
+math_mod_return_type(atan2, 2) -> {float,[]};
+math_mod_return_type(pow, 2) -> {float,[]};
+math_mod_return_type(ceil, 1) -> {float,[]};
+math_mod_return_type(floor, 1) -> {float,[]};
+math_mod_return_type(fmod, 2) -> {float,[]};
+math_mod_return_type(pi, 0) -> {float,[]};
+math_mod_return_type(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 
 check_limit({x,X}) when is_integer(X), X < 1023 ->
     %% Note: x(1023) is reserved for use by the BEAM loader.
