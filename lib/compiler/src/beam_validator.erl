@@ -711,11 +711,10 @@ valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     assert_term(Src, Vst0),
     assert_choices(Choices),
     select_val_branches(Fail, Src, Choices, Vst0);
-valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst0) ->
-    assert_type(tuple, Tuple, Vst0),
+valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
+    assert_type(tuple, Tuple, Vst),
     assert_arities(Choices),
-    Vst = branch_state(Fail, Vst0),
-    kill_state(branch_arities(Choices, Tuple, Vst));
+    select_arity_branches(Fail, Choices, Tuple, Vst);
 
 %% New bit syntax matching instructions.
 valfun_4({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
@@ -1361,6 +1360,29 @@ svb_1([Val,{f,L}|T], Src, Vst0) ->
 svb_1([], _, Vst) ->
     Vst.
 
+select_arity_branches(Fail, List, Tuple, Vst0) ->
+    Type = get_durable_term_type(Tuple, Vst0),
+    Vst = sab_1(List, Tuple, Type, Vst0),
+    kill_state(branch_state(Fail, Vst)).
+
+sab_1([Sz,{f,L}|T], Tuple, {tuple,[_],Es}=Type0, Vst0) ->
+    #vst{current=St0} = Vst0,
+    Vst1 = update_type(fun meet/2, {tuple,Sz,Es}, Tuple, Vst0),
+    Vst2 = branch_state(L, Vst1),
+    Vst = Vst2#vst{current=St0},
+
+    sab_1(T, Tuple, Type0, Vst);
+sab_1([Sz,{f,L}|T], Tuple, {tuple,Sz,_Es}=Type, Vst0) ->
+    %% The type is already correct. (This test is redundant.)
+    Vst = branch_state(L, Vst0),
+    sab_1(T, Tuple, Type, Vst);
+sab_1([_,{f,_}|T], Tuple, Type, Vst) ->
+    %% We already have an established different exact size for the tuple.
+    %% This label can't possibly be reached.
+    sab_1(T, Tuple, Type, Vst);
+sab_1([], _, _, #vst{}=Vst) ->
+    Vst.
+
 infer_types(Src, Vst) ->
     case get_def(Src, Vst) of
         {bif,tuple_size,{f,_},[Tuple],_} ->
@@ -1948,27 +1970,6 @@ value_to_type(T) when is_tuple(T) ->
                     end, {#{}, 1}, tuple_to_list(T)),
      {tuple, tuple_size(T), Es};
 value_to_type(L) -> {literal, L}.
-
-branch_arities(List, Tuple, Vst) ->
-    Type = get_durable_term_type(Tuple, Vst),
-    branch_arities(List, Tuple, Type, Vst).
-
-branch_arities([Sz,{f,L}|T], Tuple, {tuple,[_],Es0}=Type0, Vst0) when is_integer(Sz) ->
-    %% Filter out element types that are no longer valid.
-    Es = maps:filter(fun(Index, _Type) -> Index =< Sz end, Es0),
-    Vst1 = set_aliased_type({tuple,Sz,Es}, Tuple, Vst0),
-    Vst = branch_state(L, Vst1),
-    branch_arities(T, Tuple, Type0, Vst);
-branch_arities([Sz,{f,L}|T], Tuple, {tuple,Sz,_Es}=Type, Vst0) when is_integer(Sz) ->
-    %% The type is already correct. (This test is redundant.)
-    Vst = branch_state(L, Vst0),
-    branch_arities(T, Tuple, Type, Vst);
-branch_arities([Sz0,{f,_}|T], Tuple, {tuple,Sz,_Es}=Type, Vst)
-  when is_integer(Sz), Sz0 =/= Sz ->
-    %% We already have an established different exact size for the tuple.
-    %% This label can't possibly be reached.
-    branch_arities(T, Tuple, Type, Vst);
-branch_arities([], _, _, #vst{}=Vst) -> Vst.
 
 branch_state(0, #vst{}=Vst) ->
     %% If the instruction fails, the stack may be scanned
