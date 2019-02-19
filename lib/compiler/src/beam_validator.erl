@@ -624,16 +624,6 @@ valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     kill_state(Vst);
 valfun_4(raw_raise=I, Vst) ->
     call(I, 3, Vst);
-valfun_4({bif,map_get,{f,Fail},[_Key,Map]=Ss,Dst}, Vst0) ->
-    validate_src(Ss, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
-    Vst = update_type(fun meet/2, map, Map, Vst1),
-    extract_term(term, Ss, Dst, Vst);
-valfun_4({bif,is_map_key,{f,Fail},[_Key,Map]=Ss,Dst}, Vst0) ->
-    validate_src(Ss, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
-    Vst = update_type(fun meet/2, map, Map, Vst1),
-    extract_term(bool, Ss, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},[Cons]=Ss,Dst}, Vst0)
   when Op =:= hd; Op =:= tl ->
     validate_src(Ss, Vst0),
@@ -2323,6 +2313,8 @@ bif_return_type(Bif, _, _) when is_atom(Bif) -> term.
 %% Generic
 bif_arg_types(tuple_size, [_]) -> [{tuple,[0],#{}}];
 bif_arg_types(map_size, [_]) -> [map];
+bif_arg_types(is_map_key, [_,_]) -> [term, map];
+bif_arg_types(map_get, [_,_]) -> [term, map];
 bif_arg_types(length, [_]) -> [list];
 bif_arg_types(hd, [_]) -> [cons];
 bif_arg_types(tl, [_]) -> [cons];
