@@ -342,10 +342,10 @@ valfun_1({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_fls(checked, Vst0),
     Vst = eat_heap_float(Vst0),
     create_term({float,[]}, fmove, [], Dst, Vst);
-valfun_1({kill,{y,_}=Reg}, Vst) ->
-    create_term(initialized, kill, [], Reg, Vst);
-valfun_1({init,{y,_}=Reg}, Vst) ->
-    create_term(initialized, init, [], Reg, Vst);
+valfun_1({kill,Reg}, Vst) ->
+    create_tag(initialized, kill, [], Reg, Vst);
+valfun_1({init,Reg}, Vst) ->
+    create_tag(initialized, init, [], Reg, Vst);
 valfun_1({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
 valfun_1({bif,Op,{f,_},Ss,Dst}=I, Vst) ->
@@ -463,31 +463,34 @@ valfun_1({'catch',Dst,{f,Fail}}, Vst) when Fail =/= none ->
     init_try_catch_branch(catchtag, Dst, Fail, Vst);
 valfun_1({'try',Dst,{f,Fail}}, Vst)  when Fail =/= none ->
     init_try_catch_branch(trytag, Dst, Fail, Vst);
-valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
-    case get_special_y_type(Reg, Vst0) of
-	{catchtag,Fail} ->
-	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
-            Xregs = gb_trees:enter(0, term, St#st.x),
-	    Vst#vst{current=St#st{x=Xregs,ct=Fails,fls=undefined,aliases=#{}}};
-	Type ->
-	    error({bad_type,Type})
+valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|_]}}=Vst0) ->
+    case get_tag_type(Reg, Vst0) of
+        {catchtag,Fail} ->
+            %% {x,0} contains the caught term, if any.
+            create_term(term, catch_end, [], {x,0}, kill_catch_tag(Reg, Vst0));
+        Type ->
+            error({wrong_tag_type,Type})
     end;
-valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst) ->
-    case get_special_y_type(Reg, Vst) of
-	{trytag,Fail} ->
-	    St = St0#st{ct=Fails,fls=undefined},
-	    set_catch_end(Reg, Vst#vst{current=St});
-	Type ->
-	    error({bad_type,Type})
+valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|_]}}=Vst) ->
+    case get_tag_type(Reg, Vst) of
+        {trytag,Fail} ->
+            %% Kill the catch tag, note that x registers are unaffected.
+            kill_catch_tag(Reg, Vst);
+        Type ->
+            error({wrong_tag_type,Type})
     end;
-valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
-    case get_special_y_type(Reg, Vst0) of
-	{trytag,Fail} ->
-	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
-	    Xs = gb_trees_from_list([{0,{atom,[]}},{1,term},{2,term}]),
-	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined,aliases=#{}}};
-	Type ->
-	    error({bad_type,Type})
+valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|_]}}=Vst0) ->
+    case get_tag_type(Reg, Vst0) of
+        {trytag,Fail} ->
+            %% Kill the catch tag and all x registers.
+            Vst1 = prune_x_regs(0, kill_catch_tag(Reg, Vst0)),
+
+            %% Class:Error:Stacktrace
+            Vst2 = create_term({atom,[]}, try_case, [], {x,0}, Vst1),
+            Vst = create_term(term, try_case, [], {x,1}, Vst2),
+            create_term(term, try_case, [], {x,2}, Vst);
+        Type ->
+            error({wrong_tag_type,Type})
     end;
 valfun_1({get_list,Src,D1,D2}, Vst0) ->
     assert_not_literal(Src),
@@ -513,7 +516,7 @@ valfun_1(I, Vst) ->
     valfun_2(I, Vst).
 
 init_try_catch_branch(Tag, Dst, Fail, Vst0) ->
-    Vst1 = set_type_y({Tag,[Fail]}, Dst, Vst0),
+    Vst1 = create_tag({Tag,[Fail]}, 'try_catch', [], Dst, Vst0),
     #vst{current=#st{ct=Fails}=St0} = Vst1,
     CurrentSt = St0#st{ct=[[Fail]|Fails]},
 
@@ -1441,8 +1444,8 @@ infer_type_test_bif(Type, Src) ->
 assign({y,_}=Src, {y,_}=Dst, Vst) ->
     %% The stack trimming optimization may generate a move from an initialized
     %% but unassigned Y register to another Y register.
-    case get_term_type_1(Src, Vst) of
-        initialized -> set_type_reg(initialized, Dst, Vst);
+    case get_raw_type(Src, Vst) of
+        initialized -> create_tag(initialized, init, [], Dst, Vst);
         _ -> assign_1(Src, Dst, Vst)
     end;
 assign({Kind,_}=Reg, Dst, Vst) when Kind =:= x; Kind =:= y ->
@@ -1450,6 +1453,19 @@ assign({Kind,_}=Reg, Dst, Vst) when Kind =:= x; Kind =:= y ->
 assign(Literal, Dst, Vst) ->
     Type = get_term_type(Literal, Vst),
     create_term(Type, move, [Literal], Dst, Vst).
+
+%% Creates a special tag value that isn't a regular term, such as
+%% 'initialized' or 'catchtag'
+create_tag(Type, Op, Ss, {y,_}=Dst, Vst) ->
+    set_type_reg_expr(Type, {Op, Ss}, Dst, Vst);
+create_tag(_Type, _Op, _Ss, Dst, _Vst) ->
+    error({invalid_tag_register, Dst}).
+
+%% Wipes a special tag, leaving the register initialized but empty.
+kill_tag({y,Y}=Reg, #vst{current=#st{y=Ys0}=St0}=Vst) ->
+    _ = get_tag_type(Reg, Vst),                 %Assertion.
+    Ys = gb_trees:update(Y, initialized, Ys0),
+    Vst#vst{current=St0#st{y=Ys}}.
 
 %% Creates a completely new term with the given type.
 create_term(Type, Op, Ss, Dst, Vst) ->
@@ -1567,12 +1583,15 @@ set_type(Type, {y,_}=Reg, Vst) ->
 set_type(_, _, #vst{}=Vst) -> Vst.
 
 set_type_reg(Type, Src, Dst, Vst) ->
-    case get_term_type_1(Src, Vst) of
+    case get_raw_type(Src, Vst) of
+        uninitialized ->
+            error({uninitialized_reg, Src});
         {fragile,_} ->
             set_type_reg(make_fragile(Type), Dst, Vst);
         _ ->
             set_type_reg(Type, Dst, Vst)
     end.
+
 set_type_reg(Type, Reg, Vst) ->
     set_type_reg_expr(Type, none, Reg, Vst).
 
@@ -1580,9 +1599,6 @@ set_type_reg_expr(Type, Expr, {x,_}=Reg, Vst) ->
     set_type_x(Type, Expr, Reg, Vst);
 set_type_reg_expr(Type, Expr, Reg, Vst) ->
     set_type_y(Type, Expr, Reg, Vst).
-
-set_type_y(Type, Reg, Vst) ->
-    set_type_y(Type, none, Reg, Vst).
 
 set_type_x(Type, Expr, {x,X}=Reg, #vst{current=#st{x=Xs0,defs=Defs0}=St0}=Vst)
   when is_integer(X), 0 =< X ->
@@ -1614,7 +1630,7 @@ set_type_y(Type, Expr, {y,Y}=Reg, #vst{current=#st{y=Ys0,defs=Defs0}=St0}=Vst)
 	     {value,_} ->
 		 gb_trees:update(Y, Type, Ys0)
 	 end,
-    check_try_catch_tags(Type, Y, Ys0),
+    check_try_catch_tags(Type, Reg, Vst),
     Defs = Defs0#{Reg=>Expr},
     St = kill_aliases(Reg, St0),
     Vst#vst{current=St#st{y=Ys,defs=Defs}};
@@ -1624,29 +1640,32 @@ set_type_y(Type, _Expr, Reg, #vst{}) ->
 make_fragile({fragile,_}=Type) -> Type;
 make_fragile(Type) -> {fragile,Type}.
 
-set_catch_end({y,Y}, #vst{current=#st{y=Ys0}=St}=Vst) ->
-    Ys = gb_trees:update(Y, initialized, Ys0),
-    Vst#vst{current=St#st{y=Ys}}.
+kill_catch_tag(Reg, #vst{current=#st{ct=[Fail|Fails]}=St}=Vst0) ->
+    Vst = Vst0#vst{current=St#st{ct=Fails,fls=undefined}},
+    {_, Fail} = get_tag_type(Reg, Vst),         %Assertion.
+    kill_tag(Reg, Vst).
 
-check_try_catch_tags(Type, LastY, Ys) ->
+check_try_catch_tags(Type, {y,N}=Reg, Vst) ->
+    %% Every catch or try/catch must use a lower Y register number than any
+    %% enclosing catch or try/catch. That will ensure that when the stack is
+    %% scanned when an exception occurs, the innermost try/catch tag is found
+    %% first.
     case is_try_catch_tag(Type) of
-        false ->
-            ok;
-        true ->
-            %% Every catch or try/catch must use a lower Y register
-            %% number than any enclosing catch or try/catch. That will
-            %% ensure that when the stack is scanned when an
-            %% exception occurs, the innermost try/catch tag is found
-            %% first.
-            Bad = [{{y,Y},Tag} || {Y,Tag} <- gb_trees:to_list(Ys),
-                                  Y < LastY, is_try_catch_tag(Tag)],
-            case Bad of
-                [] ->
-                    ok;
-                [_|_] ->
-                    error({bad_try_catch_nesting,{y,LastY},Bad})
-            end
+        true -> check_try_catch_tags_1(N - 1, Reg, Vst, []);
+        false -> ok
     end.
+
+check_try_catch_tags_1(N, _Reg, _Vst, []) when N < 0 ->
+    ok;
+check_try_catch_tags_1(N, Reg, _Vst, Bad) when N < 0 ->
+    error({bad_try_catch_nesting, Reg, Bad});
+check_try_catch_tags_1(N, Reg, Vst, Acc0) ->
+    Tag = get_raw_type({y, N}, Vst),
+    Acc = case is_try_catch_tag(Tag) of
+              true -> [{{y, N}, Tag} | Acc0];
+              false -> Acc0
+          end,
+    check_try_catch_tags_1(N - 1, Reg, Vst, Acc).
 
 is_try_catch_tag({catchtag,_}) -> true;
 is_try_catch_tag({trytag,_}) -> true;
@@ -1897,6 +1916,16 @@ validate_src(Ss, Vst) when is_list(Ss) ->
     [assert_term(S, Vst) || S <- Ss],
     ok.
 
+%% get_term_type(Src, ValidatorState) -> Type
+%%  Get the type of the source Src. The returned type Type will be
+%%  a standard Erlang type (no catch/try tags or match contexts).
+
+get_term_type(Src, Vst) ->
+    case get_move_term_type(Src, Vst) of
+        #ms{} -> error({match_context,Src});
+        Type -> Type
+    end.
+
 %% get_durable_term_type(Src, ValidatorState) -> Type
 %%  Get the type of the source Src. The returned type Type will be
 %%  a standard Erlang type (no catch/try tags or match contexts).
@@ -1913,42 +1942,42 @@ get_durable_term_type(Src, Vst) ->
 %%  a standard Erlang type (no catch/try tags). Match contexts are OK.
 
 get_move_term_type(Src, Vst) ->
-    case get_term_type_1(Src, Vst) of
-	initialized -> error({unassigned,Src});
-	{catchtag,_} -> error({catchtag,Src});
-	{trytag,_} -> error({trytag,Src});
+    case get_raw_type(Src, Vst) of
+        initialized -> error({unassigned,Src});
+        uninitialized -> error({uninitialized_reg,Src});
+        {catchtag,_} -> error({catchtag,Src});
+        {trytag,_} -> error({trytag,Src});
         tuple_in_progress -> error({tuple_in_progress,Src});
-	Type -> Type
+        Type -> Type
     end.
 
-%% get_term_type(Src, ValidatorState) -> Type
-%%  Get the type of the source Src. The returned type Type will be
-%%  a standard Erlang type (no catch/try tags or match contexts).
+%% get_tag_type(Src, ValidatorState) -> Type
+%%  Return the tag type of a Y register, erroring out if it contains a term.
 
-get_term_type(Src, Vst) ->
-    case get_move_term_type(Src, Vst) of
-	#ms{} -> error({match_context,Src});
-	Type -> Type
-    end.
+get_tag_type({y,_}=Src, Vst) ->
+    case get_raw_type(Src, Vst) of
+        {catchtag, _}=Tag -> Tag;
+        {trytag, _}=Tag -> Tag;
+        uninitialized=Tag -> Tag;
+        initialized=Tag -> Tag;
+        Other -> error({invalid_tag,Src,Other})
+    end;
+get_tag_type(Src, _) ->
+    error({invalid_tag_register,Src}).
 
-%% get_special_y_type(Src, ValidatorState) -> Type
-%%  Return the type for the Y register without doing any validity checks.
-
-get_special_y_type({y,_}=Reg, Vst) -> get_term_type_1(Reg, Vst);
-get_special_y_type(Src, _) -> error({source_not_y_reg,Src}).
-
-get_term_type_1({x,X}=Reg, #vst{current=#st{x=Xs}}) when is_integer(X) ->
+%% get_raw_type(Src, ValidatorState) -> Type
+%%  Return the type of a register without doing any validity checks.
+get_raw_type({x,X}, #vst{current=#st{x=Xs}}) when is_integer(X) ->
     case gb_trees:lookup(X, Xs) of
-	{value,Type} -> Type;
-	none -> error({uninitialized_reg,Reg})
+        {value,Type} -> Type;
+        none -> uninitialized
     end;
-get_term_type_1({y,Y}=Reg, #vst{current=#st{y=Ys}}) when is_integer(Y) ->
+get_raw_type({y,Y}, #vst{current=#st{y=Ys}}) when is_integer(Y) ->
     case gb_trees:lookup(Y, Ys) of
- 	none -> error({uninitialized_reg,Reg});
-	{value,uninitialized} -> error({uninitialized_reg,Reg});
-	{value,Type} -> Type
+        {value,Type} -> Type;
+        none -> uninitialized
     end;
-get_term_type_1(Src, _) ->
+get_raw_type(Src, _) ->
     get_literal_type(Src).
 
 get_def(Src, #vst{current=#st{defs=Defs}}) ->
@@ -2249,7 +2278,7 @@ remove_fragility(#vst{current=#st{x=Xs0,y=Ys0}=St0}=Vst) ->
 
 propagate_fragility(Type, Ss, Vst) ->
     F = fun(S) ->
-                case get_term_type_1(S, Vst) of
+                case get_raw_type(S, Vst) of
                     {fragile,_} -> true;
                     _ -> false
                 end
