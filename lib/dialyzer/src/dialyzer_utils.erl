@@ -450,8 +450,9 @@ get_spec_info([{Contract, Ln, [{Id, TypeSpec}]}|Left],
     error ->
       SpecData = {TypeSpec, Xtra},
       NewActiveMap =
-	dialyzer_contracts:store_tmp_contract(MFA, {File, Ln}, SpecData,
-					      ActiveMap, RecordsMap),
+	dialyzer_contracts:store_tmp_contract(ModName, MFA, {File, Ln},
+                                              SpecData, ActiveMap,
+                                              RecordsMap),
       {NewSpecMap, NewCallbackMap} =
 	case Contract of
 	  spec     -> {NewActiveMap, CallbackMap};
@@ -599,24 +600,32 @@ collect_attribute([], _Tag, _File) ->
 -spec is_suppressed_fun(mfa(), codeserver()) -> boolean().
 
 is_suppressed_fun(MFA, CodeServer) ->
-  lookup_fun_property(MFA, nowarn_function, CodeServer).
+  lookup_fun_property(MFA, nowarn_function, CodeServer, false).
 
 -spec is_suppressed_tag(mfa() | module(), dial_warn_tag(), codeserver()) ->
                            boolean().
 
 is_suppressed_tag(MorMFA, Tag, Codeserver) ->
-  not lookup_fun_property(MorMFA, Tag, Codeserver).
+  not lookup_fun_property(MorMFA, Tag, Codeserver, true).
 
-lookup_fun_property({M, _F, _A}=MFA, Property, CodeServer) ->
-  MFAPropList = dialyzer_codeserver:lookup_meta_info(MFA, CodeServer),
-  case proplists:get_value(Property, MFAPropList, no) of
-    mod -> false; % suppressed in function
-    func -> true; % requested in function
-    no -> lookup_fun_property(M, Property, CodeServer)
+lookup_fun_property({M, _F, _A}=MFA, Property, CodeServer, NoInfoReturn) ->
+  case dialyzer_codeserver:lookup_meta_info(MFA, CodeServer) of
+    error ->
+      lookup_fun_property(M, Property, CodeServer, NoInfoReturn);
+    {ok, MFAPropList} ->
+      case proplists:get_value(Property, MFAPropList, no) of
+        mod -> false; % suppressed in function
+        func -> true; % requested in function
+        no -> lookup_fun_property(M, Property, CodeServer, NoInfoReturn)
+      end
   end;
-lookup_fun_property(M, Property, CodeServer) when is_atom(M) ->
-  MPropList = dialyzer_codeserver:lookup_meta_info(M, CodeServer),
-  proplists:is_defined(Property, MPropList).
+lookup_fun_property(M, Property, CodeServer, NoInfoReturn) when is_atom(M) ->
+  case dialyzer_codeserver:lookup_meta_info(M, CodeServer) of
+    error ->
+      NoInfoReturn;
+    {ok, MPropList} ->
+      proplists:is_defined(Property, MPropList)
+  end.
 
 %% ============================================================================
 %%
