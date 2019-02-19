@@ -689,6 +689,15 @@ start(_, []) ->
     </func>
 
     <func>
+      <name name="i" arity="0" since="OTP 21.3"/>
+      <name name="i" arity="1" since="OTP 21.3"/>
+      <fsummary>Pretty print the Logger configuration.</fsummary>
+      <desc>
+        <p>Pretty print the Logger configuration.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="remove_handler" arity="1" since="OTP 21.0"/>
       <fsummary>Remove the handler with the specified identity.</fsummary>
       <desc>
