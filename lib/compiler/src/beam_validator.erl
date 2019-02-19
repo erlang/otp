@@ -327,7 +327,7 @@ valfun_1({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
-    extract_term(binary, [Ctx], Dst, Vst, Vst0);
+    extract_term(binary, bs_get_tail, [Ctx], Dst, Vst, Vst0);
 valfun_1(bs_init_writable=I, Vst) ->
     call(I, 1, Vst);
 valfun_1(build_stacktrace=I, Vst) ->
@@ -341,15 +341,15 @@ valfun_1({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_freg_set(Src, Vst0),
     assert_fls(checked, Vst0),
     Vst = eat_heap_float(Vst0),
-    create_term({float,[]}, Dst, Vst);
+    create_term({float,[]}, fmove, [], Dst, Vst);
 valfun_1({kill,{y,_}=Reg}, Vst) ->
-    create_term(initialized, Reg, Vst);
+    create_term(initialized, kill, [], Reg, Vst);
 valfun_1({init,{y,_}=Reg}, Vst) ->
-    create_term(initialized, Reg, Vst);
+    create_term(initialized, init, [], Reg, Vst);
 valfun_1({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
-valfun_1({bif,Op,{f,_},Src,Dst}=I, Vst) ->
-    case is_bif_safe(Op, length(Src)) of
+valfun_1({bif,Op,{f,_},Ss,Dst}=I, Vst) ->
+    case is_bif_safe(Op, length(Ss)) of
 	false ->
 	    %% Since the BIF can fail, make sure that any catch state
 	    %% is updated.
@@ -357,16 +357,16 @@ valfun_1({bif,Op,{f,_},Src,Dst}=I, Vst) ->
 	true ->
 	    %% It can't fail, so we finish handling it here (not updating
 	    %% catch state).
-	    validate_src(Src, Vst),
-	    Type = bif_return_type(Op, Src, Vst),
-	    set_type_reg_expr(Type, I, Dst, Vst)
+	    validate_src(Ss, Vst),
+	    Type = bif_return_type(Op, Ss, Vst),
+	    extract_term(Type, {bif,Op}, Ss, Dst, Vst)
     end;
 %% Put instructions.
 valfun_1({put_list,A,B,Dst}, Vst0) ->
     assert_not_fragile(A, Vst0),
     assert_not_fragile(B, Vst0),
     Vst = eat_heap(2, Vst0),
-    create_term(cons, Dst, Vst);
+    create_term(cons, put_list, [A, B], Dst, Vst);
 valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
     _ = [assert_not_fragile(El, Vst0) || El <- Elements],
     Size = length(Elements),
@@ -377,10 +377,10 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
                        {Es, Index + 1}
                    end, {#{}, 1}, Elements),
     Type = {tuple,Size,Es},
-    create_term(Type, Dst, Vst);
+    create_term(Type, put_tuple2, [], Dst, Vst);
 valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
     Vst1 = eat_heap(1, Vst0),
-    Vst = create_term(tuple_in_progress, Dst, Vst1),
+    Vst = create_term(tuple_in_progress, put_tuple, [], Dst, Vst1),
     #vst{current=St0} = Vst,
     St = St0#st{puts_left={Sz,{Dst,Sz,#{}}}},
     Vst#vst{current=St};
@@ -393,7 +393,7 @@ valfun_1({put,Src}, Vst0) ->
             error(not_building_a_tuple);
         #st{puts_left={1,{Dst,Sz,Es}}} ->
             St = St0#st{puts_left=none},
-            create_term({tuple,Sz,Es}, Dst, Vst#vst{current=St});
+            create_term({tuple,Sz,Es}, put_tuple, [], Dst, Vst#vst{current=St});
         #st{puts_left={PutsLeft,{Dst,Sz,Es0}}} when is_integer(PutsLeft) ->
             Index = Sz - PutsLeft + 1,
             Es = Es0#{ Index => get_term_type(Src, Vst0) },
@@ -493,21 +493,21 @@ valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
 valfun_1({get_list,Src,D1,D2}, Vst0) ->
     assert_not_literal(Src),
     assert_type(cons, Src, Vst0),
-    Vst = extract_term(term, [Src], D1, Vst0),
-    extract_term(term, [Src], D2, Vst);
+    Vst = extract_term(term, get_hd, [Src], D1, Vst0),
+    extract_term(term, get_tl, [Src], D2, Vst);
 valfun_1({get_hd,Src,Dst}, Vst) ->
     assert_not_literal(Src),
     assert_type(cons, Src, Vst),
-    extract_term(term, [Src], Dst, Vst);
+    extract_term(term, get_hd, [Src], Dst, Vst);
 valfun_1({get_tl,Src,Dst}, Vst) ->
     assert_not_literal(Src),
     assert_type(cons, Src, Vst),
-    extract_term(term, [Src], Dst, Vst);
+    extract_term(term, get_tl, [Src], Dst, Vst);
 valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
     assert_not_literal(Src),
     assert_type({tuple_element,N+1}, Src, Vst),
     Type = get_element_type(N+1, Src, Vst),
-    extract_term(Type, [Src], Dst, Vst);
+    extract_term(Type, get_tuple_element, [Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
     kill_state(branch_state(Lbl, Vst));
 valfun_1(I, Vst) ->
@@ -606,9 +606,6 @@ valfun_4({call_ext_last,_,_,_}, #vst{current=#st{numy=NumY}}) ->
 valfun_4({make_fun2,_,_,_,Live}, Vst) ->
     call(make_fun, Live, Vst);
 %% Other BIFs
-valfun_4({bif,tuple_size,{f,Fail},[Tuple],Dst}=I, Vst0) ->
-    Vst = type_test(Fail, {tuple,[0],#{}}, Tuple, Vst0),
-    set_type_reg_expr({integer,[]}, I, Dst, Vst);
 valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     PosType = get_durable_term_type(Pos, Vst0),
     ElementType = case PosType of
@@ -618,7 +615,7 @@ valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     InferredType = {tuple,[get_tuple_size(PosType)],#{}},
     Vst1 = branch_state(Fail, Vst0),
     Vst = update_type(fun meet/2, InferredType, Tuple, Vst1),
-    extract_term(ElementType, [Tuple], Dst, Vst);
+    extract_term(ElementType, {bif,element}, [Tuple], Dst, Vst);
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
     kill_state(Vst);
@@ -629,7 +626,7 @@ valfun_4({bif,Op,{f,Fail},[Cons]=Ss,Dst}, Vst0)
     validate_src(Ss, Vst0),
     Vst = type_test(Fail, cons, Cons, Vst0),
     Type = bif_return_type(Op, Ss, Vst),
-    extract_term(Type, Ss, Dst, Vst);
+    extract_term(Type, {bif,Op}, Ss, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
     validate_src(Ss, Vst0),
     Vst1 = branch_state(Fail, Vst0),
@@ -642,7 +639,7 @@ valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
                 end, Vst1, zip(Ss, ArgTypes)),
 
     Type = bif_return_type(Op, Ss, Vst),
-    extract_term(Type, Ss, Dst, Vst);
+    extract_term(Type, {bif,Op}, Ss, Dst, Vst);
 valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
     validate_src(Ss, Vst0),
     verify_live(Live, Vst0),
@@ -658,7 +655,7 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
 
     Type = bif_return_type(Op, Ss, Vst3),
     Vst = prune_x_regs(Live, Vst3),
-    extract_term(Type, Ss, Dst, Vst, Vst0);
+    extract_term(Type, {gc_bif,Op}, Ss, Dst, Vst, Vst0);
 valfun_4(return, #vst{current=#st{numy=none}}=Vst) ->
     assert_not_fragile({x,0}, Vst),
     kill_state(Vst);
@@ -670,7 +667,7 @@ valfun_4({loop_rec,{f,Fail},Dst}, Vst0) ->
     %% remove_message/0 is executed. If control transfers
     %% to the loop_rec_end/1 instruction, no part of
     %% this term must be stored in a Y register.
-    create_term({fragile,term}, Dst, Vst);
+    create_term({fragile,term}, loop_rec, [], Dst, Vst);
 valfun_4({wait,_}, Vst) ->
     verify_y_init(Vst),
     kill_state(Vst);
@@ -730,18 +727,18 @@ valfun_4({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
     validate_bs_skip_utf(Fail, Ctx, Live, Vst);
 valfun_4({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
     validate_bs_skip_utf(Fail, Ctx, Live, Vst);
-valfun_4({test,bs_get_integer2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
-valfun_4({test,bs_get_float2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, {float, []}, Dst, Vst);
-valfun_4({test,bs_get_binary2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, binary, Dst, Vst);
-valfun_4({test,bs_get_utf8,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
-valfun_4({test,bs_get_utf16,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
-valfun_4({test,bs_get_utf32,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
+valfun_4({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+valfun_4({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {float, []}, Dst, Vst);
+valfun_4({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, binary, Dst, Vst);
+valfun_4({test,bs_get_utf8=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+valfun_4({test,bs_get_utf16=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+valfun_4({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
     bsm_save(Ctx, SavePoint, Vst);
 valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
@@ -751,7 +748,7 @@ valfun_4({bs_get_position, Ctx, Dst, Live}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
-    create_term(bs_position, Dst, Vst);
+    create_term(bs_position, bs_get_position, [Ctx], Dst, Vst);
 valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
     bsm_validate_context(Ctx, Vst),
     assert_type(bs_position, Pos, Vst),
@@ -820,13 +817,13 @@ valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
 valfun_4({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
     assert_not_fragile(A, Vst),
     assert_not_fragile(B, Vst),
-    create_term({integer,[]}, Dst, branch_state(Fail, Vst));
+    create_term({integer,[]}, bs_add, [A, B], Dst, branch_state(Fail, Vst));
 valfun_4({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
-    create_term({integer,[]}, Dst, branch_state(Fail, Vst));
+    create_term({integer,[]}, bs_utf8_size, [A], Dst, branch_state(Fail, Vst));
 valfun_4({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
-    create_term({integer,[]}, Dst, branch_state(Fail, Vst));
+    create_term({integer,[]}, bs_utf16_size, [A], Dst, branch_state(Fail, Vst));
 valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -839,7 +836,7 @@ valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
-    create_term(binary, Dst, Vst);
+    create_term(binary, bs_init2, [], Dst, Vst);
 valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -852,7 +849,7 @@ valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
-    create_term(binary, Dst, Vst);
+    create_term(binary, bs_init_bits, [], Dst, Vst);
 valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -861,12 +858,12 @@ valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
-    create_term(binary, Dst, Vst);
+    create_term(binary, bs_append, [Bin], Dst, Vst);
 valfun_4({bs_private_append,{f,Fail},Bits,_Unit,Bin,_Flags,Dst}, Vst0) ->
     assert_not_fragile(Bits, Vst0),
     assert_not_fragile(Bin, Vst0),
     Vst = branch_state(Fail, Vst0),
-    create_term(binary, Dst, Vst);
+    create_term(binary, bs_private_append, [Bin], Dst, Vst);
 valfun_4({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
     Vst;
 valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
@@ -891,10 +888,10 @@ valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
     assert_not_fragile(Src, Vst),
     branch_state(Fail, Vst);
 %% Map instructions.
-valfun_4({put_map_assoc,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
-    verify_put_map(Fail, Src, Dst, Live, List, Vst);
-valfun_4({put_map_exact,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
-    verify_put_map(Fail, Src, Dst, Live, List, Vst);
+valfun_4({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
+valfun_4({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 valfun_4({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
     verify_get_map(Fail, Src, List, Vst);
 valfun_4(_, _) ->
@@ -920,10 +917,10 @@ verify_get_map(Fail, Src, List, Vst0) ->
 %%    {get_map_elements,{f,7},{x,1},{list,[{atom,a},{x,1},{atom,b},{x,2}]}}.
 %%
 %% If 'a' exists but not 'b', {x,1} is overwritten when we jump to {f,7}.
-clobber_map_vals([_Key,Dst|T], Map, Vst0) ->
+clobber_map_vals([Key,Dst|T], Map, Vst0) ->
     case is_reg_defined(Dst, Vst0) of
         true ->
-            Vst = extract_term(term, [Map], Dst, Vst0),
+            Vst = extract_term(term, {bif,map_get}, [Key, Map], Dst, Vst0),
             clobber_map_vals(T, Map, Vst);
         false ->
             clobber_map_vals(T, Map, Vst0)
@@ -935,14 +932,14 @@ extract_map_keys([Key,_Val|T]) ->
     [Key|extract_map_keys(T)];
 extract_map_keys([]) -> [].
 
-extract_map_vals([Src,Dst|Vs], Map, Vst0, Vsti0) ->
-    assert_term(Src, Vst0),
-    Vsti = extract_term(term, [Map], Dst, Vsti0),
+extract_map_vals([Key,Dst|Vs], Map, Vst0, Vsti0) ->
+    assert_term(Key, Vst0),
+    Vsti = extract_term(term, {bif,map_get}, [Key, Map], Dst, Vsti0),
     extract_map_vals(Vs, Map, Vst0, Vsti);
 extract_map_vals([], _Map, _Vst0, Vst) ->
     Vst.
 
-verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
+verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(map, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -952,7 +949,7 @@ verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     Vst = prune_x_regs(Live, Vst2),
     Keys = extract_map_keys(List),
     assert_unique_map_keys(Keys),
-    create_term(map, Dst, Vst).
+    create_term(map, Op, [Src], Dst, Vst).
 
 %%
 %% Common code for validating bs_start_match* instructions.
@@ -973,19 +970,20 @@ validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
                  end,
                  fun(SuccVst0) ->
                          SuccVst = prune_x_regs(Live, SuccVst0),
-                         extract_term(Type, [Src], Dst, SuccVst, Vst)
+                         extract_term(Type, bs_start_match, [Src], Dst,
+                                      SuccVst, Vst)
                  end, Vst).
 
 %%
 %% Common code for validating bs_get* instructions.
 %%
-validate_bs_get(Fail, Ctx, Live, Type, Dst, Vst0) ->
+validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst0) ->
     bsm_validate_context(Ctx, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     Vst = branch_state(Fail, Vst1),
-    extract_term(Type, [Ctx], Dst, Vst).
+    extract_term(Type, Op, [Ctx], Dst, Vst).
 
 %%
 %% Common code for validating bs_skip_utf* instructions.
@@ -1375,37 +1373,37 @@ sab_1([], _, _, #vst{}=Vst) ->
 
 infer_types(Src, Vst) ->
     case get_def(Src, Vst) of
-        {bif,tuple_size,{f,_},[Tuple],_} ->
+        {{bif,tuple_size}, [Tuple]} ->
             fun({integer,Arity}, S) ->
                     update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
                (_, S) -> S
             end;
-        {bif,'=:=',{f,_},[ArityReg,{integer,_}=Val],_} when ArityReg =/= Src ->
+        {{bif,'=:='},[ArityReg,{integer,_}=Val]} when ArityReg =/= Src ->
             fun({atom,true}, S) ->
                     Infer = infer_types(ArityReg, S),
                     Infer(Val, S);
                (_, S) -> S
             end;
-        {bif,is_atom,{f,_},[Src],_} ->
-            infer_type_test_bif({atom,[]}, Src);
-        {bif,is_boolean,{f,_},[Src],_} ->
-            infer_type_test_bif(bool, Src);
-        {bif,is_binary,{f,_},[Src],_} ->
-            infer_type_test_bif(binary, Src);
-        {bif,is_bitstring,{f,_},[Src],_} ->
-            infer_type_test_bif(binary, Src);
-        {bif,is_float,{f,_},[Src],_} ->
-            infer_type_test_bif(float, Src);
-        {bif,is_integer,{f,_},[Src],_} ->
-            infer_type_test_bif({integer,{}}, Src);
-        {bif,is_list,{f,_},[Src],_} ->
-            infer_type_test_bif(list, Src);
-        {bif,is_map,{f,_},[Src],_} ->
-            infer_type_test_bif(map, Src);
-        {bif,is_number,{f,_},[Src],_} ->
-            infer_type_test_bif(number, Src);
-        {bif,is_tuple,{f,_},[Src],_} ->
-            infer_type_test_bif({tuple,[],#{}}, Src);
+        {{bif,is_atom},[Src]} ->
+             infer_type_test_bif({atom,[]}, Src);
+        {{bif,is_boolean},[Src]} ->
+             infer_type_test_bif(bool, Src);
+        {{bif,is_binary},[Src]} ->
+             infer_type_test_bif(binary, Src);
+        {{bif,is_bitstring},[Src]} ->
+             infer_type_test_bif(binary, Src);
+        {{bif,is_float},[Src]} ->
+             infer_type_test_bif(float, Src);
+        {{bif,is_integer},[Src]} ->
+             infer_type_test_bif({integer,{}}, Src);
+        {{bif,is_list},[Src]} ->
+             infer_type_test_bif(list, Src);
+        {{bif,is_map},[Src]} ->
+             infer_type_test_bif(map, Src);
+        {{bif,is_number},[Src]} ->
+             infer_type_test_bif(number, Src);
+        {{bif,is_tuple},[Src]} ->
+             infer_type_test_bif({tuple,[0],#{}}, Src);
         _ ->
             fun(_, S) -> S end
     end.
@@ -1432,21 +1430,22 @@ assign({y,_}=Src, {y,_}=Dst, Vst) ->
 assign({Kind,_}=Reg, Dst, Vst) when Kind =:= x; Kind =:= y ->
     assign_1(Reg, Dst, Vst);
 assign(Literal, Dst, Vst) ->
-    create_term(get_term_type(Literal, Vst), Dst, Vst).
+    Type = get_term_type(Literal, Vst),
+    create_term(Type, move, [Literal], Dst, Vst).
 
 %% Creates a completely new term with the given type.
-create_term(Type, Dst, Vst) ->
-    set_type_reg(Type, Dst, Vst).
+create_term(Type, Op, Ss, Dst, Vst) ->
+    set_type_reg_expr(Type, {Op, Ss}, Dst, Vst).
 
 %% Extracts a term from Ss, propagating fragility.
-extract_term(Type, Ss, Dst, Vst) ->
-    extract_term(Type, Ss, Dst, Vst, Vst).
+extract_term(Type, Op, Ss, Dst, Vst) ->
+    extract_term(Type, Op, Ss, Dst, Vst, Vst).
 
 %% As extract_term/4, but uses the incoming Vst for fragility in case x-regs
 %% have been pruned and the sources can no longer be found.
-extract_term(Type0, Ss, Dst, Vst, OrigVst) ->
+extract_term(Type0, Op, Ss, Dst, Vst, OrigVst) ->
     Type = propagate_fragility(Type0, Ss, OrigVst),
-    set_type_reg(Type, Dst, Vst).
+    set_type_reg_expr(Type, {Op, Ss}, Dst, Vst).
 
 %% Helper functions for tests that alter state on both the success and fail
 %% branches, keeping the states from tainting each other.
