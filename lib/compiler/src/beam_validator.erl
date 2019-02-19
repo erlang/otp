@@ -699,9 +699,13 @@ valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
     I = N + 1,
     assert_not_fragile(Src, Vst),
     assert_type({tuple_element,I}, Tuple, Vst),
+    %% Manually update the tuple type; we can't rely on the ordinary update
+    %% helpers as we must support overwriting (rather than just widening or
+    %% narrowing) known elements, and we can't use extract_term either since
+    %% the source tuple may be aliased.
     {tuple, Sz, Es0} = get_term_type(Tuple, Vst),
     Es = set_element_type(I, get_term_type(Src, Vst), Es0),
-    set_aliased_type({tuple, Sz, Es}, Tuple, Vst);
+    override_type({tuple, Sz, Es}, Tuple, Vst);
 %% Match instructions.
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     assert_term(Src, Vst0),
@@ -974,9 +978,11 @@ validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
     %% #ms{} can represent either a match context or a term, so we have to mark
     %% the source as a term if it fails, and retain the incoming type if it
     %% succeeds (match context or not).
+    %%
+    %% The override_type hack is only needed until we get proper union types.
     complex_test(Fail,
                  fun(FailVst) ->
-                         set_aliased_type(term, Src, FailVst)
+                         override_type(term, Src, FailVst)
                  end,
                  fun(SuccVst0) ->
                          SuccVst = prune_x_regs(Live, SuccVst0),
