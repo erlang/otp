@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -357,13 +357,17 @@ rfc3339_to_system_time(DateTimeString) ->
 rfc3339_to_system_time(DateTimeString, Options) ->
     Unit = proplists:get_value(unit, Options, second),
     %% _T is the character separating the date and the time:
-    {DateStr, [_T|TimeStr]} = lists:split(10, DateTimeString),
-    {TimeStr2, TimeStr3} = lists:split(8, TimeStr),
-    {ok, [Hour, Min, Sec], []} = io_lib:fread("~d:~d:~d", TimeStr2),
-    {ok, [Year, Month, Day], []} = io_lib:fread("~d-~d-~d", DateStr),
+    [Y1, Y2, Y3, Y4, $-, Mon1, Mon2, $-, D1, D2, _T,
+     H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString,
+    Hour = list_to_integer([H1, H2]),
+    Min = list_to_integer([Min1, Min2]),
+    Sec = list_to_integer([S1, S2]),
+    Year = list_to_integer([Y1, Y2, Y3, Y4]),
+    Month = list_to_integer([Mon1, Mon2]),
+    Day = list_to_integer([D1, D2]),
     DateTime = {{Year, Month, Day}, {Hour, Min, Sec}},
     IsFractionChar = fun(C) -> C >= $0 andalso C =< $9 orelse C =:= $. end,
-    {FractionStr, UtcOffset} = lists:splitwith(IsFractionChar, TimeStr3),
+    {FractionStr, UtcOffset} = lists:splitwith(IsFractionChar, TimeStr),
     Time = datetime_to_system_time(DateTime),
     Secs = Time - offset_adjustment(Time, second, UtcOffset),
     check(DateTimeString, Options, Secs),
@@ -451,8 +455,9 @@ system_time_to_rfc3339(Time, Options) ->
     DateTime = system_time_to_datetime(Secs),
     {{Year, Month, Day}, {Hour, Min, Sec}} = DateTime,
     FractionStr = fraction_str(Factor, AdjustedTime),
-    flat_fwrite("~4.10.0B-~2.10.0B-~2.10.0B~c~2.10.0B:~2.10.0B:~2.10.0B~s~s",
-                [Year, Month, Day, T, Hour, Min, Sec, FractionStr, Offset]).
+    L = [pad4(Year), "-", pad2(Month), "-", pad2(Day), [T],
+         pad2(Hour), ":", pad2(Min), ":", pad2(Sec), FractionStr, Offset],
+    lists:append(L).
 
 %% time_difference(T1, T2) = Tdiff
 %%
@@ -680,7 +685,7 @@ offset(OffsetOption, Secs0) when OffsetOption =:= "";
     Secs = abs(Secs0),
     Hour = Secs div 3600,
     Min = (Secs rem 3600) div 60,
-    io_lib:fwrite("~c~2.10.0B:~2.10.0B", [Sign, Hour, Min]);
+    [Sign | lists:append([pad2(Hour), ":", pad2(Min)])];
 offset(OffsetOption, _Secs) ->
     OffsetOption.
 
@@ -695,8 +700,10 @@ offset_string_adjustment(_Time, _Unit, "Z") ->
     0;
 offset_string_adjustment(_Time, _Unit, "z") ->
     0;
-offset_string_adjustment(_Time, _Unit, [Sign|Tz]) ->
-    {ok, [Hour, Min], []} = io_lib:fread("~d:~d", Tz),
+offset_string_adjustment(_Time, _Unit, Tz) ->
+    [Sign, H1, H2, $:, M1, M2] = Tz,
+    Hour = list_to_integer([H1, H2]),
+    Min = list_to_integer([M1, M2]),
     Adjustment = 3600 * Hour + 60 * Min,
     case Sign of
         $- -> -Adjustment;
@@ -704,8 +711,9 @@ offset_string_adjustment(_Time, _Unit, [Sign|Tz]) ->
     end.
 
 local_offset(SystemTime, Unit) ->
-    LocalTime = system_time_to_local_time(SystemTime, Unit),
+    %% Not optimized for special cases.
     UniversalTime = system_time_to_universal_time(SystemTime, Unit),
+    LocalTime = erlang:universaltime_to_localtime(UniversalTime),
     LocalSecs = datetime_to_gregorian_seconds(LocalTime),
     UniversalSecs = datetime_to_gregorian_seconds(UniversalTime),
     LocalSecs - UniversalSecs.
@@ -714,7 +722,8 @@ fraction_str(1, _Time) ->
     "";
 fraction_str(Factor, Time) ->
     Fraction = Time rem Factor,
-    io_lib:fwrite(".~*..0B", [log10(Factor), abs(Fraction)]).
+    S = integer_to_list(abs(Fraction)),
+    [$. | pad(log10(Factor) - length(S), S)].
 
 fraction(second, _) ->
     0;
@@ -735,5 +744,21 @@ log10(1000) -> 3;
 log10(1000000) -> 6;
 log10(1000000000) -> 9.
 
-flat_fwrite(F, S) ->
-    lists:flatten(io_lib:fwrite(F, S)).
+pad(0, S) ->
+    S;
+pad(I, S) ->
+    [$0 | pad(I - 1, S)].
+
+pad2(N) when N < 10 ->
+    [$0 | integer_to_list(N)];
+pad2(N) ->
+    integer_to_list(N).
+
+pad4(N) when N < 10 ->
+    [$0, $0, $0 | integer_to_list(N)];
+pad4(N) when N < 100 ->
+    [$0, $0 | integer_to_list(N)];
+pad4(N) when N < 1000 ->
+    [$0 | integer_to_list(N)];
+pad4(N) ->
+    integer_to_list(N).
