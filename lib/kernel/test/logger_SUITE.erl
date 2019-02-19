@@ -101,7 +101,8 @@ all() ->
      compare_levels,
      process_metadata,
      app_config,
-     kernel_config].
+     kernel_config,
+     pretty_print].
 
 start_stop(_Config) ->
     S = whereis(logger),
@@ -1139,6 +1140,61 @@ kernel_config(Config) ->
     {error,{bad_config,{kernel,{invalid_level,bad}}}} =
         rpc:call(Node,logger,internal_init_logger,[]),
 
+    ok.
+
+pretty_print(Config) ->
+    ok = logger:add_handler(?FUNCTION_NAME,logger_std_h,#{}),
+    ok = logger:set_module_level([module1,module2],debug),
+
+    ct:capture_start(),
+    logger:i(),
+    ct:capture_stop(),
+    I0 = ct:capture_get(),
+
+    ct:capture_start(),
+    logger:i(primary),
+    ct:capture_stop(),
+    IPrim = ct:capture_get(),
+
+    ct:capture_start(),
+    logger:i(handlers),
+    ct:capture_stop(),
+    IHs = ct:capture_get(),
+
+    ct:capture_start(),
+    logger:i(proxy),
+    ct:capture_stop(),
+    IProxy = ct:capture_get(),
+
+    ct:capture_start(),
+    logger:i(modules),
+    ct:capture_stop(),
+    IMs = ct:capture_get(),
+
+    I02 = lists:append([IPrim,IHs,IProxy,IMs]),
+    %% ct:log("~p~n",[I0]),
+    %% ct:log("~p~n",[I02]),
+    I0 = I02,
+
+    ct:capture_start(),
+    logger:i(handlers),
+    ct:capture_stop(),
+    IHs = ct:capture_get(),
+
+    Ids = logger:get_handler_ids(),
+    IHs2 =
+        lists:append(
+          [begin
+               ct:capture_start(),
+               logger:i(Id),
+               ct:capture_stop(),
+               [_|IH] = ct:capture_get(),
+               IH
+           end || Id <- Ids]),
+
+    %% ct:log("~p~n",[IHs]),
+    %% ct:log("~p~n",[["Handler configuration: \n"|IHs2]]),
+    IHs = ["Handler configuration: \n"|IHs2],
     ok.
 
 %%%-----------------------------------------------------------------

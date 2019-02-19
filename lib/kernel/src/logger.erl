@@ -60,6 +60,7 @@
 -export([compare_levels/2]).
 -export([set_process_metadata/1, update_process_metadata/1,
          unset_process_metadata/0, get_process_metadata/0]).
+-export([i/0, i/1]).
 
 %% Basic report formatting
 -export([format_report/1, format_otp_report/1]).
@@ -646,6 +647,142 @@ get_config() ->
       handlers=>get_handler_config(),
       proxy=>get_proxy_config(),
       module_levels=>lists:keysort(1,get_module_level())}.
+
+-spec i() -> ok.
+i() ->
+    #{primary := Primary,
+      handlers := HandlerConfigs,
+      proxy := Proxy,
+      module_levels := Modules} = get_config(),
+    M = modifier(),
+    i_primary(Primary,M),
+    i_handlers(HandlerConfigs,M),
+    i_proxy(Proxy,M),
+    i_modules(Modules,M).
+
+-spec i(What) -> ok when
+      What :: primary | handlers | proxy | modules | handler_id().
+i(primary) ->
+    i_primary(get_primary_config(),modifier());
+i(handlers) ->
+    i_handlers(get_handler_config(),modifier());
+i(proxy) ->
+    i_proxy(get_proxy_config(),modifier());
+i(modules) ->
+    i_modules(get_module_level(),modifier());
+i(HandlerId) when is_atom(HandlerId) ->
+    case get_handler_config(HandlerId) of
+        {ok,HandlerConfig} ->
+            i_handlers([HandlerConfig],modifier());
+        Error ->
+            Error
+    end;
+i(What) ->
+    erlang:error(badarg,[What]).
+
+
+i_primary(#{level := Level,
+            filters := Filters,
+            filter_default := FilterDefault},
+          M) ->
+    io:format("Primary configuration: ~n",[]),
+    io:format("    Level: ~p~n",[Level]),
+    io:format("    Filter Default: ~p~n", [FilterDefault]),
+    io:format("    Filters: ~n", []),
+    print_filters("        ",Filters,M).
+
+i_handlers(HandlerConfigs,M) ->
+    io:format("Handler configuration: ~n", []),
+    print_handlers(HandlerConfigs,M).
+
+i_proxy(Proxy,M) ->
+    io:format("Proxy configuration: ~n", []),
+    print_custom("    ",Proxy,M).
+
+i_modules(Modules,M) ->
+    io:format("Level set per module: ~n", []),
+    print_module_levels(Modules,M).
+
+encoding() ->
+    case lists:keyfind(encoding, 1, io:getopts()) of
+	false -> latin1;
+	{encoding, Enc} -> Enc
+    end.
+
+modifier() ->
+    modifier(encoding()).
+
+modifier(latin1) -> "";
+modifier(_) -> "t".
+
+print_filters(Indent, {Id, {Fun, Arg}}, M) ->
+    io:format("~sId: ~"++M++"p~n"
+              "~s    Fun: ~"++M++"p~n"
+              "~s    Arg: ~"++M++"p~n",
+              [Indent, Id, Indent, Fun, Indent, Arg]);
+print_filters(Indent,[],_M) ->
+    io:format("~s(none)~n",[Indent]);
+print_filters(Indent,Filters,M) ->
+    [print_filters(Indent,Filter,M) || Filter <- Filters],
+    ok.
+
+print_handlers(#{id := Id,
+                 module := Module,
+                 level := Level,
+                 filters := Filters, filter_default := FilterDefault,
+                 formatter := {FormatterModule,FormatterConfig}} = Config, M) ->
+    io:format("    Id: ~"++M++"p~n"
+              "        Module: ~p~n"
+              "        Level:  ~p~n"
+              "        Formatter:~n"
+              "            Module: ~p~n"
+              "            Config:~n",
+              [Id, Module, Level, FormatterModule]),
+    print_custom("                ",FormatterConfig,M),
+    io:format("        Filter Default: ~p~n"
+              "        Filters:~n",
+              [FilterDefault]),
+    print_filters("            ",Filters,M),
+    case maps:find(config,Config) of
+        {ok,HandlerConfig} ->
+            io:format("        Handler Config:~n"),
+            print_custom("            ",HandlerConfig,M);
+        error ->
+            ok
+    end,
+    MyKeys = [filter_default, filters, formatter, level, module, id, config],
+    case maps:without(MyKeys,Config) of
+        Empty when Empty==#{} ->
+            ok;
+        Unhandled ->
+            io:format("        Custom Config:~n"),
+            print_custom("            ",Unhandled,M)
+    end;
+print_handlers([], _M) ->
+    io:format("    (none)~n");
+print_handlers(HandlerConfigs, M) ->
+    [print_handlers(HandlerConfig, M) || HandlerConfig <- HandlerConfigs],
+    ok.
+
+print_custom(Indent, {Key, Value}, M) ->
+    io:format("~s~"++M++"p: ~"++M++"p~n",[Indent,Key,Value]);
+print_custom(Indent, Map, M) when is_map(Map) ->
+    print_custom(Indent,lists:keysort(1,maps:to_list(Map)), M);
+print_custom(Indent, List, M) when is_list(List), is_tuple(hd(List)) ->
+    [print_custom(Indent, X, M) || X <- List],
+    ok;
+print_custom(Indent, Value, M) ->
+    io:format("~s~"++M++"p~n",[Indent,Value]).
+
+print_module_levels({Module,Level},M) ->
+    io:format("    Module: ~"++M++"p~n"
+              "        Level: ~p~n",
+              [Module,Level]);
+print_module_levels([],_M) ->
+    io:format("    (none)~n");
+print_module_levels(Modules,M) ->
+    [print_module_levels(Module,M) || Module <- Modules],
+    ok.
 
 -spec internal_init_logger() -> ok | {error,term()}.
 %% This function is responsible for config of the logger
