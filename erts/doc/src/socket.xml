@@ -165,6 +165,9 @@
       <name name="ipv6_pmtudisc"/>
     </datatype>
     <datatype>
+      <name name="ipv6_pktinfo"/>
+    </datatype>
+    <datatype>
       <name name="sctp_assoc_id"/>
     </datatype>
     <datatype>

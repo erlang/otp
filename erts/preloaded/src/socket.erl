@@ -102,6 +102,7 @@
               ip_pktinfo/0,
               ipv6_mreq/0,
               ipv6_pmtudisc/0,
+              ipv6_pktinfo/0,
               in6_flow_info/0,
               in6_scope_id/0,
               sctp_assoc_id/0,
