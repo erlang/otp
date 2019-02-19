@@ -747,8 +747,7 @@ valfun_4({test,bs_get_integer2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
 valfun_4({test,bs_get_float2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
     validate_bs_get(Fail, Ctx, Live, {float, []}, Dst, Vst);
 valfun_4({test,bs_get_binary2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    Type = propagate_fragility(term, [Ctx], Vst),
-    validate_bs_get(Fail, Ctx, Live, Type, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, binary, Dst, Vst);
 valfun_4({test,bs_get_utf8,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
     validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({test,bs_get_utf16,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
@@ -998,7 +997,7 @@ validate_bs_get(Fail, Ctx, Live, Type, Dst, Vst0) ->
     verify_y_init(Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     Vst = branch_state(Fail, Vst1),
-    create_term(Type, Dst, Vst).
+    extract_term(Type, [Ctx], Dst, Vst).
 
 %%
 %% Common code for validating bs_skip_utf* instructions.
