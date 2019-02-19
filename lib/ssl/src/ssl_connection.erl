@@ -542,7 +542,11 @@ read_application_data(
                              undefined, undefined)
             end;
         {more, Buffer} -> % no reply, we need more data
-            {no_record, State#state{user_data_buffer = Buffer}};
+            {no_record,
+             State#state{
+               user_data_buffer = Buffer,
+               socket_options = SocketOpts0
+              }};
         {passive, Buffer} ->
             {no_record, State#state{user_data_buffer = Buffer}};
         {error,_Reason} -> %% Invalid packet in packet mode
@@ -1260,7 +1264,8 @@ handle_call({set_opts, Opts0}, From, StateName,
 	    #state{static_env =  #static_env{socket = Socket,
                                             transport_cb = Transport,
                                             tracker = Tracker},
-                   user_application = {_Mon, Pid},
+                   connection_env = 
+                       #connection_env{user_application = {_Mon, Pid}},
                    socket_options = Opts1
                   } = State0, Connection) ->
     {Reply, Opts} = set_socket_opts(Connection, Transport, Socket, Opts0, Opts1, []),
