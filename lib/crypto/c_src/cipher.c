@@ -86,7 +86,7 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_128_ctr"}, {NULL}, 16, AES_CTR_COMPAT},
     {{"aes_192_ctr"}, {NULL}, 24, AES_CTR_COMPAT},
     {{"aes_256_ctr"}, {NULL}, 32, AES_CTR_COMPAT},
-    {{"aes_ctr"},     {NULL}, 16, AES_CTR_COMPAT},
+    {{"aes_ctr"},     {NULL}, 0, AES_CTR_COMPAT},
 #endif
 
 #if defined(HAVE_CHACHA20)
