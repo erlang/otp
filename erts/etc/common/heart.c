@@ -500,7 +500,7 @@ message_loop(erlin_fd, erlout_fd)
 
 #if defined(__WIN32__)
 static void 
-kill_old_erlang(void){
+kill_old_erlang(int reason){
     HANDLE erlh;
     DWORD exit_code;
     char* envvar = NULL;
@@ -536,7 +536,8 @@ kill_old_erlang(void){
 }
 #else
 static void 
-kill_old_erlang(void){
+kill_old_erlang(int reason)
+{
     pid_t pid;
     int i, res;
     int sig = SIGKILL;
@@ -546,14 +547,25 @@ kill_old_erlang(void){
     if (envvar && strcmp(envvar, "TRUE") == 0)
       return;
 
-    envvar = get_env(HEART_KILL_SIGNAL);
-    if (envvar && strcmp(envvar, "SIGABRT") == 0) {
-        print_error("kill signal SIGABRT requested");
-        sig = SIGABRT;
-    }
-
     if(heart_beat_kill_pid != 0){
-	pid = (pid_t) heart_beat_kill_pid;
+        pid = (pid_t) heart_beat_kill_pid;
+        if (reason == R_CLOSED) {
+            print_error("Wait 5 seconds for Erlang to terminate nicely");
+            for (i=0; i < 5; ++i) {
+                res = kill(pid, 0); /* check if alive */
+                if (res < 0 && errno == ESRCH)
+                    return;
+                sleep(1);
+            }
+            print_error("Erlang still alive, kill it");
+        }
+
+        envvar = get_env(HEART_KILL_SIGNAL);
+        if (envvar && strcmp(envvar, "SIGABRT") == 0) {
+            print_error("kill signal SIGABRT requested");
+            sig = SIGABRT;
+        }
+
 	res = kill(pid,sig);
 	for(i=0; i < 5 && res == 0; ++i){
 	    sleep(1);
@@ -677,7 +689,7 @@ do_terminate(int erlin_fd, int reason) {
 	    if(!command)
 		print_error("Would reboot. Terminating.");
 	    else {
-		kill_old_erlang();
+		kill_old_erlang(reason);
 		/* High prio combined with system() works badly indeed... */
 		SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
 		win_system(command);
@@ -685,7 +697,7 @@ do_terminate(int erlin_fd, int reason) {
 	    }
 	    free_env_val(command);
 	} else {
-	    kill_old_erlang();
+	    kill_old_erlang(reason);
 	    /* High prio combined with system() works badly indeed... */
 	    SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
 	    win_system(&cmd[0]);
@@ -697,13 +709,13 @@ do_terminate(int erlin_fd, int reason) {
 	    if(!command)
 		print_error("Would reboot. Terminating.");
 	    else {
-		kill_old_erlang();
+		kill_old_erlang(reason);
 		ret = system(command);
 		print_error("Executed \"%s\" -> %d. Terminating.",command, ret);
 	    }
 	    free_env_val(command);
 	} else {
-	    kill_old_erlang();
+	    kill_old_erlang(reason);
 	    ret = system((char*)&cmd[0]);
 	    print_error("Executed \"%s\" -> %d. Terminating.",cmd, ret);
 	}
