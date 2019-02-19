@@ -28,7 +28,8 @@
 -export([module/2, format_error/1]).
 -export([type_anno/1, type_anno/2, type_anno/4]).
 
--import(lists, [any/2,dropwhile/2,foldl/3,map/2,reverse/1,zip/2]).
+-import(lists, [any/2,dropwhile/2,foldl/3,map/2,member/2,reverse/1,
+                seq/2,sort/1,zip/2]).
 
 %% To be called by the compiler.
 
@@ -140,8 +141,8 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 -type reg_tab() :: gb_trees:tree(index(), 'none' | {'value', _}).
 
 -record(st,				%Emulation state
-	{x=init_regs(0, term)        :: reg_tab(),%x register info.
-	 y=init_regs(0, initialized) :: reg_tab(),%y register info.
+	{x :: reg_tab(),                %x register info.
+	 y :: reg_tab(),                %y register info.
 	 f=init_fregs(),                %
 	 numy=none,			%Number of y registers.
 	 h=0,				%Available heap size.
@@ -188,7 +189,7 @@ index_parameter_types([{function,_,_,Entry,Code0}|Fs], Acc0) ->
 	    index_parameter_types(Fs, Acc0)
     end;
 index_parameter_types([], Acc) ->
-    gb_trees:from_orddict(lists:sort(Acc)).
+    gb_trees:from_orddict(sort(Acc)).
 
 index_parameter_types_1([{'%', {type_info, Reg, Type0}} | Is], Entry, Acc) ->
     Type = case Type0 of
@@ -211,14 +212,10 @@ validate_2({Ls1,Is}, Name, Arity, _Entry, _Ft) ->
 
 validate_3({Ls2,Is}, Name, Arity, Entry, Mod, Ls1, Ft) ->
     Offset = 1 + length(Ls1) + 1 + length(Ls2),
-    EntryOK = lists:member(Entry, Ls2),
+    EntryOK = member(Entry, Ls2),
     if
 	EntryOK ->
-	    St = init_state(Arity),
-	    Vst0 = #vst{current=St,
-			branched=gb_trees_from_list([{L,St} || L <- Ls1]),
-			labels=gb_sets:from_list(Ls1++Ls2),
-			ft=Ft},
+            Vst0 = init_vst(Arity, Ls1, Ls2, Ft),
 	    MFA = {Mod,Name,Arity},
 	    Vst = valfun(Is, MFA, Offset, Vst0),
 	    validate_fun_info_branches(Ls1, MFA, Vst);
@@ -262,10 +259,16 @@ labels_1([{line,_}|Is], R) ->
 labels_1(Is, R) ->
     {reverse(R),Is}.
 
-init_state(Arity) ->
+init_vst(Arity, Ls1, Ls2, Ft) ->
     Xs = init_regs(Arity, term),
     Ys = init_regs(0, initialized),
-    kill_heap_allocation(#st{x=Xs,y=Ys,numy=none,ct=[]}).
+    St = #st{x=Xs,y=Ys},
+    Branches = gb_trees_from_list([{L,St} || L <- Ls1]),
+    Labels = gb_sets:from_list(Ls1++Ls2),
+    #vst{branched=Branches,
+         current=St,
+         labels=Labels,
+         ft=Ft}.
 
 kill_heap_allocation(St) ->
     St#st{h=0,hf=0}.
@@ -273,7 +276,7 @@ kill_heap_allocation(St) ->
 init_regs(0, _) ->
     gb_trees:empty();
 init_regs(N, Type) ->
-    gb_trees_from_list([{R,Type} || R <- lists:seq(0, N-1)]).
+    gb_trees_from_list([{R,Type} || R <- seq(0, N-1)]).
 
 valfun([], MFA, _Offset, #vst{branched=Targets0,labels=Labels0}=Vst) ->
     Targets = gb_trees:keys(Targets0),
@@ -340,9 +343,9 @@ valfun_1({fmove,{fr,_}=Src,Dst}, Vst0) ->
     Vst = eat_heap_float(Vst0),
     create_term({float,[]}, Dst, Vst);
 valfun_1({kill,{y,_}=Reg}, Vst) ->
-    set_type_y(initialized, Reg, Vst);
+    create_term(initialized, Reg, Vst);
 valfun_1({init,{y,_}=Reg}, Vst) ->
-    set_type_y(initialized, Reg, Vst);
+    create_term(initialized, Reg, Vst);
 valfun_1({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
 valfun_1({bif,Op,{f,_},Src,Dst}=I, Vst) ->
@@ -1319,7 +1322,7 @@ bsm_save(Reg, SavePoint, Vst) ->
     case bsm_get_context(Reg, Vst) of
 	#ms{valid=Bits,slots=Slots}=Ctxt0 when SavePoint < Slots ->
 	    Ctx = Ctxt0#ms{valid=Bits bor (1 bsl SavePoint),slots=Slots},
-	    set_type_reg(Ctx, Reg, Vst);
+	    override_type(Ctx, Reg, Vst);
 	_ -> error({illegal_save,SavePoint})
     end.
 
@@ -1442,6 +1445,13 @@ type_test(Fail, Type, Reg, Vst) ->
                  fun(SuccVst) ->
                          update_type(fun meet/2, Type, Reg, SuccVst)
                  end, Vst).
+
+%% Overrides the type of Reg. This is ugly but a necessity for certain
+%% destructive operations.
+override_type(Type, Reg, Vst) ->
+    %% Once the new type format is in, this should be expressed as:
+    %%    update_type(fun(_, T) -> T end, Type, Reg, Vst).
+    set_aliased_type(Type, Reg, Vst).
 
 %% This is used when linear code finds out more and more information about a
 %% type, so that the type gets more specialized.
@@ -2454,6 +2464,6 @@ check_limit(_) ->
 min(A, B) when is_integer(A), is_integer(B), A < B -> A;
 min(A, B) when is_integer(A), is_integer(B) -> B.
 
-gb_trees_from_list(L) -> gb_trees:from_orddict(lists:sort(L)).
+gb_trees_from_list(L) -> gb_trees:from_orddict(sort(L)).
 
 error(Error) -> throw(Error).
