@@ -28,7 +28,7 @@
 -export([module/2, format_error/1]).
 -export([type_anno/1, type_anno/2, type_anno/4]).
 
--import(lists, [any/2,dropwhile/2,foldl/3,map/2,foreach/2,reverse/1]).
+-import(lists, [any/2,dropwhile/2,foldl/3,map/2,reverse/1,zip/2]).
 
 %% To be called by the compiler.
 
@@ -372,7 +372,7 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
                        Type = get_term_type(Val, Vst0),
                        Es = set_element_type(Index, Type, Es0),
                        {Es, Index + 1}
-               end, {#{}, 1}, Elements),
+                   end, {#{}, 1}, Elements),
     Type = {tuple,Size,Es},
     create_term(Type, Dst, Vst);
 valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
@@ -539,19 +539,20 @@ valfun_2(_, _) ->
 
 %% Handle the remaining floating point instructions here.
 %% Floating point.
-valfun_3({fconv,Src,{fr,_}=Dst}, Vst) ->
-    assert_term(Src, Vst),
+valfun_3({fconv,Src,{fr,_}=Dst}, Vst0) ->
+    assert_term(Src, Vst0),
+    Vst = update_type(fun meet/2, number, Src, Vst0),
     set_freg(Dst, Vst);
-valfun_3({bif,fadd,_,[_,_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
-valfun_3({bif,fdiv,_,[_,_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
-valfun_3({bif,fmul,_,[_,_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
-valfun_3({bif,fnegate,_,[_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
-valfun_3({bif,fsub,_,[_,_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
+valfun_3({bif,fadd,_,[_,_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
+valfun_3({bif,fdiv,_,[_,_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
+valfun_3({bif,fmul,_,[_,_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
+valfun_3({bif,fnegate,_,[_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
+valfun_3({bif,fsub,_,[_,_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
 valfun_3(fclearerror, Vst) ->
     case get_fls(Vst) of
 	undefined -> ok;
@@ -603,8 +604,7 @@ valfun_4({make_fun2,_,_,_,Live}, Vst) ->
     call(make_fun, Live, Vst);
 %% Other BIFs
 valfun_4({bif,tuple_size,{f,Fail},[Tuple],Dst}=I, Vst0) ->
-    Vst1 = branch_state(Fail, Vst0),
-    Vst = update_type(fun meet/2, {tuple,[0],#{}}, Tuple, Vst1),
+    Vst = type_test(Fail, {tuple,[0],#{}}, Tuple, Vst0),
     set_type_reg_expr({integer,[]}, I, Dst, Vst);
 valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     PosType = get_durable_term_type(Pos, Vst0),
@@ -634,13 +634,20 @@ valfun_4({bif,is_map_key,{f,Fail},[_Key,Map]=Ss,Dst}, Vst0) ->
 valfun_4({bif,Op,{f,Fail},[Cons]=Ss,Dst}, Vst0)
   when Op =:= hd; Op =:= tl ->
     validate_src(Ss, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
-    Vst = update_type(fun meet/2, cons, Cons, Vst1),
+    Vst = type_test(Fail, cons, Cons, Vst0),
     Type = bif_type(Op, Ss, Vst),
     extract_term(Type, Ss, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
     validate_src(Ss, Vst0),
-    Vst = branch_state(Fail, Vst0),
+    Vst1 = branch_state(Fail, Vst0),
+
+    %% Infer argument types. Note that we can't type_test in the general case
+    %% as the BIF could fail for reasons other than bad arguments.
+    ArgTypes = bif_arg_types(Op, Ss),
+    Vst = foldl(fun({Arg, T}, Vsti) ->
+                        update_type(fun meet/2, T, Arg, Vsti)
+                end, Vst1, zip(Ss, ArgTypes)),
+
     Type = bif_type(Op, Ss, Vst),
     extract_term(Type, Ss, Dst, Vst);
 valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
@@ -650,11 +657,12 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
     St = kill_heap_allocation(St0),
     Vst1 = Vst0#vst{current=St},
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = case Op of
-              length -> update_type(fun meet/2, list, hd(Ss), Vst2);
-              map_size -> update_type(fun meet/2, map, hd(Ss), Vst2);
-              _ -> Vst2
-          end,
+
+    ArgTypes = bif_arg_types(Op, Ss),
+    Vst3 = foldl(fun({Arg, T}, Vsti) ->
+                         update_type(fun meet/2, T, Arg, Vsti)
+                 end, Vst2, zip(Ss, ArgTypes)),
+
     Type = bif_type(Op, Ss, Vst3),
     Vst = prune_x_regs(Live, Vst3),
     extract_term(Type, Ss, Dst, Vst, Vst0);
@@ -697,12 +705,11 @@ valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     assert_choices(Choices),
     Vst = branch_state(Fail, Vst0),
     kill_state(select_val_branches(Src, Choices, Vst));
-valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
-    assert_type(tuple, Tuple, Vst),
+valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst0) ->
+    assert_type(tuple, Tuple, Vst0),
     assert_arities(Choices),
-    TupleType = get_durable_term_type(Tuple, Vst),
-    kill_state(branch_arities(Choices, Tuple, TupleType,
-                              branch_state(Fail, Vst)));
+    Vst = branch_state(Fail, Vst0),
+    kill_state(branch_arities(Choices, Tuple, Vst));
 
 %% New bit syntax matching instructions.
 valfun_4({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
@@ -783,9 +790,10 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
             assert_term(Src, Vst),
             kill_state(Vst)
     end;
-valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
-    assert_type(tuple, Tuple, Vst),
-    update_type(fun meet/2, {tuple,Sz,#{}}, Tuple, branch_state(Lbl, Vst));
+valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst0) when is_integer(Sz) ->
+    assert_type(tuple, Tuple, Vst0),
+    Vst = branch_state(Lbl, Vst0),
+    update_type(fun meet/2, {tuple,Sz,#{}}, Tuple, Vst);
 valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst0) ->
     assert_term(Src, Vst0),
     Vst = branch_state(Lbl, Vst0),
@@ -794,20 +802,24 @@ valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     assert_type(map, Src, Vst),
     assert_unique_map_keys(List),
     branch_state(Lbl, Vst);
-valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
-    validate_src(Ss, Vst0),
-    Infer = infer_types(Src, Vst0),
-    Vst1 = Infer(Val, Vst0),
-    Vst2 = update_ne_types(Src, Val, Vst1),
-    Vst3 = branch_state(Lbl, Vst2),
-    Vst = Vst3#vst{current=Vst1#vst.current},
-    update_eq_types(Src, Val, Vst);
-valfun_4({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
-    validate_src(Ss, Vst0),
-    Vst1 = update_eq_types(Src, Val, Vst0),
-    Vst2 = branch_state(Lbl, Vst1),
-    Vst = Vst2#vst{current=Vst0#vst.current},
-    update_ne_types(Src, Val, Vst);
+valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    validate_src(Ss, Vst),
+    complex_test(Lbl,
+                 fun(FailVst) ->
+                         update_ne_types(Src, Val, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         update_eq_types(Src, Val, SuccVst)
+                 end, Vst);
+valfun_4({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    validate_src(Ss, Vst),
+    complex_test(Lbl,
+                 fun(FailVst) ->
+                         update_eq_types(Src, Val, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         update_ne_types(Src, Val, SuccVst)
+                 end, Vst);
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
     branch_state(Lbl, Vst);
@@ -897,36 +909,50 @@ valfun_4(_, _) ->
 verify_get_map(Fail, Src, List, Vst0) ->
     assert_not_literal(Src),                    %OTP 22.
     assert_type(map, Src, Vst0),
-    Vst1 = foldl(fun(D, Vsti) ->
-                         case is_reg_defined(D,Vsti) of
-                             true -> create_term(term, D, Vsti);
-                             false -> Vsti
-                         end
-                 end, Vst0, extract_map_vals(List)),
-    Vst2 = branch_state(Fail, Vst1),
-    Keys = extract_map_keys(List),
-    assert_unique_map_keys(Keys),
-    verify_get_map_pair(List, Src, Vst0, Vst2).
 
-extract_map_vals([_Key,Val|T]) ->
-    [Val|extract_map_vals(T)];
-extract_map_vals([]) -> [].
+    complex_test(Fail,
+                 fun(FailVst) ->
+                         clobber_map_vals(List, Src, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         Keys = extract_map_keys(List),
+                         assert_unique_map_keys(Keys),
+                         extract_map_vals(List, Src, SuccVst, SuccVst)
+                 end, Vst0).
+
+%% get_map_elements may leave its destinations in an inconsistent state when
+%% the fail label is taken. Consider the following:
+%%
+%%    {get_map_elements,{f,7},{x,1},{list,[{atom,a},{x,1},{atom,b},{x,2}]}}.
+%%
+%% If 'a' exists but not 'b', {x,1} is overwritten when we jump to {f,7}.
+clobber_map_vals([_Key,Dst|T], Map, Vst0) ->
+    case is_reg_defined(Dst, Vst0) of
+        true ->
+            Vst = extract_term(term, [Map], Dst, Vst0),
+            clobber_map_vals(T, Map, Vst);
+        false ->
+            clobber_map_vals(T, Map, Vst0)
+    end;
+clobber_map_vals([], _Map, Vst) ->
+    Vst.
 
 extract_map_keys([Key,_Val|T]) ->
     [Key|extract_map_keys(T)];
 extract_map_keys([]) -> [].
 
-verify_get_map_pair([Src,Dst|Vs], Map, Vst0, Vsti0) ->
+extract_map_vals([Src,Dst|Vs], Map, Vst0, Vsti0) ->
     assert_term(Src, Vst0),
     Vsti = extract_term(term, [Map], Dst, Vsti0),
-    verify_get_map_pair(Vs, Map, Vst0, Vsti);
-verify_get_map_pair([], _Map, _Vst0, Vst) -> Vst.
+    extract_map_vals(Vs, Map, Vst0, Vsti);
+extract_map_vals([], _Map, _Vst0, Vst) ->
+    Vst.
 
 verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(map, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
-    foreach(fun (Term) -> assert_not_fragile(Term, Vst0) end, List),
+    [assert_not_fragile(Term, Vst0) || Term <- List],
     Vst1 = heap_alloc(0, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
@@ -938,17 +964,21 @@ verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
 %% Common code for validating bs_start_match* instructions.
 %%
 
-validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
+validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
+    verify_live(Live, Vst),
+    verify_y_init(Vst),
 
     %% #ms{} can represent either a match context or a term, so we have to mark
     %% the source as a term if it fails, and retain the incoming type if it
     %% succeeds (match context or not).
-    Vst1 = set_aliased_type(term, Src, Vst0),
-    Vst2 = prune_x_regs(Live, Vst1),
-    Vst3 = branch_state(Fail, Vst2),
-    extract_term(Type, [Src], Dst, Vst3, Vst0).
+    complex_test(Fail,
+                 fun(FailVst) ->
+                         set_aliased_type(term, Src, FailVst)
+                 end,
+                 fun(SuccVst0) ->
+                         SuccVst = prune_x_regs(Live, SuccVst0),
+                         extract_term(Type, [Src], Dst, SuccVst, Vst)
+                 end, Vst).
 
 %%
 %% Common code for validating bs_get* instructions.
@@ -1036,12 +1066,10 @@ verify_call_args_1(N, Vst) ->
     verify_call_args_1(X, Vst).
 
 verify_local_call(Lbl, Live, Vst) ->
-    F = fun({R, Type}) ->
-                verify_arg_type(Lbl, R, Type, Vst)
-        end,
     TRegs = typed_call_regs(Live, Vst),
+    [verify_arg_type(Lbl, R, Type, Vst) || {R, Type} <- TRegs],
     verify_no_ms_aliases(TRegs),
-    foreach(F, TRegs).
+    ok.
 
 typed_call_regs(0, _Vst) ->
     [];
@@ -1190,8 +1218,8 @@ assert_arities(_) -> error(bad_tuple_arity_list).
 %%%   fmove Src {fr,_}		%% Move INTO floating point register.
 %%%
 
-float_op(Src, Dst, Vst0) ->
-    foreach (fun(S) -> assert_freg_set(S, Vst0) end, Src),
+float_op(Ss, Dst, Vst0) ->
+    [assert_freg_set(S, Vst0) || S <- Ss],
     assert_fls(cleared, Vst0),
     Vst = set_fls(cleared, Vst0),
     set_freg(Dst, Vst).
@@ -1322,10 +1350,6 @@ select_val_branches_1([], _, _, Vst) -> Vst.
 
 infer_types(Src, Vst) ->
     case get_def(Src, Vst) of
-        {bif,is_map,{f,_},[Map],_} ->
-            fun({atom,true}, S) -> update_type(fun meet/2, map, Map, S);
-               (_, S) -> S
-            end;
         {bif,tuple_size,{f,_},[Tuple],_} ->
             fun({integer,Arity}, S) ->
                     update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
@@ -1337,8 +1361,35 @@ infer_types(Src, Vst) ->
                     Infer(Val, S);
                (_, S) -> S
             end;
+        {bif,is_atom,{f,_},[Src],_} ->
+            infer_type_test_bif({atom,[]}, Src);
+        {bif,is_boolean,{f,_},[Src],_} ->
+            infer_type_test_bif(bool, Src);
+        {bif,is_binary,{f,_},[Src],_} ->
+            infer_type_test_bif(binary, Src);
+        {bif,is_bitstring,{f,_},[Src],_} ->
+            infer_type_test_bif(binary, Src);
+        {bif,is_float,{f,_},[Src],_} ->
+            infer_type_test_bif(float, Src);
+        {bif,is_integer,{f,_},[Src],_} ->
+            infer_type_test_bif({integer,{}}, Src);
+        {bif,is_list,{f,_},[Src],_} ->
+            infer_type_test_bif(list, Src);
+        {bif,is_map,{f,_},[Src],_} ->
+            infer_type_test_bif(map, Src);
+        {bif,is_number,{f,_},[Src],_} ->
+            infer_type_test_bif(number, Src);
+        {bif,is_tuple,{f,_},[Src],_} ->
+            infer_type_test_bif({tuple,[],#{}}, Src);
         _ ->
             fun(_, S) -> S end
+    end.
+
+infer_type_test_bif(Type, Src) ->
+    fun({atom,true}, S) ->
+            update_type(fun meet/2, Type, Src, S);
+       (_, S) ->
+            S
     end.
 
 %%%
@@ -1372,11 +1423,25 @@ extract_term(Type0, Ss, Dst, Vst, OrigVst) ->
     Type = propagate_fragility(Type0, Ss, OrigVst),
     set_type_reg(Type, Dst, Vst).
 
+%% Helper functions for tests that alter state on both the success and fail
+%% branches, keeping the states from tainting each other.
+complex_test(Fail, FailFun, SuccFun, Vst0) ->
+    #vst{current=St0} = Vst0,
+    Vst1 = FailFun(Vst0),
+    Vst2 = branch_state(Fail, Vst1),
+    Vst = Vst2#vst{current=St0},
+    SuccFun(Vst).
+
 %% Helper function for simple "is_type" tests.
-type_test(Fail, Type, Reg, Vst0) ->
-    assert_term(Reg, Vst0),
-    Vst = branch_state(Fail, update_type(fun subtract/2, Type, Reg, Vst0)),
-    update_type(fun meet/2, Type, Reg, Vst).
+type_test(Fail, Type, Reg, Vst) ->
+    assert_term(Reg, Vst),
+    complex_test(Fail,
+                 fun(FailVst) ->
+                         update_type(fun subtract/2, Type, Reg, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         update_type(fun meet/2, Type, Reg, SuccVst)
+                 end, Vst).
 
 %% This is used when linear code finds out more and more information about a
 %% type, so that the type gets more specialized.
@@ -1395,32 +1460,20 @@ update_type(Merge, Type0, Reg, Vst) ->
                none -> Type0;
                T -> T
            end,
-    set_aliased_type(propagate_fragility(Type, [Reg], Vst), Reg, Vst).
+    set_aliased_type(Type, Reg, Vst).
 
 update_ne_types(LHS, RHS, Vst) ->
-    T1 = get_durable_term_type(LHS, Vst),
-    T2 = get_durable_term_type(RHS, Vst),
-    Type = propagate_fragility(subtract(T1, T2), [LHS], Vst),
-    set_aliased_type(Type, LHS, Vst).
+    update_type(fun subtract/2, get_durable_term_type(RHS, Vst), LHS, Vst).
 
 update_eq_types(LHS, RHS, Vst0) ->
-    T1 = get_durable_term_type(LHS, Vst0),
-    T2 = get_durable_term_type(RHS, Vst0),
-    Meet = meet(T1, T2),
-    Vst = case T1 =/= Meet of
-              true ->
-                  LType = propagate_fragility(Meet, [LHS], Vst0),
-                  set_aliased_type(LType, LHS, Vst0);
-              false ->
-                  Vst0
-          end,
-    case T2 =/= Meet of
-        true ->
-            RType = propagate_fragility(Meet, [RHS], Vst0),
-            set_aliased_type(RType, RHS, Vst);
-        false ->
-            Vst
-    end.
+    Infer = infer_types(LHS, Vst0),
+    Vst1 = Infer(RHS, Vst0),
+
+    T1 = get_durable_term_type(LHS, Vst1),
+    T2 = get_durable_term_type(RHS, Vst1),
+
+    Vst = update_type(fun meet/2, T2, LHS, Vst1),
+    update_type(fun meet/2, T1, RHS, Vst).
 
 %% Helper functions for the above.
 
@@ -1779,7 +1832,8 @@ get_tuple_size({integer,Sz}) -> Sz;
 get_tuple_size(_) -> 0.
 
 validate_src(Ss, Vst) when is_list(Ss) ->
-    foreach(fun(S) -> get_term_type(S, Vst) end, Ss).
+    [assert_term(S, Vst) || S <- Ss],
+    ok.
 
 %% get_durable_term_type(Src, ValidatorState) -> Type
 %%  Get the type of the source Src. The returned type Type will be
@@ -1864,6 +1918,10 @@ value_to_type(T) when is_tuple(T) ->
                     end, {#{}, 1}, tuple_to_list(T)),
      {tuple, tuple_size(T), Es};
 value_to_type(L) -> {literal, L}.
+
+branch_arities(List, Tuple, Vst) ->
+    Type = get_durable_term_type(Tuple, Vst),
+    branch_arities(List, Tuple, Type, Vst).
 
 branch_arities([Sz,{f,L}|T], Tuple, {tuple,[_],Es0}=Type0, Vst0) when is_integer(Sz) ->
     %% Filter out element types that are no longer valid.
@@ -2160,6 +2218,42 @@ propagate_fragility(Type, Ss, Vst) ->
         true -> make_fragile(Type);
         false -> Type
     end.
+
+%% Generic
+bif_arg_types(tuple_size, [_]) -> [{tuple,[0],#{}}];
+bif_arg_types(map_size, [_]) -> [map];
+bif_arg_types(length, [_]) -> [list];
+bif_arg_types(hd, [_]) -> [cons];
+bif_arg_types(tl, [_]) -> [cons];
+%% Boolean
+bif_arg_types('not', [_]) -> [bool];
+bif_arg_types('and', [_,_]) -> [bool, bool];
+bif_arg_types('or', [_,_]) -> [bool, bool];
+bif_arg_types('xor', [_,_]) -> [bool, bool];
+%% Binary
+bif_arg_types('byte_size', [_]) -> [binary];
+bif_arg_types('bit_size', [_]) -> [binary];
+%% Numerical
+bif_arg_types('-', [_]) -> [number];
+bif_arg_types('+', [_]) -> [number];
+bif_arg_types('*', [_,_]) -> [number, number];
+bif_arg_types('/', [_,_]) -> [number, number];
+bif_arg_types(ceil, [_]) -> [number];
+bif_arg_types(floor, [_]) -> [number];
+bif_arg_types(trunc, [_]) -> [number];
+bif_arg_types(round, [_]) -> [number];
+%% Integer-specific
+bif_arg_types('div', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('rem', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('band', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('bor', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('bxor', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('bnot', [_]) -> [{integer,[]}];
+bif_arg_types('bsl', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('bsr', [_,_]) -> [{integer,[]}, {integer,[]}];
+%% Unsafe type tests that may fail if an argument doesn't have the right type.
+bif_arg_types(is_function, [_,_]) -> [term, {integer,[]}];
+bif_arg_types(_, Args) -> [term || _Arg <- Args].
 
 bif_type('-', Src, Vst) ->
     arith_type(Src, Vst);
