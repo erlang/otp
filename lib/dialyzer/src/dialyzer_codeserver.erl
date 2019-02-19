@@ -347,13 +347,11 @@ get_file_contract(Key, ContDict) ->
 lookup_mfa_contract(MFA, #codeserver{contracts = ContDict}) ->
   ets_dict_find(MFA, ContDict).
 
--spec lookup_meta_info(module() | mfa(), codeserver()) -> meta_info().
+-spec lookup_meta_info(module() | mfa(), codeserver()) ->
+                          {'ok', meta_info()} | 'error'.
 
 lookup_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
-  case ets_dict_find(MorMFA, FunMetaInfo) of
-    error -> [];
-    {ok, PropList} -> PropList
-  end.
+  ets_dict_find(MorMFA, FunMetaInfo).
 
 -spec get_contracts(codeserver()) ->
                        dict:dict(mfa(), dialyzer_contracts:file_contract()).

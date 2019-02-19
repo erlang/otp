@@ -1,0 +1,2 @@
+
+spec_other_module.erl:7: Contract for function that does not exist: lists:flatten/1
