@@ -1754,10 +1754,14 @@ meet(T1, T2) ->
                 {_, _, none} ->
                     none;
                 {[Sz1],[Sz2],_} ->
-                    {tuple,[erlang:max(Sz1, Sz2)],Es};
+                    Sz = erlang:max(Sz1, Sz2),
+                    assert_tuple_elements(Sz, Es),
+                    {tuple,[Sz],Es};
                 {Sz1,[Sz2],_} when Sz2 =< Sz1 ->
+                    assert_tuple_elements(Sz1, Es),
                     {tuple,Sz1,Es};
                 {Sz,Sz,_} ->
+                    assert_tuple_elements(Sz, Es),
                     {tuple,Sz,Es};
                 {_,_,_} ->
                     none
@@ -1790,6 +1794,12 @@ meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
     end;
 meet_elements_1([], _Es1, _Es2, Acc) ->
     Acc.
+
+%% No tuple elements may have an index above the known size.
+assert_tuple_elements(Limit, Es) ->
+    true = maps:fold(fun(Index, _T, true) ->
+                             Index =< Limit
+                     end, true, Es).            %Assertion.
 
 %% subtract(Type1, Type2) -> Type
 %%  Subtract Type2 from Type2. Example:
@@ -2067,9 +2077,9 @@ join({tuple,Size,EsA}, {tuple,Size,EsB}) ->
     Es = join_tuple_elements(tuple_sz(Size), EsA, EsB),
     {tuple, Size, Es};
 join({tuple,A,EsA}, {tuple,B,EsB}) ->
-    Size = [min(tuple_sz(A), tuple_sz(B))],
+    Size = min(tuple_sz(A), tuple_sz(B)),
     Es = join_tuple_elements(Size, EsA, EsB),
-    {tuple, Size, Es};
+    {tuple, [Size], Es};
 join({Type,A}, {Type,B})
   when Type =:= atom; Type =:= integer; Type =:= float ->
     if A =:= B -> {Type,A};
@@ -2099,10 +2109,9 @@ join(T1, T2) when T1 =/= T2 ->
     %% a 'term'.
     join_list(T1, T2).
 
-join_tuple_elements(Size, EsA, EsB) ->
+join_tuple_elements(Limit, EsA, EsB) ->
     Es0 = join_elements(EsA, EsB),
-    MinSize = tuple_sz(Size),
-    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
+    maps:filter(fun(Index, _Type) -> Index =< Limit end, Es0).
 
 join_elements(Es1, Es2) ->
     Keys = if
