@@ -113,27 +113,27 @@
          wait_finished/4
         ]).
 
-start(internal,
-      #client_hello{} = Hello,
-      #state{connection_states = _ConnectionStates0,
-	     ssl_options = #ssl_options{ciphers = _ServerCiphers,
-                                        signature_algs = _ServerSignAlgs,
-                                        signature_algs_cert = _SignatureSchemes, %% TODO: Check??
-                                        supported_groups = _ServerGroups0,
-                                        versions = _Versions} = SslOpts,
-             session = #session{own_certificate = Cert}} = State0,
-      _Module) ->
 
-    Env = #{cert => Cert},
-    case tls_handshake_1_3:handle_client_hello(Hello, SslOpts, Env) of
+start(internal,
+      #change_cipher_spec{} =  ChangeCipherSpec, State0, _Module) ->
+    case tls_handshake_1_3:do_start(ChangeCipherSpec, State0) of
         #alert{} = Alert ->
             ssl_connection:handle_own_alert(Alert, {3,4}, start, State0);
-        M ->
-            %% update connection_states with cipher
-            State = update_state(State0, M),
-            {next_state, negotiated, State, [{next_event, internal, M}]}
-
-    end.
+        State1 ->
+            {Record, State} = tls_connection:next_record(State1),
+            tls_connection:next_event(?FUNCTION_NAME, Record, State)
+    end;
+start(internal, #client_hello{} = Hello, State0, _Module) ->
+    case tls_handshake_1_3:do_start(Hello, State0) of
+        #alert{} = Alert ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, start, State0);
+        {State, _, start} ->
+            {next_state, start, State, []};
+        {State, Context, negotiated} ->
+            {next_state, negotiated, State, [{next_event, internal, Context}]}
+    end;
+start(Type, Msg, State, Connection) ->
+    ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
 
 negotiated(internal, Map, State0, _Module) ->
@@ -166,24 +166,3 @@ wait_finished(internal,
     end;
 wait_finished(Type, Msg, State, Connection) ->
     ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
-
-
-update_state(#state{connection_states = ConnectionStates0,
-                    connection_env = CEnv,
-                    session = Session} = State,
-             #{cipher := Cipher,
-               key_share := KeyShare,
-               session_id := SessionId}) ->
-    #{security_parameters := SecParamsR0} = PendingRead =
-        maps:get(pending_read, ConnectionStates0),
-    #{security_parameters := SecParamsW0} = PendingWrite =
-        maps:get(pending_write, ConnectionStates0),
-    SecParamsR = ssl_cipher:security_parameters_1_3(SecParamsR0, Cipher),
-    SecParamsW = ssl_cipher:security_parameters_1_3(SecParamsW0, Cipher),
-    ConnectionStates =
-        ConnectionStates0#{pending_read => PendingRead#{security_parameters => SecParamsR},
-                           pending_write => PendingWrite#{security_parameters => SecParamsW}},
-    State#state{connection_states = ConnectionStates,
-                key_share = KeyShare,
-                session = Session#session{session_id = SessionId},
-                connection_env = CEnv#connection_env{negotiated_version = {3,4}}}.

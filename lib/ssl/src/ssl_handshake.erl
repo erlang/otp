@@ -76,7 +76,7 @@
 	 handle_client_hello_extensions/9, %% Returns server hello extensions
 	 handle_server_hello_extensions/9, select_curve/2, select_curve/3,
          select_hashsign/4, select_hashsign/5,
-	 select_hashsign_algs/3, empty_extensions/2, add_server_share/2
+	 select_hashsign_algs/3, empty_extensions/2, add_server_share/3
 	]).
 
 -export([get_cert_params/1]).
@@ -1150,12 +1150,18 @@ maybe_add_key_share(HelloExtensions, KeyShare) ->
     HelloExtensions#{key_share => #key_share_client_hello{
                                      client_shares = ClientShares}}.
 
-add_server_share(Extensions, KeyShare) ->
+add_server_share(server_hello, Extensions, KeyShare) ->
     #key_share_server_hello{server_share = ServerShare0} = KeyShare,
     %% Keep only public keys
     ServerShare = kse_remove_private_key(ServerShare0),
     Extensions#{key_share => #key_share_server_hello{
-                                server_share = ServerShare}}.
+                                server_share = ServerShare}};
+add_server_share(hello_retry_request, Extensions,
+                 #key_share_server_hello{
+                    server_share = #key_share_entry{group = Group}}) ->
+    Extensions#{key_share => #key_share_hello_retry_request{
+                                selected_group = Group}}.
+
 
 kse_remove_private_key(#key_share_entry{
                       group = Group,

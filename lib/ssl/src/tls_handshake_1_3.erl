@@ -36,44 +36,56 @@
 %% Encode
 -export([encode_handshake/1, decode_handshake/2]).
 
-%% Handshake
--export([handle_client_hello/3]).
-
 %% Create handshake messages
 -export([certificate/5,
          certificate_verify/4,
          encrypted_extensions/0,
          server_hello/4]).
 
--export([do_negotiated/2,
+-export([do_start/2,
+         do_negotiated/2,
          do_wait_finished/2]).
 
 %%====================================================================
 %% Create handshake messages
 %%====================================================================
 
-server_hello(SessionId, KeyShare, ConnectionStates, _Map) ->
+server_hello(MsgType, SessionId, KeyShare, ConnectionStates) ->
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
-    Extensions = server_hello_extensions(KeyShare),
+    Extensions = server_hello_extensions(MsgType, KeyShare),
     #server_hello{server_version = {3,3}, %% legacy_version
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
                   compression_method = 0, %% legacy attribute
-		  random = SecParams#security_parameters.server_random,
+		  random = server_hello_random(MsgType, SecParams),
 		  session_id = SessionId,
 		  extensions = Extensions
 		 }.
 
-server_hello_extensions(KeyShare) ->
+server_hello_extensions(MsgType, KeyShare) ->
     SupportedVersions = #server_hello_selected_version{selected_version = {3,4}},
     Extensions = #{server_hello_selected_version => SupportedVersions},
-    ssl_handshake:add_server_share(Extensions, KeyShare).
+    ssl_handshake:add_server_share(MsgType, Extensions, KeyShare).
+
+server_hello_random(server_hello, #security_parameters{server_random = Random}) ->
+    Random;
+%% For reasons of backward compatibility with middleboxes (see
+%% Appendix D.4), the HelloRetryRequest message uses the same structure
+%% as the ServerHello, but with Random set to the special value of the
+%% SHA-256 of "HelloRetryRequest":
+%%
+%%   CF 21 AD 74 E5 9A 61 11 BE 1D 8C 02 1E 65 B8 91
+%%   C2 A2 11 16 7A BB 8C 5E 07 9E 09 E2 C8 A8 33 9C
+server_hello_random(hello_retry_request, _) ->
+    crypto:hash(sha256, "HelloRetryRequest").
+
 
 %% TODO: implement support for encrypted_extensions
 encrypted_extensions() ->
     #encrypted_extensions{
        extensions = #{}
       }.
+
 
 %% TODO: use maybe monad for error handling!
 %% enum {
@@ -361,20 +373,44 @@ build_content(Context, THash) ->
     Prefix = binary:copy(<<32>>, 64),
     <<Prefix/binary,Context/binary,?BYTE(0),THash/binary>>.
 
+
 %%====================================================================
 %% Handle handshake messages
 %%====================================================================
 
-handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
-                                  session_id = SessionId,
-                                  extensions = Extensions} = _Hello,
-                    #ssl_options{ciphers = ServerCiphers,
-                                 signature_algs = ServerSignAlgs,
-                                 signature_algs_cert = _SignatureSchemes, %% TODO: Check??
-                                 supported_groups = ServerGroups0} = _SslOpts,
-                    Env) ->
 
-    Cert = maps:get(cert, Env, undefined),
+do_start(#change_cipher_spec{},
+              #state{connection_states = _ConnectionStates0,
+                     session = #session{session_id = _SessionId,
+                                        own_certificate = _OwnCert},
+                     ssl_options = #ssl_options{} = _SslOpts,
+                     key_share = _KeyShare,
+                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
+                     static_env = #static_env{
+                                     cert_db = _CertDbHandle,
+                                     cert_db_ref = _CertDbRef,
+                                     socket = _Socket,
+                                     transport_cb = _Transport}
+                    } = State0) ->
+    %% {Ref,Maybe} = maybe(),
+
+    try
+
+        State0
+
+    catch
+        {_Ref, {state_not_implemented, State}} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
+    end;
+do_start(#client_hello{cipher_suites = ClientCiphers,
+                       session_id = SessionId,
+                       extensions = Extensions} = _Hello,
+         #state{connection_states = _ConnectionStates0,
+                ssl_options = #ssl_options{ciphers = ServerCiphers,
+                                           signature_algs = ServerSignAlgs,
+                                           signature_algs_cert = _SignatureSchemes, %% TODO: check!
+                                           supported_groups = ServerGroups0},
+                session = #session{own_certificate = Cert}} = State0) ->
 
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     ClientGroups = get_supported_groups(ClientGroups0),
@@ -398,10 +434,8 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         %% and a signature algorithm/certificate pair to authenticate itself to
         %% the client.
         Cipher = Maybe(select_cipher_suite(ClientCiphers, ServerCiphers)),
-        Group = Maybe(select_server_group(ServerGroups, ClientGroups)),
+        Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_key_share(ClientGroups, ClientShares)),
-
-        ClientPubKey = Maybe(get_client_public_key(Group, ClientShares)),
 
         {PublicKeyAlgo, SignAlgo, SignHash} = get_certificate_params(Cert),
 
@@ -411,14 +445,31 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         %% Select signature algorithm (used in CertificateVerify message).
         SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, ClientSignAlgs, ServerSignAlgs)),
 
+        %% Select client public key. If no public key found in ClientShares or
+        %% ClientShares is empty, trigger HelloRetryRequest as we were able
+        %% to find an acceptable set of parameters but the ClientHello does not
+        %% contain sufficient information.
+        {Group, ClientPubKey} = get_client_public_key(Groups, ClientShares),
+
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
-        _Ret = #{cipher => Cipher,
-                group => Group,
-                sign_alg => SelectedSignAlg,
-                client_share => ClientPubKey,
-                key_share => KeyShare,
-                session_id => SessionId}
+
+        State1 = update_start_state(State0, Cipher, KeyShare, SessionId),
+
+        %% 4.1.4.  Hello Retry Request
+        %%
+        %% The server will send this message in response to a ClientHello
+        %% message if it is able to find an acceptable set of parameters but the
+        %% ClientHello does not contain sufficient information to proceed with
+        %% the handshake.
+        {State2, NextState} =
+            Maybe(send_hello_retry_request(State1, ClientPubKey, KeyShare, SessionId)),
+
+        %% TODO: Add Context to state?
+        Context = #{group => Group,
+                    sign_alg => SelectedSignAlg,
+                    client_share => ClientPubKey},
+        {State2, Context, NextState}
 
         %% TODO:
         %%   - session handling
@@ -430,9 +481,6 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
         {Ref, illegal_parameter} ->
             ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
-        {Ref, {hello_retry_request, _Group0}} ->
-            %% TODO
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, "hello_retry_request not implemented");
         {Ref, no_suitable_cipher} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
         {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
@@ -445,7 +493,7 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
 do_negotiated(#{client_share := ClientKey,
                 group := SelectedGroup,
                 sign_alg := SignatureScheme
-               } = Map,
+               },
            #state{connection_states = ConnectionStates0,
                   session = #session{session_id = SessionId,
                                      own_certificate = OwnCert},
@@ -464,7 +512,7 @@ do_negotiated(#{client_share := ClientKey,
     try
         %% Create server_hello
         %% Extensions: supported_versions, key_share, (pre_shared_key)
-        ServerHello = server_hello(SessionId, KeyShare, ConnectionStates0, Map),
+        ServerHello = server_hello(server_hello, SessionId, KeyShare, ConnectionStates0),
 
         {State1, _} = tls_connection:send_handshake(ServerHello, State0),
 
@@ -597,6 +645,56 @@ compare_verify_data(_, _) ->
     {error, decrypt_error}.
 
 
+send_hello_retry_request(#state{connection_states = ConnectionStates0} = State0,
+                         no_suitable_key, KeyShare, SessionId) ->
+    ServerHello = server_hello(hello_retry_request, SessionId, KeyShare, ConnectionStates0),
+    {State1, _} = tls_connection:send_handshake(ServerHello, State0),
+
+    %% TODO: Fix handshake history!
+    State2 = replace_ch1_with_message_hash(State1),
+
+    {ok, {State2, start}};
+send_hello_retry_request(State0, _, _, _) ->
+    %% Suitable key found.
+    {ok, {State0, negotiated}}.
+
+
+%% 4.4.1.  The Transcript Hash
+%%
+%% As an exception to this general rule, when the server responds to a
+%% ClientHello with a HelloRetryRequest, the value of ClientHello1 is
+%% replaced with a special synthetic handshake message of handshake type
+%% "message_hash" containing Hash(ClientHello1).  I.e.,
+%%
+%% Transcript-Hash(ClientHello1, HelloRetryRequest, ... Mn) =
+%%    Hash(message_hash ||        /* Handshake type */
+%%         00 00 Hash.length  ||  /* Handshake message length (bytes) */
+%%         Hash(ClientHello1) ||  /* Hash of ClientHello1 */
+%%         HelloRetryRequest  || ... || Mn)
+%%
+%% NOTE: Hash.length is used in practice (openssl) and not message length!
+%%       It is most probably a fault in the RFC.
+replace_ch1_with_message_hash(#state{connection_states = ConnectionStates,
+                                     handshake_env =
+                                         #handshake_env{
+                                            tls_handshake_history =
+                                                {[HRR,CH1|HHistory], LM}} = HSEnv}  = State0) ->
+    #{security_parameters := SecParamsR} =
+        ssl_record:pending_connection_state(ConnectionStates, read),
+    #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
+    MessageHash = message_hash(CH1, HKDFAlgo),
+    State0#state{handshake_env =
+                     HSEnv#handshake_env{
+                        tls_handshake_history =
+                            {[HRR,MessageHash|HHistory], LM}}}.
+
+
+message_hash(ClientHello1, HKDFAlgo) ->
+    [?MESSAGE_HASH,
+     0,0,ssl_cipher:hash_size(HKDFAlgo),
+     crypto:hash(HKDFAlgo, ClientHello1)].
+
+
 calculate_handshake_secrets(ClientKey, SelectedGroup, KeyShare,
                               #state{connection_states = ConnectionStates,
                                      handshake_env =
@@ -721,6 +819,24 @@ update_connection_state(ConnectionState = #{security_parameters := SecurityParam
                      cipher_state => cipher_init(Key, IV, FinishedKey)}.
 
 
+update_start_state(#state{connection_states = ConnectionStates0,
+                          connection_env = CEnv,
+                          session = Session} = State,
+                   Cipher, KeyShare, SessionId) ->
+    #{security_parameters := SecParamsR0} = PendingRead =
+        maps:get(pending_read, ConnectionStates0),
+    #{security_parameters := SecParamsW0} = PendingWrite =
+        maps:get(pending_write, ConnectionStates0),
+    SecParamsR = ssl_cipher:security_parameters_1_3(SecParamsR0, Cipher),
+    SecParamsW = ssl_cipher:security_parameters_1_3(SecParamsW0, Cipher),
+    ConnectionStates =
+        ConnectionStates0#{pending_read => PendingRead#{security_parameters => SecParamsR},
+                           pending_write => PendingWrite#{security_parameters => SecParamsW}},
+    State#state{connection_states = ConnectionStates,
+                key_share = KeyShare,
+                session = Session#session{session_id = SessionId},
+                connection_env = CEnv#connection_env{negotiated_version = {3,4}}}.
+
 
 cipher_init(Key, IV, FinishedKey) ->
     #cipher_state{key = Key,
@@ -733,15 +849,17 @@ cipher_init(Key, IV, FinishedKey) ->
 %% "supported_groups" and the groups supported by the server, then the
 %% server MUST abort the handshake with a "handshake_failure" or an
 %% "insufficient_security" alert.
-select_server_group(_, []) ->
+select_common_groups(_, []) ->
     {error, {insufficient_security, no_suitable_groups}};
-select_server_group(ServerGroups, [C|ClientGroups]) ->
-    case lists:member(C, ServerGroups) of
-        true ->
-            {ok, C};
-        false ->
-            select_server_group(ServerGroups, ClientGroups)
+select_common_groups(ServerGroups, ClientGroups) ->
+    Fun = fun(E) -> lists:member(E, ClientGroups) end,
+    case lists:filter(Fun, ServerGroups) of
+        [] ->
+            {error, {insufficient_security, no_suitable_groups}};
+        L ->
+            {ok, L}
     end.
+
 
 
 %% RFC 8446 - 4.2.8.  Key Share
@@ -771,19 +889,35 @@ validate_key_share([_|ClientGroups], [_|_] = ClientShares) ->
     validate_key_share(ClientGroups, ClientShares).
 
 
-get_client_public_key(Group, ClientShares) ->
+get_client_public_key([Group|_] = Groups, ClientShares) ->
+    get_client_public_key(Groups, ClientShares, Group).
+%%
+get_client_public_key(_, [], PreferredGroup) ->
+    {PreferredGroup, no_suitable_key};
+get_client_public_key([], _, PreferredGroup) ->
+    {PreferredGroup, no_suitable_key};
+get_client_public_key([Group|Groups], ClientShares, PreferredGroup) ->
      case lists:keysearch(Group, 2, ClientShares) of
          {value, {_, _, ClientPublicKey}} ->
-             {ok, ClientPublicKey};
+             {Group, ClientPublicKey};
          false ->
-             %% 4.1.4.  Hello Retry Request
-             %%
-             %% The server will send this message in response to a ClientHello
-             %% message if it is able to find an acceptable set of parameters but the
-             %% ClientHello does not contain sufficient information to proceed with
-             %% the handshake.
-             {error, {hello_retry_request, Group}}
+             get_client_public_key(Groups, ClientShares, PreferredGroup)
      end.
+
+
+%% get_client_public_key(Group, ClientShares) ->
+%%      case lists:keysearch(Group, 2, ClientShares) of
+%%          {value, {_, _, ClientPublicKey}} ->
+%%              ClientPublicKey;
+%%          false ->
+%%              %% 4.1.4.  Hello Retry Request
+%%              %%
+%%              %% The server will send this message in response to a ClientHello
+%%              %% message if it is able to find an acceptable set of parameters but the
+%%              %% ClientHello does not contain sufficient information to proceed with
+%%              %% the handshake.
+%%              no_suitable_key
+%%      end.
 
 select_cipher_suite([], _) ->
     {error, no_suitable_cipher};
