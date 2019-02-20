@@ -124,6 +124,7 @@ passes(Opts) ->
               false -> ignore;
               true -> ?PASS(fix_tuples)
           end,
+          ?PASS(use_set_tuple_element),
           ?PASS(place_frames),
           ?PASS(fix_receives),
 
@@ -855,6 +856,202 @@ fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
         end,
     {Blocks,Count} = beam_ssa:flatmapfold_instrs_rpo(F, [0], Count0, Blocks0),
     St#st{ssa=Blocks,cnt=Count}.
+
+%%%
+%%% Introduce the set_tuple_element instructions to make
+%%% multiple-field record updates faster.
+%%%
+%%% The expansion of record field updates, when more than one field is
+%%% updated, but not a majority of the fields, will create a sequence of
+%%% calls to `erlang:setelement(Index, Value, Tuple)` where Tuple in the
+%%% first call is the original record tuple, and in the subsequent calls
+%%% Tuple is the result of the previous call. Furthermore, all Index
+%%% values are constant positive integers, and the first call to
+%%% `setelement` will have the greatest index. Thus all the following
+%%% calls do not actually need to test at run-time whether Tuple has type
+%%% tuple, nor that the index is within the tuple bounds.
+%%%
+%%% Since this optimization introduces destructive updates, it used to
+%%% be done as the very last Core Erlang pass before going to
+%%% lower-level code. However, it turns out that this kind of destructive
+%%% updates are awkward also in SSA code and can prevent or complicate
+%%% type analysis and aggressive optimizations.
+%%%
+%%% NOTE: Because there no write barriers in the system, this kind of
+%%% optimization can only be done when we are sure that garbage
+%%% collection will not be triggered between the creation of the tuple
+%%% and the destructive updates - otherwise we might insert pointers
+%%% from an older generation to a newer.
+%%%
+
+use_set_tuple_element(#st{ssa=Blocks0}=St) ->
+    Uses = count_uses(Blocks0),
+    RPO = reverse(beam_ssa:rpo(Blocks0)),
+    Blocks = use_ste_1(RPO, Uses, Blocks0),
+    St#st{ssa=Blocks}.
+
+use_ste_1([L|Ls], Uses, Blocks0) ->
+    {Blk0,Blocks} = use_ste_across(L, Uses, Blocks0),
+    #b_blk{is=Is0} = Blk0,
+    case use_ste_is(Is0, Uses) of
+        Is0 ->
+            use_ste_1(Ls, Uses, Blocks);
+        Is ->
+            Blk = Blk0#b_blk{is=Is},
+            use_ste_1(Ls, Uses, Blocks#{L:=Blk})
+    end;
+use_ste_1([], _, Blocks) -> Blocks.
+
+%%% Optimize within a single block.
+
+use_ste_is([#b_set{}=I|Is0], Uses) ->
+    Is = use_ste_is(Is0, Uses),
+    case extract_ste(I) of
+        none ->
+            [I|Is];
+        Extracted ->
+            use_ste_call(Extracted, I, Is, Uses)
+    end;
+use_ste_is([], _Uses) -> [].
+
+use_ste_call({Dst0,Pos0,_Var0,_Val0}, Call1, Is0, Uses) ->
+    case get_ste_call(Is0, []) of
+        {Prefix,{Dst1,Pos1,Dst0,Val1},Call2,Is}
+          when Pos1 > 0, Pos0 > Pos1 ->
+            case is_single_use(Dst0, Uses) of
+                true ->
+                    Call = Call1#b_set{dst=Dst1},
+                    Args = [Val1,Dst1,#b_literal{val=Pos1-1}],
+                    Dsetel = Call2#b_set{op=set_tuple_element,
+                                         dst=Dst0,
+                                         args=Args},
+                    [Call|Prefix] ++ [Dsetel|Is];
+                false ->
+                    [Call1|Is0]
+            end;
+        _ ->
+            [Call1|Is0]
+    end.
+
+get_ste_call([#b_set{op=get_tuple_element}=I|Is], Acc) ->
+    get_ste_call(Is, [I|Acc]);
+get_ste_call([#b_set{op=call}=I|Is], Acc) ->
+    case extract_ste(I) of
+        none ->
+            none;
+        Extracted ->
+            {reverse(Acc),Extracted,I,Is}
+    end;
+get_ste_call(_, _) -> none.
+
+extract_ste(#b_set{op=call,dst=Dst,
+                   args=[#b_remote{mod=#b_literal{val=M},
+                                  name=#b_literal{val=F}}|Args]}) ->
+    case {M,F,Args} of
+        {erlang,setelement,[#b_literal{val=Pos},Tuple,Val]} ->
+            {Dst,Pos,Tuple,Val};
+        {_,_,_} ->
+            none
+    end;
+extract_ste(#b_set{}) -> none.
+
+%%% Optimize accross blocks within a try/catch block.
+
+use_ste_across(L, Uses, Blocks) ->
+    case map_get(L, Blocks) of
+        #b_blk{last=#b_br{bool=#b_var{}}}=Blk ->
+            try
+                use_ste_across_1(L, Blk, Uses, Blocks)
+            catch
+                throw:not_possible ->
+                    {Blk,Blocks}
+            end;
+        #b_blk{}=Blk ->
+            {Blk,Blocks}
+    end.
+
+use_ste_across_1(L, Blk0, Uses, Blocks0) ->
+    #b_blk{is=IsThis,last=#b_br{bool=Bool,succ=Next}} = Blk0,
+    case reverse(IsThis) of
+        [#b_set{op=succeeded,dst=Bool,args=[Result]}=Succ0,
+         #b_set{op=call,args=[#b_remote{}|_],dst=Result}=Call1|Prefix] ->
+            case is_single_use(Bool, Uses) andalso
+                is_n_uses(2, Result, Uses) of
+                true -> ok;
+                false -> throw(not_possible)
+            end,
+            Call2 = use_ste_across_next(Next, Uses, Blocks0),
+            Is = [Call1,Call2],
+            case use_ste_is(Is, decrement_uses(Result, Uses)) of
+                [#b_set{}=Call,#b_set{op=set_tuple_element}=Ste] ->
+                    Blocks1 = use_ste_fix_next(Ste, Next, Blocks0),
+                    Succ = Succ0#b_set{args=[Call#b_set.dst]},
+                    Blk = Blk0#b_blk{is=reverse(Prefix, [Call,Succ])},
+                    Blocks = Blocks1#{L:=Blk},
+                    {Blk,Blocks};
+                _ ->
+                    throw(not_possible)
+            end;
+        _ ->
+            throw(not_possible)
+    end.
+
+use_ste_across_next(Next, Uses, Blocks) ->
+    case map_get(Next, Blocks) of
+        #b_blk{is=[#b_set{op=call,dst=Result,args=[#b_remote{}|_]}=Call,
+                   #b_set{op=succeeded,dst=Bool,args=[Result]}],
+               last=#b_br{bool=Bool}} ->
+            case is_single_use(Bool, Uses) andalso
+                is_n_uses(2, Result, Uses) of
+                true -> ok;
+                false -> throw(not_possible)
+            end,
+            Call;
+        #b_blk{} ->
+            throw(not_possible)
+    end.
+
+use_ste_fix_next(Ste, Next, Blocks) ->
+    Blk0 = map_get(Next, Blocks),
+    #b_blk{is=[#b_set{op=call},#b_set{op=succeeded}],last=Br0} = Blk0,
+    Br = beam_ssa:normalize(Br0#b_br{bool=#b_literal{val=true}}),
+    Blk = Blk0#b_blk{is=[Ste],last=Br},
+    Blocks#{Next:=Blk}.
+
+%% Count how many times each variable is used.
+
+count_uses(Blocks) ->
+    count_uses_blk(maps:values(Blocks), #{}).
+
+count_uses_blk([#b_blk{is=Is,last=Last}|Bs], CountMap0) ->
+    F = fun(I, CountMap) ->
+                foldl(fun(Var, Acc) ->
+                              case Acc of
+                                  #{Var:=3} -> Acc;
+                                  #{Var:=C} -> Acc#{Var:=C+1};
+                                  #{} ->       Acc#{Var=>1}
+                              end
+                      end, CountMap, beam_ssa:used(I))
+        end,
+    CountMap = F(Last, foldl(F, CountMap0, Is)),
+    count_uses_blk(Bs, CountMap);
+count_uses_blk([], CountMap) -> CountMap.
+
+decrement_uses(V, Uses) ->
+    #{V:=C} = Uses,
+    Uses#{V:=C-1}.
+
+is_n_uses(N, V, Uses) ->
+    case Uses of
+        #{V:=N} -> true;
+        #{} -> false
+    end.
+
+is_single_use(V, Uses) ->
+    case Uses of
+        #{V:=1} -> true;
+        #{} -> false
+    end.
 
 %%%
 %%% Find out where frames should be placed.

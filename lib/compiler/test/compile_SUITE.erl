@@ -372,7 +372,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
             {dcore, ".core"},
             {dcopt, ".copt"},
             {dcbsm, ".core_bsm"},
-            {dsetel, ".dsetel"},
             {dkern, ".kernel"},
             {dssa, ".ssa"},
             {dssaopt, ".ssaopt"},

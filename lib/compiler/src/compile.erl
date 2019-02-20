@@ -814,8 +814,6 @@ kernel_passes() ->
     %% Optimizations that must be done after all other optimizations.
     [{pass,sys_core_bsm},
      {iff,dcbsm,{listing,"core_bsm"}},
-     {pass,sys_core_dsetel},
-     {iff,dsetel,{listing,"dsetel"}},
 
      {iff,clint,?pass(core_lint_module)},
      {iff,core,?pass(save_core_code)},
@@ -2122,7 +2120,6 @@ pre_load() ->
 	 erl_scan,
 	 sys_core_alias,
 	 sys_core_bsm,
-	 sys_core_dsetel,
 	 sys_core_fold,
 	 v3_core,
 	 v3_kernel],

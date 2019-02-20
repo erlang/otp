@@ -277,12 +277,6 @@ opt_is([#b_set{op=call,args=Args0,dst=Dst}=I0|Is],
         _ ->
             opt_is(Is, Ts, Ds, Fdb, D, Sub, [I|Acc])
     end;
-opt_is([#b_set{op=set_tuple_element}=I0|Is],
-       Ts0, Ds0, Fdb, D, Sub, Acc) ->
-    %% This instruction lacks a return value and destructively updates its
-    %% source, so it needs special handling to update the source type.
-    {Ts, Ds, I} = opt_set_tuple_element(I0, Ts0, Ds0, Sub),
-    opt_is(Is, Ts, Ds, Fdb, D, Sub, [I|Acc]);
 opt_is([#b_set{op=succeeded,args=[Arg],dst=Dst}=I],
        Ts0, Ds0, Fdb, D, Sub0, Acc) ->
     case Ds0 of
@@ -380,28 +374,6 @@ update_arg_types([Arg | Args], [TypeMap0 | TypeMaps], CallId, Ts) ->
     [TypeMap | update_arg_types(Args, TypeMaps, CallId, Ts)];
 update_arg_types([], [], _CallId, _Ts) ->
     [].
-
-opt_set_tuple_element(#b_set{op=set_tuple_element,args=Args0,dst=Dst}=I0,
-                      Ts0, Ds0, Sub) ->
-    Args = simplify_args(Args0, Sub, Ts0),
-    [Val,#b_var{}=Src,#b_literal{val=N}] = Args,
-
-    SrcType0 = get_type(Src, Ts0),
-    ValType = get_type(Val, Ts0),
-    Index = N + 1,
-
-    #t_tuple{size=Size,elements=Es0} = SrcType0,
-    true = Index =< Size,                     %Assertion.
-
-    Es = set_element_type(Index, ValType, Es0),
-    SrcType = SrcType0#t_tuple{elements=Es},
-
-    I = beam_ssa:normalize(I0#b_set{args=Args}),
-
-    Ts = Ts0#{ Dst => any, Src => SrcType },
-    Ds = Ds0#{ Dst => I },
-
-    {Ts, Ds, I}.
 
 simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->
     case is_safe_bool_op(Args, Ts) of

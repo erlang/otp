@@ -109,7 +109,7 @@
                    'make_fun' | 'new_try_tag' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
                    'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
-                   'set_tuple_element' | 'succeeded' |
+                   'succeeded' |
                    'timeout' |
                    'wait' | 'wait_timeout'.
 
@@ -118,7 +118,8 @@
 
 %% Primops only used internally during code generation.
 -type cg_prim_op() :: 'bs_get' | 'bs_match_string' | 'bs_restore' | 'bs_skip' |
-                      'copy' | 'put_tuple_arity' | 'put_tuple_element'.
+                      'copy' | 'put_tuple_arity' | 'put_tuple_element' |
+                      'set_tuple_element'.
 
 -import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
 
