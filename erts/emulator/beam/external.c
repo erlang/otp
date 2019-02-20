@@ -102,7 +102,7 @@ static byte* enc_term(ErtsAtomCacheMap *, Eterm, byte*, Uint32, struct erl_off_h
 struct TTBEncodeContext_;
 static int enc_term_int(struct TTBEncodeContext_*,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 			struct erl_off_heap_header** off_heap, Sint *reds, byte **res);
-static Uint is_external_string(Eterm obj, int* p_is_string);
+static int is_external_string(Eterm obj, Uint* lenp);
 static byte* enc_atom(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
 static byte* enc_pid(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
 struct B2TContext_t;
@@ -2481,11 +2481,21 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    {
 		Eterm* cons = list_val(obj);
 		Eterm tl;
+                Uint len_cnt = WSTACK_POP(s);
 
 		obj = CAR(cons);
 		tl = CDR(cons);
-		WSTACK_PUSH2(s, (is_list(tl) ? ENC_ONE_CONS : ENC_TERM),
-			     tl);
+                if (is_list(tl)) {
+                    len_cnt++;
+                    WSTACK_PUSH3(s, len_cnt, ENC_ONE_CONS, tl);
+                }
+                else {
+                    byte* list_lenp = (byte*) WSTACK_POP(s);
+		    ASSERT(list_lenp[-1] == LIST_EXT);
+                    put_int32(len_cnt, list_lenp);
+
+                    WSTACK_PUSH2(s, ENC_TERM, tl);
+                }
 	    }
 	    break;
 	case ENC_PATCH_FUN_SIZE:
@@ -2689,10 +2699,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	}
 	case LIST_DEF:
 	    {
-		int is_str;
-
-		i = is_external_string(obj, &is_str);
-		if (is_str) {
+		if (is_external_string(obj, &i)) {
 		    *ep++ = STRING_EXT;
 		    put_int16(i, ep);
 		    ep += 2;
@@ -2701,9 +2708,12 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 			*ep++ = unsigned_val(CAR(cons));
 			obj = CDR(cons);
 		    }
+		    r -= i;
 		} else {
+		    r -= i/2;
 		    *ep++ = LIST_EXT;
-		    put_int32(i, ep);
+                    /* Patch list length when we find end of list */
+                    WSTACK_PUSH2(s, (UWord)ep, 1);
 		    ep += 4;
 		    goto encode_one_cons;
 		}
@@ -2961,9 +2971,13 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
     return 0;
 }
 
+/** @brief Is it a list of bytes not longer than MAX_STRING_LEN?
+ * @param lenp out: string length or number of list cells traversed
+ * @return true/false
+ */
 static
-Uint
-is_external_string(Eterm list, int* p_is_string)
+int
+is_external_string(Eterm list, Uint* lenp)
 {
     Uint len = 0;
 
@@ -2975,29 +2989,15 @@ is_external_string(Eterm list, int* p_is_string)
 	Eterm* consp = list_val(list);
 	Eterm hd = CAR(consp);
 
-	if (!is_byte(hd)) {
-	    break;
+	if (!is_byte(hd) || ++len > MAX_STRING_LEN) {
+	    *lenp = len;
+            return 0;
 	}
-	len++;
 	list = CDR(consp);
     }
 
-    /*
-     * If we have reached the end of the list, and we have
-     * not exceeded the maximum length of a string, this
-     * is a string.
-     */
-    *p_is_string = is_nil(list) && len < MAX_STRING_LEN;
-
-    /*
-     * Continue to calculate the length.
-     */
-    while (is_list(list)) {
-	Eterm* consp = list_val(list);
-	len++;
-	list = CDR(consp);
-    }
-    return len;
+    *lenp = len;
+    return is_nil(list);
 }
 
 
@@ -4075,8 +4075,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
     for (;;) {
 	ASSERT(!is_header(obj));
 
-	if (ctx && --r == 0) {
-	    *reds = r;
+	if (ctx && --r <= 0) {
+	    *reds = 0;
 	    ctx->obj = obj;
 	    ctx->result = result;
 	    WSTACK_SAVE(s, &ctx->wstack);
@@ -4166,8 +4166,10 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    result += (1 + encode_size_struct2(acmp, port_node_name(obj), dflags) +
 		      4 + 1);
 	    break;
-	case LIST_DEF:
-	    if ((m = is_string(obj)) && (m < MAX_STRING_LEN)) {
+	case LIST_DEF: {
+	    int is_str = is_external_string(obj, &m);
+	    r -= m/2;
+	    if (is_str) {
 		result += m + 2 + 1;
 	    } else {
 		result += 5;
@@ -4176,6 +4178,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		continue; /* big loop */
 	    }
 	    break;
+	}
 	case TUPLE_DEF:
 	    {
 		Eterm* ptr = tuple_val(obj);
@@ -4317,7 +4320,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 
         if (is_header(obj)) {
             switch (obj) {
-	    case LIST_TAIL_OP:
+            case LIST_TAIL_OP:
 		obj = (Eterm) WSTACK_POP(s);
 		if (is_list(obj)) {
 		    Eterm* cons = list_val(obj);
@@ -4343,7 +4346,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
     WSTACK_DESTROY(s);
     if (ctx) {
 	ASSERT(ctx->wstack.wstart == NULL);
-	*reds = r;
+	*reds = r < 0 ? 0 : r;
     }
     *res = result;
     return 0;
