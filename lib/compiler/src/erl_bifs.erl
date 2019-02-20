@@ -32,6 +32,22 @@
 %%	Returns `true' if the function `Module:Name/Arity' does not
 %%	affect the state, nor depend on the state, although its
 %%	evaluation is not guaranteed to complete normally for all input.
+%%
+%%      NOTE: There is no need to include every new pure BIF
+%%      here. Including it here means that the value of the function
+%%      will be evaluated at compile-time if the arguments are
+%%      constant. If that optimization is not useful/desired, there is
+%%      no need to include the new BIF here.
+%%
+%%      Functions whose return value could conceivably change in a
+%%      future version of the runtime system must NOT be included here.
+%%
+%%      Here are some example of functions that should not be
+%%      included: `term_to_binary/1', hashing functions, non-trivial
+%%      encode/decode functions.
+%%
+%%      When unsure whether a new BIF should be included here, the
+%%      conservative safe choice is NOT to include it.
 
 -spec is_pure(atom(), atom(), arity()) -> boolean().
 
