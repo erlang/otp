@@ -82,7 +82,7 @@ client_hello(Host, Port, ConnectionStates,
 -spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
 	    ssl_record:connection_states() | {inet:port_number(), #session{}, db_handle(),
 				    atom(), ssl_record:connection_states(), 
-				    binary() | undefined, ssl:key_algo()},
+				    binary() | undefined, ssl:kex_algo()},
 	    boolean()) ->
 		   {tls_record:tls_version(), ssl:session_id(), 
 		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|

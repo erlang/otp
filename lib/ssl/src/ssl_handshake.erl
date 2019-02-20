@@ -729,7 +729,7 @@ decode_hello_extensions(Extensions) ->
     dec_hello_extensions(Extensions, #hello_extensions{}).
 
 %%--------------------------------------------------------------------
--spec decode_server_key(binary(), ssl:key_algo(), ssl_record:ssl_version()) ->
+-spec decode_server_key(binary(), ssl:kex_algo(), ssl_record:ssl_version()) ->
 			       #server_key_params{}.
 %%
 %% Description: Decode server_key data and return appropriate type
@@ -738,7 +738,7 @@ decode_server_key(ServerKey, Type, Version) ->
     dec_server_key(ServerKey, key_exchange_alg(Type), Version).
 
 %%--------------------------------------------------------------------
--spec decode_client_key(binary(), ssl:key_algo(), ssl_record:ssl_version()) ->
+-spec decode_client_key(binary(), ssl:kex_algo(), ssl_record:ssl_version()) ->
 			    #encrypted_premaster_secret{}
 			    | #client_diffie_hellman_public{}
 			    | #client_ec_diffie_hellman_public{}
