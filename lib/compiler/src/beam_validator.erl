@@ -1528,13 +1528,16 @@ update_eq_types(LHS, RHS, Vst0) ->
 
 assign_1(Src, Dst, Vst0) ->
     Type = get_move_term_type(Src, Vst0),
-    Vst = set_type_reg(Type, Dst, Vst0),
+    Def = get_def(Src, Vst0),
+
+    Vst = set_type_reg_expr(Type, Def, Dst, Vst0),
 
     #vst{current=St0} = Vst,
     #st{aliases=Aliases0} = St0,
-    Aliases = Aliases0#{Src=>Dst,Dst=>Src},
-    St = St0#st{aliases=Aliases},
 
+    Aliases = Aliases0#{Src=>Dst,Dst=>Src},
+
+    St = St0#st{aliases=Aliases},
     Vst#vst{current=St}.
 
 set_aliased_type(Type, Reg, #vst{current=#st{aliases=Aliases}}=Vst0) ->
