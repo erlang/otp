@@ -2701,8 +2701,12 @@ int enif_consume_timeslice(ErlNifEnv* env, int percent)
 {
     Process *proc;
     Sint reds;
+    int sched;
 
-    execution_state(env, &proc, NULL);
+    execution_state(env, &proc, &sched);
+
+    if (sched < 0)
+        return 0; /* no-op on dirty scheduler */
 
     ASSERT(is_proc_bound(env) && percent >= 1 && percent <= 100);
     if (percent < 1) percent = 1;
