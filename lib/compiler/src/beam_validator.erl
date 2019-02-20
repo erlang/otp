@@ -1651,25 +1651,14 @@ check_try_catch_tags(Type, {y,N}=Reg, Vst) ->
     %% scanned when an exception occurs, the innermost try/catch tag is found
     %% first.
     case is_try_catch_tag(Type) of
-        true -> check_try_catch_tags_1(N - 1, Reg, Vst, []);
-        false -> ok
+        true ->
+            case collect_try_catch_tags(N - 1, Vst, []) of
+                [_|_]=Bad -> error({bad_try_catch_nesting, Reg, Bad});
+                [] -> ok
+            end;
+        false ->
+            ok
     end.
-
-check_try_catch_tags_1(N, _Reg, _Vst, []) when N < 0 ->
-    ok;
-check_try_catch_tags_1(N, Reg, _Vst, Bad) when N < 0 ->
-    error({bad_try_catch_nesting, Reg, Bad});
-check_try_catch_tags_1(N, Reg, Vst, Acc0) ->
-    Tag = get_raw_type({y, N}, Vst),
-    Acc = case is_try_catch_tag(Tag) of
-              true -> [{{y, N}, Tag} | Acc0];
-              false -> Acc0
-          end,
-    check_try_catch_tags_1(N - 1, Reg, Vst, Acc).
-
-is_try_catch_tag({catchtag,_}) -> true;
-is_try_catch_tag({trytag,_}) -> true;
-is_try_catch_tag(_) -> false.
 
 is_reg_defined({x,_}=Reg, Vst) -> is_type_defined_x(Reg, Vst);
 is_reg_defined({y,_}=Reg, Vst) -> is_type_defined_y(Reg, Vst);
@@ -1977,7 +1966,7 @@ get_raw_type({y,Y}, #vst{current=#st{y=Ys}}) when is_integer(Y) ->
         {value,Type} -> Type;
         none -> uninitialized
     end;
-get_raw_type(Src, _) ->
+get_raw_type(Src, #vst{}) ->
     get_literal_type(Src).
 
 get_def(Src, #vst{current=#st{defs=Defs}}) ->
@@ -2212,44 +2201,78 @@ merge_aliases(Al0, Al1) when map_size(Al0) =< map_size(Al1) ->
 merge_aliases(Al0, Al1) ->
     merge_aliases(Al1, Al0).
 
-verify_y_init(#vst{current=#st{y=Ys}}) ->
-    verify_y_init_1(gb_trees:to_list(Ys)).
-
-verify_y_init_1([]) -> ok;
-verify_y_init_1([{Y,uninitialized}|_]) ->
-    error({uninitialized_reg,{y,Y}});
-verify_y_init_1([{Y,{fragile,_}}|_]) ->
-    %% Unsafe. This term may be outside any heap belonging
-    %% to the process and would be corrupted by a GC.
-    error({fragile_message_reference,{y,Y}});
-verify_y_init_1([{_,_}|Ys]) ->
-    verify_y_init_1(Ys).
-
-verify_live(0, #vst{}) -> ok;
-verify_live(N, #vst{current=#st{x=Xs}}) ->
-    verify_live_1(N, Xs).
-
-verify_live_1(0, _) -> ok;
-verify_live_1(N, Xs) when is_integer(N) ->
-    X = N-1,
-    case gb_trees:is_defined(X, Xs) of
-	false -> error({{x,X},not_live});
-	true -> verify_live_1(X, Xs)
+verify_y_init(#vst{current=#st{numy=NumY,y=Ys}}=Vst)
+  when is_integer(NumY), NumY > 0 ->
+    {HighestY, _} = gb_trees:largest(Ys),
+    true = NumY > HighestY,                     %Assertion.
+    verify_y_init_1(NumY - 1, Vst),
+    ok;
+verify_y_init(#vst{current=#st{numy=undecided,y=Ys}}=Vst) ->
+    case gb_trees:is_empty(Ys) of
+        true ->
+            ok;
+        false ->
+            {HighestY, _} = gb_trees:largest(Ys),
+            verify_y_init_1(HighestY, Vst)
     end;
-verify_live_1(N, _) -> error({bad_number_of_live_regs,N}).
+verify_y_init(#vst{}) ->
+    ok.
 
-verify_no_ct(#vst{current=#st{numy=none}}) -> ok;
-verify_no_ct(#vst{current=#st{numy=undecided}}) ->
-    error(unknown_size_of_stackframe);
-verify_no_ct(#vst{current=#st{y=Ys}}) ->
-    case [Y || Y <- gb_trees:to_list(Ys), verify_no_ct_1(Y)] of
-	[] -> ok;
-	CT -> error({unfinished_catch_try,CT})
+verify_y_init_1(-1, _Vst) ->
+    ok;
+verify_y_init_1(Y, Vst) ->
+    Reg = {y, Y},
+    case get_raw_type(Reg, Vst) of
+        uninitialized ->
+            error({uninitialized_reg,Reg});
+        {fragile, _} ->
+            %% Unsafe. This term may be outside any heap belonging to the
+            %% process and would be corrupted by a GC.
+            error({fragile_message_reference,Reg});
+        _ ->
+            verify_y_init_1(Y - 1, Vst)
     end.
 
-verify_no_ct_1({_, {catchtag, _}}) -> true;
-verify_no_ct_1({_, {trytag, _}}) -> true;
-verify_no_ct_1({_, _}) -> false.
+verify_live(0, _Vst) ->
+    ok;
+verify_live(Live, Vst) when is_integer(Live), 0 < Live, Live =< 1023 ->
+    verify_live_1(Live - 1, Vst);
+verify_live(Live, _Vst) ->
+    error({bad_number_of_live_regs,Live}).
+
+verify_live_1(-1, _) ->
+    ok;
+verify_live_1(X, Vst) when is_integer(X) ->
+    Reg = {x, X},
+    case get_raw_type(Reg, Vst) of
+        uninitialized -> error({Reg, not_live});
+        _ -> verify_live_1(X - 1, Vst)
+    end.
+
+verify_no_ct(#vst{current=#st{numy=none}}) ->
+    ok;
+verify_no_ct(#vst{current=#st{numy=undecided}}) ->
+    error(unknown_size_of_stackframe);
+verify_no_ct(#vst{current=St}=Vst) ->
+    case collect_try_catch_tags(St#st.numy - 1, Vst, []) of
+        [_|_]=Bad -> error({unfinished_catch_try,Bad});
+        [] -> ok
+    end.
+
+%% Collects all try/catch tags, walking down from the Nth stack position.
+collect_try_catch_tags(-1, _Vst, Acc) ->
+    Acc;
+collect_try_catch_tags(Y, Vst, Acc0) ->
+    Tag = get_raw_type({y, Y}, Vst),
+    Acc = case is_try_catch_tag(Tag) of
+              true -> [{{y, Y}, Tag} | Acc0];
+              false -> Acc0
+          end,
+    collect_try_catch_tags(Y - 1, Vst, Acc).
+
+is_try_catch_tag({catchtag,_}) -> true;
+is_try_catch_tag({trytag,_}) -> true;
+is_try_catch_tag(_) -> false.
 
 eat_heap(N, #vst{current=#st{h=Heap0}=St}=Vst) ->
     case Heap0-N of
