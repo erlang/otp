@@ -1026,14 +1026,15 @@ kill_state(Vst) ->
 %% A "plain" call.
 %%  The stackframe must be initialized.
 %%  The instruction will return to the instruction following the call.
-call(Name, Live, #vst{current=St}=Vst) ->
-    verify_call_args(Name, Live, Vst),
-    verify_y_init(Vst),
-    case call_return_type(Name, Vst) of
-	Type when Type =/= exception ->
-	    %% Type is never 'exception' because it has been handled earlier.
-	    Xs = gb_trees_from_list([{0,Type}]),
-	    Vst#vst{current=St#st{x=Xs,f=init_fregs(),aliases=#{}}}
+call(Name, Live, #vst{current=St0}=Vst0) ->
+    verify_call_args(Name, Live, Vst0),
+    verify_y_init(Vst0),
+    case call_return_type(Name, Vst0) of
+        Type when Type =/= exception ->
+            %% Type is never 'exception' because it has been handled earlier.
+            St = St0#st{f=init_fregs(),aliases=#{}},
+            Vst = prune_x_regs(0, Vst0#vst{current=St}),
+            create_term(Type, call, [], {x,0}, Vst)
     end.
 
 %% Tail call.
@@ -1049,40 +1050,36 @@ tail_call(Name, Live, Vst0) ->
 verify_call_args(_, 0, #vst{}) ->
     ok;
 verify_call_args({f,Lbl}, Live, Vst) when is_integer(Live)->
-    verify_local_call(Lbl, Live, Vst);
+    verify_local_args(Live - 1, Lbl, #{}, Vst);
 verify_call_args(_, Live, Vst) when is_integer(Live)->
-    verify_call_args_1(Live, Vst);
+    verify_remote_args_1(Live - 1, Vst);
 verify_call_args(_, Live, _) ->
     error({bad_number_of_live_regs,Live}).
 
-verify_call_args_1(0, _) -> ok;
-verify_call_args_1(N, Vst) ->
-    X = N - 1,
-    assert_not_fragile({x,X}, Vst),
-    verify_call_args_1(X, Vst).
+verify_remote_args_1(-1, _) ->
+    ok;
+verify_remote_args_1(X, Vst) ->
+    assert_not_fragile({x, X}, Vst),
+    verify_remote_args_1(X - 1, Vst).
 
-verify_local_call(Lbl, Live, Vst) ->
-    TRegs = typed_call_regs(Live, Vst),
-    [verify_arg_type(Lbl, R, Type, Vst) || {R, Type} <- TRegs],
-    verify_no_ms_aliases(TRegs),
-    ok.
-
-typed_call_regs(0, _Vst) ->
-    [];
-typed_call_regs(Live0, Vst) ->
-    Live = Live0 - 1,
-    R = {x,Live},
-    [{R, get_move_term_type(R, Vst)} | typed_call_regs(Live, Vst)].
-
-%% Verifies that the same match context isn't present twice.
-verify_no_ms_aliases(Regs) ->
-    CtxIds = [Id || {_, #ms{id=Id}} <- Regs],
-    UniqueCtxIds = ordsets:from_list(CtxIds),
-    if
-        length(UniqueCtxIds) < length(CtxIds) ->
-            error({multiple_match_contexts, Regs});
-        length(UniqueCtxIds) =:= length(CtxIds) ->
-            ok
+verify_local_args(-1, _Lbl, _CtxIds, _Vst) ->
+    ok;
+verify_local_args(X, Lbl, CtxIds, Vst) ->
+    Reg = {x, X},
+    case get_raw_type(Reg, Vst) of
+        #ms{id=Id}=Type ->
+            case CtxIds of
+                #{ Id := Other } ->
+                    error({multiple_match_contexts, [Reg, Other]});
+                #{} ->
+                    verify_arg_type(Lbl, Reg, Type, Vst),
+                    verify_local_args(X - 1, Lbl, CtxIds#{ Id => Reg }, Vst)
+            end;
+        {fragile,_} ->
+            error({fragile_message_reference, Reg});
+        Type ->
+            verify_arg_type(Lbl, Reg, Type, Vst),
+            verify_local_args(X - 1, Lbl, CtxIds, Vst)
     end.
 
 %% Verifies that the given argument narrows to what the function expects.
