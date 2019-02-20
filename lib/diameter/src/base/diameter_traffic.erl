@@ -288,7 +288,9 @@ spawn_request(false, _, _, _, _, _, _) ->  %% no transport
 %% count outstanding requests. Acknowledgement is implicit if the
 %% handler process dies (in a handle_request callback for example).
 spawn_request(AppT, {M,F,A}, Ack, TPid, Pkt, Dict0, RecvData) ->
-    %% Term to pass to request/1 in an appropriate process.
+    %% Term to pass to request/1 in an appropriate process. Module
+    %% diameter_dist implements callbacks, and uses the form of the
+    %% argument tuple constructed below.
     ReqT = {Pkt, AppT, Ack, TPid, Dict0, RecvData},
     apply(M, F, [ReqT | A]);
 
