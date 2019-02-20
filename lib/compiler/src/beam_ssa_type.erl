@@ -712,8 +712,8 @@ update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}, Ts0, D0) ->
         true ->
             %% This variable is defined in this block and is only
             %% referenced by this br terminator. Therefore, there is
-            %% no need to include the type database passed on to the
-            %% successors of this block.
+            %% no need to include it in the type database passed on to
+            %% the successors of this block.
             Ts = maps:remove(Bool, Ts0),
             {SuccTs,FailTs} = infer_types_br(Bool, Ts, D0),
             D = update_successor(Fail, FailTs, D0),
