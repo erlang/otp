@@ -3573,6 +3573,16 @@ static ERL_NIF_TERM is_pid_undefined_nif(ErlNifEnv* env, int argc, const ERL_NIF
     return make_bool(env, enif_is_pid_undefined(&pid));
 }
 
+static ERL_NIF_TERM compare_pids_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid a, b;
+
+    if (!get_pidbin(env, argv[0], &a) || !get_pidbin(env, argv[1], &b))
+        return enif_make_badarg(env);
+
+    return enif_make_int(env, enif_compare_pids(&a, &b));
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -3679,7 +3689,8 @@ static ErlNifFunc nif_funcs[] =
     {"get_local_pid_nif", 1, get_local_pid_nif},
     {"make_pid_nif", 1, make_pid_nif},
     {"set_pid_undefined_nif", 0, set_pid_undefined_nif},
-    {"is_pid_undefined_nif", 1, is_pid_undefined_nif}
+    {"is_pid_undefined_nif", 1, is_pid_undefined_nif},
+    {"compare_pids_nif", 2, compare_pids_nif}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)

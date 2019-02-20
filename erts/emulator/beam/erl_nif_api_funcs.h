@@ -632,6 +632,7 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 #ifndef enif_make_pid
 
 #  define enif_make_pid(ENV, PID) ((void)(ENV),(const ERL_NIF_TERM)((PID)->pid))
+#  define enif_compare_pids(A, B) (enif_compare((A)->pid,(B)->pid))
 #  define enif_select_read(ENV, E, OBJ, PID, MSG, MSG_ENV) \
     enif_select_x(ENV, E, ERL_NIF_SELECT_READ | ERL_NIF_SELECT_CUSTOM_MSG, \
                   OBJ, PID, MSG, MSG_ENV)

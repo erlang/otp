@@ -1090,6 +1090,19 @@ typedef struct {
     </func>
 
     <func>
+      <name since="OTP @OTP-15011@"><ret>int</ret><nametext>
+        enif_compare_pids(const ErlNifPid *pid1, const ErlNifPid *pid2)</nametext></name>
+      <fsummary>Compare two pids.</fsummary>
+      <desc>
+        <p>Compares two <seealso marker="#ErlNifPid"><c>ErlNifPid</c>
+	  </seealso>s according to term order.</p>
+        <p>Returns <c>0</c> if <c>pid1</c> and <c>pid2</c> are equal,
+          &lt; <c>0</c> if <c>pid1</c> &lt; <c>pid2</c>, and
+          &gt; <c>0</c> if <c>pid1</c> &gt; <c>pid2</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name since="OTP R13B04"><ret>void</ret>
         <nametext>enif_cond_broadcast(ErlNifCond *cnd)</nametext></name>
       <fsummary></fsummary>
