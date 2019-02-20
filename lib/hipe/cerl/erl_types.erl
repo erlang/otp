@@ -3148,9 +3148,18 @@ is_compat_arg(?list(Contents1, Termination1, Size1),
 is_compat_arg(?product(Types1), ?product(Types2)) ->
   is_compat_list(Types1, Types2);
 is_compat_arg(?map(Pairs1, DefK1, DefV1), ?map(Pairs2, DefK2, DefV2)) ->
-  (is_compat_list(Pairs1, Pairs2) andalso
-   is_compat_arg(DefK1, DefK2) andalso
-   is_compat_arg(DefV1, DefV2));
+  {Ks1, _, Vs1} = lists:unzip3(Pairs1),
+  {Ks2, _, Vs2} = lists:unzip3(Pairs2),
+  Key1 = t_sup([DefK1 | Ks1]),
+  Key2 = t_sup([DefK2 | Ks2]),
+  case is_compat_arg(Key1, Key2) of
+    true ->
+      Value1 = t_sup([DefV1 | Vs1]),
+      Value2 = t_sup([DefV2 | Vs2]),
+      is_compat_arg(Value1, Value2);
+    false ->
+      false
+  end;
 is_compat_arg(?tuple(?any, ?any, ?any), ?tuple(_, _, _)) -> false;
 is_compat_arg(?tuple(_, _, _), ?tuple(?any, ?any, ?any)) -> false;
 is_compat_arg(?tuple(Elements1, Arity, _),
