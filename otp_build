@@ -317,7 +317,7 @@ do_autoconf ()
 
 	    echo "=== running autoconf in $d"
 	    ( cd "$d" && autoconf ) || exit 1
-	    chdr=`cat "$file" | LC_CTYPE=C sed -n "s|.*\(AC_CONFIG_HEADER\).*|\1|p"`
+	    chdr=`cat "$file" | sed -n "s|.*\(AC_CONFIG_HEADER\).*|\1|p"`
 	    [ "$chdr" = "AC_CONFIG_HEADER" ] || continue
 	    echo "=== running autoheader in $d"
 	    ( cd "$d" && autoheader ) || exit 1
