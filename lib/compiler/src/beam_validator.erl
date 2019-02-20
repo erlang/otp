@@ -450,14 +450,13 @@ valfun_1({deallocate,StkSize}, #vst{current=#st{numy=StkSize}}=Vst) ->
     deallocate(Vst);
 valfun_1({deallocate,_}, #vst{current=#st{numy=NumY}}) ->
     error({allocated,NumY});
-valfun_1({trim,N,Remaining}, #vst{current=#st{y=Yregs0,numy=NumY}=St}=Vst) ->
+valfun_1({trim,N,Remaining}, #vst{current=St0}=Vst) ->
+    #st{numy=NumY} = St0,
     if
-	N =< NumY, N+Remaining =:= NumY ->
-	    Yregs1 = [{Y-N,Type} || {Y,Type} <- gb_trees:to_list(Yregs0), Y >= N],
-	    Yregs = gb_trees_from_list(Yregs1),
-	    Vst#vst{current=St#st{y=Yregs,numy=NumY-N,aliases=#{}}};
-	true ->
-	    error({trim,N,Remaining,allocated,NumY})
+        N =< NumY, N+Remaining =:= NumY ->
+            Vst#vst{current=trim_stack(N, 0, NumY, St0)};
+        N > NumY; N+Remaining =/= NumY ->
+            error({trim,N,Remaining,allocated,NumY})
     end;
 %% Catch & try.
 valfun_1({'catch',Dst,{f,Fail}}, Vst) when Fail =/= none ->
@@ -1125,6 +1124,25 @@ allocate(_, _, _, _, #vst{current=#st{numy=Numy}}) ->
 
 deallocate(#vst{current=St}=Vst) ->
     Vst#vst{current=St#st{y=init_regs(0, initialized),numy=none}}.
+
+trim_stack(From, To, Top, #st{y=Ys0}=St) when From =:= Top ->
+    Ys = foldl(fun(Y, Acc) ->
+                       gb_trees:delete(Y, Acc)
+               end, Ys0, seq(To, From - 1)),
+    %% Note that all aliases and defs are wiped. This is perhaps a bit too
+    %% conservative, but preserving them won't be easy until type management
+    %% is refactored.
+    St#st{aliases=#{},defs=#{},numy=To,y=Ys};
+trim_stack(From, To, Top, St0) ->
+    #st{y=Ys0} = St0,
+
+    Ys = case gb_trees:lookup(From, Ys0) of
+             none -> error({invalid_shift,{y,From},{y,To}});
+             {value,Type} -> gb_trees:enter(To, Type, Ys0)
+         end,
+
+    St = St0#st{y=Ys},
+    trim_stack(From + 1, To + 1, Top, St).
 
 test_heap(Heap, Live, Vst0) ->
     verify_live(Live, Vst0),
