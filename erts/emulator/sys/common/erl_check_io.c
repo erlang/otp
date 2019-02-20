@@ -1181,6 +1181,7 @@ enif_select_x(ErlNifEnv* env,
 
     if (on) {
         const Eterm recipient = pid ? pid->pid : env->proc->common.id;
+        ASSERT(is_internal_pid(recipient));
         if (!state->driver.nif)
             state->driver.nif = alloc_nif_select_data();
         if (state->type == ERTS_EV_TYPE_NONE) {

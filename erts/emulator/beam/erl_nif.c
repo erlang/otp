@@ -1083,6 +1083,17 @@ int enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)
     return 0;
 }
 
+void enif_set_pid_undefined(ErlNifPid* pid)
+{
+    pid->pid = am_undefined;
+}
+
+int enif_is_pid_undefined(const ErlNifPid* pid)
+{
+    ASSERT(pid->pid == am_undefined || is_internal_pid(pid->pid));
+    return pid->pid == am_undefined;
+}
+
 int enif_get_local_port(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPort* port)
 {
     if (is_internal_port(term)) {
@@ -3335,6 +3346,9 @@ int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
         return -1;
     }
     ASSERT(rsrc->type->down);
+
+    if (target_pid->pid == am_undefined)
+        return 1;
 
     ref = erts_make_ref_in_buffer(tmp);
 

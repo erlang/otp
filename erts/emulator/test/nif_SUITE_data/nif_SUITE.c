@@ -1882,12 +1882,23 @@ static ERL_NIF_TERM copy_blob(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     return enif_make_copy(env, mti.p->blob);
 }
 
+static int get_pidbin(ErlNifEnv* env, ERL_NIF_TERM pidbin, ErlNifPid* pid)
+{
+    ErlNifBinary bin;
+
+    if (!enif_inspect_binary(env, pidbin, &bin) || bin.size != sizeof(ErlNifPid))
+        return 0;
+
+    memcpy(pid, bin.data, bin.size);
+    return 1;
+}
+
 static ERL_NIF_TERM send_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifEnv* menv;
     ErlNifPid pid;
     int ret;
-    if (!enif_get_local_pid(env, argv[0], &pid)) {
+    if (!enif_get_local_pid(env, argv[0], &pid) && !get_pidbin(env, argv[0], &pid)) {
 	return enif_make_badarg(env);
     }
     menv = enif_alloc_env();
@@ -3513,6 +3524,55 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
 }
 
+static ERL_NIF_TERM make_bool(ErlNifEnv* env, int bool)
+{
+    return bool ? atom_true : atom_false;
+}
+
+static ERL_NIF_TERM get_local_pid_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid pid;
+    ERL_NIF_TERM pid_bin;
+    int ret = enif_get_local_pid(env, argv[0], &pid);
+
+    memcpy(enif_make_new_binary(env, sizeof(ErlNifPid), &pid_bin),
+           &pid, sizeof(ErlNifPid));
+
+    return enif_make_tuple2(env, make_bool(env, ret), pid_bin);
+}
+
+static ERL_NIF_TERM make_pid_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid pid;
+
+    if (!get_pidbin(env, argv[0], &pid))
+        return enif_make_badarg(env);
+
+    return enif_make_pid(env, &pid);
+}
+
+static ERL_NIF_TERM set_pid_undefined_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid pid;
+    ERL_NIF_TERM pid_bin;
+
+    enif_set_pid_undefined(&pid);
+    memcpy(enif_make_new_binary(env, sizeof(ErlNifPid), &pid_bin),
+           &pid, sizeof(ErlNifPid));
+
+    return pid_bin;
+}
+
+static ERL_NIF_TERM is_pid_undefined_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid pid;
+
+    if (!get_pidbin(env, argv[0], &pid))
+        return enif_make_badarg(env);
+
+    return make_bool(env, enif_is_pid_undefined(&pid));
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -3615,7 +3675,11 @@ static ErlNifFunc nif_funcs[] =
     {"ioq_nif", 1, ioq},
     {"ioq_nif", 2, ioq},
     {"ioq_nif", 3, ioq},
-    {"ioq_nif", 4, ioq}
+    {"ioq_nif", 4, ioq},
+    {"get_local_pid_nif", 1, get_local_pid_nif},
+    {"make_pid_nif", 1, make_pid_nif},
+    {"set_pid_undefined_nif", 0, set_pid_undefined_nif},
+    {"is_pid_undefined_nif", 1, is_pid_undefined_nif}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)
