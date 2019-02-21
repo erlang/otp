@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
           otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
-          otp_13662/1, otp_14285/1]).
+          otp_13662/1, otp_14285/1, otp_15592/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -81,7 +81,7 @@ groups() ->
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
        otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662,
-       otp_14285]}].
+       otp_14285, otp_15592]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1165,6 +1165,11 @@ otp_14285(_Config) ->
         "{some,'\\x{400}\\''}" =:=
         lists:flatten(erl_pp:expr({value,erl_anno:new(0),{some,'\x{400}\''}},
                                   [{encoding,latin1}])),
+    ok.
+
+otp_15592(_Config) ->
+    ok = pp_expr(<<"long12345678901234567890123456789012345678901234"
+                   "56789012345678901234:f(<<>>)">>),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
