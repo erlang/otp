@@ -293,7 +293,7 @@ logging(Config) ->
     ok = start_and_add(Name, #{filter_default=>log,
                                formatter=>{?MODULE,self()}},
                        #{file => LogFile}),
-    MsgFormatter = fun(Term) -> {io_lib:format("Term:~p",[Term]),[]} end,
+    MsgFormatter = fun(Term) -> {"Term:~p",[Term]} end,
     logger:notice([{x,y}], #{report_cb => MsgFormatter}),
     logger:notice([{x,y}], #{}),
     ct:pal("Checking contents of ~p", [?log_no(LogFile,1)]),   
