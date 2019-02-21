@@ -41,6 +41,7 @@ end_per_group(_GroupName, _Config) ->
     ok.
 
 init_per_suite(Config) ->
+    ct:timetrap({minutes, 1}),
     case node() of
         nonode@nohost ->
             {skipped, "Node not distributed"};
@@ -163,7 +164,7 @@ do_test(Type, TC, Loop, ParallellConnections, Server) ->
 		   end
 	   end,
     Spawn = fun(Id) ->
-		    Pid = spawn(fun() -> Test(Id) end),
+		    Pid = spawn_link(fun() -> Test(Id) end),
 		    receive {Pid, init} -> Pid end
 	    end,
     Pids = [Spawn(Id) || Id <- lists:seq(ParallellConnections, 1, -1)],
@@ -180,42 +181,42 @@ do_test(Type, TC, Loop, ParallellConnections, Server) ->
     {ok, TestPerSecond}.
 
 server_init(ssl, setup_connection, _, _, Server) ->
-    {ok, Socket} = ssl:listen(0, ssl_opts(listen)),
-    {ok, {_Host, Port}} = ssl:sockname(Socket),
+    {ok, LSocket} = ssl:listen(0, ssl_opts(listen)),
+    {ok, {_Host, Port}} = ssl:sockname(LSocket),
     {ok, Host} = inet:gethostname(),
     ?FPROF_SERVER andalso start_profile(fprof, [whereis(ssl_manager), new]),
     %%?EPROF_SERVER andalso start_profile(eprof, [ssl_connection_sup, ssl_manager]),
     ?EPROF_SERVER andalso start_profile(eprof, [ssl_manager]),
     Server ! {self(), {init, Host, Port}},
     Test = fun(TSocket) ->
-		   ok = ssl:ssl_accept(TSocket),
-		   ssl:close(TSocket)
+		   {ok, Socket} = ssl:handshake(TSocket),
+		   ssl:close(Socket)
 	   end,
-    setup_server_connection(Socket, Test);
+    setup_server_connection(LSocket, Test);
 server_init(ssl, payload, Loop, _, Server) ->
-    {ok, Socket} = ssl:listen(0, ssl_opts(listen)),
-    {ok, {_Host, Port}} = ssl:sockname(Socket),
+    {ok, LSocket} = ssl:listen(0, ssl_opts(listen)),
+    {ok, {_Host, Port}} = ssl:sockname(LSocket),
     {ok, Host} = inet:gethostname(),
     Server ! {self(), {init, Host, Port}},
     Test = fun(TSocket) ->
-		   ok = ssl:ssl_accept(TSocket),
+		   {ok, Socket} = ssl:handshake(TSocket),
 		   Size = byte_size(msg()),
-		   server_echo(TSocket, Size, Loop),
-		   ssl:close(TSocket)
+		   server_echo(Socket, Size, Loop),
+		   ssl:close(Socket)
 	   end,
-    setup_server_connection(Socket, Test);
+    setup_server_connection(LSocket, Test);
 server_init(ssl, pem_cache, Loop, _, Server) ->
-    {ok, Socket} = ssl:listen(0, ssl_opts(listen_der)),
-    {ok, {_Host, Port}} = ssl:sockname(Socket),
+    {ok, LSocket} = ssl:listen(0, ssl_opts(listen_der)),
+    {ok, {_Host, Port}} = ssl:sockname(LSocket),
     {ok, Host} = inet:gethostname(),
     Server ! {self(), {init, Host, Port}},
     Test = fun(TSocket) ->
-		   ok = ssl:ssl_accept(TSocket),
+		   {ok, Socket} = ssl:handshake(TSocket),
 		   Size = byte_size(msg()),
-		   server_echo(TSocket, Size, Loop),
-		   ssl:close(TSocket)
+		   server_echo(Socket, Size, Loop),
+		   ssl:close(Socket)
 	   end,
-    setup_server_connection(Socket, Test);
+    setup_server_connection(LSocket, Test);
 
 server_init(Type, Tc, _, _, Server) ->
     io:format("No server init code for ~p ~p~n",[Type, Tc]),
