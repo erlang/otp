@@ -2111,6 +2111,16 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
 %%
 %% close - close a file descriptor
 %%
+%% Closing a socket is a two stage rocket (because of linger).
+%% We need to perform the actual socket close while in BLOCKING mode.
+%% But that would hang the entire VM, so what we do is divide the 
+%% close in two steps: 
+%% 1) nif_close + the socket_stop (nif) callback function
+%%    This is for everything that can be done safely NON-BLOCKING.
+%% 2) nif_finalize_close which is executed by a *dirty* scheduler
+%%    Before we call the socket close function, we se the socket 
+%%    BLOCKING. Thereby linger is handled properly.
+
 
 -spec close(Socket) -> ok | {error, Reason} when
       Socket :: socket(),
@@ -2124,16 +2134,10 @@ do_close(SockRef) ->
         ok ->
             nif_finalize_close(SockRef);
         {ok, CloseRef} ->
-            %% We must wait
+            %% We must wait for the socket_stop callback function to 
+            %% complete its work
             receive
-                {'$socket', _, close, CloseRef} ->
-%%		{close, CloseRef} ->
-                    %% <KOLLA>
-                    %%
-                    %% WHAT HAPPENS IF THIS PROCESS IS KILLED
-                    %% BEFORE WE CAN EXECUTE THE FINAL CLOSE???
-                    %%
-                    %% </KOLLA>
+                {'$socket', SockRef, close, CloseRef} ->
                     nif_finalize_close(SockRef)
             end;
         {error, _} = ERROR ->

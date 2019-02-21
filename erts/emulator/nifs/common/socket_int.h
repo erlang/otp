@@ -258,6 +258,7 @@ extern ERL_NIF_TERM esock_atom_rxq_ovfl;
 extern ERL_NIF_TERM esock_atom_scope_id;
 extern ERL_NIF_TERM esock_atom_sctp;
 extern ERL_NIF_TERM esock_atom_sec;
+extern ERL_NIF_TERM esock_atom_select_failed;
 extern ERL_NIF_TERM esock_atom_select_sent;
 extern ERL_NIF_TERM esock_atom_send;
 extern ERL_NIF_TERM esock_atom_sendmsg;
@@ -348,10 +349,6 @@ extern ERL_NIF_TERM esock_atom_einval;
 #define DEMONP(S,E,D,M)     esock_demonitor((S), (E), (D), (M))
 #define MON_INIT(M)         esock_monitor_init((M))
 // #define MON_COMP(M1, M2)    esock_monitor_compare((M1), (M2))
-
-#define SELECT(E,FD,M,O,P,R)                                    \
-    if (enif_select((E), (FD), (M), (O), (P), (R)) < 0)         \
-        return enif_make_badarg((E));
 
 #define COMPARE(A, B)       enif_compare((A), (B))
 
