@@ -614,14 +614,13 @@
     <title>Examples</title>
     <marker id="examples"></marker>
     <code type="none">
-client(Addr, Port) ->
+client(Addr, SAddr, SPort) ->
    {ok, Sock} = socket:open(inet, stream, tcp),
-   ok = socket:bind(Sock, #{family => inet,
-                            port   => 0,
-			    addr   => any}),
+   {ok, _} = socket:bind(Sock, #{family => inet,
+                                 addr   => Addr}),
    ok = socket:connect(Sock, #{family => inet,
-                               addr   => Addr,
-			       port   => Port}),
+                               addr   => SAddr,
+			       port   => SPort}),
    Msg = list_to_binary("hello"),
    ok = socket:send(Sock, Msg),
    ok = socket:shutdown(Sock, write),
@@ -630,9 +629,9 @@ client(Addr, Port) ->
 
 server(Addr, Port) ->  
    {ok, LSock} = socket:open(inet, stream, tcp),
-   ok = socket:bind(LSock, #{family => inet,
-                             port   => Port,
-		 	     addr   => Addr}),
+   {ok, _} = socket:bind(LSock, #{family => inet,
+                                  port   => Port,
+		 	          addr   => Addr}),
    ok = socket:listen(LSock),
    {ok, Sock} = socket:accept(LSock),
    {ok, Msg} = socket:recv(Sock),
