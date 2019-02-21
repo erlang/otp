@@ -1090,8 +1090,9 @@ typedef struct {
     </func>
 
     <func>
-      <name since="OTP @OTP-15011@"><ret>int</ret><nametext>
-        enif_compare_pids(const ErlNifPid *pid1, const ErlNifPid *pid2)</nametext></name>
+      <name since="OTP @OTP-15011@"><ret>int</ret>
+      <nametext>enif_compare_pids(const ErlNifPid *pid1, const ErlNifPid *pid2)
+      </nametext></name>
       <fsummary>Compare two pids.</fsummary>
       <desc>
         <p>Compares two <seealso marker="#ErlNifPid"><c>ErlNifPid</c>
