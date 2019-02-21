@@ -330,7 +330,7 @@ gexpr({protect,Line,Arg}, Bools0, St0) ->
 	    {#iprotect{anno=#a{anno=Anno},body=Eps++[E]},[],Bools0,St}
     end;
 gexpr({op,_,'andalso',_,_}=E0, Bools, St0) ->
-    {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso', St0),
+    {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso'),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
@@ -338,7 +338,7 @@ gexpr({op,_,'andalso',_,_}=E0, Bools, St0) ->
     E = make_bool_switch_guard(L, E1, V, E2, False),
     gexpr(E, Bools, St);
 gexpr({op,_,'orelse',_,_}=E0, Bools, St0) ->
-    {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse', St0),
+    {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse'),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
@@ -768,7 +768,7 @@ expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     {Y,Yps,St} = lc_tq(Llc, E, Qs, Mc, St2),
     {Y,Mps++Yps,St};
 expr({op,_,'andalso',_,_}=E0, St0) ->
-    {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso', St0),
+    {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso'),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
@@ -776,7 +776,7 @@ expr({op,_,'andalso',_,_}=E0, St0) ->
     E = make_bool_switch(L, E1, V, E2, False, St0),
     expr(E, St);
 expr({op,_,'orelse',_,_}=E0, St0) ->
-    {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse', St0),
+    {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse'),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
@@ -2060,17 +2060,9 @@ fail_clause(Pats, Anno, Arg) ->
 			    args=[Arg]}]}.
 
 %% Optimization for Dialyzer.
-right_assoc(E, Op, St) ->
-    case member(dialyzer, St#core.opts) of
-        true ->
-            right_assoc2(E, Op);
-        false ->
-            E
-    end.
-
-right_assoc2({op,L1,Op,{op,L2,Op,E1,E2},E3}, Op) ->
-    right_assoc2({op,L2,Op,E1,{op,L1,Op,E2,E3}}, Op);
-right_assoc2(E, _Op) -> E.
+right_assoc({op,L1,Op,{op,L2,Op,E1,E2},E3}, Op) ->
+    right_assoc({op,L2,Op,E1,{op,L1,Op,E2,E3}}, Op);
+right_assoc(E, _Op) -> E.
 
 annotate_tuple(A, Es, St) ->
     case member(dialyzer, St#core.opts) of

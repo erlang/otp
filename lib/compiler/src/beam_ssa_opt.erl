@@ -164,12 +164,14 @@ repeated_passes(Opts) ->
 epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
-          ?PASS(ssa_opt_live),                  %One last time to clean up the
-                                                %mess left by the float pass.
+          ?PASS(ssa_opt_sw),
+
+          %% Run live one more time to clean up after the float and sw
+          %% passes.
+          ?PASS(ssa_opt_live),
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_units),
           ?PASS(ssa_opt_bsm_shortcut),
-          ?PASS(ssa_opt_sw),
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_merge_blocks),
@@ -1830,12 +1832,16 @@ opt_tup_size_is([], _, _, _Acc) -> none.
 %%%
 
 ssa_opt_sw({#st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
-    {Linear,Count} = opt_sw(Linear0, #{}, Count0, []),
+    {Linear,Count} = opt_sw(Linear0, Count0, []),
     {St#st{ssa=Linear,cnt=Count}, FuncDb}.
 
-opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Last0}=Blk0}|Bs], Phis0, Count0, Acc) ->
-    Phis = opt_sw_phis(Is, Phis0),
-    case opt_sw_last(Last0, Phis) of
+opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
+    %% Ensure that no label in the switch list is the same
+    %% as the failure label.
+    #b_switch{fail=Fail,list=List0} = Sw0,
+    List = [{Val,Lbl} || {Val,Lbl} <- List0, Lbl =/= Fail],
+    Sw1 = beam_ssa:normalize(Sw0#b_switch{list=List}),
+    case Sw1 of
         #b_switch{arg=Arg,fail=Fail,list=[{Lit,Lbl}]} ->
             %% Rewrite a single value switch to a br.
             Bool = #b_var{name={'@ssa_bool',Count0}},
@@ -1843,7 +1849,7 @@ opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Last0}=Blk0}|Bs], Phis0, Count0, Acc) -
             IsEq = #b_set{op={bif,'=:='},dst=Bool,args=[Arg,Lit]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsEq],last=Br},
-            opt_sw(Bs, Phis, Count, [{L,Blk}|Acc]);
+            opt_sw(Bs, Count, [{L,Blk}|Acc]);
         #b_switch{arg=Arg,fail=Fail,
                   list=[{#b_literal{val=B1},Lbl},{#b_literal{val=B2},Lbl}]}
           when B1 =:= not B2 ->
@@ -1853,70 +1859,17 @@ opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Last0}=Blk0}|Bs], Phis0, Count0, Acc) -
             IsBool = #b_set{op={bif,is_boolean},dst=Bool,args=[Arg]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsBool],last=Br},
-            opt_sw(Bs, Phis, Count, [{L,Blk}|Acc]);
-        Last0 ->
-            opt_sw(Bs, Phis, Count0, [{L,Blk0}|Acc]);
-        Last ->
-            Blk = Blk0#b_blk{last=Last},
-            opt_sw(Bs, Phis, Count0, [{L,Blk}|Acc])
+            opt_sw(Bs, Count, [{L,Blk}|Acc]);
+        Sw0 ->
+            opt_sw(Bs, Count0, [{L,Blk0}|Acc]);
+        Sw ->
+            Blk = Blk0#b_blk{last=Sw},
+            opt_sw(Bs, Count0, [{L,Blk}|Acc])
     end;
-opt_sw([{L,#b_blk{is=Is}=Blk}|Bs], Phis0, Count, Acc) ->
-    Phis = opt_sw_phis(Is, Phis0),
-    opt_sw(Bs, Phis, Count, [{L,Blk}|Acc]);
-opt_sw([], _Phis, Count, Acc) ->
+opt_sw([{L,#b_blk{}=Blk}|Bs], Count, Acc) ->
+    opt_sw(Bs, Count, [{L,Blk}|Acc]);
+opt_sw([], Count, Acc) ->
     {reverse(Acc),Count}.
-
-opt_sw_phis([#b_set{op=phi,dst=Dst,args=Args}|Is], Phis) ->
-    case opt_sw_literals(Args, []) of
-        error ->
-            opt_sw_phis(Is, Phis);
-        Literals ->
-            opt_sw_phis(Is, Phis#{Dst=>Literals})
-    end;
-opt_sw_phis(_, Phis) -> Phis.
-
-opt_sw_last(#b_switch{arg=Arg,fail=Fail,list=List0}=Sw0, Phis) ->
-    case Phis of
-        #{Arg:=Values0} ->
-            Values = gb_sets:from_list(Values0),
-
-            %% Prune the switch list to only contain the possible values.
-            List1 = [P || {Lit,_}=P <- List0, gb_sets:is_member(Lit, Values)],
-
-            %% Now test whether the failure label can ever be reached.
-            Sw = case gb_sets:size(Values) =:= length(List1) of
-                     true ->
-                         %% The switch list has the same number of values as the phi node.
-                         %% The values must be the same, because the values that were not
-                         %% possible were pruned from the switch list. Therefore, the
-                         %% failure label can't possibly be reached, and we can choose a
-                         %% a new failure label by picking a value from the list.
-                         case List1 of
-                             [{#b_literal{},Lbl}|List] ->
-                                 Sw0#b_switch{fail=Lbl,list=List};
-                             [] ->
-                                 Sw0#b_switch{list=List1}
-                         end;
-                     false ->
-                         %% There are some values in the phi node that are not in the
-                         %% switch list; thus, the failure label can still be reached.
-                         Sw0
-                 end,
-            beam_ssa:normalize(Sw);
-        #{} ->
-            %% Ensure that no label in the switch list is the same
-            %% as the failure label.
-            List = [{Val,Lbl} || {Val,Lbl} <- List0, Lbl =/= Fail],
-            Sw = Sw0#b_switch{list=List},
-            beam_ssa:normalize(Sw)
-    end.
-
-opt_sw_literals([{#b_literal{}=Lit,_}|T], Acc) ->
-    opt_sw_literals(T, [Lit|Acc]);
-opt_sw_literals([_|_], _Acc) ->
-    error;
-opt_sw_literals([], Acc) -> Acc.
-
 
 %%%
 %%% Merge blocks.
