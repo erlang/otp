@@ -849,6 +849,7 @@ cse_expr(#b_set{op=Op,args=Args}=I) ->
 cse_suitable(#b_set{op=get_hd}) -> true;
 cse_suitable(#b_set{op=get_tl}) -> true;
 cse_suitable(#b_set{op=put_list}) -> true;
+cse_suitable(#b_set{op=get_tuple_element}) -> true;
 cse_suitable(#b_set{op=put_tuple}) -> true;
 cse_suitable(#b_set{op={bif,tuple_size}}) ->
     %% Doing CSE for tuple_size/1 can prevent the
