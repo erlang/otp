@@ -141,17 +141,17 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 -type reg_tab() :: gb_trees:tree(index(), 'none' | {'value', _}).
 
 -record(st,				%Emulation state
-	{x :: reg_tab(),                %x register info.
-	 y :: reg_tab(),                %y register info.
-	 f=init_fregs(),                %
-	 numy=none,			%Number of y registers.
-	 h=0,				%Available heap size.
-	 hf=0,				%Available heap size for floats.
-	 fls=undefined,			%Floating point state.
-	 ct=[],				%List of hot catch/try labels
-         setelem=false,                 %Previous instruction was setelement/3.
-         puts_left=none,                %put/1 instructions left.
-         defs=#{},                      %Defining expression for each register.
+	{x=gb_trees:empty() :: reg_tab(), %x register info.
+	 y=gb_trees:empty() :: reg_tab(), %y register info.
+	 f=init_fregs(),                  %
+	 numy=none,			  %Number of y registers.
+	 h=0,				  %Available heap size.
+	 hf=0,				  %Available heap size for floats.
+	 fls=undefined,			  %Floating point state.
+	 ct=[],				  %List of hot catch/try labels
+         setelem=false,                   %Previous instruction was setelement/3.
+         puts_left=none,                  %put/1 instructions left.
+         defs=#{},                        %Defining expression for each register.
          aliases=#{}
 	}).
 
@@ -260,23 +260,20 @@ labels_1(Is, R) ->
     {reverse(R),Is}.
 
 init_vst(Arity, Ls1, Ls2, Ft) ->
-    Xs = init_regs(Arity, term),
-    Ys = init_regs(0, initialized),
-    St = #st{x=Xs,y=Ys},
-    Branches = gb_trees_from_list([{L,St} || L <- Ls1]),
+    Vst0 = init_function_args(Arity - 1, #vst{current=#st{}}),
+    Branches = gb_trees_from_list([{L,Vst0#vst.current} || L <- Ls1]),
     Labels = gb_sets:from_list(Ls1++Ls2),
-    #vst{branched=Branches,
-         current=St,
-         labels=Labels,
-         ft=Ft}.
+    Vst0#vst{branched=Branches,
+             labels=Labels,
+             ft=Ft}.
+
+init_function_args(-1, Vst) ->
+    Vst;
+init_function_args(X, Vst) ->
+    init_function_args(X - 1, create_term(term, argument, [], {x,X}, Vst)).
 
 kill_heap_allocation(St) ->
     St#st{h=0,hf=0}.
-
-init_regs(0, _) ->
-    gb_trees:empty();
-init_regs(N, Type) ->
-    gb_trees_from_list([{R,Type} || R <- seq(0, N-1)]).
 
 valfun([], MFA, _Offset, #vst{branched=Targets0,labels=Labels0}=Vst) ->
     Targets = gb_trees:keys(Targets0),
@@ -681,8 +678,8 @@ valfun_4({wait_timeout,_,Src}, Vst) ->
 valfun_4({loop_rec_end,_}, Vst) ->
     verify_y_init(Vst),
     kill_state(Vst);
-valfun_4(timeout, #vst{current=St}=Vst) ->
-    Vst#vst{current=St#st{x=init_regs(0, term)}};
+valfun_4(timeout, Vst) ->
+    prune_x_regs(0, Vst);
 valfun_4(send, Vst) ->
     call(send, 2, Vst);
 valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
@@ -1122,7 +1119,7 @@ allocate(_, _, _, _, #vst{current=#st{numy=Numy}}) ->
     error({existing_stack_frame,{size,Numy}}).
 
 deallocate(#vst{current=St}=Vst) ->
-    Vst#vst{current=St#st{y=init_regs(0, initialized),numy=none}}.
+    Vst#vst{current=St#st{y=gb_trees:empty(),numy=none}}.
 
 init_stack(_Tag, -1, Vst) ->
     Vst;
