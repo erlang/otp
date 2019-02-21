@@ -24,7 +24,7 @@
 -include("beam_ssa_opt.hrl").
 -import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
                 keyfind/3,partition/2,reverse/1,reverse/2,
-                seq/2,sort/1]).
+                seq/2,sort/1,split/2]).
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
 
@@ -358,6 +358,17 @@ simplify_call(I) -> I.
 %% Simplify a remote call to a pure BIF.
 simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _I) ->
     Tl;
+simplify_remote_call(erlang, setelement,
+                     [#b_literal{val=Pos},
+                      #b_literal{val=Tuple},
+                      #b_var{}=Value], I)
+  when is_integer(Pos), 1 =< Pos, Pos =< tuple_size(Tuple) ->
+    %% Position is a literal integer and the shape of the
+    %% tuple is known.
+    Els0 = [#b_literal{val=El} || El <- tuple_to_list(Tuple)],
+    {Bef,[_|Aft]} = split(Pos - 1, Els0),
+    Els = Bef ++ [Value|Aft],
+    I#b_set{op=put_tuple,args=Els};
 simplify_remote_call(Mod, Name, Args0, I) ->
     case make_literal_list(Args0) of
         none ->
