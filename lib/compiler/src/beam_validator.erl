@@ -439,13 +439,13 @@ valfun_1(_I, #vst{current=#st{ct=undecided}}) ->
 %%
 %% Allocate and deallocate, et.al
 valfun_1({allocate,Stk,Live}, Vst) ->
-    allocate(false, Stk, 0, Live, Vst);
+    allocate(uninitialized, Stk, 0, Live, Vst);
 valfun_1({allocate_heap,Stk,Heap,Live}, Vst) ->
-    allocate(false, Stk, Heap, Live, Vst);
+    allocate(uninitialized, Stk, Heap, Live, Vst);
 valfun_1({allocate_zero,Stk,Live}, Vst) ->
-    allocate(true, Stk, 0, Live, Vst);
+    allocate(initialized, Stk, 0, Live, Vst);
 valfun_1({allocate_heap_zero,Stk,Heap,Live}, Vst) ->
-    allocate(true, Stk, Heap, Live, Vst);
+    allocate(initialized, Stk, Heap, Live, Vst);
 valfun_1({deallocate,StkSize}, #vst{current=#st{numy=StkSize}}=Vst) ->
     verify_no_ct(Vst),
     deallocate(Vst);
@@ -1112,19 +1112,22 @@ verify_arg_type(Lbl, Reg, GivenType, #vst{ft=Ft}) ->
             ok
     end.
 
-allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}}=Vst0) ->
+allocate(Tag, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
     verify_live(Live, Vst0),
-    Vst = #vst{current=St} = prune_x_regs(Live, Vst0),
-    Ys = init_regs(Stk, case Zero of 
-			    true -> initialized;
-			    false -> uninitialized
-			end),
-    heap_alloc(Heap, Vst#vst{current=St#st{y=Ys,numy=Stk}});
+    Vst1 = Vst0#vst{current=St#st{numy=Stk}},
+    Vst2 = prune_x_regs(Live, Vst1),
+    Vst = init_stack(Tag, Stk - 1, Vst2),
+    heap_alloc(Heap, Vst);
 allocate(_, _, _, _, #vst{current=#st{numy=Numy}}) ->
     error({existing_stack_frame,{size,Numy}}).
 
 deallocate(#vst{current=St}=Vst) ->
     Vst#vst{current=St#st{y=init_regs(0, initialized),numy=none}}.
+
+init_stack(_Tag, -1, Vst) ->
+    Vst;
+init_stack(Tag, Y, Vst) ->
+    init_stack(Tag, Y - 1, create_tag(Tag, allocate, [], {y,Y}, Vst)).
 
 trim_stack(From, To, Top, #st{y=Ys0}=St) when From =:= Top ->
     Ys = foldl(fun(Y, Acc) ->
