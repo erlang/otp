@@ -301,51 +301,59 @@ file_ctrl_call(Pid, Msg) ->
 
 file_ctrl_init(HandlerName, FileInfo, Starter) when is_tuple(FileInfo) ->
     process_flag(message_queue_data, off_heap),
-    FileName = element(2, FileInfo),
     case do_open_log_file(FileInfo) of
         {ok,File} ->
             Starter ! {self(),ok},
-            file_ctrl_loop(File, FileName, false, ok, ok, HandlerName);
+            FileInfo1 = set_file_opt_append(FileInfo),
+            file_ctrl_loop(File, FileInfo1, false, ok, ok, HandlerName);
         {error,Reason} ->
+            FileName = element(2, FileInfo),
             Starter ! {self(),{error,{open_failed,FileName,Reason}}}
     end;
 file_ctrl_init(HandlerName, StdDev, Starter) ->
     Starter ! {self(),ok},
     file_ctrl_loop(StdDev, StdDev, false, ok, ok, HandlerName).
 
-file_ctrl_loop(File, DevName, Synced,
+%% Modify file options to use when re-opening if the inode has
+%% changed. I.e. the file may exist and if so should be appended to.
+set_file_opt_append({file, FileName, Modes}) ->
+    {file, FileName, [append | Modes--[exclusive]]};
+set_file_opt_append(FileInfo) ->
+    FileInfo.
+
+file_ctrl_loop(File, FileInfo, Synced,
                PrevWriteResult, PrevSyncResult, HandlerName) ->
     receive
         %% asynchronous event
         {log,Bin} ->
-            File1 = ensure(File, DevName),
-            Result = write_to_dev(File1, Bin, DevName,
+            File1 = ensure(File, FileInfo),
+            Result = write_to_dev(File1, Bin, FileInfo,
                                   PrevWriteResult, HandlerName),
-            file_ctrl_loop(File1, DevName, false,
+            file_ctrl_loop(File1, FileInfo, false,
                            Result, PrevSyncResult, HandlerName);
 
         %% synchronous event
         {{log,Bin},{From,MRef}} ->
-            File1 = ensure(File, DevName),
-            Result = write_to_dev(File1, Bin, DevName,
+            File1 = ensure(File, FileInfo),
+            Result = write_to_dev(File1, Bin, FileInfo,
                                   PrevWriteResult, HandlerName),
             From ! {MRef,ok},
-            file_ctrl_loop(File1, DevName, false,
+            file_ctrl_loop(File1, FileInfo, false,
                            Result, PrevSyncResult, HandlerName);
 
         filesync ->
-            File1 = ensure(File, DevName),
-            Result = sync_dev(File1, DevName, Synced,
+            File1 = ensure(File, FileInfo),
+            Result = sync_dev(File1, FileInfo, Synced,
                               PrevSyncResult, HandlerName),
-            file_ctrl_loop(File1, DevName, true,
+            file_ctrl_loop(File1, FileInfo, true,
                            PrevWriteResult, Result, HandlerName);
 
         {filesync,{From,MRef}} ->
-            File1 = ensure(File, DevName),
-            Result = sync_dev(File1, DevName, Synced,
+            File1 = ensure(File, FileInfo),
+            Result = sync_dev(File1, FileInfo, Synced,
                               PrevSyncResult, HandlerName),
             From ! {MRef,ok},
-            file_ctrl_loop(File1, DevName, true,
+            file_ctrl_loop(File1, FileInfo, true,
                            PrevWriteResult, Result, HandlerName);
 
         stop ->
@@ -358,14 +366,15 @@ file_ctrl_loop(File, DevName, Synced,
 %% logrotate)
 ensure(Fd,DevName) when is_atom(DevName) ->
     Fd;
-ensure({Fd,INode},FileName) ->
+ensure({Fd,INode},FileInfo) ->
+    FileName = element(2, FileInfo),
     case file:read_file_info(FileName) of
         {ok,#file_info{inode=INode}} ->
             {Fd,INode};
         _ ->
             _ = file:close(Fd),
             _ = file:close(Fd), % delayed_write cause close not to close
-            case do_open_log_file({file,FileName}) of
+            case do_open_log_file(FileInfo) of
                 {ok,File} ->
                     File;
                 Error ->
@@ -376,21 +385,22 @@ ensure({Fd,INode},FileName) ->
 write_to_dev(DevName, Bin, _DevName, _PrevWriteResult, _HandlerName)
   when is_atom(DevName) ->
     io:put_chars(DevName, Bin);
-write_to_dev({Fd,_}, Bin, FileName, PrevWriteResult, HandlerName) ->
+write_to_dev({Fd,_}, Bin, FileInfo, PrevWriteResult, HandlerName) ->
     Result = ?file_write(Fd, Bin),
-    maybe_notify_error(write,Result,PrevWriteResult,FileName,HandlerName).
+    maybe_notify_error(write,Result,PrevWriteResult,FileInfo,HandlerName).
 
-sync_dev(_, _FileName, true, PrevSyncResult, _HandlerName) ->
+sync_dev(_, _FileInfo, true, PrevSyncResult, _HandlerName) ->
     PrevSyncResult;
-sync_dev({Fd,_}, FileName, false, PrevSyncResult, HandlerName) ->
+sync_dev({Fd,_}, FileInfo, false, PrevSyncResult, HandlerName) ->
     Result = ?file_datasync(Fd),
-    maybe_notify_error(filesync,Result,PrevSyncResult,FileName,HandlerName).
+    maybe_notify_error(filesync,Result,PrevSyncResult,FileInfo,HandlerName).
 
-maybe_notify_error(_Op, ok, _PrevResult, _FileName, _HandlerName) ->
+maybe_notify_error(_Op, ok, _PrevResult, _FileInfo, _HandlerName) ->
     ok;
-maybe_notify_error(_Op, PrevResult, PrevResult, _FileName, _HandlerName) ->
+maybe_notify_error(_Op, PrevResult, PrevResult, _FileInfo, _HandlerName) ->
     %% don't report same error twice
     PrevResult;
-maybe_notify_error(Op, Error, _PrevResult, FileName, HandlerName) ->
+maybe_notify_error(Op, Error, _PrevResult, FileInfo, HandlerName) ->
+    FileName = element(2, FileInfo),
     logger_h_common:error_notify({HandlerName,Op,FileName,Error}),
     Error.
