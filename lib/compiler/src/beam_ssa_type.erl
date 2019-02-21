@@ -170,7 +170,8 @@ opt_finish_1([], [], ParamInfo) ->
 
 validator_anno(#t_tuple{size=Size,exact=Exact,elements=Elements0}) ->
     Elements = maps:fold(fun(Index, Type, Acc) ->
-                                 Acc#{ Index => validator_anno(Type) }
+                                 Key = beam_validator:type_anno(integer, Index),
+                                 Acc#{ Key => validator_anno(Type) }
                          end, #{}, Elements0),
     beam_validator:type_anno(tuple, Size, Exact, Elements);
 validator_anno(#t_integer{elements={Same,Same}}) ->
