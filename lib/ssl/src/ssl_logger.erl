@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,13 +46,19 @@
 format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
      #{direction := Direction,
        protocol := Protocol,
-       message := BinMsg0} = Msg,
+       message := Content} = Msg,
     case Protocol of
         'tls_record' ->
-            BinMsg = lists:flatten(BinMsg0),
+            BinMsg =
+                case Content of
+                    #ssl_tls{} ->
+                        [tls_record:build_tls_record(Content)];
+                    _ when is_list(Content) ->
+                        lists:flatten(Content)
+                end,
             format_tls_record(Direction, BinMsg);
         'handshake' ->
-            format_handshake(Direction, BinMsg0);
+            format_handshake(Direction, Content);
         _Other ->
             []
     end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,8 +51,7 @@
 -export([encode_alert/3, send_alert/2, send_alert_in_connection/2, close/5, protocol_name/0]).
 
 %% Data handling
--export([encode_data/3, next_record/1,
-	 send/3, socket/5, setopts/3, getopts/3]).
+-export([next_record/1, socket/4, setopts/3, getopts/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -393,16 +392,13 @@ protocol_name() ->
 %% Data handling
 %%====================================================================	 
 
-encode_data(Data, Version, ConnectionStates0)->
-    dtls_record:encode_data(Data, Version, ConnectionStates0).
+send(Transport, {Listener, Socket}, Data) when is_pid(Listener) -> % Server socket
+    dtls_socket:send(Transport, Socket, Data);
+send(Transport, Socket, Data) -> % Client socket
+    dtls_socket:send(Transport, Socket, Data).
 
-send(Transport, {_, {{_,_}, _} = Socket}, Data) ->
-    send(Transport, Socket, Data);
-send(Transport, Socket, Data) ->
-   dtls_socket:send(Transport, Socket, Data).
-
-socket(Pid,  Transport, Socket, Connection, _) ->
-    dtls_socket:socket(Pid, Transport, Socket, Connection).
+socket(Pid,  Transport, Socket, _Tracker) ->
+    dtls_socket:socket(Pid, Transport, Socket, ?MODULE).
 
 setopts(Transport, Socket, Other) ->
     dtls_socket:setopts(Transport, Socket, Other).
@@ -806,7 +802,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
 	   session = #session{is_resumable = new},
 	   connection_states = ConnectionStates,
 	   protocol_buffers = #protocol_buffers{},
-	   user_data_buffer = <<>>,
+	   user_data_buffer = {[],0,[]},
 	   start_or_recv_from = undefined,
 	   flight_buffer = new_flight(),
            protocol_specific = #{flight_state => initial_flight_state(DataTag)}
@@ -1174,7 +1170,6 @@ log_ignore_alert(_, _, _, _) ->
 
 send_application_data(Data, From, _StateName,
                       #state{static_env = #static_env{socket = Socket,
-                                                      protocol_cb = Connection,
                                                       transport_cb = Transport},
                              connection_env = #connection_env{negotiated_version = Version},
                              handshake_env = HsEnv,
@@ -1187,9 +1182,9 @@ send_application_data(Data, From, _StateName,
                         [{next_event, {call, From}, {application_data, Data}}]);
 	false ->
 	    {Msgs, ConnectionStates} =
-                Connection:encode_data(Data, Version, ConnectionStates0),
+                dtls_record:encode_data(Data, Version, ConnectionStates0),
             State = State0#state{connection_states = ConnectionStates},
-	    case Connection:send(Transport, Socket, Msgs) of
+	    case send(Transport, Socket, Msgs) of
                 ok ->
                     ssl_connection:hibernate_after(connection, State, [{reply, From, ok}]);
                 Result ->

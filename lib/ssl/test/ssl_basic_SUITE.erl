@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3568,7 +3568,7 @@ tls_dont_crash_on_handshake_garbage(Config) ->
                        <<22, 3,3, 5:16, 92,64,37,228,209>> % garbage
                       ]),
     % Send unexpected change_cipher_spec
-    ok = gen_tcp:send(Socket, <<20, 0,0,12, 111,40,244,7,137,224,16,109,197,110,249,152>>),
+    ok = gen_tcp:send(Socket, <<20, 3,3, 12:16, 111,40,244,7,137,224,16,109,197,110,249,152>>),
 
     % Ensure we receive an alert, not sudden disconnect
     {ok, <<21, _/binary>>} = drop_handshakes(Socket, 1000).

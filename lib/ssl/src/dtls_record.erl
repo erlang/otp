@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -546,15 +546,15 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    compression_algorithm = CompAlg}} = ReadState0, 
 		   ConnnectionStates0) ->
     AAD = start_additional_data(Type, Version, Epoch, Seq),
-    CipherS1 = ssl_record:nonce_seed(BulkCipherAlgo, <<?UINT16(Epoch), ?UINT48(Seq)>>, CipherS0),
+    CipherS = ssl_record:nonce_seed(BulkCipherAlgo, <<?UINT16(Epoch), ?UINT48(Seq)>>, CipherS0),
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
-    case  ssl_record:decipher_aead(BulkCipherAlgo, CipherS1, AAD, CipherFragment, TLSVersion) of
-	{PlainFragment, CipherState} ->
-	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
+    case ssl_record:decipher_aead(BulkCipherAlgo, CipherS, AAD, CipherFragment, TLSVersion) of
+	PlainFragment when is_binary(PlainFragment) ->
+	    {Plain, CompressionS} = ssl_record:uncompress(CompAlg,
 							   PlainFragment, CompressionS0),
-	    ReadState0 = ReadState0#{compression_state => CompressionS1,
-                                    cipher_state => CipherState},
-            ReadState = update_replay_window(Seq, ReadState0),
+	    ReadState1 = ReadState0#{compression_state := CompressionS,
+                                     cipher_state := CipherS},
+            ReadState = update_replay_window(Seq, ReadState1),
 	    ConnnectionStates = set_connection_state_by_epoch(ReadState, Epoch, ConnnectionStates0, read),
 	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
 	  #alert{} = Alert ->

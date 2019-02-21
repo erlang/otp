@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -655,7 +655,7 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}
 send(#sslsocket{pid = [Pid]}, Data) when is_pid(Pid) ->
     ssl_connection:send(Pid, Data);
 send(#sslsocket{pid = [_, Pid]}, Data) when is_pid(Pid) ->
-    tls_sender:send_data(Pid,  erlang:iolist_to_binary(Data));
+    tls_sender:send_data(Pid,  erlang:iolist_to_iovec(Data));
 send(#sslsocket{pid = {_, #config{transport_info={_, udp, _, _}}}}, _) ->
     {error,enotconn}; %% Emulate connection behaviour
 send(#sslsocket{pid = {dtls,_}}, _) ->

@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 	 rc4_suites/1, des_suites/1, rsa_suites/1, 
          filter/3, filter_suites/1, filter_suites/2,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
-	 random_bytes/1, calc_mac_hash/4,
+	 random_bytes/1, calc_mac_hash/4, calc_mac_hash/6,
          is_stream_ciphersuite/1, signature_scheme/1,
          scheme_to_components/1, hash_size/1, effective_key_bits/1,
          key_material/1]).
@@ -112,7 +112,8 @@ cipher_init(?AES_GCM, IV, Key) ->
 cipher_init(?CHACHA20_POLY1305, IV, Key) ->
     #cipher_state{iv = IV, key = Key, tag_len = 16};
 cipher_init(_BCA, IV, Key) ->
-    #cipher_state{iv = IV, key = Key}.
+    %% Initialize random IV cache, not used for aead ciphers
+    #cipher_state{iv = IV, key = Key, state = <<>>}.
 
 nonce_seed(Seed, CipherState) ->
     CipherState#cipher_state{nonce = Seed}.
@@ -127,12 +128,11 @@ nonce_seed(Seed, CipherState) ->
 %% data is calculated and the data plus the HMAC is ecncrypted.
 %%-------------------------------------------------------------------
 cipher(?NULL, CipherState, <<>>, Fragment, _Version) ->
-    GenStreamCipherList = [Fragment, <<>>],
-    {GenStreamCipherList, CipherState};
+    {iolist_to_binary(Fragment), CipherState};
 cipher(?RC4, CipherState = #cipher_state{state = State0}, Mac, Fragment, _Version) ->
     GenStreamCipherList = [Fragment, Mac],
     {State1, T} = crypto:stream_encrypt(State0, GenStreamCipherList),
-    {T, CipherState#cipher_state{state = State1}};
+    {iolist_to_binary(T), CipherState#cipher_state{state = State1}};
 cipher(?DES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) ->
 			 crypto:block_encrypt(des_cbc, Key, IV, T)
@@ -161,8 +161,7 @@ aead_type(?CHACHA20_POLY1305) ->
 
 build_cipher_block(BlockSz, Mac, Fragment) ->
     TotSz = byte_size(Mac) + erlang:iolist_size(Fragment) + 1,
-    {PaddingLength, Padding} = get_padding(TotSz, BlockSz),
-    [Fragment, Mac, PaddingLength, Padding].
+    [Fragment, Mac, padding_with_len(TotSz, BlockSz)].
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
 	     Mac, Fragment, {3, N})
@@ -172,14 +171,21 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
     NextIV = next_iv(T, IV),
     {T, CS0#cipher_state{iv=NextIV}};
 
-block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
+block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV, state = IV_Cache0} = CS0,
 	     Mac, Fragment, {3, N})
   when N == 2; N == 3; N == 4 ->
-    NextIV = random_iv(IV),
+    IV_Size = byte_size(IV),
+    <<NextIV:IV_Size/binary, IV_Cache/binary>> =
+        case IV_Cache0 of
+            <<>> ->
+                random_bytes(IV_Size bsl 5); % 32 IVs
+            _ ->
+                IV_Cache0
+        end,
     L0 = build_cipher_block(BlockSz, Mac, Fragment),
     L = [NextIV|L0],
     T = Fun(Key, IV, L),
-    {T, CS0#cipher_state{iv=NextIV}}.
+    {T, CS0#cipher_state{iv=NextIV, state = IV_Cache}}.
 
 %%--------------------------------------------------------------------
 -spec decipher(cipher_enum(), integer(), #cipher_state{}, binary(), 
@@ -654,12 +660,13 @@ random_bytes(N) ->
 calc_mac_hash(Type, Version,
 	      PlainFragment, #{sequence_number := SeqNo,
 			       mac_secret := MacSecret,
-			       security_parameters:=
-				   SecPars}) ->
+			       security_parameters :=
+				   #security_parameters{mac_algorithm = MacAlgorithm}}) ->
+    calc_mac_hash(Type, Version, PlainFragment, MacAlgorithm, MacSecret, SeqNo).
+%%
+calc_mac_hash(Type, Version, PlainFragment, MacAlgorithm, MacSecret, SeqNo) ->
     Length = erlang:iolist_size(PlainFragment),
-    mac_hash(Version, SecPars#security_parameters.mac_algorithm,
-	     MacSecret, SeqNo, Type,
-	     Length, PlainFragment).
+    mac_hash(Version, MacAlgorithm, MacSecret, SeqNo, Type, Length, PlainFragment).
 
 is_stream_ciphersuite(#{cipher := rc4_128}) ->
     true;
@@ -765,7 +772,6 @@ expanded_key_material(Cipher) when Cipher == aes_128_cbc;
 				   Cipher == chacha20_poly1305 ->
     unknown.  
 
-
 effective_key_bits(null) ->
     0;
 effective_key_bits(des_cbc) ->
@@ -785,18 +791,15 @@ iv_size(Cipher) when Cipher == null;
 		     Cipher == rc4_128;
 		     Cipher == chacha20_poly1305->
     0;
-
 iv_size(Cipher) when Cipher == aes_128_gcm;
 		     Cipher == aes_256_gcm ->
     4;
-
 iv_size(Cipher) ->
     block_size(Cipher).
 
 block_size(Cipher) when Cipher == des_cbc;
 			Cipher == '3des_ede_cbc' -> 
     8;
-
 block_size(Cipher) when Cipher == aes_128_cbc;
 			Cipher == aes_256_cbc;
 			Cipher == aes_128_gcm;
@@ -963,21 +966,51 @@ is_correct_padding(GenBlockCipher, {3, 1}, false) ->
 %% Padding must be checked in TLS 1.1 and after  
 is_correct_padding(#generic_block_cipher{padding_length = Len,
 					 padding = Padding}, _, _) ->
-    Len == byte_size(Padding) andalso
-        binary:copy(?byte(Len), Len) == Padding.
+    (Len == byte_size(Padding)) andalso (padding(Len) == Padding).
 
-get_padding(Length, BlockSize) ->
-    get_padding_aux(BlockSize, Length rem BlockSize).
+padding(PadLen) ->
+    case PadLen of
+        0 -> <<>>;
+        1 -> <<1>>;
+        2 -> <<2,2>>;
+        3 -> <<3,3,3>>;
+        4 -> <<4,4,4,4>>;
+        5 -> <<5,5,5,5,5>>;
+        6 -> <<6,6,6,6,6,6>>;
+        7 -> <<7,7,7,7,7,7,7>>;
+        8 -> <<8,8,8,8,8,8,8,8>>;
+        9 -> <<9,9,9,9,9,9,9,9,9>>;
+        10 -> <<10,10,10,10,10,10,10,10,10,10>>;
+        11 -> <<11,11,11,11,11,11,11,11,11,11,11>>;
+        12 -> <<12,12,12,12,12,12,12,12,12,12,12,12>>;
+        13 -> <<13,13,13,13,13,13,13,13,13,13,13,13,13>>;
+        14 -> <<14,14,14,14,14,14,14,14,14,14,14,14,14,14>>;
+        15 -> <<15,15,15,15,15,15,15,15,15,15,15,15,15,15,15>>;
+        _ ->
+            binary:copy(<<PadLen>>, PadLen)
+    end.
 
-get_padding_aux(_, 0) ->
-    {0, <<>>};
-get_padding_aux(BlockSize, PadLength) ->
-    N = BlockSize - PadLength,
-    {N, binary:copy(?byte(N), N)}.
-
-random_iv(IV) ->
-    IVSz = byte_size(IV),
-    random_bytes(IVSz).
+padding_with_len(TextLen, BlockSize) ->
+    case BlockSize - (TextLen rem BlockSize) of
+        0 -> <<0>>;
+        1 -> <<1,1>>;
+        2 -> <<2,2,2>>;
+        3 -> <<3,3,3,3>>;
+        4 -> <<4,4,4,4,4>>;
+        5 -> <<5,5,5,5,5,5>>;
+        6 -> <<6,6,6,6,6,6,6>>;
+        7 -> <<7,7,7,7,7,7,7,7>>;
+        8 -> <<8,8,8,8,8,8,8,8,8>>;
+        9 -> <<9,9,9,9,9,9,9,9,9,9>>;
+        10 -> <<10,10,10,10,10,10,10,10,10,10,10>>;
+        11 -> <<11,11,11,11,11,11,11,11,11,11,11,11>>;
+        12 -> <<12,12,12,12,12,12,12,12,12,12,12,12,12>>;
+        13 -> <<13,13,13,13,13,13,13,13,13,13,13,13,13,13>>;
+        14 -> <<14,14,14,14,14,14,14,14,14,14,14,14,14,14,14>>;
+        15 -> <<15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15>>;
+        PadLen ->
+            binary:copy(<<PadLen>>, PadLen + 1)
+    end.
 
 next_iv(Bin, IV) ->
     BinSz = byte_size(Bin),

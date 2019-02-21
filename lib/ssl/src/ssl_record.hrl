@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,6 +141,8 @@
 -define(HANDSHAKE, 22).
 -define(APPLICATION_DATA, 23).
 -define(HEARTBEAT, 24).
+-define(KNOWN_RECORD_TYPE(Type),
+        (is_integer(Type) andalso (20 =< (Type)) andalso ((Type) =< 23))).
 -define(MAX_PLAIN_TEXT_LENGTH, 16384).
 -define(MAX_COMPRESSED_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+1024)).
 -define(MAX_CIPHER_TEXT_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+2048)).
