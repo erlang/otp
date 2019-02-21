@@ -136,6 +136,22 @@
 -type legacy_hash()        :: md5.
 
 -type sign_algo()         :: rsa | dsa | ecdsa.
+
+-type sign_scheme()       :: rsa_pkcs1_sha256 
+                           | rsa_pkcs1_sha384
+                           | rsa_pkcs1_sha512
+                           | ecdsa_secp256r1_sha256
+                           | ecdsa_secp384r1_sha384
+                           | ecdsa_secp521r1_sha512
+                           | rsa_pss_rsae_sha256
+                           | rsa_pss_rsae_sha384
+                           | rsa_pss_rsae_sha512
+                           | rsa_pss_pss_sha256
+                           | rsa_pss_pss_sha384
+                           | rsa_pss_pss_sha512
+                           | rsa_pkcs1_sha1
+                           | ecdsa_sha1.
+
 -type key_algo()          :: rsa |
                              dhe_rsa | dhe_dss |
                              ecdhe_ecdsa | ecdh_ecdsa | ecdh_rsa |
@@ -229,6 +245,7 @@
                                 {password, key_password()} |
                                 {ciphers, cipher_suites()} |
                                 {eccs, eccs()} |
+                                {signature_algs_cert, signature_schemes()} |
                                 {secure_renegotiate, secure_renegotiation()} |
                                 {depth, allowed_cert_chain_length()} |
                                 {verify_fun, custom_verify()} |
@@ -238,6 +255,7 @@
                                 {partial_chain, root_fun()} |
                                 {versions, protocol_versions()} |
                                 {user_lookup_fun, custom_user_lookup()} |
+                                {log_level, logging_level()} |
                                 {log_alert, log_alert()} |
                                 {hibernate_after, hibernate_after()} |
                                 {padding_check, padding_check()} |
@@ -272,13 +290,14 @@
 -type root_fun()                 ::  fun().
 -type protocol_versions()        ::  [protocol_version()].
 -type signature_algs()           ::  [{hash(), sign_algo()}].
+-type signature_schemes()        ::  [sign_scheme()].
 -type custom_user_lookup()       ::  {Lookupfun :: fun(), UserState :: term()}.
 -type padding_check()            :: boolean(). 
 -type beast_mitigation()         :: one_n_minus_one | zero_n | disabled.
 -type srp_identity()             :: {Username :: string(), Password :: string()}.
 -type psk_identity()             :: string().
 -type log_alert()                :: boolean().
-
+-type logging_level()            :: logger:level().
 %% -------------------------------------------------------------------------------------------------------
 
 -type client_option()        :: {verify, client_verify_type()} |
