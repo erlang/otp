@@ -772,25 +772,77 @@ void init_dist(void)
 
 #define ErtsDistOutputBuf2Binary(OB) OB->bin
 
+#ifdef DEBUG
+
+struct obuf_list;
+struct obuf_list {
+    erts_refc_t refc;
+    struct obuf_list *next;
+    struct obuf_list *prev;
+};
+#define obuf_list_size sizeof(struct obuf_list)
+static struct obuf_list *erts_obuf_list = NULL;
+static erts_mtx_t erts_obuf_list_mtx;
+
+static void
+insert_obuf(struct obuf_list *obuf, erts_aint_t initial) {
+    erts_mtx_lock(&erts_obuf_list_mtx);
+    obuf->next = erts_obuf_list;
+    obuf->prev = NULL;
+    erts_refc_init(&obuf->refc, initial);
+    if (erts_obuf_list)
+        erts_obuf_list->prev = obuf;
+    erts_obuf_list = obuf;
+    erts_mtx_unlock(&erts_obuf_list_mtx);
+}
+
+static void
+remove_obuf(struct obuf_list *obuf) {
+    if (erts_refc_dectest(&obuf->refc, 0) == 0) {
+        erts_mtx_lock(&erts_obuf_list_mtx);
+        if (obuf->prev) {
+            obuf->prev->next = obuf->next;
+        } else {
+            erts_obuf_list = obuf->next;
+        }
+        if (obuf->next) obuf->next->prev = obuf->prev;
+        erts_mtx_unlock(&erts_obuf_list_mtx);
+    }
+}
+
+void check_obuf(void);
+void check_obuf(void) {
+    erts_mtx_lock(&erts_obuf_list_mtx);
+    ERTS_ASSERT(erts_obuf_list == NULL);
+    erts_mtx_unlock(&erts_obuf_list_mtx);
+}
+#else
+#define insert_obuf(...)
+#define remove_obuf(...)
+#define obuf_list_size 0
+#endif
+
 static ERTS_INLINE ErtsDistOutputBuf *
 alloc_dist_obuf(Uint size, Uint headers)
 {
     int i;
     ErtsDistOutputBuf *obuf;
     Uint obuf_size = sizeof(ErtsDistOutputBuf)*(headers) +
-        sizeof(byte)*size;
+        sizeof(byte)*size + obuf_list_size;
     Binary *bin = erts_bin_drv_alloc(obuf_size);
+    size += obuf_list_size;
     obuf = (ErtsDistOutputBuf *) &bin->orig_bytes[size];
     erts_refc_add(&bin->intern.refc, headers - 1, 1);
     for (i = 0; i < headers; i++) {
         obuf[i].bin = bin;
-        obuf[i].extp = (byte *)&bin->orig_bytes[0];
+        obuf[i].extp = (byte *)&bin->orig_bytes[0] + obuf_list_size;
 #ifdef DEBUG
         obuf[i].dbg_pattern = ERTS_DIST_OUTPUT_BUF_DBG_PATTERN;
         obuf[i].alloc_endp = obuf->extp + size;
         ASSERT(bin == ErtsDistOutputBuf2Binary(obuf));
 #endif
     }
+    insert_obuf((struct obuf_list*)&bin->orig_bytes[0], headers);
     return obuf;
 }
 
@@ -799,7 +851,10 @@ free_dist_obuf(ErtsDistOutputBuf *obuf)
 {
     Binary *bin = ErtsDistOutputBuf2Binary(obuf);
     ASSERT(obuf->dbg_pattern == ERTS_DIST_OUTPUT_BUF_DBG_PATTERN);
-    erts_bin_release(bin);
+    remove_obuf((struct obuf_list*)&bin->orig_bytes[0]);
+    if (erts_refc_dectest(&bin->intern.refc, 0) == 0) {
+        erts_bin_free(bin);
+    }
 }
 
 static ERTS_INLINE Sint
@@ -4552,6 +4607,10 @@ init_nodes_monitors(void)
 {
     erts_mtx_init(&nodes_monitors_mtx, "nodes_monitors", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
+#ifdef DEBUG
+    erts_mtx_init(&erts_obuf_list_mtx, "sad", NIL,
+                  ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
+#endif
     nodes_monitors = NULL;
     no_nodes_monitors = 0;
 }
