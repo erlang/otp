@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,10 +50,9 @@
 %% This is for backward compatibility only; the functionality is broken.
 -define(WARN_DUPLICATED_NAME, global_multi_name_action).
 
-%% Undocumented Kernel variable. Set this to 0 (zero) to get the old
-%% behaviour.
+%% Undocumented Kernel variable.
 -define(N_CONNECT_RETRIES, global_connect_retries).
--define(DEFAULT_N_CONNECT_RETRIES, 5).
+-define(DEFAULT_N_CONNECT_RETRIES, 0).
 
 %%% In certain places in the server, calling io:format hangs everything,
 %%% so we'd better use erlang:display/1.
