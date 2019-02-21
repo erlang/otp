@@ -516,20 +516,32 @@ valfun_1(I, Vst) ->
 init_try_catch_branch(Tag, Dst, Fail, Vst0) ->
     Vst1 = create_tag({Tag,[Fail]}, 'try_catch', [], Dst, Vst0),
     #vst{current=#st{ct=Fails}=St0} = Vst1,
-    CurrentSt = St0#st{ct=[[Fail]|Fails]},
+    St = St0#st{ct=[[Fail]|Fails]},
+    Vst = Vst0#vst{current=St},
 
-    %% Set the initial state at the try/catch label.
-    %% Assume that Y registers contain terms or try/catch
-    %% tags.
-    Yregs0 = map(fun({Y,uninitialized}) -> {Y,term};
-                    ({Y,initialized}) -> {Y,term};
-                    (E) -> E
-                 end, gb_trees:to_list(CurrentSt#st.y)),
-    Yregs = gb_trees:from_orddict(Yregs0),
-    BranchSt = CurrentSt#st{y=Yregs},
+    complex_test(Fail,
+                 fun(CatchVst) ->
+                          #vst{current=#st{y=Ys}} = CatchVst,
+                          init_catch_handler_1(gb_trees:keys(Ys), CatchVst)
+                 end,
+                 fun(SuccVst) ->
+                          SuccVst
+                 end, Vst).
 
-    Vst = branch_state(Fail, Vst1#vst{current=BranchSt}),
-    Vst#vst{current=CurrentSt}.
+%% Set the initial state at the try/catch label. Assume that Y registers
+%% contain terms or try/catch tags.
+init_catch_handler_1([Reg | Regs], Vst0) ->
+    Vst = case get_raw_type(Reg, Vst0) of
+              initialized ->
+                  create_term(term, 'catch_handler', [], Reg, Vst0);
+              uninitialized ->
+                  create_term(term, 'catch_handler', [], Reg, Vst0);
+              _ ->
+                  Vst0
+          end,
+    init_catch_handler_1(Regs, Vst);
+init_catch_handler_1([], Vst) ->
+    Vst.
 
 %% Update branched state if necessary and try next set of instructions.
 valfun_2(I, #vst{current=#st{ct=[]}}=Vst) ->
