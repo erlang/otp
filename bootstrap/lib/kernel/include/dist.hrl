@@ -42,6 +42,9 @@
 -define(DFLAG_BIG_CREATION, 16#40000).
 -define(DFLAG_SEND_SENDER, 16#80000).
 -define(DFLAG_BIG_SEQTRACE_LABELS, 16#100000).
+%% -define(DFLAG_NO_MAGIC, 16#200000). %% Used internally only
+-define(DFLAG_EXIT_PAYLOAD, 16#400000).
+-define(DFLAG_FRAGMENTS, 16#800000).
 
 %% Also update dflag2str() in ../src/dist_util.erl
 %% when adding flags...

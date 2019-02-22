@@ -16,13 +16,42 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-{"5.4.3",
- %% Up from - max one major revision back
- [{<<"5\\.3(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-20.0
-  {<<"5\\.4(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-20.1+
-  {<<"6\\.0(\\.[0-9]+)*">>,[restart_new_emulator]}], % OTP-21
- %% Down to - max one major revision back
- [{<<"5\\.3(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-20.0
-  {<<"5\\.4(\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-20.1+
-  {<<"6\\.0(\\.[0-9]+)*">>,[restart_new_emulator]}]  % OTP-21
-}.
+%%
+%% We allow upgrade from, and downgrade to all previous
+%% versions from the following OTP releases:
+%% - OTP 20
+%% - OTP 21
+%%
+%% We also allow upgrade from, and downgrade to all
+%% versions that have branched off from the above
+%% stated previous versions.
+%%
+{"6.2",
+ [{<<"^5\\.3$">>,[restart_new_emulator]},
+  {<<"^5\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^5\\.3\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^5\\.4$">>,[restart_new_emulator]},
+  {<<"^5\\.4\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^5\\.4\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^5\\.4\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^5\\.4\\.3(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^6\\.0$">>,[restart_new_emulator]},
+  {<<"^6\\.0\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^6\\.0\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^6\\.1$">>,[restart_new_emulator]},
+  {<<"^6\\.1\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^6\\.1\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
+ [{<<"^5\\.3$">>,[restart_new_emulator]},
+  {<<"^5\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^5\\.3\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^5\\.4$">>,[restart_new_emulator]},
+  {<<"^5\\.4\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^5\\.4\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^5\\.4\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^5\\.4\\.3(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^6\\.0$">>,[restart_new_emulator]},
+  {<<"^6\\.0\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^6\\.0\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^6\\.1$">>,[restart_new_emulator]},
+  {<<"^6\\.1\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^6\\.1\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]}]}.
