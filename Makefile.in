@@ -377,10 +377,15 @@ endif
 # With all bootstraps we mean all bootstrapping that is done when
 # the system is delivered in open source, the primary
 # bootstrap is not included, it requires a pre built emulator...
+ifeq ($(OTP_TINY_BUILD),true)
+all_bootstraps: build_erl_interface emulator bootstrap_setup \
+     tiny_secondary_bootstrap_build tiny_secondary_bootstrap_copy
+else
 all_bootstraps: build_erl_interface emulator \
      bootstrap_setup \
      secondary_bootstrap_build secondary_bootstrap_copy \
      tertiary_bootstrap_build tertiary_bootstrap_copy
+endif
 
 .PHONY: build_erl_interface
 
@@ -494,10 +499,16 @@ ifeq ($(OTP_SMALL_BUILD),true)
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) $(TYPE)
 else
+ifeq ($(OTP_TINY_BUILD),true)
+	$(make_verbose)cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
+		$(MAKE) opt TINY_BUILD=true
+else
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) $(TYPE) BUILD_ALL=true
 	$(V_at)test -f $(ERL_TOP)/make/otp_built || echo "OTP built" > $(ERL_TOP)/make/otp_built
+endif
 endif
 
 APPS=$(patsubst $(ERL_TOP)/lib/%/doc,%,$(wildcard $(ERL_TOP)/lib/*/doc))
@@ -573,10 +584,53 @@ bootstrap_setup_target:
 	   test $(TARGET) = `cat $(BOOTSTRAP_ROOT)/bootstrap/target`; } || \
 	 echo $(TARGET) > $(BOOTSTRAP_ROOT)/bootstrap/target
 
+tiny_secondary_bootstrap_build:
+	$(make_verbose)cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
+		$(MAKE) opt SECONDARY_BOOTSTRAP=true TINY_BUILD=true
+
 secondary_bootstrap_build:
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt SECONDARY_BOOTSTRAP=true
+
+tiny_secondary_bootstrap_copy:
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; fi
+	$(V_at)for x in lib/parsetools/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+	$(V_at)for x in lib/parsetools/include/*.hrl; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; fi
+	$(V_at)for x in lib/sasl/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
 
 secondary_bootstrap_copy:
 	$(make_verbose)
