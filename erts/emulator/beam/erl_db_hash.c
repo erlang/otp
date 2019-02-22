@@ -85,6 +85,14 @@
 
 #include "erl_db_hash.h"
 
+#define ADD_NITEMS(DB, TO_ADD)                                          \
+    erts_flxctr_add(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID, TO_ADD)
+#define INC_NITEMS(DB)                                                  \
+    erts_flxctr_inc_read_centralized(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
+#define DEC_NITEMS(DB)                                                  \
+    erts_flxctr_dec_read_centralized(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
+#define RESET_NITEMS(DB)                                                \
+    erts_flxctr_reset(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
 /* 
  * The following symbols can be manipulated to "tune" the linear hash array 
  */
@@ -121,7 +129,9 @@
      : ((struct segment**) erts_atomic_read_nob(&(tb)->segtab)))
 #endif
 #define NACTIVE(tb) ((int)erts_atomic_read_nob(&(tb)->nactive))
-#define NITEMS(tb) ((int)erts_atomic_read_nob(&(tb)->common.nitems))
+#define NITEMS(tb) \
+    ((Sint)erts_flxctr_read_centralized(&(tb)->common.counters,             \
+                                        ERTS_DB_TABLE_NITEMS_COUNTER_ID))
 
 #define SLOT_IX_TO_SEG_IX(i) (((i)+(EXT_SEGSZ-FIRST_SEGSZ)) >> EXT_SEGSZ_EXP)
 
@@ -806,7 +816,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
     if (tb->common.status & DB_SET) {
 	HashDbTerm* bnext = b->next;
 	if (is_pseudo_deleted(b)) {
-	    erts_atomic_inc_nob(&tb->common.nitems);
+            INC_NITEMS(tb);
             b->pseudo_deleted = 0;
 	}
 	else if (key_clash_fail) {
@@ -835,7 +845,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 	do {
 	    if (db_eq(&tb->common,obj,&q->dbterm)) {
 		if (is_pseudo_deleted(q)) {
-		    erts_atomic_inc_nob(&tb->common.nitems);
+		    INC_NITEMS(tb);
                     q->pseudo_deleted = 0;
 		    ASSERT(q->hvalue == hval);
 		    if (q != b) { /* must move to preserve key insertion order */
@@ -858,7 +868,7 @@ Lnew:
     q->pseudo_deleted = 0;
     q->next = b;
     *bp = q;
-    nitems = erts_atomic_inc_read_nob(&tb->common.nitems);
+    nitems = INC_NITEMS(tb);
     WUNLOCK_HASH(lck);
     {
 	int nactive = NACTIVE(tb);       
@@ -1056,7 +1066,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
     }
     WUNLOCK_HASH(lck);
     if (nitems_diff) {
-	erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
+        ADD_NITEMS(tb, nitems_diff);
 	try_shrink(tb);
     }
     free_term_list(tb, free_us);
@@ -1117,7 +1127,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
     }
     WUNLOCK_HASH(lck);
     if (nitems_diff) {
-	erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
+        ADD_NITEMS(tb, nitems_diff);
 	try_shrink(tb);
     }
     free_term_list(tb, free_us);
@@ -2023,7 +2033,7 @@ static int select_delete_on_match_res(traverse_context_t* ctx_base, Sint slot_ix
         del->next = ctx->free_us;
         ctx->free_us = del;
     }
-    erts_atomic_dec_nob(&ctx->base.tb->common.nitems);
+    DEC_NITEMS(ctx->base.tb);
 
     return 1;
 }
@@ -2300,7 +2310,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     }
     WUNLOCK_HASH(lck);
     if (nitems_diff) {
-        erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
+        ADD_NITEMS(tb, nitems_diff);
         try_shrink(tb);
     }
     free_term_list(tb, free_us);
@@ -2360,7 +2370,7 @@ static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
     fixdel->slot = NACTIVE(tb) - 1;
     fixdel->all = 1;
     fixdel->trap = 0;
-    erts_atomic_set_nob(&tb->common.nitems, 0);
+    RESET_NITEMS(tb);
     return loops < 0 ? 0 : loops / LOOPS_PER_REDUCTION;
 }
 
@@ -2468,7 +2478,8 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 		     (void*)tb->locks, sizeof(DbTableHashFineLocks));
 	tb->locks = NULL;
     }
-    ASSERT(erts_atomic_read_nob(&tb->common.memory_size) == sizeof(DbTable));
+    ASSERT(sizeof(DbTable) == erts_flxctr_read_approx(&tb->common.counters,
+                                                      ERTS_DB_TABLE_MEM_COUNTER_ID));
     return reds;			/* Done */
 }
 
@@ -3080,7 +3091,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             ASSERT(q->hvalue == hval);
             q->pseudo_deleted = 0;
             *bp = b = q;
-            erts_atomic_inc_nob(&tb->common.nitems);
+            INC_NITEMS(tb);
         }
 
         HRelease(p, hend, htop);
@@ -3123,7 +3134,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
         }
 
         WUNLOCK_HASH(lck);
-        erts_atomic_dec_nob(&tb->common.nitems);
+        DEC_NITEMS(tb);
         try_shrink(tb);
     } else {
         if (handle->flags & DB_MUST_RESIZE) {
@@ -3132,7 +3143,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
         }
         if (handle->flags & DB_INC_TRY_GROW) {
             int nactive;
-            int nitems = erts_atomic_inc_read_nob(&tb->common.nitems);
+            int nitems = INC_NITEMS(tb);
             WUNLOCK_HASH(lck);
             nactive = NACTIVE(tb);
 
@@ -3163,7 +3174,7 @@ static SWord db_delete_all_objects_hash(Process* p, DbTable* tbl, SWord reds)
             return reds;
 
 	db_create_hash(p, tbl);
-	erts_atomic_set_nob(&tbl->hash.common.nitems, 0);
+        RESET_NITEMS(tbl);
     }
     return reds;
 }

@@ -636,6 +636,29 @@
           produces a crash dump. On Unix systems, sending an emulator process
           a <c>SIGUSR1</c> signal also forces a crash dump.</p>
       </item>
+      <tag><marker id="+dcg"/><c><![CDATA[+rg DecentralizedCounterGroupsLimit]]></c></tag>
+      <item>
+        <p>Limits the number of decentralized counter groups used by
+           decentralized counters optimized for update operations in the
+           Erlang runtime system. By default, the limit is 256.</p>
+        <p>When the number of schedulers is less than or equal to the
+           limit, each scheduler has its own group. When the
+           number of schedulers is larger than the groups limit,
+           schedulers share groups. Shared groups degrade
+           the performance for updating counters while many reader groups
+           degrade the performance for reading counters. So, the limit is a tradeoff
+           between performance for update operations and performance for
+           read operations. Each group consumes 64 bytes in each
+           counter.</p>
+        <p>Notice that a runtime system using decentralized
+           counter groups benefits from <seealso marker="#+sbt">binding
+           schedulers to logical processors</seealso>, as the groups are
+           distributed better between schedulers with this option.</p>
+        <p>This option only affects decentralized counters used for
+           the counters that are keeping track of the memory consumption
+           and the number of terms in ETS tables of type ordered_set with
+           the write_concurrency option activated.</p>
+      </item>
       <tag><marker id="+e"/><c><![CDATA[+e Number]]></c></tag>
       <item>
         <p>Sets the maximum number of ETS tables. This limit is

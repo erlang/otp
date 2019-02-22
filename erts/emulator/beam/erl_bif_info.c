@@ -3023,6 +3023,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(erts_nif_taints(BIF_P));
     } else if (ERTS_IS_ATOM_STR("reader_groups_map", BIF_ARG_1)) {
 	BIF_RET(erts_get_reader_groups_map(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("decentralized_counter_groups_map", BIF_ARG_1)) {
+	BIF_RET(erts_get_decentralized_counter_groups_map(BIF_P));
     } else if (ERTS_IS_ATOM_STR("dist_buf_busy_limit", BIF_ARG_1)) {
 	Uint hsz = 0;
 

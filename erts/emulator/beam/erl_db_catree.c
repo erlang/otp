@@ -2085,7 +2085,11 @@ static SWord db_delete_all_objects_catree(Process* p, DbTable* tbl, SWord reds)
     if (reds < 0)
         return reds;
     db_create_catree(p, tbl);
-    erts_atomic_set_nob(&tbl->catree.common.nitems, 0);
+    /* This is safe to do here even though the decentralized counter
+     * is used. The table is write-locked and
+     * ets_internal_delete_all_2 has checked that no snapshot of the
+     * counter is ongoing. */
+    erts_flxctr_reset(&tbl->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID);
     return reds;
 }
 
