@@ -242,11 +242,12 @@ do_open_log_file({file,FileName,Modes}) ->
         _:Reason -> {error,Reason}
     end.
 
-close_log_file(Std) when Std == standard_io; Std == standard_error ->
-    ok;
-close_log_file({Fd,_}) ->
+close_log_file(#{file:={Fd,_}}) ->
     _ = file:datasync(Fd),
-    _ = file:close(Fd).
+    _ = file:close(Fd);
+close_log_file(_) ->
+    ok.
+
 
 
 %%%-----------------------------------------------------------------
@@ -305,14 +306,19 @@ file_ctrl_init(HandlerName, FileInfo, Starter) when is_tuple(FileInfo) ->
         {ok,File} ->
             Starter ! {self(),ok},
             FileInfo1 = set_file_opt_append(FileInfo),
-            file_ctrl_loop(File, FileInfo1, false, ok, ok, HandlerName);
+            file_ctrl_loop(#{name=>HandlerName,
+                             file=>File,
+                             file_info=>FileInfo1,
+                             synced=>false,
+                             write_res=>ok,
+                             sync_res=>ok});
         {error,Reason} ->
             FileName = element(2, FileInfo),
             Starter ! {self(),{error,{open_failed,FileName,Reason}}}
     end;
 file_ctrl_init(HandlerName, StdDev, Starter) ->
     Starter ! {self(),ok},
-    file_ctrl_loop(StdDev, StdDev, false, ok, ok, HandlerName).
+    file_ctrl_loop(#{name=>HandlerName,dev=>StdDev}).
 
 %% Modify file options to use when re-opening if the inode has
 %% changed. I.e. the file may exist and if so should be appended to.
@@ -321,86 +327,77 @@ set_file_opt_append({file, FileName, Modes}) ->
 set_file_opt_append(FileInfo) ->
     FileInfo.
 
-file_ctrl_loop(File, FileInfo, Synced,
-               PrevWriteResult, PrevSyncResult, HandlerName) ->
+file_ctrl_loop(State) ->
     receive
         %% asynchronous event
         {log,Bin} ->
-            File1 = ensure(File, FileInfo),
-            Result = write_to_dev(File1, Bin, FileInfo,
-                                  PrevWriteResult, HandlerName),
-            file_ctrl_loop(File1, FileInfo, false,
-                           Result, PrevSyncResult, HandlerName);
+            State1 = write_to_dev(Bin,State),
+            file_ctrl_loop(State1);
 
         %% synchronous event
         {{log,Bin},{From,MRef}} ->
-            File1 = ensure(File, FileInfo),
-            Result = write_to_dev(File1, Bin, FileInfo,
-                                  PrevWriteResult, HandlerName),
+            State1 = write_to_dev(Bin,State),
             From ! {MRef,ok},
-            file_ctrl_loop(File1, FileInfo, false,
-                           Result, PrevSyncResult, HandlerName);
+            file_ctrl_loop(State1);
 
         filesync ->
-            File1 = ensure(File, FileInfo),
-            Result = sync_dev(File1, FileInfo, Synced,
-                              PrevSyncResult, HandlerName),
-            file_ctrl_loop(File1, FileInfo, true,
-                           PrevWriteResult, Result, HandlerName);
+            State1 = sync_dev(State),
+            file_ctrl_loop(State1);
 
         {filesync,{From,MRef}} ->
-            File1 = ensure(File, FileInfo),
-            Result = sync_dev(File1, FileInfo, Synced,
-                              PrevSyncResult, HandlerName),
+            State1 = sync_dev(State),
             From ! {MRef,ok},
-            file_ctrl_loop(File1, FileInfo, true,
-                           PrevWriteResult, Result, HandlerName);
+            file_ctrl_loop(State1);
 
         stop ->
-            _ = close_log_file(File),
+            _ = close_log_file(State),
             stopped
     end.
+
+write_to_dev(Bin,#{dev:=DevName}=State) ->
+    io:put_chars(DevName, Bin),
+    State;
+write_to_dev(Bin, State) ->
+    State1 = #{file:={Fd,_}} = ensure_file(State),
+    Result = ?file_write(Fd, Bin),
+    maybe_notify_error(write,Result,State1),
+    State1#{synced=>false,write_res=>Result}.
+
+sync_dev(#{synced:=false}=State) ->
+    State1 = #{file:={Fd,_}} = ensure_file(State),
+    Result = ?file_datasync(Fd),
+    maybe_notify_error(filesync,Result,State1),
+    State1#{synced=>true,sync_res=>Result};
+sync_dev(State) ->
+    State.
 
 %% In order to play well with tools like logrotate, we need to be able
 %% to re-create the file if it has disappeared (e.g. if rotated by
 %% logrotate)
-ensure(Fd,DevName) when is_atom(DevName) ->
-    Fd;
-ensure({Fd,INode},FileInfo) ->
+ensure_file(#{file:={Fd,INode},file_info:=FileInfo}=State) ->
     FileName = element(2, FileInfo),
     case file:read_file_info(FileName) of
         {ok,#file_info{inode=INode}} ->
-            {Fd,INode};
+            State;
         _ ->
             _ = file:close(Fd),
             _ = file:close(Fd), % delayed_write cause close not to close
             case do_open_log_file(FileInfo) of
                 {ok,File} ->
-                    File;
+                    State#{file=>File};
                 Error ->
                     exit({could_not_reopen_file,Error})
             end
     end.
 
-write_to_dev(DevName, Bin, _DevName, _PrevWriteResult, _HandlerName)
-  when is_atom(DevName) ->
-    io:put_chars(DevName, Bin);
-write_to_dev({Fd,_}, Bin, FileInfo, PrevWriteResult, HandlerName) ->
-    Result = ?file_write(Fd, Bin),
-    maybe_notify_error(write,Result,PrevWriteResult,FileInfo,HandlerName).
-
-sync_dev(_, _FileInfo, true, PrevSyncResult, _HandlerName) ->
-    PrevSyncResult;
-sync_dev({Fd,_}, FileInfo, false, PrevSyncResult, HandlerName) ->
-    Result = ?file_datasync(Fd),
-    maybe_notify_error(filesync,Result,PrevSyncResult,FileInfo,HandlerName).
-
-maybe_notify_error(_Op, ok, _PrevResult, _FileInfo, _HandlerName) ->
+maybe_notify_error(_Op, ok, _State) ->
     ok;
-maybe_notify_error(_Op, PrevResult, PrevResult, _FileInfo, _HandlerName) ->
+maybe_notify_error(Op, Result, #{write_res:=WR,sync_res:=SR})
+  when (Op==write andalso Result==WR) orelse
+       (Op==filesync andalso Result==SR) ->
     %% don't report same error twice
-    PrevResult;
-maybe_notify_error(Op, Error, _PrevResult, FileInfo, HandlerName) ->
+    ok;
+maybe_notify_error(Op, Error, #{name:=HandlerName,file_info:=FileInfo}) ->
     FileName = element(2, FileInfo),
     logger_h_common:error_notify({HandlerName,Op,FileName,Error}),
-    Error.
+    ok.

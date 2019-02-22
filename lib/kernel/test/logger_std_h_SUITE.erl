@@ -646,7 +646,7 @@ sync(Config) ->
                               formatter=>{?MODULE,nl}}),
 
     %% check repeated filesync happens
-    start_tracer([{logger_std_h, write_to_dev, 5},
+    start_tracer([{logger_std_h, write_to_dev, 2},
                   {file, datasync, 1}],
                  [{logger_std_h, write_to_dev, <<"first\n">>},
                   {file,datasync}]),
@@ -656,7 +656,7 @@ sync(Config) ->
     check_tracer(filesync_rep_int()*2),
 
     %% check that explicit filesync is only done once
-    start_tracer([{logger_std_h, write_to_dev, 5},
+    start_tracer([{logger_std_h, write_to_dev, 2},
                   {file, datasync, 1}],
                  [{logger_std_h, write_to_dev, <<"second\n">>},
                   {file,datasync},
@@ -675,7 +675,7 @@ sync(Config) ->
                                       #{filesync_repeat_interval => no_repeat}),
     no_repeat = maps:get(filesync_repeat_interval,
                          maps:get(cb_state, logger_olp:info(h_proc_name()))),
-    start_tracer([{logger_std_h, write_to_dev, 5},
+    start_tracer([{logger_std_h, write_to_dev, 2},
                   {file, datasync, 1}],
                  [{logger_std_h, write_to_dev, <<"third\n">>},
                   {file,datasync},
@@ -1658,7 +1658,7 @@ tpl([]) ->
 tracer({trace,_,call,{logger_h_common,handle_cast,[Op|_]}},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Op});
-tracer({trace,_,call,{Mod=logger_std_h,Func=write_to_dev,[_,Data,_,_,_]}},
+tracer({trace,_,call,{Mod=logger_std_h,Func=write_to_dev,[Data,_]}},
        {Pid,[{Mod,Func,Data}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Data});
 tracer({trace,_,call,{Mod,Func,_}}, {Pid,[{Mod,Func}|Expected]}) ->
