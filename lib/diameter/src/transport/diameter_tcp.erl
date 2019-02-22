@@ -92,9 +92,9 @@
 
 -type connect_option() :: {raddr, inet:ip_address()}
                         | {rport, pos_integer()}
-                        | {ssl_options, true | [ssl:connect_option()]}
+                        | {ssl_options, true | [ssl:tls_client_option()]}
                         | option()
-                        | ssl:connect_option()
+                        | ssl:tls_client_option()
                         | gen_tcp:connect_option().
 
 -type match() :: inet:ip_address()
@@ -102,9 +102,9 @@
                | [match()].
 
 -type listen_option() :: {accept, match()}
-                       | {ssl_options, true | [ssl:listen_option()]}
+                       | {ssl_options, true | [ssl:tls_server_option()]}
                        | option()
-                       | ssl:listen_option()
+                       | ssl:tls_server_option()
                        | gen_tcp:listen_option().
 
 -type option() :: {port, non_neg_integer()}
