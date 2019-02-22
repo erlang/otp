@@ -74,7 +74,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 
 /* Invisible table for function specs,
  * just to get since-version out in right margin */
-.func-table, .func-tr, .func-td, .func-since-td {
+.func-table, .func-tr, .func-td, .cfunc-td, .func-since-td {
     width: 200%;
     border: 0;
     padding: 0;
@@ -86,7 +86,13 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 }
 
 .func-td {
-    width: 50%
+    width: 50%;
+}
+
+.cfunc-td {
+    width: 50%;
+    padding-left: 100px;
+    text-indent: -100px;
 }
 
 .func-since-td {

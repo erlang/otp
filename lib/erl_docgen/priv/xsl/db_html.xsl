@@ -2119,7 +2119,7 @@
       <xsl:when test="ancestor::cref">
 	<table class="func-table">
 	  <tr class="func-tr">
-	    <td class="func-td">
+	    <td class="cfunc-td">
               <span class="bold_code bc-7">
 		<xsl:call-template name="title_link">
 		  <xsl:with-param name="link" select="substring-before(nametext, '(')"/>
