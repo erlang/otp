@@ -66,7 +66,7 @@
 
 -export_type([public_key/0, private_key/0, pem_entry/0,
 	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0,
-              key_params/0, digest_type/0, issuer_name/0]).
+              key_params/0, digest_type/0, issuer_name/0, oid/0]).
 
 -type public_key()           ::  rsa_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
 -type private_key()          ::  rsa_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .

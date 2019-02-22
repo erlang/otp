@@ -34,15 +34,15 @@
 
 -type internal_cipher()            :: null | ssl:cipher().
 -type internal_hash()              :: null | ssl:hash().
--type internal_key_algo()          :: null | ssl:key_algo().
--type internal_erl_cipher_suite()  :: #{key_exchange := internal_key_algo(),
+-type internal_kex_algo()          :: null | ssl:kex_algo().
+-type internal_erl_cipher_suite()  :: #{key_exchange := internal_kex_algo(),
                                cipher := internal_cipher(),
                                mac    := internal_hash() | aead,
                                prf    := internal_hash() | default_prf %% Old cipher suites, version dependent
                               }.  
--type old_erl_cipher_suite() :: {ssl:key_algo(), internal_cipher(), internal_hash()} % Pre TLS 1.2 
+-type old_erl_cipher_suite() :: {ssl:kex_algo(), internal_cipher(), internal_hash()} % Pre TLS 1.2 
                                 %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
-                              | {ssl:key_algo(), internal_cipher(), internal_hash(), 
+                              | {ssl:kex_algo(), internal_cipher(), internal_hash(), 
                                  internal_hash() | default_prf}. 
 -type cipher_suite()      :: binary().
 -type openssl_cipher_suite()  :: string().
