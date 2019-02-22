@@ -54,7 +54,7 @@
 %% 1. There must be an ssh program on computer; if not an error
 %%    is returned.
 %%
-%% 2. The hosts must be configured to allowed 'ssh' access without
+%% 2. The hosts must be configured to allow 'ssh' access without
 %%    prompts for password.
 %%
 %% The slave node will have its filer and user server redirected

@@ -114,7 +114,7 @@ relay1(Pid) ->
 %% 1. There must be an ssh program on computer; if not an error
 %%    is returned.
 %%
-%% 2. The hosts must be configured to allowed 'ssh' access without
+%% 2. The hosts must be configured to allow 'ssh' access without
 %%    prompts for password.
 %%
 %% The slave node will have its filer and user server redirected
@@ -341,9 +341,7 @@ do_quote_progname([Prog,Arg|Args]) ->
 		lists:flatten(lists:map(fun(X) -> [" ",X] end, [Arg|Args]))
     end.
 
-%% Give the user an opportunity to run another program,
-%% than the "rsh".  On HP-UX rsh is called remsh; thus HP users
-%% must start erlang as erl -rsh remsh.
+%% Give the user an opportunity to run another program than "ssh".
 %%
 %% Also checks that the given program exists.
 %%
