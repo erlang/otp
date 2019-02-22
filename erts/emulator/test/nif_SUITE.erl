@@ -64,7 +64,8 @@
          nif_phash2/1,
          nif_whereis/1, nif_whereis_parallel/1,
          nif_whereis_threaded/1, nif_whereis_proxy/1,
-         nif_ioq/1
+         nif_ioq/1,
+         pid/1
 	]).
 
 -export([many_args_100/100]).
@@ -103,7 +104,8 @@ all() ->
      nif_internal_hash_salted,
      nif_phash2,
      nif_whereis, nif_whereis_parallel, nif_whereis_threaded,
-     nif_ioq].
+     nif_ioq,
+     pid].
 
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
@@ -3367,6 +3369,30 @@ make_unaligned_binary(Bin0) ->
     <<0:3,Bin:Size/binary,31:5>> = id(<<0:3,Bin0/binary,31:5>>),
     Bin.
 
+pid(Config) ->
+    ensure_lib_loaded(Config),
+    Self = self(),
+    {true, ErlNifPid} = get_local_pid_nif(Self),
+    false = is_pid_undefined_nif(ErlNifPid),
+    Self = make_pid_nif(ErlNifPid),
+
+    UndefPid = set_pid_undefined_nif(),
+    true = is_pid_undefined_nif(UndefPid),
+    undefined = make_pid_nif(UndefPid),
+    0 = send_term(UndefPid, message),
+
+    Other = spawn(fun() -> ok end),
+    {true,OtherNifPid} = get_local_pid_nif(Other),
+    Cmp = compare_pids_nif(ErlNifPid, OtherNifPid),
+    true = if Cmp < 0 -> Self < Other;
+              Cmp > 0 -> Self > Other
+           end,
+    0 = compare_pids_nif(ErlNifPid, ErlNifPid),
+
+    {false, _} = get_local_pid_nif(undefined),
+    ok.
+
+
 id(I) -> I.
 
 %% The NIFs:
@@ -3474,6 +3500,12 @@ time_offset(_) -> ?nif_stub.
 convert_time_unit(_,_,_) -> ?nif_stub.
 now_time() -> ?nif_stub.
 cpu_time() -> ?nif_stub.
+
+get_local_pid_nif(_) -> ?nif_stub.
+make_pid_nif(_) -> ?nif_stub.
+set_pid_undefined_nif() -> ?nif_stub.
+is_pid_undefined_nif(_) -> ?nif_stub.
+compare_pids_nif(_, _) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

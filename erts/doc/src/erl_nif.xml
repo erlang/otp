@@ -783,14 +783,16 @@ typedef struct {
         <p>A process identifier (pid). In contrast to pid terms (instances of
           <c>ERL_NIF_TERM</c>), <c>ErlNifPid</c>s are self-contained and not
           bound to any <seealso marker="#ErlNifEnv">environment</seealso>.
-          <c>ErlNifPid</c> is an opaque type.</p>
+          <c>ErlNifPid</c> is an opaque type. It can be copied, moved
+	  in memory, forgotten, and so on.</p>
       </item>
       <tag><marker id="ErlNifPort"/><c>ErlNifPort</c></tag>
       <item>
         <p>A port identifier. In contrast to port ID terms (instances of
           <c>ERL_NIF_TERM</c>), <c>ErlNifPort</c>s are self-contained and not
           bound to any <seealso marker="#ErlNifEnv">environment</seealso>.
-          <c>ErlNifPort</c> is an opaque type.</p>
+	  <c>ErlNifPort</c> is an opaque type. It can be copied, moved
+	  in memory, forgotten, and so on.</p>
       </item>
       <tag><marker id="ErlNifResourceType"/><c>ErlNifResourceType</c></tag>
       <item>
@@ -1084,6 +1086,20 @@ typedef struct {
         <p>Returns <c>0</c> if <c>monitor1</c> and <c>monitor2</c> are equal,
           &lt; <c>0</c> if <c>monitor1</c> &lt; <c>monitor2</c>, and
           &gt; <c>0</c> if <c>monitor1</c> &gt; <c>monitor2</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-15011@"><ret>int</ret>
+      <nametext>enif_compare_pids(const ErlNifPid *pid1, const ErlNifPid *pid2)
+      </nametext></name>
+      <fsummary>Compare two pids.</fsummary>
+      <desc>
+        <p>Compares two <seealso marker="#ErlNifPid"><c>ErlNifPid</c>
+	  </seealso>s according to term order.</p>
+        <p>Returns <c>0</c> if <c>pid1</c> and <c>pid2</c> are equal,
+          &lt; <c>0</c> if <c>pid1</c> &lt; <c>pid2</c>, and
+          &gt; <c>0</c> if <c>pid1</c> &gt; <c>pid2</c>.</p>
       </desc>
     </func>
 
@@ -1392,6 +1408,9 @@ enif_free_iovec(iovec);]]></code>
           initializes the pid variable <c>*pid</c> from it and returns
           <c>true</c>. Otherwise returns <c>false</c>. No check is done to see
           if the process is alive.</p>
+	<note><p><c>enif_get_local_pid</c> will return false if argument
+	<c>term</c> is the atom <seealso marker="#enif_make_pid">
+	<c>undefined</c></seealso>.</p></note>
       </desc>
     </func>
 
@@ -1871,6 +1890,17 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
+      <name since="OTP @OTP-15011@"><ret>int</ret>
+        <nametext>enif_is_pid_undefined(const ErlNifPid* pid)</nametext></name>
+      <fsummary>Determine if pid is undefined.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c>pid</c> has been set as undefined by
+	<seealso marker="#enif_set_pid_undefined"><c>enif_set_pid_undefined</c>
+	</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term)</nametext>
       </name>
@@ -2259,7 +2289,8 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
       </name>
       <fsummary>Make a pid term.</fsummary>
       <desc>
-        <p>Makes a pid term from <c>*pid</c>.</p>
+        <p>Makes a pid term or the atom <seealso marker="#enif_set_pid_undefined">
+	<c>undefined</c></seealso> from <c>*pid</c>.</p>
       </desc>
     </func>
 
@@ -2625,7 +2656,9 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<p>Argument <c>caller_env</c> is the environment of the calling process
 	or callback. Must only be NULL if calling from a custom thread.</p>
         <p>Returns <c>0</c> on success, &lt; 0 if no <c>down</c> callback is
-          provided, and &gt; 0 if the process is no longer alive.</p>
+          provided, and &gt; 0 if the process is no longer alive or if
+	  <c>target_pid</c> is <seealso marker="#enif_set_pid_undefined">
+	  undefined</seealso>.</p>
         <p>This function is only thread-safe when the emulator with SMP support
           is used. It can only be used in a non-SMP emulator from a NIF-calling
           thread.</p>
@@ -3080,7 +3113,9 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	  <seealso marker="#enif_select_write"><c>enif_select_write</c></seealso>
 	  introduced in erts-11.0 (OTP-22.0).</p>
 	</note>
-	<p>Argument <c>pid</c> may be <c>NULL</c> to indicate the calling process.</p>
+	<p>Argument <c>pid</c> may be <c>NULL</c> to indicate the calling
+	  process. It must not be set as <seealso marker="#enif_set_pid_undefined">
+	  undefined</seealso>.</p>
 	<p>Argument <c>obj</c> is a resource object obtained from
           <seealso marker="#enif_alloc_resource"><c>enif_alloc_resource</c></seealso>.
 	  The purpose of the resource objects is as a container of the event object
@@ -3267,6 +3302,17 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
           <p>Passing <c>msg_env</c> as <c>NULL</c> is only supported as from
             ERTS 8.0 (Erlang/OTP 19).</p>
         </note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-15011@"><ret>void</ret>
+        <nametext>enif_set_pid_undefined(ErlNifPid* pid)</nametext></name>
+      <fsummary>Set pid as undefined.</fsummary>
+      <desc>
+        <p>Sets an <seealso marker="#ErlNifPid"><c>ErlNifPid</c></seealso>
+	variable as undefined. See <seealso marker="#enif_is_pid_undefined">
+	<c>enif_is_pid_undefined</c></seealso>.</p>
       </desc>
     </func>
 

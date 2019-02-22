@@ -212,7 +212,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_make_map_from_arrays,(ErlNifEnv *env, ERL_NIF_TER
 
 ERL_NIF_API_FUNC_DECL(int,enif_select_x,(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_monitor_term,(ErlNifEnv* env, const ErlNifMonitor*));
-
+ERL_NIF_API_FUNC_DECL(void,enif_set_pid_undefined,(ErlNifPid* pid));
+ERL_NIF_API_FUNC_DECL(int,enif_is_pid_undefined,(const ErlNifPid* pid));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -398,6 +399,8 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_monitor_term,(ErlNifEnv* env, const
 #  define enif_make_map_from_arrays ERL_NIF_API_FUNC_MACRO(enif_make_map_from_arrays)
 #  define enif_select_x ERL_NIF_API_FUNC_MACRO(enif_select_x)
 #  define enif_make_monitor_term ERL_NIF_API_FUNC_MACRO(enif_make_monitor_term)
+#  define enif_set_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_set_pid_undefined)
+#  define enif_is_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_is_pid_undefined)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
@@ -629,6 +632,7 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 #ifndef enif_make_pid
 
 #  define enif_make_pid(ENV, PID) ((void)(ENV),(const ERL_NIF_TERM)((PID)->pid))
+#  define enif_compare_pids(A, B) (enif_compare((A)->pid,(B)->pid))
 #  define enif_select_read(ENV, E, OBJ, PID, MSG, MSG_ENV) \
     enif_select_x(ENV, E, ERL_NIF_SELECT_READ | ERL_NIF_SELECT_CUSTOM_MSG, \
                   OBJ, PID, MSG, MSG_ENV)
