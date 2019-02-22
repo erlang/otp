@@ -225,7 +225,11 @@ moves_from_stack(nil, I, Acc) ->
     {reverse(Acc),I};
 moves_from_stack({literal,[H|T]}, I, Acc) ->
     Cons = {cons,tag_literal(H),tag_literal(T)},
-    moves_from_stack(Cons, I, Acc).
+    moves_from_stack(Cons, I, Acc);
+moves_from_stack(_, _, _) ->
+    %% Not understood. Give up.
+    {[],-1}.
+
 
 get_reg(R, Regs) ->
     case Regs of

@@ -961,18 +961,12 @@ fold_lit_args(Call, Module, Name, Args0) ->
 %%
 fold_non_lit_args(Call, erlang, is_boolean, [Arg], Sub) ->
     eval_is_boolean(Call, Arg, Sub);
-fold_non_lit_args(Call, erlang, element, [Arg1,Arg2], Sub) ->
-    eval_element(Call, Arg1, Arg2, Sub);
 fold_non_lit_args(Call, erlang, length, [Arg], _) ->
     eval_length(Call, Arg);
 fold_non_lit_args(Call, erlang, '++', [Arg1,Arg2], _) ->
     eval_append(Call, Arg1, Arg2);
 fold_non_lit_args(Call, lists, append, [Arg1,Arg2], _) ->
     eval_append(Call, Arg1, Arg2);
-fold_non_lit_args(Call, erlang, setelement, [Arg1,Arg2,Arg3], _) ->
-    eval_setelement(Call, Arg1, Arg2, Arg3);
-fold_non_lit_args(Call, erlang, is_record, [Arg1,Arg2,Arg3], Sub) ->
-    eval_is_record(Call, Arg1, Arg2, Arg3, Sub);
 fold_non_lit_args(Call, erlang, is_function, [Arg1], Sub) ->
     eval_is_function_1(Call, Arg1, Sub);
 fold_non_lit_args(Call, erlang, is_function, [Arg1,Arg2], Sub) ->
@@ -1141,96 +1135,6 @@ eval_append(Call, #c_cons{anno=Anno,hd=H,tl=T}, List) ->
 eval_append(Call, X, Y) ->
     Call#c_call{args=[X,Y]}.			%Rebuild call arguments.
 
-%% eval_element(Call, Pos, Tuple, Types) -> Val.
-%%  Evaluates element/2 if the position Pos is a literal and
-%%  the shape of the tuple Tuple is known.
-%%
-eval_element(Call, #c_literal{val=Pos}, Tuple, Types)
-  when is_integer(Pos) ->
-    case get_type(Tuple, Types) of
-	none ->
-	    Call;
-	Type ->
-	    Es = case cerl:is_c_tuple(Type) of
-		     false -> [];
-		     true -> cerl:tuple_es(Type)
-		 end,
-	    if
-		1 =< Pos, Pos =< length(Es) ->
-		    El = lists:nth(Pos, Es),
-		    try
-			cerl:set_ann(pat_to_expr(El), [compiler_generated])
-		    catch
-			throw:impossible ->
-			    Call
-		    end;
-		true ->
-		    %% Index outside tuple or not a tuple.
-		    eval_failure(Call, badarg)
-	    end
-    end;
-eval_element(Call, Pos, Tuple, Sub) ->
-    case is_int_type(Pos, Sub) =:= no orelse
-	is_tuple_type(Tuple, Sub) =:= no of
-	true ->
-	    eval_failure(Call, badarg);
-	false ->
-	    Call
-    end.
-
-%% eval_is_record(Call, Var, Tag, Size, Types) -> Val.
-%%  Evaluates is_record/3 using type information.
-%%
-eval_is_record(Call, Term, #c_literal{val=NeededTag},
-	       #c_literal{val=Size}, Types) ->
-    case get_type(Term, Types) of
-	none ->
-	    Call;
-	Type ->
-	    Es = case cerl:is_c_tuple(Type) of
-		     false -> [];
-		     true -> cerl:tuple_es(Type)
-		 end,
-	    case Es of
-		[#c_literal{val=Tag}|_] ->
-		    Bool = Tag =:= NeededTag andalso
-			length(Es) =:= Size,
-		    #c_literal{val=Bool};
-		_ ->
-		    #c_literal{val=false}
-	    end
-    end;
-eval_is_record(Call, _, _, _, _) -> Call.
-
-%% eval_setelement(Call, Pos, Tuple, NewVal) -> Core.
-%%  Evaluates setelement/3 if position Pos is an integer
-%%  and the shape of the tuple Tuple is known.
-%%
-eval_setelement(Call, #c_literal{val=Pos}, Tuple, NewVal)
-  when is_integer(Pos) ->
-    case cerl:is_data(Tuple) of
-	false ->
-	    Call;
-	true ->
-	    Es0 = case cerl:is_c_tuple(Tuple) of
-		      false -> [];
-		      true -> cerl:tuple_es(Tuple)
-		  end,
-	    if
-		1 =< Pos, Pos =< length(Es0) ->
-		    Es = eval_setelement_1(Pos, Es0, NewVal),
-		    cerl:update_c_tuple(Tuple, Es);
-		true ->
-		    eval_failure(Call, badarg)
-	    end
-    end;
-eval_setelement(Call, _, _, _) -> Call.
-
-eval_setelement_1(1, [_|T], NewVal) ->
-    [NewVal|T];
-eval_setelement_1(Pos, [H|T], NewVal) when Pos > 1 ->
-    [H|eval_setelement_1(Pos-1, T, NewVal)].
-
 %% eval_failure(Call, Reason) -> Core.
 %%  Warn for a call that will fail and replace the call with
 %%  a call to erlang:error(Reason).
@@ -1290,16 +1194,15 @@ clause(#c_clause{pats=Ps0}=Cl, Cexpr, Ctxt, Sub0) ->
     end.
 
 clause_1(#c_clause{guard=G0,body=B0}=Cl, Ps1, Cexpr, Ctxt, Sub1) ->
-    Sub2 = update_types(Cexpr, Ps1, Sub1),
     GSub = case {Cexpr,Ps1,G0} of
 	       {_,_,#c_literal{}} ->
 		   %% No need for substitution tricks when the guard
 		   %% does not contain any variables.
-		   Sub2;
+		   Sub1;
 	       {#c_var{name='_'},_,_} ->
 		   %% In a 'receive', Cexpr is the variable '_', which represents the
 		   %% message being matched. We must NOT do any extra substiutions.
-		   Sub2;
+		   Sub1;
 	       {#c_var{},[#c_var{}=Var],_} ->
 		   %% The idea here is to optimize expressions such as
 		   %%
@@ -1321,16 +1224,16 @@ clause_1(#c_clause{guard=G0,body=B0}=Cl, Ps1, Cexpr, Ctxt, Sub1) ->
 		   %%
 		   case cerl:is_c_fname(Cexpr) of
 		       false ->
-			   sub_set_var(Var, Cexpr, Sub2);
+			   sub_set_var(Var, Cexpr, Sub1);
 		       true ->
 			   %% We must not copy funs, and especially not into guards.
-			   Sub2
+			   Sub1
 		   end;
 	       _ ->
-		   Sub2
+		   Sub1
 	   end,
     G1 = guard(G0, GSub),
-    B1 = body(B0, Ctxt, Sub2),
+    B1 = body(B0, Ctxt, Sub1),
     Cl#c_clause{pats=Ps1,guard=G1,body=B1}.
 
 %% let_substs(LetVars, LetArg, Sub) -> {[Var],[Val],Sub}.
@@ -1414,8 +1317,7 @@ pattern(#c_binary{segments=V0}=Pat, Isub, Osub0) ->
     {Pat#c_binary{segments=V1},Osub1};
 pattern(#c_alias{var=V0,pat=P0}=Pat, Isub, Osub0) ->
     {V1,Osub1} = pattern(V0, Isub, Osub0),
-    {P1,Osub2} = pattern(P0, Isub, Osub1),
-    Osub = update_types(V1, [P1], Osub2),
+    {P1,Osub} = pattern(P0, Isub, Osub1),
     {Pat#c_alias{var=V1,pat=P1},Osub}.
 
 map_pair_pattern_list(Ps0, Isub, Osub0) ->
@@ -2137,14 +2039,9 @@ case_expand_var(E, #sub{t=Tdb}) ->
 %%  encountered.
 
 coerce_to_data(C) ->
-    case cerl:is_c_alias(C) of
-	false ->
-	    case cerl:is_data(C) orelse cerl:is_c_var(C) of
-		true -> C;
-		false -> throw(impossible)
-	    end;
-	true ->
-	    coerce_to_data(cerl:alias_pat(C))
+    case cerl:is_data(C) orelse cerl:is_c_var(C) of
+        true -> C;
+        false -> throw(impossible)
     end.
 
 %% case_opt_nomatch(E, Clauses, LitExpr) -> Clauses'
@@ -3140,14 +3037,6 @@ is_int_type(Var, Sub) ->
 	C -> yes_no(cerl:is_c_int(C))
     end.
 
--spec is_tuple_type(cerl:cerl(), sub()) -> yes_no_maybe().
-
-is_tuple_type(Var, Sub) ->
-    case get_type(Var, Sub) of
-	none -> maybe;
-	C -> yes_no(cerl:is_c_tuple(C))
-    end.
-
 yes_no(true) -> yes;
 yes_no(false) -> no.
 
@@ -3209,27 +3098,23 @@ returns_integer(_, _) -> false.
 %% update_types(Expr, Pattern, Sub) -> Sub'
 %%  Update the type database.
 
--spec update_types(cerl:cerl(), [type_info()], sub()) -> sub().
+-spec update_types(cerl:c_var(), [type_info()], sub()) -> sub().
 
-update_types(Expr, Pat, #sub{t=Tdb0}=Sub) ->
-    Tdb = update_types_1(Expr, Pat, Tdb0),
+update_types(#c_var{name=V}, Pat, #sub{t=Tdb0}=Sub) ->
+    Tdb = update_types_1(V, Pat, Tdb0),
     Sub#sub{t=Tdb}.
 
-update_types_1(#c_var{name=V}, Pat, Types) ->
-    update_types_2(V, Pat, Types);
-update_types_1(_, _, Types) -> Types.
-
-update_types_2(V, [#c_tuple{}=P], Types) ->
+update_types_1(V, [#c_tuple{}=P], Types) ->
     Types#{V=>P};
-update_types_2(V, [#c_literal{val=Bool}], Types) when is_boolean(Bool) ->
+update_types_1(V, [#c_literal{val=Bool}], Types) when is_boolean(Bool) ->
     Types#{V=>bool};
-update_types_2(V, [#c_fun{vars=Vars}], Types) ->
+update_types_1(V, [#c_fun{vars=Vars}], Types) ->
     Types#{V=>{'fun',length(Vars)}};
-update_types_2(V, [#c_var{name={_,Arity}}], Types) ->
+update_types_1(V, [#c_var{name={_,Arity}}], Types) ->
     Types#{V=>{'fun',Arity}};
-update_types_2(V, [Type], Types) when is_atom(Type) ->
+update_types_1(V, [Type], Types) when is_atom(Type) ->
     Types#{V=>Type};
-update_types_2(_, _, Types) -> Types.
+update_types_1(_, _, Types) -> Types.
 
 %% kill_types(V, Tdb) -> Tdb'
 %%  Kill any entries that references the variable,

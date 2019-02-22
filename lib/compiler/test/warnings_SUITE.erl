@@ -240,19 +240,7 @@ guard(Config) when is_list(Config) ->
 	     {4,sys_core_fold,nomatch_guard},
 	     {6,sys_core_fold,no_clause_match},
 	     {6,sys_core_fold,nomatch_guard},
-	     {6,sys_core_fold,{eval_failure,badarg}},
-	     {8,sys_core_fold,no_clause_match},
-	     {8,sys_core_fold,nomatch_guard},
-	     {8,sys_core_fold,{eval_failure,badarg}},
-	     {9,sys_core_fold,no_clause_match},
-	     {9,sys_core_fold,nomatch_guard},
-	     {9,sys_core_fold,{eval_failure,badarg}},
-	     {10,sys_core_fold,no_clause_match},
-	     {10,sys_core_fold,nomatch_guard},
-	     {10,sys_core_fold,{eval_failure,badarg}},
-	     {11,sys_core_fold,no_clause_match},
-	     {11,sys_core_fold,nomatch_guard},
-	     {11,sys_core_fold,{eval_failure,badarg}}
+	     {6,sys_core_fold,{eval_failure,badarg}}
 	    ]}}],
     [] = run(Config, Ts),
 
