@@ -884,6 +884,9 @@ type(call, [#b_remote{mod=#b_literal{val=Mod},
             end;
         {erlang,'--',[_,_]} ->
             list;
+        {lists,F,Args} ->
+            Types = get_types(Args, Ts),
+            lists_function_type(F, Types);
         {math,_,_} ->
             case is_math_bif(Name, length(Args)) of
                 false -> any;
@@ -974,6 +977,70 @@ arith_op_type(Args, Ts) ->
              (Same, Same) -> Same;
              (_, _) -> none
           end, unknown, Types).
+
+lists_function_type(F, Types) ->
+    case {F,Types} of
+        %% Functions that return booleans.
+        {all,[_,_]} ->
+            t_boolean();
+        {any,[_,_]} ->
+            t_boolean();
+        {keymember,[_,_,_]} ->
+            t_boolean();
+        {member,[_,_]} ->
+            t_boolean();
+        {prefix,[_,_]} ->
+            t_boolean();
+        {suffix,[_,_]} ->
+            t_boolean();
+
+        %% Functions that return lists.
+        {dropwhile,[_,_]} ->
+            list;
+        {duplicate,[_,_]} ->
+            list;
+        {filter,[_,_]} ->
+            list;
+        {flatten,[_]} ->
+            list;
+        {map,[_Fun,List]} ->
+            same_length_type(List);
+        {MapFold,[_Fun,_Acc,List]} when MapFold =:= mapfoldl;
+                                        MapFold =:= mapfoldr ->
+            #t_tuple{size=2,exact=true,
+                     elements=#{1=>same_length_type(List)}};
+        {partition,[_,_]} ->
+            t_two_tuple(list, list);
+        {reverse,[List]} ->
+            same_length_type(List);
+        {sort,[List]} ->
+            same_length_type(List);
+        {splitwith,[_,_]} ->
+            t_two_tuple(list, list);
+        {takewhile,[_,_]} ->
+            list;
+        {unzip,[List]} ->
+            ListType = same_length_type(List),
+            t_two_tuple(ListType, ListType);
+        {usort,[List]} ->
+            same_length_type(List);
+        {zip,[_,_]} ->
+            list;
+        {zipwith,[_,_,_]} ->
+            list;
+        {_,_} ->
+            any
+    end.
+
+%% For a lists function that return a list of the same
+%% length as the input list, return the type of the list.
+same_length_type(cons) -> cons;
+same_length_type(nil) -> nil;
+same_length_type(_) -> list.
+
+t_two_tuple(Type1, Type2) ->
+    #t_tuple{size=2,exact=true,
+             elements=#{1=>Type1,2=>Type2}}.
 
 %% will_succeed(TestOperation, Type) -> yes|no|maybe.
 %%  Test whether TestOperation applied to an argument of type Type

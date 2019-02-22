@@ -2502,6 +2502,8 @@ call_return_type_1(erlang, '--', 2, _Vst) ->
     list;
 call_return_type_1(erlang, F, A, _) ->
     erlang_mod_return_type(F, A);
+call_return_type_1(lists, F, A, Vst) ->
+    lists_mod_return_type(F, A, Vst);
 call_return_type_1(math, F, A, _) ->
     math_mod_return_type(F, A);
 call_return_type_1(M, F, A, _) when is_atom(M), is_atom(F), is_integer(A), A >= 0 ->
@@ -2539,6 +2541,64 @@ math_mod_return_type(floor, 1) -> {float,[]};
 math_mod_return_type(fmod, 2) -> {float,[]};
 math_mod_return_type(pi, 0) -> {float,[]};
 math_mod_return_type(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
+
+lists_mod_return_type(dropwhile, 2, _Vst) ->
+    list;
+lists_mod_return_type(duplicate, 2, _Vst) ->
+    list;
+lists_mod_return_type(filter, 2, _Vst) ->
+    list;
+lists_mod_return_type(flatten, 2, _Vst) ->
+    list;
+lists_mod_return_type(map, 2, Vst) ->
+    same_length_type({x,1}, Vst);
+lists_mod_return_type(MF, 3, Vst) when MF =:= mapfoldl; MF =:= mapfoldr ->
+    ListType = same_length_type({x,2}, Vst),
+    {tuple,2,#{1=>ListType}};
+lists_mod_return_type(partition, 2, _Vst) ->
+    two_tuple(list, list);
+lists_mod_return_type(reverse, 1, Vst) ->
+    same_length_type({x,0}, Vst);
+lists_mod_return_type(seq, 2, _Vst) ->
+    list;
+lists_mod_return_type(seq, 3, _Vst) ->
+    list;
+lists_mod_return_type(sort, 1, Vst) ->
+    same_length_type({x,0}, Vst);
+lists_mod_return_type(sort, 2, Vst) ->
+    same_length_type({x,1}, Vst);
+lists_mod_return_type(splitwith, 2, _Vst) ->
+    two_tuple(list, list);
+lists_mod_return_type(takewhile, 2, _Vst) ->
+    list;
+lists_mod_return_type(unzip, 1, Vst) ->
+    ListType = same_length_type({x,0}, Vst),
+    two_tuple(ListType, ListType);
+lists_mod_return_type(usort, 1, Vst) ->
+    same_length_type({x,0}, Vst);
+lists_mod_return_type(usort, 2, Vst) ->
+    same_length_type({x,1}, Vst);
+lists_mod_return_type(zip, 2, _Vst) ->
+    list;
+lists_mod_return_type(zip3, 3, _Vst) ->
+    list;
+lists_mod_return_type(zipwith, 3, _Vst) ->
+    list;
+lists_mod_return_type(zipwith3, 4, _Vst) ->
+    list;
+lists_mod_return_type(_, _, _) ->
+    term.
+
+two_tuple(Type1, Type2) ->
+    {tuple,2,#{1=>Type1,2=>Type2}}.
+
+same_length_type(Reg, Vst) ->
+    case get_term_type(Reg, Vst) of
+        {literal,[_|_]} -> cons;
+        cons -> cons;
+        nil -> nil;
+        _ -> list
+    end.
 
 check_limit({x,X}) when is_integer(X), X < 1023 ->
     %% Note: x(1023) is reserved for use by the BEAM loader.
