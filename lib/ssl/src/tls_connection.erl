@@ -252,14 +252,12 @@ next_event(StateName, Record, State, Actions) ->
 
 %%% TLS record protocol level application data messages 
 
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State0) ->
+handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName0, State0) ->
     case ssl_connection:read_application_data(Data, State0) of
 	{stop, _, _} = Stop->
             Stop;
 	{Record, State1} ->
-            case next_event(StateName, Record, State1) of
-                {next_state, StateName, State} ->
-                    ssl_connection:hibernate_after(StateName, State, []);
+            case next_event(StateName0, Record, State1) of
                 {next_state, StateName, State, Actions} ->
                     ssl_connection:hibernate_after(StateName, State, Actions);
                 {stop, _, _} = Stop ->
