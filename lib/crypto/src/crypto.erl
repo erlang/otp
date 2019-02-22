@@ -51,13 +51,13 @@
 
 %% Experiment
 -export([crypto_init/4,
-         crypto_update/2, crypto_update/3,
+         crypto_update/2,
+         crypto_one_shot/5,
+
          %% Emulates old api:
          crypto_stream_init/2, crypto_stream_init/3,
          crypto_stream_encrypt/2,
-         crypto_stream_decrypt/2,
-         crypto_block_encrypt/3, crypto_block_encrypt/4,
-         crypto_block_decrypt/3, crypto_block_decrypt/4
+         crypto_stream_decrypt/2
         ]).
 
 
@@ -556,11 +556,6 @@ cipher_info(Type) ->
 block_encrypt(Type, Key, Ivec, Data) ->
     do_block_encrypt(alias(Type), Key, Ivec, Data).
 
-do_block_encrypt(Type, Key0, Ivec, Data) when Type =:= des_ede3_cbc;
-                                           Type =:= des_ede3_cfb ->
-    Key = check_des3_key(Key0),
-    block_crypt_nif(Type, Key, Ivec, Data, true);
-
 do_block_encrypt(Type, Key, Ivec, PlainText) when Type =:= aes_ige256 ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, PlainText, true));
 
@@ -577,14 +572,13 @@ do_block_encrypt(Type, Key, Ivec, Data) when Type =:= aes_gcm;
     end;
 
 do_block_encrypt(Type, Key, Ivec, PlainText) ->
-    block_crypt_nif(Type, Key, Ivec, PlainText, true).
-
+    crypto_one_shot(Type, Key, Ivec, PlainText, true).
 
 
 -spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) -> binary().
 
 block_encrypt(Type, Key, PlainText) ->
-    block_crypt_nif(alias(Type), Key, PlainText, true).
+    crypto_one_shot(Type, Key, <<>>, PlainText, true).
 
 %%%----------------------------------------------------------------
 %%%----------------------------------------------------------------
@@ -595,11 +589,6 @@ block_encrypt(Type, Key, PlainText) ->
 block_decrypt(Type, Key, Ivec, Data) ->
     do_block_decrypt(alias(Type), Key, Ivec, Data).
 
-do_block_decrypt(Type, Key0, Ivec, Data) when Type =:= des_ede3_cbc;
-                                           Type =:= des_ede3_cfb ->
-    Key = check_des3_key(Key0),
-    block_crypt_nif(Type, Key, Ivec, Data, false);
-
 do_block_decrypt(aes_ige256, Key, Ivec, Data) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
 
@@ -609,14 +598,13 @@ do_block_decrypt(Type, Key, Ivec, {AAD, Data, Tag}) when Type =:= aes_gcm;
     aead_decrypt(Type, Key, Ivec, AAD, Data, Tag);
 
 do_block_decrypt(Type, Key, Ivec, Data) ->
-    block_crypt_nif(Type, Key, Ivec, Data, false).
-
+    crypto_one_shot(Type, Key, Ivec, Data, false).
 
 
 -spec block_decrypt(Type::block_cipher_without_iv(), Key::key(), Data::iodata()) -> binary().
 
 block_decrypt(Type, Key, Data) ->
-    block_crypt_nif(alias(Type), Key, Data, false).
+    crypto_one_shot(Type, Key, <<>>, Data, false).
 
 %%%----------------------------------------------------------------
 -spec next_iv(Type:: cbc_cipher(), Data) -> NextIVec when % Type :: cbc_cipher(), %des_cbc | des3_cbc | aes_cbc | aes_ige,
@@ -1785,19 +1773,6 @@ poly1305_nif(_Key, _Data) -> ?nif_stub.
 
 cipher_info_nif(_Type) -> ?nif_stub.
 
-block_crypt_nif(_Type, _Key, _Ivec, _Text, _IsEncrypt) -> ?nif_stub.
-block_crypt_nif(_Type, _Key, _Text, _IsEncrypt) -> ?nif_stub.
-
-check_des3_key(Key) ->
-    case lists:map(fun erlang:iolist_to_binary/1, Key) of
-        ValidKey = [B1, B2, B3] when byte_size(B1) =:= 8,
-                                     byte_size(B2) =:= 8,
-                                     byte_size(B3) =:= 8 ->
-            ValidKey;
-        _ ->
-            error(badarg)
-   end.
-
 %%
 %% AES - in Galois/Counter Mode (GCM)
 %%
@@ -2289,67 +2264,29 @@ crypto_update(State, Data0) ->
         <<>> ->
             <<>>;                           % Known to fail on OpenSSL 0.9.8h
         Data ->
-            mk_ret(ng_crypto_update_nif(State, Data))
+            ng_crypto_update_nif(State, Data)
     end.
 
 %%%----------------------------------------------------------------
-%%%
-%%% Encrypt/decrypt a sequence of bytes but change the IV first.
-%%% Not applicable for all modes.
-%%% 
-
--spec crypto_update(State, Data, IV) -> {ok,Result} | {error,term()}
-                                            when State :: crypto_state(),
-                                                 Data :: iodata(),
-                                                 IV :: binary(),
-                                                 Result :: binary() | {crypto_state(),binary()}.
-crypto_update(State, Data, IV) ->
-    mk_ret(ng_crypto_update_nif(State, Data, IV)).
-
-%%%----------------------------------------------------------------
-%%% Helpers
-mk_ret(R) -> mk_ret(R, []).
-    
-mk_ret({error,Error}, _) ->
-    {error,Error};
-mk_ret(Bin, Acc) when is_binary(Bin) ->
-    {ok, iolist_to_binary(lists:reverse([Bin|Acc]))};
-mk_ret({State1,Bin}, Acc) when is_tuple(State1),
-                               size(State1) == 4,
-                               is_binary(Bin) ->
-    %% compatibility with old cryptolibs < 1.0.1
-    {ok, {State1, iolist_to_binary(lists:reverse([Bin|Acc]))}}.
-
-%%%----------------------------------------------------------------
 %%% NIFs
+
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
+
+%% _Data MUST be binary()
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
-ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
+
+%% _Data MUST be binary()
+ng_crypto_one_shot_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
 
 %%%================================================================
 %%% Compatibility functions to be called by "old" api functions.
 
-%%%--------------------------------
-%%%---- block encrypt/decrypt
-crypto_block_encrypt(Cipher, Key, Data) -> crypto_block_encrypt(Cipher, Key, <<>>, Data).
-crypto_block_decrypt(Cipher, Key, Data) -> crypto_block_decrypt(Cipher, Key, <<>>, Data).
-
-crypto_block_encrypt(Cipher, Key, Ivec, Data) -> crypto_block(Cipher, Key, Ivec, Data, true).
-crypto_block_decrypt(Cipher, Key, Ivec, Data) -> crypto_block(Cipher, Key, Ivec, Data, false).
-
-%% AEAD: use old funcs
-
-%%%---- helper
-crypto_block(Cipher, Key, IV, Data, EncryptFlag) ->
-    case crypto_init(Cipher, iolist_to_binary(Key), iolist_to_binary(IV), EncryptFlag) of
-        {ok, Ref} ->
-            case crypto_update(Ref, Data) of
-                {ok, {_,Bin}} when is_binary(Bin) -> Bin;
-                {ok, Bin} when is_binary(Bin) -> Bin;
-                {error,_} -> error(badarg)
-            end;
-
-        {error,_} -> error(badarg)
+crypto_one_shot(Cipher, Key, IV, Data0, EncryptFlag) ->
+    case iolist_to_binary(Data0) of
+        <<>> ->
+            <<>>;                           % Known to fail on OpenSSL 0.9.8h
+        Data ->
+            ng_crypto_one_shot_nif(Cipher, iolist_to_binary(Key), iolist_to_binary(IV), Data, EncryptFlag)
     end.
 
 %%%--------------------------------
@@ -2390,7 +2327,6 @@ crypto_stream_emulate({Cipher,State}, Data, _) ->
         {ok,Bin}  when is_binary(Bin) -> {{Cipher,State},Bin};
         {error,_} -> error(badarg)
     end.
-
 
 %%%================================================================
 

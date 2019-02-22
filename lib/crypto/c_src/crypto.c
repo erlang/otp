@@ -88,7 +88,7 @@ static ErlNifFunc nif_funcs[] = {
     {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt, 0},
     {"ng_crypto_init_nif", 4, ng_crypto_init_nif, 0},
     {"ng_crypto_update_nif", 2, ng_crypto_update_nif, 0},
-    {"ng_crypto_update_nif", 3, ng_crypto_update_nif, 0},
+    {"ng_crypto_one_shot_nif", 5, ng_crypto_one_shot_nif, 0},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif, 0},
     {"strong_rand_range_nif", 1, strong_rand_range_nif, 0},
     {"rand_uniform_nif", 2, rand_uniform_nif, 0},
