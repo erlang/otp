@@ -2038,9 +2038,8 @@ true</pre>
         <p>This function provides an efficient way to update one or more 
           counters, without the trouble of having to look up an object, update 
           the object by incrementing an element, and insert the resulting
-          object into the table again. (The update is done atomically,
-          that is, no process 
-          can access the ETS table in the middle of the operation.)</p>
+          object into the table again. The operation is guaranteed to be
+          <seealso marker="#concurrency">atomic and isolated</seealso>.</p>
         <p>This function destructively update the object with key
           <c><anno>Key</anno></c> in table <c><anno>Tab</anno></c> by adding
           <c><anno>Incr</anno></c> to the element at position
