@@ -107,13 +107,12 @@ xrange(Config) when is_list(Config) ->
     Errors = do_val(xrange, Config),
     [{{t,sum_1,2},
       {{bif,'+',{f,0},[{x,-1},{x,1}],{x,0}},4,
-       {uninitialized_reg,{x,-1}}}},
+       {bad_register,{x,-1}}}},
      {{t,sum_2,2},
-      {{bif,'+',{f,0},[{x,0},{x,1023}],{x,0}},4,
-       {uninitialized_reg,{x,1023}}}},
+      {{bif,'+',{f,0},[{x,0},{x,1023}],{x,0}},4,limit}},
      {{t,sum_3,2},
       {{bif,'+',{f,0},[{x,0},{x,1}],{x,-1}},4,
-       {invalid_store,{x,-1},number}}},
+       {bad_register,{x,-1}}}},
      {{t,sum_4,2},
       {{bif,'+',{f,0},[{x,0},{x,1}],{x,1023}},4,limit}}] = Errors,
     ok.
@@ -122,15 +121,15 @@ yrange(Config) when is_list(Config) ->
     Errors = do_val(yrange, Config),
     [{{t,sum_1,2},
       {{move,{x,1},{y,-1}},5,
-       {invalid_store,{y,-1},term}}},
+       {bad_register,{y,-1}}}},
      {{t,sum_2,2},
       {{bif,'+',{f,0},[{x,0},{y,1024}],{x,0}},7,
-       {uninitialized_reg,{y,1024}}}},
+       limit}},
      {{t,sum_3,2},
       {{move,{x,1},{y,1024}},5,limit}},
      {{t,sum_4,2},
       {{move,{x,1},{y,-1}},5,
-       {invalid_store,{y,-1},term}}}] = Errors,
+       {bad_register,{y,-1}}}}] = Errors,
     ok.
 
 stack(Config) when is_list(Config) ->
@@ -178,7 +177,7 @@ unsafe_catch(Config) when is_list(Config) ->
     Errors = do_val(unsafe_catch, Config),
     [{{t,small,2},
       {{bs_put_integer,{f,0},{integer,16},1,
-	{field_flags,[unsigned,big]},{y,0}},
+        {field_flags,[unsigned,big]},{y,0}},
        20,
        {unassigned,{y,0}}}}] = Errors,
     ok.
@@ -223,7 +222,7 @@ bad_catch_try(Config) when is_list(Config) ->
       {{try_case,{y,1}},12,{invalid_tag,{y,1},term}}},
      {{bad_catch_try,bad_6,1},
       {{move,{integer,1},{y,1}},7,
-       {invalid_store,{y,1},{integer,1}}}}] = Errors,
+       {invalid_store,{y,1}}}}] = Errors,
     ok.
 
 cons_guard(Config) when is_list(Config) ->
@@ -247,7 +246,7 @@ freg_range(Config) when is_list(Config) ->
      {{t,sum_3,2},
       {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,-1}},
        7,
-       {bad_target,{fr,-1}}}},
+       {bad_register,{fr,-1}}}},
      {{t,sum_4,2},
       {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,1024}},
        7,
