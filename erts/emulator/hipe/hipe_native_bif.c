@@ -579,7 +579,7 @@ Eterm hipe_check_get_msg(Process *c_p)
 
     if (ERTS_SIG_IS_EXTERNAL_MSG(msgp)) {
         /* FIXME: bump appropriate amount... */
-        if (!erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
+        if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
             /*
              * A corrupt distribution message that we weren't able to decode;
              * remove it...

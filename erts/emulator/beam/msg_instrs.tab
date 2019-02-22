@@ -137,8 +137,8 @@ i_loop_rec(Dest) {
 
     if (ERTS_UNLIKELY(ERTS_SIG_IS_EXTERNAL_MSG(msgp))) {
         FCALLS -= 10; /* FIXME: bump appropriate amount... */
-        SWAPOUT; /* erts_decode_dist_message() may write to heap... */
-        if (!erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
+        SWAPOUT; /* erts_proc_sig_decode_dist() may write to heap... */
+        if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
             /*
              * A corrupt distribution message that we weren't able to decode;
              * remove it...

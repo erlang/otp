@@ -161,7 +161,7 @@
  *
  * - void <ERTS_RBT_PREFIX>_rbt_foreach(
  *                         ERTS_RBT_T *tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
  *                         void *arg);
  *         Operate by calling the operator 'op' on each element.
  *         Order is undefined.
@@ -170,7 +170,7 @@
  *
  * - void <ERTS_RBT_PREFIX>_rbt_foreach_destroy(
  *                         ERTS_RBT_T *tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
  *                         void *arg);
  *         Operate by calling the operator 'op' on each element.
  *         Order is undefined. Each element should be destroyed
@@ -180,39 +180,46 @@
  *
  * - int <ERTS_RBT_PREFIX>_rbt_foreach_yielding(
  *                         ERTS_RBT_T *tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
  *                         void *arg,
  *                         <ERTS_RBT_PREFIX>_rbt_yield_state_t *ystate,
- *                         Sint ylimit);
+ *                         Sint reds);
  *         Operate by calling the operator 'op' on each element.
  *         Order is undefined.
  *
- *         Yield when 'ylimit' elements has been processed. True is
- *         returned when yielding, and false is returned when
- *         the whole tree has been processed. The tree should not be
- *         modified until all of it has been processed.
+ *         Yield when 'reds' reductions has been processed. The 'op'
+ *         function return the number of reductions that each element
+ *         took to process. The number of reductions remaining is returned,
+ *         meaning that if 0 is returned, there are more elements to be
+ *         processed. If a value greater than 0 is returned the foreach has
+ *         ended. The tree should not be modified until all of it has been
+ *         processed.
  *
  *         'arg' is passed as argument to 'op'.
  *
  * - int <ERTS_RBT_PREFIX>_rbt_foreach_destroy_yielding(
  *                         ERTS_RBT_T *tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
  *                         void *arg,
  *                         <ERTS_RBT_PREFIX>_rbt_yield_state_t *ystate,
- *                         Sint ylimit);
+ *                         Sint reds);
  *         Operate by calling the operator 'op' on each element.
  *         Order is undefined. Each element should be destroyed
  *         by 'op'.
  *
- *         Yield when 'ylimit' elements has been processed. True is
- *         returned when yielding, and false is returned when
- *         the whole tree has been processed.
+ *         Yield when 'reds' reductions has been processed. The 'op'
+ *         function return the number of reductions that each element
+ *         took to process. The number of reductions remaining is returned,
+ *         meaning that if 0 is returned, there are more elements to be
+ *         processed. If a value greater than 0 is returned the foreach has
+ *         ended. The tree should not be modified until all of it has been
+ *         processed.
  *
  *         'arg' is passed as argument to 'op'.
  *
  * - void <ERTS_RBT_PREFIX>_rbt_foreach_small(
  *                         ERTS_RBT_T *tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
  *                         void *arg);
  *         Operate by calling the operator 'op' on each element from
  *         smallest towards larger elements.
@@ -221,7 +228,7 @@
  *
  * - void <ERTS_RBT_PREFIX>_rbt_foreach_large(
  *                         ERTS_RBT_T *tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
  *                         void *arg);
  *         Operate by calling the operator 'op' on each element from
  *         largest towards smaller elements.
@@ -230,40 +237,46 @@
  *
  * - int <ERTS_RBT_PREFIX>_rbt_foreach_small_yielding(
  *                         ERTS_RBT_T *tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
  *                         void *arg,
  *                         <ERTS_RBT_PREFIX>_rbt_yield_state_t *ystate,
- *                         Sint ylimit);
+ *                         Sint reds);
  *         Operate by calling the operator 'op' on each element from
  *         smallest towards larger elements.
  *
- *         Yield when 'ylimit' elements has been processed. True is
- *         returned when yielding, and false is returned when
- *         the whole tree has been processed. The tree should not be
- *         modified until all of it has been processed.
+ *         Yield when 'reds' reductions has been processed. The 'op'
+ *         function return the number of reductions that each element
+ *         took to process. The number of reductions remaining is returned,
+ *         meaning that if 0 is returned, there are more elements to be
+ *         processed. If a value greater than 0 is returned the foreach has
+ *         ended. The tree should not be modified until all of it has been
+ *         processed.
  *
  *         'arg' is passed as argument to 'op'.
  *
  * - int <ERTS_RBT_PREFIX>_rbt_foreach_large_yielding(
  *                         ERTS_RBT_T *tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
  *                         void *arg,
  *                         <ERTS_RBT_PREFIX>_rbt_yield_state_t *ystate,
- *                         Sint ylimit);
+ *                         Sint reds);
  *         Operate by calling the operator 'op' on each element from
  *         largest towards smaller elements.
  *
- *         Yield when 'ylimit' elements has been processed. True is
- *         returned when yielding, and false is returned when
- *         the whole tree has been processed. The tree should not be
- *         modified until all of it has been processed.
+ *         Yield when 'reds' reductions has been processed. The 'op'
+ *         function return the number of reductions that each element
+ *         took to process. The number of reductions remaining is returned,
+ *         meaning that if 0 is returned, there are more elements to be
+ *         processed. If a value greater than 0 is returned the foreach has
+ *         ended. The tree should not be modified until all of it has been
+ *         processed.
  *
  *         'arg' is passed as argument to 'op'.
  *
  * - void <ERTS_RBT_PREFIX>_rbt_foreach_small_destroy(
  *                         ERTS_RBT_T **tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
- *                         void (*destr)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
+ *                         int (*destr)(ERTS_RBT_T *, void *),
  *                         void *arg);
  *         Operate by calling the operator 'op' on each element from
  *         smallest towards larger elements.
@@ -277,8 +290,8 @@
  *
  * - void <ERTS_RBT_PREFIX>_rbt_foreach_large_destroy(
  *                         ERTS_RBT_T **tree,
- *                         void (*op)(ERTS_RBT_T *, void *),
- *                         void (*destr)(ERTS_RBT_T *, void *),
+ *                         int (*op)(ERTS_RBT_T *, void *),
+ *                         int (*destr)(ERTS_RBT_T *, void *),
  *                         void *arg);
  *         Operate by calling the operator 'op' on each element from
  *         largest towards smaller elements.
@@ -292,11 +305,11 @@
  *
  * - int <ERTS_RBT_PREFIX>_rbt_foreach_small_destroy_yielding(
  *                        ERTS_RBT_T **tree,
- *                        void (*op)(ERTS_RBT_T *, void *),
- *                        void (*destr)(ERTS_RBT_T *, void *),
+ *                        int (*op)(ERTS_RBT_T *, void *),
+ *                        int (*destr)(ERTS_RBT_T *, void *),
  *                        void *arg,
  *                        <ERTS_RBT_PREFIX>_rbt_yield_state_t *ystate,
- *                        Sint ylimit);
+ *                        Sint reds);
  *         Operate by calling the operator 'op' on each element from
  *         smallest towards larger elements.
  *
@@ -305,20 +318,23 @@
  *         Note that elements are often destroyed in another order
  *         than the order that the elements are operated on.
  *
- *         Yield when 'ylimit' elements has been processed. True is
- *         returned when yielding, and false is returned when
- *         the whole tree has been processed. The tree should not be
- *         modified until all of it has been processed.
+ *         Yield when 'reds' reductions has been processed. The 'op' and
+ *         'destr' functions return the number of reductions that each element
+ *         took to process. The number of reductions remaining is returned,
+ *         meaning that if 0 is returned, there are more elements to be
+ *         processed. If a value greater than 0 is returned the foreach has
+ *         ended. The tree should not be modified until all of it has been
+ *         processed.
  *
  *         'arg' is passed as argument to 'op' and 'destroy'.
  *
  * - int <ERTS_RBT_PREFIX>_rbt_foreach_large_destroy_yielding(
  *                        ERTS_RBT_T **tree,
- *                        void (*op)(ERTS_RBT_T *, void *),
- *                        void (*destr)(ERTS_RBT_T *, void *),
+ *                        int (*op)(ERTS_RBT_T *, void *),
+ *                        int (*destr)(ERTS_RBT_T *, void *),
  *                        void *arg,
  *                        <ERTS_RBT_PREFIX>_rbt_yield_state_t *ystate,
- *                        Sint ylimit);
+ *                        Sint reds);
  *         Operate by calling the operator 'op' on each element from
  *         largest towards smaller elements.
  *
@@ -327,10 +343,13 @@
  *         Note that elements are often destroyed in another order
  *         than the order that the elements are operated on.
  *
- *         Yield when 'ylimit' elements has been processed. True is
- *         returned when yielding, and false is returned when
- *         the whole tree has been processed. The tree should not be
- *         modified until all of it has been processed.
+ *         Yield when 'reds' reductions has been processed. The 'op' and
+ *         'destr' functions return the number of reductions that each element
+ *         took to process. The number of reductions remaining is returned,
+ *         meaning that if 0 is returned, there are more elements to be
+ *         processed. If a value greater than 0 is returned the foreach has
+ *         ended. The tree should not be modified until all of it has been
+ *         processed.
  *
  *         'arg' is passed as argument to 'op' and 'destroy'.
  *
@@ -447,17 +466,6 @@
 #  define ERTS_RBT_API_INLINE__ ERTS_INLINE
 #endif
 
-#ifndef ERTS_RBT_YIELD_STAT_INITER
-#  define ERTS_RBT_YIELD_STAT_INITER {NULL, 0}
-#endif
-#ifndef ERTS_RBT_YIELD_STAT_INIT
-#  define ERTS_RBT_YIELD_STAT_INIT(YS) \
-    do {                               \
-        (YS)->x = NULL;                \
-        (YS)->up = 0;                  \
-    } while (0)
-#endif
-
 #define ERTS_RBT_CONCAT_MACRO_VALUES___(X, Y) \
     X ## Y
 #define ERTS_RBT_CONCAT_MACRO_VALUES__(X, Y) \
@@ -470,7 +478,37 @@
 typedef struct {
     ERTS_RBT_T *x;
     int up;
+#ifdef DEBUG
+    int debug_red_adj;
+#endif
 } ERTS_RBT_YIELD_STATE_T__;
+
+#define ERTS_RBT_CALLBACK_FOREACH_FUNC(NAME) int (*NAME)(ERTS_RBT_T *, void *, Sint)
+
+#ifndef ERTS_RBT_YIELD_STAT_INITER
+#  ifdef DEBUG
+#    define ERTS_RBT_YIELD_STAT_INITER {NULL, 0, CONTEXT_REDS}
+#  else
+#    define ERTS_RBT_YIELD_STAT_INITER {NULL, 0}
+#  endif
+#endif
+#ifndef ERTS_RBT_YIELD_STAT_INIT
+#  define ERTS_RBT_YIELD_STAT_INIT__(YS)                                \
+    do {                                                                \
+        (YS)->x = NULL;                                                 \
+        (YS)->up = 0;                                                   \
+    } while (0)
+#  ifdef DEBUG
+#    define ERTS_RBT_YIELD_STAT_INIT(YS)        \
+    do {                                        \
+        ERTS_RBT_YIELD_STAT_INIT__(YS);         \
+        (YS)->debug_red_adj = CONTEXT_REDS;     \
+    } while(0)
+#  else
+#    define ERTS_RBT_YIELD_STAT_INIT(YS) ERTS_RBT_YIELD_STAT_INIT__(YS)
+#  endif
+#endif
+
 
 #define ERTS_RBT_FUNC__(Name) \
     ERTS_RBT_CONCAT_MACRO_VALUES__(ERTS_RBT_PREFIX, _rbt_ ## Name)
@@ -1302,11 +1340,11 @@ ERTS_RBT_FUNC__(largest)(ERTS_RBT_T *root)
 static ERTS_INLINE int
 ERTS_RBT_FUNC__(foreach_unordered__)(ERTS_RBT_T **root,
 				     int destroying,
-				     void (*op)(ERTS_RBT_T *, void *),
+				     ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
 				     void *arg,
-				     int yielding,
+                                     int yielding,
 				     ERTS_RBT_YIELD_STATE_T__ *ystate,
-				     Sint ylimit)
+				     Sint reds)
 {
     ERTS_RBT_T *c, *p, *x;
 
@@ -1314,13 +1352,17 @@ ERTS_RBT_FUNC__(foreach_unordered__)(ERTS_RBT_T **root,
 
     if (yielding && ystate->x) {
 	x = ystate->x;
+#ifdef DEBUG
+        if (ystate->debug_red_adj > 0)
+            ystate->debug_red_adj -= 100;
+#endif
 	ERTS_RBT_ASSERT(ystate->up);
 	goto restart_up;
     }
     else {
 	x = *root;
 	if (!x)
-	    return 0;
+	    return reds;
 	if (destroying)
 	    *root = NULL;
     }
@@ -1346,10 +1388,10 @@ ERTS_RBT_FUNC__(foreach_unordered__)(ERTS_RBT_T **root,
 #ifdef ERTS_RBT_DEBUG
 	    int cdir;
 #endif
-	    if (yielding && ylimit-- <= 0) {
+	    if (yielding && reds <= 0) {
 		ystate->x = x;
 		ystate->up = 1;
-		return 1;
+		return 0;
 	    }
 
 	restart_up:
@@ -1375,14 +1417,20 @@ ERTS_RBT_FUNC__(foreach_unordered__)(ERTS_RBT_T **root,
 	    }
 #endif
 
-	    (*op)(x, arg);
+            reds -= (*op)(x, arg, reds);
+#ifdef DEBUG
+            if (yielding)
+                reds -= ystate->debug_red_adj;
+#endif
 
 	    if (!p) {
+                /* Done */
 		if (yielding) {
 		    ystate->x = NULL;
 		    ystate->up = 0;
+                    return reds <= 0 ? 1 : reds;
 		}
-		return 0; /* Done */
+                return 1;
 	    }
 
 	    c = ERTS_RBT_GET_RIGHT(p);
@@ -1407,20 +1455,26 @@ static ERTS_INLINE int
 ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
 				   int from_small,
 				   int destroying,
-				   void (*op)(ERTS_RBT_T *, void *),
-				   void (*destroy)(ERTS_RBT_T *, void *),
+                                   ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
+                                   ERTS_RBT_CALLBACK_FOREACH_FUNC(destroy),
 				   void *arg,
-				   int yielding,
+                                   int yielding,
 				   ERTS_RBT_YIELD_STATE_T__ *ystate,
-				   Sint ylimit)
+				   Sint reds)
 {
     ERTS_RBT_T *c, *p, *x;
 
     ERTS_RBT_ASSERT(!yielding || ystate);
     ERTS_RBT_ASSERT(!destroying || destroy);
+    ERTS_RBT_ASSERT(!yielding || yop);
+    ERTS_RBT_ASSERT(yielding || op);
 
     if (yielding && ystate->x) {
 	x = ystate->x;
+#ifdef DEBUG
+        if (ystate->debug_red_adj > 0)
+            ystate->debug_red_adj -= 100;
+#endif
 	if (ystate->up)
 	    goto restart_up;
 	else
@@ -1429,7 +1483,7 @@ ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
     else {
 	x = *root;
 	if (!x)
-	    return 0;
+	    return reds;
 	if (destroying)
 	    *root = NULL;
     }
@@ -1445,12 +1499,16 @@ ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
 		x = c;
 	    }
 
-	    (*op)(x, arg);
+            reds -= (*op)(x, arg, reds);
+#ifdef DEBUG
+            if (yielding)
+                reds -= ystate->debug_red_adj;
+#endif
 
-	    if (yielding && --ylimit <= 0) {
+	    if (yielding && reds <= 0) {
 		ystate->x = x;
 		ystate->up = 0;
-		return 1;
+		return 0;
 	    }
 
 	restart_down:
@@ -1472,12 +1530,16 @@ ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
 				     ? ERTS_RBT_GET_LEFT(p)
 				     : ERTS_RBT_GET_RIGHT(p)) == x);
 
-		    (*op)(p, arg);
+                    reds -= (*op)(p, arg, reds);
+#ifdef DEBUG
+                    if (yielding)
+                        reds -= ystate->debug_red_adj;
+#endif
 
-		    if (yielding && --ylimit <= 0) {
+		    if (yielding && reds <= 0) {
 			ystate->x = x;
 			ystate->up = 1;
-			return 1;
+			return 0;
 		    restart_up:
 			p = ERTS_RBT_GET_PARENT(x);
 		    }
@@ -1510,15 +1572,20 @@ ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
 		}
 #endif
 
-		(*destroy)(x, arg);
+		reds -= (*destroy)(x, arg, reds);
+#ifdef DEBUG
+                if (yielding)
+                    reds -= ystate->debug_red_adj;
+#endif
 	    }
 
 	    if (!p) {
 		if (yielding) {
 		    ystate->x = NULL;
 		    ystate->up = 0;
+                    return reds <= 0 ? 1 : reds;
 		}
-		return 0; /* Done */
+		return 1; /* Done */
 	    }
 	    x = p;
 	}
@@ -1531,7 +1598,7 @@ ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
 
 static ERTS_RBT_API_INLINE__ void
 ERTS_RBT_FUNC__(foreach)(ERTS_RBT_T *root,
-			 void (*op)(ERTS_RBT_T *, void *),
+			 ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
 			 void *arg)
 {
     (void) ERTS_RBT_FUNC__(foreach_unordered__)(&root, 0, op, arg,
@@ -1544,7 +1611,7 @@ ERTS_RBT_FUNC__(foreach)(ERTS_RBT_T *root,
 
 static ERTS_RBT_API_INLINE__ void
 ERTS_RBT_FUNC__(foreach_small)(ERTS_RBT_T *root,
-			       void (*op)(ERTS_RBT_T *, void *),
+			       ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
 			       void *arg)
 {
     (void) ERTS_RBT_FUNC__(foreach_ordered__)(&root, 1, 0,
@@ -1558,7 +1625,7 @@ ERTS_RBT_FUNC__(foreach_small)(ERTS_RBT_T *root,
 
 static ERTS_RBT_API_INLINE__ void
 ERTS_RBT_FUNC__(foreach_large)(ERTS_RBT_T *root,
-			       void (*op)(ERTS_RBT_T *, void *),
+			       ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
 			       void *arg)
 {
     (void) ERTS_RBT_FUNC__(foreach_ordered__)(&root, 0, 0,
@@ -1572,13 +1639,13 @@ ERTS_RBT_FUNC__(foreach_large)(ERTS_RBT_T *root,
 
 static ERTS_RBT_API_INLINE__ int
 ERTS_RBT_FUNC__(foreach_yielding)(ERTS_RBT_T *root,
-				  void (*op)(ERTS_RBT_T *, void *),
+				  ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
 				  void *arg,
 				  ERTS_RBT_YIELD_STATE_T__ *ystate,
-				  Sint ylimit)
+				  Sint reds)
 {
     return ERTS_RBT_FUNC__(foreach_unordered__)(&root, 0, op, arg,
-						1, ystate, ylimit);
+						1, ystate, reds);
 }
 
 #endif /* ERTS_RBT_WANT_FOREACH_YIELDING */
@@ -1587,14 +1654,14 @@ ERTS_RBT_FUNC__(foreach_yielding)(ERTS_RBT_T *root,
 
 static ERTS_RBT_API_INLINE__ int
 ERTS_RBT_FUNC__(foreach_small_yielding)(ERTS_RBT_T *root,
-					void (*op)(ERTS_RBT_T *, void *),
+					ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
 					void *arg,
 					ERTS_RBT_YIELD_STATE_T__ *ystate,
-					Sint ylimit)
+					Sint reds)
 {
     return ERTS_RBT_FUNC__(foreach_ordered__)(&root, 1, 0,
 					      op, NULL, arg,
-					      1, ystate, ylimit);
+					      1, ystate, reds);
 }
 
 #endif /* ERTS_RBT_WANT_FOREACH_SMALL_YIELDING */
@@ -1603,14 +1670,14 @@ ERTS_RBT_FUNC__(foreach_small_yielding)(ERTS_RBT_T *root,
 
 static ERTS_RBT_API_INLINE__ int
 ERTS_RBT_FUNC__(foreach_large_yielding)(ERTS_RBT_T *root,
-					void (*op)(ERTS_RBT_T *, void *),
+					ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
 					void *arg,
 					ERTS_RBT_YIELD_STATE_T__ *ystate,
-					Sint ylimit)
+					Sint reds)
 {
     return ERTS_RBT_FUNC__(foreach_ordered__)(&root, 0, 0,
 					      op, NULL, arg,
-					      1, ystate, ylimit);
+					      1, ystate, reds);
 }
 
 #endif /* ERTS_RBT_WANT_FOREACH_LARGE_YIELDING */
@@ -1619,11 +1686,11 @@ ERTS_RBT_FUNC__(foreach_large_yielding)(ERTS_RBT_T *root,
 
 static ERTS_RBT_API_INLINE__ void
 ERTS_RBT_FUNC__(foreach_destroy)(ERTS_RBT_T **root,
-				 void (*op)(ERTS_RBT_T *, void *),
+				 ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
 				 void *arg)
 {
     (void) ERTS_RBT_FUNC__(foreach_unordered__)(root, 1, op, arg,
-						0, NULL, 0);
+                                                0, NULL, 0);
 }
 
 #endif /* ERTS_RBT_WANT_FOREACH_DESTROY */
@@ -1632,8 +1699,8 @@ ERTS_RBT_FUNC__(foreach_destroy)(ERTS_RBT_T **root,
 
 static ERTS_RBT_API_INLINE__ void
 ERTS_RBT_FUNC__(foreach_small_destroy)(ERTS_RBT_T **root,
-				       void (*op)(ERTS_RBT_T *, void *),
-				       void (*destr)(ERTS_RBT_T *, void *),
+				       ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
+				       ERTS_RBT_CALLBACK_FOREACH_FUNC(destr),
 				       void *arg)
 {
     (void) ERTS_RBT_FUNC__(foreach_ordered__)(root, 1, 1,
@@ -1647,8 +1714,8 @@ ERTS_RBT_FUNC__(foreach_small_destroy)(ERTS_RBT_T **root,
 
 static ERTS_RBT_API_INLINE__ void
 ERTS_RBT_FUNC__(foreach_large_destroy)(ERTS_RBT_T **root,
-				       void (*op)(ERTS_RBT_T *, void *),
-				       void (*destr)(ERTS_RBT_T *, void *),
+				       ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
+				       ERTS_RBT_CALLBACK_FOREACH_FUNC(destr),
 				       void *arg)
 {
     (void) ERTS_RBT_FUNC__(foreach_ordered__)(root, 0, 1,
@@ -1662,13 +1729,13 @@ ERTS_RBT_FUNC__(foreach_large_destroy)(ERTS_RBT_T **root,
 
 static ERTS_RBT_API_INLINE__ int
 ERTS_RBT_FUNC__(foreach_destroy_yielding)(ERTS_RBT_T **root,
-					  void (*op)(ERTS_RBT_T *, void *),
+					  ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
 					  void *arg,
 					  ERTS_RBT_YIELD_STATE_T__ *ystate,
-					  Sint ylimit)
+					  Sint reds)
 {
     return ERTS_RBT_FUNC__(foreach_unordered__)(root, 1, op, arg,
-						1, ystate, ylimit);
+						1, ystate, reds);
 }
 
 #endif /* ERTS_RBT_WANT_FOREACH_DESTROY_YIELDING */
@@ -1677,15 +1744,15 @@ ERTS_RBT_FUNC__(foreach_destroy_yielding)(ERTS_RBT_T **root,
 
 static ERTS_RBT_API_INLINE__ int
 ERTS_RBT_FUNC__(foreach_small_destroy_yielding)(ERTS_RBT_T **root,
-						void (*op)(ERTS_RBT_T *, void *),
-						void (*destr)(ERTS_RBT_T *, void *),
+						ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
+						ERTS_RBT_CALLBACK_FOREACH_FUNC(destr),
 						void *arg,
 						ERTS_RBT_YIELD_STATE_T__ *ystate,
-						Sint ylimit)
+						Sint reds)
 {
     return ERTS_RBT_FUNC__(foreach_ordered__)(root, 1, 1,
 					      op, destr, arg,
-					      1, ystate, ylimit);
+					      1, ystate, reds);
 }
 
 #endif /* ERTS_RBT_WANT_FOREACH_SMALL_DESTROY_YIELDING */
@@ -1694,15 +1761,15 @@ ERTS_RBT_FUNC__(foreach_small_destroy_yielding)(ERTS_RBT_T **root,
 
 static ERTS_RBT_API_INLINE__ int
 ERTS_RBT_FUNC__(foreach_large_destroy_yielding)(ERTS_RBT_T **root,
-						void (*op)(ERTS_RBT_T *, void *),
-						void (*destr)(ERTS_RBT_T *, void *),
+						ERTS_RBT_CALLBACK_FOREACH_FUNC(op),
+						ERTS_RBT_CALLBACK_FOREACH_FUNC(destr),
 						void *arg,
 						ERTS_RBT_YIELD_STATE_T__ *ystate,
-						Sint ylimit)
+						Sint reds)
 {
     return ERTS_RBT_FUNC__(foreach_ordered__)(root, 0, 1,
 					      op, destr, arg,
-					      1, ystate, ylimit);
+					      1, ystate, reds);
 }
 
 #endif /* ERTS_RBT_WANT_FOREACH_LARGE_DESTROY_YIELDING */
@@ -1855,6 +1922,7 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root, ERTS_RBT_T *n)
 #ifdef ERTS_RBT_UNDEF
 #  undef ERTS_RBT_PREFIX
 #  undef ERTS_RBT_T
+#  undef ERTS_RBT_CALLBACK_FOREACH_FUNC
 #  undef ERTS_RBT_KEY_T
 #  undef ERTS_RBT_FLAGS_T
 #  undef ERTS_RBT_INIT_EMPTY_TNODE

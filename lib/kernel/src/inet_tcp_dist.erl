@@ -212,6 +212,7 @@ do_accept(Driver, Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 					   [{active, true},
 					    {deliver, port},
 					    {packet, 4},
+                                            binary,
 					    nodelay()])
 		      end,
 		      f_getll = fun(S) ->

@@ -1789,7 +1789,7 @@ define etp-pix2proc
 # Args: Eterm
 #
    set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[((int) $arg0)])
-   printf "(Process *) %p\n", $proc
+   printf "(Process*)%p\n", $proc
 end
 
 define etp-pid2proc-1
@@ -1803,7 +1803,7 @@ define etp-pid2proc
 # Args: Eterm
 #
    etp-pid2proc-1 $arg0
-   printf "(Process *) %p\n", $proc
+   printf "(Process*)%p\n", $proc
 end
 
 define etp-proc-state-int
@@ -2083,7 +2083,7 @@ define etp-process-info-int
   printf "\n  Flags: "
   etp-proc-flags $etp_proc
   if $proxy_process != 0
-    printf "  Pointer: (Process *) %p\n", $etp_proc
+    printf "  Pointer: (Process*)%p\n", $etp_proc
     printf "  *** PROXY process struct *** refer to: \n"
     etp-pid2proc-1 $etp_proc->common.id
     etp-process-info $proc
@@ -2096,7 +2096,7 @@ define etp-process-info-int
     end
   end
   printf "  Current function: "
-  if ($etp_proc->current)
+  if ($etp_proc->current && !($etp_proc->state.counter & 0x800))
     etp-1 $etp_proc->current->module
     printf ":"
     etp-1 $etp_proc->current->function
@@ -2133,7 +2133,7 @@ define etp-process-info-int
   end
   printf "  Parent: "
   etp-1 ((Eterm)($etp_proc->parent))
-  printf "\n  Pointer: (Process *) %p\n", $etp_proc
+  printf "\n  Pointer: (Process*)%p\n", $etp_proc
   end
   if ($arg1)
     etp-sigqs $etp_proc
@@ -2156,6 +2156,43 @@ document etp-process-info
 %---------------------------------------------------------------------------
 end
 
+define etp-processes-free-runq-int
+  set $runq_prio = 0
+  while $runq_prio < 3
+    set $runq_proc = ($arg0)->procs.prio[$runq_prio].first
+    while $runq_proc != 0
+      if $runq_proc->state.counter & 0x400
+        printf "---\n"
+        printf "  Pix: FREE -> run_queue %p\n", ($arg0)
+        etp-process-info-int $runq_proc ($arg1)
+      end
+      set $runq_proc = $runq_proc->next
+    end
+    set $runq_prio++
+  end
+end
+
+define etp-processes-free-de-int
+  set $de_ix = 0
+  while $de_ix < ($arg1)
+    set $de = ($arg0)+$de_ix
+    set $susp = $de->suspended
+    set $susp_curr = $susp
+    set $first_loop = 1
+    while $susp_curr != 0 && (($susp_curr != $susp) || $first_loop)
+      if ($susp_curr->u.pid & 0x3) == 0
+        printf "---\n"
+        printf "  Pix: FREE "
+        etp $de->sysname
+        etp-process-info-int $susp_curr->u.pid ($arg2)
+      end
+      set $first_loop = 0
+      set $susp_curr = $susp_curr->next
+    end
+    set $de_ix++
+  end
+end
+
 define etp-processes-int
   if (!erts_initialized)
     printf "No processes, since system isn't initialized!\n"
@@ -2176,11 +2213,36 @@ define etp-processes-int
         set $proc_cnt--
       end
       if $proc_ix == $proc_printile
-        printf "--- %d%% (%d / %d) searched\n", $proc_printile / $proc_decentile * 10, $proc_ix, $proc_max_ix
+        printf "--- %d%% (%d / %d) searched, looking for %d more\n", $proc_printile / $proc_decentile * 10, $proc_ix, $proc_max_ix, $proc_cnt
         set $proc_printile += $proc_decentile
       end
       set $proc_ix++
     end
+
+    ## We should also check for any FREE processes that are running
+    ## They can be found in esdp->current_process, dep->suspendees and
+    ## runq. Running FREE processes are processes that either are yielding
+    ## when exiting or running on a dirty scheduler while having exited.
+    set $sched_ix = 0
+    while $sched_ix < erts_no_schedulers
+      set $sched_data = &erts_aligned_scheduler_data[$sched_ix].esd
+      if $sched_data->current_process != 0
+        if $sched_data->current_process.state.counter & 0x400
+          printf "---\n"
+          printf "  Pix: FREE -> scheduler %d\n", $sched_ix+1
+          etp-process-info-int $sched_data->current_process ($arg0)
+        end
+      end
+      etp-processes-free-runq-int $sched_data->run_queue ($arg0)
+      set $sched_ix++
+    end
+    etp-processes-free-runq-int &erts_aligned_run_queues[erts_no_run_queues].runq ($arg0)
+    etp-processes-free-runq-int &erts_aligned_run_queues[erts_no_run_queues+1].runq ($arg0)
+    etp-processes-free-de-int erts_hidden_dist_entries erts_no_of_hidden_dist_entries ($arg0)
+    etp-processes-free-de-int erts_visible_dist_entries erts_no_of_visible_dist_entries ($arg0)
+    etp-processes-free-de-int erts_pending_dist_entries erts_no_of_pending_dist_entries ($arg0)
+    etp-processes-free-de-int erts_not_connected_dist_entries erts_no_of_not_connected_dist_entries ($arg0)
+    etp-processes-free-de-int erts_this_dist_entry 1 ($arg0)
     printf "---\n",
   end
 end
@@ -2237,9 +2299,9 @@ define etp-process-memory-info
   end
   printf "  "
   etp-1 $etp_pmem_proc->common.id
-  printf ": (Process *) %p ", $etp_pmem_proc
+  printf ": (Process*)%p ", $etp_pmem_proc
   if $proxy_process != 0
-    printf "(Process *) %p ", $etp_pmem_proc
+    printf "(Process*)%p ", $etp_pmem_proc
     printf "  *** PROXY process struct *** refer to next: \n"
     etp-pid2proc-1 $etp_pmem_proc->common.id
     printf " -"
@@ -2313,7 +2375,7 @@ define etp-pix2port
 # Args: Eterm
 #
    set $port = (Port *) *((UWord *) &erts_port.r.o.tab[((int) $arg0)])
-   printf "(Port *) %p\n", $port
+   printf "(Port*)%p\n", $port
 end
 
 define etp-id2port-1
@@ -2327,7 +2389,7 @@ define etp-id2port
 # Args: Eterm
 #
    etp-id2port-1 $arg0
-   printf "(Port *) %p\n", $port
+   printf "(Port*)%p\n", $port
 end
 
 define etp-port-sched-flags-int
@@ -2501,7 +2563,7 @@ define etp-port-info
   printf "  Connected: "
   set $connected = *(((Eterm *) &(((Port *) $etp_pinfo_port)->connected)))
   etp-1 $connected
-  printf "\n  Pointer: (Port *) %p\n", $etp_pinfo_port
+  printf "\n  Pointer: (Port*)%p\n", $etp_pinfo_port
 end
 
 document etp-port-info
@@ -2851,7 +2913,7 @@ define etp-scheduler-info-internal
   printf " Sleep Info Flags:"
   set $ssi_flags = *((Uint32 *) &$sched_data->ssi->flags)
   etp-ssi-flags $ssi_flags
-  printf " Pointer: (ErtsSchedulerData *) %p\n", $sched_data
+  printf " Pointer: (ErtsSchedulerData*)%p\n", $sched_data
 end
 
 define etp-run-queue-info-internal
@@ -2884,7 +2946,7 @@ define etp-run-queue-info-internal
   end
   set $rq_flags = *((Uint32 *) &($runq->flags))
   etp-rq-flags-int $rq_flags
-  printf "  Pointer: (ErtsRunQueue *) %p\n", $runq
+  printf "  Pointer: (ErtsRunQueue*)%p\n", $runq
 end
 
 define etp-fds
@@ -2961,7 +3023,7 @@ define etp-timer-wheel
         printf "\n"
         while 1
            printf "- Timeout pos: %ld\n", $tmr->timeout_pos
-	   printf "  Pointer: (ErtsTWheelTimer *) %p\n", $tmr
+	   printf "  Pointer: (ErtsTWheelTimer*)%p\n", $tmr
            set $tmr = $tmr->next
            if ($tmr == $tiw->w[$ix])
              loop_break
@@ -2991,7 +3053,7 @@ define etp-timer-wheel
         printf "\n"
         while 1
            printf "- Timeout pos: %ld\n", $tmr->timeout_pos
-	   printf "  Pointer: (ErtsTWheelTimer *) %p\n", $tmr
+	   printf "  Pointer: (ErtsTWheelTimer*)%p\n", $tmr
            set $tmr = $tmr->next
            if ($tmr == $tiw->w[$ix])
              loop_break

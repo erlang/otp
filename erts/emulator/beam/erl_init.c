@@ -2417,11 +2417,16 @@ erts_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
     erts_exit_epilogue();
 }
 
+void check_obuf(void);
 __decl_noreturn void __noreturn erts_exit_epilogue(void)
 {
     int n = erts_exit_code;
 
     sys_tty_reset(n);
+
+#ifdef DEBUG
+    check_obuf();
+#endif
 
     if (n == ERTS_INTR_EXIT)
 	exit(0);

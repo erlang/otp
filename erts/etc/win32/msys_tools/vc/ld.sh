@@ -178,7 +178,10 @@ if [ "$RES" = "0" -a -f "$CMANIFEST" ]; then
     RES=$?
     if [ "$RES" != "0" ]; then
 	REMOVE=`echo "$OUTPUTRES" | sed 's,\\\;[12]$,,g'`
-	CREMOVE=`cygpath $REMOVE`
+	CREMOVE=`win2msys_path.sh $REMOVE`
+        ## If Defender or Search are enabled, they will lock just created files
+        ## and then mt will fail :/
+        echo "If you get this error, make sure Windows Defender AND Windows Search is disabled">>/tmp/link.exe.${p}.1
 	rm -f "$CREMOVE"
     fi
     rm -f "$CMANIFEST"

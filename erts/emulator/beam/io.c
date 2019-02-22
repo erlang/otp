@@ -3644,20 +3644,22 @@ typedef struct {
     Eterm reason;
 } ErtsPortExitContext;
 
-static void link_port_exit(ErtsLink *lnk, void *vpectxt)
+static int link_port_exit(ErtsLink *lnk, void *vpectxt, Sint reds)
 {
     ErtsPortExitContext *pectxt = vpectxt;
     erts_proc_sig_send_link_exit(NULL, pectxt->port_id,
                                  lnk, pectxt->reason, NIL);
+    return 1;
 }
 
-static void monitor_port_exit(ErtsMonitor *mon, void *vpectxt)
+static int monitor_port_exit(ErtsMonitor *mon, void *vpectxt, Sint reds)
 {
     ErtsPortExitContext *pectxt = vpectxt;
     if (erts_monitor_is_target(mon))
         erts_proc_sig_send_monitor_down(mon, pectxt->reason);
     else
         erts_proc_sig_send_demonitor(mon);
+    return 1;
 }
 
 /* 'from' is sending 'this_port' an exit signal, (this_port must be internal).
@@ -4836,7 +4838,7 @@ typedef struct {
     void *arg;
 } prt_one_lnk_data;
 
-static void prt_one_monitor(ErtsMonitor *mon, void *vprtd)
+static int prt_one_monitor(ErtsMonitor *mon, void *vprtd, Sint reds)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
@@ -4844,12 +4846,14 @@ static void prt_one_monitor(ErtsMonitor *mon, void *vprtd)
         erts_print(prtd->to, prtd->arg, "(%p,%T)", mon->other.ptr, mdp->ref);
     else
         erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->other.item, mdp->ref);
+    return 1;
 }
 
-static void prt_one_lnk(ErtsLink *lnk, void *vprtd)
+static int prt_one_lnk(ErtsLink *lnk, void *vprtd, Sint reds)
 {
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
     erts_print(prtd->to, prtd->arg, "%T", lnk->other.item);
+    return 1;
 }
 
 static void dump_port_state(fmtfn_t to, void *arg, erts_aint32_t state)
@@ -5100,7 +5104,7 @@ erts_port_resume_procs(Port *prt)
 
 	    erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)), "%T", prt->common.id);
 	    while (plp2 != NULL) {
-		erts_snprintf(pid_str, sizeof(DTRACE_CHARBUF_NAME(pid_str)), "%T", plp2->pid);
+		erts_snprintf(pid_str, sizeof(DTRACE_CHARBUF_NAME(pid_str)), "%T", plp2->u.pid);
 		DTRACE2(process_port_unblocked, pid_str, port_str);
 	    }
 	}
@@ -6177,6 +6181,7 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 				dep,
                                 conn_id,
 				(byte*) hbuf, hlen,
+                                ErlDrvBinary2Binary(bin),
 				(byte*) (bin->orig_bytes+offs), len);
     }
     else
@@ -6222,12 +6227,14 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 				    dep,
                                     conn_id,
 				    NULL, 0,
+                                    NULL,
 				    (byte*) hbuf, hlen);
 	else
 	    return erts_net_message(prt,
 				    dep,
                                     conn_id,
 				    (byte*) hbuf, hlen,
+                                    NULL,
 				    (byte*) buf, len);
     }
     else if (state & ERTS_PORT_SFLG_LINEBUF_IO)

@@ -1096,7 +1096,7 @@ extern int distribution_info(fmtfn_t, void *);
 extern int is_node_name_atom(Eterm a);
 
 extern int erts_net_message(Port *, DistEntry *, Uint32 conn_id,
-			    byte *, ErlDrvSizeT, byte *, ErlDrvSizeT);
+			    byte *, ErlDrvSizeT, Binary *, byte *, ErlDrvSizeT);
 
 extern void init_dist(void);
 extern int stop_dist(void);

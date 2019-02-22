@@ -6108,7 +6108,8 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
             }
         default:
             ASSERT(is_external_header(oh->thing_word));
-            erts_deref_node_entry(((ExternalThing*)oh)->node);
+            erts_deref_node_entry(((ExternalThing*)oh)->node,
+                                  make_boxed(&oh->thing_word));
         }
         oh = oh->next;
     }

@@ -129,7 +129,7 @@ typedef struct {
     void *to_arg;
 } PrintMonitorContext;
 
-static void doit_print_link(ErtsLink *lnk, void *vpcontext)
+static int doit_print_link(ErtsLink *lnk, void *vpcontext, Sint reds)
 {
     PrintMonitorContext *pcontext = vpcontext;
     fmtfn_t to = pcontext->to;
@@ -141,10 +141,11 @@ static void doit_print_link(ErtsLink *lnk, void *vpcontext)
     } else {
 	erts_print(to, to_arg, ", %T", lnk->other.item);
     }
+    return 1;
 }
     
 
-static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
+static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
 {
     ErtsMonitorData *mdp;
     PrintMonitorContext *pcontext = vpcontext;
@@ -196,6 +197,7 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
         /* ignore other monitors... */
         break;
     }
+    return 1;
 }
 			       
 /* Display info about an individual Erlang process */

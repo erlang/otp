@@ -191,7 +191,8 @@ ml_cmp_keys(Eterm key1, Eterm key2)
                 if (n1->sysname != n2->sysname)
                     return n1->sysname < n2->sysname ? -1 : 1;
                 ASSERT(n1->creation != n2->creation);
-                return n1->creation < n2->creation ? -1 : 1;
+                if (n1->creation != 0 && n2->creation != 0)
+                    return n1->creation < n2->creation ? -1 : 1;
             }
 
             ndw1 = external_thing_data_words(et1);
@@ -335,7 +336,7 @@ ml_rbt_delete(ErtsMonLnkNode **root, ErtsMonLnkNode *ml)
 
 static void
 ml_rbt_foreach(ErtsMonLnkNode *root,
-               void (*func)(ErtsMonLnkNode *, void *),
+               ErtsMonLnkNodeFunc func,
                void *arg)
 {
     mon_lnk_rbt_foreach(root, func, arg);
@@ -348,7 +349,7 @@ typedef struct {
 
 static int
 ml_rbt_foreach_yielding(ErtsMonLnkNode *root,
-                        void (*func)(ErtsMonLnkNode *, void *),
+                        ErtsMonLnkNodeFunc func,
                         void *arg,
                         void **vyspp,
                         Sint limit)
@@ -362,7 +363,7 @@ ml_rbt_foreach_yielding(ErtsMonLnkNode *root,
 	ysp = &ys;
     res = mon_lnk_rbt_foreach_yielding(ysp->root, func, arg,
                                        &ysp->rbt_ystate, limit);
-    if (res == 0) {
+    if (res > 0) {
 	if (ysp != &ys)
 	    erts_free(ERTS_ALC_T_ML_YIELD_STATE, ysp);
 	*vyspp = NULL;
@@ -383,22 +384,22 @@ ml_rbt_foreach_yielding(ErtsMonLnkNode *root,
 }
 
 typedef struct {
-    void (*func)(ErtsMonLnkNode *, void *);
+    ErtsMonLnkNodeFunc func;
     void *arg;
 } ErtsMonLnkForeachDeleteContext;
 
-static void
-rbt_wrap_foreach_delete(ErtsMonLnkNode *ml, void *vctxt)
+static int
+rbt_wrap_foreach_delete(ErtsMonLnkNode *ml, void *vctxt, Sint reds)
 {
     ErtsMonLnkForeachDeleteContext *ctxt = vctxt;
     ERTS_ML_ASSERT(ml->flags & ERTS_ML_FLG_IN_TABLE);
     ml->flags &= ~ERTS_ML_FLG_IN_TABLE;
-    ctxt->func(ml, ctxt->arg);
+    return ctxt->func(ml, ctxt->arg, reds);
 }
 
 static void
 ml_rbt_foreach_delete(ErtsMonLnkNode **root,
-                      void (*func)(ErtsMonLnkNode *, void *),
+                      ErtsMonLnkNodeFunc func,
                       void *arg)
 {
     ErtsMonLnkForeachDeleteContext ctxt;
@@ -411,7 +412,7 @@ ml_rbt_foreach_delete(ErtsMonLnkNode **root,
 
 static int
 ml_rbt_foreach_delete_yielding(ErtsMonLnkNode **root,
-                               void (*func)(ErtsMonLnkNode *, void *),
+                               ErtsMonLnkNodeFunc func,
                                void *arg,
                                void **vyspp,
                                Sint limit)
@@ -433,7 +434,7 @@ ml_rbt_foreach_delete_yielding(ErtsMonLnkNode **root,
                                                (void *) &ctxt,
                                                &ysp->rbt_ystate,
                                                limit);
-    if (res == 0) {
+    if (res > 0) {
 	if (ysp != &ys)
 	    erts_free(ERTS_ALC_T_ML_YIELD_STATE, ysp);
 	*vyspp = NULL;
@@ -459,12 +460,11 @@ ml_rbt_foreach_delete_yielding(ErtsMonLnkNode **root,
 
 static int
 ml_dl_list_foreach_yielding(ErtsMonLnkNode *list,
-                            void (*func)(ErtsMonLnkNode *, void *),
+                            ErtsMonLnkNodeFunc func,
                             void *arg,
                             void **vyspp,
-                            Sint limit)
+                            Sint reds)
 {
-    Sint cnt = 0;
     ErtsMonLnkNode *ml = (ErtsMonLnkNode *) *vyspp;
 
     ERTS_ML_ASSERT(!ml || list);
@@ -475,28 +475,26 @@ ml_dl_list_foreach_yielding(ErtsMonLnkNode *list,
     if (ml) {
         do {
             ERTS_ML_ASSERT(ml->flags & ERTS_ML_FLG_IN_TABLE);
-            func(ml, arg);
+            reds -= func(ml, arg, reds);
             ml = ml->node.list.next;
-            cnt++;
-        } while (ml != list && cnt < limit);
+        } while (ml != list && reds > 0);
         if (ml != list) {
             *vyspp = (void *) ml;
-            return 1; /* yield */
+            return 0; /* yield */
         }
     }
 
     *vyspp = NULL;
-    return 0; /* done */
+    return reds <= 0 ? 1 : reds; /* done */
 }
 
 static int
 ml_dl_list_foreach_delete_yielding(ErtsMonLnkNode **list,
-                                   void (*func)(ErtsMonLnkNode *, void *),
+                                   ErtsMonLnkNodeFunc func,
                                    void *arg,
                                    void **vyspp,
-                                   Sint limit)
+                                   Sint reds)
 {
-    Sint cnt = 0;
     ErtsMonLnkNode *first = *list;
     ErtsMonLnkNode *ml = (ErtsMonLnkNode *) *vyspp;
 
@@ -510,19 +508,18 @@ ml_dl_list_foreach_delete_yielding(ErtsMonLnkNode **list,
             ErtsMonLnkNode *next = ml->node.list.next;
             ERTS_ML_ASSERT(ml->flags & ERTS_ML_FLG_IN_TABLE);
             ml->flags &= ~ERTS_ML_FLG_IN_TABLE;
-            func(ml, arg);
+            reds -= func(ml, arg, reds);
             ml = next;
-            cnt++;
-        } while (ml != first && cnt < limit);
+        } while (ml != first && reds > 0);
         if (ml != first) {
             *vyspp = (void *) ml;
-            return 1; /* yield */
+            return 0; /* yield */
         }
     }
 
     *vyspp = NULL;
     *list = NULL;
-    return 0; /* done */
+    return reds <= 0 ? 1 : reds; /* done */
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
@@ -666,91 +663,91 @@ erts_monitor_tree_delete(ErtsMonitor **root, ErtsMonitor *mon)
 
 void
 erts_monitor_tree_foreach(ErtsMonitor *root,
-                          void (*func)(ErtsMonitor *, void *),
+                          ErtsMonitorFunc func,
                           void *arg)
 {
     ml_rbt_foreach((ErtsMonLnkNode *) root,
-                   (void (*)(ErtsMonLnkNode*, void*)) func,
+                   (ErtsMonLnkNodeFunc) func,
                    arg);
 }
 
 int
 erts_monitor_tree_foreach_yielding(ErtsMonitor *root,
-                                   void (*func)(ErtsMonitor *, void *),
+                                   ErtsMonitorFunc func,
                                    void *arg,
                                    void **vyspp,
                                    Sint limit)
 {
     return ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
-                                   (void (*)(ErtsMonLnkNode*, void*)) func,
+                                   (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
                                    arg, vyspp, limit);
 }
 
 void
 erts_monitor_tree_foreach_delete(ErtsMonitor **root,
-                                 void (*func)(ErtsMonitor *, void *),
+                                 ErtsMonitorFunc func,
                                  void *arg)
 {
     ml_rbt_foreach_delete((ErtsMonLnkNode **) root,
-                          (void (*)(ErtsMonLnkNode*, void*)) func,
+                          (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
                           arg);
 }
 
 int
 erts_monitor_tree_foreach_delete_yielding(ErtsMonitor **root,
-                                          void (*func)(ErtsMonitor *, void *),
+                                          ErtsMonitorFunc func,
                                           void *arg,
                                           void **vyspp,
                                           Sint limit)
 {
     return ml_rbt_foreach_delete_yielding((ErtsMonLnkNode **) root,
-                                          (void (*)(ErtsMonLnkNode*, void*)) func,
+                                          (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
                                           arg, vyspp, limit);
 }
 
 void
 erts_monitor_list_foreach(ErtsMonitor *list,
-                          void (*func)(ErtsMonitor *, void *),
+                          ErtsMonitorFunc func,
                           void *arg)
 {
     void *ystate = NULL;
-    while (ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
-                                       (void (*)(ErtsMonLnkNode *, void *)) func,
-                                       arg, &ystate, (Sint) INT_MAX));
+    while (!ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
+                                        (int (*)(ErtsMonLnkNode *, void *, Sint)) func,
+                                        arg, &ystate, (Sint) INT_MAX));
 }
 
 int
 erts_monitor_list_foreach_yielding(ErtsMonitor *list,
-                                   void (*func)(ErtsMonitor *, void *),
+                                   ErtsMonitorFunc func,
                                    void *arg,
                                    void **vyspp,
                                    Sint limit)
 {
     return ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
-                                       (void (*)(ErtsMonLnkNode *, void *)) func,
+                                       (int (*)(ErtsMonLnkNode *, void *, Sint)) func,
                                        arg, vyspp, limit);
 }
 
 void
 erts_monitor_list_foreach_delete(ErtsMonitor **list,
-                                 void (*func)(ErtsMonitor *, void *),
+                                 ErtsMonitorFunc func,
                                  void *arg)
 {
     void *ystate = NULL;
-    while (ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
-                                              (void (*)(ErtsMonLnkNode*, void*)) func,
-                                              arg, &ystate, (Sint) INT_MAX));
+    while (!ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
+                                               (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
+                                               arg, &ystate, (Sint) INT_MAX));
 }
 
 int
 erts_monitor_list_foreach_delete_yielding(ErtsMonitor **list,
-                                          void (*func)(ErtsMonitor *, void *),
+                                          ErtsMonitorFunc func,
                                           void *arg,
                                           void **vyspp,
                                           Sint limit)
 {
     return ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
-                                              (void (*)(ErtsMonLnkNode*, void*)) func,
+                                              (int (*)(ErtsMonLnkNode*, void*, Sint)) func,
                                               arg, vyspp, limit);
 }
 
@@ -1074,92 +1071,92 @@ erts_link_tree_delete(ErtsLink **root, ErtsLink *lnk)
 
 void
 erts_link_tree_foreach(ErtsLink *root,
-                       void (*func)(ErtsLink *, void *),
+                       ErtsLinkFunc func,
                        void *arg)
 {
     ml_rbt_foreach((ErtsMonLnkNode *) root,
-                   (void (*)(ErtsMonLnkNode*, void*)) func,
+                   (ErtsMonLnkNodeFunc) func,
                    arg);
 
 }
 
 int
 erts_link_tree_foreach_yielding(ErtsLink *root,
-                                void (*func)(ErtsLink *, void *),
+                                ErtsLinkFunc func,
                                 void *arg,
                                 void **vyspp,
                                 Sint limit)
 {
     return ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
-                                   (void (*)(ErtsMonLnkNode*, void*)) func,
+                                   (ErtsMonLnkNodeFunc) func,
                                    arg, vyspp, limit);
 }
 
 void
 erts_link_tree_foreach_delete(ErtsLink **root,
-                              void (*func)(ErtsLink *, void *),
+                              ErtsLinkFunc func,
                               void *arg)
 {
     ml_rbt_foreach_delete((ErtsMonLnkNode **) root,
-                          (void (*)(ErtsMonLnkNode*, void*)) func,
+                          (ErtsMonLnkNodeFunc) func,
                           arg);
 }
 
 int
 erts_link_tree_foreach_delete_yielding(ErtsLink **root,
-                                       void (*func)(ErtsLink *, void *),
+                                       ErtsLinkFunc func,
                                        void *arg,
                                        void **vyspp,
                                        Sint limit)
 {
     return ml_rbt_foreach_delete_yielding((ErtsMonLnkNode **) root,
-                                          (void (*)(ErtsMonLnkNode*, void*)) func,
+                                          (ErtsMonLnkNodeFunc) func,
                                           arg, vyspp, limit);
 }
 
 void
 erts_link_list_foreach(ErtsLink *list,
-                       void (*func)(ErtsLink *, void *),
+                       ErtsLinkFunc func,
                        void *arg)
 {
     void *ystate = NULL;
-    while (ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
-                                       (void (*)(ErtsMonLnkNode *, void *)) func,
-                                       arg, &ystate, (Sint) INT_MAX));
+    while (!ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
+                                        (ErtsMonLnkNodeFunc) func,
+                                        arg, &ystate, (Sint) INT_MAX));
 }
 
 int
 erts_link_list_foreach_yielding(ErtsLink *list,
-                                void (*func)(ErtsLink *, void *),
+                                ErtsLinkFunc func,
                                 void *arg,
                                 void **vyspp,
                                 Sint limit)
 {
     return ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
-                                       (void (*)(ErtsMonLnkNode *, void *)) func,
+                                       (ErtsMonLnkNodeFunc) func,
                                        arg, vyspp, limit);
 }
 
 void
 erts_link_list_foreach_delete(ErtsLink **list,
-                               void (*func)(ErtsLink *, void *),
+                               ErtsLinkFunc func,
                                void *arg)
 {
     void *ystate = NULL;
-    while (ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
-                                              (void (*)(ErtsMonLnkNode*, void*)) func,
-                                              arg, &ystate, (Sint) INT_MAX));
+    while (!ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
+                                               (ErtsMonLnkNodeFunc) func,
+                                               arg, &ystate, (Sint) INT_MAX));
 }
 
 int
 erts_link_list_foreach_delete_yielding(ErtsLink **list,
-                                       void (*func)(ErtsLink *, void *),
+                                       int (*func)(ErtsLink *, void *, Sint),
                                        void *arg,
                                        void **vyspp,
                                        Sint limit)
 {
     return ml_dl_list_foreach_delete_yielding((ErtsMonLnkNode **) list,
-                                              (void (*)(ErtsMonLnkNode*, void*)) func,
+                                              (ErtsMonLnkNodeFunc) func,
                                               arg, vyspp, limit);
 }
 

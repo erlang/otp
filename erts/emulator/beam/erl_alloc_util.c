@@ -7503,7 +7503,7 @@ static int gather_ahist_scan(Allctr_t *allocator,
     return blocks_scanned;
 }
 
-static void gather_ahist_append_result(hist_tree_t *node, void *arg)
+static int gather_ahist_append_result(hist_tree_t *node, void *arg, Sint reds)
 {
     gather_ahist_t *state = (gather_ahist_t*)arg;
 
@@ -7537,6 +7537,7 @@ static void gather_ahist_append_result(hist_tree_t *node, void *arg)
 
     /* Plain free is intentional. */
     free(node);
+    return 1;
 }
 
 static void gather_ahist_send(gather_ahist_t *state)
@@ -7595,11 +7596,11 @@ static int gather_ahist_finish(void *arg)
         state->building_result = 1;
     }
 
-    if (hist_tree_rbt_foreach_destroy_yielding(&state->hist_tree,
-                                               &gather_ahist_append_result,
-                                               state,
-                                               &state->hist_tree_yield,
-                                               BLOCKSCAN_REDUCTIONS)) {
+    if (!hist_tree_rbt_foreach_destroy_yielding(&state->hist_tree,
+                                                &gather_ahist_append_result,
+                                                state,
+                                                &state->hist_tree_yield,
+                                                BLOCKSCAN_REDUCTIONS)) {
         return 1;
     }
 
@@ -7608,10 +7609,11 @@ static int gather_ahist_finish(void *arg)
     return 0;
 }
 
-static void gather_ahist_destroy_result(hist_tree_t *node, void *arg)
+static int gather_ahist_destroy_result(hist_tree_t *node, void *arg, Sint reds)
 {
     (void)arg;
     free(node);
+    return 1;
 }
 
 static void gather_ahist_abort(void *arg)

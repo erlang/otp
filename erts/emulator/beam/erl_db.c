@@ -3701,7 +3701,7 @@ static SWord proc_cleanup_fixed_table(Process* p, DbFixation* fix)
 /*
  * erts_db_process_exiting() is called when a process terminates.
  * It returns 0 when completely done, and !0 when it wants to
- * yield. c_p->u.terminate can hold a pointer to a state while
+ * yield. *yield_state can hold a pointer to a state while
  * yielding.
  */
 #define ERTS_DB_INTERNAL_ERROR(LSTR) \
@@ -3709,7 +3709,7 @@ static SWord proc_cleanup_fixed_table(Process* p, DbFixation* fix)
 	   __FILE__, __LINE__)
 
 int
-erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
+erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks, void **yield_state)
 {
     typedef struct {
         enum {
@@ -3719,7 +3719,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
         }op;
         DbTable *tb;
     } CleanupState;
-    CleanupState *state = (CleanupState *) c_p->u.terminate;
+    CleanupState *state = (CleanupState *) *yield_state;
     Eterm pid = c_p->common.id;
     CleanupState default_state;
     SWord initial_reds = ERTS_BIF_REDS_LEFT(c_p);
@@ -3792,7 +3792,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 
                 if (state != &default_state)
                     erts_free(ERTS_ALC_T_DB_PROC_CLEANUP, state);
-                c_p->u.terminate = NULL;
+                *yield_state = NULL;
 
                 BUMP_REDS(c_p, (initial_reds - reds));
                 return 0;
@@ -3812,12 +3812,12 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
  yield:
 
     if (state == &default_state) {
-	c_p->u.terminate = erts_alloc(ERTS_ALC_T_DB_PROC_CLEANUP,
-				      sizeof(CleanupState));
-	sys_memcpy(c_p->u.terminate, (void*) state, sizeof(CleanupState));
+	*yield_state = erts_alloc(ERTS_ALC_T_DB_PROC_CLEANUP,
+                                  sizeof(CleanupState));
+	sys_memcpy(*yield_state, (void*) state, sizeof(CleanupState));
     }
     else
-        ASSERT(state == c_p->u.terminate);
+        ASSERT(state == *yield_state);
 
     return !0;
 }
@@ -3912,7 +3912,7 @@ struct free_fixations_ctx
     SWord cnt;
 };
 
-static void free_fixations_op(DbFixation* fix, void* vctx)
+static int free_fixations_op(DbFixation* fix, void* vctx, Sint reds)
 {
     struct free_fixations_ctx* ctx = (struct free_fixations_ctx*) vctx;
     erts_aint_t diff;
@@ -3949,6 +3949,7 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
         ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
     }
     ctx->cnt++;
+    return 1;
 }
 
 int erts_db_execute_free_fixation(Process* p, DbFixation* fix)
@@ -4093,7 +4094,7 @@ struct fixing_procs_info_ctx
     Eterm list;
 };
 
-static void fixing_procs_info_op(DbFixation* fix, void* vctx)
+static int fixing_procs_info_op(DbFixation* fix, void* vctx, Sint reds)
 {
     struct fixing_procs_info_ctx* ctx = (struct fixing_procs_info_ctx*) vctx;
     Eterm* hp;
@@ -4103,6 +4104,7 @@ static void fixing_procs_info_op(DbFixation* fix, void* vctx)
     tpl = TUPLE2(hp, fix->procs.p->common.id, make_small(fix->counter));
     hp += 3;
     ctx->list = CONS(hp, tpl, ctx->list);
+    return 1;
 }
 
 static Eterm table_info(Process* p, DbTable* tb, Eterm What)

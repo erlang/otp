@@ -2701,7 +2701,8 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
             if((AN)->sysname != (BN)->sysname)				\
                 RETURN_NEQ(erts_cmp_atoms((AN)->sysname, (BN)->sysname));	\
 	    ASSERT((AN)->creation != (BN)->creation);			\
-	    RETURN_NEQ(((AN)->creation < (BN)->creation) ? -1 : 1);	\
+            if ((AN)->creation != 0 && (BN)->creation != 0)             \
+                RETURN_NEQ(((AN)->creation < (BN)->creation) ? -1 : 1);	\
 	}								\
     } while (0)
 
@@ -3486,7 +3487,7 @@ store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
     if (is_external_header(*from_hp)) {
 	ExternalThing *etp = (ExternalThing *) from_hp;
 	ASSERT(is_external(ns));
-	erts_refc_inc(&etp->node->refc, 2);
+        erts_ref_node_entry(etp->node, 2, make_boxed(to_hp));
     }
     else if (is_ordinary_ref_thing(from_hp))
 	return make_internal_ref(to_hp);

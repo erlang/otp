@@ -100,16 +100,18 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
     dump_binaries(to, to_arg, all_binaries);
 }
 
-static void
-monitor_size(ErtsMonitor *mon, void *vsize)
+static int
+monitor_size(ErtsMonitor *mon, void *vsize, Sint reds)
 {
     *((Uint *) vsize) += erts_monitor_size(mon);
+    return 1;
 }
 
-static void
-link_size(ErtsMonitor *lnk, void *vsize)
+static int
+link_size(ErtsMonitor *lnk, void *vsize, Sint reds)
 {
     *((Uint *) vsize) += erts_link_size(lnk);
+    return 1;
 }
 
 Uint erts_process_memory(Process *p, int include_sigs_in_transit)
@@ -189,11 +191,11 @@ static ERTS_INLINE void
 dump_msg(fmtfn_t to, void *to_arg, ErtsMessage *mp)
 {
     if (ERTS_SIG_IS_MSG((ErtsSignal *) mp)) {
-        Eterm mesg = ERL_MESSAGE_TERM(mp);
-        if (is_value(mesg))
-            dump_element(to, to_arg, mesg);
+        Eterm mesg;
+        if (ERTS_SIG_IS_INTERNAL_MSG(mp))
+            dump_element(to, to_arg, ERL_MESSAGE_TERM(mp));
         else
-            dump_dist_ext(to, to_arg, mp->data.dist_ext);
+            dump_dist_ext(to, to_arg, erts_get_dist_ext(mp->data.heap_frag));
         mesg = ERL_MESSAGE_TOKEN(mp);
         erts_print(to, to_arg, ":");
         dump_element(to, to_arg, mesg);
@@ -265,6 +267,7 @@ dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
     else {
 	byte *e;
 	size_t sz;
+        int i;
 
 	if (!(edep->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB))
 	    erts_print(to, to_arg, "D0:");
@@ -274,8 +277,8 @@ dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
 	    for (i = 0; i < edep->attab.size; i++)
 		dump_element(to, to_arg, edep->attab.atom[i]);
 	}
-	sz = edep->ext_endp - edep->extp;
-	e = edep->extp;
+	sz = edep->data->ext_endp - edep->data->extp;
+	e = edep->data->extp;
 	if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR) {
 	    ASSERT(*e != VERSION_MAGIC);
 	    sz++;
@@ -286,15 +289,19 @@ dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
 	erts_print(to, to_arg, "E%X:", sz);
         if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR) {
             byte sbuf[3];
-            int i = 0;
+
+            i = 0;
 
             sbuf[i++] = VERSION_MAGIC;
-            while (i < sizeof(sbuf) && e < edep->ext_endp) {
+            while (i < sizeof(sbuf) && e < edep->data->ext_endp) {
                 sbuf[i++] = *e++;
             }
             erts_print_base64(to, to_arg, sbuf, i);
         }
-        erts_print_base64(to, to_arg, e, edep->ext_endp - e);
+        erts_print_base64(to, to_arg, e, edep->data->ext_endp - e);
+        for (i = 1; i < edep->data->frag_id; i++)
+            erts_print_base64(to, to_arg, edep->data[i].extp,
+                              edep->data[i].ext_endp - edep->data[i].extp);
     }
 }
 

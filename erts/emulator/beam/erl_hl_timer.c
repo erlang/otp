@@ -2263,9 +2263,10 @@ parse_bif_timer_options(Eterm option_list, int *async,
     return 1;
 }
 
-static void
-exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp)
+static int
+exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp, Sint reds)
 {
+#define ERTS_BTM_CANCEL_REDS 80
     ErtsSchedulerData *esdp = (ErtsSchedulerData *) vesdp;
     Uint32 sid, roflgs;
     erts_aint_t state;
@@ -2290,7 +2291,7 @@ exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp)
 
         if (sid != (Uint32) esdp->no) {
             queue_canceled_timer(esdp, sid, (ErtsTimer *) tmr);
-            return;
+            return ERTS_BTM_CANCEL_REDS;
         }
 
         if (tmr->btm.tree.parent != ERTS_HLT_PFIELD_NOT_IN_TABLE) {
@@ -2306,13 +2307,8 @@ exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp)
         hl_timer_dec_refc(&tmr->type.hlt, roflgs);
     else
         tw_timer_dec_refc(&tmr->type.twt);
+    return ERTS_BTM_CANCEL_REDS;
 }
-
-#ifdef ERTS_HLT_DEBUG
-#  define ERTS_BTM_MAX_DESTROY_LIMIT 2
-#else
-#  define ERTS_BTM_MAX_DESTROY_LIMIT 50
-#endif
 
 typedef struct {
     ErtsBifTimers *bif_timers;
@@ -2321,10 +2317,9 @@ typedef struct {
     } u;
 } ErtsBifTimerYieldState;
 
-int erts_cancel_bif_timers(Process *p, ErtsBifTimers **btm, void **vyspp)
+int erts_cancel_bif_timers(Process *p, ErtsBifTimers **btm, void **vyspp, int reds)
 {
     ErtsSchedulerData *esdp = erts_proc_sched_data(p);
-
     ErtsBifTimerYieldState ys = {*btm, {ERTS_RBT_YIELD_STAT_INITER}};
     ErtsBifTimerYieldState *ysp;
     int res;
@@ -2337,9 +2332,9 @@ int erts_cancel_bif_timers(Process *p, ErtsBifTimers **btm, void **vyspp)
 						exit_cancel_bif_timer,
 						(void *) esdp,
 						&ysp->u.proc_btm_yield_state,
-						ERTS_BTM_MAX_DESTROY_LIMIT);
+						reds);
 
-    if (res == 0) {
+    if (res > 0) {
 	if (ysp != &ys)
 	    erts_free(ERTS_ALC_T_BTM_YIELD_STATE, ysp);
 	*vyspp = NULL;
@@ -2819,8 +2814,8 @@ btm_print(ErtsBifTimer *tmr, void *vbtmp, ErtsMonotonicTime tpos, int is_hlt)
 	       (Sint64) left);
 }
 
-static void
-btm_tree_print(ErtsBifTimer *tmr, void *vbtmp)
+static int
+btm_tree_print(ErtsBifTimer *tmr, void *vbtmp, Sint reds)
 {
     int is_hlt = !!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT);
     ErtsMonotonicTime tpos;
@@ -2829,6 +2824,7 @@ btm_tree_print(ErtsBifTimer *tmr, void *vbtmp)
     else
         tpos = erts_tweel_read_timeout(&tmr->type.twt.u.tw_tmr);
     btm_print(tmr, vbtmp, tpos, is_hlt);
+    return 1;
 }
 
 void
@@ -2860,8 +2856,8 @@ typedef struct {
     void *arg;
 } ErtsBTMForeachDebug;
 
-static void
-debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd)
+static int
+debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd, Sint reds)
 {
     if (erts_atomic32_read_nob(&tmr->btm.state) == ERTS_TMR_STATE_ACTIVE) {
 	ErtsBTMForeachDebug *btmfd = (ErtsBTMForeachDebug *) vbtmfd;
@@ -2870,6 +2866,7 @@ debug_btm_foreach(ErtsBifTimer *tmr, void *vbtmfd)
                     : tmr->type.head.receiver.proc->common.id);
 	(*btmfd->func)(id, tmr->btm.message, tmr->btm.bp, btmfd->arg);
     }
+    return 1;
 }
 
 void
@@ -2918,8 +2915,8 @@ debug_callback_timer_foreach_list(ErtsHLTimer *tmr, void *vdfct)
 		      tmr->head.u.arg);
 }
 
-static void
-debug_callback_timer_foreach(ErtsHLTimer *tmr, void *vdfct)
+static int
+debug_callback_timer_foreach(ErtsHLTimer *tmr, void *vdfct, Sint reds)
 {
     ErtsDebugForeachCallbackTimer *dfct
 	= (ErtsDebugForeachCallbackTimer *) vdfct;
@@ -2934,6 +2931,7 @@ debug_callback_timer_foreach(ErtsHLTimer *tmr, void *vdfct)
 	(*dfct->func)(dfct->arg,
 		      tmr->timeout,
 		      tmr->head.u.arg);
+    return 1;
 }
 
 static void
@@ -2981,7 +2979,8 @@ erts_debug_callback_timer_foreach(void (*tclbk)(void *),
 
 	if (srv->yield.root)
 	    debug_callback_timer_foreach(srv->yield.root,
-					 (void *) &dfct);
+					 (void *) &dfct,
+                                         -1);
 
 	time_rbt_foreach(srv->time_tree,
 			 debug_callback_timer_foreach,

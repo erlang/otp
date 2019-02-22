@@ -184,7 +184,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         DistEntry *dep;
         ErtsLink *lnk;
         int code;
-        ErtsDSigData dsd;
+        ErtsDSigSendContext ctx;
 
         dep = external_pid_dist_entry(BIF_ARG_1);
         if (dep == erts_this_dist_entry)
@@ -201,9 +201,9 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 
         ldp = erts_link_to_data(lnk);
 
-        code = erts_dsig_prepare(&dsd, dep, BIF_P,
+        code = erts_dsig_prepare(&ctx, dep, BIF_P,
                                  ERTS_PROC_LOCK_MAIN,
-                                 ERTS_DSP_RLOCK, 0, 1);
+                                 ERTS_DSP_RLOCK, 0, 1, 1);
         switch (code) {
         case ERTS_DSIG_PREP_NOT_ALIVE:
         case ERTS_DSIG_PREP_NOT_CONNECTED:
@@ -222,9 +222,10 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
             ASSERT(inserted); (void)inserted;
             erts_de_runlock(dep);
 
-            code = erts_dsig_send_link(&dsd, BIF_P->common.id, BIF_ARG_1);
+            code = erts_dsig_send_link(&ctx, BIF_P->common.id, BIF_ARG_1);
             if (code == ERTS_DSIG_SEND_YIELD)
                 ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+            ASSERT(code == ERTS_DSIG_SEND_OK);
             BIF_RET(am_true);
             break;
         }
@@ -306,7 +307,7 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
        DistEntry *dep;
        int code = ERTS_DSIG_SEND_OK;
        int deleted;
-       ErtsDSigData dsd;
+       ErtsDSigSendContext ctx;
 
        ASSERT(is_external_pid(to) || is_node_name_atom(to));
 
@@ -322,8 +323,8 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
            }
        }
 
-       code = erts_dsig_prepare(&dsd, dep, c_p, ERTS_PROC_LOCK_MAIN,
-                                ERTS_DSP_RLOCK, 0, 0);
+       code = erts_dsig_prepare(&ctx, dep, c_p, ERTS_PROC_LOCK_MAIN,
+                                ERTS_DSP_RLOCK, 0, 1, 0);
 
        deleted = erts_monitor_dist_delete(&mdp->target);
 
@@ -352,8 +353,8 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
             * monitor list since in case of monitor name 
             * the atom is stored there. Yield if necessary.
             */
-           code = erts_dsig_send_demonitor(&dsd, c_p->common.id,
-                                           watched, mdp->ref, 0);
+           code = erts_dsig_send_demonitor(&ctx, c_p->common.id,
+                                           watched, mdp->ref);
            break;
        }
 
@@ -533,7 +534,7 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
         }
 
         if (is_external_pid(target)) {
-            ErtsDSigData dsd;
+            ErtsDSigSendContext ctx;
             int code;
 
             dep = external_pid_dist_entry(target);
@@ -551,9 +552,9 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
                                       BIF_P->common.id, id, name);
             erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P), &mdp->origin);
 
-            code = erts_dsig_prepare(&dsd, dep,
+            code = erts_dsig_prepare(&ctx, dep,
                                      BIF_P, ERTS_PROC_LOCK_MAIN,
-                                     ERTS_DSP_RLOCK, 0, 1);
+                                     ERTS_DSP_RLOCK, 0, 1, 1);
             switch (code) {
             case ERTS_DSIG_PREP_NOT_ALIVE:
             case ERTS_DSIG_PREP_NOT_CONNECTED:
@@ -568,7 +569,7 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
                 ASSERT(inserted); (void)inserted;
                 erts_de_runlock(dep);
 
-                code = erts_dsig_send_monitor(&dsd, BIF_P->common.id, target, ref);
+                code = erts_dsig_send_monitor(&ctx, BIF_P->common.id, target, ref);
                 break;
             }
 
@@ -914,7 +915,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
         ErtsLinkData *ldp;
         DistEntry *dep;
 	int code;
-	ErtsDSigData dsd;
+	ErtsDSigSendContext ctx;
 
 	dep = external_pid_dist_entry(BIF_ARG_1);
 	if (dep == erts_this_dist_entry)
@@ -932,15 +933,15 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
         else
             erts_link_release(lnk);
 
-	code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
-				 ERTS_DSP_NO_LOCK, 0, 0);
+	code = erts_dsig_prepare(&ctx, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
+				 ERTS_DSP_NO_LOCK, 0, 1, 0);
 	switch (code) {
 	case ERTS_DSIG_PREP_NOT_ALIVE:
 	case ERTS_DSIG_PREP_NOT_CONNECTED:
 	    BIF_RET(am_true);
 	case ERTS_DSIG_PREP_PENDING:
 	case ERTS_DSIG_PREP_CONNECTED:
-	    code = erts_dsig_send_unlink(&dsd, BIF_P->common.id, BIF_ARG_1);
+	    code = erts_dsig_send_unlink(&ctx, BIF_P->common.id, BIF_ARG_1);
 	    if (code == ERTS_DSIG_SEND_YIELD)
 		ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
             break;
@@ -1301,10 +1302,11 @@ static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, in
              ERTS_BIF_PREP_RET(ret_val, am_true); /* Old incarnation of this node... */
          else {
              int code;
-             ErtsDSigData dsd;
+             ErtsDSigSendContext ctx;
 
-             code = erts_dsig_prepare(&dsd, dep, c_p, ERTS_PROC_LOCK_MAIN,
-                                      ERTS_DSP_NO_LOCK, 0, 1);
+             code = erts_dsig_prepare(&ctx, dep, c_p, ERTS_PROC_LOCK_MAIN,
+                                      ERTS_DSP_NO_LOCK, 0, 0, 1);
+
              switch (code) {
              case ERTS_DSIG_PREP_NOT_ALIVE:
              case ERTS_DSIG_PREP_NOT_CONNECTED:
@@ -1312,11 +1314,29 @@ static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, in
                  break;
              case ERTS_DSIG_PREP_PENDING:
              case ERTS_DSIG_PREP_CONNECTED:
-                 code = erts_dsig_send_exit2(&dsd, c_p->common.id, id, reason);
-                 if (code == ERTS_DSIG_SEND_YIELD)
+                 code = erts_dsig_send_exit2(&ctx, c_p->common.id, id, reason);
+                 switch (code) {
+                 case ERTS_DSIG_SEND_YIELD:
                      ERTS_BIF_PREP_YIELD_RETURN(ret_val, c_p, am_true);
-                 else
+                     break;
+                 case ERTS_DSIG_SEND_CONTINUE:
+                     BUMP_ALL_REDS(c_p);
+                     erts_set_gc_state(c_p, 0);
+                     ERTS_BIF_PREP_TRAP1(ret_val, &dsend_continue_trap_export, c_p,
+                                         erts_dsend_export_trap_context(c_p, &ctx));
+                     break;
+                 case ERTS_DSIG_SEND_OK:
                      ERTS_BIF_PREP_RET(ret_val, am_true);
+                     break;
+                 case ERTS_DSIG_SEND_TOO_LRG:
+                     erts_set_gc_state(c_p, 1);
+                     ERTS_BIF_PREP_ERROR(ret_val, c_p, SYSTEM_LIMIT);
+                     break;
+                 default:
+                     ASSERT(! "Invalid dsig send exit2 result");
+                     ERTS_BIF_PREP_ERROR(ret_val, c_p, EXC_INTERNAL_ERROR);
+                     break;
+                 }
                  break;
              default:
                  ASSERT(! "Invalid dsig prepare result");
@@ -1800,33 +1820,36 @@ ebif_bang_2(BIF_ALIST_2)
 
 
 static Sint remote_send(Process *p, DistEntry *dep,
-			Eterm to, Eterm full_to, Eterm msg,
-			ErtsSendContext* ctx)
+			Eterm to, Eterm node, Eterm full_to, Eterm msg,
+                        Eterm return_term, Eterm *ctxpp,
+                        int connect, int suspend)
 {
     Sint res;
     int code;
+    ErtsDSigSendContext ctx;
     ASSERT(is_atom(to) || is_external_pid(to));
 
-    ctx->dep = dep;
-    code = erts_dsig_prepare(&ctx->dsd, dep, p, ERTS_PROC_LOCK_MAIN,
+    code = erts_dsig_prepare(&ctx, dep, p, ERTS_PROC_LOCK_MAIN,
 			     ERTS_DSP_NO_LOCK,
-			     !ctx->suspend, ctx->connect);
+			     !suspend, 0, connect);
+    ctx.return_term = return_term;
+    ctx.node = node;
     switch (code) {
     case ERTS_DSIG_PREP_NOT_ALIVE:
     case ERTS_DSIG_PREP_NOT_CONNECTED:
 	res = SEND_NOCONNECT;
 	break;
     case ERTS_DSIG_PREP_WOULD_SUSPEND:
-	ASSERT(!ctx->suspend);
+	ASSERT(!suspend);
 	res = SEND_YIELD;
 	break;
     case ERTS_DSIG_PREP_PENDING:
     case ERTS_DSIG_PREP_CONNECTED: {
 
 	if (is_atom(to))
-	    code = erts_dsig_send_reg_msg(to, msg, ctx);
+	    code = erts_dsig_send_reg_msg(&ctx, to, msg);
 	else
-	    code = erts_dsig_send_msg(to, msg, ctx);
+	    code = erts_dsig_send_msg(&ctx, to, msg);
 	/*
 	 * Note that reductions have been bumped on calling
 	 * process by erts_dsig_send_reg_msg() or
@@ -1834,9 +1857,19 @@ static Sint remote_send(Process *p, DistEntry *dep,
 	 */
 	if (code == ERTS_DSIG_SEND_YIELD)
 	    res = SEND_YIELD_RETURN;
-	else if (code == ERTS_DSIG_SEND_CONTINUE)
+	else if (code == ERTS_DSIG_SEND_CONTINUE) {
+            erts_set_gc_state(p, 0);
+
+            /* Keep a reference to the dist entry if the
+               name is an not a pid. */
+            if (is_atom(to)) {
+                erts_ref_dist_entry(ctx.dep);
+                ctx.deref_dep = 1;
+            }
+
+            *ctxpp = erts_dsend_export_trap_context(p, &ctx);
 	    res = SEND_YIELD_CONTINUE;
-	else if (code == ERTS_DSIG_SEND_TOO_LRG)
+	} else if (code == ERTS_DSIG_SEND_TOO_LRG)
 	    res = SEND_SYSTEM_LIMIT;
 	else
 	    res = 0;
@@ -1858,7 +1891,8 @@ static Sint remote_send(Process *p, DistEntry *dep,
 }
 
 static Sint
-do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
+do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
+        Eterm *dist_ctx, int connect, int suspend)
 {
     Eterm portid;
     Port *pt;
@@ -1890,7 +1924,8 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 	    erts_send_error_to_logger(p->group_leader, dsbufp);
 	    return 0;
 	}
-	return remote_send(p, dep, to, to, msg, ctx);
+	return remote_send(p, dep, to, dep->sysname, to, msg, return_term,
+                           dist_ctx, connect, suspend);
     } else if (is_atom(to)) {
 	Eterm id = erts_whereis_name_to_id(p, to);
 
@@ -1945,7 +1980,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 	ret_val = 0;
 
 	if (pt) {
-	    int ps_flags = ctx->suspend ? 0 : ERTS_PORT_SIG_FLG_NOSUSPEND;
+	    int ps_flags = suspend ? 0 : ERTS_PORT_SIG_FLG_NOSUSPEND;
 	    *refp = NIL;
 
             if (IS_TRACED_FL(p, F_TRACE_SEND)) 	/* trace once only !! */
@@ -1960,12 +1995,12 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 	    switch (erts_port_command(p, ps_flags, pt, msg, refp)) {
 	    case ERTS_PORT_OP_BUSY:
 		/* Nothing has been sent */
-		if (ctx->suspend)
+		if (suspend)
 		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
 		return SEND_YIELD;
 	    case ERTS_PORT_OP_BUSY_SCHEDULED:
 		/* Message was sent */
-		if (ctx->suspend) {
+		if (suspend) {
 		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
 		    ret_val = SEND_YIELD_RETURN;
 		    break;
@@ -2036,13 +2071,10 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
             ASSERT(dep != erts_this_dist_entry);
             deref_dep = 1;
         }
-	ctx->dsd.node = tp[2];
 
-	ret = remote_send(p, dep, tp[1], to, msg, ctx);
-	if (ret == SEND_YIELD_CONTINUE) {
-            erts_ref_dist_entry(ctx->dep);
-            ctx->deref_dep = 1;
-	}
+	ret = remote_send(p, dep, tp[1], tp[2], to, msg, return_term,
+                          dist_ctx, connect, suspend);
+
         if (deref_dep)
             erts_deref_dist_entry(dep);
 	return ret;
@@ -2081,25 +2113,16 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 
     Eterm l = opts;
     Sint result;
-
-    DeclareTypedTmpHeap(ErtsSendContext, ctx, BIF_P);
+    int connect = 1, suspend = 1;
+    Eterm ctx;
 
     ERTS_MSACC_PUSH_STATE_M_X();
 
-    UseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), BIF_P);
-
-    ctx->suspend = !0;
-    ctx->connect = !0;
-    ctx->deref_dep = 0;
-    ctx->return_term = am_ok;
-    ctx->dss.reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * TERM_TO_BINARY_LOOP_FACTOR);
-    ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
-
     while (is_list(l)) {
 	if (CAR(list_val(l)) == am_noconnect) {
-	    ctx->connect = 0;
+	    connect = 0;
 	} else if (CAR(list_val(l)) == am_nosuspend) {
-	    ctx->suspend = 0;
+	    suspend = 0;
 	} else {
 	    ERTS_BIF_PREP_ERROR(retval, p, BADARG);
 	    goto done;
@@ -2116,7 +2139,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 #endif
 
     ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_SEND);
-    result = do_send(p, to, msg, &ref, ctx);
+    result = do_send(p, to, msg, am_ok, &ref, &ctx, connect, suspend);
     ERTS_MSACC_POP_STATE_M_X();
 
     if (result >= 0) {
@@ -2129,22 +2152,21 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 
     switch (result) {
     case SEND_NOCONNECT:
-	if (ctx->connect) {
+	if (connect) {
 	    ERTS_BIF_PREP_RET(retval, am_ok);
 	} else {
 	    ERTS_BIF_PREP_RET(retval, am_noconnect);
 	}
 	break;
     case SEND_YIELD:
-	if (ctx->suspend) {
-	    ERTS_BIF_PREP_YIELD3(retval,
-				 bif_export[BIF_send_3], p, to, msg, opts);
+	if (suspend) {
+	    ERTS_BIF_PREP_YIELD3(retval, bif_export[BIF_send_3], p, to, msg, opts);
 	} else {
 	    ERTS_BIF_PREP_RET(retval, am_nosuspend);
 	}
 	break;
     case SEND_YIELD_RETURN:
-	if (!ctx->suspend) {
+	if (!suspend) {
 	    ERTS_BIF_PREP_RET(retval, am_nosuspend);
 	    break;
 	}
@@ -2169,9 +2191,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	break;
     case SEND_YIELD_CONTINUE:
 	BUMP_ALL_REDS(p);
-	erts_set_gc_state(p, 0);
-	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p,
-			    erts_dsend_export_trap_context(p, ctx));
+	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p, ctx);
 	break;
     default:
 	erts_exit(ERTS_ABORT_EXIT, "send_3 invalid result %d\n", (int)result);
@@ -2179,7 +2199,6 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     }
 
 done:
-    UnUseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), BIF_P);
     return retval;
 }
 
@@ -2193,14 +2212,14 @@ BIF_RETTYPE send_2(BIF_ALIST_2)
 static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
 {
     Binary* bin = erts_magic_ref2bin(BIF_ARG_1);
-    ErtsSendContext* ctx = (ErtsSendContext*) ERTS_MAGIC_BIN_DATA(bin);
+    ErtsDSigSendContext *ctx = (ErtsDSigSendContext*) ERTS_MAGIC_BIN_DATA(bin);
     Sint initial_reds = (Sint) (ERTS_BIF_REDS_LEFT(BIF_P) * TERM_TO_BINARY_LOOP_FACTOR);
     int result;
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == erts_dsend_context_dtor);
 
-    ctx->dss.reds = initial_reds;
-    result = erts_dsig_send(&ctx->dsd, &ctx->dss);
+    ctx->reds = initial_reds;
+    result = erts_dsig_send(ctx);
 
     switch (result) {
     case ERTS_DSIG_SEND_OK:
@@ -2209,7 +2228,7 @@ static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
 	break;
     case ERTS_DSIG_SEND_YIELD: /*SEND_YIELD_RETURN*/
 	erts_set_gc_state(BIF_P, 1);
-	if (!ctx->suspend)
+	if (ctx->no_suspend)
 	    BIF_RET(am_nosuspend);
 	ERTS_BIF_YIELD_RETURN(BIF_P, ctx->return_term);
 
@@ -2234,20 +2253,14 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     Eterm retval;
     Eterm ref;
     Sint result;
-    DeclareTypedTmpHeap(ErtsSendContext, ctx, p);
+    Eterm ctx;
     ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_SEND);
-    UseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), p);
+
 #ifdef DEBUG
     ref = NIL;
 #endif
-    ctx->suspend = !0;
-    ctx->connect = !0;
-    ctx->deref_dep = 0;
-    ctx->return_term = msg;
-    ctx->dss.reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * TERM_TO_BINARY_LOOP_FACTOR);
-    ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
 
-    result = do_send(p, to, msg, &ref, ctx);
+    result = do_send(p, to, msg, msg, &ref, &ctx, 1, 1);
 
     ERTS_MSACC_POP_STATE_M_X();
 
@@ -2289,9 +2302,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	break;
     case SEND_YIELD_CONTINUE:
 	BUMP_ALL_REDS(p);
-	erts_set_gc_state(p, 0);
-	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p,
-			    erts_dsend_export_trap_context(p, ctx));
+	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p, ctx);
 	break;
     default:
 	erts_exit(ERTS_ABORT_EXIT, "invalid send result %d\n", (int)result);
@@ -2299,7 +2310,6 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     }
 
 done:
-    UnUseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), p);
     return retval;
 }
 
@@ -4053,10 +4063,12 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
       if (is_nil(dep->cid))
 	  goto bad;
       
-      enp = erts_find_or_insert_node(dep->sysname, dep->creation);
+      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
+      
+      enp = erts_find_or_insert_node(dep->sysname, dep->creation,
+                                     make_boxed(&etp->header));
       ASSERT(enp != erts_this_node);
 
-      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
       etp->header = make_external_pid_header(1);
       etp->next = MSO(BIF_P).first;
       etp->node = enp;
@@ -4120,10 +4132,11 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
       if (is_nil(dep->cid))
 	  goto bad;
 
-      enp = erts_find_or_insert_node(dep->sysname, dep->creation);
+      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
+      enp = erts_find_or_insert_node(dep->sysname, dep->creation,
+                                     make_boxed(&etp->header));
       ASSERT(enp != erts_this_node);
 
-      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
       etp->header = make_external_port_header(1);
       etp->next = MSO(BIF_P).first;
       etp->node = enp;
@@ -4226,9 +4239,6 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
       if (is_nil(dep->cid))
 	  goto bad;
       
-      enp = erts_find_or_insert_node(dep->sysname, dep->creation);
-      ASSERT(enp != erts_this_node);
-
       hsz = EXTERNAL_THING_HEAD_SIZE;
 #if defined(ARCH_64)
       hsz += n/2 + 1;
@@ -4237,6 +4247,11 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
 #endif
 
       etp = (ExternalThing *) HAlloc(BIF_P, hsz);
+
+      enp = erts_find_or_insert_node(dep->sysname, dep->creation,
+                                     make_boxed(&etp->header));
+      ASSERT(enp != erts_this_node);
+
       etp->header = make_external_ref_header(n/2);
       etp->next = BIF_P->off_heap.first;
       etp->node = enp;
@@ -4356,21 +4371,21 @@ BIF_RETTYPE erts_internal_group_leader_2(BIF_ALIST_2)
     if (is_external_pid(BIF_ARG_2)) {
 	DistEntry *dep;
 	int code;
-	ErtsDSigData dsd;
+	ErtsDSigSendContext ctx;
 	dep = external_pid_dist_entry(BIF_ARG_2);
 	ERTS_ASSERT(dep);
 	if(dep == erts_this_dist_entry)
 	    BIF_ERROR(BIF_P, BADARG);
 
-	code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
-				 ERTS_DSP_NO_LOCK, 0, 1);
+	code = erts_dsig_prepare(&ctx, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
+				 ERTS_DSP_NO_LOCK, 0, 1, 1);
 	switch (code) {
 	case ERTS_DSIG_PREP_NOT_ALIVE:
 	case ERTS_DSIG_PREP_NOT_CONNECTED:
 	    BIF_RET(am_true);
 	case ERTS_DSIG_PREP_PENDING:
 	case ERTS_DSIG_PREP_CONNECTED:
-	    code = erts_dsig_send_group_leader(&dsd, BIF_ARG_1, BIF_ARG_2);
+	    code = erts_dsig_send_group_leader(&ctx, BIF_ARG_1, BIF_ARG_2);
 	    if (code == ERTS_DSIG_SEND_YIELD)
 		ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
 	    BIF_RET(am_true);
