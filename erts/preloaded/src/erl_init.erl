@@ -35,6 +35,8 @@ start(Mod, BootArgs) ->
     erl_tracer:on_load(),
     prim_buffer:on_load(),
     prim_file:on_load(),
+    socket:on_load(),
+    net:on_load(),
     %% Proceed to the specified boot module
     run(Mod, boot, BootArgs).
 

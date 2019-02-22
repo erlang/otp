@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,32 +17,25 @@
 %% 
 %% %CopyrightEnd%
 %%
-{application, erts, [
-	{description, "ERTS  CXC 138 10"},
-	{vsn, "%VSN%"},
-	{modules, [
-		%% preloaded
-		erlang,
-		erl_prim_loader,
-		erts_internal,
-		init,
-		erl_init,
-		erts_code_purger,
-		prim_buffer,
-		prim_eval,
-		prim_file,
-		prim_inet,
-		prim_zip,
-                atomics,
-                counters,
-		zlib,
-		net,
-		socket
-	    ]},
-	{registered, []},
-	{applications, []},
-	{env, []},
-	{runtime_dependencies, ["stdlib-3.5", "kernel-6.1", "sasl-3.3"]}
-    ]}.
 
-%% vim: ft=erlang
+-module(socket_test_ttest_tcp_server_gen).
+
+-export([
+         start/1,
+         stop/1
+        ]).
+
+-define(TRANSPORT_MOD, socket_test_ttest_tcp_gen).
+
+start(Active) ->
+    socket_test_ttest_tcp_server:start(?TRANSPORT_MOD, Active).
+    %%     {ok, {Pid, AddrPort}} ->
+    %%         MRef = erlang:monitor(process, Pid),
+    %%         {ok, {Pid, MRef, AddrPort}};
+    %%     {error, _} = ERROR ->
+    %%         ERROR
+    %% end.
+            
+
+stop(Pid) ->
+    socket_test_ttest_tcp_server:stop(Pid).

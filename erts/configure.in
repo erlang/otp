@@ -1655,7 +1655,9 @@ if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
                       struct sctp_paddrparams.spp_sackdelay,
                       struct sctp_paddrparams.spp_flags,
                       struct sctp_remote_error.sre_data,
-                      struct sctp_send_failed.ssf_data], [], [],
+                      struct sctp_send_failed.ssf_data,
+                      struct sctp_event_subscribe.sctp_authentication_event,
+                      struct sctp_event_subscribe.sctp_sender_dry_event], [], [],
         [#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
          #endif

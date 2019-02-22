@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,24 +17,16 @@
 %% 
 %% %CopyrightEnd%
 %%
--module(net).
 
-%% Various network functions, kept here for compatibility
+-ifndef(socket_test_ttest).
+-define(socket_test_ttest, true).
 
--export([call/4,
-	 cast/4,
-	 broadcast/3,
-	 ping/1,
-	 relay/1,
-	 sleep/1]).
+-define(TTEST_TAG,          42).
+-define(TTEST_TYPE_REQUEST, 101).
+-define(TTEST_TYPE_REPLY,   102).
 
--deprecated(module).
+-define(SECS(I), timer:seconds(I)).
 
-call(N,M,F,A) -> rpc:call(N,M,F,A).
-cast(N,M,F,A) -> rpc:cast(N,M,F,A).
-broadcast(M,F,A) -> rpc:eval_everywhere(M,F,A).
-ping(Node) -> net_adm:ping(Node).
-sleep(T) -> receive after T -> ok end.
-relay(X) -> slave:relay(X).
+-define(SLEEP(T), receive after T -> ok end).
 
-
+-endif. % -ifdef(socket_test_ttest).

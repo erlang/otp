@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>net</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>net.xml</file>
+  </header>
+  <module since="OTP @OTP-14831@">net</module>
+  <modulesummary>Network interface.</modulesummary>
+  <description>
+    <p>This module provides an API for the network interface.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="address_info"/>
+    </datatype>
+    <datatype>
+      <name name="name_info"/>
+    </datatype>
+    <datatype>
+      <name name="name_info_flags"/>
+    </datatype>
+    <datatype>
+      <name name="name_info_flag"/>
+    </datatype>
+    <datatype>
+      <name name="name_info_flag_ext"/>
+    </datatype>
+    <datatype>
+      <name name="network_interface_name"/>
+    </datatype>
+    <datatype>
+      <name name="network_interface_index"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="gethostname" arity="0"/>
+      <fsummary>Get hostname.</fsummary>
+      <desc>
+        <p>Returns the name of the current host.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="getnameinfo" arity="1" since="OTP @OTP-14831@"/>
+      <name name="getnameinfo" arity="2" since="OTP @OTP-14831@"/>
+      <fsummary>Address-to-name transaltion.</fsummary>
+      <desc>
+        <p>Address-to-name translation in a protocol-independant manner.</p>
+	<p>This function is the inverse of
+	<seealso marker="#getaddrinfo/1"><c>getaddrinfo</c></seealso>.
+	It converts a socket address to a corresponding host and service.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="getaddrinfo" arity="1" since="OTP @OTP-14831@"/>
+      <name name="getaddrinfo" arity="2" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="getaddrinfo" arity="2" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="getaddrinfo" arity="2" clause_i="3" since="OTP @OTP-14831@"/>
+      <fsummary>Network address and service transation.</fsummary>
+      <desc>
+	<p>Network address and service translation.</p>
+	<p>This function is the inverse of
+	<seealso marker="#getnameinfo/1"><c>getnameinfo</c></seealso>.
+	It converts host and service to a corresponding socket address.</p>
+	<p>One of the <c>Host</c> and <c>Service</c> may be <c>undefined</c>
+	but <em>not</em> both.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="if_name2index" arity="1" since="OTP @OTP-14831@"/>
+      <fsummary>Mappings between network interface names and indexes.</fsummary>
+      <desc>
+        <p>Mappings between network interface names and indexes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="if_index2name" arity="1" since="OTP @OTP-14831@"/>
+      <fsummary>Mappings between network interface index and names.</fsummary>
+      <desc>
+        <p>Mappings between network interface index and names.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="if_names" arity="0" since="OTP @OTP-14831@"/>
+      <fsummary>Get network interface names and indexes.</fsummary>
+      <desc>
+        <p>Get network interface names and indexes.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+

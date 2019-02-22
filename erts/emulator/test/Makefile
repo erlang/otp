@@ -28,6 +28,24 @@ EBIN = .
 # Target Specs
 # ----------------------------------------------------
 
+SOCKET_MODULES = \
+	socket_lib \
+	socket_server \
+	socket_client \
+	socket_test_lib \
+	socket_test_logger \
+	socket_test_evaluator \
+	socket_test_ttest_lib \
+	socket_test_ttest_tcp_gen \
+	socket_test_ttest_tcp_socket \
+	socket_test_ttest_tcp_client \
+	socket_test_ttest_tcp_client_gen \
+	socket_test_ttest_tcp_client_socket \
+	socket_test_ttest_tcp_server \
+	socket_test_ttest_tcp_server_gen \
+	socket_test_ttest_tcp_server_socket \
+	socket_SUITE
+
 MODULES= \
 	a_SUITE \
 	after_SUITE \
@@ -106,6 +124,7 @@ MODULES= \
 	sensitive_SUITE \
 	signal_SUITE \
 	smoke_test_SUITE \
+	$(SOCKET_MODULES) \
 	statistics_SUITE \
 	system_info_SUITE \
 	system_profile_SUITE \
@@ -153,8 +172,13 @@ NATIVE_MODULES= $(NATIVE:%=%_native_SUITE)
 NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
+HRL_FILES= \
+	socket_test_evaluator.hrl \
+	socket_test_ttest.hrl \
+	socket_test_ttest_client.hrl
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 EMAKEFILE=Emakefile
 
@@ -201,6 +225,9 @@ clean:
 
 docs:
 
+targets: $(TARGET_FILES)
+socket_targets: $(SOCKET_TARGETS)
+
 # ----------------------------------------------------
 # Special targets
 # ----------------------------------------------------
@@ -221,7 +248,7 @@ release_spec:
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(EMAKEFILE) $(TEST_SPEC_FILES) \
-		$(ERL_FILES) "$(RELSYSDIR)"
+		$(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
