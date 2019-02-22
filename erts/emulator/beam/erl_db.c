@@ -42,6 +42,7 @@
 #include "bif.h"
 #include "big.h"
 #include "erl_binary.h"
+#include "bif.h"
 
 
 erts_atomic_t erts_ets_misc_mem_size;
@@ -63,6 +64,11 @@ do {                                                                     \
         return db_bif_fail(PROC, freason__, BIF_IX, BIF_EXP);            \
     }                                                                    \
 }while(0)
+
+#define DB_GET_APPROX_NITEMS(DB)                                        \
+    erts_flxctr_read_approx(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
+#define DB_GET_APPROX_MEM_CONSUMED(DB)                                  \
+    erts_flxctr_read_approx(&(DB)->common.counters, ERTS_DB_TABLE_MEM_COUNTER_ID)
 
 static BIF_RETTYPE db_bif_fail(Process* p, Uint freason,
                                Uint bif_ix, Export* bif_exp)
@@ -398,8 +404,9 @@ static void
 free_dbtable(void *vtb)
 {
     DbTable *tb = (DbTable *) vtb;
-
-    ASSERT(erts_atomic_read_nob(&tb->common.memory_size) == sizeof(DbTable));
+    ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
+           sizeof(DbTable) == erts_flxctr_read_approx(&tb->common.counters,
+                                                      ERTS_DB_TABLE_MEM_COUNTER_ID));
 
     erts_rwmtx_destroy(&tb->common.rwlock);
     erts_mtx_destroy(&tb->common.fixlock);
@@ -408,7 +415,8 @@ free_dbtable(void *vtb)
     if (tb->common.btid)
         erts_bin_release(tb->common.btid);
 
-    erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
+    erts_flxctr_destroy(&tb->common.counters, ERTS_ALC_T_DB_TABLE);
+    erts_free(ERTS_ALC_T_DB_TABLE, tb);
 }
 
 static void schedule_free_dbtable(DbTable* tb)
@@ -1731,12 +1739,16 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
      */
     {
         DbTable init_tb;
-
-	erts_atomic_init_nob(&init_tb.common.memory_size, 0);
+        erts_flxctr_init(&init_tb.common.counters, 0, 2, ERTS_ALC_T_DB_TABLE);
 	tb = (DbTable*) erts_db_alloc(ERTS_ALC_T_DB_TABLE,
 				      &init_tb, sizeof(DbTable));
-	erts_atomic_init_nob(&tb->common.memory_size,
-				 erts_atomic_read_nob(&init_tb.common.memory_size));
+        erts_flxctr_init(&tb->common.counters,
+                         status & DB_CA_ORDERED_SET,
+                         2,
+                         ERTS_ALC_T_DB_TABLE);
+        erts_flxctr_add(&tb->common.counters,
+                        ERTS_DB_TABLE_MEM_COUNTER_ID,
+                        DB_GET_APPROX_MEM_CONSUMED(&init_tb));
     }
 
     tb->common.meth = meth;
@@ -1749,8 +1761,6 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.keypos = keypos;
     tb->common.owner = BIF_P->common.id;
     set_heir(BIF_P, tb, heir, heir_data);
-
-    erts_atomic_init_nob(&tb->common.nitems, 0);
 
     tb->common.fixing_procs = NULL;
     tb->common.compress = is_compressed;
@@ -2128,19 +2138,18 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
 {
     SWord initial_reds = ERTS_BIF_REDS_LEFT(BIF_P);
     SWord reds = initial_reds;
-    Eterm nitems;
+    Eterm nitems_holder = THE_NON_VALUE;
     DbTable* tb;
-
     CHECK_TABLES();
 
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE, BIF_ets_internal_delete_all_2);
 
     if (BIF_ARG_2 == am_undefined) {
-        nitems = erts_make_integer(erts_atomic_read_nob(&tb->common.nitems),
-                                   BIF_P);
-
-        reds = tb->common.meth->db_delete_all_objects(BIF_P, tb, reds);
-
+        reds = tb->common.meth->db_delete_all_objects(BIF_P,
+                                                      tb,
+                                                      reds,
+                                                      &nitems_holder);
+        ASSERT(nitems_holder != THE_NON_VALUE);
         ASSERT(!(tb->common.status & DB_BUSY));
 
         if (reds < 0) {
@@ -2159,7 +2168,7 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
             db_unlock(tb, LCK_WRITE);
             BUMP_ALL_REDS(BIF_P);
             BIF_TRAP2(bif_export[BIF_ets_internal_delete_all_2], BIF_P,
-                      BIF_ARG_1, nitems);
+                      BIF_ARG_1, nitems_holder);
         }
         else {
             /* Done, no trapping needed */
@@ -2169,15 +2178,19 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
     }
     else {
         /*
-         * The table lookup succeeded and second argument is nitems
+         * The table lookup succeeded and second argument is nitems_holder
          * and not 'undefined', which means we have trapped at least once
          * and are now done.
          */
-        nitems = BIF_ARG_2;
+        nitems_holder = BIF_ARG_2;
     }
-
     db_unlock(tb, LCK_WRITE);
+    {
+    Eterm nitems =
+        tb->common.meth->db_delete_all_objects_get_nitems_from_holder(BIF_P,
+                                                                      nitems_holder);
     BIF_RET(nitems);
+    }
 }
 
 static void delete_all_objects_continue(Process* p, DbTable* tb)
@@ -2190,7 +2203,7 @@ static void delete_all_objects_continue(Process* p, DbTable* tb)
     if ((tb->common.status & (DB_DELETE|DB_BUSY)) != DB_BUSY)
         return;
 
-    reds = tb->common.meth->db_delete_all_objects(p, tb, reds);
+    reds = tb->common.meth->db_delete_all_objects(p, tb, reds, NULL);
     
     if (reds < 0) {
         BUMP_ALL_REDS(p);
@@ -3277,13 +3290,29 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
     int i;
     Eterm* hp;
     Uint freason;
+    Sint size = -1;
+    Sint memory = -1;
+    Eterm table;
+    int is_ctrs_read_result_set = 0;
     /*Process* rp = NULL;*/
     /* If/when we implement lockless private tables:
     Eterm owner;
     */
-
-    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_INFO, LCK_READ, &freason)) == NULL) {
-	if (freason == BADARG && (is_atom(BIF_ARG_1) || is_ref(BIF_ARG_1)))
+    if(is_tuple(BIF_ARG_1) &&
+       is_tuple_arity(BIF_ARG_1, 2) &&
+       erts_flxctr_is_snapshot_result(tuple_val(BIF_ARG_1)[1])) {
+        Eterm counter_read_result  = tuple_val(BIF_ARG_1)[1];
+        table = tuple_val(BIF_ARG_1)[2];
+        size = erts_flxctr_get_snapshot_result_after_trap(counter_read_result,
+                                                          ERTS_DB_TABLE_NITEMS_COUNTER_ID);
+        memory = erts_flxctr_get_snapshot_result_after_trap(counter_read_result,
+                                                            ERTS_DB_TABLE_MEM_COUNTER_ID);
+        is_ctrs_read_result_set = 1;
+    } else {
+        table = BIF_ARG_1;
+    }
+    if ((tb = db_get_table(BIF_P, table, DB_INFO, LCK_READ, &freason)) == NULL) {
+	if (freason == BADARG && (is_atom(table) || is_ref(table)))
 	    BIF_RET(am_undefined);
 	else
             return db_bif_fail(BIF_P, freason, BIF_ets_info_1, NULL);
@@ -3314,9 +3343,35 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
 	    BIF_ERROR(BIF_P, BADARG);
 	}
     }*/
+
+    if (!is_ctrs_read_result_set) {
+        ErtsFlxCtrSnapshotResult res =
+            erts_flxctr_snapshot(&tb->common.counters, ERTS_ALC_T_DB_TABLE, BIF_P);
+        if (ERTS_FLXCTR_GET_RESULT_AFTER_TRAP == res.type) {
+            Eterm tuple;
+            db_unlock(tb, LCK_READ);
+            hp = HAlloc(BIF_P, 3);
+            tuple = TUPLE2(hp, res.trap_resume_state, table);
+            BIF_TRAP1(bif_export[BIF_ets_info_1], BIF_P, tuple);
+        } else if (res.type == ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP) {
+            db_unlock(tb, LCK_READ);
+            BIF_TRAP1(bif_export[BIF_ets_info_1], BIF_P, table);
+        } else {
+            size = res.result[ERTS_DB_TABLE_NITEMS_COUNTER_ID];
+            memory = res.result[ERTS_DB_TABLE_MEM_COUNTER_ID];
+            is_ctrs_read_result_set = 1;
+        }
+    }
     for (i = 0; i < sizeof(fields)/sizeof(Eterm); i++) {
-	results[i] = table_info(BIF_P, tb, fields[i]);
-	ASSERT(is_value(results[i]));
+        if (is_ctrs_read_result_set && am_size == fields[i]) {
+            results[i] = erts_make_integer(size, BIF_P);
+        } else if (is_ctrs_read_result_set && am_memory == fields[i]) {
+            Sint words = (Sint) ((memory + sizeof(Sint) - 1) / sizeof(Sint));
+            results[i] = erts_make_integer(words, BIF_P);
+        } else {
+            results[i] = table_info(BIF_P, tb, fields[i]);
+            ASSERT(is_value(results[i]));
+        }
     }
     db_unlock(tb, LCK_READ);
 
@@ -3344,14 +3399,43 @@ BIF_RETTYPE ets_info_2(BIF_ALIST_2)
     DbTable* tb;
     Eterm ret = THE_NON_VALUE;
     Uint freason;
-
+    if (erts_flxctr_is_snapshot_result(BIF_ARG_1)) {
+        Sint res;
+        if (am_memory == BIF_ARG_2) {
+            res = erts_flxctr_get_snapshot_result_after_trap(BIF_ARG_1,
+                                                             ERTS_DB_TABLE_MEM_COUNTER_ID);
+            res = (Sint) ((res + sizeof(Sint) - 1) / sizeof(Sint));
+        } else {
+            res = erts_flxctr_get_snapshot_result_after_trap(BIF_ARG_1,
+                                                             ERTS_DB_TABLE_NITEMS_COUNTER_ID);
+        }
+        BIF_RET(erts_make_integer(res, BIF_P));
+    }
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_INFO, LCK_READ, &freason)) == NULL) {
 	if (freason == BADARG && (is_atom(BIF_ARG_1) || is_ref(BIF_ARG_1)))
 	    BIF_RET(am_undefined);
         else
             return db_bif_fail(BIF_P, freason, BIF_ets_info_2, NULL);
     }
-    ret = table_info(BIF_P, tb, BIF_ARG_2);
+    if (BIF_ARG_2 == am_size || BIF_ARG_2 == am_memory) {
+        ErtsFlxCtrSnapshotResult res =
+            erts_flxctr_snapshot(&tb->common.counters, ERTS_ALC_T_DB_TABLE, BIF_P);
+        if (ERTS_FLXCTR_GET_RESULT_AFTER_TRAP == res.type) {
+            db_unlock(tb, LCK_READ);
+            BIF_TRAP2(bif_export[BIF_ets_info_2], BIF_P, res.trap_resume_state, BIF_ARG_2);
+        } else if (res.type == ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP) {
+            db_unlock(tb, LCK_READ);
+            BIF_TRAP2(bif_export[BIF_ets_info_2], BIF_P, BIF_ARG_1, BIF_ARG_2);
+        } else if (BIF_ARG_2 == am_size) {
+            ret = erts_make_integer(res.result[ERTS_DB_TABLE_NITEMS_COUNTER_ID], BIF_P);
+        } else { /* BIF_ARG_2 == am_memory */
+            Sint r = res.result[ERTS_DB_TABLE_MEM_COUNTER_ID];
+            r = (Sint) ((r + sizeof(Sint) - 1) / sizeof(Sint));
+            ret = erts_make_integer(r, BIF_P);
+        }
+    } else {
+        ret = table_info(BIF_P, tb, BIF_ARG_2);
+    }
     db_unlock(tb, LCK_READ);
     if (is_non_value(ret)) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -4121,7 +4205,8 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
     int use_monotonic;
 
     if (What == am_size) {
-	ret = make_small(erts_atomic_read_nob(&tb->common.nitems));
+        Uint size = (Uint) (DB_GET_APPROX_NITEMS(tb));
+        ret = erts_make_integer(size, p);
     } else if (What == am_type) {
 	if (tb->common.status & DB_SET)  {
 	    ret = am_set;
@@ -4136,7 +4221,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_bag;
 	}
     } else if (What == am_memory) {
-	Uint words = (Uint) ((erts_atomic_read_nob(&tb->common.memory_size)
+	Uint words = (Uint) ((DB_GET_APPROX_MEM_CONSUMED(tb)
 			      + sizeof(Uint)
 			      - 1)
 			     / sizeof(Uint));
@@ -4294,9 +4379,9 @@ static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb)
 
     tb->common.meth->db_print(to, to_arg, show, tb);
 
-    erts_print(to, to_arg, "Objects: %d\n", (int)erts_atomic_read_nob(&tb->common.nitems));
+    erts_print(to, to_arg, "Objects: %d\n", (int)DB_GET_APPROX_NITEMS(tb));
     erts_print(to, to_arg, "Words: %bpu\n",
-	       (Uint) ((erts_atomic_read_nob(&tb->common.memory_size)
+	       (Uint) ((DB_GET_APPROX_MEM_CONSUMED(tb)
 			+ sizeof(Uint)
 			- 1)
 		       / sizeof(Uint)));

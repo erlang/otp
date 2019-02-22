@@ -21,6 +21,7 @@
 #ifndef _DB_UTIL_H
 #define _DB_UTIL_H
 
+#include "erl_flxctr.h"
 #include "global.h"
 #include "erl_message.h"
 #include "erl_bif_unique.h"
@@ -207,8 +208,12 @@ typedef struct db_table_method
             enum DbIterSafety*);
     int (*db_take)(Process *, DbTable *, Eterm, Eterm *);
 
-    SWord (*db_delete_all_objects)(Process* p, DbTable* db, SWord reds);
-
+    SWord (*db_delete_all_objects)(Process* p,
+                                   DbTable* db,
+                                   SWord reds,
+                                   Eterm* nitems_holder_wb);
+    Eterm (*db_delete_all_objects_get_nitems_from_holder)(Process* p,
+                                                          Eterm nitems_holder);
     int (*db_free_empty_table)(DbTable* db);
     SWord (*db_free_table_continue)(DbTable* db, SWord reds);
     
@@ -257,6 +262,9 @@ typedef struct {
     DbTable *prev;
 } DbTableList;
 
+#define ERTS_DB_TABLE_NITEMS_COUNTER_ID 0
+#define ERTS_DB_TABLE_MEM_COUNTER_ID 1
+
 /*
  * This structure contains data for all different types of database
  * tables. Note that these fields must match the same fields
@@ -281,8 +289,11 @@ typedef struct db_table_common {
     Eterm the_name;           /* an atom */
     Binary *btid;
     DbTableMethod* meth;      /* table methods */
-    erts_atomic_t nitems; /* Total number of items in table */
-    erts_atomic_t memory_size;/* Total memory size. NOTE: in bytes! */
+    /* The ErtsFlxCtr below contains:
+     * - Total number of items in table
+     * - Total memory size (NOTE: in bytes!) */
+    ErtsFlxCtr counters;
+    char extra_for_flxctr[ERTS_FLXCTR_NR_OF_EXTRA_BYTES(2)];
     struct {                  /* Last fixation time */
 	ErtsMonotonicTime monotonic;
 	ErtsMonotonicTime offset;
