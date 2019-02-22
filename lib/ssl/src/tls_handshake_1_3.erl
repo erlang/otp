@@ -532,7 +532,7 @@ do_wait_finished(#change_cipher_spec{},
         {_Ref, {state_not_implemented, State}} ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
     end;
-do_wait_finished(#finished{},
+do_wait_finished(#finished{verify_data = VerifyData},
               #state{connection_states = _ConnectionStates0,
                      session = #session{session_id = _SessionId,
                                         own_certificate = _OwnCert},
@@ -546,10 +546,10 @@ do_wait_finished(#finished{},
                                      transport_cb = _Transport}
                     } = State0) ->
 
-    %% {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe(),
 
     try
-        %% TODO: validate client Finished
+        Maybe(validate_client_finished(State0, VerifyData)),
 
         State1 = calculate_traffic_secrets(State0),
 
@@ -558,7 +558,9 @@ do_wait_finished(#finished{},
 
 
     catch
-        {_Ref, {state_not_implemented, State}} ->
+        {Ref, decrypt_error} ->
+            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error);
+        {_, {state_not_implemented, State}} ->
             %% TODO
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
     end.
@@ -567,6 +569,32 @@ do_wait_finished(#finished{},
 %% TODO: Remove this function!
 %% not_implemented(State) ->
 %%     {error, {state_not_implemented, State}}.
+
+
+%% Recipients of Finished messages MUST verify that the contents are
+%% correct and if incorrect MUST terminate the connection with a
+%% "decrypt_error" alert.
+validate_client_finished(#state{connection_states = ConnectionStates,
+                handshake_env =
+                    #handshake_env{
+                       tls_handshake_history = {Messages0, _}}}, VerifyData) ->
+    #{security_parameters := SecParamsR,
+     cipher_state := #cipher_state{finished_key = FinishedKey}} =
+        ssl_record:current_connection_state(ConnectionStates, read),
+    #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
+
+    %% Drop the client's finished message, it is not part of the handshake context
+    %% when the client calculates its finished message.
+    [_|Messages] = Messages0,
+
+    ControlData = tls_v1:finished_verify_data(FinishedKey, HKDFAlgo, Messages),
+    compare_verify_data(ControlData, VerifyData).
+
+
+compare_verify_data(Data, Data) ->
+    ok;
+compare_verify_data(_, _) ->
+    {error, decrypt_error}.
 
 
 calculate_handshake_secrets(ClientKey, SelectedGroup, KeyShare,
