@@ -55,7 +55,7 @@
     <datatype>
       <name name="sslsocket"/>
       <desc>
-	<p>An opaque reference to the TLS/DTLS connection.</p>
+	<p>An opaque reference to the TLS/DTLS connection, may be used for equality matching.</p>
 	</desc>
     </datatype>
 
@@ -87,14 +87,6 @@
     </datatype>
 
     <datatype>
-      <name name="socket_connect_option"/>
-    </datatype>
-    
-     <datatype>
-      <name name="socket_listen_option"/>
-    </datatype>
-
-    <datatype>
       <name name="active_msgs"/>
       <desc>
       <p>When an TLS/DTLS socket is in active mode (the default), data from the
@@ -119,11 +111,7 @@
 	</p>
       </desc>
     </datatype>
-   
-      <datatype>
-      <name name="path"/>
-     </datatype>
-
+  
      <datatype>
       <name name="host"/>
      </datatype>
@@ -147,12 +135,14 @@
      <datatype>
        <name name="dtls_version"/>
      </datatype>
-
-
-   <datatype>
+     
+     <datatype>
        <name name="legacy_version"/>
      </datatype>
      
+       <datatype>
+       <name name="prf_random"/>
+     </datatype>
      
       <datatype>
        <name name="verify_type"/>
@@ -190,7 +180,10 @@
        <name name="legacy_hash"/>
      </datatype>
 
-  
+    <datatype>
+       <name name="old_cipher_suite"/>
+     </datatype>
+     
      <datatype>
       <name name="signature_algs"/>
      </datatype>
@@ -200,7 +193,7 @@
      </datatype>
 
      <datatype>
-      <name name="key_algo"/>
+      <name name="kex_algo"/>
      </datatype>
 
      <datatype>
@@ -229,6 +222,10 @@
      
      <datatype>
        <name name="app_level_protocol"/>
+     </datatype>
+
+     <datatype>
+      <name name="protocol_extensions"/>
      </datatype>
 
      <datatype>
@@ -366,8 +363,8 @@
 	<p>The verification fun is to be defined as follows:</p>
 
 	<code>
-fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() | {revoked,
-atom()}} |
+fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() |
+             {revoked, atom()}} |
 	     {extension, #'Extension'{}}, InitialUserState :: term()) ->
 	{valid, UserState :: term()} | {valid_peer, UserState :: term()} |
 	{fail, Reason :: term()} | {unknown, UserState :: term()}.
@@ -580,7 +577,8 @@ fun(Chain::[public_key:der_encoded()]) ->
 fun(psk, PSKIdentity ::string(), UserState :: term()) ->
 	{ok, SharedSecret :: binary()} | error;
 fun(srp, Username :: string(), UserState :: term()) ->
-	{ok, {SRPParams :: srp_param_type(), Salt :: binary(), DerivedKey :: binary()}} | error.
+	{ok, {SRPParams :: srp_param_type(), Salt :: binary(),
+	      DerivedKey :: binary()}} | error.
 	</code>
 
 	<p>For Pre-Shared Key (PSK) cipher suites, the lookup fun is
@@ -658,7 +656,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </desc>
     </datatype>
     
-
+    <datatype>
+      <name name="ssl_imp"/>
+        <desc><p>Deprecated since OTP-17, has no affect.</p></desc>
+    </datatype>
+    
     <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - CLIENT</datatype_title>
     
     <datatype>
@@ -1079,7 +1081,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     
     <func>
       <name since="OTP R14B">cipher_suites() -></name>
-      <name since="OTP R14B">cipher_suites(Type) -> old_ciphers()</name>
+      <name since="OTP R14B">cipher_suites(Type) -> [old_cipher_suite()]</name>
       <fsummary>Returns a list of supported cipher suites.</fsummary>
       <type>
         <v>Type = erlang | openssl | all</v>
@@ -1140,10 +1142,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	equivalent, connected socket to an TLS socket.</fsummary>
       <type>
 	<v>Socket = <seealso marker="#type-socket"> socket() </seealso></v>
-	<v>Options = <seealso marker="#type-client_option"> [client_option()] </seealso></v>
+	<v>Options = <seealso marker="#type-tls_client_option"> [tls_client_option()] </seealso></v>
 	<v>Timeout = timeout()</v>
 	<v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	<v>Ext = hello_extensions()</v>
+	<v>Ext = <seealso marker="#type-protocol_extensions">protocol_extensions()</seealso></v>
 	<v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
       </type>
       <desc><p>Upgrades a <c>gen_tcp</c>, or equivalent,
@@ -1184,7 +1186,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <type>
 	  <v>Host =<seealso marker="#type-host"> host() </seealso> </v>
 	  <v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
-	  <v>Options = <seealso marker="#type-client_option"> [client_option()]</seealso></v>
+	  <v>Options = <seealso marker="#type-tls_client_option"> [tls_client_option()]</seealso></v>
 	  <v>Timeout = timeout()</v>
 	  <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
 	  <v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
@@ -1393,8 +1395,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <type>
         <v>Socket = socket() |  <seealso marker="#type-sslsocket"> socket() </seealso> </v>
 	<v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso> </v>
-	<v>Ext = hello_extensions()</v>
-	<v>Options = <seealso marker="#type-server_option"> [server_option()] </seealso>  </v>
+	<v>Ext =  <seealso marker="#type-protocol_extensions">protocol_extensions()</seealso></v>
+	<v>Options = <seealso marker="#type-tls_server_option"> [server_option()] </seealso>  </v>
         <v>Timeout = timeout()</v>
         <v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
       </type>
@@ -1464,7 +1466,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Creates an SSL listen socket.</fsummary>
       <type>
 	<v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
-	<v>Options = <seealso marker="#type-server_option"> [server_option()] </seealso></v>
+	<v>Options = <seealso marker="#type-tls_server_option"> [server_option()] </seealso></v>
 	<v>ListenSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
       </type>
       <desc>
@@ -1539,7 +1541,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<v>Socket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
 	<v>Secret = binary() | master_secret</v>
 	<v>Label = binary()</v>
-	<v>Seed = [binary() | prf_random()]</v>
+	<v>Seed = [binary() | <seealso marker="#type-prf_random"> prf_random()</seealso>]</v>
 	<v>WantedLength = non_neg_integer()</v>
       </type>
       <desc>
@@ -1658,7 +1660,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
       <type>
         <v>Socket = socket() |  <seealso marker="#type-sslsocket"> sslsocket() </seealso> </v>
-	<v>Options =  <seealso marker="#type-server_option"> [server_option()] </seealso> </v>
+	<v>Options =  <seealso marker="#type-tls_server_option"> [server_option()] </seealso> </v>
         <v>Timeout = timeout()</v>
         <v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
       </type>
