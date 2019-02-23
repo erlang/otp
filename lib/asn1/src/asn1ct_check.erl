@@ -2140,6 +2140,9 @@ normalize_octetstring(S, Value) ->
 		_ ->
 		    asn1_error(S, illegal_octet_string_value)
 	    end;
+        Val when is_binary(Val) ->
+            %% constant default value
+            Val;
 	_ ->
 	    asn1_error(S, illegal_octet_string_value)
     end.
