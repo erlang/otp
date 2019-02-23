@@ -72,6 +72,7 @@ MODULES= \
 	testSetTypeRefPrim \
 	testSetTypeRefSeq \
 	testSetTypeRefSet \
+	testDefaultOctetString \
 	testChoiceIndefinite \
 	testSetOf \
 	testSetOfCho \

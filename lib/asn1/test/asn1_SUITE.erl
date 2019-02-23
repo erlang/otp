@@ -99,6 +99,7 @@ groups() ->
        testChoTypeRefPrim,
        testChoTypeRefSeq,
        testChoTypeRefSet,
+       testDefaultOctetString,
        testMultipleLevels,
        testOpt,
        testSeqDefault,
@@ -429,6 +430,11 @@ testChoTypeRefSet(Config) -> test(Config, fun testChoTypeRefSet/3).
 testChoTypeRefSet(Config, Rule, Opts) ->
     asn1_test_lib:compile("ChoTypeRefSet", Config, [Rule|Opts]),
     testChoTypeRefSet:set(Rule).
+
+testDefaultOctetString(Config) -> test(Config, fun testDefaultOctetString/3).
+testDefaultOctetString(Config, Rule, Opts) ->
+    asn1_test_lib:compile("DefaultOctetString", Config, [Rule|Opts]),
+    testDefaultOctetString:dos(Rule).
 
 testMultipleLevels(Config) -> test(Config, fun testMultipleLevels/3).
 testMultipleLevels(Config, Rule, Opts) ->
