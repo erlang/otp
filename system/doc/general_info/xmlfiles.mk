@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2009-2018. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,23 +17,6 @@
 # 
 # %CopyrightEnd%
 #
-
-include @erl_interface_mk_include@
-
-CC0 = @CC@
-CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"
-LD = @LD@
-LIBERL = @erl_interface_lib_drv@
-LIBEI = @erl_interface_eilib_drv@
-
-SHLIB_EXTRA_LDLIBS = $(LIBERL) $(LIBEI) @erl_interface_threadlib@
-SHLIB_EXTRA_CFLAGS = -I@erl_interface_include@ @erl_interface_target_include@ -I../all_SUITE_data
-
-
-all: port_call_drv@dll@ 
-
-clean:
-	$(RM) port_call_drv@obj@
-	$(RM) port_call_drv@dll@
-
-@SHLIB_RULES@
+GENERAL_INFO_CHAPTER_FILES = \
+	deprecations.xml \
+	scheduled_for_removal.xml

@@ -25,8 +25,6 @@
 /*      Note: the 'ei' interface is the prefered C API.                 */
 /************************************************************************/
 
-/* FIXME only include if needed? */
- 
 #include "ei.h"			/* ei is the base */
 
 /* -------------------------------------------------------------------- */
@@ -195,11 +193,11 @@ typedef struct {
   int lenL;
 } Erl_Atom_data;
 
-char* erl_atom_ptr_latin1(Erl_Atom_data*);
-char* erl_atom_ptr_utf8(Erl_Atom_data*);
-int erl_atom_size_latin1(Erl_Atom_data*);
-int erl_atom_size_utf8(Erl_Atom_data*);
-char* erl_atom_init_latin1(Erl_Atom_data*, const char*);
+char* erl_atom_ptr_latin1(Erl_Atom_data*) EI_DEPRECATED_ATTR;
+char* erl_atom_ptr_utf8(Erl_Atom_data*) EI_DEPRECATED_ATTR;
+int erl_atom_size_latin1(Erl_Atom_data*) EI_DEPRECATED_ATTR;
+int erl_atom_size_utf8(Erl_Atom_data*) EI_DEPRECATED_ATTR;
+char* erl_atom_init_latin1(Erl_Atom_data*, const char*) EI_DEPRECATED_ATTR;
 
 typedef struct {
   Erl_Header h;
@@ -324,110 +322,117 @@ typedef unsigned char Erl_Heap;
 /*                          The functions                               */
 /* -------------------------------------------------------------------- */
 
-void   erl_init(void *x, long y);
-void   erl_set_compat_rel(unsigned);
-int    erl_connect_init(int, char*,short);
-int    erl_connect_xinit(char*,char*,char*,struct in_addr*,char*,short);
-int    erl_connect(char*); 
-int    erl_xconnect(struct in_addr*,char *);
-int    erl_close_connection(int);
-int    erl_receive(int, unsigned char*, int);
-int    erl_receive_msg(int, unsigned char*, int, ErlMessage*);
-int    erl_xreceive_msg(int, unsigned char**, int*, ErlMessage*);
-int    erl_send(int, ETERM*, ETERM*);
-int    erl_reg_send(int, char*, ETERM*);
-ETERM *erl_rpc(int,char*,char*,ETERM*);
-int    erl_rpc_to(int,char*,char*,ETERM*);
-int    erl_rpc_from(int,int,ErlMessage*);
+void   erl_init(void *x, long y) EI_DEPRECATED_ATTR;
+void   erl_set_compat_rel(unsigned) EI_DEPRECATED_ATTR;
+int    erl_connect_init(int, char*,short) EI_DEPRECATED_ATTR;
+int    erl_connect_xinit(char*,char*,char*,struct in_addr*,char*,short) EI_DEPRECATED_ATTR;
+int    erl_connect(char*) EI_DEPRECATED_ATTR; 
+int    erl_xconnect(struct in_addr*,char *) EI_DEPRECATED_ATTR;
+int    erl_close_connection(int) EI_DEPRECATED_ATTR;
+int    erl_receive(int, unsigned char*, int) EI_DEPRECATED_ATTR;
+int    erl_receive_msg(int, unsigned char*, int, ErlMessage*) EI_DEPRECATED_ATTR;
+int    erl_xreceive_msg(int, unsigned char**, int*, ErlMessage*) EI_DEPRECATED_ATTR;
+int    erl_send(int, ETERM*, ETERM*) EI_DEPRECATED_ATTR;
+int    erl_reg_send(int, char*, ETERM*) EI_DEPRECATED_ATTR;
+ETERM *erl_rpc(int,char*,char*,ETERM*) EI_DEPRECATED_ATTR;
+int    erl_rpc_to(int,char*,char*,ETERM*) EI_DEPRECATED_ATTR;
+int    erl_rpc_from(int,int,ErlMessage*) EI_DEPRECATED_ATTR;
 
 /* erl_publish returns open descriptor on success, or -1 */
-int    erl_publish(int port);
-int    erl_accept(int,ErlConnect*);
+int    erl_publish(int port) EI_DEPRECATED_ATTR;
+int    erl_accept(int,ErlConnect*) EI_DEPRECATED_ATTR;
 
-const char *erl_thiscookie(void);
-const char *erl_thisnodename(void);
-const char *erl_thishostname(void);
-const char *erl_thisalivename(void);
-short       erl_thiscreation(void);
+const char *erl_thiscookie(void) EI_DEPRECATED_ATTR;
+const char *erl_thisnodename(void) EI_DEPRECATED_ATTR;
+const char *erl_thishostname(void) EI_DEPRECATED_ATTR;
+const char *erl_thisalivename(void) EI_DEPRECATED_ATTR;
+short       erl_thiscreation(void) EI_DEPRECATED_ATTR;
 
 /* returns 0 on success, -1 if node not known to epmd or epmd not reached */
-int    erl_unpublish(const char *alive);
+int    erl_unpublish(const char *alive) EI_DEPRECATED_ATTR;
+
+#ifdef EI_HAVE_DEPRECATED_ATTR__
+#define EI_DEPR_ATTR_EXTRA , EI_DEPRECATED_ATTR_NAME
+#else
+#define EI_DEPR_ATTR_EXTRA
+#endif
+
 
 /* Report generic error to stderr. */
 void   erl_err_msg(const char * __template, ...)
-       __attribute__ ((__format__ (printf, 1, 2)));
+       __attribute__ ((__format__ (printf, 1, 2) EI_DEPR_ATTR_EXTRA)) ;
 /* Report generic error to stderr and die. */
 void   erl_err_quit(const char * __template, ...)
-       __attribute__ ((__format__ (printf, 1, 2), __noreturn__));
+       __attribute__ ((__format__ (printf, 1, 2), __noreturn__ EI_DEPR_ATTR_EXTRA));
 /* Report system/libc error to stderr. */
 void   erl_err_ret(const char * __template, ...)
-       __attribute__ ((__format__ (printf, 1, 2)));
+       __attribute__ ((__format__ (printf, 1, 2) EI_DEPR_ATTR_EXTRA));
 /* Report system/libc error to stderr and die. */
 void   erl_err_sys(const char * __template, ...)
-       __attribute__ ((__format__ (printf, 1, 2), __noreturn__));
+       __attribute__ ((__format__ (printf, 1, 2), __noreturn__ EI_DEPR_ATTR_EXTRA));
 
-ETERM *erl_cons(ETERM*,ETERM*);
-ETERM *erl_copy_term(const ETERM*);
-ETERM *erl_element(int,const ETERM*);
+ETERM *erl_cons(ETERM*,ETERM*) EI_DEPRECATED_ATTR;
+ETERM *erl_copy_term(const ETERM*) EI_DEPRECATED_ATTR;
+ETERM *erl_element(int,const ETERM*) EI_DEPRECATED_ATTR;
 
-ETERM *erl_hd(const ETERM*);
-ETERM* erl_iolist_to_binary(const ETERM* term);
-char*  erl_iolist_to_string(const ETERM* term);
-int    erl_iolist_length(const ETERM*);
-int    erl_length(const ETERM*);
-ETERM *erl_mk_atom(const char*);
-ETERM *erl_mk_binary(const char*,int);
-ETERM *erl_mk_empty_list(void);
-ETERM *erl_mk_estring(const char*, int);
-ETERM *erl_mk_float(double);
-ETERM *erl_mk_int(int);
-ETERM *erl_mk_longlong(long long);
-ETERM *erl_mk_list(ETERM**,int);
-ETERM *erl_mk_pid(const char*,unsigned int,unsigned int,unsigned char);
-ETERM *erl_mk_port(const char*,unsigned int,unsigned char);
-ETERM *erl_mk_ref(const char*,unsigned int,unsigned char);
+ETERM *erl_hd(const ETERM*) EI_DEPRECATED_ATTR;
+ETERM* erl_iolist_to_binary(const ETERM* term) EI_DEPRECATED_ATTR;
+char*  erl_iolist_to_string(const ETERM* term) EI_DEPRECATED_ATTR;
+int    erl_iolist_length(const ETERM*) EI_DEPRECATED_ATTR;
+int    erl_length(const ETERM*) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_atom(const char*) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_binary(const char*,int) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_empty_list(void) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_estring(const char*, int) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_float(double) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_int(int) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_longlong(long long) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_list(ETERM**,int) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_pid(const char*,unsigned int,unsigned int,unsigned char) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_port(const char*,unsigned int,unsigned char) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_ref(const char*,unsigned int,unsigned char) EI_DEPRECATED_ATTR;
 ETERM *erl_mk_long_ref(const char*,unsigned int,unsigned int,
-		       unsigned int,unsigned char);
-ETERM *erl_mk_string(const char*);
-ETERM *erl_mk_tuple(ETERM**,int);
-ETERM *erl_mk_uint(unsigned int);
-ETERM *erl_mk_ulonglong(unsigned long long);
-ETERM *erl_mk_var(const char*);
-int    erl_print_term(FILE*,const ETERM*);
-/* int    erl_sprint_term(char*,const ETERM*); */
-int    erl_size(const ETERM*);
-ETERM *erl_tl(const ETERM*);
-ETERM *erl_var_content(const ETERM*, const char*);
+		       unsigned int,unsigned char) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_string(const char*) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_tuple(ETERM**,int) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_uint(unsigned int) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_ulonglong(unsigned long long) EI_DEPRECATED_ATTR;
+ETERM *erl_mk_var(const char*) EI_DEPRECATED_ATTR;
+int    erl_print_term(FILE*,const ETERM*) EI_DEPRECATED_ATTR;
+/* int    erl_sprint_term(char*,const ETERM*) EI_DEPRECATED_ATTR; */
+int    erl_size(const ETERM*) EI_DEPRECATED_ATTR;
+ETERM *erl_tl(const ETERM*) EI_DEPRECATED_ATTR;
+ETERM *erl_var_content(const ETERM*, const char*) EI_DEPRECATED_ATTR;
 
-ETERM *erl_format(char*, ... );
-int    erl_match(ETERM*, ETERM*);
+ETERM *erl_format(char*, ... ) EI_DEPRECATED_ATTR;
+int    erl_match(ETERM*, ETERM*) EI_DEPRECATED_ATTR;
 
-char **erl_global_names(int fd, int *count);
-int    erl_global_register(int fd, const char *name, ETERM *pid);
-int    erl_global_unregister(int fd, const char *name);
-ETERM *erl_global_whereis(int fd, const char *name, char *node);
+char **erl_global_names(int fd, int *count) EI_DEPRECATED_ATTR;
+int    erl_global_register(int fd, const char *name, ETERM *pid) EI_DEPRECATED_ATTR;
+int    erl_global_unregister(int fd, const char *name) EI_DEPRECATED_ATTR;
+ETERM *erl_global_whereis(int fd, const char *name, char *node) EI_DEPRECATED_ATTR;
 
-void   erl_init_malloc(Erl_Heap*,long);
-ETERM *erl_alloc_eterm(unsigned char);
-void   erl_eterm_release(void);
-void   erl_eterm_statistics(unsigned long*,unsigned long*);
-void   erl_free_array(ETERM**,int);
-void   erl_free_term(ETERM*);
-void   erl_free_compound(ETERM*);
-void  *erl_malloc(long);
-void   erl_free(void*);
+void   erl_init_malloc(Erl_Heap*,long) EI_DEPRECATED_ATTR;
+ETERM *erl_alloc_eterm(unsigned char) EI_DEPRECATED_ATTR;
+void   erl_eterm_release(void) EI_DEPRECATED_ATTR;
+void   erl_eterm_statistics(unsigned long*,unsigned long*) EI_DEPRECATED_ATTR;
+void   erl_free_array(ETERM**,int) EI_DEPRECATED_ATTR;
+void   erl_free_term(ETERM*) EI_DEPRECATED_ATTR;
+void   erl_free_compound(ETERM*) EI_DEPRECATED_ATTR;
+void  *erl_malloc(long) EI_DEPRECATED_ATTR;
+void   erl_free(void*) EI_DEPRECATED_ATTR;
 
-int    erl_compare_ext(unsigned char*, unsigned char*);
-ETERM *erl_decode(unsigned char*);
-ETERM *erl_decode_buf(unsigned char**);
-int    erl_encode(ETERM*,unsigned char*t);
-int    erl_encode_buf(ETERM*,unsigned char**);
-int    erl_ext_size(unsigned char*);
-unsigned char erl_ext_type(unsigned char*); /* Note: returned 'char' before R9C */
-unsigned char *erl_peek_ext(unsigned char*,int);
-int    erl_term_len(ETERM*);
+int    erl_compare_ext(unsigned char*, unsigned char*) EI_DEPRECATED_ATTR;
+ETERM *erl_decode(unsigned char*) EI_DEPRECATED_ATTR;
+ETERM *erl_decode_buf(unsigned char**) EI_DEPRECATED_ATTR;
+int    erl_encode(ETERM*,unsigned char*t) EI_DEPRECATED_ATTR;
+int    erl_encode_buf(ETERM*,unsigned char**) EI_DEPRECATED_ATTR;
+int    erl_ext_size(unsigned char*) EI_DEPRECATED_ATTR;
+unsigned char erl_ext_type(unsigned char*) EI_DEPRECATED_ATTR; /* Note: returned 'char' before R9C */
+unsigned char *erl_peek_ext(unsigned char*,int) EI_DEPRECATED_ATTR;
+int    erl_term_len(ETERM*) EI_DEPRECATED_ATTR;
 
-int cmp_latin1_vs_utf8(const char* sL, int lenL, const char* sU, int lenU);
+int cmp_latin1_vs_utf8(const char* sL, int lenL, const char* sU, int lenU) EI_DEPRECATED_ATTR;
 
 /* -------------------------------------------------------------------- */
 /*                      Wrappers around ei functions                    */
@@ -437,29 +442,29 @@ int cmp_latin1_vs_utf8(const char* sL, int lenL, const char* sU, int lenU);
  * Undocumented before R9C, included for compatibility with old code
  */
 
-struct hostent *erl_gethostbyname(const char *name);
-struct hostent *erl_gethostbyaddr(const char *addr, int len, int type);
+struct hostent *erl_gethostbyname(const char *name) EI_DEPRECATED_ATTR;
+struct hostent *erl_gethostbyaddr(const char *addr, int len, int type) EI_DEPRECATED_ATTR;
 struct hostent *erl_gethostbyname_r(const char *name, 
 				    struct hostent *hostp, 
 				    char *buffer, 
 				    int buflen, 
-				    int *h_errnop);
+				    int *h_errnop) EI_DEPRECATED_ATTR;
 struct hostent *erl_gethostbyaddr_r(const char *addr,
 				    int length, 
 				    int type, 
 				    struct hostent *hostp,
 				    char *buffer,  
 				    int buflen, 
-				    int *h_errnop);
+				    int *h_errnop) EI_DEPRECATED_ATTR;
 
 /* 
  * Undocumented, included for compatibility with old code
  */
 
-void erl_init_resolve(void);
-int erl_distversion(int fd);
-int erl_epmd_connect(struct in_addr *inaddr);
-int erl_epmd_port(struct in_addr *inaddr, const char *alive, int *dist);
+void erl_init_resolve(void) EI_DEPRECATED_ATTR;
+int erl_distversion(int fd) EI_DEPRECATED_ATTR;
+int erl_epmd_connect(struct in_addr *inaddr) EI_DEPRECATED_ATTR;
+int erl_epmd_port(struct in_addr *inaddr, const char *alive, int *dist) EI_DEPRECATED_ATTR;
 
 #ifdef __cplusplus
 }

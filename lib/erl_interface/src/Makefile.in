@@ -116,7 +116,7 @@ else
 AR_FLAGS=rcv
 endif
 
-INCFLAGS = -I. -I../include -Iconnect -Iencode -Idecode -Imisc -Iepmd \
+INCFLAGS = -I. -I../include -I../include/$(TARGET) -Iconnect -Iencode -Idecode -Imisc -Iepmd \
 	-Iregistry -I$(TARGET) 
 
 ifeq ($(USING_VC),yes)
@@ -124,6 +124,8 @@ WARNFLAGS = -Wall
 else
 WARNFLAGS = @WFLAGS@
 endif
+
+WARNFLAGS += -DEI_NO_DEPR_WARN
 
 CFLAGS = @LIB_CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS)
 PROG_CFLAGS = @CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) -Ilegacy
@@ -318,7 +320,8 @@ HEADERS = \
 	../include/ei.h \
 	../include/ei_connect.h \
 	../include/eicode.h \
-	../include/erl_interface.h
+	../include/erl_interface.h \
+	../include/$(TARGET)/ei_config.h
 
 EISOURCES = \
 	$(CONNECTSRC) \

@@ -39,6 +39,7 @@ INFO_FILES = ../../../README.md ../../COPYRIGHT PR.template
 
 TOPDOCDIR=.
 
+include ../general_info/xmlfiles.mk
 include ../installation_guide/xmlfiles.mk
 include ../system_principles/xmlfiles.mk
 include ../embedded/xmlfiles.mk
@@ -56,6 +57,7 @@ XML_FILES = \
 	$(BOOK_FILES)
 
 XML_GUIDE_FILES = \
+	$(GENERAL_INFO_CHAPTER_FILES:%=general_info/%) \
 	$(INST_GUIDE_CHAPTER_FILES:%=installation_guide/%) \
 	$(INST_GUIDE_CHAPTER_GEN_FILES:%=installation_guide/%) \
 	$(SYSTEM_PRINCIPLES_CHAPTER_FILES:%=system_principles/%) \
@@ -79,6 +81,7 @@ XML_GUIDE_FILES = \
 
 XML_GEN_FILES = \
 	$(XML_GUIDE_FILES:%=$(XMLDIR)/%) \
+	$(XMLDIR)/general_info/part.xml \
 	$(XMLDIR)/installation_guide/part.xml \
 	$(XMLDIR)/system_principles/part.xml \
 	$(XMLDIR)/embedded/part.xml \
@@ -91,7 +94,7 @@ XML_GEN_FILES = \
 	$(XMLDIR)/oam/part.xml
 
 
-XMLLINT_SRCDIRS= $(XMLDIR)/installation_guide:$(XMLDIR)/system_principles:$(XMLDIR)/embedded:$(XMLDIR)/getting_started:$(XMLDIR)/reference_manual:$(XMLDIR)/programming_examples:$(XMLDIR)/efficiency_guide:$(XMLDIR)/tutorial:$(XMLDIR)/design_principles:$(XMLDIR)/oam
+XMLLINT_SRCDIRS= $(XMLDIR)/general_info:$(XMLDIR)/installation_guide:$(XMLDIR)/system_principles:$(XMLDIR)/embedded:$(XMLDIR)/getting_started:$(XMLDIR)/reference_manual:$(XMLDIR)/programming_examples:$(XMLDIR)/efficiency_guide:$(XMLDIR)/tutorial:$(XMLDIR)/design_principles:$(XMLDIR)/oam
 HTMLDIR= ../html
 PDFREFDIR= pdf
 

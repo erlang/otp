@@ -4,7 +4,7 @@
 <book xmlns:xi="http://www.w3.org/2001/XInclude">
   <header titlestyle="normal">
     <copyright>
-      <year>1997</year><year>2018</year>
+      <year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,31 +22,21 @@
     
     </legalnotice>
 
-    <title>Erlang/OTP System Documentation</title>
+    <title>General Information</title>
     <prepared>OTP Team</prepared>
     <docno></docno>
-    <date>2009-08-21</date>
-    <rev>A</rev>
+    <date>2019-02-23</date>
+    <rev></rev>
     <file>book.xml</file>
   </header>
   <insidecover>
   </insidecover>
-  <pagetext></pagetext>
+  <pagetext>General Information</pagetext>
   <preamble>
     <contents level="2"></contents>
   </preamble>
   <parts lift="no">
-    <xi:include href="../xml/general_info/part.xml"/>
-    <xi:include href="../xml/installation_guide/part.xml"/>
-    <xi:include href="../xml/system_principles/part.xml"/>
-    <xi:include href="../xml/embedded/part.xml"/>
-    <xi:include href="../xml/getting_started/part.xml"/>
-    <xi:include href="../xml/reference_manual/part.xml"/>
-    <xi:include href="../xml/programming_examples/part.xml"/>
-    <xi:include href="../xml/efficiency_guide/part.xml"/>
-    <xi:include href="../xml/tutorial/part.xml"/>
-    <xi:include href="../xml/design_principles/part.xml"/>
-    <xi:include href="../xml/oam/part.xml"/>
+    <xi:include href="part.xml"/>
   </parts>
   <listofterms></listofterms>
   <index></index>

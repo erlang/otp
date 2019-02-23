@@ -197,24 +197,28 @@ system_include(Root, Vars) ->
     " -I" ++ quote(filename:nativename(filename:join([Root, "erts", "emulator", SysDir]))).
 
 erl_interface(Vars,OsType) ->
-    {Incl, {LibPath, MkIncl}} =
+    {Incl, TargetIncl, {LibPath, MkIncl}} =
 	case lib_dir(Vars, erl_interface) of
 	    {error, bad_name} ->
 		throw({cannot_find_app, erl_interface});
 	    Dir ->
-		{filename:join(Dir, "include"),
-		 case erl_root(Vars) of
-		     {installed, _Root} ->
-			 {filename:join(Dir, "lib"),
-			  filename:join([Dir, "src", "eidefs.mk"])};
-		     {srctree, _Root, Target} ->
-                         Obj = case is_debug_build() of
-                                   true -> "obj.debug";
-                                   false -> "obj"
-                               end,
-			 {filename:join([Dir, Obj, Target]),
-			  filename:join([Dir, "src", Target, "eidefs.mk"])}
-		 end}
+                BaseIncl = filename:join(Dir, "include"),
+                case erl_root(Vars) of
+                    {installed, _Root} ->
+                        {BaseIncl,
+                         [],
+                         {filename:join(Dir, "lib"),
+                          filename:join([Dir, "src", "eidefs.mk"])}};
+                    {srctree, _Root, Target} ->
+                        Obj = case is_debug_build() of
+                                  true -> "obj.debug";
+                                  false -> "obj"
+                              end,
+                        {BaseIncl,
+                         filename:join(BaseIncl, Target),
+                         {filename:join([Dir, Obj, Target]),
+                          filename:join([Dir, "src", Target, "eidefs.mk"])}}
+                end
 	end,
     Lib = link_library("erl_interface",OsType),
     Lib1 = link_library("ei",OsType),
@@ -260,6 +264,10 @@ erl_interface(Vars,OsType) ->
      {erl_interface_eilib_drv, quote(filename:join(LibPath, Lib1Drv))},
      {erl_interface_threadlib, ThreadLib},
      {erl_interface_include, quote(filename:nativename(Incl))},
+     {erl_interface_target_include, case TargetIncl of
+                                        [] -> [];
+                                        _ -> "-I" ++ quote(filename:nativename(TargetIncl))
+                                    end},
      {erl_interface_mk_include, quote(filename:nativename(MkIncl))}
      | Vars].
 

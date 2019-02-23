@@ -93,6 +93,7 @@ erts_lib_src=${ERL_TOP}/erts/lib_src
 erts_incl=${ERL_TOP}/erts/include
 erts_incl_intrnl=${ERL_TOP}/erts/include/internal
 etcdir=${ERL_TOP}/erts/etc/common
+erlint_incl_dir=${ERL_TOP}/lib/erl_interface/include
 erlint_dir=${ERL_TOP}/lib/erl_interface/src
 epmd_dir=${ERL_TOP}/erts/epmd/src
 os_mon_dir=${ERL_TOP}/lib/os_mon/c_src
@@ -109,6 +110,7 @@ CONFIG_FILES="${ERL_TOP}/erts/emulator/$host/Makefile
 	    $erts_incl_intrnl/$host/ethread.mk
 	    $erts_incl_intrnl/$host/ethread_header_config.h
 	    $etcdir/$host/Makefile
+	    $erlint_incl_dir/$host/ei_config.h
 	    $erlint_dir/$host/Makefile
 	    $erlint_dir/$host/eidefs.mk
 	    $epmd_dir/$host/Makefile

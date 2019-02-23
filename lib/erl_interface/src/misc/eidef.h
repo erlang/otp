@@ -25,6 +25,7 @@
 
 /* Common definitions used in ei user interface */
 
+#define EI_INCLUDED_CONFIG_H__
 #include "config.h"		/* Central include of config.h */
 
 /* vxWorks.h needs to be before stddef.h */

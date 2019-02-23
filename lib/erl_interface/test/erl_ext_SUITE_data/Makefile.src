@@ -28,7 +28,7 @@ LIBEI = @erl_interface_eilib@
 LIBFLAGS = ../all_SUITE_data/runner@obj@ \
 	$(LIBERL) $(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
 	@erl_interface_threadlib@
-CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../all_SUITE_data
+CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ @erl_interface_target_include@ -I../all_SUITE_data
 EXT_OBJS = ext_test@obj@ ext_test_decl@obj@
 
 all: ext_test@exe@

@@ -41,6 +41,8 @@ limitations under the License.
 <ul class="section-links">
  <li><a href="applications.html">Applications</a></li>
  <li><a href="man_index.html" class="modules">Modules</a></li>
+ <li><a href="general_info/deprecations.html" class="modules">Deprecations</a></li>
+ <li><a href="general_info/scheduled_for_removal.html" class="modules">Scheduled for Removal</a></li>
 </ul>
 
 <ul class="expand-collapse-items">
