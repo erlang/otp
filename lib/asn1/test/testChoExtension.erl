@@ -28,6 +28,7 @@
 extension(_Rules) ->
     roundtrip('ChoExt1', {bool,true}),
     roundtrip('ChoExt1', {int,33}),
+    {int, 1} = 'ChoExtension':choExt1(),
 
     %% A trick to encode with another compatible CHOICE type to test reception
     %% extension alternative
