@@ -122,8 +122,8 @@ typedef struct {
     RBTree_t *next;
 } RBTreeList_t;
 
-#define LIST_NEXT(N) (((RBTreeList_t *) (N))->next)
-#define LIST_PREV(N) (((RBTreeList_t *) (N))->t.parent)
+#define BF_LIST_NEXT(N) (((RBTreeList_t *) (N))->next)
+#define BF_LIST_PREV(N) (((RBTreeList_t *) (N))->t.parent)
 
 
 #ifdef DEBUG
@@ -595,7 +595,6 @@ aobf_link_free_block(Allctr_t *allctr, Block_t *block)
     RBTree_t *blk = (RBTree_t *) block;
     Uint blk_sz = BF_BLK_SZ(blk);
 
-    
 
     blk->flags	= 0;
     blk->left	= NULL;
@@ -675,7 +674,7 @@ aobf_get_free_block(Allctr_t *allctr, Uint size,
 	    x = x->left;
 	}
     }
-    
+
     if (!blk)
 	return NULL;
 
@@ -731,11 +730,11 @@ bf_link_free_block(Allctr_t *allctr, Block_t *block)
 	    if (blk_sz == size) {
 
 		SET_LIST_ELEM(blk);
-		LIST_NEXT(blk) = LIST_NEXT(x);
-		LIST_PREV(blk) = x;
-		if (LIST_NEXT(x))
-		    LIST_PREV(LIST_NEXT(x)) = blk;
-		LIST_NEXT(x) = blk;
+		BF_LIST_NEXT(blk) = BF_LIST_NEXT(x);
+		BF_LIST_PREV(blk) = x;
+		if (BF_LIST_NEXT(x))
+		    BF_LIST_PREV(BF_LIST_NEXT(x)) = blk;
+		BF_LIST_NEXT(x) = blk;
 
 		return; /* Finnished */
 	    }
@@ -766,7 +765,7 @@ bf_link_free_block(Allctr_t *allctr, Block_t *block)
     }
 
     SET_TREE_NODE(blk);
-    LIST_NEXT(blk) = NULL;
+    BF_LIST_NEXT(blk) = NULL;
 
 #ifdef HARD_DEBUG
     check_tree(root, 0, 0);
@@ -782,22 +781,22 @@ bf_unlink_free_block(Allctr_t *allctr, Block_t *block)
 
     if (IS_LIST_ELEM(x)) {
 	/* Remove from list */
-	ASSERT(LIST_PREV(x));
-	LIST_NEXT(LIST_PREV(x)) = LIST_NEXT(x);
-	if (LIST_NEXT(x))
-	    LIST_PREV(LIST_NEXT(x)) = LIST_PREV(x);
+	ASSERT(BF_LIST_PREV(x));
+	BF_LIST_NEXT(BF_LIST_PREV(x)) = BF_LIST_NEXT(x);
+	if (BF_LIST_NEXT(x))
+	    BF_LIST_PREV(BF_LIST_NEXT(x)) = BF_LIST_PREV(x);
     }
-    else if (LIST_NEXT(x)) {
+    else if (BF_LIST_NEXT(x)) {
 	/* Replace tree node by next element in list... */
 
-	ASSERT(BF_BLK_SZ(LIST_NEXT(x)) == BF_BLK_SZ(x));
+	ASSERT(BF_BLK_SZ(BF_LIST_NEXT(x)) == BF_BLK_SZ(x));
 	ASSERT(IS_TREE_NODE(x));
-	ASSERT(IS_LIST_ELEM(LIST_NEXT(x)));
+	ASSERT(IS_LIST_ELEM(BF_LIST_NEXT(x)));
 
 #ifdef HARD_DEBUG
 	check_tree(root, 0, 0);
 #endif
-	replace(root, x, LIST_NEXT(x));
+	replace(root, x, BF_LIST_NEXT(x));
 
 #ifdef HARD_DEBUG
 	check_tree(bfallctr, 0);
@@ -836,7 +835,7 @@ bf_get_free_block(Allctr_t *allctr, Uint size,
 	    x = x->left;
 	}
     }
-    
+
     if (!blk)
 	return NULL;
 
@@ -855,7 +854,7 @@ bf_get_free_block(Allctr_t *allctr, Uint size,
 
     /* Use next block if it exist in order to avoid replacing
        the tree node */
-    blk = LIST_NEXT(blk) ? LIST_NEXT(blk) : blk;
+    blk = BF_LIST_NEXT(blk) ? BF_LIST_NEXT(blk) : blk;
 
     bf_unlink_free_block(allctr, (Block_t *) blk);
     return (Block_t *) blk;
@@ -940,7 +939,7 @@ info_options(Allctr_t *allctr,
     }
 
     if (hpp || szp) {
-	
+
 	if (!atoms_initialized)
 	    erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error: Atoms not initialized",
 		     __FILE__, __LINE__);;
@@ -971,12 +970,12 @@ erts_bfalc_test(UWord op, UWord a1, UWord a2)
     case 0x202:	return (UWord) ((RBTree_t *) a1)->parent;
     case 0x203:	return (UWord) ((RBTree_t *) a1)->left;
     case 0x204:	return (UWord) ((RBTree_t *) a1)->right;
-    case 0x205:	return (UWord) LIST_NEXT(a1);
+    case 0x205:	return (UWord) BF_LIST_NEXT(a1);
     case 0x206:	return (UWord) IS_BLACK((RBTree_t *) a1);
     case 0x207:	return (UWord) IS_TREE_NODE((RBTree_t *) a1);
     case 0x208:	return (UWord) 1; /* IS_BF_ALGO */
     case 0x20a: return (UWord) !((BFAllctr_t *) a1)->address_order; /* IS_BF */
-    case 0x20b:	return (UWord) LIST_PREV(a1);
+    case 0x20b:	return (UWord) BF_LIST_PREV(a1);
     default:	ASSERT(0); return ~((UWord) 0);
     }
 }
