@@ -2754,8 +2754,9 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		TempNewDef#newt{type={'SEQUENCE OF',check_sequenceof(S,Type,Components)},
 				tag=
 				merge_tags(Tag,?TAG_CONSTRUCTED(?N_SEQUENCE))};
-	    {'CHOICE',Components} ->
+	    {'CHOICE',_} = Choice->
 		Ct = maybe_illicit_implicit_tag(S, choice, Tag),
+                Components = get_choice_components(S, Choice),
 		TempNewDef#newt{type={'CHOICE',check_choice(S,Type,Components)},tag=Ct};
 	    Set when is_record(Set,'SET') ->
 		RecordName=
