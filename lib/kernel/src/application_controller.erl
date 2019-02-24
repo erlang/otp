@@ -528,19 +528,17 @@ check_conf_data([]) ->
 check_conf_data(ConfData) when is_list(ConfData) ->
     [Application | ConfDataRem] = ConfData,
     case Application of
-	{kernel, List} when is_list(List) ->
-	    case check_para_kernel(List) of
-		ok ->
-		    check_conf_data(ConfDataRem);
-		Error1 ->
-		    Error1
-	    end;
 	{AppName, List} when is_atom(AppName), is_list(List) ->
-	    case check_para(List, atom_to_list(AppName)) of
-		ok ->
-		    check_conf_data(ConfDataRem);
-		Error2 ->
-		    Error2
+	    case lists:keymember(AppName, 1, ConfDataRem) of
+		true ->
+		    ?LOG_WARNING("duplicate application config: ~ts~n", [AppName]);
+		false ->
+		    ok
+	    end,
+
+	    case check_para(List, AppName) of
+		ok -> check_conf_data(ConfDataRem);
+		Error -> Error
 	    end;
 	{AppName, List} when is_list(List)  ->
 	    ErrMsg = "application: "
@@ -558,31 +556,34 @@ check_conf_data(ConfData) when is_list(ConfData) ->
 	    {error, ErrMsg}
     end;
 check_conf_data(_ConfData) ->
-    {error, 'configuration must be a list ended by <dot><whitespace>'}.
-    
+    {error, "configuration must be a list ended by <dot><whitespace>"}.
+
+
+check_para([], _AppName) ->
+    ok;
+check_para([{Para, Val} | ParaList], AppName) when is_atom(Para) ->
+    case lists:keymember(Para, 1, ParaList) of
+	true ->
+	    ?LOG_WARNING("application: ~ts; duplicate parameter: ~ts~n", [AppName, Para]);
+	false ->
+	    ok
+    end,
+
+    case check_para_value(Para, Val, AppName) of
+	ok -> check_para(ParaList, AppName);
+	{error, _} = Error -> Error
+    end;
+check_para([{Para, _Val} | _ParaList], AppName) ->
+    {error, "application: " ++ atom_to_list(AppName) ++ "; invalid parameter: " ++
+     lists:flatten(io_lib:format("~tp",[Para]))};
+check_para([Else | _ParaList], AppName) ->
+    {error, "application: " ++ atom_to_list(AppName) ++ "; invalid parameter: " ++
+     lists:flatten(io_lib:format("~tp",[Else]))}.
+
+check_para_value(distributed, Apps, kernel) -> check_distributed(Apps);
+check_para_value(_Para, _Val, _AppName) -> ok.
 
 %% Special check of distributed parameter for kernel
-check_para_kernel([]) ->
-    ok;
-check_para_kernel([{distributed, Apps} | ParaList]) when is_list(Apps) ->
-    case check_distributed(Apps) of
-	{error, _ErrorMsg} = Error ->
-	    Error;
-	_ ->
-	    check_para_kernel(ParaList)
-    end;
-check_para_kernel([{distributed, _Apps} | _ParaList]) ->
-    {error, "application: kernel; erroneous parameter: distributed"};
-check_para_kernel([{Para, _Val} | ParaList]) when is_atom(Para) ->
-    check_para_kernel(ParaList);
-check_para_kernel([{Para, _Val} | _ParaList]) ->
-    {error, "application: kernel; invalid parameter: " ++ 
-     lists:flatten(io_lib:format("~tp",[Para]))};
-check_para_kernel(Else) ->
-    {error, "application: kernel; invalid parameter list: " ++ 
-     lists:flatten(io_lib:format("~tp",[Else]))}.
-    
-
 check_distributed([]) ->
     ok;
 check_distributed([{App, List} | Apps]) when is_atom(App), is_list(List) ->
@@ -593,18 +594,6 @@ check_distributed([{App, Time, List} | Apps]) when is_atom(App), is_integer(Time
     check_distributed(Apps);
 check_distributed(_Else) ->
     {error, "application: kernel; erroneous parameter: distributed"}.
-
-
-check_para([], _AppName) ->
-    ok;
-check_para([{Para, _Val} | ParaList], AppName) when is_atom(Para) ->
-    check_para(ParaList, AppName);
-check_para([{Para, _Val} | _ParaList], AppName) ->
-    {error, "application: " ++ AppName ++ "; invalid parameter: " ++ 
-     lists:flatten(io_lib:format("~tp",[Para]))};
-check_para([Else | _ParaList], AppName) ->
-    {error, "application: " ++ AppName ++ "; invalid parameter: " ++ 
-     lists:flatten(io_lib:format("~tp",[Else]))}.
 
 
 -type calls() :: 'info' | 'prep_config_change' | 'which_applications'
