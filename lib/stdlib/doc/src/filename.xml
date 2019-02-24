@@ -546,7 +546,7 @@ true
         <p><em>Examples:</em></p>
         <pre>
 20> <input>filename:rootname("/beam.src/kalle").</input>
-/beam.src/kalle"
+"/beam.src/kalle"
 21> <input>filename:rootname("/beam.src/foo.erl").</input>
 "/beam.src/foo"
 22> <input>filename:rootname("/beam.src/foo.erl", ".erl").</input>
