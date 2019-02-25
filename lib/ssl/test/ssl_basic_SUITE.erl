@@ -277,7 +277,9 @@ tls13_test_group() ->
      tls_record_1_3_encode_decode,
      tls13_finished_verify_data,
      tls13_1_RTT_handshake,
-     tls13_basic_ssl_s_client].
+     tls13_basic_ssl_server_openssl_client,
+     tls13_custom_groups_ssl_server_openssl_client,
+     tls13_hello_retry_request_ssl_server_openssl_client].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
@@ -5341,10 +5343,10 @@ tls13_finished_verify_data(_Config) ->
     FinishedKey = tls_v1:finished_key(BaseKey, sha256),
     VerifyData = tls_v1:finished_verify_data(FinishedKey, sha256, Messages).
 
-tls13_basic_ssl_s_client() ->
+tls13_basic_ssl_server_openssl_client() ->
      [{doc,"Test TLS 1.3 basic connection between ssl server and openssl s_client"}].
 
-tls13_basic_ssl_s_client(Config) ->
+tls13_basic_ssl_server_openssl_client(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     %% Set versions
@@ -5357,6 +5359,55 @@ tls13_basic_ssl_s_client(Config) ->
 					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
+    Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+tls13_custom_groups_ssl_server_openssl_client() ->
+    [{doc,"Test that ssl server can select a common group for key-exchange"}].
+
+tls13_custom_groups_ssl_server_openssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {supported_groups, [x448, secp256r1, secp384r1]}|ServerOpts0],
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    ClientOpts = [{groups,"P-384:P-256:X25519"}|ClientOpts0],
+    Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+tls13_hello_retry_request_ssl_server_openssl_client() ->
+    [{doc,"Test that ssl server can request a new group when the client's first key share"
+      "is not supported"}].
+
+tls13_hello_retry_request_ssl_server_openssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {supported_groups, [x448, x25519]}|ServerOpts0],
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    ClientOpts = [{groups,"P-256:X25519"}|ClientOpts0],
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
     ssl_test_lib:check_result(Server, ok),
