@@ -204,4 +204,4 @@ fold(F, Init, D) ->
       Set2 :: set(Element).
 
 filter(F, D) ->
-    maps:from_list(lists:filter(fun({K,_}) -> F(K) end, maps:to_list(D))).
+    maps:filter(fun(K,_) -> F(K) end, D).
