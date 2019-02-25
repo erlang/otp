@@ -137,6 +137,7 @@
   </section>
 
   <section>
+    <marker id="distribution_header"/>
     <title>Distribution Header</title>
     <p>
       The distribution header only contains an atom cache
