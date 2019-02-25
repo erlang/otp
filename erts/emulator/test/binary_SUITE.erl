@@ -40,6 +40,7 @@
 %%
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
@@ -50,6 +51,14 @@
 	 terms/1, terms_float/1, float_middle_endian/1,
          b2t_used_big/1,
 	 external_size/1, t_iolist_size/1,
+         t_iolist_size_huge_list/1,
+         t_iolist_size_huge_bad_arg_list/1,
+         t_iolist_size_shallow_trapping/1,
+         t_iolist_size_shallow_short_lists/1,
+         t_iolist_size_shallow_tiny_lists/1,
+         t_iolist_size_deep_trapping/1,
+         t_iolist_size_deep_short_lists/1,
+         t_iolist_size_deep_tiny_lists/1,
 	 t_hash/1,
 	 bad_size/1,
 	 bad_term_to_binary/1,
@@ -75,6 +84,9 @@ all() ->
      t_split_binary, bad_split,
      bad_list_to_binary, bad_binary_to_list, terms,
      terms_float, float_middle_endian, external_size, t_iolist_size,
+     t_iolist_size_huge_list,
+     t_iolist_size_huge_bad_arg_list,
+     {group, iolist_size_benchmarks},
      b2t_used_big,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
@@ -86,13 +98,36 @@ all() ->
      error_after_yield, cmp_old_impl].
 
 groups() -> 
-    [].
+    [
+     {
+      iolist_size_benchmarks, 
+      [],
+      [t_iolist_size_shallow_trapping,
+       t_iolist_size_shallow_short_lists,
+       t_iolist_size_shallow_tiny_lists,
+       t_iolist_size_deep_trapping,
+       t_iolist_size_deep_short_lists,
+       t_iolist_size_deep_tiny_lists
+      ]
+     }
+    ].
 
 init_per_suite(Config) ->
+    A0 = case application:start(sasl) of
+	     ok -> [sasl];
+	     _ -> []
+	 end,
+    A = case application:start(os_mon) of
+	     ok -> [os_mon|A0];
+	     _ -> A0
+	 end,
+    [{started_apps, A}|Config].
+
+end_per_suite(Config) ->
+    As = proplists:get_value(started_apps, Config),
+    lists:foreach(fun (A) -> application:stop(A) end, As),
     Config.
 
-end_per_suite(_Config) ->
-    ok.
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -615,6 +650,143 @@ build_iolist(N0, Base) ->
 	    [47,L,L|Seq]
     end.
 
+approx_4GB_bin() ->
+    Bin = lists:duplicate(4194304, 255),
+    BinRet = erlang:iolist_to_binary(lists:duplicate(1124, Bin)),
+    BinRet.
+
+duplicate_iolist(IOList, 0) ->
+    IOList;
+duplicate_iolist(IOList, NrOfTimes) ->
+    duplicate_iolist([IOList, IOList], NrOfTimes - 1).
+
+t_iolist_size_huge_list(Config)  when is_list(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              {TimeToCreateIOList, IOList} = timer:tc(fun()->duplicate_iolist(approx_4GB_bin(), 32) end),
+              {IOListSizeTime, CalculatedSize} = timer:tc(fun()->erlang:iolist_size(IOList) end),
+              20248183924657750016 = CalculatedSize,
+              {comment, io_lib:format("Time to create iolist: ~f s. Time to calculate size: ~f s.", 
+                                      [TimeToCreateIOList / 1000000, IOListSizeTime / 1000000])}
+      end).
+
+t_iolist_size_huge_bad_arg_list(Config)  when is_list(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              P = self(),
+              spawn_link(fun()-> IOListTmp = duplicate_iolist(approx_4GB_bin(), 32),
+                                 IOList = [IOListTmp, [badarg]],
+                                 {'EXIT',{badarg,_}} = (catch erlang:iolist_size(IOList)),
+                                 P ! ok
+                         end),
+              receive ok -> ok end
+         end).
+
+%% iolist_size tests for shallow lists
+
+t_iolist_size_shallow_trapping(Config) when is_list(Config) ->
+    Lengths = [2000, 20000, 200000, 200000, 2000000, 20000000],
+    run_iolist_size_test_and_benchmark(Lengths, fun make_shallow_iolist/2).
+
+t_iolist_size_shallow_short_lists(Config) when is_list(Config) ->
+    Lengths = lists:duplicate(15000, 300),
+    run_iolist_size_test_and_benchmark(Lengths, fun make_shallow_iolist/2).
+
+t_iolist_size_shallow_tiny_lists(Config) when is_list(Config) ->
+    Lengths = lists:duplicate(250000, 18),
+    run_iolist_size_test_and_benchmark(Lengths, fun make_shallow_iolist/2).
+
+make_shallow_iolist(SizeDiv2, LastItem) ->
+    lists:map(
+      fun(I) -> 
+              case I of
+                  SizeDiv2 -> [1, LastItem];
+                  _ -> [1, 1]
+              end
+      end,
+      lists:seq(1, SizeDiv2)).
+
+%% iolist_size tests for deep lists
+
+t_iolist_size_deep_trapping(Config) when is_list(Config) ->
+    Lengths = [2000, 20000, 200000, 200000, 2000000, 10000000],
+    run_iolist_size_test_and_benchmark(Lengths, fun make_deep_iolist/2).
+
+t_iolist_size_deep_short_lists(Config) when is_list(Config) ->
+    Lengths = lists:duplicate(10000, 300),
+    run_iolist_size_test_and_benchmark(Lengths, fun make_deep_iolist/2).
+
+t_iolist_size_deep_tiny_lists(Config) when is_list(Config) ->
+    Lengths = lists:duplicate(150000, 18),
+    run_iolist_size_test_and_benchmark(Lengths, fun make_deep_iolist/2).
+
+make_deep_iolist(1, LastItem) ->
+    [1, LastItem];
+make_deep_iolist(Depth, LastItem) ->
+    [[1, 1], make_deep_iolist(Depth - 1, LastItem)].
+
+% Helper functions for iolist_size tests
+
+run_iolist_size_test_and_benchmark(Lengths, ListGenerator) ->
+    run_when_enough_resources(
+      fun() ->
+              GoodListsWithSizes =
+                  lists:map(fun(Length) -> {Length*2, ListGenerator(Length, 1)} end, Lengths),
+              BadListsWithSizes =
+                  lists:map(fun(Length) -> {Length*2, ListGenerator(Length, bad)} end, Lengths),
+              erlang:garbage_collect(),
+              report_throughput(
+                fun() ->
+                        lists:foreach(
+                          fun(_)->
+                                  lists:foreach(
+                                    fun({Size, List}) -> Size = iolist_size(List) end,
+                                    GoodListsWithSizes),
+                                  lists:foreach(
+                                    fun({_, List}) -> {'EXIT',_} = (catch (iolist_size(List))) end,
+                                    BadListsWithSizes)
+                          end,
+                          lists:seq(1,3))
+                end,
+                lists:sum(Lengths)*4)
+      end).
+
+report_throughput(Fun, NrOfItems) ->
+    Parent = self(),
+    spawn(fun() -> Parent ! timer:tc(Fun) end),
+    {Time, _} = receive D -> D end,
+    ItemsPerMicrosecond = NrOfItems / Time,
+    ct_event:notify(#event{ name = benchmark_data, data = [{value, ItemsPerMicrosecond}]}),
+    {comment, io_lib:format("Items per microsecond: ~p, Nr of items: ~p, Benchmark time: ~p seconds)",
+                            [ItemsPerMicrosecond, NrOfItems, Time/1000000])}.
+
+total_memory() ->
+    %% Total memory in GB.
+    try
+	MemoryData = memsup:get_system_memory_data(),
+	case lists:keysearch(total_memory, 1, MemoryData) of
+	    {value, {total_memory, TM}} ->
+		TM div (1024*1024*1024);
+	    false ->
+		{value, {system_total_memory, STM}} =
+		    lists:keysearch(system_total_memory, 1, MemoryData),
+		STM div (1024*1024*1024)
+	end
+    catch
+	_ : _ ->
+	    undefined
+    end.
+
+run_when_enough_resources(Fun) ->
+    case {total_memory(), erlang:system_info(wordsize)} of
+        {Mem, 8} when is_integer(Mem) andalso Mem >= 15 ->
+            Fun();
+        {Mem, WordSize} ->
+            {skipped, 
+             io_lib:format("Not enough resources (System Memory >= ~p, Word Size = ~p)",
+                           [Mem, WordSize])}
+    end.
+    
 
 %% OTP-4053
 bad_binary_to_term_2(Config) when is_list(Config) ->

@@ -57,7 +57,6 @@ dirty-cpu erts_debug:lcnt_clear/0
 #  and debug purposes only. We really do *not* want to execute these
 #  on dirty schedulers on a real system.
 
-dirty-cpu-test erlang:iolist_size/1
 dirty-cpu-test erlang:make_tuple/2
 dirty-cpu-test erlang:make_tuple/3
 dirty-cpu-test erlang:append_element/2

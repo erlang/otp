@@ -347,16 +347,17 @@ type	COUNTERS	STANDARD	SYSTEM		erl_bif_counters
 # Types used by system specific code
 #
 
-type  	TEMP_TERM 	TEMPORARY	SYSTEM		temp_term
-type	DRV_TAB		LONG_LIVED	SYSTEM		drv_tab
-type	DRV_EV_STATE	LONG_LIVED	SYSTEM		driver_event_state
-type	DRV_SEL_D_STATE	FIXED_SIZE	SYSTEM		driver_select_data_state
-type	NIF_SEL_D_STATE	FIXED_SIZE	SYSTEM		enif_select_data_state
-type	POLLSET		LONG_LIVED	SYSTEM		pollset
-type	POLLSET_UPDREQ	SHORT_LIVED	SYSTEM		pollset_update_req
-type	POLL_FDS	LONG_LIVED	SYSTEM		poll_fds
-type	FD_STATUS	LONG_LIVED	SYSTEM		fd_status
-type	SELECT_FDS	LONG_LIVED	SYSTEM		select_fds
+type  	TEMP_TERM       	TEMPORARY	SYSTEM		temp_term
+type  	SHORT_LIVED_TERM 	SHORT_LIVED	SYSTEM		short_lived_term
+type	DRV_TAB		        LONG_LIVED	SYSTEM		drv_tab
+type	DRV_EV_STATE	        LONG_LIVED	SYSTEM		driver_event_state
+type	DRV_SEL_D_STATE	        FIXED_SIZE	SYSTEM		driver_select_data_state
+type	NIF_SEL_D_STATE	        FIXED_SIZE	SYSTEM		enif_select_data_state
+type	POLLSET		        LONG_LIVED	SYSTEM		pollset
+type	POLLSET_UPDREQ	        SHORT_LIVED	SYSTEM		pollset_update_req
+type	POLL_FDS	        LONG_LIVED	SYSTEM		poll_fds
+type	FD_STATUS	        LONG_LIVED	SYSTEM		fd_status
+type	SELECT_FDS	        LONG_LIVED	SYSTEM		select_fds
 
 +if unix
 
