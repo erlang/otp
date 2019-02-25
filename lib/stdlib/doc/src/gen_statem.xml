@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2016</year><year>2018</year>
+      <year>2016</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -514,36 +514,6 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
-      <name name="debug_opt"/>
-      <desc>
-	<p>
-	  Debug option that can be used when starting
-	  a <c>gen_statem</c> server through,
-	  <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>.
-	</p>
-	<p>
-	  For every entry in <c><anno>Dbgs</anno></c>,
-	  the corresponding function in
-	  <seealso marker="sys"><c>sys</c></seealso> is called.
-	</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="hibernate_after_opt"/>
-      <desc>
-	<p>
-          hibernate_after option that can be used when starting
-	  a <c>gen_statem</c> server through,
-	  <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>.
-	</p>
-    <p>If option<seealso marker="#type-hibernate_after_opt"><c>{hibernate_after,HibernateAfterTimeout}</c></seealso> is present, the <c>gen_statem</c>
-        process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
-        if no message is received, the process goes into hibernation automatically
-        (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).
-    </p>
-      </desc>
-    </datatype>
-    <datatype>
       <name name="start_opt"/>
       <desc>
 	<p>
@@ -560,6 +530,37 @@ handle_event(_, _, State, Data) ->
 	  Return value from the start functions, for example,
 	  <seealso marker="#start_link/3"><c>start_link/3</c></seealso>.
 	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="enter_loop_opt"/>
+      <desc>
+	<p>
+	  Options that can be used when starting
+	  a <c>gen_statem</c> server through,
+	  <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>.
+	</p>
+	<taglist>
+	  <tag><c>hibernate_after</c></tag>
+	  <item>
+	    <p>
+	      <c>HibernateAfterTimeout</c>
+	      specifies that the <c>gen_statem</c> process awaits
+	      any message for <c>HibernateAfterTimeout</c> milliseconds and
+              if no message is received, the process goes into hibernation
+	      automatically (by calling
+	      <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).
+	    </p>
+	  </item>
+	  <tag><c>debug</c></tag>
+	  <item>
+	    <p>
+	      For every entry in <c><anno>Dbgs</anno></c>,
+	      the corresponding function in
+	      <seealso marker="sys"><c>sys</c></seealso> is called.
+	    </p>
+	  </item>
+	</taglist>
       </desc>
     </datatype>
     <datatype>

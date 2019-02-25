@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 %% Types
 %%-----------------------------------------------------------------
 
--export_type([dbg_opt/0]).
+-export_type([dbg_opt/0, dbg_fun/0, debug_option/0]).
 
 -type name()         :: pid() | atom()
                       | {'global', term()}
@@ -66,6 +66,16 @@
 -type format_fun()   :: fun((Device :: io:device() | file:io_device(),
 			     Event :: system_event(),
 			     Extra :: term()) -> any()).
+
+-type debug_option() ::
+        'trace'
+      | 'log'
+      | {'log', N :: pos_integer()}
+      | 'statistics'
+      | {'log_to_file', FileName :: file:name()}
+      | {'install',
+         {Func :: dbg_fun(), FuncState :: term()}
+         | {FuncId :: term(), Func :: dbg_fun(), FuncState :: term()}}.
 
 %%-----------------------------------------------------------------
 %% System messages
@@ -646,19 +656,7 @@ close_log_file(Debug) ->
 %% Returns: [debug_opts()]
 %%-----------------------------------------------------------------
 
--spec debug_options(Options) -> [dbg_opt()] when
-      Options :: [Opt],
-      Opt :: 'trace'
-           | 'log'
-           | {'log', pos_integer()}
-           | 'statistics'
-           | {'log_to_file', FileName}
-           | {'install', FuncSpec},
-      FileName :: file:name(),
-      FuncSpec :: {Func, FuncState} | {FuncId, Func, FuncState},
-      FuncId :: term(),
-      Func :: dbg_fun(),
-      FuncState :: term().
+-spec debug_options([Opt :: debug_option()]) -> [dbg_opt()].
 debug_options(Options) ->
     debug_options(Options, []).
 

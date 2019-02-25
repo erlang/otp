@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,9 +71,9 @@
 -export_type(
    [server_name/0,
     server_ref/0,
-    hibernate_after_opt/0,
     start_opt/0,
-    start_ret/0]).
+    start_ret/0,
+    enter_loop_opt/0]).
 
 %%%==========================================================================
 %%% Interface functions.
@@ -431,28 +431,26 @@ timeout_event_type(Type) ->
 %%% API
 
 -type server_name() ::
-      {'global', GlobalName :: term()}
+        {'global', GlobalName :: term()}
       | {'via', RegMod :: module(), Name :: term()}
       | {'local', atom()}.
 -type server_ref() ::
-      pid()
+        pid()
       | (LocalName :: atom())
       | {Name :: atom(), Node :: atom()}
       | {'global', GlobalName :: term()}
       | {'via', RegMod :: module(), ViaName :: term()}.
--type debug_opt() ::
-	{'debug',
-	 Dbgs ::
-	   ['trace' | 'log' | 'statistics' | 'debug'
-	    | {'logfile', string()}]}.
--type hibernate_after_opt() ::
-	{'hibernate_after', HibernateAfterTimeout :: timeout()}.
 -type start_opt() ::
-	debug_opt()
-      | {'timeout', Time :: timeout()}
-	  | hibernate_after_opt()
-      | {'spawn_opt', [proc_lib:spawn_option()]}.
--type start_ret() ::  {'ok', pid()} | 'ignore' | {'error', term()}.
+        {'timeout', Time :: timeout()}
+      | {'spawn_opt', [proc_lib:spawn_option()]}
+      | enter_loop_opt().
+-type start_ret() ::
+        {'ok', pid()}
+      | 'ignore'
+      | {'error', term()}.
+-type enter_loop_opt() ::
+	{'hibernate_after', HibernateAfterTimeout :: timeout()}
+      | {'debug', Dbgs :: [sys:debug_option()]}.
 
 
 
@@ -565,14 +563,14 @@ reply({To,Tag}, Reply) when is_pid(To) ->
 %% started by proc_lib into a state machine using
 %% the same arguments as you would have returned from init/1
 -spec enter_loop(
-	Module :: module(), Opts :: [debug_opt() | hibernate_after_opt()],
+	Module :: module(), Opts :: [enter_loop_opt()],
 	State :: state(), Data :: data()) ->
 			no_return().
 enter_loop(Module, Opts, State, Data) ->
     enter_loop(Module, Opts, State, Data, self()).
 %%
 -spec enter_loop(
-	Module :: module(), Opts :: [debug_opt() | hibernate_after_opt()],
+	Module :: module(), Opts :: [enter_loop_opt()],
 	State :: state(), Data :: data(),
 	Server_or_Actions ::
 	  server_name() | pid() | [action()]) ->
@@ -586,7 +584,7 @@ enter_loop(Module, Opts, State, Data, Server_or_Actions) ->
     end.
 %%
 -spec enter_loop(
-	Module :: module(), Opts :: [debug_opt() | hibernate_after_opt()],
+	Module :: module(), Opts :: [enter_loop_opt()],
 	State :: state(), Data :: data(),
 	Server :: server_name() | pid(),
 	Actions :: [action()] | action()) ->
