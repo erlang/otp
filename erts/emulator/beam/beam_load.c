@@ -2986,6 +2986,35 @@ compiled_with_otp_20_or_higher(LoaderState* stp)
 }
 
 /*
+ * Predicate that tests whether the following two moves are independent:
+ *
+ *    move Src1 Dst1
+ *    move Src2 Dst2
+ *
+ */
+static int
+independent_moves(LoaderState* stp, GenOpArg Src1, GenOpArg Dst1,
+                  GenOpArg Src2, GenOpArg Dst2)
+{
+    return (Src1.type != Dst2.type || Src1.val != Dst2.val) &&
+        (Src2.type != Dst1.type || Src2.val != Dst1.val) &&
+        (Dst1.type != Dst2.type ||Dst1.val != Dst2.val);
+}
+
+/*
+ * Predicate that tests that two registers are distinct.
+ *
+ *    move Src1 Dst1
+ *    move Src2 Dst2
+ *
+ */
+static int
+distinct(LoaderState* stp, GenOpArg Reg1, GenOpArg Reg2)
+{
+    return Reg1.type != Reg2.type || Reg1.val != Reg2.val;
+}
+
+/*
  * Predicate that tests whether a jump table can be used.
  */
 

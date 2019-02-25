@@ -311,68 +311,79 @@ swap_temp x xy x
 
 swap x xy
 
+# move_dup
+
 move Src=x D1=x | move Src=x D2=x => move_dup Src D1 D2
-move Src=x SD=x | move SD=x D=x   => move_dup Src SD D
-move Src=x D1=x | move Src=x D2=y => move_dup Src D1 D2
-move Src=y SD=x | move SD=x D=y   => move_dup Src SD D
-move Src=x SD=x | move SD=x D=y   => move_dup Src SD D
-move Src=y SD=x | move SD=x D=x   => move_dup Src SD D
+move Src=x SD=x | move SD=x  D=x  => move_dup Src SD D
 
-move SD=x D=x | move Src=xy SD=x => move_shift Src SD D
-move SD=y D=x | move Src=x  SD=y => move_shift Src SD D
-move SD=x D=y | move Src=x  SD=x => move_shift Src SD D
+move_dup x x x
 
-# The transformations above guarantee that the source for
-# the second move is not the same as the destination for
-# the first move. That means that we can do the moves in
-# parallel (fetch both values, then store them) which could
-# be faster.
+# move_shift
 
-move X1=x Y1=y | move X2=x Y2=y => move2_par X1 Y1 X2 Y2
-move Y1=y X1=x | move Y2=y X2=x => move2_par Y1 X1 Y2 X2
-
-move X1=x X2=x | move X3=x X4=x => move2_par X1 X2 X3 X4
-
-move X1=x X2=x | move X3=x Y1=y => move2_par X1 X2 X3 Y1
-
-move S1=x S2=x | move X1=x Y1=y => move2_par S1 S2 X1 Y1
-
-move S1=y S2=x | move X1=x Y1=y => move2_par S1 S2 X1 Y1
-
-move Y1=y X1=x | move S1=x D1=x => move2_par Y1 X1 S1 D1
-move S1=x D1=x | move Y1=y X1=x => move2_par S1 D1 Y1 X1
-
-move2_par X1=x Y1=y X2=x Y2=y | move X3=x Y3=y => move3 X1 Y1 X2 Y2 X3 Y3
-move2_par Y1=y X1=x Y2=y X2=x | move Y3=y X3=x => move3 Y1 X1 Y2 X2 Y3 X3
-move2_par X1=x X2=x X3=x X4=x | move X5=x X6=x => move3 X1 X2 X3 X4 X5 X6
-
-move C=aiq X=x==1 => move_x1 C
-move C=aiq X=x==2 => move_x2 C
-
-move_x1 c
-move_x2 c
+move SD=x D=x | move Src=xy SD=x | distinct(D, Src) => move_shift Src SD D
+move SD=y D=x | move Src=x  SD=y | distinct(D, Src) => move_shift Src SD D
+move SD=x D=y | move Src=x  SD=x | distinct(D, Src) => move_shift Src SD D
 
 move_shift x x x
 move_shift y x x
 move_shift x y x
 move_shift x x y
 
-move_dup xy x xy
+# move2_par x x x x
 
-move2_par x y x y
-move2_par y x y x
+move X1=x X2=x | move X3=x X4=x | independent_moves(X1, X2, X3, X4) => \
+     move2_par X1 X2 X3 X4
 move2_par x x x x
 
+# move2_par x y x y
+
+move X1=x Y1=y | move X2=x Y2=y => move2_par X1 Y1 X2 Y2
+move2_par x y x y
+
+# move2_par x x x y
+
+move X1=x X2=x | move X3=x Y1=y | independent_moves(X1, X2, X3, Y1) => \
+     move2_par X1 X2 X3 Y1
+move X3=x Y1=y | move X1=x X2=x | independent_moves(X3, Y1, X1, X2) => \
+     move2_par X1 X2 X3 Y1
 move2_par x x x y
 
+# move2_par y x y x
+
+move Y1=y X1=x | move Y2=y X2=x => move2_par Y1 X1 Y2 X2
+move2_par y x y x
+
+# move2_par y x x y
+
+move S1=y S2=x | move X1=x Y1=y | independent_moves(S1, S2, X1, Y1) => \
+     move2_par S1 S2 X1 Y1
+move X1=x Y1=y | move S1=y S2=x | independent_moves(S1, S2, X1, Y1) => \
+     move2_par S1 S2 X1 Y1
 move2_par y x x y
 
-move2_par x x y x
+# move2_par y x x x
+
+move Y1=y X1=x | move S1=x D1=x | independent_moves(Y1, X1, S1, D1) => \
+     move2_par Y1 X1 S1 D1
+move S1=x D1=x | move Y1=y X1=x | independent_moves(Y1, X1, S1, D1) => \
+     move2_par Y1 X1 S1 D1
 move2_par y x x x
 
-move3 x y x y x y
+# move3
+
+move2_par Y1=y X1=x Y2=y X2=x | move Y3=y X3=x => move3 Y1 X1 Y2 X2 Y3 X3
+move2_par X1=x X2=x X3=x X4=x | move X5=x X6=x => move3 X1 X2 X3 X4 X5 X6
+
 move3 y x y x y x
 move3 x x x x x x
+
+# move_x1, move_x2
+
+move C=aiq X=x==1 => move_x1 C
+move C=aiq X=x==2 => move_x2 C
+
+move_x1 c
+move_x2 c
 
 # The compiler almost never generates a "move Literal y(Y)" instruction,
 # so let's cheat if we encounter one.
