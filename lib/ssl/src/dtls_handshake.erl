@@ -37,7 +37,7 @@
 -export([fragment_handshake/2, encode_handshake/3]).
 
 %% Handshake decodeing
--export([get_dtls_handshake/3]). 
+-export([get_dtls_handshake/4]).
 
 -type dtls_handshake() :: #client_hello{} | #hello_verify_request{} | 
 			  ssl_handshake:ssl_handshake().
@@ -151,15 +151,15 @@ encode_handshake(Handshake, Version, Seq) ->
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec get_dtls_handshake(ssl_record:ssl_version(), binary(), #protocol_buffers{}) ->
+-spec get_dtls_handshake(ssl_record:ssl_version(), binary(), #protocol_buffers{}, #ssl_options{}) ->
                                 {[dtls_handshake()], #protocol_buffers{}}.                
 %%
 %% Description:  Given buffered and new data from dtls_record, collects
 %% and returns it as a list of handshake messages, also returns 
 %% possible leftover data in the new "protocol_buffers".
 %%--------------------------------------------------------------------
-get_dtls_handshake(Version, Fragment, ProtocolBuffers) ->
-    handle_fragments(Version, Fragment, ProtocolBuffers, []).
+get_dtls_handshake(Version, Fragment, ProtocolBuffers, Options) ->
+    handle_fragments(Version, Fragment, ProtocolBuffers, Options, []).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -310,20 +310,21 @@ address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
 
 %%--------------------------------------------------------------------
 
-handle_fragments(Version, FragmentData, Buffers0, Acc) ->
+handle_fragments(Version, FragmentData, Buffers0, Options, Acc) ->
     Fragments = decode_handshake_fragments(FragmentData),
-    do_handle_fragments(Version, Fragments, Buffers0, Acc).
+    do_handle_fragments(Version, Fragments, Buffers0, Options, Acc).
 
-do_handle_fragments(_, [], Buffers, Acc) ->
+do_handle_fragments(_, [], Buffers, _Options, Acc) ->
     {lists:reverse(Acc), Buffers};
-do_handle_fragments(Version, [Fragment | Fragments], Buffers0, Acc) ->
+do_handle_fragments(Version, [Fragment | Fragments], Buffers0, Options, Acc) ->
     case reassemble(Version, Fragment, Buffers0) of
 	{more_data, Buffers} when Fragments == [] ->
 	    {lists:reverse(Acc), Buffers};
 	{more_data, Buffers} ->
-	    do_handle_fragments(Version, Fragments, Buffers, Acc);
-	{HsPacket, Buffers} ->
-	    do_handle_fragments(Version, Fragments, Buffers, [HsPacket | Acc])
+	    do_handle_fragments(Version, Fragments, Buffers, Options, Acc);
+	{{Handshake, _} = HsPacket, Buffers} ->
+            ssl_logger:debug(Options#ssl_options.log_level, inbound, 'handshake', Handshake),
+	    do_handle_fragments(Version, Fragments, Buffers, Options, [HsPacket | Acc])
     end.
 
 decode_handshake(Version, <<?BYTE(Type), Bin/binary>>) ->
@@ -363,9 +364,9 @@ decode_handshake(_Version, ?HELLO_VERIFY_REQUEST, <<?UINT24(_), ?UINT16(_),
 decode_handshake(Version, Tag,  <<?UINT24(_), ?UINT16(_),
 				  ?UINT24(_),  ?UINT24(_), Msg/binary>>) -> 
     %% DTLS specifics stripped
-    decode_tls_thandshake(Version, Tag, Msg).
+    decode_tls_handshake(Version, Tag, Msg).
 
-decode_tls_thandshake(Version, Tag, Msg) ->
+decode_tls_handshake(Version, Tag, Msg) ->
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
     ssl_handshake:decode_handshake(TLSVersion, Tag, Msg).
 

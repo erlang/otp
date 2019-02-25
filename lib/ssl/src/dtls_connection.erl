@@ -250,10 +250,11 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
 handle_protocol_record(#ssl_tls{type = ?HANDSHAKE,
 				       fragment = Data}, 
 		    StateName, 
-		    #state{protocol_buffers = Buffers0,
-			   connection_env = #connection_env{negotiated_version = Version}} = State) ->
+                       #state{protocol_buffers = Buffers0,
+                              connection_env = #connection_env{negotiated_version = Version},
+                              ssl_options = Options} = State) ->
     try
-	case dtls_handshake:get_dtls_handshake(Version, Data, Buffers0) of
+	case dtls_handshake:get_dtls_handshake(Version, Data, Buffers0, Options) of
 	    {[], Buffers} ->
 		next_event(StateName, no_record, State#state{protocol_buffers = Buffers});
 	    {Packets, Buffers} ->
@@ -308,9 +309,12 @@ queue_handshake(Handshake0, #state{handshake_env = #handshake_env{tls_handshake_
                                    connection_env = #connection_env{negotiated_version = Version},
 				   flight_buffer = #{handshakes := HsBuffer0,
 						     change_cipher_spec := undefined,
-						     next_sequence := Seq} = Flight0} = State) ->
+						     next_sequence := Seq} = Flight0,
+                                   ssl_options = SslOpts} = State) ->
     Handshake = dtls_handshake:encode_handshake(Handshake0, Version, Seq),
     Hist = update_handshake_history(Handshake0, Handshake, Hist0),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Handshake0),
+
     State#state{flight_buffer = Flight0#{handshakes => [Handshake | HsBuffer0],
 					 next_sequence => Seq +1},
 	handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}};
@@ -318,9 +322,12 @@ queue_handshake(Handshake0, #state{handshake_env = #handshake_env{tls_handshake_
 queue_handshake(Handshake0, #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv, 
                                    connection_env = #connection_env{negotiated_version = Version},
 				   flight_buffer = #{handshakes_after_change_cipher_spec := Buffer0,
-						     next_sequence := Seq} = Flight0} = State) ->
+						     next_sequence := Seq} = Flight0,
+                                   ssl_options = SslOpts} = State) ->
     Handshake = dtls_handshake:encode_handshake(Handshake0, Version, Seq),
     Hist = update_handshake_history(Handshake0, Handshake, Hist0),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Handshake0),
+
     State#state{flight_buffer = Flight0#{handshakes_after_change_cipher_spec => [Handshake | Buffer0],
 					 next_sequence => Seq +1},
                 handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}}.
@@ -328,7 +335,7 @@ queue_handshake(Handshake0, #state{handshake_env = #handshake_env{tls_handshake_
 queue_change_cipher(ChangeCipher, #state{flight_buffer = Flight,
 					 connection_states = ConnectionStates0} = State) -> 
     ConnectionStates = 
-	dtls_record:next_epoch(ConnectionStates0, write), 
+	dtls_record:next_epoch(ConnectionStates0, write),
     State#state{flight_buffer = Flight#{change_cipher_spec => ChangeCipher},
 		connection_states = ConnectionStates}.
 
@@ -368,11 +375,14 @@ encode_alert(#alert{} = Alert, Version, ConnectionStates) ->
 
 send_alert(Alert, #state{static_env = #static_env{socket = Socket,
                                                   transport_cb = Transport},
+
                          connection_env = #connection_env{negotiated_version = Version},
-			 connection_states = ConnectionStates0} = State0) ->
+			 connection_states = ConnectionStates0,
+                         ssl_options = SslOpts} = State0) ->
     {BinMsg, ConnectionStates} =
 	encode_alert(Alert, Version, ConnectionStates0),
     send(Transport, Socket, BinMsg),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinMsg),
     State0#state{connection_states = ConnectionStates}.
 
 send_alert_in_connection(Alert, State) ->
@@ -815,10 +825,11 @@ initial_flight_state(_) ->
 
 next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
 						   dtls_record_buffer = Buf0,
-						   dtls_cipher_texts = CT0} = Buffers} = State0) ->
+						   dtls_cipher_texts = CT0} = Buffers,
+                                         ssl_options = SslOpts} = State0) ->
     case dtls_record:get_dtls_records(Data,
                                       acceptable_record_versions(StateName, State0), 
-                                      Buf0) of
+                                      Buf0, SslOpts) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
 	    next_record(State0#state{protocol_buffers =
@@ -1074,11 +1085,14 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                              connection_env = #connection_env{negotiated_version = Version},
                              flight_buffer = #{handshakes := Flight,
 					       change_cipher_spec := undefined},
-			     connection_states = ConnectionStates0} = State0, Epoch) ->
+			     connection_states = ConnectionStates0,
+                             ssl_options = #ssl_options{log_level = LogLevel}} = State0,
+                      Epoch) ->
     %% TODO remove hardcoded Max size
     {Encoded, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight), Version, 1400, Epoch, ConnectionStates0),
-    send(Transport, Socket, Encoded), 
+    send(Transport, Socket, Encoded),
+    ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
    {State0#state{connection_states = ConnectionStates}, []};
 
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
@@ -1087,12 +1101,16 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     flight_buffer = #{handshakes := [_|_] = Flight0,
 					       change_cipher_spec := ChangeCipher,
 					       handshakes_after_change_cipher_spec := []},
-			     connection_states = ConnectionStates0} = State0, Epoch) ->      
+			     connection_states = ConnectionStates0,
+                             ssl_options = #ssl_options{log_level = LogLevel}} = State0,
+                      Epoch) ->
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, 1400, Epoch, ConnectionStates0),
     {EncChangeCipher, ConnectionStates} = encode_change_cipher(ChangeCipher, Version, Epoch, ConnectionStates1),
 
     send(Transport, Socket, [HsBefore, EncChangeCipher]),
+    ssl_logger:debug(LogLevel, outbound, 'record', [HsBefore]),
+    ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
     {State0#state{connection_states = ConnectionStates}, []};
 
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
@@ -1101,7 +1119,9 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     flight_buffer = #{handshakes := [_|_] = Flight0,
 					       change_cipher_spec := ChangeCipher,
 					       handshakes_after_change_cipher_spec := Flight1},
-			     connection_states = ConnectionStates0} = State0, Epoch) ->      
+			     connection_states = ConnectionStates0,
+                             ssl_options = #ssl_options{log_level = LogLevel}} = State0,
+                      Epoch) ->
     {HsBefore, ConnectionStates1} =
 	encode_handshake_flight(lists:reverse(Flight0), Version, 1400, Epoch-1, ConnectionStates0),
     {EncChangeCipher, ConnectionStates2} = 
@@ -1109,6 +1129,9 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
     {HsAfter, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight1), Version, 1400, Epoch, ConnectionStates2),
     send(Transport, Socket, [HsBefore, EncChangeCipher, HsAfter]),
+    ssl_logger:debug(LogLevel, outbound, 'record', [HsBefore]),
+    ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
+    ssl_logger:debug(LogLevel, outbound, 'record', [HsAfter]),
     {State0#state{connection_states = ConnectionStates}, []};
 
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
@@ -1117,12 +1140,16 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     flight_buffer = #{handshakes := [],
 					       change_cipher_spec := ChangeCipher,
 					       handshakes_after_change_cipher_spec := Flight1},
-			     connection_states = ConnectionStates0} = State0, Epoch) ->
+			     connection_states = ConnectionStates0,
+                             ssl_options = #ssl_options{log_level = LogLevel}} = State0,
+                      Epoch) ->
     {EncChangeCipher, ConnectionStates1} = 
 	encode_change_cipher(ChangeCipher, Version, Epoch-1, ConnectionStates0),
     {HsAfter, ConnectionStates} =
 	encode_handshake_flight(lists:reverse(Flight1), Version, 1400, Epoch, ConnectionStates1),
     send(Transport, Socket, [EncChangeCipher, HsAfter]),
+    ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
+    ssl_logger:debug(LogLevel, outbound, 'record', [HsAfter]),
     {State0#state{connection_states = ConnectionStates}, []}.
 
 retransmit_epoch(_StateName, #state{connection_states = ConnectionStates}) ->
@@ -1174,7 +1201,8 @@ send_application_data(Data, From, _StateName,
                              connection_env = #connection_env{negotiated_version = Version},
                              handshake_env = HsEnv,
                              connection_states = ConnectionStates0,
-                             ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}} = State0) ->
+                             ssl_options = #ssl_options{renegotiate_at = RenegotiateAt,
+                                                        log_level = LogLevel}} = State0) ->
        
     case time_to_renegotiate(Data, ConnectionStates0, RenegotiateAt) of
 	true ->
@@ -1186,6 +1214,7 @@ send_application_data(Data, From, _StateName,
             State = State0#state{connection_states = ConnectionStates},
 	    case send(Transport, Socket, Msgs) of
                 ok ->
+                    ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
                     ssl_connection:hibernate_after(connection, State, [{reply, From, ok}]);
                 Result ->
                     ssl_connection:hibernate_after(connection, State, [{reply, From, Result}])

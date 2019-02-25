@@ -35,6 +35,7 @@
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include("tls_handshake.hrl").
+-include("dtls_handshake.hrl").
 -include("tls_handshake_1_3.hrl").
 -include_lib("kernel/include/logger.hrl").
 
@@ -48,7 +49,7 @@ format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
        protocol := Protocol,
        message := Content} = Msg,
     case Protocol of
-        'tls_record' ->
+        'record' ->
             BinMsg =
                 case Content of
                     #ssl_tls{} ->
@@ -66,7 +67,7 @@ format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
 %% Stateful logging
 debug(Level, Direction, Protocol, Message)
   when (Direction =:= inbound orelse Direction =:= outbound) andalso
-       (Protocol =:= 'tls_record' orelse Protocol =:= 'handshake') ->
+       (Protocol =:= 'record' orelse Protocol =:= 'handshake') ->
     case logger:compare_levels(Level, debug) of
         lt ->
             ?LOG_DEBUG(#{direction => Direction,
@@ -129,6 +130,11 @@ parse_handshake(Direction, #server_hello{
     Message = io_lib:format("~p",
                             [?rec_info(server_hello,
                                        ServerHello#server_hello{cipher_suite = CipherSuite})]),
+    {Header, Message};
+parse_handshake(Direction, #hello_verify_request{} = HelloVerifyRequest) ->
+    Header = io_lib:format("~s Handshake, HelloVerifyRequest",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(hello_verify_request, HelloVerifyRequest)]),
     {Header, Message};
 parse_handshake(Direction, #certificate{} = Certificate) ->
     Header = io_lib:format("~s Handshake, Certificate",
@@ -228,9 +234,12 @@ version({3,1}) ->
     "TLS 1.0";
 version({3,0}) ->
     "SSL 3.0";
+version({254,253}) ->
+    "DTLS 1.2";
+version({254,255}) ->
+    "DTLS 1.0";
 version({M,N}) ->
-    io_lib:format("TLS [0x0~B0~B]", [M,N]).
-
+    io_lib:format("TLS/DTLS [0x0~B0~B]", [M,N]).
 
 header_prefix(inbound) ->
     "<<<";
@@ -264,8 +273,12 @@ tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(1),_/binary>>|_]) ->
     io_lib:format("TLS 1.0 Record Protocol, ~s", [msg_type(B)]);
 tls_record_version([<<?BYTE(B),?BYTE(3),?BYTE(0),_/binary>>|_]) ->
     io_lib:format("SSL 3.0 Record Protocol, ~s", [msg_type(B)]);
+tls_record_version([<<?BYTE(B),?BYTE(254),?BYTE(253),_/binary>>|_]) ->
+    io_lib:format("DTLS 1.2 Record Protocol, ~s", [msg_type(B)]);
+tls_record_version([<<?BYTE(B),?BYTE(254),?BYTE(255),_/binary>>|_]) ->
+    io_lib:format("DTLS 1.0 Record Protocol, ~s", [msg_type(B)]);
 tls_record_version([<<?BYTE(B),?BYTE(M),?BYTE(N),_/binary>>|_]) ->
-    io_lib:format("TLS [0x0~B0~B] Record Protocol, ~s", [M, N, msg_type(B)]).
+    io_lib:format("TLS/DTLS [0x0~B0~B] Record Protocol, ~s", [M, N, msg_type(B)]).
 
 
 msg_type(20) -> "change_cipher_spec";
@@ -346,12 +359,12 @@ convert_to_hex(P, [H|T], Row, Acc, C) when is_integer(H) ->
                    C + 1).
 
 
-row_prefix(tls_record, N) ->
+row_prefix(_ , N) ->
     S = string:pad(string:to_lower(erlang:integer_to_list(N, 16)),4,leading,$0),
     lists:reverse(lists:flatten(S ++ " - ")).
 
 
-end_row(tls_record, Row) ->
+end_row(_, Row) ->
     Row ++ "  ".
 
 
