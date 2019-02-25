@@ -19,13 +19,12 @@
  */
 
 #include "algorithms.h"
+#include "cipher.h"
 
 static unsigned int algo_hash_cnt, algo_hash_fips_cnt;
 static ERL_NIF_TERM algo_hash[14];   /* increase when extending the list */
 static unsigned int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
-static unsigned int algo_cipher_cnt, algo_cipher_fips_cnt;
-static ERL_NIF_TERM algo_cipher[25]; /* increase when extending the list */
 static unsigned int algo_mac_cnt, algo_mac_fips_cnt;
 static ERL_NIF_TERM algo_mac[3]; /* increase when extending the list */
 static unsigned int algo_curve_cnt, algo_curve_fips_cnt;
@@ -92,56 +91,7 @@ void init_algorithms_types(ErlNifEnv* env)
 #endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
 
-    // Validated algorithms first
-    algo_cipher_cnt = 0;
-#ifndef OPENSSL_NO_DES
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbc");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des_ede3");
-#ifdef HAVE_DES_ede3_cfb_encrypt
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbf");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cfb");
-#endif
-#endif
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc128");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ecb");
-#if defined(HAVE_GCM)
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
-#endif
-#if defined(HAVE_CCM)
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ccm");
-#endif
-    // Non-validated algorithms follow
-    algo_cipher_fips_cnt = algo_cipher_cnt;
-#ifdef HAVE_AES_IGE
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
-#endif
-#ifndef OPENSSL_NO_DES
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cbc");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cfb");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_ecb");
-#endif
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_cbc");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_cfb64");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ofb64");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ecb");
-#ifndef OPENSSL_NO_RC2
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc2_cbc");
-#endif
-#ifndef OPENSSL_NO_RC4
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc4");
-#endif
-#if defined(HAVE_CHACHA20_POLY1305)
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20_poly1305");
-#endif
-#if defined(HAVE_CHACHA20)
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20");
-#endif
-
+ 
     // Validated algorithms first
     algo_mac_cnt = 0;
     algo_mac[algo_mac_cnt++] = enif_make_atom(env,"hmac");
@@ -290,7 +240,6 @@ void init_algorithms_types(ErlNifEnv* env)
     // Check that the max number of algos is updated
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
-    ASSERT(algo_cipher_cnt <= sizeof(algo_cipher)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_mac_cnt <= sizeof(algo_mac)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_rsa_opts_cnt <= sizeof(algo_rsa_opts)/sizeof(ERL_NIF_TERM));
@@ -303,14 +252,12 @@ ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     unsigned int hash_cnt   = fips_mode ? algo_hash_fips_cnt   : algo_hash_cnt;
     unsigned int pubkey_cnt = fips_mode ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
-    unsigned int cipher_cnt = fips_mode ? algo_cipher_fips_cnt : algo_cipher_cnt;
     unsigned int mac_cnt    = fips_mode ? algo_mac_fips_cnt    : algo_mac_cnt;
     unsigned int curve_cnt    = fips_mode ? algo_curve_fips_cnt    : algo_curve_cnt;
     unsigned int rsa_opts_cnt = fips_mode ? algo_rsa_opts_fips_cnt : algo_rsa_opts_cnt;
 #else
     unsigned int hash_cnt   = algo_hash_cnt;
     unsigned int pubkey_cnt = algo_pubkey_cnt;
-    unsigned int cipher_cnt = algo_cipher_cnt;
     unsigned int mac_cnt    = algo_mac_cnt;
     unsigned int curve_cnt    = algo_curve_cnt;
     unsigned int rsa_opts_cnt = algo_rsa_opts_cnt;
@@ -318,7 +265,7 @@ ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_tuple6(env,
                             enif_make_list_from_array(env, algo_hash,   hash_cnt),
 			    enif_make_list_from_array(env, algo_pubkey, pubkey_cnt),
-			    enif_make_list_from_array(env, algo_cipher, cipher_cnt),
+                            cipher_types_as_list(env),
                             enif_make_list_from_array(env, algo_mac,    mac_cnt),
 			    enif_make_list_from_array(env, algo_curve,  curve_cnt),
 			    enif_make_list_from_array(env, algo_rsa_opts, rsa_opts_cnt)

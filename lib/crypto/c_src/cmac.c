@@ -24,7 +24,7 @@
 ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key, Data) */
 #if defined(HAVE_CMAC)
-    struct cipher_type_t *cipherp = NULL;
+    const struct cipher_type_t *cipherp;
     const EVP_CIPHER     *cipher;
     CMAC_CTX             *ctx = NULL;
     ErlNifBinary         key;
@@ -40,9 +40,13 @@ ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         goto bad_arg;
     if ((cipherp = get_cipher_type(argv[0], key.size)) == NULL)
         goto bad_arg;
+    if (cipherp->flags & (NON_EVP_CIPHER | AEAD_CIPHER))
+        goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[2], &data))
         goto bad_arg;
 
+    if (FORBIDDEN_IN_FIPS(cipherp))
+        return enif_raise_exception(env, atom_notsup);
     if ((cipher = cipherp->cipher.p) == NULL)
         return enif_raise_exception(env, atom_notsup);
 

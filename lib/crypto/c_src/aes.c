@@ -166,8 +166,6 @@ ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 }
 
 
-/* Initializes state for ctr streaming (de)encryption
-*/
 #ifdef HAVE_EVP_AES_CTR
 ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec) */
@@ -279,27 +277,31 @@ ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
 ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec) */
+    ASSERT(argc == 2);
+
+    return aes_ctr_stream_init_compat(env, argv[0], argv[1]);
+}
+
+
+ERL_NIF_TERM aes_ctr_stream_init_compat(ErlNifEnv* env, const ERL_NIF_TERM key_term, const ERL_NIF_TERM iv_term)
+{
     ErlNifBinary key_bin, ivec_bin;
     ERL_NIF_TERM ecount_bin;
     unsigned char *outp;
-
-    ASSERT(argc == 2);
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin))
+ 
+    if (!enif_inspect_iolist_as_binary(env, key_term, &key_bin))
         goto bad_arg;
     if (key_bin.size != 16 && key_bin.size != 24 && key_bin.size != 32)
         goto bad_arg;
-    if (!enif_inspect_binary(env, argv[1], &ivec_bin))
+    if (!enif_inspect_binary(env, iv_term, &ivec_bin))
         goto bad_arg;
     if (ivec_bin.size != 16)
         goto bad_arg;
-
     if ((outp = enif_make_new_binary(env, AES_BLOCK_SIZE, &ecount_bin)) == NULL)
         goto err;
-
     memset(outp, 0, AES_BLOCK_SIZE);
 
-    return enif_make_tuple4(env, argv[0], argv[1], ecount_bin, enif_make_int(env, 0));
+    return enif_make_tuple4(env, key_term, iv_term, ecount_bin, enif_make_int(env, 0));
 
  bad_arg:
  err:
@@ -307,6 +309,14 @@ ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 }
 
 ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ASSERT(argc == 2);
+
+    return aes_ctr_stream_encrypt_compat(env, argv[0], argv[1]);
+}
+
+
+ERL_NIF_TERM aes_ctr_stream_encrypt_compat(ErlNifEnv* env, const ERL_NIF_TERM state_arg, const ERL_NIF_TERM data_arg)
 {/* ({Key, IVec, ECount, Num}, Data) */
     ErlNifBinary key_bin, ivec_bin, text_bin, ecount_bin;
     AES_KEY aes_key;
@@ -318,9 +328,7 @@ ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     unsigned char * ecount2_buf;
     unsigned char *outp;
 
-    ASSERT(argc == 2);
-
-    if (!enif_get_tuple(env, argv[0], &state_arity, &state_term))
+    if (!enif_get_tuple(env, state_arg, &state_arity, &state_term))
         goto bad_arg;
     if (state_arity != 4)
         goto bad_arg;
@@ -338,7 +346,7 @@ ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         goto bad_arg;
     if (!enif_get_uint(env, state_term[3], &num))
         goto bad_arg;
-    if (!enif_inspect_iolist_as_binary(env, argv[1], &text_bin))
+    if (!enif_inspect_iolist_as_binary(env, data_arg, &text_bin))
         goto bad_arg;
 
     /* NOTE: This function returns 0 on success unlike most OpenSSL functions */

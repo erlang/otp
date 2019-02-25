@@ -110,7 +110,7 @@ static int get_pkey_sign_digest(ErlNifEnv *env, ERL_NIF_TERM algorithm,
             goto bad_arg;
         if (tpl_terms[0] != atom_digest)
             goto bad_arg;
-        if (!enif_inspect_binary(env, tpl_terms[1], &tbs_bin))
+        if (!enif_inspect_iolist_as_binary(env, tpl_terms[1], &tbs_bin))
             goto bad_arg;
         if (tbs_bin.size > INT_MAX)
             goto bad_arg;
@@ -123,14 +123,14 @@ static int get_pkey_sign_digest(ErlNifEnv *env, ERL_NIF_TERM algorithm,
 	tbs = tbs_bin.data;
 	tbslen = tbs_bin.size;
     } else if (md == NULL) {
-        if (!enif_inspect_binary(env, data, &tbs_bin))
+        if (!enif_inspect_iolist_as_binary(env, data, &tbs_bin))
             goto bad_arg;
 
         /* md == NULL, that is no hashing because DigestType argument was atom_none */
 	tbs = tbs_bin.data;
 	tbslen = tbs_bin.size;
     } else {
-        if (!enif_inspect_binary(env, data, &tbs_bin))
+        if (!enif_inspect_iolist_as_binary(env, data, &tbs_bin))
             goto bad_arg;
 
         /* We have the cleartext in tbs_bin and the hash algo info in md */

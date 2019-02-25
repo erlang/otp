@@ -35,12 +35,6 @@ extern ERL_NIF_TERM atom_signature_md;
 extern ERL_NIF_TERM atom_undefined;
 
 extern ERL_NIF_TERM atom_ok;
-extern ERL_NIF_TERM atom_not_prime;
-extern ERL_NIF_TERM atom_not_strong_prime;
-extern ERL_NIF_TERM atom_unable_to_check_generator;
-extern ERL_NIF_TERM atom_not_suitable_generator;
-extern ERL_NIF_TERM atom_check_failed;
-extern ERL_NIF_TERM atom_unknown;
 extern ERL_NIF_TERM atom_none;
 extern ERL_NIF_TERM atom_notsup;
 extern ERL_NIF_TERM atom_digest;
@@ -52,7 +46,6 @@ extern ERL_NIF_TERM atom_not_supported;
 #endif
 
 #if defined(HAVE_EC)
-extern ERL_NIF_TERM atom_ec;
 extern ERL_NIF_TERM atom_prime_field;
 extern ERL_NIF_TERM atom_characteristic_two_field;
 extern ERL_NIF_TERM atom_tpbasis;
@@ -67,14 +60,6 @@ extern ERL_NIF_TERM atom_aes_gcm;
 #endif
 #ifdef HAVE_CCM
 extern ERL_NIF_TERM atom_aes_ccm;
-#endif
-#ifdef HAVE_CHACHA20_POLY1305
-extern ERL_NIF_TERM atom_chacha20_poly1305;
-#endif
-#ifdef HAVE_ECB_IVEC_BUG
-extern ERL_NIF_TERM atom_aes_ecb;
-extern ERL_NIF_TERM atom_des_ecb;
-extern ERL_NIF_TERM atom_blowfish_ecb;
 #endif
 
 extern ERL_NIF_TERM atom_rsa;
@@ -103,30 +88,8 @@ extern ERL_NIF_TERM atom_rsa_sslv23_padding;
 #endif
 extern ERL_NIF_TERM atom_rsa_x931_padding;
 extern ERL_NIF_TERM atom_rsa_pss_saltlen;
-extern ERL_NIF_TERM atom_sha224;
-extern ERL_NIF_TERM atom_sha256;
-extern ERL_NIF_TERM atom_sha384;
-extern ERL_NIF_TERM atom_sha512;
-extern ERL_NIF_TERM atom_sha3_224;
-extern ERL_NIF_TERM atom_sha3_256;
-extern ERL_NIF_TERM atom_sha3_384;
-extern ERL_NIF_TERM atom_sha3_512;
-extern ERL_NIF_TERM atom_md5;
-extern ERL_NIF_TERM atom_ripemd160;
-#ifdef HAVE_BLAKE2
-extern ERL_NIF_TERM atom_blake2b;
-extern ERL_NIF_TERM atom_blake2s;
-#endif
 
 #ifdef HAS_ENGINE_SUPPORT
-extern ERL_NIF_TERM atom_bad_engine_method;
-extern ERL_NIF_TERM atom_bad_engine_id;
-extern ERL_NIF_TERM atom_ctrl_cmd_failed;
-extern ERL_NIF_TERM atom_engine_init_failed;
-extern ERL_NIF_TERM atom_register_engine_failed;
-extern ERL_NIF_TERM atom_add_engine_failed;
-extern ERL_NIF_TERM atom_remove_engine_failed;
-extern ERL_NIF_TERM atom_engine_method_not_supported;
 
 extern ERL_NIF_TERM atom_engine_method_rsa;
 extern ERL_NIF_TERM atom_engine_method_dsa;
