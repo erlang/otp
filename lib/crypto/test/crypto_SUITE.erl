@@ -99,6 +99,8 @@ groups() ->
                  {group, rsa},
                  {group, dss},
                  {group, ecdsa},
+                 {group, no_ed25519},
+                 {group, no_ed448},
                  {group, dh},
                  {group, ecdh},
                  {group, no_srp},
@@ -113,8 +115,8 @@ groups() ->
                  {group, no_blowfish_cfb64},
                  {group, no_blowfish_ofb64},
                  {group, aes_cbc128},
-                 {group, aes_cfb8},
-                 {group, aes_cfb128},
+                 {group, no_aes_cfb8},
+                 {group, no_aes_cfb128},
                  {group, aes_cbc256},
                  {group, no_aes_ige256},
                  {group, no_rc2_cbc},
@@ -183,8 +185,16 @@ groups() ->
      {chacha20, [], [stream]},
      {poly1305, [], [poly1305]},
      {aes_cbc, [], [block]},
+     {no_aes_cfb8,[], [no_support, no_block]},
+     {no_aes_cfb128,[], [no_support, no_block]},
      {no_md4, [], [no_support, no_hash]},
      {no_md5, [], [no_support, no_hash, no_hmac]},
+     {no_ed25519, [], [no_support, no_sign_verify
+                %% Does not work yet:  ,public_encrypt, private_encrypt
+                 ]},
+     {no_ed448, [], [no_support, no_sign_verify
+                %% Does not work yet:  ,public_encrypt, private_encrypt
+                 ]},
      {no_ripemd160, [], [no_support, no_hash]},
      {no_srp, [], [no_support, no_generate_compute]},
      {no_des_cbc, [], [no_support, no_block]},
@@ -499,6 +509,13 @@ sign_verify() ->
 sign_verify(Config) when is_list(Config) ->
     SignVerify = proplists:get_value(sign_verify, Config),
     lists:foreach(fun do_sign_verify/1, SignVerify).
+
+%%--------------------------------------------------------------------
+no_sign_verify() ->
+    [{doc, "Test disabled sign/verify digital signatures"}].
+no_sign_verify(Config) when is_list(Config) ->
+    [SignVerifyHd|_] = proplists:get_value(sign_verify, Config),
+    notsup(fun do_sign_verify/1, [SignVerifyHd]).
 
 %%-------------------------------------------------------------------- 
 public_encrypt() ->
