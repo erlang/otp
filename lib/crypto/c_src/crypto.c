@@ -177,7 +177,8 @@
     && !defined(HAS_LIBRESSL) \
     && defined(HAVE_EC)
 # define HAVE_ED_CURVE_DH
-# if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1))
+# if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1)) \
+    && !defined(FIPS_SUPPORT)
 #   define HAVE_EDDSA
 # endif
 #endif
@@ -4357,8 +4358,11 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
     *md = NULL;
 
     if (type == atom_none && algorithm == atom_rsa) return PKEY_OK;
+    if (algorithm == atom_eddsa)
 #ifdef HAVE_EDDSA
-    if (algorithm == atom_eddsa) return PKEY_OK;
+        return PKEY_OK;
+#else
+        return PKEY_NOTSUP;
 #endif
     digp = get_digest_type(type);
     if (!digp) return PKEY_BADARG;
