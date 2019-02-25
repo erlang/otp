@@ -67,10 +67,10 @@ get_log_writes() ->
 incr_log_writes() ->
     Left = mnesia_lib:incr_counter(trans_log_writes_left, -1),
     if
-	Left > 0 ->
-	    ignore;
+	Left =:= 0 ->
+	    adjust_log_writes(true);
 	true ->
-	    adjust_log_writes(true)
+	    ignore
     end.
 
 adjust_log_writes(DoCast) ->
