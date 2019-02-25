@@ -119,6 +119,7 @@ groups() ->
        {group, [], [testSeqOf,
                     testSeqOfIndefinite]}, % Uses 'Mvrasn*'
        testSeqOfCho,
+       testSeqOfChoExt,
        testSetDefault,
        testExtensionAdditionGroup,
        testSetOptional,
@@ -540,6 +541,11 @@ testSeqOfCho(Config) -> test(Config, fun testSeqOfCho/3).
 testSeqOfCho(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqOfCho", Config, [Rule|Opts]),
     testSeqOfCho:main(Rule).
+
+testSeqOfChoExt(Config) -> test(Config, fun testSeqOfChoExt/3).
+testSeqOfChoExt(Config, Rule, Opts) ->
+    asn1_test_lib:compile("SeqOfChoExt", Config, [Rule|Opts]),
+    testSeqOfChoExt:main(Rule).
 
 testSeqOfIndefinite(Config) ->
     test(Config, fun testSeqOfIndefinite/3, [ber]).

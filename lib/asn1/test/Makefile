@@ -60,6 +60,7 @@ MODULES= \
 	testSeqOf \
 	testSeqOfIndefinite \
 	testSeqOfCho \
+	testSeqOfChoExt \
 	testSeqOfExternal \
 	testSeqOfTag \
 	testSetDefault \
