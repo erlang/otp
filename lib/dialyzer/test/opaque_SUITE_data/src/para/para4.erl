@@ -88,6 +88,11 @@ adt_tt13() ->
     I2 = adt_tup2(),
     I1 =:= I2. % opaque attempt
 
+adt_tt14() ->
+    I1 = adt_map(),
+    I2 = adt_map2(),
+    I1 =:= I2.
+
 y3() ->
     {a, 3}.
 
@@ -132,3 +137,9 @@ adt_tup() ->
 
 adt_tup2() ->
     para4_adt:tup2().
+
+adt_map() ->
+    para4_adt:map().
+
+adt_map2() ->
+    para4_adt:map2().
