@@ -2363,6 +2363,7 @@ bif_return_type(is_boolean, [_], _) -> bool;
 bif_return_type(is_binary, [_], _) -> bool;
 bif_return_type(is_float, [_], _) -> bool;
 bif_return_type(is_function, [_], _) -> bool;
+bif_return_type(is_function, [_,_], _) -> bool;
 bif_return_type(is_integer, [_], _) -> bool;
 bif_return_type(is_list, [_], _) -> bool;
 bif_return_type(is_map, [_], _) -> bool;
@@ -2373,6 +2374,7 @@ bif_return_type(is_reference, [_], _) -> bool;
 bif_return_type(is_tuple, [_], _) -> bool;
 %% Misc.
 bif_return_type(tuple_size, [_], _) -> {integer,[]};
+bif_return_type(map_size, [_], _) -> {integer,[]};
 bif_return_type(node, [], _) -> {atom,[]};
 bif_return_type(node, [_], _) -> {atom,[]};
 bif_return_type(hd, [_], _) -> term;
@@ -2398,10 +2400,14 @@ bif_arg_types('byte_size', [_]) -> [binary];
 bif_arg_types('bit_size', [_]) -> [binary];
 %% Numerical
 bif_arg_types('-', [_]) -> [number];
+bif_arg_types('-', [_,_]) -> [number,number];
 bif_arg_types('+', [_]) -> [number];
+bif_arg_types('+', [_,_]) -> [number,number];
 bif_arg_types('*', [_,_]) -> [number, number];
 bif_arg_types('/', [_,_]) -> [number, number];
+bif_arg_types(abs, [_]) -> [number];
 bif_arg_types(ceil, [_]) -> [number];
+bif_arg_types(float, [_]) -> [number];
 bif_arg_types(floor, [_]) -> [number];
 bif_arg_types(trunc, [_]) -> [number];
 bif_arg_types(round, [_]) -> [number];
@@ -2543,11 +2549,25 @@ math_mod_return_type(fmod, 2) -> {float,[]};
 math_mod_return_type(pi, 0) -> {float,[]};
 math_mod_return_type(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 
+lists_mod_return_type(all, 2, _Vst) ->
+    bool;
+lists_mod_return_type(any, 2, _Vst) ->
+    bool;
+lists_mod_return_type(keymember, 3, _Vst) ->
+    bool;
+lists_mod_return_type(member, 2, _Vst) ->
+    bool;
+lists_mod_return_type(prefix, 2, _Vst) ->
+    bool;
+lists_mod_return_type(suffix, 2, _Vst) ->
+    bool;
 lists_mod_return_type(dropwhile, 2, _Vst) ->
     list;
 lists_mod_return_type(duplicate, 2, _Vst) ->
     list;
 lists_mod_return_type(filter, 2, _Vst) ->
+    list;
+lists_mod_return_type(flatten, 1, _Vst) ->
     list;
 lists_mod_return_type(flatten, 2, _Vst) ->
     list;
