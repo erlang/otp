@@ -1702,7 +1702,11 @@ handle_event(_, _, State, Data) ->
         <list type="bulleted">
           <item>
 	    <p>
-	      If option <c>{timeout,Time}</c> is present in
+	      If option
+	      <seealso marker="#type-start_opt">
+		<c>{timeout,Time}</c>
+	      </seealso>
+	      is present in
 	      <c><anno>Opts</anno></c>, the <c>gen_statem</c>
 	      is allowed to spend <c>Time</c> milliseconds initializing
 	      or it terminates and the start function returns
@@ -1710,23 +1714,33 @@ handle_event(_, _, State, Data) ->
             </p>
           </item>
           <item>
-            <p>If option<seealso marker="#type-hibernate_after_opt"><c>{hibernate_after,HibernateAfterTimeout}</c></seealso> is present, the <c>gen_statem</c>
-              process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
-              if no message is received, the process goes into hibernation automatically
-              (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).
+            <p>If option
+	    <seealso marker="#type-enter_loop_opt">
+	      <c>{hibernate_after,HibernateAfterTimeout}</c>
+	    </seealso>
+	    is present, the <c>gen_statem</c>
+            process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
+            if no message is received, the process goes into hibernation automatically
+            (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).
             </p>
           </item>
           <item>
             <p>
               If option
-              <seealso marker="#type-debug_opt"><c>{debug,Dbgs}</c></seealso>
+              <seealso marker="#type-enter_loop_opt">
+		<c>{debug,Dbgs}</c>
+	      </seealso>
               is present in <c><anno>Opts</anno></c>, debugging through
               <seealso marker="sys"><c>sys</c></seealso> is activated.
             </p>
           </item>
           <item>
             <p>
-              If option <c>{spawn_opt,SpawnOpts}</c> is present in
+              If option
+              <seealso marker="#type-start_opt">
+		<c>{spawn_opt,SpawnOpts}</c>
+	      </seealso>
+	      is present in
               <c><anno>Opts</anno></c>, <c>SpawnOpts</c> is passed
               as option list to
 	      <seealso marker="erts:erlang#spawn_opt/2"><c>erlang:spawn_opt/2</c></seealso>,
