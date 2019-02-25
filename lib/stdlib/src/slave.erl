@@ -104,18 +104,17 @@ relay1(Pid) ->
 %% this to work is that the 'erl' program can be found in PATH.
 %%
 %% If the master and slave are on different hosts, start/N uses
-%% the 'rsh' program to spawn an Erlang node on the other host.
+%% the 'ssh' program to spawn an Erlang node on the other host.
 %% Alternative, if the master was started as
 %% 'erl -sname xxx -rsh my_rsh...', then 'my_rsh' will be used instead
-%% of 'rsh' (this is useful for systems where the rsh program is named
-%% 'remsh').
+%% of 'ssh' (this is useful for systems still using rsh or remsh).
 %%
 %% For this to work, the following conditions must be fulfilled:
 %%
-%% 1. There must be an Rsh program on computer; if not an error
+%% 1. There must be an ssh program on computer; if not an error
 %%    is returned.
 %%
-%% 2. The hosts must be configured to allowed 'rsh' access without
+%% 2. The hosts must be configured to allow 'ssh' access without
 %%    prompts for password.
 %%
 %% The slave node will have its filer and user server redirected
@@ -286,7 +285,7 @@ register_unique_name(Number) ->
 
 %% Makes up the command to start the nodes.
 %% If the node should run on the local host, there is
-%% no need to use rsh.
+%% no need to use a remote shell.
 
 mk_cmd(Host, Name, Args, Waiter, Prog0) ->
     Prog = quote_progname(Prog0),
@@ -342,9 +341,7 @@ do_quote_progname([Prog,Arg|Args]) ->
 		lists:flatten(lists:map(fun(X) -> [" ",X] end, [Arg|Args]))
     end.
 
-%% Give the user an opportunity to run another program,
-%% than the "rsh".  On HP-UX rsh is called remsh; thus HP users
-%% must start erlang as erl -rsh remsh.
+%% Give the user an opportunity to run another program than "ssh".
 %%
 %% Also checks that the given program exists.
 %%
@@ -354,7 +351,7 @@ rsh() ->
     Rsh =
 	case init:get_argument(rsh) of
 	    {ok, [[Prog]]} -> Prog;
-	    _ -> "rsh"
+	    _ -> "ssh"
 	end,
     case os:find_executable(Rsh) of
 	false -> {error, no_rsh};

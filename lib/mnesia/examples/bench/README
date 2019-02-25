@@ -46,7 +46,7 @@ you need to:
 
  - put the $ERL_TOP/bin directory in your path on all nodes
  - bind IP adresses to hostnames (e.g via DNS or /etc/hosts)
- - enable usage of rsh so it does not prompt for password
+ - enable usage of ssh so it does not prompt for password
 
 If you cannot achieve this, it is possible to run the benchmark
 anyway, but it requires more manual work to be done for each

@@ -97,7 +97,7 @@
 #endif
 
 #ifndef RSH
-#define RSH "/usr/bin/rsh"
+#define RSH "/usr/bin/ssh"
 #endif
 
 #ifndef HAVE_SOCKLEN_T

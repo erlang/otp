@@ -39,22 +39,29 @@
       done through the master.</p>
 
     <p>Slave nodes on other hosts than the current one are started with
-      the <c>rsh</c> program. The user must be allowed to <c>rsh</c> to
+      the <c>ssh</c> program. The user must be allowed to <c>ssh</c> to
       the remote hosts without being prompted for a password. This can
-      be arranged in a number of ways (for details, see the <c>rsh</c>
+      be arranged in a number of ways (for details, see the <c>ssh</c>
       documentation). A slave node started on the same host
       as the master inherits certain environment values from the master,
       such as the current directory and the environment variables. For
       what can be assumed about the environment when a slave is started
-      on another host, see the documentation for the <c>rsh</c>
+      on another host, see the documentation for the <c>ssh</c>
       program.</p>
 
-    <p>An alternative to the <c>rsh</c> program can be specified on
+    <p>An alternative to the <c>ssh</c> program can be specified on
       the command line to
       <seealso marker="erts:erl#erl"><c>erl(1)</c></seealso> as follows:</p>
 
     <pre>
 -rsh Program</pre>
+
+    <p>Note that the command specified with the <c>-rsh</c> flag is
+      treated as a file name which may contain spaces. It is thus not
+      possible to include any command line options. The remote node will
+      be launched as <c>"$RSH" "$REMOTE_HOSTNAME" erl -detached -noinput
+      ...</c>, so the
+      <c>erl</c> command must be found in the path on the remote host.</p>
 
     <p>The slave node is to use the same file system at the master. At
       least, Erlang/OTP is to be installed in the same place on both
@@ -166,7 +173,9 @@ slave:start(H, Name, Arg).</code>
           </item>
           <tag><c>no_rsh</c></tag>
           <item>
-            <p>There is no <c>rsh</c> program on the computer.</p>
+            <p>No remote shell program was found on the computer. Note
+            that <c>ssh</c> is used by default, but this can be overridden
+            with the <c>-rsh</c> flag.</p>
           </item>
           <tag><c>{already_running, <anno>Node</anno>}</c></tag>
           <item>
