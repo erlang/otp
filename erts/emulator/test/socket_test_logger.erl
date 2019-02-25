@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,12 +21,13 @@
 -module(socket_test_logger).
 
 -export([
-         start/0,
+         start/0, start/1,
          stop/0,
          format/2
         ]).
 
 
+-define(QUIET,  true).
 -define(LIB,    socket_test_lib).
 -define(LOGGER, ?MODULE).
 
@@ -34,12 +35,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 start() ->
+    start(?QUIET).
+
+start(Quiet) ->
     case global:whereis_name(?LOGGER) of
         Pid when is_pid(Pid) ->
             ok;
         undefined ->
             Self = self(),
-            Pid = spawn_link(fun() -> init(Self) end),
+            Pid = spawn_link(fun() -> init(Self, Quiet) end),
             yes = global:register_name(?LOGGER, Pid),
             ok
     end.
@@ -70,12 +74,13 @@ do_format(Msg) ->
             ok
     end.
 
-init(Parent) ->
+init(Parent, Quiet) ->
     put(sname, "logger"),
     print("[~s][logger] starting~n", [?LIB:formated_timestamp()]),
-    loop(#{parent => Parent}).
+    loop(#{parent => Parent, quiet => Quiet}).
 
-loop(#{parent := Parent} = State) ->
+loop(#{parent := Parent,
+       quiet  := Quiet} = State) ->
     receive
         {'EXIT', Parent, _} ->
             print("[~s][logger] parent exit~n", [?LIB:formated_timestamp()]),
@@ -86,18 +91,20 @@ loop(#{parent := Parent} = State) ->
             exit(normal);
 
         {?MODULE, '$logger', {msg, Msg}} ->
-            print(Msg),
+            print_str(Quiet, Msg),
             loop(State)
     end.
 
 
 print(F, A) ->
-    print(?LIB:f(F, A)).
+    print_str(false, ?LIB:f(F, A)).
 
-print(Str) ->
+print_str(Quiet, Str) ->
     try
         begin
-            io:format(user, Str ++ "~n", []),
+            if (Quiet =/= true) -> io:format(user, Str ++ "~n", []);
+               true             -> ok
+            end,
             io:format(Str, [])
         end
     catch

@@ -18,6 +18,29 @@
 %% %CopyrightEnd%
 %%
 
+%% There are some environment variables that can be used to "manipulate"
+%% the test suite: 
+%%
+%% Variable that controls which 'groups' are to run (with default values)
+%%
+%%         ESOCK_TEST_API:         include
+%%         ESOCK_TEST_SOCK_CLOSE:  include
+%%         ESOCK_TEST_TRAFFIC:     include
+%%         ESOCK_TEST_TTEST:       exclude
+%%
+%% Defines the runtime of the ttest cases
+%% (This is the time during which "measurement" is performed. 
+%%  the actual time it takes for the test case to complete
+%%  will be longer)
+%%
+%%          ESOCK_TEST_TTEST_RUNTIME: 10 seconds
+%%              Format of values: <integer>[<unit>]
+%%              Where unit is: ms | s | m
+%%                 ms - milli seconds
+%%                 s  - seconds (default)
+%%                 m  - minutes
+%%
+
 %% Run the entire test suite: 
 %% ts:run(emulator, socket_SUITE, [batch]).
 %%
@@ -35,6 +58,7 @@
 %% Suite exports
 -export([suite/0, all/0, groups/0]).
 -export([init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2,
          init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
@@ -1361,16 +1385,53 @@ init_per_suite(Config) ->
         {win32, _} ->
             not_yet_implemented();
         _ ->
-            ?LOGGER:start(),
-            Config
+            case quiet_mode(Config) of
+                default ->
+                    ?LOGGER:start(),
+                    Config;
+                Quiet ->
+                    ?LOGGER:start(Quiet),
+                    [{esock_test_quiet, Quiet}|Config]
+            end
     end.
 
 end_per_suite(_) ->
     ?LOGGER:stop(),
     ok.
 
+
+init_per_group(ttest = _GroupName, Config) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [_GroupName, Config]),
+    case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
+        {value, _} ->
+            Config;
+        false ->
+            [{esock_test_ttest_runtime, which_ttest_runtime_env()}|Config]
+    end;
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(ttest = _GroupName, Config) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [_GroupName, Config]),
+    lists:keydelete(esock_test_ttest_runtime, 1, Config);
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 init_per_testcase(_TC, Config) ->
-    ?LOGGER:start(),
+    io:format("init_per_testcase(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [_TC, Config]),
+    case quiet_mode(Config) of
+        default ->
+            ?LOGGER:start();
+        Quiet ->
+            ?LOGGER:start(Quiet)
+    end,
     Config.
 
 end_per_testcase(_TC, Config) ->
@@ -1378,7 +1439,20 @@ end_per_testcase(_TC, Config) ->
     Config.
 
 
+quiet_mode(Config) ->
+    case lists:keysearch(esock_test_quiet, 1, Config) of
+        {value, {esock_test_quiet, Quiet}} ->
+            Quiet;
+        false ->
+            case os:getenv("ESOCK_TEST_QUIET") of
+                "true"  -> true;
+                "false" -> false;
+                _       -> default
+            end
+    end.
 
+
+                
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                     %%
@@ -11884,8 +11958,10 @@ ttest_sgenf_cgenf_small_tcp4(suite) ->
     [];
 ttest_sgenf_cgenf_small_tcp4(doc) ->
     [];
-ttest_sgenf_cgenf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_cgenf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgenf_small_tcp4,
+              Runtime,
               inet,
               gen, false,
               gen, false,
@@ -11906,8 +11982,10 @@ ttest_sgenf_cgenf_small_tcp6(suite) ->
     [];
 ttest_sgenf_cgenf_small_tcp6(doc) ->
     [];
-ttest_sgenf_cgenf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_cgenf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgenf_small_tcp6,
+              Runtime,
               inet6,
               gen, false,
               gen, false,
@@ -11928,8 +12006,10 @@ ttest_sgenf_cgenf_medium_tcp4(suite) ->
     [];
 ttest_sgenf_cgenf_medium_tcp4(doc) ->
     [];
-ttest_sgenf_cgenf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_cgenf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgenf_medium_tcp4,
+              Runtime,
               inet,
               gen, false,
               gen, false,
@@ -11950,8 +12030,10 @@ ttest_sgenf_cgenf_medium_tcp6(suite) ->
     [];
 ttest_sgenf_cgenf_medium_tcp6(doc) ->
     [];
-ttest_sgenf_cgenf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_cgenf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgenf_medium_tcp6,
+              Runtime,
               inet6,
               gen, false,
               gen, false,
@@ -11972,8 +12054,10 @@ ttest_sgenf_cgenf_large_tcp4(suite) ->
     [];
 ttest_sgenf_cgenf_large_tcp4(doc) ->
     [];
-ttest_sgenf_cgenf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_cgenf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgenf_large_tcp4,
+              Runtime,
               inet,
               gen, false,
               gen, false,
@@ -11994,8 +12078,10 @@ ttest_sgenf_cgenf_large_tcp6(suite) ->
     [];
 ttest_sgenf_cgenf_large_tcp6(doc) ->
     [];
-ttest_sgenf_cgenf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_cgenf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgenf_large_tcp6,
+              Runtime,
               inet6,
               gen, false,
               gen, false,
@@ -12016,8 +12102,10 @@ ttest_sgenf_cgeno_small_tcp4(suite) ->
     [];
 ttest_sgenf_cgeno_small_tcp4(doc) ->
     [];
-ttest_sgenf_cgeno_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_cgeno_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgeno_small_tcp4,
+              Runtime,
               inet,
               gen, false,
               gen, once,
@@ -12038,8 +12126,10 @@ ttest_sgenf_cgeno_small_tcp6(suite) ->
     [];
 ttest_sgenf_cgeno_small_tcp6(doc) ->
     [];
-ttest_sgenf_cgeno_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_cgeno_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgeno_small_tcp6,
+              Runtime,
               inet6,
               gen, false,
               gen, once,
@@ -12060,8 +12150,10 @@ ttest_sgenf_cgeno_medium_tcp4(suite) ->
     [];
 ttest_sgenf_cgeno_medium_tcp4(doc) ->
     [];
-ttest_sgenf_cgeno_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_cgeno_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgeno_medium_tcp4,
+              Runtime,
               inet,
               gen, false,
               gen, once,
@@ -12082,8 +12174,10 @@ ttest_sgenf_cgeno_medium_tcp6(suite) ->
     [];
 ttest_sgenf_cgeno_medium_tcp6(doc) ->
     [];
-ttest_sgenf_cgeno_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_cgeno_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgeno_medium_tcp6,
+              Runtime,
               inet6,
               gen, false,
               gen, once,
@@ -12104,8 +12198,10 @@ ttest_sgenf_cgeno_large_tcp4(suite) ->
     [];
 ttest_sgenf_cgeno_large_tcp4(doc) ->
     [];
-ttest_sgenf_cgeno_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_cgeno_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgeno_large_tcp4,
+              Runtime,
               inet,
               gen, false,
               gen, once,
@@ -12126,8 +12222,10 @@ ttest_sgenf_cgeno_large_tcp6(suite) ->
     [];
 ttest_sgenf_cgeno_large_tcp6(doc) ->
     [];
-ttest_sgenf_cgeno_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_cgeno_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgeno_large_tcp6,
+              Runtime,
               inet6,
               gen, false,
               gen, once,
@@ -12148,8 +12246,10 @@ ttest_sgenf_cgent_small_tcp4(suite) ->
     [];
 ttest_sgenf_cgent_small_tcp4(doc) ->
     [];
-ttest_sgenf_cgent_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_cgent_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgent_small_tcp4,
+              Runtime,
               inet,
               gen, false,
               gen, true,
@@ -12170,8 +12270,10 @@ ttest_sgenf_cgent_small_tcp6(suite) ->
     [];
 ttest_sgenf_cgent_small_tcp6(doc) ->
     [];
-ttest_sgenf_cgent_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_cgent_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgeno_small_tcp6,
+              Runtime,
               inet6,
               gen, false,
               gen, true,
@@ -12192,8 +12294,10 @@ ttest_sgenf_cgent_medium_tcp4(suite) ->
     [];
 ttest_sgenf_cgent_medium_tcp4(doc) ->
     [];
-ttest_sgenf_cgent_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_cgent_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgent_medium_tcp4,
+              Runtime,
               inet,
               gen, false,
               gen, true,
@@ -12214,8 +12318,10 @@ ttest_sgenf_cgent_medium_tcp6(suite) ->
     [];
 ttest_sgenf_cgent_medium_tcp6(doc) ->
     [];
-ttest_sgenf_cgent_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_cgent_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgent_medium_tcp6,
+              Runtime,
               inet6,
               gen, false,
               gen, true,
@@ -12236,8 +12342,10 @@ ttest_sgenf_cgent_large_tcp4(suite) ->
     [];
 ttest_sgenf_cgent_large_tcp4(doc) ->
     [];
-ttest_sgenf_cgent_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_cgent_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgent_large_tcp4,
+              Runtime,
               inet,
               gen, false,
               gen, true,
@@ -12258,8 +12366,10 @@ ttest_sgenf_cgent_large_tcp6(suite) ->
     [];
 ttest_sgenf_cgent_large_tcp6(doc) ->
     [];
-ttest_sgenf_cgent_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_cgent_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgent_large_tcp6,
+              Runtime,
               inet6,
               gen, false,
               gen, true,
@@ -12280,8 +12390,10 @@ ttest_sgenf_csockf_small_tcp4(suite) ->
     [];
 ttest_sgenf_csockf_small_tcp4(doc) ->
     [];
-ttest_sgenf_csockf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_csockf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockf_small_tcp4,
+              Runtime,
               inet,
               gen, false,
               sock, false,
@@ -12302,8 +12414,10 @@ ttest_sgenf_csockf_small_tcp6(suite) ->
     [];
 ttest_sgenf_csockf_small_tcp6(doc) ->
     [];
-ttest_sgenf_csockf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_csockf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockf_small_tcp6,
+              Runtime,
               inet6,
               gen, false,
               sock, false,
@@ -12324,8 +12438,10 @@ ttest_sgenf_csockf_medium_tcp4(suite) ->
     [];
 ttest_sgenf_csockf_medium_tcp4(doc) ->
     [];
-ttest_sgenf_csockf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_csockf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockf_medium_tcp4,
+              Runtime,
               inet,
               gen, false,
               sock, false,
@@ -12346,8 +12462,10 @@ ttest_sgenf_csockf_medium_tcp6(suite) ->
     [];
 ttest_sgenf_csockf_medium_tcp6(doc) ->
     [];
-ttest_sgenf_csockf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_csockf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockf_medium_tcp6,
+              Runtime,
               inet6,
               gen, false,
               sock, false,
@@ -12368,8 +12486,10 @@ ttest_sgenf_csockf_large_tcp4(suite) ->
     [];
 ttest_sgenf_csockf_large_tcp4(doc) ->
     [];
-ttest_sgenf_csockf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_csockf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockf_large_tcp4,
+              Runtime,
               inet,
               gen, false,
               sock, false,
@@ -12390,8 +12510,10 @@ ttest_sgenf_csockf_large_tcp6(suite) ->
     [];
 ttest_sgenf_csockf_large_tcp6(doc) ->
     [];
-ttest_sgenf_csockf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_csockf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockf_large_tcp6,
+              Runtime,
               inet6,
               gen, false,
               sock, false,
@@ -12412,8 +12534,10 @@ ttest_sgenf_csocko_small_tcp4(suite) ->
     [];
 ttest_sgenf_csocko_small_tcp4(doc) ->
     [];
-ttest_sgenf_csocko_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_csocko_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csocko_small_tcp4,
+              Runtime,
               inet,
               gen, false,
               sock, once,
@@ -12434,8 +12558,10 @@ ttest_sgenf_csocko_small_tcp6(suite) ->
     [];
 ttest_sgenf_csocko_small_tcp6(doc) ->
     [];
-ttest_sgenf_csocko_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_csocko_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csocko_small_tcp6,
+              Runtime,
               inet6,
               gen, false,
               sock, once,
@@ -12456,8 +12582,10 @@ ttest_sgenf_csocko_medium_tcp4(suite) ->
     [];
 ttest_sgenf_csocko_medium_tcp4(doc) ->
     [];
-ttest_sgenf_csocko_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_csocko_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csocko_medium_tcp4,
+              Runtime,
               inet,
               gen, false,
               sock, once,
@@ -12478,8 +12606,10 @@ ttest_sgenf_csocko_medium_tcp6(suite) ->
     [];
 ttest_sgenf_csocko_medium_tcp6(doc) ->
     [];
-ttest_sgenf_csocko_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_csocko_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csocko_medium_tcp6,
+              Runtime,
               inet6,
               gen, false,
               sock, once,
@@ -12500,8 +12630,10 @@ ttest_sgenf_csocko_large_tcp4(suite) ->
     [];
 ttest_sgenf_csocko_large_tcp4(doc) ->
     [];
-ttest_sgenf_csocko_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_csocko_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csocko_large_tcp4,
+              Runtime,
               inet,
               gen, false,
               sock, once,
@@ -12522,8 +12654,10 @@ ttest_sgenf_csocko_large_tcp6(suite) ->
     [];
 ttest_sgenf_csocko_large_tcp6(doc) ->
     [];
-ttest_sgenf_csocko_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_csocko_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csocko_large_tcp6,
+              Runtime,
               inet6,
               gen, false,
               sock, once,
@@ -12544,8 +12678,10 @@ ttest_sgenf_csockt_small_tcp4(suite) ->
     [];
 ttest_sgenf_csockt_small_tcp4(doc) ->
     [];
-ttest_sgenf_csockt_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_csockt_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockt_small_tcp4,
+              Runtime,
               inet,
               gen, false,
               sock, true,
@@ -12566,8 +12702,10 @@ ttest_sgenf_csockt_small_tcp6(suite) ->
     [];
 ttest_sgenf_csockt_small_tcp6(doc) ->
     [];
-ttest_sgenf_csockt_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_csockt_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csocko_small_tcp6,
+              Runtime,
               inet6,
               gen, false,
               sock, true,
@@ -12588,8 +12726,10 @@ ttest_sgenf_csockt_medium_tcp4(suite) ->
     [];
 ttest_sgenf_csockt_medium_tcp4(doc) ->
     [];
-ttest_sgenf_csockt_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_csockt_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockt_medium_tcp4,
+              Runtime,
               inet,
               gen, false,
               sock, true,
@@ -12610,8 +12750,10 @@ ttest_sgenf_csockt_medium_tcp6(suite) ->
     [];
 ttest_sgenf_csockt_medium_tcp6(doc) ->
     [];
-ttest_sgenf_csockt_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_csockt_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockt_medium_tcp6,
+              Runtime,
               inet6,
               gen, false,
               sock, true,
@@ -12632,8 +12774,10 @@ ttest_sgenf_csockt_large_tcp4(suite) ->
     [];
 ttest_sgenf_csockt_large_tcp4(doc) ->
     [];
-ttest_sgenf_csockt_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgenf_csockt_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockt_large_tcp4,
+              Runtime,
               inet,
               gen, false,
               sock, true,
@@ -12654,8 +12798,10 @@ ttest_sgenf_csockt_large_tcp6(suite) ->
     [];
 ttest_sgenf_csockt_large_tcp6(doc) ->
     [];
-ttest_sgenf_csockt_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgenf_csockt_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_csockt_large_tcp6,
+              Runtime,
               inet6,
               gen, false,
               sock, true,
@@ -12676,8 +12822,10 @@ ttest_sgeno_cgenf_small_tcp4(suite) ->
     [];
 ttest_sgeno_cgenf_small_tcp4(doc) ->
     [];
-ttest_sgeno_cgenf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_cgenf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgenf_small_tcp4,
+              Runtime,
               inet,
               gen, once,
               gen, false,
@@ -12698,8 +12846,10 @@ ttest_sgeno_cgenf_small_tcp6(suite) ->
     [];
 ttest_sgeno_cgenf_small_tcp6(doc) ->
     [];
-ttest_sgeno_cgenf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_cgenf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgenf_small_tcp6,
+              Runtime,
               inet6,
               gen, once,
               gen, false,
@@ -12720,8 +12870,10 @@ ttest_sgeno_cgenf_medium_tcp4(suite) ->
     [];
 ttest_sgeno_cgenf_medium_tcp4(doc) ->
     [];
-ttest_sgeno_cgenf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_cgenf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgenf_medium_tcp4,
+              Runtime,
               inet,
               gen, once,
               gen, false,
@@ -12742,8 +12894,10 @@ ttest_sgeno_cgenf_medium_tcp6(suite) ->
     [];
 ttest_sgeno_cgenf_medium_tcp6(doc) ->
     [];
-ttest_sgeno_cgenf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_cgenf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgenf_medium_tcp6,
+              Runtime,
               inet6,
               gen, once,
               gen, false,
@@ -12764,8 +12918,10 @@ ttest_sgeno_cgenf_large_tcp4(suite) ->
     [];
 ttest_sgeno_cgenf_large_tcp4(doc) ->
     [];
-ttest_sgeno_cgenf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_cgenf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgenf_large_tcp4,
+              Runtime,
               inet,
               gen, once,
               gen, false,
@@ -12786,8 +12942,10 @@ ttest_sgeno_cgenf_large_tcp6(suite) ->
     [];
 ttest_sgeno_cgenf_large_tcp6(doc) ->
     [];
-ttest_sgeno_cgenf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_cgenf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgenf_large_tcp6,
+              Runtime,
               inet6,
               gen, once,
               gen, false,
@@ -12808,8 +12966,10 @@ ttest_sgeno_cgeno_small_tcp4(suite) ->
     [];
 ttest_sgeno_cgeno_small_tcp4(doc) ->
     [];
-ttest_sgeno_cgeno_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_cgeno_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgeno_small_tcp4,
+              Runtime,
               inet,
               gen, once,
               gen, once,
@@ -12830,8 +12990,10 @@ ttest_sgeno_cgeno_small_tcp6(suite) ->
     [];
 ttest_sgeno_cgeno_small_tcp6(doc) ->
     [];
-ttest_sgeno_cgeno_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_cgeno_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgeno_small_tcp6,
+              Runtime,
               inet6,
               gen, once,
               gen, once,
@@ -12852,8 +13014,10 @@ ttest_sgeno_cgeno_medium_tcp4(suite) ->
     [];
 ttest_sgeno_cgeno_medium_tcp4(doc) ->
     [];
-ttest_sgeno_cgeno_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_cgeno_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgeno_medium_tcp4,
+              Runtime,
               inet,
               gen, once,
               gen, once,
@@ -12874,8 +13038,10 @@ ttest_sgeno_cgeno_medium_tcp6(suite) ->
     [];
 ttest_sgeno_cgeno_medium_tcp6(doc) ->
     [];
-ttest_sgeno_cgeno_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_cgeno_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgeno_medium_tcp6,
+              Runtime,
               inet6,
               gen, once,
               gen, once,
@@ -12896,8 +13062,10 @@ ttest_sgeno_cgeno_large_tcp4(suite) ->
     [];
 ttest_sgeno_cgeno_large_tcp4(doc) ->
     [];
-ttest_sgeno_cgeno_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_cgeno_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgeno_large_tcp4,
+              Runtime,
               inet,
               gen, once,
               gen, once,
@@ -12918,8 +13086,10 @@ ttest_sgeno_cgeno_large_tcp6(suite) ->
     [];
 ttest_sgeno_cgeno_large_tcp6(doc) ->
     [];
-ttest_sgeno_cgeno_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_cgeno_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgeno_large_tcp6,
+              Runtime,
               inet6,
               gen, once,
               gen, once,
@@ -12940,8 +13110,10 @@ ttest_sgeno_cgent_small_tcp4(suite) ->
     [];
 ttest_sgeno_cgent_small_tcp4(doc) ->
     [];
-ttest_sgeno_cgent_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_cgent_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgent_small_tcp4,
+              Runtime,
               inet,
               gen, once,
               gen, true,
@@ -12962,8 +13134,10 @@ ttest_sgeno_cgent_small_tcp6(suite) ->
     [];
 ttest_sgeno_cgent_small_tcp6(doc) ->
     [];
-ttest_sgeno_cgent_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_cgent_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgeno_small_tcp6,
+              Runtime,
               inet6,
               gen, once,
               gen, true,
@@ -12984,8 +13158,10 @@ ttest_sgeno_cgent_medium_tcp4(suite) ->
     [];
 ttest_sgeno_cgent_medium_tcp4(doc) ->
     [];
-ttest_sgeno_cgent_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_cgent_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgent_medium_tcp4,
+              Runtime,
               inet,
               gen, once,
               gen, true,
@@ -13006,8 +13182,10 @@ ttest_sgeno_cgent_medium_tcp6(suite) ->
     [];
 ttest_sgeno_cgent_medium_tcp6(doc) ->
     [];
-ttest_sgeno_cgent_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_cgent_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgent_medium_tcp6,
+              Runtime,
               inet6,
               gen, once,
               gen, true,
@@ -13028,8 +13206,10 @@ ttest_sgeno_cgent_large_tcp4(suite) ->
     [];
 ttest_sgeno_cgent_large_tcp4(doc) ->
     [];
-ttest_sgeno_cgent_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_cgent_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgent_large_tcp4,
+              Runtime,
               inet,
               gen, once,
               gen, true,
@@ -13050,8 +13230,10 @@ ttest_sgeno_cgent_large_tcp6(suite) ->
     [];
 ttest_sgeno_cgent_large_tcp6(doc) ->
     [];
-ttest_sgeno_cgent_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_cgent_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_cgent_large_tcp6,
+              Runtime,
               inet6,
               gen, once,
               gen, true,
@@ -13072,8 +13254,10 @@ ttest_sgeno_csockf_small_tcp4(suite) ->
     [];
 ttest_sgeno_csockf_small_tcp4(doc) ->
     [];
-ttest_sgeno_csockf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_csockf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockf_small_tcp4,
+              Runtime,
               inet,
               gen, once,
               sock, false,
@@ -13094,8 +13278,10 @@ ttest_sgeno_csockf_small_tcp6(suite) ->
     [];
 ttest_sgeno_csockf_small_tcp6(doc) ->
     [];
-ttest_sgeno_csockf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_csockf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockf_small_tcp6,
+              Runtime,
               inet6,
               gen, once,
               sock, false,
@@ -13116,8 +13302,10 @@ ttest_sgeno_csockf_medium_tcp4(suite) ->
     [];
 ttest_sgeno_csockf_medium_tcp4(doc) ->
     [];
-ttest_sgeno_csockf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_csockf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockf_medium_tcp4,
+              Runtime,
               inet,
               gen, once,
               sock, false,
@@ -13138,8 +13326,10 @@ ttest_sgeno_csockf_medium_tcp6(suite) ->
     [];
 ttest_sgeno_csockf_medium_tcp6(doc) ->
     [];
-ttest_sgeno_csockf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_csockf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockf_medium_tcp6,
+              Runtime,
               inet6,
               gen, once,
               sock, false,
@@ -13160,8 +13350,10 @@ ttest_sgeno_csockf_large_tcp4(suite) ->
     [];
 ttest_sgeno_csockf_large_tcp4(doc) ->
     [];
-ttest_sgeno_csockf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_csockf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockf_large_tcp4,
+              Runtime,
               inet,
               gen, once,
               sock, false,
@@ -13182,8 +13374,10 @@ ttest_sgeno_csockf_large_tcp6(suite) ->
     [];
 ttest_sgeno_csockf_large_tcp6(doc) ->
     [];
-ttest_sgeno_csockf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_csockf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockf_large_tcp6,
+              Runtime,
               inet6,
               gen, once,
               sock, false,
@@ -13204,8 +13398,10 @@ ttest_sgeno_csocko_small_tcp4(suite) ->
     [];
 ttest_sgeno_csocko_small_tcp4(doc) ->
     [];
-ttest_sgeno_csocko_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_csocko_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csocko_small_tcp4,
+              Runtime,
               inet,
               gen, once,
               sock, once,
@@ -13226,8 +13422,10 @@ ttest_sgeno_csocko_small_tcp6(suite) ->
     [];
 ttest_sgeno_csocko_small_tcp6(doc) ->
     [];
-ttest_sgeno_csocko_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_csocko_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csocko_small_tcp6,
+              Runtime,
               inet6,
               gen, once,
               sock, once,
@@ -13248,8 +13446,10 @@ ttest_sgeno_csocko_medium_tcp4(suite) ->
     [];
 ttest_sgeno_csocko_medium_tcp4(doc) ->
     [];
-ttest_sgeno_csocko_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_csocko_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csocko_medium_tcp4,
+              Runtime,
               inet,
               gen, once,
               sock, once,
@@ -13270,8 +13470,10 @@ ttest_sgeno_csocko_medium_tcp6(suite) ->
     [];
 ttest_sgeno_csocko_medium_tcp6(doc) ->
     [];
-ttest_sgeno_csocko_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_csocko_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csocko_medium_tcp6,
+              Runtime,
               inet6,
               gen, once,
               sock, once,
@@ -13292,8 +13494,10 @@ ttest_sgeno_csocko_large_tcp4(suite) ->
     [];
 ttest_sgeno_csocko_large_tcp4(doc) ->
     [];
-ttest_sgeno_csocko_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_csocko_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csocko_large_tcp4,
+              Runtime,
               inet,
               gen, once,
               sock, once,
@@ -13314,8 +13518,10 @@ ttest_sgeno_csocko_large_tcp6(suite) ->
     [];
 ttest_sgeno_csocko_large_tcp6(doc) ->
     [];
-ttest_sgeno_csocko_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_csocko_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csocko_large_tcp6,
+              Runtime,
               inet6,
               gen, once,
               sock, once,
@@ -13336,8 +13542,10 @@ ttest_sgeno_csockt_small_tcp4(suite) ->
     [];
 ttest_sgeno_csockt_small_tcp4(doc) ->
     [];
-ttest_sgeno_csockt_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_csockt_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockt_small_tcp4,
+              Runtime,
               inet,
               gen, once,
               sock, true,
@@ -13358,8 +13566,10 @@ ttest_sgeno_csockt_small_tcp6(suite) ->
     [];
 ttest_sgeno_csockt_small_tcp6(doc) ->
     [];
-ttest_sgeno_csockt_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_csockt_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csocko_small_tcp6,
+              Runtime,
               inet6,
               gen, once,
               sock, true,
@@ -13380,8 +13590,10 @@ ttest_sgeno_csockt_medium_tcp4(suite) ->
     [];
 ttest_sgeno_csockt_medium_tcp4(doc) ->
     [];
-ttest_sgeno_csockt_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_csockt_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockt_medium_tcp4,
+              Runtime,
               inet,
               gen, once,
               sock, true,
@@ -13402,8 +13614,10 @@ ttest_sgeno_csockt_medium_tcp6(suite) ->
     [];
 ttest_sgeno_csockt_medium_tcp6(doc) ->
     [];
-ttest_sgeno_csockt_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_csockt_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockt_medium_tcp6,
+              Runtime,
               inet6,
               gen, once,
               sock, true,
@@ -13424,8 +13638,10 @@ ttest_sgeno_csockt_large_tcp4(suite) ->
     [];
 ttest_sgeno_csockt_large_tcp4(doc) ->
     [];
-ttest_sgeno_csockt_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgeno_csockt_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockt_large_tcp4,
+              Runtime,
               inet,
               gen, once,
               sock, true,
@@ -13446,8 +13662,10 @@ ttest_sgeno_csockt_large_tcp6(suite) ->
     [];
 ttest_sgeno_csockt_large_tcp6(doc) ->
     [];
-ttest_sgeno_csockt_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgeno_csockt_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgeno_csockt_large_tcp6,
+              Runtime,
               inet6,
               gen, once,
               sock, true,
@@ -13468,8 +13686,10 @@ ttest_sgent_cgenf_small_tcp4(suite) ->
     [];
 ttest_sgent_cgenf_small_tcp4(doc) ->
     [];
-ttest_sgent_cgenf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_cgenf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgenf_small_tcp4,
+              Runtime,
               inet,
               gen, true,
               gen, false,
@@ -13490,8 +13710,10 @@ ttest_sgent_cgenf_small_tcp6(suite) ->
     [];
 ttest_sgent_cgenf_small_tcp6(doc) ->
     [];
-ttest_sgent_cgenf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_cgenf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgenf_small_tcp6,
+              Runtime,
               inet6,
               gen, true,
               gen, false,
@@ -13512,8 +13734,10 @@ ttest_sgent_cgenf_medium_tcp4(suite) ->
     [];
 ttest_sgent_cgenf_medium_tcp4(doc) ->
     [];
-ttest_sgent_cgenf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_cgenf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgenf_medium_tcp4,
+              Runtime,
               inet,
               gen, true,
               gen, false,
@@ -13534,8 +13758,10 @@ ttest_sgent_cgenf_medium_tcp6(suite) ->
     [];
 ttest_sgent_cgenf_medium_tcp6(doc) ->
     [];
-ttest_sgent_cgenf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_cgenf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgenf_medium_tcp6,
+              Runtime,
               inet6,
               gen, true,
               gen, false,
@@ -13556,8 +13782,10 @@ ttest_sgent_cgenf_large_tcp4(suite) ->
     [];
 ttest_sgent_cgenf_large_tcp4(doc) ->
     [];
-ttest_sgent_cgenf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_cgenf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgenf_large_tcp4,
+              Runtime,
               inet,
               gen, true,
               gen, false,
@@ -13578,8 +13806,10 @@ ttest_sgent_cgenf_large_tcp6(suite) ->
     [];
 ttest_sgent_cgenf_large_tcp6(doc) ->
     [];
-ttest_sgent_cgenf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_cgenf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgenf_large_tcp6,
+              Runtime,
               inet6,
               gen, true,
               gen, false,
@@ -13600,8 +13830,10 @@ ttest_sgent_cgeno_small_tcp4(suite) ->
     [];
 ttest_sgent_cgeno_small_tcp4(doc) ->
     [];
-ttest_sgent_cgeno_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_cgeno_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgeno_small_tcp4,
+              Runtime,
               inet,
               gen, true,
               gen, once,
@@ -13622,8 +13854,10 @@ ttest_sgent_cgeno_small_tcp6(suite) ->
     [];
 ttest_sgent_cgeno_small_tcp6(doc) ->
     [];
-ttest_sgent_cgeno_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_cgeno_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgeno_small_tcp6,
+              Runtime,
               inet6,
               gen, true,
               gen, once,
@@ -13644,8 +13878,10 @@ ttest_sgent_cgeno_medium_tcp4(suite) ->
     [];
 ttest_sgent_cgeno_medium_tcp4(doc) ->
     [];
-ttest_sgent_cgeno_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_cgeno_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgeno_medium_tcp4,
+              Runtime,
               inet,
               gen, true,
               gen, once,
@@ -13666,8 +13902,10 @@ ttest_sgent_cgeno_medium_tcp6(suite) ->
     [];
 ttest_sgent_cgeno_medium_tcp6(doc) ->
     [];
-ttest_sgent_cgeno_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_cgeno_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgeno_medium_tcp6,
+              Runtime,
               inet6,
               gen, true,
               gen, once,
@@ -13688,8 +13926,10 @@ ttest_sgent_cgeno_large_tcp4(suite) ->
     [];
 ttest_sgent_cgeno_large_tcp4(doc) ->
     [];
-ttest_sgent_cgeno_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_cgeno_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgeno_large_tcp4,
+              Runtime,
               inet,
               gen, true,
               gen, once,
@@ -13710,8 +13950,10 @@ ttest_sgent_cgeno_large_tcp6(suite) ->
     [];
 ttest_sgent_cgeno_large_tcp6(doc) ->
     [];
-ttest_sgent_cgeno_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_cgeno_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgeno_large_tcp6,
+              Runtime,
               inet6,
               gen, true,
               gen, once,
@@ -13732,8 +13974,10 @@ ttest_sgent_cgent_small_tcp4(suite) ->
     [];
 ttest_sgent_cgent_small_tcp4(doc) ->
     [];
-ttest_sgent_cgent_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_cgent_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgent_small_tcp4,
+              Runtime,
               inet,
               gen, true,
               gen, true,
@@ -13754,8 +13998,10 @@ ttest_sgent_cgent_small_tcp6(suite) ->
     [];
 ttest_sgent_cgent_small_tcp6(doc) ->
     [];
-ttest_sgent_cgent_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_cgent_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgeno_small_tcp6,
+              Runtime,
               inet6,
               gen, true,
               gen, true,
@@ -13776,8 +14022,10 @@ ttest_sgent_cgent_medium_tcp4(suite) ->
     [];
 ttest_sgent_cgent_medium_tcp4(doc) ->
     ["Server(gen,true), Client(gen,true), Domain=inet, msg=medium"];
-ttest_sgent_cgent_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_cgent_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgent_medium_tcp4,
+              Runtime,
               inet,
               gen, true,
               gen, true,
@@ -13798,8 +14046,10 @@ ttest_sgent_cgent_medium_tcp6(suite) ->
     [];
 ttest_sgent_cgent_medium_tcp6(doc) ->
     ["Server(gen,true), Client(gen,true), Domain=inet6, msg=medium"];
-ttest_sgent_cgent_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_cgent_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgent_medium_tcp6,
+              Runtime,
               inet6,
               gen, true,
               gen, true,
@@ -13820,8 +14070,10 @@ ttest_sgent_cgent_large_tcp4(suite) ->
     [];
 ttest_sgent_cgent_large_tcp4(doc) ->
     ["Server(gen,true), Client(gen,true), Domain=inet, msg=large"];
-ttest_sgent_cgent_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_cgent_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgent_large_tcp4,
+              Runtime,
               inet,
               gen, true,
               gen, true,
@@ -13842,8 +14094,10 @@ ttest_sgent_cgent_large_tcp6(suite) ->
     [];
 ttest_sgent_cgent_large_tcp6(doc) ->
     ["Server(gen,true), Client(gen,true), Domain=inet6, msg=large"];
-ttest_sgent_cgent_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_cgent_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_cgent_large_tcp6,
+              Runtime,
               inet6,
               gen, true,
               gen, true,
@@ -13864,8 +14118,10 @@ ttest_sgent_csockf_small_tcp4(suite) ->
     [];
 ttest_sgent_csockf_small_tcp4(doc) ->
     [];
-ttest_sgent_csockf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_csockf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockf_small_tcp4,
+              Runtime,
               inet,
               gen, true,
               sock, false,
@@ -13886,8 +14142,10 @@ ttest_sgent_csockf_small_tcp6(suite) ->
     [];
 ttest_sgent_csockf_small_tcp6(doc) ->
     [];
-ttest_sgent_csockf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_csockf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockf_small_tcp6,
+              Runtime,
               inet6,
               gen, true,
               sock, false,
@@ -13908,8 +14166,10 @@ ttest_sgent_csockf_medium_tcp4(suite) ->
     [];
 ttest_sgent_csockf_medium_tcp4(doc) ->
     [];
-ttest_sgent_csockf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_csockf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockf_medium_tcp4,
+              Runtime,
               inet,
               gen, true,
               sock, false,
@@ -13930,8 +14190,10 @@ ttest_sgent_csockf_medium_tcp6(suite) ->
     [];
 ttest_sgent_csockf_medium_tcp6(doc) ->
     [];
-ttest_sgent_csockf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_csockf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockf_medium_tcp6,
+              Runtime,
               inet6,
               gen, true,
               sock, false,
@@ -13952,8 +14214,10 @@ ttest_sgent_csockf_large_tcp4(suite) ->
     [];
 ttest_sgent_csockf_large_tcp4(doc) ->
     [];
-ttest_sgent_csockf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_csockf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockf_large_tcp4,
+              Runtime,
               inet,
               gen, true,
               sock, false,
@@ -13974,8 +14238,10 @@ ttest_sgent_csockf_large_tcp6(suite) ->
     [];
 ttest_sgent_csockf_large_tcp6(doc) ->
     [];
-ttest_sgent_csockf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_csockf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockf_large_tcp6,
+              Runtime,
               inet6,
               gen, true,
               sock, false,
@@ -13996,8 +14262,10 @@ ttest_sgent_csocko_small_tcp4(suite) ->
     [];
 ttest_sgent_csocko_small_tcp4(doc) ->
     [];
-ttest_sgent_csocko_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_csocko_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csocko_small_tcp4,
+              Runtime,
               inet,
               gen, true,
               sock, once,
@@ -14018,8 +14286,10 @@ ttest_sgent_csocko_small_tcp6(suite) ->
     [];
 ttest_sgent_csocko_small_tcp6(doc) ->
     [];
-ttest_sgent_csocko_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_csocko_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csocko_small_tcp6,
+              Runtime,
               inet6,
               gen, true,
               sock, once,
@@ -14040,8 +14310,10 @@ ttest_sgent_csocko_medium_tcp4(suite) ->
     [];
 ttest_sgent_csocko_medium_tcp4(doc) ->
     [];
-ttest_sgent_csocko_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_csocko_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csocko_medium_tcp4,
+              Runtime,
               inet,
               gen, true,
               sock, once,
@@ -14062,8 +14334,10 @@ ttest_sgent_csocko_medium_tcp6(suite) ->
     [];
 ttest_sgent_csocko_medium_tcp6(doc) ->
     [];
-ttest_sgent_csocko_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_csocko_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csocko_medium_tcp6,
+              Runtime,
               inet6,
               gen, true,
               sock, once,
@@ -14084,8 +14358,10 @@ ttest_sgent_csocko_large_tcp4(suite) ->
     [];
 ttest_sgent_csocko_large_tcp4(doc) ->
     [];
-ttest_sgent_csocko_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_csocko_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csocko_large_tcp4,
+              Runtime,
               inet,
               gen, true,
               sock, once,
@@ -14106,8 +14382,10 @@ ttest_sgent_csocko_large_tcp6(suite) ->
     [];
 ttest_sgent_csocko_large_tcp6(doc) ->
     [];
-ttest_sgent_csocko_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_csocko_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csocko_large_tcp6,
+              Runtime,
               inet6,
               gen, true,
               sock, once,
@@ -14128,8 +14406,10 @@ ttest_sgent_csockt_small_tcp4(suite) ->
     [];
 ttest_sgent_csockt_small_tcp4(doc) ->
     [];
-ttest_sgent_csockt_small_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_csockt_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockt_small_tcp4,
+              Runtime,
               inet,
               gen, true,
               sock, true,
@@ -14150,8 +14430,10 @@ ttest_sgent_csockt_small_tcp6(suite) ->
     [];
 ttest_sgent_csockt_small_tcp6(doc) ->
     [];
-ttest_sgent_csockt_small_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_csockt_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csocko_small_tcp6,
+              Runtime,
               inet6,
               gen, true,
               sock, true,
@@ -14172,8 +14454,10 @@ ttest_sgent_csockt_medium_tcp4(suite) ->
     [];
 ttest_sgent_csockt_medium_tcp4(doc) ->
     [];
-ttest_sgent_csockt_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_csockt_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockt_medium_tcp4,
+              Runtime,
               inet,
               gen, true,
               sock, true,
@@ -14194,8 +14478,10 @@ ttest_sgent_csockt_medium_tcp6(suite) ->
     [];
 ttest_sgent_csockt_medium_tcp6(doc) ->
     [];
-ttest_sgent_csockt_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_csockt_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockt_medium_tcp6,
+              Runtime,
               inet6,
               gen, true,
               sock, true,
@@ -14216,8 +14502,10 @@ ttest_sgent_csockt_large_tcp4(suite) ->
     [];
 ttest_sgent_csockt_large_tcp4(doc) ->
     [];
-ttest_sgent_csockt_large_tcp4(_Config) when is_list(_Config) ->
+ttest_sgent_csockt_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockt_large_tcp4,
+              Runtime,
               inet,
               gen, true,
               sock, true,
@@ -14238,8 +14526,10 @@ ttest_sgent_csockt_large_tcp6(suite) ->
     [];
 ttest_sgent_csockt_large_tcp6(doc) ->
     [];
-ttest_sgent_csockt_large_tcp6(_Config) when is_list(_Config) ->
+ttest_sgent_csockt_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgent_csockt_large_tcp6,
+              Runtime,
               inet6,
               gen, true,
               sock, true,
@@ -14260,8 +14550,10 @@ ttest_ssockf_cgenf_small_tcp4(suite) ->
     [];
 ttest_ssockf_cgenf_small_tcp4(doc) ->
     [];
-ttest_ssockf_cgenf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_cgenf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgenf_small_tcp4,
+              Runtime,
               inet,
               sock, false,
               gen, false,
@@ -14282,8 +14574,10 @@ ttest_ssockf_cgenf_small_tcp6(suite) ->
     [];
 ttest_ssockf_cgenf_small_tcp6(doc) ->
     [];
-ttest_ssockf_cgenf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_cgenf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgenf_small_tcp6,
+              Runtime,
               inet6,
               sock, false,
               gen, false,
@@ -14304,8 +14598,10 @@ ttest_ssockf_cgenf_medium_tcp4(suite) ->
     [];
 ttest_ssockf_cgenf_medium_tcp4(doc) ->
     [];
-ttest_ssockf_cgenf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_cgenf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgenf_medium_tcp4,
+              Runtime,
               inet,
               sock, false,
               gen, false,
@@ -14326,8 +14622,10 @@ ttest_ssockf_cgenf_medium_tcp6(suite) ->
     [];
 ttest_ssockf_cgenf_medium_tcp6(doc) ->
     [];
-ttest_ssockf_cgenf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_cgenf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgenf_medium_tcp6,
+              Runtime,
               inet6,
               sock, false,
               gen, false,
@@ -14348,8 +14646,10 @@ ttest_ssockf_cgenf_large_tcp4(suite) ->
     [];
 ttest_ssockf_cgenf_large_tcp4(doc) ->
     [];
-ttest_ssockf_cgenf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_cgenf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgenf_large_tcp4,
+              Runtime,
               inet,
               sock, false,
               gen, false,
@@ -14370,8 +14670,10 @@ ttest_ssockf_cgenf_large_tcp6(suite) ->
     [];
 ttest_ssockf_cgenf_large_tcp6(doc) ->
     [];
-ttest_ssockf_cgenf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_cgenf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgenf_large_tcp6,
+              Runtime,
               inet6,
               sock, false,
               gen, false,
@@ -14392,8 +14694,10 @@ ttest_ssockf_cgeno_small_tcp4(suite) ->
     [];
 ttest_ssockf_cgeno_small_tcp4(doc) ->
     [];
-ttest_ssockf_cgeno_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_cgeno_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgeno_small_tcp4,
+              Runtime,
               inet,
               sock, false,
               gen, once,
@@ -14414,8 +14718,10 @@ ttest_ssockf_cgeno_small_tcp6(suite) ->
     [];
 ttest_ssockf_cgeno_small_tcp6(doc) ->
     [];
-ttest_ssockf_cgeno_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_cgeno_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgeno_small_tcp6,
+              Runtime,
               inet6,
               sock, false,
               gen, once,
@@ -14436,8 +14742,10 @@ ttest_ssockf_cgeno_medium_tcp4(suite) ->
     [];
 ttest_ssockf_cgeno_medium_tcp4(doc) ->
     [];
-ttest_ssockf_cgeno_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_cgeno_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgeno_medium_tcp4,
+              Runtime,
               inet,
               sock, false,
               gen, once,
@@ -14458,8 +14766,10 @@ ttest_ssockf_cgeno_medium_tcp6(suite) ->
     [];
 ttest_ssockf_cgeno_medium_tcp6(doc) ->
     [];
-ttest_ssockf_cgeno_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_cgeno_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgeno_medium_tcp6,
+              Runtime,
               inet6,
               sock, false,
               gen, once,
@@ -14480,8 +14790,10 @@ ttest_ssockf_cgeno_large_tcp4(suite) ->
     [];
 ttest_ssockf_cgeno_large_tcp4(doc) ->
     [];
-ttest_ssockf_cgeno_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_cgeno_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgeno_large_tcp4,
+              Runtime,
               inet,
               sock, false,
               gen, once,
@@ -14502,8 +14814,10 @@ ttest_ssockf_cgeno_large_tcp6(suite) ->
     [];
 ttest_ssockf_cgeno_large_tcp6(doc) ->
     [];
-ttest_ssockf_cgeno_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_cgeno_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgeno_large_tcp6,
+              Runtime,
               inet6,
               sock, false,
               gen, once,
@@ -14524,8 +14838,10 @@ ttest_ssockf_cgent_small_tcp4(suite) ->
     [];
 ttest_ssockf_cgent_small_tcp4(doc) ->
     [];
-ttest_ssockf_cgent_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_cgent_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgent_small_tcp4,
+              Runtime,
               inet,
               sock, false,
               gen, true,
@@ -14546,8 +14862,10 @@ ttest_ssockf_cgent_small_tcp6(suite) ->
     [];
 ttest_ssockf_cgent_small_tcp6(doc) ->
     [];
-ttest_ssockf_cgent_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_cgent_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgeno_small_tcp6,
+              Runtime,
               inet6,
               sock, false,
               gen, true,
@@ -14568,8 +14886,10 @@ ttest_ssockf_cgent_medium_tcp4(suite) ->
     [];
 ttest_ssockf_cgent_medium_tcp4(doc) ->
     [];
-ttest_ssockf_cgent_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_cgent_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgent_medium_tcp4,
+              Runtime,
               inet,
               sock, false,
               gen, true,
@@ -14590,8 +14910,10 @@ ttest_ssockf_cgent_medium_tcp6(suite) ->
     [];
 ttest_ssockf_cgent_medium_tcp6(doc) ->
     [];
-ttest_ssockf_cgent_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_cgent_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgent_medium_tcp6,
+              Runtime,
               inet6,
               sock, false,
               gen, true,
@@ -14612,8 +14934,10 @@ ttest_ssockf_cgent_large_tcp4(suite) ->
     [];
 ttest_ssockf_cgent_large_tcp4(doc) ->
     [];
-ttest_ssockf_cgent_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_cgent_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgent_large_tcp4,
+              Runtime,
               inet,
               sock, false,
               gen, true,
@@ -14634,8 +14958,10 @@ ttest_ssockf_cgent_large_tcp6(suite) ->
     [];
 ttest_ssockf_cgent_large_tcp6(doc) ->
     [];
-ttest_ssockf_cgent_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_cgent_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_cgent_large_tcp6,
+              Runtime,
               inet6,
               sock, false,
               gen, true,
@@ -14656,8 +14982,10 @@ ttest_ssockf_csockf_small_tcp4(suite) ->
     [];
 ttest_ssockf_csockf_small_tcp4(doc) ->
     [];
-ttest_ssockf_csockf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_csockf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockf_small_tcp4,
+              Runtime,
               inet,
               sock, false,
               sock, false,
@@ -14678,8 +15006,10 @@ ttest_ssockf_csockf_small_tcp6(suite) ->
     [];
 ttest_ssockf_csockf_small_tcp6(doc) ->
     [];
-ttest_ssockf_csockf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_csockf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockf_small_tcp6,
+              Runtime,
               inet6,
               sock, false,
               sock, false,
@@ -14700,8 +15030,10 @@ ttest_ssockf_csockf_medium_tcp4(suite) ->
     [];
 ttest_ssockf_csockf_medium_tcp4(doc) ->
     [];
-ttest_ssockf_csockf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_csockf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockf_medium_tcp4,
+              Runtime,
               inet,
               sock, false,
               sock, false,
@@ -14722,8 +15054,10 @@ ttest_ssockf_csockf_medium_tcp6(suite) ->
     [];
 ttest_ssockf_csockf_medium_tcp6(doc) ->
     [];
-ttest_ssockf_csockf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_csockf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockf_medium_tcp6,
+              Runtime,
               inet6,
               sock, false,
               sock, false,
@@ -14744,8 +15078,10 @@ ttest_ssockf_csockf_large_tcp4(suite) ->
     [];
 ttest_ssockf_csockf_large_tcp4(doc) ->
     [];
-ttest_ssockf_csockf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_csockf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockf_large_tcp4,
+              Runtime,
               inet,
               sock, false,
               sock, false,
@@ -14766,8 +15102,10 @@ ttest_ssockf_csockf_large_tcp6(suite) ->
     [];
 ttest_ssockf_csockf_large_tcp6(doc) ->
     [];
-ttest_ssockf_csockf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_csockf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockf_large_tcp6,
+              Runtime,
               inet6,
               sock, false,
               sock, false,
@@ -14788,8 +15126,10 @@ ttest_ssockf_csocko_small_tcp4(suite) ->
     [];
 ttest_ssockf_csocko_small_tcp4(doc) ->
     [];
-ttest_ssockf_csocko_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_csocko_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csocko_small_tcp4,
+              Runtime,
               inet,
               sock, false,
               sock, once,
@@ -14810,8 +15150,10 @@ ttest_ssockf_csocko_small_tcp6(suite) ->
     [];
 ttest_ssockf_csocko_small_tcp6(doc) ->
     [];
-ttest_ssockf_csocko_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_csocko_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csocko_small_tcp6,
+              Runtime,
               inet6,
               sock, false,
               sock, once,
@@ -14832,8 +15174,10 @@ ttest_ssockf_csocko_medium_tcp4(suite) ->
     [];
 ttest_ssockf_csocko_medium_tcp4(doc) ->
     [];
-ttest_ssockf_csocko_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_csocko_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csocko_medium_tcp4,
+              Runtime,
               inet,
               sock, false,
               sock, once,
@@ -14854,8 +15198,10 @@ ttest_ssockf_csocko_medium_tcp6(suite) ->
     [];
 ttest_ssockf_csocko_medium_tcp6(doc) ->
     [];
-ttest_ssockf_csocko_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_csocko_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csocko_medium_tcp6,
+              Runtime,
               inet6,
               sock, false,
               sock, once,
@@ -14876,8 +15222,10 @@ ttest_ssockf_csocko_large_tcp4(suite) ->
     [];
 ttest_ssockf_csocko_large_tcp4(doc) ->
     [];
-ttest_ssockf_csocko_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_csocko_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csocko_large_tcp4,
+              Runtime,
               inet,
               sock, false,
               sock, once,
@@ -14898,8 +15246,10 @@ ttest_ssockf_csocko_large_tcp6(suite) ->
     [];
 ttest_ssockf_csocko_large_tcp6(doc) ->
     [];
-ttest_ssockf_csocko_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_csocko_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csocko_large_tcp6,
+              Runtime,
               inet6,
               sock, false,
               sock, once,
@@ -14920,8 +15270,10 @@ ttest_ssockf_csockt_small_tcp4(suite) ->
     [];
 ttest_ssockf_csockt_small_tcp4(doc) ->
     [];
-ttest_ssockf_csockt_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_csockt_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockt_small_tcp4,
+              Runtime,
               inet,
               sock, false,
               sock, true,
@@ -14942,8 +15294,10 @@ ttest_ssockf_csockt_small_tcp6(suite) ->
     [];
 ttest_ssockf_csockt_small_tcp6(doc) ->
     [];
-ttest_ssockf_csockt_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_csockt_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csocko_small_tcp6,
+              Runtime,
               inet6,
               sock, false,
               sock, true,
@@ -14964,8 +15318,10 @@ ttest_ssockf_csockt_medium_tcp4(suite) ->
     [];
 ttest_ssockf_csockt_medium_tcp4(doc) ->
     [];
-ttest_ssockf_csockt_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_csockt_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockt_medium_tcp4,
+              Runtime,
               inet,
               sock, false,
               sock, true,
@@ -14986,8 +15342,10 @@ ttest_ssockf_csockt_medium_tcp6(suite) ->
     [];
 ttest_ssockf_csockt_medium_tcp6(doc) ->
     [];
-ttest_ssockf_csockt_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_csockt_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockt_medium_tcp6,
+              Runtime,
               inet6,
               sock, false,
               sock, true,
@@ -15008,8 +15366,10 @@ ttest_ssockf_csockt_large_tcp4(suite) ->
     [];
 ttest_ssockf_csockt_large_tcp4(doc) ->
     [];
-ttest_ssockf_csockt_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockf_csockt_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockt_large_tcp4,
+              Runtime,
               inet,
               sock, false,
               sock, true,
@@ -15030,8 +15390,10 @@ ttest_ssockf_csockt_large_tcp6(suite) ->
     [];
 ttest_ssockf_csockt_large_tcp6(doc) ->
     [];
-ttest_ssockf_csockt_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockf_csockt_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockf_csockt_large_tcp6,
+              Runtime,
               inet6,
               sock, false,
               sock, true,
@@ -15052,8 +15414,10 @@ ttest_ssocko_cgenf_small_tcp4(suite) ->
     [];
 ttest_ssocko_cgenf_small_tcp4(doc) ->
     [];
-ttest_ssocko_cgenf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_cgenf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgenf_small_tcp4,
+              Runtime,
               inet,
               sock, once,
               gen, false,
@@ -15074,8 +15438,10 @@ ttest_ssocko_cgenf_small_tcp6(suite) ->
     [];
 ttest_ssocko_cgenf_small_tcp6(doc) ->
     [];
-ttest_ssocko_cgenf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_cgenf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgenf_small_tcp6,
+              Runtime,
               inet6,
               sock, once,
               gen, false,
@@ -15096,8 +15462,10 @@ ttest_ssocko_cgenf_medium_tcp4(suite) ->
     [];
 ttest_ssocko_cgenf_medium_tcp4(doc) ->
     [];
-ttest_ssocko_cgenf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_cgenf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgenf_medium_tcp4,
+              Runtime,
               inet,
               sock, once,
               gen, false,
@@ -15118,8 +15486,10 @@ ttest_ssocko_cgenf_medium_tcp6(suite) ->
     [];
 ttest_ssocko_cgenf_medium_tcp6(doc) ->
     [];
-ttest_ssocko_cgenf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_cgenf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgenf_medium_tcp6,
+              Runtime,
               inet6,
               sock, once,
               gen, false,
@@ -15140,8 +15510,10 @@ ttest_ssocko_cgenf_large_tcp4(suite) ->
     [];
 ttest_ssocko_cgenf_large_tcp4(doc) ->
     [];
-ttest_ssocko_cgenf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_cgenf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgenf_large_tcp4,
+              Runtime,
               inet,
               sock, once,
               gen, false,
@@ -15162,8 +15534,10 @@ ttest_ssocko_cgenf_large_tcp6(suite) ->
     [];
 ttest_ssocko_cgenf_large_tcp6(doc) ->
     [];
-ttest_ssocko_cgenf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_cgenf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgenf_large_tcp6,
+              Runtime,
               inet6,
               sock, once,
               gen, false,
@@ -15184,8 +15558,10 @@ ttest_ssocko_cgeno_small_tcp4(suite) ->
     [];
 ttest_ssocko_cgeno_small_tcp4(doc) ->
     [];
-ttest_ssocko_cgeno_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_cgeno_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgeno_small_tcp4,
+              Runtime,
               inet,
               sock, once,
               gen, once,
@@ -15206,8 +15582,10 @@ ttest_ssocko_cgeno_small_tcp6(suite) ->
     [];
 ttest_ssocko_cgeno_small_tcp6(doc) ->
     [];
-ttest_ssocko_cgeno_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_cgeno_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgeno_small_tcp6,
+              Runtime,
               inet6,
               sock, once,
               gen, once,
@@ -15228,8 +15606,10 @@ ttest_ssocko_cgeno_medium_tcp4(suite) ->
     [];
 ttest_ssocko_cgeno_medium_tcp4(doc) ->
     [];
-ttest_ssocko_cgeno_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_cgeno_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgeno_medium_tcp4,
+              Runtime,
               inet,
               sock, once,
               gen, once,
@@ -15250,8 +15630,10 @@ ttest_ssocko_cgeno_medium_tcp6(suite) ->
     [];
 ttest_ssocko_cgeno_medium_tcp6(doc) ->
     [];
-ttest_ssocko_cgeno_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_cgeno_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgeno_medium_tcp6,
+              Runtime,
               inet6,
               sock, once,
               gen, once,
@@ -15272,8 +15654,10 @@ ttest_ssocko_cgeno_large_tcp4(suite) ->
     [];
 ttest_ssocko_cgeno_large_tcp4(doc) ->
     [];
-ttest_ssocko_cgeno_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_cgeno_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgeno_large_tcp4,
+              Runtime,
               inet,
               sock, once,
               gen, once,
@@ -15294,8 +15678,10 @@ ttest_ssocko_cgeno_large_tcp6(suite) ->
     [];
 ttest_ssocko_cgeno_large_tcp6(doc) ->
     [];
-ttest_ssocko_cgeno_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_cgeno_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgeno_large_tcp6,
+              Runtime,
               inet6,
               sock, once,
               gen, once,
@@ -15316,8 +15702,10 @@ ttest_ssocko_cgent_small_tcp4(suite) ->
     [];
 ttest_ssocko_cgent_small_tcp4(doc) ->
     [];
-ttest_ssocko_cgent_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_cgent_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgent_small_tcp4,
+              Runtime,
               inet,
               sock, once,
               gen, true,
@@ -15338,8 +15726,10 @@ ttest_ssocko_cgent_small_tcp6(suite) ->
     [];
 ttest_ssocko_cgent_small_tcp6(doc) ->
     [];
-ttest_ssocko_cgent_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_cgent_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgent_small_tcp6,
+              Runtime,
               inet6,
               sock, once,
               gen, true,
@@ -15360,8 +15750,10 @@ ttest_ssocko_cgent_medium_tcp4(suite) ->
     [];
 ttest_ssocko_cgent_medium_tcp4(doc) ->
     [];
-ttest_ssocko_cgent_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_cgent_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgent_medium_tcp4,
+              Runtime,
               inet,
               sock, once,
               gen, true,
@@ -15382,8 +15774,10 @@ ttest_ssocko_cgent_medium_tcp6(suite) ->
     [];
 ttest_ssocko_cgent_medium_tcp6(doc) ->
     [];
-ttest_ssocko_cgent_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_cgent_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgent_medium_tcp6,
+              Runtime,
               inet6,
               sock, once,
               gen, true,
@@ -15404,8 +15798,10 @@ ttest_ssocko_cgent_large_tcp4(suite) ->
     [];
 ttest_ssocko_cgent_large_tcp4(doc) ->
     [];
-ttest_ssocko_cgent_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_cgent_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgent_large_tcp4,
+              Runtime,
               inet,
               sock, once,
               gen, true,
@@ -15426,8 +15822,10 @@ ttest_ssocko_cgent_large_tcp6(suite) ->
     [];
 ttest_ssocko_cgent_large_tcp6(doc) ->
     [];
-ttest_ssocko_cgent_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_cgent_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_cgent_large_tcp6,
+              Runtime,
               inet6,
               sock, once,
               gen, true,
@@ -15448,8 +15846,10 @@ ttest_ssocko_csockf_small_tcp4(suite) ->
     [];
 ttest_ssocko_csockf_small_tcp4(doc) ->
     [];
-ttest_ssocko_csockf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_csockf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockf_small_tcp4,
+              Runtime,
               inet,
               sock, once,
               sock, false,
@@ -15470,8 +15870,10 @@ ttest_ssocko_csockf_small_tcp6(suite) ->
     [];
 ttest_ssocko_csockf_small_tcp6(doc) ->
     [];
-ttest_ssocko_csockf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_csockf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockf_small_tcp6,
+              Runtime,
               inet6,
               sock, once,
               sock, false,
@@ -15492,8 +15894,10 @@ ttest_ssocko_csockf_medium_tcp4(suite) ->
     [];
 ttest_ssocko_csockf_medium_tcp4(doc) ->
     [];
-ttest_ssocko_csockf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_csockf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockf_medium_tcp4,
+              Runtime,
               inet,
               sock, once,
               sock, false,
@@ -15514,8 +15918,10 @@ ttest_ssocko_csockf_medium_tcp6(suite) ->
     [];
 ttest_ssocko_csockf_medium_tcp6(doc) ->
     [];
-ttest_ssocko_csockf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_csockf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockf_medium_tcp6,
+              Runtime,
               inet6,
               sock, once,
               sock, false,
@@ -15536,8 +15942,10 @@ ttest_ssocko_csockf_large_tcp4(suite) ->
     [];
 ttest_ssocko_csockf_large_tcp4(doc) ->
     [];
-ttest_ssocko_csockf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_csockf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockf_large_tcp4,
+              Runtime,
               inet,
               sock, once,
               sock, false,
@@ -15558,8 +15966,10 @@ ttest_ssocko_csockf_large_tcp6(suite) ->
     [];
 ttest_ssocko_csockf_large_tcp6(doc) ->
     [];
-ttest_ssocko_csockf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_csockf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockf_large_tcp6,
+              Runtime,
               inet6,
               sock, once,
               sock, false,
@@ -15580,8 +15990,10 @@ ttest_ssocko_csocko_small_tcp4(suite) ->
     [];
 ttest_ssocko_csocko_small_tcp4(doc) ->
     [];
-ttest_ssocko_csocko_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_csocko_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csocko_small_tcp4,
+              Runtime,
               inet,
               sock, once,
               sock, once,
@@ -15602,8 +16014,10 @@ ttest_ssocko_csocko_small_tcp6(suite) ->
     [];
 ttest_ssocko_csocko_small_tcp6(doc) ->
     [];
-ttest_ssocko_csocko_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_csocko_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csocko_small_tcp6,
+              Runtime,
               inet6,
               sock, once,
               sock, once,
@@ -15624,8 +16038,10 @@ ttest_ssocko_csocko_medium_tcp4(suite) ->
     [];
 ttest_ssocko_csocko_medium_tcp4(doc) ->
     [];
-ttest_ssocko_csocko_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_csocko_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csocko_medium_tcp4,
+              Runtime,
               inet,
               sock, once,
               sock, once,
@@ -15646,8 +16062,10 @@ ttest_ssocko_csocko_medium_tcp6(suite) ->
     [];
 ttest_ssocko_csocko_medium_tcp6(doc) ->
     [];
-ttest_ssocko_csocko_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_csocko_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csocko_medium_tcp6,
+              Runtime,
               inet6,
               sock, once,
               sock, once,
@@ -15668,8 +16086,10 @@ ttest_ssocko_csocko_large_tcp4(suite) ->
     [];
 ttest_ssocko_csocko_large_tcp4(doc) ->
     [];
-ttest_ssocko_csocko_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_csocko_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csocko_large_tcp4,
+              Runtime,
               inet,
               sock, once,
               sock, once,
@@ -15690,8 +16110,10 @@ ttest_ssocko_csocko_large_tcp6(suite) ->
     [];
 ttest_ssocko_csocko_large_tcp6(doc) ->
     [];
-ttest_ssocko_csocko_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_csocko_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csocko_large_tcp6,
+              Runtime,
               inet6,
               sock, once,
               sock, once,
@@ -15712,8 +16134,10 @@ ttest_ssocko_csockt_small_tcp4(suite) ->
     [];
 ttest_ssocko_csockt_small_tcp4(doc) ->
     [];
-ttest_ssocko_csockt_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_csockt_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockt_small_tcp4,
+              Runtime,
               inet,
               sock, once,
               sock, true,
@@ -15734,8 +16158,10 @@ ttest_ssocko_csockt_small_tcp6(suite) ->
     [];
 ttest_ssocko_csockt_small_tcp6(doc) ->
     [];
-ttest_ssocko_csockt_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_csockt_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csocko_small_tcp6,
+              Runtime,
               inet6,
               sock, once,
               sock, true,
@@ -15756,8 +16182,10 @@ ttest_ssocko_csockt_medium_tcp4(suite) ->
     [];
 ttest_ssocko_csockt_medium_tcp4(doc) ->
     [];
-ttest_ssocko_csockt_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_csockt_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockt_medium_tcp4,
+              Runtime,
               inet,
               sock, once,
               sock, true,
@@ -15778,8 +16206,10 @@ ttest_ssocko_csockt_medium_tcp6(suite) ->
     [];
 ttest_ssocko_csockt_medium_tcp6(doc) ->
     [];
-ttest_ssocko_csockt_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_csockt_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockt_medium_tcp6,
+              Runtime,
               inet6,
               sock, once,
               sock, true,
@@ -15800,8 +16230,10 @@ ttest_ssocko_csockt_large_tcp4(suite) ->
     [];
 ttest_ssocko_csockt_large_tcp4(doc) ->
     [];
-ttest_ssocko_csockt_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssocko_csockt_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockt_large_tcp4,
+              Runtime,
               inet,
               sock, once,
               sock, true,
@@ -15822,8 +16254,10 @@ ttest_ssocko_csockt_large_tcp6(suite) ->
     [];
 ttest_ssocko_csockt_large_tcp6(doc) ->
     [];
-ttest_ssocko_csockt_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssocko_csockt_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssocko_csockt_large_tcp6,
+              Runtime,
               inet6,
               sock, once,
               sock, true,
@@ -15844,8 +16278,10 @@ ttest_ssockt_cgenf_small_tcp4(suite) ->
     [];
 ttest_ssockt_cgenf_small_tcp4(doc) ->
     [];
-ttest_ssockt_cgenf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_cgenf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgenf_small_tcp4,
+              Runtime,
               inet,
               sock, true,
               gen, false,
@@ -15866,8 +16302,10 @@ ttest_ssockt_cgenf_small_tcp6(suite) ->
     [];
 ttest_ssockt_cgenf_small_tcp6(doc) ->
     [];
-ttest_ssockt_cgenf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_cgenf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgenf_small_tcp6,
+              Runtime,
               inet6,
               sock, true,
               gen, false,
@@ -15888,8 +16326,10 @@ ttest_ssockt_cgenf_medium_tcp4(suite) ->
     [];
 ttest_ssockt_cgenf_medium_tcp4(doc) ->
     [];
-ttest_ssockt_cgenf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_cgenf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgenf_medium_tcp4,
+              Runtime,
               inet,
               sock, true,
               gen, false,
@@ -15910,8 +16350,10 @@ ttest_ssockt_cgenf_medium_tcp6(suite) ->
     [];
 ttest_ssockt_cgenf_medium_tcp6(doc) ->
     [];
-ttest_ssockt_cgenf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_cgenf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgenf_medium_tcp6,
+              Runtime,
               inet6,
               sock, true,
               gen, false,
@@ -15932,8 +16374,10 @@ ttest_ssockt_cgenf_large_tcp4(suite) ->
     [];
 ttest_ssockt_cgenf_large_tcp4(doc) ->
     [];
-ttest_ssockt_cgenf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_cgenf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgenf_large_tcp4,
+              Runtime,
               inet,
               sock, true,
               gen, false,
@@ -15954,8 +16398,10 @@ ttest_ssockt_cgenf_large_tcp6(suite) ->
     [];
 ttest_ssockt_cgenf_large_tcp6(doc) ->
     [];
-ttest_ssockt_cgenf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_cgenf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgenf_large_tcp6,
+              Runtime,
               inet6,
               sock, true,
               gen, false,
@@ -15976,8 +16422,10 @@ ttest_ssockt_cgeno_small_tcp4(suite) ->
     [];
 ttest_ssockt_cgeno_small_tcp4(doc) ->
     [];
-ttest_ssockt_cgeno_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_cgeno_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgeno_small_tcp4,
+              Runtime,
               inet,
               sock, true,
               gen, once,
@@ -15998,8 +16446,10 @@ ttest_ssockt_cgeno_small_tcp6(suite) ->
     [];
 ttest_ssockt_cgeno_small_tcp6(doc) ->
     [];
-ttest_ssockt_cgeno_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_cgeno_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgeno_small_tcp6,
+              Runtime,
               inet6,
               sock, true,
               gen, once,
@@ -16020,8 +16470,10 @@ ttest_ssockt_cgeno_medium_tcp4(suite) ->
     [];
 ttest_ssockt_cgeno_medium_tcp4(doc) ->
     [];
-ttest_ssockt_cgeno_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_cgeno_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgeno_medium_tcp4,
+              Runtime,
               inet,
               sock, true,
               gen, once,
@@ -16042,8 +16494,10 @@ ttest_ssockt_cgeno_medium_tcp6(suite) ->
     [];
 ttest_ssockt_cgeno_medium_tcp6(doc) ->
     [];
-ttest_ssockt_cgeno_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_cgeno_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgeno_medium_tcp6,
+              Runtime,
               inet6,
               sock, true,
               gen, once,
@@ -16064,8 +16518,10 @@ ttest_ssockt_cgeno_large_tcp4(suite) ->
     [];
 ttest_ssockt_cgeno_large_tcp4(doc) ->
     [];
-ttest_ssockt_cgeno_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_cgeno_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgeno_large_tcp4,
+              Runtime,
               inet,
               sock, true,
               gen, once,
@@ -16086,8 +16542,10 @@ ttest_ssockt_cgeno_large_tcp6(suite) ->
     [];
 ttest_ssockt_cgeno_large_tcp6(doc) ->
     [];
-ttest_ssockt_cgeno_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_cgeno_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgeno_large_tcp6,
+              Runtime,
               inet6,
               sock, true,
               gen, once,
@@ -16108,8 +16566,10 @@ ttest_ssockt_cgent_small_tcp4(suite) ->
     [];
 ttest_ssockt_cgent_small_tcp4(doc) ->
     [];
-ttest_ssockt_cgent_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_cgent_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgent_small_tcp4,
+              Runtime,
               inet,
               sock, true,
               gen, true,
@@ -16130,8 +16590,10 @@ ttest_ssockt_cgent_small_tcp6(suite) ->
     [];
 ttest_ssockt_cgent_small_tcp6(doc) ->
     [];
-ttest_ssockt_cgent_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_cgent_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgent_small_tcp6,
+              Runtime,
               inet6,
               sock, true,
               gen, true,
@@ -16152,8 +16614,10 @@ ttest_ssockt_cgent_medium_tcp4(suite) ->
     [];
 ttest_ssockt_cgent_medium_tcp4(doc) ->
     [];
-ttest_ssockt_cgent_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_cgent_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgent_medium_tcp4,
+              Runtime,
               inet,
               sock, true,
               gen, true,
@@ -16174,8 +16638,10 @@ ttest_ssockt_cgent_medium_tcp6(suite) ->
     [];
 ttest_ssockt_cgent_medium_tcp6(doc) ->
     [];
-ttest_ssockt_cgent_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_cgent_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgent_medium_tcp6,
+              Runtime,
               inet6,
               sock, true,
               gen, true,
@@ -16196,8 +16662,10 @@ ttest_ssockt_cgent_large_tcp4(suite) ->
     [];
 ttest_ssockt_cgent_large_tcp4(doc) ->
     [];
-ttest_ssockt_cgent_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_cgent_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgent_large_tcp4,
+              Runtime,
               inet,
               sock, true,
               gen, true,
@@ -16218,8 +16686,10 @@ ttest_ssockt_cgent_large_tcp6(suite) ->
     [];
 ttest_ssockt_cgent_large_tcp6(doc) ->
     [];
-ttest_ssockt_cgent_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_cgent_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_cgent_large_tcp6,
+              Runtime,
               inet6,
               sock, true,
               gen, true,
@@ -16240,8 +16710,10 @@ ttest_ssockt_csockf_small_tcp4(suite) ->
     [];
 ttest_ssockt_csockf_small_tcp4(doc) ->
     [];
-ttest_ssockt_csockf_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_csockf_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockf_small_tcp4,
+              Runtime,
               inet,
               sock, true,
               sock, false,
@@ -16262,8 +16734,10 @@ ttest_ssockt_csockf_small_tcp6(suite) ->
     [];
 ttest_ssockt_csockf_small_tcp6(doc) ->
     [];
-ttest_ssockt_csockf_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_csockf_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockf_small_tcp6,
+              Runtime,
               inet6,
               sock, true,
               sock, false,
@@ -16284,8 +16758,10 @@ ttest_ssockt_csockf_medium_tcp4(suite) ->
     [];
 ttest_ssockt_csockf_medium_tcp4(doc) ->
     [];
-ttest_ssockt_csockf_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_csockf_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockf_medium_tcp4,
+              Runtime,
               inet,
               sock, true,
               sock, false,
@@ -16306,8 +16782,10 @@ ttest_ssockt_csockf_medium_tcp6(suite) ->
     [];
 ttest_ssockt_csockf_medium_tcp6(doc) ->
     [];
-ttest_ssockt_csockf_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_csockf_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockf_medium_tcp6,
+              Runtime,
               inet6,
               sock, true,
               sock, false,
@@ -16328,8 +16806,10 @@ ttest_ssockt_csockf_large_tcp4(suite) ->
     [];
 ttest_ssockt_csockf_large_tcp4(doc) ->
     [];
-ttest_ssockt_csockf_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_csockf_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockf_large_tcp4,
+              Runtime,
               inet,
               sock, true,
               sock, false,
@@ -16350,8 +16830,10 @@ ttest_ssockt_csockf_large_tcp6(suite) ->
     [];
 ttest_ssockt_csockf_large_tcp6(doc) ->
     [];
-ttest_ssockt_csockf_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_csockf_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockf_large_tcp6,
+              Runtime,
               inet6,
               sock, true,
               sock, false,
@@ -16372,8 +16854,10 @@ ttest_ssockt_csocko_small_tcp4(suite) ->
     [];
 ttest_ssockt_csocko_small_tcp4(doc) ->
     [];
-ttest_ssockt_csocko_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_csocko_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csocko_small_tcp4,
+              Runtime,
               inet,
               sock, true,
               sock, once,
@@ -16394,8 +16878,10 @@ ttest_ssockt_csocko_small_tcp6(suite) ->
     [];
 ttest_ssockt_csocko_small_tcp6(doc) ->
     [];
-ttest_ssockt_csocko_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_csocko_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csocko_small_tcp6,
+              Runtime,
               inet6,
               sock, true,
               sock, once,
@@ -16416,8 +16902,10 @@ ttest_ssockt_csocko_medium_tcp4(suite) ->
     [];
 ttest_ssockt_csocko_medium_tcp4(doc) ->
     [];
-ttest_ssockt_csocko_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_csocko_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csocko_medium_tcp4,
+              Runtime,
               inet,
               sock, true,
               sock, once,
@@ -16438,8 +16926,10 @@ ttest_ssockt_csocko_medium_tcp6(suite) ->
     [];
 ttest_ssockt_csocko_medium_tcp6(doc) ->
     [];
-ttest_ssockt_csocko_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_csocko_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csocko_medium_tcp6,
+              Runtime,
               inet6,
               sock, true,
               sock, once,
@@ -16460,8 +16950,10 @@ ttest_ssockt_csocko_large_tcp4(suite) ->
     [];
 ttest_ssockt_csocko_large_tcp4(doc) ->
     [];
-ttest_ssockt_csocko_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_csocko_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csocko_large_tcp4,
+              Runtime,
               inet,
               sock, true,
               sock, once,
@@ -16482,8 +16974,10 @@ ttest_ssockt_csocko_large_tcp6(suite) ->
     [];
 ttest_ssockt_csocko_large_tcp6(doc) ->
     [];
-ttest_ssockt_csocko_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_csocko_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csocko_large_tcp6,
+              Runtime,
               inet6,
               sock, true,
               sock, once,
@@ -16504,8 +16998,10 @@ ttest_ssockt_csockt_small_tcp4(suite) ->
     [];
 ttest_ssockt_csockt_small_tcp4(doc) ->
     [];
-ttest_ssockt_csockt_small_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_csockt_small_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockt_small_tcp4,
+              Runtime,
               inet,
               sock, true,
               sock, true,
@@ -16526,8 +17022,10 @@ ttest_ssockt_csockt_small_tcp6(suite) ->
     [];
 ttest_ssockt_csockt_small_tcp6(doc) ->
     [];
-ttest_ssockt_csockt_small_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_csockt_small_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csocko_small_tcp6,
+              Runtime,
               inet6,
               sock, true,
               sock, true,
@@ -16548,8 +17046,10 @@ ttest_ssockt_csockt_medium_tcp4(suite) ->
     [];
 ttest_ssockt_csockt_medium_tcp4(doc) ->
     [];
-ttest_ssockt_csockt_medium_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_csockt_medium_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockt_medium_tcp4,
+              Runtime,
               inet,
               sock, true,
               sock, true,
@@ -16570,8 +17070,10 @@ ttest_ssockt_csockt_medium_tcp6(suite) ->
     [];
 ttest_ssockt_csockt_medium_tcp6(doc) ->
     [];
-ttest_ssockt_csockt_medium_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_csockt_medium_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockt_medium_tcp6,
+              Runtime,
               inet6,
               sock, true,
               sock, true,
@@ -16592,8 +17094,10 @@ ttest_ssockt_csockt_large_tcp4(suite) ->
     [];
 ttest_ssockt_csockt_large_tcp4(doc) ->
     [];
-ttest_ssockt_csockt_large_tcp4(_Config) when is_list(_Config) ->
+ttest_ssockt_csockt_large_tcp4(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockt_large_tcp4,
+              Runtime,
               inet,
               sock, true,
               sock, true,
@@ -16614,8 +17118,10 @@ ttest_ssockt_csockt_large_tcp6(suite) ->
     [];
 ttest_ssockt_csockt_large_tcp6(doc) ->
     [];
-ttest_ssockt_csockt_large_tcp6(_Config) when is_list(_Config) ->
+ttest_ssockt_csockt_large_tcp6(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_ssockt_csockt_large_tcp6,
+              Runtime,
               inet6,
               sock, true,
               sock, true,
@@ -16625,12 +17131,62 @@ ttest_ssockt_csockt_large_tcp6(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+which_ttest_runtime(Config) when is_list(Config) ->
+    case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
+        {value, {esock_test_ttest_runtime, Runtime}} ->
+            Runtime;
+        false ->
+            which_ttest_runtime_env()
+    end.
+
+which_ttest_runtime_env() ->
+    which_ttest_runtime_env(os:getenv("ESOCK_TEST_TTEST_RUNTIME")).
+
+which_ttest_runtime_env(TStr) when is_list(TStr) ->
+    which_ttest_runtime_env2(lists:reverse(TStr));
+which_ttest_runtime_env(false) ->
+    ?TTEST_RUNTIME.
+
+
+%% The format is: <int>[unit]
+%% where the optional unit can be:
+%% ms: milliseconds
+%% s:  seconds (default)
+%% m:  minutes
+which_ttest_runtime_env2([$m, $s | MS]) when (length(MS) > 0) ->
+    convert_time(MS, fun(X) -> X end);
+which_ttest_runtime_env2([$m | M]) when (length(M) > 0) ->
+    convert_time(M, fun(X) -> ?MINS(X) end);
+which_ttest_runtime_env2([$s | S]) when (length(S) > 0) ->
+    convert_time(S, fun(X) -> ?SECS(X) end);
+which_ttest_runtime_env2(S) ->
+    convert_time(S, fun(X) -> ?SECS(X) end).
+
+convert_time(TStrRev, Convert) ->
+    try list_to_integer(lists:reverse(TStrRev)) of
+        I -> Convert(I)
+    catch
+        _:_ ->
+            ?TTEST_RUNTIME
+    end.
+
 ttest_tcp(TC,
           Domain,
           ServerMod, ServerActive,
           ClientMod, ClientActive,
           MsgID, MaxOutstanding) ->
-    Runtime = ?TTEST_RUNTIME,
+    ttest_tcp(TC,
+              ?TTEST_RUNTIME,
+              Domain,
+              ServerMod, ServerActive,
+              ClientMod, ClientActive,
+              MsgID, MaxOutstanding).
+ttest_tcp(TC,
+          Runtime,
+          Domain,
+          ServerMod, ServerActive,
+          ClientMod, ClientActive,
+          MsgID, MaxOutstanding) ->
     tc_try(TC,
            fun() ->
                    if (Domain =/= inet) ->  not_yet_implemented(); true -> ok end,
