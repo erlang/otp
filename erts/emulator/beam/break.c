@@ -885,14 +885,14 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     else
 	dumpname = &dumpnamebuf[0];
     
-    erts_fprintf(stderr,"\nCrash dump is being written to: %s...", dumpname);
-
     /* tail-f hack - need to explicitly set this to get the dump */
     dumpname = getenv("CONFD_DUMP");
     if(!dumpname)
         dumpname = getenv("NCS_DUMP");
     if (!dumpname)
 	return;
+
+    erts_fprintf(stderr,"\nCrash dump is being written to: %s...", dumpname);
 
     fd = open(dumpname,O_WRONLY | O_CREAT | O_TRUNC,0640);
     if (fd < 0)

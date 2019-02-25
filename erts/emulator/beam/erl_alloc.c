@@ -2033,12 +2033,18 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 	Uint size;
 	va_list argp;
 	char *op = func == ERTS_ALC_O_REALLOC ? "reallocate" : "allocate";
-	
+
+        /* tail-f hack - need to explicitly set this to get the dump */
+        int exit_code;
+        if(getenv("CONFD_DUMP") || getenv("NCS_DUMP"))
+            exit_code = ERTS_DUMP_EXIT;
+        else
+            exit_code = ERTS_ABORT_EXIT;
 
 	va_start(argp, n);
 	size = va_arg(argp, Uint);
 	va_end(argp);
-	erts_exit(ERTS_DUMP_EXIT,
+	erts_exit(exit_code,
 		 "%s: Cannot %s %lu bytes of memory (of type \"%s\").\n",
 		 allctr_str, op, size, t_str);
 	break;
