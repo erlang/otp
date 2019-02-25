@@ -58,6 +58,18 @@
   </list>
 
   <section>
+    <title>Deprecation and Removal</title>
+    <note><p>The support for VxWorks is deprecated as of OTP 22, and
+    will be removed in OTP 23.</p></note>
+    <note><p>The old legacy <c>erl_interface</c> library (functions
+    with prefix <c>erl_</c>) is deprecated as of OTP 22, and will be
+    removed in OTP 23. This does not apply to the <c>ei</c>
+    library. Reasonably new <c>gcc</c> compilers will issue deprecation
+    warnings. In order to disable these warnings, define the macro
+    <c>EI_NO_DEPR_WARN</c>.</p></note>
+  </section>
+
+  <section>
     <title>Compiling and Linking Your Code</title>
     <p>In order to use any of the Erl_Interface functions, include the
       following lines in your code:</p>

@@ -34,6 +34,14 @@
   </header>
 
   <section>
+    <title>Introduction</title>
+    <p>This document describes strategy regarding supported Releases,
+    compatibility, deprecations and removal of functionality. This
+    document was introduced in OTP 21. Actions taken regarding these
+    issues before OTP 21 did not adhere this document.</p>
+  </section>
+
+  <section>
     <marker id="supported_releases"/>
     <title>Supported Releases</title>
     <p>

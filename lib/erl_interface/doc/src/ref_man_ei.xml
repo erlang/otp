@@ -30,8 +30,14 @@
     <file>ref_man_ei.xml</file>
   </header>
   <description>
-    <p>The <c>ei</c> library is a <c>C</c> interface library for
-      communication with <c>Erlang</c>.</p>
+    <note><p>The support for VxWorks is deprecated as of OTP 22, and
+    will be removed in OTP 23.</p></note>
+    <note><p>The old legacy <c>erl_interface</c> library (functions
+    with prefix <c>erl_</c>) is deprecated as of OTP 22, and will be
+    removed in OTP 23. This does not apply to the <c>ei</c>
+    library. Reasonably new <c>gcc</c> compilers will issue deprecation
+    warnings. In order to disable these warnings, define the macro
+    <c>EI_NO_DEPR_WARN</c>.</p></note>
     <note>
       <p>By default, the <c>ei</c> library is only guaranteed
         to be compatible with other Erlang/OTP components from the same

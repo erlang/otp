@@ -34,6 +34,9 @@
   <lib>ei_connect</lib>
   <libsummary>Communicate with distributed Erlang.</libsummary>
   <description>
+    <note><p>The support for VxWorks is deprecated as of OTP 22, and
+    will be removed in OTP 23.</p></note>
+    
     <p>This module enables C-programs to communicate with Erlang nodes,
       using the Erlang distribution over TCP/IP.</p>
 

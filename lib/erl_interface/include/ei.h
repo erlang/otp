@@ -47,6 +47,20 @@ typedef LONG_PTR ssize_t; /* Sigh... */
 # include <netdb.h>
 #endif
 
+#ifndef EI_INCLUDED_CONFIG_H__
+#include "ei_config.h"
+#endif
+
+#if defined(HAVE_DEPRECATED_ATTRIBUTE) && !defined(EI_NO_DEPR_WARN)
+#define EI_HAVE_DEPRECATED_ATTR__ 1
+#define EI_DEPRECATED_ATTR_NAME deprecated
+#define EI_DEPRECATED_ATTR __attribute__((EI_DEPRECATED_ATTR_NAME))
+#else
+#undef EI_HAVE_DEPRECATED_ATTR__
+#define EI_DEPRECATED_ATTR_NAME
+#define EI_DEPRECATED_ATTR
+#endif
+
 
 /* -------------------------------------------------------------------- */
 /*                      Defines part of API                             */

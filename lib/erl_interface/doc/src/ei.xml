@@ -35,6 +35,9 @@
   <lib>ei</lib>
   <libsummary>Routines for handling the Erlang binary term format.</libsummary>
   <description>
+    <note><p>The support for VxWorks is deprecated as of OTP 22, and
+    will be removed in OTP 23.</p></note>
+    
     <p>The library <c>ei</c> contains macros and functions to encode
       and decode the Erlang binary term format.</p>
 
