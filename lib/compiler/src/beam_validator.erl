@@ -620,10 +620,7 @@ valfun_4({make_fun2,_,_,_,Live}, Vst) ->
 %% Other BIFs
 valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     PosType = get_durable_term_type(Pos, Vst0),
-    ElementType = case PosType of
-                      {integer,I} -> get_element_type({integer,I}, Tuple, Vst0);
-                      _ -> term
-                  end,
+    ElementType = get_element_type(PosType, Tuple, Vst0),
     InferredType = {tuple,[get_tuple_size(PosType)],#{}},
     Vst1 = branch_state(Fail, Vst0),
     Vst = update_type(fun meet/2, InferredType, Tuple, Vst1),
@@ -1889,8 +1886,7 @@ assert_type(Needed, Actual) ->
 get_element_type(Key, Src, Vst) ->
     get_element_type_1(Key, get_durable_term_type(Src, Vst)).
 
-get_element_type_1(Key, {tuple,Sz,Es}) ->
-    {integer,Index} = Key,                        %Assertion.
+get_element_type_1({integer,Index}=Key, {tuple,Sz,Es}) ->
     case Es of
         #{ Key := Type } -> Type;
         #{} when Index =< Sz -> term;
