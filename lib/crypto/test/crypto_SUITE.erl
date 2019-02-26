@@ -261,7 +261,7 @@ init_per_group(fips, Config) ->
 		    enabled = crypto:info_fips(),
 		    FIPSConfig;
 		false ->
-		    {skip, "Failed to enable FIPS mode"}
+		    {fail, "Failed to enable FIPS mode"}
 	    end;
         not_supported ->
             {skip, "FIPS mode not supported"}
