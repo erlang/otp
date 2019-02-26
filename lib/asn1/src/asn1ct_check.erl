@@ -1710,7 +1710,7 @@ check_value(S,#valuedef{pos=Pos,name=Name,type=Type,
     {valueset,
      check_type(S,#typedef{pos=Pos,name=Name,typespec=NewType},NewType)};
 check_value(S, #valuedef{}=V) ->
-    ?dbg("check_value, V: ~p~n",[V0]),
+    ?dbg("check_value, V: ~p~n",[V]),
     case V of
 	#valuedef{checked=true} ->
 	    V;
@@ -1721,7 +1721,8 @@ check_value(S, #valuedef{}=V) ->
 check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
     #valuedef{name=Name,type=Vtype0,value=Value,module=ModName} = V0,
     V = V0#valuedef{checked=true},
-    Vtype = check_type(S0, #typedef{name=Name,typespec=Vtype0},Vtype0),
+    Vtype1 = expand_valuedef_type(Vtype0),
+    Vtype = check_type(S0, #typedef{name=Name,typespec=Vtype1},Vtype1),
     Def = Vtype#type.def,
     S1 = S0#state{tname=Def},
     SVal = update_state(S1, ModName),
@@ -1766,6 +1767,27 @@ check_valuedef(#state{recordtopname=TopName}=S0, V0) ->
 	_ ->
 	    V#valuedef{value=normalize_value(SVal, Vtype, Value, TopName)}
     end.
+
+expand_valuedef_type(#type{def=Seq}=Type)
+  when is_record(Seq,'SEQUENCE') ->
+    NewComponents = case Seq#'SEQUENCE'.components of
+                        {R1,_Ext,R2} -> R1 ++ R2;
+                        {Root,_Ext} -> Root;
+                        Root -> take_only_rootset(Root)
+                    end,
+    NewSeq = Seq#'SEQUENCE'{components = NewComponents},
+    Type#type{def=NewSeq};
+expand_valuedef_type(#type{def=Set}=Type)
+  when is_record(Set,'SET') ->
+    NewComponents = case Set#'SET'.components of
+                        {R1,_Ext,R2} -> R1 ++ R2;
+                        {Root,_Ext} -> Root;
+                        Root -> take_only_rootset(Root)
+                    end,
+    NewSet = Set#'SET'{components = NewComponents},
+    Type#type{def=NewSet};
+expand_valuedef_type(Type) ->
+    Type.
 
 is_contextswitchtype(#typedef{name='EXTERNAL'})->
     true;
@@ -1998,7 +2020,8 @@ normalize_value(S, Type, {'DEFAULT',Value}, NameList) ->
 	{'ENUMERATED',CType,_} ->
 	    normalize_enumerated(S,Value,CType);
 	{'CHOICE',CType,NewNameList} ->
-	    normalize_choice(S,Value,CType,NewNameList);
+	    ChoiceComponents = get_choice_components(S, {'CHOICE',CType}),
+	    normalize_choice(S,Value,ChoiceComponents,NewNameList);
 	{'SEQUENCE',CType,NewNameList} ->
 	    normalize_sequence(S,Value,CType,NewNameList);
 	{'SEQUENCE OF',CType,NewNameList} ->
