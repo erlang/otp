@@ -776,6 +776,8 @@ valfun_4({test,is_integer,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, {integer,[]}, Src, Vst);
 valfun_4({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, cons, Src, Vst);
+valfun_4({test,is_number,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, number, Src, Vst);
 valfun_4({test,is_list,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, list, Src, Vst);
 valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
@@ -2138,6 +2140,10 @@ join({Type,_}, number)
     number;
 join(number, {Type,_}) 
   when Type =:= integer; Type =:= float ->
+    number;
+join({integer,_}, {float,_}) ->
+    number;
+join({float,_}, {integer,_}) ->
     number;
 join(bool, {atom,A}) ->
     join_bool(A);
