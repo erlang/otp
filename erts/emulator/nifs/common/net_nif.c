@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -392,6 +392,7 @@ static char str_esystem[]           = "esystem";
 
 static ERL_NIF_TERM atom_address_info;
 static ERL_NIF_TERM atom_debug;
+static ERL_NIF_TERM atom_host;
 static ERL_NIF_TERM atom_idn;
 static ERL_NIF_TERM atom_idna_allow_unassigned;
 static ERL_NIF_TERM atom_idna_use_std3_ascii_rules;
@@ -400,6 +401,7 @@ static ERL_NIF_TERM atom_name_info;
 static ERL_NIF_TERM atom_nofqdn;
 static ERL_NIF_TERM atom_numerichost;
 static ERL_NIF_TERM atom_numericserv;
+static ERL_NIF_TERM atom_service;
 
 
 static ERL_NIF_TERM atom_eaddrfamily;
@@ -652,6 +654,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
     int           flags = 0; // Just in case...
     SocketAddress sa;
     SOCKLEN_T     saLen = 0; // Just in case...
+    char*         xres;
 
     NDBG( ("NET", "nif_getnameinfo -> entry (%d)\r\n", argc) );
 
@@ -666,8 +669,12 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
            "\r\n   Flags:    %T"
            "\r\n", eSockAddr, eFlags) );
 
-    if (!esock_decode_sockaddr(env, eSockAddr, &sa, &saLen))
-        return enif_make_badarg(env);
+    if ((xres = esock_decode_sockaddr(env, eSockAddr, &sa, &saLen)) != NULL) {
+        NDBG( ("NET", "nif_getnameinfo -> failed decode sockaddr: %s\r\n", xres) );
+        return esock_make_error_str(env, xres);
+    }
+
+    NDBG( ("NET", "nif_getnameinfo -> (try) decode flags\r\n") );
 
     if (!decode_nameinfo_flags(env, eFlags, &flags))
         return enif_make_badarg(env);
@@ -684,7 +691,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 
 
 
-/* Given the provided sock(et) address (and honts), retreive the host and
+/* Given the provided sock(et) address (and flags), retreive the host and
  * service info.
  */
 #if !defined(__WIN32__)
@@ -710,10 +717,17 @@ ERL_NIF_TERM ngetnameinfo(ErlNifEnv*           env,
     switch (res) {
     case 0:
         {
-            ERL_NIF_TERM info = MKT3(env,
-                                     atom_name_info,
-                                     MKS(env, host),
-                                     MKS(env, serv));
+            ERL_NIF_TERM keys[] = {atom_host,      atom_service};
+            ERL_NIF_TERM vals[] = {MKS(env, host), MKS(env, serv)};
+            ERL_NIF_TERM info;
+            unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+            unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+
+            ESOCK_ASSERT( (numKeys == numVals) );
+
+            if (!MKMA(env, keys, vals, numKeys, &info))
+                return enif_make_badarg(env);
+
             result = esock_make_ok2(env, info);
         }
         break;
@@ -1229,6 +1243,7 @@ BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
     BOOLEAN_T result;
 
     if (IS_ATOM(env, eflags)) {
+        NDBG( ("NET", "decode_nameinfo_flags -> is atom (%T)\r\n", eflags) );
         if (COMPARE(eflags, esock_atom_undefined) == 0) {
             *flags = 0;
             result = TRUE;
@@ -1236,11 +1251,13 @@ BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
             result = FALSE;
         }
     } else if (IS_LIST(env, eflags)) {
-        NDBG( ("NET", "decode_nameinfo_flags -> is atom\r\n") );
+        NDBG( ("NET", "decode_nameinfo_flags -> is list\r\n") );
         result = decode_nameinfo_flags_list(env, eflags, flags);
     } else {
         result = FALSE;
     }
+
+    NDBG( ("NET", "decode_nameinfo_flags -> result: %s\r\n", B2S(result)) );
 
     return result;
 }
@@ -1637,6 +1654,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     /* +++ Misc atoms +++ */
     atom_address_info              = MKA(env, str_address_info);
     atom_debug                     = MKA(env, str_debug);
+    atom_host                      = MKA(env, "host");
     atom_idn                       = MKA(env, str_idn);
     atom_idna_allow_unassigned     = MKA(env, str_idna_allow_unassigned);
     atom_idna_use_std3_ascii_rules = MKA(env, str_idna_use_std3_ascii_rules);
@@ -1645,6 +1663,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_nofqdn                    = MKA(env, str_nofqdn);
     atom_numerichost               = MKA(env, str_numerichost);
     atom_numericserv               = MKA(env, str_numericserv);
+    atom_service                   = MKA(env, "service");
 
     /* Error codes */
     atom_eaddrfamily     = MKA(env, str_eaddrfamily);
