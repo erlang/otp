@@ -70,6 +70,9 @@ in the future.
 
 *   Lists aren't supported inside block quotes.
 
+*   Nested block quotes can be generated, but current DTD does not
+    support it.
+
 *   Link and image definition names *are* case sensitive.
 
 #### Additional Features ####
@@ -126,7 +129,7 @@ places. Appropriate attributes to the `X` tag will also be generated.
     <icaption>...</icaption> </image>` sequence where the "title" will be
     placed between `<icaption>` and `</icaption>`.
 
-*   Block quotes generate `<blockquote>` tags.
+*   Block quotes generate `<quote>` tags.
 
 *   If the first line of a top level block quote begins with a `> *NOTE*:`
     character sequence, a `<note>` tag will be generated instead of a
@@ -152,7 +155,7 @@ places. Appropriate attributes to the `X` tag will also be generated.
 
 *   Emphasis (single `*` or `_`) will generate `<em>` tags.
 
-*   Strong emphasis (double `*` or `_`) will generate `<b>` tags.
+*   Strong emphasis (double `*` or `_`) will generate `<strong>` tags.
 
 *   The level 1 heading will cause the following to be generated:
 
@@ -180,11 +183,11 @@ places. Appropriate attributes to the `X` tag will also be generated.
     contain information from a \%CopyrightBegin\%, \%CopyrightEnd\% block
     if such exist (see below).
 
-*   A level `X` heading where `1 < X <= 3` will cause the the following
+*   A level `X` heading where `1 < X <= 6` will cause the the following
     to be generated:
 
-        <marker id="..."/>
         <section>
+            <marker id="..."/>
             <title>...</title>
             ...
         </section>
@@ -206,11 +209,11 @@ places. Appropriate attributes to the `X` tag will also be generated.
     other documents. That is, *be careful* when changing headings in an
     existing document.
 
-*   A level `X` heading where `3 < X` will cause the the following
+*   A level `X` heading where `6 < X` will cause the the following
     to be generated:
 
         <marker id="..."/>
-        <p><b>...</b></p>
+        <p><strong>...</strong></p>
         ...
 
     Current DTD:s used don't support deeper levels of sections, and we

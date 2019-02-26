@@ -826,6 +826,7 @@ Known platform issues
 
 Daily Build and Test
 --------------------
+
 At Ericsson we have a "Daily Build and Test" that runs on:
 
 *   Solaris 8, 9

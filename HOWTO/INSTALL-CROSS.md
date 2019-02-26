@@ -286,6 +286,7 @@ document for information on how to build the documentation.
 
 Testing the cross compiled system
 ---------------------------------
+
 Some of the tests that come with erlang use native code to test. This means
 that when cross compiling erlang you also have to cross compile test suites
 in order to run tests on the target host. To do this you first have to release
