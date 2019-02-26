@@ -7,7 +7,6 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES = \
 	crypto_bench_SUITE \
-	blowfish_SUITE \
 	crypto_SUITE \
 	engine_SUITE
 
