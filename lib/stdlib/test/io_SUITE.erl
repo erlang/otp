@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
          io_with_huge_message_queue/1, format_string/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
-         otp_15159/1]).
+         otp_15159/1, otp_15639/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -64,7 +64,8 @@ all() ->
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
-     otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159].
+     otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
+     otp_15639].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -2646,4 +2647,36 @@ otp_15076(_Config) ->
     {"~c", [a]} = io_lib:unscan_format(L),
     {'EXIT', {badarg, _}} = (catch io_lib:build_text(L)),
     {'EXIT', {badarg, _}} = (catch io_lib:build_text(L, [])),
+    ok.
+
+otp_15639(_Config) ->
+    L = lists:duplicate(10, "a"),
+    LOpts = [{encoding, latin1},  {chars_limit, 10}],
+    UOpts = [{encoding, unicode}, {chars_limit, 10}],
+    "[[...]|...]" = pretty(L, LOpts),
+    "[[...]|...]" = pretty(L, UOpts),
+    "[\"a\",[...]|...]" =
+        pretty(L, [{chars_limit, 12}, {encoding, latin1}]),
+    "[\"a\",[...]|...]" =
+        pretty(L, [{chars_limit, 12}, {encoding, unicode}]),
+
+    %% Latin-1
+    "\"12345678\"" = pretty("12345678", LOpts),
+    "\"12345678\"..." = pretty("123456789", LOpts),
+    "\"\\r\\n123456\"..." = pretty("\r\n1234567", LOpts),
+    "\"\\r1234567\"..." = pretty("\r12345678", LOpts),
+    "\"\\r\\n123456\"..." = pretty("\r\n12345678", LOpts),
+    "\"12345678\"..." = pretty("12345678"++[x], LOpts),
+    "[49,50|...]" = pretty("1234567"++[x], LOpts),
+    "[49,x]" = pretty("1"++[x], LOpts),
+    "[[...]|...]" = pretty(["1","2","3","4","5","6","7","8"], LOpts),
+    %% Unicode
+    "\"12345678\"" = pretty("12345678", UOpts),
+    "\"12345678\"..." = pretty("123456789", UOpts),
+    "\"\\r\\n1234567\"" = pretty("\r\n1234567", UOpts),
+    "\"\\r1234567\"..." = pretty("\r12345678", UOpts),
+    "\"\\r\\n1234567\"..." = pretty("\r\n12345678", UOpts),
+    "[49,50|...]" = pretty("12345678"++[x], UOpts),
+    "\"12345678\"..." = pretty("123456789"++[x], UOpts),
+    "[[...]|...]" = pretty(["1","2","3","4","5","6","7","8"], UOpts),
     ok.
