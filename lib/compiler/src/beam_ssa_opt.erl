@@ -683,6 +683,14 @@ record_opt_is([#b_set{op={bif,is_tuple},dst=Bool,args=[Tuple]}=Set],
         no ->
             [Set]
     end;
+record_opt_is([I|Is]=Is0, #b_br{bool=Bool}=Last, Blocks) ->
+    case is_tagged_tuple_1(Is0, Last, Blocks) of
+        {yes,_Fail,Tuple,Arity,Tag} ->
+            Args = [Tuple,Arity,Tag],
+            [I#b_set{op=is_tagged_tuple,dst=Bool,args=Args}];
+        no ->
+            [I|record_opt_is(Is, Last, Blocks)]
+    end;
 record_opt_is([I|Is], Last, Blocks) ->
     [I|record_opt_is(Is, Last, Blocks)];
 record_opt_is([], _Last, _Blocks) -> [].
@@ -690,29 +698,30 @@ record_opt_is([], _Last, _Blocks) -> [].
 is_tagged_tuple(#b_var{}=Tuple, Bool,
                 #b_br{bool=Bool,succ=Succ,fail=Fail},
                 Blocks) ->
-    SuccBlk = map_get(Succ, Blocks),
-    is_tagged_tuple_1(SuccBlk, Tuple, Fail, Blocks);
+    #b_blk{is=Is,last=Last} = map_get(Succ, Blocks),
+    case is_tagged_tuple_1(Is, Last, Blocks) of
+        {yes,Fail,Tuple,Arity,Tag} ->
+            {yes,Arity,Tag};
+        _ ->
+            no
+    end;
 is_tagged_tuple(_, _, _, _) -> no.
 
-is_tagged_tuple_1(#b_blk{is=Is,last=Last}, Tuple, Fail, Blocks) ->
-    case Is of
-        [#b_set{op={bif,tuple_size},dst=ArityVar,
-                args=[#b_var{}=Tuple]},
-         #b_set{op={bif,'=:='},
-                dst=Bool,
-                args=[ArityVar, #b_literal{val=ArityVal}=Arity]}]
-        when is_integer(ArityVal) ->
-            case Last of
-                #b_br{bool=Bool,succ=Succ,fail=Fail} ->
-                    SuccBlk = map_get(Succ, Blocks),
-                    case is_tagged_tuple_2(SuccBlk, Tuple, Fail) of
-                        no ->
-                            no;
-                        {yes,Tag} ->
-                            {yes,Arity,Tag}
-                    end;
-                _ ->
-                    no
+is_tagged_tuple_1(Is, Last, Blocks) ->
+    case {Is,Last} of
+        {[#b_set{op={bif,tuple_size},dst=ArityVar,
+                 args=[#b_var{}=Tuple]},
+          #b_set{op={bif,'=:='},
+                 dst=Bool,
+                 args=[ArityVar, #b_literal{val=ArityVal}=Arity]}],
+         #b_br{bool=Bool,succ=Succ,fail=Fail}}
+          when is_integer(ArityVal) ->
+            SuccBlk = map_get(Succ, Blocks),
+            case is_tagged_tuple_2(SuccBlk, Tuple, Fail) of
+                no ->
+                    no;
+                {yes,Tag} ->
+                    {yes,Fail,Tuple,Arity,Tag}
             end;
         _ ->
             no
