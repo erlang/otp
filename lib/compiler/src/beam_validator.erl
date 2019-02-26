@@ -61,9 +61,9 @@ type_anno(number) -> number;
 type_anno(nil) -> nil.
 
 -spec type_anno(term(), term()) -> term().
-type_anno(atom, Value) -> {atom, Value};
-type_anno(float, Value) -> {float, Value};
-type_anno(integer, Value) -> {integer, Value}.
+type_anno(atom, Value) when is_atom(Value) -> {atom, Value};
+type_anno(float, Value) when is_float(Value)  -> {float, Value};
+type_anno(integer, Value) when is_integer(Value) -> {integer, Value}.
 
 -spec type_anno(term(), term(), term(), term()) -> term().
 type_anno(tuple, Size, Exact, Elements) when is_integer(Size), Size >= 0,
@@ -1182,24 +1182,57 @@ verify_arg_type(Lbl, Reg, #ms{}, #vst{ft=Ft}) ->
     end;
 verify_arg_type(Lbl, Reg, GivenType, #vst{ft=Ft}) ->
     case gb_trees:lookup({Lbl, Reg}, Ft) of
-        {value, bool} when GivenType =:= {atom, true};
-                           GivenType =:= {atom, false};
-                           GivenType =:= {atom, []} ->
-            %% We don't yet support upgrading true/false to bool, so we
-            %% assume unknown atoms can be bools when validating calls.
-            ok;
         {value, #ms{}} ->
             %% Functions that accept match contexts also accept all other
             %% terms. This will change once we support union types.
             ok;
         {value, RequiredType} ->
-            case meet(GivenType, RequiredType) of
-                none -> error({bad_arg_type, Reg, GivenType, RequiredType});
-                _ -> ok
+            case vat_1(GivenType, RequiredType) of
+                true -> ok;
+                false -> error({bad_arg_type, Reg, GivenType, RequiredType})
             end;
         none ->
             ok
     end.
+
+%% Checks whether the Given argument is compatible with the Required one. This
+%% is essentially a relaxed version of 'meet(Given, Req) =:= Given', where we
+%% accept that the Given value has the right type but not necessarily the exact
+%% same value; if {atom,gurka} is required, we'll consider {atom,[]} valid.
+%%
+%% This will catch all problems that could crash the emulator, like passing a
+%% 1-tuple when the callee expects a 3-tuple, but some value errors might slip
+%% through.
+vat_1(Same, Same) -> true;
+vat_1({atom,A}, {atom,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
+vat_1({atom,A}, bool) -> is_boolean(A) orelse is_list(A);
+vat_1(bool, {atom,B}) -> is_boolean(B) orelse is_list(B);
+vat_1(cons, list) -> true;
+vat_1({float,A}, {float,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
+vat_1({float,_}, number) -> true;
+vat_1({integer,A}, {integer,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
+vat_1({integer,_}, number) -> true;
+vat_1(_, {literal,_}) -> false;
+vat_1({literal,_}=Lit, Required) -> vat_1(get_literal_type(Lit), Required);
+vat_1(nil, list) -> true;
+vat_1({tuple,SzA,EsA}, {tuple,SzB,EsB}) ->
+    if
+        is_list(SzB) ->
+            tuple_sz(SzA) >= tuple_sz(SzB) andalso vat_elements(EsA, EsB);
+        SzA =:= SzB ->
+            vat_elements(EsA, EsB);
+        SzA =/= SzB ->
+            false
+    end;
+vat_1(_, _) -> false.
+
+vat_elements(EsA, EsB) ->
+    maps:fold(fun(Key, Req, Acc) ->
+                      case EsA of
+                          #{ Key := Given } -> Acc andalso vat_1(Given, Req);
+                          #{} -> false
+                      end
+              end, true, EsB).
 
 allocate(Tag, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
     verify_live(Live, Vst0),
@@ -1871,6 +1904,8 @@ join(bool, {atom,A}) ->
     join_bool(A);
 join({atom,A}, bool) ->
     join_bool(A);
+join({atom,A}, {atom,B}) when is_boolean(A), is_boolean(B) ->
+    bool;
 join({atom,_}, {atom,_}) ->
     {atom,[]};
 join(#ms{id=Id1,valid=B1,slots=Slots1},
