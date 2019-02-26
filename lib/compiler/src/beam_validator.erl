@@ -50,7 +50,7 @@ module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
 -spec type_anno(term()) -> term().
 type_anno(atom) -> {atom,[]};
 type_anno(bool) -> bool;
-type_anno({binary,_}) -> term;
+type_anno({binary,_}) -> binary;
 type_anno(cons) -> cons;
 type_anno(float) -> {float,[]};
 type_anno(integer) -> {integer,[]};
@@ -832,6 +832,10 @@ valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
 %% Other test instructions.
 valfun_4({test,is_atom,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, {atom,[]}, Src, Vst);
+valfun_4({test,is_binary,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, binary, Src, Vst);
+valfun_4({test,is_bitstr,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, binary, Src, Vst);
 valfun_4({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, bool, Src, Vst);
 valfun_4({test,is_float,{f,Lbl},[Src]}, Vst) ->
@@ -1046,16 +1050,18 @@ validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
     verify_y_init(Vst),
 
     %% #ms{} can represent either a match context or a term, so we have to mark
-    %% the source as a term if it fails, and retain the incoming type if it
-    %% succeeds (match context or not).
-    %%
-    %% The override_type hack is only needed until we get proper union types.
+    %% the source as a term if it fails with a match context as an input. This
+    %% hack is only needed until we get proper union types.
     complex_test(Fail,
                  fun(FailVst) ->
-                         override_type(term, Src, FailVst)
+                         case get_raw_type(Src, FailVst) of
+                             #ms{} -> override_type(term, Src, FailVst);
+                             _ -> FailVst
+                         end
                  end,
                  fun(SuccVst0) ->
-                         SuccVst = prune_x_regs(Live, SuccVst0),
+                         SuccVst1 = update_type(fun meet/2, binary, Src, SuccVst0),
+                         SuccVst = prune_x_regs(Live, SuccVst1),
                          extract_term(Type, bs_start_match, [Src], Dst,
                                       SuccVst, SuccVst0)
                  end, Vst).
@@ -1935,6 +1941,10 @@ meet(term, Other) ->
     Other;
 meet(Other, term) ->
     Other;
+meet(#ms{}, binary) ->
+    #ms{};
+meet(binary, #ms{}) ->
+    #ms{};
 meet({literal,_}, {literal,_}) ->
     none;
 meet(T1, {literal,_}=T2) ->
@@ -2455,8 +2465,10 @@ bif_return_type(abs, [Num], Vst) ->
 bif_return_type(float, _, _) -> {float,[]};
 bif_return_type('/', _, _) -> {float,[]};
 %% Binary operations
-bif_return_type('byte_size', _, _) -> {integer,[]};
-bif_return_type('bit_size', _, _) -> {integer,[]};
+bif_return_type('binary_part', [_,_], _) -> binary;
+bif_return_type('binary_part', [_,_,_], _) -> binary;
+bif_return_type('bit_size', [_], _) -> {integer,[]};
+bif_return_type('byte_size', [_], _) -> {integer,[]};
 %% Integer operations.
 bif_return_type(ceil, [_], _) -> {integer,[]};
 bif_return_type('div', [_,_], _) -> {integer,[]};
@@ -2523,8 +2535,14 @@ bif_arg_types('and', [_,_]) -> [bool, bool];
 bif_arg_types('or', [_,_]) -> [bool, bool];
 bif_arg_types('xor', [_,_]) -> [bool, bool];
 %% Binary
-bif_arg_types('byte_size', [_]) -> [binary];
+bif_arg_types('binary_part', [_,_]) ->
+    PosLen = {tuple, 2, #{ {integer,1} => {integer,[]},
+                           {integer,2} => {integer,[]} }},
+    [binary, PosLen];
+bif_arg_types('binary_part', [_,_,_]) ->
+    [binary, {integer,[]}, {integer,[]}];
 bif_arg_types('bit_size', [_]) -> [binary];
+bif_arg_types('byte_size', [_]) -> [binary];
 %% Numerical
 bif_arg_types('-', [_]) -> [number];
 bif_arg_types('-', [_,_]) -> [number,number];
