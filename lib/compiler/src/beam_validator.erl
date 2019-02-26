@@ -1783,14 +1783,19 @@ assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 
 meet(Same, Same) ->
     Same;
-meet({literal,_}=T1, T2) ->
-    meet_literal(T1, T2);
-meet(T1, {literal,_}=T2) ->
-    meet_literal(T2, T1);
 meet(term, Other) ->
     Other;
 meet(Other, term) ->
     Other;
+meet({literal,_}, {literal,_}) ->
+    none;
+meet(T1, {literal,_}=T2) ->
+    meet(T2, T1);
+meet({literal,_}=T1, T2) ->
+    case meet(get_literal_type(T1), T2) of
+        none -> none;
+        _ -> T1
+    end;
 meet(T1, T2) ->
     case {erlang:min(T1, T2),erlang:max(T1, T2)} of
         {{atom,_}=A,{atom,[]}} -> A;
@@ -1822,13 +1827,6 @@ meet(T1, T2) ->
             end;
         {_,_} -> none
     end.
-
-%% Meets types of literals.
-meet_literal({literal,_}=Lit, T) ->
-    meet_literal(T, get_literal_type(Lit));
-meet_literal(T1, T2) ->
-    %% We're done extracting the types, try merging them again.
-    meet(T1, T2).
 
 meet_elements(Es1, Es2) ->
     Keys = maps:keys(Es1) ++ maps:keys(Es2),
@@ -1993,22 +1991,23 @@ get_literal_type({integer,I}=T) when is_integer(I) -> T;
 get_literal_type({literal,[_|_]}) -> cons;
 get_literal_type({literal,Bitstring}) when is_bitstring(Bitstring) -> binary;
 get_literal_type({literal,Map}) when is_map(Map) -> map;
-get_literal_type({literal,Tuple}) when is_tuple(Tuple) -> value_to_type(Tuple);
+get_literal_type({literal,Tuple}) when is_tuple(Tuple) -> glt_1(Tuple);
 get_literal_type({literal,_}) -> term;
 get_literal_type(T) -> error({not_literal,T}).
 
-value_to_type([]) -> nil;
-value_to_type(A) when is_atom(A) -> {atom, A};
-value_to_type(F) when is_float(F) -> {float, F};
-value_to_type(I) when is_integer(I) -> {integer, I};
-value_to_type(T) when is_tuple(T) ->
-     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
-                            Type = value_to_type(Val),
-                            Es = set_element_type({integer,Index}, Type, Es0),
-                            {Es, Index + 1}
-                    end, {#{}, 1}, tuple_to_list(T)),
-     {tuple, tuple_size(T), Es};
-value_to_type(L) -> {literal, L}.
+glt_1([]) -> nil;
+glt_1(A) when is_atom(A) -> {atom, A};
+glt_1(F) when is_float(F) -> {float, F};
+glt_1(I) when is_integer(I) -> {integer, I};
+glt_1(T) when is_tuple(T) ->
+    {Es,_} = foldl(fun(Val, {Es0, Index}) ->
+                           Type = glt_1(Val),
+                           Es = set_element_type({integer,Index}, Type, Es0),
+                           {Es, Index + 1}
+                   end, {#{}, 1}, tuple_to_list(T)),
+    {tuple, tuple_size(T), Es};
+glt_1(L) ->
+    {literal, L}.
 
 branch_state(0, #vst{}=Vst) ->
     %% If the instruction fails, the stack may be scanned
