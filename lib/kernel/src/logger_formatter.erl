@@ -64,7 +64,7 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
                             Config;
                         Size0 ->
                             Size =
-                                case Size0 - string:length([B,A]) of
+                                case Size0 - io_lib:chars_length([B,A]) of
                                     S when S>=0 -> S;
                                     _ -> 0
                                 end,
@@ -75,7 +75,11 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
                     true ->
                         %% Trim leading and trailing whitespaces, and replace
                         %% newlines with ", "
-                        re:replace(string:trim(MsgStr0),",?\r?\n\s*",", ",
+                        T = lists:reverse(
+                              trim(
+                                lists:reverse(
+                                  trim(MsgStr0,false)),true)),
+                        re:replace(T,",?\r?\n\s*",", ",
                                    [{return,list},global,unicode]);
                     _false ->
                         MsgStr0
@@ -83,7 +87,26 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
            true ->
                 ""
         end,
-    truncate([B,MsgStr,A],maps:get(max_size,Config)).
+    truncate(B,MsgStr,A,maps:get(max_size,Config)).
+
+trim([H|T],Rev) when H==$\s; H==$\r; H==$\n ->
+    trim(T,Rev);
+trim([H|T],false) when is_list(H) ->
+    case trim(H,false) of
+        [] ->
+            trim(T,false);
+        TrimmedH ->
+            [TrimmedH|T]
+    end;
+trim([H|T],true) when is_list(H) ->
+    case trim(lists:reverse(H),true) of
+        [] ->
+            trim(T,true);
+        TrimmedH ->
+            [lists:reverse(TrimmedH)|T]
+    end;
+trim(String,_) ->
+    String.
 
 do_format(Level,Data,[level|Format],Config) ->
     [to_string(level,Level,Config)|do_format(Level,Data,Format,Config)];
@@ -239,19 +262,45 @@ chardata_to_list(Chardata) ->
             throw(Error)
     end.
 
-truncate(String,unlimited) ->
-    String;
-truncate(String,Size) ->
-    Length = string:length(String),
+truncate(B,Msg,A,unlimited) ->
+    [B,Msg,A];
+truncate(B,Msg,A,Size) ->
+    String = [B,Msg,A],
+    Length = io_lib:chars_length(String),
     if Length>Size ->
-            case lists:reverse(lists:flatten(String)) of
-                [$\n|_] ->
-                    string:slice(String,0,Size-4)++"...\n";
+            {Last,FlatString} =
+                case A of
+                    [] ->
+                        case Msg of
+                            [] ->
+                                {get_last(B),lists:flatten(B)};
+                            _ ->
+                                {get_last(Msg),lists:flatten([B,Msg])}
+                        end;
+                    _ ->
+                        {get_last(A),lists:flatten(String)}
+                end,
+            case Last of
+                $\n->
+                    lists:sublist(FlatString,1,Size-4)++"...\n";
                 _ ->
-                    string:slice(String,0,Size-3)++"..."
+                    lists:sublist(FlatString,1,Size-3)++"..."
             end;
        true ->
             String
+    end.
+
+get_last(L) ->
+    get_first(lists:reverse(L)).
+
+get_first([]) ->
+    error;
+get_first([C|_]) when is_integer(C) ->
+    C;
+get_first([L|Rest]) when is_list(L) ->
+    case get_last(L) of
+        error -> get_first(Rest);
+        First -> First
     end.
 
 %% SysTime is the system time in microseconds
