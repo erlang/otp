@@ -476,6 +476,14 @@ valfun_1({'%', {type_info, Reg, Type}}, Vst) ->
     %% that Reg has a certain type, so that we can accept cross-function type
     %% optimizations.
     update_type(fun meet/2, Type, Reg, Vst);
+valfun_1({'%', {remove_fragility, Reg}}, Vst) ->
+    %% This is a hack to make prim_eval:'receive'/2 work.
+    %%
+    %% Normally it's illegal to pass fragile terms as a function argument as we
+    %% have no way of knowing what the callee will do with it, but we know that
+    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
+    %% disabled while matching messages.
+    remove_fragility(Reg, Vst);
 valfun_1({'%',_}, Vst) ->
     Vst;
 valfun_1({line,_}, Vst) ->
