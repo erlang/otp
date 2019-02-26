@@ -512,17 +512,17 @@ block_encrypt(Type, Key, Ivec, PlainText) when Type =:= des_cbc;
                                                Type =:= aes_cbc256;
                                                Type =:= aes_cbc;
                                                Type =:= rc2_cbc ->
-    block_crypt_nif(Type, Key, Ivec, PlainText, true);
+    notsup_to_error(block_crypt_nif(Type, Key, Ivec, PlainText, true));
 block_encrypt(Type, Key0, Ivec, PlainText) when Type =:= des3_cbc;
                                                 Type =:= des_ede3 ->
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbc, Key, Ivec, PlainText, true);
+    notsup_to_error(block_crypt_nif(des_ede3_cbc, Key, Ivec, PlainText, true));
 block_encrypt(des3_cbf, Key0, Ivec, PlainText) -> % cfb misspelled
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbf, Key, Ivec, PlainText, true);
+    notsup_to_error(block_crypt_nif(des_ede3_cbf, Key, Ivec, PlainText, true));
 block_encrypt(des3_cfb, Key0, Ivec, PlainText) ->
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cfb, Key, Ivec, PlainText, true);
+    notsup_to_error(block_crypt_nif(des_ede3_cfb, Key, Ivec, PlainText, true));
 block_encrypt(aes_ige256, Key, Ivec, PlainText) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, PlainText, true));
 block_encrypt(Type, Key, Ivec, {AAD, PlainText}) when Type =:= aes_gcm;
@@ -549,17 +549,17 @@ block_decrypt(Type, Key, Ivec, Data) when Type =:= des_cbc;
                                           Type =:= aes_cfb128;
                                           Type =:= aes_cbc256;
                                           Type =:= rc2_cbc ->
-    block_crypt_nif(Type, Key, Ivec, Data, false);
+    notsup_to_error(block_crypt_nif(Type, Key, Ivec, Data, false));
 block_decrypt(Type, Key0, Ivec, Data) when Type =:= des3_cbc;
                                            Type =:= des_ede3 ->
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbc, Key, Ivec, Data, false);
+    notsup_to_error(block_crypt_nif(des_ede3_cbc, Key, Ivec, Data, false));
 block_decrypt(des3_cbf, Key0, Ivec, Data) -> % cfb misspelled
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbf, Key, Ivec, Data, false);
+    notsup_to_error(block_crypt_nif(des_ede3_cbf, Key, Ivec, Data, false));
 block_decrypt(des3_cfb, Key0, Ivec, Data) ->
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cfb, Key, Ivec, Data, false);
+    notsup_to_error(block_crypt_nif(des_ede3_cfb, Key, Ivec, Data, false));
 block_decrypt(aes_ige256, Key, Ivec, Data) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
 block_decrypt(Type, Key, Ivec, {AAD, Data, Tag}) when Type =:= aes_gcm;
@@ -571,13 +571,13 @@ block_decrypt(Type, Key, Ivec, {AAD, Data, Tag}) when Type =:= aes_gcm;
 -spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) -> binary().
 
 block_encrypt(Type, Key, PlainText) ->
-    block_crypt_nif(Type, Key, PlainText, true).
+    notsup_to_error(block_crypt_nif(Type, Key, PlainText, true)).
 
 
 -spec block_decrypt(Type::block_cipher_without_iv(), Key::key(), Data::iodata()) -> binary().
 
 block_decrypt(Type, Key, Data) ->
-    block_crypt_nif(Type, Key, Data, false).
+    notsup_to_error(block_crypt_nif(Type, Key, Data, false)).
 
 
 -spec next_iv(Type:: cbc_cipher(), Data) -> NextIVec when % Type :: cbc_cipher(), %des_cbc | des3_cbc | aes_cbc | aes_ige,

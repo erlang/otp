@@ -1426,8 +1426,6 @@ static void init_algorithms_types(ErlNifEnv* env)
 #endif
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc128");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ecb");
@@ -1442,6 +1440,8 @@ static void init_algorithms_types(ErlNifEnv* env)
 #ifdef HAVE_AES_IGE
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
 #endif
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
 #ifndef OPENSSL_NO_DES
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cfb");
@@ -2326,21 +2326,24 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         return enif_raise_exception(env, atom_notsup);
     }
 
-    if (argv[0] == atom_aes_cfb8
-        && (key.size == 24 || key.size == 32)) {
-        /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
-         * Fall back on low level API
-         */
-        return aes_cfb_8_crypt(env, argc-1, argv+1);
+    if (argv[0] == atom_aes_cfb8) {
+        CHECK_NO_FIPS_MODE();
+        if ((key.size == 24 || key.size == 32)) {
+            /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
+             * Fall back on low level API
+             */
+            return aes_cfb_8_crypt(env, argc-1, argv+1);
+        }
     }
-    else if (argv[0] == atom_aes_cfb128
-        && (key.size == 24 || key.size == 32)) {
-        /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
-         * Fall back on low level API
-         */
-        return aes_cfb_128_crypt_nif(env, argc-1, argv+1);
-   }
-
+    else if (argv[0] == atom_aes_cfb128) {
+        CHECK_NO_FIPS_MODE();
+        if ((key.size == 24 || key.size == 32)) {
+            /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
+             * Fall back on low level API
+             */
+            return aes_cfb_128_crypt_nif(env, argc-1, argv+1);
+        }
+    }
     ivec_size  = EVP_CIPHER_iv_length(cipher);
 
 #ifdef HAVE_ECB_IVEC_BUG
