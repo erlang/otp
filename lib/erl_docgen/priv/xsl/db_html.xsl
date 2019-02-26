@@ -2123,13 +2123,6 @@
               <span class="bold_code bc-7">
 		<xsl:call-template name="title_link">
 		  <xsl:with-param name="link" select="substring-before(nametext, '(')"/>
-		  <xsl:with-param name="title">
-		    <xsl:value-of select="ret"/>
-		    <xsl:call-template name="maybe-space-after-ret">
-                      <xsl:with-param name="s" select="ret"/>
-		    </xsl:call-template>
-		    <xsl:value-of select="nametext"/>
-		  </xsl:with-param>
 		</xsl:call-template>
               </span>
 	    </td>
@@ -2199,18 +2192,6 @@
 
   </xsl:template>
 
-  <xsl:template name="maybe-space-after-ret">
-    <xsl:param name="s"/>
-    <xsl:variable name="last_char"
-	          select="substring($s, string-length($s), 1)"/>
-    <xsl:choose>
-      <xsl:when test="$last_char != '*'">
-        <xsl:text> </xsl:text>
-      </xsl:when>
-    </xsl:choose>
-  </xsl:template>
-
-
   <!-- Type -->
   <xsl:template match="type">
     <xsl:param name="partnum"/>
@@ -2264,7 +2245,7 @@
   </xsl:template>
 
   <xsl:template name="title_link">
-    <xsl:param name="title"/>
+    <xsl:param name="title" select="'APPLY'"/>
     <xsl:param name="link" select="erl:to-link(title)"/>
     <xsl:param name="ghlink" select="ancestor-or-self::*[@ghlink][position() = 1]/@ghlink"/>
     <xsl:variable name="id" select="concat(concat($link,'-'), generate-id(.))"/>
@@ -2274,7 +2255,16 @@
           <xsl:with-param name="id" select="$id"/>
           <xsl:with-param name="ghlink" select="$ghlink"/>
       </xsl:call-template>
-      <a class="title_link" name="{$link}" href="#{$link}"><xsl:value-of select="$title"/></a>
+      <a class="title_link" name="{$link}" href="#{$link}">
+	<xsl:choose>
+	  <xsl:when test="$title = 'APPLY'">
+	    <xsl:apply-templates/>   <!-- like <ret> and <nametext> -->
+	  </xsl:when>
+	  <xsl:otherwise>
+	    <xsl:value-of select="$title"/>
+	  </xsl:otherwise>
+	</xsl:choose>
+      </a>
     </span>
   </xsl:template>
 
@@ -2702,6 +2692,48 @@
 
   <xsl:template match="seealso//text()">
     <xsl:value-of select="normalize-space(.)"/>
+  </xsl:template>
+
+  <xsl:template match="ret">
+    <xsl:value-of select="."/>
+    <xsl:variable name="last_char" select="substring(., string-length(.), 1)"/>
+    <xsl:if test="$last_char != '*'">
+      <xsl:text> </xsl:text>
+    </xsl:if>
+  </xsl:template>
+
+  <xsl:template match="nametext">
+    <xsl:value-of select="substring-before(.,'(')"/>
+    <xsl:text>(</xsl:text>
+    <xsl:variable name="arglist" select="substring-after(.,'(')"/>
+    <xsl:choose>
+      <xsl:when test="$arglist = ')' or $arglist = 'void)'">
+	<xsl:value-of select="$arglist"/>
+      </xsl:when>
+      <xsl:otherwise>
+	<br/>
+	<xsl:call-template name="cfunc-arglist">
+	  <xsl:with-param name="text" select="$arglist"/>
+	</xsl:call-template>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <!-- Format C function argument list with <br> after comma -->
+  <xsl:template name="cfunc-arglist">
+    <xsl:param name="text"/>
+    <xsl:variable name="line" select="normalize-space($text)"/>
+    <xsl:choose>
+      <xsl:when test="contains($line,',')">
+	<xsl:value-of select="substring-before($line,',')"/>,<br/>
+        <xsl:call-template name="cfunc-arglist">
+          <xsl:with-param name="text" select="substring-after($line,',')"/>
+        </xsl:call-template>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:value-of select="$line"/>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
 </xsl:stylesheet>
