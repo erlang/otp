@@ -391,7 +391,8 @@ valfun_1({put,Src}, Vst0) ->
     case St0 of
         #st{puts_left=none} ->
             error(not_building_a_tuple);
-        #st{puts_left={1,{Dst,Sz,Es}}} ->
+        #st{puts_left={1,{Dst,Sz,Es0}}} ->
+            Es = Es0#{ {integer,Sz} => get_term_type(Src, Vst0) },
             St = St0#st{puts_left=none},
             create_term({tuple,Sz,Es}, put_tuple, [], Dst, Vst#vst{current=St});
         #st{puts_left={PutsLeft,{Dst,Sz,Es0}}} when is_integer(PutsLeft) ->
