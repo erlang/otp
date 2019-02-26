@@ -26,6 +26,12 @@
 #include "erl_proc_sig_queue.h"
 #undef ERTS_PROC_SIG_QUEUE_TYPE_ONLY
 
+#ifdef DEBUG
+#define ERTS_MSG_COPY_WORDS_PER_REDUCTION 4
+#else
+#define ERTS_MSG_COPY_WORDS_PER_REDUCTION 64
+#endif
+
 struct proc_bin;
 struct external_thing_;
 

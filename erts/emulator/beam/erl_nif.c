@@ -707,6 +707,22 @@ error:
     return reds;
 }
 
+static ERTS_INLINE ERL_NIF_TERM make_copy(ErlNifEnv* dst_env,
+                                          ERL_NIF_TERM src_term,
+                                          Uint *cpy_szp)
+{
+    Uint sz;
+    Eterm* hp;
+    /*
+     * No preserved sharing allowed as long as literals are also preserved.
+     * Process independent environment can not be reached by purge.
+     */
+    sz = size_object(src_term);
+    if (cpy_szp)
+        *cpy_szp += sz;
+    hp = alloc_heap(dst_env, sz);
+    return copy_struct(src_term, sz, &hp, &MSO(dst_env->proc));
+}
 
 int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	      ErlNifEnv* msg_env, ERL_NIF_TERM msg)
@@ -720,6 +736,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     Eterm from;
     Eterm receiver = to_pid->pid;
     int scheduler;
+    Uint copy_sz = 0;
 
     execution_state(env, &c_p, &scheduler);
 
@@ -783,14 +800,14 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
                 stoken = NIL;
             }
 #endif
-            token = enif_make_copy(msg_env, stoken);
+            token = make_copy(msg_env, stoken, &copy_sz);
 
 #ifdef USE_VM_PROBES
             if (DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING) {
                 if (is_immed(DT_UTAG(c_p)))
                     utag = DT_UTAG(c_p);
                 else
-                    utag = enif_make_copy(msg_env, DT_UTAG(c_p));
+                    utag = make_copy(msg_env, DT_UTAG(c_p), &copy_sz);
             }
             if (DTRACE_ENABLED(message_send)) {
                 if (have_seqtrace(stoken)) {
@@ -824,6 +841,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         Uint sz;
         INITIALIZE_LITERAL_PURGE_AREA(litarea);
         sz = size_object_litopt(msg, &litarea);
+        copy_sz += sz;
 	if (c_p && !env->tracee) {
 	    full_flush_env(env);
 	    mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
@@ -856,6 +874,12 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             trace_send(c_p, receiver, msg);
 	    full_cache_env(env);
 	}
+        if (c_p && scheduler > 0 && copy_sz > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
+            Uint reds = copy_sz / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
+            if (reds > CONTEXT_REDS)
+                reds = CONTEXT_REDS;
+            BUMP_REDS(c_p, (int) reds);
+        }
     }
     else {
         /* This clause is taken when the nif is called in the context
@@ -924,6 +948,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         erts_queue_message(rp, rp_locks, mp, msg, from);
 
 done:
+
     if (c_p == rp)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
     if (rp_locks & ~lc_locks)
@@ -1036,17 +1061,8 @@ int enif_whereis_port(ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPort *port)
 
 ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
 {
-    Uint sz;
-    Eterm* hp;
-    /*
-     * No preserved sharing allowed as long as literals are also preserved.
-     * Process independent environment can not be reached by purge.
-     */
-    sz = size_object(src_term);
-    hp = alloc_heap(dst_env, sz);
-    return copy_struct(src_term, sz, &hp, &MSO(dst_env->proc));
+    return make_copy(dst_env, src_term, NULL);
 }
-
 
 #ifdef DEBUG
 static int is_offheap(const ErlOffHeap* oh)
