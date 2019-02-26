@@ -575,8 +575,9 @@ valfun_1({get_tl,Src,Dst}, Vst) ->
 valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
     assert_not_literal(Src),
     assert_type({tuple_element,N+1}, Src, Vst),
-    Type = get_element_type({integer,N+1}, Src, Vst),
-    extract_term(Type, get_tuple_element, [Src], Dst, Vst);
+    Index = {integer,N+1},
+    Type = get_element_type(Index, Src, Vst),
+    extract_term(Type, {bif,element}, [Index, Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
     kill_state(branch_state(Lbl, Vst));
 valfun_1(I, Vst) ->
@@ -686,8 +687,9 @@ valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     ElementType = get_element_type(PosType, Tuple, Vst0),
     InferredType = {tuple,[get_tuple_size(PosType)],#{}},
     Vst1 = branch_state(Fail, Vst0),
-    Vst = update_type(fun meet/2, InferredType, Tuple, Vst1),
-    extract_term(ElementType, {bif,element}, [Tuple], Dst, Vst);
+    Vst2 = update_type(fun meet/2, InferredType, Tuple, Vst1),
+    Vst = update_type(fun meet/2, {integer,[]}, Pos, Vst2),
+    extract_term(ElementType, {bif,element}, [Pos,Tuple], Dst, Vst);
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
     kill_state(Vst);
@@ -1425,10 +1427,10 @@ select_val_branches(Fail, Src, Choices, Vst0) ->
 svb_1([Val,{f,L}|T], Src, Vst0) ->
     Vst = complex_test(L,
                        fun(BranchVst) ->
-                               update_eq_types(Val, Src, BranchVst)
+                               update_eq_types(Src, Val, BranchVst)
                        end,
                        fun(FailVst) ->
-                               update_ne_types(Val, Src, FailVst)
+                               update_ne_types(Src, Val, FailVst)
                        end, Vst0),
     svb_1(T, Src, Vst);
 svb_1([], _, Vst) ->
@@ -1467,11 +1469,16 @@ infer_types(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
 infer_types(_, #vst{}) ->
     fun(_, S) -> S end.
 
-infer_types_1(#value{op={bif,'=:='},args=[Arity,{integer,_}=Val]}) ->
+infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
     fun({atom,true}, S) ->
-            Infer = infer_types(Arity, S),
-            Infer(Val, S);
+            Infer = infer_types(RHS, S),
+            Infer(LHS, S);
        (_, S) -> S
+    end;
+infer_types_1(#value{op={bif,element},args=[{integer,Index}=Key,Tuple]}) ->
+    fun(Val, S) ->
+            Type = get_term_type(Val, S),
+            update_type(fun meet/2,{tuple,[Index],#{ Key => Type }}, Tuple, S)
     end;
 infer_types_1(#value{op={bif,is_atom},args=[Src]}) ->
     infer_type_test_bif({atom,[]}, Src);
