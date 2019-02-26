@@ -2103,6 +2103,10 @@ merge_y_regs_1(_, _, Regs) -> Regs.
 %% join(Type1, Type2) -> Type
 %%  Return the most specific type possible.
 %%  Note: Type1 must NOT be the same as Type2.
+join(none, Other) ->
+    Other;
+join(Other, none) ->
+    Other;
 join({literal,_}=T1, T2) ->
     join_literal(T1, T2);
 join(T1, {literal,_}=T2) ->
