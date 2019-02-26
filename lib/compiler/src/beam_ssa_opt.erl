@@ -175,6 +175,7 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_merge_blocks),
+          ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_trim_unreachable)],
     passes_1(Ps, Opts).
 
@@ -2174,6 +2175,46 @@ insert_def_is([#b_set{op=Op}=I|Is]=Is0, V, Def) ->
 insert_def_is([], _V, Def) ->
     [Def].
 
+%%%
+%%% Order consecutive get_tuple_element instructions in ascending
+%%% position order. This will give the loader more opportunities
+%%% for combining get_tuple_element instructions.
+%%%
+
+ssa_opt_get_tuple_element({#st{ssa=Blocks0}=St, FuncDb}) ->
+    Blocks = opt_get_tuple_element(maps:to_list(Blocks0), Blocks0),
+    {St#st{ssa=Blocks}, FuncDb}.
+
+opt_get_tuple_element([{L,#b_blk{is=Is0}=Blk0}|Bs], Blocks) ->
+    case opt_get_tuple_element_is(Is0, false, []) of
+        {yes,Is} ->
+            Blk = Blk0#b_blk{is=Is},
+            opt_get_tuple_element(Bs, Blocks#{L:=Blk});
+        no ->
+            opt_get_tuple_element(Bs, Blocks)
+    end;
+opt_get_tuple_element([], Blocks) -> Blocks.
+
+opt_get_tuple_element_is([#b_set{op=get_tuple_element,
+                                 args=[#b_var{}=Src,_]}=I0|Is0],
+                         _AnyChange, Acc) ->
+    {GetIs0,Is} = collect_get_tuple_element(Is0, Src, [I0]),
+    GetIs1 = sort([{Pos,I} || #b_set{args=[_,Pos]}=I <- GetIs0]),
+    GetIs = [I || {_,I} <- GetIs1],
+    opt_get_tuple_element_is(Is, true, reverse(GetIs, Acc));
+opt_get_tuple_element_is([I|Is], AnyChange, Acc) ->
+    opt_get_tuple_element_is(Is, AnyChange, [I|Acc]);
+opt_get_tuple_element_is([], AnyChange, Acc) ->
+    case AnyChange of
+        true -> {yes,reverse(Acc)};
+        false -> no
+    end.
+
+collect_get_tuple_element([#b_set{op=get_tuple_element,
+                                  args=[Src,_]}=I|Is], Src, Acc) ->
+    collect_get_tuple_element(Is, Src, [I|Acc]);
+collect_get_tuple_element(Is, _Src, Acc) ->
+    {Acc,Is}.
 
 %%%
 %%% Common utilities.
