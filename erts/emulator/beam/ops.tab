@@ -623,8 +623,12 @@ is_tuple f? rxy
 
 test_arity Fail Literal=q Arity => move Literal x | test_arity Fail x Arity
 test_arity Fail=f c Arity => jump Fail
+test_arity Fail Tuple=x Arity | get_tuple_element Tuple Pos Dst=x => \
+   test_arity_get_tuple_element Fail Tuple Arity Pos Dst
 
 test_arity f? xy A
+
+test_arity_get_tuple_element f? x A P x
 
 get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
    get_tuple_element Reg=x P3 D3=x | \

@@ -797,6 +797,16 @@ test_arity(Fail, Pointer, Arity) {
     }
 }
 
+test_arity_get_tuple_element(Fail, Pointer, Arity, Pos, Dst) {
+    Eterm* ptr = tuple_val($Pointer);
+    Eterm* src;
+    if (*ptr != $Arity) {
+        $FAIL($Fail);
+    }
+    src = ADD_BYTE_OFFSET(ptr, $Pos);
+    $Dst = *src;
+}
+
 i_is_eq_exact_immed(Fail, X, Y) {
     if ($X != $Y) {
         $FAIL($Fail);
