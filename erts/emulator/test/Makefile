@@ -46,6 +46,9 @@ SOCKET_MODULES = \
 	socket_test_ttest_tcp_server_socket \
 	socket_SUITE
 
+NET_MODULES = \
+	net_SUITE
+
 MODULES= \
 	a_SUITE \
 	after_SUITE \
@@ -102,6 +105,7 @@ MODULES= \
 	monitor_SUITE \
 	multi_load_SUITE \
 	nested_SUITE \
+	$(NET_MODULES) \
 	nif_SUITE \
 	node_container_SUITE \
 	nofrag_SUITE \
@@ -178,6 +182,7 @@ HRL_FILES= \
 	socket_test_ttest_client.hrl
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+NET_TARGETS = $(NET_MODULES:%=$(EBIN)/%.$(EMULATOR))
 SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 EMAKEFILE=Emakefile
@@ -227,6 +232,7 @@ docs:
 
 targets: $(TARGET_FILES)
 socket_targets: $(SOCKET_TARGETS)
+net_targets: $(NET_TARGETS)
 
 # ----------------------------------------------------
 # Special targets
