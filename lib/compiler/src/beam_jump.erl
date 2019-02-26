@@ -179,8 +179,9 @@ function({function,Name,Arity,CLabel,Asm0}, Lc0) ->
 eliminate_moves(Is) ->
     eliminate_moves(Is, #{}, []).
 
-eliminate_moves([{select,select_val,Reg,_,List}=I|Is], D0, Acc) ->
-    D = update_value_dict(List, Reg, D0),
+eliminate_moves([{select,select_val,Reg,{f,Fail},List}=I|Is], D0, Acc) ->
+    D1 = add_unsafe_label(Fail, D0),
+    D = update_value_dict(List, Reg, D1),
     eliminate_moves(Is, D, [I|Acc]);
 eliminate_moves([{test,is_eq_exact,_,[Reg,Val]}=I,
                  {block,BlkIs0}|Is], D0, Acc) ->
@@ -228,6 +229,9 @@ update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
         end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
+
+add_unsafe_label(L, D) ->
+    D#{L=>unsafe}.
 
 update_unsafe_labels(I, D) ->
     Ls = instr_labels(I),
