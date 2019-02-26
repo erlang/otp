@@ -245,7 +245,6 @@ int main(int argc, char **argv)
     tty_smode.c_iflag =
 	1*BRKINT |/*Signal interrupt on break.*/
 	    1*IGNPAR |/*Ignore characters with parity errors.*/
-		1*ISTRIP |/*Strip character.*/
 		    0;
     
 #if 0
