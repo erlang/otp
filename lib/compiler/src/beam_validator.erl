@@ -779,7 +779,16 @@ valfun_4({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
 valfun_4({test,is_list,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, list, Src, Vst);
 valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, nil, Src, Vst);
+    %% is_nil is an exact check against the 'nil' value, and should not be
+    %% treated as a simple type test.
+    assert_term(Src, Vst),
+    complex_test(Lbl,
+                 fun(FailVst) ->
+                         update_ne_types(Src, nil, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         update_eq_types(Src, nil, SuccVst)
+                 end, Vst);
 valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
     case Src of
         {Tag,_} when Tag =:= x; Tag =:= y ->
