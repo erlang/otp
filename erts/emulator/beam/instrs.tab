@@ -359,7 +359,7 @@ i_get_tuple_element2(Src, Element, Dst) {
     dst[1] = E2;
 }
 
-i_get_tuple_element2y(Src, Element, D1, D2) {
+i_get_tuple_element2_dst(Src, Element, D1, D2) {
     Eterm* src;
     Eterm E1, E2;
     src = ADD_BYTE_OFFSET(tuple_val($Src), $Element);

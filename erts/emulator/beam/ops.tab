@@ -212,7 +212,8 @@ i_get_tuple_element xy P y
 %hot
 
 i_get_tuple_element2 x P x
-i_get_tuple_element2y x P y y
+i_get_tuple_element2_dst x P x x
+i_get_tuple_element2_dst x P y y
 
 i_get_tuple_element3 x P x
 
@@ -633,8 +634,11 @@ get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
 get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
    succ(P1, P2) | succ(D1, D2) => i_get_tuple_element2 Reg P1 D1
 
+get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
+   succ(P1, P2) | distinct(D1, Reg) => i_get_tuple_element2_dst Reg P1 D1 D2
+
 get_tuple_element Reg=x P1 D1=y | get_tuple_element Reg=x P2 D2=y | \
-   succ(P1, P2) => i_get_tuple_element2y Reg P1 D1 D2
+   succ(P1, P2) => i_get_tuple_element2_dst Reg P1 D1 D2
 
 get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
 
