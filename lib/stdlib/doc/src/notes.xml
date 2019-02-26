@@ -31,6 +31,121 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> A new <c>rand</c> module algorithm, <c>exro928ss</c>
+	    (Xoroshiro928**), has been implemented. It has got a
+	    really long period and good statistical quality for all
+	    output bits, while still being only about 50% slower than
+	    the default algorithm. </p><p> The same generator is also
+	    used as a long period counter in a new <c>crypto</c>
+	    plugin for the <c>rand</c> module, algorithm
+	    <c>crypto_aes</c>. This plugin uses AES-256 to scramble
+	    the counter which buries any detectable statistical
+	    artifacts. Scrambling is done in chunks which are cached
+	    to get good amortized speed (about half of the default
+	    algorithm). </p>
+          <p>
+	    Own Id: OTP-14461 Aux Id: PR-1857 </p>
+        </item>
+        <item>
+          <p>
+	    Types related to server naming and starting have been
+	    exported from <c>gen_statem</c>. These are:
+	    <c>server_name/0</c>, <c>server_ref/0</c>,
+	    <c>start_opt/0</c>, <c>start_ret/0</c> and
+	    <c>enter_loop_opt/0</c>.</p>
+          <p>
+	    Own Id: OTP-14724 Aux Id: PR-2056 </p>
+        </item>
+        <item>
+          <p>
+	    The default algorithm for the <c>rand</c> module has been
+	    changed to <c>exsss</c> (Xorshift116**) which is a
+	    combination of the Xorshift116 (<c>exsp</c>) state update
+	    and a new scrambler "StarStar" from the 2018 paper
+	    "Scrambled Linear Pseudorandom Number Generators" by
+	    David Blackman and Sebastiano Vigna. This combination
+	    should not have the caveat of weak low bits that the
+	    previous default algorithm(s) have had, with the cost of
+	    about 10% lower speed. See GitHub pull request #1969.</p>
+          <p>
+	    Own Id: OTP-14731 Aux Id: PR-1969 </p>
+        </item>
+        <item>
+          <p>
+	    The generic state machine behaviour <c>gen_statem</c> has
+	    gotten code cleanup and documentation improvements from
+	    GitHub Pull Request #1855, even though the PR itself was
+	    rejected.</p>
+          <p>
+	    Own Id: OTP-14737 Aux Id: PR-1855 </p>
+        </item>
+        <item>
+          <p>
+	    Update Unicode specification to version 11.0.</p>
+          <p>
+	    Own Id: OTP-15111</p>
+        </item>
+        <item>
+          <p>
+	    ETS option <c>write_concurrency</c> now also affects and
+	    improves the scalability of <c>ordered_set</c> tables.
+	    The implementation is based on a data structure called
+	    contention adapting search tree, where the lock
+	    granularity adapts to the actual amount of concurrency
+	    exploited by the applications in runtime.</p>
+          <p>
+	    Own Id: OTP-15128</p>
+        </item>
+        <item>
+          <p>
+	    Optimized <c>maps:new/0</c> with trivial Erlang
+	    implementation, making use of literal terms (the empty
+	    map) not needing dynamic heap allocation.</p>
+          <p>
+	    Own Id: OTP-15200 Aux Id: PR-1878 </p>
+        </item>
+        <item>
+	    <p>The <c>gen_*</c> behaviours have been changed so that
+	    if logging of the last N messages through
+	    <c>sys:log/2,3</c> is active for the server, this log is
+	    included in the terminate report.</p> <p>To accomplish
+	    this the format of "System Events" as defined in the man
+	    page for <c>sys</c> has been clarified and cleaned up, a
+	    new function <c>sys:get_log/1</c> has been added, and
+	    <c>sys:get_debug/3</c> has been deprecated. Due to these
+	    changes, code that relies on the internal badly
+	    documented format of "System Events", need to be
+	    corrected.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15381</p>
+        </item>
+        <item>
+          <p>
+	    The <c>gen_statem</c> behaviour engine loop has been
+	    optimized for better performance in particular when the
+	    callback module returns some actions, that is better
+	    performance for more realistic applications than the Echo
+	    Benchmark.</p>
+          <p>
+	    Own Id: OTP-15452</p>
+        </item>
+        <item>
+	    <p> Use <c>ssh</c> as the default remote shell. </p>
+          <p>
+	    Own Id: OTP-15633 Aux Id: PR-1787 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

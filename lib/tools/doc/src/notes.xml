@@ -31,6 +31,42 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>cprof</c> and <c>tags</c> modules to .app file so
+	    that they are included in releases.</p>
+          <p>
+	    Own Id: OTP-15534 Aux Id: PR-2078 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>cover</c> tool now uses the <c>counters</c>
+	    module instead of <c>ets</c> for updating the counters
+	    for how many times a line has been executed. By default,
+	    Cover will work with distributed nodes, but a new
+	    function <c>cover:local_only/0</c> allows running the
+	    Cover in a restricted but faster local-only mode.</p>
+	    <p>The increase in speed will vary depending on the type
+	    of code being cover-compiled, but as an example, the
+	    compiler test suite runs more than twice as fast with the
+	    new Cover.</p>
+          <p>
+	    Own Id: OTP-15575</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.0.2</title>
 
     <section><title>Improvements and New Features</title>

@@ -31,6 +31,31 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.18.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add function <c>hipe:erllvm_is_supported</c> to check
+	    presence of suitable version of the LLVM tool chain as
+	    well as supported hardware architecture. The old
+	    <c>hipe:llvm_support_available</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-15385 Aux Id: PR-1986 </p>
+        </item>
+        <item>
+          <p>
+	    Fix hipe LLVM for FreeBSD and other non-linux unix to use
+	    /tmp/ instead of /dev/shm/.</p>
+          <p>
+	    Own Id: OTP-15386 Aux Id: PR-1963 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.18.2</title>
 
     <section><title>Improvements and New Features</title>

@@ -29,7 +29,7 @@
     <rev></rev>
     <file>net.xml</file>
   </header>
-  <module since="OTP @OTP-14831@">net</module>
+  <module since="OTP 22.0">net</module>
   <modulesummary>Network interface.</modulesummary>
   <description>
     <p>This module provides an API for the network interface.</p>
@@ -69,8 +69,8 @@
     </func>
 
     <func>
-      <name name="getnameinfo" arity="1" since="OTP @OTP-14831@"/>
-      <name name="getnameinfo" arity="2" since="OTP @OTP-14831@"/>
+      <name name="getnameinfo" arity="1" since="OTP 22.0"/>
+      <name name="getnameinfo" arity="2" since="OTP 22.0"/>
       <fsummary>Address-to-name transaltion.</fsummary>
       <desc>
         <p>Address-to-name translation in a protocol-independant manner.</p>
@@ -81,10 +81,10 @@
     </func>
 
     <func>
-      <name name="getaddrinfo" arity="1" since="OTP @OTP-14831@"/>
-      <name name="getaddrinfo" arity="2" clause_i="1" since="OTP @OTP-14831@"/>
-      <name name="getaddrinfo" arity="2" clause_i="2" since="OTP @OTP-14831@"/>
-      <name name="getaddrinfo" arity="2" clause_i="3" since="OTP @OTP-14831@"/>
+      <name name="getaddrinfo" arity="1" since="OTP 22.0"/>
+      <name name="getaddrinfo" arity="2" clause_i="1" since="OTP 22.0"/>
+      <name name="getaddrinfo" arity="2" clause_i="2" since="OTP 22.0"/>
+      <name name="getaddrinfo" arity="2" clause_i="3" since="OTP 22.0"/>
       <fsummary>Network address and service transation.</fsummary>
       <desc>
 	<p>Network address and service translation.</p>
@@ -97,7 +97,7 @@
     </func>
 
     <func>
-      <name name="if_name2index" arity="1" since="OTP @OTP-14831@"/>
+      <name name="if_name2index" arity="1" since="OTP 22.0"/>
       <fsummary>Mappings between network interface names and indexes.</fsummary>
       <desc>
         <p>Mappings between network interface names and indexes.</p>
@@ -105,7 +105,7 @@
     </func>
 
     <func>
-      <name name="if_index2name" arity="1" since="OTP @OTP-14831@"/>
+      <name name="if_index2name" arity="1" since="OTP 22.0"/>
       <fsummary>Mappings between network interface index and names.</fsummary>
       <desc>
         <p>Mappings between network interface index and names.</p>
@@ -113,7 +113,7 @@
     </func>
 
     <func>
-      <name name="if_names" arity="0" since="OTP @OTP-14831@"/>
+      <name name="if_names" arity="0" since="OTP 22.0"/>
       <fsummary>Get network interface names and indexes.</fsummary>
       <desc>
         <p>Get network interface names and indexes.</p>

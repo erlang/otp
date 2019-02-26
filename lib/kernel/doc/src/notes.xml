@@ -31,6 +31,43 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A simple socket API has been provided through the socket
+	    module. Known issues are; No support for the Windows OS
+	    (currently), a small term leakage.</p>
+          <p>
+	    Own Id: OTP-14831</p>
+        </item>
+        <item>
+          <p>
+	    Improved the documentation for the linger option.</p>
+          <p>
+	    Own Id: OTP-15491 Aux Id:
+	    https://github.com/erlang/otp/pull/2019 </p>
+        </item>
+        <item>
+          <p>
+	    The dist messages EXIT, EXIT2 and MONITOR_DOWN have been
+	    updated with new versions that send the reason term as
+	    part of the payload of the message instead of as part of
+	    the control message.</p>
+          <p>
+	    The old versions are still present and can be used when
+	    communicating with nodes that don't support the new
+	    versions.</p>
+          <p>
+	    Own Id: OTP-15611</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

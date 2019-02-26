@@ -35,6 +35,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ticket!</p>
+          <p>
+	    Own Id: OTP-15632</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.6.4</title>
 
     <section><title>Improvements and New Features</title>
