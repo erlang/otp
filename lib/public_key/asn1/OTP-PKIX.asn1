@@ -233,9 +233,13 @@ countryName ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
  -- regarding how to handle and sometimes accept incorrect certificates
  -- we define and use the type below instead of X520countryName
 
+ -- We accept utf8String encoding of the US-ASCII
+ -- country name code and the mix up with other country code systems
+ -- that uses three characters instead of two.
+
  OTP-X520countryname ::= CHOICE {
-       printableString   PrintableString (SIZE (2)),
-       utf8String        UTF8String      (SIZE (2))
+       printableString   PrintableString (SIZE (2..3)),
+       utf8String        UTF8String      (SIZE (2..3))
 }
 
 serialNumber ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
