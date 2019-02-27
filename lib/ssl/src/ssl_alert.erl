@@ -161,6 +161,8 @@ description_txt(?INSUFFICIENT_SECURITY) ->
     "Insufficient Security";
 description_txt(?INTERNAL_ERROR) ->
     "Internal Error";
+description_txt(?INAPPROPRIATE_FALLBACK) ->
+    "Inappropriate Fallback";
 description_txt(?USER_CANCELED) ->
     "User Canceled";
 description_txt(?NO_RENEGOTIATION) ->
@@ -179,8 +181,6 @@ description_txt(?BAD_CERTIFICATE_HASH_VALUE) ->
     "Bad Certificate Hash Value";
 description_txt(?UNKNOWN_PSK_IDENTITY) ->
     "Unknown Psk Identity";
-description_txt(?INAPPROPRIATE_FALLBACK) ->
-    "Inappropriate Fallback";
 description_txt(?CERTIFICATE_REQUIRED) ->
     "Certificate required";
 description_txt(?NO_APPLICATION_PROTOCOL) ->
@@ -232,10 +232,14 @@ description_atom(?INSUFFICIENT_SECURITY) ->
     insufficient_security;
 description_atom(?INTERNAL_ERROR) ->
     internal_error;
+description_atom(?INAPPROPRIATE_FALLBACK) ->
+    inappropriate_fallback;
 description_atom(?USER_CANCELED) ->
     user_canceled;
 description_atom(?NO_RENEGOTIATION) ->
     no_renegotiation;
+description_atom(?MISSING_EXTENSION) ->
+    missing_extension;
 description_atom(?UNSUPPORTED_EXTENSION) ->
     unsupported_extension;
 description_atom(?CERTIFICATE_UNOBTAINABLE) ->
@@ -248,9 +252,9 @@ description_atom(?BAD_CERTIFICATE_HASH_VALUE) ->
     bad_certificate_hash_value;
 description_atom(?UNKNOWN_PSK_IDENTITY) ->
     unknown_psk_identity;
-description_atom(?INAPPROPRIATE_FALLBACK) ->
-    inappropriate_fallback;
+description_atom(?CERTIFICATE_REQUIRED) ->
+    certificate_required;
 description_atom(?NO_APPLICATION_PROTOCOL) ->
     no_application_protocol;
 description_atom(_) ->
-    'unsupported/unkonwn_alert'.
+    'unsupported/unknown_alert'.
