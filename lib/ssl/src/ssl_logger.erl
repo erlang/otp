@@ -181,6 +181,11 @@ parse_handshake(Direction, #hello_request{} = HelloRequest) ->
                            [header_prefix(Direction)]),
     Message = io_lib:format("~p", [?rec_info(hello_request, HelloRequest)]),
     {Header, Message};
+parse_handshake(Direction, #certificate_request_1_3{} = CertificateRequest) ->
+    Header = io_lib:format("~s Handshake, CertificateRequest",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(certificate_request_1_3, CertificateRequest)]),
+    {Header, Message};
 parse_handshake(Direction, #certificate_1_3{} = Certificate) ->
     Header = io_lib:format("~s Handshake, Certificate",
                            [header_prefix(Direction)]),
