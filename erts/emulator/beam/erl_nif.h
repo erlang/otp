@@ -63,7 +63,7 @@
  * with ticket syntax like "erts-@OTP-12345@", or a temporary placeholder
  * between two @ like "erts-@MyName@", if you don't know what a ticket is.
  */
-#define ERL_NIF_MIN_ERTS_VERSION "erts-11.0 (OTP-22)"
+#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-15095@ (OTP-22)"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version

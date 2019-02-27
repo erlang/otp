@@ -32,53 +32,6 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
-<section><title>Compiler 7.4</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    The compiler has been rewritten to internally use an
-	    intermediate representation based on Static Single
-	    Assignment (SSA). The new intermediate representation
-	    makes more optimizations possible.</p>
-          <p>
-	    Most noticeable is that the binary matching optimizations
-	    are now applicable in many more circumstances than
-	    before.</p>
-          <p>
-	    Another noticeable change is that type optimizations are
-	    now applied across local function calls, and will remove
-	    a lot more redundant type tests than before.</p>
-          <p>
-	    Own Id: OTP-14894 Aux Id: ERL-714 </p>
-        </item>
-        <item>
-	    <p>Funs are no longer created when they are only used
-	    locally, greatly improving the performance of named funs
-	    and "fun-wrapped" macros.</p>
-          <p>
-	    Own Id: OTP-15273 Aux Id: ERL-639 </p>
-        </item>
-        <item>
-	    <p>All compiler options that can be given in the source
-	    file can now also be given in the option list or from the
-	    command line for <c>erlc</c>.</p>
-	    <p>Specifically, the option
-	    <c>{nowarn_deprecated_function,MFAs}</c> was only
-	    recognized when given in the file with the attribute
-	    <c>-compile()</c>. The option
-	    <c>{nowarn_unused_function,FAs}</c> was incorrectly
-	    documented to only work in a file, but it also worked
-	    when given in the option list.</p>
-          <p>
-	    Own Id: OTP-15456</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Compiler 7.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

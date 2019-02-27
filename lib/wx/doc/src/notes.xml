@@ -32,23 +32,6 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
-<section><title>Wx 1.8.7</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    All incorrect (that is, all) uses of "can not" has been
-	    corrected to "cannot" in source code comments,
-	    documentation, examples, and so on.</p>
-          <p>
-	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Wx 1.8.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

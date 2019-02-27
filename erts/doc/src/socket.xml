@@ -29,7 +29,7 @@
     <rev></rev>
     <file>socket.xml</file>
   </header>
-  <module since="OTP 22.0">socket</module>
+  <module since="OTP @OTP-14831@">socket</module>
   <modulesummary>Socket interface.</modulesummary>
   <description>
     <p>This module provides an API for the socket interface.
@@ -251,8 +251,8 @@
 
   <funcs>
     <func>
-      <name name="accept" arity="1" since="OTP 22.0"/>
-      <name name="accept" arity="2" since="OTP 22.0"/>
+      <name name="accept" arity="1" since="OTP @OTP-14831@"/>
+      <name name="accept" arity="2" since="OTP @OTP-14831@"/>
       <fsummary>Accept a connection on a socket.</fsummary>
       <desc>
         <p>Accept a connection on a socket.</p>
@@ -264,7 +264,7 @@
     </func>
 
     <func>
-      <name name="bind" arity="2" since="OTP 22.0"/>
+      <name name="bind" arity="2" since="OTP @OTP-14831@"/>
       <fsummary>Bind a name to a socket.</fsummary>
       <desc>
         <p>Bind a name to a socket.</p>
@@ -277,7 +277,7 @@
     </func>
 
     <func>
-      <name name="close" arity="1" since="OTP 22.0"/>
+      <name name="close" arity="1" since="OTP @OTP-14831@"/>
       <fsummary>Close a socket.</fsummary>
       <desc>
 	<p>Closes the socket.</p>
@@ -296,8 +296,8 @@
     </func>
 
     <func>
-      <name name="connect" arity="2" since="OTP 22.0"/>
-      <name name="connect" arity="3" since="OTP 22.0"/>
+      <name name="connect" arity="2" since="OTP @OTP-14831@"/>
+      <name name="connect" arity="3" since="OTP @OTP-14831@"/>
       <fsummary>Initiate a connection on a socket.</fsummary>
       <desc>
         <p>This function connects the socket to the address
@@ -306,13 +306,13 @@
     </func>
 
     <func>
-      <name name="getopt" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="4" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="5" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="6" since="OTP 22.0"/>
-      <name name="getopt" arity="3" clause_i="7" since="OTP 22.0"/>
+      <name name="getopt" arity="3" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="getopt" arity="3" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="getopt" arity="3" clause_i="3" since="OTP @OTP-14831@"/>
+      <name name="getopt" arity="3" clause_i="4" since="OTP @OTP-14831@"/>
+      <name name="getopt" arity="3" clause_i="5" since="OTP @OTP-14831@"/>
+      <name name="getopt" arity="3" clause_i="6" since="OTP @OTP-14831@"/>
+      <name name="getopt" arity="3" clause_i="7" since="OTP @OTP-14831@"/>
       <fsummary>Get an option on a socket.</fsummary>
       <desc>
         <p>Get an option on a socket.</p>
@@ -332,7 +332,7 @@
     </func>
 
     <func>
-      <name name="getopt" arity="3" clause_i="8" since="OTP 22.0"/>
+      <name name="getopt" arity="3" clause_i="8" since="OTP @OTP-14831@"/>
       <fsummary>Get an option on a socket.</fsummary>
       <desc>
         <p>Get an option on a socket.</p>
@@ -354,8 +354,8 @@
     </func>
 
     <func>
-      <name name="listen" arity="1" since="OTP 22.0"/>
-      <name name="listen" arity="2" since="OTP 22.0"/>
+      <name name="listen" arity="1" since="OTP @OTP-14831@"/>
+      <name name="listen" arity="2" since="OTP @OTP-14831@"/>
       <fsummary>Listen for connections on a socket.</fsummary>
       <desc>
         <p>Listen for connections on a socket.</p>
@@ -363,9 +363,9 @@
     </func>
 
     <func>
-      <name name="open" arity="2" since="OTP 22.0"/>
-      <name name="open" arity="3" since="OTP 22.0"/>
-      <name name="open" arity="4" since="OTP 22.0"/>
+      <name name="open" arity="2" since="OTP @OTP-14831@"/>
+      <name name="open" arity="3" since="OTP @OTP-14831@"/>
+      <name name="open" arity="4" since="OTP @OTP-14831@"/>
       <fsummary>Create an endpoint for communication.</fsummary>
       <desc>
         <p>Creates an endpoint (socket) for communication.</p>
@@ -385,7 +385,7 @@
     </func>
 
     <func>
-      <name name="peername" arity="1" since="OTP 22.0"/>
+      <name name="peername" arity="1" since="OTP @OTP-14831@"/>
       <fsummary>Get name of connected socket peer.</fsummary>
       <desc>
         <p>Returns the address of the peer connected to the socket.</p>
@@ -393,11 +393,11 @@
     </func>
 
     <func>
-      <name name="recv" arity="1" since="OTP 22.0"/>
-      <name name="recv" arity="2" since="OTP 22.0"/>
-      <name name="recv" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="recv" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="recv" arity="4" since="OTP 22.0"/>
+      <name name="recv" arity="1" since="OTP @OTP-14831@"/>
+      <name name="recv" arity="2" since="OTP @OTP-14831@"/>
+      <name name="recv" arity="3" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="recv" arity="3" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="recv" arity="4" since="OTP @OTP-14831@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -408,12 +408,12 @@
     </func>
 
     <func>
-      <name name="recvfrom" arity="1" since="OTP 22.0"/>
-      <name name="recvfrom" arity="2" since="OTP 22.0"/>
-      <name name="recvfrom" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="recvfrom" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="recvfrom" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="recvfrom" arity="4" since="OTP 22.0"/>
+      <name name="recvfrom" arity="1" since="OTP @OTP-14831@"/>
+      <name name="recvfrom" arity="2" since="OTP @OTP-14831@"/>
+      <name name="recvfrom" arity="3" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="recvfrom" arity="3" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="recvfrom" arity="3" clause_i="3" since="OTP @OTP-14831@"/>
+      <name name="recvfrom" arity="4" since="OTP @OTP-14831@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -432,12 +432,12 @@
     </func>
 
     <func>
-      <name name="recvmsg" arity="1" since="OTP 22.0"/>
-      <name name="recvmsg" arity="2" clause_i="1" since="OTP 22.0"/>
-      <name name="recvmsg" arity="2" clause_i="2" since="OTP 22.0"/>
-      <name name="recvmsg" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="recvmsg" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="recvmsg" arity="5" since="OTP 22.0"/>
+      <name name="recvmsg" arity="1" since="OTP @OTP-14831@"/>
+      <name name="recvmsg" arity="2" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="recvmsg" arity="2" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="recvmsg" arity="3" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="recvmsg" arity="3" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="recvmsg" arity="5" since="OTP @OTP-14831@"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -468,10 +468,10 @@
     </func>
 
     <func>
-      <name name="send" arity="2" since="OTP 22.0"/>
-      <name name="send" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="send" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="send" arity="4" since="OTP 22.0"/>
+      <name name="send" arity="2" since="OTP @OTP-14831@"/>
+      <name name="send" arity="3" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="send" arity="3" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="send" arity="4" since="OTP @OTP-14831@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a connected socket.</p>
@@ -479,10 +479,10 @@
     </func>
 
     <func>
-      <name name="sendmsg" arity="2" since="OTP 22.0"/>
-      <name name="sendmsg" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="sendmsg" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="sendmsg" arity="4" since="OTP 22.0"/>
+      <name name="sendmsg" arity="2" since="OTP @OTP-14831@"/>
+      <name name="sendmsg" arity="3" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="sendmsg" arity="3" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="sendmsg" arity="4" since="OTP @OTP-14831@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
 	<p>Send a message on a socket. The destination, if needed
@@ -503,10 +503,10 @@
     </func>
 
     <func>
-      <name name="sendto" arity="3" since="OTP 22.0"/>
-      <name name="sendto" arity="4" clause_i="1" since="OTP 22.0"/>
-      <name name="sendto" arity="4" clause_i="2" since="OTP 22.0"/>
-      <name name="sendto" arity="5" since="OTP 22.0"/>
+      <name name="sendto" arity="3" since="OTP @OTP-14831@"/>
+      <name name="sendto" arity="4" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="sendto" arity="4" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="sendto" arity="5" since="OTP @OTP-14831@"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a socket, to the specified destination.</p>
@@ -514,13 +514,13 @@
     </func>
 
     <func>
-      <name name="setopt" arity="4" clause_i="1" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="2" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="3" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="4" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="5" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="6" since="OTP 22.0"/>
-      <name name="setopt" arity="4" clause_i="7" since="OTP 22.0"/>
+      <name name="setopt" arity="4" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="setopt" arity="4" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="setopt" arity="4" clause_i="3" since="OTP @OTP-14831@"/>
+      <name name="setopt" arity="4" clause_i="4" since="OTP @OTP-14831@"/>
+      <name name="setopt" arity="4" clause_i="5" since="OTP @OTP-14831@"/>
+      <name name="setopt" arity="4" clause_i="6" since="OTP @OTP-14831@"/>
+      <name name="setopt" arity="4" clause_i="7" since="OTP @OTP-14831@"/>
       <fsummary>Set options on a socket.</fsummary>
       <desc>
         <p>Set options on a socket.</p>
@@ -543,7 +543,7 @@
     </func>
 
     <func>
-      <name name="setopt" arity="4" clause_i="8" since="OTP 22.0"/>
+      <name name="setopt" arity="4" clause_i="8" since="OTP @OTP-14831@"/>
       <fsummary>Set options on a socket.</fsummary>
       <desc>
         <p>Set options on a socket.</p>
@@ -566,7 +566,7 @@
     </func>
 
     <func>
-      <name name="shutdown" arity="2" since="OTP 22.0"/>
+      <name name="shutdown" arity="2" since="OTP @OTP-14831@"/>
       <fsummary>Shut down part of a full-duplex connection.</fsummary>
       <desc>
         <p>Shut down all or part of a full-duplex connection.</p>
@@ -574,7 +574,7 @@
     </func>
 
     <func>
-      <name name="sockname" arity="1" since="OTP 22.0"/>
+      <name name="sockname" arity="1" since="OTP @OTP-14831@"/>
       <fsummary>Get socket name.</fsummary>
       <desc>
         <p>Returns the current address to which the socket is bound.</p>
@@ -582,25 +582,25 @@
     </func>
 
     <func>
-      <name name="supports" arity="0" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="1" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="2" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="3" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="4" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="1" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="2" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="3" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="4" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="5" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="6" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="7" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="4" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="5" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="6" since="OTP 22.0"/>
-      <name name="supports" arity="3" clause_i="7" since="OTP 22.0"/>
+      <name name="supports" arity="0" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="1" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="1" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="1" clause_i="3" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="1" clause_i="4" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="2" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="2" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="2" clause_i="3" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="2" clause_i="4" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="2" clause_i="5" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="2" clause_i="6" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="2" clause_i="7" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="3" clause_i="1" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="3" clause_i="2" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="3" clause_i="3" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="3" clause_i="4" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="3" clause_i="5" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="3" clause_i="6" since="OTP @OTP-14831@"/>
+      <name name="supports" arity="3" clause_i="7" since="OTP @OTP-14831@"/>
       <fsummary>Report info about what the platform supports.</fsummary>
       <desc>
 	<p>This function intends to retreive information about what the

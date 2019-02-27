@@ -39,35 +39,7 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.16</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Optimize mnesia:read/1 if data have been written in the
-	    same transaction.</p>
-          <p>
-	    Own Id: OTP-15550 Aux Id: PR-12029 </p>
-        </item>
-      </list>
-    </section>
-
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Optimized dumping of tables with plugin backends.</p>
-          <p>
-	    Own Id: OTP-15588 Aux Id: PR-2102 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>Mnesia 4.15.5</title>
+  <section><title>Mnesia 4.15.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

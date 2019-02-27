@@ -31,21 +31,6 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
-<section><title>Eldap 1.2.7</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    Ticket!</p>
-          <p>
-	    Own Id: OTP-15632</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Eldap 1.2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

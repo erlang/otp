@@ -32,21 +32,6 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
-<section><title>Xmerl 1.3.20</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-          <p>
-	    A typo in an error printout has been fixed.</p>
-          <p>
-	    Own Id: OTP-14703 Aux Id: PR-1964 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Xmerl 1.3.19</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

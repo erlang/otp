@@ -19,21 +19,27 @@
 %%
 %% We allow upgrade from, and downgrade to all previous
 %% versions from the following OTP releases:
+%% - OTP 20
 %% - OTP 21
-%% - OTP 22
 %%
 %% We also allow upgrade from, and downgrade to all
 %% versions that have branched off from the above
 %% stated previous versions.
 %%
 {"%VSN%",
- [{<<"^3\\.2$">>,[restart_new_emulator]},
+ [{<<"^3\\.0\\.4(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.1$">>,[restart_new_emulator]},
+  {<<"^3\\.1\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.1\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.1\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.2$">>,[restart_new_emulator]},
   {<<"^3\\.2\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^3\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^3\\.3$">>,[restart_new_emulator]},
-  {<<"^3\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}],
- [{<<"^3\\.2$">>,[restart_new_emulator]},
+  {<<"^3\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
+ [{<<"^3\\.0\\.4(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.1$">>,[restart_new_emulator]},
+  {<<"^3\\.1\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.1\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.1\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.2$">>,[restart_new_emulator]},
   {<<"^3\\.2\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^3\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^3\\.3$">>,[restart_new_emulator]},
-  {<<"^3\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}]}.
+  {<<"^3\\.2\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]}]}.

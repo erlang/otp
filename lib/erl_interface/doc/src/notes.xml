@@ -31,49 +31,6 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
-<section><title>Erl_Interface 3.10.5</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Minor adjustments made to build system for parallel
-	    configure.</p>
-          <p>
-	    Own Id: OTP-15340 Aux Id: OTP-14625 </p>
-        </item>
-        <item>
-          <p>
-	    The limited support for VxWorks is deprecated as of OTP
-	    22, and will be removed in OTP 23.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-15621</p>
-        </item>
-        <item>
-	    <p>The old legacy <c>erl_interface</c> library (functions
-	    with prefix <c>erl_</c>) is deprecated as of OTP 22, and
-	    will be removed in OTP 23. This does not apply to the
-	    <c>ei</c> library. Reasonably new <c>gcc</c> compilers
-	    will issue deprecation warnings. In order to disable
-	    these warnings, define the macro
-	    <c>EI_NO_DEPR_WARN</c>.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-15622</p>
-        </item>
-        <item>
-	    <p> Use <c>ssh</c> as the default remote shell. </p>
-          <p>
-	    Own Id: OTP-15633 Aux Id: PR-1787 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Erl_Interface 3.10.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
