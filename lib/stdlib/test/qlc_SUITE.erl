@@ -3163,19 +3163,13 @@ lookup2(Config) when is_list(Config) ->
                 [a] = lookup_keys(Q)
         end, [{a},{b},{c}])">>,
 
-       {cres,
-        <<"etsc(fun(E) ->
+       <<"etsc(fun(E) ->
                  Q = qlc:q([X || {X}=Y <- ets:table(E), 
                                  element(2, Y) == b, 
                                  X =:= 1]),
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
-         end, [{1,b},{2,3}])">>,
-        %% {warnings,[{2,sys_core_fold,nomatch_guard},
-	%% 	   {3,qlc,nomatch_filter},
-	%% 	   {3,sys_core_fold,{eval_failure,badarg}}]}},
-        {warnings,[{2,sys_core_fold,nomatch_guard},
-		   {3,sys_core_fold,{eval_failure,badarg}}]}},
+        end, [{1,b},{2,3}])">>,
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {X} <- ets:table(E), element(1,{X}) =:= 1]),
