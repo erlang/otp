@@ -281,7 +281,9 @@ tls13_test_group() ->
      tls13_1_RTT_handshake,
      tls13_basic_ssl_server_openssl_client,
      tls13_custom_groups_ssl_server_openssl_client,
-     tls13_hello_retry_request_ssl_server_openssl_client].
+     tls13_hello_retry_request_ssl_server_openssl_client,
+     tls13_client_auth_empty_cert_alert_ssl_server_openssl_client,
+     tls13_client_auth_empty_cert_ssl_server_openssl_client].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
@@ -5582,6 +5584,66 @@ tls13_hello_retry_request_ssl_server_openssl_client(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     ClientOpts = [{groups,"P-256:X25519"}|ClientOpts0],
+    Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+tls13_client_auth_empty_cert_alert_ssl_server_openssl_client() ->
+     [{doc,"TLS 1.3: Test client authentication when client sends an empty certificate and fail_if_no_peer_cert is set to true."}].
+
+tls13_client_auth_empty_cert_alert_ssl_server_openssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    %% Delete Client Cert and Key
+    ClientOpts1 = proplists:delete(certfile, ClientOpts0),
+    ClientOpts = proplists:delete(keyfile, ClientOpts1),
+
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {verify, verify_peer},
+                  {fail_if_no_peer_cert, true}|ServerOpts0],
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
+
+    ssl_test_lib:check_result(Server,
+                              {error,
+                               {tls_alert,
+                                {certificate_required,
+                                 "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+tls13_client_auth_empty_cert_ssl_server_openssl_client() ->
+     [{doc,"TLS 1.3: Test client authentication when client sends an empty certificate and fail_if_no_peer_cert is set to false."}].
+
+tls13_client_auth_empty_cert_ssl_server_openssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    %% Delete Client Cert and Key
+    ClientOpts1 = proplists:delete(certfile, ClientOpts0),
+    ClientOpts = proplists:delete(keyfile, ClientOpts1),
+
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {verify, verify_peer},
+                  {fail_if_no_peer_cert, false}|ServerOpts0],
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
     ssl_test_lib:check_result(Server, ok),
