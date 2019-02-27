@@ -367,8 +367,9 @@
       </row>
     <tcaption>FLOAT_EXT</tcaption></table>
     <p>
-      A float is stored in string format. The format used in sprintf to
-      format the float is "%.20e"
+      A finite float (i.e. not inf, -inf or NaN) is stored in
+      string format. The format used in sprintf to format the
+      float is "%.20e"
       (there are more bytes allocated than necessary).
       To unpack the float, use sscanf with format "%lf".
     </p>
@@ -983,7 +984,8 @@
 	  </row>
 	<tcaption>NEW_FLOAT_EXT</tcaption></table>
 	<p>
-	  A float is stored as 8 bytes in big-endian IEEE format.
+	  A finite float (i.e. not inf, -inf or NaN) is stored as 8 bytes
+	  in big-endian IEEE format.
 	</p>
 	<p>
 	  This term is used in minor version 1 of the external format.
