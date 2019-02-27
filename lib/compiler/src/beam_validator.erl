@@ -421,12 +421,12 @@ valfun_1({bif,Op,{f,_},Ss,Dst}=I, Vst) ->
     end;
 %% Put instructions.
 valfun_1({put_list,A,B,Dst}, Vst0) ->
-    assert_durable_term(A, Vst0),
-    assert_durable_term(B, Vst0),
+    assert_term(A, Vst0),
+    assert_term(B, Vst0),
     Vst = eat_heap(2, Vst0),
     create_term(cons, put_list, [A, B], Dst, Vst);
 valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
-    _ = [assert_durable_term(El, Vst0) || El <- Elements],
+    _ = [assert_term(El, Vst0) || El <- Elements],
     Size = length(Elements),
     Vst = eat_heap(Size+1, Vst0),
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
@@ -443,7 +443,7 @@ valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
     St = St0#st{puts_left={Sz,{Dst,Sz,#{}}}},
     Vst#vst{current=St};
 valfun_1({put,Src}, Vst0) ->
-    assert_durable_term(Src, Vst0),
+    assert_term(Src, Vst0),
     Vst = eat_heap(1, Vst0),
     #vst{current=St0} = Vst,
     case St0 of
@@ -759,7 +759,7 @@ valfun_4(send, Vst) ->
     call(send, 2, Vst);
 valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
     I = N + 1,
-    assert_durable_term(Src, Vst),
+    assert_term(Src, Vst),
     assert_type({tuple_element,I}, Tuple, Vst),
     %% Manually update the tuple type; we can't rely on the ordinary update
     %% helpers as we must support overwriting (rather than just widening or
@@ -905,8 +905,8 @@ valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
     branch_state(Lbl, Vst);
 valfun_4({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
-    assert_durable_term(A, Vst),
-    assert_durable_term(B, Vst),
+    assert_term(A, Vst),
+    assert_term(B, Vst),
     create_term({integer,[]}, bs_add, [A, B], Dst, branch_state(Fail, Vst));
 valfun_4({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
@@ -921,7 +921,7 @@ valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
 	is_integer(Sz) ->
 	    ok;
 	true ->
-	    assert_durable_term(Sz, Vst0)
+	    assert_term(Sz, Vst0)
     end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
@@ -943,39 +943,39 @@ valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
 valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
-    assert_durable_term(Bits, Vst0),
-    assert_durable_term(Bin, Vst0),
+    assert_term(Bits, Vst0),
+    assert_term(Bin, Vst0),
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
     create_term(binary, bs_append, [Bin], Dst, Vst, Vst0);
 valfun_4({bs_private_append,{f,Fail},Bits,_Unit,Bin,_Flags,Dst}, Vst0) ->
-    assert_durable_term(Bits, Vst0),
-    assert_durable_term(Bin, Vst0),
+    assert_term(Bits, Vst0),
+    assert_term(Bin, Vst0),
     Vst = branch_state(Fail, Vst0),
     create_term(binary, bs_private_append, [Bin], Dst, Vst);
 valfun_4({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
     Vst;
 valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_durable_term(Sz, Vst),
-    assert_durable_term(Src, Vst),
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_durable_term(Sz, Vst),
-    assert_durable_term(Src, Vst),
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_durable_term(Sz, Vst),
-    assert_durable_term(Src, Vst),
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
-    assert_durable_term(Src, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
-    assert_durable_term(Src, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
-    assert_durable_term(Src, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 %% Map instructions.
 valfun_4({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
@@ -1033,7 +1033,7 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(map, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
-    [assert_durable_term(Term, Vst0) || Term <- List],
+    [assert_term(Term, Vst0) || Term <- List],
     Vst1 = heap_alloc(0, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
