@@ -436,6 +436,30 @@ init(Y) {
     make_blank($Y);
 }
 
+init_seq3(Y1) {
+    Eterm* dst = &$Y1;
+    make_blank(dst[0]);
+    make_blank(dst[1]);
+    make_blank(dst[2]);
+}
+
+init_seq4(Y1) {
+    Eterm* dst = &$Y1;
+    make_blank(dst[0]);
+    make_blank(dst[1]);
+    make_blank(dst[2]);
+    make_blank(dst[3]);
+}
+
+init_seq5(Y1) {
+    Eterm* dst = &$Y1;
+    make_blank(dst[0]);
+    make_blank(dst[1]);
+    make_blank(dst[2]);
+    make_blank(dst[3]);
+    make_blank(dst[4]);
+}
+
 init2(Y1, Y2) {
     make_blank($Y1);
     make_blank($Y2);

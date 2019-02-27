@@ -118,10 +118,20 @@ test_heap I t?
 allocate_heap S u==0 R => allocate S R
 allocate_heap_zero S u==0 R => allocate_zero S R
 
-init2 y y
-init3 y y y
+init Y1 | init Y2 | init Y3 | succ(Y1,Y2) | succ(Y2,Y3) => init_seq3 Y1
+init_seq3 Y1 | init Y4 | succ3(Y1,Y4) => init_seq4 Y1
+init_seq4 Y1 | init Y5 | succ4(Y1,Y5) => init_seq5 Y1
+
+init_seq3 y
+init_seq4 y
+init_seq5 y
+
 init Y1 | init Y2 | init Y3 => init3 Y1 Y2 Y3
 init Y1 | init Y2 => init2 Y1 Y2
+
+init2 y y
+init3 y y y
+
 
 # Selecting values
 
