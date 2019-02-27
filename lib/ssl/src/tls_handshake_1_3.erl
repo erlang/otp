@@ -45,6 +45,7 @@
 -export([do_start/2,
          do_negotiated/2,
          do_wait_cert/2,
+         do_wait_cv/2,
          do_wait_finished/2]).
 
 %%====================================================================
@@ -410,29 +411,6 @@ build_content(Context, THash) ->
 %%====================================================================
 
 
-do_start(#change_cipher_spec{},
-              #state{connection_states = _ConnectionStates0,
-                     session = #session{session_id = _SessionId,
-                                        own_certificate = _OwnCert},
-                     ssl_options = #ssl_options{} = _SslOpts,
-                     key_share = _KeyShare,
-                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
-                     static_env = #static_env{
-                                     cert_db = _CertDbHandle,
-                                     cert_db_ref = _CertDbRef,
-                                     socket = _Socket,
-                                     transport_cb = _Transport}
-                    } = State0) ->
-    %% {Ref,Maybe} = maybe(),
-
-    try
-
-        State0
-
-    catch
-        {_Ref, {state_not_implemented, State}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
-    end;
 do_start(#client_hello{cipher_suites = ClientCiphers,
                        session_id = SessionId,
                        extensions = Extensions} = _Hello,
@@ -585,49 +563,37 @@ do_negotiated(#{client_share := ClientKey,
         {State9, NextState}
 
     catch
-        {Ref, {state_not_implemented, State}} ->
-            %% TODO
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
+        {Ref, badarg} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {digitally_sign, badarg})
     end.
 
 
-do_wait_cert(#change_cipher_spec{}, State0) ->
-        {State0, wait_cert};
 do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
     {Ref,Maybe} = maybe(),
     try
-        NextState = Maybe(process_client_certificate(Certificate, State0)),
-        {State0, NextState}
-
+        Maybe(process_client_certificate(Certificate, State0))
     catch
         {Ref, {certificate_required, State}} ->
-            {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}
+            {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State};
+        {Ref, {{certificate_unknown, Reason}, State}} ->
+            {?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason), State};
+        {Ref, {{internal_error, Reason}, State}} ->
+            {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), State};
+        {#alert{} = Alert, State} ->
+            {Alert, State}
     end.
 
 
-do_wait_finished(#change_cipher_spec{},
-              #state{connection_states = _ConnectionStates0,
-                     session = #session{session_id = _SessionId,
-                                        own_certificate = _OwnCert},
-                     ssl_options = #ssl_options{} = _SslOpts,
-                     key_share = _KeyShare,
-                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
-                     static_env = #static_env{
-                                     cert_db = _CertDbHandle,
-                                     cert_db_ref = _CertDbRef,
-                                     socket = _Socket,
-                                     transport_cb = _Transport}
-                    } = State0) ->
-    %% {Ref,Maybe} = maybe(),
-
+do_wait_cv(#certificate_verify_1_3{} = _CertificateVerify, State0) ->
+    {Ref,Maybe} = maybe(),
     try
-
-        State0
-
+        Maybe(verify_certificate(State0))
     catch
-        {_Ref, {state_not_implemented, State}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
-    end;
+        {Ref, {bad_certificate, Reason}} ->
+            {?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, {bad_certificate, Reason}), State0}
+    end.
+
+
 do_wait_finished(#finished{verify_data = VerifyData},
               #state{connection_states = _ConnectionStates0,
                      session = #session{session_id = _SessionId,
@@ -655,16 +621,19 @@ do_wait_finished(#finished{verify_data = VerifyData},
 
     catch
         {Ref, decrypt_error} ->
-            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error);
-        {_, {state_not_implemented, State}} ->
-            %% TODO
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
+            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)
     end.
 
 
 %% TODO: Remove this function!
-%% not_implemented(State) ->
-%%     {error, {state_not_implemented, State}}.
+%% not_implemented(State, Reason) ->
+%%     {error, {not_implemented, State, Reason}}.
+%%
+%% not_implemented(update_secrets, State0, Reason) ->
+%%     State1 = calculate_traffic_secrets(State0),
+%%     State = ssl_record:step_encryption_state(State1),
+%%     {error, {not_implemented, State, Reason}}.
+
 
 
 %% Recipients of Finished messages MUST verify that the contents are
@@ -722,8 +691,8 @@ process_client_certificate(#certificate_1_3{
                               certificate_list = []},
                            #state{ssl_options =
                                       #ssl_options{
-                                         fail_if_no_peer_cert = false}}) ->
-    {ok, wait_finished};
+                                         fail_if_no_peer_cert = false}} = State) ->
+    {ok, {State, wait_finished}};
 process_client_certificate(#certificate_1_3{
                               certificate_request_context = <<>>,
                               certificate_list = []},
@@ -738,9 +707,80 @@ process_client_certificate(#certificate_1_3{
     State1 = calculate_traffic_secrets(State0),
     State = ssl_record:step_encryption_state(State1),
     {error, {certificate_required, State}};
-process_client_certificate(_, _) ->
-    %% TODO: validate cert
-    {ok, wait_cv}.
+process_client_certificate(#certificate_1_3{certificate_list = Certs0},
+                           #state{ssl_options = SslOptions,
+                                  static_env =
+                                      #static_env{
+                                         role = Role,
+                                         host = Host,
+                                         cert_db = CertDbHandle,
+                                         cert_db_ref = CertDbRef,
+                                         crl_db = CRLDbHandle}} = State0) ->
+    %% TODO: handle extensions!
+
+    %% Remove extensions from list of certificates!
+    Certs = convert_certificate_chain(Certs0),
+
+    case validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
+                                    SslOptions, CRLDbHandle, Role, Host) of
+        {ok, PeerCert} ->
+            State = store_peer_cert(State0, PeerCert),
+
+            {ok, {State, wait_cv}};
+        {error, Reason} ->
+            State1 = calculate_traffic_secrets(State0),
+            State = ssl_record:step_encryption_state(State1),
+            {error, {Reason, State}};
+        %% TODO: refactor!?
+        #alert{} = Alert ->
+            State1 = calculate_traffic_secrets(State0),
+            State = ssl_record:step_encryption_state(State1),
+            {Alert, State}
+    end.
+
+
+validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHandle, Role, Host) ->
+    ServerName = ssl_handshake:server_name(SslOptions#ssl_options.server_name_indication, Host, Role),
+    [PeerCert | ChainCerts ] = Certs,
+    try
+	{TrustedCert, CertPath}  =
+	    ssl_certificate:trusted_cert_and_path(Certs, CertDbHandle, CertDbRef,
+                                                  SslOptions#ssl_options.partial_chain),
+        ValidationFunAndState =
+            ssl_handshake:validation_fun_and_state(SslOptions#ssl_options.verify_fun, Role,
+                                     CertDbHandle, CertDbRef, ServerName,
+                                     SslOptions#ssl_options.customize_hostname_check,
+                                     SslOptions#ssl_options.crl_check, CRLDbHandle, CertPath),
+        Options = [{max_path_length, SslOptions#ssl_options.depth},
+                   {verify_fun, ValidationFunAndState}],
+	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
+	    {ok, {_PublicKeyInfo,_}} ->
+		{ok, PeerCert};
+	    {error, Reason} ->
+		ssl_handshake:handle_path_validation_error(Reason, PeerCert, ChainCerts,
+                                                           SslOptions, Options,
+                                                           CertDbHandle, CertDbRef)
+	end
+    catch
+	error:{badmatch,{asn1, Asn1Reason}} ->
+	    %% ASN-1 decode of certificate somehow failed
+            {error, {certificate_unknown, {failed_to_decode_certificate, Asn1Reason}}};
+        error:OtherReason ->
+            {error, {internal_error, {unexpected_error, OtherReason}}}
+    end.
+
+
+store_peer_cert(#state{session = #session{} = Session} = State, PeerCert) ->
+    State#state{session = Session#session{peer_certificate = PeerCert}}.
+
+
+convert_certificate_chain(Certs) ->
+    Fun = fun(#certificate_entry{data = Data}) ->
+                  {true, Data};
+             (_) ->
+                  false
+          end,
+    lists:filtermap(Fun, Certs).
 
 
 %% 4.4.1.  The Transcript Hash
@@ -927,11 +967,25 @@ cipher_init(Key, IV, FinishedKey) ->
                   tag_len = 16}.
 
 
-%% Handling the case when client is authenticated
+%% Client is authenticated
+get_handshake_context({[<<20,_/binary>>,<<15,_/binary>>,<<11,_/binary>>|Messages], _}) ->
+    %% Handshake context messages:
+    %% ClientHello         (client) (1)
+    %% ServerHello         (server) (2),
+    %% EncryptedExtensions (server) (8)
+    %% CertificateRequest  (server) (13),
+    %% Certificate         (server) (11)
+    %% CertificateVerify   (server) (15),
+    %% Finished            (server) (20)
+    %% Certificate         (client) (11) - Drop! Not included in calculations!
+    %% CertificateVerify   (client) (15) - Drop! Not included in calculations!
+    %% Finished            (client) (20) - Drop! Not included in calculations!
+    Messages;
+%% Client is authenticated (empty certificate)
 get_handshake_context({[<<20,_/binary>>,<<11,_/binary>>|Messages], _}) ->
     %% Handshake context messages:
-    %% ClientHello         (client) (0)
-    %% ServerHello         (server) (1),
+    %% ClientHello         (client) (1)
+    %% ServerHello         (server) (2),
     %% EncryptedExtensions (server) (8)
     %% CertificateRequest  (server) (13),
     %% Certificate         (server) (11)
@@ -943,14 +997,19 @@ get_handshake_context({[<<20,_/binary>>,<<11,_/binary>>|Messages], _}) ->
 %% Normal case
 get_handshake_context({[_| Messages], _}) ->
     %% Handshake context messages:
-    %% ClientHello         (client) (0)
-    %% ServerHello         (server) (1),
+    %% ClientHello         (client) (1)
+    %% ServerHello         (server) (2),
     %% EncryptedExtensions (server) (8)
     %% Certificate         (server) (11)
     %% CertificateVerify   (server) (15),
     %% Finished            (server) (20)
     %% Finished            (client) (20) - Drop! Not included in calculations!
     Messages.
+
+
+verify_certificate(State) ->
+    %% TODO: implement
+    {ok, {State, wait_finished}}.
 
 
 %% If there is no overlap between the received

@@ -111,19 +111,14 @@
 -export([start/4,
          negotiated/4,
          wait_cert/4,
+         wait_cv/4,
          wait_finished/4
         ]).
 
 
-start(internal,
-      #change_cipher_spec{} =  ChangeCipherSpec, State0, _Module) ->
-    case tls_handshake_1_3:do_start(ChangeCipherSpec, State0) of
-        #alert{} = Alert ->
-            ssl_connection:handle_own_alert(Alert, {3,4}, start, State0);
-        State1 ->
-            {Record, State} = tls_connection:next_record(State1),
-            tls_connection:next_event(?FUNCTION_NAME, Record, State)
-    end;
+start(internal, #change_cipher_spec{}, State0, _Module) ->
+    {Record, State} = tls_connection:next_record(State0),
+    tls_connection:next_event(?FUNCTION_NAME, Record, State);
 start(internal, #client_hello{} = Hello, State0, _Module) ->
     case tls_handshake_1_3:do_start(Hello, State0) of
         #alert{} = Alert ->
@@ -137,6 +132,9 @@ start(Type, Msg, State, Connection) ->
     ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
 
+negotiated(internal, #change_cipher_spec{}, State0, _Module) ->
+    {Record, State} = tls_connection:next_record(State0),
+    tls_connection:next_event(?FUNCTION_NAME, Record, State);
 negotiated(internal, Map, State0, _Module) ->
     case tls_handshake_1_3:do_negotiated(Map, State0) of
         #alert{} = Alert ->
@@ -146,15 +144,9 @@ negotiated(internal, Map, State0, _Module) ->
     end.
 
 
-wait_cert(internal,
-          #change_cipher_spec{} = ChangeCipherSpec, State0, _Module) ->
-    case tls_handshake_1_3:do_wait_cert(ChangeCipherSpec, State0) of
-        #alert{} = Alert ->
-            ssl_connection:handle_own_alert(Alert, {3,4}, wait_cert, State0);
-        {State1, NextState} ->
-            {Record, State} = tls_connection:next_record(State1),
-            tls_connection:next_event(NextState, Record, State)
-    end;
+wait_cert(internal, #change_cipher_spec{}, State0, _Module) ->
+    {Record, State} = tls_connection:next_record(State0),
+    tls_connection:next_event(?FUNCTION_NAME, Record, State);
 wait_cert(internal,
           #certificate_1_3{} = Certificate, State0, _Module) ->
     case tls_handshake_1_3:do_wait_cert(Certificate, State0) of
@@ -168,15 +160,25 @@ wait_cert(Type, Msg, State, Connection) ->
     ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
 
-wait_finished(internal,
-             #change_cipher_spec{} = ChangeCipherSpec, State0, _Module) ->
-    case tls_handshake_1_3:do_wait_finished(ChangeCipherSpec, State0) of
-        #alert{} = Alert ->
-            ssl_connection:handle_own_alert(Alert, {3,4}, wait_finished, State0);
-        State1 ->
+wait_cv(internal, #change_cipher_spec{}, State0, _Module) ->
+    {Record, State} = tls_connection:next_record(State0),
+    tls_connection:next_event(?FUNCTION_NAME, Record, State);
+wait_cv(internal,
+          #certificate_verify_1_3{} = CertificateVerify, State0, _Module) ->
+    case tls_handshake_1_3:do_wait_cv(CertificateVerify, State0) of
+        {#alert{} = Alert, State} ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, wait_cv, State);
+        {State1, NextState} ->
             {Record, State} = tls_connection:next_record(State1),
-            tls_connection:next_event(?FUNCTION_NAME, Record, State)
+            tls_connection:next_event(NextState, Record, State)
     end;
+wait_cv(Type, Msg, State, Connection) ->
+    ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
+
+
+wait_finished(internal, #change_cipher_spec{}, State0, _Module) ->
+    {Record, State} = tls_connection:next_record(State0),
+    tls_connection:next_event(?FUNCTION_NAME, Record, State);
 wait_finished(internal,
              #finished{} = Finished, State0, Module) ->
     case tls_handshake_1_3:do_wait_finished(Finished, State0) of
