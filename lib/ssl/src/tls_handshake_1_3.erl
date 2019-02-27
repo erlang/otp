@@ -44,6 +44,7 @@
 
 -export([do_start/2,
          do_negotiated/2,
+         do_wait_cert/2,
          do_wait_finished/2]).
 
 %%====================================================================
@@ -85,6 +86,36 @@ encrypted_extensions() ->
     #encrypted_extensions{
        extensions = #{}
       }.
+
+
+certificate_request(SignAlgs0, SignAlgsCert0) ->
+    %% Input arguments contain TLS 1.2 algorithms due to backward compatibility
+    %% reasons. These {Hash, Algo} tuples must be filtered before creating the
+    %% the extensions.
+    SignAlgs = filter_tls13_algs(SignAlgs0),
+    SignAlgsCert = filter_tls13_algs(SignAlgsCert0),
+    Extensions0 = add_signature_algorithms(#{}, SignAlgs),
+    Extensions = add_signature_algorithms_cert(Extensions0, SignAlgsCert),
+    #certificate_request_1_3{
+      certificate_request_context = <<>>,
+      extensions = Extensions}.
+
+
+add_signature_algorithms(Extensions, SignAlgs) ->
+    Extensions#{signature_algorithms =>
+                    #signature_algorithms{signature_scheme_list = SignAlgs}}.
+
+
+add_signature_algorithms_cert(Extensions, undefined) ->
+    Extensions;
+add_signature_algorithms_cert(Extensions, SignAlgsCert) ->
+    Extensions#{signature_algorithms_cert =>
+                    #signature_algorithms{signature_scheme_list = SignAlgsCert}}.
+
+
+filter_tls13_algs(undefined) -> undefined;
+filter_tls13_algs(Algo) ->
+    lists:filter(fun is_atom/1, Algo).
 
 
 %% TODO: use maybe monad for error handling!
@@ -497,7 +528,7 @@ do_negotiated(#{client_share := ClientKey,
            #state{connection_states = ConnectionStates0,
                   session = #session{session_id = SessionId,
                                      own_certificate = OwnCert},
-                  ssl_options = #ssl_options{} = _SslOpts,
+                  ssl_options = #ssl_options{} = SslOpts,
                   key_share = KeyShare,
                   handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
                   connection_env = #connection_env{private_key = CertPrivateKey},
@@ -527,33 +558,50 @@ do_negotiated(#{client_share := ClientKey,
         %% Encode EncryptedExtensions
         State4 = tls_connection:queue_handshake(EncryptedExtensions, State3),
 
+        %% Create and send CertificateRequest ({verify, verify_peer})
+        {State5, NextState} = maybe_send_certificate_request(State4, SslOpts),
+
         %% Create Certificate
         Certificate = certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, server),
 
         %% Encode Certificate
-        State5 = tls_connection:queue_handshake(Certificate, State4),
+        State6 = tls_connection:queue_handshake(Certificate, State5),
 
         %% Create CertificateVerify
         CertificateVerify = Maybe(certificate_verify(CertPrivateKey, SignatureScheme,
-                                                     State5, server)),
+                                                     State6, server)),
         %% Encode CertificateVerify
-        State6 = tls_connection:queue_handshake(CertificateVerify, State5),
+        State7 = tls_connection:queue_handshake(CertificateVerify, State6),
 
         %% Create Finished
-        Finished = finished(State6),
+        Finished = finished(State7),
 
         %% Encode Finished
-        State7 = tls_connection:queue_handshake(Finished, State6),
+        State8 = tls_connection:queue_handshake(Finished, State7),
 
         %% Send first flight
-        {State8, _} = tls_connection:send_handshake_flight(State7),
+        {State9, _} = tls_connection:send_handshake_flight(State8),
 
-        State8
+        {State9, NextState}
 
     catch
         {Ref, {state_not_implemented, State}} ->
             %% TODO
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
+    end.
+
+
+do_wait_cert(#change_cipher_spec{}, State0) ->
+        {State0, wait_cert};
+do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
+    {Ref,Maybe} = maybe(),
+    try
+        NextState = Maybe(process_client_certificate(Certificate, State0)),
+        {State0, NextState}
+
+    catch
+        {Ref, {certificate_required, State}} ->
+            {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}
     end.
 
 
@@ -659,6 +707,42 @@ send_hello_retry_request(State0, _, _, _) ->
     {ok, {State0, negotiated}}.
 
 
+maybe_send_certificate_request(State, #ssl_options{verify = verify_none}) ->
+    {State, wait_finished};
+maybe_send_certificate_request(State, #ssl_options{
+                                         verify = verify_peer,
+                                         signature_algs = SignAlgs,
+                                         signature_algs_cert = SignAlgsCert}) ->
+    CertificateRequest = certificate_request(SignAlgs, SignAlgsCert),
+    {tls_connection:queue_handshake(CertificateRequest, State), wait_cert}.
+
+
+process_client_certificate(#certificate_1_3{
+                              certificate_request_context = <<>>,
+                              certificate_list = []},
+                           #state{ssl_options =
+                                      #ssl_options{
+                                         fail_if_no_peer_cert = false}}) ->
+    {ok, wait_finished};
+process_client_certificate(#certificate_1_3{
+                              certificate_request_context = <<>>,
+                              certificate_list = []},
+                           #state{ssl_options =
+                                      #ssl_options{
+                                         fail_if_no_peer_cert = true}} = State0) ->
+
+    %% At this point the client believes that the connection is up and starts using
+    %% its traffic secrets. In order to be able send an proper Alert to the client
+    %% the server should also change its connection state and use the traffic
+    %% secrets.
+    State1 = calculate_traffic_secrets(State0),
+    State = ssl_record:step_encryption_state(State1),
+    {error, {certificate_required, State}};
+process_client_certificate(_, _) ->
+    %% TODO: validate cert
+    {ok, wait_cv}.
+
+
 %% 4.4.1.  The Transcript Hash
 %%
 %% As an exception to this general rule, when the server responds to a
@@ -746,10 +830,8 @@ calculate_traffic_secrets(#state{connection_states = ConnectionStates,
     MasterSecret =
         tls_v1:key_schedule(master_secret, HKDFAlgo, HandshakeSecret),
 
-    {Messages0, _} =  HHistory,
-
-    %% Drop Client Finish
-    [_|Messages] = Messages0,
+    %% Get the correct list messages for the handshake context.
+    Messages = get_handshake_context(HHistory),
 
     %% Calculate [sender]_application_traffic_secret_0
     ClientAppTrafficSecret0 =
@@ -843,6 +925,32 @@ cipher_init(Key, IV, FinishedKey) ->
                   iv = IV,
                   finished_key = FinishedKey,
                   tag_len = 16}.
+
+
+%% Handling the case when client is authenticated
+get_handshake_context({[<<20,_/binary>>,<<11,_/binary>>|Messages], _}) ->
+    %% Handshake context messages:
+    %% ClientHello         (client) (0)
+    %% ServerHello         (server) (1),
+    %% EncryptedExtensions (server) (8)
+    %% CertificateRequest  (server) (13),
+    %% Certificate         (server) (11)
+    %% CertificateVerify   (server) (15),
+    %% Finished            (server) (20)
+    %% Certificate         (client) (11) - Drop! Not included in calculations!
+    %% Finished            (client) (20) - Drop! Not included in calculations!
+    Messages;
+%% Normal case
+get_handshake_context({[_| Messages], _}) ->
+    %% Handshake context messages:
+    %% ClientHello         (client) (0)
+    %% ServerHello         (server) (1),
+    %% EncryptedExtensions (server) (8)
+    %% Certificate         (server) (11)
+    %% CertificateVerify   (server) (15),
+    %% Finished            (server) (20)
+    %% Finished            (client) (20) - Drop! Not included in calculations!
+    Messages.
 
 
 %% If there is no overlap between the received

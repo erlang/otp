@@ -110,6 +110,7 @@
 %% gen_statem helper functions
 -export([start/4,
          negotiated/4,
+         wait_cert/4,
          wait_finished/4
         ]).
 
@@ -140,10 +141,31 @@ negotiated(internal, Map, State0, _Module) ->
     case tls_handshake_1_3:do_negotiated(Map, State0) of
         #alert{} = Alert ->
             ssl_connection:handle_own_alert(Alert, {3,4}, negotiated, State0);
-        State ->
-            {next_state, wait_finished, State, []}
-
+        {State, NextState} ->
+            {next_state, NextState, State, []}
     end.
+
+
+wait_cert(internal,
+          #change_cipher_spec{} = ChangeCipherSpec, State0, _Module) ->
+    case tls_handshake_1_3:do_wait_cert(ChangeCipherSpec, State0) of
+        #alert{} = Alert ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, wait_cert, State0);
+        {State1, NextState} ->
+            {Record, State} = tls_connection:next_record(State1),
+            tls_connection:next_event(NextState, Record, State)
+    end;
+wait_cert(internal,
+          #certificate_1_3{} = Certificate, State0, _Module) ->
+    case tls_handshake_1_3:do_wait_cert(Certificate, State0) of
+        {#alert{} = Alert, State} ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, wait_cert, State);
+        {State1, NextState} ->
+            {Record, State} = tls_connection:next_record(State1),
+            tls_connection:next_event(NextState, Record, State)
+    end;
+wait_cert(Type, Msg, State, Connection) ->
+    ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
 
 wait_finished(internal,
