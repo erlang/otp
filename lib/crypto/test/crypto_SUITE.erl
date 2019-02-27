@@ -101,6 +101,8 @@ groups() ->
                  {group, rsa},
                  {group, dss},
                  {group, ecdsa},
+                 {group, no_ed25519},
+                 {group, no_ed448},
                  {group, dh},
                  {group, ecdh},
                  {group, no_srp},
@@ -115,8 +117,8 @@ groups() ->
                  {group, no_blowfish_cfb64},
                  {group, no_blowfish_ofb64},
                  {group, aes_cbc128},
-                 {group, aes_cfb8},
-                 {group, aes_cfb128},
+                 {group, no_aes_cfb8},
+                 {group, no_aes_cfb128},
                  {group, aes_cbc256},
                  {group, no_aes_ige256},
                  {group, no_rc2_cbc},
@@ -187,8 +189,16 @@ groups() ->
      {chacha20, [], [stream]},
      {poly1305, [], [poly1305]},
      {aes_cbc, [], [block]},
+     {no_aes_cfb8,[], [no_support, no_block]},
+     {no_aes_cfb128,[], [no_support, no_block]},
      {no_md4, [], [no_support, no_hash]},
      {no_md5, [], [no_support, no_hash, no_hmac]},
+     {no_ed25519, [], [no_support, no_sign_verify
+                %% Does not work yet:  ,public_encrypt, private_encrypt
+                 ]},
+     {no_ed448, [], [no_support, no_sign_verify
+                %% Does not work yet:  ,public_encrypt, private_encrypt
+                 ]},
      {no_ripemd160, [], [no_support, no_hash]},
      {no_srp, [], [no_support, no_generate_compute]},
      {no_des_cbc, [], [no_support, no_block]},
@@ -255,7 +265,7 @@ init_per_group(fips, Config) ->
 		    enabled = crypto:info_fips(),
 		    FIPSConfig;
 		false ->
-		    {skip, "Failed to enable FIPS mode"}
+		    {fail, "Failed to enable FIPS mode"}
 	    end;
         not_supported ->
             {skip, "FIPS mode not supported"}
@@ -405,17 +415,6 @@ block() ->
 block(Config) when is_list(Config) ->
     Fips = proplists:get_bool(fips, Config),
     Type = ?config(type, Config),
-    %% See comment about EVP_CIPHER_CTX_set_key_length in
-    %% block_crypt_nif in crypto.c.
-    case {Fips, Type} of
-	{true, aes_cfb8} ->
-	    throw({skip, "Cannot test aes_cfb8 in FIPS mode because of key length issue"});
-	{true, aes_cfb128} ->
-	    throw({skip, "Cannot test aes_cfb128 in FIPS mode because of key length issue"});
-	_ ->
-	    ok
-    end,
-
     Blocks = lazy_eval(proplists:get_value(block, Config)),
     lists:foreach(fun block_cipher/1, Blocks),
     lists:foreach(fun block_cipher/1, block_iolistify(Blocks)),
@@ -503,6 +502,13 @@ sign_verify() ->
 sign_verify(Config) when is_list(Config) ->
     SignVerify = proplists:get_value(sign_verify, Config),
     lists:foreach(fun do_sign_verify/1, SignVerify).
+
+%%--------------------------------------------------------------------
+no_sign_verify() ->
+    [{doc, "Test disabled sign/verify digital signatures"}].
+no_sign_verify(Config) when is_list(Config) ->
+    [SignVerifyHd|_] = proplists:get_value(sign_verify, Config),
+    notsup(fun do_sign_verify/1, [SignVerifyHd]).
 
 %%-------------------------------------------------------------------- 
 public_encrypt() ->
