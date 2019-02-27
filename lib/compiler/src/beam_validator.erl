@@ -706,7 +706,7 @@ valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
     Vst1 = branch_state(Fail, Vst0),
 
     %% Infer argument types. Note that we can't type_test in the general case
-    %% as the BIF could fail for reasons other than bad arguments.
+    %% as the BIF could fail for reasons other than bad argument types.
     ArgTypes = bif_arg_types(Op, Ss),
     Vst = foldl(fun({Arg, T}, Vsti) ->
                         update_type(fun meet/2, T, Arg, Vsti)
