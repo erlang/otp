@@ -1590,19 +1590,12 @@ match_var([U|Us], Cs0, Def, St) ->
 %%  constructor/constant as first argument.  Group the constructors
 %%  according to type, the order is really irrelevant but tries to be
 %%  smart.
-
-match_con(Us, Cs0, Def, St) ->
-    %% Expand literals at the top level.
-    Cs = [expand_pat_lit_clause(C) || C <- Cs0],
-    match_con_1(Us, Cs, Def, St).
-
-match_con_1([U|_Us] = L, Cs, Def, St0) ->
+match_con([U|_Us] = L, Cs, Def, St0) ->
     %% Extract clauses for different constructors (types).
     %%ok = io:format("match_con ~p~n", [Cs]),
-    Ttcs0 = select_types([k_binary], Cs) ++ select_bin_con(Cs) ++
-        select_types([k_cons,k_tuple,k_map,k_atom,k_float,
-                      k_int,k_nil], Cs),
-    Ttcs = opt_single_valued(Ttcs0),
+    Ttcs0 = select_types(Cs, [], [], [], [], [], [], [], [], []),
+    Ttcs1 = [{T, Types} || {T, [_ | _] = Types} <- Ttcs0],
+    Ttcs = opt_single_valued(Ttcs1),
     %%ok = io:format("ttcs = ~p~n", [Ttcs]),
     {Scs,St1} =
 	mapfoldl(fun ({T,Tcs}, St) ->
@@ -1613,8 +1606,41 @@ match_con_1([U|_Us] = L, Cs, Def, St0) ->
 		 St0, Ttcs),
     {build_alt_1st_no_fail(build_select(U, Scs), Def),St1}.
 
-select_types(Types, Cs) ->
-    [{T,Tcs} || T <- Types, begin Tcs = select(T, Cs), Tcs =/= [] end].
+select_types([NoExpC | Cs], Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil) ->
+    C = expand_pat_lit_clause(NoExpC),
+    case clause_con(C) of
+	k_binary ->
+	    select_types(Cs, [C |Bin], BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil);
+	k_bin_seg ->
+	    select_types(Cs, Bin, [C | BinCon], Cons, Tuple, Map, Atom, Float, Int, Nil);
+	k_bin_end ->
+	    select_types(Cs, Bin, [C | BinCon], Cons, Tuple, Map, Atom, Float, Int, Nil);
+	k_cons ->
+	    select_types(Cs, Bin, BinCon, [C | Cons], Tuple, Map, Atom, Float, Int, Nil);
+	k_tuple ->
+	    select_types(Cs, Bin, BinCon, Cons, [C | Tuple], Map, Atom, Float, Int, Nil);
+	k_map ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, [C | Map], Atom, Float, Int, Nil);
+	k_atom ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, Map, [C | Atom], Float, Int, Nil);
+	k_float ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, [C | Float], Int, Nil);
+	k_int ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, [C | Int], Nil);
+	k_nil ->
+	    select_types(Cs, Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, [C | Nil])
+    end;
+select_types([], Bin, BinCon, Cons, Tuple, Map, Atom, Float, Int, Nil) ->
+    [{k_binary, reverse(Bin)}] ++ handle_bin_con(reverse(BinCon)) ++
+	[
+	    {k_cons, reverse(Cons)},
+	    {k_tuple, reverse(Tuple)},
+	    {k_map, reverse(Map)},
+	    {k_atom, reverse(Atom)},
+	    {k_float, reverse(Float)},
+	    {k_int, reverse(Int)},
+	    {k_nil, reverse(Nil)}
+	].
 
 expand_pat_lit_clause(#iclause{pats=[#ialias{pat=#k_literal{anno=A,val=Val}}=Alias|Ps]}=C) ->
     P = expand_pat_lit(Val, A),
@@ -1743,20 +1769,12 @@ combine_bin_segs(#k_bin_end{}) ->
 combine_bin_segs(_) ->
     throw(not_possible).
 
-%% select_bin_con([Clause]) -> [{Type,[Clause]}].
-%%  Extract clauses for the k_bin_seg constructor.  As k_bin_seg
+%% handle_bin_con([Clause]) -> [{Type,[Clause]}].
+%%  Handle clauses for the k_bin_seg constructor.  As k_bin_seg
 %%  matching can overlap, the k_bin_seg constructors cannot be
 %%  reordered, only grouped.
 
-select_bin_con(Cs0) ->
-    Cs1 = lists:filter(fun (C) ->
-			       Con = clause_con(C),
-			       (Con =:= k_bin_seg) or (Con =:= k_bin_end)
-		       end, Cs0),
-    select_bin_con_1(Cs1).
-
-
-select_bin_con_1(Cs) ->
+handle_bin_con(Cs) ->
     try
 	%% The usual way to match literals is to first extract the
 	%% value to a register, and then compare the register to the
@@ -1795,14 +1813,14 @@ select_bin_con_1(Cs) ->
 	end
     catch
 	throw:not_possible ->
-	    select_bin_con_2(Cs)
+	    handle_bin_con_not_possible(Cs)
     end.
 
-select_bin_con_2([C1|Cs]) ->
+handle_bin_con_not_possible([C1|Cs]) ->
     Con = clause_con(C1),
     {More,Rest} = splitwith(fun (C) -> clause_con(C) =:= Con end, Cs),
-    [{Con,[C1|More]}|select_bin_con_2(Rest)];
-select_bin_con_2([]) -> [].
+    [{Con,[C1|More]}|handle_bin_con_not_possible(Rest)];
+handle_bin_con_not_possible([]) -> [].
 
 %% select_bin_int([Clause]) -> {k_bin_int,[Clause]}
 %%  If the first pattern in each clause selects the same integer,
@@ -1901,10 +1919,6 @@ select_utf8(Val0) ->
 	error:_ ->
 	    throw(not_possible)
     end.
-
-%% select(Con, [Clause]) -> [Clause].
-
-select(T, Cs) -> [ C || C <- Cs, clause_con(C) =:= T ].
 
 %% match_value([Var], Con, [Clause], Default, State) -> {SelectExpr,State}.
 %%  At this point all the clauses have the same constructor, we must
