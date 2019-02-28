@@ -679,8 +679,18 @@ is_nonempty_list Fail=f S=x | allocate Need Rs => is_nonempty_list_allocate Fail
 is_nonempty_list Fail=f S=x | get_list S D1=x D2=x => \
   is_nonempty_list_get_list Fail S D1 D2
 
+is_nonempty_list Fail=f S=x | get_hd S Dst=x => \
+  is_nonempty_list_get_hd Fail S Dst
+
+is_nonempty_list Fail=f S=x | get_tl S Dst=x => \
+  is_nonempty_list_get_tl Fail S Dst
+
 is_nonempty_list_allocate f? rx t t
+
 is_nonempty_list_get_list f? rx x x
+is_nonempty_list_get_hd f? x x
+is_nonempty_list_get_tl f? x x
+
 is_nonempty_list f? xy
 
 is_atom f? x

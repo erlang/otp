@@ -678,6 +678,18 @@ is_nonempty_list_get_list(Fail, Src, Hd, Tl) {
     $get_list($Src, $Hd, $Tl);
 }
 
+is_nonempty_list_get_hd(Fail, Src, Hd) {
+    //| -no_prefetch
+    $is_nonempty_list($Fail, $Src);
+    $get_hd($Src, $Hd);
+}
+
+is_nonempty_list_get_tl(Fail, Src, Tl) {
+    //| -no_prefetch
+    $is_nonempty_list($Fail, $Src);
+    $get_tl($Src, $Tl);
+}
+
 jump(Fail) {
     $JUMP($Fail);
 }
