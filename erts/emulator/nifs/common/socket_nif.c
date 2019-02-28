@@ -1078,28 +1078,27 @@ static ERL_NIF_TERM nsetopt(ErlNifEnv*        env,
                             int               level,
                             int               eOpt,
                             ERL_NIF_TERM      eVal);
+
+/* Set OTP level options */
 static ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
                                 SocketDescriptor* descP,
                                 int               eOpt,
                                 ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_otp_debug(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_otp_iow(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_otp_ctrl_proc(ErlNifEnv*        env,
-                                          SocketDescriptor* descP,
-                                          ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_otp_rcvbuf(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_otp_sndctrlbuf(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+#define NSETOPT_OTP_FUNCS              \
+    NSETOPT_OTP_FUNC_DEF(debug);      \
+    NSETOPT_OTP_FUNC_DEF(iow);        \
+    NSETOPT_OTP_FUNC_DEF(ctrl_proc);  \
+    NSETOPT_OTP_FUNC_DEF(rcvbuf);     \
+    NSETOPT_OTP_FUNC_DEF(rcvctrlbuf); \
+    NSETOPT_OTP_FUNC_DEF(sndctrlbuf);
+#define NSETOPT_OTP_FUNC_DEF(F)                                 \
+    static ERL_NIF_TERM nsetopt_otp_##F(ErlNifEnv*        env,   \
+                                        SocketDescriptor* descP, \
+                                        ERL_NIF_TERM      eVal)
+NSETOPT_OTP_FUNCS
+#undef NSETOPT_OTP_FUNC_DEF
+
+/* Set native options */
 static ERL_NIF_TERM nsetopt_native(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               level,
@@ -1579,29 +1578,27 @@ static ERL_NIF_TERM ngetopt(ErlNifEnv*        env,
                             BOOLEAN_T         isOTP,
                             int               level,
                             ERL_NIF_TERM      eOpt);
+
 static ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
                                 SocketDescriptor* descP,
                                 int               eOpt);
-static ERL_NIF_TERM ngetopt_otp_debug(ErlNifEnv*        env,
-                                      SocketDescriptor* descP);
-static ERL_NIF_TERM ngetopt_otp_iow(ErlNifEnv*        env,
-                                    SocketDescriptor* descP);
-static ERL_NIF_TERM ngetopt_otp_ctrl_proc(ErlNifEnv*        env,
-                                          SocketDescriptor* descP);
-static ERL_NIF_TERM ngetopt_otp_rcvbuf(ErlNifEnv*        env,
-                                       SocketDescriptor* descP);
-static ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
-static ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
-static ERL_NIF_TERM ngetopt_otp_fd(ErlNifEnv*        env,
-                                   SocketDescriptor* descP);
-static ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*        env,
-                                       SocketDescriptor* descP);
-static ERL_NIF_TERM ngetopt_otp_type(ErlNifEnv*        env,
-                                     SocketDescriptor* descP);
-static ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*        env,
-                                         SocketDescriptor* descP);
+#define NGETOPT_OTP_FUNCS              \
+    NGETOPT_OTP_FUNC_DEF(debug);      \
+    NGETOPT_OTP_FUNC_DEF(iow);        \
+    NGETOPT_OTP_FUNC_DEF(ctrl_proc);  \
+    NGETOPT_OTP_FUNC_DEF(rcvbuf);     \
+    NGETOPT_OTP_FUNC_DEF(rcvctrlbuf); \
+    NGETOPT_OTP_FUNC_DEF(sndctrlbuf); \
+    NGETOPT_OTP_FUNC_DEF(fd);         \
+    NGETOPT_OTP_FUNC_DEF(domain);     \
+    NGETOPT_OTP_FUNC_DEF(type);       \
+    NGETOPT_OTP_FUNC_DEF(protocol);
+#define NGETOPT_OTP_FUNC_DEF(F)                               \
+    static ERL_NIF_TERM ngetopt_otp_##F(ErlNifEnv*        env, \
+                                        SocketDescriptor* descP)
+NGETOPT_OTP_FUNCS
+#undef NGETOPT_OTP_FUNC_DEF
+
 static ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    int               level,
