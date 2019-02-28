@@ -89,12 +89,11 @@ shortcut_opt(#st{bs=Blocks}=St) ->
     %% running scripts/diffable with both PO and RPO and looking at
     %% the diff.)
     Ls = beam_ssa:rpo(Blocks),
-    shortcut_opt(Ls, #{from=>0}, St).
+    shortcut_opt(Ls, #{}, St).
 
-shortcut_opt([L|Ls], Bs0, #st{bs=Blocks0}=St) ->
+shortcut_opt([L|Ls], Bs, #st{bs=Blocks0}=St) ->
     #b_blk{is=Is,last=Last0} = Blk0 = get_block(L, St),
-    Bs = Bs0#{from:=L},
-    case shortcut_terminator(Last0, Is, Bs, St) of
+    case shortcut_terminator(Last0, Is, L, Bs, St) of
         Last0 ->
             %% No change. No need to update the block.
             shortcut_opt(Ls, Bs, St);
@@ -108,17 +107,17 @@ shortcut_opt([L|Ls], Bs0, #st{bs=Blocks0}=St) ->
 shortcut_opt([], _, St) -> St.
 
 shortcut_terminator(#b_br{bool=#b_literal{val=true},succ=Succ0},
-                    _Is, Bs, St0) ->
+                    _Is, From, Bs, St0) ->
     St = St0#st{rel_op=none},
-    shortcut(Succ0, Bs, St);
+    shortcut(Succ0, From, Bs, St);
 shortcut_terminator(#b_br{bool=#b_var{}=Bool,succ=Succ0,fail=Fail0}=Br,
-                    Is, Bs, St0) ->
+                    Is, From, Bs, St0) ->
     St = St0#st{target=one_way},
     RelOp = get_rel_op(Bool, Is),
     SuccBs = bind_var(Bool, #b_literal{val=true}, Bs),
-    BrSucc = shortcut(Succ0, SuccBs, St#st{rel_op=RelOp}),
+    BrSucc = shortcut(Succ0, From, SuccBs, St#st{rel_op=RelOp}),
     FailBs = bind_var(Bool, #b_literal{val=false}, Bs),
-    BrFail = shortcut(Fail0, FailBs, St#st{rel_op=invert_op(RelOp)}),
+    BrFail = shortcut(Fail0, From, FailBs, St#st{rel_op=invert_op(RelOp)}),
     case {BrSucc,BrFail} of
         {#b_br{bool=#b_literal{val=true},succ=Succ},
          #b_br{bool=#b_literal{val=true},succ=Fail}}
@@ -129,25 +128,25 @@ shortcut_terminator(#b_br{bool=#b_var{}=Bool,succ=Succ0,fail=Fail0}=Br,
             %% No change.
             Br
     end;
-shortcut_terminator(#b_switch{arg=Bool,list=List0}=Sw, _Is, Bs, St) ->
-    List = shortcut_switch(List0, Bool, Bs, St),
+shortcut_terminator(#b_switch{arg=Bool,list=List0}=Sw, _Is, From, Bs, St) ->
+    List = shortcut_switch(List0, Bool, From, Bs, St),
     beam_ssa:normalize(Sw#b_switch{list=List});
-shortcut_terminator(Last, _Is, _Bs, _St) ->
+shortcut_terminator(Last, _Is, _Bs, _From, _St) ->
     Last.
 
-shortcut_switch([{Lit,L0}|T], Bool, Bs, St0) ->
+shortcut_switch([{Lit,L0}|T], Bool, From, Bs, St0) ->
     RelOp = {'=:=',Bool,Lit},
     St = St0#st{rel_op=RelOp},
     #b_br{bool=#b_literal{val=true},succ=L} =
-        shortcut(L0, bind_var(Bool, Lit, Bs), St#st{target=one_way}),
-    [{Lit,L}|shortcut_switch(T, Bool, Bs, St0)];
-shortcut_switch([], _, _, _) -> [].
+        shortcut(L0, From, bind_var(Bool, Lit, Bs), St#st{target=one_way}),
+    [{Lit,L}|shortcut_switch(T, Bool, From, Bs, St0)];
+shortcut_switch([], _, _, _, _) -> [].
 
-shortcut(L, Bs, St) ->
-    shortcut_1(L, Bs, ordsets:new(), St).
+shortcut(L, From, Bs, St) ->
+    shortcut_1(L, From, Bs, ordsets:new(), St).
 
-shortcut_1(L, Bs0, UnsetVars0, St) ->
-    case shortcut_2(L, Bs0, UnsetVars0, St) of
+shortcut_1(L, From, Bs0, UnsetVars0, St) ->
+    case shortcut_2(L, From, Bs0, UnsetVars0, St) of
         none ->
             %% No more shortcuts found. Package up the previous
             %% label in an unconditional branch.
@@ -157,13 +156,13 @@ shortcut_1(L, Bs0, UnsetVars0, St) ->
             Br;
         {#b_br{bool=#b_literal{val=true},succ=Succ},Bs,UnsetVars} ->
             %% This is a safe `br`, but try to find a better one.
-            shortcut_1(Succ, Bs#{from:=L}, UnsetVars, St)
+            shortcut_1(Succ, L, Bs, UnsetVars, St)
     end.
 
 %% Try to shortcut this block, branching to a successor.
-shortcut_2(L, Bs0, UnsetVars0, St) ->
+shortcut_2(L, From, Bs0, UnsetVars0, St) ->
     #b_blk{is=Is,last=Last} = get_block(L, St),
-    case eval_is(Is, Bs0, St) of
+    case eval_is(Is, From, Bs0, St) of
         none ->
             %% It is not safe to avoid this block because it
             %% has instructions with potential side effects.
@@ -187,25 +186,24 @@ shortcut_2(L, Bs0, UnsetVars0, St) ->
                             %% It is unsafe to use this br,
                             %% because it refers to a variable defined
                             %% in this block.
-                            shortcut_unsafe_br(Br, Bs, UnsetVars0, St);
+                            shortcut_unsafe_br(Br, L, Bs, UnsetVars0, St);
                         UnsetVars ->
                             %% Continue checking whether this br is
                             %% suitable.
-                            shortcut_test_br(Br, Bs#{from:=L},
-                                             UnsetVars, St)
+                            shortcut_test_br(Br, L, Bs, UnsetVars, St)
                     end
             end
     end.
 
-shortcut_test_br(Br, Bs, UnsetVars, St) ->
+shortcut_test_br(Br, From, Bs, UnsetVars, St) ->
     case is_br_safe(UnsetVars, Br, St) of
         false ->
-            shortcut_unsafe_br(Br, Bs, UnsetVars, St);
+            shortcut_unsafe_br(Br, From, Bs, UnsetVars, St);
         true ->
-            shortcut_safe_br(Br, Bs, UnsetVars, St)
+            shortcut_safe_br(Br, From, Bs, UnsetVars, St)
     end.
 
-shortcut_unsafe_br(Br, Bs, UnsetVars, #st{target=Target}=St) ->
+shortcut_unsafe_br(Br, From, Bs, UnsetVars, #st{target=Target}=St) ->
     %% Branching using this `br` is unsafe, either because it
     %% is an unconditional branch to a phi node, or because
     %% one or more of the variables that are not set will be
@@ -221,7 +219,7 @@ shortcut_unsafe_br(Br, Bs, UnsetVars, #st{target=Target}=St) ->
                 _ ->
                     %% Try following this branch to see whether it
                     %% leads to a safe `br`.
-                    shortcut_2(L, Bs, UnsetVars, St)
+                    shortcut_2(L, From, Bs, UnsetVars, St)
             end;
         #b_br{bool=#b_var{},succ=Succ,fail=Fail} ->
             case {Succ,Fail} of
@@ -230,23 +228,23 @@ shortcut_unsafe_br(Br, Bs, UnsetVars, #st{target=Target}=St) ->
                     %% Try following the success label to see
                     %% whether it also ultimately ends up at the
                     %% forced target.
-                    shortcut_2(L, Bs, UnsetVars, St);
+                    shortcut_2(L, From, Bs, UnsetVars, St);
                 {Target,L} ->
                     %% The success label is the forced target.
                     %% Try following the failure label to see
                     %% whether it also ultimately ends up at the
                     %% forced target.
-                    shortcut_2(L, Bs, UnsetVars, St);
+                    shortcut_2(L, From, Bs, UnsetVars, St);
                 {_,_} ->
                     case Target of
                         any ->
                             %% This two-way branch is unsafe. Try
                             %% reducing it to a one-way branch.
-                            shortcut_two_way(Br, Bs, UnsetVars, St);
+                            shortcut_two_way(Br, From, Bs, UnsetVars, St);
                         one_way ->
                             %% This two-way branch is unsafe. Try
                             %% reducing it to a one-way branch.
-                            shortcut_two_way(Br, Bs, UnsetVars, St);
+                            shortcut_two_way(Br, From, Bs, UnsetVars, St);
                         _ when is_integer(Target) ->
                             %% This two-way branch is unsafe, and
                             %% there already is a forced target.
@@ -256,7 +254,7 @@ shortcut_unsafe_br(Br, Bs, UnsetVars, #st{target=Target}=St) ->
             end
     end.
 
-shortcut_safe_br(Br, Bs, UnsetVars, #st{target=Target}=St) ->
+shortcut_safe_br(Br, From, Bs, UnsetVars, #st{target=Target}=St) ->
     %% This `br` instruction is safe. It does not branch to a phi
     %% node, and all variables that will be used are guaranteed to be
     %% defined.
@@ -278,7 +276,7 @@ shortcut_safe_br(Br, Bs, UnsetVars, #st{target=Target}=St) ->
                     %% Wrong forced target. Try following this branch
                     %% to see if it ultimately ends up at the forced
                     %% target.
-                    shortcut_2(L, Bs, UnsetVars, St)
+                    shortcut_2(L, From, Bs, UnsetVars, St)
             end;
         #b_br{bool=#b_var{}} ->
             %% This is a two-way branch.
@@ -286,7 +284,7 @@ shortcut_safe_br(Br, Bs, UnsetVars, #st{target=Target}=St) ->
                 Target =:= any; Target =:= one_way ->
                     %% No specific forced target. Try to reduce the
                     %% two-way branch to an one-way branch.
-                    case shortcut_two_way(Br, Bs, UnsetVars, St) of
+                    case shortcut_two_way(Br, From, Bs, UnsetVars, St) of
                         none when Target =:= any ->
                             %% This `br` can't be reduced to a one-way
                             %% branch. Return the `br` as-is.
@@ -342,12 +340,13 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
             ordsets:union(UnsetVars, ordsets:from_list(SetInThisBlock))
     end.
 
-shortcut_two_way(#b_br{succ=Succ,fail=Fail}, Bs0, UnsetVars0, St) ->
-    case shortcut_2(Succ, Bs0, UnsetVars0, St#st{target=Fail}) of
+shortcut_two_way(#b_br{succ=Succ,fail=Fail}, From, Bs0, UnsetVars0, St0) ->
+    case shortcut_2(Succ, From, Bs0, UnsetVars0, St0#st{target=Fail}) of
         {#b_br{bool=#b_literal{},succ=Fail},_,_}=Res ->
             Res;
         none ->
-            case shortcut_2(Fail, Bs0, UnsetVars0, St#st{target=Succ}) of
+            St = St0#st{target=Succ},
+            case shortcut_2(Fail, From, Bs0, UnsetVars0, St) of
                 {#b_br{bool=#b_literal{},succ=Succ},_,_}=Res ->
                     Res;
                 none ->
@@ -389,40 +388,39 @@ is_forbidden(L, St) ->
 %% Return the updated bindings, or 'none' if there is
 %% any instruction with potential side effects.
 
-eval_is([#b_set{op=phi,dst=Dst,args=Args}|Is], Bs0, St) ->
-    From = map_get(from, Bs0),
+eval_is([#b_set{op=phi,dst=Dst,args=Args}|Is], From, Bs0, St) ->
     Val = get_phi_arg(Args, From),
     Bs = bind_var(Dst, Val, Bs0),
-    eval_is(Is, Bs, St);
-eval_is([#b_set{op={bif,_},dst=Dst}=I0|Is], Bs, St) ->
+    eval_is(Is, From, Bs, St);
+eval_is([#b_set{op={bif,_},dst=Dst}=I0|Is], From, Bs, St) ->
     I = sub(I0, Bs),
     case eval_bif(I, St) of
         #b_literal{}=Val ->
-            eval_is(Is, bind_var(Dst, Val, Bs), St);
+            eval_is(Is, From, bind_var(Dst, Val, Bs), St);
         none ->
-            eval_is(Is, Bs, St)
+            eval_is(Is, From, Bs, St)
     end;
-eval_is([#b_set{op=Op,dst=Dst}=I|Is], Bs, St)
+eval_is([#b_set{op=Op,dst=Dst}=I|Is], From, Bs, St)
   when Op =:= is_tagged_tuple; Op =:= is_nonempty_list ->
     #b_set{args=Args} = sub(I, Bs),
     case eval_rel_op(Op, Args, St) of
         #b_literal{}=Val ->
-            eval_is(Is, bind_var(Dst, Val, Bs), St);
+            eval_is(Is, From, bind_var(Dst, Val, Bs), St);
         none ->
-            eval_is(Is, Bs, St)
+            eval_is(Is, From, Bs, St)
     end;
-eval_is([#b_set{}=I|Is], Bs, St) ->
+eval_is([#b_set{}=I|Is], From, Bs, St) ->
     case beam_ssa:no_side_effect(I) of
         true ->
             %% This instruction has no side effects. It can
             %% safely be omitted.
-            eval_is(Is, Bs, St);
+            eval_is(Is, From, Bs, St);
         false ->
             %% This instruction may have some side effect.
             %% It is not safe to avoid this instruction.
             none
     end;
-eval_is([], Bs, _St) -> Bs.
+eval_is([], _From, Bs, _St) -> Bs.
 
 get_phi_arg([{Val,From}|_], From) -> Val;
 get_phi_arg([_|As], From) -> get_phi_arg(As, From).
