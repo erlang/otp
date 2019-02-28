@@ -66,7 +66,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 [{kernel,
   [{logger,
     [{handler, default, logger_std_h,
-      #{config => #{type => {file, "path/to/file.log"}}}}]}]}].
+      #{config => #{file => "path/to/file.log"}}}]}]}].
       </code>
     <p>
       For more information about:

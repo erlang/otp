@@ -1047,10 +1047,12 @@ kernel_config(Config) ->
     ok = rpc:call(Node,application,unset_env,[kernel,logger]),
     ok = rpc:call(Node,logger,internal_init_logger,[]),
     ok = rpc:call(Node,logger,add_handlers,[kernel]),
-    DefModes = [raw,append,delayed_write],
     #{primary:=#{filter_default:=log,filters:=[]},
-      handlers:=[#{id:=default,filters:=DF,config:=#{type:={file,F,DefModes}}}],
+      handlers:=[#{id:=default,filters:=DF,
+                   config:=#{type:=file,file:=F,modes:=Modes}}],
       module_levels:=[]} = rpc:call(Node,logger,get_config,[]),
+    [append,delayed_write,raw] = lists:sort(Modes),
+
 
     %% Same, but using 'logger' parameter instead of 'error_logger'
     ok = rpc:call(Node,logger,remove_handler,[default]),% so it can be added again
@@ -1061,7 +1063,8 @@ kernel_config(Config) ->
     ok = rpc:call(Node,logger,internal_init_logger,[]),
     ok = rpc:call(Node,logger,add_handlers,[kernel]),
     #{primary:=#{filter_default:=log,filters:=[]},
-      handlers:=[#{id:=default,filters:=DF,config:=#{type:={file,F,DefModes}}}],
+      handlers:=[#{id:=default,filters:=DF,
+                   config:=#{type:=file,file:=F,modes:=Modes}}],
       module_levels:=[]} = rpc:call(Node,logger,get_config,[]),
 
     %% Same, but with type={file,File,Modes}
@@ -1075,7 +1078,7 @@ kernel_config(Config) ->
     ok = rpc:call(Node,logger,add_handlers,[kernel]),
     #{primary:=#{filter_default:=log,filters:=[]},
       handlers:=[#{id:=default,filters:=DF,
-                   config:=#{type:={file,F,[delayed_write|M]}}}],
+                   config:=#{type:=file,file:=F,modes:=[delayed_write|M]}}],
       module_levels:=[]} = rpc:call(Node,logger,get_config,[]),
 
     %% Same, but with disk_log handler

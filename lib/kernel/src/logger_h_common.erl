@@ -142,8 +142,9 @@ changing_config(SetOrUpdate,
                                             maps:with(?OLP_KEYS,NewHConfig0)),
                     case logger_olp:set_opts(Olp,NewOlpOpts) of
                         ok ->
-                            maybe_set_repeated_filesync(Olp,OldCommonConfig,
-                                                        NewCommonConfig),
+                            logger_olp:cast(Olp, {config_changed,
+                                                  NewCommonConfig,
+                                                  NewHandlerConfig}),
                             ReadOnly = maps:with(?READ_ONLY_KEYS,OldHConfig),
                             NewHConfig =
                                 maps:merge(
@@ -281,11 +282,24 @@ handle_cast(repeated_filesync,
                 State#{handler_state => HS, last_op => sync}
         end,
     {noreply,set_repeated_filesync(State1)};
-
-handle_cast({set_repeated_filesync,FSyncInt},State) ->
-    State1 = State#{filesync_repeat_interval=>FSyncInt},
-    State2 = set_repeated_filesync(cancel_repeated_filesync(State1)),
-    {noreply, State2}.
+handle_cast({config_changed, CommonConfig, HConfig},
+            State = #{id := Name,
+                      module := Module,
+                      handler_state := HandlerState,
+                      filesync_repeat_interval := OldFSyncInt}) ->
+    State1 =
+        case maps:get(filesync_repeat_interval,CommonConfig) of
+            OldFSyncInt ->
+                State;
+            FSyncInt ->
+                set_repeated_filesync(
+                  cancel_repeated_filesync(
+                    State#{filesync_repeat_interval=>FSyncInt}))
+        end,
+    HS = try Module:config_changed(Name, HConfig, HandlerState)
+         catch error:undef -> HandlerState
+         end,
+    {noreply, State1#{handler_state => HS}}.
 
 handle_info(Info, #{id := Name, module := Module,
                     handler_state := HandlerState} = State) ->
@@ -447,10 +461,3 @@ cancel_repeated_filesync(State) ->
     end.
 error_notify(Term) ->
     ?internal_log(error, Term).
-
-maybe_set_repeated_filesync(_Olp,
-                            #{filesync_repeat_interval:=FSyncInt},
-                            #{filesync_repeat_interval:=FSyncInt}) ->
-    ok;
-maybe_set_repeated_filesync(Olp,_,#{filesync_repeat_interval:=FSyncInt}) ->
-    logger_olp:cast(Olp,{set_repeated_filesync,FSyncInt}).
