@@ -2206,6 +2206,7 @@ static BOOLEAN_T decode_native_get_opt(ErlNifEnv*   env,
 static ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val);
 
 static void inform_waiting_procs(ErlNifEnv*          env,
+                                 char*               role,
                                  SocketDescriptor*   descP,
                                  SocketRequestQueue* q,
                                  BOOLEAN_T           free,
@@ -2424,354 +2425,301 @@ static const struct in6_addr in6addr_loopback =
 
 
 
-/* *** String constants *** */
-static char str_adaptation_layer[] = "adaptation_layer";
-static char str_address[]          = "address";
-static char str_association[]      = "association";
-static char str_assoc_id[]         = "assoc_id";
-static char str_authentication[]   = "authentication";
-// static char str_any[]              = "any";
-static char str_bool[]             = "bool";
-static char str_close[]            = "close";
-static char str_closed[]           = "closed";
-static char str_closing[]          = "closing";
-static char str_cookie_life[]      = "cookie_life";
-static char str_data_in[]          = "data_in";
-static char str_do[]               = "do";
-static char str_dont[]             = "dont";
-static char str_exclude[]          = "exclude";
-static char str_false[]            = "false";
-static char str_global_counters[]  = "global_counters";
-static char str_in4_sockaddr[]     = "in4_sockaddr";
-static char str_in6_sockaddr[]     = "in6_sockaddr";
-static char str_include[]          = "include";
-static char str_initial[]          = "initial";
-static char str_int[]              = "int";
-static char str_interface[]        = "interface";
-static char str_iow[]              = "iow";
-static char str_local_rwnd[]       = "local_rwnd";
-// static char str_loopback[]         = "loopback";
-static char str_max[]              = "max";
-static char str_max_attempts[]     = "max_attempts";
-static char str_max_init_timeo[]   = "max_init_timeo";
-static char str_max_instreams[]    = "max_instreams";
-static char str_max_rxt[]          = "max_rxt";
-static char str_min[]              = "min";
-static char str_mode[]             = "mode";
-static char str_multiaddr[]        = "multiaddr";
-// static char str_nif_abort[]        = "nif_abort";
-static char str_null[]             = "null";
-static char str_num_dlocal[]       = "num_domain_local";
-static char str_num_dinet[]        = "num_domain_inet";
-static char str_num_dinet6[]       = "num_domain_inet6";
-static char str_num_outstreams[]   = "num_outstreams";
-static char str_num_peer_dests[]   = "num_peer_dests";
-static char str_num_pip[]          = "num_proto_ip";
-static char str_num_psctp[]        = "num_proto_sctp";
-static char str_num_ptcp[]         = "num_proto_tcp";
-static char str_num_pudp[]         = "num_proto_udp";
-static char str_num_sockets[]      = "num_sockets";
-static char str_num_tdgrams[]      = "num_type_dgram";
-static char str_num_tseqpkgs[]     = "num_type_seqpacket";
-static char str_num_tstreams[]     = "num_type_stream";
-static char str_partial_delivery[] = "partial_delivery";
-static char str_peer_error[]       = "peer_error";
-static char str_peer_rwnd[]        = "peer_rwnd";
-static char str_probe[]            = "probe";
-static char str_select[]           = "select";
-static char str_sender_dry[]       = "sender_dry";
-static char str_send_failure[]     = "send_failure";
-static char str_shutdown[]         = "shutdown";
-static char str_slist[]            = "slist";
-static char str_sourceaddr[]       = "sourceaddr";
-static char str_timeout[]          = "timeout";
-static char str_true[]             = "true";
-static char str_want[]             = "want";
-
 /* (special) error string constants */
-static char str_eisconn[]        = "eisconn";
-static char str_enotclosing[]    = "enotclosing";
-static char str_enotconn[]       = "enotconn";
-static char str_exalloc[]        = "exalloc";
-static char str_exbadstate[]     = "exbadstate";
-static char str_exbusy[]         = "exbusy";
 static char str_exmon[]          = "exmonitor";  // failed monitor
 static char str_exself[]         = "exself";     // failed self
 static char str_exsend[]         = "exsend";     // failed send
 
 
-/* *** "Global" Atoms *** */
-ERL_NIF_TERM esock_atom_abort;
-ERL_NIF_TERM esock_atom_accept;
-ERL_NIF_TERM esock_atom_acceptconn;
-ERL_NIF_TERM esock_atom_acceptfilter;
-ERL_NIF_TERM esock_atom_adaption_layer;
-ERL_NIF_TERM esock_atom_addr;
-ERL_NIF_TERM esock_atom_addrform;
-ERL_NIF_TERM esock_atom_add_membership;
-ERL_NIF_TERM esock_atom_add_source_membership;
-ERL_NIF_TERM esock_atom_any;
-ERL_NIF_TERM esock_atom_associnfo;
-ERL_NIF_TERM esock_atom_authhdr;
-ERL_NIF_TERM esock_atom_auth_active_key;
-ERL_NIF_TERM esock_atom_auth_asconf;
-ERL_NIF_TERM esock_atom_auth_chunk;
-ERL_NIF_TERM esock_atom_auth_delete_key;
-ERL_NIF_TERM esock_atom_auth_key;
-ERL_NIF_TERM esock_atom_auth_level;
-ERL_NIF_TERM esock_atom_autoclose;
-ERL_NIF_TERM esock_atom_bindtodevice;
-ERL_NIF_TERM esock_atom_block_source;
-ERL_NIF_TERM esock_atom_broadcast;
-ERL_NIF_TERM esock_atom_busy_poll;
-ERL_NIF_TERM esock_atom_checksum;
-ERL_NIF_TERM esock_atom_close;
-ERL_NIF_TERM esock_atom_connect;
-ERL_NIF_TERM esock_atom_congestion;
-ERL_NIF_TERM esock_atom_context;
-ERL_NIF_TERM esock_atom_cork;
-ERL_NIF_TERM esock_atom_credentials;
-ERL_NIF_TERM esock_atom_ctrl;
-ERL_NIF_TERM esock_atom_ctrunc;
-ERL_NIF_TERM esock_atom_data;
-ERL_NIF_TERM esock_atom_debug;
-ERL_NIF_TERM esock_atom_default_send_params;
-ERL_NIF_TERM esock_atom_delayed_ack_time;
-ERL_NIF_TERM esock_atom_dgram;
-ERL_NIF_TERM esock_atom_disable_fragments;
-ERL_NIF_TERM esock_atom_domain;
-ERL_NIF_TERM esock_atom_dontfrag;
-ERL_NIF_TERM esock_atom_dontroute;
-ERL_NIF_TERM esock_atom_drop_membership;
-ERL_NIF_TERM esock_atom_drop_source_membership;
-ERL_NIF_TERM esock_atom_dstopts;
-ERL_NIF_TERM esock_atom_eor;
-ERL_NIF_TERM esock_atom_error;
-ERL_NIF_TERM esock_atom_errqueue;
-ERL_NIF_TERM esock_atom_esp_network_level;
-ERL_NIF_TERM esock_atom_esp_trans_level;
-ERL_NIF_TERM esock_atom_events;
-ERL_NIF_TERM esock_atom_explicit_eor;
-ERL_NIF_TERM esock_atom_faith;
-ERL_NIF_TERM esock_atom_false;
-ERL_NIF_TERM esock_atom_family;
-ERL_NIF_TERM esock_atom_flags;
-ERL_NIF_TERM esock_atom_flowinfo;
-ERL_NIF_TERM esock_atom_fragment_interleave;
-ERL_NIF_TERM esock_atom_freebind;
-ERL_NIF_TERM esock_atom_get_peer_addr_info;
-ERL_NIF_TERM esock_atom_hdrincl;
-ERL_NIF_TERM esock_atom_hmac_ident;
-ERL_NIF_TERM esock_atom_hoplimit;
-ERL_NIF_TERM esock_atom_hopopts;
-ERL_NIF_TERM esock_atom_ifindex;
-ERL_NIF_TERM esock_atom_inet;
-ERL_NIF_TERM esock_atom_inet6;
-ERL_NIF_TERM esock_atom_info;
-ERL_NIF_TERM esock_atom_initmsg;
-ERL_NIF_TERM esock_atom_iov;
-ERL_NIF_TERM esock_atom_ip;
-ERL_NIF_TERM esock_atom_ipcomp_level;
-ERL_NIF_TERM esock_atom_ipv6;
-ERL_NIF_TERM esock_atom_i_want_mapped_v4_addr;
-ERL_NIF_TERM esock_atom_join_group;
-ERL_NIF_TERM esock_atom_keepalive;
-ERL_NIF_TERM esock_atom_keepcnt;
-ERL_NIF_TERM esock_atom_keepidle;
-ERL_NIF_TERM esock_atom_keepintvl;
-ERL_NIF_TERM esock_atom_leave_group;
-ERL_NIF_TERM esock_atom_level;
-ERL_NIF_TERM esock_atom_linger;
-ERL_NIF_TERM esock_atom_local;
-ERL_NIF_TERM esock_atom_local_auth_chunks;
-ERL_NIF_TERM esock_atom_loopback;
-ERL_NIF_TERM esock_atom_lowdelay;
-ERL_NIF_TERM esock_atom_mark;
-ERL_NIF_TERM esock_atom_maxburst;
-ERL_NIF_TERM esock_atom_maxseg;
-ERL_NIF_TERM esock_atom_md5sig;
-ERL_NIF_TERM esock_atom_mincost;
-ERL_NIF_TERM esock_atom_minttl;
-ERL_NIF_TERM esock_atom_msfilter;
-ERL_NIF_TERM esock_atom_mtu;
-ERL_NIF_TERM esock_atom_mtu_discover;
-ERL_NIF_TERM esock_atom_multicast_all;
-ERL_NIF_TERM esock_atom_multicast_hops;
-ERL_NIF_TERM esock_atom_multicast_if;
-ERL_NIF_TERM esock_atom_multicast_loop;
-ERL_NIF_TERM esock_atom_multicast_ttl;
-ERL_NIF_TERM esock_atom_nodelay;
-ERL_NIF_TERM esock_atom_nodefrag;
-ERL_NIF_TERM esock_atom_noopt;
-ERL_NIF_TERM esock_atom_nopush;
-ERL_NIF_TERM esock_atom_not_found;
-ERL_NIF_TERM esock_atom_not_owner;
-ERL_NIF_TERM esock_atom_ok;
-ERL_NIF_TERM esock_atom_oob;
-ERL_NIF_TERM esock_atom_oobinline;
-ERL_NIF_TERM esock_atom_options;
-ERL_NIF_TERM esock_atom_origdstaddr;
-ERL_NIF_TERM esock_atom_partial_delivery_point;
-ERL_NIF_TERM esock_atom_passcred;
-ERL_NIF_TERM esock_atom_path;
-ERL_NIF_TERM esock_atom_peekcred;
-ERL_NIF_TERM esock_atom_peek_off;
-ERL_NIF_TERM esock_atom_peer_addr_params;
-ERL_NIF_TERM esock_atom_peer_auth_chunks;
-ERL_NIF_TERM esock_atom_pktinfo;
-ERL_NIF_TERM esock_atom_pktoptions;
-ERL_NIF_TERM esock_atom_port;
-ERL_NIF_TERM esock_atom_portrange;
-ERL_NIF_TERM esock_atom_primary_addr;
-ERL_NIF_TERM esock_atom_priority;
-ERL_NIF_TERM esock_atom_protocol;
-ERL_NIF_TERM esock_atom_raw;
-ERL_NIF_TERM esock_atom_rcvbuf;
-ERL_NIF_TERM esock_atom_rcvbufforce;
-ERL_NIF_TERM esock_atom_rcvlowat;
-ERL_NIF_TERM esock_atom_rcvtimeo;
-ERL_NIF_TERM esock_atom_rdm;
-ERL_NIF_TERM esock_atom_recv;
-ERL_NIF_TERM esock_atom_recvdstaddr;
-ERL_NIF_TERM esock_atom_recverr;
-ERL_NIF_TERM esock_atom_recvfrom;
-ERL_NIF_TERM esock_atom_recvif;
-ERL_NIF_TERM esock_atom_recvmsg;
-ERL_NIF_TERM esock_atom_recvopts;
-ERL_NIF_TERM esock_atom_recvorigdstaddr;
-ERL_NIF_TERM esock_atom_recvpktinfo;
-ERL_NIF_TERM esock_atom_recvtclass;
-ERL_NIF_TERM esock_atom_recvtos;
-ERL_NIF_TERM esock_atom_recvttl;
-ERL_NIF_TERM esock_atom_reliability;
-ERL_NIF_TERM esock_atom_reset_streams;
-ERL_NIF_TERM esock_atom_retopts;
-ERL_NIF_TERM esock_atom_reuseaddr;
-ERL_NIF_TERM esock_atom_reuseport;
-ERL_NIF_TERM esock_atom_rights;
-ERL_NIF_TERM esock_atom_router_alert;
-ERL_NIF_TERM esock_atom_rthdr;
-ERL_NIF_TERM esock_atom_rtoinfo;
-ERL_NIF_TERM esock_atom_rxq_ovfl;
-ERL_NIF_TERM esock_atom_scope_id;
-ERL_NIF_TERM esock_atom_sctp;
-ERL_NIF_TERM esock_atom_sec;
-ERL_NIF_TERM esock_atom_select_failed;
-ERL_NIF_TERM esock_atom_select_sent;
-ERL_NIF_TERM esock_atom_send;
-ERL_NIF_TERM esock_atom_sendmsg;
-ERL_NIF_TERM esock_atom_sendsrcaddr;
-ERL_NIF_TERM esock_atom_sendto;
-ERL_NIF_TERM esock_atom_seqpacket;
-ERL_NIF_TERM esock_atom_setfib;
-ERL_NIF_TERM esock_atom_set_peer_primary_addr;
-ERL_NIF_TERM esock_atom_socket;
-ERL_NIF_TERM esock_atom_socket_tag;
-ERL_NIF_TERM esock_atom_sndbuf;
-ERL_NIF_TERM esock_atom_sndbufforce;
-ERL_NIF_TERM esock_atom_sndlowat;
-ERL_NIF_TERM esock_atom_sndtimeo;
-ERL_NIF_TERM esock_atom_spec_dst;
-ERL_NIF_TERM esock_atom_status;
-ERL_NIF_TERM esock_atom_stream;
-ERL_NIF_TERM esock_atom_syncnt;
-ERL_NIF_TERM esock_atom_tclass;
-ERL_NIF_TERM esock_atom_tcp;
-ERL_NIF_TERM esock_atom_throughput;
-ERL_NIF_TERM esock_atom_timestamp;
-ERL_NIF_TERM esock_atom_tos;
-ERL_NIF_TERM esock_atom_transparent;
-ERL_NIF_TERM esock_atom_true;
-ERL_NIF_TERM esock_atom_trunc;
-ERL_NIF_TERM esock_atom_ttl;
-ERL_NIF_TERM esock_atom_type;
-ERL_NIF_TERM esock_atom_udp;
-ERL_NIF_TERM esock_atom_unblock_source;
-ERL_NIF_TERM esock_atom_undefined;
-ERL_NIF_TERM esock_atom_unicast_hops;
-ERL_NIF_TERM esock_atom_unknown;
-ERL_NIF_TERM esock_atom_usec;
-ERL_NIF_TERM esock_atom_user_timeout;
-ERL_NIF_TERM esock_atom_use_ext_recvinfo;
-ERL_NIF_TERM esock_atom_use_min_mtu;
-ERL_NIF_TERM esock_atom_v6only;
 
-/* *** "Global" error (=reason) atoms *** */
-ERL_NIF_TERM esock_atom_eagain;
-ERL_NIF_TERM esock_atom_eafnosupport;
-ERL_NIF_TERM esock_atom_einval;
+/* *** Global atoms *** */
+#define GLOBAL_ATOMS                                   \
+    GLOBAL_ATOM_DECL(abort);                           \
+    GLOBAL_ATOM_DECL(accept);                          \
+    GLOBAL_ATOM_DECL(acceptconn);                      \
+    GLOBAL_ATOM_DECL(acceptfilter);                    \
+    GLOBAL_ATOM_DECL(adaption_layer);                  \
+    GLOBAL_ATOM_DECL(addr);                            \
+    GLOBAL_ATOM_DECL(addrform);                        \
+    GLOBAL_ATOM_DECL(add_membership);                  \
+    GLOBAL_ATOM_DECL(add_source_membership);           \
+    GLOBAL_ATOM_DECL(any);                             \
+    GLOBAL_ATOM_DECL(associnfo);                       \
+    GLOBAL_ATOM_DECL(authhdr);                         \
+    GLOBAL_ATOM_DECL(auth_active_key);                 \
+    GLOBAL_ATOM_DECL(auth_asconf);                     \
+    GLOBAL_ATOM_DECL(auth_chunk);                      \
+    GLOBAL_ATOM_DECL(auth_delete_key);                 \
+    GLOBAL_ATOM_DECL(auth_key);                        \
+    GLOBAL_ATOM_DECL(auth_level);                      \
+    GLOBAL_ATOM_DECL(autoclose);                       \
+    GLOBAL_ATOM_DECL(bindtodevice);                    \
+    GLOBAL_ATOM_DECL(block_source);                    \
+    GLOBAL_ATOM_DECL(broadcast);                       \
+    GLOBAL_ATOM_DECL(busy_poll);                       \
+    GLOBAL_ATOM_DECL(checksum);                        \
+    GLOBAL_ATOM_DECL(close);                           \
+    GLOBAL_ATOM_DECL(connect);                         \
+    GLOBAL_ATOM_DECL(congestion);                      \
+    GLOBAL_ATOM_DECL(context);                         \
+    GLOBAL_ATOM_DECL(cork);                            \
+    GLOBAL_ATOM_DECL(credentials);                     \
+    GLOBAL_ATOM_DECL(ctrl);                            \
+    GLOBAL_ATOM_DECL(ctrunc);                          \
+    GLOBAL_ATOM_DECL(data);                            \
+    GLOBAL_ATOM_DECL(debug);                           \
+    GLOBAL_ATOM_DECL(default_send_params);             \
+    GLOBAL_ATOM_DECL(delayed_ack_time);                \
+    GLOBAL_ATOM_DECL(dgram);                           \
+    GLOBAL_ATOM_DECL(disable_fragments);               \
+    GLOBAL_ATOM_DECL(domain);                          \
+    GLOBAL_ATOM_DECL(dontfrag);                        \
+    GLOBAL_ATOM_DECL(dontroute);                       \
+    GLOBAL_ATOM_DECL(drop_membership);                 \
+    GLOBAL_ATOM_DECL(drop_source_membership);          \
+    GLOBAL_ATOM_DECL(dstopts);                         \
+    GLOBAL_ATOM_DECL(eor);                             \
+    GLOBAL_ATOM_DECL(error);                           \
+    GLOBAL_ATOM_DECL(errqueue);                        \
+    GLOBAL_ATOM_DECL(esp_network_level);               \
+    GLOBAL_ATOM_DECL(esp_trans_level);                 \
+    GLOBAL_ATOM_DECL(events);                          \
+    GLOBAL_ATOM_DECL(explicit_eor);                    \
+    GLOBAL_ATOM_DECL(faith);                           \
+    GLOBAL_ATOM_DECL(false);                           \
+    GLOBAL_ATOM_DECL(family);                          \
+    GLOBAL_ATOM_DECL(flags);                           \
+    GLOBAL_ATOM_DECL(flowinfo);                        \
+    GLOBAL_ATOM_DECL(fragment_interleave);             \
+    GLOBAL_ATOM_DECL(freebind);                        \
+    GLOBAL_ATOM_DECL(get_peer_addr_info);              \
+    GLOBAL_ATOM_DECL(hdrincl);                         \
+    GLOBAL_ATOM_DECL(hmac_ident);                      \
+    GLOBAL_ATOM_DECL(hoplimit);                        \
+    GLOBAL_ATOM_DECL(hopopts);                         \
+    GLOBAL_ATOM_DECL(ifindex);                         \
+    GLOBAL_ATOM_DECL(inet);                            \
+    GLOBAL_ATOM_DECL(inet6);                           \
+    GLOBAL_ATOM_DECL(info);                            \
+    GLOBAL_ATOM_DECL(initmsg);                         \
+    GLOBAL_ATOM_DECL(iov);                             \
+    GLOBAL_ATOM_DECL(ip);                              \
+    GLOBAL_ATOM_DECL(ipcomp_level);                    \
+    GLOBAL_ATOM_DECL(ipv6);                            \
+    GLOBAL_ATOM_DECL(i_want_mapped_v4_addr);           \
+    GLOBAL_ATOM_DECL(join_group);                      \
+    GLOBAL_ATOM_DECL(keepalive);                       \
+    GLOBAL_ATOM_DECL(keepcnt);                         \
+    GLOBAL_ATOM_DECL(keepidle);                        \
+    GLOBAL_ATOM_DECL(keepintvl);                       \
+    GLOBAL_ATOM_DECL(leave_group);                     \
+    GLOBAL_ATOM_DECL(level);                           \
+    GLOBAL_ATOM_DECL(linger);                          \
+    GLOBAL_ATOM_DECL(local);                           \
+    GLOBAL_ATOM_DECL(local_auth_chunks);               \
+    GLOBAL_ATOM_DECL(loopback);                        \
+    GLOBAL_ATOM_DECL(lowdelay);                        \
+    GLOBAL_ATOM_DECL(mark);                            \
+    GLOBAL_ATOM_DECL(maxburst);                        \
+    GLOBAL_ATOM_DECL(maxseg);                          \
+    GLOBAL_ATOM_DECL(md5sig);                          \
+    GLOBAL_ATOM_DECL(mincost);                         \
+    GLOBAL_ATOM_DECL(minttl);                          \
+    GLOBAL_ATOM_DECL(msfilter);                        \
+    GLOBAL_ATOM_DECL(mtu);                             \
+    GLOBAL_ATOM_DECL(mtu_discover);                    \
+    GLOBAL_ATOM_DECL(multicast_all);                   \
+    GLOBAL_ATOM_DECL(multicast_hops);                  \
+    GLOBAL_ATOM_DECL(multicast_if);                    \
+    GLOBAL_ATOM_DECL(multicast_loop);                  \
+    GLOBAL_ATOM_DECL(multicast_ttl);                   \
+    GLOBAL_ATOM_DECL(nodelay);                         \
+    GLOBAL_ATOM_DECL(nodefrag);                        \
+    GLOBAL_ATOM_DECL(noopt);                           \
+    GLOBAL_ATOM_DECL(nopush);                          \
+    GLOBAL_ATOM_DECL(not_found);                       \
+    GLOBAL_ATOM_DECL(not_owner);                       \
+    GLOBAL_ATOM_DECL(ok);                              \
+    GLOBAL_ATOM_DECL(oob);                             \
+    GLOBAL_ATOM_DECL(oobinline);                       \
+    GLOBAL_ATOM_DECL(options);                         \
+    GLOBAL_ATOM_DECL(origdstaddr);                     \
+    GLOBAL_ATOM_DECL(partial_delivery_point);          \
+    GLOBAL_ATOM_DECL(passcred);                        \
+    GLOBAL_ATOM_DECL(path);                            \
+    GLOBAL_ATOM_DECL(peekcred);                        \
+    GLOBAL_ATOM_DECL(peek_off);                        \
+    GLOBAL_ATOM_DECL(peer_addr_params);                \
+    GLOBAL_ATOM_DECL(peer_auth_chunks);                \
+    GLOBAL_ATOM_DECL(pktinfo);                         \
+    GLOBAL_ATOM_DECL(pktoptions);                      \
+    GLOBAL_ATOM_DECL(port);                            \
+    GLOBAL_ATOM_DECL(portrange);                       \
+    GLOBAL_ATOM_DECL(primary_addr);                    \
+    GLOBAL_ATOM_DECL(priority);                        \
+    GLOBAL_ATOM_DECL(protocol);                        \
+    GLOBAL_ATOM_DECL(raw);                             \
+    GLOBAL_ATOM_DECL(rcvbuf);                          \
+    GLOBAL_ATOM_DECL(rcvbufforce);                     \
+    GLOBAL_ATOM_DECL(rcvlowat);                        \
+    GLOBAL_ATOM_DECL(rcvtimeo);                        \
+    GLOBAL_ATOM_DECL(rdm);                             \
+    GLOBAL_ATOM_DECL(recv);                            \
+    GLOBAL_ATOM_DECL(recvdstaddr);                     \
+    GLOBAL_ATOM_DECL(recverr);                         \
+    GLOBAL_ATOM_DECL(recvfrom);                        \
+    GLOBAL_ATOM_DECL(recvif);                          \
+    GLOBAL_ATOM_DECL(recvmsg);                         \
+    GLOBAL_ATOM_DECL(recvopts);                        \
+    GLOBAL_ATOM_DECL(recvorigdstaddr);                 \
+    GLOBAL_ATOM_DECL(recvpktinfo);                     \
+    GLOBAL_ATOM_DECL(recvtclass);                      \
+    GLOBAL_ATOM_DECL(recvtos);                         \
+    GLOBAL_ATOM_DECL(recvttl);                         \
+    GLOBAL_ATOM_DECL(reliability);                     \
+    GLOBAL_ATOM_DECL(reset_streams);                   \
+    GLOBAL_ATOM_DECL(retopts);                         \
+    GLOBAL_ATOM_DECL(reuseaddr);                       \
+    GLOBAL_ATOM_DECL(reuseport);                       \
+    GLOBAL_ATOM_DECL(rights);                          \
+    GLOBAL_ATOM_DECL(router_alert);                    \
+    GLOBAL_ATOM_DECL(rthdr);                           \
+    GLOBAL_ATOM_DECL(rtoinfo);                         \
+    GLOBAL_ATOM_DECL(rxq_ovfl);                        \
+    GLOBAL_ATOM_DECL(scope_id);                        \
+    GLOBAL_ATOM_DECL(sctp);                            \
+    GLOBAL_ATOM_DECL(sec);                             \
+    GLOBAL_ATOM_DECL(select_failed);                   \
+    GLOBAL_ATOM_DECL(select_sent);                     \
+    GLOBAL_ATOM_DECL(send);                            \
+    GLOBAL_ATOM_DECL(sendmsg);                         \
+    GLOBAL_ATOM_DECL(sendsrcaddr);                     \
+    GLOBAL_ATOM_DECL(sendto);                          \
+    GLOBAL_ATOM_DECL(seqpacket);                       \
+    GLOBAL_ATOM_DECL(setfib);                          \
+    GLOBAL_ATOM_DECL(set_peer_primary_addr);           \
+    GLOBAL_ATOM_DECL(socket);                          \
+    GLOBAL_ATOM_DECL(sndbuf);                          \
+    GLOBAL_ATOM_DECL(sndbufforce);                     \
+    GLOBAL_ATOM_DECL(sndlowat);                        \
+    GLOBAL_ATOM_DECL(sndtimeo);                        \
+    GLOBAL_ATOM_DECL(spec_dst);                        \
+    GLOBAL_ATOM_DECL(status);                          \
+    GLOBAL_ATOM_DECL(stream);                          \
+    GLOBAL_ATOM_DECL(syncnt);                          \
+    GLOBAL_ATOM_DECL(tclass);                          \
+    GLOBAL_ATOM_DECL(tcp);                             \
+    GLOBAL_ATOM_DECL(throughput);                      \
+    GLOBAL_ATOM_DECL(timestamp);                       \
+    GLOBAL_ATOM_DECL(tos);                             \
+    GLOBAL_ATOM_DECL(transparent);                     \
+    GLOBAL_ATOM_DECL(true);                            \
+    GLOBAL_ATOM_DECL(trunc);                           \
+    GLOBAL_ATOM_DECL(ttl);                             \
+    GLOBAL_ATOM_DECL(type);                            \
+    GLOBAL_ATOM_DECL(udp);                             \
+    GLOBAL_ATOM_DECL(unblock_source);                  \
+    GLOBAL_ATOM_DECL(undefined);                       \
+    GLOBAL_ATOM_DECL(unicast_hops);                    \
+    GLOBAL_ATOM_DECL(unknown);                         \
+    GLOBAL_ATOM_DECL(usec);                            \
+    GLOBAL_ATOM_DECL(user_timeout);                    \
+    GLOBAL_ATOM_DECL(use_ext_recvinfo);                \
+    GLOBAL_ATOM_DECL(use_min_mtu);                     \
+    GLOBAL_ATOM_DECL(v6only);
 
-/* *** Atoms *** */
-static ERL_NIF_TERM atom_adaptation_layer;
-static ERL_NIF_TERM atom_address;
-static ERL_NIF_TERM atom_association;
-static ERL_NIF_TERM atom_assoc_id;
-static ERL_NIF_TERM atom_authentication;
-static ERL_NIF_TERM atom_bool;
-static ERL_NIF_TERM atom_close;
-static ERL_NIF_TERM atom_closed;
-static ERL_NIF_TERM atom_closing;
-static ERL_NIF_TERM atom_cookie_life;
-static ERL_NIF_TERM atom_data_in;
-static ERL_NIF_TERM atom_do;
-static ERL_NIF_TERM atom_dont;
-static ERL_NIF_TERM atom_exclude;
-static ERL_NIF_TERM atom_false;
-static ERL_NIF_TERM atom_global_counters;
-static ERL_NIF_TERM atom_in4_sockaddr;
-static ERL_NIF_TERM atom_in6_sockaddr;
-static ERL_NIF_TERM atom_include;
-static ERL_NIF_TERM atom_initial;
-static ERL_NIF_TERM atom_int;
-static ERL_NIF_TERM atom_interface;
-static ERL_NIF_TERM atom_iow;
-static ERL_NIF_TERM atom_local_rwnd;
-static ERL_NIF_TERM atom_max;
-static ERL_NIF_TERM atom_max_attempts;
-static ERL_NIF_TERM atom_max_init_timeo;
-static ERL_NIF_TERM atom_max_instreams;
-static ERL_NIF_TERM atom_max_rxt;
-static ERL_NIF_TERM atom_min;
-static ERL_NIF_TERM atom_mode;
-static ERL_NIF_TERM atom_multiaddr;
-// static ERL_NIF_TERM atom_nif_abort;
-static ERL_NIF_TERM atom_null;
-static ERL_NIF_TERM atom_num_dinet;
-static ERL_NIF_TERM atom_num_dinet6;
-static ERL_NIF_TERM atom_num_dlocal;
-static ERL_NIF_TERM atom_num_outstreams;
-static ERL_NIF_TERM atom_num_peer_dests;
-static ERL_NIF_TERM atom_num_pip;
-static ERL_NIF_TERM atom_num_psctp;
-static ERL_NIF_TERM atom_num_ptcp;
-static ERL_NIF_TERM atom_num_pudp;
-static ERL_NIF_TERM atom_num_sockets;
-static ERL_NIF_TERM atom_num_tdgrams;
-static ERL_NIF_TERM atom_num_tseqpkgs;
-static ERL_NIF_TERM atom_num_tstreams;
-static ERL_NIF_TERM atom_partial_delivery;
-static ERL_NIF_TERM atom_peer_error;
-static ERL_NIF_TERM atom_peer_rwnd;
-static ERL_NIF_TERM atom_probe;
-static ERL_NIF_TERM atom_select;
-static ERL_NIF_TERM atom_sender_dry;
-static ERL_NIF_TERM atom_send_failure;
-static ERL_NIF_TERM atom_shutdown;
-static ERL_NIF_TERM atom_slist;
-static ERL_NIF_TERM atom_sourceaddr;
-static ERL_NIF_TERM atom_timeout;
-static ERL_NIF_TERM atom_true;
-static ERL_NIF_TERM atom_want;
 
-static ERL_NIF_TERM atom_eisconn;
-static ERL_NIF_TERM atom_enotclosing;
-static ERL_NIF_TERM atom_enotconn;
-static ERL_NIF_TERM atom_exalloc;
-static ERL_NIF_TERM atom_exbadstate;
-static ERL_NIF_TERM atom_exbusy;
-static ERL_NIF_TERM atom_exmon;
-static ERL_NIF_TERM atom_exself;
-static ERL_NIF_TERM atom_exsend;
+/* *** Global error reason atoms *** */
+#define GLOBAL_ERROR_REASON_ATOMS   \
+    GLOBAL_ATOM_DECL(eagain);       \
+    GLOBAL_ATOM_DECL(eafnosupport); \
+    GLOBAL_ATOM_DECL(einval);
+
+
+#define GLOBAL_ATOM_DECL(A) ERL_NIF_TERM esock_atom_##A
+GLOBAL_ATOMS
+GLOBAL_ERROR_REASON_ATOMS
+#undef GLOBAL_ATOM_DECL
+ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
+
+/* *** Local atoms *** */
+#define LOCAL_ATOMS                    \
+    LOCAL_ATOM_DECL(adaptation_layer); \
+    LOCAL_ATOM_DECL(address);          \
+    LOCAL_ATOM_DECL(association);      \
+    LOCAL_ATOM_DECL(assoc_id);         \
+    LOCAL_ATOM_DECL(authentication);   \
+    LOCAL_ATOM_DECL(bool);             \
+    LOCAL_ATOM_DECL(close);            \
+    LOCAL_ATOM_DECL(closed);           \
+    LOCAL_ATOM_DECL(closing);          \
+    LOCAL_ATOM_DECL(cookie_life);      \
+    LOCAL_ATOM_DECL(data_in);          \
+    LOCAL_ATOM_DECL(do);               \
+    LOCAL_ATOM_DECL(dont);             \
+    LOCAL_ATOM_DECL(exclude);          \
+    LOCAL_ATOM_DECL(false);            \
+    LOCAL_ATOM_DECL(global_counters);  \
+    LOCAL_ATOM_DECL(in4_sockaddr);     \
+    LOCAL_ATOM_DECL(in6_sockaddr);     \
+    LOCAL_ATOM_DECL(include);          \
+    LOCAL_ATOM_DECL(initial);          \
+    LOCAL_ATOM_DECL(int);              \
+    LOCAL_ATOM_DECL(interface);        \
+    LOCAL_ATOM_DECL(iow);              \
+    LOCAL_ATOM_DECL(local_rwnd);       \
+    LOCAL_ATOM_DECL(max);              \
+    LOCAL_ATOM_DECL(max_attempts);     \
+    LOCAL_ATOM_DECL(max_init_timeo);   \
+    LOCAL_ATOM_DECL(max_instreams);    \
+    LOCAL_ATOM_DECL(max_rxt);          \
+    LOCAL_ATOM_DECL(min);              \
+    LOCAL_ATOM_DECL(mode);             \
+    LOCAL_ATOM_DECL(multiaddr);        \
+    LOCAL_ATOM_DECL(null);             \
+    LOCAL_ATOM_DECL(num_dinet);        \
+    LOCAL_ATOM_DECL(num_dinet6);       \
+    LOCAL_ATOM_DECL(num_dlocal);       \
+    LOCAL_ATOM_DECL(num_outstreams);   \
+    LOCAL_ATOM_DECL(num_peer_dests);   \
+    LOCAL_ATOM_DECL(num_pip);          \
+    LOCAL_ATOM_DECL(num_psctp);        \
+    LOCAL_ATOM_DECL(num_ptcp);         \
+    LOCAL_ATOM_DECL(num_pudp);         \
+    LOCAL_ATOM_DECL(num_sockets);      \
+    LOCAL_ATOM_DECL(num_tdgrams);      \
+    LOCAL_ATOM_DECL(num_tseqpkgs);     \
+    LOCAL_ATOM_DECL(num_tstreams);     \
+    LOCAL_ATOM_DECL(partial_delivery); \
+    LOCAL_ATOM_DECL(peer_error);       \
+    LOCAL_ATOM_DECL(peer_rwnd);        \
+    LOCAL_ATOM_DECL(probe);            \
+    LOCAL_ATOM_DECL(select);           \
+    LOCAL_ATOM_DECL(sender_dry);       \
+    LOCAL_ATOM_DECL(send_failure);     \
+    LOCAL_ATOM_DECL(shutdown);         \
+    LOCAL_ATOM_DECL(slist);            \
+    LOCAL_ATOM_DECL(sourceaddr);       \
+    LOCAL_ATOM_DECL(timeout);          \
+    LOCAL_ATOM_DECL(true);             \
+    LOCAL_ATOM_DECL(want);
+
+/* Local error reason atoms */
+#define LOCAL_ERROR_REASON_ATOMS                \
+    LOCAL_ATOM_DECL(eisconn);                   \
+    LOCAL_ATOM_DECL(enotclosing);               \
+    LOCAL_ATOM_DECL(enotconn);                  \
+    LOCAL_ATOM_DECL(exalloc);                   \
+    LOCAL_ATOM_DECL(exbadstate);                \
+    LOCAL_ATOM_DECL(exbusy);                    \
+    LOCAL_ATOM_DECL(exmon);                     \
+    LOCAL_ATOM_DECL(exself);                    \
+    LOCAL_ATOM_DECL(exsend);
+
+#define LOCAL_ATOM_DECL(LA) static ERL_NIF_TERM atom_##LA
+LOCAL_ATOMS
+LOCAL_ERROR_REASON_ATOMS
+#undef LOCAL_ATOM_DECL
 
 
 /* *** Sockets *** */
@@ -16982,7 +16930,7 @@ char* esock_send_abort_msg(ErlNifEnv*   env,
  */
 
 static
-char* esock_send_socket_msg(ErlNifEnv*   env,
+    char* esock_send_socket_msg(ErlNifEnv*   env,
                             ERL_NIF_TERM sockRef,
                             ERL_NIF_TERM tag,
                             ERL_NIF_TERM info,
@@ -17715,7 +17663,8 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         
         /* And also deal with the waiting writers (in the same way) */
         SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting writer(s)\r\n") );
-        inform_waiting_procs(env, descP, &descP->writersQ, TRUE, atom_closed);
+        inform_waiting_procs(env, "writer",
+                             descP, &descP->writersQ, TRUE, atom_closed);
     }
 
 
@@ -17742,6 +17691,11 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
             SSDBG( descP, ("SOCKET", "socket_stop -> "
                            "send abort message to current reader %T\r\n",
                            descP->currentReader.pid) );
+            /*
+            esock_dbg_printf("SOCKET", "socket_stop -> "
+                             "send abort message to current reader %T\r\n",
+                             descP->currentReader.pid);
+            */
             if (esock_send_abort_msg(env,
                                      sockRef,
                                      descP->currentReader.ref,
@@ -17759,7 +17713,8 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         
         /* And also deal with the waiting readers (in the same way) */
         SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting reader(s)\r\n") );
-        inform_waiting_procs(env, descP, &descP->readersQ, TRUE, atom_closed);
+        inform_waiting_procs(env, "reader",
+                             descP, &descP->readersQ, TRUE, atom_closed);
     }
 
 
@@ -17803,7 +17758,8 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         
         /* And also deal with the waiting acceptors (in the same way) */
         SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting acceptor(s)\r\n") );
-        inform_waiting_procs(env, descP, &descP->acceptorsQ, TRUE, atom_closed);
+        inform_waiting_procs(env, "acceptor",
+                             descP, &descP->acceptorsQ, TRUE, atom_closed);
     }
     
     
@@ -17859,15 +17815,24 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
  * and if the 'free' argument is TRUE, the queue will be emptied.
  */
 #if !defined(__WIN32__)
-static
-void inform_waiting_procs(ErlNifEnv*          env,
-                          SocketDescriptor*   descP,
-                          SocketRequestQueue* q,
-                          BOOLEAN_T           free,
-                          ERL_NIF_TERM        reason)
+static void inform_waiting_procs(ErlNifEnv*          env,
+                                 char*               role,
+                                 SocketDescriptor*   descP,
+                                 SocketRequestQueue* q,
+                                 BOOLEAN_T           free,
+                                 ERL_NIF_TERM        reason)
 {
     SocketRequestQueueElement* currentP = q->first;
     SocketRequestQueueElement* nextP;
+    ERL_NIF_TERM               sockRef = enif_make_resource(env, descP);
+
+    /*
+    esock_dbg_printf("SOCKET", "inform_waiting_procs -> entry with: "
+                     "\r\n   role:   %s"
+                     "\r\n   free:   %s"
+                     "\r\n   reason: %T"
+                     "\r\n", role, B2S(free), reason);
+    */
 
     while (currentP != NULL) {
 
@@ -17884,11 +17849,25 @@ void inform_waiting_procs(ErlNifEnv*          env,
                ("SOCKET", "inform_waiting_procs -> abort request %T (from %T)\r\n",
                 currentP->data.ref, currentP->data.pid) );
 
-        ESOCK_ASSERT( (NULL == esock_send_abort_msg(env,
-                                                    esock_atom_undefined,
-                                                    currentP->data.ref,
-                                                    reason,
-                                                    &currentP->data.pid)) );
+        /*
+        esock_dbg_printf("SOCKET", "inform_waiting_procs -> "
+                         "try sending abort to %s %T "
+                         "\r\n", role, currentP->data.pid);
+        */
+
+        if (esock_send_abort_msg(env,
+                                 sockRef,
+                                 currentP->data.ref,
+                                 reason,
+                                 &currentP->data.pid) != NULL) {
+
+            esock_warning_msg("Failed sending abort (%T) message to "
+                              "current %s %T\r\n",
+                              currentP->data.ref,
+                              role,
+                              currentP->data.pid);
+
+        }
 
         DEMONP("inform_waiting_procs -> current 'request'",
                env, descP, &currentP->data.mon);
@@ -18358,284 +18337,18 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.numProtoSCTP   = 0;
 #endif
 
-    /* +++ Misc atoms +++ */
-    atom_adaptation_layer    = MKA(env, str_adaptation_layer);
-    atom_address             = MKA(env, str_address);
-    atom_association         = MKA(env, str_association);
-    atom_assoc_id            = MKA(env, str_assoc_id);
-    atom_authentication      = MKA(env, str_authentication);
-    atom_bool                = MKA(env, str_bool);
-    atom_close               = MKA(env, str_close);
-    atom_closed              = MKA(env, str_closed);
-    atom_closing             = MKA(env, str_closing);
-    atom_cookie_life         = MKA(env, str_cookie_life);
-    atom_data_in             = MKA(env, str_data_in);
-    atom_do                  = MKA(env, str_do);
-    atom_dont                = MKA(env, str_dont);
-    atom_exclude             = MKA(env, str_exclude);
-    atom_false               = MKA(env, str_false);
-    atom_global_counters     = MKA(env, str_global_counters);
-    atom_in4_sockaddr        = MKA(env, str_in4_sockaddr);
-    atom_in6_sockaddr        = MKA(env, str_in6_sockaddr);
-    atom_include             = MKA(env, str_include);
-    atom_initial             = MKA(env, str_initial);
-    atom_int                 = MKA(env, str_int);
-    atom_interface           = MKA(env, str_interface);
-    atom_iow                 = MKA(env, str_iow);
-    atom_local_rwnd          = MKA(env, str_local_rwnd);
-    atom_max                 = MKA(env, str_max);
-    atom_max_attempts        = MKA(env, str_max_attempts);
-    atom_max_init_timeo      = MKA(env, str_max_init_timeo);
-    atom_max_instreams       = MKA(env, str_max_instreams);
-    atom_max_rxt             = MKA(env, str_max_rxt);
-    atom_min                 = MKA(env, str_min);
-    atom_mode                = MKA(env, str_mode);
-    atom_multiaddr           = MKA(env, str_multiaddr);
-    // atom_nif_abort           = MKA(env, str_nif_abort);
-    atom_null                = MKA(env, str_null);
-    atom_num_dinet           = MKA(env, str_num_dinet);
-    atom_num_dinet6          = MKA(env, str_num_dinet6);
-    atom_num_dlocal          = MKA(env, str_num_dlocal);
-    atom_num_outstreams      = MKA(env, str_num_outstreams);
-    atom_num_peer_dests      = MKA(env, str_num_peer_dests);
-    atom_num_pip             = MKA(env, str_num_pip);
-    atom_num_psctp           = MKA(env, str_num_psctp);
-    atom_num_ptcp            = MKA(env, str_num_ptcp);
-    atom_num_pudp            = MKA(env, str_num_pudp);
-    atom_num_sockets         = MKA(env, str_num_sockets);
-    atom_num_tdgrams         = MKA(env, str_num_tdgrams);
-    atom_num_tseqpkgs        = MKA(env, str_num_tseqpkgs);
-    atom_num_tstreams        = MKA(env, str_num_tstreams);
-    atom_partial_delivery    = MKA(env, str_partial_delivery);
-    atom_peer_rwnd           = MKA(env, str_peer_rwnd);
-    atom_peer_error          = MKA(env, str_peer_error);
-    atom_probe               = MKA(env, str_probe);
-    atom_select              = MKA(env, str_select);
-    atom_sender_dry          = MKA(env, str_sender_dry);
-    atom_send_failure        = MKA(env, str_send_failure);
-    atom_shutdown            = MKA(env, str_shutdown);
-    atom_slist               = MKA(env, str_slist);
-    atom_sourceaddr          = MKA(env, str_sourceaddr);
-    atom_timeout             = MKA(env, str_timeout);
-    atom_true                = MKA(env, str_true);
-    atom_want                = MKA(env, str_want);
+    /* +++ Local atoms and error reason atoms +++ */
+#define LOCAL_ATOM_DECL(A) atom_##A = MKA(env, #A)
+LOCAL_ATOMS
+LOCAL_ERROR_REASON_ATOMS
+#undef LOCAL_ATOM_DECL
 
-    /* Global atom(s) */
-    esock_atom_abort                  = MKA(env, "abort");
-    esock_atom_accept                 = MKA(env, "accept");
-    esock_atom_acceptconn             = MKA(env, "acceptconn");
-    esock_atom_acceptfilter           = MKA(env, "acceptfilter");
-    esock_atom_adaption_layer         = MKA(env, "adaption_layer");
-    esock_atom_addr                   = MKA(env, "addr");
-    esock_atom_addrform               = MKA(env, "addrform");
-    esock_atom_add_membership         = MKA(env, "add_membership");
-    esock_atom_add_source_membership  = MKA(env, "add_source_membership");
-    esock_atom_any                    = MKA(env, "any");
-    esock_atom_associnfo              = MKA(env, "associnfo");
-    esock_atom_authhdr                = MKA(env, "authhdr");
-    esock_atom_auth_active_key        = MKA(env, "auth_active_key");
-    esock_atom_auth_asconf            = MKA(env, "auth_asconf");
-    esock_atom_auth_chunk             = MKA(env, "auth_chunk");
-    esock_atom_auth_delete_key        = MKA(env, "auth_delete_key");
-    esock_atom_auth_key               = MKA(env, "auth_key");
-    esock_atom_auth_level             = MKA(env, "auth_level");
-    esock_atom_autoclose              = MKA(env, "autoclose");
-    esock_atom_bindtodevice           = MKA(env, "bindtodevice");
-    esock_atom_block_source           = MKA(env, "block_source");
-    esock_atom_broadcast              = MKA(env, "broadcast");
-    esock_atom_busy_poll              = MKA(env, "busy_poll");
-    esock_atom_checksum               = MKA(env, "checksum");
-    esock_atom_close                  = MKA(env, "close");
-    esock_atom_connect                = MKA(env, "connect");
-    esock_atom_congestion             = MKA(env, "congestion");
-    esock_atom_context                = MKA(env, "context");
-    esock_atom_cork                   = MKA(env, "cork");
-    esock_atom_credentials            = MKA(env, "credentials");
-    esock_atom_ctrl                   = MKA(env, "ctrl");
-    esock_atom_ctrunc                 = MKA(env, "ctrunc");
-    esock_atom_data                   = MKA(env, "data");
-    esock_atom_debug                  = MKA(env, "debug");
-    esock_atom_default_send_params    = MKA(env, "default_send_params");
-    esock_atom_delayed_ack_time       = MKA(env, "delayed_ack_time");
-    esock_atom_dgram                  = MKA(env, "dgram");
-    esock_atom_disable_fragments      = MKA(env, "disable_fragments");
-    esock_atom_domain                 = MKA(env, "domain");
-    esock_atom_dontfrag               = MKA(env, "dontfrag");
-    esock_atom_dontroute              = MKA(env, "dontroute");
-    esock_atom_drop_membership        = MKA(env, "drop_membership");
-    esock_atom_drop_source_membership = MKA(env, "drop_source_membership");
-    esock_atom_dstopts                = MKA(env, "dstpopts");
-    esock_atom_eor                    = MKA(env, "eor");
-    esock_atom_error                  = MKA(env, "error");
-    esock_atom_errqueue               = MKA(env, "errqueue");
-    esock_atom_esp_network_level      = MKA(env, "esp_network_level");
-    esock_atom_esp_trans_level        = MKA(env, "esp_trans_level");
-    esock_atom_events                 = MKA(env, "events");
-    esock_atom_explicit_eor           = MKA(env, "explicit_eor");
-    esock_atom_faith                  = MKA(env, "faith");
-    esock_atom_false                  = MKA(env, "false");
-    esock_atom_family                 = MKA(env, "family");
-    esock_atom_flags                  = MKA(env, "flags");
-    esock_atom_flowinfo               = MKA(env, "flowinfo");
-    esock_atom_fragment_interleave    = MKA(env, "fragment_interleave");
-    esock_atom_freebind               = MKA(env, "freebind");
-    esock_atom_get_peer_addr_info     = MKA(env, "get_peer_addr_info");
-    esock_atom_hdrincl                = MKA(env, "hdrincl");
-    esock_atom_hmac_ident             = MKA(env, "hmac_ident");
-    esock_atom_hoplimit               = MKA(env, "hoplimit");
-    esock_atom_hopopts                = MKA(env, "hopopts");
-    esock_atom_ifindex                = MKA(env, "ifindex");
-    esock_atom_inet                   = MKA(env, "inet");
-    esock_atom_inet6                  = MKA(env, "inet6");
-    esock_atom_info                   = MKA(env, "info");
-    esock_atom_initmsg                = MKA(env, "initmsg");
-    esock_atom_iov                    = MKA(env, "iov");
-    esock_atom_ip                     = MKA(env, "ip");
-    esock_atom_ipcomp_level           = MKA(env, "ipcomp_level");
-    esock_atom_ipv6                   = MKA(env, "ipv6");
-    esock_atom_i_want_mapped_v4_addr  = MKA(env, "i_want_mapped_v4_addr");
-    esock_atom_join_group             = MKA(env, "join_group");
-    esock_atom_keepalive              = MKA(env, "keepalive");
-    esock_atom_keepcnt                = MKA(env, "keepcnt");
-    esock_atom_keepidle               = MKA(env, "keepidle");
-    esock_atom_keepintvl              = MKA(env, "keepintvl");
-    esock_atom_leave_group            = MKA(env, "leave_group");
-    esock_atom_level                  = MKA(env, "level");
-    esock_atom_linger                 = MKA(env, "linger");
-    esock_atom_local                  = MKA(env, "local");
-    esock_atom_local_auth_chunks      = MKA(env, "local_auth_chunks");
-    esock_atom_loopback               = MKA(env, "loopback");
-    esock_atom_lowdelay               = MKA(env, "lowdelay");
-    esock_atom_mark                   = MKA(env, "mark");
-    esock_atom_maxburst               = MKA(env, "maxburst");
-    esock_atom_maxseg                 = MKA(env, "maxseg");
-    esock_atom_md5sig                 = MKA(env, "md5sig");
-    esock_atom_mincost                = MKA(env, "mincost");
-    esock_atom_minttl                 = MKA(env, "minttl");
-    esock_atom_msfilter               = MKA(env, "msfilter");
-    esock_atom_mtu                    = MKA(env, "mtu");
-    esock_atom_mtu_discover           = MKA(env, "mtu_discover");
-    esock_atom_multicast_all          = MKA(env, "multicast_all");
-    esock_atom_multicast_hops         = MKA(env, "multicast_hops");
-    esock_atom_multicast_if           = MKA(env, "multicast_if");
-    esock_atom_multicast_loop         = MKA(env, "multicast_loop");
-    esock_atom_multicast_ttl          = MKA(env, "multicast_ttl");
-    esock_atom_nodefrag               = MKA(env, "nodefrag");
-    esock_atom_nodelay                = MKA(env, "nodelay");
-    esock_atom_noopt                  = MKA(env, "noopt");
-    esock_atom_nopush                 = MKA(env, "nopush");
-    esock_atom_not_found              = MKA(env, "not_found");
-    esock_atom_not_owner              = MKA(env, "not_owner");
-    esock_atom_ok                     = MKA(env, "ok");
-    esock_atom_oob                    = MKA(env, "oob");
-    esock_atom_oobinline              = MKA(env, "oobinline");
-    esock_atom_options                = MKA(env, "options");
-    esock_atom_origdstaddr            = MKA(env, "origdstaddr");
-    esock_atom_partial_delivery_point = MKA(env, "partial_delivery_point");
-    esock_atom_passcred               = MKA(env, "passcred");
-    esock_atom_path                   = MKA(env, "path");
-    esock_atom_peekcred               = MKA(env, "peekcred");
-    esock_atom_peek_off               = MKA(env, "peek_off");
-    esock_atom_peer_addr_params       = MKA(env, "peer_addr_params");
-    esock_atom_peer_auth_chunks       = MKA(env, "peer_auth_chunks");
-    esock_atom_pktinfo                = MKA(env, "pktinfo");
-    esock_atom_pktoptions             = MKA(env, "pktoptions");
-    esock_atom_port                   = MKA(env, "port");
-    esock_atom_portrange              = MKA(env, "portrange");
-    esock_atom_primary_addr           = MKA(env, "primary_addr");
-    esock_atom_priority               = MKA(env, "priority");
-    esock_atom_protocol               = MKA(env, "protocol");
-    esock_atom_raw                    = MKA(env, "raw");
-    esock_atom_rcvbuf                 = MKA(env, "rcvbuf");
-    esock_atom_rcvbufforce            = MKA(env, "rcvbufforce");
-    esock_atom_rcvlowat               = MKA(env, "rcvlowat");
-    esock_atom_rcvtimeo               = MKA(env, "rcvtimeo");
-    esock_atom_rdm                    = MKA(env, "rdm");
-    esock_atom_recv                   = MKA(env, "recv");
-    esock_atom_recvdstaddr            = MKA(env, "recvdstaddr");
-    esock_atom_recverr                = MKA(env, "recverr");
-    esock_atom_recvfrom               = MKA(env, "recvfrom");
-    esock_atom_recvif                 = MKA(env, "recvif");
-    esock_atom_recvmsg                = MKA(env, "recvmsg");
-    esock_atom_recvopts               = MKA(env, "recvopts");
-    esock_atom_recvorigdstaddr        = MKA(env, "recvorigdstaddr");
-    esock_atom_recvpktinfo            = MKA(env, "recvpktinfo");
-    esock_atom_recvtclass             = MKA(env, "recvtclass");
-    esock_atom_recvtos                = MKA(env, "recvtos");
-    esock_atom_recvttl                = MKA(env, "recvttl");
-    esock_atom_reliability            = MKA(env, "reliability");
-    esock_atom_reset_streams          = MKA(env, "reset_streams");
-    esock_atom_retopts                = MKA(env, "retopts");
-    esock_atom_reuseaddr              = MKA(env, "reuseaddr");
-    esock_atom_reuseport              = MKA(env, "reuseport");
-    esock_atom_rights                 = MKA(env, "rights");
-    esock_atom_router_alert           = MKA(env, "router_alert");
-    esock_atom_rthdr                  = MKA(env, "rthdr");
-    esock_atom_rtoinfo                = MKA(env, "rtoinfo");
-    esock_atom_rxq_ovfl               = MKA(env, "rxq_ovfl");
-    esock_atom_scope_id               = MKA(env, "scope_id");
-    esock_atom_sctp                   = MKA(env, "sctp");
-    esock_atom_sec                    = MKA(env, "sec");
-    esock_atom_select_failed          = MKA(env, "select_failed");
-    esock_atom_select_sent            = MKA(env, "select_sent");
-    esock_atom_send                   = MKA(env, "send");
-    esock_atom_sendmsg                = MKA(env, "sendmsg");
-    esock_atom_sendsrcaddr            = MKA(env, "sendsrcaddr");
-    esock_atom_sendto                 = MKA(env, "sendto");
-    esock_atom_seqpacket              = MKA(env, "seqpacket");
-    esock_atom_setfib                 = MKA(env, "setfib");
-    esock_atom_set_peer_primary_addr  = MKA(env, "set_peer_primary_addr");
-    esock_atom_sndbuf                 = MKA(env, "sndbuf");
-    esock_atom_sndbufforce            = MKA(env, "sndbufforce");
-    esock_atom_sndlowat               = MKA(env, "sndlowat");
-    esock_atom_sndtimeo               = MKA(env, "sndtimeo");
-    esock_atom_socket                 = MKA(env, "socket");
-    esock_atom_socket_tag             = MKA(env, "$socket");
-    esock_atom_spec_dst               = MKA(env, "spec_dst");
-    esock_atom_status                 = MKA(env, "status");
-    esock_atom_stream                 = MKA(env, "stream");
-    esock_atom_syncnt                 = MKA(env, "syncnt");
-    esock_atom_tclass                 = MKA(env, "tclass");
-    esock_atom_tcp                    = MKA(env, "tcp");
-    esock_atom_throughput             = MKA(env, "throughput");
-    esock_atom_timestamp              = MKA(env, "timestamp");
-    esock_atom_tos                    = MKA(env, "tos");
-    esock_atom_transparent            = MKA(env, "transparent");
-    esock_atom_true                   = MKA(env, "true");
-    esock_atom_trunc                  = MKA(env, "trunc");
-    esock_atom_ttl                    = MKA(env, "ttl");
-    esock_atom_type                   = MKA(env, "type");
-    esock_atom_udp                    = MKA(env, "udp");
-    esock_atom_unblock_source         = MKA(env, "unblock_source");
-    esock_atom_undefined              = MKA(env, "undefined");
-    esock_atom_unicast_hops           = MKA(env, "unicast_hops");
-    esock_atom_unknown                = MKA(env, "unknown");
-    esock_atom_usec                   = MKA(env, "usec");
-    esock_atom_user_timeout           = MKA(env, "user_timeout");
-    esock_atom_use_ext_recvinfo       = MKA(env, "use_ext_recvinfo");
-    esock_atom_use_min_mtu            = MKA(env, "use_min_mtu");
-    esock_atom_v6only                 = MKA(env, "v6only");
-
-    /* Global error codes */
-    esock_atom_eafnosupport = MKA(env, ESOCK_STR_EAFNOSUPPORT);
-    esock_atom_eagain       = MKA(env, ESOCK_STR_EAGAIN);
-    esock_atom_einval       = MKA(env, ESOCK_STR_EINVAL);
-
-    /* Error codes */
-    atom_eisconn      = MKA(env, str_eisconn);
-    atom_enotclosing  = MKA(env, str_enotclosing);
-    atom_enotconn     = MKA(env, str_enotconn);
-    atom_exalloc      = MKA(env, str_exalloc);
-    atom_exbadstate   = MKA(env, str_exbadstate);
-    atom_exbusy       = MKA(env, str_exbusy);
-    atom_exmon        = MKA(env, str_exmon);
-    atom_exself       = MKA(env, str_exself);
-    atom_exsend       = MKA(env, str_exsend);
-
-    // For storing "global" things...
-    // data.env       = enif_alloc_env(); // We should really check
-    // data.version   = MKA(env, ERTS_VERSION);
-    // data.buildDate = MKA(env, ERTS_BUILD_DATE);
+    /* Global atom(s) and error reason atom(s) */
+#define GLOBAL_ATOM_DECL(A) esock_atom_##A = MKA(env, #A)
+GLOBAL_ATOMS
+GLOBAL_ERROR_REASON_ATOMS
+#undef GLOBAL_ATOM_DECL
+    esock_atom_socket_tag = MKA(env, "$socket");
 
     sockets = enif_open_resource_type_x(env,
                                         "sockets",

@@ -359,66 +359,40 @@ static const struct in6_addr in6addr_loopback =
 
 
 
-/* *** String constants *** */
-static char str_address_info[]              = "address_info";
-static char str_debug[]                     = "debug";
-static char str_idn[]                       = "idn";
-static char str_idna_allow_unassigned[]     = "idna_allow_unassigned";
-static char str_idna_use_std3_ascii_rules[] = "idna_use_std3_ascii_rules";
-static char str_namereqd[]                  = "namereqd";
-static char str_name_info[]                 = "name_info";
-static char str_nofqdn[]                    = "nofqdn";
-static char str_numerichost[]               = "numerichost";
-static char str_numericserv[]               = "numericserv";
+/* *** Local atoms *** */
 
-/* (special) error string constants */
-static char str_eaddrfamily[]       = "eaddrfamily";
-static char str_ebadflags[]         = "ebadflags";
-static char str_efail[]             = "efail";
-static char str_efamily[]           = "efamily";
-static char str_efault[]            = "efault";
-static char str_emem[]              = "emem";
-static char str_enametoolong[]      = "enametoolong";
-static char str_enodata[]           = "enodata";
-static char str_enoname[]           = "enoname";
-static char str_enxio[]             = "enxio";
-static char str_eoverflow[]         = "eoverflow";
-static char str_eservice[]          = "eservice";
-static char str_esocktype[]         = "esocktype";
-static char str_esystem[]           = "esystem";
+#define LOCAL_ATOMS                             \
+    LOCAL_ATOM_DECL(address_info);              \
+    LOCAL_ATOM_DECL(debug);                     \
+    LOCAL_ATOM_DECL(idn);                       \
+    LOCAL_ATOM_DECL(idna_allow_unassigned);     \
+    LOCAL_ATOM_DECL(idna_use_std3_ascii_rules); \
+    LOCAL_ATOM_DECL(namereqd);                  \
+    LOCAL_ATOM_DECL(name_info);                 \
+    LOCAL_ATOM_DECL(nofqdn);                    \
+    LOCAL_ATOM_DECL(numerichost);               \
+    LOCAL_ATOM_DECL(numericserv);
 
+#define LOCAL_ERROR_REASON_ATOMS               \
+    LOCAL_ATOM_DECL(eaddrfamily);              \
+    LOCAL_ATOM_DECL(ebadflags);                \
+    LOCAL_ATOM_DECL(efail);                    \
+    LOCAL_ATOM_DECL(efamily);                  \
+    LOCAL_ATOM_DECL(efault);                   \
+    LOCAL_ATOM_DECL(emem);                     \
+    LOCAL_ATOM_DECL(enametoolong);             \
+    LOCAL_ATOM_DECL(enodata);                  \
+    LOCAL_ATOM_DECL(enoname);                  \
+    LOCAL_ATOM_DECL(enxio);                    \
+    LOCAL_ATOM_DECL(eoverflow);                \
+    LOCAL_ATOM_DECL(eservice);                 \
+    LOCAL_ATOM_DECL(esocktype);                \
+    LOCAL_ATOM_DECL(esystem);
 
-/* *** Atoms *** */
-
-static ERL_NIF_TERM atom_address_info;
-static ERL_NIF_TERM atom_debug;
-static ERL_NIF_TERM atom_host;
-static ERL_NIF_TERM atom_idn;
-static ERL_NIF_TERM atom_idna_allow_unassigned;
-static ERL_NIF_TERM atom_idna_use_std3_ascii_rules;
-static ERL_NIF_TERM atom_namereqd;
-static ERL_NIF_TERM atom_name_info;
-static ERL_NIF_TERM atom_nofqdn;
-static ERL_NIF_TERM atom_numerichost;
-static ERL_NIF_TERM atom_numericserv;
-static ERL_NIF_TERM atom_service;
-
-
-static ERL_NIF_TERM atom_eaddrfamily;
-// static ERL_NIF_TERM atom_eagain;
-static ERL_NIF_TERM atom_ebadflags;
-static ERL_NIF_TERM atom_efail;
-static ERL_NIF_TERM atom_efamily;
-static ERL_NIF_TERM atom_efault;
-static ERL_NIF_TERM atom_emem;
-static ERL_NIF_TERM atom_enametoolong;
-static ERL_NIF_TERM atom_enodata;
-static ERL_NIF_TERM atom_enoname;
-static ERL_NIF_TERM atom_enxio;
-static ERL_NIF_TERM atom_eoverflow;
-static ERL_NIF_TERM atom_eservice;
-static ERL_NIF_TERM atom_esocktype;
-static ERL_NIF_TERM atom_esystem;
+#define LOCAL_ATOM_DECL(A) static ERL_NIF_TERM atom_##A
+LOCAL_ATOMS
+LOCAL_ERROR_REASON_ATOMS
+#undef LOCAL_ATOM_DECL
 
 
 /* *** net *** */
@@ -1651,6 +1625,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     NDBG( ("NET", "on_load -> entry\r\n") );
 #endif
 
+<<<<<<< d80019d4a3c4c3682a6f9ba713c3ea9c92c06af2
     /* +++ Misc atoms +++ */
     atom_address_info              = MKA(env, str_address_info);
     atom_debug                     = MKA(env, str_debug);
@@ -1680,6 +1655,13 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_eservice        = MKA(env, str_eservice);
     atom_esocktype       = MKA(env, str_esocktype);
     atom_esystem         = MKA(env, str_esystem);
+=======
+#define LOCAL_ATOM_DECL(A) atom_##A = MKA(env, #A)
+LOCAL_ATOMS
+LOCAL_ERROR_REASON_ATOMS
+#undef LOCAL_ATOM_DECL
+
+>>>>>>> [socket|net] Macro abuse
 
     // For storing "global" things...
     // data.env       = enif_alloc_env(); // We should really check

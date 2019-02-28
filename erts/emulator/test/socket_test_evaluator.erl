@@ -471,7 +471,7 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
                    "~n   Announcement: ~p"
                    "~n   Slogan:       ~p"
                    "~nwhen"
-                   "~n   Messages: ~p", 
+                   "~n   Messages:     ~p", 
                    [ExpPid, Name, Announcement, Slogan, pi(messages)]),
             await(ExpPid, Name, Announcement, Slogan, OtherPids)
     end.
