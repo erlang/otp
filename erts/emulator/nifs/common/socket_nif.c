@@ -882,81 +882,54 @@ typedef struct {
  */
 
 
+/* All the nif "callback" functions for the socket API has
+ * the exact same API:
+ *
+ * nif_<funcname>(ErlNifEnv*         env,
+ *                int                argc,
+ *                const ERL_NIF_TERM argv[]);
+ *
+ * So, to simplify, use some macro magic to define those.
+ *
+ * These are the functions making up the "official" API.
+ * Basically, these functions does some preliminary checks and argument
+ * extractions and then call the functions called 'n<funcname>', which 
+ * does the actual work. Except for the info function.
+ */
 
-static ERL_NIF_TERM nif_info(ErlNifEnv*         env,
-                             int                argc,
-                             const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
-                                 int                argc,
-                                 const ERL_NIF_TERM argv[]);
-/*
-This is a *global* debug function (enable or disable for all
-operations and all sockets.
-static ERL_NIF_TERM nif_debug(ErlNifEnv*         env,
-                              int                argc,
-                              const ERL_NIF_TERM argv[]);
-*/
-static ERL_NIF_TERM nif_open(ErlNifEnv*         env,
-                             int                argc,
-                             const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
-                             int                argc,
-                             const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
-                               int                argc,
-                               const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
-                               int                argc,
-                               const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
-                               int                argc,
-                               const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_send(ErlNifEnv*         env,
-                             int                argc,
-                             const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
-                               int                argc,
-                               const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
-                                int                argc,
-                                const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
-                             int                argc,
-                             const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
-                                 int                argc,
-                                 const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
-                                int                argc,
-                                const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_close(ErlNifEnv*         env,
-                              int                argc,
-                              const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
-                                 int                argc,
-                                 const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
-                               int                argc,
-                               const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
-                               int                argc,
-                               const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
-                                 int                argc,
-                                 const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
-                                 int                argc,
-                                 const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
-                                            int                argc,
-                                            const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
-                                       int                argc,
-                                       const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
-                               int                argc,
-                               const ERL_NIF_TERM argv[]);
+#define ESOCK_NIF_FUNCS                             \
+    ESOCK_NIF_FUNC_DEF(info);                       \
+    ESOCK_NIF_FUNC_DEF(supports);                   \
+    ESOCK_NIF_FUNC_DEF(open);                       \
+    ESOCK_NIF_FUNC_DEF(bind);                       \
+    ESOCK_NIF_FUNC_DEF(connect);                    \
+    ESOCK_NIF_FUNC_DEF(listen);                     \
+    ESOCK_NIF_FUNC_DEF(accept);                     \
+    ESOCK_NIF_FUNC_DEF(send);                       \
+    ESOCK_NIF_FUNC_DEF(sendto);                     \
+    ESOCK_NIF_FUNC_DEF(sendmsg);                    \
+    ESOCK_NIF_FUNC_DEF(recv);                       \
+    ESOCK_NIF_FUNC_DEF(recvfrom);                   \
+    ESOCK_NIF_FUNC_DEF(recvmsg);                    \
+    ESOCK_NIF_FUNC_DEF(close);                      \
+    ESOCK_NIF_FUNC_DEF(shutdown);                   \
+    ESOCK_NIF_FUNC_DEF(setopt);                     \
+    ESOCK_NIF_FUNC_DEF(getopt);                     \
+    ESOCK_NIF_FUNC_DEF(sockname);                   \
+    ESOCK_NIF_FUNC_DEF(peername);                   \
+    ESOCK_NIF_FUNC_DEF(finalize_connection);        \
+    ESOCK_NIF_FUNC_DEF(finalize_close);             \
+    ESOCK_NIF_FUNC_DEF(cancel);
 
+#define ESOCK_NIF_FUNC_DEF(F)                              \
+    static ERL_NIF_TERM nif_##F(ErlNifEnv*         env,    \
+                                int                argc,   \
+                                const ERL_NIF_TERM argv[]);
+ESOCK_NIF_FUNCS
+#undef ESOCK_NIF_FUNC_DEF
+
+
+/* And here comes the functions that does the actual work (for the most part) */
 static ERL_NIF_TERM nsupports(ErlNifEnv* env, int key);
 static ERL_NIF_TERM nsupports_options(ErlNifEnv* env);
 static ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env);
@@ -2250,56 +2223,34 @@ static void inc_socket(int domain, int type, int protocol);
 static void dec_socket(int domain, int type, int protocol);
 
 
-static BOOLEAN_T acceptor_search4pid(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ErlNifPid*        pid);
-static ERL_NIF_TERM acceptor_push(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  ErlNifPid         pid,
-                                  ERL_NIF_TERM      ref);
-static BOOLEAN_T acceptor_pop(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              ErlNifPid*        pid,
-                              // ErlNifMonitor*    mon,
-                              ESockMonitor*     mon,
-                              ERL_NIF_TERM*     ref);
-static BOOLEAN_T acceptor_unqueue(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  const ErlNifPid*  pid);
+/* All the queue operator functions (search4pid, push, pop
+ * and unqueue) for acceptor, writer and reader has exactly
+ * the same API, so we apply some macro magic to simplify.
+ */
 
-static BOOLEAN_T writer_search4pid(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   ErlNifPid*        pid);
-static ERL_NIF_TERM writer_push(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                ErlNifPid         pid,
-                                ERL_NIF_TERM      ref);
-static BOOLEAN_T writer_pop(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            ErlNifPid*        pid,
-                            // ErlNifMonitor*    mon,
-                            ESockMonitor*     mon,
-                            ERL_NIF_TERM*     ref);
-static BOOLEAN_T writer_unqueue(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                const ErlNifPid*  pid);
+#define ESOCK_OPERATOR_FUNCS_DEFS      \
+    ESOCK_OPERATOR_FUNCS_DEF(acceptor) \
+    ESOCK_OPERATOR_FUNCS_DEF(writer)   \
+    ESOCK_OPERATOR_FUNCS_DEF(reader)
 
-static BOOLEAN_T reader_search4pid(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   ErlNifPid*        pid);
-static ERL_NIF_TERM reader_push(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                ErlNifPid         pid,
-                                ERL_NIF_TERM      ref);
-static BOOLEAN_T reader_pop(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            ErlNifPid*        pid,
-                            // ErlNifMonitor*    mon,
-                            ESockMonitor*     mon,
-                            ERL_NIF_TERM*     ref);
-static BOOLEAN_T reader_unqueue(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                const ErlNifPid*  pid);
+#define ESOCK_OPERATOR_FUNCS_DEF(O)                             \
+    static BOOLEAN_T O##_search4pid(ErlNifEnv*        env,      \
+                                    SocketDescriptor* descP,    \
+                                    ErlNifPid*        pid);     \
+    static ERL_NIF_TERM O##_push(ErlNifEnv*        env,         \
+                                 SocketDescriptor* descP,       \
+                                 ErlNifPid         pid,         \
+                                 ERL_NIF_TERM      ref);        \
+    static BOOLEAN_T O##_pop(ErlNifEnv*        env,             \
+                             SocketDescriptor* descP,           \
+                             ErlNifPid*        pid,             \
+                             ESockMonitor*     mon,             \
+                             ERL_NIF_TERM*     ref);            \
+    static BOOLEAN_T O##_unqueue(ErlNifEnv*        env,         \
+                                 SocketDescriptor* descP,       \
+                                 const ErlNifPid*  pid);
+ESOCK_OPERATOR_FUNCS_DEFS
+#undef ESOCK_OPERATOR_FUNCS_DEF
 
 static BOOLEAN_T qsearch4pid(ErlNifEnv*          env,
                              SocketRequestQueue* q,
@@ -2323,10 +2274,6 @@ static int esock_demonitor(const char*       slogan,
                            SocketDescriptor* descP,
                            ESockMonitor*     monP);
 static void esock_monitor_init(ESockMonitor* mon);
-/*
-static int esock_monitor_compare(const ErlNifMonitor* mon1,
-                                 const ESockMonitor*  mon2);
-*/
 
 
 /*
