@@ -676,13 +676,10 @@ is_list f? y
 
 is_nonempty_list Fail=f S=x | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
 
-is_nonempty_list F=f x==0 | test_heap I1 I2 => is_nonempty_list_test_heap F I1 I2
-
 is_nonempty_list Fail=f S=x | get_list S D1=x D2=x => \
   is_nonempty_list_get_list Fail S D1 D2
 
 is_nonempty_list_allocate f? rx t t
-is_nonempty_list_test_heap f? I t
 is_nonempty_list_get_list f? rx x x
 is_nonempty_list f? xy
 

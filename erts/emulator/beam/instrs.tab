@@ -666,12 +666,6 @@ is_nonempty_list(Fail, Src) {
     }
 }
 
-is_nonempty_list_test_heap(Fail, Need, Live) {
-    //| -no_prefetch
-    $is_nonempty_list($Fail, x(0));
-    $test_heap($Need, $Live);
-}
-
 is_nonempty_list_allocate(Fail, Src, Need, Live) {
     //| -no_prefetch
     $is_nonempty_list($Fail, $Src);
