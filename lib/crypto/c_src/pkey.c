@@ -70,10 +70,13 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 
     if (type == atom_none && algorithm == atom_rsa)
         return PKEY_OK;
+    if (algorithm == atom_eddsa) {
 #ifdef HAVE_EDDSA
-    if (algorithm == atom_eddsa)
-        return PKEY_OK;
+        if (!FIPS_mode()) return PKEY_OK;
+#else
+        return PKEY_NOTSUP;
 #endif
+    }
     if ((digp = get_digest_type(type)) == NULL)
         return PKEY_BADARG;
     if (digp->md.p == NULL)
@@ -312,11 +315,16 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 	return PKEY_NOTSUP;
 #endif
     } else if (algorithm == atom_eddsa) {
-#if defined(HAVE_EDDSA)
-        if (!get_eddsa_key(env, 0, key, &result))
-            goto err;
+#ifdef HAVE_EDDSA
+        if (!FIPS_mode())
+            {
+                if (!get_eddsa_key(env, 0, key, &result))
+                    goto err;
+                else
+                    goto done; // Not nice....
+            }
 #else
-	return PKEY_NOTSUP;
+            return PKEY_NOTSUP;
 #endif
     } else if (algorithm == atom_dss) {
         if ((dsa = DSA_new()) == NULL)
@@ -432,10 +440,11 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 	return PKEY_NOTSUP;
 #endif
     } else if (algorithm == atom_eddsa) {
-#if defined(HAVE_EDDSA)
-        if (!get_eddsa_key(env, 1, key, &result))
-            goto err;
-
+#ifdef HAVE_EDDSA
+        if (!FIPS_mode()) {
+            if (!get_eddsa_key(env, 1, key, &result))
+                goto err;
+        }
 #else
 	return PKEY_NOTSUP;
 #endif
@@ -516,7 +525,6 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 /*char buf[1024];
 enif_get_atom(env,argv[0],buf,1024,ERL_NIF_LATIN1); printf("algo=%s ",buf);
 enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
-printf("\r\n");
 */
 
 #ifndef HAS_ENGINE_SUPPORT
@@ -583,22 +591,24 @@ printf("\r\n");
 
     if (argv[0] == atom_eddsa) {
 #ifdef HAVE_EDDSA
-        if ((mdctx = EVP_MD_CTX_new()) == NULL)
-            goto err;
+        if (!FIPS_mode()) {
+            if ((mdctx = EVP_MD_CTX_new()) == NULL)
+                goto err;
 
-        if (EVP_DigestSignInit(mdctx, NULL, NULL, NULL, pkey) != 1)
-            goto err;
-        if (EVP_DigestSign(mdctx, NULL, &siglen, tbs, tbslen) != 1)
-            goto err;
-        if (!enif_alloc_binary(siglen, &sig_bin))
-            goto err;
-        sig_bin_alloc = 1;
+            if (EVP_DigestSignInit(mdctx, NULL, NULL, NULL, pkey) != 1)
+                goto err;
+            if (EVP_DigestSign(mdctx, NULL, &siglen, tbs, tbslen) != 1)
+                goto err;
+            if (!enif_alloc_binary(siglen, &sig_bin))
+                goto err;
+            sig_bin_alloc = 1;
 
-        if (EVP_DigestSign(mdctx, sig_bin.data, &siglen, tbs, tbslen) != 1)
-            goto bad_key;
-#else
-        goto bad_arg;
+            if (EVP_DigestSign(mdctx, sig_bin.data, &siglen, tbs, tbslen) != 1)
+                goto bad_key;
+        }
+        else
 #endif
+            goto notsup;
     } else {
         if (EVP_PKEY_sign(ctx, NULL, &siglen, tbs, tbslen) != 1)
             goto err;
@@ -805,16 +815,18 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 
     if (argv[0] == atom_eddsa) {
 #ifdef HAVE_EDDSA
-        if ((mdctx = EVP_MD_CTX_new()) == NULL)
-            goto err;
-        
-        if (EVP_DigestVerifyInit(mdctx, NULL, NULL, NULL, pkey) != 1)
-            goto err;
+        if (!FIPS_mode()) {
+            if ((mdctx = EVP_MD_CTX_new()) == NULL)
+                goto err;
 
-        result = EVP_DigestVerify(mdctx, sig_bin.data, sig_bin.size, tbs, tbslen);
-#else
-        goto bad_arg;
+            if (EVP_DigestVerifyInit(mdctx, NULL, NULL, NULL, pkey) != 1)
+                goto err;
+
+            result = EVP_DigestVerify(mdctx, sig_bin.data, sig_bin.size, tbs, tbslen);
+        }
+        else
 #endif
+        goto notsup;
     } else {
         if (md != NULL) {
             ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, EVP_MD_size(md));
