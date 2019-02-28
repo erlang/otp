@@ -27,6 +27,11 @@
 #include "config.h"
 #endif
 
+#if defined(__sun) || defined(__sun__)
+    /* For flockfile(3c), putc_unlocked(3c), etc */
+    #define __EXTENSIONS__
+#endif
+
 #include <string.h>
 #include "erl_errno.h"
 #ifdef __WIN32__
