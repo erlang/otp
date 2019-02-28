@@ -240,35 +240,37 @@ static NetData data;
 /* THIS IS JUST TEMPORARY */
 extern char* erl_errno_id(int error);
 
+/* All the nif "callback" functions for the net API has
+ * the exact same API:
+ *
+ * nif_<funcname>(ErlNifEnv*         env,
+ *                int                argc,
+ *                const ERL_NIF_TERM argv[]);
+ *
+ * So, to simplify, use some macro magic to define those.
+ *
+ * These are the functions making up the "official" API.
+ */
 
-static ERL_NIF_TERM nif_info(ErlNifEnv*         env,
-                             int                argc,
-                             const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_command(ErlNifEnv*         env,
-                                int                argc,
+#define ENET_NIF_FUNCS                  \
+    ENET_NIF_FUNC_DEF(info);            \
+    ENET_NIF_FUNC_DEF(command);         \
+    ENET_NIF_FUNC_DEF(gethostname);     \
+    ENET_NIF_FUNC_DEF(getnameinfo);     \
+    ENET_NIF_FUNC_DEF(getaddrinfo);      \
+    ENET_NIF_FUNC_DEF(if_name2index);   \
+    ENET_NIF_FUNC_DEF(if_index2name);   \
+    ENET_NIF_FUNC_DEF(if_names);
+
+#define ENET_NIF_FUNC_DEF(F)                              \
+    static ERL_NIF_TERM nif_##F(ErlNifEnv*         env,    \
+                                int                argc,   \
                                 const ERL_NIF_TERM argv[]);
+ENET_NIF_FUNCS
+#undef ENET_NIF_FUNC_DEF
 
-static ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
-                                    int                argc,
-                                    const ERL_NIF_TERM argv[]);
 
-static ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
-                                    int                argc,
-                                    const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
-                                    int                argc,
-                                    const ERL_NIF_TERM argv[]);
-
-static ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
-                                      int                argc,
-                                      const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
-                                      int                argc,
-                                      const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
-                                 int                argc,
-                                 const ERL_NIF_TERM argv[]);
-
+/* And here comes the functions that does the actual work (for the most part) */
 static ERL_NIF_TERM ncommand(ErlNifEnv*   env,
                              ERL_NIF_TERM cmd);
 static ERL_NIF_TERM ngethostname(ErlNifEnv* env);
@@ -364,6 +366,7 @@ static const struct in6_addr in6addr_loopback =
 #define LOCAL_ATOMS                             \
     LOCAL_ATOM_DECL(address_info);              \
     LOCAL_ATOM_DECL(debug);                     \
+    LOCAL_ATOM_DECL(host);                      \
     LOCAL_ATOM_DECL(idn);                       \
     LOCAL_ATOM_DECL(idna_allow_unassigned);     \
     LOCAL_ATOM_DECL(idna_use_std3_ascii_rules); \
@@ -371,7 +374,8 @@ static const struct in6_addr in6addr_loopback =
     LOCAL_ATOM_DECL(name_info);                 \
     LOCAL_ATOM_DECL(nofqdn);                    \
     LOCAL_ATOM_DECL(numerichost);               \
-    LOCAL_ATOM_DECL(numericserv);
+    LOCAL_ATOM_DECL(numericserv);               \
+    LOCAL_ATOM_DECL(service);
 
 #define LOCAL_ERROR_REASON_ATOMS               \
     LOCAL_ATOM_DECL(eaddrfamily);              \
@@ -1625,43 +1629,10 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     NDBG( ("NET", "on_load -> entry\r\n") );
 #endif
 
-<<<<<<< d80019d4a3c4c3682a6f9ba713c3ea9c92c06af2
-    /* +++ Misc atoms +++ */
-    atom_address_info              = MKA(env, str_address_info);
-    atom_debug                     = MKA(env, str_debug);
-    atom_host                      = MKA(env, "host");
-    atom_idn                       = MKA(env, str_idn);
-    atom_idna_allow_unassigned     = MKA(env, str_idna_allow_unassigned);
-    atom_idna_use_std3_ascii_rules = MKA(env, str_idna_use_std3_ascii_rules);
-    atom_namereqd                  = MKA(env, str_namereqd);
-    atom_name_info                 = MKA(env, str_name_info);
-    atom_nofqdn                    = MKA(env, str_nofqdn);
-    atom_numerichost               = MKA(env, str_numerichost);
-    atom_numericserv               = MKA(env, str_numericserv);
-    atom_service                   = MKA(env, "service");
-
-    /* Error codes */
-    atom_eaddrfamily     = MKA(env, str_eaddrfamily);
-    atom_ebadflags       = MKA(env, str_ebadflags);
-    atom_efail           = MKA(env, str_efail);
-    atom_efamily         = MKA(env, str_efamily);
-    atom_efault          = MKA(env, str_efault);
-    atom_emem            = MKA(env, str_emem);
-    atom_enametoolong    = MKA(env, str_enametoolong);
-    atom_enodata         = MKA(env, str_enodata);
-    atom_enoname         = MKA(env, str_enoname);
-    atom_enxio           = MKA(env, str_enxio);
-    atom_eoverflow       = MKA(env, str_eoverflow);
-    atom_eservice        = MKA(env, str_eservice);
-    atom_esocktype       = MKA(env, str_esocktype);
-    atom_esystem         = MKA(env, str_esystem);
-=======
 #define LOCAL_ATOM_DECL(A) atom_##A = MKA(env, #A)
 LOCAL_ATOMS
 LOCAL_ERROR_REASON_ATOMS
 #undef LOCAL_ATOM_DECL
-
->>>>>>> [socket|net] Macro abuse
 
     // For storing "global" things...
     // data.env       = enif_alloc_env(); // We should really check

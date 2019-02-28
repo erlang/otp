@@ -2779,7 +2779,7 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
  *
  * Description:
  * This function is intended to answer the question: "Is X supported?"
- * Currently only one key is "supported": options
+ * Currently three keys are "supported": options | sctp | ipv6
  * That results in a list of all *known options* (known by us) and if
  * the platform supports (OS) it or not.
  *
