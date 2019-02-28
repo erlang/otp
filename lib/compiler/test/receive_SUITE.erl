@@ -25,7 +25,8 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
-	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1]).
+	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1,
+         match_built_terms/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,7 +46,8 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [recv,coverage,otp_7980,ref_opt,export,wait,
-       recv_in_try,double_recv,receive_var_zero]}].
+       recv_in_try,double_recv,receive_var_zero,
+       match_built_terms]}].
 
 
 init_per_suite(Config) ->
@@ -400,5 +402,29 @@ receive_var_zero(Config) when is_list(Config) ->
 
 zero() -> 0.
 
+%% ERL-862; the validator would explode when a term was constructed in a
+%% receive guard.
+
+-define(MATCH_BUILT_TERM(Ref, Expr),
+        (fun() ->
+                 Ref = make_ref(),
+                 A = id($a),
+                 B = id($b),
+                 Built = id(Expr),
+                 self() ! {Ref, A, B},
+                 receive
+                     {Ref, A, B} when Expr =:= Built ->
+                         ok
+                 after 5000 ->
+                     ct:fail("Failed to match message with term built in "
+                             "receive guard.")
+                 end
+         end)()).
+
+match_built_terms(Config) when is_list(Config) ->
+    ?MATCH_BUILT_TERM(Ref, [A, B]),
+    ?MATCH_BUILT_TERM(Ref, {A, B}),
+    ?MATCH_BUILT_TERM(Ref, <<A, B>>),
+    ?MATCH_BUILT_TERM(Ref, #{ 1 => A, 2 => B}).
 
 id(I) -> I.

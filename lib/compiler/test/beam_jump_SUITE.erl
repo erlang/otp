@@ -79,12 +79,13 @@ checks(Wanted) ->
     {catch case river() of sheet -> begin +Wanted, if "da" -> Wanted end end end, catch case river() of sheet -> begin + Wanted, if "da" -> Wanted end end end}.
 
 unsafe_move_elimination(_Config) ->
-    {{left,right,false},false} = unsafe_move_elimination(left, right, false),
-    {{false,right,false},false} = unsafe_move_elimination(false, right, true),
-    {{true,right,right},right} = unsafe_move_elimination(true, right, true),
+    {{left,right,false},false} = unsafe_move_elimination_1(left, right, false),
+    {{false,right,false},false} = unsafe_move_elimination_1(false, right, true),
+    {{true,right,right},right} = unsafe_move_elimination_1(true, right, true),
+    [ok = unsafe_move_elimination_2(I) || I <- lists:seq(0,16)],
     ok.
 
-unsafe_move_elimination(Left, Right, Simple0) ->
+unsafe_move_elimination_1(Left, Right, Simple0) ->
     id(1),
 
     %% The move at label 29 would be removed by beam_jump, which is unsafe because
@@ -114,6 +115,44 @@ unsafe_move_elimination(Left, Right, Simple0) ->
                      id(Right)
              end,
     {id({Left,Right,Simple}),Simple}.
+
+unsafe_move_elimination_2(Int) ->
+    %% The type optimization pass would recognize that TagInt can only be
+    %% [0 .. 7], so the first 'case' would select_val over [0 .. 6] and swap
+    %% out the fail label with the block for 7.
+    %%
+    %% A later optimization would merge this block with 'expects_h' in the
+    %% second case, as the latter is only reachable from the former.
+    %%
+    %% ... but this broke down when the move elimination optimization didn't
+    %% take the fail label of the first select_val into account. This caused it
+    %% to believe that the only way to reach 'expects_h' was through the second
+    %% case when 'Tag' =:= 'h', which made it remove the move instruction
+    %% added in the first case, passing garbage to expects_h/2.
+    TagInt = Int band 2#111,
+    Tag = case TagInt of
+              0 -> a;
+              1 -> b;
+              2 -> c;
+              3 -> d;
+              4 -> e;
+              5 -> f;
+              6 -> g;
+              7 -> h
+          end,
+    case Tag of
+        g -> expects_g(TagInt, Tag);
+        h -> expects_h(TagInt, Tag);
+        _ -> Tag = id(Tag), ok
+    end.
+
+expects_g(6, Atom) ->
+    Atom = id(g),
+    ok.
+
+expects_h(7, Atom) ->
+    Atom = id(h),
+    ok.
 
 -record(message2, {id, p1}).
 -record(message3, {id, p1, p2}).

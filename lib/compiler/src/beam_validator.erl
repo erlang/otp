@@ -28,8 +28,7 @@
 -export([module/2, format_error/1]).
 -export([type_anno/1, type_anno/2, type_anno/4]).
 
--import(lists, [any/2,dropwhile/2,foldl/3,map/2,member/2,reverse/1,
-                seq/2,sort/1,zip/2]).
+-import(lists, [dropwhile/2,foldl/3,member/2,reverse/1,sort/1,zip/2]).
 
 %% To be called by the compiler.
 
@@ -51,7 +50,7 @@ module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
 -spec type_anno(term()) -> term().
 type_anno(atom) -> {atom,[]};
 type_anno(bool) -> bool;
-type_anno({binary,_}) -> term;
+type_anno({binary,_}) -> binary;
 type_anno(cons) -> cons;
 type_anno(float) -> {float,[]};
 type_anno(integer) -> {integer,[]};
@@ -62,9 +61,9 @@ type_anno(number) -> number;
 type_anno(nil) -> nil.
 
 -spec type_anno(term(), term()) -> term().
-type_anno(atom, Value) -> {atom, Value};
-type_anno(float, Value) -> {float, Value};
-type_anno(integer, Value) -> {integer, Value}.
+type_anno(atom, Value) when is_atom(Value) -> {atom, Value};
+type_anno(float, Value) when is_float(Value)  -> {float, Value};
+type_anno(integer, Value) when is_integer(Value) -> {integer, Value}.
 
 -spec type_anno(term(), term(), term(), term()) -> term().
 type_anno(tuple, Size, Exact, Elements) when is_integer(Size), Size >= 0,
@@ -137,43 +136,100 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	    erlang:raise(Class, Error, Stack)
     end.
 
--type index() :: non_neg_integer().
--type reg_tab() :: gb_trees:tree(index(), 'none' | {'value', _}).
+-record(value_ref, {id :: index()}).
+-record(value, {op :: term(), args :: [argument()], type :: type()}).
 
--record(st,				%Emulation state
-	{x :: reg_tab(),                %x register info.
-	 y :: reg_tab(),                %y register info.
-	 f=init_fregs(),                %
-	 numy=none,			%Number of y registers.
-	 h=0,				%Available heap size.
-	 hf=0,				%Available heap size for floats.
-	 fls=undefined,			%Floating point state.
-	 ct=[],				%List of hot catch/try labels
-         setelem=false,                 %Previous instruction was setelement/3.
-         puts_left=none,                %put/1 instructions left.
-         defs=#{},                      %Defining expression for each register.
-         aliases=#{}
-	}).
+-type argument() :: #value_ref{} | literal().
+
+-type index() :: non_neg_integer().
+
+-type literal() :: {atom, [] | atom()} |
+                   {float, [] | float()} |
+                   {integer, [] | integer()} |
+                   {literal, term()} |
+                   nil.
+
+-type tuple_sz() :: [non_neg_integer()] | %% Inexact
+                    non_neg_integer(). %% Exact.
+
+%% Match context type.
+-record(ms,
+        {id=make_ref() :: reference(),          %Unique ID.
+         valid=0 :: non_neg_integer(),          %Valid slots
+         slots=0 :: non_neg_integer()           %Number of slots
+        }).
+
+-type type() :: binary |
+                cons |
+                list |
+                map |
+                nil |
+                #ms{} |
+                ms_position |
+                none |
+                number |
+                term |
+                tuple_in_progress |
+                {tuple, tuple_sz(), #{ literal() => type() }} |
+                literal().
+
+-type tag() :: initialized |
+               uninitialized |
+               {catchtag, [label()]} |
+               {trytag, [label()]}.
+
+-type x_regs() :: #{ {x, index()} => #value_ref{} }.
+-type y_regs() :: #{ {y, index()} => tag() | #value_ref{} }.
+
+%% Emulation state
+-record(st,
+        {%% All known values.
+         vs=#{} :: #{ #value_ref{} => #value{} },
+         %% Register states.
+         xs=#{} :: x_regs(),
+         ys=#{} :: y_regs(),
+         f=init_fregs(),
+         %% A set of all registers containing "fragile" terms. That is, terms
+         %% that don't exist on our process heap and would be destroyed by a
+         %% GC.
+         fragile=cerl_sets:new() :: cerl_sets:set(),
+         %% Number of Y registers.
+         %%
+         %% Note that this may be 0 if there's a frame without saved values,
+         %% such as on a body-recursive call.
+         numy=none :: none | undecided | index(),
+         %% Available heap size.
+         h=0,
+         %Available heap size for floats.
+         hf=0,
+         %% Floating point state.
+         fls=undefined,
+         %% List of hot catch/try labels
+         ct=[],
+         %% Previous instruction was setelement/3.
+         setelem=false,
+         %% put/1 instructions left.
+         puts_left=none
+        }).
 
 -type label()        :: integer().
 -type label_set()    :: gb_sets:set(label()).
 -type branched_tab() :: gb_trees:tree(label(), #st{}).
 -type ft_tab()       :: gb_trees:tree().
 
--record(vst,				%Validator state
-	{current=none              :: #st{} | 'none',	%Current state
-	 branched=gb_trees:empty() :: branched_tab(),	%States at jumps
-	 labels=gb_sets:empty()    :: label_set(),	%All defined labels
-	 ft=gb_trees:empty()       :: ft_tab()          %Some other functions
-	 		% in the module (those that start with bs_start_match2).
-	}).
-
-%% Match context type.
--record(ms,
-	{id=make_ref() :: reference(),		%Unique ID.
-	 valid=0 :: non_neg_integer(),		%Valid slots
-	 slots=0 :: non_neg_integer()		%Number of slots
-	}).
+%% Validator state
+-record(vst,
+        {%% Current state
+         current=none              :: #st{} | 'none',
+         %% States at labels
+         branched=gb_trees:empty() :: branched_tab(),
+         %% All defined labels
+         labels=gb_sets:empty()    :: label_set(),
+         %% Argument information of other functions in the module
+         ft=gb_trees:empty()       :: ft_tab(),
+         %% Counter for #value_ref{} creation
+         ref_ctr=0                 :: index()
+        }).
 
 index_parameter_types([{function,_,_,Entry,Code0}|Fs], Acc0) ->
     Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
@@ -238,7 +294,7 @@ validate_fun_info_branches_1(X, {Mod,Name,Arity}=MFA, Vst) ->
             #vst{current=#st{numy=Size}} ->
                 error({unexpected_stack_frame,Size})
         end,
-	get_term_type({x,X}, Vst)
+        assert_term({x,X}, Vst)
     catch Error ->
 	    I = {func_info,{atom,Mod},{atom,Name},Arity},
 	    Offset = 2,
@@ -260,23 +316,20 @@ labels_1(Is, R) ->
     {reverse(R),Is}.
 
 init_vst(Arity, Ls1, Ls2, Ft) ->
-    Xs = init_regs(Arity, term),
-    Ys = init_regs(0, initialized),
-    St = #st{x=Xs,y=Ys},
-    Branches = gb_trees_from_list([{L,St} || L <- Ls1]),
+    Vst0 = init_function_args(Arity - 1, #vst{current=#st{}}),
+    Branches = gb_trees_from_list([{L,Vst0#vst.current} || L <- Ls1]),
     Labels = gb_sets:from_list(Ls1++Ls2),
-    #vst{branched=Branches,
-         current=St,
-         labels=Labels,
-         ft=Ft}.
+    Vst0#vst{branched=Branches,
+             labels=Labels,
+             ft=Ft}.
+
+init_function_args(-1, Vst) ->
+    Vst;
+init_function_args(X, Vst) ->
+    init_function_args(X - 1, create_term(term, argument, [], {x,X}, Vst)).
 
 kill_heap_allocation(St) ->
     St#st{h=0,hf=0}.
-
-init_regs(0, _) ->
-    gb_trees:empty();
-init_regs(N, Type) ->
-    gb_trees_from_list([{R,Type} || R <- seq(0, N-1)]).
 
 valfun([], MFA, _Offset, #vst{branched=Targets0,labels=Labels0}=Vst) ->
     Targets = gb_trees:keys(Targets0),
@@ -298,20 +351,25 @@ valfun([I|Is], MFA, Offset, Vst0) ->
 
 %% Instructions that are allowed in dead code or when failing,
 %% that is while the state is undecided in some way.
-valfun_1({label,Lbl}, #vst{current=St0,branched=B,labels=Lbls}=Vst) ->
-    St = merge_states(Lbl, St0, B),
-    Vst#vst{current=St,branched=gb_trees:enter(Lbl, St, B),
-	    labels=gb_sets:add(Lbl, Lbls)};
+valfun_1({label,Lbl}, #vst{current=St0,
+                           ref_ctr=Counter0,
+                           branched=B,
+                           labels=Lbls}=Vst) ->
+    {St, Counter} = merge_states(Lbl, St0, B, Counter0),
+    Vst#vst{current=St,
+            ref_ctr=Counter,
+            branched=gb_trees:enter(Lbl, St, B),
+            labels=gb_sets:add(Lbl, Lbls)};
 valfun_1(_I, #vst{current=none}=Vst) ->
     %% Ignore instructions after erlang:error/1,2, which
     %% the original R10B compiler thought would return.
     Vst;
 valfun_1({badmatch,Src}, Vst) ->
-    assert_not_fragile(Src, Vst),
+    assert_durable_term(Src, Vst),
     verify_y_init(Vst),
     kill_state(Vst);
 valfun_1({case_end,Src}, Vst) ->
-    assert_not_fragile(Src, Vst),
+    assert_durable_term(Src, Vst),
     verify_y_init(Vst),
     kill_state(Vst);
 valfun_1(if_end, Vst) ->
@@ -319,7 +377,7 @@ valfun_1(if_end, Vst) ->
     kill_state(Vst);
 valfun_1({try_case_end,Src}, Vst) ->
     verify_y_init(Vst),
-    assert_not_fragile(Src, Vst),
+    assert_durable_term(Src, Vst),
     kill_state(Vst);
 %% Instructions that cannot cause exceptions
 valfun_1({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
@@ -363,17 +421,17 @@ valfun_1({bif,Op,{f,_},Ss,Dst}=I, Vst) ->
     end;
 %% Put instructions.
 valfun_1({put_list,A,B,Dst}, Vst0) ->
-    assert_not_fragile(A, Vst0),
-    assert_not_fragile(B, Vst0),
+    assert_term(A, Vst0),
+    assert_term(B, Vst0),
     Vst = eat_heap(2, Vst0),
     create_term(cons, put_list, [A, B], Dst, Vst);
 valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
-    _ = [assert_not_fragile(El, Vst0) || El <- Elements],
+    _ = [assert_term(El, Vst0) || El <- Elements],
     Size = length(Elements),
     Vst = eat_heap(Size+1, Vst0),
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
                        Type = get_term_type(Val, Vst0),
-                       Es = set_element_type(Index, Type, Es0),
+                       Es = set_element_type({integer,Index}, Type, Es0),
                        {Es, Index + 1}
                    end, {#{}, 1}, Elements),
     Type = {tuple,Size,Es},
@@ -385,18 +443,19 @@ valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
     St = St0#st{puts_left={Sz,{Dst,Sz,#{}}}},
     Vst#vst{current=St};
 valfun_1({put,Src}, Vst0) ->
-    assert_not_fragile(Src, Vst0),
+    assert_term(Src, Vst0),
     Vst = eat_heap(1, Vst0),
     #vst{current=St0} = Vst,
     case St0 of
         #st{puts_left=none} ->
             error(not_building_a_tuple);
-        #st{puts_left={1,{Dst,Sz,Es}}} ->
+        #st{puts_left={1,{Dst,Sz,Es0}}} ->
+            Es = Es0#{ {integer,Sz} => get_term_type(Src, Vst0) },
             St = St0#st{puts_left=none},
             create_term({tuple,Sz,Es}, put_tuple, [], Dst, Vst#vst{current=St});
         #st{puts_left={PutsLeft,{Dst,Sz,Es0}}} when is_integer(PutsLeft) ->
             Index = Sz - PutsLeft + 1,
-            Es = Es0#{ Index => get_term_type(Src, Vst0) },
+            Es = Es0#{ {integer,Index} => get_term_type(Src, Vst0) },
             St = St0#st{puts_left={PutsLeft-1,{Dst,Sz,Es}}},
             Vst#vst{current=St}
     end;
@@ -417,6 +476,14 @@ valfun_1({'%', {type_info, Reg, Type}}, Vst) ->
     %% that Reg has a certain type, so that we can accept cross-function type
     %% optimizations.
     update_type(fun meet/2, Type, Reg, Vst);
+valfun_1({'%', {remove_fragility, Reg}}, Vst) ->
+    %% This is a hack to make prim_eval:'receive'/2 work.
+    %%
+    %% Normally it's illegal to pass fragile terms as a function argument as we
+    %% have no way of knowing what the callee will do with it, but we know that
+    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
+    %% disabled while matching messages.
+    remove_fragility(Reg, Vst);
 valfun_1({'%',_}, Vst) ->
     Vst;
 valfun_1({line,_}, Vst) ->
@@ -438,13 +505,13 @@ valfun_1(_I, #vst{current=#st{ct=undecided}}) ->
 %%
 %% Allocate and deallocate, et.al
 valfun_1({allocate,Stk,Live}, Vst) ->
-    allocate(false, Stk, 0, Live, Vst);
+    allocate(uninitialized, Stk, 0, Live, Vst);
 valfun_1({allocate_heap,Stk,Heap,Live}, Vst) ->
-    allocate(false, Stk, Heap, Live, Vst);
+    allocate(uninitialized, Stk, Heap, Live, Vst);
 valfun_1({allocate_zero,Stk,Live}, Vst) ->
-    allocate(true, Stk, 0, Live, Vst);
+    allocate(initialized, Stk, 0, Live, Vst);
 valfun_1({allocate_heap_zero,Stk,Heap,Live}, Vst) ->
-    allocate(true, Stk, Heap, Live, Vst);
+    allocate(initialized, Stk, Heap, Live, Vst);
 valfun_1({deallocate,StkSize}, #vst{current=#st{numy=StkSize}}=Vst) ->
     verify_no_ct(Vst),
     deallocate(Vst);
@@ -508,8 +575,9 @@ valfun_1({get_tl,Src,Dst}, Vst) ->
 valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
     assert_not_literal(Src),
     assert_type({tuple_element,N+1}, Src, Vst),
-    Type = get_element_type(N+1, Src, Vst),
-    extract_term(Type, get_tuple_element, [Src], Dst, Vst);
+    Index = {integer,N+1},
+    Type = get_element_type(Index, Src, Vst),
+    extract_term(Type, {bif,element}, [Index, Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
     kill_state(branch_state(Lbl, Vst));
 valfun_1(I, Vst) ->
@@ -518,20 +586,26 @@ valfun_1(I, Vst) ->
 init_try_catch_branch(Tag, Dst, Fail, Vst0) ->
     Vst1 = create_tag({Tag,[Fail]}, 'try_catch', [], Dst, Vst0),
     #vst{current=#st{ct=Fails}=St0} = Vst1,
-    CurrentSt = St0#st{ct=[[Fail]|Fails]},
+    St = St0#st{ct=[[Fail]|Fails]},
+    Vst = Vst0#vst{current=St},
 
-    %% Set the initial state at the try/catch label.
-    %% Assume that Y registers contain terms or try/catch
-    %% tags.
-    Yregs0 = map(fun({Y,uninitialized}) -> {Y,term};
-                    ({Y,initialized}) -> {Y,term};
-                    (E) -> E
-                 end, gb_trees:to_list(CurrentSt#st.y)),
-    Yregs = gb_trees:from_orddict(Yregs0),
-    BranchSt = CurrentSt#st{y=Yregs},
+    complex_test(Fail,
+                 fun(CatchVst) ->
+                          #vst{current=#st{ys=Ys}} = CatchVst,
+                          maps:fold(fun init_catch_handler_1/3, CatchVst, Ys)
+                 end,
+                 fun(SuccVst) ->
+                          SuccVst
+                 end, Vst).
 
-    Vst = branch_state(Fail, Vst1#vst{current=BranchSt}),
-    Vst#vst{current=CurrentSt}.
+%% Set the initial state at the try/catch label. Assume that Y registers
+%% contain terms or try/catch tags.
+init_catch_handler_1(Reg, initialized, Vst) ->
+    create_term(term, 'catch_handler', [], Reg, Vst);
+init_catch_handler_1(Reg, uninitialized, Vst) ->
+    create_term(term, 'catch_handler', [], Reg, Vst);
+init_catch_handler_1(_, _, Vst) ->
+    Vst.
 
 %% Update branched state if necessary and try next set of instructions.
 valfun_2(I, #vst{current=#st{ct=[]}}=Vst) ->
@@ -609,15 +683,13 @@ valfun_4({make_fun2,_,_,_,Live}, Vst) ->
     call(make_fun, Live, Vst);
 %% Other BIFs
 valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
-    PosType = get_durable_term_type(Pos, Vst0),
-    ElementType = case PosType of
-                      {integer,I} -> get_element_type(I, Tuple, Vst0);
-                      _ -> term
-                  end,
+    PosType = get_term_type(Pos, Vst0),
+    ElementType = get_element_type(PosType, Tuple, Vst0),
     InferredType = {tuple,[get_tuple_size(PosType)],#{}},
     Vst1 = branch_state(Fail, Vst0),
-    Vst = update_type(fun meet/2, InferredType, Tuple, Vst1),
-    extract_term(ElementType, {bif,element}, [Tuple], Dst, Vst);
+    Vst2 = update_type(fun meet/2, InferredType, Tuple, Vst1),
+    Vst = update_type(fun meet/2, {integer,[]}, Pos, Vst2),
+    extract_term(ElementType, {bif,element}, [Pos,Tuple], Dst, Vst);
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
     kill_state(Vst);
@@ -634,7 +706,7 @@ valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
     Vst1 = branch_state(Fail, Vst0),
 
     %% Infer argument types. Note that we can't type_test in the general case
-    %% as the BIF could fail for reasons other than bad arguments.
+    %% as the BIF could fail for reasons other than bad argument types.
     ArgTypes = bif_arg_types(Op, Ss),
     Vst = foldl(fun({Arg, T}, Vsti) ->
                         update_type(fun meet/2, T, Arg, Vsti)
@@ -659,17 +731,18 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
     Vst = prune_x_regs(Live, Vst3),
     extract_term(Type, {gc_bif,Op}, Ss, Dst, Vst, Vst0);
 valfun_4(return, #vst{current=#st{numy=none}}=Vst) ->
-    assert_not_fragile({x,0}, Vst),
+    assert_durable_term({x,0}, Vst),
     kill_state(Vst);
 valfun_4(return, #vst{current=#st{numy=NumY}}) ->
     error({stack_frame,NumY});
 valfun_4({loop_rec,{f,Fail},Dst}, Vst0) ->
-    Vst = branch_state(Fail, Vst0),
     %% This term may not be part of the root set until
     %% remove_message/0 is executed. If control transfers
     %% to the loop_rec_end/1 instruction, no part of
     %% this term must be stored in a Y register.
-    create_term({fragile,term}, loop_rec, [], Dst, Vst);
+    Vst1 = branch_state(Fail, Vst0),
+    {Ref, Vst} = new_value(term, loop_rec, [], Vst1),
+    mark_fragile(Dst, set_reg_vref(Ref, Dst, Vst));
 valfun_4({wait,_}, Vst) ->
     verify_y_init(Vst),
     kill_state(Vst);
@@ -680,20 +753,20 @@ valfun_4({wait_timeout,_,Src}, Vst) ->
 valfun_4({loop_rec_end,_}, Vst) ->
     verify_y_init(Vst),
     kill_state(Vst);
-valfun_4(timeout, #vst{current=St}=Vst) ->
-    Vst#vst{current=St#st{x=init_regs(0, term)}};
+valfun_4(timeout, Vst) ->
+    prune_x_regs(0, Vst);
 valfun_4(send, Vst) ->
     call(send, 2, Vst);
 valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
     I = N + 1,
-    assert_not_fragile(Src, Vst),
+    assert_term(Src, Vst),
     assert_type({tuple_element,I}, Tuple, Vst),
     %% Manually update the tuple type; we can't rely on the ordinary update
     %% helpers as we must support overwriting (rather than just widening or
     %% narrowing) known elements, and we can't use extract_term either since
     %% the source tuple may be aliased.
     {tuple, Sz, Es0} = get_term_type(Tuple, Vst),
-    Es = set_element_type(I, get_term_type(Src, Vst), Es0),
+    Es = set_element_type({integer,I}, get_term_type(Src, Vst), Es0),
     override_type({tuple, Sz, Es}, Tuple, Vst);
 %% Match instructions.
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
@@ -750,15 +823,19 @@ valfun_4({bs_get_position, Ctx, Dst, Live}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
-    create_term(bs_position, bs_get_position, [Ctx], Dst, Vst);
+    create_term(ms_position, bs_get_position, [Ctx], Dst, Vst, Vst0);
 valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
     bsm_validate_context(Ctx, Vst),
-    assert_type(bs_position, Pos, Vst),
+    assert_type(ms_position, Pos, Vst),
     Vst;
 
 %% Other test instructions.
 valfun_4({test,is_atom,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, {atom,[]}, Src, Vst);
+valfun_4({test,is_binary,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, binary, Src, Vst);
+valfun_4({test,is_bitstr,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, binary, Src, Vst);
 valfun_4({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, bool, Src, Vst);
 valfun_4({test,is_float,{f,Lbl},[Src]}, Vst) ->
@@ -769,10 +846,21 @@ valfun_4({test,is_integer,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, {integer,[]}, Src, Vst);
 valfun_4({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, cons, Src, Vst);
+valfun_4({test,is_number,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, number, Src, Vst);
 valfun_4({test,is_list,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, list, Src, Vst);
 valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, nil, Src, Vst);
+    %% is_nil is an exact check against the 'nil' value, and should not be
+    %% treated as a simple type test.
+    assert_term(Src, Vst),
+    complex_test(Lbl,
+                 fun(FailVst) ->
+                         update_ne_types(Src, nil, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         update_eq_types(Src, nil, SuccVst)
+                 end, Vst);
 valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
     case Src of
         {Tag,_} when Tag =:= x; Tag =:= y ->
@@ -790,7 +878,7 @@ valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst0) when is_integer(Sz) ->
 valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst0) ->
     assert_term(Src, Vst0),
     Vst = branch_state(Lbl, Vst0),
-    update_type(fun meet/2, {tuple,Sz,#{ 1 => Atom }}, Src, Vst);
+    update_type(fun meet/2, {tuple,Sz,#{ {integer,1} => Atom }}, Src, Vst);
 valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     assert_type(map, Src, Vst),
     assert_unique_map_keys(List),
@@ -817,8 +905,8 @@ valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
     branch_state(Lbl, Vst);
 valfun_4({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
-    assert_not_fragile(A, Vst),
-    assert_not_fragile(B, Vst),
+    assert_term(A, Vst),
+    assert_term(B, Vst),
     create_term({integer,[]}, bs_add, [A, B], Dst, branch_state(Fail, Vst));
 valfun_4({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
@@ -833,12 +921,12 @@ valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
 	is_integer(Sz) ->
 	    ok;
 	true ->
-	    assert_not_fragile(Sz, Vst0)
+	    assert_term(Sz, Vst0)
     end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
-    create_term(binary, bs_init2, [], Dst, Vst);
+    create_term(binary, bs_init2, [], Dst, Vst, Vst0);
 valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -855,39 +943,39 @@ valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
 valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
-    assert_not_fragile(Bits, Vst0),
-    assert_not_fragile(Bin, Vst0),
+    assert_term(Bits, Vst0),
+    assert_term(Bin, Vst0),
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
-    create_term(binary, bs_append, [Bin], Dst, Vst);
+    create_term(binary, bs_append, [Bin], Dst, Vst, Vst0);
 valfun_4({bs_private_append,{f,Fail},Bits,_Unit,Bin,_Flags,Dst}, Vst0) ->
-    assert_not_fragile(Bits, Vst0),
-    assert_not_fragile(Bin, Vst0),
+    assert_term(Bits, Vst0),
+    assert_term(Bin, Vst0),
     Vst = branch_state(Fail, Vst0),
     create_term(binary, bs_private_append, [Bin], Dst, Vst);
 valfun_4({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
     Vst;
 valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_not_fragile(Sz, Vst),
-    assert_not_fragile(Src, Vst),
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_not_fragile(Sz, Vst),
-    assert_not_fragile(Src, Vst),
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_not_fragile(Sz, Vst),
-    assert_not_fragile(Src, Vst),
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
-    assert_not_fragile(Src, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
-    assert_not_fragile(Src, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
-    assert_not_fragile(Src, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 %% Map instructions.
 valfun_4({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
@@ -945,13 +1033,13 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(map, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
-    [assert_not_fragile(Term, Vst0) || Term <- List],
+    [assert_term(Term, Vst0) || Term <- List],
     Vst1 = heap_alloc(0, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
     Keys = extract_map_keys(List),
     assert_unique_map_keys(Keys),
-    create_term(map, Op, [Src], Dst, Vst).
+    create_term(map, Op, [Src], Dst, Vst, Vst0).
 
 %%
 %% Common code for validating bs_start_match* instructions.
@@ -962,18 +1050,20 @@ validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
     verify_y_init(Vst),
 
     %% #ms{} can represent either a match context or a term, so we have to mark
-    %% the source as a term if it fails, and retain the incoming type if it
-    %% succeeds (match context or not).
-    %%
-    %% The override_type hack is only needed until we get proper union types.
+    %% the source as a term if it fails with a match context as an input. This
+    %% hack is only needed until we get proper union types.
     complex_test(Fail,
                  fun(FailVst) ->
-                         override_type(term, Src, FailVst)
+                         case get_raw_type(Src, FailVst) of
+                             #ms{} -> override_type(term, Src, FailVst);
+                             _ -> FailVst
+                         end
                  end,
                  fun(SuccVst0) ->
-                         SuccVst = prune_x_regs(Live, SuccVst0),
+                         SuccVst1 = update_type(fun meet/2, binary, Src, SuccVst0),
+                         SuccVst = prune_x_regs(Live, SuccVst1),
                          extract_term(Type, bs_start_match, [Src], Dst,
-                                      SuccVst, Vst)
+                                      SuccVst, SuccVst0)
                  end, Vst).
 
 %%
@@ -985,7 +1075,7 @@ validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst0) ->
     verify_y_init(Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     Vst = branch_state(Fail, Vst1),
-    extract_term(Type, Op, [Ctx], Dst, Vst).
+    extract_term(Type, Op, [Ctx], Dst, Vst, Vst0).
 
 %%
 %% Common code for validating bs_skip_utf* instructions.
@@ -1032,7 +1122,7 @@ call(Name, Live, #vst{current=St0}=Vst0) ->
     case call_return_type(Name, Vst0) of
         Type when Type =/= exception ->
             %% Type is never 'exception' because it has been handled earlier.
-            St = St0#st{f=init_fregs(),aliases=#{}},
+            St = St0#st{f=init_fregs()},
             Vst = prune_x_regs(0, Vst0#vst{current=St}),
             create_term(Type, call, [], {x,0}, Vst)
     end.
@@ -1059,13 +1149,15 @@ verify_call_args(_, Live, _) ->
 verify_remote_args_1(-1, _) ->
     ok;
 verify_remote_args_1(X, Vst) ->
-    assert_not_fragile({x, X}, Vst),
+    assert_durable_term({x, X}, Vst),
     verify_remote_args_1(X - 1, Vst).
 
 verify_local_args(-1, _Lbl, _CtxIds, _Vst) ->
     ok;
 verify_local_args(X, Lbl, CtxIds, Vst) ->
     Reg = {x, X},
+    assert_movable(Reg, Vst),
+    assert_not_fragile(Reg, Vst),
     case get_raw_type(Reg, Vst) of
         #ms{id=Id}=Type ->
             case CtxIds of
@@ -1075,8 +1167,6 @@ verify_local_args(X, Lbl, CtxIds, Vst) ->
                     verify_arg_type(Lbl, Reg, Type, Vst),
                     verify_local_args(X - 1, Lbl, CtxIds#{ Id => Reg }, Vst)
             end;
-        {fragile,_} ->
-            error({fragile_message_reference, Reg});
         Type ->
             verify_arg_type(Lbl, Reg, Type, Vst),
             verify_local_args(X - 1, Lbl, CtxIds, Vst)
@@ -1092,56 +1182,89 @@ verify_arg_type(Lbl, Reg, #ms{}, #vst{ft=Ft}) ->
     end;
 verify_arg_type(Lbl, Reg, GivenType, #vst{ft=Ft}) ->
     case gb_trees:lookup({Lbl, Reg}, Ft) of
-        {value, bool} when GivenType =:= {atom, true};
-                           GivenType =:= {atom, false};
-                           GivenType =:= {atom, []} ->
-            %% We don't yet support upgrading true/false to bool, so we
-            %% assume unknown atoms can be bools when validating calls.
-            ok;
         {value, #ms{}} ->
             %% Functions that accept match contexts also accept all other
             %% terms. This will change once we support union types.
             ok;
         {value, RequiredType} ->
-            case meet(GivenType, RequiredType) of
-                none -> error({bad_arg_type, Reg, GivenType, RequiredType});
-                _ -> ok
+            case vat_1(GivenType, RequiredType) of
+                true -> ok;
+                false -> error({bad_arg_type, Reg, GivenType, RequiredType})
             end;
         none ->
             ok
     end.
 
-allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}}=Vst0) ->
+%% Checks whether the Given argument is compatible with the Required one. This
+%% is essentially a relaxed version of 'meet(Given, Req) =:= Given', where we
+%% accept that the Given value has the right type but not necessarily the exact
+%% same value; if {atom,gurka} is required, we'll consider {atom,[]} valid.
+%%
+%% This will catch all problems that could crash the emulator, like passing a
+%% 1-tuple when the callee expects a 3-tuple, but some value errors might slip
+%% through.
+vat_1(Same, Same) -> true;
+vat_1({atom,A}, {atom,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
+vat_1({atom,A}, bool) -> is_boolean(A) orelse is_list(A);
+vat_1(bool, {atom,B}) -> is_boolean(B) orelse is_list(B);
+vat_1(cons, list) -> true;
+vat_1({float,A}, {float,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
+vat_1({float,_}, number) -> true;
+vat_1({integer,A}, {integer,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
+vat_1({integer,_}, number) -> true;
+vat_1(_, {literal,_}) -> false;
+vat_1({literal,_}=Lit, Required) -> vat_1(get_literal_type(Lit), Required);
+vat_1(nil, list) -> true;
+vat_1({tuple,SzA,EsA}, {tuple,SzB,EsB}) ->
+    if
+        is_list(SzB) ->
+            tuple_sz(SzA) >= tuple_sz(SzB) andalso vat_elements(EsA, EsB);
+        SzA =:= SzB ->
+            vat_elements(EsA, EsB);
+        SzA =/= SzB ->
+            false
+    end;
+vat_1(_, _) -> false.
+
+vat_elements(EsA, EsB) ->
+    maps:fold(fun(Key, Req, Acc) ->
+                      case EsA of
+                          #{ Key := Given } -> Acc andalso vat_1(Given, Req);
+                          #{} -> false
+                      end
+              end, true, EsB).
+
+allocate(Tag, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
     verify_live(Live, Vst0),
-    Vst = #vst{current=St} = prune_x_regs(Live, Vst0),
-    Ys = init_regs(Stk, case Zero of 
-			    true -> initialized;
-			    false -> uninitialized
-			end),
-    heap_alloc(Heap, Vst#vst{current=St#st{y=Ys,numy=Stk}});
+    Vst1 = Vst0#vst{current=St#st{numy=Stk}},
+    Vst2 = prune_x_regs(Live, Vst1),
+    Vst = init_stack(Tag, Stk - 1, Vst2),
+    heap_alloc(Heap, Vst);
 allocate(_, _, _, _, #vst{current=#st{numy=Numy}}) ->
     error({existing_stack_frame,{size,Numy}}).
 
 deallocate(#vst{current=St}=Vst) ->
-    Vst#vst{current=St#st{y=init_regs(0, initialized),numy=none}}.
+    Vst#vst{current=St#st{ys=#{},numy=none}}.
 
-trim_stack(From, To, Top, #st{y=Ys0}=St) when From =:= Top ->
-    Ys = foldl(fun(Y, Acc) ->
-                       gb_trees:delete(Y, Acc)
-               end, Ys0, seq(To, From - 1)),
-    %% Note that all aliases and defs are wiped. This is perhaps a bit too
-    %% conservative, but preserving them won't be easy until type management
-    %% is refactored.
-    St#st{aliases=#{},defs=#{},numy=To,y=Ys};
+init_stack(_Tag, -1, Vst) ->
+    Vst;
+init_stack(Tag, Y, Vst) ->
+    init_stack(Tag, Y - 1, create_tag(Tag, allocate, [], {y,Y}, Vst)).
+
+trim_stack(From, To, Top, #st{ys=Ys0}=St) when From =:= Top ->
+    Ys = maps:filter(fun({y,Y}, _) -> Y < To end, Ys0),
+    St#st{numy=To,ys=Ys};
 trim_stack(From, To, Top, St0) ->
-    #st{y=Ys0} = St0,
+    Src = {y, From},
+    Dst = {y, To},
 
-    Ys = case gb_trees:lookup(From, Ys0) of
-             none -> error({invalid_shift,{y,From},{y,To}});
-             {value,Type} -> gb_trees:enter(To, Type, Ys0)
+    #st{ys=Ys0} = St0,
+    Ys = case Ys0 of
+             #{ Src := Ref } -> Ys0#{ Dst => Ref };
+             #{} -> error({invalid_shift,Src,Dst})
          end,
+    St = St0#st{ys=Ys},
 
-    St = St0#st{y=Ys},
     trim_stack(From + 1, To + 1, Top, St).
 
 test_heap(Heap, Live, Vst0) ->
@@ -1168,24 +1291,17 @@ heap_alloc_2([{floats,Floats}|T], St0) ->
     heap_alloc_2(T, St);
 heap_alloc_2([], St) -> St.
 
-prune_x_regs(Live, #vst{current=St0}=Vst)
-  when is_integer(Live) ->
-    #st{x=Xs0,defs=Defs0,aliases=Aliases0} = St0,
-    Xs1 = gb_trees:to_list(Xs0),
-    Xs = [P || {R,_}=P <- Xs1, R < Live],
-    Defs = maps:filter(fun({x,X}, _) -> X < Live;
-                          ({y,_}, _) -> true
-                       end, Defs0),
-    Aliases = maps:filter(fun({x,X1}, {x,X2}) ->
-                                  X1 < Live andalso X2 < Live;
-                             ({x,X}, _) ->
-                                  X < Live;
-                             (_, {x,X}) ->
-                                  X < Live;
-                             (_, _) ->
-                                  true
-                          end, Aliases0),
-    St = St0#st{x=gb_trees:from_orddict(Xs),defs=Defs,aliases=Aliases},
+prune_x_regs(Live, #vst{current=St0}=Vst) when is_integer(Live) ->
+    #st{fragile=Fragile0,xs=Xs0} = St0,
+    Fragile = cerl_sets:filter(fun({x,X}) ->
+                                       X < Live;
+                                  ({y,_}) ->
+                                       true
+                               end, Fragile0),
+    Xs = maps:filter(fun({x,X}, _) ->
+                             X < Live
+                     end, Xs0),
+    St = St0#st{fragile=Fragile,xs=Xs},
     Vst#vst{current=St}.
 
 %% All choices in a select_val list must be integers, floats, or atoms.
@@ -1249,8 +1365,7 @@ get_fls(#vst{current=#st{fls=Fls}}) when is_atom(Fls) -> Fls.
 
 init_fregs() -> 0.
 
-set_freg({fr,Fr}=Freg, #vst{current=#st{f=Fregs0}=St}=Vst)
-  when is_integer(Fr), 0 =< Fr ->
+set_freg({fr,Fr}=Freg, #vst{current=#st{f=Fregs0}=St}=Vst) ->
     check_limit(Freg),
     Bit = 1 bsl Fr,
     if
@@ -1308,19 +1423,13 @@ bsm_validate_context(Reg, Vst) ->
     _ = bsm_get_context(Reg, Vst),
     ok.
 
-bsm_get_context({x,X}=Reg, #vst{current=#st{x=Xs}}=_Vst) when is_integer(X) ->
-    case gb_trees:lookup(X, Xs) of
-	{value,#ms{}=Ctx} -> Ctx;
-	{value,{fragile,#ms{}=Ctx}} -> Ctx;
-	_ -> error({no_bsm_context,Reg})
+bsm_get_context({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y->
+    case get_raw_type(Reg, Vst) of
+        #ms{}=Ctx -> Ctx;
+        _ -> error({no_bsm_context,Reg})
     end;
-bsm_get_context({y,Y}=Reg, #vst{current=#st{y=Ys}}=_Vst) when is_integer(Y) ->
-    case gb_trees:lookup(Y, Ys) of
-	{value,#ms{}=Ctx} -> Ctx;
-	{value,{fragile,#ms{}=Ctx}} -> Ctx;
-	_ -> error({no_bsm_context,Reg})
-    end;
-bsm_get_context(Reg, _) -> error({bad_source,Reg}).
+bsm_get_context(Reg, _) ->
+    error({bad_source,Reg}).
 
 bsm_save(Reg, {atom,start}, Vst) ->
     %% Save point refering to where the match started.
@@ -1357,17 +1466,17 @@ select_val_branches(Fail, Src, Choices, Vst0) ->
 svb_1([Val,{f,L}|T], Src, Vst0) ->
     Vst = complex_test(L,
                        fun(BranchVst) ->
-                               update_eq_types(Val, Src, BranchVst)
+                               update_eq_types(Src, Val, BranchVst)
                        end,
                        fun(FailVst) ->
-                               update_ne_types(Val, Src, FailVst)
+                               update_ne_types(Src, Val, FailVst)
                        end, Vst0),
     svb_1(T, Src, Vst);
 svb_1([], _, Vst) ->
     Vst.
 
 select_arity_branches(Fail, List, Tuple, Vst0) ->
-    Type = get_durable_term_type(Tuple, Vst0),
+    Type = get_term_type(Tuple, Vst0),
     Vst = sab_1(List, Tuple, Type, Vst0),
     kill_state(branch_state(Fail, Vst)).
 
@@ -1389,42 +1498,54 @@ sab_1([_,{f,_}|T], Tuple, Type, Vst) ->
 sab_1([], _, _, #vst{}=Vst) ->
     Vst.
 
-infer_types(Src, Vst) ->
-    case get_def(Src, Vst) of
-        {{bif,tuple_size}, [Tuple]} ->
-            fun({integer,Arity}, S) ->
-                    update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
-               (_, S) -> S
-            end;
-        {{bif,'=:='},[ArityReg,{integer,_}=Val]} when ArityReg =/= Src ->
-            fun({atom,true}, S) ->
-                    Infer = infer_types(ArityReg, S),
-                    Infer(Val, S);
-               (_, S) -> S
-            end;
-        {{bif,is_atom},[Src]} ->
-             infer_type_test_bif({atom,[]}, Src);
-        {{bif,is_boolean},[Src]} ->
-             infer_type_test_bif(bool, Src);
-        {{bif,is_binary},[Src]} ->
-             infer_type_test_bif(binary, Src);
-        {{bif,is_bitstring},[Src]} ->
-             infer_type_test_bif(binary, Src);
-        {{bif,is_float},[Src]} ->
-             infer_type_test_bif(float, Src);
-        {{bif,is_integer},[Src]} ->
-             infer_type_test_bif({integer,{}}, Src);
-        {{bif,is_list},[Src]} ->
-             infer_type_test_bif(list, Src);
-        {{bif,is_map},[Src]} ->
-             infer_type_test_bif(map, Src);
-        {{bif,is_number},[Src]} ->
-             infer_type_test_bif(number, Src);
-        {{bif,is_tuple},[Src]} ->
-             infer_type_test_bif({tuple,[0],#{}}, Src);
-        _ ->
-            fun(_, S) -> S end
-    end.
+infer_types({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
+    infer_types(get_reg_vref(Reg, Vst), Vst);
+infer_types(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
+    case Vs of
+        #{ Ref := Entry } -> infer_types_1(Entry);
+        #{} -> fun(_, S) -> S end
+    end;
+infer_types(_, #vst{}) ->
+    fun(_, S) -> S end.
+
+infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
+    fun({atom,true}, S) ->
+            Infer = infer_types(RHS, S),
+            Infer(LHS, S);
+       (_, S) -> S
+    end;
+infer_types_1(#value{op={bif,element},args=[{integer,Index}=Key,Tuple]}) ->
+    fun(Val, S) ->
+            Type = get_term_type(Val, S),
+            update_type(fun meet/2,{tuple,[Index],#{ Key => Type }}, Tuple, S)
+    end;
+infer_types_1(#value{op={bif,is_atom},args=[Src]}) ->
+    infer_type_test_bif({atom,[]}, Src);
+infer_types_1(#value{op={bif,is_boolean},args=[Src]}) ->
+    infer_type_test_bif(bool, Src);
+infer_types_1(#value{op={bif,is_binary},args=[Src]}) ->
+    infer_type_test_bif(binary, Src);
+infer_types_1(#value{op={bif,is_bitstring},args=[Src]}) ->
+    infer_type_test_bif(binary, Src);
+infer_types_1(#value{op={bif,is_float},args=[Src]}) ->
+    infer_type_test_bif(float, Src);
+infer_types_1(#value{op={bif,is_integer},args=[Src]}) ->
+    infer_type_test_bif({integer,{}}, Src);
+infer_types_1(#value{op={bif,is_list},args=[Src]}) ->
+    infer_type_test_bif(list, Src);
+infer_types_1(#value{op={bif,is_map},args=[Src]}) ->
+    infer_type_test_bif(map, Src);
+infer_types_1(#value{op={bif,is_number},args=[Src]}) ->
+    infer_type_test_bif(number, Src);
+infer_types_1(#value{op={bif,is_tuple},args=[Src]}) ->
+    infer_type_test_bif({tuple,[0],#{}}, Src);
+infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]}) ->
+    fun({integer,Arity}, S) ->
+            update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
+       (_, S) -> S
+    end;
+infer_types_1(_) ->
+    fun(_, S) -> S end.
 
 infer_type_test_bif(Type, Src) ->
     fun({atom,true}, S) ->
@@ -1445,38 +1566,67 @@ assign({y,_}=Src, {y,_}=Dst, Vst) ->
         initialized -> create_tag(initialized, init, [], Dst, Vst);
         _ -> assign_1(Src, Dst, Vst)
     end;
-assign({Kind,_}=Reg, Dst, Vst) when Kind =:= x; Kind =:= y ->
-    assign_1(Reg, Dst, Vst);
+assign({Kind,_}=Src, Dst, Vst) when Kind =:= x; Kind =:= y ->
+    assign_1(Src, Dst, Vst);
 assign(Literal, Dst, Vst) ->
-    Type = get_term_type(Literal, Vst),
+    Type = get_literal_type(Literal),
     create_term(Type, move, [Literal], Dst, Vst).
 
-%% Creates a special tag value that isn't a regular term, such as
-%% 'initialized' or 'catchtag'
-create_tag(Type, Op, Ss, {y,_}=Dst, Vst) ->
-    set_type_reg_expr(Type, {Op, Ss}, Dst, Vst);
-create_tag(_Type, _Op, _Ss, Dst, _Vst) ->
+%% Creates a special tag value that isn't a regular term, such as 'initialized'
+%% or 'catchtag'
+create_tag(Tag, _Op, _Ss, {y,_}=Dst, #vst{current=#st{ys=Ys0}=St0}=Vst) ->
+    case maps:get(Dst, Ys0, uninitialized) of
+        {catchtag,_}=Prev ->
+            error(Prev);
+        {trytag,_}=Prev ->
+            error(Prev);
+        _ ->
+            check_try_catch_tags(Tag, Dst, Vst),
+            Ys = Ys0#{ Dst => Tag },
+            St = St0#st{ys=Ys},
+            remove_fragility(Dst, Vst#vst{current=St})
+    end;
+create_tag(_Tag, _Op, _Ss, Dst, _Vst) ->
     error({invalid_tag_register, Dst}).
 
 %% Wipes a special tag, leaving the register initialized but empty.
-kill_tag({y,Y}=Reg, #vst{current=#st{y=Ys0}=St0}=Vst) ->
+kill_tag({y,_}=Reg, #vst{current=#st{ys=Ys0}=St0}=Vst) ->
     _ = get_tag_type(Reg, Vst),                 %Assertion.
-    Ys = gb_trees:update(Y, initialized, Ys0),
-    Vst#vst{current=St0#st{y=Ys}}.
+    Ys = Ys0#{ Reg => initialized },
+    Vst#vst{current=St0#st{ys=Ys}}.
 
 %% Creates a completely new term with the given type.
-create_term(Type, Op, Ss, Dst, Vst) ->
-    set_type_reg_expr(Type, {Op, Ss}, Dst, Vst).
+create_term(Type, Op, Ss0, Dst, Vst0) ->
+    create_term(Type, Op, Ss0, Dst, Vst0, Vst0).
+
+%% As create_term/4, but uses the incoming Vst for argument resolution in
+%% case x-regs have been pruned and the sources can no longer be found.
+create_term(Type, Op, Ss0, Dst, Vst0, OrigVst) ->
+    {Ref, Vst1} = new_value(Type, Op, resolve_args(Ss0, OrigVst), Vst0),
+    Vst = remove_fragility(Dst, Vst1),
+    set_reg_vref(Ref, Dst, Vst).
 
 %% Extracts a term from Ss, propagating fragility.
-extract_term(Type, Op, Ss, Dst, Vst) ->
-    extract_term(Type, Op, Ss, Dst, Vst, Vst).
+extract_term(Type, Op, Ss0, Dst, Vst0) ->
+    extract_term(Type, Op, Ss0, Dst, Vst0, Vst0).
 
-%% As extract_term/4, but uses the incoming Vst for fragility in case x-regs
-%% have been pruned and the sources can no longer be found.
-extract_term(Type0, Op, Ss, Dst, Vst, OrigVst) ->
-    Type = propagate_fragility(Type0, Ss, OrigVst),
-    set_type_reg_expr(Type, {Op, Ss}, Dst, Vst).
+%% As extract_term/4, but uses the incoming Vst for argument resolution in
+%% case x-regs have been pruned and the sources can no longer be found.
+extract_term(Type, Op, Ss0, Dst, Vst0, OrigVst) ->
+    {Ref, Vst1} = new_value(Type, Op, resolve_args(Ss0, OrigVst), Vst0),
+    Vst = propagate_fragility(Dst, Ss0, Vst1),
+    set_reg_vref(Ref, Dst, Vst).
+
+%% Translates instruction arguments into the argument() type, decoupling them
+%% from their registers, allowing us to infer their types after they've been
+%% clobbered or moved.
+resolve_args([{Kind,_}=Src | Args], Vst) when Kind =:= x; Kind =:= y ->
+    [get_reg_vref(Src, Vst) | resolve_args(Args, Vst)];
+resolve_args([Lit | Args], Vst) ->
+    assert_literal(Lit),
+    [Lit | resolve_args(Args, Vst)];
+resolve_args([], _Vst) ->
+    [].
 
 %% Helper functions for tests that alter state on both the success and fail
 %% branches, keeping the states from tainting each other.
@@ -1501,13 +1651,11 @@ type_test(Fail, Type, Reg, Vst) ->
 %% Overrides the type of Reg. This is ugly but a necessity for certain
 %% destructive operations.
 override_type(Type, Reg, Vst) ->
-    %% Once the new type format is in, this should be expressed as:
-    %%    update_type(fun(_, T) -> T end, Type, Reg, Vst).
-    set_aliased_type(Type, Reg, Vst).
+    update_type(fun(_, T) -> T end, Type, Reg, Vst).
 
 %% This is used when linear code finds out more and more information about a
 %% type, so that the type gets more specialized.
-update_type(Merge, Type0, Reg, Vst) ->
+update_type(Merge, Type0, #value_ref{}=Ref, Vst) ->
     %% If the old type can't be merged with the new one, the type information
     %% is inconsistent and we know that some instructions will never be
     %% executed at run-time. For example:
@@ -1518,21 +1666,26 @@ update_type(Merge, Type0, Reg, Vst) ->
     %%
     %% Note that the test_arity instruction can never be reached, so we use the
     %% new type instead of 'none'.
-    Type = case Merge(get_durable_term_type(Reg, Vst), Type0) of
+    Type = case Merge(get_raw_type(Ref, Vst), Type0) of
                none -> Type0;
                T -> T
            end,
-    set_aliased_type(Type, Reg, Vst).
+    set_type(Type, Ref, Vst);
+update_type(Merge, Type, {Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
+    update_type(Merge, Type, get_reg_vref(Reg, Vst), Vst);
+update_type(_Merge, _Type, Literal, Vst) ->
+    assert_literal(Literal),
+    Vst.
 
 update_ne_types(LHS, RHS, Vst) ->
-    update_type(fun subtract/2, get_durable_term_type(RHS, Vst), LHS, Vst).
+    update_type(fun subtract/2, get_term_type(RHS, Vst), LHS, Vst).
 
 update_eq_types(LHS, RHS, Vst0) ->
     Infer = infer_types(LHS, Vst0),
     Vst1 = Infer(RHS, Vst0),
 
-    T1 = get_durable_term_type(LHS, Vst1),
-    T2 = get_durable_term_type(RHS, Vst1),
+    T1 = get_term_type(LHS, Vst1),
+    T2 = get_term_type(RHS, Vst1),
 
     Vst = update_type(fun meet/2, T2, LHS, Vst1),
     update_type(fun meet/2, T1, RHS, Vst).
@@ -1540,102 +1693,69 @@ update_eq_types(LHS, RHS, Vst0) ->
 %% Helper functions for the above.
 
 assign_1(Src, Dst, Vst0) ->
-    Type = get_move_term_type(Src, Vst0),
-    Def = get_def(Src, Vst0),
+    assert_movable(Src, Vst0),
+    Vst = propagate_fragility(Dst, [Src], Vst0),
+    set_reg_vref(get_reg_vref(Src, Vst), Dst, Vst).
 
-    Vst = set_type_reg_expr(Type, Def, Dst, Vst0),
-
-    #vst{current=St0} = Vst,
-    #st{aliases=Aliases0} = St0,
-
-    Aliases = Aliases0#{Src=>Dst,Dst=>Src},
-
-    St = St0#st{aliases=Aliases},
-    Vst#vst{current=St}.
-
-set_aliased_type(Type, Reg, #vst{current=#st{aliases=Aliases}}=Vst0) ->
-    Vst1 = set_type(Type, Reg, Vst0),
-    case Aliases of
-        #{Reg:=OtherReg} ->
-            Vst = set_type_reg(Type, OtherReg, Vst1),
-            #vst{current=St} = Vst,
-            Vst#vst{current=St#st{aliases=Aliases}};
+set_reg_vref(Ref, {x,_}=Dst, Vst) ->
+    check_limit(Dst),
+    #vst{current=#st{xs=Xs0}=St0} = Vst,
+    St = St0#st{xs=Xs0#{ Dst => Ref }},
+    Vst#vst{current=St};
+set_reg_vref(Ref, {y,_}=Dst, #vst{current=#st{ys=Ys0}=St0} = Vst) ->
+    check_limit(Dst),
+    case Ys0 of
+        #{ Dst := {catchtag,_}=Tag } ->
+            error(Tag);
+        #{ Dst := {trytag,_}=Tag } ->
+            error(Tag);
+        #{ Dst := _ } ->
+            St = St0#st{ys=Ys0#{ Dst => Ref }},
+            Vst#vst{current=St};
         #{} ->
-            Vst1
+            %% Storing into a non-existent Y register means that we haven't set
+            %% up a (sufficiently large) stack.
+            error({invalid_store, Dst})
     end.
 
-kill_aliases(Reg, #st{aliases=Aliases0}=St) ->
-    case Aliases0 of
-        #{Reg:=OtherReg} ->
-            Aliases = maps:without([Reg,OtherReg], Aliases0),
-            St#st{aliases=Aliases};
+get_reg_vref({x,_}=Src, #vst{current=#st{xs=Xs}}) ->
+    check_limit(Src),
+    case Xs of
+        #{ Src := #value_ref{}=Ref } ->
+            Ref;
         #{} ->
-            St
+            error({uninitialized_reg, Src})
+    end;
+get_reg_vref({y,_}=Src, #vst{current=#st{ys=Ys}}) ->
+    check_limit(Src),
+    case Ys of
+        #{ Src := #value_ref{}=Ref } ->
+            Ref;
+        #{ Src := initialized } ->
+            error({unassigned, Src});
+        #{ Src := Tag } when Tag =/= uninitialized ->
+            error(Tag);
+        #{} ->
+            error({uninitialized_reg, Src})
     end.
 
-set_type(Type, {x,_}=Reg, Vst) ->
-    set_type_reg(Type, Reg, Reg, Vst);
-set_type(Type, {y,_}=Reg, Vst) ->
-    set_type_reg(Type, Reg, Reg, Vst);
-set_type(_, _, #vst{}=Vst) -> Vst.
-
-set_type_reg(Type, Src, Dst, Vst) ->
-    case get_raw_type(Src, Vst) of
-        uninitialized ->
-            error({uninitialized_reg, Src});
-        {fragile,_} ->
-            set_type_reg(make_fragile(Type), Dst, Vst);
-        _ ->
-            set_type_reg(Type, Dst, Vst)
+set_type(Type, #value_ref{}=Ref, #vst{current=#st{vs=Vs0}=St}=Vst) ->
+    case Vs0 of
+        #{ Ref := #value{}=Entry } ->
+            Vs = Vs0#{ Ref => Entry#value{type=Type} },
+            Vst#vst{current=St#st{vs=Vs}};
+        #{} ->
+            %% Dead references may happen during type inference and are not an
+            %% error in and of themselves. If a problem were to arise from this
+            %% it'll explode elsewhere.
+            Vst
     end.
 
-set_type_reg(Type, Reg, Vst) ->
-    set_type_reg_expr(Type, none, Reg, Vst).
+new_value(Type, Op, Ss, #vst{current=#st{vs=Vs0}=St,ref_ctr=Counter}=Vst) ->
+    Ref = #value_ref{id=Counter},
+    Vs = Vs0#{ Ref => #value{op=Op,args=Ss,type=Type} },
 
-set_type_reg_expr(Type, Expr, {x,_}=Reg, Vst) ->
-    set_type_x(Type, Expr, Reg, Vst);
-set_type_reg_expr(Type, Expr, Reg, Vst) ->
-    set_type_y(Type, Expr, Reg, Vst).
-
-set_type_x(Type, Expr, {x,X}=Reg, #vst{current=#st{x=Xs0,defs=Defs0}=St0}=Vst)
-  when is_integer(X), 0 =< X ->
-    check_limit(Reg),
-    Xs = case gb_trees:lookup(X, Xs0) of
-             none ->
-                 gb_trees:insert(X, Type, Xs0);
-             {value,{fragile,_}} ->
-                 gb_trees:update(X, make_fragile(Type), Xs0);
-             {value,_} ->
-                 gb_trees:update(X, Type, Xs0)
-         end,
-    Defs = Defs0#{Reg=>Expr},
-    St = kill_aliases(Reg, St0),
-    Vst#vst{current=St#st{x=Xs,defs=Defs}};
-set_type_x(Type, _Expr, Reg, #vst{}) ->
-    error({invalid_store,Reg,Type}).
-
-set_type_y(Type, Expr, {y,Y}=Reg, #vst{current=#st{y=Ys0,defs=Defs0}=St0}=Vst)
-  when is_integer(Y), 0 =< Y ->
-    check_limit(Reg),
-    Ys = case gb_trees:lookup(Y, Ys0) of
-	     none ->
-		 error({invalid_store,Reg,Type});
-	     {value,{catchtag,_}=Tag} ->
-		 error(Tag);
-	     {value,{trytag,_}=Tag} ->
-		 error(Tag);
-	     {value,_} ->
-		 gb_trees:update(Y, Type, Ys0)
-	 end,
-    check_try_catch_tags(Type, Reg, Vst),
-    Defs = Defs0#{Reg=>Expr},
-    St = kill_aliases(Reg, St0),
-    Vst#vst{current=St#st{y=Ys,defs=Defs}};
-set_type_y(Type, _Expr, Reg, #vst{}) ->
-    error({invalid_store,Reg,Type}).
-
-make_fragile({fragile,_}=Type) -> Type;
-make_fragile(Type) -> {fragile,Type}.
+    {Ref, Vst#vst{current=St#st{vs=Vs},ref_ctr=Counter+1}}.
 
 kill_catch_tag(Reg, #vst{current=#st{ct=[Fail|Fails]}=St}=Vst0) ->
     Vst = Vst0#vst{current=St#st{ct=Fails,fls=undefined}},
@@ -1657,25 +1777,17 @@ check_try_catch_tags(Type, {y,N}=Reg, Vst) ->
             ok
     end.
 
-is_reg_defined({x,_}=Reg, Vst) -> is_type_defined_x(Reg, Vst);
-is_reg_defined({y,_}=Reg, Vst) -> is_type_defined_y(Reg, Vst);
+is_reg_defined({x,_}=Reg, #vst{current=#st{xs=Xs}}) -> is_map_key(Reg, Xs);
+is_reg_defined({y,_}=Reg, #vst{current=#st{ys=Ys}}) -> is_map_key(Reg, Ys);
 is_reg_defined(V, #vst{}) -> error({not_a_register, V}).
 
-is_type_defined_x({x,X}, #vst{current=#st{x=Xs}}) ->
-    gb_trees:is_defined(X,Xs).
-
-is_type_defined_y({y,Y}, #vst{current=#st{y=Ys}}) ->
-    gb_trees:is_defined(Y,Ys).
-
 assert_term(Src, Vst) ->
-    get_term_type(Src, Vst),
+    _ = get_term_type(Src, Vst),
     ok.
 
-assert_not_fragile(Src, Vst) ->
-    case get_term_type(Src, Vst) of
-        {fragile, _} -> error({fragile_message_reference, Src});
-        _ -> ok
-    end.
+assert_movable(Src, Vst) ->
+    _ = get_move_term_type(Src, Vst),
+    ok.
 
 assert_literal(nil) -> ok;
 assert_literal({atom,A}) when is_atom(A) -> ok;
@@ -1753,356 +1865,19 @@ assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 %%
 %% none                 A conflict in types. There will be an exception at runtime.
 %%
-%% FRAGILITY
-%% ---------
-%%
-%% The loop_rec/2 instruction may return a reference to a term that is
-%% not part of the root set. That term or any part of it must not be
-%% included in a garbage collection. Therefore, the term (or any part
-%% of it) must not be stored in an Y register.
-%%
-%% Such terms are wrapped in a {fragile,Type} tuple, where Type is one
-%% of the types described above.
-
-%% meet(Type1, Type2) -> Type
-%%  Return the meet of two types. The meet is a more specific type.
-%%  It will be 'none' if the types are in conflict.
-
-meet(Same, Same) ->
-    Same;
-meet({literal,_}=T1, T2) ->
-    meet_literal(T1, T2);
-meet(T1, {literal,_}=T2) ->
-    meet_literal(T2, T1);
-meet(term, Other) ->
-    Other;
-meet(Other, term) ->
-    Other;
-meet(T1, T2) ->
-    case {erlang:min(T1, T2),erlang:max(T1, T2)} of
-        {{atom,_}=A,{atom,[]}} -> A;
-        {bool,{atom,B}=Atom} when is_boolean(B) -> Atom;
-        {bool,{atom,[]}} -> bool;
-        {cons,list} -> cons;
-        {{float,_}=T,{float,[]}} -> T;
-        {{integer,_}=T,{integer,[]}} -> T;
-        {list,nil} -> nil;
-        {number,{integer,_}=T} -> T;
-        {number,{float,_}=T} -> T;
-        {{tuple,Size1,Es1},{tuple,Size2,Es2}} ->
-            Es = meet_elements(Es1, Es2),
-            case {Size1,Size2,Es} of
-                {_, _, none} ->
-                    none;
-                {[Sz1],[Sz2],_} ->
-                    Sz = erlang:max(Sz1, Sz2),
-                    assert_tuple_elements(Sz, Es),
-                    {tuple,[Sz],Es};
-                {Sz1,[Sz2],_} when Sz2 =< Sz1 ->
-                    assert_tuple_elements(Sz1, Es),
-                    {tuple,Sz1,Es};
-                {Sz,Sz,_} ->
-                    assert_tuple_elements(Sz, Es),
-                    {tuple,Sz,Es};
-                {_,_,_} ->
-                    none
-            end;
-        {_,_} -> none
-    end.
-
-%% Meets types of literals.
-meet_literal({literal,_}=Lit, T) ->
-    meet_literal(T, get_literal_type(Lit));
-meet_literal(T1, T2) ->
-    %% We're done extracting the types, try merging them again.
-    meet(T1, T2).
-
-meet_elements(Es1, Es2) ->
-    Keys = maps:keys(Es1) ++ maps:keys(Es2),
-    meet_elements_1(Keys, Es1, Es2, #{}).
-
-meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
-    case {Es1, Es2} of
-        {#{ Key := Type1 }, #{ Key := Type2 }} ->
-            case meet(Type1, Type2) of
-                none -> none;
-                Type -> meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
-            end;
-        {#{ Key := Type1 }, _} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
-        {_, #{ Key := Type2 }} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
-    end;
-meet_elements_1([], _Es1, _Es2, Acc) ->
-    Acc.
-
-%% No tuple elements may have an index above the known size.
-assert_tuple_elements(Limit, Es) ->
-    true = maps:fold(fun(Index, _T, true) ->
-                             Index =< Limit
-                     end, true, Es).            %Assertion.
-
-%% subtract(Type1, Type2) -> Type
-%%  Subtract Type2 from Type2. Example:
-%%      subtract(list, nil) -> cons
-
-subtract(list, nil) -> cons;
-subtract(list, cons) -> nil;
-subtract(number, {integer,[]}) -> {float,[]};
-subtract(number, {float,[]}) -> {integer,[]};
-subtract(bool, {atom,false}) -> {atom, true};
-subtract(bool, {atom,true}) -> {atom, false};
-subtract(Type, _) -> Type.
-
-assert_type(WantedType, Term, Vst) ->
-    Type = get_durable_term_type(Term, Vst),
-    assert_type(WantedType, Type).
-
-assert_type(Correct, Correct) -> ok;
-assert_type(float, {float,_}) -> ok;
-assert_type(tuple, {tuple,_,_}) -> ok;
-assert_type(tuple, {literal,Tuple}) when is_tuple(Tuple) -> ok;
-assert_type({tuple_element,I}, {tuple,[Sz],_})
-  when 1 =< I, I =< Sz ->
-    ok;
-assert_type({tuple_element,I}, {tuple,Sz,_})
-  when is_integer(Sz), 1 =< I, I =< Sz ->
-    ok;
-assert_type({tuple_element,I}, {literal,Lit}) when I =< tuple_size(Lit) ->
-    ok;
-assert_type(cons, {literal,[_|_]}) ->
-    ok;
-assert_type(Needed, Actual) ->
-    error({bad_type,{needed,Needed},{actual,Actual}}).
-
-get_element_type(Key, Src, Vst) ->
-    get_element_type_1(Key, get_durable_term_type(Src, Vst)).
-
-get_element_type_1(Index, {tuple,Sz,Es}) ->
-    case Es of
-        #{ Index := Type } -> Type;
-        #{} when Index =< Sz -> term;
-        #{} -> none
-    end;
-get_element_type_1(_Index, _Type) ->
-    term.
-
-set_element_type(_Key, none, Es) ->
-    Es;
-set_element_type(Key, term, Es) ->
-    maps:remove(Key, Es);
-set_element_type(Key, Type, Es) ->
-    Es#{ Key => Type }.
-
-get_tuple_size({integer,[]}) -> 0;
-get_tuple_size({integer,Sz}) -> Sz;
-get_tuple_size(_) -> 0.
-
-validate_src(Ss, Vst) when is_list(Ss) ->
-    [assert_term(S, Vst) || S <- Ss],
-    ok.
-
-%% get_term_type(Src, ValidatorState) -> Type
-%%  Get the type of the source Src. The returned type Type will be
-%%  a standard Erlang type (no catch/try tags or match contexts).
-
-get_term_type(Src, Vst) ->
-    case get_move_term_type(Src, Vst) of
-        #ms{} -> error({match_context,Src});
-        Type -> Type
-    end.
-
-%% get_durable_term_type(Src, ValidatorState) -> Type
-%%  Get the type of the source Src. The returned type Type will be
-%%  a standard Erlang type (no catch/try tags or match contexts).
-%%  Fragility will be stripped.
-
-get_durable_term_type(Src, Vst) ->
-    case get_term_type(Src, Vst) of
-        {fragile,Type} -> Type;
-        Type -> Type
-    end.
-
-%% get_move_term_type(Src, ValidatorState) -> Type
-%%  Get the type of the source Src. The returned type Type will be
-%%  a standard Erlang type (no catch/try tags). Match contexts are OK.
-
-get_move_term_type(Src, Vst) ->
-    case get_raw_type(Src, Vst) of
-        initialized -> error({unassigned,Src});
-        uninitialized -> error({uninitialized_reg,Src});
-        {catchtag,_} -> error({catchtag,Src});
-        {trytag,_} -> error({trytag,Src});
-        tuple_in_progress -> error({tuple_in_progress,Src});
-        Type -> Type
-    end.
-
-%% get_tag_type(Src, ValidatorState) -> Type
-%%  Return the tag type of a Y register, erroring out if it contains a term.
-
-get_tag_type({y,_}=Src, Vst) ->
-    case get_raw_type(Src, Vst) of
-        {catchtag, _}=Tag -> Tag;
-        {trytag, _}=Tag -> Tag;
-        uninitialized=Tag -> Tag;
-        initialized=Tag -> Tag;
-        Other -> error({invalid_tag,Src,Other})
-    end;
-get_tag_type(Src, _) ->
-    error({invalid_tag_register,Src}).
-
-%% get_raw_type(Src, ValidatorState) -> Type
-%%  Return the type of a register without doing any validity checks.
-get_raw_type({x,X}, #vst{current=#st{x=Xs}}) when is_integer(X) ->
-    case gb_trees:lookup(X, Xs) of
-        {value,Type} -> Type;
-        none -> uninitialized
-    end;
-get_raw_type({y,Y}, #vst{current=#st{y=Ys}}) when is_integer(Y) ->
-    case gb_trees:lookup(Y, Ys) of
-        {value,Type} -> Type;
-        none -> uninitialized
-    end;
-get_raw_type(Src, #vst{}) ->
-    get_literal_type(Src).
-
-get_def(Src, #vst{current=#st{defs=Defs}}) ->
-    case Defs of
-        #{Src:=Def} -> Def;
-        #{} -> none
-    end.
-
-get_literal_type(nil=T) -> T;
-get_literal_type({atom,A}=T) when is_atom(A) -> T;
-get_literal_type({float,F}=T) when is_float(F) -> T;
-get_literal_type({integer,I}=T) when is_integer(I) -> T;
-get_literal_type({literal,[_|_]}) -> cons;
-get_literal_type({literal,Bitstring}) when is_bitstring(Bitstring) -> binary;
-get_literal_type({literal,Map}) when is_map(Map) -> map;
-get_literal_type({literal,Tuple}) when is_tuple(Tuple) -> value_to_type(Tuple);
-get_literal_type({literal,_}) -> term;
-get_literal_type(T) -> error({not_literal,T}).
-
-value_to_type([]) -> nil;
-value_to_type(A) when is_atom(A) -> {atom, A};
-value_to_type(F) when is_float(F) -> {float, F};
-value_to_type(I) when is_integer(I) -> {integer, I};
-value_to_type(T) when is_tuple(T) ->
-     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
-                            Type = value_to_type(Val),
-                            Es = set_element_type(Index, Type, Es0),
-                            {Es, Index + 1}
-                    end, {#{}, 1}, tuple_to_list(T)),
-     {tuple, tuple_size(T), Es};
-value_to_type(L) -> {literal, L}.
-
-branch_state(0, #vst{}=Vst) ->
-    %% If the instruction fails, the stack may be scanned
-    %% looking for a catch tag. Therefore the Y registers
-    %% must be initialized at this point.
-    verify_y_init(Vst),
-    Vst;
-branch_state(L, #vst{current=St,branched=B}=Vst) ->
-    Vst#vst{
-      branched=case gb_trees:is_defined(L, B) of
-		   false ->
-		       gb_trees:insert(L, St, B);
-		   true ->
-		       MergedSt = merge_states(L, St, B),
-		       gb_trees:update(L, MergedSt, B)
-	       end}.
-
-%% merge_states/3 is used when there are more than one way to arrive
-%% at this point, and the type states for the different paths has
-%% to be merged. The type states are downgraded to the least common
-%% subset for the subsequent code.
-
-merge_states(L, St, Branched) when L =/= 0 ->
-    case gb_trees:lookup(L, Branched) of
-	none -> St;
-	{value,OtherSt} when St =:= none -> OtherSt;
-	{value,OtherSt} -> merge_states_1(St, OtherSt)
-    end.
-
-merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0,aliases=Aliases0},
-	       #st{x=Xs1,y=Ys1,numy=NumY1,h=H1,ct=Ct1,aliases=Aliases1}) ->
-    NumY = merge_stk(NumY0, NumY1),
-    Xs = merge_regs(Xs0, Xs1),
-    Ys = merge_y_regs(Ys0, Ys1),
-    Ct = merge_ct(Ct0, Ct1),
-    Aliases = merge_aliases(Aliases0, Aliases1),
-    #st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct,aliases=Aliases}.
-
-merge_stk(S, S) -> S;
-merge_stk(_, _) -> undecided.
-
-merge_ct(S, S) -> S;
-merge_ct(Ct0, Ct1) -> merge_ct_1(Ct0, Ct1).
-
-merge_ct_1([C0|Ct0], [C1|Ct1]) ->
-    [ordsets:from_list(C0++C1)|merge_ct_1(Ct0, Ct1)];
-merge_ct_1([], []) -> [];
-merge_ct_1(_, _) -> undecided.
-
-merge_regs(Rs0, Rs1) ->
-    Rs = merge_regs_1(gb_trees:to_list(Rs0), gb_trees:to_list(Rs1)),
-    gb_trees_from_list(Rs).
-
-merge_regs_1([Same|Rs1], [Same|Rs2]) ->
-    [Same|merge_regs_1(Rs1, Rs2)];
-merge_regs_1([{R1,_}|Rs1], [{R2,_}|_]=Rs2) when R1 < R2 ->
-    merge_regs_1(Rs1, Rs2);
-merge_regs_1([{R1,_}|_]=Rs1, [{R2,_}|Rs2]) when R1 > R2 ->
-    merge_regs_1(Rs1, Rs2);
-merge_regs_1([{R,Type1}|Rs1], [{R,Type2}|Rs2]) ->
-    [{R,join(Type1, Type2)}|merge_regs_1(Rs1, Rs2)];
-merge_regs_1([], []) -> [];
-merge_regs_1([], [_|_]) -> [];
-merge_regs_1([_|_], []) -> [].
-
-merge_y_regs(Rs0, Rs1) ->
-    case {gb_trees:size(Rs0),gb_trees:size(Rs1)} of
-	{Sz0,Sz1} when Sz0 < Sz1 ->
-	    merge_y_regs_1(Sz0-1, Rs1, Rs0);
-	{_,Sz1} ->
-	    merge_y_regs_1(Sz1-1, Rs0, Rs1)
-    end.
-
-merge_y_regs_1(Y, S, Regs0) when Y >= 0 ->
-    Type0 = gb_trees:get(Y, Regs0),
-    case gb_trees:get(Y, S) of
-	Type0 ->
-	    merge_y_regs_1(Y-1, S, Regs0);
-	Type1 ->
-	    Type = join(Type0, Type1),
-	    Regs = gb_trees:update(Y, Type, Regs0),
-	    merge_y_regs_1(Y-1, S, Regs)
-    end;
-merge_y_regs_1(_, _, Regs) -> Regs.
 
 %% join(Type1, Type2) -> Type
 %%  Return the most specific type possible.
-%%  Note: Type1 must NOT be the same as Type2.
+join(Same, Same) ->
+    Same;
+join(none, Other) ->
+    Other;
+join(Other, none) ->
+    Other;
 join({literal,_}=T1, T2) ->
     join_literal(T1, T2);
 join(T1, {literal,_}=T2) ->
     join_literal(T2, T1);
-join({fragile,Same}=Type, Same) ->
-    Type;
-join({fragile,T1}, T2) ->
-    make_fragile(join(T1, T2));
-join(Same, {fragile,Same}=Type) ->
-    Type;
-join(T1, {fragile,T2}) ->
-    make_fragile(join(T1, T2));
-join(uninitialized=I, _) -> I;
-join(_, uninitialized=I) -> I;
-join(initialized=I, _) -> I;
-join(_, initialized=I) -> I;
-join({catchtag,T0},{catchtag,T1}) ->
-    {catchtag,ordsets:from_list(T0++T1)};
-join({trytag,T0},{trytag,T1}) ->
-    {trytag,ordsets:from_list(T0++T1)};
 join({tuple,Size,EsA}, {tuple,Size,EsB}) ->
     Es = join_tuple_elements(tuple_sz(Size), EsA, EsB),
     {tuple, Size, Es};
@@ -2121,14 +1896,20 @@ join({Type,_}, number)
 join(number, {Type,_}) 
   when Type =:= integer; Type =:= float ->
     number;
+join({integer,_}, {float,_}) ->
+    number;
+join({float,_}, {integer,_}) ->
+    number;
 join(bool, {atom,A}) ->
     join_bool(A);
 join({atom,A}, bool) ->
     join_bool(A);
+join({atom,A}, {atom,B}) when is_boolean(A), is_boolean(B) ->
+    bool;
 join({atom,_}, {atom,_}) ->
     {atom,[]};
 join(#ms{id=Id1,valid=B1,slots=Slots1},
-	    #ms{id=Id2,valid=B2,slots=Slots2}) ->
+     #ms{id=Id2,valid=B2,slots=Slots2}) ->
     Id = if
              Id1 =:= Id2 -> Id1;
              true -> make_ref()
@@ -2141,7 +1922,7 @@ join(T1, T2) when T1 =/= T2 ->
 
 join_tuple_elements(Limit, EsA, EsB) ->
     Es0 = join_elements(EsA, EsB),
-    maps:filter(fun(Index, _Type) -> Index =< Limit end, Es0).
+    maps:filter(fun({integer,Index}, _Type) -> Index =< Limit end, Es0).
 
 join_elements(Es1, Es2) ->
     Keys = if
@@ -2185,33 +1966,389 @@ join_bool(true) -> bool;
 join_bool(false) -> bool;
 join_bool(_) -> {atom,[]}.
 
+%% meet(Type1, Type2) -> Type
+%%  Return the meet of two types. The meet is a more specific type.
+%%  It will be 'none' if the types are in conflict.
+
+meet(Same, Same) ->
+    Same;
+meet(term, Other) ->
+    Other;
+meet(Other, term) ->
+    Other;
+meet(#ms{}, binary) ->
+    #ms{};
+meet(binary, #ms{}) ->
+    #ms{};
+meet({literal,_}, {literal,_}) ->
+    none;
+meet(T1, {literal,_}=T2) ->
+    meet(T2, T1);
+meet({literal,_}=T1, T2) ->
+    case meet(get_literal_type(T1), T2) of
+        none -> none;
+        _ -> T1
+    end;
+meet(T1, T2) ->
+    case {erlang:min(T1, T2),erlang:max(T1, T2)} of
+        {{atom,_}=A,{atom,[]}} -> A;
+        {bool,{atom,B}=Atom} when is_boolean(B) -> Atom;
+        {bool,{atom,[]}} -> bool;
+        {cons,list} -> cons;
+        {{float,_}=T,{float,[]}} -> T;
+        {{integer,_}=T,{integer,[]}} -> T;
+        {list,nil} -> nil;
+        {number,{integer,_}=T} -> T;
+        {number,{float,_}=T} -> T;
+        {{tuple,Size1,Es1},{tuple,Size2,Es2}} ->
+            Es = meet_elements(Es1, Es2),
+            case {Size1,Size2,Es} of
+                {_, _, none} ->
+                    none;
+                {[Sz1],[Sz2],_} ->
+                    Sz = erlang:max(Sz1, Sz2),
+                    assert_tuple_elements(Sz, Es),
+                    {tuple,[Sz],Es};
+                {Sz1,[Sz2],_} when Sz2 =< Sz1 ->
+                    assert_tuple_elements(Sz1, Es),
+                    {tuple,Sz1,Es};
+                {Sz,Sz,_} ->
+                    assert_tuple_elements(Sz, Es),
+                    {tuple,Sz,Es};
+                {_,_,_} ->
+                    none
+            end;
+        {_,_} -> none
+    end.
+
+meet_elements(Es1, Es2) ->
+    Keys = maps:keys(Es1) ++ maps:keys(Es2),
+    meet_elements_1(Keys, Es1, Es2, #{}).
+
+meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
+    case {Es1, Es2} of
+        {#{ Key := Type1 }, #{ Key := Type2 }} ->
+            case meet(Type1, Type2) of
+                none -> none;
+                Type -> meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
+            end;
+        {#{ Key := Type1 }, _} ->
+            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
+        {_, #{ Key := Type2 }} ->
+            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
+    end;
+meet_elements_1([], _Es1, _Es2, Acc) ->
+    Acc.
+
+%% No tuple elements may have an index above the known size.
+assert_tuple_elements(Limit, Es) ->
+    true = maps:fold(fun({integer,Index}, _T, true) ->
+                             Index =< Limit
+                     end, true, Es).            %Assertion.
+
+%% subtract(Type1, Type2) -> Type
+%%  Subtract Type2 from Type2. Example:
+%%      subtract(list, nil) -> cons
+
+subtract(list, nil) -> cons;
+subtract(list, cons) -> nil;
+subtract(number, {integer,[]}) -> {float,[]};
+subtract(number, {float,[]}) -> {integer,[]};
+subtract(bool, {atom,false}) -> {atom, true};
+subtract(bool, {atom,true}) -> {atom, false};
+subtract(Type, _) -> Type.
+
+assert_type(WantedType, Term, Vst) ->
+    Type = get_term_type(Term, Vst),
+    assert_type(WantedType, Type).
+
+assert_type(Correct, Correct) -> ok;
+assert_type(float, {float,_}) -> ok;
+assert_type(tuple, {tuple,_,_}) -> ok;
+assert_type(tuple, {literal,Tuple}) when is_tuple(Tuple) -> ok;
+assert_type({tuple_element,I}, {tuple,[Sz],_})
+  when 1 =< I, I =< Sz ->
+    ok;
+assert_type({tuple_element,I}, {tuple,Sz,_})
+  when is_integer(Sz), 1 =< I, I =< Sz ->
+    ok;
+assert_type({tuple_element,I}, {literal,Lit}) when I =< tuple_size(Lit) ->
+    ok;
+assert_type(cons, {literal,[_|_]}) ->
+    ok;
+assert_type(Needed, Actual) ->
+    error({bad_type,{needed,Needed},{actual,Actual}}).
+
+get_element_type(Key, Src, Vst) ->
+    get_element_type_1(Key, get_term_type(Src, Vst)).
+
+get_element_type_1({integer,Index}=Key, {tuple,Sz,Es}) ->
+    case Es of
+        #{ Key := Type } -> Type;
+        #{} when Index =< Sz -> term;
+        #{} -> none
+    end;
+get_element_type_1(_Index, _Type) ->
+    term.
+
+set_element_type(_Key, none, Es) ->
+    Es;
+set_element_type(Key, term, Es) ->
+    maps:remove(Key, Es);
+set_element_type(Key, Type, Es) ->
+    Es#{ Key => Type }.
+
+get_tuple_size({integer,[]}) -> 0;
+get_tuple_size({integer,Sz}) -> Sz;
+get_tuple_size(_) -> 0.
+
+validate_src(Ss, Vst) when is_list(Ss) ->
+    [assert_term(S, Vst) || S <- Ss],
+    ok.
+
+%% get_term_type(Src, ValidatorState) -> Type
+%%  Get the type of the source Src. The returned type Type will be
+%%  a standard Erlang type (no catch/try tags or match contexts).
+
+get_term_type(Src, Vst) ->
+    case get_move_term_type(Src, Vst) of
+        #ms{} -> error({match_context,Src});
+        Type -> Type
+    end.
+
+%% get_move_term_type(Src, ValidatorState) -> Type
+%%  Get the type of the source Src. The returned type Type will be
+%%  a standard Erlang type (no catch/try tags). Match contexts are OK.
+
+get_move_term_type(Src, Vst) ->
+    case get_raw_type(Src, Vst) of
+        initialized -> error({unassigned,Src});
+        uninitialized -> error({uninitialized_reg,Src});
+        {catchtag,_} -> error({catchtag,Src});
+        {trytag,_} -> error({trytag,Src});
+        tuple_in_progress -> error({tuple_in_progress,Src});
+        Type -> Type
+    end.
+
+%% get_tag_type(Src, ValidatorState) -> Type
+%%  Return the tag type of a Y register, erroring out if it contains a term.
+
+get_tag_type({y,_}=Src, Vst) ->
+    case get_raw_type(Src, Vst) of
+        {catchtag, _}=Tag -> Tag;
+        {trytag, _}=Tag -> Tag;
+        uninitialized=Tag -> Tag;
+        initialized=Tag -> Tag;
+        Other -> error({invalid_tag,Src,Other})
+    end;
+get_tag_type(Src, _) ->
+    error({invalid_tag_register,Src}).
+
+%% get_raw_type(Src, ValidatorState) -> Type
+%%  Return the type of a register without doing any validity checks.
+get_raw_type({x,X}=Src, #vst{current=#st{xs=Xs}}=Vst) when is_integer(X) ->
+    check_limit(Src),
+    case Xs of
+        #{ Src := #value_ref{}=Ref } -> get_raw_type(Ref, Vst);
+        #{} -> uninitialized
+    end;
+get_raw_type({y,Y}=Src, #vst{current=#st{ys=Ys}}=Vst) when is_integer(Y) ->
+    check_limit(Src),
+    case Ys of
+        #{ Src := #value_ref{}=Ref } -> get_raw_type(Ref, Vst);
+        #{ Src := Tag } -> Tag;
+        #{} -> uninitialized
+    end;
+get_raw_type(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
+    case Vs of
+        #{ Ref := #value{type=Type} } -> Type;
+        #{} -> none
+    end;
+get_raw_type(Src, #vst{}) ->
+    get_literal_type(Src).
+
+get_literal_type(nil=T) -> T;
+get_literal_type({atom,A}=T) when is_atom(A) -> T;
+get_literal_type({float,F}=T) when is_float(F) -> T;
+get_literal_type({integer,I}=T) when is_integer(I) -> T;
+get_literal_type({literal,[_|_]}) -> cons;
+get_literal_type({literal,Bitstring}) when is_bitstring(Bitstring) -> binary;
+get_literal_type({literal,Map}) when is_map(Map) -> map;
+get_literal_type({literal,Tuple}) when is_tuple(Tuple) -> glt_1(Tuple);
+get_literal_type({literal,_}) -> term;
+get_literal_type(T) -> error({not_literal,T}).
+
+glt_1([]) -> nil;
+glt_1(A) when is_atom(A) -> {atom, A};
+glt_1(F) when is_float(F) -> {float, F};
+glt_1(I) when is_integer(I) -> {integer, I};
+glt_1(T) when is_tuple(T) ->
+    {Es,_} = foldl(fun(Val, {Es0, Index}) ->
+                           Type = glt_1(Val),
+                           Es = set_element_type({integer,Index}, Type, Es0),
+                           {Es, Index + 1}
+                   end, {#{}, 1}, tuple_to_list(T)),
+    {tuple, tuple_size(T), Es};
+glt_1(L) ->
+    {literal, L}.
+
+branch_state(0, #vst{}=Vst) ->
+    %% If the instruction fails, the stack may be scanned
+    %% looking for a catch tag. Therefore the Y registers
+    %% must be initialized at this point.
+    verify_y_init(Vst),
+    Vst;
+branch_state(L, #vst{current=St,branched=B,ref_ctr=Counter0}=Vst) ->
+    case gb_trees:is_defined(L, B) of
+        true ->
+            {MergedSt, Counter} = merge_states(L, St, B, Counter0),
+            Branched = gb_trees:update(L, MergedSt, B),
+            Vst#vst{branched=Branched,ref_ctr=Counter};
+        false ->
+            Vst#vst{branched=gb_trees:insert(L, St, B)}
+    end.
+
+%% merge_states/3 is used when there's more than one way to arrive at a
+%% certain point, requiring the states to be merged down to the least
+%% common subset for the subsequent code.
+
+merge_states(L, St, Branched, Counter) when L =/= 0 ->
+    case gb_trees:lookup(L, Branched) of
+        none ->
+            {St, Counter};
+        {value,OtherSt} when St =:= none ->
+            {OtherSt, Counter};
+        {value,OtherSt} ->
+             merge_states_1(St, OtherSt, Counter)
+    end.
+
+merge_states_1(#st{xs=XsA,ys=YsA,vs=VsA,fragile=FragA,numy=NumYA,h=HA,ct=CtA},
+               #st{xs=XsB,ys=YsB,vs=VsB,fragile=FragB,numy=NumYB,h=HB,ct=CtB},
+               Counter0) ->
+    %% When merging registers we drop all registers that aren't defined in both
+    %% states, and resolve conflicts by creating new values (similar to phi
+    %% nodes in SSA).
+    %%
+    %% While doing this we build a "merge map" detailing which values need to
+    %% be kept and which new values need to be created to resolve conflicts.
+    %% This map is then used to create a new value database where the types of
+    %% all values have been joined.
+    {Xs, Merge0, Counter1} = merge_regs(XsA, XsB, #{}, Counter0),
+    {Ys, Merge, Counter} = merge_regs(YsA, YsB, Merge0, Counter1),
+    Vs = merge_values(Merge, VsA, VsB),
+
+    Fragile = merge_fragility(FragA, FragB),
+    NumY = merge_stk(NumYA, NumYB),
+    Ct = merge_ct(CtA, CtB),
+
+    St = #st{xs=Xs,ys=Ys,vs=Vs,fragile=Fragile,numy=NumY,h=min(HA, HB),ct=Ct},
+    {St, Counter}.
+
+%% Merges the contents of two register maps, returning the updated "merge map"
+%% and the new registers.
+merge_regs(RsA, RsB, Merge, Counter) ->
+    Keys = if
+               map_size(RsA) =< map_size(RsB) -> maps:keys(RsA);
+               map_size(RsA) > map_size(RsB) -> maps:keys(RsB)
+           end,
+    merge_regs_1(Keys, RsA, RsB, #{}, Merge, Counter).
+
+merge_regs_1([Reg | Keys], RsA, RsB, Regs, Merge0, Counter0) ->
+    case {RsA, RsB} of
+        {#{ Reg := #value_ref{}=RefA }, #{ Reg := #value_ref{}=RefB }} ->
+            {Ref, Merge, Counter} = merge_vrefs(RefA, RefB, Merge0, Counter0),
+            merge_regs_1(Keys, RsA, RsB, Regs#{ Reg => Ref }, Merge, Counter);
+        {#{ Reg := TagA }, #{ Reg := TagB }} ->
+            %% Tags describe the state of the register rather than the value it
+            %% contains, so if a register contains a tag in one state we have
+            %% to merge it as a tag regardless of whether the other state says
+            %% it's a value.
+            {y, _} = Reg,                       %Assertion.
+            merge_regs_1(Keys, RsA, RsB, Regs#{ Reg => merge_tags(TagA,TagB) },
+                         Merge0, Counter0);
+        {#{}, #{}} ->
+            merge_regs_1(Keys, RsA, RsB, Regs, Merge0, Counter0)
+    end;
+merge_regs_1([], _, _, Regs, Merge, Counter) ->
+    {Regs, Merge, Counter}.
+
+merge_tags(Same, Same) ->
+    Same;
+merge_tags(uninitialized, _) ->
+    uninitialized;
+merge_tags(_, uninitialized) ->
+    uninitialized;
+merge_tags({catchtag,T0}, {catchtag,T1}) ->
+    {catchtag, ordsets:from_list(T0 ++ T1)};
+merge_tags({trytag,T0}, {trytag,T1}) ->
+    {trytag, ordsets:from_list(T0 ++ T1)};
+merge_tags(_A, _B) ->
+    %% All other combinations leave the register initialized. Errors arising
+    %% from this will be caught later on.
+    initialized.
+
+merge_vrefs(Ref, Ref, Merge, Counter) ->
+    %% We have two (potentially) different versions of the same value, so we
+    %% should join their types into the same value.
+    {Ref, Merge#{ Ref => Ref }, Counter};
+merge_vrefs(RefA, RefB, Merge, Counter) ->
+    %% We have two different values, so we need to create a new value from
+    %% their joined type if we haven't already done so.
+    Key = {RefA, RefB},
+    case Merge of
+        #{ Key := Ref } ->
+            {Ref, Merge, Counter};
+        #{} ->
+            Ref = #value_ref{id=Counter},
+            {Ref, Merge#{ Key => Ref }, Counter + 1}
+    end.
+
+merge_values(Merge, VsA, VsB) ->
+    maps:fold(fun(Spec, New, Acc) ->
+                      merge_values_1(Spec, New, VsA, VsB, Acc)
+              end, #{}, Merge).
+
+merge_values_1(Same, Same, VsA, VsB, Acc) ->
+    %% We're merging different versions of the same value, so it's safe to
+    %% reuse old entries if the type's unchanged.
+    #value{type=TypeA}=EntryA = map_get(Same, VsA),
+    #value{type=TypeB}=EntryB = map_get(Same, VsB),
+    Entry = case join(TypeA, TypeB) of
+                TypeA -> EntryA;
+                TypeB -> EntryB;
+                JoinedType -> EntryA#value{type=JoinedType}
+            end,
+    Acc#{ Same => Entry };
+merge_values_1({RefA, RefB}, New, VsA, VsB, Acc) ->
+    #value{type=TypeA} = map_get(RefA, VsA),
+    #value{type=TypeB} = map_get(RefB, VsB),
+    Acc#{ New => #value{op=join,args=[],type=join(TypeA, TypeB)} }.
+
+merge_fragility(FragileA, FragileB) ->
+    cerl_sets:union(FragileA, FragileB).
+
+merge_stk(S, S) -> S;
+merge_stk(_, _) -> undecided.
+
+merge_ct(S, S) -> S;
+merge_ct(Ct0, Ct1) -> merge_ct_1(Ct0, Ct1).
+
+merge_ct_1([C0|Ct0], [C1|Ct1]) ->
+    [ordsets:from_list(C0++C1)|merge_ct_1(Ct0, Ct1)];
+merge_ct_1([], []) -> [];
+merge_ct_1(_, _) -> undecided.
+
 tuple_sz([Sz]) -> Sz;
 tuple_sz(Sz) -> Sz.
 
-merge_aliases(Al0, Al1) when map_size(Al0) =< map_size(Al1) ->
-    maps:filter(fun(K, V) ->
-                        case Al1 of
-                            #{K:=V} -> true;
-                            #{} -> false
-                        end
-                end, Al0);
-merge_aliases(Al0, Al1) ->
-    merge_aliases(Al1, Al0).
-
-verify_y_init(#vst{current=#st{numy=NumY,y=Ys}}=Vst)
-  when is_integer(NumY), NumY > 0 ->
-    {HighestY, _} = gb_trees:largest(Ys),
+verify_y_init(#vst{current=#st{numy=NumY,ys=Ys}}=Vst) when is_integer(NumY) ->
+    HighestY = maps:fold(fun({y,Y}, _, Acc) -> max(Y, Acc) end, -1, Ys),
     true = NumY > HighestY,                     %Assertion.
     verify_y_init_1(NumY - 1, Vst),
     ok;
-verify_y_init(#vst{current=#st{numy=undecided,y=Ys}}=Vst) ->
-    case gb_trees:is_empty(Ys) of
-        true ->
-            ok;
-        false ->
-            {HighestY, _} = gb_trees:largest(Ys),
-            verify_y_init_1(HighestY, Vst)
-    end;
+verify_y_init(#vst{current=#st{numy=undecided,ys=Ys}}=Vst) ->
+    HighestY = maps:fold(fun({y,Y}, _, Acc) -> max(Y, Acc) end, -1, Ys),
+    verify_y_init_1(HighestY, Vst);
 verify_y_init(#vst{}) ->
     ok.
 
@@ -2219,15 +2356,10 @@ verify_y_init_1(-1, _Vst) ->
     ok;
 verify_y_init_1(Y, Vst) ->
     Reg = {y, Y},
+    assert_not_fragile(Reg, Vst),
     case get_raw_type(Reg, Vst) of
-        uninitialized ->
-            error({uninitialized_reg,Reg});
-        {fragile, _} ->
-            %% Unsafe. This term may be outside any heap belonging to the
-            %% process and would be corrupted by a GC.
-            error({fragile_message_reference,Reg});
-        _ ->
-            verify_y_init_1(Y - 1, Vst)
+        uninitialized -> error({uninitialized_reg,Reg});
+        _ -> verify_y_init_1(Y - 1, Vst)
     end.
 
 verify_live(0, _Vst) ->
@@ -2287,26 +2419,67 @@ eat_heap_float(#vst{current=#st{hf=HeapFloats0}=St}=Vst) ->
 	    Vst#vst{current=St#st{hf=HeapFloats}}
     end.
 
-remove_fragility(#vst{current=#st{x=Xs0,y=Ys0}=St0}=Vst) ->
-    F = fun(_, {fragile,Type}) -> Type;
-           (_, Type) -> Type
-        end,
-    Xs = gb_trees:map(F, Xs0),
-    Ys = gb_trees:map(F, Ys0),
-    St = St0#st{x=Xs,y=Ys},
+%%% FRAGILITY
+%%%
+%%% The loop_rec/2 instruction may return a reference to a term that is not
+%%% part of the root set. That term or any part of it must not be included in a
+%%% garbage collection. Therefore, the term (or any part of it) must not be
+%%% passed to another function, placed in another term, or live in a Y register
+%%% over an instruction that may GC.
+%%%
+%%% Fragility is marked on a per-register (rather than per-value) basis.
+
+%% Marks Reg as fragile.
+mark_fragile(Reg, Vst) ->
+    #vst{current=#st{fragile=Fragile0}=St0} = Vst,
+    Fragile = cerl_sets:add_element(Reg, Fragile0),
+    St = St0#st{fragile=Fragile},
     Vst#vst{current=St}.
 
-propagate_fragility(Type, Ss, Vst) ->
-    F = fun(S) ->
-                case get_raw_type(S, Vst) of
-                    {fragile,_} -> true;
-                    _ -> false
-                end
-        end,
-    case any(F, Ss) of
-        true -> make_fragile(Type);
-        false -> Type
+propagate_fragility(Reg, Args, #vst{current=St0}=Vst) ->
+    #st{fragile=Fragile0} = St0,
+
+    Sources = cerl_sets:from_list(Args),
+    Fragile = case cerl_sets:is_disjoint(Sources, Fragile0) of
+                  true -> cerl_sets:del_element(Reg, Fragile0);
+                  false -> cerl_sets:add_element(Reg, Fragile0)
+              end,
+
+    St = St0#st{fragile=Fragile},
+    Vst#vst{current=St}.
+
+%% Marks Reg as durable, must be used when assigning a newly created value to
+%% a register.
+remove_fragility(Reg, Vst) ->
+    #vst{current=#st{fragile=Fragile0}=St0} = Vst,
+    case cerl_sets:is_element(Reg, Fragile0) of
+        true ->
+            Fragile = cerl_sets:del_element(Reg, Fragile0),
+            St = St0#st{fragile=Fragile},
+            Vst#vst{current=St};
+        false ->
+            Vst
     end.
+
+%% Marks all registers as durable.
+remove_fragility(#vst{current=St0}=Vst) ->
+    St = St0#st{fragile=cerl_sets:new()},
+    Vst#vst{current=St}.
+
+assert_durable_term(Src, Vst) ->
+    assert_term(Src, Vst),
+    assert_not_fragile(Src, Vst).
+
+assert_not_fragile({Kind,_}=Src, Vst) when Kind =:= x; Kind =:= y ->
+    check_limit(Src),
+    #vst{current=#st{fragile=Fragile}} = Vst,
+    case cerl_sets:is_element(Src, Fragile) of
+        true -> error({fragile_message_reference, Src});
+        false -> ok
+    end;
+assert_not_fragile(Lit, #vst{}) ->
+    assert_literal(Lit),
+    ok.
 
 %%%
 %%% Return/argument types of BIFs
@@ -2319,7 +2492,7 @@ bif_return_type('+', Src, Vst) ->
 bif_return_type('*', Src, Vst) ->
     arith_return_type(Src, Vst);
 bif_return_type(abs, [Num], Vst) ->
-    case get_durable_term_type(Num, Vst) of
+    case get_term_type(Num, Vst) of
         {float,_}=T -> T;
         {integer,_}=T -> T;
         _ -> number
@@ -2327,8 +2500,10 @@ bif_return_type(abs, [Num], Vst) ->
 bif_return_type(float, _, _) -> {float,[]};
 bif_return_type('/', _, _) -> {float,[]};
 %% Binary operations
-bif_return_type('byte_size', _, _) -> {integer,[]};
-bif_return_type('bit_size', _, _) -> {integer,[]};
+bif_return_type('binary_part', [_,_], _) -> binary;
+bif_return_type('binary_part', [_,_,_], _) -> binary;
+bif_return_type('bit_size', [_], _) -> {integer,[]};
+bif_return_type('byte_size', [_], _) -> {integer,[]};
 %% Integer operations.
 bif_return_type(ceil, [_], _) -> {integer,[]};
 bif_return_type('div', [_,_], _) -> {integer,[]};
@@ -2362,6 +2537,7 @@ bif_return_type(is_boolean, [_], _) -> bool;
 bif_return_type(is_binary, [_], _) -> bool;
 bif_return_type(is_float, [_], _) -> bool;
 bif_return_type(is_function, [_], _) -> bool;
+bif_return_type(is_function, [_,_], _) -> bool;
 bif_return_type(is_integer, [_], _) -> bool;
 bif_return_type(is_list, [_], _) -> bool;
 bif_return_type(is_map, [_], _) -> bool;
@@ -2372,6 +2548,7 @@ bif_return_type(is_reference, [_], _) -> bool;
 bif_return_type(is_tuple, [_], _) -> bool;
 %% Misc.
 bif_return_type(tuple_size, [_], _) -> {integer,[]};
+bif_return_type(map_size, [_], _) -> {integer,[]};
 bif_return_type(node, [], _) -> {atom,[]};
 bif_return_type(node, [_], _) -> {atom,[]};
 bif_return_type(hd, [_], _) -> term;
@@ -2393,14 +2570,24 @@ bif_arg_types('and', [_,_]) -> [bool, bool];
 bif_arg_types('or', [_,_]) -> [bool, bool];
 bif_arg_types('xor', [_,_]) -> [bool, bool];
 %% Binary
-bif_arg_types('byte_size', [_]) -> [binary];
+bif_arg_types('binary_part', [_,_]) ->
+    PosLen = {tuple, 2, #{ {integer,1} => {integer,[]},
+                           {integer,2} => {integer,[]} }},
+    [binary, PosLen];
+bif_arg_types('binary_part', [_,_,_]) ->
+    [binary, {integer,[]}, {integer,[]}];
 bif_arg_types('bit_size', [_]) -> [binary];
+bif_arg_types('byte_size', [_]) -> [binary];
 %% Numerical
 bif_arg_types('-', [_]) -> [number];
+bif_arg_types('-', [_,_]) -> [number,number];
 bif_arg_types('+', [_]) -> [number];
+bif_arg_types('+', [_,_]) -> [number,number];
 bif_arg_types('*', [_,_]) -> [number, number];
 bif_arg_types('/', [_,_]) -> [number, number];
+bif_arg_types(abs, [_]) -> [number];
 bif_arg_types(ceil, [_]) -> [number];
+bif_arg_types(float, [_]) -> [number];
 bif_arg_types(floor, [_]) -> [number];
 bif_arg_types(trunc, [_]) -> [number];
 bif_arg_types(round, [_]) -> [number];
@@ -2446,14 +2633,14 @@ is_bif_safe(_, _) -> false.
 
 arith_return_type([A], Vst) ->
     %% Unary '+' or '-'.
-    case get_durable_term_type(A, Vst) of
+    case get_term_type(A, Vst) of
 	{integer,_} -> {integer,[]};
 	{float,_} -> {float,[]};
         _ -> number
     end;
 arith_return_type([A,B], Vst) ->
-    TypeA = get_durable_term_type(A, Vst),
-    TypeB = get_durable_term_type(B, Vst),
+    TypeA = get_term_type(A, Vst),
+    TypeB = get_term_type(B, Vst),
     case {TypeA, TypeB} of
 	{{integer,_},{integer,_}} -> {integer,[]};
 	{{float,_},_} -> {float,[]};
@@ -2482,7 +2669,7 @@ call_return_type_1(erlang, setelement, 3, Vst) ->
             case meet({tuple,[I],#{}}, TupleType) of
                 {tuple, Sz, Es0} ->
                     ValueType = get_term_type({x,2}, Vst),
-                    Es = set_element_type(I, ValueType, Es0),
+                    Es = set_element_type({integer,I}, ValueType, Es0),
                     {tuple, Sz, Es};
                 none ->
                     TupleType
@@ -2542,11 +2729,25 @@ math_mod_return_type(fmod, 2) -> {float,[]};
 math_mod_return_type(pi, 0) -> {float,[]};
 math_mod_return_type(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 
+lists_mod_return_type(all, 2, _Vst) ->
+    bool;
+lists_mod_return_type(any, 2, _Vst) ->
+    bool;
+lists_mod_return_type(keymember, 3, _Vst) ->
+    bool;
+lists_mod_return_type(member, 2, _Vst) ->
+    bool;
+lists_mod_return_type(prefix, 2, _Vst) ->
+    bool;
+lists_mod_return_type(suffix, 2, _Vst) ->
+    bool;
 lists_mod_return_type(dropwhile, 2, _Vst) ->
     list;
 lists_mod_return_type(duplicate, 2, _Vst) ->
     list;
 lists_mod_return_type(filter, 2, _Vst) ->
+    list;
+lists_mod_return_type(flatten, 1, _Vst) ->
     list;
 lists_mod_return_type(flatten, 2, _Vst) ->
     list;
@@ -2554,7 +2755,7 @@ lists_mod_return_type(map, 2, Vst) ->
     same_length_type({x,1}, Vst);
 lists_mod_return_type(MF, 3, Vst) when MF =:= mapfoldl; MF =:= mapfoldr ->
     ListType = same_length_type({x,2}, Vst),
-    {tuple,2,#{1=>ListType}};
+    {tuple,2,#{ {integer,1} => ListType} };
 lists_mod_return_type(partition, 2, _Vst) ->
     two_tuple(list, list);
 lists_mod_return_type(reverse, 1, Vst) ->
@@ -2590,7 +2791,8 @@ lists_mod_return_type(_, _, _) ->
     term.
 
 two_tuple(Type1, Type2) ->
-    {tuple,2,#{1=>Type1,2=>Type2}}.
+    {tuple,2,#{ {integer,1} => Type1,
+                {integer,2} => Type2 }}.
 
 same_length_type(Reg, Vst) ->
     case get_term_type(Reg, Vst) of
@@ -2600,15 +2802,25 @@ same_length_type(Reg, Vst) ->
         _ -> list
     end.
 
-check_limit({x,X}) when is_integer(X), X < 1023 ->
-    %% Note: x(1023) is reserved for use by the BEAM loader.
-    ok;
-check_limit({y,Y}) when is_integer(Y), Y < 1024 ->
-    ok;
-check_limit({fr,Fr}) when is_integer(Fr), Fr < 1024 ->
-    ok;
-check_limit(_) ->
-    error(limit).
+check_limit({x,X}=Src) when is_integer(X) ->
+    if
+        %% Note: x(1023) is reserved for use by the BEAM loader.
+        0 =< X, X < 1023 -> ok;
+        1023 =< X -> error(limit);
+        X < 0 -> error({bad_register, Src})
+    end;
+check_limit({y,Y}=Src) when is_integer(Y) ->
+    if
+        0 =< Y, Y < 1024 -> ok;
+        1024 =< Y -> error(limit);
+        Y < 0 -> error({bad_register, Src})
+    end;
+check_limit({fr,Fr}=Src) when is_integer(Fr) ->
+    if
+        0 =< Fr, Fr < 1023 -> ok;
+        1023 =< Fr -> error(limit);
+        Fr < 0 -> error({bad_register, Src})
+    end.
 
 min(A, B) when is_integer(A), is_integer(B), A < B -> A;
 min(A, B) when is_integer(A), is_integer(B) -> B.
