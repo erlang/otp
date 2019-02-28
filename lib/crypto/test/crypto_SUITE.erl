@@ -9,7 +9,7 @@
 %%
 %%     http://www.apache.org/licenses/LICENSE-2.0
 %%
-%% Unless required by applicable law or agreed to in writing, software
+
 %% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
@@ -166,31 +166,31 @@ groups() ->
                compute_bug]},
      {ecdh, [], [use_all_elliptic_curves, compute, generate]},
      {srp, [], [generate_compute]},
-     {des_cbc, [], [block]},
-     {des_cfb, [], [block]},
-     {des3_cbc,[], [block]},
-     {des_ede3,[], [block]},
-     {des3_cbf,[], [block]},
-     {des3_cfb,[], [block]},
-     {rc2_cbc,[], [block]},
-     {aes_cbc128,[], [block, cmac]},
-     {aes_cfb8,[], [block]},
-     {aes_cfb128,[], [block]},
-     {aes_cbc256,[], [block, cmac]},
-     {aes_ecb,[], [block]},
+     {des_cbc, [], [block, api_ng]},
+     {des_cfb, [], [block, api_ng]},
+     {des3_cbc,[], [block, api_ng]},
+     {des_ede3,[], [block, api_ng]},
+     {des3_cbf,[], [block, api_ng]},
+     {des3_cfb,[], [block, api_ng]},
+     {rc2_cbc,[], [block, api_ng]},
+     {aes_cbc128,[], [block, api_ng, cmac]},
+     {aes_cfb8,[], [block, api_ng]},
+     {aes_cfb128,[], [block, api_ng]},
+     {aes_cbc256,[], [block, api_ng, cmac]},
+     {aes_ecb,[], [block, api_ng]},
      {aes_ige256,[], [block]},
-     {blowfish_cbc, [], [block]},
-     {blowfish_ecb, [], [block]},
-     {blowfish_cfb64, [], [block]},
-     {blowfish_ofb64,[], [block]},
-     {rc4, [], [stream]},
-     {aes_ctr, [], [stream]},
+     {blowfish_cbc, [], [block, api_ng]},
+     {blowfish_ecb, [], [block, api_ng]},
+     {blowfish_cfb64, [], [block, api_ng]},
+     {blowfish_ofb64,[], [block, api_ng]},
+     {rc4, [], [stream, api_ng]},
+     {aes_ctr, [], [stream, api_ng]},
      {aes_ccm, [], [aead]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]},
-     {chacha20, [], [stream]},
+     {chacha20, [], [stream, api_ng]},
      {poly1305, [], [poly1305]},
-     {aes_cbc, [], [block]},
+     {aes_cbc, [], [block, api_ng]},
      {no_aes_cfb8,[], [no_support, no_block]},
      {no_aes_cfb128,[], [no_support, no_block]},
      {no_md4, [], [no_support, no_hash]},
@@ -438,6 +438,61 @@ no_block(Config) when is_list(Config) ->
     N = length(Args),
     notsup(fun crypto:block_encrypt/N, Args),
     notsup(fun crypto:block_decrypt/N, Args).
+%%--------------------------------------------------------------------
+api_ng() ->
+     [{doc, "Test new api"}].
+
+api_ng(Config) when is_list(Config) ->
+    Fips = proplists:get_bool(fips, Config),
+    Type = ?config(type, Config),
+    Blocks = lazy_eval(proplists:get_value(block, Config, [])),
+    Streams = lazy_eval(proplists:get_value(stream, Config, [])),
+    lists:foreach(fun api_ng_cipher_increment/1, Blocks++Streams).
+
+
+api_ng_cipher_increment({Type, Key, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    api_ng_cipher_increment({Type, Key, <<>>, PlainTexts});
+
+api_ng_cipher_increment({Type, Key, IV, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    api_ng_cipher_increment({Type, Key, IV, PlainTexts, undefined});
+
+api_ng_cipher_increment({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
+    ct:log("~p",[_X]),
+    PlainTexts = iolistify(PlainText0),
+    {ok,RefEnc} = crypto:crypto_init(Type, Key, IV, true),
+    {ok,RefDec} = crypto:crypto_init(Type, Key, IV, false),
+    EncTexts = api_ng_cipher_increment_loop(RefEnc, PlainTexts),
+    Enc = iolist_to_binary(EncTexts),
+    case ExpectedEncText of
+        undefined ->
+            ok;
+        Enc ->
+            ok;
+        OtherEnc ->
+            ct:fail({{crypto, api_ng_encrypt, [IV,EncTexts]}, {expected, ExpectedEncText}, {got, OtherEnc}})
+    end,
+    Plain = iolist_to_binary(PlainTexts),
+    case iolist_to_binary(api_ng_cipher_increment_loop(RefDec, EncTexts)) of
+        Plain ->
+            ok;
+        OtherPT ->
+	    ct:fail({{crypto, api_ng_decrypt, [IV,EncTexts]}, {expected, Plain}, {got, OtherPT}})
+    end.
+
+
+api_ng_cipher_increment_loop(Ref, InTexts) ->
+    lists:map(fun(Txt) ->
+                      case crypto:crypto_update(Ref, Txt) of
+                          Bin when is_binary(Bin) ->
+                              Bin;
+                          {error,Error} ->
+                              ct:pal("Txt = ~p",[Txt]),
+                              ct:fail("~p",[Error])
+                      end
+              end, InTexts).
+
 %%--------------------------------------------------------------------
 no_aead() ->
      [{doc, "Test disabled aead ciphers"}].
@@ -773,6 +828,7 @@ cmac_check({Type, Key, Text, Size, CMac}) ->
         Other ->
             ct:fail({{crypto, cmac, [Type, Key, Text, Size]}, {expected, ExpCMac}, {got, Other}})
     end.
+
 
 block_cipher({Type, Key,  PlainText}) ->
     Plain = iolist_to_binary(PlainText),
