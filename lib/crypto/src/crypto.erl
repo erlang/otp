@@ -2252,15 +2252,15 @@ check_otp_test_engine(LibDir) ->
                                                                     | block_cipher_with_iv()
                                                                     | block_cipher_without_iv() ,
                                                             Key :: iodata(),
-                                                            IV :: binary(),
+                                                            IV :: iodata(),
                                                             EncryptFlag :: boolean() | undefined,
                                                             State :: crypto_state() .
 
-crypto_init(Cipher, Key, IV, EncryptFlag) when is_atom(Cipher),
-                                               is_binary(Key),
-                                               is_binary(IV),
-                                               is_atom(EncryptFlag) ->
-    case ng_crypto_init_nif(alias(Cipher), Key, IV, EncryptFlag) of
+crypto_init(Cipher, Key, IV, EncryptFlag) ->
+    case ng_crypto_init_nif(alias(Cipher), 
+                            iolist_to_binary(Key),
+                            iolist_to_binary(IV),
+                            EncryptFlag) of
         {error,Error} ->
             {error,Error};
         undefined -> % For compatibility function crypto_stream_init/3
@@ -2284,8 +2284,13 @@ crypto_init(Cipher, Key, IV, EncryptFlag) when is_atom(Cipher),
                                         when State :: crypto_state(),
                                              Data :: iodata(),
                                              Result :: binary() | {crypto_state(),binary()}.
-crypto_update(State, Data) ->
-    mk_ret(ng_crypto_update_nif(State, Data)).
+crypto_update(State, Data0) ->
+    case iolist_to_binary(Data0) of
+        <<>> ->
+            <<>>;                           % Known to fail on OpenSSL 0.9.8h
+        Data ->
+            mk_ret(ng_crypto_update_nif(State, Data))
+    end.
 
 %%%----------------------------------------------------------------
 %%%

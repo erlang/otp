@@ -165,8 +165,6 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ASSERT(in_data_bin.size =< INT_MAX);
 
     block_size = EVP_CIPHER_CTX_block_size(ctx->ctx);
-    if (in_data_bin.size % (size_t)block_size != 0)
-        return ERROR_Str(env, "Data not a multiple of block size");
 
     if (argc==3) {
         if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
