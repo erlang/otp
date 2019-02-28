@@ -59,7 +59,7 @@ opt(Linear) ->
     Blocks0 = maps:from_list(Linear),
     St0 = #st{bs=Blocks0,us=Used,skippable=Skippable},
     St = shortcut_opt(St0),
-    #st{bs=Blocks} = combine_eqs(St),
+    #st{bs=Blocks} = combine_eqs(St#st{us=#{}}),
     beam_ssa:linearize(Blocks).
 
 %%%
@@ -391,7 +391,7 @@ is_forbidden(L, St) ->
 
 eval_is([#b_set{op=phi,dst=Dst,args=Args}|Is], Bs0, St) ->
     From = map_get(from, Bs0),
-    [Val] = [Val || {Val,Pred} <- Args, Pred =:= From],
+    Val = get_phi_arg(Args, From),
     Bs = bind_var(Dst, Val, Bs0),
     eval_is(Is, Bs, St);
 eval_is([#b_set{op={bif,_},dst=Dst}=I0|Is], Bs, St) ->
@@ -423,6 +423,9 @@ eval_is([#b_set{}=I|Is], Bs, St) ->
             none
     end;
 eval_is([], Bs, _St) -> Bs.
+
+get_phi_arg([{Val,From}|_], From) -> Val;
+get_phi_arg([_|As], From) -> get_phi_arg(As, From).
 
 eval_terminator(#b_br{bool=#b_var{}=Bool}=Br, Bs, _St) ->
     Val = get_value(Bool, Bs),
@@ -492,19 +495,30 @@ eval_bif(#b_set{op={bif,Bif},args=Args}, St) ->
         false ->
             none;
         true ->
-            case [Lit || #b_literal{val=Lit} <- Args] of
-                LitArgs when length(LitArgs) =:= Arity ->
+            case get_lit_args(Args) of
+                none ->
+                    %% Not literal arguments. Try to evaluate
+                    %% it based on a previous relational operator.
+                    eval_rel_op({bif,Bif}, Args, St);
+                LitArgs ->
                     try apply(erlang, Bif, LitArgs) of
                         Val -> #b_literal{val=Val}
                     catch
                         error:_ -> none
-                    end;
-                _ ->
-                    %% Not literal arguments. Try to evaluate
-                    %% it based on a previous relational operator.
-                    eval_rel_op({bif,Bif}, Args, St)
+                    end
             end
     end.
+
+get_lit_args([#b_literal{val=Lit1}]) ->
+    [Lit1];
+get_lit_args([#b_literal{val=Lit1},
+              #b_literal{val=Lit2}]) ->
+    [Lit1,Lit2];
+get_lit_args([#b_literal{val=Lit1},
+              #b_literal{val=Lit2},
+              #b_literal{val=Lit3}]) ->
+    [Lit1,Lit2,Lit3];
+get_lit_args(_) -> none.
 
 %%%
 %%% Handling of relational operators.
@@ -1041,11 +1055,12 @@ used_vars_is([], Used) ->
 sub(#b_set{args=Args}=I, Sub) ->
     I#b_set{args=[sub_arg(A, Sub) || A <- Args]}.
 
-sub_arg(Old, Sub) ->
+sub_arg(#b_var{}=Old, Sub) ->
     case Sub of
         #{Old:=New} -> New;
         #{} -> Old
-    end.
+    end;
+sub_arg(Old, _Sub) -> Old.
 
 rel2fam(S0) ->
     S1 = sofs:relation(S0),
