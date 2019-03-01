@@ -203,7 +203,7 @@ ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
             data[i] = pattern[i % sizeof(pattern)];
         }
     }
-#elif defined(HAVE_SYS_MMAN_H)
+#elif defined(HAVE_SYS_MMAN_H) && !(defined(__sun) || defined(__sun__))
     #include <sys/mman.h>
 
     ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
