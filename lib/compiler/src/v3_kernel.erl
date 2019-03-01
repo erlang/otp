@@ -2040,6 +2040,10 @@ get_match(#k_cons{}, St0) ->
 get_match(#k_binary{}, St0) ->
     {[V]=Mes,St1} = new_vars(1, St0),
     {#k_binary{segs=V},Mes,St1};
+get_match(#k_bin_seg{size=#k_atom{val=all},next={k_bin_end,[]}}=Seg, St0) ->
+    {[S,N0],St1} = new_vars(2, St0),
+    N = set_kanno(N0, [no_usage]),
+    {Seg#k_bin_seg{seg=S,next=N},[S],St1};
 get_match(#k_bin_seg{}=Seg, St0) ->
     {[S,N0],St1} = new_vars(2, St0),
     N = set_kanno(N0, [no_usage]),
@@ -2067,6 +2071,9 @@ new_clauses(Cs0, U, St) ->
 				 #k_cons{hd=H,tl=T} -> [H,T|As];
 				 #k_tuple{es=Es} -> Es ++ As;
 				 #k_binary{segs=E}  -> [E|As];
+				 #k_bin_seg{size=#k_atom{val=all},
+					    seg=S,next={k_bin_end,[]}} ->
+				     [S|As];
 				 #k_bin_seg{seg=S,next=N} ->
 				     [S,N|As];
 				 #k_bin_int{next=N} ->
