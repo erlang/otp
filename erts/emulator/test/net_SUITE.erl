@@ -235,7 +235,9 @@ verify_addr_info(AddrInfos, Domain) when (AddrInfos =/= []) ->
     
 verify_addr_info2([], _Domain) ->
     ok;
-verify_addr_info2([#{addr     := #{addr := Addr, family := Domain, port := Port},
+verify_addr_info2([#{addr     := #{addr   := Addr,
+				   family := Domain,
+				   port   := Port},
                      family   := Domain,
                      type     := _Type,
                      protocol := _Proto}|T], Domain) 
@@ -243,6 +245,10 @@ verify_addr_info2([#{addr     := #{addr := Addr, family := Domain, port := Port}
        (((Domain =:= inet) andalso is_tuple(Addr) andalso (size(Addr) =:= 4)) orelse
         ((Domain =:= inet6) andalso is_tuple(Addr) andalso (size(Addr) =:= 8))) -> 
     verify_addr_info2(T, Domain);
+verify_addr_info2([#{family := DomainA}|T], DomainB) 
+  when (DomainA =/= DomainB) ->
+    %% Ignore entries for other domains
+    verify_addr_info2(T, DomainB);
 verify_addr_info2([BadAddrInfo|_], Domain) ->
     ?FAIL({bad_address_info, BadAddrInfo, Domain}).
 
@@ -327,7 +333,7 @@ which_local_addr(Domain) ->
     end.
 
 which_addr(_Domain, []) ->
-    ?FAIL(no_address);
+    skip(no_address);
 which_addr(Domain, [{"lo" ++ _, _}|IFL]) ->
     which_addr(Domain, IFL);
 which_addr(Domain, [{_Name, IFO}|IFL]) ->
