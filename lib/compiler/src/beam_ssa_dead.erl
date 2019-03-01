@@ -88,6 +88,16 @@ shortcut_opt(#st{bs=Blocks}=St) ->
     %% opportunities for optimizations compared to post order. (Based on
     %% running scripts/diffable with both PO and RPO and looking at
     %% the diff.)
+    %%
+    %% Unfortunately, processing the blocks in reverse post order
+    %% potentially makes the time complexity quadratic or even cubic if
+    %% the ordset of unset variables grows large, instead of
+    %% linear for post order processing. We try to still get reasonable
+    %% compilation times by optimizations that will keep the constant
+    %% factor as low as possible, and we try to avoid the cubic time
+    %% complexity by trying to keep the set of unset variables as small
+    %% as possible.
+
     Ls = beam_ssa:rpo(Blocks),
     shortcut_opt(Ls, #{}, St).
 
