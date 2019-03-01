@@ -9581,13 +9581,13 @@ hello
       <desc>
         <p>Returns a binary that contains the a JSON representation of the
         data in <c><anno>Term</anno></c>.</p>
-      </desc>
-      <pre>
+        <pre>
 > <input>erlang:term_to_json([1, 2.0, &lt;&lt;"three">>]).</input>
 &lt;&lt;"[1,2.0,\"three\"]"&gt;&gt;
 > <input>erlang:term_to_json({[{&lt;&lt;"name">>, &lt;&lt;"richard">>}, {&lt;&lt;"age">>, 7},
       {&lt;&lt;"friends">>, [&lt;&lt;"alice">>, &lt;&lt;"jane">>]}]}).</input>
 &lt;&lt;"{\"name\":\"richard\",\"age\":7,\"friends\":[\"alice\",\"jane\"]}">></pre>
+      </desc>
     </func>
 
     <func>
@@ -9596,10 +9596,10 @@ hello
       <desc>
         <p>Returns a binary that contains the a JSON representation of the
         data in <c><anno>Term</anno></c>.</p>
-      </desc>
-      <pre>
+        <pre>
 > <input>erlang:term_to_json([1, nil, 3], [use_nil]).</input>
 &lt;&lt;"[1,null,3]"&gt;&gt;</pre>
+      </desc>
     </func>
 
     <func>
