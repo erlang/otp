@@ -1115,19 +1115,33 @@ is_function Fail=f c => jump Fail
 func_info M F A => i_func_info u M F A
 
 # ================================================================
-# New bit syntax matching (R11B).
+# Bit syntax matching obsoleted in OTP 22.
 # ================================================================
 
-%warm
+%cold
 bs_start_match2 Fail=f ica X Y D => jump Fail
 bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
 i_bs_start_match2 xy f t t d
 
+bs_save2 Y=y Index => move Y x | bs_save2 x Index
 bs_save2 Reg Index => gen_bs_save(Reg, Index)
-i_bs_save2 xy t
+i_bs_save2 x t
 
+bs_restore2 Y=y Index => move Y x | bs_restore2 x Index
 bs_restore2 Reg Index => gen_bs_restore(Reg, Index)
-i_bs_restore2 xy t
+i_bs_restore2 x t
+
+bs_context_to_binary Y=y | line L | badmatch Y => \
+    move Y x | bs_context_to_binary x | line L | badmatch x
+bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
+bs_context_to_binary x
+%warm
+
+# ================================================================
+# New bit syntax matching (R11B).
+# ================================================================
+
+%warm
 
 # Matching integers
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
@@ -1188,16 +1202,6 @@ bs_test_tail_imm2 f? xy W
 bs_test_unit F Ms Unit=u==8 => bs_test_unit8 F Ms
 bs_test_unit f? xy t
 bs_test_unit8 f? xy
-
-# An y register operand for bs_context_to_binary is rare,
-# but can happen because of inlining.
-
-bs_context_to_binary Y=y | line L | badmatch Y => \
-    move Y x | bs_context_to_binary x | line L | badmatch x
-
-bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
-
-bs_context_to_binary x
 
 # Gets a bitstring from the tail of a context.
 bs_get_tail xy d t
