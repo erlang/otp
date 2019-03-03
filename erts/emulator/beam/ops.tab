@@ -215,11 +215,7 @@ set_tuple_element s S P
 
 # Get tuple element
 
-i_get_tuple_element xy P x
-
-%cold
-i_get_tuple_element xy P y
-%hot
+i_get_tuple_element xy P xy
 
 i_get_tuple_element2 x P x
 i_get_tuple_element2_dst x P x x
