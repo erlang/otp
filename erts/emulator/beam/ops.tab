@@ -392,20 +392,14 @@ move3 x x x x x x
 move C=aiq X=x==1 => move_x1 C
 move C=aiq X=x==2 => move_x2 C
 
+move n D=y => init D
+
 move_x1 c
 move_x2 c
 
-# The compiler almost never generates a "move Literal y(Y)" instruction,
-# so let's cheat if we encounter one.
-move S=n D=y => init D
-move S=c D=y => move S x | move x D
-
-move x x
-move x y
-move y x
-move c x
+move xy xy
+move c xy
 move n x
-move y y
 
 # The following move instructions using x(0) are frequently used.
 
