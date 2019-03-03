@@ -285,6 +285,9 @@ move_window/6
 move X1=x Y1=y | move X2=x Y2=y | move X3=x Y3=y | succ(Y1,Y2) | succ(Y2,Y3) => \
     move_window X1 X2 X3 Y1 Y3
 
+move X1=x Y1=y | move X2=x Y2=y | succ(Y1,Y2) => \
+    move_window2 X1 X2 Y1
+
 move_window X1=x X2=x X3=x Y1=y Y3=y | move X4=x Y4=y | succ(Y3,Y4) => \
     move_window X1 X2 X3 X4 Y1 Y4
 
@@ -294,6 +297,7 @@ move_window X1=x X2=x X3=x X4=x Y1=y Y4=y | move X5=x Y5=y | succ(Y4,Y5) => \
 move_window X1=x X2=x X3=x Y1=y Y3=y => move_window3 X1 X2 X3 Y1
 move_window X1=x X2=x X3=x X4=x Y1=y Y4=y => move_window4 X1 X2 X3 X4 Y1
 
+move_window2 x x y
 move_window3 x x x y
 move_window4 x x x x y
 move_window5 x x x x x y
@@ -345,11 +349,6 @@ move_shift x x y
 move X1=x X2=x | move X3=x X4=x | independent_moves(X1, X2, X3, X4) => \
      move2_par X1 X2 X3 X4
 move2_par x x x x
-
-# move2_par x y x y
-
-move X1=x Y1=y | move X2=x Y2=y => move2_par X1 Y1 X2 Y2
-move2_par x y x y
 
 # move2_par x x x y
 
