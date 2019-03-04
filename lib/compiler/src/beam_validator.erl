@@ -579,7 +579,11 @@ valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
     Type = get_element_type(Index, Src, Vst),
     extract_term(Type, {bif,element}, [Index, Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
-    kill_state(branch_state(Lbl, Vst));
+    branch(Lbl, Vst,
+           fun(SuccVst) ->
+                   %% The next instruction is never executed.
+                   kill_state(SuccVst)
+           end);
 valfun_1(I, Vst) ->
     valfun_2(I, Vst).
 
@@ -589,14 +593,17 @@ init_try_catch_branch(Tag, Dst, Fail, Vst0) ->
     St = St0#st{ct=[[Fail]|Fails]},
     Vst = Vst0#vst{current=St},
 
-    complex_test(Fail,
-                 fun(CatchVst) ->
-                          #vst{current=#st{ys=Ys}} = CatchVst,
-                          maps:fold(fun init_catch_handler_1/3, CatchVst, Ys)
-                 end,
-                 fun(SuccVst) ->
-                          SuccVst
-                 end, Vst).
+    branch(Fail, Vst,
+           fun(CatchVst) ->
+                    #vst{current=#st{ys=Ys}} = CatchVst,
+                    maps:fold(fun init_catch_handler_1/3, CatchVst, Ys)
+           end,
+           fun(SuccVst) ->
+                    %% All potentially-throwing instructions after this
+                    %% one will implicitly branch to the fail label;
+                    %% see valfun_2/2
+                    SuccVst
+           end).
 
 %% Set the initial state at the try/catch label. Assume that Y registers
 %% contain terms or try/catch tags.
@@ -607,21 +614,27 @@ init_catch_handler_1(Reg, uninitialized, Vst) ->
 init_catch_handler_1(_, _, Vst) ->
     Vst.
 
-%% Update branched state if necessary and try next set of instructions.
+valfun_2(I, #vst{current=#st{ct=[[Fail]|_]}}=Vst) when is_integer(Fail) ->
+    %% We have an active try/catch tag and we can jump there from this
+    %% instruction, so we need to update the branched state of the try/catch
+    %% handler.
+    valfun_3(I, branch_state(Fail, Vst));
 valfun_2(I, #vst{current=#st{ct=[]}}=Vst) ->
     valfun_3(I, Vst);
-valfun_2(I, #vst{current=#st{ct=[[Fail]|_]}}=Vst) when is_integer(Fail) ->
-    %% Update branched state.
-    valfun_3(I, branch_state(Fail, Vst));
 valfun_2(_, _) ->
     error(ambiguous_catch_try_state).
 
 %% Handle the remaining floating point instructions here.
 %% Floating point.
-valfun_3({fconv,Src,{fr,_}=Dst}, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = update_type(fun meet/2, number, Src, Vst0),
-    set_freg(Dst, Vst);
+valfun_3({fconv,Src,{fr,_}=Dst}, Vst) ->
+    assert_term(Src, Vst),
+
+    %% An exception is raised on error, hence branching to 0.
+    branch(0, Vst,
+           fun(SuccVst0) ->
+               SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
+               set_freg(Dst, SuccVst)
+           end);
 valfun_3({bif,fadd,_,[_,_]=Ss,Dst}, Vst) ->
     float_op(Ss, Dst, Vst);
 valfun_3({bif,fdiv,_,[_,_]=Ss,Dst}, Vst) ->
@@ -682,70 +695,87 @@ valfun_4({call_ext_last,_,_,_}, #vst{current=#st{numy=NumY}}) ->
 valfun_4({make_fun2,_,_,_,Live}, Vst) ->
     call(make_fun, Live, Vst);
 %% Other BIFs
-valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
-    Vst1 = branch_state(Fail, Vst0),
+valfun_4({bif,element,{f,Fail},[Pos,Src],Dst}, Vst) ->
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   PosType = get_term_type(Pos, SuccVst0),
+                   TupleType = {tuple,[get_tuple_size(PosType)],#{}},
 
-    PosType = get_term_type(Pos, Vst0),
-    InferredType = {tuple,[get_tuple_size(PosType)],#{}},
+                   SuccVst1 = update_type(fun meet/2, TupleType,
+                                         Src, SuccVst0),
+                   SuccVst = update_type(fun meet/2, {integer,[]},
+                                         Pos, SuccVst1),
 
-    Vst2 = update_type(fun meet/2, InferredType, Tuple, Vst1),
-    Vst = update_type(fun meet/2, {integer,[]}, Pos, Vst2),
-
-    ElementType = get_element_type(PosType, Tuple, Vst),
-    extract_term(ElementType, {bif,element}, [Pos,Tuple], Dst, Vst);
+                   ElementType = get_element_type(PosType, Src, SuccVst),
+                   extract_term(ElementType, {bif,element}, [Pos,Src],
+                                Dst, SuccVst)
+           end);
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
     kill_state(Vst);
 valfun_4(raw_raise=I, Vst) ->
     call(I, 3, Vst);
-valfun_4({bif,Op,{f,Fail},[Cons]=Ss,Dst}, Vst0)
-  when Op =:= hd; Op =:= tl ->
-    validate_src(Ss, Vst0),
-    Vst = type_test(Fail, cons, Cons, Vst0),
-    Type = bif_return_type(Op, Ss, Vst),
-    extract_term(Type, {bif,Op}, Ss, Dst, Vst);
-valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
-    validate_src(Ss, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
-
-    %% Infer argument types. Note that we can't type_test in the general case
-    %% as the BIF could fail for reasons other than bad argument types.
-    ArgTypes = bif_arg_types(Op, Ss),
-    Vst = foldl(fun({Arg, T}, Vsti) ->
-                        update_type(fun meet/2, T, Arg, Vsti)
-                end, Vst1, zip(Ss, ArgTypes)),
-
-    Type = bif_return_type(Op, Ss, Vst),
-    extract_term(Type, {bif,Op}, Ss, Dst, Vst);
+valfun_4({bif,Op,{f,Fail},[Src]=Ss,Dst}, Vst) when Op =:= hd; Op =:= tl ->
+    assert_term(Src, Vst),
+    branch(Fail, Vst,
+           fun(FailVst) ->
+                   update_type(fun subtract/2, cons, Src, FailVst)
+           end,
+           fun(SuccVst0) ->
+                   SuccVst = update_type(fun meet/2, cons, Src, SuccVst0),
+                   extract_term(term, {bif,Op}, Ss, Dst, SuccVst)
+           end);
+valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst) ->
+    validate_src(Ss, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   %% Infer argument types. Note that we can't subtract
+                   %% types as the BIF could fail for reasons other than
+                   %% bad argument types.
+                   ArgTypes = bif_arg_types(Op, Ss),
+                   SuccVst = foldl(fun({Arg, T}, V) ->
+                                           update_type(fun meet/2, T, Arg, V)
+                                   end, SuccVst0, zip(Ss, ArgTypes)),
+                   Type = bif_return_type(Op, Ss, SuccVst),
+                   extract_term(Type, {bif,Op}, Ss, Dst, SuccVst)
+           end);
 valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
     validate_src(Ss, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
+
+    %% Heap allocations and X registers are killed regardless of whether we
+    %% fail or not, as we may fail after GC.
     St = kill_heap_allocation(St0),
-    Vst1 = Vst0#vst{current=St},
-    Vst2 = branch_state(Fail, Vst1),
+    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
 
-    ArgTypes = bif_arg_types(Op, Ss),
-    Vst3 = foldl(fun({Arg, T}, Vsti) ->
-                         update_type(fun meet/2, T, Arg, Vsti)
-                 end, Vst2, zip(Ss, ArgTypes)),
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   ArgTypes = bif_arg_types(Op, Ss),
+                   SuccVst = foldl(fun({Arg, T}, V) ->
+                                           update_type(fun meet/2, T, Arg, V)
+                                   end, SuccVst0, zip(Ss, ArgTypes)),
 
-    Type = bif_return_type(Op, Ss, Vst3),
-    Vst = prune_x_regs(Live, Vst3),
-    extract_term(Type, {gc_bif,Op}, Ss, Dst, Vst, Vst0);
+                   Type = bif_return_type(Op, Ss, SuccVst),
+
+                   %% We're passing Vst0 as the original because the
+                   %% registers were pruned before the branch.
+                   extract_term(Type, {gc_bif,Op}, Ss, Dst, SuccVst, Vst0)
+           end);
 valfun_4(return, #vst{current=#st{numy=none}}=Vst) ->
     assert_durable_term({x,0}, Vst),
     kill_state(Vst);
 valfun_4(return, #vst{current=#st{numy=NumY}}) ->
     error({stack_frame,NumY});
-valfun_4({loop_rec,{f,Fail},Dst}, Vst0) ->
-    %% This term may not be part of the root set until
-    %% remove_message/0 is executed. If control transfers
-    %% to the loop_rec_end/1 instruction, no part of
-    %% this term must be stored in a Y register.
-    Vst1 = branch_state(Fail, Vst0),
-    {Ref, Vst} = new_value(term, loop_rec, [], Vst1),
-    mark_fragile(Dst, set_reg_vref(Ref, Dst, Vst));
+valfun_4({loop_rec,{f,Fail},Dst}, Vst) ->
+    %% This term may not be part of the root set until remove_message/0 is
+    %% executed. If control transfers to the loop_rec_end/1 instruction, no
+    %% part of this term must be stored in a Y register.
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   {Ref, SuccVst} = new_value(term, loop_rec, [], SuccVst0),
+                   mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
+           end);
 valfun_4({wait,_}, Vst) ->
     verify_y_init(Vst),
     kill_state(Vst);
@@ -775,11 +805,21 @@ valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     assert_term(Src, Vst0),
     assert_choices(Choices),
-    select_val_branches(Fail, Src, Choices, Vst0);
-valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
-    assert_type(tuple, Tuple, Vst),
+    Vst = select_val_branches(Choices, Src, Vst0),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   %% The next instruction is never executed.
+                   kill_state(SuccVst)
+           end);
+valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst0) ->
+    assert_type(tuple, Tuple, Vst0),
     assert_arities(Choices),
-    select_arity_branches(Fail, Choices, Tuple, Vst);
+    Vst = select_arity_branches(Choices, Tuple, Vst0),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   %% The next instruction is never executed.
+                   kill_state(SuccVst)
+           end);
 
 %% New bit syntax matching instructions.
 valfun_4({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
@@ -788,17 +828,17 @@ valfun_4({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst) ->
     validate_bs_start_match(Fail, Live, bsm_match_state(Slots), Src, Dst, Vst);
 valfun_4({test,bs_match_string,{f,Fail},[Ctx,_,_]}, Vst) ->
     bsm_validate_context(Ctx, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_skip_bits2,{f,Fail},[Ctx,Src,_,_]}, Vst) ->
     bsm_validate_context(Ctx, Vst),
     assert_term(Src, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_test_tail2,{f,Fail},[Ctx,_]}, Vst) ->
     bsm_validate_context(Ctx, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_test_unit,{f,Fail},[Ctx,_]}, Vst) ->
     bsm_validate_context(Ctx, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_skip_utf8,{f,Fail},[Ctx,Live,_]}, Vst) ->
     validate_bs_skip_utf(Fail, Ctx, Live, Vst);
 valfun_4({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
@@ -833,6 +873,10 @@ valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
     Vst;
 
 %% Other test instructions.
+valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
+    assert_type(map, Src, Vst),
+    assert_unique_map_keys(List),
+    branch(Lbl, Vst, fun(V) -> V end);
 valfun_4({test,is_atom,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, {atom,[]}, Src, Vst);
 valfun_4({test,is_binary,{f,Lbl},[Src]}, Vst) ->
@@ -857,13 +901,13 @@ valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
     %% is_nil is an exact check against the 'nil' value, and should not be
     %% treated as a simple type test.
     assert_term(Src, Vst),
-    complex_test(Lbl,
-                 fun(FailVst) ->
-                         update_ne_types(Src, nil, FailVst)
-                 end,
-                 fun(SuccVst) ->
-                         update_eq_types(Src, nil, SuccVst)
-                 end, Vst);
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   update_ne_types(Src, nil, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_eq_types(Src, nil, SuccVst)
+           end);
 valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
     case Src of
         {Tag,_} when Tag =:= x; Tag =:= y ->
@@ -874,49 +918,61 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
             assert_term(Src, Vst),
             kill_state(Vst)
     end;
-valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst0) when is_integer(Sz) ->
-    assert_type(tuple, Tuple, Vst0),
-    Vst = branch_state(Lbl, Vst0),
-    update_type(fun meet/2, {tuple,Sz,#{}}, Tuple, Vst);
-valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = branch_state(Lbl, Vst0),
-    update_type(fun meet/2, {tuple,Sz,#{ {integer,1} => Atom }}, Src, Vst);
-valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
-    assert_type(map, Src, Vst),
-    assert_unique_map_keys(List),
-    branch_state(Lbl, Vst);
+valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
+    assert_type(tuple, Tuple, Vst),
+    branch(Lbl, Vst,
+           fun(SuccVst) ->
+                   Type = {tuple, Sz, #{}},
+                   update_type(fun meet/2, Type, Tuple, SuccVst)
+           end);
+valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
+    assert_term(Src, Vst),
+    branch(Lbl, Vst,
+           fun(SuccVst) ->
+                   Type = {tuple, Sz, #{ {integer,1} => Atom }},
+                   update_type(fun meet/2, Type, Src, SuccVst)
+           end);
 valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
     validate_src(Ss, Vst),
-    complex_test(Lbl,
-                 fun(FailVst) ->
-                         update_ne_types(Src, Val, FailVst)
-                 end,
-                 fun(SuccVst) ->
-                         update_eq_types(Src, Val, SuccVst)
-                 end, Vst);
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   update_ne_types(Src, Val, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_eq_types(Src, Val, SuccVst)
+           end);
 valfun_4({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
     validate_src(Ss, Vst),
-    complex_test(Lbl,
-                 fun(FailVst) ->
-                         update_eq_types(Src, Val, FailVst)
-                 end,
-                 fun(SuccVst) ->
-                         update_ne_types(Src, Val, SuccVst)
-                 end, Vst);
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   update_eq_types(Src, Val, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_ne_types(Src, Val, SuccVst)
+           end);
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
+    %% is_pid, is_reference, et cetera.
     validate_src(Src, Vst),
-    branch_state(Lbl, Vst);
+    branch(Lbl, Vst, fun(V) -> V end);
 valfun_4({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
     assert_term(A, Vst),
     assert_term(B, Vst),
-    create_term({integer,[]}, bs_add, [A, B], Dst, branch_state(Fail, Vst));
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   create_term({integer,[]}, bs_add, [A, B], Dst, SuccVst)
+           end);
 valfun_4({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
-    create_term({integer,[]}, bs_utf8_size, [A], Dst, branch_state(Fail, Vst));
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   create_term({integer,[]}, bs_utf8_size, [A], Dst, SuccVst)
+           end);
 valfun_4({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
-    create_term({integer,[]}, bs_utf16_size, [A], Dst, branch_state(Fail, Vst));
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   create_term({integer,[]}, bs_utf16_size, [A], Dst, SuccVst)
+           end);
 valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -926,10 +982,12 @@ valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
 	true ->
 	    assert_term(Sz, Vst0)
     end,
-    Vst1 = heap_alloc(Heap, Vst0),
-    Vst2 = branch_state(Fail, Vst1),
-    Vst = prune_x_regs(Live, Vst2),
-    create_term(binary, bs_init2, [], Dst, Vst, Vst0);
+    Vst = heap_alloc(Heap, Vst0),
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = prune_x_regs(Live, SuccVst0),
+                   create_term(binary, bs_init2, [], Dst, SuccVst, SuccVst0)
+           end);
 valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -939,47 +997,53 @@ valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
 	true ->
 	    assert_term(Sz, Vst0)
     end,
-    Vst1 = heap_alloc(Heap, Vst0),
-    Vst2 = branch_state(Fail, Vst1),
-    Vst = prune_x_regs(Live, Vst2),
-    create_term(binary, bs_init_bits, [], Dst, Vst);
+    Vst = heap_alloc(Heap, Vst0),
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = prune_x_regs(Live, SuccVst0),
+                   create_term(binary, bs_init_bits, [], Dst, SuccVst)
+           end);
 valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     assert_term(Bits, Vst0),
     assert_term(Bin, Vst0),
-    Vst1 = heap_alloc(Heap, Vst0),
-    Vst2 = branch_state(Fail, Vst1),
-    Vst = prune_x_regs(Live, Vst2),
-    create_term(binary, bs_append, [Bin], Dst, Vst, Vst0);
-valfun_4({bs_private_append,{f,Fail},Bits,_Unit,Bin,_Flags,Dst}, Vst0) ->
-    assert_term(Bits, Vst0),
-    assert_term(Bin, Vst0),
-    Vst = branch_state(Fail, Vst0),
-    create_term(binary, bs_private_append, [Bin], Dst, Vst);
+    Vst = heap_alloc(Heap, Vst0),
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = prune_x_regs(Live, SuccVst0),
+                   create_term(binary, bs_append, [Bin], Dst, SuccVst, SuccVst0)
+           end);
+valfun_4({bs_private_append,{f,Fail},Bits,_Unit,Bin,_Flags,Dst}, Vst) ->
+    assert_term(Bits, Vst),
+    assert_term(Bin, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   create_term(binary, bs_private_append, [Bin], Dst, SuccVst)
+           end);
 valfun_4({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
     Vst;
 valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
     assert_term(Src, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
     assert_term(Src, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
     assert_term(Src, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 valfun_4({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
     assert_term(Src, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 valfun_4({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
     assert_term(Src, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
     assert_term(Src, Vst),
-    branch_state(Fail, Vst);
+    branch(Fail, Vst, fun(V) -> V end);
 %% Map instructions.
 valfun_4({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
@@ -994,15 +1058,15 @@ verify_get_map(Fail, Src, List, Vst0) ->
     assert_not_literal(Src),                    %OTP 22.
     assert_type(map, Src, Vst0),
 
-    complex_test(Fail,
-                 fun(FailVst) ->
-                         clobber_map_vals(List, Src, FailVst)
-                 end,
-                 fun(SuccVst) ->
-                         Keys = extract_map_keys(List),
-                         assert_unique_map_keys(Keys),
-                         extract_map_vals(List, Src, SuccVst, SuccVst)
-                 end, Vst0).
+    branch(Fail, Vst0,
+           fun(FailVst) ->
+                   clobber_map_vals(List, Src, FailVst)
+           end,
+           fun(SuccVst) ->
+                   Keys = extract_map_keys(List),
+                   assert_unique_map_keys(Keys),
+                   extract_map_vals(List, Src, SuccVst, SuccVst)
+           end).
 
 %% get_map_elements may leave its destinations in an inconsistent state when
 %% the fail label is taken. Consider the following:
@@ -1037,12 +1101,15 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     [assert_term(Term, Vst0) || Term <- List],
-    Vst1 = heap_alloc(0, Vst0),
-    Vst2 = branch_state(Fail, Vst1),
-    Vst = prune_x_regs(Live, Vst2),
-    Keys = extract_map_keys(List),
-    assert_unique_map_keys(Keys),
-    create_term(map, Op, [Src], Dst, Vst, Vst0).
+    Vst = heap_alloc(0, Vst0),
+
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = prune_x_regs(Live, SuccVst0),
+                   Keys = extract_map_keys(List),
+                   assert_unique_map_keys(Keys),
+                   create_term(map, Op, [Src], Dst, SuccVst, SuccVst0)
+           end).
 
 %%
 %% Common code for validating bs_start_match* instructions.
@@ -1055,41 +1122,60 @@ validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
     %% #ms{} can represent either a match context or a term, so we have to mark
     %% the source as a term if it fails with a match context as an input. This
     %% hack is only needed until we get proper union types.
-    complex_test(Fail,
-                 fun(FailVst) ->
-                         case get_movable_term_type(Src, FailVst) of
-                             #ms{} -> override_type(term, Src, FailVst);
-                             _ -> FailVst
-                         end
-                 end,
-                 fun(SuccVst0) ->
-                         SuccVst1 = update_type(fun meet/2, binary,
-                                                Src, SuccVst0),
-                         SuccVst = prune_x_regs(Live, SuccVst1),
-                         extract_term(Type, bs_start_match, [Src], Dst,
-                                      SuccVst, SuccVst0)
-                 end, Vst).
+    branch(Fail, Vst,
+           fun(FailVst) ->
+                   case get_movable_term_type(Src, FailVst) of
+                       #ms{} -> override_type(term, Src, FailVst);
+                       _ -> FailVst
+                   end
+           end,
+           fun(SuccVst0) ->
+                   SuccVst1 = update_type(fun meet/2, binary,
+                                          Src, SuccVst0),
+                   SuccVst = prune_x_regs(Live, SuccVst1),
+                   extract_term(Type, bs_start_match, [Src], Dst,
+                                SuccVst, SuccVst0)
+           end).
 
 %%
 %% Common code for validating bs_get* instructions.
 %%
-validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst0) ->
-    bsm_validate_context(Ctx, Vst0),
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    Vst1 = prune_x_regs(Live, Vst0),
-    Vst = branch_state(Fail, Vst1),
-    extract_term(Type, Op, [Ctx], Dst, Vst, Vst0).
+validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst) ->
+    bsm_validate_context(Ctx, Vst),
+    verify_live(Live, Vst),
+    verify_y_init(Vst),
+
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = prune_x_regs(Live, SuccVst0),
+                   extract_term(Type, Op, [Ctx], Dst, SuccVst, SuccVst0)
+           end).
 
 %%
 %% Common code for validating bs_skip_utf* instructions.
 %%
-validate_bs_skip_utf(Fail, Ctx, Live, Vst0) ->
-    bsm_validate_context(Ctx, Vst0),
-    verify_y_init(Vst0),
-    verify_live(Live, Vst0),
-    Vst = prune_x_regs(Live, Vst0),
-    branch_state(Fail, Vst).
+validate_bs_skip_utf(Fail, Ctx, Live, Vst) ->
+    bsm_validate_context(Ctx, Vst),
+    verify_y_init(Vst),
+    verify_live(Live, Vst),
+
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   prune_x_regs(Live, SuccVst)
+           end).
+
+%%
+%% Common code for is_$type instructions.
+%%
+type_test(Fail, Type, Reg, Vst) ->
+    assert_term(Reg, Vst),
+    branch(Fail, Vst,
+           fun(FailVst) ->
+                   update_type(fun subtract/2, Type, Reg, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, Type, Reg, SuccVst)
+           end).
 
 %%
 %% Special state handling for setelement/3 and set_tuple_element/3 instructions.
@@ -1462,43 +1548,29 @@ bsm_restore(Reg, SavePoint, Vst) ->
 	_ -> error({illegal_restore,SavePoint,range})
     end.
 
-select_val_branches(Fail, Src, Choices, Vst0) ->
-    Vst = svb_1(Choices, Src, Vst0),
-    kill_state(branch_state(Fail, Vst)).
-
-svb_1([Val,{f,L}|T], Src, Vst0) ->
-    Vst = complex_test(L,
-                       fun(BranchVst) ->
-                               update_eq_types(Src, Val, BranchVst)
-                       end,
-                       fun(FailVst) ->
-                               update_ne_types(Src, Val, FailVst)
-                       end, Vst0),
-    svb_1(T, Src, Vst);
-svb_1([], _, Vst) ->
+select_val_branches([Val,{f,L}|T], Src, Vst0) ->
+    Vst = branch(L, Vst0,
+                 fun(BranchVst) ->
+                         update_eq_types(Src, Val, BranchVst)
+                 end,
+                 fun(FailVst) ->
+                         update_ne_types(Src, Val, FailVst)
+                 end),
+    select_val_branches(T, Src, Vst);
+select_val_branches([], _, Vst) ->
     Vst.
 
-select_arity_branches(Fail, List, Tuple, Vst0) ->
-    Type = get_term_type(Tuple, Vst0),
-    Vst = sab_1(List, Tuple, Type, Vst0),
-    kill_state(branch_state(Fail, Vst)).
-
-sab_1([Sz,{f,L}|T], Tuple, {tuple,[_],Es}=Type0, Vst0) ->
-    #vst{current=St0} = Vst0,
-    Vst1 = update_type(fun meet/2, {tuple,Sz,Es}, Tuple, Vst0),
-    Vst2 = branch_state(L, Vst1),
-    Vst = Vst2#vst{current=St0},
-
-    sab_1(T, Tuple, Type0, Vst);
-sab_1([Sz,{f,L}|T], Tuple, {tuple,Sz,_Es}=Type, Vst0) ->
-    %% The type is already correct. (This test is redundant.)
-    Vst = branch_state(L, Vst0),
-    sab_1(T, Tuple, Type, Vst);
-sab_1([_,{f,_}|T], Tuple, Type, Vst) ->
-    %% We already have an established different exact size for the tuple.
-    %% This label can't possibly be reached.
-    sab_1(T, Tuple, Type, Vst);
-sab_1([], _, _, #vst{}=Vst) ->
+select_arity_branches([SzA,{f,L}|T], Tuple, Vst0) ->
+    Vst = branch(L, Vst0,
+                 fun(BranchVst) ->
+                         update_type(fun meet/2, {tuple,SzA,#{}},
+                                     Tuple, BranchVst)
+                 end,
+                 fun(FailVst) ->
+                         FailVst
+                 end),
+    select_arity_branches(T, Tuple, Vst);
+select_arity_branches([], _, #vst{}=Vst) ->
     Vst.
 
 infer_types({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
@@ -1630,26 +1702,6 @@ resolve_args([Lit | Args], Vst) ->
     [Lit | resolve_args(Args, Vst)];
 resolve_args([], _Vst) ->
     [].
-
-%% Helper functions for tests that alter state on both the success and fail
-%% branches, keeping the states from tainting each other.
-complex_test(Fail, FailFun, SuccFun, Vst0) ->
-    #vst{current=St0} = Vst0,
-    Vst1 = FailFun(Vst0),
-    Vst2 = branch_state(Fail, Vst1),
-    Vst = Vst2#vst{current=St0},
-    SuccFun(Vst).
-
-%% Helper function for simple "is_type" tests.
-type_test(Fail, Type, Reg, Vst) ->
-    assert_term(Reg, Vst),
-    complex_test(Fail,
-                 fun(FailVst) ->
-                         update_type(fun subtract/2, Type, Reg, FailVst)
-                 end,
-                 fun(SuccVst) ->
-                         update_type(fun meet/2, Type, Reg, SuccVst)
-                 end, Vst).
 
 %% Overrides the type of Reg. This is ugly but a necessity for certain
 %% destructive operations.
@@ -2196,10 +2248,35 @@ glt_1(T) when is_tuple(T) ->
 glt_1(L) ->
     {literal, L}.
 
+%%%
+%%% Branch tracking
+%%%
+
+%% Forks the execution flow, with the provided funs returning the new state of
+%% their respective branch; the "fail" fun returns the state where the branch
+%% is taken, and the "success" fun returns the state where it's not.
+-spec branch(Lbl :: label(),
+             Original :: #vst{},
+             FailFun :: BranchFun,
+             SuccFun :: BranchFun) -> #vst{} when
+     BranchFun :: fun((#vst{}) -> #vst{}).
+branch(Lbl, Vst0, FailFun, SuccFun) ->
+    #vst{current=St0} = Vst0,
+    Vst1 = FailFun(Vst0),
+    Vst2 = branch_state(Lbl, Vst1),
+    Vst = Vst2#vst{current=St0},
+    SuccFun(Vst).
+
+%% A shorthand version of branch/4 for when the state is only altered on
+%% success.
+branch(Fail, Vst, SuccFun) ->
+    branch(Fail, Vst, fun(V) -> V end, SuccFun).
+
+%% Directly branches off the state. This is an "internal" operation that should
+%% be used sparingly.
 branch_state(0, #vst{}=Vst) ->
-    %% If the instruction fails, the stack may be scanned
-    %% looking for a catch tag. Therefore the Y registers
-    %% must be initialized at this point.
+    %% If the instruction fails, the stack may be scanned looking for a catch
+    %% tag. Therefore the Y registers must be initialized at this point.
     verify_y_init(Vst),
     Vst;
 branch_state(L, #vst{current=St,branched=B,ref_ctr=Counter0}=Vst) ->
