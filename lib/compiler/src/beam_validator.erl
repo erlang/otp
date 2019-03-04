@@ -1018,24 +1018,42 @@ valfun_4({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
 valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
     assert_term(Src, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, binary, Src, SuccVst)
+           end);
 valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
     assert_term(Src, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, {float,[]}, Src, SuccVst)
+           end);
 valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
     assert_term(Src, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, {integer,[]}, Src, SuccVst)
+           end);
 valfun_4({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
     assert_term(Src, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, {integer,[]}, Src, SuccVst)
+           end);
 valfun_4({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
     assert_term(Src, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, {integer,[]}, Src, SuccVst)
+           end);
 valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
     assert_term(Src, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, {integer,[]}, Src, SuccVst)
+           end);
 %% Map instructions.
 valfun_4({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
