@@ -21,11 +21,49 @@
 
 %if ARCH_64
 BS_SAFE_MUL(A, B, Fail, Dst) {
-    Uint64 res = ($A) * ($B);
-    if (res / $B != $A) {
+    Uint a = $A;
+    Uint b = $B;
+    Uint res = a * b;
+    if (res / b != a) {
         $Fail;
     }
     $Dst = res;
+}
+
+BS_GET_FIELD_SIZE(Bits, Unit, Fail, Dst) {
+    if (is_small($Bits)) {
+        Uint uint_size;
+        Sint signed_size = signed_val($Bits);
+        if (signed_size < 0) {
+            $Fail;
+        }
+        uint_size = (Uint) signed_size;
+        $BS_SAFE_MUL(uint_size, $Unit, $Fail, $Dst);
+    } else {
+        /*
+         * On a 64-bit architecture, the size of any binary
+         * that would fit in the memory fits in a small.
+         */
+        $Fail;
+    }
+}
+
+BS_GET_UNCHECKED_FIELD_SIZE(Bits, Unit, Fail, Dst) {
+    if (is_small($Bits)) {
+        Uint uint_size;
+        Sint signed_size = signed_val($Bits);
+        if (signed_size < 0) {
+            $Fail;
+        }
+        uint_size = (Uint) signed_size;
+        $Dst = uint_size * $Unit;
+    } else {
+        /*
+         * On a 64-bit architecture, the size of any binary
+         * that would fit in the memory fits in a small.
+         */
+        $Fail;
+    }
 }
 %else
 BS_SAFE_MUL(A, B, Fail, Dst) {
@@ -35,7 +73,6 @@ BS_SAFE_MUL(A, B, Fail, Dst) {
     }
     $Dst = res;
 }
-%endif
 
 BS_GET_FIELD_SIZE(Bits, Unit, Fail, Dst) {
     Sint signed_size;
@@ -76,6 +113,7 @@ BS_GET_UNCHECKED_FIELD_SIZE(Bits, Unit, Fail, Dst) {
     }
     $Dst = uint_size * $Unit;
 }
+%endif
 
 TEST_BIN_VHEAP(VNh, Nh, Live) {
     Uint need = $Nh;
