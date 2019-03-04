@@ -867,7 +867,7 @@ my_try(Fun) ->
     try Fun() catch C:R:S -> {C,R,hd(S)} end.
 
 timestamp() ->
-    erlang:system_time(microsecond).
+    logger:timestamp().
 
 %% necessary?
 add_time(#{time:=_}=Meta) ->

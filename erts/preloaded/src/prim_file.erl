@@ -572,12 +572,13 @@ list_dir_convert([RawName | Rest], SkipInvalid, Result) ->
         {error, ignore} ->
             list_dir_convert(Rest, SkipInvalid, Result);
         {error, warning} ->
-            %% this is equal to calling error_logger:warning_msg/2 which
-            %% we don't want to do from code_server during system boot
+            %% This is equal to calling logger:warning/3 which
+            %% we don't want to do from code_server during system boot.
+            %% We don't want to call logger:timestamp() either.
             logger ! {log,warning,"Non-unicode filename ~p ignored\n", [RawName],
                       #{pid=>self(),
                         gl=>group_leader(),
-                        time=>erlang:system_time(microsecond),
+                        time=>os:system_time(microsecond),
                         error_logger=>#{tag=>warning_msg}}},
             list_dir_convert(Rest, SkipInvalid, Result);
         {error, _} ->

@@ -69,7 +69,7 @@ log(#{msg:=_,meta:=#{time:=_}}=Log,_Config) ->
                 do_log(
                   #{level=>error,
                     msg=>{report,{error,simple_handler_process_dead}},
-                    meta=>#{time=>erlang:system_time(microsecond)}}),
+                    meta=>#{time=>logger:timestamp()}}),
                 do_log(Log);
             _ ->
                 ?MODULE ! {log,Log}
@@ -129,7 +129,7 @@ drop_msg(0) ->
 drop_msg(N) ->
     [#{level=>info,
        msg=>{"Simple handler buffer full, dropped ~w messages",[N]},
-       meta=>#{time=>erlang:system_time(microsecond)}}].
+       meta=>#{time=>logger:timestamp()}}].
 
 %%%-----------------------------------------------------------------
 %%% Internal

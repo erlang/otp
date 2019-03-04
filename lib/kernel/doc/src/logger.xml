@@ -190,7 +190,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	<list>
 	  <item><c>pid  => self()</c></item>
 	  <item><c>gl   => group_leader()</c></item>
-	  <item><c>time => erlang:system_time(microsecond)</c></item>
+	  <item><c>time => logger:timestamp()</c></item>
 	</list>
 	<p>When a log macro is used, Logger also inserts location
 	  information:</p>
@@ -288,8 +288,8 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <name name="timestamp"/>
       <desc>
 	<p>A timestamp produced
-	  with <seealso marker="erts:erlang#system_time-1">
-	    <c>erlang:system_time(microsecond)</c></seealso>.</p>
+	  with <seealso marker="#timestamp-0">
+	    <c>logger:timestamp()</c></seealso>.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -1117,6 +1117,24 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 	  a key-value list before formatting as such.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="timestamp" arity="0" since="OTP @OTP-15625@"/>
+      <fsummary>Return a timestamp to insert in meta data for a log
+	event.</fsummary>
+      <desc>
+        <p>Return a timestamp that can be inserted as the <c>time</c>
+          field in the meta data for a log event. It is produced with
+	  <seealso marker="kernel:os#system_time-1">
+            <c>os:system_time(microsecond)</c></seealso>.</p>
+	<p>Notice that Logger automatically inserts a timestamp in the
+	  meta data unless it already exists. This function is
+	  exported for the rare case when the timestamp must be taken
+	  at a different point in time than when the log event is
+	  issued.</p>
+      </desc>
+    </func>
+
   </funcs>
 
   <section>
