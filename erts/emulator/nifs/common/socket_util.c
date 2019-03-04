@@ -177,7 +177,7 @@ char* esock_decode_iov(ErlNifEnv*    env,
             return ESOCK_STR_EINVAL;
 
         if (IS_BIN(env, elem) && GET_BIN(env, elem, &bufs[i])) {
-            iov[i].iov_base  = bufs[i].data;
+            iov[i].iov_base  = (caddr_t) bufs[i].data;
             iov[i].iov_len   = bufs[i].size;
             sz              += bufs[i].size;
         } else {
