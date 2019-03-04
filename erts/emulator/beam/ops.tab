@@ -1160,7 +1160,7 @@ i_bs_get_integer_imm Ms Bits Live Fail Flags Y=y => \
 
 i_bs_get_integer_small_imm xy W f? t x
 i_bs_get_integer_imm xy W t f? t x
-i_bs_get_integer f? t t xy s d
+i_bs_get_integer xy f? t t s d
 i_bs_get_integer_8 xy f? d
 i_bs_get_integer_16 xy f? d
 
@@ -1172,9 +1172,9 @@ i_bs_get_integer_32 xy f? d
 bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_binary_imm2 f? xy t W t d
-i_bs_get_binary2 f xy t? s t d
-i_bs_get_binary_all2 f? xy t t d
+i_bs_get_binary_imm2 xy f? t W t d
+i_bs_get_binary2 xy f t? s t d
+i_bs_get_binary_all2 xy f? t t d
 i_bs_get_binary_all_reuse xy f? t
 
 # Fetching float from binaries.
@@ -1183,7 +1183,7 @@ bs_get_float2 Fail=f Ms=xy Live=u Sz=s Unit=u Flags=u Dst=d => \
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
-i_bs_get_float2 f? xy t s t d
+i_bs_get_float2 xy f? t s t d
 
 # Miscellanous
 
@@ -1191,7 +1191,7 @@ bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => \
 			gen_skip_bits2(Fail, Ms, Sz, Unit, Flags)
 
 i_bs_skip_bits_imm2 f? xy W
-i_bs_skip_bits2 f? xy xy t
+i_bs_skip_bits2 xy xy f? t
 i_bs_skip_bits_all2 f? xy t
 
 bs_test_tail2 Fail=f Ms=xy Bits=u==0 => bs_test_zero_tail2 Fail Ms

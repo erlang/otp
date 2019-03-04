@@ -3295,11 +3295,11 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     } else {
 	op->op = genop_i_bs_get_integer_6;
 	op->arity = 6;
-	op->a[0] = Fail;
-	op->a[1] = Live;
-	op->a[2].type = TAG_u;
-	op->a[2].val = (Unit.val << 3) | Flags.val;
-	op->a[3] = Ms;
+	op->a[0] = Ms;
+	op->a[1] = Fail;
+	op->a[2] = Live;
+	op->a[3].type = TAG_u;
+	op->a[3].val = (Unit.val << 3) | Flags.val;
 	op->a[4] = Size;
 	op->a[5] = Dst;
 	op->next = NULL;
@@ -3332,8 +3332,8 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	} else {
 	    op->op = genop_i_bs_get_binary_all2_5;
 	    op->arity = 5;
-	    op->a[0] = Fail;
-	    op->a[1] = Ms;
+	    op->a[0] = Ms;
+	    op->a[1] = Fail;
 	    op->a[2] = Live;	
 	    op->a[3] = Unit;
 	    op->a[4] = Dst;
@@ -3341,8 +3341,8 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     } else if (Size.type == TAG_i) {
 	op->op = genop_i_bs_get_binary_imm2_6;
 	op->arity = 6;
-	op->a[0] = Fail;
-	op->a[1] = Ms;
+	op->a[0] = Ms;
+	op->a[1] = Fail;
 	op->a[2] = Live;
 	op->a[3].type = TAG_u;
 	if (!safe_mul(Size.val, Unit.val, &op->a[3].val)) {
@@ -3362,8 +3362,8 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	} else {
 	    op->op = genop_i_bs_get_binary_imm2_6;
 	    op->arity = 6;
-	    op->a[0] = Fail;
-	    op->a[1] = Ms;
+	    op->a[0] = Ms;
+	    op->a[1] = Fail;
 	    op->a[2] = Live;
 	    op->a[3].type = TAG_u;
 	    if (!safe_mul(bigval, Unit.val, &op->a[3].val)) {
@@ -3375,8 +3375,8 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     } else {
 	op->op = genop_i_bs_get_binary2_6;
 	op->arity = 6;
-	op->a[0] = Fail;
-	op->a[1] = Ms;
+	op->a[0] = Ms;
+	op->a[1] = Fail;
 	op->a[2] = Live;
 	op->a[3] = Size;
 	op->a[4].type = TAG_u;
@@ -3541,8 +3541,8 @@ gen_get_float2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     NATIVE_ENDIAN(Flags);
     op->op = genop_i_bs_get_float2_6;
     op->arity = 6;
-    op->a[0] = Fail;
-    op->a[1] = Ms;
+    op->a[0] = Ms;
+    op->a[1] = Fail;
     op->a[2] = Live;
     op->a[3] = Size;
     op->a[4].type = TAG_u;
@@ -3601,9 +3601,9 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
     } else {
 	op->op = genop_i_bs_skip_bits2_4;
 	op->arity = 4;
-	op->a[0] = Fail;
-	op->a[1] = Ms; 
-	op->a[2] = Size;
+	op->a[0] = Ms;
+	op->a[1] = Size;
+	op->a[2] = Fail;
 	op->a[3] = Unit;
     }
     op->next = NULL;
