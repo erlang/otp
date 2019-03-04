@@ -38,7 +38,9 @@ listen(Port, #config{transport_info = TransportInfo,
     case dtls_listener_sup:start_child([Port, TransportInfo, emulated_socket_options(EmOpts, #socket_options{}), 
 				   Options ++ internal_inet_values(), SslOpts]) of
 	{ok, Pid} ->
-	    {ok, #sslsocket{pid = {dtls, Config#config{dtls_handler = {Pid, Port}}}}};
+        Socket = #sslsocket{pid = {dtls, Config#config{dtls_handler = {Pid, Port}}}},
+        check_active_n(EmOpts, Socket),
+	    {ok, Socket};
 	Err = {error, _} ->
 	    Err
     end.
@@ -81,14 +83,41 @@ socket(Pids, Transport, Socket, ConnectionCb) ->
     #sslsocket{pid = Pids, 
 	       %% "The name "fd" is keept for backwards compatibility
 	       fd = {Transport, Socket, ConnectionCb}}.
-setopts(_, #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
-    SplitOpts = tls_socket:split_options(Options),
+setopts(_, Socket = #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
+    SplitOpts = {_, EmOpts} = tls_socket:split_options(Options),
+    check_active_n(EmOpts, Socket),
     dtls_packet_demux:set_sock_opts(ListenPid, SplitOpts);
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
 setopts(gen_udp, Socket, Options) ->
     inet:setopts(Socket, Options);
 setopts(Transport, Socket, Options) ->
     Transport:setopts(Socket, Options).
+
+check_active_n(EmulatedOpts, Socket = #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}) ->
+    %% We check the resulting options to send an ssl_passive message if necessary.
+    case proplists:lookup(active, EmulatedOpts) of
+        %% The provided value is out of bound.
+        {_, N} when is_integer(N), N < -32768 ->
+            throw(einval);
+        {_, N} when is_integer(N), N > 32767 ->
+            throw(einval);
+        {_, N} when is_integer(N) ->
+            {ok, #socket_options{active = Active}, _} = dtls_packet_demux:get_all_opts(ListenPid),
+            case Active of
+                Atom when is_atom(Atom), N =< 0 ->
+                    self() ! {ssl_passive, Socket};
+                %% The result of the addition is out of bound.
+                %% We do not need to check < -32768 because Active can't be below 1.
+                A when is_integer(A), A + N > 32767 ->
+                    throw(einval);
+                A when is_integer(A), A + N =< 0 ->
+                    self() ! {ssl_passive, Socket};
+                _ ->
+                    ok
+            end;
+        _ ->
+            ok
+    end.
 
 getopts(_, #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
     SplitOpts = tls_socket:split_options(Options),
@@ -161,8 +190,17 @@ emulated_socket_options(InetValues, #socket_options{
        mode   = proplists:get_value(mode, InetValues, Mode),
        packet = proplists:get_value(packet, InetValues, Packet),
        packet_size = proplists:get_value(packet_size, InetValues, PacketSize),
-       active = proplists:get_value(active, InetValues, Active)
+       active = emulated_active_option(InetValues, Active)
       }.
+
+emulated_active_option([], Active) ->
+    Active;
+emulated_active_option([{active, Active} | _], _) when Active =< 0 ->
+    false;
+emulated_active_option([{active, Active} | _], _) ->
+    Active;
+emulated_active_option([_|Tail], Active) ->
+    emulated_active_option(Tail, Active).
 
 emulated_options([{mode, Value} = Opt |Opts], Inet, Emulated) ->
     validate_inet_option(mode, Value),
@@ -184,6 +222,9 @@ emulated_options([], Inet,Emulated) ->
 validate_inet_option(mode, Value)
   when Value =/= list, Value =/= binary ->
     throw({error, {options, {mode,Value}}});
+validate_inet_option(active, Value)
+  when Value >= -32768, Value =< 32767 ->
+    ok;
 validate_inet_option(active, Value)
   when Value =/= true, Value =/= false, Value =/= once ->
     throw({error, {options, {active,Value}}});

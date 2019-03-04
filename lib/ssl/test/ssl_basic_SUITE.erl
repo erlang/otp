@@ -164,6 +164,7 @@ api_tests() ->
      accept_pool,
      prf,
      socket_options,
+     active_n,
      cipher_suites,
      handshake_continue,
      handshake_continue_timeout,
@@ -243,6 +244,7 @@ error_handling_tests()->
     [close_transport_accept,
      recv_active,
      recv_active_once,
+     recv_active_n,
      recv_error_handling,
      call_in_error_state,
      close_in_error_state,
@@ -1978,7 +1980,7 @@ recv_active(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 recv_active_once() ->
-    [{doc,"Test recv on active socket"}].
+    [{doc,"Test recv on active (once) socket"}].
 
 recv_active_once(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
@@ -2001,6 +2003,178 @@ recv_active_once(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+recv_active_n() ->
+    [{doc,"Test recv on active (n) socket"}].
+
+recv_active_n(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {?MODULE, try_recv_active_once, []}},
+				   {options,  [{active, 1} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+				   {host, Hostname},
+				   {from, self()},
+				   {mfa, {?MODULE, try_recv_active_once, []}},
+				   {options, [{active, 1} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+%% Test case adapted from gen_tcp_misc_SUITE.
+active_n() ->
+    [{doc,"Test {active,N} option"}].
+
+active_n(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    Port = ssl_test_lib:inet_port(node()),
+    N = 3,
+    LS = ok(ssl:listen(Port, [{active,N}|ServerOpts])),
+    [{active,N}] = ok(ssl:getopts(LS, [active])),
+    active_n_common(LS, N),
+    Self = self(),
+    spawn_link(fun() ->
+        S0 = ok(ssl:transport_accept(LS)),
+        {ok, S} = ssl:handshake(S0),
+        ok = ssl:setopts(S, [{active,N}]),
+        [{active,N}] = ok(ssl:getopts(S, [active])),
+        ssl:controlling_process(S, Self),
+        Self ! {server, S}
+    end),
+    C = ok(ssl:connect("localhost", Port, [{active,N}|ClientOpts])),
+    [{active,N}] = ok(ssl:getopts(C, [active])),
+    S = receive
+        {server, S0} -> S0
+    after
+        1000 ->
+            exit({error, connect})
+    end,
+    active_n_common(C, N),
+    active_n_common(S, N),
+    ok = ssl:setopts(C, [{active,N}]),
+    ok = ssl:setopts(S, [{active,N}]),
+    ReceiveMsg = fun(Socket, Msg) ->
+        receive
+            {ssl,Socket,Msg} ->
+                ok;
+            {ssl,Socket,Begin} ->
+                receive
+                    {ssl,Socket,End} ->
+                        Msg = Begin ++ End,
+                        ok
+                after 1000 ->
+                    exit(timeout)
+                end
+        after 1000 ->
+            exit(timeout)
+        end
+    end,
+    repeat(3, fun(I) ->
+        Msg = "message "++integer_to_list(I),
+        ok = ssl:send(C, Msg),
+        ReceiveMsg(S, Msg),
+        ok = ssl:send(S, Msg),
+        ReceiveMsg(C, Msg)
+    end),
+    receive
+        {ssl_passive,S} ->
+            [{active,false}] = ok(ssl:getopts(S, [active]))
+    after
+        1000 ->
+            exit({error,ssl_passive})
+    end,
+    receive
+        {ssl_passive,C} ->
+            [{active,false}] = ok(ssl:getopts(C, [active]))
+    after
+        1000 ->
+            exit({error,ssl_passive})
+    end,
+    LS2 = ok(ssl:listen(0, [{active,0}])),
+    receive
+        {ssl_passive,LS2} ->
+            [{active,false}] = ok(ssl:getopts(LS2, [active]))
+    after
+        1000 ->
+            exit({error,ssl_passive})
+    end,
+    ok = ssl:close(LS2),
+    ok = ssl:close(C),
+    ok = ssl:close(S),
+    ok = ssl:close(LS),
+    ok.
+
+active_n_common(S, N) ->
+    ok = ssl:setopts(S, [{active,-N}]),
+    receive
+        {ssl_passive, S} -> ok
+    after
+        1000 ->
+            error({error,ssl_passive_failure})
+    end,
+    [{active,false}] = ok(ssl:getopts(S, [active])),
+    ok = ssl:setopts(S, [{active,0}]),
+    receive
+        {ssl_passive, S} -> ok
+    after
+        1000 ->
+            error({error,ssl_passive_failure})
+    end,
+    ok = ssl:setopts(S, [{active,32767}]),
+    {error,{options,_}} = ssl:setopts(S, [{active,1}]),
+    {error,{options,_}} = ssl:setopts(S, [{active,-32769}]),
+    ok = ssl:setopts(S, [{active,-32768}]),
+    receive
+        {ssl_passive, S} -> ok
+    after
+        1000 ->
+            error({error,ssl_passive_failure})
+    end,
+    [{active,false}] = ok(ssl:getopts(S, [active])),
+    ok = ssl:setopts(S, [{active,N}]),
+    ok = ssl:setopts(S, [{active,true}]),
+    [{active,true}] = ok(ssl:getopts(S, [active])),
+    receive
+        _ -> error({error,active_n})
+    after
+        0 ->
+            ok
+    end,
+    ok = ssl:setopts(S, [{active,N}]),
+    ok = ssl:setopts(S, [{active,once}]),
+    [{active,once}] = ok(ssl:getopts(S, [active])),
+    receive
+        _ -> error({error,active_n})
+    after
+        0 ->
+            ok
+    end,
+    {error,{options,_}} = ssl:setopts(S, [{active,32768}]),
+    ok = ssl:setopts(S, [{active,false}]),
+    [{active,false}] = ok(ssl:getopts(S, [active])),
+    ok.
+
+ok({ok,V}) -> V.
+
+repeat(N, Fun) ->
+    repeat(N, N, Fun).
+
+repeat(N, T, Fun) when is_integer(N), N > 0 ->
+    Fun(T-N),
+    repeat(N-1, T, Fun);
+repeat(_, _, _) ->
+    ok.
 
 %%--------------------------------------------------------------------
 dh_params() ->
