@@ -1054,13 +1054,14 @@ validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
     %% hack is only needed until we get proper union types.
     complex_test(Fail,
                  fun(FailVst) ->
-                         case get_raw_type(Src, FailVst) of
+                         case get_movable_term_type(Src, FailVst) of
                              #ms{} -> override_type(term, Src, FailVst);
                              _ -> FailVst
                          end
                  end,
                  fun(SuccVst0) ->
-                         SuccVst1 = update_type(fun meet/2, binary, Src, SuccVst0),
+                         SuccVst1 = update_type(fun meet/2, binary,
+                                                Src, SuccVst0),
                          SuccVst = prune_x_regs(Live, SuccVst1),
                          extract_term(Type, bs_start_match, [Src], Dst,
                                       SuccVst, SuccVst0)
@@ -1156,9 +1157,8 @@ verify_local_args(-1, _Lbl, _CtxIds, _Vst) ->
     ok;
 verify_local_args(X, Lbl, CtxIds, Vst) ->
     Reg = {x, X},
-    assert_movable(Reg, Vst),
     assert_not_fragile(Reg, Vst),
-    case get_raw_type(Reg, Vst) of
+    case get_movable_term_type(Reg, Vst) of
         #ms{id=Id}=Type ->
             case CtxIds of
                 #{ Id := Other } ->
@@ -1424,7 +1424,7 @@ bsm_validate_context(Reg, Vst) ->
     ok.
 
 bsm_get_context({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y->
-    case get_raw_type(Reg, Vst) of
+    case get_movable_term_type(Reg, Vst) of
         #ms{}=Ctx -> Ctx;
         _ -> error({no_bsm_context,Reg})
     end;
@@ -1786,7 +1786,7 @@ assert_term(Src, Vst) ->
     ok.
 
 assert_movable(Src, Vst) ->
-    _ = get_move_term_type(Src, Vst),
+    _ = get_movable_term_type(Src, Vst),
     ok.
 
 assert_literal(nil) -> ok;
@@ -2111,22 +2111,23 @@ validate_src(Ss, Vst) when is_list(Ss) ->
 %%  a standard Erlang type (no catch/try tags or match contexts).
 
 get_term_type(Src, Vst) ->
-    case get_move_term_type(Src, Vst) of
+    case get_movable_term_type(Src, Vst) of
         #ms{} -> error({match_context,Src});
         Type -> Type
     end.
 
-%% get_move_term_type(Src, ValidatorState) -> Type
+%% get_movable_term_type(Src, ValidatorState) -> Type
 %%  Get the type of the source Src. The returned type Type will be
 %%  a standard Erlang type (no catch/try tags). Match contexts are OK.
 
-get_move_term_type(Src, Vst) ->
+get_movable_term_type(Src, Vst) ->
     case get_raw_type(Src, Vst) of
         initialized -> error({unassigned,Src});
         uninitialized -> error({uninitialized_reg,Src});
         {catchtag,_} -> error({catchtag,Src});
         {trytag,_} -> error({trytag,Src});
         tuple_in_progress -> error({tuple_in_progress,Src});
+        {literal,_}=Lit -> get_literal_type(Lit);
         Type -> Type
     end.
 
@@ -2145,7 +2146,8 @@ get_tag_type(Src, _) ->
     error({invalid_tag_register,Src}).
 
 %% get_raw_type(Src, ValidatorState) -> Type
-%%  Return the type of a register without doing any validity checks.
+%%  Return the type of a register without doing any validity checks or
+%%  conversions.
 get_raw_type({x,X}=Src, #vst{current=#st{xs=Xs}}=Vst) when is_integer(X) ->
     check_limit(Src),
     case Xs of
