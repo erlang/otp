@@ -392,6 +392,13 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #endif
 
 
+#if defined(TCP_CONGESTION) || defined(SO_BINDTODEVICE)
+#define USE_GETOPT_STR_OPT
+#define USE_SETOPT_STR_OPT
+#endif
+
+
+
 /* *** Socket state defs *** */
 
 #define SOCKET_FLAG_OPEN         0x0001
@@ -1948,12 +1955,14 @@ static ERL_NIF_TERM ncancel_mode_select(ErlNifEnv*        env,
                                         int               smode,
                                         int               rmode);
 
+#if defined(USE_SETOPT_STR_OPT)
 static ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
                                     int               level,
                                     int               opt,
                                     int               max,
                                     ERL_NIF_TERM      eVal);
+#endif
 static ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*        env,
                                      SocketDescriptor* descP,
                                      int               level,
@@ -1970,11 +1979,13 @@ static ERL_NIF_TERM nsetopt_timeval_opt(ErlNifEnv*        env,
                                         int               opt,
                                         ERL_NIF_TERM      eVal);
 
+#if defined(USE_GETOPT_STR_OPT)
 static ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
                                     int               level,
                                     int               opt,
                                     int               max);
+#endif
 static ERL_NIF_TERM ngetopt_bool_opt(ErlNifEnv*        env,
                                      SocketDescriptor* descP,
                                      int               level,
@@ -9381,7 +9392,6 @@ ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
     int                     res;
     size_t                  sz;
     unsigned int            tmp;
-    Sint32                  tmpAssocId;
 
     SSDBG( descP,
            ("SOCKET", "nsetopt_lvl_sctp_associnfo -> entry with"
@@ -9422,10 +9432,29 @@ ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
 
     /* On some platforms the assoc id is typed as an unsigned integer (uint32)
      * So, to avoid warnings there, we always make an explicit cast... 
+     * Also, size of types matter, so adjust for that...
      */
-    if (!GET_INT(env, eAssocId, &tmpAssocId))
-        return esock_make_error(env, esock_atom_einval);
-    assocParams.sasoc_assoc_id = (typeof(assocParams.sasoc_assoc_id)) tmpAssocId;
+
+#if (SIZEOF_INT == 4)
+    {
+        int tmpAssocId;
+        if (!GET_INT(env, eAssocId, &tmpAssocId))
+            return esock_make_error(env, esock_atom_einval);
+        assocParams.sasoc_assoc_id =
+            (typeof(assocParams.sasoc_assoc_id)) tmpAssocId;
+    }
+#elif (SIZEOF_LONG == 4)
+    {
+        long tmpAssocId;
+        if (!GET_LONG(env, eAssocId, &tmpAssocId))
+            return esock_make_error(env, esock_atom_einval);
+        assocParams.sasoc_assoc_id =
+            (typeof(assocParams.sasoc_assoc_id)) tmpAssocId;
+    }
+#else
+    SIZE CHECK FOR ASSOC ID FAILED
+#endif
+
     
     /*
      * We should really make sure this is ok in erlang (to ensure that 
@@ -9510,7 +9539,10 @@ ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
     ERL_NIF_TERM                result;
     ERL_NIF_TERM                eDataIn, eAssoc, eAddr, eSndFailure;
     ERL_NIF_TERM                ePeerError, eShutdown, ePartialDelivery;
-    ERL_NIF_TERM                eAdaptLayer, eAuth;
+    ERL_NIF_TERM                eAdaptLayer;
+#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_AUTHENTICATION_EVENT)
+    ERL_NIF_TERM                eAuth;
+#endif
 #if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT)
     ERL_NIF_TERM                eSndDry;
 #endif
@@ -9731,7 +9763,6 @@ ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
     struct sctp_rtoinfo rtoInfo;
     int                 res;
     size_t              sz;
-    Sint32              tmpAssocId;
 
     SSDBG( descP,
            ("SOCKET", "nsetopt_lvl_sctp_rtoinfo -> entry with"
@@ -9766,10 +9797,31 @@ ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
 
     /* On some platforms the assoc id is typed as an unsigned integer (uint32)
      * So, to avoid warnings there, we always make an explicit cast... 
+     * Also, size of types matter, so adjust for that...
      */
+
+#if (SIZEOF_INT == 4)
+    {
+        int tmpAssocId;
+        if (!GET_INT(env, eAssocId, &tmpAssocId))
+            return esock_make_error(env, esock_atom_einval);
+        rtoInfo.srto_assoc_id = (typeof(rtoInfo.srto_assoc_id)) tmpAssocId;
+    }
+#elif (SIZEOF_LONG == 4)
+    {
+        long tmpAssocId;
+        if (!GET_LONG(env, eAssocId, &tmpAssocId))
+            return esock_make_error(env, esock_atom_einval);
+        rtoInfo.srto_assoc_id = (typeof(rtoInfo.srto_assoc_id)) tmpAssocId;
+    }
+#else
+    SIZE CHECK FOR ASSOC ID FAILED
+#endif
+        /*
     if (!GET_INT(env, eAssocId, &tmpAssocId))
         return esock_make_error(env, esock_atom_einval);
     rtoInfo.srto_assoc_id = (typeof(rtoInfo.srto_assoc_id)) tmpAssocId;
+        */
     
     if (!GET_UINT(env, eInitial, &rtoInfo.srto_initial))
         return esock_make_error(env, esock_atom_einval);
@@ -9875,6 +9927,7 @@ ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
 
 /* nsetopt_str_opt - set an option that has an string value
  */
+#if defined(USE_SETOPT_STR_OPT)
 static
 ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
                              SocketDescriptor* descP,
@@ -9903,6 +9956,7 @@ ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
 
     return result;
 }
+#endif
 
 
 /* nsetopt_timeval_opt - set an option that has an (timeval) bool value
@@ -12800,6 +12854,7 @@ ERL_NIF_TERM ngetopt_timeval_opt(ErlNifEnv*        env,
  * The actual size of the (read) value will be communicated
  * in the optSz variable.
  */
+#if defined(USE_GETOPT_STR_OPT)
 static
 ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
                              SocketDescriptor* descP,
@@ -12838,6 +12893,7 @@ ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
 
     return result;
 }
+#endif // if defined(USE_GETOPT_STR_OPT)
 #endif // if !defined(__WIN32__)
 
 
