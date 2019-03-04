@@ -654,6 +654,8 @@ write(Tid, Ts, Tab, Val, LockKind)
 		    mnesia_locker:wlock(Tid, Store, Oid);
 		sticky_write ->
 		    mnesia_locker:sticky_wlock(Tid, Store, Oid);
+        none ->
+            [];
 		_ ->
 		    abort({bad_type, Tab, LockKind})
 	    end,
@@ -713,6 +715,8 @@ delete(Tid, Ts, Tab, Key, LockKind)
 		      mnesia_locker:wlock(Tid, Store, Oid);
 		  sticky_write ->
 		      mnesia_locker:sticky_wlock(Tid, Store, Oid);
+          none ->
+              [];
 		  _ ->
 		      abort({bad_type, Tab, LockKind})
 	      end,
@@ -774,6 +778,8 @@ do_delete_object(Tid, Ts, Tab, Val, LockKind) ->
 		      mnesia_locker:wlock(Tid, Store, Oid);
 		  sticky_write ->
 		      mnesia_locker:sticky_wlock(Tid, Store, Oid);
+          none ->
+              [];
 		  _ ->
 		      abort({bad_type, Tab, LockKind})
 	      end,

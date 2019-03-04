@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -852,8 +852,13 @@ mnesia:create_table(person,
           For details, see <c>mnesia:activity/4</c>. In
           transaction-context, it acquires a lock of type
           <c>LockKind</c> in the record.
-          Currently, the lock types <c>write</c> and
-          <c>sticky_write</c> are supported.</p>
+          Currently, the lock types <c>write</c>,
+          <c>sticky_write</c> and <c>none</c> are supported.</p>
+          <p>The <c>none</c> lock type is used to skip the lock aquisition
+          for performance reasons. This is a dangerous option because it may
+          break the isolation property of the database. This option should
+          only be used if there are other kinds of locks, protecting the
+          record. For example global locks.</p>
       </desc>
     </func>
     <func>
@@ -878,8 +883,13 @@ mnesia:create_table(person,
           For details, see <c>mnesia:activity/4</c>. In
           transaction-context, it acquires a lock of type
           <c>LockKind</c> on the record.
-          Currently, the lock types <c>write</c> and
-          <c>sticky_write</c> are supported.</p>
+          Currently, the lock types <c>write</c>,
+          <c>sticky_write</c> and <c>none</c> are supported.</p>
+          <p>The <c>none</c> lock type is used to skip the lock aquisition
+          for performance reasons. This is a dangerous option because it may
+          break the isolation property of the database. This option should
+          only be used if there are other kinds of locks, protecting the
+          record. For example global locks.</p>
       </desc>
     </func>
     <func>
@@ -955,7 +965,7 @@ mnesia:create_table(person,
       <fsummary>Returns the key for the first record in a table.</fsummary>
       <desc>
       <marker id="dirty_first"></marker>
-        <p>Records in <c>set</c> or <c>bag</c> tables are not ordered. 
+        <p>Records in <c>set</c> or <c>bag</c> tables are not ordered.
           However, there is an ordering of the records that is unknown
           to the user. Therefore, a table can be traversed by this
           function with the function <c>mnesia:dirty_next/2</c>.
@@ -1582,6 +1592,7 @@ mnesia:create_table(person,
               ends. For details, see the User's Guide.</p>
           </item>
         </taglist>
+
         <p>Currently, this function supports two kinds of
           <c>LockItem</c>:</p>
         <taglist>
@@ -2589,8 +2600,8 @@ mnesia:create_table(employee,
         <code type="none">
 add_family({family, F, M, Children}) ->
     ChildOids = lists:map(fun oid/1, Children),
-    Trans = fun() ->      
-        mnesia:write(F#person{children = ChildOids}, 
+    Trans = fun() ->
+        mnesia:write(F#person{children = ChildOids},
         mnesia:write(M#person{children = ChildOids},
         Write = fun(Child) -> mnesia:write(Child) end,
         lists:foreach(Write, Children)
@@ -2687,7 +2698,7 @@ raise(Name, Amount) ->
           <c>{BackupItems,NewAcc}</c>, where <c>BackupItems</c> is
            a list of valid backup items, and <c>NewAcc</c> is a new
            accumulator value. The returned backup items are written
-           in the target backup. 
+           in the target backup.
           </item>
           <item><c>LastAcc</c> is the last accumulator value. This is
            the last <c>NewAcc</c> value that was returned by <c>Fun</c>.
@@ -2781,8 +2792,13 @@ raise(Name, Amount) ->
         <p>The semantics of this function is context-sensitive. For
           details, see <c>mnesia:activity/4</c>. In
           transaction-context, it acquires a lock of type
-          <c>LockKind</c>. The lock types <c>write</c> and
-          <c>sticky_write</c> are supported.</p>
+          <c>LockKind</c>. The lock types <c>write</c>,
+          <c>sticky_write</c> and <c>nonde</c> are supported.</p>
+        <p>The <c>none</c> lock type is used to skip the lock aquisition
+          for performance reasons. This is a dangerous option because it may
+          break the isolation property of the database. This option should
+          only be used if there are other kinds of locks, protecting the
+          record. For example global locks.</p>
       </desc>
     </func>
     <func>
@@ -2870,7 +2886,7 @@ raise(Name, Amount) ->
       <item>
         <p><c>-mnesia dc_dump_limit Number</c>. Controls how often
           <c>disc_copies</c> tables are dumped from memory.
-          Tables are dumped when 
+          Tables are dumped when
           <c>filesize(Log) > (filesize(Tab)/Dc_dump_limit)</c>.
           Lower values reduce CPU overhead but increase disk space
           and startup times. Default is 4.</p>
@@ -3033,6 +3049,6 @@ raise(Name, Amount) ->
       <seealso marker="mnesia:mnesia_registry">mnesia_registry(3)</seealso>,
       <seealso marker="stdlib:qlc">qlc(3)</seealso></p>
   </section>
-  
+
 </erlref>
 
