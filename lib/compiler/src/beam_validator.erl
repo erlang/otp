@@ -897,6 +897,8 @@ valfun_4({test,is_number,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, number, Src, Vst);
 valfun_4({test,is_list,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, list, Src, Vst);
+valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, map, Src, Vst);
 valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
     %% is_nil is an exact check against the 'nil' value, and should not be
     %% treated as a simple type test.
@@ -908,16 +910,6 @@ valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
            fun(SuccVst) ->
                    update_eq_types(Src, nil, SuccVst)
            end);
-valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
-    case Src of
-        {Tag,_} when Tag =:= x; Tag =:= y ->
-            type_test(Lbl, map, Src, Vst);
-        {literal,Map} when is_map(Map) ->
-            Vst;
-        _ ->
-            assert_term(Src, Vst),
-            kill_state(Vst)
-    end;
 valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(tuple, Tuple, Vst),
     branch(Lbl, Vst,
