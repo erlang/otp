@@ -1110,7 +1110,7 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(map, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
-    [assert_term(Term, Vst0) || Term <- List],
+    _ = [assert_term(Term, Vst0) || Term <- List],
     Vst = heap_alloc(0, Vst0),
 
     branch(Fail, Vst,
@@ -1446,7 +1446,7 @@ assert_arities(_) -> error(bad_tuple_arity_list).
 %%%
 
 float_op(Ss, Dst, Vst0) ->
-    [assert_freg_set(S, Vst0) || S <- Ss],
+    _ = [assert_freg_set(S, Vst0) || S <- Ss],
     assert_fls(cleared, Vst0),
     Vst = set_fls(cleared, Vst0),
     set_freg(Dst, Vst).
@@ -2180,7 +2180,7 @@ get_tuple_size({integer,Sz}) -> Sz;
 get_tuple_size(_) -> 0.
 
 validate_src(Ss, Vst) when is_list(Ss) ->
-    [assert_term(S, Vst) || S <- Ss],
+    _ = [assert_term(S, Vst) || S <- Ss],
     ok.
 
 %% get_term_type(Src, ValidatorState) -> Type
