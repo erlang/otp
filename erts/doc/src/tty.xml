@@ -165,6 +165,10 @@ erl</pre>
         <cell align="left" valign="middle">C-y</cell>
         <cell align="left" valign="middle">Insert previously killed text</cell>
       </row>
+      <row>
+        <cell align="left" valign="middle">C-]</cell>
+        <cell align="left" valign="middle">Insert matching closing bracket</cell>
+      </row>
       <tcaption>tty Text Editing</tcaption>
     </table>
   </section>
