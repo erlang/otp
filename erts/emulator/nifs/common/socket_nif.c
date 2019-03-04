@@ -10393,7 +10393,7 @@ static
 ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*        env,
                                 SocketDescriptor* descP)
 {
-    ERL_NIF_TERM result;
+    ERL_NIF_TERM result, reason;
     int          val = descP->domain;
 
     switch (val) {
@@ -10414,10 +10414,8 @@ ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*        env,
 #endif
 
     default:
-        result = esock_make_error(env,
-                                  MKT2(env,
-                                       esock_atom_unknown,
-                                       MKI(env, val)));
+        reason = MKT2(env, esock_atom_unknown, MKI(env, val));
+        result = esock_make_error(env, reason);
         break;
     }
     
@@ -10431,7 +10429,7 @@ static
 ERL_NIF_TERM ngetopt_otp_type(ErlNifEnv*        env,
                               SocketDescriptor* descP)
 {
-    ERL_NIF_TERM result;
+    ERL_NIF_TERM result, reason;
     int          val = descP->type;
 
     switch (val) {
@@ -10457,8 +10455,8 @@ ERL_NIF_TERM ngetopt_otp_type(ErlNifEnv*        env,
         break;
 
     default:
-        result = esock_make_error(env,
-                                  MKT2(env, esock_atom_unknown, MKI(env, val)));
+        reason = MKT2(env, esock_atom_unknown, MKI(env, val));
+        result = esock_make_error(env, reason);
         break;
     }
 
@@ -10472,7 +10470,7 @@ static
 ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*        env,
                                   SocketDescriptor* descP)
 {
-    ERL_NIF_TERM result;
+    ERL_NIF_TERM result, reason;
     int          val = descP->protocol;
 
         switch (val) {
@@ -10495,8 +10493,8 @@ ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*        env,
 #endif
 
         default:
-            result = esock_make_error(env,
-                                      MKT2(env, esock_atom_unknown, MKI(env, val)));
+            reason = MKT2(env, esock_atom_unknown, MKI(env, val));
+            result = esock_make_error(env, reason);
             break;
     }
 
@@ -10911,7 +10909,7 @@ static
 ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
                                      SocketDescriptor* descP)
 {
-    ERL_NIF_TERM result;
+    ERL_NIF_TERM result, reason;
     int          val;
     SOCKOPTLEN_T valSz = sizeof(val);
     int          res;
@@ -10940,10 +10938,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
 #endif
 
         default:
-            result = esock_make_error(env,
-                                      MKT2(env,
-                                           esock_atom_unknown,
-                                           MKI(env, val)));
+            reason = MKT2(env, esock_atom_unknown, MKI(env, val));
+            result = esock_make_error(env, reason);
             break;
         }
     }
@@ -11038,7 +11034,7 @@ static
 ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
                                        SocketDescriptor* descP)
 {
-    ERL_NIF_TERM result;
+    ERL_NIF_TERM result, reason;
     int          val;
     SOCKOPTLEN_T valSz = sizeof(val);
     int          res;
@@ -11069,8 +11065,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
 #endif
 
         default:
-            result = esock_make_error(env,
-                                      MKT2(env, esock_atom_unknown, MKI(env, val)));
+            reason = MKT2(env, esock_atom_unknown, MKI(env, val));
+            result = esock_make_error(env, reason);
             break;
         }
     }
@@ -11175,7 +11171,7 @@ static
 ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
                                      SocketDescriptor* descP)
 {
-    ERL_NIF_TERM result;
+    ERL_NIF_TERM result, reason;
     int          val;
     SOCKOPTLEN_T valSz = sizeof(val);
     int          res;
@@ -11204,8 +11200,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
             result = esock_make_ok2(env, esock_atom_rdm);
             break;
         default:
-            result = esock_make_error(env,
-                                      MKT2(env, esock_atom_unknown, MKI(env, val)));
+            reason = MKT2(env, esock_atom_unknown, MKI(env, val));
+            result = esock_make_error(env, reason);
             break;
         }
     }
@@ -11375,7 +11371,8 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
 #endif
 
     default:
-        SSDBG( descP, ("SOCKET", "ngetopt_lvl_ip -> unknown opt %d\r\n", eOpt) );
+        SSDBG( descP,
+               ("SOCKET", "ngetopt_lvl_ip -> unknown opt %d\r\n", eOpt) );
         result = esock_make_error(env, esock_atom_einval);
         break;
     }
@@ -16173,6 +16170,7 @@ ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val)
 
 
 /* *** alloc_descriptor ***
+ *
  * Allocate and perform basic initialization of a socket descriptor.
  *
  */
@@ -16244,14 +16242,16 @@ SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
 
 
 
-/* decrement counters for when a socket is closed */
+/* Decrement counters for when a socket is closed
+ */
 static
 void dec_socket(int domain, int type, int protocol)
 {
     MLOCK(data.cntMtx);
 
     cnt_dec(&data.numSockets, 1);
-    
+
+    /* *** Domain counter *** */
     if (domain == AF_INET)
         cnt_dec(&data.numDomainInet, 1);
 #if defined(HAVE_IN6) && defined(AF_INET6)
@@ -16263,6 +16263,7 @@ void dec_socket(int domain, int type, int protocol)
         cnt_dec(&data.numDomainInet6, 1);
 #endif
 
+    /* *** Type counter *** */
     if (type == SOCK_STREAM)
         cnt_dec(&data.numTypeStreams, 1);
     else if (type == SOCK_DGRAM)
@@ -16272,6 +16273,7 @@ void dec_socket(int domain, int type, int protocol)
         cnt_dec(&data.numTypeSeqPkgs, 1);
 #endif
 
+    /* *** Protocol counter *** */
     if (protocol == IPPROTO_IP)
         cnt_dec(&data.numProtoIP, 1);
     else if (protocol == IPPROTO_TCP)
@@ -16287,7 +16289,8 @@ void dec_socket(int domain, int type, int protocol)
 }
 
 
-/* increment counters for when a socket is opened */
+/* Increment counters for when a socket is opened
+ */
 static
 void inc_socket(int domain, int type, int protocol)
 {
@@ -16295,6 +16298,7 @@ void inc_socket(int domain, int type, int protocol)
 
     cnt_inc(&data.numSockets, 1);
     
+    /* *** Domain counter *** */
     if (domain == AF_INET)
         cnt_inc(&data.numDomainInet, 1);
 #if defined(HAVE_IN6) && defined(AF_INET6)
@@ -16306,6 +16310,7 @@ void inc_socket(int domain, int type, int protocol)
         cnt_inc(&data.numDomainInet6, 1);
 #endif
 
+    /* *** Type counter *** */
     if (type == SOCK_STREAM)
         cnt_inc(&data.numTypeStreams, 1);
     else if (type == SOCK_DGRAM)
@@ -16315,6 +16320,7 @@ void inc_socket(int domain, int type, int protocol)
         cnt_inc(&data.numTypeSeqPkgs, 1);
 #endif
 
+    /* *** Protocol counter *** */
     if (protocol == IPPROTO_IP)
         cnt_inc(&data.numProtoIP, 1);
     else if (protocol == IPPROTO_TCP)
@@ -16947,7 +16953,7 @@ int esock_select_cancel(ErlNifEnv*             env,
  *  R e q u e s t o r   Q u e u e   F u n c t i o n s
  * ----------------------------------------------------------------------
  *
- * Since each of these functions (search4pid, push, pop and unqueu
+ * Since each of these functions (search4pid, push, pop and unqueue
  * are virtually identical for acceptors, writers and readers, 
  * we make use of set of declaration macros.
  */
