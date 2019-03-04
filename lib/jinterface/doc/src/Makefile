@@ -136,6 +136,7 @@ clean clean_docs:
 jdoc:$(JAVA_SRC_FILES)
 	(cd ../../java_src;$(JAVADOC) -sourcepath . -d $(JAVADOC_DEST) \
 		-windowtitle $(JAVADOC_TITLE) $(JAVADOC_PKGS))
+	touch jdoc
 
 man:
 
@@ -151,15 +152,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_docs_spec: docs
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
 	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html/java/$(JAVA_PKG_PATH)"
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	($(CP) -rf  ../html "$(RELSYSDIR)/doc")
-
-#	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTML_FILES) \
-#		"$(RELSYSDIR)/doc/html"
-#	$(INSTALL_DATA) $(JAVA_EXTRA_FILES) "$(RELSYSDIR)/doc/html/java"
-#	$(INSTALL_DATA) $(TOP_HTML_FILES) "$(RELSYSDIR)/doc"
+	$(INSTALL_DIR_DATA) $(HTMLDIR) "$(RELSYSDIR)/doc/html"
 
 
 release_spec:
