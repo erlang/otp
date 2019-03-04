@@ -134,6 +134,25 @@
 	value <c>infinity</c>.</p>
 	<p>Defaults to <c>false</c>.</p>
       </item>
+      <tag><marker id="file_check"/><c>file_check = non_neg_integer()</c></tag>
+      <item>
+	<p>When <c>logger_std_h</c> logs to a file, it reads the file
+	  information of the log file prior to each write
+	  operation. This is to make sure the file still exists and
+	  has the same inode as when it was opened. This implies some
+	  performance loss, but ensures that no log events are lost in
+	  the case when the file has been removed or renamed by an
+	  external actor.</p>
+	<p>In order to allow minimizing the performance loss, the
+	  <c>file_check</c> parameter can be set to a positive integer
+	  value, <c>N</c>. The handler will then skip reading the file
+	  information prior to writing, as long as no more
+	  than <c>N</c> milliseconds have passed since it was last
+	  read.</p>
+	<p>Notice that the risk of loosing log events grows when
+	  the <c>file_check</c> value grows.</p>
+	<p>Defaults to 0.</p>
+      </item>
       <tag><c>filesync_repeat_interval = pos_integer() | no_repeat</c></tag>
       <item>
 	<p>This value, in milliseconds, specifies how often the handler does

@@ -106,7 +106,7 @@ filter_config(Config) ->
 %%% logger_h_common callbacks
 %%%===================================================================
 init(Name, Config) ->
-    MyConfig = maps:with([type,file,modes,max_no_bytes,
+    MyConfig = maps:with([type,file,modes,file_check,max_no_bytes,
                           max_no_files,compress_on_rotate],Config),
     case file_ctrl_start(Name, MyConfig) of
         {ok,FileCtrlPid} ->
@@ -146,20 +146,23 @@ check_h_config(HConfig) ->
             {error,{invalid_config,?MODULE,#{Key=>Value}}}
     end.
 
-check_h_config(Type,[{type,Type} | Config]) when Type == standard_io;
-                                                 Type == standard_error;
-                                                 Type == file ->
+check_h_config(Type,[{type,Type} | Config]) when Type =:= standard_io;
+                                                 Type =:= standard_error;
+                                                 Type =:= file ->
     check_h_config(Type,Config);
 check_h_config(file,[{file,File} | Config]) when is_list(File) ->
     check_h_config(file,Config);
 check_h_config(file,[{modes,Modes} | Config]) when is_list(Modes) ->
     check_h_config(file,Config);
 check_h_config(file,[{max_no_bytes,Size} | Config])
-  when (is_integer(Size) andalso Size>0) orelse Size==infinity ->
+  when (is_integer(Size) andalso Size>0) orelse Size=:=infinity ->
     check_h_config(file,Config);
 check_h_config(file,[{max_no_files,Num} | Config]) when is_integer(Num), Num>=0 ->
     check_h_config(file,Config);
 check_h_config(file,[{compress_on_rotate,Bool} | Config]) when is_boolean(Bool) ->
+    check_h_config(file,Config);
+check_h_config(file,[{file_check,FileCheck} | Config])
+  when is_integer(FileCheck), FileCheck>=0 ->
     check_h_config(file,Config);
 check_h_config(_Type,[Other | _]) ->
     {error,Other};
@@ -187,6 +190,7 @@ get_default_config(Name,file) ->
      #{type => file,
        file => atom_to_list(Name),
        modes => [raw,append],
+       file_check => 0,
        max_no_bytes => infinity,
        max_no_files => 0,
        compress_on_rotate => false};
@@ -224,35 +228,38 @@ fix_modes(Modes) ->
     end.
 
 config_changed(_Name,
-               #{max_no_bytes:=Size,
+               #{file_check:=FileCheck,
+                 max_no_bytes:=Size,
                  max_no_files:=Count,
                  compress_on_rotate:=Compress},
-               #{max_no_bytes:=Size,
+               #{file_check:=FileCheck,
+                 max_no_bytes:=Size,
                  max_no_files:=Count,
                  compress_on_rotate:=Compress}=State) ->
     State;
 config_changed(_Name,
-               #{max_no_bytes:=Size,
+               #{file_check:=FileCheck,
+                 max_no_bytes:=Size,
                  max_no_files:=Count,
                  compress_on_rotate:=Compress},
                #{file_ctrl_pid := FileCtrlPid} = State) ->
-    FileCtrlPid ! {update_rotation,{Size,Count,Compress}},
-    State#{max_no_bytes:=Size, max_no_files:=Count, compress_on_rotate:=Compress};
+    FileCtrlPid ! {update_config,#{file_check=>FileCheck,
+                                   max_no_bytes=>Size,
+                                   max_no_files=>Count,
+                                   compress_on_rotate=>Compress}},
+    State#{file_check:=FileCheck,
+           max_no_bytes:=Size,
+           max_no_files:=Count,
+           compress_on_rotate:=Compress};
 config_changed(_Name,_NewHConfig,State) ->
     State.
 
-filesync(_Name, async, #{file_ctrl_pid := FileCtrlPid} = State) ->
-    ok = file_ctrl_filesync_async(FileCtrlPid),
-    {ok,State};
-filesync(_Name, sync, #{file_ctrl_pid := FileCtrlPid} = State) ->
-    Result = file_ctrl_filesync_sync(FileCtrlPid),
+filesync(_Name, SyncAsync, #{file_ctrl_pid := FileCtrlPid} = State) ->
+    Result = file_ctrl_filesync(SyncAsync, FileCtrlPid),
     {Result,State}.
 
-write(_Name, async, Bin, #{file_ctrl_pid:=FileCtrlPid} = State) ->
-    ok = file_write_async(FileCtrlPid, Bin),
-    {ok,State};
-write(_Name, sync, Bin, #{file_ctrl_pid:=FileCtrlPid} = State) ->
-    Result = file_write_sync(FileCtrlPid, Bin),
+write(_Name, SyncAsync, Bin, #{file_ctrl_pid:=FileCtrlPid} = State) ->
+    Result = file_write(SyncAsync, FileCtrlPid, Bin),
     {Result,State}.
 
 reset_state(_Name, State) ->
@@ -291,6 +298,7 @@ terminate(_Name, _Reason, #{file_ctrl_pid:=FWPid}) ->
 open_log_file(HandlerName,#{type:=file,
                             file:=FileName,
                             modes:=Modes,
+                            file_check:=FileCheck,
                             max_no_bytes:=Size,
                             max_no_files:=Count,
                             compress_on_rotate:=Compress}) ->
@@ -300,13 +308,15 @@ open_log_file(HandlerName,#{type:=file,
                 case file:open(FileName, Modes) of
                     {ok, Fd} ->
                         {ok,#file_info{inode=INode}} =
-                            file:read_file_info(FileName),
+                            file:read_file_info(FileName,[raw]),
                         UpdateModes = [append | Modes--[write,append,exclusive]],
                         State0 = #{handler_name=>HandlerName,
                                    file_name=>FileName,
                                    modes=>UpdateModes,
+                                   file_check=>FileCheck,
                                    fd=>Fd,
                                    inode=>INode,
+                                   last_check=>timestamp(),
                                    synced=>false,
                                    write_res=>ok,
                                    sync_res=>ok},
@@ -322,9 +332,10 @@ open_log_file(HandlerName,#{type:=file,
         _:Reason -> {error,Reason}
     end.
 
-close_log_file(#{file:={Fd,_}}) ->
+close_log_file(#{fd:=Fd}) ->
     _ = file:datasync(Fd),
-    _ = file:close(Fd);
+    _ = file:close(Fd),
+    ok;
 close_log_file(_) ->
     ok.
 
@@ -352,18 +363,16 @@ file_ctrl_start(HandlerName, HConfig) ->
 file_ctrl_stop(Pid) ->
     Pid ! stop.
 
-file_write_async(Pid, Bin) ->
+file_write(async, Pid, Bin) ->
     Pid ! {log,Bin},
-    ok.
-
-file_write_sync(Pid, Bin) ->
+    ok;
+file_write(sync, Pid, Bin) ->
     file_ctrl_call(Pid, {log,Bin}).
 
-file_ctrl_filesync_async(Pid) ->
+file_ctrl_filesync(async, Pid) ->
     Pid ! filesync,
-    ok.
-
-file_ctrl_filesync_sync(Pid) ->
+    ok;
+file_ctrl_filesync(sync, Pid) ->
     file_ctrl_call(Pid, filesync).
 
 file_ctrl_call(Pid, Msg) ->
@@ -405,60 +414,79 @@ file_ctrl_loop(State) ->
 
         %% synchronous event
         {{log,Bin},{From,MRef}} ->
-            State1 = write_to_dev(Bin,State),
+            State1 = ensure_file(State),
+            State2 = write_to_dev(Bin,State1),
             From ! {MRef,ok},
-            file_ctrl_loop(State1);
+            file_ctrl_loop(State2);
 
         filesync ->
             State1 = sync_dev(State),
             file_ctrl_loop(State1);
 
         {filesync,{From,MRef}} ->
-            State1 = sync_dev(State),
+            State1 = ensure_file(State),
+            State2 = sync_dev(State1),
             From ! {MRef,ok},
-            file_ctrl_loop(State1);
+            file_ctrl_loop(State2);
 
-        {update_rotation,Rotation} ->
-            State1 = update_rotation(Rotation,State),
-            file_ctrl_loop(State1);
+        {update_config,#{file_check:=FileCheck,
+                         max_no_bytes:=Size,
+                         max_no_files:=Count,
+                         compress_on_rotate:=Compress}} ->
+            State1 = update_rotation({Size,Count,Compress},State),
+            file_ctrl_loop(State1#{file_check=>FileCheck});
 
         stop ->
-            _ = close_log_file(State),
+            close_log_file(State),
             stopped
     end.
+
+maybe_ensure_file(#{file_check:=0}=State) ->
+    ensure_file(State);
+maybe_ensure_file(#{last_check:=T0,file_check:=CheckInt}=State)
+  when is_integer(CheckInt) ->
+    T = timestamp(),
+    if T-T0 > CheckInt -> ensure_file(State);
+       true -> State
+    end;
+maybe_ensure_file(State) ->
+    State.
 
 %% In order to play well with tools like logrotate, we need to be able
 %% to re-create the file if it has disappeared (e.g. if rotated by
 %% logrotate)
 ensure_file(#{fd:=Fd0,inode:=INode0,file_name:=FileName,modes:=Modes}=State) ->
-    case file:read_file_info(FileName) of
+    case file:read_file_info(FileName,[raw]) of
         {ok,#file_info{inode=INode0}} ->
-            State;
+            State#{last_check=>timestamp()};
         _ ->
-            _ = file:close(Fd0),
-            _ = file:close(Fd0), % delayed_write cause close not to close
+            close_log_file(Fd0),
             case file:open(FileName,Modes) of
                 {ok,Fd} ->
                     {ok,#file_info{inode=INode}} =
-                        file:read_file_info(FileName),
-                    State#{fd=>Fd,inode=>INode,synced=>true,sync_res=>ok};
+                        file:read_file_info(FileName,[raw]),
+                    State#{fd=>Fd,inode=>INode,
+                           last_check=>timestamp(),
+                           synced=>true,sync_res=>ok};
                 Error ->
                     exit({could_not_reopen_file,Error})
             end
-    end.
+    end;
+ensure_file(State) ->
+    State.
 
 write_to_dev(Bin,#{dev:=DevName}=State) ->
     io:put_chars(DevName, Bin),
     State;
 write_to_dev(Bin, State) ->
-    State1 = #{fd:=Fd} = ensure_file(State),
+    State1 = #{fd:=Fd} = maybe_ensure_file(State),
     Result = ?file_write(Fd, Bin),
     State2 = maybe_rotate_file(Bin,State1),
     maybe_notify_error(write,Result,State2),
     State2#{synced=>false,write_res=>Result}.
 
 sync_dev(#{synced:=false}=State) ->
-    State1 = #{fd:=Fd} = ensure_file(State),
+    State1 = #{fd:=Fd} = maybe_ensure_file(State),
     Result = ?file_datasync(Fd),
     maybe_notify_error(filesync,Result,State1),
     State1#{synced=>true,sync_res=>Result};
@@ -470,7 +498,7 @@ update_rotation({infinity,_,_},State) ->
     maps:remove(rotation,State);
 update_rotation({Size,Count,Compress},#{file_name:=FileName} = State) ->
     maybe_remove_archives(Count,State),
-    {ok,#file_info{size=CurrSize}} = file:read_file_info(FileName),
+    {ok,#file_info{size=CurrSize}} = file:read_file_info(FileName,[raw]),
     State1 = State#{rotation=>#{size=>Size,
                                 count=>Count,
                                 compress=>Compress,
@@ -481,7 +509,8 @@ update_rotation({Size,Count,Compress},#{file_name:=FileName} = State) ->
 maybe_remove_archives(Count,#{file_name:=FileName}=State) ->
     Archive = rot_file_name(FileName,Count,false),
     CompressedArchive = rot_file_name(FileName,Count,true),
-    case {file:read_file_info(Archive),file:read_file_info(CompressedArchive)} of
+    case {file:read_file_info(Archive,[raw]),
+          file:read_file_info(CompressedArchive,[raw])} of
         {{error,enoent},{error,enoent}} ->
             ok;
         _ ->
@@ -495,7 +524,7 @@ maybe_update_compress(Count,#{rotation:=#{count:=Count}}) ->
 maybe_update_compress(N,#{file_name:=FileName,
                           rotation:=#{compress:=Compress}}=State) ->
     Archive = rot_file_name(FileName,N,not Compress),
-    case file:read_file_info(Archive) of
+    case file:read_file_info(Archive,[raw]) of
         {ok,_} when Compress ->
             compress_file(Archive);
         {ok,_} ->
@@ -525,7 +554,7 @@ rotate_file(#{fd:=Fd0,file_name:=FileName,modes:=Modes,rotation:=Rotation}=State
     rotate_files(FileName,maps:get(count,Rotation),maps:get(compress,Rotation)),
     case file:open(FileName,Modes) of
         {ok,Fd} ->
-            {ok,#file_info{inode=INode}} = file:read_file_info(FileName),
+            {ok,#file_info{inode=INode}} = file:read_file_info(FileName,[raw]),
             State1#{fd=>Fd,inode=>INode,rotation=>Rotation#{curr_size=>0}};
         Error ->
             exit({could_not_reopen_file,Error})
@@ -609,3 +638,6 @@ maybe_notify_error(Op, Result, #{write_res:=WR,sync_res:=SR})
 maybe_notify_error(Op, Error, #{handler_name:=HandlerName,file_name:=FileName}) ->
     logger_h_common:error_notify({HandlerName,Op,FileName,Error}),
     ok.
+
+timestamp() ->
+    erlang:monotonic_time(millisecond).

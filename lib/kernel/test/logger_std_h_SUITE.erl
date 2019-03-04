@@ -650,7 +650,7 @@ file_opts(Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,self()}}),
 
-    ModOpts = [delayed_write|OkFileOpts],      
+    ModOpts = [delayed_write|OkFileOpts],
     #{cb_state := #{handler_state := #{type:=file,
                                        file:=Log,
                                        modes:=ModOpts}}} =
@@ -692,7 +692,8 @@ sync(Config) ->
     Type = {file,Log},
     ok = logger:add_handler(?MODULE,
                             logger_std_h,
-                            #{config => #{type => Type},
+                            #{config => #{type => Type,
+                                          file_check => 10000},
                               filter_default=>log,
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,nl}}),
@@ -1457,7 +1458,7 @@ rotate_size_reopen(Config) ->
     {ok,#file_info{size=580}} = file:read_file_info(Log),
     {ok,#file_info{size=1020}} = file:read_file_info(Log++".0"),
     ok.
-rotate_size_reopen(cleanup,Config) ->
+rotate_size_reopen(cleanup,_Config) ->
     ok = stop_handler(?MODULE).
 
 rotation_opts(Config) ->
@@ -1577,7 +1578,7 @@ rotation_opts(Config) ->
                                    compress_on_rotate:=false}}} =
         logger_olp:info(h_proc_name()),
     ok.
-rotation_opts(cleanup,Config) ->
+rotation_opts(cleanup,_Config) ->
     ok = stop_handler(?MODULE).
 
 rotation_opts_restart_handler(Config) ->
@@ -1659,7 +1660,7 @@ rotation_opts_restart_handler(Config) ->
     [_] = filelib:wildcard(Log++".*"),
 
     ok.
-rotation_opts_restart_handler(cleanup,Config) ->
+rotation_opts_restart_handler(cleanup,_Config) ->
     ok = stop_handler(?MODULE).
 
 %%%-----------------------------------------------------------------
