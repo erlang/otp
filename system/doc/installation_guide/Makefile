@@ -91,7 +91,6 @@ $(XMLDIR)/%.xml: $(ERL_TOP)/HOWTO/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@
 
 $(REDIRECT_HTML_DIR)/%.html: Makefile
-	test -d $(REDIRECT_HTML_DIR) || $(INSTALL_DIR) $(REDIRECT_HTML_DIR)
 	echo "<html><head><meta HTTP-EQUIV=\"REFRESH\"" > $@
 	echo " content=\"5; url=../"$(notdir $@)"\">" >> $@
 	echo "<title>This page has moved</title></head><body>" >> $@
@@ -112,8 +111,8 @@ debug opt:
 
 clean clean_docs:
 	rm -f $(GENERATED_XML_FILES)
-	rm -rf $(HTMLDIR)
-	rm -rf $(XMLDIR)
+	rm -f $(XMLDIR)/*.xml
+	rm -f $(HTMLDIR)/*.gif $(HTMLDIR)/*.html
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~ 
 

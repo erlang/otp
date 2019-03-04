@@ -434,7 +434,7 @@ endif
 	  PATH=$(BOOT_PREFIX)"$${PATH}" \
 	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
 ifneq  ($(OTP_SMALL_BUILD),true)
-	echo "OTP doc built" > $(ERL_TOP)/make/otp_doc_built
+	test -f $(ERL_TOP)/make/otp_doc_built || echo "OTP doc built" > $(ERL_TOP)/make/otp_doc_built
 endif
 
 xmllint: docs
@@ -450,7 +450,9 @@ else
 	$(MAKE) -C system/doc $@
 endif
 
-mod2app: 
+mod2app: $(ERL_TOP)/make/$(TARGET)/mod2app.xml
+
+$(ERL_TOP)/make/$(TARGET)/mod2app.xml: erts/doc/src/Makefile lib/*/doc/src/Makefile 
 	PATH=$(BOOT_PREFIX)"$${PATH}" escript $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
 
 # ----------------------------------------------------------------------
@@ -488,7 +490,7 @@ else
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
-	$(V_at)echo "OTP built" > $(ERL_TOP)/make/otp_built
+	$(V_at)test -f $(ERL_TOP)/make/otp_built || echo "OTP built" > $(ERL_TOP)/make/otp_built
 endif
 kernel:
 	$(make_verbose)cd lib/kernel && \
