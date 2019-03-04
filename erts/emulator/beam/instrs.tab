@@ -359,7 +359,7 @@ i_get_tuple_element2(Src, Element, Dst) {
     dst[1] = E2;
 }
 
-i_get_tuple_element2y(Src, Element, D1, D2) {
+i_get_tuple_element2_dst(Src, Element, D1, D2) {
     Eterm* src;
     Eterm E1, E2;
     src = ADD_BYTE_OFFSET(tuple_val($Src), $Element);
@@ -434,6 +434,30 @@ fast_element_group.execute(Fail, Index, Dst) {
 
 init(Y) {
     make_blank($Y);
+}
+
+init_seq3(Y1) {
+    Eterm* dst = &$Y1;
+    make_blank(dst[0]);
+    make_blank(dst[1]);
+    make_blank(dst[2]);
+}
+
+init_seq4(Y1) {
+    Eterm* dst = &$Y1;
+    make_blank(dst[0]);
+    make_blank(dst[1]);
+    make_blank(dst[2]);
+    make_blank(dst[3]);
+}
+
+init_seq5(Y1) {
+    Eterm* dst = &$Y1;
+    make_blank(dst[0]);
+    make_blank(dst[1]);
+    make_blank(dst[2]);
+    make_blank(dst[3]);
+    make_blank(dst[4]);
 }
 
 init2(Y1, Y2) {
@@ -642,12 +666,6 @@ is_nonempty_list(Fail, Src) {
     }
 }
 
-is_nonempty_list_test_heap(Fail, Need, Live) {
-    //| -no_prefetch
-    $is_nonempty_list($Fail, x(0));
-    $test_heap($Need, $Live);
-}
-
 is_nonempty_list_allocate(Fail, Src, Need, Live) {
     //| -no_prefetch
     $is_nonempty_list($Fail, $Src);
@@ -658,6 +676,18 @@ is_nonempty_list_get_list(Fail, Src, Hd, Tl) {
     //| -no_prefetch
     $is_nonempty_list($Fail, $Src);
     $get_list($Src, $Hd, $Tl);
+}
+
+is_nonempty_list_get_hd(Fail, Src, Hd) {
+    //| -no_prefetch
+    $is_nonempty_list($Fail, $Src);
+    $get_hd($Src, $Hd);
+}
+
+is_nonempty_list_get_tl(Fail, Src, Tl) {
+    //| -no_prefetch
+    $is_nonempty_list($Fail, $Src);
+    $get_tl($Src, $Tl);
 }
 
 jump(Fail) {
@@ -795,6 +825,16 @@ test_arity(Fail, Pointer, Arity) {
     if (*tuple_val($Pointer) != $Arity) {
         $FAIL($Fail);
     }
+}
+
+test_arity_get_tuple_element(Fail, Pointer, Arity, Pos, Dst) {
+    Eterm* ptr = tuple_val($Pointer);
+    Eterm* src;
+    if (*ptr != $Arity) {
+        $FAIL($Fail);
+    }
+    src = ADD_BYTE_OFFSET(ptr, $Pos);
+    $Dst = *src;
 }
 
 i_is_eq_exact_immed(Fail, X, Y) {
