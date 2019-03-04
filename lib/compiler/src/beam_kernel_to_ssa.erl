@@ -327,7 +327,7 @@ select_bin_seg(#k_val_clause{val=#k_bin_seg{size=Size,unit=U,type=T,
     {Mis,St1} = select_extract_bin(Next, Size, U, T, Fs, Fail,
                                    Ctx, LineAnno, St0),
     {Extracted,St2} = new_ssa_var(Seg#k_var.name, St1),
-    {Bis,St} = bin_match_cg(Size, B, Fail, St2),
+    {Bis,St} = match_cg(B, Fail, St2),
     BsGet = #b_set{op=bs_extract,dst=Extracted,args=[ssa_arg(Next, St)]},
     Is = Mis ++ [BsGet] ++ Bis,
     {Is,St};
@@ -361,14 +361,6 @@ select_bin_seg(#k_val_clause{val=#k_bin_int{size=Sz,unit=U,flags=Fs,
                  Is0
          end,
     {Is,St}.
-
-bin_match_cg(#k_atom{val=all}, B0, Fail, St) ->
-    #k_select{types=Types} = B0,
-    [#k_type_clause{type=k_bin_end,values=Values}] = Types,
-    [#k_val_clause{val=#k_bin_end{},body=B}] = Values,
-    match_cg(B, Fail, St);
-bin_match_cg(_, B, Fail, St) ->
-    match_cg(B, Fail, St).
 
 get_context(#k_var{}=Var, St) ->
     ssa_arg(Var, St).
