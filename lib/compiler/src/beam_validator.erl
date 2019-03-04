@@ -683,12 +683,15 @@ valfun_4({make_fun2,_,_,_,Live}, Vst) ->
     call(make_fun, Live, Vst);
 %% Other BIFs
 valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
-    PosType = get_term_type(Pos, Vst0),
-    ElementType = get_element_type(PosType, Tuple, Vst0),
-    InferredType = {tuple,[get_tuple_size(PosType)],#{}},
     Vst1 = branch_state(Fail, Vst0),
+
+    PosType = get_term_type(Pos, Vst0),
+    InferredType = {tuple,[get_tuple_size(PosType)],#{}},
+
     Vst2 = update_type(fun meet/2, InferredType, Tuple, Vst1),
     Vst = update_type(fun meet/2, {integer,[]}, Pos, Vst2),
+
+    ElementType = get_element_type(PosType, Tuple, Vst),
     extract_term(ElementType, {bif,element}, [Pos,Tuple], Dst, Vst);
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
@@ -2082,11 +2085,10 @@ assert_type(Needed, Actual) ->
 get_element_type(Key, Src, Vst) ->
     get_element_type_1(Key, get_term_type(Src, Vst)).
 
-get_element_type_1({integer,Index}=Key, {tuple,Sz,Es}) ->
+get_element_type_1({integer,_}=Key, {tuple,_Sz,Es}) ->
     case Es of
         #{ Key := Type } -> Type;
-        #{} when Index =< Sz -> term;
-        #{} -> none
+        #{} -> term
     end;
 get_element_type_1(_Index, _Type) ->
     term.
