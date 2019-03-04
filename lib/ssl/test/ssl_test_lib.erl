@@ -1110,12 +1110,19 @@ start_basic_client(openssl, Version, Port, ClientOpts) ->
     Cert = proplists:get_value(certfile, ClientOpts),
     Key = proplists:get_value(keyfile, ClientOpts),
     CA = proplists:get_value(cacertfile, ClientOpts),
+    Groups0 = proplists:get_value(groups, ClientOpts),
     Exe = "openssl",
-    Args = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
+    Args0 = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
 	    ssl_test_lib:version_flag(Version),
 	    "-cert", Cert, "-CAfile", CA,
 	    "-key", Key, "-host","localhost", "-msg", "-debug"],
-
+    Args =
+       case Groups0 of
+           undefined ->
+               Args0;
+           G ->
+               Args0 ++ ["-groups", G]
+       end,
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort.
