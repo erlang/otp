@@ -86,7 +86,6 @@ DVIPS_FLAGS +=
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-_create_dirs := $(shell mkdir -p $(HTMLDIR))
 
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
@@ -105,7 +104,7 @@ images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
 debug opt: 
 
 clean clean_docs:
-	rm -rf $(HTMLDIR)
+	rm -f $(HTMLDIR)/*.gif $(HTMLDIR)/*.html
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~ 
 
