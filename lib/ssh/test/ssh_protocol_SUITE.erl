@@ -38,7 +38,11 @@
 -define(EXTRA_KEX, 'diffie-hellman-group1-sha1').
 
 -define(CIPHERS, ['aes256-ctr','aes192-ctr','aes128-ctr','aes128-cbc','3des-cbc']).
--define(DEFAULT_CIPHERS, [{client2server,?CIPHERS}, {server2client,?CIPHERS}]).
+-define(DEFAULT_CIPHERS, (fun() -> Ciphs = filter_supported(cipher, ?CIPHERS),
+                                   [{client2server,Ciphs}, {server2client,Ciphs}]
+                          end)()
+        ).
+
 
 -define(v(Key, Config), proplists:get_value(Key, Config)).
 -define(v(Key, Config, Default), proplists:get_value(Key, Config, Default)).
