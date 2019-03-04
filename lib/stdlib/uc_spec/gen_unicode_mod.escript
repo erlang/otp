@@ -4,7 +4,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -461,16 +461,27 @@ gen_cp(Fd) ->
     io:put_chars(Fd, "cp([C|_]=L) when is_integer(C) -> L;\n"),
     io:put_chars(Fd, "cp([List]) -> cp(List);\n"),
     io:put_chars(Fd, "cp([List|R]) ->\n"),
-    io:put_chars(Fd, "    case cp(List) of\n"),
-    io:put_chars(Fd, "        [] -> cp(R);\n"),
-    io:put_chars(Fd, "        [CP] -> [CP|R];\n"),
-    io:put_chars(Fd, "        [C|R0] -> [C|[R0|R]];\n"),
-    io:put_chars(Fd, "        {error,Error} -> {error,[Error|R]}\n"),
-    io:put_chars(Fd, "    end;\n"),
+    io:put_chars(Fd, "    cpl(List, R);\n"),
     io:put_chars(Fd, "cp([]) -> [];\n"),
     io:put_chars(Fd, "cp(<<C/utf8, R/binary>>) -> [C|R];\n"),
     io:put_chars(Fd, "cp(<<>>) -> [];\n"),
-    io:put_chars(Fd, "cp(<<R/binary>>) -> {error,R}.\n\n"),
+    io:put_chars(Fd, "cp(<<R/binary>>) -> {error,R}.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl([C], R) when is_integer(C) ->\n"),
+    io:put_chars(Fd, "    [C|R];\n"),
+    io:put_chars(Fd, "cpl([C|T], R) when is_integer(C) ->\n"),
+    io:put_chars(Fd, "    [C,T|R];\n"),
+    io:put_chars(Fd, "cpl([List], R) ->\n"),
+    io:put_chars(Fd, "    cpl(List, R);\n"),
+    io:put_chars(Fd, "cpl([List|T], R) ->\n"),
+    io:put_chars(Fd, "    cpl(List, [T|R]);\n"),
+    io:put_chars(Fd, "cpl([], R) ->\n"),
+    io:put_chars(Fd, "    cp(R);\n"),
+    io:put_chars(Fd, "cpl(<<C/utf8, T/binary>>, R) ->\n"),
+    io:put_chars(Fd, "    [C,T|R];\n"),
+    io:put_chars(Fd, "cpl(<<>>, R) ->\n"),
+    io:put_chars(Fd, "    cp(R);\n"),
+    io:put_chars(Fd, "cpl(<<B/binary>>, R) -> {error,[B|R]}.\n\n"),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -482,10 +493,10 @@ gen_gc(Fd, GBP) ->
                  " maybe_improper_list() | {error, unicode:chardata()}.\n"),
     io:put_chars(Fd,
                  "gc([CP1, CP2|_]=T)\n"
-                 "  when CP1 < 256, CP2 < 256, CP1 =/= $\r -> %% Ascii Fast path\n"
+                 "  when CP1 < 256, CP2 < 256, CP1 =/= $\\r -> %% Ascii Fast path\n"
                  "       T;\n"
                  "gc(<<CP1/utf8, Rest/binary>>) ->\n"
-                 "    if CP1 < 256, CP1 =/= $\r ->\n"
+                 "    if CP1 < 256, CP1 =/= $\\r ->\n"
                  "           case Rest of\n"
                  "               <<CP2/utf8, _/binary>> when CP2 < 256 -> %% Ascii Fast path\n"
                  "                   [CP1|Rest];\n"
