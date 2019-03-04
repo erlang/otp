@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1223,7 +1223,10 @@ handle_set_file(Option, Fname, TagTm, TagInfo, ParseFun, From,
 			    {ok, B, _} -> B;
 			    _ -> <<>>
 			end;
-		    _ -> <<>>
+		    _ ->
+                        ets:insert(Db, {TagInfo, undefined}),
+                        TimeZero = - (?RES_FILE_UPDATE_TM + 1), % Early enough
+                        ets:insert(Db, {TagTm, TimeZero})
 		end,
 	    handle_set_file(ParseFun, Bin, From, State);
 	false -> {reply,error,State}
