@@ -94,7 +94,7 @@
 -type tls_client_option()        :: client_option() | common_option() | socket_option() |  transport_option().
 -type tls_server_option()        :: server_option() | common_option() | socket_option() | transport_option().
 -type active_msgs()              :: {ssl, sslsocket(), Data::binary() | list()} | {ssl_closed, sslsocket()} |
-                                    {ssl_error, sslsocket(), Reason::term()}.
+                                    {ssl_error, sslsocket(), Reason::term()} | {ssl_passive, sslsocket()}.
 -type transport_option()         :: {cb_info, {CallbackModule::atom(), DataTag::atom(),
 				       ClosedTag::atom(), ErrTag::atom()}}.
 -type host()                     :: hostname() | ip_address().

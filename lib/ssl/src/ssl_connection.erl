@@ -1383,10 +1383,22 @@ handle_call({get_opts, OptTags}, From, _,
     {keep_state_and_data, [{reply, From, OptsReply}]};
 handle_call({set_opts, Opts0}, From, StateName, 
 	    #state{static_env =  #static_env{socket = Socket,
-                                            transport_cb = Transport},
+                                            transport_cb = Transport,
+                                            tracker = Tracker},
+                   connection_env = 
+                       #connection_env{user_application = {_Mon, Pid}},
                    socket_options = Opts1
                   } = State0, Connection) ->
     {Reply, Opts} = set_socket_opts(Connection, Transport, Socket, Opts0, Opts1, []),
+    case {proplists:lookup(active, Opts0), Opts} of
+        {{_, N}, #socket_options{active=false}} when is_integer(N) ->
+            send_user(
+              Pid,
+              format_passive(
+                Connection:pids(State0), Transport, Socket, Tracker, Connection));
+        _ ->
+            ok
+    end,
     State = State0#state{socket_options = Opts},
     handle_active_option(Opts#socket_options.active, StateName, From, Reply, State);
     
@@ -2516,6 +2528,30 @@ set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active}| Opts], SockO
        Active == false ->
     set_socket_opts(ConnectionCb, Transport, Socket, Opts, 
 		    SockOpts#socket_options{active = Active}, Other);
+set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active1} = Opt| Opts],
+                SockOpts=#socket_options{active = Active0}, Other)
+  when Active1 >= -32768, Active1 =< 32767 ->
+    Active = if
+        is_integer(Active0), Active0 + Active1 < -32768 ->
+            error;
+        is_integer(Active0), Active0 + Active1 =< 0 ->
+            false;
+        is_integer(Active0), Active0 + Active1 > 32767 ->
+            error;
+        Active1 =< 0 ->
+            false;
+        is_integer(Active0) ->
+            Active0 + Active1;
+        true ->
+            Active1
+    end,
+    case Active of
+        error ->
+            {{error, {options, {socket_options, Opt}} }, SockOpts};
+        _ ->
+            set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+                            SockOpts#socket_options{active = Active}, Other)
+    end;
 set_socket_opts(_,_, _, [{active, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}} }, SockOpts};
 set_socket_opts(ConnectionCb, Transport, Socket, [Opt | Opts], SockOpts, Other) ->
@@ -2795,6 +2831,14 @@ deliver_app_data(
     case Active of
         once ->
             SO#socket_options{active=false};
+        1 ->
+            send_user(
+              Pid,
+              format_passive(
+                CPids, Transport, Socket, Tracker, Connection)),
+            SO#socket_options{active=false};
+        N when is_integer(N) ->
+            SO#socket_options{active=N - 1};
 	_ ->
 	    SO
     end.
@@ -2830,6 +2874,9 @@ do_format_reply(list, Packet, _, Data)
     Data;
 do_format_reply(list, _,_, Data) ->
     binary_to_list(Data).
+
+format_passive(CPids, Transport, Socket, Tracker, Connection) ->
+    {ssl_passive, Connection:socket(CPids, Transport, Socket, Tracker)}.
 
 header(0, <<>>) ->
     <<>>;
