@@ -297,12 +297,13 @@ check_file_result(Func, Target, {error,Reason}) ->
                         "Target: " ++ TargetStr ++ ". " ++
                         "Function: " ++ atom_to_list(Func) ++ ". " ++ Process
                 end,
-            %% this is equal to calling error_logger:error_report/1 which
-            %% we don't want to do from code_server during system boot
+            %% This is equal to calling logger:error/2 which
+            %% we don't want to do from code_server during system boot.
+            %% We don't want to call logger:timestamp() either.
             logger ! {log,error,#{label=>{?MODULE,file_error},report=>Report},
                       #{pid=>self(),
                         gl=>group_leader(),
-                        time=>erlang:system_time(microsecond),
+                        time=>os:system_time(microsecond),
                         error_logger=>#{tag=>error_report,
                                         type=>std_error}}},
             error

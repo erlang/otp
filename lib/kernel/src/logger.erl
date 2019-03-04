@@ -61,6 +61,7 @@
 -export([set_process_metadata/1, update_process_metadata/1,
          unset_process_metadata/0, get_process_metadata/0]).
 -export([i/0, i/1]).
+-export([timestamp/0]).
 
 %% Basic report formatting
 -export([format_report/1, format_otp_report/1]).
@@ -154,7 +155,8 @@
               filter_return/0,
               config_handler/0,
               formatter_config/0,
-              olp_config/0]).
+              olp_config/0,
+              timestamp/0]).
 
 %%%-----------------------------------------------------------------
 %%% API
@@ -353,6 +355,10 @@ string_p1(FlatList) ->
 internal_log(Level,Term) when is_atom(Level) ->
     erlang:display_string("Logger - "++ atom_to_list(Level) ++ ": "),
     erlang:display(Term).
+
+-spec timestamp() -> timestamp().
+timestamp() ->
+    os:system_time(microsecond).
 
 %%%-----------------------------------------------------------------
 %%% Configuration
@@ -1129,7 +1135,7 @@ proc_meta() ->
 
 default(pid) -> self();
 default(gl) -> group_leader();
-default(time) -> erlang:system_time(microsecond).
+default(time) -> timestamp().
 
 %% Remove everything upto and including this module from the stacktrace
 filter_stacktrace(Module,[{Module,_,_,_}|_]) ->

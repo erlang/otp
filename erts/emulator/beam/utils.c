@@ -1946,7 +1946,7 @@ do_allocate_logger_message(Eterm gleader, ErtsMonotonicTime *ts, Eterm *pid,
     else
         sz += MAP4_SZ /* metadata map w gl w pid*/;
 
-    *ts = ERTS_MONOTONIC_TO_USEC(erts_get_monotonic_time(NULL) + erts_get_time_offset());
+    *ts = ERTS_MONOTONIC_TO_USEC(erts_os_system_time());
     erts_bld_sint64(NULL, &sz, *ts);
 
     *bp = new_message_buffer(sz);

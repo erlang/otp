@@ -477,13 +477,16 @@ do_handle_msg(Msg,State) ->
 	{From, {ensure_loaded, _}} ->
 	    From ! {init, not_allowed};
 	X ->
+            %% This is equal to calling logger:info/3 which we don't
+            %% want to do from the init process, at least not during
+            %% system boot. We don't want to call logger:timestamp()
+            %% either.
 	    case whereis(user) of
 		undefined ->
-		    Time = erlang:system_time(microsecond),
                     catch logger ! {log, info, "init got unexpected: ~p", [X],
                                     #{pid=>self(),
                                       gl=>self(),
-                                      time=>Time,
+                                      time=>os:system_time(microsecond),
                                       error_logger=>#{tag=>info_msg}}};
 		User ->
 		    User ! X,

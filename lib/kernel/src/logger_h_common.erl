@@ -351,7 +351,7 @@ log_handler_info(Name, Format, Args, #{module:=Module,
             {ok,Conf} -> Conf;
             _ -> #{formatter=>{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}
         end,
-    Meta = #{time=>erlang:system_time(microsecond)},
+    Meta = #{time=>logger:timestamp()},
     Bin = log_to_binary(#{level => notice,
                           msg => {Format,Args},
                           meta => Meta}, Config),
