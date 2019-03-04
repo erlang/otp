@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@
          {'Auth-Application-Id', [0]},  %% common
          {'Acct-Application-Id', [3]},  %% accounting
          {restrict_connections, false},
+         {spawn_opt, {diameter_dist, route_session, []}},
          {application, [{alias, common},
                         {dictionary, diameter_gen_base_rfc6733},
                         {module, diameter_callback}]},

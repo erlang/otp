@@ -47,6 +47,8 @@
          code_change/3,
          terminate/2]).
 
+-type request() :: tuple().  %% callback argument from diameter_traffic
+
 -define(SERVER, ?MODULE).  %% server monitoring node connections
 -define(TABLE, ?MODULE).   %% node() binary -> node() atom
 
@@ -61,6 +63,9 @@
 %%   {spawn_opt, Opts}
 %%   {spawn_opt, {diameter_dist, spawn_local, [Opts]}}
 
+-spec spawn_local(ReqT :: request(), Opts :: list())
+   -> pid().
+
 spawn_local(ReqT, Opts) ->
     spawn_opt(diameter_traffic, request, [ReqT], Opts).
 
@@ -74,12 +79,48 @@ spawn_local(ReqT) ->
 %% Callback that routes requests containing Session-Id AVPs as
 %% returned by diameter:session_id/0 back to the node on which the
 %% function was called. This is only appropriate when sessions are
-%% initiated by the own (typically client) node, and ids have been
-%% returned from diameter:session_id/0.
+%% only initiated by the own (typically client) node, and ids have
+%% been returned from diameter:session_id/0.
+%%
+%% This can be used with #{search => 0} to route on something other
+%% than Session-Id since default can be an MFA returning a node()
+%% (applied to the incoming diameter_packet record) and dispatch can
+%% be an MFA returning a pid() (applied to Node and the request MFA),
+%% but this is no simpler than just implementing an own spawn_opt
+%% callback. (Except with the default dispatch possibly.)
+
+-spec route_session(ReqT :: request(), Opts)
+   -> discard
+    | pid()
+ when Opts :: pos_integer()   %% aka #{search => N}
+            | list()          %% aka #{dispatch => Opts}
+            | #{search => non_neg_integer(), %% limit number of examined AVPs
+                default => discard | mfa(),  %% return node() | false
+                dispatch => list() | mfa()}. %% spawn options or return pid()
 
 route_session(ReqT, Opts) ->
-    #diameter_packet{bin = Bin} = element(1, ReqT),
-    Node = node_of_session_id(Bin),
+    #diameter_packet{bin = Bin} = Pkt = element(1, ReqT),
+    Sid = session_id(avps(Bin), search(Opts)),
+    Node = default(node_of_session_id(Sid), Sid, Opts, Pkt),
+    dispatch(Node, ReqT, dispatch(Opts)).
+
+%% avps/1
+
+avps(<<_:20/binary, Bin/binary>>) ->
+    Bin;
+
+avps(_) ->
+    false.
+
+%% dispatch/3
+
+dispatch(false, _, _) ->
+    discard;
+
+dispatch(Node, ReqT, {M,F,A}) ->
+    apply(M, F, [Node, diameter_traffic, request, [ReqT] | A]);
+
+dispatch(Node, ReqT, Opts) ->
     spawn_opt(Node, diameter_traffic, request, [ReqT], Opts).
 
 %% route_session/1
@@ -90,27 +131,34 @@ route_session(ReqT) ->
 %% node_of_session_id/1
 %%
 %% Return the node name encoded as optional value in a Session-Id,
-%% assuming the id has been created with diameter:session_id/0.
-%%
-%% node() is returned if a node name can't be extracted for any
-%% reason.
+%% assuming the id has been created with diameter:session_id/0. Lookup
+%% the node name to ensure we don't convert arbitrary binaries to
+%% atom.
 
-node_of_session_id(<<_Head:20/binary, Avps/binary>>) ->
-    sid_node(Avps);
+node_of_session_id([_, _, _, Bin]) ->
+    case ets:lookup(?TABLE, Bin) of
+        [{_, Node}] ->
+            Node;
+        [] ->
+            false
+    end;
 
 node_of_session_id(_) ->
-    node().
+    false.
 
-%% sid_node/1
+%% session_id/2
+
+session_id(_, 0) ->  %% give up
+    false;
 
 %% Session-Id = Command Code 263, V-bit = 0.
-sid_node(<<263:32, 0:1, _:7, Len:24, _/binary>> = Bin) ->
+session_id(<<263:32, 0:1, _:7, Len:24, _/binary>> = Bin, _) ->
     case Bin of
         <<Avp:Len/binary>> ->
             <<_:8/binary, Sid/binary>> = Avp,
-            sid_node(Sid, pattern(), 2);  %% look for the optional value
+            split(Sid);
         _ ->
-            node()
+            false
     end;
 
 %% Jump to the next AVP. This is potentially costly for a message with
@@ -118,38 +166,41 @@ sid_node(<<263:32, 0:1, _:7, Len:24, _/binary>> = Bin) ->
 %% 8.8 or RFC 6733 says that Session-Id SHOULD (but not MUST) appear
 %% immediately following the Diameter Header, so there is no
 %% guarantee.
-sid_node(<<_:40, Len:24, _/binary>> = Bin) ->
+session_id(<<_:40, Len:24, _/binary>> = Bin, N) ->
     Pad = (4 - (Len rem 4)) rem 4,
     case Bin of
         <<_:Len/binary, _:Pad/binary, Rest/binary>> ->
-            sid_node(Rest);
+            session_id(Rest, if N == infinity -> N; true -> N-1 end);
         _ ->
-            node()
-    end.
-
-%% sid_node/2
-
-%% Lookup the node name to ensure we don't convert arbitrary binaries
-%% to atom.
-sid_node(Bin, _, 0) ->
-    case ets:lookup(?TABLE, Bin) of
-        [{_, Node}] ->
-            Node;
-        [] ->
-            node()
+            false
     end;
 
-%% The optional value (if any) of a Session-Id follows the third
-%% semicolon. Searching with binary:match/2 does better than matching,
-%% especially when the pattern is compiled.
-sid_node(Bin, CP, N) ->
-    case binary:match(Bin, CP) of
-        {Offset, 1} ->
-            <<_:Offset/binary, _, Rest/binary>> = Bin,
-            sid_node(Rest, CP, N-1);
-        nomatch ->
-            node()
-    end.
+session_id(_, _) ->
+    false.
+
+%% split/1
+%%
+%% Split a Session-Id at no more than three semicolons: the optional
+%% value (if any) follows the third. binary:split/2 does better than
+%% matching character by character, especially when the pattern is
+%% compiled.
+
+split(Bin) ->
+    split(3, Bin, pattern()).
+
+%% split/3
+
+split(0, Bin, _) ->
+    [Bin];
+
+split(N, Bin, Pattern) ->
+    [H|T] = binary:split(Bin, Pattern),
+    [H | case T of
+             [] ->
+                 T;
+             [Rest] ->
+                 split(N-1, Rest, Pattern)
+         end].
 
 %% pattern/0
 %%
@@ -165,6 +216,49 @@ pattern() ->
         CP ->
             CP
     end.
+
+%% dispatch/1
+
+dispatch(#{} = Opts) ->
+    maps:get(dispatch, Opts, []);
+
+dispatch(Opts)
+  when is_list(Opts) ->
+    Opts;
+
+dispatch(_) ->
+    [].
+
+%% search/1
+%%
+%% Bound number of AVPs examined when looking for Session-Id.
+
+search(#{search := N})
+  when is_integer(N), 0 =< N ->
+    N;
+
+search(N)
+  when is_integer(N), 0 =< N ->
+    N;
+
+search(_) ->
+    infinity.
+
+%% default/3
+%%
+%% Choose a node when Session-Id lookup has failed.
+
+default(false = No, _, #{default := discard}, _) ->
+    No;
+
+default(false, Sid, #{default := {M,F,A}}, Pkt) ->
+    apply(M, F, [Sid, Pkt | A]);  %% false | node()
+
+default(false, _, _, _) ->
+    node();
+
+default(Node, _, _, _) ->
+    Node.
 
 %% ===========================================================================
 
