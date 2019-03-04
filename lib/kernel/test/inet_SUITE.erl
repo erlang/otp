@@ -21,6 +21,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
+-include_lib("kernel/src/inet_res.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -34,7 +35,7 @@
 	 ipv4_to_ipv6/0, ipv4_to_ipv6/1,
 	 host_and_addr/0, host_and_addr/1,
 	 t_gethostnative/1, 
-	 gethostnative_parallell/1, cname_loop/1, 
+	 gethostnative_parallell/1, cname_loop/1, missing_hosts_reload/1,
          gethostnative_soft_restart/0, gethostnative_soft_restart/1,
 	 gethostnative_debug_level/0, gethostnative_debug_level/1,
 	 lookup_bad_search_option/1,
@@ -56,7 +57,7 @@ all() ->
     [t_gethostbyaddr, t_gethostbyname, t_getaddr,
      t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
      ipv4_to_ipv6, host_and_addr, {group, parse},
-     t_gethostnative, gethostnative_parallell, cname_loop,
+     t_gethostnative, gethostnative_parallell, cname_loop, missing_hosts_reload,
      gethostnative_debug_level, gethostnative_soft_restart,
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
@@ -840,6 +841,32 @@ cname_loop(Config) when is_list(Config) ->
     ok.
 
 
+%% Test that hosts file gets reloaded correctly in case when it
+% was missing during initial startup
+missing_hosts_reload(Config) when is_list(Config) ->
+    RootDir = proplists:get_value(priv_dir,Config),
+    HostsFile = filename:join(RootDir, atom_to_list(?MODULE) ++ ".hosts"),
+    InetRc = filename:join(RootDir, "inetrc"),
+    ok = file:write_file(InetRc, "{hosts_file, \"" ++ HostsFile ++ "\"}.\n"),
+    {error, enoent} = file:read_file_info(HostsFile),
+    % start a node
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, TestNode} = test_server:start_node(?MODULE, slave,
+        [{args, "-pa " ++ Pa ++ " -kernel inetrc '\"" ++ InetRc ++ "\"'"}]),
+    % ensure it has our RC
+    Rc = rpc:call(TestNode, inet_db, get_rc, []),
+    {hosts_file, HostsFile} = lists:keyfind(hosts_file, 1, Rc),
+    % ensure it does not resolve
+    {error, nxdomain} = rpc:call(TestNode, inet_hosts, gethostbyname, ["somehost"]),
+    % write hosts file
+    ok = file:write_file(HostsFile, "1.2.3.4 somehost"),
+    % wait for cached timestamp to expire
+    timer:sleep(?RES_FILE_UPDATE_TM * 1000 + 100),
+    % ensure it DOES resolve
+    {ok,{hostent,"somehost",[],inet,4,[{1,2,3,4}]}} =
+        rpc:call(TestNode, inet_hosts, gethostbyname, ["somehost"]),
+    % cleanup
+    true = test_server:stop_node(TestNode).
 
 %% These must be run in the whole suite since they need
 %% the host list and require inet_gethost_native to be started.
