@@ -32,7 +32,7 @@
  *
  * esock_dbg_printf("DEMONP", "[%d] %s: %T\r\n",
  *                  descP->sock, slogan,
- *                  my_make_monitor_term(env, &monP->mon));
+ *                  MON2T(env, &monP->mon));
  *
  */
 
@@ -17310,12 +17310,6 @@ void cnt_dec(Uint32* cnt, Uint32 dec)
 #if !defined(__WIN32__)
 
 static
-ERL_NIF_TERM my_make_monitor_term(ErlNifEnv* env, const ErlNifMonitor* mon)
-{
-    return ((ERL_NIF_TERM)&mon->data) + 2;
-}
-
-static
 int esock_monitor(const char*       slogan,
                   ErlNifEnv*        env,
                   SocketDescriptor* descP,
@@ -17858,7 +17852,7 @@ void socket_down(ErlNifEnv*           env,
                                   "\r\n   Descriptor:          %d"
                                   "\r\n   Monitor:             %T"
                                   "\r\n", sres, pid, descP->sock,
-                                  my_make_monitor_term(env, mon));
+                                  MON2T(env, mon));
             }
 
         } else {
