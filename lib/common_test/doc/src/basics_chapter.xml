@@ -125,7 +125,7 @@
       The test case is the smallest unit that the <c>Common Test</c> test server deals with.
     </p>
     <p>
-      Subsets of test cases, called test case groups, can also be defined. A test case 
+      Sets of test cases, called test case groups, can also be defined. A test case
       group can have execution properties associated with it. Execution properties 
       specify if the test cases in the group are to be executed in
       random order, in parallel, or in sequence, and if the execution of the group 
