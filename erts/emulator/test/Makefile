@@ -29,9 +29,6 @@ EBIN = .
 # ----------------------------------------------------
 
 SOCKET_MODULES = \
-	socket_lib \
-	socket_server \
-	socket_client \
 	socket_test_lib \
 	socket_test_logger \
 	socket_test_evaluator \
