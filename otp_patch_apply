@@ -19,7 +19,7 @@
 # %CopyrightEnd%
 #
 
-version="1.0.1"
+version="1.0.2"
 
 force=
 lib_path=
@@ -388,9 +388,7 @@ if [ $install_docs = yes ]; then
 	    TESTROOT="$idir" release_docs) || exit 1
     done
 
-    (cd "$sdir/system/doc/top" && $MAKE clean)
-
-    (cd "$sdir/system/doc/top" && \
+    (cd "$sdir/system/doc" && \
 	$MAKE MAKE="$MAKE" RELEASE_ROOT="$idir" RELEASE_PATH="$idir" \
 	TESTROOT="$idir" release_docs) || exit 1
 
