@@ -238,6 +238,41 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
+      <name name="set_env" arity="1" since="OTP @OTP-15642@"/>
+      <name name="set_env" arity="2" since="OTP @OTP-15642@"/>
+      <fsummary>Sets the configuration parameters of multiple applications.</fsummary>
+      <desc>
+        <p>Sets the configuration <c><anno>Config</anno></c> for multiple
+          applications. It is equivalent to calling <c>set_env/4</c> on
+          each application individially, except it is more efficient.
+          The given <c><anno>Config</anno></c> is validated before the
+          configuration is set.</p>
+        <p><c>set_env/2</c> uses the standard <c>gen_server</c> time-out
+          value (5000 ms). Option <c>timeout</c> can be specified
+          if another time-out value is useful, for example, in situations
+          where the application controller is heavily loaded.</p>
+        <p>Option <c>persistent</c> can be set to <c>true</c>
+          to guarantee that parameters set with <c>set_env/2</c>
+          are not overridden by those defined in the application resource
+          file on load. This means that persistent values will stick after the application
+          is loaded and also on application reload.</p>
+        <p>If an application is given more than once or if an application
+          has the same key given more than once, the behaviour is undefined
+          and a warning message will be logged. In future releases, an error
+          will be raised.</p>
+        <p><c>set_env/1</c> is equivalent to <c>set_env(Config, [])</c>.</p>
+        <warning>
+          <p>Use this function only if you know what you are doing,
+            that is, on your own applications. It is very
+            application-dependent and
+            configuration parameter-dependent when and how often
+            the value is read by the application. Careless use
+            of this function can put the application in a
+            weird, inconsistent, and malfunctioning state.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
       <name name="permit" arity="2" since=""/>
       <fsummary>Change the permission for an application to run at a node.</fsummary>
       <desc>
