@@ -23,10 +23,17 @@
 BS_SAFE_MUL(A, B, Fail, Dst) {
     Uint a = $A;
     Uint b = $B;
-    Uint res = a * b;
+    Uint res;
+#ifdef HAVE_OVERFLOW_CHECK_BUILTINS
+    if (__builtin_mul_overflow(a, b, &res)) {
+        $Fail;
+    }
+#else
+    res = a * b;
     if (res / b != a) {
         $Fail;
     }
+#endif
     $Dst = res;
 }
 
