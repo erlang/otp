@@ -907,46 +907,51 @@ block_cipher_increment(Type, Key, IV0, IV, [PlainText | PlainTexts], Plain, Ciph
 
 stream_cipher({Type, Key, PlainText}) ->
     Plain = iolist_to_binary(PlainText),
-    State = crypto:stream_init(Type, Key),
-    {_, CipherText} = crypto:stream_encrypt(State, PlainText),
-    case crypto:stream_decrypt(State, CipherText) of
+    StateE = crypto:stream_init(Type, Key),
+    StateD = crypto:stream_init(Type, Key),
+    {_, CipherText} = crypto:stream_encrypt(StateE, PlainText),
+    case crypto:stream_decrypt(StateD, CipherText) of
 	{_, Plain} ->
 	    ok;
 	Other ->
-	    ct:fail({{crypto, stream_decrypt, [State, CipherText]}, {expected, PlainText}, {got, Other}})
+	    ct:fail({{crypto, stream_decrypt, [StateD, CipherText]}, {expected, PlainText}, {got, Other}})
     end;
 stream_cipher({Type, Key, IV, PlainText}) ->
     Plain = iolist_to_binary(PlainText),
-    State = crypto:stream_init(Type, Key, IV),
-    {_, CipherText} = crypto:stream_encrypt(State, PlainText),
-    case crypto:stream_decrypt(State, CipherText) of
+    StateE = crypto:stream_init(Type, Key, IV),
+    StateD = crypto:stream_init(Type, Key, IV),
+    {_, CipherText} = crypto:stream_encrypt(StateE, PlainText),
+    case crypto:stream_decrypt(StateD, CipherText) of
 	{_, Plain} ->
 	    ok;
 	Other ->
-	    ct:fail({{crypto, stream_decrypt, [State, CipherText]}, {expected, PlainText}, {got, Other}})
+	    ct:fail({{crypto, stream_decrypt, [StateD, CipherText]}, {expected, PlainText}, {got, Other}})
     end;
 stream_cipher({Type, Key, IV, PlainText, CipherText}) ->
     Plain = iolist_to_binary(PlainText),
-    State = crypto:stream_init(Type, Key, IV),
-    case crypto:stream_encrypt(State, PlainText) of
+    StateE = crypto:stream_init(Type, Key, IV),
+    StateD = crypto:stream_init(Type, Key, IV),
+    case crypto:stream_encrypt(StateE, PlainText) of
         {_, CipherText} ->
             ok;
         {_, Other0} ->
-            ct:fail({{crypto, stream_encrypt, [State, Type, Key, IV, Plain]}, {expected, CipherText}, {got, Other0}})
+            ct:fail({{crypto, stream_encrypt, [StateE, Type, Key, IV, Plain]}, {expected, CipherText}, {got, Other0}})
     end,
-    case crypto:stream_decrypt(State, CipherText) of
+    case crypto:stream_decrypt(StateD, CipherText) of
         {_, Plain} ->
             ok;
         Other1 ->
-            ct:fail({{crypto, stream_decrypt, [State, CipherText]}, {expected, PlainText}, {got, Other1}})
+            ct:fail({{crypto, stream_decrypt, [StateD, CipherText]}, {expected, PlainText}, {got, Other1}})
     end.
 
 stream_cipher_incment({Type, Key, PlainTexts}) ->
-    State = crypto:stream_init(Type, Key),
-    stream_cipher_incment_loop(State, State, PlainTexts, [], iolist_to_binary(PlainTexts));
+    StateE = crypto:stream_init(Type, Key),
+    StateD = crypto:stream_init(Type, Key),
+    stream_cipher_incment_loop(StateE, StateD, PlainTexts, [], iolist_to_binary(PlainTexts));
 stream_cipher_incment({Type, Key, IV, PlainTexts}) ->
-    State = crypto:stream_init(Type, Key, IV),
-    stream_cipher_incment_loop(State, State, PlainTexts, [], iolist_to_binary(PlainTexts));
+    StateE = crypto:stream_init(Type, Key, IV),
+    StateD = crypto:stream_init(Type, Key, IV),
+    stream_cipher_incment_loop(StateE, StateD, PlainTexts, [], iolist_to_binary(PlainTexts));
 stream_cipher_incment({Type, Key, IV, PlainTexts, _CipherText}) ->
     stream_cipher_incment({Type, Key, IV, PlainTexts}).
 
