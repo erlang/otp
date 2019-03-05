@@ -164,8 +164,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"os_monotonic_time",			NULL			},
     {	"erts_alloc_hard_debug",		NULL			},
     {	"hard_dbg_mseg",		        NULL	                },
-    {	"erts_mmap",				NULL			},
-    {   "sad", NULL}
+    {	"erts_mmap",				NULL			}
 };
 
 #define ERTS_LOCK_ORDER_SIZE \
