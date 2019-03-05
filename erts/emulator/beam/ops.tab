@@ -489,9 +489,13 @@ is_ge f? c x
 is_ge f? s s
 %hot
 
-is_eq f? s s
+is_eq Fail=f Const=c Reg=xy => is_eq Fail Reg Const
+is_eq Fail=f C1=c C2=c => move C1 x | is_eq Fail x C2
+is_eq f? S s
 
-is_ne f? s s
+is_ne Fail=f Const=c Reg=xy => is_ne Fail Reg Const
+is_ne Fail=f C1=c C2=c => move C1 x | is_ne Fail x C2
+is_ne f? S s
 
 #
 # Putting tuples.

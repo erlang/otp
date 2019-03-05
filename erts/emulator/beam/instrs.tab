@@ -884,12 +884,16 @@ i_is_ne_exact_literal(Fail, Src, Literal) {
     }
 }
 
-is_eq(Fail, X, Y) {
-    CMP_EQ_ACTION($X, $Y, $FAIL($Fail));
+is_eq(Fail, A, B) {
+    Eterm a = $A;
+    Eterm b = $B;
+    CMP_EQ_ACTION(a, b, $FAIL($Fail));
 }
 
-is_ne(Fail, X, Y) {
-    CMP_NE_ACTION($X, $Y, $FAIL($Fail));
+is_ne(Fail, A, B) {
+    Eterm a = $A;
+    Eterm b = $B;
+    CMP_NE_ACTION(a, b, $FAIL($Fail));
 }
 
 is_lt(Fail, X, Y) {
