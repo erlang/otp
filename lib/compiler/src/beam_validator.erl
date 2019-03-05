@@ -1710,7 +1710,7 @@ override_type(Type, Reg, Vst) ->
 
 %% This is used when linear code finds out more and more information about a
 %% type, so that the type gets more specialized.
-update_type(Merge, Type0, #value_ref{}=Ref, Vst) ->
+update_type(Merge, With, #value_ref{}=Ref, Vst) ->
     %% If the old type can't be merged with the new one, the type information
     %% is inconsistent and we know that some instructions will never be
     %% executed at run-time. For example:
@@ -1719,18 +1719,31 @@ update_type(Merge, Type0, #value_ref{}=Ref, Vst) ->
     %%   {test,is_tuple,Fail,[Reg]}.
     %%   {test,test_arity,Fail,[Reg,5]}.
     %%
-    %% Note that the test_arity instruction can never be reached, so we use the
-    %% new type instead of 'none'.
-    Type = case Merge(get_raw_type(Ref, Vst), Type0) of
-               none -> Type0;
-               T -> T
-           end,
-    set_type(Type, Ref, Vst);
-update_type(Merge, Type, {Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
-    update_type(Merge, Type, get_reg_vref(Reg, Vst), Vst);
-update_type(_Merge, _Type, Literal, Vst) ->
+    %% Note that the test_arity instruction can never be reached, so we need to
+    %% kill the state to avoid raising an error when we encounter it.
+    %%
+    %% Simply returning `kill_state(Vst)` is unsafe however as we might be in
+    %% the middle of an instruction, and altering the rest of the validator
+    %% (eg. prune_x_regs/2) to no-op on dead states is prone to error.
+    %%
+    %% We therefore throw a 'type_conflict' error instead, which causes
+    %% validation to fail unless we're in a context where such errors can be
+    %% handled, such as in a branch handler.
+    Current = get_raw_type(Ref, Vst),
+    case Merge(Current, With) of
+        none -> throw({type_conflict, Current, With});
+        Type -> set_type(Type, Ref, Vst)
+    end;
+update_type(Merge, With, {Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
+    update_type(Merge, With, get_reg_vref(Reg, Vst), Vst);
+update_type(Merge, With, Literal, Vst) ->
     assert_literal(Literal),
-    Vst.
+    %% Literals always retain their type, but we still need to bail on type
+    %% conflicts.
+    case Merge(Literal, With) of
+        none -> throw({type_conflict, Literal, With});
+        _Type -> Vst
+    end.
 
 update_ne_types(LHS, RHS, Vst) ->
     update_type(fun subtract/2, get_term_type(RHS, Vst), LHS, Vst).
@@ -2255,6 +2268,9 @@ glt_1(L) ->
 %% Forks the execution flow, with the provided funs returning the new state of
 %% their respective branch; the "fail" fun returns the state where the branch
 %% is taken, and the "success" fun returns the state where it's not.
+%%
+%% If either path is known not to be taken at runtime (eg. due to a type
+%% conflict), it will simply be discarded.
 -spec branch(Lbl :: label(),
              Original :: #vst{},
              FailFun :: BranchFun,
@@ -2262,10 +2278,25 @@ glt_1(L) ->
      BranchFun :: fun((#vst{}) -> #vst{}).
 branch(Lbl, Vst0, FailFun, SuccFun) ->
     #vst{current=St0} = Vst0,
-    Vst1 = FailFun(Vst0),
-    Vst2 = branch_state(Lbl, Vst1),
-    Vst = Vst2#vst{current=St0},
-    SuccFun(Vst).
+    try FailFun(Vst0) of
+        Vst1 ->
+            Vst2 = branch_state(Lbl, Vst1),
+            Vst = Vst2#vst{current=St0},
+            try SuccFun(Vst) of
+                V -> V
+            catch
+                {type_conflict, _, _} ->
+                    %% The instruction is guaranteed to fail; kill the state.
+                    kill_state(Vst)
+            end
+    catch
+        {type_conflict, _, _} ->
+            %% This instruction is guaranteed not to fail, so we run the
+            %% success branch *without* catching type conflicts to avoid hiding
+            %% errors in the validator itself; one of the branches must
+            %% succeed.
+            SuccFun(Vst0)
+    end.
 
 %% A shorthand version of branch/4 for when the state is only altered on
 %% success.
