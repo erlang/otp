@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2016</year><year>2018</year>
+      <year>2016</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -2415,16 +2415,17 @@ handle_event(enter, _OldState, {open,_}, _Data) ->
       <seealso marker="#Event Time-Outs">event time-out</seealso>
       to trigger hibernation after a certain time of inactivity.
       There is also a server start option
-      <seealso marker="stdlib:gen_statem#type-hibernate_after_opt">
+      <seealso marker="stdlib:gen_statem#type-enter_loop_opt">
 	<c>{hibernate_after, Timeout}</c>
       </seealso>
       for
-      <seealso marker="stdlib:gen_statem#start/3">
-	<c>start/3,4</c>
-      </seealso>
-      or
+      <seealso marker="stdlib:gen_statem#start/3"><c>start/3,4</c></seealso>,
       <seealso marker="stdlib:gen_statem#start_link/3">
 	<c>start_link/3,4</c>
+      </seealso>
+      or
+      <seealso marker="stdlib:gen_statem#enter_loop/4">
+	<c>enter_loop/4,5,6</c>
       </seealso>
       that may be used to automatically hibernate the server.
     </p>
