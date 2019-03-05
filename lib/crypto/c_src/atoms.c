@@ -41,6 +41,18 @@ ERL_NIF_TERM atom_not_enabled;
 ERL_NIF_TERM atom_not_supported;
 #endif
 
+ERL_NIF_TERM atom_type;
+ERL_NIF_TERM atom_size;
+ERL_NIF_TERM atom_block_size;
+ERL_NIF_TERM atom_key_length;
+ERL_NIF_TERM atom_iv_length;
+ERL_NIF_TERM atom_mode;
+ERL_NIF_TERM atom_ecb_mode;
+ERL_NIF_TERM atom_cbc_mode;
+ERL_NIF_TERM atom_cfb_mode;
+ERL_NIF_TERM atom_ofb_mode;
+ERL_NIF_TERM atom_stream_cipher;
+
 #if defined(HAVE_EC)
 ERL_NIF_TERM atom_prime_field;
 ERL_NIF_TERM atom_characteristic_two_field;
@@ -139,6 +151,18 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_none = enif_make_atom(env,"none");
     atom_notsup = enif_make_atom(env,"notsup");
     atom_digest = enif_make_atom(env,"digest");
+
+    atom_type = enif_make_atom(env,"type");
+    atom_size = enif_make_atom(env,"size");
+    atom_block_size = enif_make_atom(env,"block_size");
+    atom_key_length = enif_make_atom(env,"key_length");
+    atom_iv_length = enif_make_atom(env,"iv_length");
+    atom_mode = enif_make_atom(env,"mode");
+    atom_ecb_mode = enif_make_atom(env,"ecb_mode");
+    atom_cbc_mode = enif_make_atom(env,"cbc_mode");
+    atom_cfb_mode = enif_make_atom(env,"cfb_mode");
+    atom_ofb_mode = enif_make_atom(env,"ofb_mode");
+    atom_stream_cipher = enif_make_atom(env,"stream_cipher");
 
 #if defined(HAVE_EC)
     atom_prime_field = enif_make_atom(env,"prime_field");

@@ -45,6 +45,18 @@ extern ERL_NIF_TERM atom_not_enabled;
 extern ERL_NIF_TERM atom_not_supported;
 #endif
 
+extern ERL_NIF_TERM atom_type;
+extern ERL_NIF_TERM atom_size;
+extern ERL_NIF_TERM atom_block_size;
+extern ERL_NIF_TERM atom_key_length;
+extern ERL_NIF_TERM atom_iv_length;
+extern ERL_NIF_TERM atom_mode;
+extern ERL_NIF_TERM atom_ecb_mode;
+extern ERL_NIF_TERM atom_cbc_mode;
+extern ERL_NIF_TERM atom_cfb_mode;
+extern ERL_NIF_TERM atom_ofb_mode;
+extern ERL_NIF_TERM atom_stream_cipher;
+
 #if defined(HAVE_EC)
 extern ERL_NIF_TERM atom_prime_field;
 extern ERL_NIF_TERM atom_characteristic_two_field;

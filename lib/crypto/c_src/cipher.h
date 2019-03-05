@@ -61,12 +61,16 @@ struct evp_cipher_ctx {
     EVP_CIPHER_CTX* ctx;
 };
 
+ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
 int init_cipher_ctx(ErlNifEnv *env);
 
 void init_cipher_types(ErlNifEnv* env);
+const struct cipher_type_t* get_cipher_type_no_key(ERL_NIF_TERM type);
 const struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
 
 int cmp_cipher_types(const void *keyp, const void *elemp);
+int cmp_cipher_types_no_key(const void *keyp, const void *elemp);
 
 ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env);
 

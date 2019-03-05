@@ -67,13 +67,25 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_cfb8"}, {&EVP_aes_192_cfb8}, 24, NO_FIPS_CIPHER | AES_CFBx},
     {{"aes_cfb8"}, {&EVP_aes_256_cfb8}, 32, NO_FIPS_CIPHER | AES_CFBx},
 
+    {{"aes_128_cfb8"}, {&EVP_aes_128_cfb8}, 16, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_192_cfb8"}, {&EVP_aes_192_cfb8}, 24, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_256_cfb8"}, {&EVP_aes_256_cfb8}, 32, NO_FIPS_CIPHER | AES_CFBx},
+
     {{"aes_cfb128"}, {&EVP_aes_128_cfb128}, 16, NO_FIPS_CIPHER | AES_CFBx},
     {{"aes_cfb128"}, {&EVP_aes_192_cfb128}, 24, NO_FIPS_CIPHER | AES_CFBx},
     {{"aes_cfb128"}, {&EVP_aes_256_cfb128}, 32, NO_FIPS_CIPHER | AES_CFBx},
 
+    {{"aes_128_cfb128"}, {&EVP_aes_128_cfb128}, 16, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_192_cfb128"}, {&EVP_aes_192_cfb128}, 24, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_256_cfb128"}, {&EVP_aes_256_cfb128}, 32, NO_FIPS_CIPHER | AES_CFBx},
+
     {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16, ECB_BUG_0_9_8L},
     {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24, ECB_BUG_0_9_8L},
     {{"aes_ecb"}, {&EVP_aes_256_ecb}, 32, ECB_BUG_0_9_8L},
+
+    {{"aes_128_ecb"}, {&EVP_aes_128_ecb}, 16, ECB_BUG_0_9_8L},
+    {{"aes_192_ecb"}, {&EVP_aes_192_ecb}, 24, ECB_BUG_0_9_8L},
+    {{"aes_256_ecb"}, {&EVP_aes_256_ecb}, 32, ECB_BUG_0_9_8L},
 
 #if defined(HAVE_EVP_AES_CTR)
     {{"aes_128_ctr"}, {&EVP_aes_128_ctr}, 16, 0},
@@ -204,6 +216,87 @@ int cmp_cipher_types(const void *keyp, const void *elemp) {
         if (!elem->key_len || key->key_len == elem->key_len) return 0;
         else if (key->key_len < elem->key_len) return -1;
         else return 1;
+}
+
+
+ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type) */
+    const struct cipher_type_t *cipherp;
+    const EVP_CIPHER     *cipher;
+    ERL_NIF_TERM         ret, ret_mode;
+    unsigned             type;
+    unsigned long        mode;
+
+    if ((cipherp = get_cipher_type_no_key(argv[0])) == NULL)
+        return enif_make_badarg(env);
+
+    if (FORBIDDEN_IN_FIPS(cipherp))
+        return enif_raise_exception(env, atom_notsup);
+    if ((cipher = cipherp->cipher.p) == NULL)
+        return enif_raise_exception(env, atom_notsup);
+
+    ret = enif_make_new_map(env);
+
+    type = EVP_CIPHER_type(cipher);
+    enif_make_map_put(env, ret, atom_type,
+        type == NID_undef ? atom_undefined : enif_make_int(env, type),
+        &ret);
+
+    enif_make_map_put(env, ret, atom_key_length,
+        enif_make_int(env, EVP_CIPHER_key_length(cipher)), &ret);
+    enif_make_map_put(env, ret, atom_iv_length,
+        enif_make_int(env, EVP_CIPHER_iv_length(cipher)), &ret);
+    enif_make_map_put(env, ret, atom_block_size,
+        enif_make_int(env, EVP_CIPHER_block_size(cipher)), &ret);
+
+    mode = EVP_CIPHER_mode(cipher);
+    switch (mode) {
+        case EVP_CIPH_ECB_MODE:
+            ret_mode = atom_ecb_mode;
+            break;
+
+        case EVP_CIPH_CBC_MODE:
+            ret_mode = atom_cbc_mode;
+            break;
+
+        case EVP_CIPH_CFB_MODE:
+            ret_mode = atom_cfb_mode;
+            break;
+
+        case EVP_CIPH_OFB_MODE:
+            ret_mode = atom_ofb_mode;
+            break;
+
+        case EVP_CIPH_STREAM_CIPHER:
+            ret_mode = atom_stream_cipher;
+            break;
+
+        default:
+            ret_mode = atom_undefined;
+            break;
+    }
+
+    enif_make_map_put(env, ret, atom_mode, ret_mode, &ret);
+
+    return ret;
+}
+
+const struct cipher_type_t* get_cipher_type_no_key(ERL_NIF_TERM type)
+{
+    struct cipher_type_t key;
+
+    key.type.atom = type;
+
+    return bsearch(&key, cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types_no_key);
+}
+
+int cmp_cipher_types_no_key(const void *keyp, const void *elemp) {
+    const struct cipher_type_t *key  = keyp;
+    const struct cipher_type_t *elem = elemp;
+
+    if (key->type.atom < elem->type.atom) return -1;
+    else if (key->type.atom > elem->type.atom) return 1;
+    else /* key->type.atom == elem->type.atom */ return 0;
 }
 
 
