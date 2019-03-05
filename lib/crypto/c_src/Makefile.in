@@ -77,7 +77,6 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/algorithms$(TYPEMARKER).o \
 	$(OBJDIR)/api_ng$(TYPEMARKER).o \
 	$(OBJDIR)/atoms$(TYPEMARKER).o \
-	$(OBJDIR)/block$(TYPEMARKER).o \
 	$(OBJDIR)/bn$(TYPEMARKER).o \
 	$(OBJDIR)/chacha20$(TYPEMARKER).o \
 	$(OBJDIR)/cipher$(TYPEMARKER).o \

@@ -29,7 +29,6 @@
 #include "aes.h"
 #include "algorithms.h"
 #include "api_ng.h"
-#include "block.h"
 #include "bn.h"
 #include "chacha20.h"
 #include "cipher.h"
@@ -80,8 +79,6 @@ static ErlNifFunc nif_funcs[] = {
     {"hmac_final_nif", 2, hmac_final_nif, 0},
     {"cmac_nif", 3, cmac_nif, 0},
     {"cipher_info_nif", 1, cipher_info_nif, 0},
-    {"block_crypt_nif", 5, block_crypt_nif, 0},
-    {"block_crypt_nif", 4, block_crypt_nif, 0},
     {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif, 0},
     {"aes_ctr_stream_init", 2, aes_ctr_stream_init, 0},
     {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt, 0},
