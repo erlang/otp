@@ -23,7 +23,11 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 # Common Macros
 # ----------------------------------------------------
+ifdef TERTIARY_BOOTSTRAP
+SUB_DIRECTORIES =
+else
 SUB_DIRECTORIES = src doc/src
+endif
 
 SPECIAL_TARGETS = 
 

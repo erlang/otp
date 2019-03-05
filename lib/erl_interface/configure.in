@@ -188,7 +188,7 @@ AC_MSG_CHECKING([for deprecated attribute])
 AC_TRY_COMPILE([],
 [void my_function(void) __attribute__((deprecated));],
 [AC_MSG_RESULT(yes) 
- AC_DEFINE(HAVE_DEPRECATED_ATTRIBUTE, [], [Define to 1 if you have the `deprecated' attribute])],
+ AC_DEFINE(HAVE_DEPRECATED_ATTRIBUTE, [1], [Define to 1 if you have the `deprecated' attribute])],
 [AC_MSG_RESULT(no)])
 
 
