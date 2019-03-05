@@ -58,10 +58,10 @@ else
       SUB_DIRECTORIES = hipe parsetools asn1/src
     else
       ifdef TERTIARY_BOOTSTRAP
-        SUB_DIRECTORIES = snmp sasl jinterface syntax_tools wx
+        SUB_DIRECTORIES = snmp sasl erl_interface jinterface syntax_tools wx
       else
         ifdef DOC_BOOTSTRAP
-          SUB_DIRECTORIES = xmerl edoc erl_docgen
+          SUB_DIRECTORIES = xmerl edoc erl_docgen public_key
         else # Not bootstrap build
           SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
 			    $(ERLANG_APPLICATIONS) \

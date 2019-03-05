@@ -30,7 +30,7 @@ AUTOCONF_SUBDIRS="$AUTOCONF_SUBDIRS make erts"
 # partly built in one of the bootstrap phases. Applications that
 # only get some static includes copied into the bootstrap directory
 # should not be included.
-bootstrap_apps="erts lib/asn1 lib/compiler lib/hipe lib/ic lib/kernel lib/parsetools lib/sasl lib/snmp lib/stdlib lib/syntax_tools"
+bootstrap_apps="erts lib/asn1 lib/compiler lib/erl_interface lib/hipe lib/kernel lib/jinterface lib/parsetools lib/sasl lib/snmp lib/stdlib lib/syntax_tools lib/wx"
 
 # We will quote a bit more than needed, but the important thing is that
 # all that needs quoting will be quoted...

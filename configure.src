@@ -70,8 +70,10 @@ while test $# != 0; do
 	    ERL_TOP="$user_srcdir"
 	    ;;
 	--enable-bootstrap-only)
+            config_arguments="$config_arguments --enable-bootstrap-only"
 	    bootstrap_only=yes;;
 	--disable-bootstrap-only)
+            config_arguments="$config_arguments --disable-bootstrap-only"
 	    bootstrap_only=no;;
 	--enable-option-checking)
 	    echo "ERROR: Cannot enable option checking" 1>&2
