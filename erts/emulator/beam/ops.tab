@@ -1192,7 +1192,6 @@ bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => \
 
 i_bs_skip_bits_imm2 f? xy W
 i_bs_skip_bits2 xy xy f? t
-i_bs_skip_bits_all2 f? xy t
 
 bs_test_tail2 Fail=f Ms=xy Bits=u==0 => bs_test_zero_tail2 Fail Ms
 bs_test_tail2 Fail=f Ms=xy Bits=u => bs_test_tail_imm2 Fail Ms Bits

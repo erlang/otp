@@ -272,16 +272,6 @@ i_bs_skip_bits2.execute(Fail, Unit) {
     }
 }
 
-i_bs_skip_bits_all2(Fail, Ms, Unit) {
-    ErlBinMatchBuffer *_mb;
-    _mb = ms_matchbuffer($Ms);
-    if (((_mb->size - _mb->offset) % $Unit) == 0) {
-        _mb->offset = _mb->size;
-    } else {
-        $FAIL($Fail);
-    }
-}
-
 i_bs_skip_bits_imm2(Fail, Ms, Bits) {
     ErlBinMatchBuffer *_mb;
     size_t new_offset;

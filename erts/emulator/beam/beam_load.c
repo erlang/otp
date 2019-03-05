@@ -3565,10 +3565,22 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
     NATIVE_ENDIAN(Flags);
     NEW_GENOP(stp, op);
     if (Size.type == TAG_a && Size.val == am_all) {
-	op->op = genop_i_bs_skip_bits_all2_3;
+        /*
+         * This kind of skip instruction will only be found in modules
+         * compiled before OTP 19. From OTP 19, the compiler generates
+         * a test_unit instruction of a bs_skip at the end of a
+         * binary.
+         *
+         * It is safe to replace the skip instruction with a test_unit
+         * instruction, because the position will never be used again.
+         * If the match context itself is used again, it will be used by
+         * a bs_restore2 instruction which will overwrite the position
+         * by one of the stored positions.
+         */
+	op->op = genop_bs_test_unit_3;
 	op->arity = 3;
 	op->a[0] = Fail;
-	op->a[1] = Ms; 
+	op->a[1] = Ms;
 	op->a[2] = Unit;
     } else if (Size.type == TAG_i) {
 	op->op = genop_i_bs_skip_bits_imm2_3;
