@@ -574,7 +574,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
                                     driver_select(port, e, mode | (on?ERL_DRV_USE:0), on)
 
 #define sock_select(d, flags, onoff) do { \
-        ASSERT(!(d)->is_ignored); \
+        ASSERT(!INET_IGNORED(d));         \
         (d)->event_mask = (onoff) ? \
                  ((d)->event_mask | (flags)) : \
                  ((d)->event_mask & ~(flags)); \
@@ -894,6 +894,15 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_CMSG_RECVTCLASS     (1 << 1) /* am_recvtclass, am_tclass */
 #define INET_CMSG_RECVTTL        (1 << 2) /* am_recvttl, am_ttl */
 
+/* Inet flags */
+#define INET_FLG_BUFFER_SET      (1 << 0) /* am_buffer has been set by user */
+#define INET_FLG_IS_IGNORED      (1 << 1) /* If a fd is ignored by the inet_drv.
+                                             This flag should be set to true when
+                                             the fd is used outside of inet_drv. */
+#define INET_FLG_IS_IGNORED_RD   (1 << 2)
+#define INET_FLG_IS_IGNORED_WR   (1 << 3)
+#define INET_FLG_IS_IGNORED_PASS (1 << 4)
+
 /*
 ** End of interface constants.
 **--------------------------------------------------------------------------*/
@@ -939,10 +948,11 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_IFNAMSIZ          16
 
 /* INET Ignore states */
-#define INET_IGNORE_NONE    0
-#define INET_IGNORE_READ    (1 << 0)
-#define INET_IGNORE_WRITE   (1 << 1)
-#define INET_IGNORE_PASSIVE (1 << 2)
+#define INET_IGNORE_CLEAR(desc) ((desc)->flags & ~(INET_IGNORE_READ|INET_IGNORE_WRITE|INET_IGNORE_PASSIVE))
+#define INET_IGNORED(desc)   ((desc)->flags & INET_FLG_IS_IGNORED)
+#define INET_IGNORE_READ    (INET_FLG_IS_IGNORED|INET_FLG_IS_IGNORED_RD)
+#define INET_IGNORE_WRITE   (INET_FLG_IS_IGNORED|INET_FLG_IS_IGNORED_WR)
+#define INET_IGNORE_PASSIVE (INET_FLG_IS_IGNORED|INET_FLG_IS_IGNORED_PASS)
 
 /* Max length of Erlang Term Buffer (for outputting structured terms):  */
 #ifdef  HAVE_SCTP
@@ -1124,9 +1134,7 @@ typedef struct {
     double send_avg;            /* average packet size sent */
 
     subs_list empty_out_q_subs; /* Empty out queue subscribers */
-    int is_ignored;             /* if a fd is ignored by the inet_drv.
-				   This flag should be set to true when
-				   the fd is used outside of inet_drv. */
+    int flags;
 #ifdef HAVE_SETNS
     char *netns;                /* Socket network namespace name
 				   as full file path */
@@ -4547,7 +4555,7 @@ static void desc_close(inet_descriptor* desc)
 	 * We should close the fd here, but the other driver might still
 	 * be selecting on it.
 	 */
-	if (!desc->is_ignored)
+	if (!INET_IGNORED(desc))
 	    driver_select(desc->port,(ErlDrvEvent)(long)desc->event, 
 			  ERL_DRV_USE, 0);
 	else
@@ -6308,6 +6316,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 		    (long)desc->port, desc->s, ival));
 	    if (ival < INET_MIN_BUFFER) ival = INET_MIN_BUFFER;
 	    desc->bufsz = ival;
+            desc->flags |= INET_FLG_BUFFER_SET;
 	    continue;
 
 	case INET_LOPT_ACTIVE:
@@ -6503,6 +6512,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case INET_OPT_RCVBUF:    type = SO_RCVBUF; 
 	    DEBUGF(("inet_set_opts(%ld): s=%d, SO_RCVBUF=%d\r\n",
 		    (long)desc->port, desc->s, ival));
+            if (!(desc->flags & INET_FLG_BUFFER_SET)) {
+                /* make sure we have desc->bufsz >= SO_RCVBUF */
+                if (ival > (1 << 16) && desc->stype == SOCK_DGRAM && !IS_SCTP(desc))
+                    /* For UDP we don't want to automatically
+                       set the buffer size to be larger than
+                       the theoretical max MTU */
+                    desc->bufsz = 1 << 16;
+                else if (ival > desc->bufsz)
+                    desc->bufsz = ival;
+            }
 	    break;
 	case INET_OPT_LINGER:    type = SO_LINGER; 
 	    if (len < 4)
@@ -6748,23 +6767,17 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 	DEBUGF(("inet_set_opts(%ld): s=%d returned %d\r\n",
 		(long)desc->port, desc->s, res));
-	if (type == SO_RCVBUF) {
-	    /* make sure we have desc->bufsz >= SO_RCVBUF */
-            if (ival > (1 << 16) && desc->stype == SOCK_DGRAM && !IS_SCTP(desc))
-                /* For UDP we don't want to automatically
-                   set the buffer size to be larger than
-                   the theoretical max MTU */
-                desc->bufsz = 1 << 16;
-	    else if (ival > desc->bufsz)
-		desc->bufsz = ival;
-	}
     }
 
     if ( ((desc->stype == SOCK_STREAM) && IS_CONNECTED(desc)) ||
 	((desc->stype == SOCK_DGRAM) && IS_OPEN(desc))) {
 
-	if (desc->active != old_active)
+	if (desc->active != old_active) {
+            /* Need to cancel the read_packet timer if we go from active to passive. */
+            if (desc->active == INET_PASSIVE && desc->stype == SOCK_DGRAM)
+                driver_cancel_timer(desc->port);
 	    sock_select(desc, (FD_READ|FD_CLOSE), (desc->active>0));
+        }
 
 	/* XXX: UDP sockets could also trigger immediate read here NIY */
 	if ((desc->stype==SOCK_STREAM) && desc->active) {
@@ -6906,6 +6919,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	    if (desc->bufsz < INET_MIN_BUFFER)
 		desc->bufsz = INET_MIN_BUFFER;
+            desc->flags |= INET_FLG_BUFFER_SET;
 	    res = 0;	  /* This does not affect the kernel buffer size */
 	    continue;
 
@@ -7027,6 +7041,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	       smaller than the kernel one: */
 	    if (desc->bufsz <= arg.ival)
 		desc->bufsz  = arg.ival;
+            desc->flags |= INET_FLG_BUFFER_SET;
 	    break;
 	}
 	case INET_OPT_SNDBUF:
@@ -7037,10 +7052,6 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
 
-	    /* Adjust the size of the user-level recv buffer, so it's not
-	       smaller than the kernel one: */
-	    if (desc->bufsz <= arg.ival)
-		desc->bufsz  = arg.ival;
 	    break;
 	}
 	case INET_OPT_REUSEADDR:
@@ -9097,7 +9108,7 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
 
     sys_memzero((char *)&desc->remote,sizeof(desc->remote));
 
-    desc->is_ignored = 0;
+    desc->flags = 0;
 
 #ifdef HAVE_SETNS
     desc->netns = NULL;
@@ -9499,19 +9510,19 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
       if (desc->stype != SOCK_STREAM)
 	  return ctl_error(EINVAL, rbuf, rsize);
 
-      if (*buf == 1 && !desc->is_ignored) {
+      if (*buf == 1 && !INET_IGNORED(desc)) {
 	  sock_select(desc, (FD_READ|FD_WRITE|FD_CLOSE|ERL_DRV_USE_NO_CALLBACK), 0);
 	  if (desc->active)
-	    desc->is_ignored = INET_IGNORE_READ;
+	    desc->flags |= INET_IGNORE_READ;
 	  else
-	    desc->is_ignored = INET_IGNORE_PASSIVE;
-      } else if (*buf == 0 && desc->is_ignored) {
+	    desc->flags |= INET_IGNORE_PASSIVE;
+      } else if (*buf == 0 && INET_IGNORED(desc)) {
 	  int flags = FD_CLOSE;
-	  if (desc->is_ignored & INET_IGNORE_READ)
+	  if (desc->flags & INET_IGNORE_READ)
 	    flags |= FD_READ;
-	  if (desc->is_ignored & INET_IGNORE_WRITE)
+	  if (desc->flags & INET_IGNORE_WRITE)
 	    flags |= FD_WRITE;
-	  desc->is_ignored = INET_IGNORE_NONE;
+	  desc->flags = INET_IGNORE_CLEAR(desc);
 	  if (flags != FD_CLOSE)
 	    sock_select(desc, flags, 1);
       } else
@@ -10226,17 +10237,17 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	if (enq_async(INETP(desc), tbuf, TCP_REQ_RECV) < 0)
 	    return ctl_error(EALREADY, rbuf, rsize);
 
-	if (INETP(desc)->is_ignored || tcp_recv(desc, n) == 0) {
+	if (INET_IGNORED(INETP(desc)) || tcp_recv(desc, n) == 0) {
 	    if (timeout == 0)
 		async_error_am(INETP(desc), am_timeout);
 	    else {
 		if (timeout != INET_INFINITY)
                     add_multi_timer(desc, INETP(desc)->port, 0,
                                     timeout, &tcp_inet_recv_timeout);
-		if (!INETP(desc)->is_ignored)
+		if (!INET_IGNORED(INETP(desc)))
 		    sock_select(INETP(desc),(FD_READ|FD_CLOSE),1);
 		else
-		  INETP(desc)->is_ignored |= INET_IGNORE_READ;
+		  INETP(desc)->flags |= INET_IGNORE_READ;
 	    }
 	}
 	return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
@@ -11103,7 +11114,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 #ifdef DEBUG
     long port = (long) desc->inet.port;  /* Used after driver_exit() */
 #endif
-    ASSERT(!INETP(desc)->is_ignored);
+    ASSERT(!INET_IGNORED(INETP(desc)));
     DEBUGF(("tcp_inet_input(%ld) {s=%d\r\n", port, desc->inet.s));
     /* XXX fprintf(stderr,"tcp_inet_input(%ld) {s=%d}\r\n",(long) desc->inet.port, desc->inet.s); */
     if (desc->inet.state == INET_STATE_ACCEPTING) {
@@ -11438,8 +11449,8 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 	DEBUGF(("tcp_sendv(%ld): s=%d, about to send "LLU","LLU" bytes\r\n",
 		(long)desc->inet.port, desc->inet.s, (llu_t)h_len, (llu_t)len));
 
-	if (INETP(desc)->is_ignored) {
-	    INETP(desc)->is_ignored |= INET_IGNORE_WRITE;
+	if (INET_IGNORED(INETP(desc))) {
+	    INETP(desc)->flags |= INET_IGNORE_WRITE;
 	    n = 0;
 	} else if (desc->tcp_add_flags & TCP_ADDF_DELAY_SEND) {
             driver_enqv(ix, ev, 0);
@@ -11474,7 +11485,7 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 	DEBUGF(("tcp_sendv(%ld): s=%d, Send failed, queuing\r\n", 
 		(long)desc->inet.port, desc->inet.s));
 	driver_enqv(ix, ev, n); 
-	if (!INETP(desc)->is_ignored)
+	if (!INET_IGNORED(INETP(desc)))
 	    sock_select(INETP(desc),(FD_WRITE|FD_CLOSE), 1);
     }
     return 0;
@@ -11543,8 +11554,8 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 
 	DEBUGF(("tcp_send(%ld): s=%d, about to send "LLU","LLU" bytes\r\n",
 		(long)desc->inet.port, desc->inet.s, (llu_t)h_len, (llu_t)len));
-	if (INETP(desc)->is_ignored) {
-	    INETP(desc)->is_ignored |= INET_IGNORE_WRITE;
+	if (INET_IGNORED(INETP(desc))) {
+	    INETP(desc)->flags |= INET_IGNORE_WRITE;
 	    n = 0;
 	} else if (desc->tcp_add_flags & TCP_ADDF_DELAY_SEND) {
 	    sock_send(desc->inet.s, buf, 0, 0);
@@ -11577,7 +11588,7 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	    n -= h_len;
 	    driver_enq(ix, ptr+n, len-n);
 	}
-	if (!INETP(desc)->is_ignored)
+	if (!INET_IGNORED(INETP(desc)))
 	    sock_select(INETP(desc),(FD_WRITE|FD_CLOSE), 1);
     }
     return 0;
@@ -11858,7 +11869,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
     int ret = 0;
     ErlDrvPort ix = desc->inet.port;
 
-    ASSERT(!INETP(desc)->is_ignored);
+    ASSERT(!INET_IGNORED(INETP(desc)));
     DEBUGF(("tcp_inet_output(%ld) {s=%d\r\n", 
 	    (long)desc->inet.port, desc->inet.s));
     if (desc->inet.state == INET_STATE_CONNECTING) {
@@ -12532,9 +12543,12 @@ static void packet_inet_timeout(ErlDrvData e)
 {
     udp_descriptor  * udesc = (udp_descriptor*) e;
     inet_descriptor * desc  = INETP(udesc);
-    if (!(desc->active))
+    if (!(desc->active)) {
 	sock_select(desc, FD_READ, 0);
-    async_error_am (desc, am_timeout);
+        async_error_am (desc, am_timeout);
+    } else {
+        (void)packet_inet_input(udesc, desc->s);
+    }
 }
 
 
@@ -12890,6 +12904,15 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	sock_select(desc, FD_READ, 1);
     }
 #endif
+
+    /* We set a timer on the port to trigger now.
+       This emulates a "yield" operation as that is
+       what we want to do here. We do *NOT* do a deselect
+       as that is expensive, instead we check if the
+       socket it still active when the timeout triggers
+       and if it is not, then we just ignore the timeout */
+    driver_set_timer(desc->port, 0);
+
     return count;
 }
 
