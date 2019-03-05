@@ -136,12 +136,10 @@ check_config(_Name,SetOrUpdate,OldHConfig,NewHConfig0) ->
             {error,{illegal_config_change,?MODULE,WriteOnce,Other}}
     end.
 
-check_config(#{type:=Type}=HConfig) ->
+check_config(HConfig) ->
     case check_h_config(maps:to_list(HConfig)) of
-        ok when is_atom(Type) ->
-            {ok,HConfig#{filesync_repeat_interval=>no_repeat}};
         ok ->
-            {ok,HConfig};
+            {ok,fix_file_opts(HConfig)};
         {error,{Key,Value}} ->
             {error,{invalid_config,?MODULE,#{Key=>Value}}}
     end.
@@ -162,8 +160,40 @@ check_h_config([]) ->
 get_default_config() ->
      #{type => standard_io}.
 
-filesync(_Name, _Mode, #{type := Type}=State) when is_atom(Type) ->
-    {ok,State};
+fix_file_opts(#{type:={file,File}}=HConfig) ->
+    fix_file_opts(HConfig#{type=>{file,File,[raw,append,delayed_write]}});
+fix_file_opts(#{type:={file,File,[]}}=HConfig) ->
+    fix_file_opts(HConfig#{type=>{file,File,[raw,append,delayed_write]}});
+fix_file_opts(#{type:={file,File,Modes}}=HConfig) ->
+    HConfig#{type=>{file,File,fix_modes(Modes)}};
+fix_file_opts(HConfig) ->
+    HConfig#{filesync_repeat_interval=>no_repeat}.
+
+fix_modes(Modes) ->
+    %% Ensure write|append|exclusive
+    Modes1 =
+        case [M || M <- Modes,
+                   lists:member(M,[write,append,exclusive])] of
+            [] -> [append|Modes];
+            _ -> Modes
+        end,
+    %% Ensure raw
+    Modes2 =
+        case lists:member(raw,Modes) of
+            false -> [raw|Modes1];
+            true -> Modes1
+        end,
+    %% Ensure delayed_write
+    case lists:partition(fun(delayed_write) -> true;
+                            ({delayed_write,_,_}) -> true;
+                            (_) -> false
+                         end, Modes2) of
+        {[],_} ->
+            [delayed_write|Modes2];
+        _ ->
+            Modes2
+    end.
+
 filesync(_Name, async, #{file_ctrl_pid := FileCtrlPid} = State) ->
     ok = file_ctrl_filesync_async(FileCtrlPid),
     {ok,State};
@@ -216,12 +246,6 @@ open_log_file(HandlerName, FileInfo) ->
         OK = {ok,_FileCtrlPid} -> OK;
         Error -> Error
     end.
-
-do_open_log_file({file,FileName}) ->
-    do_open_log_file({file,FileName,[raw,append,delayed_write]});
-
-do_open_log_file({file,FileName,[]}) ->
-    do_open_log_file({file,FileName,[raw,append,delayed_write]});
 
 do_open_log_file({file,FileName,Modes}) ->
     try
@@ -323,7 +347,7 @@ file_ctrl_init(HandlerName, StdDev, Starter) ->
 %% Modify file options to use when re-opening if the inode has
 %% changed. I.e. the file may exist and if so should be appended to.
 set_file_opt_append({file, FileName, Modes}) ->
-    {file, FileName, [append | Modes--[exclusive]]};
+    {file, FileName, [append | Modes--[write,append,exclusive]]};
 set_file_opt_append(FileInfo) ->
     FileInfo.
 

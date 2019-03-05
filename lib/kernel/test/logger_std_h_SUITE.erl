@@ -257,9 +257,10 @@ errors(Config) ->
     end,
 
     {error,
-     {handler_not_added,{open_failed,Log,_}}} =
+     {handler_not_added,
+      {invalid_config,logger_std_h,#{type:={file,Log,bad_file_opt}}}}} =
         logger:add_handler(myh3,logger_std_h,
-                           #{config=>#{type=>{file,Log,[bad_file_opt]}}}),
+                           #{config=>#{type=>{file,Log,bad_file_opt}}}),
 
     ok = logger:notice(?msg).
 
@@ -607,11 +608,14 @@ reconfig(cleanup, _Config) ->
 file_opts(Config) ->
     Dir = ?config(priv_dir,Config),
     Log = filename:join(Dir, lists:concat([?FUNCTION_NAME,".log"])),
-    BadFileOpts = [raw],
-    BadType = {file,Log,BadFileOpts},
-    {error,{handler_not_added,{open_failed,Log,enoent}}} =
-        logger:add_handler(?MODULE, logger_std_h,
-                           #{config => #{type => BadType}}),
+    MissingAccess = [raw],
+    Type1 = {file,Log,MissingAccess},
+    ok = logger:add_handler(?MODULE, logger_std_h,
+                            #{config => #{type => Type1}}),
+    {ok,#{config:=#{type:={file,Log,Modes1}}}} =
+        logger:get_handler_config(?MODULE),
+    [append,delayed_write,raw] = lists:sort(Modes1),
+    ok = logger:remove_handler(?MODULE),
 
     OkFileOpts = [raw,append],
     OkType = {file,Log,OkFileOpts},
@@ -622,9 +626,10 @@ file_opts(Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,self()}}),
 
-    #{cb_state := #{handler_state := #{type := OkType}}} =
+    ModType = {file,Log,[delayed_write|OkFileOpts]},
+    #{cb_state := #{handler_state := #{type := ModType}}} =
         logger_olp:info(h_proc_name()),
-    {ok,#{config := #{type := OkType}}} = logger:get_handler_config(?MODULE),
+    {ok,#{config := #{type := ModType}}} = logger:get_handler_config(?MODULE),
     logger:notice(M1=?msg,?domain),
     ?check(M1),
     B1 = ?bin(M1),

@@ -59,14 +59,21 @@
       <item>
 	<p>This has the value <c>standard_io</c>, <c>standard_error</c>,
 	<c>{file,LogFileName}</c>, or <c>{file,LogFileName,LogFileOpts}</c>.</p>
-	<p>If <c>LogFileOpts</c> is specified, it replaces the default
-	  list of options used when opening the log file. The default
-	  list is <c>[raw,append,delayed_write]</c>. One reason to do
-	  so can be to change <c>append</c> to, for
-	  example, <c>write</c>, ensuring that the old log is
-	  truncated when a node is restarted. See the reference manual
-	  for <seealso marker="file#open-2"><c>file:open/2</c></seealso>
-	  for more information about file options.</p>
+	<p><c>LogFileOpts</c> specify the file options used when
+	  opening the log file,
+	  see <seealso marker="file#open-2"><c>file:open/2</c></seealso>.
+	  If <c>LogFileOpts</c> is not specified, the default option
+	  list used is <c>[raw,append,delayed_write]</c>. If <c>LogFileOpts</c>
+	  is specified, it replaces the default options list with the
+	  following adjustments:</p>
+	<list>
+	  <item>
+	    If <c>raw</c> is not found in the list, it is added
+	  </item>
+	  <item>
+	    It <c>write</c>, <c>append</c> or <c>exclusice</c> are not
+	    found in the list, <c>append</c> is added</item>
+	</list>
 	<p>Log files are always UTF-8 encoded. The encoding can not be
 	  changed by setting the option <c>{encoding,Encoding}</c>
 	  in <c>LogFileOpts</c>.</p>
