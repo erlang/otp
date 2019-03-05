@@ -320,12 +320,13 @@ erlang:'!'            -----> Module:StateName/3
     </p>
     <p>
       There is also a server start option
-      <seealso marker="#type-hibernate_after_opt">
+      <seealso marker="#type-enter_loop_opt">
 	<c>{hibernate_after, Timeout}</c>
       </seealso>
       for
-      <seealso marker="#start/3"><c>start/3,4</c></seealso> or
-      <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>
+      <seealso marker="#start/3"><c>start/3,4</c></seealso>,
+      <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso> or
+      <seealso marker="#enter_loop/4"><c>enter_loop/4,5,6</c></seealso>,
       that may be used to automatically hibernate the server.
     </p>
   </description>
