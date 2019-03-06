@@ -322,19 +322,19 @@ void** beam_ops;
 
 #define Arg(N)       I[(N)+1]
 
-#define GetR(pos, tr)				\
+#define GetSource(raw, dst)			\
    do {						\
-     tr = Arg(pos);				\
-     switch (loader_tag(tr)) {			\
+     dst = raw;                                 \
+     switch (loader_tag(dst)) {			\
      case LOADER_X_REG:				\
-        tr = x(loader_x_reg_index(tr));		\
+        dst = x(loader_x_reg_index(dst));       \
         break;					\
      case LOADER_Y_REG:				\
-        ASSERT(loader_y_reg_index(tr) >= 1);	\
-        tr = y(loader_y_reg_index(tr));		\
+        ASSERT(loader_y_reg_index(dst) >= 1);	\
+        dst = y(loader_y_reg_index(dst));       \
         break;					\
      }						\
-     CHECK_TERM(tr);				\
+     CHECK_TERM(dst);				\
    } while (0)
 
 #define PUT_TERM_REG(term, desc)		\
