@@ -65,7 +65,8 @@
          nif_whereis/1, nif_whereis_parallel/1,
          nif_whereis_threaded/1, nif_whereis_proxy/1,
          nif_ioq/1,
-         pid/1
+         pid/1,
+         nif_term_type/1
 	]).
 
 -export([many_args_100/100]).
@@ -105,7 +106,8 @@ all() ->
      nif_phash2,
      nif_whereis, nif_whereis_parallel, nif_whereis_threaded,
      nif_ioq,
-     pid].
+     pid,
+     nif_term_type].
 
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
@@ -3392,6 +3394,41 @@ pid(Config) ->
     {false, _} = get_local_pid_nif(undefined),
     ok.
 
+nif_term_type(Config) ->
+    ensure_lib_loaded(Config),
+
+    atom = term_type_nif(atom),
+
+    bitstring = term_type_nif(<<1:1>>),
+    bitstring = term_type_nif(<<1:8>>),
+
+    float = term_type_nif(0.0),
+
+    'fun' = term_type_nif(fun external:function/1),
+    'fun' = term_type_nif(fun(A) -> A end),
+    'fun' = term_type_nif(fun id/1),
+
+    integer = term_type_nif(1 bsl 1024),        %Bignum.
+    integer = term_type_nif(1),
+
+    list = term_type_nif([list]),
+    list = term_type_nif([]),
+
+    LargeMap = maps:from_list([{N, N} || N <- lists:seq(1, 256)]),
+    map = term_type_nif(LargeMap),
+    map = term_type_nif(#{ small => map }),
+
+    pid = term_type_nif(self()),
+
+    Port = open_port({spawn,echo_drv},[eof]),
+    port = term_type_nif(Port),
+    port_close(Port),
+
+    reference = term_type_nif(make_ref()),
+
+    tuple = term_type_nif({}),
+
+    ok.
 
 id(I) -> I.
 
@@ -3506,6 +3543,8 @@ make_pid_nif(_) -> ?nif_stub.
 set_pid_undefined_nif() -> ?nif_stub.
 is_pid_undefined_nif(_) -> ?nif_stub.
 compare_pids_nif(_, _) -> ?nif_stub.
+
+term_type_nif(_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
