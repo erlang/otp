@@ -34,7 +34,7 @@
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
-         receive_stacked/1,aliased_types/1]).
+         receive_stacked/1,aliased_types/1,type_conflict/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -63,7 +63,7 @@ groups() ->
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
        bad_tuples,bad_try_catch_nesting,
-       receive_stacked,aliased_types]}].
+       receive_stacked,aliased_types,type_conflict]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -156,8 +156,8 @@ call_last(Config) when is_list(Config) ->
 merge_undefined(Config) when is_list(Config) ->
     Errors = do_val(merge_undefined, Config),
     [{{t,handle_call,2},
-      {{call_ext,1,{extfunc,erlang,exit,1}},
-       10,
+      {{call_ext,2,{extfunc,debug,filter,2}},
+       22,
        {uninitialized_reg,{y,_}}}}] = Errors,
     ok.
 
@@ -629,6 +629,27 @@ aliased_types_3(Bug) ->
             end,
             hd(List)
     end.
+
+
+%% ERL-867; validation proceeded after a type conflict, causing incorrect types
+%% to be joined.
+
+-record(r, { e1 = e1, e2 = e2 }).
+
+type_conflict(Config) when is_list(Config) ->
+    {e1, e2} = type_conflict_1(#r{}),
+    ok.
+
+type_conflict_1(C) ->
+    Src = id(C#r.e2),
+    TRes = try id(Src) of
+               R -> R
+           catch
+               %% C:R can never match, yet it assumed that the type of 'C' was
+               %% an atom from here on.
+               C:R -> R
+           end,
+    {C#r.e1, TRes}.
 
 %%%-------------------------------------------------------------------------
 
