@@ -292,15 +292,25 @@ i_bs_skip_bits_imm2(Fail, Ms, Bits) {
 }
 
 i_new_bs_put_binary(Fail, Sz, Flags, Src) {
+    Eterm sz = $Sz;
     Sint _size;
-    $BS_GET_UNCHECKED_FIELD_SIZE($Sz, (($Flags) >> 3), $BADARG($Fail), _size);
+    $BS_GET_UNCHECKED_FIELD_SIZE(sz, (($Flags) >> 3), $BADARG($Fail), _size);
     if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2(($Src), _size))) {
         $BADARG($Fail);
     }
 }
+i_new_bs_put_binary_all := i_new_bs_put_binary_all.fetch.execute;
 
-i_new_bs_put_binary_all(Fail, Src, Unit) {
-    if (!erts_new_bs_put_binary_all(ERL_BITS_ARGS_2(($Src), ($Unit)))) {
+i_new_bs_put_binary_all.head() {
+    Eterm src;
+}
+
+i_new_bs_put_binary_all.fetch(Src) {
+    src = $Src;
+}
+
+i_new_bs_put_binary_all.execute(Fail, Unit) {
+    if (!erts_new_bs_put_binary_all(ERL_BITS_ARGS_2(src, ($Unit)))) {
         $BADARG($Fail);
     }
 }
@@ -312,9 +322,11 @@ i_new_bs_put_binary_imm(Fail, Sz, Src) {
 }
 
 i_new_bs_put_float(Fail, Sz, Flags, Src) {
+    Eterm sz = $Sz;
+    Eterm flags = $Flags;
     Sint _size;
-    $BS_GET_UNCHECKED_FIELD_SIZE($Sz, (($Flags) >> 3), $BADARG($Fail), _size);
-    if (!erts_new_bs_put_float(c_p, ($Src), _size, ($Flags))) {
+    $BS_GET_UNCHECKED_FIELD_SIZE(sz, (flags >> 3), $BADARG($Fail), _size);
+    if (!erts_new_bs_put_float(c_p, ($Src), _size, flags)) {
         $BADARG($Fail);
     }
 }
@@ -326,15 +338,27 @@ i_new_bs_put_float_imm(Fail, Sz, Flags, Src) {
 }
 
 i_new_bs_put_integer(Fail, Sz, Flags, Src) {
-   Sint _size;
-   $BS_GET_UNCHECKED_FIELD_SIZE($Sz, (($Flags) >> 3), $BADARG($Fail), _size);
-   if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(($Src), _size, ($Flags)))) {
-       $BADARG($Fail);
-   }
+    Eterm sz = $Sz;
+    Eterm flags = $Flags;
+    Sint _size;
+    $BS_GET_UNCHECKED_FIELD_SIZE(sz, (flags >> 3), $BADARG($Fail), _size);
+    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(($Src), _size, flags))) {
+        $BADARG($Fail);
+    }
 }
 
-i_new_bs_put_integer_imm(Fail, Sz, Flags, Src) {
-    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(($Src), ($Sz), ($Flags)))) {
+i_new_bs_put_integer_imm := i_new_bs_put_integer_imm.fetch.execute;
+
+i_new_bs_put_integer_imm.head() {
+    Eterm src;
+}
+
+i_new_bs_put_integer_imm.fetch(Src) {
+    src = $Src;
+}
+
+i_new_bs_put_integer_imm.execute(Fail, Sz, Flags) {
+    if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(src, ($Sz), ($Flags)))) {
         $BADARG($Fail);
     }
 }
@@ -1381,12 +1405,19 @@ i_bs_get_position(Ctx, Dst) {
 # match at a position beyond 16MB.
 #
 
-bs_set_position(Ctx, Pos) {
-    Eterm context, position;
-    ErlBinMatchState *ms;
+bs_set_position := bs_set_position.fetch.execute;
 
+bs_set_position.head() {
+    Eterm context, position;
+}
+
+bs_set_position.fetch(Ctx, Pos) {
     context = $Ctx;
     position = $Pos;
+}
+
+bs_set_position.execute() {
+    ErlBinMatchState *ms;
 
     ASSERT(header_is_bin_matchstate(*boxed_val(context)));
     ms = (ErlBinMatchState*)boxed_val(context);
@@ -1399,12 +1430,19 @@ bs_set_position(Ctx, Pos) {
     }
 }
 
-bs_get_position(Ctx, Dst, Live) {
-    ErlBinMatchState *ms;
-    Eterm context;
-    Uint position;
+bs_get_position := bs_get_position.fetch.execute;
 
+bs_get_position.head() {
+    Eterm context;
+}
+
+bs_get_position.fetch(Ctx) {
     context = $Ctx;
+}
+
+bs_get_position.execute(Dst, Live) {
+    ErlBinMatchState *ms;
+    Uint position;
 
     ASSERT(header_is_bin_matchstate(*boxed_val(context)));
     ms = (ErlBinMatchState*)boxed_val(context);

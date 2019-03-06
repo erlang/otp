@@ -1331,31 +1331,35 @@ i_bs_private_append j? t s S x
 bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s => \
 			gen_put_integer(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_integer j? s t s
-i_new_bs_put_integer_imm j? W t s
+i_new_bs_put_integer j? S t s
+i_new_bs_put_integer_imm xyc j? W t
 
 #
 # Utf8/utf16/utf32 support. (R12B-5)
 #
 
-bs_utf8_size j Src=s Dst=d => i_bs_utf8_size Src Dst
+bs_utf8_size j Src Dst=d => i_bs_utf8_size Src Dst
+bs_utf16_size j Src Dst=d => i_bs_utf16_size Src Dst
 
-i_bs_utf8_size s x
-
-bs_utf16_size j Src=s Dst=d => i_bs_utf16_size Src Dst
-
-i_bs_utf16_size s x
-
-bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
-
-i_bs_put_utf8 j? s
-
-bs_put_utf16 j? t s
+bs_put_utf8 Fail u Src => i_bs_put_utf8 Fail Src
 
 bs_put_utf32 Fail=j Flags=u Src=s => \
    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
 
-i_bs_validate_unicode j? s
+i_bs_utf8_size S x
+i_bs_utf16_size S x
+
+i_bs_put_utf8 j? S
+bs_put_utf16 j? t S
+
+i_bs_validate_unicode j? S
+
+# Handle unoptimized code.
+i_bs_utf8_size Src=c Dst => move Src x | i_bs_utf8_size x Dst
+i_bs_utf16_size Src=c Dst => move Src x | i_bs_utf16_size x Dst
+i_bs_put_utf8 Fail Src=c => move Src x | i_bs_put_utf8 Fail x
+bs_put_utf16 Fail Flags Src=c => move Src x | bs_put_utf16 Fail Flags x
+i_bs_validate_unicode Fail Src=c => move Src x | i_bs_validate_unicode Fail x
 
 #
 # Storing floats into binaries.
@@ -1365,7 +1369,7 @@ bs_put_float Fail Sz=q Unit Flags Val => badarg Fail
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_float(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_float j? s t s
+i_new_bs_put_float j? S t s
 i_new_bs_put_float_imm j? W t s
 
 #
@@ -1375,9 +1379,18 @@ i_new_bs_put_float_imm j? W t s
 bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_binary(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_binary j? s t s
-i_new_bs_put_binary_imm j? W s
-i_new_bs_put_binary_all j? s t
+# In unoptimized code, the binary argument could be a literal. (In optimized code,
+# there would be a bs_put_string instruction.)
+i_new_bs_put_binary Fail Size Unit Lit=c => \
+   move Lit x | i_new_bs_put_binary Fail Size Unit x
+i_new_bs_put_binary_imm Fail Size Lit=c => \
+   move Lit x | i_new_bs_put_binary_imm Fail Size x
+i_new_bs_put_binary_all Lit=c Fail Unit => \
+   move Lit x | i_new_bs_put_binary_all x Fail Unit
+
+i_new_bs_put_binary j? S t S
+i_new_bs_put_binary_imm j? W S
+i_new_bs_put_binary_all xy j? t
 
 #
 # Warning: The i_bs_put_string and i_new_bs_put_string instructions

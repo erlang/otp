@@ -3409,8 +3409,8 @@ gen_put_binary(LoaderState* stp, GenOpArg Fail,GenOpArg Size,
     if (Size.type == TAG_a && Size.val == am_all) {
 	op->op = genop_i_new_bs_put_binary_all_3;
 	op->arity = 3;
-	op->a[0] = Fail;
-	op->a[1] = Src;
+	op->a[0] = Src;
+	op->a[1] = Fail;
 	op->a[2] = Unit;
     } else if (Size.type == TAG_i) {
 	op->op = genop_i_new_bs_put_binary_imm_3;
@@ -3420,10 +3420,33 @@ gen_put_binary(LoaderState* stp, GenOpArg Fail,GenOpArg Size,
 	if (safe_mul(Size.val, Unit.val, &op->a[1].val)) {
 	    op->a[2] = Src;
 	} else {
+        error:
 	    op->op = genop_badarg_1;
 	    op->arity = 1;
 	    op->a[0] = Fail;
 	}
+    } else if (Size.type == TAG_q) {
+#ifdef ARCH_64
+        /*
+         * There is no way that this binary would fit in memory.
+         */
+        goto error;
+#else
+	Eterm big = stp->literals[Size.val].term;
+	Uint bigval;
+        Uint size;
+
+	if (!term_to_Uint(big, &bigval) ||
+            !safe_mul(bigval, Unit.val, &size)) {
+	    goto error;
+	}
+        op->op = genop_i_new_bs_put_binary_imm_3;
+        op->arity = 3;
+        op->a[0] = Fail;
+        op->a[1].type = TAG_u;
+        op->a[1].val = size;
+        op->a[2] = Src;
+#endif
     } else {
 	op->op = genop_i_new_bs_put_binary_4;
 	op->arity = 4;
@@ -3448,11 +3471,8 @@ gen_put_integer(LoaderState* stp, GenOpArg Fail, GenOpArg Size,
     NATIVE_ENDIAN(Flags);
 	/* Negative size must fail */
     if (Size.type == TAG_i) {
-	op->op = genop_i_new_bs_put_integer_imm_4;
-	op->arity = 4;
-	op->a[0] = Fail;
-	op->a[1].type = TAG_u;
-	if (!safe_mul(Size.val, Unit.val, &op->a[1].val)) {
+        Uint size;
+	if (!safe_mul(Size.val, Unit.val, &size)) {
         error:
             op->op = genop_badarg_1;
             op->arity = 1;
@@ -3460,26 +3480,31 @@ gen_put_integer(LoaderState* stp, GenOpArg Fail, GenOpArg Size,
             op->next = NULL;
             return op;
 	}
-	op->a[1].val = Size.val * Unit.val;
-	op->a[2].type = Flags.type;
-	op->a[2].val = (Flags.val & 7);
-	op->a[3] = Src;
+	op->op = genop_i_new_bs_put_integer_imm_4;
+	op->arity = 4;
+	op->a[0] = Src;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val = size;
+	op->a[3].type = Flags.type;
+	op->a[3].val = (Flags.val & 7);
     } else if (Size.type == TAG_q) {
 	Eterm big = stp->literals[Size.val].term;
 	Uint bigval;
+        Uint size;
 
-	if (!term_to_Uint(big, &bigval)) {
+	if (!term_to_Uint(big, &bigval) ||
+            !safe_mul(bigval, Unit.val, &size)) {
 	    goto error;
-	} else {
-	    op->op = genop_i_new_bs_put_integer_imm_4;
-	    op->arity = 4;
-	    op->a[0] = Fail;
-	    op->a[1].type = TAG_u;
-	    op->a[1].val = bigval * Unit.val;
-	    op->a[2].type = Flags.type;
-	    op->a[2].val = (Flags.val & 7);
-	    op->a[3] = Src;
 	}
+	op->op = genop_i_new_bs_put_integer_imm_4;
+	op->arity = 4;
+	op->a[0] = Src;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val = size;
+	op->a[3].type = Flags.type;
+	op->a[3].val = (Flags.val & 7);
     } else {
 	op->op = genop_i_new_bs_put_integer_4;
 	op->arity = 4;
