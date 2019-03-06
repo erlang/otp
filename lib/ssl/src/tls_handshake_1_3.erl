@@ -434,7 +434,6 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
          #state{connection_states = _ConnectionStates0,
                 ssl_options = #ssl_options{ciphers = ServerCiphers,
                                            signature_algs = ServerSignAlgs,
-                                           signature_algs_cert = _SignatureSchemes, %% TODO: check!
                                            supported_groups = ServerGroups0},
                 session = #session{own_certificate = Cert}} = State0) ->
 
@@ -746,7 +745,6 @@ process_client_certificate(#certificate_1_3{certificate_list = Certs0},
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
             {error, {Reason, State}};
-        %% TODO: refactor!?
         #alert{} = Alert ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
@@ -768,17 +766,19 @@ validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHand
                                      SslOptions#ssl_options.crl_check, CRLDbHandle, CertPath),
         Options = [{max_path_length, SslOptions#ssl_options.depth},
                    {verify_fun, ValidationFunAndState}],
-	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
-	    {ok, {PublicKeyInfo,_}} ->
-		{ok, {PeerCert, PublicKeyInfo}};
-	    {error, Reason} ->
-		ssl_handshake:handle_path_validation_error(Reason, PeerCert, ChainCerts,
+        %% TODO: Validate if Certificate is using a supported signature algorithm
+        %% (signature_algs_cert)!
+        case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
+            {ok, {PublicKeyInfo,_}} ->
+                {ok, {PeerCert, PublicKeyInfo}};
+            {error, Reason} ->
+                ssl_handshake:handle_path_validation_error(Reason, PeerCert, ChainCerts,
                                                            SslOptions, Options,
                                                            CertDbHandle, CertDbRef)
-	end
+        end
     catch
-	error:{badmatch,{asn1, Asn1Reason}} ->
-	    %% ASN-1 decode of certificate somehow failed
+        error:{badmatch,{asn1, Asn1Reason}} ->
+            %% ASN-1 decode of certificate somehow failed
             {error, {certificate_unknown, {failed_to_decode_certificate, Asn1Reason}}};
         error:OtherReason ->
             {error, {internal_error, {unexpected_error, OtherReason}}}
@@ -1047,20 +1047,33 @@ get_handshake_context(L) ->
     L.
 
 
-verify_signature_algorithm(#state{session = #session{sign_alg = SignatureScheme}} = State,
-                           #certificate_verify_1_3{algorithm = SignatureScheme2}) ->
-    %% TODO
-    ok.
+%% If sent by a client, the signature algorithm used in the signature
+%% MUST be one of those present in the supported_signature_algorithms
+%% field of the "signature_algorithms" extension in the
+%% CertificateRequest message.
+verify_signature_algorithm(#state{ssl_options =
+                                      #ssl_options{
+                                         signature_algs = ServerSignAlgs}} = State0,
+                           #certificate_verify_1_3{algorithm = ClientSignAlg}) ->
+    case lists:member(ClientSignAlg, ServerSignAlgs) of
+        true ->
+            ok;
+        false ->
+            State1 = calculate_traffic_secrets(State0),
+            State = ssl_record:step_encryption_state(State1),
+            {error, {{handshake_failure,
+                      "CertificateVerify has a not supported signature algorithm"}, State}}
+    end.
 
 
 verify_certificate_verify(#state{connection_states = ConnectionStates,
-                          handshake_env =
-                              #handshake_env{
-                                 public_key_info = PublicKeyInfo,
-                                 tls_handshake_history = HHistory}} = State0,
-                   #certificate_verify_1_3{
-                      algorithm = SignatureScheme,
-                      signature = Signature}) ->
+                                 handshake_env =
+                                     #handshake_env{
+                                        public_key_info = PublicKeyInfo,
+                                        tls_handshake_history = HHistory}} = State0,
+                          #certificate_verify_1_3{
+                             algorithm = SignatureScheme,
+                             signature = Signature}) ->
     #{security_parameters := SecParamsR} =
         ssl_record:pending_connection_state(ConnectionStates, write),
     #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
