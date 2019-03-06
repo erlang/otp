@@ -776,6 +776,13 @@ erts_send_message(Process* sender,
 #endif
 
     erts_queue_proc_message(sender, receiver, *receiver_locks, mp, message);
+
+    if (msize > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
+        Uint reds = msize / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
+        if (reds > CONTEXT_REDS)
+            reds = CONTEXT_REDS;
+        BUMP_REDS(sender, (int) reds);
+    }
 }
 
 
