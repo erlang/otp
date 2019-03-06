@@ -176,7 +176,7 @@ certificate_verify(PrivateKey, SignatureScheme,
 
     %% Digital signatures use the hash function defined by the selected signature
     %% scheme.
-    case digitally_sign(THash, <<"TLS 1.3, server CertificateVerify">>,
+    case sign(THash, <<"TLS 1.3, server CertificateVerify">>,
                         HashAlgo, PrivateKey) of
         {ok, Signature} ->
             {ok, #certificate_verify_1_3{
@@ -384,7 +384,7 @@ certificate_entry(DER) ->
 %%    79
 %%    00
 %%    0101010101010101010101010101010101010101010101010101010101010101
-digitally_sign(THash, Context, HashAlgo, PrivateKey) ->
+sign(THash, Context, HashAlgo, PrivateKey) ->
     Content = build_content(Context, THash),
 
     %% The length of the Salt MUST be equal to the length of the output
@@ -395,6 +395,23 @@ digitally_sign(THash, Context, HashAlgo, PrivateKey) ->
                      {rsa_mgf1_md, HashAlgo}]) of
         Signature ->
             {ok, Signature}
+    catch
+        error:badarg ->
+            {error, badarg}
+    end.
+
+
+verify(THash, Context, HashAlgo, Signature, PublicKey) ->
+    Content = build_content(Context, THash),
+
+    %% The length of the Salt MUST be equal to the length of the output
+    %% of the digest algorithm: rsa_pss_saltlen = -1
+    try public_key:verify(Content, HashAlgo, Signature, PublicKey,
+                    [{rsa_padding, rsa_pkcs1_pss_padding},
+                     {rsa_pss_saltlen, -1},
+                     {rsa_mgf1_md, HashAlgo}]) of
+        Result ->
+            {ok, Result}
     catch
         error:badarg ->
             {error, badarg}
@@ -463,7 +480,8 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
 
-        State1 = update_start_state(State0, Cipher, KeyShare, SessionId),
+        State1 = update_start_state(State0, Cipher, KeyShare, SessionId,
+                                    Group, SelectedSignAlg, ClientPubKey),
 
         %% 4.1.4.  Hello Retry Request
         %%
@@ -471,14 +489,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% message if it is able to find an acceptable set of parameters but the
         %% ClientHello does not contain sufficient information to proceed with
         %% the handshake.
-        {State2, NextState} =
-            Maybe(send_hello_retry_request(State1, ClientPubKey, KeyShare, SessionId)),
-
-        %% TODO: Add Context to state?
-        Context = #{group => Group,
-                    sign_alg => SelectedSignAlg,
-                    client_share => ClientPubKey},
-        {State2, Context, NextState}
+        Maybe(send_hello_retry_request(State1, ClientPubKey, KeyShare, SessionId))
 
         %% TODO:
         %%   - session handling
@@ -499,23 +510,23 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
     end.
 
 
-do_negotiated(#{client_share := ClientKey,
-                group := SelectedGroup,
-                sign_alg := SignatureScheme
-               },
-           #state{connection_states = ConnectionStates0,
-                  session = #session{session_id = SessionId,
-                                     own_certificate = OwnCert},
-                  ssl_options = #ssl_options{} = SslOpts,
-                  key_share = KeyShare,
-                  handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
-                  connection_env = #connection_env{private_key = CertPrivateKey},
-                  static_env = #static_env{
-                                  cert_db = CertDbHandle,
-                                  cert_db_ref = CertDbRef,
-                                  socket = _Socket,
-                                  transport_cb = _Transport}
-                 } = State0) ->
+do_negotiated(start_handshake,
+              #state{connection_states = ConnectionStates0,
+                     session = #session{session_id = SessionId,
+                                        own_certificate = OwnCert,
+                                        ecc = SelectedGroup,
+                                        sign_alg = SignatureScheme,
+                                        dh_public_value = ClientKey},
+                     ssl_options = #ssl_options{} = SslOpts,
+                     key_share = KeyShare,
+                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
+                     connection_env = #connection_env{private_key = CertPrivateKey},
+                     static_env = #static_env{
+                                     cert_db = CertDbHandle,
+                                     cert_db_ref = CertDbRef,
+                                     socket = _Socket,
+                                     transport_cb = _Transport}
+                    } = State0) ->
     {Ref,Maybe} = maybe(),
 
     try
@@ -584,13 +595,18 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
     end.
 
 
-do_wait_cv(#certificate_verify_1_3{} = _CertificateVerify, State0) ->
+do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, State0) ->
     {Ref,Maybe} = maybe(),
     try
-        Maybe(verify_certificate(State0))
+        Maybe(verify_signature_algorithm(State0, CertificateVerify)),
+        Maybe(verify_certificate_verify(State0, CertificateVerify))
     catch
-        {Ref, {bad_certificate, Reason}} ->
-            {?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, {bad_certificate, Reason}), State0}
+        {Ref, {{bad_certificate, Reason}, State}} ->
+            {?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, {bad_certificate, Reason}), State};
+        {Ref, {badarg, State}} ->
+            {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {verify, badarg}), State};
+        {Ref, {{handshake_failure, Reason}, State}} ->
+            {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {handshake_failure, Reason}), State}
     end.
 
 
@@ -723,9 +739,8 @@ process_client_certificate(#certificate_1_3{certificate_list = Certs0},
 
     case validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
                                     SslOptions, CRLDbHandle, Role, Host) of
-        {ok, PeerCert} ->
-            State = store_peer_cert(State0, PeerCert),
-
+        {ok, {PeerCert, PublicKeyInfo}} ->
+            State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
             {ok, {State, wait_cv}};
         {error, Reason} ->
             State1 = calculate_traffic_secrets(State0),
@@ -754,8 +769,8 @@ validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHand
         Options = [{max_path_length, SslOptions#ssl_options.depth},
                    {verify_fun, ValidationFunAndState}],
 	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
-	    {ok, {_PublicKeyInfo,_}} ->
-		{ok, PeerCert};
+	    {ok, {PublicKeyInfo,_}} ->
+		{ok, {PeerCert, PublicKeyInfo}};
 	    {error, Reason} ->
 		ssl_handshake:handle_path_validation_error(Reason, PeerCert, ChainCerts,
                                                            SslOptions, Options,
@@ -770,8 +785,10 @@ validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHand
     end.
 
 
-store_peer_cert(#state{session = #session{} = Session} = State, PeerCert) ->
-    State#state{session = Session#session{peer_certificate = PeerCert}}.
+store_peer_cert(#state{session = Session,
+                       handshake_env = HsEnv} = State, PeerCert, PublicKeyInfo) ->
+    State#state{session = Session#session{peer_certificate = PeerCert},
+                handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo}}.
 
 
 convert_certificate_chain(Certs) ->
@@ -900,6 +917,11 @@ get_private_key(#key_share_entry{
                           {_, PrivateKey}}) ->
     PrivateKey.
 
+%% TODO: implement EC keys
+get_public_key({?'rsaEncryption', PublicKey, _}) ->
+    PublicKey.
+
+
 %% X25519, X448
 calculate_shared_secret(OthersKey, MyKey, Group)
   when is_binary(OthersKey) andalso is_binary(MyKey) andalso
@@ -944,7 +966,8 @@ update_connection_state(ConnectionState = #{security_parameters := SecurityParam
 update_start_state(#state{connection_states = ConnectionStates0,
                           connection_env = CEnv,
                           session = Session} = State,
-                   Cipher, KeyShare, SessionId) ->
+                   Cipher, KeyShare, SessionId,
+                   Group, SelectedSignAlg, ClientPubKey) ->
     #{security_parameters := SecParamsR0} = PendingRead =
         maps:get(pending_read, ConnectionStates0),
     #{security_parameters := SecParamsW0} = PendingWrite =
@@ -956,7 +979,10 @@ update_start_state(#state{connection_states = ConnectionStates0,
                            pending_write => PendingWrite#{security_parameters => SecParamsW}},
     State#state{connection_states = ConnectionStates,
                 key_share = KeyShare,
-                session = Session#session{session_id = SessionId},
+                session = Session#session{session_id = SessionId,
+                                          ecc = Group,
+                                          sign_alg = SelectedSignAlg,
+                                          dh_public_value = ClientPubKey},
                 connection_env = CEnv#connection_env{negotiated_version = {3,4}}}.
 
 
@@ -967,49 +993,105 @@ cipher_init(Key, IV, FinishedKey) ->
                   tag_len = 16}.
 
 
-%% Client is authenticated
-get_handshake_context({[<<20,_/binary>>,<<15,_/binary>>,<<11,_/binary>>|Messages], _}) ->
-    %% Handshake context messages:
-    %% ClientHello         (client) (1)
-    %% ServerHello         (server) (2),
-    %% EncryptedExtensions (server) (8)
-    %% CertificateRequest  (server) (13),
-    %% Certificate         (server) (11)
-    %% CertificateVerify   (server) (15),
-    %% Finished            (server) (20)
-    %% Certificate         (client) (11) - Drop! Not included in calculations!
-    %% CertificateVerify   (client) (15) - Drop! Not included in calculations!
-    %% Finished            (client) (20) - Drop! Not included in calculations!
+%% Verify CertificateVerify:
+%%    ClientHello         (client) (1)
+%%    ServerHello         (server) (2)
+%%    EncryptedExtensions (server) (8)
+%%    CertificateRequest  (server) (13)
+%%    Certificate         (server) (11)
+%%    CertificateVerify   (server) (15)
+%%    Finished            (server) (20)
+%%    Certificate         (client) (11)
+%%    CertificateVerify   (client) (15) - Drop! Not included in calculations!
+get_handshake_context({[<<15,_/binary>>|Messages], _}) ->
     Messages;
-%% Client is authenticated (empty certificate)
-get_handshake_context({[<<20,_/binary>>,<<11,_/binary>>|Messages], _}) ->
-    %% Handshake context messages:
-    %% ClientHello         (client) (1)
-    %% ServerHello         (server) (2),
-    %% EncryptedExtensions (server) (8)
-    %% CertificateRequest  (server) (13),
-    %% Certificate         (server) (11)
-    %% CertificateVerify   (server) (15),
-    %% Finished            (server) (20)
-    %% Certificate         (client) (11) - Drop! Not included in calculations!
-    %% Finished            (client) (20) - Drop! Not included in calculations!
-    Messages;
-%% Normal case
-get_handshake_context({[_| Messages], _}) ->
-    %% Handshake context messages:
-    %% ClientHello         (client) (1)
-    %% ServerHello         (server) (2),
-    %% EncryptedExtensions (server) (8)
-    %% Certificate         (server) (11)
-    %% CertificateVerify   (server) (15),
-    %% Finished            (server) (20)
-    %% Finished            (client) (20) - Drop! Not included in calculations!
-    Messages.
+%% Client is authenticated with certificate:
+%%    ClientHello         (client) (1)
+%%    ServerHello         (server) (2)
+%%    EncryptedExtensions (server) (8)
+%%    CertificateRequest  (server) (13)
+%%    Certificate         (server) (11)
+%%    CertificateVerify   (server) (15)
+%%    Finished            (server) (20)
+%%    Certificate         (client) (11) - Drop! Not included in calculations!
+%%    CertificateVerify   (client) (15) - Drop! Not included in calculations!
+%%    Finished            (client) (20) - Drop! Not included in calculations!
+%%
+%% Client is authenticated but sends empty certificate:
+%%    ClientHello         (client) (1)
+%%    ServerHello         (server) (2)
+%%    EncryptedExtensions (server) (8)
+%%    CertificateRequest  (server) (13)
+%%    Certificate         (server) (11)
+%%    CertificateVerify   (server) (15)
+%%    Finished            (server) (20)
+%%    Certificate         (client) (11) - Drop! Not included in calculations!
+%%    Finished            (client) (20) - Drop! Not included in calculations!
+%%
+%% Client is not authenticated:
+%%    ClientHello         (client) (1)
+%%    ServerHello         (server) (2)
+%%    EncryptedExtensions (server) (8)
+%%    Certificate         (server) (11)
+%%    CertificateVerify   (server) (15)
+%%    Finished            (server) (20)
+%%    Finished            (client) (20) - Drop! Not included in calculations!
+%%
+%% Drop all client messages from the front of the iolist using the property that
+%% incoming messages are binaries.
+get_handshake_context({Messages, _}) ->
+    get_handshake_context(Messages);
+get_handshake_context([H|T]) when is_binary(H) ->
+    get_handshake_context(T);
+get_handshake_context(L) ->
+    L.
 
 
-verify_certificate(State) ->
-    %% TODO: implement
-    {ok, {State, wait_finished}}.
+verify_signature_algorithm(#state{session = #session{sign_alg = SignatureScheme}} = State,
+                           #certificate_verify_1_3{algorithm = SignatureScheme2}) ->
+    %% TODO
+    ok.
+
+
+verify_certificate_verify(#state{connection_states = ConnectionStates,
+                          handshake_env =
+                              #handshake_env{
+                                 public_key_info = PublicKeyInfo,
+                                 tls_handshake_history = HHistory}} = State0,
+                   #certificate_verify_1_3{
+                      algorithm = SignatureScheme,
+                      signature = Signature}) ->
+    #{security_parameters := SecParamsR} =
+        ssl_record:pending_connection_state(ConnectionStates, write),
+    #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
+
+    {HashAlgo, _, _} =
+        ssl_cipher:scheme_to_components(SignatureScheme),
+
+    Messages = get_handshake_context(HHistory),
+
+    Context = lists:reverse(Messages),
+
+    %% Transcript-Hash uses the HKDF hash function defined by the cipher suite.
+    THash = tls_v1:transcript_hash(Context, HKDFAlgo),
+
+    PublicKey = get_public_key(PublicKeyInfo),
+
+    %% Digital signatures use the hash function defined by the selected signature
+    %% scheme.
+    case verify(THash, <<"TLS 1.3, client CertificateVerify">>,
+                        HashAlgo, Signature, PublicKey) of
+        {ok, true} ->
+            {ok, {State0, wait_finished}};
+        {ok, false} ->
+            State1 = calculate_traffic_secrets(State0),
+            State = ssl_record:step_encryption_state(State1),
+            {error, {{handshake_failure, "Failed to verify CertificateVerify"}, State}};
+        {error, badarg} ->
+            State1 = calculate_traffic_secrets(State0),
+            State = ssl_record:step_encryption_state(State1),
+            {error, {badarg, State}}
+    end.
 
 
 %% If there is no overlap between the received
@@ -1026,7 +1108,6 @@ select_common_groups(ServerGroups, ClientGroups) ->
         L ->
             {ok, L}
     end.
-
 
 
 %% RFC 8446 - 4.2.8.  Key Share

@@ -123,10 +123,10 @@ start(internal, #client_hello{} = Hello, State0, _Module) ->
     case tls_handshake_1_3:do_start(Hello, State0) of
         #alert{} = Alert ->
             ssl_connection:handle_own_alert(Alert, {3,4}, start, State0);
-        {State, _, start} ->
+        {State, start} ->
             {next_state, start, State, []};
-        {State, Context, negotiated} ->
-            {next_state, negotiated, State, [{next_event, internal, Context}]}
+        {State, negotiated} ->
+            {next_state, negotiated, State, [{next_event, internal, start_handshake}]}
     end;
 start(Type, Msg, State, Connection) ->
     ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
@@ -135,8 +135,8 @@ start(Type, Msg, State, Connection) ->
 negotiated(internal, #change_cipher_spec{}, State0, _Module) ->
     {Record, State} = tls_connection:next_record(State0),
     tls_connection:next_event(?FUNCTION_NAME, Record, State);
-negotiated(internal, Map, State0, _Module) ->
-    case tls_handshake_1_3:do_negotiated(Map, State0) of
+negotiated(internal, Message, State0, _Module) ->
+    case tls_handshake_1_3:do_negotiated(Message, State0) of
         #alert{} = Alert ->
             ssl_connection:handle_own_alert(Alert, {3,4}, negotiated, State0);
         {State, NextState} ->
