@@ -246,12 +246,12 @@ html:   $(INDEX_FILES) \
 debug opt: 
 
 clean:
-	$(RM) -f ../html/js/*.js
-	$(RM) -f PR.template 
-	$(RM) -f $(INDEX_FILES) $(MAN_INDEX)
-	$(RM) -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	$(RM) -f $(INDEX_SCRIPT) $(GLOSSARY_SCRIPT) $(JAVASCRIPT_BUILD_SCRIPT) 
-	$(RM) -f erl_crash.dump errs core *~
+	$(RM) ../html/js/*.js
+	$(RM) PR.template 
+	$(RM) $(INDEX_FILES) $(MAN_INDEX)
+	$(RM) $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	$(RM) $(INDEX_SCRIPT) $(GLOSSARY_SCRIPT) $(JAVASCRIPT_BUILD_SCRIPT) 
+	$(RM) erl_crash.dump errs core *~
 
 # ----------------------------------------------------
 # Release Target
@@ -275,7 +275,7 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(INDEX_SCRIPT) $(MAN_INDEX_SCRIPT) $(JAVASCRIPT_BUILD_SCRIPT) \
 		$(INDEX_SRC) $(MAN_INDEX_SRC) $(JAVASCRIPT_BUILD_SCRIPT_SRC) \
 		$(TEMPLATES) $(RELSYSDIR)/docbuild
-	$(RM) -rf $(RELSYSDIR)/temporary
+	$(RM) -r $(RELSYSDIR)/temporary
 
 
 release_spec:
