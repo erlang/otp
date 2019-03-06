@@ -902,18 +902,12 @@ valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
            end);
 valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(tuple, Tuple, Vst),
-    branch(Lbl, Vst,
-           fun(SuccVst) ->
-                   Type = {tuple, Sz, #{}},
-                   update_type(fun meet/2, Type, Tuple, SuccVst)
-           end);
+    Type = {tuple, Sz, #{}},
+    type_test(Lbl, Type, Tuple, Vst);
 valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
     assert_term(Src, Vst),
-    branch(Lbl, Vst,
-           fun(SuccVst) ->
-                   Type = {tuple, Sz, #{ {integer,1} => Atom }},
-                   update_type(fun meet/2, Type, Src, SuccVst)
-           end);
+    Type = {tuple, Sz, #{ {integer,1} => Atom }},
+    type_test(Lbl, Type, Src, Vst);
 valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
     validate_src(Ss, Vst),
     branch(Lbl, Vst,
