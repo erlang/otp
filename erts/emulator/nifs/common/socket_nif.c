@@ -902,6 +902,29 @@ typedef struct {
  * Basically, these functions does some preliminary checks and argument
  * extractions and then call the functions called 'n<funcname>', which 
  * does the actual work. Except for the info function.
+ *
+ * nif_info
+ * nif_supports
+ * nif_open
+ * nif_bind
+ * nif_connect
+ * nif_listen
+ * nif_accept
+ * nif_send
+ * nif_sendto
+ * nif_sendmsg
+ * nif_recv
+ * nif_recvfrom
+ * nif_recvmsg
+ * nif_close
+ * nif_shutdown
+ * nif_setopt
+ * nif_getopt
+ * nif_sockname
+ * nif_peername
+ * nif_finalize_connection
+ * nif_finalize_close
+ * nif_cancel
  */
 
 #define ESOCK_NIF_FUNCS                             \
@@ -1069,6 +1092,13 @@ static ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
                                 SocketDescriptor* descP,
                                 int               eOpt,
                                 ERL_NIF_TERM      eVal);
+/* *** nsetopt_otp_debug      ***
+ * *** nsetopt_otp_iow        ***
+ * *** nsetopt_otp_ctrl_proc  ***
+ * *** nsetopt_otp_rcvbuf     ***
+ * *** nsetopt_otp_rcvctrlbuf ***
+ * *** nsetopt_otp_sndctrlbuf ***
+ */
 #define NSETOPT_OTP_FUNCS              \
     NSETOPT_OTP_FUNC_DEF(debug);      \
     NSETOPT_OTP_FUNC_DEF(iow);        \
@@ -1567,6 +1597,17 @@ static ERL_NIF_TERM ngetopt(ErlNifEnv*        env,
 static ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
                                 SocketDescriptor* descP,
                                 int               eOpt);
+/* *** ngetopt_otp_debug      ***
+ * *** ngetopt_otp_iow        ***
+ * *** ngetopt_otp_ctrl_proc  ***
+ * *** ngetopt_otp_rcvbuf     ***
+ * *** ngetopt_otp_rcvctrlbuf ***
+ * *** ngetopt_otp_sndctrlbuf ***
+ * *** ngetopt_otp_fd         ***
+ * *** ngetopt_otp_domain     ***
+ * *** ngetopt_otp_type       ***
+ * *** ngetopt_otp_protocol   ***
+ */
 #define NGETOPT_OTP_FUNCS              \
     NGETOPT_OTP_FUNC_DEF(debug);      \
     NGETOPT_OTP_FUNC_DEF(iow);        \
@@ -17013,7 +17054,9 @@ int esock_select_cancel(ErlNifEnv*             env,
  * ----------------------------------------------------------------------
  */
 
-/* *** activate_next_acceptor | activate_next_writer | activate_next_reader ***
+/* *** activate_next_acceptor ***
+ * *** activate_next_writer   ***
+ * *** activate_next_reader   ***
  *
  * This functions pops the writer queue and then selects until it 
  * manages to successfully activate a writer or the queue is empty.
@@ -17115,7 +17158,9 @@ BOOLEAN_T activate_next(ErlNifEnv*          env,
 
 #if !defined(__WIN32__)
 
-/* *** search4pid ***
+/* *** acceptor_search4pid ***
+ * *** writer_search4pid   ***
+ * *** reader_search4pid   ***
  *
  * Search for a pid in the requestor (acceptor, writer, or reader) queue.
  *
@@ -17138,7 +17183,10 @@ REQ_SEARCH4PID_FUNCS
 #undef REQ_SEARCH4PID_FUNC_DECL
 
 
-/* *** push ***
+
+/* *** acceptor_push ***
+ * *** writer_push   ***
+ * *** reader_push   ***
  *
  * Push a requestor (acceptor, writer, or reader) onto its queue.
  * This happens when we already have a current request (of its type).
@@ -17177,7 +17225,10 @@ REQ_PUSH_FUNCS
 #undef REQ_PUSH_FUNC_DECL
 
 
-/* *** pop ***
+
+/* *** acceptor_pop ***
+ * *** writer_pop   ***
+ * *** reader_pop   ***
  *
  * Pop a requestor (acceptor, writer, or reader) from its queue.
  *
@@ -17199,7 +17250,10 @@ REQ_POP_FUNCS
 #undef REQ_POP_FUNC_DECL
 
 
-/* *** unqueue ***
+
+/* *** acceptor_unqueue ***
+ * *** writer_unqueue   ***
+ * *** reader_unqueue   ***
  *
  * Remove a requestor (acceptor, writer, or reader) from its queue.
  *
