@@ -721,7 +721,7 @@ printable_list(_L, 1, _T, _Enc) ->
 printable_list(L, _D, T, latin1) when T < 0 ->
     io_lib:printable_latin1_list(L);
 printable_list(L, _D, T, Enc) when T >= 0 ->
-    case slice(L, tsub(T, 2)) of
+    case slice(L, tsub(T, 2), Enc) of
         false ->
             false;
         {prefix, Prefix} when Enc =:= latin1 ->
@@ -737,19 +737,45 @@ printable_list(L, _D, T, Enc) when T >= 0 ->
 printable_list(L, _D, T, _Uni) when T < 0->
     io_lib:printable_list(L).
 
-slice(L, N) ->
-    try io_lib:chars_length(L) =< N of
-        true ->
+slice(L, N, latin1) ->
+    try lists:split(N, L) of
+        {_, []} ->
             all;
-        false ->
-            case string:slice(L, 0, N) of
-                "" ->
-                    false;
-                Prefix ->
-                    {prefix, Prefix}
+        {[], _} ->
+            false;
+        {L1, _} ->
+            {prefix, L1}
+    catch
+        _:_ ->
+            all
+    end;
+slice(L, N, _Uni) ->
+    %% Be careful not to traverse more of L than necessary.
+    try string:slice(L, 0, N) of
+        "" ->
+            false;
+        Prefix ->
+            %% Assume no binaries are introduced by string:slice().
+            case is_flat(L, lists:flatlength(Prefix)) of
+                true ->
+                    case string:equal(Prefix, L) of
+                        true ->
+                            all;
+                        false ->
+                            {prefix, Prefix}
+                    end;
+                false ->
+                    false
             end
     catch _:_ -> false
     end.
+
+is_flat(_L, 0) ->
+    true;
+is_flat([C|Cs], N) when is_integer(C) ->
+    is_flat(Cs, N - 1);
+is_flat(_, _N) ->
+    false.
 
 printable_bin0(Bin, D, T, Enc) ->
     Len = case D >= 0 of
