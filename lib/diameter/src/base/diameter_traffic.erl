@@ -42,6 +42,9 @@
          peer_up/1,
          peer_down/1]).
 
+%% towards diameter_dist
+-export([request_info/1]).
+
 %% internal
 -export([send/1,    %% send from remote node
          request/1, %% process request in handler process
@@ -289,8 +292,7 @@ spawn_request(false, _, _, _, _, _, _) ->  %% no transport
 %% handler process dies (in a handle_request callback for example).
 spawn_request(AppT, {M,F,A}, Ack, TPid, Pkt, Dict0, RecvData) ->
     %% Term to pass to request/1 in an appropriate process. Module
-    %% diameter_dist implements callbacks, and uses the form of the
-    %% argument tuple constructed below.
+    %% diameter_dist implements callbacks.
     ReqT = {Pkt, AppT, Ack, TPid, Dict0, RecvData},
     apply(M, F, [ReqT | A]);
 
@@ -301,6 +303,13 @@ spawn_request(AppT, Opts, Ack, TPid, Pkt, Dict0, RecvData) ->
                       recv_request(Ack, TPid, Pkt, Dict0, RecvData, AppT)
               end,
               Opts).
+
+%% request_info/1
+%%
+%% Limited request information for diameter_dist.
+
+request_info({Pkt, _AppT, _Ack, _TPid, _Dict0, RecvData} = _ReqT) ->
+    {RecvData#recvdata.service_name, Pkt#diameter_packet.bin}.
 
 %% request/1
 %%
