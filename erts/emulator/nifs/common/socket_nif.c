@@ -962,6 +962,7 @@ ESOCK_NIF_FUNCS
 #undef ESOCK_NIF_FUNC_DEF
 
 
+#if !defined(__WIN32__)
 /* And here comes the functions that does the actual work (for the most part) */
 static ERL_NIF_TERM nsupports(ErlNifEnv* env, int key);
 static ERL_NIF_TERM nsupports_options(ErlNifEnv* env);
@@ -2373,6 +2374,7 @@ static int esock_demonitor(const char*       slogan,
                            ESockMonitor*     monP);
 static void esock_monitor_init(ESockMonitor* mon);
 
+#endif // if defined(__WIN32__)
 
 /*
 #if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
@@ -2389,6 +2391,9 @@ static void socket_down(ErlNifEnv*           env,
 			void*                obj,
 			const ErlNifPid*     pid,
 			const ErlNifMonitor* mon);
+
+#if !defined(__WIN32__)
+
 static void socket_down_acceptor(ErlNifEnv*        env,
                                  SocketDescriptor* descP,
                                  ERL_NIF_TERM      sockRef,
@@ -2442,6 +2447,8 @@ static BOOLEAN_T extract_debug(ErlNifEnv*   env,
                                ERL_NIF_TERM map);
 static BOOLEAN_T extract_iow(ErlNifEnv*   env,
                              ERL_NIF_TERM map);
+
+#endif // if defined(__WIN32__)
 
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
