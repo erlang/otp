@@ -352,15 +352,13 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define MLOCK(M)            enif_mutex_lock((M))
 #define MUNLOCK(M)          enif_mutex_unlock((M))
 
-// #define MONP(S,E,D,P,M)  enif_monitor_process((E), (D), (P), (M))
-// #define DEMONP(S,E,D,M)  enif_demonitor_process((E), (D), (M))
 #define MONP(S,E,D,P,M)     esock_monitor((S), (E), (D), (P), (M))
 #define DEMONP(S,E,D,M)     esock_demonitor((S), (E), (D), (M))
 #define MON_INIT(M)         esock_monitor_init((M))
 #define MON2T(E, M)         enif_make_monitor_term((E), (M))
-// #define MON_COMP(M1, M2)    esock_monitor_compare((M1), (M2))
 
-#define COMPARE(A, B)       enif_compare((A), (B))
+#define COMPARE(A, B)        enif_compare((A), (B))
+#define COMPARE_PIDS(P1, P2) enif_compare_pids((P1), (P2))
 
 #define IS_ATOM(E,  TE) enif_is_atom((E),   (TE))
 #define IS_BIN(E,   TE) enif_is_binary((E), (TE))

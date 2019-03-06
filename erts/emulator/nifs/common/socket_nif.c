@@ -889,6 +889,9 @@ typedef struct {
  */
 
 
+extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
+
+
 /* All the nif "callback" functions for the socket API has
  * the exact same API:
  *
@@ -2257,11 +2260,6 @@ static BOOLEAN_T verify_is_connected(SocketDescriptor* descP, int* err);
 
 static SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
 
-static int compare_pids(ErlNifEnv*       env,
-                        const ErlNifPid* pid1,
-                        const ErlNifPid* pid2);
-
-
 
 static BOOLEAN_T edomain2domain(int edomain, int* domain);
 static BOOLEAN_T etype2type(int etype, int* type);
@@ -2287,8 +2285,6 @@ static void      cnt_dec(Uint32* cnt, Uint32 dec);
 static void inc_socket(int domain, int type, int protocol);
 static void dec_socket(int domain, int type, int protocol);
 
-
-extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
 
 
 /* *** activate_next_acceptor ***
@@ -5128,7 +5124,7 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
                    "\r\n   Current: %T"
                    "\r\n", caller, descP->currentAcceptor.pid) );
 
-    if (compare_pids(env, &descP->currentAcceptor.pid, &caller)) {
+    if (COMPARE_PIDS(&descP->currentAcceptor.pid, &caller) == 0) {
 
         SSDBG( descP,
                ("SOCKET", "naccept_accepting -> current acceptor\r\n") );
@@ -7005,7 +7001,7 @@ ERL_NIF_TERM nsetopt_otp_ctrl_proc(ErlNifEnv*        env,
     if (enif_self(env, &caller) == NULL)
         return esock_make_error(env, atom_exself);
 
-    if (!compare_pids(env, &descP->ctrlPid, &caller)) {
+    if (COMPARE_PIDS(&descP->ctrlPid, &caller) != 0) {
         SSDBG( descP, ("SOCKET", "nsetopt_otp_ctrl_proc -> not owner (%T)\r\n",
                        descP->ctrlPid) );
         return esock_make_error(env, esock_atom_not_owner);
@@ -13655,7 +13651,7 @@ BOOLEAN_T send_check_writer(ErlNifEnv*        env,
             return FALSE;
         }
 
-        if (!compare_pids(env, &descP->currentWriter.pid, &caller)) {
+        if (COMPARE_PIDS(&descP->currentWriter.pid, &caller) != 0) {
             /* Not the "current writer", so (maybe) push onto queue */
 
             SSDBG( descP,
@@ -13863,7 +13859,7 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*        env,
             return FALSE;
         }
 
-        if (!compare_pids(env, &descP->currentReader.pid, &caller)) {
+        if (COMPARE_PIDS(&descP->currentReader.pid, &caller) != 0) {
             ERL_NIF_TERM tmp;
 
             /* Not the "current reader", so (maybe) push onto queue */
@@ -16436,20 +16432,6 @@ void inc_socket(int domain, int type, int protocol)
 }
 
 
-
-/* compare_pids - Test if two pids are equal
- *
- */
-static
-int compare_pids(ErlNifEnv*       env,
-                 const ErlNifPid* pid1,
-                 const ErlNifPid* pid2)
-{
-    ERL_NIF_TERM p1 = enif_make_pid(env, pid1);
-    ERL_NIF_TERM p2 = enif_make_pid(env, pid2);
-
-    return enif_is_identical(p1, p2);
-}
 #endif // if !defined(__WIN32__)
 
 
@@ -16962,7 +16944,7 @@ char* esock_send_abort_msg(ErlNifEnv*   env,
  */
 
 static
-    char* esock_send_socket_msg(ErlNifEnv*   env,
+char* esock_send_socket_msg(ErlNifEnv*   env,
                             ERL_NIF_TERM sockRef,
                             ERL_NIF_TERM tag,
                             ERL_NIF_TERM info,
@@ -17313,7 +17295,7 @@ BOOLEAN_T qsearch4pid(ErlNifEnv*          env,
     SocketRequestQueueElement* tmp = q->first;
     
     while (tmp != NULL) {
-        if (compare_pids(env, &tmp->data.pid, pid))
+        if (COMPARE_PIDS(&tmp->data.pid, pid) == 0)
             return TRUE;
         else
             tmp = tmp->nextP;
@@ -17372,7 +17354,7 @@ BOOLEAN_T qunqueue(ErlNifEnv*          env,
 
     /* Check if it was one of the waiting acceptor processes */
     while (e != NULL) {
-        if (compare_pids(env, &e->data.pid, pid)) {
+        if (COMPARE_PIDS(&e->data.pid, pid) == 0) {
 
             /* We have a match */
 
@@ -17647,9 +17629,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                env, descP, &descP->currentWriter.mon);
 
         SSDBG( descP, ("SOCKET", "socket_stop -> handle current writer\r\n") );
-        if (!compare_pids(env,
-                          &descP->closerPid,
-                          &descP->currentWriter.pid)) {
+        if (COMPARE_PIDS(&descP->closerPid, &descP->currentWriter.pid) != 0) {
             SSDBG( descP, ("SOCKET", "socket_stop -> "
                            "send abort message to current writer %T\r\n",
                            descP->currentWriter.pid) );
@@ -17692,9 +17672,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                env, descP, &descP->currentReader.mon);
 
         SSDBG( descP, ("SOCKET", "socket_stop -> handle current reader\r\n") );
-        if (!compare_pids(env,
-                          &descP->closerPid,
-                          &descP->currentReader.pid)) {
+        if (COMPARE_PIDS(&descP->closerPid, &descP->currentReader.pid) != 0) {
             SSDBG( descP, ("SOCKET", "socket_stop -> "
                            "send abort message to current reader %T\r\n",
                            descP->currentReader.pid) );
@@ -17742,9 +17720,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                env, descP, &descP->currentAcceptor.mon);
 
         SSDBG( descP, ("SOCKET", "socket_stop -> handle current acceptor\r\n") );
-        if (!compare_pids(env,
-                          &descP->closerPid,
-                          &descP->currentAcceptor.pid)) {
+        if (COMPARE_PIDS(&descP->closerPid, &descP->currentAcceptor.pid) != 0) {
             SSDBG( descP, ("SOCKET", "socket_stop -> "
                            "send abort message to current acceptor %T\r\n",
                            descP->currentWriter.pid) );
@@ -17917,7 +17893,7 @@ void socket_down(ErlNifEnv*           env,
 
     if (!IS_CLOSED(descP)) {
 
-        if (compare_pids(env, &descP->ctrlPid, pid)) {
+        if (COMPARE_PIDS(&descP->ctrlPid, pid) == 0) {
 
             /* We don't bother with the queue cleanup here - 
              * we leave it to the stop callback function.
@@ -18058,7 +18034,7 @@ void socket_down_acceptor(ErlNifEnv*        env,
                           ERL_NIF_TERM      sockRef,
                           const ErlNifPid*  pid)
 {
-    if (compare_pids(env, &descP->currentAcceptor.pid, pid)) {
+    if (COMPARE_PIDS(&descP->currentAcceptor.pid, pid) == 0) {
         
         SSDBG( descP, ("SOCKET",
                        "socket_down_acceptor -> "
@@ -18103,7 +18079,7 @@ void socket_down_writer(ErlNifEnv*        env,
                         ERL_NIF_TERM      sockRef,
                         const ErlNifPid*  pid)
 {
-    if (compare_pids(env, &descP->currentWriter.pid, pid)) {
+    if (COMPARE_PIDS(&descP->currentWriter.pid, pid) == 0) {
         
         SSDBG( descP, ("SOCKET",
                        "socket_down_writer -> "
@@ -18144,7 +18120,7 @@ void socket_down_reader(ErlNifEnv*        env,
                         ERL_NIF_TERM      sockRef,
                         const ErlNifPid*  pid)
 {
-    if (compare_pids(env, &descP->currentReader.pid, pid)) {
+    if (COMPARE_PIDS(&descP->currentReader.pid, pid) == 0) {
         
         SSDBG( descP, ("SOCKET",
                        "socket_down_reader -> "
