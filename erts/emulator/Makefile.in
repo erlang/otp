@@ -241,7 +241,6 @@ ifneq ($(findstring ose,$(TARGET)),ose)
 STRIP   = strip
 endif
 PERL    = @PERL@
-RM	= @RM@
 MKDIR	= @MKDIR@
 
 USING_MINGW=@MIXED_CYGWIN_MINGW@
@@ -441,13 +440,13 @@ $(ERTS_LIB):
 
 .PHONY: clean
 clean:
-	$(RM) -f $(GENERATE)
-	$(RM) -rf $(TARGET)/*.c $(TARGET)/*.h $(TARGET)/*-GENERATED
-	$(RM) -rf $(TARGET)/*/*
-	$(RM) -rf obj/$(TARGET)
-	$(RM) -rf pcre/obj/$(TARGET) $(PCRE_GENINC)
-	$(RM) -rf zlib/obj/$(TARGET)
-	$(RM) -rf bin/$(TARGET)
+	$(RM) $(GENERATE)
+	$(RM) -r $(TARGET)/*.c $(TARGET)/*.h $(TARGET)/*-GENERATED
+	$(RM) -r $(TARGET)/*/*
+	$(RM) -r obj/$(TARGET)
+	$(RM) -r pcre/obj/$(TARGET) $(PCRE_GENINC)
+	$(RM) -r zlib/obj/$(TARGET)
+	$(RM) -r bin/$(TARGET)
 	cd $(ERTS_LIB_DIR) && $(MAKE) clean
 
 .PHONY: docs
