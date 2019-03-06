@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixes of install/release phase in build system.</p>
+	    <list> <item>The source tree was modified when
+	    installing/releasing and/or applying a patch.</item>
+	    <item>Some files were installed with wrong access
+	    rights.</item> <item>If applying a patch (using
+	    <c>otp_patch_apply</c>) as another user (except root)
+	    than the user that built the source, the documentation
+	    was not properly updated.</item> </list>
+          <p>
+	    Own Id: OTP-15551</p>
+        </item>
+        <item>
+          <p>
+	    Setting the <c>recbuf</c> size of an inet socket the
+	    <c>buffer</c> is also automatically increased. Fix a bug
+	    where the auto adjustment of inet buffer size would be
+	    triggered even if an explicit inet buffer size had
+	    already been set.</p>
+          <p>
+	    Own Id: OTP-15651 Aux Id: ERIERL-304 </p>
+        </item>
+        <item>
+          <p>
+	    Reading from UDP using active <c>true</c> or active
+	    <c>N</c> mode has been optimized when more packets than
+	    specified by <c>read_packets</c> are available on the
+	    socket.</p>
+          <p>
+	    Own Id: OTP-15652 Aux Id: ERIERL-304 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
