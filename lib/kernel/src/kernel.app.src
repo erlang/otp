@@ -148,6 +148,6 @@
          {logger_sasl_compatible, false}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-15651@", "stdlib-3.5", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-10.2.5", "stdlib-3.5", "sasl-3.0"]}
  ]
 }.
