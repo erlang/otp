@@ -101,16 +101,21 @@
     <datatype>
       <name name="transport_option"/>
       <desc>
-	<p>Defaults to <c>{gen_tcp, tcp, tcp_closed, tcp_error}</c>
-	for TLS and <c>{gen_udp, udp, udp_closed, udp_error}</c> for
-	DTLS. Can be used to customize the transport layer. The tag
-	values should be the values used by the underlying transport
-	in its active mode messages. For TLS the callback module must implement a
-	reliable transport protocol, behave as <c>gen_tcp</c>, and have functions
-	corresponding to <c>inet:setopts/2</c>, <c>inet:getopts/2</c>,
-	<c>inet:peername/1</c>, <c>inet:sockname/1</c>, and <c>inet:port/1</c>.
-	The callback <c>gen_tcp</c> is treated specially and calls <c>inet</c>
-	directly. For DTLS this feature must be considered exprimental.
+	<p>Defaults to <c>{gen_tcp, tcp, tcp_closed, tcp_error,
+	tcp_passive}</c> for TLS (for backward compatibility a four
+	tuple will be converted to a five tuple with the last element
+	"second_element"_passive) and <c>{gen_udp, udp, udp_closed,
+	udp_error}</c> for DTLS (might also be changed to five tuple in
+	the future). Can be used to customize the transport layer. The
+	tag values should be the values used by the underlying
+	transport in its active mode messages. For TLS the callback
+	module must implement a reliable transport protocol, behave as
+	<c>gen_tcp</c>, and have functions corresponding to
+	<c>inet:setopts/2</c>, <c>inet:getopts/2</c>,
+	<c>inet:peername/1</c>, <c>inet:sockname/1</c>, and
+	<c>inet:port/1</c>.  The callback <c>gen_tcp</c> is treated
+	specially and calls <c>inet</c> directly. For DTLS this
+	feature must be considered exprimental.
 	</p>
       </desc>
     </datatype>
