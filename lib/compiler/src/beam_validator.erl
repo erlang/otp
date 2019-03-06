@@ -802,24 +802,14 @@ valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
     Es = set_element_type({integer,I}, get_term_type(Src, Vst), Es0),
     override_type({tuple, Sz, Es}, Tuple, Vst);
 %% Match instructions.
-valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
-    assert_term(Src, Vst0),
+valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
+    assert_term(Src, Vst),
     assert_choices(Choices),
-    Vst = select_val_branches(Choices, Src, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   %% The next instruction is never executed.
-                   kill_state(SuccVst)
-           end);
-valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst0) ->
-    assert_type(tuple, Tuple, Vst0),
+    validate_select_val(Fail, Choices, Src, Vst);
+valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
+    assert_type(tuple, Tuple, Vst),
     assert_arities(Choices),
-    Vst = select_arity_branches(Choices, Tuple, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   %% The next instruction is never executed.
-                   kill_state(SuccVst)
-           end);
+    validate_select_tuple_arity(Fail, Choices, Tuple, Vst);
 
 %% New bit syntax matching instructions.
 valfun_4({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
@@ -1558,7 +1548,11 @@ bsm_restore(Reg, SavePoint, Vst) ->
 	_ -> error({illegal_restore,SavePoint,range})
     end.
 
-select_val_branches([Val,{f,L}|T], Src, Vst0) ->
+validate_select_val(_Fail, _Choices, _Src, #vst{current=none}=Vst) ->
+    %% We've already branched on all of Src's possible values, so we know we
+    %% can't reach the fail label or any of the remaining choices.
+    Vst;
+validate_select_val(Fail, [Val,{f,L}|T], Src, Vst0) ->
     Vst = branch(L, Vst0,
                  fun(BranchVst) ->
                          update_eq_types(Src, Val, BranchVst)
@@ -1566,22 +1560,34 @@ select_val_branches([Val,{f,L}|T], Src, Vst0) ->
                  fun(FailVst) ->
                          update_ne_types(Src, Val, FailVst)
                  end),
-    select_val_branches(T, Src, Vst);
-select_val_branches([], _, Vst) ->
-    Vst.
+    validate_select_val(Fail, T, Src, Vst);
+validate_select_val(Fail, [], _, Vst) ->
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   %% The next instruction is never executed.
+                   kill_state(SuccVst)
+           end).
 
-select_arity_branches([SzA,{f,L}|T], Tuple, Vst0) ->
+validate_select_tuple_arity(_Fail, _Choices, _Src, #vst{current=none}=Vst) ->
+    %% We've already branched on all of Src's possible values, so we know we
+    %% can't reach the fail label or any of the remaining choices.
+    Vst;
+validate_select_tuple_arity(Fail, [Arity,{f,L}|T], Tuple, Vst0) ->
+    Type = {tuple, Arity, #{}},
     Vst = branch(L, Vst0,
                  fun(BranchVst) ->
-                         update_type(fun meet/2, {tuple,SzA,#{}},
-                                     Tuple, BranchVst)
+                         update_type(fun meet/2, Type, Tuple, BranchVst)
                  end,
                  fun(FailVst) ->
-                         FailVst
+                         update_type(fun subtract/2, Type, Tuple, FailVst)
                  end),
-    select_arity_branches(T, Tuple, Vst);
-select_arity_branches([], _, #vst{}=Vst) ->
-    Vst.
+    validate_select_tuple_arity(Fail, T, Tuple, Vst);
+validate_select_tuple_arity(Fail, [], _, #vst{}=Vst) ->
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   %% The next instruction is never executed.
+                   kill_state(SuccVst)
+           end).
 
 infer_types({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
     infer_types(get_reg_vref(Reg, Vst), Vst);
@@ -1756,7 +1762,20 @@ update_type(Merge, With, Literal, Vst) ->
     end.
 
 update_ne_types(LHS, RHS, Vst) ->
-    update_type(fun subtract/2, get_term_type(RHS, Vst), LHS, Vst).
+    %% While updating types on equality is fairly straightforward, inequality
+    %% is a bit trickier since all we know is that the *value* of LHS differs
+    %% from RHS, so we can't blindly subtract their types.
+    %%
+    %% Consider `number =/= {integer,[]}`; all we know is that LHS isn't equal
+    %% to some *specific integer* of unknown value, and if we were to subtract
+    %% {integer,[]} we would erroneously infer that the new type is {float,[]}.
+    %%
+    %% Therefore, we only subtract when we know that RHS has a specific value.
+    RType = get_term_type(RHS, Vst),
+    case is_literal(RType) of
+        true -> update_type(fun subtract/2, RType, LHS, Vst);
+        false -> Vst
+    end.
 
 update_eq_types(LHS, RHS, Vst0) ->
     Infer = infer_types(LHS, Vst0),
@@ -1867,16 +1886,24 @@ assert_movable(Src, Vst) ->
     _ = get_movable_term_type(Src, Vst),
     ok.
 
-assert_literal(nil) -> ok;
-assert_literal({atom,A}) when is_atom(A) -> ok;
-assert_literal({float,F}) when is_float(F) -> ok;
-assert_literal({integer,I}) when is_integer(I) -> ok;
-assert_literal({literal,_L}) -> ok;
-assert_literal(T) -> error({literal_required,T}).
+assert_literal(Src) ->
+    case is_literal(Src) of
+        true -> ok;
+        false -> error({literal_required,Src})
+    end.
 
-assert_not_literal({x,_}) -> ok;
-assert_not_literal({y,_}) -> ok;
-assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
+assert_not_literal(Src) ->
+    case is_literal(Src) of
+        true -> error({literal_not_allowed,Src});
+        false -> ok
+    end.
+
+is_literal(nil) -> true;
+is_literal({atom,A}) when is_atom(A) -> true;
+is_literal({float,F}) when is_float(F) -> true;
+is_literal({integer,I}) when is_integer(I) -> true;
+is_literal({literal,_L}) -> true;
+is_literal(_) -> false.
 
 %% The possible types.
 %%
@@ -2128,6 +2155,7 @@ assert_tuple_elements(Limit, Es) ->
 %%  Subtract Type2 from Type2. Example:
 %%      subtract(list, nil) -> cons
 
+subtract(Same, Same) -> none;
 subtract(list, nil) -> cons;
 subtract(list, cons) -> nil;
 subtract(number, {integer,[]}) -> {float,[]};
