@@ -60,7 +60,8 @@
   {"2.1.3",   [{restart_application, diameter}]},  %% 20.2
   {"2.1.4",   [{restart_application, diameter}]},  %% 20.3
   {"2.1.4.1", [{restart_application, diameter}]},  %% 20.3.8.19
-  {"2.1.5",   [{update, diameter_peer_fsm}]}       %% 21.0
+  {"2.1.5",   [{restart_application, diameter}]},  %% 21.0
+  {"2.1.6",   [{restart_application, diameter}]}   %% 21.1
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -102,6 +103,7 @@
   {"2.1.3",   [{restart_application, diameter}]},
   {"2.1.4",   [{restart_application, diameter}]},
   {"2.1.4.1", [{restart_application, diameter}]},
-  {"2.1.5",   [{update, diameter_peer_fsm}]}
+  {"2.1.5",   [{restart_application, diameter}]},
+  {"2.1.6",   [{restart_application, diameter}]}
  ]
 }.
