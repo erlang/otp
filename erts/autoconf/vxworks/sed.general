@@ -98,7 +98,6 @@ s|@INSTALL_PROGRAM@|${INSTALL}|
 s|@INSTALL_SCRIPT@|${INSTALL}|
 s|@INSTALL_DATA@|${INSTALL} -m 644|
 s|@INSTALL_DIR@|$(INSTALL) -d|
-s|@RM@|/bin/rm|
 s|@MKDIR@|/bin/mkdir|
 s|@ERLANG_OSTYPE@|vxworks|
 s|@vxworks_reclaim@|reclaim.h|

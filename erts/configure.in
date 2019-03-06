@@ -63,7 +63,7 @@ fi
 erl_top=${ERL_TOP}
 
 # Remove old configuration information
-/bin/rm -f "$ERL_TOP/erts/CONF_INFO"
+rm -f "$ERL_TOP/erts/CONF_INFO"
 
 # echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # echo X
@@ -846,11 +846,6 @@ if test "$ac_cv_prog_AR" = false; then
 fi
 
 _search_path=/bin:/usr/bin:/usr/local/bin:$PATH
-
-AC_PATH_PROG(RM, rm, false, $_search_path)
-if test "$ac_cv_path_RM" = false; then
-  AC_MSG_ERROR([No 'rm' command found])
-fi
 
 AC_PATH_PROG(MKDIR, mkdir, false, $_search_path)
 if test "$ac_cv_path_MKDIR" = false; then
@@ -3969,14 +3964,14 @@ if test "$enable_dtrace_test" = "yes" ; then
 		AC_MSG_CHECKING([for 2-stage DTrace precompilation])
                 AC_TRY_COMPILE([ #include "foo-dtrace.h" ],
                     [ERLANG_DIST_PORT_BUSY_ENABLED();],
-		    [$RM -f $DTRACE_2STEP_TEST
+		    [rm -f $DTRACE_2STEP_TEST
 		     dtrace -G $DTRACE_CPP $DTRACE_BITS_FLAG -Iemulator/beam -o $DTRACE_2STEP_TEST -s emulator/beam/erlang_dtrace.d conftest.$OBJEXT 2>&AS_MESSAGE_LOG_FD
                      if test -f $DTRACE_2STEP_TEST; then
 			rm $DTRACE_2STEP_TEST
                         DTRACE_ENABLED_2STEP=yes
 		     fi],
                     [])
-		$RM -f foo-dtrace.h
+		rm -f foo-dtrace.h
 		AS_IF([test "x$DTRACE_ENABLED_2STEP" = "xyes"],
 		      [AC_MSG_RESULT([yes])],
                       [AC_MSG_RESULT([no])])
@@ -4148,7 +4143,7 @@ ssl_done=yes # Default only one run
 
 # Remove all SKIP files from previous runs
 for a in ssl crypto ssh; do
-  /bin/rm -f $ERL_TOP/lib/$a/SKIP
+  rm -f $ERL_TOP/lib/$a/SKIP
 done
 
 SSL_DYNAMIC_ONLY=$enable_dynamic_ssl
@@ -4745,7 +4740,7 @@ need_java="jinterface ic/java_src"
 
 # Remove all SKIP files from previous runs
 for a in $need_java ; do
-  /bin/rm -f $ERL_TOP/lib/$a/SKIP
+  rm -f $ERL_TOP/lib/$a/SKIP
 done
 
 if test "X$with_javac" = "Xno"; then
@@ -4796,7 +4791,7 @@ dnl this deliberately does not believe that 'gcc' is a C++ compiler
 AC_CHECK_TOOLS(CXX, [$CCC c++ g++ CC cxx cc++ cl], false)
 
 # Remove SKIP file from previous run
-/bin/rm -f $ERL_TOP/lib/orber/SKIP
+rm -f $ERL_TOP/lib/orber/SKIP
 
 if test "$CXX" = false; then
   echo "No C++ compiler found" > $ERL_TOP/lib/orber/SKIP
