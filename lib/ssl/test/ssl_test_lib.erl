@@ -1126,7 +1126,7 @@ start_basic_client(openssl, Version, Port, ClientOpts) ->
        case {Cert, Key} of
            {C, K} when C =:= undefined orelse
                        K =:= undefined ->
-               Args0;
+               Args1;
            {C, K} ->
                Args1 ++ ["-cert", C, "-key", K]
        end,
