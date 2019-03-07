@@ -415,8 +415,6 @@ poly1305(Config) ->
 block() ->
      [{doc, "Test block ciphers"}].
 block(Config) when is_list(Config) ->
-    Fips = proplists:get_bool(fips, Config),
-    Type = ?config(type, Config),
     Blocks = lazy_eval(proplists:get_value(block, Config)),
     lists:foreach(fun block_cipher/1, Blocks),
     lists:foreach(fun block_cipher/1, block_iolistify(Blocks)),
@@ -443,8 +441,6 @@ api_ng() ->
      [{doc, "Test new api"}].
 
 api_ng(Config) when is_list(Config) ->
-    Fips = proplists:get_bool(fips, Config),
-    Type = ?config(type, Config),
     Blocks = lazy_eval(proplists:get_value(block, Config, [])),
     Streams = lazy_eval(proplists:get_value(stream, Config, [])),
     lists:foreach(fun api_ng_cipher_increment/1, Blocks++Streams).
