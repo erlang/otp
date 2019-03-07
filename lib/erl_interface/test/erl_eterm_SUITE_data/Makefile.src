@@ -28,7 +28,7 @@ LIBEI = @erl_interface_eilib@
 LIBFLAGS = ../all_SUITE_data/runner@obj@ \
 	$(LIBERL) $(LIBEI) @erl_interface_sock_libs@ @LIBS@ \
 	@erl_interface_threadlib@
-CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ @erl_interface_target_include@ -I../all_SUITE_data
+CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../all_SUITE_data
 ETERM_OBJS = eterm_test@obj@ eterm_test_decl@obj@
 CNODE_OBJS = cnode@obj@
 PRINT_OBJS = print_term@obj@

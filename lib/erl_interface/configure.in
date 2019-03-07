@@ -61,7 +61,7 @@ fi
 TARGET=$host
 AC_SUBST(TARGET)
 
-AC_CONFIG_HEADER([src/$host/config.h:config.h.in include/$host/ei_config.h:include/ei_config.h.in])
+AC_CONFIG_HEADER([src/$host/config.h:config.h.in])
 
 dnl ----------------------------------------------------------------------
 dnl Optional features
@@ -183,14 +183,6 @@ AC_TRY_COMPILE([#include <sys/types.h>
 [AC_MSG_RESULT(yes) 
  AC_DEFINE(HAVE_SOCKLEN_T, [], [Define if you have the `socklen_t' type])],
 [AC_MSG_RESULT(no)])
-
-AC_MSG_CHECKING([for deprecated attribute])
-AC_TRY_COMPILE([],
-[void my_function(void) __attribute__((deprecated));],
-[AC_MSG_RESULT(yes) 
- AC_DEFINE(HAVE_DEPRECATED_ATTRIBUTE, [1], [Define to 1 if you have the `deprecated' attribute])],
-[AC_MSG_RESULT(no)])
-
 
 # Checks for library functions.
 AC_FUNC_ALLOCA
