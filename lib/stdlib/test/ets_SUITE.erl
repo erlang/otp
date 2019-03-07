@@ -58,6 +58,7 @@
 -export([otp_5340/1]).
 -export([otp_6338/1]).
 -export([otp_6842_select_1000/1]).
+-export([select_mbuf_trapping/1]).
 -export([otp_7665/1]).
 -export([meta_wb/1]).
 -export([grow_shrink/1, grow_pseudo_deleted/1, shrink_pseudo_deleted/1]).
@@ -125,6 +126,7 @@ all() ->
      t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
      select_fail, t_insert_new, t_repair_continuation,
      otp_5340, otp_6338, otp_6842_select_1000, otp_7665,
+     select_mbuf_trapping,
      otp_8732, meta_wb, grow_shrink, grow_pseudo_deleted,
      shrink_pseudo_deleted, {group, meta_smp}, smp_insert,
      smp_fixed_delete, smp_unfix_fix, smp_select_replace, 
@@ -5021,6 +5023,61 @@ otp_6338(Config) when is_list(Config) ->
     lists:foreach(fun(X) -> ets:insert(T,X) end,L),
     [[4839,recv]] = ets:match(T,{[{sbm,ppb2_bs12@blade_0_8},'$1'],'$2'}),
     ets:delete(T).
+
+%% OTP-15660: Verify select not doing excessive trapping
+%%            when process have mbuf heap fragments.
+select_mbuf_trapping(Config) when is_list(Config) ->
+    select_mbuf_trapping_do(set),
+    select_mbuf_trapping_do(ordered_set).
+
+select_mbuf_trapping_do(Type) ->
+    T = ets:new(xxx, [Type]),
+    NKeys = 50,
+    [ets:insert(T, {K, value}) || K <- lists:seq(1,NKeys)],
+
+    {priority, Prio} = process_info(self(), priority),
+    Tracee = self(),
+    [SchedTracer]
+	= start_loopers(1, Prio,
+			fun (SC) ->
+				receive
+				    {trace, Tracee, out, _} ->
+					SC+1;
+				    done ->
+					Tracee ! {schedule_count, SC},
+                                        exit(normal)
+				end
+			end,
+			0),
+
+    erlang:garbage_collect(),
+    1 = erlang:trace(self(), true, [running,{tracer,SchedTracer}]),
+
+    %% Artificially create an mbuf heap fragment
+    MbufTerm = "Frag me up",
+    MbufTerm = erts_debug:set_internal_state(mbuf, MbufTerm),
+
+    Keys = ets:select(T, [{{'$1', value}, [], ['$1']}]),
+    NKeys = length(Keys),
+
+    1 = erlang:trace(self(), false, [running]),
+    Ref = erlang:trace_delivered(Tracee),
+    receive
+        {trace_delivered, Tracee, Ref} ->
+            SchedTracer ! done
+    end,
+    receive
+	{schedule_count, N} ->
+	    io:format("~p context switches: ~p", [Type,N]),
+	    if
+		N < 3 -> ok;
+		true -> ct:fail(failed)
+	    end
+    end,
+    true = ets:delete(T),
+    ok.
+
+
 
 %% Elements could come in the wrong order in a bag if a rehash occurred.
 otp_5340(Config) when is_list(Config) ->

@@ -3344,13 +3344,6 @@ static int doit_select(DbTableTree *tb, TreeDbTerm *this, void *ptr,
     if (is_value(ret)) {
 	sc->accum = CONS(hp, ret, sc->accum);
     }
-    if (MBUF(sc->p)) {
-	/*
-	 * Force a trap and GC if a heap fragment was created. Many heap fragments
-	 * make the GC slow.
-	 */
-	sc->max = 0;
-    }
     if (--(sc->max) <= 0) {
 	return 0;
     }
@@ -3406,13 +3399,6 @@ static int doit_select_chunk(DbTableTree *tb, TreeDbTerm *this, void *ptr,
     if (is_value(ret)) {
 	++(sc->got);
 	sc->accum = CONS(hp, ret, sc->accum);
-    }
-    if (MBUF(sc->p)) {
-	/*
-	 * Force a trap and GC if a heap fragment was created. Many heap fragments
-	 * make the GC slow.
-	 */
-	sc->max = 0;
     }
     if (--(sc->max) <= 0 || sc->got == sc->chunk_size) {
 	return 0;

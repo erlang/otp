@@ -4459,7 +4459,16 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                                             refbin));
             }
         }
-
+        else if (ERTS_IS_ATOM_STR("mbuf", BIF_ARG_1)) {
+            Uint sz = size_object(BIF_ARG_2);
+            ErlHeapFragment* frag = new_message_buffer(sz);
+            Eterm *hp = frag->mem;
+            Eterm copy = copy_struct(BIF_ARG_2, sz, &hp, &frag->off_heap);
+            frag->next = BIF_P->mbuf;
+            BIF_P->mbuf = frag;
+            BIF_P->mbuf_sz += sz;
+            BIF_RET(copy);
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);
