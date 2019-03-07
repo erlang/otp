@@ -993,6 +993,8 @@ cipher_init(Key, IV, FinishedKey) ->
                   tag_len = 16}.
 
 
+%% Get handshake context for verification of CertificateVerify.
+%%
 %% Verify CertificateVerify:
 %%    ClientHello         (client) (1)
 %%    ServerHello         (server) (2)
@@ -1003,8 +1005,12 @@ cipher_init(Key, IV, FinishedKey) ->
 %%    Finished            (server) (20)
 %%    Certificate         (client) (11)
 %%    CertificateVerify   (client) (15) - Drop! Not included in calculations!
-get_handshake_context({[<<15,_/binary>>|Messages], _}) ->
-    Messages;
+get_handshake_context_cv({[<<15,_/binary>>|Messages], _}) ->
+    Messages.
+
+
+%% Get handshake context for traffic key calculation.
+%%
 %% Client is authenticated with certificate:
 %%    ClientHello         (client) (1)
 %%    ServerHello         (server) (2)
@@ -1062,7 +1068,7 @@ verify_signature_algorithm(#state{ssl_options =
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
             {error, {{handshake_failure,
-                      "CertificateVerify has a not supported signature algorithm"}, State}}
+                      "CertificateVerify uses unsupported signature algorithm"}, State}}
     end.
 
 
@@ -1081,7 +1087,7 @@ verify_certificate_verify(#state{connection_states = ConnectionStates,
     {HashAlgo, _, _} =
         ssl_cipher:scheme_to_components(SignatureScheme),
 
-    Messages = get_handshake_context(HHistory),
+    Messages = get_handshake_context_cv(HHistory),
 
     Context = lists:reverse(Messages),
 
