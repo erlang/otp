@@ -45,6 +45,13 @@
 
 -compile({inline,[{badarg,2}]}).
 
+-ifdef(USE_ESOCK).
+-define(ESOCK_MODS, [socket]).
+-else.
+-define(ESOCK_MODS, []).
+-endif.
+
+
 %%-----------------------------------------------------------------
 %% Create a boot script from a release file.
 %% Options is a list of {path, Path} | silent | local
@@ -1566,7 +1573,7 @@ preloaded() ->
      erts_code_purger,erts_dirty_process_signal_handler,
      erts_internal,erts_literal_area_collector,
      init,net,persistent_term,prim_buffer,prim_eval,prim_file,
-     prim_inet,prim_zip,socket,zlib].
+     prim_inet,prim_zip] ++ ?ESOCK_MODS ++ [zlib].
 
 %%______________________________________________________________________
 %% Kernel processes; processes that are specially treated by the init

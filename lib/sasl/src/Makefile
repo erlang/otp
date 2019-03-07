@@ -61,7 +61,11 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
+
 ERL_COMPILE_FLAGS += -I../../stdlib/include -Werror
+ifeq ($(USE_ESOCK), yes)
+ERL_COMPILE_FLAGS += -DUSE_ESOCK=true
+endif
 
 
 # ----------------------------------------------------
