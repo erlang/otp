@@ -78,7 +78,6 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/api_ng$(TYPEMARKER).o \
 	$(OBJDIR)/atoms$(TYPEMARKER).o \
 	$(OBJDIR)/bn$(TYPEMARKER).o \
-	$(OBJDIR)/chacha20$(TYPEMARKER).o \
 	$(OBJDIR)/cipher$(TYPEMARKER).o \
 	$(OBJDIR)/cmac$(TYPEMARKER).o \
 	$(OBJDIR)/dh$(TYPEMARKER).o \
@@ -97,7 +96,6 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/pkey$(TYPEMARKER).o \
 	$(OBJDIR)/poly1305$(TYPEMARKER).o \
 	$(OBJDIR)/rand$(TYPEMARKER).o \
-	$(OBJDIR)/rc4$(TYPEMARKER).o \
 	$(OBJDIR)/rsa$(TYPEMARKER).o \
 	$(OBJDIR)/srp$(TYPEMARKER).o
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
