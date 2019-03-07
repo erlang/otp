@@ -843,6 +843,14 @@ ESOCK_RUN_OBJS = \
 	$(OBJDIR)/socket_dbg.o \
 	$(OBJDIR)/socket_tarray.o \
 	$(OBJDIR)/socket_util.o
+ifeq ($(USE_ESOCK), yes)
+ESOCK_NIF_OBJS = \
+	$(OBJDIR)/socket_nif.o \
+	$(OBJDIR)/net_nif.o
+else
+ESOCK_NIF_OBJS = \
+	$(OBJDIR)/net_nif.o
+endif
 else
 ESOCK_RUN_OBJS =
 endif
@@ -903,8 +911,7 @@ NIF_OBJS = \
 	$(OBJDIR)/prim_buffer_nif.o \
 	$(OBJDIR)/prim_file_nif.o \
 	$(OBJDIR)/zlib_nif.o \
-	$(OBJDIR)/socket_nif.o \
-	$(OBJDIR)/net_nif.o
+	$(ESOCK_NIF_OBJS)
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \

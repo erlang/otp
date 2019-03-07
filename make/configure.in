@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2016. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2019. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -297,6 +297,10 @@ AS_HELP_STRING([--disable-fips], [disable OpenSSL FIPS mode support (default)]))
 AC_ARG_ENABLE(builtin-zlib,
 AS_HELP_STRING([--enable-builtin-zlib],
                [force use of our own built-in zlib]))
+
+AC_ARG_ENABLE(esock,
+AS_HELP_STRING([--enable-esock], [enable builtin experimental socket (as a nif) support (default)])
+AS_HELP_STRING([--disable-esock], [disable builtin experimental socket (as a nif) support]))
 
 AC_ARG_ENABLE(sharing-preserving,
 AS_HELP_STRING([--enable-sharing-preserving],
