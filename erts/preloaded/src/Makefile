@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2018. All Rights Reserved.
+# Copyright Ericsson AB 2008-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,14 +33,22 @@ STATIC_EBIN=../ebin
 include $(ERL_TOP)/erts/vsn.mk
 include $(ERL_TOP)/lib/kernel/vsn.mk
 
+ifeq ($(USE_ESOCK), yes)
+PRE_LOADED_ERL_ESOCK_MODULES = \
+	socket \
+	net
+else
+PRE_LOADED_ERL_ESOCK_MODULES = \
+	net
+endif
+
 PRE_LOADED_ERL_MODULES = \
 	erl_prim_loader \
 	init \
 	prim_buffer \
 	prim_file \
 	prim_inet \
-	socket \
-	net \
+	$(PRE_LOADED_ERL_ESOCK_MODULES) \
 	zlib \
 	prim_zip \
 	erl_init \
@@ -73,6 +81,11 @@ STATIC_TARGET_FILES = $(PRE_LOADED_MODULES:%=$(STATIC_EBIN)/%.$(EMULATOR))
 APP_FILE= erts.app
 APP_SRC= $(APP_FILE).src
 APP_TARGET= $(STATIC_EBIN)/$(APP_FILE)
+ifeq ($(USE_ESOCK), yes)
+APP_ESOCK_MODS= net, socket
+else
+APP_ESOCK_MODS= net
+endif
 
 
 KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
@@ -94,7 +107,7 @@ copy:
 	cp *.beam $(STATIC_EBIN)
 
 $(APP_TARGET): $(APP_SRC) $(ERL_TOP)/erts/vsn.mk
-	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
+	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' -e 's;%ESOCK_MODS%;$(APP_ESOCK_MODS);' $< > $@
 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
