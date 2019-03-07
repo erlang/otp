@@ -1323,11 +1323,7 @@ static int match_traverse(Process* p, DbTableHash* tb,
                 unlock_hash_function(lck);
                 break;
             }
-            if (iterations_left <= 0 || MBUF(p)) {
-                /*
-                 * We have either reached our limit, or just created some heap fragments.
-                 * Since many heap fragments will make the GC slower, trap and GC now.
-                 */
+            if (iterations_left <= 0) {
                 unlock_hash_function(lck);
                 ret_value = ctx->on_trap(ctx, slot_ix, got, &mpi.mp, ret);
                 goto done;
@@ -1433,11 +1429,7 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
                 unlock_hash_function(lck);
                 break;
             }
-            if (iterations_left <= 0 || MBUF(p)) {
-                /*
-                 * We have either reached our limit, or just created some heap fragments.
-                 * Since many heap fragments will make the GC slower, trap and GC now.
-                 */
+            if (iterations_left <= 0) {
                 unlock_hash_function(lck);
                 ret_value = ctx->on_trap(ctx, slot_ix, got, mpp, ret);
                 goto done;
