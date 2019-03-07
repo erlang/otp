@@ -96,6 +96,7 @@ ftp_tests()->
      recv_chunk, 
      recv_chunk_twice,
      recv_chunk_three_times,
+     recv_chunk_delay,
      type, 
      quote, 
      error_elogin,
@@ -732,21 +733,28 @@ recv_chunk(Pid, Acc) ->
             Error
     end.
 
-%% Make new test case that uses this or new code
-%% only test one thing at the time
-%% delay_recv_chunk(Pid) -> 
-%%     delay_recv_chunk(Pid, <<>>).
-%% delay_recv_chunk(Pid, Acc) -> 
-%%     ct:pal("FOO ~p", [byte_size(Acc)]),
-%%     case ftp:recv_chunk(Pid) of
-%% 	ok -> 
-%%             {ok, Acc};
-%% 	{ok, Bin} -> 
-%%             ct:sleep(100),
-%%             delay_recv_chunk(Pid, <<Acc/binary, Bin/binary>>);
-%% 	Error -> 
-%%             Error
-%%     end.
+recv_chunk_delay(Config0) when is_list(Config0) ->
+    File1 = "big_file1.txt",
+    Contents = list_to_binary(lists:duplicate(1000, lists:seq(0,255))),
+    Config = set_state([reset, {mkfile,File1,Contents}], Config0),
+    Pid = proplists:get_value(ftp, Config),
+    ok = ftp:recv_chunk_start(Pid, id2ftp(File1,Config)),
+    {ok, ReceivedContents} = delay_recv_chunk(Pid),
+    find_diff(ReceivedContents, Contents).
+
+delay_recv_chunk(Pid) -> 
+     delay_recv_chunk(Pid, <<>>).
+delay_recv_chunk(Pid, Acc) -> 
+    ct:pal("Recived size ~p", [byte_size(Acc)]),
+    case ftp:recv_chunk(Pid) of
+ 	ok -> 
+             {ok, Acc};
+ 	{ok, Bin} -> 
+            ct:sleep(100),
+            delay_recv_chunk(Pid, <<Acc/binary, Bin/binary>>);
+	Error -> 
+            Error
+     end.
 
 %%-------------------------------------------------------------------------
 type() -> 
