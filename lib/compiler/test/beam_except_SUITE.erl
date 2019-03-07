@@ -84,9 +84,16 @@ coverage(_) ->
     {'EXIT',{function_clause,
 	     [{?MODULE,fc,[y],[File,{line,2}]}|_]}} =
 	(catch fc(y)),
-    {'EXIT',{function_clause,
-	     [{?MODULE,fc,[[a,b,c]],[File,{line,6}]}|_]}} =
-	(catch fc([a,b,c])),
+    case ?MODULE of
+        beam_except_no_opt_SUITE ->
+            %% There will be a different stack fram in
+            %% unoptimized code.
+            ok;
+        _ ->
+            {'EXIT',{function_clause,
+                     [{?MODULE,fc,[[a,b,c]],[File,{line,6}]}|_]}} =
+                (catch fc([a,b,c]))
+    end,
 
     {'EXIT',{undef,[{erlang,error,[a,b,c],_}|_]}} =
 	(catch erlang:error(a, b, c)),

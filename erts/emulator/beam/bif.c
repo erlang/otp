@@ -5165,6 +5165,12 @@ erts_schedule_bif(Process *proc,
 	    pc = i;
 	    mfa = &exp->info.mfa;
 	}
+	else if (BeamIsOpCode(*i, op_call_bif_only_e)) {
+	    /* Pointer to bif export in i+1 */
+	    exp = (Export *) i[1];
+	    pc = i;
+	    mfa = &exp->info.mfa;
+	}
 	else if (BeamIsOpCode(*i, op_apply_bif)) {
 	    /* Pointer to bif in i+1, and mfa in i-3 */	    
 	    pc = c_p->cp;

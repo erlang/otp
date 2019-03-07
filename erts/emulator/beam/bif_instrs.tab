@@ -209,8 +209,8 @@ i_length.execute(Fail, Live, Dst) {
 }
 
 //
-// The most general BIF call.  The BIF may build any amount of data
-// on the heap.  The result is always returned in r(0).
+// Call a BIF, store the result in x(0) and transfer control to the
+// next instruction.
 //
 call_bif(Exp) {
     ErtsBifFunc bf;
@@ -219,8 +219,10 @@ call_bif(Exp) {
     Export *export = (Export*) $Exp;
 
     if (!((FCALLS - 1) > 0 || (FCALLS-1) > neg_o_reds)) {
-        /* If we have run out of reductions, we do a context
-           switch before calling the bif */
+        /*
+         * If we have run out of reductions, do a context
+         * switch before calling the BIF.
+         */
         c_p->arity = GET_BIF_ARITY(export);
         c_p->current = &export->info.mfa;
         goto context_switch3;
@@ -257,9 +259,12 @@ call_bif(Exp) {
     HTOP = HEAP_TOP(c_p);
     FCALLS = c_p->fcalls;
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    /* We have to update the cache if we are enabled in order
-       to make sure no book keeping is done after we disabled
-       msacc. We don't always do this as it is quite expensive. */
+
+    /*
+     * We have to update the cache if we are enabled in order
+     * to make sure no bookkeeping is done after we disabled
+     * msacc. We don't always do this as it is quite expensive.
+     */
     if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
         ERTS_MSACC_UPDATE_CACHE_X();
     }
@@ -269,6 +274,12 @@ call_bif(Exp) {
         CHECK_TERM(r(0));
         $NEXT0();
     } else if (c_p->freason == TRAP) {
+        /*
+         * Set the continuation pointer to return to next
+         * instruction after the trap (either by a return from
+         * erlang code or by nif_bif.epilogue() when the BIF
+         * is done).
+         */
         SET_CP(c_p, $NEXT_INSTRUCTION);
         SET_I(c_p->i);
         SWAPIN;
@@ -281,6 +292,95 @@ call_bif(Exp) {
     ASSERT(c_p->stop == E);
     I = handle_error(c_p, I, reg, &export->info.mfa);
     goto post_error_handling;
+    //| -no_next
+}
+
+//
+// Call a BIF tail-recursively, storing the result in x(0) and doing
+// a return to the continuation poiner (c_p->cp).
+//
+
+call_bif_only(Exp) {
+    ErtsBifFunc bf;
+    Eterm result;
+    ErlHeapFragment *live_hf_end;
+    Export *export = (Export*) $Exp;
+
+    if (!((FCALLS - 1) > 0 || (FCALLS-1) > neg_o_reds)) {
+        /*
+         * If we have run out of reductions, do a context
+         * switch before calling the BIF.
+         */
+        c_p->arity = GET_BIF_ARITY(export);
+        c_p->current = &export->info.mfa;
+        goto context_switch3;
+    }
+
+    ERTS_MSACC_SET_BIF_STATE_CACHED_X(GET_BIF_MODULE(export),
+                                      GET_BIF_ADDRESS(export));
+
+    bf = GET_BIF_ADDRESS(export);
+
+    PRE_BIF_SWAPOUT(c_p);
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    c_p->fcalls = FCALLS - 1;
+    if (FCALLS <= 0) {
+        save_calls(c_p, export);
+    }
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    live_hf_end = c_p->mbuf;
+    ERTS_CHK_MBUF_SZ(c_p);
+    result = (*bf)(c_p, reg, I);
+    ERTS_CHK_MBUF_SZ(c_p);
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    ERTS_HOLE_CHECK(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    if (ERTS_IS_GC_DESIRED(c_p)) {
+        Uint arity = GET_BIF_ARITY(export);
+        result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result,
+                                            reg, arity);
+        E = c_p->stop;
+    }
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    HTOP = HEAP_TOP(c_p);
+    FCALLS = c_p->fcalls;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+
+    /*
+     * We have to update the cache if we are enabled in order
+     * to make sure no bookkeeping is done after we disabled
+     * msacc. We don't always do this as it is quite expensive.
+     */
+    if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
+        ERTS_MSACC_UPDATE_CACHE_X();
+    }
+    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+    if (ERTS_LIKELY(is_value(result))) {
+        /*
+         * Success. Store the result and return to the caller.
+         */
+        r(0) = result;
+        CHECK_TERM(r(0));
+        $return();
+    } else if (c_p->freason == TRAP) {
+        /*
+         * Dispatch to a trap. When the trap is done, a jump
+         * to the continuation pointer (c_p->cp) will be done.
+         */
+        SET_I(c_p->i);
+        SWAPIN;
+        Dispatch();
+    }
+
+    /*
+     * Error handling.  SWAPOUT is not needed because it was done above.
+     */
+    ASSERT(c_p->stop == E);
+    I = handle_error(c_p, I, reg, &export->info.mfa);
+    goto post_error_handling;
+    //| -no_next
 }
 
 //
