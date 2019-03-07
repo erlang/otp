@@ -50,14 +50,9 @@
 -export([rand_seed/1]).
 
 %% Experiment
--export([crypto_init/4,
+-export([crypto_init/4, crypto_init/3, crypto_init/2, 
          crypto_update/2,
-         crypto_one_shot/5,
-
-         %% Emulates old api:
-         crypto_stream_init/2, crypto_stream_init/3,
-         crypto_stream_encrypt/2,
-         crypto_stream_decrypt/2
+         crypto_one_shot/5
         ]).
 
 
@@ -633,9 +628,11 @@ next_iv(des_cfb, Data, IVec) ->
 next_iv(Type, Data, _Ivec) ->
     next_iv(Type, Data).
 
-%%%---- Stream ciphers
+%%%-------- Stream ciphers API
 
--opaque stream_state() :: {stream_cipher(), reference()}.
+-opaque stream_state() :: {stream_cipher(),
+                           crypto_state() | {crypto_state(),flg_undefined}
+                          }.
 
 -type stream_cipher() :: stream_cipher_iv() | stream_cipher_no_iv() .
 -type stream_cipher_no_iv() :: rc4 .
@@ -645,47 +642,67 @@ next_iv(Type, Data, _Ivec) ->
                           | aes_256_ctr
                           | chacha20 .
 
--spec stream_init(Type, Key, IVec) -> State when Type :: stream_cipher_iv(),
-                                                 Key :: iodata(),
-                                                 IVec :: binary(),
-                                                 State :: stream_state() .
-stream_init(aes_ctr, Key, Ivec) ->
-    {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
-stream_init(aes_128_ctr, Key, Ivec) ->
-    {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
-stream_init(aes_192_ctr, Key, Ivec) ->
-    {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
-stream_init(aes_256_ctr, Key, Ivec) ->
-    {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
-stream_init(chacha20, Key, Ivec) ->
-    {chacha20, chacha20_stream_init(Key,Ivec)}.
+%%%---- stream_init
+-spec stream_init(Type, Key, IVec) -> State | no_return()
+                                          when Type :: stream_cipher_iv(),
+                                               Key :: iodata(),
+                                               IVec :: binary(),
+                                               State :: stream_state() .
+stream_init(Type, Key, IVec) when is_binary(IVec) -> 
+    case crypto_init(Type, Key, IVec) of
+        {ok,Ref} ->
+            {Type, {Ref,flg_undefined}};
+        {error,_} ->
+            error(badarg)
+    end.
 
--spec stream_init(Type, Key) -> State when Type :: stream_cipher_no_iv(),
-                                           Key :: iodata(),
-                                           State :: stream_state() .
-stream_init(rc4, Key) ->
-    {rc4, notsup_to_error(rc4_set_key(Key))}.
 
--spec stream_encrypt(State, PlainText) -> {NewState, CipherText}
+-spec stream_init(Type, Key) -> State | no_return()
+                                    when Type :: stream_cipher_no_iv(),
+                                         Key :: iodata(),
+                                         State :: stream_state() .
+stream_init(rc4 = Type, Key) ->
+    case crypto_init(Type, Key, undefined) of
+        {ok,Ref} ->
+            {Type, {Ref,flg_undefined}};
+        {error,_} ->
+            error(badarg)
+    end.
+
+%%%---- stream_encrypt
+-spec stream_encrypt(State, PlainText) -> {NewState, CipherText} | no_return()
                                               when State :: stream_state(),
                                                    PlainText :: iodata(),
                                                    NewState :: stream_state(),
                                                    CipherText :: iodata() .
-stream_encrypt(State, Data0) ->
-    Data = iolist_to_binary(Data0),
-    MaxByts = max_bytes(),
-    stream_crypt(fun do_stream_encrypt/2, State, Data, erlang:byte_size(Data), MaxByts, []).
+stream_encrypt(State, Data) ->
+        crypto_stream_emulate(State, Data, true).
 
--spec stream_decrypt(State, CipherText) -> {NewState, PlainText}
+%%%---- stream_decrypt
+-spec stream_decrypt(State, CipherText) -> {NewState, PlainText} | no_return()
                                               when State :: stream_state(),
                                                    CipherText :: iodata(),
                                                    NewState :: stream_state(),
                                                    PlainText :: iodata() .
-stream_decrypt(State, Data0) ->
-    Data = iolist_to_binary(Data0),
-    MaxByts = max_bytes(),
-    stream_crypt(fun do_stream_decrypt/2, State, Data, erlang:byte_size(Data), MaxByts, []).
+stream_decrypt(State, Data) ->
+        crypto_stream_emulate(State, Data, false).
 
+%%%-------- helpers
+crypto_stream_emulate({Cipher,{Ref,flg_undefined}}, Data, EncryptFlag) when is_reference(Ref) ->
+    case crypto_init(Ref, EncryptFlag) of
+        {error,_} ->
+            error(badarg);
+        MaybeNewRef when is_reference(MaybeNewRef) ->
+            crypto_stream_emulate({Cipher,MaybeNewRef}, Data, EncryptFlag)
+    end;
+
+crypto_stream_emulate({Cipher,Ref}, Data, _) when is_reference(Ref) ->
+    case crypto_update(Ref, Data) of
+        {error,_} ->
+            error(badarg);
+        Bin  when is_binary(Bin) ->
+            {{Cipher,Ref},Bin}
+    end.
 
 %%%================================================================
 %%%
@@ -1789,59 +1806,7 @@ aead_decrypt(_Type, _Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
 
 aes_ige_crypt_nif(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
-
-%% Stream ciphers --------------------------------------------------------------------
-
-stream_crypt(Fun, State, Data, Size, MaxByts, []) when Size =< MaxByts ->
-    Fun(State, Data);
-stream_crypt(Fun, State0, Data, Size, MaxByts, Acc) when Size =< MaxByts ->
-    {State, Cipher} = Fun(State0, Data),
-    {State, list_to_binary(lists:reverse([Cipher | Acc]))};
-stream_crypt(Fun, State0, Data, _, MaxByts, Acc) ->
-    <<Increment:MaxByts/binary, Rest/binary>> = Data,
-    {State, CipherText} = Fun(State0, Increment),
-    stream_crypt(Fun, State, Rest, erlang:byte_size(Rest), MaxByts, [CipherText | Acc]).
-
-do_stream_encrypt({aes_ctr, State0}, Data) ->
-    {State, Cipher} = aes_ctr_stream_encrypt(State0, Data),
-    {{aes_ctr, State}, Cipher};
-do_stream_encrypt({rc4, State0}, Data) ->
-    {State, Cipher} = rc4_encrypt_with_state(State0, Data),
-    {{rc4, State}, Cipher};
-do_stream_encrypt({chacha20, State0}, Data) ->
-    {State, Cipher} = chacha20_stream_encrypt(State0, Data),
-    {{chacha20, State}, Cipher}.
-
-do_stream_decrypt({aes_ctr, State0}, Data) ->
-    {State, Text} = aes_ctr_stream_decrypt(State0, Data),
-    {{aes_ctr, State}, Text};
-do_stream_decrypt({rc4, State0}, Data) ->
-    {State, Text} = rc4_encrypt_with_state(State0, Data),
-    {{rc4, State}, Text};
-do_stream_decrypt({chacha20, State0}, Data) ->
-    {State, Cipher} = chacha20_stream_decrypt(State0, Data),
-    {{chacha20, State}, Cipher}.
-
-
-%%
-%% AES - in counter mode (CTR) with state maintained for multi-call streaming
-%%
-aes_ctr_stream_init(_Key, _IVec) -> ?nif_stub.
-aes_ctr_stream_encrypt(_State, _Data) -> ?nif_stub.
-aes_ctr_stream_decrypt(_State, _Cipher) -> ?nif_stub.
-
-%%
-%% RC4 - symmetric stream cipher
-%%
-rc4_set_key(_Key) -> ?nif_stub.
-rc4_encrypt_with_state(_State, _Data) -> ?nif_stub.
-
-%%
-%% CHACHA20 - stream cipher
-%%
-chacha20_stream_init(_Key, _IVec) -> ?nif_stub.
-chacha20_stream_encrypt(_State, _Data) -> ?nif_stub.
-chacha20_stream_decrypt(_State, _Data) -> ?nif_stub.
+%%%================================================================
 
 %% Secure remote password  -------------------------------------------------------------------
 
@@ -2214,7 +2179,7 @@ check_otp_test_engine(LibDir) ->
 
 %%% -> {ok,State::ref()} | {error,Reason}
 
--opaque crypto_state() :: reference() | {any(),any(),any(),any()}.
+-opaque crypto_state() :: reference() .
 
 
 %%%----------------------------------------------------------------
@@ -2222,31 +2187,63 @@ check_otp_test_engine(LibDir) ->
 %%% Create and initialize a new state for encryption or decryption
 %%% 
 
--spec crypto_init(Cipher, Key, IV, EncryptFlag) -> {ok,State} | {error,term()} | undefined
+-spec crypto_init(Cipher, Key, IV, EncryptFlag) -> {ok,State} | {error,term()}
                                                        when Cipher :: stream_cipher()
                                                                     | block_cipher_with_iv()
-                                                                    | block_cipher_without_iv() ,
+                                                                    | block_cipher_without_iv(),
                                                             Key :: iodata(),
-                                                            IV :: iodata(),
-                                                            EncryptFlag :: boolean() | undefined,
+                                                            IV :: iodata() | undefined,
+                                                            EncryptFlag :: boolean(),
                                                             State :: crypto_state() .
+crypto_init(Cipher, Key, undefined, EncryptFlag) ->
+    crypto_init(Cipher, Key, <<>>, EncryptFlag);
 
 crypto_init(Cipher, Key, IV, EncryptFlag) ->
-    case ng_crypto_init_nif(alias(Cipher), 
+    case ng_crypto_init_nif(alias(Cipher),
                             iolist_to_binary(Key),
                             iolist_to_binary(IV),
                             EncryptFlag) of
-        {error,Error} ->
-            {error,Error};
-        undefined -> % For compatibility function crypto_stream_init/3
-            undefined;
         Ref when is_reference(Ref) ->
             {ok,Ref};
-        State when is_tuple(State),
-                   size(State)==4 ->
-            {ok,State} % compatibility with old cryptolibs < 1.0.1
+        {error,Error} ->
+            {error,Error}
     end.
 
+
+-spec crypto_init(Cipher, Key, IV) -> {ok,State} | {error,term()}
+                                          when Cipher :: stream_cipher()
+                                                       | block_cipher_with_iv()
+                                                       | block_cipher_without_iv(),
+                                               Key :: iodata(),
+                                               IV :: iodata() | undefined,
+                                               State :: crypto_state() .
+crypto_init(Cipher, Key, undefined) ->
+    crypto_init(Cipher, Key, <<>>);
+
+crypto_init(Cipher, Key, IV) when is_atom(Cipher) ->
+    case ng_crypto_init_nif(alias(Cipher),
+                            iolist_to_binary(Key),
+                            iolist_to_binary(IV),
+                            undefined) of
+      Ref when is_reference(Ref) ->
+            {ok,Ref};
+        {error,Error} ->
+            {error,Error}
+    end.
+
+
+-spec crypto_init(Ref, EncryptFlag) -> crypto_state() | {error,term()}
+                                            when Ref :: crypto_state(),
+                                                 EncryptFlag :: boolean() .
+
+crypto_init(Ref, EncryptFlag) when is_reference(Ref),
+                                    is_atom(EncryptFlag) ->
+    case ng_crypto_init_nif(Ref, <<>>, <<>>, EncryptFlag) of
+        {error,Error} ->
+            {error,Error};
+        R when is_reference(R) ->
+            R
+    end.
 
 %%%----------------------------------------------------------------
 %%%
@@ -2255,16 +2252,31 @@ crypto_init(Cipher, Key, IV, EncryptFlag) ->
 %%% blocksize.
 %%% 
 
--spec crypto_update(State, Data) -> {ok,Result} | {error,term()}
+-spec crypto_update(State, Data) -> Result | {error,term()}
                                         when State :: crypto_state(),
                                              Data :: iodata(),
-                                             Result :: binary() | {crypto_state(),binary()}.
+                                             Result :: binary() .
 crypto_update(State, Data0) ->
     case iolist_to_binary(Data0) of
         <<>> ->
             <<>>;                           % Known to fail on OpenSSL 0.9.8h
         Data ->
             ng_crypto_update_nif(State, Data)
+    end.
+
+
+%%%----------------------------------------------------------------
+%%%
+%%% Encrypt/decrypt one set bytes.
+%%% The size must be an integer multiple of the crypto's blocksize.
+%%% 
+
+crypto_one_shot(Cipher, Key, IV, Data0, EncryptFlag) ->
+    case iolist_to_binary(Data0) of
+        <<>> ->
+            <<>>;                           % Known to fail on OpenSSL 0.9.8h
+        Data ->
+            ng_crypto_one_shot_nif(Cipher, iolist_to_binary(Key), iolist_to_binary(IV), Data, EncryptFlag)
     end.
 
 %%%----------------------------------------------------------------
@@ -2278,61 +2290,11 @@ ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
 %% _Data MUST be binary()
 ng_crypto_one_shot_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
 
-%%%================================================================
-%%% Compatibility functions to be called by "old" api functions.
-
-crypto_one_shot(Cipher, Key, IV, Data0, EncryptFlag) ->
-    case iolist_to_binary(Data0) of
-        <<>> ->
-            <<>>;                           % Known to fail on OpenSSL 0.9.8h
-        Data ->
-            ng_crypto_one_shot_nif(Cipher, iolist_to_binary(Key), iolist_to_binary(IV), Data, EncryptFlag)
-    end.
-
-%%%--------------------------------
-%%%---- stream init, encrypt/decrypt
-
-crypto_stream_init(Cipher, Key) ->
-    crypto_stream_init(Cipher, Key, <<>>).
-
-crypto_stream_init(Cipher, Key0, IV0) ->
-    Key = iolist_to_binary(Key0),
-    IV  = iolist_to_binary(IV0),
-    %% First check the argumensts: 
-    case crypto_init(Cipher, Key, IV, undefined) of
-        undefined ->
-            {Cipher, {Key, IV}};
-        {error,_} ->
-            {error,badarg}
-    end.
-
-crypto_stream_encrypt(State, PlainText) ->
-    crypto_stream_emulate(State, PlainText, true).
-
-crypto_stream_decrypt(State, CryptoText) ->
-    crypto_stream_emulate(State, CryptoText, false).
-
-
-%%%---- helper
-crypto_stream_emulate({Cipher,{Key,IV}}, Data, EncryptFlag) ->
-    case crypto_init(Cipher, Key, IV, EncryptFlag) of
-        {ok,State} ->
-            crypto_stream_emulate({Cipher,State}, Data, EncryptFlag);
-        {error,_} ->
-            error(badarg)
-    end;
-crypto_stream_emulate({Cipher,State}, Data, _) ->
-    case crypto_update(State, Data) of
-        {ok, {State1,Bin}}  when is_binary(Bin) -> {{Cipher,State1},Bin};
-        {ok,Bin}  when is_binary(Bin) -> {{Cipher,State},Bin};
-        {error,_} -> error(badarg)
-    end.
-
-%%%================================================================
-
+%%%----------------------------------------------------------------
+%%% Cipher aliases
+%%%
 prepend_cipher_aliases(L) ->
     [des3_cbc, des_ede3, des_ede3_cbf, des3_cbf, des3_cfb, aes_cbc128, aes_cbc256 | L].
-
 
 %%%---- des_ede3_cbc
 alias(des3_cbc)     -> des_ede3_cbc;

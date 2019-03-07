@@ -159,12 +159,6 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
 
-    if (encflg == -1)
-        {
-            *return_term = atom_undefined;
-            goto err; // Yes...
-        }
-
     /* Initialize the EVP_CIPHER_CTX */
 
     ctx_res->ctx = EVP_CIPHER_CTX_new();
@@ -198,7 +192,7 @@ static int get_init_args(ErlNifEnv* env,
         }
     }
 
-    if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, ivec_bin.data, encflg)) {
+    if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, ivec_bin.data, -1)) {
         *return_term = ERROR_Str(env, "Can't initialize key and/or iv");
         goto err;
     }
@@ -254,6 +248,7 @@ static int get_update_args(ErlNifEnv* env,
             if (enif_get_tuple(env, newstate_and_outdata, &tuple_argc, &tuple_argv) && (tuple_argc == 2)) {
                 /* newstate_and_outdata = {NewState, OutData} */
                 ctx_res->state = enif_make_copy(ctx_res->env, tuple_argv[0]);
+                /* Return the OutData (from the newstate_and_outdata tuple) only: */
                 *return_term = tuple_argv[1];
             }
         }
@@ -281,6 +276,7 @@ static int get_update_args(ErlNifEnv* env,
             }
 
         CONSUME_REDS(env, in_data_bin);
+        /* return the result text as a binary: */
         *return_term = enif_make_binary(env, &out_data_bin);
     }
 
@@ -301,17 +297,43 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     struct evp_cipher_ctx *ctx_res = NULL;
     const struct cipher_type_t *cipherp;
     ERL_NIF_TERM ret;
+    int encflg;
 
-    if ((ctx_res = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx))) == NULL)
-        return ERROR_Str(env, "Can't allocate resource");
+    if (enif_is_atom(env, argv[0])) {
+        if ((ctx_res = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx))) == NULL)
+            return ERROR_Str(env, "Can't allocate resource");
 
-    if (!get_init_args(env, ctx_res, argv[0], argv[1], argv[2], argv[argc-1],
-                       &cipherp, &ret))
-        /* Error msg in &ret */
+        if (!get_init_args(env, ctx_res, argv[0], argv[1], argv[2], argv[argc-1],
+                           &cipherp, &ret))
+            /* Error msg in &ret */
+            goto ret;
+
+        ret = enif_make_resource(env, ctx_res);
+        if(ctx_res) enif_release_resource(ctx_res);
+
+    } else if (enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx_res)) {
+        /* Fetch the flag telling if we are going to encrypt (=true) or decrypt (=false) */
+        if (argv[3] == atom_true)
+            encflg = 1;
+        else if (argv[3] == atom_false)
+            encflg = 0;
+        else {
+            ret = ERROR_Str(env, "Bad enc flag");
+            goto ret;
+        }
+        if (ctx_res->ctx) {
+            /* It is *not* a ctx_res for the compatibility handling of non-EVP aes_ctr */
+            if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, NULL, NULL, encflg)) {
+                ret = ERROR_Str(env, "Can't initialize encflag");
+                goto ret;
+            }
+        }
+        ret = argv[0];
+    } else {
+        ret = ERROR_Str(env, "Bad 1:st arg");
         goto ret;
+    }
 
-    ret = enif_make_resource(env, ctx_res);
-    if(ctx_res) enif_release_resource(ctx_res);
  ret:
     return ret;
 }
