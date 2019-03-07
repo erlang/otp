@@ -817,6 +817,16 @@ is_tagged_tuple(Fail, Src, Arityval, Tag) {
     }
 }
 
+is_tagged_tuple_ff(NotTupleFail, WrongRecordFail, Src, Arityval, Tag) {
+    Eterm term = $Src;
+    if (is_not_tuple(term)) {
+        $FAIL($NotTupleFail);
+    } else if (ERTS_UNLIKELY((tuple_val(term))[0] != $Arityval ||
+                             (tuple_val(term))[1] != $Tag)) {
+        $FAIL($WrongRecordFail);
+    }
+}
+
 is_tuple(Fail, Src) {
     if (is_not_tuple($Src)) {
         $FAIL($Fail);

@@ -629,6 +629,11 @@ test_arity f? xy A
 
 test_arity_get_tuple_element f? x A P x
 
+is_tuple NotTupleFail Tuple=x | is_tagged_tuple WrongRecordFail Tuple Arity Atom => \
+   is_tagged_tuple_ff NotTupleFail WrongRecordFail Tuple Arity Atom
+
+is_tagged_tuple_ff f? f? rx A a
+
 get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
    get_tuple_element Reg=x P3 D3=x | \
    succ(P1, P2) | succ(P2, P3) | \
