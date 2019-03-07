@@ -40,16 +40,22 @@
 -export([rand_plugin_uniform/2]).
 -export([rand_cache_plugin_next/1]).
 -export([rand_uniform/2]).
--export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
--export([stream_init/2, stream_init/3, stream_encrypt/2, stream_decrypt/2]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
 -export([privkey_to_pubkey/2]).
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
 
-%% Experiment
+%% Old interface. Now implemented with the New interface
+-export([stream_init/2, stream_init/3,
+         stream_encrypt/2,
+         stream_decrypt/2,
+         block_encrypt/3, block_encrypt/4,
+         block_decrypt/3, block_decrypt/4
+        ]).
+
+%% New interface
 -export([crypto_init/4, crypto_init/3, crypto_init/2, 
          crypto_update/2,
          crypto_one_shot/5
@@ -528,7 +534,7 @@ poly1305(Key, Data) ->
 
 %%%================================================================
 %%%
-%%% Encrypt/decrypt
+%%% Encrypt/decrypt, The "Old API"
 %%%
 %%%================================================================
 
@@ -600,33 +606,6 @@ do_block_decrypt(Type, Key, Ivec, Data) ->
 
 block_decrypt(Type, Key, Data) ->
     crypto_one_shot(Type, Key, <<>>, Data, false).
-
-%%%----------------------------------------------------------------
--spec next_iv(Type:: cbc_cipher(), Data) -> NextIVec when % Type :: cbc_cipher(), %des_cbc | des3_cbc | aes_cbc | aes_ige,
-                                           Data :: iodata(),
-                                           NextIVec :: binary().
-next_iv(Type, Data) when is_binary(Data) ->
-    IVecSize = case Type of
-                   des_cbc  -> 8;
-                   des3_cbc -> 8;
-                   aes_cbc  -> 16;
-                   aes_ige  -> 32
-               end,
-    {_, IVec} = split_binary(Data, size(Data) - IVecSize),
-    IVec;
-next_iv(Type, Data) when is_list(Data) ->
-    next_iv(Type, list_to_binary(Data)).
-
--spec next_iv(des_cfb, Data, IVec) -> NextIVec when Data :: iodata(),
-                                                    IVec :: binary(),
-                                                    NextIVec :: binary().
-
-next_iv(des_cfb, Data, IVec) ->
-    IVecAndData = list_to_binary([IVec, Data]),
-    {_, NewIVec} = split_binary(IVecAndData, byte_size(IVecAndData) - 8),
-    NewIVec;
-next_iv(Type, Data, _Ivec) ->
-    next_iv(Type, Data).
 
 %%%-------- Stream ciphers API
 
@@ -703,6 +682,33 @@ crypto_stream_emulate({Cipher,Ref}, Data, _) when is_reference(Ref) ->
         Bin  when is_binary(Bin) ->
             {{Cipher,Ref},Bin}
     end.
+
+%%%----------------------------------------------------------------
+-spec next_iv(Type:: cbc_cipher(), Data) -> NextIVec when % Type :: cbc_cipher(), %des_cbc | des3_cbc | aes_cbc | aes_ige,
+                                           Data :: iodata(),
+                                           NextIVec :: binary().
+next_iv(Type, Data) when is_binary(Data) ->
+    IVecSize = case Type of
+                   des_cbc  -> 8;
+                   des3_cbc -> 8;
+                   aes_cbc  -> 16;
+                   aes_ige  -> 32
+               end,
+    {_, IVec} = split_binary(Data, size(Data) - IVecSize),
+    IVec;
+next_iv(Type, Data) when is_list(Data) ->
+    next_iv(Type, list_to_binary(Data)).
+
+-spec next_iv(des_cfb, Data, IVec) -> NextIVec when Data :: iodata(),
+                                                    IVec :: binary(),
+                                                    NextIVec :: binary().
+
+next_iv(des_cfb, Data, IVec) ->
+    IVecAndData = list_to_binary([IVec, Data]),
+    {_, NewIVec} = split_binary(IVecAndData, byte_size(IVecAndData) - 8),
+    NewIVec;
+next_iv(Type, Data, _Ivec) ->
+    next_iv(Type, Data).
 
 %%%================================================================
 %%%
@@ -2172,12 +2178,11 @@ check_otp_test_engine(LibDir) ->
     end.
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%================================================================
 %%%
-%%% Experimental NG
+%%% Encrypt/decrypt, The "New API"
 %%%
-
-%%% -> {ok,State::ref()} | {error,Reason}
+%%%================================================================
 
 -opaque crypto_state() :: reference() .
 
@@ -2233,11 +2238,11 @@ crypto_init(Cipher, Key, IV) when is_atom(Cipher) ->
 
 
 -spec crypto_init(Ref, EncryptFlag) -> crypto_state() | {error,term()}
-                                            when Ref :: crypto_state(),
-                                                 EncryptFlag :: boolean() .
+                                           when Ref :: crypto_state(),
+                                                EncryptFlag :: boolean() .
 
 crypto_init(Ref, EncryptFlag) when is_reference(Ref),
-                                    is_atom(EncryptFlag) ->
+                                   is_atom(EncryptFlag) ->
     case ng_crypto_init_nif(Ref, <<>>, <<>>, EncryptFlag) of
         {error,Error} ->
             {error,Error};
@@ -2271,6 +2276,18 @@ crypto_update(State, Data0) ->
 %%% The size must be an integer multiple of the crypto's blocksize.
 %%% 
 
+-spec crypto_one_shot(Cipher, Key, IV, Data, EncryptFlag) -> Result | {error,term()}
+                                                                 when Cipher :: stream_cipher()
+                                                                              | block_cipher_with_iv()
+                                                                              | block_cipher_without_iv(),
+                                                                      Key :: iodata(),
+                                                                      IV :: iodata() | undefined,
+                                                                      Data :: iodata(),
+                                                                      EncryptFlag :: boolean(),
+                                                                      Result :: binary() .
+crypto_one_shot(Cipher, Key, undefined, Data, EncryptFlag) ->
+    crypto_one_shot(Cipher, Key, <<>>, Data, EncryptFlag);
+
 crypto_one_shot(Cipher, Key, IV, Data0, EncryptFlag) ->
     case iolist_to_binary(Data0) of
         <<>> ->
@@ -2282,12 +2299,16 @@ crypto_one_shot(Cipher, Key, IV, Data0, EncryptFlag) ->
 %%%----------------------------------------------------------------
 %%% NIFs
 
+-spec ng_crypto_init_nif(atom(), binary(), binary(), boolean()|undefined ) -> crypto_state() | {error,term()}
+                      ; (crypto_state(), <<>>, <<>>, boolean()) -> crypto_state() | {error,term()} .
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
 
-%% _Data MUST be binary()
+
+-spec ng_crypto_update_nif(crypto_state(), binary()) -> binary() | {error,term()} .
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
 
-%% _Data MUST be binary()
+
+-spec ng_crypto_one_shot_nif(atom(), binary(), binary(), binary(), boolean() ) -> binary() | {error,term()}.
 ng_crypto_one_shot_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
 
 %%%----------------------------------------------------------------

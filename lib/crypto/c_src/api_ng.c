@@ -25,8 +25,6 @@
 /*
  * A unified set of functions for encryption/decryption.
  *
- * EXPERIMENTAL!!
- *
  */
 ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM ng_crypto_one_shot(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
