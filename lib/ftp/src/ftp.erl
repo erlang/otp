@@ -1065,9 +1065,9 @@ handle_call({_, {open, ip_comm, Opts, {CtrlOpts, DataPassOpts, DataActOpts}}}, F
 	    end
     end;	
 
-handle_call({_, {open, tls_upgrade, TLSOptions}}, From, State) ->
-    _ = send_ctrl_message(State, mk_cmd("AUTH TLS", [])), 
-    activate_ctrl_connection(State),
+handle_call({_, {open, tls_upgrade, TLSOptions}}, From, State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("AUTH TLS", [])), 
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{client = From, caller = open, tls_options = TLSOptions}};
 
 handle_call({_, {user, User, Password}}, From, 
@@ -1081,17 +1081,17 @@ handle_call({_, {user, User, Password, Acc}}, From,
 handle_call({_, {account, Acc}}, From, State)->
     handle_user_account(Acc, State#state{client = From});
 
-handle_call({_, pwd}, From, #state{chunk = false} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("PWD", [])), 
-    activate_ctrl_connection(State),
+handle_call({_, pwd}, From, #state{chunk = false} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("PWD", [])), 
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{client = From, caller = pwd}};
 
 handle_call({_, lpwd}, From,  #state{ldir = LDir} = State) ->
     {reply, {ok, LDir}, State#state{client = From}};
 
-handle_call({_, {cd, Dir}}, From,  #state{chunk = false} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("CWD ~s", [Dir])), 
-    activate_ctrl_connection(State),
+handle_call({_, {cd, Dir}}, From,  #state{chunk = false} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("CWD ~s", [Dir])), 
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{client = From, caller = cd}};
 
 handle_call({_,{lcd, Dir}}, _From, #state{ldir = LDir0} = State) ->
@@ -1108,41 +1108,41 @@ handle_call({_, {dir, Len, Dir}}, {_Pid, _} = From,
     setup_data_connection(State#state{caller = {dir, Dir, Len},
 				      client = From});
 handle_call({_, {rename, CurrFile, NewFile}}, From,
-	    #state{chunk = false} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("RNFR ~s", [CurrFile])),
-    activate_ctrl_connection(State),
+	    #state{chunk = false} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("RNFR ~s", [CurrFile])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {rename, NewFile}, client = From}};
 
 handle_call({_, {delete, File}}, {_Pid, _} = From, 
-	    #state{chunk = false} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("DELE ~s", [File])),
-    activate_ctrl_connection(State),
+	    #state{chunk = false} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("DELE ~s", [File])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{client = From}};
 
-handle_call({_, {mkdir, Dir}}, From,  #state{chunk = false} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("MKD ~s", [Dir])),
-    activate_ctrl_connection(State),
+handle_call({_, {mkdir, Dir}}, From,  #state{chunk = false} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("MKD ~s", [Dir])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{client = From}};
 
-handle_call({_,{rmdir, Dir}}, From, #state{chunk = false} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("RMD ~s", [Dir])),
-    activate_ctrl_connection(State),
+handle_call({_,{rmdir, Dir}}, From, #state{chunk = false} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("RMD ~s", [Dir])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{client = From}};
 
-handle_call({_,{type, Type}}, From, #state{chunk = false} = State) ->  
+handle_call({_,{type, Type}}, From, #state{chunk = false} = State0) ->  
     case Type of
 	ascii ->
-	    _ = send_ctrl_message(State, mk_cmd("TYPE A", [])),
-	    activate_ctrl_connection(State),
+	    _ = send_ctrl_message(State0, mk_cmd("TYPE A", [])),
+	    State = activate_ctrl_connection(State0),
 	    {noreply, State#state{caller = type, type = ascii, 
 				  client = From}};
 	binary ->
-	    _ = send_ctrl_message(State, mk_cmd("TYPE I", [])),
-	    activate_ctrl_connection(State),
+	    _ = send_ctrl_message(State0, mk_cmd("TYPE I", [])),
+	    State = activate_ctrl_connection(State0),
 	    {noreply, State#state{caller = type, type = binary, 
 				  client = From}};
 	_ ->
-	    {reply, {error, etype}, State}
+	    {reply, {error, etype}, State0}
     end;
 
 handle_call({_,{recv, RemoteFile, LocalFile}}, From, 
@@ -1181,8 +1181,8 @@ handle_call({_, recv_chunk}, _From, #state{chunk = true,
                                           } = State0) ->
     %% The ftp:recv_chunk call was the last event we waited for, finnish and clean up
     ?DBG("recv_chunk_closing ftp:recv_chunk, last event",[]),
-    activate_ctrl_connection(State0),
-    {reply, ok, State0#state{caller = undefined,
+    State = activate_ctrl_connection(State0),
+    {reply, ok, State#state{caller = undefined,
                              chunk = false,
                              client = undefined}};
     
@@ -1238,18 +1238,18 @@ handle_call({_, {transfer_chunk, Bin}}, _, #state{chunk = true} = State) ->
 handle_call({_, {transfer_chunk, _}}, _, #state{chunk = false} = State) ->
     {reply, {error, echunk}, State};
 
-handle_call({_, chunk_end}, From, #state{chunk = true} = State) ->
-    close_data_connection(State),
-    activate_ctrl_connection(State),
+handle_call({_, chunk_end}, From, #state{chunk = true} = State0) ->
+    close_data_connection(State0),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{client = From, dsock = undefined, 
 			  caller = end_chunk_transfer, chunk = false}};
 
 handle_call({_, chunk_end}, _, #state{chunk = false} = State) ->
     {reply, {error, echunk}, State};
 
-handle_call({_, {quote, Cmd}}, From, #state{chunk = false} = State) ->
-    _ = send_ctrl_message(State, mk_cmd(Cmd, [])),
-    activate_ctrl_connection(State),
+handle_call({_, {quote, Cmd}}, From, #state{chunk = false} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd(Cmd, [])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{client = From, caller = quote}};
 
 handle_call({_, _Req}, _From, #state{csock = CSock} = State) 
@@ -1325,38 +1325,38 @@ handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}} = State0) when T
 				  Data/binary>>}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
-				  caller = {recv_file, Fd}} = State)
+				  caller = {recv_file, Fd}} = State0)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     file_close(Fd),
-    progress_report({transfer_size, 0}, State),
-    activate_ctrl_connection(State),
+    progress_report({transfer_size, 0}, State0),
+    State = activate_ctrl_connection(State0),
     ?DBG("Data channel close",[]),
     {noreply, State#state{dsock = undefined, data = <<>>}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
                                   client = Client,
-				  caller = recv_chunk} = State)
+				  caller = recv_chunk} = State0)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     ?DBG("Data channel close recv_chunk",[]),
-    activate_ctrl_connection(State),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{dsock = undefined,
                           caller = #recv_chunk_closing{dconn_closed     =  true,
                                                        client_called_us =  Client =/= undefined}
                          }};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin, 
-					 data = Data} = State)
+					 data = Data} = State0)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     ?DBG("Data channel close",[]),
-    activate_ctrl_connection(State),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{dsock = undefined, data = <<>>, 
 			  caller = {recv_bin, Data}}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, data = Data,
-					 caller = {handle_dir_result, Dir}} 
-	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+                                  caller = {handle_dir_result, Dir}} 
+	    = State0) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     ?DBG("Data channel close",[]),
-    activate_ctrl_connection(State),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{dsock = undefined, 
 			  caller = {handle_dir_result, Dir, Data},
 %			  data = <<?CR,?LF>>}};
@@ -1377,7 +1377,7 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 					      client = From,
 					      ctrl_data = {CtrlData, AccLines, 
 							   LineStatus}} 
-	    = State) ->    
+	    = State0) ->    
     ?DBG('--ctrl ~p ----> ~s~p~n',[Socket,<<CtrlData/binary, Data/binary>>,State]),
     case ftp_response:parse_lines(<<CtrlData/binary, Data/binary>>, 
 				  AccLines, LineStatus) of
@@ -1387,21 +1387,21 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 	    case Caller of
 		quote ->
 		    gen_server:reply(From, string:tokens(Lines, [?CR, ?LF])),
-		    {noreply, State#state{client = undefined, 
-					  caller = undefined,
-					  latest_ctrl_response = Lines,
-					  ctrl_data = {NextMsgData, [], 
-						       start}}};
+		    {noreply, State0#state{client = undefined, 
+                                           caller = undefined,
+                                           latest_ctrl_response = Lines,
+                                           ctrl_data = {NextMsgData, [], 
+                                                        start}}};
 		_ ->
 		    ?DBG('   ...handle_ctrl_result(~p,...) ctrl_data=~p~n',[CtrlResult,{NextMsgData, [], start}]),
 		    handle_ctrl_result(CtrlResult,
-				       State#state{latest_ctrl_response = Lines,
-						   ctrl_data = 
-						       {NextMsgData, [], start}})
+				       State0#state{latest_ctrl_response = Lines,
+                                                    ctrl_data = 
+                                                        {NextMsgData, [], start}})
 	    end;
 	{continue, NewCtrlData} ->
 	    ?DBG('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
-	    activate_ctrl_connection(State),
+	    State = activate_ctrl_connection(State0),
 	    {noreply, State#state{ctrl_data = NewCtrlData}}
     end;
 
@@ -1567,19 +1567,19 @@ start_link(Opts, GenServerOptions) ->
 %%% Help functions to handle_call and/or handle_ctrl_result
 %%--------------------------------------------------------------------------
 %% User handling 
-handle_user(User, Password, Acc, State) ->
-    _ = send_ctrl_message(State, mk_cmd("USER ~s", [User])),
-    activate_ctrl_connection(State),
+handle_user(User, Password, Acc, State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("USER ~s", [User])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {handle_user, Password, Acc}}}.
 
-handle_user_passwd(Password, Acc, State) ->
-    _ = send_ctrl_message(State, mk_cmd("PASS ~s", [Password])),
-    activate_ctrl_connection(State),
+handle_user_passwd(Password, Acc, State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("PASS ~s", [Password])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {handle_user_passwd, Acc}}}.
 
-handle_user_account(Acc, State) ->
-    _ = send_ctrl_message(State, mk_cmd("ACCT ~s", [Acc])),
-    activate_ctrl_connection(State),
+handle_user_account(Acc, State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("ACCT ~s", [Acc])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = handle_user_account}}.
 
 
@@ -1594,9 +1594,9 @@ handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
     ?DBG('<--ctrl ssl:connect(~p, ~p)~n~p~n',[Socket,TLSOptions,State0]),
     case ssl:connect(Socket, TLSOptions, Timeout) of
 	{ok, TLSSocket} ->
-	    State = State0#state{csock = {ssl,TLSSocket}},
-	    _ = send_ctrl_message(State, mk_cmd("PBSZ 0", [])),
-	    activate_ctrl_connection(State),
+	    State1 = State0#state{csock = {ssl,TLSSocket}},
+	    _ = send_ctrl_message(State1, mk_cmd("PBSZ 0", [])),
+	    State = activate_ctrl_connection(State1),
 	    {noreply, State#state{tls_upgrading_data_connection = {true, pbsz}} };
 	{error, _} = Error ->
 	    gen_server:reply(From,  {Error, self()}),
@@ -1605,9 +1605,9 @@ handle_ctrl_result({tls_upgrade, _}, #state{csock = {tcp, Socket},
 					tls_upgrading_data_connection = false}}
     end;	
 
-handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, pbsz}} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("PROT P", [])),
-    activate_ctrl_connection(State),
+handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, pbsz}} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("PROT P", [])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{tls_upgrading_data_connection = {true, prot}}};
 
 handle_ctrl_result({pos_compl, _}, #state{tls_upgrading_data_connection = {true, prot},
@@ -1801,10 +1801,10 @@ handle_ctrl_result({pos_compl, _}, #state{caller = {handle_dir_result, Dir,
 
 handle_ctrl_result({pos_compl, Lines}, 
 		   #state{caller = {handle_dir_data, Dir, DirData}} = 
-		   State) ->
+		   State0) ->
     OldDir = pwd_result(Lines),    
-    _ = send_ctrl_message(State, mk_cmd("CWD ~s", [Dir])),
-    activate_ctrl_connection(State),
+    _ = send_ctrl_message(State0, mk_cmd("CWD ~s", [Dir])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {handle_dir_data_second_phase, OldDir,
 				    DirData}}};
 handle_ctrl_result({Status, _},
@@ -1818,9 +1818,9 @@ handle_ctrl_result(S={_Status, _},
 
 handle_ctrl_result({pos_compl, _},
 		   #state{caller = {handle_dir_data_second_phase, OldDir, 
-				    DirData}} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("CWD ~s", [OldDir])),
-    activate_ctrl_connection(State),
+				    DirData}} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("CWD ~s", [OldDir])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {handle_dir_data_third_phase, DirData}}};
 handle_ctrl_result({Status, _}, 
 		   #state{caller = {handle_dir_data_second_phase, _, _}} 
@@ -1840,9 +1840,9 @@ handle_ctrl_result(Status={epath, _}, #state{caller = {dir,_}} = State) ->
 %%--------------------------------------------------------------------------
 %% File renaming
 handle_ctrl_result({pos_interm, _}, #state{caller = {rename, NewFile}} 
-		   = State) ->
-    _ = send_ctrl_message(State, mk_cmd("RNTO ~s", [NewFile])),
-    activate_ctrl_connection(State),
+		   = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("RNTO ~s", [NewFile])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = rename_second_phase}}; 
 
 handle_ctrl_result({Status, _}, 
@@ -1916,10 +1916,10 @@ handle_ctrl_result({pos_compl, _}, #state{client = From,
     %% The pos_compl was the last event we waited for, finnish and clean up
     ?DBG("recv_chunk_closing pos_compl, last event",[]),
     gen_server:reply(From, ok),
-    activate_ctrl_connection(State0),
-    {noreply, State0#state{caller = undefined,
-                           chunk = false,
-                           client = undefined}};
+    State = activate_ctrl_connection(State0),
+    {noreply, State#state{caller = undefined,
+                          chunk = false,
+                          client = undefined}};
 
 handle_ctrl_result({pos_compl, _}, #state{caller = #recv_chunk_closing{}=R}
 		   = State0) ->
@@ -2013,71 +2013,71 @@ ctrl_result_response(_, #state{client = From} = State, ErrorMsg) ->
     {noreply, State#state{client = undefined, caller = undefined}}.
 
 %%--------------------------------------------------------------------------
-handle_caller(#state{caller = {dir, Dir, Len}} = State) ->
+handle_caller(#state{caller = {dir, Dir, Len}} = State0) ->
     Cmd = case Len of
 	      short -> "NLST";
 	      long -> "LIST"
 	  end,
     _ = case Dir of
             "" ->
-                send_ctrl_message(State, mk_cmd(Cmd, ""));
+                send_ctrl_message(State0, mk_cmd(Cmd, ""));
             _ ->
-                send_ctrl_message(State, mk_cmd(Cmd ++ " ~s", [Dir]))
+                send_ctrl_message(State0, mk_cmd(Cmd ++ " ~s", [Dir]))
         end,
-    activate_ctrl_connection(State),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {dir, Dir}}};
      
-handle_caller(#state{caller = {recv_bin, RemoteFile}} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("RETR ~s", [RemoteFile])),
-    activate_ctrl_connection(State),
+handle_caller(#state{caller = {recv_bin, RemoteFile}} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("RETR ~s", [RemoteFile])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = recv_bin}};
 
 handle_caller(#state{caller = {start_chunk_transfer, Cmd, RemoteFile}} = 
-	      State) ->
-    _ = send_ctrl_message(State, mk_cmd("~s ~s", [Cmd, RemoteFile])),
-    activate_ctrl_connection(State),
+	      State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("~s ~s", [Cmd, RemoteFile])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = start_chunk_transfer}};
 
-handle_caller(#state{caller = {recv_file, RemoteFile, Fd}} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("RETR ~s", [RemoteFile])), 
-    activate_ctrl_connection(State),
+handle_caller(#state{caller = {recv_file, RemoteFile, Fd}} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("RETR ~s", [RemoteFile])), 
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {recv_file, Fd}}};
 
 handle_caller(#state{caller = {transfer_file, {Cmd, LocalFile, RemoteFile}},
-		     ldir = LocalDir, client = From} = State) ->
+		     ldir = LocalDir, client = From} = State0) ->
     case file_open(filename:absname(LocalFile, LocalDir), read) of
 	{ok, Fd} ->
-	    _ = send_ctrl_message(State, mk_cmd("~s ~s", [Cmd, RemoteFile])),
-	    activate_ctrl_connection(State),
+	    _ = send_ctrl_message(State0, mk_cmd("~s ~s", [Cmd, RemoteFile])),
+	    State = activate_ctrl_connection(State0),
 	    {noreply, State#state{caller = {transfer_file, Fd}}};
 	{error, _} ->
 	    gen_server:reply(From, {error, epath}),
-	    {noreply, State#state{client = undefined, caller = undefined,
-				  dsock = undefined}} 
+	    {noreply, State0#state{client = undefined, caller = undefined,
+                                   dsock = undefined}} 
     end;
 
 handle_caller(#state{caller = {transfer_data, {Cmd, Bin, RemoteFile}}} = 
-	      State) ->
-    _ = send_ctrl_message(State, mk_cmd("~s ~s", [Cmd, RemoteFile])),
-    activate_ctrl_connection(State),
+	      State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("~s ~s", [Cmd, RemoteFile])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {transfer_data, Bin}}}.
 
 %%  ----------- FTP SERVER COMMUNICATION  ------------------------- 
 
 %% Connect to FTP server at Host (default is TCP port 21) 
 %% in order to establish a control connection.
-setup_ctrl_connection(Host, Port, Timeout, #state{sockopts_ctrl = SockOpts} = State) ->
+setup_ctrl_connection(Host, Port, Timeout, #state{sockopts_ctrl = SockOpts} = State0) ->
     MsTime = erlang:monotonic_time(),
-    case connect(Host, Port, SockOpts, Timeout, State) of
+    case connect(Host, Port, SockOpts, Timeout, State0) of
 	{ok, IpFam, CSock} ->
-	    NewState = State#state{csock = {tcp, CSock}, ipfamily = IpFam},
-	    activate_ctrl_connection(NewState),
+	    State1 = State0#state{csock = {tcp, CSock}, ipfamily = IpFam},
+	    State = activate_ctrl_connection(State1),
 	    case Timeout - millisec_passed(MsTime) of
 		Timeout2 when (Timeout2 >= 0) ->
-		    {ok, NewState#state{caller = open}, Timeout2};
+		    {ok, State#state{caller = open}, Timeout2};
 		_ ->
                     %% Oups: Simulate timeout
-		    {ok, NewState#state{caller = open}, 0}
+		    {ok, State#state{caller = open}, 0}
 	    end;
 	Error ->
 	    Error
@@ -2087,7 +2087,7 @@ setup_data_connection(#state{mode   = active,
 			     caller = Caller, 
 			     csock  = CSock,
                              sockopts_data_active = SockOpts,
-			     ftp_extension = FtpExt} = State) ->    
+			     ftp_extension = FtpExt} = State0) ->    
     case (catch sockname(CSock)) of
 	{ok, {{_, _, _, _, _, _, _, _} = IP0, _}} ->
             IP = proplists:get_value(ip, SockOpts, IP0),
@@ -2098,8 +2098,8 @@ setup_data_connection(#state{mode   = active,
 	    {ok, {_, Port}} = sockname({tcp,LSock}),
 	    IpAddress = inet_parse:ntoa(IP),
 	    Cmd = mk_cmd("EPRT |2|~s|~p|", [IpAddress, Port]),
-	    _ = send_ctrl_message(State, Cmd),
-	    activate_ctrl_connection(State),  
+	    _ = send_ctrl_message(State0, Cmd),
+	    State = activate_ctrl_connection(State0),  
 	    {noreply, State#state{caller = {setup_data_connection, 
 					    {LSock, Caller}}}};
 	{ok, {{_,_,_,_} = IP0, _}} ->
@@ -2112,37 +2112,37 @@ setup_data_connection(#state{mode   = active,
                     false ->
                         {IP1, IP2, IP3, IP4} = IP,
                         {Port1, Port2} = {Port div 256, Port rem 256},
-                        send_ctrl_message(State,
+                        send_ctrl_message(State0,
                                           mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
                                                  [IP1, IP2, IP3, IP4, Port1, Port2]));
                     true ->
                         IpAddress = inet_parse:ntoa(IP),
                         Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
-                        send_ctrl_message(State, Cmd)
+                        send_ctrl_message(State0, Cmd)
                 end,
-	    activate_ctrl_connection(State),
+	    State = activate_ctrl_connection(State0),
 	    {noreply, State#state{caller = {setup_data_connection, 
 					    {LSock, Caller}}}}
     end;
 
 setup_data_connection(#state{mode = passive, ipfamily = inet6,
-			     caller = Caller} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("EPSV", [])),
-    activate_ctrl_connection(State),
+			     caller = Caller} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("EPSV", [])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {setup_data_connection, Caller}}};
 
 setup_data_connection(#state{mode = passive, ipfamily = inet,
 			     caller = Caller,
-			     ftp_extension = false} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("PASV", [])),
-    activate_ctrl_connection(State),
+			     ftp_extension = false} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("PASV", [])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {setup_data_connection, Caller}}};    
 
 setup_data_connection(#state{mode = passive, ipfamily = inet,
 			     caller = Caller,
-			     ftp_extension = true} = State) ->
-    _ = send_ctrl_message(State, mk_cmd("EPSV", [])),
-    activate_ctrl_connection(State),
+			     ftp_extension = true} = State0) ->
+    _ = send_ctrl_message(State0, mk_cmd("EPSV", [])),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = {setup_data_connection, Caller}}}.
 
 connect(Host, Port, SockOpts, Timeout, #state{ipfamily = inet = IpFam}) ->
@@ -2248,14 +2248,15 @@ send_message({tcp, Socket}, Message) ->
 send_message({ssl, Socket}, Message) ->
     ssl:send(Socket, Message).
 
-activate_ctrl_connection(#state{csock = CSock, ctrl_data = {<<>>, _, _}}) ->
-    activate_connection(CSock);
-activate_ctrl_connection(#state{csock = CSock}) ->
+activate_ctrl_connection(#state{csock = CSock, ctrl_data = {<<>>, _, _}} = State) ->
+    activate_connection(CSock),
+    State;
+activate_ctrl_connection(#state{csock = CSock} = State0) ->
     activate_connection(CSock),
     %% We have already received at least part of the next control message,
     %% that has been saved in ctrl_data, process this first.
-    self() ! {socket_type(CSock), unwrap_socket(CSock), <<>>},
-    ok.
+    {noreply, State} = handle_info({socket_type(CSock), unwrap_socket(CSock), <<>>}, State0),
+    State.
 
 activate_data_connection(#state{dsock = DSock} = State) ->
     activate_connection(DSock),
@@ -2290,22 +2291,22 @@ close_connection({ssl, Socket})  -> ignore_return_value( ssl:close(Socket) ).
 %%  ------------ FILE HANDLING  ----------------------------------------   
 send_file(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State, Fd) ->
     {noreply, State#state{tls_upgrading_data_connection = {true, CTRL, ?MODULE, send_file, Fd}}};
-send_file(State, Fd) ->
+send_file(State0, Fd) ->
     case file_read(Fd) of
 	{ok, N, Bin} when N > 0 ->
-	    send_data_message(State, Bin),
-	    progress_report({binary, Bin}, State),
-	    send_file(State, Fd);
+	    send_data_message(State0, Bin),
+	    progress_report({binary, Bin}, State0),
+	    send_file(State0, Fd);
 	{ok, _, _} ->
 	    file_close(Fd),
-	    close_data_connection(State),
-	    progress_report({transfer_size, 0}, State),
-	    activate_ctrl_connection(State),
+	    close_data_connection(State0),
+	    progress_report({transfer_size, 0}, State0),
+	    State = activate_ctrl_connection(State0),
 	    {noreply, State#state{caller = transfer_file_second_phase,
 				  dsock = undefined}};
         {error, Reason} ->
-	    gen_server:reply(State#state.client, {error, Reason}),
-	    {stop, normal, State#state{client = undefined}}
+	    gen_server:reply(State0#state.client, {error, Reason}),
+	    {stop, normal, State0#state{client = undefined}}
     end.
 
 file_open(File, Option) ->
@@ -2347,10 +2348,10 @@ cast(GenServer, Msg) ->
 
 send_bin(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State, Bin) ->
     State#state{tls_upgrading_data_connection = {true, CTRL, ?MODULE, send_bin, Bin}};
-send_bin(State, Bin) ->
-    send_data_message(State, Bin),
-    close_data_connection(State),
-    activate_ctrl_connection(State),
+send_bin(State0, Bin) ->
+    send_data_message(State0, Bin),
+    close_data_connection(State0),
+    State = activate_ctrl_connection(State0),
     {noreply, State#state{caller = transfer_data_second_phase,
 			  dsock = undefined}}.
 
