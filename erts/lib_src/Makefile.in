@@ -29,7 +29,6 @@ CC=@CC@
 LD=@LD@
 AR=@AR@
 RANLIB=@RANLIB@
-RM=@RM@
 MKDIR=@MKDIR@
 INSTALL=@INSTALL@
 INSTALL_DIR=@INSTALL_DIR@
@@ -536,9 +535,9 @@ release_docs_spec:
 #
 .PHONY: clean
 clean:
-	$(RM) -rf ../lib/internal/$(TARGET)/*
-	$(RM) -rf ../lib/$(TARGET)/*
-	$(RM) -rf obj/$(TARGET)/*
+	$(RM) -r ../lib/internal/$(TARGET)/*
+	$(RM) -r ../lib/$(TARGET)/*
+	$(RM) -r obj/$(TARGET)/*
 
 #
 # Make dependencies
