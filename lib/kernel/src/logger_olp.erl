@@ -515,10 +515,11 @@ check_load(State = #{id:=_Name, mode_ref := ModeRef, mode := Mode,
         end,
     State1 = ?update_other(drops,DROPS,_NewDrops,State),
     State2 = ?update_max_qlen(QLen,State1),
-    State3 = maybe_notify_mode_change(Mode1,State2),
+    State3 = ?update_max_mem(Mem,State2),
+    State4 = maybe_notify_mode_change(Mode1,State3),
     {Mode1, QLen, Mem,
      ?update_other(flushes,FLUSHES,_NewFlushes,
-                   State3#{last_qlen => QLen})}.
+                   State4#{last_qlen => QLen})}.
 
 limit_burst(#{burst_limit_enable := false}=State) ->
      {true,State};

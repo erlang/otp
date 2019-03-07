@@ -114,11 +114,15 @@
                      flushes => 0, flushed => 0, drops => 0,
                      burst_drops => 0, casts => 0, calls => 0,
                      writes => 0, max_qlen => 0, max_time => 0,
-                     freq => {TIME,0,0}} end).
+                     max_mem => 0, freq => {TIME,0,0}} end).
 
   -define(update_max_qlen(QLEN, STATE),
           begin #{max_qlen := QLEN0} = STATE,
                 STATE#{max_qlen => ?max(QLEN0,QLEN)} end).
+
+  -define(update_max_mem(MEM, STATE),
+          begin #{max_mem := MEM0} = STATE,
+                STATE#{max_mem => ?max(MEM0,MEM)} end).
 
   -define(update_calls_or_casts(CALL_OR_CAST, INC, STATE),
           case CALL_OR_CAST of
@@ -154,6 +158,7 @@
 -else.                                          % DEFAULT!
   -define(merge_with_stats(STATE), STATE).
   -define(update_max_qlen(_QLEN, STATE), STATE).
+  -define(update_max_mem(_MEM, STATE), STATE).
   -define(update_calls_or_casts(_CALL_OR_CAST, _INC, STATE), STATE).
   -define(update_max_time(_TIME, STATE), STATE).
   -define(update_other(_OTHER, _VAR, _INCVAL, STATE), STATE).
