@@ -911,6 +911,11 @@ ssa_opt_float({#st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     {Linear,Count} = float_opt(Linear0, Count0, Fs),
     {St#st{ssa=Linear,cnt=Count}, FuncDb}.
 
+float_blk_is_in_guard(#b_blk{last=#b_br{fail=F}}, #fs{non_guards=NonGuards}) ->
+    not gb_sets:is_member(F, NonGuards);
+float_blk_is_in_guard(#b_blk{}, #fs{}) ->
+    false.
+
 float_non_guards([{L,#b_blk{is=Is}}|Bs]) ->
     case Is of
         [#b_set{op=landingpad}|_] ->
@@ -920,21 +925,18 @@ float_non_guards([{L,#b_blk{is=Is}}|Bs]) ->
     end;
 float_non_guards([]) -> [?BADARG_BLOCK].
 
-float_opt([{L,#b_blk{last=#b_br{fail=F}}=Blk}|Bs0],
-            Count0, #fs{non_guards=NonGuards}=Fs) ->
-    case gb_sets:is_member(F, NonGuards) of
+float_opt([{L,Blk}|Bs0], Count0, Fs) ->
+    case float_blk_is_in_guard(Blk, Fs) of
         true ->
-            %% This block is not inside a guard.
-            %% We can do the optimization.
-            float_opt_1(L, Blk, Bs0, Count0, Fs);
-        false ->
             %% This block is inside a guard. Don't do
             %% any floating point optimizations.
             {Bs,Count} = float_opt(Bs0, Count0, Fs),
-            {[{L,Blk}|Bs],Count}
+            {[{L,Blk}|Bs],Count};
+        false ->
+            %% This block is not inside a guard.
+            %% We can do the optimization.
+            float_opt_1(L, Blk, Bs0, Count0, Fs)
     end;
-float_opt([{L,Blk}|Bs], Count, Fs) ->
-    float_opt_1(L, Blk, Bs, Count, Fs);
 float_opt([], Count, _Fs) ->
     {[],Count}.
 
@@ -1010,10 +1012,14 @@ float_conv([{L,#b_blk{is=Is0}=Blk0}|Bs0], Fail, Count0) ->
 
 float_maybe_flush(Blk0, #fs{s=cleared,fail=Fail,bs=Blocks}=Fs0, Count0) ->
     #b_blk{last=#b_br{bool=#b_var{},succ=Succ}=Br} = Blk0,
-    #b_blk{is=Is} = map_get(Succ, Blocks),
+
+    %% If the success block starts with a floating point operation, we can
+    %% defer flushing to that block as long as it isn't a guard.
+    #b_blk{is=Is} = SuccBlk = map_get(Succ, Blocks),
+    SuccIsGuard = float_blk_is_in_guard(SuccBlk, Fs0),
+
     case Is of
-        [#b_set{anno=#{float_op:=_}}|_] ->
-            %% The next operation is also a floating point operation.
+        [#b_set{anno=#{float_op:=_}}|_] when not SuccIsGuard ->
             %% No flush needed.
             {[],Blk0,Fs0,Count0};
         _ ->
