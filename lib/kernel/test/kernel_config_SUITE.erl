@@ -21,7 +21,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, sync/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 start_distribution_false/1, sync/1]).
 
 -export([init_per_suite/1, end_per_suite/1]).
 
@@ -30,7 +31,7 @@ suite() ->
      {timetrap,{minutes,2}}].
 
 all() -> 
-    [sync].
+    [sync, start_distribution_false].
 
 groups() -> 
     [].
@@ -59,12 +60,9 @@ from(H, [H | T]) -> T;
 from(H, [_ | T]) -> from(H, T);
 from(_, []) -> [].
 
-%%-----------------------------------------------------------------
-%% Test suite for sync_nodes.   This is quite tricky.
-%%
+%% Test sync_nodes. This is quite tricky.
 %% Should be started in a CC view with:
 %% erl -sname XXX where XX not in [cp1, cp2]
-%%-----------------------------------------------------------------
 sync(Conf) when is_list(Conf) ->
     %% Write a config file
     Dir = proplists:get_value(priv_dir,Conf),
@@ -106,9 +104,18 @@ wait_for_node(Node) ->
 	_Other -> wait_for_node(Node)
     end.
 
-
 stop_node(Node) ->
     M = list_to_atom(lists:concat([Node,
 				   [$@],
 				   from($@,atom_to_list(node()))])),
     rpc:cast(M, erlang, halt, []).
+
+start_distribution_false(Config) when is_list(Config) ->
+    %% When distribution is disabled, -sname/-name has no effect
+    Str = os:cmd(ct:get_progname()
+		 ++ " -kernel start_distribution false"
+		 ++ " -sname no_distribution"
+		 ++ " -eval \"erlang:display(node())\""
+		 ++ " -noshell -s erlang halt"),
+    "'nonode@nohost'" ++ _ = Str,
+    ok.
