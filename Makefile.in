@@ -769,7 +769,7 @@ tertiary_bootstrap_copy:
 		true; \
 	done
 #	copy erl_interface includes
-	$(V_at)for x in lib/erl_interface/include/*.h lib/erl_interface/include/$(TARGET)/*.h; do \
+	$(V_at)for x in lib/erl_interface/include/*.h; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_interface/include/$$BN; \
 		test -f  $$TF && \

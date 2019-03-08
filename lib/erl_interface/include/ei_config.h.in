@@ -1,3 +1,0 @@
-
-/* Define to 1 if you have the `deprecated' attribute */
-#undef HAVE_DEPRECATED_ATTRIBUTE
