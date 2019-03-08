@@ -78,7 +78,8 @@ all() ->
      {group, http_rel_path_script_alias},
      {group, http_not_sup},
      {group, https_not_sup},
-     mime_types_format
+     mime_types_format,
+     erl_script_timeout_option
     ].
 
 groups() ->
@@ -1775,6 +1776,18 @@ mime_types_format(Config) when is_list(Config) ->
      {"doc","application/msword"},
      {"cpt","application/mac-compactpro"},
      {"hqx","application/mac-binhex40"}]} = httpd_conf:load_mime_types(MimeTypes).
+
+
+erl_script_timeout_option(Config) when is_list(Config) ->
+    inets:start(),
+    {ok, Pid} = inets:start(httpd, [{erl_script_timeout, 215},
+                                    {server_name, "test"},
+                                    {port,0},
+                                    {server_root, "."},
+                                    {document_root, "."}]),
+    Info = httpd:info(Pid),
+    215 = proplists:get_value(erl_script_timeout, Info),
+    inets:stop().
 
 
 %%--------------------------------------------------------------------
