@@ -166,31 +166,31 @@ groups() ->
                compute_bug]},
      {ecdh, [], [use_all_elliptic_curves, compute, generate]},
      {srp, [], [generate_compute]},
-     {des_cbc, [], [block, api_ng]},
-     {des_cfb, [], [block, api_ng]},
-     {des3_cbc,[], [block, api_ng]},
-     {des_ede3,[], [block, api_ng]},
-     {des3_cbf,[], [block, api_ng]},
-     {des3_cfb,[], [block, api_ng]},
-     {rc2_cbc,[], [block, api_ng]},
-     {aes_cbc128,[], [block, api_ng, cmac]},
-     {aes_cfb8,[], [block, api_ng]},
-     {aes_cfb128,[], [block, api_ng]},
-     {aes_cbc256,[], [block, api_ng, cmac]},
-     {aes_ecb,[], [block, api_ng]},
+     {des_cbc, [], [block, api_ng, api_ng_one_shot]},
+     {des_cfb, [], [block, api_ng, api_ng_one_shot]},
+     {des3_cbc,[], [block, api_ng, api_ng_one_shot]},
+     {des_ede3,[], [block, api_ng, api_ng_one_shot]},
+     {des3_cbf,[], [block, api_ng, api_ng_one_shot]},
+     {des3_cfb,[], [block, api_ng, api_ng_one_shot]},
+     {rc2_cbc,[], [block, api_ng, api_ng_one_shot]},
+     {aes_cbc128,[], [block, api_ng, api_ng_one_shot, cmac]},
+     {aes_cfb8,[], [block, api_ng, api_ng_one_shot]},
+     {aes_cfb128,[], [block, api_ng, api_ng_one_shot]},
+     {aes_cbc256,[], [block, api_ng, api_ng_one_shot, cmac]},
+     {aes_ecb,[], [block, api_ng, api_ng_one_shot]},
      {aes_ige256,[], [block]},
-     {blowfish_cbc, [], [block, api_ng]},
-     {blowfish_ecb, [], [block, api_ng]},
-     {blowfish_cfb64, [], [block, api_ng]},
-     {blowfish_ofb64,[], [block, api_ng]},
-     {rc4, [], [stream, api_ng]},
-     {aes_ctr, [], [stream, api_ng]},
+     {blowfish_cbc, [], [block, api_ng, api_ng_one_shot]},
+     {blowfish_ecb, [], [block, api_ng, api_ng_one_shot]},
+     {blowfish_cfb64, [], [block, api_ng, api_ng_one_shot]},
+     {blowfish_ofb64,[], [block, api_ng, api_ng_one_shot]},
+     {rc4, [], [stream, api_ng, api_ng_one_shot]},
+     {aes_ctr, [], [stream, api_ng, api_ng_one_shot]},
      {aes_ccm, [], [aead]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]},
-     {chacha20, [], [stream, api_ng]},
+     {chacha20, [], [stream, api_ng, api_ng_one_shot]},
      {poly1305, [], [poly1305]},
-     {aes_cbc, [], [block, api_ng]},
+     {aes_cbc, [], [block, api_ng, api_ng_one_shot]},
      {no_aes_cfb8,[], [no_support, no_block]},
      {no_aes_cfb128,[], [no_support, no_block]},
      {no_md4, [], [no_support, no_hash]},
@@ -457,8 +457,8 @@ api_ng_cipher_increment({Type, Key, IV, PlainTexts}=_X) ->
 api_ng_cipher_increment({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
     ct:log("~p",[_X]),
     PlainTexts = iolistify(PlainText0),
-    {ok,RefEnc} = crypto:crypto_init(Type, Key, IV, true),
-    {ok,RefDec} = crypto:crypto_init(Type, Key, IV, false),
+    RefEnc = crypto:crypto_init(Type, Key, IV, true),
+    RefDec = crypto:crypto_init(Type, Key, IV, false),
     EncTexts = api_ng_cipher_increment_loop(RefEnc, PlainTexts),
     Enc = iolist_to_binary(EncTexts),
     case ExpectedEncText of
@@ -480,14 +480,54 @@ api_ng_cipher_increment({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
 
 api_ng_cipher_increment_loop(Ref, InTexts) ->
     lists:map(fun(Txt) ->
-                      case crypto:crypto_update(Ref, Txt) of
+                      try crypto:crypto_update(Ref, Txt)
+                      of
                           Bin when is_binary(Bin) ->
-                              Bin;
-                          {error,Error} ->
+                              Bin
+                      catch
+                          error:Error ->
                               ct:pal("Txt = ~p",[Txt]),
                               ct:fail("~p",[Error])
                       end
               end, InTexts).
+
+%%--------------------------------------------------------------------
+api_ng_one_shot() ->
+     [{doc, "Test new api"}].
+
+api_ng_one_shot(Config) when is_list(Config) ->
+    Blocks = lazy_eval(proplists:get_value(block, Config, [])),
+    Streams = lazy_eval(proplists:get_value(stream, Config, [])),
+    lists:foreach(fun do_api_ng_one_shot/1, Blocks++Streams).
+
+do_api_ng_one_shot({Type, Key, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    do_api_ng_one_shot({Type, Key, <<>>, PlainTexts});
+
+do_api_ng_one_shot({Type, Key, IV, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    do_api_ng_one_shot({Type, Key, IV, PlainTexts, undefined});
+
+do_api_ng_one_shot({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
+    ct:log("~p",[_X]),
+    PlainText = iolist_to_binary(PlainText0),
+    EncTxt = crypto:crypto_one_shot(Type, Key, IV, PlainText, true),
+    case ExpectedEncText of
+        undefined ->
+            ok;
+        EncTxt ->
+            ok;
+        OtherEnc ->
+            ct:log("In: ~p~nOut: ~p",[_X,OtherEnc]),
+            ct:fail("api_ng_one_shot (encode)",[])
+    end,
+    case crypto:crypto_one_shot(Type, Key, IV, EncTxt, false) of
+        PlainText ->
+            ok;
+        OtherPT ->
+            ct:log("In: ~p~nOut: ~p",[_X,OtherPT]),
+            ct:fail("api_ng_one_shot (decode)",[])
+    end.
 
 %%--------------------------------------------------------------------
 no_aead() ->

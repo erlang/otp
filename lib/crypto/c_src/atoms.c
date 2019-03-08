@@ -33,6 +33,7 @@ ERL_NIF_TERM atom_undefined;
 ERL_NIF_TERM atom_ok;
 ERL_NIF_TERM atom_none;
 ERL_NIF_TERM atom_notsup;
+ERL_NIF_TERM atom_badarg;
 ERL_NIF_TERM atom_digest;
 #ifdef FIPS_SUPPORT
 ERL_NIF_TERM atom_enabled;
@@ -150,6 +151,7 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_ok = enif_make_atom(env,"ok");
     atom_none = enif_make_atom(env,"none");
     atom_notsup = enif_make_atom(env,"notsup");
+    atom_badarg = enif_make_atom(env,"badarg");
     atom_digest = enif_make_atom(env,"digest");
 
     atom_type = enif_make_atom(env,"type");

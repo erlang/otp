@@ -37,6 +37,7 @@ extern ERL_NIF_TERM atom_undefined;
 extern ERL_NIF_TERM atom_ok;
 extern ERL_NIF_TERM atom_none;
 extern ERL_NIF_TERM atom_notsup;
+extern ERL_NIF_TERM atom_badarg;
 extern ERL_NIF_TERM atom_digest;
 #ifdef FIPS_SUPPORT
 extern ERL_NIF_TERM atom_enabled;

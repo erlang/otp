@@ -31,9 +31,14 @@ ERL_NIF_TERM ng_crypto_one_shot(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 
 
-/* Try better error messages in new functions */
-#define ERROR_Term(Env, ReasonTerm) enif_make_tuple2((Env), atom_error, (ReasonTerm))
-#define ERROR_Str(Env, ReasonString) ERROR_Term((Env), enif_make_string((Env),(ReasonString),(ERL_NIF_LATIN1)))
+/* All nif functions return a valid value or throws an exception */
+#define EXCP(Env, Class, Str)  enif_raise_exception((Env), \
+                                    enif_make_tuple2((Env), (Class), \
+                                                     enif_make_string((Env),(Str),(ERL_NIF_LATIN1)) ))
+
+#define EXCP_NOTSUP(Env, Str) EXCP((Env), atom_notsup, (Str))
+#define EXCP_BADARG(Env, Str) EXCP((Env), atom_badarg, (Str))
+#define EXCP_ERROR(Env, Str)  EXCP((Env), atom_error, (Str))
 
 
 #ifdef HAVE_ECB_IVEC_BUG
@@ -73,33 +78,33 @@ static int get_init_args(ErlNifEnv* env,
         encflg = -1;
     else
         {
-            *return_term = ERROR_Str(env, "Bad enc flag");
+            *return_term = EXCP_BADARG(env, "Bad enc flag");
             goto err;
         }
 
     /* Fetch the key */
     if (!enif_inspect_iolist_as_binary(env, key_arg, &key_bin))
         {
-            *return_term = ERROR_Str(env, "Bad key");
+            *return_term = EXCP_BADARG(env, "Bad key");
             goto err;
         }
 
     /* Fetch cipher type */
     if (!enif_is_atom(env, cipher_arg))
         {
-            *return_term = ERROR_Str(env, "Cipher id is not an atom");
+            *return_term = EXCP_BADARG(env, "Cipher id is not an atom");
             goto err;
         }
 
     if (!(*cipherp = get_cipher_type(cipher_arg, key_bin.size)))
         {
-            *return_term = ERROR_Str(env, "Unknown cipher or bad key size for the cipher");
+            *return_term = EXCP_BADARG(env, "Unknown cipher or bad key size for the cipher");
             goto err;
         }
 
     if (FORBIDDEN_IN_FIPS(*cipherp))
         {
-            *return_term = enif_raise_exception(env, atom_notsup);
+            *return_term = EXCP_NOTSUP(env, "Forbidden in FIPS");
             goto err;
         }
     
@@ -118,13 +123,13 @@ static int get_init_args(ErlNifEnv* env,
     if (ivec_len) {
         if (!enif_inspect_iolist_as_binary(env, ivec_arg, &ivec_bin))
             {
-                *return_term = ERROR_Str(env, "Bad iv type");
+                *return_term = EXCP_BADARG(env, "Bad iv type");
                 goto err;
             }
 
         if (ivec_len != ivec_bin.size)
             {
-                *return_term = ERROR_Str(env, "Bad iv size");
+                *return_term = EXCP_BADARG(env, "Bad iv size");
                 goto err;
             }
     }
@@ -137,14 +142,14 @@ static int get_init_args(ErlNifEnv* env,
                     ERL_NIF_TERM ecount_bin;
                     unsigned char *outp;
                     if ((outp = enif_make_new_binary(env, AES_BLOCK_SIZE, &ecount_bin)) == NULL) {
-                        *return_term = ERROR_Str(env, "Can't allocate ecount_bin");
+                        *return_term = EXCP_ERROR(env, "Can't allocate ecount_bin");
                         goto err;
                     }
                     memset(outp, 0, AES_BLOCK_SIZE);
                     
                     ctx_res->env = enif_alloc_env();
                     if (!ctx_res->env) {
-                        *return_term = ERROR_Str(env, "Can't allocate env");
+                        *return_term = EXCP_ERROR(env, "Can't allocate env");
                         goto err;
                     }
                     ctx_res->state =
@@ -153,7 +158,7 @@ static int get_init_args(ErlNifEnv* env,
                     goto success;
                 } 
 #endif
-            *return_term = enif_raise_exception(env, atom_notsup);
+            *return_term = EXCP_NOTSUP(env, "Cipher");
             goto err;
         }
 
@@ -162,36 +167,36 @@ static int get_init_args(ErlNifEnv* env,
     ctx_res->ctx = EVP_CIPHER_CTX_new();
     if (! ctx_res->ctx)
         {
-            *return_term = ERROR_Str(env, "Can't allocate context");
+            *return_term = EXCP_ERROR(env, "Can't allocate context");
             goto err;
         }
 
     if (!EVP_CipherInit_ex(ctx_res->ctx, (*cipherp)->cipher.p, NULL, NULL, NULL, encflg))
         {
-            *return_term = ERROR_Str(env, "Can't initialize context, step 1");
+            *return_term = EXCP_ERROR(env, "Can't initialize context, step 1");
             goto err;
         }
 
     if (!EVP_CIPHER_CTX_set_key_length(ctx_res->ctx, (int)key_bin.size))
         {
-            *return_term = ERROR_Str(env, "Can't initialize context, key_length");
+            *return_term = EXCP_ERROR(env, "Can't initialize context, key_length");
             goto err;
         }
 
 
     if (EVP_CIPHER_type((*cipherp)->cipher.p) == NID_rc2_cbc) {
         if (key_bin.size > INT_MAX / 8) {
-            *return_term = ERROR_Str(env, "To large rc2_cbc key");
+            *return_term = EXCP_BADARG(env, "To large rc2_cbc key");
             goto err;
         }
         if (!EVP_CIPHER_CTX_ctrl(ctx_res->ctx, EVP_CTRL_SET_RC2_KEY_BITS, (int)key_bin.size * 8, NULL)) {
-            *return_term = ERROR_Str(env, "ctrl rc2_cbc key");
+            *return_term = EXCP_ERROR(env, "ctrl rc2_cbc key");
             goto err;
         }
     }
 
     if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, ivec_bin.data, -1)) {
-        *return_term = ERROR_Str(env, "Can't initialize key and/or iv");
+        *return_term = EXCP_ERROR(env, "Can't initialize key and/or iv");
         goto err;
     }
 
@@ -223,7 +228,7 @@ static int get_update_args(ErlNifEnv* env,
 
     if (!enif_inspect_binary(env, indata_arg, &in_data_bin) )
         {
-            *return_term = ERROR_Str(env, "Bad 2:nd arg");
+            *return_term = EXCP_BADARG(env, "Bad 2:nd arg");
             goto err;
         }
 
@@ -257,19 +262,19 @@ static int get_update_args(ErlNifEnv* env,
 
         if (!enif_alloc_binary((size_t)in_data_bin.size+block_size, &out_data_bin))
             {
-                *return_term = ERROR_Str(env, "Can't allocate outdata");
+                *return_term = EXCP_ERROR(env, "Can't allocate outdata");
                 goto err;
             }
 
         if (!EVP_CipherUpdate(ctx_res->ctx, out_data_bin.data, &out_len, in_data_bin.data, in_data_bin.size))
             {
-                *return_term = ERROR_Str(env, "Can't update");
+                *return_term = EXCP_ERROR(env, "Can't update");
                 goto err;
             }
 
         if (!enif_realloc_binary(&out_data_bin, (size_t)out_len))
             {
-                *return_term = ERROR_Str(env, "Can't reallocate");
+                *return_term = EXCP_ERROR(env, "Can't reallocate");
                 goto err;
             }
 
@@ -299,7 +304,7 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     if (enif_is_atom(env, argv[0])) {
         if ((ctx_res = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx))) == NULL)
-            return ERROR_Str(env, "Can't allocate resource");
+            return EXCP_ERROR(env, "Can't allocate resource");
 
         if (!get_init_args(env, ctx_res, argv[0], argv[1], argv[2], argv[argc-1],
                            &cipherp, &ret))
@@ -316,19 +321,19 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         else if (argv[3] == atom_false)
             encflg = 0;
         else {
-            ret = ERROR_Str(env, "Bad enc flag");
+            ret = EXCP_BADARG(env, "Bad enc flag");
             goto ret;
         }
         if (ctx_res->ctx) {
             /* It is *not* a ctx_res for the compatibility handling of non-EVP aes_ctr */
             if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, NULL, NULL, encflg)) {
-                ret = ERROR_Str(env, "Can't initialize encflag");
+                ret = EXCP_ERROR(env, "Can't initialize encflag");
                 goto ret;
             }
         }
         ret = argv[0];
     } else {
-        ret = ERROR_Str(env, "Bad 1:st arg");
+        ret = EXCP_BADARG(env, "Bad 1:st arg");
         goto ret;
     }
 
@@ -348,7 +353,7 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ERL_NIF_TERM ret;
 
     if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx_res))
-        return ERROR_Str(env, "Bad 1:st arg");
+        return EXCP_BADARG(env, "Bad 1:st arg");
     
     get_update_args(env, ctx_res, argv[1], &ret);
 
@@ -363,10 +368,10 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ASSERT(argc <= 3);
 
     if (!enif_inspect_binary(env, argv[1], &data_bin))
-        return ERROR_Str(env, "expected binary as data");
+        return EXCP_BADARG(env, "expected binary as data");
 
     if (data_bin.size > INT_MAX)
-        return ERROR_Str(env, "to long data");
+        return EXCP_BADARG(env, "to long data");
 
     /* Run long jobs on a dirty scheduler to not block the current emulator thread */
     if (data_bin.size > MAX_BYTES_TO_NIF) {
@@ -407,10 +412,10 @@ ERL_NIF_TERM ng_crypto_one_shot_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     ASSERT(argc == 5);
 
     if (!enif_inspect_binary(env, argv[3], &data_bin))
-        return ERROR_Str(env, "expected binary as data");
+        return EXCP_BADARG(env, "expected binary as data");
 
     if (data_bin.size > INT_MAX)
-        return ERROR_Str(env, "to long data");
+        return EXCP_BADARG(env, "to long data");
 
     /* Run long jobs on a dirty scheduler to not block the current emulator thread */
     if (data_bin.size > MAX_BYTES_TO_NIF) {
