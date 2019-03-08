@@ -215,11 +215,7 @@ set_tuple_element s S P
 
 # Get tuple element
 
-i_get_tuple_element xy P x
-
-%cold
-i_get_tuple_element xy P y
-%hot
+i_get_tuple_element xy P xy
 
 i_get_tuple_element2 x P x
 i_get_tuple_element2_dst x P x x
@@ -285,6 +281,9 @@ move_window/6
 move X1=x Y1=y | move X2=x Y2=y | move X3=x Y3=y | succ(Y1,Y2) | succ(Y2,Y3) => \
     move_window X1 X2 X3 Y1 Y3
 
+move X1=x Y1=y | move X2=x Y2=y | succ(Y1,Y2) => \
+    move_window2 X1 X2 Y1
+
 move_window X1=x X2=x X3=x Y1=y Y3=y | move X4=x Y4=y | succ(Y3,Y4) => \
     move_window X1 X2 X3 X4 Y1 Y4
 
@@ -294,6 +293,7 @@ move_window X1=x X2=x X3=x X4=x Y1=y Y4=y | move X5=x Y5=y | succ(Y4,Y5) => \
 move_window X1=x X2=x X3=x Y1=y Y3=y => move_window3 X1 X2 X3 Y1
 move_window X1=x X2=x X3=x X4=x Y1=y Y4=y => move_window4 X1 X2 X3 X4 Y1
 
+move_window2 x x y
 move_window3 x x x y
 move_window4 x x x x y
 move_window5 x x x x x y
@@ -346,11 +346,6 @@ move X1=x X2=x | move X3=x X4=x | independent_moves(X1, X2, X3, X4) => \
      move2_par X1 X2 X3 X4
 move2_par x x x x
 
-# move2_par x y x y
-
-move X1=x Y1=y | move X2=x Y2=y => move2_par X1 Y1 X2 Y2
-move2_par x y x y
-
 # move2_par x x x y
 
 move X1=x X2=x | move X3=x Y1=y | independent_moves(X1, X2, X3, Y1) => \
@@ -393,20 +388,14 @@ move3 x x x x x x
 move C=aiq X=x==1 => move_x1 C
 move C=aiq X=x==2 => move_x2 C
 
+move n D=y => init D
+
 move_x1 c
 move_x2 c
 
-# The compiler almost never generates a "move Literal y(Y)" instruction,
-# so let's cheat if we encounter one.
-move S=n D=y => init D
-move S=c D=y => move S x | move x D
-
-move x x
-move x y
-move y x
-move c x
+move xy xy
+move c xy
 move n x
-move y y
 
 # The following move instructions using x(0) are frequently used.
 
@@ -500,9 +489,13 @@ is_ge f? c x
 is_ge f? s s
 %hot
 
-is_eq f? s s
+is_eq Fail=f Const=c Reg=xy => is_eq Fail Reg Const
+is_eq Fail=f C1=c C2=c => move C1 x | is_eq Fail x C2
+is_eq f? S s
 
-is_ne f? s s
+is_ne Fail=f Const=c Reg=xy => is_ne Fail Reg Const
+is_ne Fail=f C1=c C2=c => move C1 x | is_ne Fail x C2
+is_ne f? S s
 
 #
 # Putting tuples.
@@ -1035,6 +1028,9 @@ call_bif e
 bif0 u$bif:erlang:self/0 Dst=d => self Dst
 bif0 u$bif:erlang:node/0 Dst=d => node Dst
 
+bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=x Dst=x => is_nonempty_list_get_hd Fail Src Dst
+bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=x Dst=x => is_nonempty_list_get_tl Fail Src Dst
+
 bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => gen_get(Src, Dst)
 
 bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d => gen_element(Jump, S1, S2, Dst)
@@ -1123,19 +1119,33 @@ is_function Fail=f c => jump Fail
 func_info M F A => i_func_info u M F A
 
 # ================================================================
-# New bit syntax matching (R11B).
+# Bit syntax matching obsoleted in OTP 22.
 # ================================================================
 
-%warm
+%cold
 bs_start_match2 Fail=f ica X Y D => jump Fail
 bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
 i_bs_start_match2 xy f t t d
 
+bs_save2 Y=y Index => move Y x | bs_save2 x Index
 bs_save2 Reg Index => gen_bs_save(Reg, Index)
-i_bs_save2 xy t
+i_bs_save2 x t
 
+bs_restore2 Y=y Index => move Y x | bs_restore2 x Index
 bs_restore2 Reg Index => gen_bs_restore(Reg, Index)
-i_bs_restore2 xy t
+i_bs_restore2 x t
+
+bs_context_to_binary Y=y | line L | badmatch Y => \
+    move Y x | bs_context_to_binary x | line L | badmatch x
+bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
+bs_context_to_binary x
+%warm
+
+# ================================================================
+# New bit syntax matching (R11B).
+# ================================================================
+
+%warm
 
 # Matching integers
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
@@ -1154,7 +1164,7 @@ i_bs_get_integer_imm Ms Bits Live Fail Flags Y=y => \
 
 i_bs_get_integer_small_imm xy W f? t x
 i_bs_get_integer_imm xy W t f? t x
-i_bs_get_integer f? t t xy s d
+i_bs_get_integer xy f? t t s d
 i_bs_get_integer_8 xy f? d
 i_bs_get_integer_16 xy f? d
 
@@ -1166,9 +1176,9 @@ i_bs_get_integer_32 xy f? d
 bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_binary_imm2 f? xy t W t d
-i_bs_get_binary2 f xy t? s t d
-i_bs_get_binary_all2 f? xy t t d
+i_bs_get_binary_imm2 xy f? t W t d
+i_bs_get_binary2 xy f t? s t d
+i_bs_get_binary_all2 xy f? t t d
 i_bs_get_binary_all_reuse xy f? t
 
 # Fetching float from binaries.
@@ -1177,7 +1187,7 @@ bs_get_float2 Fail=f Ms=xy Live=u Sz=s Unit=u Flags=u Dst=d => \
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
-i_bs_get_float2 f? xy t s t d
+i_bs_get_float2 xy f? t s t d
 
 # Miscellanous
 
@@ -1185,8 +1195,7 @@ bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => \
 			gen_skip_bits2(Fail, Ms, Sz, Unit, Flags)
 
 i_bs_skip_bits_imm2 f? xy W
-i_bs_skip_bits2 f? xy xy t
-i_bs_skip_bits_all2 f? xy t
+i_bs_skip_bits2 xy xy f? t
 
 bs_test_tail2 Fail=f Ms=xy Bits=u==0 => bs_test_zero_tail2 Fail Ms
 bs_test_tail2 Fail=f Ms=xy Bits=u => bs_test_tail_imm2 Fail Ms Bits
@@ -1196,16 +1205,6 @@ bs_test_tail_imm2 f? xy W
 bs_test_unit F Ms Unit=u==8 => bs_test_unit8 F Ms
 bs_test_unit f? xy t
 bs_test_unit8 f? xy
-
-# An y register operand for bs_context_to_binary is rare,
-# but can happen because of inlining.
-
-bs_context_to_binary Y=y | line L | badmatch Y => \
-    move Y x | bs_context_to_binary x | line L | badmatch x
-
-bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
-
-bs_context_to_binary x
 
 # Gets a bitstring from the tail of a context.
 bs_get_tail xy d t
@@ -1332,31 +1331,35 @@ i_bs_private_append j? t s S x
 bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s => \
 			gen_put_integer(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_integer j? s t s
-i_new_bs_put_integer_imm j? W t s
+i_new_bs_put_integer j? S t s
+i_new_bs_put_integer_imm xyc j? W t
 
 #
 # Utf8/utf16/utf32 support. (R12B-5)
 #
 
-bs_utf8_size j Src=s Dst=d => i_bs_utf8_size Src Dst
+bs_utf8_size j Src Dst=d => i_bs_utf8_size Src Dst
+bs_utf16_size j Src Dst=d => i_bs_utf16_size Src Dst
 
-i_bs_utf8_size s x
-
-bs_utf16_size j Src=s Dst=d => i_bs_utf16_size Src Dst
-
-i_bs_utf16_size s x
-
-bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
-
-i_bs_put_utf8 j? s
-
-bs_put_utf16 j? t s
+bs_put_utf8 Fail u Src => i_bs_put_utf8 Fail Src
 
 bs_put_utf32 Fail=j Flags=u Src=s => \
    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
 
-i_bs_validate_unicode j? s
+i_bs_utf8_size S x
+i_bs_utf16_size S x
+
+i_bs_put_utf8 j? S
+bs_put_utf16 j? t S
+
+i_bs_validate_unicode j? S
+
+# Handle unoptimized code.
+i_bs_utf8_size Src=c Dst => move Src x | i_bs_utf8_size x Dst
+i_bs_utf16_size Src=c Dst => move Src x | i_bs_utf16_size x Dst
+i_bs_put_utf8 Fail Src=c => move Src x | i_bs_put_utf8 Fail x
+bs_put_utf16 Fail Flags Src=c => move Src x | bs_put_utf16 Fail Flags x
+i_bs_validate_unicode Fail Src=c => move Src x | i_bs_validate_unicode Fail x
 
 #
 # Storing floats into binaries.
@@ -1366,7 +1369,7 @@ bs_put_float Fail Sz=q Unit Flags Val => badarg Fail
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_float(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_float j? s t s
+i_new_bs_put_float j? S t s
 i_new_bs_put_float_imm j? W t s
 
 #
@@ -1376,9 +1379,18 @@ i_new_bs_put_float_imm j? W t s
 bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_binary(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_binary j? s t s
-i_new_bs_put_binary_imm j? W s
-i_new_bs_put_binary_all j? s t
+# In unoptimized code, the binary argument could be a literal. (In optimized code,
+# there would be a bs_put_string instruction.)
+i_new_bs_put_binary Fail Size Unit Lit=c => \
+   move Lit x | i_new_bs_put_binary Fail Size Unit x
+i_new_bs_put_binary_imm Fail Size Lit=c => \
+   move Lit x | i_new_bs_put_binary_imm Fail Size x
+i_new_bs_put_binary_all Lit=c Fail Unit => \
+   move Lit x | i_new_bs_put_binary_all x Fail Unit
+
+i_new_bs_put_binary j? S t S
+i_new_bs_put_binary_imm j? W S
+i_new_bs_put_binary_all xy j? t
 
 #
 # Warning: The i_bs_put_string and i_new_bs_put_string instructions

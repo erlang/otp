@@ -1488,7 +1488,7 @@ sub code_gen {
                 $var_decls .= "Eterm $tmp;\n";
                 $tmp_arg_num++;
                 push(@f, $tmp);
-                $prefix .= "GetR($arg_offset, $tmp);\n";
+                $prefix .= "GetSource(" . arg_offset($arg_offset) . ", $tmp);\n";
                 $need_block = 1;
                 last SWITCH;
             };

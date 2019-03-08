@@ -116,6 +116,17 @@ increment.execute(IncrementVal, Dst) {
 i_times(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
+#ifdef HAVE_OVERFLOW_CHECK_BUILTINS
+    if (ERTS_LIKELY(is_both_small(op1, op2))) {
+        Sint a = signed_val(op1);
+        Sint b = signed_val(op2);
+        Sint res;
+        if (ERTS_LIKELY(!__builtin_mul_overflow(a, b, &res) && IS_SSMALL(res))) {
+            $Dst = make_small(res);
+            $NEXT0();
+        }
+    }
+#endif
     $OUTLINED_ARITH_2($Fail, mixed_times, BIF_stimes_2, op1, op2, $Dst);
 }
 

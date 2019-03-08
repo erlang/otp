@@ -269,7 +269,7 @@ call_bif(Exp) {
         CHECK_TERM(r(0));
         $NEXT0();
     } else if (c_p->freason == TRAP) {
-        SET_CP(c_p, I+2);
+        SET_CP(c_p, $NEXT_INSTRUCTION);
         SET_I(c_p->i);
         SWAPIN;
         Dispatch();
@@ -313,7 +313,7 @@ send() {
         r(0) = result;
         CHECK_TERM(r(0));
     } else if (c_p->freason == TRAP) {
-        SET_CP(c_p, I+1);
+        SET_CP(c_p, $NEXT_INSTRUCTION);
         SET_I(c_p->i);
         SWAPIN;
         Dispatch();

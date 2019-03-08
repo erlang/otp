@@ -3295,11 +3295,11 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     } else {
 	op->op = genop_i_bs_get_integer_6;
 	op->arity = 6;
-	op->a[0] = Fail;
-	op->a[1] = Live;
-	op->a[2].type = TAG_u;
-	op->a[2].val = (Unit.val << 3) | Flags.val;
-	op->a[3] = Ms;
+	op->a[0] = Ms;
+	op->a[1] = Fail;
+	op->a[2] = Live;
+	op->a[3].type = TAG_u;
+	op->a[3].val = (Unit.val << 3) | Flags.val;
 	op->a[4] = Size;
 	op->a[5] = Dst;
 	op->next = NULL;
@@ -3332,8 +3332,8 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	} else {
 	    op->op = genop_i_bs_get_binary_all2_5;
 	    op->arity = 5;
-	    op->a[0] = Fail;
-	    op->a[1] = Ms;
+	    op->a[0] = Ms;
+	    op->a[1] = Fail;
 	    op->a[2] = Live;	
 	    op->a[3] = Unit;
 	    op->a[4] = Dst;
@@ -3341,8 +3341,8 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     } else if (Size.type == TAG_i) {
 	op->op = genop_i_bs_get_binary_imm2_6;
 	op->arity = 6;
-	op->a[0] = Fail;
-	op->a[1] = Ms;
+	op->a[0] = Ms;
+	op->a[1] = Fail;
 	op->a[2] = Live;
 	op->a[3].type = TAG_u;
 	if (!safe_mul(Size.val, Unit.val, &op->a[3].val)) {
@@ -3362,8 +3362,8 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	} else {
 	    op->op = genop_i_bs_get_binary_imm2_6;
 	    op->arity = 6;
-	    op->a[0] = Fail;
-	    op->a[1] = Ms;
+	    op->a[0] = Ms;
+	    op->a[1] = Fail;
 	    op->a[2] = Live;
 	    op->a[3].type = TAG_u;
 	    if (!safe_mul(bigval, Unit.val, &op->a[3].val)) {
@@ -3375,8 +3375,8 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     } else {
 	op->op = genop_i_bs_get_binary2_6;
 	op->arity = 6;
-	op->a[0] = Fail;
-	op->a[1] = Ms;
+	op->a[0] = Ms;
+	op->a[1] = Fail;
 	op->a[2] = Live;
 	op->a[3] = Size;
 	op->a[4].type = TAG_u;
@@ -3409,8 +3409,8 @@ gen_put_binary(LoaderState* stp, GenOpArg Fail,GenOpArg Size,
     if (Size.type == TAG_a && Size.val == am_all) {
 	op->op = genop_i_new_bs_put_binary_all_3;
 	op->arity = 3;
-	op->a[0] = Fail;
-	op->a[1] = Src;
+	op->a[0] = Src;
+	op->a[1] = Fail;
 	op->a[2] = Unit;
     } else if (Size.type == TAG_i) {
 	op->op = genop_i_new_bs_put_binary_imm_3;
@@ -3420,10 +3420,33 @@ gen_put_binary(LoaderState* stp, GenOpArg Fail,GenOpArg Size,
 	if (safe_mul(Size.val, Unit.val, &op->a[1].val)) {
 	    op->a[2] = Src;
 	} else {
+        error:
 	    op->op = genop_badarg_1;
 	    op->arity = 1;
 	    op->a[0] = Fail;
 	}
+    } else if (Size.type == TAG_q) {
+#ifdef ARCH_64
+        /*
+         * There is no way that this binary would fit in memory.
+         */
+        goto error;
+#else
+	Eterm big = stp->literals[Size.val].term;
+	Uint bigval;
+        Uint size;
+
+	if (!term_to_Uint(big, &bigval) ||
+            !safe_mul(bigval, Unit.val, &size)) {
+	    goto error;
+	}
+        op->op = genop_i_new_bs_put_binary_imm_3;
+        op->arity = 3;
+        op->a[0] = Fail;
+        op->a[1].type = TAG_u;
+        op->a[1].val = size;
+        op->a[2] = Src;
+#endif
     } else {
 	op->op = genop_i_new_bs_put_binary_4;
 	op->arity = 4;
@@ -3448,11 +3471,8 @@ gen_put_integer(LoaderState* stp, GenOpArg Fail, GenOpArg Size,
     NATIVE_ENDIAN(Flags);
 	/* Negative size must fail */
     if (Size.type == TAG_i) {
-	op->op = genop_i_new_bs_put_integer_imm_4;
-	op->arity = 4;
-	op->a[0] = Fail;
-	op->a[1].type = TAG_u;
-	if (!safe_mul(Size.val, Unit.val, &op->a[1].val)) {
+        Uint size;
+	if (!safe_mul(Size.val, Unit.val, &size)) {
         error:
             op->op = genop_badarg_1;
             op->arity = 1;
@@ -3460,26 +3480,31 @@ gen_put_integer(LoaderState* stp, GenOpArg Fail, GenOpArg Size,
             op->next = NULL;
             return op;
 	}
-	op->a[1].val = Size.val * Unit.val;
-	op->a[2].type = Flags.type;
-	op->a[2].val = (Flags.val & 7);
-	op->a[3] = Src;
+	op->op = genop_i_new_bs_put_integer_imm_4;
+	op->arity = 4;
+	op->a[0] = Src;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val = size;
+	op->a[3].type = Flags.type;
+	op->a[3].val = (Flags.val & 7);
     } else if (Size.type == TAG_q) {
 	Eterm big = stp->literals[Size.val].term;
 	Uint bigval;
+        Uint size;
 
-	if (!term_to_Uint(big, &bigval)) {
+	if (!term_to_Uint(big, &bigval) ||
+            !safe_mul(bigval, Unit.val, &size)) {
 	    goto error;
-	} else {
-	    op->op = genop_i_new_bs_put_integer_imm_4;
-	    op->arity = 4;
-	    op->a[0] = Fail;
-	    op->a[1].type = TAG_u;
-	    op->a[1].val = bigval * Unit.val;
-	    op->a[2].type = Flags.type;
-	    op->a[2].val = (Flags.val & 7);
-	    op->a[3] = Src;
 	}
+	op->op = genop_i_new_bs_put_integer_imm_4;
+	op->arity = 4;
+	op->a[0] = Src;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val = size;
+	op->a[3].type = Flags.type;
+	op->a[3].val = (Flags.val & 7);
     } else {
 	op->op = genop_i_new_bs_put_integer_4;
 	op->arity = 4;
@@ -3541,8 +3566,8 @@ gen_get_float2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     NATIVE_ENDIAN(Flags);
     op->op = genop_i_bs_get_float2_6;
     op->arity = 6;
-    op->a[0] = Fail;
-    op->a[1] = Ms;
+    op->a[0] = Ms;
+    op->a[1] = Fail;
     op->a[2] = Live;
     op->a[3] = Size;
     op->a[4].type = TAG_u;
@@ -3565,10 +3590,22 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
     NATIVE_ENDIAN(Flags);
     NEW_GENOP(stp, op);
     if (Size.type == TAG_a && Size.val == am_all) {
-	op->op = genop_i_bs_skip_bits_all2_3;
+        /*
+         * This kind of skip instruction will only be found in modules
+         * compiled before OTP 19. From OTP 19, the compiler generates
+         * a test_unit instruction of a bs_skip at the end of a
+         * binary.
+         *
+         * It is safe to replace the skip instruction with a test_unit
+         * instruction, because the position will never be used again.
+         * If the match context itself is used again, it will be used by
+         * a bs_restore2 instruction which will overwrite the position
+         * by one of the stored positions.
+         */
+	op->op = genop_bs_test_unit_3;
 	op->arity = 3;
 	op->a[0] = Fail;
-	op->a[1] = Ms; 
+	op->a[1] = Ms;
 	op->a[2] = Unit;
     } else if (Size.type == TAG_i) {
 	op->op = genop_i_bs_skip_bits_imm2_3;
@@ -3601,9 +3638,9 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
     } else {
 	op->op = genop_i_bs_skip_bits2_4;
 	op->arity = 4;
-	op->a[0] = Fail;
-	op->a[1] = Ms; 
-	op->a[2] = Size;
+	op->a[0] = Ms;
+	op->a[1] = Size;
+	op->a[2] = Fail;
 	op->a[3] = Unit;
     }
     op->next = NULL;
