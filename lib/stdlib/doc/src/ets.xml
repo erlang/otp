@@ -642,12 +642,11 @@ Error: fun containing local Erlang function calls
             <p><marker id="info_2_safe_fixed_monotonic_time"/></p>
             <p><c>Item=safe_fixed|safe_fixed_monotonic_time,
               Value={FixationTime,Info}|false</c></p>
-            <p>If the table has been fixed using
+            <p>If the table is fixed using
               <seealso marker="#safe_fixtable/2">
               <c>safe_fixtable/2</c></seealso>,
               the call returns a tuple where <c>FixationTime</c> is the
-              time when the table was first fixed by a process, which either
-              is or is not one of the processes it is fixed by now.</p>
+              last time when the table changed from unfixed to fixed.</p>
             <p>The format and value of <c>FixationTime</c> depends on
               <c>Item</c>:</p>
             <taglist>
@@ -679,8 +678,15 @@ Error: fun containing local Erlang function calls
               table is fixed by now. <c>RefCount</c> is the value
               of the reference counter and it keeps track of how many times
               the table has been fixed by the process.</p>
-            <p>If the table never has been fixed, the call returns
-              <c>false</c>.</p>
+	    <p>Table fixations are not limited to <seealso marker="#safe_fixtable/2">
+	      <c>safe_fixtable/2</c></seealso>. Temporary fixations may also
+	      be done by for example <seealso marker="#traversal">traversing
+	      functions</seealso> like <c>select</c> and <c>match</c>. Such
+	      table fixations are automatically released before the
+	      corresponding functions returns, but they may be seen by a
+	      concurrent call to
+	      <c>ets:info(T,safe_fixed|safe_fixed_monotonic_time)</c>.</p>
+            <p>If the table is not fixed at all, the call returns <c>false</c>.</p>
           </item>
           <item>
             <p><c>Item=stats, Value=tuple()</c></p>
