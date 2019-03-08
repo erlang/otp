@@ -61,6 +61,32 @@ int init_hash_ctx(ErlNifEnv* env) {
 #endif
 }
 
+ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type) */
+    struct digest_type_t *digp = NULL;
+    const EVP_MD         *md;
+    ERL_NIF_TERM         ret;
+
+    ASSERT(argc == 1);
+
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        return enif_make_badarg(env);
+
+    if ((md = digp->md.p) == NULL)
+        return atom_notsup;
+
+    ret = enif_make_new_map(env);
+
+    enif_make_map_put(env, ret, atom_type,
+        enif_make_int(env, EVP_MD_type(md)), &ret);
+    enif_make_map_put(env, ret, atom_size,
+        enif_make_int(env, EVP_MD_size(md)), &ret);
+    enif_make_map_put(env, ret, atom_block_size,
+        enif_make_int(env, EVP_MD_block_size(md)), &ret);
+
+    return ret;
+}
+
 ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data) */
     struct digest_type_t *digp = NULL;

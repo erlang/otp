@@ -24,6 +24,7 @@
 
 -export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
+-export([cipher_info/1, hash_info/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
@@ -403,6 +404,11 @@ enable_fips_mode(_) -> ?nif_stub.
 
 -define(HASH_HASH_ALGORITHM, sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() ).
 
+-spec hash_info(Type) -> map() when Type :: ?HASH_HASH_ALGORITHM.
+
+hash_info(Type) ->
+    notsup_to_error(hash_info_nif(Type)).
+
 -spec hash(Type, Data) -> Digest when Type :: ?HASH_HASH_ALGORITHM,
                                       Data :: iodata(),
                                       Digest :: binary().
@@ -530,6 +536,12 @@ poly1305(Key, Data) ->
 %%% Encrypt/decrypt
 %%%
 %%%================================================================
+
+-spec cipher_info(Type) -> map() when Type :: block_cipher_with_iv()
+                                           | aead_cipher()
+                                           | block_cipher_without_iv().
+cipher_info(Type) ->
+    cipher_info_nif(Type).
 
 %%%---- Block ciphers
 
@@ -1726,6 +1738,7 @@ hash_update(State0, Data, _, MaxBytes) ->
     State = notsup_to_error(hash_update_nif(State0, Increment)),
     hash_update(State, Rest, erlang:byte_size(Rest), MaxBytes).
 
+hash_info_nif(_Hash) -> ?nif_stub.
 hash_nif(_Hash, _Data) -> ?nif_stub.
 hash_init_nif(_Hash) -> ?nif_stub.
 hash_update_nif(_State, _Data) -> ?nif_stub.
@@ -1769,6 +1782,8 @@ poly1305_nif(_Key, _Data) -> ?nif_stub.
 
 
 %% CIPHERS --------------------------------------------------------------------
+
+cipher_info_nif(_Type) -> ?nif_stub.
 
 block_crypt_nif(_Type, _Key, _Ivec, _Text, _IsEncrypt) -> ?nif_stub.
 block_crypt_nif(_Type, _Key, _Text, _IsEncrypt) -> ?nif_stub.

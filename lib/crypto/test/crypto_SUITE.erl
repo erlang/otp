@@ -40,7 +40,9 @@ all() ->
      rand_uniform,
      rand_threads,
      rand_plugin,
-     rand_plugin_s
+     rand_plugin_s,
+     cipher_info,
+     hash_info
     ].
 
 groups() ->
@@ -664,6 +666,23 @@ rand_plugin_s() ->
     [{doc, "crypto rand plugin testing (explicit state)"}].
 rand_plugin_s(Config) when is_list(Config) ->
     rand_plugin_aux(explicit_state).
+
+%%--------------------------------------------------------------------
+cipher_info() ->
+    [{doc, "crypto cipher_info testing"}].
+cipher_info(Config) when is_list(Config) ->
+    #{type := _,key_length := _,iv_length := _,
+        block_size := _,mode := _} = crypto:cipher_info(aes_128_cbc),
+    {'EXIT',_} = (catch crypto:cipher_info(not_a_cipher)),
+    ok.
+
+%%--------------------------------------------------------------------
+hash_info() ->
+    [{doc, "crypto hash_info testing"}].
+hash_info(Config) when is_list(Config) ->
+    #{type := _,size := _,block_size := _} = crypto:hash_info(sha256),
+    {'EXIT',_} = (catch crypto:hash_info(not_a_hash)),
+    ok.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
