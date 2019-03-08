@@ -33,6 +33,9 @@
   <modulesummary>Network interface.</modulesummary>
   <description>
     <p>This module provides an API for the network interface.</p>
+    <note>
+      <p>There is currently <em>no</em> support for Windows. </p>
+    </note>
   </description>
 
   <datatypes>
