@@ -510,11 +510,13 @@ MaxT = TickTime + TickTime / 4</code>
       parameters for Logger are not set.</p>
     <taglist>
       <tag><c>error_logger</c></tag>
-      <item>Replaced by setting the type of the default
-      <seealso marker="logger_std_h#type"><c>logger_std_h</c></seealso>
-      to the same value. Example:
+      <item>Replaced by setting the <seealso
+      marker="logger_std_h#type"><c>type</c></seealso>, and possibly
+      <seealso marker="logger_std_h#file"><c>file</c></seealso> and
+      <seealso marker="logger_std_h#modes"><c>modes</c></seealso>
+      parameters of the default <c>logger_std_h</c> handler. Example:
       <code type="none">
-erl -kernel logger '[{handler,default,logger_std_h,#{config=>#{type=>{file,"/tmp/erlang.log"}}}}]'
+erl -kernel logger '[{handler,default,logger_std_h,#{config=>#{file=>"/tmp/erlang.log"}}}]'
       </code>
       </item>
       <tag><c>error_logger_format_depth</c></tag>

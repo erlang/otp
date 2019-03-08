@@ -1048,8 +1048,11 @@ kernel_config(Config) ->
     ok = rpc:call(Node,logger,internal_init_logger,[]),
     ok = rpc:call(Node,logger,add_handlers,[kernel]),
     #{primary:=#{filter_default:=log,filters:=[]},
-      handlers:=[#{id:=default,filters:=DF,config:=#{type:={file,F}}}],
+      handlers:=[#{id:=default,filters:=DF,
+                   config:=#{type:=file,file:=F,modes:=Modes}}],
       module_levels:=[]} = rpc:call(Node,logger,get_config,[]),
+    [append,delayed_write,raw] = lists:sort(Modes),
+
 
     %% Same, but using 'logger' parameter instead of 'error_logger'
     ok = rpc:call(Node,logger,remove_handler,[default]),% so it can be added again
@@ -1060,26 +1063,27 @@ kernel_config(Config) ->
     ok = rpc:call(Node,logger,internal_init_logger,[]),
     ok = rpc:call(Node,logger,add_handlers,[kernel]),
     #{primary:=#{filter_default:=log,filters:=[]},
-      handlers:=[#{id:=default,filters:=DF,config:=#{type:={file,F}}}],
+      handlers:=[#{id:=default,filters:=DF,
+                   config:=#{type:=file,file:=F,modes:=Modes}}],
       module_levels:=[]} = rpc:call(Node,logger,get_config,[]),
 
     %% Same, but with type={file,File,Modes}
     ok = rpc:call(Node,logger,remove_handler,[default]),% so it can be added again
     ok = rpc:call(Node,application,unset_env,[kernel,error_logger]),
-    M = [raw,write,delayed_write],
+    M = [raw,write],
     ok = rpc:call(Node,application,set_env,[kernel,logger,
                                             [{handler,default,logger_std_h,
                                               #{config=>#{type=>{file,F,M}}}}]]),
     ok = rpc:call(Node,logger,internal_init_logger,[]),
     ok = rpc:call(Node,logger,add_handlers,[kernel]),
     #{primary:=#{filter_default:=log,filters:=[]},
-      handlers:=[#{id:=default,filters:=DF,config:=#{type:={file,F,M}}}],
+      handlers:=[#{id:=default,filters:=DF,
+                   config:=#{type:=file,file:=F,modes:=[delayed_write|M]}}],
       module_levels:=[]} = rpc:call(Node,logger,get_config,[]),
 
     %% Same, but with disk_log handler
     ok = rpc:call(Node,logger,remove_handler,[default]),% so it can be added again
     ok = rpc:call(Node,application,unset_env,[kernel,error_logger]),
-    M = [raw,write,delayed_write],
     ok = rpc:call(Node,application,set_env,[kernel,logger,
                                             [{handler,default,logger_disk_log_h,
                                               #{config=>#{file=>F}}}]]),

@@ -801,7 +801,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 [{kernel,
   [{logger,
     [{handler, default, logger_std_h,  % {handler, HandlerId, Module,
-      #{config => #{type => {file,"log/erlang.log"}}}}  % Config}
+      #{config => #{file => "log/erlang.log"}}}  % Config}
     ]}]}].
       </code>
       <p>Modify the default handler to print each log event as a
@@ -831,10 +831,10 @@ logger:debug(#{got => connection_request, id => Id, state => State},
   [{logger,
     [{handler, default, logger_std_h,
       #{level => error,
-        config => #{type => {file, "log/erlang.log"}}}},
+        config => #{file => "log/erlang.log"}}},
      {handler, info, logger_std_h,
       #{level => debug,
-        config => #{type => {file, "log/debug.log"}}}}
+        config => #{file => "log/debug.log"}}}
     ]}]}].
       </code>
     </section>
@@ -1004,10 +1004,10 @@ ok</pre>
     <p>Then, add a new handler which prints to file. You can use the
       handler
       module <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>,
-      and specify type <c>{file,File}</c>.:</p>
+      and configure it to log to file:</p>
     <pre>
-4> <input>Config = #{config => #{type => {file,"./info.log"}}, level => info}.</input>
-#{config => #{type => {file,"./info.log"}},level => info}
+4> <input>Config = #{config => #{file => "./info.log"}, level => info}.</input>
+#{config => #{file => "./info.log"},level => info}
 5> <input>logger:add_handler(myhandler, logger_std_h, Config).</input>
 ok</pre>
     <p>Since <c>filter_default</c> defaults to <c>log</c>, this
@@ -1246,7 +1246,7 @@ do_log(Fd, LogEvent, #{formatter := {FModule, FConfig}}) ->
       <p>A configuration example:</p>
       <code type="none">
 logger:add_handler(my_standard_h, logger_std_h,
-                   #{config => #{type => {file,"./system_info.log"},
+                   #{config => #{file => "./system_info.log",
                                  sync_mode_qlen => 100,
                                  drop_mode_qlen => 1000,
                                  flush_qlen => 2000}}).
