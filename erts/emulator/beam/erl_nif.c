@@ -1175,6 +1175,47 @@ int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)
     return is_number(term);
 }
 
+ErlNifTermType enif_term_type(ErlNifEnv* env, ERL_NIF_TERM term) {
+    (void)env;
+
+    switch (tag_val_def(term)) {
+    case ATOM_DEF:
+        return ERL_NIF_TERM_TYPE_ATOM;
+    case BINARY_DEF:
+        return ERL_NIF_TERM_TYPE_BITSTRING;
+    case FLOAT_DEF:
+        return ERL_NIF_TERM_TYPE_FLOAT;
+    case EXPORT_DEF:
+    case FUN_DEF:
+        return ERL_NIF_TERM_TYPE_FUN;
+    case BIG_DEF:
+    case SMALL_DEF:
+        return ERL_NIF_TERM_TYPE_INTEGER;
+    case LIST_DEF:
+    case NIL_DEF:
+        return ERL_NIF_TERM_TYPE_LIST;
+    case MAP_DEF:
+        return ERL_NIF_TERM_TYPE_MAP;
+    case EXTERNAL_PID_DEF:
+    case PID_DEF:
+        return ERL_NIF_TERM_TYPE_PID;
+    case EXTERNAL_PORT_DEF:
+    case PORT_DEF:
+        return ERL_NIF_TERM_TYPE_PORT;
+    case EXTERNAL_REF_DEF:
+    case REF_DEF:
+        return ERL_NIF_TERM_TYPE_REFERENCE;
+    case TUPLE_DEF:
+        return ERL_NIF_TERM_TYPE_TUPLE;
+    default:
+        /* tag_val_def() aborts on its own when passed complete garbage, but
+         * it's possible that the user has given us garbage that just happens
+         * to match something that tag_val_def() accepts but we don't, like
+         * binary match contexts. */
+        ERTS_INTERNAL_ERROR("Invalid term passed to enif_term_type");
+    }
+}
+
 static void aligned_binary_dtor(struct enif_tmp_obj_t* obj)
 {
     erts_free_aligned_binary_bytes_extra((byte*)obj, obj->allocator);

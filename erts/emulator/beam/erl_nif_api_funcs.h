@@ -215,6 +215,8 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_monitor_term,(ErlNifEnv* env, const
 ERL_NIF_API_FUNC_DECL(void,enif_set_pid_undefined,(ErlNifPid* pid));
 ERL_NIF_API_FUNC_DECL(int,enif_is_pid_undefined,(const ErlNifPid* pid));
 
+ERL_NIF_API_FUNC_DECL(ErlNifTermType,enif_term_type,(ErlNifEnv* env, ERL_NIF_TERM term));
+
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
 */
@@ -401,6 +403,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_pid_undefined,(const ErlNifPid* pid));
 #  define enif_make_monitor_term ERL_NIF_API_FUNC_MACRO(enif_make_monitor_term)
 #  define enif_set_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_set_pid_undefined)
 #  define enif_is_pid_undefined ERL_NIF_API_FUNC_MACRO(enif_is_pid_undefined)
+#  define enif_term_type ERL_NIF_API_FUNC_MACRO(enif_term_type)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

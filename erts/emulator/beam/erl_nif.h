@@ -55,6 +55,7 @@
 ** 2.14: 21.0 add enif_ioq_peek_head, enif_(mutex|cond|rwlock|thread)_name
 **                enif_vfprintf, enif_vsnprintf, enif_make_map_from_arrays
 ** 2.15: 22.0 ERL_NIF_SELECT_CANCEL, enif_select_(read|write)
+**            enif_term_type
 */
 #define ERL_NIF_MAJOR_VERSION 2
 #define ERL_NIF_MINOR_VERSION 15
@@ -63,7 +64,7 @@
  * with ticket syntax like "erts-@OTP-12345@", or a temporary placeholder
  * between two @ like "erts-@MyName@", if you don't know what a ticket is.
  */
-#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-15095@ (OTP-22)"
+#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-15095 OTP-15640@ (OTP-22)"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -281,6 +282,26 @@ typedef struct erts_io_queue ErlNifIOQueue;
 typedef enum {
     ERL_NIF_IOQ_NORMAL = 1
 } ErlNifIOQueueOpts;
+
+typedef enum {
+    ERL_NIF_TERM_TYPE_ATOM = 1,
+    ERL_NIF_TERM_TYPE_BITSTRING = 2,
+    ERL_NIF_TERM_TYPE_FLOAT = 3,
+    ERL_NIF_TERM_TYPE_FUN = 4,
+    ERL_NIF_TERM_TYPE_INTEGER = 5,
+    ERL_NIF_TERM_TYPE_LIST = 6,
+    ERL_NIF_TERM_TYPE_MAP = 7,
+    ERL_NIF_TERM_TYPE_PID = 8,
+    ERL_NIF_TERM_TYPE_PORT = 9,
+    ERL_NIF_TERM_TYPE_REFERENCE = 10,
+    ERL_NIF_TERM_TYPE_TUPLE = 11,
+
+    /* This is a dummy value intended to coax the compiler into warning about
+     * unhandled values in a switch even if all the above values have been
+     * handled. We can add new entries at any time so the user must always
+     * have a default case. */
+    ERL_NIF_TERM_TYPE__MISSING_DEFAULT_CASE__READ_THE_MANUAL = -1
+} ErlNifTermType;
 
 /*
  * Return values from enif_thread_type(). Negative values

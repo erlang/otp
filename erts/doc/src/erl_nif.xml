@@ -3369,6 +3369,48 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
+      <name since="OTP @OTP-15640@"><ret>ErlNifTermType</ret>
+        <nametext>enif_term_type(ErlNifEnv *env, ERL_NIF_TERM term)</nametext>
+      </name>
+      <fsummary>Determine the type of a term.</fsummary>
+      <desc>
+        <p>Determines the type of the given term. The term must be an ordinary
+          Erlang term and not one of the special terms returned by
+          <seealso marker="#enif_raise_exception">
+          <c>enif_raise_exception</c></seealso>,
+          <seealso marker="#enif_schedule_nif">
+          <c>enif_schedule_nif</c></seealso>, or similar.</p>
+        <p>The following types are defined at the moment:</p>
+        <taglist>
+          <tag><c>ERL_NIF_TERM_TYPE_ATOM</c></tag>
+          <item/>
+          <tag><c>ERL_NIF_TERM_TYPE_BITSTRING</c></tag>
+          <item><p>A bitstring or binary</p></item>
+          <tag><c>ERL_NIF_TERM_TYPE_FLOAT</c></tag>
+          <item/>
+          <tag><c>ERL_NIF_TERM_TYPE_FUN</c></tag>
+          <item/>
+          <tag><c>ERL_NIF_TERM_TYPE_INTEGER</c></tag>
+          <item/>
+          <tag><c>ERL_NIF_TERM_TYPE_LIST</c></tag>
+          <item><p>A list, empty or not</p></item>
+          <tag><c>ERL_NIF_TERM_TYPE_MAP</c></tag>
+          <item/>
+          <tag><c>ERL_NIF_TERM_TYPE_PID</c></tag>
+          <item/>
+          <tag><c>ERL_NIF_TERM_TYPE_PORT</c></tag>
+          <item/>
+          <tag><c>ERL_NIF_TERM_TYPE_REFERENCE</c></tag>
+          <item/>
+          <tag><c>ERL_NIF_TERM_TYPE_TUPLE</c></tag>
+          <item/>
+        </taglist>
+        <p>Note that new types may be added in the future, so the caller must
+          be prepared to handle unknown types.</p>
+      </desc>
+    </func>
+
+    <func>
       <name since="OTP R13B04"><ret>int</ret>
         <nametext>enif_thread_create(char *name,ErlNifTid
         *tid,void * (*func)(void *),void *args,ErlNifThreadOpts
