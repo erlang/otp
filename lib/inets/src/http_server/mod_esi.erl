@@ -33,7 +33,7 @@
 -include("httpd_internal.hrl").
 
 -define(VMODULE,"ESI").
--define(DEFAULT_ERL_TIMEOUT,15000).
+-define(DEFAULT_ERL_TIMEOUT,15).
 
 
 %%%=========================================================================
@@ -174,7 +174,7 @@ store({erl_script_alias, Value}, _) ->
     {error, {wrong_type, {erl_script_alias, Value}}};
 store({erl_script_timeout, TimeoutSec}, _) 
   when is_integer(TimeoutSec) andalso (TimeoutSec >= 0) ->
-    {ok, {erl_script_timeout, TimeoutSec * 1000}};
+    {ok, {erl_script_timeout, TimeoutSec}};
 store({erl_script_timeout, Value}, _) ->
     {error, {wrong_type, {erl_script_timeout, Value}}};
 store({erl_script_nocache, Value} = Conf, _) 
@@ -500,7 +500,7 @@ kill_esi_delivery_process(Pid) ->
 	
 
 erl_script_timeout(Db) ->
-    httpd_util:lookup(Db, erl_script_timeout, ?DEFAULT_ERL_TIMEOUT).
+    httpd_util:lookup(Db, erl_script_timeout, ?DEFAULT_ERL_TIMEOUT * 1000).
 
 script_elements(FuncAndInput, Input) ->
     case input_type(FuncAndInput) of
