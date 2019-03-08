@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,8 +42,12 @@
          peer_up/1,
          peer_down/1]).
 
+%% towards diameter_dist
+-export([request_info/1]).
+
 %% internal
 -export([send/1,    %% send from remote node
+         request/1, %% process request in handler process
          init/1]).  %% monitor process start
 
 -include_lib("diameter/include/diameter.hrl").
@@ -232,7 +236,7 @@ incr_rc(Dir, Pkt, TPid, MsgDict, AppDict, Dict0) ->
 -spec receive_message(pid(), Route, #diameter_packet{}, module(), RecvData)
    -> pid()     %% request handler
     | boolean() %% answer, known request or not
-    | discard   %% request discarded by MFA
+    | discard   %% request discarded
  when Route :: {Handler, RequestRef, TPid}
              | Ack,
       RecvData :: {[SpawnOpt], #recvdata{}},
@@ -252,7 +256,8 @@ receive_message(TPid, Route, Pkt, Dict0, RecvData) ->
 recv(true, Ack, TPid, Pkt, Dict0, T)
   when is_boolean(Ack) ->
     {Opts, RecvData} = T,
-    spawn_request(Ack, TPid, Pkt, Dict0, RecvData, Opts);
+    AppT = find_app(TPid, Pkt, RecvData),
+    ack(Ack, TPid, spawn_request(AppT, Opts, Ack, TPid, Pkt, Dict0, RecvData));
 
 %% ... answer to known request ...
 recv(false, {Pid, Ref, TPid}, _, Pkt, Dict0, _) ->
@@ -274,58 +279,73 @@ recv(false, false, TPid, Pkt, _, _) ->
     incr(TPid, {{unknown, 0}, recv, discarded}),
     false.
 
-%% spawn_request/6
+%% spawn_request/7
 
-%% An MFA should return a pid() or the atom 'discard'. The latter
-%% results in an acknowledgment back to the transport process when
-%% appropriate, to ensure that send/recv callbacks can count
-%% outstanding requests. Acknowledgement is implicit if the
+spawn_request(false, _, _, _, _, _, _) ->  %% no transport
+    discard;
+
+%% An MFA should return the pid() of a process in which the argument
+%% fun in applied, or the atom 'discard' if the fun is not applied.
+%% The latter results in an acknowledgment back to the transport
+%% process when appropriate, to ensure that send/recv callbacks can
+%% count outstanding requests. Acknowledgement is implicit if the
 %% handler process dies (in a handle_request callback for example).
-spawn_request(Ack, TPid, Pkt, Dict0, RecvData, {M,F,A}) ->
-    ReqF = fun() ->
-                   ack(Ack, TPid, recv_request(Ack, TPid, Pkt, Dict0, RecvData))
-           end,
-    ack(Ack, TPid, apply(M, F, [ReqF | A]));
+spawn_request(AppT, {M,F,A}, Ack, TPid, Pkt, Dict0, RecvData) ->
+    %% Term to pass to request/1 in an appropriate process. Module
+    %% diameter_dist implements callbacks.
+    ReqT = {Pkt, AppT, Ack, TPid, Dict0, RecvData},
+    apply(M, F, [ReqT | A]);
 
 %% A spawned process acks implicitly when it dies, so there's no need
 %% to handle 'discard'.
-spawn_request(Ack, TPid, Pkt, Dict0, RecvData, Opts) ->
+spawn_request(AppT, Opts, Ack, TPid, Pkt, Dict0, RecvData) ->
     spawn_opt(fun() ->
-                      recv_request(Ack, TPid, Pkt, Dict0, RecvData)
+                      recv_request(Ack, TPid, Pkt, Dict0, RecvData, AppT)
               end,
               Opts).
+
+%% request_info/1
+%%
+%% Limited request information for diameter_dist.
+
+request_info({Pkt, _AppT, _Ack, _TPid, _Dict0, RecvData} = _ReqT) ->
+    {RecvData#recvdata.service_name, Pkt#diameter_packet.bin}.
+
+%% request/1
+%%
+%% Called from a handler process chosen by a transport spawn_opt MFA
+%% to process an incoming request.
+
+request({Pkt, AppT, Ack, TPid, Dict0, RecvData} = _ReqT) ->
+    ack(Ack, TPid, recv_request(Ack, TPid, Pkt, Dict0, RecvData, AppT)).
 
 %% ack/3
 
 ack(Ack, TPid, RC) ->
-    RC == discard andalso Ack andalso (TPid ! {send, false}),
+    RC == discard
+        andalso Ack
+        andalso (TPid ! {send, false}),
     RC.
 
 %% ---------------------------------------------------------------------------
-%% recv_request/5
+%% recv_request/6
 %% ---------------------------------------------------------------------------
 
 -spec recv_request(Ack :: boolean(),
                    TPid :: pid(),
                    #diameter_packet{},
                    Dict0 :: module(),
-                   #recvdata{})
+                   #recvdata{},
+                   AppT :: {#diameter_app{}, #diameter_caps{}}
+                         | #diameter_caps{}) %% no suitable app
    -> ok        %% answer was sent
-    | discard   %% or not
-    | false.    %% no transport
+    | discard.  %% or not
 
-recv_request(Ack,
-             TPid,
-             #diameter_packet{header = #diameter_header{application_id = Id}}
-             = Pkt,
-             Dict0,
-             #recvdata{peerT = PeerT,
-                       apps = Apps,
-                       counters = Count}
-             = RecvData) ->
+recv_request(Ack, TPid, Pkt, Dict0, RecvData, AppT) ->
     Ack andalso (TPid ! {handler, self()}),
-    case diameter_service:find_incoming_app(PeerT, TPid, Id, Apps) of
+    case AppT of
         {#diameter_app{id = Aid, dictionary = AppDict} = App, Caps} ->
+            Count = RecvData#recvdata.counters,
             Count andalso incr(recv, Pkt, TPid, AppDict),
             DecPkt = decode(Aid, AppDict, RecvData, Pkt),
             Count andalso incr_error(recv, DecPkt, TPid, AppDict),
@@ -349,10 +369,19 @@ recv_request(Ack,
                         Dict0,
                         RecvData,
                         DecPkt,
-                        [[]]);
-        false = No ->  %% transport has gone down
-            No
+                        [[]])
     end.
+
+%% find_app/3
+%%
+%% Lookup the application of a received Diameter request on the node
+%% on which it's received.
+
+find_app(TPid,
+         #diameter_packet{header = #diameter_header{application_id = Id}},
+         #recvdata{peerT = PeerT,
+                   apps = Apps}) ->
+    diameter_service:find_incoming_app(PeerT, TPid, Id, Apps).
 
 %% decode/4
 

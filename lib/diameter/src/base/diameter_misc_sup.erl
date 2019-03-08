@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
                    diameter_stats,     %% statistics counter management
                    diameter_reg,       %% service/property publishing
                    diameter_peer,      %% remote peer manager
+                   diameter_dist,      %% request distribution
                    diameter_config]).  %% configuration/restart
 
 %% start_link/0

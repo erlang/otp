@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@
 %%
 
 %%
-%% Tests of traffic between two Diameter nodes, the client being
+%% Tests of traffic between two Diameter nodes, the server being
 %% spread across three Erlang nodes.
 %%
 
--module(diameter_distribution_SUITE).
+-module(diameter_dist_SUITE).
 
 -export([suite/0,
          all/0]).
@@ -33,20 +33,17 @@
          ping/1,
          start/1,
          connect/1,
-         send_local/1,
-         send_remote/1,
-         send_timeout/1,
-         send_failover/1,
+         send/1,
          stop/1, stop/0]).
 
 %% diameter callbacks
 -export([peer_up/3,
          peer_down/3,
-         pick_peer/5,
-         prepare_request/4,
-         prepare_retransmit/4,
-         handle_answer/5,
-         handle_error/5,
+         pick_peer/4,
+         prepare_request/3,
+         prepare_retransmit/3,
+         handle_answer/4,
+         handle_error/4,
          handle_request/3]).
 
 -export([call/1]).
@@ -73,11 +70,9 @@
          {'Product-Name', "OTP/diameter"},
          {'Auth-Application-Id', [?DICT:id()]},
          {'Origin-State-Id', origin()},
-         {share_peers, peers()},
-         {use_shared_peers, peers()},
-         {restrict_connections, false},
-         {spawn_opt, {diameter_dist, spawn_local, []}},
+         {spawn_opt, {diameter_dist, route_session, [#{id => []}]}},
          {sequence, fun sequence/0},
+         {string_decode, false},
          {application, [{dictionary, ?DICT},
                         {module, ?MODULE},
                         {request_errors, callback},
@@ -93,11 +88,12 @@
 -define(A, list_to_atom).
 
 %% The order here is significant and causes the server to listen
-%% before the clients connect.
--define(NODES, [{server, ?SERVER},
-                {client0, ?CLIENT},
-                {client1, ?CLIENT},
-                {client2, ?CLIENT}]).
+%% before the clients connect. The server listens on the first node,
+%% and distributes requests to the other two.
+-define(NODES, [{server0, ?SERVER},
+                {server1, ?SERVER},
+                {server2, ?SERVER},
+                {client, ?CLIENT}]).
 
 %% Options to ct_slave:start/2.
 -define(TIMEOUTS, [{T, 15000} || T <- [boot_timeout,
@@ -114,10 +110,7 @@ all() ->
      ping,
      start,
      connect,
-     send_local,
-     send_remote,
-     send_timeout,
-     send_failover,
+     send,
      stop].
 
 %% ===========================================================================
@@ -125,8 +118,8 @@ all() ->
 
 %% enslave/1
 %%
-%% Start four slave nodes, one to implement a Diameter server,
-%% three to implement a client.
+%% Start four slave nodes, three to implement a Diameter server,
+%% one to implement a client.
 
 enslave() ->
     [{timetrap, {seconds, 30*length(?NODES)}}].
@@ -149,21 +142,18 @@ add_pathsa(_, No) ->
 
 %% ping/1
 %%
-%% Ensure the client nodes are connected since the sharing of
-%% transports is only between connected nodes.
+%% Ensure the server nodes are connected so that diameter_dist can attach.
 
-ping({?SERVER, _Nodes}) ->
-    [];
-
-ping({?CLIENT, Nodes}) ->
+ping({S, Nodes}) ->
+    ?SERVER = S,
     [N || {N,_} <- Nodes,
           node() /= N,
           pang <- [net_adm:ping(N)]];
 
 ping(Config) ->
-    Nodes = ?util:read_priv(Config, nodes),
+    Nodes = lists:droplast(?util:read_priv(Config, nodes)),
     [] = [{N,RC} || {N,S} <- Nodes,
-                    RC <- [rpc:call(N, ?MODULE, ping, [{S, Nodes}])],
+                    RC <- [rpc:call(N, ?MODULE, ping, [{S,Nodes}])],
                     RC /= []].
 
 %% start/1
@@ -184,46 +174,42 @@ start(Config) ->
 sequence() ->
     sequence(sname()).
 
-sequence(server) ->
+sequence(client) ->
     {0,32};
-sequence(Client) ->
-    "client" ++ N = ?L(Client),
+sequence(Server) ->
+    "server" ++ N = ?L(Server),
     {list_to_integer(N), 30}.
 
 origin() ->
     origin(sname()).
 
-origin(server) ->
+origin(client) ->
     99;
-origin(Client) ->
-    "client" ++ N = ?L(Client),
+origin(Server) ->
+    "server" ++ N = ?L(Server),
     list_to_integer(N).
-
-peers() ->
-    peers(sname()).
-
-peers(server)  -> true;
-peers(client0) -> [node() | nodes()];
-peers(client1) -> fun erlang:nodes/0;
-peers(client2) -> nodes().
 
 %% connect/1
 %%
-%% Establish one connection to the server from each of the client
-%% nodes.
+%% Establish one connection from the client, terminated on the first
+%% server node, the others handling requests.
 
-connect({?SERVER, Config}) ->
-    ?util:write_priv(Config, lref, {node(), ?util:listen(?SERVER, tcp)}),
+connect({?SERVER, Config, [{Node, _} | _]}) ->
+    if Node == node() ->  %% server0
+            ?util:write_priv(Config, lref, {Node, ?util:listen(?SERVER, tcp)});
+       true ->
+            diameter_dist:attach([?SERVER])
+    end,
     ok;
 
-connect({?CLIENT, Config}) ->
+connect({?CLIENT, Config, _}) ->
     ?util:connect(?CLIENT, tcp, ?util:read_priv(Config, lref)),
     ok;
 
 connect(Config) ->
     Nodes = ?util:read_priv(Config, nodes),
     [] = [{N,RC} || {N,S} <- Nodes,
-                    RC <- [rpc:call(N, ?MODULE, connect, [{S,Config}])],
+                    RC <- [rpc:call(N, ?MODULE, connect, [{S, Config, Nodes}])],
                     RC /= ok].
 
 %% stop/1
@@ -240,38 +226,27 @@ stop(_Config) ->
 %% ===========================================================================
 %% traffic testcases
 
-%% send_local/1
+%% send/1
 %%
-%% Send a request from the first client node, using a the local
-%% transport.
+%% Send 100 requests and ensure the node name sent as User-Name isn't
+%% the node terminating transport.
 
-send_local(Config) ->
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Config, local, str(?LOGOUT)).
+send(Config) ->
+    send(Config, 100, dict:new()).
 
-%% send_remote/1
-%%
-%% Send a request from the first client node, using a transport on the
-%% another node.
+%% send/2
 
-send_remote(Config) ->
-    #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Config, remote, str(?LOGOUT)).
+send(Config, 0, Dict) ->
+    [{Server0, _} | _] = ?util:read_priv(Config, nodes) ,
+    Node = atom_to_binary(Server0, utf8),
+    {false, _} = {dict:is_key(Node, Dict), dict:to_list(Dict)};
 
-%% send_timeout/1
-%%
-%% Send a request that the server discards.
-
-send_timeout(Config) ->
-    {error, timeout} = send(Config, remote, str(?TIMEOUT)).
-
-%% send_failover/1
-%%
-%% Send a request that causes the server to remote transports down.
-
-send_failover(Config) ->
-    #'diameter_base_answer-message'{'Result-Code' = ?BUSY}
-        = send(Config, remote, str(?MOVED)).
+send(Config, N, Dict) ->
+    #diameter_base_STA{'Result-Code' = ?SUCCESS,
+                       'User-Name' = [ServerNode]}
+        = send(Config, str(?LOGOUT)),
+    true = is_binary(ServerNode),
+    send(Config, N-1, dict:update_counter(ServerNode, 1, Dict)).
 
 %% ===========================================================================
 
@@ -282,14 +257,14 @@ str(Cause) ->
 
 %% send/2
 
-send(Config, Where, Req) ->
-    [_, {Node, _} | _] = ?util:read_priv(Config, nodes) ,
-    rpc:call(Node, ?MODULE, call, [{Where, Req}]).
+send(Config, Req) ->
+    {Node, _} = lists:last(?util:read_priv(Config, nodes)),
+    rpc:call(Node, ?MODULE, call, [Req]).
 
 %% call/1
 
-call({Where, Req}) ->
-    diameter:call(?CLIENT, ?DICT, Req, [{extra, [{Where, sname()}]}]).
+call(Req) ->
+    diameter:call(?CLIENT, ?DICT, Req, []).
 
 %% sname/0
 
@@ -311,18 +286,12 @@ peer_down(_SvcName, _Peer, State) ->
 
 %% pick_peer/4
 
-pick_peer([LP], [_, _], ?CLIENT, _State, {local, client0}) ->
-    {ok, LP};
+pick_peer([Peer], [], ?CLIENT, _State) ->
+    {ok, Peer}.
 
-pick_peer([_], [RP | _], ?CLIENT, _State, {remote, client0}) ->
-    {ok, RP};
+%% prepare_request/3
 
-pick_peer([LP], [], ?CLIENT, _State, {remote, client0}) ->
-    {ok, LP}.
-
-%% prepare_request/4
-
-prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, {_, client0}) ->
+prepare_request(Pkt, ?CLIENT, {_Ref, Caps}) ->
     #diameter_packet{msg = Req}
         = Pkt,
     #diameter_caps{origin_host  = {OH, _},
@@ -332,51 +301,32 @@ prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, {_, client0}) ->
                                  'Origin-Realm' = OR,
                                  'Session-Id' = diameter:session_id(OH)}}.
 
-%% prepare_retransmit/4
+%% prepare_retransmit/3
 
-prepare_retransmit(Pkt, ?CLIENT, _, {_, client0}) ->
-    #diameter_packet{msg = #diameter_base_STR{'Termination-Cause' = ?MOVED}}
-        = Pkt,  %% assert
-    {send, Pkt}.
+prepare_retransmit(_, ?CLIENT, _) ->
+    discard.
 
 %% handle_answer/5
 
-handle_answer(Pkt, _Req, ?CLIENT, _Peer, {_, client0}) ->
+handle_answer(Pkt, _Req, ?CLIENT, _Peer) ->
     #diameter_packet{msg = Rec, errors = []} = Pkt,
     Rec.
 
 %% handle_error/5
 
-handle_error(Reason, _Req, ?CLIENT, _Peer, {_, client0}) ->
+handle_error(Reason, _Req, ?CLIENT, _Peer) ->
     {error, Reason}.
 
 %% handle_request/3
 
-handle_request(Pkt, ?SERVER, Peer) ->
-    server = sname(),  %% assert
-    #diameter_packet{msg = Req}
+handle_request(Pkt, ?SERVER, {_, Caps}) ->
+    #diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId}}
         = Pkt,
-    request(Req, Peer).
-
-request(#diameter_base_STR{'Termination-Cause' = ?TIMEOUT}, _) ->
-    discard;
-
-request(#diameter_base_STR{'Termination-Cause' = ?MOVED}, Peer) ->
-    {TPid, #diameter_caps{origin_state_id = {_, [N]}}} = Peer,
-    fail(N, TPid);
-
-request(#diameter_base_STR{'Session-Id' = SId}, {_, Caps}) ->
     #diameter_caps{origin_host  = {OH, _},
                    origin_realm = {OR, _}}
         = Caps,
     {reply, #diameter_base_STA{'Result-Code' = ?SUCCESS,
                                'Session-Id' = SId,
                                'Origin-Host' = OH,
-                               'Origin-Realm' = OR}}.
-
-fail(0, _) ->     %% sent from the originating node ...
-    {protocol_error, ?BUSY};
-
-fail(_, TPid) ->  %% ... or through a remote node: force failover
-    exit(TPid, kill),
-    discard.
+                               'Origin-Realm' = OR,
+                               'User-Name' = [atom_to_binary(node(), utf8)]}}.
