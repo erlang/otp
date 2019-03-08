@@ -55,30 +55,105 @@
        is stored in a sub map with the key <c>config</c>, and can contain the
        following parameters:</p>
     <taglist>
-      <tag><marker id="type"/><c>type</c></tag>
+      <tag><marker id="type"/><c>type = standard_io | standard_error | file</c></tag>
       <item>
-	<p>This has the value <c>standard_io</c>, <c>standard_error</c>,
-	<c>{file,LogFileName}</c>, or <c>{file,LogFileName,LogFileOpts}</c>.</p>
-	<p>If <c>LogFileOpts</c> is specified, it replaces the default
-	  list of options used when opening the log file. The default
-	  list is <c>[raw,append,delayed_write]</c>. One reason to do
-	  so can be to change <c>append</c> to, for
-	  example, <c>write</c>, ensuring that the old log is
-	  truncated when a node is restarted. See the reference manual
-	  for <seealso marker="file#open-2"><c>file:open/2</c></seealso>
-	  for more information about file options.</p>
-	<p>Log files are always UTF-8 encoded. The encoding can not be
-	  changed by setting the option <c>{encoding,Encoding}</c>
-	  in <c>LogFileOpts</c>.</p>
-	<p>Notice that the standard handler does not have support for
-	  circular logging. Use the disk_log handler,
-	  <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>,
-	  for this.</p>
+	<p>Specifies the log destination.</p>
 	<p>The value is set when the handler is added, and it can not
 	  be changed in runtime.</p>
-	<p>Defaults to <c>standard_io</c>.</p>
+	<p>Defaults to <c>standard_io</c>, unless
+	  parameter <seealso marker="#file"><c>file</c></seealso> is
+	  given, in which case it defaults to <c>file</c>.</p>
       </item>
-      <tag><c>filesync_repeat_interval</c></tag>
+      <tag><marker id="file"/><c>file = </c><seealso marker="file#type-filename"><c>file:filename()</c></seealso></tag>
+      <item>
+	<p>This specifies the name of the log file when the handler is
+	  of type <c>file</c>.</p>
+	<p>The value is set when the handler is added, and it can not
+	  be changed in runtime.</p>
+	<p>Defaults to the same name as the handler identity, in the
+	  current directory.</p>
+      </item>
+      <tag><marker id="modes"/><c>modes = [</c><seealso marker="file#type-mode"><c>file:mode()</c></seealso><c>]</c></tag>
+      <item>
+	<p>This specifies the file modes to use when opening the log
+	  file,
+	  see <seealso marker="file#open-2"><c>file:open/2</c></seealso>.
+	  If <c>modes</c> are not specified, the default list used
+	  is <c>[raw,append,delayed_write]</c>. If <c>modes</c> are
+	  specified, the list replaces the default modes list with the
+	  following adjustments:</p>
+	<list>
+	  <item>
+	    If <c>raw</c> is not found in the list, it is added.
+	  </item>
+	  <item>
+	    If none of <c>write</c>, <c>append</c> or <c>exclusive</c> is
+	    found in the list, <c>append</c> is added.</item>
+	  <item>If none of <c>delayed_write</c>
+	    or <c>{delayed_write,Size,Delay}</c> is found in the
+	    list, <c>delayed_write</c> is added.</item>
+	</list>
+	<p>Log files are always UTF-8 encoded. The encoding can not be
+	  changed by setting the mode <c>{encoding,Encoding}</c>.</p>
+	<p>The value is set when the handler is added, and it can not
+	  be changed in runtime.</p>
+	<p>Defaults to <c>[raw,append,delayed_write]</c>.</p>
+      </item>
+      <tag><marker id="max_no_bytes"/><c>max_no_bytes = pos_integer() | infinity</c></tag>
+      <item>
+	<p>This parameter specifies if the log file should be rotated
+	  or not. The value <c>infinity</c> means the log file will
+	  grow indefinitely, while an integer value specifies at which
+	  file size (bytes) the file is rotated.</p>
+	<p>Defaults to <c>infinity</c>.</p>
+      </item>
+      <tag><marker id="max_no_files"/><c>max_no_files = non_neg_integer()</c></tag>
+      <item>
+	<p>This parameter specifies the number of rotated log file
+	  archives to keep. This has meaning only
+	  if <seealso marker="#max_no_bytes"><c>max_no_bytes</c></seealso>
+	  is set to an integer value.</p>
+	<p>The log archives are
+	  named <c>FileName.0</c>, <c>FileName.1</c>,
+	  ... <c>FileName.N</c>, where <c>FileName</c> is the name of
+	  the current log file. <c>FileName.0</c> is the newest of the
+	  archives. The maximum value for <c>N</c> is the value
+	  of <c>max_no_files</c> minus 1.</p>
+	<p>Notice that setting this value to <c>0</c> does not turn of
+	  rotation. It only specifies that no archives are kept.</p>
+	<p>Defaults to <c>0</c>.</p>
+      </item>
+      <tag><marker id="compress_on_rotate"/><c>compress_on_rotate = boolean()</c></tag>
+      <item>
+	<p>This parameter specifies if the rotated log file archives
+	  shall be compressed or not. If set to <c>true</c>, all
+	  archives are compressed with <c>gzip</c>, and renamed
+	  to <c>FileName.N.gz</c></p>
+	<p><c>compress_on_rotate</c> has no meaning if <seealso
+	marker="#max_no_bytes"><c>max_no_bytes</c></seealso> has the
+	value <c>infinity</c>.</p>
+	<p>Defaults to <c>false</c>.</p>
+      </item>
+      <tag><marker id="file_check"/><c>file_check = non_neg_integer()</c></tag>
+      <item>
+	<p>When <c>logger_std_h</c> logs to a file, it reads the file
+	  information of the log file prior to each write
+	  operation. This is to make sure the file still exists and
+	  has the same inode as when it was opened. This implies some
+	  performance loss, but ensures that no log events are lost in
+	  the case when the file has been removed or renamed by an
+	  external actor.</p>
+	<p>In order to allow minimizing the performance loss, the
+	  <c>file_check</c> parameter can be set to a positive integer
+	  value, <c>N</c>. The handler will then skip reading the file
+	  information prior to writing, as long as no more
+	  than <c>N</c> milliseconds have passed since it was last
+	  read.</p>
+	<p>Notice that the risk of loosing log events grows when
+	  the <c>file_check</c> value grows.</p>
+	<p>Defaults to 0.</p>
+      </item>
+      <tag><c>filesync_repeat_interval = pos_integer() | no_repeat</c></tag>
       <item>
 	<p>This value, in milliseconds, specifies how often the handler does
 	a file sync operation to write buffered data to disk. The handler attempts
@@ -97,12 +172,13 @@
     standard handler and the disk_log handler, and are documented in the
     <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
     </seealso>.</p>
-    <p>Notice that if changing the configuration of the handler in runtime,
-    the <c>type</c> parameter must not be modified.</p>
+    <p>Notice that if changing the configuration of the handler in
+    runtime, the <c>type</c>, <c>file</c>, or <c>modes</c> parameters
+    must not be modified.</p>
     <p>Example of adding a standard handler:</p>
     <code type="none">
 logger:add_handler(my_standard_h, logger_std_h,
-                   #{config => #{type => {file,"./system_info.log"},
+                   #{config => #{file => "./system_info.log",
                                  filesync_repeat_interval => 1000}}).
     </code>
     <p>To set the default handler, that starts initially with
@@ -110,7 +186,7 @@ logger:add_handler(my_standard_h, logger_std_h,
     change the Kernel default logger configuration. Example:</p>
     <code type="none">
 erl -kernel logger '[{handler,default,logger_std_h,
-                      #{config => #{type => {file,"./log.log"}}}}]'
+                      #{config => #{file => "./log.log"}}}]'
     </code>
     <p>An example of how to replace the standard handler with a disk_log handler
     at startup is found in the
