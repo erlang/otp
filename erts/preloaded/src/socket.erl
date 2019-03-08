@@ -586,6 +586,12 @@
         #{level := integer(), type := integer(), data := binary()}.
 
 
+%% This is used in messages sent from the nif-code to erlang processes:
+%%
+%%         {?SOCKET_TAG, Socket, Tag, Info}
+%%
+-define(SOCKET_TAG, '$socket').
+
 -define(SOCKET_DOMAIN_LOCAL, 1).
 -define(SOCKET_DOMAIN_UNIX,  ?SOCKET_DOMAIN_LOCAL).
 -define(SOCKET_DOMAIN_INET,  2).
@@ -1347,7 +1353,7 @@ do_accept(LSockRef, Timeout) ->
                 {select, LSockRef, AccRef, ready_input} ->
                     do_accept(LSockRef, next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {AccRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {AccRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1424,7 +1430,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
                     do_send(SockRef, Data, EFlags,
                             next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {SendRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1437,7 +1443,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
                     do_send(SockRef, Data, EFlags,
                             next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {SendRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after Timeout ->
@@ -1529,7 +1535,7 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
                     do_sendto(SockRef, Data, Dest, EFlags,
                               next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {SendRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after Timeout ->
@@ -1543,7 +1549,7 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
                     do_sendto(SockRef, Data, Dest, EFlags, 
                               next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {SendRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after Timeout ->
@@ -1793,7 +1799,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                             Bin,
                             next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {RecvRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1813,7 +1819,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                             <<Acc/binary, Bin/binary>>,
                             next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {RecvRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1838,7 +1844,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                             Acc,
                             next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {RecvRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1977,7 +1983,7 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
                     do_recvfrom(SockRef, BufSz, EFlags,
                                 next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {RecvRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -2081,7 +2087,7 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
                     do_recvmsg(SockRef, BufSz, CtrlSz, EFlags,
                                next_timeout(TS, Timeout));
 
-                {'$socket', _, abort, {RecvRef, Reason}} ->
+                {?SOCKET_TAG, _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -2118,7 +2124,7 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
 %% 1) nif_close + the socket_stop (nif) callback function
 %%    This is for everything that can be done safely NON-BLOCKING.
 %% 2) nif_finalize_close which is executed by a *dirty* scheduler
-%%    Before we call the socket close function, we se the socket 
+%%    Before we call the socket close function, we set the socket 
 %%    BLOCKING. Thereby linger is handled properly.
 
 
@@ -2137,7 +2143,7 @@ do_close(SockRef) ->
             %% We must wait for the socket_stop callback function to 
             %% complete its work
             receive
-                {'$socket', SockRef, close, CloseRef} ->
+                {?SOCKET_TAG, #socket{ref = SockRef}, close, CloseRef} ->
                     nif_finalize_close(SockRef)
             end;
         {error, _} = ERROR ->

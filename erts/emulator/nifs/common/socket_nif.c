@@ -2428,6 +2428,9 @@ static char* esock_send_msg(ErlNifEnv*   env,
                             ErlNifPid*   pid,
                             ErlNifEnv* msg_env);
 
+static ERL_NIF_TERM make_socket_record(ErlNifEnv*   env,
+                                       ERL_NIF_TERM sockRef);
+
 static int esock_select_read(ErlNifEnv*       env,
                              ErlNifEvent      event,
                              void*            obj,
@@ -16851,45 +16854,10 @@ size_t my_strnlen(const char *s, size_t maxlen)
 #endif
 
 
-/* Send an error closed message to the specified process:
- *
- * This message is for processes that are waiting in the
- * erlang API functions for a select message.
- */
-/*
-static
-char* send_msg_error_closed(ErlNifEnv* env,
-                            ErlNifPid* pid)
-{
-  return send_msg_error(env, atom_closed, pid);
-}
-*/
-
-/* Send an error message to the specified process:
- * A message in the form:
- *
- *     {error, Reason}
- *
- * This message is for processes that are waiting in the
- * erlang API functions for a select message.
- */
-/*
-static
-char* send_msg_error(ErlNifEnv*   env,
-                     ERL_NIF_TERM reason,
-                     ErlNifPid*   pid)
-{
-    ERL_NIF_TERM msg = enif_make_tuple2(env, atom_error, reason);
-
-    return send_msg(env, msg, pid);
-}
-*/
-
-
 /* Send an close message to the specified process:
  * A message in the form:
  *
- *     {'$socket', SockRef, close, CloseRef}
+ *     {'$socket', Socket, close, CloseRef}
  *
  * This message is for processes that is waiting in the
  * erlang API (close-) function for the socket to be "closed"
@@ -16919,7 +16887,7 @@ char* esock_send_close_msg(ErlNifEnv*        env,
 /* Send an abort message to the specified process:
  * A message in the form:
  *
- *     {'$socket', SockRef, abort, {RecvRef, Reason}}
+ *     {'$socket', Socket, abort, {RecvRef, Reason}}
  *
  * This message is for processes that is waiting in the
  * erlang API functions for a select message.
@@ -16946,10 +16914,11 @@ char* esock_send_abort_msg(ErlNifEnv*   env,
  * This function sends a general purpose socket message to an erlang
  * process. A general 'socket' message has the ("erlang") form: 
  *
- *      {'$socket', SockRef, Tag, Info}
+ *      {'$socket', Socket, Tag, Info}
  *
  * Where
  *
+ *   Socket:  #socket{ref = SockRef} ({socket, SockRef})
  *   SockRef: reference()
  *   Tag:     atom()
  *   Info:    term()
@@ -16962,18 +16931,26 @@ char* esock_send_socket_msg(ErlNifEnv*   env,
                             ERL_NIF_TERM tag,
                             ERL_NIF_TERM info,
                             ErlNifPid*   pid,
-                            ErlNifEnv*   msg_env)
+                            ErlNifEnv*   msgEnv)
 {
+    ErlNifEnv*   menv;
+    ERL_NIF_TERM msock, mtag, minfo;
     ERL_NIF_TERM msg;
-    if (!msg_env) {
-        msg_env = enif_alloc_env();
-        sockRef = enif_make_copy(msg_env, sockRef);
-        tag = enif_make_copy(msg_env, tag);
-        info = enif_make_copy(msg_env, info);
-    }
-    msg = MKT4(msg_env, esock_atom_socket_tag, sockRef, tag, info);
 
-    return esock_send_msg(env, msg, pid, msg_env);
+    if (msgEnv == NULL) {
+        menv  = enif_alloc_env();
+        msock = make_socket_record(menv, enif_make_copy(menv, sockRef));
+        mtag  = enif_make_copy(menv, tag);
+        minfo = enif_make_copy(menv, info);
+    } else {
+        menv  = msgEnv;
+        msock = make_socket_record(menv, sockRef);
+        mtag  = tag;
+        minfo = info;
+    }
+    msg = MKT4(menv, esock_atom_socket_tag, socket, mtag, minfo);
+
+    return esock_send_msg(env, msg, pid, menv);
 }
 
 
@@ -16997,6 +16974,21 @@ char* esock_send_msg(ErlNifEnv*   env,
 #endif // #if defined(__WIN32__)
 
 
+/* *** make_socket_record ***
+ *
+ * Simple utility function that construct the socket resord:
+ *
+ *      #socket{ref = SockRef} => {socket, SockRef :: reference()}
+ */
+static
+ERL_NIF_TERM make_socket_record(ErlNifEnv*   env,
+                                ERL_NIF_TERM sockRef)
+{
+    return MKT2(env, esock_atom_socket, sockRef);
+}
+
+
+                              
 /* ----------------------------------------------------------------------
  *  S e l e c t   W r a p p e r   F u n c t i o n s
  * ----------------------------------------------------------------------
