@@ -1425,7 +1425,7 @@ load_atom_table(LoaderState* stp, ErtsAtomEncoding enc)
 	ap = atom_tab(atom_val(stp->atom[1]));
 	sys_memcpy(sbuf, ap->name, ap->len);
 	sbuf[ap->len] = '\0';
-	LoadError1(stp, "module name in object code is %s", sbuf);
+	LoadError1(stp, "BEAM file exists but it defines a module named %s", sbuf);
     }
 
     return 1;
