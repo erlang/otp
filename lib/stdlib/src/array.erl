@@ -126,8 +126,8 @@
 %% per write than base 10, but the speedup is only 21%.)
 
 -define(DEFAULT, undefined).
--define(LEAFSIZE, 10).		% the "base"
--define(NODESIZE, ?LEAFSIZE).   % (no reason to have a different size)
+-define(LEAFSIZE, 10).         % the "base" (assumed to be > 1)
+-define(NODESIZE, ?LEAFSIZE).  % must not be LEAFSIZE-1; keep same as leaf
 -define(NODEPATTERN(S), {_,_,_,_,_,_,_,_,_,_,S}). % NODESIZE+1 elements!
 -define(NEW_NODE(E,S),  % general case (currently unused)
         setelement((?NODESIZE+1),erlang:make_tuple((?NODESIZE+1),(E)),(S))).
