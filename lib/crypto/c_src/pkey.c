@@ -719,6 +719,11 @@ enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
     if (pkey)
         EVP_PKEY_free(pkey);
 
+#ifdef HAVE_EDDSA
+    if (mdctx)
+        EVP_MD_CTX_free(mdctx);
+#endif
+
     return ret;
 }
 
