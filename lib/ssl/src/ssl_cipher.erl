@@ -45,7 +45,7 @@
 	 random_bytes/1, calc_mac_hash/4, calc_mac_hash/6,
          is_stream_ciphersuite/1, signature_scheme/1,
          scheme_to_components/1, hash_size/1, effective_key_bits/1,
-         key_material/1]).
+         key_material/1, signature_algorithm_to_scheme/1]).
 
 %% RFC 8446 TLS 1.3
 -export([generate_client_shares/1, generate_server_share/1, add_zero_padding/2]).
@@ -899,6 +899,18 @@ scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pkcs1_sha1) -> {sha1, rsa_pkcs1, undefined};
 scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined}.
+
+
+%% TODO: Add support for EC and RSA-SSA signatures
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha1WithRSAEncryption}) ->
+    rsa_pkcs1_sha1;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha256WithRSAEncryption}) ->
+    rsa_pkcs1_sha256;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha384WithRSAEncryption}) ->
+    rsa_pkcs1_sha384;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha512WithRSAEncryption}) ->
+    rsa_pkcs1_sha512.
+
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%

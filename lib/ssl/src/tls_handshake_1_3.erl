@@ -503,7 +503,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         {Ref, no_suitable_cipher} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
         {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
         {Ref, {insufficient_security, no_suitable_public_key}} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)
     end.
@@ -589,6 +589,8 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
             {?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason), State};
         {Ref, {{internal_error, Reason}, State}} ->
             {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), State};
+        {Ref, {{handshake_failure, Reason}, State}} ->
+            {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason), State};
         {#alert{} = Alert, State} ->
             {Alert, State}
     end.
@@ -723,7 +725,9 @@ process_client_certificate(#certificate_1_3{
     State = ssl_record:step_encryption_state(State1),
     {error, {certificate_required, State}};
 process_client_certificate(#certificate_1_3{certificate_list = Certs0},
-                           #state{ssl_options = SslOptions,
+                           #state{ssl_options =
+                                      #ssl_options{signature_algs = SignAlgs,
+                                                   signature_algs_cert = SignAlgsCert} = SslOptions,
                                   static_env =
                                       #static_env{
                                          role = Role,
@@ -735,21 +739,42 @@ process_client_certificate(#certificate_1_3{certificate_list = Certs0},
 
     %% Remove extensions from list of certificates!
     Certs = convert_certificate_chain(Certs0),
-
-    case validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
-                                    SslOptions, CRLDbHandle, Role, Host) of
-        {ok, {PeerCert, PublicKeyInfo}} ->
-            State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
-            {ok, {State, wait_cv}};
-        {error, Reason} ->
+    case is_supported_signature_algorithm(Certs, SignAlgs, SignAlgsCert) of
+        true ->
+            case validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
+                                            SslOptions, CRLDbHandle, Role, Host) of
+                {ok, {PeerCert, PublicKeyInfo}} ->
+                    State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
+                    {ok, {State, wait_cv}};
+                {error, Reason} ->
+                    State1 = calculate_traffic_secrets(State0),
+                    State = ssl_record:step_encryption_state(State1),
+                    {error, {Reason, State}};
+                #alert{} = Alert ->
+                    State1 = calculate_traffic_secrets(State0),
+                    State = ssl_record:step_encryption_state(State1),
+                    {Alert, State}
+            end;
+        false ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
-            {error, {Reason, State}};
-        #alert{} = Alert ->
-            State1 = calculate_traffic_secrets(State0),
-            State = ssl_record:step_encryption_state(State1),
-            {Alert, State}
+            {error, {{handshake_failure,
+                      "Client certificate uses unsupported signature algorithm"}, State}}
     end.
+
+
+%% TODO: check whole chain!
+is_supported_signature_algorithm(Certs, SignAlgs, undefined) ->
+    is_supported_signature_algorithm(Certs, SignAlgs);
+is_supported_signature_algorithm(Certs, _, SignAlgsCert) ->
+    is_supported_signature_algorithm(Certs, SignAlgsCert).
+%%
+is_supported_signature_algorithm([BinCert|_], SignAlgs0) ->
+    #'OTPCertificate'{signatureAlgorithm = SignAlg} =
+        public_key:pkix_decode_cert(BinCert, otp),
+    SignAlgs = filter_tls13_algs(SignAlgs0),
+    Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
+    lists:member(Scheme, SignAlgs).
 
 
 validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHandle, Role, Host) ->
