@@ -81,14 +81,6 @@ static BIF_RETTYPE db_bif_fail(Process* p, Uint freason,
 /* Get a key from any table structure and a tagged object */
 #define TERM_GETKEY(tb, obj) db_getkey((tb)->common.keypos, (obj)) 
 
- 
-/* How safe are we from double-hits or missed objects
-** when iterating without fixation? */ 
-enum DbIterSafety {
-    ITER_UNSAFE,      /* Must fixate to be safe */
-    ITER_SAFE_LOCKED, /* Safe while table is locked, not between trap calls */
-    ITER_SAFE         /* No need to fixate at all */
-};
 #  define ITERATION_SAFETY(Proc,Tab) \
     ((IS_TREE_TABLE((Tab)->common.status) || IS_CATREE_TABLE((Tab)->common.status) \
       || ONLY_WRITER(Proc,Tab)) ? ITER_SAFE                             \
@@ -195,9 +187,6 @@ static int fixed_tabs_find(DbFixation* first, DbFixation* fix)
 #define ERTS_RBT_WANT_DELETE
 #define ERTS_RBT_WANT_FOREACH
 #define ERTS_RBT_WANT_FOREACH_DESTROY
-#ifdef DEBUG
-# define ERTS_RBT_WANT_LOOKUP
-#endif
 #define ERTS_RBT_UNDEF
 
 #include "erl_rbtree.h"
@@ -2287,6 +2276,7 @@ static BIF_RETTYPE ets_select_delete_trap_1(BIF_ALIST_1)
     Eterm ret;
     Eterm *tptr;
     db_lock_kind_t kind = LCK_WRITE_REC;
+    enum DbIterSafety safety = ITER_SAFE;
 
     CHECK_TABLES();
     ASSERT(is_tuple(a1));
@@ -2296,10 +2286,11 @@ static BIF_RETTYPE ets_select_delete_trap_1(BIF_ALIST_1)
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_WRITE, kind,
                       &ets_select_delete_continue_exp);
 
-    cret = tb->common.meth->db_select_delete_continue(p,tb,a1,&ret);
+    cret = tb->common.meth->db_select_delete_continue(p,tb,a1,&ret,&safety);
 
-    if(!DID_TRAP(p,ret) && ITERATION_SAFETY(p,tb) != ITER_SAFE) {  
-	unfix_table_locked(p, tb, &kind);
+    if(!DID_TRAP(p,ret) && safety != ITER_SAFE) {
+        ASSERT(erts_refc_read(&tb->common.fix_count,1));
+        unfix_table_locked(p, tb, &kind);
     }
 
     db_unlock(tb, kind);
@@ -2337,7 +2328,8 @@ BIF_RETTYPE ets_internal_select_delete_2(BIF_ALIST_2)
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select_delete(BIF_P, tb, BIF_ARG_1, BIF_ARG_2, &ret);
+    cret = tb->common.meth->db_select_delete(BIF_P, tb, BIF_ARG_1, BIF_ARG_2,
+                                             &ret, safety);
 
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
 	fix_table_locked(BIF_P,tb);
@@ -2729,7 +2721,7 @@ ets_select3(Process* p, DbTable* tb, Eterm tid, Eterm ms, Sint chunk_size)
     cret = tb->common.meth->db_select_chunk(p, tb, tid,
 					    ms, chunk_size,
 					    0 /* not reversed */,
-					    &ret);
+					    &ret, safety);
     if (DID_TRAP(p,ret) && safety != ITER_SAFE) {
 	fix_table_locked(p, tb);
     }
@@ -2756,7 +2748,8 @@ ets_select3(Process* p, DbTable* tb, Eterm tid, Eterm ms, Sint chunk_size)
 }
 
 
-/* We get here instead of in the real BIF when trapping */
+/* Trap here from: ets_select_1/2/3
+ */
 static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1)
 {
     Process *p = BIF_P;
@@ -2767,6 +2760,7 @@ static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1)
     Eterm ret;
     Eterm *tptr;
     db_lock_kind_t kind = LCK_READ;
+    enum DbIterSafety safety = ITER_SAFE;
 
     CHECK_TABLES();
 
@@ -2776,11 +2770,13 @@ static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1)
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_READ, kind,
                       &ets_select_continue_exp);
 
-    cret = tb->common.meth->db_select_continue(p, tb, a1,
-					       &ret);
+    cret = tb->common.meth->db_select_continue(p, tb, a1, &ret, &safety);
 
-    if (!DID_TRAP(p,ret) && ITERATION_SAFETY(p,tb) != ITER_SAFE) {
-	unfix_table_locked(p, tb, &kind);
+    if (!DID_TRAP(p,ret)) {
+        if (safety != ITER_SAFE) {
+            ASSERT(erts_refc_read(&tb->common.fix_count,1));
+            unfix_table_locked(p, tb, &kind);
+        }
     }
     db_unlock(tb, kind);
 
@@ -2805,8 +2801,12 @@ static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1)
 BIF_RETTYPE ets_select_1(BIF_ALIST_1)
 {
     return ets_select1(BIF_P, BIF_ets_select_1, BIF_ARG_1);
+    /* TRAP: ets_select_trap_1 */
 }
 
+/*
+ * Common impl for select/1, select_reverse/1, match/1 and match_object/1
+ */
 static BIF_RETTYPE ets_select1(Process *p, int bif_ix, Eterm arg1)
 {
     BIF_RETTYPE result;
@@ -2814,7 +2814,7 @@ static BIF_RETTYPE ets_select1(Process *p, int bif_ix, Eterm arg1)
     int cret;
     Eterm ret;
     Eterm *tptr;
-    enum DbIterSafety safety;
+    enum DbIterSafety safety, safety_copy;
 
     CHECK_TABLES();
 
@@ -2839,7 +2839,8 @@ static BIF_RETTYPE ets_select1(Process *p, int bif_ix, Eterm arg1)
 	local_fix_table(tb);
     }
 
-    cret = tb->common.meth->db_select_continue(p,tb, arg1, &ret);
+    safety_copy = safety;
+    cret = tb->common.meth->db_select_continue(p,tb, arg1, &ret, &safety_copy);
 
     if (DID_TRAP(p,ret) && safety != ITER_SAFE) {
 	fix_table_locked(p, tb);
@@ -2871,6 +2872,7 @@ BIF_RETTYPE ets_select_2(BIF_ALIST_2)
     DbTable* tb;
     DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_select_2);
     return ets_select2(BIF_P, tb, BIF_ARG_1, BIF_ARG_2);
+    /* TRAP: ets_select_trap_1 */
 }
 
 static BIF_RETTYPE
@@ -2888,7 +2890,7 @@ ets_select2(Process* p, DbTable* tb, Eterm tid, Eterm ms)
 	local_fix_table(tb);
     }
 
-    cret = tb->common.meth->db_select(p, tb, tid, ms, 0, &ret);
+    cret = tb->common.meth->db_select(p, tb, tid, ms, 0, &ret, safety);
 
     if (DID_TRAP(p,ret) && safety != ITER_SAFE) {
 	fix_table_locked(p, tb);
@@ -2926,6 +2928,7 @@ static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1)
     Eterm ret;
     Eterm *tptr;
     db_lock_kind_t kind = LCK_READ;
+    enum DbIterSafety safety = ITER_SAFE;
 
     CHECK_TABLES();
 
@@ -2935,9 +2938,10 @@ static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1)
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_READ, kind,
                       &ets_select_count_continue_exp);
 
-    cret = tb->common.meth->db_select_count_continue(p, tb, a1, &ret);
+    cret = tb->common.meth->db_select_count_continue(p, tb, a1, &ret, &safety);
 
-    if (!DID_TRAP(p,ret) && ITERATION_SAFETY(p,tb) != ITER_SAFE) {
+    if (!DID_TRAP(p,ret) && safety != ITER_SAFE) {
+        ASSERT(erts_refc_read(&tb->common.fix_count,1));
 	unfix_table_locked(p, tb, &kind);
     }
     db_unlock(tb, kind);
@@ -2975,7 +2979,8 @@ BIF_RETTYPE ets_select_count_2(BIF_ALIST_2)
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select_count(BIF_P,tb, BIF_ARG_1, BIF_ARG_2, &ret);
+    cret = tb->common.meth->db_select_count(BIF_P,tb, BIF_ARG_1, BIF_ARG_2,
+                                            &ret, safety);
 
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
 	fix_table_locked(BIF_P, tb);
@@ -3014,6 +3019,7 @@ static BIF_RETTYPE ets_select_replace_1(BIF_ALIST_1)
     Eterm ret;
     Eterm *tptr;
     db_lock_kind_t kind = LCK_WRITE_REC;
+    enum DbIterSafety safety = ITER_SAFE;
 
     CHECK_TABLES();
     ASSERT(is_tuple(a1));
@@ -3023,9 +3029,10 @@ static BIF_RETTYPE ets_select_replace_1(BIF_ALIST_1)
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_WRITE, kind,
                       &ets_select_replace_continue_exp);
 
-    cret = tb->common.meth->db_select_replace_continue(p,tb,a1,&ret);
+    cret = tb->common.meth->db_select_replace_continue(p,tb,a1,&ret,&safety);
 
-    if(!DID_TRAP(p,ret) && ITERATION_SAFETY(p,tb) != ITER_SAFE) {
+    if(!DID_TRAP(p,ret) && safety != ITER_SAFE) {
+        ASSERT(erts_refc_read(&tb->common.fix_count,1));
         unfix_table_locked(p, tb, &kind);
     }
 
@@ -3068,7 +3075,8 @@ BIF_RETTYPE ets_select_replace_2(BIF_ALIST_2)
     if (safety == ITER_UNSAFE) {
         local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select_replace(BIF_P, tb, BIF_ARG_1, BIF_ARG_2, &ret);
+    cret = tb->common.meth->db_select_replace(BIF_P, tb, BIF_ARG_1, BIF_ARG_2,
+                                              &ret, safety);
 
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
         fix_table_locked(BIF_P,tb);
@@ -3120,7 +3128,7 @@ BIF_RETTYPE ets_select_reverse_3(BIF_ALIST_3)
     }
     cret = tb->common.meth->db_select_chunk(BIF_P,tb, BIF_ARG_1,
 					    BIF_ARG_2, chunk_size, 
-					    1 /* reversed */, &ret);
+					    1 /* reversed */, &ret, safety);
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
 	fix_table_locked(BIF_P, tb);
     }
@@ -3165,7 +3173,7 @@ BIF_RETTYPE ets_select_reverse_2(BIF_ALIST_2)
 	local_fix_table(tb);
     }
     cret = tb->common.meth->db_select(BIF_P,tb, BIF_ARG_1, BIF_ARG_2,
-				      1 /*reversed*/, &ret);
+				      1 /*reversed*/, &ret, safety);
 
     if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
 	fix_table_locked(BIF_P, tb);

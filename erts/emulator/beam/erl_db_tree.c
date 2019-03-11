@@ -397,24 +397,31 @@ static int db_erase_object_tree(DbTable *tbl, Eterm object,Eterm *ret);
 static int db_slot_tree(Process *p, DbTable *tbl, 
 			Eterm slot_term,  Eterm *ret);
 static int db_select_tree(Process *p, DbTable *tbl, Eterm tid,
-			  Eterm pattern, int reversed, Eterm *ret);
+			  Eterm pattern, int reversed, Eterm *ret,
+                          enum DbIterSafety);
 static int db_select_count_tree(Process *p, DbTable *tbl, Eterm tid,
-				Eterm pattern,  Eterm *ret);
+				Eterm pattern,  Eterm *ret, enum DbIterSafety);
 static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
 				Eterm pattern, Sint chunk_size,
-				int reversed, Eterm *ret);
+				int reversed, Eterm *ret, enum DbIterSafety);
 static int db_select_continue_tree(Process *p, DbTable *tbl,
-				   Eterm continuation, Eterm *ret);
+				   Eterm continuation, Eterm *ret,
+                                   enum DbIterSafety*);
 static int db_select_count_continue_tree(Process *p, DbTable *tbl,
-					 Eterm continuation, Eterm *ret);
+					 Eterm continuation, Eterm *ret,
+                                         enum DbIterSafety*);
 static int db_select_delete_tree(Process *p, DbTable *tbl, Eterm tid,
-				 Eterm pattern,  Eterm *ret);
+				 Eterm pattern,  Eterm *ret,
+                                 enum DbIterSafety);
 static int db_select_delete_continue_tree(Process *p, DbTable *tbl, 
-					  Eterm continuation, Eterm *ret);
+					  Eterm continuation, Eterm *ret,
+                                          enum DbIterSafety*);
 static int db_select_replace_tree(Process *p, DbTable *tbl, Eterm tid,
-                                  Eterm pattern, Eterm *ret);
+                                  Eterm pattern, Eterm *ret,
+                                  enum DbIterSafety);
 static int db_select_replace_continue_tree(Process *p, DbTable *tbl,
-                                           Eterm continuation, Eterm *ret);
+                                           Eterm continuation, Eterm *ret,
+                                           enum DbIterSafety*);
 static int db_take_tree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_tree(fmtfn_t to, void *to_arg,
 			  int show, DbTable *tbl);
@@ -1160,7 +1167,8 @@ int db_select_continue_tree_common(Process *p,
 static int db_select_continue_tree(Process *p, 
 				   DbTable *tbl,
 				   Eterm continuation,
-				   Eterm *ret)
+				   Eterm *ret,
+                                   enum DbIterSafety* safety_p)
 {
     DbTableTree *tb = &tbl->tree;
     return db_select_continue_tree_common(p, &tb->common,
@@ -1297,7 +1305,8 @@ int db_select_tree_common(Process *p, DbTable *tb,
 }
 
 static int db_select_tree(Process *p, DbTable *tbl, Eterm tid,
-			  Eterm pattern, int reverse, Eterm *ret)
+			  Eterm pattern, int reverse, Eterm *ret,
+                          enum DbIterSafety safety)
 {
     return db_select_tree_common(p, tbl, tid,
                                  pattern, reverse, ret, &tbl->tree, NULL);
@@ -1408,7 +1417,8 @@ int db_select_count_continue_tree_common(Process *p,
 static int db_select_count_continue_tree(Process *p, 
                                          DbTable *tbl,
                                          Eterm continuation,
-                                         Eterm *ret)
+                                         Eterm *ret,
+                                         enum DbIterSafety* safety_p)
 {
     DbTableTree *tb = &tbl->tree;
     return db_select_count_continue_tree_common(p, tbl,
@@ -1527,7 +1537,8 @@ int db_select_count_tree_common(Process *p, DbTable *tb,
 }
 
 static int db_select_count_tree(Process *p, DbTable *tbl, Eterm tid,
-                                Eterm pattern, Eterm *ret)
+                                Eterm pattern, Eterm *ret,
+                                enum DbIterSafety safety)
 {
     DbTableTree *tb = &tbl->tree;
     return db_select_count_tree_common(p, tbl,
@@ -1704,7 +1715,7 @@ int db_select_chunk_tree_common(Process *p, DbTable *tb,
 static int db_select_chunk_tree(Process *p, DbTable *tbl, Eterm tid,
                                 Eterm pattern, Sint chunk_size,
                                 int reverse,
-                                Eterm *ret)
+                                Eterm *ret, enum DbIterSafety safety)
 {
     DbTableTree *tb = &tbl->tree;
     return db_select_chunk_tree_common(p, tbl,
@@ -1813,7 +1824,8 @@ int db_select_delete_continue_tree_common(Process *p,
 static int db_select_delete_continue_tree(Process *p, 
 					  DbTable *tbl,
 					  Eterm continuation,
-					  Eterm *ret)
+					  Eterm *ret,
+                                          enum DbIterSafety* safety_p)
 {
     DbTableTree *tb = &tbl->tree;
     ASSERT(!erts_atomic_read_nob(&tb->is_stack_busy));
@@ -1942,7 +1954,8 @@ int db_select_delete_tree_common(Process *p, DbTable *tbl,
 }
 
 static int db_select_delete_tree(Process *p, DbTable *tbl, Eterm tid,
-				 Eterm pattern, Eterm *ret)
+				 Eterm pattern, Eterm *ret,
+                                 enum DbIterSafety safety)
 {
     DbTableTree *tb = &tbl->tree;
     return db_select_delete_tree_common(p, tbl, tid, pattern, ret,
@@ -2052,7 +2065,8 @@ int db_select_replace_continue_tree_common(Process *p,
 static int db_select_replace_continue_tree(Process *p,
                                            DbTable *tbl,
                                            Eterm continuation,
-                                           Eterm *ret)
+                                           Eterm *ret,
+                                           enum DbIterSafety* safety_p)
 {
     return db_select_replace_continue_tree_common(p, tbl, continuation, ret,
                                                   &tbl->tree, NULL);
@@ -2177,7 +2191,8 @@ int db_select_replace_tree_common(Process *p, DbTable *tbl,
 }
 
 static int db_select_replace_tree(Process *p, DbTable *tbl, Eterm tid,
-                                  Eterm pattern, Eterm *ret)
+                                  Eterm pattern, Eterm *ret,
+                                  enum DbIterSafety safety)
 {
     return db_select_replace_tree_common(p, tbl, tid, pattern, ret,
                                          &tbl->tree, NULL);

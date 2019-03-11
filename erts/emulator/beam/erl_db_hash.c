@@ -404,26 +404,31 @@ static int db_slot_hash(Process *p, DbTable *tbl,
 
 static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid,
 				Eterm pattern, Sint chunk_size,
-				int reverse, Eterm *ret);
+				int reverse, Eterm *ret, enum DbIterSafety);
 static int db_select_hash(Process *p, DbTable *tbl, Eterm tid,
-			  Eterm pattern, int reverse, Eterm *ret);
+			  Eterm pattern, int reverse, Eterm *ret,
+                          enum DbIterSafety);
 static int db_select_continue_hash(Process *p, DbTable *tbl,
-				   Eterm continuation, Eterm *ret);
+				   Eterm continuation, Eterm *ret,
+                                   enum DbIterSafety*);
 
 static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid,
-				Eterm pattern, Eterm *ret);
+				Eterm pattern, Eterm *ret, enum DbIterSafety);
 static int db_select_count_continue_hash(Process *p, DbTable *tbl,
-					 Eterm continuation, Eterm *ret);
-
+					 Eterm continuation, Eterm *ret,
+                                         enum DbIterSafety*);
 static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
-				 Eterm pattern, Eterm *ret);
+				 Eterm pattern, Eterm *ret,
+                                 enum DbIterSafety);
 static int db_select_delete_continue_hash(Process *p, DbTable *tbl,
-					  Eterm continuation, Eterm *ret);
+					  Eterm continuation, Eterm *ret,
+                                          enum DbIterSafety*);
 
 static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid,
-                                  Eterm pattern, Eterm *ret);
+                                  Eterm pattern, Eterm *ret, enum DbIterSafety);
 static int db_select_replace_continue_hash(Process *p, DbTable *tbl,
-                                           Eterm continuation, Eterm *ret);
+                                           Eterm continuation, Eterm *ret,
+                                           enum DbIterSafety*);
 
 static int db_take_hash(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_hash(fmtfn_t to,
@@ -535,7 +540,7 @@ DbTableMethod db_hash =
     db_select_chunk_hash,
     db_select_hash,
     db_select_delete_hash,
-    db_select_continue_hash, /* hmm continue_hash? */
+    db_select_continue_hash,
     db_select_delete_continue_hash,
     db_select_count_hash,
     db_select_count_continue_hash,
@@ -1209,6 +1214,7 @@ struct traverse_context_t_
     DbTableHash* tb;
     Eterm tid;
     Eterm* prev_continuation_tptr;
+    enum DbIterSafety safety;
 };
 
 
@@ -1476,11 +1482,11 @@ static ERTS_INLINE int on_simple_trap(Export* trap_function,
 
     BUMP_ALL_REDS(ctx->p);
     if (IS_USMALL(0, got)) {
-	hp = HAllocX(ctx->p,  base_halloc_sz + 5, ERTS_MAGIC_REF_THING_SIZE);
+	hp = HAllocX(ctx->p,  base_halloc_sz + 6, ERTS_MAGIC_REF_THING_SIZE);
 	egot = make_small(got);
     }
     else {
-	hp = HAllocX(ctx->p, base_halloc_sz + BIG_UINT_HEAP_SIZE + 5,
+	hp = HAllocX(ctx->p, base_halloc_sz + BIG_UINT_HEAP_SIZE + 6,
                      ERTS_MAGIC_REF_THING_SIZE);
 	egot = uint_to_big(got, hp);
 	hp += BIG_UINT_HEAP_SIZE;
@@ -1497,12 +1503,13 @@ static ERTS_INLINE int on_simple_trap(Export* trap_function,
         mpb = ctx->prev_continuation_tptr[3];
     }
 
-    continuation = TUPLE4(
+    continuation = TUPLE5(
             hp,
             ctx->tid,
             make_small(slot_ix),
             mpb,
-            egot);
+            egot,
+            make_small(ctx->safety));
     ERTS_BIF_PREP_TRAP1(*ret, trap_function, ctx->p, continuation);
     return DB_ERROR_NONE;
 }
@@ -1512,17 +1519,18 @@ static ERTS_INLINE int unpack_simple_continuation(Eterm continuation,
                                                   Eterm* tid_ptr,
                                                   Sint* slot_ix_p,
                                                   Binary** mpp,
-                                                  Sint* got_p)
+                                                  Sint* got_p,
+                                                  enum DbIterSafety* safety_p)
 {
     Eterm* tptr;
     ASSERT(is_tuple(continuation));
     tptr = tuple_val(continuation);
-    if (arityval(*tptr) != 4)
+    if (*tptr != make_arityval(5))
         return 1;
 
-    if (! is_small(tptr[2]) || !(is_big(tptr[4]) || is_small(tptr[4]))) {
+    if (!is_small(tptr[2]) || !(is_big(tptr[4]) || is_small(tptr[4]))
+        || !is_small(tptr[5]))
         return 1;
-    }
 
     *tptr_ptr = tptr;
     *tid_ptr = tptr[1];
@@ -1534,6 +1542,7 @@ static ERTS_INLINE int unpack_simple_continuation(Eterm continuation,
     else {
         *got_p = unsigned_val(tptr[4]);
     }
+    *safety_p = signed_val(tptr[5]);
     return 0;
 }
 
@@ -1657,32 +1666,34 @@ static int select_chunk_on_trap(traverse_context_t* ctx_base,
     if (ctx->base.prev_continuation_tptr == NULL) {
         Eterm tid = ctx->base.tid;
         /* First time we're trapping */
-        hp = HAllocX(ctx->base.p, 7 + ERTS_MAGIC_REF_THING_SIZE,
+        hp = HAllocX(ctx->base.p, 8 + ERTS_MAGIC_REF_THING_SIZE,
                      ERTS_MAGIC_REF_THING_SIZE);
         if (is_atom(tid))
             tid = erts_db_make_tid(ctx->base.p, &ctx->base.tb->common);
         mpb = erts_db_make_match_prog_ref(ctx->base.p, *mpp, &hp);
-        continuation = TUPLE6(
+        continuation = TUPLE7(
                 hp,
                 tid,
                 make_small(slot_ix),
                 make_small(ctx->chunk_size),
                 mpb,
                 ctx->match_list,
-                make_small(got));
+                make_small(got),
+                make_small(ctx->base.safety));
         *mpp = NULL; /* otherwise the caller will destroy it */
     }
     else {
         /* Not the first time we're trapping; reuse continuation terms */
-        hp = HAlloc(ctx->base.p, 7);
-        continuation = TUPLE6(
+        hp = HAlloc(ctx->base.p, 8);
+        continuation = TUPLE7(
                 hp,
                 ctx->base.prev_continuation_tptr[1],
                 make_small(slot_ix),
                 ctx->base.prev_continuation_tptr[3],
                 ctx->base.prev_continuation_tptr[4],
                 ctx->match_list,
-                make_small(got));
+                make_small(got),
+                make_small(ctx->base.safety));
     }
     ERTS_BIF_PREP_TRAP1(*ret, &ets_select_continue_exp, ctx->base.p,
                         continuation);
@@ -1690,14 +1701,14 @@ static int select_chunk_on_trap(traverse_context_t* ctx_base,
 }
 
 static int db_select_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern,
-                          int reverse, Eterm *ret)
+                          int reverse, Eterm *ret, enum DbIterSafety safety)
 {
-    return db_select_chunk_hash(p, tbl, tid, pattern, 0, reverse, ret);
+    return db_select_chunk_hash(p, tbl, tid, pattern, 0, reverse, ret, safety);
 }
 
 static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid,
                                 Eterm pattern, Sint chunk_size,
-                                int reverse, Eterm *ret)
+                                int reverse, Eterm *ret, enum DbIterSafety safety)
 {
     select_chunk_context_t ctx;
 
@@ -1709,6 +1720,7 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl, Eterm tid,
     ctx.base.tb = &tbl->hash;
     ctx.base.tid = tid;
     ctx.base.prev_continuation_tptr = NULL;
+    ctx.base.safety = safety;
     ctx.hp = NULL;
     ctx.chunk_size = chunk_size;
     ctx.match_list = NIL;
@@ -1784,10 +1796,11 @@ int select_chunk_continue_on_loop_ended(traverse_context_t* ctx_base,
 }
 
 /*
- * This is called when select traps
+ * This is called when ets:select/1/2/3 traps
+ * and for ets:select/1 with user continuation term.
  */
 static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
-                                   Eterm* ret)
+                                   Eterm* ret, enum DbIterSafety* safety_p)
 {
     select_chunk_context_t ctx;
     Eterm* tptr;
@@ -1803,7 +1816,13 @@ static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
     ASSERT(is_tuple(continuation));
     tptr = tuple_val(continuation);
 
-    if (arityval(*tptr) != 6)
+    /*
+     * 6-tuple is select/1 user continuation term
+     * 7-tuple is select trap continuation
+     */
+    if (*tptr == make_arityval(7) && is_small(tptr[7]))
+        *safety_p = signed_val(tptr[7]);
+    else if (*tptr != make_arityval(6))
         goto badparam;
 
     if (!is_small(tptr[2]) || !is_small(tptr[3]) ||
@@ -1831,6 +1850,7 @@ static int db_select_continue_hash(Process* p, DbTable* tbl, Eterm continuation,
     ctx.base.tb = &tbl->hash;
     ctx.base.tid = tid;
     ctx.base.prev_continuation_tptr = tptr;
+    ctx.base.safety = *safety_p;
     ctx.hp = NULL;
     ctx.chunk_size = chunk_size;
     ctx.match_list = match_list;
@@ -1891,7 +1911,8 @@ static int select_count_on_trap(traverse_context_t* ctx,
 }
 
 static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid,
-                                Eterm pattern, Eterm *ret)
+                                Eterm pattern, Eterm *ret,
+                                enum DbIterSafety safety)
 {
     traverse_context_t ctx;
     Sint iterations_left = MAX_SELECT_COUNT_ITERATIONS;
@@ -1905,6 +1926,7 @@ static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid,
     ctx.tb = &tbl->hash;
     ctx.tid = tid;
     ctx.prev_continuation_tptr = NULL;
+    ctx.safety = safety;
 
     return match_traverse(
             &ctx,
@@ -1917,7 +1939,8 @@ static int db_select_count_hash(Process *p, DbTable *tbl, Eterm tid,
  * This is called when select_count traps
  */
 static int db_select_count_continue_hash(Process* p, DbTable* tbl,
-                                         Eterm continuation, Eterm* ret)
+                                         Eterm continuation, Eterm* ret,
+                                         enum DbIterSafety* safety_p)
 {
     traverse_context_t ctx;
     Eterm* tptr;
@@ -1928,7 +1951,8 @@ static int db_select_count_continue_hash(Process* p, DbTable* tbl,
     Sint chunk_size = 0;
     *ret = NIL;
 
-    if (unpack_simple_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
+    if (unpack_simple_continuation(continuation, &tptr, &tid, &slot_ix, &mp,
+                                   &got, safety_p)) {
         *ret = NIL;
         return DB_ERROR_BADPARAM;
     }
@@ -1940,6 +1964,7 @@ static int db_select_count_continue_hash(Process* p, DbTable* tbl,
     ctx.tb = &tbl->hash;
     ctx.tid = tid;
     ctx.prev_continuation_tptr = tptr;
+    ctx.safety = *safety_p;
 
     return match_traverse_continue(
             &ctx, chunk_size,
@@ -2033,7 +2058,8 @@ static int select_delete_on_trap(traverse_context_t* ctx_base,
 }
 
 static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
-                                 Eterm pattern, Eterm *ret)
+                                 Eterm pattern, Eterm *ret,
+                                 enum DbIterSafety safety)
 {
     select_delete_context_t ctx;
     Sint chunk_size = 0;
@@ -2046,6 +2072,7 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
     ctx.base.tb = &tbl->hash;
     ctx.base.tid = tid;
     ctx.base.prev_continuation_tptr = NULL;
+    ctx.base.safety = safety;
     ctx.fixated_by_me = ctx.base.tb->common.is_thread_safe ? 0 : 1;
     ctx.last_pseudo_delete = (Uint) -1;
     ctx.free_us = NULL;
@@ -2062,7 +2089,8 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
  * This is called when select_delete traps
  */
 static int db_select_delete_continue_hash(Process* p, DbTable* tbl,
-                                          Eterm continuation, Eterm* ret)
+                                          Eterm continuation, Eterm* ret,
+                                          enum DbIterSafety* safety_p)
 {
     select_delete_context_t ctx;
     Eterm* tptr;
@@ -2072,7 +2100,8 @@ static int db_select_delete_continue_hash(Process* p, DbTable* tbl,
     Sint slot_ix;
     Sint chunk_size = 0;
 
-    if (unpack_simple_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
+    if (unpack_simple_continuation(continuation, &tptr, &tid, &slot_ix, &mp,
+                                   &got, safety_p)) {
         *ret = NIL;
         return DB_ERROR_BADPARAM;
     }
@@ -2084,6 +2113,7 @@ static int db_select_delete_continue_hash(Process* p, DbTable* tbl,
     ctx.base.tb = &tbl->hash;
     ctx.base.tid = tid;
     ctx.base.prev_continuation_tptr = tptr;
+    ctx.base.safety = *safety_p;
     ctx.fixated_by_me = ONLY_WRITER(p, ctx.base.tb) ? 0 : 1;
     ctx.last_pseudo_delete = (Uint) -1;
     ctx.free_us = NULL;
@@ -2164,7 +2194,9 @@ static int select_replace_on_trap(traverse_context_t* ctx,
             slot_ix, got, mpp, ret);
 }
 
-static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pattern, Eterm *ret)
+static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid,
+                                  Eterm pattern, Eterm *ret,
+                                  enum DbIterSafety safety)
 {
     traverse_context_t ctx;
     Sint chunk_size = 0;
@@ -2194,7 +2226,9 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid, Eterm pat
 /*
  * This is called when select_replace traps
  */
-static int db_select_replace_continue_hash(Process* p, DbTable* tbl, Eterm continuation, Eterm* ret)
+static int db_select_replace_continue_hash(Process* p, DbTable* tbl,
+                                           Eterm continuation, Eterm* ret,
+                                           enum DbIterSafety* safety_p)
 {
     traverse_context_t ctx;
     Eterm* tptr;
@@ -2205,7 +2239,8 @@ static int db_select_replace_continue_hash(Process* p, DbTable* tbl, Eterm conti
     Sint chunk_size = 0;
     *ret = NIL;
 
-    if (unpack_simple_continuation(continuation, &tptr, &tid, &slot_ix, &mp, &got)) {
+    if (unpack_simple_continuation(continuation, &tptr, &tid, &slot_ix, &mp,
+                                   &got, safety_p)) {
         *ret = NIL;
         return DB_ERROR_BADPARAM;
     }
@@ -2218,6 +2253,7 @@ static int db_select_replace_continue_hash(Process* p, DbTable* tbl, Eterm conti
     ctx.tb = &tbl->hash;
     ctx.tid = tid;
     ctx.prev_continuation_tptr = tptr;
+    ctx.safety = *safety_p;
 
     return match_traverse_continue(
             &ctx, chunk_size,
