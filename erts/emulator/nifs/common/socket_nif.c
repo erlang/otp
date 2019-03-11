@@ -2123,7 +2123,6 @@ static ERL_NIF_TERM recv_check_full_done(ErlNifEnv*        env,
                                          ERL_NIF_TERM      sockRef);
 static ERL_NIF_TERM recv_check_fail(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
-                                    int               toRead,
                                     int               saveErrno,
                                     ErlNifBinary*     bufP,
                                     ERL_NIF_TERM      sockRef,
@@ -2154,7 +2153,6 @@ static ERL_NIF_TERM recv_check_retry(ErlNifEnv*        env,
                                      ERL_NIF_TERM      recvRef);
 static ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*        env,
                                         SocketDescriptor* descP,
-                                        int               roRead,
                                         int               saveErrno,
                                         ERL_NIF_TERM      sockRef);
 static ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
@@ -14215,7 +14213,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
             /* +++ Error handling +++ */
 
-            res = recv_check_fail(env, descP, toRead, saveErrno, bufP,
+            res = recv_check_fail(env, descP, saveErrno, bufP,
                                   sockRef, recvRef);
 
         } else {
@@ -14402,7 +14400,6 @@ ERL_NIF_TERM recv_check_full_done(ErlNifEnv*        env,
 static
 ERL_NIF_TERM recv_check_fail(ErlNifEnv*        env,
                              SocketDescriptor* descP,
-                             int               toRead,
                              int               saveErrno,
                              ErlNifBinary*     bufP,
                              ERL_NIF_TERM      sockRef,
@@ -14416,25 +14413,23 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*        env,
 
         /* +++ Oups - closed +++ */
 
-        SSDBG( descP,
-               ("SOCKET", "recv_check_fail -> [%d] closed\r\n", toRead) );
+        SSDBG( descP, ("SOCKET", "recv_check_fail -> closed\r\n") );
 
         res = recv_check_fail_closed(env, descP, sockRef, recvRef);
 
     } else if ((saveErrno == ERRNO_BLOCK) ||
                (saveErrno == EAGAIN)) {
 
-        SSDBG( descP, ("SOCKET",
-                       "recv_check_fail -> [%d] eagain\r\n", toRead) );
+        SSDBG( descP, ("SOCKET", "recv_check_fail -> eagain\r\n") );
 
         res = recv_check_retry(env, descP, recvRef);
 
     } else {
 
-        SSDBG( descP, ("SOCKET", "recv_check_fail -> [%d] errno: %d\r\n",
-                       toRead, saveErrno) );
+        SSDBG( descP, ("SOCKET", "recv_check_fail -> errno: %d\r\n",
+                       saveErrno) );
 
-        res = recv_check_fail_gen(env, descP, toRead, saveErrno, sockRef);
+        res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
     }
 
     return res;
@@ -14653,7 +14648,6 @@ ERL_NIF_TERM recv_check_retry(ErlNifEnv*        env,
 static
 ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*        env,
                                  SocketDescriptor* descP,
-                                 int               roRead,
                                  int               saveErrno,
                                  ERL_NIF_TERM      sockRef)
 {
@@ -14683,8 +14677,6 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
                                    ERL_NIF_TERM      sockRef,
                                    ERL_NIF_TERM      recvRef)
 {
-    char*        xres;
-    int          sres;
     ERL_NIF_TERM data, res;
 
     SSDBG( descP,
@@ -14694,82 +14686,12 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
             "\r\n   recvRef:   %T"
             "\r\n", read, saveErrno, recvRef) );
 
-
-    /* There is a special case: If the provided 'to read' value is
-     * zero (0). That means that we reads as much as we can, using
-     * the default read buffer size.
-     */
-
     if (read < 0) {
 
         /* +++ Error handling +++ */
 
-        if (saveErrno == ECONNRESET)  {
-            res = esock_make_error(env, atom_closed);
-
-            /* +++ Oups - closed +++ */
-
-            SSDBG( descP, ("SOCKET", "recvfrom_check_result -> closed\r\n") );
-
-            /* <KOLLA>
-             * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
-             * PROCESS, WE NEED TO INFORM IT!!!
-             *
-             * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
-             *
-             * </KOLLA>
-             */
-
-            descP->closeLocal = FALSE;
-            descP->state      = SOCKET_STATE_CLOSING;
-
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
-                esock_warning_msg("Failed stop select (closed) "
-                                  "for current reader (%T): %d\r\n",
-                                  recvRef, sres);
-            }
-
-            FREE_BIN(bufP);
-
-            return res;
-
-        } else if ((saveErrno == ERRNO_BLOCK) ||
-                   (saveErrno == EAGAIN)) {
-
-            SSDBG( descP, ("SOCKET", "recvfrom_check_result -> eagain\r\n") );
-
-            FREE_BIN(bufP);
-
-            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
-                return esock_make_error_str(env, xres);
-            
-            if ((sres = esock_select_read(env, descP->sock, descP,
-                                          NULL, recvRef)) < 0) {
-                res = esock_make_error(env,
-                                       MKT2(env,
-                                            esock_atom_select_failed,
-                                            MKI(env, sres)));
-            } else {
-                res = esock_make_error(env, esock_atom_eagain);
-            }
-
-            return res;
-        } else {
-
-            res = esock_make_error_errno(env, saveErrno);
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recvfrom_check_result -> errno: %d\r\n", saveErrno) );
-            
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            FREE_BIN(bufP);
-
-            return res;
-        }
+        res = recv_check_fail(env, descP, saveErrno, bufP,
+                              sockRef, recvRef);
 
     } else {
 
@@ -14782,7 +14704,9 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
                               &eSockAddr);
 
         if (read == bufP->size) {
+
             data = MKBIN(env, bufP);
+
         } else {
 
             /* +++ We got a chunk of data but +++
@@ -14797,9 +14721,12 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
 
         recv_update_current_reader(env, descP, sockRef);
         
-        return esock_make_ok2(env, MKT2(env, eSockAddr, data));
+        res = esock_make_ok2(env, MKT2(env, eSockAddr, data));
 
     }
+
+    return res;
+
 }
 
 
