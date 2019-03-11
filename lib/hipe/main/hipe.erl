@@ -583,9 +583,8 @@ fix_beam_exports([], Exports) ->
   Exports.
 
 get_beam_icode(Mod, {BeamCode, Exports}, File, Options) ->
-  {ok, Icode} =
-    ?option_time((catch {ok, hipe_beam_to_icode:module(BeamCode, Options)}),
-	         "BEAM-to-Icode", Options),
+  Icode = ?option_time(hipe_beam_to_icode:module(BeamCode, Options),
+                       "BEAM-to-Icode", Options),
   BeamBin = get_beam_code(File),
   {{Mod, Exports, Icode}, BeamBin}.
 
@@ -662,9 +661,12 @@ run_compiler_1(Name, DisasmFun, IcodeFun, Options) ->
 	    {Icode, WholeModule} = IcodeFun(Code, Opts),
 	    CompRes = compile_finish(Icode, WholeModule, Opts),
 	    compiler_return(CompRes, Parent)
-	  catch error:Error:StackTrace ->
+	  catch
+            error:Error:StackTrace ->
 	      print_crash_message(Name, Error, StackTrace),
-	      exit(Error)
+	      exit(Error);
+            throw:{unimplemented_instruction,_Instruction}=Error ->
+              exit(Error)
 	  end
       end),
   Timeout = case proplists:get_value(timeout, Options) of

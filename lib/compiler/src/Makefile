@@ -129,9 +129,10 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 ifeq ($(NATIVE_LIBS_ENABLED),yes)
 ERL_COMPILE_FLAGS += +native
+else
+ERL_COMPILE_FLAGS += -Werror
 endif
 ERL_COMPILE_FLAGS += +inline +warn_unused_import \
- -Werror \
  -I../../stdlib/include -I$(EGEN) -W +warn_missing_spec
 
 # ----------------------------------------------------
