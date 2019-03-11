@@ -129,8 +129,9 @@
 -define(LEAFSIZE, 10).		% the "base"
 -define(NODESIZE, ?LEAFSIZE).   % (no reason to have a different size)
 -define(NODEPATTERN(S), {_,_,_,_,_,_,_,_,_,_,S}). % NODESIZE+1 elements!
--define(NEW_NODE(S),  % beware of argument duplication!
-	setelement((?NODESIZE+1),erlang:make_tuple((?NODESIZE+1),(S)),(S))).
+-define(NEW_NODE(E,S),  % general case (currently unused)
+        setelement((?NODESIZE+1),erlang:make_tuple((?NODESIZE+1),(E)),(S))).
+-define(NEW_NODE(S), erlang:make_tuple((?NODESIZE+1),(S))).  % when E = S
 -define(NEW_LEAF(D), erlang:make_tuple(?LEAFSIZE,(D))).
 -define(NODELEAFS, ?NODESIZE*?LEAFSIZE).
 
