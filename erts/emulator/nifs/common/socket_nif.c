@@ -2124,7 +2124,8 @@ static ERL_NIF_TERM recv_check_full_done(ErlNifEnv*        env,
 static ERL_NIF_TERM recv_check_fail(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
                                     int               saveErrno,
-                                    ErlNifBinary*     bufP,
+                                    ErlNifBinary*     buf1P,
+                                    ErlNifBinary*     buf2P,
                                     ERL_NIF_TERM      sockRef,
                                     ERL_NIF_TERM      recvRef);
 static ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*        env,
@@ -2173,6 +2174,13 @@ static ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                                          ErlNifBinary*     ctrlBufP,
                                          ERL_NIF_TERM      sockRef,
                                          ERL_NIF_TERM      recvRef);
+static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*        env,
+                                      SocketDescriptor* descP,
+                                      int               read,
+                                      struct msghdr*    msgHdrP,
+                                      ErlNifBinary*     dataBufP,
+                                      ErlNifBinary*     ctrlBufP,
+                                      ERL_NIF_TERM      sockRef);
 
 static ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
                                          SocketDescriptor* descP);
@@ -14213,7 +14221,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
             /* +++ Error handling +++ */
 
-            res = recv_check_fail(env, descP, saveErrno, bufP,
+            res = recv_check_fail(env, descP, saveErrno, bufP, NULL,
                                   sockRef, recvRef);
 
         } else {
@@ -14401,13 +14409,14 @@ static
 ERL_NIF_TERM recv_check_fail(ErlNifEnv*        env,
                              SocketDescriptor* descP,
                              int               saveErrno,
-                             ErlNifBinary*     bufP,
+                             ErlNifBinary*     buf1P,
+                             ErlNifBinary*     buf2P,
                              ERL_NIF_TERM      sockRef,
                              ERL_NIF_TERM      recvRef)
 {
     ERL_NIF_TERM res;
 
-    FREE_BIN(bufP);
+    FREE_BIN(buf1P); if (buf2P != NULL) FREE_BIN(buf2P);
 
     if (saveErrno == ECONNRESET)  {
 
@@ -14431,6 +14440,104 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*        env,
 
         res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
     }
+
+    return res;
+}
+
+
+
+/* *** recv_check_fail_closed ***
+ *
+ * We detected that the socket was closed wile reading.
+ * Inform current and waiting readers.
+ */
+static
+ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*        env,
+                                    SocketDescriptor* descP,
+                                    ERL_NIF_TERM      sockRef,
+                                    ERL_NIF_TERM      recvRef)
+{
+    ERL_NIF_TERM res = esock_make_error(env, atom_closed);
+    int          sres;
+
+    /* <KOLLA>
+     *
+     * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
+     * PROCESS, WE NEED TO INFORM IT!!!
+     *
+     * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
+     * HANDLED BY THE STOP (CALLBACK) FUNCTION?
+     *
+     * SINCE THIS IS A REMOTE CLOSE, WE DON'T NEED TO WAIT
+     * FOR OUTPUT TO BE WRITTEN (NO ONE WILL READ), JUST
+     * ABORT THE SOCKET REGARDLESS OF LINGER???
+     *
+     * </KOLLA>
+     */
+
+    descP->closeLocal = FALSE;
+    descP->state      = SOCKET_STATE_CLOSING;
+
+    recv_error_current_reader(env, descP, sockRef, res);
+
+    if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
+        esock_warning_msg("Failed stop select (closed) "
+                          "for current reader (%T): %d\r\n",
+                          recvRef, sres);
+    }
+
+    return res;
+}
+
+
+
+/* *** recv_check_retry ***
+ *
+ * The recv call would have blocked, so retry.
+ */
+static
+ERL_NIF_TERM recv_check_retry(ErlNifEnv*        env,
+                              SocketDescriptor* descP,
+                              ERL_NIF_TERM      recvRef)
+{
+    int          sres;
+    char*        xres;
+    ERL_NIF_TERM res;
+
+    descP->rNumCnt = 0;
+    if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    SSDBG( descP, ("SOCKET", "recv_check_retry -> SELECT for more\r\n") );
+
+    if ((sres = esock_select_read(env, descP->sock, descP,
+                                  NULL, recvRef)) < 0) {
+        res = esock_make_error(env,
+                               MKT2(env,
+                                    esock_atom_select_failed, MKI(env, sres)));
+    } else {
+        res = esock_make_error(env, esock_atom_eagain);
+    }
+
+    return res;
+
+}
+
+
+
+/* *** recv_check_fail_gen ***
+ *
+ * The recv call had a "general" failure.
+ */
+static
+ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*        env,
+                                 SocketDescriptor* descP,
+                                 int               saveErrno,
+                                 ERL_NIF_TERM      sockRef)
+{
+    ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
+
+    recv_error_current_reader(env, descP, sockRef, res);
 
     return res;
 }
@@ -14562,104 +14669,6 @@ ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*        env,
 
 
 
-/* *** recv_check_fail_closed ***
- *
- * We detected that the socket was closed wile reading.
- * Inform current and waiting readers.
- */
-static
-ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      sockRef,
-                                    ERL_NIF_TERM      recvRef)
-{
-    ERL_NIF_TERM res = esock_make_error(env, atom_closed);
-    int          sres;
-
-    /* <KOLLA>
-     *
-     * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
-     * PROCESS, WE NEED TO INFORM IT!!!
-     *
-     * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
-     * HANDLED BY THE STOP (CALLBACK) FUNCTION?
-     *
-     * SINCE THIS IS A REMOTE CLOSE, WE DON'T NEED TO WAIT
-     * FOR OUTPUT TO BE WRITTEN (NO ONE WILL READ), JUST
-     * ABORT THE SOCKET REGARDLESS OF LINGER???
-     *
-     * </KOLLA>
-     */
-
-    descP->closeLocal = FALSE;
-    descP->state      = SOCKET_STATE_CLOSING;
-
-    recv_error_current_reader(env, descP, sockRef, res);
-
-    if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
-        esock_warning_msg("Failed stop select (closed) "
-                          "for current reader (%T): %d\r\n",
-                          recvRef, sres);
-    }
-
-    return res;
-}
-
-
-
-/* *** recv_check_retry ***
- *
- * The recv call would have blocked, so retry.
- */
-static
-ERL_NIF_TERM recv_check_retry(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              ERL_NIF_TERM      recvRef)
-{
-    int          sres;
-    char*        xres;
-    ERL_NIF_TERM res;
-
-    descP->rNumCnt = 0;
-    if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
-        return esock_make_error_str(env, xres);
-
-    SSDBG( descP, ("SOCKET", "recv_check_retry -> SELECT for more\r\n") );
-
-    if ((sres = esock_select_read(env, descP->sock, descP,
-                                  NULL, recvRef)) < 0) {
-        res = esock_make_error(env,
-                               MKT2(env,
-                                    esock_atom_select_failed, MKI(env, sres)));
-    } else {
-        res = esock_make_error(env, esock_atom_eagain);
-    }
-
-    return res;
-
-}
-
-
-
-/* *** recv_check_fail_gen ***
- *
- * The recv call had a "general" failure.
- */
-static
-ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 int               saveErrno,
-                                 ERL_NIF_TERM      sockRef)
-{
-    ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
-
-    recv_error_current_reader(env, descP, sockRef, res);
-
-    return res;
-}
-
-
-
 
 /* The recvfrom function delivers one (1) message. If our buffer
  * is to small, the message will be truncated. So, regardless
@@ -14690,7 +14699,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
 
         /* +++ Error handling +++ */
 
-        res = recv_check_fail(env, descP, saveErrno, bufP,
+        res = recv_check_fail(env, descP, saveErrno, bufP, NULL,
                               sockRef, recvRef);
 
     } else {
@@ -14731,7 +14740,9 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
 
 
 
-/* The recvmsg function delivers one (1) message. If our buffer
+/* *** recvmsg_check_result ***
+ *
+ * The recvmsg function delivers one (1) message. If our buffer
  * is to small, the message will be truncated. So, regardless
  * if we filled the buffer or not, we have got what we are going
  * to get regarding this message.
@@ -14747,7 +14758,6 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                                   ERL_NIF_TERM      sockRef,
                                   ERL_NIF_TERM      recvRef)
 {
-    int          sres;
     ERL_NIF_TERM res;
 
     SSDBG( descP,
@@ -14769,8 +14779,8 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
     if ((read == 0) && (descP->type == SOCK_STREAM)) {
         
         /*
-         * When a stream socket peer has performed an orderly shutdown, the return
-         * value will be 0 (the traditional "end-of-file" return).
+         * When a stream socket peer has performed an orderly shutdown,
+         * the return value will be 0 (the traditional "end-of-file" return).
          *
          * *We* do never actually try to read 0 bytes from a stream socket!
          */
@@ -14792,119 +14802,78 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
 
         /* +++ Error handling +++ */
 
-        if (saveErrno == ECONNRESET)  {
-
-            /* +++ Oups - closed +++ */
-
-            SSDBG( descP, ("SOCKET", "recvmsg_check_result -> closed\r\n") );
-
-            /* <KOLLA>
-             * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
-             * PROCESS, WE NEED TO INFORM IT!!!
-             *
-             * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
-             *
-             * </KOLLA>
-             */
-
-            res               = esock_make_error(env, atom_closed);
-            descP->closeLocal = FALSE;
-            descP->state      = SOCKET_STATE_CLOSING;
-
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
-                esock_warning_msg("Failed stop select (closed) "
-                                  "for current reader (%T): %d\r\n",
-                                  recvRef, sres);
-            }
-
-            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-            return res;;
-
-        } else if ((saveErrno == ERRNO_BLOCK) ||
-                   (saveErrno == EAGAIN)) {
-            char* xres;
-
-            SSDBG( descP, ("SOCKET", "recvmsg_check_result -> eagain\r\n") );
-            
-            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
-                return esock_make_error_str(env, xres);
-            
-            if ((sres = esock_select_read(env, descP->sock, descP,
-                                          NULL, recvRef)) < 0) {
-                res = esock_make_error(env,
-                                       MKT2(env,
-                                            esock_atom_select_failed,
-                                            MKI(env, sres)));
-            } else {
-                res = esock_make_error(env, esock_atom_eagain);
-            }
-
-            return res;
-
-        } else {
-
-            res = esock_make_error_errno(env, saveErrno);
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recvmsg_check_result -> errno: %d\r\n", saveErrno) );
-            
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-            return res;
-        }
+        res = recv_check_fail(env, descP, saveErrno, dataBufP, ctrlBufP,
+                              sockRef, recvRef);
 
     } else {
 
         /* +++ We sucessfully got a message - time to encode it +++ */
 
-        ERL_NIF_TERM eMsgHdr;
-        char*        xres;
-
-        /*
-         * <KOLLA>
-         *
-         * The return value of recvmsg is the *total* number of bytes
-         * that where successfully read. This data has been put into
-         * the *IO vector*.
-         *
-         * </KOLLA>
-         */
-
-        if ((xres = encode_msghdr(env, descP,
-                                  read, msgHdrP, dataBufP, ctrlBufP,
-                                  &eMsgHdr)) != NULL) {
-            
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recvmsg_check_result -> "
-                    "(msghdr) encode failed: %s\r\n", xres) );
-            
-            recv_update_current_reader(env, descP, sockRef);
-        
-            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-            return esock_make_error_str(env, xres);
-        } else {
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recvmsg_check_result -> "
-                    "(msghdr) encode ok: %T\r\n", eMsgHdr) );
-            
-            recv_update_current_reader(env, descP, sockRef);
-
-            return esock_make_ok2(env, eMsgHdr);
-        }
+        res = recvmsg_check_msg(env, descP, read, msgHdrP,
+                                dataBufP, ctrlBufP, sockRef);
 
     }
+
+    return res;
+
+}
+
+
+
+/* *** recvmsg_check_msg ***
+ *
+ * We successfully read one message. Time to process.
+ */
+static
+ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*        env,
+                               SocketDescriptor* descP,
+                               int               read,
+                               struct msghdr*    msgHdrP,
+                               ErlNifBinary*     dataBufP,
+                               ErlNifBinary*     ctrlBufP,
+                               ERL_NIF_TERM      sockRef)
+{
+    ERL_NIF_TERM res, eMsgHdr;
+    char*        xres;
+
+    /*
+     * <KOLLA>
+     *
+     * The return value of recvmsg is the *total* number of bytes
+     * that where successfully read. This data has been put into
+     * the *IO vector*.
+     *
+     * </KOLLA>
+     */
+
+    if ((xres = encode_msghdr(env, descP,
+                              read, msgHdrP, dataBufP, ctrlBufP,
+                              &eMsgHdr)) != NULL) {
+
+        SSDBG( descP,
+               ("SOCKET",
+                "recvmsg_check_result -> "
+                "(msghdr) encode failed: %s\r\n", xres) );
+
+        recv_update_current_reader(env, descP, sockRef);
+
+        FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
+
+        res = esock_make_error_str(env, xres);
+
+    } else {
+
+        SSDBG( descP,
+               ("SOCKET",
+                "recvmsg_check_result -> "
+                "(msghdr) encode ok: %T\r\n", eMsgHdr) );
+
+        recv_update_current_reader(env, descP, sockRef);
+
+        res = esock_make_ok2(env, eMsgHdr);
+    }
+
+    return res;
 }
 
 
