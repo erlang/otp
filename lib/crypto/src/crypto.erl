@@ -56,7 +56,7 @@
         ]).
 
 %% New interface
--export([crypto_init/4,
+-export([crypto_init/4, crypto_init/3, crypto_init/2, 
          crypto_update/2, crypto_update/3,
          crypto_one_shot/5
         ]).
@@ -773,6 +773,7 @@ crypto_update(State, Data0, IV) ->
         Data ->
             ng_crypto_update_nif(State, Data, iolist_to_binary(IV))
     end.
+
 
 %%%----------------------------------------------------------------
 %%%

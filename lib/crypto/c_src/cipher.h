@@ -59,6 +59,7 @@ struct cipher_type_t {
 extern ErlNifResourceType* evp_cipher_ctx_rtype;
 struct evp_cipher_ctx {
     EVP_CIPHER_CTX* ctx;
+    int iv_len;
 #if !defined(HAVE_EVP_AES_CTR)
     ErlNifEnv* env;
     ERL_NIF_TERM state;

@@ -120,7 +120,7 @@ static int get_init_args(ErlNifEnv* env,
 #endif
         ivec_len = GET_IV_LEN(*cipherp);
 
-    if (ivec_len) {
+    if (ivec_len && (ivec_arg != atom_undefined)) {
         if (!enif_inspect_iolist_as_binary(env, ivec_arg, &ivec_bin))
             {
                 *return_term = EXCP_BADARG(env, "Bad iv type");
@@ -134,6 +134,8 @@ static int get_init_args(ErlNifEnv* env,
             }
     }
 
+    ctx_res -> iv_len = ivec_len;
+    
     if (!((*cipherp)->cipher.p))
         {
 #if !defined(HAVE_EVP_AES_CTR)
@@ -195,9 +197,16 @@ static int get_init_args(ErlNifEnv* env,
         }
     }
 
-    if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, ivec_bin.data, -1)) {
-        *return_term = EXCP_ERROR(env, "Can't initialize key and/or iv");
+    if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, NULL, -1)) {
+        *return_term = EXCP_ERROR(env, "Can't initialize key");
         goto err;
+    }
+
+    if (ivec_arg != atom_undefined) {
+        if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, NULL, ivec_bin.data, -1)) {
+            *return_term = EXCP_ERROR(env, "Can't initialize iv");
+            goto err;
+        }
     }
 
     EVP_CIPHER_CTX_set_padding(ctx_res->ctx, 0);
@@ -348,21 +357,63 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 
 ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
+{/* (Context, Data [, IV]) */
     struct evp_cipher_ctx *ctx_res;
     ERL_NIF_TERM ret;
 
     if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx_res))
         return EXCP_BADARG(env, "Bad 1:st arg");
     
-    get_update_args(env, ctx_res, argv[1], &ret);
+    if (argc == 3) {
+        struct evp_cipher_ctx ctx_res_copy;
+        ErlNifBinary ivec_bin;
+        memcpy(&ctx_res_copy, ctx_res, sizeof(ctx_res_copy));
+        ctx_res = &ctx_res_copy;
 
+        if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
+            {
+                ret = EXCP_BADARG(env, "Bad iv type");
+                goto err;
+            }
+
+        if (ctx_res_copy.iv_len != ivec_bin.size)
+            {
+                ret = EXCP_BADARG(env, "Bad iv size");
+                printf("Expect %d\r\n", ctx_res_copy.iv_len);
+                goto err;
+            }
+        
+#if !defined(HAVE_EVP_AES_CTR)
+        // enif_fprintf(stdout, "%s:%u state = %T\r\n", __FILE__, __LINE__, ctx_res->state);
+        if ((ctx_res_copy.state != atom_undefined) ) {
+            /* replace the iv in state with argv[2] */
+            ERL_NIF_TERM state0;
+            const ERL_NIF_TERM *tuple_argv;
+            int tuple_argc;
+            state0 = enif_make_copy(env, ctx_res_copy.state);
+            if (enif_get_tuple(env, state0, &tuple_argc, &tuple_argv) && (tuple_argc == 4)) {
+                /* A compatibility state term */
+                ctx_res_copy.state = enif_make_tuple4(env, tuple_argv[0], argv[2], tuple_argv[2], tuple_argv[3]);
+            }
+        } else
+#endif
+            if (!EVP_CipherInit_ex(ctx_res_copy.ctx, NULL, NULL, NULL, ivec_bin.data, -1))
+                {
+                    ret = EXCP_ERROR(env, "Can't set iv");
+                    goto err;
+                }
+        
+        get_update_args(env, &ctx_res_copy, argv[1], &ret);
+    } else
+        get_update_args(env, ctx_res, argv[1], &ret);
+
+ err:
     return ret; /* Both success and error */
 }
 
 
 ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
+{/* (Context, Data [, IV]) */
     ErlNifBinary   data_bin;
 
     ASSERT(argc <= 3);
