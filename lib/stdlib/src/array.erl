@@ -606,7 +606,7 @@ grow(I, E, M) ->
     grow_1(I, E, M).
 
 grow_1(I, E, M) when I >= M ->
-    grow(I, setelement(1, ?NEW_NODE(M), E), ?extend(M));
+    grow_1(I, setelement(1, ?NEW_NODE(M), E), ?extend(M));
 grow_1(_I, E, M) ->
     {E, M}.
 
