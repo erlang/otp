@@ -43,6 +43,41 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix failure of incoming answer message with faulty
+	    Experimental-Result-Code. Failure to decode the AVP
+	    resulted in an uncaught exception, with no no
+	    handle_answer/error callback as a consequence.</p>
+          <p>
+	    Own Id: OTP-15569 Aux Id: ERIERL-302 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add spawn_opt MFA configuration to allow a callback to
+	    spawn a handler process for an incoming Diameter request
+	    on an an arbitrary node. Module diameter_dist provides a
+	    route_session/2 that can be used to distribute requests
+	    based on Session-Id, although this module is currently
+	    only documented in the module itself and may change.</p>
+          <p>
+	    Own Id: OTP-15398</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.1.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

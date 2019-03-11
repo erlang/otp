@@ -32,6 +32,38 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>An expression such as <c>(A / B) band 16#ff</c> would
+	    crash the compiler.</p>
+          <p>
+	    Own Id: OTP-15518 Aux Id: ERL-829 </p>
+        </item>
+        <item>
+	    <p>There could be an incorrect warning when the
+	    <c>tuple_calls</c> option was given. The generated code
+	    would be correct. Here is an example of code that would
+	    trigger the warning:</p>
+	    <p><c>(list_to_atom("prefix_" ++
+	    atom_to_list(suffix))):doit(X)</c>.</p>
+          <p>
+	    Own Id: OTP-15552 Aux Id: ERL-838 </p>
+        </item>
+        <item>
+	    <p>Optimize (again) Dialyzer's handling of
+	    left-associative use of <c>andalso</c> and <c>orelse</c>
+	    in guards.</p>
+          <p>
+	    Own Id: OTP-15577 Aux Id: ERL-851, PR-2141, PR-1944 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

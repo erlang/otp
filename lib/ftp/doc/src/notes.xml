@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Ftp 1.0.1</title>
+  <section><title>Ftp 1.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed timing related bug that could make ftp functions
+	    behave badly.</p>
+          <p>
+	    Own Id: OTP-15659 Aux Id: ERIERL-316 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ftp 1.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

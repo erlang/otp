@@ -32,6 +32,45 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Since Logger was introduced in OTP-21.0, menu choice
+	    <em>Log &gt; Toggle Log View</em> in observer would cause
+	    a crash unless an <c>error_logger</c> event handler was
+	    explicitly installed. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15553 Aux Id: ERL-848 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Since persistent_term was introduced, observer would
+	    sometimes crash when expanding a term from a process
+	    state. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15493 Aux Id: ERL-810 </p>
+        </item>
+        <item>
+          <p>
+	    Add <c>OBSERVER_SCALE</c> environment variable for HiDPI
+	    support.</p>
+          <p>
+	    Own Id: OTP-15586 Aux Id: PR-2105 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

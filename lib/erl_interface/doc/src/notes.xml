@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for plugin of a <seealso
+	    marker="ei_connect#ussi">user supplied socket
+	    implementation</seealso> has been added.</p>
+          <p>
+	    Own Id: OTP-15442 Aux Id: ERIERL-258 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.10.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

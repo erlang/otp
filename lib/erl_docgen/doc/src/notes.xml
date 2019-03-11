@@ -31,7 +31,31 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.8.1</title>
+  <section><title>Erl_Docgen 0.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The HTML reference documentation shows the OTP version
+	    where modules and functions were first introduced.
+	    Versions older than R13B04 are not shown.</p>
+          <p>
+	    Own Id: OTP-15460</p>
+        </item>
+        <item>
+          <p>
+	    Make html documentation of C functions with many
+	    arguments more readable.</p>
+          <p>
+	    Own Id: OTP-15637 Aux Id: PR-2160 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

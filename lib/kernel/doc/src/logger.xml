@@ -1119,7 +1119,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
     </func>
 
     <func>
-      <name name="timestamp" arity="0" since="OTP @OTP-15625@"/>
+      <name name="timestamp" arity="0" since="OTP 21.3"/>
       <fsummary>Return a timestamp to insert in meta data for a log
 	event.</fsummary>
       <desc>

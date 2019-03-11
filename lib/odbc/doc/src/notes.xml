@@ -32,7 +32,22 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.12.2</title>
+  <section><title>ODBC 2.12.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enhance error handling to avoid stack corruption</p>
+          <p>
+	    Own Id: OTP-15667 Aux Id: ERL-808, PR-2065 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.12.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

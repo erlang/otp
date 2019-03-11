@@ -31,6 +31,38 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixes a bug that caused <c>crypto:sign</c> and
+	    <c>crypto:verify</c> to return the error message
+	    <c>badarg</c> instead of <c>notsup</c> in one case. That
+	    case was when signing or verifying with eddsa keys (that
+	    is, ed15519 or ed448), but only when FIPS was supported
+	    and enabled.</p>
+          <p>
+	    Own Id: OTP-15634</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added a crypto benchmark test suite.</p>
+          <p>
+	    Own Id: OTP-15447</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

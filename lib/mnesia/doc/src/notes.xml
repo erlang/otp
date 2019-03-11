@@ -39,7 +39,22 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.15.5</title>
+  <section><title>Mnesia 4.15.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid overload warnings caused by a race condition.</p>
+          <p>
+	    Own Id: OTP-15619 Aux Id: ERIERL-310 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.15.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
