@@ -56,8 +56,8 @@
         ]).
 
 %% New interface
--export([crypto_init/4, crypto_init/3, crypto_init/2, 
-         crypto_update/2,
+-export([crypto_init/4,
+         crypto_update/2, crypto_update/3,
          crypto_one_shot/5
         ]).
 
@@ -634,7 +634,10 @@ block_decrypt(Type, Key, Data) ->
                                                IVec ::binary(),
                                                State :: stream_state() .
 stream_init(Type, Key, IVec) when is_binary(IVec) -> 
-    Ref = ?COMPAT(crypto_init(Type, Key, IVec)),
+    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type),
+                                     iolist_to_binary(Key), iolist_to_binary(IVec),
+                                     undefined)
+                 ),
     {Type, {Ref,flg_undefined}}.
 
 
@@ -643,7 +646,10 @@ stream_init(Type, Key, IVec) when is_binary(IVec) ->
                                          Key :: iodata(),
                                          State :: stream_state() .
 stream_init(rc4 = Type, Key) ->
-    Ref = ?COMPAT(crypto_init(Type, Key, undefined)),
+    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type),
+                                     iolist_to_binary(Key), <<>>,
+                                     undefined)
+                 ),
     {Type, {Ref,flg_undefined}}.
 
 %%%---- stream_encrypt
@@ -667,7 +673,7 @@ stream_decrypt(State, Data) ->
 %%%-------- helpers
 crypto_stream_emulate({Cipher,{Ref0,flg_undefined}}, Data, EncryptFlag) when is_reference(Ref0) ->
     ?COMPAT(begin
-                Ref = crypto_init(Ref0, EncryptFlag),
+                Ref = ng_crypto_init_nif(Ref0, <<>>, <<>>, EncryptFlag),
                 {{Cipher,Ref}, crypto_update(Ref, Data)}
             end);
 
@@ -724,39 +730,15 @@ next_iv(Type, Data, _Ivec) ->
                                                             EncryptFlag :: boolean(),
                                                             State :: crypto_state() .
 crypto_init(Cipher, Key, undefined, EncryptFlag) ->
-    crypto_init(Cipher, Key, <<>>, EncryptFlag);
+    %% The IV is supposed to be supplied by calling crypto_update/3
+    ng_crypto_init_nif(alias(Cipher),
+                       iolist_to_binary(Key), undefined,
+                       EncryptFlag);
 
 crypto_init(Cipher, Key, IV, EncryptFlag) ->
     ng_crypto_init_nif(alias(Cipher),
                        iolist_to_binary(Key), iolist_to_binary(IV),
                        EncryptFlag).
-
-
--spec crypto_init(Cipher, Key, IV) -> State | ng_crypto_error()
-                                          when Cipher :: stream_cipher()
-                                                       | block_cipher_with_iv()
-                                                       | block_cipher_without_iv(),
-                                               Key :: iodata(),
-                                               IV :: iodata() | undefined,
-                                               State :: crypto_state() .
-crypto_init(Cipher, Key, undefined) ->
-    ng_crypto_init_nif(alias(Cipher),
-                       iolist_to_binary(Key), <<>>,
-                       undefined);
-
-crypto_init(Cipher, Key, IV) ->
-    ng_crypto_init_nif(alias(Cipher),
-                       iolist_to_binary(Key), iolist_to_binary(IV),
-                       undefined).
-
-
--spec crypto_init(Ref, EncryptFlag) -> crypto_state() | ng_crypto_error()
-                                           when Ref :: crypto_state(),
-                                                EncryptFlag :: boolean() .
-
-crypto_init(Ref, EncryptFlag) when is_reference(Ref),
-                                   is_atom(EncryptFlag) ->
-    ng_crypto_init_nif(Ref, <<>>, <<>>, EncryptFlag).
 
 %%%----------------------------------------------------------------
 %%%
@@ -777,6 +759,20 @@ crypto_update(State, Data0) ->
             ng_crypto_update_nif(State, Data)
     end.
 
+
+-spec crypto_update(State, Data, IV) -> Result | ng_crypto_error()
+                                            when State :: crypto_state(),
+                                                 Data :: iodata(),
+                                                 IV :: iodata(),
+                                                 Result :: binary() .
+crypto_update(State, Data0, IV) ->
+    %% When State is from State = crypto_init(Cipher, Key, undefined, EncryptFlag)
+    case iolist_to_binary(Data0) of
+        <<>> ->
+            <<>>;                           % Known to fail on OpenSSL 0.9.8h
+        Data ->
+            ng_crypto_update_nif(State, Data, iolist_to_binary(IV))
+    end.
 
 %%%----------------------------------------------------------------
 %%%
@@ -811,13 +807,16 @@ crypto_one_shot(Cipher, Key, IV, Data0, EncryptFlag) ->
 
 -type ng_crypto_error() :: no_return() .
 
--spec ng_crypto_init_nif(atom(), binary(), binary(), boolean()|undefined ) -> crypto_state() | ng_crypto_error()
+-spec ng_crypto_init_nif(atom(), binary(), binary()|undefined, boolean()|undefined ) -> crypto_state() | ng_crypto_error()
                       ; (crypto_state(), <<>>, <<>>, boolean()) -> crypto_state() | ng_crypto_error().
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
 
 
 -spec ng_crypto_update_nif(crypto_state(), binary()) -> binary() | ng_crypto_error() .
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
+
+-spec ng_crypto_update_nif(crypto_state(), binary(), binary()) -> binary() | ng_crypto_error() .
+ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
 
 
 -spec ng_crypto_one_shot_nif(atom(), binary(), binary(), binary(), boolean() ) -> binary() | ng_crypto_error().
