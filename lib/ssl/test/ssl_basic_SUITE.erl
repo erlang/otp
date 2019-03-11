@@ -287,7 +287,9 @@ tls13_test_group() ->
      tls13_client_auth_ssl_server_openssl_client,
      tls13_hrr_client_auth_empty_cert_alert_ssl_server_openssl_client,
      tls13_hrr_client_auth_empty_cert_ssl_server_openssl_client,
-     tls13_hrr_client_auth_ssl_server_openssl_client].
+     tls13_hrr_client_auth_ssl_server_openssl_client,
+     tls13_unsupported_sign_algo_client_auth_ssl_server_openssl_client,
+     tls13_unsupported_sign_algo_cert_client_auth_ssl_server_openssl_client].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
@@ -5771,6 +5773,80 @@ tls13_hrr_client_auth_ssl_server_openssl_client(Config) ->
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
     ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+
+tls13_unsupported_sign_algo_client_auth_ssl_server_openssl_client() ->
+     [{doc,"TLS 1.3: Test client authentication with unsupported signature_algorithm"}].
+
+tls13_unsupported_sign_algo_client_auth_ssl_server_openssl_client(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {verify, verify_peer},
+                  %% Skip rsa_pkcs1_sha256!
+                  {signature_algs, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
+                  {fail_if_no_peer_cert, true}|ServerOpts0],
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
+
+    ssl_test_lib:check_result(
+      Server,
+      {error,
+       {tls_alert,
+        {insufficient_security,
+         "received SERVER ALERT: Fatal - Insufficient Security - "
+         "\"No suitable signature algorithm\""}}}),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+
+%% Triggers Client Alert as openssl s_client does not have a certificate with a
+%% signature algorithm supported by the server (signature_algorithms_cert extension
+%% of CertificateRequest does not contain the algorithm of the client certificate).
+tls13_unsupported_sign_algo_cert_client_auth_ssl_server_openssl_client() ->
+     [{doc,"TLS 1.3: Test client authentication with unsupported signature_algorithm_cert"}].
+
+tls13_unsupported_sign_algo_cert_client_auth_ssl_server_openssl_client(Config) ->
+    ssl:set_log_level(debug),
+
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {log_level, debug},
+                  {verify, verify_peer},
+                  {signature_algs, [rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pss_rsae_sha256]},
+                  %% Skip rsa_pkcs1_sha256!
+                  {signature_algs_cert, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
+                  {fail_if_no_peer_cert, true}|ServerOpts0],
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
+
+    ssl_test_lib:check_result(
+      Server,
+      {error,
+       {tls_alert,
+        {illegal_parameter,
+         "received CLIENT ALERT: Fatal - Illegal Parameter"}}}),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
