@@ -530,32 +530,26 @@ put_list Src Dst=x Dst => update_list Src Dst
 
 update_list xyc x
 
-put_list x n x
-put_list y n x
-put_list x x x
-put_list y x x
+# put_list SrcReg1 SrcReg2 => Dst
 
-put_list y y x
-put_list x y x
+put_list xy xy x
 
-# put_list SrcReg Constant Dst
+# put_list SrcReg [] => Dst
 
-put_list x c x
-put_list x c y
+put_list xy n xy
 
-put_list y c x
+# put_list SrcReg Constant => x
 
-# put_list Constant SrcReg Dst
+put_list xy c x
 
-put_list c x x
-put_list c y x
+# put_list Constant SrcReg => Dst
+
+put_list c xy x
 
 # The following put_list instructions using x(0) are frequently used.
 
-put_list r n r
-put_list r n x
-put_list r x x
-put_list r x r
+put_list r n rx
+put_list r x rx
 put_list x x r
 
 %cold
