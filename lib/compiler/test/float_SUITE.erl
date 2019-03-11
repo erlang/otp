@@ -21,15 +21,16 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1,
-         subtract_number_type/1]).
+         subtract_number_type/1,float_followed_by_guard/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [pending, bif_calls, math_functions,
-     mixed_float_and_int, subtract_number_type].
+     mixed_float_and_int, subtract_number_type,
+     float_followed_by_guard].
 
 groups() -> 
     [].
@@ -186,6 +187,22 @@ fact(N) ->
 fact(0, P) -> P;
 fact(1, P) -> P;
 fact(N, P) -> fact(N-1, P*N).
+
+float_followed_by_guard(Config) when is_list(Config) ->
+    true = ffbg_1(5, 1),
+    false = ffbg_1(1, 5),
+    ok.
+
+ffbg_1(A, B0) ->
+    %% This is a non-guard block followed by a *guard block* that starts with a
+    %% floating point operation, and the compiler erroneously assumed that it
+    %% was safe to skip fcheckerror because the next block started with a float
+    %% op.
+    B = id(B0) / 1.0,
+    if
+        A - B > 0.0 -> true;
+        A - B =< 0.0 -> false
+    end.
 
 id(I) -> I.
 
