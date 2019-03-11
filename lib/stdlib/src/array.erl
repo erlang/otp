@@ -1632,12 +1632,11 @@ foldl_test_() ->
      ?_assert(foldl(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
      ?_assert(foldl(Reverse, [], from_list(lists:seq(0,1000)))
 	      =:= lists:reverse(lists:seq(0,1000))),
-     ?_assert({999,[N0*100+1+2,N0*2+1+1,0]} =:= 
-	      foldl(Vals, {0,[]}, 
+     ?_assertEqual({N0*100+1-2,[N0*100+1+2,N0*2+1+1,0]},
+	      foldl(Vals, {0,[]},
 		    set(N0*100+1,2,
 			set(N0*2+1,1,
 			    set(0,0,new())))))
-     
     ].
 -endif.
 
@@ -1787,12 +1786,11 @@ foldr_test_() ->
      ?_assert(foldr(Sum, 0, from_list(lists:seq(0,10))) =:= 55),
      ?_assert(foldr(List, [], from_list(lists:seq(0,1000)))
  	      =:= lists:seq(0,1000)),
-     ?_assert({999,[0,N0*2+1+1,N0*100+1+2]} =:= 
-	      foldr(Vals, {0,[]}, 
+     ?_assertEqual({N0*100+1-2,[0,N0*2+1+1,N0*100+1+2]},
+	      foldr(Vals, {0,[]},
 		    set(N0*100+1,2,
 			set(N0*2+1,1,
 			    set(0,0,new())))))
-     
     ].
 -endif.
 
