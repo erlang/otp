@@ -166,31 +166,31 @@ groups() ->
                compute_bug]},
      {ecdh, [], [use_all_elliptic_curves, compute, generate]},
      {srp, [], [generate_compute]},
-     {des_cbc, [], [block, api_ng, api_ng_one_shot]},
-     {des_cfb, [], [block, api_ng, api_ng_one_shot]},
-     {des3_cbc,[], [block, api_ng, api_ng_one_shot]},
-     {des_ede3,[], [block, api_ng, api_ng_one_shot]},
-     {des3_cbf,[], [block, api_ng, api_ng_one_shot]},
-     {des3_cfb,[], [block, api_ng, api_ng_one_shot]},
-     {rc2_cbc,[], [block, api_ng, api_ng_one_shot]},
-     {aes_cbc128,[], [block, api_ng, api_ng_one_shot, cmac]},
-     {aes_cfb8,[], [block, api_ng, api_ng_one_shot]},
-     {aes_cfb128,[], [block, api_ng, api_ng_one_shot]},
-     {aes_cbc256,[], [block, api_ng, api_ng_one_shot, cmac]},
-     {aes_ecb,[], [block, api_ng, api_ng_one_shot]},
+     {des_cbc, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_cfb, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des3_cbc,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_ede3,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des3_cbf,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des3_cfb,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {rc2_cbc,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_cbc128,[], [block, api_ng, api_ng_one_shot, api_ng_tls, cmac]},
+     {aes_cfb8,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_cfb128,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_cbc256,[], [block, api_ng, api_ng_one_shot, api_ng_tls, cmac]},
+     {aes_ecb,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_ige256,[], [block]},
-     {blowfish_cbc, [], [block, api_ng, api_ng_one_shot]},
-     {blowfish_ecb, [], [block, api_ng, api_ng_one_shot]},
-     {blowfish_cfb64, [], [block, api_ng, api_ng_one_shot]},
-     {blowfish_ofb64,[], [block, api_ng, api_ng_one_shot]},
-     {rc4, [], [stream, api_ng, api_ng_one_shot]},
-     {aes_ctr, [], [stream, api_ng, api_ng_one_shot]},
+     {blowfish_cbc, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_ecb, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_cfb64, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_ofb64,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {rc4, [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_ctr, [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_ccm, [], [aead]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]},
-     {chacha20, [], [stream, api_ng, api_ng_one_shot]},
+     {chacha20, [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
      {poly1305, [], [poly1305]},
-     {aes_cbc, [], [block, api_ng, api_ng_one_shot]},
+     {aes_cbc, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {no_aes_cfb8,[], [no_support, no_block]},
      {no_aes_cfb128,[], [no_support, no_block]},
      {no_md4, [], [no_support, no_hash]},
@@ -527,6 +527,61 @@ do_api_ng_one_shot({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
         OtherPT ->
             ct:log("In: ~p~nOut: ~p",[_X,OtherPT]),
             ct:fail("api_ng_one_shot (decode)",[])
+    end.
+
+%%--------------------------------------------------------------------
+api_ng_tls() ->
+     [{doc, "Test special tls api"}].
+
+api_ng_tls(Config) when is_list(Config) ->
+    Blocks = lazy_eval(proplists:get_value(block, Config, [])),
+    Streams = lazy_eval(proplists:get_value(stream, Config, [])),
+    lists:foreach(fun do_api_ng_tls/1, Blocks++Streams).
+
+
+do_api_ng_tls({Type, Key, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    do_api_ng_tls({Type, Key, <<>>, PlainTexts});
+
+do_api_ng_tls({Type, Key, IV, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    do_api_ng_tls({Type, Key, IV, PlainTexts, undefined});
+
+do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
+    ct:log("~p",[_X]),
+    PlainText = iolist_to_binary(PlainText0),
+    Renc = crypto:crypto_init_dyn_iv(Type, Key, true),
+    Rdec = crypto:crypto_init_dyn_iv(Type, Key, false),
+    EncTxt = crypto:crypto_update_dyn_iv(Renc, PlainText, IV),
+    case ExpectedEncText of
+        undefined ->
+            ok;
+        EncTxt ->
+            %% Now check that the state is NOT updated:
+            case crypto:crypto_update_dyn_iv(Renc, PlainText, IV) of
+                EncTxt ->
+                    ok;
+                EncTxt2 ->
+                    ct:log("In = ~p,~nEncTxt = ~p~nEncTxt2= ~p", [_X,EncTxt,EncTxt2]),
+                    ct:fail("api_ng_tls (second encode)",[])
+            end;
+        OtherEnc ->
+            ct:log("In: ~p~nOut: ~p",[_X,OtherEnc]),
+            ct:fail("api_ng_tls (encode)",[])
+    end,
+    case crypto:crypto_update_dyn_iv(Rdec, EncTxt, IV) of
+        PlainText ->
+            %% Now check that the state is NOT updated:
+            case crypto:crypto_update_dyn_iv(Rdec, EncTxt, IV) of
+                PlainText ->
+                    ok;
+                PlainText2 ->
+                    ct:log("In = ~p,~nPlainText = ~p~nPlainText2= ~p", [_X,PlainText,PlainText2]),
+                    ct:fail("api_ng_tls (second decode)",[])
+            end;
+        OtherPT ->
+            ct:log("In: ~p~nOut: ~p",[_X,OtherPT]),
+            ct:fail("api_ng_tlst (decode)",[])
     end.
 
 %%--------------------------------------------------------------------
