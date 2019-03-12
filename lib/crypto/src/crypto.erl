@@ -56,9 +56,11 @@
         ]).
 
 %% New interface
--export([crypto_init/4, crypto_init/3, crypto_init/2, 
-         crypto_update/2, crypto_update/3,
-         crypto_one_shot/5
+-export([crypto_init/4, crypto_init/3,
+         crypto_update/2,
+         crypto_one_shot/5,
+         crypto_init_dyn_iv/3,
+         crypto_update_dyn_iv/3
         ]).
 
 
@@ -721,24 +723,39 @@ next_iv(Type, Data, _Ivec) ->
 %%% Create and initialize a new state for encryption or decryption
 %%% 
 
+-spec crypto_init(Cipher, Key, EncryptFlag) -> State | ng_crypto_error()
+                                                   when Cipher :: block_cipher_without_iv()
+                                                                | stream_cipher_no_iv(),
+                                                        Key :: iodata(),
+                                                        EncryptFlag :: boolean(),
+                                                        State :: crypto_state() .
+crypto_init(Cipher, Key, EncryptFlag) ->
+    %% The IV is supposed to be supplied by calling crypto_update/3
+    ng_crypto_init_nif(alias(Cipher), iolist_to_binary(Key), <<>>, EncryptFlag).
+
+
 -spec crypto_init(Cipher, Key, IV, EncryptFlag) -> State | ng_crypto_error()
-                                                       when Cipher :: stream_cipher()
-                                                                    | block_cipher_with_iv()
-                                                                    | block_cipher_without_iv(),
+                                                       when Cipher :: stream_cipher_iv()
+                                                                    | block_cipher_with_iv(),
                                                             Key :: iodata(),
-                                                            IV :: iodata() | undefined,
+                                                            IV :: iodata(),
                                                             EncryptFlag :: boolean(),
                                                             State :: crypto_state() .
-crypto_init(Cipher, Key, undefined, EncryptFlag) ->
-    %% The IV is supposed to be supplied by calling crypto_update/3
-    ng_crypto_init_nif(alias(Cipher),
-                       iolist_to_binary(Key), undefined,
-                       EncryptFlag);
-
 crypto_init(Cipher, Key, IV, EncryptFlag) ->
-    ng_crypto_init_nif(alias(Cipher),
-                       iolist_to_binary(Key), iolist_to_binary(IV),
-                       EncryptFlag).
+    ng_crypto_init_nif(alias(Cipher), iolist_to_binary(Key), iolist_to_binary(IV), EncryptFlag).
+
+
+
+%%%----------------------------------------------------------------
+-spec crypto_init_dyn_iv(Cipher, Key, EncryptFlag) -> State | ng_crypto_error()
+                                                          when Cipher :: stream_cipher_iv()
+                                                                       | block_cipher_with_iv(),
+                                                               Key :: iodata(),
+                                                               EncryptFlag :: boolean(),
+                                                               State :: crypto_state() .
+crypto_init_dyn_iv(Cipher, Key, EncryptFlag) ->
+    %% The IV is supposed to be supplied by calling crypto_update/3
+    ng_crypto_init_nif(alias(Cipher), iolist_to_binary(Key), undefined, EncryptFlag).
 
 %%%----------------------------------------------------------------
 %%%
@@ -760,12 +777,13 @@ crypto_update(State, Data0) ->
     end.
 
 
--spec crypto_update(State, Data, IV) -> Result | ng_crypto_error()
-                                            when State :: crypto_state(),
-                                                 Data :: iodata(),
-                                                 IV :: iodata(),
-                                                 Result :: binary() .
-crypto_update(State, Data0, IV) ->
+%%%----------------------------------------------------------------
+-spec crypto_update_dyn_iv(State, Data, IV) -> Result | ng_crypto_error()
+                                                   when State :: crypto_state(),
+                                                        Data :: iodata(),
+                                                        IV :: iodata(),
+                                                        Result :: binary() .
+crypto_update_dyn_iv(State, Data0, IV) ->
     %% When State is from State = crypto_init(Cipher, Key, undefined, EncryptFlag)
     case iolist_to_binary(Data0) of
         <<>> ->
@@ -773,7 +791,6 @@ crypto_update(State, Data0, IV) ->
         Data ->
             ng_crypto_update_nif(State, Data, iolist_to_binary(IV))
     end.
-
 
 %%%----------------------------------------------------------------
 %%%
