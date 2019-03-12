@@ -477,6 +477,13 @@ i_make_fun(FunP, NumFree) {
     HEAVY_SWAPIN;
 }
 
+move_trim(Src, Dst, Words) {
+    Uint cp = E[0];
+    $Dst = $Src;
+    E += $Words;
+    E[0] = cp;
+}
+
 i_trim(Words) {
     Uint cp = E[0];
     E += $Words;

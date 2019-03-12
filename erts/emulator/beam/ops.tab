@@ -106,7 +106,10 @@ init y
 allocate_zero t t?
 allocate_heap_zero t I t?
 
+move Src=y Dst=x | trim N Remaining => move_trim Src Dst N
 trim N Remaining => i_trim N
+
+move_trim y x t
 i_trim t
 
 test_heap I t?
