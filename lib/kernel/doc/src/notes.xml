@@ -31,6 +31,185 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If for example the <c>/etc/hosts</c> did not come into
+	    existence until after the kernel application had started,
+	    its content was never read. This bug has now been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14702 Aux Id: PR-2066 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where doing <c>seq_trace:reset_trace()</c> while
+	    another process was doing a garbage collection could
+	    cause the run-time system to segfault.</p>
+          <p>
+	    Own Id: OTP-15490</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>erl_epmd:port_please</c> spec to include
+	    <c>atom()</c> and <c>string()</c>.</p>
+          <p>
+	    Own Id: OTP-15557 Aux Id: PR-2117 </p>
+        </item>
+        <item>
+          <p>
+	    The Logger handler logger_std_h now keeps track of the
+	    inode of its log file in order to re-open the file if the
+	    inode changes. This may happen, for instance, if the log
+	    file is opened and saved by an editor.</p>
+          <p>
+	    Own Id: OTP-15578 Aux Id: ERL-850 </p>
+        </item>
+        <item>
+          <p>
+	    When user specific file modes are given to the logger
+	    handler <c>logger_std_h</c>, they were earlier accepted
+	    without any control. This is now changes, so Logger will
+	    adjust the file modes as follows:</p>
+          <p>
+	    - If <c>raw</c> is not found in the list, it is
+	    added.<br/> - If none of <c>write</c>, <c>append</c> or
+	    <c>exclusive</c> are found in the list, <c>append</c> is
+	    added.<br/> - If none of <c>delayed_write</c> or
+	    <c>{delayed_write,Size,Delay}</c> are found in the list,
+	    <c>delayed_write</c> is added.</p>
+          <p>
+	    Own Id: OTP-15602</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The standard logger handler, <c>logger_std_h</c>, now has
+	    a new internal feature for log rotation. The rotation
+	    scheme is as follows:</p>
+          <p>
+	    The log file to which the handler currently writes always
+	    has the same name, i.e. the name which is configured for
+	    the handler. The archived files have the same name, but
+	    with extension ".N", where N is an integer. The newest
+	    archive has extension ".0", and the oldest archive has
+	    the highest number. </p>
+          <p>
+	    The size at which the log file is rotated, and the number
+	    of archive files that are kept, is specified with the
+	    handler specific configuration parameters
+	    <c>max_no_bytes</c> and <c>max_no_files</c> respectively. </p>
+          <p>
+	    Archives can be compressed, in which case they get a
+	    ".gz" file extension after the integer. Compression is
+	    specified with the handler specific configuration
+	    parameter <c>compress_on_rotate</c>.</p>
+          <p>
+	    Own Id: OTP-15479</p>
+        </item>
+        <item>
+          <p>
+	    The new functions <c>logger:i/0</c> and <c>logger:i/1</c>
+	    are added. These provide the same information as
+	    <c>logger:get_config/0</c> and other
+	    <c>logger:get_*_config</c> functions, but the information
+	    is more logically sorted and more readable.</p>
+          <p>
+	    Own Id: OTP-15600</p>
+        </item>
+        <item>
+          <p>
+	    Logger is now protected against overload due to massive
+	    amounts of log events from the emulator or from remote
+	    nodes.</p>
+          <p>
+	    Own Id: OTP-15601</p>
+        </item>
+        <item>
+          <p>
+	    Logger now uses os:system_time/1 instead of
+	    erlang:system_time/1 to generate log event timestamps.</p>
+          <p>
+	    Own Id: OTP-15625</p>
+        </item>
+        <item>
+          <p>
+	    Add functions <c>application:set_env/1,2</c> and
+	    <c>application:set_env/2</c>. These take a list of
+	    application configuration parameters, and the behaviour
+	    is equivalent to calling <c>application:set_env/4</c>
+	    individually for each application/key combination, except
+	    it is more efficient.</p>
+          <p>
+	    <c>set_env/1,2</c> warns about duplicated applications or
+	    keys. The warning is also emitted during boot, if
+	    applications or keys are duplicated within one
+	    configuration file, e.g. sys.config.</p>
+          <p>
+	    Own Id: OTP-15642 Aux Id: PR-2164 </p>
+        </item>
+        <item>
+          <p>
+	    Handler specific configuration parameters for the
+	    standard handler <c>logger_std_h</c> are changed to be
+	    more intuitive and more similar to the disk_log handler.</p>
+          <p>
+	    Earlier there was only one parameter, <c>type</c>, which
+	    could have the values <c>standard_io</c>,
+	    <c>standard_error</c>, <c>{file,FileName}</c> or
+	    <c>{file,FileName,Modes}</c>.</p>
+          <p>
+	    This is now changed, so the following parameters are
+	    allowed:</p>
+          <p>
+	    <c>type = standard_io | standard_error | file</c><br/>
+	    <c>file = file:filename()</c><br/> <c>modes =
+	    [file:mode()]</c></p>
+          <p>
+	    All parameters are optional. <c>type</c> defaults to
+	    <c>standard_io</c>, unless a file name is given, in which
+	    case it defaults to <c>file</c>. If <c>type</c> is set to
+	    <c>file</c>, the file name defaults to the same as the
+	    handler id.</p>
+          <p>
+	    The potential incompatibility is that
+	    <c>logger:get_config/0</c> and
+	    <c>logger:get_handler_config/1</c> now returns the new
+	    parameters, even if the configuration was set with the
+	    old variant, e.g. <c>#{type=>{file,FileName}}</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15662</p>
+        </item>
+        <item>
+          <p>
+	    The new configuration parameter <c>file_check</c> is
+	    added to the Logger handler <c>logger_std_h</c>. This
+	    parameter specifies how long (in milliseconds) the
+	    handler may wait before checking if the log file still
+	    exists and the inode is the same as when it was opened.</p>
+          <p>
+	    The default value is 0, which means that this check is
+	    done prior to each write operation. Setting a higher
+	    number may improve performance, but adds the risk of
+	    loosing log events.</p>
+          <p>
+	    Own Id: OTP-15663</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

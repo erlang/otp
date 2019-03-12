@@ -30,6 +30,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.7.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    SSH sftp daemon now accepts an SSH_FXP_STAT message
+	    encoded according to the wrong sftp version. Some clients
+	    sends such messages.</p>
+          <p>
+	    Own Id: OTP-15498 Aux Id: ERL-822, PR-2077 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

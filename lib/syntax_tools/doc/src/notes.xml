@@ -32,6 +32,20 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 2.1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix pretty-printing of type funs. </p>
+          <p>
+	    Own Id: OTP-15519 Aux Id: ERL-815 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 2.1.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

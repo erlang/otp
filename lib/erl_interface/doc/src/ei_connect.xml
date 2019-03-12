@@ -412,7 +412,7 @@ typedef struct {
     </func>
 
     <func>
-      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_close_connection(int fd)</nametext></name>
+      <name since="OTP 21.3"><ret>int</ret><nametext>ei_close_connection(int fd)</nametext></name>
       <fsummary>Close a connection.</fsummary>
       <desc>
         <p>Closes a previously opened connection or listen socket.</p>
@@ -472,9 +472,9 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
 
     <func>
       <name since=""><ret>int</ret><nametext>ei_connect_init(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation)</nametext></name>
-      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
+      <name since="OTP 21.3"><ret>int</ret><nametext>ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation)</nametext></name>
-      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
+      <name since="OTP 21.3"><ret>int</ret><nametext>ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
       <fsummary>Initialize for a connection.</fsummary>
       <desc>
         <p>Initializes the <c>ec</c> structure, to
@@ -595,8 +595,8 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     </func>
 
     <func>
-      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_listen(ei_cnode *ec, int *port, int backlog)</nametext></name>
-      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_xlisten(ei_cnode *ec, Erl_IpAddr adr, int *port, int backlog)</nametext></name>
+      <name since="OTP 21.3"><ret>int</ret><nametext>ei_listen(ei_cnode *ec, int *port, int backlog)</nametext></name>
+      <name since="OTP 21.3"><ret>int</ret><nametext>ei_xlisten(ei_cnode *ec, Erl_IpAddr adr, int *port, int backlog)</nametext></name>
       <fsummary>Create a listen socket.</fsummary>
       <desc>
         <p>Used by a server process to setup a listen socket which

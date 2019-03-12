@@ -238,8 +238,8 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       </desc>
     </func>
     <func>
-      <name name="set_env" arity="1" since="OTP @OTP-15642@"/>
-      <name name="set_env" arity="2" since="OTP @OTP-15642@"/>
+      <name name="set_env" arity="1" since="OTP 21.3"/>
+      <name name="set_env" arity="2" since="OTP 21.3"/>
       <fsummary>Sets the configuration parameters of multiple applications.</fsummary>
       <desc>
         <p>Sets the configuration <c><anno>Config</anno></c> for multiple

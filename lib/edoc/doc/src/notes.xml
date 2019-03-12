@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Print a helpful message explaining that adding
+	    <c>{preprocess, true}</c> can help if reading a source
+	    file fails. </p>
+          <p>
+	    Own Id: OTP-15605 Aux Id: ERL-841 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.9.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

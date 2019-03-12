@@ -31,6 +31,57 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug in the Erlang Pretty Printer: long atom
+	    names in combination with <c>&lt;&lt;&gt;&gt;</c> could
+	    cause a crash. </p>
+          <p>
+	    Own Id: OTP-15592 Aux Id: ERL-818 </p>
+        </item>
+        <item>
+	    <p> Fix bugs that could cause wrong results or bad
+	    performance when formatting lists of characters using the
+	    control sequences <c>p</c> or <c>P</c> and limiting the
+	    output with the option <c>chars_limit</c>. </p>
+          <p>
+	    Own Id: OTP-15639</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved ETS documentation about safe table traversal and
+	    the partially bound key optimization for
+	    <c>ordered_set</c>.</p>
+          <p>
+	    Own Id: OTP-15545 Aux Id: PR-2103, PR-2139 </p>
+        </item>
+        <item>
+	    <p> Optimize <c>calendar:gregorian_days_to_date/1</c>.
+	    </p>
+          <p>
+	    Own Id: OTP-15572 Aux Id: PR-2121 </p>
+        </item>
+        <item>
+	    <p> Optimize functions
+	    <c>calendar:rfc3339_to_system_time()</c> and
+	    <c>calendar:system_time_to_rfc3339()</c>. </p>
+          <p>
+	    Own Id: OTP-15630</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

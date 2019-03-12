@@ -33,6 +33,66 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug caused <c>ct:encrypt_config_file/3</c> and
+	    <c>ct:decrypt_config_file/3</c> to fail with
+	    <c>badmatch</c> if input parameter <c>KeyOrFile</c> was
+	    <c>{key,string()}</c>. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15540</p>
+        </item>
+        <item>
+          <p>
+	    The status of a test case which failed with timetrap
+	    timeout in <c>end_per_testcase</c> could not be modified
+	    by returning <c>{fail,Reason}</c> from a
+	    <c>post_end_per_testcase</c> hook function. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-15584 Aux Id: ERIERL-282 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new variant of the <c>newline</c> option to
+	    <c>ct_telnet:cmd/3</c> and <c>ct_telnet:send/3</c> is
+	    added, which allows to specify a string to append as
+	    newline indicator on a command. By default, the value is
+	    "\n", but in some cases it is required to be "\r\n",
+	    which this option allows.</p>
+          <p>
+	    A faulty regular expression given as parameter to
+	    <c>ct_telnet:expect/2,3</c> would earlier crash and look
+	    like an internal error in common_test. A better error
+	    indication is now given, but the test case will still
+	    fail.</p>
+          <p>
+	    Own Id: OTP-15229 Aux Id: ERIERL-203 </p>
+        </item>
+        <item>
+          <p>
+	    Since the yang RFC allows more than one top element of
+	    config data in an <c>edit-config</c> element,
+	    <c>ct_netconfc:edit_config/3,4,5</c> can now take a list
+	    of XML elements.</p>
+          <p>
+	    Own Id: OTP-15298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.16.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

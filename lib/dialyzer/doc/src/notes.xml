@@ -32,6 +32,36 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug that caused Dialyzer to crash when
+	    analyzing a contract with a module name differing from
+	    the analyzed module's name. The bug was introduced in
+	    Erlang/OTP 18. </p>
+          <p>
+	    Own Id: OTP-15562 Aux Id: ERL-845 </p>
+        </item>
+        <item>
+	    <p> Fix a bug in the handling of the <c>Key</c> argument
+	    of <c>lists:{keysearch, keyfind, keymember}</c>. </p>
+          <p>
+	    Own Id: OTP-15570</p>
+        </item>
+        <item>
+	    <p>Optimize (again) Dialyzer's handling of
+	    left-associative use of <c>andalso</c> and <c>orelse</c>
+	    in guards.</p>
+          <p>
+	    Own Id: OTP-15577 Aux Id: ERL-851, PR-2141, PR-1944 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.3.1</title>
 
     <section><title>Improvements and New Features</title>

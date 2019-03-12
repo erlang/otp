@@ -736,7 +736,7 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
     </func>
 
     <func>
-      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_init(void)</nametext></name>
+      <name since="OTP 21.3"><ret>int</ret><nametext>ei_init(void)</nametext></name>
       <fsummary>Initialize the ei library.</fsummary>
       <desc>
         <p>Initialize the <c>ei</c> library. This function should be called once

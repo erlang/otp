@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.18.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug in the handling of the <c>Key</c> argument
+	    of <c>lists:{keysearch, keyfind, keymember}</c>. </p>
+          <p>
+	    Own Id: OTP-15570</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.18.2</title>
 
     <section><title>Improvements and New Features</title>

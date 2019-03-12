@@ -27,6 +27,93 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug that an incorrect return value for gen_statem
+	    could be created when alert was a result of handling
+	    renegotiation info extension</p>
+          <p>
+	    Own Id: OTP-15502</p>
+        </item>
+        <item>
+          <p>
+	    Correct check for 3des_ede_cbc, could cause ssl to claim
+	    to support 3des_ede_cbc when cryptolib does not.</p>
+          <p>
+	    Own Id: OTP-15539</p>
+        </item>
+        <item>
+          <p>
+	    Improved DTLS error handling, avoids unexpected
+	    connection failure in rare cases.</p>
+          <p>
+	    Own Id: OTP-15561</p>
+        </item>
+        <item>
+          <p>
+	    Corrected active once emulation bug that could cause the
+	    ssl_closed meassage to not be sent. Bug introduced by
+	    OTP-15449</p>
+          <p>
+	    Own Id: OTP-15666 Aux Id: ERIERL-316, </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add client option {reuse_session, SessionID::binary()}
+	    that can be used together with new option value
+	    {reuse_sessions, save}. This makes it possible to reuse a
+	    session from a specific connection establishment.</p>
+          <p>
+	    Own Id: OTP-15369</p>
+        </item>
+        <item>
+          <p>
+	    The Reason part of of the error return from the functions
+	    connect and handshake has a better and documented format.
+	    This will sometimes differ from previous returned
+	    reasons, however those where only documented as term()
+	    and should for that reason not be relied on.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15423</p>
+        </item>
+        <item>
+          <p>
+	    Refactor of state handling to improve TLS application
+	    data throughput and reduce CPU overhead</p>
+          <p>
+	    Own Id: OTP-15445</p>
+        </item>
+        <item>
+          <p>
+	    The SSL code has been optimized in many small ways to
+	    reduce CPU load for encryption/decryption, especially for
+	    Erlang's distribution protocol over TLS.</p>
+          <p>
+	    Own Id: OTP-15529</p>
+        </item>
+        <item>
+          <p>
+	    Add support for active N</p>
+          <p>
+	    Own Id: OTP-15665 Aux Id: ERL-811, PR-2072 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
