@@ -235,7 +235,7 @@ static int get_update_args(ErlNifEnv* env,
             goto err;
         }
 
-    ASSERT(in_data_bin.size =< INT_MAX);
+    ASSERT(in_data_bin.size <= INT_MAX);
 
 #if !defined(HAVE_EVP_AES_CTR)
     // enif_fprintf(stdout, "%s:%u state = %T\r\n", __FILE__, __LINE__, ctx_res->state);
@@ -340,7 +340,7 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 {/* (Context, Data) */
     ErlNifBinary   data_bin;
 
-    ASSERT(argc =< 3);
+    ASSERT(argc <= 3);
 
     if (!enif_inspect_binary(env, argv[1], &data_bin))
         return ERROR_Str(env, "expected binary as data");
