@@ -330,14 +330,16 @@ move_dup x x x
 
 # move_shift
 
-move SD=x D=x | move Src=xy SD=x | distinct(D, Src) => move_shift Src SD D
-move SD=y D=x | move Src=x  SD=y | distinct(D, Src) => move_shift Src SD D
-move SD=x D=y | move Src=x  SD=x | distinct(D, Src) => move_shift Src SD D
+move SD=x    D=x | move Src=xy SD=x   | distinct(D, Src) => move_shift Src SD D
+move SD=y    D=x | move Src=x  SD=y   | distinct(D, Src) => move_shift Src SD D
+move SD=x    D=y | move Src=x  SD=x   | distinct(D, Src) => move_shift Src SD D
+move SD=x==0 D=y | move Src=y SD=x==0 | distinct(D, Src) => move_shift Src SD D
 
 move_shift x x x
 move_shift y x x
 move_shift x y x
 move_shift x x y
+move_shift y r y
 
 # move2_par x x x x
 
