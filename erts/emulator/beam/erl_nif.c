@@ -987,7 +987,7 @@ static Eterm call_whereis(ErlNifEnv *env, Eterm name)
     int scheduler;
 
     execution_state(env, &c_p, &scheduler);
-    ASSERT((c_p && scheduler) || (!c_p && !scheduler));
+    ASSERT(scheduler || !c_p);
 
     if (scheduler < 0) {
         /* dirty scheduler */
@@ -2361,10 +2361,26 @@ int erts_dbg_is_resource_dying(ErtsResource* resource)
 }
 #endif
 
-#  define NIF_RESOURCE_DTOR &nif_resource_dtor
+#define NIF_RESOURCE_DTOR &nif_resource_dtor_prologue
 
-static int nif_resource_dtor(Binary* bin)
+static void run_resource_dtor(void* vbin);
+ 
+static int nif_resource_dtor_prologue(Binary* bin)
 {
+    /*
+     * Schedule user resource destructor as aux work to get a context
+     * where we know what locks we have for example.
+     */
+    Uint sched_id = erts_get_scheduler_id();
+    if (!sched_id)
+        sched_id = 1;
+    erts_schedule_misc_aux_work(sched_id, run_resource_dtor, bin);
+    return 0; /* don't free */
+}
+ 
+static void run_resource_dtor(void* vbin)
+{
+    Binary* bin = (Binary*) vbin;
     ErtsResource* resource = (ErtsResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(bin);
     ErlNifResourceType* type = resource->type;
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == NIF_RESOURCE_DTOR);
@@ -2396,11 +2412,11 @@ static int nif_resource_dtor(Binary* bin)
          * If resource->monitors->refc != 0 there are
          * outstanding references to the resource from
          * monitors that has not been removed yet.
-         * nif_resource_dtor() will be called again this
+         * nif_resource_dtor_prologue() will be called again when this
          * reference count reach zero.
          */
         if (refc != 0)
-            return 0; /* we'll be back... */
+            return; /* we'll be back... */
         erts_mtx_destroy(&rm->lock);
     }
 
@@ -2417,7 +2433,7 @@ static int nif_resource_dtor(Binary* bin)
 	steal_resource_type(type);
 	erts_free(ERTS_ALC_T_NIF, type);
     }
-    return 1;
+    erts_magic_binary_free((Binary*)vbin);
 }
 
 void erts_resource_stop(ErtsResource* resource, ErlNifEvent e,

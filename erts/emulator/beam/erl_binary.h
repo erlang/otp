@@ -315,6 +315,7 @@ ERTS_GLB_INLINE Binary *erts_bin_drv_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc_fnf(Binary *bp, Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
+ERTS_GLB_INLINE void erts_magic_binary_free(Binary *bp);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
 ERTS_GLB_INLINE void erts_bin_release(Binary *bp);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
@@ -447,6 +448,13 @@ erts_bin_realloc(Binary *bp, Uint size)
 }
 
 ERTS_GLB_INLINE void
+erts_magic_binary_free(Binary *bp)
+{
+    erts_magic_ref_remove_bin(ERTS_MAGIC_BIN_REFN(bp));
+    erts_free(ERTS_MAGIC_BIN_ATYPE(bp), (void *) bp);
+}
+
+ERTS_GLB_INLINE void
 erts_bin_free(Binary *bp)
 {
     if (bp->intern.flags & BIN_FLAG_MAGIC) {
@@ -454,8 +462,7 @@ erts_bin_free(Binary *bp)
             /* Destructor took control of the deallocation */
             return;
         }
-	erts_magic_ref_remove_bin(ERTS_MAGIC_BIN_REFN(bp));
-        erts_free(ERTS_MAGIC_BIN_ATYPE(bp), (void *) bp);
+        erts_magic_binary_free(bp);
     }
     else if (bp->intern.flags & BIN_FLAG_DRV)
 	erts_free(ERTS_ALC_T_DRV_BINARY, (void *) bp);

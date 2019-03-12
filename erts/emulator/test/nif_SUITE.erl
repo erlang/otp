@@ -28,6 +28,7 @@
 -include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
@@ -105,6 +106,14 @@ all() ->
      nif_whereis, nif_whereis_parallel, nif_whereis_threaded,
      nif_ioq].
 
+init_per_suite(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    Config.
+
+end_per_suite(_Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
+    ok.
+
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
         ++
@@ -113,7 +122,6 @@ groups() ->
                     monitor_process_c,
                     monitor_process_d,
                     demonitor_process]}].
-
 
 api_groups() -> [api_latest, api_2_4, api_2_0].
 
@@ -1711,6 +1719,7 @@ read_resource(Type, {Holder,Id}) ->
 forget_resource({Holder,Id}) ->
     Holder ! {self(), forget, Id},
     {Holder, forget_ok, Id} = receive_any(),
+    erts_debug:set_internal_state(wait, aux_work),
     ok.
 
 
@@ -3327,6 +3336,10 @@ make_unaligned_binary(Bin0) ->
     <<0:3,Bin:Size/binary,31:5>> = id(<<0:3,Bin0/binary,31:5>>),
     Bin.
 
+last_resource_dtor_call() ->
+    erts_debug:set_internal_state(wait, aux_work),
+    last_resource_dtor_call_nif().
+
 id(I) -> I.
 
 %% The NIFs:
@@ -3354,7 +3367,7 @@ make_resource(_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
 release_resource(_) -> ?nif_stub.
 release_resource_from_thread(_) -> ?nif_stub.
-last_resource_dtor_call() -> ?nif_stub.
+last_resource_dtor_call_nif() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 check_is(_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 check_is_exception() -> ?nif_stub.
