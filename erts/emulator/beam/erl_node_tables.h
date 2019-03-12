@@ -148,6 +148,7 @@ struct dist_entry_ {
     enum dist_entry_state state;
     Uint32 flags;		/* Distribution flags, like hidden, 
 				   atom cache etc. */
+    Uint32 opts;
     unsigned long version;	/* Protocol version */
 
     ErtsMonLnkDist *mld;        /* Monitors and links */

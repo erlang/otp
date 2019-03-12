@@ -177,6 +177,7 @@ dist_table_alloc(void *dep_tmpl)
     dep->connection_id			= 0;
     dep->state				= ERTS_DE_STATE_IDLE;
     dep->flags				= 0;
+    dep->opts                           = 0;
     dep->version			= 0;
 
     dep->mld                            = NULL;
@@ -659,6 +660,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
 
     dep->state = ERTS_DE_STATE_IDLE;
     dep->flags = 0;
+    dep->opts = 0;
     dep->prev = NULL;
     dep->cid = NIL;
 
