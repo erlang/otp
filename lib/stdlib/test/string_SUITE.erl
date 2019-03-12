@@ -52,7 +52,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+     {timetrap,{minutes,2}}].
 
 all() ->
     [{group, chardata}, {group, list_string}].
@@ -737,10 +737,10 @@ meas(Config) ->
     case ct:get_timetrap_info() of
         {_,{_,Scale}} when Scale > 1 ->
             {skip,{will_not_run_in_debug,Scale}};
-        _ -> % No scaling, run at most 1.5 min
+        _ -> % No scaling, run at most 2 mins
             Tester = spawn(Exec),
             receive {test_done, Tester} -> ok
-            after 90000 ->
+            after 120000 ->
                     io:format("Timelimit reached stopping~n",[]),
                     exit(Tester, die)
             end,
@@ -754,17 +754,17 @@ do_measure(DataDir) ->
     io:format("~p~n",[byte_size(Bin)]),
     Do = fun(Name, Func, Mode) ->
                  {N, Mean, Stddev, _} = time_func(Func, Mode, Bin, 20),
-                 io:format("~15w ~11w ~8.2fms ±~6.2fms #~.2w gc included~n",
+                 io:format("~15w ~15w ~8.2fms ±~6.2fms #~.2w gc included~n",
                            [Name, Mode, Mean/1000, Stddev/1000, N])
          end,
     Do2 = fun(Name, Func, Mode) ->
                   {N, Mean, Stddev, _} = time_func(Func, binary, <<>>, 20),
-                  io:format("~15w ~11w ~8.2fms ±~6.2fms #~.2w gc included~n",
+                  io:format("~15w ~15w ~8.2fms ±~6.2fms #~.2w gc included~n",
                             [Name, Mode, Mean/1000, Stddev/1000, N])
           end,
     %% lefty_list means a list balanced to the left, like
     %% [[[30],31],32]. Only some functions check such lists.
-    Modes = [list, lefty_list, binary],
+    Modes = [list, lefty_list, binary, {many_lists,1}, {many_lists, 4}],
     io:format("----------------------~n"),
 
     Do(old_tokens, fun(Str) -> string:tokens(Str, [$\n,$\r]) end, list),
@@ -1070,7 +1070,20 @@ mode(binary, Bin) -> Bin;
 mode(list, Bin) -> unicode:characters_to_list(Bin);
 mode(lefty_list, Bin) ->
     L = unicode:characters_to_list(Bin),
-    to_left(L).
+    to_left(L);
+mode({many_lists, N}, Bin) ->
+    group(unicode:characters_to_list(Bin), N).
+
+group([], _N) ->
+    [];
+group(L, N) ->
+    try lists:split(N, L) of
+        {L1, L2} ->
+            [L1 | group(L2, N)]
+    catch
+        _:_ ->
+            [L]
+    end.
 
 to_left([]) ->
     [];

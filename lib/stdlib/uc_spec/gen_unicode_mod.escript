@@ -460,28 +460,73 @@ gen_cp(Fd) ->
                  " maybe_improper_list() | {error, unicode:chardata()}.\n"),
     io:put_chars(Fd, "cp([C|_]=L) when is_integer(C) -> L;\n"),
     io:put_chars(Fd, "cp([List]) -> cp(List);\n"),
-    io:put_chars(Fd, "cp([List|R]) ->\n"),
-    io:put_chars(Fd, "    cpl(List, R);\n"),
+    io:put_chars(Fd, "cp([List|R]) -> cpl(List, R);\n"),
     io:put_chars(Fd, "cp([]) -> [];\n"),
     io:put_chars(Fd, "cp(<<C/utf8, R/binary>>) -> [C|R];\n"),
     io:put_chars(Fd, "cp(<<>>) -> [];\n"),
     io:put_chars(Fd, "cp(<<R/binary>>) -> {error,R}.\n"),
     io:put_chars(Fd, "\n"),
-    io:put_chars(Fd, "cpl([C], R) when is_integer(C) ->\n"),
-    io:put_chars(Fd, "    [C|R];\n"),
-    io:put_chars(Fd, "cpl([C|T], R) when is_integer(C) ->\n"),
-    io:put_chars(Fd, "    [C,T|R];\n"),
-    io:put_chars(Fd, "cpl([List], R) ->\n"),
-    io:put_chars(Fd, "    cpl(List, R);\n"),
-    io:put_chars(Fd, "cpl([List|T], R) ->\n"),
-    io:put_chars(Fd, "    cpl(List, [T|R]);\n"),
-    io:put_chars(Fd, "cpl([], R) ->\n"),
-    io:put_chars(Fd, "    cp(R);\n"),
-    io:put_chars(Fd, "cpl(<<C/utf8, T/binary>>, R) ->\n"),
-    io:put_chars(Fd, "    [C,T|R];\n"),
-    io:put_chars(Fd, "cpl(<<>>, R) ->\n"),
-    io:put_chars(Fd, "    cp(R);\n"),
-    io:put_chars(Fd, "cpl(<<B/binary>>, R) -> {error,[B|R]}.\n\n"),
+    io:put_chars(Fd, "cpl([C], R) when is_integer(C) -> [C|cpl_1_cont(R)];\n"),
+    io:put_chars(Fd, "cpl([C|T], R) when is_integer(C) -> [C|cpl_cont(T, R)];\n"),
+    io:put_chars(Fd, "cpl([List], R) -> cpl(List, R);\n"),
+    io:put_chars(Fd, "cpl([List|T], R) -> cpl(List, [T|R]);\n"),
+    io:put_chars(Fd, "cpl([], R) -> cp(R);\n"),
+    io:put_chars(Fd, "cpl(<<C/utf8, T/binary>>, R) -> [C,T|R];\n"),
+    io:put_chars(Fd, "cpl(<<>>, R) -> cp(R);\n"),
+    io:put_chars(Fd, "cpl(<<B/binary>>, R) -> {error,[B|R]}.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "%%%\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_cont([C|T], R) when is_integer(C) -> [C|cpl_cont2(T, R)];\n"),
+    io:put_chars(Fd, "cpl_cont([L], R) -> cpl_cont(L, R);\n"),
+    io:put_chars(Fd, "cpl_cont([L|T], R) -> cpl_cont(L, [T|R]);\n"),
+    io:put_chars(Fd, "cpl_cont([], R) -> cpl_1_cont(R);\n"),
+    io:put_chars(Fd, "cpl_cont(T, R) -> [T|R].\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_cont2([C|T], R) when is_integer(C) -> [C|cpl_cont3(T, R)];\n"),
+    io:put_chars(Fd, "cpl_cont2([L], R) -> cpl_cont2(L, R);\n"),
+    io:put_chars(Fd, "cpl_cont2([L|T], R) -> cpl_cont2(L, [T|R]);\n"),
+    io:put_chars(Fd, "cpl_cont2([], R) -> cpl_1_cont2(R);\n"),
+    io:put_chars(Fd, "cpl_cont2(T, R) -> [T|R].\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_cont3([C], R) when is_integer(C) -> [C|R];\n"),
+    io:put_chars(Fd, "cpl_cont3([C|T], R) when is_integer(C) -> [C,T|R];\n"),
+    io:put_chars(Fd, "cpl_cont3([L], R) -> cpl_cont3(L, R);\n"),
+    io:put_chars(Fd, "cpl_cont3([L|T], R) -> cpl_cont3(L, [T|R]);\n"),
+    io:put_chars(Fd, "cpl_cont3([], R) -> cpl_1_cont3(R);\n"),
+    io:put_chars(Fd, "cpl_cont3(T, R) -> [T|R].\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "%%%\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_1_cont([C|T]) when is_integer(C) -> [C|cpl_1_cont2(T)];\n"),
+    io:put_chars(Fd, "cpl_1_cont([L]) -> cpl_1_cont(L);\n"),
+    io:put_chars(Fd, "cpl_1_cont([L|T]) -> cpl_cont(L, T);\n"),
+    io:put_chars(Fd, "cpl_1_cont(T) -> T.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_1_cont2([C|T]) when is_integer(C) -> [C|cpl_1_cont3(T)];\n"),
+    io:put_chars(Fd, "cpl_1_cont2([L]) -> cpl_1_cont2(L);\n"),
+    io:put_chars(Fd, "cpl_1_cont2([L|T]) -> cpl_cont2(L, T);\n"),
+    io:put_chars(Fd, "cpl_1_cont2(T) -> T.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cpl_1_cont3([C|_]=T) when is_integer(C) -> T;\n"),
+    io:put_chars(Fd, "cpl_1_cont3([L]) -> cpl_1_cont3(L);\n"),
+    io:put_chars(Fd, "cpl_1_cont3([L|T]) -> cpl_cont3(L, T);\n"),
+    io:put_chars(Fd, "cpl_1_cont3(T) -> T.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "%%%\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cp_no_bin([C|_]=L) when is_integer(C) -> L;\n"),
+    io:put_chars(Fd, "cp_no_bin([List]) -> cp_no_bin(List);\n"),
+    io:put_chars(Fd, "cp_no_bin([List|R]) -> cp_no_binl(List, R);\n"),
+    io:put_chars(Fd, "cp_no_bin([]) -> [];\n"),
+    io:put_chars(Fd, "cp_no_bin(_) -> binary_found.\n"),
+    io:put_chars(Fd, "\n"),
+    io:put_chars(Fd, "cp_no_binl([C], R) when is_integer(C) -> [C|cpl_1_cont(R)];\n"),
+    io:put_chars(Fd, "cp_no_binl([C|T], R) when is_integer(C) -> [C|cpl_cont(T, R)];\n"),
+    io:put_chars(Fd, "cp_no_binl([List], R) -> cp_no_binl(List, R);\n"),
+    io:put_chars(Fd, "cp_no_binl([List|T], R) -> cp_no_binl(List, [T|R]);\n"),
+    io:put_chars(Fd, "cp_no_binl([], R) -> cp_no_bin(R);\n"),
+    io:put_chars(Fd, "cp_no_binl(_, _) -> binary_found.\n\n"),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -492,9 +537,24 @@ gen_gc(Fd, GBP) ->
                  "-spec gc(String::unicode:chardata()) ->"
                  " maybe_improper_list() | {error, unicode:chardata()}.\n"),
     io:put_chars(Fd,
-                 "gc([CP1, CP2|_]=T)\n"
-                 "  when CP1 < 256, CP2 < 256, CP1 =/= $\\r -> %% Ascii Fast path\n"
-                 "       T;\n"
+                 "gc([]=R) -> R;\n"
+                 "gc([CP]=R) when is_integer(CP) -> R;\n"
+                 "gc([$\\r=CP|R0]) ->\n"
+                 "    case cp(R0) of % Don't break CRLF\n"
+                 "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
+                 "        T -> [CP|T]\n"
+                 "    end;\n"
+                 "gc([CP1|T1]=T) when CP1 < 256 ->\n"
+                 "    case T1 of\n"
+                 "        [CP2|_] when CP2 < 256 -> T; %% Ascii Fast path\n"
+                 "        _ -> %% Keep the tail binary.\n"
+                 "            case cp_no_bin(T1) of\n"
+                 "                [CP2|_]=T3 when CP2 < 256 -> [CP1|T3]; %% Asciii Fast path\n"
+                 "                binary_found -> gc_1(T);\n"
+                 "                T4 -> gc_1([CP1|T4])\n"
+                 "            end\n"
+                 "    end;\n"
+                 "gc(<<>>) -> [];\n"
                  "gc(<<CP1/utf8, Rest/binary>>) ->\n"
                  "    if CP1 < 256, CP1 =/= $\\r ->\n"
                  "           case Rest of\n"
@@ -504,13 +564,12 @@ gen_gc(Fd, GBP) ->
                  "           end;\n"
                  "      true -> gc_1([CP1|Rest])\n"
                  "    end;\n"
+                 "gc([CP|_]=T) when is_integer(CP) -> gc_1(T);\n"
                  "gc(Str) ->\n"
-                 "    gc_1(cp(Str)).\n\n"
-                 "gc_1([$\\r|R0] = R) ->\n"
-                 "    case cp(R0) of % Don't break CRLF\n"
-                 "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
-                 "        _ -> R\n"
-                 "    end;\n"
+                 "    case cp(Str) of\n"
+                 "        {error,_}=Error -> Error;\n"
+                 "        CPs -> gc(CPs)\n"
+                 "    end.\n"
                 ),
 
     GenExtP = fun(Range) -> io:format(Fd, "gc_1~s gc_ext_pict(R1,[CP]);\n", [gen_clause(Range)]) end,
@@ -518,7 +577,12 @@ gen_gc(Fd, GBP) ->
     %% Pick codepoints below 256 (some data knowledge here)
     {ExtendedPictographicLow,ExtendedPictographicHigh} =
         lists:splitwith(fun({Start,undefined}) -> Start < 256 end,ExtendedPictographic0),
-
+    io:put_chars(Fd,
+                 "\ngc_1([$\\r|R0] = R) ->\n"
+                 "    case cp(R0) of % Don't break CRLF\n"
+                 "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
+                 "        _ -> R\n"
+                 "    end;\n"),
     io:put_chars(Fd, "\n%% Handle control\n"),
     GenControl = fun(Range) -> io:format(Fd, "gc_1~s R0;\n", [gen_clause(Range)]) end,
     CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP), false),
@@ -527,7 +591,14 @@ gen_gc(Fd, GBP) ->
     %%GenControl(R1),GenControl(R2),GenControl(R3),
     io:put_chars(Fd, "\n%% Optimize Latin-1\n"),
     [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicLow)],
-    io:format(Fd, "gc_1([CP|R]) when CP < 256 -> gc_extend(R,CP);\n\n", []),
+
+    io:format(Fd,
+              "gc_1([CP|R]=R0) when CP < 256 ->\n"
+              "    case R of\n"
+              "        [CP2|_] when CP2 < 256 -> R0;\n"
+              "        _ -> gc_extend(cp(R), R, CP)\n"
+              "    end;\n",
+              []),
     io:put_chars(Fd, "\n%% Continue control\n"),
     [GenControl(CP) || CP <- Crs],
     %% One clause per CP
@@ -551,7 +622,7 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "gc_1([CP|_]=R0) when 44000 < CP, CP < 56000 -> gc_h_lv_lvt(R0, []);\n"),
 
     io:put_chars(Fd, "\n%% Handle Regional\n"),
-    GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,[CP]);\n", [gen_clause(Range)]) end,
+    GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,CP);\n", [gen_clause(Range)]) end,
     [GenRegional(CP) || CP <- merge_ranges(maps:get(regional_indicator,GBP))],
     %% io:put_chars(Fd, "%% Handle E_Base\n"),
     %% GenEBase = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
@@ -563,9 +634,7 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "%% Handle extended_pictographic\n"),
     [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicHigh)],
     io:put_chars(Fd, "\n%% default clauses\n"),
-    io:put_chars(Fd, "gc_1([CP|R]) -> gc_extend(R, CP);\n"),
-    io:put_chars(Fd, "gc_1([]) -> [];\n"),
-    io:put_chars(Fd, "gc_1({error,_}=Error) -> Error.\n\n"),
+    io:put_chars(Fd, "gc_1([CP|R]) -> gc_extend(cp(R), R, CP).\n\n"),
 
     io:put_chars(Fd, "%% Handle Prepend\n"),
     io:put_chars(Fd,
@@ -592,31 +661,24 @@ gen_gc(Fd, GBP) ->
                  "%% To simplify binary handling in libraries the tail should be kept binary\n"
                  "%% and not a lookahead CP\n"
                 ),
-    io:put_chars(Fd, "gc_extend(T, Acc) ->\n"
-                 "    gc_extend(cp(T), T, Acc).\n\n"),
     io:put_chars(Fd,
-                 "gc_extend([CP|T], T0, Acc0) ->\n"
+                 "gc_extend([CP|T], T0, CP0) ->\n"
                  "    case is_extend(CP) of\n"
-                 "        false ->\n"
-                 "            case Acc0 of\n"
-                 "                [Acc] -> [Acc|T0];\n"
-                 "                [_|_]=Acc -> [lists:reverse(Acc)|T0];\n"
-                 "                Acc -> [Acc|T0]\n"
-                 "            end;\n"
-                 "        _TrueOrZWJ ->\n"
-                 "            case Acc0 of\n"
-                 "                [_|_] -> gc_extend(T, [CP|Acc0]);\n"
-                 "                Acc -> gc_extend(T, [CP,Acc])\n"
-                 "            end\n"
+                 "        false -> [CP0|T0]; % losing work done on T\n"
+                 "        _TrueOrZWJ -> gc_extend2(cp(T), T, [CP,CP0])\n"
                  "    end;\n"
-                 "gc_extend([], _, Acc0) ->\n"
-                 "    case Acc0 of\n"
-                 "        [_]=Acc -> Acc;\n"
-                 "        [_|_]=Acc -> [lists:reverse(Acc)];\n"
-                 "        Acc -> [Acc]\n"
+                 "gc_extend([], _, CP) -> [CP];\n"
+                 "gc_extend({error,R}, _, CP) -> [CP|R].\n\n"),
+    io:put_chars(Fd,
+                 "gc_extend2([CP|T], T0, Acc) ->\n"
+                 "    case is_extend(CP) of\n"
+                 "        false -> [lists:reverse(Acc)|T0]; % losing work done on T\n"
+                 "        _TrueOrZWJ -> gc_extend2(cp(T), T, [CP|Acc])\n"
                  "    end;\n"
-                 "gc_extend({error,R}, T, Acc0) ->\n"
-                 "    gc_extend([], T, Acc0) ++ [R].\n\n"
+                 "gc_extend2([], _, Acc) ->\n"
+                 "    [lists:reverse(Acc)];\n"
+                 "gc_extend2({error,R}, _, Acc) ->\n"
+                 "    [lists:reverse(Acc)] ++ [R].\n\n"
                  ),
     [ZWJ] = maps:get(zwj, GBP),
     GenExtend = fun(R) when R =:= ZWJ -> io:format(Fd, "is_extend~s zwj;\n", [gen_single_clause(ZWJ)]);
@@ -671,10 +733,10 @@ gen_gc(Fd, GBP) ->
     %% --------------------
     io:put_chars(Fd, "%% Handle Regional\n"),
     [{RLess,RLarge}] = merge_ranges(maps:get(regional_indicator,GBP)),
-    io:put_chars(Fd,"gc_regional(R0, Acc) ->\n"
+    io:put_chars(Fd,"gc_regional(R0, CP0) ->\n"
                  "    case cp(R0) of\n"),
-    io:format(Fd,   "        [CP|R1] when ~w =< CP,CP =< ~w-> gc_extend(R1,[CP|Acc]);~n",[RLess, RLarge]),
-    io:put_chars(Fd,"        R1 -> gc_extend(R1, R0, Acc)\n"
+    io:format(Fd,   "        [CP|R1] when ~w =< CP,CP =< ~w-> gc_extend2(cp(R1),R1,[CP,CP0]);~n",[RLess, RLarge]),
+    io:put_chars(Fd,"        R1 -> gc_extend(R1, R0, CP0)\n"
                  "    end.\n\n"),
 
     %% Special hangul
@@ -696,16 +758,23 @@ gen_gc(Fd, GBP) ->
     GenHangulV_2 = fun(Range) -> io:format(Fd, "~8c~s gc_h_T(R1,[CP|Acc]);\n",
                                            [$\s,gen_case_clause(Range)]) end,
     [GenHangulV_2(CP) || CP <- merge_ranges(maps:get(t,GBP))],
-    io:put_chars(Fd, "        R1 -> gc_extend(R1, R0, Acc)\n    end.\n\n"),
-
+    io:put_chars(Fd,
+                 "        R1 ->\n"
+                 "            case Acc of\n"
+                 "                [CP] -> gc_extend(R1, R0, CP);\n"
+                 "                _ -> gc_extend2(R1, R0, Acc)\n"
+                 "            end\n    end.\n\n"),
     io:put_chars(Fd, "%% Handle Hangul T\n"),
     io:put_chars(Fd, "gc_h_T(R0, Acc) ->\n    case cp(R0) of\n"),
     GenHangulT_1 = fun(Range) -> io:format(Fd, "~8c~s gc_h_T(R1,[CP|Acc]);\n",
                                            [$\s,gen_case_clause(Range)]) end,
     [GenHangulT_1(CP) || CP <- merge_ranges(maps:get(t,GBP))],
-    io:put_chars(Fd, "        R1 -> gc_extend(R1, R0, Acc)\n    end.\n\n"),
-
-    io:put_chars(Fd, "gc_h_lv_lvt({error,_}=Error, Acc) -> gc_extend(Error, [], Acc);\n"),
+    io:put_chars(Fd,
+                 "        R1 ->\n"
+                 "            case Acc of\n"
+                 "                [CP] -> gc_extend(R1, R0, CP);\n"
+                 "                _ -> gc_extend2(R1, R0, Acc)\n"
+                 "            end\n    end.\n\n"),
     io:put_chars(Fd, "%% Handle Hangul LV\n"),
     GenHangulLV = fun(Range) -> io:format(Fd, "gc_h_lv_lvt~s gc_h_V(R1,[CP|Acc]);\n",
                                           [gen_clause2(Range)]) end,
@@ -714,8 +783,10 @@ gen_gc(Fd, GBP) ->
     GenHangulLVT = fun(Range) -> io:format(Fd, "gc_h_lv_lvt~s gc_h_T(R1,[CP|Acc]);\n",
                                            [gen_clause2(Range)]) end,
     [GenHangulLVT(CP) || CP <- merge_ranges(maps:get(lvt,GBP))],
-    io:put_chars(Fd, "gc_h_lv_lvt([CP|R], []) -> gc_extend(R, CP);\n"), %% From gc_1/1
-    io:put_chars(Fd, "gc_h_lv_lvt(R, Acc) -> gc_extend(R, Acc).\n\n"),
+    io:put_chars(Fd, "gc_h_lv_lvt([CP|R], []) -> gc_extend(cp(R), R, CP);\n"), %% From gc_1/1
+    io:put_chars(Fd, "%% Also handles error tuples\n"),
+    io:put_chars(Fd, "gc_h_lv_lvt(R, [CP]) -> gc_extend(R, R, CP);\n"),
+    io:put_chars(Fd, "gc_h_lv_lvt(R, Acc) -> gc_extend2(R, R, Acc).\n\n"),
     ok.
 
 gen_compose_pairs(Fd, ExclData, Data) ->
