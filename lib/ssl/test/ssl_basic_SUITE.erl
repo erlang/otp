@@ -5818,8 +5818,6 @@ tls13_unsupported_sign_algo_cert_client_auth_ssl_server_openssl_client() ->
      [{doc,"TLS 1.3: Test client authentication with unsupported signature_algorithm_cert"}].
 
 tls13_unsupported_sign_algo_cert_client_auth_ssl_server_openssl_client(Config) ->
-    ssl:set_log_level(debug),
-
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),

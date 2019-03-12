@@ -1658,17 +1658,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 22.0">set_log_level(Level) -> ok | {error, Reason}</name>
-      <fsummary>Sets log level for the SSL application.</fsummary>
-      <type>
-        <v>Level = atom()</v>
-      </type>
-      <desc>
-        <p>Sets log level for the SSL application.</p>
-      </desc>
-    </func>
-
-    <func>
       <name since="OTP R14B">shutdown(SslSocket, How) -> ok | {error, Reason}</name>
       <fsummary>Immediately closes a socket.</fsummary>
       <type>
