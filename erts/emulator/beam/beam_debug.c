@@ -332,6 +332,13 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 		   "unknown " HEXF "\n", instr);
 	code_ptr++;
     }
+    if (i == op_call_nif) {
+        /*
+         * The rest of the code will not be executed. Don't disassemble any
+         * more code in this function.
+         */
+        code_ptr = 0;
+    }
     bin = new_binary(p, (byte *) dsbufp->str, dsbufp->str_len);
     erts_destroy_tmp_dsbuf(dsbufp);
     hsz = 4+4;
