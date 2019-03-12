@@ -569,6 +569,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                 }
                 break;
 	    case op_i_bs_match_string_xfWW:
+	    case op_i_bs_match_string_yfWW:
                 if (ap - first_arg < 3) {
                     erts_print(to, to_arg, "%d", *ap);
                 } else {
