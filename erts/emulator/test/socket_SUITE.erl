@@ -5543,6 +5543,7 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "attempt recv (=> closed)",
            cmd  => fun(#{sock := Sock, recv := Recv} = State) ->
+                           %% ok = socket:setopt(Sock, otp, debug, true),
                            case Recv(Sock) of
                                {ok, _Data} ->
                                    ?SEV_EPRINT("Unexpected data received"),
