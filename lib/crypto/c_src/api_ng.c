@@ -98,7 +98,10 @@ static int get_init_args(ErlNifEnv* env,
 
     if (!(*cipherp = get_cipher_type(cipher_arg, key_bin.size)))
         {
-            *return_term = EXCP_BADARG(env, "Unknown cipher or bad key size for the cipher");
+            if (!get_cipher_type_no_key(cipher_arg))
+                *return_term = EXCP_BADARG(env, "Unknown cipher");
+            else
+                *return_term = EXCP_BADARG(env, "Bad key size");
             goto err;
         }
 
@@ -122,14 +125,14 @@ static int get_init_args(ErlNifEnv* env,
             ivec_len = 16;
         else {
             /* Unsupported crypto */
-            *return_term = EXCP_NOTSUP(env, "Unsupported cipher");
+            *return_term = EXCP_NOTSUP(env, "Cipher not supported in this libcrypto version");
             goto err;
         }
     }
 #else
     /* Normal code */
     if (!((*cipherp)->cipher.p)) {
-        *return_term = EXCP_NOTSUP(env, "Unsupported cipher");
+        *return_term = EXCP_NOTSUP(env, "Cipher not supported in this libcrypto version");
         goto err;
     }
     ivec_len = GET_IV_LEN(*cipherp);
