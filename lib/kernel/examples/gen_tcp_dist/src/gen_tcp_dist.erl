@@ -53,10 +53,10 @@
 
 -import(error_logger,[error_msg/2]).
 
--include("net_address.hrl").
+-include_lib("kernel/include/net_address.hrl").
 
--include("dist.hrl").
--include("dist_util.hrl").
+-include_lib("kernel/include/dist.hrl").
+-include_lib("kernel/include/dist_util.hrl").
 
 %% ------------------------------------------------------------
 %%  Select this protocol based on node name
@@ -679,7 +679,14 @@ dist_cntrlr_setup_loop(Socket, TickHandler, Sup) ->
             %% From now on we execute on normal priority
             process_flag(priority, normal),
             erlang:dist_ctrl_get_data_notification(DHandle),
-            dist_cntrlr_output_loop(DHandle, Socket)
+            case init:get_argument(gen_tcp_dist_output_loop) of
+                error ->
+                    dist_cntrlr_output_loop(DHandle, Socket);
+                {ok, [[ModStr, FuncStr]]} -> % For testing...
+                    apply(list_to_atom(ModStr),
+                          list_to_atom(FuncStr),
+                          [DHandle, Socket])
+            end
     end.
 
 %% We use active 10 for good throughput while still
