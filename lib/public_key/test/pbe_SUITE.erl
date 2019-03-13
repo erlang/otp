@@ -37,7 +37,7 @@ all() ->
     [
      pbdkdf1,
      pbdkdf2,
-     old_enc,
+     old_pbe,
      pbes1,
      pbes2].
 
@@ -197,23 +197,11 @@ pbdkdf2(Config) when is_list(Config) ->
 	= pubkey_pbe:pbdkdf2("pass\0word", 
 			     "sa\0lt", 4096, 16, fun crypto:hmac/4, sha, 20).
 
-old_enc() ->
-    [{doc,"Tests encode/decode RSA key encrypted with different ciphers using old PEM encryption scheme"}].
-old_enc(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-    %% key generated with ssh-keygen -N hello_aes -f old_aes_128_cbc_enc_key.pem
-    {ok, PemAesCbc} = file:read_file(filename:join(Datadir, "old_aes_128_cbc_enc_key.pem")),
-    
-    PemAesCbcEntry = public_key:pem_decode(PemAesCbc),
-    ct:print("Pem entry: ~p" , [PemAesCbcEntry]),
-    [{'RSAPrivateKey', _, {"AES-128-CBC",_}} = PubAesCbcEntry] = PemAesCbcEntry,
-    #'RSAPrivateKey'{} = public_key:pem_entry_decode(PubAesCbcEntry, "hello_aes").
-
 pbes1() ->
     [{doc,"Tests encode/decode EncryptedPrivateKeyInfo encrypted with different ciphers using PBES1"}].
 pbes1(Config) when is_list(Config) ->
     decode_encode_key_file("pbes1_des_cbc_md5_enc_key.pem", "password", "DES-CBC", Config).
-    
+
 pbes2() ->
     [{doc,"Tests encode/decode EncryptedPrivateKeyInfo encrypted with different ciphers using PBES2"}].
 pbes2(Config) when is_list(Config) ->
@@ -225,13 +213,33 @@ pbes2(Config) when is_list(Config) ->
 	false ->
 	    ok
     end.
+old_pbe() ->
+    [{doc,"Tests encode/decode with old format used before PBE"}].
+old_pbe(Config) when is_list(Config) ->
+     Datadir = proplists:get_value(data_dir, Config),
+     % key generated with ssh-keygen -N hello_aes -f old_aes_128_cbc.pem
+    {ok, PemAes128Cbc} = file:read_file(filename:join(Datadir, "old_aes_128_cbc.pem")),
+    
+    PemAes128CbcEntries = public_key:pem_decode(PemAes128Cbc),
+    ct:print("Pem entry: ~p" , [PemAes128CbcEntries]),
+    [{'RSAPrivateKey', _, {"AES-128-CBC",_}} = Aes128CbcEntry] = PemAes128CbcEntries,
+    #'RSAPrivateKey'{} = Key = public_key:pem_entry_decode(Aes128CbcEntry, "hello_aes"),
+    
 
+    %% Converted with openssl rsa -in old_aes_128_cbc.pem -out old_aes_256_cbc.pem -aes256
+   {ok, PemAes256Cbc} = file:read_file(filename:join(Datadir, "old_aes_256_cbc.pem")),
+    
+    PemAes256CbcEntries = public_key:pem_decode(PemAes256Cbc),
+    ct:print("Pem entry: ~p" , [PemAes256CbcEntries]),
+    [{'RSAPrivateKey', _, {"AES-256-CBC",_}} = Aes256CbcEntry] = PemAes256CbcEntries,
+    Key = public_key:pem_entry_decode(Aes256CbcEntry, "hello_aes").
+    
 decode_encode_key_file(File, Password, Cipher, Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {ok, PemKey} = file:read_file(filename:join(Datadir, File)),
     
     PemEntry = public_key:pem_decode(PemKey),
-    ct:print("Pem entry: ~p" , [PemEntry]),
+    ct:pal("Pem entry: ~p" , [PemEntry]),
     [{Asn1Type, _, {Cipher,_} = CipherInfo} = PubEntry] = PemEntry,
     #'RSAPrivateKey'{} = KeyInfo = public_key:pem_entry_decode(PubEntry, Password),
     PemKey1 = public_key:pem_encode([public_key:pem_entry_encode(Asn1Type, KeyInfo, {CipherInfo, Password})]),

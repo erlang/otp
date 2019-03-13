@@ -42,15 +42,14 @@
 encode(Data, Password, "DES-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
     crypto:block_encrypt(des_cbc, Key, IV, pbe_pad(Data, KeyDevParams));
-
 encode(Data, Password, "DES-EDE3-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
     <<Key1:8/binary, Key2:8/binary, Key3:8/binary>> = Key,
     crypto:block_encrypt(des3_cbc, [Key1, Key2, Key3], IV, pbe_pad(Data));
-
 encode(Data, Password, "RC2-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
     crypto:block_encrypt(rc2_cbc, Key, IV, pbe_pad(Data, KeyDevParams)).
+
 %%--------------------------------------------------------------------
 -spec decode(binary(), string(), string(), term()) -> binary().
 %%
@@ -59,21 +58,20 @@ encode(Data, Password, "RC2-CBC" = Cipher, KeyDevParams) ->
 decode(Data, Password,"DES-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
     crypto:block_decrypt(des_cbc, Key, IV, Data);
-
 decode(Data, Password,"DES-EDE3-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
     <<Key1:8/binary, Key2:8/binary, Key3:8/binary>> = Key,
     crypto:block_decrypt(des3_cbc, [Key1, Key2, Key3], IV, Data);
-
 decode(Data, Password,"RC2-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
     crypto:block_decrypt(rc2_cbc, Key, IV, Data);
+decode(Data, Password,"AES-128-CBC"= Cipher, KeyDevParams) ->
+    {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
+    crypto:block_decrypt(aes_cbc128, Key, IV, Data);
+decode(Data, Password,"AES-256-CBC"= Cipher, KeyDevParams) ->
+    {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
+    crypto:block_decrypt(aes_cbc256, Key, IV, Data).
 
-decode(Data, Password,"AES-128-CBC"= Cipher, IV) ->
-    %% PKCS5_SALT_LEN is 8 bytes
-    <<Salt:8/binary,_/binary>> = IV,
-    {Key, _} = password_to_key_and_iv(Password, Cipher, Salt),
-    crypto:block_decrypt(aes_cbc128, Key, IV, Data).
 
 %%--------------------------------------------------------------------
 -spec pbdkdf1(string(), iodata(), integer(), atom()) -> binary().
@@ -131,13 +129,15 @@ password_to_key_and_iv(Password, _Cipher, {#'PBEParameter'{salt = Salt,
     <<Key:8/binary, IV:8/binary, _/binary>> 
 	= pbdkdf1(Password, Salt, Count, Hash),
     {Key, IV};
-password_to_key_and_iv(Password, Cipher, Salt) ->
- KeyLen = derived_key_length(Cipher, undefined),
+password_to_key_and_iv(Password, Cipher, KeyDevParams) ->
+    %% PKCS5_SALT_LEN is 8 bytes
+    <<Salt:8/binary,_/binary>> = KeyDevParams,
+    KeyLen = derived_key_length(Cipher, undefined),
     <<Key:KeyLen/binary, _/binary>> = 
 	pem_encrypt(<<>>, Password, Salt, ceiling(KeyLen div 16), <<>>, md5),
     %% Old PEM encryption does not use standard encryption method
-    %% pbdkdf1 and uses then salt as IV 
-    {Key, Salt}.
+    %% pbdkdf1 
+    {Key, KeyDevParams}.
 pem_encrypt(_, _, _, 0, Acc, _) ->
     Acc;
 pem_encrypt(Prev, Password, Salt, Count, Acc, Hash) ->
@@ -267,7 +267,9 @@ derived_key_length(Cipher,_) when (Cipher == ?'des-EDE3-CBC') or
 				  (Cipher == "DES-EDE3-CBC") ->
     24;
 derived_key_length(Cipher,_) when (Cipher == "AES-128-CBC") ->
-    16.
+    16;
+derived_key_length(Cipher,_) when (Cipher == "AES-256-CBC") ->
+    32.
 
 cipher(#'PBES2-params_encryptionScheme'{algorithm = ?'desCBC'}) ->
     "DES-CBC";
