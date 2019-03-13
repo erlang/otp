@@ -1181,7 +1181,9 @@ undef(X) ->
     ?MODULE:undef(X, X). % undef
 
 lists_reverse(A, B) ->
-    lists:reverse(A, B).
+    Res = lists:reverse(A, B),
+    _ = (catch abs(A)),
+    Res.
 
 
 
