@@ -466,15 +466,17 @@ api_ng_cipher_increment({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
             ok;
         Enc ->
             ok;
-        OtherEnc ->
-            ct:fail({{crypto, api_ng_encrypt, [IV,EncTexts]}, {expected, ExpectedEncText}, {got, OtherEnc}})
+        _ ->
+            ct:log("encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainTexts}, ExpectedEncText, Enc]),
+            ct:fail("api_ng_cipher_increment (encode)",[])
     end,
     Plain = iolist_to_binary(PlainTexts),
     case iolist_to_binary(api_ng_cipher_increment_loop(RefDec, EncTexts)) of
         Plain ->
             ok;
         OtherPT ->
-	    ct:fail({{crypto, api_ng_decrypt, [IV,EncTexts]}, {expected, Plain}, {got, OtherPT}})
+            ct:log("decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTexts}, Plain, OtherPT]),
+            ct:fail("api_ng_cipher_increment (encode)",[])
     end.
 
 
@@ -517,15 +519,15 @@ do_api_ng_one_shot({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
             ok;
         EncTxt ->
             ok;
-        OtherEnc ->
-            ct:log("In: ~p~nOut: ~p",[_X,OtherEnc]),
+        _ ->
+            ct:log("encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainText}, ExpectedEncText, EncTxt]),
             ct:fail("api_ng_one_shot (encode)",[])
     end,
     case crypto:crypto_one_shot(Type, Key, IV, EncTxt, false) of
         PlainText ->
             ok;
         OtherPT ->
-            ct:log("In: ~p~nOut: ~p",[_X,OtherPT]),
+            ct:log("decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, OtherPT]),
             ct:fail("api_ng_one_shot (decode)",[])
     end.
 
@@ -562,11 +564,11 @@ do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
                 EncTxt ->
                     ok;
                 EncTxt2 ->
-                    ct:log("In = ~p,~nEncTxt = ~p~nEncTxt2= ~p", [_X,EncTxt,EncTxt2]),
+                    ct:log("2nd encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainText}, EncTxt, EncTxt2]),
                     ct:fail("api_ng_tls (second encode)",[])
             end;
         OtherEnc ->
-            ct:log("In: ~p~nOut: ~p",[_X,OtherEnc]),
+            ct:log("1st encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainText}, ExpectedEncText, OtherEnc]),
             ct:fail("api_ng_tls (encode)",[])
     end,
     case crypto:crypto_update_dyn_iv(Rdec, EncTxt, IV) of
@@ -576,11 +578,11 @@ do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
                 PlainText ->
                     ok;
                 PlainText2 ->
-                    ct:log("In = ~p,~nPlainText = ~p~nPlainText2= ~p", [_X,PlainText,PlainText2]),
+                    ct:log("2nd decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, PlainText2]),
                     ct:fail("api_ng_tls (second decode)",[])
             end;
         OtherPT ->
-            ct:log("In: ~p~nOut: ~p",[_X,OtherPT]),
+            ct:log("1st decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, OtherPT]),
             ct:fail("api_ng_tlst (decode)",[])
     end.
 
