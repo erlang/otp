@@ -2737,7 +2737,7 @@ sub tr_maybe_keep {
 		return;
 	    }
 	} elsif ($op eq 'store_var_next_arg') {
-	    return unless shift(@last_instr) eq $args[0];
+	    return unless @last_instr and shift(@last_instr) eq $args[0];
 	} elsif (defined $pos) {
 	    return;
 	}
