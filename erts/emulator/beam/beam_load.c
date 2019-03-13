@@ -3146,6 +3146,35 @@ is_killed(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
 }
 
 /*
+ * Test whether register Reg is killed by make_fun instruction that
+ * creates the fun given by index idx.
+ */
+
+static int
+is_killed_by_make_fun(LoaderState* stp, GenOpArg Reg, GenOpArg idx)
+{
+    Uint num_free;
+
+    if (idx.val >= stp->num_lambdas) {
+        /* Invalid index. Ignore the error for now. */
+        return 0;
+    } else {
+        num_free = stp->lambdas[idx.val].num_free;
+        return Reg.type == TAG_x && num_free <= Reg.val;
+    }
+}
+
+/*
+ * Test whether register Reg is killed by the send instruction that follows.
+ */
+
+static int
+is_killed_by_send(LoaderState* stp, GenOpArg Reg)
+{
+    return Reg.type == TAG_x && 2 <= Reg.val;
+}
+
+/*
  * Generate an instruction for element/2.
  */
 
