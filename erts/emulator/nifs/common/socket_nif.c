@@ -1080,6 +1080,11 @@ static ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
                              int               flags);
 static ERL_NIF_TERM nclose(ErlNifEnv*        env,
                            SocketDescriptor* descP);
+static BOOLEAN_T nclose_check(ErlNifEnv*        env,
+                              SocketDescriptor* descP,
+                              ERL_NIF_TERM*     reason);
+static ERL_NIF_TERM nclose_do(ErlNifEnv*        env,
+                              SocketDescriptor* descP);
 static ERL_NIF_TERM nshutdown(ErlNifEnv*        env,
                               SocketDescriptor* descP,
                               int               how);
@@ -6597,10 +6602,6 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
 {
     ERL_NIF_TERM reply, reason;
     BOOLEAN_T    doClose;
-    int          selectRes;
-    int          domain   = descP->domain;
-    int          type     = descP->type;
-    int          protocol = descP->protocol;
 
     SSDBG( descP, ("SOCKET", 
                    "nclose -> [%d] entry (0x%lX, 0x%lX, 0x%lX, 0x%lX)\r\n",
@@ -6612,91 +6613,10 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
 
     MLOCK(descP->closeMtx);
 
-    if (descP->state == SOCKET_STATE_CLOSED) {
-        reason  = atom_closed;
-        doClose = FALSE;
-    } else if (descP->state == SOCKET_STATE_CLOSING) {
-        reason  = atom_closing;
-        doClose = FALSE;
-    } else {
-
-        /* Store the PID of the caller,
-         * since we need to inform it when we
-         * (that is, the stop callback function)
-         * completes.
-         */
-
-        if (enif_self(env, &descP->closerPid) == NULL) {
-            MUNLOCK(descP->closeMtx);
-            return esock_make_error(env, atom_exself);
-        }
-
-        /* Monitor the caller, since we should complete this operation even if
-         * the caller dies (for whatever reason).
-         *
-         * <KOLLA>
-         *
-         * Can we actiually use this for anything?
-         *
-         * </KOLLA>
-         */
-
-        if (MONP("nclose -> closer",
-                 env, descP,
-                 &descP->closerPid,
-                 &descP->closerMon) != 0) {
-            MUNLOCK(descP->closeMtx);
-            return esock_make_error(env, atom_exmon);
-        }
-
-        descP->closeLocal = TRUE;
-        descP->state      = SOCKET_STATE_CLOSING;
-        descP->isReadable = FALSE;
-        descP->isWritable = FALSE;
-        doClose           = TRUE;
-    }
+    doClose = nclose_check(env, descP, &reason);
 
     if (doClose) {
-        descP->closeEnv = enif_alloc_env();
-        descP->closeRef = MKREF(descP->closeEnv);
-        selectRes       = esock_select_stop(env, descP->sock, descP);
-        if (selectRes & ERL_NIF_SELECT_STOP_CALLED) {
-            /* Prep done - inform the caller it can finalize (close) directly */
-            SSDBG( descP,
-                   ("SOCKET", "nclose -> [%d] stop was called\r\n", descP->sock) );
-            dec_socket(domain, type, protocol);
-            reply = esock_atom_ok;
-        } else if (selectRes & ERL_NIF_SELECT_STOP_SCHEDULED) {
-            /* The stop callback function has been *scheduled* which means that we
-             * have to wait for it to complete. */
-            SSDBG( descP,
-                   ("SOCKET", "nclose -> [%d] stop was scheduled\r\n",
-                    descP->sock) );
-            dec_socket(domain, type, protocol); // SHALL WE DO THIS AT finalize?
-            reply = esock_make_ok2(env, enif_make_copy(env, descP->closeRef));
-        } else {
-
-            SSDBG( descP,
-                   ("SOCKET", "nclose -> [%d] stop failed: %d\r\n",
-                    descP->sock, selectRes) );
-
-            /* <KOLLA>
-             *
-             * WE SHOULD REALLY HAVE A WAY TO CLOBBER THE SOCKET,
-             * SO WE DON'T LET STUFF LEAK.
-             * NOW, BECAUSE WE FAILED TO SELECT, WE CANNOT FINISH
-             * THE CLOSE, WHAT TO DO? ABORT?
-             *
-             * </KOLLA>
-             */
-
-            // No point in having this?
-            DEMONP("nclose -> closer", env, descP, &descP->closerMon); 
-
-            reason = MKT2(env, atom_select, MKI(env, selectRes));
-            reply  = esock_make_error(env, reason);
-        }
-
+        reply = nclose_do(env, descP);
     } else {
         reply = esock_make_error(env, reason);
     }
@@ -6711,6 +6631,148 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
 
     return reply;
 }
+
+
+
+/* *** nclose_check ***
+ *
+ * Check if we should try to perform the first stage close.
+ */
+static
+BOOLEAN_T nclose_check(ErlNifEnv*        env,
+                       SocketDescriptor* descP,
+                       ERL_NIF_TERM*     reason)
+{
+    BOOLEAN_T doClose;
+
+    if (descP->state == SOCKET_STATE_CLOSED) {
+
+        doClose = FALSE;
+        *reason = atom_closed;
+
+    } else if (descP->state == SOCKET_STATE_CLOSING) {
+
+        doClose = FALSE;
+        *reason = atom_closing;
+
+    } else {
+
+        /* Store the PID of the caller,
+         * since we need to inform it when we
+         * (that is, the stop callback function)
+         * completes.
+         */
+
+        if (enif_self(env, &descP->closerPid) == NULL) {
+
+            doClose = FALSE;
+            *reason = atom_exself;
+
+        } else {
+
+            /* Monitor the caller, since we should complete this operation even if
+             * the caller dies (for whatever reason).
+             *
+             * <KOLLA>
+             *
+             * Can we actually use this for anything?
+             *
+             * </KOLLA>
+             */
+
+            if (MONP("nclose_check -> closer",
+                     env, descP,
+                     &descP->closerPid,
+                     &descP->closerMon) != 0) {
+
+                doClose = FALSE;
+                *reason = atom_exmon;
+
+            } else {
+
+                descP->closeLocal = TRUE;
+                descP->state      = SOCKET_STATE_CLOSING;
+                descP->isReadable = FALSE;
+                descP->isWritable = FALSE;
+                doClose           = TRUE;
+                *reason           = esock_atom_undefined; // NOT used !!
+
+            }
+        }
+    }
+
+    return doClose;
+    
+}
+
+
+
+/* *** nclose_do ***
+ *
+ * Perform (do) the first stage close.
+ */
+static
+ERL_NIF_TERM nclose_do(ErlNifEnv*        env,
+                       SocketDescriptor* descP)
+{
+    int          domain   = descP->domain;
+    int          type     = descP->type;
+    int          protocol = descP->protocol;
+    int          sres;
+    ERL_NIF_TERM reply, reason;
+
+    descP->closeEnv = enif_alloc_env();
+    descP->closeRef = MKREF(descP->closeEnv);
+    sres            = esock_select_stop(env, descP->sock, descP);
+
+    if (sres & ERL_NIF_SELECT_STOP_CALLED) {
+
+        /* Prep done - inform the caller it can finalize (close) directly */
+        SSDBG( descP,
+               ("SOCKET", "nclose -> [%d] stop was called\r\n", descP->sock) );
+
+        dec_socket(domain, type, protocol);
+        reply = esock_atom_ok;
+
+    } else if (sres & ERL_NIF_SELECT_STOP_SCHEDULED) {
+
+        /* The stop callback function has been *scheduled* which means that we
+         * have to wait for it to complete. */
+        SSDBG( descP,
+               ("SOCKET", "nclose -> [%d] stop was scheduled\r\n",
+                descP->sock) );
+
+        dec_socket(domain, type, protocol); // SHALL WE DO THIS AT finalize?
+        reply = esock_make_ok2(env, enif_make_copy(env, descP->closeRef));
+
+    } else {
+
+        SSDBG( descP,
+               ("SOCKET", "nclose -> [%d] stop failed: %d\r\n",
+                descP->sock, sres) );
+
+        /* <KOLLA>
+         *
+         * WE SHOULD REALLY HAVE A WAY TO CLOBBER THE SOCKET,
+         * SO WE DON'T LET STUFF LEAK.
+         * NOW, BECAUSE WE FAILED TO SELECT, WE CANNOT FINISH
+         * THE CLOSE, WHAT TO DO? ABORT?
+         *
+         * </KOLLA>
+         */
+
+        // Do we need this?
+        DEMONP("nclose_do -> closer", env, descP, &descP->closerMon); 
+
+        reason = MKT2(env, esock_atom_select_failed, MKI(env, sres));
+        reply  = esock_make_error(env, reason);
+    }
+
+    return reply;
+}
+
+
+
 #endif // if !defined(__WIN32__)
 
 
