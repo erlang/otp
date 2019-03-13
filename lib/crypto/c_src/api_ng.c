@@ -107,19 +107,37 @@ static int get_init_args(ErlNifEnv* env,
             *return_term = EXCP_NOTSUP(env, "Forbidden in FIPS");
             goto err;
         }
-    
-    /* Fetch IV */
+
+    /* Get ivec_len for this cipher (if we found one) */
 #if !defined(HAVE_EVP_AES_CTR)
-    /* This is code for OpenSSL 0.9.8. Therefore we could accept some ineficient code */
-    ctx_res->env = NULL;
-    ctx_res->state = atom_undefined;
-
-    if (!((*cipherp)->cipher.p) && (*cipherp)->flags & AES_CTR_COMPAT)
-        ivec_len = 16;
-    else
-#endif
+    /* This code is for historic OpenSSL where EVP_aes_*_ctr is not defined.... */
+    if ((*cipherp)->cipher.p) {
+        /* Not aes_ctr compatibility code since EVP_*
+           was defined and assigned to (*cipherp)->cipher.p */
         ivec_len = GET_IV_LEN(*cipherp);
+    } else {
+        /* No EVP_* was found */
+        if ((*cipherp)->flags & AES_CTR_COMPAT)
+            /* Use aes_ctr compatibility code later */
+            ivec_len = 16;
+        else {
+            /* Unsupported crypto */
+            *return_term = EXCP_NOTSUP(env, "Unsupported cipher");
+            goto err;
+        }
+    }
+#else
+    /* Normal code */
+    if (!((*cipherp)->cipher.p)) {
+        *return_term = EXCP_NOTSUP(env, "Unsupported cipher");
+        goto err;
+    }
+    ivec_len = GET_IV_LEN(*cipherp);
+#endif
+    
+    /* (*cipherp)->cipher.p != NULL and ivec_len has a value */
 
+    /* Fetch IV */
     if (ivec_len && (ivec_arg != atom_undefined)) {
         if (!enif_inspect_iolist_as_binary(env, ivec_arg, &ivec_bin))
             {
@@ -134,35 +152,36 @@ static int get_init_args(ErlNifEnv* env,
             }
     }
 
-    ctx_res -> iv_len = ivec_len;
+    ctx_res->iv_len = ivec_len;
     
-    if (!((*cipherp)->cipher.p))
-        {
 #if !defined(HAVE_EVP_AES_CTR)
-            if ((*cipherp)->flags & AES_CTR_COMPAT)
-                {
-                    ERL_NIF_TERM ecount_bin;
-                    unsigned char *outp;
-                    if ((outp = enif_make_new_binary(env, AES_BLOCK_SIZE, &ecount_bin)) == NULL) {
-                        *return_term = EXCP_ERROR(env, "Can't allocate ecount_bin");
-                        goto err;
-                    }
-                    memset(outp, 0, AES_BLOCK_SIZE);
-                    
-                    ctx_res->env = enif_alloc_env();
-                    if (!ctx_res->env) {
-                        *return_term = EXCP_ERROR(env, "Can't allocate env");
-                        goto err;
-                    }
-                    ctx_res->state =
-                        enif_make_copy(ctx_res->env,
-                                       enif_make_tuple4(env, key_arg, ivec_arg, ecount_bin, enif_make_int(env, 0)));
-                    goto success;
-                } 
-#endif
-            *return_term = EXCP_NOTSUP(env, "Cipher");
+    if (!((*cipherp)->cipher.p)
+        && ((*cipherp)->flags & AES_CTR_COMPAT)
+        ) {
+        /* Must use aes_ctr compatibility code */
+        ERL_NIF_TERM ecount_bin;
+        unsigned char *outp;
+        if ((outp = enif_make_new_binary(env, AES_BLOCK_SIZE, &ecount_bin)) == NULL) {
+            *return_term = EXCP_ERROR(env, "Can't allocate ecount_bin");
             goto err;
         }
+        memset(outp, 0, AES_BLOCK_SIZE);
+
+        ctx_res->env = enif_alloc_env();
+        if (!ctx_res->env) {
+            *return_term = EXCP_ERROR(env, "Can't allocate env");
+            goto err;
+        }
+        ctx_res->state =
+            enif_make_copy(ctx_res->env,
+                           enif_make_tuple4(env, key_arg, ivec_arg, ecount_bin, enif_make_int(env, 0)));
+        goto success;
+    } else {
+        /* Flag for subsequent calls that no aes_ctr compatibility code should be called */
+        ctx_res->state = atom_undefined;
+        ctx_res->env = NULL;
+    }
+#endif
 
     /* Initialize the EVP_CIPHER_CTX */
 
