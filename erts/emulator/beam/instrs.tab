@@ -710,9 +710,11 @@ jump(Fail) {
     $JUMP($Fail);
 }
 
-move_jump(Fail, Src) {
-    x(0) = $Src;
-    $jump($Fail);
+move_jump(Lbl, Src, Dst) {
+    Eterm lbl = $Lbl;
+    Eterm src = $Src;
+    $Dst = src;
+    $JUMP(lbl);
 }
 
 //

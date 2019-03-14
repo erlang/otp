@@ -264,9 +264,11 @@ system_limit j
 # Move instructions.
 #
 
-move C=cxy x==0 | jump Lbl => move_jump Lbl C
+move Src=cxy Dst=xy | jump Lbl => move_jump Lbl Src Dst
 
-move_jump f ncxy
+move_jump f cxy xy
+move_jump f c r
+
 
 # Movement to and from the stack is common
 # Try to pack as much as we can into one instruction
