@@ -2047,22 +2047,21 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		ERTS_BIF_PREP_RET(ret, am_false);
 	    }
 	    else {
-		/*
-		 * Unload any NIF library
-		 */
-		if (modp->old.nif != NULL
-		    || IF_HIPE(hipe_purge_need_blocking(modp))) {
-		    /* ToDo: Do unload nif without blocking */
+		if (IF_HIPE(hipe_purge_need_blocking(modp))) {
 		    erts_rwunlock_old_code(code_ix);
 		    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		    erts_thr_progress_block();
 		    is_blocking = 1;
 		    erts_rwlock_old_code(code_ix);
-		    if (modp->old.nif) {
-		      erts_unload_nif(modp->old.nif);
-		      modp->old.nif = NULL;
-		    }
 		}
+
+                /*
+                 * Unload any NIF library
+                 */
+                if (modp->old.nif) {
+                  erts_unload_nif(modp->old.nif);
+                  modp->old.nif = NULL;
+                }
 
 		/*
 		 * Remove the old code.

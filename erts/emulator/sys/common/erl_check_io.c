@@ -1082,7 +1082,7 @@ enif_select_x(ErlNifEnv* env,
                    pid ? pid->pid : THE_NON_VALUE, THE_NON_VALUE);
 
     if (mode & ERL_NIF_SELECT_STOP) {
-        ASSERT(resource->type->stop);
+        ASSERT(resource->type->fn.stop);
         if (IS_FD_UNKNOWN(state)) {
             /* fast track to stop callback */
             call_stop = CALL_STOP;
