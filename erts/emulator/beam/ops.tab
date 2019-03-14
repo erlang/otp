@@ -1689,8 +1689,9 @@ bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 gc_bif1 Fail=j Live u$bif:erlang:length/1 Src Dst => \
    i_length_setup Live Src | i_length Fail Live Dst
 
-i_length_setup t xyc
+i_length_setup Live Src=c => move Src x | i_length_setup Live x
 
+i_length_setup t xy
 i_length j? t d
 
 #
