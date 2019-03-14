@@ -49,10 +49,14 @@
 
 suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames, 2}]}]}].
 
-all() -> [{group, ssl}, {group, plain}].
+all() ->
+    [{group, ssl},
+     {group, crypto},
+     {group, plain}].
 
 groups() ->
     [{ssl, all_groups()},
+     {crypto, all_groups()},
      {plain, all_groups()},
      %%
      {setup, [{repeat, 1}], [setup]},
@@ -164,6 +168,17 @@ end_per_suite(Config) ->
 
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
+init_per_group(crypto, Config) ->
+    case inet_crypto_dist:is_supported() of
+        true ->
+            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto"},
+             {ssl_dist_args,
+              "-proto_dist inet_crypto "
+              "-inet_crypto '#{secret => \"123456\"}'"}
+             |Config];
+        false ->
+            {skip, "Not supported on this OTP version"}
+    end;
 init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
 init_per_group(_GroupName, Config) ->
@@ -387,7 +402,7 @@ sched_utilization(A, B, Prefix, HA, HB, SSL) ->
 %% We want to avoid getting busy_dist_port as it hides the true SU usage
 %% of the receiver and sender.
 sched_util_runner(A, B, true) ->
-    sched_util_runner(A, B, 50);
+    sched_util_runner(A, B, 250);
 sched_util_runner(A, B, false) ->
     sched_util_runner(A, B, 250);
 sched_util_runner(A, B, Senders) ->
@@ -546,11 +561,12 @@ throughput_runner(A, B, Rounds, Size) ->
     [A] = rpc:call(B, erlang, nodes, []),
     ClientPid = self(),
     ServerPid =
-        erlang:spawn(
+        erlang:spawn_opt(
           B,
-          fun () -> throughput_server(ClientPid, Rounds) end),
+          fun () -> throughput_server(ClientPid, Rounds) end,
+          [{message_queue_data, off_heap}]),
     ServerMon = erlang:monitor(process, ServerPid),
-    msacc:available() andalso
+    msacc_available() andalso
         begin
             msacc:stop(),
             msacc:reset(),
@@ -562,7 +578,7 @@ throughput_runner(A, B, Rounds, Size) ->
         throughput_client(ServerPid, ServerMon, Payload, Rounds),
     prof_stop(),
     MsaccStats =
-        case msacc:available() of
+        case msacc_available() of
             true ->
                 MStats = msacc:stats(),
                 msacc:stop(),
@@ -602,7 +618,7 @@ throughput_server(Pid, N) ->
     GC_Before = get_server_gc_info(),
     %% dbg:tracer(port, dbg:trace_port(file, "throughput_server_gc.log")),
     %% dbg:p(TLSDistReceiver, garbage_collection),
-    msacc:available() andalso
+    msacc_available() andalso
         begin
             msacc:stop(),
             msacc:reset(),
@@ -615,7 +631,7 @@ throughput_server(Pid, N) ->
 throughput_server_loop(_Pid, GC_Before, 0) ->
     prof_stop(),
     MsaccStats =
-        case msacc:available() of
+        case msacc_available() of
             true ->
                 msacc:stop(),
                 MStats = msacc:stats(),
@@ -632,8 +648,13 @@ throughput_server_loop(_Pid, GC_Before, 0) ->
            server_gc_after => get_server_gc_info()});
 throughput_server_loop(Pid, GC_Before, N) ->
     receive
-        {Pid, N, _} ->
-            throughput_server_loop(Pid, GC_Before, N-1)
+        Msg ->
+            case Msg of
+                {Pid, N, _} ->
+                    throughput_server_loop(Pid, GC_Before, N - 1);
+                Other ->
+                    erlang:error({self(),?FUNCTION_NAME,Other})
+            end
     end.
 
 get_server_gc_info() ->
@@ -773,7 +794,7 @@ get_node_args(Tag, Config) ->
         true ->
             proplists:get_value(Tag, Config);
         false ->
-            ""
+            proplists:get_value(ssl_dist_args, Config, "")
     end.
 
 
@@ -828,3 +849,6 @@ report(Name, Value, Unit) ->
 term_to_string(Term) ->
     unicode:characters_to_list(
       io_lib:write(Term, [{encoding, unicode}])).
+
+msacc_available() ->
+    msacc:available().
