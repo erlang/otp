@@ -60,7 +60,7 @@
 	parts of the logic in Erlang code, and you perhaps do not
 	even need a new driver for the protocol. One example could
 	be Erlang distribution over UDP using <c>gen_udp</c> (your
-	Erlang code will of course have to take care of retranspissions,
+	Erlang code will of course have to take care of retransmissions,
 	etc in this example). That is, depending on what you want
 	to do you perhaps do not need to implement a driver at all
 	and can then skip the driver related sections below.
