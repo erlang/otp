@@ -28,10 +28,14 @@
 %%         ESOCK_TEST_TRAFFIC:     include
 %%         ESOCK_TEST_TTEST:       exclude
 %%
+%% Variable that controls "verbosity" of the test case(s):
+%%
+%%         ESOCK_TEST_QUIET: true (default) | false
+%%
 %% Defines the runtime of the ttest cases
 %% (This is the time during which "measurement" is performed. 
 %%  the actual time it takes for the test case to complete
-%%  will be longer)
+%%  will be longer; setup, completion, ...)
 %%
 %%          ESOCK_TEST_TTEST_RUNTIME: 10 seconds
 %%              Format of values: <integer>[<unit>]
@@ -5591,7 +5595,7 @@ sc_lc_receive_response_tcp(InitState) ->
                                    State1 = maps:remove(sock, State),
                                    {ok, State1};
                                {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Unexpected read faulure: "
+                                   ?SEV_EPRINT("Unexpected read failure: "
                                                "~n   ~p", [Reason]),
                                    ERROR
                            end
@@ -8987,6 +8991,7 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                    end},
          #{desc => "recv (one big)",
            cmd  => fun(#{tester := Tester, csock := Sock, size := Size} = _State) ->
+                           %% socket:setopt(Sock, otp, debug, true),
                            case socket:recv(Sock, Size) of
                                {ok, Data} ->
                                    ?SEV_ANNOUNCE_READY(Tester,
@@ -11044,7 +11049,7 @@ tpp_tcp_client_msg_exchange_loop(Sock, _Send, _Recv, _Msg,
     end;
 tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data, 
                                  Num, N, Sent, Received, Start) ->
-    %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) try send", [Num,N]),
+    %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) try send ~w", [Num,N,size(Data)]),
     case tpp_tcp_send_req(Sock, Send, Data) of
         {ok, SendSz} ->
             %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) sent - "
@@ -11057,11 +11062,13 @@ tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data,
                                                      Received+RecvSz, 
                                                      Start);
                 {error, RReason} ->
-                    ?SEV_EPRINT("recv (~w of ~w): ~p", [N, Num, RReason]),
+                    ?SEV_EPRINT("recv (~w of ~w): ~p: "
+                                "~n   ~p", [N, Num, RReason, mq()]),
                     exit({recv, RReason, N})
             end;
         {error, SReason} ->
-            ?SEV_EPRINT("send (~w of ~w): ~p", [N, Num, SReason]),
+            ?SEV_EPRINT("send (~w of ~w): ~p"
+                        "~n   ~p", [N, Num, SReason, mq()]),
             exit({send, SReason, N})
     end.
 
@@ -11121,7 +11128,7 @@ tpp_tcp_recv(Sock, Recv, Tag) ->
             tpp_tcp_recv(Sock, Recv, Tag, Remains, size(Msg), [Data]);
         {ok, <<Tag:32/integer, _/binary>>} ->
             {error, {invalid_msg_tag, Tag}};
-        {error, _} = ERROR ->
+        {error, _R} = ERROR ->
             ERROR
     end.
 
@@ -11135,7 +11142,7 @@ tpp_tcp_recv(Sock, Recv, Tag, Remaining, AccSz, Acc) ->
             tpp_tcp_recv(Sock, Recv, Tag, 
                          Remaining - size(Data), AccSz + size(Data),     
                          [Data | Acc]);
-        {error, _} = ERROR ->
+        {error, _R} = ERROR ->
             ERROR
     end.
                                                          
@@ -11172,6 +11179,14 @@ tpp_tcp_send_msg(Sock, Send, Msg, AccSz) when is_binary(Msg) ->
 %%     Sz;
 %% size_of_iovec([B|IOVec], Sz) ->
 %%     size_of_iovec(IOVec, Sz+size(B)).
+
+mq() ->
+    mq(self()).
+
+mq(Pid) when is_pid(Pid) ->
+    Tag = messages,
+    {Tag, Msgs} = process_info(Pid, Tag),
+    Msgs.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
