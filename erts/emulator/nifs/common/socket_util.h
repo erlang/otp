@@ -57,15 +57,15 @@ char* esock_decode_iov(ErlNifEnv*    env,
                        size_t        len,
                        ssize_t*      totSize);
 extern
-char* esock_decode_sockaddr(ErlNifEnv*     env,
-                            ERL_NIF_TERM   eSockAddr,
-                            SocketAddress* sockAddrP,
-                            unsigned int*  addrLen);
+char* esock_decode_sockaddr(ErlNifEnv*    env,
+                            ERL_NIF_TERM  eSockAddr,
+                            ESockAddress* sockAddrP,
+                            unsigned int* addrLen);
 extern
-char* esock_encode_sockaddr(ErlNifEnv*     env,
-                            SocketAddress* sockAddrP,
-                            unsigned int   addrLen,
-                            ERL_NIF_TERM*  eSockAddr);
+char* esock_encode_sockaddr(ErlNifEnv*    env,
+                            ESockAddress* sockAddrP,
+                            unsigned int  addrLen,
+                            ERL_NIF_TERM* eSockAddr);
 
 extern
 char* esock_decode_sockaddr_in4(ErlNifEnv*          env,

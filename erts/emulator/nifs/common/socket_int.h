@@ -82,7 +82,7 @@ typedef union {
     struct sockaddr_un  un;
 #endif
 
-} SocketAddress;
+} ESockAddress;
 
 
 /* *** Boolean *type* stuff... *** */
