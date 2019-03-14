@@ -218,18 +218,22 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
     }
-
-    if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, NULL, -1)) {
-        *return_term = EXCP_ERROR(env, "Can't initialize key");
-        goto err;
-    }
-
-    if (ivec_arg != atom_undefined) {
-        if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, NULL, ivec_bin.data, -1)) {
-            *return_term = EXCP_ERROR(env, "Can't initialize iv");
-            goto err;
+    //    enif_fprintf(stderr, "%s:%u %T %T %u\r\n", __FILE__, __LINE__, cipher_arg, ivec_arg, ivec_len);
+    if (ivec_arg == atom_undefined || ivec_len == 0)
+        {
+            if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, NULL, -1)) {
+                *return_term = EXCP_ERROR(env, "Can't initialize key");
+                goto err;
+            }
         }
-    }
+    else
+        if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, ivec_bin.data, -1))
+            {
+                *return_term = EXCP_ERROR(env, "Can't initialize key or iv");
+                goto err;
+            }
+
+    // enif_fprintf(stderr, "%s:%u\r\n", __FILE__, __LINE__);
 
     EVP_CIPHER_CTX_set_padding(ctx_res->ctx, 0);
 
