@@ -1363,7 +1363,7 @@ ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
     NDBG( ("NET", "encode_address_infos -> len: %d\r\n", len) );
 
     if (len > 0) {
-        ERL_NIF_TERM*    array = MALLOC(len * sizeof(ERL_NIF_TERM)); // LEAK?
+        ERL_NIF_TERM*    array = MALLOC(len * sizeof(ERL_NIF_TERM));
         unsigned int     i     = 0;
         struct addrinfo* p     = addrInfo;
 
@@ -1374,6 +1374,7 @@ ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
         }
 
         result = MKLA(env, array, len);
+        FREE(array);
     } else {
         result = MKEL(env);
     }
