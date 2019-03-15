@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2017</year>
+      <year>2006</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -85,7 +85,7 @@ dialyzer --help</code>
 dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname] [--dump_callgraph file]
          [files_or_dirs] [--fullpath] [--get_warnings] [--gui] [--help]
-         [-I include_dir]* [--no_check_plt] [--no_native]
+         [-I include_dir]* [--no_check_plt] [--no_indentation] [--no_native]
          [--no_native_cache] [-o outfile] [--output_plt file] [-pa dir]*
          [--plt plt] [--plt_info] [--plts plt*] [--quiet] [-r dirs]
          [--raw] [--remove_from_plt] [--shell] [--src] [--statistics]
@@ -180,6 +180,11 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
       <item>
         <p>Skip the PLT check when running Dialyzer. This is useful when
           working with installed PLTs that never change.</p>
+      </item>
+      <tag><c>--no_indentation</c></tag>
+      <item>
+	<p>Do not insert line breaks in types, contracts, and Erlang
+	  Code when formatting warnings.</p>
       </item>
       <tag><c>--no_native</c> (or <c>-nn</c>)</tag>
       <item>
@@ -481,6 +486,23 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <desc>
         <p>Get a string from warnings as returned by
           <seealso marker="#run/1"><c>run/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">format_warning(Msg, Options) -> string()</name>
+      <fsummary>Get the string version of a warning message.</fsummary>
+      <type>
+        <v>Msg = {Tag, Id, msg()}</v>
+        <d>See <c>run/1</c>.</d>
+        <v>Options = [{indent_opt, boolean()}]</v>
+      </type>
+      <desc>
+        <p>Get a string from warnings as returned by
+          <seealso marker="#run/1"><c>run/1</c></seealso>.</p>
+	<p>If <c>indent_opt</c> is set to <c>true</c> (default),
+          line breaks are inserted in types, contracts, and Erlang
+	  code to improve readability.</p>
       </desc>
     </func>
 

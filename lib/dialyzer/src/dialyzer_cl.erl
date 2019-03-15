@@ -40,6 +40,7 @@
 	 output          = standard_io	  :: io:device(),
 	 output_format   = formatted      :: format(),
 	 filename_opt    = basename       :: fopt(),
+         indent_opt      = ?INDENT_OPT    :: iopt(),
 	 output_plt      = none           :: 'none' | file:filename(),
 	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
 	 report_mode     = normal         :: rep_mode(),
@@ -588,8 +589,11 @@ new_state() ->
 
 init_output(State0, #options{output_file = OutFile,
 			     output_format = OutFormat,
-			     filename_opt = FOpt}) ->
-  State = State0#cl_state{output_format = OutFormat, filename_opt = FOpt},
+			     filename_opt = FOpt,
+                             indent_opt = IOpt}) ->
+  State = State0#cl_state{output_format = OutFormat,
+                          filename_opt = FOpt,
+                          indent_opt = IOpt},
   case OutFile =:= none of
     true ->
       State;
@@ -818,6 +822,7 @@ print_warnings(#cl_state{stored_warnings = []}) ->
 print_warnings(#cl_state{output = Output,
 			 output_format = Format,
 			 filename_opt = FOpt,
+                         indent_opt = IOpt,
 			 stored_warnings = Warnings}) ->
   PrWarnings = process_warnings(Warnings),
   case PrWarnings of
@@ -825,7 +830,8 @@ print_warnings(#cl_state{output = Output,
     [_|_] ->
       S = case Format of
 	    formatted ->
-	      [dialyzer:format_warning(W, FOpt) || W <- PrWarnings];
+              Opts = [{filename_opt, FOpt}, {indent_opt, IOpt}],
+	      [dialyzer:format_warning(W, Opts) || W <- PrWarnings];
 	    raw ->
 	      [io_lib:format("~tp. \n",
                              [W]) || W <- set_warning_id(PrWarnings)]
