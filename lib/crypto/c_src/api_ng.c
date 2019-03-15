@@ -218,7 +218,7 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
     }
-    //    enif_fprintf(stderr, "%s:%u %T %T %u\r\n", __FILE__, __LINE__, cipher_arg, ivec_arg, ivec_len);
+
     if (ivec_arg == atom_undefined || ivec_len == 0)
         {
             if (!EVP_CipherInit_ex(ctx_res->ctx, NULL, NULL, key_bin.data, NULL, -1)) {
@@ -232,8 +232,6 @@ static int get_init_args(ErlNifEnv* env,
                 *return_term = EXCP_ERROR(env, "Can't initialize key or iv");
                 goto err;
             }
-
-    // enif_fprintf(stderr, "%s:%u\r\n", __FILE__, __LINE__);
 
     EVP_CIPHER_CTX_set_padding(ctx_res->ctx, 0);
 
@@ -270,7 +268,6 @@ static int get_update_args(ErlNifEnv* env,
     ASSERT(in_data_bin.size <= INT_MAX);
 
 #if !defined(HAVE_EVP_AES_CTR)
-    // enif_fprintf(stdout, "%s:%u state = %T\r\n", __FILE__, __LINE__, ctx_res->state);
     if (ctx_res->state != atom_undefined) {
         ERL_NIF_TERM state0, newstate_and_outdata;
         const ERL_NIF_TERM *tuple_argv;
@@ -381,6 +378,48 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 /* Encrypt/decrypt                                                       */
 /*************************************************************************/
 
+#if !defined(HAVE_EVP_CIPHER_CTX_COPY)
+/*
+  The EVP_CIPHER_CTX_copy is not available in older cryptolibs although
+  the function is needed.
+  Instead of implement it in-place, we have a copy here as a compatibility
+  function
+*/
+
+int EVP_CIPHER_CTX_copy(EVP_CIPHER_CTX *out, const EVP_CIPHER_CTX *in);
+
+int EVP_CIPHER_CTX_copy(EVP_CIPHER_CTX *out, const EVP_CIPHER_CTX *in)
+{
+    if ((in == NULL) || (in->cipher == NULL))
+        {
+            return 0;
+        }
+#ifndef OPENSSL_NO_ENGINE
+    /* Make sure it's safe to copy a cipher context using an ENGINE */
+    if (in->engine && !ENGINE_init(in->engine))
+        return 0;
+#endif
+
+    EVP_CIPHER_CTX_cleanup(out);
+    memcpy(out,in,sizeof *out);
+
+    if (in->cipher_data && in->cipher->ctx_size)
+        {
+            out->cipher_data=OPENSSL_malloc(in->cipher->ctx_size);
+            if (!out->cipher_data)
+                return 0;
+            memcpy(out->cipher_data,in->cipher_data,in->cipher->ctx_size);
+        }
+
+#if defined(EVP_CIPH_CUSTOM_COPY) && defined(EVP_CTRL_COPY)
+    if (in->cipher->flags & EVP_CIPH_CUSTOM_COPY)
+        return in->cipher->ctrl((EVP_CIPHER_CTX *)in, EVP_CTRL_COPY, 0, out);
+#endif
+    return 1;
+}
+/****** End of compatibility function ******/
+#endif
+
 
 ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data [, IV]) */
@@ -393,7 +432,21 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     if (argc == 3) {
         struct evp_cipher_ctx ctx_res_copy;
         ErlNifBinary ivec_bin;
-        memcpy(&ctx_res_copy, ctx_res, sizeof(ctx_res_copy));
+
+        memcpy(&ctx_res_copy, ctx_res, sizeof ctx_res_copy);
+#if !defined(HAVE_EVP_AES_CTR)
+        if (ctx_res_copy.state == atom_undefined)
+            /* Not going to use aes_ctr compat functions */
+#endif
+            {
+                ctx_res_copy.ctx = EVP_CIPHER_CTX_new();
+
+                if (!EVP_CIPHER_CTX_copy(ctx_res_copy.ctx, ctx_res->ctx)) {
+                    ret = EXCP_ERROR(env, "Can't copy ctx_res");
+                    goto err;
+                }
+            }
+
         ctx_res = &ctx_res_copy;
 
         if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
@@ -405,12 +458,10 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         if (ctx_res_copy.iv_len != ivec_bin.size)
             {
                 ret = EXCP_BADARG(env, "Bad iv size");
-                printf("Expect %d\r\n", ctx_res_copy.iv_len);
                 goto err;
             }
         
 #if !defined(HAVE_EVP_AES_CTR)
-        // enif_fprintf(stdout, "%s:%u state = %T\r\n", __FILE__, __LINE__, ctx_res->state);
         if ((ctx_res_copy.state != atom_undefined) ) {
             /* replace the iv in state with argv[2] */
             ERL_NIF_TERM state0;
