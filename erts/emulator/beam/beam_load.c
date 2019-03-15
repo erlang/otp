@@ -3679,6 +3679,24 @@ gen_increment_from_minus(LoaderState* stp, GenOpArg Reg,
     return op;
 }
 
+static GenOp*
+gen_plus_from_minus(LoaderState* stp, GenOpArg Fail, GenOpArg Live,
+                    GenOpArg Src, GenOpArg Integer, GenOpArg Dst)
+{
+    GenOp* op;
+
+    NEW_GENOP(stp, op);
+    GENOP_NAME_ARITY(op, gen_plus, 5);
+    op->next = NULL;
+    op->a[0] = Fail;
+    op->a[1] = Live;
+    op->a[2] = Src;
+    op->a[3].type = TAG_i;
+    op->a[3].val = -Integer.val;
+    op->a[4] = Dst;
+    return op;
+}
+
 /*
  * Test whether the negation of the given number is small.
  */
