@@ -1424,13 +1424,9 @@ encrypt_init(#ssh{encrypt = SshCipher, role = Role} = Ssh) ->
             block_bytes = BlockBytes} = cipher(SshCipher),
     IV = hash(Ssh, IvMagic, 8*IvBytes),
     K = hash(Ssh, KeyMagic, 8*KeyBytes),
-    case crypto:crypto_init(CryptoCipher, K, IV, true) of
-        {ok,Ctx0} ->
-            {ok, Ssh#ssh{encrypt_block_size = BlockBytes,
-                         encrypt_ctx = Ctx0}};
-        {error,Error} ->
-            error(Error)
-    end.
+    Ctx0 = crypto:crypto_init(CryptoCipher, K, IV, true),
+    {ok, Ssh#ssh{encrypt_block_size = BlockBytes,
+                 encrypt_ctx = Ctx0}}.
 
 encrypt_final(Ssh) ->
     {ok, Ssh#ssh{encrypt = none, 
@@ -1470,12 +1466,8 @@ encrypt(#ssh{encrypt = SshCipher,
     {Ssh#ssh{encrypt_ctx = IV}, {<<LenData/binary,Ctext/binary>>,Ctag}};
 
 encrypt(#ssh{encrypt_ctx = Ctx0} = Ssh, Data) ->
-    case crypto:crypto_update(Ctx0, Data) of
-        Enc when is_binary(Enc) ->
-            {Ssh, Enc};
-        {error, Error} ->
-            error(Error)
-    end.
+    Enc = crypto:crypto_update(Ctx0, Data),
+    {Ssh, Enc}.
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Decryption
@@ -1510,13 +1502,9 @@ decrypt_init(#ssh{decrypt = SshCipher, role = Role} = Ssh) ->
             block_bytes = BlockBytes} = cipher(SshCipher),
     IV = hash(Ssh, IvMagic, 8*IvBytes),
     K = hash(Ssh, KeyMagic, 8*KeyBytes),
-    case crypto:crypto_init(CryptoCipher, K, IV, false) of
-        {ok,Ctx0} ->
-            {ok, Ssh#ssh{decrypt_block_size = BlockBytes,
-                         decrypt_ctx = Ctx0}};
-        {error,Error} ->
-            error(Error)
-    end.
+    Ctx0 = crypto:crypto_init(CryptoCipher, K, IV, false),
+    {ok, Ssh#ssh{decrypt_block_size = BlockBytes,
+                 decrypt_ctx = Ctx0}}.
 
 decrypt_final(Ssh) ->
     {ok, Ssh#ssh {decrypt = none, 
@@ -1562,12 +1550,8 @@ decrypt(#ssh{decrypt = SshCipher,
     {Ssh#ssh{decrypt_ctx = IV}, Dec};
 
 decrypt(#ssh{decrypt_ctx = Ctx0} = Ssh, Data) ->
-    case crypto:crypto_update(Ctx0, Data) of
-        Dec when is_binary(Dec) ->
-            {Ssh, Dec};
-        {error, Error} ->
-            error(Error)
-    end.
+    Dec = crypto:crypto_update(Ctx0, Data),
+    {Ssh, Dec}.
 
 next_gcm_iv(<<Fixed:32, InvCtr:64>>) -> <<Fixed:32, (InvCtr+1):64>>.
 
