@@ -116,24 +116,31 @@ static int db_erase_object_catree(DbTable *tbl, Eterm object,Eterm *ret);
 static int db_slot_catree(Process *p, DbTable *tbl,
                           Eterm slot_term,  Eterm *ret);
 static int db_select_catree(Process *p, DbTable *tbl, Eterm tid,
-                            Eterm pattern, int reversed, Eterm *ret);
+                            Eterm pattern, int reversed, Eterm *ret,
+                            enum DbIterSafety);
 static int db_select_count_catree(Process *p, DbTable *tbl, Eterm tid,
-                                  Eterm pattern,  Eterm *ret);
+                                  Eterm pattern,  Eterm *ret, enum DbIterSafety);
 static int db_select_chunk_catree(Process *p, DbTable *tbl, Eterm tid,
                                   Eterm pattern, Sint chunk_size,
-                                  int reversed, Eterm *ret);
+                                  int reversed, Eterm *ret, enum DbIterSafety);
 static int db_select_continue_catree(Process *p, DbTable *tbl,
-                                     Eterm continuation, Eterm *ret);
+                                     Eterm continuation, Eterm *ret,
+                                     enum DbIterSafety*);
 static int db_select_count_continue_catree(Process *p, DbTable *tbl,
-                                           Eterm continuation, Eterm *ret);
+                                           Eterm continuation, Eterm *ret,
+                                           enum DbIterSafety*);
 static int db_select_delete_catree(Process *p, DbTable *tbl, Eterm tid,
-                                   Eterm pattern,  Eterm *ret);
+                                   Eterm pattern,  Eterm *ret,
+                                   enum DbIterSafety);
 static int db_select_delete_continue_catree(Process *p, DbTable *tbl, 
-                                            Eterm continuation, Eterm *ret);
+                                            Eterm continuation, Eterm *ret,
+                                            enum DbIterSafety*);
 static int db_select_replace_catree(Process *p, DbTable *tbl, Eterm tid,
-                                    Eterm pattern, Eterm *ret);
+                                    Eterm pattern, Eterm *ret,
+                                    enum DbIterSafety);
 static int db_select_replace_continue_catree(Process *p, DbTable *tbl,
-                                             Eterm continuation, Eterm *ret);
+                                             Eterm continuation, Eterm *ret,
+                                             enum DbIterSafety*);
 static int db_take_catree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_catree(fmtfn_t to, void *to_arg,
                             int show, DbTable *tbl);
@@ -1843,7 +1850,8 @@ static int db_slot_catree(Process *p, DbTable *tbl,
 static int db_select_continue_catree(Process *p,
                                      DbTable *tbl,
                                      Eterm continuation,
-                                     Eterm *ret)
+                                     Eterm *ret,
+                                     enum DbIterSafety* safety_p)
 {
     int result;
     CATreeRootIterator iter;
@@ -1856,7 +1864,8 @@ static int db_select_continue_catree(Process *p,
 }
 
 static int db_select_catree(Process *p, DbTable *tbl, Eterm tid,
-                            Eterm pattern, int reverse, Eterm *ret)
+                            Eterm pattern, int reverse, Eterm *ret,
+                            enum DbIterSafety safety)
 {
     int result;
     CATreeRootIterator iter;
@@ -1871,7 +1880,8 @@ static int db_select_catree(Process *p, DbTable *tbl, Eterm tid,
 static int db_select_count_continue_catree(Process *p,
                                            DbTable *tbl,
                                            Eterm continuation,
-                                           Eterm *ret)
+                                           Eterm *ret,
+                                           enum DbIterSafety* safety_p)
 {
     int result;
     CATreeRootIterator iter;
@@ -1885,7 +1895,8 @@ static int db_select_count_continue_catree(Process *p,
 }
 
 static int db_select_count_catree(Process *p, DbTable *tbl, Eterm tid,
-                                  Eterm pattern, Eterm *ret)
+                                  Eterm pattern, Eterm *ret,
+                                  enum DbIterSafety safety)
 {
     int result;
     CATreeRootIterator iter;
@@ -1899,7 +1910,8 @@ static int db_select_count_catree(Process *p, DbTable *tbl, Eterm tid,
 
 static int db_select_chunk_catree(Process *p, DbTable *tbl, Eterm tid,
                                   Eterm pattern, Sint chunk_size,
-                                  int reversed, Eterm *ret)
+                                  int reversed, Eterm *ret,
+                                  enum DbIterSafety safety)
 {
     int result;
     CATreeRootIterator iter;
@@ -1915,7 +1927,8 @@ static int db_select_chunk_catree(Process *p, DbTable *tbl, Eterm tid,
 static int db_select_delete_continue_catree(Process *p,
                                             DbTable *tbl,
                                             Eterm continuation,
-                                            Eterm *ret)
+                                            Eterm *ret,
+                                            enum DbIterSafety* safety_p)
 {
     DbTreeStack stack;
     TreeDbTerm * stack_array[STACK_NEED];
@@ -1931,7 +1944,8 @@ static int db_select_delete_continue_catree(Process *p,
 }
 
 static int db_select_delete_catree(Process *p, DbTable *tbl, Eterm tid,
-                                   Eterm pattern, Eterm *ret)
+                                   Eterm pattern, Eterm *ret,
+                                   enum DbIterSafety safety)
 {
     DbTreeStack stack;
     TreeDbTerm * stack_array[STACK_NEED];
@@ -1948,7 +1962,8 @@ static int db_select_delete_catree(Process *p, DbTable *tbl, Eterm tid,
 }
 
 static int db_select_replace_catree(Process *p, DbTable *tbl, Eterm tid,
-                                    Eterm pattern, Eterm *ret)
+                                    Eterm pattern, Eterm *ret,
+                                    enum DbIterSafety safety_p)
 {
     int result;
     CATreeRootIterator iter;
@@ -1961,7 +1976,8 @@ static int db_select_replace_catree(Process *p, DbTable *tbl, Eterm tid,
 }
 
 static int db_select_replace_continue_catree(Process *p, DbTable *tbl,
-                                             Eterm continuation, Eterm *ret)
+                                             Eterm continuation, Eterm *ret,
+                                             enum DbIterSafety* safety_p)
 {
     int result;
     CATreeRootIterator iter;

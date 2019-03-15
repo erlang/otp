@@ -101,6 +101,14 @@ typedef struct {
     } u;
 } DbUpdateHandle;
 
+/* How safe are we from double-hits or missed objects
+ * when iterating without fixation?
+ */
+enum DbIterSafety {
+    ITER_UNSAFE,      /* Must fixate to be safe */
+    ITER_SAFE_LOCKED, /* Safe while table is locked, not between trap calls */
+    ITER_SAFE         /* No need to fixate at all */
+};
 
 typedef struct db_table_method
 {
@@ -150,44 +158,53 @@ typedef struct db_table_method
 			   Eterm pattern,
 			   Sint chunk_size,
 			   int reverse,
-			   Eterm* ret);
+			   Eterm* ret,
+                           enum DbIterSafety);
     int (*db_select)(Process* p, 
 		     DbTable* tb, /* [in out] */
                      Eterm tid,
 		     Eterm pattern,
 		     int reverse,
-		     Eterm* ret);
+		     Eterm* ret,
+                     enum DbIterSafety);
     int (*db_select_delete)(Process* p, 
 			    DbTable* tb, /* [in out] */
                             Eterm tid,
 			    Eterm pattern,
-			    Eterm* ret);
+			    Eterm* ret,
+                            enum DbIterSafety);
     int (*db_select_continue)(Process* p, 
 			      DbTable* tb, /* [in out] */
 			      Eterm continuation,
-			      Eterm* ret);
+			      Eterm* ret,
+                              enum DbIterSafety*);
     int (*db_select_delete_continue)(Process* p, 
 				     DbTable* tb, /* [in out] */
 				     Eterm continuation,
-				     Eterm* ret);
+				     Eterm* ret,
+                                     enum DbIterSafety*);
     int (*db_select_count)(Process* p, 
 			   DbTable* tb, /* [in out] */
                            Eterm tid,
 			   Eterm pattern, 
-			   Eterm* ret);
+			   Eterm* ret,
+                           enum DbIterSafety);
     int (*db_select_count_continue)(Process* p, 
 				    DbTable* tb, /* [in out] */ 
 				    Eterm continuation, 
-				    Eterm* ret);
+				    Eterm* ret,
+                                    enum DbIterSafety*);
     int (*db_select_replace)(Process* p,
             DbTable* tb, /* [in out] */
             Eterm tid,
             Eterm pattern,
-            Eterm* ret);
+            Eterm* ret,
+            enum DbIterSafety);
     int (*db_select_replace_continue)(Process* p,
             DbTable* tb, /* [in out] */
             Eterm continuation,
-            Eterm* ret);
+            Eterm* ret,
+            enum DbIterSafety*);
     int (*db_take)(Process *, DbTable *, Eterm, Eterm *);
 
     SWord (*db_delete_all_objects)(Process* p, DbTable* db, SWord reds);

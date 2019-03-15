@@ -56,6 +56,7 @@
 -export([t_match_spec_run/1]).
 -export([t_bucket_disappears/1]).
 -export([t_named_select/1]).
+-export([select_fixtab_owner_change/1]).
 -export([otp_5340/1]).
 -export([otp_6338/1]).
 -export([otp_6842_select_1000/1]).
@@ -130,7 +131,7 @@ all() ->
      t_insert_list, t_test_ms, t_select_delete, t_select_replace,
      t_select_replace_next_bug,
      t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
-     t_named_select,
+     t_named_select, select_fixtab_owner_change,
      select_fail, t_insert_new, t_repair_continuation,
      otp_5340, otp_6338, otp_6842_select_1000, otp_7665,
      select_mbuf_trapping,
@@ -249,7 +250,64 @@ t_named_select_do(Opts) ->
     verify_etsmem(EtsMem).
 
 
+%% Verify select and friends release fixtab as they should
+%% even when owneship is changed between traps.
+select_fixtab_owner_change(_Config) ->
+    T = ets:new(xxx, [protected]),
+    NKeys = 2000,
+    [ets:insert(T,{K,K band 7}) || K <- lists:seq(1,NKeys)],
 
+    %% Buddy and Papa will ping-pong table ownership between them
+    %% and the aim is to give Buddy the table when he is
+    %% in the middle of a yielding select* call.
+    {Buddy,_} = spawn_opt(fun() -> sfoc_buddy_loop(T, 1, undefined) end,
+                          [link,monitor]),
+
+    sfoc_papa_loop(T, Buddy),
+
+    receive {'DOWN', _, process, Buddy, _} -> ok end,
+    ets:delete(T),
+    ok.
+
+sfoc_buddy_loop(T, I, State0) ->
+    receive
+        {'ETS-TRANSFER', T, Papa, _} ->
+            ets:give_away(T, Papa, State0),
+            case State0 of
+                done ->
+                    ok;
+                _ ->
+                    State1 = sfoc_traverse(T, I, State0),
+                    %% Verify no fixation left
+                    {I, false} = {I, ets:info(T, safe_fixed_monotonic_time)},
+                    sfoc_buddy_loop(T, I+1, State1)
+            end
+    end.
+
+sfoc_papa_loop(T, Buddy) ->
+    ets:give_away(T, Buddy, "Catch!"),
+    receive
+        {'ETS-TRANSFER', T, Buddy, State} ->
+            case State of
+                done ->
+                    ok;
+                _ ->
+                    sfoc_papa_loop(T, Buddy)
+            end
+    end.
+
+sfoc_traverse(T, 1, S) ->
+    ets:select(T, [{{'$1',7}, [], ['$1']}]), S;
+sfoc_traverse(T, 2, S) ->
+    0 = ets:select_count(T, [{{'$1',7}, [], [false]}]), S;
+sfoc_traverse(T, 3, _) ->
+    Limit = ets:info(T, size) div 2,
+    {_, Continuation} = ets:select(T, [{{'$1',7}, [], ['$1']}],
+                                   Limit),
+    Continuation;
+sfoc_traverse(_T, 4, Continuation) ->
+    _ = ets:select(Continuation),
+    done.
 
 %% Check ets:match_spec_run/2.
 t_match_spec_run(Config) when is_list(Config) ->
