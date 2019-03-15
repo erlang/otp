@@ -85,6 +85,6 @@ ERL_NIF_TERM poly1305_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 
 #else
-    return atom_notsup;
+    return enif_raise_exception(env, atom_notsup);
 #endif
 }
