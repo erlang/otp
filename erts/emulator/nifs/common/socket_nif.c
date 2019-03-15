@@ -17730,7 +17730,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         if (COMPARE_PIDS(&descP->closerPid, &descP->currentAcceptor.pid) != 0) {
             SSDBG( descP, ("SOCKET", "socket_stop -> "
                            "send abort message to current acceptor %T\r\n",
-                           descP->currentWriter.pid) );
+                           descP->currentAcceptor.pid) );
             if (esock_send_abort_msg(env,
                                      sockRef,
                                      descP->currentAcceptor.ref,
