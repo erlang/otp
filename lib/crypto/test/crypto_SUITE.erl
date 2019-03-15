@@ -98,8 +98,8 @@ groups() ->
                      {group, rc4}
                     ]},
      {fips, [], [
-                 %% {group, no_blake2b},
-                 %% {group, no_blake2s},
+                 {group, no_blake2b},
+                 {group, no_blake2s},
                  {group, dss},
                  {group, ecdsa},
                  {group, no_ed25519},
@@ -140,7 +140,7 @@ groups() ->
                  {group, no_des_cbc},
                  {group, no_des_cfb},
                  {group, des_ede3},
-		 %% {group, no_poly1305},
+                 {group, no_poly1305},
                  {group, no_rc2_cbc},
                  {group, no_rc4}
                 ]},
@@ -158,6 +158,8 @@ groups() ->
      {sha3_512, [], [hash, hmac]},
      {blake2b, [], [hash, hmac]},
      {blake2s, [], [hash, hmac]},
+     {no_blake2b, [], [no_hash, no_hmac]},
+     {no_blake2s, [], [no_hash, no_hmac]},
      {rsa, [], [sign_verify,
                 public_encrypt,
                 private_encrypt,
@@ -203,6 +205,7 @@ groups() ->
      {chacha20_poly1305, [], [aead]},
      {chacha20, [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
      {poly1305, [], [poly1305]},
+     {no_poly1305, [], [no_poly1305]},
      {aes_cbc, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {no_aes_cfb8,[], [no_support, no_block]},
      {no_aes_cfb128,[], [no_support, no_block]},
@@ -423,6 +426,16 @@ poly1305(Config) ->
                       ct:fail({{crypto, poly1305, [Key, Txt]}, {expected, Expect}, {got, Other}})
               end
       end, proplists:get_value(poly1305, Config)).
+
+%%--------------------------------------------------------------------
+no_poly1305() ->
+    [{doc, "Test disabled poly1305 function"}].
+no_poly1305(Config) ->
+    Type = ?config(type, Config),
+    Key = <<133,214,190,120,87,85,109,51,127,68,82,254,66,213,6,168,1,
+            3,128,138,251,13,178,253,74,191,246,175,65,73,245,27>>,
+    Txt = <<"Cryptographic Forum Research Group">>,
+    notsup(fun crypto:poly1305/2, [Key,Txt]).
 
 %%--------------------------------------------------------------------
 block() ->
