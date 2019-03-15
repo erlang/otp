@@ -177,6 +177,8 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     filename_opt ->
       assert_filename_opt(Value),
       build_options(Rest, Options#options{filename_opt = Value});
+    indent_opt ->
+      build_options(Rest, Options#options{indent_opt = Value});
     output_plt ->
       assert_filename(Value),
       build_options(Rest, Options#options{output_plt = Value});

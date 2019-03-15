@@ -1135,7 +1135,9 @@ handle_help(State, Title, Txt) ->
 add_warnings(#gui_state{warnings_box = WarnBox,
 			rawWarnings = RawWarns} = State, Warnings) ->
   NewRawWarns = RawWarns ++ Warnings,
-  WarnList = [dialyzer:format_warning(W) -- "\n" || W <- NewRawWarns],
+  %% The indentation cannot be turned off.
+  WarnList = [string:trim(dialyzer:format_warning(W), trailing) ||
+               W <- NewRawWarns],
   wxListBox:set(WarnBox, WarnList),
   State#gui_state{rawWarnings = NewRawWarns}.
   

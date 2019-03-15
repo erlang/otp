@@ -911,7 +911,6 @@ is_remote_types_related(Contract, CSig, Sig, MFA, RecDict) ->
 
 t_from_forms_without_remote([{FType, []}], MFA, RecDict) ->
   Site = {spec, MFA},
-  %% FIXME
   Type1 = erl_types:t_from_form_without_remote(FType, Site, RecDict),
   {ok, erl_types:subst_all_vars_to_any(Type1)};
 t_from_forms_without_remote([{_FType, _Constrs}], _MFA, _RecDict) ->

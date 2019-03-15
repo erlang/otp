@@ -108,6 +108,7 @@
 -type dial_options()  :: [dial_option()].
 -type fopt()          :: 'basename' | 'fullpath'.
 -type format()        :: 'formatted' | 'raw'.
+-type iopt()          :: boolean().
 -type label()	      :: non_neg_integer().
 -type dial_warn_tags():: ordsets:ordset(dial_warn_tag()).
 -type rep_mode()      :: 'quiet' | 'normal' | 'verbose'.
@@ -118,6 +119,8 @@
 %%--------------------------------------------------------------------
 %% Record declarations used by various files
 %%--------------------------------------------------------------------
+
+-define(INDENT_OPT, true).
 
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
 
@@ -154,6 +157,7 @@
 		  output_file     = none	   :: 'none' | file:filename(),
 		  output_format   = formatted      :: format(),
 		  filename_opt	  = basename       :: fopt(),
+                  indent_opt      = ?INDENT_OPT    :: iopt(),
 		  callgraph_file  = ""             :: file:filename(),
 		  check_plt       = true           :: boolean(),
                   solvers         = []             :: [solver()]}).
