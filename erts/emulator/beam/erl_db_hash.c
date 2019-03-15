@@ -2214,6 +2214,7 @@ static int db_select_replace_hash(Process *p, DbTable *tbl, Eterm tid,
     ctx.tb = &tbl->hash;
     ctx.tid = tid;
     ctx.prev_continuation_tptr = NULL;
+    ctx.safety = safety;
 
     return match_traverse(
             &ctx,
