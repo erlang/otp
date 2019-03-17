@@ -280,7 +280,7 @@ up the indexing."
             (unless (file-exists-p of)
               (erldoc-parse-all erldoc-man-index of))
             (unless (string= erldoc-output-file of)
-              (make-symbolic-link of erldoc-output-file))))
+              (make-symbolic-link (expand-file-name of) erldoc-output-file))))
         (setq erldoc-lookup-table
               (with-temp-buffer
                 (insert-file-contents erldoc-output-file)
