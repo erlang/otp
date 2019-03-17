@@ -213,9 +213,10 @@ up the indexing."
          (when (and (eq (car-safe d) 'a)
                     (gethash (erldoc-dom-get-attribute d 'name) table))
            (push (append (gethash (erldoc-dom-get-attribute d 'name) table)
-                         (list (funcall span-content
-                                        (or (erldoc-dom-get-element d 'span)
-                                            (cadr (memq d erldoc-dom-walk-siblings))))))
+                         (list (or (funcall span-content d)
+                                   (funcall span-content
+                                            (or (erldoc-dom-get-element d 'span)
+                                                (cadr (memq d erldoc-dom-walk-siblings)))))))
                  entries))
          ;; Get data types
          (when (and (eq (car-safe d) 'a)
