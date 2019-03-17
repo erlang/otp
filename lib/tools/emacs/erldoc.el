@@ -89,6 +89,13 @@ up the indexing."
   :type 'file
   :group 'erldoc)
 
+(defcustom erldoc-no-signature-function #'ignore
+  "Notification function called if no function signature was found."
+  :type '(choice (function-item :tag "Ignore" ignore)
+                 (function-item :tag "Warn" warn)
+                 (function-item :tag "Error" error))
+  :group 'erldoc)
+
 (defun erldoc-strip-string (s)
   (let* ((re "[ \t\n\r\f\v\u00a0]+")
          (from (if (string-match (concat "\\`" re) s) (match-end 0) 0))
@@ -212,12 +219,21 @@ up the indexing."
          ;; Get the full function signature.
          (when (and (eq (car-safe d) 'a)
                     (gethash (erldoc-dom-get-attribute d 'name) table))
-           (push (append (gethash (erldoc-dom-get-attribute d 'name) table)
-                         (list (or (funcall span-content d)
-                                   (funcall span-content
-                                            (or (erldoc-dom-get-element d 'span)
-                                                (cadr (memq d erldoc-dom-walk-siblings)))))))
-                 entries))
+           (let* ((name (erldoc-dom-get-attribute d 'name))
+                  (mfa-url (gethash name table))
+                  (mfa (car mfa-url))
+                  (sig (or (funcall span-content d)
+                           (funcall span-content
+                                    (or (erldoc-dom-get-element d 'span)
+                                        (cadr
+                                         (memq d erldoc-dom-walk-siblings))))
+                           (progn
+                             (funcall erldoc-no-signature-function
+                                      "erldoc-parse-man: no sig for %s"
+                                      mfa)
+                             nil))))
+             (push (append mfa-url (list sig))
+                   entries)))
          ;; Get data types
          (when (and (eq (car-safe d) 'a)
                     (string-prefix-p "type-"
@@ -357,9 +373,12 @@ up the indexing."
           (sigs))
       (maphash (lambda (k v)
                  (when (string-match re k)
-                   (push (cons (string-to-number (match-string 1 k))
-                               (cdr (erldoc-tokenize-signature (cadr v))))
-                         sigs)))
+                   (if (cadr v)
+                       (push (cons (string-to-number (match-string 1 k))
+                                   (cdr (erldoc-tokenize-signature (cadr v))))
+                             sigs)
+                     (funcall erldoc-no-signature-function
+                              "erldoc-format-signature: No sig for %s" k))))
                (erldoc-lookup-table))
       (when sigs
         ;; Mostly single return type but there are exceptions such as
