@@ -592,7 +592,8 @@ refc_dist(Config) when is_list(Config) ->
     3 = fun_refc(F2),
     true = erlang:garbage_collect(),
     2 = fun_refc(F),
-    refc_dist_send(Node, F).
+    refc_dist_send(Node, F),
+    test_server:stop_node(Node).
 
 refc_dist_send(Node, F) ->
     Pid = spawn_link(Node, fun() -> receive
@@ -682,6 +683,7 @@ t_arity(Config) when is_list(Config) ->
     43 = spawn_call(Node, fun(X, Y) -> A+X+Y end),
     1 = spawn_call(Node, fun(X, Y) -> X+Y end),
     45 = spawn_call(Node, fun(X, Y, Z) -> A+X+Y+Z end),
+    test_server:stop_node(Node),
     ok.
 
 t_is_function2(Config) when is_list(Config) ->

@@ -744,6 +744,7 @@ link_to_dead_new_node(Config) when is_list(Config) ->
         {'EXIT', Pid, noproc} ->
             ok;
         Other ->
+            stop_node(Node),
             ct:fail({unexpected_message, Other})
     after 5000 ->
               ct:fail(nothing_received)
@@ -1464,6 +1465,8 @@ measure_latency_large_message(Nodename, DataFun) ->
     Times = [ Time || {_I, Time} <- IndexTimes],
 
     ct:pal("~p",[IndexTimes]),
+
+    stop_node(N),
 
     case {lists:max(Times), lists:min(Times)} of
         {Max, Min} when Max * 0.25 > Min ->
