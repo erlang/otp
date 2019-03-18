@@ -546,6 +546,22 @@
       </desc>
     </datatype>
 
+    <datatype_title>Error types</datatype_title>
+
+    <datatype>
+      <name name="run_time_error"/>
+      <desc>
+	<p>The exception <c>error:badarg</c> signifies that one or more arguments are of wrong data type,
+	or are otherwise badly formed.
+	</p>
+	<p>The exception <c>error:notsup</c> signifies that the algorithm is known but is not supported
+	by current underlying libcrypto or explicitly disabled when building that.
+	</p>
+	<p>For a list of supported algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <!--================ FUNCTIONS ================-->
@@ -849,6 +865,30 @@
 	  The text variant represents the libcrypto library used at runtime.
 	  In earlier OTP versions both numeric and text was taken from the library.
 	</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hash_info" arity="1" since="OTP 22.0"/>
+      <fsummary>Information about supported hash algorithms.</fsummary>
+      <desc>
+	<p>Provides a map with information about block_size, size and possibly other properties of the
+	hash algorithm in the argument.
+	</p>
+	<p>For a list of supported hash algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cipher_info" arity="1" since="OTP 22.0"/>
+      <fsummary>Information about supported ciphers.</fsummary>
+      <desc>
+	<p>Provides a map with information about block_size, key_length, iv_length and possibly other properties of the
+	cipher algorithm in the argument.
+	</p>
+	<p>For a list of supported cipher algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	</p>
       </desc>
     </func>
 
@@ -1300,6 +1340,9 @@ FloatValue = rand:uniform().     % again
 	by the underlying libcrypto library</p>
 	<p>Note: the <c>rsa_opts</c> entry is in an experimental state and may change or be removed without notice.
 	No guarantee for the accuarcy of the rsa option's value list should be assumed.
+	</p>
+	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
+	for information about the hash and cipher algorithms.
 	</p>
       </desc>
     </func>
