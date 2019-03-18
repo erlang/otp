@@ -247,6 +247,7 @@ make_command(Vars, Spec, State) ->
 	   %%	   " -test_server_format_exception false",
 	   " -boot start_sasl -sasl errlog_type error",
 	   " -pz \"",Cwd,"\"",
+	   " -pz \"",TestDir,"\"",
 	   " -ct_test_vars ",TestVars,
 	   " -eval \"ts_run:ct_run_test(\\\"",TestDir,"\\\", ",
 	   backslashify(lists:flatten(State#state.test_server_args)),")\""

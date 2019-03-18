@@ -108,7 +108,11 @@ pre_init_per_suite(_Suite,Config,State) ->
 	{add_node_name(Config, State), State}
     catch error:{badmatch,{error,enoent}} ->
 	{add_node_name(Config, State), State};
-	  Error:Reason:Stack ->
+          error:{badmatch,{error,emfile}}=Reason:Stack ->
+            FDInfo = os:cmd("cat /proc/"++ os:getpid() ++"/fdinfo/*"),
+            ct:pal("~p ~s failed! ~p:{~p,~p}",[?MODULE,FDInfo,error,Reason,Stack]),
+	    {{fail,{?MODULE,{error,Reason, Stack}}},State};
+          Error:Reason:Stack ->
 	    ct:pal("~p failed! ~p:{~p,~p}",[?MODULE,Error,Reason,Stack]),
 	    {{fail,{?MODULE,{Error,Reason, Stack}}},State}
     end.

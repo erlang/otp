@@ -248,12 +248,13 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec:
 
-release_tests_spec: make_emakefile
+release_tests_spec: tests
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(EMAKEFILE) $(TEST_SPEC_FILES) \
 		$(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) *.beam "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 

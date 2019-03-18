@@ -45,6 +45,7 @@ all() ->
      bad_append, bs_add_overflow].
 
 init_per_suite(Config) ->
+    application:ensure_all_started(os_mon),
     Config.
 
 end_per_suite(_Config) ->
