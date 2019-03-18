@@ -277,6 +277,12 @@
 -type edwards_curve_ed() :: ed25519 | ed448 .
 
 %%% 
+-type cipher() :: block_cipher()
+                | stream_cipher()
+                | aead_cipher() .
+
+-type block_cipher() :: block_cipher_with_iv() | block_cipher_without_iv() .
+
 -type block_cipher_with_iv() :: cbc_cipher()
                               | cfb_cipher()
                               | aes_ige256
@@ -736,7 +742,7 @@ next_iv(Type, Data, _Ivec) ->
 %%% 
 
 -spec crypto_init(Cipher, Key, EncryptFlag) -> State | ng_crypto_error()
-                                                   when Cipher :: block_cipher_without_iv()
+                                                   when Cipher :: block_cipher_no_iv()
                                                                 | stream_cipher_no_iv(),
                                                         Key :: iodata(),
                                                         EncryptFlag :: boolean(),
@@ -748,7 +754,7 @@ crypto_init(Cipher, Key, EncryptFlag) ->
 
 -spec crypto_init(Cipher, Key, IV, EncryptFlag) -> State | ng_crypto_error()
                                                        when Cipher :: stream_cipher_iv()
-                                                                    | block_cipher_with_iv(),
+                                                                    | block_cipher_iv(),
                                                             Key :: iodata(),
                                                             IV :: iodata(),
                                                             EncryptFlag :: boolean(),
@@ -761,7 +767,7 @@ crypto_init(Cipher, Key, IV, EncryptFlag) ->
 %%%----------------------------------------------------------------
 -spec crypto_init_dyn_iv(Cipher, Key, EncryptFlag) -> State | ng_crypto_error()
                                                           when Cipher :: stream_cipher_iv()
-                                                                       | block_cipher_with_iv(),
+                                                                       | block_cipher_iv(),
                                                                Key :: iodata(),
                                                                EncryptFlag :: boolean(),
                                                                State :: crypto_state() .
@@ -812,8 +818,7 @@ crypto_update_dyn_iv(State, Data0, IV) ->
 
 -spec crypto_one_shot(Cipher, Key, IV, Data, EncryptFlag) -> Result | ng_crypto_error()
                                                                  when Cipher :: stream_cipher()
-                                                                              | block_cipher_with_iv()
-                                                                              | block_cipher_without_iv(),
+                                                                              | block_cipher(),
                                                                       Key :: iodata(),
                                                                       IV :: iodata() | undefined,
                                                                       Data :: iodata(),

@@ -192,7 +192,16 @@
   <datatypes>
     <datatype_title>Ciphers</datatype_title>
     <datatype>
+      <name name="cipher"/>
       <name name="stream_cipher"/>
+      <name name="block_cipher"/>
+      <desc>
+	<p>Ciphers known byt the CRYPTO application. Note that this list might be reduced if the
+	underlying libcrypto does not support all of them.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="stream_cipher_iv"/>
       <name name="stream_cipher_no_iv"/>
       <desc>
