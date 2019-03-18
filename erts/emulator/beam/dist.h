@@ -319,5 +319,6 @@ extern int erts_dsig_prepare(ErtsDSigSendContext *,
                              int,
                              int);
 
+void erts_dist_print_procs_suspended_on_de(fmtfn_t to, void *to_arg);
 int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
 #endif

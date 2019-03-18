@@ -121,12 +121,14 @@ Uint erts_process_memory(Process *p, int include_sigs_in_transit)
 
     size += sizeof(Process);
 
-    erts_link_tree_foreach(ERTS_P_LINKS(p),
-                           link_size, (void *) &size);
-    erts_monitor_tree_foreach(ERTS_P_MONITORS(p),
-                              monitor_size, (void *) &size);
-    erts_monitor_list_foreach(ERTS_P_LT_MONITORS(p),
-                              monitor_size, (void *) &size);
+    if ((erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING) == 0) {
+        erts_link_tree_foreach(ERTS_P_LINKS(p),
+                               link_size, (void *) &size);
+        erts_monitor_tree_foreach(ERTS_P_MONITORS(p),
+                                  monitor_size, (void *) &size);
+        erts_monitor_list_foreach(ERTS_P_LT_MONITORS(p),
+                                  monitor_size, (void *) &size);
+    }
     size += (p->heap_sz + p->mbuf_sz) * sizeof(Eterm);
     if (p->abandoned_heap)
         size += (p->hend - p->heap) * sizeof(Eterm);

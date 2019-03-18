@@ -5046,3 +5046,22 @@ erts_processes_monitoring_nodes(Process *c_p)
 
     return ctxt.res;
 }
+
+static void
+print_suspended_on_de(fmtfn_t to, void *to_arg, DistEntry *dep)
+{
+    for (; dep; dep = dep->next) {
+        ErtsProcList *curr = erts_proclist_peek_first(dep->suspended);
+        while (curr) {
+            if (!is_internal_pid(curr->u.pid))
+                print_process_info(to, to_arg, curr->u.p, 0);
+            curr = erts_proclist_peek_next(dep->suspended, curr);
+        }
+    }
+}
+
+void
+erts_dist_print_procs_suspended_on_de(fmtfn_t to, void *to_arg) {
+    print_suspended_on_de(to, to_arg, erts_hidden_dist_entries);
+    print_suspended_on_de(to, to_arg, erts_visible_dist_entries);
+}
