@@ -213,7 +213,7 @@
     </datatype>
 
     <datatype>
-      <name name="block_cipher_with_iv"/>
+      <name name="block_cipher_iv"/>
       <name name="cbc_cipher"/>
       <name name="cfb_cipher"/>
       <desc>
@@ -237,7 +237,7 @@
     </datatype>
 
     <datatype>
-      <name name="block_cipher_without_iv"/>
+      <name name="block_cipher_no_iv"/>
       <name name="ecb_cipher"/>
       <desc>
 	<p>Block ciphers without initialization vector for
@@ -582,7 +582,7 @@
       <name since="OTP R16B01">block_encrypt(aes_gcm | aes_ccm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag}</name>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
-	<v>Type = <seealso marker="#type-block_cipher_with_iv">block_cipher_with_iv()</seealso></v>
+	<v>Type = <seealso marker="#type-block_cipher_iv">block_cipher_iv()</seealso></v>
 	<v>AeadType = <seealso marker="#type-aead_cipher">aead_cipher()</seealso></v>
 	<v>Key = <seealso marker="#type-key">key()</seealso> | <seealso marker="#type-des3_key">des3_key()</seealso></v>
         <v>PlainText = iodata()</v>
@@ -608,7 +608,7 @@
       <name since="OTP R16B01">block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | error</name>
       <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
-	<v>Type = <seealso marker="#type-block_cipher_with_iv">block_cipher_with_iv()</seealso></v>
+	<v>Type = <seealso marker="#type-block_cipher_iv">block_cipher_iv()</seealso></v>
 	<v>AeadType = <seealso marker="#type-aead_cipher">aead_cipher()</seealso></v>
 	<v>Key = <seealso marker="#type-key">key()</seealso> | <seealso marker="#type-des3_key">des3_key()</seealso></v>
         <v>PlainText = iodata()</v>

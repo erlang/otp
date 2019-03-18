@@ -281,9 +281,9 @@
                 | stream_cipher()
                 | aead_cipher() .
 
--type block_cipher() :: block_cipher_with_iv() | block_cipher_without_iv() .
+-type block_cipher() :: block_cipher_iv() | block_cipher_no_iv() .
 
--type block_cipher_with_iv() :: cbc_cipher()
+-type block_cipher_iv() :: cbc_cipher()
                               | cfb_cipher()
                               | aes_ige256
                               | blowfish_ofb64
@@ -316,7 +316,7 @@
                    | des3_cfb .
 
 
--type block_cipher_without_iv() :: ecb_cipher() .
+-type block_cipher_no_iv() :: ecb_cipher() .
 -type ecb_cipher()  :: des_ecb | blowfish_ecb | aes_ecb .
 
 -type key() :: iodata().
@@ -335,6 +335,10 @@
 -type compatibility_only_hash() :: md5 | md4 .
 
 -type crypto_integer() :: binary() | integer().
+
+%%%
+%% Exceptions error:badarg and error:notsup
+-type run_time_error() :: no_return().
 
 -compile(no_native).
 -on_load(on_load/0).
@@ -374,10 +378,7 @@ stop() ->
                                       | {curves,  Curves}
                                       | {rsa_opts, RSAopts},
                              Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
-                             Ciphers :: [stream_cipher()
-                                         | block_cipher_with_iv() | block_cipher_without_iv()
-                                         | aead_cipher()
-                                        ],
+                             Ciphers :: [cipher()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
@@ -413,7 +414,7 @@ enable_fips_mode(_) -> ?nif_stub.
 
 -define(HASH_HASH_ALGORITHM, sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() ).
 
--spec hash_info(Type) -> map() when Type :: ?HASH_HASH_ALGORITHM.
+-spec hash_info(Type) -> map() | run_time_error() when Type :: ?HASH_HASH_ALGORITHM.
 
 hash_info(Type) ->
     notsup_to_error(hash_info_nif(Type)).
@@ -553,9 +554,9 @@ poly1305(Key, Data) ->
                 error(E)
         end).
 
--spec cipher_info(Type) -> map() when Type :: block_cipher_with_iv()
-                                           | aead_cipher()
-                                           | block_cipher_without_iv().
+
+-spec cipher_info(Type) -> map() | run_time_error() when Type :: cipher() .
+
 %% These ciphers are not available via the EVP interface on older cryptolibs.
 cipher_info(aes_ctr) ->
     #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
@@ -573,7 +574,7 @@ cipher_info(Type) ->
 
 %%%---- Block ciphers
 %%%----------------------------------------------------------------
--spec block_encrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) -> binary();
+-spec block_encrypt(Type::block_cipher_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) -> binary();
                    (Type::aead_cipher(),  Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata()}) ->
                            {binary(), binary()};
                    (aes_gcm | aes_ccm, Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata(), TagLength::1..16}) ->
@@ -602,14 +603,14 @@ do_block_encrypt(Type, Key, Ivec, PlainText) ->
     ?COMPAT(crypto_one_shot(Type, Key, Ivec, PlainText, true)).
 
 
--spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) -> binary().
+-spec block_encrypt(Type::block_cipher_no_iv(), Key::key(), PlainText::iodata()) -> binary().
 
 block_encrypt(Type, Key, PlainText) ->
     ?COMPAT(crypto_one_shot(Type, Key, <<>>, PlainText, true)).
 
 %%%----------------------------------------------------------------
 %%%----------------------------------------------------------------
--spec block_decrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) -> binary();
+-spec block_decrypt(Type::block_cipher_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) -> binary();
 		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
 		    {AAD::binary(), Data::iodata(), Tag::binary()}) -> binary() | error.
 
@@ -628,7 +629,7 @@ do_block_decrypt(Type, Key, Ivec, Data) ->
     ?COMPAT(crypto_one_shot(Type, Key, Ivec, Data, false)).
 
 
--spec block_decrypt(Type::block_cipher_without_iv(), Key::key(), Data::iodata()) -> binary().
+-spec block_decrypt(Type::block_cipher_no_iv(), Key::key(), Data::iodata()) -> binary().
 
 block_decrypt(Type, Key, Data) ->
     ?COMPAT(crypto_one_shot(Type, Key, <<>>, Data, false)).
