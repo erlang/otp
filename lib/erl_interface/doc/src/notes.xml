@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed two bugs in the <c>erl_call</c> program. A missing
+	    initialization (introduced in <c>erl_interface-3.11</c>)
+	    which either caused a crash or failure to connect to or
+	    start a node, and an incorrectly calculated timeout which
+	    could cause failure to start an erlang node. These bugs
+	    only caused failures on some platforms.</p>
+          <p>
+	    Own Id: OTP-15676 Aux Id: OTP-15442, ERL-881 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.11</title>
 
     <section><title>Improvements and New Features</title>
