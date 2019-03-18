@@ -34,7 +34,8 @@
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
-         receive_stacked/1,aliased_types/1,type_conflict/1]).
+         receive_stacked/1,aliased_types/1,type_conflict/1,
+         infer_on_eq/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -63,7 +64,8 @@ groups() ->
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
        bad_tuples,bad_try_catch_nesting,
-       receive_stacked,aliased_types,type_conflict]}].
+       receive_stacked,aliased_types,type_conflict,
+       infer_on_eq]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -650,6 +652,32 @@ type_conflict_1(C) ->
                C:R -> R
            end,
     {C#r.e1, TRes}.
+
+%% ERL-886; validation failed to infer types on both sides of '=:='
+
+infer_on_eq(Config) when is_list(Config) ->
+    {ok, gurka} = infer_on_eq_1(id({gurka})),
+    {ok, gaffel} = infer_on_eq_2(id({gaffel})),
+    {ok, elefant} = infer_on_eq_3(id({elefant})),
+    {ok, myra} = infer_on_eq_4(id({myra})),
+    ok.
+
+infer_on_eq_1(T) ->
+    1 = erlang:tuple_size(T),
+    {ok, erlang:element(1, T)}.
+
+infer_on_eq_2(T) ->
+    Size = erlang:tuple_size(T),
+    Size = 1,
+    {ok, erlang:element(1, T)}.
+
+infer_on_eq_3(T) ->
+    true = 1 =:= erlang:tuple_size(T),
+    {ok, erlang:element(1, T)}.
+
+infer_on_eq_4(T) ->
+    true = erlang:tuple_size(T) =:= 1,
+    {ok, erlang:element(1, T)}.
 
 %%%-------------------------------------------------------------------------
 
