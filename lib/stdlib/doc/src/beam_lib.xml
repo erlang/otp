@@ -470,6 +470,18 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
+      <name name="strip" arity="2" since=""/>
+      <fsummary>Remove chunks not needed by the loader from a BEAM file.
+      </fsummary>
+      <desc>
+        <p>Removes all chunks from a BEAM
+          file except those needed by the loader or passed in. In particular,
+          the debug information (chunk <c>debug_info</c> and <c>abstract_code</c>)
+          is removed.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="strip_files" arity="1" since=""/>
       <fsummary>Removes chunks not needed by the loader from BEAM files.
       </fsummary>
@@ -483,12 +495,39 @@ CryptoKeyFun(clear) -> term()</code>
     </func>
 
     <func>
+      <name name="strip_files" arity="2" since=""/>
+      <fsummary>Removes chunks not needed by the loader from BEAM files.
+      </fsummary>
+      <desc>
+        <p>Removes all chunks except
+          those needed by the loader or passed in from BEAM files. In particular,
+          the debug information (chunk <c>debug_info</c> and <c>abstract_code</c>)
+          is removed. The returned list contains one element for each
+          specified filename, in the same order as in <c>Files</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="strip_release" arity="1" since=""/>
       <fsummary>Remove chunks not needed by the loader from all BEAM files of
         a release.</fsummary>
       <desc>
         <p>Removes all chunks
           except those needed by the loader from the BEAM files of a
+          release. <c><anno>Dir</anno></c> is to be the installation root
+          directory. For example, the current OTP release can be
+          stripped with the call
+          <c>beam_lib:strip_release(code:root_dir())</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="strip_release" arity="2" since=""/>
+      <fsummary>Remove chunks not needed by the loader from all BEAM files of
+        a release.</fsummary>
+      <desc>
+        <p>Removes all chunks
+          except those needed by the loader or passed in from the BEAM files of a
           release. <c><anno>Dir</anno></c> is to be the installation root
           directory. For example, the current OTP release can be
           stripped with the call

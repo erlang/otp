@@ -32,8 +32,12 @@
 	 all_chunks/1,
 	 diff_dirs/2,
 	 strip/1,
+	 strip/2,
 	 strip_files/1,
+	 strip_files/2,
 	 strip_release/1,
+	 strip_release/2,
+	 significant_chunks/0,
 	 build_module/1,
 	 version/1,
 	 md5/1,
@@ -188,7 +192,16 @@ diff_dirs(Dir1, Dir2) ->
       Beam2 :: beam().
 
 strip(FileName) ->
-    try strip_file(FileName)
+    strip(FileName, []).
+
+-spec strip(Beam1, AdditionalChunks) ->
+        {'ok', {module(), Beam2}} | {'error', 'beam_lib', info_rsn()} when
+      Beam1 :: beam(),
+      AdditionalChunks :: [chunkid()],
+      Beam2 :: beam().
+
+strip(FileName, AdditionalChunks) ->
+    try strip_file(FileName, AdditionalChunks)
     catch Error -> Error end.
     
 -spec strip_files(Files) ->
@@ -196,8 +209,17 @@ strip(FileName) ->
       Files :: [beam()],
       Beam :: beam().
 
-strip_files(Files) when is_list(Files) ->
-    try strip_fils(Files)
+strip_files(Files) ->
+    strip_files(Files, []).
+
+-spec strip_files(Files, AdditionalChunks) ->
+        {'ok', [{module(), Beam}]} | {'error', 'beam_lib', info_rsn()} when
+      Files :: [beam()],
+      AdditionalChunks :: [chunkid()],
+      Beam :: beam().
+
+strip_files(Files, AdditionalChunks) when is_list(Files) ->
+    try strip_fils(Files, AdditionalChunks)
     catch Error -> Error end.
 
 -spec strip_release(Dir) ->
@@ -207,7 +229,17 @@ strip_files(Files) when is_list(Files) ->
       Reason :: {'not_a_directory', term()} | info_rsn().
 
 strip_release(Root) ->
-    catch strip_rel(Root).
+    strip_release(Root, []).
+
+-spec strip_release(Dir, AdditionalChunks) ->
+        {'ok', [{module(), file:filename()}]}
+      | {'error', 'beam_lib', Reason} when
+      Dir :: atom() | file:filename(),
+      AdditionalChunks :: [chunkid()],
+      Reason :: {'not_a_directory', term()} | info_rsn().
+
+strip_release(Root, AdditionalChunks) ->
+    catch strip_rel(Root, AdditionalChunks).
 
 -spec version(Beam) ->
                      {'ok', {module(), [Version :: term()]}} |
@@ -401,17 +433,17 @@ cmp_lists([{Id, C1} | R1], [{Id, C2} | R2]) ->
 cmp_lists(_, _) ->
     error(different_chunks).
     
-strip_rel(Root) ->
+strip_rel(Root, AdditionalChunks) ->
     ok = assert_directory(Root),
-    strip_fils(filelib:wildcard(filename:join(Root, "lib/*/ebin/*.beam"))).
+    strip_fils(filelib:wildcard(filename:join(Root, "lib/*/ebin/*.beam")), AdditionalChunks).
 
 %% -> {ok, [{Mod, BinaryOrFileName}]} | throw(Error)
-strip_fils(Files) ->
-    {ok, [begin {ok, Reply} = strip_file(F), Reply end || F <- Files]}.
+strip_fils(Files, AdditionalChunks) ->
+    {ok, [begin {ok, Reply} = strip_file(F, AdditionalChunks), Reply end || F <- Files]}.
 
 %% -> {ok, {Mod, FileName}} | {ok, {Mod, binary()}} | throw(Error)
-strip_file(File) ->
-    {ok, {Mod, Chunks}} = read_significant_chunks(File, significant_chunks()),
+strip_file(File, AdditionalChunks) ->
+    {ok, {Mod, Chunks}} = read_significant_chunks(File, AdditionalChunks ++ significant_chunks()),
     {ok, Stripped0} = build_module(Chunks),
     Stripped = compress(Stripped0),
     case File of
