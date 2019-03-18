@@ -423,7 +423,7 @@
        <p>Available options:</p>
 
        <taglist>
-	<tag>{verify_fun, fun()}</tag>
+	<tag>{verify_fun, {fun(), InitialUserState::term()}</tag>
 	<item>
 	  <p>The fun must be defined as:</p>
 
