@@ -369,13 +369,6 @@ swap_temp x x x
 swap xy x
 swap y y
 
-# move_dup
-
-move Src=x D1=x | move Src=x D2=x => move_dup Src D1 D2
-move Src=x SD=x | move SD=x  D=x  => move_dup Src SD D
-
-move_dup x x x
-
 # move_shift
 
 move SD=x    D=x | move Src=cxy SD=x  | distinct(D, Src) => move_shift Src SD D

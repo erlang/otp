@@ -500,10 +500,6 @@ move3(S1, D1, S2, D2, S3, D3) {
     $D3 = $S3;
 }
 
-move_dup(Src, D1, D2) {
-    $D1 = $D2 = $Src;
-}
-
 move2_par(S1, D1, S2, D2) {
     Eterm V1, V2;
     V1 = $S1;
