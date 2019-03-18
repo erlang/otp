@@ -4541,7 +4541,7 @@ api_to_recv_tcp4(_Config) when is_list(_Config) ->
                    Recv = fun(Sock, To) -> socket:recv(Sock, 0, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
-                                 timeout => 5000},
+                                 timeout => 2000},
                    ok = api_to_receive_tcp(InitState)
            end).
 
@@ -4566,7 +4566,7 @@ api_to_recv_tcp6(_Config) when is_list(_Config) ->
                                   end,
                            InitState = #{domain  => inet6,
                                          recv    => Recv,
-                                         timeout => 5000},
+                                         timeout => 2000},
                            ok = api_to_receive_tcp(InitState);
                        false ->
                            skip("ipv6 not supported")
@@ -4900,7 +4900,7 @@ api_to_recvfrom_udp4(_Config) when is_list(_Config) ->
                    Recv = fun(Sock, To) -> socket:recvfrom(Sock, 0, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
-                                 timeout => 5000},
+                                 timeout => 2000},
                    ok = api_to_receive_udp(InitState)
            end).
 
@@ -4921,7 +4921,7 @@ api_to_recvfrom_udp6(_Config) when is_list(_Config) ->
                    Recv = fun(Sock, To) -> socket:recvfrom(Sock, 0, To) end,
                    InitState = #{domain  => inet6,
                                  recv    => Recv,
-                                 timeout => 5000},
+                                 timeout => 2000},
                    ok = api_to_receive_udp(InitState)
            end).
 
@@ -4984,6 +4984,7 @@ api_to_receive_udp(InitState) ->
          %% *** Termination ***
          #{desc => "close socket",
            cmd  => fun(#{sock := Sock} = _State) ->
+                           socket:setopt(Sock, otp, debug, true),
                            sock_close(Sock),
                            ok
                    end},
@@ -5015,7 +5016,7 @@ api_to_recvmsg_udp4(_Config) when is_list(_Config) ->
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
-                                 timeout => 5000},
+                                 timeout => 2000},
                    ok = api_to_receive_udp(InitState)
            end).
 
@@ -5036,7 +5037,7 @@ api_to_recvmsg_udp6(_Config) when is_list(_Config) ->
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet6,
                                  recv    => Recv,
-                                 timeout => 5000},
+                                 timeout => 2000},
                    ok = api_to_receive_udp(InitState)
            end).
 
@@ -5056,7 +5057,7 @@ api_to_recvmsg_tcp4(_Config) when is_list(_Config) ->
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
-                                 timeout => 5000},
+                                 timeout => 2000},
                    ok = api_to_receive_tcp(InitState)
            end).
 
@@ -5077,7 +5078,7 @@ api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet6,
                                  recv    => Recv,
-                                 timeout => 5000},
+                                 timeout => 2000},
                    ok = api_to_receive_tcp(InitState)
            end).
 

@@ -104,8 +104,9 @@ start(Name, Seq, InitState)
             erlang:error({already_used, parent});
         error ->
             InitState2 = InitState#{parent => self()},
-            {Pid, MRef} = erlang:spawn_monitor(
-                            fun() -> init(Name, Seq, InitState2) end),
+            Pid = erlang:spawn_link(
+                    fun() -> init(Name, Seq, InitState2) end),
+            MRef = erlang:monitor(process, Pid),
             #ev{name = Name, pid = Pid, mref = MRef}
     end.
 
@@ -149,53 +150,91 @@ loop(ID, [#{desc := Desc,
       Evs :: [ev()].
 
 await_finish(Evs) ->
-    await_finish(Evs, []).
+    await_finish(Evs, [], []).
 
-await_finish([], []) ->
+await_finish([], _, []) ->
     ok;
-await_finish([], Fails) ->
+await_finish([], _OK, Fails) ->
     ?SEV_EPRINT("Fails: "
 		"~n   ~p", [Fails]),
     Fails;
-await_finish(Evs, Fails) ->
+await_finish(Evs, OK, Fails) ->
     receive
         %% Successfull termination of evaluator
         {'DOWN', _MRef, process, Pid, normal} ->
-            case lists:keysearch(Pid, #ev.pid, Evs) of
-                {value, #ev{name = Name}} ->
-                    iprint("evaluator '~s' (~p) success", [Name, Pid]),
-                    NewEvs = lists:keydelete(Pid, #ev.pid, Evs),
-                    await_finish(NewEvs, Fails);
-                false ->
-                    iprint("unknown process ~p died (normal)", [Pid]),
-                    await_finish(Evs, Fails)
-                end;
+            {Evs2, OK2, Fails2} = await_finish_normal(Pid, Evs, OK, Fails),
+            await_finish(Evs2, OK2, Fails2);
+        {'EXIT', Pid, normal} ->
+            {Evs2, OK2, Fails2} = await_finish_normal(Pid, Evs, OK, Fails),
+            await_finish(Evs2, OK2, Fails2);
 
         %% The evaluator can skip the teat case:
         {'DOWN', _MRef, process, Pid, {skip, Reason}} ->
-            case lists:keysearch(Pid, #ev.pid, Evs) of
-                {value, #ev{name = Name}} ->
-                    iprint("evaluator '~s' (~p) issued SKIP: "
-                           "~n   ~p", [Name, Pid, Reason]);
-                false ->
-                    iprint("unknown process ~p issued SKIP: "
-                           "~n   ~p", [Pid, Reason])
-            end,
-            ?LIB:skip(Reason);
+            await_finish_skip(Pid, Reason, Evs, OK);
+        {'EXIT', Pid, {skip, Reason}} ->
+            await_finish_skip(Pid, Reason, Evs, OK);
 
         %% Evaluator failed
         {'DOWN', _MRef, process, Pid, Reason} ->
-            case lists:keysearch(Pid, #ev.pid, Evs) of
-                {value, #ev{name = Name}} ->
-                    iprint("evaluator '~s' (~p) failed", [Name, Pid]),
-                    NewEvs = lists:keydelete(Pid, #ev.pid, Evs),
-                    await_finish(NewEvs, [{Pid, Reason}|Fails]);
+            {Evs2, OK2, Fails2} = await_finish_fail(Pid, Reason, Evs, OK, Fails),
+            await_finish(Evs2, OK2, Fails2);
+        {'EXIT', Pid, Reason} ->
+            {Evs2, OK2, Fails2} = await_finish_fail(Pid, Reason, Evs, OK, Fails),
+            await_finish(Evs2, OK2, Fails2)
+    end.
+
+
+await_finish_normal(Pid, Evs, OK, Fails) ->
+    case lists:keysearch(Pid, #ev.pid, Evs) of
+        {value, #ev{name = Name}} ->
+            iprint("evaluator '~s' (~p) success", [Name, Pid]),
+            NewEvs = lists:keydelete(Pid, #ev.pid, Evs),
+            {NewEvs, [Pid|OK], Fails};
+        false ->
+            case lists:member(Pid, OK) of
+                true ->
+                    ok;
+                false ->
+                    iprint("unknown process ~p died (normal)", [Pid]),
+                    ok
+            end,
+            {Evs, OK, Fails}
+    end.
+
+await_finish_skip(Pid, Reason, Evs, OK) ->
+    case lists:keysearch(Pid, #ev.pid, Evs) of
+        {value, #ev{name = Name}} ->
+            iprint("evaluator '~s' (~p) issued SKIP: "
+                   "~n   ~p", [Name, Pid, Reason]);
+        false ->
+            case lists:member(Pid, OK) of
+                true ->
+                    ok;
+                false ->
+                    iprint("unknown process ~p issued SKIP: "
+                           "~n   ~p", [Pid, Reason])
+            end
+    end,
+    ?LIB:skip(Reason).
+
+
+await_finish_fail(Pid, Reason, Evs, OK, Fails) ->
+    case lists:keysearch(Pid, #ev.pid, Evs) of
+        {value, #ev{name = Name}} ->
+            iprint("evaluator '~s' (~p) failed", [Name, Pid]),
+            NewEvs = lists:keydelete(Pid, #ev.pid, Evs),
+            {NewEvs, OK, [{Pid, Reason}|Fails]};
+        false ->
+            case lists:member(Pid, OK) of
+                true ->
+                    ok;
                 false ->
                     iprint("unknown process ~p died: "
-                           "~n   ~p", [Pid, Reason]),
-                    await_finish(Evs, Fails)
-                end
+                           "~n   ~p", [Pid, Reason])
+            end,
+            {Evs, OK, Fails}
     end.
+
 
 
 %% ============================================================================
