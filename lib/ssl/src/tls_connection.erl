@@ -308,9 +308,7 @@ handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
 	    handle_alerts(Alerts,  {next_state, StateName, State});
 	[] ->
 	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, empty_alert), 
-					    Version, StateName, State);
-	#alert{} = Alert ->
-	    ssl_connection:handle_own_alert(Alert, Version, StateName, State)
+					    Version, StateName, State)
     catch
 	_:_ ->
 	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, alert_decode_error),
@@ -1135,6 +1133,7 @@ encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
 encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
     tls_record:encode_change_cipher_spec(Version, ConnectionStates).
 
+-spec decode_alerts(binary()) -> list().
 decode_alerts(Bin) ->
     ssl_alert:decode(Bin).
 

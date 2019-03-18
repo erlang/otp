@@ -44,11 +44,11 @@ start_logger() ->
                formatter => {ssl_logger, #{}}},
     Filter = {fun logger_filters:domain/2,{log,sub,[otp,ssl]}},
     logger:add_handler(ssl_handler, logger_std_h, Config),
-    logger:add_handler_filter(ssl_handler, filter_non_ssl, Filter).
+    logger:add_handler_filter(ssl_handler, filter_non_ssl, Filter),
+    logger:set_application_level(ssl, debug).
 
 %%
 %% Description: Stop SSL logger
 stop_logger() ->
+    logger:unset_application_level(ssl),
     logger:remove_handler(ssl_handler).
-
-

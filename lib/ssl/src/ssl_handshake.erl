@@ -79,7 +79,10 @@
 	 select_hashsign_algs/3, empty_extensions/2, add_server_share/3
 	]).
 
--export([get_cert_params/1]).
+-export([get_cert_params/1,
+         server_name/3,
+         validation_fun_and_state/9,
+         handle_path_validation_error/7]).
 
 %%====================================================================
 %% Create handshake messages 

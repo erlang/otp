@@ -385,7 +385,8 @@ handle_alert(#alert{level = ?FATAL} = Alert, StateName,
     log_alert(SslOpts#ssl_options.log_level, Role, Connection:protocol_name(), 
               StateName, Alert#alert{role = opposite_role(Role)}),
     Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role, Connection),
+    alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert,
+               opposite_role(Role), Connection),
     {stop, {shutdown, normal}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 

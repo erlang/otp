@@ -1114,15 +1114,23 @@ start_basic_client(openssl, Version, Port, ClientOpts) ->
     Exe = "openssl",
     Args0 = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
 	    ssl_test_lib:version_flag(Version),
-	    "-cert", Cert, "-CAfile", CA,
-	    "-key", Key, "-host","localhost", "-msg", "-debug"],
-    Args =
+	    "-CAfile", CA, "-host", "localhost", "-msg", "-debug"],
+    Args1 =
        case Groups0 of
            undefined ->
                Args0;
            G ->
                Args0 ++ ["-groups", G]
        end,
+    Args =
+       case {Cert, Key} of
+           {C, K} when C =:= undefined orelse
+                       K =:= undefined ->
+               Args1;
+           {C, K} ->
+               Args1 ++ ["-cert", C, "-key", K]
+       end,
+
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort.

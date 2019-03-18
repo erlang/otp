@@ -124,6 +124,20 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
 	    {decode_inner_plaintext(PlainFragment), ConnectionStates}
     end;
 
+
+%% RFC8446 - TLS 1.3 (OpenSSL compatibility)
+%% Handle unencrypted Alerts from openssl s_client when server's
+%% connection states are already stepped into traffic encryption.
+%% (E.g. openssl s_client receives a CertificateRequest with
+%% a signature_algorithms_cert extension that does not contain
+%% the signature algorithm of the client's certificate.)
+decode_cipher_text(#ssl_tls{type = ?ALERT,
+                            version = ?LEGACY_VERSION,
+                            fragment = <<2,47>>},
+		   ConnectionStates0) ->
+    {#ssl_tls{type = ?ALERT,
+              version = {3,4}, %% Internally use real version
+              fragment = <<2,47>>}, ConnectionStates0};
 %% RFC8446 - TLS 1.3
 %% D.4.  Middlebox Compatibility Mode
 %%    -  If not offering early data, the client sends a dummy
@@ -139,7 +153,6 @@ decode_cipher_text(#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
     {#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
               version = {3,4}, %% Internally use real version
               fragment = <<1>>}, ConnectionStates0};
-
 decode_cipher_text(#ssl_tls{type = Type,
                             version = ?LEGACY_VERSION,
                             fragment = CipherFragment},

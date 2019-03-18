@@ -47,7 +47,9 @@
 	  srp_username,
 	  is_resumable,
 	  time_stamp,
-	  ecc
+	  ecc,                   %% TLS 1.3 Group
+	  sign_alg,              %% TLS 1.3 Signature Algorithm
+	  dh_public_value        %% TLS 1.3 DH Public Value from peer
 	  }).
 
 -define(NUM_OF_SESSION_ID_BYTES, 32).  % TSL 1.1 & SSL 3

@@ -55,8 +55,7 @@
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
--export([handle_options/2, tls_version/1, new_ssl_options/3, suite_to_str/1,
-         set_log_level/1]).
+-export([handle_options/2, tls_version/1, new_ssl_options/3, suite_to_str/1]).
 
 -deprecated({ssl_accept, 1, eventually}).
 -deprecated({ssl_accept, 2, eventually}).
@@ -1166,32 +1165,6 @@ tls_version({254, _} = Version) ->
 suite_to_str(Cipher) ->
     ssl_cipher_format:suite_to_str(Cipher).
 
-
-%%--------------------------------------------------------------------
--spec set_log_level(atom()) -> ok | {error, term()}.
-%%
-%% Description: Set log level for the SSL application
-%%--------------------------------------------------------------------
-set_log_level(Level) ->
-    case application:get_all_key(ssl) of
-        {ok, PropList} ->
-            Modules = proplists:get_value(modules, PropList),
-            set_module_level(Modules, Level);
-        undefined ->
-            {error, ssl_not_started}
-    end.
-
-set_module_level(Modules, Level) ->
-    Fun = fun (Module) ->
-                  ok = logger:set_module_level(Module, Level)
-          end,
-    try lists:map(Fun, Modules) of
-        _ ->
-            ok
-    catch
-        error:{badmatch, Error} ->
-            Error
-    end.
 
 %%%--------------------------------------------------------------
 %%% Internal functions
