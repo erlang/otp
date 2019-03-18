@@ -1148,7 +1148,24 @@ call_fun Arity => i_call_fun Arity
 i_call_fun t
 i_call_fun_last t Q
 
+
+#
+# A fun with an empty environment can be converted to a literal.
+# As a further optimization, the we try to move the fun to its
+# final destination directly.
+
 make_fun2 OldIndex=u => gen_make_fun2(OldIndex)
+
+move_fun/2
+move_fun Fun X0 | move X0 Dst | move Src X0 => move Fun Dst | move Src X0
+move_fun Fun X0 | move A B | move X0 Dst | move Src X0 | \
+  independent_moves(Fun, X0, A, B) | distinct(Dst, A) => \
+    move Fun Dst | move A B | move Src X0
+move_fun Fun X0 | move X0 Dst | make_fun2 OldIndex | \
+  is_killed_by_make_fun(X0, OldIndex)=> \
+    move Fun Dst | make_fun2 OldIndex
+
+move_fun Fun Dst => move Fun Dst
 
 %cold
 i_make_fun W t

@@ -4352,7 +4352,11 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
         funp->creator = erts_init_process_id;
         funp->arity = arity;
 
-        GENOP_NAME_ARITY(op, move, 2);
+        /*
+         * Use a move_fun/2 instruction to load the fun to enable
+         * further optimizations.
+         */
+        GENOP_NAME_ARITY(op, move_fun, 2);
         op->a[0].type = TAG_q;
         op->a[0].val = lit;
         op->a[1].type = TAG_x;
