@@ -2408,7 +2408,8 @@ static void socket_down_reader(ErlNifEnv*        env,
                                const ErlNifPid*  pid);
 
 static char* esock_send_close_msg(ErlNifEnv*        env,
-                                  SocketDescriptor* descP);
+                                  SocketDescriptor* descP,
+                                  ERL_NIF_TERM      sockRef);
 static char* esock_send_abort_msg(ErlNifEnv*   env,
                                   ERL_NIF_TERM sockRef,
                                   ERL_NIF_TERM recvRef,
@@ -16894,15 +16895,15 @@ char* send_msg_error(ErlNifEnv*   env,
  */
 static
 char* esock_send_close_msg(ErlNifEnv*        env,
-                           SocketDescriptor* descP)
+                           SocketDescriptor* descP,
+                           ERL_NIF_TERM      sockRef)
 {
-    ERL_NIF_TERM sockRef = enif_make_resource(descP->closeEnv, descP);
-    char*        res     = esock_send_socket_msg(env,
-                                                 sockRef,
-                                                 esock_atom_close,
-                                                 descP->closeRef,
-                                                 &descP->closerPid,
-                                                 descP->closeEnv);
+    char* res = esock_send_socket_msg(env,
+                                      enif_make_copy(descP->closeEnv, sockRef),
+                                      esock_atom_close,
+                                      descP->closeRef,
+                                      &descP->closerPid,
+                                      descP->closeEnv);
 
     descP->closeEnv = NULL;
 
@@ -17768,7 +17769,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                 
                 /* +++ send close message to the waiting process +++ */
 
-                esock_send_close_msg(env, descP);
+                esock_send_close_msg(env, descP, sockRef);
                 
                 DEMONP("socket_stop -> closer", env, descP, &descP->closerMon);
 
