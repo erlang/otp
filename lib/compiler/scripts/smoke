@@ -54,6 +54,7 @@ setup_mix() ->
     ElixirBin = filename:join([SmokeDir,"elixir","bin"]),
     PATH = ElixirBin ++ ":" ++ os:getenv("PATH"),
     os:putenv("PATH", PATH),
+    mix("local.hex --force"),
     mix("local.rebar --force"),
     ok.
 
