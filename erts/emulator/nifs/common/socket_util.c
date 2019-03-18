@@ -51,8 +51,12 @@
 
 extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
 
+#if defined(CLOCK_REALTIME)
 static int realtime(struct timespec* tsP);
-static int timespec2str(char *buf, unsigned int len, struct timespec *ts);
+static int timespec2str(char *buf,
+                        unsigned int len,
+                        struct timespec *ts);
+#endif
 
 static char* make_sockaddr_in4(ErlNifEnv*    env,
                                ERL_NIF_TERM  port,
@@ -1506,39 +1510,46 @@ void esock_warning_msg( const char* format, ... )
 {
   va_list         args;
   char            f[512 + sizeof(format)]; // This has to suffice...
+#if defined(CLOCK_REALTIME)
   char            stamp[64]; // Just in case...
   struct timespec ts;
+#endif
   int             res;
 
   /*
-   * We should really include self in the printout, so we can se which process
-   * are executing the code. But then I must change the API....
-   * ....something for later.
+   * We should really include self in the printout,
+   * so we can se which process are executing the code.
+   * But then I must change the API....something for later.
    */
 
   // 2018-06-29 12:13:21.232089
   // 29-Jun-2018::13:47:25.097097
-  
-  if (!realtime(&ts)) {
-    if (timespec2str(stamp, sizeof(stamp), &ts) != 0) {
-        res = enif_snprintf(f, sizeof(f), "=WARNING MSG==== %s", format);
-    } else {
-        res = enif_snprintf(f, sizeof(f),
-                            "=WARNING MSG==== %s ===\r\n%s" , stamp, format);
-    }
 
-    if (res > 0) {
+#if defined(CLOCK_REALTIME)
+  if (!realtime(&ts) &&
+      (timespec2str(stamp, sizeof(stamp), &ts) == 0)) {
+      res = enif_snprintf(f, sizeof(f),
+                          "=WARNING MSG==== %s ===\r\n%s",
+                          stamp, format);
+  } else {
+      res = enif_snprintf(f, sizeof(f), "=WARNING MSG==== %s", format);
+  }
+#else
+  res = enif_snprintf(f, sizeof(f), "=WARNING MSG==== %s", format);
+#endif
+
+  if (res > 0) {
       va_start (args, format);
       enif_vfprintf (stdout, f, args);
       va_end (args);
       fflush(stdout);
-    }
   }
 
   return;
 }
 
 
+#if defined(CLOCK_REALTIME)
 static
 int realtime(struct timespec* tsP)
 {
@@ -1574,6 +1585,7 @@ int timespec2str(char *buf, unsigned int len, struct timespec *ts)
 
   return 0;
 }
+#endif
 
 
 /* =================================================================== *
