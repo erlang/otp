@@ -2309,12 +2309,14 @@ static void dec_socket(int domain, int type, int protocol);
                                        ERL_NIF_TERM      sockRef);
 ACTIVATE_NEXT_FUNCS_DEFS
 #undef ACTIVATE_NEXT_FUNC_DEF
-    
+
+/*
 static BOOLEAN_T activate_next(ErlNifEnv*          env,
                                SocketDescriptor*   descP,
                                SocketRequestor*    reqP,
                                SocketRequestQueue* q,
                                ERL_NIF_TERM        sockRef);
+*/
 
 /* *** acceptor_search4pid | writer_search4pid | reader_search4pid ***
  * *** acceptor_push       | writer_push       | reader_push       ***
@@ -17047,93 +17049,81 @@ int esock_select_cancel(ErlNifEnv*             env,
  * *** activate_next_writer   ***
  * *** activate_next_reader   ***
  *
- * This functions pops the writer queue and then selects until it 
- * manages to successfully activate a writer or the queue is empty.
+ * This functions pops the requestors queue and then selects until it 
+ * manages to successfully activate a requestor or the queue is empty.
+ * Return value indicates if a new requestor was activated or not.
  */
 
-#define ACTIVATE_NEXT_FUNCS                                             \
-    ACTIVATE_NEXT_FUNC_DECL(acceptor, currentAcceptor, acceptorsQ)      \
-    ACTIVATE_NEXT_FUNC_DECL(writer,   currentWriter,   writersQ)        \
-    ACTIVATE_NEXT_FUNC_DECL(reader,   currentReader,   readersQ)
+#define ACTIVATE_NEXT_FUNCS                                               \
+    ACTIVATE_NEXT_FUNC_DECL(acceptor, read,  currentAcceptor, acceptorsQ) \
+    ACTIVATE_NEXT_FUNC_DECL(writer,   write, currentWriter,   writersQ)   \
+    ACTIVATE_NEXT_FUNC_DECL(reader,   read,  currentReader,   readersQ)
 
-#define ACTIVATE_NEXT_FUNC_DECL(F, R, Q)                     \
+#define ACTIVATE_NEXT_FUNC_DECL(F, S, R, Q)                  \
     static                                                   \
     BOOLEAN_T activate_next_##F(ErlNifEnv*        env,       \
                                 SocketDescriptor* descP,     \
                                 ERL_NIF_TERM      sockRef)   \
     {                                                        \
-        return activate_next(env, descP,                     \
-                             &descP->R, &descP->Q,           \
-                             sockRef);                       \
+        BOOLEAN_T           popped, activated;               \
+        int                 sres;                            \
+        SocketRequestor*    reqP = &descP->R;                \
+        SocketRequestQueue* q    = &descP->Q;                \
+                                                             \
+        popped = FALSE;                                      \
+        do {                                                 \
+                                                             \
+            if (requestor_pop(q, reqP)) {                    \
+                                                             \
+                /* There was another one */                  \
+                                                             \
+                SSDBG( descP,                                \
+                       ("SOCKET",                                       \
+                        "activate_next_" #F " -> new (active) requestor: " \
+                        "\r\n   pid: %T"                                \
+                        "\r\n   ref: %T"                                \
+                        "\r\n", reqP->pid, reqP->ref) );                \
+                                                                        \
+                if ((sres = esock_select_##S(env, descP->sock, descP,   \
+                                             &reqP->pid, reqP->ref)) < 0) { \
+                    /* We need to inform this process, reqP->pid,  */   \
+                    /* that we failed to select, so we don't leave */   \
+                    /* it hanging.                                 */   \
+                    /* => send abort                               */   \
+                                                                        \
+                    esock_send_abort_msg(env, sockRef, reqP->ref,       \
+                                         sres, &reqP->pid);             \
+                                                                        \
+                } else {                                                \
+                                                                        \
+                    /* Success: New requestor selected */               \
+                    popped    = TRUE;                                   \
+                    activated = FALSE;                                  \
+                                                                        \
+                }                                                       \
+                                                                        \
+            } else {                                                    \
+                                                                        \
+                SSDBG( descP,                                           \
+                       ("SOCKET",                                       \
+                        "activate_next_" #F " -> no more requestors\r\n") ); \
+                                                                        \
+                popped    = TRUE;                                       \
+                activated = FALSE;                                      \
+            }                                                           \
+                                                                        \
+        } while (!popped);                                              \
+                                                                        \
+        SSDBG( descP,                                                   \
+               ("SOCKET", "activate_next_" #F " -> "                    \
+                "done with %s\r\n", B2S(activated)) );                  \
+                                                                        \
+        return activated;                                               \
     }
 ACTIVATE_NEXT_FUNCS
 #undef ACTIVATE_NEXT_FUNC_DECL
 
 
-/* *** activate_next ***
- *
- * This functions pops the requestor queue and then selects until it 
- * manages to successfully activate a new requestor or the queue is empty.
- * Return value indicates if a new requestor was activated or not.
- */
-
-static
-BOOLEAN_T activate_next(ErlNifEnv*          env,
-                        SocketDescriptor*   descP,
-                        SocketRequestor*    reqP,
-                        SocketRequestQueue* q,
-                        ERL_NIF_TERM        sockRef)
-{
-    BOOLEAN_T popped, activated;
-    int       sres;
-    
-    popped = FALSE;
-    do {
-
-        if (requestor_pop(q, reqP)) {
-
-            /* There was another one */
-            
-            SSDBG( descP,
-                   ("SOCKET", "activate_next -> new (active) requestor: "
-                    "\r\n   pid: %T"
-                    "\r\n   ref: %T"
-                    "\r\n", reqP->pid, reqP->ref) );
-        
-            if ((sres = esock_select_read(env, descP->sock, descP,
-                                          &reqP->pid, reqP->ref)) < 0) {
-                /* We need to inform this process, reqP->pid, that we
-                 * failed to select, so we don't leave it hanging.
-                 * => send abort
-                 */
-
-                esock_send_abort_msg(env, sockRef, reqP->ref, sres, &reqP->pid);
-                
-            } else {
-
-                /* Success: New requestor selected */
-                popped    = TRUE;
-                activated = FALSE;
-
-            }
-
-        } else {
-
-            SSDBG( descP,
-                   ("SOCKET", "send_activate_next -> no more requestors\r\n") );
-
-            popped    = TRUE;
-            activated = FALSE;
-        }
-
-    } while (!popped);
-
-    SSDBG( descP,
-           ("SOCKET", "activate_next -> "
-            "done with %s\r\n", B2S(activated)) );
-
-    return activated;
-}
 
 
 /* ----------------------------------------------------------------------
