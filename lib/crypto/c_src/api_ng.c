@@ -394,7 +394,7 @@ int EVP_CIPHER_CTX_copy(EVP_CIPHER_CTX *out, const EVP_CIPHER_CTX *in)
         {
             return 0;
         }
-#ifndef OPENSSL_NO_ENGINE
+#ifdef HAS_ENGINE_SUPPORT
     /* Make sure it's safe to copy a cipher context using an ENGINE */
     if (in->engine && !ENGINE_init(in->engine))
         return 0;
