@@ -101,10 +101,10 @@ encode_pem_entry({'PrivateKeyInfo', Der, EncParams}) ->
     EncDer = encode_encrypted_private_keyinfo(Der, EncParams),
     StartStr = pem_start('EncryptedPrivateKeyInfo'),
     [StartStr, "\n", b64encode_and_split(EncDer), "\n", pem_end(StartStr) ,"\n\n"];
-encode_pem_entry({Type, Der, {Cipher, Salt}}) ->
+encode_pem_entry({Type, Decrypted, {Cipher, Salt}}) ->
     StartStr = pem_start(Type),
     [StartStr,"\n", pem_decrypt(),"\n", pem_decrypt_info(Cipher, Salt),"\n\n",
-     b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"].
+     b64encode_and_split(Decrypted), "\n", pem_end(StartStr) ,"\n\n"].
 
 decode_pem_entries([], Entries) ->
     lists:reverse(Entries);
