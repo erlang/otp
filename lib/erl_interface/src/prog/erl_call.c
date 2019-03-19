@@ -88,10 +88,6 @@
 #include "ei_resolve.h"
 #include "erl_start.h"		/* FIXME remove dependency */
 
-#ifdef __WIN32__
-static void initWinSock(void);
-#endif
-
 /*
  * Some nice global variables
  * (I don't think "nice" is the right word actually... -gordon)
@@ -156,6 +152,8 @@ int erl_call(int argc, char **argv)
     struct call_flags flags = {0}; /* Default 0 and NULL in all fields */
     char* progname = argv[0];
     ei_cnode ec;
+
+    ei_init();
 
     /* Get the command line options */
     while (i < argc) {
@@ -316,14 +314,6 @@ int erl_call(int argc, char **argv)
       char *h_alivename=flags.hidden;
       struct in_addr h_ipadr;
       char* ct;
-
-#ifdef __WIN32__
-      /*
-       * FIXME Extremly ugly, but needed to get ei_gethostbyname() below
-       * to work.
-       */
-      initWinSock();
-#endif
 
       /* gethostname requires len to be max(hostname) + 1 */
       if (gethostname(h_hostname, EI_MAXHOSTNAMELEN+1) < 0) {
@@ -856,46 +846,6 @@ static void usage(const char *progname) {
   usage_noexit(progname);
   exit(0);
 }
-
-
-/***************************************************************************
- *
- *  OS specific functions
- *
- ***************************************************************************/
-
-#ifdef __WIN32__
-/*
- * FIXME This should not be here.  This is a quick fix to make erl_call
- * work at all on Windows NT.
- */
-static void initWinSock(void)
-{
-    WORD wVersionRequested;  
-    WSADATA wsaData; 
-    int err; 
-    static int initialized;
-
-    wVersionRequested = MAKEWORD(1, 1); 
-    if (!initialized) {
-	initialized = 1;
-	err = WSAStartup(wVersionRequested, &wsaData); 
- 
-	if (err != 0) {
-	    fprintf(stderr,"erl_call: "
-		    "Can't initialize windows sockets: %d\n", err);
-	}
-  
-	if ( LOBYTE( wsaData.wVersion ) != 1 || 
-	    HIBYTE( wsaData.wVersion ) != 1 ) { 
-	    fprintf(stderr,"erl_call: This version of "
-		    "windows sockets not supported\n");
-	    WSACleanup(); 
-	}
-    }
-}
-#endif
-
 
 /***************************************************************************
  *
