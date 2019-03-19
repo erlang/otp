@@ -337,9 +337,19 @@
 -type crypto_integer() :: binary() | integer().
 
 %%%
-%% Exceptions error:badarg and error:notsup
+%% Exceptions
+%%   error:badarg
+%%   error:notsup
 -type run_time_error() :: no_return().
 
+%% Exceptions
+%%   error:{badarg,Reason::term()}
+%%   error:{notsup,Reason::term()}
+%%   error:{error,Reason::term()}
+-type descriptive_error() :: no_return() .
+
+
+%%--------------------------------------------------------------------
 -compile(no_native).
 -on_load(on_load/0).
 -define(CRYPTO_NIF_VSN,302).
@@ -599,11 +609,12 @@ cipher_info(Type) ->
 
 %%%---- Block ciphers
 %%%----------------------------------------------------------------
--spec block_encrypt(Type::block_cipher_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) -> binary();
+-spec block_encrypt(Type::block_cipher_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) ->
+                           binary() | run_time_error();
                    (Type::aead_cipher(),  Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata()}) ->
-                           {binary(), binary()};
+                           {binary(), binary()} | run_time_error();
                    (aes_gcm | aes_ccm, Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata(), TagLength::1..16}) ->
-                           {binary(), binary()}.
+                           {binary(), binary()} | run_time_error().
 
 
 block_encrypt(Type, Key, Ivec, Data) ->
@@ -628,16 +639,19 @@ do_block_encrypt(Type, Key, Ivec, PlainText) ->
     ?COMPAT(crypto_one_shot(Type, Key, Ivec, PlainText, true)).
 
 
--spec block_encrypt(Type::block_cipher_no_iv(), Key::key(), PlainText::iodata()) -> binary().
+-spec block_encrypt(Type::block_cipher_no_iv(), Key::key(), PlainText::iodata()) ->
+                           binary() | run_time_error().
 
 block_encrypt(Type, Key, PlainText) ->
     ?COMPAT(crypto_one_shot(Type, Key, <<>>, PlainText, true)).
 
 %%%----------------------------------------------------------------
 %%%----------------------------------------------------------------
--spec block_decrypt(Type::block_cipher_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) -> binary();
+-spec block_decrypt(Type::block_cipher_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) ->
+                           binary() | run_time_error();
 		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
-		    {AAD::binary(), Data::iodata(), Tag::binary()}) -> binary() | error.
+		    {AAD::binary(), Data::iodata(), Tag::binary()}) ->
+                           binary() | run_time_error() .
 
 block_decrypt(Type, Key, Ivec, Data) ->
     do_block_decrypt(alias(Type), Key, Ivec, Data).
@@ -654,7 +668,8 @@ do_block_decrypt(Type, Key, Ivec, Data) ->
     ?COMPAT(crypto_one_shot(Type, Key, Ivec, Data, false)).
 
 
--spec block_decrypt(Type::block_cipher_no_iv(), Key::key(), Data::iodata()) -> binary().
+-spec block_decrypt(Type::block_cipher_no_iv(), Key::key(), Data::iodata()) ->
+                           binary() | run_time_error().
 
 block_decrypt(Type, Key, Data) ->
     ?COMPAT(crypto_one_shot(Type, Key, <<>>, Data, false)).
@@ -674,7 +689,7 @@ block_decrypt(Type, Key, Data) ->
                           | chacha20 .
 
 %%%---- stream_init
--spec stream_init(Type, Key, IVec) -> State | no_return()
+-spec stream_init(Type, Key, IVec) -> State | run_time_error()
                                           when Type :: stream_cipher_iv(),
                                                Key :: iodata(),
                                                IVec ::binary(),
@@ -687,7 +702,7 @@ stream_init(Type, Key, IVec) when is_binary(IVec) ->
     {Type, {Ref,flg_undefined}}.
 
 
--spec stream_init(Type, Key) -> State | no_return()
+-spec stream_init(Type, Key) -> State | run_time_error()
                                     when Type :: stream_cipher_no_iv(),
                                          Key :: iodata(),
                                          State :: stream_state() .
@@ -699,7 +714,7 @@ stream_init(rc4 = Type, Key) ->
     {Type, {Ref,flg_undefined}}.
 
 %%%---- stream_encrypt
--spec stream_encrypt(State, PlainText) -> {NewState, CipherText} | no_return()
+-spec stream_encrypt(State, PlainText) -> {NewState, CipherText} | run_time_error()
                                               when State :: stream_state(),
                                                    PlainText :: iodata(),
                                                    NewState :: stream_state(),
@@ -708,7 +723,7 @@ stream_encrypt(State, Data) ->
     crypto_stream_emulate(State, Data, true).
 
 %%%---- stream_decrypt
--spec stream_decrypt(State, CipherText) -> {NewState, PlainText} | no_return()
+-spec stream_decrypt(State, CipherText) -> {NewState, PlainText} | run_time_error()
                                               when State :: stream_state(),
                                                    CipherText :: iodata(),
                                                    NewState :: stream_state(),
@@ -767,7 +782,7 @@ next_iv(Type, Data, _Ivec) ->
 %%% Create and initialize a new state for encryption or decryption
 %%% 
 
--spec crypto_init(Cipher, Key, EncryptFlag) -> State | ng_crypto_error()
+-spec crypto_init(Cipher, Key, EncryptFlag) -> State | descriptive_error()
                                                    when Cipher :: block_cipher_no_iv()
                                                                 | stream_cipher_no_iv(),
                                                         Key :: iodata(),
@@ -778,7 +793,7 @@ crypto_init(Cipher, Key, EncryptFlag) ->
     ng_crypto_init_nif(alias(Cipher), iolist_to_binary(Key), <<>>, EncryptFlag).
 
 
--spec crypto_init(Cipher, Key, IV, EncryptFlag) -> State | ng_crypto_error()
+-spec crypto_init(Cipher, Key, IV, EncryptFlag) -> State | descriptive_error()
                                                        when Cipher :: stream_cipher_iv()
                                                                     | block_cipher_iv(),
                                                             Key :: iodata(),
@@ -791,7 +806,7 @@ crypto_init(Cipher, Key, IV, EncryptFlag) ->
 
 
 %%%----------------------------------------------------------------
--spec crypto_init_dyn_iv(Cipher, Key, EncryptFlag) -> State | ng_crypto_error()
+-spec crypto_init_dyn_iv(Cipher, Key, EncryptFlag) -> State | descriptive_error()
                                                           when Cipher :: stream_cipher_iv()
                                                                        | block_cipher_iv(),
                                                                Key :: iodata(),
@@ -808,7 +823,7 @@ crypto_init_dyn_iv(Cipher, Key, EncryptFlag) ->
 %%% blocksize.
 %%% 
 
--spec crypto_update(State, Data) -> Result | ng_crypto_error()
+-spec crypto_update(State, Data) -> Result | descriptive_error()
                                         when State :: crypto_state(),
                                              Data :: iodata(),
                                              Result :: binary() .
@@ -822,7 +837,7 @@ crypto_update(State, Data0) ->
 
 
 %%%----------------------------------------------------------------
--spec crypto_update_dyn_iv(State, Data, IV) -> Result | ng_crypto_error()
+-spec crypto_update_dyn_iv(State, Data, IV) -> Result | descriptive_error()
                                                    when State :: crypto_state(),
                                                         Data :: iodata(),
                                                         IV :: iodata(),
@@ -842,14 +857,16 @@ crypto_update_dyn_iv(State, Data0, IV) ->
 %%% The size must be an integer multiple of the crypto's blocksize.
 %%% 
 
--spec crypto_one_shot(Cipher, Key, IV, Data, EncryptFlag) -> Result | ng_crypto_error()
-                                                                 when Cipher :: stream_cipher()
-                                                                              | block_cipher(),
-                                                                      Key :: iodata(),
-                                                                      IV :: iodata() | undefined,
-                                                                      Data :: iodata(),
-                                                                      EncryptFlag :: boolean(),
-                                                                      Result :: binary() .
+-spec crypto_one_shot(Cipher, Key, IV, Data, EncryptFlag) ->
+                             Result | descriptive_error()
+                                 when Cipher :: stream_cipher()
+                                              | block_cipher(),
+                                      Key :: iodata(),
+                                      IV :: iodata() | undefined,
+                                      Data :: iodata(),
+                                      EncryptFlag :: boolean(),
+                                      Result :: binary() .
+
 crypto_one_shot(Cipher, Key, undefined, Data, EncryptFlag) ->
     crypto_one_shot(Cipher, Key, <<>>, Data, EncryptFlag);
 
@@ -866,21 +883,25 @@ crypto_one_shot(Cipher, Key, IV, Data0, EncryptFlag) ->
 %%%----------------------------------------------------------------
 %%% NIFs
 
--type ng_crypto_error() :: no_return() .
+-spec ng_crypto_init_nif(atom(), binary(), binary()|undefined, boolean()|undefined ) ->
+                                crypto_state() | descriptive_error()
+                      ; (crypto_state(), <<>>, <<>>, boolean())
+                        -> crypto_state() | descriptive_error().
 
--spec ng_crypto_init_nif(atom(), binary(), binary()|undefined, boolean()|undefined ) -> crypto_state() | ng_crypto_error()
-                      ; (crypto_state(), <<>>, <<>>, boolean()) -> crypto_state() | ng_crypto_error().
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
 
 
--spec ng_crypto_update_nif(crypto_state(), binary()) -> binary() | ng_crypto_error() .
+-spec ng_crypto_update_nif(crypto_state(), binary()) ->
+                                  binary() | descriptive_error() .
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
 
--spec ng_crypto_update_nif(crypto_state(), binary(), binary()) -> binary() | ng_crypto_error() .
+-spec ng_crypto_update_nif(crypto_state(), binary(), binary()) ->
+                                  binary() | descriptive_error() .
 ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
 
 
--spec ng_crypto_one_shot_nif(atom(), binary(), binary(), binary(), boolean() ) -> binary() | ng_crypto_error().
+-spec ng_crypto_one_shot_nif(atom(), binary(), binary(), binary(), boolean() ) ->
+                                    binary() | descriptive_error().
 ng_crypto_one_shot_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
 
 %%%----------------------------------------------------------------

@@ -623,9 +623,9 @@
     </func>
 
     <func>
-      <name since="OTP R16B01">block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
-      <name since="OTP R16B01">block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
-      <name since="OTP R16B01">block_encrypt(aes_gcm | aes_ccm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag}</name>
+      <name since="OTP R16B01">block_encrypt(Type, Key, Ivec, PlainText) -> CipherText | Error</name>
+      <name since="OTP R16B01">block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag} | Error</name>
+      <name since="OTP R16B01">block_encrypt(aes_gcm | aes_ccm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag} | Error </name>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = <seealso marker="#type-block_cipher_iv">block_cipher_iv()</seealso></v>
@@ -634,6 +634,7 @@
         <v>PlainText = iodata()</v>
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
         <v>TagLength = 1..16</v>
+	<v>Error = <seealso marker="#type-run_time_error">run_time_error()</seealso></v>
       </type>
       <desc>
         <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.
@@ -650,8 +651,8 @@
     </func>
 
     <func>
-      <name since="OTP R16B01">block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
-      <name since="OTP R16B01">block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | error</name>
+      <name since="OTP R16B01">block_decrypt(Type, Key, Ivec, CipherText) -> PlainText | Error</name>
+      <name since="OTP R16B01">block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | Error</name>
       <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = <seealso marker="#type-block_cipher_iv">block_cipher_iv()</seealso></v>
@@ -659,6 +660,7 @@
 	<v>Key = <seealso marker="#type-key">key()</seealso> | <seealso marker="#type-des3_key">des3_key()</seealso></v>
         <v>PlainText = iodata()</v>
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
+	<v>Error = <seealso marker="#type-run_time_error">run_time_error()</seealso></v>
       </type>
       <desc>
         <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.
