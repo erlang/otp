@@ -674,7 +674,7 @@ erts_send_message(Process* sender,
          * Make sure we don't use the heap between those instances.
          */
         if (have_seqtrace(stoken)) {
-	    seq_trace_update_send(sender);
+	    seq_trace_update_serial(sender);
 	    seq_trace_output(stoken, message, SEQ_TRACE_SEND,
 			     receiver->common.id, sender);
 

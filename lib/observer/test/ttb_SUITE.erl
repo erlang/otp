@@ -658,11 +658,13 @@ seq_trace(Config) when is_list(Config) ->
     ?line ok = ttb:format(
 		 [filename:join(Privdir,atom_to_list(Node)++"-seq_trace")]),
     ?line [{trace_ts,StartProc,call,{?MODULE,seq,[]},{_,_,_}},
-	   {seq_trace,0,{send,{0,1},StartProc,P1Proc,{Start,P2}}},
-	   {seq_trace,0,{send,{1,2},P1Proc,P2Proc,{P1,Start}}},
-	   {seq_trace,0,{send,{2,3},P2Proc,StartProc,{P2,P1}}},
+	   {seq_trace,0,{send,{First, Seq0},StartProc,P1Proc,{Start,P2}}},
+	   {seq_trace,0,{send,{Seq0,  Seq1},P1Proc,P2Proc,{P1,Start}}},
+	   {seq_trace,0,{send,{Seq1,  Last},P2Proc,StartProc,{P2,P1}}},
 	   end_of_trace] = flush(),
-
+    true = First < Seq0,
+    true = Seq0 < Seq1,
+    true = Seq1 < Last,
    %% Additional test for metatrace
     case StartProc of
 	{Start,_,_} -> ok;

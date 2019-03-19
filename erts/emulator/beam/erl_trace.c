@@ -826,7 +826,7 @@ trace_receive(Process* receiver,
 }
 
 int
-seq_trace_update_send(Process *p)
+seq_trace_update_serial(Process *p)
 {
     ErtsTracer seq_tracer = erts_get_system_seq_tracer();
     ASSERT((is_tuple(SEQ_TRACE_TOKEN(p)) || is_nil(SEQ_TRACE_TOKEN(p))));
@@ -894,6 +894,7 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
 
     switch (type) {
     case SEQ_TRACE_SEND:    type_atom = am_send; break;
+    case SEQ_TRACE_SPAWN:   type_atom = am_spawn; break;
     case SEQ_TRACE_PRINT:   type_atom = am_print; break;
     case SEQ_TRACE_RECEIVE: type_atom = am_receive; break;
     default:

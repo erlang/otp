@@ -815,7 +815,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             }
 #endif
             if (have_seqtrace(stoken)) {
-                seq_trace_update_send(c_p);
+                seq_trace_update_serial(c_p);
                 seq_trace_output(stoken, msg, SEQ_TRACE_SEND,
                                  rp->common.id, c_p);
             }

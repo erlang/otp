@@ -1482,6 +1482,8 @@ extern int erts_system_profile_ts_type;
 #define SEQ_TRACE_SEND     (1 << 0)
 #define SEQ_TRACE_RECEIVE  (1 << 1)
 #define SEQ_TRACE_PRINT    (1 << 2)
+/* (This three-bit gap contains the timestamp.) */
+#define SEQ_TRACE_SPAWN    (1 << 6)
 
 #define ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT 3
 
