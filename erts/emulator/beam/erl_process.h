@@ -1322,9 +1322,6 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 #endif /* inline */
 
 Eterm* erts_heap_alloc(Process* p, Uint need, Uint xtra);
-#ifdef CHECK_FOR_HOLES
-Eterm* erts_set_hole_marker(Eterm* ptr, Uint sz);
-#endif
 
 extern erts_rwmtx_t erts_cpu_bind_rwmtx;
 /* If any of the erts_system_monitor_* variables are set (enabled),
