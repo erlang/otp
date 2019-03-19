@@ -94,7 +94,9 @@
 -type active_msgs()              :: {ssl, sslsocket(), Data::binary() | list()} | {ssl_closed, sslsocket()} |
                                     {ssl_error, sslsocket(), Reason::term()} | {ssl_passive, sslsocket()}.
 -type transport_option()         :: {cb_info, {CallbackModule::atom(), DataTag::atom(),
-				       ClosedTag::atom(), ErrTag::atom()}}.
+                                               ClosedTag::atom(), ErrTag::atom()}} |  
+                                    {cb_info, {CallbackModule::atom(), DataTag::atom(),
+                                               ClosedTag::atom(), ErrTag::atom(), PassiveTag::atom()}}.
 -type host()                     :: hostname() | ip_address().
 -type hostname()                 :: string().
 -type ip_address()               :: inet:ip_address().
@@ -400,9 +402,9 @@ connect(Socket, SslOptions) when is_port(Socket) ->
 	      timeout() | list()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
 connect(Socket, SslOptions0, Timeout) when is_port(Socket),
-					    (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
-    {Transport,_,_,_} = proplists:get_value(cb_info, SslOptions0,
-					      {gen_tcp, tcp, tcp_closed, tcp_error}),
+                                           (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
+    CbInfo = handle_option(cb_info, SslOptions0, default_cb_info(tls)),
+    Transport = element(1, CbInfo),
     EmulatedOptions = tls_socket:emulated_options(),
     {ok, SocketValues} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
     try handle_options(SslOptions0 ++ SocketValues, client) of
@@ -542,8 +544,8 @@ handshake(#sslsocket{pid = [Pid|_], fd = {_, _, _}} = Socket, SslOpts, Timeout) 
     end;
 handshake(Socket, SslOptions, Timeout) when is_port(Socket),
                                             (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
-    {Transport,_,_,_} =
-	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),
+    CbInfo = handle_option(cb_info, SslOptions, default_cb_info(tls)),
+    Transport = element(1, CbInfo),
     EmulatedOptions = tls_socket:emulated_options(),
     {ok, SocketValues} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
     ConnetionCb = connection_cb(SslOptions),
@@ -595,7 +597,7 @@ close(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     ssl_connection:close(Pid, {close, ?DEFAULT_TIMEOUT});
 close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, _}}}}) ->
    dtls_packet_demux:close(Pid);
-close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}) ->
+close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}) ->
     Transport:close(ListenSocket).
 
 %%--------------------------------------------------------------------
@@ -611,7 +613,7 @@ close(#sslsocket{pid = [TLSPid|_]},
 close(#sslsocket{pid = [TLSPid|_]}, Timeout) when is_pid(TLSPid),
 					      (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     ssl_connection:close(TLSPid, {close, Timeout});
-close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}, _) ->
+close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}, _) ->
     Transport:close(ListenSocket).
 
 %%--------------------------------------------------------------------
@@ -627,7 +629,8 @@ send(#sslsocket{pid = {_, #config{transport_info={_, udp, _, _}}}}, _) ->
     {error,enotconn}; %% Emulate connection behaviour
 send(#sslsocket{pid = {dtls,_}}, _) ->
     {error,enotconn};  %% Emulate connection behaviour
-send(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport, _, _, _}}}}, Data) ->
+send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
+    Transport = element(1, Info),
     Transport:send(ListenSocket, Data). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
@@ -645,7 +648,8 @@ recv(#sslsocket{pid = [Pid|_]}, Length, Timeout) when is_pid(Pid),
 recv(#sslsocket{pid = {dtls,_}}, _, _) ->
     {error,enotconn};
 recv(#sslsocket{pid = {Listen,
-		       #config{transport_info = {Transport, _, _, _}}}}, _,_) when is_port(Listen)->
+		       #config{transport_info = Info}}},_,_) when is_port(Listen)->
+    Transport = element(1, Info),
     Transport:recv(Listen, 0). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
@@ -660,7 +664,7 @@ controlling_process(#sslsocket{pid = {dtls, _}},
 		    NewOwner) when is_pid(NewOwner) ->
     ok; %% Meaningless but let it be allowed to conform with TLS 
 controlling_process(#sslsocket{pid = {Listen,
-				      #config{transport_info = {Transport, _, _, _}}}},
+				      #config{transport_info = {Transport,_,_,_,_}}}},
 		    NewOwner) when is_port(Listen),
 				   is_pid(NewOwner) ->
      %% Meaningless but let it be allowed to conform with normal sockets  
@@ -703,13 +707,13 @@ connection_information(#sslsocket{pid = [Pid|_]}, Items) when is_pid(Pid) ->
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
-peername(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}}) when is_pid(Pid)->
+peername(#sslsocket{pid = [Pid|_], fd = {Transport, Socket,_}}) when is_pid(Pid)->
     dtls_socket:peername(Transport, Socket);
-peername(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _, _}}) when is_pid(Pid)->
+peername(#sslsocket{pid = [Pid|_], fd = {Transport, Socket,_,_}}) when is_pid(Pid)->
     tls_socket:peername(Transport, Socket);
-peername(#sslsocket{pid = {dtls, #config{dtls_handler = {_Pid, _}}}}) ->
+peername(#sslsocket{pid = {dtls, #config{dtls_handler = {_Pid,_}}}}) ->
     dtls_socket:peername(dtls, undefined);
-peername(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_,_}}}}) ->
+peername(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_,_,_}}}}) ->
     tls_socket:peername(Transport, ListenSocket); %% Will return {error, enotconn}
 peername(#sslsocket{pid = {dtls,_}}) ->
     {error,enotconn}.
@@ -886,7 +890,7 @@ getopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_}}}} = 
 	_:Error ->
 	    {error, {options, {socket_options, OptionTags, Error}}}
     end;
-getopts(#sslsocket{pid = {_,  #config{transport_info = {Transport,_,_,_}}}} = ListenSocket,
+getopts(#sslsocket{pid = {_,  #config{transport_info = {Transport,_,_,_,_}}}} = ListenSocket,
 	OptionTags) when is_list(OptionTags) ->
     try tls_socket:getopts(Transport, ListenSocket, OptionTags) of
 	{ok, _} = Result ->
@@ -943,7 +947,7 @@ setopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_}}}} = 
 	_:Error ->
 	    {error, {options, {socket_options, Options, Error}}}
     end;
-setopts(#sslsocket{pid = {_, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
+setopts(#sslsocket{pid = {_, #config{transport_info = {Transport,_,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
     try tls_socket:setopts(Transport, ListenSocket, Options) of
 	ok ->
 	    ok;
@@ -987,8 +991,9 @@ getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _, _}}, Options) when
 %%
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
-shutdown(#sslsocket{pid = {Listen, #config{transport_info = {Transport,_, _, _}}}},
+shutdown(#sslsocket{pid = {Listen, #config{transport_info = Info}}},
 	 How) when is_port(Listen) ->
+    Transport = element(1, Info),
     Transport:shutdown(Listen, How);
 shutdown(#sslsocket{pid = {dtls,_}},_) ->
     {error, enotconn};
@@ -1000,13 +1005,13 @@ shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
 %%
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
-sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _}}}}) when is_port(Listen) ->
+sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport,_,_,_,_}}}}) when is_port(Listen) ->
     tls_socket:sockname(Transport, Listen);
 sockname(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, _}}}}) ->
     dtls_packet_demux:sockname(Pid);
-sockname(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}}) when is_pid(Pid) ->
+sockname(#sslsocket{pid = [Pid|_], fd = {Transport, Socket,_}}) when is_pid(Pid) ->
     dtls_socket:sockname(Transport, Socket);
-sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket, _, _}}) when is_pid(Pid) ->
+sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(Pid) ->
     tls_socket:sockname(Transport, Socket).
 
 %%---------------------------------------------------------------
@@ -1140,7 +1145,7 @@ supported_suites(all, Version) ->
 supported_suites(anonymous, Version) -> 
     ssl_cipher:anonymous_suites(Version).
 
-do_listen(Port, #config{transport_info = {Transport, _, _, _}} = Config, tls_connection) ->
+do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_connection) ->
     tls_socket:listen(Transport, Port, Config);
 
 do_listen(Port,  Config, dtls_connection) ->
@@ -1288,7 +1293,7 @@ handle_options(Opts0, Role, Host) ->
                     customize_hostname_check = handle_option(customize_hostname_check, Opts, [])
 		   },
 
-    CbInfo  = proplists:get_value(cb_info, Opts, default_cb_info(Protocol)),
+    CbInfo  = handle_option(cb_info, Opts, default_cb_info(Protocol)),
     SslOptions = [protocol, versions, verify, verify_fun, partial_chain,
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, cert, certfile, key, keyfile,
@@ -1330,6 +1335,10 @@ handle_option(sni_fun, Opts, Default) ->
         _ ->
             throw({error, {conflict_options, [sni_fun, sni_hosts]}})
     end;
+handle_option(cb_info, Opts, Default) ->
+    CbInfo = proplists:get_value(cb_info, Opts, Default),
+    true = validate_option(cb_info, CbInfo),
+    handle_cb_info(CbInfo, Default);
 handle_option(OptionName, Opts, Default) ->
     validate_option(OptionName,
 		    proplists:get_value(OptionName, Opts, Default)).
@@ -1551,8 +1560,28 @@ validate_option(handshake, full = Value) ->
     Value;
 validate_option(customize_hostname_check, Value) when is_list(Value) ->
     Value;
+validate_option(cb_info, {V1, V2, V3, V4}) when is_atom(V1),
+                                                is_atom(V2),
+                                                is_atom(V3),
+                                                is_atom(V4)
+                                                ->
+    true;
+validate_option(cb_info, {V1, V2, V3, V4, V5}) when is_atom(V1),
+                                                    is_atom(V2),
+                                                    is_atom(V3),
+                                                    is_atom(V4),
+                                                    is_atom(V5)
+                                                ->
+    true;
+validate_option(cb_info, _) ->
+    false;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
+
+handle_cb_info({V1, V2, V3, V4}, {_,_,_,_,_}) ->
+    {V1,V2,V3,V4, list_to_atom(atom_to_list(V2) ++ "passive")};
+handle_cb_info(CbInfo, _) ->
+    CbInfo.
 
 handle_hashsigns_option(Value, Version) when is_list(Value) 
                                              andalso Version >= {3, 3} ->
@@ -1964,7 +1993,7 @@ default_option_role(_,_,_) ->
     undefined.
 
 default_cb_info(tls) ->
-    {gen_tcp, tcp, tcp_closed, tcp_error};
+    {gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive};
 default_cb_info(dtls) ->
     {gen_udp, udp, udp_closed, udp_error}.
 

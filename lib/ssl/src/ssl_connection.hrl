@@ -40,6 +40,7 @@
                      data_tag              :: atom(),   % ex tcp.
                      close_tag             :: atom(),   % ex tcp_closed
                      error_tag             :: atom(),   % ex tcp_error
+                     passive_tag           :: atom(),   % ex tcp_passive
                      host                  :: string() | inet:ip_address(),
                      port                  :: integer(),
                      socket                :: port() | tuple(), %% TODO: dtls socket

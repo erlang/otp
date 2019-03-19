@@ -46,7 +46,7 @@
 send(Transport, Socket, Data) ->
     Transport:send(Socket, Data).
 
-listen(Transport, Port, #config{transport_info = {Transport, _, _, _}, 
+listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _}, 
 				inet_user = Options, 
 				ssl = SslOpts, emulated = EmOpts} = Config) ->
     case Transport:listen(Port, Options ++ internal_inet_values()) of
@@ -59,7 +59,7 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _},
 	    Err
     end.
 
-accept(ListenSocket, #config{transport_info = {Transport,_,_,_} = CbInfo,
+accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
 			     connection_cb = ConnectionCb,
 			     ssl = SslOpts,
 			     emulated = Tracker}, Timeout) -> 
@@ -80,7 +80,7 @@ accept(ListenSocket, #config{transport_info = {Transport,_,_,_} = CbInfo,
 	    {error, Reason}
     end.
 
-upgrade(Socket, #config{transport_info = {Transport,_,_,_}= CbInfo,
+upgrade(Socket, #config{transport_info = {Transport,_,_,_,_}= CbInfo,
 			ssl = SslOptions,
 			emulated = EmOpts, connection_cb = ConnectionCb}, Timeout) ->
     ok = setopts(Transport, Socket, tls_socket:internal_inet_values()),
@@ -98,7 +98,7 @@ connect(Address, Port,
 	#config{transport_info = CbInfo, inet_user = UserOpts, ssl = SslOpts,
 		emulated = EmOpts, inet_ssl = SocketOpts, connection_cb = ConnetionCb},
 	Timeout) ->
-    {Transport, _, _, _} = CbInfo,
+    {Transport, _, _, _, _} = CbInfo,
     try Transport:connect(Address, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
 	    ssl_connection:connect(ConnetionCb, Address, Port, Socket, 
@@ -125,7 +125,7 @@ setopts(gen_tcp, Socket = #sslsocket{pid = {ListenSocket, #config{emulated = Tra
     ok = set_emulated_opts(Tracker, EmulatedOpts),
     check_active_n(EmulatedOpts, Socket),
     inet:setopts(ListenSocket, SockOpts);
-setopts(_, Socket = #sslsocket{pid = {ListenSocket, #config{transport_info = {Transport,_,_,_},
+setopts(_, Socket = #sslsocket{pid = {ListenSocket, #config{transport_info = {Transport,_,_,_,_},
 						  emulated = Tracker}}}, Options) ->
     {SockOpts, EmulatedOpts} = split_options(Options),
     ok = set_emulated_opts(Tracker, EmulatedOpts),
