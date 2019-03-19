@@ -133,6 +133,15 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(Func, Config)
+  when Func =:= processes_default_tab_test;
+       Func =:= processes_this_tab ->
+    case erlang:system_info(debug_compiled) of
+        true ->
+            {skip, "Don't run in debug"};
+        false ->
+            [{testcase, Func} | Config]
+    end;
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
