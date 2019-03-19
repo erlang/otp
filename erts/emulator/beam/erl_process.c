@@ -11597,9 +11597,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->mbuf_sz = 0;
     erts_atomic_init_nob(&p->psd, (erts_aint_t) NULL);
     p->dictionary = NULL;
-    p->seq_trace_lastcnt = 0;
-    p->seq_trace_clock = 0;
-    SEQ_TRACE_TOKEN(p) = NIL;
 #ifdef USE_VM_PROBES
     DT_UTAG(p) = NIL;
     DT_UTAG_FLAGS(p) = 0;
@@ -11661,6 +11658,45 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         trace_proc_spawn(p, am_spawned, parent->common.id, mod, func, args);
         if (so->flags & SPO_LINK)
             trace_proc(p, locks, p, am_getting_linked, parent->common.id);
+    }
+
+    if (have_seqtrace(SEQ_TRACE_TOKEN(parent))) {
+        Eterm token;
+        Uint token_sz;
+        Eterm *hp;
+
+        ASSERT(SEQ_TRACE_TOKEN_ARITY(parent) == 5);
+        ASSERT(is_immed(SEQ_TRACE_TOKEN_FLAGS(parent)));
+        ASSERT(is_immed(SEQ_TRACE_TOKEN_SERIAL(parent)));
+        ASSERT(is_immed(SEQ_TRACE_TOKEN_LASTCNT(parent)));
+
+        seq_trace_update_serial(parent);
+
+        token = SEQ_TRACE_TOKEN(parent);
+        token_sz = size_object(token);
+
+        hp = HAlloc(p, token_sz);
+        SEQ_TRACE_TOKEN(p) = copy_struct(token, token_sz, &hp, &MSO(p));
+
+        /* The counters behave the same way on spawning as they do on messages;
+         * we don't inherit our parent's lastcnt. */
+        p->seq_trace_lastcnt = parent->seq_trace_clock;
+        p->seq_trace_clock = parent->seq_trace_clock;
+
+        if ((locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE))
+              == (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) {
+            /* The locks may already be released if ordinary tracing is
+             * enabled. */
+            locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+        }
+
+        seq_trace_output(token, NIL, SEQ_TRACE_SPAWN, p->common.id, parent);
+    } else {
+        SEQ_TRACE_TOKEN(p) = NIL;
+        p->seq_trace_lastcnt = 0;
+        p->seq_trace_clock = 0;
     }
 
     /*

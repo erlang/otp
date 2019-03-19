@@ -994,7 +994,7 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
 
     seq_trace = c_p && have_seqtrace(token);
     if (seq_trace)
-        seq_trace_update_send(c_p);
+        seq_trace_update_serial(c_p);
 
 #ifdef USE_VM_PROBES
     utag_sz = 0;
