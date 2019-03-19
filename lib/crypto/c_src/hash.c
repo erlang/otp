@@ -21,9 +21,15 @@
 #include "hash.h"
 #include "digest.h"
 
-#define MD5_CTX_LEN       (sizeof(MD5_CTX))
-#define MD4_CTX_LEN       (sizeof(MD4_CTX))
-#define RIPEMD160_CTX_LEN (sizeof(RIPEMD160_CTX))
+#ifdef HAVE_MD5
+#  define MD5_CTX_LEN       (sizeof(MD5_CTX))
+#endif
+#ifdef HAVE_MD4
+#  define MD4_CTX_LEN       (sizeof(MD4_CTX))
+#endif
+#ifdef HAVE_RIPEMD160
+#  define RIPEMD160_CTX_LEN (sizeof(RIPEMD160_CTX))
+#endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 struct evp_md_ctx {
@@ -261,18 +267,24 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     switch (EVP_MD_type(digp->md.p))
     {
+#ifdef HAVE_MD4
     case NID_md4:
         ctx_size = MD4_CTX_LEN;
         ctx_init = (init_fun)(&MD4_Init);
         break;
+#endif
+#ifdef HAVE_MD5
     case NID_md5:
         ctx_size = MD5_CTX_LEN;
         ctx_init = (init_fun)(&MD5_Init);
         break;
+#endif
+#ifdef HAVE_RIPEMD160
     case NID_ripemd160:
         ctx_size = RIPEMD160_CTX_LEN;
         ctx_init = (init_fun)(&RIPEMD160_Init);
         break;
+#endif
     case NID_sha1:
         ctx_size = sizeof(SHA_CTX);
         ctx_init = (init_fun)(&SHA1_Init);
@@ -352,18 +364,24 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
     switch (EVP_MD_type(digp->md.p))
     {
+#ifdef HAVE_MD4
     case NID_md4:
         ctx_size   = MD4_CTX_LEN;
         ctx_update = (update_fun)(&MD4_Update);
         break;
+#endif
+#ifdef HAVE_MD5
     case NID_md5:
         ctx_size   = MD5_CTX_LEN;
         ctx_update = (update_fun)(&MD5_Update);
         break;
+#endif
+#ifdef HAVE_RIPEMD160
     case NID_ripemd160:
         ctx_size   = RIPEMD160_CTX_LEN;
         ctx_update = (update_fun)(&RIPEMD160_Update);
         break;
+#endif
     case NID_sha1:
         ctx_size   = sizeof(SHA_CTX);
         ctx_update = (update_fun)(&SHA1_Update);
@@ -448,18 +466,24 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     switch (EVP_MD_type(md))
     {
+#ifdef HAVE_MD4
     case NID_md4:
         ctx_size  = MD4_CTX_LEN;
         ctx_final = (final_fun)(&MD4_Final);
         break;
+#endif
+#ifdef HAVE_MD5
     case NID_md5:
         ctx_size  = MD5_CTX_LEN;
         ctx_final = (final_fun)(&MD5_Final);
         break;
-    case NID_ripemd160:
+#endif
+#ifdef HAVE_MD5
+   case NID_ripemd160:
         ctx_size  = RIPEMD160_CTX_LEN;
         ctx_final = (final_fun)(&RIPEMD160_Final);
         break;
+#endif
     case NID_sha1:
         ctx_size  = sizeof(SHA_CTX);
         ctx_final = (final_fun)(&SHA1_Final);

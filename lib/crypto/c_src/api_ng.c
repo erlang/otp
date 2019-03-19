@@ -207,7 +207,7 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
 
-
+#ifdef HAVE_RC2
     if (EVP_CIPHER_type((*cipherp)->cipher.p) == NID_rc2_cbc) {
         if (key_bin.size > INT_MAX / 8) {
             *return_term = EXCP_BADARG(env, "To large rc2_cbc key");
@@ -218,6 +218,7 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
     }
+#endif
 
     if (ivec_arg == atom_undefined || ivec_len == 0)
         {

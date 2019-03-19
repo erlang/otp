@@ -68,9 +68,15 @@ void init_algorithms_types(ErlNifEnv* env)
 
     // Non-validated algorithms follow
     algo_hash_fips_cnt = algo_hash_cnt;
+#ifdef HAVE_MD4
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md4");
+#endif
+#ifdef HAVE_MD5
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md5");
+#endif
+#ifdef HAVE_RIPEMD160
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "ripemd160");
+#endif
 
     algo_pubkey_cnt = 0;
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "rsa");

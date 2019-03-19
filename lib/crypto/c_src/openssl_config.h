@@ -166,6 +166,27 @@
 # define HAVE_BLAKE2
 #endif
 
+#ifndef OPENSSL_NO_MD4
+# define HAVE_MD4
+#endif
+
+#ifndef OPENSSL_NO_MD5
+# define HAVE_MD5
+#endif
+
+#ifndef OPENSSL_NO_RC2
+# define HAVE_RC2
+#endif
+
+#ifndef OPENSSL_NO_RC4
+# define HAVE_RC4
+#endif
+
+#ifndef OPENSSL_NO_RMD160
+# define HAVE_RMD160
+#endif
+
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'o') \
 	&& !defined(OPENSSL_NO_EC) \
 	&& !defined(OPENSSL_NO_ECDH) \
@@ -192,7 +213,9 @@
 # define HAVE_AEAD
 # define HAVE_GCM
 # define HAVE_CCM
-# define HAVE_CMAC
+# ifndef OPENSSL_NO_CMAC
+#   define HAVE_CMAC
+# endif
 # if defined(RSA_PKCS1_OAEP_PADDING)
 #   define HAVE_RSA_OAEP_PADDING
 # endif
@@ -204,21 +227,27 @@
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 # ifndef HAS_LIBRESSL
-#  define HAVE_CHACHA20_POLY1305
+#  if !defined(OPENSSL_NO_CHACHA) && !defined(OPENSSL_NO_POLY1305)
+#    define HAVE_CHACHA20_POLY1305
+#  endif
 #  define HAVE_RSA_OAEP_MD
 # endif
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(1,1,0,'d')
 # ifndef HAS_LIBRESSL
-#  define HAVE_CHACHA20
+#  ifndef OPENSSL_NO_CHACHA
+#    define HAVE_CHACHA20
+#  endif
 # endif
 #endif
 
 // OPENSSL_VERSION_NUMBER >= 1.1.1-pre8
 #if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1)-7)
 # ifndef HAS_LIBRESSL
-#  define HAVE_POLY1305
+#  if !defined(OPENSSL_NO_POLY1305)
+#    define HAVE_POLY1305
+#  endif
 # endif
 #endif
 

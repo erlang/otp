@@ -22,10 +22,32 @@
 
 static struct digest_type_t digest_types[] =
 {
-    {{"md4"}, {&EVP_md4}},
-    {{"md5"}, {&EVP_md5}},
-    {{"ripemd160"}, {&EVP_ripemd160}},
+    {{"md4"},
+#ifdef HAVE_MD4
+     {&EVP_md4}
+#else
+    {NULL}
+#endif
+    },
+
+    {{"md5"},
+#ifdef HAVE_MD5
+     {&EVP_md5}
+#else
+     {NULL}
+#endif
+    },
+
+    {{"ripemd160"},
+#ifdef HAVE_RIPEMD160
+     {&EVP_ripemd160}
+#else
+     {NULL}
+#endif
+    },
+
     {{"sha"}, {&EVP_sha1}},
+
     {{"sha224"},
 #ifdef HAVE_SHA224
      {&EVP_sha224}
@@ -33,6 +55,7 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+
     {{"sha256"},
 #ifdef HAVE_SHA256
      {&EVP_sha256}
@@ -40,6 +63,7 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+
     {{"sha384"},
 #ifdef HAVE_SHA384
      {&EVP_sha384}
@@ -47,6 +71,7 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+
     {{"sha512"},
 #ifdef HAVE_SHA512
      {&EVP_sha512}
@@ -54,6 +79,7 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+
     {{"sha3_224"},
 #ifdef HAVE_SHA3_224
      {&EVP_sha3_224}
@@ -61,6 +87,7 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+
     {{"sha3_256"},
 #ifdef HAVE_SHA3_256
      {&EVP_sha3_256}
@@ -68,6 +95,7 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+
     {{"sha3_384"},
 #ifdef HAVE_SHA3_384
      {&EVP_sha3_384}
@@ -75,6 +103,7 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+
     {{"sha3_512"},
 #ifdef HAVE_SHA3_512
      {&EVP_sha3_512}
@@ -82,6 +111,7 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+
     {{"blake2b"},
 #ifdef HAVE_BLAKE2
      {&EVP_blake2b512}
@@ -89,6 +119,7 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+
     {{"blake2s"},
 #ifdef HAVE_BLAKE2
      {&EVP_blake2s256}
