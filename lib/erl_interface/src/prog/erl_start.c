@@ -657,7 +657,7 @@ static int wait_for_erlang(int sockd, int magic, struct timeval *timeout)
     gettimeofday(&now,NULL);
     to.tv_sec = stop_time.tv_sec - now.tv_sec;
     to.tv_usec = stop_time.tv_usec - now.tv_usec;
-    while ((to.tv_usec <= 0) && (to.tv_sec >= 0)) {
+    while ((to.tv_usec < 0) && (to.tv_sec > 0)) {
       to.tv_usec += 1000000;
       to.tv_sec--;
     }
