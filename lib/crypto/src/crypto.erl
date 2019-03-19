@@ -540,8 +540,10 @@ poly1305(Key, Data) ->
 -spec cipher_info(Type) -> map() when Type :: block_cipher_with_iv()
                                            | aead_cipher()
                                            | block_cipher_without_iv().
+cipher_info(aes_ige256) ->
+    #{block_size => 16,iv_length => 32,key_length => 16,mode => ige_mode,type => undefined};
 cipher_info(Type) ->
-    cipher_info_nif(Type).
+    cipher_info_nif(alias(Type)).
 
 %%%---- Block ciphers
 
