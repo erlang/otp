@@ -27,6 +27,30 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The timeout for a passive receive was sometimes not
+	    cancelled and later caused a server crash. This bug has
+	    now been corrected.</p>
+          <p>
+	    Own Id: OTP-14701 Aux Id: ERL-883, ERL-884 </p>
+        </item>
+        <item>
+          <p>
+	    Add tag for passive message (active N) in cb_info to
+	    retain transport transparency.</p>
+          <p>
+	    Own Id: OTP-15679 Aux Id: ERL-861 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
