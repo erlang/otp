@@ -162,14 +162,14 @@ supported_algorithms(cipher) ->
       select_crypto_supported(
 	[
          {'chacha20-poly1305@openssh.com', [{ciphers,chacha20}, {macs,poly1305}]},
-         {'aes256-gcm@openssh.com', [{ciphers,{aes_gcm,256}}]},
-         {'aes256-ctr',       [{ciphers,{aes_ctr,256}}]},
-         {'aes192-ctr',       [{ciphers,{aes_ctr,192}}]},
-	 {'aes128-gcm@openssh.com', [{ciphers,{aes_gcm,128}}]},
-	 {'aes128-ctr',       [{ciphers,{aes_ctr,128}}]},
-	 {'AEAD_AES_256_GCM', [{ciphers,{aes_gcm,256}}]},
-	 {'AEAD_AES_128_GCM', [{ciphers,{aes_gcm,128}}]},
-	 {'aes128-cbc',       [{ciphers,aes_cbc128}]},
+         {'aes256-gcm@openssh.com', [{ciphers,aes_256_gcm}]},
+         {'aes256-ctr',       [{ciphers,aes_256_ctr}]},
+         {'aes192-ctr',       [{ciphers,aes_192_ctr}]},
+	 {'aes128-gcm@openssh.com', [{ciphers,aes_128_gcm}]},
+	 {'aes128-ctr',       [{ciphers,aes_128_ctr}]},
+	 {'AEAD_AES_256_GCM', [{ciphers,aes_256_gcm}]},
+	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
+	 {'aes128-cbc',       [{ciphers,aes_128_cbc}]},
 	 {'3des-cbc',         [{ciphers,des3_cbc}]}
 	]
        ));
@@ -179,8 +179,8 @@ supported_algorithms(mac) ->
 	[{'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
 	 {'hmac-sha2-512',    [{macs,hmac}, {hashs,sha512}]},
 	 {'hmac-sha1',        [{macs,hmac}, {hashs,sha}]},
-	 {'AEAD_AES_128_GCM', [{ciphers,{aes_gcm,128}}]},
-	 {'AEAD_AES_256_GCM', [{ciphers,{aes_gcm,256}}]}
+	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
+	 {'AEAD_AES_256_GCM', [{ciphers,aes_256_gcm}]}
 	]
        ));
 supported_algorithms(compression) ->
@@ -1256,11 +1256,6 @@ get_length(aead, EncryptedBuffer, Ssh) ->
     end.
 
 
-pkt_type('AEAD_AES_128_GCM') -> aead;
-pkt_type('AEAD_AES_256_GCM') -> aead;
-pkt_type('chacha20-poly1305@openssh.com') -> aead;
-pkt_type(_) -> common.
-
 payload(<<PacketLen:32, PaddingLen:8, PayloadAndPadding/binary>>) ->
     PayloadLen = PacketLen - PaddingLen - 1,
     <<Payload:PayloadLen/binary, _/binary>> = PayloadAndPadding,
@@ -1323,162 +1318,115 @@ verify(PlainText, HashAlg, Sig, Key, _) ->
 
 %%% Unit: bytes
 
--record(cipher_data, {
-          key_bytes,
-          iv_bytes,
-          block_bytes
-         }).
+-record(cipher, {
+                 impl,
+                 key_bytes,
+                 iv_bytes,
+                 block_bytes,
+                 pkt_type = common
+                }).
 
 %%% Start of a more parameterized crypto handling.
 cipher('AEAD_AES_128_GCM') ->
-    #cipher_data{key_bytes = 16,
-                 iv_bytes = 12,
-                 block_bytes = 16};
+    #cipher{key_bytes = 16,
+            iv_bytes = 12,
+            block_bytes = 16,
+            pkt_type = aead};
 
 cipher('AEAD_AES_256_GCM') ->
-    #cipher_data{key_bytes = 32,
-                 iv_bytes = 12,
-                 block_bytes = 16};
+    #cipher{key_bytes = 32,
+            iv_bytes = 12,
+            block_bytes = 16,
+            pkt_type = aead};
 
 cipher('3des-cbc') ->
-    #cipher_data{key_bytes = 24,
-                 iv_bytes = 8,
-                 block_bytes = 8};
+    #cipher{impl = des3_cbc,
+            key_bytes = 24,
+            iv_bytes = 8,
+            block_bytes = 8};
     
 cipher('aes128-cbc') ->
-    #cipher_data{key_bytes = 16,
-                 iv_bytes = 16,
-                 block_bytes = 16};
+    #cipher{impl = aes_cbc,
+            key_bytes = 16,
+            iv_bytes = 16,
+            block_bytes = 16};
 
 cipher('aes128-ctr') ->
-    #cipher_data{key_bytes = 16,
-                 iv_bytes = 16,
-                 block_bytes = 16};
+    #cipher{impl = aes_128_ctr,
+            key_bytes = 16,
+            iv_bytes = 16,
+            block_bytes = 16};
 
 cipher('aes192-ctr') ->
-    #cipher_data{key_bytes = 24,
-                 iv_bytes = 16,
-                 block_bytes = 16};
+    #cipher{impl = aes_192_ctr,
+            key_bytes = 24,
+            iv_bytes = 16,
+            block_bytes = 16};
 
 cipher('aes256-ctr') ->
-    #cipher_data{key_bytes = 32,
-                 iv_bytes = 16,
-                 block_bytes = 16};
+    #cipher{impl = aes_256_ctr,
+            key_bytes = 32,
+            iv_bytes = 16,
+            block_bytes = 16};
 
 cipher('chacha20-poly1305@openssh.com') -> % FIXME: Verify!!
-    #cipher_data{key_bytes = 32,
-                 iv_bytes = 12,
-                 block_bytes = 8}.
-    
+    #cipher{key_bytes = 32,
+            iv_bytes = 12,
+            block_bytes = 8,
+            pkt_type = aead};
+
+cipher(_) -> 
+    #cipher{}.
+
+
+pkt_type(SshCipher) -> (cipher(SshCipher))#cipher.pkt_type.
+
+decrypt_magic(server) -> {"A", "C"};
+decrypt_magic(client) -> {"B", "D"}.
+
+encrypt_magic(client) -> decrypt_magic(server);
+encrypt_magic(server) -> decrypt_magic(client).
+
 
 
 encrypt_init(#ssh{encrypt = none} = Ssh) ->
     {ok, Ssh};
-encrypt_init(#ssh{encrypt = 'chacha20-poly1305@openssh.com', role = client} = Ssh) ->
+
+encrypt_init(#ssh{encrypt = 'chacha20-poly1305@openssh.com', role = Role} = Ssh) ->
     %% chacha20-poly1305@openssh.com uses two independent crypto streams, one (chacha20)
     %% for the length used in stream mode, and the other (chacha20-poly1305) as AEAD for
     %% the payload and to MAC the length||payload.
     %% See draft-josefsson-ssh-chacha20-poly1305-openssh-00
-    <<K2:32/binary,K1:32/binary>> = hash(Ssh, "C", 512),
+    {_, KeyMagic} = encrypt_magic(Role),
+    <<K2:32/binary,K1:32/binary>> = hash(Ssh, KeyMagic, 8*64),
     {ok, Ssh#ssh{encrypt_keys = {K1,K2}
                 % encrypt_block_size = 16, %default = 8.  What to set it to? 64 (openssl chacha.h)
                  % ctx and iv is setup for each packet
                 }};
-encrypt_init(#ssh{encrypt = 'chacha20-poly1305@openssh.com', role = server} = Ssh) ->
-    <<K2:32/binary,K1:32/binary>> = hash(Ssh, "D", 512),
-    {ok, Ssh#ssh{encrypt_keys = {K1,K2}
-                % encrypt_block_size = 16, %default = 8.  What to set it to?
-                }};
-encrypt_init(#ssh{encrypt = 'AEAD_AES_128_GCM', role = client} = Ssh) ->
-    IV = hash(Ssh, "A", 12*8),
-    <<K:16/binary>> = hash(Ssh, "C", 128),
+
+encrypt_init(#ssh{encrypt = SshCipher, role = Role} = Ssh) when SshCipher == 'AEAD_AES_128_GCM';
+                                                                SshCipher == 'AEAD_AES_256_GCM' ->
+    {IvMagic, KeyMagic} = encrypt_magic(Role),
+    #cipher{key_bytes = KeyBytes,
+            iv_bytes = IvBytes,
+            block_bytes = BlockBytes} = cipher(SshCipher),
+    IV = hash(Ssh, IvMagic, 8*IvBytes),
+    K = hash(Ssh, KeyMagic, 8*KeyBytes),
     {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
+		 encrypt_block_size = BlockBytes,
 		 encrypt_ctx = IV}};
-encrypt_init(#ssh{encrypt = 'AEAD_AES_128_GCM', role = server} = Ssh) ->
-    IV = hash(Ssh, "B", 12*8),
-    <<K:16/binary>> = hash(Ssh, "D", 128),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-		 encrypt_ctx = IV}};
-encrypt_init(#ssh{encrypt = 'AEAD_AES_256_GCM', role = client} = Ssh) ->
-    IV = hash(Ssh, "A", 12*8),
-    <<K:32/binary>> = hash(Ssh, "C", 256),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-		 encrypt_ctx = IV}};
-encrypt_init(#ssh{encrypt = 'AEAD_AES_256_GCM', role = server} = Ssh) ->
-    IV = hash(Ssh, "B", 12*8),
-    <<K:32/binary>> = hash(Ssh, "D", 256),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-		 encrypt_ctx = IV}};
-encrypt_init(#ssh{encrypt = '3des-cbc', role = client} = Ssh) ->
-    IV = hash(Ssh, "A", 64),
-    <<K1:8/binary, K2:8/binary, K3:8/binary>> = hash(Ssh, "C", 192),
-    {ok, Ssh#ssh{encrypt_keys = {K1,K2,K3},
-		 encrypt_block_size = 8,
-		 encrypt_ctx = IV}};
-encrypt_init(#ssh{encrypt = '3des-cbc', role = server} = Ssh) ->
-    IV = hash(Ssh, "B", 64),
-    <<K1:8/binary, K2:8/binary, K3:8/binary>> = hash(Ssh, "D", 192),
-    {ok, Ssh#ssh{encrypt_keys = {K1,K2,K3},
-		 encrypt_block_size = 8,
-		 encrypt_ctx = IV}};
-encrypt_init(#ssh{encrypt = 'aes128-cbc', role = client} = Ssh) ->
-    IV = hash(Ssh, "A", 128),
-    <<K:16/binary>> = hash(Ssh, "C", 128),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-		 encrypt_ctx = IV}};
-encrypt_init(#ssh{encrypt = 'aes128-cbc', role = server} = Ssh) ->
-    IV = hash(Ssh, "B", 128),
-    <<K:16/binary>> = hash(Ssh, "D", 128),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-                 encrypt_ctx = IV}};
-encrypt_init(#ssh{encrypt = 'aes128-ctr', role = client} = Ssh) ->
-    IV = hash(Ssh, "A", 128),
-    <<K:16/binary>> = hash(Ssh, "C", 128),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-                 encrypt_ctx = State}};
-encrypt_init(#ssh{encrypt = 'aes192-ctr', role = client} = Ssh) ->
-    IV = hash(Ssh, "A", 128),
-    <<K:24/binary>> = hash(Ssh, "C", 192),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-                 encrypt_ctx = State}};
-encrypt_init(#ssh{encrypt = 'aes256-ctr', role = client} = Ssh) ->
-    IV = hash(Ssh, "A", 128),
-    <<K:32/binary>> = hash(Ssh, "C", 256),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-                 encrypt_ctx = State}};
-encrypt_init(#ssh{encrypt = 'aes128-ctr', role = server} = Ssh) ->
-    IV = hash(Ssh, "B", 128),
-    <<K:16/binary>> = hash(Ssh, "D", 128),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-                 encrypt_ctx = State}};
-encrypt_init(#ssh{encrypt = 'aes192-ctr', role = server} = Ssh) ->
-    IV = hash(Ssh, "B", 128),
-    <<K:24/binary>> = hash(Ssh, "D", 192),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-                 encrypt_ctx = State}};
-encrypt_init(#ssh{encrypt = 'aes256-ctr', role = server} = Ssh) ->
-    IV = hash(Ssh, "B", 128),
-    <<K:32/binary>> = hash(Ssh, "D", 256),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{encrypt_keys = K,
-		 encrypt_block_size = 16,
-                 encrypt_ctx = State}}.
+
+encrypt_init(#ssh{encrypt = SshCipher, role = Role} = Ssh) ->
+    {IvMagic, KeyMagic} = encrypt_magic(Role),
+    #cipher{impl = CryptoCipher,
+            key_bytes = KeyBytes,
+            iv_bytes = IvBytes,
+            block_bytes = BlockBytes} = cipher(SshCipher),
+    IV = hash(Ssh, IvMagic, 8*IvBytes),
+    K = hash(Ssh, KeyMagic, 8*KeyBytes),
+    Ctx0 = crypto:crypto_init(CryptoCipher, K, IV, true),
+    {ok, Ssh#ssh{encrypt_block_size = BlockBytes,
+                 encrypt_ctx = Ctx0}}.
 
 encrypt_final(Ssh) ->
     {ok, Ssh#ssh{encrypt = none, 
@@ -1487,248 +1435,125 @@ encrypt_final(Ssh) ->
 		 encrypt_ctx = undefined
 		}}.
 
+
 encrypt(#ssh{encrypt = none} = Ssh, Data) ->
     {Ssh, Data};
+
 encrypt(#ssh{encrypt = 'chacha20-poly1305@openssh.com',
              encrypt_keys = {K1,K2},
              send_sequence = Seq} = Ssh,
         <<LenData:4/binary, PayloadData/binary>>) ->
     %% Encrypt length
     IV1 = <<0:8/unit:8, Seq:8/unit:8>>,
-    {_,EncLen} = crypto:stream_encrypt(crypto:stream_init(chacha20, K1, IV1),
-                                            LenData),
+    EncLen = crypto:crypto_one_shot(chacha20, K1, IV1, LenData, true),
     %% Encrypt payload
     IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
-     {_,EncPayloadData} = crypto:stream_encrypt(crypto:stream_init(chacha20, K2, IV2),
-                                                PayloadData),
-
+    EncPayloadData = crypto:crypto_one_shot(chacha20, K2, IV2, PayloadData, true),
     %% MAC tag
-    {_,PolyKey} = crypto:stream_encrypt(crypto:stream_init(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>),
-                                        <<0:32/unit:8>>),
+    PolyKey = crypto:crypto_one_shot(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, true),
     EncBytes = <<EncLen/binary,EncPayloadData/binary>>,
     Ctag = crypto:poly1305(PolyKey, EncBytes),
     %% Result
     {Ssh, {EncBytes,Ctag}};
-encrypt(#ssh{encrypt = 'AEAD_AES_128_GCM',
-            encrypt_keys = K,
-             encrypt_ctx = IV0} = Ssh,
-        <<LenData:4/binary, PayloadData/binary>>) ->
-    {Ctext,Ctag} = crypto:block_encrypt(aes_gcm, K, IV0, {LenData,PayloadData}),
-    IV = next_gcm_iv(IV0),
-    {Ssh#ssh{encrypt_ctx = IV}, {<<LenData/binary,Ctext/binary>>,Ctag}};
-encrypt(#ssh{encrypt = 'AEAD_AES_256_GCM',
-            encrypt_keys = K,
-             encrypt_ctx = IV0} = Ssh, 
-        <<LenData:4/binary, PayloadData/binary>>) ->
-    {Ctext,Ctag} = crypto:block_encrypt(aes_gcm, K, IV0, {LenData,PayloadData}),
-    IV = next_gcm_iv(IV0),
-    {Ssh#ssh{encrypt_ctx = IV}, {<<LenData/binary,Ctext/binary>>,Ctag}};
-encrypt(#ssh{encrypt = '3des-cbc',
-	     encrypt_keys = {K1,K2,K3},
-	     encrypt_ctx = IV0} = Ssh, Data) ->
-    Enc = crypto:block_encrypt(des3_cbc, [K1,K2,K3], IV0, Data),
-    IV = crypto:next_iv(des3_cbc, Enc),
-    {Ssh#ssh{encrypt_ctx = IV}, Enc};
-encrypt(#ssh{encrypt = 'aes128-cbc',
-            encrypt_keys = K,
-            encrypt_ctx = IV0} = Ssh, Data) ->
-    Enc = crypto:block_encrypt(aes_cbc128, K,IV0,Data),
-    IV = crypto:next_iv(aes_cbc, Enc),
-    {Ssh#ssh{encrypt_ctx = IV}, Enc};
-encrypt(#ssh{encrypt = 'aes128-ctr',
-            encrypt_ctx = State0} = Ssh, Data) ->
-    {State, Enc} = crypto:stream_encrypt(State0,Data),
-    {Ssh#ssh{encrypt_ctx = State}, Enc};
-encrypt(#ssh{encrypt = 'aes192-ctr',
-            encrypt_ctx = State0} = Ssh, Data) ->
-    {State, Enc} = crypto:stream_encrypt(State0,Data),
-    {Ssh#ssh{encrypt_ctx = State}, Enc};
-encrypt(#ssh{encrypt = 'aes256-ctr',
-            encrypt_ctx = State0} = Ssh, Data) ->
-    {State, Enc} = crypto:stream_encrypt(State0,Data),
-    {Ssh#ssh{encrypt_ctx = State}, Enc}.
-  
 
+encrypt(#ssh{encrypt = SshCipher,
+             encrypt_keys = K,
+             encrypt_ctx = IV0} = Ssh,
+        <<LenData:4/binary, PayloadData/binary>>) when SshCipher == 'AEAD_AES_128_GCM' ;
+                                                       SshCipher == 'AEAD_AES_256_GCM' ->
+    {Ctext,Ctag} = crypto:block_encrypt(aes_gcm, K, IV0, {LenData,PayloadData}),
+    IV = next_gcm_iv(IV0),
+    {Ssh#ssh{encrypt_ctx = IV}, {<<LenData/binary,Ctext/binary>>,Ctag}};
+
+encrypt(#ssh{encrypt_ctx = Ctx0} = Ssh, Data) ->
+    Enc = crypto:crypto_update(Ctx0, Data),
+    {Ssh, Enc}.
+  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Decryption
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 decrypt_init(#ssh{decrypt = none} = Ssh) ->
     {ok, Ssh};
-decrypt_init(#ssh{decrypt = 'chacha20-poly1305@openssh.com', role = client} = Ssh) ->
-    <<K2:32/binary,K1:32/binary>> = hash(Ssh, "D", 512),
-    {ok, Ssh#ssh{decrypt_keys = {K1,K2}
-                }};
-decrypt_init(#ssh{decrypt = 'chacha20-poly1305@openssh.com', role = server} = Ssh) ->
-    <<K2:32/binary,K1:32/binary>> = hash(Ssh, "C", 512),
-    {ok, Ssh#ssh{decrypt_keys = {K1,K2}
-                }};
-decrypt_init(#ssh{decrypt = 'AEAD_AES_128_GCM', role = client} = Ssh) ->
-    IV = hash(Ssh, "B", 12*8),
-    <<K:16/binary>> = hash(Ssh, "D", 128),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-		 decrypt_ctx = IV}};
-decrypt_init(#ssh{decrypt = 'AEAD_AES_128_GCM', role = server} = Ssh) ->
-    IV = hash(Ssh, "A", 12*8),
-    <<K:16/binary>> = hash(Ssh, "C", 128),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-		 decrypt_ctx = IV}};
-decrypt_init(#ssh{decrypt = 'AEAD_AES_256_GCM', role = client} = Ssh) ->
-    IV = hash(Ssh, "B", 12*8),
-    <<K:32/binary>> = hash(Ssh, "D", 256),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-		 decrypt_ctx = IV}};
-decrypt_init(#ssh{decrypt = 'AEAD_AES_256_GCM', role = server} = Ssh) ->
-    IV = hash(Ssh, "A", 12*8),
-    <<K:32/binary>> = hash(Ssh, "C", 256),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-		 decrypt_ctx = IV}};
-decrypt_init(#ssh{decrypt = '3des-cbc', role = client} = Ssh) ->
-    {IV, KD} = {hash(Ssh, "B", 64),
-		hash(Ssh, "D", 192)},
-    <<K1:8/binary, K2:8/binary, K3:8/binary>> = KD,
-    {ok, Ssh#ssh{decrypt_keys = {K1,K2,K3}, decrypt_ctx = IV,
-			 decrypt_block_size = 8}}; 
-decrypt_init(#ssh{decrypt = '3des-cbc', role = server} = Ssh) ->
-    {IV, KD} = {hash(Ssh, "A", 64),
-		hash(Ssh, "C", 192)},
-    <<K1:8/binary, K2:8/binary, K3:8/binary>> = KD,
-    {ok, Ssh#ssh{decrypt_keys = {K1, K2, K3}, decrypt_ctx = IV,
-		 decrypt_block_size = 8}};
-decrypt_init(#ssh{decrypt = 'aes128-cbc', role = client} = Ssh) ->
-    {IV, KD} = {hash(Ssh, "B", 128),
-		hash(Ssh, "D", 128)},
-    <<K:16/binary>> = KD,
-    {ok, Ssh#ssh{decrypt_keys = K, decrypt_ctx = IV,
-		 decrypt_block_size = 16}};
-decrypt_init(#ssh{decrypt = 'aes128-cbc', role = server} = Ssh) ->
-    {IV, KD} = {hash(Ssh, "A", 128),
-		hash(Ssh, "C", 128)},
-    <<K:16/binary>> = KD,
-    {ok, Ssh#ssh{decrypt_keys = K, decrypt_ctx = IV,
-		 decrypt_block_size = 16}};
-decrypt_init(#ssh{decrypt = 'aes128-ctr', role = client} = Ssh) ->
-	IV = hash(Ssh, "B", 128),
-    <<K:16/binary>> = hash(Ssh, "D", 128),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-                 decrypt_ctx = State}};
-decrypt_init(#ssh{decrypt = 'aes192-ctr', role = client} = Ssh) ->
-	IV = hash(Ssh, "B", 128),
-    <<K:24/binary>> = hash(Ssh, "D", 192),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-                 decrypt_ctx = State}};
-decrypt_init(#ssh{decrypt = 'aes256-ctr', role = client} = Ssh) ->
-	IV = hash(Ssh, "B", 128),
-    <<K:32/binary>> = hash(Ssh, "D", 256),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-                 decrypt_ctx = State}};
-decrypt_init(#ssh{decrypt = 'aes128-ctr', role = server} = Ssh) ->
-	IV = hash(Ssh, "A", 128),
-    <<K:16/binary>> = hash(Ssh, "C", 128),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-                 decrypt_ctx = State}};
-decrypt_init(#ssh{decrypt = 'aes192-ctr', role = server} = Ssh) ->
-	IV = hash(Ssh, "A", 128),
-    <<K:24/binary>> = hash(Ssh, "C", 192),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-                 decrypt_ctx = State}};
-decrypt_init(#ssh{decrypt = 'aes256-ctr', role = server} = Ssh) ->
-	IV = hash(Ssh, "A", 128),
-    <<K:32/binary>> = hash(Ssh, "C", 256),
-    State = crypto:stream_init(aes_ctr, K, IV),
-    {ok, Ssh#ssh{decrypt_keys = K,
-		 decrypt_block_size = 16,
-                 decrypt_ctx = State}}.
 
-  
+decrypt_init(#ssh{decrypt = 'chacha20-poly1305@openssh.com', role = Role} = Ssh) ->
+    {_, KeyMagic} = decrypt_magic(Role),
+    <<K2:32/binary,K1:32/binary>> = hash(Ssh, KeyMagic, 8*64),
+    {ok, Ssh#ssh{decrypt_keys = {K1,K2}
+                }};
+
+decrypt_init(#ssh{decrypt = SshCipher, role = Role} = Ssh) when SshCipher == 'AEAD_AES_128_GCM';
+                                                                SshCipher == 'AEAD_AES_256_GCM' ->
+    {IvMagic, KeyMagic} = decrypt_magic(Role),
+    #cipher{key_bytes = KeyBytes,
+            iv_bytes = IvBytes,
+            block_bytes = BlockBytes} = cipher(SshCipher),
+    IV = hash(Ssh, IvMagic, 8*IvBytes),
+    K = hash(Ssh, KeyMagic, 8*KeyBytes),
+    {ok, Ssh#ssh{decrypt_keys = K,
+		 decrypt_block_size = BlockBytes,
+		 decrypt_ctx = IV}};
+
+decrypt_init(#ssh{decrypt = SshCipher, role = Role} = Ssh) ->
+    {IvMagic, KeyMagic} = decrypt_magic(Role),
+    #cipher{impl = CryptoCipher,
+            key_bytes = KeyBytes,
+            iv_bytes = IvBytes,
+            block_bytes = BlockBytes} = cipher(SshCipher),
+    IV = hash(Ssh, IvMagic, 8*IvBytes),
+    K = hash(Ssh, KeyMagic, 8*KeyBytes),
+    Ctx0 = crypto:crypto_init(CryptoCipher, K, IV, false),
+    {ok, Ssh#ssh{decrypt_block_size = BlockBytes,
+                 decrypt_ctx = Ctx0}}.
+
 decrypt_final(Ssh) ->
     {ok, Ssh#ssh {decrypt = none, 
 		  decrypt_keys = undefined,
 		  decrypt_ctx = undefined,
 		  decrypt_block_size = 8}}.
 
+
 decrypt(Ssh, <<>>) ->
     {Ssh, <<>>};
+
 decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
              decrypt_keys = {K1,_K2},
              recv_sequence = Seq} = Ssh, {length,EncryptedLen}) ->
-    {_State,PacketLenBin} =
-        crypto:stream_decrypt(crypto:stream_init(chacha20, K1, <<0:8/unit:8, Seq:8/unit:8>>),
-                              EncryptedLen),
+    PacketLenBin = crypto:crypto_one_shot(chacha20, K1, <<0:8/unit:8, Seq:8/unit:8>>, EncryptedLen, false),
     {Ssh, PacketLenBin};
+
 decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
              decrypt_keys = {_K1,K2},
              recv_sequence = Seq} = Ssh, {AAD,Ctext,Ctag}) ->
     %% The length is already decoded and used to divide the input
     %% Check the mac (important that it is timing-safe):
-    {_,PolyKey} =
-        crypto:stream_encrypt(crypto:stream_init(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>),
-                              <<0:32/unit:8>>),
+    PolyKey = crypto:crypto_one_shot(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
     case equal_const_time(Ctag, crypto:poly1305(PolyKey, <<AAD/binary,Ctext/binary>>)) of
         true ->
             %% MAC is ok, decode
             IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
-            {_,PlainText} =
-                crypto:stream_decrypt(crypto:stream_init(chacha20,K2,IV2), Ctext),
+            PlainText = crypto:crypto_one_shot(chacha20, K2, IV2, Ctext, false),
             {Ssh, PlainText};
         false ->
            {Ssh,error}
     end;
+
 decrypt(#ssh{decrypt = none} = Ssh, Data) ->
     {Ssh, Data};
-decrypt(#ssh{decrypt = 'AEAD_AES_128_GCM',
-	     decrypt_keys = K,
-	     decrypt_ctx = IV0} = Ssh, Data = {_AAD,_Ctext,_Ctag}) ->
-    Dec = crypto:block_decrypt(aes_gcm, K, IV0, Data), % Dec = PlainText | error 
-    IV = next_gcm_iv(IV0),
-    {Ssh#ssh{decrypt_ctx = IV}, Dec};
-decrypt(#ssh{decrypt = 'AEAD_AES_256_GCM',
-	     decrypt_keys = K,
-	     decrypt_ctx = IV0} = Ssh, Data = {_AAD,_Ctext,_Ctag}) ->
-    Dec = crypto:block_decrypt(aes_gcm, K, IV0, Data), % Dec = PlainText | error 
-    IV = next_gcm_iv(IV0),
-    {Ssh#ssh{decrypt_ctx = IV}, Dec};
-decrypt(#ssh{decrypt = '3des-cbc', decrypt_keys = Keys,
-	     decrypt_ctx = IV0} = Ssh, Data) ->
-    {K1, K2, K3} = Keys,
-    Dec = crypto:block_decrypt(des3_cbc, [K1,K2,K3], IV0, Data),
-    IV = crypto:next_iv(des3_cbc, Data),
-    {Ssh#ssh{decrypt_ctx = IV}, Dec};
-decrypt(#ssh{decrypt = 'aes128-cbc', decrypt_keys = Key,
-	     decrypt_ctx = IV0} = Ssh, Data) ->
-    Dec = crypto:block_decrypt(aes_cbc128, Key,IV0,Data),
-    IV = crypto:next_iv(aes_cbc, Data),
-    {Ssh#ssh{decrypt_ctx = IV}, Dec};
-decrypt(#ssh{decrypt = 'aes128-ctr',
-            decrypt_ctx = State0} = Ssh, Data) ->
-    {State, Enc} = crypto:stream_decrypt(State0,Data),
-    {Ssh#ssh{decrypt_ctx = State}, Enc};
-decrypt(#ssh{decrypt = 'aes192-ctr',
-            decrypt_ctx = State0} = Ssh, Data) ->
-    {State, Enc} = crypto:stream_decrypt(State0,Data),
-    {Ssh#ssh{decrypt_ctx = State}, Enc};
-decrypt(#ssh{decrypt = 'aes256-ctr',
-            decrypt_ctx = State0} = Ssh, Data) ->
-    {State, Enc} = crypto:stream_decrypt(State0,Data),
-    {Ssh#ssh{decrypt_ctx = State}, Enc}.
 
+decrypt(#ssh{decrypt = SshCipher,
+	     decrypt_keys = K,
+	     decrypt_ctx = IV0} = Ssh, Data = {_AAD,_Ctext,_Ctag}) when SshCipher == 'AEAD_AES_128_GCM' ;
+                                                                        SshCipher == 'AEAD_AES_256_GCM' ->
+    Dec = crypto:block_decrypt(aes_gcm, K, IV0, Data), % Dec = PlainText | error 
+    IV = next_gcm_iv(IV0),
+    {Ssh#ssh{decrypt_ctx = IV}, Dec};
+
+decrypt(#ssh{decrypt_ctx = Ctx0} = Ssh, Data) ->
+    Dec = crypto:crypto_update(Ctx0, Data),
+    {Ssh, Dec}.
 
 next_gcm_iv(<<Fixed:32, InvCtr:64>>) -> <<Fixed:32, (InvCtr+1):64>>.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Compression
@@ -2058,9 +1883,9 @@ compute_key(Algorithm, OthersPublic, MyPrivate, Args) ->
 dh_bits(#alg{encrypt = Encrypt,
              send_mac = SendMac}) ->
     C = cipher(Encrypt),
-    8 * lists:max([C#cipher_data.key_bytes,
-                   C#cipher_data.block_bytes,
-                   C#cipher_data.iv_bytes,
+    8 * lists:max([C#cipher.key_bytes,
+                   C#cipher.block_bytes,
+                   C#cipher.iv_bytes,
                    mac_key_bytes(SendMac)
                   ]).
 
@@ -2091,39 +1916,12 @@ select_crypto_supported(L) ->
 
 crypto_supported(Conditions, Supported) ->
     lists:all( fun({Tag,CryptoName}) when is_atom(CryptoName) ->
-		       crypto_name_supported(Tag,CryptoName,Supported);
-		  ({Tag,{Name,Len}}) when is_integer(Len) ->
-		       crypto_name_supported(Tag,Name,Supported) andalso
-			   len_supported(Name,Len)
+		       crypto_name_supported(Tag,CryptoName,Supported)
 	       end, Conditions).
 
 crypto_name_supported(Tag, CryptoName, Supported) ->
-    Vs = case proplists:get_value(Tag,Supported,[]) of
-             [] when Tag == curves -> crypto:ec_curves();
-             L -> L
-         end,
+    Vs = proplists:get_value(Tag,Supported,[]),
     lists:member(CryptoName, Vs).
-
-len_supported(Name, Len) ->
-    try
-	case Name of
-	    aes_ctr ->
-		{_, <<_/binary>>} = 
-		    %% Test encryption
-		    crypto:stream_encrypt(crypto:stream_init(Name, <<0:Len>>, <<0:128>>), <<"">>);
-	    aes_gcm ->
-		{<<_/binary>>, <<_/binary>>} = 
-		    crypto:block_encrypt(Name, 
-					 _Key = <<0:Len>>,
-					 _IV = <<0:12/unsigned-unit:8>>,
-					 {<<"AAD">>,"PT"})
-	end
-    of
-	_ -> true
-    catch
-	_:_ -> false
-    end.
-	    
 
 same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
 
