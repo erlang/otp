@@ -2410,14 +2410,14 @@ scan_att_chars("&" ++ T, S0, Delim, Acc, TmpAcc,AT,IsNorm) -> % Reference
 	true ->
 	    scan_att_chars(T1,S1,Delim,[ExpRef|Acc],[ExpRef|TmpAcc],AT,IsNorm);
 	_ ->
-            Ch = string_to_char_set(S#xmerl_scanner.encoding, ExpRef),
             case T of
                 "#" ++ _ ->
                     %% normalization rules (sec 3.3.3) require that for
                     %% character references, the referenced character be
                     %% added directly to the normalized value
-                    scan_att_chars(T1, S1, Delim, Ch ++ Acc,TmpAcc, AT,IsNorm);
+                    scan_att_chars(T1, S1, Delim, ExpRef ++ Acc,TmpAcc, AT,IsNorm);
                 _ ->
+                    Ch = string_to_char_set(S#xmerl_scanner.encoding, ExpRef),
                     scan_att_chars(Ch ++ T1, S1, Delim, Acc,TmpAcc, AT,IsNorm)
             end
     end;
