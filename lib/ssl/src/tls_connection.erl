@@ -98,7 +98,7 @@
 %% Setup
 %%====================================================================
 start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_, Tracker} = Opts,
-	  User, {CbModule, _,_, _} = CbInfo, 
+	  User, {CbModule, _,_, _, _} = CbInfo, 
 	  Timeout) -> 
     try 
         {ok, Sender} = tls_sender:start(),
@@ -112,7 +112,7 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_, Tracker} 
     end;
 
 start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} = Opts,
-	  User, {CbModule, _,_, _} = CbInfo, 
+	  User, {CbModule, _,_, _, _} = CbInfo, 
 	  Timeout) -> 
     try 
         {ok, Sender} = tls_sender:start([{spawn_opt, ?DIST_CNTRL_SPAWN_OPTS}]),
@@ -251,13 +251,28 @@ next_event(StateName, Record, State, Actions) ->
 
 
 %%% TLS record protocol level application data messages 
-
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName0, State0) ->
+handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, 
+                       #state{start_or_recv_from = From,
+                              socket_options = #socket_options{active = false}} = State0) when From =/= undefined ->
+    case ssl_connection:read_application_data(Data, State0) of
+       {stop, _, _} = Stop->
+            Stop;
+       {Record, #state{start_or_recv_from = Caller} = State1} ->
+            TimerAction = case Caller of
+                              undefined -> %% Passive recv complete cancel timer
+                                  [{{timeout, recv}, infinity, timeout}];
+                              _ ->
+                                  []
+                          end,
+            {next_state, StateName, State, Actions} = next_event(StateName, Record, State1, TimerAction), 
+            ssl_connection:hibernate_after(StateName, State, Actions)
+    end;
+handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State0) ->
     case ssl_connection:read_application_data(Data, State0) of
 	{stop, _, _} = Stop->
             Stop;
 	{Record, State1} ->
-            case next_event(StateName0, Record, State1) of
+            case next_event(StateName, Record, State1) of
                 {next_state, StateName, State, Actions} ->
                     ssl_connection:hibernate_after(StateName, State, Actions);
                 {stop, _, _} = Stop ->
@@ -939,7 +954,7 @@ code_change(_OldVsn, StateName, State, _) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, User,
-	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
+	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #ssl_options{beast_mitigation = BeastMitigation,
                  erl_dist = IsErlDist} = SSLOptions,
     ConnectionStates = tls_record:init_connection_states(Role, BeastMitigation),
@@ -963,6 +978,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
                      data_tag = DataTag,
                      close_tag = CloseTag,
                      error_tag = ErrorTag,
+                     passive_tag = PassiveTag,
                      host = Host,
                      port = Port,
                      socket = Socket,
@@ -1059,8 +1075,9 @@ handle_info({Protocol, _, Data}, StateName,
 	    ssl_connection:handle_normal_shutdown(Alert, StateName, State0), 
 	    {stop, {shutdown, own_alert}, State0}
     end;
-handle_info({tcp_passive, Socket},  StateName, 
-            #state{static_env = #static_env{socket = Socket},
+handle_info({PassiveTag, Socket},  StateName, 
+            #state{static_env = #static_env{socket = Socket,
+                                            passive_tag = PassiveTag},
                    protocol_specific = PS
                   } = State) ->
     next_event(StateName, no_record, 
