@@ -29,9 +29,7 @@
 #include "aes.h"
 #include "algorithms.h"
 #include "api_ng.h"
-#include "block.h"
 #include "bn.h"
-#include "chacha20.h"
 #include "cipher.h"
 #include "cmac.h"
 #include "dh.h"
@@ -50,7 +48,6 @@
 #include "pkey.h"
 #include "poly1305.h"
 #include "rand.h"
-#include "rc4.h"
 #include "rsa.h"
 #include "srp.h"
 
@@ -80,22 +77,16 @@ static ErlNifFunc nif_funcs[] = {
     {"hmac_final_nif", 2, hmac_final_nif, 0},
     {"cmac_nif", 3, cmac_nif, 0},
     {"cipher_info_nif", 1, cipher_info_nif, 0},
-    {"block_crypt_nif", 5, block_crypt_nif, 0},
-    {"block_crypt_nif", 4, block_crypt_nif, 0},
     {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif, 0},
-    {"aes_ctr_stream_init", 2, aes_ctr_stream_init, 0},
-    {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt, 0},
-    {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt, 0},
     {"ng_crypto_init_nif", 4, ng_crypto_init_nif, 0},
     {"ng_crypto_update_nif", 2, ng_crypto_update_nif, 0},
     {"ng_crypto_update_nif", 3, ng_crypto_update_nif, 0},
+    {"ng_crypto_one_shot_nif", 5, ng_crypto_one_shot_nif, 0},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif, 0},
     {"strong_rand_range_nif", 1, strong_rand_range_nif, 0},
     {"rand_uniform_nif", 2, rand_uniform_nif, 0},
     {"mod_exp_nif", 4, mod_exp_nif, 0},
     {"do_exor", 2, do_exor, 0},
-    {"rc4_set_key", 1, rc4_set_key, 0},
-    {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state, 0},
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
     {"pkey_crypt_nif", 6, pkey_crypt_nif, 0},
@@ -116,10 +107,6 @@ static ErlNifFunc nif_funcs[] = {
 
     {"aead_encrypt", 6, aead_encrypt, 0},
     {"aead_decrypt", 6, aead_decrypt, 0},
-
-    {"chacha20_stream_init",    2, chacha20_stream_init, 0},
-    {"chacha20_stream_encrypt", 2, chacha20_stream_crypt, 0},
-    {"chacha20_stream_decrypt", 2, chacha20_stream_crypt, 0},
 
     {"poly1305_nif", 2, poly1305_nif, 0},
 

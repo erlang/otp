@@ -27,10 +27,7 @@ ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 ERL_NIF_TERM aes_cfb_128_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 #if !defined(HAVE_EVP_AES_CTR)
-ERL_NIF_TERM aes_ctr_stream_init_compat(ErlNifEnv* env, const ERL_NIF_TERM key_term, const ERL_NIF_TERM iv_term);
 ERL_NIF_TERM aes_ctr_stream_encrypt_compat(ErlNifEnv* env, const ERL_NIF_TERM state_arg, const ERL_NIF_TERM data_arg);
 #endif
 

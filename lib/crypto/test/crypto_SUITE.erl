@@ -9,7 +9,7 @@
 %%
 %%     http://www.apache.org/licenses/LICENSE-2.0
 %%
-%% Unless required by applicable law or agreed to in writing, software
+
 %% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
@@ -46,53 +46,67 @@ all() ->
     ].
 
 groups() ->
-    [{non_fips, [], [{group, md4},
-                     {group, md5},
-                     {group, ripemd160},
-                     {group, sha},
-                     {group, sha224},
-                     {group, sha256},
-                     {group, sha384},
-                     {group, sha512},
-                     {group, sha3_224},
-                     {group, sha3_256},
-                     {group, sha3_384},
-                     {group, sha3_512},
+    [{non_fips, [], [
                      {group, blake2b},
                      {group, blake2s},
-                     {group, rsa},
                      {group, dss},
                      {group, ecdsa},
                      {group, ed25519},
                      {group, ed448},
+                     {group, rsa},
+
+                     {group, md4},
+                     {group, md5},
+                     {group, ripemd160},
+                     {group, sha224},
+                     {group, sha256},
+                     {group, sha384},
+                     {group, sha3_224},
+                     {group, sha3_256},
+                     {group, sha3_384},
+                     {group, sha3_512},
+                     {group, sha512},
+                     {group, sha},
+
                      {group, dh},
                      {group, ecdh},
                      {group, srp},
-                     {group, des_cbc},
-                     {group, des_cfb},
-                     {group, des3_cbc},
-                     {group, des3_cbf},
-		     {group, des3_cfb},
-                     {group, des_ede3},
-                     {group, blowfish_cbc},
-                     {group, blowfish_ecb},
-                     {group, blowfish_cfb64},
-                     {group, blowfish_ofb64},
-                     {group, aes_cbc128},
-                     {group, aes_cfb8},
-                     {group, aes_cfb128},
-                     {group, aes_cbc256},
-                     {group, aes_ige256},
-                     {group, rc2_cbc},
-                     {group, rc4},
-                     {group, aes_ctr},
+
+		     {group, aes_cbc},
 		     {group, aes_ccm},
 		     {group, aes_gcm},
 		     {group, chacha20_poly1305},
 		     {group, chacha20},
+		     {group, des3_cfb},
+                     {group, aes_cbc128},
+                     {group, aes_cbc256},
+                     {group, aes_cfb128},
+                     {group, aes_cfb8},
+                     {group, aes_ctr},
+                     {group, aes_ige256},
+                     {group, blowfish_cbc},
+                     {group, blowfish_cfb64},
+                     {group, blowfish_ecb},
+                     {group, blowfish_ofb64},
+                     {group, des3_cbc},
+                     {group, des3_cbf},
+                     {group, des_cbc},
+                     {group, des_cfb},
+                     {group, des_ede3},
                      {group, poly1305},
-		     {group, aes_cbc}]},
-     {fips, [], [{group, no_md4},
+                     {group, rc2_cbc},
+                     {group, rc4}
+                    ]},
+     {fips, [], [
+                 {group, no_blake2b},
+                 {group, no_blake2s},
+                 {group, dss},
+                 {group, ecdsa},
+                 {group, no_ed25519},
+                 {group, no_ed448},
+                 {group, rsa},
+
+                 {group, no_md4},
                  {group, no_md5},
                  {group, no_ripemd160},
                  {group, sha},
@@ -100,37 +114,36 @@ groups() ->
                  {group, sha256},
                  {group, sha384},
                  {group, sha512},
-                 {group, rsa},
-                 {group, dss},
-                 {group, ecdsa},
-                 {group, no_ed25519},
-                 {group, no_ed448},
+
                  {group, dh},
                  {group, ecdh},
                  {group, no_srp},
-                 {group, no_des_cbc},
-                 {group, no_des_cfb},
-                 {group, des3_cbc},
-                 {group, des3_cbf},
-		 {group, des3_cfb},
-                 {group, des_ede3},
-                 {group, no_blowfish_cbc},
-                 {group, no_blowfish_ecb},
-                 {group, no_blowfish_cfb64},
-                 {group, no_blowfish_ofb64},
-                 {group, aes_cbc128},
-                 {group, no_aes_cfb8},
-                 {group, no_aes_cfb128},
-                 {group, aes_cbc256},
-                 {group, no_aes_ige256},
-                 {group, no_rc2_cbc},
-                 {group, no_rc4},
-                 {group, aes_ctr},
+
+		 {group, aes_cbc},
 		 {group, aes_ccm},
 		 {group, aes_gcm},
 		 {group, no_chacha20_poly1305},
 		 {group, no_chacha20},
-		 {group, aes_cbc}]},
+		 {group, des3_cfb},
+                 {group, aes_cbc128},
+                 {group, aes_cbc256},
+                 {group, no_aes_cfb128},
+                 {group, no_aes_cfb8},
+                 {group, aes_ctr},
+                 {group, no_aes_ige256},
+                 {group, no_blowfish_cbc},
+                 {group, no_blowfish_cfb64},
+                 {group, no_blowfish_ecb},
+                 {group, no_blowfish_ofb64},
+                 {group, des3_cbc},
+                 {group, des3_cbf},
+                 {group, no_des_cbc},
+                 {group, no_des_cfb},
+                 {group, des_ede3},
+                 {group, no_poly1305},
+                 {group, no_rc2_cbc},
+                 {group, no_rc4}
+                ]},
      {md4, [], [hash]},
      {md5, [], [hash, hmac]},
      {ripemd160, [], [hash]},
@@ -145,6 +158,8 @@ groups() ->
      {sha3_512, [], [hash, hmac]},
      {blake2b, [], [hash, hmac]},
      {blake2s, [], [hash, hmac]},
+     {no_blake2b, [], [no_hash, no_hmac]},
+     {no_blake2s, [], [no_hash, no_hmac]},
      {rsa, [], [sign_verify,
                 public_encrypt,
                 private_encrypt,
@@ -166,31 +181,32 @@ groups() ->
                compute_bug]},
      {ecdh, [], [use_all_elliptic_curves, compute, generate]},
      {srp, [], [generate_compute]},
-     {des_cbc, [], [block]},
-     {des_cfb, [], [block]},
-     {des3_cbc,[], [block]},
-     {des_ede3,[], [block]},
-     {des3_cbf,[], [block]},
-     {des3_cfb,[], [block]},
-     {rc2_cbc,[], [block]},
-     {aes_cbc128,[], [block, cmac]},
-     {aes_cfb8,[], [block]},
-     {aes_cfb128,[], [block]},
-     {aes_cbc256,[], [block, cmac]},
-     {aes_ecb,[], [block]},
+     {des_cbc, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_cfb, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des3_cbc,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_ede3,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des3_cbf,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {des3_cfb,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {rc2_cbc,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_cbc128,[], [block, api_ng, api_ng_one_shot, api_ng_tls, cmac]},
+     {aes_cfb8,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_cfb128,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_cbc256,[], [block, api_ng, api_ng_one_shot, api_ng_tls, cmac]},
+     {aes_ecb,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_ige256,[], [block]},
-     {blowfish_cbc, [], [block]},
-     {blowfish_ecb, [], [block]},
-     {blowfish_cfb64, [], [block]},
-     {blowfish_ofb64,[], [block]},
-     {rc4, [], [stream]},
-     {aes_ctr, [], [stream]},
+     {blowfish_cbc, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_ecb, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_cfb64, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_ofb64,[], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {rc4, [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_ctr, [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_ccm, [], [aead]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]},
-     {chacha20, [], [stream]},
+     {chacha20, [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
      {poly1305, [], [poly1305]},
-     {aes_cbc, [], [block]},
+     {no_poly1305, [], [no_poly1305]},
+     {aes_cbc, [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {no_aes_cfb8,[], [no_support, no_block]},
      {no_aes_cfb128,[], [no_support, no_block]},
      {no_md4, [], [no_support, no_hash]},
@@ -412,11 +428,19 @@ poly1305(Config) ->
       end, proplists:get_value(poly1305, Config)).
 
 %%--------------------------------------------------------------------
+no_poly1305() ->
+    [{doc, "Test disabled poly1305 function"}].
+no_poly1305(Config) ->
+    Type = ?config(type, Config),
+    Key = <<133,214,190,120,87,85,109,51,127,68,82,254,66,213,6,168,1,
+            3,128,138,251,13,178,253,74,191,246,175,65,73,245,27>>,
+    Txt = <<"Cryptographic Forum Research Group">>,
+    notsup(fun crypto:poly1305/2, [Key,Txt]).
+
+%%--------------------------------------------------------------------
 block() ->
      [{doc, "Test block ciphers"}].
 block(Config) when is_list(Config) ->
-    Fips = proplists:get_bool(fips, Config),
-    Type = ?config(type, Config),
     Blocks = lazy_eval(proplists:get_value(block, Config)),
     lists:foreach(fun block_cipher/1, Blocks),
     lists:foreach(fun block_cipher/1, block_iolistify(Blocks)),
@@ -438,6 +462,156 @@ no_block(Config) when is_list(Config) ->
     N = length(Args),
     notsup(fun crypto:block_encrypt/N, Args),
     notsup(fun crypto:block_decrypt/N, Args).
+%%--------------------------------------------------------------------
+api_ng() ->
+     [{doc, "Test new api"}].
+
+api_ng(Config) when is_list(Config) ->
+    Blocks = lazy_eval(proplists:get_value(block, Config, [])),
+    Streams = lazy_eval(proplists:get_value(stream, Config, [])),
+    lists:foreach(fun api_ng_cipher_increment/1, Blocks++Streams).
+
+
+api_ng_cipher_increment({Type, Key, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    api_ng_cipher_increment({Type, Key, <<>>, PlainTexts});
+
+api_ng_cipher_increment({Type, Key, IV, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    api_ng_cipher_increment({Type, Key, IV, PlainTexts, undefined});
+
+api_ng_cipher_increment({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
+    ct:log("~p",[_X]),
+    PlainTexts = iolistify(PlainText0),
+    RefEnc = crypto:crypto_init(Type, Key, IV, true),
+    RefDec = crypto:crypto_init(Type, Key, IV, false),
+    EncTexts = api_ng_cipher_increment_loop(RefEnc, PlainTexts),
+    Enc = iolist_to_binary(EncTexts),
+    case ExpectedEncText of
+        undefined ->
+            ok;
+        Enc ->
+            ok;
+        _ ->
+            ct:log("encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainTexts}, ExpectedEncText, Enc]),
+            ct:fail("api_ng_cipher_increment (encode)",[])
+    end,
+    Plain = iolist_to_binary(PlainTexts),
+    case iolist_to_binary(api_ng_cipher_increment_loop(RefDec, EncTexts)) of
+        Plain ->
+            ok;
+        OtherPT ->
+            ct:log("decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTexts}, Plain, OtherPT]),
+            ct:fail("api_ng_cipher_increment (encode)",[])
+    end.
+
+
+api_ng_cipher_increment_loop(Ref, InTexts) ->
+    lists:map(fun(Txt) ->
+                      try crypto:crypto_update(Ref, Txt)
+                      of
+                          Bin when is_binary(Bin) ->
+                              Bin
+                      catch
+                          error:Error ->
+                              ct:pal("Txt = ~p",[Txt]),
+                              ct:fail("~p",[Error])
+                      end
+              end, InTexts).
+
+%%--------------------------------------------------------------------
+api_ng_one_shot() ->
+     [{doc, "Test new api"}].
+
+api_ng_one_shot(Config) when is_list(Config) ->
+    Blocks = lazy_eval(proplists:get_value(block, Config, [])),
+    Streams = lazy_eval(proplists:get_value(stream, Config, [])),
+    lists:foreach(fun do_api_ng_one_shot/1, Blocks++Streams).
+
+do_api_ng_one_shot({Type, Key, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    do_api_ng_one_shot({Type, Key, <<>>, PlainTexts});
+
+do_api_ng_one_shot({Type, Key, IV, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    do_api_ng_one_shot({Type, Key, IV, PlainTexts, undefined});
+
+do_api_ng_one_shot({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
+    ct:log("~p",[_X]),
+    PlainText = iolist_to_binary(PlainText0),
+    EncTxt = crypto:crypto_one_shot(Type, Key, IV, PlainText, true),
+    case ExpectedEncText of
+        undefined ->
+            ok;
+        EncTxt ->
+            ok;
+        _ ->
+            ct:log("encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainText}, ExpectedEncText, EncTxt]),
+            ct:fail("api_ng_one_shot (encode)",[])
+    end,
+    case crypto:crypto_one_shot(Type, Key, IV, EncTxt, false) of
+        PlainText ->
+            ok;
+        OtherPT ->
+            ct:log("decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, OtherPT]),
+            ct:fail("api_ng_one_shot (decode)",[])
+    end.
+
+%%--------------------------------------------------------------------
+api_ng_tls() ->
+     [{doc, "Test special tls api"}].
+
+api_ng_tls(Config) when is_list(Config) ->
+    Blocks = lazy_eval(proplists:get_value(block, Config, [])),
+    Streams = lazy_eval(proplists:get_value(stream, Config, [])),
+    lists:foreach(fun do_api_ng_tls/1, Blocks++Streams).
+
+
+do_api_ng_tls({Type, Key, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    do_api_ng_tls({Type, Key, <<>>, PlainTexts});
+
+do_api_ng_tls({Type, Key, IV, PlainTexts}=_X) ->
+    ct:log("~p",[_X]),
+    do_api_ng_tls({Type, Key, IV, PlainTexts, undefined});
+
+do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
+    ct:log("~p",[_X]),
+    PlainText = iolist_to_binary(PlainText0),
+    Renc = crypto:crypto_init_dyn_iv(Type, Key, true),
+    Rdec = crypto:crypto_init_dyn_iv(Type, Key, false),
+    EncTxt = crypto:crypto_update_dyn_iv(Renc, PlainText, IV),
+    case ExpectedEncText of
+        undefined ->
+            ok;
+        EncTxt ->
+            %% Now check that the state is NOT updated:
+            case crypto:crypto_update_dyn_iv(Renc, PlainText, IV) of
+                EncTxt ->
+                    ok;
+                EncTxt2 ->
+                    ct:log("2nd encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainText}, EncTxt, EncTxt2]),
+                    ct:fail("api_ng_tls (second encode)",[])
+            end;
+        OtherEnc ->
+            ct:log("1st encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainText}, ExpectedEncText, OtherEnc]),
+            ct:fail("api_ng_tls (encode)",[])
+    end,
+    case crypto:crypto_update_dyn_iv(Rdec, EncTxt, IV) of
+        PlainText ->
+            %% Now check that the state is NOT updated:
+            case crypto:crypto_update_dyn_iv(Rdec, EncTxt, IV) of
+                PlainText ->
+                    ok;
+                PlainText2 ->
+                    ct:log("2nd decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, PlainText2]),
+                    ct:fail("api_ng_tls (second decode)",[])
+            end;
+        OtherPT ->
+            ct:log("1st decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, OtherPT]),
+            ct:fail("api_ng_tlst (decode)",[])
+    end.
+
 %%--------------------------------------------------------------------
 no_aead() ->
      [{doc, "Test disabled aead ciphers"}].
@@ -774,6 +948,7 @@ cmac_check({Type, Key, Text, Size, CMac}) ->
             ct:fail({{crypto, cmac, [Type, Key, Text, Size]}, {expected, ExpCMac}, {got, Other}})
     end.
 
+
 block_cipher({Type, Key,  PlainText}) ->
     Plain = iolist_to_binary(PlainText),
     CipherText = crypto:block_encrypt(Type, Key, PlainText),
@@ -851,46 +1026,51 @@ block_cipher_increment(Type, Key, IV0, IV, [PlainText | PlainTexts], Plain, Ciph
 
 stream_cipher({Type, Key, PlainText}) ->
     Plain = iolist_to_binary(PlainText),
-    State = crypto:stream_init(Type, Key),
-    {_, CipherText} = crypto:stream_encrypt(State, PlainText),
-    case crypto:stream_decrypt(State, CipherText) of
+    StateE = crypto:stream_init(Type, Key),
+    StateD = crypto:stream_init(Type, Key),
+    {_, CipherText} = crypto:stream_encrypt(StateE, PlainText),
+    case crypto:stream_decrypt(StateD, CipherText) of
 	{_, Plain} ->
 	    ok;
 	Other ->
-	    ct:fail({{crypto, stream_decrypt, [State, CipherText]}, {expected, PlainText}, {got, Other}})
+	    ct:fail({{crypto, stream_decrypt, [StateD, CipherText]}, {expected, PlainText}, {got, Other}})
     end;
 stream_cipher({Type, Key, IV, PlainText}) ->
     Plain = iolist_to_binary(PlainText),
-    State = crypto:stream_init(Type, Key, IV),
-    {_, CipherText} = crypto:stream_encrypt(State, PlainText),
-    case crypto:stream_decrypt(State, CipherText) of
+    StateE = crypto:stream_init(Type, Key, IV),
+    StateD = crypto:stream_init(Type, Key, IV),
+    {_, CipherText} = crypto:stream_encrypt(StateE, PlainText),
+    case crypto:stream_decrypt(StateD, CipherText) of
 	{_, Plain} ->
 	    ok;
 	Other ->
-	    ct:fail({{crypto, stream_decrypt, [State, CipherText]}, {expected, PlainText}, {got, Other}})
+	    ct:fail({{crypto, stream_decrypt, [StateD, CipherText]}, {expected, PlainText}, {got, Other}})
     end;
 stream_cipher({Type, Key, IV, PlainText, CipherText}) ->
     Plain = iolist_to_binary(PlainText),
-    State = crypto:stream_init(Type, Key, IV),
-    case crypto:stream_encrypt(State, PlainText) of
+    StateE = crypto:stream_init(Type, Key, IV),
+    StateD = crypto:stream_init(Type, Key, IV),
+    case crypto:stream_encrypt(StateE, PlainText) of
         {_, CipherText} ->
             ok;
         {_, Other0} ->
-            ct:fail({{crypto, stream_encrypt, [State, Type, Key, IV, Plain]}, {expected, CipherText}, {got, Other0}})
+            ct:fail({{crypto, stream_encrypt, [StateE, Type, Key, IV, Plain]}, {expected, CipherText}, {got, Other0}})
     end,
-    case crypto:stream_decrypt(State, CipherText) of
+    case crypto:stream_decrypt(StateD, CipherText) of
         {_, Plain} ->
             ok;
         Other1 ->
-            ct:fail({{crypto, stream_decrypt, [State, CipherText]}, {expected, PlainText}, {got, Other1}})
+            ct:fail({{crypto, stream_decrypt, [StateD, CipherText]}, {expected, PlainText}, {got, Other1}})
     end.
 
 stream_cipher_incment({Type, Key, PlainTexts}) ->
-    State = crypto:stream_init(Type, Key),
-    stream_cipher_incment_loop(State, State, PlainTexts, [], iolist_to_binary(PlainTexts));
+    StateE = crypto:stream_init(Type, Key),
+    StateD = crypto:stream_init(Type, Key),
+    stream_cipher_incment_loop(StateE, StateD, PlainTexts, [], iolist_to_binary(PlainTexts));
 stream_cipher_incment({Type, Key, IV, PlainTexts}) ->
-    State = crypto:stream_init(Type, Key, IV),
-    stream_cipher_incment_loop(State, State, PlainTexts, [], iolist_to_binary(PlainTexts));
+    StateE = crypto:stream_init(Type, Key, IV),
+    StateD = crypto:stream_init(Type, Key, IV),
+    stream_cipher_incment_loop(StateE, StateD, PlainTexts, [], iolist_to_binary(PlainTexts));
 stream_cipher_incment({Type, Key, IV, PlainTexts, _CipherText}) ->
     stream_cipher_incment({Type, Key, IV, PlainTexts}).
 

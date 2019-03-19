@@ -98,7 +98,9 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_128_ctr"}, {NULL}, 16, AES_CTR_COMPAT},
     {{"aes_192_ctr"}, {NULL}, 24, AES_CTR_COMPAT},
     {{"aes_256_ctr"}, {NULL}, 32, AES_CTR_COMPAT},
-    {{"aes_ctr"},     {NULL}, 0, AES_CTR_COMPAT},
+    {{"aes_ctr"},     {NULL}, 16, AES_CTR_COMPAT},
+    {{"aes_ctr"},     {NULL}, 24, AES_CTR_COMPAT},
+    {{"aes_ctr"},     {NULL}, 32, AES_CTR_COMPAT},
 #endif
 
 #if defined(HAVE_CHACHA20)
@@ -162,6 +164,11 @@ static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
 
     if (ctx->ctx)
         EVP_CIPHER_CTX_free(ctx->ctx);
+
+#if !defined(HAVE_EVP_AES_CTR)
+    if (ctx->env)
+        enif_free_env(ctx->env);
+#endif
 }
 
 int init_cipher_ctx(ErlNifEnv *env) {
