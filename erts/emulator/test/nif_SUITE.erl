@@ -3065,21 +3065,30 @@ nif_whereis_threaded(Config) when is_list(Config) ->
     RegName = nif_whereis_test_threaded,
     undefined = erlang:whereis(RegName),
 
-    Ref = make_ref(),
-    {Pid, Mon} = spawn_monitor(?MODULE, nif_whereis_proxy, [Ref]),
-    true = register(RegName, Pid),
+    Self = self(),
+    true = register(RegName, Self),
 
-    {ok, ProcThr} = whereis_thd_lookup(pid, RegName),
-    {ok, Pid} = whereis_thd_result(ProcThr),
+    {ok, ProcThr} = whereis_thd_lookup(pid, RegName, "dtor to proc"),
+    {ok, Self} = whereis_thd_result(ProcThr),
 
-    Pid ! {Ref, quit},
-    ok = receive {'DOWN', Mon, process, Pid, normal} -> ok end,
+    nif_whereis_threaded_2(RegName).
+
+nif_whereis_threaded_2(RegName) ->
+    erlang:garbage_collect(),
+    "dtor to proc" = receive_any(1000),
+    true = unregister(RegName),
 
     Port = open_port({spawn, echo_drv}, [eof]),
     true = register(RegName, Port),
 
-    {ok, PortThr} = whereis_thd_lookup(port, RegName),
+    {ok, PortThr} = whereis_thd_lookup(port, RegName, "dtor to port"),
     {ok, Port} = whereis_thd_result(PortThr),
+
+    nif_whereis_threaded_3(Port).
+
+nif_whereis_threaded_3(Port) ->
+    erlang:garbage_collect(),
+    {Port, {data, "dtor to port"}} = receive_any(1000),
 
     port_close(Port),
     ok.
@@ -3426,7 +3435,7 @@ ioq_nif(_,_,_,_) -> ?nif_stub.
 %% whereis
 whereis_send(_Type,_Name,_Msg) -> ?nif_stub.
 whereis_term(_Type,_Name) -> ?nif_stub.
-whereis_thd_lookup(_Type,_Name) -> ?nif_stub.
+whereis_thd_lookup(_Type,_Name, _Msg) -> ?nif_stub.
 whereis_thd_result(_Thd) -> ?nif_stub.
 
 %% maps

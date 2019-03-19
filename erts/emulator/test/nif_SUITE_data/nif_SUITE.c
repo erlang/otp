@@ -1217,6 +1217,7 @@ typedef struct {
     ErlNifTid tid;
     int type;
     int rc;
+    ERL_NIF_TERM dtor_msg;
 } whereis_thread_resource_t;
 
 static whereis_thread_resource_t* whereis_thread_resource_create(void)
@@ -1229,9 +1230,21 @@ static whereis_thread_resource_t* whereis_thread_resource_create(void)
     return rp;
 }
 
+static int whereis_lookup_internal(ErlNifEnv*, int type, ERL_NIF_TERM name,
+                                   whereis_term_data_t* out);
+static int whereis_send_internal(ErlNifEnv*, int type, whereis_term_data_t* to,
+                                 ERL_NIF_TERM msg);
+
+
 static void whereis_thread_resource_dtor(ErlNifEnv* env, void* obj)
 {
     whereis_thread_resource_t* rp = (whereis_thread_resource_t*) obj;
+    whereis_term_data_t to;
+
+    if (whereis_lookup_internal(env, rp->type, rp->name, &to)
+        == WHEREIS_SUCCESS) {
+        whereis_send_internal(env, rp->type, &to, rp->dtor_msg);
+    }
     enif_free_env(rp->env);
 }
 
@@ -1323,7 +1336,6 @@ static ERL_NIF_TERM
 whereis_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     whereis_term_data_t res;
-    ERL_NIF_TERM ret;
     int type, rc;
 
     assert(argc == 2);
@@ -1357,12 +1369,13 @@ whereis_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return whereis_result_term(env, rc);
 }
 
-/* whereis_thd_lookup(Type, Name) -> {ok, Resource} | {error, SysErrno} */
+/* whereis_thd_lookup(Type, Name, DtorMsg) -> {ok, Resource} | {error, SysErrno} */
 static ERL_NIF_TERM
 whereis_thd_lookup(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     whereis_thread_resource_t* rp;
     int type, rc;
+    ERL_NIF_TERM ret;
 
     assert(argc == 3);
     if (!enif_is_atom(env, argv[1]))
@@ -1374,17 +1387,17 @@ whereis_thd_lookup(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     rp = whereis_thread_resource_create();
     rp->type = type;
     rp->name = enif_make_copy(rp->env, argv[1]);
+    rp->dtor_msg = enif_make_copy(rp->env, argv[2]);
 
     rc = enif_thread_create(
         "nif_SUITE:whereis_thd", & rp->tid, whereis_lookup_thread, rp, NULL);
 
-    if (rc == 0) {
-        return enif_make_tuple2(env, atom_ok, enif_make_resource(env, rp));
-    }
-    else {
-        enif_release_resource(rp);
-        return enif_make_tuple2(env, atom_error, enif_make_int(env, rc));
-    }
+    if (rc == 0)
+        ret = enif_make_tuple2(env, atom_ok, enif_make_resource(env, rp));
+    else
+        ret = enif_make_tuple2(env, atom_error, enif_make_int(env, rc));
+    enif_release_resource(rp);
+    return ret;
 }
 
 /* whereis_thd_result(Resource) -> {ok, pid() | port()} | {error, ErrNum} */
@@ -1409,7 +1422,6 @@ whereis_thd_result(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     else
         ret = whereis_result_term(env, rp->rc);
     
-    enif_release_resource(rp);
     return ret;
 }
 
@@ -3564,7 +3576,7 @@ static ErlNifFunc nif_funcs[] =
     {"monitor_frenzy_nif", 4, monitor_frenzy_nif},
     {"whereis_send", 3, whereis_send},
     {"whereis_term", 2, whereis_term},
-    {"whereis_thd_lookup", 2, whereis_thd_lookup},
+    {"whereis_thd_lookup", 3, whereis_thd_lookup},
     {"whereis_thd_result", 1, whereis_thd_result},
     {"ioq_nif", 1, ioq},
     {"ioq_nif", 2, ioq},
