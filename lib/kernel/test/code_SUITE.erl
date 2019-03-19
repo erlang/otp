@@ -140,6 +140,11 @@ end_per_testcase(on_load_embedded, Config) ->
     LinkName = proplists:get_value(link_name, Config),
     _ = del_link(LinkName),
     end_per_testcase(Config);
+end_per_testcase(upgrade, Config) ->
+    %% Make sure tracing is turned off even if the test times out.
+    erlang:trace_pattern({error_handler,undefined_function,3}, false, [global]),
+    erlang:trace(self(), false, [call]),
+    end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->
     end_per_testcase(Config).
 
