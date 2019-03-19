@@ -127,11 +127,21 @@ i_get_map_elements(Fail, Src, N) {
     }
 }
 
-update_map_assoc(Src, Dst, Live, N) {
+update_map_assoc := update_map_assoc.fetch.execute;
+
+update_map_assoc.head() {
+    Eterm map;
+}
+
+update_map_assoc.fetch(Src) {
+    map = $Src;
+}
+
+update_map_assoc.execute(Dst, Live, N) {
     Eterm res;
     Uint live = $Live;
 
-    reg[live] = $Src;
+    reg[live] = map;
     HEAVY_SWAPOUT;
     res = erts_gc_update_map_assoc(c_p, reg, live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
@@ -141,11 +151,21 @@ update_map_assoc(Src, Dst, Live, N) {
     $NEXT($NEXT_INSTRUCTION+$N);
 }
 
-update_map_exact(Fail, Src, Dst, Live, N) {
+update_map_exact := update_map_exact.fetch.execute;
+
+update_map_exact.head() {
+    Eterm map;
+}
+
+update_map_exact.fetch(Src) {
+    map = $Src;
+}
+
+update_map_exact.execute(Fail, Dst, Live, N) {
     Eterm res;
     Uint live = $Live;
 
-    reg[live] = $Src;
+    reg[live] = map;
     HEAVY_SWAPOUT;
     res = erts_gc_update_map_exact(c_p, reg, live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
