@@ -1595,8 +1595,11 @@ infer_types(_, #vst{}) ->
 
 infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
     fun({atom,true}, S) ->
-            Infer = infer_types(RHS, S),
-            Infer(LHS, S);
+            %% Either side might contain something worth inferring, so we need
+            %% to check them both.
+            Infer_L = infer_types(RHS, S),
+            Infer_R = infer_types(LHS, S),
+            Infer_R(RHS, Infer_L(LHS, S));
        (_, S) -> S
     end;
 infer_types_1(#value{op={bif,element},args=[{integer,Index}=Key,Tuple]}) ->
@@ -1772,8 +1775,11 @@ update_ne_types(LHS, RHS, Vst) ->
     end.
 
 update_eq_types(LHS, RHS, Vst0) ->
-    Infer = infer_types(LHS, Vst0),
-    Vst1 = Infer(RHS, Vst0),
+    %% Either side might contain something worth inferring, so we need
+    %% to check them both.
+    Infer_L = infer_types(RHS, Vst0),
+    Infer_R = infer_types(LHS, Vst0),
+    Vst1 = Infer_R(RHS, Infer_L(LHS, Vst0)),
 
     T1 = get_term_type(LHS, Vst1),
     T2 = get_term_type(RHS, Vst1),
