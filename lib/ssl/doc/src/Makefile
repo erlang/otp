@@ -47,6 +47,7 @@ XML_CHAPTER_FILES = \
 	ssl_protocol.xml \
 	using_ssl.xml \
 	ssl_distribution.xml \
+	standards_compliance.xml \
 	notes.xml
 
 BOOK_FILES = book.xml
