@@ -515,6 +515,39 @@ move_shift(Src, SD, D) {
     $SD = V;
 }
 
+move_src_window2(Src, D1, D2) {
+    Eterm* src = &$Src;
+    Eterm s1, s2;
+    s1 = src[0];
+    s2 = src[1];
+    $D1 = s1;
+    $D2 = s2;
+}
+
+move_src_window3(Src, D1, D2, D3) {
+    Eterm* src = &$Src;
+    Eterm s1, s2, s3;
+    s1 = src[0];
+    s2 = src[1];
+    s3 = src[2];
+    $D1 = s1;
+    $D2 = s2;
+    $D3 = s3;
+}
+
+move_src_window4(Src, D1, D2, D3, D4) {
+    Eterm* src = &$Src;
+    Eterm s1, s2, s3, s4;
+    s1 = src[0];
+    s2 = src[1];
+    s3 = src[2];
+    s4 = src[3];
+    $D1 = s1;
+    $D2 = s2;
+    $D3 = s3;
+    $D4 = s4;
+}
+
 move_window2(S1, S2, D) {
     Eterm xt0, xt1;
     Eterm* y = &$D;
