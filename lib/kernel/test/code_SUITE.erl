@@ -140,6 +140,11 @@ end_per_testcase(on_load_embedded, Config) ->
     LinkName = proplists:get_value(link_name, Config),
     _ = del_link(LinkName),
     end_per_testcase(Config);
+end_per_testcase(upgrade, Config) ->
+    %% Make sure tracing is turned off even if the test times out.
+    erlang:trace_pattern({error_handler,undefined_function,3}, false, [global]),
+    erlang:trace(self(), false, [call]),
+    end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->
     end_per_testcase(Config).
 
@@ -1556,6 +1561,11 @@ on_load_update_code_1(3, Mod) ->
 
 %% Test -on_load while trace feature 'on_load' is enabled (OTP-14612)
 on_load_trace_on_load(Config) ->
+    %% 'on_load' enables tracing for all newly loaded modules, so we make a dry
+    %% run to ensure that ancillary modules like 'merl' won't be loaded during
+    %% the actual test.
+    on_load_update(Config),
+
     Papa = self(),
     Tracer = spawn_link(fun F() -> receive M -> Papa ! M end, F() end),
     {tracer,[]} = erlang:trace_info(self(),tracer),
