@@ -568,7 +568,19 @@ poly1305(Key, Data) ->
                                                 mode := CipherModes,
                                                 type := undefined | integer()
                                                },
-                                    CipherModes :: ecb_mode | cbc_mode | cfb_mode | ofb_mode | undefined.
+                                    CipherModes :: undefined
+                                                 | cbc_mode
+                                                 | ccm_mode
+                                                 | cfb_mode
+                                                 | ctr_mode
+                                                 | ecb_mode
+                                                 | gcm_mode
+                                                 | ige_mode
+                                                 | ocb_mode
+                                                 | ofb_mode
+                                                 | wrap_mode
+                                                 | xts_mode
+                                                   .
 
 %% These ciphers are not available via the EVP interface on older cryptolibs.
 cipher_info(aes_ctr) ->
