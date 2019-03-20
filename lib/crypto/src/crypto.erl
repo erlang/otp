@@ -414,8 +414,12 @@ enable_fips_mode(_) -> ?nif_stub.
 
 -define(HASH_HASH_ALGORITHM, sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() ).
 
--spec hash_info(Type) -> map() | run_time_error() when Type :: ?HASH_HASH_ALGORITHM.
-
+-spec hash_info(Type) -> Result | run_time_error()
+                             when Type :: ?HASH_HASH_ALGORITHM,
+                                  Result :: #{size := integer(),
+                                              block_size := integer(),
+                                              type := integer()
+                                             } .
 hash_info(Type) ->
     notsup_to_error(hash_info_nif(Type)).
 
@@ -554,8 +558,17 @@ poly1305(Key, Data) ->
                 error(E)
         end).
 
-
--spec cipher_info(Type) -> map() | run_time_error() when Type :: cipher() .
+%%%---- Cipher info
+%%%----------------------------------------------------------------
+-spec cipher_info(Type) -> Result | run_time_error()
+                               when Type :: cipher(),
+                                    Result :: #{key_length := integer(),
+                                                iv_length := integer(),
+                                                block_size := integer(),
+                                                mode := CipherModes,
+                                                type := undefined | integer()
+                                               },
+                                    CipherModes :: ecb_mode | cbc_mode | cfb_mode | ofb_mode | undefined.
 
 %% These ciphers are not available via the EVP interface on older cryptolibs.
 cipher_info(aes_ctr) ->
