@@ -1208,8 +1208,9 @@ get_all(Mod, ConfTests) ->
             try ct_groups:expand_groups(AllTCs, ConfTests, Mod) of
                 {error,_} = Error ->
                     [{?MODULE,error_in_suite,[[Error]]}];
-                Tests ->
-                    ct_groups:delete_subs(Tests, Tests)
+                Tests0 ->
+                    Tests = ct_groups:delete_subs(Tests0, Tests0),
+                    expand_tests(Mod, Tests)
             catch
                 throw:{error,Error} ->
                     [{?MODULE,error_in_suite,[[{error,Error}]]}];
@@ -1683,3 +1684,10 @@ handle_callback_crash(undef,[{Mod,Func,[],_}|_],Mod,Func,Default) ->
     end;
 handle_callback_crash(Reason,Stacktrace,_Mod,_Func,_Default) ->
     {error,{failed,{Reason,Stacktrace}}}.
+
+expand_tests(Mod, [{testcase,Case,[Prop]}|Tests]) ->
+    [{repeat,{Mod,Case},Prop}|expand_tests(Mod,Tests)];
+expand_tests(Mod,[Test|Tests]) ->
+    [Test|expand_tests(Mod,Tests)];
+expand_tests(_Mod,[]) ->
+    [].

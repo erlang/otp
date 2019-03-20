@@ -1443,6 +1443,8 @@ remove_conf([C={Mod,error_in_suite,_}|Cases], NoConf, Repeats) ->
        true ->
 	    remove_conf(Cases, [C|NoConf], Repeats)
     end;
+remove_conf([C={repeat,_,_}|Cases], NoConf, _Repeats) ->
+    remove_conf(Cases, [C|NoConf], true);
 remove_conf([C|Cases], NoConf, Repeats) ->
     remove_conf(Cases, [C|NoConf], Repeats);
 remove_conf([], NoConf, true) ->
@@ -2059,6 +2061,14 @@ add_init_and_end_per_suite([SkipCase|Cases], LastMod, LastRef, FwMod)
   when element(1,SkipCase) == skip_case;  element(1,SkipCase) == auto_skip_case->
     [SkipCase|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([{conf,_,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([{repeat,{Mod,_},_}=Case|Cases], LastMod, LastRef, FwMod)
+  when Mod =/= LastMod, Mod =/= FwMod ->
+    {PreCases, NextMod, NextRef} =
+	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod,
+						 NextRef, FwMod)];
+add_init_and_end_per_suite([{repeat,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([{Mod,_}=Case|Cases], LastMod, LastRef, FwMod)
   when Mod =/= LastMod, Mod =/= FwMod ->
@@ -2925,6 +2935,29 @@ run_test_cases_loop([{conf,_Ref,_Props,_X}=Conf|_Cases0],
 		    Config, _TimetrapData, _Mode, _Status) ->
     erlang:error(badarg, [Conf,Config]);
 
+run_test_cases_loop([{repeat,Case,{RepeatType,N}}|Cases0], Config,
+                    TimeTrapData, Mode, Status) ->
+    Ref = make_ref(),
+    Parallel = check_prop(parallel, Mode) =/= false,
+    Sequence = check_prop(sequence, Mode) =/= false,
+    RepeatStop = RepeatType=:=repeat_until_fail
+        orelse RepeatType=:=repeat_until_ok,
+
+    if Parallel andalso RepeatStop ->
+            %% Cannot check results of test case during parallal
+            %% execution, so only RepeatType=:=repeat is allowed in
+            %% combination with parallel groups.
+            erlang:error({illegal_combination,{parallel,RepeatType}});
+       Sequence andalso RepeatStop ->
+            %% Sequence is stop on fail + skip rest, so only
+            %% RepeatType=:=repeat makes sense inside a sequence.
+            erlang:error({illegal_combination,{sequence,RepeatType}});
+       true ->
+            Mode1 = [{Ref,[{repeat,{RepeatType,1,N}}],?now}|Mode],
+            run_test_cases_loop([Case | Cases0], Config, TimeTrapData,
+                                Mode1, Status)
+    end;
+
 run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
     ActualCfg =
 	case get(test_server_create_priv_dir) of
@@ -2937,7 +2970,7 @@ run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
     run_test_cases_loop([{Mod,Case,[ActualCfg]}|Cases], Config,
 			TimetrapData, Mode, Status);
 
-run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status) ->
+run_test_cases_loop([{Mod,Func,Args}=Case|Cases], Config, TimetrapData, Mode0, Status) ->
     {Num,RunInit} =
 	case FwMod = get_fw_mod(?MODULE) of
 	    Mod when Func == error_in_suite ->
@@ -2946,6 +2979,14 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 		{put(test_server_case_num, get(test_server_case_num)+1),
 		 run_init}
 	end,
+
+    Mode =
+        case Mode0 of
+            [{_,[{repeat,{_,_,_}}],_}|RestMode] ->
+                RestMode;
+            _ ->
+                Mode0
+        end,
 
     %% check the current execution mode and save info about the case if
     %% detected that printouts to common log files is handled later
@@ -2974,36 +3015,42 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
                 if is_tuple(RetVal) -> element(1,RetVal);
                    true -> undefined
                 end,
-	    {Failed,Status1} =
+	    {Result,Failed,Status1} =
                 case RetTag of
                     Skip when Skip==skip; Skip==skipped ->
-                        {false,update_status(skipped, Mod, Func, Status)};
+                        {skipped,false,update_status(skipped, Mod, Func, Status)};
                     Fail when Fail=='EXIT'; Fail==failed ->
-                        {true,update_status(failed, Mod, Func, Status)};
+                        {failed,true,update_status(failed, Mod, Func, Status)};
                     _ when Time==died, RetVal=/=ok ->
-                        {true,update_status(failed, Mod, Func, Status)};
+                        {failed,true,update_status(failed, Mod, Func, Status)};
                     _ ->
-                        {false,update_status(ok, Mod, Func, Status)}
+                        {ok,false,update_status(ok, Mod, Func, Status)}
                 end,
 	    case check_prop(sequence, Mode) of
 		false ->
+                    {Cases1,Mode1} =
+                        check_repeat_testcase(Case,Result,Cases,Mode0),
 		    stop_minor_log_file(),
-		    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status1);
+		    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status1);
 		Ref ->
 		    %% the case is in a sequence; we must check the result and
 		    %% determine if the following cases should run or be skipped
 		    if not Failed ->	      % proceed with next case
+                            {Cases1,Mode1} =
+                                check_repeat_testcase(Case,Result,Cases,Mode0),
 			    stop_minor_log_file(),
-			    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status1);
+			    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status1);
 		       true ->	              % skip rest of cases in sequence
 			    print(minor, "~n*** ~tw failed.~n"
 				  "    Skipping all other cases in sequence.",
 				  [Func]),
+                            {Cases1,Mode1} =
+                                check_repeat_testcase(Case,Result,Cases,Mode0),
 			    Reason = {failed,{Mod,Func}},
-			    Cases2 = skip_cases_upto(Ref, Cases, Reason, tc,
+			    Cases2 = skip_cases_upto(Ref, Cases1, Reason, tc,
 						     Mode, auto_skip_case),
 			    stop_minor_log_file(),
-			    run_test_cases_loop(Cases2, Config, TimetrapData, Mode, Status1)
+			    run_test_cases_loop(Cases2, Config, TimetrapData, Mode1, Status1)
 		    end
 	    end;
 	%% the test case is being executed in parallel with the main process (and
@@ -3012,7 +3059,8 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 	    %% io from Pid will be buffered by the test_server_io process and
 	    %% handled later, so we have to save info about the case
 	    queue_test_case_io(undefined, Pid, Num+1, Mod, Func),
-	    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status)
+            {Cases1,Mode1} = check_repeat_testcase(Case,ok,Cases,Mode0),
+	    run_test_cases_loop(Cases1, Config, TimetrapData, Mode1, Status)
     end;
 
 %% TestSpec processing finished
@@ -3450,9 +3498,19 @@ modify_cases_upto1(Ref, {skip,Reason,FType,Mode,SkipType},
 			       T, Orig, Alt)
     end;
 
-%% next is some other case, ignore or copy
-modify_cases_upto1(Ref, {skip,_,_,_,_}=Op, [_Other|T], Orig, Alt) ->
+%% next is a repeated test case
+modify_cases_upto1(Ref, {skip,Reason,_,Mode,SkipType}=Op,
+                   [{repeat,{_M,_F}=MF,_Repeat}|T], Orig, Alt) ->
+    modify_cases_upto1(Ref, Op, T, Orig, [{SkipType,{MF,Reason},Mode}|Alt]);
+
+%% next is an already skipped case, ignore or copy
+modify_cases_upto1(Ref, {skip,_,_,_,_}=Op, [{SkipType,_,_}|T], Orig, Alt)
+  when SkipType=:=skip_case; SkipType=:=auto_skip_case ->
     modify_cases_upto1(Ref, Op, T, Orig, Alt);
+
+%% next is some other case, mark as skipped or copy
+modify_cases_upto1(Ref, {skip,Reason,_,Mode,SkipType}=Op, [Other|T], Orig, Alt) ->
+    modify_cases_upto1(Ref, Op, T, Orig, [{SkipType,{Other,Reason},Mode}|Alt]);
 modify_cases_upto1(Ref, CopyOp, [C|T], Orig, Alt) ->
     modify_cases_upto1(Ref, CopyOp, T, [C|Orig], [C|Alt]).
 
@@ -4795,6 +4853,14 @@ collect_cases({make,InitMFA,CaseList,FinMFA}, St0, Mode) ->
 	{error,_Reason} = Error -> Error
     end;
 
+collect_cases({repeat,{Module, Case}, Repeat}, St, Mode) ->
+    case catch collect_case([Case], St#cc{mod=Module}, [], Mode) of
+        {ok, [{Module,Case}], _} ->
+            {ok, [{repeat,{Module, Case}, Repeat}], St};
+        Other ->
+            {error,Other}
+    end;
+
 collect_cases({Module, Cases}, St, Mode) when is_list(Cases)  ->
     case (catch collect_case(Cases, St#cc{mod=Module}, [], Mode)) of
 	Result = {ok,_,_} ->
@@ -5758,3 +5824,42 @@ encoding(File) ->
 	E ->
 	    E
     end.
+
+check_repeat_testcase(Case,Result,Cases,
+                      [{Ref,[{repeat,RepeatData0}],StartTime}|Mode0]) ->
+    case do_update_repeat_data(Result,RepeatData0) of
+        false ->
+            {Cases,Mode0};
+        RepeatData ->
+            {[Case|Cases],[{Ref,[{repeat,RepeatData}],StartTime}|Mode0]}
+    end;
+check_repeat_testcase(_,_,Cases,Mode) ->
+    {Cases,Mode}.
+
+do_update_repeat_data(_,{RT,N,N}) when is_integer(N) ->
+    report_repeat_testcase(N,N),
+    report_stop_repeat_testcase(done,{RT,N}),
+    false;
+do_update_repeat_data(ok,{repeat_until_ok=RT,M,N}) ->
+    report_repeat_testcase(M,N),
+    report_stop_repeat_testcase(RT,{RT,N}),
+    false;
+do_update_repeat_data(failed,{repeat_until_fail=RT,M,N}) ->
+    report_repeat_testcase(M,N),
+    report_stop_repeat_testcase(RT,{RT,N}),
+    false;
+do_update_repeat_data(_,{RT,M,N}) when is_integer(M) ->
+    report_repeat_testcase(M,N),
+    {RT,M+1,N};
+do_update_repeat_data(_,{_,M,N}=RepeatData) ->
+    report_repeat_testcase(M,N),
+    RepeatData.
+
+report_stop_repeat_testcase(Reason,RepVal) ->
+    print(minor, "~n*** Stopping test case repeat operation: ~w", [Reason]),
+    print(1, "Stopping test case repeat operation: ~w", [RepVal]).
+
+report_repeat_testcase(M,forever) ->
+    print(minor, "~n=== Repeated test case: ~w of infinity", [M]);
+report_repeat_testcase(M,N) ->
+    print(minor, "~n=== Repeated test case: ~w of ~w", [M,N]).

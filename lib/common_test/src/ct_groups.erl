@@ -103,23 +103,34 @@ find(Mod, [], TCs, Tests, _Known, _Defs, false) ->
 				  [{Mod,TC}];
 			     ({group,_}) ->
 				  [];
+                             ({testcase,TC,[Prop]}) when is_atom(TC), TC ==all ->
+                                  [{repeat,{Mod,TC},Prop}];
 			     ({_,_}=TC) when TCs == all ->
 				  [TC];
-			     (TC) ->
-				  if is_atom(TC) ->
-					  Tuple = {Mod,TC},
-					  case lists:member(Tuple, TCs) of
-					      true  ->
-						  [Tuple];
-					      false ->
-						  case lists:member(TC, TCs) of
-						      true  -> [{Mod,TC}];
-						      false -> []
-						  end
-					  end;
-				     true ->
-					  []
-				  end
+			     (TC) when is_atom(TC) ->
+                                  Tuple = {Mod,TC},
+                                  case lists:member(Tuple, TCs) of
+                                      true  ->
+                                          [Tuple];
+                                      false ->
+                                          case lists:member(TC, TCs) of
+                                              true  -> [Tuple];
+                                              false -> []
+                                          end
+                                  end;
+                             ({testcase,TC,[Prop]}) when is_atom(TC) ->
+                                  Tuple = {Mod,TC},
+                                  case lists:member(Tuple, TCs) of
+                                      true  ->
+                                          [{repeat,Tuple,Prop}];
+                                      false ->
+                                          case lists:member(TC, TCs) of
+                                              true  -> [{repeat,Tuple,Prop}];
+                                              false -> []
+                                          end
+                                  end;
+                             (_) ->
+                                  []
 			  end, Tests),
     if Cases == [] -> ['NOMATCH'];
        true -> Cases
@@ -174,12 +185,19 @@ find(Mod, GrNames, all, [{M,TC} | Gs], Known,
      Defs, FindAll) when is_atom(M), M /= group, is_atom(TC) ->
     [{M,TC} | find(Mod, GrNames, all, Gs, Known, Defs, FindAll)];
 
+%% Save test case
+find(Mod, GrNames, all, [{testcase,TC,[Prop]} | Gs], Known,
+     Defs, FindAll) when is_atom(TC) ->
+    [{repeat,{Mod,TC},Prop} | find(Mod, GrNames, all, Gs, Known, Defs, FindAll)];
+
 %% Check if test case should be saved
-find(Mod, GrNames, TCs, [TC | Gs], Known,
-     Defs, FindAll) when is_atom(TC) orelse 
-			 ((size(TC) == 2) and (element(1,TC) /= group)) ->
+find(Mod, GrNames, TCs, [TC | Gs], Known, Defs, FindAll)
+  when is_atom(TC) orelse
+       ((size(TC) == 3) andalso (element(1,TC) == testcase)) orelse
+       ((size(TC) == 2) and (element(1,TC) /= group)) ->
     Case =
-	if is_atom(TC) ->
+        case TC of
+            _ when is_atom(TC) ->
 		Tuple = {Mod,TC},
 		case lists:member(Tuple, TCs) of
 		    true  ->
@@ -190,7 +208,18 @@ find(Mod, GrNames, TCs, [TC | Gs], Known,
 			    false -> []
 			end
 		end;
-	   true ->
+            {testcase,TC0,[Prop]} when is_atom(TC0) ->
+		Tuple = {Mod,TC0},
+		case lists:member(Tuple, TCs) of
+		    true  ->
+			{repeat,Tuple,Prop};
+		    false ->
+			case lists:member(TC0, TCs) of
+			    true  -> {repeat,{Mod,TC0},Prop};
+			    false -> []
+			end
+		end;
+            _ ->
 		case lists:member(TC, TCs) of
 		    true  -> {Mod,TC};
 		    false -> []
@@ -291,12 +320,22 @@ modify_tc_list(GrSpecTs, TSCs, []) ->
     modify_tc_list1(GrSpecTs, TSCs);
     
 modify_tc_list(GrSpecTs, _TSCs, _) ->
-    [Test || Test <- GrSpecTs, not is_atom(Test)].
+    [Test || Test <- GrSpecTs, not is_atom(Test), element(1,Test)=/=testcase].
 
 modify_tc_list1(GrSpecTs, TSCs) ->
     %% remove all cases in group tc list that should not be executed
     GrSpecTs1 =
-	lists:flatmap(fun(Test) when is_tuple(Test),
+	lists:flatmap(fun(Test={testcase,TC,_}) ->
+			      case lists:keysearch(TC, 2, TSCs) of
+				  {value,_} ->
+				      [Test];
+				  _ ->
+				      case lists:member(TC, TSCs) of
+					  true  -> [Test];
+					  false -> []
+				      end
+			      end;
+                         (Test) when is_tuple(Test),
 				     (size(Test) > 2) ->
 			      [Test];
 			 (Test={group,_}) ->

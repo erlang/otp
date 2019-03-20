@@ -116,12 +116,13 @@
         <v>GroupDefs = NewGroupDefs = [Group]</v>
         <v>Group = {GroupName,Properties,GroupsAndTestCases}</v>
         <v>GroupName = atom()</v>
-        <v>Properties = [parallel | sequence | Shuffle | {RepeatType,N}]</v>
-        <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase]</v>
+        <v>Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]</v>
+        <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase | {testcase,TestCase,TCRepeatProps}]</v>
         <v>TestCase = atom()</v>
+	<v>TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</v>
         <v>Shuffle = shuffle | {shuffle,Seed}</v>
         <v>Seed = {integer(),integer(),integer()}</v>
-        <v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+        <v>GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
         <v>N = integer() | forever</v>
       </type>
       <desc>
@@ -169,18 +170,19 @@
       <type>
         <v>SuiteName = atom()</v>
 	<v>Return = NewReturn = Tests | {skip,Reason}</v>
-	<v>Tests = [TestCase | {group,GroupName} | {group,GroupName,Properties} | {group,GroupName,Properties,SubGroups}]</v>
+	<v>Tests = [TestCase | {testcase,TestCase,TCRepeatProps} | {group,GroupName} | {group,GroupName,Properties} | {group,GroupName,Properties,SubGroups}]</v>
 	<v>TestCase = atom()</v>
+	<v>TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</v>
 	<v>GroupName = atom()</v>
 	<v>Properties = GroupProperties | default</v>
 	<v>SubGroups = [{GroupName,Properties} | {GroupName,Properties,SubGroups}]</v>
 	<v>Shuffle = shuffle | {shuffle,Seed}</v>
 	<v>Seed = {integer(),integer(),integer()}</v>
-	<v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+	<v>GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
 	<v>N = integer() | forever</v>
         <v>GroupDefs = NewGroupDefs = [Group]</v>
         <v>Group = {GroupName,GroupProperties,GroupsAndTestCases}</v>
-        <v>GroupProperties = [parallel | sequence | Shuffle | {RepeatType,N}]</v>
+        <v>GroupProperties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]</v>
         <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase]</v>
 	<v>Reason = term()</v>
       </type>
