@@ -181,7 +181,7 @@ ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
     ASSERT(argc == 2);
 
-    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj))
+    if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)hmac_context_rtype, (void**)&obj))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
         goto bad_arg;
@@ -224,7 +224,7 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     ASSERT(argc == 1 || argc == 2);
 
-    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj))
+    if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)hmac_context_rtype, (void**)&obj))
         goto bad_arg;
     if (argc == 2) {
         if (!enif_get_uint(env, argv[1], &req_len))
