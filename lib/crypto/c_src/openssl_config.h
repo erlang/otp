@@ -183,7 +183,8 @@
 #endif
 
 #ifndef OPENSSL_NO_RMD160
-# define HAVE_RMD160
+/* Note RMD160 vs RIPEMD160 */
+# define HAVE_RIPEMD160
 #endif
 
 

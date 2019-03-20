@@ -478,7 +478,7 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         ctx_final = (final_fun)(&MD5_Final);
         break;
 #endif
-#ifdef HAVE_MD5
+#ifdef HAVE_RIPEMD160
    case NID_ripemd160:
         ctx_size  = RIPEMD160_CTX_LEN;
         ctx_final = (final_fun)(&RIPEMD160_Final);
