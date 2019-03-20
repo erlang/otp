@@ -257,20 +257,16 @@
       </desc>
     </datatype>
 
-    <datatype_title>Digests</datatype_title>
+    <datatype_title>Digests and hash</datatype_title>
     <datatype>
-      <name name="sha1"/>
-      <name name="sha2"/>
-      <name name="sha3"/>
-      <name name="blake2"/>
+      <name name="hash_algorithm"/>
       <desc>
       </desc>
     </datatype>
 
     <datatype>
-      <name name="compatibility_only_hash"/>
+      <name name="hmac_hash_algorithm"/>
       <desc>
-	<p>The <c>compatibility_only_hash()</c> algorithms are recommended only for compatibility with existing applications.</p>
       </desc>
     </datatype>
 
@@ -289,6 +285,17 @@
     <datatype>
       <name name="ecdsa_digest_type"/>
       <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sha1"/>
+      <name name="sha2"/>
+      <name name="sha3"/>
+      <name name="blake2"/>
+      <name name="compatibility_only_hash"/>
+      <desc>
+	<p>The <c>compatibility_only_hash()</c> algorithms are recommended only for compatibility with existing applications.</p>
       </desc>
     </datatype>
 

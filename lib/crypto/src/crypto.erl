@@ -422,10 +422,10 @@ enable_fips_mode(_) -> ?nif_stub.
 %%%
 %%%================================================================
 
--define(HASH_HASH_ALGORITHM, sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() ).
+-type hash_algorithm() :: sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() .
 
 -spec hash_info(Type) -> Result | run_time_error()
-                             when Type :: ?HASH_HASH_ALGORITHM,
+                             when Type :: hash_algorithm(),
                                   Result :: #{size := integer(),
                                               block_size := integer(),
                                               type := integer()
@@ -433,7 +433,7 @@ enable_fips_mode(_) -> ?nif_stub.
 hash_info(Type) ->
     notsup_to_error(hash_info_nif(Type)).
 
--spec hash(Type, Data) -> Digest when Type :: ?HASH_HASH_ALGORITHM,
+-spec hash(Type, Data) -> Digest when Type :: hash_algorithm(),
                                       Data :: iodata(),
                                       Digest :: binary().
 hash(Type, Data) ->
@@ -443,7 +443,7 @@ hash(Type, Data) ->
 
 -opaque hash_state() :: reference().
 
--spec hash_init(Type) -> State when Type :: ?HASH_HASH_ALGORITHM,
+-spec hash_init(Type) -> State when Type :: hash_algorithm(),
                                     State :: hash_state().
 hash_init(Type) -> 
     notsup_to_error(hash_init_nif(Type)).
@@ -469,12 +469,12 @@ hash_final(Context) ->
 
 %%%---- HMAC
 
--define(HMAC_HASH_ALGORITHM,  sha1() | sha2() | sha3() | compatibility_only_hash()).
+-type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
 
 %%%---- hmac/3,4 
 
 -spec hmac(Type, Key, Data) -> 
-                  Mac when Type :: ?HMAC_HASH_ALGORITHM,
+                  Mac when Type :: hmac_hash_algorithm(),
                            Key :: iodata(),
                            Data :: iodata(),
                            Mac :: binary() .
@@ -483,7 +483,7 @@ hmac(Type, Key, Data) ->
     hmac(Type, Key, Data1, undefined, erlang:byte_size(Data1), max_bytes()).
 
 -spec hmac(Type, Key, Data, MacLength) -> 
-                  Mac when Type :: ?HMAC_HASH_ALGORITHM,
+                  Mac when Type :: hmac_hash_algorithm(),
                            Key :: iodata(),
                            Data :: iodata(),
                            MacLength :: integer(),
@@ -498,7 +498,7 @@ hmac(Type, Key, Data, MacLength) ->
 -opaque hmac_state() :: binary().
 
 -spec hmac_init(Type, Key) ->
-                       State when Type :: ?HMAC_HASH_ALGORITHM,
+                       State when Type :: hmac_hash_algorithm(),
                                   Key :: iodata(),
                                   State :: hmac_state() .
 hmac_init(Type, Key) ->
