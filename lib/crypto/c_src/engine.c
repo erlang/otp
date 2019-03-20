@@ -106,15 +106,13 @@ int init_engine_ctx(ErlNifEnv *env) {
                                                    (ErlNifResourceDtor*) engine_ctx_dtor,
                                                    ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                    NULL);
-    if (engine_ctx_rtype == NULL)
-        goto err;
+    if (engine_ctx_rtype == NULL) {
+        PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
+        return 0;
+    }
 #endif
 
     return 1;
-
- err:
-    PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
-    return 0;
 }
 
 ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
