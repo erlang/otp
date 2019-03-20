@@ -3404,7 +3404,9 @@ api_to_connect_tcp4(suite) ->
 api_to_connect_tcp4(doc) ->
     [];
 api_to_connect_tcp4(_Config) when is_list(_Config) ->
+    Cond = fun() -> api_to_connect_cond() end,
     tc_try(api_to_connect_tcp4,
+           Cond,
            fun() ->
                    ?TT(?SECS(10)),
                    InitState = #{domain        => inet,
@@ -3413,6 +3415,41 @@ api_to_connect_tcp4(_Config) when is_list(_Config) ->
                                  connect_limit => 3},
                    ok = api_to_connect_tcp(InitState)
            end).
+
+api_to_connect_cond() ->
+    api_to_connect_cond(os:type(), os:version()).
+
+%% I don't know exactly at which version this starts to work.
+%% I know it does not work for 4.4.*, but is does for 4.15.
+%% So, just to simplify, we require atleast 4.15
+api_to_connect_cond({unix, linux}, {Maj, Min, _Rev}) ->
+    if
+        ((Maj >= 4) andalso (Min >= 15)) ->
+            ok;
+        true ->
+            skip("TC does not work")
+    end;
+%% Only test on one machine, which has version 6.3, and there it does
+%% not work, so disable for all.
+api_to_connect_cond({unix, openbsd}, _) ->
+    skip("TC does not work");
+api_to_connect_cond({unix, freebsd}, {Maj, Min, _Rev}) ->
+    if
+        ((Maj >= 10) andalso (Min >= 4)) ->
+            ok;
+        true ->
+            skip("TC may not work")
+    end;
+api_to_connect_cond({unix, sunos}, {Maj, Min, _Rev}) ->
+    if
+        ((Maj >= 5) andalso (Min >= 10)) ->
+            ok;
+        true ->
+            skip("TC may not work")
+    end;
+api_to_connect_cond(_, _) ->
+    skip("TC may not work").
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3425,8 +3462,8 @@ api_to_connect_tcp6(doc) ->
     [];
 api_to_connect_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_connect_tcp6,
+           fun() -> has_support_ipv6(), api_to_connect_cond() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    InitState = #{domain        => inet6,
                                  backlog       => 1,
@@ -3937,8 +3974,8 @@ api_to_accept_tcp6(doc) ->
     [];
 api_to_accept_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_accept_tcp4,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    InitState = #{domain => inet6, timeout => 5000},
                    ok = api_to_accept_tcp(InitState)
@@ -4053,8 +4090,8 @@ api_to_maccept_tcp6(doc) ->
 api_to_maccept_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(20)),
     tc_try(api_to_maccept_tcp4,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    InitState = #{domain => inet6, timeout => 5000},
                    ok = api_to_maccept_tcp(InitState)
            end).
@@ -4556,8 +4593,8 @@ api_to_recv_tcp6(doc) ->
     [];
 api_to_recv_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recv_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    case socket:supports(ipv6) of
                        true ->
                            ?TT(?SECS(10)),
@@ -4915,8 +4952,8 @@ api_to_recvfrom_udp6(doc) ->
     [];
 api_to_recvfrom_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recvfrom_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvfrom(Sock, 0, To) end,
                    InitState = #{domain  => inet6,
@@ -5031,8 +5068,8 @@ api_to_recvmsg_udp6(doc) ->
     [];
 api_to_recvmsg_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recvmsg_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet6,
@@ -5072,8 +5109,8 @@ api_to_recvmsg_tcp6(doc) ->
     [];
 api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recvmsg_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet6,
@@ -5104,7 +5141,6 @@ sc_cpe_socket_cleanup_tcp4(doc) ->
 sc_cpe_socket_cleanup_tcp4(_Config) when is_list(_Config) ->
     tc_try(sc_cpe_socket_cleanup_tcp4,
            fun() ->
-                   %% not_yet_implemented(),
                    ?TT(?SECS(5)),
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -5124,8 +5160,8 @@ sc_cpe_socket_cleanup_tcp6(doc) ->
     [];
 sc_cpe_socket_cleanup_tcp6(_Config) when is_list(_Config) ->
     tc_try(sc_cpe_socket_cleanup_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(5)),
                    InitState = #{domain   => inet6,
                                  type     => stream,
@@ -5166,8 +5202,8 @@ sc_cpe_socket_cleanup_udp6(doc) ->
     [];
 sc_cpe_socket_cleanup_udp6(_Config) when is_list(_Config) ->
     tc_try(sc_cpe_socket_cleanup_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(5)),
                    InitState = #{domain   => inet6,
                                  type     => dgram,
@@ -5342,8 +5378,8 @@ sc_lc_recv_response_tcp6(doc) ->
     [];
 sc_lc_recv_response_tcp6(_Config) when is_list(_Config) ->
     tc_try(sc_lc_recv_response_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet6,
@@ -5958,8 +5994,8 @@ sc_lc_recvfrom_response_udp6(doc) ->
     [];
 sc_lc_recvfrom_response_udp6(_Config) when is_list(_Config) ->
     tc_try(sc_lc_recvfrom_response_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(30)),
                    Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
                    InitState = #{domain => inet6,
@@ -6378,8 +6414,8 @@ sc_lc_recvmsg_response_tcp6(doc) ->
     [];
 sc_lc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
     tc_try(sc_recvmsg_response_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet6,
@@ -6421,8 +6457,8 @@ sc_lc_recvmsg_response_udp6(doc) ->
     [];
 sc_lc_recvmsg_response_udp6(_Config) when is_list(_Config) ->
     tc_try(sc_recvmsg_response_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    Recv      = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain => inet6,
@@ -6467,8 +6503,8 @@ sc_lc_acceptor_response_tcp6(doc) ->
     [];
 sc_lc_acceptor_response_tcp6(_Config) when is_list(_Config) ->
     tc_try(sc_lc_acceptor_response_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -6902,8 +6938,8 @@ sc_rc_recv_response_tcp6(doc) ->
     [];
 sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
     tc_try(sc_rc_recv_response_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet6,
@@ -7783,8 +7819,8 @@ sc_rc_recvmsg_response_tcp6(doc) ->
     [];
 sc_rc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
     tc_try(sc_rc_recvmsg_response_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet6,
@@ -7843,8 +7879,8 @@ sc_rs_recv_send_shutdown_receive_tcp6(doc) ->
     [];
 sc_rs_recv_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
     tc_try(sc_rs_recv_send_shutdown_receive_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    MsgData   = ?DATA,
                    Recv      = fun(Sock) ->
@@ -8667,8 +8703,8 @@ sc_rs_recvmsg_send_shutdown_receive_tcp6(doc) ->
     [];
 sc_rs_recvmsg_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
     tc_try(sc_rs_recvmsg_send_shutdown_receive_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(10)),
                    MsgData   = ?DATA,
                    Recv      = fun(Sock) ->
@@ -8728,8 +8764,8 @@ traffic_send_and_recv_chunks_tcp6(doc) ->
     [];
 traffic_send_and_recv_chunks_tcp6(_Config) when is_list(_Config) ->
     tc_try(traffic_send_and_recv_chunks_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6},
                    ok = traffic_send_and_recv_chunks_tcp(InitState)
@@ -9730,8 +9766,8 @@ traffic_ping_pong_small_send_and_recv_tcp6(_Config) when is_list(_Config) ->
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_send_and_recv_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(15)),
                    InitState = #{domain => inet6,
                                  msg    => Msg,
@@ -9783,8 +9819,8 @@ traffic_ping_pong_medium_send_and_recv_tcp6(_Config) when is_list(_Config) ->
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_MEDIUM_NUM,
     tc_try(traffic_ping_pong_medium_send_and_recv_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
                                  msg    => Msg,
@@ -9837,8 +9873,8 @@ traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
                                  msg    => Msg,
@@ -9944,8 +9980,8 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udp6(_Config) when is_list(_Config)
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_MEDIUM_NUM,
     tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
                                  msg    => Msg,
@@ -9998,8 +10034,8 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(20)),
                    InitState = #{domain => inet6,
                                  msg    => Msg,
@@ -10051,8 +10087,8 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config)
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_MEDIUM_NUM,
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(20)),
                    InitState = #{domain => ine6,
                                  msg    => Msg,
@@ -10104,8 +10140,8 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
                                  msg    => Msg,
@@ -10158,8 +10194,8 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) 
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(20)),
                    InitState = #{domain => inet,
                                  msg    => Msg,
@@ -10211,8 +10247,8 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config)
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_MEDIUM_NUM,
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   not_yet_implemented(),
                    ?TT(?SECS(20)),
                    InitState = #{domain => ine6,
                                  msg    => Msg,
@@ -17172,17 +17208,17 @@ convert_time(TStrRev, Convert) ->
             ?TTEST_RUNTIME
     end.
 
-ttest_tcp(TC,
-          Domain,
-          ServerMod, ServerActive,
-          ClientMod, ClientActive,
-          MsgID, MaxOutstanding) ->
-    ttest_tcp(TC,
-              ?TTEST_RUNTIME,
-              Domain,
-              ServerMod, ServerActive,
-              ClientMod, ClientActive,
-              MsgID, MaxOutstanding).
+%% ttest_tcp(TC,
+%%           Domain,
+%%           ServerMod, ServerActive,
+%%           ClientMod, ClientActive,
+%%           MsgID, MaxOutstanding) ->
+%%     ttest_tcp(TC,
+%%               ?TTEST_RUNTIME,
+%%               Domain,
+%%               ServerMod, ServerActive,
+%%               ClientMod, ClientActive,
+%%               MsgID, MaxOutstanding).
 ttest_tcp(TC,
           Runtime,
           Domain,
@@ -17191,7 +17227,12 @@ ttest_tcp(TC,
           MsgID, MaxOutstanding) ->
     tc_try(TC,
            fun() ->
-                   if (Domain =/= inet) ->  not_yet_implemented(); true -> ok end,
+                   if
+                       (Domain =/= inet) -> has_support_ipv6(); 
+                       true -> ok 
+                   end
+           end,
+           fun() ->
                    %% This may be overkill, depending on the runtime,
                    %% but better safe then sorry...
                    ?TT(Runtime + ?SECS(60)),
@@ -17833,6 +17874,18 @@ which_addr2(Domain, [_|IFO]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Here are all the *general* test vase condition functions.
+
+%% The idea is that this function shall test if the test host has 
+%% support for IPv6. If not there is no point in running IPv6 tests.
+%% Currently we just skip.
+has_support_ipv6() ->
+    not_yet_implemented().
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 not_yet_implemented() ->
     skip("not yet implemented").
 
@@ -17886,15 +17939,45 @@ tc_end(Result) when is_list(Result) ->
              "", "----------------------------------------------------~n~n"),
     ok.
 
+%% *** tc_try/2,3 ***
+%% Case:      Basically the test case name
+%% TCCondFun: A fun that is evaluated before the actual test case
+%%            The point of this is that it can performs checks to
+%%            see if we shall run the test case at all.
+%%            For instance, the test case may only work in specific
+%%            conditions.
+%% FCFun:     The test case fun
+tc_try(Case, TCFun) ->
+    TCCondFun = fun() -> ok end,
+    tc_try(Case, TCCondFun, TCFun).
 
-tc_try(Case, Fun) when is_atom(Case) andalso is_function(Fun, 0) ->
+tc_try(Case, TCCondFun, TCFun) 
+  when is_atom(Case) andalso
+       is_function(TCCondFun, 0) andalso
+       is_function(TCFun, 0) ->
     tc_begin(Case),
-    try 
-        begin
-            Fun(),
-            ?SLEEP(?SECS(1)),
-            tc_end("ok")
-        end
+    try TCCondFun() of
+        ok ->
+            try 
+                begin
+                    TCFun(),
+                    ?SLEEP(?SECS(1)),
+                    tc_end("ok")
+                end
+            catch
+                throw:{skip, _} = SKIP ->
+                    tc_end("skipping"),
+                    SKIP;
+                Class:Error:Stack ->
+                    tc_end("failed"),
+                    erlang:raise(Class, Error, Stack)
+            end;
+        {skip, _} = SKIP ->
+            tc_end("skipping"),
+            SKIP;
+        {error, Reason} ->
+            tc_end("failed"),
+            exit({tc_cond_failed, Reason})
     catch
         throw:{skip, _} = SKIP ->
             tc_end("skipping"),
