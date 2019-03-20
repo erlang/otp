@@ -2415,10 +2415,17 @@ scan_att_chars("&" ++ T, S0, Delim, Acc, TmpAcc,AT,IsNorm) -> % Reference
                     %% normalization rules (sec 3.3.3) require that for
                     %% character references, the referenced character be
                     %% added directly to the normalized value
-                    scan_att_chars(T1, S1, Delim, ExpRef ++ Acc,TmpAcc, AT,IsNorm);
+                    {T2,S2,IsNorm2} =
+                        if
+                            ?whitespace(hd(ExpRef)) ->
+                                normalize(T1, S1, IsNorm);
+                            true ->
+                                {T1, S1, IsNorm}
+                        end,
+                    scan_att_chars(T2, S2, Delim, ExpRef ++ Acc, TmpAcc, AT, IsNorm2);
                 _ ->
                     Ch = string_to_char_set(S#xmerl_scanner.encoding, ExpRef),
-                    scan_att_chars(Ch ++ T1, S1, Delim, Acc,TmpAcc, AT,IsNorm)
+                    scan_att_chars(Ch ++ T1, S1, Delim, Acc, TmpAcc, AT, IsNorm)
             end
     end;
 scan_att_chars("<" ++ _T, S0, _Delim, _Acc,_, _,_) -> % Tags not allowed here
@@ -3964,7 +3971,7 @@ normalize(T,S,IsNorm) ->
 	{_,T,S} ->
 	    {T,S,IsNorm};
 	{_,T1,S1} ->
-	    {T1,S1,true}
+	    normalize(T1,S1,true)
     end.
 
 
