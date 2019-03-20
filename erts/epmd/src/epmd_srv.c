@@ -747,7 +747,7 @@ static void do_request(g, fd, s, buf, bsize)
 	    put_int16(node->creation, wbuf+2);
 	}
   
-	if (reply(g, fd, wbuf, 4) != 4)
+	if (!reply(g, fd, wbuf, replylen))
 	  {
             node_unreg(g, name);
 	    dbg_tty_printf(g,1,"** failed to send ALIVE2_RESP for \"%s\"",
@@ -807,7 +807,7 @@ static void do_request(g, fd, s, buf, bsize)
 		offset += 2;
 		memcpy(wbuf + offset,node->extra,node->extralen);
 		offset += node->extralen;
-		if (reply(g, fd, wbuf, offset) != offset)
+		if (!reply(g, fd, wbuf, offset))
 		  {
 		    dbg_tty_printf(g,1,"** failed to send PORT2_RESP (ok) for \"%s\"",name);
 		    return;
@@ -817,7 +817,7 @@ static void do_request(g, fd, s, buf, bsize)
 	    }
 	}
 	wbuf[1] = 1; /* error */
-	if (reply(g, fd, wbuf, 2) != 2)
+	if (!reply(g, fd, wbuf, 2))
 	  {
 	    dbg_tty_printf(g,1,"** failed to send PORT2_RESP (error) for \"%s\"",name);
 	    return;
@@ -835,7 +835,7 @@ static void do_request(g, fd, s, buf, bsize)
 	i = htonl(g->port);
 	memcpy(wbuf,&i,4);
 
-	if (reply(g, fd,wbuf,4) != 4)
+	if (!reply(g, fd,wbuf,4))
 	  {
 	    dbg_tty_printf(g,1,"failed to send NAMES_RESP");
 	    return;
@@ -856,7 +856,7 @@ static void do_request(g, fd, s, buf, bsize)
 	    if (r < 0)
 		goto failed_names_resp;
 	    len += r;
-	    if (reply(g, fd, wbuf, len) != len)
+	    if (!reply(g, fd, wbuf, len))
 	      {
 	      failed_names_resp:
 		dbg_tty_printf(g,1,"failed to send NAMES_RESP");
@@ -878,7 +878,7 @@ static void do_request(g, fd, s, buf, bsize)
 
 	i = htonl(g->port);
 	memcpy(wbuf,&i,4);
-	if (reply(g, fd,wbuf,4) != 4)
+	if (!reply(g, fd,wbuf,4))
 	  {
 	    dbg_tty_printf(g,1,"failed to send DUMP_RESP");
 	    return;
@@ -899,7 +899,7 @@ static void do_request(g, fd, s, buf, bsize)
 	      if (r < 0)
 		  goto failed_dump_resp;
 	      len += r + 1;
-	      if (reply(g, fd,wbuf,len) != len)
+	      if (!reply(g, fd,wbuf,len))
 	      {
 	      failed_dump_resp:
 		dbg_tty_printf(g,1,"failed to send DUMP_RESP");
@@ -922,7 +922,7 @@ static void do_request(g, fd, s, buf, bsize)
 	      if (r < 0)
 		  goto failed_dump_resp2;
 	      len += r + 1;
-	      if (reply(g, fd,wbuf,len) != len)
+	      if (!reply(g, fd,wbuf,len))
 	      {
 	      failed_dump_resp2:
 		dbg_tty_printf(g,1,"failed to send DUMP_RESP");
@@ -942,12 +942,12 @@ static void do_request(g, fd, s, buf, bsize)
 
       if (!g->brutal_kill && (g->nodes.reg != NULL)) {
 	  dbg_printf(g,0,"Disallowed KILL_REQ, live nodes");
-	  if (reply(g, fd,"NO",2) != 2)
+	  if (!reply(g, fd,"NO",2))
 	      dbg_printf(g,0,"failed to send reply to KILL_REQ");
 	  return;
       }
 
-      if (reply(g, fd,"OK",2) != 2)
+      if (!reply(g, fd,"OK",2))
 	dbg_printf(g,0,"failed to send reply to KILL_REQ");
       dbg_tty_printf(g,1,"epmd killed");
       conn_close_fd(g,fd);	/* We never return to caller so close here */
@@ -977,7 +977,7 @@ static void do_request(g, fd, s, buf, bsize)
 
 	if ((node_fd = node_unreg(g,name)) < 0)
 	  {
-	    if (reply(g, fd,"NOEXIST",7) != 7)
+	    if (!reply(g, fd,"NOEXIST",7))
 	      {
 		dbg_tty_printf(g,1,"failed to send STOP_RESP NOEXIST");
 		return;
@@ -988,7 +988,7 @@ static void do_request(g, fd, s, buf, bsize)
 	conn_close_fd(g,node_fd);
 	dbg_tty_printf(g,1,"epmd connection stopped");
 
-	if (reply(g, fd,"STOPPED",7) != 7)
+	if (!reply(g, fd,"STOPPED",7))
 	  {
 	    dbg_tty_printf(g,1,"failed to send STOP_RESP STOPPED");
 	    return;
@@ -1448,7 +1448,9 @@ static time_t current_time(EpmdVars *g)
 
 static int reply(EpmdVars *g,int fd,char *buf,int len)
 {
-  int val;
+  char* p = buf;
+  int nbytes = len;
+  int val, ret;
 
   if (len < 0)
     {
@@ -1459,15 +1461,27 @@ static int reply(EpmdVars *g,int fd,char *buf,int len)
   if (g->delay_write)		/* Test of busy server */
     sleep(g->delay_write);
 
-  val = write(fd,buf,len);
-  if (val < 0)
-    dbg_perror(g,"error in write");
-  else if (val != len)
-    dbg_printf(g,0,"could only send %d bytes out of %d to fd %d",val,len,fd);
+  for (;;) {
+      val = write(fd, p, nbytes);
+      if (val == nbytes) {
+          ret = 1;
+          break;
+      }
+      if (val < 0) {
+          if (errno == EINTR)
+              continue;
+          dbg_perror(g,"error in write, errno=%d", errno);
+          ret = 0;
+          break;
+      }
+      dbg_printf(g,0,"could only send %d bytes out of %d to fd %d",val,nbytes,fd);
+      p += val;
+      nbytes -= val;
+  }
 
   dbg_print_buf(g,buf,len);
 
-  return val;
+  return ret;
 }
       
 
