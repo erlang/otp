@@ -975,7 +975,7 @@ static void print_node(void *venp, void *vpndp)
 	if(pndp->sysname == NIL) {
 	    erts_print(pndp->to, pndp->to_arg, "Name: %T ", enp->sysname);
 	}
-	erts_print(pndp->to, pndp->to_arg, " %d", enp->creation);
+	erts_print(pndp->to, pndp->to_arg, " %u", enp->creation);
 #ifdef DEBUG
 	erts_print(pndp->to, pndp->to_arg, " (refc=%ld)",
 		   erts_refc_read(&enp->refc, 0));
@@ -1018,7 +1018,7 @@ void erts_print_node_info(fmtfn_t to,
 /* ----------------------------------------------------------------------- */
 
 void
-erts_set_this_node(Eterm sysname, Uint creation)
+erts_set_this_node(Eterm sysname, Uint32 creation)
 {
     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
     ASSERT(2 <= de_refc_read(erts_this_dist_entry, 2));

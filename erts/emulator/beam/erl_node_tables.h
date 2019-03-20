@@ -257,7 +257,7 @@ void erts_set_dist_entry_pending(DistEntry *);
 void erts_set_dist_entry_connected(DistEntry *, Eterm, Uint);
 ErlNode *erts_find_or_insert_node(Eterm, Uint32, Eterm);
 void erts_schedule_delete_node(ErlNode *);
-void erts_set_this_node(Eterm, Uint);
+void erts_set_this_node(Eterm, Uint32);
 Uint erts_node_table_size(void);
 void erts_init_node_tables(int);
 void erts_node_table_info(fmtfn_t, void *);

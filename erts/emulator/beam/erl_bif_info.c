@@ -2797,7 +2797,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     } else if (BIF_ARG_1 == am_threads) {
 	return am_true;
     } else if (BIF_ARG_1 == am_creation) {
-	return make_small(erts_this_node->creation);
+        Uint hsz = 0;
+        erts_bld_uint(NULL, &hsz, erts_this_node->creation);
+        hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
+        BIF_RET(erts_bld_uint(&hp, NULL, erts_this_node->creation));
     } else if (BIF_ARG_1 == am_break_ignored) {
       extern int ignore_break;
       if (ignore_break) 
