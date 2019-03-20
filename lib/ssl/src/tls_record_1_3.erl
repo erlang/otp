@@ -267,12 +267,7 @@ decipher_aead(CipherFragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
         AAD = additional_data(erlang:iolist_size(CipherFragment)),
         Nonce = nonce(Seq, IV),
         {CipherText, CipherTag} = aead_ciphertext_split(CipherFragment, TagLen),
-	case ssl_cipher:aead_decrypt(BulkCipherAlgo, Key, Nonce, CipherText, CipherTag, AAD) of
-	    Content when is_binary(Content) ->
-		Content;
-	    _ ->
-                ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
-	end
+	ssl_cipher:aead_decrypt(BulkCipherAlgo, Key, Nonce, CipherText, CipherTag, AAD)
     catch
 	_:_ ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
