@@ -1223,7 +1223,7 @@ maps(Config) when is_list(Config) ->
     repeat_while(fun({35,_}) -> false;
                     ({K,Map}) ->
                          Map = maps_from_list_nif(maps:to_list(Map)),
-                         Map = maps:filter(fun(K,V) -> V =:= K*100 end, Map),
+                         Map = maps:filter(fun(K2,V) -> V =:= K2*100 end, Map),
                          {K+1, maps:put(K,K*100,Map)}
                  end,
                  {1,#{}}),
@@ -1294,23 +1294,28 @@ resource_hugo_do(Type) ->
     release_resource(HugoPtr),
     erlang:garbage_collect(),
     {HugoPtr,HugoBin} = get_resource(Type,Hugo),
-    Pid = spawn_link(fun() -> 			     
-                             receive {Pid, Type, Resource, Ptr, Bin} ->
-                                         Pid ! {self(), got_it},
-                                         receive {Pid, check_it} ->
-                                                     {Ptr,Bin} = get_resource(Type,Resource),
-                                                     Pid ! {self(), ok}
-                                         end
-                             end
-                     end),
+    {Pid,_} =
+        spawn_monitor(fun() ->
+                              receive {Pid, Type, Resource, Ptr, Bin} ->
+                                      Pid ! {self(), got_it},
+                                      receive {Pid, check_it} ->
+                                              {Ptr,Bin} = get_resource(Type,Resource)
+                                      end
+                              end,
+                              gc_and_exit(ok)
+                      end),
     Pid ! {self(), Type, Hugo, HugoPtr, HugoBin},
     {Pid, got_it} = receive_any(),
     erlang:garbage_collect(),   % just to make our ProcBin move in memory
     Pid ! {self(), check_it},
-    {Pid, ok} = receive_any(),
+    {'DOWN', _, process, Pid, ok} = receive_any(),
     [] = last_resource_dtor_call(),
     {HugoPtr,HugoBin} = get_resource(Type,Hugo),
     {HugoPtr, HugoBin, 1}.
+
+gc_and_exit(Reason) ->
+    erlang:garbage_collect(),
+    exit(Reason).
 
 resource_otto(Type) ->
     {OttoPtr, OttoBin} = resource_otto_do(Type),
@@ -1388,14 +1393,14 @@ resource_binary_do() ->
     ResInfo = {Ptr,_} = get_resource(binary_resource_type,ResBin1),
 
     Papa = self(),
-    Forwarder = spawn_link(fun() -> forwarder(Papa) end),
+    {Forwarder,_} = spawn_monitor(fun() -> forwarder(Papa) end),
     io:format("sending to forwarder pid=~p\n",[Forwarder]),  
     Forwarder ! ResBin1,
     ResBin2 = receive_any(),
     ResBin2 = ResBin1,
     ResInfo = get_resource(binary_resource_type,ResBin2),
     Forwarder ! terminate,
-    {Forwarder, 1} = receive_any(),
+    {'DOWN', _, process, Forwarder, 1} = receive_any(),
     erlang:garbage_collect(),
     ResInfo = get_resource(binary_resource_type,ResBin1),
     ResInfo = get_resource(binary_resource_type,ResBin2),
@@ -1915,11 +1920,11 @@ send2_do1(SendBlobF) ->
     send2_do2(SendBlobF, self()),
 
     Papa = self(),
-    Forwarder = spawn_link(fun() -> forwarder(Papa) end),
+    {Forwarder,_} = spawn_monitor(fun() -> forwarder(Papa) end),
     io:format("sending to forwarder pid=~p\n",[Forwarder]),
     send2_do2(SendBlobF, Forwarder),
     Forwarder ! terminate,
-    {Forwarder, 4} = receive_any(),
+    {'DOWN', _, process, Forwarder, 4} = receive_any(),
     ok.
 
 send2_do2(SendBlobF, To) ->   
@@ -1975,7 +1980,7 @@ forwarder(To) ->
 forwarder(To, N) ->
     case receive_any() of
 	terminate ->
-	    To ! {self(), N};
+            gc_and_exit(N);
 	Msg ->	    
 	    To ! Msg,	   
 	    forwarder(To, N+1)
