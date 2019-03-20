@@ -9141,8 +9141,12 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_addrform(ErlNifEnv*       env,
                    domain) );
     
     res = socket_setopt(descP->sock,
-                        SOL_IPV6, IPV6_ADDRFORM,
-                        &domain, sizeof(domain));
+#if defined(SOL_IPV6)
+                        SOL_IPV6,
+#else
+                        IPPROTO_IPV6,
+#endif
+                        IPV6_ADDRFORM, &domain, sizeof(domain));
 
     if (res != 0)
         result = esock_make_error_errno(env, sock_errno());
@@ -9172,7 +9176,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_authhdr(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     eVal)
 {
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_AUTHHDR, eVal);
+    return nsetopt_bool_opt(env, descP,
+#if defined(SOL_IPV6)
+                        SOL_IPV6,
+#else
+                        IPPROTO_IPV6,
+#endif
+                        IPV6_AUTHHDR, eVal);
 }
 #endif
 
