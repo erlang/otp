@@ -207,7 +207,7 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
 
-
+#ifdef HAVE_RC2
     if (EVP_CIPHER_type((*cipherp)->cipher.p) == NID_rc2_cbc) {
         if (key_bin.size > INT_MAX / 8) {
             *return_term = EXCP_BADARG(env, "To large rc2_cbc key");
@@ -218,6 +218,7 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
     }
+#endif
 
     if (ivec_arg == atom_undefined || ivec_len == 0)
         {
@@ -346,7 +347,7 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         ret = enif_make_resource(env, ctx_res);
         if(ctx_res) enif_release_resource(ctx_res);
 
-    } else if (enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx_res)) {
+    } else if (enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res)) {
         /* Fetch the flag telling if we are going to encrypt (=true) or decrypt (=false) */
         if (argv[3] == atom_true)
             encflg = 1;
@@ -426,7 +427,7 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     struct evp_cipher_ctx *ctx_res;
     ERL_NIF_TERM ret;
 
-    if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx_res))
+    if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
         return EXCP_BADARG(env, "Bad 1:st arg");
     
     if (argc == 3) {

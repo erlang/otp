@@ -323,12 +323,11 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(info, Config) ->
     Config;
 init_per_testcase(cmac, Config) ->
-    case crypto:info_lib() of
-        [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer > 16#10001000 ->
+    case is_supported(cmac) of
+        true ->
             Config;
-        _Else ->
-            % The CMAC functionality was introduced in OpenSSL 1.0.1
-            {skip, "OpenSSL is too old"}
+        false ->
+            {skip, "CMAC is not supported"}
     end;
 init_per_testcase(generate, Config) ->
     case proplists:get_value(type, Config) of

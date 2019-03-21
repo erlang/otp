@@ -28,12 +28,12 @@
 
 static struct cipher_type_t cipher_types[] =
 {
-#ifndef OPENSSL_NO_RC2
+#ifdef HAVE_RC2
     {{"rc2_cbc"}, {&EVP_rc2_cbc}, 0, NO_FIPS_CIPHER},
 #else
     {{"rc2_cbc"}, {NULL}, 0, NO_FIPS_CIPHER},
 #endif
-#ifndef OPENSSL_NO_RC4
+#ifdef HAVE_RC4
     {{"rc4"},     {&EVP_rc4}, 0, NO_FIPS_CIPHER},
 #else
     {{"rc4"},     {NULL}, 0, NO_FIPS_CIPHER},
