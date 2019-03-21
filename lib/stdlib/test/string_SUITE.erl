@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,1}}].
+     {timetrap,{minutes,2}}].
 
 all() ->
     [{group, chardata}, {group, list_string}].
@@ -737,10 +737,10 @@ meas(Config) ->
     case ct:get_timetrap_info() of
         {_,{_,Scale}} when Scale > 1 ->
             {skip,{will_not_run_in_debug,Scale}};
-        _ -> % No scaling, run at most 1.5 min
+        _ -> % No scaling, run at most 2 mins
             Tester = spawn(Exec),
             receive {test_done, Tester} -> ok
-            after 90000 ->
+            after 120000 ->
                     io:format("Timelimit reached stopping~n",[]),
                     exit(Tester, die)
             end,
@@ -754,19 +754,22 @@ do_measure(DataDir) ->
     io:format("~p~n",[byte_size(Bin)]),
     Do = fun(Name, Func, Mode) ->
                  {N, Mean, Stddev, _} = time_func(Func, Mode, Bin, 20),
-                 io:format("~15w ~6w ~6.2fms ±~5.2fms #~.2w gc included~n",
+                 io:format("~15w ~15w ~8.2fms ±~6.2fms #~.2w gc included~n",
                            [Name, Mode, Mean/1000, Stddev/1000, N])
          end,
     Do2 = fun(Name, Func, Mode) ->
                   {N, Mean, Stddev, _} = time_func(Func, binary, <<>>, 20),
-                  io:format("~15w ~6w ~6.2fms ±~5.2fms #~.2w gc included~n",
+                  io:format("~15w ~15w ~8.2fms ±~6.2fms #~.2w gc included~n",
                             [Name, Mode, Mean/1000, Stddev/1000, N])
           end,
+    %% lefty_list means a list balanced to the left, like
+    %% [[[30],31],32]. Only some functions check such lists.
+    Modes = [list, lefty_list, binary, {many_lists,1}, {many_lists, 4}],
     io:format("----------------------~n"),
 
     Do(old_tokens, fun(Str) -> string:tokens(Str, [$\n,$\r]) end, list),
     Tokens = {lexemes, fun(Str) -> string:lexemes(Str, [$\n,$\r]) end},
-    [Do(Name,Fun,Mode) || {Name,Fun} <- [Tokens], Mode <- [list, binary]],
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [Tokens], Mode <- Modes],
 
     S0 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy.....",
     S0B = <<"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy.....">>,
@@ -824,17 +827,17 @@ do_measure(DataDir) ->
 
     io:format("--~n",[]),
     NthTokens = {nth_lexemes, fun(Str) -> string:nth_lexeme(Str, 18000, [$\n,$\r]) end},
-    [Do(Name,Fun,Mode) || {Name,Fun} <- [NthTokens], Mode <- [list, binary]],
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [NthTokens], Mode <- Modes],
     Do2(take_t, repeat(fun() -> string:take(S0, [$.,$y], false, trailing) end), list),
     Do2(take_t, repeat(fun() -> string:take(S0B, [$.,$y], false, trailing) end), binary),
     Do2(take_tc, repeat(fun() -> string:take(S0, [$x], true, trailing) end), list),
     Do2(take_tc, repeat(fun() -> string:take(S0B, [$x], true, trailing) end), binary),
 
     Length = {length, fun(Str) -> string:length(Str) end},
-    [Do(Name,Fun,Mode) || {Name,Fun} <- [Length], Mode <- [list, binary]],
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [Length], Mode <- Modes],
 
     Reverse = {reverse, fun(Str) -> string:reverse(Str) end},
-    [Do(Name,Fun,Mode) || {Name,Fun} <- [Reverse], Mode <- [list, binary]],
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [Reverse], Mode <- Modes],
 
     ok.
 
@@ -1064,7 +1067,33 @@ time_func(N,Sum,SumSq, _, _, Res, _) ->
     {N, Mean, Stdev, Res}.
 
 mode(binary, Bin) -> Bin;
-mode(list, Bin) -> unicode:characters_to_list(Bin).
+mode(list, Bin) -> unicode:characters_to_list(Bin);
+mode(lefty_list, Bin) ->
+    L = unicode:characters_to_list(Bin),
+    to_left(L);
+mode({many_lists, N}, Bin) ->
+    group(unicode:characters_to_list(Bin), N).
+
+group([], _N) ->
+    [];
+group(L, N) ->
+    try lists:split(N, L) of
+        {L1, L2} ->
+            [L1 | group(L2, N)]
+    catch
+        _:_ ->
+            [L]
+    end.
+
+to_left([]) ->
+    [];
+to_left([H|L]) ->
+    to_left([H], L).
+
+to_left(V, []) ->
+    V;
+to_left(V, [H|L]) ->
+    to_left([V,H], L).
 
 %%
 %% Old string lists Test cases starts here.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1247,18 +1247,20 @@ split_1(Bin, [_C|_]=Needle, Start, Where, Curr0, Acc) ->
             end
     end.
 
-lexemes_m([CP|_]=Cs0, {GCs,CPs,_}=Seps, Ts) when is_integer(CP) ->
+lexemes_m([CP|_]=Cs0, {GCs,CPs,_}=Seps0, Ts) when is_integer(CP) ->
     case lists:member(CP, CPs) of
         true ->
             [GC|Cs2] = unicode_util:gc(Cs0),
             case lists:member(GC, GCs) of
                 true ->
-                    lexemes_m(Cs2, Seps, Ts);
+                    lexemes_m(Cs2, Seps0, Ts);
                 false ->
+                    Seps = search_compile(Seps0),
                     {Lexeme,Rest} = lexeme_pick(Cs0, Seps, []),
                     lexemes_m(Rest, Seps, [Lexeme|Ts])
             end;
         false ->
+            Seps = search_compile(Seps0),
             {Lexeme,Rest} = lexeme_pick(Cs0, Seps, []),
             lexemes_m(Rest, Seps, [Lexeme|Ts])
     end;
