@@ -2020,18 +2020,11 @@ set_env_errors(Conf) when is_list(Conf) ->
     "application: kernel; erroneous parameter: distributed" =
 	badarg_msg(fun() -> application:set_env([{kernel, [{distributed, config}]}]) end),
 
-    %% This will raise in the future
-    ct:capture_start(),
-    _ = application:set_env([{foo, []}, {foo, []}]),
-    timer:sleep(100),
-    ct:capture_stop(),
-    [_ | _] = string:find(ct:capture_get(), "duplicate application config: foo"),
+    "duplicate application config: foo" =
+	badarg_msg(fun() -> application:set_env([{foo, []}, {foo, []}]) end),
 
-    ct:capture_start(),
-    _ = application:set_env([{foo, [{bar, baz}, {bar, bat}]}]),
-    timer:sleep(100),
-    ct:capture_stop(),
-    [_ | _] = string:find(ct:capture_get(), "application: foo; duplicate parameter: bar"),
+    "application: foo; duplicate parameter: bar" =
+	badarg_msg(fun() -> application:set_env([{foo, [{bar, baz}, {bar, bat}]}]) end),
 
     ok.
 

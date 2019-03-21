@@ -537,14 +537,12 @@ check_conf_data(ConfData) when is_list(ConfData) ->
 	{AppName, List} when is_atom(AppName), is_list(List) ->
 	    case lists:keymember(AppName, 1, ConfDataRem) of
 		true ->
-		    ?LOG_WARNING("duplicate application config: " ++ atom_to_list(AppName));
+		    {error, "duplicate application config: " ++ atom_to_list(AppName)};
 		false ->
-		    ok
-	    end,
-
-	    case check_para(List, AppName) of
-		ok -> check_conf_data(ConfDataRem);
-		Error -> Error
+		    case check_para(List, AppName) of
+			ok -> check_conf_data(ConfDataRem);
+			Error -> Error
+		    end
 	    end;
 	{AppName, List} when is_list(List)  ->
 	    ErrMsg = "application: "
@@ -570,15 +568,14 @@ check_para([], _AppName) ->
 check_para([{Para, Val} | ParaList], AppName) when is_atom(Para) ->
     case lists:keymember(Para, 1, ParaList) of
 	true ->
-	    ?LOG_WARNING("application: " ++ atom_to_list(AppName) ++
-                             "; duplicate parameter: " ++ atom_to_list(Para));
+	    ErrMsg =  "application: " ++ atom_to_list(AppName)
+		++ "; duplicate parameter: " ++ atom_to_list(Para),
+	    {error, ErrMsg};
 	false ->
-	    ok
-    end,
-
-    case check_para_value(Para, Val, AppName) of
-	ok -> check_para(ParaList, AppName);
-	{error, _} = Error -> Error
+	    case check_para_value(Para, Val, AppName) of
+		ok -> check_para(ParaList, AppName);
+		{error, _} = Error -> Error
+	    end
     end;
 check_para([{Para, _Val} | _ParaList], AppName) ->
     {error, "application: " ++ atom_to_list(AppName) ++ "; invalid parameter name: " ++
