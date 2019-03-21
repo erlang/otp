@@ -917,6 +917,15 @@
 	<p>Provides a map with information about block_size, key_length, iv_length and possibly other properties of the
 	cipher algorithm in question.
 	</p>
+        <note>
+	  <p>The ciphers <c>aes_cbc</c>, <c>aes_cfb8</c>, <c>aes_cfb128</c>, <c>aes_ctr</c>, 
+	  <c>aes_ecb</c>, <c>aes_gcm</c> and <c>aes_ccm</c>
+	  has no keylength in the <c>Type</c> as opposed to for example <c>aes_128_ctr</c>. They adapt to the length of
+	  the key provided in the encrypt and decrypt function. Therefor it is impossible to return a valid keylength
+	  in the map.</p>
+	  <p>Always use a <c>Type</c> with an explicit key length,
+	  </p>
+	</note>
 	<p>For a list of supported cipher algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
 	</p>
       </desc>
