@@ -134,7 +134,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(Func, Config)
-  when Func =:= processes_default_tab_test;
+  when Func =:= processes_default_tab;
        Func =:= processes_this_tab ->
     case erlang:system_info(debug_compiled) of
         true ->
