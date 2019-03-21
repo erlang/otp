@@ -477,6 +477,13 @@ i_make_fun(FunP, NumFree) {
     HEAVY_SWAPIN;
 }
 
+move_trim(Src, Dst, Words) {
+    Uint cp = E[0];
+    $Dst = $Src;
+    E += $Words;
+    E[0] = cp;
+}
+
 i_trim(Words) {
     Uint cp = E[0];
     E += $Words;
@@ -493,10 +500,6 @@ move3(S1, D1, S2, D2, S3, D3) {
     $D3 = $S3;
 }
 
-move_dup(Src, D1, D2) {
-    $D1 = $D2 = $Src;
-}
-
 move2_par(S1, D1, S2, D2) {
     Eterm V1, V2;
     V1 = $S1;
@@ -510,6 +513,39 @@ move_shift(Src, SD, D) {
     V = $Src;
     $D = $SD;
     $SD = V;
+}
+
+move_src_window2(Src, D1, D2) {
+    Eterm* src = &$Src;
+    Eterm s1, s2;
+    s1 = src[0];
+    s2 = src[1];
+    $D1 = s1;
+    $D2 = s2;
+}
+
+move_src_window3(Src, D1, D2, D3) {
+    Eterm* src = &$Src;
+    Eterm s1, s2, s3;
+    s1 = src[0];
+    s2 = src[1];
+    s3 = src[2];
+    $D1 = s1;
+    $D2 = s2;
+    $D3 = s3;
+}
+
+move_src_window4(Src, D1, D2, D3, D4) {
+    Eterm* src = &$Src;
+    Eterm s1, s2, s3, s4;
+    s1 = src[0];
+    s2 = src[1];
+    s3 = src[2];
+    s4 = src[3];
+    $D1 = s1;
+    $D2 = s2;
+    $D3 = s3;
+    $D4 = s4;
 }
 
 move_window2(S1, S2, D) {
@@ -703,9 +739,11 @@ jump(Fail) {
     $JUMP($Fail);
 }
 
-move_jump(Fail, Src) {
-    x(0) = $Src;
-    $jump($Fail);
+move_jump(Lbl, Src, Dst) {
+    Eterm lbl = $Lbl;
+    Eterm src = $Src;
+    $Dst = src;
+    $JUMP(lbl);
 }
 
 //
@@ -814,6 +852,16 @@ is_tagged_tuple(Fail, Src, Arityval, Tag) {
           (tuple_val(term))[0] == $Arityval &&
           (tuple_val(term))[1] == $Tag)) {
         $FAIL($Fail);
+    }
+}
+
+is_tagged_tuple_ff(NotTupleFail, WrongRecordFail, Src, Arityval, Tag) {
+    Eterm term = $Src;
+    if (is_not_tuple(term)) {
+        $FAIL($NotTupleFail);
+    } else if (ERTS_UNLIKELY((tuple_val(term))[0] != $Arityval ||
+                             (tuple_val(term))[1] != $Tag)) {
+        $FAIL($WrongRecordFail);
     }
 }
 

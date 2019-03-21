@@ -106,7 +106,10 @@ init y
 allocate_zero t t?
 allocate_heap_zero t I t?
 
+move Src=y Dst=x | trim N Remaining => move_trim Src Dst N
 trim N Remaining => i_trim N
+
+move_trim y x t
 i_trim t
 
 test_heap I t?
@@ -261,12 +264,14 @@ system_limit j
 # Move instructions.
 #
 
-move C=cxy x==0 | jump Lbl => move_jump Lbl C
+move Src=cxy Dst=xy | jump Lbl => move_jump Lbl Src Dst
 
-move_jump f ncxy
+move_jump f cxy xy
+move_jump f c r
 
-# Movement to and from the stack is common
-# Try to pack as much as we can into one instruction
+
+# Movement to and from the stack is common.
+# Try to pack as much as we can into one instruction.
 
 # Window move
 move_window/5
@@ -294,11 +299,49 @@ move_window3 x x x y
 move_window4 x x x x y
 move_window5 x x x x x y
 
+# y -> x
+
+move_src_window/4
+move_src_window/5
+
+move Y1=y X1=x | move Y2=y X2=x | succ(Y1, Y2) => \
+    move_src_window Y1 Y2 X1 X2
+
+move_src_window Y1 Y2 X1 X2 | move Y3=y X3=x | succ(Y2, Y3) => \
+    move_src_window Y1 Y3 X1 X2 X3
+move_src_window Y1 Y2 X1 X2 | move Y3=y X3=x | move Y4=y X4=x | succ(Y3, Y4) => \
+    move_src_window2 Y1 X1 X2 | move_src_window Y3 Y4 X3 X4
+move_src_window Y1 Y2 X1 X2 | move Y3=y X3=x => \
+    move3 Y1 X1 Y2 X2 Y3 X3
+
+move_src_window Y1 Y3 X1 X2 X3 | move Y4=y X4=x | succ(Y3, Y4) => \
+    move_src_window4 Y1 X1 X2 X3 X4
+
+move_src_window Y1 y X1 X2    => move_src_window2 Y1 X1 X2
+move_src_window Y1 y X1 X2 X3 => move_src_window3 Y1 X1 X2 X3
+
+move_src_window2 y x x
+move_src_window3 y x x x
+move_src_window4 y x x x x
+
 # Swap registers.
-move R1=x Tmp=x | move R2=x R1 | move Tmp R2 => swap_temp R1 R2 Tmp
+move R1=xy Tmp=x | move R2=xy R1 | move Tmp R2 => swap_temp R1 R2 Tmp
+
+# The compiler uses x(1022) when swapping registers. It will definitely
+# not be used again.
+swap_temp R1 R2 Tmp=x==1022 => swap R1 R2
+
+swap_temp R1 R2 Tmp | move Src Tmp => swap R1 R2 | move Src Tmp
 
 swap_temp R1 R2 Tmp | line Loc | apply Live | is_killed_apply(Tmp, Live) => \
   swap R1 R2 | line Loc | apply Live
+swap_temp R1 R2 Tmp | line Loc | apply_last Live D | is_killed_apply(Tmp, Live) => \
+  swap R1 R2 | line Loc | apply_last Live D
+
+swap_temp R1 R2 Tmp | line Loc | call_fun Live | is_killed(Tmp, Live) => \
+  swap R1 R2 | line Loc | call_fun Live
+swap_temp R1 R2 Tmp | make_fun2 OldIndex=u | is_killed_by_make_fun(Tmp, OldIndex) => \
+  swap R1 R2 | make_fun2 OldIndex
 
 swap_temp R1 R2 Tmp | line Loc | call Live Addr | is_killed(Tmp, Live) => \
   swap R1 R2 | line Loc | call Live Addr
@@ -314,27 +357,55 @@ swap_temp R1 R2 Tmp | line Loc | call_ext_only Live Addr | \
 swap_temp R1 R2 Tmp | line Loc | call_ext_last Live Addr D | \
   is_killed(Tmp, Live) => swap R1 R2 | line Loc | call_ext_last Live Addr D
 
+swap_temp R1 R2 Tmp | call_ext Live Addr | is_killed(Tmp, Live) => \
+  swap R1 R2 | call_ext Live Addr
+swap_temp R1 R2 Tmp | call_ext_only Live Addr | is_killed(Tmp, Live) => \
+  swap R1 R2 | call_ext_only Live Addr
+swap_temp R1 R2 Tmp | call_ext_last Live Addr D | is_killed(Tmp, Live) => \
+  swap R1 R2 | call_ext_last Live Addr D
+
+swap_temp R1 R2 Tmp | move Src Any | line Loc | call Live Addr | \
+  is_killed(Tmp, Live) | distinct(Tmp, Src) => \
+     swap R1 R2 | move Src Any | line Loc | call Live Addr
+swap_temp R1 R2 Tmp | move Src Any | line Loc | call_ext Live Addr | \
+  is_killed(Tmp, Live) | distinct(Tmp, Src) => \
+     swap R1 R2 | move Src Any | line Loc | call_ext Live Addr
+swap_temp R1 R2 Tmp | move Src Any | call_only Live Addr | \
+  is_killed(Tmp, Live) | distinct(Tmp, Src) => \
+    swap R1 R2 | move Src Any | call_only Live Addr
+swap_temp R1 R2 Tmp | move Src Any | line Loc | call_ext_only Live Addr | \
+  is_killed(Tmp, Live) | distinct(Tmp, Src) => \
+    swap R1 R2 | move Src Any | line Loc | call_ext_only Live Addr
+swap_temp R1 R2 Tmp | move Src Any | line Loc | call_fun Live | \
+  is_killed(Tmp, Live) | distinct(Tmp, Src) => \
+    swap R1 R2 | move Src Any | line Loc | call_fun Live
+
+swap_temp R1 R2 Tmp | line Loc | send | is_killed_by_send(Tmp) => \
+  swap R1 R2 | line Loc | send
+
+# swap_temp/3 with Y register operands are rare.
+swap_temp R1 R2=y Tmp => swap R1 R2 | move R2 Tmp
+swap_temp R1=y R2 Tmp => swap R1 R2 | move R2 Tmp
+
+swap R1=x R2=y => swap R2 R1
+
 swap_temp x x x
 
-swap x x
-
-# move_dup
-
-move Src=x D1=x | move Src=x D2=x => move_dup Src D1 D2
-move Src=x SD=x | move SD=x  D=x  => move_dup Src SD D
-
-move_dup x x x
+swap xy x
+swap y y
 
 # move_shift
 
-move SD=x D=x | move Src=xy SD=x | distinct(D, Src) => move_shift Src SD D
-move SD=y D=x | move Src=x  SD=y | distinct(D, Src) => move_shift Src SD D
-move SD=x D=y | move Src=x  SD=x | distinct(D, Src) => move_shift Src SD D
+move SD=x    D=x | move Src=cxy SD=x  | distinct(D, Src) => move_shift Src SD D
+move SD=y    D=x | move Src=x  SD=y   | distinct(D, Src) => move_shift Src SD D
+move SD=y    D=x | init SD            |                  => move_shift n   SD D
+move SD=x    D=y | move Src=x  SD=x   | distinct(D, Src) => move_shift Src SD D
+move SD=x==0 D=y | move Src=y SD=x==0 | distinct(D, Src) => move_shift Src SD D
 
-move_shift x x x
-move_shift y x x
-move_shift x y x
+move_shift cxy x x
+move_shift nx y x
 move_shift x x y
+move_shift y r y
 
 # move2_par x x x x
 
@@ -530,32 +601,26 @@ put_list Src Dst=x Dst => update_list Src Dst
 
 update_list xyc x
 
-put_list x n x
-put_list y n x
-put_list x x x
-put_list y x x
+# put_list SrcReg1 SrcReg2 => Dst
 
-put_list y y x
-put_list x y x
+put_list xy xy x
 
-# put_list SrcReg Constant Dst
+# put_list SrcReg [] => Dst
 
-put_list x c x
-put_list x c y
+put_list xy n xy
 
-put_list y c x
+# put_list SrcReg Constant => x
 
-# put_list Constant SrcReg Dst
+put_list xy c x
 
-put_list c x x
-put_list c y x
+# put_list Constant SrcReg => Dst
+
+put_list c xy x
 
 # The following put_list instructions using x(0) are frequently used.
 
-put_list r n r
-put_list r n x
-put_list r x x
-put_list r x r
+put_list r n rx
+put_list r x rx
 put_list x x r
 
 %cold
@@ -628,6 +693,11 @@ test_arity Fail Tuple=x Arity | get_tuple_element Tuple Pos Dst=x => \
 test_arity f? xy A
 
 test_arity_get_tuple_element f? x A P x
+
+is_tuple NotTupleFail Tuple=x | is_tagged_tuple WrongRecordFail Tuple Arity Atom => \
+   is_tagged_tuple_ff NotTupleFail WrongRecordFail Tuple Arity Atom
+
+is_tagged_tuple_ff f? f? rx A a
 
 get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
    get_tuple_element Reg=x P3 D3=x | \
@@ -1103,7 +1173,24 @@ call_fun Arity => i_call_fun Arity
 i_call_fun t
 i_call_fun_last t Q
 
+
+#
+# A fun with an empty environment can be converted to a literal.
+# As a further optimization, the we try to move the fun to its
+# final destination directly.
+
 make_fun2 OldIndex=u => gen_make_fun2(OldIndex)
+
+move_fun/2
+move_fun Fun X0 | move X0 Dst | move Src X0 => move Fun Dst | move Src X0
+move_fun Fun X0 | move A B | move X0 Dst | move Src X0 | \
+  independent_moves(Fun, X0, A, B) | distinct(Dst, A) => \
+    move Fun Dst | move A B | move Src X0
+move_fun Fun X0 | move X0 Dst | make_fun2 OldIndex | \
+  is_killed_by_make_fun(X0, OldIndex)=> \
+    move Fun Dst | make_fun2 OldIndex
+
+move_fun Fun Dst => move Fun Dst
 
 %cold
 i_make_fun W t
@@ -1484,23 +1571,22 @@ put_map_exact F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
 
 sorted_put_map_assoc Map Dst Live Size Rest=* | is_empty_map(Map) => \
    new_map Dst Live Size Rest
-sorted_put_map_assoc Src=s Dst Live Size Rest=* => \
-	       update_map_assoc Src Dst Live Size Rest
-sorted_put_map_assoc Src Dst Live Size Rest=* => \
-	       move Src x | update_map_assoc x Dst Live Size Rest
+sorted_put_map_assoc Src=xyc Dst Live Size Rest=* => \
+   update_map_assoc Src Dst Live Size Rest
 
-sorted_put_map_exact F Src=s Dst Live Size Rest=* => \
-	      update_map_exact F Src Dst Live Size Rest
-sorted_put_map_exact F Src Dst Live Size Rest=* => \
-	      move Src x | update_map_exact F x Dst Live Size Rest
+sorted_put_map_exact Fail Src=xy Dst Live Size Rest=* => \
+   update_map_exact Src Fail Dst Live Size Rest
+# Literal map arguments for an exact update operation are extremely rare.
+sorted_put_map_exact Fail Src Dst Live Size Rest=* => \
+   move Src x | update_map_exact x Fail Dst Live Size Rest
 
 new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
    gen_new_small_map_lit(Dst, Live, Size, Rest)
 
 new_map d t I
 i_new_small_map_lit d t q
-update_map_assoc s d t I
-update_map_exact j? s d t I
+update_map_assoc xyc d t I
+update_map_exact xy j? d t I
 
 is_map Fail Lit=q | literal_is_map(Lit) =>
 is_map Fail cq => jump Fail
@@ -1562,6 +1648,11 @@ gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
 # Arithmetic instructions.
 #
 
+# It is OK to swap arguments for '+' in a guard. It is also
+# OK to turn minus into plus in a guard.
+gen_plus Fail=f Live S1=c S2 Dst => i_plus S2 S1 Fail Dst
+gen_minus Fail=f Live S1 S2=i Dst => gen_plus_from_minus(Fail, Live, S1, S2, Dst)
+
 gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Dst
 
 gen_minus Fail Live S1 S2 Dst => i_minus S1 S2 Fail Dst
@@ -1595,10 +1686,13 @@ gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src Dst
 
 i_increment rxy W d
 
-i_plus x xy j? d
-i_plus s s  j? d
+# Handle unoptimized code.
+i_plus S1=c S2=c Fail Dst => move S1 x | i_plus x S2 Fail Dst
+
+i_plus xy xyc j? d
 
 i_minus x x j? d
+i_minus c x j? d
 i_minus s s j? d
 
 i_times j? s s d
@@ -1639,8 +1733,9 @@ bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 gc_bif1 Fail=j Live u$bif:erlang:length/1 Src Dst => \
    i_length_setup Live Src | i_length Fail Live Dst
 
-i_length_setup t xyc
+i_length_setup Live Src=c => move Src x | i_length_setup Live x
 
+i_length_setup t xy
 i_length j? t d
 
 #

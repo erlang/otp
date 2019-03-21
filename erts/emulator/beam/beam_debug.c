@@ -332,6 +332,13 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 		   "unknown " HEXF "\n", instr);
 	code_ptr++;
     }
+    if (i == op_call_nif) {
+        /*
+         * The rest of the code will not be executed. Don't disassemble any
+         * more code in this function.
+         */
+        code_ptr = 0;
+    }
     bin = new_binary(p, (byte *) dsbufp->str, dsbufp->str_len);
     erts_destroy_tmp_dsbuf(dsbufp);
     hsz = 4+4;
@@ -569,6 +576,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                 }
                 break;
 	    case op_i_bs_match_string_xfWW:
+	    case op_i_bs_match_string_yfWW:
                 if (ap - first_arg < 3) {
                     erts_print(to, to_arg, "%d", *ap);
                 } else {
@@ -772,8 +780,11 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_put_tuple2_xI:
     case op_put_tuple2_yI:
     case op_new_map_dtI:
-    case op_update_map_assoc_sdtI:
-    case op_update_map_exact_jsdtI:
+    case op_update_map_assoc_xdtI:
+    case op_update_map_assoc_ydtI:
+    case op_update_map_assoc_cdtI:
+    case op_update_map_exact_xjdtI:
+    case op_update_map_exact_yjdtI:
 	{
 	    int n = unpacked[-1];
 
