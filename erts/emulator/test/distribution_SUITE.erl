@@ -2428,17 +2428,22 @@ stop_node(Node) ->
 verify_nc(Node) ->
     P = self(),
     Ref = make_ref(),
-    spawn(Node,
-          fun() ->
-                  R = erts_test_utils:check_node_dist(fun(E) -> E end),
-                  P ! {Ref, R}
-          end),
+    Pid = spawn(Node,
+                fun() ->
+                        R = erts_test_utils:check_node_dist(fun(E) -> E end),
+                        P ! {Ref, R}
+                end),
+    MonRef = monitor(process, Pid),
     receive
         {Ref, ok} ->
+            demonitor(MonRef,[flush]),
             ok;
         {Ref, Error} ->
-            ct:log("~s",[Error]),
-            ct:fail(failed_nc_refc_check)
+            ct:log("~p",[Error]),
+            ct:fail(failed_nc_refc_check);
+        {'DOWN', MonRef, _, _, _} = Down ->
+            ct:log("~p",[Down]),
+            ct:fail(crashed_nc_refc_check)
     end.
 
 freeze_node(Node, MS) ->
