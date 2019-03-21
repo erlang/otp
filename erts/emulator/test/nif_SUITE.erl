@@ -28,6 +28,7 @@
 -include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
@@ -109,6 +110,14 @@ all() ->
      pid,
      nif_term_type].
 
+init_per_suite(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    Config.
+
+end_per_suite(_Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
+    ok.
+
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
         ++
@@ -117,7 +126,6 @@ groups() ->
                     monitor_process_c,
                     monitor_process_d,
                     demonitor_process]}].
-
 
 api_groups() -> [api_latest, api_2_4, api_2_0].
 
@@ -1760,6 +1768,7 @@ read_resource(Type, {Holder,Id}) ->
 forget_resource({Holder,Id}) ->
     Holder ! {self(), forget, Id},
     {Holder, forget_ok, Id} = receive_any(),
+    erts_debug:set_internal_state(wait, aux_work),
     ok.
 
 
@@ -3105,21 +3114,30 @@ nif_whereis_threaded(Config) when is_list(Config) ->
     RegName = nif_whereis_test_threaded,
     undefined = erlang:whereis(RegName),
 
-    Ref = make_ref(),
-    {Pid, Mon} = spawn_monitor(?MODULE, nif_whereis_proxy, [Ref]),
-    true = register(RegName, Pid),
+    Self = self(),
+    true = register(RegName, Self),
 
-    {ok, ProcThr} = whereis_thd_lookup(pid, RegName),
-    {ok, Pid} = whereis_thd_result(ProcThr),
+    {ok, ProcThr} = whereis_thd_lookup(pid, RegName, "dtor to proc"),
+    {ok, Self} = whereis_thd_result(ProcThr),
 
-    Pid ! {Ref, quit},
-    ok = receive {'DOWN', Mon, process, Pid, normal} -> ok end,
+    nif_whereis_threaded_2(RegName).
+
+nif_whereis_threaded_2(RegName) ->
+    erlang:garbage_collect(),
+    "dtor to proc" = receive_any(1000),
+    true = unregister(RegName),
 
     Port = open_port({spawn, echo_drv}, [eof]),
     true = register(RegName, Port),
 
-    {ok, PortThr} = whereis_thd_lookup(port, RegName),
+    {ok, PortThr} = whereis_thd_lookup(port, RegName, "dtor to port"),
     {ok, Port} = whereis_thd_result(PortThr),
+
+    nif_whereis_threaded_3(Port).
+
+nif_whereis_threaded_3(Port) ->
+    erlang:garbage_collect(),
+    {Port, {data, "dtor to port"}} = receive_any(1000),
 
     port_close(Port),
     ok.
@@ -3435,6 +3453,10 @@ nif_term_type(Config) ->
 
     ok.
 
+last_resource_dtor_call() ->
+    erts_debug:set_internal_state(wait, aux_work),
+    last_resource_dtor_call_nif().
+
 id(I) -> I.
 
 %% The NIFs:
@@ -3462,7 +3484,7 @@ make_resource(_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
 release_resource(_) -> ?nif_stub.
 release_resource_from_thread(_) -> ?nif_stub.
-last_resource_dtor_call() -> ?nif_stub.
+last_resource_dtor_call_nif() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 check_is(_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 check_is_exception() -> ?nif_stub.
@@ -3522,7 +3544,7 @@ ioq_nif(_,_,_,_) -> ?nif_stub.
 %% whereis
 whereis_send(_Type,_Name,_Msg) -> ?nif_stub.
 whereis_term(_Type,_Name) -> ?nif_stub.
-whereis_thd_lookup(_Type,_Name) -> ?nif_stub.
+whereis_thd_lookup(_Type,_Name, _Msg) -> ?nif_stub.
 whereis_thd_result(_Thd) -> ?nif_stub.
 
 %% maps
