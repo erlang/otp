@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2016</year>
+      <year>2019</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>            
     <legalnotice>
@@ -65,6 +65,10 @@
     </datatype>
     <datatype>
       <name name="option"/>
+      <desc>
+        <p>The option <c>quote_singleton_atom_types</c>
+          is used to add quotes to all singleton atom types.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="options"/>

@@ -41,10 +41,11 @@
                                    io_lib:chars())).
 
 -type(option() :: {hook, hook_function()}
-                | {encoding, latin1 | unicode | utf8}).
+                | {encoding, latin1 | unicode | utf8}
+                | {quote_singleton_atom_types, boolean()}).
 -type(options() :: hook_function() | [option()]).
 
--record(pp, {value_fun, string_fun, char_fun}).
+-record(pp, {value_fun, singleton_atom_type_fun, string_fun, char_fun}).
 
 -record(options, {hook, encoding, opts}).
 
@@ -206,22 +207,43 @@ options(Hook) ->
     #options{hook = Hook, encoding = encoding([]), opts = Hook}.
 
 state(Options) when is_list(Options) ->
+    Quote = proplists:get_bool(quote_singleton_atom_types, Options),
     case encoding(Options) of
-        latin1 -> state();
-        unicode -> unicode_state()
+        latin1 -> latin1_state(Quote);
+        unicode -> unicode_state(Quote)
     end;
 state(_Hook) ->
-    state().
+    latin1_state(false).
 
-state() ->
+latin1_state(Quote) ->
     Options = [{encoding,latin1}],
-    #pp{value_fun  = fun(V) -> io_lib_pretty:print(V, Options) end,
+    ValueFun = fun(V) -> io_lib_pretty:print(V, Options) end,
+    SingletonFun =
+        case Quote of
+            true ->
+                fun(A) ->
+                        io_lib:write_string_as_latin1(atom_to_list(A), $')
+                end; %'
+            false ->
+                ValueFun
+        end,
+    #pp{value_fun  = ValueFun,
+        singleton_atom_type_fun = SingletonFun,
         string_fun = fun io_lib:write_string_as_latin1/1,
         char_fun   = fun io_lib:write_char_as_latin1/1}.
 
-unicode_state() ->
+unicode_state(Quote) ->
     Options = [{encoding,unicode}],
-    #pp{value_fun  = fun(V) -> io_lib_pretty:print(V, Options) end,
+    ValueFun = fun(V) -> io_lib_pretty:print(V, Options) end,
+    SingletonFun =
+        case Quote of
+            true ->
+                fun(A) -> io_lib:write_string(atom_to_list(A), $') end; %'
+            false ->
+                ValueFun
+        end,
+    #pp{value_fun = ValueFun,
+        singleton_atom_type_fun = SingletonFun,
         string_fun = fun io_lib:write_string/1,
         char_fun   = fun io_lib:write_char/1}.
 
@@ -350,7 +372,7 @@ ltype({user_type,Line,T,Ts}, _) ->
 ltype({remote_type,Line,[M,F,Ts]}, _) ->
     simple_type({remote,Line,M,F}, Ts);
 ltype({atom,_,T}, _) ->
-    {atom,T};
+    {singleton_atom_type,T};
 ltype(E, P) ->
     lexpr(E, P, options(none)).
 
@@ -933,6 +955,7 @@ frmt(Item, I, PP) ->
 %%% - {prefer_nl,Sep,IPs}: forces linebreak between Is unlesss negative
 %%%   indentation.
 %%% - {atom,A}: an atom
+%%% - {singleton_atom_type,A}: an singleton atom type
 %%% - {char,C}: a character
 %%% - {string,S}: a string.
 %%% - {value,T}: a term.
@@ -1000,6 +1023,8 @@ f({value,V}, I, ST, WT, PP) ->
     f(write_a_value(V, PP), I, ST, WT, PP);
 f({atom,A}, I, ST, WT, PP) ->
     f(write_an_atom(A, PP), I, ST, WT, PP);
+f({singleton_atom_type,A}, I, ST, WT, PP) ->
+    f(write_a_singleton_atom_type(A, PP), I, ST, WT, PP);
 f({char,C}, I, ST, WT, PP) ->
     f(write_a_char(C, PP), I, ST, WT, PP);
 f({string,S}, I, ST, WT, PP) ->
@@ -1144,6 +1169,9 @@ write_a_value(V, PP) ->
 write_an_atom(A, PP) ->
     flat_leaf(write_atom(A, PP)).
 
+write_a_singleton_atom_type(A, PP) ->
+    flat_leaf(write_singleton_atom_type(A, PP)).
+
 write_a_char(C, PP) ->
     flat_leaf(write_char(C, PP)).
 
@@ -1177,6 +1205,9 @@ write_value(V, PP) ->
 
 write_atom(A, PP) ->
     (PP#pp.value_fun)(A).
+
+write_singleton_atom_type(A, PP) ->
+    (PP#pp.singleton_atom_type_fun)(A).
 
 write_string(S, PP) ->
     (PP#pp.string_fun)(S).
