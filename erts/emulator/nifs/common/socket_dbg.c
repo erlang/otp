@@ -38,8 +38,10 @@
 
 static FILE* dbgout = NULL;
 
+#if defined(CLOCK_REALTIME)
 static int realtime(struct timespec* tsP);
 static int timespec2str(char *buf, unsigned int len, struct timespec *ts);
+#endif
 
 
 extern
@@ -71,41 +73,48 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
 {
   va_list         args;
   char            f[512 + sizeof(format)]; // This has to suffice...
+#if defined(CLOCK_REALTIME)
   char            stamp[30];
   struct timespec ts;
+#endif
   int             res;
 
   /*
-   * We should really include self in the printout, so we can se which process
-   * are executing the code. But then I must change the API....
-   * ....something for later.
+   * We should really include self in the printout,
+   * so we can se which process are executing the code.
+   * But then I must change the API....something for later.
    */
 
-  if (!realtime(&ts)) {
-    if (timespec2str(stamp, sizeof(stamp), &ts) != 0) {
-        res = enif_snprintf(f, sizeof(f), "%s [%s] %s", prefix, TSNAME(), format);
-        // res = enif_snprintf(f, sizeof(f), "%s [%s]", prefix, format);
-    } else {
-      res = enif_snprintf(f, sizeof(f), "%s [%s] [%s] %s", prefix, stamp, TSNAME(), format);
-      // res = enif_snprintf(f, sizeof(f), "%s [%s] %s", prefix, stamp, format);
-    }
-
-    if (res > 0) {
+#if defined(CLOCK_REALTIME)
+  if (!realtime(&ts) &&
+      (timespec2str(stamp, sizeof(stamp), &ts) == 0)) {
+      res = enif_snprintf(f, sizeof(f), "%s [%s] [%s] %s",
+                          prefix, stamp, TSNAME(), format);
+  } else {
+      res = enif_snprintf(f, sizeof(f), "%s [%s] %s",
+                          prefix, TSNAME(), format);
+  }
+#else
+  res = enif_snprintf(f, sizeof(f), "%s [%s] %s",
+                      prefix, TSNAME(), format);
+#endif
+  
+  if (res > 0) {
       va_start (args, format);
       enif_vfprintf (dbgout, f, args);
       va_end (args);
       fflush(stdout);
-    }
   }
 
   return;
 }
 
 
+#if defined(CLOCK_REALTIME)
 static
 int realtime(struct timespec* tsP)
 {
-  return clock_gettime(CLOCK_REALTIME, tsP);
+    return clock_gettime(CLOCK_REALTIME, tsP);
 }
 
 
@@ -136,3 +145,4 @@ int timespec2str(char *buf, unsigned int len, struct timespec *ts)
 
   return 0;
 }
+#endif
