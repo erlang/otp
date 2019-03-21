@@ -2086,8 +2086,39 @@ test_pktoptions(Family, Spec, CheckConnect, OSType, OSVer) ->
 %%%    {ok,<<"hi">>} = gen_tcp:recv(S1, 2, Timeout),
     %%
     %% Verify returned remote options
-    {ok,[{pktoptions,OptsVals1}]} = inet:getopts(S1, [pktoptions]),
-    {ok,[{pktoptions,OptsVals2}]} = inet:getopts(S2, [pktoptions]),
+    VerifyRemOpts =
+        fun(S, Role) ->
+                case inet:getopts(S, [pktoptions]) of
+                    {ok, [{pktoptions, PktOpts1}]} ->
+                        PktOpts1;
+                    {ok, UnexpOK1} ->
+                        io:format("Unexpected OK (~w): "
+                                  "~n   ~p"
+                                  "~n", [Role, UnexpOK1]),
+                        exit({unexpected_getopts_ok,
+                              Role,
+                              Spec,
+                              TrueRecvOpts,
+                              OptsVals,
+                              OptsValsDefault,
+                              UnexpOK1});
+                    {error, UnexpERR1} ->
+                        io:format("Unexpected ERROR (~w): "
+                                  "~n   ~p"
+                                  "~n", [Role, UnexpERR1]),
+                        exit({unexpected_getopts_failure,
+                              Role,
+                              Spec,
+                              TrueRecvOpts,
+                              OptsVals,
+                              OptsValsDefault,
+                              UnexpERR1})
+                end
+        end,
+    OptsVals1 = VerifyRemOpts(S1, dest),
+    OptsVals2 = VerifyRemOpts(S2, orig),
+    %% {ok,[{pktoptions,OptsVals1}]} = inet:getopts(S1, [pktoptions]),
+    %% {ok,[{pktoptions,OptsVals2}]} = inet:getopts(S2, [pktoptions]),
     (Result1 = sets_eq(OptsVals1, OptsVals))
         orelse io:format(
                  "Accept differs: ~p neq ~p~n", [OptsVals1,OptsVals]),
@@ -3430,7 +3461,7 @@ wait(Mref) ->
 
 %% OTP-15536
 %% Test that send error works correctly for delay_send
-delay_send_error(Config) ->
+delay_send_error(_Config) ->
     {ok, LS} = gen_tcp:listen(0, [{reuseaddr, true}, {packet, 1}, {active, false}]),
     {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
     P = spawn_link(
