@@ -2410,7 +2410,8 @@ static void socket_down_reader(ErlNifEnv*        env,
                                const ErlNifPid*  pid);
 
 static char* esock_send_close_msg(ErlNifEnv*        env,
-                                  SocketDescriptor* descP);
+                                  SocketDescriptor* descP,
+                                  ERL_NIF_TERM      sockRef);
 static char* esock_send_abort_msg(ErlNifEnv*   env,
                                   ERL_NIF_TERM sockRef,
                                   ERL_NIF_TERM recvRef,
@@ -16896,15 +16897,18 @@ char* send_msg_error(ErlNifEnv*   env,
  */
 static
 char* esock_send_close_msg(ErlNifEnv*        env,
-                           SocketDescriptor* descP)
+                           SocketDescriptor* descP,
+                           ERL_NIF_TERM      sockRef)
 {
-    ERL_NIF_TERM sockRef = enif_make_resource(descP->closeEnv, descP);
-    char*        res     = esock_send_socket_msg(env,
-                                                 sockRef,
-                                                 esock_atom_close,
-                                                 descP->closeRef,
-                                                 &descP->closerPid,
-                                                 descP->closeEnv);
+    ERL_NIF_TERM sr = ((descP->closeEnv != NULL) ?
+                       enif_make_copy(descP->closeEnv, sockRef) :
+                       sockRef);
+    char*        res = esock_send_socket_msg(env,
+                                             sr,
+                                             esock_atom_close,
+                                             descP->closeRef,
+                                             &descP->closerPid,
+                                             descP->closeEnv);
 
     descP->closeEnv = NULL;
 
@@ -17754,11 +17758,12 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     if (descP->sock != INVALID_SOCKET) {
         
         if (descP->closeLocal) {
+
             if (!is_direct_call) {
                 
                 /* +++ send close message to the waiting process +++ */
 
-                esock_send_close_msg(env, descP);
+                esock_send_close_msg(env, descP, sockRef);
                 
                 DEMONP("socket_stop -> closer", env, descP, &descP->closerMon);
 
@@ -17768,7 +17773,11 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                  * since the message send takes care of it if scheduled.
                  */
 
-                if (descP->closeEnv != NULL) enif_free_env(descP->closeEnv);
+                if (descP->closeEnv != NULL) {
+                    enif_clear_env(descP->closeEnv);
+                    enif_free_env(descP->closeEnv);
+                    descP->closeEnv = NULL;
+                }
 
             }
         }
