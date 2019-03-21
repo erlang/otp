@@ -329,7 +329,7 @@ typedef struct {
     int (*socket)(void **ctx, void *setup_ctx);
     int	(*close)(void *ctx);
     int (*listen)(void *ctx, void *addr, int *len, int backlog);
-    int (*accept)(void **ctx, void *addr, int *len, unsigned tmo);
+    int (*accept_ei)(void **ctx, void *addr, int *len, unsigned tmo);
     int (*connect)(void *ctx, void *addr, int len, unsigned tmo);
     int (*writev)(void *ctx, const void *iov, int iovcnt, ssize_t *len, unsigned tmo);
     int (*write)(void *ctx, const char *buf, ssize_t *len, unsigned tmo);

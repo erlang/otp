@@ -1010,10 +1010,10 @@ static ERL_NIF_TERM nconnect(ErlNifEnv*       env,
 static ERL_NIF_TERM nlisten(ErlNifEnv*       env,
                             ESockDescriptor* descP,
                             int              backlog);
-static ERL_NIF_TERM naccept(ErlNifEnv*       env,
-                            ESockDescriptor* descP,
-                            ERL_NIF_TERM     sockRef,
-                            ERL_NIF_TERM     ref);
+static ERL_NIF_TERM naccept_erts(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     ref);
 static ERL_NIF_TERM naccept_listening(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
@@ -1077,31 +1077,31 @@ static ERL_NIF_TERM nsendto(ErlNifEnv*       env,
                             int              flags,
                             ESockAddress*    toAddrP,
                             unsigned int     toAddrLen);
-static ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             ERL_NIF_TERM     sockRef,
-                             ERL_NIF_TERM     sendRef,
-                             ERL_NIF_TERM     eMsgHdr,
-                             int              flags);
+static ERL_NIF_TERM nsendmsg_erts(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     sendRef,
+                                  ERL_NIF_TERM     eMsgHdr,
+                                  int              flags);
 static ERL_NIF_TERM nrecv(ErlNifEnv*       env,
                           ESockDescriptor* descP,
                           ERL_NIF_TERM     sendRef,
                           ERL_NIF_TERM     recvRef,
                           int              len,
                           int              flags);
-static ERL_NIF_TERM nrecvfrom(ErlNifEnv*       env,
-                              ESockDescriptor* descP,
-                              ERL_NIF_TERM     sockRef,
-                              ERL_NIF_TERM     recvRef,
-                              Uint16           bufSz,
-                              int              flags);
-static ERL_NIF_TERM nrecvmsg(ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             ERL_NIF_TERM     sockRef,
-                             ERL_NIF_TERM     recvRef,
-                             Uint16           bufLen,
-                             Uint16           ctrlLen,
-                             int              flags);
+static ERL_NIF_TERM nrecvfrom_erts(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     sockRef,
+                                   ERL_NIF_TERM     recvRef,
+                                   Uint16           bufSz,
+                                   int              flags);
+static ERL_NIF_TERM nrecvmsg_erts(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     recvRef,
+                                  Uint16           bufLen,
+                                  Uint16           ctrlLen,
+                                  int              flags);
 static ERL_NIF_TERM nclose(ErlNifEnv*       env,
                            ESockDescriptor* descP);
 static BOOLEAN_T nclose_check(ErlNifEnv*       env,
@@ -5126,7 +5126,7 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
             descP->currentAcceptor.env,
             descP->currentAcceptor.ref) );
 
-    res = naccept(env, descP, sockRef, ref);
+    res = naccept_erts(env, descP, sockRef, ref);
 
     MUNLOCK(descP->accMtx);
 
@@ -5138,10 +5138,10 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM naccept(ErlNifEnv*       env,
-                     ESockDescriptor* descP,
-                     ERL_NIF_TERM     sockRef,
-                     ERL_NIF_TERM     ref)
+ERL_NIF_TERM naccept_erts(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     sockRef,
+                          ERL_NIF_TERM     ref)
 {
     ERL_NIF_TERM res;
 
@@ -5936,7 +5936,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
 
     MLOCK(descP->writeMtx);
 
-    res = nsendmsg(env, descP, sockRef, sendRef, eMsgHdr, flags);
+    res = nsendmsg_erts(env, descP, sockRef, sendRef, eMsgHdr, flags);
 
     MUNLOCK(descP->writeMtx);
 
@@ -5953,12 +5953,12 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
-                      ESockDescriptor* descP,
-                      ERL_NIF_TERM     sockRef,
-                      ERL_NIF_TERM     sendRef,
-                      ERL_NIF_TERM     eMsgHdr,
-                      int              flags)
+ERL_NIF_TERM nsendmsg_erts(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ERL_NIF_TERM     sockRef,
+                           ERL_NIF_TERM     sendRef,
+                           ERL_NIF_TERM     eMsgHdr,
+                           int              flags)
 {
     ERL_NIF_TERM  res, eAddr, eIOV, eCtrl;
     ESockAddress  addr;
@@ -5987,7 +5987,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
 
         /* We don't need the address */
 
-        SSDBG( descP, ("SOCKET", "nsendmsg -> connected: no address\r\n") );
+        SSDBG( descP, ("SOCKET", "nsendmsg_erts -> connected: no address\r\n") );
 
         msgHdr.msg_name    = NULL;
         msgHdr.msg_namelen = 0;
@@ -6002,7 +6002,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
         if (!GET_MAP_VAL(env, eMsgHdr, esock_atom_addr, &eAddr))
             return esock_make_error(env, esock_atom_einval);
 
-        SSDBG( descP, ("SOCKET", "nsendmsg -> not connected: "
+        SSDBG( descP, ("SOCKET", "nsendmsg_erts -> not connected: "
                        "\r\n   address: %T"
                        "\r\n", eAddr) );
 
@@ -6022,7 +6022,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
     if (!GET_LIST_LEN(env, eIOV, &iovLen) && (iovLen > 0))
         return esock_make_error(env, esock_atom_einval);
 
-    SSDBG( descP, ("SOCKET", "nsendmsg -> iov length: %d\r\n", iovLen) );
+    SSDBG( descP, ("SOCKET", "nsendmsg_erts -> iov length: %d\r\n", iovLen) );
 
     iovBins = MALLOC(iovLen * sizeof(ErlNifBinary));
     ESOCK_ASSERT( (iovBins != NULL) );
@@ -6040,7 +6040,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
         ctrlBufLen = 0;
         ctrlBuf    = NULL;
     }
-    SSDBG( descP, ("SOCKET", "nsendmsg -> optional ctrl: "
+    SSDBG( descP, ("SOCKET", "nsendmsg_erts -> optional ctrl: "
                    "\r\n   ctrlBuf:    0x%lX"
                    "\r\n   ctrlBufLen: %d"
                    "\r\n   eCtrl:      %T\r\n", ctrlBuf, ctrlBufLen, eCtrl) );
@@ -6058,7 +6058,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
     
 
     SSDBG( descP, ("SOCKET",
-                   "nsendmsg -> total (iov) data size: %d\r\n", dataSize) );
+                   "nsendmsg_erts -> total (iov) data size: %d\r\n", dataSize) );
 
 
     /* Decode the ctrl and initiate that part of the msghdr.
@@ -6399,7 +6399,7 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
      * </KOLLA>
      */
 
-    res = nrecvfrom(env, descP, sockRef, recvRef, bufSz, flags);
+    res = nrecvfrom_erts(env, descP, sockRef, recvRef, bufSz, flags);
 
     MUNLOCK(descP->readMtx);
 
@@ -6415,12 +6415,12 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nrecvfrom(ErlNifEnv*       env,
-                       ESockDescriptor* descP,
-                       ERL_NIF_TERM     sockRef,
-                       ERL_NIF_TERM     recvRef,
-                       Uint16           len,
-                       int              flags)
+ERL_NIF_TERM nrecvfrom_erts(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     recvRef,
+                            Uint16           len,
+                            int              flags)
 {
     ESockAddress  fromAddr;
     unsigned int  addrLen;
@@ -6430,7 +6430,7 @@ ERL_NIF_TERM nrecvfrom(ErlNifEnv*       env,
     ERL_NIF_TERM  readerCheck;
     int           bufSz = (len ? len : descP->rBufSz);
 
-    SSDBG( descP, ("SOCKET", "nrecvfrom -> entry with"
+    SSDBG( descP, ("SOCKET", "nrecvfrom_erts -> entry with"
                    "\r\n   len:   %d (%d)"
                    "\r\n   flags: %d"
                    "\r\n", len, bufSz, flags) );
@@ -6571,7 +6571,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
      * </KOLLA>
      */
 
-    res = nrecvmsg(env, descP, sockRef, recvRef, bufSz, ctrlSz, flags);
+    res = nrecvmsg_erts(env, descP, sockRef, recvRef, bufSz, ctrlSz, flags);
 
     MUNLOCK(descP->readMtx);
 
@@ -6587,13 +6587,13 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nrecvmsg(ErlNifEnv*       env,
-                      ESockDescriptor* descP,
-                      ERL_NIF_TERM     sockRef,
-                      ERL_NIF_TERM     recvRef,
-                      Uint16           bufLen,
-                      Uint16           ctrlLen,
-                      int              flags)
+ERL_NIF_TERM nrecvmsg_erts(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ERL_NIF_TERM     sockRef,
+                           ERL_NIF_TERM     recvRef,
+                           Uint16           bufLen,
+                           Uint16           ctrlLen,
+                           int              flags)
 {
     unsigned int  addrLen;
     ssize_t       read;
@@ -6607,7 +6607,7 @@ ERL_NIF_TERM nrecvmsg(ErlNifEnv*       env,
     ERL_NIF_TERM  readerCheck;
     ESockAddress  addr;
 
-    SSDBG( descP, ("SOCKET", "nrecvmsg -> entry with"
+    SSDBG( descP, ("SOCKET", "nrecvmsg_erts -> entry with"
                    "\r\n   bufSz:  %d (%d)"
                    "\r\n   ctrlSz: %d (%d)"
                    "\r\n   flags:  %d"
