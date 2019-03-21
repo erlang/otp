@@ -142,12 +142,15 @@ static posix_errno_t get_full_path(ErlNifEnv *env, WCHAR *input, efile_path_t *r
         maybe_unc_path = !sys_memcmp(result->data, L"\\\\", sizeof(WCHAR) * 2);
 
         if(maybe_unc_path && !is_long_path) {
-            /* \\localhost\c$\gurka -> \\?\UNC\localhost\c$\gurka */
+            /* \\localhost\c$\gurka -> \\?\UNC\localhost\c$\gurka
+             *
+             * Note that the length is reduced by 2 as the "\\" is replaced by
+             * the UNC prefix */
             sys_memmove(result->data + LP_UNC_PREFIX_SIZE,
                 &((WCHAR*)result->data)[2],
-                (actual_length - 1) * sizeof(WCHAR));
+                (actual_length + 1 - 2) * sizeof(WCHAR));
             sys_memcpy(result->data, LP_UNC_PREFIX, LP_UNC_PREFIX_SIZE);
-            actual_length += LP_UNC_PREFIX_LENGTH;
+            actual_length += LP_UNC_PREFIX_LENGTH - 2;
         } else if(!is_long_path) {
             /* C:\gurka -> \\?\C:\gurka */
             sys_memmove(result->data + LP_PREFIX_SIZE, result->data,
