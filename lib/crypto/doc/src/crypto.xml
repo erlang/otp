@@ -562,6 +562,36 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="descriptive_error"/>
+      <desc>
+	<p>This is a more developed variant of the older
+	<seealso marker="#type-run_time_error">run_time_error()</seealso>.
+	</p>
+	<p>It is like the older type an exception of the <c>error</c> class. In addition they contain
+	a descriptive text in English. That text is targeted to a developer. Examples are "Bad key size"
+	or "Cipher id is not an atom".
+	</p>
+	<p>The exceptions are:</p>
+	<taglist>
+	  <tag><c>{badarg, Description::string()}</c></tag>
+	  <item><p>Signifies that one or more arguments are of wrong data type or are otherwise badly formed.</p>
+	  </item>
+
+	  <tag><c>{notsup, Description::string()}</c></tag>
+	  <item><p>Signifies that the algorithm is known but is not supported by current underlying libcrypto
+	  or explicitly disabled when building that one.</p>
+	  </item>
+
+	  <tag><c>{error, Description::string()}</c></tag>
+	  <item><p>An error condition that should not occur, for example a memory allocation failed or
+	  the underlying cryptolib returned an error code, for example "Can't initialize context, step 1".
+	  Thoose text usually needs searching the C-code to be understood.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <!--================ FUNCTIONS ================-->
@@ -873,7 +903,7 @@
       <fsummary>Information about supported hash algorithms.</fsummary>
       <desc>
 	<p>Provides a map with information about block_size, size and possibly other properties of the
-	hash algorithm in the argument.
+	hash algorithm in question.
 	</p>
 	<p>For a list of supported hash algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
 	</p>
@@ -885,7 +915,7 @@
       <fsummary>Information about supported ciphers.</fsummary>
       <desc>
 	<p>Provides a map with information about block_size, key_length, iv_length and possibly other properties of the
-	cipher algorithm in the argument.
+	cipher algorithm in question.
 	</p>
 	<p>For a list of supported cipher algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
 	</p>
