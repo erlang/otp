@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -193,36 +193,36 @@ init([AgentType, Opts]) ->
     ?vdebug("agent restart type: ~w", [Restart]),
 
     %% -- Agent type --
-    ets:insert(snmp_agent_table, {agent_type, AgentType}),
+    store(agent_type, AgentType),
 
     %% -- Prio --
     Prio = get_opt(priority, Opts, normal),
     ?vdebug("[agent table] store priority: ~p",[Prio]),
-    ets:insert(snmp_agent_table, {priority, Prio}),
+    store(priority, Prio),
 
     %% -- Versions -- 
     Vsns = get_opt(versions, Opts, [v1,v2,v3]),
     ?vdebug("[agent table] store versions: ~p",[Vsns]),
-    ets:insert(snmp_agent_table, {versions, Vsns}),
+    store(versions, Vsns),
 
     %% -- Max number of VBs in a Get-BULK response --
     GbMaxVBs = get_gb_max_vbs(Opts),
     ?vdebug("[agent table] Get-BULK max VBs: ~p", [GbMaxVBs]),
-    ets:insert(snmp_agent_table, {gb_max_vbs, GbMaxVBs}),
+    store(gb_max_vbs, GbMaxVBs),
 
     %% -- DB-directory --
     DbDir = get_opt(db_dir, Opts),
     ?vdebug("[agent table] store db_dir: ~n   ~p",[DbDir]),
-    ets:insert(snmp_agent_table, {db_dir, filename:join([DbDir])}),
+    store(db_dir, filename:join([DbDir])),
 
     DbInitError = get_opt(db_init_error, Opts, terminate),
     ?vdebug("[agent table] store db_init_error: ~n   ~p",[DbInitError]),
-    ets:insert(snmp_agent_table, {db_init_error, DbInitError}),
+    store(db_init_error, DbInitError),
 
     %% -- Error report module --
     ErrorReportMod = get_opt(error_report_mod, Opts, snmpa_error_logger),
     ?vdebug("[agent table] store error report module: ~w",[ErrorReportMod]),
-    ets:insert(snmp_agent_table, {error_report_mod, ErrorReportMod}),
+    store(error_report_mod, ErrorReportMod),
 
     %% -- mib storage --
     %% MibStorage has only one mandatory part: module
@@ -320,31 +320,31 @@ init([AgentType, Opts]) ->
 	end,
 
     ?vdebug("[agent table] store mib storage: ~w", [MibStorage]),
-    ets:insert(snmp_agent_table, {mib_storage, MibStorage}),
+    store(mib_storage, MibStorage),
 
     %% -- Agent mib storage --
     AgentMibStorage = get_opt(agent_mib_storage, Opts, persistent),
     %% ?vdebug("[agent table] store agent mib storage: ~w",[AgentMibStorage]),
-    ets:insert(snmp_agent_table, {agent_mib_storage, AgentMibStorage}),
+    store(agent_mib_storage, AgentMibStorage),
 
     %% -- System start time --
     ?vdebug("[agent table] store system start time",[]),
-    ets:insert(snmp_agent_table, {system_start_time, snmp_misc:now(cs)}),
+    store(system_start_time, snmp_misc:now(cs)),
 
     %% -- Symbolic store options --
     SsOpts = get_opt(symbolic_store, Opts, []),
     ?vdebug("[agent table] store symbolic store options: ~w",[SsOpts]),
-    ets:insert(snmp_agent_table, {symbolic_store, SsOpts}),
+    store(symbolic_store, SsOpts),
 
     %% -- Local DB options --
     LdbOpts = get_opt(local_db, Opts, []),
     ?vdebug("[agent table] store local db options: ~w",[LdbOpts]),
-    ets:insert(snmp_agent_table, {local_db, LdbOpts}),
+    store(local_db, LdbOpts),
 
     %% -- Target cache options --
     TargetCacheOpts = get_opt(target_cache, Opts, []),
     ?vdebug("[agent table] store target cache options: ~w",[TargetCacheOpts]),
-    ets:insert(snmp_agent_table, {target_cache, TargetCacheOpts}),
+    store(target_cache, TargetCacheOpts),
 
     %% -- Specs --
     SupFlags = {one_for_all, 0, 3600},
@@ -377,7 +377,7 @@ init([AgentType, Opts]) ->
 		%% -- Config --
 		ConfOpts = get_opt(config, Opts, []),
 		?vdebug("[agent table] store config options: ~p", [ConfOpts]),
-		ets:insert(snmp_agent_table, {config, ConfOpts}),
+		store(config, ConfOpts),
 
 		ConfigArgs = [Vsns, ConfOpts],
 		ConfigSpec = 
@@ -390,43 +390,46 @@ init([AgentType, Opts]) ->
 		%% -- Discovery processing --
 		DiscoOpts = get_opt(discovery, Opts, []),
 		?vdebug("[agent table] store discovery options: ~p", [DiscoOpts]),
-		ets:insert(snmp_agent_table, {discovery, DiscoOpts}),
+		store(discovery, DiscoOpts),
 
 		%% -- Mibs --
 		Mibs = get_mibs(get_opt(mibs, Opts, []), Vsns),
 		?vdebug("[agent table] store mibs: ~n   ~p",[Mibs]),
-		ets:insert(snmp_agent_table, {mibs, Mibs}),
+		store(mibs, Mibs),
 
 		Ref  = make_ref(),
+
+		%% -- Get module --
+		GetModule  = get_opt(get_mechanism, Opts, snmpa_get),
+		?vdebug("[agent table] store get-module: ~p", [GetModule]),
+		store(get_mechanism, GetModule),
 
 		%% -- Set module --
 		SetModule  = get_opt(set_mechanism, Opts, snmpa_set),
 		?vdebug("[agent table] store set-module: ~p",[SetModule]),
-		ets:insert(snmp_agent_table, {set_mechanism, ConfOpts}),
+		store(set_mechanism, SetModule),
 
 		%% -- Authentication service --
 		AuthModule = get_opt(authentication_service, Opts, snmpa_acm),
 		?vdebug("[agent table] store authentication service: ~w",
 			[AuthModule]),
-		ets:insert(snmp_agent_table, 
-			   {authentication_service, AuthModule}),
+		store(authentication_service, AuthModule),
 
 		%% -- Multi-threaded --
 		MultiT = get_opt(multi_threaded, Opts, false),
-		?vdebug("[agent table] store multi-threaded: ~p",[MultiT]),
-		ets:insert(snmp_agent_table, {multi_threaded, MultiT}),
+		?vdebug("[agent table] store multi-threaded: ~p", [MultiT]),
+		store(multi_threaded, MultiT),
 
 		%% -- Audit trail log --
 		case get_opt(audit_trail_log, Opts, not_found) of
 		    not_found ->
-			?vdebug("[agent table] no audit trail log",[]),
+			?vdebug("[agent table] no audit trail log", []),
 			ok;
 		    AtlOpts ->
 			?vdebug("[agent table] "
 				"store audit trail log options: ~p",
 				[AtlOpts]),
-			ets:insert(snmp_agent_table, 
-				   {audit_trail_log, AtlOpts}),
+			store(audit_trail_log, AtlOpts),
 			ok
 		end,
 
@@ -434,24 +437,25 @@ init([AgentType, Opts]) ->
 		MibsOpts = get_opt(mib_server, Opts, []),
 		?vdebug("[agent table] store mib-server options: "
 			"~n   ~p", [MibsOpts]),
-		ets:insert(snmp_agent_table, {mib_server, MibsOpts}),
+		store(mib_server, MibsOpts),
 
 		%% -- Network interface --
 		NiOpts = get_opt(net_if, Opts, []),
 		?vdebug("[agent table] store net-if options: "
 			"~n   ~p", [NiOpts]),
-		ets:insert(snmp_agent_table, {net_if, NiOpts}),
+		store(net_if, NiOpts),
 
 		%% -- Note store --
 		NsOpts = get_opt(note_store, Opts, []),
 		?vdebug("[agent table] store note-store options: "
 			"~n   ~p",[NsOpts]),
-		ets:insert(snmp_agent_table, {note_store, NsOpts}),
+		store(note_store, NsOpts),
 
 		AgentOpts = 
 		    [{verbosity,              AgentVerb},
 		     {mibs,                   Mibs},
 		     {mib_storage,            MibStorage},
+		     {get_mechanism,          GetModule},
 		     {set_mechanism,          SetModule},
 		     {authentication_service, AuthModule},
 		     {multi_threaded,         MultiT},
@@ -479,6 +483,10 @@ init([AgentType, Opts]) ->
     ?vdebug("init done",[]),
     {ok, {SupFlags, [MiscSupSpec, SymStoreSpec, LocalDbSpec, TargetCacheSpec | 
 		     Rest]}}.
+
+
+store(Key, Value) ->
+    ets:insert(snmp_agent_table, {Key, Value}).
 
 get_mibs(Mibs, Vsns) ->
     MibDir = filename:join(code:priv_dir(snmp), "mibs"),
