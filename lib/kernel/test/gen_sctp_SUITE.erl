@@ -1459,11 +1459,11 @@ do_open_and_connect(ServerAddresses, AddressToConnectTo) ->
     do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun).
 %%
 do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun) ->
-    ServerFamily = get_family_by_addrs(ServerAddresses),
+    {ServerFamily, ServerOpts} = get_family_by_addrs(ServerAddresses),
     io:format("Serving ~p addresses: ~p~n",
 	      [ServerFamily, ServerAddresses]),
     S1 = ok(gen_sctp:open(0, [{ip,Addr} || Addr <- ServerAddresses] ++
-			      [ServerFamily])),
+			      [ServerFamily|ServerOpts])),
     ok = gen_sctp:listen(S1, true),
     P1 = ok(inet:port(S1)),
     ClientFamily = get_family_by_addr(AddressToConnectTo),
@@ -1493,9 +1493,9 @@ do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun) ->
 %% If at least one of the addresses is an ipv6 address, return inet6, else inet.
 get_family_by_addrs(Addresses) ->
     case lists:usort([get_family_by_addr(Addr) || Addr <- Addresses]) of
-	[inet, inet6] -> inet6;
-	[inet]        -> inet;
-	[inet6]       -> inet6
+	[inet, inet6] -> {inet6, [{ipv6_v6only, false}]};
+	[inet]        -> {inet,  []};
+	[inet6]       -> {inet6, []}
     end.
 
 get_family_by_addr(Addr) when tuple_size(Addr) =:= 4 -> inet;
