@@ -29,18 +29,6 @@
 ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM ng_crypto_one_shot(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-
-
-/* All nif functions return a valid value or throws an exception */
-#define EXCP(Env, Class, Str)  enif_raise_exception((Env), \
-                                    enif_make_tuple2((Env), (Class), \
-                                                     enif_make_string((Env),(Str),(ERL_NIF_LATIN1)) ))
-
-#define EXCP_NOTSUP(Env, Str) EXCP((Env), atom_notsup, (Str))
-#define EXCP_BADARG(Env, Str) EXCP((Env), atom_badarg, (Str))
-#define EXCP_ERROR(Env, Str)  EXCP((Env), atom_error, (Str))
-
-
 #ifdef HAVE_ECB_IVEC_BUG
     /* <= 0.9.8l returns faulty ivec length */
 # define GET_IV_LEN(Ciph) ((Ciph)->flags & ECB_BUG_0_9_8L) ? 0 : EVP_CIPHER_iv_length((Ciph)->cipher.p)

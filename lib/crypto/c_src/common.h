@@ -35,4 +35,15 @@
 #include "openssl_config.h"
 #include "atoms.h"
 
+
+/* All nif functions return a valid value or throws an exception */
+#define EXCP(Env, Id, Str)  enif_raise_exception((Env), \
+                                enif_make_tuple2((Env), \
+                                                 (Id),  \
+                                                 enif_make_string((Env),(Str),(ERL_NIF_LATIN1)) ))
+
+#define EXCP_NOTSUP(Env, Str) EXCP((Env), atom_notsup, (Str))
+#define EXCP_BADARG(Env, Str) EXCP((Env), atom_badarg, (Str))
+#define EXCP_ERROR(Env, Str)  EXCP((Env), atom_error, (Str))
+
 #endif /* E_COMMON_H__ */
