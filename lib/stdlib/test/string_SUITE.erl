@@ -52,7 +52,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,2}}].
+     {timetrap,{minutes,1}}].
 
 all() ->
     [{group, chardata}, {group, list_string}].
@@ -737,10 +737,10 @@ meas(Config) ->
     case ct:get_timetrap_info() of
         {_,{_,Scale}} when Scale > 1 ->
             {skip,{will_not_run_in_debug,Scale}};
-        _ -> % No scaling, run at most 2 mins
+        _ -> % No scaling, run at most 1.5 min
             Tester = spawn(Exec),
             receive {test_done, Tester} -> ok
-            after 120000 ->
+            after 90000 ->
                     io:format("Timelimit reached stopping~n",[]),
                     exit(Tester, die)
             end,
