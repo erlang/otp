@@ -67,6 +67,7 @@ alias(recovery) -> mnesia_recovery_test;
 alias(registry) -> mnesia_registry_test;
 alias(suite) -> mnesia_SUITE;
 alias(trans) -> mnesia_trans_access_test;
+alias(ixp) -> mnesia_index_plugin_test;
 alias(Other) -> Other.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

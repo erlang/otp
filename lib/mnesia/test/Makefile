@@ -53,7 +53,8 @@ MODULES= \
 	mnesia_measure_test \
 	mnesia_cost \
 	mnesia_dbn_meters \
-	ext_test
+	ext_test \
+	mnesia_index_plugin_test
 
 DocExamplesDir := ../doc/src/
 
