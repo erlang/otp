@@ -1007,7 +1007,8 @@ update_start_state(#state{connection_states = ConnectionStates0,
                 session = Session#session{session_id = SessionId,
                                           ecc = Group,
                                           sign_alg = SelectedSignAlg,
-                                          dh_public_value = ClientPubKey},
+                                          dh_public_value = ClientPubKey,
+                                          cipher_suite = Cipher},
                 connection_env = CEnv#connection_env{negotiated_version = {3,4}}}.
 
 
