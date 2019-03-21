@@ -32,6 +32,28 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.20</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handling of character references in attributes are fixed.</p>
+          <p>
+	    Own Id: OTP-15684 Aux Id: ERL-837 </p>
+        </item>
+        <item>
+          <p>
+	    Normalization of whitespace characters in attributes are
+	    fixed so it works when character references are used.</p>
+          <p>
+	    Own Id: OTP-15685 Aux Id: ERL-475 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.19</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
