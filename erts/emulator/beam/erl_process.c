@@ -10550,7 +10550,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	if (!is_normal_sched & !!(flags & ERTS_RUNQ_FLG_HALTING)) {
 	    /* Wait for emulator to terminate... */
-	    erts_runq_unlock(rq);
+	    erts_smp_runq_unlock(rq);
 	    while (1)
 		erts_milli_sleep(1000*1000);
 	}
