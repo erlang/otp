@@ -38,7 +38,8 @@
 	 dirty_process_info/1,
 	 dirty_process_register/1,
 	 dirty_process_trace/1,
-	 code_purge/1]).
+	 code_purge/1,
+         otp_15688/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -64,7 +65,8 @@ all() ->
      dirty_process_info,
      dirty_process_register,
      dirty_process_trace,
-     code_purge].
+     code_purge,
+     otp_15688].
 
 init_per_suite(Config) ->
     case erlang:system_info(dirty_cpu_schedulers) of
@@ -498,9 +500,57 @@ code_purge(Config) when is_list(Config) ->
     true = Time =< 1000,
     ok.
 
+otp_15688(Config) when is_list(Config) ->
+    ImBack = make_ref(),
+    {See, SeeMon} = spawn_monitor(fun () ->
+                                          erts_debug:dirty_io(wait, 2000),
+                                          exit(ImBack)
+                                  end),
+    wait_until(fun () ->
+                       [{current_function, {erts_debug, dirty_io, 2}},
+                        {status, running}]
+                           == process_info(See,
+                                           [current_function, status])
+               end),
+    {Ser1, Ser1Mon} = spawn_monitor(fun () ->
+                                            erlang:suspend_process(See,
+                                                                   [asynchronous])
+                                    end),
+    erlang:suspend_process(See, [asynchronous]),
+    receive {'DOWN', Ser1Mon, process, Ser1, normal} -> ok end,
+
+    %% Verify that we sent the suspend request while it was executing dirty...
+    [{current_function, {erts_debug, dirty_io, 2}},
+     {status, running}] = process_info(See, [current_function, status]),
+
+    wait_until(fun () ->
+                       {status, suspended} == process_info(See, status)
+               end),
+    erlang:resume_process(See),
+
+    receive
+        {'DOWN', SeeMon, process, See, Reason} ->
+            ImBack = Reason
+    after 4000 ->
+            %% Resume bug seems to have hit us...
+            PI = process_info(See),
+            exit(See, kill),
+            ct:fail({suspendee_stuck, PI})
+    end.
+    
+
 %%
 %% Internal...
 %%
+
+wait_until(Fun) ->
+    case Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    end.
 
 access_dirty_process(Config, Start, Test, Finish) ->
     {ok, Node} = start_node(Config, ""),

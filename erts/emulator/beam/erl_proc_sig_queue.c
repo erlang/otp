@@ -3429,9 +3429,15 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                             erts_nif_demonitored((ErtsResource *) tmon->other.ptr);
                             cnt++;
                             break;
-                        case ERTS_MON_TYPE_SUSPEND:
-                            erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
+                        case ERTS_MON_TYPE_SUSPEND: {
+                            ErtsMonitorSuspend *msp;
+                            erts_aint_t mstate;
+                            msp = (ErtsMonitorSuspend *) erts_monitor_to_data(tmon);
+                            mstate = erts_atomic_read_acqb(&msp->state);
+                            if (mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE)
+                                erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
                             break;
+                        }
                         default:
                             break;
                         }
