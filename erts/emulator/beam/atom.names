@@ -290,6 +290,7 @@ atom Ge='>='
 atom generational
 atom get_all_trap
 atom get_seq_token
+atom get_size
 atom get_tcw
 atom gather_gc_info_result
 atom gather_io_bytes

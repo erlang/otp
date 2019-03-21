@@ -48,6 +48,8 @@
          dist_ctrl_put_data/2,
          dist_ctrl_get_data/1,
          dist_ctrl_get_data_notification/1,
+         dist_ctrl_get_opt/2,
+         dist_ctrl_set_opt/3,
          dist_get_stat/1]).
 
 -deprecated([get_stacktrace/0,now/0]).
@@ -3326,7 +3328,8 @@ dist_ctrl_input_handler(_DHandle, _InputHandler) ->
 dist_ctrl_put_data(_DHandle, _Data) ->
     erlang:nif_error(undefined).
 
--spec erlang:dist_ctrl_get_data(DHandle) -> Data | 'none' when
+-spec erlang:dist_ctrl_get_data(DHandle) -> {Size, Data} | Data | 'none' when
+      Size :: non_neg_integer(),
       DHandle :: dist_handle(),
       Data :: iodata().
 
@@ -3337,6 +3340,21 @@ dist_ctrl_get_data(_DHandle) ->
       DHandle :: dist_handle().
 
 dist_ctrl_get_data_notification(_DHandle) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:dist_ctrl_set_opt(DHandle, 'get_size', Value) -> OldValue when
+      DHandle :: dist_handle(),
+      Value :: boolean(),
+      OldValue :: boolean().
+
+dist_ctrl_set_opt(_DHandle, _Opt, _Val) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:dist_ctrl_get_opt(DHandle, 'get_size') -> Value when
+      DHandle :: dist_handle(),
+      Value :: boolean().
+
+dist_ctrl_get_opt(_DHandle, _Opt) ->
     erlang:nif_error(undefined).
 
 -spec erlang:dist_get_stat(DHandle) -> Res when

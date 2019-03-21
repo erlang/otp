@@ -160,6 +160,8 @@ bif erlang:dist_ctrl_input_handler/2
 bif erlang:dist_ctrl_put_data/2
 bif erlang:dist_ctrl_get_data/1
 bif erlang:dist_ctrl_get_data_notification/1
+bif erlang:dist_ctrl_get_opt/2
+bif erlang:dist_ctrl_set_opt/3
 
 # Static native functions in erts_internal
 bif erts_internal:port_info/1

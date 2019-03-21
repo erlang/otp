@@ -323,6 +323,7 @@ JAVADOC-GENERATED
 # kernel
 
 /lib/kernel/src/inet_dns_record_adts.hrl
+/lib/kernel/test/gen_tcp_dist.erl
 
 # kernel
 

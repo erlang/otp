@@ -2,9 +2,7 @@ RM=rm -f
 CP=cp
 EBIN=ebin
 ERLC=erlc
-# Works if building in open source source tree
-KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
-ERLCFLAGS+= -W -I$(KERNEL_INCLUDE)
+ERLCFLAGS+= -W
 
 MODULES=gen_tcp_dist
 

@@ -172,6 +172,9 @@ extern int erts_is_alive;
 /* Pending connection; signals can be enqueued */
 #define ERTS_DSIG_PREP_PENDING	        4
 
+/* dist_ctrl_{g,s}et_option/2 */
+#define ERTS_DIST_CTRL_OPT_GET_SIZE     ((Uint32) (1 << 0))
+
 #ifdef DEBUG
 #define ERTS_DBG_CHK_NO_DIST_LNK(D, R, L) \
     erts_dbg_chk_no_dist_proc_link((D), (R), (L))

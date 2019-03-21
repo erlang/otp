@@ -1269,6 +1269,42 @@ end</code>
 	  data is available by calling
 	  <seealso marker="erlang#dist_ctrl_get_data_notification/1"><c>erlang:dist_ctrl_get_data_notification(DHandle)</c></seealso>.
 	</p>
+	<p>The returned value when there are data available depends
+	on the value of the <c>get_size</c> option configured on the
+	distribution channel identified by <c><anno>DHandle</anno></c>.
+	For more information see the documentation of the <c>get_size</c>
+	option for the
+	<seealso marker="#dist_ctrl_set_opt/3"><c>erlang:dist_ctrl_set_opt/3</c></seealso>
+	function.</p>
+	<note><p>
+	  Only the process registered as distribution
+	  controller for the distribution channel identified by
+	  <c><anno>DHandle</anno></c> is allowed to call this
+	  function.
+	</p></note>
+	<p>
+	  This function is used when implementing an alternative
+	  distribution carrier using processes as distribution
+	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  via the callback
+	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
+	  More information can be found in the documentation of
+	  <seealso marker="erts:alt_dist#distribution_module">ERTS
+	  User's Guide ➜ How to implement an Alternative Carrier
+	  for the Erlang Distribution ➜ Distribution Module</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="dist_ctrl_get_opt" arity="2" clause_i="1" since="OTP @OTP-15617@"/>
+      <fsummary>Get value of the get_size option on a distribution channel</fsummary>
+      <desc>
+	<p>Returns the value of the <c>get_size</c> option on the distribution channel
+	identified by <c><anno>DHandle</anno></c>. For more information see the
+	documentation of the <c>get_size</c> option for the
+	<seealso marker="#dist_ctrl_set_opt/3"><c>erlang:dist_ctrl_set_opt/3</c></seealso>
+	function.</p>
 	<note><p>
 	  Only the process registered as distribution
 	  controller for the distribution channel identified by
@@ -1391,6 +1427,55 @@ end</code>
       </desc>
     </func>
 
+    <func>
+      <name name="dist_ctrl_set_opt" arity="3" clause_i="1" since="OTP @OTP-15617@"/>
+      <fsummary>Set value of the get_size option on a distribution channel</fsummary>
+      <desc>
+        <p>Sets the value of the <c>get_size</c> option on the distribution channel
+	identified by <c><anno>DHandle</anno></c>. This option controls the return
+	value of calls to
+	<seealso marker="#dist_ctrl_get_data/1">erlang:dist_ctrl_get_data(<anno>DHandle</anno>)</seealso>
+	where <c><anno>DHandle</anno></c> equals <c><anno>DHandle</anno></c> used
+	when setting this option.
+	When the <c>get_size</c> option is:</p>
+	<taglist>
+	  <tag><c>false</c></tag>
+	  <item>
+	    and there are distribution data available, a call to
+	    <c>erlang:dist_ctrl_get_data(<anno>DHandle</anno>)</c>
+	    will just return <c>Data</c> to pass over the channel.
+	    This is the default value of the <c>get_size</c> option.
+	  </item>
+	  <tag><c>true</c></tag>
+	  <item>
+	    and there are distribution data available, a call to
+	    <c>erlang:dist_ctrl_get_data(<anno>DHandle</anno>)</c>
+	    will return <c>Data</c> to pass over the channel as well as
+	    the <c>Size</c> of <c>Data</c> in bytes. This is returned as
+	    a tuple on the form <c>{Size, Data}</c>.
+	  </item>
+	</taglist>
+	<p>All options are set to default when a channel is closed.</p>
+	<note><p>
+	  Only the process registered as distribution
+	  controller for the distribution channel identified by
+	  <c><anno>DHandle</anno></c> is allowed to call this
+	  function.
+	</p></note>
+	<p>
+	  This function is used when implementing an alternative
+	  distribution carrier using processes as distribution
+	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  via the callback
+	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
+	  More information can be found in the documentation of
+	  <seealso marker="erts:alt_dist#distribution_module">ERTS
+	  User's Guide ➜ How to implement an Alternative Carrier
+	  for the Erlang Distribution ➜ Distribution Module</seealso>.
+	</p>
+      </desc>
+    </func>
+    
     <func>
       <name name="element" arity="2" since=""/>
       <fsummary>Return the Nth element of a tuple.</fsummary>

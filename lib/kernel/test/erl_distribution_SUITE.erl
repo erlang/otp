@@ -40,7 +40,8 @@
 	 monitor_nodes_errors/1,
 	 monitor_nodes_combinations/1,
 	 monitor_nodes_cleanup/1,
-	 monitor_nodes_many/1]).
+	 monitor_nodes_many/1,
+         dist_ctrl_proc_smoke/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -52,7 +53,7 @@
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--export([start_node/2]).
+-export([dist_cntrlr_output_test/2]).
 
 -export([pinger/1]).
 
@@ -67,10 +68,11 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,4}}].
+     {timetrap,{minutes,12}}].
 
 all() -> 
-    [tick, tick_change, nodenames, hostnames, illegal_nodenames,
+    [dist_ctrl_proc_smoke,
+     tick, tick_change, nodenames, hostnames, illegal_nodenames,
      connect_node,
      hidden_node, setopts,
      table_waste, net_setuptime, inet_dist_options_options,
@@ -116,10 +118,12 @@ connect_node(Config) when is_list(Config) ->
     ok.
 
 tick(Config) when is_list(Config) ->
-    PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
+    run_dist_configs(fun tick/2, Config).
 
+tick(DCfg, _Config) ->
     %% First check that the normal case is OK!
-    {ok, Node} = start_node(dist_test, "-pa " ++ PaDir),
+    [Name1, Name2] = get_nodenames(2, dist_test),
+    {ok, Node} = start_node(DCfg, Name1),
     rpc:call(Node, erl_distribution_SUITE, tick_cli_test, [node()]),
 
     erlang:monitor_node(Node, true),
@@ -143,14 +147,12 @@ tick(Config) when is_list(Config) ->
     %% Set the ticktime on the server node to 100 secs so the server
     %% node doesn't tick the client node within the interval ...
 
-    {ok, ServNode} = start_node(dist_test_server,
-				"-kernel net_ticktime 100 "
-				"-pa " ++ PaDir),
+    {ok, ServNode} = start_node(DCfg, Name2,
+				"-kernel net_ticktime 100"),
     rpc:call(ServNode, erl_distribution_SUITE, tick_serv_test, [Node, node()]),
 
-    {ok, _} = start_node(dist_test,
-			 "-kernel net_ticktime 12 "
-			 "-pa " ++ PaDir),
+    {ok, Node} = start_node(DCfg, Name1,
+			 "-kernel net_ticktime 12"),
     rpc:call(Node, erl_distribution_SUITE, tick_cli_test, [ServNode]),
 
     spawn_link(erl_distribution_SUITE, keep_conn, [Node]),
@@ -180,6 +182,9 @@ tick(Config) when is_list(Config) ->
 
 %% Checks that pinging nonexistyent nodes does not waste space in distribution table.
 table_waste(Config) when is_list(Config) ->
+    run_dist_configs(fun table_waste/2, Config).
+
+table_waste(DCfg, _Config) ->
     {ok, HName} = inet:gethostname(),
     F = fun(0,_F) -> [];
 	   (N,F) -> 
@@ -189,7 +194,7 @@ table_waste(Config) when is_list(Config) ->
 		F(N-1,F)
 	end,
     F(256,F),
-    {ok, N} = start_node(erl_distribution_300,""),
+    {ok, N} = start_node(DCfg, erl_distribution_300),
     stop_node(N),
     ok.
 
@@ -295,13 +300,16 @@ gethostname() ->
 
 %% Test that pinging an illegal nodename does not kill the node.
 illegal_nodenames(Config) when is_list(Config) ->
-    PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
-    {ok, Node}=start_node(illegal_nodenames, "-pa " ++ PaDir),
+    run_dist_configs(fun illegal_nodenames/2, Config).
+
+illegal_nodenames(DCfg, _Config) ->
+    {ok, Node}=start_node(DCfg, illegal_nodenames),
     monitor_node(Node, true),
     RPid=rpc:call(Node, erlang, spawn,
 		  [?MODULE, pinger, [self()]]),
     receive
 	{RPid, pinged} ->
+            monitor_node(Node, false),
 	    ok;
 	{nodedown, Node} ->
 	    ct:fail("Remote node died.")
@@ -318,22 +326,25 @@ pinger(Starter) ->
 
 %% Test that you can set the net_setuptime properly.
 net_setuptime(Config) when is_list(Config) ->
+    run_dist_configs(fun net_setuptime/2, Config).
+
+net_setuptime(DCfg, _Config) ->
+
     %% In this test case, we reluctantly accept shorter times than the given
     %% setup time, because the connection attempt can end in a
     %% "Host unreachable" error before the timeout fires.
 
-    Res0 = do_test_setuptime("2"),
+    Res0 = do_test_setuptime(DCfg, "2"),
     io:format("Res0 = ~p", [Res0]),
     true = (Res0 =< 4000),
-    Res1 = do_test_setuptime("0.3"),
+    Res1 = do_test_setuptime(DCfg, "0.3"),
     io:format("Res1 = ~p", [Res1]),
     true = (Res1 =< 500),
     ok.
 
-do_test_setuptime(Setuptime) when is_list(Setuptime) ->
-    PaDir = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = start_node(dist_setuptime_test, "-pa " ++ PaDir ++
-				" -kernel net_setuptime " ++ Setuptime),
+do_test_setuptime(DCfg, Setuptime) when is_list(Setuptime) ->
+    {ok, Node} = start_node(DCfg, dist_setuptime_test,
+                            "-kernel net_setuptime " ++ Setuptime),
     Res = rpc:call(Node,?MODULE,time_ping,[?DUMMY_NODE]),
     stop_node(Node),
     Res.
@@ -399,32 +410,36 @@ tick_cli_test1(Node) ->
     end.
 
 setopts(Config) when is_list(Config) ->
+    run_dist_configs(fun setopts/2, Config).
+
+setopts(DCfg, _Config) ->
     register(setopts_regname, self()),
     [N1,N2,N3,N4] = get_nodenames(4, setopts),
 
-    {_N1F,Port1} = start_node_unconnected(N1, ?MODULE, run_remote_test,
+    {_N1F,Port1} = start_node_unconnected(DCfg, N1, ?MODULE, run_remote_test,
 					["setopts_do", atom_to_list(node()), "1", "ping"]),
     0 = wait_for_port_exit(Port1),
 
-    {_N2F,Port2} = start_node_unconnected(N2, ?MODULE, run_remote_test,
+    {_N2F,Port2} = start_node_unconnected(DCfg, N2, ?MODULE, run_remote_test,
 				 ["setopts_do", atom_to_list(node()), "2", "ping"]),
     0 = wait_for_port_exit(Port2),
 
     {ok, LSock} = gen_tcp:listen(0, [{packet,2}, {active,false}]),
     {ok, LTcpPort} = inet:port(LSock),
 
-    {N3F,Port3} = start_node_unconnected(N3, ?MODULE, run_remote_test,
+    {N3F,Port3} = start_node_unconnected(DCfg, N3, ?MODULE, run_remote_test,
 					["setopts_do", atom_to_list(node()),
 					 "1", integer_to_list(LTcpPort)]),
     wait_and_connect(LSock, N3F, Port3),
     0 = wait_for_port_exit(Port3),
 
-    {N4F,Port4} = start_node_unconnected(N4, ?MODULE, run_remote_test,
+    {N4F,Port4} = start_node_unconnected(DCfg, N4, ?MODULE, run_remote_test,
 					["setopts_do", atom_to_list(node()),
 					 "2", integer_to_list(LTcpPort)]),
     wait_and_connect(LSock, N4F, Port4),
     0 = wait_for_port_exit(Port4),
 
+    unregister(setopts_regname),
     ok.
 
 wait_and_connect(LSock, NodeName, NodePort) ->
@@ -518,9 +533,9 @@ opt_from_nr("2") -> {nodelay, false}.
 change_val(true)  -> false;
 change_val(false) -> true.
 
-start_node_unconnected(Name, Mod, Func, Args) ->
+start_node_unconnected(DCfg, Name, Mod, Func, Args) ->
     FullName = full_node_name(Name),
-    CmdLine = mk_node_cmdline(Name,Mod,Func,Args),
+    CmdLine = mk_node_cmdline(DCfg, Name,Mod,Func,Args),
     io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
     case open_port({spawn, CmdLine}, [exit_status]) of
 	Port when is_port(Port) ->
@@ -534,7 +549,7 @@ full_node_name(PreName) ->
 				 atom_to_list(node())),
     list_to_atom(atom_to_list(PreName) ++ HostSuffix).
 
-mk_node_cmdline(Name,Mod,Func,Args) ->
+mk_node_cmdline(DCfg, Name,Mod,Func,Args) ->
     Static = "-noinput",
     Pa = filename:dirname(code:which(?MODULE)),
     Prog = case catch init:get_argument(progname) of
@@ -551,6 +566,7 @@ mk_node_cmdline(Name,Mod,Func,Args) ->
     Prog ++ " "
 	++ Static ++ " "
 	++ NameSw ++ " " ++ NameStr
+        ++ " " ++ DCfg
 	++ " -pa " ++ Pa
 	++ " -env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr
 	++ " -setcookie " ++ atom_to_list(erlang:get_cookie())
@@ -560,7 +576,9 @@ mk_node_cmdline(Name,Mod,Func,Args) ->
 
 %% OTP-4255.
 tick_change(Config) when is_list(Config) ->
-    PaDir = filename:dirname(code:which(?MODULE)),
+    run_dist_configs(fun tick_change/2, Config).
+
+tick_change(DCfg, _Config) ->
     [BN, CN] = get_nodenames(2, tick_change),
     DefaultTT = net_kernel:get_net_ticktime(),
     unchanged = net_kernel:set_net_ticktime(DefaultTT, 60),
@@ -577,14 +595,13 @@ tick_change(Config) when is_list(Config) ->
     end,
 
     wait_until(fun () -> 10 == net_kernel:get_net_ticktime() end),
-    {ok, B} = start_node(BN, "-kernel net_ticktime 10 -pa " ++ PaDir),
-    {ok, C} = start_node(CN, "-kernel net_ticktime 10 -hidden -pa "
-			 ++ PaDir),
+    {ok, B} = start_node(DCfg, BN, "-kernel net_ticktime 10"),
+    {ok, C} = start_node(DCfg, CN, "-kernel net_ticktime 10 -hidden"),
 
     OTE = process_flag(trap_exit, true),
     case catch begin
-		   run_tick_change_test(B, C, 10, 1, PaDir),
-		   run_tick_change_test(B, C, 1, 10, PaDir)
+		   run_tick_change_test(DCfg, B, C, 10, 1),
+		   run_tick_change_test(DCfg, B, C, 1, 10)
 	       end of
 	{'EXIT', Reason} ->
 	    stop_node(B),
@@ -626,7 +643,7 @@ wait_for_nodedowns(Tester, Ref) ->
     end,
     wait_for_nodedowns(Tester, Ref).
 
-run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
+run_tick_change_test(DCfg, B, C, PrevTT, TT) ->
     [DN, EN] = get_nodenames(2, tick_change),
 
     Tester = self(),
@@ -640,8 +657,8 @@ run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
 			   wait_for_nodedowns(Tester, Ref)
 		   end,
 
-    {ok, D} = start_node(DN, "-kernel net_ticktime "
-			 ++ integer_to_list(PrevTT) ++ " -pa " ++ PaDir),
+    {ok, D} = start_node(DCfg, DN, "-kernel net_ticktime "
+			 ++ integer_to_list(PrevTT)),
 
     NMA = spawn_link(fun () -> MonitorNodes([B, C, D]) end),
     NMB = spawn_link(B, fun () -> MonitorNodes([node(), C, D]) end),
@@ -674,8 +691,8 @@ run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
     sleep(7),
     change_initiated = rpc:call(C,net_kernel,set_net_ticktime,[TT,10]),
 
-    {ok, E} = start_node(EN, "-kernel net_ticktime "
-			 ++ integer_to_list(TT) ++ " -pa " ++ PaDir),
+    {ok, E} = start_node(DCfg, EN, "-kernel net_ticktime "
+			 ++ integer_to_list(TT)),
     NME  = spawn_link(E, fun () -> MonitorNodes([node(), B, C, D]) end),
     NMA2 = spawn_link(fun () -> MonitorNodes([E]) end),
     NMB2 = spawn_link(B, fun () -> MonitorNodes([E]) end),
@@ -735,12 +752,13 @@ run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
 %%
 %% Basic test of hidden node.
 hidden_node(Config) when is_list(Config) ->
-    PaDir = filename:dirname(code:which(?MODULE)),
-    VArgs = "-pa " ++ PaDir,
-    HArgs = "-hidden -pa " ++ PaDir,
-    {ok, V} = start_node(visible_node, VArgs),
+    run_dist_configs(fun hidden_node/2, Config).
+
+hidden_node(DCfg, _Config) ->
+    HArgs = "-hidden",
+    {ok, V} = start_node(DCfg, visible_node),
     VMN = start_monitor_nodes_proc(V),
-    {ok, H} = start_node(hidden_node, HArgs),
+    {ok, H} = start_node(DCfg, hidden_node, HArgs),
     %% Connect visible_node -> hidden_node
     connect_nodes(V, H),
     test_nodes(V, H),
@@ -748,9 +766,9 @@ hidden_node(Config) when is_list(Config) ->
     sleep(5),
     check_monitor_nodes_res(VMN, H),
     stop_node(V),
-    {ok, H} = start_node(hidden_node, HArgs),
+    {ok, H} = start_node(DCfg, hidden_node, HArgs),
     HMN = start_monitor_nodes_proc(H),
-    {ok, V} = start_node(visible_node, VArgs),
+    {ok, V} = start_node(DCfg, visible_node),
     %% Connect hidden_node -> visible_node
     connect_nodes(H, V),
     test_nodes(V, H),
@@ -850,9 +868,9 @@ do_inet_dist_options_options(Prio) ->
 	"-kernel inet_dist_connect_options "++PriorityString++" "
 	"-kernel inet_dist_listen_options "++PriorityString,
     {ok,Node1} =
-	start_node(inet_dist_options_1, InetDistOptions),
+	start_node("", inet_dist_options_1, InetDistOptions),
     {ok,Node2} =
-	start_node(inet_dist_options_2, InetDistOptions),
+	start_node("", inet_dist_options_2, InetDistOptions),
     %%
     pong =
 	rpc:call(Node1, net_adm, ping, [Node2]),
@@ -885,6 +903,9 @@ get_socket_priorities() ->
 %%
 
 monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
+    run_dist_configs(fun monitor_nodes_nodedown_reason/2, Config).
+
+monitor_nodes_nodedown_reason(DCfg, _Config) ->
     MonNodeState = monitor_node_state(),
     ok = net_kernel:monitor_nodes(true),
     ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
@@ -892,10 +913,10 @@ monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
     Names = get_numbered_nodenames(5, node),
     [NN1, NN2, NN3, NN4, NN5] = Names,
 
-    {ok, N1} = start_node(NN1),
-    {ok, N2} = start_node(NN2),
-    {ok, N3} = start_node(NN3),
-    {ok, N4} = start_node(NN4, "-hidden"),
+    {ok, N1} = start_node(DCfg, NN1),
+    {ok, N2} = start_node(DCfg, NN2),
+    {ok, N3} = start_node(DCfg, NN3),
+    {ok, N4} = start_node(DCfg, NN4, "-hidden"),
 
     receive {nodeup, N1} -> ok end,
     receive {nodeup, N2} -> ok end,
@@ -925,7 +946,7 @@ monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
 
     ok = net_kernel:monitor_nodes(false, [nodedown_reason]),
 
-    {ok, N5} = start_node(NN5),
+    {ok, N5} = start_node(DCfg, NN5),
     stop_node(N5),
 
     receive {nodeup, N5} -> ok end,
@@ -938,11 +959,14 @@ monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
 
 
 monitor_nodes_complex_nodedown_reason(Config) when is_list(Config) ->
+    run_dist_configs(fun monitor_nodes_complex_nodedown_reason/2, Config).
+
+monitor_nodes_complex_nodedown_reason(DCfg, _Config) ->
     MonNodeState = monitor_node_state(),
     Me = self(),
     ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
     [Name] = get_nodenames(1, monitor_nodes_complex_nodedown_reason),
-    {ok, Node} = start_node(Name, ""),
+    {ok, Node} = start_node(DCfg, Name, ""),
     Pid = spawn(Node,
 		fun() ->
 			Me ! {stuff,
@@ -981,16 +1005,19 @@ monitor_nodes_complex_nodedown_reason(Config) when is_list(Config) ->
 %%
 
 monitor_nodes_node_type(Config) when is_list(Config) ->
+    run_dist_configs(fun monitor_nodes_node_type/2, Config).
+
+monitor_nodes_node_type(DCfg, _Config) ->
     MonNodeState = monitor_node_state(),
     ok = net_kernel:monitor_nodes(true),
     ok = net_kernel:monitor_nodes(true, [{node_type, all}]),
     Names = get_numbered_nodenames(9, node),
     [NN1, NN2, NN3, NN4, NN5, NN6, NN7, NN8, NN9] = Names,
 
-    {ok, N1} = start_node(NN1),
-    {ok, N2} = start_node(NN2),
-    {ok, N3} = start_node(NN3, "-hidden"),
-    {ok, N4} = start_node(NN4, "-hidden"),
+    {ok, N1} = start_node(DCfg, NN1),
+    {ok, N2} = start_node(DCfg, NN2),
+    {ok, N3} = start_node(DCfg, NN3, "-hidden"),
+    {ok, N4} = start_node(DCfg, NN4, "-hidden"),
 
     receive {nodeup, N1} -> ok end,
     receive {nodeup, N2} -> ok end,
@@ -1014,15 +1041,15 @@ monitor_nodes_node_type(Config) when is_list(Config) ->
     receive {nodedown, N4, [{node_type, hidden}]} -> ok end,
 
     ok = net_kernel:monitor_nodes(false, [{node_type, all}]),
-    {ok, N5} = start_node(NN5),
+    {ok, N5} = start_node(DCfg, NN5),
 
     receive {nodeup, N5} -> ok end,
     stop_node(N5),
     receive {nodedown, N5} -> ok end,
 
     ok = net_kernel:monitor_nodes(true, [{node_type, hidden}]),
-    {ok, N6} = start_node(NN6),
-    {ok, N7} = start_node(NN7, "-hidden"),
+    {ok, N6} = start_node(DCfg, NN6),
+    {ok, N7} = start_node(DCfg, NN7, "-hidden"),
 
 
     receive {nodeup, N6} -> ok end,
@@ -1037,8 +1064,8 @@ monitor_nodes_node_type(Config) when is_list(Config) ->
     ok = net_kernel:monitor_nodes(false, [{node_type, hidden}]),
     ok = net_kernel:monitor_nodes(false),
 
-    {ok, N8} = start_node(NN8),
-    {ok, N9} = start_node(NN9, "-hidden"),
+    {ok, N8} = start_node(DCfg, NN8),
+    {ok, N9} = start_node(DCfg, NN9, "-hidden"),
 
     receive {nodeup, N8, [{node_type, visible}]} -> ok end,
     stop_node(N8),
@@ -1058,6 +1085,9 @@ monitor_nodes_node_type(Config) when is_list(Config) ->
 %%
 
 monitor_nodes_misc(Config) when is_list(Config) ->
+    run_dist_configs(fun monitor_nodes_misc/2, Config).
+
+monitor_nodes_misc(DCfg, _Config) ->
     MonNodeState = monitor_node_state(),
     ok = net_kernel:monitor_nodes(true),
     ok = net_kernel:monitor_nodes(true, [{node_type, all}, nodedown_reason]),
@@ -1065,8 +1095,8 @@ monitor_nodes_misc(Config) when is_list(Config) ->
     Names = get_numbered_nodenames(3, node),
     [NN1, NN2, NN3] = Names,
 
-    {ok, N1} = start_node(NN1),
-    {ok, N2} = start_node(NN2, "-hidden"),
+    {ok, N1} = start_node(DCfg, NN1),
+    {ok, N2} = start_node(DCfg, NN2, "-hidden"),
 
     receive {nodeup, N1} -> ok end,
 
@@ -1092,7 +1122,7 @@ monitor_nodes_misc(Config) when is_list(Config) ->
 
     ok = net_kernel:monitor_nodes(false, [{node_type, all}, nodedown_reason]),
 
-    {ok, N3} = start_node(NN3),
+    {ok, N3} = start_node(DCfg, NN3),
     receive {nodeup, N3} -> ok end,
     stop_node(N3),
     receive {nodedown, N3} -> ok end,
@@ -1107,15 +1137,18 @@ monitor_nodes_misc(Config) when is_list(Config) ->
 %% messages from Node and that {nodedown, Node} messages are
 %% received after messages from Node.
 monitor_nodes_otp_6481(Config) when is_list(Config) ->
+    run_dist_configs(fun monitor_nodes_otp_6481/2, Config).
+
+monitor_nodes_otp_6481(DCfg, Config) ->
     io:format("Testing nodedown...~n"),
-    monitor_nodes_otp_6481_test(Config, nodedown),
+    monitor_nodes_otp_6481_test(DCfg, Config, nodedown),
     io:format("ok~n"),
     io:format("Testing nodeup...~n"),
-    monitor_nodes_otp_6481_test(Config, nodeup),
+    monitor_nodes_otp_6481_test(DCfg, Config, nodeup),
     io:format("ok~n"),
     ok.
 
-monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
+monitor_nodes_otp_6481_test(DCfg, Config, TestType) when is_list(Config) ->
     MonNodeState = monitor_node_state(),
     NodeMsg = make_ref(),
     Me = self(),
@@ -1164,7 +1197,7 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 	   end
 	++ MonNodeState,
 
-    {ok, Node} = start_node(Name, "", this),
+    {ok, Node} = start_node(DCfg, Name, "", this),
     receive {nodeup, Node} -> ok end,
 
     RemotePid = spawn(Node,
@@ -1249,17 +1282,20 @@ monitor_nodes_errors(Config) when is_list(Config) ->
     ok.
 
 monitor_nodes_combinations(Config) when is_list(Config) ->
+    run_dist_configs(fun monitor_nodes_combinations/2, Config).
+
+monitor_nodes_combinations(DCfg, _Config) ->
     MonNodeState = monitor_node_state(),
     monitor_nodes_all_comb(true),
     [VisibleName, HiddenName] = get_nodenames(2,
 					      monitor_nodes_combinations),
-    {ok, Visible} = start_node(VisibleName, ""),
+    {ok, Visible} = start_node(DCfg, VisibleName, ""),
     receive_all_comb_nodeup_msgs(visible, Visible),
     no_msgs(),
     stop_node(Visible),
     receive_all_comb_nodedown_msgs(visible, Visible, connection_closed),
     no_msgs(),
-    {ok, Hidden} = start_node(HiddenName, "-hidden"),
+    {ok, Hidden} = start_node(DCfg, HiddenName, "-hidden"),
     receive_all_comb_nodeup_msgs(hidden, Hidden),
     no_msgs(),
     stop_node(Hidden),
@@ -1395,6 +1431,9 @@ monitor_nodes_cleanup(Config) when is_list(Config) ->
     ok.
 
 monitor_nodes_many(Config) when is_list(Config) ->
+    run_dist_configs(fun monitor_nodes_many/2, Config).
+
+monitor_nodes_many(DCfg, _Config) ->
     MonNodeState = monitor_node_state(),
     [Name] = get_nodenames(1, monitor_nodes_many),
     %% We want to perform more than 2^16 net_kernel:monitor_nodes
@@ -1402,7 +1441,7 @@ monitor_nodes_many(Config) when is_list(Config) ->
     No = (1 bsl 16) + 17,
     repeat(fun () -> ok = net_kernel:monitor_nodes(true) end, No),
     No = length(monitor_node_state()) - length(MonNodeState),
-    {ok, Node} = start_node(Name),
+    {ok, Node} = start_node(DCfg, Name),
     repeat(fun () -> receive {nodeup, Node} -> ok end end, No),
     stop_node(Node),
     repeat(fun () -> receive {nodedown, Node} -> ok end end, No),
@@ -1411,7 +1450,117 @@ monitor_nodes_many(Config) when is_list(Config) ->
     MonNodeState = monitor_node_state(),
     ok.
 
+dist_ctrl_proc_smoke(Config) when is_list(Config) ->
+    ThisNode = node(),
+    [Name1, Name2] = get_nodenames(2, dist_ctrl_proc_example_smoke),
+    GetSizeArg = " -gen_tcp_dist_output_loop "
+        ++ atom_to_list(?MODULE) ++ " "
+        ++ "dist_cntrlr_output_test",
+    {ok, Node1} = start_node("", Name1, "-proto_dist gen_tcp"),
+    {ok, Node2} = start_node("", Name2, "-proto_dist gen_tcp" ++ GetSizeArg),
+    pong = rpc:call(Node1, net_adm, ping, [Node2]),
+    NL1 = lists:sort([ThisNode, Node2]),
+    NL2 = lists:sort([ThisNode, Node1]),
+    NL1 = lists:sort(rpc:call(Node1, erlang, nodes, [])),
+    NL2 = lists:sort(rpc:call(Node2, erlang, nodes, [])),
+
+    %% Verify that we actually are executing the distribution
+    %% module we expect and also massage message passing over
+    %% it a bit...
+    Ps1 = rpc:call(Node1, erlang, processes, []),
+    try
+        lists:foreach(
+          fun (P) ->
+                  case rpc:call(Node1, erlang, process_info, [P, current_stacktrace]) of
+                      undefined ->
+                          ok;
+                      {current_stacktrace, StkTrace} ->
+                          lists:foreach(fun ({gen_tcp_dist,
+                                              dist_cntrlr_output_loop,
+                                              2, _}) ->
+                                                io:format("~p ~p~n", [P, StkTrace]),
+                                                throw(found_it);
+                                            (_) ->
+                                                ok
+                                        end, StkTrace)
+                  end
+          end, Ps1),
+        exit({missing, dist_cntrlr_output_loop})
+    catch
+        throw:found_it -> ok
+    end,
+
+    Ps2 = rpc:call(Node2, erlang, processes, []),
+    try
+        lists:foreach(
+          fun (P) ->
+                  case rpc:call(Node2, erlang, process_info, [P, current_stacktrace]) of
+                      undefined ->
+                          ok;
+                      {current_stacktrace, StkTrace} ->
+                          lists:foreach(fun ({erl_distribution_SUITE,
+                                              dist_cntrlr_output_loop,
+                                              2, _}) ->
+                                                io:format("~p ~p~n", [P, StkTrace]),
+                                                throw(found_it);
+                                            (_) ->
+                                                ok
+                                        end, StkTrace)
+                  end
+          end, Ps2),
+        exit({missing, dist_cntrlr_output_loop})
+    catch
+        throw:found_it -> ok
+    end,
+
+    stop_node(Node1),
+    stop_node(Node2),
+    ok.
+
 %% Misc. functions
+
+run_dist_configs(Func, Config) ->
+    GetSizeArg = " -gen_tcp_dist_output_loop "
+        ++ atom_to_list(?MODULE) ++ " "
+        ++ "dist_cntrlr_output_test",
+    lists:map(fun ({DCfgName, DCfg}) ->
+                      io:format("~n~n=== Running ~s configuration ===~n~n",
+                                [DCfgName]),
+                      Func(DCfg, Config)
+              end,
+              [{"default", ""},
+               {"gen_tcp_dist", "-proto_dist gen_tcp"},
+               {"gen_tcp_dist (get_size)", "-proto_dist gen_tcp" ++ GetSizeArg}]).
+
+dist_cntrlr_output_test(DHandle, Socket) ->
+    false = erlang:dist_ctrl_get_opt(DHandle, get_size),
+    false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
+    true = erlang:dist_ctrl_get_opt(DHandle, get_size),
+    true = erlang:dist_ctrl_set_opt(DHandle, get_size, false),
+    false = erlang:dist_ctrl_get_opt(DHandle, get_size),
+    false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
+    true = erlang:dist_ctrl_get_opt(DHandle, get_size),
+    dist_cntrlr_output_loop(DHandle, Socket).
+    
+dist_cntrlr_send_data(DHandle, Socket) ->
+    case erlang:dist_ctrl_get_data(DHandle) of
+        none ->
+            erlang:dist_ctrl_get_data_notification(DHandle);
+        {Size, Data} ->
+            Size = erlang:iolist_size(Data),
+            ok = gen_tcp:send(Socket, Data),
+            dist_cntrlr_send_data(DHandle, Socket)
+    end.
+
+dist_cntrlr_output_loop(DHandle, Socket) ->
+    receive
+        dist_data ->
+            %% Outgoing data from this node...
+            dist_cntrlr_send_data(DHandle, Socket);
+        _ ->
+            ok %% Drop garbage message...
+    end,
+    dist_cntrlr_output_loop(DHandle, Socket).
 
 monitor_node_state() ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1438,25 +1587,25 @@ print_my_messages() ->
 
 sleep(T) -> receive after T * 1000 -> ok end.	
 
-start_node(Name, Param, this) ->
+start_node(DCfg, Name, Param, this) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, peer, [{args, NewParam}, {erl, [this]}]);
-start_node(Name, Param, "this") ->
-    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
+start_node(DCfg, Name, Param, "this") ->
+    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)) ++ " " ++ DCfg,
     test_server:start_node(Name, peer, [{args, NewParam}, {erl, [this]}]);
-start_node(Name, Param, Rel) when is_atom(Rel) ->
-    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
+start_node(DCfg, Name, Param, Rel) when is_atom(Rel) ->
+    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)) ++ " " ++ DCfg,
     test_server:start_node(Name, peer, [{args, NewParam}, {erl, [{release, atom_to_list(Rel)}]}]);
-start_node(Name, Param, Rel) when is_list(Rel) ->
-    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
+start_node(DCfg, Name, Param, Rel) when is_list(Rel) ->
+    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)) ++ " " ++ DCfg,
     test_server:start_node(Name, peer, [{args, NewParam}, {erl, [{release, Rel}]}]).
 
-start_node(Name, Param) ->
-    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
+start_node(DCfg, Name, Param) ->
+    NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)) ++ " " ++ DCfg,
     test_server:start_node(Name, slave, [{args, NewParam}]).
 
-start_node(Name) ->
-    start_node(Name, "").
+start_node(DCfg, Name) ->
+    start_node(DCfg, Name, "").
 
 stop_node(Node) ->
     test_server:stop_node(Node).

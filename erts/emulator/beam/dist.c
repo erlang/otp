@@ -3253,6 +3253,86 @@ dist_ctrl_put_data_2(BIF_ALIST_2)
 }
 
 BIF_RETTYPE
+dist_ctrl_set_opt_3(BIF_ALIST_3)
+{
+    DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(BIF_P);
+    Uint32 conn_id;
+    BIF_RETTYPE ret;
+
+    if (!dep)
+        BIF_ERROR(BIF_P, EXC_NOTSUP);
+
+    if (erts_dhandle_to_dist_entry(BIF_ARG_1, &conn_id) != dep)
+        BIF_ERROR(BIF_P, BADARG);
+
+    erts_de_rlock(dep);
+
+    if (dep->connection_id != conn_id)
+        ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+    else {
+
+        switch (BIF_ARG_2) {
+        case am_get_size:
+            ERTS_BIF_PREP_RET(ret, (dep->opts & ERTS_DIST_CTRL_OPT_GET_SIZE
+                                    ? am_true
+                                    : am_false));
+            if (BIF_ARG_3 == am_true) 
+                dep->opts |= ERTS_DIST_CTRL_OPT_GET_SIZE;
+            else if (BIF_ARG_3 == am_false)
+                dep->opts &= ~ERTS_DIST_CTRL_OPT_GET_SIZE;
+            else
+                ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+            break;
+        default:
+            ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+            break;
+        }
+
+    }
+
+    erts_de_runlock(dep);
+
+    return ret;
+}
+
+BIF_RETTYPE
+dist_ctrl_get_opt_2(BIF_ALIST_2)
+{
+    DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(BIF_P);
+    Uint32 conn_id;
+    BIF_RETTYPE ret;
+
+    if (!dep)
+        BIF_ERROR(BIF_P, EXC_NOTSUP);
+
+    if (erts_dhandle_to_dist_entry(BIF_ARG_1, &conn_id) != dep)
+        BIF_ERROR(BIF_P, BADARG);
+
+    erts_de_rlock(dep);
+
+    if (dep->connection_id != conn_id)
+        ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+    else {
+
+        switch (BIF_ARG_2) {
+        case am_get_size:
+            ERTS_BIF_PREP_RET(ret, (dep->opts & ERTS_DIST_CTRL_OPT_GET_SIZE
+                                    ? am_true
+                                    : am_false));
+            break;
+        default:
+            ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+            break;
+        }
+
+    }
+
+    erts_de_runlock(dep);
+
+    return ret;
+}
+    
+BIF_RETTYPE
 dist_get_stat_1(BIF_ALIST_1)
 {
     Sint64 read, write, pend;
@@ -3332,7 +3412,9 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
     Eterm *hp;
     ProcBin *pb;
     erts_aint_t qsize;
-    Uint32 conn_id;
+    Uint32 conn_id, get_size;
+    Eterm res;
+    Uint hsz, bin_sz;
 
     if (!dep)
         BIF_ERROR(BIF_P, EXC_NOTSUP);
@@ -3400,15 +3482,26 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
 
     erts_de_runlock(dep);
 
-    hp =  HAlloc(BIF_P, PROC_BIN_SIZE);
+    bin_sz = obuf->ext_endp - obuf->extp;
+    hsz = PROC_BIN_SIZE;
+
+    get_size = dep->opts & ERTS_DIST_CTRL_OPT_GET_SIZE;
+    if (get_size) {
+        hsz += 3; /* 2 tuple */
+        if (!IS_USMALL(0, bin_sz))
+            hsz += BIG_UINT_HEAP_SIZE;
+    }
+
+    hp = HAlloc(BIF_P, hsz);
     pb = (ProcBin *) (char *) hp;
     pb->thing_word = HEADER_PROC_BIN;
-    pb->size = obuf->ext_endp - obuf->extp;
+    pb->size = bin_sz;
     pb->next = MSO(BIF_P).first;
     MSO(BIF_P).first = (struct erl_off_heap_header*) pb;
     pb->val = ErtsDistOutputBuf2Binary(obuf);
     pb->bytes = (byte*) obuf->extp;
     pb->flags = 0;
+    hp += PROC_BIN_SIZE;
 
     qsize = erts_atomic_add_read_nob(&dep->qsize, -size_obuf(obuf));
     ASSERT(qsize >= 0);
@@ -3425,7 +3518,20 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
         }
     }
 
-    BIF_RET2(make_binary(pb), (initial_reds - reds));
+    res = make_binary(pb);
+
+    if (get_size) {
+        Eterm sz_term;
+        if (IS_USMALL(0, bin_sz))
+            sz_term = make_small(bin_sz);
+        else {
+            sz_term = uint_to_big(bin_sz, hp);
+            hp += BIG_UINT_HEAP_SIZE;
+        }
+        res = TUPLE2(hp, sz_term, res);
+    }
+
+    BIF_RET2(res, (initial_reds - reds));
 }
 
 void
