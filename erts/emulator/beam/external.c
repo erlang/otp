@@ -3579,7 +3579,7 @@ dec_term_atom_common:
 
 		cre = get_int32(ep);
 		ep += 4;
-		r0 = get_int32(ep); /* allow full word */
+		r0 = get_int32(ep);
 		ep += 4;
 
 	    ref_ext_common: {
@@ -3590,6 +3590,13 @@ dec_term_atom_common:
 
 		node = dec_get_node(sysname, cre, make_boxed(hp));
 		if(node == erts_this_node) {
+                    if (r0 >= MAX_REFERENCE) {
+                          /*
+                           * Must reject local refs with more than 18 bits
+                           * in first word as magic ref table relies on it.
+                           */
+                        goto error;
+                    }
 	
 		    rtp = (ErtsORefThing *) hp;
 		    ref_num = &rtp->num[0];
