@@ -70,7 +70,10 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += -Werror +inline +warn_export_vars #+warn_missing_spec
+ERL_COMPILE_FLAGS += +inline +warn_export_vars #+warn_missing_spec
+ifneq ($(NATIVE_LIBS_ENABLED),yes)
+ERL_COMPILE_FLAGS += -Werror
+endif
 
 # if in 32 bit backend define BIT32 symbol
 ifneq ($(BITS64),yes)

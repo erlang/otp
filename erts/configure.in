@@ -2783,6 +2783,32 @@ AC_SUBST(HIPE_ENABLED)
 NATIVE_LIBS_ENABLED=
 if test X${enable_native_libs} = Xyes -a X${HIPE_ENABLED} = Xyes; then
   NATIVE_LIBS_ENABLED=yes
+  cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 WARNING: In OTP 22, HiPE (the native code compiler) is
+		 not fully functional. The reasons for this are:
+
+		 1. There are new BEAM instructions for binary
+		 matching that the HiPE native code compiler does not
+		 support. 
+
+		 2. The new optimizations in the Erlang compiler create
+		 new combination of instructions that HiPE currently
+		 does not handle correctly.
+
+		 If erlc is invoked like so:
+
+		     erlc +native some_file.erl
+
+                 or like so:
+
+                     erlc +native some_file.beam
+
+		 and if any of the new binary matching instructions
+		 are used, the compiler will issue a warning and
+		 produce a BEAM file without native code.
+
+EOF
 fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
 

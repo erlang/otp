@@ -290,6 +290,10 @@ format_error(bad_crypto_key) ->
     "invalid crypto key.";
 format_error(no_crypto_key) ->
     "no crypto key supplied.";
+format_error({unimplemented_instruction,Instruction}) ->
+    io_lib:fwrite("native-code compilation failed because of an "
+                  "unimplemented instruction (~s).",
+		  [Instruction]);
 format_error({native, E}) ->
     io_lib:fwrite("native-code compilation failed with reason: ~tP.",
 		  [E, 25]);
@@ -1651,18 +1655,22 @@ native_compile_1(Code, St) ->
 	    case IgnoreErrors of
 		true ->
 		    Ws = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
-		    {ok,St#compile{warnings=St#compile.warnings ++ Ws}};
+		    {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
 		false ->
 		    Es = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
 		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end
     catch
+        exit:{unimplemented_instruction,_}=Unimplemented ->
+            Ws = [{St#compile.ifile,
+                   [{none,?MODULE,Unimplemented}]}],
+            {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
 	Class:R:Stack ->
 	    case IgnoreErrors of
 		true ->
 		    Ws = [{St#compile.ifile,
 			   [{none,?MODULE,{native_crash,R,Stack}}]}],
-		    {ok,St#compile{warnings=St#compile.warnings ++ Ws}};
+		    {ok,Code,St#compile{warnings=St#compile.warnings ++ Ws}};
 		false ->
 		    erlang:raise(Class, R, Stack)
 	    end

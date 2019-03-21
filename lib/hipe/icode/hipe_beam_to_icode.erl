@@ -1189,12 +1189,30 @@ trans_fun([raw_raise|Instructions], Env) ->
   [hipe_icode:mk_primop(Dst,raw_raise,Vars) |
    trans_fun(Instructions, Env)];
 %%--------------------------------------------------------------------
+%% New binary matching added in OTP 22.
+%%--------------------------------------------------------------------
+%%--- bs_get_tail ---
+trans_fun([{bs_get_tail=Name,_,_,_}|_Instructions], _Env) ->
+  nyi(Name);
+%%--- bs_start_match3 ---
+trans_fun([{bs_start_match3=Name,_,_,_,_}|_Instructions], _Env) ->
+  nyi(Name);
+%%--- bs_get_position ---
+trans_fun([{bs_get_position=Name,_,_,_}|_Instructions], _Env) ->
+  nyi(Name);
+%%--- bs_set_position ---
+trans_fun([{bs_set_position=Name,_,_}|_Instructions], _Env) ->
+  nyi(Name);
+%%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------
 trans_fun([X|_], _) ->
   ?EXIT({'trans_fun/2',X});
 trans_fun([], _) ->
   [].
+
+nyi(Name) ->
+  throw({unimplemented_instruction,Name}).
 
 %%--------------------------------------------------------------------
 %% trans_call and trans_enter generate correct Icode calls/tail-calls,
