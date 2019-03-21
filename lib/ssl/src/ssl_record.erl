@@ -395,7 +395,12 @@ decipher_aead(Type, #cipher_state{key = Key} = CipherState, AAD0, CipherFragment
     try
         Nonce = decrypt_nonce(Type, CipherState, CipherFragment),
         {AAD, CipherText, CipherTag} = aead_ciphertext_split(Type, CipherState, CipherFragment, AAD0),
-	ssl_cipher:aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AAD) 
+	case ssl_cipher:aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AAD) of
+	    Content when is_binary(Content) ->
+		Content;
+	    _ ->
+                ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
+	end
     catch
 	_:_ ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
