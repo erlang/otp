@@ -30,6 +30,7 @@
 #define sock_close(s) closesocket(s)
 #else
 #include <sys/socket.h>
+#include <unistd.h>
 #define sock_close(s) close(s)
 #endif
 
