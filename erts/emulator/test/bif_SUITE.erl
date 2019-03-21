@@ -38,7 +38,8 @@
          is_process_alive/1,
          process_info_blast/1,
          os_env_case_sensitivity/1,
-         test_length/1]).
+         test_length/1,
+         fixed_apply_badarg/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -54,7 +55,7 @@ all() ->
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
      is_process_alive, process_info_blast, os_env_case_sensitivity,
-     test_length].
+     test_length,fixed_apply_badarg].
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -1229,6 +1230,23 @@ test_length(I, N, Inc, Good, Bad) when I < N ->
                 lists:reverse(IncSeq, Good),
                 lists:reverse(IncSeq, Bad));
 test_length(_, _, _, _, _) -> ok.
+
+%% apply/3 with a fixed number of arguments didn't include all arguments on
+%% badarg exceptions.
+fixed_apply_badarg(Config) when is_list(Config) ->
+    Bad = id({}),
+
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[a,b]],[]} | _]}} =
+        (catch Bad:baz(a,b)),
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[c,d]],[]} | _]}} =
+        (catch baz:Bad(c,d)),
+
+    {'EXIT',{badarg, [{erlang,apply,[{},baz,[e,f]],[]} | _]}} =
+        (catch apply(Bad,baz,[e,f])),
+    {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[]} | _]}} =
+        (catch apply(baz,Bad,[g,h])),
+
+    ok.
 
 %% helpers
     
