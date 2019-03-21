@@ -22,6 +22,7 @@ BEHAVIOUR_MODULES = \
 	snmpa_authentication_service \
 	snmpa_discovery_handler \
 	snmpa_error_report \
+	snmpa_get_mechanism \
 	snmpa_mib_storage \
 	snmpa_mib_data \
 	snmpa_network_interface \

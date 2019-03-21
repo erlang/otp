@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,9 @@ $(EBIN)/snmpa_authentication_service.$(EMULATOR): \
 
 $(EBIN)/snmpa_error_report.$(EMULATOR): \
 	snmpa_error_report.erl
+
+$(EBIN)/snmpa_get_mechanism.$(EMULATOR): \
+	snmpa_get_mechanism.erl
 
 $(EBIN)/snmpa_network_interface.$(EMULATOR): \
 	snmpa_network_interface.erl
