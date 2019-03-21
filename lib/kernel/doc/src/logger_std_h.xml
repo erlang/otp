@@ -58,7 +58,7 @@
       <tag><marker id="type"/><c>type = standard_io | standard_error | file</c></tag>
       <item>
 	<p>Specifies the log destination.</p>
-	<p>The value is set when the handler is added, and it can not
+	<p>The value is set when the handler is added, and it cannot
 	  be changed in runtime.</p>
 	<p>Defaults to <c>standard_io</c>, unless
 	  parameter <seealso marker="#file"><c>file</c></seealso> is
@@ -68,7 +68,7 @@
       <item>
 	<p>This specifies the name of the log file when the handler is
 	  of type <c>file</c>.</p>
-	<p>The value is set when the handler is added, and it can not
+	<p>The value is set when the handler is added, and it cannot
 	  be changed in runtime.</p>
 	<p>Defaults to the same name as the handler identity, in the
 	  current directory.</p>
@@ -93,9 +93,9 @@
 	    or <c>{delayed_write,Size,Delay}</c> is found in the
 	    list, <c>delayed_write</c> is added.</item>
 	</list>
-	<p>Log files are always UTF-8 encoded. The encoding can not be
+	<p>Log files are always UTF-8 encoded. The encoding cannot be
 	  changed by setting the mode <c>{encoding,Encoding}</c>.</p>
-	<p>The value is set when the handler is added, and it can not
+	<p>The value is set when the handler is added, and it cannot
 	  be changed in runtime.</p>
 	<p>Defaults to <c>[raw,append,delayed_write]</c>.</p>
       </item>
