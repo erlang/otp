@@ -667,7 +667,8 @@
 	<v>Key = <seealso marker="#type-key">key()</seealso> | <seealso marker="#type-des3_key">des3_key()</seealso></v>
         <v>PlainText = iodata()</v>
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
-	<v>Error = <seealso marker="#type-run_time_error">run_time_error()</seealso></v>
+	<v>Error = BadTag | <seealso marker="#type-run_time_error">run_time_error()</seealso></v>
+	<v>BadTag = error</v>
       </type>
       <desc>
         <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.

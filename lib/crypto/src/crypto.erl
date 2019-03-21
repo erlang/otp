@@ -651,7 +651,7 @@ block_encrypt(Type, Key, PlainText) ->
                            binary() | run_time_error();
 		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
 		    {AAD::binary(), Data::iodata(), Tag::binary()}) ->
-                           binary() | run_time_error() .
+                           binary() | error | run_time_error() .
 
 block_decrypt(Type, Key, Ivec, Data) ->
     do_block_decrypt(alias(Type), Key, Ivec, Data).
