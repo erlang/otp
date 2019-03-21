@@ -31,6 +31,38 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>If a suspend/resume signal pair was sent to a process
+	    while it was executing dirty, the receiving process could
+	    later end up in a suspended state indefinitely. This bug
+	    was introduced in ERTS version 10.0 (OTP 21.0).</p>
+	    <p>Suspend/resume signals are sent from <seealso
+	    marker="erts:erlang#suspend_process/1"><c>erlang:suspend_process()</c></seealso>/<seealso
+	    marker="erts:erlang#resume_process/1"><c>erlang:resume_process()</c></seealso>.
+	    The <seealso
+	    marker="runtime_tools:dbg"><c>dbg</c></seealso> trace
+	    tool utilize this functionality and could thus trigger
+	    this bug.</p>
+          <p>
+	    Own Id: OTP-15688</p>
+        </item>
+        <item>
+          <p>
+	    Fix a possible deadlock when terminating the ERTS caused
+	    by a dirty scheduler not releasing it's run-queue lock
+	    when terminating.</p>
+          <p>
+	    Own Id: OTP-15690 Aux Id: PR-2172 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
