@@ -29,7 +29,8 @@
 -include("beam_ssa.hrl").
 
 -import(lists, [foldl/3,keymember/3,keysort/2,map/2,mapfoldl/3,
-                reverse/1,reverse/2,sort/1,splitwith/2,takewhile/2]).
+                member/2,reverse/1,reverse/2,sort/1,
+                splitwith/2,takewhile/2]).
 
 -record(cg, {lcount=1 :: beam_label(),          %Label counter
 	     functable=#{} :: #{fa()=>beam_label()},
@@ -1422,39 +1423,38 @@ bif_to_test_1('=/=', [_,_]=Ops, Fail) ->
 
 opt_call_moves(Is0, Arity) ->
     {Moves0,Is} = splitwith(fun({move,_,_}) -> true;
-                               ({kill,_}) -> true;
+                               ({init_yregs,_}) -> true;
                                (_) -> false
                             end, Is0),
     Moves = opt_call_moves_1(Moves0, Arity),
     Moves ++ Is.
 
-opt_call_moves_1([{move,Src,{x,_}=Tmp}=M1|[{kill,_}|_]=Is], Arity) ->
+opt_call_moves_1([{move,Src,{x,_}=Tmp}=M1,
+                  {init_yregs,{list,Yregs}}=Init|Is], Arity) ->
     %% There could be a {move,Tmp,{x,0}} instruction after the
-    %% kill/1 instructions (moved to there by opt_move_to_x0/1).
-    case splitwith(fun({kill,_}) -> true;
-                      (_) -> false
-                   end, Is) of
-        {Kills,[{move,{x,_}=Tmp,{x,0}}=M2]} ->
+    %% init_yreg/1 instruction (moved to there by opt_move_to_x0/1).
+    case Is of
+        [{move,{x,_}=Tmp,{x,0}}=M2] ->
             %% The two move/2 instructions (M1 and M2) can be combined
             %% to one. The question is, though, is it safe to place
             %% them after the kill/1 instructions?
-            case is_killed(Src, Kills, Arity) of
+            case member(Src, Yregs) of
                 true ->
-                    %% Src (a Y register) is killed by one of the
-                    %% kill/1 instructions. Thus M1 and M2
-                    %% must be placed before the kill/1 instructions
-                    %% (essentially undoing what opt_move_to_x0/1
-                    %% did, which turned out to be a pessimization
-                    %% in this case).
-                    opt_call_moves_1([M1,M2|Kills], Arity);
+                    %% Src (a Y register) is killed by the
+                    %% init_yregs/1 instruction. Thus M1 and M2 must
+                    %% be placed before the kill/1 instructions
+                    %% (essentially undoing what opt_move_to_x0/1 did,
+                    %% which turned out to be a pessimization in this
+                    %% case).
+                    opt_call_moves_1([M1,M2,Init], Arity);
                 false ->
-                    %% Src is not killed by any of the kill/1
+                    %% Src is not killed by the init_yregs/1
                     %% instructions. Thus it is safe to place
                     %% M1 and M2 after the kill/1 instructions.
-                    opt_call_moves_1(Kills++[M1,M2], Arity)
+                    opt_call_moves_1([Init,M1,M2], Arity)
             end;
-        {_,_} ->
-            [M1|Is]
+        _ ->
+            [M1,Init|Is]
     end;
 opt_call_moves_1([{move,Src,{x,_}=Tmp}=M1,{move,Tmp,Dst}=M2|Is], Arity) ->
     case is_killed(Tmp, Is, Arity) of
@@ -1469,20 +1469,16 @@ opt_call_moves_1([M|Ms], Arity) ->
     [M|opt_call_moves_1(Ms, Arity)];
 opt_call_moves_1([], _Arity) -> [].
 
-is_killed(Y, [{kill,Y}|_], _) ->
-    true;
-is_killed(R, [{kill,_}|Is], Arity) ->
-    is_killed(R, Is, Arity);
 is_killed(R, [{move,R,_}|_], _) ->
     false;
 is_killed(R, [{move,_,R}|_], _) ->
     true;
 is_killed(R, [{move,_,_}|Is], Arity) ->
     is_killed(R, Is, Arity);
+is_killed({x,_}=R, [{init_yregs,_}|Is], Arity) ->
+    is_killed(R, Is, Arity);
 is_killed({x,X}, [], Arity) ->
-    X >= Arity;
-is_killed({y,_}, [], _) ->
-    false.
+    X >= Arity.
 
 cg_alloc(#cg_alloc{stack=none,words=#need{h=0,l=0,f=0}}, _St) ->
     [];
@@ -1494,17 +1490,15 @@ cg_alloc(#cg_alloc{stack=Stk,words=Need,live=Live,def_yregs=DefYregs},
     All = [{y,Y} || Y <- lists:seq(0, Stk-1)],
     Def = ordsets:from_list([maps:get(V, Regs) || V <- DefYregs]),
     NeedInit = ordsets:subtract(All, Def),
-    NoZero = length(Def)*2 > Stk,
-    I = case {NoZero,Alloc} of
-            {true,0} -> {allocate,Stk,Live};
-            {true,_} -> {allocate_heap,Stk,Alloc,Live};
-            {false,0} -> {allocate_zero,Stk,Live};
-            {false,_} -> {allocate_heap_zero,Stk,Alloc,Live}
+    I = case Alloc of
+            0 -> {allocate,Stk,Live};
+            _ -> {allocate_heap,Stk,Alloc,Live}
         end,
-    [I|case NoZero of
-           true -> [{init,Y} || Y <- NeedInit];
-           false -> []
-       end].
+    [I|init_yregs(NeedInit)].
+
+init_yregs([_|_]=Yregs) ->
+    [{init_yregs,{list,Yregs}}];
+init_yregs([]) -> [].
 
 alloc(#need{h=Words,l=0,f=0}) ->
     Words;
@@ -1982,10 +1976,11 @@ opt_move_to_x0([I|Is], Acc) ->
     opt_move_to_x0(Is, [I|Acc]);
 opt_move_to_x0([], Acc) -> reverse(Acc).
 
-move_past_kill([{kill,Src}|_], {move,Src,_}, _) ->
-    impossible;
-move_past_kill([{kill,_}=I|Is], Move, Acc) ->
-    move_past_kill(Is, Move, [I|Acc]);
+move_past_kill([{init_yregs,{list,Yregs}}=I|Is], {move,Src,_}=Move, Acc) ->
+    case member(Src, Yregs) of
+        true -> impossible;
+        false -> move_past_kill(Is, Move, [I|Acc])
+    end;
 move_past_kill(Is, Move, Acc) ->
     {Is,[Move|Acc]}.
 
@@ -2009,11 +2004,14 @@ setup_args([_|_]=Args) ->
     Moves = gen_moves(Args, 0, []),
     order_moves(Moves).
 
-%% kill_yregs(Anno, #cg{}) -> [{kill,{y,Y}}].
+%% kill_yregs(Anno, #cg{}) -> [{init_yregs,{list,[{y,Y}]}}].
 %%  Kill Y registers that will not be used again.
 
 kill_yregs(#{kill_yregs:=Kill}, #cg{regs=Regs}) ->
-    ordsets:from_list([{kill,maps:get(V, Regs)} || V <- Kill]);
+    case ordsets:from_list([map_get(V, Regs) || V <- Kill]) of
+        [] -> [];
+        [_|_]=List -> [{init_yregs,{list,List}}]
+    end;
 kill_yregs(#{}, #cg{}) -> [].
 
 %% gen_moves(As, I, Acc)

@@ -764,3 +764,70 @@ gen.is_function2(Fail, Fun, Arity) {
         return move_fun;
     }
 }
+
+INIT_YREGS(S, N) {
+    int i;
+    for (i = 0; i < $N; i++) {
+	BeamOp* init;
+
+	$NewBeamOp($S, init);
+	$BeamOpNameArity(init, init, 1);
+	init->a[0] = Yregs[i];
+	*p = init;
+	p = &init->next;
+    }
+}
+
+gen.allocate(Ns, Live, N, Yregs) {
+    BeamOp* alloc;
+    BeamOp** p;
+
+    $NewBeamOp(S, alloc);
+    alloc->a[0] = Ns;
+    alloc->a[1] = Live;
+
+    if (Ns.val <= 2 * N.val) {
+	/*
+	 * At least half of the Y registers need explicit
+	 * initialization. It will be cheaper to zero all Y registers.
+	 */
+	$BeamOpNameArity(alloc, allocate_zero, 2);
+    } else {
+	$BeamOpNameArity(alloc, allocate, 2);
+	p = &alloc->next;
+	$INIT_YREGS(S, N.val);
+    }
+    return alloc;
+}
+
+gen.allocate_heap(Ns, Nh, Live, N, Yregs) {
+    BeamOp* alloc;
+    BeamOp** p;
+
+    $NewBeamOp(S, alloc);
+    alloc->a[0] = Ns;
+    alloc->a[1] = Nh;
+    alloc->a[2] = Live;
+
+    if (Ns.val <= 2 * N.val) {
+	/*
+	 * At least half of the Y registers need explicit
+	 * initialization. It will be cheaper to zero all Y registers.
+	 */
+	$BeamOpNameArity(alloc, allocate_heap_zero, 3);
+    } else {
+	$BeamOpNameArity(alloc, allocate_heap, 3);
+	p = &alloc->next;
+	$INIT_YREGS(S, N.val);
+    }
+    return alloc;
+}
+
+gen.init_yregs(N, Yregs) {
+    BeamOp* first = NULL;
+    BeamOp** p;
+
+    p = &first;
+    $INIT_YREGS(S, N.val);
+    return first;
+}

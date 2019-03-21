@@ -71,12 +71,6 @@ norm({set,[],[],{line,_}=Line}) -> Line.
 
 norm_allocate({_Zero,nostack,Nh,[]}, Regs) ->
     [{test_heap,Nh,Regs}];
-norm_allocate({zero,0,Nh,[]}, Regs) ->
-    norm_allocate({nozero,0,Nh,[]}, Regs);
-norm_allocate({zero,Ns,0,[]}, Regs) ->
-    [{allocate_zero,Ns,Regs}];
-norm_allocate({zero,Ns,Nh,[]}, Regs) ->
-    [{allocate_heap_zero,Ns,Nh,Regs}];
 norm_allocate({nozero,Ns,0,Inits}, Regs) ->
     [{allocate,Ns,Regs}|Inits];
 norm_allocate({nozero,Ns,Nh,Inits}, Regs) ->
