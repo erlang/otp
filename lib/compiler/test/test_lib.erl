@@ -22,7 +22,8 @@
 -include_lib("common_test/include/ct.hrl").
 -compile({no_auto_import,[binary_part/2]}).
 -export([id/1,recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
-	 is_cloned_mod/1,smoke_disasm/1,p_run/2]).
+         is_cloned_mod/1,smoke_disasm/1,p_run/2,
+         highest_opcode/1]).
 
 %% Used by test case that override BIFs.
 -export([binary_part/2,binary/1]).
@@ -112,6 +113,14 @@ is_cloned_mod_1("_21_SUITE") -> true;
 is_cloned_mod_1("_no_module_opt_SUITE") -> true;
 is_cloned_mod_1([_|T]) -> is_cloned_mod_1(T);
 is_cloned_mod_1([]) -> false.
+
+%% Return the highest opcode use in the BEAM module.
+
+highest_opcode(Beam) ->
+    {ok,{_Mod,[{"Code",Code}]}} = beam_lib:chunks(Beam, ["Code"]),
+    FormatNumber = 0,
+    <<16:32,FormatNumber:32,HighestOpcode:32,_/binary>> = Code,
+    HighestOpcode.
 
 %% p_run(fun(Data) -> ok|error, List) -> ok
 %%  Will fail the test case if there were any errors.
