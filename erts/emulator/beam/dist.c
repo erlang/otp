@@ -2885,7 +2885,9 @@ erts_dist_command(Port *prt, int initial_reds)
 	    ob = oq.first;
 	    ASSERT(ob);
 	    do {
+                obufsize += size_obuf(ob);
 		reds = erts_encode_ext_dist_header_finalize(ob, dep, flags, reds);
+                obufsize -= size_obuf(ob);
                 if (reds < 0)
                     break;
                 last_finalized  = ob;
@@ -2924,7 +2926,9 @@ erts_dist_command(Port *prt, int initial_reds)
 	while (oq.first && !preempt) {
 	    ErtsDistOutputBuf *fob;
 	    Uint size;
+            obufsize += size_obuf(oq.first);
             reds = erts_encode_ext_dist_header_finalize(oq.first, dep, flags, reds);
+            obufsize -= size_obuf(oq.first);
             if (reds < 0) {
                 preempt = 1;
                 break;
