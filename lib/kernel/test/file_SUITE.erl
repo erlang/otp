@@ -2191,6 +2191,9 @@ unc_paths(Config) when is_list(Config) ->
             {ok, _} = file:read_file_info("C:\\Windows\\explorer.exe"),
             {ok, _} = file:read_file_info("\\\\localhost\\c$\\Windows\\explorer.exe"),
 
+            {ok, Files} = file:list_dir("C:\\Windows\\"),
+            {ok, Files} = file:list_dir("\\\\localhost\\c$\\Windows\\"),
+
             {ok, Cwd} = file:get_cwd(),
 
             try
