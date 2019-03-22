@@ -757,7 +757,7 @@ handle_event(_, _, State, Data) ->
 	  right before entering the initial state even though this
 	  actually is not a <em>state change</em>.
 	  In this case <c>OldState =:= State</c>,
-	  which can not happen for a subsequent state change,
+	  which cannot happen for a subsequent state change,
 	  but will happen when repeating the <em>state enter call</em>.
 	</p>
       </desc>
