@@ -35,45 +35,10 @@
 
   <description>
     <p>
-      The ssl application is an implementation of the SSL/TLS/DTLS protocol in Erlang.
+      The ssl application is an implementation of the SSL, TLS and DTLS protocols in Erlang.
     </p>
-    <list type="bulleted">
-      <item>Supported SSL/TLS/DTLS-versions are SSL-3.0, TLS-1.0,
-      TLS-1.1, TLS-1.2, DTLS-1.0 (based on TLS-1.1), DTLS-1.2 (based on TLS-1.2)</item>
-      <item>For security reasons SSL-2.0 is not supported.
-      Interoperability with SSL-2.0 enabled clients dropped. (OTP 21) </item>
-      <item>For security reasons SSL-3.0 is no longer supported by default,
-      but can be configured. (OTP 19) </item>
-      <item>For security reasons RSA key exchange cipher suites are no longer supported by default,
-      but can be configured. (OTP 21) </item>
-      <item>For security reasons DES cipher suites are no longer supported by default,
-      but can be configured. (OTP 20) </item>
-    <item>For security reasons 3DES cipher suites are no longer supported by default,
-    but can be configured. (OTP 21) </item>
-      <item> Renegotiation Indication Extension <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url> is supported
-      </item>
-      <item>Ephemeral Diffie-Hellman cipher suites are supported,
-      but not Diffie Hellman Certificates cipher suites.</item>
-      <item>Elliptic Curve cipher suites are supported if the Crypto 
-      application supports it and named curves are used.
-      </item>
-      <item>Export cipher suites are not supported as the
-      U.S. lifted its export restrictions in early 2000.</item>
-      <item>IDEA cipher suites are not supported as they have
-      become deprecated by the latest TLS specification so it is not 
-      motivated to implement them.</item>
-      <item>Compression is not supported.</item>
-      <item>CRL validation is supported.</item>
-      <item>Policy certificate extensions are not supported.</item>
-      <item>'Server Name Indication' extension
-      (<url href="http://www.ietf.org/rfc/rfc6066.txt">RFC 6066</url>) is supported.</item>
-      <item>Application Layer Protocol Negotiation (ALPN) and its successor Next Protocol Negotiation (NPN)
-      are supported. </item>
-      <item>It is possible to use Pre-Shared Key (PSK) and Secure Remote Password (SRP)
-      cipher suites, but they are not enabled by default.
-      </item>
-    </list>
-   </description>
+    <p>For current statement of standards compliance see the <seealso marker="standards_compliance">User's Guide</seealso>.</p>
+  </description>
 
   <section>
     <title>DEPENDENCIES</title>

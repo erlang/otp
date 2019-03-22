@@ -38,6 +38,7 @@
   <xi:include href="ssl_protocol.xml"/>
   <xi:include href="using_ssl.xml"/>
   <xi:include href="ssl_distribution.xml"/>
+  <xi:include href="standards_compliance.xml"/>
 </part>
 
 
