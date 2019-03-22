@@ -1243,12 +1243,12 @@ restart_after(Config) ->
     {Log,HConfig,DLHConfig} = start_handler(?MODULE, ?FUNCTION_NAME, Config),
     NewHConfig1 =
         HConfig#{config=>DLHConfig#{overload_kill_enable=>true,
-                                    overload_kill_qlen=>10,
+                                    overload_kill_qlen=>4,
                                     overload_kill_restart_after=>infinity}},
     ok = logger:update_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
-    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
+    send_burst({n,100}, {spawn,5,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef1, _, _, _Reason1} ->
             file_delete(Log),
@@ -1265,13 +1265,13 @@ restart_after(Config) ->
     RestartAfter = ?OVERLOAD_KILL_RESTART_AFTER,
     NewHConfig2 =
         HConfig#{config=>DLHConfig#{overload_kill_enable=>true,
-                                    overload_kill_qlen=>10,
+                                    overload_kill_qlen=>4,
                                     overload_kill_restart_after=>RestartAfter}},
     ok = logger:update_handler_config(?MODULE, NewHConfig2),
     Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
-    send_burst({n,100}, {spawn,4,0}, {chars,79}, notice),
+    send_burst({n,100}, {spawn,5,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef2, _, _, _Reason2} ->
             file_delete(Log),
