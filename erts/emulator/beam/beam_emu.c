@@ -1479,9 +1479,15 @@ next_catch(Process* c_p, Eterm *reg) {
     BeamInstr i_return_time_trace = beam_return_time_trace[0];
 
     ptr = prev = c_p->stop;
-    ASSERT(is_CP(*ptr));
     ASSERT(ptr <= STACK_START(c_p));
     if (ptr == STACK_START(c_p)) return NULL;
+
+    /*
+     * Better safe than sorry here. In debug builds, produce a core
+     * dump if the top of the stack doesn't point to a continuation
+     * pointer. In other builds, ignore a non-CP at the top of stack.
+     */
+    ASSERT(is_CP(*ptr));
     if ((is_not_CP(*ptr) || (*cp_val(*ptr) != i_return_trace &&
 			     *cp_val(*ptr) != i_return_to_trace &&
 			     *cp_val(*ptr) != i_return_time_trace ))
