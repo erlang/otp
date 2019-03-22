@@ -1915,7 +1915,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	    erts_dsprintf(dsbufp,
 			  "Discarding message %T from %T to %T in an old "
-			  "incarnation (%d) of this node (%d)\n",
+			  "incarnation (%u) of this node (%u)\n",
 			  msg,
 			  p->common.id,
 			  to,
@@ -1959,7 +1959,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp,
 		      "Discarding message %T from %T to %T in an old "
-		      "incarnation (%d) of this node (%d)\n",
+		      "incarnation (%u) of this node (%u)\n",
 		      msg,
 		      p->common.id,
 		      to,
@@ -4314,7 +4314,7 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
     if(dep == erts_this_dist_entry) {
         ErtsMagicBinary *mb;
         Uint32 sid;
-        if (refn[0] > MAX_REFERENCE) goto bad;
+        if (refn[0] >= MAX_REFERENCE) goto bad;
         if (n != ERTS_REF_NUMBERS) goto bad;
         sid = erts_get_ref_numbers_thr_id(refn);
         if (sid > erts_no_schedulers) goto bad;
