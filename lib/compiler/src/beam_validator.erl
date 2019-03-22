@@ -2899,8 +2899,6 @@ lists_mod_return_type(filter, 2, _Vst) ->
     list;
 lists_mod_return_type(flatten, 1, _Vst) ->
     list;
-lists_mod_return_type(flatten, 2, _Vst) ->
-    list;
 lists_mod_return_type(map, 2, Vst) ->
     same_length_type({x,1}, Vst);
 lists_mod_return_type(MF, 3, Vst) when MF =:= mapfoldl; MF =:= mapfoldr ->
@@ -2911,8 +2909,6 @@ lists_mod_return_type(partition, 2, _Vst) ->
 lists_mod_return_type(reverse, 1, Vst) ->
     same_length_type({x,0}, Vst);
 lists_mod_return_type(seq, 2, _Vst) ->
-    list;
-lists_mod_return_type(seq, 3, _Vst) ->
     list;
 lists_mod_return_type(sort, 1, Vst) ->
     same_length_type({x,0}, Vst);
@@ -2927,15 +2923,9 @@ lists_mod_return_type(unzip, 1, Vst) ->
     two_tuple(ListType, ListType);
 lists_mod_return_type(usort, 1, Vst) ->
     same_length_type({x,0}, Vst);
-lists_mod_return_type(usort, 2, Vst) ->
-    same_length_type({x,1}, Vst);
 lists_mod_return_type(zip, 2, _Vst) ->
     list;
-lists_mod_return_type(zip3, 3, _Vst) ->
-    list;
 lists_mod_return_type(zipwith, 3, _Vst) ->
-    list;
-lists_mod_return_type(zipwith3, 4, _Vst) ->
     list;
 lists_mod_return_type(_, _, _) ->
     term.
