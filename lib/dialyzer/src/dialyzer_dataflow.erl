@@ -3644,14 +3644,15 @@ format_args(ArgList0, TypeList, State) ->
   "(" ++ format_args_1(ArgList, TypeList, State) ++ ")".
 
 format_args_1([Arg], [Type], State) ->
-  format_arg(Arg) ++ format_type(Type, State);
+  format_arg_1(Arg, Type, State);
 format_args_1([Arg|Args], [Type|Types], State) ->
-  String =
-    case cerl:is_literal(Arg) of
-      true -> format_cerl(Arg);
-      false -> format_arg(Arg) ++ format_type(Type, State)
-    end,
-  String ++ "," ++ format_args_1(Args, Types, State).
+  format_arg_1(Arg, Type, State) ++ "," ++ format_args_1(Args, Types, State).
+
+format_arg_1(Arg, Type, State) ->
+  case cerl:is_literal(Arg) of
+    true -> format_cerl(Arg);
+    false -> format_arg(Arg) ++ format_type(Type, State)
+  end.
 
 format_arg(Arg) ->
   Default = "",

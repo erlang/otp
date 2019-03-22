@@ -68,13 +68,13 @@ guard_warnings.erl:68: Guard test 'and'('false',X::any()) can never succeed
 guard_warnings.erl:70: Function test30/1 has no local return
 guard_warnings.erl:70: Guard test 'and'(X::'true','false') can never succeed
 guard_warnings.erl:72: Function test31/0 has no local return
-guard_warnings.erl:72: Guard test 'and'('false',any()) can never succeed
+guard_warnings.erl:72: Guard test 'and'('false','false') can never succeed
 guard_warnings.erl:74: Function test32/0 has no local return
-guard_warnings.erl:74: Guard test 'and'('false',any()) can never succeed
+guard_warnings.erl:74: Guard test 'and'('false','false') can never succeed
 guard_warnings.erl:76: Function test33/0 has no local return
 guard_warnings.erl:76: Guard test not('and'('true','true')) can never succeed
 guard_warnings.erl:78: Function test34/0 has no local return
-guard_warnings.erl:78: Guard test 'and'('false',any()) can never succeed
+guard_warnings.erl:78: Guard test 'and'('false','false') can never succeed
 guard_warnings.erl:80: Function test35/0 has no local return
 guard_warnings.erl:80: Guard test not('and'('true','true')) can never succeed
 guard_warnings.erl:82: Function test36/0 has no local return
