@@ -39,87 +39,79 @@ ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(argc == 6);
 
     if (!enif_is_atom(env, type))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-atom cipher type"); goto done;}
     if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-binary key"); goto done;}
     if (!enif_inspect_binary(env, argv[2], &iv))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-binary iv"); goto done;}
     if (!enif_inspect_iolist_as_binary(env, argv[3], &aad))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-binary AAD"); goto done;}
     if (!enif_inspect_iolist_as_binary(env, argv[4], &in))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-binary text"); goto done;}
     if (!enif_get_uint(env, argv[5], &tag_len))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, ""); goto done;}
 
     if (tag_len > INT_MAX
         || iv.size > INT_MAX
         || in.size > INT_MAX
         || aad.size > INT_MAX)
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "binary too long"); goto done;}
 
     if ((cipherp = get_cipher_type(type, key.size)) == NULL)
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "Unknown cipher"); goto done;}
     if (cipherp->flags & NON_EVP_CIPHER)
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "Bad cipher"); goto done;}
     if (! (cipherp->flags & AEAD_CIPHER) )
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "Not aead cipher"); goto done;}
     if ((cipher = cipherp->cipher.p) == NULL)
-        return enif_raise_exception(env, atom_notsup);
+        {ret = EXCP_NOTSUP(env, "Cipher not supported in this libcrypto version"); goto done;}
 
     ctx_ctrl_set_ivlen = cipherp->extra.aead.ctx_ctrl_set_ivlen;
     ctx_ctrl_get_tag =  cipherp->extra.aead.ctx_ctrl_get_tag;
     ctx_ctrl_set_tag =  cipherp->extra.aead.ctx_ctrl_set_tag;
     
     if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
     if (EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
     if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_ivlen, (int)iv.size, NULL) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
 #if defined(HAVE_CCM)
     if (type == atom_aes_ccm) {
         if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, (int)tag_len, NULL) != 1)
-            goto err;
+            {ret = EXCP_ERROR(env, ""); goto done;}
         if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
-            goto err;
+            {ret = EXCP_ERROR(env, ""); goto done;}
         if (EVP_EncryptUpdate(ctx, NULL, &len, NULL, (int)in.size) != 1)
-            goto err;
+            {ret = EXCP_ERROR(env, ""); goto done;}
     } else
 #endif
         {
             if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
-                goto err;
+                {ret = EXCP_ERROR(env, ""); goto done;}
         }
 
     if (EVP_EncryptUpdate(ctx, NULL, &len, aad.data, (int)aad.size) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
     if ((outp = enif_make_new_binary(env, in.size, &out)) == NULL)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
     if (EVP_EncryptUpdate(ctx, outp, &len, in.data, (int)in.size) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
     if (EVP_EncryptFinal_ex(ctx, outp/*+len*/, &len) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
     if ((tagp = enif_make_new_binary(env, tag_len, &out_tag)) == NULL)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
     if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_get_tag, (int)tag_len, tagp) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
     CONSUME_REDS(env, in);
     ret = enif_make_tuple2(env, out, out_tag);
-    goto done;
-
- bad_arg:
-    ret = enif_make_badarg(env);
-    goto done;
-
- err:
-    ret = atom_error;
 
  done:
     if (ctx)
@@ -127,7 +119,7 @@ ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 
 #else
-    return enif_raise_exception(env, atom_notsup);
+    return EXCP_NOTSUP(env, "");
 #endif
 }
 
@@ -151,72 +143,72 @@ ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #endif
 
     if (!enif_is_atom(env, type))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-atom cipher type"); goto done;}
     if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-binary key"); goto done;}
     if (!enif_inspect_binary(env, argv[2], &iv))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-binary iv"); goto done;}
     if (!enif_inspect_iolist_as_binary(env, argv[3], &aad))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-binary AAD"); goto done;}
     if (!enif_inspect_iolist_as_binary(env, argv[4], &in))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, ""); goto done;}
     if (!enif_inspect_iolist_as_binary(env, argv[5], &tag))
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "non-binary text"); goto done;}
 
     if (tag.size > INT_MAX
         || key.size > INT_MAX
         || iv.size > INT_MAX
         || in.size > INT_MAX
         || aad.size > INT_MAX)
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "binary too long"); goto done;}
 
     if ((cipherp = get_cipher_type(type, key.size)) == NULL)
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "Unknown cipher"); goto done;}
     if (cipherp->flags & NON_EVP_CIPHER)
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "Bad cipher"); goto done;}
     if ( !(cipherp->flags & AEAD_CIPHER) )
-        goto bad_arg;
+        {ret = EXCP_BADARG(env, "Not aead cipher"); goto done;}
     if ((cipher = cipherp->cipher.p) == NULL)
-        return enif_raise_exception(env, atom_notsup);
+        {ret = EXCP_NOTSUP(env, "Cipher not supported in this libcrypto version"); goto done;}
 
     ctx_ctrl_set_ivlen = cipherp->extra.aead.ctx_ctrl_set_ivlen;
     ctx_ctrl_set_tag =  cipherp->extra.aead.ctx_ctrl_set_tag;
 
     if ((outp = enif_make_new_binary(env, in.size, &out)) == NULL)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
     if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
     if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
     if (EVP_CIPHER_CTX_ctrl(ctx,  ctx_ctrl_set_ivlen, (int)iv.size, NULL) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
 #if defined(HAVE_CCM)
     if (type == atom_aes_ccm) {
         if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, (int)tag.size, tag.data) != 1)
-            goto err;
+            {ret = EXCP_ERROR(env, ""); goto done;}
         if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
-            goto err;
+            {ret = EXCP_ERROR(env, ""); goto done;}
         if (EVP_DecryptUpdate(ctx, NULL, &len, NULL, (int)in.size) != 1)
-            goto err;
+            {ret = EXCP_ERROR(env, ""); goto done;}
     }
     else
 #endif
         {
             if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
-                goto err;
+                {ret = EXCP_ERROR(env, ""); goto done;}
         }
 
     if (EVP_DecryptUpdate(ctx, NULL, &len, aad.data, (int)aad.size) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
     if (EVP_DecryptUpdate(ctx, outp, &len, in.data, (int)in.size) != 1)
-        goto err;
+        {ret = EXCP_ERROR(env, ""); goto done;}
 
 #if defined(HAVE_GCM)
     if (type == atom_aes_gcm) {
         if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, (int)tag.size, tag.data) != 1)
-             goto err;
+            goto err;
         if (EVP_DecryptFinal_ex(ctx, outp+len, &len) != 1)
             goto err;
     }
@@ -225,11 +217,8 @@ ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ret = out;
     goto done;
 
- bad_arg:
-    ret = enif_make_badarg(env);
-    goto done;
-
  err:
+    /* Decrypt failed, that is, wrong tag */
     ret = atom_error;
 
  done:
@@ -238,6 +227,6 @@ ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 
 #else
-    return enif_raise_exception(env, atom_notsup);
+    return EXCP_NOTSUP(env, "");
 #endif
 }

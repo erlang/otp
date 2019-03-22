@@ -562,8 +562,10 @@ poly1305(Key, Data) ->
 %%%================================================================
 
 -define(COMPAT(CALL),
-        try CALL
+        try begin CALL end
         catch
+            error:{error,_} ->
+                error(badarg);
             error:{E,_Reason} when E==notsup ; E==badarg ->
                 error(E)
         end).
@@ -617,33 +619,38 @@ cipher_info(Type) ->
                            {binary(), binary()} | run_time_error().
 
 
-block_encrypt(Type, Key, Ivec, Data) ->
-    do_block_encrypt(alias(Type), Key, Ivec, Data).
-
-do_block_encrypt(Type, Key, Ivec, PlainText) when Type =:= aes_ige256 ->
+block_encrypt(aes_ige256, Key, Ivec, PlainText) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, PlainText, true));
 
-do_block_encrypt(Type, Key, Ivec, {AAD, PlainText}) when Type =:= chacha20_poly1305 ->
-    aead_encrypt(Type, Key, Ivec, AAD, PlainText, 16);
-
-do_block_encrypt(Type, Key, Ivec, Data) when Type =:= aes_gcm;
-                                          Type =:= aes_ccm ->
-    case Data of
-        {AAD, PlainText} ->
-            aead_encrypt(Type, Key, Ivec, AAD, PlainText);
-        {AAD, PlainText, TagLength} ->
-            aead_encrypt(Type, Key, Ivec, AAD, PlainText, TagLength)
-    end;
-
-do_block_encrypt(Type, Key, Ivec, PlainText) ->
-    ?COMPAT(crypto_one_shot(Type, Key, Ivec, PlainText, true)).
-
+block_encrypt(Type, Key0, Ivec, Data) ->
+    Key = iolist_to_binary(Key0),
+    ?COMPAT(
+       case Data of
+           {AAD, PlainText} ->
+               aead_encrypt(alias(Type,Key), Key, Ivec, AAD, PlainText, aead_tag_len(Type));
+           {AAD, PlainText, TagLength} ->
+               aead_encrypt(alias(Type,Key), Key, Ivec, AAD, PlainText, TagLength);
+           PlainText ->
+               crypto_one_shot(alias(Type,Key), Key, Ivec, PlainText, true)
+       end).
 
 -spec block_encrypt(Type::block_cipher_no_iv(), Key::key(), PlainText::iodata()) ->
                            binary() | run_time_error().
 
-block_encrypt(Type, Key, PlainText) ->
-    ?COMPAT(crypto_one_shot(Type, Key, <<>>, PlainText, true)).
+block_encrypt(Type, Key0, PlainText) ->
+    Key = iolist_to_binary(Key0),
+    ?COMPAT(crypto_one_shot(alias(Type,Key), Key, <<>>, PlainText, true)).
+
+
+aead_tag_len(chacha20_poly1305) -> 16;
+aead_tag_len(aes_ccm) -> 12;
+aead_tag_len(aes_128_ccm) -> 12;
+aead_tag_len(aes_192_ccm) -> 12;
+aead_tag_len(aes_256_ccm) -> 12;
+aead_tag_len(aes_gcm) -> 16;
+aead_tag_len(aes_128_gcm) -> 16;
+aead_tag_len(aes_192_gcm) -> 16;
+aead_tag_len(aes_256_gcm) -> 16.
 
 %%%----------------------------------------------------------------
 %%%----------------------------------------------------------------
@@ -653,26 +660,26 @@ block_encrypt(Type, Key, PlainText) ->
 		    {AAD::binary(), Data::iodata(), Tag::binary()}) ->
                            binary() | error | run_time_error() .
 
-block_decrypt(Type, Key, Ivec, Data) ->
-    do_block_decrypt(alias(Type), Key, Ivec, Data).
-
-do_block_decrypt(aes_ige256, Key, Ivec, Data) ->
+block_decrypt(aes_ige256, Key, Ivec, Data) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
 
-do_block_decrypt(Type, Key, Ivec, {AAD, Data, Tag}) when Type =:= aes_gcm;
-                                                      Type =:= aes_ccm;
-                                                      Type =:= chacha20_poly1305 ->
-    aead_decrypt(Type, Key, Ivec, AAD, Data, Tag);
-
-do_block_decrypt(Type, Key, Ivec, Data) ->
-    ?COMPAT(crypto_one_shot(Type, Key, Ivec, Data, false)).
+block_decrypt(Type, Key0, Ivec, Data) ->
+    Key = iolist_to_binary(Key0),
+    ?COMPAT(
+       case Data of
+           {AAD, CryptoText, Tag} ->
+               aead_decrypt(alias(Type,Key), Key, Ivec, AAD, CryptoText, Tag);
+           CryptoText ->
+               crypto_one_shot(alias(Type,Key), Key, Ivec, CryptoText, false)
+       end).
 
 
 -spec block_decrypt(Type::block_cipher_no_iv(), Key::key(), Data::iodata()) ->
                            binary() | run_time_error().
 
-block_decrypt(Type, Key, Data) ->
-    ?COMPAT(crypto_one_shot(Type, Key, <<>>, Data, false)).
+block_decrypt(Type, Key0, CryptoText) ->
+    Key = iolist_to_binary(Key0),
+    ?COMPAT(crypto_one_shot(alias(Type,Key), Key, <<>>, CryptoText, false)).
 
 %%%-------- Stream ciphers API
 
@@ -694,9 +701,10 @@ block_decrypt(Type, Key, Data) ->
                                                Key :: iodata(),
                                                IVec ::binary(),
                                                State :: stream_state() .
-stream_init(Type, Key, IVec) when is_binary(IVec) -> 
-    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type),
-                                     iolist_to_binary(Key), iolist_to_binary(IVec),
+stream_init(Type, Key0, IVec) when is_binary(IVec) -> 
+    Key = iolist_to_binary(Key0),
+    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
+                                     Key, iolist_to_binary(IVec),
                                      undefined)
                  ),
     {Type, {Ref,flg_undefined}}.
@@ -706,9 +714,10 @@ stream_init(Type, Key, IVec) when is_binary(IVec) ->
                                     when Type :: stream_cipher_no_iv(),
                                          Key :: iodata(),
                                          State :: stream_state() .
-stream_init(rc4 = Type, Key) ->
-    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type),
-                                     iolist_to_binary(Key), <<>>,
+stream_init(rc4 = Type, Key0) ->
+    Key = iolist_to_binary(Key0),
+    Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
+                                     Key, <<>>,
                                      undefined)
                  ),
     {Type, {Ref,flg_undefined}}.
@@ -922,6 +931,44 @@ alias(aes_cbc128)   -> aes_128_cbc;
 alias(aes_cbc256)   -> aes_256_cbc;
 
 alias(Alg) -> Alg.
+
+
+%%%---- des_ede3_cbc
+alias(des3_cbc, _)     -> des_ede3_cbc;
+alias(des_ede3, _)     -> des_ede3_cbc;
+%%%---- des_ede3_cfb
+alias(des_ede3_cbf,_ ) -> des_ede3_cfb;
+alias(des3_cbf, _)     -> des_ede3_cfb;
+alias(des3_cfb, _)     -> des_ede3_cfb;
+%%%---- aes_*_cbc
+alias(aes_cbc128, _)   -> aes_128_cbc;
+alias(aes_cbc256, _)   -> aes_256_cbc;
+
+alias(aes_cbc, Key) when size(Key)==128  -> aes_128_cbc;
+alias(aes_cbc, Key) when size(Key)==192  -> aes_192_cbc;
+alias(aes_cbc, Key) when size(Key)==256  -> aes_256_cbc;
+
+alias(aes_cfb8, Key) when size(Key)==128  -> aes_128_cfb8;
+alias(aes_cfb8, Key) when size(Key)==192  -> aes_192_cfb8;
+alias(aes_cfb8, Key) when size(Key)==256  -> aes_256_cfb8;
+
+alias(aes_cfb128, Key) when size(Key)==128  -> aes_128_cfb128;
+alias(aes_cfb128, Key) when size(Key)==192  -> aes_192_cfb128;
+alias(aes_cfb128, Key) when size(Key)==256  -> aes_256_cfb128;
+
+alias(aes_ctr, Key) when size(Key)==128  -> aes_128_ctr;
+alias(aes_ctr, Key) when size(Key)==192  -> aes_192_ctr;
+alias(aes_ctr, Key) when size(Key)==256  -> aes_256_ctr;
+
+alias(aes_gcm, Key) when size(Key)==128  -> aes_128_gcm;
+alias(aes_gcm, Key) when size(Key)==192  -> aes_192_gcm;
+alias(aes_gcm, Key) when size(Key)==256  -> aes_256_gcm;
+
+alias(aes_ccm, Key) when size(Key)==128  -> aes_128_ccm;
+alias(aes_ccm, Key) when size(Key)==192  -> aes_192_ccm;
+alias(aes_ccm, Key) when size(Key)==256  -> aes_256_ccm;
+
+alias(Alg, _) -> Alg.
 
 %%%================================================================
 %%%
@@ -2013,9 +2060,6 @@ cipher_info_nif(_Type) -> ?nif_stub.
 %% AES - in Galois/Counter Mode (GCM)
 %%
 %% The default tag length is EVP_GCM_TLS_TAG_LEN(16),
-aead_encrypt(Type=aes_ccm, Key, Ivec, AAD, In) -> aead_encrypt(Type, Key, Ivec, AAD, In, 12);
-aead_encrypt(Type=aes_gcm, Key, Ivec, AAD, In) -> aead_encrypt(Type, Key, Ivec, AAD, In, 16).
-
 aead_encrypt(_Type, _Key, _Ivec, _AAD, _In, _TagLength) -> ?nif_stub.
 aead_decrypt(_Type, _Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
 
