@@ -847,7 +847,8 @@ cipher_info(Config) when is_list(Config) ->
     #{type := _,key_length := _,iv_length := _,
         block_size := _,mode := _} = crypto:cipher_info(aes_128_cbc),
     {'EXIT',_} = (catch crypto:cipher_info(not_a_cipher)),
-    ok.
+    lists:foreach(fun(C) -> crypto:cipher_info(C) end,
+        proplists:get_value(ciphers, crypto:supports())).
 
 %%--------------------------------------------------------------------
 hash_info() ->
@@ -855,7 +856,8 @@ hash_info() ->
 hash_info(Config) when is_list(Config) ->
     #{type := _,size := _,block_size := _} = crypto:hash_info(sha256),
     {'EXIT',_} = (catch crypto:hash_info(not_a_hash)),
-    ok.
+    lists:foreach(fun(H) -> crypto:hash_info(H) end,
+        proplists:get_value(hashs, crypto:supports())).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

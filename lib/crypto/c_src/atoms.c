@@ -52,6 +52,12 @@ ERL_NIF_TERM atom_ecb_mode;
 ERL_NIF_TERM atom_cbc_mode;
 ERL_NIF_TERM atom_cfb_mode;
 ERL_NIF_TERM atom_ofb_mode;
+ERL_NIF_TERM atom_ctr_mode;
+ERL_NIF_TERM atom_gcm_mode;
+ERL_NIF_TERM atom_ccm_mode;
+ERL_NIF_TERM atom_xts_mode;
+ERL_NIF_TERM atom_wrap_mode;
+ERL_NIF_TERM atom_ocb_mode;
 ERL_NIF_TERM atom_stream_cipher;
 
 #if defined(HAVE_EC)
@@ -164,6 +170,12 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_cbc_mode = enif_make_atom(env,"cbc_mode");
     atom_cfb_mode = enif_make_atom(env,"cfb_mode");
     atom_ofb_mode = enif_make_atom(env,"ofb_mode");
+    atom_ctr_mode = enif_make_atom(env,"ctr_mode");
+    atom_gcm_mode = enif_make_atom(env,"gcm_mode");
+    atom_ccm_mode = enif_make_atom(env,"ccm_mode");
+    atom_xts_mode = enif_make_atom(env,"xts_mode");
+    atom_wrap_mode = enif_make_atom(env,"wrap_mode");
+    atom_ocb_mode = enif_make_atom(env,"ocb_mode");
     atom_stream_cipher = enif_make_atom(env,"stream_cipher");
 
 #if defined(HAVE_EC)

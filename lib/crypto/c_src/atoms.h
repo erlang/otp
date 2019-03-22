@@ -56,6 +56,12 @@ extern ERL_NIF_TERM atom_ecb_mode;
 extern ERL_NIF_TERM atom_cbc_mode;
 extern ERL_NIF_TERM atom_cfb_mode;
 extern ERL_NIF_TERM atom_ofb_mode;
+extern ERL_NIF_TERM atom_ctr_mode;
+extern ERL_NIF_TERM atom_gcm_mode;
+extern ERL_NIF_TERM atom_ccm_mode;
+extern ERL_NIF_TERM atom_xts_mode;
+extern ERL_NIF_TERM atom_wrap_mode;
+extern ERL_NIF_TERM atom_ocb_mode;
 extern ERL_NIF_TERM atom_stream_cipher;
 
 #if defined(HAVE_EC)

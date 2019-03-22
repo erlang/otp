@@ -274,6 +274,42 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             ret_mode = atom_ofb_mode;
             break;
 
+#ifdef EVP_CIPH_CTR_MODE
+        case EVP_CIPH_CTR_MODE:
+            ret_mode = atom_ctr_mode;
+            break;
+#endif
+
+#ifdef EVP_CIPH_GCM_MODE
+        case EVP_CIPH_GCM_MODE:
+            ret_mode = atom_gcm_mode;
+            break;
+#endif
+
+#ifdef EVP_CIPH_CCM_MODE
+        case EVP_CIPH_CCM_MODE:
+            ret_mode = atom_ccm_mode;
+            break;
+#endif
+
+#ifdef EVP_CIPH_XTS_MODE
+        case EVP_CIPH_XTS_MODE:
+            ret_mode = atom_xts_mode;
+            break;
+#endif
+
+#ifdef EVP_CIPH_WRAP_MODE
+        case EVP_CIPH_WRAP_MODE:
+            ret_mode = atom_wrap_mode;
+            break;
+#endif
+
+#ifdef EVP_CIPH_OCB_MODE
+        case EVP_CIPH_OCB_MODE:
+            ret_mode = atom_ocb_mode;
+            break;
+#endif
+
         case EVP_CIPH_STREAM_CIPHER:
             ret_mode = atom_stream_cipher;
             break;

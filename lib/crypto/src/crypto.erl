@@ -550,8 +550,20 @@ poly1305(Key, Data) ->
 -spec cipher_info(Type) -> map() when Type :: block_cipher_with_iv()
                                            | aead_cipher()
                                            | block_cipher_without_iv().
+%% These ciphers are not available via the EVP interface on older cryptolibs.
+cipher_info(aes_ctr) ->
+    #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
+cipher_info(aes_128_ctr) ->
+    #{block_size => 1,iv_length => 16,key_length => 16,mode => ctr_mode,type => undefined};
+cipher_info(aes_192_ctr) ->
+    #{block_size => 1,iv_length => 16,key_length => 24,mode => ctr_mode,type => undefined};
+cipher_info(aes_256_ctr) ->
+    #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
+%% This cipher is handled specialy.
+cipher_info(aes_ige256) ->
+    #{block_size => 16,iv_length => 32,key_length => 16,mode => ige_mode,type => undefined};
 cipher_info(Type) ->
-    cipher_info_nif(Type).
+    cipher_info_nif(alias(Type)).
 
 %%%---- Block ciphers
 %%%----------------------------------------------------------------
