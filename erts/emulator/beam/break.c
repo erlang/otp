@@ -75,6 +75,7 @@ port_info(fmtfn_t to, void *to_arg)
 void
 process_info(fmtfn_t to, void *to_arg)
 {
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
     int i, max = erts_ptab_max(&erts_proc);
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
@@ -82,8 +83,11 @@ process_info(fmtfn_t to, void *to_arg)
 	    /* Do not include processes with no heap,
 	     * they are most likely just created and has invalid data
 	     */
-	    if (p->heap != NULL)
-		print_process_info(to, to_arg, p, 0);
+	    if (p->heap != NULL) {
+                ErtsProcLocks locks = (p == esdp->current_process ||
+                                       p == esdp->free_process) ? ERTS_PROC_LOCK_MAIN : 0;
+		print_process_info(to, to_arg, p, locks);
+            }
 	}
     }
 
@@ -221,7 +225,7 @@ static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
     }
     return 1;
 }
-			       
+
 /* Display info about an individual Erlang process */
 void
 print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_locks)
@@ -254,7 +258,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 
     if (!(locks & ERTS_PROC_LOCK_MAIN)) {
         locks |= ERTS_PROC_LOCK_MAIN;
-        if (ERTS_IS_CRASH_DUMPING && running) {
+        if (ERTS_IS_CRASH_DUMPING) {
             if (erts_proc_trylock(p, locks)) {
                 /* crash dumping and main lock taken, this probably means that
                    the process is doing a GC on a dirty-scheduler... so we cannot
