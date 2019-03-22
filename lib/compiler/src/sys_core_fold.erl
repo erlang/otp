@@ -1997,51 +1997,20 @@ case_opt_compiler_generated(Core) ->
 
 
 %% case_expand_var(Expr0, Sub) -> Expr
-%%  If Expr0 is a variable that has been previously matched and
-%%  is known to be a tuple, return the tuple instead. Otherwise
+%%  If Expr0 is a variable that is known to be bound to a
+%%  constructed tuple, return the tuple instead. Otherwise
 %%  return Expr0 unchanged.
-%%
+
 case_expand_var(E, #sub{t=Tdb}) ->
     Key = cerl:var_name(E),
     case Tdb of
-        #{Key:=T0} ->
-	    case cerl:is_c_tuple(T0) of
-		false ->
-		    E;
-		true ->
-		    %% The pattern was a tuple. Now we must make sure
-		    %% that the elements of the tuple are suitable. In
-		    %% particular, we don't want binary or map
-		    %% construction here, since that means that the
-		    %% binary or map will be constructed in the 'case'
-		    %% argument. That is wasteful for binaries. Even
-		    %% worse is that any map pattern that use the ':='
-		    %% operator will fail when used in map
-		    %% construction (only the '=>' operator is allowed
-		    %% when constructing a map from scratch).
-		    try
-			cerl_trees:map(fun coerce_to_data/1, T0)
-		    catch
-			throw:impossible ->
-			    %% Something unsuitable was found (map or
-			    %% or binary). Keep the variable.
-			    E
-		    end
+        #{Key:=T} ->
+	    case cerl:is_c_tuple(T) of
+		false -> E;
+		true -> T
 	    end;
         _ ->
 	    E
-    end.
-
-%% coerce_to_data(Core) -> Core'
-%%  Coerce an element originally from a pattern to an data item or or
-%%  variable. Throw an 'impossible' exception if non-data Core Erlang
-%%  terms such as binary construction or map construction are
-%%  encountered.
-
-coerce_to_data(C) ->
-    case cerl:is_data(C) orelse cerl:is_c_var(C) of
-        true -> C;
-        false -> throw(impossible)
     end.
 
 %% case_opt_nomatch(E, Clauses, LitExpr) -> Clauses'
