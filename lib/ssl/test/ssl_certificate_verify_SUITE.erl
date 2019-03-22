@@ -147,6 +147,7 @@ init_per_testcase(_TestCase, Config) ->
     ssl:stop(),
     ssl:start(),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:pal(" ~p", [ dtls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 10}),
     Config.
 

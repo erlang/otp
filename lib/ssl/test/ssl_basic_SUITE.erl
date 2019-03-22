@@ -3464,9 +3464,9 @@ defaults(Config) when is_list(Config)->
     true = lists:member(sslv3, proplists:get_value(available, Versions)),
     false = lists:member(sslv3,  proplists:get_value(supported, Versions)),
     true = lists:member('tlsv1', proplists:get_value(available, Versions)),
-    true = lists:member('tlsv1',  proplists:get_value(supported, Versions)),
+    false = lists:member('tlsv1',  proplists:get_value(supported, Versions)),
     true = lists:member('tlsv1.1', proplists:get_value(available, Versions)),
-    true = lists:member('tlsv1.1',  proplists:get_value(supported, Versions)),
+    false = lists:member('tlsv1.1',  proplists:get_value(supported, Versions)),
     true = lists:member('tlsv1.2', proplists:get_value(available, Versions)),
     true = lists:member('tlsv1.2',  proplists:get_value(supported, Versions)),    
     false = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites()),
@@ -3478,7 +3478,7 @@ defaults(Config) when is_list(Config)->
     true = lists:member('dtlsv1.2', proplists:get_value(available_dtls, Versions)),
     true = lists:member('dtlsv1', proplists:get_value(available_dtls, Versions)),
     true = lists:member('dtlsv1.2', proplists:get_value(supported_dtls, Versions)),
-    true = lists:member('dtlsv1', proplists:get_value(supported_dtls, Versions)).
+    false = lists:member('dtlsv1', proplists:get_value(supported_dtls, Versions)).
 
 %%--------------------------------------------------------------------
 reuseaddr() ->

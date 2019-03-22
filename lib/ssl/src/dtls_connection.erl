@@ -840,7 +840,7 @@ next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
     end.
 
 acceptable_record_versions(hello, _) ->
-    [dtls_record:protocol_version(Vsn) || Vsn <- ?ALL_DATAGRAM_SUPPORTED_VERSIONS];
+    [dtls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS];
 acceptable_record_versions(_, #state{connection_env = #connection_env{negotiated_version = Version}}) ->
     [Version].
 

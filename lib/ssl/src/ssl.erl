@@ -103,9 +103,10 @@
 -type ip_address()               :: inet:ip_address().
 -type session_id()               :: binary().
 -type protocol_version()         :: tls_version() | dtls_version().
--type tls_version()              :: tlsv1 | 'tlsv1.1' | 'tlsv1.2' | 'tlsv1.3' | legacy_version().
--type dtls_version()             :: 'dtlsv1' | 'dtlsv1.2'.
--type legacy_version()           :: sslv3.
+-type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
+-type dtls_version()             :: 'dtlsv1.2' | dtls_legacy_version().
+-type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' | sslv3.
+-type dtls_legacy_version()      :: 'dtlsv1'. 
 -type verify_type()              :: verify_none | verify_peer.
 -type cipher()                   :: aes_128_cbc |
                                     aes_256_cbc |

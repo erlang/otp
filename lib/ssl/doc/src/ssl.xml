@@ -145,8 +145,13 @@
      </datatype>
      
      <datatype>
-       <name name="legacy_version"/>
+       <name name="tls_legacy_version"/>
      </datatype>
+
+     <datatype>
+       <name name="dtls_legacy_version"/>
+     </datatype>
+     
      
        <datatype>
        <name name="prf_random"/>
