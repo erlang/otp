@@ -230,12 +230,6 @@ JAVADOC-GENERATED
 /erts/test/install_SUITE_data/install_bin
 /erts/test/autoimport_SUITE_data/erlang.xml
 
-# asn1
-
-/lib/asn1/test/asn1_SUITE.erl
-/lib/asn1/test/asn1_bin_SUITE.erl
-/lib/asn1/test/asn1_bin_v2_SUITE.erl
-
 # common_test
 
 /lib/common_test/priv/install.sh
