@@ -2310,12 +2310,16 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
     function = reg[arity+1];
 
     if (is_not_atom(function)) {
+        Eterm bad_args;
     error:
-	p->freason = BADARG;
-	reg[0] = module;
-	reg[1] = function;
-	reg[2] = NIL;
-	return 0;
+        bad_args = make_arglist(p, reg, arity);
+
+        p->freason = BADARG;
+        reg[0] = module;
+        reg[1] = function;
+        reg[2] = bad_args;
+
+        return 0;
     }
 
     if (is_not_atom(module)) goto error;
