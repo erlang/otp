@@ -192,7 +192,16 @@
   <datatypes>
     <datatype_title>Ciphers</datatype_title>
     <datatype>
+      <name name="cipher"/>
       <name name="stream_cipher"/>
+      <name name="block_cipher"/>
+      <desc>
+	<p>Ciphers known byt the CRYPTO application. Note that this list might be reduced if the
+	underlying libcrypto does not support all of them.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="stream_cipher_iv"/>
       <name name="stream_cipher_no_iv"/>
       <desc>
@@ -204,7 +213,7 @@
     </datatype>
 
     <datatype>
-      <name name="block_cipher_with_iv"/>
+      <name name="block_cipher_iv"/>
       <name name="cbc_cipher"/>
       <name name="cfb_cipher"/>
       <desc>
@@ -228,7 +237,7 @@
     </datatype>
 
     <datatype>
-      <name name="block_cipher_without_iv"/>
+      <name name="block_cipher_no_iv"/>
       <name name="ecb_cipher"/>
       <desc>
 	<p>Block ciphers without initialization vector for
@@ -248,20 +257,16 @@
       </desc>
     </datatype>
 
-    <datatype_title>Digests</datatype_title>
+    <datatype_title>Digests and hash</datatype_title>
     <datatype>
-      <name name="sha1"/>
-      <name name="sha2"/>
-      <name name="sha3"/>
-      <name name="blake2"/>
+      <name name="hash_algorithm"/>
       <desc>
       </desc>
     </datatype>
 
     <datatype>
-      <name name="compatibility_only_hash"/>
+      <name name="hmac_hash_algorithm"/>
       <desc>
-	<p>The <c>compatibility_only_hash()</c> algorithms are recommended only for compatibility with existing applications.</p>
       </desc>
     </datatype>
 
@@ -280,6 +285,17 @@
     <datatype>
       <name name="ecdsa_digest_type"/>
       <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sha1"/>
+      <name name="sha2"/>
+      <name name="sha3"/>
+      <name name="blake2"/>
+      <name name="compatibility_only_hash"/>
+      <desc>
+	<p>The <c>compatibility_only_hash()</c> algorithms are recommended only for compatibility with existing applications.</p>
       </desc>
     </datatype>
 
@@ -537,6 +553,52 @@
       </desc>
     </datatype>
 
+    <datatype_title>Error types</datatype_title>
+
+    <datatype>
+      <name name="run_time_error"/>
+      <desc>
+	<p>The exception <c>error:badarg</c> signifies that one or more arguments are of wrong data type,
+	or are otherwise badly formed.
+	</p>
+	<p>The exception <c>error:notsup</c> signifies that the algorithm is known but is not supported
+	by current underlying libcrypto or explicitly disabled when building that.
+	</p>
+	<p>For a list of supported algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="descriptive_error"/>
+      <desc>
+	<p>This is a more developed variant of the older
+	<seealso marker="#type-run_time_error">run_time_error()</seealso>.
+	</p>
+	<p>It is like the older type an exception of the <c>error</c> class. In addition they contain
+	a descriptive text in English. That text is targeted to a developer. Examples are "Bad key size"
+	or "Cipher id is not an atom".
+	</p>
+	<p>The exceptions are:</p>
+	<taglist>
+	  <tag><c>{badarg, Description::string()}</c></tag>
+	  <item><p>Signifies that one or more arguments are of wrong data type or are otherwise badly formed.</p>
+	  </item>
+
+	  <tag><c>{notsup, Description::string()}</c></tag>
+	  <item><p>Signifies that the algorithm is known but is not supported by current underlying libcrypto
+	  or explicitly disabled when building that one.</p>
+	  </item>
+
+	  <tag><c>{error, Description::string()}</c></tag>
+	  <item><p>An error condition that should not occur, for example a memory allocation failed or
+	  the underlying cryptolib returned an error code, for example "Can't initialize context, step 1".
+	  Thoose text usually needs searching the C-code to be understood.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <!--================ FUNCTIONS ================-->
@@ -568,17 +630,18 @@
     </func>
 
     <func>
-      <name since="OTP R16B01">block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
-      <name since="OTP R16B01">block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
-      <name since="OTP R16B01">block_encrypt(aes_gcm | aes_ccm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag}</name>
+      <name since="OTP R16B01">block_encrypt(Type, Key, Ivec, PlainText) -> CipherText | Error</name>
+      <name since="OTP R16B01">block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag} | Error</name>
+      <name since="OTP R16B01">block_encrypt(aes_gcm | aes_ccm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag} | Error </name>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
-	<v>Type = <seealso marker="#type-block_cipher_with_iv">block_cipher_with_iv()</seealso></v>
+	<v>Type = <seealso marker="#type-block_cipher_iv">block_cipher_iv()</seealso></v>
 	<v>AeadType = <seealso marker="#type-aead_cipher">aead_cipher()</seealso></v>
 	<v>Key = <seealso marker="#type-key">key()</seealso> | <seealso marker="#type-des3_key">des3_key()</seealso></v>
         <v>PlainText = iodata()</v>
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
         <v>TagLength = 1..16</v>
+	<v>Error = <seealso marker="#type-run_time_error">run_time_error()</seealso></v>
       </type>
       <desc>
         <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.
@@ -595,15 +658,17 @@
     </func>
 
     <func>
-      <name since="OTP R16B01">block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
-      <name since="OTP R16B01">block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | error</name>
+      <name since="OTP R16B01">block_decrypt(Type, Key, Ivec, CipherText) -> PlainText | Error</name>
+      <name since="OTP R16B01">block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | Error</name>
       <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
-	<v>Type = <seealso marker="#type-block_cipher_with_iv">block_cipher_with_iv()</seealso></v>
+	<v>Type = <seealso marker="#type-block_cipher_iv">block_cipher_iv()</seealso></v>
 	<v>AeadType = <seealso marker="#type-aead_cipher">aead_cipher()</seealso></v>
 	<v>Key = <seealso marker="#type-key">key()</seealso> | <seealso marker="#type-des3_key">des3_key()</seealso></v>
         <v>PlainText = iodata()</v>
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
+	<v>Error = BadTag | <seealso marker="#type-run_time_error">run_time_error()</seealso></v>
+	<v>BadTag = error</v>
       </type>
       <desc>
         <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.
@@ -840,6 +905,39 @@
 	  The text variant represents the libcrypto library used at runtime.
 	  In earlier OTP versions both numeric and text was taken from the library.
 	</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hash_info" arity="1" since="OTP 22.0"/>
+      <fsummary>Information about supported hash algorithms.</fsummary>
+      <desc>
+	<p>Provides a map with information about block_size, size and possibly other properties of the
+	hash algorithm in question.
+	</p>
+	<p>For a list of supported hash algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cipher_info" arity="1" since="OTP 22.0"/>
+      <fsummary>Information about supported ciphers.</fsummary>
+      <desc>
+	<p>Provides a map with information about block_size, key_length, iv_length and possibly other properties of the
+	cipher algorithm in question.
+	</p>
+        <note>
+	  <p>The ciphers <c>aes_cbc</c>, <c>aes_cfb8</c>, <c>aes_cfb128</c>, <c>aes_ctr</c>, 
+	  <c>aes_ecb</c>, <c>aes_gcm</c> and <c>aes_ccm</c>
+	  has no keylength in the <c>Type</c> as opposed to for example <c>aes_128_ctr</c>. They adapt to the length of
+	  the key provided in the encrypt and decrypt function. Therefor it is impossible to return a valid keylength
+	  in the map.</p>
+	  <p>Always use a <c>Type</c> with an explicit key length,
+	  </p>
+	</note>
+	<p>For a list of supported cipher algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	</p>
       </desc>
     </func>
 
@@ -1289,8 +1387,8 @@ FloatValue = rand:uniform().     % again
       <desc>
         <p> Can be used to determine which crypto algorithms that are supported
 	by the underlying libcrypto library</p>
-	<p>Note: the <c>rsa_opts</c> entry is in an experimental state and may change or be removed without notice.
-	No guarantee for the accuarcy of the rsa option's value list should be assumed.
+	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
+	for information about the hash and cipher algorithms.
 	</p>
       </desc>
     </func>
