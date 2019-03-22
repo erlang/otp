@@ -1913,6 +1913,7 @@ int erts_net_message(Port *prt,
                 goto invalid_message;
             }
             reason = tuple[5];
+            edep = NULL;
         }
 
 	if (is_not_ref(ref))
@@ -1959,12 +1960,14 @@ int erts_net_message(Port *prt,
 	    }
 	    token = NIL;
 	    reason = tuple[4];
+            edep = NULL;
 	} else if (type == DOP_EXIT_TT){
 	    if (tuple_arity != 5) {
 		goto invalid_message;
 	    }
 	    token = tuple[4];
 	    reason = tuple[5];
+            edep = NULL;
 	} else if (type == DOP_PAYLOAD_EXIT) {
             if (tuple_arity != 3) {
 		goto invalid_message;
@@ -2012,12 +2015,14 @@ int erts_net_message(Port *prt,
 	    }
 	    reason = tuple[4];
 	    token = NIL;
+            edep = NULL;
 	} else if (type == DOP_EXIT2_TT) {
 	    if (tuple_arity != 5) {
 		goto invalid_message;
 	    }
 	    token = tuple[4];
 	    reason = tuple[5];
+            edep = NULL;
 	} else if (type == DOP_PAYLOAD_EXIT2) {
             if (tuple_arity != 3) {
 		goto invalid_message;
