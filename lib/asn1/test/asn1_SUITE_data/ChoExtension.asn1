@@ -41,4 +41,6 @@ ChoExt4 ::= CHOICE
   str OCTET STRING
 }
 
+choExt1 ChoExt1 ::= int : 1
+
 END

@@ -60,6 +60,7 @@ MODULES= \
 	testSeqOf \
 	testSeqOfIndefinite \
 	testSeqOfCho \
+	testSeqOfChoExt \
 	testSeqOfExternal \
 	testSeqOfTag \
 	testSetDefault \
@@ -72,6 +73,7 @@ MODULES= \
 	testSetTypeRefPrim \
 	testSetTypeRefSeq \
 	testSetTypeRefSet \
+	testDefaultOctetString \
 	testChoiceIndefinite \
 	testSetOf \
 	testSetOfCho \

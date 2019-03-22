@@ -99,6 +99,7 @@ groups() ->
        testChoTypeRefPrim,
        testChoTypeRefSeq,
        testChoTypeRefSet,
+       testDefaultOctetString,
        testMultipleLevels,
        testOpt,
        testSeqDefault,
@@ -118,6 +119,7 @@ groups() ->
        {group, [], [testSeqOf,
                     testSeqOfIndefinite]}, % Uses 'Mvrasn*'
        testSeqOfCho,
+       testSeqOfChoExt,
        testSetDefault,
        testExtensionAdditionGroup,
        testSetOptional,
@@ -430,6 +432,11 @@ testChoTypeRefSet(Config, Rule, Opts) ->
     asn1_test_lib:compile("ChoTypeRefSet", Config, [Rule|Opts]),
     testChoTypeRefSet:set(Rule).
 
+testDefaultOctetString(Config) -> test(Config, fun testDefaultOctetString/3).
+testDefaultOctetString(Config, Rule, Opts) ->
+    asn1_test_lib:compile("DefaultOctetString", Config, [Rule|Opts]),
+    testDefaultOctetString:dos(Rule).
+
 testMultipleLevels(Config) -> test(Config, fun testMultipleLevels/3).
 testMultipleLevels(Config, Rule, Opts) ->
     asn1_test_lib:compile("MultipleLevels", Config, [Rule|Opts]),
@@ -534,6 +541,11 @@ testSeqOfCho(Config) -> test(Config, fun testSeqOfCho/3).
 testSeqOfCho(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqOfCho", Config, [Rule|Opts]),
     testSeqOfCho:main(Rule).
+
+testSeqOfChoExt(Config) -> test(Config, fun testSeqOfChoExt/3).
+testSeqOfChoExt(Config, Rule, Opts) ->
+    asn1_test_lib:compile("SeqOfChoExt", Config, [Rule|Opts]),
+    testSeqOfChoExt:main(Rule).
 
 testSeqOfIndefinite(Config) ->
     test(Config, fun testSeqOfIndefinite/3, [ber]).
