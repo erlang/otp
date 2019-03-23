@@ -43,6 +43,7 @@ MODULES = \
 	ssl_basic_SUITE \
 	ssl_bench_SUITE \
 	ssl_cipher_SUITE \
+        ssl_cipher_suite_SUITE \
 	ssl_certificate_verify_SUITE\
 	ssl_crl_SUITE\
 	ssl_dist_SUITE \

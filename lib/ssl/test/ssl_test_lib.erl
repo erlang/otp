@@ -514,13 +514,6 @@ wait_for_result(Pid, Msg) ->
 	%%     Unexpected
     end.
 
-user_lookup(psk, _Identity, UserState) ->
-    {ok, UserState};
-user_lookup(srp, Username, _UserState) ->
-    Salt = ssl_cipher:random_bytes(16),
-    UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
-    {ok, {srp_1024, Salt, UserPassHash}}.
-
 cert_options(Config) ->
     ClientCaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				      "client", "cacerts.pem"]),
@@ -2378,4 +2371,10 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client3),
     ssl_test_lib:close(Client4).
-    
+
+user_lookup(psk, _Identity, UserState) ->
+    {ok, UserState};
+user_lookup(srp, Username, _UserState) ->
+    Salt = ssl_cipher:random_bytes(16),
+    UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
+    {ok, {srp_1024, Salt, UserPassHash}}.
