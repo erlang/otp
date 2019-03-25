@@ -64,7 +64,7 @@
  * WHEN CHANGING INTERFACE VERSION, also replace erts version below with
  * a ticket number e.g. "erts-@OTP-12345@". The syntax is the same as for
  * runtime dependencies so multiple tickets should be separated with ":", e.g.
- * "erts-@OTP-12345:54321@".
+ * "erts-@OTP-12345:OTP-54321@".
  *
  * If you're not on the OTP team, you should use a placeholder like
  * erts-@MyName@ instead.
