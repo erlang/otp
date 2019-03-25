@@ -1480,7 +1480,16 @@ next_catch(Process* c_p, Eterm *reg) {
 
     ptr = prev = c_p->stop;
     ASSERT(ptr <= STACK_START(c_p));
-    if (ptr == STACK_START(c_p)) return NULL;
+
+    /* This function is only called if we have active catch tags or have
+     * previously called a function that was exception-traced. As the exception
+     * trace flag isn't cleared after the traced function returns (and the
+     * catch tag inserted by it is gone), it's possible to land here with an
+     * empty stack, and the process should simply die when that happens. */
+    if (ptr == STACK_START(c_p)) {
+        ASSERT(!active_catches && IS_TRACED_FL(c_p, F_EXCEPTION_TRACE));
+        return NULL;
+    }
 
     /*
      * Better safe than sorry here. In debug builds, produce a core
