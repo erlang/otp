@@ -41,7 +41,8 @@
 %% Default timetrap timeout (set in init_per_testcase)
 -define(default_timeout, ?t:minutes(2)).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{timetrap, {minutes, 5}},
+            {ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app_file, appup_file, {group, gui}].

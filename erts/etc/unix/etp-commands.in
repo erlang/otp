@@ -1453,8 +1453,10 @@ define etp-stack-preamble
   set $etp_stack_p = ($arg0)->stop
   set $etp_stack_end = ($arg0)->hend
   printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
-  etp-1 ((Eterm)($arg0)->i) 0
-  printf "  (I)\n"
+  if ($arg0)->i != 0
+    etp-1 ((Eterm)($arg0)->i) 0
+    printf "  (I)\n"
+  end
   if ($arg0)->cp != 0
     etp-1 ((Eterm)($arg0)->cp) 0
     printf "  (cp)\n"

@@ -129,9 +129,13 @@ makefiles:
 
 .PHONY: release
 release:
+ifeq ($(TYPE),)
 	for t in $(TYPES); do \
 	  ( cd emulator && $(MAKE) release TYPE=$$t ) || exit $$?; \
 	done
+else
+	( cd emulator && $(MAKE) release TYPE=$(TYPE) ) || exit $$?;
+endif
 	$(V_at)for d in $(ERTSDIRS) $(XINSTDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ ) || exit $$? ; \

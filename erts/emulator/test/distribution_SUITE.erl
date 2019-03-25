@@ -744,6 +744,7 @@ link_to_dead_new_node(Config) when is_list(Config) ->
         {'EXIT', Pid, noproc} ->
             ok;
         Other ->
+            stop_node(Node),
             ct:fail({unexpected_message, Other})
     after 5000 ->
               ct:fail(nothing_received)
@@ -1421,7 +1422,7 @@ message_latency_large_exit(Nodename, ReasonFun) ->
 
               FlushTrace = fun F() ->
                                    receive
-                                       {trace, Pid, _, _} = M ->
+                                       {trace, Pid, _, _} ->
                                            F()
                                    after 0 ->
                                            ok
@@ -1455,8 +1456,14 @@ measure_latency_large_message(Nodename, DataFun) ->
 
     Echo = spawn(N, fun F() -> receive {From, Msg} -> From ! Msg, F() end end),
 
-    %% Test 32 MB and 320 MB and test the latency difference of sent messages
-    Payloads = [{I, <<0:(I * 32 * 1024 * 1024 * 8)>>} || I <- [1,10]],
+    case erlang:system_info(build_type) of
+        debug ->
+            %% Test 3.2 MB and 32 MB and test the latency difference of sent messages
+            Payloads = [{I, <<0:(I * 32 * 1024 * 8)>>} || I <- [1,10]];
+        _ ->
+            %% Test 32 MB and 320 MB and test the latency difference of sent messages
+            Payloads = [{I, <<0:(I * 32 * 1024 * 1024 * 8)>>} || I <- [1,10]]
+    end,
 
     IndexTimes = [{I, measure_latency(DataFun, Dropper, Echo, P)}
                   || {I, P} <- Payloads],
@@ -1464,6 +1471,8 @@ measure_latency_large_message(Nodename, DataFun) ->
     Times = [ Time || {_I, Time} <- IndexTimes],
 
     ct:pal("~p",[IndexTimes]),
+
+    stop_node(N),
 
     case {lists:max(Times), lists:min(Times)} of
         {Max, Min} when Max * 0.25 > Min ->
@@ -1487,7 +1496,7 @@ measure_latency(DataFun, Dropper, Echo, Payload) ->
                  end) || _ <- lists:seq(1,2)],
 
     [receive
-         {monitor, _Sender, busy_dist_port, _Info} = M ->
+         {monitor, _Sender, busy_dist_port, _Info} ->
              ok
      end || _ <- lists:seq(1,10)],
 
@@ -1733,7 +1742,7 @@ bad_dist_fragments(Config) when is_list(Config) ->
 
     start_monitor(Offender,P),
     Exit2Victim = spawn(Victim, fun() -> receive ok -> ok end end),
-    send_bad_fragments(Offender, Victim, P,{?DOP_PAYLOAD_EXIT2,P,ExitVictim},2,
+    send_bad_fragments(Offender, Victim, P,{?DOP_PAYLOAD_EXIT2,P,Exit2Victim},2,
                       [{hdr, 1, [132]}]),
 
     start_monitor(Offender,P),
@@ -2428,17 +2437,22 @@ stop_node(Node) ->
 verify_nc(Node) ->
     P = self(),
     Ref = make_ref(),
-    spawn(Node,
-          fun() ->
-                  R = erts_test_utils:check_node_dist(fun(E) -> E end),
-                  P ! {Ref, R}
-          end),
+    Pid = spawn(Node,
+                fun() ->
+                        R = erts_test_utils:check_node_dist(fun(E) -> E end),
+                        P ! {Ref, R}
+                end),
+    MonRef = monitor(process, Pid),
     receive
         {Ref, ok} ->
+            demonitor(MonRef,[flush]),
             ok;
         {Ref, Error} ->
-            ct:log("~s",[Error]),
-            ct:fail(failed_nc_refc_check)
+            ct:log("~p",[Error]),
+            ct:fail(failed_nc_refc_check);
+        {'DOWN', MonRef, _, _, _} = Down ->
+            ct:log("~p",[Down]),
+            ct:fail(crashed_nc_refc_check)
     end.
 
 freeze_node(Node, MS) ->

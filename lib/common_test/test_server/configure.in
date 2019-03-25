@@ -171,35 +171,12 @@ case $system in
 	fi
 	SHLIB_EXTRACT_ALL=""
 	;;
-    *-openbsd*)
+    *-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*)
 	# Not available on all versions:  check for include file.
 	AC_CHECK_HEADER(dlfcn.h, [
 	    SHLIB_CFLAGS="-fpic"
 	    SHLIB_LD="${CC}"
 	    SHLIB_LDFLAGS="$LDFLAGS -shared"
-	    SHLIB_SUFFIX=".so"
-	    if test X${enable_m64_build} = Xyes; then
-	        AC_MSG_ERROR(don't know how to link 64-bit dynamic drivers)
-	    fi
-	    if test X${enable_m32_build} = Xyes; then
-	        AC_MSG_ERROR(don't know how to link 32-bit dynamic drivers)
-	    fi
-	], [
-	    # No dynamic loading.
-	    SHLIB_CFLAGS=""
-	    SHLIB_LD="ld"
-	    SHLIB_LDFLAGS=""
-	    SHLIB_SUFFIX=""
-	    AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
-	])
-	SHLIB_EXTRACT_ALL=""
-	;;
-    *-netbsd*|*-freebsd*|*-dragonfly*)
-	# Not available on all versions:  check for include file.
-	AC_CHECK_HEADER(dlfcn.h, [
-	    SHLIB_CFLAGS="-fpic"
-	    SHLIB_LD="ld"
-	    SHLIB_LDFLAGS="$LDFLAGS -Bshareable -x"
 	    SHLIB_SUFFIX=".so"
 	    if test X${enable_m64_build} = Xyes; then
 	        AC_MSG_ERROR(don't know how to link 64-bit dynamic drivers)

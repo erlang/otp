@@ -22,6 +22,7 @@
 #define __ERL_MESSAGE_H__
 
 #include "sys.h"
+#include "erl_vm.h"
 #define ERTS_PROC_SIG_QUEUE_TYPE_ONLY
 #include "erl_proc_sig_queue.h"
 #undef ERTS_PROC_SIG_QUEUE_TYPE_ONLY
@@ -117,6 +118,7 @@ erts_produce_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
     }
     res = factory->hp;
     factory->hp += need;
+    INIT_HEAP_MEM(res, need);
     return res;
 }
 

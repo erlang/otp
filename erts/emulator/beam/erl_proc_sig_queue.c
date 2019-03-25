@@ -611,7 +611,8 @@ proc_queue_signal(Process *c_p, Eterm pid, ErtsSignal *sig, int op)
 #endif
                 return 1;
             }
-            ASSERT(esdp->pending_signal.dbg_from == esdp->current_process);
+            ASSERT(esdp->pending_signal.dbg_from == esdp->current_process ||
+                   esdp->pending_signal.dbg_from == esdp->free_process);
             if (pend_sig != sig) {
                 /* Switch them and send previously pending signal instead */
                 Eterm pend_to = esdp->pending_signal.to;

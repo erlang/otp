@@ -45,7 +45,12 @@ iter_max_files(Config) when is_list(Config) ->
 iter_max_files_1(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     TestFile = filename:join(DataDir, "existing_file"),
-    N = 10,
+    case erlang:system_info(debug_compiled) of
+        true ->
+            N = 5;
+        false ->
+            N = 10
+    end,
     %% Run on a different node in order to make the test more stable.
     Dir = filename:dirname(code:which(?MODULE)),
     {ok,Node} = test_server:start_node(test_iter_max_files,slave,

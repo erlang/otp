@@ -12090,9 +12090,11 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     ErtsDSigSendContext ctx;
     ErtsMonLnkDist *dist;
     DistEntry *dep;
-    Eterm watcher;
+    Eterm watcher, ref, *hp;
     ErtsMonitorData *mdp = NULL;
     Eterm watched;
+    Uint watcher_sz, ref_sz;
+    ErtsHeapFactory factory;
 
     ASSERT(erts_monitor_is_target(mon) && mon->type == ERTS_MON_TYPE_DIST_PROC);
 
@@ -12124,10 +12126,18 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     case ERTS_DSIG_PREP_CONNECTED:
         if (dist->connection_id != ctx.connection_id)
             break;
+        erts_factory_proc_init(&factory, c_p);
+        watcher_sz = size_object(watcher);
+        hp = erts_produce_heap(&factory, watcher_sz, 0);
+        watcher = copy_struct(watcher, watcher_sz, &hp, factory.off_heap);
+        ref_sz = size_object(mdp->ref);
+        hp = erts_produce_heap(&factory, ref_sz, 0);
+        ref = copy_struct(mdp->ref, ref_sz, &hp, factory.off_heap);
+        erts_factory_close(&factory);
         code = erts_dsig_send_m_exit(&ctx,
                                      watcher,
                                      watched,
-                                     mdp->ref,
+                                     ref,
                                      reason);
         switch (code) {
         case ERTS_DSIG_SEND_CONTINUE:
@@ -12332,13 +12342,15 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
 {
     ErtsProcExitContext *ctxt = (ErtsProcExitContext *) vctxt;
     Process *c_p = ctxt->c_p;
-    Eterm reason = ctxt->reason;
+    Eterm reason = ctxt->reason, item, *hp;
+    Uint item_sz;
     int code;
     ErtsDSigSendContext ctx;
     ErtsMonLnkDist *dist;
     DistEntry *dep;
     ErtsLink *dlnk;
     ErtsLinkData *ldp = NULL;
+    ErtsHeapFactory factory;
 
     ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
     dlnk = erts_link_to_other(lnk, &ldp);
@@ -12365,9 +12377,14 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
     case ERTS_DSIG_PREP_CONNECTED:
         if (dist->connection_id != ctx.connection_id)
             break;
+        erts_factory_proc_init(&factory, c_p);
+        item_sz = size_object(lnk->other.item);
+        hp = erts_produce_heap(&factory, item_sz, 0);
+        item = copy_struct(lnk->other.item, item_sz, &hp, factory.off_heap);
+        erts_factory_close(&factory);
         code = erts_dsig_send_exit_tt(&ctx,
                                       c_p->common.id,
-                                      lnk->other.item,
+                                      item,
                                       reason,
                                       SEQ_TRACE_TOKEN(c_p));
         switch (code) {
@@ -12584,6 +12601,8 @@ erts_continue_exit_process(Process *p)
 
     if (p->u.terminate) {
         trap_state = p->u.terminate;
+        /* Re-set the reason as it may have been gc:ed */
+        trap_state->reason = p->fvalue;
     } else {
         trap_state->phase = ERTS_CONTINUE_EXIT_TIMERS;
         trap_state->reason = p->fvalue;
@@ -12661,11 +12680,11 @@ restart:
             p->flags &= ~F_USING_DB;
         }
 
-        erts_set_gc_state(p, 1);
-
         trap_state->phase = ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS;
     case ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS:
-        
+
+        /* We enable GC again as it can produce more sys-tasks */
+        erts_set_gc_state(p, 1);
         state = erts_atomic32_read_acqb(&p->state);
         if ((state & ERTS_PSFLG_SYS_TASKS) || p->dirty_sys_tasks) {
             reds -= cleanup_sys_tasks(p, state, reds);
@@ -12788,6 +12807,9 @@ restart:
             erts_deref_dist_entry(trap_state->dep);
         }
 
+        /* Disable GC so that reason does not get moved */
+        erts_set_gc_state(p, 0);
+
         trap_state->pectxt.c_p = p;
         trap_state->pectxt.reason = trap_state->reason;
         trap_state->pectxt.dist_links = NULL;
@@ -12872,13 +12894,13 @@ restart:
             switch (result) {
             case ERTS_DSIG_SEND_OK:
             case ERTS_DSIG_SEND_TOO_LRG: /*SEND_SYSTEM_LIMIT*/
-            case ERTS_DSIG_SEND_YIELD: /*SEND_YIELD_RETURN*/
                 break;
+            case ERTS_DSIG_SEND_YIELD: /*SEND_YIELD_RETURN*/
             case ERTS_DSIG_SEND_CONTINUE: { /*SEND_YIELD_CONTINUE*/
                 goto yield;
             }
             }
-            erts_set_gc_state(p, 1);
+
             trap_state->pectxt.dist_state = NIL;
             if (reds <= 0)
                 goto yield;
@@ -12917,10 +12939,11 @@ restart:
          * From this point on we are no longer allowed to yield
          * this process.
          */
-
 #ifdef DEBUG
         yield_allowed = 0;
 #endif
+
+        erts_set_gc_state(p, 1);
 
         /* Set state to not active as we don't want this process
            to be scheduled in again after this. */
@@ -12960,7 +12983,7 @@ restart:
         erts_free(ERTS_ALC_T_CONT_EXIT_TRAP, trap_state);
         p->u.terminate = NULL;
     }
-    
+
     ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
     if (IS_TRACED_FL(p, F_TRACE_SCHED_EXIT))

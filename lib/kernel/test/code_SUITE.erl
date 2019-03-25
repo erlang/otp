@@ -25,8 +25,8 @@
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
-	 delete/1, purge/1, purge_many_exits/1, soft_purge/1, is_loaded/1,
-	 all_loaded/1,
+	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
+         soft_purge/1, is_loaded/1, all_loaded/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
 	 upgrade/1,
 	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
@@ -55,7 +55,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,5}}].
+     {timetrap,{seconds,30}}].
 
 all() ->
     [set_path, get_path, add_path, add_paths, del_path,
@@ -395,6 +395,9 @@ purge(Config) when is_list(Config) ->
     true = code_b_test:check_exit(Pid),
     process_flag(trap_exit, OldFlag),
     ok.
+
+purge_many_exits() ->
+    [{timetrap, {minutes, 2}}].
 
 purge_many_exits(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),

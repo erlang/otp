@@ -1137,10 +1137,28 @@ change_to_off_heap:
     return res;
 }
 
-void erts_factory_proc_init(ErtsHeapFactory* factory,
-			    Process* p)
+void erts_factory_proc_init(ErtsHeapFactory* factory, Process* p)
 {
-    erts_factory_proc_prealloc_init(factory, p, HEAP_LIMIT(p) - HEAP_TOP(p));
+    /* This function does not use HAlloc to allocate on the heap
+       as we do not want to use INIT_HEAP_MEM on the allocated
+       heap as that completely destroys the DEBUG emulators
+       performance. */
+    ErlHeapFragment *bp = p->mbuf;
+    factory->mode     = FACTORY_HALLOC;
+    factory->p        = p;
+    factory->hp_start = HEAP_TOP(p);
+    factory->hp       = factory->hp_start;
+    factory->hp_end   = HEAP_LIMIT(p);
+    factory->off_heap = &p->off_heap;
+    factory->message  = NULL;
+    factory->off_heap_saved.first    = p->off_heap.first;
+    factory->off_heap_saved.overhead = p->off_heap.overhead;
+    factory->heap_frags_saved = bp;
+    factory->heap_frags_saved_used = bp ? bp->used_size : 0;
+    factory->heap_frags = NULL; /* not used */
+    factory->alloc_type = 0; /* not used */
+
+    HEAP_TOP(p) = HEAP_LIMIT(p);
 }
 
 void erts_factory_proc_prealloc_init(ErtsHeapFactory* factory,

@@ -67,9 +67,10 @@
                  (unsigned long)HEAP_TOP(p),(sz),__FILE__,__LINE__)),   \
  */
 #  ifdef CHECK_FOR_HOLES
-#    define INIT_HEAP_MEM(p,sz) erts_set_hole_marker(HEAP_TOP(p), (sz))
+Eterm* erts_set_hole_marker(Eterm* ptr, Uint sz);
+#    define INIT_HEAP_MEM(p,sz) erts_set_hole_marker(p, (sz))
 #  else
-#    define INIT_HEAP_MEM(p,sz) sys_memset(HEAP_TOP(p),0x01,(sz)*sizeof(Eterm*))
+#    define INIT_HEAP_MEM(p,sz) sys_memset(p,0x01,(sz)*sizeof(Eterm*))
 #  endif
 #else
 #  define INIT_HEAP_MEM(p,sz) ((void)0)
@@ -91,7 +92,7 @@
      ErtsHAllocLockCheck(p),					      \
      (IS_FORCE_HEAP_FRAGS || (((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz))) \
       ? erts_heap_alloc((p),(sz),(xtra))                              \
-      : (INIT_HEAP_MEM(p,sz),		                              \
+      : (INIT_HEAP_MEM(HEAP_TOP(p),sz),                               \
          HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
 
 #define HAlloc(P, SZ) HAllocX(P,SZ,0)

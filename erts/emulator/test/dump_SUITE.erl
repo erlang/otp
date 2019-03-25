@@ -24,7 +24,7 @@
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
--export([signal_abort/1]).
+-export([signal_abort/1, exiting_dump/1, free_dump/1]).
 
 -export([load/0]).
 
@@ -35,7 +35,7 @@ suite() ->
      {timetrap, {minutes, 2}}].
 
 all() ->
-    [signal_abort].
+    [signal_abort, exiting_dump, free_dump].
 
 init_per_testcase(signal_abort, Config) ->
     SO = erlang:system_info(schedulers_online),
@@ -48,7 +48,10 @@ init_per_testcase(signal_abort, Config) ->
             {skip, "the platform does not support scheduler dump"};
        Dump ->
             Config
-    end.
+    end;
+init_per_testcase(_, Config) ->
+    Config.
+
 
 end_per_testcase(_, Config) ->
     Config.
@@ -79,8 +82,6 @@ signal_abort(Config) ->
 
     {ok, Bin} = get_dump_when_done(Dump),
 
-    ct:log("~s",[Bin]),
-
     {match, Matches} = re:run(Bin,"Current Process: <",[global]),
 
     ct:log("Found ~p",[Matches]),
@@ -90,6 +91,85 @@ signal_abort(Config) ->
     file:delete(Dump),
 
     ok.
+
+load() ->
+    lists:seq(1,10000),
+    load().
+
+
+%% Test that crash dumping when a process is in the state EXITING works
+exiting_dump(Config) when is_list(Config) ->
+    Dump = filename:join(proplists:get_value(priv_dir, Config),"signal_abort.dump"),
+
+    {ok, Node} = start_node(Config),
+
+    Self = self(),
+
+    Pid = spawn_link(Node,
+                     fun() ->
+                             [begin
+                                  T = ets:new(hej,[]),
+                                  [ets:insert(T,{I,I}) || I <- lists:seq(1,1000)]
+                              end || _ <- lists:seq(1,1000)],
+                             Self ! ready,
+                             receive ok -> ok end
+                     end),
+
+    true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
+
+    receive ready -> unlink(Pid), Pid ! ok end,
+
+    rpc:call(Node, erlang, halt, ["dump"]),
+
+    {ok, Bin} = get_dump_when_done(Dump),
+
+    {match, Matches} = re:run(Bin,"^State: Exiting", [global, multiline]),
+
+    ct:log("Found ~p",[Matches]),
+
+    true = length(Matches) == 1,
+
+    file:delete(Dump),
+
+    ok.
+
+%% Test that crash dumping when a process is in the state FREE works
+free_dump(Config) when is_list(Config) ->
+    Dump = filename:join(proplists:get_value(priv_dir, Config),"signal_abort.dump"),
+
+    {ok, Node} = start_node(Config),
+
+    Self = self(),
+
+    Pid = spawn_link(Node,
+                     fun() ->
+                             Self ! ready,
+                             receive
+                                 ok ->
+                                     unlink(Self),
+                                     exit(lists:duplicate(1000,1000))
+                             end
+                     end),
+
+    true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
+
+    [erlang:monitor(process, Pid) || _ <- lists:seq(1,10000)],
+    receive ready -> unlink(Pid), Pid ! ok end,
+
+    rpc:call(Node, erlang, halt, ["dump"]),
+
+    {ok, Bin} = get_dump_when_done(Dump),
+
+    {match, Matches} = re:run(Bin,"^State: Non Existing", [global, multiline]),
+
+    ct:log("Found ~p",[Matches]),
+
+    true = length(Matches) == 1,
+
+    file:delete(Dump),
+
+    ok.
+
 
 get_dump_when_done(Dump) ->
     case file:read_file_info(Dump) of
@@ -104,14 +184,12 @@ get_dump_when_done(Dump, Sz) ->
     timer:sleep(1000),
     case file:read_file_info(Dump) of
         {ok, #file_info{ size = Sz }} ->
-            file:read_file(Dump);
+            {ok, Bin} = file:read_file(Dump),
+            ct:log("~s",[Bin]),
+            {ok, Bin};
         {ok, #file_info{ size = NewSz }} ->
             get_dump_when_done(Dump, NewSz)
     end.
-
-load() ->
-    lists:seq(1,10000),
-    load().
 
 start_node(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),

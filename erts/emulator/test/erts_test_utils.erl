@@ -19,6 +19,7 @@
 %%
 
 -module(erts_test_utils).
+-compile(r16).
 
 %%
 %% THIS MODULE IS ALSO USED BY *OTHER* APPLICATIONS TEST CODE

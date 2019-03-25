@@ -2295,7 +2295,7 @@ reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp)
                 tup = MK_2TUP(AM_ets, drp->id);
             }
 	    else {
-		ASSERT(!drp->ctrl_ref && drp->node_ref && !drp->signal_ref);
+		ASSERT(!drp->ctrl_ref && (drp->node_ref || drp->sequence_ref) && !drp->signal_ref);
 		ASSERT(is_atom(drp->id));
 		tup = MK_2TUP(drp->id, MK_UINT(drp->creation));
 		tup = MK_2TUP(AM_node, tup);

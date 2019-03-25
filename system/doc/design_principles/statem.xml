@@ -759,7 +759,7 @@ StateName(EventType, EventContent, Data) ->
     <p>
       Since the <em>state enter call</em> is not an event there are restrictions
       on the allowed return value and
-      <seealso marker="#State Transition Actions">State Transition Actions</seealso>.
+      <seealso marker="#Transition Actions">State Transition Actions</seealso>.
       You may not change the state,
       <seealso marker="#Postponing Events">postpone</seealso>
       this non-event, or
