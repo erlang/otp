@@ -27,7 +27,8 @@
 	 nested_horrid/1,last_call_optimization/1,bool/1,
 	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
 	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1,
-         stacktrace/1,nested_stacktrace/1,raise/1]).
+         stacktrace/1,nested_stacktrace/1,raise/1,
+         no_return_in_try_block/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +44,8 @@ groups() ->
        nested_after,nested_horrid,last_call_optimization,
        bool,plain_catch_coverage,andalso_orelse,get_in_try,
        hockey,handle_info,catch_in_catch,grab_bag,
-       stacktrace,nested_stacktrace,raise]}].
+       stacktrace,nested_stacktrace,raise,
+       no_return_in_try_block]}].
 
 
 init_per_suite(Config) ->
@@ -1287,5 +1289,26 @@ do_test_raise_4(Expr) ->
             erlang:raise(exit, {exception,C,E,Stk}, Stk)
     end.
 
+no_return_in_try_block(Config) when is_list(Config) ->
+    1.0 = no_return_in_try_block_1(0),
+    1.0 = no_return_in_try_block_1(0.0),
+
+    gurka = no_return_in_try_block_1(gurka),
+    [] = no_return_in_try_block_1([]),
+
+    ok.
+
+no_return_in_try_block_1(H) ->
+    try
+        Float = if
+                    is_number(H) -> float(H);
+                    true -> no_return()
+                end,
+        Float + 1
+    catch
+        throw:no_return -> H
+    end.
+
+no_return() -> throw(no_return).
 
 id(I) -> I.
