@@ -1297,7 +1297,7 @@ end</code>
     </func>
 
     <func>
-      <name name="dist_ctrl_get_opt" arity="2" clause_i="1" since="OTP @OTP-15617@"/>
+      <name name="dist_ctrl_get_opt" arity="2" clause_i="1" since="OTP 22.0"/>
       <fsummary>Get value of the get_size option on a distribution channel</fsummary>
       <desc>
 	<p>Returns the value of the <c>get_size</c> option on the distribution channel
@@ -1428,7 +1428,7 @@ end</code>
     </func>
 
     <func>
-      <name name="dist_ctrl_set_opt" arity="3" clause_i="1" since="OTP @OTP-15617@"/>
+      <name name="dist_ctrl_set_opt" arity="3" clause_i="1" since="OTP 22.0"/>
       <fsummary>Set value of the get_size option on a distribution channel</fsummary>
       <desc>
         <p>Sets the value of the <c>get_size</c> option on the distribution channel

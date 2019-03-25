@@ -35,6 +35,34 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to read PEM files encrypted with old PEM
+	    encryption using AES-256</p>
+          <p>
+	    Own Id: OTP-13726</p>
+        </item>
+        <item>
+          <p>
+	    Relax decoding of certificates to so that "harmless"
+	    third party encoding errors may be accepted but not
+	    created by the public_key application. This adds
+	    acceptance of using an incorrect three character country
+	    code, the PKIX standard use two character country codes.
+	    It is also accepted that the country code is utf8 encoded
+	    but the specification says it should be ASCII.</p>
+          <p>
+	    Own Id: OTP-15687 Aux Id: PR-2162 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.6.5</title>
 
     <section><title>Improvements and New Features</title>

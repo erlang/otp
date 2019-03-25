@@ -27,6 +27,37 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    TLS-1.0, TLS-1.1 and DTLS-1.0 are now considered legacy
+	    and not supported by default</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14865</p>
+        </item>
+        <item>
+          <p>
+	    Use new logger API in ssl. Introduce log levels and
+	    verbose debug logging for SSL.</p>
+          <p>
+	    Own Id: OTP-15055</p>
+        </item>
+        <item>
+          <p>
+	    Basic support for TLS 1.3 Server for experimental use.</p>
+          <p>
+	    Own Id: OTP-15591</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

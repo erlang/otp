@@ -38,7 +38,40 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.7.8</title>
+  <section><title>Reltool 0.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new element, <c>Opts</c>, can now be included in a
+	    <c>rel</c> tuple in the reltool release specific
+	    configuration format: {rel, Name, Vsn, RelApps, Opts}.</p>
+          <p>
+	    This supports the use of <c>{rel, Name, Vsn, RelApps,
+	    [{load_dot_erlang, false}]}</c> to prevent the boot
+	    script from running the <c>.erlang</c> file.</p>
+          <p>
+	    The incompatibilities are as follows:</p>
+          <p>
+	    * The return from <c>reltool:get_config/1</c> and
+	    <c>reltool:get_config/3</c> includes the new <c>rel</c>
+	    tuple for all rels where the <c>load_dot_erlang</c>
+	    option is set to <c>false</c>.<br/> * The return from
+	    <c>reltool:get_config/3</c> includes the new <c>rel</c>
+	    tuple for ALL rels if the <c>InclDefs</c> parameter is
+	    set to <c>true</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15571</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.7.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

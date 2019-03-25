@@ -31,6 +31,119 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in error return for <c>crypto:poly1305/2</c>.
+	    It returned the atom <c>notsup</c> instead of the
+	    exception <c>notsup</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15677</p>
+        </item>
+        <item>
+          <p>
+	    The cipher chacha20 was introduced in OpenSSL 1.1.0.
+	    However, it could in a very odd situation fail for
+	    versions less than OpenSSL 1.1.0d. It is therefore not
+	    available if the linked cryptolib is OpenSSL of version
+	    1.1.0c or earlier.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15678</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> A new <c>rand</c> module algorithm, <c>exro928ss</c>
+	    (Xoroshiro928**), has been implemented. It has got a
+	    really long period and good statistical quality for all
+	    output bits, while still being only about 50% slower than
+	    the default algorithm. </p><p> The same generator is also
+	    used as a long period counter in a new <c>crypto</c>
+	    plugin for the <c>rand</c> module, algorithm
+	    <c>crypto_aes</c>. This plugin uses AES-256 to scramble
+	    the counter which buries any detectable statistical
+	    artifacts. Scrambling is done in chunks which are cached
+	    to get good amortized speed (about half of the default
+	    algorithm). </p>
+          <p>
+	    Own Id: OTP-14461 Aux Id: PR-1857 </p>
+        </item>
+        <item>
+          <p>
+	    Crypto's single C-file is splitted into multiple files.
+	    The different coding styles in the different parts are
+	    unified into a single style.</p>
+          <p>
+	    Own Id: OTP-14732 Aux Id: PR-2068, PR-2095 </p>
+        </item>
+        <item>
+          <p>
+	    Build configuration of the <c>crypto</c> application has
+	    been moved from the <c>erts</c> application into the
+	    <c>crypto</c> application.</p>
+          <p>
+	    Own Id: OTP-15129</p>
+        </item>
+        <item>
+          <p>
+	    Adds two hash functions blake2b and blake2s (64 bit hash
+	    and 32 bit hash respectively). These are modern and
+	    standard hash functions used in blockchains and encrypted
+	    communication protocols. The hash functions are available
+	    in OpenSSL since version 1.1.1.</p>
+          <p>
+	    Own Id: OTP-15564 Aux Id: PR-2129 </p>
+        </item>
+        <item>
+          <p>
+	    A new API is implemented in crypto. So far it is not
+	    published but used for implementing the
+	    <c>crypto:block_*</c> and <c>crypto:stream_*</c>
+	    interfaces.</p>
+          <p>
+	    Please note that since the error checking is more
+	    thorough, there might be arguments with faulty lengths
+	    that are no longer accepted.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15644 Aux Id: OTP-14732 , OTP-15451, PR-1857
+	    , PR-2068, PR-2095 </p>
+        </item>
+        <item>
+          <p>
+	    The new hash_info/1 and cipher_info/1 functions returns
+	    maps with information about the hash or cipher in the
+	    argument.</p>
+          <p>
+	    Own Id: OTP-15655 Aux Id: PR-2173, ERL-864, PR-2186 </p>
+        </item>
+        <item>
+          <p>
+	    Obey the OpenSSL flags <c>-no-rc2</c>, <c>-no-rc4</c>,
+	    <c>-no-rc5</c>, <c> -no-md4</c>, <c> -no-rmd160</c>, <c>
+	    -no-blake2</c>, <c> -no-chacha</c> and <c> -no-cmac
+	    -no-poly1305 </c> when compiling the C-part of the crypto
+	    application.</p>
+          <p>
+	    Own Id: OTP-15683</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
