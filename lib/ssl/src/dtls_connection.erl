@@ -193,7 +193,8 @@ next_event(StateName, no_record,
 	    %% TODO maybe buffer later epoch
             next_event(StateName, no_record, State, Actions); 
 	{#alert{} = Alert, State} ->
-	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
+            Version = State#state.connection_env#connection_env.negotiated_version,
+            handle_own_alert(Alert, Version, StateName, State)
     end;
 next_event(connection = StateName, Record,
 	   #state{connection_states = #{current_read := #{epoch := CurrentEpoch}}} = State0, Actions) ->
@@ -233,7 +234,8 @@ next_event(StateName, Record,
 	    %% TODO maybe buffer later epoch
             next_event(StateName, no_record, State0, Actions); 
 	#alert{} = Alert ->
-	    {next_state, StateName, State0, [{next_event, internal, Alert} | Actions]}
+	    Version = State0#state.connection_env#connection_env.negotiated_version,
+            handle_own_alert(Alert, Version, StateName, State0)
     end.
 
 %%% DTLS record protocol level application data messages 
