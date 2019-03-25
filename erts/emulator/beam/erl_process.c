@@ -12894,8 +12894,8 @@ restart:
             switch (result) {
             case ERTS_DSIG_SEND_OK:
             case ERTS_DSIG_SEND_TOO_LRG: /*SEND_SYSTEM_LIMIT*/
-            case ERTS_DSIG_SEND_YIELD: /*SEND_YIELD_RETURN*/
                 break;
+            case ERTS_DSIG_SEND_YIELD: /*SEND_YIELD_RETURN*/
             case ERTS_DSIG_SEND_CONTINUE: { /*SEND_YIELD_CONTINUE*/
                 goto yield;
             }
