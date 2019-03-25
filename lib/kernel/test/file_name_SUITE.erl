@@ -632,10 +632,13 @@ make_icky_dir(Mod, IckyDirName) ->
 
 hopeless_darwin() ->
     case {os:type(),os:version()} of
-	{{unix,darwin},{Major,_,_}} when Major < 9 ->
-	    true;
-	_ ->
-	    false
+        {{unix,darwin},{Major,_,_}} ->
+            %% icky file names worked between 10 and 17, but started returning
+            %% EILSEQ in 18. The check against 18 is exact in case newer
+            %% versions of Darwin support them again.
+            Major < 9 orelse Major =:= 18;
+        _ ->
+            false
     end.
 
 make_very_icky_dir(Mod, DirName) ->
