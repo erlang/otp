@@ -59,12 +59,17 @@
 */
 #define ERL_NIF_MAJOR_VERSION 2
 #define ERL_NIF_MINOR_VERSION 15
+
 /*
- * WHEN CHANGING INTERFACE VERSION, also replace erts version below
- * with ticket syntax like "erts-@OTP-12345@", or a temporary placeholder
- * between two @ like "erts-@MyName@", if you don't know what a ticket is.
+ * WHEN CHANGING INTERFACE VERSION, also replace erts version below with
+ * a ticket number e.g. "erts-@OTP-12345@". The syntax is the same as for
+ * runtime dependencies so multiple tickets should be separated with ":", e.g.
+ * "erts-@OTP-12345:54321@".
+ *
+ * If you're not on the OTP team, you should use a placeholder like
+ * erts-@MyName@ instead.
  */
-#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-15095 OTP-15640@ (OTP-22)"
+#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-15095:OTP-15640@"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
