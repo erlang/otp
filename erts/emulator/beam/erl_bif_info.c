@@ -4442,6 +4442,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 			BIF_P->fcalls = reds;
 		    else
 			BIF_P->fcalls = reds - CONTEXT_REDS;
+                    BIF_P->scheduler_data->virtual_reds = 0;
 		}
 		BIF_RET(am_true);
 	    }

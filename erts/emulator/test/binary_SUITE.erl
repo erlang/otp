@@ -1703,13 +1703,16 @@ error_after_yield_bad_ext_term() ->
 		    BadAtomExt]). %% Invalid atom at the end
 	    
 cmp_old_impl(Config) when is_list(Config) ->
-    %% Compare results from new yielding implementations with
-    %% old non yielding implementations 
+    %% This test was originally a comparison with the non yielding
+    %% implementation in R16B. Since OTP 22 we can't talk distribution with such
+    %% old nodes (< 19). The test case it kept but compares with previous major
+    %% version for semantic regression test.
     Cookie = atom_to_list(erlang:get_cookie()),
-    Rel = "r16b_latest",
+    Rel = (integer_to_list(list_to_integer(erlang:system_info(otp_release)) - 1)
+           ++ "_latest"),
     case test_server:is_release_available(Rel) of
 	false ->
-	    {skipped, "No "++Rel++" available"};
+	    {skipped, "No OTP "++Rel++" available"};
 	true ->
 	    {ok, Node} = test_server:start_node(list_to_atom(atom_to_list(?MODULE)++"_"++Rel),
 				       peer,
