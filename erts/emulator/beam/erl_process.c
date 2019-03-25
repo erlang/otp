@@ -11617,49 +11617,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->fp_exception = 0;
 #endif
 
-    if (IS_TRACED(parent)) {
-	if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOS) {
-	    ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent) & TRACEE_FLAGS);
-            erts_tracer_replace(&p->common, ERTS_TRACER(parent));
-	}
-        if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOS1) {
-	    /* Overrides TRACE_CHILDREN */
-	    ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent) & TRACEE_FLAGS);
-            erts_tracer_replace(&p->common, ERTS_TRACER(parent));
-	    ERTS_TRACE_FLAGS(p) &= ~(F_TRACE_SOS1 | F_TRACE_SOS);
-	    ERTS_TRACE_FLAGS(parent) &= ~(F_TRACE_SOS1 | F_TRACE_SOS);
-	}
-        if (so->flags & SPO_LINK && ERTS_TRACE_FLAGS(parent) & (F_TRACE_SOL|F_TRACE_SOL1)) {
-		ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent)&TRACEE_FLAGS);
-                erts_tracer_replace(&p->common, ERTS_TRACER(parent));
-		if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOL1) {/*maybe override*/
-		    ERTS_TRACE_FLAGS(p) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
-		    ERTS_TRACE_FLAGS(parent) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
-		}
-        }
-        if (ARE_TRACE_FLAGS_ON(parent, F_TRACE_PROCS)) {
-            locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-            erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-            erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-            trace_proc_spawn(parent, am_spawn, p->common.id, mod, func, args);
-            if (so->flags & SPO_LINK)
-                trace_proc(parent, locks, parent, am_link, p->common.id);
-        }
-    }
-
-    if (IS_TRACED_FL(p, F_TRACE_PROCS)) {
-        if ((locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE))
-              == (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) {
-            /* This happens when parent was not traced, but child is */
-            locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-            erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-            erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-        }
-        trace_proc_spawn(p, am_spawned, parent->common.id, mod, func, args);
-        if (so->flags & SPO_LINK)
-            trace_proc(p, locks, p, am_getting_linked, parent->common.id);
-    }
-
+    /* seq_trace is handled before regular tracing as the latter may touch the
+     * trace token. */
     if (have_seqtrace(SEQ_TRACE_TOKEN(parent))) {
         Eterm token;
         Uint token_sz;
@@ -11683,20 +11642,66 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         p->seq_trace_lastcnt = parent->seq_trace_clock;
         p->seq_trace_clock = parent->seq_trace_clock;
 
-        if ((locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE))
-              == (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) {
-            /* The locks may already be released if ordinary tracing is
-             * enabled. */
-            locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-            erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-            erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-        }
+        ASSERT((locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) ==
+               (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE));
+
+        locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+        erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+        erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
 
         seq_trace_output(token, NIL, SEQ_TRACE_SPAWN, p->common.id, parent);
     } else {
         SEQ_TRACE_TOKEN(p) = NIL;
         p->seq_trace_lastcnt = 0;
         p->seq_trace_clock = 0;
+    }
+
+    if (IS_TRACED(parent)) {
+	if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOS) {
+	    ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent) & TRACEE_FLAGS);
+            erts_tracer_replace(&p->common, ERTS_TRACER(parent));
+	}
+        if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOS1) {
+	    /* Overrides TRACE_CHILDREN */
+	    ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent) & TRACEE_FLAGS);
+            erts_tracer_replace(&p->common, ERTS_TRACER(parent));
+	    ERTS_TRACE_FLAGS(p) &= ~(F_TRACE_SOS1 | F_TRACE_SOS);
+	    ERTS_TRACE_FLAGS(parent) &= ~(F_TRACE_SOS1 | F_TRACE_SOS);
+	}
+        if (so->flags & SPO_LINK && ERTS_TRACE_FLAGS(parent) & (F_TRACE_SOL|F_TRACE_SOL1)) {
+		ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent)&TRACEE_FLAGS);
+                erts_tracer_replace(&p->common, ERTS_TRACER(parent));
+		if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOL1) {/*maybe override*/
+		    ERTS_TRACE_FLAGS(p) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
+		    ERTS_TRACE_FLAGS(parent) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
+		}
+        }
+        if (ARE_TRACE_FLAGS_ON(parent, F_TRACE_PROCS)) {
+            /* The locks may already be released if seq_trace is enabled as
+             * well. */
+            if ((locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE))
+                  == (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) {
+                locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+                erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+                erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            }
+            trace_proc_spawn(parent, am_spawn, p->common.id, mod, func, args);
+            if (so->flags & SPO_LINK)
+                trace_proc(parent, locks, parent, am_link, p->common.id);
+        }
+    }
+
+    if (IS_TRACED_FL(p, F_TRACE_PROCS)) {
+        if ((locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE))
+              == (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) {
+            /* This happens when parent was not traced, but child is */
+            locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+        }
+        trace_proc_spawn(p, am_spawned, parent->common.id, mod, func, args);
+        if (so->flags & SPO_LINK)
+            trace_proc(p, locks, p, am_getting_linked, parent->common.id);
     }
 
     /*

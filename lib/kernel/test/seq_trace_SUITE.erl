@@ -994,7 +994,7 @@ stop_tracer(N) when is_integer(N) ->
 	    receive
 		{tracerlog,Data} ->
 		    Data
-	    after 1000 ->
+	    after 5000 ->
 		    {error,timeout}
 	    end
     end.
