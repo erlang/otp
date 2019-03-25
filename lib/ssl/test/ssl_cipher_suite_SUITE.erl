@@ -85,11 +85,7 @@ groups() ->
      {rsa_psk, [], [rsa_psk_3des_ede_cbc,                    
                     rsa_psk_rc4_128,
                     rsa_psk_aes_128_cbc,
-                    %% rsa_psk_aes_128_ccm,
-                    %% rsa_psk_aes_128_ccm_8,
                     rsa_psk_aes_256_cbc
-                    %% rsa_psk_aes_256_ccm,
-                    %% rsa_psk_aes_256_ccm_8
                    ]},
      {dh_anon, [], [dh_anon_rc4_128,
                     dh_anon_3des_ede_cbc, 
@@ -101,26 +97,33 @@ groups() ->
                       ecdh_anon_aes_128_cbc,
                       ecdh_anon_aes_256_cbc
                      ]},     
-     {srp, [], [srp_3des_ede_cbc, 
-                srp_aes_128_cbc,
-                srp_aes_256_cbc]},
+     {srp_anon, [], [srp_anon_3des_ede_cbc, 
+                     srp_anon_aes_128_cbc,
+                     srp_anon_aes_256_cbc]},
      {psk, [], [psk_3des_ede_cbc,                    
                 psk_rc4_128,
                 psk_aes_128_cbc,
-                %% psk_aes_128_ccm,
-                %% psk_aes_128_ccm_8,
-                psk_aes_256_cbc
-                %% psk_aes_256_ccm,
-                %% psk_aes_256_ccm_8
+                psk_aes_128_ccm,
+                psk_aes_128_ccm_8,
+                psk_aes_256_cbc,
+                psk_aes_256_ccm,
+                psk_aes_256_ccm_8
                ]},
      {dhe_psk, [], [dhe_psk_3des_ede_cbc,                    
                     dhe_psk_rc4_128,
                     dhe_psk_aes_128_cbc,
-                    %% dhe_psk_aes_128_ccm,
-                    %% dhe_psk_aes_128_ccm_8,
-                    dhe_psk_aes_256_cbc
-                    %% dhe_psk_aes_256_ccm,
-                    %% dhe_psk_aes_256_ccm_8
+                    dhe_psk_aes_128_ccm,
+                    dhe_psk_aes_128_ccm_8,
+                    dhe_psk_aes_256_cbc,
+                    dhe_psk_aes_256_ccm,
+                    dhe_psk_aes_256_ccm_8
+               ]},
+     {ecdhe_psk, [], [ecdhe_psk_3des_ede_cbc,                    
+                     ecdhe_psk_rc4_128,
+                     ecdhe_psk_aes_128_cbc,
+                     ecdhe_psk_aes_128_ccm,
+                     ecdhe_psk_aes_128_ccm_8,
+                     ecdhe_psk_aes_256_cbc
                ]}
     ].
 
@@ -148,7 +151,8 @@ anonymous() ->
      {group, ecdh_anon},
      {group, psk},
      {group, dhe_psk},
-     {group, srp}
+     {group, ecdhe_psk},
+     {group, srp_anon}
     ].
     
 
@@ -169,8 +173,16 @@ end_per_suite(_Config) ->
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config) when GroupName == ecdh_anon;
                                        GroupName == ecdhe_rsa;
-                                       GroupName == ecdhe_ecdsa ->
-    case ssl_test_lib:sufficient_crypto_support(ec_cipher) of
+                                       GroupName == ecdhe_psk ->
+    case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
+        true ->
+            init_certs(GroupName, Config);
+        false ->
+            {skip, "Missing EC crypto support"}
+    end;
+init_per_group(ecdhe_ecdsa = GroupName, Config) ->
+    PKAlg = proplists:get_value(public_keys, crypto:supports()),
+    case lists:member(ecdh, PKAlg) andalso lists:member(ecdsa, PKAlg) of
         true ->
             init_certs(GroupName, Config);
         false ->
@@ -192,7 +204,7 @@ init_per_group(srp_dss = GroupName, Config) ->
         false ->
             {skip, "Missing DSS_SRP crypto support"}
     end;
-init_per_group(GroupName, Config) when GroupName == srp;
+init_per_group(GroupName, Config) when GroupName == srp_anon;
                                        GroupName == srp_rsa ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(srp, PKAlg) of
@@ -225,15 +237,17 @@ end_per_group(GroupName, Config) ->
           Config
   end.
 init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
-                                         TestCase == srp_3des_ede_cbc;
+                                         TestCase == srp_anon_3des_ede_cbc;
                                          TestCase == dhe_psk_3des_ede_cbc;
+                                         TestCase == ecdhe_psk_3des_ede_cbc;
                                          TestCase == srp_rsa_3des_ede_cbc;
+                                         TestCase == srp_dss_3des_ede_cbc;
                                          TestCase == rsa_psk_3des_ede_cbc;
                                          TestCase == rsa_3des_ede_cbc;
                                          TestCase == dhe_rsa_3des_ede_cbc;
                                          TestCase == dhe_dss_3des_ede_cbc;
                                          TestCase == ecdhe_rsa_3des_ede_cbc;
-                                         TestCase == srp_dss_3des_ede_cbc;
+                                         TestCase == srp_anon_dss_3des_ede_cbc;
                                          TestCase == dh_anon_3des_ede_cbc;
                                          TestCase == ecdh_anon_3des_ede_cbc;
                                          TestCase == ecdhe_ecdsa_3des_ede_cbc ->
@@ -246,6 +260,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
             {skip, "Missing 3DES crypto support"}
     end;
 init_per_testcase(TestCase, Config) when TestCase == psk_rc4_128;
+                                         TestCase == ecdhe_psk_rc4_128;
                                          TestCase == dhe_psk_rc4_128;
                                          TestCase == rsa_psk_rc4_128;
                                          TestCase == rsa_rc4_128;
@@ -260,7 +275,33 @@ init_per_testcase(TestCase, Config) when TestCase == psk_rc4_128;
         _ ->
             {skip, "Missing RC4 crypto support"}
     end;
-init_per_testcase(TestCase, Config)  ->
+init_per_testcase(TestCase, Config) when  TestCase == psk_aes_128_ccm_8;
+                                          TestCase == rsa_psk_aes_128_ccm_8;
+                                          TestCase == psk_aes_128_ccm_8;
+                                          TestCase == dhe_psk_aes_128_ccm_8;
+                                          TestCase == ecdhe_psk_aes_128_ccm_8 ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    case lists:member(aes_128_ccm, SupCiphers) of
+        true ->
+            ct:timetrap({seconds, 5}),
+            Config;
+        _ ->
+            {skip, "Missing AES_128_CCM crypto support"}
+    end;
+init_per_testcase(TestCase, Config) when TestCase == psk_aes_256_ccm_8;
+                                         TestCase == rsa_psk_aes_256_ccm_8;
+                                         TestCase == psk_aes_256_ccm_8;
+                                         TestCase == dhe_psk_aes_256_ccm_8;
+                                         TestCase == ecdhe_psk_aes_256_ccm_8 ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    case lists:member(aes_256_ccm, SupCiphers) of
+        true ->
+            ct:timetrap({seconds, 5}),
+            Config;
+        _ ->
+            {skip, "Missing AES_256_CCM crypto support"}
+    end;
+init_per_testcase(TestCase, Config) ->
     Cipher = test_cipher(TestCase, Config),
     %%Reason = io_lib:format("Missing ~p crypto support", [Cipher]),
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
@@ -283,6 +324,10 @@ init_certs(srp_rsa, Config) ->
         = public_key:pkix_test_data(CertChainConf),
     [{tls_config, #{server_config => [{user_lookup_fun, {fun user_lookup/3, undefined}} | ServerOpts],
                     client_config => [{srp_identity, {"Test-User", "secret"}} | ClientOpts]}} |
+     proplists:delete(tls_config, Config)];
+init_certs(srp_anon, Config) ->
+    [{tls_config, #{server_config => [{user_lookup_fun, {fun user_lookup/3, undefined}}],
+                    client_config => [{srp_identity, {"Test-User", "secret"}}]}} |
      proplists:delete(tls_config, Config)];
 init_certs(rsa_psk, Config) ->
     ClientExt = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
@@ -341,7 +386,8 @@ init_certs(GroupName, Config) when GroupName == dhe_ecdsa;
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(GroupName, Config) when GroupName == psk;
-                                   GroupName == dhe_psk ->
+                                   GroupName == dhe_psk;
+                                   GroupName == ecdhe_psk ->
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
     [{tls_config, #{server_config => [{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}],
                     client_config => [{psk_identity, "Test-User"},
@@ -549,14 +595,14 @@ ecdh_anon_aes_128_cbc(Config) when is_list(Config) ->
 ecdh_anon_aes_256_cbc(Config) when is_list(Config) ->
     run_ciphers_test(ecdh_anon, 'aes_256_cbc', Config).   
 
-srp_3des_ede_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(srp, '3des_ede_cbc', Config).                 
+srp_anon_3des_ede_cbc(Config) when is_list(Config) ->
+    run_ciphers_test(srp_anon, '3des_ede_cbc', Config).                 
     
-srp_aes_128_cbc(Config) when is_list(Config) ->
-   run_ciphers_test(srp, 'aes_128_cbc', Config).             
+srp_anon_aes_128_cbc(Config) when is_list(Config) ->
+   run_ciphers_test(srp_anon, 'aes_128_cbc', Config).             
 
-srp_aes_256_cbc(Config) when is_list(Config) ->
-   run_ciphers_test(srp, 'aes_256_cbc', Config).     
+srp_anon_aes_256_cbc(Config) when is_list(Config) ->
+   run_ciphers_test(srp_anon, 'aes_256_cbc', Config).     
 
 dhe_psk_des_cbc(Config) when is_list(Config) ->
     run_ciphers_test(dhe_psk, 'des_cbc', Config).            
@@ -590,6 +636,33 @@ dhe_psk_aes_128_ccm_8(Config) when is_list(Config) ->
 
 dhe_psk_aes_256_ccm_8(Config) when is_list(Config) ->
     run_ciphers_test(dhe_psk, 'aes_256_ccm_8', Config).
+
+ecdhe_psk_des_cbc(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, 'des_cbc', Config).            
+
+ecdhe_psk_rc4_128(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, 'rc4_128', Config).            
+
+ecdhe_psk_3des_ede_cbc(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, '3des_ede_cbc', Config).            
+
+ecdhe_psk_aes_128_cbc(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, 'aes_128_cbc', Config).             
+
+ecdhe_psk_aes_256_cbc(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, 'aes_256_cbc', Config).
+
+ecdhe_psk_aes_128_gcm(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, 'aes_128_gcm', Config).             
+
+ecdhe_psk_aes_256_gcm(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, 'aes_256_gcm', Config).
+
+ecdhe_psk_aes_128_ccm(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, 'aes_128_ccm', Config).             
+
+ecdhe_psk_aes_128_ccm_8(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, 'aes_128_ccm_8', Config).
 
 psk_des_cbc(Config) when is_list(Config) ->
     run_ciphers_test(psk, 'des_cbc', Config).            
