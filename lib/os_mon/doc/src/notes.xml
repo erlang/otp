@@ -31,23 +31,6 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
-<section><title>Os_Mon 2.5</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    The application otp_mibs has been removed from OTP. Some
-	    of its components (mibs) have been moved to other apps
-	    (snmp), or removed completely (os_mon).</p>
-          <p>
-	    Own Id: OTP-14984 Aux Id: OTP-15329 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Os_Mon 2.4.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

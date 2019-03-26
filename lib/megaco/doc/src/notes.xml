@@ -37,30 +37,7 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.18.5</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Minor updates to build system necessary due to move of
-	    configuration of <c>crypto</c> application.</p>
-          <p>
-	    Own Id: OTP-15262 Aux Id: OTP-15129 </p>
-        </item>
-        <item>
-          <p>
-	    Minor adjustments made to build system for parallel
-	    configure.</p>
-          <p>
-	    Own Id: OTP-15340 Aux Id: OTP-14625 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>Megaco 3.18.4</title>
+  <section><title>Megaco 3.18.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

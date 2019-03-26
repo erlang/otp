@@ -1090,7 +1090,7 @@ typedef struct {
     </func>
 
     <func>
-      <name since="OTP 22.0"><ret>int</ret>
+      <name since="OTP @OTP-15011@"><ret>int</ret>
       <nametext>enif_compare_pids(const ErlNifPid *pid1, const ErlNifPid *pid2)
       </nametext></name>
       <fsummary>Compare two pids.</fsummary>
@@ -1890,7 +1890,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP 22.0"><ret>int</ret>
+      <name since="OTP @OTP-15011@"><ret>int</ret>
         <nametext>enif_is_pid_undefined(const ErlNifPid* pid)</nametext></name>
       <fsummary>Determine if pid is undefined.</fsummary>
       <desc>
@@ -2247,7 +2247,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP 22.0"><ret>ERL_NIF_TERM</ret>
+      <name since="OTP @OTP-15362@"><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_monitor_term(ErlNifEnv* env, const ErlNifMonitor* mon)</nametext></name>
       <fsummary>Make monitor term from the given monitor identifier.</fsummary>
       <desc>
@@ -3306,7 +3306,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name since="OTP 22.0"><ret>void</ret>
+      <name since="OTP @OTP-15011@"><ret>void</ret>
         <nametext>enif_set_pid_undefined(ErlNifPid* pid)</nametext></name>
       <fsummary>Set pid as undefined.</fsummary>
       <desc>
@@ -3369,7 +3369,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name since="OTP 22.0"><ret>ErlNifTermType</ret>
+      <name since="OTP @OTP-15640@"><ret>ErlNifTermType</ret>
         <nametext>enif_term_type(ErlNifEnv *env, ERL_NIF_TERM term)</nametext>
       </name>
       <fsummary>Determine the type of a term.</fsummary>
