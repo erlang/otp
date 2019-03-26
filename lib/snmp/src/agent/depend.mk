@@ -81,6 +81,20 @@ $(EBIN)/snmpa_error_logger.$(EMULATOR): \
 	snmpa_error_report.erl \
 	snmpa_error_logger.erl
 
+$(EBIN)/snmpa_set.$(EMULATOR): \
+	snmpa_set_mechanism.erl \
+	snmpa_set.erl \
+	../misc/snmp_verbosity.hrl
+
+$(EBIN)/snmpa_get.$(EMULATOR): \
+	snmpa_get_mechanism.erl \
+	snmpa_get.erl \
+	../misc/snmp_verbosity.hrl
+
+$(EBIN)/snmpa_get_lib.$(EMULATOR): \
+	snmpa_get_lib.erl \
+	../misc/snmp_verbosity.hrl
+
 $(EBIN)/snmpa_local_db.$(EMULATOR): \
 	snmpa_local_db.erl \
 	../misc/snmp_debug.hrl \

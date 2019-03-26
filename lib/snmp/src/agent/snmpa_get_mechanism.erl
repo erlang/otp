@@ -24,26 +24,43 @@
 %% This module defines the behaviour for the undocumented (hidden)
 %% get-mechanism feature. This allows for implementing your own
 %% handling of get, get-next and get-bulk requests.
-%% Probably only useful for special cases (optimization).
+%% Probably only useful for special cases (e.g. optimization).
 %%
 
 
 
-%% ----------- do_get/3 -----------------------------------------------------
+%% ----------- do_get/2,3 -----------------------------------------------------
 
--callback do_get(MibView        :: snmp_view_based_acm_mib:mibview(), 
-                 VBs            :: [snmp:varbind()],
+%% Purpose: Handles all VBs in a request that is inside the 
+%%          mibview (local).
+
+-callback do_get(UnsortedVBs    :: [snmp:varbind()],
                  IsNotification :: boolean()) ->
     {noError, 0, ResVBs :: [snmp:varbind()]} |
     {ErrStatus :: snmp:error_status(), ErrIndex :: snmp:error_index(), []}.
 
 
-%% ----------- do_get_next/2 ------------------------------------------------
+%% Purpose: Handles "get-requests".
 
--callback do_get_next(MibView :: snmp_view_based_acm_mib:mibview(),
-                      VBs     :: [snmp:varbind()]) ->
+-callback do_get(MibView        :: snmp_view_based_acm_mib:mibview(), 
+                 UnsortedVBs    :: [snmp:varbind()],
+                 IsNotification :: boolean()) ->
     {noError, 0, ResVBs :: [snmp:varbind()]} |
     {ErrStatus :: snmp:error_status(), ErrIndex :: snmp:error_index(), []}.
+
+
+
+
+%% ----------- do_get_next/2 ------------------------------------------------
+
+%% Purpose: Handles "get-next-requests".
+
+-callback do_get_next(MibView     :: snmp_view_based_acm_mib:mibview(),
+                      UnsortedVBs :: [snmp:varbind()]) ->
+    {noError, 0, ResVBs :: [snmp:varbind()]} |
+    {ErrStatus :: snmp:error_status(), ErrIndex :: snmp:error_index(), []}.
+
+
 
 
 %% ----------- do_get_bulk/6 ------------------------------------------------

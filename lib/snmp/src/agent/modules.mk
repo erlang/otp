@@ -59,6 +59,8 @@ MODULES = \
 	snmpa_error \
 	snmpa_error_io \
 	snmpa_error_logger \
+	snmpa_get \
+	snmpa_get_lib \
 	snmpa_local_db \
 	snmpa_mib_storage_ets \
 	snmpa_mib_storage_dets \
