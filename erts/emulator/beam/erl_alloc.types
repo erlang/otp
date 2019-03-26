@@ -284,6 +284,8 @@ type	PERSISTENT_TERM	LONG_LIVED	CODE		persisten_term
 type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
 type	PERSISTENT_TERM_TMP SHORT_LIVED	SYSTEM		persistent_term_tmp_table
 
+type	T2B_VEC	  	SHORT_LIVED	PROCESSES	term_to_binary_vector 
+
 #
 # Types used for special emulators
 #

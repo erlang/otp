@@ -60,6 +60,13 @@
       </desc>
     </datatype>
     <datatype>
+      <name name="ext_iovec"/>
+      <desc>
+        <p>A term of type <seealso marker="#type-iovec"><c>iovec()</c></seealso>,
+	structured according to the Erlang external term format.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="iovec"/>
       <desc>
         <p>A list of binaries. This datatype is useful to use
@@ -1270,9 +1277,10 @@ end</code>
 	  <seealso marker="erlang#dist_ctrl_get_data_notification/1"><c>erlang:dist_ctrl_get_data_notification(DHandle)</c></seealso>.
 	</p>
 	<p>The returned value when there are data available depends
-	on the value of the <c>get_size</c> option configured on the
-	distribution channel identified by <c><anno>DHandle</anno></c>.
-	For more information see the documentation of the <c>get_size</c>
+	on the value of the <c>get_size</c>
+	option configured on the distribution channel identified
+	by <c><anno>DHandle</anno></c>. For more information see
+	the documentation of the <c>get_size</c>
 	option for the
 	<seealso marker="#dist_ctrl_set_opt/3"><c>erlang:dist_ctrl_set_opt/3</c></seealso>
 	function.</p>
@@ -9593,7 +9601,7 @@ hello
 
     <func>
       <name name="term_to_binary" arity="2" since=""/>
-      <fsummary>Encode a term to en Erlang external term format binary.
+      <fsummary>Encode a term to an Erlang external term format binary.
       </fsummary>
       <desc>
         <p>Returns a binary data object that is the result of encoding
@@ -9653,6 +9661,59 @@ hello
 	  </taglist>
         <p>See also <seealso marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="term_to_iovec" arity="1" since="OTP @OTP-15618@"/>
+      <fsummary>Encode a term to an Erlang external term format as iovec().
+      </fsummary>
+      <desc>
+        <p>Returns the encoding of <c><anno>Term</anno></c> according to
+	the Erlang external term format as
+	<seealso marker="#type-ext_iovec"><c>ext_iovec()</c></seealso>.</p>
+	
+	<p>This function produce the same encoding as
+	<seealso marker="#term_to_binary/1"><c>term_to_binary/2</c></seealso>,
+	but with another return type. The call
+	<c>iolist_to_binary(term_to_iovec(Term))</c> will produce
+	exactly the same result as the call <c>term_to_binary(Term)</c>.</p>
+
+	<p><c>term_to_iovec()</c> is a pure optimization of the functionality
+	<c>term_to_binary()</c> provide. <c>term_to_iovec()</c> can for example
+	refer directly to off heap binaries instead of copying the binary
+	data into the result.</p>
+
+	<p>See also
+	<seealso marker="#term_to_binary/1"><c>term_to_binary/1</c></seealso>.</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name name="term_to_iovec" arity="2" since="OTP @OTP-15618@"/>
+      <fsummary>Encode a term to en Erlang external term format as iovec().
+      </fsummary>
+      <desc>
+        <p>Returns the encoding of <c><anno>Term</anno></c> according to
+	the Erlang external term format as
+	<seealso marker="#type-ext_iovec"><c>ext_iovec()</c></seealso>.</p>
+	
+	<p>This function produce the same encoding as
+	<seealso marker="#term_to_binary/2"><c>term_to_binary/2</c></seealso>,
+	but with another return type. The call
+	<c>iolist_to_binary(term_to_iovec(Term, Opts))</c> will produce
+	exactly the same result as <c>term_to_binary(Term, Opts)</c>.</p>
+
+	<p>Currently recognised options are all options recognised by
+	<seealso marker="#term_to_binary/2"><c>term_to_binary/2</c></seealso>.</p>
+
+	<p><c>term_to_iovec()</c> is a pure optimization of the functionality
+	<c>term_to_binary()</c> provide. <c>term_to_iovec()</c> can for example
+	refer directly to off heap binaries instead of copying the binary
+	data into the result.</p>
+	
+	<p>See also
+	<seealso marker="#term_to_binary/2"><c>term_to_binary/2</c></seealso>.</p>
       </desc>
     </func>
 

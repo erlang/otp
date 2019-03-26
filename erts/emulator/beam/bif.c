@@ -1816,7 +1816,7 @@ ebif_bang_2(BIF_ALIST_2)
 #define SEND_INTERNAL_ERROR	(-6)
 #define SEND_AWAIT_RESULT	(-7)
 #define SEND_YIELD_CONTINUE     (-8)
-#define SEND_SYSTEM_LIMIT		(-9)
+#define SEND_SYSTEM_LIMIT	(-9)
 
 
 static Sint remote_send(Process *p, DistEntry *dep,

@@ -23,6 +23,7 @@
 
 typedef struct dist_entry_ DistEntry;
 typedef struct ErtsDistOutputBuf_ ErtsDistOutputBuf;
+typedef struct ErtsDistOutputBufsContainer_ ErtsDistOutputBufsContainer;
 void erts_ref_dist_entry(DistEntry *dep);
 void erts_deref_dist_entry(DistEntry *dep);
 
@@ -95,26 +96,21 @@ enum dist_entry_state {
 struct ErtsDistOutputBuf_ {
 #ifdef DEBUG
     Uint dbg_pattern;
-    byte *ext_startp;
-    byte *alloc_endp;
 #endif
     ErtsDistOutputBuf *next;
     Binary *bin;
-    /* Pointers to the distribution header,
-       if NULL the distr header is in the extp */
-    byte *hdrp;
-    byte *hdr_endp;
-    /* Pointers to the ctl + payload */
-    byte *extp;
-    byte *ext_endp;
-    /* Start of payload and hopefull_flags, used by transcode */
-    Uint hopefull_flags;
-    byte *msg_start;
-    /* start of the ext buffer, this is not always the same as extp
-       as the atom cache handling can use less then the allotted buffer.
-       This value is needed to calculate the size of this output buffer.*/
-    byte *ext_start;
+    /*
+     * iov[0] reserved for driver
+     * iov[1] reserved for distribution header
+     * iov[2 ... vsize-1] data
+     */
+    ErlIOVec *eiov;
+};
 
+struct ErtsDistOutputBufsContainer_ {
+    Sint fragments;
+    byte *extp;
+    ErtsDistOutputBuf obuf[1]; /* longer if fragmented... */
 };
 
 typedef struct {
@@ -172,8 +168,6 @@ struct dist_entry_ {
     struct cache* cache;	/* The atom cache */
 
     ErtsThrPrgrLaterOp later_op;
-
-    struct transcode_context* transcode_ctx;
 
     struct dist_sequences *sequences; /* Ongoing distribution sequences */
 };

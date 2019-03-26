@@ -168,7 +168,7 @@ static char *erts_dop_to_string(enum dop dop) {
 int erts_is_alive; /* System must be blocked on change */
 int erts_dist_buf_busy_limit;
 
-
+int erts_dflags_test_remove_hopefull_flags;
 /* distribution trap functions */
 Export* dmonitor_node_trap = NULL;
 
@@ -710,8 +710,6 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
         delete_cache(cache);
 
         free_de_out_queues(dep, obuf);
-        if (dep->transcode_ctx)
-            transcode_free_ctx(dep);
     }
 
     dec_no_nodes();
@@ -770,49 +768,86 @@ void init_dist(void)
     }
 }
 
-#define ErtsDistOutputBuf2Binary(OB) OB->bin
-
 static ERTS_INLINE ErtsDistOutputBuf *
-alloc_dist_obuf(Uint size, Uint headers)
+alloc_dist_obufs(byte **extp, TTBEncodeContext *ctx,
+                 Uint data_size, Uint fragments, Uint vlen)
 {
-    Uint obuf_size = sizeof(ErtsDistOutputBuf)*(headers);
+    int ix;
     ErtsDistOutputBuf *obuf;
+    char *ptr;
+    Uint iov_sz, obsz;
     Binary *bin;
-    byte *extp;
-    int i;
+    ErlIOVec **feiov;
+    Uint fragment_size;
 
-    bin = erts_bin_drv_alloc(obuf_size + size);
-    erts_refc_add(&bin->intern.refc, headers - 1, 1);
+    obsz = sizeof(ErtsDistOutputBuf)*fragments;
+    if (obsz % sizeof(void *) != 0)
+        obsz += sizeof(void *) - (obsz % sizeof(void *));
 
-    obuf = (ErtsDistOutputBuf *)&bin->orig_bytes[0];
-    extp = (byte *)&bin->orig_bytes[obuf_size];
+    iov_sz = erts_ttb_iov_size(0, vlen, fragments);
+    
+    bin = erts_bin_drv_alloc(obsz + iov_sz + data_size);
+    ctx->result_bin = bin;
+    ptr = (char *) &bin->orig_bytes[0];
+    
+    obuf = (ErtsDistOutputBuf *) ptr;
+    ptr += obsz;
 
-    for (i = 0; i < headers; i++) {
-        obuf[i].bin = bin;
-        obuf[i].extp = extp;
+    if (fragments > 1)
+        fragment_size = ERTS_DIST_FRAGMENT_SIZE;
+    else
+        fragment_size = ~((Uint) 0);
+
+    feiov = erts_ttb_iov_init(ctx, 0, ptr, vlen,
+                              fragments, fragment_size);
+    ptr += iov_sz;
+
+    erts_refc_add(&bin->intern.refc, fragments - 1, 1);
+
+    for (ix = 0; ix < fragments; ix++) {
+        obuf[ix].bin = bin;
+        obuf[ix].eiov = feiov[ix];
 #ifdef DEBUG
-        obuf[i].dbg_pattern = ERTS_DIST_OUTPUT_BUF_DBG_PATTERN;
-        obuf[i].ext_startp = extp;
-        obuf[i].alloc_endp = &extp[size];
-        ASSERT(bin == ErtsDistOutputBuf2Binary(obuf));
+        obuf[ix].dbg_pattern = ERTS_DIST_OUTPUT_BUF_DBG_PATTERN;
 #endif
     }
+    *extp = (byte *) ptr;
     return obuf;
 }
 
 static ERTS_INLINE void
-free_dist_obuf(ErtsDistOutputBuf *obuf)
+free_dist_obuf(ErtsDistOutputBuf *obuf, int free_binv)
 {
-    Binary *bin = ErtsDistOutputBuf2Binary(obuf);
     ASSERT(obuf->dbg_pattern == ERTS_DIST_OUTPUT_BUF_DBG_PATTERN);
-    erts_bin_release(bin);
+
+    if (free_binv) {
+        int i;
+        int vlen = obuf->eiov->vsize;
+        ErlDrvBinary **binv = obuf->eiov->binv;
+        for (i = 0; i < vlen; i++) {
+            if (binv[i])
+                driver_free_binary(binv[i]);
+        }
+    }
+    erts_bin_release(obuf->bin);
 }
 
 static ERTS_INLINE Sint
 size_obuf(ErtsDistOutputBuf *obuf)
 {
-    return sizeof(ErtsDistOutputBuf) + (obuf->ext_endp - obuf->ext_start)
-        + (obuf->hdr_endp - obuf->hdrp);
+    Sint vlen = obuf->eiov->vsize;
+    Sint sz;
+#ifdef DEBUG
+    Sint i;
+    for (i = 0, sz = 0; i < vlen; i++)
+        sz += obuf->eiov->iov[i].iov_len;
+    ASSERT(sz == obuf->eiov->size);
+#endif
+    sz = sizeof(ErtsDistOutputBuf) + sizeof(ErlIOVec);
+    sz += obuf->eiov->size;
+    sz += sizeof(SysIOVec)*vlen;
+    sz += sizeof(ErlDrvBinary*)*vlen;
+    return sz;
 }
 
 static ErtsDistOutputBuf* clear_de_out_queues(DistEntry* dep)
@@ -852,7 +887,7 @@ static void free_de_out_queues(DistEntry* dep, ErtsDistOutputBuf *obuf)
 	fobuf = obuf;
 	obuf = obuf->next;
 	obufsize += size_obuf(fobuf);
-	free_dist_obuf(fobuf);
+	free_dist_obuf(fobuf, !0);
     }
 
     if (obufsize) {
@@ -879,7 +914,7 @@ int erts_dsend_context_dtor(Binary* ctx_bin)
     if (ctx->phase >= ERTS_DSIG_SEND_PHASE_ALLOC && ctx->obuf) {
         int i;
         for (i = 0; i < ctx->fragments; i++)
-            free_dist_obuf(&ctx->obuf[i]);
+            free_dist_obuf(&ctx->obuf[i], !0);
     }
     if (ctx->deref_dep)
 	erts_deref_dist_entry(ctx->dep);
@@ -2291,8 +2326,6 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
     while (1) {
 	switch (ctx->phase) {
 	case ERTS_DSIG_SEND_PHASE_INIT:
-	    ctx->flags = ctx->flags;
-	    ctx->c_p = ctx->c_p;
 
 	    if (!ctx->c_p) {
 		ctx->no_trap = 1;
@@ -2308,11 +2341,9 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 
 	    if (ctx->flags & DFLAG_DIST_HDR_ATOM_CACHE) {
 		ctx->acmp = erts_get_atom_cache_map(ctx->c_p);
-		ctx->max_finalize_prepend = 0;
 	    }
 	    else {
 		ctx->acmp = NULL;
-		ctx->max_finalize_prepend = 3;
 	    }
 
     #ifdef ERTS_DIST_MSG_DBG
@@ -2323,176 +2354,212 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                 erts_fprintf(dbg_file, "    MSG: %.160T\n", ctx->msg);
     #endif
 
-	    ctx->data_size = ctx->max_finalize_prepend;
+	    ctx->data_size = 0;
 	    erts_reset_atom_cache_map(ctx->acmp);
 
-	    switch (erts_encode_dist_ext_size(ctx->ctl, ctx->flags,
-                                              ctx->acmp, &ctx->data_size)) {
-            case ERTS_EXT_SZ_OK:
-                break;
-            case ERTS_EXT_SZ_SYSTEM_LIMIT:
-                retval = ERTS_DSIG_SEND_TOO_LRG;
-                goto done;
-            case ERTS_EXT_SZ_YIELD:
-                ERTS_INTERNAL_ERROR("Unexpected yield result");
-                break;
+            ERTS_INIT_TTBSizeContext(&ctx->u.sc, ctx->flags);
+
+            while (1) {
+                ErtsExtSzRes sz_res;
+                Sint reds = CONTEXT_REDS;
+                sz_res = erts_encode_dist_ext_size(ctx->ctl,
+                                                   ctx->acmp,
+                                                   &ctx->u.sc,
+                                                   &ctx->data_size,
+                                                   &reds,
+                                                   &ctx->vlen,
+                                                   &ctx->fragments);
+                ctx->reds -= CONTEXT_REDS - reds;
+                if (sz_res == ERTS_EXT_SZ_OK)
+                    break;
+                if (sz_res == ERTS_EXT_SZ_SYSTEM_LIMIT) {
+                    retval = ERTS_DSIG_SEND_TOO_LRG;
+                    goto done;
+                }
             }
+
 	    if (is_non_value(ctx->msg)) {
                 ctx->phase = ERTS_DSIG_SEND_PHASE_ALLOC;
                 break;
             }
-            ctx->u.sc.wstack.wstart = NULL;
-            ctx->u.sc.flags = ctx->flags;
-            ctx->u.sc.level = 0;
 
             ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_SIZE;
 	case ERTS_DSIG_SEND_PHASE_MSG_SIZE: {
-            ErtsExtSzRes sz_res;
-            sz_res = (!ctx->no_trap
-                      ? erts_encode_dist_ext_size_ctx(ctx->msg,
-                                                      ctx,
-                                                      &ctx->data_size)
-                      : erts_encode_dist_ext_size(ctx->msg,
-                                                  ctx->flags,
-                                                  ctx->acmp,
-                                                  &ctx->data_size));
-            switch (sz_res) {
-            case ERTS_EXT_SZ_OK:
-                break;
-            case ERTS_EXT_SZ_SYSTEM_LIMIT:
-                retval = ERTS_DSIG_SEND_TOO_LRG;
-                goto done;
-            case ERTS_EXT_SZ_YIELD:
-                if (ctx->no_trap)
-                    ERTS_INTERNAL_ERROR("Unexpected yield result");
+            Sint reds, *redsp;
+            if (!ctx->no_trap)
+                redsp = &ctx->reds;
+            else {
+                reds = CONTEXT_REDS;
+                redsp = &reds;
+            }
+            while (1) {
+                ErtsExtSzRes sz_res;
+                sz_res = erts_encode_dist_ext_size(ctx->msg,
+                                                   ctx->acmp,
+                                                   &ctx->u.sc,
+                                                   &ctx->data_size,
+                                                   redsp,
+                                                   &ctx->vlen,
+                                                   &ctx->fragments);
+                if (ctx->no_trap) {
+                    ctx->reds -= CONTEXT_REDS - reds;
+                    if (sz_res == ERTS_EXT_SZ_YIELD) {
+                        reds = CONTEXT_REDS;
+                        continue;
+                    }
+                }
+                if (sz_res == ERTS_EXT_SZ_OK)
+                    break;
+                if (sz_res == ERTS_EXT_SZ_SYSTEM_LIMIT) {
+                    retval = ERTS_DSIG_SEND_TOO_LRG;
+                    goto done;
+                }
+                ASSERT(sz_res == ERTS_EXT_SZ_YIELD);
                 retval = ERTS_DSIG_SEND_CONTINUE;
                 goto done;
             }
 
 	    ctx->phase = ERTS_DSIG_SEND_PHASE_ALLOC;
         }
-	case ERTS_DSIG_SEND_PHASE_ALLOC:
+	case ERTS_DSIG_SEND_PHASE_ALLOC: {
+
 	    erts_finalize_atom_cache_map(ctx->acmp, ctx->flags);
 
-            if (ctx->flags & DFLAG_FRAGMENTS && is_value(ctx->msg) && is_not_immed(ctx->msg)) {
-                /* Calculate the max number of fragments that are needed */
-                ASSERT(is_pid(ctx->from) &&
-                       "from has to be a pid because it is used as sequence id");
-                ctx->fragments = ctx->data_size / ERTS_DIST_FRAGMENT_SIZE + 1;
-            } else
-                ctx->fragments = 1;
-
-	    ctx->dhdr_ext_size = erts_encode_ext_dist_header_size(ctx->acmp, ctx->fragments);
-
-	    ctx->obuf = alloc_dist_obuf(
-                ctx->dhdr_ext_size + ctx->data_size +
-                (ctx->fragments-1) * ERTS_DIST_FRAGMENT_HEADER_SIZE,
-                ctx->fragments);
-            ctx->obuf->ext_start = &ctx->obuf->extp[0];
-	    ctx->obuf->ext_endp = &ctx->obuf->extp[0] + ctx->max_finalize_prepend
-                + ctx->dhdr_ext_size;
-
+            ERTS_INIT_TTBEncodeContext(&ctx->u.ec, ctx->flags);
+	    ctx->dhdr_ext_size = erts_encode_ext_dist_header_size(&ctx->u.ec,
+                                                                  ctx->acmp,
+                                                                  ctx->fragments);
+            ctx->obuf = alloc_dist_obufs(&ctx->extp,
+                                         &ctx->u.ec,
+                                         ctx->dhdr_ext_size + ctx->data_size
+                                         + ((ctx->fragments - 1)
+                                            * ERTS_DIST_FRAGMENT_HEADER_SIZE),
+                                         ctx->fragments,
+                                         ctx->vlen);
+            ctx->alloced_fragments = ctx->fragments;
 	    /* Encode internal version of dist header */
-	    ctx->obuf->extp = erts_encode_ext_dist_header_setup(
-                ctx->obuf->ext_endp, ctx->acmp, ctx->fragments, ctx->from);
-	    /* Encode control message */
-	    erts_encode_dist_ext(ctx->ctl, &ctx->obuf->ext_endp, ctx->flags, ctx->acmp, NULL, NULL);
-
-            ctx->obuf->hdrp = NULL;
-            ctx->obuf->hdr_endp = NULL;
+            ctx->dhdrp = ctx->extp;
+            ctx->extp += ctx->dhdr_ext_size;
+	    ctx->dhdrp = erts_encode_ext_dist_header_setup(&ctx->u.ec,
+                                                           ctx->extp,
+                                                           ctx->acmp,
+                                                           ctx->fragments,
+                                                           ctx->from);
+            ctx->dhdr_ext_size = ctx->extp - ctx->dhdrp;
+            while (1) {
+                Sint reds = CONTEXT_REDS;
+                /* Encode control message */
+                int res = erts_encode_dist_ext(ctx->ctl, &ctx->extp,
+                                               ctx->flags, ctx->acmp,
+                                               &ctx->u.ec, &ctx->fragments,
+                                               &reds);
+                ctx->reds -= CONTEXT_REDS - reds;
+                if (res == 0)
+                    break;
+            }
 
 	    if (is_non_value(ctx->msg)) {
-                ctx->obuf->msg_start = NULL;
                 ctx->phase = ERTS_DSIG_SEND_PHASE_FIN;
                 break;
             }
-            ctx->u.ec.flags = ctx->flags;
-            ctx->u.ec.hopefull_flags = 0;
-            ctx->u.ec.level = 0;
-            ctx->u.ec.wstack.wstart = NULL;
-            ctx->obuf->msg_start = ctx->obuf->ext_endp;
 
             ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_ENCODE;
-        case ERTS_DSIG_SEND_PHASE_MSG_ENCODE:
-            if (!ctx->no_trap) {
-                if (erts_encode_dist_ext(ctx->msg, &ctx->obuf->ext_endp, ctx->flags,
-                                         ctx->acmp, &ctx->u.ec, &ctx->reds)) {
+        }
+        case ERTS_DSIG_SEND_PHASE_MSG_ENCODE: {
+            Sint reds, *redsp;
+            if (!ctx->no_trap)
+                redsp = &ctx->reds;
+            else {
+                reds = CONTEXT_REDS;
+                redsp = &reds;
+            }
+            while (1) {
+                int res = erts_encode_dist_ext(ctx->msg, &ctx->extp,
+                                               ctx->flags, ctx->acmp,
+                                               &ctx->u.ec,
+                                               &ctx->fragments,
+                                               redsp);
+                if (!ctx->no_trap) {
+                    if (res == 0)
+                        break;
                     retval = ERTS_DSIG_SEND_CONTINUE;
                     goto done;
                 }
-            } else {
-                erts_encode_dist_ext(ctx->msg, &ctx->obuf->ext_endp, ctx->flags,
-                                     ctx->acmp, NULL, NULL);
+                else {
+                    ctx->reds -= CONTEXT_REDS - reds;
+                    if (res == 0)
+                        break;
+                    reds = CONTEXT_REDS;
+                }
             }
 
             ctx->phase = ERTS_DSIG_SEND_PHASE_FIN;
+        }
 	case ERTS_DSIG_SEND_PHASE_FIN: {
+            Uint fid = ctx->fragments;
+            ErtsDistOutputBuf *obuf = ctx->obuf;
+            ErlIOVec *eiov;
+            Sint fix;
+    
+            ASSERT(fid >= 1);
+            ASSERT(ctx->alloced_fragments >= ctx->fragments);
 
-	    ASSERT(ctx->obuf->extp < ctx->obuf->ext_endp);
-	    ASSERT(ctx->obuf->ext_startp <= ctx->obuf->extp - ctx->max_finalize_prepend);
-	    ASSERT(ctx->obuf->ext_endp <= (byte*)ctx->obuf->ext_startp + ctx->data_size + ctx->dhdr_ext_size);
+            eiov = obuf[0].eiov;
+            ASSERT(eiov);
+            ASSERT(eiov->vsize >= 3);
+            ASSERT(!eiov->iov[0].iov_base);
+            ASSERT(!eiov->iov[0].iov_len);
+            ASSERT(!eiov->binv[0]);
+            ASSERT(!eiov->iov[1].iov_base);
+            ASSERT(!eiov->iov[1].iov_len);
+            ASSERT(!eiov->binv[1]);
 
-	    ctx->data_size = ctx->obuf->ext_endp - ctx->obuf->extp;
-
-            ctx->obuf->hopefull_flags = ctx->u.ec.hopefull_flags;
-
-            if (ctx->fragments > 1) {
-                int fin_fragments;
-                int i;
-                byte *msg = ctx->obuf->msg_start,
-                    *msg_end = ctx->obuf->ext_endp,
-                    *hdrp = msg_end;
-
-                ASSERT((ctx->obuf->hopefull_flags & ctx->flags) == ctx->obuf->hopefull_flags);
-                ASSERT(get_int64(ctx->obuf->extp + 1 + 1 + 8) == ctx->fragments);
-
-                /* Now that encoding is done we know how large the term will
-                   be so we adjust the number of fragments to send. Note that
-                   this can mean that only 1 fragment is sent. */
-                fin_fragments = (ctx->obuf->ext_endp - ctx->obuf->msg_start + ERTS_DIST_FRAGMENT_SIZE-1) /
-                    ERTS_DIST_FRAGMENT_SIZE - 1;
-
+            if (ctx->alloced_fragments > 1) {
+                ASSERT(get_int64(ctx->dhdrp + 1 + 1 + 8) == ctx->alloced_fragments);
                 /* Update the frag_id in the DIST_FRAG_HEADER */
-                put_int64(fin_fragments+1, ctx->obuf->extp + 1 + 1 + 8);
+                put_int64(ctx->fragments, ctx->dhdrp + 1 + 1 + 8);
+            }
+            
+            eiov->size += ctx->dhdr_ext_size;
+            eiov->iov[1].iov_base = ctx->dhdrp;
+            eiov->iov[1].iov_len = ctx->dhdr_ext_size;
+            erts_refc_inc(&obuf[0].bin->intern.refc, 2);
+            eiov->binv[1] = Binary2ErlDrvBinary(obuf[0].bin);
+            obuf[0].next = &obuf[1];
 
-                if (fin_fragments > 0)
-                    msg += ERTS_DIST_FRAGMENT_SIZE;
-                else
-                    msg = msg_end;
-                ctx->obuf->next = &ctx->obuf[1];
-                ctx->obuf->ext_endp = msg;
+            for (fix = 1; fix < ctx->fragments; fix++) {
+                byte *hdr = erts_encode_ext_dist_header_fragment(&ctx->extp,
+                                                                 --fid, ctx->from);
+                Uint sz = ctx->extp - hdr;
 
-                /* Loop through all fragments, updating the output buffers
-                   to be correct and also writing the DIST_FRAG_CONT header. */
-                for (i = 1; i < fin_fragments + 1; i++) {
-                    ctx->obuf[i].hopefull_flags = 0;
-                    ctx->obuf[i].extp = msg;
-                    ctx->obuf[i].ext_start = msg;
-                    if (msg + ERTS_DIST_FRAGMENT_SIZE > msg_end)
-                        ctx->obuf[i].ext_endp = msg_end;
-                    else {
-                        msg += ERTS_DIST_FRAGMENT_SIZE;
-                        ctx->obuf[i].ext_endp = msg;
-                    }
-                    ASSERT(ctx->obuf[i].ext_endp > ctx->obuf[i].extp);
-                    ctx->obuf[i].hdrp = erts_encode_ext_dist_header_fragment(
-                        &hdrp, fin_fragments - i + 1, ctx->from);
-                    ctx->obuf[i].hdr_endp = hdrp;
-                    ctx->obuf[i].next = &ctx->obuf[i+1];
-                }
-                /* If the initial fragment calculation was incorrect we free the
-                   remaining output buffers. */
-                for (; i < ctx->fragments; i++) {
-                    free_dist_obuf(&ctx->obuf[i]);
-                }
-                if (!ctx->no_trap && !ctx->no_suspend)
-                    ctx->reds -= ctx->fragments;
-                ctx->fragments = fin_fragments + 1;
+                eiov = obuf[fix].eiov;
+                ASSERT(eiov);
+                ASSERT(eiov->vsize >= 3);
+                ASSERT(!eiov->iov[0].iov_base);
+                ASSERT(!eiov->iov[0].iov_len);
+                ASSERT(!eiov->binv[0]);
+                ASSERT(!eiov->iov[1].iov_base);
+                ASSERT(!eiov->iov[1].iov_len);
+                ASSERT(!eiov->binv[1]);
+
+                eiov->size += sz;
+                eiov->iov[1].iov_base = hdr;
+                eiov->iov[1].iov_len = sz;
+                erts_refc_inc(&obuf[fix].bin->intern.refc, 2);
+                eiov->binv[1] = Binary2ErlDrvBinary(obuf[fix].bin);
+                obuf[fix].next = &obuf[fix+1];
+            }
+            obuf[fix-1].next = NULL;
+            ASSERT(fid == 1);
+            /* If the initial fragment calculation was incorrect we free the
+               remaining output buffers. */
+            for (; fix < ctx->alloced_fragments; fix++) {
+                free_dist_obuf(&ctx->obuf[fix], 0);
             }
 
             ctx->phase = ERTS_DSIG_SEND_PHASE_SEND;
 
-            if (ctx->reds <= 0) {
+            if (ctx->reds <= 0 && !ctx->no_trap) {
                 retval = ERTS_DSIG_SEND_CONTINUE;
                 goto done;
             }
@@ -2514,7 +2581,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 		/* Not the same connection as when we started; drop message... */
 		erts_de_runlock(dep);
                 for (i = 0; i < ctx->fragments; i++)
-                    free_dist_obuf(&ctx->obuf[i]);
+                    free_dist_obuf(&ctx->obuf[i], !0);
                 ctx->fragments = 0;
 	    }
 	    else {
@@ -2574,13 +2641,9 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 		    erts_mtx_lock(&dep->qlock);
 		}
 
-                if (fragments > 1) {
-                    if (!ctx->obuf->hdrp) {
-                        ASSERT(get_int64(ctx->obuf->extp + 10) == ctx->fragments);
-                    } else {
-                        ASSERT(get_int64(ctx->obuf->hdrp + 10) == ctx->fragments);
-                    }
-                }
+                ASSERT(fragments < 2
+                       || (get_int64(ctx->obuf->eiov->iov[1].iov_base + 10)
+                           == ctx->fragments));
 
                 if (fragments) {
                     ctx->obuf[fragments-1].next = NULL;
@@ -2702,8 +2765,19 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
         bufp = NULL;
     }
     else {
-        size = obuf->ext_endp - obuf->extp;
-        bufp = (char*) obuf->extp;
+        char *ptr;
+        Sint i, vlen = obuf->eiov->vsize;
+        SysIOVec *iov = obuf->eiov->iov;
+        size = obuf->eiov->size;
+        bufp = ptr = erts_alloc(ERTS_ALC_T_TMP, size);
+        for (i = 0; i < vlen; i++) {
+            Uint len = iov[i].iov_len;
+            if (len) {
+                sys_memcpy((void *) ptr, (void *) iov[i].iov_base, len);
+                ptr += len;
+            }
+        }
+        ASSERT(size == ptr - bufp);
     }
 
 #ifdef USE_VM_PROBES
@@ -2725,6 +2799,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
     fpe_was_unmasked = erts_block_fpe();
     (*prt->drv_ptr->output)((ErlDrvData) prt->drv_data, bufp, size);
     erts_unblock_fpe(fpe_was_unmasked);
+    erts_free(ERTS_ALC_T_TMP, bufp);
     return size;
 }
 
@@ -2732,59 +2807,53 @@ static Uint
 dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 {
     int fpe_was_unmasked;
-    ErlDrvSizeT size = 0;
-    SysIOVec iov[3];
-    ErlDrvBinary* bv[3];
-    ErlIOVec eiov;
+    SysIOVec iov[1];
+    Uint size;
+    ErlDrvBinary* bv[1];
+    ErlIOVec eiov, *eiovp;
 
     ERTS_CHK_NO_PROC_LOCKS;
     ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
-    iov[0].iov_base = NULL;
-    iov[0].iov_len = 0;
-    bv[0] = NULL;
-
-    if (!obuf) {
-        size = 0;
-        eiov.vsize = 1;
-    }
+    if (obuf)
+        eiovp = obuf->eiov;
     else {
-        int i = 1;
-        eiov.vsize = 2;
-
-        if (obuf->hdrp) {
-            eiov.vsize = 3;
-            iov[i].iov_base = obuf->hdrp;
-            iov[i].iov_len = obuf->hdr_endp - obuf->hdrp;
-            size += iov[i].iov_len;
-            bv[i] = Binary2ErlDrvBinary(ErtsDistOutputBuf2Binary(obuf));
-#ifdef ERTS_RAW_DIST_MSG_DBG
-            erts_fprintf(dbg_file, "SEND: ");
-            bw(iov[i].iov_base, iov[i].iov_len);
-#endif
-            i++;
-
-        }
-
-        iov[i].iov_base = obuf->extp;
-        iov[i].iov_len = obuf->ext_endp - obuf->extp;
-#ifdef ERTS_RAW_DIST_MSG_DBG
-            erts_fprintf(dbg_file, "SEND: ");
-            bw(iov[i].iov_base, iov[i].iov_len);
-#endif
-        size += iov[i].iov_len;
-        bv[i] = Binary2ErlDrvBinary(ErtsDistOutputBuf2Binary(obuf));
+        iov[0].iov_base = NULL;
+        iov[0].iov_len = 0;
+        bv[0] = NULL;
+        eiov.size = 0;
+        eiov.vsize = 1;
+        eiov.iov = iov;
+        eiov.binv = bv;
+        eiovp = &eiov;
     }
 
-    eiov.size = size;
-    eiov.iov = iov;
-    eiov.binv = bv;
+#ifdef DEBUG
+    {
+        Uint sz;
+        Sint i;
+        for (i = 0, sz = 0; i < eiovp->vsize; i++)
+            sz += eiovp->iov[i].iov_len;
+        ASSERT(sz == eiovp->size);
+    }
+#endif
 
-    if (size > (Uint) INT_MAX)
+#ifdef ERTS_RAW_DIST_MSG_DBG
+    {
+        Sint i;
+        erts_fprintf(dbg_file, "SEND: ");
+        for (i = 0, sz = 0; i < eiov->vsize; i++) {
+            if (eiovp->iov[i].iov_len)
+                bw(eiovp->iov[i].iov_base, eiovp->iov[i].iov_len);
+        }
+    }
+#endif
+
+    if (eiovp->size > (Uint) INT_MAX)
 	erts_exit(ERTS_DUMP_EXIT,
 		 "Absurdly large distribution output data buffer "
 		 "(%beu bytes) passed.\n",
-		 size);
+                  eiovp->size);
 
     ASSERT(prt->drv_ptr->outputv);
 
@@ -2804,9 +2873,14 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 #endif
     prt->caller = NIL;
     fpe_was_unmasked = erts_block_fpe();
-    (*prt->drv_ptr->outputv)((ErlDrvData) prt->drv_data, &eiov);
+    (*prt->drv_ptr->outputv)((ErlDrvData) prt->drv_data, eiovp);
     erts_unblock_fpe(fpe_was_unmasked);
 
+    size = (Uint) eiovp->size;
+    /* Remove header used by driver... */
+    eiovp->size -= eiovp->iov[0].iov_len;
+    eiovp->iov[0].iov_base = NULL;
+    eiovp->iov[0].iov_len = 0;
     return size;
 }
 
@@ -2907,14 +2981,14 @@ erts_dist_command(Port *prt, int initial_reds)
 	do {
             Uint size;
             ErtsDistOutputBuf *fob;
+	    obufsize += size_obuf(foq.first);
             size = (*send)(prt, foq.first);
             erts_atomic64_inc_nob(&dep->out);
             esdp->io.out += (Uint64) size;
 	    reds -= ERTS_PORT_REDS_DIST_CMD_DATA(size);
 	    fob = foq.first;
-	    obufsize += size_obuf(fob);
 	    foq.first = foq.first->next;
-	    free_dist_obuf(fob);
+	    free_dist_obuf(fob, !0);
 	    sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
 	    preempt = reds < 0 || (sched_flags & ERTS_PTS_FLG_EXIT);
 	    if (sched_flags & ERTS_PTS_FLG_BUSY_PORT)
@@ -2938,7 +3012,7 @@ erts_dist_command(Port *prt, int initial_reds)
 		reds = erts_encode_ext_dist_header_finalize(ob, dep, flags, reds);
                 obufsize -= size_obuf(ob);
                 if (reds < 0)
-                    break;
+                    break; /* finalize needs to be restarted... */
                 last_finalized  = ob;
                 ob = ob->next;
 	    } while (ob);
@@ -2974,24 +3048,23 @@ erts_dist_command(Port *prt, int initial_reds)
 	int preempt = 0;
 	while (oq.first && !preempt) {
 	    ErtsDistOutputBuf *fob;
-	    Uint size;
+	    Uint size, obsz;
             obufsize += size_obuf(oq.first);
             reds = erts_encode_ext_dist_header_finalize(oq.first, dep, flags, reds);
-            obufsize -= size_obuf(oq.first);
-            if (reds < 0) {
+            obsz = size_obuf(oq.first);
+            obufsize -= obsz;
+            if (reds < 0) { /* finalize needs to be restarted... */
                 preempt = 1;
                 break;
             }
-	    ASSERT(oq.first->bin->orig_bytes <= (char*)oq.first->extp
-                   && oq.first->extp <= oq.first->ext_endp);
 	    size = (*send)(prt, oq.first);
             erts_atomic64_inc_nob(&dep->out);
 	    esdp->io.out += (Uint64) size;
 	    reds -= ERTS_PORT_REDS_DIST_CMD_DATA(size);
 	    fob = oq.first;
-	    obufsize += size_obuf(fob);
+	    obufsize += obsz;
 	    oq.first = oq.first->next;
-	    free_dist_obuf(fob);
+	    free_dist_obuf(fob, !0);
 	    sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
 	    preempt = reds <= 0 || (sched_flags & ERTS_PTS_FLG_EXIT);
 	    if ((sched_flags & ERTS_PTS_FLG_BUSY_PORT) && oq.first && !preempt)
@@ -3044,7 +3117,6 @@ erts_dist_command(Port *prt, int initial_reds)
  done:
 
     if (obufsize != 0) {
-	ASSERT(obufsize > 0);
 	erts_mtx_lock(&dep->qlock);
 #ifdef DEBUG
         qsize = (Sint) erts_atomic_add_read_nob(&dep->qsize,
@@ -3096,7 +3168,7 @@ erts_dist_command(Port *prt, int initial_reds)
 	    ErtsDistOutputBuf *fob = oq.first;
 	    oq.first = oq.first->next;
 	    obufsize += size_obuf(fob);
-	    free_dist_obuf(fob);
+	    free_dist_obuf(fob, !0);
 	}
 
 	foq.first = NULL;
@@ -3410,13 +3482,17 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
 {
     DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(BIF_P);
     const Sint initial_reds = ERTS_BIF_REDS_LEFT(BIF_P);
-    Sint reds = initial_reds, obufsize = 0;
+    Sint reds = initial_reds, obufsize = 0, ix, vlen;
     ErtsDistOutputBuf *obuf;
     Eterm *hp, res;
-    ProcBin *pb;
     erts_aint_t qsize;
     Uint32 conn_id, get_size;
-    Uint hsz = 0, bin_sz;
+    Uint hsz = 0, data_sz;
+    SysIOVec *iov;
+    ErlDrvBinary **binv;
+#ifdef DEBUG
+    Eterm *hendp;
+#endif
 
     if (!dep)
         BIF_ERROR(BIF_P, EXC_NOTSUP);
@@ -3448,7 +3524,6 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
     {
         if (!dep->tmp_out_queue.first) {
             ASSERT(!dep->tmp_out_queue.last);
-            ASSERT(!dep->transcode_ctx);
             qsize = erts_atomic_read_acqb(&dep->qsize);
             if (qsize > 0) {
                 erts_mtx_lock(&dep->qlock);
@@ -3471,7 +3546,7 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
         obufsize += size_obuf(obuf);
         reds = erts_encode_ext_dist_header_finalize(obuf, dep, dep->flags, reds);
         obufsize -= size_obuf(obuf);
-        if (reds < 0) {
+        if (reds < 0) { /* finalize needs to be restarted... */
             erts_de_runlock(dep);
             if (obufsize)
                 erts_atomic_add_nob(&dep->qsize, (erts_aint_t) -obufsize);
@@ -3488,53 +3563,70 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
 
     erts_de_runlock(dep);
 
-    bin_sz = obuf->ext_endp - obuf->extp + obuf->hdr_endp - obuf->hdrp;
+    vlen = obuf->eiov->vsize;
+    data_sz = obuf->eiov->size;
+    iov = obuf->eiov->iov;
+    binv = obuf->eiov->binv;
+    
+#ifdef DEBUG
+    {
+        Uint dbg_sz;
+        for (ix = 0, dbg_sz = 0; ix < vlen; ix++)
+            dbg_sz += iov[ix].iov_len;
+        ASSERT(data_sz == dbg_sz);
+    }
+#endif
+
+    ASSERT(vlen >= 1);
+    ASSERT(iov[0].iov_len == 0);
+    ASSERT(!binv[0]);
+
+    hsz = 2 /* cons */ + PROC_BIN_SIZE;
+    hsz *= vlen - 1;
 
     get_size = dep->opts & ERTS_DIST_CTRL_OPT_GET_SIZE;
     if (get_size) {
         hsz += 3; /* 2 tuple */
-        if (!IS_USMALL(0, bin_sz))
+        if (!IS_USMALL(0, data_sz))
             hsz += BIG_UINT_HEAP_SIZE;
     }
 
-    if (!obuf->hdrp) {
-        hp =  HAlloc(BIF_P, PROC_BIN_SIZE + hsz);
-        pb = (ProcBin *) (char *) hp;
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = obuf->ext_endp - obuf->extp;
-        pb->next = MSO(BIF_P).first;
-        MSO(BIF_P).first = (struct erl_off_heap_header*) pb;
-        pb->val = ErtsDistOutputBuf2Binary(obuf);
-        pb->bytes = (byte*) obuf->extp;
-        pb->flags = 0;
-        res = make_binary(pb);
-        hp += PROC_BIN_SIZE;
-    } else {
-        hp =  HAlloc(BIF_P, PROC_BIN_SIZE * 2 + 4 + hsz);
-        pb = (ProcBin *) (char *) hp;
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = obuf->ext_endp - obuf->extp;
-        pb->next = MSO(BIF_P).first;
-        MSO(BIF_P).first = (struct erl_off_heap_header*) pb;
-        pb->val = ErtsDistOutputBuf2Binary(obuf);
-        pb->bytes = (byte*) obuf->extp;
-        pb->flags = 0;
-        hp += PROC_BIN_SIZE;
+    hp = HAlloc(BIF_P, hsz);
+#ifdef DEBUG
+    hendp = hp + hsz;
+#endif
 
-        res = CONS(hp, make_binary(pb), NIL);
-        hp += 2;
+    res = NIL;
 
+    for (ix = vlen - 1; ix > 0; ix--) {
+        Binary *bin;
+        ProcBin *pb;
+        Eterm bin_term;
+
+        ASSERT(binv[ix]);
+
+        /*
+         * We intentionally avoid using sub binaries
+         * since the GC might convert those to heap
+         * binaries and by this ruin the nice preparation
+         * for usage of this data as I/O vector in
+         * nifs/drivers.
+         */
+        
+        bin = ErlDrvBinary2Binary(binv[ix]);
         pb = (ProcBin *) (char *) hp;
+        hp += PROC_BIN_SIZE;
         pb->thing_word = HEADER_PROC_BIN;
-        pb->size = obuf->hdr_endp - obuf->hdrp;
+        pb->size = (Uint) iov[ix].iov_len;
         pb->next = MSO(BIF_P).first;
         MSO(BIF_P).first = (struct erl_off_heap_header*) pb;
-        pb->val = ErtsDistOutputBuf2Binary(obuf);
-        erts_refc_inc(&pb->val->intern.refc, 1);
-        pb->bytes = (byte*) obuf->hdrp;
+        pb->val = bin;
+        pb->bytes = (byte*) iov[ix].iov_base;
         pb->flags = 0;
-        hp += PROC_BIN_SIZE;
-        res = CONS(hp, make_binary(pb), res);
+        OH_OVERHEAD(&MSO(BIF_P), pb->size / sizeof(Eterm));
+        bin_term = make_binary(pb);
+
+        res = CONS(hp, bin_term, res);
         hp += 2;
     }
 
@@ -3558,14 +3650,19 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
 
     if (get_size) {
         Eterm sz_term;
-        if (IS_USMALL(0, bin_sz))
-            sz_term = make_small(bin_sz);
+        if (IS_USMALL(0, data_sz))
+            sz_term = make_small(data_sz);
         else {
-            sz_term = uint_to_big(bin_sz, hp);
+            sz_term = uint_to_big(data_sz, hp);
             hp += BIG_UINT_HEAP_SIZE;
         }
         res = TUPLE2(hp, sz_term, res);
+        hp += 3;
     }
+
+    ASSERT(hendp == hp);
+
+    free_dist_obuf(obuf, 0);
 
     BIF_RET2(res, (initial_reds - reds));
 }
@@ -4198,7 +4295,18 @@ badarg:
 
 BIF_RETTYPE erts_internal_get_dflags_0(BIF_ALIST_0)
 {
+    if (erts_dflags_test_remove_hopefull_flags) {
+        /* For internal emulator tests only! */
+        Eterm *hp = HAlloc(BIF_P, 1+6);
+        return TUPLE6(hp, am_erts_dflags,
+                      make_small(DFLAG_DIST_DEFAULT & ~DFLAG_DIST_HOPEFULLY),
+                      make_small(DFLAG_DIST_MANDATORY & ~DFLAG_DIST_HOPEFULLY),
+                      make_small(DFLAG_DIST_ADDABLE & ~DFLAG_DIST_HOPEFULLY),
+                      make_small(DFLAG_DIST_REJECTABLE & ~DFLAG_DIST_HOPEFULLY),
+                      make_small(DFLAG_DIST_STRICT_ORDER & ~DFLAG_DIST_HOPEFULLY));
+    }
     return erts_dflags_record;
+    
 }
 
 BIF_RETTYPE erts_internal_new_connection_1(BIF_ALIST_1)

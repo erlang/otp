@@ -201,7 +201,6 @@ dist_table_alloc(void *dep_tmpl)
     erts_port_task_handle_init(&dep->dist_cmd);
     dep->send				= NULL;
     dep->cache				= NULL;
-    dep->transcode_ctx                  = NULL;
     dep->sequences                      = NULL;
 
     /* Link in */
@@ -701,7 +700,7 @@ erts_set_dist_entry_pending(DistEntry *dep)
     erts_no_of_not_connected_dist_entries--;
 
     dep->state = ERTS_DE_STATE_PENDING;
-    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY | DFLAG_NO_MAGIC);
+    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY | DFLAG_PENDING_CONNECT);
     dep->connection_id = (dep->connection_id + 1) & ERTS_DIST_CON_ID_MASK;
 
     ASSERT(!dep->mld);
@@ -750,7 +749,7 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
     erts_no_of_pending_dist_entries--;
 
     dep->state = ERTS_DE_STATE_CONNECTED;
-    dep->flags = flags & ~DFLAG_NO_MAGIC;
+    dep->flags = flags & ~DFLAG_PENDING_CONNECT;
     dep->cid = cid;
     erts_atomic_set_nob(&dep->input_handler,
                             (erts_aint_t) cid);
