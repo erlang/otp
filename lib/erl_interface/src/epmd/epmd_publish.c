@@ -68,7 +68,8 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
   int nlen = strlen(alive);
   int len = elen + nlen + 13; /* hard coded: be careful! */
   int n;
-  int err, res, creation;
+  int err, response, res;
+  unsigned creation;
   ssize_t dlen;
   unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
 
@@ -124,8 +125,10 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
 
   /* Don't close fd here! It keeps us registered with epmd */
   s = buf;
-  if (((res=get8(s)) != EI_EPMD_ALIVE2_RESP)) {  /* response */
-    EI_TRACE_ERR1("ei_epmd_r4_publish","<- unknown (%d)",res);
+  response = get8(s);
+  if (response != EI_EPMD_ALIVE2_RESP &&
+      response != EI_EPMD_ALIVE2_X_RESP) {
+    EI_TRACE_ERR1("ei_epmd_r4_publish","<- unknown (%d)",response);
     EI_TRACE_ERR0("ei_epmd_r4_publish","-> CLOSE");
     ei_close__(fd);
     erl_errno = EIO;
@@ -141,18 +144,21 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
     return -1;
   }
 
-  creation = get16be(s);
+  if (response == EI_EPMD_ALIVE2_RESP)
+      creation = get16be(s);
+  else /* EI_EPMD_ALIVE2_X_RESP */
+      creation = get32be(s);
 
   EI_TRACE_CONN2("ei_epmd_r4_publish",
-		 " result=%d (ok) creation=%d",res,creation);
+		 " result=%d (ok) creation=%u",res,creation);
 
-  /* probably should save fd so we can close it later... */
-  /* epmd_saveconn(OPEN,fd,alive); */
+  /*
+   * Would be nice to somehow use the nice "unique" creation value
+   * received here from epmd instead of using the crappy one
+   * passed (already) to ei_connect_init.
+   */
 
-  /* return the creation number, for no good reason */
-  /* return creation;*/
-
-  /* no - return the descriptor */
+  /* return the descriptor */
   return fd;
 }
 

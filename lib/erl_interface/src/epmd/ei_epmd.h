@@ -25,8 +25,8 @@
 #endif
 
 #ifndef EI_DIST_HIGH
-#define EI_DIST_HIGH 5 /* R4 and later */
-#define EI_DIST_LOW  1 /* R3 and earlier */
+#define EI_DIST_HIGH 6 /* OTP 22 and later */
+#define EI_DIST_LOW  5 /* OTP R4 - 21 */
 #endif
 
 #ifndef EPMD_PORT
@@ -45,6 +45,7 @@
 #ifndef EI_EPMD_ALIVE2_REQ
 #define EI_EPMD_ALIVE2_REQ  120
 #define EI_EPMD_ALIVE2_RESP 121
+#define EI_EPMD_ALIVE2_X_RESP 118
 #define EI_EPMD_PORT2_REQ   122
 #define EI_EPMD_PORT2_RESP  119
 #define EI_EPMD_STOP_REQ      's'
