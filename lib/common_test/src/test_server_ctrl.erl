@@ -2147,7 +2147,7 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 			%% let's call a "fake" end_per_suite if it exists
 			case erlang:function_exported(FwMod, end_per_suite, 1) of
 			    true ->				
-				[{conf,LastRef,[{suite,Mod}],
+				[{conf,LastRef,[{suite,LastMod}],
 				  {FwMod,end_per_suite}}|Init];
 			    false ->
 				[{conf,LastRef,[],{LastMod,end_per_suite}}|Init]
