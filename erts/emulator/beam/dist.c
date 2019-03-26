@@ -3457,6 +3457,7 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
         pb->bytes = (byte*) obuf->extp;
         pb->flags = 0;
         res = make_binary(pb);
+        hp += PROC_BIN_SIZE;
     } else {
         hp =  HAlloc(BIF_P, PROC_BIN_SIZE * 2 + 4 + hsz);
         pb = (ProcBin *) (char *) hp;
