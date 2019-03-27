@@ -81,7 +81,7 @@ static ErlNifFunc nif_funcs[] = {
     {"ng_crypto_init_nif", 4, ng_crypto_init_nif, 0},
     {"ng_crypto_update_nif", 2, ng_crypto_update_nif, 0},
     {"ng_crypto_update_nif", 3, ng_crypto_update_nif, 0},
-    {"ng_crypto_one_shot_nif", 5, ng_crypto_one_shot_nif, 0},
+    {"ng_crypto_one_time_nif", 5, ng_crypto_one_time_nif, 0},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif, 0},
     {"strong_rand_range_nif", 1, strong_rand_range_nif, 0},
     {"rand_uniform_nif", 2, rand_uniform_nif, 0},
@@ -105,8 +105,7 @@ static ErlNifFunc nif_funcs[] = {
 
     {"rand_seed_nif", 1, rand_seed_nif, 0},
 
-    {"aead_encrypt", 6, aead_encrypt, 0},
-    {"aead_decrypt", 6, aead_decrypt, 0},
+    {"aead_cipher", 7, aead_cipher, 0},
 
     {"poly1305_nif", 2, poly1305_nif, 0},
 
