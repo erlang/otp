@@ -3790,6 +3790,9 @@ clear_seq_trace_token(ErtsMessage *sig)
             case ERTS_MON_TYPE_PROC:
             case ERTS_MON_TYPE_DIST_PROC:
             case ERTS_MON_TYPE_NODE:
+            case ERTS_MON_TYPE_NODES:
+            case ERTS_MON_TYPE_SUSPEND:
+            case ERTS_MON_TYPE_TIME_OFFSET:
                 break;
             default:
                 ERTS_INTERNAL_ERROR("Unexpected sig type");
@@ -3806,6 +3809,11 @@ clear_seq_trace_token(ErtsMessage *sig)
         case ERTS_SIG_Q_OP_LINK:
         case ERTS_SIG_Q_OP_UNLINK:
         case ERTS_SIG_Q_OP_TRACE_CHANGE_STATE:
+        case ERTS_SIG_Q_OP_GROUP_LEADER:
+        case ERTS_SIG_Q_OP_IS_ALIVE:
+        case ERTS_SIG_Q_OP_PROCESS_INFO:
+        case ERTS_SIG_Q_OP_SYNC_SUSPEND:
+        case ERTS_SIG_Q_OP_RPC:
             break;
 
         default:
