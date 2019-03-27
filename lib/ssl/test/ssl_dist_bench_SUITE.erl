@@ -389,14 +389,27 @@ sched_utilization(A, B, Prefix, HA, HB, SSL) ->
     [A] = ssl_apply(HB, erlang, nodes, []),
     msacc:print(ClientMsacc),
     msacc:print(ServerMsacc),
-    ct:pal("Got ~p msgs",[length(Msgs)]),
+    ct:pal("Got ~p busy_dist_port msgs",[length(Msgs)]),
+    ct:log("Stats of B from A: ~p",
+           [ssl_apply(HA, net_kernel, node_info, [B])]),
+    ct:log("Stats of A from B: ~p",
+           [ssl_apply(HB, net_kernel, node_info, [A])]),
+    SchedUtilClient =
+        10000 * msacc:stats(system_runtime,ClientMsacc) /
+        msacc:stats(system_realtime,ClientMsacc),
+    SchedUtilServer =
+        10000 * msacc:stats(system_runtime,ServerMsacc) /
+        msacc:stats(system_realtime,ServerMsacc),
     report(Prefix++" Sched Utilization Client",
-           10000 * msacc:stats(system_runtime,ClientMsacc) /
-               msacc:stats(system_realtime,ClientMsacc), "util 0.01 %"),
+           SchedUtilClient, "util 0.01 %"),
     report(Prefix++" Sched Utilization Server",
-           10000 * msacc:stats(system_runtime,ServerMsacc) /
-               msacc:stats(system_realtime,ServerMsacc), "util 0.01 %"),
-    ok.
+           SchedUtilServer, "util 0.01 %"),
+    {comment,
+     "Client " ++
+         lists:flatten(io_lib:format("~.3g", [SchedUtilClient / 100])) ++
+         "%, Server " ++
+         lists:flatten(io_lib:format("~.3g", [SchedUtilServer / 100])) ++
+         "%"}.
 
 %% Runs on node A and spawns a server on node B
 %% We want to avoid getting busy_dist_port as it hides the true SU usage
