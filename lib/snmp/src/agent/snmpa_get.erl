@@ -33,6 +33,7 @@
          do_get_bulk/7
         ]).
 
+-define(VMODULE,"GET").
 -include("snmpa_internal.hrl").
 -include("snmp_types.hrl").
 -include("snmp_debug.hrl").

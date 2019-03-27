@@ -43,6 +43,7 @@
          user_err/2
         ]).
 
+-define(VMODULE,"GET-LIB").
 -include("snmpa_internal.hrl").
 -include("snmp_types.hrl").
 -include("snmp_debug.hrl").
@@ -226,7 +227,7 @@ dbg_apply(M, F, A) ->
 	silence -> 
 	    apply(M,F,A);
 	_ ->
-	    ?vlog("~n   apply: ~w,~w,~p~n", [M,F,A]),
+	    ?vlog("~n   apply: ~w, ~w, ~p~n", [M,F,A]),
 	    Res = (catch apply(M,F,A)),
 	    case Res of
 		{'EXIT', Reason} ->
@@ -237,9 +238,9 @@ dbg_apply(M, F, A) ->
 			   "~n"
 			   "~nresulted in an exit"
 			   "~n"
-			   "~n   ~p", [M, F, A, Reason]);
+			   "~n   ~p~n", [M, F, A, Reason]);
 		_ ->
-		    ?vlog("~n   returned: ~p", [Res])
+		    ?vlog("~n   returned: ~p~n", [Res])
 	    end,
 	    Res
     end.
