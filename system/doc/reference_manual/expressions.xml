@@ -1221,10 +1221,10 @@ Ei = Value |
 &lt;&lt;1,17,0,42&gt;&gt;
 10> <input>H.</input>
 &lt;&lt;17,0,42&gt;&gt;
-11> <input>&lt;&lt;G,H/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</input>
-&lt;&lt;1,17,1,10:4&gt;&gt;
-12> <input>H.</input>
-&lt;&lt;17,1,10:4&gt;&gt;
+11> <input>&lt;&lt;G,J/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</input>
+&lt;&lt;1,17,2,10:4&gt;&gt;
+12> <input>J.</input>
+&lt;&lt;17,2,10:4&gt;&gt;
 13> <input>&lt;&lt;1024/utf8&gt;&gt;.</input>
 &lt;&lt;208,128&gt;&gt;
 </pre>
