@@ -1019,6 +1019,8 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
     ref_sz = size_object(ref);
     hsz += ref_sz;
 
+    reason_sz = 0; /* Set to silence gcc warning */
+
     /* The reason was part of the control message,
        just use copy it into the xsigd */
     if (is_value(reason)) {
