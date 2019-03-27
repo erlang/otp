@@ -267,10 +267,29 @@ opt_is([#b_set{op=call,args=Args0,dst=Dst}=I0|Is],
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
     {Ts1,Ds,Fdb,I2} = opt_call(I1, D, Ts0, Ds0, Fdb0),
     case {map_get(Dst, Ts1),Is} of
-        {_,[#b_set{op=succeeded}]} ->
+        {Type,[#b_set{op=succeeded}]} when Type =/= none ->
             %% This call instruction is inside a try/catch
-            %% block. Don't attempt to optimize it.
+            %% block. Don't attempt to simplify it.
             opt_is(Is, Ts1, Ds, Fdb, D, Sub0, [I2|Acc]);
+        {none,[#b_set{op=succeeded}]} ->
+            %% This call instruction is inside a try/catch
+            %% block, but we know it will never return and
+            %% later optimizations may try to exploit that.
+            %%
+            %% For example, if we have an expression that
+            %% either returns this call or a tuple, we know
+            %% that the expression always returns a tuple
+            %% and can turn a later element/3 into
+            %% get_tuple_element.
+            %%
+            %% This is sound but difficult to validate in a
+            %% meaningful way as try/catch currently forces
+            %% us to maintain the illusion that the success
+            %% block is reachable even when its not, so we
+            %% disable the optimization to keep things
+            %% simple.
+            Ts = Ts1#{ Dst := any },
+            opt_is(Is, Ts, Ds, Fdb, D, Sub0, [I2|Acc]);
         {none,_} ->
             %% This call never returns. The rest of the
             %% instructions will not be executed.
