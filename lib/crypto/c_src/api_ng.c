@@ -420,13 +420,15 @@ int EVP_CIPHER_CTX_copy(EVP_CIPHER_CTX *out, const EVP_CIPHER_CTX *in)
 ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data [, IV]) */
     struct evp_cipher_ctx *ctx_res;
+    struct evp_cipher_ctx ctx_res_copy;
     ERL_NIF_TERM ret;
+
+    ctx_res_copy.ctx = NULL;
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
         return EXCP_BADARG(env, "Bad 1:st arg");
     
     if (argc == 3) {
-        struct evp_cipher_ctx ctx_res_copy;
         ErlNifBinary ivec_bin;
 
         memcpy(&ctx_res_copy, ctx_res, sizeof ctx_res_copy);
@@ -481,6 +483,9 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         get_update_args(env, ctx_res, argv[1], &ret);
 
  err:
+    if (ctx_res_copy.ctx)
+        EVP_CIPHER_CTX_free(ctx_res_copy.ctx);
+
     return ret; /* Both success and error */
 }
 
