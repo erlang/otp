@@ -87,7 +87,7 @@ asn1rt_per_bin.erl:2127: Cons will produce an improper list since its 2nd argume
 asn1rt_per_bin.erl:2129: Cons will produce an improper list since its 2nd argument is integer()
 asn1rt_per_bin.erl:446: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_bin.erl:467: The variable _ can never match since previous clauses completely covered the type integer()
-asn1rt_per_bin.erl:474: The pattern <{_N, <<_:8/integer-unit:1,Bs/binary-unit:8>>}, C> can never match since previous clauses completely covered the type <{0,_},integer()>
+asn1rt_per_bin.erl:474: The pattern <{_N, <<_,Bs/binary>>}, C> can never match since previous clauses completely covered the type <{0,_},integer()>
 asn1rt_per_bin.erl:487: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_bin.erl:498: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_bin_rt2ct.erl:152: The call asn1rt_per_bin_rt2ct:getbit({0,maybe_improper_list()}) will never return since it differs in the 1st argument from the success typing arguments: (<<_:8,_:_*8>> | {non_neg_integer(),<<_:1,_:_*1>>})
@@ -95,7 +95,7 @@ asn1rt_per_bin_rt2ct.erl:1533: The pattern {'BMPString', {'octets', Ol}} can nev
 asn1rt_per_bin_rt2ct.erl:1875: The pattern {Name, Val} can never match since previous clauses completely covered the type any()
 asn1rt_per_bin_rt2ct.erl:443: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_bin_rt2ct.erl:464: The variable _ can never match since previous clauses completely covered the type integer()
-asn1rt_per_bin_rt2ct.erl:471: The pattern <{_N, <<_B:8/integer-unit:1,Bs/binary-unit:8>>}, C> can never match since previous clauses completely covered the type <{0,_},integer()>
+asn1rt_per_bin_rt2ct.erl:471: The pattern <{_N, <<_B,Bs/binary>>}, C> can never match since previous clauses completely covered the type <{0,_},integer()>
 asn1rt_per_bin_rt2ct.erl:484: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_bin_rt2ct.erl:495: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_v1.erl:1209: The pattern <_, 'true', _> can never match the type <_,'false',_>
