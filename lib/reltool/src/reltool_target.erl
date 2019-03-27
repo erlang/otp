@@ -869,7 +869,7 @@ do_gen_spec(#sys{root_dir = RootDir,
 	    otp_root ->
 		{[],InclRegexps,ExclRegexps,["lib"]};
 	    _ ->
-		{create_dir, _, SF} = spec_dir(RootDir),
+		{create_dir, _, SF} = spec_dir(root, RootDir),
                 {ER2, SF2} = strip_sys_files(Sys, SF, Apps, ExclRegexps),
 		{IR2, BinFiles} =
 		    spec_bin_files(Sys, SF, SF2, RelFiles, InclRegexps),
@@ -1151,7 +1151,7 @@ spec_app(#app{name              = Name,
               excl_app_filters  = SysExclRegexps,
               debug_info        = SysDebugInfo} = Sys) ->
     %% List files recursively
-    {create_dir, _, AppFiles} = spec_dir(SourceDir),
+    {create_dir, _, AppFiles} = spec_dir(Name, SourceDir),
 
     %% Replace ebin
     AppUpFilename = atom_to_list(Name) ++ ".appup",
@@ -1218,7 +1218,9 @@ spec_archive(#app{label                = Label,
             [{archive, NameOrLabel ++ ".ez", ArchiveOpts, [ArchiveDir]} | OptDir]
     end.
 
-spec_dir(Dir) ->
+spec_dir(Name, undefined) ->
+    reltool_utils:throw_error("app dir for ~p is missing", [Name]);
+spec_dir(Name, Dir) ->
     Base = filename:basename(Dir),
     case erl_prim_loader:read_file_info(Dir) of
         {ok, #file_info{type = directory}} ->
@@ -1227,7 +1229,7 @@ spec_dir(Dir) ->
                     %% Directory
                     {create_dir,
 		     Base,
-		     [spec_dir(filename:join([Dir, F])) || F <- Files]};
+		     [spec_dir(Name, filename:join([Dir, F])) || F <- Files]};
                 error ->
                     reltool_utils:throw_error("list dir ~ts failed", [Dir])
             end;
@@ -1235,7 +1237,7 @@ spec_dir(Dir) ->
             %% Plain file
             {copy_file, Base};
         _ ->
-            reltool_utils:throw_error("read file info ~ts failed", [Dir])
+            reltool_utils:throw_error("~p: read file info ~ts failed", [Name, Dir])
     end.
 
 spec_mod(Mod, DebugInfo) ->
