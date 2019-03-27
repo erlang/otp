@@ -3145,6 +3145,13 @@ is_killed(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
 	Live.val <= Reg.val;
 }
 
+static int
+is_killed_by_call_fun(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
+{
+    return Reg.type == TAG_x && Live.type == TAG_u &&
+	Live.val+1 <= Reg.val;
+}
+
 /*
  * Test whether register Reg is killed by make_fun instruction that
  * creates the fun given by index idx.
