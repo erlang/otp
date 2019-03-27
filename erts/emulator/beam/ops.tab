@@ -338,7 +338,7 @@ swap_temp R1 R2 Tmp | line Loc | apply Live | is_killed_apply(Tmp, Live) => \
 swap_temp R1 R2 Tmp | line Loc | apply_last Live D | is_killed_apply(Tmp, Live) => \
   swap R1 R2 | line Loc | apply_last Live D
 
-swap_temp R1 R2 Tmp | line Loc | call_fun Live | is_killed(Tmp, Live) => \
+swap_temp R1 R2 Tmp | line Loc | call_fun Live | is_killed_by_call_fun(Tmp, Live) => \
   swap R1 R2 | line Loc | call_fun Live
 swap_temp R1 R2 Tmp | make_fun2 OldIndex=u | is_killed_by_make_fun(Tmp, OldIndex) => \
   swap R1 R2 | make_fun2 OldIndex
