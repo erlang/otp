@@ -1136,7 +1136,6 @@ i_bs_get_utf16.execute(Fail, Flags, Dst) {
 }
 
 bs_context_to_binary := ctx_to_bin.fetch.execute;
-i_bs_get_binary_all_reuse := ctx_to_bin.fetch_bin.execute;
 
 ctx_to_bin.head() {
     Eterm context;
@@ -1157,16 +1156,6 @@ ctx_to_bin.fetch(Src) {
     } else {
         $NEXT0();
     }
-}
-
-ctx_to_bin.fetch_bin(Src, Fail, Unit) {
-    context = $Src;
-    mb = ms_matchbuffer(context);
-    size = mb->size - mb->offset;
-    if (size % $Unit != 0) {
-        $FAIL($Fail);
-    }
-    offs = mb->offset;
 }
 
 ctx_to_bin.execute() {

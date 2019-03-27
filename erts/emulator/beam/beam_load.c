@@ -3347,19 +3347,12 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 
     NATIVE_ENDIAN(Flags);
     if (Size.type == TAG_a && Size.val == am_all) {
-	if (Ms.type == Dst.type && Ms.val == Dst.val) {
-	    GENOP_NAME_ARITY(op, i_bs_get_binary_all_reuse, 3);
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
-	    op->a[2] = Unit;
-	} else {
-	    GENOP_NAME_ARITY(op, i_bs_get_binary_all2, 5);
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
-	    op->a[2] = Live;
-	    op->a[3] = Unit;
-	    op->a[4] = Dst;
-	}
+	GENOP_NAME_ARITY(op, i_bs_get_binary_all2, 5);
+	op->a[0] = Ms;
+	op->a[1] = Fail;
+	op->a[2] = Live;
+	op->a[3] = Unit;
+	op->a[4] = Dst;
     } else if (Size.type == TAG_i) {
 	GENOP_NAME_ARITY(op, i_bs_get_binary_imm2, 6);
 	op->a[0] = Ms;
