@@ -6600,7 +6600,7 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
                    ("SOCKET", "nclose -> [%d] stop was scheduled\r\n",
                     descP->sock) );
             dec_socket(domain, type, protocol); // SHALL WE DO THIS AT finalize?
-            reply = esock_make_ok2(env, descP->closeRef);
+            reply = esock_make_ok2(env, enif_make_copy(env, descP->closeRef));
         } else {
 
             SSDBG( descP,
