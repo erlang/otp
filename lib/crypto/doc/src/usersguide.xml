@@ -51,4 +51,5 @@
   <xi:include href="engine_load.xml"/>
   <xi:include href="engine_keys.xml"/>
   <xi:include href="algorithm_details.xml"/>
+  <xi:include href="new_api.xml"/>
 </part>
