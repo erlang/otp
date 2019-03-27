@@ -2579,6 +2579,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 
 	/* Need to be the only thread running... */
 	erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+        BIF_P->scheduler_data->current_process = NULL;
 	erts_thr_progress_block();
 
 	if (BIF_ARG_1 == am_info)
@@ -2592,6 +2593,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 
 	erts_thr_progress_unblock();
 	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+       BIF_P->scheduler_data->current_process = BIF_P;
 
 	ASSERT(dsbufp && dsbufp->str);
 	res = new_binary(BIF_P, (byte *) dsbufp->str, dsbufp->str_len);
