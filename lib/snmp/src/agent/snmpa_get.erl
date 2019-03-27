@@ -28,9 +28,9 @@
 %%%-----------------------------------------------------------------
 
 -export([
-         do_get/2, do_get/3,
-         do_get_next/2,
-         do_get_bulk/6
+         do_get/3, do_get/4,
+         do_get_next/3,
+         do_get_bulk/7
         ]).
 
 -include("snmpa_internal.hrl").
@@ -74,7 +74,7 @@
 %%          {ErrorStatus, ErrorIndex, []}
 %%-----------------------------------------------------------------
 
-do_get(UnsortedVarbinds, IsNotification) ->
+do_get(UnsortedVarbinds, IsNotification, _Extra) ->
     {MyVarbinds, SubagentVarbinds} = ?LIB:agent_sort_vbs(UnsortedVarbinds),
     case do_get_local(MyVarbinds, IsNotification) of
 	{noError, 0, NewMyVarbinds} ->
@@ -97,7 +97,7 @@ do_get(UnsortedVarbinds, IsNotification) ->
 %%          {ErrorStatus, ErrorIndex, []}
 %%-----------------------------------------------------------------
 
-do_get(MibView, UnsortedVarbinds, IsNotification) ->
+do_get(MibView, UnsortedVarbinds, IsNotification, Extra) ->
     ?vtrace("do_get -> entry with"
 	    "~n   MibView:          ~p"
 	    "~n   UnsortedVarbinds: ~p"
@@ -105,7 +105,7 @@ do_get(MibView, UnsortedVarbinds, IsNotification) ->
 	    [MibView, UnsortedVarbinds, IsNotification]),
     %% This is me, the master, so go ahead
     {OutSideView, InSideView} = ?LIB:split_vbs_view(UnsortedVarbinds, MibView),
-    {Error, Index, NewVbs}    = do_get(InSideView, IsNotification),
+    {Error, Index, NewVbs}    = do_get(InSideView, IsNotification, Extra),
     {Error, Index, NewVbs ++ OutSideView}.
 
 
@@ -437,7 +437,7 @@ validate_tab_res(_TooMany, [], Mfa, _Res, I) ->
 %%%   According to RFC1157, section 4.1.3 and RFC1905, section 4.2.2.
 %%%-----------------------------------------------------------------
 %%-----------------------------------------------------------------
-%% Func: do_get_next/2
+%% Func: do_get_next/3
 %% Purpose: do_get_next handles "getNextRequests".
 %% Note: Even if it is SNMPv1, a varbind's value can be
 %%       endOfMibView. This is converted to noSuchName in process_pdu.
@@ -470,16 +470,16 @@ validate_tab_res(_TooMany, [], Mfa, _Res, I) ->
 %%      subagent must be considered to be very rare.
 %%-----------------------------------------------------------------
 
-do_get_next(MibView, UnsortedVBs) ->
-    do_get_next(MibView, UnsortedVBs, infinity).
+do_get_next(MibView, UnsortedVBs, _Extra) ->
+    do_get_next2(MibView, UnsortedVBs, infinity).
 
 %% The third argument is only used if we are called as result
 %% of a get-bulk request.
-do_get_next(_MibView, UnsortedVarbinds, GbMaxVBs) 
+do_get_next2(_MibView, UnsortedVarbinds, GbMaxVBs) 
   when (is_integer(GbMaxVBs) andalso (length(UnsortedVarbinds) > GbMaxVBs)) ->
     {tooBig, 0, []}; % What is the correct index in this case?
-do_get_next(MibView, UnsortedVBs, GbMaxVBs) ->
-    ?vt("do_get_next -> entry when"
+do_get_next2(MibView, UnsortedVBs, GbMaxVBs) ->
+    ?vt("do_get_next2 -> entry when"
  	"~n   MibView:          ~p"
  	"~n   UnsortedVBs: ~p", [MibView, UnsortedVBs]),
     SortedVBs = ?LIB:oid_sort_vbs(UnsortedVBs),
@@ -959,7 +959,8 @@ next_oid(Oid) ->
 %%% resulting response cannot contain more then this number of VBs.
 %%%-----------------------------------------------------------------
 
-do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds, GbMaxVBs) ->
+do_get_bulk(MibView, NonRepeaters, MaxRepetitions,
+            PduMS, Varbinds, GbMaxVBs, _Extra) ->
     ?vtrace("do_get_bulk -> entry with"
 	    "~n   MibView:        ~p"
 	    "~n   NonRepeaters:   ~p"
@@ -972,7 +973,7 @@ do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds, GbMaxVBs) ->
     ?vt("do_get_bulk -> split: "
 	"~n   NonRepVbs: ~p"
 	"~n   RestVbs:   ~p", [NonRepVbs, RestVbs]),
-    case do_get_next(MibView, NonRepVbs, GbMaxVBs) of
+    case do_get_next2(MibView, NonRepVbs, GbMaxVBs) of
 	{noError, 0, UResNonRepVbs} ->
 	    ?vt("do_get_bulk -> next noError: "
 		"~n   UResNonRepVbs: ~p", [UResNonRepVbs]),
@@ -1106,7 +1107,7 @@ try_get_bulk(Sz, MibView, Varbinds, GbMaxVBs) ->
 	"~n   Sz:       ~w"
 	"~n   MibView:  ~w"
 	"~n   Varbinds: ~w", [Sz, MibView, Varbinds]),
-    case do_get_next(MibView, Varbinds, GbMaxVBs) of
+    case do_get_next2(MibView, Varbinds, GbMaxVBs) of
 	{noError, 0, UNextVarbinds} -> 
 	    ?vt("try_get_bulk -> noError: "
 		"~n   UNextVarbinds: ~p", [UNextVarbinds]),

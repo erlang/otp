@@ -35,7 +35,8 @@
 %%          mibview (local).
 
 -callback do_get(UnsortedVBs    :: [snmp:varbind()],
-                 IsNotification :: boolean()) ->
+                 IsNotification :: boolean(),
+                 Extra          :: term()) ->
     {noError, 0, ResVBs :: [snmp:varbind()]} |
     {ErrStatus :: snmp:error_status(), ErrIndex :: snmp:error_index(), []}.
 
@@ -44,7 +45,8 @@
 
 -callback do_get(MibView        :: snmp_view_based_acm_mib:mibview(), 
                  UnsortedVBs    :: [snmp:varbind()],
-                 IsNotification :: boolean()) ->
+                 IsNotification :: boolean(),
+                 Extra          :: term()) ->
     {noError, 0, ResVBs :: [snmp:varbind()]} |
     {ErrStatus :: snmp:error_status(), ErrIndex :: snmp:error_index(), []}.
 
@@ -56,7 +58,8 @@
 %% Purpose: Handles "get-next-requests".
 
 -callback do_get_next(MibView     :: snmp_view_based_acm_mib:mibview(),
-                      UnsortedVBs :: [snmp:varbind()]) ->
+                      UnsortedVBs :: [snmp:varbind()],
+                      Extra       :: term()) ->
     {noError, 0, ResVBs :: [snmp:varbind()]} |
     {ErrStatus :: snmp:error_status(), ErrIndex :: snmp:error_index(), []}.
 
@@ -70,6 +73,7 @@
                       MaxRepetitions :: non_neg_integer(),
                       PduMS          :: pos_integer(),
                       VBs            :: [snmp:varbind()],
-                      MaxVBs         :: pos_integer()) ->
+                      MaxVBs         :: pos_integer(),
+                      Extra          :: term()) ->
     {noError, 0, ResVBs :: [snmp:varbind()]} |
     {ErrStatus :: snmp:error_status(), ErrIndex :: snmp:error_index(), []}.

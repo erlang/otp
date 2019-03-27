@@ -28,28 +28,31 @@
 %%%-----------------------------------------------------------------
 
 -export([
-         do_get/2, do_get/3,
-         do_get_next/2,
-         do_get_bulk/6
+         do_get/3, do_get/4,
+         do_get_next/3,
+         do_get_bulk/7
         ]).
 
 
 
-do_get(UnsortedVarbinds, IsNotification) ->
-    snmpa_get:do_get(UnsortedVarbinds, IsNotification).
+do_get(UnsortedVarbinds, IsNotification, Extra) ->
+    snmpa_get:do_get(UnsortedVarbinds, IsNotification, Extra).
 
 
 
-do_get(MibView, UnsortedVarbinds, IsNotification) ->
-    snmpa_get:do_get(MibView, UnsortedVarbinds, IsNotification).
-
-
-do_get_next(MibView, UnsortedVBs) ->
-    snmpa_get:do_get_next(MibView, UnsortedVBs).
+do_get(MibView, UnsortedVarbinds, IsNotification, Extra) ->
+    snmpa_get:do_get(MibView, UnsortedVarbinds, IsNotification, Extra).
 
 
 
+do_get_next(MibView, UnsortedVBs, Extra) ->
+    snmpa_get:do_get_next(MibView, UnsortedVBs, Extra).
 
-do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds, GbMaxVBs) ->
+
+
+
+do_get_bulk(MibView, NonRepeaters, MaxRepetitions,
+            PduMS, Varbinds, GbMaxVBs, Extra) ->
     snmpa_get:do_get_bulk(MibView, NonRepeaters, MaxRepetitions,
-                          PduMS, Varbinds, GbMaxVBs).
+                          PduMS, Varbinds, GbMaxVBs,
+                          Extra).

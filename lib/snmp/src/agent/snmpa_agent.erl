@@ -2708,8 +2708,9 @@ mk_next_oid(Vb) ->
 %%-----------------------------------------------------------------
 
 do_get(UnsortedVarbinds, IsNotification) ->
+    Extra     = get(net_if_data),
     GetModule = get(get_module),
-    GetModule:do_get(UnsortedVarbinds, IsNotification).
+    GetModule:do_get(UnsortedVarbinds, IsNotification, Extra).
     
 
 %%-----------------------------------------------------------------
@@ -2724,8 +2725,9 @@ do_get(UnsortedVarbinds, IsNotification) ->
 %% we *may* need to tunnel into the master-agent and let it do the work.
 
 do_get(MibView, UnsortedVarbinds, IsNotification) ->
+    Extra     = get(net_if_data),
     GetModule = get(get_module),
-    GetModule:do_get(MibView, UnsortedVarbinds, IsNotification).
+    GetModule:do_get(MibView, UnsortedVarbinds, IsNotification, Extra).
 
 do_get(MibView, UnsortedVarbinds, IsNotification, ForceMaster) ->
     case (whereis(snmp_master_agent) =:= self()) of
@@ -2780,8 +2782,9 @@ do_get(MibView, UnsortedVarbinds, IsNotification, ForceMaster) ->
 
 
 do_get_next(MibView, UnsortedVarbinds) ->
+    Extra     = get(net_if_data),
     GetModule = get(get_module),
-    GetModule:do_get_next(MibView, UnsortedVarbinds).
+    GetModule:do_get_next(MibView, UnsortedVarbinds, Extra).
 
 
 
@@ -2796,9 +2799,11 @@ do_get_next(MibView, UnsortedVarbinds) ->
 %%%-----------------------------------------------------------------
 
 do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Varbinds, GbMaxVBs) ->
+    Extra     = get(net_if_data),
     GetModule = get(get_module),
     GetModule:do_get_bulk(MibView, NonRepeaters, MaxRepetitions,
-                          PduMS, Varbinds, GbMaxVBs).
+                          PduMS, Varbinds, GbMaxVBs,
+                          Extra).
 
 
 
@@ -3119,6 +3124,7 @@ report_err(Val, Mfa, Err) ->
     user_err("Got ~p from ~w. Using ~w", [Val, Mfa, Err]),
     {error, Err}.
 
+
 is_valid_pdu_type('get-request')      -> true;
 is_valid_pdu_type('get-next-request') -> true;
 is_valid_pdu_type('get-bulk-request') -> true;
@@ -3156,33 +3162,8 @@ mapfoldl(F, Eas, Accu0, [Hd|Tail]) ->
 mapfoldl(_F, _Eas, Accu, []) -> {Accu,[]}.
 
 
-%%-----------------------------------------------------------------
-%% Runtime debugging of the agent.
-%%-----------------------------------------------------------------
 
-%% dbg_apply(M,F,A) ->
-%%     case get(verbosity) of
-%% 	silence -> 
-%% 	    apply(M,F,A);
-%% 	_ ->
-%% 	    ?vlog("~n   apply: ~w,~w,~p~n", [M,F,A]),
-%% 	    Res = (catch apply(M,F,A)),
-%% 	    case Res of
-%% 		{'EXIT', Reason} ->
-%% 		    ?vinfo("Call to: "
-%% 			   "~n   Module:   ~p"
-%% 			   "~n   Function: ~p"
-%% 			   "~n   Args:     ~p"
-%% 			   "~n"
-%% 			   "~nresulted in an exit"
-%% 			   "~n"
-%% 			   "~n   ~p", [M, F, A, Reason]);
-%% 		_ ->
-%% 		    ?vlog("~n   returned: ~p", [Res])
-%% 	    end,
-%% 	    Res
-%%     end.
-
+%% ---------------------------------------------------------------------
 
 short_name(none) -> ma;
 short_name(_Pid) -> sa.
