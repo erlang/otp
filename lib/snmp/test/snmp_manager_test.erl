@@ -6179,7 +6179,12 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
 	   {mib_server,      [{verbosity, MSV}]},
 	   {note_store,      [{verbosity, NSV}]},
 	   {stymbolic_store, [{verbosity, SSV}]},
-	   {net_if,          [{verbosity, NIV}]},
+	   {net_if,          [{verbosity, NIV},
+                              %% On some linux "they" add a 127.0.1.1 or somthing
+                              %% similar, so if we don't specify bind_to
+                              %% we don't know which address will be selected
+                              %% (which will cause problems for some test cases).
+                              {options, [{bind_to, true}]}]},
 	   {multi_threaded,  true}],
     ?line ok = set_agent_env(Node, Env),
 
