@@ -71,7 +71,8 @@
          term2bin_tuple_fallbacks/1,
          robustness/1,otp_8117/1,
 	 otp_8180/1, trapping/1, large/1,
-	 error_after_yield/1, cmp_old_impl/1]).
+	 error_after_yield/1, cmp_old_impl/1,
+         t2b_system_limit/1]).
 
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
@@ -79,7 +80,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap,{minutes,4}}].
 
-all() -> 
+all() ->
     [copy_terms, conversions, deep_lists, deep_bitstr_lists,
      t_split_binary, bad_split,
      bad_list_to_binary, bad_binary_to_list, terms,
@@ -90,7 +91,8 @@ all() ->
      b2t_used_big,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
-     bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
+     bad_term_to_binary, t2b_system_limit, more_bad_terms,
+     otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
      term2bin_tuple_fallbacks,
@@ -459,6 +461,54 @@ bad_term_to_binary(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{version,1}|bad_tail])),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{minor_version,-1}])),
     {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{minor_version,x}])),
+
+    ok.
+
+t2b_system_limit(Config) when is_list(Config) ->
+    case erlang:system_info(wordsize) of
+        8 ->
+            case proplists:get_value(system_total_memory,
+                                     memsup:get_system_memory_data()) of
+                Memory when is_integer(Memory),
+                            Memory > 6*1024*1024*1024 ->
+                    test_t2b_system_limit(),
+                    garbage_collect(),
+                    ok;
+                _ ->
+                    {skipped, "Not enough memory on this machine"}
+            end;
+        4 ->
+            {skipped, "Only interesting on 64-bit builds"}
+    end.
+
+test_t2b_system_limit() ->
+    io:format("Creating HugeBin~n", []),
+    Bits = ((1 bsl 32)+1)*8,
+    HugeBin = <<0:Bits>>,
+
+    io:format("Testing term_to_binary(HugeBin)~n", []),
+    {'EXIT',{system_limit,[{erlang,term_to_binary,
+                            [HugeBin],
+                            _} |_]}} = (catch term_to_binary(HugeBin)),
+
+    io:format("Testing term_to_binary(HugeBin, [compressed])~n", []),
+    {'EXIT',{system_limit,[{erlang,term_to_binary,
+                            [HugeBin, [compressed]],
+                            _} |_]}} = (catch term_to_binary(HugeBin, [compressed])),
+
+    %% Check that it works also after we have trapped...
+    io:format("Creating HugeListBin~n", []),
+    HugeListBin = [lists:duplicate(2000000,2000000), HugeBin],
+
+    io:format("Testing term_to_binary(HugeListBin)~n", []),
+    {'EXIT',{system_limit,[{erlang,term_to_binary,
+                            [HugeListBin],
+                            _} |_]}} = (catch term_to_binary(HugeListBin)),
+
+    io:format("Testing term_to_binary(HugeListBin, [compressed])~n", []),
+    {'EXIT',{system_limit,[{erlang,term_to_binary,
+                            [HugeListBin, [compressed]],
+                            _} |_]}} = (catch term_to_binary(HugeListBin, [compressed])),
 
     ok.
 

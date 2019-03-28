@@ -111,13 +111,13 @@ static byte* dec_pid(ErtsDistExternal *, ErtsHeapFactory*, byte*, Eterm*, byte t
 static Sint decoded_size(byte *ep, byte* endp, int internal_tags, struct B2TContext_t*);
 static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1);
 
-static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint flags, 
-				     Binary *context_b);
+static Eterm erts_term_to_binary_int(Process* p, Eterm Term, Eterm opts, int level,
+                                     Uint flags, Binary *context_b);
 
 static Uint encode_size_struct2(ErtsAtomCacheMap *, Eterm, unsigned);
 struct TTBSizeContext_;
-static int encode_size_struct_int(struct TTBSizeContext_*, ErtsAtomCacheMap *acmp, Eterm obj,
-				  unsigned dflags, Sint *reds, Uint *res);
+static ErtsExtSzRes encode_size_struct_int(struct TTBSizeContext_*, ErtsAtomCacheMap *acmp,
+                                           Eterm obj, unsigned dflags, Sint *reds, Uint *res);
 
 static Export binary_to_term_trap_export;
 static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1);
@@ -602,49 +602,50 @@ done:
     return reds < 0 ? 0 : reds;
 }
 
-int erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp,
-			      Uint* szp)
+ErtsExtSzRes
+erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp, Uint* szp)
 {
     Uint sz;
-    if (encode_size_struct_int(NULL, acmp, term, flags, NULL, &sz)) {
-	return -1;
-    } else {
+    ErtsExtSzRes res = encode_size_struct_int(NULL, acmp, term, flags, NULL, &sz);
+    if (res == ERTS_EXT_SZ_OK) {
 #ifndef ERTS_DEBUG_USE_DIST_SEP
 	if (!(flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_NO_MAGIC)))
 #endif
 	    sz++ /* VERSION_MAGIC */;
 
 	*szp += sz;
-	return 0;
     }
+    return res;
 }
 
-int erts_encode_dist_ext_size_int(Eterm term, ErtsDSigSendContext *ctx, Uint* szp)
+ErtsExtSzRes
+erts_encode_dist_ext_size_ctx(Eterm term, ErtsDSigSendContext *ctx, Uint* szp)
 {
     Uint sz;
-    if (encode_size_struct_int(&ctx->u.sc, ctx->acmp, term, ctx->flags, &ctx->reds, &sz)) {
-	return -1;
-    } else {
+    ErtsExtSzRes res = encode_size_struct_int(&ctx->u.sc, ctx->acmp, term,
+                                              ctx->flags, &ctx->reds, &sz);
+    if (res == ERTS_EXT_SZ_OK) {
 #ifndef ERTS_DEBUG_USE_DIST_SEP
 	if (!(ctx->flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_NO_MAGIC)))
 #endif
 	    sz++ /* VERSION_MAGIC */;
 
 	*szp += sz;
-	return 0;
     }
+    return res;
 }
 
-Uint erts_encode_ext_size(Eterm term)
+ErtsExtSzRes erts_encode_ext_size_2(Eterm term, unsigned dflags, Uint *szp)
 {
-    return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS)
-	+ 1 /* VERSION_MAGIC */;
+    ErtsExtSzRes res = encode_size_struct_int(NULL, NULL, term, dflags,
+                                              NULL, szp);
+    (*szp)++ /* VERSION_MAGIC */;
+    return res;
 }
 
-Uint erts_encode_ext_size_2(Eterm term, unsigned dflags)
+ErtsExtSzRes erts_encode_ext_size(Eterm term, Uint *szp)
 {
-    return encode_size_struct2(NULL, term, dflags)
-        + 1 /* VERSION_MAGIC */;
+    return erts_encode_ext_size_2(term, TERM_TO_BINARY_DFLAGS, szp);
 }
 
 Uint erts_encode_ext_size_ets(Eterm term)
@@ -1248,9 +1249,22 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
 {
     Eterm *tp = tuple_val(BIF_ARG_1);
     Eterm Term = tp[1];
-    Eterm bt = tp[2];
+    Eterm Opts = tp[2];
+    Eterm bt = tp[3];
     Binary *bin = erts_magic_ref2bin(bt);
-    Eterm res = erts_term_to_binary_int(BIF_P, Term, 0, 0,bin);
+    Eterm res = erts_term_to_binary_int(BIF_P, Term, Opts, 0, 0,bin);
+    if (is_non_value(res)) {
+        if (erts_set_gc_state(BIF_P, 1)
+            || MSO(BIF_P).overhead > BIN_VHEAP_SZ(BIF_P)) {
+            ERTS_VBUMP_ALL_REDS(BIF_P);
+        }
+        if (Opts == am_undefined)
+            ERTS_BIF_ERROR_TRAPPED1(BIF_P, SYSTEM_LIMIT,
+                                    bif_export[BIF_term_to_binary_1], Term);
+        else
+            ERTS_BIF_ERROR_TRAPPED2(BIF_P, SYSTEM_LIMIT,
+                                    bif_export[BIF_term_to_binary_2], Term, Opts);
+    }
     if (is_tuple(res)) {
 	ASSERT(BIF_P->flags & F_DISABLE_GC);
 	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
@@ -1267,7 +1281,12 @@ HIPE_WRAPPER_BIF_DISABLE_GC(term_to_binary, 1)
 
 BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
 {
-    Eterm res = erts_term_to_binary_int(BIF_P, BIF_ARG_1, 0, TERM_TO_BINARY_DFLAGS, NULL);
+    Eterm res = erts_term_to_binary_int(BIF_P, BIF_ARG_1, am_undefined,
+                                        0, TERM_TO_BINARY_DFLAGS, NULL);
+    if (is_non_value(res)) {
+	ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    }
     if (is_tuple(res)) {
 	erts_set_gc_state(BIF_P, 0);
 	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
@@ -1326,7 +1345,12 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
 	goto error;
     }
 
-    res = erts_term_to_binary_int(p, Term, level, flags, NULL);
+    res = erts_term_to_binary_int(p, Term, BIF_ARG_2,
+                                  level, flags, NULL);
+    if (is_non_value(res)) {
+	ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    }
     if (is_tuple(res)) {
 	erts_set_gc_state(p, 0);
 	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
@@ -1875,8 +1899,17 @@ external_size_1(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm Term = BIF_ARG_1;
+    Uint size;
 
-    Uint size = erts_encode_ext_size(Term);
+    switch (erts_encode_ext_size(Term, &size)) {
+    case ERTS_EXT_SZ_SYSTEM_LIMIT:
+        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    case ERTS_EXT_SZ_YIELD:
+        ERTS_INTERNAL_ERROR("Unexpected yield");
+    case ERTS_EXT_SZ_OK:
+        break;
+    }
+
     if (IS_USMALL(0, size)) {
 	BIF_RET(make_small(size));
     } else {
@@ -1919,7 +1952,15 @@ external_size_2(BIF_ALIST_2)
         goto error;
     }
 
-    size = erts_encode_ext_size_2(BIF_ARG_1, flags);
+    switch (erts_encode_ext_size_2(BIF_ARG_1, flags, &size)) {
+    case ERTS_EXT_SZ_SYSTEM_LIMIT:
+        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    case ERTS_EXT_SZ_YIELD:
+        ERTS_INTERNAL_ERROR("Unexpected yield");
+    case ERTS_EXT_SZ_OK:
+        break;
+    }
+
     if (IS_USMALL(0, size)) {
         BIF_RET(make_small(size));
     } else {
@@ -2007,7 +2048,15 @@ erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint fl
 Eterm
 erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
     Uint size;
-    size = encode_size_struct2(NULL, Term, flags) + 1 /* VERSION_MAGIC */;
+    switch (encode_size_struct_int(NULL, NULL, Term, flags, NULL, &size)) {
+    case ERTS_EXT_SZ_SYSTEM_LIMIT:
+        return THE_NON_VALUE;
+    case ERTS_EXT_SZ_YIELD:
+        ERTS_INTERNAL_ERROR("Unexpected yield");
+    case ERTS_EXT_SZ_OK:
+        break;
+    }
+    size++; /* VERSION_MAGIC */;
     return erts_term_to_binary_simple(p, Term, size, level, flags);
 }
 
@@ -2057,8 +2106,8 @@ static int ttb_context_destructor(Binary *context_bin)
     return 1;
 }
 
-static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint flags, 
-				     Binary *context_b) 
+static Eterm erts_term_to_binary_int(Process* p, Eterm Term, Eterm opts, int level,
+                                     Uint flags, Binary *context_b) 
 {
     Eterm *hp;
     Eterm res;
@@ -2076,18 +2125,17 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
     do {								\
 	if (context_b == NULL) {					\
 	    context_b = erts_create_magic_binary(sizeof(TTBContext),    \
-                                                 ttb_context_destructor);   \
+                                                 ttb_context_destructor);\
 	    context =  ERTS_MAGIC_BIN_DATA(context_b);			\
-	    sys_memcpy(context,&c_buff,sizeof(TTBContext));			\
+	    sys_memcpy(context,&c_buff,sizeof(TTBContext));		\
 	}								\
     } while (0)
 
 #define RETURN_STATE()							\
     do {								\
-	static const int TUPLE2_SIZE = 2 + 1;				\
-	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + TUPLE2_SIZE);        \
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + 1 + 3);              \
 	c_term = erts_mk_magic_ref(&hp, &MSO(p), context_b);            \
-	res = TUPLE2(hp, Term, c_term);					\
+	res = TUPLE3(hp, Term, opts, c_term);                           \
 	BUMP_ALL_REDS(p);                                               \
 	return res;							\
     } while (0);
@@ -2113,11 +2161,17 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		int level;
 		Uint flags;
 		/* Try for fast path */
-		if (encode_size_struct_int(&context->s.sc, NULL, Term,
-					   context->s.sc.flags, &reds, &size) < 0) {
+                switch (encode_size_struct_int(&context->s.sc, NULL, Term,
+                                               context->s.sc.flags, &reds, &size)) {
+                case ERTS_EXT_SZ_SYSTEM_LIMIT:
+                    BUMP_REDS(p, (initial_reds - reds) / TERM_TO_BINARY_LOOP_FACTOR);
+                    return THE_NON_VALUE;
+                case ERTS_EXT_SZ_YIELD:
 		    EXPORT_CONTEXT();
 		    /* Same state */
 		    RETURN_STATE();
+                case ERTS_EXT_SZ_OK:
+                    break;
 		}
 		++size; /* VERSION_MAGIC */
 		/* Move these to next state */
@@ -4159,13 +4213,21 @@ error_hamt:
    to a sequence of bytes
    N.B. That this must agree with to_external2() above!!!
    (except for cached atoms) */
-static Uint encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags) {
-    Uint res;
-    (void) encode_size_struct_int(NULL, acmp, obj, dflags, NULL, &res);
-    return res;
+static Uint encode_size_struct2(ErtsAtomCacheMap *acmp,
+                                Eterm obj,
+                                unsigned dflags) {
+    Uint size;
+    ErtsExtSzRes res = encode_size_struct_int(NULL, acmp, obj,
+                                              dflags, NULL, &size);
+    /*
+     * encode_size_struct2() only allowed when
+     * we know the result will always be OK!
+     */ 
+    ASSERT(res == ERTS_EXT_SZ_OK); (void) res;
+    return (Uint) size;
 }
 
-static int
+static ErtsExtSzRes
 encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		       unsigned dflags, Sint *reds, Uint *res)
 {
@@ -4198,7 +4260,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    ctx->obj = obj;
 	    ctx->result = result;
 	    WSTACK_SAVE(s, &ctx->wstack);
-	    return -1;
+	    return ERTS_EXT_SZ_YIELD;
 	}
 	switch (tag_val_def(obj)) {
 	case NIL_DEF:
@@ -4365,11 +4427,26 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		result += 32;   /* Yes, including the tag */
 	    }
 	    break;
-	case BINARY_DEF:
-	    if (dflags & DFLAG_INTERNAL_TAGS) {
+	case BINARY_DEF: {
+            ProcBin* pb = (ProcBin*) binary_val(obj);
+            Uint tot_bytes = pb->size;
+            if (!(dflags & DFLAG_INTERNAL_TAGS)) {
+#ifdef ARCH_64
+                if (tot_bytes >= (Uint) 0xffffffff) {
+                    if (pb->thing_word == HEADER_SUB_BIN) {
+                        ErlSubBin* sub = (ErlSubBin*) pb;
+                        tot_bytes += (sub->bitoffs + sub->bitsize+ 7) / 8;
+                    }
+                    if (tot_bytes > (Uint) 0xffffffff) {
+                        WSTACK_DESTROY(s);
+                        return ERTS_EXT_SZ_SYSTEM_LIMIT;
+                    }
+                }
+#endif
+            }
+            else {
 		ProcBin* pb = (ProcBin*) binary_val(obj);
 		Uint sub_extra = 0;
-		Uint tot_bytes = pb->size;
 		if (pb->thing_word == HEADER_SUB_BIN) {
 		    ErlSubBin* sub = (ErlSubBin*) pb;
 		    pb = (ProcBin*) binary_val(sub->orig);
@@ -4386,6 +4463,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    result += 1 + 4 + binary_size(obj) +
 		    5;			/* For unaligned binary */
 	    break;
+        }
 	case FUN_DEF:
 	    {
 		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
@@ -4418,7 +4496,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    break;
 
 	default:
-	    erts_exit(ERTS_ERROR_EXIT,"Internal data structure error (in encode_size_struct2)%x\n",
+	    erts_exit(ERTS_ERROR_EXIT,"Internal data structure error (in encode_size_struct_int) %x\n",
 		     obj);
 	}
 
@@ -4458,7 +4536,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	*reds = r < 0 ? 0 : r;
     }
     *res = result;
-    return 0;
+    return ERTS_EXT_SZ_OK;
 }
 
 

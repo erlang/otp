@@ -172,14 +172,21 @@ byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *, Uint, Eterm)
 byte *erts_encode_ext_dist_header_fragment(byte **, Uint, Eterm);
 Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint32 dflags, Sint reds);
 struct erts_dsig_send_context;
-int erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap*, Uint* szp);
-int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp);
+
+typedef enum {
+    ERTS_EXT_SZ_OK,
+    ERTS_EXT_SZ_YIELD,
+    ERTS_EXT_SZ_SYSTEM_LIMIT
+} ErtsExtSzRes;
+
+ErtsExtSzRes erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap*, Uint* szp);
+ErtsExtSzRes erts_encode_dist_ext_size_ctx(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp);
 struct TTBEncodeContext_;
 int erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *,
 			  struct TTBEncodeContext_ *, Sint* reds);
 
-Uint erts_encode_ext_size(Eterm);
-Uint erts_encode_ext_size_2(Eterm, unsigned);
+ErtsExtSzRes erts_encode_ext_size(Eterm, Uint *szp);
+ErtsExtSzRes erts_encode_ext_size_2(Eterm, unsigned, Uint *szp);
 Uint erts_encode_ext_size_ets(Eterm);
 void erts_encode_ext(Eterm, byte **);
 byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_heap);
