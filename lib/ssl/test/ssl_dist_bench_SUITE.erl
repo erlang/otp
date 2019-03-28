@@ -421,10 +421,10 @@ sched_util_runner(A, B, false) ->
 sched_util_runner(A, B, Senders) ->
     Payload = payload(5),
     [A] = rpc:call(B, erlang, nodes, []),
-    ServerPid =
-        erlang:spawn(
-          B,
-          fun () -> throughput_server() end),
+    ServerPids =
+        [erlang:spawn_link(
+           B, fun () -> throughput_server() end)
+         || _ <- lists:seq(1, Senders)],
     ServerMsacc =
         erlang:spawn(
           B,
@@ -432,24 +432,28 @@ sched_util_runner(A, B, Senders) ->
                   receive
                       {start,Pid} ->
                           msacc:start(10000),
-                          Pid ! {ServerPid,msacc:stats()}
+                          receive
+                              {done,Pid} ->
+                                  Pid ! {self(),msacc:stats()}
+                          end
                   end
           end),
-    spawn_link(
-      fun() ->
-              %% We spawn 250 senders which should mean that we
-              %% have a load of 250 msgs/msec
-              [spawn_link(
-                 fun() ->
-                         throughput_client(ServerPid,Payload)
-                 end) || _ <- lists:seq(1, Senders)]
-      end),
-
     erlang:system_monitor(self(),[busy_dist_port]),
+    %% We spawn 250 senders which should mean that we
+    %% have a load of 250 msgs/msec
+    [spawn_link(
+       fun() ->
+               throughput_client(Pid, Payload)
+       end) || Pid <- ServerPids],
+    %%
+    receive after 1000 -> ok end,
     ServerMsacc ! {start,self()},
     msacc:start(10000),
     ClientMsaccStats = msacc:stats(),
-    ServerMsaccStats = receive {ServerPid,Stats} -> Stats end,
+    receive after 1000 -> ok end,
+    ServerMsacc ! {done,self()},
+    ServerMsaccStats = receive {ServerMsacc,Stats} -> Stats end,
+    %%
     {ClientMsaccStats,ServerMsaccStats, flush()}.
 
 flush() ->
