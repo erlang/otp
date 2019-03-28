@@ -395,21 +395,25 @@ sched_utilization(A, B, Prefix, HA, HB, SSL) ->
     ct:log("Stats of A from B: ~p",
            [ssl_apply(HB, net_kernel, node_info, [A])]),
     SchedUtilClient =
-        10000 * msacc:stats(system_runtime,ClientMsacc) /
-        msacc:stats(system_realtime,ClientMsacc),
+        round(10000 * msacc:stats(system_runtime,ClientMsacc) /
+                  msacc:stats(system_realtime,ClientMsacc)),
     SchedUtilServer =
-        10000 * msacc:stats(system_runtime,ServerMsacc) /
-        msacc:stats(system_realtime,ServerMsacc),
-    report(Prefix++" Sched Utilization Client",
-           SchedUtilClient, "util 0.01 %"),
-    report(Prefix++" Sched Utilization Server",
-           SchedUtilServer, "util 0.01 %"),
-    {comment,
-     "Client " ++
-         lists:flatten(io_lib:format("~.3g", [SchedUtilClient / 100])) ++
-         "%, Server " ++
-         lists:flatten(io_lib:format("~.3g", [SchedUtilServer / 100])) ++
-         "%"}.
+        round(10000 * msacc:stats(system_runtime,ServerMsacc) /
+                  msacc:stats(system_realtime,ServerMsacc)),
+    Verdict =
+        case Msgs of
+            [] ->
+                "";
+            _ ->
+                " ???"
+        end,
+    {comment, ClientComment} =
+        report(Prefix ++ " Sched Utilization Client" ++ Verdict,
+               SchedUtilClient, "/100 %" ++ Verdict),
+    {comment, ServerComment} =
+        report(Prefix++" Sched Utilization Server" ++ Verdict,
+               SchedUtilServer, "/100 %" ++ Verdict),
+    {comment, "Client " ++ ClientComment ++ ", Server " ++ ServerComment}.
 
 %% Runs on node A and spawns a server on node B
 %% We want to avoid getting busy_dist_port as it hides the true SU usage
