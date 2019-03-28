@@ -471,9 +471,14 @@ link_or_image(Str, Type) ->
  		    {["<url href=\"", text(Url), "\">", text(Text), "</url>"],
 		     Cont2};
  		{seealso, SeeAlso, _Title, Cont2} ->
-		    {["<seealso marker=\"", text(SeeAlso), "\">",
-		      text(Text), "</seealso>"],
-		     Cont2};
+                    case internal_seealso(SeeAlso) of
+                        no ->
+                            {["<seealso marker=\"", text(SeeAlso), "\">",
+                              text(Text), "</seealso>"],
+                             Cont2};
+                        {yes, SeeAlsoKey} ->
+                            {delayed, link, SeeAlsoKey, text(Text), Cont2}
+                    end;
  		{image, Image, Title, Cont2} ->
  		    {["<image file=\"", text(Image), "\"><icaption>",
 		      text(Title), "</icaption></image>"],
@@ -484,6 +489,11 @@ link_or_image(Str, Type) ->
  		    {delayed, Type, Key, Text, Cont2}
  	    end
      end.
+
+internal_seealso("#" ++ Marker) ->
+    {yes, {internal, Marker}};
+internal_seealso(_) ->
+    no.
 
 link_or_image_text([$\\,C|Cs], Acc) ->
     link_or_image_text(Cs, [C|Acc]);
@@ -615,8 +625,10 @@ put_title(S, 1, Title) ->
 put_title(#state{mlist = MList0,
 		 toc = TOC} = S0, H, Title) ->
     TitleStr = text(Title),
-    MList1 = [mk_lvl_marker(Title) | MList0],
+    TitleMarker = mk_lvl_marker(Title),
+    MList1 = [TitleMarker | MList0],
     Marker = mk_marker(MList1),
+    MarkerKey = string:lowercase(TitleMarker),
     S1 = chk_h1(H, 
 		S0#state{toc = [TOC,
 				lists:duplicate(H,"  "),
@@ -624,13 +636,15 @@ put_title(#state{mlist = MList0,
 				"<seealso marker=\"#",Marker,"\">",
 				TitleStr,"</seealso>",nl()],
 			 h = H,
-			 mlist = MList1}),
+			 mlist = MList1
+                        }),
     S2 = put_chars(S1, ["<marker id=\"", Marker, "\"/>",nl()]),
+    S3 = write_delayed(S2, {internal, MarkerKey}, {"#" ++ Marker, ""}),
     {STag, ETag} = case H > ?MAX_HEADING of
 		       true -> {"<p><strong>", "</strong></p>"};
 		       false -> {"<title>", "</title>"}
 		   end,
-    put_chars(S2, [STag, TitleStr, ETag, nl()]).
+    put_chars(S3, [STag, TitleStr, ETag, nl()]).
 
 setext_heading(H, #state{line = Line, h = OldH} = S0) ->
     S1 = sections(H, OldH, S0),
@@ -1219,6 +1233,15 @@ complete_output(S, [], Out) ->
 		   Out]};
 complete_output(S, [{delayed, IX}|Rest], Out) ->
     complete_output(S, Rest, [read_delayed(S, IX)|Out]);
+complete_output(S, [{delayed, {internal, Key0}, {link, Text, _Line}}|Rest], Out) ->
+    Key = [C || C <- Key0, C =/= $_],
+    case read_delayed(S, {internal, Key}) of
+        {value, {Url, _}} ->
+            complete_output(S, Rest, [mk_link(Text, Url)|Out]);
+        none ->
+            Url = "#" ++ Key0,
+            complete_output(S, Rest, [mk_link(Text, Url)|Out])
+    end;
 complete_output(S, [{delayed, Key, {link, Text, Line}}|Rest], Out) ->
     case read_delayed(S, Key) of
 	{value, {Url, _Title}} ->
