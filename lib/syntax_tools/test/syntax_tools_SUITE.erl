@@ -74,7 +74,7 @@ smoke_test_file(File) ->
 	    [print_error_markers(F, File) || F <- Forms],
 	    ok;
 	{error,Reason} ->
-	    io:format("~s: ~p\n", [File,Reason]),
+	    io:format("~ts: ~p\n", [File,Reason]),
 	    error
     end.
 
@@ -82,7 +82,7 @@ print_error_markers(F, File) ->
     case erl_syntax:type(F) of
 	error_marker ->
 	    {L,M,Info} = erl_syntax:error_marker_info(F),
-	    io:format("~ts:~p: ~s", [File,L,M:format_error(Info)]);
+	    io:format("~ts:~p: ~ts", [File,L,M:format_error(Info)]);
 	_ ->
 	    ok
     end.
@@ -362,7 +362,7 @@ test_comment_scan([File|Files],DataDir) ->
 	  end,
     Fs1 = erl_recomment:recomment_forms(Fs0, Comments),
     Fs2 = erl_syntax_lib:map(Fun, Fs1),
-    io:format("File: ~s~n", [Filename]),
+    io:format("File: ~ts~n", [Filename]),
     io:put_chars(erl_prettypr:format(Fs2, [{paper,  120},
 					   {ribbon, 110}])),
     test_comment_scan(Files,DataDir).
@@ -377,8 +377,8 @@ test_prettypr([File|Files],DataDir,PrivDir) ->
     PP = erl_prettypr:format(Fs, [{paper,  120}, {ribbon, 110}]),
     io:put_chars(PP),
     OutFile = filename:join(PrivDir, File),
-    ok = file:write_file(OutFile,iolist_to_binary(PP)),
-    io:format("Parsing OutFile: ~s~n", [OutFile]),
+    ok = file:write_file(OutFile,unicode:characters_to_binary(PP)),
+    io:format("Parsing OutFile: ~ts~n", [OutFile]),
     {ok, Fs2} = epp:parse_file(OutFile, [], []),
     case [Error || {error, _} = Error <- Fs2] of
         [] ->
@@ -445,7 +445,7 @@ pretty_print_parse_forms([{Fs0,Type}|FsForms],PrivDir,Filename) ->
     {Fs2,{CC,CT}} = erl_syntax_lib:mapfold(Comment,{0,0}, Fs1),
     io:format("Commented on ~w cases and ~w tries~n", [CC,CT]),
     PP  = erl_prettypr:format(Fs2),
-    ok  = file:write_file(OutFile,iolist_to_binary(PP)),
+    ok  = file:write_file(OutFile,unicode:characters_to_binary(PP)),
     pretty_print_parse_forms(FsForms,PrivDir,Filename).
 
 
