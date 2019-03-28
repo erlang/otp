@@ -1385,22 +1385,27 @@ ttest_ssockt_csockt_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
-    case os:type() of
-        {win32, _} ->
-            not_yet_implemented();
-        _ ->
-            case quiet_mode(Config) of
-                default ->
-                    ?LOGGER:start(),
-                    Config;
-                Quiet ->
-                    ?LOGGER:start(Quiet),
-                    [{esock_test_quiet, Quiet}|Config]
-            end
+    case lists:member(socket, erlang:loaded()) of
+        true ->
+            case os:type() of
+                {win32, _} ->
+                    (catch not_yet_implemented());
+                _ ->
+                    case quiet_mode(Config) of
+                        default ->
+                            ?LOGGER:start(),
+                            Config;
+                        Quiet ->
+                            ?LOGGER:start(Quiet),
+                            [{esock_test_quiet, Quiet}|Config]
+                    end
+            end;
+        false ->
+            {skip, "esock disabled"}
     end.
 
 end_per_suite(_) ->
-    ?LOGGER:stop(),
+    (catch ?LOGGER:stop()),
     ok.
 
 
