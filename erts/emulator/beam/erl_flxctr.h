@@ -64,7 +64,7 @@ typedef struct {
 } ErtsFlxCtr;
 
 #define ERTS_FLXCTR_NR_OF_EXTRA_BYTES(NR_OF_COUNTERS)   \
-    (NR_OF_COUNTERS * sizeof(erts_atomic_t))
+    ((NR_OF_COUNTERS-1) * sizeof(erts_atomic_t))
 
 /* Called by early_init */
 void erts_flxctr_setup(int decentralized_counter_groups);
@@ -292,7 +292,7 @@ int erts_flxctr_suspend_until_thr_prg_if_snapshot_ongoing(ErtsFlxCtr* c, Process
 /* Internal Declarations */
 
 #define ERTS_FLXCTR_GET_CTR_ARRAY_PTR(C)                                \
-    ((ErtsFlxCtrDecentralizedCtrArray*) erts_atomic_read_nob(&(C)->u.counters_ptr))
+    ((ErtsFlxCtrDecentralizedCtrArray*) erts_atomic_read_acqb(&(C)->u.counters_ptr))
 #define ERTS_FLXCTR_GET_CTR_PTR(C, SCHEDULER_ID, COUNTER_ID)            \
     &(ERTS_FLXCTR_GET_CTR_ARRAY_PTR(C))->array[SCHEDULER_ID].counters[COUNTER_ID]
 

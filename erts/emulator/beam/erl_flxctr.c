@@ -82,9 +82,7 @@ thr_prg_wake_up_and_count(void* bin_p)
     erts_free(info->alloc_type, array->block_start);
     erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     erts_proc_dec_refc(p);
-    if (erts_refc_dectest(&bin->intern.refc, 0) == 0) {
-        erts_bin_free(bin);
-    }
+    erts_bin_release(bin);
 }
 
 typedef struct {
@@ -106,9 +104,7 @@ thr_prg_wake_up_later(void* bin_p)
     erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     /* Free data */
     erts_proc_dec_refc(p);
-    if (erts_refc_dectest(&bin->intern.refc, 0) == 0) {
-        erts_bin_free(bin);
-    }
+    erts_bin_release(bin);
 }
 
 static
@@ -241,9 +237,9 @@ erts_flxctr_snapshot(ErtsFlxCtr* c,
             ErtsFlxCtrDecentralizedCtrArray* new_array =
                 create_decentralized_ctr_array(alloc_type, c->nr_of_counters);
             int success =
-                ((Sint)array) == erts_atomic_cmpxchg_nob(&c->u.counters_ptr,
-                                                         (Sint)new_array,
-                                                         (Sint)array);
+                ((Sint)array) == erts_atomic_cmpxchg_mb(&c->u.counters_ptr,
+                                                        (Sint)new_array,
+                                                        (Sint)array);
             if (!success) {
                 /* Let the caller try again later */
                 ErtsFlxCtrSnapshotResult res =
