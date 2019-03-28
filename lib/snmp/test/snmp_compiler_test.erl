@@ -226,10 +226,8 @@ agent_capabilities(Config) when is_list(Config) ->
     put(tname,agent_capabilities),
     p("starting with Config: ~p~n", [Config]),
 
-    SnmpPrivDir    = code:priv_dir(snmp),
+    SnmpPrivDir    = which_priv_dir(snmp),
     SnmpMibsDir    = join(SnmpPrivDir, "mibs"), 
-    OtpMibsPrivDir = code:priv_dir(otp_mibs),
-    OtpMibsMibsDir = join(OtpMibsPrivDir, "mibs"), 
     Dir   = ?config(mib_dir, Config),
     AcMib = join(Dir,"AC-TEST-MIB.mib"),
     ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
@@ -269,22 +267,20 @@ module_compliance(Config) when is_list(Config) ->
     put(tname,module_compliance),
     p("starting with Config: ~p~n", [Config]),
 
-    SnmpPrivDir    = code:priv_dir(snmp),
-    SnmpMibsDir    = join(SnmpPrivDir, "mibs"), 
-    OtpMibsPrivDir = code:priv_dir(otp_mibs),
-    OtpMibsMibsDir = join(OtpMibsPrivDir, "mibs"), 
-    Dir   = ?config(mib_dir, Config),
-    AcMib = join(Dir,"MC-TEST-MIB.mib"),
+    SnmpPrivDir = which_priv_dir(snmp),
+    SnmpMibsDir = join(SnmpPrivDir, "mibs"), 
+    Dir         = ?config(mib_dir, Config),
+    AcMib       = join(Dir,"MC-TEST-MIB.mib"),
     ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
 						 version,
-						 {i,           [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {i,           [SnmpMibsDir]}, 
 						 {outdir,      Dir}, 
 						 {verbosity,   trace}]),
     ?line {ok, Mib1} = snmp_misc:read_mib(MibFile1), 
     ?line {ok, MibFile2} = snmpc:compile(AcMib, [options,
 						 version,
 						 module_compliance,
-						 {i,           [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {i,           [SnmpMibsDir]}, 
 						 {outdir,      Dir}, 
 						 {verbosity,   trace}]),
     ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
@@ -730,6 +726,15 @@ check_desc(Desc, Desc) ->
 check_desc(Desc1, Desc2) ->
     exit({'description not equal', Desc1, Desc2}).
 
+
+which_priv_dir(App) ->
+    case code:priv_dir(App) of
+        Dir when is_list(Dir) ->
+            Dir;
+        {error, Reason} ->
+            exit({App, priv_dir_not_found, Reason})
+    end.
+    
 
 %% join(Comp) ->
 %%     filename:join(Comp).
