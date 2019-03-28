@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(map_SUITE).
--export([all/0, suite/0]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 
 -export([t_build_and_match_literals/1, t_build_and_match_literals_large/1,
          t_update_literals/1, t_update_literals_large/1,
@@ -84,7 +84,10 @@
          %% instruction-level tests
          t_has_map_fields/1,
          y_regs/1,
-         badmap_17/1]).
+         badmap_17/1,
+
+         %%Bugs
+         t_large_unequal_bins_same_hash_bug/1]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -149,7 +152,26 @@ all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
           %% instruction-level tests
           t_has_map_fields,
           y_regs,
-          badmap_17].
+          badmap_17,
+
+          %% Bugs
+          t_large_unequal_bins_same_hash_bug].
+
+init_per_suite(Config) ->
+    A0 = case application:start(sasl) of
+	     ok -> [sasl];
+	     _ -> []
+	 end,
+    A = case application:start(os_mon) of
+	     ok -> [os_mon|A0];
+	     _ -> A0
+	 end,
+    [{started_apps, A}|Config].
+
+end_per_suite(Config) ->
+    As = proplists:get_value(started_apps, Config),
+    lists:foreach(fun (A) -> application:stop(A) end, As),
+    Config.
 
 %% tests
 
@@ -3374,3 +3396,67 @@ fannerl() ->
       104,2,97,9,97,16,70,63,184,100,97,32,0,0,0,104,2,97,10,97,16,70,63,169,174,
       254,64,0,0,0,104,2,97,11,97,16,70,191,119,121,234,0,0,0,0,104,2,97,12,97,
       16,70,63,149,12,170,128,0,0,0,104,2,97,13,97,16,70,191,144,193,191,0,0,0,0>>.
+
+%% This test case checks that the bug with ticket number OTP-15707 is
+%% fixed. The bug could cause a crash or memory usage to grow until
+%% the machine ran out of memory.
+t_large_unequal_bins_same_hash_bug(Config) when is_list(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              K1 = get_4GB_bin(1),
+              K2 = get_4GB_bin(2),
+              Map = make_map(500),
+              Map2 = maps:put(K1, 42, Map),
+              %% The map needed to contain at least 32 key-value pairs
+              %% at this point to get the crash or out of memory
+              %% problem on the next line
+              Map3 = maps:put(K2, 43, Map2),
+              %% The following line should avoid that the compiler
+              %% optimizes away the above
+              io:format("~p ~p~n", [erlang:phash2(Map3), maps:size(Map3)])
+      end).
+
+make_map(0) -> 
+    #{};
+make_map(Size) ->
+    maps:put(Size, Size, make_map(Size-1)).
+
+get_4GB_bin(Value) ->
+    List = lists:duplicate(65536, Value),
+    Bin = erlang:iolist_to_binary(List),
+    IOList4GB = duplicate_iolist(Bin, 16),
+    Bin4GB = erlang:iolist_to_binary(IOList4GB),
+    4294967296 = size(Bin4GB),
+    Bin4GB.
+
+duplicate_iolist(IOList, 0) ->
+    IOList;
+duplicate_iolist(IOList, NrOfTimes) ->
+    duplicate_iolist([IOList, IOList], NrOfTimes - 1).
+
+run_when_enough_resources(Fun) ->
+    case {total_memory(), erlang:system_info(wordsize)} of
+        {Mem, 8} when is_integer(Mem) andalso Mem >= 31 ->
+            Fun();
+        {Mem, WordSize} ->
+            {skipped, 
+             io_lib:format("Not enough resources (System Memory >= ~p, Word Size = ~p)",
+                           [Mem, WordSize])}
+    end.
+
+total_memory() ->
+    %% Total memory in GB.
+    try
+	MemoryData = memsup:get_system_memory_data(),
+	case lists:keysearch(total_memory, 1, MemoryData) of
+	    {value, {total_memory, TM}} ->
+		TM div (1024*1024*1024);
+	    false ->
+		{value, {system_total_memory, STM}} =
+		    lists:keysearch(system_total_memory, 1, MemoryData),
+		STM div (1024*1024*1024)
+	end
+    catch
+	_ : _ ->
+	    undefined
+    end.
