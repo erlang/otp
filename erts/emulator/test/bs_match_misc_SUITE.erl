@@ -24,7 +24,7 @@
 	 kenneth/1,encode_binary/1,native/1,happi/1,
 	 size_var/1,wiger/1,x0_context/1,huge_float_field/1,
 	 writable_binary_matched/1,otp_7198/1,unordered_bindings/1,
-	 float_middle_endian/1]).
+	 float_middle_endian/1,unsafe_get_binary_reuse/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,7 +36,8 @@ all() ->
     [bound_var, bound_tail, t_float, little_float, sean,
      kenneth, encode_binary, native, happi, size_var, wiger,
      x0_context, huge_float_field, writable_binary_matched,
-     otp_7198, unordered_bindings, float_middle_endian].
+     otp_7198, unordered_bindings, float_middle_endian,
+     unsafe_get_binary_reuse].
 
 
 %% Test matching of bound variables.
@@ -556,5 +557,21 @@ unordered_bindings(CompressedLength, HashSize, PadLength, T) ->
      Padding:PadLength/binary,PadLength>> = T,
     {Content,Mac,Padding}.
 
+%% ERL-901: A load-time optimization assumed that match contexts had no further
+%% uses when a bs_get_binary2 overwrote the match context's register, and
+%% figured it would be safe to reuse the match context's memory for the
+%% resulting binary.
+%%
+%% This is no longer safe as of OTP 22, as a match context may be reused after
+%% being passed to another function.
+unsafe_get_binary_reuse(Config) when is_list(Config) ->
+    <<_First, Rest/binary>> = <<"hello">>,
+    ubgr_1(Rest),
+    <<Second,_/bits>> = Rest,
+    $e = Second,
+    ok.
+
+ubgr_1(<<_CP/utf8, Rest/binary>>) -> id(Rest);
+ubgr_1(_) -> false.
 
 id(I) -> I.
