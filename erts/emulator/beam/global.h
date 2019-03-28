@@ -1216,10 +1216,11 @@ Uint64 erts_timestamp_millis(void);
 
 Export* erts_find_function(Eterm, Eterm, unsigned int, ErtsCodeIndex);
 
-void *erts_calc_stacklimit(char *prev_c, UWord stacksize);
-int erts_check_below_limit(char *ptr, char *limit);
-int erts_check_above_limit(char *ptr, char *limit);
-void *erts_ptr_id(void *ptr);
+/* ERTS_NOINLINE prevents link-time optimization across modules */
+void *erts_calc_stacklimit(char *prev_c, UWord stacksize) ERTS_NOINLINE;
+int erts_check_below_limit(char *ptr, char *limit) ERTS_NOINLINE;
+int erts_check_above_limit(char *ptr, char *limit) ERTS_NOINLINE;
+void *erts_ptr_id(void *ptr) ERTS_NOINLINE;
 
 Eterm store_external_or_ref_in_proc_(Process *, Eterm);
 Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
