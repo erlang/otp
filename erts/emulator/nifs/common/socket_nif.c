@@ -119,7 +119,6 @@
 
 
 
-
 /* AND HERE WE MAY HAVE A BUNCH OF DEFINES....SEE INET DRIVER.... */
 
 
@@ -331,6 +330,20 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #include "socket_tarray.h"
 #include "socket_int.h"
 #include "socket_util.h"
+
+
+#if defined(ERTS_INLINE)
+#  define ESOCK_INLINE ERTS_INLINE
+#else
+#  if defined(__GNUC__)
+#    define ESOCK_INLINE __inline__
+#  elif defined(__WIN32__)
+#    define ESOCK_INLINE __inline
+#  else
+#    define ESOCK_INLINE
+#  endif
+#endif
+
 
 #if defined(SOL_IPV6) || defined(IPPROTO_IPV6)
 #define HAVE_IPV6
@@ -2897,7 +2910,7 @@ static ESockData data;
 /* These two (inline) functions are primarily intended for debugging,
  * that is, to make it easy to add debug printouts.
  */
-static inline void esock_free_env(const char* slogan, ErlNifEnv* env)
+static ESOCK_INLINE void esock_free_env(const char* slogan, ErlNifEnv* env)
 {
     SGDBG( ("SOCKET", "env free - %s: 0x%lX\r\n", slogan, env) );
 
@@ -2905,7 +2918,7 @@ static inline void esock_free_env(const char* slogan, ErlNifEnv* env)
 }
 
 
-static inline ErlNifEnv* esock_alloc_env(const char* slogan)
+static ESOCK_INLINE ErlNifEnv* esock_alloc_env(const char* slogan)
 {
     ErlNifEnv* env = enif_alloc_env();
 
@@ -17354,7 +17367,6 @@ char* esock_send_msg(ErlNifEnv*   env,
     else
         return NULL;
 }
-#endif // #if defined(__WIN32__)
 
 
 
@@ -17447,6 +17459,7 @@ ERL_NIF_TERM mk_socket(ErlNifEnv*   env,
     return MKT2(env, esock_atom_socket, sockRef);
 }
 
+#endif // #if defined(__WIN32__)
 
                               
 /* ----------------------------------------------------------------------
@@ -17538,6 +17551,8 @@ int esock_select_cancel(ErlNifEnv*             env,
  * Return value indicates if a new requestor was activated or not.
  */
 
+#if !defined(__WIN32__)
+
 #define ACTIVATE_NEXT_FUNCS                                               \
     ACTIVATE_NEXT_FUNC_DECL(acceptor, read,  currentAcceptor, acceptorsQ) \
     ACTIVATE_NEXT_FUNC_DECL(writer,   write, currentWriter,   writersQ)   \
@@ -17615,7 +17630,7 @@ ACTIVATE_NEXT_FUNCS
 #undef ACTIVATE_NEXT_FUNC_DECL
 
 
-
+#endif // if !defined(__WIN32__)
 
 
 /* ----------------------------------------------------------------------
@@ -18221,6 +18236,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
  * Handle current requestor (reader, writer or acceptor) during
  * socket stop.
  */
+#if !defined(__WIN32__)
 static
 void socket_stop_handle_current(ErlNifEnv*       env,
                                 const char*      role,
@@ -18254,14 +18270,14 @@ void socket_stop_handle_current(ErlNifEnv*       env,
  * nif_abort message with the specified reason to each member,
  * and if the 'free' argument is TRUE, the queue will be emptied.
  */
-#if !defined(__WIN32__)
-static void inform_waiting_procs(ErlNifEnv*         env,
-                                 const char*        role,
-                                 ESockDescriptor*   descP,
-                                 ERL_NIF_TERM       sockRef,
-                                 ESockRequestQueue* q,
-                                 BOOLEAN_T          free,
-                                 ERL_NIF_TERM       reason)
+static
+void inform_waiting_procs(ErlNifEnv*         env,
+                          const char*        role,
+                          ESockDescriptor*   descP,
+                          ERL_NIF_TERM       sockRef,
+                          ESockRequestQueue* q,
+                          BOOLEAN_T          free,
+                          ERL_NIF_TERM       reason)
 {
     ESockRequestQueueElement* currentP = q->first;
     ESockRequestQueueElement* nextP;
