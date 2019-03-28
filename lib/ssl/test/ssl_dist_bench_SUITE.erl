@@ -558,15 +558,20 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
         + byte_size(erlang:term_to_binary([0|<<>>])), % Benchmark overhead
     Bytes = Packets * (Size + Overhead),
     io:format("~w bytes, ~.4g s~n", [Bytes,Time/1000000]),
+    SizeString = integer_to_list(Size),
     ClientMsaccStats =:= undefined orelse
-        io:format(
-          "Sender core usage ratio: ~.4g ns/byte~n",
-          [msacc:stats(system_runtime, ClientMsaccStats)*1000/Bytes]),
+        report(
+          Prefix ++ " Sender_RelativeCoreLoad_" ++ SizeString,
+          round(msacc:stats(system_runtime, ClientMsaccStats)
+                * 1000000 / Bytes),
+          "ps/byte"),
     ServerMsaccStats =:= undefined orelse
         begin
-            io:format(
-              "Receiver core usage ratio: ~.4g ns/byte~n",
-              [msacc:stats(system_runtime, ServerMsaccStats)*1000/Bytes]),
+            report(
+              Prefix ++ " Receiver_RelativeCoreLoad_" ++ SizeString,
+              round(msacc:stats(system_runtime, ServerMsaccStats)
+                    * 1000000 / Bytes),
+              "ps/byte"),
             msacc:print(ServerMsaccStats)
         end,
     io:format("******* ClientProf:~n", []), prof_print(ClientProf),
@@ -574,7 +579,7 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
     io:format("******* Server GC Before:~n~p~n", [Server_GC_Before]),
     io:format("******* Server GC After:~n~p~n", [Server_GC_After]),
     Speed = round((Bytes * 1000000) / (1024 * Time)),
-    report(Prefix++" Throughput_"++integer_to_list(Size), Speed, "kB/s").
+    report(Prefix ++ " Throughput_" ++ SizeString, Speed, "kB/s").
 
 %% Runs on node A and spawns a server on node B
 throughput_runner(A, B, Rounds, Size) ->
