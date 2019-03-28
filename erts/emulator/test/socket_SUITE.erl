@@ -5025,7 +5025,7 @@ api_to_receive_udp(InitState) ->
          %% *** Termination ***
          #{desc => "close socket",
            cmd  => fun(#{sock := Sock} = _State) ->
-                           socket:setopt(Sock, otp, debug, true),
+                           %% socket:setopt(Sock, otp, debug, true),
                            sock_close(Sock),
                            ok
                    end},
