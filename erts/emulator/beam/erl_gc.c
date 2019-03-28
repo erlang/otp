@@ -2477,7 +2477,7 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
     *hpp = hp;
 
     for (i = 0; i < nrefs; i++) {
-	if (is_not_immed(refs[i]) && !erts_is_literal(refs[i],boxed_val(refs[i])))
+	if (is_not_immed(refs[i]) && !erts_is_literal(refs[i],ptr_val(refs[i])))
 	    refs[i] = offset_ptr(refs[i], offs);
     }
     bp->off_heap.first = NULL;
