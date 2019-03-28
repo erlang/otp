@@ -24,7 +24,7 @@
 	 integers/1,numbers/1,coverage/1,booleans/1,setelement/1,
 	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
-         test_size/1]).
+         test_size/1,cover_lists_functions/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -46,7 +46,8 @@ groups() ->
        arity_checks,
        elixir_binaries,
        find_best,
-       test_size
+       test_size,
+       cover_lists_functions
       ]}].
 
 init_per_suite(Config) ->
@@ -472,6 +473,19 @@ do_test_size(Term) when is_tuple(Term) ->
     size(Term);
 do_test_size(Term) when is_binary(Term) ->
     size(Term).
+
+cover_lists_functions(Config) ->
+    case lists:suffix([no|Config], Config) of
+        true ->
+            ct:fail(should_be_false);
+        false ->
+            ok
+    end,
+    Zipped = lists:zipwith(fun(A, B) -> {A,B} end,
+                           lists:duplicate(length(Config), zip),
+                           Config),
+    true = is_list(Zipped),
+    ok.
 
 id(I) ->
     I.

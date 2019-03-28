@@ -1431,9 +1431,7 @@ bc_options(Config) ->
 highest_opcode(DataDir, Mod, Opt) ->
     Src = filename:join(DataDir, atom_to_list(Mod)++".erl"),
     {ok,Mod,Beam} = compile:file(Src, [binary|Opt]),
-    {ok,{Mod,[{"Code",Code}]}} = beam_lib:chunks(Beam, ["Code"]),
-    <<16:32,0:32,HighestOpcode:32,_/binary>> = Code,
-    HighestOpcode.
+    test_lib:highest_opcode(Beam).
 
 deterministic_include(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
