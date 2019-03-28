@@ -26,7 +26,7 @@
 
 -include("file_int.hrl").
 
--define(INFLATE_CHUNK_SIZE, (1 bsl 10)).
+-define(INFLATE_CHUNK_SIZE, (8 bsl 10)).
 -define(GZIP_WBITS, (16 + 15)).
 
 callback_mode() -> state_functions.
