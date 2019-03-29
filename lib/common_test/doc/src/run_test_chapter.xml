@@ -1297,7 +1297,7 @@
 	    </taglist>
 
 	  <p>For example, if a test is started with:</p>
-	  <p><c>$ ct_run -suite my_SUITE -logopts no_src</c></p>
+	  <p><c>$ ct_run -suite my_SUITE -logopts no_nl</c></p>
 	  <p>then printouts during the test made by successive calls to <c>io:format("x")</c>,
 	  appears in the test case log as:</p>
 	  <p><c>xxx</c></p>
