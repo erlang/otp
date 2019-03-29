@@ -1069,11 +1069,11 @@ do {                               \
 
 #define HCONST 0x9e3779b9UL /* the golden ratio; an arbitrary value */
 
-Uint32
-block_hash(byte *k, unsigned length, Uint32 initval)
+static Uint32
+block_hash(byte *k, Uint length, Uint32 initval)
 {
    Uint32 a,b,c;
-   unsigned len;
+   Uint len;
 
    /* Set up the internal state */
    len = length;
@@ -1749,7 +1749,7 @@ make_internal_hash(Eterm term, Uint32 salt)
 	    case SUB_BINARY_SUBTAG:
 	    {
 		byte* bptr;
-		unsigned sz = binary_size(term);
+		Uint sz = binary_size(term);
 		Uint32 con = HCONST_13 + hash;
 		Uint bitoffs;
 		Uint bitsize;
