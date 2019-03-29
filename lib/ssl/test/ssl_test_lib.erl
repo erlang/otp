@@ -1533,10 +1533,13 @@ cipher_result(Socket, Result) ->
     ct:log("~p:~p~nSuccessfull connect: ~p~n", [?MODULE,?LINE, Result]),
     %% Importante to send two packets here
     %% to properly test "cipher state" handling
-    ssl:send(Socket, "Hello\n"),
-    "Hello\n" = active_recv(Socket, length( "Hello\n")),
-    ssl:send(Socket, " world\n"),
-    " world\n" = active_recv(Socket, length(" world\n")),
+    Hello = "Hello\n",
+    World = " world\n",
+    ssl:send(Socket, Hello),
+    ct:sleep(500),
+    ssl:send(Socket, World),
+    Expected = Hello ++ World,
+    Expected = active_recv(Socket, length(Expected)),
     ok.
 
 session_info_result(Socket) ->
