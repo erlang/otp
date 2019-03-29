@@ -32,7 +32,7 @@
  *
  * esock_dbg_printf("DEMONP", "[%d] %s: %T\r\n",
  *                  descP->sock, slogan,
- *                  MON2T(env, &monP->mon));
+ *                  esock_make_monitor_term(env, &mon));
  *
  */
 
@@ -2479,6 +2479,9 @@ static int esock_demonitor(const char*      slogan,
                            ESockDescriptor* descP,
                            ESockMonitor*    monP);
 static void esock_monitor_init(ESockMonitor* mon);
+static ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv*          env,
+                                            const ESockMonitor* monP);
+
 
 #endif // if defined(__WIN32__)
 
@@ -2913,6 +2916,7 @@ static ESockData data;
 static ESOCK_INLINE void esock_free_env(const char* slogan, ErlNifEnv* env)
 {
     SGDBG( ("SOCKET", "env free - %s: 0x%lX\r\n", slogan, env) );
+    // esock_dbg_printf("SOCK ENV", "free - %s: 0x%lX\r\n", slogan, env);
 
     if (env != NULL) enif_free_env(env);
 }
@@ -2923,6 +2927,7 @@ static ESOCK_INLINE ErlNifEnv* esock_alloc_env(const char* slogan)
     ErlNifEnv* env = enif_alloc_env();
 
     SGDBG( ("SOCKET", "env alloc - %s: 0x%lX\r\n", slogan, env) );
+    // esock_dbg_printf("SOCK ENV", "alloc - %s: 0x%lX\r\n", slogan, env);
 
     return env;
 }
@@ -5097,13 +5102,29 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
     }
     ref = argv[1];
     
+    MLOCK(descP->accMtx);
+
     SSDBG( descP,
            ("SOCKET", "nif_accept -> args when sock = %d:"
-            "\r\n   Socket: %T"
-            "\r\n   ReqRef: %T"
-            "\r\n", descP->sock, argv[0], ref) );
-
-    MLOCK(descP->accMtx);
+            "\r\n   Socket:                %T"
+            "\r\n   ReqRef:                %T"
+            "\r\nwhen"
+            "\r\n   State:                 %s"
+            "\r\n   Current Acceptor Addr: 0x%lX"
+            "\r\n   Current Acceptor pid:  %T"
+            "\r\n   Current Acceptor mon:  %T"
+            "\r\n   Current Acceptor env:  0x%lX"
+            "\r\n   Current Acceptor ref:  %T"
+            "\r\n",
+            descP->sock,
+            sockRef, ref,
+            ((descP->state == SOCKET_STATE_LISTENING) ? "listening" :
+             ((descP->state == SOCKET_STATE_ACCEPTING) ? "accepting" : "other")),
+            descP->currentAcceptorP,
+            descP->currentAcceptor.pid,
+            esock_make_monitor_term(env, &descP->currentAcceptor.mon),
+            descP->currentAcceptor.env,
+            descP->currentAcceptor.ref) );
 
     res = naccept(env, descP, sockRef, ref);
 
@@ -5383,6 +5404,14 @@ ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*       env,
     if (naccept_accepted(env, descP, accSock,
                          descP->currentAcceptor.pid, remote, &res)) {
 
+        /* Clean out the old cobweb's before trying to invite a new spider */
+
+        descP->currentAcceptor.ref = esock_atom_undefined;
+        enif_set_pid_undefined(&descP->currentAcceptor.pid);
+        esock_free_env("naccept_accepting_current_accept - "
+                       "current-accept-env",
+                       descP->currentAcceptor.env);
+
         if (!activate_next_acceptor(env, descP, sockRef)) {
 
             SSDBG( descP,
@@ -5393,11 +5422,6 @@ ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*       env,
             descP->state               = SOCKET_STATE_LISTENING;
 
             descP->currentAcceptorP    = NULL;
-            descP->currentAcceptor.ref = esock_atom_undefined;
-            enif_set_pid_undefined(&descP->currentAcceptor.pid);
-            esock_free_env("naccept_accepting_current_accept - "
-                           "current-accept-env",
-                           descP->currentAcceptor.env);
             descP->currentAcceptor.env = NULL;
             MON_INIT(&descP->currentAcceptor.mon);
         }
@@ -18004,6 +18028,18 @@ void esock_monitor_init(ESockMonitor* monP)
 {
     monP->isActive = FALSE;
 }
+
+
+static
+ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv* env, const ESockMonitor* monP)
+{
+    if (monP->isActive)
+        return enif_make_monitor_term(env, &monP->mon);
+    else
+        return esock_atom_undefined;
+}
+
+
 
 #endif // if !defined(__WIN32__)
 
