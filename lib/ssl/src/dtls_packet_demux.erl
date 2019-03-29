@@ -203,9 +203,9 @@ dispatch(Client, Msg, #state{dtls_msq_queues = MsgQueues} = State) ->
 		    Pid ! Msg,
 		    State#state{dtls_msq_queues = 
 				    kv_update(Client, Queue, MsgQueues)};
-		{{value, _}, Queue} -> 
+		{{value, _UDP}, _Queue} ->
 		    State#state{dtls_msq_queues = 
-				    kv_update(Client, queue:in(Msg, Queue), MsgQueues)};
+				    kv_update(Client, queue:in(Msg, Queue0), MsgQueues)};
 		{empty, Queue} ->
 		    State#state{dtls_msq_queues = 
 				    kv_update(Client, queue:in(Msg, Queue), MsgQueues)}
