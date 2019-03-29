@@ -44,6 +44,7 @@
          process_info_garbage_collection/1,
          process_info_smoke_all/1,
          process_info_status_handled_signal/1,
+         process_info_reductions/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
 	 process_info_messages/1, process_flag_badarg/1, process_flag_heap_size/1,
@@ -84,6 +85,7 @@ all() ->
      process_info_garbage_collection,
      process_info_smoke_all,
      process_info_status_handled_signal,
+     process_info_reductions,
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
@@ -1092,6 +1094,46 @@ process_info_status_handled_signal(Config) when is_list(Config) ->
     exit(P, kill),
     false = erlang:is_process_alive(P),
     ok.
+
+%% OTP-15709
+%% Provoke a bug where process_info(reductions) returned wrong result
+%% because REDS_IN (def_arg_reg[5]) is read when the process in not running.
+process_info_reductions(Config) when is_list(Config) ->
+    pi_reductions_tester(spawn_link(fun() -> pi_reductions_spinnloop() end)),
+    pi_reductions_tester(spawn_link(fun() -> pi_reductions_recvloop() end)),
+    ok.
+
+pi_reductions_tester(Pid) ->
+    {_, DiffList} =
+        lists:foldl(fun(_, {Prev, Acc}) ->
+                        %% Add another item that force sending the request
+                        %% as a signal, like 'current_function'.
+                        PI = process_info(Pid, [reductions, current_function]),
+                        [{reductions,Reds}, {current_function,_}] = PI,
+                        Diff = Reds - Prev,
+                        {Diff, true} = {Diff, (Diff >= 0)},
+                        {Diff, true} = {Diff, (Diff =< 1000*1000)},
+                        {Reds, [Diff | Acc]}
+                    end,
+                    {0, []},
+                    lists:seq(1,10)),
+    unlink(Pid),
+    exit(Pid,kill),
+    io:format("Reduction diffs: ~p\n", [DiffList]),
+    ok.
+
+pi_reductions_spinnloop() ->
+    %% 6 args to make use of def_arg_reg[5] which is also used as REDS_IN
+    pi_reductions_spinnloop(1, atom, "hej", self(), make_ref(), 3.14).
+
+pi_reductions_spinnloop(A,B,C,D,E,F) ->
+    pi_reductions_spinnloop(B,C,D,E,F,A).
+
+pi_reductions_recvloop() ->
+    receive
+        "a free lunch" -> false
+    end.
+
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->

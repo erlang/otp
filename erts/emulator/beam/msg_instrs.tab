@@ -105,6 +105,7 @@ i_loop_rec(Dest) {
         $SET_CP_I_ABS(I);
         c_p->arity = 0;
         c_p->current = NULL;
+        c_p->fcalls = FCALLS;
         FCALLS -= erts_proc_sig_receive_helper(c_p, FCALLS, neg_o_reds,
                                                &msgp, &get_out);
         SWAPIN;
