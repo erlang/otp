@@ -324,7 +324,7 @@ do_open(Name, Mode) when is_list(Mode) ->
 open1({binary,Bin}, read, _Raw, Opts) when is_binary(Bin) ->
     case file:open(Bin, [ram,binary,read]) of
         {ok,File} ->
-            _ = [ram_file:uncompress(File) || Opts =:= [compressed]],
+            _ = [ram_file:uncompress(File) || lists:member(compressed, Opts)],
             {ok, #reader{handle=File,access=read,func=fun file_op/2}};
         Error ->
             Error
@@ -357,7 +357,7 @@ open_mode([read|Rest], false, Raw, Opts) ->
 open_mode([write|Rest], false, Raw, Opts) ->
     open_mode(Rest, write, Raw, Opts);
 open_mode([compressed|Rest], Access, Raw, Opts) ->
-    open_mode(Rest, Access, Raw, [compressed|Opts]);
+    open_mode(Rest, Access, Raw, [compressed,read_ahead|Opts]);
 open_mode([cooked|Rest], Access, _Raw, Opts) ->
     open_mode(Rest, Access, [], Opts);
 open_mode([], Access, Raw, Opts) ->
