@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a performance regression when reading files
+	    opened with the <c>compressed</c> flag.</p>
+          <p>
+	    Own Id: OTP-15706 Aux Id: ERIERL-336 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
