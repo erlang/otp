@@ -39,16 +39,14 @@
 all() -> 
     case ssl_test_lib:openssl_sane_dtls() of 
         true ->
-            [{group, basic},
-             {group, 'tlsv1.2'},
+            [{group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'},
              {group, 'sslv3'},
              {group, 'dtlsv1.2'},
              {group, 'dtlsv1'}];
         false ->
-            [{group, basic},
-             {group, 'tlsv1.2'},
+            [{group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'},
              {group, 'sslv3'}]
@@ -57,8 +55,7 @@ all() ->
 groups() ->
      case ssl_test_lib:openssl_sane_dtls() of 
          true ->
-             [{basic, [], basic_tests()},
-              {'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+             [{'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
               {'tlsv1.1', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
               {'tlsv1', [], all_versions_tests()++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
               {'sslv3', [], all_versions_tests()},
@@ -66,20 +63,13 @@ groups() ->
               {'dtlsv1', [], dtls_all_versions_tests()}
              ];
         false ->
-             [{basic, [], basic_tests()},
-              {'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
+             [{'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
               {'tlsv1.1', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
               {'tlsv1', [], all_versions_tests()++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
               {'sslv3', [], all_versions_tests()}
            ]
      end.
-  
-basic_tests() ->
-    [basic_erlang_client_openssl_server,
-     basic_erlang_server_openssl_client,
-     expired_session
-    ].
-
+ 
 all_versions_tests() ->
     [
      erlang_client_openssl_server,
@@ -357,85 +347,7 @@ end_per_testcase(_, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-basic_erlang_client_openssl_server() ->
-    [{doc,"Test erlang client with openssl server"}].
-basic_erlang_client_openssl_server(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
-    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Data = "From openssl to erlang",
-    
-    Port = ssl_test_lib:inet_port(node()),
-    CertFile = proplists:get_value(certfile, ServerOpts),
-    KeyFile = proplists:get_value(keyfile, ServerOpts),
-
-    Exe = "openssl",
-     Args = ["s_server", "-accept", integer_to_list(Port),
-             "-cert", CertFile, "-key", KeyFile],
-
-    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args), 
-
-
-    ssl_test_lib:wait_for_openssl_server(Port, tls),
-
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
-                                         {host, Hostname},
-                                        {from, self()},
-                                        {mfa, {?MODULE,
-                                               erlang_ssl_receive, [Data]}},
-                                         {options, ClientOpts}]),
-    true = port_command(OpensslPort, Data),
-    
-    ssl_test_lib:check_result(Client, ok),
-
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close_port(OpensslPort),
-    ssl_test_lib:close(Client),
-    process_flag(trap_exit, false).
-
-%%--------------------------------------------------------------------    
-basic_erlang_server_openssl_client() ->
-    [{doc,"Test erlang server with openssl client"}].
-basic_erlang_server_openssl_client(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Data = "From openssl to erlang",
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-                                        {from, self()},
-                                        {mfa, {?MODULE, erlang_ssl_receive, [Data]}},
-                                        {options,ServerOpts}]),
-
-    Port = ssl_test_lib:inet_port(Server),
-    
-    Exe = "openssl",
-    Args = case no_low_flag("-no_ssl2") of
-               [] ->
-                   ["s_client", "-connect", hostname_format(Hostname) ++
-                        ":" ++ integer_to_list(Port), no_low_flag("-no_ssl3")
-                    | workaround_openssl_s_clinent()];
-               Flag ->
-                   ["s_client", "-connect", hostname_format(Hostname) ++
-                        ":" ++ integer_to_list(Port), no_low_flag("-no_ssl3"), Flag
-                    | workaround_openssl_s_clinent()]
-           end, 
-    
-    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
-    true = port_command(OpenSslPort, Data),
-    
-    ssl_test_lib:check_result(Server, ok),
-
-    %% Clean close down!   Server needs to be closed first !!
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close_port(OpenSslPort),
-    process_flag(trap_exit, false).
-
-%%--------------------------------------------------------------------
 erlang_client_openssl_server() ->
     [{doc,"Test erlang client with openssl server"}].
 erlang_client_openssl_server(Config) when is_list(Config) ->

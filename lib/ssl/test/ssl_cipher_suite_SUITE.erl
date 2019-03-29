@@ -50,25 +50,29 @@ groups() ->
      {'dtlsv1', [], kex()},
      {dhe_rsa, [],[dhe_rsa_3des_ede_cbc, 
                    dhe_rsa_aes_128_cbc,
-                   dhe_rsa_aes_256_cbc
+                   dhe_rsa_aes_256_cbc,
+                   dhe_rsa_chacha20_poly1305
                   ]},
      {ecdhe_rsa, [], [ecdhe_rsa_3des_ede_cbc, 
                       ecdhe_rsa_aes_128_cbc,
                       ecdhe_rsa_aes_128_gcm,
                       ecdhe_rsa_aes_256_cbc,
-                      ecdhe_rsa_aes_256_gcm
+                      ecdhe_rsa_aes_256_gcm,
+                      ecdhe_rsa_chacha20_poly1305
                     ]},
      {ecdhe_ecdsa, [],[ecdhe_ecdsa_rc4_128, 
                        ecdhe_ecdsa_3des_ede_cbc, 
                        ecdhe_ecdsa_aes_128_cbc,
                        ecdhe_ecdsa_aes_128_gcm,
                        ecdhe_ecdsa_aes_256_cbc,
-                       ecdhe_ecdsa_aes_256_gcm
+                       ecdhe_ecdsa_aes_256_gcm,
+                       ecdhe_ecdsa_chacha20_poly1305
                       ]},
      {rsa, [], [rsa_3des_ede_cbc, 
                 rsa_aes_128_cbc,
                 rsa_aes_256_cbc,
-                rsa_rc4_128]},
+                rsa_rc4_128
+               ]},
      {dhe_dss, [], [dhe_dss_3des_ede_cbc, 
                     dhe_dss_aes_128_cbc,
                     dhe_dss_aes_256_cbc]},
@@ -236,7 +240,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(des_ede3, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 2}),
+            ct:timetrap({seconds, 5}),
             Config;
         _ ->
             {skip, "Missing 3DES crypto support"}
@@ -251,7 +255,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_rc4_128;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(rc4, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 2}),
+            ct:timetrap({seconds, 5}),
             Config;
         _ ->
             {skip, "Missing RC4 crypto support"}
@@ -262,7 +266,7 @@ init_per_testcase(TestCase, Config)  ->
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(Cipher, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 2}),
+            ct:timetrap({seconds, 5}),
             Config;
         _ ->
             {skip, {Cipher, SupCiphers}}
@@ -443,7 +447,10 @@ dhe_rsa_aes_256_cbc(Config) when is_list(Config) ->
     run_ciphers_test(dhe_rsa, 'aes_256_cbc', Config).   
 
 dhe_rsa_aes_256_gcm(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_rsa, 'aes_256_gcm', Config).   
+    run_ciphers_test(dhe_rsa, 'aes_256_gcm', Config).
+
+dhe_rsa_chacha20_poly1305(Config) when is_list(Config) ->
+    run_ciphers_test(dhe_rsa, 'chacha20_poly1305', Config).
 %%--------------------------------------------------------------------
 %% ECDHE_RSA --------------------------------------------------------
 %%--------------------------------------------------------------------
@@ -464,6 +471,10 @@ ecdhe_rsa_aes_256_gcm(Config) when is_list(Config) ->
 
 ecdhe_rsa_rc4_128(Config) when is_list(Config) ->
     run_ciphers_test(ecdhe_rsa, 'rc4_128', Config).      
+
+ecdhe_rsa_chacha20_poly1305(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_rsa, 'chacha20_poly1305', Config).
+
 %%--------------------------------------------------------------------
 %% ECDHE_ECDSA --------------------------------------------------------
 %%--------------------------------------------------------------------
@@ -485,6 +496,8 @@ ecdhe_ecdsa_aes_256_cbc(Config) when is_list(Config) ->
 ecdhe_ecdsa_aes_256_gcm(Config) when is_list(Config) ->
     run_ciphers_test(ecdhe_ecdsa, 'aes_256_gcm', Config).   
 
+ecdhe_ecdsa_chacha20_poly1305(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_ecdsa, 'chacha20_poly1305', Config).
 %%--------------------------------------------------------------------
 %% DHE_DSS --------------------------------------------------------
 %%--------------------------------------------------------------------
@@ -654,9 +667,8 @@ cipher_suite_test(CipherSuite, Version, Config) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
-					{options,
-					 [{versions, [Version]}, {ciphers, [CipherSuite]} |
-					  ClientOpts]}]),
+					{options, [{versions, [Version]}, {ciphers, [CipherSuite]} |
+                                                   ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     
