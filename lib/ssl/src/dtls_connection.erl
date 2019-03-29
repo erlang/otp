@@ -1075,10 +1075,10 @@ start_retransmision_timer(Timeout, #state{protocol_specific = PS} = State) ->
     {State#state{protocol_specific = PS#{flight_state => {retransmit, new_timeout(Timeout)}}}, 
      [{state_timeout, Timeout, flight_retransmission_timeout}]}.
 
-new_timeout(N) when N =< 30 -> 
+new_timeout(N) when N =< 30000 ->
     N * 2;
 new_timeout(_) -> 
-    60.
+    60000.
 
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport},
