@@ -178,10 +178,11 @@ Sint erts_flxctr_read_centralized(ErtsFlxCtr* c,
 
 
 typedef enum {
-    erts_flxctr_try_again_after_trap,
-    erts_flxctr_done,
-    erts_flxctr_get_result_after_trap
+    ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP,
+    ERTS_FLXCTR_DONE,
+    ERTS_FLXCTR_GET_RESULT_AFTER_TRAP
 } ErtsFlxctrSnapshotResultType;
+
 typedef struct {
     ErtsFlxctrSnapshotResultType type;
     Eterm trap_resume_state;
@@ -196,15 +197,15 @@ typedef struct {
  * the value of the type field in the returned struct:
  *
  * - The caller needs to trap and try again after the trap if the
- *   return value has the type erts_flxctr_try_again_after_trap.
+ *   return value has the type ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP.
  *
  * - The caller can get the result directly from the result field of
  *   the returned struct if the return value has the type
- *   erts_flxctr_done. The value at index i in the result field
+ *   ERTS_FLXCTR_DONE. The value at index i in the result field
  *   correspond to counter number i.
  *
  * - Finally, if the return value has the type
- *   erts_flxctr_get_result_after_trap, then the caller needs to save
+ *   ERTS_FLXCTR_GET_RESULT_AFTER_TRAP, then the caller needs to save
  *   the value of the field trap_resume_state from the returned struct
  *   and trap. After the trap, the values of the counters can be
  *   obtained by using the function
@@ -216,7 +217,7 @@ typedef struct {
  *
  * The snapshot operation that is initiated by this function should be
  * considered to be ongoing from the issuing of this function until a
- * struct with the type field set to erts_flxctr_done has been
+ * struct with the type field set to ERTS_FLXCTR_DONE has been
  * returned from the function or until the caller of this function has
  * woken up after trapping.
  *
@@ -304,7 +305,7 @@ typedef union {
 
 typedef struct ErtsFlxCtrDecentralizedCtrArray {
     void* block_start;
-    erts_atomic_t snapshot_ongoing;
+    erts_atomic_t snapshot_status;
     ErtsFlxCtrDecentralizedCtrArrayElem array[];
 } ErtsFlxCtrDecentralizedCtrArray;
 

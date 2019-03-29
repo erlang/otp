@@ -87,6 +87,11 @@ typedef struct db_table_catree {
     CATreeNodeStack free_stack_rnodes;
     DbTableCATreeNode *base_nodes_to_free_list;
     int is_routing_nodes_freed;
+    /* The fields below are used by delete_all_objects and
+       select_delete(DeleteAll)*/
+    Uint nr_of_deleted_items;
+    Binary* nr_of_deleted_items_wb;
+    Eterm nr_of_deleted_items_wb_trap_mref;
 } DbTableCATree;
 
 typedef struct {
@@ -104,6 +109,8 @@ void db_initialize_catree(void);
 
 int db_create_catree(Process *p, DbTable *tbl);
 
+Eterm db_catree_get_no_of_deleted_items_mref(DbTable *tbl);
+Uint db_catree_get_no_of_deleted_items_from_mref(Eterm mref);
 
 TreeDbTerm** catree_find_root(Eterm key, CATreeRootIterator*);
 

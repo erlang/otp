@@ -61,8 +61,6 @@
     erts_flxctr_inc(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
 #define INC_NITEMS_CENTRALIZED(DB)                                      \
     erts_flxctr_inc_read_centralized(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
-#define DEC_NITEMS(DB)                                                  \
-    erts_flxctr_dec(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
 #define RESET_NITEMS(DB)                                                \
     erts_flxctr_reset(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
 #define IS_CENTRALIZED_CTR(tb) (!(tb)->common.counters.is_decentralized)

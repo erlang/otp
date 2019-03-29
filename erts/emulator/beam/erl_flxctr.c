@@ -40,6 +40,12 @@ typedef struct {
     Sint result[ERTS_FLXCTR_ATOMICS_PER_CACHE_LINE];
 } DecentralizedReadSnapshotInfo;
 
+typedef enum {
+    ERTS_FLXCTR_SNAPSHOT_NOT_ONGOING = 0,
+    ERTS_FLXCTR_SNAPSHOT_ONGOING = 1,
+    ERTS_FLXCTR_SNAPSHOT_ONGOING_TP_THREAD_DO_FREE = 2
+} erts_flxctr_snapshot_status;
+
 static void
 thr_prg_wake_up_and_count(void* bin_p)
 {
@@ -66,10 +72,11 @@ thr_prg_wake_up_and_count(void* bin_p)
     }
     /* Announce that the snapshot is done */
     {
-    Sint expected = 1;
-    if (expected != erts_atomic_cmpxchg_mb(&next->snapshot_ongoing, 0, expected)) {
-        /* The CAS failed which means that the counter has got destroyed.
-           Free the next array.*/
+    Sint expected = ERTS_FLXCTR_SNAPSHOT_ONGOING;
+    if (expected != erts_atomic_cmpxchg_mb(&next->snapshot_status,
+                                           ERTS_FLXCTR_SNAPSHOT_NOT_ONGOING,
+                                           expected)) {
+        /* The CAS failed which means that this thread need to free the next array. */
         erts_free(info->alloc_type, next->block_start);
     }
     }
@@ -158,7 +165,7 @@ create_decentralized_ctr_array(ErtsAlcType_t alloc_type, Uint nr_of_counters) {
     ASSERT(((Uint)array->array) % ERTS_CACHE_LINE_SIZE == 0);
     ASSERT(((Uint)array - (Uint)block_start) <= ERTS_CACHE_LINE_SIZE);
     /* Initialize fields */
-    erts_atomic_init_nob(&array->snapshot_ongoing, 1);
+    erts_atomic_init_nob(&array->snapshot_status, ERTS_FLXCTR_SNAPSHOT_ONGOING);
     for (sched = 0; sched < ERTS_FLXCTR_DECENTRALIZED_NO_SLOTS; sched++) {
         for (i = 0; i < nr_of_counters; i++) {
             erts_atomic_init_nob(&array->array[sched].counters[i], 0);
@@ -184,7 +191,8 @@ void erts_flxctr_init(ErtsFlxCtr* c,
     if (c->is_decentralized) {
         ErtsFlxCtrDecentralizedCtrArray* array =
             create_decentralized_ctr_array(alloc_type, nr_of_counters);
-        erts_atomic_set_nob(&array->snapshot_ongoing, 0);
+        erts_atomic_set_nob(&array->snapshot_status,
+                            ERTS_FLXCTR_SNAPSHOT_NOT_ONGOING);
         erts_atomic_init_nob(&c->u.counters_ptr, (Sint)array);
         ASSERT(((Uint)array->array) % ERTS_CACHE_LINE_SIZE == 0);
     } else {
@@ -199,16 +207,20 @@ void erts_flxctr_destroy(ErtsFlxCtr* c, ErtsAlcType_t type)
 {
     if (c->is_decentralized) {
         if (erts_flxctr_is_snapshot_ongoing(c)) {
-            /* Try to delegate the resposibilty of freeing to thr_prg_wake_up_and_count */
-            Sint expected = 1;
-            if (expected != erts_atomic_cmpxchg_mb(&ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c)->snapshot_ongoing,
-                                                   2,
-                                                   expected)) {
+            ErtsFlxCtrDecentralizedCtrArray* array =
+                ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c);
+            /* Try to delegate the resposibilty of freeing to
+               thr_prg_wake_up_and_count */
+            Sint expected = ERTS_FLXCTR_SNAPSHOT_ONGOING;
+            if (expected !=
+                erts_atomic_cmpxchg_mb(&array->snapshot_status,
+                                       ERTS_FLXCTR_SNAPSHOT_ONGOING_TP_THREAD_DO_FREE,
+                                       expected)) {
                 /* The delegation was unsuccessful which means that no
                    snapshot is ongoing anymore and the freeing needs
                    to be done here */
                 ERTS_ASSERT(!erts_flxctr_is_snapshot_ongoing(c));
-                erts_free(type, ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c)->block_start);
+                erts_free(type, array->block_start);
             }
         } else {
             erts_free(type, ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c)->block_start);
@@ -223,10 +235,10 @@ erts_flxctr_snapshot(ErtsFlxCtr* c,
 {
     if (c->is_decentralized) {
         ErtsFlxCtrDecentralizedCtrArray* array = ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c);
-        if (erts_atomic_read_acqb(&array->snapshot_ongoing)) {
+        if (erts_flxctr_is_snapshot_ongoing(c)) {
             /* Let the caller try again later */
             ErtsFlxCtrSnapshotResult res =
-                {.type = erts_flxctr_try_again_after_trap};
+                {.type = ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP};
             suspend_until_thr_prg(p);
             return res;
         } else {
@@ -243,15 +255,16 @@ erts_flxctr_snapshot(ErtsFlxCtr* c,
             if (!success) {
                 /* Let the caller try again later */
                 ErtsFlxCtrSnapshotResult res =
-                    {.type = erts_flxctr_try_again_after_trap};
+                    {.type = ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP};
                 suspend_until_thr_prg(p);
                 erts_free(alloc_type, new_array->block_start);
                 return res;
             }
             /* Create binary with info about the operation that can be
                sent to the caller and to a thread progress function */
-            state_bin = erts_create_magic_binary(sizeof(DecentralizedReadSnapshotInfo),
-                                                 erts_flxctr_read_ctx_bin_dtor);
+            state_bin =
+                erts_create_magic_binary(sizeof(DecentralizedReadSnapshotInfo),
+                                         erts_flxctr_read_ctx_bin_dtor);
             hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
             state_mref = erts_mk_magic_ref(&hp, &MSO(p), state_bin);
             info = ERTS_MAGIC_BIN_DATA(state_bin);
@@ -269,7 +282,7 @@ erts_flxctr_snapshot(ErtsFlxCtr* c,
                                             &info->later_op);
             {
                 ErtsFlxCtrSnapshotResult res = {
-                    .type = erts_flxctr_get_result_after_trap,
+                    .type = ERTS_FLXCTR_GET_RESULT_AFTER_TRAP,
                     .trap_resume_state = state_mref};
                 return res;
             }
@@ -277,7 +290,7 @@ erts_flxctr_snapshot(ErtsFlxCtr* c,
     } else {
         ErtsFlxCtrSnapshotResult res;
         int i;
-        res.type = erts_flxctr_done;
+        res.type = ERTS_FLXCTR_DONE;
         for (i = 0; i < c->nr_of_counters; i++){
             res.result[i] = erts_flxctr_read_centralized(c, i);
         }
@@ -321,13 +334,13 @@ Sint erts_flxctr_read_approx(ErtsFlxCtr* c,
 int erts_flxctr_is_snapshot_ongoing(ErtsFlxCtr* c)
 {
     return c->is_decentralized &&
-        erts_atomic_read_acqb(&ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c)->snapshot_ongoing);
+        (ERTS_FLXCTR_SNAPSHOT_NOT_ONGOING !=
+         erts_atomic_read_acqb(&ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c)->snapshot_status));
 }
 
 int erts_flxctr_suspend_until_thr_prg_if_snapshot_ongoing(ErtsFlxCtr* c, Process* p)
 {
-    if (c->is_decentralized &&
-        erts_atomic_read_acqb(&ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c)->snapshot_ongoing)) {
+    if (erts_flxctr_is_snapshot_ongoing(c)) {
         suspend_until_thr_prg(p);
         return 1;
     } else {
@@ -340,8 +353,10 @@ void erts_flxctr_reset(ErtsFlxCtr* c,
 {
     if (c->is_decentralized) {
         int sched;
+        ErtsFlxCtrDecentralizedCtrArray* counter =
+            ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c);
         for (sched = 0; sched < ERTS_FLXCTR_DECENTRALIZED_NO_SLOTS; sched++) {
-            erts_atomic_set_nob(ERTS_FLXCTR_GET_CTR_PTR(c, sched, counter_nr), 0);
+            erts_atomic_set_nob(&counter->array[sched].counters[counter_nr], 0);
         }
     } else {
         erts_atomic_set_nob(&c->u.counters[counter_nr], 0);

@@ -63,6 +63,9 @@
 
 #define EMPTY_NODE(Dtt) (TOP_NODE(Dtt) == NULL)
 
+#define DEC_NITEMS(DB)                                                  \
+    erts_flxctr_dec(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
+
 static ERTS_INLINE void free_term(DbTable *tb, TreeDbTerm* p)
 {
     db_free_term(tb, p, offsetof(TreeDbTerm, dbterm));

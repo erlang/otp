@@ -1739,17 +1739,13 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
      */
     {
         DbTable init_tb;
-        /* Use a decentralized counter only when the table type is
-           DB_CA_ORDERED_SET on a 64 bit machine */
-#if defined(ARCH_64)
-        int use_decentralized_ctr = status & DB_CA_ORDERED_SET;
-#else
-        int use_decentralized_ctr = 0;
-#endif
         erts_flxctr_init(&init_tb.common.counters, 0, 2, ERTS_ALC_T_DB_TABLE);
 	tb = (DbTable*) erts_db_alloc(ERTS_ALC_T_DB_TABLE,
 				      &init_tb, sizeof(DbTable));
-        erts_flxctr_init(&tb->common.counters, use_decentralized_ctr, 2, ERTS_ALC_T_DB_TABLE);
+        erts_flxctr_init(&tb->common.counters,
+                         status & DB_CA_ORDERED_SET,
+                         2,
+                         ERTS_ALC_T_DB_TABLE);
         erts_flxctr_add(&tb->common.counters,
                         ERTS_DB_TABLE_MEM_COUNTER_ID,
                         DB_GET_APPROX_MEM_CONSUMED(&init_tb));
@@ -2144,23 +2140,20 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
     SWord reds = initial_reds;
     Eterm nitems;
     DbTable* tb;
-
+    ERTS_UNDEF(nitems, THE_NON_VALUE);
     CHECK_TABLES();
 
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE, BIF_ets_internal_delete_all_2);
 
     if (BIF_ARG_2 == am_undefined) {
-        if(erts_flxctr_suspend_until_thr_prg_if_snapshot_ongoing(&tb->common.counters, BIF_P)){
-            db_unlock(tb, LCK_WRITE);
-            BIF_TRAP2(bif_export[BIF_ets_internal_delete_all_2], BIF_P, BIF_ARG_1, BIF_ARG_2);
+        if ( ! IS_CATREE_TABLE(tb->common.status) ) {
+            nitems = erts_make_integer(DB_GET_APPROX_NITEMS(tb), BIF_P);
+            ASSERT(!tb->common.counters.is_decentralized);
         }
-        /* It is safe to use ERTS_DB_GET_APPROX_NITEMS below becasue
-         * the table lock is held in write mode and no snapshot can be
-         * ongoing due to the if statement above */
-        nitems = erts_make_integer(DB_GET_APPROX_NITEMS(tb), BIF_P);
-
         reds = tb->common.meth->db_delete_all_objects(BIF_P, tb, reds);
-
+        if (IS_CATREE_TABLE(tb->common.status)) {
+            nitems = db_catree_get_no_of_deleted_items_mref(tb);
+        }
         ASSERT(!(tb->common.status & DB_BUSY));
 
         if (reds < 0) {
@@ -2195,7 +2188,13 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
          */
         nitems = BIF_ARG_2;
     }
-
+    if (IS_CATREE_TABLE(tb->common.status)) {
+        nitems =
+            erts_make_integer(db_catree_get_no_of_deleted_items_from_mref(nitems),
+                              BIF_P);
+    } else {
+        ASSERT(!tb->common.counters.is_decentralized);
+    }
     db_unlock(tb, LCK_WRITE);
     BIF_RET(nitems);
 }
@@ -3354,13 +3353,13 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
     if (!is_ctrs_read_result_set) {
         ErtsFlxCtrSnapshotResult res =
             erts_flxctr_snapshot(&tb->common.counters, ERTS_ALC_T_DB_TABLE, BIF_P);
-        if (erts_flxctr_get_result_after_trap == res.type) {
+        if (ERTS_FLXCTR_GET_RESULT_AFTER_TRAP == res.type) {
             Eterm tuple;
             db_unlock(tb, LCK_READ);
             hp = HAlloc(BIF_P, 3);
             tuple = TUPLE2(hp, res.trap_resume_state, table);
             BIF_TRAP1(bif_export[BIF_ets_info_1], BIF_P, tuple);
-        } else if (res.type == erts_flxctr_try_again_after_trap) {
+        } else if (res.type == ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP) {
             db_unlock(tb, LCK_READ);
             BIF_TRAP1(bif_export[BIF_ets_info_1], BIF_P, table);
         } else {
@@ -3427,10 +3426,10 @@ BIF_RETTYPE ets_info_2(BIF_ALIST_2)
     if (BIF_ARG_2 == am_size || BIF_ARG_2 == am_memory) {
         ErtsFlxCtrSnapshotResult res =
             erts_flxctr_snapshot(&tb->common.counters, ERTS_ALC_T_DB_TABLE, BIF_P);
-        if (erts_flxctr_get_result_after_trap == res.type) {
+        if (ERTS_FLXCTR_GET_RESULT_AFTER_TRAP == res.type) {
             db_unlock(tb, LCK_READ);
             BIF_TRAP2(bif_export[BIF_ets_info_2], BIF_P, res.trap_resume_state, BIF_ARG_2);
-        } else if (res.type == erts_flxctr_try_again_after_trap) {
+        } else if (res.type == ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP) {
             db_unlock(tb, LCK_READ);
             BIF_TRAP2(bif_export[BIF_ets_info_2], BIF_P, BIF_ARG_1, BIF_ARG_2);
         } else if (BIF_ARG_2 == am_size) {

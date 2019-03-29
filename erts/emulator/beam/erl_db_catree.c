@@ -1357,6 +1357,8 @@ static SWord do_free_base_node_cont(DbTableCATree *tb, SWord num_left)
                 PUSH_NODE(&tb->free_stack_elems, root);
                 root = p;
             } else {
+                DEC_NITEMS((DbTable*)tb);
+                tb->nr_of_deleted_items++;
                 free_term((DbTable*)tb, root);
                 if (--num_left >= 0) {
                     break;
@@ -1397,6 +1399,8 @@ int db_create_catree(Process *p, DbTable *tbl)
     root = create_base_node(tb, NULL);
     tb->deletion = 0;
     tb->base_nodes_to_free_list = NULL;
+    tb->nr_of_deleted_items = 0;
+    tb->nr_of_deleted_items_wb = NULL;
     erts_atomic_init_relb(&(tb->root), (erts_aint_t)root);
     return DB_ERROR_NONE;
 }
@@ -2050,6 +2054,7 @@ static SWord db_free_table_continue_catree(DbTable *tbl, SWord reds)
         PUSH_NODE(&tb->free_stack_rnodes, GET_ROOT(tb));
         tb->is_routing_nodes_freed = 0;
         tb->base_nodes_to_free_list = NULL;
+        tb->nr_of_deleted_items = 0;
     }
     if ( ! tb->is_routing_nodes_freed ) {
         reds = do_free_routing_nodes_catree_cont(tb, reds);
@@ -2079,17 +2084,64 @@ static SWord db_free_table_continue_catree(DbTable *tbl, SWord reds)
     return 1;
 }
 
+static
+int db_catree_nr_of_items_deleted_wb_dtor(Binary *context_bin) {
+    (void)context_bin;
+    return 1;
+}
+
+typedef struct {
+    Uint nr_of_deleted_items;
+} DbCATreeNrOfItemsDeletedWb;
+
+static void
+create_and_install_no_of_deleted_items_mref(DbTableCATree *tb,
+                                            Process *p)
+{
+    Eterm* hp;
+    Binary* bin;
+    Eterm mref;
+    DbCATreeNrOfItemsDeletedWb* data;
+    bin =
+        erts_create_magic_binary(sizeof(DbCATreeNrOfItemsDeletedWb),
+                                 db_catree_nr_of_items_deleted_wb_dtor);
+    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+    mref = erts_mk_magic_ref(&hp, &MSO(p), bin);
+    data = ERTS_MAGIC_BIN_DATA(bin);
+    data->nr_of_deleted_items = 0;
+    erts_refc_inctest(&bin->intern.refc, 2);
+    tb->nr_of_deleted_items_wb = bin;
+    tb->nr_of_deleted_items_wb_trap_mref = mref;
+}
+
+Eterm db_catree_get_no_of_deleted_items_mref(DbTable *tbl)
+{
+    DbTableCATree *tb = &tbl->catree;
+    return tb->nr_of_deleted_items_wb_trap_mref;
+}
+
+Uint db_catree_get_no_of_deleted_items_from_mref(Eterm mref)
+{
+    Binary* bin = erts_magic_ref2bin(mref);
+    DbCATreeNrOfItemsDeletedWb* data =
+        ERTS_MAGIC_BIN_DATA(bin);
+    return data->nr_of_deleted_items;
+}
+
 static SWord db_delete_all_objects_catree(Process* p, DbTable* tbl, SWord reds)
 {
+    DbTableCATree *tb = &tbl->catree;
+    DbCATreeNrOfItemsDeletedWb* data;
+    if (!tb->deletion) {
+        create_and_install_no_of_deleted_items_mref(tb, p);
+    }
     reds = db_free_table_continue_catree(tbl, reds);
     if (reds < 0)
         return reds;
+    data = ERTS_MAGIC_BIN_DATA(tb->nr_of_deleted_items_wb);
+    data->nr_of_deleted_items = tb->nr_of_deleted_items;
+    erts_bin_release(tb->nr_of_deleted_items_wb);
     db_create_catree(p, tbl);
-    /* This is safe to do here even though the decentralized counter
-     * is used. The table is write-locked and
-     * ets_internal_delete_all_2 has checked that no snapshot of the
-     * counter is ongoing. */
-    erts_flxctr_reset(&tbl->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID);
     return reds;
 }
 
