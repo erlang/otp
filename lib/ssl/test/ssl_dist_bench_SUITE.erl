@@ -169,16 +169,10 @@ end_per_suite(Config) ->
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
 init_per_group(crypto, Config) ->
-    case inet_crypto_dist:is_supported() of
-        true ->
-            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto"},
-             {ssl_dist_args,
-              "-proto_dist inet_crypto "
-              "-inet_crypto '#{secret => \"123456\"}'"}
-             |Config];
-        false ->
-            {skip, "Not supported on this OTP version"}
-    end;
+    [{ssl_dist, false}, {ssl_dist_prefix, "Crypto"},
+     {ssl_dist_args,
+      "-proto_dist inet_crypto"}
+     |Config];
 init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
 init_per_group(_GroupName, Config) ->
