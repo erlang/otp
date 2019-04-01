@@ -3261,20 +3261,23 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
 
 
 /*
- * Return the current number of reductions for the given process.
+ * Return the current number of reductions consumed by the given process.
  * To get the total number of reductions, p->reds must be added.
  */
 
 Uint
-erts_current_reductions(Process *current, Process *p)
+erts_current_reductions(Process *c_p, Process *p)
 {
-    if (current != p) {
+    Sint reds_left;
+    if (c_p != p || !(erts_atomic32_read_nob(&c_p->state)
+                      & ERTS_PSFLG_RUNNING)) {
 	return 0;
-    } else if (current->fcalls < 0 && ERTS_PROC_GET_SAVED_CALLS_BUF(current)) {
-	return current->fcalls + CONTEXT_REDS;
+    } else if (c_p->fcalls < 0 && ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
+	reds_left = c_p->fcalls + CONTEXT_REDS;
     } else {
-	return REDS_IN(current) - current->fcalls;
+        reds_left = c_p->fcalls;
     }
+    return REDS_IN(c_p) - reds_left;
 }
 
 int
