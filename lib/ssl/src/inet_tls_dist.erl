@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,8 +132,8 @@ f_recv(SslSocket, Length, Timeout) ->
 f_setopts_pre_nodeup(_SslSocket) ->
     ok.
 
-f_setopts_post_nodeup(_SslSocket) ->
-    ok.
+f_setopts_post_nodeup(SslSocket) ->
+    ssl:setopts(SslSocket, [nodelay()]).
 
 f_getll(DistCtrl) ->
     {ok, DistCtrl}.
@@ -199,7 +199,7 @@ listen(Name) ->
 gen_listen(Driver, Name) ->
     case inet_tcp_dist:gen_listen(Driver, Name) of
         {ok, {Socket, Address, Creation}} ->
-            inet:setopts(Socket, [{packet, 4}]),
+            inet:setopts(Socket, [{packet, 4}, {nodelay, true}]),
             {ok, {Socket, Address#net_address{protocol=tls}, Creation}};
         Other ->
             Other
@@ -532,7 +532,7 @@ do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNo
     case ssl:connect(
         Address, TcpPort,
         [binary, {active, false}, {packet, 4},
-            Driver:family(), nodelay()] ++ Opts,
+            Driver:family(), {nodelay, true}] ++ Opts,
         net_kernel:connecttime()) of
     {ok, #sslsocket{pid = [_, DistCtrl| _]} = SslSocket} ->
             _ = monitor_pid(DistCtrl),

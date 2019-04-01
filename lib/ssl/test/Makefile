@@ -64,8 +64,9 @@ MODULES = \
 	ssl_sni_SUITE \
 	ssl_eqc_SUITE \
 	ssl_rfc_5869_SUITE \
-	make_certs\
-        x509_test
+	make_certs \
+        x509_test \
+	inet_crypto_dist
 
 
 ERL_FILES = $(MODULES:%=%.erl)
