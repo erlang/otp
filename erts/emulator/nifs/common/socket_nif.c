@@ -5258,7 +5258,7 @@ ERL_NIF_TERM naccept_listening_error(ErlNifEnv*       env,
                                                  accRef);
             descP->currentAcceptorP    = &descP->currentAcceptor;
             res = naccept_busy_retry(env, descP,
-                                     sockRef, descP->currentAcceptor.ref,
+                                     sockRef, accRef,
                                      NULL, SOCKET_STATE_ACCEPTING);
         }
     } else {
@@ -5518,7 +5518,7 @@ static
 ERL_NIF_TERM naccept_busy_retry(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
                                 ERL_NIF_TERM     sockRef,
-                                ERL_NIF_TERM     accRef, // Not needed
+                                ERL_NIF_TERM     accRef,
                                 ErlNifPid*       pid,
                                 unsigned int     nextState)
 {
