@@ -699,6 +699,7 @@ dist_ext_size(ErtsDistExternal *edep)
     } else {
         sz -= sizeof(ErtsAtomTranslationTable);
     }
+    ASSERT(sz % 4 == 0);
     return sz;
 }
 
@@ -706,8 +707,9 @@ Uint
 erts_dist_ext_size(ErtsDistExternal *edep)
 {
     Uint sz = dist_ext_size(edep);
+    sz += 4;  /* may need to pad to 8-byte-align ErtsDistExternalData */
     sz += edep->data[0].frag_id * sizeof(ErtsDistExternalData);
-    return sz + ERTS_EXTRA_DATA_ALIGN_SZ(sz);
+    return sz;
 }
 
 Uint
@@ -749,6 +751,8 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, ErtsDistExternal *new_edep)
     erts_ref_dist_entry(new_edep->dep);
 
     ep += dist_ext_sz;
+    ep += (UWord)ep & 4; /* 8-byte alignment for ErtsDistExternalData */
+    ASSERT((UWord)ep % 8 == 0);
 
     new_edep->data = (ErtsDistExternalData*)ep;
     sys_memzero(new_edep->data, sizeof(ErtsDistExternalData) * edep->data->frag_id);
