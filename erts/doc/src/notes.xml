@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in <c>seq_trace:reset_trace/0</c> that
+	    could crash the emulator.</p>
+          <p>
+	    Own Id: OTP-15704</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>process_info(reductions)</c> causing it
+	    to sometimes return invalid results.</p>
+          <p>
+	    Own Id: OTP-15709 Aux Id: ERIERL-337 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
