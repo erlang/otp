@@ -3744,19 +3744,33 @@ otp_10852(Config) when is_list(Config) ->
     ok = rpc_call(Node, read_file, [B]),
     ok = rpc_call(Node, make_link, [B,B]),
     case rpc_call(Node, make_symlink, [B,B]) of
-	ok -> ok;
-	{error, E} when (E =:= enotsup) or (E =:= eperm) ->
-	    {win32,_} = os:type()
+        {error, eilseq} ->
+            %% Some versions of OS X refuse to create files with illegal names.
+            {unix,darwin} = os:type();
+        {error, eperm} ->
+            %% The test user might not have permission to create symlinks.
+            {win32,_} = os:type();
+        ok ->
+            ok
     end,
     ok = rpc_call(Node, delete, [B]),
-    ok = rpc_call(Node, make_dir, [B]),
+    case rpc_call(Node, make_dir, [B]) of
+        {error, eilseq} ->
+            {unix,darwin} = os:type();
+        ok ->
+            ok
+    end,
     ok = rpc_call(Node, del_dir, [B]),
-    ok = rpc_call(Node, write_file, [B,B]),
-    {ok, Fd} = rpc_call(Node, open, [B,[read]]),
-    ok = rpc_call(Node, close, [Fd]),
-    {ok,0} = rpc_call(Node, copy, [B,B]),
-    {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
-    ok = rpc_call(Node, close, [Fd2]),
+    case rpc_call(Node, write_file, [B,B]) of
+        {error, eilseq} ->
+            {unix,darwin} = os:type();
+        ok ->
+            {ok, Fd} = rpc_call(Node, open, [B,[read]]),
+            ok = rpc_call(Node, close, [Fd]),
+            {ok,0} = rpc_call(Node, copy, [B,B]),
+            {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
+            ok = rpc_call(Node, close, [Fd2])
+    end,
     true = test_server:stop_node(Node),
     ok.
 
