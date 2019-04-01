@@ -112,6 +112,10 @@
                                     aes_256_cbc |
                                     aes_128_gcm |
                                     aes_256_gcm |
+                                    aes_128_ccm |
+                                    aes_256_ccm |
+                                    aes_128_ccm_8 |
+                                    aes_256_ccm_8 |                                    
                                     chacha20_poly1305 |
                                     legacy_cipher().
 -type legacy_cipher()            ::  rc4_128 |

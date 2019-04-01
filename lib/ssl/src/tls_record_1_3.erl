@@ -252,7 +252,7 @@ cipher_aead(Fragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
     AAD = additional_data(erlang:iolist_size(Fragment) + TagLen),
     Nonce = nonce(Seq, IV),
     {Content, CipherTag} =
-        ssl_cipher:aead_encrypt(BulkCipherAlgo, Key, Nonce, Fragment, AAD),
+        ssl_cipher:aead_encrypt(BulkCipherAlgo, Key, Nonce, Fragment, AAD, TagLen),
     <<Content/binary, CipherTag/binary>>.
 
 encode_tls_cipher_text(#tls_cipher_text{opaque_type = Type,
