@@ -211,12 +211,14 @@ handle_udp_packet(_V, undefined,
 			case SnmpMgr of
 			    {pdu, Pid} ->
 				Pdu = get_pdu(Msg), 
-				d("packet_loop -> "
-				  "send pdu to manager (~w): ~p", [Pid, Pdu]),
+				d("handle_udp_packet -> "
+				  "send pdu(v3) to manager (~w): "
+                                  "~n   ~p", [Pid, Pdu]),
 				Pid ! {snmp_pdu, Pdu};
 			    {msg, Pid} ->
 				d("packet_loop -> "
-				  "send msg to manager (~w): ~p", [Pid, Msg]),
+				  "send msg(v3) to manager (~p): "
+                                  "~n   ~p", [Pid, Msg]),
 				Pid ! {snmp_msg, Msg, Ip, UdpPort}
 			end,
 			MsgData2;
@@ -247,8 +249,8 @@ handle_udp_packet(_V, undefined,
 				Pid ! {snmp_pdu, Pdu};
 			    {msg, Pid} ->
 				d("handle_udp_packet -> "
-				  "send pdu-msg to manager (~w):  ~p", 
-				  [Pid, Pdu]),
+				  "send msg to manager (~p): "
+                                  "~n   ~p", [Pid, Pdu]),
 				Msg = Message#message{data = Pdu},
 				Pid ! {snmp_msg, Msg, Ip, UdpPort}
 			end;
@@ -256,13 +258,13 @@ handle_udp_packet(_V, undefined,
 			case SnmpMgr of
 			    {pdu, Pid} ->
 				d("handle_udp_packet -> "
-				  "send trap to manager (~w): ~p", 
+				  "send trap-pdu to manager (~w): ~p", 
 				  [Pid, Pdu]),
 				Pid ! {snmp_pdu, Pdu};
 			    {msg, Pid} ->
 				d("handle_udp_packet -> "
-				  "send trap-msg to manager (~w): ~p", 
-				  [Pid, Pdu]),
+				  "send trap-msg to manager (~w): "
+                                  "~n   ~p", [Pid, Pdu]),
 				Msg = Message#message{data = Pdu},
 				Pid ! {snmp_msg, Msg, Ip, UdpPort}
 			end;

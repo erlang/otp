@@ -1116,15 +1116,15 @@ init_ms(Config, Opts) when is_list(Config) ->
     Opts1 = [MasterAgentVerbosity, MibsVerbosity, SymStoreVerbosity | Opts],
     [{vsn, v1} | start_v1_agent(Config, Opts1)].
 
-init_size_check_mse(Config) when is_list(Config) ->
-    MibStorage = {mib_storage, [{module, snmpa_mib_storage_ets}]},
-    init_size_check_ms(Config, [MibStorage]).
+%% init_size_check_mse(Config) when is_list(Config) ->
+%%     MibStorage = {mib_storage, [{module, snmpa_mib_storage_ets}]},
+%%     init_size_check_ms(Config, [MibStorage]).
 
-init_size_check_msd(Config) when is_list(Config) ->
-    AgentDbDir = ?GCONF(agent_db_dir, Config),
-    MibStorage = {mib_storage, [{module,  snmpa_mib_storage_dets}, 
-				{options, [{dir, AgentDbDir}]}]},
-    init_size_check_ms(Config, [MibStorage]).
+%% init_size_check_msd(Config) when is_list(Config) ->
+%%     AgentDbDir = ?GCONF(agent_db_dir, Config),
+%%     MibStorage = {mib_storage, [{module,  snmpa_mib_storage_dets}, 
+%% 				{options, [{dir, AgentDbDir}]}]},
+%%     init_size_check_ms(Config, [MibStorage]).
 
 init_size_check_msm(Config) when is_list(Config) ->
     ?line AgentNode = ?GCONF(snmp_master, Config),
