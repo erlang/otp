@@ -12141,10 +12141,9 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
                                      reason);
         switch (code) {
         case ERTS_DSIG_SEND_CONTINUE:
+        case ERTS_DSIG_SEND_YIELD:
             erts_set_gc_state(c_p, 0);
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
-            /* fall-through */
-        case ERTS_DSIG_SEND_YIELD:
             break;
         case ERTS_DSIG_SEND_OK:
             break;
@@ -12388,11 +12387,10 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
                                       reason,
                                       SEQ_TRACE_TOKEN(c_p));
         switch (code) {
+        case ERTS_DSIG_SEND_YIELD:
         case ERTS_DSIG_SEND_CONTINUE:
             erts_set_gc_state(c_p, 0);
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
-            /* fall-through */
-        case ERTS_DSIG_SEND_YIELD:
             break;
         case ERTS_DSIG_SEND_OK:
             break;
