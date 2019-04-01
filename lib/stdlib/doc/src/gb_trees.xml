@@ -42,11 +42,8 @@
 
   <section>
     <title>Data Structure</title>
-    <code type="none">
-{Size, Tree}</code>
-
-    <p><c>Tree</c> is composed of nodes of the form <c>{Key, Value, Smaller,
-      Bigger}</c> and the "empty tree" node <c>nil</c>.</p>
+    <p>Trees and iterators are built using opaque data structures that should
+      not be pattern-matched from outside this module.</p>
 
     <p>There is no attempt to balance trees after deletions. As
       deletions do not increase the height of a tree, this should be OK.</p>
