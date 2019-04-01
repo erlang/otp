@@ -1772,6 +1772,15 @@ is_sane_ecc(crypto) ->
 is_sane_ecc(_) ->
     sufficient_crypto_support(cipher_ec).
 
+is_sane_oppenssl_sni() ->
+    [{_,_, Bin}]  = crypto:info_lib(), 
+    case binary_to_list(Bin) of
+	"OpenSSL 0.9" ++ _ -> % Does not support ECC
+	    false;
+	_ ->
+	    true
+    end.
+
 is_fips(openssl) ->
     VersionStr = os:cmd("openssl version"),
     case re:split(VersionStr, "fips") of
