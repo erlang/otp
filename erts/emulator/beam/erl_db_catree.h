@@ -91,7 +91,6 @@ typedef struct db_table_catree {
        select_delete(DeleteAll)*/
     Uint nr_of_deleted_items;
     Binary* nr_of_deleted_items_wb;
-    Eterm nr_of_deleted_items_wb_trap_mref;
 } DbTableCATree;
 
 typedef struct {
@@ -108,9 +107,6 @@ typedef struct {
 void db_initialize_catree(void);
 
 int db_create_catree(Process *p, DbTable *tbl);
-
-Eterm db_catree_get_no_of_deleted_items_mref(DbTable *tbl);
-Uint db_catree_get_no_of_deleted_items_from_mref(Eterm mref);
 
 TreeDbTerm** catree_find_root(Eterm key, CATreeRootIterator*);
 

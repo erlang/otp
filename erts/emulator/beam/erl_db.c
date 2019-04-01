@@ -2138,22 +2138,18 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
 {
     SWord initial_reds = ERTS_BIF_REDS_LEFT(BIF_P);
     SWord reds = initial_reds;
-    Eterm nitems;
+    Eterm nitems_holder = THE_NON_VALUE;
     DbTable* tb;
-    ERTS_UNDEF(nitems, THE_NON_VALUE);
     CHECK_TABLES();
 
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE, BIF_ets_internal_delete_all_2);
 
     if (BIF_ARG_2 == am_undefined) {
-        if ( ! IS_CATREE_TABLE(tb->common.status) ) {
-            nitems = erts_make_integer(DB_GET_APPROX_NITEMS(tb), BIF_P);
-            ASSERT(!tb->common.counters.is_decentralized);
-        }
-        reds = tb->common.meth->db_delete_all_objects(BIF_P, tb, reds);
-        if (IS_CATREE_TABLE(tb->common.status)) {
-            nitems = db_catree_get_no_of_deleted_items_mref(tb);
-        }
+        reds = tb->common.meth->db_delete_all_objects(BIF_P,
+                                                      tb,
+                                                      reds,
+                                                      &nitems_holder);
+        ASSERT(nitems_holder != THE_NON_VALUE);
         ASSERT(!(tb->common.status & DB_BUSY));
 
         if (reds < 0) {
@@ -2172,7 +2168,7 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
             db_unlock(tb, LCK_WRITE);
             BUMP_ALL_REDS(BIF_P);
             BIF_TRAP2(bif_export[BIF_ets_internal_delete_all_2], BIF_P,
-                      BIF_ARG_1, nitems);
+                      BIF_ARG_1, nitems_holder);
         }
         else {
             /* Done, no trapping needed */
@@ -2182,21 +2178,19 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
     }
     else {
         /*
-         * The table lookup succeeded and second argument is nitems
+         * The table lookup succeeded and second argument is nitems_holder
          * and not 'undefined', which means we have trapped at least once
          * and are now done.
          */
-        nitems = BIF_ARG_2;
-    }
-    if (IS_CATREE_TABLE(tb->common.status)) {
-        nitems =
-            erts_make_integer(db_catree_get_no_of_deleted_items_from_mref(nitems),
-                              BIF_P);
-    } else {
-        ASSERT(!tb->common.counters.is_decentralized);
+        nitems_holder = BIF_ARG_2;
     }
     db_unlock(tb, LCK_WRITE);
+    {
+    Eterm nitems =
+        tb->common.meth->db_delete_all_objects_get_nitems_from_holder(BIF_P,
+                                                                      nitems_holder);
     BIF_RET(nitems);
+    }
 }
 
 static void delete_all_objects_continue(Process* p, DbTable* tb)
@@ -2209,7 +2203,7 @@ static void delete_all_objects_continue(Process* p, DbTable* tb)
     if ((tb->common.status & (DB_DELETE|DB_BUSY)) != DB_BUSY)
         return;
 
-    reds = tb->common.meth->db_delete_all_objects(p, tb, reds);
+    reds = tb->common.meth->db_delete_all_objects(p, tb, reds, NULL);
     
     if (reds < 0) {
         BUMP_ALL_REDS(p);

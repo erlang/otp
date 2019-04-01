@@ -454,7 +454,12 @@ static void db_foreach_offheap_hash(DbTable *,
 				    void (*)(ErlOffHeap *, void *),
 				    void *);
 
-static SWord db_delete_all_objects_hash(Process* p, DbTable* tbl, SWord reds);
+static SWord db_delete_all_objects_hash(Process* p,
+                                        DbTable* tbl,
+                                        SWord reds,
+                                        Eterm* nitems_holder_wb);
+static Eterm db_delete_all_objects_get_nitems_from_holder_hash(Process* p,
+                                                               Eterm nitems_holder);
 #ifdef HARDDEBUG
 static void db_check_table_hash(DbTableHash *tb);
 #endif
@@ -558,6 +563,7 @@ DbTableMethod db_hash =
     db_select_replace_continue_hash,
     db_take_hash,
     db_delete_all_objects_hash,
+    db_delete_all_objects_get_nitems_from_holder_hash,
     db_free_empty_table_hash,
     db_free_table_continue_hash,
     db_print_hash,
@@ -3164,8 +3170,17 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     return;
 }
 
-static SWord db_delete_all_objects_hash(Process* p, DbTable* tbl, SWord reds)
+static SWord db_delete_all_objects_hash(Process* p,
+                                        DbTable* tbl,
+                                        SWord reds,
+                                        Eterm* nitems_holder_wb)
 {
+    if (nitems_holder_wb != NULL) {
+        Uint nr_of_items =
+            erts_flxctr_read_centralized(&tbl->common.counters,
+                                         ERTS_DB_TABLE_NITEMS_COUNTER_ID);
+        *nitems_holder_wb = erts_make_integer(nr_of_items, p);
+    }
     if (IS_FIXED(tbl)) {
 	reds = db_mark_all_deleted_hash(tbl, reds);
     } else {
@@ -3177,6 +3192,11 @@ static SWord db_delete_all_objects_hash(Process* p, DbTable* tbl, SWord reds)
         RESET_NITEMS(tbl);
     }
     return reds;
+}
+
+static Eterm db_delete_all_objects_get_nitems_from_holder_hash(Process* p,
+                                                               Eterm nitems_holder){
+    return nitems_holder;
 }
 
 void db_foreach_offheap_hash(DbTable *tbl,

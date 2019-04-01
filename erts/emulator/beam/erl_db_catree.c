@@ -149,7 +149,12 @@ static SWord db_free_table_continue_catree(DbTable *tbl, SWord);
 static void db_foreach_offheap_catree(DbTable *,
                                       void (*)(ErlOffHeap *, void *),
                                       void *);
-static SWord db_delete_all_objects_catree(Process* p, DbTable* tbl, SWord reds);
+static SWord db_delete_all_objects_catree(Process* p,
+                                          DbTable* tbl,
+                                          SWord reds,
+                                          Eterm* nitems_holder_wb);
+static Eterm db_delete_all_objects_get_nitems_from_holder_catree(Process* p,
+                                                                 Eterm nitems_holder);
 static int
 db_lookup_dbterm_catree(Process *, DbTable *, Eterm key, Eterm obj,
                         DbUpdateHandle*);
@@ -191,6 +196,7 @@ DbTableMethod db_catree =
     db_select_replace_continue_catree,
     db_take_catree,
     db_delete_all_objects_catree,
+    db_delete_all_objects_get_nitems_from_holder_catree,
     db_free_table_catree,
     db_free_table_continue_catree,
     db_print_catree,
@@ -1400,7 +1406,6 @@ int db_create_catree(Process *p, DbTable *tbl)
     tb->deletion = 0;
     tb->base_nodes_to_free_list = NULL;
     tb->nr_of_deleted_items = 0;
-    tb->nr_of_deleted_items_wb = NULL;
     erts_atomic_init_relb(&(tb->root), (erts_aint_t)root);
     return DB_ERROR_NONE;
 }
@@ -2094,46 +2099,43 @@ typedef struct {
     Uint nr_of_deleted_items;
 } DbCATreeNrOfItemsDeletedWb;
 
-static void
-create_and_install_no_of_deleted_items_mref(DbTableCATree *tb,
-                                            Process *p)
+static Eterm
+create_and_install_num_of_deleted_items_wb_bin(Process *p, DbTableCATree *tb)
 {
-    Eterm* hp;
     Binary* bin;
-    Eterm mref;
     DbCATreeNrOfItemsDeletedWb* data;
-    bin =
-        erts_create_magic_binary(sizeof(DbCATreeNrOfItemsDeletedWb),
-                                 db_catree_nr_of_items_deleted_wb_dtor);
-    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
-    mref = erts_mk_magic_ref(&hp, &MSO(p), bin);
+    Eterm* hp;
+    Eterm mref;
+    bin = erts_create_magic_binary(sizeof(DbCATreeNrOfItemsDeletedWb),
+                                   db_catree_nr_of_items_deleted_wb_dtor);
     data = ERTS_MAGIC_BIN_DATA(bin);
     data->nr_of_deleted_items = 0;
-    erts_refc_inctest(&bin->intern.refc, 2);
+    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
     tb->nr_of_deleted_items_wb = bin;
-    tb->nr_of_deleted_items_wb_trap_mref = mref;
+    mref = erts_mk_magic_ref(&hp, &MSO(p), bin);
+    erts_refc_inctest(&bin->intern.refc, 2);   
+    tb->nr_of_deleted_items_wb = bin;
+    return mref;
 }
 
-Eterm db_catree_get_no_of_deleted_items_mref(DbTable *tbl)
-{
-    DbTableCATree *tb = &tbl->catree;
-    return tb->nr_of_deleted_items_wb_trap_mref;
-}
-
-Uint db_catree_get_no_of_deleted_items_from_mref(Eterm mref)
+static Eterm db_delete_all_objects_get_nitems_from_holder_catree(Process* p,
+                                                                 Eterm mref)
 {
     Binary* bin = erts_magic_ref2bin(mref);
-    DbCATreeNrOfItemsDeletedWb* data =
-        ERTS_MAGIC_BIN_DATA(bin);
-    return data->nr_of_deleted_items;
+    DbCATreeNrOfItemsDeletedWb* data = ERTS_MAGIC_BIN_DATA(bin);
+    return erts_make_integer(data->nr_of_deleted_items, p);
 }
 
-static SWord db_delete_all_objects_catree(Process* p, DbTable* tbl, SWord reds)
+static SWord db_delete_all_objects_catree(Process* p,
+                                          DbTable* tbl,
+                                          SWord reds,
+                                          Eterm* nitems_holder_wb)
 {
     DbTableCATree *tb = &tbl->catree;
     DbCATreeNrOfItemsDeletedWb* data;
     if (!tb->deletion) {
-        create_and_install_no_of_deleted_items_mref(tb, p);
+        *nitems_holder_wb =
+            create_and_install_num_of_deleted_items_wb_bin(p, tb);
     }
     reds = db_free_table_continue_catree(tbl, reds);
     if (reds < 0)

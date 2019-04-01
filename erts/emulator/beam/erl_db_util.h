@@ -208,8 +208,12 @@ typedef struct db_table_method
             enum DbIterSafety*);
     int (*db_take)(Process *, DbTable *, Eterm, Eterm *);
 
-    SWord (*db_delete_all_objects)(Process* p, DbTable* db, SWord reds);
-
+    SWord (*db_delete_all_objects)(Process* p,
+                                   DbTable* db,
+                                   SWord reds,
+                                   Eterm* nitems_holder_wb);
+    Eterm (*db_delete_all_objects_get_nitems_from_holder)(Process* p,
+                                                          Eterm nitems_holder);
     int (*db_free_empty_table)(DbTable* db);
     SWord (*db_free_table_continue)(DbTable* db, SWord reds);
     

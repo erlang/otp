@@ -444,8 +444,12 @@ static void db_foreach_offheap_tree(DbTable *,
 				    void (*)(ErlOffHeap *, void *),
 				    void *);
 
-static SWord db_delete_all_objects_tree(Process* p, DbTable* tbl, SWord reds);
-
+static SWord db_delete_all_objects_tree(Process* p,
+                                        DbTable* tbl,
+                                        SWord reds,
+                                        Eterm* nitems_holder_wb);
+static Eterm db_delete_all_objects_get_nitems_from_holder_tree(Process* p,
+                                                               Eterm nitems_holder);
 #ifdef HARDDEBUG
 static void db_check_table_tree(DbTable *tbl);
 #endif
@@ -489,6 +493,7 @@ DbTableMethod db_tree =
     db_select_replace_continue_tree,
     db_take_tree,
     db_delete_all_objects_tree,
+    db_delete_all_objects_get_nitems_from_holder_tree,
     db_free_empty_table_tree,
     db_free_table_continue_tree,
     db_print_tree,
@@ -2304,14 +2309,30 @@ static SWord db_free_table_continue_tree(DbTable *tbl, SWord reds)
     return reds;
 }
 
-static SWord db_delete_all_objects_tree(Process* p, DbTable* tbl, SWord reds)
+static SWord db_delete_all_objects_tree(Process* p,
+                                        DbTable* tbl,
+                                        SWord reds,
+                                        Eterm* nitems_holder_wb)
 {
+    if (nitems_holder_wb != NULL) {
+        Uint nr_of_items =
+            erts_flxctr_read_centralized(&tbl->common.counters,
+                                         ERTS_DB_TABLE_NITEMS_COUNTER_ID);
+        *nitems_holder_wb = erts_make_integer(nr_of_items, p);
+    }
     reds = db_free_table_continue_tree(tbl, reds);
     if (reds < 0)
         return reds;
     db_create_tree(p, tbl);
     RESET_NITEMS(tbl);
     return reds;
+}
+
+static Eterm db_delete_all_objects_get_nitems_from_holder_tree(Process* p,
+                                                               Eterm holder)
+{
+    (void)p;
+    return holder;
 }
 
 static void do_db_tree_foreach_offheap(TreeDbTerm *,
