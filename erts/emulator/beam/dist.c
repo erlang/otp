@@ -1366,7 +1366,7 @@ erts_dist_seq_tree_foreach_delete_yielding(DistSeqNode **root,
                                                limit);
     if (res > 0) {
 	if (ysp != &ys)
-	    erts_free(ERTS_ALC_T_ML_YIELD_STATE, ysp);
+	    erts_free(ERTS_ALC_T_SEQ_YIELD_STATE, ysp);
 	*vyspp = NULL;
     }
     else {
