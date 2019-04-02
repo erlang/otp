@@ -80,7 +80,8 @@ XML_INTERNAL_FILES = \
 	PTables.xml		\
 	PortSignals.xml		\
 	ProcessManagementOptimizations.xml \
-	SuperCarrier.xml
+	SuperCarrier.xml        \
+	CountingInstructions.xml
 
 
 XML_CHAPTER_FILES = \
