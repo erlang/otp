@@ -47,10 +47,7 @@ init_per_suite(Config0) ->
                 {skip, Reason} ->
                     {skip, Reason};
                 Config ->
-                    Result =
-                    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config),
-                                             proplists:get_value(priv_dir, Config)),
-                    ssl_test_lib:cert_options(Config)
+                    ssl_test_lib:make_rsa_cert(Config)
             end
     catch _:_ ->
               {skip, "Crypto did not start"}
@@ -149,8 +146,8 @@ use_connection(Socket) ->
     end.
 
 soft_start_connection(Config, ResulProxy) ->
-    ClientOpts = proplists:get_value(client_verification_opts, Config),
-    ServerOpts = proplists:get_value(server_verification_opts, Config),
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
 			   {from, ResulProxy},
@@ -166,8 +163,8 @@ soft_start_connection(Config, ResulProxy) ->
     {Server, Client}.
 
 restart_start_connection(Config, ResulProxy) ->
-    ClientOpts = proplists:get_value(client_verification_opts, Config),
-    ServerOpts = proplists:get_value(server_verification_opts, Config),
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
 					{from, ResulProxy},
