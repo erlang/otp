@@ -1238,7 +1238,7 @@ put_delayed(#state{out = Out} = S, Key, Data) ->
     S#state{out = [{delayed, Key, Data} | Out]}.
 
 put_chars(#state{out = Out} = S, Chars) ->
-    S#state{out = [[Chars] | Out]}.
+    S#state{out = [Chars | Out]}.
 
 put_line(#state{out = Out} = S, String) ->
     S#state{out = [[String, nl()] | Out]}.
@@ -1278,8 +1278,26 @@ complete_output(S, [{delayed, Key, {image, _Text, Line}}|Rest], Out) ->
 	    {File, _} = S#state.ifile,
 	    error(File, Line, "Image definition name `~ts' not found~n", [Key])
     end;
+complete_output(S, [["</p>","\n"]=ParaStart,
+                    Contents,
+                    ["<p>","\n"]=ParaEnd|Rest], Out) ->
+    case is_image_tag(Contents) of
+        true ->
+            %% Get rid of the paragraph around an image tag. It would mess up
+            %% figure numbering.
+            complete_output(S, Rest, [Contents|Out]);
+        false ->
+            complete_output(S, [Contents,ParaEnd|Rest], [ParaStart|Out])
+    end;
 complete_output(S, [Next|Rest], Out) ->
     complete_output(S, Rest, [Next|Out]).
+
+is_image_tag("<image" ++ _) ->
+    true;
+is_image_tag([[_|_]=H | _]) ->
+    is_image_tag(H);
+is_image_tag(_) ->
+    false.
 
 write_output(_OFD, []) ->
     ok;
