@@ -462,7 +462,7 @@ url([C|Cs], Bool, Acc) ->
     url(Cs, Bool, [C|Acc]).
 
 link_or_image(Str, Type) ->
-    case link_or_image_text(Str, "") of
+    case link_or_image_text(Str) of
  	no -> no;
 	{Text, Cont1} ->
 	    case link_or_image_data(Cont1, none, Type, "", "") of
@@ -495,16 +495,36 @@ internal_seealso("#" ++ Marker) ->
 internal_seealso(_) ->
     no.
 
+link_or_image_text(Cs0) ->
+    {Prefix, Cs2} = case Cs0 of
+                        "__" ++ Cs1 -> {"__", Cs1};
+                        "_"  ++ Cs1 -> {"_", Cs1};
+                        "**" ++ Cs1 -> {"**", Cs1};
+                        "*"  ++ Cs1 -> {"*", Cs1};
+                        Cs1 -> {"", Cs1}
+                    end,
+    {Text0, Cs} = link_or_image_text(Cs2, []),
+    Text = case lists:prefix(Prefix, Text0) of
+               false ->
+                   lists:reverse(Text0, Prefix);
+               true ->
+                   lists:reverse(lists:nthtail(length(Prefix), Text0))
+            end,
+    case Text of
+        [] ->
+            no;
+        [_|_] ->
+            {Text, Cs}
+    end.
+
 link_or_image_text([$\\,C|Cs], Acc) ->
     link_or_image_text(Cs, [C|Acc]);
-link_or_image_text([$]|_Cs], "") ->
-    no;
 link_or_image_text([$]|Cs], Acc) ->
-    {lists:reverse(Acc), Cs};
+    {Acc, Cs};
 link_or_image_text([C|Cs], Acc) ->
     link_or_image_text(Cs, [C|Acc]);
 link_or_image_text([], _Acc) ->
-    no.
+    {[], []}.
 
 link_or_image_data([C|Cs], none, link, "", "") when C == $ ; C == $\t ->
     link_or_image_data(Cs, none, link, "", "");
