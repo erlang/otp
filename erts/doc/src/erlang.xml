@@ -126,7 +126,7 @@
               instance.</p>
             <p>One can get an approximation of the <c>native</c>
               time unit by calling
-              <seealso marker="erlang:convert_time_unit/3">
+              <seealso marker="#convert_time_unit/3">
               <c>erlang:convert_time_unit(1, second, native)</c></seealso>.
               The result equals the number
               of whole <c>native</c> time units per second. If
