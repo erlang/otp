@@ -2421,7 +2421,7 @@ decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
 decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
                     ExtData:Len/binary, Rest/binary>>,
                   Version, MessageType = hello_retry_request, Acc) ->
-    <<?UINT16(Group),Rest/binary>> = ExtData,
+    <<?UINT16(Group)>> = ExtData,
     decode_extensions(Rest, Version, MessageType,
                       Acc#{key_share =>
                                #key_share_hello_retry_request{
