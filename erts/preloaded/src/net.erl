@@ -178,12 +178,28 @@ getnameinfo(SockAddr, [] = _Flags) ->
 getnameinfo(#{family := Fam, addr := _Addr} = SockAddr, Flags)
   when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso 
        (is_list(Flags) orelse (Flags =:= undefined)) ->
-    nif_getnameinfo(socket:ensure_sockaddr(SockAddr), Flags);
+    nif_getnameinfo((catch ensure_sockaddr(SockAddr)), Flags);
 getnameinfo(#{family := Fam, path := _Path} = SockAddr, Flags)
   when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
     nif_getnameinfo(SockAddr, Flags).
 
 
+%% This function is intended to "handle" the case when the user
+%% has built their (OTP) system with "--disable-esock".
+%% That means the socket module does not exist. This is not really
+%% a problem since the nif_getnameinfo won't work either (since
+%% the nif file is not part of the system). The result of calling
+%% getnameinfo will be a undef exception (erlang:nif_error(undef)).
+%%
+%% The only functions in this module that actually work in this case
+%% (--disable-esock) is the depricated stuff (call, cast, ...).
+%%
+ensure_sockaddr(SockAddr) ->
+    try socket:ensure_sockaddr(SockAddr)
+    catch
+        error:undef:_ ->
+            undefined
+    end.
 
 %% ===========================================================================
 %%

@@ -33,6 +33,7 @@
 -export([read_application/4]).
 
 -export([make_hybrid_boot/4]).
+-export([preloaded/0]). % Exported just for testing
 
 -import(lists, [filter/2, keysort/2, keysearch/3, map/2, reverse/1,
 		append/1, foldl/3,  member/2, foreach/2]).
