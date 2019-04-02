@@ -395,7 +395,7 @@ decipher_aead(Type, #cipher_state{key = Key} = CipherState, AAD0, CipherFragment
     try
         Nonce = decrypt_nonce(Type, CipherState, CipherFragment),
         {AAD, CipherText, CipherTag} = aead_ciphertext_split(Type, CipherState, CipherFragment, AAD0),
-	case ssl_cipher:aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AAD) of
+        case ssl_cipher:aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AAD) of
 	    Content when is_binary(Content) ->
 		Content;
 	    _ ->
@@ -473,7 +473,7 @@ initial_security_params(ConnectionEnd) ->
 
 do_cipher_aead(?CHACHA20_POLY1305 = Type, Fragment, #cipher_state{key=Key, tag_len = TagLen} = CipherState, AAD0) ->
     AAD = ?end_additional_data(AAD0, erlang:iolist_size(Fragment)),
-    Nonce = encrypt_nonce(Type, CipherState),
+    Nonce = chacha_nonce(CipherState),
     {Content, CipherTag} = ssl_cipher:aead_encrypt(Type, Key, Nonce, Fragment, AAD, TagLen),
     {<<Content/binary, CipherTag/binary>>, CipherState};
 do_cipher_aead(Type, Fragment, #cipher_state{key=Key, tag_len = TagLen, nonce = ExplicitNonce} = CipherState, AAD0) ->
@@ -482,16 +482,18 @@ do_cipher_aead(Type, Fragment, #cipher_state{key=Key, tag_len = TagLen, nonce = 
     {Content, CipherTag} = ssl_cipher:aead_encrypt(Type, Key, Nonce, Fragment, AAD, TagLen),
     {<<ExplicitNonce:64/integer, Content/binary, CipherTag/binary>>, CipherState#cipher_state{nonce = ExplicitNonce + 1}}.
 
-encrypt_nonce(?CHACHA20_POLY1305, #cipher_state{nonce = Nonce, iv = IV}) ->
-    crypto:exor(<<?UINT32(0), Nonce/binary>>, IV);
+
+chacha_nonce(#cipher_state{nonce = Nonce, iv = IV}) ->
+    crypto:exor(<<?UINT32(0), Nonce/binary>>, IV).
+
 encrypt_nonce(Type, #cipher_state{iv = IV, nonce = ExplicitNonce}) when  Type == ?AES_GCM;
                                                                          Type == ?AES_CCM;
                                                                          Type == ?AES_CCM_8 ->
     <<Salt:4/bytes, _/binary>> = IV,
     <<Salt/binary, ExplicitNonce:64/integer>>.
 
-decrypt_nonce(?CHACHA20_POLY1305, #cipher_state{nonce = Nonce, iv = IV}, _) ->
-    crypto:exor(<<Nonce:96/unsigned-big-integer>>, IV);
+decrypt_nonce(?CHACHA20_POLY1305, CipherState, _) ->
+    chacha_nonce(CipherState);
 decrypt_nonce(Type, #cipher_state{iv = <<Salt:4/bytes, _/binary>>}, <<ExplicitNonce:8/bytes, _/binary>>) when 
       Type == ?AES_GCM; 
       Type == ?AES_CCM; 
