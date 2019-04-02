@@ -659,7 +659,7 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
         return ERL_ERROR;
     }
     
-    ec->creation = creation & 0x3; /* 2 bits */
+    ec->creation = creation;
     
     if (cookie) {
 	if (strlen(cookie) >= sizeof(ec->ei_connect_cookie)) { 
@@ -698,7 +698,7 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
     strcpy(ec->self.node,thisnodename);
     ec->self.num = 0;
     ec->self.serial = 0;
-    ec->self.creation = creation & 0x3; /* 2 bits */
+    ec->self.creation = creation;
 
     ec->cbs = cbs;
     ec->setup_context = setup_context;
