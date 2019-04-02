@@ -403,7 +403,7 @@ A line with `//` is also a comment.  It is recommended to only
 use this style of comments in files that define implementations of
 instructions.
 
-A long line can be broken into shorter lines by a placing a`\` before
+A long line can be broken into shorter lines by a placing a `\` before
 the newline.
 
 ### Variable definitions ###
