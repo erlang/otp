@@ -1,6 +1,6 @@
 # Erlang Garbage Collector
 
-Erlang manages dynamic memory with a [tracing garbage collector](https://en.wikipedia.org/wiki/Tracing_garbage_collection). More precisely a per process generational semi-space copying collector using [Cheney's](#1) copy collection algorithm together with a global large object space.
+Erlang manages dynamic memory with a [tracing garbage collector](https://en.wikipedia.org/wiki/Tracing_garbage_collection). More precisely a per process generational semi-space copying collector using Cheney's copy collection algorithm together with a global large object space. (See C. J. Cheney in [References](#references).)
 
 ## Overview
 
@@ -81,7 +81,7 @@ In the next garbage collection, any pointers to the old heap will be ignored and
 
 Generational garbage collection aims to increase performance at the expense of memory. This is achieved because only the young, smaller, heap is considered in most garbage collections.
 
-The generational [hypothesis](#2) predicts that most terms tend to die young, and for an immutable language such as Erlang, young terms die even faster than in other languages. So for most usage patterns the data in the new heap will die very soon after it is allocated. This is good because it limits the amount of data copied to the old heap and also because the garbage collection algorithm used is proportional to the amount of live data on the heap.
+The generational hypothesis predicts that most terms tend to die young (see D. Ungar in [References](#references)), and for an immutable language such as Erlang, young terms die even faster than in other languages. So for most usage patterns the data in the new heap will die very soon after it is allocated. This is good because it limits the amount of data copied to the old heap and also because the garbage collection algorithm used is proportional to the amount of live data on the heap.
 
 One critical issue to note here is that any term on the young heap can reference terms on the old heap but *no* term on the old heap may refer to a term on the young heap. This is due to the nature of the copy algorithm. Anything referenced by an old heap term is not included in the reference tree, root-set and its followers, and hence is not copied. If it was, the data would be lost, fire and brimstone would rise to cover the earth. Fortunately, this comes naturally for Erlang because the terms are immutable and thus there can be no pointers modified on the old heap to point to the young heap.
 
@@ -175,6 +175,8 @@ Using `on_heap` will force all messages to be part of on the young heap which wi
 
 Which one of these strategies is best depends a lot on what the process is doing and how it interacts with other processes. So, as always, profile the application and see how it behaves with the different options.
 
-   [1]: C. J. Cheney. A nonrecursive list compacting algorithm. Commun. ACM, 13(11):677–678, Nov. 1970.
+## References
 
-   [2]: D. Ungar. Generation scavenging: A non-disruptive high performance storage reclamation algorithm. SIGSOFT Softw. Eng. Notes, 9(3):157–167, Apr. 1984.
+C. J. Cheney. A nonrecursive list compacting algorithm. Commun. ACM, 13(11):677–678, Nov. 1970.
+
+D. Ungar. Generation scavenging: A non-disruptive high performance storage reclamation algorithm. SIGSOFT Softw. Eng. Notes, 9(3):157–167, Apr. 1984.
