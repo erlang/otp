@@ -864,13 +864,15 @@ expect(Mod, Line, Type, Enterp, Generic, Specific, ExpVBs) ->
     expect2(Mod, Line, Fun).
 
 expect2(Mod, Line, F) ->
-    io:format("EXPECT for ~w:~w~n", [Mod, Line]),
+    io_format_expect("for ~w:~w", [Mod, Line]),
     case F() of
 	{error, Reason} ->
-	    io:format("EXPECT failed at ~w:~w => ~n~p~n", [Mod, Line, Reason]),
+	    io_format_expect("failed at ~w:~w => "
+                             "~n      ~p", [Mod, Line, Reason]),
 	    throw({error, {expect, Mod, Line, Reason}});
 	Else ->
-	    io:format("EXPECT result for ~w:~w => ~n~p~n", [Mod, Line, Else]),
+	    io_format_expect("result for ~w:~w => "
+                             "~n      ~p", [Mod, Line, Else]),
 	    Else
     end.
 
@@ -899,20 +901,27 @@ receive_trap(To) ->
     end.
 
 
+io_format_expect(F) ->
+    io_format_expect(F, []).
+
+io_format_expect(F, A) ->
+    FTS = snmp_test_lib:formated_timestamp(),
+    io:format("[~s] EXPECT " ++ F ++ "~n", [FTS | A]).
+
 do_expect(Expect) when is_atom(Expect) ->
     do_expect({Expect, get_timeout()});
 
 do_expect({any_pdu, To}) 
   when is_integer(To) orelse (To =:= infinity) ->
-    io:format("EXPECT any PDU~n", []),
+    io_format_expect("any PDU"),
     receive_pdu(To);
 
 do_expect({any_trap, To}) ->
-    io:format("EXPECT any TRAP within ~w~n", [To]),
+    io_format_expect("any TRAP within ~w", [To]),
     receive_trap(To);
 
 do_expect({timeout, To}) ->
-    io:format("EXPECT nothing within ~w~n", [To]),
+    io_format_expect("nothing within ~w", [To]),
     receive
 	X ->
 	    {error, {unexpected, X}}
@@ -924,16 +933,16 @@ do_expect({timeout, To}) ->
 do_expect({Err, To}) 
   when (is_atom(Err) andalso 
 	((is_integer(To) andalso To > 0) orelse (To =:= infinity))) ->
-    io:format("EXPECT error ~w within ~w~n", [Err, To]),
+    io_format_expect("error ~w within ~w", [Err, To]),
     do_expect({{error, Err}, To});
 
 do_expect({error, Err}) when is_atom(Err) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT error ~w~n", [Err]),
+    io_format_expect("error ~w", [Err]),
     do_expect2(Check, any, Err, any, any, get_timeout());
 do_expect({{error, Err}, To}) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT error ~w within ~w~n", [Err, To]),
+    io_format_expect("error ~w within ~w", [Err, To]),
     do_expect2(Check, any, Err, any, any, To);
 
 %% exp_varbinds() -> [exp_varbind()]
@@ -943,25 +952,23 @@ do_expect({{error, Err}, To}) ->
 %% ExpVBs         -> exp_varbinds() | {VbsCondition, exp_varbinds()}
 do_expect(ExpVBs) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'get-response'"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'get-response'"
+                     "~n   with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'get-response', noError, 0, ExpVBs, get_timeout()).
 
 
 do_expect(v2trap, ExpVBs) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'snmpv2-trap'"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'snmpv2-trap' with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'snmpv2-trap', noError, 0, ExpVBs, get_timeout());
 
 
 do_expect(report, ExpVBs) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'report'"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'report' with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'report', noError, 0, ExpVBs, get_timeout());
 
 
@@ -970,9 +977,8 @@ do_expect(inform, ExpVBs) ->
 
 do_expect({inform, false}, ExpVBs) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'inform-request' (false)"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'inform-request' (false) with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'inform-request', noError, 0, ExpVBs, get_timeout());
 
 do_expect({inform, true}, ExpVBs) ->
@@ -986,9 +992,8 @@ do_expect({inform, true}, ExpVBs) ->
 	   (_, Err) ->
 		Err
 	end,
-    io:format("EXPECT 'inform-request' (true)"
-	      "~n   with"
-	      "~n      Varbinds: ~p~n", [ExpVBs]),
+    io_format_expect("'inform-request' (true) with"
+                     "~n      Varbinds: ~p", [ExpVBs]),
     do_expect2(Check, 'inform-request', noError, 0, ExpVBs, get_timeout());
 
 do_expect({inform, {error, EStat, EIdx}}, ExpVBs) 
@@ -1003,11 +1008,10 @@ do_expect({inform, {error, EStat, EIdx}}, ExpVBs)
 	   (_, Err) ->
 		Err
 	end,
-    io:format("EXPECT 'inform-request' (error)"
-	      "~n   with"
-	      "~n      Error Status: ~p"
-	      "~n      Error Index:  ~p"
-	      "~n      Varbinds:     ~p~n", [EStat, EIdx, ExpVBs]),
+    io_format_expect("'inform-request' (error) with"
+                     "~n      Error Status: ~p"
+                     "~n      Error Index:  ~p"
+                     "~n      Varbinds:     ~p", [EStat, EIdx, ExpVBs]),
     do_expect2(Check, 'inform-request', noError, 0, ExpVBs, get_timeout()).
 
 
@@ -1018,26 +1022,23 @@ do_expect(Err, Idx, ExpVBs, To)
   when is_atom(Err) andalso 
        (is_integer(Idx) orelse is_list(Idx) orelse (Idx == any)) ->
     Check = fun(_, R) -> R end,
-    io:format("EXPECT 'get-response'"
-	      "~n   with"
-	      "~n      Error:    ~p"
-	      "~n      Index:    ~p"
-	      "~n      Varbinds: ~p"
-	      "~n   within ~w~n", [Err, Idx, ExpVBs, To]),
+    io_format_expect("'get-response' withing ~w ms with"
+                     "~n      Error:    ~p"
+                     "~n      Index:    ~p"
+                     "~n      Varbinds: ~p", [To, Err, Idx, ExpVBs]),
     do_expect2(Check, 'get-response', Err, Idx, ExpVBs, To).
 
 
 do_expect(Type, Enterp, Generic, Specific, ExpVBs) ->
-    do_expect(Type, Enterp, Generic, Specific, ExpVBs, 3500).
+    do_expect(Type, Enterp, Generic, Specific, ExpVBs, get_timeout()).
 
 do_expect(trap, Enterp, Generic, Specific, ExpVBs, To) ->
-    io:format("EXPECT trap"
-	      "~n   with"
-	      "~n      Enterp:   ~w"
-	      "~n      Generic:  ~w"
-	      "~n      Specific: ~w"
-	      "~n      Varbinds: ~w"
-	      "~n   within ~w~n", [Enterp, Generic, Specific, ExpVBs, To]),
+    io_format_expect("trap within ~w ms with"
+                     "~n      Enterp:   ~w"
+                     "~n      Generic:  ~w"
+                     "~n      Specific: ~w"
+                     "~n      Varbinds: ~w",
+                     [To, Enterp, Generic, Specific, ExpVBs]),
     PureE = purify_oid(Enterp),
     case receive_trap(To) of
 	#trappdu{enterprise    = PureE, 
@@ -1072,46 +1073,46 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	#pdu{type         = Type, 
 	     error_status = Err,
 	     error_index  = Idx} when ExpVBs =:= any -> 
-	    io:format("EXPECT received expected pdu (1)~n", []),
+	    io_format_expect("received expected pdu (1)"),
 	    ok;
 
 	#pdu{type         = Type, 
 	     request_id   = ReqId, 
 	     error_status = Err2,
 	     error_index  = Idx} when ExpVBs =:= any -> 
-	    io:format("EXPECT received expected pdu with "
-		      "unexpected error status (2): "
-		      "~n   Error Status: ~p~n", [Err2]),
+	    io_format_expect("received expected pdu with "
+                             "unexpected error status (2): "
+                             "~n   Error Status: ~p", [Err2]),
 	    {error, {unexpected_error_status, Err, Err2, ReqId}};
 
 	#pdu{error_status = Err} when (Type   =:= any) andalso 
 				      (Idx    =:= any) andalso 
 				      (ExpVBs =:= any) -> 
-	    io:format("EXPECT received expected pdu (3)~n", []),
+	    io_format_expect("received expected pdu (3)"),
 	    ok;
 
 	#pdu{request_id   = ReqId, 
 	     error_status = Err2} when (Type   =:= any) andalso 
 				       (Idx    =:= any) andalso 
 				       (ExpVBs =:= any) -> 
-	    io:format("EXPECT received expected pdu with "
-		      "unexpected error status (4): "
-		      "~n   Error Status: ~p~n", [Err2]),
+	    io_format_expect("received expected pdu with "
+                             "unexpected error status (4): "
+                             "~n   Error Status: ~p", [Err2]),
 	    {error, {unexpected_error_status, Err, Err2, ReqId}};
 
 	#pdu{type         = Type, 
 	     error_status = Err} when (Idx =:= any) andalso 
 				      (ExpVBs =:= any) -> 
-	    io:format("EXPECT received expected pdu (5)~n", []),
+	    io_format_expect("received expected pdu (5)", []),
 	    ok;
 
 	#pdu{type         = Type, 
 	     request_id   = ReqId, 
 	     error_status = Err2} when (Idx =:= any) andalso 
 				       (ExpVBs =:= any) -> 
-	    io:format("EXPECT received expected pdu with "
-		      "unexpected error status (6): "
-		      "~n   Error Status: ~p~n", [Err2]),
+	    io_format_expect("received expected pdu with "
+                             "unexpected error status (6): "
+                             "~n   Error Status: ~p", [Err2]),
 	    {error, {unexpected_error_status, Err, Err2, ReqId}};
 
 	#pdu{type         = Type, 
@@ -1120,13 +1121,13 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_index  = EI} when is_list(Idx) andalso (ExpVBs =:= any) -> 
 	    case lists:member(EI, Idx) of
 		true ->
-		    io:format("EXPECT received expected pdu with "
-			      "expected error index (7)~n", []),
+		    io_format_expect("received expected pdu with "
+                                     "expected error index (7)"),
 		    ok;
 		false ->
-		    io:format("EXPECT received expected pdu with "
-			      "unexpected error index (8): "
-			      "~n   Error Index: ~p~n", [EI]),
+		    io_format_expect("received expected pdu with "
+                                     "unexpected error index (8): "
+                                     "~n   Error Index: ~p", [EI]),
 		    {error, {unexpected_error_index, EI, Idx, ReqId}}
 	    end;
 
@@ -1136,15 +1137,15 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_index  = EI} when is_list(Idx) andalso (ExpVBs =:= any) -> 
 	    case lists:member(EI, Idx) of
 		true ->
-		    io:format("EXPECT received expected pdu with "
-			      "unexpected error status (9): "
-			      "~n   Error Status: ~p~n", [Err2]),
+		    io_format_expect("received expected pdu with "
+                                     "unexpected error status (9): "
+                                     "~n   Error Status: ~p", [Err2]),
 		    {error, {unexpected_error_status, Err, Err2, ReqId}};
 		false ->
-		    io:format("EXPECT received expected pdu with "
-			      "unexpected error (10): "
-			      "~n   Error Status: ~p"
-			      "~n   Error index:  ~p~n", [Err2, EI]),
+		    io_format_expect("received expected pdu with "
+                                     "unexpected error (10): "
+                                     "~n   Error Status: ~p"
+                                     "~n   Error index:  ~p", [Err2, EI]),
 		    {error, {unexpected_error, {Err, Idx}, {Err2, EI}, ReqId}}
 	    end;
 
@@ -1152,12 +1153,12 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     request_id   = ReqId, 
 	     error_status = Err2, 
 	     error_index  = Idx2} when ExpVBs =:= any ->
-	    io:format("EXPECT received unexpected pdu with (11) "
-		      "~n   Type:         ~p"
-		      "~n   ReqId:        ~p"
-		      "~n   Errot status: ~p"
-		      "~n   Error index:  ~p"
-		      "~n", [Type2, ReqId, Err2, Idx2]),
+	    io_format_expect("received unexpected pdu with (11) "
+                             "~n   Type:         ~p"
+                             "~n   ReqId:        ~p"
+                             "~n   Errot status: ~p"
+                             "~n   Error index:  ~p",
+                             [Type2, ReqId, Err2, Idx2]),
 	    {error, 
 	     {unexpected_pdu, 
 	      {Type, Err, Idx}, {Type2, Err2, Idx2}, ReqId}};
@@ -1166,26 +1167,26 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_status = Err, 
 	     error_index  = Idx,
 	     varbinds     = VBs} = PDU ->
-	    io:format("EXPECT received pdu (12): "
-		      "~n   [exp] Type:         ~p"
-		      "~n   [exp] Error Status: ~p"
-		      "~n   [exp] Error Index:  ~p"
-		      "~n   VBs:                ~p"
-		      "~nwhen"
-		      "~n   ExpVBs:             ~p"
-		      "~n", [Type, Err, Idx, VBs, ExpVBs]),
+	    io_format_expect("received pdu (12): "
+                             "~n   [exp] Type:         ~p"
+                             "~n   [exp] Error Status: ~p"
+                             "~n   [exp] Error Index:  ~p"
+                             "~n   VBs:                ~p"
+                             "~nwhen"
+                             "~n   ExpVBs:             ~p",
+                             [Type, Err, Idx, VBs, ExpVBs]),
 	    Check(PDU, check_vbs(purify_oids(ExpVBs), VBs));
 
 	#pdu{type         = Type, 
 	     error_status = Err, 
 	     varbinds     = VBs} = PDU when Idx =:= any ->
-	    io:format("EXPECT received pdu (13): "
-		      "~n   [exp] Type:         ~p"
-		      "~n   [exp] Error Status: ~p"
-		      "~n   VBs:                ~p"
-		      "~nwhen"
-		      "~n   ExpVBs:             ~p"
-		      "~n", [Type, Err, VBs, ExpVBs]),
+	    io_format_expect("received pdu (13): "
+                             "~n   [exp] Type:         ~p"
+                             "~n   [exp] Error Status: ~p"
+                             "~n   VBs:                ~p"
+                             "~nwhen"
+                             "~n   ExpVBs:             ~p",
+                             [Type, Err, VBs, ExpVBs]),
 	    Check(PDU, check_vbs(purify_oids(ExpVBs), VBs));
 
 	#pdu{type         = Type, 
@@ -1193,15 +1194,15 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_status = Err, 
 	     error_index  = EI,
 	     varbinds     = VBs} = PDU when is_list(Idx) ->
-	    io:format("EXPECT received pdu (14): "
-		      "~n   [exp] Type:         ~p"
-		      "~n   ReqId:              ~p"
-		      "~n   [exp] Error Status: ~p"
-		      "~n   [exp] Error Index:  ~p"
-		      "~n   VBs:                ~p"
-		      "~nwhen"
-		      "~n   ExpVBs:             ~p"
-		      "~n", [Type, ReqId, Err, EI, VBs, ExpVBs]),
+	    io_format_expect("received pdu (14): "
+                             "~n   [exp] Type:         ~p"
+                             "~n   ReqId:              ~p"
+                             "~n   [exp] Error Status: ~p"
+                             "~n   [exp] Error Index:  ~p"
+                             "~n   VBs:                ~p"
+                             "~nwhen"
+                             "~n   ExpVBs:             ~p",
+                             [Type, ReqId, Err, EI, VBs, ExpVBs]),
 	    PureVBs = purify_oids(ExpVBs), 
 	    case lists:member(EI, Idx) of
 		true ->
@@ -1215,13 +1216,13 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	     error_status = Err2, 
 	     error_index  = Idx2,
 	     varbinds     = VBs2} ->
-	    io:format("EXPECT received unexpected pdu with (15) "
-		      "~n   Type:         ~p"
-		      "~n   ReqId:        ~p"
-		      "~n   Errot status: ~p"
-		      "~n   Error index:  ~p"
-		      "~n   Varbinds:     ~p"
-		      "~n", [Type2, ReqId, Err2, Idx2, VBs2]),
+	    io_format_expect("received unexpected pdu with (15) "
+                             "~n   Type:         ~p"
+                             "~n   ReqId:        ~p"
+                             "~n   Errot status: ~p"
+                             "~n   Error index:  ~p"
+                             "~n   Varbinds:     ~p",
+                             [Type2, ReqId, Err2, Idx2, VBs2]),
 	    {error, 
 	     {unexpected_pdu, 
 	      {Type,  Err,  Idx, purify_oids(ExpVBs)}, 
@@ -1229,9 +1230,8 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	      ReqId}};
 	
 	Error ->
-	    io:format("EXPECT received error (16):  "
-		      "~n   Error: ~p"
-		      "~n", [Error]),
+	    io_format_expect("received error (16):  "
+                             "~n   Error: ~p", [Error]),
 	    Error
     end.
 
