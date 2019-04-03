@@ -120,29 +120,6 @@
 
 -define(heap_binary_size, 64).
 
-init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    CIOD = rpc(Config,
-               fun() ->
-                       case catch erts_debug:get_internal_state(available_internal_state) of
-                           true -> ok;
-                           _ -> erts_debug:set_internal_state(available_internal_state, true)
-                       end,
-                       erts_debug:get_internal_state(check_io_debug)
-               end),
-    erlang:display({init_per_testcase, Case}),
-    0 = element(1, CIOD),
-    [{testcase, Case}|Config].
-
-end_per_testcase(Case, Config) ->
-    erlang:display({end_per_testcase, Case}),
-    CIOD = rpc(Config,
-               fun() ->
-                       get_stable_check_io_info(),
-                       erts_debug:get_internal_state(check_io_debug)
-               end),
-    0 = element(1, CIOD),
-    ok.
-
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].
@@ -218,6 +195,48 @@ end_per_group(_GroupName, Config) ->
             stop_node(Node)
     end,
     Config.
+
+init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+    CIOD = rpc(Config,
+               fun() ->
+                       case catch erts_debug:get_internal_state(available_internal_state) of
+                           true -> ok;
+                           _ -> erts_debug:set_internal_state(available_internal_state, true)
+                       end,
+                       erts_debug:get_internal_state(check_io_debug)
+               end),
+    erlang:display({init_per_testcase, Case}),
+    0 = element(1, CIOD),
+    [{testcase, Case}|Config].
+
+end_per_testcase(Case, Config) ->
+    erlang:display({end_per_testcase, Case}),
+    try rpc(Config, fun() ->
+                            get_stable_check_io_info(),
+                            erts_debug:get_internal_state(check_io_debug)
+                    end) of
+        CIOD ->
+            0 = element(1, CIOD)
+    catch _E:_R:_ST ->
+            %% Logs some info about the system
+            ct_os_cmd("epmd -names"),
+            ct_os_cmd("ps aux"),
+            %% Restart the node
+            case proplists:get_value(node, Config) of
+                undefined ->
+                    ok;
+                Node ->
+                    timer:sleep(1000), %% Give the node time to die
+                    [NodeName, _] = string:lexemes(atom_to_list(Node),"@"),
+                    {ok, Node} = start_node_final(
+                                   list_to_atom(NodeName),
+                                   proplists:get_value(node_args, Config))
+            end
+    end,
+    ok.
+
+ct_os_cmd(Cmd) ->
+    ct:log("~s: ~s",[Cmd,os:cmd(Cmd)]).
 
 %% Test sending bad types to port with an outputv-capable driver.
 outputv_errors(Config) when is_list(Config) ->
@@ -2644,7 +2663,6 @@ start_node(Config) when is_list(Config) ->
 start_node(Name) ->
     start_node(Name, "").
 start_node(NodeName, Args) ->
-    Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
                         ++ "-"
                         ++ atom_to_list(NodeName)
@@ -2652,7 +2670,17 @@ start_node(NodeName, Args) ->
                         ++ integer_to_list(erlang:system_time(second))
                         ++ "-"
                         ++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, Args ++ " -pa "++Pa}]).
+    start_node_final(Name, Args).
+start_node_final(Name, Args) ->
+    {ok, Pwd} = file:get_cwd(),
+    FinalArgs = [Args, " -pa ", filename:dirname(code:which(?MODULE))],
+    {ok, Node} = test_server:start_node(Name, slave, [{args, FinalArgs}]),
+    LogPath = Pwd ++ "/error_log." ++ atom_to_list(Name),
+    ct:pal("Logging to: ~s", [LogPath]),
+    rpc:call(Node, logger, add_handler, [file_handler, logger_std_h,
+                                         #{formatter => {logger_formatter,#{ single_line => false }},
+                                           config => #{file => LogPath }}]),
+    {ok, Node}.
 
 stop_node(Node) ->
     test_server:stop_node(Node).
