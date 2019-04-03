@@ -135,6 +135,7 @@ for file in $CONFIG_FILES; do
 	-e "s,@HOST_TYPE@,$HOST_TYPE,g" \
 	-e "s,@WIND_BASE@,$WIND_BASE,g" \
 	-e "s,@TARGET@,$target,g" \
+        -e "s,@ENV_CFLAGS@,$CFLAGS,g" \
 	$in_file > $new_name
 done
 
