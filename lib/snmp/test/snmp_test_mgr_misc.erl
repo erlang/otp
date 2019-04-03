@@ -38,6 +38,7 @@
 
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").
+-include_lib("snmp/src/misc/snmp_verbosity.hrl").
 
 
 %%----------------------------------------------------------------------
@@ -101,11 +102,11 @@ init_packet(
   DbgOptions, IpFamily) ->
     put(sname, mgr_misc),
     init_debug(DbgOptions),
-    {ok, UdpId} =
-	gen_udp:open(TrapUdp, [{recbuf,BufSz}, {reuseaddr, true}, IpFamily]),
+    UdpOpts     = [{recbuf,BufSz}, {reuseaddr, true}, IpFamily],
+    {ok, UdpId} = gen_udp:open(TrapUdp, UdpOpts),
     put(msg_id, 1),
-    proc_lib:init_ack(Parent, self()),
     init_usm(Version, Dir),
+    proc_lib:init_ack(Parent, self()),
     packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, []).
 
 init_debug(Dbg) when is_atom(Dbg) ->
@@ -598,15 +599,25 @@ set_pdu(Msg, RePdu) ->
 
 
 init_usm('version-3', Dir) ->
+    ?vlog("init_usm -> create (and init) fake \"agent\" table", []),
     ets:new(snmp_agent_table, [set, public, named_table]),
     ets:insert(snmp_agent_table, {agent_mib_storage, persistent}),
-    snmpa_local_db:start_link(normal, Dir, [{verbosity,trace}]),
+    ?vlog("init_usm -> try start fake local-db", []),
+    {ok, _} = snmpa_local_db:start_link(normal, Dir,
+                                        [{sname,     "MGR-LOCAL-DB"},
+                                         {verbosity, trace}]),
     NameDb = snmpa_agent:db(snmpEngineID),
+    ?vlog("init_usm -> try set manager engine-id", []),
     R = snmp_generic:variable_set(NameDb, "mgrEngine"),
-    io:format("~w:init_usm -> engine-id set result: ~p~n", [?MODULE,R]),
+    snmp_verbosity:print(info, info, "init_usm -> engine-id set result: ~p", [R]),
+    ?vlog("init_usm -> try set engine boots (framework-mib)", []),
     snmp_framework_mib:set_engine_boots(1),
+    ?vlog("init_usm -> try set engine time (framework-mib)", []),
     snmp_framework_mib:set_engine_time(1),
-    snmp_user_based_sm_mib:reconfigure(Dir);
+    ?vlog("init_usm -> try usm (mib) reconfigure", []),
+    snmp_user_based_sm_mib:reconfigure(Dir),
+    ?vlog("init_usm -> done", []),
+    ok;
 init_usm(_Vsn, _Dir) ->
     ok.
 

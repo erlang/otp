@@ -147,8 +147,8 @@ init([Prio, DbDir, DbInitError, Opts]) ->
 do_init(Prio, DbDir, DbInitError, Opts) ->
     process_flag(priority, Prio),
     process_flag(trap_exit, true),
-    put(sname,ldb),
-    put(verbosity,get_opt(verbosity, Opts, ?default_verbosity)),
+    put(sname,     get_opt(sname, Opts, ldb)),
+    put(verbosity, get_opt(verbosity, Opts, ?default_verbosity)),
     ?vlog("starting",[]),
     Dets = dets_open(DbDir, DbInitError, Opts),
     Ets  = ets:new(?ETS_TAB, [set, protected]),
