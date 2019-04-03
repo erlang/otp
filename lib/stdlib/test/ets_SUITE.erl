@@ -42,7 +42,8 @@
          select_bound_chunk/1,
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,t_ets_dets/1]).
--export([test_table_size_concurrency/1,test_table_memory_concurrency/1]).
+-export([test_table_size_concurrency/1,test_table_memory_concurrency/1,
+         test_delete_table_while_size_snapshot/1]).
 
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
@@ -159,7 +160,8 @@ all() ->
      test_throughput_benchmark,
      {group, benchmark},
      test_table_size_concurrency,
-     test_table_memory_concurrency].
+     test_table_memory_concurrency,
+     test_delete_table_while_size_snapshot].
 
 
 groups() ->
@@ -4518,6 +4520,64 @@ test_table_size_concurrency(Config) when is_list(Config) ->
 test_table_memory_concurrency(Config) when is_list(Config) ->
     test_table_counter_concurrency(memory).
 
+%% Tests that calling the ets:delete operation on a table T with
+%% decentralized counters works while ets:info(T, size) operations are
+%% active
+test_delete_table_while_size_snapshot(Config) when is_list(Config) ->
+    TopParent = self(),
+    repeat_par(
+      fun() ->
+              Table = ets:new(t, [public, ordered_set,
+                                  {write_concurrency, true}]),
+              Parent = self(),
+              NrOfSizeProcs = 100,
+              Pids = [ spawn(fun()-> size_process(Table, Parent) end)
+                       || _ <- lists:seq(1, NrOfSizeProcs)],
+              timer:sleep(1),
+              ets:delete(Table),
+              [receive 
+                   table_gone ->  ok;
+                   Problem -> TopParent ! Problem
+               end || _ <- Pids]
+      end,
+      15000),
+    receive
+        Problem -> throw(Problem)
+    after 0 -> ok
+    end.
+
+size_process(Table, Parent) ->
+    try ets:info(Table, size) of
+        N when is_integer(N) ->
+            size_process(Table, Parent);
+        undefined -> Parent ! table_gone;
+        E -> Parent ! {got_unexpected, E}
+    catch
+        E -> Parent ! {got_unexpected_exception, E}
+    end.
+
+repeat_par(FunToRepeat, NrOfTimes) ->
+    repeat_par_help(FunToRepeat, NrOfTimes, NrOfTimes).
+
+repeat_par_help(FunToRepeat, NrOfTimes, OrgNrOfTimes) ->
+    Parent = self(),
+    case NrOfTimes rem 5 of
+        0 -> timer:sleep(1);
+        _ -> ok
+    end,
+    case NrOfTimes > 0 of
+        true -> spawn(fun()->
+                              FunToRepeat(),
+                              Parent ! done
+                      end),
+                repeat_par_help(FunToRepeat, NrOfTimes-1, OrgNrOfTimes);
+        _ -> 
+            repeat(fun()->
+                           receive
+                               done -> ok
+                           end
+                   end, OrgNrOfTimes)
+    end.
 
 %% Test various duplicate_bags stuff.
 dups(Config) when is_list(Config) ->

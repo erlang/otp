@@ -2102,19 +2102,15 @@ typedef struct {
 static Eterm
 create_and_install_num_of_deleted_items_wb_bin(Process *p, DbTableCATree *tb)
 {
-    Binary* bin;
-    DbCATreeNrOfItemsDeletedWb* data;
-    Eterm* hp;
-    Eterm mref;
-    bin = erts_create_magic_binary(sizeof(DbCATreeNrOfItemsDeletedWb),
-                                   db_catree_nr_of_items_deleted_wb_dtor);
-    data = ERTS_MAGIC_BIN_DATA(bin);
+    Binary* bin =
+        erts_create_magic_binary(sizeof(DbCATreeNrOfItemsDeletedWb),
+                                 db_catree_nr_of_items_deleted_wb_dtor);
+    DbCATreeNrOfItemsDeletedWb* data = ERTS_MAGIC_BIN_DATA(bin);
+    Eterm* hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+    Eterm mref = erts_mk_magic_ref(&hp, &MSO(p), bin);
     data->nr_of_deleted_items = 0;
-    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
     tb->nr_of_deleted_items_wb = bin;
-    mref = erts_mk_magic_ref(&hp, &MSO(p), bin);
     erts_refc_inctest(&bin->intern.refc, 2);   
-    tb->nr_of_deleted_items_wb = bin;
     return mref;
 }
 
