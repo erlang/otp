@@ -256,66 +256,66 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
 
 //#define EI_DECODE_UTF8_STRING(FUNC,SIZE,VAL) 
 
-#define EI_DECODE_BIN(FUNC,SIZE,VAL,LEN) \
-  { \
-    char p[1024]; \
-    char *buf; \
-    long len; \
-    int size1 = 0; \
-    int size2 = 0; \
-    int err; \
-    message("ei_" #FUNC " should be " #VAL); \
-    buf = read_packet(NULL); \
-    err = ei_ ## FUNC(buf+1, &size1, NULL, &len); \
+static void decode_bin(int exp_size, const char* val, int exp_len)
+{
+    char p[1024];
+    char *buf;
+    long len;
+    int size1 = 0;
+    int size2 = 0;
+    int err;
+    message("ei_decode_binary should be %s", val);
+    buf = read_packet(NULL);
+    err = ei_decode_binary(buf+1, &size1, NULL, &len);
     message("err = %d, size = %d, len = %d, expected size = %d, expected len = %d\n",\
-            err,size1,len,SIZE,LEN); \
-    if (err != 0) { \
-      if (err != -1) { \
-	fail("returned non zero but not -1 if NULL pointer"); \
-      } else { \
-	fail("returned non zero"); \
-      } \
-      return; \
-    } \
-\
-    if (len != LEN) { \
-      fail("size is not correct"); \
-      return; \
-    } \
-\
-    err = ei_ ## FUNC(buf+1, &size2, p, &len); \
+            err,size1,len, exp_size, exp_len);
+    if (err != 0) {
+      if (err != -1) {
+	fail("returned non zero but not -1 if NULL pointer");
+      } else {
+	fail("returned non zero");
+      }
+      return;
+    }
+
+    if (len != exp_len) {
+      fail("size is not correct");
+      return;
+    }
+
+    err = ei_decode_binary(buf+1, &size2, p, &len);
     message("err = %d, size = %d, len = %d, expected size = %d, expected len = %d\n",\
-            err,size2,len,SIZE,LEN); \
-    if (err != 0) { \
-      if (err != -1) { \
-	fail("returned non zero but not -1 if NULL pointer"); \
-      } else { \
-	fail("returned non zero"); \
-      } \
-      return; \
-    } \
-\
-    if (len != LEN) { \
-      fail("size is not correct"); \
-      return; \
-    } \
-\
-    if (strncmp(p,VAL,LEN) != 0) { \
-      fail("value is not correct"); \
-      return; \
-    } \
-\
-    if (size1 != size2) { \
-      fail("size with and without pointer differs"); \
-      return; \
-    } \
-\
-    if (size1 != SIZE) { \
-      fail("size of encoded data is incorrect"); \
-      return; \
-    } \
-    free_packet(buf); \
-  } \
+            err,size2,len, exp_size, exp_len);
+    if (err != 0) {
+      if (err != -1) {
+	fail("returned non zero but not -1 if NULL pointer");
+      } else {
+	fail("returned non zero");
+      }
+      return;
+    }
+
+    if (len != exp_len) {
+      fail("size is not correct");
+      return;
+    }
+
+    if (strncmp(p,val,exp_len) != 0) {
+      fail("value is not correct");
+      return;
+    }
+
+    if (size1 != size2) {
+      fail("size with and without pointer differs");
+      return;
+    }
+
+    if (size1 != exp_size) {
+      fail("size of encoded data is incorrect");
+      return;
+    }
+    free_packet(buf);
+}
 
 /* ******************************************************************** */
 
@@ -644,9 +644,9 @@ TESTCASE(test_ei_decode_misc)
     EI_DECODE_STRING(decode_my_string, 1, "");
     EI_DECODE_STRING(decode_my_string, 9, "≈ƒ÷Â‰ˆ");
 
-    EI_DECODE_BIN(decode_binary,  8, "foo", 3);
-    EI_DECODE_BIN(decode_binary,  5, "", 0);
-    EI_DECODE_BIN(decode_binary, 11, "≈ƒ÷Â‰ˆ", 6);
+    decode_bin(8, "foo", 3);
+    decode_bin(5, "", 0);
+    decode_bin(11, "≈ƒ÷Â‰ˆ", 6);
 
     /* FIXME check \0 in strings and atoms? */
 /*
