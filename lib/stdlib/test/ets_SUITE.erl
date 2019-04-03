@@ -4559,25 +4559,19 @@ size_process(Table, Parent) ->
 repeat_par(FunToRepeat, NrOfTimes) ->
     repeat_par_help(FunToRepeat, NrOfTimes, NrOfTimes).
 
+repeat_par_help(_FunToRepeat, 0, OrgNrOfTimes) ->
+    repeat(fun()-> receive done -> ok end end, OrgNrOfTimes);
 repeat_par_help(FunToRepeat, NrOfTimes, OrgNrOfTimes) ->
     Parent = self(),
     case NrOfTimes rem 5 of
         0 -> timer:sleep(1);
         _ -> ok
     end,
-    case NrOfTimes > 0 of
-        true -> spawn(fun()->
-                              FunToRepeat(),
-                              Parent ! done
-                      end),
-                repeat_par_help(FunToRepeat, NrOfTimes-1, OrgNrOfTimes);
-        _ -> 
-            repeat(fun()->
-                           receive
-                               done -> ok
-                           end
-                   end, OrgNrOfTimes)
-    end.
+    spawn(fun()->
+                  FunToRepeat(),
+                  Parent ! done
+          end),
+    repeat_par_help(FunToRepeat, NrOfTimes-1, OrgNrOfTimes).
 
 %% Test various duplicate_bags stuff.
 dups(Config) when is_list(Config) ->
