@@ -4514,15 +4514,18 @@ run_large_file_test(Config, Run, Name) ->
 	{{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
 	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"};
 	{{unix,_},_} ->
-	    N = disc_free(proplists:get_value(priv_dir, Config)),
-	    io:format("Free disk: ~w KByte~n", [N]),
-	    if N < 5 * (1 bsl 20) ->
-		    %% Less than 5 GByte free
-		    {skip,"Less than 5 GByte free"};
-	       true ->
-		    do_run_large_file_test(Config, Run, Name)
-	    end;
-	_ -> 
+            case disc_free(proplists:get_value(priv_dir, Config)) of
+                error ->
+                    {skip, "Failed to query disk space for priv_dir. "
+                           "Is it on a remote file system?~n"};
+                N when N >= 5 * (1 bsl 20) ->
+                    ct:pal("Free disk: ~w KByte~n", [N]),
+                    do_run_large_file_test(Config, Run, Name);
+                N when N < 5 * (1 bsl 20) ->
+                    ct:pal("Free disk: ~w KByte~n", [N]),
+                    {skip,"Less than 5 GByte free"}
+            end;
+	_ ->
 	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
     end.
 
@@ -4556,12 +4559,18 @@ do_run_large_file_test(Config, Run, Name0) ->
 
 disc_free(Path) ->
     Data = disksup:get_disk_data(),
-    {_,Tot,Perc} = hd(lists:filter(
-			fun({P,_Size,_Full}) ->
-				lists:prefix(filename:nativename(P),
-					     filename:nativename(Path))
-			end, lists:reverse(lists:sort(Data)))),
-    round(Tot * (1-(Perc/100))).
+
+    %% What partitions could Data be mounted on?
+    Partitions =
+        [D || {P, _Tot, _Perc}=D <- Data,
+         lists:prefix(filename:nativename(P), filename:nativename(Path))],
+
+    %% Sorting in descending order places the partition with the most specific
+    %% path first.
+    case lists:sort(fun erlang:'>='/2, Partitions) of
+        [{_,Tot, Perc} | _] -> round(Tot * (1-(Perc/100)));
+        [] -> error
+    end.
 
 memsize() ->
     {Tot,_Used,_}  = memsup:get_memory_data(),
