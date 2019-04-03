@@ -7,6 +7,9 @@ TAGS
 # vim
 .*.sw[a-z]
 
+# vscode
+.vscode
+
 autom4te.cache
 *.beam
 *.asn1db
