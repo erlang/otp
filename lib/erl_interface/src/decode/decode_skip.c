@@ -21,6 +21,14 @@
 #include "eiext.h"
 #include "decode_skip.h"
 
+#ifdef HAVE_STDINT_H
+#  include <stdint.h>
+#endif
+
+#ifndef SIZE_MAX
+#  define SIZE_MAX (~((size_t)0))
+#endif
+
 int ei_skip_term(const char* buf, int* index)
 {
     int i, n, ty;
@@ -79,6 +87,10 @@ int ei_skip_term(const char* buf, int* index)
 	if (ei_decode_binary(buf, index, NULL, NULL) < 0)
 	    return -1;
 	break;
+    case ERL_BIT_BINARY_EXT:
+        if (ei_decode_bitstring(buf, index, NULL, SIZE_MAX, NULL) < 0)
+            return -1;
+        break;
     case ERL_SMALL_INTEGER_EXT:
     case ERL_INTEGER_EXT:
 	if (ei_decode_long(buf, index, NULL) < 0) return -1;

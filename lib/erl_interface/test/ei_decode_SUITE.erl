@@ -194,6 +194,9 @@ test_ei_decode_misc(Config) when is_list(Config) ->
     send_term_as_binary(P,<<>>),
     send_term_as_binary(P,<<"ÅÄÖåäö">>),
 
+    send_term_as_binary(P,<<1, 2, 3:5>>),
+    send_term_as_binary(P,<<1:1>>),
+
     %    send_term_as_binary(P,{}),
     %    send_term_as_binary(P,[]),
 

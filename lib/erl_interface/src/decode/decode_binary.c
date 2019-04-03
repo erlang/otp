@@ -40,4 +40,40 @@ int ei_decode_binary(const char *buf, int *index, void *p, long *lenp)
   return 0; 
 }
 
+int ei_decode_bitstring(const char *buf, int *index, void *p, size_t plen,
+                        size_t *bitsp)
+{
+  const char *s = buf + *index;
+  const char *s0 = s;
+  unsigned long len;
+  unsigned char last_bits;
+  const unsigned char tag = get8(s);
+
+  if (tag == ERL_BINARY_EXT) {
+      long bytes;
+      int ret = ei_decode_binary(buf, index, p, &bytes);
+      if (bitsp)
+          *bitsp = (size_t)bytes * 8;
+      return ret;
+  }
+
+  if (tag != ERL_BIT_BINARY_EXT)
+      return -1;
+
+  len = get32be(s);
+  last_bits = get8(s);
+
+  if (len > plen || ((last_bits==0) != (len==0)) || last_bits > 8)
+      return -1;
+
+  if (p)
+      memcpy(p, s, len);
+  s += len;
+
+  if (bitsp)
+      *bitsp = (len == 0) ? 0 : ((len-1) * 8) + last_bits;
+
+  *index += s-s0;
+  return 0;
+}
 

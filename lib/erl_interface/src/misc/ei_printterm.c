@@ -249,6 +249,34 @@ static int print_term(FILE* fp, ei_x_buff* x,
 	xputc('>', fp, x); ++ch_written;
 	ei_free(p);
 	break;
+    case ERL_BIT_BINARY_EXT: {
+        size_t bits;
+        int trunc = 0;
+        p = ei_malloc(n);
+        if (p == NULL) goto err;
+        if (ei_decode_bitstring(buf, index, p, n, &bits) < 0) {
+            ei_free(p);
+            goto err;
+        }
+        ch_written += xprintf(fp, x, "#Bits<");
+        m = (bits+7) / 8;
+        if (m > BINPRINTSIZE) {
+            m = BINPRINTSIZE;
+            trunc = 1;
+        }
+        --m;
+        for (i = 0; i < m; ++i) {
+            ch_written += xprintf(fp, x, "%d,", p[i]);
+        }
+        ch_written += xprintf(fp, x, "%d", p[i]);
+        if (trunc)
+            ch_written += xprintf(fp, x, ",...");
+        else if (bits % 8 != 0)
+            ch_written += xprintf(fp, x, ":%u", (unsigned)(bits % 8));
+        xputc('>', fp, x); ++ch_written;
+        ei_free(p);
+        break;
+    }
     case ERL_SMALL_INTEGER_EXT:
     case ERL_INTEGER_EXT:
 	if (ei_decode_long(buf, index, &l) < 0) goto err;

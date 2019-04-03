@@ -120,6 +120,8 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     send_rec(P, #{key => value}),
     send_rec(P, maps:put(Port, Ref, #{key => value, key2 => Pid})),
 
+    [send_rec(P, <<16#dec0deb175:B/little>>) || B <- lists:seq(0,48)],
+
     runner:recv_eot(P),
     ok.
 

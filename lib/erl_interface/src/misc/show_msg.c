@@ -24,6 +24,13 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#ifdef HAVE_STDINT_H
+#  include <stdint.h>
+#endif
+
+#ifndef SIZE_MAX
+#  define SIZE_MAX (~((size_t)0))
+#endif
 
 #include <sys/types.h>
 
@@ -455,6 +462,12 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
 	fprintf(stream,"#Bin<%ld>",num);
 	break;
     
+    case ERL_BIT_BINARY_EXT: {
+        size_t bits;
+        ei_decode_bitstring(termbuf, index, NULL, SIZE_MAX, &bits);
+        fprintf(stream, "#Bits<%lu>", (unsigned long)bits);
+        break;
+    }
     case ERL_LARGE_BIG_EXT:
 	/* doesn't actually decode - just skip over it */
 	/* FIXME if GMP, what to do here?? */

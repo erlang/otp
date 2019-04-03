@@ -157,6 +157,8 @@ int ei_init_connect(void);
 
 void ei_trace_printf(const char *name, int level, const char *format, ...);
 
+int ei_internal_use_21_bitstr_expfun(void);
+
 int ei_get_cbs_ctx__(ei_socket_callbacks **cbs, void **ctx, int fd);
 
 #endif /* _EI_INTERNAL_H */

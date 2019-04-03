@@ -79,9 +79,10 @@ ei_send_funs(Config) when is_list(Config) ->
     {ok,Fd} = ei_connect(P, node()),
 
     Fun1 = fun ei_send/1,
-    Fun2 = fun(X) -> P, X, Fd, Fun1 end,
+    Fun2 = fun(X) -> {P, X, Fd, Fun1} end,
+    Bits = <<1,2,3:5>>,
 
-    AMsg={Fun1,Fun2},
+    AMsg={Fun1,Fun2,Bits},
     %%AMsg={wait_with_funs, new_dist_format},
     ok = ei_send_funs(P, Fd, self(), AMsg),
     EIMsg = receive M -> M end,

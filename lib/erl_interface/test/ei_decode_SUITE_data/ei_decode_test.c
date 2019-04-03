@@ -317,6 +317,69 @@ static void decode_bin(int exp_size, const char* val, int exp_len)
     free_packet(buf);
 }
 
+static void decode_bits(int exp_size, const char* val, size_t exp_bits)
+{
+    char p[1024];
+    char *buf;
+    size_t bits;
+    int size1 = 0;
+    int size2 = 0;
+    int err;
+    message("ei_decode_bitstring should be %d bits", (int)exp_bits);
+    buf = read_packet(NULL);
+    err = ei_decode_bitstring(buf+1, &size1, NULL, sizeof(p), &bits);
+    message("err = %d, size = %d, len = %d, expected size = %d, expected bits = %d\n",\
+            err,size1, (int)bits, exp_size, (int)exp_bits);
+
+    if (err != 0) {
+        if (err != -1) {
+            fail("returned non zero but not -1 if NULL pointer");
+        } else {
+            fail("returned non zero");
+        }
+        return;
+    }
+
+    if (bits != exp_bits) {
+        fail("number of bits is not correct");
+        return;
+    }
+
+    err = ei_decode_bitstring(buf+1, &size2, p, sizeof(p), &bits);
+    message("err = %d, size = %d, len = %d, expected size = %d, expected len = %d\n",\
+            err,size2, (int)bits, exp_size, (int)exp_bits);
+    if (err != 0) {
+        if (err != -1) {
+            fail("returned non zero but not -1 if NULL pointer");
+        } else {
+            fail("returned non zero");
+        }
+        return;
+    }
+
+    if (bits != exp_bits) {
+        fail("bits is not correct");
+        return;
+    }
+
+    if (memcmp(p, val, (exp_bits+7)/8) != 0) {
+        fail("value is not correct");
+        return;
+    }
+
+    if (size1 != size2) {
+        fail("size with and without pointer differs");
+        return;
+    }
+
+    if (size1 != exp_size) {
+        fail2("size of encoded data is incorrect %d != %d", size1, exp_size);
+        return;
+    }
+    free_packet(buf);
+}
+
+
 /* ******************************************************************** */
 
 TESTCASE(test_ei_decode_long)
@@ -647,6 +710,14 @@ TESTCASE(test_ei_decode_misc)
     decode_bin(8, "foo", 3);
     decode_bin(5, "", 0);
     decode_bin(11, "≈ƒ÷Â‰ˆ", 6);
+
+#define LAST_BYTE(V, BITS) ((V) << (8-(BITS)))
+    {
+        unsigned char bits1[] = {1, 2, LAST_BYTE(3,5) };
+        unsigned char bits2[] = {LAST_BYTE(1,1) };
+        decode_bits(9, bits1, 21);
+        decode_bits(7, bits2, 1);
+    }
 
     /* FIXME check \0 in strings and atoms? */
 /*

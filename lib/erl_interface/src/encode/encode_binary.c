@@ -40,3 +40,27 @@ int ei_encode_binary(char *buf, int *index, const void *p, long len)
   return 0; 
 }
 
+int ei_encode_bitstring(char *buf, int *index, const void *p, size_t bits)
+{
+  char *s = buf + *index;
+  char *s0 = s;
+  size_t bytes = (bits + 7) / 8;
+  char last_bits = bits % 8;
+
+  if (bytes == 0 || last_bits == 0)
+      return ei_encode_binary(buf, index, p, bytes);
+
+  if (!buf) s += 6;
+  else {
+      put8(s, ERL_BIT_BINARY_EXT);
+      put32be(s, bytes);
+      put8(s, last_bits);
+      memcpy(s, p, bytes);
+      s[bytes-1] &= (0xff << (8-last_bits));
+  }
+  s += bytes;
+
+  *index += s-s0;
+
+  return 0;
+}

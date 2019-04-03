@@ -1846,6 +1846,7 @@ static int send_name_or_challenge(ei_socket_callbacks *cbs,
     const char* function[] = {"SEND_NAME", "SEND_CHALLENGE"};
     int err;
     ssize_t len;
+    unsigned int flags;
 
     if (f_chall)
 	siz += 4;
@@ -1867,7 +1868,7 @@ static int send_name_or_challenge(ei_socket_callbacks *cbs,
     }
     put8(s, 'n');
     put16be(s, version);
-    put32be(s, (DFLAG_EXTENDED_REFERENCES
+    flags = (DFLAG_EXTENDED_REFERENCES
 		| DFLAG_DIST_MONITOR
 		| DFLAG_EXTENDED_PIDS_PORTS
 		| DFLAG_FUN_TAGS
@@ -1876,7 +1877,14 @@ static int send_name_or_challenge(ei_socket_callbacks *cbs,
 		| DFLAG_SMALL_ATOM_TAGS
 		| DFLAG_UTF8_ATOMS
 		| DFLAG_MAP_TAG
-		| DFLAG_BIG_CREATION));
+		| DFLAG_BIG_CREATION
+                | DFLAG_EXPORT_PTR_TAG
+                | DFLAG_BIT_BINARIES);
+    if (ei_internal_use_21_bitstr_expfun()) {
+        flags &= ~(DFLAG_EXPORT_PTR_TAG
+                   | DFLAG_BIT_BINARIES);
+    }
+    put32be(s, flags);
     if (f_chall)
 	put32be(s, challenge);
     memcpy(s, nodename, strlen(nodename));
