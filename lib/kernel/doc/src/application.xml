@@ -582,7 +582,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           the primary application) for the primary application and all
           included applications, for which the start phase is defined.</p>
         <p>For a description of <c>StartType</c>, see
-	<seealso marker="Module:start/2"><c>Module:start/2</c></seealso>.</p>
+	<seealso marker="#Module:start/2"><c>Module:start/2</c></seealso>.</p>
       </desc>
     </func>
     <func>

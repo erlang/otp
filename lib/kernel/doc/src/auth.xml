@@ -46,7 +46,7 @@
       <fsummary>Magic cookie for local node (deprecated).</fsummary>
       <desc>
         <p>Use
-          <seealso marker="erts:erlang#erlang:get_cookie/0"><c>erlang:get_cookie()</c></seealso>
+          <seealso marker="erts:erlang#get_cookie/0"><c>erlang:get_cookie()</c></seealso>
           in ERTS instead.</p>
       </desc>
     </func>
@@ -58,7 +58,7 @@
       </type_desc>
       <desc>
         <p>Use
-          <seealso marker="erts:erlang#erlang:set_cookie/2"><c>erlang:set_cookie(node(), <anno>Cookie</anno>)</c>
+          <seealso marker="erts:erlang#set_cookie/2"><c>erlang:set_cookie(node(), <anno>Cookie</anno>)</c>
 	  in ERTS</seealso> instead.</p>
       </desc>
     </func>
@@ -94,7 +94,7 @@
         <p>Sets the magic cookie of <c><anno>Node</anno></c> to
 	<c><anno>Cookie</anno></c> and verifies the status of the authorization.
           Equivalent to calling
-          <seealso marker="erts:erlang#erlang:set_cookie/2"><c>erlang:set_cookie(<anno>Node</anno>, <anno>Cookie</anno>)</c></seealso>, followed by
+          <seealso marker="erts:erlang#set_cookie/2"><c>erlang:set_cookie(<anno>Node</anno>, <anno>Cookie</anno>)</c></seealso>, followed by
           <seealso marker="#is_auth/1"><c>auth:is_auth(<anno>Node</anno>)</c></seealso>.</p>
       </desc>
     </func>

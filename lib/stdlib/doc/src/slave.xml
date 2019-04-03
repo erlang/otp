@@ -51,7 +51,7 @@
 
     <p>An alternative to the <c>ssh</c> program can be specified on
       the command line to
-      <seealso marker="erts:erl#erl"><c>erl(1)</c></seealso> as follows:</p>
+      <seealso marker="erts:erl"><c>erl(1)</c></seealso> as follows:</p>
 
     <pre>
 -rsh Program</pre>
@@ -140,7 +140,7 @@ rpc:call(N, slave, pseudo, [node(), [pxw_server]]).</code>
         <p>Argument <c><anno>Args</anno></c> is used to set <c>erl</c>
           command-line arguments. If provided, it is passed to the new
           node and can be used for a variety of purposes; see
-          <seealso marker="erts:erl#erl"><c>erl(1)</c></seealso>.</p>
+          <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
         <p>As an example, suppose that you want to start a slave node at
           host <c>H</c> with node name <c>Name@H</c> and
           want the slave node to have the following properties:</p>

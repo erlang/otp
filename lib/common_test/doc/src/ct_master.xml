@@ -210,7 +210,7 @@
       </type>
       <desc><marker id="run_test-2"/>
         <p>Tests are spawned on <c>Node</c> using
-          <seealso marker="ct:run_test-1"><c>ct:run_test/1</c></seealso></p>
+          <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso></p>
       </desc>
     </func>
   </funcs>

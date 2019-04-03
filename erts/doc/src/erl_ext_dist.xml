@@ -399,7 +399,7 @@
       <tcaption>REFERENCE_EXT</tcaption></table>
       <p>
         Encodes a reference object (an object generated with
-        <seealso marker="erlang:make_ref/0">erlang:make_ref/0</seealso>).
+        <seealso marker="erlang#make_ref/0">erlang:make_ref/0</seealso>).
         The <c>Node</c> term is an encoded atom, that is,
         <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>, 
         <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>, or
@@ -437,7 +437,7 @@
 	<tcaption>PORT_EXT</tcaption></table>
 	<p>
 	  Encodes a port object (obtained from
-          <seealso marker="erlang:open_port/2">
+          <seealso marker="erlang#open_port/2">
           <c>erlang:open_port/2</c></seealso>).
 	  The <c>ID</c> is a node-specific identifier for a local port.
 	  Port operations are not allowed across node boundaries.
@@ -467,7 +467,7 @@
 	<tcaption>PID_EXT</tcaption></table>
 	<p>
 	  Encodes a process identifier object (obtained from
-          <seealso marker="erlang:spawn/3"><c>erlang:spawn/3</c></seealso> or
+          <seealso marker="erlang#spawn/3"><c>erlang:spawn/3</c></seealso> or
 	  friends). The <c>ID</c> and <c>Creation</c> fields works just like in
 	  <seealso marker="#REFERENCE_EXT"><c>REFERENCE_EXT</c></seealso>, while
 	  the <c>Serial</c> field is used to improve safety.	  

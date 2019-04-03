@@ -64,7 +64,7 @@
     a synchronous communication operation consists of two asynchronous
     signals; one request signal and one reply signal. An example of
     such a synchronous communication is a call to
-    <seealso marker="erlang:process_info/2">
+    <seealso marker="erlang#process_info/2">
     <c>erlang:process_info/2</c></seealso>
     when the first argument is not <c>self()</c>. The caller sends
     an asynchronous signal requesting information, and then

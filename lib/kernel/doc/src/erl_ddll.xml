@@ -200,7 +200,7 @@
       <fsummary>Remove a monitor for a driver.</fsummary>
       <desc>
         <p>Removes a driver monitor in much the same way as 
-          <seealso marker="erts:erlang#erlang:demonitor/1"><c>erlang:demonitor/1</c></seealso>
+          <seealso marker="erts:erlang#demonitor/1"><c>erlang:demonitor/1</c></seealso>
 	  in ERTS
 	  does with process monitors. For details about how to create
 	  driver monitors, see
@@ -430,7 +430,7 @@
       <desc>
         <p>Creates a driver monitor and works in many
           ways as
-	  <seealso marker="erts:erlang#erlang:monitor/2"><c>erlang:monitor/2</c></seealso>
+	  <seealso marker="erts:erlang#monitor/2"><c>erlang:monitor/2</c></seealso>
 	  in ERTS,
           does for processes. When a driver changes state, the monitor
           results in a monitor message that is sent to the calling

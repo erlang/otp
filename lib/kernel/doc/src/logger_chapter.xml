@@ -718,7 +718,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	    </seealso></pre>
 	    <p>For all other values of <c>HandlerId</c>, this entry
 	      adds a new handler, equivalent to calling</p>
-	    <pre><seealso marker="logger:add_handler/3">
+	    <pre><seealso marker="logger#add_handler/3">
 		logger:add_handler(HandlerId, Module, HandlerConfig)
 	    </seealso></pre>
 	    <p>Multiple entries of this type are allowed.</p></item>

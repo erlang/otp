@@ -166,7 +166,7 @@
       <fsummary>Hibernate a process until a message is sent to it.</fsummary>
       <desc>
         <p>This function does the same as (and does call) the
-          <seealso marker="erts:erlang#erlang:hibernate/3">
+          <seealso marker="erts:erlang#hibernate/3">
           <c>hibernate/3</c></seealso> BIF,
           but ensures that exception handling and logging continues to
           work as expected when the process wakes up.</p>

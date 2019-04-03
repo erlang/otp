@@ -36,10 +36,9 @@
      <title>Timer Module</title>
 
      <p>Creating timers using <seealso
-     marker="erts:erlang#erlang:send_after/3">erlang:send_after/3</seealso>
+     marker="erts:erlang#send_after/3">erlang:send_after/3</seealso>
      and
-     <seealso marker="erts:erlang#erlang:start_timer/3">erlang:start_timer/3</seealso>
-,
+     <seealso marker="erts:erlang#start_timer/3">erlang:start_timer/3</seealso>,
      is much more efficient than using the timers provided by the
      <seealso marker="stdlib:timer">timer</seealso> module in STDLIB.
      The <c>timer</c> module uses a separate process to manage the timers.

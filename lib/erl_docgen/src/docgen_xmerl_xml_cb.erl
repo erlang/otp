@@ -87,6 +87,7 @@ convert_tag(underline, Attrs)  -> {em, Attrs};
 convert_tag(Tag, Attrs)        -> {Tag, Attrs}.
 
 is_url("http:"++_) -> true;
+is_url("https:"++_) -> true;
 is_url("../"++_) -> true;
 is_url(FileRef) ->
     case filename:extension(FileRef) of

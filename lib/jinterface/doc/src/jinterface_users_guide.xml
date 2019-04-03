@@ -366,20 +366,20 @@ OtpNode node = new OtpNode("gurka");    </code>
       <seealso marker="java/com/ericsson/otp/erlang/OtpEpmd">OtpEpmd</seealso> class.
       Nodes wishing to contact other nodes must first request information 
       from Epmd before a connection can be set up, however this is done automatically 
-      by <seealso marker="java/com/ericsson/otp/erlang/OtpSelf#connect(com.ericsson.otp.erlang.OtpPeer)">OtpSelf.connect()</seealso> when necessary. </p>
-    <p>When you use <seealso marker="java/com/ericsson/otp/erlang/OtpSelf#connect(com.ericsson.otp.erlang.OtpPeer)">OtpSelf.connect()</seealso> to connect to an Erlang node, 
+      by <seealso marker="java/com/ericsson/otp/erlang/OtpSelf#connect-com.ericsson.otp.erlang.OtpPeer-">OtpSelf.connect()</seealso> when necessary. </p>
+    <p>When you use <seealso marker="java/com/ericsson/otp/erlang/OtpSelf#connect-com.ericsson.otp.erlang.OtpPeer-">OtpSelf.connect()</seealso> to connect to an Erlang node, 
       a connection is first made to epmd and, if the node is known, a
       connection is then made to the Erlang node.</p>
     <p>Java nodes can also register themselves with epmd if they want other
       nodes in the system to be able to find and connect to them.
-      This is done by call to method <seealso marker="java/com/ericsson/otp/erlang/OtpEpmd#publishPort(com.ericsson.otp.erlang.OtpLocalNode)">OtpEpmd.publishPort()</seealso>.</p>
+      This is done by call to method <seealso marker="java/com/ericsson/otp/erlang/OtpEpmd#publishPort-com.ericsson.otp.erlang.OtpLocalNode-">OtpEpmd.publishPort()</seealso>.</p>
     <p>Be aware that on some systems (such as VxWorks), a failed node will
       not be detected by this mechanism since the operating system does not
       automatically close descriptors that were left open when the node
       failed. If a node has failed in this way, epmd will prevent you from
       registering a new node with the old name, since it thinks that the old
       name is still in use. In this case, you must unregister the name
-      explicitly, by using <seealso marker="java/com/ericsson/otp/erlang/OtpEpmd#unPublishPort(com.ericsson.otp.erlang.OtpLocalNode)">OtpEpmd.unPublishPort()</seealso></p>
+      explicitly, by using <seealso marker="java/com/ericsson/otp/erlang/OtpEpmd#unPublishPort-com.ericsson.otp.erlang.OtpLocalNode-">OtpEpmd.unPublishPort()</seealso></p>
     <p>This will cause epmd to close the connection from the far end. Note
       that if the name was in fact still in use by a node, the results of
       this operation are unpredictable. Also, doing this does not cause the

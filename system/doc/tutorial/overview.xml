@@ -245,13 +245,13 @@ Term = binary_to_term(Binary)</pre>
   </section>
 
   <section>
-    <title>IC</title>
+    <title>IC and CORBA</title>
     <p>IC (Erlang IDL Compiler) is an interface generator that, given
       an IDL interface specification, automatically generates stub
       code in Erlang, C, or Java. See the IC User's Guide and IC
       Reference Manual.</p>
-    <p>For details, see the <seealso marker="ic:ic">ic</seealso>
-      manual page in IC.</p>
+      <p>For details, see the
+      <url href="https://github.com/erlang/corba">corba repository</url>.</p>
   </section>
 
   <section>
