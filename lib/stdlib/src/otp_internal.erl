@@ -333,6 +333,7 @@ obsolete_1(megaco, format_versions, 1) ->
 
 %% *** OS-MON-MIB ***
 
+%% FIXME: Remove this warning in OTP 24.
 obsolete_1(os_mon_mib, _, _) ->
     {removed, "was removed in 22.0"};
 
