@@ -14726,7 +14726,7 @@ ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
     SSDBG( descP, ("SOCKET", "recv_check_retry -> SELECT for more\r\n") );
 
     if ((sres = esock_select_read(env, descP->sock, descP, NULL,
-                                  sockRef, descP->currentReader.ref)) < 0) {
+                                  sockRef, recvRef)) < 0) {
         /* Ouch
          * Now what? We have copied ref into *its own* environment!
          */
@@ -14864,7 +14864,7 @@ ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
     /* SELECT for more data */
 
     sres = esock_select_read(env, descP->sock, descP, NULL,
-                             sockRef, descP->currentReader.ref);
+                             sockRef, recvRef);
     if (sres < 0) {
         /* Result: {error, Reason}
          * Reason: {select_failed, sres, data}
