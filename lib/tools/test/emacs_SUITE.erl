@@ -70,19 +70,20 @@ bif_highlight(Config) ->
 
 
 check_bif_highlight(Bin, Tag, Compare) ->
-    [_H,IntMatch,_T] =
+    [_H,Match,_T] =
         re:split(Bin,<<"defvar ",Tag/binary,
                        "[^(]*\\(([^)]*)">>,[]),
-    EmacsIntBifs = [list_to_atom(S) ||
-                  S <- string:tokens(binary_to_list(IntMatch)," '\"\n")],
+    EmacsBifs = [list_to_atom(S) ||
+                  S <- string:tokens(binary_to_list(Match)," '\"\n")],
 
-    ct:log("Emacs ~p",[EmacsIntBifs]),
-    ct:log("Int ~p",[Compare]),
+    ct:log("Comparing ~s", [Tag]),
+    ct:log("Emacs ~p",[EmacsBifs]),
+    ct:log("Erlang ~p",[Compare]),
 
-    ct:log("Diff1 ~p",[Compare -- EmacsIntBifs]),
-    ct:log("Diff2 ~p",[EmacsIntBifs -- Compare]),
-    [] = Compare -- EmacsIntBifs,
-    [] = EmacsIntBifs -- Compare.
+    ct:log("Only in Erlang ~p",[Compare -- EmacsBifs]),
+    ct:log("Only in Emacs ~p",[EmacsBifs -- Compare]),
+    [] = Compare -- EmacsBifs,
+    [] = EmacsBifs -- Compare.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -188,7 +189,9 @@ diff(Orig, File) ->
     end.
 
 emacs_version_ok(AcceptVer) ->
-    case os:cmd("emacs --version | head -1") of
+    VersionLine = os:cmd("emacs --version | head -1"),
+    io:format("~s~n", [VersionLine]),
+    case VersionLine of
         "GNU Emacs " ++ Ver ->
             case string:to_float(Ver) of
                 {Vsn, _} when Vsn >= AcceptVer ->

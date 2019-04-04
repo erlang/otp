@@ -50,8 +50,15 @@
 ;; The -L option adds a directory to the load-path.  It should be the
 ;; directory containing erlang.el and erlang-test.el.
 ;;
-;; 3. Call the script test-erlang-mode in this directory.  This script
-;; use the second method.
+;; 3. Run the emacs_SUITE.  The testcases tests_interpreted/1 and
+;; tests_compiled/1 in this suite are using the second method.  One
+;; way to run this suite is with the ct_run tool, for example like the
+;; following when standing at the OTP repo top directory:
+;;
+;; ct_run -suite lib/tools/test/emacs_SUITE
+;;
+;; Note that this creates a lot of html log files in the current
+;; directory.
 
 ;;; Code:
 
