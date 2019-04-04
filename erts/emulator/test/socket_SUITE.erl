@@ -1647,6 +1647,8 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
     tc_try(api_b_sendmsg_and_recvmsg_udp4,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
+                                  %% We need tests for this,
+                                  %% but this is not the place it.
                                   %% CMsgHdr  = #{level => ip,
                                   %%              type  => tos,
                                   %%              data  => reliability},
@@ -1657,9 +1659,12 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                                   socket:sendmsg(Sock, MsgHdr)
                           end,
                    Recv = fun(Sock) ->
+                                  %% We have some issues on old darwing...
+                                  socket:setopt(Sock, otp, debug, true),
                                   case socket:recvmsg(Sock) of
                                       {ok, #{addr  := Source,
                                              iov   := [Data]}} ->
+                                          socket:setopt(Sock, otp, debug, false),
                                           {ok, {Source, Data}};
                                       {error, _} = ERROR ->
                                           ERROR
@@ -1718,21 +1723,37 @@ api_b_send_and_recv_udp(InitState) ->
                    end},
          #{desc => "send req (to dst)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
-                           ok = Send(Sock, ?BASIC_REQ, Dst)
+                           Send(Sock, ?BASIC_REQ, Dst)
                    end},
          #{desc => "recv req (from src)",
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
-                           {ok, {Src, ?BASIC_REQ}} = Recv(Sock),
-                           ok
+                           case Recv(Sock) of
+                               {ok, {Src, ?BASIC_REQ}} ->
+                                   ok;
+                               {ok, UnexpData} ->
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, _} = ERROR ->
+                                   %% At the moment there is no way to get
+                                   %% status or state for the socket...
+                                   ERROR
+                           end
                    end},
          #{desc => "send rep (to src)",
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, send := Send}) ->
-                           ok = Send(Sock, ?BASIC_REP, Src)
+                           Send(Sock, ?BASIC_REP, Src)
                    end},
          #{desc => "recv rep (from dst)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, recv := Recv}) ->
-                           {ok, {Dst, ?BASIC_REP}} = Recv(Sock),
-                           ok
+                           case Recv(Sock) of
+                               {ok, {Dst, ?BASIC_REP}} ->
+                                   ok;
+                               {ok, UnexpData} ->
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, _} = ERROR ->
+                                   %% At the moment there is no way to get
+                                   %% status or state for the socket...
+                                   ERROR
+                           end
                    end},
          #{desc => "close src socket",
            cmd  => fun(#{sock_src := Sock}) ->
@@ -10174,7 +10195,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) 
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp4,
            fun() ->
-                   ?TT(?SECS(20)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => inet,
                                  msg    => Msg,
                                  num    => Num},
@@ -10201,7 +10222,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) 
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(20)),
+                   ?TT(?SECS(30)),
                    InitState = #{domain => inet,
                                  msg    => Msg,
                                  num    => Num},
@@ -11213,7 +11234,7 @@ traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState) ->
                    MsgHdr = #{addr => Dest, iov => Data},
                    socket:sendmsg(Sock, MsgHdr)
            end,
-    Recv = fun(Sock, Sz)   -> 
+    Recv = fun(Sock, Sz)   ->
                    case socket:recvmsg(Sock, Sz, 0) of
                        {ok, #{addr  := Source,
                               iov   := [Data]}} ->
@@ -11344,7 +11365,9 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                                                [{handler, Handler}])
                    end},
          #{desc => "order handler to recv",
-           cmd  => fun(#{handler := Handler} = _State) ->
+           cmd  => fun(#{handler := Handler,
+                         sock    := Sock} = _State) ->
+                           %% socket:setopt(Sock, otp, debug, true),
                            ?SEV_ANNOUNCE_CONTINUE(Handler, recv),
                            ok
                    end},
@@ -17892,9 +17915,15 @@ which_addr2(Domain, [_|IFO]) ->
 %% Here are all the *general* test vase condition functions.
 
 %% The idea is that this function shall test if the test host has 
-%% support for IPv6. If not there is no point in running IPv6 tests.
+%% support for IPv6. If not, there is no point in running IPv6 tests.
 %% Currently we just skip.
 has_support_ipv6() ->
+    %% case socket:supports(ipv6) of
+    %%     true ->
+    %%         ok;
+    %%     false ->
+    %%         {error, not_supported}
+    %% end.
     not_yet_implemented().
 
 
@@ -17980,7 +18009,7 @@ tc_try(Case, TCCondFun, TCFun)
                     tc_end("ok")
                 end
             catch
-                throw:{skip, _} = SKIP ->
+                C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
                     tc_end("skipping"),
                     SKIP;
                 Class:Error:Stack ->
@@ -17994,7 +18023,7 @@ tc_try(Case, TCCondFun, TCFun)
             tc_end("failed"),
             exit({tc_cond_failed, Reason})
     catch
-        throw:{skip, _} = SKIP ->
+        C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
             tc_end("skipping"),
             SKIP;
         Class:Error:Stack ->

@@ -454,7 +454,7 @@ await_termination(Pid, ExpReason) ->
         {'DOWN', _, process, Pid, Reason} when (ExpReason =:= Reason) ->
             ok;
         {'DOWN', _, process, Pid, Reason} ->
-            {error, {unexpected_exit, ExpReason, Reason}}
+            {error, {unexpected_reason, ExpReason, Reason}}
     end.
 
 
@@ -495,12 +495,15 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
         {'DOWN', _, process, Pid, Reason} when (Pid =:= ExpPid) ->
             eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, Reason]),
-            {error, {unexpected_exit, Name}};
+            {error, {unexpected_exit, Name, Reason}};
         {'DOWN', _, process, OtherPid, Reason} ->
             case check_down(OtherPid, Reason, OtherPids) of
                 ok ->
                     iprint("DOWN from unknown process ~p: "
-                           "~n   ~p", [OtherPid, Reason]),
+                           "~n      ~p"
+                           "~n   when"
+                           "~n      OtherPids: "
+                           "~n         ~p", [OtherPid, Reason, OtherPids]),
                     await(ExpPid, Name, Announcement, Slogan, OtherPids);
                 {error, _} = ERROR ->
                     ERROR
@@ -527,7 +530,7 @@ check_down(Pid, DownReason, Pids) ->
         {value, {_, Name}} ->
             eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, DownReason]),
-            {error, {unexpected_exit, Name}};
+            {error, {unexpected_exit, Name, DownReason}};
         false ->
             ok
     end.
