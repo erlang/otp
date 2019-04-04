@@ -603,9 +603,15 @@ init_usm('version-3', Dir) ->
     ets:new(snmp_agent_table, [set, public, named_table]),
     ets:insert(snmp_agent_table, {agent_mib_storage, persistent}),
     ?vlog("init_usm -> try start fake local-db", []),
-    {ok, _} = snmpa_local_db:start_link(normal, Dir,
-                                        [{sname,     "MGR-LOCAL-DB"},
-                                         {verbosity, trace}]),
+    case snmpa_local_db:start_link(normal, Dir,
+                                   [{sname,     "MGR-LOCAL-DB"},
+                                    {verbosity, trace}]) of
+        {ok, _} ->
+            ok;
+        {error, {already_started, Pid}} ->
+            ?vlog("already started: ~p"
+                  "~n   ~p", [process_info(Pid)])
+    end,
     NameDb = snmpa_agent:db(snmpEngineID),
     ?vlog("init_usm -> try set manager engine-id", []),
     R = snmp_generic:variable_set(NameDb, "mgrEngine"),
