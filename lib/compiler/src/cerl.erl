@@ -2157,12 +2157,16 @@ values_arity(Node) ->
 
 %% @spec c_binary(Segments::[cerl()]) -> cerl()
 %%
-%% @doc Creates an abstract binary-template. A binary object is a
-%% sequence of 8-bit bytes. It is specified by zero or more bit-string
-%% template <em>segments</em> of arbitrary lengths (in number of bits),
-%% such that the sum of the lengths is evenly divisible by 8. If
-%% <code>Segments</code> is <code>[S1, ..., Sn]</code>, the result
-%% represents "<code>#{<em>S1</em>, ..., <em>Sn</em>}#</code>". All the
+
+%% @doc Creates an abstract binary-template. A binary object is in
+%% this context a sequence of an arbitrary number of bits. (The number
+%% of bits used to be evenly divisible by 8, but after the
+%% introduction of bit strings in the Erlang language, the choice was
+%% made to use the binary template for all bit strings.) It is
+%% specified by zero or more bit-string template <em>segments</em> of
+%% arbitrary lengths (in number of bits). If <code>Segments</code> is
+%% <code>[S1, ..., Sn]</code>, the result represents
+%% "<code>#{<em>S1</em>, ..., <em>Sn</em>}#</code>". All the
 %% <code>Si</code> must have type <code>bitstr</code>.
 %%
 %% @see ann_c_binary/2
