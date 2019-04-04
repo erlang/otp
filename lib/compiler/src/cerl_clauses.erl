@@ -14,8 +14,8 @@
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Utility functions for Core Erlang case/receive clauses.
 %%
-%% <p>Syntax trees are defined in the module <a
-%% href=""><code>cerl</code></a>.</p>
+%% <p>Syntax trees are defined in the module
+%% <a href="cerl"><code>cerl</code></a>.</p>
 %%
 %% @type cerl() = cerl:cerl()
 
