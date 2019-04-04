@@ -2112,7 +2112,29 @@ otp_5362(Config) when is_list(Config) ->
 	   <<"t(X) -> erlang:hash(X, 10000).">>,
 	   [],
 	   {warnings,
-            [{1,erl_lint,{removed,{erlang,hash,2},{erlang,phash2,2},"20.0"}}]}}
+            [{1,erl_lint,{removed,{erlang,hash,2},{erlang,phash2,2},"20.0"}}]}},
+
+	  {nowarn_call_removed_function_1,
+	   <<"t(X) -> erlang:hash(X, 10000).">>,
+	   [{nowarn_removed,{erlang,hash,2}}],
+	   []},
+
+	  {nowarn_call_removed_function_2,
+	   <<"t(X) -> os_mon_mib:any_function_really(erlang:hash(X, 10000)).">>,
+	   [nowarn_removed],
+	   []},
+
+	  {call_removed_module,
+	   <<"t(X) -> os_mon_mib:any_function_really(X).">>,
+	   [],
+           {warnings,[{1,erl_lint,
+                       {removed,{os_mon_mib,any_function_really,1},
+                        "was removed in 22.0"}}]}},
+
+	  {nowarn_call_removed_module,
+	   <<"t(X) -> os_mon_mib:any_function_really(X).">>,
+	   [{nowarn_removed,os_mon_mib}],
+	   []}
 
 	 ],
 

@@ -79,6 +79,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 -type fa()   :: {atom(), arity()}.   % function+arity
 -type ta()   :: {atom(), arity()}.   % type+arity
 
+-type module_or_mfa() :: module() | mfa().
+
 -record(typeinfo, {attr, line}).
 
 %% Usage of records, functions, and imports. The variable table, which
@@ -115,6 +117,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: erl_anno:anno(),
 	       clashes=[],			%Exported functions named as BIFs
                not_deprecated=[],               %Not considered deprecated
+               not_removed=gb_sets:empty()      %Not considered removed
+                   :: gb_sets:set(module_or_mfa()),
                func=[],                         %Current function
                warn_format=0,                   %Warn format calls
 	       enabled_warnings=[],		%All enabled warnings (ordset).
@@ -573,7 +577,10 @@ start(File, Opts) ->
 		      false, Opts)},
 	 {missing_spec_all,
 	  bool_option(warn_missing_spec_all, nowarn_missing_spec_all,
-		      false, Opts)}
+		      false, Opts)},
+         {removed,
+          bool_option(warn_removed, nowarn_removed,
+                      true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
     Enabled = ordsets:from_list(Enabled1),
@@ -670,8 +677,9 @@ forms(Forms0, St0) ->
 						    no_auto = AutoImportSuppressed}),
     St2 = bif_clashes(Forms, St1),
     St3 = not_deprecated(Forms, St2),
-    St4 = foldl(fun form/2, pre_scan(Forms, St3), Forms),
-    post_traversal_check(Forms, St4).
+    St4 = not_removed(Forms, St3),
+    St5 = foldl(fun form/2, pre_scan(Forms, St4), Forms),
+    post_traversal_check(Forms, St5).
 
 pre_scan([{attribute,L,compile,C} | Fs], St) ->
     case is_warn_enabled(export_all, St) andalso
@@ -845,6 +853,24 @@ not_deprecated(Forms, #lint{compile=Opts}=St0) ->
                         check_module_name(M, L, St2)
                 end, St0, ML),
     St1#lint{not_deprecated = ordsets:from_list(Nowarn)}.
+
+%% not_removed(Forms, State0) -> State
+
+not_removed(Forms, #lint{compile=Opts}=St0) ->
+    %% There are no line numbers in St0#lint.compile.
+    MFAsL = [{MFA,L} ||
+                {attribute, L, compile, Args} <- Forms,
+                {nowarn_removed, MFAs0} <- lists:flatten([Args]),
+                MFA <- lists:flatten([MFAs0])],
+    Nowarn = [MFA ||
+                 {nowarn_removed, MFAs0} <- Opts,
+                 MFA <- lists:flatten([MFAs0])],
+    St1 = foldl(fun ({{M, _F, _A}, L}, St2) ->
+                        check_module_name(M, L, St2);
+                    ({M,L}, St2) ->
+                        check_module_name(M, L, St2)
+                end, St0, MFAsL),
+    St1#lint{not_removed = gb_sets:from_list(Nowarn)}.
 
 %% The nowarn_bif_clash directive is not only deprecated, it's actually an error from R14A
 disallowed_compile_flags(Forms, St0) ->
@@ -3769,11 +3795,21 @@ deprecated_function(Line, M, F, As, St) ->
 		    add_warning(Line, {deprecated, MFA, Replacement, Rel}, St)
             end;
 	{removed, String} when is_list(String) ->
-	    add_warning(Line, {removed, MFA, String}, St);
+	    add_removed_warning(Line, MFA, {removed, MFA, String}, St);
 	{removed, Replacement, Rel} ->
-	    add_warning(Line, {removed, MFA, Replacement, Rel}, St);
+	    add_removed_warning(Line, MFA, {removed, MFA, Replacement, Rel}, St);
         no ->
 	    St
+    end.
+
+add_removed_warning(Line, {M, _, _}=MFA, Warning, #lint{not_removed=NotRemoved}=St) ->
+    case is_warn_enabled(removed, St) andalso
+        not gb_sets:is_element(M, NotRemoved) andalso
+        not gb_sets:is_element(MFA, NotRemoved) of
+        true ->
+            add_warning(Line, Warning, St);
+        false ->
+            St
     end.
 
 -dialyzer({no_match, deprecated_type/5}).
