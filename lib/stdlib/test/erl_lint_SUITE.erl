@@ -2109,11 +2109,10 @@ otp_5362(Config) when is_list(Config) ->
 			  {calendar,local_time_to_universal_time_dst,1}, "a future release"}}]}},
 
 	  {call_removed_function,
-	   <<"t(X) -> regexp:match(X).">>,
+	   <<"t(X) -> erlang:hash(X, 10000).">>,
 	   [],
 	   {warnings,
-            [{1,erl_lint,{removed,{regexp,match,1},
-			  "removed in R15; use the re module instead"}}]}}
+            [{1,erl_lint,{removed,{erlang,hash,2},{erlang,phash2,2},"20.0"}}]}}
 
 	 ],
 
