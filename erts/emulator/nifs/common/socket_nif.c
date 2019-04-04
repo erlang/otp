@@ -15082,9 +15082,7 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
     } else {
 
         SSDBG( descP,
-               ("SOCKET",
-                "recvmsg_check_result -> "
-                "(msghdr) encode ok: %T\r\n", eMsgHdr) );
+               ("SOCKET", "recvmsg_check_result -> (msghdr) encode ok\r\n") );
 
         recv_update_current_reader(env, descP, sockRef);
 
@@ -15158,10 +15156,9 @@ char* encode_msghdr(ErlNifEnv*       env,
     SSDBG( descP,
            ("SOCKET", "encode_msghdr -> components encoded:"
             "\r\n   addr:  %T"
-            "\r\n   iov:   %T"
             "\r\n   ctrl:  %T"
             "\r\n   flags: %T"
-           "\r\n", addr, iov, ctrl, flags) );
+           "\r\n", addr, ctrl, flags) );
     {
         ERL_NIF_TERM keys[]  = {esock_atom_addr,
                                 esock_atom_iov,
@@ -15178,9 +15175,7 @@ char* encode_msghdr(ErlNifEnv*       env,
         if (!MKMA(env, keys, vals, numKeys, &tmp))
             return ESOCK_STR_EINVAL;
 
-        SSDBG( descP, ("SOCKET", "encode_msghdr -> msghdr: "
-                       "\r\n   %T"
-                       "\r\n", tmp) );
+        SSDBG( descP, ("SOCKET", "encode_msghdr -> msghdr encoded\r\n") );
 
         *eSockAddr = tmp;
     }
