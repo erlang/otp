@@ -349,8 +349,10 @@ typedef enum {
           <c>t</c> is actually an <c>ETERM**</c> (see
           <seealso marker="erl_eterm"><c>erl_eterm</c></seealso>).
           The term is later to be deallocated.</p>
-        <p>Notice that this function is located in the <c>Erl_Interface</c>
-          library.</p>
+	<note><p>This function is deprecated as of OTP 22 and will be removed in
+	  OTP 23 together with the old legacy <c>erl_interface</c> library (functions
+	  with prefix <c>erl_</c>).</p>
+	</note>
       </desc>
     </func>
 
@@ -656,6 +658,10 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
           <c>erl_interface</c>. Parameter <c>t</c> is
           actually an <c>ETERM</c> pointer. This function
           does not free the <c>ETERM</c>.</p>
+	<note><p>These functions are deprecated as of OTP 22 and will be removed in
+	  OTP 23 together with the old legacy <c>erl_interface</c> library
+	  (functions with prefix <c>erl_</c>).</p>
+	</note>
       </desc>
     </func>
     <func>
