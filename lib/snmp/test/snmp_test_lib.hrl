@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -127,24 +127,31 @@
 -endif.
 
 -ifdef(snmp_debug).
--define(DBG(F,A),?PRINT("DBG",F,A)).
+-define(DBG(F,A), ?PRINT("DBG", F, A)).
 -else.
--define(DBG(F,A),ok).
+-define(DBG(F,A), ok).
 -endif.
 
 -ifdef(snmp_log).
--define(LOG(F,A),?PRINT("LOG",F,A)).
+-define(LOG(F,A), ?PRINT("LOG", F, A)).
 -else.
--define(LOG(F,A),ok).
+-define(LOG(F,A), ok).
 -endif.
 
 -ifdef(snmp_error).
--define(ERR(F,A),?PRINT("ERR",F,A)).
+-define(ERR(F,A), ?PRINT("ERR", F, A)).
 -else.
--define(ERR(F,A),ok).
+-define(ERR(F,A), ok).
 -endif.
 
--define(INF(F,A),?PRINT("INF",F,A)).
+-define(INF(F,A), ?PRINT("INF", F, A)).
 
 -define(PRINT(P,F,A),
-	snmp_test_lib:print(P,?MODULE,?LINE,F,A)).
+	snmp_test_lib:print(P, ?MODULE, ?LINE, F, A)).
+
+-define(PRINT1(F, A),  snmp_test_lib:print1(F, A)).
+-define(EPRINT1(F, A), ?PRINT1("<ERROR> " ++ F, A)).
+
+-define(PRINT2(F, A),  snmp_test_lib:print2(F, A)).
+-define(EPRINT2(F, A), ?PRINT2("<ERROR> " ++ F, A)).
+

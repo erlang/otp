@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,11 +39,13 @@
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/src/misc/snmp_verbosity.hrl").
+-include("snmp_test_lib.hrl").
 
 
 %%----------------------------------------------------------------------
 %% The InHandler process will receive messages on the form {snmp_pdu, Pdu}.
 %%----------------------------------------------------------------------
+
 start_link_packet(
   InHandler, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz) ->
     start_link_packet(
@@ -606,11 +608,12 @@ init_usm('version-3', Dir) ->
     case snmpa_local_db:start_link(normal, Dir,
                                    [{sname,     "MGR-LOCAL-DB"},
                                     {verbosity, trace}]) of
-        {ok, _} ->
-            ok;
+        {ok, Pid} ->
+            ?vlog("started: ~p"
+                  "~n      ~p", [Pid, process_info(Pid)]);
         {error, {already_started, Pid}} ->
             ?vlog("already started: ~p"
-                  "~n   ~p", [process_info(Pid)])
+                  "~n      ~p", [Pid, process_info(Pid)])
     end,
     NameDb = snmpa_agent:db(snmpEngineID),
     ?vlog("init_usm -> try set manager engine-id", []),
@@ -819,13 +822,15 @@ sz(O) ->
     {unknown_size, O}.
 
 d(F)   -> d(F, []).
-d(F,A) -> d(get(debug),F,A).
+d(F,A) -> d(get(debug), F, A).
 
-d(true,F,A) ->
-    io:format("*** [~s] MGR_PS_DBG *** " ++ F ++ "~n",
-	      [formated_timestamp()|A]);
+d(true, F, A) ->
+    print(F, A);
 d(_,_F,_A) -> 
     ok.
 
+print(F, A) ->
+    ?PRINT2("MGR_PS " ++ F, A).
+    
 formated_timestamp() ->
     snmp_test_lib:formated_timestamp().

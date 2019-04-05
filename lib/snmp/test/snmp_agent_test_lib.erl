@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -358,22 +358,22 @@ run(Mod, Func, Args, Opts) ->
 	   "~n   StdM:        ~p",
 	   [M,Vsn,Dir,User,SecLevel,EngineID,CtxEngineID,Community,StdM]),
     case snmp_test_mgr:start([%% {agent, snmp_test_lib:hostname()},
-			      {packet_server_debug,true},
-			      {debug,true},
-			      {agent, get(master_host)}, 
-			      {ipfamily, get(ipfamily)},
-			      {agent_udp, 4000},
-			      {trap_udp, 5000},
-			      {recbuf,65535},
+			      {packet_server_debug, true},
+			      {debug,               true},
+			      {agent,               get(master_host)}, 
+			      {ipfamily,            get(ipfamily)},
+			      {agent_udp,           4000},
+			      {trap_udp,            5000},
+			      {recbuf,              65535},
 			      quiet,
 			      Vsn, 
-			      {community, Community},
-			      {user, User},
-			      {sec_level, SecLevel},
-			      {engine_id, EngineID},
-			      {context_engine_id, CtxEngineID},
-			      {dir, Dir},
-			      {mibs, mibs(StdM, M)}]) of
+			      {community,           Community},
+			      {user,                User},
+			      {sec_level,           SecLevel},
+			      {engine_id,           EngineID},
+			      {context_engine_id,   CtxEngineID},
+			      {dir,                 Dir},
+			      {mibs,                mibs(StdM, M)}]) of
 	{ok, _Pid} ->
 	    case (catch apply(Mod, Func, Args)) of
 		{'EXIT', Reason} ->
@@ -383,10 +383,18 @@ run(Mod, Func, Args, Opts) ->
 		    catch snmp_test_mgr:stop(),
 		    Res
 	    end;
-	Err ->
-	    io:format("Error starting manager: ~p\n", [Err]),
+
+	{error, Reason} ->
+	    ?EPRINT2("Failed starting (test) manager: "
+                     "~n   ~p", [Reason]),
 	    catch snmp_test_mgr:stop(),
-	    ?line ?FAIL({mgr_start, Err})
+	    ?line ?FAIL({mgr_start_error, Reason});
+
+	Err ->
+	    ?EPRINT2("Failed starting (test) manager: "
+                     "~n   ~p", [Err]),
+	    catch snmp_test_mgr:stop(),
+	    ?line ?FAIL({mgr_start_failure, Err})
     end.
 
 
@@ -905,8 +913,8 @@ io_format_expect(F) ->
     io_format_expect(F, []).
 
 io_format_expect(F, A) ->
-    FTS = snmp_test_lib:formated_timestamp(),
-    io:format("[~s] EXPECT " ++ F ++ "~n", [FTS | A]).
+    ?PRINT2("EXPECT " ++ F, A).
+    
 
 do_expect(Expect) when is_atom(Expect) ->
     do_expect({Expect, get_timeout()});
