@@ -485,11 +485,11 @@ libs:
 ifeq ($(OTP_SMALL_BUILD),true)
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt
+		$(MAKE) $(TYPE)
 else
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt BUILD_ALL=true
+		$(MAKE) $(TYPE) BUILD_ALL=true
 	$(V_at)test -f $(ERL_TOP)/make/otp_built || echo "OTP built" > $(ERL_TOP)/make/otp_built
 endif
 
@@ -498,7 +498,7 @@ APPS=$(patsubst $(ERL_TOP)/lib/%/doc,%,$(wildcard $(ERL_TOP)/lib/*/doc))
 $(APPS):
 	$(make_verbose)cd lib/$@ && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) opt BUILD_ALL=true
+		$(MAKE) $(TYPE) BUILD_ALL=true
 
 preloaded:
 	$(make_verbose)cd erts/preloaded/src && \
