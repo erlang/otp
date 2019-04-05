@@ -170,7 +170,7 @@ supported_algorithms(cipher) ->
 	 {'AEAD_AES_256_GCM', [{ciphers,aes_256_gcm}]},
 	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
 	 {'aes128-cbc',       [{ciphers,aes_128_cbc}]},
-	 {'3des-cbc',         [{ciphers,des3_cbc}]}
+	 {'3des-cbc',         [{ciphers,des_ede3_cbc}]}
 	]
        ));
 supported_algorithms(mac) ->
@@ -1340,7 +1340,7 @@ cipher('AEAD_AES_256_GCM') ->
             pkt_type = aead};
 
 cipher('3des-cbc') ->
-    #cipher{impl = des3_cbc,
+    #cipher{impl = des_ede3_cbc,
             key_bytes = 24,
             iv_bytes = 8,
             block_bytes = 8};
@@ -1445,12 +1445,12 @@ encrypt(#ssh{encrypt = 'chacha20-poly1305@openssh.com',
         <<LenData:4/binary, PayloadData/binary>>) ->
     %% Encrypt length
     IV1 = <<0:8/unit:8, Seq:8/unit:8>>,
-    EncLen = crypto:crypto_one_shot(chacha20, K1, IV1, LenData, true),
+    EncLen = crypto:crypto_one_time(chacha20, K1, IV1, LenData, true),
     %% Encrypt payload
     IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
-    EncPayloadData = crypto:crypto_one_shot(chacha20, K2, IV2, PayloadData, true),
+    EncPayloadData = crypto:crypto_one_time(chacha20, K2, IV2, PayloadData, true),
     %% MAC tag
-    PolyKey = crypto:crypto_one_shot(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, true),
+    PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, true),
     EncBytes = <<EncLen/binary,EncPayloadData/binary>>,
     Ctag = crypto:poly1305(PolyKey, EncBytes),
     %% Result
@@ -1519,7 +1519,7 @@ decrypt(Ssh, <<>>) ->
 decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
              decrypt_keys = {K1,_K2},
              recv_sequence = Seq} = Ssh, {length,EncryptedLen}) ->
-    PacketLenBin = crypto:crypto_one_shot(chacha20, K1, <<0:8/unit:8, Seq:8/unit:8>>, EncryptedLen, false),
+    PacketLenBin = crypto:crypto_one_time(chacha20, K1, <<0:8/unit:8, Seq:8/unit:8>>, EncryptedLen, false),
     {Ssh, PacketLenBin};
 
 decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
@@ -1527,12 +1527,12 @@ decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
              recv_sequence = Seq} = Ssh, {AAD,Ctext,Ctag}) ->
     %% The length is already decoded and used to divide the input
     %% Check the mac (important that it is timing-safe):
-    PolyKey = crypto:crypto_one_shot(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
+    PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
     case equal_const_time(Ctag, crypto:poly1305(PolyKey, <<AAD/binary,Ctext/binary>>)) of
         true ->
             %% MAC is ok, decode
             IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
-            PlainText = crypto:crypto_one_shot(chacha20, K2, IV2, Ctext, false),
+            PlainText = crypto:crypto_one_time(chacha20, K2, IV2, Ctext, false),
             {Ssh, PlainText};
         false ->
            {Ssh,error}

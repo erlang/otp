@@ -46,6 +46,8 @@ struct cipher_type_t {
 #define AEAD_CIPHER 8
 #define NON_EVP_CIPHER 16
 #define AES_CTR_COMPAT 32
+#define CCM_MODE 64
+#define GCM_MODE 128
 
 
 #ifdef FIPS_SUPPORT

@@ -27,7 +27,7 @@
  *
  */
 ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM ng_crypto_one_shot(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 #ifdef HAVE_ECB_IVEC_BUG
     /* <= 0.9.8l returns faulty ivec length */
@@ -92,6 +92,13 @@ static int get_init_args(ErlNifEnv* env,
                 *return_term = EXCP_BADARG(env, "Bad key size");
             goto err;
         }
+
+    if ((*cipherp)->flags &  AEAD_CIPHER)
+        {
+            *return_term = EXCP_BADARG(env, "Missing arguments for this cipher");
+            goto err;
+        }
+
 
     if (FORBIDDEN_IN_FIPS(*cipherp))
         {
@@ -413,13 +420,15 @@ int EVP_CIPHER_CTX_copy(EVP_CIPHER_CTX *out, const EVP_CIPHER_CTX *in)
 ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data [, IV]) */
     struct evp_cipher_ctx *ctx_res;
+    struct evp_cipher_ctx ctx_res_copy;
     ERL_NIF_TERM ret;
+
+    ctx_res_copy.ctx = NULL;
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
         return EXCP_BADARG(env, "Bad 1:st arg");
     
     if (argc == 3) {
-        struct evp_cipher_ctx ctx_res_copy;
         ErlNifBinary ivec_bin;
 
         memcpy(&ctx_res_copy, ctx_res, sizeof ctx_res_copy);
@@ -474,6 +483,9 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         get_update_args(env, ctx_res, argv[1], &ret);
 
  err:
+    if (ctx_res_copy.ctx)
+        EVP_CIPHER_CTX_free(ctx_res_copy.ctx);
+
     return ret; /* Both success and error */
 }
 
@@ -504,7 +516,7 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 /* One shot                                                              */
 /*************************************************************************/
 
-ERL_NIF_TERM ng_crypto_one_shot(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Cipher, Key, IVec, Data, Encrypt) */
     struct evp_cipher_ctx ctx_res;
     const struct cipher_type_t *cipherp;
@@ -521,7 +533,7 @@ ERL_NIF_TERM ng_crypto_one_shot(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return ret;
 }
 
-ERL_NIF_TERM ng_crypto_one_shot_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM ng_crypto_one_time_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Cipher, Key, IVec, Data, Encrypt)  % if no IV for the Cipher, set IVec = <<>>
   */
     ErlNifBinary   data_bin;
@@ -536,10 +548,10 @@ ERL_NIF_TERM ng_crypto_one_shot_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
     /* Run long jobs on a dirty scheduler to not block the current emulator thread */
     if (data_bin.size > MAX_BYTES_TO_NIF) {
-        return enif_schedule_nif(env, "ng_crypto_one_shot",
+        return enif_schedule_nif(env, "ng_crypto_one_time",
                                  ERL_NIF_DIRTY_JOB_CPU_BOUND,
-                                 ng_crypto_one_shot, argc, argv);
+                                 ng_crypto_one_time, argc, argv);
     }
 
-    return ng_crypto_one_shot(env, argc, argv);
+    return ng_crypto_one_time(env, argc, argv);
 }

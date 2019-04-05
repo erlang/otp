@@ -117,31 +117,31 @@ static struct cipher_type_t cipher_types[] =
 #endif
 
 #if defined(HAVE_GCM)
-    {{"aes_gcm"},     {&EVP_aes_128_gcm}, 16, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
-    {{"aes_gcm"},     {&EVP_aes_192_gcm}, 24, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
-    {{"aes_gcm"},     {&EVP_aes_256_gcm}, 32, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
-    {{"aes_128_gcm"}, {&EVP_aes_128_gcm}, 16, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
-    {{"aes_192_gcm"}, {&EVP_aes_192_gcm}, 24, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
-    {{"aes_256_gcm"}, {&EVP_aes_256_gcm}, 32, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_gcm"},     {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_gcm"},     {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_gcm"},     {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_128_gcm"}, {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_192_gcm"}, {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_256_gcm"}, {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
 #else
-    {{"aes_gcm"},     {NULL},  0, AEAD_CIPHER, {{0,0,0}}},
-    {{"aes_128_gcm"}, {NULL}, 16, AEAD_CIPHER, {{0,0,0}}},
-    {{"aes_192_gcm"}, {NULL}, 24, AEAD_CIPHER, {{0,0,0}}},
-    {{"aes_256_gcm"}, {NULL}, 32, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_gcm"},     {NULL},  0, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
+    {{"aes_128_gcm"}, {NULL}, 16, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
+    {{"aes_192_gcm"}, {NULL}, 24, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
+    {{"aes_256_gcm"}, {NULL}, 32, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
 #endif
 
 #if defined(HAVE_CCM)
-    {{"aes_ccm"},     {&EVP_aes_128_ccm}, 16, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
-    {{"aes_ccm"},     {&EVP_aes_192_ccm}, 24, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
-    {{"aes_ccm"},     {&EVP_aes_256_ccm}, 32, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
-    {{"aes_128_ccm"}, {&EVP_aes_128_ccm}, 16, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
-    {{"aes_192_ccm"}, {&EVP_aes_192_ccm}, 24, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
-    {{"aes_256_ccm"}, {&EVP_aes_256_ccm}, 32, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_ccm"},     {&EVP_aes_128_ccm}, 16, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_ccm"},     {&EVP_aes_192_ccm}, 24, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_ccm"},     {&EVP_aes_256_ccm}, 32, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_128_ccm"}, {&EVP_aes_128_ccm}, 16, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_192_ccm"}, {&EVP_aes_192_ccm}, 24, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_256_ccm"}, {&EVP_aes_256_ccm}, 32, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
 #else
-    {{"aes_ccm"},     {NULL},  0, AEAD_CIPHER, {{0,0,0}}},
-    {{"aes_128_ccm"}, {NULL}, 16, AEAD_CIPHER, {{0,0,0}}},
-    {{"aes_192_ccm"}, {NULL}, 24, AEAD_CIPHER, {{0,0,0}}},
-    {{"aes_256_ccm"}, {NULL}, 32, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_ccm"},     {NULL},  0, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
+    {{"aes_128_ccm"}, {NULL}, 16, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
+    {{"aes_192_ccm"}, {NULL}, 24, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
+    {{"aes_256_ccm"}, {NULL}, 32, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
 #endif
 
     /*==== Specialy handled ciphers, only for inclusion in algorithm's list ====*/

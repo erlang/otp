@@ -58,7 +58,8 @@
 %% New interface
 -export([crypto_init/4, crypto_init/3,
          crypto_update/2,
-         crypto_one_shot/5,
+         crypto_one_time/4, crypto_one_time/5,
+         crypto_aead/6, crypto_aead/7,
          crypto_init_dyn_iv/3,
          crypto_update_dyn_iv/3
         ]).
@@ -276,48 +277,153 @@
 
 -type edwards_curve_ed() :: ed25519 | ed448 .
 
-%%% 
--type cipher() :: block_cipher()
-                | stream_cipher()
-                | aead_cipher() .
+%%%----------------------------------------------------------------
+%%% New cipher schema
+%%%
+-type cipher() :: cipher_no_iv()
+                | cipher_iv() 
+                | cipher_aead() .
 
--type block_cipher() :: block_cipher_iv() | block_cipher_no_iv() .
+-type cipher_no_iv() :: aes_128_ecb
+                      | aes_192_ecb
+                      | aes_256_ecb
 
--type block_cipher_iv() :: cbc_cipher()
-                              | cfb_cipher()
-                              | aes_ige256
-                              | blowfish_ofb64
-                              | rc2_cbc .
+                      | blowfish_ecb
+                      | des_ecb
+                      | rc4 .
 
--type cbc_cipher()  :: des_cbc | des_ede3_cbc
-                     | blowfish_cbc
-                     | aes_cbc | aes_128_cbc  | aes_192_cbc | aes_256_cbc
-                     | alias_cbc() .
--type alias_cbc() :: des3_cbc | des_ede3
-                   | aes_cbc128  | aes_cbc256 .
+-type cipher_iv() :: aes_128_cbc
+                   | aes_192_cbc
+                   | aes_256_cbc
 
--type aead_cipher() :: aes_gcm
+                   | aes_128_cfb128
+                   | aes_192_cfb128
+                   | aes_256_cfb128
+
+                   | aes_128_cfb8
+                   | aes_192_cfb8
+                   | aes_256_cfb8
+
+                   | aes_128_ctr
+                   | aes_192_ctr
+                   | aes_256_ctr
+
+                   | aes_ige256
+
+                   | blowfish_cbc
+                   | blowfish_cfb64
+                   | blowfish_ofb64
+                   | chacha20
+                   | des_ede3_cbc
+                   | des_ede3_cfb
+
+                   | des_cbc
+                   | des_cfb
+                   | rc2_cbc .
+
+
+-type cipher_aead() :: aes_128_ccm
+                     | aes_192_ccm
+                     | aes_256_ccm
+                       
                      | aes_128_gcm
                      | aes_192_gcm
                      | aes_256_gcm
-                     | aes_ccm
-                     | aes_128_ccm
-                     | aes_192_ccm
-                     | aes_256_ccm
+
                      | chacha20_poly1305 .
 
--type cfb_cipher()  :: aes_cfb8
-                     | aes_cfb128
-                     | blowfish_cfb64
-                     | des_cfb
-                     | des_ede3_cfb
-                     | alias_cfb() .
--type alias_cfb() :: des_ede3_cbf | des3_cbf
-                   | des3_cfb .
+
+%% -type retired_cipher_no_iv_aliases() :: aes_ecb .
+
+%% -type retired_cipher_iv_aliases() :: aes_cbc
+%%                                    | aes_cbc128  % aes_128_cbc
+%%                                    | aes_cbc256  % aes_256_cbc
+%%                                    | aes_cfb128
+%%                                    | aes_cfb8
+%%                                    | aes_ctr
+%%                                    | des3_cbc     % des_ede3_cbc
+%%                                    | des_ede3     % des_ede3_cbc
+%%                                    | des_ede3_cbf % des_ede3_cfb
+%%                                    | des3_cbf     % des_ede3_cfb
+%%                                    | des3_cfb .   % des_ede3_cfb 
+
+%% -type retired_cipher_aead_aliases() :: aes_ccm
+%%                                      | aes_gcm .
+
+%%%----------------------------------------------------------------
+%%% Old cipher scheme
+%%%
+%%%
+-type block_cipher_without_iv() :: ecb_cipher() .
+
+-type block_cipher_with_iv() :: cbc_cipher()
+                              | cfb_cipher()
+                              | blowfish_ofb64
+                              | aes_ige256 .
+
+-type stream_cipher() :: ctr_cipher()
+                       | chacha20
+                       | rc4 .
+                         
+
+%%%----
+-type cbc_cipher()  :: aes_128_cbc
+                     | aes_192_cbc
+                     | aes_256_cbc
+                     | blowfish_cbc
+                     | des_cbc
+                     | des_ede3_cbc
+                     | rc2_cbc 
+                     | retired_cbc_cipher_aliases() .
+
+-type retired_cbc_cipher_aliases() :: aes_cbc      % aes_*_cbc
+                                    | aes_cbc128   % aes_128_cbc
+                                    | aes_cbc256   % aes_256_cbc
+                                    | des3_cbc     % des_ede3_cbc
+                                    | des_ede3 .   % des_ede3_cbc
+                                    
+%%%----
+-type cfb_cipher() :: aes_128_cfb128
+                    | aes_192_cfb128
+                    | aes_256_cfb128
+                    | aes_128_cfb8
+                    | aes_192_cfb8
+                    | aes_256_cfb8
+                    | blowfish_cfb64
+                    | des_cfb
+                    | des_ede3_cfb
+                    | retired_cfb_cipher_aliases() .
+
+-type retired_cfb_cipher_aliases() :: aes_cfb8      % aes_*_cfb8
+                                    | aes_cfb128    % aes_*_cfb128
+                                    | des3_cbf      % des_ede3_cfb, cfb misspelled
+                                    | des3_cfb      % des_ede3_cfb 
+                                    | des_ede3_cbf .% cfb misspelled
 
 
--type block_cipher_no_iv() :: ecb_cipher() .
--type ecb_cipher()  :: des_ecb | blowfish_ecb | aes_ecb .
+%%%----
+-type ctr_cipher() :: aes_128_ctr
+                    | aes_192_ctr
+                    | aes_256_ctr
+                    | retired_ctr_cipher_aliases() .
+
+-type retired_ctr_cipher_aliases() :: aes_ctr .  % aes_*_ctr
+
+%%%----
+-type ecb_cipher() :: aes_128_ecb
+                    | aes_192_ecb
+                    | aes_256_ecb
+                    | blowfish_ecb
+                    | retired_ecb_cipher_aliases() .
+
+-type retired_ecb_cipher_aliases() :: aes_ecb .
+
+%%%----
+-type aead_cipher() :: aes_gcm | aes_ccm | chacha20_poly1305 .
+
+
+%%%----- end old cipher schema ------------------------------------
+%%%----------------------------------------------------------------
 
 -type key() :: iodata().
 -type des3_key() :: [key()].
@@ -564,9 +670,9 @@ poly1305(Key, Data) ->
 -define(COMPAT(CALL),
         try begin CALL end
         catch
-            error:{error,_} ->
+            error:{error, {_File,_Line}, _Reason} ->
                 error(badarg);
-            error:{E,_Reason} when E==notsup ; E==badarg ->
+            error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
                 error(E)
         end).
 
@@ -611,7 +717,7 @@ cipher_info(Type) ->
 
 %%%---- Block ciphers
 %%%----------------------------------------------------------------
--spec block_encrypt(Type::block_cipher_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) ->
+-spec block_encrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) ->
                            binary() | run_time_error();
                    (Type::aead_cipher(),  Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata()}) ->
                            {binary(), binary()} | run_time_error();
@@ -627,34 +733,24 @@ block_encrypt(Type, Key0, Ivec, Data) ->
     ?COMPAT(
        case Data of
            {AAD, PlainText} ->
-               aead_encrypt(alias(Type,Key), Key, Ivec, AAD, PlainText, aead_tag_len(Type));
+               crypto_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, true);
            {AAD, PlainText, TagLength} ->
-               aead_encrypt(alias(Type,Key), Key, Ivec, AAD, PlainText, TagLength);
+               crypto_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, TagLength, true);
            PlainText ->
-               crypto_one_shot(alias(Type,Key), Key, Ivec, PlainText, true)
+               crypto_one_time(alias(Type,Key), Key, Ivec, PlainText, true)
        end).
 
--spec block_encrypt(Type::block_cipher_no_iv(), Key::key(), PlainText::iodata()) ->
+-spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) ->
                            binary() | run_time_error().
 
 block_encrypt(Type, Key0, PlainText) ->
     Key = iolist_to_binary(Key0),
-    ?COMPAT(crypto_one_shot(alias(Type,Key), Key, <<>>, PlainText, true)).
+    ?COMPAT(crypto_one_time(alias(Type,Key), Key, PlainText, true)).
 
-
-aead_tag_len(chacha20_poly1305) -> 16;
-aead_tag_len(aes_ccm) -> 12;
-aead_tag_len(aes_128_ccm) -> 12;
-aead_tag_len(aes_192_ccm) -> 12;
-aead_tag_len(aes_256_ccm) -> 12;
-aead_tag_len(aes_gcm) -> 16;
-aead_tag_len(aes_128_gcm) -> 16;
-aead_tag_len(aes_192_gcm) -> 16;
-aead_tag_len(aes_256_gcm) -> 16.
 
 %%%----------------------------------------------------------------
 %%%----------------------------------------------------------------
--spec block_decrypt(Type::block_cipher_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) ->
+-spec block_decrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) ->
                            binary() | run_time_error();
 		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
 		    {AAD::binary(), Data::iodata(), Tag::binary()}) ->
@@ -668,18 +764,18 @@ block_decrypt(Type, Key0, Ivec, Data) ->
     ?COMPAT(
        case Data of
            {AAD, CryptoText, Tag} ->
-               aead_decrypt(alias(Type,Key), Key, Ivec, AAD, CryptoText, Tag);
+               crypto_aead(alias(Type,Key), Key, Ivec, CryptoText, AAD, Tag, false);
            CryptoText ->
-               crypto_one_shot(alias(Type,Key), Key, Ivec, CryptoText, false)
+               crypto_one_time(alias(Type,Key), Key, Ivec, CryptoText, false)
        end).
 
 
--spec block_decrypt(Type::block_cipher_no_iv(), Key::key(), Data::iodata()) ->
+-spec block_decrypt(Type::block_cipher_without_iv(), Key::key(), Data::iodata()) ->
                            binary() | run_time_error().
 
 block_decrypt(Type, Key0, CryptoText) ->
     Key = iolist_to_binary(Key0),
-    ?COMPAT(crypto_one_shot(alias(Type,Key), Key, <<>>, CryptoText, false)).
+    ?COMPAT(crypto_one_time(alias(Type,Key), Key, CryptoText, false)).
 
 %%%-------- Stream ciphers API
 
@@ -687,17 +783,9 @@ block_decrypt(Type, Key0, CryptoText) ->
                            crypto_state() | {crypto_state(),flg_undefined}
                           }.
 
--type stream_cipher() :: stream_cipher_iv() | stream_cipher_no_iv() .
--type stream_cipher_no_iv() :: rc4 .
--type stream_cipher_iv() :: aes_ctr
-                          | aes_128_ctr
-                          | aes_192_ctr
-                          | aes_256_ctr
-                          | chacha20 .
-
 %%%---- stream_init
 -spec stream_init(Type, Key, IVec) -> State | run_time_error()
-                                          when Type :: stream_cipher_iv(),
+                                          when Type :: stream_cipher(),
                                                Key :: iodata(),
                                                IVec ::binary(),
                                                State :: stream_state() .
@@ -711,7 +799,7 @@ stream_init(Type, Key0, IVec) when is_binary(IVec) ->
 
 
 -spec stream_init(Type, Key) -> State | run_time_error()
-                                    when Type :: stream_cipher_no_iv(),
+                                    when Type :: rc4,
                                          Key :: iodata(),
                                          State :: stream_state() .
 stream_init(rc4 = Type, Key0) ->
@@ -792,38 +880,35 @@ next_iv(Type, Data, _Ivec) ->
 %%% 
 
 -spec crypto_init(Cipher, Key, EncryptFlag) -> State | descriptive_error()
-                                                   when Cipher :: block_cipher_no_iv()
-                                                                | stream_cipher_no_iv(),
+                                                   when Cipher :: cipher_no_iv(),
                                                         Key :: iodata(),
                                                         EncryptFlag :: boolean(),
                                                         State :: crypto_state() .
 crypto_init(Cipher, Key, EncryptFlag) ->
     %% The IV is supposed to be supplied by calling crypto_update/3
-    ng_crypto_init_nif(alias(Cipher), iolist_to_binary(Key), <<>>, EncryptFlag).
+    ng_crypto_init_nif(Cipher, iolist_to_binary(Key), <<>>, EncryptFlag).
 
 
 -spec crypto_init(Cipher, Key, IV, EncryptFlag) -> State | descriptive_error()
-                                                       when Cipher :: stream_cipher_iv()
-                                                                    | block_cipher_iv(),
+                                                       when Cipher :: cipher_iv(),
                                                             Key :: iodata(),
                                                             IV :: iodata(),
                                                             EncryptFlag :: boolean(),
                                                             State :: crypto_state() .
 crypto_init(Cipher, Key, IV, EncryptFlag) ->
-    ng_crypto_init_nif(alias(Cipher), iolist_to_binary(Key), iolist_to_binary(IV), EncryptFlag).
+    ng_crypto_init_nif(Cipher, iolist_to_binary(Key), iolist_to_binary(IV), EncryptFlag).
 
 
 
 %%%----------------------------------------------------------------
 -spec crypto_init_dyn_iv(Cipher, Key, EncryptFlag) -> State | descriptive_error()
-                                                          when Cipher :: stream_cipher_iv()
-                                                                       | block_cipher_iv(),
+                                                          when Cipher :: cipher_iv(),
                                                                Key :: iodata(),
                                                                EncryptFlag :: boolean(),
                                                                State :: crypto_state() .
 crypto_init_dyn_iv(Cipher, Key, EncryptFlag) ->
     %% The IV is supposed to be supplied by calling crypto_update/3
-    ng_crypto_init_nif(alias(Cipher), iolist_to_binary(Key), undefined, EncryptFlag).
+    ng_crypto_init_nif(Cipher, iolist_to_binary(Key), undefined, EncryptFlag).
 
 %%%----------------------------------------------------------------
 %%%
@@ -866,28 +951,85 @@ crypto_update_dyn_iv(State, Data0, IV) ->
 %%% The size must be an integer multiple of the crypto's blocksize.
 %%% 
 
--spec crypto_one_shot(Cipher, Key, IV, Data, EncryptFlag) ->
+-spec crypto_one_time(Cipher, Key, Data, EncryptFlag) ->
                              Result | descriptive_error()
-                                 when Cipher :: stream_cipher()
-                                              | block_cipher(),
+                                 when Cipher :: cipher_no_iv(),
                                       Key :: iodata(),
-                                      IV :: iodata() | undefined,
                                       Data :: iodata(),
                                       EncryptFlag :: boolean(),
                                       Result :: binary() .
 
-crypto_one_shot(Cipher, Key, undefined, Data, EncryptFlag) ->
-    crypto_one_shot(Cipher, Key, <<>>, Data, EncryptFlag);
+crypto_one_time(Cipher, Key, Data, EncryptFlag) ->
+    crypto_one_time(Cipher, Key, <<>>, Data, EncryptFlag).
 
-crypto_one_shot(Cipher, Key, IV, Data0, EncryptFlag) ->
+-spec crypto_one_time(Cipher, Key, IV, Data, EncryptFlag) ->
+                             Result | descriptive_error()
+                                 when Cipher :: cipher_iv(),
+                                      Key :: iodata(),
+                                      IV :: iodata(),
+                                      Data :: iodata(),
+                                      EncryptFlag :: boolean(),
+                                      Result :: binary() .
+
+crypto_one_time(Cipher, Key, IV, Data0, EncryptFlag) ->
     case iolist_to_binary(Data0) of
         <<>> ->
             <<>>;                           % Known to fail on OpenSSL 0.9.8h
         Data ->
-            ng_crypto_one_shot_nif(alias(Cipher),
+            ng_crypto_one_time_nif(Cipher,
                                    iolist_to_binary(Key), iolist_to_binary(IV), Data,
                                    EncryptFlag)
     end.
+
+
+-spec crypto_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
+                             Result | descriptive_error()
+                                 when Cipher :: cipher_aead(),
+                                      Key :: iodata(),
+                                      IV :: iodata(),
+                                      InText :: iodata(),
+                                      AAD :: iodata(),
+                                      Result :: EncryptResult,
+                                      EncryptResult :: {OutCryptoText, OutTag},
+                                      OutCryptoText :: binary(),
+                                      OutTag :: binary().
+
+crypto_aead(Cipher, Key, IV, PlainText, AAD, true) ->
+    crypto_aead(Cipher, Key, IV, PlainText, AAD, aead_tag_len(Cipher), true).
+
+
+-spec crypto_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
+                             Result | descriptive_error()
+                                 when Cipher :: cipher_aead(),
+                                      Key :: iodata(),
+                                      IV :: iodata(),
+                                      InText :: iodata(),
+                                      AAD :: iodata(),
+                                      TagOrTagLength :: EncryptTagLength | DecryptTag,
+                                      EncryptTagLength :: non_neg_integer(), % or pos_integer() 1..
+                                      DecryptTag :: iodata(),
+                                      EncFlag :: boolean(),
+                                      Result :: EncryptResult | DecryptResult,
+                                      EncryptResult :: {OutCryptoText, OutTag},
+                                      DecryptResult :: OutPlainText | error,
+                                      OutCryptoText :: binary(),
+                                      OutTag :: binary(),
+                                      OutPlainText :: binary().
+
+crypto_aead(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg) ->
+    aead_cipher(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg).
+
+
+aead_tag_len(chacha20_poly1305) -> 16;
+aead_tag_len(aes_ccm    ) -> 12;
+aead_tag_len(aes_128_ccm) -> 12;
+aead_tag_len(aes_192_ccm) -> 12;
+aead_tag_len(aes_256_ccm) -> 12;
+aead_tag_len(aes_gcm    ) -> 16;
+aead_tag_len(aes_128_gcm) -> 16;
+aead_tag_len(aes_192_gcm) -> 16;
+aead_tag_len(aes_256_gcm) -> 16;
+aead_tag_len(_) -> error({badarg, "Not an AEAD cipher"}).
 
 %%%----------------------------------------------------------------
 %%% NIFs
@@ -909,9 +1051,9 @@ ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
 ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
 
 
--spec ng_crypto_one_shot_nif(atom(), binary(), binary(), binary(), boolean() ) ->
+-spec ng_crypto_one_time_nif(atom(), binary(), binary(), binary(), boolean() ) ->
                                     binary() | descriptive_error().
-ng_crypto_one_shot_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
+ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
 
 %%%----------------------------------------------------------------
 %%% Cipher aliases
@@ -2060,8 +2202,7 @@ cipher_info_nif(_Type) -> ?nif_stub.
 %% AES - in Galois/Counter Mode (GCM)
 %%
 %% The default tag length is EVP_GCM_TLS_TAG_LEN(16),
-aead_encrypt(_Type, _Key, _Ivec, _AAD, _In, _TagLength) -> ?nif_stub.
-aead_decrypt(_Type, _Key, _Ivec, _AAD, _In, _Tag) -> ?nif_stub.
+aead_cipher(_Type, _Key, _Ivec, _AAD, _In, _TagOrTagLength, _EncFlg) -> ?nif_stub.
 
 %%
 %% AES - with 256 bit key in infinite garble extension mode (IGE)
