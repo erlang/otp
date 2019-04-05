@@ -55,6 +55,7 @@ int ei_get_type(const char *buf, const int *index, int *type, int *len)
 
   case ERL_LARGE_TUPLE_EXT:
   case ERL_LIST_EXT:
+  case ERL_MAP_EXT:
   case ERL_BINARY_EXT:
     *len = get32be(s);
     break;

@@ -731,12 +731,12 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
       <name since=""><ret>int</ret><nametext>ei_get_type(const char *buf, const int *index, int *type, int *size)</nametext></name>
       <fsummary>Fetch the type and size of an encoded term.</fsummary>
       <desc>
-        <p>Returns the type in <c>type</c> and size in
-          <c>size</c> of the encoded term. For strings and atoms,
+        <p>Returns the type in <c>*type</c> and size in
+          <c>*size</c> of the encoded term. For strings and atoms,
           size is the number of characters <em>not</em> including the
-          terminating <c>NULL</c>. For binaries, <c>size</c> is the number of
-          bytes. For lists and tuples, <c>size</c> is the arity of
-          the object. For other types, <c>size</c> is 0. In all
+          terminating <c>NULL</c>. For binaries and bitstrings, <c>*size</c> is
+	  the number of bytes. For lists, tuples and maps, <c>*size</c> is the
+	  arity of the object. For other types, <c>*size</c> is 0. In all
           cases, <c>index</c> is left unchanged.</p>
       </desc>
     </func>
