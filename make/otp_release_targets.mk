@@ -156,7 +156,7 @@ endif
 
 
 ## These are the patterns of file names that xmllint cannot currently parse
-XI_INC_FILES:=%user_man.xml %usersguide.xml %refman.xml %ref_man.xml %part.xml %book.xml
+XI_INC_FILES:=%user_man.xml %usersguide.xml %refman.xml %ref_man.xml %part.xml %book.xml %internal.xml
 
 ## These are the files that we should run the xmllint on
 LINT_XI_INC_FILES := $(filter-out $(XI_INC_FILES), $(ALL_XI_INC_FILES))

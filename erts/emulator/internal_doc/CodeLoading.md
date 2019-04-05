@@ -45,7 +45,7 @@ free to schedule other work while the second loader is waiting. (See
 `erts_release_code_write_permission`).
 
 The ability to prepare several modules in parallel is not currently
-used as almost all code loading is serialized by the code_server
+used as almost all code loading is serialized by the code\_server
 process. The BIF interface is however prepared for this.
 
       erlang:prepare_loading(Module, Code) -> LoaderState
@@ -71,8 +71,8 @@ structures. These *code access structures* are
 
 * Export table. One entry for every exported function.
 * Module table. One entry for each loaded module.
-* "beam_catches". Identifies jump destinations for catch instructions.
-* "beam_ranges". Map code address to function and line in source file.
+* "beam\_catches". Identifies jump destinations for catch instructions.
+* "beam\_ranges". Map code address to function and line in source file.
 
 The most frequently used of these structures is the export table that
 is accessed in run time for every executed external function call to

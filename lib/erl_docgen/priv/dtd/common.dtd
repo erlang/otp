@@ -25,7 +25,7 @@
 <!ENTITY % block              "p|pre|code|list|taglist|codeinclude|
                                erleval" >
 <!ENTITY % inline             "#PCDATA|c|i|em|strong|term|cite|br|path|seealso|
-                               url|marker|anno" >
+                               url|marker|anno|image" >
 <!-- XXX --> 
 <!ELEMENT p                   (%inline;)* >
 <!ELEMENT pre                 (#PCDATA|seealso|url|input|anno)* >

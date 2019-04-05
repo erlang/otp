@@ -31,6 +31,7 @@ APPLICATION=compiler
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
+COMPILER_DIR = $(ERL_TOP)/lib/compiler/src
 
 # ----------------------------------------------------
 # Target Specs
@@ -38,7 +39,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = compile.xml
 
-XML_PART_FILES =
+XML_PART_FILES = internal.xml
 XML_CHAPTER_FILES = notes.xml
 
 BOOK_FILES = book.xml
@@ -48,6 +49,9 @@ GIF_FILES =
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
+
+XML_INTERNAL_FILES = \
+	cerl.xml cerl_trees.xml cerl_clauses.xml
 
 # ----------------------------------------------------
 
@@ -61,6 +65,8 @@ MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
 HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE =  $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
+
+XML_GEN_FILES = $(XML_INTERNAL_FILES:%=$(XMLDIR)/%)
 
 # ----------------------------------------------------
 # FLAGS
@@ -84,6 +90,9 @@ html: gifs $(HTML_REF_MAN_FILE)
 man: $(MAN3_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
+
+$(XML_INTERNAL_FILES:%=$(XMLDIR)/%): $(COMPILER_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(COMPILER_VSN) -dir $(XMLDIR) $(COMPILER_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
 
 debug opt:
 

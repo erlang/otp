@@ -403,7 +403,7 @@ A line with `//` is also a comment.  It is recommended to only
 use this style of comments in files that define implementations of
 instructions.
 
-A long line can be broken into shorter lines by a placing a`\` before
+A long line can be broken into shorter lines by a placing a `\` before
 the newline.
 
 ### Variable definitions ###
@@ -1159,7 +1159,6 @@ implementation of `gen_element()`:
 
         return op;
     }
-}
 
 ### Defining the implementation ###
 
@@ -1452,7 +1451,7 @@ optionally additional heap space.
 
 ##### The NEXT_INSTRUCTION pre-bound variable #####
 
-The NEXT_INSTRUCTION is a pre-bound variable that is available in
+The NEXT\_INSTRUCTION is a pre-bound variable that is available in
 all instructions.  It expands to the address of the next instruction.
 
 Here is an example:
@@ -1545,7 +1544,7 @@ register, the pointer will no longer be valid.  (Y registers are
 stored on the stack.)
 
 In those circumstances, `$REFRESH_GEN_DEST()` must be invoked
-to set up the pointer again.  **beam\_makeops** will notice
+to set up the pointer again. **beam\_makeops** will notice
 if there is a call to a function that does a garbage collection and
 `$REFRESH_GEN_DEST()` is not called.
 

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE book SYSTEM "book.dtd">
+<!DOCTYPE part SYSTEM "part.dtd">
 
-<book xmlns:xi="http://www.w3.org/2001/XInclude">
-  <header titlestyle="normal">
+<internal xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>2018</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,29 +22,17 @@
     
     </legalnotice>
 
-    <title>Compiler</title>
-    <prepared>Robert Virding</prepared>
+    <title>Compiler Internal Documentation</title>
+    <prepared>Lukas Larsson</prepared>
     <docno></docno>
-    <date>1997-05-02</date>
-    <rev>1.1.2</rev>
-    <file>book.sgml</file>
+    <date>2018-07-07</date>
+    <rev>1.0.0</rev>
+    <file>internal.xml</file>
   </header>
-  <insidecover>
-  </insidecover>
-  <pagetext>Compiler Application (COMPILER)</pagetext>
-  <preamble>
-    <contents level="2"></contents>
-  </preamble>
-  <applications>
-    <xi:include href="ref_man.xml"/>
-  </applications>
-  <internals>
-    <xi:include href="internal.xml"/>
-  </internals>
-  <releasenotes>
-    <xi:include href="notes.xml"/>
-  </releasenotes>
-  <listofterms></listofterms>
-  <index></index>
-</book>
+  <description>
+  </description>
+  <xi:include href="cerl.xml"/>
+  <xi:include href="cerl_trees.xml"/>
+  <xi:include href="cerl_clauses.xml"/>
+</internal>
 

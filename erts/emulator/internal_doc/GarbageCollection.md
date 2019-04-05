@@ -1,6 +1,6 @@
 # Erlang Garbage Collector
 
-Erlang manages dynamic memory with a [tracing garbage collector](https://en.wikipedia.org/wiki/Tracing_garbage_collection). More precisely a per process generational semi-space copying collector using [Cheney's](#cheney) copy collection algorithm together with a global large object space.
+Erlang manages dynamic memory with a [tracing garbage collector](https://en.wikipedia.org/wiki/Tracing_garbage_collection). More precisely a per process generational semi-space copying collector using Cheney's copy collection algorithm together with a global large object space. (See C. J. Cheney in [References](#references).)
 
 ## Overview
 
@@ -12,12 +12,11 @@ Terms are created on the heap by evaluating expressions. There are two major typ
 
 Let's look at an example that returns a tuple with the newly created data.
 
-```erlang
-data(Foo) ->
-   Cons = [42|Foo],
-   Literal = {text, "hello world!"},
-   {tag, Cons, Literal}.
-```
+
+    data(Foo) ->
+       Cons = [42|Foo],
+       Literal = {text, "hello world!"},
+       {tag, Cons, Literal}.
 
 In this example we first create a new cons cell with an integer and a tuple with some text. Then a tuple of size three wrapping the other values with an atom tag is created and returned.
 
@@ -25,7 +24,6 @@ On the heap tuples require a word size for each of its elements as well as for t
 
 Compiling this code to beam assembly (`erlc -S`) shows exactly what is happening.
 
-```erlang
     ...
     {test_heap,6,1}.
     {put_list,{integer,42},{x,0},{x,1}}.
@@ -34,9 +32,8 @@ Compiling this code to beam assembly (`erlc -S`) shows exactly what is happening
     {put,{x,1}}.
     {put,{literal,{text,"hello world!"}}}.
     return.
-```
 
-Looking at the assembler code we can see three things; The heap requirement in this function turns out to be only six words, as seen by the `{test_heap,6,1}` instruction. All the allocations are combined to a single instruction. The bulk of the data `{text, "hello world!"}` is a *literal*. Literals, sometimes referred to as constants, are not allocated in the function since they are a part of the module and allocated at load time.
+Looking at the assembler code we can see three things: The heap requirement in this function turns out to be only six words, as seen by the `{test_heap,6,1}` instruction. All the allocations are combined to a single instruction. The bulk of the data `{text, "hello world!"}` is a *literal*. Literals, sometimes referred to as constants, are not allocated in the function since they are a part of the module and allocated at load time.
 
 If there is not enough space available on the heap to satisfy the `test_heap` instructions request for memory, then a garbage collection is initiated. It may happen immediately in the `test_heap` instruction, or it can be delayed until a later time depending on what state the process is in. If the garbage collection is delayed, any memory needed will be allocated in heap fragments. Heap fragments are extra memory blocks that are a part of the young heap, but are not allocated in the contigious area where terms normally reside. See [The young heap](#the-young-heap) for more details.
 
@@ -50,11 +47,9 @@ It follows all the pointers from the root-set to the heap and copies each term w
 
 After the header word has been copied a [*move marker*](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_gc.h#L45-L46) is destructively placed in it pointing to the term in the *to space*. Any other term that points to the already moved term will [see this move marker](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam/erl_gc.c#L1125) and copy the referring pointer instead. For example, if the have the following Erlang code:
 
-```erlang
-foo(Arg) ->
-    T = {test, Arg},
-    {wrapper, T, T, T}.
-```
+    foo(Arg) ->
+        T = {test, Arg},
+        {wrapper, T, T, T}.
 
 Only one copy of T exists on the heap and during the garbage collection only the first time T is encountered will it be copied.
 
@@ -86,15 +81,15 @@ In the next garbage collection, any pointers to the old heap will be ignored and
 
 Generational garbage collection aims to increase performance at the expense of memory. This is achieved because only the young, smaller, heap is considered in most garbage collections.
 
-The generational [hypothesis](#ungar) predicts that most terms tend to die young, and for an immutable language such as Erlang, young terms die even faster than in other languages. So for most usage patterns the data in the new heap will die very soon after it is allocated. This is good because it limits the amount of data copied to the old heap and also because the garbage collection algorithm used is proportional to the amount of live data on the heap.
+The generational hypothesis predicts that most terms tend to die young (see D. Ungar in [References](#references)), and for an immutable language such as Erlang, young terms die even faster than in other languages. So for most usage patterns the data in the new heap will die very soon after it is allocated. This is good because it limits the amount of data copied to the old heap and also because the garbage collection algorithm used is proportional to the amount of live data on the heap.
 
 One critical issue to note here is that any term on the young heap can reference terms on the old heap but *no* term on the old heap may refer to a term on the young heap. This is due to the nature of the copy algorithm. Anything referenced by an old heap term is not included in the reference tree, root-set and its followers, and hence is not copied. If it was, the data would be lost, fire and brimstone would rise to cover the earth. Fortunately, this comes naturally for Erlang because the terms are immutable and thus there can be no pointers modified on the old heap to point to the young heap.
 
-To reclaim data from the old heap, both young and old heaps are included during the collection and copied to a common *to space*. Both the *from space* of the young and old heap are then deallocated and the procedure will start over from the beginning. This type of garbage collection is called a full sweep and is triggered when the size of the area under the high-watermark is larger than the size of the free area of the old heap. It can also be triggered by doing a manual call to [erlang:garbage_collect()](http://erlang.org/doc/man/erlang.html#garbage_collect-0), or by running into the young garbage collection limit set by [spawn_opt(fun(),[{fullsweep_after, N}])](http://erlang.org/doc/man/erlang.html#spawn_opt-4) where N is the number of young garbage collections to do before forcing a garbage collection of both young and old heap.
+To reclaim data from the old heap, both young and old heaps are included during the collection and copied to a common *to space*. Both the *from space* of the young and old heap are then deallocated and the procedure will start over from the beginning. This type of garbage collection is called a full sweep and is triggered when the size of the area under the high-watermark is larger than the size of the free area of the old heap. It can also be triggered by doing a manual call to [erlang:garbage_collect()](http://erlang.org/doc/man/erlang.html#garbage_collect-0), or by running into the young garbage collection limit set by [spawn\_opt(fun(),[{fullsweep\_after, N}\])](http://erlang.org/doc/man/erlang.html#spawn_opt-4) where N is the number of young garbage collections to do before forcing a garbage collection of both young and old heap.
 
 ## The young heap
 
-The young heap, or the allocation heap, consists of the stack and heap as described in the Overview. However, it also includes any heap fragments that are attached to the heap. All of the heap fragments are considered to be above the high-watermark and part of the young generation. Heap fragments contain terms that either did not fit on the heap, or were created by another process and then attached to the heap. For instance if the bif binary_to_term created a term which does not fit on the current heap without doing a garbage collection, it will create a heap-fragment for the term and then schedule a garbage collection for later. Also if a message is sent to the process, the payload may be placed in a heap-fragment and that fragment is added to young heap when the message is matched in a receive clause.
+The young heap, or the allocation heap, consists of the stack and heap as described in the Overview. However, it also includes any heap fragments that are attached to the heap. All of the heap fragments are considered to be above the high-watermark and part of the young generation. Heap fragments contain terms that either did not fit on the heap, or were created by another process and then attached to the heap. For instance if the bif `binary_to_term/1` created a term which does not fit on the current heap without doing a garbage collection, it will create a heap-fragment for the term and then schedule a garbage collection for later. Also if a message is sent to the process, the payload may be placed in a heap-fragment and that fragment is added to young heap when the message is matched in a receive clause.
 
 This procedure differs from how it worked prior to Erlang/OTP 19.0. Before 19.0, only a contiguous memory block where the young heap and stack resided was considered to be part of the young heap. Heap fragments and messages were immediately copied into the young heap before they could be inspected by the Erlang program. The behaviour introduced in 19.0 is superior in many ways - most significantly it reduces the number of necessary copy operations and the root set for garbage collection.
 
@@ -118,21 +113,19 @@ The old heap is always one step ahead in the heap growth stages than the young h
 
 When garbage collecting a heap (young or old) all literals are left in place and not copied. To figure out if a term should be copied or not when doing a garbage collection the following pseudo code is used:
 
-```c
-if (erts_is_literal(ptr) || (on_old_heap(ptr) && !fullsweep)) {
-  /* literal or non fullsweep - do not copy */
-} else {
-  copy(ptr);
-}
-```
+    if (erts_is_literal(ptr) || (on_old_heap(ptr) && !fullsweep)) {
+      /* literal or non fullsweep - do not copy */
+    } else {
+      copy(ptr);
+    }
 
 The [`erts_is_literal`](https://github.com/erlang/otp/blob/OTP-19.0/erts/emulator/beam/global.h#L1452-L1465) check works differently on different architectures and operating systems.
 
-On 64 bit systems that allow mapping of unreserved virtual memory areas (most operating systems except Windows), an area of size 1 GB (by default) is mapped and then all literals are placed within that area. Then all that has to be done to determine if something is a literal or not is [two quick pointer checks](https://github.com/erlang/otp/blob/OTP-19.0/erts/emulator/beam/erl_alloc.h#L322-L324). This system relies on the fact that a memory page that has not been touched yet does not take any actual space. So even if 1 GB of virtual memory is mapped, only the memory which is actually needed for literals is allocated in ram. The size of the literal area is configurable through the +MIscs erts_alloc option.
+On 64 bit systems that allow mapping of unreserved virtual memory areas (most operating systems except Windows), an area of size 1 GB (by default) is mapped and then all literals are placed within that area. Then all that has to be done to determine if something is a literal or not is [two quick pointer checks](https://github.com/erlang/otp/blob/OTP-19.0/erts/emulator/beam/erl_alloc.h#L322-L324). This system relies on the fact that a memory page that has not been touched yet does not take any actual space. So even if 1 GB of virtual memory is mapped, only the memory which is actually needed for literals is allocated in ram. The size of the literal area is configurable through the +MIscs erts\_alloc option.
 
 On 32 bit systems, there is not enough virtual memory space to allocate 1 GB for just literals, so instead small 256 KB sized literal regions are created on demand and a card mark bit-array of the entire 32 bit memory space is then used to determine if a term is a literal or not. Since the total memory space is only 32 bits, the card mark bit-array is only 256 words large. On a 64 bit system the same bit-array would have to be 1 tera words large, so this technique is only viable on 32 bit systems. Doing [lookups in the array](https://github.com/erlang/otp/blob/OTP-19.0/erts/emulator/beam/erl_alloc.h#L316-L319) is a little more expensive then just doing the pointer checks that can be done in 64 bit systems, but not extremely so.
 
-On 64 bit windows, on which erts_alloc cannot do unreserved virtual memory mappings, a [special tag](https://github.com/erlang/otp/blob/OTP-19.0/erts/emulator/beam/erl_term.h#L59) within the Erlang term object is used to determine if something [is a literal or not](https://github.com/erlang/otp/blob/OTP-19.0/erts/emulator/beam/erl_term.h#L248-L252). This is very cheap, however, the tag is only available on 64 bit machines, and it is possible to do a great deal of other nice optimizations with this tag in the future (like for instance a more compact list implementation) so it is not used on operating systems where it is not needed.
+On 64 bit windows, on which erts\_alloc cannot do unreserved virtual memory mappings, a [special tag](https://github.com/erlang/otp/blob/OTP-19.0/erts/emulator/beam/erl_term.h#L59) within the Erlang term object is used to determine if something [is a literal or not](https://github.com/erlang/otp/blob/OTP-19.0/erts/emulator/beam/erl_term.h#L248-L252). This is very cheap, however, the tag is only available on 64 bit machines, and it is possible to do a great deal of other nice optimizations with this tag in the future (like for instance a more compact list implementation) so it is not used on operating systems where it is not needed.
 
 This behaviour is different from how it worked prior to Erlang/OTP 19.0. Before 19.0 the literal check was done by checking if the pointer pointed to the young or old heap block. If it did not, then it was considered a literal. This lead to considerable overhead and strange memory usage scenarios, so it was removed in 19.0.
 
@@ -182,6 +175,8 @@ Using `on_heap` will force all messages to be part of on the young heap which wi
 
 Which one of these strategies is best depends a lot on what the process is doing and how it interacts with other processes. So, as always, profile the application and see how it behaves with the different options.
 
-   <a name="cheney">[1]</a>: C. J. Cheney. A nonrecursive list compacting algorithm. Commun. ACM, 13(11):677–678, Nov. 1970.
+## References
 
-   <a name="ungar">[2]</a>: D. Ungar. Generation scavenging: A non-disruptive high performance storage reclamation algorithm. SIGSOFT Softw. Eng. Notes, 9(3):157–167, Apr. 1984.
+C. J. Cheney. A nonrecursive list compacting algorithm. Commun. ACM, 13(11):677–678, Nov. 1970.
+
+D. Ungar. Generation scavenging: A non-disruptive high performance storage reclamation algorithm. SIGSOFT Softw. Eng. Notes, 9(3):157–167, Apr. 1984.
