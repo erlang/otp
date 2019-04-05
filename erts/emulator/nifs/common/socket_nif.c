@@ -8308,7 +8308,7 @@ ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*       env,
             return esock_make_error(env, esock_atom_einval);
         }
         
-        if (!decode_ip_msfilter_mode(env, eFMode, &msfP->imsf_fmode)) {
+        if (!decode_ip_msfilter_mode(env, eFMode, (Uint32*) &msfP->imsf_fmode)) {
             FREE(msfP);
             return esock_make_error(env, esock_atom_einval);
         }
