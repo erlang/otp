@@ -2775,8 +2775,8 @@ make_sure_expired(Host, Port, Id) ->
 server_does_not_want_to_reuse_session() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
 server_does_not_want_to_reuse_session(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = 
