@@ -43,7 +43,7 @@
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,t_ets_dets/1]).
 -export([test_table_size_concurrency/1,test_table_memory_concurrency/1,
-         test_delete_table_while_size_snapshot/1]).
+         test_delete_table_while_size_snapshot/1, test_delete_table_while_size_snapshot_helper/0]).
 
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
@@ -4524,6 +4524,15 @@ test_table_memory_concurrency(Config) when is_list(Config) ->
 %% decentralized counters works while ets:info(T, size) operations are
 %% active
 test_delete_table_while_size_snapshot(Config) when is_list(Config) ->
+    %% Run test case in a slave node as other test suites in stdlib
+    %% depend on that pids are ordered in creation order which is no
+    %% longer the case when many processes have been started before
+    Node = start_slave(),
+    ok = rpc:call(Node, ?MODULE, test_delete_table_while_size_snapshot_helper, []),
+    test_server:stop_node(Node),
+    ok.
+
+test_delete_table_while_size_snapshot_helper()->
     TopParent = self(),
     repeat_par(
       fun() ->
@@ -4555,6 +4564,13 @@ size_process(Table, Parent) ->
     catch
         E -> Parent ! {got_unexpected_exception, E}
     end.
+
+start_slave() ->
+    MicroSecs = erlang:monotonic_time(),
+    Name = "ets_" ++ integer_to_list(MicroSecs),
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, Node} = test_server:start_node(list_to_atom(Name), slave, [{args, "-pa " ++ Pa}]),
+    Node.
 
 repeat_par(FunToRepeat, NrOfTimes) ->
     repeat_par_help(FunToRepeat, NrOfTimes, NrOfTimes).
