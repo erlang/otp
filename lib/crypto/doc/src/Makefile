@@ -39,7 +39,8 @@ XML_REF3_FILES = crypto.xml
 XML_REF6_FILES = crypto_app.xml
 
 XML_PART_FILES = usersguide.xml
-XML_CHAPTER_FILES = notes.xml licenses.xml fips.xml engine_load.xml engine_keys.xml algorithm_details.xml
+XML_CHAPTER_FILES = notes.xml licenses.xml fips.xml engine_load.xml engine_keys.xml \
+	algorithm_details.xml new_api.xml
 
 BOOK_FILES = book.xml
 
