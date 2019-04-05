@@ -62,12 +62,15 @@
 #  define ETHR_INLINE __inline__
 #  if ETHR_AT_LEAST_GCC_VSN__(3, 1, 1)
 #    define ETHR_FORCE_INLINE __inline__ __attribute__((__always_inline__))
+#    define ETHR_NOINLINE __attribute__((__noinline__))
 #  else
 #    define ETHR_FORCE_INLINE __inline__
+#    define ETHR_NOINLINE
 #  endif
 #elif defined(__WIN32__)
 #  define ETHR_INLINE __forceinline
 #  define ETHR_FORCE_INLINE __forceinline
+#  define ETHR_NOINLINE __declspec(noinline)
 #endif
 
 #endif /* #ifndef ETHREAD_INLINE_H__ */
