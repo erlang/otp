@@ -604,6 +604,13 @@ init_usm('version-3', Dir) ->
     ?vlog("init_usm -> create (and init) fake \"agent\" table", []),
     ets:new(snmp_agent_table, [set, public, named_table]),
     ets:insert(snmp_agent_table, {agent_mib_storage, persistent}),
+    %% The local-db process may *still* be running (from a previous
+    %% test case), on the way down, but not yet dead.
+    %% Either way, before we start it, make sure its dead and *gone*!
+    %% How do we do that without getting hung up? Calling the stop
+    %% function, will not do since it uses Timeout=infinity.
+    ?vlog("init_usm -> ensure (old) fake local-db is dead", []),
+    ensure_local_db_dead(),
     ?vlog("init_usm -> try start fake local-db", []),
     case snmpa_local_db:start_link(normal, Dir,
                                    [{sname,     "MGR-LOCAL-DB"},
@@ -612,8 +619,12 @@ init_usm('version-3', Dir) ->
             ?vlog("started: ~p"
                   "~n      ~p", [Pid, process_info(Pid)]);
         {error, {already_started, Pid}} ->
+            LDBInfo = process_info(Pid),
             ?vlog("already started: ~p"
-                  "~n      ~p", [Pid, process_info(Pid)])
+                  "~n      ~p", [Pid, LDBInfo]),
+            ?FAIL({still_running, snmpa_local_db, LDBInfo});
+        {error, Reason} ->
+            ?FAIL({failed_starting, snmpa_local_db, Reason})
     end,
     NameDb = snmpa_agent:db(snmpEngineID),
     ?vlog("init_usm -> try set manager engine-id", []),
@@ -629,6 +640,60 @@ init_usm('version-3', Dir) ->
     ok;
 init_usm(_Vsn, _Dir) ->
     ok.
+
+ensure_local_db_dead() ->
+    ensure_dead(whereis(snmpa_local_db), 2000).
+
+ensure_dead(Pid, Timeout) when is_pid(Pid) ->
+    MRef = erlang:monitor(process, Pid),
+    try
+        begin
+            ensure_dead_wait(Pid, MRef, Timeout),
+            ensure_dead_stop(Pid, MRef, Timeout),
+            ensure_dead_kill(Pid, MRef, Timeout),
+            exit(failed_stop_local_db)
+        end
+    catch
+        throw:ok ->
+            ok
+    end;
+ensure_dead(_, _) ->
+    ?vlog("ensure_dead -> already dead", []),
+    ok.
+
+ensure_dead_wait(Pid, MRef, Timeout) ->
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            ?vlog("ensure_dead_wait -> died peacefully", []),
+            throw(ok)
+    after Timeout ->
+            ?vlog("ensure_dead_wait -> giving up", []),
+            ok
+    end.
+
+ensure_dead_stop(Pid, MRef, Timeout) ->
+    StopPid = spawn(fun() -> snmpa_local_db:stop() end),
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            ?vlog("ensure_dead -> dead (stopped)", []),
+            throw(ok)
+    after Timeout ->
+            ?vlog("ensure_dead_stop -> giving up", []),
+            exit(StopPid, kill),
+            ok
+    end.
+
+ensure_dead_kill(Pid, MRef, Timeout) ->
+    exit(Pid, kill),
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            ?vlog("ensure_dead -> dead (killed)", []),
+            throw(ok)
+    after Timeout ->
+            ?vlog("ensure_dead_kill -> giving up", []),
+            ok
+    end.
+
 
 
 display_incomming_message(M) ->
@@ -831,6 +896,4 @@ d(_,_F,_A) ->
 
 print(F, A) ->
     ?PRINT2("MGR_PS " ++ F, A).
-    
-formated_timestamp() ->
-    snmp_test_lib:formated_timestamp().
+

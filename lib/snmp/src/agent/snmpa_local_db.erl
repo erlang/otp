@@ -153,6 +153,7 @@ do_init(Prio, DbDir, DbInitError, Opts) ->
     Dets = dets_open(DbDir, DbInitError, Opts),
     Ets  = ets:new(?ETS_TAB, [set, protected]),
     ?vdebug("started",[]),
+    put(started,   snmp_misc:formated_timestamp()),
     {ok, #state{dets = Dets, ets = Ets}}.
 
 dets_open(DbDir, DbInitError, Opts) ->

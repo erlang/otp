@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,8 +64,18 @@
 	 strip_extension_from_filename/2, 
 	 str_xor/2,
 	 time/3,
-	 
-	 verify_behaviour/2
+
+	 verify_behaviour/2,
+
+	 %% These are used both for debugging (verbosity printouts)
+         %% and other such "utility" operations.
+         format_timestamp/1, format_timestamp/2, 
+         format_short_timestamp/1, format_short_timestamp/2, 
+         format_long_timestamp/1, format_long_timestamp/2,
+         formated_timestamp/0, 
+         formated_short_timestamp/0, 
+         formated_long_timestamp/0
+
 	]).
 
 
@@ -111,6 +121,108 @@ now(cs) ->
 now(sec) ->
     erlang:monotonic_time(seconds).
     
+
+
+%% ---------------------------------------------------------------------------
+%% # formated_timstamp/0,     formated_timstamp/1
+%% # format_short_timstamp/0, format_short_timstamp/1
+%% # format_long_timstamp/0,  format_long_timstamp/1
+%% 
+%% Create a formatted timestamp. Short means that it will not include 
+%% the date in the formatted timestamp. Also it will only include millis.
+%% ---------------------------------------------------------------------------
+
+formated_timestamp() ->
+    formated_long_timestamp().
+
+formated_short_timestamp() ->
+    format_short_timestamp(os:timestamp()).
+
+formated_long_timestamp() ->
+    format_long_timestamp(os:timestamp()).
+
+
+%% ---------------------------------------------------------------------------
+%% # format_timstamp/1, format_timstamp/2
+%% # format_short_timstamp/1, format_short_timstamp/2
+%% # format_long_timstamp/1, format_long_timstamp/2
+%% 
+%% Formats the provided timestamp. Short means that it will not include 
+%% the date in the formatted timestamp.
+%% ---------------------------------------------------------------------------
+
+-spec format_timestamp(Now :: os:timestamp()) ->
+    string().
+
+format_timestamp(Now) ->
+    format_long_timestamp(Now).
+
+-spec format_short_timestamp(Now :: os:timestamp()) ->
+    string().
+
+format_short_timestamp(Now) ->
+    N2T = fun(N) -> calendar:now_to_local_time(N) end,
+    format_timestamp(short, Now, N2T).
+
+-spec format_long_timestamp(Now :: os:timestamp()) ->
+    string().
+
+format_long_timestamp(Now) ->
+    N2T = fun(N) -> calendar:now_to_local_time(N) end,
+    format_timestamp(long, Now, N2T).
+
+-spec format_timestamp(Now :: os:timestamp(), 
+                       N2T :: function()) ->
+    string().
+
+format_timestamp(Now, N2T) when is_tuple(Now) andalso is_function(N2T) ->
+    format_long_timestamp(Now, N2T).
+
+-spec format_short_timestamp(Now :: os:timestamp(), 
+                             N2T :: function()) ->
+    string().
+
+format_short_timestamp(Now, N2T) when is_tuple(Now) andalso is_function(N2T) ->
+    format_timestamp(short, Now, N2T).
+
+-spec format_long_timestamp(Now :: os:timestamp(), 
+                            N2T :: function()) ->
+    string().
+
+format_long_timestamp(Now, N2T) when is_tuple(Now) andalso is_function(N2T) ->
+    format_timestamp(long, Now, N2T).
+
+format_timestamp(Format, {_N1, _N2, N3} = Now, N2T) ->
+    {Date, Time} = N2T(Now),
+    do_format_timestamp(Format, Date, Time, N3).
+    %% case Format of
+    %%     short ->
+    %%         do_format_short_timestamp(Time, N3);
+    %%     long ->
+    %%         do_format_long_timestamp(Date, Time, N3)
+    %% end.
+
+do_format_timestamp(short, Date, Time, N3) ->
+    do_format_short_timestamp(Time, N3);
+do_format_timestamp(long, Date, Time, N3) ->
+    do_format_long_timestamp(Date, Time, N3).
+    
+do_format_long_timestamp(Date, Time, N3) ->
+    {YYYY,MM,DD}   = Date,
+    {Hour,Min,Sec} = Time,
+    FormatDate = 
+        io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                      [YYYY, MM, DD, Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatDate).
+
+do_format_short_timestamp(Time, N3) ->
+    {Hour,Min,Sec} = Time,
+    FormatDate = 
+        io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w", 
+                      [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatDate).
+
+
 
 is_crypto_supported(Alg) ->
     %% The 'try catch' handles the case when 'crypto' is
