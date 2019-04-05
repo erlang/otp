@@ -138,7 +138,8 @@ handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
 				 list_to_integer(Key3)}}},
 		expand(Id,cdv_term_cb,State);
 	    _ when App =:= obs ->
-		observer ! {open_link, Target};
+		observer ! {open_link, Target},
+                State;
 	    _ ->
 		cdv_virtual_list_wx:start_detail_win(Target),
 		State
