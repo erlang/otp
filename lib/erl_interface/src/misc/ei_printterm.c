@@ -131,7 +131,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
     if (fp == NULL && x == NULL) return -1;
 
     doquote = 0;
-    ei_get_type_internal(buf, index, &ty, &n);
+    ei_get_type(buf, index, &ty, &n);
     switch (ty) {
     case ERL_ATOM_EXT:   
     case ERL_ATOM_UTF8_EXT:
@@ -189,7 +189,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
 		xputs(", ", fp, x); ch_written += 2;
 	    }
 	}
-	if (ei_get_type_internal(buf, &tindex, &ty, &n) < 0) goto err;
+	if (ei_get_type(buf, &tindex, &ty, &n) < 0) goto err;
 	if (ty != ERL_NIL_EXT) {
 	    xputs(" | ", fp, x); ch_written += 3;
 	    r = print_term(fp, x, buf, &tindex);

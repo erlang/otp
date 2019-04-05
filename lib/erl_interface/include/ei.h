@@ -547,8 +547,6 @@ int ei_x_encode_map_header(ei_x_buff* x, long n);
  */
 
 int ei_get_type(const char *buf, const int *index, int *type, int *size);
-int ei_get_type_internal(const char *buf, const int *index, int *type,
-			 int *size);
 
 /* Step through buffer, decoding the given type into the buffer
  * provided. On success, 0 is returned and index is updated to point

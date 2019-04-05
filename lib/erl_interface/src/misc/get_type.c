@@ -27,16 +27,7 @@
 /* for types with meaningful length attributes, return the length too.
    In other cases, return length 0 */
 
-/* FIXME working on this one.... */
-
 int ei_get_type(const char *buf, const int *index, int *type, int *len)
-{
-    return ei_get_type_internal(buf, index, type, len);
-}
-
-   
-int ei_get_type_internal(const char *buf, const int *index,
-			 int *type, int *len)
 {
   const char *s = buf + *index;
 

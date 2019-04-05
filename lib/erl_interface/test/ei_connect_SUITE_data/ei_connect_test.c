@@ -107,7 +107,6 @@ TESTCASE(interpret)
 static void cmd_ei_connect_init(char* buf, int len)
 {
     int index = 0, r = 0;
-    int type, size;
     long l;
     char b[100];
     char cookie[MAXATOMLEN], * cp = cookie;
@@ -115,8 +114,6 @@ static void cmd_ei_connect_init(char* buf, int len)
     if (ei_decode_long(buf, &index, &l) < 0)
 	fail("expected int");
     sprintf(b, "c%ld", l);
-    /* FIXME don't use internal and maybe use skip?! */
-    ei_get_type_internal(buf, &index, &type, &size);
     if (ei_decode_atom(buf, &index, cookie) < 0)
 	fail("expected atom (cookie)");
     if (cookie[0] == '\0')

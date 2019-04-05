@@ -342,7 +342,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
     int i, len;
     char *s;
 
-    ei_get_type_internal(termbuf,index,&type,&len);
+    ei_get_type(termbuf,index,&type,&len);
   
     switch (type) {
     case ERL_VERSION_MAGIC:

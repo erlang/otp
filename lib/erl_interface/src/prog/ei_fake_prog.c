@@ -186,7 +186,6 @@ int main(void)
   ei_x_encode_empty_list(&eix);
 
   ei_get_type(charp, intp, intp, intp);
-  ei_get_type_internal(charp, intp, intp, intp);
 
   ei_decode_version(charp, intp, intp);
   ei_decode_long(charp, intp, longp);
