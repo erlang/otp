@@ -1090,8 +1090,8 @@ ok
           </item>
           <item>
             <p><c>select</c> - The table is traversed by calling
-              <seealso marker="dets:select/3"><c>dets:select/3</c></seealso> and
-              <seealso marker="dets:select/1"><c>dets:select/1</c></seealso>.
+              <seealso marker="dets#select/3"><c>dets:select/3</c></seealso> and
+              <seealso marker="dets#select/1"><c>dets:select/1</c></seealso>.
               Option <c>n_objects</c> determines the number of objects
               returned (the third argument of <c>select/3</c>). The
               match specification (the second argument of

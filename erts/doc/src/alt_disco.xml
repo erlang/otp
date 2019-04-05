@@ -63,7 +63,7 @@
     <seealso marker="kernel:erl_epmd">EPMD module</seealso>. However, instead of
     communicating with EPMD you can connect to any service to find out
     connection details of other nodes. A discovery module is enabled
-    by setting <seealso marker="erts:erl#epmd_module">-epmd_module</seealso>
+    by setting <seealso marker="erts:erl">-epmd_module</seealso>
     when starting erlang. The discovery module must implement the following
     callbacks:</p>
 

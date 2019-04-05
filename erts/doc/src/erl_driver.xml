@@ -230,7 +230,7 @@
       <item>
         <p>With these functions, the driver sends data back to the emulator.
           The data is received as messages by the port owner process, see
-          <seealso marker="erlang:open_port/2">
+          <seealso marker="erlang#open_port/2">
           <c>erlang:open_port/2</c></seealso>. The vector function and the
           function taking a driver binary are faster, as they avoid
           copying the data buffer. There is also a fast way of sending
@@ -1154,27 +1154,27 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <taglist>
           <tag><seealso marker="driver_entry#start">
             <c>start</c></seealso></tag>
-          <item>Called from <seealso marker="erlang:open_port/2">
+          <item>Called from <seealso marker="erlang#open_port/2">
             <c>erlang:open_port/2</c></seealso>.</item>
           <tag><seealso marker="driver_entry#output">
             <c>output</c></seealso></tag>
-          <item>Called from <seealso marker="erlang:send/2">
+          <item>Called from <seealso marker="erlang#send/2">
             <c>erlang:send/2</c></seealso> and
-            <seealso marker="erlang:port_command/2">
+            <seealso marker="erlang#port_command/2">
             <c>erlang:port_command/2</c></seealso>.</item>
           <tag><seealso marker="driver_entry#outputv">
             <c>outputv</c></seealso></tag>
-          <item>Called from <seealso marker="erlang:send/2">
+          <item>Called from <seealso marker="erlang#send/2">
             <c>erlang:send/2</c></seealso> and
-            <seealso marker="erlang:port_command/2">
+            <seealso marker="erlang#port_command/2">
             <c>erlang:port_command/2</c></seealso>.</item>
           <tag><seealso marker="driver_entry#control">
             <c>control</c></seealso></tag>
-          <item>Called from <seealso marker="erlang:port_control/3">
+          <item>Called from <seealso marker="erlang#port_control/3">
             <c>erlang:port_control/3</c></seealso>.</item>
           <tag><seealso marker="driver_entry#call">
             <c>call</c></seealso></tag>
-          <item>Called from <seealso marker="erlang:port_call/3">
+          <item>Called from <seealso marker="erlang#port_call/3">
             <c>erlang:port_call/3</c></seealso>.</item>
         </taglist>
         <p>Notice that this function is <em>not</em> thread-safe, not
@@ -2305,7 +2305,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           <c>*value_size</c> has been set to the buffer size needed.</p>
         <warning>
           <p>This function reads the emulated environment used by
-            <seealso marker="os:getenv/1"><c>os:getenv/1</c></seealso> and not
+            <seealso marker="kernel:os#getenv/1"><c>os:getenv/1</c></seealso> and not
             the environment used by libc's <c>getenv(3)</c> or similar. Drivers
             that <em>require</em> that these are in sync will need to do so
             themselves, but keep in mind that they are segregated for a reason;
@@ -2656,7 +2656,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
         </note>
         <warning>
           <p>This function modifies the emulated environment used by
-            <seealso marker="os:putenv/2"><c>os:putenv/2</c></seealso> and not
+            <seealso marker="kernel:os#putenv/2"><c>os:putenv/2</c></seealso> and not
             the environment used by libc's <c>putenv(3)</c> or similar. Drivers
             that <em>require</em> that these are in sync will need to do so
             themselves, but keep in mind that they are segregated for a reason;
@@ -2849,7 +2849,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
       <desc>
         <marker id="erl_drv_set_os_pid"></marker>
         <p>Sets the <c>os_pid</c> seen when doing
-          <seealso marker="erlang:port_info/2">
+          <seealso marker="erlang#port_info/2">
           <c>erlang:port_info/2</c></seealso> on this port.</p>
         <p><c>port</c> is the port handle of the port (driver instance) to set
           the pid on. <c>pid</c>is the pid to set.</p>
@@ -3204,7 +3204,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
           <c>control</c></seealso> driver entry
           function will return data to the port owner process.
           (The <c>control</c> function is called from
-          <seealso marker="erlang:port_control/3">
+          <seealso marker="erlang#port_control/3">
           <c>erlang:port_control/3</c></seealso>.)</p>
         <p>Currently there are only two meaningful values for
           <c>flags</c>: <c>0</c> means that data is returned in a list,

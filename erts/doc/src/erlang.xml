@@ -126,7 +126,7 @@
               instance.</p>
             <p>One can get an approximation of the <c>native</c>
               time unit by calling
-              <seealso marker="erlang:convert_time_unit/3">
+              <seealso marker="#convert_time_unit/3">
               <c>erlang:convert_time_unit(1, second, native)</c></seealso>.
               The result equals the number
               of whole <c>native</c> time units per second. If
@@ -4663,6 +4663,7 @@ RealSystem = system + MissedSystem</code>
       <name name="port_info" arity="2" clause_i="6" since="OTP R16B"/>
       <fsummary>Information about the memory size of a port.</fsummary>
       <desc>
+        <marker id="port_info_memory"/>
         <p><c><anno>Bytes</anno></c> is the total number of
           bytes allocated for this port by the runtime system. The
           port itself can have allocated memory that is not
@@ -5387,6 +5388,7 @@ RealSystem = system + MissedSystem</code>
           </item>
           <tag><c>{memory, <anno>Size</anno>}</c></tag>
           <item>
+            <marker id="process_info_memory"/>
             <p><c><anno>Size</anno></c> is the size in bytes of the process.
               This includes call stack, heap, and internal structures.</p>
           </item>
@@ -6676,7 +6678,7 @@ lists:map(
           <tag><c>async</c></tag>
           <item>Async threads are used by various linked-in drivers (mainly the
             file drivers) do offload non-CPU intensive work. See
-            <seealso marker="erts:erl#+async_thread_pool_size">erl +A</seealso> for more details.</item>
+            <seealso marker="erts:erl#async_thread_pool_size">erl +A</seealso> for more details.</item>
           <tag><c>aux</c></tag>
           <item>Takes care of any work that is not
             specifically assigned to a scheduler.</item>

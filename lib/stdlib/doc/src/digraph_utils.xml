@@ -371,7 +371,7 @@
           the default, the type of <c><anno>Digraph</anno></c> is used
           for the subgraph as well. Otherwise the option value of <c>type</c>
           is used as argument to
-          <seealso marker="digraph:new/1"><c>digraph:new/1</c></seealso>.</p>
+        <seealso marker="digraph#new/1"><c>digraph:new/1</c></seealso>.</p>
         <p>If the value of option <c>keep_labels</c> is <c>true</c>,
           which is the default,
           the <seealso marker="#label">labels</seealso> of vertices and edges

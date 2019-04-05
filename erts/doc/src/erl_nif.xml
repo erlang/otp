@@ -546,8 +546,8 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
             <p>Many operations communicating with a process executing a
               dirty NIF can, however, complete while it executes the
               dirty NIF. For example, retrieving information about it through
-              <seealso marker="erlang:process_info/1">
-              <c>erlang:process_info</c></seealso>, setting its group leader,
+              <seealso marker="erlang#process_info/1">
+              <c>process_info</c></seealso>, setting its group leader,
               register/unregister its name, and so on.</p>
             <p>Termination of a process executing a dirty NIF can only be
               completed up to a certain point while it executes the dirty NIF.

@@ -253,7 +253,7 @@ connect(Socket, Ip, Port>,
       <desc>
         <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
           <c><anno>Socket</anno></c>. Same implementation as
-          <seealso marker="gen_udp:controlling_process/2"><c>gen_udp:controlling_process/2</c></seealso>.
+          <seealso marker="gen_udp#controlling_process/2"><c>gen_udp:controlling_process/2</c></seealso>.
         </p>
       </desc>
     </func>

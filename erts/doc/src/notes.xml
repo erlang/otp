@@ -8363,8 +8363,7 @@
 	    Erlang/OTP has been ported to the realtime operating
 	    system OSE. The port supports both smp and non-smp
 	    emulator. For details around the port and how to started
-	    see the User's Guide in the <seealso
-	    marker="ose:ose_intro">ose</seealso> application. </p>
+	    see the User's Guide in the <em>ose</em> application.</p>
           <p>
 	    Note that not all parts of Erlang/OTP has been ported. </p>
           <p>
@@ -9470,9 +9469,9 @@
 	    <c>fix_alloc</c> allocator, a different strategy for
 	    management of fix blocks will be used.</item> <item>The
 	    information returned from <seealso
-	    marker="erlang:system_info_allocator_tuple"><c>erlang:system_info({allocator,
+	    marker="erlang#system_info_allocator_tuple"><c>erlang:system_info({allocator,
 	    A})</c></seealso>, and <seealso
-	    marker="erlang:system_info_allocator_sizes"><c>erlang:system_info({allocator_sizes,
+	    marker="erlang#system_info_allocator_sizes"><c>erlang:system_info({allocator_sizes,
 	    A})</c></seealso> will be slightly different when this
 	    feature has been enabled. An <c>mbcs_pool</c> tuple will
 	    be present giving information about abandoned carriers,
@@ -10281,8 +10280,7 @@
 	    information about signal ordering guarantees, see the
 	    chapter on <seealso
 	    marker="erts:communication">communication</seealso> in
-	    the ERTS user's guide. The <seealso
-	    marker="erts:erl#+n">+n</seealso> command line flag of
+	    the ERTS user's guide. The <c>+n</c> command line flag of
 	    <seealso marker="erts:erl">erl(1)</seealso> can be
 	    helpful when trying to find signaling order bugs in
 	    Erlang code that have been exposed by these

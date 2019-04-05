@@ -813,7 +813,8 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <p>The <c>{OtherRefId,term()}</c> is defined by the user and is passed to the <c>match_fun</c>, if defined.
       If the term in <c>OtherRefId</c> is a binary, it will be converted to a string.
       </p>
-      <p>The <c>ip</c> Reference ID takes an <seealso marker="inet:inet#type-ip_address">inet:ip_address()</seealso>
+      <p>The <c>ip</c> Reference ID takes an
+      <seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>
       or an ip address in string format (E.g "10.0.1.1" or "1234::5678:9012") as second element.
       </p>
       <p>The options are:</p>
