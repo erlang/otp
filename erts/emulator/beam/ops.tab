@@ -1690,9 +1690,14 @@ i_plus S1=c S2=c Fail Dst => move S1 x | i_plus x S2 Fail Dst
 
 i_plus xy xyc j? d
 
-i_minus x x j? d
-i_minus c x j? d
-i_minus s s j? d
+# A minus instruction with a constant right operand will be
+# converted to an i_increment instruction, except in guards or
+# when the negated value of the constant won't fit in a guard.
+# Therefore, it very rare.
+i_minus S1 S2=c Fail Dst => move S2 x | i_minus S1 x Fail Dst
+
+i_minus xy xy j? d
+i_minus c xy j? d
 
 i_times j? s s d
 
