@@ -1161,7 +1161,7 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
 
     ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
     ssl_test_lib:consume_port_exit(OpenSslPort),
-    ssl_test_lib:check_server_alert(Server, bad_record_mac),
+    ssl_test_lib:check_server_alert(Server, unexpected_message),
     process_flag(trap_exit, false).
 
 %%--------------------------------------------------------------------
@@ -1462,6 +1462,7 @@ send_and_hostname(SSLSocket) ->
     end.
 
 erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
+    Version = ssl_test_lib:protocol_version(Config),
     ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
     ServerOptions = proplists:get_value(sni_server_opts, Config) ++ proplists:get_value(server_rsa_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1472,9 +1473,9 @@ erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, 
     Exe = "openssl",
     ClientArgs = case SNIHostname of
 		     undefined ->
-			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname,Port);
+			 openssl_client_args(Version, Hostname,Port);
 		     _ ->
-			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname, Port, SNIHostname)
+			 openssl_client_args(Version, Hostname, Port, SNIHostname)
 		 end,       
     ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs),  
   
@@ -1485,6 +1486,7 @@ erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, 
 
 
 erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
+    Version = ssl_test_lib:protocol_version(Config),
     ct:log("Start running handshake for sni_fun, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
     [{sni_hosts, ServerSNIConf}] = proplists:get_value(sni_server_opts, Config),
     SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
@@ -1497,9 +1499,9 @@ erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHo
     Exe = "openssl",
     ClientArgs = case SNIHostname of
 		     undefined ->
-			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname,Port);
+			 openssl_client_args(Version, Hostname,Port);
 		     _ ->
-			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname, Port, SNIHostname)
+			 openssl_client_args(Version, Hostname, Port, SNIHostname)
 		 end,       
 
     ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs), 
@@ -1910,13 +1912,19 @@ send_wait_send(Socket, [ErlData, OpenSslData]) ->
     
 check_openssl_sni_support(Config) ->
     HelpText = os:cmd("openssl s_client --help"),
-    case string:str(HelpText, "-servername") of
-        0 ->
-            {skip, "Current openssl doesn't support SNI"};
-        _ ->
-            Config
+    case ssl_test_lib:is_sane_oppenssl_sni() of
+        true ->
+            case string:str(HelpText, "-servername") of
+                0 ->
+                    {skip, "Current openssl doesn't support SNI"};
+                _ ->
+                    Config
+            end;
+        false ->
+            {skip, "Current openssl doesn't support SNI or extension handling is flawed"}
     end.
 
+            
 check_openssl_npn_support(Config) ->
     HelpText = os:cmd("openssl s_client --help"),
     case string:str(HelpText, "nextprotoneg") of
@@ -1982,17 +1990,13 @@ workaround_openssl_s_clinent() ->
 	    []
     end.
 
-openssl_client_args(false, Hostname, Port) ->
-    ["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port)];
-openssl_client_args(true, Hostname, Port) ->
-    ["s_client",  "-no_ssl2", "-connect", Hostname ++ ":" ++ integer_to_list(Port)].
+openssl_client_args(Version, Hostname, Port) ->
+    ["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port), ssl_test_lib:version_flag(Version)].
 
-openssl_client_args(false, Hostname, Port, ServerName) ->
+openssl_client_args(Version, Hostname, Port, ServerName) ->
     ["s_client",  "-connect", Hostname ++ ":" ++ 
-	 integer_to_list(Port), "-servername", ServerName];
-openssl_client_args(true, Hostname, Port, ServerName) ->
-    ["s_client",  "-no_ssl2", "-connect", Hostname ++ ":" ++ 
-	 integer_to_list(Port), "-servername", ServerName].
+	 integer_to_list(Port), ssl_test_lib:version_flag(Version), "-servername", ServerName].
+
 
 hostname_format(Hostname) ->
     case lists:member($., Hostname) of
@@ -2001,16 +2005,6 @@ hostname_format(Hostname) ->
         false ->
             "localhost"   
     end.
-
-no_low_flag("-no_ssl2" = Flag) ->
-    case ssl_test_lib:supports_ssl_tls_version(sslv2) of
-        true ->
-            Flag;
-        false ->
-            ""
-    end;
-no_low_flag(Flag) ->
-    Flag.
 
 
 openssl_has_common_ciphers(Ciphers) ->
