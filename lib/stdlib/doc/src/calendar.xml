@@ -513,7 +513,7 @@
     <title>Date and Time Source</title>
     <p>Local time is obtained from the Erlang BIF <c>localtime/0</c>.
       Universal time is computed from the BIF <c>universaltime/0</c>.</p>
-    <p>The following fapply:</p>
+    <p>The following apply:</p>
     <list type="bulleted">
       <item>There are 86400 seconds in a day.</item>
       <item>There are 365 days in an ordinary year.</item>
