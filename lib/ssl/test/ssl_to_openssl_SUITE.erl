@@ -181,16 +181,6 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-init_per_group(basic, Config0) ->
-    case ssl_test_lib:supports_ssl_tls_version('tlsv1.2')
-        orelse ssl_test_lib:supports_ssl_tls_version('tlsv1.1')
-        orelse ssl_test_lib:supports_ssl_tls_version('tlsv1')
-    of
-        true ->
-            ssl_test_lib:clean_tls_version(Config0);
-        false ->
-            {skip, "only sslv3 supported by OpenSSL"}
-    end;
 
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
@@ -233,7 +223,7 @@ init_per_testcase(TestCase, Config) when
       TestCase == erlang_server_openssl_client_dsa_cert;
        TestCase == erlang_client_openssl_server_dsa_cert;
       TestCase ==  erlang_server_openssl_client_dsa_cert ->
-    case ssl_test_lib:openssl_dsa_support() of
+    case ssl_test_lib:openssl_dsa_support() andalso ssl_test_lib:is_sane_oppenssl_client() of
         true ->
             special_init(TestCase, Config);
         false ->
@@ -334,7 +324,16 @@ special_init(TestCase, Config0)
                                                 ]}
                                   ]}]} | Config0], 
     check_openssl_sni_support(Config);
-
+special_init(TestCase, Config)
+  when TestCase == erlang_server_openssl_client;       
+       TestCase == erlang_server_openssl_client_client_cert;
+       TestCase == erlang_server_openssl_client_reuse_session ->
+    case ssl_test_lib:is_sane_oppenssl_client() of
+        true ->
+            Config;
+        false ->
+            {skip, "Broken OpenSSL client"}
+    end;
 special_init(_, Config) ->
      Config.
 
@@ -1073,7 +1072,7 @@ erlang_client_bad_openssl_server(Config) when is_list(Config) ->
     Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                                          {host, Hostname},
                                          {from, self()},
-                                         {mfa, {ssl_test_lib, no_result_msg, []}},
+                                         {mfa, {ssl_test_lib, no_result, []}},
                                          {options,
                                           [{versions, [Version]} | ClientOpts]}]),
 
@@ -1912,7 +1911,7 @@ send_wait_send(Socket, [ErlData, OpenSslData]) ->
     
 check_openssl_sni_support(Config) ->
     HelpText = os:cmd("openssl s_client --help"),
-    case ssl_test_lib:is_sane_oppenssl_sni() of
+    case ssl_test_lib:is_sane_oppenssl_client() of
         true ->
             case string:str(HelpText, "-servername") of
                 0 ->
@@ -2011,7 +2010,7 @@ openssl_has_common_ciphers(Ciphers) ->
     OCiphers = ssl_test_lib:common_ciphers(openssl),
     has_common_ciphers(Ciphers, OCiphers).
 
-has_common_ciphers([], OCiphers) ->
+has_common_ciphers([], _) ->
     false;
 has_common_ciphers([Cipher | Rest], OCiphers) ->
     case lists:member(Cipher, OCiphers) of

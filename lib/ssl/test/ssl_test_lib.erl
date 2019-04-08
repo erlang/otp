@@ -1756,10 +1756,10 @@ is_sane_ecc(crypto) ->
 is_sane_ecc(_) ->
     sufficient_crypto_support(cipher_ec).
 
-is_sane_oppenssl_sni() ->
+is_sane_oppenssl_client() ->
     [{_,_, Bin}]  = crypto:info_lib(), 
     case binary_to_list(Bin) of
-	"OpenSSL 0.9" ++ _ -> % Does not support ECC
+	"OpenSSL 0.9" ++ _ -> 
 	    false;
 	_ ->
 	    true
