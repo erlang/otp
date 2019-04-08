@@ -323,90 +323,6 @@ obsolete_1(snmp, N, A) ->
 
 obsolete_1(snmpa, old_info_format, 1) ->
     {deprecated, "Deprecated; (will be removed in OTP 18); use \"new\" format instead"};
-obsolete_1(snmpm, agent_info, 3) ->
-    {removed, {snmpm, agent_info, 2}, "R16B"};
-obsolete_1(snmpm, update_agent_info, 5) ->
-    {removed, {snmpm, update_agent_info, 4}, "R16B"};
-obsolete_1(snmpm, g, 3) ->
-    {removed, {snmpm, sync_get, 3}, "R16B"};
-obsolete_1(snmpm, g, 4) ->
-    {removed, {snmpm, sync_get, [3,4]}, "R16B"};
-obsolete_1(snmpm, g, 5) ->
-    {removed, {snmpm, sync_get, [4,5]}, "R16B"};
-obsolete_1(snmpm, g, 6) ->
-    {removed, {snmpm, sync_get, [5,6]}, "R16B"};
-obsolete_1(snmpm, g, 7) ->
-    {removed, {snmpm, sync_get, 6}, "R16B"};
-obsolete_1(snmpm, ag, 3) ->
-    {removed, {snmpm, async_get, 3}, "R16B"};
-obsolete_1(snmpm, ag, 4) ->
-    {removed, {snmpm, async_get, [3,4]}, "R16B"};
-obsolete_1(snmpm, ag, 5) ->
-    {removed, {snmpm, async_get, [4,5]}, "R16B"};
-obsolete_1(snmpm, ag, 6) ->
-    {removed, {snmpm, async_get, [5,6]}, "R16B"};
-obsolete_1(snmpm, ag, 7) ->
-    {removed, {snmpm, async_get, 6}, "R16B"};
-obsolete_1(snmpm, gn, 3) ->
-    {removed, {snmpm, sync_get_next, 3}, "R16B"};
-obsolete_1(snmpm, gn, 4) ->
-    {removed, {snmpm, sync_get_next, [3,4]}, "R16B"};
-obsolete_1(snmpm, gn, 5) ->
-    {removed, {snmpm, sync_get_next, [4,5]}, "R16B"};
-obsolete_1(snmpm, gn, 6) ->
-    {removed, {snmpm, sync_get_next, [5,6]}, "R16B"};
-obsolete_1(snmpm, gn, 7) ->
-    {removed, {snmpm, sync_get_next, 6}, "R16B"};
-obsolete_1(snmpm, agn, 3) ->
-    {removed, {snmpm, async_get_next, 3}, "R16B"};
-obsolete_1(snmpm, agn, 4) ->
-    {removed, {snmpm, async_get_next, [3,4]}, "R16B"};
-obsolete_1(snmpm, agn, 5) ->
-    {removed, {snmpm, async_get_next, [4,5]}, "R16B"};
-obsolete_1(snmpm, agn, 6) ->
-    {removed, {snmpm, async_get_next, [5,6]}, "R16B"};
-obsolete_1(snmpm, agn, 7) ->
-    {removed, {snmpm, async_get_next, 6}, "R16B"};
-obsolete_1(snmpm, s, 3) ->
-    {removed, {snmpm, sync_set, 3}, "R16B"};
-obsolete_1(snmpm, s, 4) ->
-    {removed, {snmpm, sync_set, [3,4]}, "R16B"};
-obsolete_1(snmpm, s, 5) ->
-    {removed, {snmpm, sync_set, [4,5]}, "R16B"};
-obsolete_1(snmpm, s, 6) ->
-    {removed, {snmpm, sync_set, [5,6]}, "R16B"};
-obsolete_1(snmpm, s, 7) ->
-    {removed, {snmpm, sync_set, 6}, "R16B"};
-obsolete_1(snmpm, as, 3) ->
-    {removed, {snmpm, async_set, 3}, "R16B"};
-obsolete_1(snmpm, as, 4) ->
-    {removed, {snmpm, async_set, [3,4]}, "R16B"};
-obsolete_1(snmpm, as, 5) ->
-    {removed, {snmpm, async_set, [4,5]}, "R16B"};
-obsolete_1(snmpm, as, 6) ->
-    {removed, {snmpm, async_set, [5,6]}, "R16B"};
-obsolete_1(snmpm, as, 7) ->
-    {removed, {snmpm, async_set, 6}, "R16B"};
-obsolete_1(snmpm, gb, 5) ->
-    {removed, {snmpm, sync_get_bulk, 5}, "R16B"};
-obsolete_1(snmpm, gb, 6) ->
-    {removed, {snmpm, sync_get_bulk, [5,6]}, "R16B"};
-obsolete_1(snmpm, gb, 7) ->
-    {removed, {snmpm, sync_get_bulk, [6,7]}, "R16B"};
-obsolete_1(snmpm, gb, 8) ->
-    {removed, {snmpm, sync_get_bulk, [7,8]}, "R16B"};
-obsolete_1(snmpm, gb, 9) ->
-    {removed, {snmpm, sync_get_bulk, 8}, "R16B"};
-obsolete_1(snmpm, agb, 5) ->
-    {removed, {snmpm, async_get_bulk, 5}, "R16B"};
-obsolete_1(snmpm, agb, 6) ->
-    {removed, {snmpm, async_get_bulk, [5,6]}, "R16B"};
-obsolete_1(snmpm, agb, 7) ->
-    {removed, {snmpm, async_get_bulk, [6,7]}, "R16B"};
-obsolete_1(snmpm, agb, 8) ->
-    {removed, {snmpm, async_get_bulk, [7,8]}, "R16B"};
-obsolete_1(snmpm, agb, 9) ->
-    {removed, {snmpm, async_get_bulk, 8}, "R16B"};
 
 
 %% *** MEGACO ***
@@ -417,6 +333,7 @@ obsolete_1(megaco, format_versions, 1) ->
 
 %% *** OS-MON-MIB ***
 
+%% FIXME: Remove this warning in OTP 24.
 obsolete_1(os_mon_mib, _, _) ->
     {removed, "was removed in 22.0"};
 
@@ -430,64 +347,6 @@ obsolete_1(auth, node_cookie, 1) ->
     {deprecated, "Deprecated; use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 obsolete_1(auth, node_cookie, 2) ->
     {deprecated, "Deprecated; use erlang:set_cookie/2 and net_adm:ping/1 instead"};
-
-obsolete_1(http, request, 1) 	      -> {removed,{httpc,request,1},"R15B"};
-obsolete_1(http, request, 2) 	      -> {removed,{httpc,request,2},"R15B"};
-obsolete_1(http, request, 4) 	      -> {removed,{httpc,request,4},"R15B"};
-obsolete_1(http, request, 5) 	      -> {removed,{httpc,request,5},"R15B"};
-obsolete_1(http, cancel_request, 1)   -> {removed,{httpc,cancel_request,1},"R15B"};
-obsolete_1(http, cancel_request, 2)   -> {removed,{httpc,cancel_request,2},"R15B"};
-obsolete_1(http, set_option, 2)       -> {removed,{httpc,set_option,2},"R15B"};
-obsolete_1(http, set_option, 3)       -> {removed,{httpc,set_option,3},"R15B"};
-obsolete_1(http, set_options, 1)      -> {removed,{httpc,set_options,1},"R15B"};
-obsolete_1(http, set_options, 2)      -> {removed,{httpc,set_options,2},"R15B"};
-obsolete_1(http, verify_cookies, 2)   -> {removed,{httpc,store_cookies,2},"R15B"};
-obsolete_1(http, verify_cookies, 3)   -> {removed,{httpc,store_cookies,3},"R15B"};
-obsolete_1(http, cookie_header, 1)    -> {removed,{httpc,cookie_header,1},"R15B"};
-obsolete_1(http, cookie_header, 2)    -> {removed,{httpc,cookie_header,2},"R15B"};
-obsolete_1(http, stream_next, 1)      -> {removed,{httpc,stream_next,1},"R15B"};
-obsolete_1(http, default_profile, 0)  -> {removed,{httpc,default_profile,0},"R15B"};
-
-%% Added in R13A.
-obsolete_1(regexp, _, _) ->
-    {removed, "removed in R15; use the re module instead"};
-
-%% Added in R13B04.
-obsolete_1(erlang, concat_binary, 1) ->
-    {removed,{erlang,list_to_binary,1},"R15B"};
-
-%% Added in R14A.
-obsolete_1(ssl, peercert, 2) ->
-    {removed ,"removed in R15A; use ssl:peercert/1 and public_key:pkix_decode_cert/2 instead"};
-
-%% Added in R14B.
-obsolete_1(public_key, pem_to_der, 1) ->
-    {removed,"removed in R15A; use file:read_file/1 and public_key:pem_decode/1"};
-obsolete_1(public_key, decode_private_key, A) when A =:= 1; A =:= 2 ->
-    {removed, "removed in R15A; use public_key:pem_entry_decode/1"};
-
-%% Added in R14B03.
-obsolete_1(docb_gen, _, _) ->
-    {removed,"the DocBuilder application was removed in R15B"};
-obsolete_1(docb_transform, _, _) ->
-    {removed,"the DocBuilder application was removed in R15B"};
-obsolete_1(docb_xml_check, _, _) ->
-    {removed,"the DocBuilder application was removed in R15B"};
-
-%% Added in R15B
-obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
-    {removed,"removed (will be removed in OTP 18); has no effect as drivers are no longer used"};
-obsolete_1(ssl, pid, 1) ->
-    {removed,"was removed in R16; is no longer needed"};
-obsolete_1(inviso, _, _) ->
-    {removed,"the inviso application was removed in R16"};
-
-%% Added in R15B01.
-obsolete_1(ssh, sign_data, 2) ->
-    {removed,"removed in R16A; use public_key:pem_decode/1, public_key:pem_entry_decode/1 "
-     "and public_key:sign/3 instead"};
-obsolete_1(ssh, verify_data, 3) ->
-    {removed,"removed in R16A; use public_key:ssh_decode/1, and public_key:verify/4 instead"};
 
 %% Added in R16
 obsolete_1(wxCalendarCtrl, enableYearChange, _) -> %% wx bug documented?
@@ -609,10 +468,8 @@ obsolete_1(queue, lait, 1) ->
 
 %% Removed in OTP 19.
 
-obsolete_1(overload, _, _) ->
-    {removed, "removed in OTP 19"};
 obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
-    {removed, {rpc, multi_server_call, A}, "removed in OTP 19"};
+    {removed, {rpc, multi_server_call, A}, "19.0"};
 
 %% Added in OTP 20.
 

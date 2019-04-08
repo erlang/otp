@@ -632,6 +632,22 @@ module.beam: module.erl \
 	    to be deprecated.</p>
           </item>
 
+	  <tag><c>nowarn_removed</c></tag>
+          <item>
+            <p>Turns off warnings for calls to functions that have
+            been removed. Default is to emit warnings for every call
+            to a function known by the compiler to have been recently
+            removed from Erlang/OTP.</p>
+          </item>
+
+	  <tag><c>{nowarn_removed, ModulesOrMFAs}</c></tag>
+          <item>
+            <p>Turns off warnings for calls to modules or functions
+            that have been removed. Default is to emit warnings for
+            every call to a function known by the compiler to have
+            been recently removed from Erlang/OTP.</p>
+          </item>
+
 	  <tag><c>nowarn_obsolete_guard</c></tag>
           <item>
             <p>Turns off warnings for calls to old type testing BIFs, 

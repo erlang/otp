@@ -345,6 +345,8 @@ deprecated(Repl, Env) ->
 deprecated(Desc) ->
     [{deprecated, description(Desc)}].
 
+-dialyzer({no_match, replacement_function/2}).
+
 replacement_function(M0, {M,F,A}) when is_list(A) ->
     %% refer to the largest listed arity - the most general version
     replacement_function(M0, {M,F,lists:last(lists:sort(A))});
