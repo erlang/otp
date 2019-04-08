@@ -375,7 +375,7 @@ int test_rsa_sign(int dtype,
     } */
 
     if ((sizeof(fake_flag) == m_len)
-        && bcmp(m,fake_flag,m_len) == 0) {
+        && memcmp(m,fake_flag,m_len) == 0) {
         printf("To be faked\r\n");
         /* To be faked */
         slen = RSA_size(rsa);
@@ -397,7 +397,7 @@ int test_rsa_verify(int dtype,
     printf("test_rsa_verify (dtype=%i) called m_len=%u siglen=%u\r\n", dtype, m_len, siglen);
 
     if ((sizeof(fake_flag) == m_len)
-        && bcmp(m,fake_flag,m_len) == 0) {
+        && memcmp(m,fake_flag,m_len) == 0) {
         printf("To be faked\r\n");
         return (siglen ==  RSA_size(rsa)) 
             && chk_test_data(sigret, siglen);
