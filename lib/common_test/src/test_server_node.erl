@@ -598,10 +598,19 @@ pick_erl_program(L) ->
 	{prog, S} ->
 	    S;
 	{release, S} ->
+            clear_erl_aflags(),
 	    find_release(S);
 	this ->
 	    ct:get_progname()
     end.
+
+clear_erl_aflags() ->
+    %% When starting a node with a previous release, options in
+    %% ERL_AFLAGS could prevent the node from starting. For example,
+    %% if ERL_AFLAGS is set to "-emu_type lcnt", the node will only
+    %% start if the previous release happens to also have a lock
+    %% counter emulator installed (unlikely).
+    os:unsetenv("ERL_AFLAGS").
 
 %% This is an attempt to distinguish between spaces in the program
 %% path and spaces that separate arguments. The program is quoted to
