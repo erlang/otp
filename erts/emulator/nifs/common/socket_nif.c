@@ -17603,9 +17603,10 @@ int esock_select_cancel(ErlNifEnv*             env,
                         "\r\n   ref: %T"                                \
                         "\r\n", reqP->pid, reqP->ref) );                \
                                                                         \
+                /* We need to copy req ref to 'env' */                  \
                 if ((sres = esock_select_##S(env, descP->sock, descP,   \
                                              &reqP->pid, sockRef,       \
-                                             reqP->ref)) < 0) {         \
+                                             CP_TERM(env, reqP->ref))) < 0) { \
                                                                         \
                     /* We need to inform this process, reqP->pid,  */   \
                     /* that we failed to select, so we don't leave */   \
