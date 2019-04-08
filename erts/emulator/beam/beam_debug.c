@@ -353,6 +353,22 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     return TUPLE3(hp, addr, bin, mfa);
 }
 
+BIF_RETTYPE
+erts_debug_interpreter_size_0(BIF_ALIST_0)
+{
+    int i;
+    BeamInstr low, high;
+
+    low = high = (BeamInstr) process_main;
+    for (i = 0; i < NUM_SPECIFIC_OPS; i++) {
+        BeamInstr a = BeamOpCodeAddr(i);
+        if (a > high) {
+            high = a;
+        }
+    }
+    return erts_make_integer(high - low, BIF_P);
+}
+
 void
 dbg_bt(Process* p, Eterm* sp)
 {
