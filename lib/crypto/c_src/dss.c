@@ -21,6 +21,8 @@
 #include "dss.h"
 #include "bn.h"
 
+#ifdef HAVE_DSA
+
 int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa)
 {
     /* key=[P,Q,G,KEY] */
@@ -142,3 +144,5 @@ int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa)
         BN_free(dsa_y);
     return 0;
 }
+
+#endif

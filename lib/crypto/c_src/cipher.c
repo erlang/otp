@@ -20,10 +20,10 @@
 
 #include "cipher.h"
 
-#ifdef OPENSSL_NO_DES
-#define COND_NO_DES_PTR(Ptr) (NULL)
-#else
+#ifdef HAVE_DES
 #define COND_NO_DES_PTR(Ptr) (Ptr)
+#else
+#define COND_NO_DES_PTR(Ptr) (NULL)
 #endif
 
 static struct cipher_type_t cipher_types[] =
@@ -50,10 +50,17 @@ static struct cipher_type_t cipher_types[] =
     {{"des_ede3_cfb"}, {NULL}, 0, 0},
 #endif
 
+#ifdef HAVE_BF
     {{"blowfish_cbc"}, {&EVP_bf_cbc}, 0, NO_FIPS_CIPHER},
     {{"blowfish_cfb64"}, {&EVP_bf_cfb64}, 0, NO_FIPS_CIPHER},
     {{"blowfish_ofb64"}, {&EVP_bf_ofb}, 0, NO_FIPS_CIPHER},
     {{"blowfish_ecb"}, {&EVP_bf_ecb}, 0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L},
+#else
+    {{"blowfish_cbc"}, {NULL}, 0, 0},
+    {{"blowfish_cfb64"}, {NULL}, 0, 0},
+    {{"blowfish_ofb64"}, {NULL}, 0, 0},
+    {{"blowfish_ecb"}, {NULL}, 0, 0},
+#endif
 
     {{"aes_cbc"}, {&EVP_aes_128_cbc}, 16, 0},
     {{"aes_cbc"}, {&EVP_aes_192_cbc}, 24, 0},

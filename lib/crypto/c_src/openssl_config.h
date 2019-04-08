@@ -25,9 +25,8 @@
 #include <openssl/opensslconf.h>
 
 #include <openssl/crypto.h>
-#ifndef OPENSSL_NO_DES
 #include <openssl/des.h>
-#endif /* #ifndef OPENSSL_NO_DES */
+
 /* #include <openssl/idea.h> This is not supported on the openssl OTP requires */
 #include <openssl/dsa.h>
 #include <openssl/rsa.h>
@@ -164,6 +163,22 @@
     && !defined(HAS_LIBRESSL) \
     && !defined(OPENSSL_NO_BLAKE2)
 # define HAVE_BLAKE2
+#endif
+
+#ifndef OPENSSL_NO_BF
+# define HAVE_BF
+#endif
+
+#ifndef OPENSSL_NO_DES
+# define HAVE_DES
+#endif
+
+#ifndef OPENSSL_NO_DH
+# define HAVE_DH
+#endif
+
+#ifndef OPENSSL_NO_DSA
+# define HAVE_DSA
 #endif
 
 #ifndef OPENSSL_NO_MD4

@@ -1058,8 +1058,21 @@ ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
 %%%----------------------------------------------------------------
 %%% Cipher aliases
 %%%
-prepend_cipher_aliases(L) ->
-    [des3_cbc, des_ede3, des_ede3_cbf, des3_cbf, des3_cfb, aes_cbc128, aes_cbc256 | L].
+prepend_cipher_aliases(L0) ->
+    L =
+        case lists:member(des_ede3_cbc, L0) of
+            true ->
+                [des3_cbc, des_ede3, des_ede3_cbf, des3_cbf, des3_cfb | L0];
+            false ->
+                L0
+        end,
+    case lists:member(aes_128_cbc, L0) of
+        true ->
+            [aes_cbc128, aes_cbc256 | L];
+        false ->
+            L
+    end.
+
 
 %%%---- des_ede3_cbc
 alias(des3_cbc)     -> des_ede3_cbc;

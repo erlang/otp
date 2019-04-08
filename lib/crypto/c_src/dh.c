@@ -23,6 +23,7 @@
 
 ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrivKey|undefined, DHParams=[P,G], Mpint, Len|0) */
+#ifdef HAVE_DH
     DH *dh_params = NULL;
     unsigned int mpint; /* 0 or 4 */
     ERL_NIF_TERM head, tail;
@@ -187,10 +188,14 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 #endif
 
     return ret;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
 }
 
 ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (OthersPublicKey, MyPrivateKey, DHParams=[P,G]) */
+#ifdef HAVE_DH
     BIGNUM *other_pub_key = NULL;
     BIGNUM *dh_p = NULL;
     BIGNUM *dh_g = NULL;
@@ -291,4 +296,7 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         DH_free(dh_priv);
 
     return ret;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
 }

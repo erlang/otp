@@ -23,7 +23,9 @@
 
 #include "common.h"
 
+#ifdef HAVE_DSA
 int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa);
 int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa);
+#endif
 
 #endif /* E_DSS_H__ */
