@@ -15220,10 +15220,24 @@ char* encode_cmsghdrs(ErlNifEnv*       env,
     struct cmsghdr* firstP   = CMSG_FIRSTHDR(msgHdrP);
     struct cmsghdr* currentP;
     
-    SSDBG( descP, ("SOCKET", "encode_cmsghdrs -> entry\r\n") );
+    SSDBG( descP, ("SOCKET", "encode_cmsghdrs -> entry when"
+                   "\r\n   msg ctrl len:  %d"
+                   "\r\n   (ctrl) firstP: 0x%lX"
+                   "\r\n",
+                   msgHdrP->msg_controllen, firstP) );
 
     for (currentP = firstP;
-         currentP != NULL;
+         /*
+          * In *old* versions of darwin, the CMSG_FIRSTHDR does not
+          * check the msg_controllen, so we do it here.
+          * We should really test this stuff during configure,
+          * but for now, this will have to do.
+          */
+#if defined(__DARWIN__)
+         (msgHdrP->msg_controllen >= sizeof(struct cmsghdr)) && (currentP != NULL);
+#else
+         (currentP != NULL);
+#endif
          currentP = CMSG_NXTHDR(msgHdrP, currentP)) {
 
         SSDBG( descP,
@@ -15236,9 +15250,23 @@ char* encode_cmsghdrs(ErlNifEnv*       env,
          */
         if (((CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP)) >
             msgHdrP->msg_controllen) {
+
             /* Ouch, fatal error - give up 
              * We assume we cannot trust any data if this is wrong.
              */
+
+            SSDBG( descP,
+                   ("SOCKET", "encode_cmsghdrs -> check failed when: "
+                    "\r\n   currentP:           0x%lX"
+                    "\r\n   (current) cmsg_len: %d"
+                    "\r\n   firstP:             0x%lX"
+                    "\r\n   =>                  %d"
+                    "\r\n   msg ctrl len:       %d"
+                    "\r\n",
+                    CHARP(currentP), currentP->cmsg_len, CHARP(firstP),
+                    (CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP),
+                    msgHdrP->msg_controllen) );
+
             TARRAY_DELETE(cmsghdrs);
             return ESOCK_STR_EINVAL;
         } else {
