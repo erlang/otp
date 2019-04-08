@@ -11366,7 +11366,7 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                    end},
          #{desc => "order handler to recv",
            cmd  => fun(#{handler := Handler,
-                         sock    := Sock} = _State) ->
+                         sock    := _Sock} = _State) ->
                            %% socket:setopt(Sock, otp, debug, true),
                            ?SEV_ANNOUNCE_CONTINUE(Handler, recv),
                            ok
@@ -17974,11 +17974,15 @@ set_tc_name(N) when is_list(N) ->
 %%     get(tc_name).
 
 tc_begin(TC) ->
+    OldVal = process_flag(trap_exit, true),
+    put(old_trap_exit, OldVal),
     set_tc_name(TC),
     tc_print("begin ***",
              "~n----------------------------------------------------~n", "").
     
 tc_end(Result) when is_list(Result) ->
+    OldVal = erase(old_trap_exit),
+    process_flag(trap_exit, OldVal),
     tc_print("done: ~s", [Result], 
              "", "----------------------------------------------------~n~n"),
     ok.
@@ -18010,25 +18014,43 @@ tc_try(Case, TCCondFun, TCFun)
                 end
             catch
                 C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-                    tc_end("skipping"),
+                    %% i("catched[tc] (skip): "
+                    %%   "~n   C:    ~p"
+                    %%   "~n   SKIP: ~p"
+                    %%   "~n", [C, SKIP]),
+                    tc_end( f("skipping(catched,~w,tc)", [C]) ),
                     SKIP;
-                Class:Error:Stack ->
-                    tc_end("failed"),
-                    erlang:raise(Class, Error, Stack)
+                C:E:S ->
+                    %% i("catched[tc]: "
+                    %%   "~n   C: ~p"
+                    %%   "~n   E: ~p"
+                    %%   "~n   S: ~p"
+                    %%    "~n", [C, E, S]),
+                    tc_end( f("failed(catched,~w,tc)", [C]) ),
+                    erlang:raise(C, E, S)
             end;
         {skip, _} = SKIP ->
-            tc_end("skipping"),
+            tc_end("skipping(tc)"),
             SKIP;
         {error, Reason} ->
-            tc_end("failed"),
+            tc_end("failed(tc)"),
             exit({tc_cond_failed, Reason})
     catch
         C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-            tc_end("skipping"),
+            %% i("catched[cond] (skip): "
+            %%   "~n   C:    ~p"
+            %%   "~n   SKIP: ~p"
+            %%   "~n", [C, SKIP]),
+            tc_end( f("skipping(catched,~w,cond)", [C]) ),
             SKIP;
-        Class:Error:Stack ->
-            tc_end("failed"),
-            erlang:raise(Class, Error, Stack)
+        C:E:S ->
+            %% i("catched[cond]: "
+            %%   "~n   C: ~p"
+            %%   "~n   E: ~p"
+            %%   "~n   S: ~p"
+            %%   "~n", [C, E, S]),
+            tc_end( f("failed(catched,~w,cond)", [C]) ),
+            erlang:raise(C, E, S)
     end.
 
 

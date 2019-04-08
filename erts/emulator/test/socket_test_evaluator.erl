@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,12 +106,13 @@ start(Name, Seq, InitState)
             InitState2 = InitState#{parent => self()},
             Pid = erlang:spawn_link(
                     fun() -> init(Name, Seq, InitState2) end),
-            MRef = erlang:monitor(process, Pid),
-            #ev{name = Name, pid = Pid, mref = MRef}
+            %% MRef = erlang:monitor(process, Pid),
+            #ev{name = Name, pid = Pid}%, mref = MRef}
     end.
 
 init(Name, Seq, Init) ->
     put(sname, Name),
+    process_flag(trap_exit, true),
     loop(1, Seq, Init).
 
 loop(_ID, [], FinalState) ->
@@ -125,21 +126,26 @@ loop(ID, [#{desc := Desc,
         {ok, NewState} ->
             loop(ID + 1, Cmds, NewState);
         {skip, Reason} ->
+            ?SEV_IPRINT("command ~w skip: "
+                        "~n   ~p", [ID, Reason]),
             exit({skip, Reason});
         {error, Reason} ->
-            eprint("command ~w failed: "
-                   "~n   Reason: ~p", [ID, Reason]),
+            ?SEV_EPRINT("command ~w failed: "
+                        "~n   ~p", [ID, Reason]),
             exit({command_failed, ID, Reason, State})
     catch
-        throw:{skip, R} = E:_ ->
-            eprint("command ~w skip: "
-                   "~n   Skip Reason: ~p", [ID, R]),
+        C:{skip, command} = E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+            %% Secondary skip
+            exit(E);
+        C:{skip, R} = E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+            ?SEV_IPRINT("command ~w skip catched(~w): "
+                        "~n   Reason: ~p", [ID, C, R]),
             exit(E);
         C:E:S ->
-            eprint("command ~w crashed: "
-                   "~n   Class:      ~p"
-                   "~n   Error:      ~p"
-                   "~n   Call Stack: ~p", [ID, C, E, S]),
+            ?SEV_EPRINT("command ~w crashed: "
+                        "~n   Class:      ~p"
+                        "~n   Error:      ~p"
+                        "~n   Call Stack: ~p", [ID, C, E, S]),
             exit({command_crashed, ID, {C,E,S}, State})
     end.
 
@@ -168,18 +174,32 @@ await_finish(Evs, OK, Fails) ->
             {Evs2, OK2, Fails2} = await_finish_normal(Pid, Evs, OK, Fails),
             await_finish(Evs2, OK2, Fails2);
 
-        %% The evaluator can skip the teat case:
+        %% The evaluator can skip the test case:
         {'DOWN', _MRef, process, Pid, {skip, Reason}} ->
+            %% ?SEV_IPRINT("await_finish -> skip (down) received: "
+            %%             "~n   Pid:    ~p"
+            %%             "~n   Reason: ~p", [Pid, Reason]),
             await_finish_skip(Pid, Reason, Evs, OK);
         {'EXIT', Pid, {skip, Reason}} ->
+            %% ?SEV_IPRINT("await_finish -> skip (exit) received: "
+            %%             "~n   Pid:    ~p"
+            %%             "~n   Reason: ~p", [Pid, Reason]),
             await_finish_skip(Pid, Reason, Evs, OK);
 
         %% Evaluator failed
         {'DOWN', _MRef, process, Pid, Reason} ->
-            {Evs2, OK2, Fails2} = await_finish_fail(Pid, Reason, Evs, OK, Fails),
+            %% ?SEV_IPRINT("await_finish -> fail (down) received: "
+            %%             "~n   Pid:    ~p"
+            %%             "~n   Reason: ~p", [Pid, Reason]),
+            {Evs2, OK2, Fails2} =
+                await_finish_fail(Pid, Reason, Evs, OK, Fails),
             await_finish(Evs2, OK2, Fails2);
         {'EXIT', Pid, Reason} ->
-            {Evs2, OK2, Fails2} = await_finish_fail(Pid, Reason, Evs, OK, Fails),
+            %% ?SEV_IPRINT("await_finish -> fail (exit) received: "
+            %%             "~n   Pid:    ~p"
+            %%             "~n   Reason: ~p", [Pid, Reason]),
+            {Evs2, OK2, Fails2} =
+                await_finish_fail(Pid, Reason, Evs, OK, Fails),
             await_finish(Evs2, OK2, Fails2)
     end.
 
@@ -202,22 +222,83 @@ await_finish_normal(Pid, Evs, OK, Fails) ->
     end.
 
 await_finish_skip(Pid, Reason, Evs, OK) ->
-    case lists:keysearch(Pid, #ev.pid, Evs) of
-        {value, #ev{name = Name}} ->
-            iprint("evaluator '~s' (~p) issued SKIP: "
-                   "~n   ~p", [Name, Pid, Reason]);
-        false ->
-            case lists:member(Pid, OK) of
-                true ->
-                    ok;
-                false ->
-                    iprint("unknown process ~p issued SKIP: "
-                           "~n   ~p", [Pid, Reason])
-            end
-    end,
+    Evs2 =
+        case lists:keysearch(Pid, #ev.pid, Evs) of
+            {value, #ev{name = Name}} ->
+                ?SEV_IPRINT("evaluator '~s' (~p) issued SKIP: "
+                            "~n   ~p", [Name, Pid, Reason]),
+                lists:keydelete(Pid, #ev.pid, Evs);
+            false ->
+                case lists:member(Pid, OK) of
+                    true ->
+                        ?SEV_IPRINT("already terminated (ok) process ~p skip"
+                                    "~n   ~p", [Pid]),
+                        ok;
+                    false ->
+                        ?SEV_IPRINT("unknown process ~p issued SKIP: "
+                                    "~n   ~p", [Pid, Reason]),
+                        iprint("unknown process ~p issued SKIP: "
+                               "~n   ~p", [Pid, Reason])
+                end,
+                Evs
+        end,
+    await_evs_terminated(Evs2),
     ?LIB:skip(Reason).
 
+await_evs_terminated(Evs) ->
+    Instructions =
+        [
+         %% Just wait for the evaluators to die on their own
+         {fun() -> ?SEV_IPRINT("await (no action) evs termination") end,
+          fun(_) -> ok end},
 
+         %% Send them a skip message, causing the evaluators to
+         %% die with a skip reason.
+         {fun() -> ?SEV_IPRINT("await (send skip message) evs termination") end,
+          fun(#ev{pid = Pid}) -> Pid ! skip end},
+
+         %% And if nothing else works, try to kill the remaining evaluators
+         {fun() -> ?SEV_IPRINT("await (issue exit kill) evs termination") end,
+          fun(#ev{pid = Pid}) -> exit(Pid, kill) end}],
+
+    await_evs_terminated(Evs, Instructions).
+
+await_evs_terminated([], _) ->
+    ok;
+await_evs_terminated(Evs, []) ->
+    {error, {failed_terminated, [P||#ev{pid=P} <- Evs]}};
+await_evs_terminated(Evs, [{Inform, Command}|Instructions]) ->
+    Inform(),
+    lists:foreach(Command, Evs),
+    RemEvs = await_evs_termination(Evs),
+    await_evs_terminated(RemEvs, Instructions).
+
+await_evs_termination(Evs) ->
+    await_evs_termination(Evs, 2000).
+
+await_evs_termination([], _Timeout) ->
+    [];
+await_evs_termination(Evs, Timeout) ->
+    T = t(),
+    receive
+        {'DOWN', _MRef, process, Pid, _Reason} ->
+            %% ?SEV_IPRINT("await_evs_termination -> DOWN: "
+            %%             "~n   Pid:    ~p"
+            %%             "~n   Reason: ~p", [Pid, Reason]),
+            Evs2 = lists:keydelete(Pid, #ev.pid, Evs),
+            await_evs_termination(Evs2, tdiff(T, t()));
+        {'EXIT', Pid, _Reason} ->
+            %% ?SEV_IPRINT("await_evs_termination -> EXIT: "
+            %%             "~n   Pid:    ~p"
+            %%             "~n   Reason: ~p", [Pid, Reason]),
+            Evs2 = lists:keydelete(Pid, #ev.pid, Evs),
+            await_evs_termination(Evs2, tdiff(T, t()))
+
+    after Timeout ->
+            Evs
+    end.
+
+        
 await_finish_fail(Pid, Reason, Evs, OK, Fails) ->
     case lists:keysearch(Pid, #ev.pid, Evs) of
         {value, #ev{name = Name}} ->
@@ -480,6 +561,10 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
        is_atom(Slogan) andalso 
        is_list(OtherPids) ->
     receive
+        skip ->
+            %% This means that another evaluator has issued a skip,
+            %% and we have been instructed to terminate as a result.
+            ?LIB:skip(command);
         {Announcement, Pid, Slogan, ?EXTRA_NOTHING} when (ExpPid =:= any) ->
             {ok, Pid};
         {Announcement, Pid, Slogan, Extra} when (ExpPid =:= any) ->
@@ -564,3 +649,16 @@ print(Prefix, F, A) ->
         end,
     ?LOGGER:format("[~s]~s ~s" ++ F,
                    [?LIB:formated_timestamp(), IDStr, Prefix | A]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+t() ->
+    os:timestamp().
+
+
+tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
+    T1 = A1*1000000000+B1*1000+(C1 div 1000), 
+    T2 = A2*1000000000+B2*1000+(C2 div 1000), 
+    T2 - T1.
+
