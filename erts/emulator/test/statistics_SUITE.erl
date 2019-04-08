@@ -93,25 +93,34 @@ wall_clock_zero_diff1(0) ->
 %% statistics(wall_clock) are compatible, and are within a small number
 %% of ms of the amount of real time we waited for.
 wall_clock_update(Config) when is_list(Config) ->
-    wall_clock_update1(6).
+    N = 10,
+    Inc = 200,
+    TotalTime = wall_clock_update1(N, Inc, 0),
+    Overhead = TotalTime - N * Inc,
+    IsDebug = test_server:is_debug(),
 
-wall_clock_update1(N) when N > 0 ->
-    {T1_wc_time, _} = statistics(wall_clock),
-    receive after 1000 -> ok end,
-    {T2_wc_time, Wc_Diff} = statistics(wall_clock),
-
-    Wc_Diff = T2_wc_time - T1_wc_time,
-    io:format("Wall clock diff = ~p; should be  = 1000..1040~n", [Wc_Diff]),
-    case test_server:is_debug() of
-        false ->
-            true = Wc_Diff =< 1040;
+    %% Check that the average overhead is reasonable.
+    if
+        Overhead < N * 100 ->
+            ok;
+        IsDebug, Overhead < N * 1000 ->
+            ok;
         true ->
-            true = Wc_Diff =< 2000	%Be more tolerant in debug-compiled emulator.
-    end,
-    true = Wc_Diff >= 1000,
-    wall_clock_update1(N-1);
-wall_clock_update1(0) ->
-    ok.
+            io:format("There was an overhead of ~p ms during ~p rounds.",
+                      [Overhead,N]),
+            ct:fail(too_much_overhead)
+    end.
+
+wall_clock_update1(N, Inc, Total) when N > 0 ->
+    {Time1, _} = statistics(wall_clock),
+    receive after Inc -> ok end,
+    {Time2, WcDiff} = statistics(wall_clock),
+    WcDiff = Time2 - Time1,
+    io:format("Wall clock diff = ~p (expected at least ~p)\n", [WcDiff,Inc]),
+    true = WcDiff >= Inc,
+    wall_clock_update1(N-1, Inc, Total + WcDiff);
+wall_clock_update1(0, _, Total) ->
+    Total.
 
 
 %%% Test statistics(runtime).
