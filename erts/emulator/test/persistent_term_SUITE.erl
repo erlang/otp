@@ -25,7 +25,9 @@
 	 basic/1,purging/1,sharing/1,get_trapping/1,
          info/1,info_trapping/1,killed_while_trapping/1,
          off_heap_values/1,keys/1,collisions/1,
-         init_restart/1]).
+         init_restart/1, put_erase_trapping/1,
+         killed_while_trapping_put/1,
+         killed_while_trapping_erase/1]).
 
 %%
 -export([test_init_restart_cmd/1]).
@@ -37,7 +39,8 @@ suite() ->
 all() ->
     [basic,purging,sharing,get_trapping,info,info_trapping,
      killed_while_trapping,off_heap_values,keys,collisions,
-     init_restart].
+     init_restart, put_erase_trapping, killed_while_trapping_put,
+     killed_while_trapping_erase].
 
 init_per_suite(Config) ->
     %% Put a term in the dict so that we know that the testcases handle
@@ -627,3 +630,63 @@ chk_not_stuck(Term) ->
 
 pget({_, Initial}) ->
     persistent_term:get() -- Initial.
+
+
+killed_while_trapping_put(_Config) ->
+    repeat(
+      fun() ->
+              NrOfPutsInChild = 10000,
+              do_puts(2500, my_value),
+              Pid = 
+                  spawn(fun() ->
+                                do_puts(NrOfPutsInChild, my_value2)
+                        end),
+              timer:sleep(1),
+              erlang:exit(Pid, kill),
+              do_erases(NrOfPutsInChild)
+      end,
+      5).
+
+killed_while_trapping_erase(_Config) ->
+    repeat(
+      fun() ->
+              NrOfErases = 2500,
+              do_puts(NrOfErases, my_value),
+              Pid = 
+                  spawn(fun() ->
+                                do_erases(NrOfErases)
+                        end),
+              timer:sleep(1),
+              erlang:exit(Pid, kill),
+              do_erases(NrOfErases)
+      end,
+      10).
+
+put_erase_trapping(_Config) ->
+    NrOfItems = 5000,
+    do_puts(NrOfItems, first),
+    do_puts(NrOfItems, second),
+    do_erases(NrOfItems).
+
+do_puts(0, _) -> ok;
+do_puts(NrOfPuts, ValuePrefix) ->
+    Key = {?MODULE, NrOfPuts},
+    Value = {ValuePrefix, NrOfPuts},
+    persistent_term:put(Key, Value),
+    _Hej = persistent_term:get(),
+    Value = persistent_term:get(Key),
+    do_puts(NrOfPuts - 1, ValuePrefix).
+
+do_erases(0) -> ok;
+do_erases(NrOfErases) ->
+    Key = {?MODULE,NrOfErases},
+    persistent_term:erase(Key),
+    _Hej = persistent_term:get(),
+    not_found = persistent_term:get(Key, not_found),
+    do_erases(NrOfErases - 1).
+
+repeat(_Fun, 0) ->
+    ok;
+repeat(Fun, N) ->
+    Fun(),
+    repeat(Fun, N-1).
