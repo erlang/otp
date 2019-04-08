@@ -821,7 +821,7 @@ ubuntu_release(Fd, DistroId, Rel) ->
                             NewRel = lists:map(fun (N) ->
                                                        list_to_integer(N)
                                                end,
-                                               string:lexemes(RelList, ".")),
+                                               string:tokens(RelList, ".")),
                             ubuntu_release(Fd, DistroId, NewRel);
                         nomatch ->
                             ubuntu_release(Fd, DistroId, Rel)
