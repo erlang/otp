@@ -33,8 +33,3 @@ ei_set_compat_rel(unsigned rel)
 	compat_rel = rel;
 }
 
-int
-ei_internal_use_r9_pids_ports(void)
-{
-    return compat_rel < 10;
-}

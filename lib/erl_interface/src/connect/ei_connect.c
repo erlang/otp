@@ -1941,8 +1941,7 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
 	goto error;
     }
 
-    if (!(*flags & DFLAG_EXTENDED_PIDS_PORTS)
-	&& !ei_internal_use_r9_pids_ports()) {
+    if (!(*flags & DFLAG_EXTENDED_PIDS_PORTS)) {
 	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE peer cannot "
 		      "handle extended pids and ports");
 	erl_errno = EIO;
@@ -2236,8 +2235,7 @@ static int recv_name(ei_socket_callbacks *cbs, void *ctx,
 	goto error;
     }
 
-    if (!(*flags & DFLAG_EXTENDED_PIDS_PORTS)
-	&& !ei_internal_use_r9_pids_ports()) {
+    if (!(*flags & DFLAG_EXTENDED_PIDS_PORTS)) {
 	EI_TRACE_ERR0("recv_name","<- RECV_NAME peer cannot "
 		      "handle extended pids and ports");
 	erl_errno = EIO;
