@@ -70,7 +70,7 @@
 #elif defined(__WIN32__)
 #  define ETHR_INLINE __forceinline
 #  define ETHR_FORCE_INLINE __forceinline
-#  define ETHR_NOINLINE __declspec(noinline)
+#  define ETHR_NOINLINE
 #endif
 
 #endif /* #ifndef ETHREAD_INLINE_H__ */

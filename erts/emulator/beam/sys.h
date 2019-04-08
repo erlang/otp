@@ -66,8 +66,6 @@
 #ifndef ERTS_NOINLINE
 #  if ERTS_AT_LEAST_GCC_VSN__(3,1,1)
 #    define ERTS_NOINLINE __attribute__((__noinline__))
-#  elif defined(__WIN32__)
-#    define ERTS_NOINLINE __declspec(noinline)
 #  else
 #    define ERTS_NOINLINE
 #  endif
