@@ -121,19 +121,6 @@
   </section>
 
   <section>
-    <title>Warning For Many Persistent Terms</title>
-    <p>The runtime system will send a warning report to the
-    error logger if more than 20000 persistent terms have been
-    created. It will look like this:</p>
-
-<pre>
-More than 20000 persistent terms have been created.
-It is recommended to avoid creating an excessive number of
-persistent terms, as creation and deletion of persistent terms
-will be slower as the number of persistent terms increases.</pre>
-  </section>
-
-  <section>
     <title>Best Practices for Using Persistent Terms</title>
 
     <p>It is recommended to use keys like <c>?MODULE</c> or
