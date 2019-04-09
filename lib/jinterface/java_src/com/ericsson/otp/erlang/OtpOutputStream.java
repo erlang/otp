@@ -713,7 +713,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      */
     public void write_pid(final String node, final int id, final int serial,
             final int creation) {
-	write1(OtpExternal.newPidTag);
+	write1(OtpExternal.pidTag);
 	write_atom(node);
 	write4BE(id & 0x7fff); // 15 bits
 	write4BE(serial & 0x1fff); // 13 bits
@@ -727,11 +727,20 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      *            the pid
      */
     public void write_pid(OtpErlangPid pid) {
-	write1(OtpExternal.newPidTag);
+	write1(pid.tag());
 	write_atom(pid.node());
 	write4BE(pid.id());
 	write4BE(pid.serial());
-        write4BE(pid.creation());
+	switch (pid.tag()) {
+	case OtpExternal.pidTag:
+	    write1(pid.creation());
+	    break;
+	case OtpExternal.newPidTag:
+	    write4BE(pid.creation());
+	    break;
+	default:
+	    throw new AssertionError("Invalid pid tag " + pid.tag());
+	}
     }
 
 
@@ -749,7 +758,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      *            be used.
      */
     public void write_port(final String node, final int id, final int creation) {
-	write1(OtpExternal.newPortTag);
+	write1(OtpExternal.portTag);
 	write_atom(node);
 	write4BE(id & 0xfffffff); // 28 bits
 	write1(creation & 0x3); // 2 bits
@@ -762,10 +771,19 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      *            the port.
      */
     public void write_port(OtpErlangPort port) {
-	write1(OtpExternal.newPortTag);
+	write1(port.tag());
 	write_atom(port.node());
 	write4BE(port.id());
-        write4BE(port.creation());
+	switch (port.tag()) {
+	case OtpExternal.portTag:	    
+	    write1(port.creation());
+	    break;
+	case OtpExternal.newPortTag:
+	    write4BE(port.creation());
+	    break;
+	default:
+	    throw new AssertionError("Invalid port tag " + port.tag());
+	}
     }
 
     /**
@@ -811,7 +829,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
             arity = 3; // max 3 words in ref
         }
 
-	write1(OtpExternal.newerRefTag);
+	write1(OtpExternal.newRefTag);
 
 	// how many id values
 	write2BE(arity);
@@ -839,12 +857,24 @@ public class OtpOutputStream extends ByteArrayOutputStream {
 	int[] ids = ref.ids();
         int arity = ids.length;
 
-	write1(OtpExternal.newerRefTag);
+	write1(ref.tag());
 	write2BE(arity);
 	write_atom(ref.node());
-        write4BE(ref.creation());
 
-	for (int i = 0; i < arity; i++) {
+	switch (ref.tag()) {
+	case OtpExternal.newRefTag:
+	    write1(ref.creation());
+	    write4BE(ids[0] & 0x3ffff); // first word gets truncated to 18 bits
+	    break;
+	case OtpExternal.newerRefTag:
+	    write4BE(ref.creation());
+	    write4BE(ids[0]); // full first word
+	    break;
+	default:
+	    throw new AssertionError("Invalid ref tag " + ref.tag());
+	}
+
+	for (int i = 1; i < arity; i++) {
 	    write4BE(ids[i]);
 	}
     }

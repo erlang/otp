@@ -28,6 +28,7 @@ public class OtpErlangRef extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = -7022666480768586521L;
 
+    private final int tag;
     private final String node;
     private final int creation;
 
@@ -48,6 +49,7 @@ public class OtpErlangRef extends OtpErlangObject {
     public OtpErlangRef(final OtpLocalNode self) {
         final OtpErlangRef r = self.createRef();
 
+	tag = r.tag;
         ids = r.ids;
         creation = r.creation;
         node = r.node;
@@ -68,6 +70,7 @@ public class OtpErlangRef extends OtpErlangObject {
             throws OtpErlangDecodeException {
         final OtpErlangRef r = buf.read_ref();
 
+	tag = r.tag;
         node = r.node();
         creation = r.creation();
 
@@ -87,6 +90,7 @@ public class OtpErlangRef extends OtpErlangObject {
      *            another arbitrary number.
      */
     public OtpErlangRef(final String node, final int id, final int creation) {
+	this.tag = OtpExternal.newRefTag;
         this.node = node;
         ids = new int[1];
         ids[0] = id & 0x3ffff; // 18 bits
@@ -134,6 +138,7 @@ public class OtpErlangRef extends OtpErlangObject {
      */
     public OtpErlangRef(final int tag, final String node, final int[] ids,
 			final int creation) {
+	this.tag = tag;
         this.node = node;
 
         // use at most 3 words
@@ -157,7 +162,7 @@ public class OtpErlangRef extends OtpErlangObject {
     }
 
     protected int tag() {
-        return OtpExternal.newerRefTag;
+        return tag;
     }
 
     /**

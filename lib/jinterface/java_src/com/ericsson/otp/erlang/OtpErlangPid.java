@@ -27,6 +27,7 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
     // don't change this!
     private static final long serialVersionUID = 1664394142301803659L;
 
+    private final int tag;
     private final String node;
     private final int id;
     private final int serial;
@@ -44,6 +45,7 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
     public OtpErlangPid(final OtpLocalNode self) {
         final OtpErlangPid p = self.createPid();
 
+	tag = p.tag;
         id = p.id;
         serial = p.serial;
         creation = p.creation;
@@ -65,6 +67,7 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
             throws OtpErlangDecodeException {
         final OtpErlangPid p = buf.read_pid();
 
+	tag = p.tag;
         node = p.node();
         id = p.id();
         serial = p.serial();
@@ -115,6 +118,7 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
      */
     protected OtpErlangPid(final int tag, final String node, final int id,
 			   final int serial, final int creation) {
+	this.tag = tag;
 	this.node = node;
 	if (tag == OtpExternal.pidTag) {
 	    this.id = id & 0x7fff; // 15 bits
@@ -129,7 +133,7 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
     }
 
     protected int tag() {
-	return OtpExternal.newPidTag;
+	return tag;
     }
 
     /**
