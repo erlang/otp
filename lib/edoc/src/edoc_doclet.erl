@@ -62,7 +62,7 @@
 
 %% @spec (Command::doclet_gen() | doclet_toc(), edoc_context()) -> ok
 %% @doc Main doclet entry point. See the file <a
-%% href="../include/edoc_doclet.hrl">`edoc_doclet.hrl'</a> for the data
+%% href="edoc_doclet.hrl">`edoc_doclet.hrl'</a> for the data
 %% structures used for passing parameters.
 %%
 %% Also see {@link edoc:layout/2} for layout-related options, and

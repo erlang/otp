@@ -79,6 +79,11 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+INCLUDES_DIR = ../../include
+INCLUDES = $(INCLUDES_DIR)/edoc_doclet.hrl
+
+DTDS_DIR = ../../priv
+DTDS = $(DTDS_DIR)/edoc.dtd
 
 # ----------------------------------------------------
 # FLAGS
@@ -135,5 +140,6 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
 	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
+	$(INSTALL_DATA) $(INCLUDES) $(DTDS) "$(RELSYSDIR)/doc/html"
 
 release_spec:

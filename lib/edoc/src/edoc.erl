@@ -734,7 +734,7 @@ get_doc(File) ->
 %%
 %% @type edoc_module(). The EDoc documentation data for a module,
 %% expressed as an XML document in {@link //xmerl. XMerL} format. See
-%% the file <a href="../priv/edoc.dtd">`edoc.dtd'</a> for details.
+%% the file <a href="edoc.dtd">`edoc.dtd'</a> for details.
 %%
 %% @doc Reads a source code file and extracts EDoc documentation data.
 %% Note that without an environment parameter (see {@link get_doc/3}),
