@@ -99,8 +99,8 @@
     for each part, the functions are:
     </p>
     <list>
-      <item><seealso marker="crypto#crypto_init_dyn_iv/3">crypto_init_dyn_iv/3</seealso></item>
-      <item><seealso marker="crypto#crypto_update_dyn_iv/3">crypto_update_dyn_iv/3</seealso></item>
+      <item><seealso marker="crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso></item>
+      <item><seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso></item>
     </list>
     <p>An example of where those functions are needed, is when handling the TLS protocol.</p>
 

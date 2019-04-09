@@ -60,8 +60,8 @@
          crypto_update/2,
          crypto_one_time/4, crypto_one_time/5,
          crypto_one_time_aead/6, crypto_one_time_aead/7,
-         crypto_init_dyn_iv/3,
-         crypto_update_dyn_iv/3
+         crypto_dyn_iv_init/3,
+         crypto_dyn_iv_update/3
         ]).
 
 
@@ -901,12 +901,12 @@ crypto_init(Cipher, Key, IV, EncryptFlag) ->
 
 
 %%%----------------------------------------------------------------
--spec crypto_init_dyn_iv(Cipher, Key, EncryptFlag) -> State | descriptive_error()
+-spec crypto_dyn_iv_init(Cipher, Key, EncryptFlag) -> State | descriptive_error()
                                                           when Cipher :: cipher_iv(),
                                                                Key :: iodata(),
                                                                EncryptFlag :: boolean(),
                                                                State :: crypto_state() .
-crypto_init_dyn_iv(Cipher, Key, EncryptFlag) ->
+crypto_dyn_iv_init(Cipher, Key, EncryptFlag) ->
     %% The IV is supposed to be supplied by calling crypto_update/3
     ng_crypto_init_nif(Cipher, iolist_to_binary(Key), undefined, EncryptFlag).
 
@@ -931,12 +931,12 @@ crypto_update(State, Data0) ->
 
 
 %%%----------------------------------------------------------------
--spec crypto_update_dyn_iv(State, Data, IV) -> Result | descriptive_error()
+-spec crypto_dyn_iv_update(State, Data, IV) -> Result | descriptive_error()
                                                    when State :: crypto_state(),
                                                         Data :: iodata(),
                                                         IV :: iodata(),
                                                         Result :: binary() .
-crypto_update_dyn_iv(State, Data0, IV) ->
+crypto_dyn_iv_update(State, Data0, IV) ->
     %% When State is from State = crypto_init(Cipher, Key, undefined, EncryptFlag)
     case iolist_to_binary(Data0) of
         <<>> ->
