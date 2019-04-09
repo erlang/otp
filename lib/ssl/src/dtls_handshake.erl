@@ -427,74 +427,135 @@ merge_fragment(Frag0, [Frag1 | Rest]) ->
 	Frag ->
 	    merge_fragment(Frag, Rest)
     end.
-%% Duplicate
+
+
+%% Duplicate (fully contained fragment)
+%% 2,5 _ _ P P P P P
+%% 2,5 _ _ C C C C C
 merge_fragments(#handshake_fragment{
-		   fragment_offset = PreviousOffSet, 
+		   fragment_offset = PreviousOffSet,
 		   fragment_length = PreviousLen,
 		   fragment = PreviousData
-		  } = Previous, 
+		  } = Previous,
 		#handshake_fragment{
 		   fragment_offset = PreviousOffSet,
 		   fragment_length = PreviousLen,
 		   fragment = PreviousData}) ->
     Previous;
 
-%% Lager fragment save new data
+%% Duplicate (fully contained fragment)
+%% 2,5 _ _ P P P P P
+%% 2,2 _ _ C C
+%% 0,3 X X X
+%% 5,3 _ _ _ _ _ X X X
 merge_fragments(#handshake_fragment{
-		   fragment_offset = PreviousOffSet, 
-		   fragment_length = PreviousLen,
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen
+                  } = Previous,
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen})
+  when PreviousOffset =< CurrentOffset andalso
+       CurrentOffset =< PreviousOffset + PreviousLen andalso
+       CurrentOffset + CurrentLen =< PreviousOffset + PreviousLen ->
+    Previous;
+
+%% Fully overlapping fragments
+%% 2,5 _ _ P P P P P
+%% 0,8 C C C C C C C C
+merge_fragments(#handshake_fragment{
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen
+                  },
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen} = Current)
+  when CurrentOffset =< PreviousOffset andalso
+       CurrentOffset + CurrentLen >= PreviousOffset + PreviousLen ->
+    Current;
+
+%% Overlapping fragments
+%% 2,5 _ _ P P P P P
+%% 0,3 C C C
+merge_fragments(#handshake_fragment{
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen,
 		   fragment = PreviousData
-		  } = Previous, 
-		#handshake_fragment{
-		   fragment_offset = PreviousOffSet,
-		   fragment_length = CurrentLen,
-		   fragment = CurrentData}) when CurrentLen > PreviousLen ->
-    NewLength = CurrentLen - PreviousLen,
-    <<_:PreviousLen/binary, NewData/binary>> = CurrentData, 
+                  } = Previous,
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen,
+                   fragment = CurrentData})
+  when CurrentOffset < PreviousOffset andalso
+       CurrentOffset + CurrentLen < PreviousOffset + PreviousLen ->
+    NewDataLen = PreviousOffset - CurrentOffset,
+    <<NewData:NewDataLen/binary, _/binary>> = CurrentData,
     Previous#handshake_fragment{
-      fragment_length = PreviousLen + NewLength,
+      fragment_length = PreviousLen + NewDataLen,
+      fragment = <<NewData/binary, PreviousData/binary>>
+     };
+
+%% Overlapping fragments
+%% 2,5 _ _ P P P P P
+%% 5,3 _ _ _ _ _ C C C
+merge_fragments(#handshake_fragment{
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen,
+		   fragment = PreviousData
+                  } = Previous,
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen,
+                   fragment = CurrentData})
+  when CurrentOffset > PreviousOffset andalso
+       CurrentOffset < PreviousOffset + PreviousLen ->
+    NewDataLen = CurrentOffset + CurrentLen - (PreviousOffset + PreviousLen),
+    DropLen = CurrentLen - NewDataLen,
+    <<_:DropLen/binary, NewData/binary>> = CurrentData,
+    Previous#handshake_fragment{
+      fragment_length = PreviousLen + NewDataLen,
       fragment = <<PreviousData/binary, NewData/binary>>
      };
 
-%% Smaller fragment
+%% Adjacent fragments
+%% 2,5 _ _ P P P P P
+%% 7,3 _ _ _ _ _ _ _ C C C
 merge_fragments(#handshake_fragment{
-		   fragment_offset = PreviousOffSet, 
-		   fragment_length = PreviousLen
-		  } = Previous, 
-		#handshake_fragment{
-		   fragment_offset = PreviousOffSet,
-		   fragment_length = CurrentLen}) when CurrentLen < PreviousLen ->
-    Previous;
-%% Next fragment, might be overlapping
-merge_fragments(#handshake_fragment{
-		   fragment_offset = PreviousOffSet, 
-		   fragment_length = PreviousLen,
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen,
 		   fragment = PreviousData
-		  } = Previous, 
-		#handshake_fragment{
-		   fragment_offset = CurrentOffSet,
-		   fragment_length = CurrentLen,
-                  fragment = CurrentData})
-  when PreviousOffSet + PreviousLen >= CurrentOffSet andalso
-       PreviousOffSet + PreviousLen < CurrentOffSet + CurrentLen ->
-    CurrentStart = PreviousOffSet + PreviousLen - CurrentOffSet,
-    <<_:CurrentStart/bytes, Data/binary>> = CurrentData,
-    Previous#handshake_fragment{
-      fragment_length =  PreviousLen + CurrentLen - CurrentStart,
-      fragment = <<PreviousData/binary, Data/binary>>};
-%% already fully contained fragment
-merge_fragments(#handshake_fragment{
-                   fragment_offset = PreviousOffSet, 
-                   fragment_length = PreviousLen
-                  } = Previous, 
+                  } = Previous,
                 #handshake_fragment{
-                   fragment_offset = CurrentOffSet,
-                   fragment_length = CurrentLen})
-  when PreviousOffSet + PreviousLen >= CurrentOffSet andalso
-       PreviousOffSet + PreviousLen >= CurrentOffSet + CurrentLen ->
-    Previous;
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen,
+                   fragment = CurrentData})
+  when CurrentOffset =:= PreviousOffset + PreviousLen ->
+    Previous#handshake_fragment{
+      fragment_length = PreviousLen + CurrentLen,
+      fragment = <<PreviousData/binary, CurrentData/binary>>
+     };
+
+%% Adjacent fragments
+%% 2,5 _ _ P P P P P
+%% 0,2 C C
+merge_fragments(#handshake_fragment{
+                   fragment_offset = PreviousOffset,
+                   fragment_length = PreviousLen,
+		   fragment = PreviousData
+                  } = Previous,
+                #handshake_fragment{
+                   fragment_offset = CurrentOffset,
+                   fragment_length = CurrentLen,
+                   fragment = CurrentData})
+  when PreviousOffset =:= CurrentOffset + CurrentLen ->
+    Previous#handshake_fragment{
+      fragment_length = PreviousLen + CurrentLen,
+      fragment = <<CurrentData/binary, PreviousData/binary>>
+     };
 
 %% No merge there is a gap
+%% 3,5 _ _ _ P P P P
+%% 0,2 C C
 merge_fragments(Previous, Current) ->
     [Previous, Current].
 
