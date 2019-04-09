@@ -655,7 +655,7 @@ start_dist_ctrl(Socket, Timeout) ->
                             {SendParams, RecvParams} =
                                 init(Socket, Secret),
                             reply(From, self()),
-                            handshake(SendParams, 0, RecvParams, 0, Controller)
+                            handshake(SendParams, 1, RecvParams, 1, Controller)
                     end
             end,
             [link,
@@ -790,21 +790,22 @@ send_start(
   #params{
      socket = Socket,
      block_crypto = BlockCrypto,
-     iv = IV,
+     iv = {IVSalt, IVNo},
      key = Key,
      tag_len = TagLen}, AAD) ->
     %%
     KeyLen = byte_size(Key),
     Zeros = binary:copy(<<0>>, KeyLen),
+    IVBin = <<IVSalt/binary, IVNo:48>>,
     {Ciphertext, CipherTag} =
-        crypto:block_encrypt(BlockCrypto, Key, IV, {AAD, Zeros, TagLen}),
+        crypto:block_encrypt(BlockCrypto, Key, IVBin, {AAD, Zeros, TagLen}),
     ok = gen_tcp:send(Socket,  [Ciphertext, CipherTag]).
 
 recv_start(
   #params{
      socket = Socket,
      block_crypto = BlockCrypto,
-     iv = IV,
+     iv = {IVSalt, IVNo},
      key = Key,
      tag_len = TagLen}, AAD) ->
     %%
@@ -812,10 +813,11 @@ recv_start(
     KeyLen = byte_size(Key),
     PacketLen = KeyLen,
     <<Ciphertext:PacketLen/binary, CipherTag:TagLen/binary>> = Packet,
+    IVBin = <<IVSalt/binary, IVNo:48>>,
     Zeros = binary:copy(<<0>>, KeyLen),
     case
         crypto:block_decrypt(
-          BlockCrypto, Key, IV, {AAD, Ciphertext, CipherTag})
+          BlockCrypto, Key, IVBin, {AAD, Ciphertext, CipherTag})
     of
         Zeros ->
             ok;
@@ -830,7 +832,7 @@ init_params(Socket) ->
     Protocol = ?PROTOCOL,
     HashAlgorithm = ?HASH_ALGORITHM,
     BlockCrypto = ?BLOCK_CRYPTO,
-    IVLen = ?IV_LEN,
+    IVSaltLen = ?IV_LEN - 6,
     KeyLen = ?KEY_LEN,
     TagLen = ?TAG_LEN,
     RekeyInterval = ?REKEY_INTERVAL,
@@ -843,14 +845,15 @@ init_params(Socket) ->
 	  (byte_size(HashAlgorithmBin)), HashAlgorithmBin/binary,
 	  (byte_size(BlockCryptoBin)), BlockCryptoBin/binary,
 	  KeyLen, TagLen>>,
-    <<KeySalt:KeyLen/binary, OtherSalt:KeyLen/binary, IV:IVLen/binary>> =
-        Data = crypto:strong_rand_bytes(IVLen + KeyLen + KeyLen),
+    <<KeySalt:KeyLen/binary, OtherSalt:KeyLen/binary,
+      IVSalt:IVSaltLen/binary, IVNo:48>> =
+        Data = crypto:strong_rand_bytes(KeyLen + KeyLen + IVSaltLen + 6),
     {#params{
         socket = Socket,
         protocol = Protocol,
         hash_algorithm = HashAlgorithm,
         block_crypto = BlockCrypto,
-        iv = IV,
+        iv = {IVSalt, IVNo},
         key = {KeySalt, OtherSalt},
         tag_len = TagLen,
         rekey_interval = RekeyInterval}, Header, Data}.
@@ -874,12 +877,12 @@ init_params(Socket, Msg) ->
 		  BlockCryptoBinLen,
 		  BlockCryptoBin:BlockCryptoBinLen/binary,
 		  Rest_2/binary>> ->
-                    IVLen = ?IV_LEN, KeyLen = ?KEY_LEN,
+                    IVSaltLen = ?IV_LEN - 6, KeyLen = ?KEY_LEN,
 		    TagLen = ?TAG_LEN, RekeyInterval = ?REKEY_INTERVAL,
                     <<KeyLen, TagLen,
                       KeySalt:KeyLen/binary,
                       OtherSalt:KeyLen/binary,
-                      IV:IVLen/binary>> = Rest_2,
+                      IVSalt:IVSaltLen/binary, IVNo:48>> = Rest_2,
                     HeaderLen = byte_size(Msg) - (byte_size(Rest_2) - 2),
                     <<Header:HeaderLen/binary, _/binary>> = Msg,
 		    {#params{
@@ -887,7 +890,7 @@ init_params(Socket, Msg) ->
                         protocol = Protocol,
                         hash_algorithm = HashAlgorithm,
                         block_crypto = BlockCrypto,
-                        iv = IV,
+                        iv = {IVSalt, IVNo},
                         key = {KeySalt, OtherSalt},
                         tag_len = TagLen,
                         rekey_interval = RekeyInterval},
@@ -1236,20 +1239,20 @@ deliver_data(DistHandle, Front, Size, Rear, Bin) ->
 encrypt_and_send_chunk(
   #params{
      socket = Socket, rekey_interval = Seq,
-     key = Key, iv = IV, hash_algorithm = HashAlgorithm} = Params,
+     key = Key, iv = {IVSalt, _}, hash_algorithm = HashAlgorithm} = Params,
   Seq, Cleartext) ->
     %%
     KeyLen = byte_size(Key),
-    IVLen = byte_size(IV),
-    Chunk = <<IV_1:IVLen/binary, KeySalt:KeyLen/binary>> =
-        crypto:strong_rand_bytes(IVLen + KeyLen),
+    IVSaltLen = byte_size(IVSalt),
+    Chunk = <<KeySalt:KeyLen/binary, IVSalt_1:IVSaltLen/binary, IVNo_1:48>> =
+        crypto:strong_rand_bytes(KeyLen + IVSaltLen + 6),
     case
         gen_tcp:send(
           Socket, encrypt_chunk(Params, Seq, [?REKEY_CHUNK, Chunk]))
     of
         ok ->
             Key_1 = hash_key(HashAlgorithm, Key, KeySalt),
-            Params_1 = Params#params{key = Key_1, iv = IV_1},
+            Params_1 = Params#params{key = Key_1, iv = {IVSalt_1, IVNo_1}},
             Result =
                 gen_tcp:send(Socket, encrypt_chunk(Params_1, 0, Cleartext)),
             {Params_1, 1, Result};
@@ -1263,19 +1266,20 @@ encrypt_and_send_chunk(#params{socket = Socket} = Params, Seq, Cleartext) ->
 encrypt_chunk(
   #params{
      block_crypto = BlockCrypto,
-     iv = IV, key = Key, tag_len = TagLen}, Seq, Cleartext) ->
+     iv = {IVSalt, IVNo}, key = Key, tag_len = TagLen}, Seq, Cleartext) ->
     %%
     ChunkLen = iolist_size(Cleartext) + TagLen,
     AAD = <<Seq:32, ChunkLen:32>>,
+    IVBin = <<IVSalt/binary, (IVNo + Seq):48>>,
     {Ciphertext, CipherTag} =
-        crypto:block_encrypt(BlockCrypto, Key, IV, {AAD, Cleartext, TagLen}),
+        crypto:block_encrypt(BlockCrypto, Key, IVBin, {AAD, Cleartext, TagLen}),
     Chunk = [Ciphertext,CipherTag],
     Chunk.
 
 decrypt_chunk(
   #params{
      block_crypto = BlockCrypto,
-     iv = IV, key = Key, tag_len = TagLen} = Params, Seq, Chunk) ->
+     iv = {IVSalt, IVNo}, key = Key, tag_len = TagLen} = Params, Seq, Chunk) ->
     %%
     ChunkLen = byte_size(Chunk),
     if
@@ -1283,12 +1287,13 @@ decrypt_chunk(
             error;
         true ->
             AAD = <<Seq:32, ChunkLen:32>>,
+            IVBin = <<IVSalt/binary, (IVNo + Seq):48>>,
             CiphertextLen = ChunkLen - TagLen,
             case Chunk of
                 <<Ciphertext:CiphertextLen/binary,
                   CipherTag:TagLen/binary>> ->
                     block_decrypt(
-                      Params, Seq, BlockCrypto, Key, IV,
+                      Params, Seq, BlockCrypto, Key, IVBin,
                       {AAD, Ciphertext, CipherTag});
                 _ ->
                     error
@@ -1302,19 +1307,20 @@ block_decrypt(
     case crypto:block_decrypt(CipherName, Key, IV, Data) of
         <<?REKEY_CHUNK, Rest/binary>> ->
             KeyLen = byte_size(Key),
-            IVLen = byte_size(IV),
+            IVSaltLen = byte_size(IV) - 6,
             case Rest of
-                <<IV_1:IVLen/binary, KeySalt:KeyLen/binary>> ->
+                <<KeySalt:KeyLen/binary, IVSalt:IVSaltLen/binary, IVNo:48>> ->
                     Key_1 =
                         hash_key(
                           Params#params.hash_algorithm, Key, KeySalt),
-                    Params#params{iv = IV_1, key = Key_1};
+                    Params#params{iv = {IVSalt, IVNo}, key = Key_1};
                 _ ->
                     error
             end;
         Chunk when is_binary(Chunk) ->
             case Seq of
                 RekeyInterval ->
+                    %% This was one chunk too many without rekeying
                     error;
                 _ ->
                     Chunk
