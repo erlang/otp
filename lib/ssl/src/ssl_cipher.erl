@@ -838,8 +838,7 @@ effective_key_bits(Cipher) when Cipher == aes_256_cbc;
     256.
 
 iv_size(Cipher) when Cipher == null;
-		     Cipher == rc4_128;
-		     Cipher == chacha20_poly1305->
+		     Cipher == rc4_128 ->
     0;
 iv_size(Cipher) when Cipher == aes_128_gcm;
 		     Cipher == aes_256_gcm;
@@ -848,6 +847,8 @@ iv_size(Cipher) when Cipher == aes_128_gcm;
                      Cipher == aes_128_ccm_8;
 		     Cipher == aes_256_ccm_8 ->
     4;
+iv_size(chacha20_poly1305) ->
+    12;
 iv_size(Cipher) ->
     block_size(Cipher).
 
