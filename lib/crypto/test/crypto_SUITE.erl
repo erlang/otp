@@ -1183,7 +1183,7 @@ aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}
     catch
         error:E ->
             ct:log("~p",[{Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}]),
-            try crypto:crypto_aead(Type, Key, IV, PlainText, AAD, TagLen, true)
+            try crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true)
             of
                 RR ->
                     ct:log("Works: ~p",[RR])

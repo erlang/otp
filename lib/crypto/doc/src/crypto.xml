@@ -754,8 +754,8 @@
     </func>
 
     <func>
-      <name name="crypto_aead" arity="6" since="OTP 22.0"/>
-      <name name="crypto_aead" arity="7" since="OTP 22.0"/>
+      <name name="crypto_one_time_aead" arity="6" since="OTP 22.0"/>
+      <name name="crypto_one_time_aead" arity="7" since="OTP 22.0"/>
       <fsummary>Do a complete encrypt or decrypt with an AEAD cipher of the full text</fsummary>
       <desc>
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
