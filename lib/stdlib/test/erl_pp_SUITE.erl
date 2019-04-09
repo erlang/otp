@@ -51,7 +51,7 @@
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
           otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
-          otp_13662/1, otp_14285/1, otp_15592/1]).
+          otp_13662/1, otp_14285/1, otp_15592/1, otp_15751/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -81,7 +81,7 @@ groups() ->
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
        otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662,
-       otp_14285, otp_15592]}].
+       otp_14285, otp_15592, otp_15751]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1170,6 +1170,39 @@ otp_14285(_Config) ->
 otp_15592(_Config) ->
     ok = pp_expr(<<"long12345678901234567890123456789012345678901234"
                    "56789012345678901234:f(<<>>)">>),
+    ok.
+
+otp_15751(_Config) ->
+    ok = pp_expr(<<"try foo:bar()
+                        catch
+                            Reason : Stacktrace ->
+                                {Reason, Stacktrace}
+                    end">>),
+    ok = pp_expr(<<"try foo:bar()
+                        catch
+                            throw: Reason : Stacktrace ->
+                                {Reason, Stacktrace}
+                    end">>),
+    ok = pp_expr(<<"try foo:bar()
+                        catch
+                            Reason : _ ->
+                                Reason
+                    end">>),
+    ok = pp_expr(<<"try foo:bar()
+                        catch
+                            throw: Reason : _ ->
+                                Reason
+                    end">>),
+    ok = pp_expr(<<"try foo:bar()
+                        catch
+                            Reason ->
+                                Reason
+                    end">>),
+    ok = pp_expr(<<"try foo:bar()
+                        catch
+                            throw: Reason ->
+                                Reason
+                    end">>),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -808,12 +808,6 @@ cr_clause({clause,_,[T],G,B}, Opts) ->
 try_clauses(Cs, Opts) ->
     clauses(fun try_clause/2, Opts, Cs).
 
-try_clause({clause,_,[{tuple,_,[{atom,_,throw},V,S]}],G,B}, Opts) ->
-    El = lexpr(V, 0, Opts),
-    Sl = stack_backtrace(S, [El], Opts),
-    Gl = guard_when(Sl, G, Opts),
-    Bl = body(B, Opts),
-    {step,Gl,Bl};
 try_clause({clause,_,[{tuple,_,[C,V,S]}],G,B}, Opts) ->
     Cs = lexpr(C, 0, Opts),
     El = lexpr(V, 0, Opts),
