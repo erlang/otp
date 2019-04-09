@@ -40,7 +40,7 @@
     to maintain.
     </p>
     <p>It turned out that using the old api in the new way (more about that later), and still keep it
-    backwards compatible was not possible. Specially as more precision in the error messages was wanted
+    backwards compatible, was not possible. Specially as more precision in the error messages was wanted
     it could not be combined with the old standard.
     </p>
     <p>Therefore the old api (see next section) is kept for now but internally implemented with new primitives.
@@ -66,7 +66,7 @@
 
   <section>
     <title>The new API</title>
-    <p>The new functions for encrypting or decrypting one single text in one binary are:
+    <p>The new functions for encrypting or decrypting one single binary are:
     </p>
     <list>
       <item><seealso marker="crypto#crypto_one_time/4">crypto_one_time/4</seealso></item>
@@ -74,18 +74,23 @@
       <item><seealso marker="crypto#crypto_aead/6">crypto_aead/6</seealso></item>
       <item><seealso marker="crypto#crypto_aead/7">crypto_aead/7</seealso></item>
     </list>
+    <p>In those functions the internal crypto state is first created and initialized
+    with the cipher type, the key and possibly other data. Then the data is encrypted or decrypted,
+    the crypto state is de-allocated and the result of the crypto operation is returned.
+    </p>
     <p>The <c>crypto_aead</c> functions are for the ciphers of mode <c>ccm</c> or
     <c>gcm</c>, and for the cipher <c>chacha20-poly1305</c>.
     </p>
-    <p>For repeated encryption or decryption of a text divided in parts, where the parts are handled
-    one by one but in sequence, the functions are:
+    <p>For repeated encryption or decryption of a text divided in parts, where the internal
+    crypto state is initialized once, and then many binaries are encrypted or decrypted with
+    the same state, the functions are:
     </p>
     <list>
       <item><seealso marker="crypto#crypto_init/4">crypto_init/4</seealso></item>
       <item><seealso marker="crypto#crypto_init/3">crypto_init/3</seealso></item>
       <item><seealso marker="crypto#crypto_update/2">crypto_update/2</seealso></item>
     </list>
-    <p>The <c>crypto_init</c> initialies a cipher operation and one or more calls of
+    <p>The <c>crypto_init</c> initialies an internal cipher state, and one or more calls of
     <c>crypto_update</c> does the acual encryption or decryption. Note that AEAD ciphers
     can't be handled this way due to their nature.
     </p>
@@ -105,8 +110,8 @@
       <code type="erl">
 	1> crypto:start().
 	ok
-	2> Key = &lt;&lt;1:128>>,
-	2> IV = &lt;&lt;0:128>>,
+	2> Key = &lt;&lt;1:128>>.
+	2> IV = &lt;&lt;0:128>>.
 	2> StateEnc = crypto:crypto_init(aes_128_ctr, Key, IV, true). % encrypt -> true
 	#Ref&lt;0.3768901617.1128660993.124047>
 	3> crypto:crypto_update(StateEnc, &lt;&lt;"First bytes">>).
@@ -125,8 +130,8 @@
 	&lt;&lt;"s">>
 	9>
       </code>
-      <p>Note that the data that the <c>StateEnc</c> and <c>StateDec</c> references are destructivly
-      updated by the calls to <seealso marker="crypto#crypto_update/2">crypto_update/2</seealso>.
+      <p>Note that the internal data that the <c>StateEnc</c> and <c>StateDec</c> references are
+      destructivly updated by the calls to <seealso marker="crypto#crypto_update/2">crypto_update/2</seealso>.
       This is to gain time in the calls of the nifs interfacing the cryptolib. In a loop where the
       state is saved in the loop's state, it also saves one update of the loop state per crypto operation.
       </p>
@@ -135,7 +140,7 @@
       </p>
       <code type="erl">
 	encode(Crypto, Key, IV) ->
-	crypto_loop(crypto:crypto_init(Crypto, Key, IV, true)).
+	    crypto_loop(crypto:crypto_init(Crypto, Key, IV, true)).
 
 	crypto_loop(State) ->
 	    receive
@@ -144,20 +149,17 @@
 	            loop(State)
 	    end.
       </code>
-      <p>Note that the <c>State</c> is not updated. Such updates could be costly if the loop state
-      is a tuple or record with many elements.
-      </p>
-    </section>
+     </section>
 
     <section>
       <title>Example of crypto_one_time/5</title>
-      <p>The same eample as in the
+      <p>The same example as in the
       <seealso marker="#examples-of-crypto_init-4-and-crypto_update-2">previous section</seealso>,
       but now with one call to <c>crypto_one_time/5</c>:
       </p>
       <code>
-	2> Key = &lt;&lt;1:128>>,
-	2> IV = &lt;&lt;0:128>>,
+	2> Key = &lt;&lt;1:128>>.
+	2> IV = &lt;&lt;0:128>>.
 	2> Txt = [&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>],
 	2> crypto:crypto_one_time(aes_128_ctr, Key, IV, Txt, true).
 	&lt;&lt;67,44,216,166,25,130,203,5,66,6,162,16,79,94,115,234,
