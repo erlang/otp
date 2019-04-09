@@ -2276,6 +2276,9 @@ expr({'fun',Line,Body}, Vt, St) ->
     case Body of
         {clauses,Cs} ->
             fun_clauses(Cs, Vt, St);
+        {function,record_info,2} ->
+            %% It is illegal to call record_info/2 with unknown arguments.
+            {[],add_error(Line, illegal_record_info, St)};
         {function,F,A} ->
 	    %% BifClash - Fun expression
             %% N.B. Only allows BIFs here as well, NO IMPORTS!!

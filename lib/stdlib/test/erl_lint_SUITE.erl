@@ -3576,10 +3576,12 @@ basic_errors(Config) ->
 
 	  {illegal_record_info,
 	   <<"f1() -> record_info(42, record).
-	      f2() -> record_info(shoe_size, record).">>,
+	      f2() -> record_info(shoe_size, record).
+              f3() -> fun record_info/2.">>,
 	   [],
 	   {errors,[{1,erl_lint,illegal_record_info},
-		    {2,erl_lint,illegal_record_info}],[]}},
+		    {2,erl_lint,illegal_record_info},
+                    {3,erl_lint,illegal_record_info}],[]}},
 
 	  {illegal_expr,
 	   <<"f() -> a:b.">>,
