@@ -277,12 +277,6 @@ static const struct in6_addr in6addr_loopback =
 #define put_int16(i, s) {((unsigned char*)(s))[0] = ((i) >> 8) & 0xff; \
                         ((unsigned char*)(s))[1] = (i)         & 0xff;}
 
-#define put_int32(i, s) do {((char*)(s))[0] = (char)((i) >> 24) & 0xff;   \
-                            ((char*)(s))[1] = (char)((i) >> 16) & 0xff;   \
-                            ((char*)(s))[2] = (char)((i) >> 8)  & 0xff;   \
-                            ((char*)(s))[3] = (char)(i)         & 0xff;} \
-                        while (0)
-
 #if defined(__GNUC__)
 #  define EPMD_INLINE __inline__
 #elif defined(__WIN32__)
@@ -313,10 +307,10 @@ struct enode {
   int fd;			/* The socket in use */
   unsigned short port;		/* Port number of Erlang node */
   char symname[MAXSYMLEN+1];	/* Name of the Erlang node */
-  unsigned int cr_counter;	/* Used to generate 'creation' numbers */
+  short creation;		/* Started as a random number 1..3 */
   char nodetype;                /* 77 = normal erlang node 72 = hidden (c-node */
   char protocol;                /* 0 = tcp/ipv4 */
-  unsigned short highvsn;       /* 5: creation=1..3, 6: creation=1..(2^32-1)*/
+  unsigned short highvsn;       /* 0 = OTP-R3 erts-4.6.x, 1 = OTP-R4 erts-4.7.x*/
   unsigned short lowvsn;
   int extralen;
   char extra[MAXSYMLEN+1];

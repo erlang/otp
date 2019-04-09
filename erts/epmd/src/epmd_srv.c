@@ -665,21 +665,6 @@ static int do_accept(EpmdVars *g,int listensock)
     return conn_open(g,msgsock);
 }
 
-static void bump_creation(Node* node)
-{
-    if (++node->cr_counter == 0)
-        node->cr_counter = 1;
-}
-static unsigned int get_creation(Node* node)
-{
-    if (node->highvsn >= 6) {
-        return node->cr_counter;  /* 1..(2^32-1)*/
-    }
-    else {
-        return (node->cr_counter - 1) % 3 + 1;   /* 1..3 */
-    }
-}
-
 /* buf is actually one byte larger than bsize,
    giving place for null termination */
 static void do_request(g, fd, s, buf, bsize)
@@ -721,10 +706,8 @@ static void do_request(g, fd, s, buf, bsize)
 	unsigned char protocol;
 	unsigned short highvsn;
 	unsigned short lowvsn;
-        unsigned int creation;
 	int namelen;
 	int extralen;
-        int replylen;
 	char *name; 
 	char *extra;
 	eport = get_int16(&buf[1]);
@@ -754,22 +737,17 @@ static void do_request(g, fd, s, buf, bsize)
 
 	extra = &buf[11+namelen+2];
 	extra[extralen]='\000';
-        node = node_reg2(g, namelen, name, fd, eport, nodetype, protocol,
-                         highvsn, lowvsn, extralen, extra);
-        creation = node ? get_creation(node) :  99;
-        wbuf[1] = node ? 0 : 1; /* ok | error */
-        if (highvsn >= 6) {
-            wbuf[0] = EPMD_ALIVE2_X_RESP;
-            put_int32(creation, wbuf+2);
-            replylen = 6;
-        }
-        else {
-            wbuf[0] = EPMD_ALIVE2_RESP;
-            put_int16(creation, wbuf+2);
-            replylen = 4;
-        }
+	wbuf[0] = EPMD_ALIVE2_RESP;
+	if ((node = node_reg2(g, namelen, name, fd, eport, nodetype, protocol,
+			      highvsn, lowvsn, extralen, extra)) == NULL) {
+	    wbuf[1] = 1; /* error */
+	    put_int16(99, wbuf+2);
+	} else {
+	    wbuf[1] = 0; /* ok */
+	    put_int16(node->creation, wbuf+2);
+	}
   
-	if (!reply(g, fd, wbuf, replylen))
+	if (!reply(g, fd, wbuf, 4))
 	  {
             node_unreg(g, name);
 	    dbg_tty_printf(g,1,"** failed to send ALIVE2_RESP for \"%s\"",
@@ -1222,8 +1200,8 @@ static int node_unreg(EpmdVars *g,char *name)
   for (; node; prev = &node->next, node = node->next)
     if (is_same_str(node->symname, name))
       {
-	dbg_tty_printf(g,1,"unregistering '%s:%u', port %d",
-		       node->symname, get_creation(node), node->port);
+	dbg_tty_printf(g,1,"unregistering '%s:%d', port %d",
+		       node->symname, node->creation, node->port);
 
 	*prev = node->next;	/* Link out from "reg" list */
 
@@ -1257,8 +1235,8 @@ static int node_unreg_sock(EpmdVars *g,int fd)
   for (; node; prev = &node->next, node = node->next)
     if (node->fd == fd)
       {
-	dbg_tty_printf(g,1,"unregistering '%s:%u', port %d",
-		       node->symname, get_creation(node), node->port);
+	dbg_tty_printf(g,1,"unregistering '%s:%d', port %d",
+		       node->symname, node->creation, node->port);
 
 	*prev = node->next;	/* Link out from "reg" list */
 
@@ -1286,8 +1264,19 @@ static int node_unreg_sock(EpmdVars *g,int fd)
 }
 
 /*
- * Register a new node
+ *  Finding a node slot and a (name,creation) name is a bit tricky.
+ *  We try in order
+ *
+ *  1. If the name was used before and we can reuse that slot but use
+ *     a new "creation" digit in the range 1..3.
+ *
+ *  2. We try to find a new unused slot.
+ *
+ *  3. We try to use an used slot this isn't used any longer.
+ *     FIXME: The criteria for *what* slot to steal should be improved.
+ *     Perhaps use the oldest or something.
  */
+
 static Node *node_reg2(EpmdVars *g,
 		       int namelen,
 		       char* name,
@@ -1357,7 +1346,7 @@ static Node *node_reg2(EpmdVars *g,
       }
 
   /* Try to find the name in the used queue so that we
-     can change "creation" number */
+     can change "creation" number 1..3 */
 
   prev = NULL;
 
@@ -1386,8 +1375,9 @@ static Node *node_reg2(EpmdVars *g,
 
 	g->nodes.unreg_count--;
 
-	/* When reusing we change the "creation" number */
-	bump_creation(node);
+	/* When reusing we change the "creation" number 1..3 */
+
+	node->creation = node->creation % 3 + 1;
 
 	break;
       }
@@ -1414,8 +1404,7 @@ static Node *node_reg2(EpmdVars *g,
 	      exit(1);
 	    }
 
-	  node->cr_counter = current_time(g); /* "random" */
-          bump_creation(node);
+	  node->creation = (current_time(g) % 3) + 1; /* "random" 1-3 */
 	}
     }
 
@@ -1434,11 +1423,11 @@ static Node *node_reg2(EpmdVars *g,
   select_fd_set(g, fd);
 
   if (highvsn == 0) {
-    dbg_tty_printf(g,1,"registering '%s:%u', port %d",
-		   node->symname, get_creation(node), node->port);
+    dbg_tty_printf(g,1,"registering '%s:%d', port %d",
+		   node->symname, node->creation, node->port);
   } else {
-    dbg_tty_printf(g,1,"registering '%s:%u', port %d",
-		   node->symname, get_creation(node), node->port);
+    dbg_tty_printf(g,1,"registering '%s:%d', port %d",
+		   node->symname, node->creation, node->port);
     dbg_tty_printf(g,1,"type %d proto %d highvsn %d lowvsn %d",
 		   nodetype, protocol, highvsn, lowvsn);
   }      
@@ -1572,8 +1561,8 @@ static void print_names(EpmdVars *g)
 
   for (node = g->nodes.reg; node; node = node->next)
     {
-      fprintf(stderr,"*****     active name     \"%s#%u\" at port %d, fd = %d\r\n",
-	      node->symname, get_creation(node), node->port, node->fd);
+      fprintf(stderr,"*****     active name     \"%s#%d\" at port %d, fd = %d\r\n",
+	      node->symname, node->creation, node->port, node->fd);
       count ++;
     }
 
@@ -1583,8 +1572,8 @@ static void print_names(EpmdVars *g)
 
   for (node = g->nodes.unreg; node; node = node->next)
     {
-      fprintf(stderr,"*****     old/unused name \"%s#%u\"\r\n",
-	      node->symname, get_creation(node));
+      fprintf(stderr,"*****     old/unused name \"%s#%d\"\r\n",
+	      node->symname, node->creation);
       count ++;
     }
 

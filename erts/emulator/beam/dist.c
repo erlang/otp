@@ -3748,10 +3748,12 @@ int distribution_info(fmtfn_t to, void *arg)	/* Called by break handler */
 BIF_RETTYPE setnode_2(BIF_ALIST_2)
 {
     Process *net_kernel;
-    Uint32 creation;
+    Uint creation;
 
     /* valid creation ? */
-    if(!term_to_Uint32(BIF_ARG_2, &creation))
+    if(!term_to_Uint(BIF_ARG_2, &creation))
+	goto error;
+    if(creation > 3)
 	goto error;
 
     /* valid node name ? */
@@ -3795,7 +3797,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_thr_progress_block();
     inc_no_nodes();
-    erts_set_this_node(BIF_ARG_1, creation);
+    erts_set_this_node(BIF_ARG_1, (Uint32) creation);
     erts_is_alive = 1;
     send_nodes_mon_msgs(NULL, am_nodeup, BIF_ARG_1, am_visible, NIL);
     erts_thr_progress_unblock();

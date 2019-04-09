@@ -33,10 +33,10 @@
 -define(erlang_daemon_port, 4369).
 -endif.
 -ifndef(epmd_dist_high).
--define(epmd_dist_high, 6).
+-define(epmd_dist_high, 4370).
 -endif.
 -ifndef(epmd_dist_low).
--define(epmd_dist_low, 5).
+-define(epmd_dist_low, 4370).
 -endif.
 
 %% External exports
@@ -342,13 +342,6 @@ wait_for_reg_reply(Socket, SoFar) ->
     receive
 	{tcp, Socket, Data0} ->
 	    case SoFar ++ Data0 of
-		[$v, Result, A, B, C, D] ->
-		    case Result of
-			0 ->
-			    {alive, Socket, ?u32(A, B, C, D)};
-			_ ->
-			    {error, duplicate_name}
-		    end;
 		[$y, Result, A, B] ->
 		    case Result of
 			0 ->
