@@ -67,7 +67,7 @@
 %% Setup
 %%====================================================================	     
 start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = false},_, Tracker} = Opts,
-	  User, {CbModule, _,_, _} = CbInfo, 
+	  User, {CbModule, _, _, _, _} = CbInfo,
 	  Timeout) -> 
     try 
 	{ok, Pid} = dtls_connection_sup:start_child([Role, Host, Port, Socket, 
@@ -147,13 +147,16 @@ next_record(#state{static_env = #static_env{role = server,
                                             socket = {Listener, {Client, _}}}} = State) ->
     dtls_packet_demux:active_once(Listener, Client, self()),
     {no_record, State};
-next_record(#state{static_env = #static_env{role = client,
+next_record(#state{protocol_specific = #{active_n_toggle := true,
+                                         active_n := N} = ProtocolSpec,
+                   static_env = #static_env{role = client,
                                             socket = {_Server, Socket} = DTLSSocket,
                                             close_tag = CloseTag,
                                             transport_cb = Transport}} = State) ->
-    case dtls_socket:setopts(Transport, Socket, [{active,once}]) of
+    case dtls_socket:setopts(Transport, Socket, [{active,N}]) of
         ok ->
- 	    {no_record, State};
+            {no_record, State#state{protocol_specific =
+                                        ProtocolSpec#{active_n_toggle => false}}};
  	_ ->
             self() ! {CloseTag, DTLSSocket},
 	    {no_record, State}
@@ -291,9 +294,10 @@ handle_protocol_record(#ssl_tls{type = _Unknown}, StateName, State) ->
 %% Handshake handling
 %%====================================================================	     
 
-renegotiate(#state{static_env = #static_env{role = client}} = State, Actions) ->
+renegotiate(#state{static_env = #static_env{role = client}} = State0, Actions) ->
     %% Handle same way as if server requested
     %% the renegotiation
+    State = reinit_handshake_data(State0),
     {next_state, connection, State,
      [{next_event, internal, #hello_request{}} | Actions]};
 
@@ -771,7 +775,7 @@ format_status(Type, Data) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
-	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
+	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #ssl_options{beast_mitigation = BeastMitigation} = SSLOptions,
     ConnectionStates = dtls_record:init_connection_states(Role, BeastMitigation),
     
@@ -781,7 +785,12 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
 			 _  ->
 			     ssl_session_cache
 		     end,
-    
+    InternalActiveN =  case application:get_env(ssl, internal_active_n) of
+                           {ok, N} when is_integer(N) ->
+                               N;
+                           _  ->
+                               ?INTERNAL_ACTIVE_N
+                       end,
     Monitor = erlang:monitor(process, User),
     InitStatEnv = #static_env{
                      role = Role,
@@ -790,6 +799,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
                      data_tag = DataTag,
                      close_tag = CloseTag,
                      error_tag = ErrorTag,
+                     passive_tag = PassiveTag,
                      host = Host,
                      port = Port,
                      socket = Socket,
@@ -813,7 +823,9 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
 	   user_data_buffer = {[],0,[]},
 	   start_or_recv_from = undefined,
 	   flight_buffer = new_flight(),
-           protocol_specific = #{flight_state => initial_flight_state(DataTag)}
+           protocol_specific = #{active_n => InternalActiveN,
+                                 active_n_toggle => true,
+                                 flight_state => initial_flight_state(DataTag)}
 	  }.
 
 initial_flight_state(udp)->
@@ -910,12 +922,21 @@ handle_info({Protocol, _, _, _, Data}, StateName,
 	    ssl_connection:handle_normal_shutdown(Alert, StateName, State0), 
             {stop, {shutdown, own_alert}, State0}
     end;
+
+handle_info({PassiveTag, Socket}, StateName,
+            #state{static_env = #static_env{socket = Socket,
+                                            passive_tag = PassiveTag},
+                   protocol_specific = PS} = State) ->
+    next_event(StateName, no_record,
+               State#state{protocol_specific = PS#{active_n_toggle => true}});
+
 handle_info({CloseTag, Socket}, StateName,
 	    #state{static_env = #static_env{socket = Socket,
                                             close_tag = CloseTag},
                    connection_env = #connection_env{negotiated_version = Version},
                    socket_options = #socket_options{active = Active},
-                   protocol_buffers = #protocol_buffers{dtls_cipher_texts = CTs}} = State) ->
+                   protocol_buffers = #protocol_buffers{dtls_cipher_texts = CTs},
+                   protocol_specific = PS} = State) ->
     %% Note that as of DTLS 1.2 (TLS 1.1),
     %% failure to properly close a connection no longer requires that a
     %% session not be resumed.	This is a change from DTLS 1.0 to conform
@@ -938,7 +959,8 @@ handle_info({CloseTag, Socket}, StateName,
             %% Fixes non-delivery of final DTLS record in {active, once}.
             %% Basically allows the application the opportunity to set {active, once} again
             %% and then receive the final message.
-            next_event(StateName, no_record, State)
+            next_event(StateName, no_record, State#state{
+                                               protocol_specific = PS#{active_n_toggle => true}})
     end;
 
 handle_info(new_cookie_secret, StateName, 

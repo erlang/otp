@@ -929,7 +929,7 @@ groups(default) ->
 %%--------------------------------------------------------------------
 getopts(#sslsocket{pid = [Pid|_]}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
     ssl_connection:get_opts(Pid, OptionTags);
-getopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, OptionTags) when is_list(OptionTags) ->
+getopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_,_}}}} = ListenSocket, OptionTags) when is_list(OptionTags) ->
     try dtls_socket:getopts(Transport, ListenSocket, OptionTags) of
         {ok, _} = Result ->
             Result;
@@ -986,7 +986,7 @@ setopts(#sslsocket{pid = [Pid|_]}, Options0) when is_pid(Pid), is_list(Options0)
 	_:_ ->
 	    {error, {options, {not_a_proplist, Options0}}}
     end;
-setopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
+setopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_,_}}}} = ListenSocket, Options) when is_list(Options) ->
     try dtls_socket:setopts(Transport, ListenSocket, Options) of
 	ok ->
 	    ok;
@@ -2141,7 +2141,7 @@ default_option_role(_,_,_) ->
 default_cb_info(tls) ->
     {gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive};
 default_cb_info(dtls) ->
-    {gen_udp, udp, udp_closed, udp_error}.
+    {gen_udp, udp, udp_closed, udp_error, udp_passive}.
 
 include_security_info([]) ->
     false;

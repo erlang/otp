@@ -35,7 +35,8 @@
 	 terminate/2, code_change/3]).
 
 -record(state, 
-	{port, 
+	{active_n,
+         port,
 	 listener,
          transport,
 	 dtls_options,
@@ -76,10 +77,18 @@ set_sock_opts(PacketSocket, Opts) ->
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Port, {TransportModule, _,_,_} = TransportInfo, EmOpts, InetOptions, DTLSOptions]) ->
+init([Port, {TransportModule, _,_,_,_} = TransportInfo, EmOpts, InetOptions, DTLSOptions]) ->
     try 
 	{ok, Socket} = TransportModule:open(Port, InetOptions),
-	{ok, #state{port = Port,
+        InternalActiveN =  case application:get_env(ssl, internal_active_n) of
+                               {ok, N} when is_integer(N) ->
+                                   N;
+                               _  ->
+                                   ?INTERNAL_ACTIVE_N
+                           end,
+
+	{ok, #state{active_n = InternalActiveN,
+                    port = Port,
 		    first = true,
                     transport = TransportInfo,
 		    dtls_options = DTLSOptions,
@@ -92,10 +101,11 @@ init([Port, {TransportModule, _,_,_} = TransportInfo, EmOpts, InetOptions, DTLSO
 handle_call({accept, _}, _, #state{close = true} = State) ->
     {reply, {error, closed}, State};
 
-handle_call({accept, Accepter}, From, #state{first = true,
+handle_call({accept, Accepter}, From, #state{active_n = N,
+                                             first = true,
 					     accepters = Accepters,
 					     listener = Socket} = State0) ->
-    next_datagram(Socket),
+    next_datagram(Socket, N),
     State = State0#state{first = false,
 			 accepters = queue:in({Accepter, From}, Accepters)}, 		 
     {noreply, State};
@@ -137,19 +147,24 @@ handle_cast({active_once, Client, Pid}, State0) ->
     State = handle_active_once(Client, Pid, State0),
     {noreply, State}.
 
-handle_info({Transport, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket, transport = {_,Transport,_,_}} = State0) ->
+handle_info({Transport, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket, transport = {_,Transport,_,_,_}} = State0) ->
     State = handle_datagram({IP, InPortNo}, Msg, State0),
-    next_datagram(Socket),
     {noreply, State};
+
+handle_info({PassiveTag, Socket},
+            #state{active_n = N,
+                   listener = Socket,
+                   transport = {_,_,_, udp_error, PassiveTag}}) ->
+    next_datagram(Socket, N);
 
 %% UDP socket does not have a connection and should not receive an econnreset
 %% This does however happens on some windows versions. Just ignoring it
 %% appears to make things work as expected! 
-handle_info({udp_error, Socket, econnreset = Error}, #state{listener = Socket, transport = {_,_,_, udp_error}} = State) ->
+handle_info({udp_error, Socket, econnreset = Error}, #state{listener = Socket, transport = {_,_,_, udp_error,_}} = State) ->
     Report = io_lib:format("Ignore SSL UDP Listener: Socket error: ~p ~n", [Error]),
     ?LOG_NOTICE(Report),
     {noreply, State};
-handle_info({ErrorTag, Socket, Error}, #state{listener = Socket, transport = {_,_,_, ErrorTag}} = State) ->
+handle_info({ErrorTag, Socket, Error}, #state{listener = Socket, transport = {_,_,_, ErrorTag,_}} = State) ->
     Report = io_lib:format("SSL Packet muliplxer shutdown: Socket error: ~p ~n", [Error]),
     ?LOG_NOTICE(Report),
     {noreply, State#state{close=true}};
@@ -211,8 +226,8 @@ dispatch(Client, Msg, #state{dtls_msq_queues = MsgQueues} = State) ->
 				    kv_update(Client, queue:in(Msg, Queue), MsgQueues)}
 	    end
     end.
-next_datagram(Socket) ->
-    inet:setopts(Socket, [{active, once}]).
+next_datagram(Socket, N) ->
+    inet:setopts(Socket, [{active, N}]).
 
 handle_active_once(Client, Pid, #state{dtls_msq_queues = MsgQueues} = State0) ->
     Queue0 = kv_get(Client, MsgQueues),
