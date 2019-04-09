@@ -1006,10 +1006,8 @@ static void clear_fd_data(ErtsSysFdData *fdd)
 
 static void nbio_stop_fd(ErlDrvPort prt, ErtsSysFdData *fdd, int use)
 {
-    driver_select(prt, abs(fdd->fd), use ? ERL_DRV_USE_NO_CALLBACK : 0|DO_READ|DO_WRITE, 0);
     clear_fd_data(fdd);
     SET_BLOCKING(abs(fdd->fd));
-
 }
 
 static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
@@ -1026,10 +1024,12 @@ static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
 
     if (dd->ifd) {
         sz += sizeof(ErtsSysFdData);
+        driver_select(prt, abs(dd->ifd->fd), ERL_DRV_USE_NO_CALLBACK|DO_READ|DO_WRITE, 0);
         nbio_stop_fd(prt, dd->ifd, 1);
     }
     if (dd->ofd && dd->ofd != dd->ifd) {
         sz += sizeof(ErtsSysFdData);
+        driver_select(prt, abs(dd->ofd->fd), ERL_DRV_USE_NO_CALLBACK|DO_WRITE, 0);
         nbio_stop_fd(prt, dd->ofd, 1);
     }
 

@@ -842,6 +842,8 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
             ret = 0;
             goto done_unknown;
         }
+        /* For some reason (don't know why), we do not clean all
+           events when doing ERL_DRV_USE_NO_CALLBACK. */
         else if ((mode&ERL_DRV_USE_NO_CALLBACK) == ERL_DRV_USE) {
             mode |= (ERL_DRV_READ | ERL_DRV_WRITE);
         }
@@ -2491,6 +2493,10 @@ drvmode2str(int mode) {
     case ERL_DRV_WRITE|ERL_DRV_USE: return "WRITE|USE";
     case ERL_DRV_READ|ERL_DRV_WRITE|ERL_DRV_USE: return "READ|WRITE|USE";
     case ERL_DRV_USE: return "USE";
+    case ERL_DRV_READ|ERL_DRV_USE_NO_CALLBACK: return "READ|USE_NO_CB";
+    case ERL_DRV_WRITE|ERL_DRV_USE_NO_CALLBACK: return "WRITE|USE_NO_CB";
+    case ERL_DRV_READ|ERL_DRV_WRITE|ERL_DRV_USE_NO_CALLBACK: return "READ|WRITE|USE_NO_CB";
+    case ERL_DRV_USE_NO_CALLBACK: return "USE_NO_CB";
     case ERL_DRV_READ: return "READ";
     case ERL_DRV_WRITE: return "WRITE";
     case ERL_DRV_READ|ERL_DRV_WRITE: return "READ|WRITE";
