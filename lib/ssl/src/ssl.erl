@@ -1029,7 +1029,7 @@ getstat(Socket) ->
 %%
 %% Description: Get one or more statistic options for a socket.
 %%--------------------------------------------------------------------
-getstat(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _}}}}, Options) when is_port(Listen), is_list(Options) ->
+getstat(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _, _}}}}, Options) when is_port(Listen), is_list(Options) ->
     tls_socket:getstat(Transport, Listen, Options);
 
 getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _, _}}, Options) when is_pid(Pid), is_list(Options) ->
