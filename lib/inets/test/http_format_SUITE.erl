@@ -414,6 +414,19 @@ http_request(Config) when is_list(Config) ->
 				      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
 				     ]], HttpHead2),
 
+    %% If ?CR is is missing RFC2616 section-19.3
+    HttpHead3 = ["GET http://www.erlang.org HTTP/1.1", [?LF],
+                 "Accept: text/html", [?LF, ?LF]],
+    {"GET",
+     "http://www.erlang.org",
+     "HTTP/1.1",
+     {#http_request_h{}, [{"accept","text/html"}]}, <<>>} =
+	parse(httpd_request, parse, [[{max_header, ?HTTP_MAX_HEADER_SIZE},
+				      {max_version, ?HTTP_MAX_VERSION_STRING},
+				      {max_method, ?HTTP_MAX_METHOD_STRING},
+				      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH}
+				     ]], HttpHead3),
+
     %% Note the following body is not related to the headers above
     HttpBody = ["<HTML>\n<HEAD>\n<TITLE> dummy </TITLE>\n</HEAD>\n<BODY>\n",
 		"<H1>dummy</H1>\n</BODY>\n</HTML>\n"],
