@@ -749,7 +749,7 @@ cipher_suite_test(CipherSuite, Version, Config) ->
     ssl_test_lib:close(Client).
 
 erlang_cipher_suite(Suite) when is_list(Suite)->
-    ssl_cipher_format:suite_definition(ssl_cipher_format:openssl_suite(Suite));
+    ssl_cipher_format:suite_definition(ssl_cipher_format:suite_openssl_str_to_map(Suite));
 erlang_cipher_suite(Suite) ->
     Suite.
 

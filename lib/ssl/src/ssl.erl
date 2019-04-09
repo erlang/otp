@@ -789,14 +789,14 @@ cipher_suites() ->
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
 cipher_suites(erlang) ->
-    [ssl_cipher_format:erl_suite_definition(Suite) || Suite <- available_suites(default)];
+    [ssl_cipher_format:suite_legacy(Suite) || Suite <- available_suites(default)];
 
 cipher_suites(openssl) ->
-    [ssl_cipher_format:openssl_suite_name(Suite) ||
+    [ssl_cipher_format:suite_map_to_openssl_str(ssl_cipher_format:suite_bin_to_map(Suite)) ||
         Suite <- available_suites(default)];
 
 cipher_suites(all) ->
-    [ssl_cipher_format:erl_suite_definition(Suite) || Suite <- available_suites(all)].
+    [ssl_cipher_format:suite_legacy(Suite) || Suite <- available_suites(all)].
 
 %%--------------------------------------------------------------------
 -spec cipher_suites(default | all | anonymous, ssl_record:ssl_version() |
@@ -814,7 +814,7 @@ cipher_suites(Base, Version)  when Version == 'dtlsv1.2';
                                    Version == 'dtlsv1'->
     cipher_suites(Base, dtls_record:protocol_version(Version));                   
 cipher_suites(Base, Version) ->
-    [ssl_cipher_format:suite_definition(Suite) || Suite <- supported_suites(Base, Version)].
+    [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- supported_suites(Base, Version)].
 
 %%--------------------------------------------------------------------
 -spec filter_cipher_suites([erl_cipher_suite()] | [ssl_cipher_format:cipher_suite()] , 
@@ -1166,15 +1166,13 @@ tls_version({3, _} = Version) ->
 tls_version({254, _} = Version) ->
     dtls_v1:corresponding_tls_version(Version).
 
-
 %%--------------------------------------------------------------------
 -spec suite_to_str(erl_cipher_suite()) -> string().
 %%
 %% Description: Return the string representation of a cipher suite.
 %%--------------------------------------------------------------------
 suite_to_str(Cipher) ->
-    ssl_cipher_format:suite_to_str(Cipher).
-
+    ssl_cipher_format:suite_map_to_str(Cipher).
 
 %%%--------------------------------------------------------------
 %%% Internal functions
@@ -1814,10 +1812,10 @@ binary_cipher_suites(Version, []) ->
     %% not require explicit configuration
     default_binary_suites(Version);
 binary_cipher_suites(Version, [Map|_] = Ciphers0) when is_map(Map) ->
-    Ciphers = [ssl_cipher_format:suite(C) || C <- Ciphers0],
+    Ciphers = [ssl_cipher_format:suite_map_to_bin(C) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
-    Ciphers = [ssl_cipher_format:suite(tuple_to_map(C)) || C <- Ciphers0],
+    Ciphers = [ssl_cipher_format:suite_map_to_bin(tuple_to_map(C)) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
     All = ssl_cipher:all_suites(Version) ++ 
@@ -1832,11 +1830,11 @@ binary_cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) 
     end;
 binary_cipher_suites(Version, [Head | _] = Ciphers0) when is_list(Head) ->
     %% Format: ["RC4-SHA","RC4-MD5"]
-    Ciphers = [ssl_cipher_format:openssl_suite(C) || C <- Ciphers0],
+    Ciphers = [ssl_cipher_format:suite_openssl_str_to_map(C) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, Ciphers0)  ->
     %% Format: "RC4-SHA:RC4-MD5"
-    Ciphers = [ssl_cipher_format:openssl_suite(C) || C <- string:lexemes(Ciphers0, ":")],
+    Ciphers = [ssl_cipher_format:suite_openssl_str_to_map(C) || C <- string:lexemes(Ciphers0, ":")],
     binary_cipher_suites(Version, Ciphers).
 
 default_binary_suites(Version) ->

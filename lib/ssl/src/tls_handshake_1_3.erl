@@ -887,7 +887,7 @@ calculate_handshake_secrets(ClientKey, SelectedGroup, KeyShare,
         tls_v1:server_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages)),
 
     %% Calculate traffic keys
-    #{cipher := Cipher} = ssl_cipher_format:suite_definition(CipherSuite),
+    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientHSTrafficSecret),
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerHSTrafficSecret),
 
@@ -922,7 +922,7 @@ calculate_traffic_secrets(#state{connection_states = ConnectionStates,
         tls_v1:server_application_traffic_secret_0(HKDFAlgo, MasterSecret, lists:reverse(Messages)),
 
     %% Calculate traffic keys
-    #{cipher := Cipher} = ssl_cipher_format:suite_definition(CipherSuite),
+    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientAppTrafficSecret0),
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerAppTrafficSecret0),
 

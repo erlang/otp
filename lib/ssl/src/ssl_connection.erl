@@ -703,7 +703,7 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv,
                       connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv} = State0) ->
     #{key_exchange := KeyAlgorithm} =
-	ssl_cipher_format:suite_definition(CipherSuite),
+	ssl_cipher_format:suite_bin_to_map(CipherSuite),
     
     PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
 
@@ -1573,7 +1573,7 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
 		       connection_env = #connection_env{negotiated_version =  {_,_} = Version}, 
 		       ssl_options = Opts}) ->
     RecordCB = record_cb(Connection),
-    CipherSuiteDef = #{key_exchange := KexAlg} = ssl_cipher_format:suite_definition(CipherSuite),
+    CipherSuiteDef = #{key_exchange := KexAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     IsNamedCurveSuite = lists:member(KexAlg,
                                      [ecdh_ecdsa, ecdhe_ecdsa, ecdh_rsa, ecdhe_rsa, ecdh_anon]),
     CurveInfo = case ECCCurve of
@@ -1584,7 +1584,7 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
 		end,
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
-     {cipher_suite, ssl_cipher_format:erl_suite_definition(CipherSuiteDef)},
+     {cipher_suite, ssl_cipher_format:suite_legacy(CipherSuiteDef)},
      {selected_cipher_suite, CipherSuiteDef},
      {sni_hostname, SNIHostname} | CurveInfo] ++ ssl_options_list(Opts).
 
@@ -1711,7 +1711,7 @@ resumed_server_hello(#state{session = Session,
 
 server_hello(ServerHello, State0, Connection) ->
     CipherSuite = ServerHello#server_hello.cipher_suite,
-    #{key_exchange := KeyAlgorithm}  = ssl_cipher_format:suite_definition(CipherSuite),
+    #{key_exchange := KeyAlgorithm}  = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     #state{handshake_env = HsEnv} = State = Connection:queue_handshake(ServerHello, State0),
     State#state{handshake_env = HsEnv#handshake_env{kex_algorithm = KeyAlgorithm}}.
 
@@ -1726,7 +1726,7 @@ handle_peer_cert(Role, PeerCert, PublicKeyInfo,
     State1 = State0#state{handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo},
                           session =
                               Session#session{peer_certificate = PeerCert}},
-    #{key_exchange := KeyAlgorithm} = ssl_cipher_format:suite_definition(CipherSuite),
+    #{key_exchange := KeyAlgorithm} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     State = handle_peer_cert_key(Role, PeerCert, PublicKeyInfo, KeyAlgorithm, State1),
     Connection:next_event(certify, no_record, State).
 
@@ -2728,7 +2728,7 @@ ssl_options_list([ciphers = Key | Keys], [Value | Values], Acc) ->
    ssl_options_list(Keys, Values, 
 		    [{Key, lists:map(
 			     fun(Suite) -> 
-				     ssl_cipher_format:suite_definition(Suite) 
+				     ssl_cipher_format:suite_bin_to_map(Suite) 
 			     end, Value)} 
 		     | Acc]);
 ssl_options_list([Key | Keys], [Value | Values], Acc) ->

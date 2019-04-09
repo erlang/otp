@@ -182,7 +182,7 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
 %% Description: Creates a certificate_request message, called by the server.
 %%--------------------------------------------------------------------
 certificate_request(CipherSuite, CertDbHandle, CertDbRef, HashSigns, Version) ->
-    Types = certificate_types(ssl_cipher_format:suite_definition(CipherSuite), Version),
+    Types = certificate_types(ssl_cipher_format:suite_bin_to_map(CipherSuite), Version),
     Authorities = certificate_authorities(CertDbHandle, CertDbRef),
     #certificate_request{
 		    certificate_types = Types,
@@ -883,7 +883,7 @@ available_suites(ServerCert, UserSuites, Version, undefined, Curve) ->
     filter_unavailable_ecc_suites(Curve, Suites);
 available_suites(ServerCert, UserSuites, Version, HashSigns, Curve) ->
     Suites = available_suites(ServerCert, UserSuites, Version, undefined, Curve),
-    filter_hashsigns(Suites, [ssl_cipher_format:suite_definition(Suite) || Suite <- Suites], HashSigns, 
+    filter_hashsigns(Suites, [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- Suites], HashSigns, 
                      Version, []).
 
 available_signature_algs(undefined, _)  ->
@@ -1085,7 +1085,7 @@ add_common_extensions(Version,
 
     {EcPointFormats, EllipticCurves} =
         case advertises_ec_ciphers(
-               lists:map(fun ssl_cipher_format:suite_definition/1,
+               lists:map(fun ssl_cipher_format:suite_bin_to_map/1,
                          CipherSuites)) of
             true ->
                 client_ecc_extensions(SupportedECCs);
@@ -2990,7 +2990,7 @@ handle_renegotiation_info(_RecordCB, ConnectionStates, SecureRenegotation) ->
 cert_curve(_, _, no_suite) ->
     {no_curve, no_suite};
 cert_curve(Cert, ECCCurve0, CipherSuite) ->
-    case ssl_cipher_format:suite_definition(CipherSuite) of
+    case ssl_cipher_format:suite_bin_to_map(CipherSuite) of
         #{key_exchange := Kex} when Kex == ecdh_ecdsa; 
                                     Kex == ecdh_rsa ->
             OtpCert = public_key:pkix_decode_cert(Cert, otp),
