@@ -998,7 +998,9 @@ chkio_test({erts_poll_info, Before},
             During = get_check_io_total(erlang:system_info(check_io)),
             erlang:display(During),
 
-            0 = element(1, erts_debug:get_internal_state(check_io_debug)),
+            [0 = element(1, erts_debug:get_internal_state(check_io_debug)) ||
+                %% The pollset is not stable when running the fallback testcase
+                Test /= ?CHKIO_USE_FALLBACK_POLLSET],
             io:format("During test: ~p~n", [During]),
             chk_chkio_port(Port),
             case erlang:port_control(Port, ?CHKIO_STOP, "") of

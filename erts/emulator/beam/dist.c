@@ -775,19 +775,25 @@ void init_dist(void)
 static ERTS_INLINE ErtsDistOutputBuf *
 alloc_dist_obuf(Uint size, Uint headers)
 {
-    int i;
+    Uint obuf_size = sizeof(ErtsDistOutputBuf)*(headers);
     ErtsDistOutputBuf *obuf;
-    Uint obuf_size = sizeof(ErtsDistOutputBuf)*(headers) +
-        sizeof(byte)*size;
-    Binary *bin = erts_bin_drv_alloc(obuf_size);
-    obuf = (ErtsDistOutputBuf *) &bin->orig_bytes[size];
+    Binary *bin;
+    byte *extp;
+    int i;
+
+    bin = erts_bin_drv_alloc(obuf_size + size);
     erts_refc_add(&bin->intern.refc, headers - 1, 1);
+
+    obuf = (ErtsDistOutputBuf *)&bin->orig_bytes[0];
+    extp = (byte *)&bin->orig_bytes[obuf_size];
+
     for (i = 0; i < headers; i++) {
         obuf[i].bin = bin;
-        obuf[i].extp = (byte *)&bin->orig_bytes[0];
+        obuf[i].extp = extp;
 #ifdef DEBUG
         obuf[i].dbg_pattern = ERTS_DIST_OUTPUT_BUF_DBG_PATTERN;
-        obuf[i].alloc_endp = obuf->extp + size;
+        obuf[i].ext_startp = extp;
+        obuf[i].alloc_endp = &extp[size];
         ASSERT(bin == ErtsDistOutputBuf2Binary(obuf));
 #endif
     }
@@ -1360,7 +1366,7 @@ erts_dist_seq_tree_foreach_delete_yielding(DistSeqNode **root,
                                                limit);
     if (res > 0) {
 	if (ysp != &ys)
-	    erts_free(ERTS_ALC_T_ML_YIELD_STATE, ysp);
+	    erts_free(ERTS_ALC_T_SEQ_YIELD_STATE, ysp);
 	*vyspp = NULL;
     }
     else {
@@ -2341,7 +2347,8 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                 (ctx->fragments-1) * ERTS_DIST_FRAGMENT_HEADER_SIZE,
                 ctx->fragments);
             ctx->obuf->ext_start = &ctx->obuf->extp[0];
-	    ctx->obuf->ext_endp = &ctx->obuf->extp[0] + ctx->max_finalize_prepend + ctx->dhdr_ext_size;
+	    ctx->obuf->ext_endp = &ctx->obuf->extp[0] + ctx->max_finalize_prepend
+                + ctx->dhdr_ext_size;
 
 	    /* Encode internal version of dist header */
 	    ctx->obuf->extp = erts_encode_ext_dist_header_setup(
@@ -2380,8 +2387,8 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 	case ERTS_DSIG_SEND_PHASE_FIN: {
 
 	    ASSERT(ctx->obuf->extp < ctx->obuf->ext_endp);
-	    ASSERT(((byte*)&ctx->obuf->bin->orig_bytes[0]) <= ctx->obuf->extp - ctx->max_finalize_prepend);
-	    ASSERT(ctx->obuf->ext_endp <= ((byte*)ctx->obuf->bin->orig_bytes) + ctx->data_size + ctx->dhdr_ext_size);
+	    ASSERT(ctx->obuf->ext_startp <= ctx->obuf->extp - ctx->max_finalize_prepend);
+	    ASSERT(ctx->obuf->ext_endp <= (byte*)ctx->obuf->ext_startp + ctx->data_size + ctx->dhdr_ext_size);
 
 	    ctx->data_size = ctx->obuf->ext_endp - ctx->obuf->extp;
 
@@ -3457,6 +3464,7 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
         pb->bytes = (byte*) obuf->extp;
         pb->flags = 0;
         res = make_binary(pb);
+        hp += PROC_BIN_SIZE;
     } else {
         hp =  HAlloc(BIF_P, PROC_BIN_SIZE * 2 + 4 + hsz);
         pb = (ProcBin *) (char *) hp;

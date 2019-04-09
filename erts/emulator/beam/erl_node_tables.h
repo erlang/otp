@@ -95,6 +95,7 @@ enum dist_entry_state {
 struct ErtsDistOutputBuf_ {
 #ifdef DEBUG
     Uint dbg_pattern;
+    byte *ext_startp;
     byte *alloc_endp;
 #endif
     ErtsDistOutputBuf *next;

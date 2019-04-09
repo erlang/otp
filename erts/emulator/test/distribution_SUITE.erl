@@ -39,6 +39,8 @@
 -define(Line,).
 
 -export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
          ping/1, bulk_send_small/1,
          group_leader/1,
          optimistic_dflags/1,
@@ -118,6 +120,28 @@ groups() ->
        message_latency_large_monitor_exit,
        message_latency_large_exit2]}
     ].
+
+init_per_suite(Config) ->
+    {ok, Apps} = application:ensure_all_started(os_mon),
+    [{started_apps, Apps} | Config].
+
+end_per_suite(Config) ->
+    Apps = proplists:get_value(started_apps, Config),
+    [application:stop(App) || App <- lists:reverse(Apps)],
+    Config.
+
+init_per_group(message_latency, Config) ->
+    Free = free_memory(),
+    if Free < 2048 ->
+            {skip, "Not enough memory"};
+       true ->
+            Config
+    end;
+init_per_group(_, Config) ->
+    Config.
+
+end_per_group(_, Config) ->
+    Config.
 
 %% Tests pinging a node in different ways.
 ping(Config) when is_list(Config) ->
@@ -2845,3 +2869,23 @@ uint8(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 8 ->
     Uint band 16#ff;
 uint8(Uint) ->
     exit({badarg, uint8, [Uint]}).
+
+free_memory() ->
+    %% Free memory in MB.
+    try
+	SMD = memsup:get_system_memory_data(),
+	{value, {free_memory, Free}} = lists:keysearch(free_memory, 1, SMD),
+	TotFree = (Free +
+		   case lists:keysearch(cached_memory, 1, SMD) of
+		       {value, {cached_memory, Cached}} -> Cached;
+		       false -> 0
+		   end +
+		   case lists:keysearch(buffered_memory, 1, SMD) of
+		       {value, {buffered_memory, Buffed}} -> Buffed;
+		       false -> 0
+		   end),
+	TotFree div (1024*1024)
+    catch
+	error : undef ->
+	    ct:fail({"os_mon not built"})
+    end.
