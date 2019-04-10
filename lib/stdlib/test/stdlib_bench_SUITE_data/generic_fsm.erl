@@ -24,7 +24,7 @@
 -export([init/1, terminate/3]).
 -export([state1/3, state2/3]).
 
--behaivour(gen_fsm).
+-behaviour(gen_fsm).
 
 
 %% API

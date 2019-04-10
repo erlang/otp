@@ -68,7 +68,7 @@ config_change(Changed, New, Removed) ->
 %%%          	      auth, ...)     ...)
 %%%
 %%% The rectangular boxes are supervisors.  All supervisors except
-%%% for kernel_safe_sup terminates the enitre erlang node if any of
+%%% for kernel_safe_sup terminates the entire erlang node if any of
 %%% their children dies.  Any child that can't be restarted in case
 %%% of failure must be placed under one of these supervisors.  Any
 %%% other child must be placed under safe_sup.  These children may

@@ -33,7 +33,7 @@
          init/1, handle_info/2, handle_event/2, handle_call/3,
          code_change/3, terminate/2]).
 
--behavoiur(wx_object).
+-behaviour(wx_object).
 
 -record(state, {win}).
 

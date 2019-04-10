@@ -271,7 +271,7 @@ no_client_hello(Config) ->
 
     %% Tell server to receive a get request and then die without
     %% replying since no hello has been received. (is this correct
-    %% behavoiur??)
+    %% behaviour??)
     ?NS:expect_do(get,close),
     {error,closed} = ct_netconfc:get(Client,whatever),
     ok.
