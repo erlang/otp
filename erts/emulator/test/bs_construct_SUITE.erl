@@ -16,8 +16,6 @@
 %% limitations under the License.
 %% 
 %% %CopyrightEnd%
-%%
-%% Purpose : Common utilities used by several optimization passes.
 %% 
 
 -module(bs_construct_SUITE).
