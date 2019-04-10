@@ -32,6 +32,7 @@ MODULES =  \
 	make_SUITE \
 	tools_SUITE \
 	xref_SUITE \
+	prof_bench_SUITE \
 	ignore_cores
 
 ERL_FILES= $(MODULES:%=%.erl)
@@ -41,7 +42,7 @@ INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
 
-SPEC_FILES= tools.spec
+SPEC_FILES= tools.spec tools_bench.spec
 COVER_FILE = tools.cover
 
 # ----------------------------------------------------
