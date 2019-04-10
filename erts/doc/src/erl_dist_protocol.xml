@@ -829,6 +829,14 @@ DiB == gen_digest(ChA, ICA)?
         <item>
           <p>The node understand UTF-8 encoded atoms.</p>
         </item>
+        <tag><c>-define(DFLAG_MAP_TAG, 16#20000).</c></tag>
+        <item>
+          <p>The node understand the map tag.</p>
+        </item>
+        <tag><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
+        <item>
+          <p>The node understand big node creation.</p>
+        </item>
       </taglist>
     </section>
   </section>
