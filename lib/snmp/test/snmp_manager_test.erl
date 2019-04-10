@@ -204,10 +204,15 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     Result = 
 	case lists:member(Case, DeprecatedApiCases) of
 	    true ->
-		%% ?SKIP(api_no_longer_supported);
 		{skip, api_no_longer_supported};
 	    false ->
-		init_per_testcase2(Case, Config)
+		try init_per_testcase2(Case, Config)
+                catch
+                    C:{skip, _} = E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+                        E;
+                    C:E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+                        {skip, {catched, C, E}}
+                end
 	end,
     p(Case, "init_per_testcase end when"
       "~n      Nodes:  ~p"
@@ -326,9 +331,25 @@ init_per_testcase3(Case, Config) ->
 			true ->
 			    Config
 		    end,
+            %% We don't need to try catch this (init_agent)
+            %% since we have a try catch "higher up"...
 	    Conf2 = init_agent(Conf1),
-	    Conf3 = init_manager(AutoInform, Conf2), 
-	    Conf4 = init_mgr_user(Conf3),
+	    Conf3 = try init_manager(AutoInform, Conf2)
+                    catch AC:AE:_ ->
+                            %% Ouch we need to clean up: 
+                            %% The init_agent starts an agent node!
+                            init_per_testcase_fail_agent_cleanup(Conf2),
+                            throw({skip, {manager_init_failed, AC, AE}})
+                    end,
+	    Conf4 = try init_mgr_user(Conf3)
+                    catch MC:ME:_ ->
+                            %% Ouch we need to clean up: 
+                            %% The init_agent starts an agent node!
+                            %% The init_magager starts an manager node!
+                            init_per_testcase_fail_manager_cleanup(Conf3),
+                            init_per_testcase_fail_agent_cleanup(Conf3),
+                            throw({skip, {manager_user_init_failed, MC, ME}})
+                    end,
 	    case lists:member(Case, ApiCases02 ++ ApiCases03) of
 		true ->
 		    init_mgr_user_data2(Conf4);
@@ -338,6 +359,12 @@ init_per_testcase3(Case, Config) ->
 	false ->
 	    Config
     end.
+
+init_per_testcase_fail_manager_cleanup(Conf) ->
+    (catch fin_manager(Conf)).
+
+init_per_testcase_fail_agent_cleanup(Conf) ->
+    (catch fin_agent(Conf)).
 
 end_per_testcase(Case, Config) when is_list(Config) ->
     p(Case, "end_per_testcase begin when"
@@ -5416,15 +5443,14 @@ init_manager(AutoInform, Config) ->
 	    start_manager(Node, Vsns, Conf)
 	end
     catch
-	T:E ->
-	    StackTrace = ?STACK(), 
+	C:E:S ->
 	    p("Failure during manager start: "
-	      "~n      Error Type: ~p"
-	      "~n      Error:      ~p"
-	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	      "~n      Error Class: ~p"
+	      "~n      Error:       ~p"
+	      "~n      StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
 	    (catch stop_node(Node)), 
-	    ?FAIL({failed_starting_manager, T, E, StackTrace})
+	    ?FAIL({failed_starting_manager, C, E, S})
     end.
 
 fin_manager(Config) ->
@@ -5432,7 +5458,7 @@ fin_manager(Config) ->
     StopMgrRes    = stop_manager(Node),
     StopCryptoRes = fin_crypto(Node),
     StopNode      = stop_node(Node),
-    p("fin_agent -> stop apps and (mgr node ~p) node results: "
+    p("fin_manager -> stop apps and (mgr node ~p) node results: "
       "~n      SNMP Mgr: ~p"
       "~n      Crypto:   ~p"
       "~n      Node:     ~p", 
@@ -5498,15 +5524,14 @@ init_agent(Config) ->
 	    start_agent(Node, Vsns, Conf)
 	end
     catch
-	T:E ->
-	    StackTrace = ?STACK(), 
+	C:E:S ->
 	    p("Failure during agent start: "
-	      "~n      Error Type: ~p"
-	      "~n      Error:      ~p"
-	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	      "~n      Error Class: ~p"
+	      "~n      Error:       ~p"
+	      "~n      StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
 	    (catch stop_node(Node)), 
-	    ?FAIL({failed_starting_agent, T, E, StackTrace})
+	    ?FAIL({failed_starting_agent, C, E, S})
     end.
 	      
 
