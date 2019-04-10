@@ -160,7 +160,7 @@ static int test_engine_md5_update(EVP_MD_CTX *ctx,const void *data, size_t count
 
 static int test_engine_md5_final(EVP_MD_CTX *ctx,unsigned char *md) {
 #ifdef OLD
-    fprintf(stderr, "MD5 final size of EVP_MD: %lu\r\n", sizeof(EVP_MD));
+    fprintf(stderr, "MD5 final size of EVP_MD: %lu\r\n", (unsigned long)sizeof(EVP_MD));
     if (!MD5_Final(md, data(ctx)))
         goto err;
 

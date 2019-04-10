@@ -522,6 +522,11 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     const struct cipher_type_t *cipherp;
     ERL_NIF_TERM ret;
 
+    ctx_res.ctx = NULL;
+#if !defined(HAVE_EVP_AES_CTR)
+    ctx_res.env = NULL;
+#endif
+
     if (!get_init_args(env, &ctx_res, argv[0], argv[1], argv[2], argv[4], &cipherp, &ret))
         goto ret;
 
@@ -530,8 +535,15 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
  ret:
     if (ctx_res.ctx)
         EVP_CIPHER_CTX_free(ctx_res.ctx);
+
+#if !defined(HAVE_EVP_AES_CTR)
+    if (ctx_res.env)
+         enif_free_env(ctx_res.env);
+#endif
+
     return ret;
 }
+
 
 ERL_NIF_TERM ng_crypto_one_time_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Cipher, Key, IVec, Data, Encrypt)  % if no IV for the Cipher, set IVec = <<>>
