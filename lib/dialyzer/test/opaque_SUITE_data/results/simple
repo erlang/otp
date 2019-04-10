@@ -63,9 +63,9 @@ simple1_api.erl:381: Invalid type specification for function simple1_api:bool_ad
 simple1_api.erl:407: The size simple1_adt:i1() breaks the opacity of A
 simple1_api.erl:418: The attempt to match a term of type non_neg_integer() against the variable A breaks the opacity of simple1_adt:i1()
 simple1_api.erl:425: The attempt to match a term of type non_neg_integer() against the variable B breaks the opacity of simple1_adt:i1()
-simple1_api.erl:432: The pattern <<_:B/integer-unit:1>> can never match the type any()
+simple1_api.erl:432: The pattern <<_:B>> can never match the type any()
 simple1_api.erl:448: The attempt to match a term of type non_neg_integer() against the variable Sz breaks the opacity of simple1_adt:i1()
-simple1_api.erl:460: The attempt to match a term of type simple1_adt:bit1() against the pattern <<_/binary-unit:8>> breaks the opacity of the term
+simple1_api.erl:460: The attempt to match a term of type simple1_adt:bit1() against the pattern <<_/binary>> breaks the opacity of the term
 simple1_api.erl:478: The call 'foo':A(A::simple1_adt:a()) breaks the opacity of the term A :: simple1_adt:a()
 simple1_api.erl:486: The call A:'foo'(A::simple1_adt:a()) breaks the opacity of the term A :: simple1_adt:a()
 simple1_api.erl:499: The call 'foo':A(A::simple1_api:i()) requires that A is of type atom() not simple1_api:i()
