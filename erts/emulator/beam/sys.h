@@ -63,6 +63,14 @@
 #  endif
 #endif
 
+#ifndef ERTS_NOINLINE
+#  if ERTS_AT_LEAST_GCC_VSN__(3,1,1)
+#    define ERTS_NOINLINE __attribute__((__noinline__))
+#  else
+#    define ERTS_NOINLINE
+#  endif
+#endif
+
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 #  undef ERTS_CAN_INLINE
 #  define ERTS_CAN_INLINE 0

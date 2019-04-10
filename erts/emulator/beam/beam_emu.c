@@ -375,44 +375,33 @@ do {                                            \
 
 /*
  * process_main() is already huge, so we want to avoid inlining
- * into it. Especially functions that are seldom used.
+ * seldom used functions into it.
  */
-#ifdef __GNUC__
-#  define NOINLINE __attribute__((__noinline__))
-#else
-#  define NOINLINE
-#endif
-
-
-/*
- * The following functions are called directly by process_main().
- * Don't inline them.
- */
-static void init_emulator_finish(void) NOINLINE;
-static ErtsCodeMFA *ubif2mfa(void* uf) NOINLINE;
+static void init_emulator_finish(void) ERTS_NOINLINE;
+static ErtsCodeMFA *ubif2mfa(void* uf) ERTS_NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
-			       Eterm* reg, ErtsCodeMFA* bif_mfa) NOINLINE;
+			       Eterm* reg, ErtsCodeMFA* bif_mfa) ERTS_NOINLINE;
 static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
-				     Eterm* reg, Eterm func) NOINLINE;
+				     Eterm* reg, Eterm func) ERTS_NOINLINE;
 static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
-			      BeamInstr *I, Uint offs) NOINLINE;
+			      BeamInstr *I, Uint offs) ERTS_NOINLINE;
 static BeamInstr* apply(Process* p, Eterm* reg,
-                        BeamInstr *I, Uint offs) NOINLINE;
+                        BeamInstr *I, Uint offs) ERTS_NOINLINE;
 static BeamInstr* call_fun(Process* p, int arity,
-			   Eterm* reg, Eterm args) NOINLINE;
+			   Eterm* reg, Eterm args) ERTS_NOINLINE;
 static BeamInstr* apply_fun(Process* p, Eterm fun,
-			    Eterm args, Eterm* reg) NOINLINE;
+			    Eterm args, Eterm* reg) ERTS_NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
-		     ErlFunEntry* fe, int num_free) NOINLINE;
+		     ErlFunEntry* fe, int num_free) ERTS_NOINLINE;
 static int is_function2(Eterm Term, Uint arity);
 static Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
-                             Uint n, BeamInstr* ptr) NOINLINE;
+                             Uint n, BeamInstr* ptr) ERTS_NOINLINE;
 static Eterm erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
-                               Uint live, BeamInstr* ptr) NOINLINE;
+                               Uint live, BeamInstr* ptr) ERTS_NOINLINE;
 static Eterm erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
-                              Uint n, BeamInstr* new_p) NOINLINE;
+                              Uint n, BeamInstr* new_p) ERTS_NOINLINE;
 static Eterm erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
-                              Uint n, Eterm* new_p) NOINLINE;
+                              Uint n, Eterm* new_p) ERTS_NOINLINE;
 static Eterm get_map_element(Eterm map, Eterm key);
 static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
 
