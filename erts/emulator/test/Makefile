@@ -124,6 +124,7 @@ MODULES= \
 	send_term_SUITE \
 	sensitive_SUITE \
 	signal_SUITE \
+	small_SUITE \
 	smoke_test_SUITE \
 	$(SOCKET_MODULES) \
 	statistics_SUITE \

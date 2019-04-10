@@ -51,11 +51,50 @@ plus.fetch(Op1, Op2) {
 
 plus.execute(Fail, Dst) {
     if (ERTS_LIKELY(is_both_small(PlusOp1, PlusOp2))) {
+#ifdef HAVE_OVERFLOW_CHECK_BUILTINS
+        Sint lhs_tagged, rhs_untagged, res;
+
+        /* The value part of immediate integers start right after the tag and
+         * occupy the rest of the word, so if you squint a bit they look like
+         * fixed-point integers; as long as you mask the tag away you will get
+         * correct results from addition/subtraction since they share the same
+         * notion of zero. It's fairly easy to see that the following holds
+         * when (a + b) is in range:
+         *
+         *     (a >> s) + (b >> s) == ((a & ~m) + (b & ~m)) >> s
+         *
+         * Where 's' is the tag size and 'm' is the tag mask.
+         *
+         * The left-hand side is our fallback in the #else clause and is the
+         * fastest way to do this safely in plain C. The actual addition will
+         * never overflow since `Sint` has a much greater range than our
+         * smalls, so we can use the IS_SSMALL macro to see if the result is
+         * within range.
+         *
+         * What we're doing below is an extension of the right-hand side. By
+         * treating `a` and `b` as fixed-point integers, all additions whose
+         * result is out of range will also overflow `Sint` and we can use the
+         * compiler's overflow intrinsics to check for this condition.
+         *
+         * In addition, since the tag lives in the lowest bits we can further
+         * optimize this by only stripping the tag from either side. The higher
+         * bits can't influence the tag bits since we bail on overflow, so the
+         * tag bits from the tagged side will simply appear in the result. */
+        lhs_tagged = PlusOp1;
+        rhs_untagged = PlusOp2 & ~_TAG_IMMED1_MASK;
+
+        if (ERTS_LIKELY(!__builtin_add_overflow(lhs_tagged, rhs_untagged, &res))) {
+            ASSERT(is_small(res));
+            $Dst = res;
+            $NEXT0();
+        }
+#else
         Sint i = signed_val(PlusOp1) + signed_val(PlusOp2);
         if (ERTS_LIKELY(IS_SSMALL(i))) {
             $Dst = make_small(i);
             $NEXT0();
         }
+#endif
     }
     $OUTLINED_ARITH_2($Fail, mixed_plus, BIF_splus_2, PlusOp1, PlusOp2, $Dst);
 }
@@ -73,11 +112,26 @@ minus.fetch(Op1, Op2) {
 
 minus.execute(Fail, Dst) {
     if (ERTS_LIKELY(is_both_small(MinusOp1, MinusOp2))) {
+#ifdef HAVE_OVERFLOW_CHECK_BUILTINS
+        Sint lhs_tagged, rhs_untagged, res;
+
+        /* See plus.execute */
+        lhs_tagged = MinusOp1;
+        rhs_untagged = MinusOp2 & ~_TAG_IMMED1_MASK;
+
+        if (ERTS_LIKELY(!__builtin_sub_overflow(lhs_tagged, rhs_untagged, &res))) {
+            ASSERT(is_small(res));
+            $Dst = res;
+            $NEXT0();
+        }
+#else
         Sint i = signed_val(MinusOp1) - signed_val(MinusOp2);
+
         if (ERTS_LIKELY(IS_SSMALL(i))) {
             $Dst = make_small(i);
             $NEXT0();
         }
+#endif
     }
     $OUTLINED_ARITH_2($Fail, mixed_minus, BIF_sminus_2, MinusOp1, MinusOp2, $Dst);
 }
@@ -97,12 +151,27 @@ increment.execute(IncrementVal, Dst) {
     Eterm result;
 
     if (ERTS_LIKELY(is_small(increment_reg_val))) {
+#ifdef HAVE_OVERFLOW_CHECK_BUILTINS
+        Sint lhs_tagged, rhs_untagged, res;
+
+        /* See plus.execute */
+        lhs_tagged = increment_reg_val;
+        rhs_untagged = (Sint)increment_val << _TAG_IMMED1_SIZE;
+
+        if (ERTS_LIKELY(!__builtin_add_overflow(lhs_tagged, rhs_untagged, &res))) {
+            ASSERT(is_small(res));
+            $Dst = res;
+            $NEXT0();
+        }
+#else
         Sint i = signed_val(increment_reg_val) + increment_val;
         if (ERTS_LIKELY(IS_SSMALL(i))) {
             $Dst = make_small(i);
             $NEXT0();
         }
+#endif
     }
+
     result = erts_mixed_plus(c_p, increment_reg_val, make_small(increment_val));
     ERTS_HOLE_CHECK(c_p);
     if (ERTS_LIKELY(is_value(result))) {
@@ -118,11 +187,15 @@ i_times(Fail, Op1, Op2, Dst) {
     Eterm op2 = $Op2;
 #ifdef HAVE_OVERFLOW_CHECK_BUILTINS
     if (ERTS_LIKELY(is_both_small(op1, op2))) {
-        Sint a = signed_val(op1);
-        Sint b = signed_val(op2);
-        Sint res;
-        if (ERTS_LIKELY(!__builtin_mul_overflow(a, b, &res) && IS_SSMALL(res))) {
-            $Dst = make_small(res);
+        /* See plus.execute */
+        Sint lhs_untagged, rhs_actual, res;
+
+        lhs_untagged = op1 & ~_TAG_IMMED1_MASK;
+        rhs_actual = signed_val(op2);
+
+        if (ERTS_LIKELY(!__builtin_mul_overflow(lhs_untagged, rhs_actual, &res))) {
+            ASSERT(!(res & _TAG_IMMED1_MASK));
+            $Dst = res | _TAG_IMMED1_SMALL;
             $NEXT0();
         }
     }
