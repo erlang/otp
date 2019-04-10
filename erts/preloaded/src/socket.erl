@@ -1664,13 +1664,25 @@ recv(Socket, Length) ->
          ?SOCKET_RECV_FLAGS_DEFAULT,
          ?SOCKET_RECV_TIMEOUT_DEFAULT).
 
--spec recv(Socket, Length, Flags) -> {ok, Data} | {error, Reason} when
+-spec recv(Socket, Length, Flags) -> {ok, Data} |
+                                     {error, Reason} when
       Socket :: socket(),
       Length :: non_neg_integer(),
       Flags  :: recv_flags(),
       Data   :: binary(),
       Reason :: term()
-                ; (Socket, Length, Timeout) -> {ok, Data} | {error, Reason} when
+                ; (Socket, Length, nowait) -> {ok, Data} |
+                                              {ok, {Data, SelInfo}} |
+                                              {ok, SelInfo} |
+                                              {error, Reason} when
+      Socket  :: socket(),
+      Length  :: non_neg_integer(),
+      Data    :: binary(),
+      SelInfo :: {select, RecvRef},
+      RecvRef :: reference(),
+      Reason  :: term()
+                 ; (Socket, Length, Timeout) -> {ok, Data} |
+                                                {error, Reason} when
       Socket  :: socket(),
       Length  :: non_neg_integer(),
       Timeout :: timeout(),
@@ -1682,7 +1694,19 @@ recv(Socket, Length, Flags) when is_list(Flags) ->
 recv(Socket, Length, Timeout) ->
     recv(Socket, Length, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
 
--spec recv(Socket, Length, Flags, Timeout) -> {ok, Data} | {error, Reason} when
+-spec recv(Socket, Length, Flags, nowait) -> {ok, Data} |
+                                             {ok, {Data, SelInfo}} |
+                                             {ok, SelInfo} |
+                                             {error, Reason} when
+      Socket  :: socket(),
+      Length  :: non_neg_integer(),
+      Flags   :: recv_flags(),
+      Data    :: binary(),
+      SelInfo :: {select, RecvRef},
+      RecvRef :: reference(),
+      Reason  :: term()
+                 ; (Socket, Length, Flags, Timeout) -> {ok, Data} |
+                                                       {error, Reason} when
       Socket  :: socket(),
       Length  :: non_neg_integer(),
       Flags   :: recv_flags(),
@@ -1693,7 +1717,9 @@ recv(Socket, Length, Timeout) ->
 recv(#socket{ref = SockRef}, Length, Flags, Timeout)
   when (is_integer(Length) andalso (Length >= 0)) andalso
        is_list(Flags) andalso
-       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
+       (is_integer(Timeout) orelse 
+        (Timeout =:= infinity) orelse 
+        (Timeout =:= nowait))  ->
     EFlags = enc_recv_flags(Flags),
     do_recv(SockRef, undefined, Length, EFlags, <<>>, Timeout).
 
@@ -1701,8 +1727,12 @@ recv(#socket{ref = SockRef}, Length, Flags, Timeout)
 %% with Length = 0. This case makes it neccessary to have a timeout function
 %% clause since we may never wait for anything (no receive select), and so the
 %% the only timeout check will be the function clause.
+%% Note that the Timeout value of 'nowait' has a special meaning. It means
+%% that we will either return with data or with the with {error, NNNN}. In
+%% wich case the caller will receive a select message at some later time.
 do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
-  when (Timeout =:= infinity) orelse
+  when (Timeout =:= nowait) orelse
+       (Timeout =:= infinity) orelse
        (is_integer(Timeout) andalso (Timeout > 0)) ->
     TS      = timestamp(Timeout),
     RecvRef = make_ref(),
@@ -1722,6 +1752,16 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                     Length, EFlags,
                     <<Acc/binary, Bin/binary>>,
                     next_timeout(TS, Timeout));
+
+
+        %% Did not get all the user asked for, but the user also
+        %% specified 'nowait', so deliver what we got and the 
+        %% select info.
+        {ok, false = _Completed, Bin} when (Timeout =:= nowait) andalso 
+                                           (size(Acc) =:= 0) ->
+            SelInfo = {select, RecvRef},
+            {ok, {Bin, SelInfo}};
+
 
         {ok, false = _Completed, Bin} when (size(Acc) =:= 0) ->
             %% We got the first chunk of it.
@@ -1760,6 +1800,21 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                     cancel(SockRef, recv, RecvRef),
                     {error, {timeout, Acc}}
             end;
+
+
+        %% The user does not want to wait!
+        %% The user will be informed that there is something to read
+        %% via the select socket message (see below).
+
+        {error, eagain} when (Timeout =:= nowait) ->
+            SelInfo = {select, RecvRef},
+            if
+                (size(Acc) =:= 0) ->
+                    {ok, SelInfo};
+                true ->
+                    {ok, {Acc, SelInfo}}
+            end;
+
 
         %% We return with the accumulated binary (if its non-empty)
         {error, eagain} when (Length =:= 0) andalso (size(Acc) > 0) ->
@@ -3462,6 +3517,8 @@ flush_select_msgs(SockRef, Ref) ->
 
 %% A timestamp in ms
 
+timestamp(nowait = T) ->
+    T;
 timestamp(infinity) ->
     undefined;
 timestamp(_) ->
@@ -3471,6 +3528,8 @@ timestamp() ->
     {A,B,C} = os:timestamp(),
     A*1000000000+B*1000+(C div 1000).
 
+next_timeout(_, nowait = Timeout) ->
+    Timeout;
 next_timeout(_, infinity = Timeout) ->
     Timeout;
 next_timeout(TS, Timeout) ->
