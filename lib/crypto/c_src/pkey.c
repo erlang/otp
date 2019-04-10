@@ -254,7 +254,9 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 {
     EVP_PKEY *result = NULL;
     RSA *rsa = NULL;
+#ifdef HAVE_DSA
     DSA *dsa = NULL;
+#endif
 #if defined(HAVE_EC)
     EC_KEY *ec = NULL;
 #endif
@@ -327,6 +329,7 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
             return PKEY_NOTSUP;
 #endif
     } else if (algorithm == atom_dss) {
+#ifdef HAVE_DSA
         if ((dsa = DSA_new()) == NULL)
             goto err;
         if (!get_dss_private_key(env, key, dsa))
@@ -340,9 +343,9 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
         dsa = NULL;
 
     } else {
+#endif
 	return PKEY_BADARG;
     }
-
     goto done;
 
  err:
@@ -357,8 +360,10 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
         enif_free(id);
     if (rsa)
         RSA_free(rsa);
+#ifdef HAVE_DSA
     if (dsa)
         DSA_free(dsa);
+#endif
 #ifdef HAVE_EC
     if (ec)
         EC_KEY_free(ec);
@@ -377,7 +382,9 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 {
     EVP_PKEY *result = NULL;
     RSA *rsa = NULL;
+#ifdef HAVE_DSA
     DSA *dsa = NULL;
+#endif
 #if defined(HAVE_EC)
     EC_KEY *ec = NULL;
 #endif
@@ -449,6 +456,7 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 	return PKEY_NOTSUP;
 #endif
     } else if (algorithm == atom_dss) {
+#ifdef HAVE_DSA
         if ((dsa = DSA_new()) == NULL)
             goto err;
 
@@ -461,7 +469,9 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
             goto err;
         /* On success, result owns dsa */
         dsa = NULL;
-
+#else
+        return PKEY_NOTSUP;
+#endif
     } else {
 	return PKEY_BADARG;
     }
@@ -480,8 +490,10 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
         enif_free(id);
     if (rsa)
         RSA_free(rsa);
+#ifdef HAVE_DSA
     if (dsa)
         DSA_free(dsa);
+#endif
 #ifdef HAVE_EC
     if (ec)
         EC_KEY_free(ec);
@@ -518,7 +530,9 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     unsigned char *tbs; /* data to be signed */
     size_t tbslen;
     RSA *rsa = NULL;
+#ifdef HAVE_DSA
     DSA *dsa = NULL;
+#endif
 #if defined(HAVE_EC)
     EC_KEY *ec = NULL;
 #endif
@@ -706,8 +720,10 @@ enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
         enif_release_binary(&sig_bin);
     if (rsa)
         RSA_free(rsa);
+#ifdef HAVE_DSA
     if (dsa)
         DSA_free(dsa);
+#endif
 #ifdef HAVE_EC
     if (ec)
         EC_KEY_free(ec);
@@ -744,7 +760,9 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     size_t tbslen;
     ERL_NIF_TERM ret;
     RSA *rsa = NULL;
+#ifdef HAVE_DSA
     DSA *dsa = NULL;
+#endif
 #ifdef HAVE_EC
     EC_KEY *ec = NULL;
 #endif
@@ -890,8 +908,10 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
         EVP_PKEY_free(pkey);
     if (rsa)
         RSA_free(rsa);
+#ifdef HAVE_DSA
     if (dsa)
         DSA_free(dsa);
+#endif
 #ifdef HAVE_EC
     if (ec)
         EC_KEY_free(ec);
@@ -1358,7 +1378,9 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ERL_NIF_TERM ret;
     EVP_PKEY *pkey = NULL;
     RSA *rsa = NULL;
+#ifdef HAVE_DSA
     DSA *dsa = NULL;
+#endif
     ERL_NIF_TERM result[8];
 
     ASSERT(argc == 2);
@@ -1383,6 +1405,7 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
         ret = enif_make_list_from_array(env, result, 2);
 
+#ifdef HAVE_DSA
     } else if (argv[0] == atom_dss) {
         const BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub_key = NULL;
 
@@ -1402,7 +1425,7 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             goto err;
 
         ret = enif_make_list_from_array(env, result, 4);
-
+#endif
     } else if (argv[0] == atom_ecdsa) {
 #if defined(HAVE_EC)
         /* not yet implemented
@@ -1452,8 +1475,10 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
  done:
     if (rsa)
         RSA_free(rsa);
+#ifdef HAVE_DSA
     if (dsa)
         DSA_free(dsa);
+#endif
     if (pkey)
         EVP_PKEY_free(pkey);
 

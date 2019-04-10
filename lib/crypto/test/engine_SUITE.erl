@@ -148,8 +148,21 @@ end_per_group(_, Config) ->
     end.
 
 %%--------------------------------------------------------------------
-init_per_testcase(_Case, Config) ->
-    Config.
+init_per_testcase(Case, Config) ->
+    case string:tokens(atom_to_list(Case),"_") of
+        ["sign","verify",Type|_] ->
+            skip_if_unsup(list_to_atom(Type), Config);
+
+        ["priv","encrypt","pub","decrypt",Type|_] ->
+            skip_if_unsup(list_to_atom(Type), Config);
+
+        ["get","pub","from","priv","key",Type|_] ->
+            skip_if_unsup(list_to_atom(Type), Config);
+
+        _ ->
+            Config
+    end.
+
 end_per_testcase(_Case, _Config) ->
     ok.
 
@@ -851,6 +864,19 @@ get_pub_from_priv_key_ecdsa(Config) ->
 %%%================================================================
 %%% Help for engine_stored_pub_priv_keys* test cases
 %%%
+skip_if_unsup(Type, Config) ->
+    case pkey_supported(Type) of
+        false ->
+            {skip, "Unsupported in this cryptolib"};
+        true ->
+            Config
+    end.
+
+
+pkey_supported(Type) ->
+    lists:member(Type, proplists:get_value(public_keys, crypto:supports(), [])).
+
+
 load_storage_engine(Config) ->
     load_storage_engine(Config, []).
 

@@ -80,8 +80,12 @@ void init_algorithms_types(ErlNifEnv* env)
 
     algo_pubkey_cnt = 0;
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "rsa");
+#ifdef HAVE_DSA
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "dss");
+#endif
+#ifdef HAVE_DH
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "dh");
+#endif
 #if defined(HAVE_EC)
 #if !defined(OPENSSL_NO_EC2M)
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "ec_gf2m");
