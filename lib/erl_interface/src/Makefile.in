@@ -784,29 +784,31 @@ $(MDD_OBJDIR)/ei_fake_prog_mdd_cxx$(EXE): prog/ei_fake_prog.c $(MDD_EILIB)
 #  Create dependency file using gcc -MM
 ###########################################################################
 
-depend:
+depend: $(TARGET)/depend.mk
+
+$(TARGET)/depend.mk: $(TARGET)/config.h
 	$(gen_verbose)
-	$(V_colon)@echo "Generating dependency file depend.mk..."
-	@echo "# Generated dependency rules" > depend.mk;		\
-	$(V_CC) $(CFLAGS) -MM $(SOURCES) | 			\
+	$(V_colon)echo "Generating dependency file depend.mk..."
+	@echo "# Generated dependency rules" > $@
+	$(V_CC) $(CFLAGS) -MM $(SOURCES) | 				\
 		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(ST_OBJDIR\)\/&/' >> depend.mk;		\
-	echo >> depend.mk;						\
-	$(CC) $(CFLAGS) -MM $(SOURCES) |				\
+		sed 's/^.*:/\$$\(ST_OBJDIR\)\/&/' >> $@
+	@echo >> $@
+	$(V_CC) $(CFLAGS) -MM $(SOURCES) | 				\
 		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(MT_OBJDIR\)\/&/' >> depend.mk;		\
-	echo >> depend.mk;						\
-	$(CC) $(CFLAGS) -MM $(SOURCES) |				\
+		sed 's/^.*:/\$$\(MT_OBJDIR\)\/&/' >> $@
+	@echo >> $@
+	$(V_CC) $(CFLAGS) -MM $(SOURCES) |				\
 		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(MD_OBJDIR\)\/&/' >> depend.mk;		\
-	echo >> depend.mk;						\
-	$(CC) $(CFLAGS) -MM $(SOURCES) |				\
+		sed 's/^.*:/\$$\(MD_OBJDIR\)\/&/' >> $@
+	@echo >> $@
+	$(V_CC) $(CFLAGS) -MM $(SOURCES) |				\
 		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(MDD_OBJDIR\)\/&/' >> depend.mk;	\
-	echo >> depend.mk
+		sed 's/^.*:/\$$\(MDD_OBJDIR\)\/&/' >> $@
+	@echo >> $@
 
 # For some reason this has to be after 'opt' target
-include depend.mk
+-include $(TARGET)/depend.mk
 
 # ----------------------------------------------------
 # Release Target
