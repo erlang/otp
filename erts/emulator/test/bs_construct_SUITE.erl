@@ -25,7 +25,7 @@
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1,
 	 not_used/1, in_guard/1,
 	 mem_leak/1, coerce_to_float/1, bjorn/1, append_empty_is_same/1,
-	 huge_float_field/1, huge_binary/1, system_limit/1, badarg/1,
+	 huge_float_field/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_add_overflow/1]).
 
@@ -38,7 +38,7 @@ suite() ->
 all() -> 
     [test1, test2, test3, test4, test5, testf, not_used,
      in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
-     huge_float_field, huge_binary, system_limit, badarg,
+     huge_float_field, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
      bad_append, bs_add_overflow].
 
@@ -540,56 +540,6 @@ huge_float_field(Config) when is_list(Config) ->
 
 huge_float_check({'EXIT',{system_limit,_}}) -> ok;
 huge_float_check({'EXIT',{badarg,_}}) -> ok.
-
-huge_binary(Config) when is_list(Config) ->
-    ct:timetrap({seconds, 60}),
-    16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
-    garbage_collect(),
-    FreeMem = free_mem(),
-    io:format("Free memory (Mb): ~p\n", [FreeMem]),
-    {Shift,Return} = case free_mem() of
-			 undefined ->
-			     %% This test has to be inlined inside the case to
-			     %% use a literal Shift
-			     garbage_collect(),
-			     id(<<0:((1 bsl 32)-1)>>),
-			     {32,ok};
-			 Mb when Mb > 600 ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 32)-1)>>),
-			     {32,ok};
-			 Mb when Mb > 300 ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 31)-1)>>),
-			     {31,"Limit huge binaries to 256 Mb"};
-			 Mb when Mb > 200 ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 30)-1)>>),
-			     {30,"Limit huge binary to 128 Mb"};
-			 _ ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 29)-1)>>),
-                             {29,"Limit huge binary to 64 Mb"}
-		     end,
-    garbage_collect(),
-    id(<<0:((1 bsl Shift)-1)>>),
-    garbage_collect(),
-    id(<<0:(id((1 bsl Shift)-1))>>),
-    garbage_collect(),
-    case Return of
-	ok -> ok;	     
-	Comment -> {comment, Comment}
-    end.
-
-%% Return the amount of free memory in Mb.
-free_mem() ->
-    {ok,Apps} = application:ensure_all_started(os_mon),
-    Mem = memsup:get_system_memory_data(),
-    [ok = application:stop(App)||App <- Apps],
-    case proplists:get_value(free_memory,Mem) of
-        undefined -> undefined;
-        Val -> Val div (1024*1024)
-    end.
 
 system_limit(Config) when is_list(Config) ->
     WordSize = erlang:system_info(wordsize),
