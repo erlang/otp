@@ -593,6 +593,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "               no_time_warp|single_time_warp|multi_time_warp\n");
     erts_fprintf(stderr, "-d             don't write a crash dump for internally detected errors\n");
     erts_fprintf(stderr, "               (halt(String) will still produce a crash dump)\n");
+    erts_fprintf(stderr, "-dcg           set the limit for the number of decentralized counter groups\n");
     erts_fprintf(stderr, "-fn[u|a|l]     Control how filenames are interpreted\n");
     erts_fprintf(stderr, "-hms size      set minimum heap size in words (default %d)\n",
 	       H_DEFAULT_SIZE);
@@ -785,6 +786,8 @@ early_init(int *argc, char **argv) /*
     int dirty_io_scheds;
     int max_reader_groups;
     int reader_groups;
+    int max_decentralized_counter_groups;
+    int decentralized_counter_groups;
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
 
@@ -804,7 +807,8 @@ early_init(int *argc, char **argv) /*
 
     erts_initialized = 0;
 
-    erts_pre_early_init_cpu_topology(&max_reader_groups,
+    erts_pre_early_init_cpu_topology(&max_decentralized_counter_groups,
+                                     &max_reader_groups,
 				     &ncpu,
 				     &ncpuonln,
 				     &ncpuavail);
@@ -865,6 +869,24 @@ early_init(int *argc, char **argv) /*
 	    }
 	    if (argv[i][0] == '-') {
 		switch (argv[i][1]) {
+		case 'd': {
+		    char *sub_param = argv[i]+2;
+		    if (has_prefix("cg", sub_param)) {
+			char *arg = get_arg(sub_param+2, argv[i+1], &i);
+			if (sscanf(arg, "%d", &max_decentralized_counter_groups) != 1) {
+			    erts_fprintf(stderr,
+					 "bad decentralized counter groups limit: %s\n", arg);
+			    erts_usage();
+			}
+			if (max_decentralized_counter_groups < 0) {
+			    erts_fprintf(stderr,
+					 "bad decentralized counter groups limit: %d\n",
+					 max_decentralized_counter_groups);
+			    erts_usage();
+			}
+		    }
+		    break;
+		}
 		case 'r': {
 		    char *sub_param = argv[i]+2;
 		    if (has_prefix("g", sub_param)) {
@@ -1186,8 +1208,10 @@ early_init(int *argc, char **argv) /*
     erts_early_init_cpu_topology(no_schedulers,
 				 &max_main_threads,
 				 max_reader_groups,
-				 &reader_groups);
-
+				 &reader_groups,
+                                 max_decentralized_counter_groups,
+                                 &decentralized_counter_groups);
+    erts_flxctr_setup(decentralized_counter_groups);
     {
 	erts_thr_late_init_data_t elid = ERTS_THR_LATE_INIT_DATA_DEF_INITER;
 	elid.mem.std.alloc = ethr_std_alloc;

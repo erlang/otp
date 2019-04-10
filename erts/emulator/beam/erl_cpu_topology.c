@@ -34,6 +34,7 @@
 #include "error.h"
 #include "bif.h"
 #include "erl_cpu_topology.h"
+#include "erl_flxctr.h"
 
 #define ERTS_MAX_READER_GROUPS 64
 
@@ -58,6 +59,7 @@ static erts_cpu_info_t *cpuinfo;
 
 static int max_main_threads;
 static int reader_groups;
+static int decentralized_counter_groups;
 
 static ErtsCpuBindData *scheduler2cpu_map;
 static erts_rwmtx_t cpuinfo_rwmtx;
@@ -127,6 +129,8 @@ static erts_cpu_groups_map_t *cpu_groups_maps;
 
 static erts_cpu_groups_map_t *reader_groups_map;
 
+static erts_cpu_groups_map_t *decentralized_counter_groups_map;
+
 #define ERTS_TOPOLOGY_CG ERTS_TOPOLOGY_MAX_DEPTH
 
 #define ERTS_MAX_CPU_TOPOLOGY_ID ((int) 0xffff)
@@ -138,6 +142,7 @@ static void cpu_bind_order_sort(erts_cpu_topology_t *cpudata,
 static void write_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size);
 
 static void reader_groups_callback(int, ErtsSchedulerData *, int, void *);
+static void flxctr_groups_callback(int, ErtsSchedulerData *, int, void *);
 static erts_cpu_groups_map_t *add_cpu_groups(int groups,
 					     erts_cpu_groups_callback_t callback,
 					     void *arg);
@@ -1646,7 +1651,8 @@ erts_get_logical_processors(int *conf, int *onln, int *avail)
 }
 
 void
-erts_pre_early_init_cpu_topology(int *max_rg_p,
+erts_pre_early_init_cpu_topology(int *max_dcg_p,
+                                 int *max_rg_p,
 				 int *conf_p,
 				 int *onln_p,
 				 int *avail_p)
@@ -1654,6 +1660,7 @@ erts_pre_early_init_cpu_topology(int *max_rg_p,
     cpu_groups_maps = NULL;
     no_cpu_groups_callbacks = 0;
     *max_rg_p = ERTS_MAX_READER_GROUPS;
+    *max_dcg_p = ERTS_MAX_FLXCTR_GROUPS;
     cpuinfo = erts_cpu_info_create();
     get_logical_processors(conf_p, onln_p, avail_p);
 }
@@ -1662,7 +1669,9 @@ void
 erts_early_init_cpu_topology(int no_schedulers,
 			     int *max_main_threads_p,
 			     int max_reader_groups,
-			     int *reader_groups_p)
+			     int *reader_groups_p,
+                             int max_decentralized_counter_groups,
+                             int *decentralized_counter_groups_p)
 {
     user_cpudata = NULL;
     user_cpudata_size = 0;
@@ -1687,6 +1696,12 @@ erts_early_init_cpu_topology(int no_schedulers,
 	max_main_threads = no_schedulers;
     *max_main_threads_p = max_main_threads;
 
+    decentralized_counter_groups = max_main_threads;
+    if (decentralized_counter_groups <= 1 || max_decentralized_counter_groups <= 1)
+	decentralized_counter_groups = 1;
+    if (decentralized_counter_groups > max_decentralized_counter_groups)
+	decentralized_counter_groups = max_decentralized_counter_groups;
+    *decentralized_counter_groups_p = decentralized_counter_groups;
     reader_groups = max_main_threads;
     if (reader_groups <= 1 || max_reader_groups <= 1)
 	reader_groups = 0;
@@ -1718,6 +1733,9 @@ erts_init_cpu_topology(void)
     reader_groups_map = add_cpu_groups(reader_groups,
 				       reader_groups_callback,
 				       NULL);
+    decentralized_counter_groups_map = add_cpu_groups(decentralized_counter_groups,
+                                                      flxctr_groups_callback,
+                                                      NULL);
 
     if (cpu_bind_order == ERTS_CPU_BIND_NONE)
 	erts_rwmtx_rwunlock(&cpuinfo_rwmtx);
@@ -1789,6 +1807,15 @@ reader_groups_callback(int suspending,
 	erts_rwmtx_set_reader_group(suspending ? 0 : group+1);
 }
 
+void
+flxctr_groups_callback(int suspending,
+		       ErtsSchedulerData *esdp,
+		       int group,
+		       void *unused)
+{
+    erts_flxctr_set_slot(suspending ? 0 : group+1);
+}
+
 static Eterm get_cpu_groups_map(Process *c_p,
 				erts_cpu_groups_map_t *map,
 				int offset);
@@ -1817,6 +1844,16 @@ erts_get_reader_groups_map(Process *c_p)
     Eterm res;
     erts_rwmtx_rlock(&cpuinfo_rwmtx);
     res = get_cpu_groups_map(c_p, reader_groups_map, 1);
+    erts_rwmtx_runlock(&cpuinfo_rwmtx);
+    return res;
+}
+
+Eterm
+erts_get_decentralized_counter_groups_map(Process *c_p)
+{
+    Eterm res;
+    erts_rwmtx_rlock(&cpuinfo_rwmtx);
+    res = get_cpu_groups_map(c_p, decentralized_counter_groups_map, 1);
     erts_rwmtx_runlock(&cpuinfo_rwmtx);
     return res;
 }

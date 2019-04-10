@@ -149,7 +149,12 @@ static SWord db_free_table_continue_catree(DbTable *tbl, SWord);
 static void db_foreach_offheap_catree(DbTable *,
                                       void (*)(ErlOffHeap *, void *),
                                       void *);
-static SWord db_delete_all_objects_catree(Process* p, DbTable* tbl, SWord reds);
+static SWord db_delete_all_objects_catree(Process* p,
+                                          DbTable* tbl,
+                                          SWord reds,
+                                          Eterm* nitems_holder_wb);
+static Eterm db_delete_all_objects_get_nitems_from_holder_catree(Process* p,
+                                                                 Eterm nitems_holder);
 static int
 db_lookup_dbterm_catree(Process *, DbTable *, Eterm key, Eterm obj,
                         DbUpdateHandle*);
@@ -191,6 +196,7 @@ DbTableMethod db_catree =
     db_select_replace_continue_catree,
     db_take_catree,
     db_delete_all_objects_catree,
+    db_delete_all_objects_get_nitems_from_holder_catree,
     db_free_table_catree,
     db_free_table_continue_catree,
     db_print_catree,
@@ -1357,6 +1363,8 @@ static SWord do_free_base_node_cont(DbTableCATree *tb, SWord num_left)
                 PUSH_NODE(&tb->free_stack_elems, root);
                 root = p;
             } else {
+                DEC_NITEMS((DbTable*)tb);
+                tb->nr_of_deleted_items++;
                 free_term((DbTable*)tb, root);
                 if (--num_left >= 0) {
                     break;
@@ -1397,6 +1405,7 @@ int db_create_catree(Process *p, DbTable *tbl)
     root = create_base_node(tb, NULL);
     tb->deletion = 0;
     tb->base_nodes_to_free_list = NULL;
+    tb->nr_of_deleted_items = 0;
     erts_atomic_init_relb(&(tb->root), (erts_aint_t)root);
     return DB_ERROR_NONE;
 }
@@ -2050,6 +2059,7 @@ static SWord db_free_table_continue_catree(DbTable *tbl, SWord reds)
         PUSH_NODE(&tb->free_stack_rnodes, GET_ROOT(tb));
         tb->is_routing_nodes_freed = 0;
         tb->base_nodes_to_free_list = NULL;
+        tb->nr_of_deleted_items = 0;
     }
     if ( ! tb->is_routing_nodes_freed ) {
         reds = do_free_routing_nodes_catree_cont(tb, reds);
@@ -2079,13 +2089,57 @@ static SWord db_free_table_continue_catree(DbTable *tbl, SWord reds)
     return 1;
 }
 
-static SWord db_delete_all_objects_catree(Process* p, DbTable* tbl, SWord reds)
+static
+int db_catree_nr_of_items_deleted_wb_dtor(Binary *context_bin) {
+    (void)context_bin;
+    return 1;
+}
+
+typedef struct {
+    Uint nr_of_deleted_items;
+} DbCATreeNrOfItemsDeletedWb;
+
+static Eterm
+create_and_install_num_of_deleted_items_wb_bin(Process *p, DbTableCATree *tb)
 {
+    Binary* bin =
+        erts_create_magic_binary(sizeof(DbCATreeNrOfItemsDeletedWb),
+                                 db_catree_nr_of_items_deleted_wb_dtor);
+    DbCATreeNrOfItemsDeletedWb* data = ERTS_MAGIC_BIN_DATA(bin);
+    Eterm* hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+    Eterm mref = erts_mk_magic_ref(&hp, &MSO(p), bin);
+    data->nr_of_deleted_items = 0;
+    tb->nr_of_deleted_items_wb = bin;
+    erts_refc_inctest(&bin->intern.refc, 2);   
+    return mref;
+}
+
+static Eterm db_delete_all_objects_get_nitems_from_holder_catree(Process* p,
+                                                                 Eterm mref)
+{
+    Binary* bin = erts_magic_ref2bin(mref);
+    DbCATreeNrOfItemsDeletedWb* data = ERTS_MAGIC_BIN_DATA(bin);
+    return erts_make_integer(data->nr_of_deleted_items, p);
+}
+
+static SWord db_delete_all_objects_catree(Process* p,
+                                          DbTable* tbl,
+                                          SWord reds,
+                                          Eterm* nitems_holder_wb)
+{
+    DbTableCATree *tb = &tbl->catree;
+    DbCATreeNrOfItemsDeletedWb* data;
+    if (!tb->deletion) {
+        *nitems_holder_wb =
+            create_and_install_num_of_deleted_items_wb_bin(p, tb);
+    }
     reds = db_free_table_continue_catree(tbl, reds);
     if (reds < 0)
         return reds;
+    data = ERTS_MAGIC_BIN_DATA(tb->nr_of_deleted_items_wb);
+    data->nr_of_deleted_items = tb->nr_of_deleted_items;
+    erts_bin_release(tb->nr_of_deleted_items_wb);
     db_create_catree(p, tbl);
-    erts_atomic_set_nob(&tbl->catree.common.nitems, 0);
     return reds;
 }
 

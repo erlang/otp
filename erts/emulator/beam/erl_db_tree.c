@@ -51,9 +51,20 @@
 #include "erl_db_tree_util.h"
 
 #define GETKEY_WITH_POS(Keypos, Tplp) (*((Tplp) + Keypos))
-#define NITEMS(tb) ((int)erts_atomic_read_nob(&(tb)->common.nitems))
 
-#define TREE_MAX_ELEMENTS 0xFFFFFFFFUL
+#define NITEMS_CENTRALIZED(tb)                                          \
+    ((Sint)erts_flxctr_read_centralized(&(tb)->common.counters,          \
+                                        ERTS_DB_TABLE_NITEMS_COUNTER_ID))
+#define ADD_NITEMS(DB, TO_ADD)                                          \
+    erts_flxctr_add(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID, TO_ADD)
+#define INC_NITEMS(DB)                                                  \
+    erts_flxctr_inc(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
+#define INC_NITEMS_CENTRALIZED(DB)                                      \
+    erts_flxctr_inc_read_centralized(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
+#define RESET_NITEMS(DB)                                                \
+    erts_flxctr_reset(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
+#define IS_CENTRALIZED_CTR(tb) (!(tb)->common.counters.is_decentralized)
+#define APPROX_MEM_CONSUMED(tb) erts_flxctr_read_approx(&(tb)->common.counters, ERTS_DB_TABLE_MEM_COUNTER_ID)
 
 #define TOPN_NODE(Dtt, Pos)                   \
      (((Pos) < Dtt->pos) ? 			\
@@ -296,7 +307,7 @@ int tree_balance_right(TreeDbTerm **this);
 static int delsub(TreeDbTerm **this); 
 static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root, Sint slot,
                                DbTable *tb, DbTableTree *stack_container,
-                               CATreeRootIterator *iter);
+                               CATreeRootIterator *iter, int* is_EOT);
 static TreeDbTerm *find_node(DbTableCommon *tb, TreeDbTerm *root,
                              Eterm key, DbTableTree *stack_container);
 static TreeDbTerm **find_node2(DbTableCommon *tb, TreeDbTerm **root, Eterm key);
@@ -433,8 +444,12 @@ static void db_foreach_offheap_tree(DbTable *,
 				    void (*)(ErlOffHeap *, void *),
 				    void *);
 
-static SWord db_delete_all_objects_tree(Process* p, DbTable* tbl, SWord reds);
-
+static SWord db_delete_all_objects_tree(Process* p,
+                                        DbTable* tbl,
+                                        SWord reds,
+                                        Eterm* nitems_holder_wb);
+static Eterm db_delete_all_objects_get_nitems_from_holder_tree(Process* p,
+                                                               Eterm nitems_holder);
 #ifdef HARDDEBUG
 static void db_check_table_tree(DbTable *tbl);
 #endif
@@ -478,6 +493,7 @@ DbTableMethod db_tree =
     db_select_replace_continue_tree,
     db_take_tree,
     db_delete_all_objects_tree,
+    db_delete_all_objects_get_nitems_from_holder_tree,
     db_free_empty_table_tree,
     db_free_table_continue_tree,
     db_print_tree,
@@ -595,7 +611,8 @@ int db_last_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
     }
     if (stack) {
 	PUSH_NODE(stack, this);
-	stack->slot = NITEMS(tbl);
+        /* Always centralized counters when static stack is used */
+	stack->slot = NITEMS_CENTRALIZED(tbl);
 	release_stack(tbl,stack_container,stack);
     }
     *ret = db_copy_key(p, tbl, &this->dbterm);
@@ -661,10 +678,7 @@ int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
     for (;;)
 	if (!*this) { /* Found our place */
 	    state = 1;
-	    if (erts_atomic_inc_read_nob(&tb->nitems) >= TREE_MAX_ELEMENTS) {
-		erts_atomic_dec_nob(&tb->nitems);
-		return DB_ERROR_SYSRES;
-	    }
+            INC_NITEMS(((DbTable*)tb));
 	    *this = new_dbterm(tb, obj);
 	    (*this)->balance = 0;
 	    (*this)->left = (*this)->right = NULL;
@@ -888,7 +902,7 @@ int db_slot_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
     TreeDbTerm *st;
     Eterm *hp, *hend;
     Eterm copy;
-
+    int is_EOT = 0;
     /*
      * The notion of a "slot" is not natural in a tree, but we try to
      * simulate it by giving the n'th node in the tree instead.
@@ -899,10 +913,10 @@ int db_slot_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
 
     if (is_not_small(slot_term) ||
 	((slot = signed_val(slot_term)) < 0) ||
-	(slot > NITEMS(tbl)))
+	(IS_CENTRALIZED_CTR(tbl) && slot > NITEMS_CENTRALIZED(tbl)))
 	return DB_ERROR_BADPARAM;
 
-    if (slot == NITEMS(tbl)) {
+    if (IS_CENTRALIZED_CTR(tbl) && slot == NITEMS_CENTRALIZED(tbl)) {
 	*ret = am_EOT;
 	return DB_ERROR_NONE;
     }
@@ -912,7 +926,11 @@ int db_slot_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
      * are counted from 1 and up.
      */
     ++slot;
-    st = slot_search(p, root, slot, tbl, stack_container, iter);
+    st = slot_search(p, root, slot, tbl, stack_container, iter, &is_EOT);
+    if (is_EOT) {
+        *ret = am_EOT;
+	return DB_ERROR_NONE;
+    }
     if (st == NULL) {
 	*ret = am_false;
 	return DB_ERROR_UNSPEC;
@@ -2244,7 +2262,8 @@ void db_print_tree_common(fmtfn_t to, void *to_arg,
 	erts_print(to, to_arg, "\n"
 		   "------------------------------------------------\n");
 #else
-    erts_print(to, to_arg, "Ordered set (AVL tree), Elements: %d\n", NITEMS(tbl));
+    erts_print(to, to_arg, "Ordered set (AVL tree), Elements: %d\n",
+               erts_flxctr_read_approx(&tbl->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID));
 #endif
 }
 
@@ -2281,22 +2300,39 @@ static SWord db_free_table_continue_tree(DbTable *tbl, SWord reds)
 		     (DbTable *) tb,
 		     (void *) tb->static_stack.array,
 		     sizeof(TreeDbTerm *) * STACK_NEED);
-	ASSERT((erts_atomic_read_nob(&tb->common.memory_size)
-	       == sizeof(DbTable)) ||
-               (erts_atomic_read_nob(&tb->common.memory_size)
-                == (sizeof(DbTable) + sizeof(DbFixation))));
+	ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
+               ((APPROX_MEM_CONSUMED(tb)
+                 == sizeof(DbTable)) ||
+                (APPROX_MEM_CONSUMED(tb)
+                 == (sizeof(DbTable) + sizeof(DbFixation)))));
     }
     return reds;
 }
 
-static SWord db_delete_all_objects_tree(Process* p, DbTable* tbl, SWord reds)
+static SWord db_delete_all_objects_tree(Process* p,
+                                        DbTable* tbl,
+                                        SWord reds,
+                                        Eterm* nitems_holder_wb)
 {
+    if (nitems_holder_wb != NULL) {
+        Uint nr_of_items =
+            erts_flxctr_read_centralized(&tbl->common.counters,
+                                         ERTS_DB_TABLE_NITEMS_COUNTER_ID);
+        *nitems_holder_wb = erts_make_integer(nr_of_items, p);
+    }
     reds = db_free_table_continue_tree(tbl, reds);
     if (reds < 0)
         return reds;
     db_create_tree(p, tbl);
-    erts_atomic_set_nob(&tbl->tree.common.nitems, 0);
+    RESET_NITEMS(tbl);
     return reds;
+}
+
+static Eterm db_delete_all_objects_get_nitems_from_holder_tree(Process* p,
+                                                               Eterm holder)
+{
+    (void)p;
+    return holder;
 }
 
 static void do_db_tree_foreach_offheap(TreeDbTerm *,
@@ -2383,7 +2419,7 @@ static TreeDbTerm *linkout_tree(DbTableCommon *tb, TreeDbTerm **root,
 		tstack[tpos++] = this;
 		state = delsub(this);
 	    }
-	    erts_atomic_dec_nob(&tb->nitems);
+            DEC_NITEMS(((DbTable*)tb));
 	    break;
 	}
     }
@@ -2450,7 +2486,7 @@ static TreeDbTerm *linkout_object_tree(DbTableCommon *tb,  TreeDbTerm **root,
 		tstack[tpos++] = this;
 		state = delsub(this);
 	    }
-	    erts_atomic_dec_nob(&tb->nitems);
+            DEC_NITEMS(((DbTable*)tb));
 	    break;
 	}
     }
@@ -2745,7 +2781,8 @@ static int delsub(TreeDbTerm **this)
 static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root,
                                Sint slot, DbTable *tb,
                                DbTableTree *stack_container,
-                               CATreeRootIterator *iter)
+                               CATreeRootIterator *iter,
+                               int* is_EOT)
 {
     TreeDbTerm *this;
     TreeDbTerm *tmp;
@@ -2837,8 +2874,12 @@ static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root,
         break;
 
 next_root:
-        if (!iter)
+        if (!iter) {
+            if (stack->slot == (slot-1)) {
+                *is_EOT = 1;
+            }
             break; /* EOT */
+        }
 
         ASSERT(slot > stack->slot);
         if (lastobj) {
@@ -2846,8 +2887,12 @@ next_root:
             lastobj = NULL;
         }
         pp = catree_find_next_root(iter, &lastkey);
-        if (!pp)
+        if (!pp) {
+            if (stack->slot == (slot-1)) {
+                *is_EOT = 1;
+            }
             break; /* EOT */
+        }
         root = *pp;
         stack->pos = 0;
         find_next(&tb->common, root, stack, lastkey);
