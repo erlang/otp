@@ -1323,7 +1323,9 @@ get_signature_scheme_list(#signature_algorithms_cert{
     ClientSignatureSchemes;
 get_signature_scheme_list(#signature_algorithms{
                         signature_scheme_list = ClientSignatureSchemes}) ->
-    ClientSignatureSchemes.
+    %% Filter unassigned and legacy elements
+    lists:filter(fun (E) -> is_atom(E) andalso E =/= unassigned end,
+                 ClientSignatureSchemes).
 
 get_supported_groups(#supported_groups{supported_groups = Groups}) ->
     Groups.
