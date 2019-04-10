@@ -805,8 +805,7 @@ static int
 node_table_cmp(void *venp1, void *venp2)
 {
     return ((((ErlNode *) venp1)->sysname == ((ErlNode *) venp2)->sysname) &&
-            ((((ErlNode *) venp1)->creation == ((ErlNode *) venp2)->creation) ||
-             (((ErlNode *) venp1)->creation == 0 || ((ErlNode *) venp2)->creation == 0))
+            ((((ErlNode *) venp1)->creation == ((ErlNode *) venp2)->creation))
 	    ? 0
 	    : 1);
 }
