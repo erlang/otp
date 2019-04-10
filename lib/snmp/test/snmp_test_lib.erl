@@ -58,12 +58,67 @@ from(H, [H | T]) -> T;
 from(H, [_ | T]) -> from(H, T);
 from(_H, []) -> [].
 
+%% localhost() ->
+%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost()),
+%%     Ip.
+%% localhost(Family) ->
+%%     {ok, Ip} = snmp_misc:ip(net_adm:localhost(), Family),
+%%     Ip.
+
 localhost() ->
-    {ok, Ip} = snmp_misc:ip(net_adm:localhost()),
-    Ip.
+    localhost(inet).
+
 localhost(Family) ->
-    {ok, Ip} = snmp_misc:ip(net_adm:localhost(), Family),
-    Ip.
+    case inet:getaddr(net_adm:localhost(), Family) of
+        {ok, {127, _, _, _}} when (Family =:= inet) ->
+            %% Ouch, we need to use something else
+            case inet:getifaddrs() of
+                {ok, IfList} ->
+                    which_addr(Family, IfList);
+                {error, Reason1} ->
+                    fail({getifaddrs, Reason1}, ?MODULE, ?LINE)
+            end;
+        {ok, {0, _, _, _, _, _, _, _}} when (Family =:= inet6) ->
+            %% Ouch, we need to use something else
+            case inet:getifaddrs() of
+                {ok, IfList} ->
+                    which_addr(Family, IfList);
+                {error, Reason1} ->
+                    fail({getifaddrs, Reason1}, ?MODULE, ?LINE)
+            end;
+        {ok, Addr} ->
+            Addr;
+        {error, Reason2} ->
+            fail({getaddr, Reason2}, ?MODULE, ?LINE)
+    end.
+
+which_addr(_Family, []) ->
+    fail(no_valid_addr, ?MODULE, ?LINE);
+which_addr(Family, [{"lo", _} | IfList]) ->
+    which_addr(Family, IfList);
+which_addr(Family, [{"docker" ++ _, _} | IfList]) ->
+    which_addr(Family, IfList);
+which_addr(Family, [{"br-" ++ _, _} | IfList]) ->
+    which_addr(Family, IfList);
+which_addr(Family, [{_Name, IfOpts} | IfList]) ->
+    case which_addr2(Family, IfOpts) of
+        {ok, Addr} ->
+            Addr;
+        {error, _} ->
+            which_addr(Family, IfList)
+    end.
+
+which_addr2(_Family, []) ->
+    {error, not_found};
+which_addr2(Family, [{addr, Addr}|_]) 
+  when (Family =:= inet) andalso (size(Addr) =:= 4) ->
+    {ok, Addr};
+which_addr2(Family, [{addr, Addr}|_]) 
+  when (Family =:= inet6) andalso (size(Addr) =:= 8) ->
+    {ok, Addr};
+which_addr2(Family, [_|IfOpts]) ->
+    which_addr2(Family, IfOpts).
+
 
 sz(L) when is_list(L) ->
     length(L);
