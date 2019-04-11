@@ -64,9 +64,7 @@
     <taglist>
       <tag>Binary matching</tag>
       <item><p>The HiPE compiler will crash on modules containing binary
-      matching unless they have been compiled with the <c>+no_bsm3</c> flag.
-      Note that this will disable all related optimizations done by the BEAM
-      compiler.</p>
+      matching.</p>
       </item>
 
       <tag>Stack traces</tag>
