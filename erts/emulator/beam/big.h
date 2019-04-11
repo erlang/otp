@@ -168,8 +168,6 @@ Eterm erts_uint64_array_to_big(Uint **, int, int, Uint64 *);
 int term_to_Uint64(Eterm, Uint64*);
 int term_to_Sint64(Eterm, Sint64*);
 #endif
-int term_to_Uint32(Eterm, Uint32*);
-
 
 Uint32 big_to_uint32(Eterm b);
 int term_equals_2pow32(Eterm);

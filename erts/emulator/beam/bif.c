@@ -1915,7 +1915,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	    erts_dsprintf(dsbufp,
 			  "Discarding message %T from %T to %T in an old "
-			  "incarnation (%u) of this node (%u)\n",
+			  "incarnation (%d) of this node (%d)\n",
 			  msg,
 			  p->common.id,
 			  to,
@@ -1959,7 +1959,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp,
 		      "Discarding message %T from %T to %T in an old "
-		      "incarnation (%u) of this node (%u)\n",
+		      "incarnation (%d) of this node (%d)\n",
 		      msg,
 		      p->common.id,
 		      to,

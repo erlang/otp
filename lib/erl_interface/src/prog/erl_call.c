@@ -292,7 +292,8 @@ int erl_call(int argc, char **argv)
 	flags.cookie = NULL;
     }
 
-    creation = time(NULL) + 1; /* "random" */
+    /* FIXME decide how many bits etc or leave to connect_xinit? */
+    creation = (time(NULL) % 3) + 1; /* "random" */
 
     if (flags.hidden == NULL) {
       /* As default we are c17@gethostname */
