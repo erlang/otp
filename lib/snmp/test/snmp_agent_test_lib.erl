@@ -445,6 +445,7 @@ start_agent(Config, Vsns, Opts) ->
 	    [{versions,         Vsns}, 
 	     {agent_type,       master},
 	     {agent_verbosity,  trace},
+             {get_mechanism,    snmp_agent_test_get},
 	     {db_dir,           AgentDbDir},
 	     {audit_trail_log,  [{type, read_write},
 				 {dir,  AgentLogDir},

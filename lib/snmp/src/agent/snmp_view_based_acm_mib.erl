@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,6 +37,12 @@
 %%
 -export([emask2imask/1]).
 
+-export_type([
+              mibview/0,
+              internal_view_mask/0,
+              internal_view_mask_element/0,
+              internal_view_type/0
+             ]).
 
 -include("snmp_types.hrl").
 -include("SNMPv2-TC.hrl").
@@ -53,7 +59,13 @@
 
 
 -type internal_view_mask()         :: null | [internal_view_mask_element()].
--type internal_view_mask_element() :: 0 | 1.
+-type internal_view_mask_element() :: ?view_wildcard |
+                                      ?view_exact.
+-type internal_view_type() :: ?view_included | ?view_excluded.
+
+-type mibview() :: [{SubTree :: snmp:oid(),
+                     Mask    :: internal_view_mask(),
+                     Type    :: internal_view_type()}].
 
 -type external_view_mask() :: octet_string(). % At most length of 16 octet
 -type octet_string()       :: [octet()].

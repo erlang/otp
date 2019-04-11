@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ BEHAVIOUR_MODULES = \
 	snmpa_authentication_service \
 	snmpa_discovery_handler \
 	snmpa_error_report \
+	snmpa_get_mechanism \
 	snmpa_mib_storage \
 	snmpa_mib_data \
 	snmpa_network_interface \
@@ -30,12 +31,24 @@ BEHAVIOUR_MODULES = \
 	snmpa_notification_filter \
 	snmpa_set_mechanism
 
+MIB_MODULES = \
+	snmp_community_mib \
+	snmp_framework_mib \
+	snmp_notification_mib \
+	snmp_standard_mib \
+	snmp_target_mib \
+	snmp_user_based_sm_mib \
+	snmp_view_based_acm_mib
+
 # snmpa is "plain" interface module but also defines some agent specific types
 # and therefor must be compiled before the modules that use them, including
 # the behaviour modules...
+# Some of the MIB modules also define types used elsewhere and therefor
+# has to be built before the other mods.
 # snmpa_mib_data_ttln
 MODULES = \
 	snmpa \
+	$(MIB_MODULES) \
 	$(BEHAVIOUR_MODULES) \
 	snmpa_acm \
 	snmpa_agent \
@@ -46,6 +59,8 @@ MODULES = \
 	snmpa_error \
 	snmpa_error_io \
 	snmpa_error_logger \
+	snmpa_get \
+	snmpa_get_lib \
 	snmpa_local_db \
 	snmpa_mib_storage_ets \
 	snmpa_mib_storage_dets \
@@ -66,17 +81,10 @@ MODULES = \
 	snmpa_trap \
 	snmpa_usm \
 	snmpa_vacm \
-	snmp_community_mib \
-	snmp_framework_mib \
 	snmp_generic \
 	snmp_generic_mnesia \
 	snmp_index \
-	snmp_notification_mib \
-	snmp_shadow_table \
-	snmp_standard_mib \
-	snmp_target_mib \
-	snmp_user_based_sm_mib \
-	snmp_view_based_acm_mib
+	snmp_shadow_table
 
 
 INTERNAL_HRL_FILES = \

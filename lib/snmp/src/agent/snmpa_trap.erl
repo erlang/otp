@@ -917,7 +917,7 @@ do_send_v2_trap(Recvs, Vbs, ExtraInfo, NetIf) ->
     TrapPdu = make_v2_notif_pdu(Vbs, 'snmpv2-trap'),
     AddrCommunities = mk_addr_communities(Recvs),
     lists:foreach(fun({Community, Addrs}) ->
-			  ?vtrace("~n   send v2 trap to ~p",[Addrs]),
+			  ?vtrace("send v2 trap to ~p",[Addrs]),
 			  NetIf ! {send_pdu, 'version-2', TrapPdu,
 				   {community, Community}, Addrs, ExtraInfo}
 		  end, AddrCommunities),
