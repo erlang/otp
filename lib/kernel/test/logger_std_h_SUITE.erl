@@ -71,6 +71,14 @@ init_per_group(_Group, Config) ->
 end_per_group(_Group, _Config) ->
     ok.
 
+init_per_testcase(reopen_changed_log=TC, Config) ->
+    case os:type() of
+        {win32,_} ->
+            {skip,"This test can only work with inodes, i.e. not on Windows"};
+        _ ->
+            ct:print("********** ~w **********", [TC]),
+            Config
+    end;
 init_per_testcase(TestHooksCase, Config) when
       TestHooksCase == write_failure;
       TestHooksCase == sync_failure ->
