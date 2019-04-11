@@ -939,6 +939,11 @@ signature_scheme(?RSA_PSS_PSS_SHA384) -> rsa_pss_pss_sha384;
 signature_scheme(?RSA_PSS_PSS_SHA512) -> rsa_pss_pss_sha512;
 signature_scheme(?RSA_PKCS1_SHA1) -> rsa_pkcs1_sha1;
 signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
+%% Handling legacy signature algorithms for logging purposes. These algorithms
+%% cannot be used in TLS 1.3 handshakes.
+signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
+    <<?BYTE(Hash),?BYTE(Sign)>> = <<?UINT16(SignAlgo)>>,
+    {ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)};
 signature_scheme(_) -> unassigned.
 %% TODO: reserved code points?
 
