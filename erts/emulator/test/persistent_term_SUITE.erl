@@ -633,11 +633,12 @@ pget({_, Initial}) ->
 
 
 killed_while_trapping_put(_Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
     repeat(
       fun() ->
               NrOfPutsInChild = 10000,
               do_puts(2500, my_value),
-              Pid = 
+              Pid =
                   spawn(fun() ->
                                 do_puts(NrOfPutsInChild, my_value2)
                         end),
@@ -645,14 +646,16 @@ killed_while_trapping_put(_Config) ->
               erlang:exit(Pid, kill),
               do_erases(NrOfPutsInChild)
       end,
-      5).
+      10),
+    erts_debug:set_internal_state(available_internal_state, false).
 
 killed_while_trapping_erase(_Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
     repeat(
       fun() ->
               NrOfErases = 2500,
               do_puts(NrOfErases, my_value),
-              Pid = 
+              Pid =
                   spawn(fun() ->
                                 do_erases(NrOfErases)
                         end),
@@ -660,28 +663,31 @@ killed_while_trapping_erase(_Config) ->
               erlang:exit(Pid, kill),
               do_erases(NrOfErases)
       end,
-      10).
+      10),
+    erts_debug:set_internal_state(available_internal_state, false).
 
 put_erase_trapping(_Config) ->
     NrOfItems = 5000,
+    erts_debug:set_internal_state(available_internal_state, true),
     do_puts(NrOfItems, first),
     do_puts(NrOfItems, second),
-    do_erases(NrOfItems).
+    do_erases(NrOfItems),
+    erts_debug:set_internal_state(available_internal_state, false).
 
 do_puts(0, _) -> ok;
 do_puts(NrOfPuts, ValuePrefix) ->
     Key = {?MODULE, NrOfPuts},
     Value = {ValuePrefix, NrOfPuts},
+    erts_debug:set_internal_state(reds_left, rand:uniform(250)),
     persistent_term:put(Key, Value),
-    _Hej = persistent_term:get(),
     Value = persistent_term:get(Key),
     do_puts(NrOfPuts - 1, ValuePrefix).
 
 do_erases(0) -> ok;
 do_erases(NrOfErases) ->
     Key = {?MODULE,NrOfErases},
+    erts_debug:set_internal_state(reds_left, rand:uniform(500)),
     persistent_term:erase(Key),
-    _Hej = persistent_term:get(),
     not_found = persistent_term:get(Key, not_found),
     do_erases(NrOfErases - 1).
 

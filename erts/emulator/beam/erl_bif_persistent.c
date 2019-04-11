@@ -232,8 +232,11 @@ void erts_init_bif_persistent_term(void)
 			  am_persistent_term, am_info_trap, 1,
 			  &persistent_term_info_trap);
 }
-/* Macro used for trapping in persistent_term_put_2 and
-   persistent_term_erase_1 */
+
+/*
+ * Macro used for trapping in persistent_term_put_2 and
+ * persistent_term_erase_1
+ */
 #define TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME, TRAP_CODE) \
     do {                                                                \
         ctx->cpy_ctx = (ErtsPersistentTermCpyTableCtx){                 \
@@ -254,18 +257,28 @@ void erts_init_bif_persistent_term(void)
         }                                                               \
     } while (0)
 
-static int persistent_term_put_2_ctx_bin_dtor(Binary *context_bin) {
+static int persistent_term_put_2_ctx_bin_dtor(Binary *context_bin)
+{
     ErtsPersistentTermPut2Context* ctx = ERTS_MAGIC_BIN_DATA(context_bin);
-    if (ctx->cpy_ctx.new_table != NULL) {      
+    if (ctx->cpy_ctx.new_table != NULL) {
         erts_free(ERTS_ALC_T_PERSISTENT_TERM, ctx->cpy_ctx.new_table);
         release_update_permission(0);
     }
     return 1;
 }
+/*
+ * A linear congruential generator that is used in the debug emulator
+ * to trap after a random number of iterations in
+ * persistent_term_put_2 and persistent_term_erase_1.
+ *
+ * https://en.wikipedia.org/wiki/Linear_congruential_generator
+ */
+#define GET_SMALL_RANDOM_INT(SEED)              \
+    (1103515245 * (SEED) + 12345)  % 227
 
 BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
 {
-    static const Uint ITERATIONS_PER_RED = 1;
+    static const Uint ITERATIONS_PER_RED = 32;
     ErtsPersistentTermPut2Context* ctx;
     Eterm state_mref = THE_NON_VALUE;
     long iterations_until_trap;
@@ -278,7 +291,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
 #ifdef DEBUG
         (void)ITERATIONS_PER_RED;
         iterations_until_trap = max_iterations =
-            (1103515245 * (ERTS_BIF_REDS_LEFT(BIF_P)) + (Uint)&ctx + 12345)  % 227;
+            GET_SMALL_RANDOM_INT(ERTS_BIF_REDS_LEFT(BIF_P) + (Uint)&ctx);
 #else
         iterations_until_trap = max_iterations =
             ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(BIF_P);
@@ -307,12 +320,14 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
         hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
         state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
         ctx = ERTS_MAGIC_BIN_DATA(state_bin);
-        /* IMPORTANT: The following field is used to detect if
-           persistent_term_put_2_ctx_bin_dtor needs to free memory */
+        /*
+         * IMPORTANT: The following field is used to detect if
+         * persistent_term_put_2_ctx_bin_dtor needs to free memory
+         */
         ctx->cpy_ctx.new_table = NULL;
     }
 
-    
+
     if (!try_seize_update_permission(BIF_P)) {
 	ERTS_BIF_YIELD2(bif_export[BIF_persistent_term_put_2],
                         BIF_P, BIF_ARG_1, BIF_ARG_2);
@@ -363,34 +378,34 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
     }
 
     {
-    Uint term_size;
-    Uint lit_area_size;
-    ErlOffHeap code_off_heap;
-    ErtsLiteralArea* literal_area;
-    erts_shcopy_t info;
-    Eterm* ptr;
-    /*
-     * Preserve internal sharing in the term by using the
-     * sharing-preserving functions. However, literals must
-     * be copied in case the module holding them are unloaded.
-     */
-    INITIALIZE_SHCOPY(info);
-    info.copy_literals = 1;
-    term_size = copy_shared_calculate(ctx->tuple, &info);
-    ERTS_INIT_OFF_HEAP(&code_off_heap);
-    lit_area_size = ERTS_LITERAL_AREA_ALLOC_SIZE(term_size);
-    literal_area = erts_alloc(ERTS_ALC_T_LITERAL, lit_area_size);
-    ptr = &literal_area->start[0];
-    literal_area->end = ptr + term_size;
-    ctx->tuple = copy_shared_perform(ctx->tuple, term_size, &info, &ptr, &code_off_heap);
-    ASSERT(tuple_val(ctx->tuple) == literal_area->start);
-    literal_area->off_heap = code_off_heap.first;
-    DESTROY_SHCOPY(info);
-    erts_set_literal_tag(&ctx->tuple, literal_area->start, term_size);
-    ctx->hash_table->term[ctx->entry_index] = ctx->tuple;
+        Uint term_size;
+        Uint lit_area_size;
+        ErlOffHeap code_off_heap;
+        ErtsLiteralArea* literal_area;
+        erts_shcopy_t info;
+        Eterm* ptr;
+        /*
+         * Preserve internal sharing in the term by using the
+         * sharing-preserving functions. However, literals must
+         * be copied in case the module holding them are unloaded.
+         */
+        INITIALIZE_SHCOPY(info);
+        info.copy_literals = 1;
+        term_size = copy_shared_calculate(ctx->tuple, &info);
+        ERTS_INIT_OFF_HEAP(&code_off_heap);
+        lit_area_size = ERTS_LITERAL_AREA_ALLOC_SIZE(term_size);
+        literal_area = erts_alloc(ERTS_ALC_T_LITERAL, lit_area_size);
+        ptr = &literal_area->start[0];
+        literal_area->end = ptr + term_size;
+        ctx->tuple = copy_shared_perform(ctx->tuple, term_size, &info, &ptr, &code_off_heap);
+        ASSERT(tuple_val(ctx->tuple) == literal_area->start);
+        literal_area->off_heap = code_off_heap.first;
+        DESTROY_SHCOPY(info);
+        erts_set_literal_tag(&ctx->tuple, literal_area->start, term_size);
+        ctx->hash_table->term[ctx->entry_index] = ctx->tuple;
 
-    erts_schedule_thr_prgr_later_op(table_updater, ctx->hash_table, &thr_prog_op);
-    suspend_updater(BIF_P);
+        erts_schedule_thr_prgr_later_op(table_updater, ctx->hash_table, &thr_prog_op);
+        suspend_updater(BIF_P);
     }
     BUMP_REDS(BIF_P, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
     ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
@@ -459,13 +474,16 @@ BIF_RETTYPE persistent_term_get_2(BIF_ALIST_2)
     BIF_RET(result);
 }
 
-static int persistent_term_erase_1_ctx_bin_dtor(Binary *context_bin) {
+static int persistent_term_erase_1_ctx_bin_dtor(Binary *context_bin)
+{
     ErtsPersistentTermErase1Context* ctx = ERTS_MAGIC_BIN_DATA(context_bin);
     if (ctx->cpy_ctx.new_table != NULL) {
         if (ctx->cpy_ctx.copy_type == ERTS_PERSISTENT_TERM_CPY_TEMP) {
             erts_free(ERTS_ALC_T_PERSISTENT_TERM_TMP, ctx->cpy_ctx.new_table);
         } else {
             erts_free(ERTS_ALC_T_PERSISTENT_TERM, ctx->cpy_ctx.new_table);
+        }
+        if (ctx->tmp_table != NULL) {
             erts_free(ERTS_ALC_T_PERSISTENT_TERM_TMP, ctx->tmp_table);
         }
         release_update_permission(0);
@@ -475,7 +493,7 @@ static int persistent_term_erase_1_ctx_bin_dtor(Binary *context_bin) {
 
 BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
 {
-    static const Uint ITERATIONS_PER_RED = 1;
+    static const Uint ITERATIONS_PER_RED = 32;
     ErtsPersistentTermErase1Context* ctx;
     Eterm state_mref = THE_NON_VALUE;
     long iterations_until_trap;
@@ -483,7 +501,7 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
 #ifdef DEBUG
         (void)ITERATIONS_PER_RED;
         iterations_until_trap = max_iterations =
-            (1103515245 * (ERTS_BIF_REDS_LEFT(BIF_P)) + (Uint)&ctx + 12345)  % 113;
+            GET_SMALL_RANDOM_INT(ERTS_BIF_REDS_LEFT(BIF_P) + (Uint)&ctx);
 #else
         iterations_until_trap = max_iterations =
             ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(BIF_P);
@@ -516,8 +534,10 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
         hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
         state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
         ctx = ERTS_MAGIC_BIN_DATA(state_bin);
-        /* IMPORTANT: The following two fields are used to detect if
-           persistent_term_erase_1_ctx_bin_dtor needs to free memory */
+        /*
+         * IMPORTANT: The following two fields are used to detect if
+         * persistent_term_erase_1_ctx_bin_dtor needs to free memory
+         */
         ctx->cpy_ctx.new_table = NULL;
         ctx->tmp_table = NULL;
     }
@@ -566,10 +586,12 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
                                   1,
                                   ERASE1_TRAP_LOCATION_FINAL_COPY);
         erts_free(ERTS_ALC_T_PERSISTENT_TERM_TMP, ctx->tmp_table);
-        /* IMPORTANT: Memory management depends on that ctx->tmp_table
-           is set to NULL on the line below */
+        /*
+         * IMPORTANT: Memory management depends on that ctx->tmp_table
+         * is set to NULL on the line below
+         */
         ctx->tmp_table = NULL;
-            
+
         mark_for_deletion(ctx->old_table, ctx->entry_index);
         erts_schedule_thr_prgr_later_op(table_updater, ctx->new_table, &thr_prog_op);
         suspend_updater(BIF_P);
@@ -1005,11 +1027,13 @@ copy_table(ErtsPersistentTermCpyTableCtx* ctx)
     ctx->new_table->num_to_delete = 0;
     erts_atomic_init_nob(&ctx->new_table->refc, (erts_aint_t)1);
     {
-    HashTable* new_table = ctx->new_table;
-    /* IMPORTANT: Memory management depends on that ctx->new_table is
-       set to NULL on the line below */
-    ctx->new_table = NULL;
-    return new_table;
+        HashTable* new_table = ctx->new_table;
+        /*
+         * IMPORTANT: Memory management depends on that ctx->new_table is
+         * set to NULL on the line below
+         */
+        ctx->new_table = NULL;
+        return new_table;
     }
 }
 
