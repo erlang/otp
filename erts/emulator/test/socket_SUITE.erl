@@ -3610,8 +3610,8 @@ api_to_connect_tcp(InitState) ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -3946,7 +3946,7 @@ api_to_connect_tcp_await_timeout2(_ID, To, ServerSA, NewSock) ->
     case socket:connect(Sock, ServerSA, To) of
         {error, timeout} ->
             Stop  = t(),
-            TDiff = tdiff(Start, Stop),
+            TDiff = Stop - Start,
             if
                 (TDiff >= To) ->
                     (catch socket:close(Sock)),
@@ -4058,7 +4058,7 @@ api_to_accept_tcp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    ok;
@@ -4194,7 +4194,7 @@ api_to_maccept_tcp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    ok;
@@ -4267,7 +4267,7 @@ api_to_maccept_tcp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    State1 = maps:remove(start, State),
@@ -4718,7 +4718,7 @@ api_to_receive_tcp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    State1 = maps:remove(start, State),
@@ -5025,7 +5025,8 @@ api_to_receive_udp(InitState) ->
                            Start = t(),
                            case Recv(Sock, To) of
                                {error, timeout} ->
-                                   {ok, State#{start => Start, stop => t()}};
+                                   {ok, State#{start => Start,
+                                               stop => t()}};
                                {ok, _} ->
                                    {error, unexpected_sucsess};
                                {error, _} = ERROR ->
@@ -5034,7 +5035,7 @@ api_to_receive_udp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    ok;
@@ -7243,8 +7244,8 @@ sc_rc_receive_response_tcp(InitState) ->
                                {ok, Node} ->
                                    ?SEV_IPRINT("client node ~p started", [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node 1",
@@ -8120,8 +8121,8 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -9071,8 +9072,8 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                                    ?SEV_IPRINT("(remote) client node ~p started",
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -10549,8 +10550,8 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                                    ?SEV_IPRINT("(remote) client node ~p started", 
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -11463,8 +11464,8 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                                    ?SEV_IPRINT("(remote) client node ~p started", 
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -17310,8 +17311,8 @@ ttest_tcp(InitState) ->
                            case start_node(Host, server) of
                                {ok, Node} ->
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor server node",
@@ -17407,8 +17408,8 @@ ttest_tcp(InitState) ->
                            case start_node(Host, client) of
                                {ok, Node} ->
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -17724,7 +17725,28 @@ ttest_tcp_client_start(Node,
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% This mechanism has only one purpose: So that we are able to kill
+%% the node-starter process if it takes to long. The node-starter
+%% runs on the local node.
+%% This crapola is hopefully temporary, but we have seen that on
+%% some platforms the ct_slave:start simply hangs.
+-define(NODE_START_TIMEOUT, 10000).
 start_node(Host, NodeName) ->
+    start_node(Host, NodeName, ?NODE_START_TIMEOUT).
+
+start_node(Host, NodeName, Timeout) ->
+    {NodeStarter, _} =
+        spawn_monitor(fun() -> exit(start_unique_node(Host, NodeName)) end),
+    receive
+        {'DOWN', _, process, NodeStarter, Result} ->
+            %% i("Node Starter (~p) reported: ~p", [NodeStarter, Result]),
+            Result
+    after Timeout ->
+            exit(NodeStarter, kill),
+            {error, {failed_starting_node, NodeName, timeout}}
+    end.
+
+start_unique_node(Host, NodeName) ->
     UniqueNodeName = f("~w_~w", [NodeName, erlang:system_time(millisecond)]),
     case do_start_node(Host, UniqueNodeName) of
         {ok, _} = OK ->
@@ -17758,7 +17780,7 @@ stop_node(Node) ->
             ERROR
     end.
 
-
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -17940,8 +17962,10 @@ skip(Reason) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 t() ->
-    os:timestamp().
+    ts(ms).
 
+ts(ms) ->
+    erlang:monotonic_time(milli_seconds).
 
 tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
     T1 = A1*1000000000+B1*1000+(C1 div 1000), 
