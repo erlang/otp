@@ -59,9 +59,9 @@
 -export([crypto_init/4, crypto_init/3,
          crypto_update/2,
          crypto_one_time/4, crypto_one_time/5,
-         crypto_aead/6, crypto_aead/7,
-         crypto_init_dyn_iv/3,
-         crypto_update_dyn_iv/3
+         crypto_one_time_aead/6, crypto_one_time_aead/7,
+         crypto_dyn_iv_init/3,
+         crypto_dyn_iv_update/3
         ]).
 
 
@@ -733,9 +733,9 @@ block_encrypt(Type, Key0, Ivec, Data) ->
     ?COMPAT(
        case Data of
            {AAD, PlainText} ->
-               crypto_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, true);
+               crypto_one_time_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, true);
            {AAD, PlainText, TagLength} ->
-               crypto_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, TagLength, true);
+               crypto_one_time_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, TagLength, true);
            PlainText ->
                crypto_one_time(alias(Type,Key), Key, Ivec, PlainText, true)
        end).
@@ -764,7 +764,7 @@ block_decrypt(Type, Key0, Ivec, Data) ->
     ?COMPAT(
        case Data of
            {AAD, CryptoText, Tag} ->
-               crypto_aead(alias(Type,Key), Key, Ivec, CryptoText, AAD, Tag, false);
+               crypto_one_time_aead(alias(Type,Key), Key, Ivec, CryptoText, AAD, Tag, false);
            CryptoText ->
                crypto_one_time(alias(Type,Key), Key, Ivec, CryptoText, false)
        end).
@@ -901,12 +901,12 @@ crypto_init(Cipher, Key, IV, EncryptFlag) ->
 
 
 %%%----------------------------------------------------------------
--spec crypto_init_dyn_iv(Cipher, Key, EncryptFlag) -> State | descriptive_error()
+-spec crypto_dyn_iv_init(Cipher, Key, EncryptFlag) -> State | descriptive_error()
                                                           when Cipher :: cipher_iv(),
                                                                Key :: iodata(),
                                                                EncryptFlag :: boolean(),
                                                                State :: crypto_state() .
-crypto_init_dyn_iv(Cipher, Key, EncryptFlag) ->
+crypto_dyn_iv_init(Cipher, Key, EncryptFlag) ->
     %% The IV is supposed to be supplied by calling crypto_update/3
     ng_crypto_init_nif(Cipher, iolist_to_binary(Key), undefined, EncryptFlag).
 
@@ -931,12 +931,12 @@ crypto_update(State, Data0) ->
 
 
 %%%----------------------------------------------------------------
--spec crypto_update_dyn_iv(State, Data, IV) -> Result | descriptive_error()
+-spec crypto_dyn_iv_update(State, Data, IV) -> Result | descriptive_error()
                                                    when State :: crypto_state(),
                                                         Data :: iodata(),
                                                         IV :: iodata(),
                                                         Result :: binary() .
-crypto_update_dyn_iv(State, Data0, IV) ->
+crypto_dyn_iv_update(State, Data0, IV) ->
     %% When State is from State = crypto_init(Cipher, Key, undefined, EncryptFlag)
     case iolist_to_binary(Data0) of
         <<>> ->
@@ -982,7 +982,7 @@ crypto_one_time(Cipher, Key, IV, Data0, EncryptFlag) ->
     end.
 
 
--spec crypto_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
+-spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
                              Result | descriptive_error()
                                  when Cipher :: cipher_aead(),
                                       Key :: iodata(),
@@ -994,11 +994,11 @@ crypto_one_time(Cipher, Key, IV, Data0, EncryptFlag) ->
                                       OutCryptoText :: binary(),
                                       OutTag :: binary().
 
-crypto_aead(Cipher, Key, IV, PlainText, AAD, true) ->
-    crypto_aead(Cipher, Key, IV, PlainText, AAD, aead_tag_len(Cipher), true).
+crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
+    crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, aead_tag_len(Cipher), true).
 
 
--spec crypto_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
+-spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
                              Result | descriptive_error()
                                  when Cipher :: cipher_aead(),
                                       Key :: iodata(),
@@ -1016,7 +1016,7 @@ crypto_aead(Cipher, Key, IV, PlainText, AAD, true) ->
                                       OutTag :: binary(),
                                       OutPlainText :: binary().
 
-crypto_aead(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg) ->
+crypto_one_time_aead(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg) ->
     aead_cipher(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg).
 
 

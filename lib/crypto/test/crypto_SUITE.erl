@@ -621,15 +621,15 @@ do_api_ng_tls({Type, Key, IV, PlainTexts}=_X) ->
 do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
     ct:log("~p",[_X]),
     PlainText = iolist_to_binary(lazy_eval(PlainText0)),
-    Renc = crypto:crypto_init_dyn_iv(Type, Key, true),
-    Rdec = crypto:crypto_init_dyn_iv(Type, Key, false),
-    EncTxt = crypto:crypto_update_dyn_iv(Renc, PlainText, IV),
+    Renc = crypto:crypto_dyn_iv_init(Type, Key, true),
+    Rdec = crypto:crypto_dyn_iv_init(Type, Key, false),
+    EncTxt = crypto:crypto_dyn_iv_update(Renc, PlainText, IV),
     case ExpectedEncText of
         undefined ->
             ok;
         EncTxt ->
             %% Now check that the state is NOT updated:
-            case crypto:crypto_update_dyn_iv(Renc, PlainText, IV) of
+            case crypto:crypto_dyn_iv_update(Renc, PlainText, IV) of
                 EncTxt ->
                     ok;
                 EncTxt2 ->
@@ -640,10 +640,10 @@ do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
             ct:log("1st encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainText}, ExpectedEncText, OtherEnc]),
             ct:fail("api_ng_tls (encode)",[])
     end,
-    case crypto:crypto_update_dyn_iv(Rdec, EncTxt, IV) of
+    case crypto:crypto_dyn_iv_update(Rdec, EncTxt, IV) of
         PlainText ->
             %% Now check that the state is NOT updated:
-            case crypto:crypto_update_dyn_iv(Rdec, EncTxt, IV) of
+            case crypto:crypto_dyn_iv_update(Rdec, EncTxt, IV) of
                 PlainText ->
                     ok;
                 PlainText2 ->
@@ -1183,7 +1183,7 @@ aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}
     catch
         error:E ->
             ct:log("~p",[{Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}]),
-            try crypto:crypto_aead(Type, Key, IV, PlainText, AAD, TagLen, true)
+            try crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true)
             of
                 RR ->
                     ct:log("Works: ~p",[RR])

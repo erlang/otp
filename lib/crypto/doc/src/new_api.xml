@@ -71,14 +71,14 @@
     <list>
       <item><seealso marker="crypto#crypto_one_time/4">crypto_one_time/4</seealso></item>
       <item><seealso marker="crypto#crypto_one_time/5">crypto_one_time/5</seealso></item>
-      <item><seealso marker="crypto#crypto_aead/6">crypto_aead/6</seealso></item>
-      <item><seealso marker="crypto#crypto_aead/7">crypto_aead/7</seealso></item>
+      <item><seealso marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seealso></item>
+      <item><seealso marker="crypto#crypto_one_time_aead/7">crypto_one_time_aead/7</seealso></item>
     </list>
     <p>In those functions the internal crypto state is first created and initialized
     with the cipher type, the key and possibly other data. Then the data is encrypted or decrypted,
     the crypto state is de-allocated and the result of the crypto operation is returned.
     </p>
-    <p>The <c>crypto_aead</c> functions are for the ciphers of mode <c>ccm</c> or
+    <p>The <c>crypto_one_time_aead</c> functions are for the ciphers of mode <c>ccm</c> or
     <c>gcm</c>, and for the cipher <c>chacha20-poly1305</c>.
     </p>
     <p>For repeated encryption or decryption of a text divided in parts, where the internal
@@ -99,8 +99,8 @@
     for each part, the functions are:
     </p>
     <list>
-      <item><seealso marker="crypto#crypto_init_dyn_iv/3">crypto_init_dyn_iv/3</seealso></item>
-      <item><seealso marker="crypto#crypto_update_dyn_iv/3">crypto_update_dyn_iv/3</seealso></item>
+      <item><seealso marker="crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso></item>
+      <item><seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso></item>
     </list>
     <p>An example of where those functions are needed, is when handling the TLS protocol.</p>
 

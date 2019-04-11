@@ -702,13 +702,13 @@
     </func>
 
     <func>
-      <name name="crypto_init_dyn_iv" arity="3" since="OTP 22.0"/>
+      <name name="crypto_dyn_iv_init" arity="3" since="OTP 22.0"/>
       <fsummary>Initializes a series of encryptions or decryptions where the IV is provided later</fsummary>
       <desc>
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
 	Initializes a series of encryptions or decryptions where the IV is provided later.
 	The actual encryption or decryption is done by
-	<seealso marker="crypto#crypto_update_dyn_iv/3">crypto_update_dyn_iv/3</seealso>.
+	<seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso>.
 	</p>
 	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
 	</p>
@@ -718,13 +718,13 @@
     </func>
 
     <func>
-      <name name="crypto_update_dyn_iv" arity="3" since="OTP 22.0"/>
+      <name name="crypto_dyn_iv_update" arity="3" since="OTP 22.0"/>
       <fsummary>Do an actual crypto operation on a part of the full text and the IV is supplied for each part</fsummary>
       <desc>
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
 	Do an actual crypto operation on a part of the full text and the IV is supplied for each part.
 	The <c>State</c> should be created with
-	<seealso marker="crypto#crypto_init_dyn_iv/3">crypto_init_dyn_iv/3</seealso>.
+	<seealso marker="crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso>.
 	</p>
 	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
 	</p>
@@ -754,8 +754,8 @@
     </func>
 
     <func>
-      <name name="crypto_aead" arity="6" since="OTP 22.0"/>
-      <name name="crypto_aead" arity="7" since="OTP 22.0"/>
+      <name name="crypto_one_time_aead" arity="6" since="OTP 22.0"/>
+      <name name="crypto_one_time_aead" arity="7" since="OTP 22.0"/>
       <fsummary>Do a complete encrypt or decrypt with an AEAD cipher of the full text</fsummary>
       <desc>
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
