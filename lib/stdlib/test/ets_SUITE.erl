@@ -24,7 +24,7 @@
 -export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
 	 privacy/1]).
 -export([empty/1,badinsert/1]).
--export([time_lookup/1,badlookup/1,lookup_order/1]).
+-export([badlookup/1,lookup_order/1]).
 -export([delete_elem/1,delete_tab/1,delete_large_tab/1,
 	 delete_large_named_table/1,
 	 evil_delete/1,baddelete/1,match_delete/1,table_leak/1]).
@@ -169,7 +169,7 @@ groups() ->
       [default, setbag, badnew, verybadnew, named, keypos2,
        privacy]},
      {insert, [], [empty, badinsert]},
-     {lookup, [], [time_lookup, badlookup, lookup_order]},
+     {lookup, [], [badlookup, lookup_order]},
      {lookup_element, [], [lookup_element_mult]},
      {delete, [],
       [delete_elem, delete_tab, delete_large_tab,
@@ -3393,31 +3393,6 @@ badinsert_do(Opts) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-%% Test lookup timing.
-time_lookup(Config) when is_list(Config) ->
-    %% just for timing, really
-    EtsMem = etsmem(),
-    Values = repeat_for_opts_all_table_types(fun time_lookup_do/1),
-    verify_etsmem(EtsMem),
-    {comment,lists:flatten(io_lib:format(
-			     "~p ets lookups/s",[Values]))}.
-
-time_lookup_do(Opts) ->
-    Tab = ets_new(foo,Opts),
-    fill_tab(Tab,foo),
-    ets:insert(Tab,{{a,key},foo}),
-    N = 100000,
-    {Time,_} = timer:tc(fun() -> time_lookup_many(N, Tab) end),
-    Seconds = Time / 1000000,
-    true = ets:delete(Tab),
-    round(N / Seconds).				% lookups/s
-
-time_lookup_many(0, _Tab) ->
-    ok;
-time_lookup_many(N, Tab) ->
-    ets:lookup(Tab, {a,key}),
-    time_lookup_many(N-1, Tab).
 
 %% Check proper return values from bad lookups in existing/non existing
 %% ets tables.
