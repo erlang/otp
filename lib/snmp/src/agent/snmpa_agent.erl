@@ -2574,7 +2574,7 @@ process_pdu(#pdu{type = 'get-next-request', request_id = ReqId, varbinds = Vbs},
 	    "~n   ReqId:   ~p"
 	    "~n   Vbs:     ~p"
 	    "~n   MibView: ~p", [ReqId, Vbs, MibView]),
-    OrigRes = do_get_next(MibView, Vbs, infinity),
+    OrigRes = do_get_next(MibView, Vbs),
     Res     = get_err(OrigRes),
     {ErrStatus, ErrIndex, ResVarbinds} = 
 	if
