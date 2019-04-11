@@ -924,7 +924,7 @@ handle_info({Protocol, _, _, _, Data}, StateName,
     end;
 
 handle_info({PassiveTag, Socket}, StateName,
-            #state{static_env = #static_env{socket = Socket,
+            #state{static_env = #static_env{socket = {_, Socket},
                                             passive_tag = PassiveTag},
                    protocol_specific = PS} = State) ->
     next_event(StateName, no_record,
