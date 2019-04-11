@@ -2176,8 +2176,8 @@ end
 
 define etp-processes-free-de-int
   set $de_ix = 0
-  while $de_ix < ($arg1)
-    set $de = ($arg0)+$de_ix
+  set $de = ($arg0)
+  while $de
     set $susp = $de->suspended
     set $susp_curr = $susp
     set $first_loop = 1
@@ -2191,7 +2191,7 @@ define etp-processes-free-de-int
       set $first_loop = 0
       set $susp_curr = $susp_curr->next
     end
-    set $de_ix++
+    set $de = $de->next
   end
 end
 
