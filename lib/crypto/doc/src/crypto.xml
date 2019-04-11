@@ -671,11 +671,30 @@
       <fsummary>Initializes a series of encryptions or decryptions</fsummary>
       <desc>
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
-	Initializes a series of encryptions or decryptions.
+	Initializes a series of encryptions or decryptions and creates an internal state
+	with a reference that is returned.
 	The actual encryption or decryption is done by
 	<seealso marker="crypto#crypto_update/2">crypto_update/2</seealso>.
 	</p>
-	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>.
+	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
+	</p>
+	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_update" arity="2" since="OTP 22.0"/>
+      <fsummary>Do an actual crypto operation on a part of the full text</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	It does an actual crypto operation on a part of the full text. If the part is less
+	than a number of full blocks, only the full blocks (possibly none) are encrypted 
+	or decrypted and the remaining bytes are saved to the next <c>crypto_update</c> operation.
+	The <c>State</c> should be created with
+	<seealso marker="crypto#crypto_init/3">crypto_init/3</seealso>
+	or
+	<seealso marker="crypto#crypto_init/4">crypto_init/4</seealso>.
 	</p>
 	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
 	</p>
@@ -691,23 +710,7 @@
 	The actual encryption or decryption is done by
 	<seealso marker="crypto#crypto_update_dyn_iv/3">crypto_update_dyn_iv/3</seealso>.
 	</p>
-	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>.
-	</p>
-	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
-	</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="crypto_update" arity="2" since="OTP 22.0"/>
-      <fsummary>Do an actual crypto operation on a part of the full text</fsummary>
-      <desc>
-	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
-	Do an actual crypto operation on a part of the full text.
-	The <c>State</c> should be created with
-	<seealso marker="crypto#crypto_init/3">crypto_init/3</seealso>
-	or
-	<seealso marker="crypto#crypto_init/4">crypto_init/4</seealso>.
+	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
 	</p>
 	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
 	</p>
@@ -743,7 +746,7 @@
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
 	Do a complete encrypt or decrypt of the full text.
 	</p>
-	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>.
+	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
 	</p>
 	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
 	</p>
@@ -758,7 +761,12 @@
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
 	Do a complete encrypt or decrypt with an AEAD cipher of the full text.
 	</p>
-	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>.
+	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c> and set the <c>TagOrTagLength</c>
+	to the wanted size of the tag, that is, the tag length.  If the default length is wanted, the
+	<c>crypto_aead/6</c> form may be used.
+	</p>
+	<p>For decryption, set the <c>EncryptFlag</c> to <c>false</c> and put the tag to be checked
+	in the argument	<c>TagOrTagLength</c>.
 	</p>
 	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
 	</p>
