@@ -45,7 +45,7 @@ listen(Port, #config{transport_info = TransportInfo,
 	    Err
     end.
 
-accept(dtls, #config{transport_info = {Transport,_,_,_},
+accept(dtls, #config{transport_info = {Transport,_,_,_,_},
 		    connection_cb = ConnectionCb,
 		    dtls_handler = {Listner, _}}, _Timeout) -> 
     case dtls_packet_demux:accept(Listner, self()) of
@@ -55,7 +55,7 @@ accept(dtls, #config{transport_info = {Transport,_,_,_},
 	    {error, Reason}
     end.
 
-connect(Address, Port, #config{transport_info = {Transport, _, _, _} = CbInfo,
+connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo,
 				connection_cb = ConnectionCb,
 				ssl = SslOpts,
 				emulated = EmOpts,
@@ -174,7 +174,7 @@ default_inet_values() ->
     [{active, true}, {mode, list}, {packet, 0}, {packet_size, 0}].
 
 default_cb_info() ->
-    {gen_udp, udp, udp_closed, udp_error}.
+    {gen_udp, udp, udp_closed, udp_error, udp_passive}.
 
 get_emulated_opts(EmOpts, EmOptNames) -> 
     lists:map(fun(Name) -> {value, Value} = lists:keysearch(Name, 1, EmOpts),
