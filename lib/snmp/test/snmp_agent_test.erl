@@ -5146,12 +5146,21 @@ snmp_framework_mib_3(Config) when is_list(Config) ->
 %% Req. SNMP-FRAMEWORK-MIB
 snmp_framework_mib_test() ->
     ?line ["agentEngine"] = get_req(1, [[snmpEngineID,0]]),
+    T1 = snmp_misc:now(ms),
     ?line [EngineTime] = get_req(2, [[snmpEngineTime,0]]),
+    T2 = snmp_misc:now(ms),
     ?SLEEP(5000),
+    T3 = snmp_misc:now(ms),
     ?line [EngineTime2] = get_req(3, [[snmpEngineTime,0]]),
-    ?DBG("snmp_framework_mib -> time(s): "
-	 "~n   EngineTime 1 = ~p"
-	 "~n   EngineTime 2 = ~p", [EngineTime, EngineTime2]),
+    T4 = snmp_misc:now(ms),
+    ?PRINT2("snmp_framework_mib -> time(s): "
+            "~n   EngineTime 1: ~p"
+            "~n      Time to acquire: ~w ms"
+            "~n   EngineTime 2: ~p"
+            "~n      Time to acquire: ~w ms"
+            "~n   => (5 sec sleep between get(snmpEngineTime))"
+            "~n      Total time to acquire: ~w ms",
+            [EngineTime, T2-T1, EngineTime2, T4-T3, T4-T1]),
     if 
 	(EngineTime+7) < EngineTime2 ->
 	    ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
@@ -5160,11 +5169,18 @@ snmp_framework_mib_test() ->
 	true -> 
 	    ok
     end,
+    T5 = snmp_misc:now(ms),
     ?line case get_req(4, [[snmpEngineBoots,0]]) of
 	      [Boots] when is_integer(Boots) -> 
+                  T6 = snmp_misc:now(ms),
+                  ?PRINT2("snmp_framework_mib -> "
+                          "~n   boots: ~p"
+                          "~n      Time to acquire: ~w ms", [Boots, T6-T5]),
 		  ok;
 	      Else -> 
-		  ?FAIL(Else)
+                  ?PRINT2("snmp_framework_mib -> failed get proper boots:"
+                          "~n   ~p", [Else]),
+		  ?FAIL({invalid_boots, Else})
 	  end,
     ok.
 
