@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>erlang:open_port/2</c> with the <c>fd</c> option
+	    to correctly cleanup the pollset when the port is closed.
+	    Before this fix there would be error printouts sent to
+	    logger when the same fd was reused in a new port.</p>
+          <p>
+	    Own Id: OTP-15753 Aux Id: ERL-900 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
