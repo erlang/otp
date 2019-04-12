@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -581,11 +581,13 @@ gb_iter(I0, N, EFun) ->
 <input>{K} &lt;- ets:table(E1),</input>
 <input>K == 2.71 orelse K == a]),</input>
 <input>io:format("~s~n", [qlc:info(Q1)]).</input>
-ets:match_spec_run(lists:flatmap(fun(V) ->
-                                        ets:lookup(20493, V)
-                                 end,
-                                 [a,2.71]),
-                   ets:match_spec_compile([{{'$1'},[],['$1']}]))</pre>
+ets:match_spec_run(
+       lists:flatmap(fun(V) ->
+			    ets:lookup(#Ref&lt;0.3098908599.2283929601.256025>,
+				       V)
+		     end,
+		     [a, 2.71]),
+       ets:match_spec_compile([{{'$1'}, [], ['$1']}]))</pre>
 
     <p>In the example, operator <c>==/2</c> has been handled
       exactly as <c>=:=/2</c> would have been handled. However,
@@ -607,9 +609,10 @@ ets:match_spec_run(lists:flatmap(fun(V) ->
 <input>end,</input>
 <input>Q2 = F2({2,2}),</input>
 <input>io:format("~s~n", [qlc:info(Q2)]).</input>
-ets:table(53264,
+ets:table(#Ref&lt;0.3098908599.2283929601.256125>,
           [{traverse,
-            {select,[{{'$1','$2'},[{'==','$1',{const,{2,2}}}],['$2']}]}}])
+            {select,
+             [{{'$1', '$2'}, [{'==', '$1', {const, {2, 2}}}], ['$2']}]}}])
 3> <input>lists:sort(qlc:e(Q2)).</input>
 [a,b,c]</pre>
 
@@ -629,8 +632,9 @@ ets:table(53264,
 <input>end,</input>
 <input>Q3 = F3({2,2}),</input>
 <input>io:format("~s~n", [qlc:info(Q3)]).</input>
-ets:match_spec_run(ets:lookup(86033, {2,2}),
-                   ets:match_spec_compile([{{'$1','$2'},[],['$2']}]))
+ets:match_spec_run(ets:lookup(#Ref&lt;0.3098908599.2283929601.256211>,
+                              {2, 2}),
+                   ets:match_spec_compile([{{'$1', '$2'}, [], ['$2']}]))
 5> <input>qlc:e(Q3).</input>
 [b]</pre>
 
@@ -892,21 +896,21 @@ begin
     V1 =
         qlc:q([
                SQV ||
-                   SQV &lt;- [x,y]
+                   SQV &lt;- [x, y]
               ],
-              [{unique,true}]),
+              [{unique, true}]),
     V2 =
         qlc:q([
                SQV ||
-                   SQV &lt;- [a,b]
+                   SQV &lt;- [a, b]
               ],
-              [{unique,true}]),
+              [{unique, true}]),
     qlc:q([
            {X,Y} ||
                X &lt;- V1,
                Y &lt;- V2
           ],
-          [{unique,true}])
+          [{unique, true}])
 end</pre>
         <p>In the following example QLC <c>V2</c> has
           been inserted to show the joined generators and the join
@@ -927,19 +931,21 @@ begin
     V1 =
         qlc:q([
                P0 ||
-                   P0 = {W,Y} &lt;- ets:table(17)
+                   P0 = {W, Y} &lt;-
+                       ets:table(#Ref&lt;0.3098908599.2283929601.256549>)
               ]),
     V2 =
         qlc:q([
-               [G1|G2] ||
+               [G1 | G2] ||
                    G2 &lt;- V1,
-                   G1 &lt;- ets:table(16),
+                   G1 &lt;-
+                       ets:table(#Ref&lt;0.3098908599.2283929601.256548>),
                    element(2, G1) =:= element(1, G2)
               ],
-              [{join,lookup}]),
+              [{join, lookup}]),
     qlc:q([
-           {X,Z,W} ||
-               [{X,Z}|{W,Y}] &lt;- V2
+           {X, Z, W} ||
+               [{X, Z} | {W, Y}] &lt;- V2
           ])
 end</pre>
       </desc>
@@ -1080,27 +1086,27 @@ begin
     V1 =
         qlc:q([
                P0 ||
-                   P0 = {X,Z} &lt;-
-                       qlc:keysort(1, [{a,1},{b,4},{c,6}], [])
+                   P0 = {X, Z} &lt;-
+                       qlc:keysort(1, [{a, 1}, {b, 4}, {c, 6}], [])
               ]),
     V2 =
         qlc:q([
                P0 ||
-                   P0 = {W,Y} &lt;-
-                       qlc:keysort(2, [{2,a},{3,b},{4,c}], [])
+                   P0 = {W, Y} &lt;-
+                       qlc:keysort(2, [{2, a}, {3, b}, {4, c}], [])
               ]),
     V3 =
         qlc:q([
-               [G1|G2] ||
+               [G1 | G2] ||
                    G1 &lt;- V1,
                    G2 &lt;- V2,
                    element(1, G1) == element(2, G2)
               ],
-              [{join,merge},{cache,list}]),
+              [{join, merge}, {cache, list}]),
     qlc:q([
-           {A,X,Z,W} ||
-               A &lt;- [a,b,c],
-               [{X,Z}|{W,Y}] &lt;- V3,
+           {A, X, Z, W} ||
+               A &lt;- [a, b, c],
+               [{X, Z} | {W, Y}] &lt;- V3,
                X =:= Y
           ])
 end</pre>
@@ -1141,14 +1147,21 @@ ets:match_spec_run(
                                 gb_trees:lookup(K,
                                                 gb_trees:from_orddict([]))
                             of
-                                {value,V} ->
-                                    [{K,V}];
+                                {value, V} ->
+                                    [{K, V}];
                                 none ->
                                     []
                             end
                      end,
-                     [{1,a},{1,b},{1,c},{2,a},{2,b},{2,c}]),
-       ets:match_spec_compile([{{{'$1','$2'},'_'},[],['$1']}]))</pre>
+                     [{1, a},
+                      {1, b},
+                      {1, c},
+                      {2, a},
+                      {2, b},
+                      {2, c}]),
+       ets:match_spec_compile([{{{'$1', '$2'}, '_'},
+                                [],
+                                ['$1']}]))</pre>
         <p>Options:</p>
         <list type="bulleted">
           <item>
