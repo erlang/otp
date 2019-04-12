@@ -22,7 +22,7 @@
 
  -module(x509_test).
 
- -include_lib("public_key/include/public_key.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -export([extensions/1, gen_pem_config_files/3]).
 

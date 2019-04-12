@@ -76,7 +76,7 @@ security_parameters(?TLS_NULL_WITH_NULL_NULL = CipherSuite, SecParams) ->
 %%-------------------------------------------------------------------
 security_parameters(Version, CipherSuite, SecParams) ->
     #{cipher := Cipher, mac := Hash, 
-      prf := PrfHashAlg} = ssl_cipher_format:suite_definition(CipherSuite),
+      prf := PrfHashAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
     SecParams#security_parameters{
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
@@ -91,7 +91,7 @@ security_parameters(Version, CipherSuite, SecParams) ->
 
 security_parameters_1_3(SecParams, CipherSuite) ->
      #{cipher := Cipher, prf := PrfHashAlg} =
-        ssl_cipher_format:suite_definition(CipherSuite),
+        ssl_cipher_format:suite_bin_to_map(CipherSuite),
     SecParams#security_parameters{
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
@@ -549,7 +549,7 @@ filter_suite(#{key_exchange := KeyExchange,
         all_filters(Hash, HashFilters) andalso
         all_filters(Prf, PrfFilters);
 filter_suite(Suite, Filters) ->
-    filter_suite(ssl_cipher_format:suite_definition(Suite), Filters).
+    filter_suite(ssl_cipher_format:suite_bin_to_map(Suite), Filters).
 
 %%--------------------------------------------------------------------
 -spec filter_suites([ssl:erl_cipher_suite()] | [ssl_cipher_format:cipher_suite()]) -> 

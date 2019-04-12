@@ -193,7 +193,7 @@ handle_client_hello(Version,
 		no_suite ->
 		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
 		_ ->
-		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_definition(CipherSuite),
+		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
 		    case ssl_handshake:select_hashsign({ClientHashSigns, undefined}, Cert, KeyExAlg,
 						       SupportedHashSigns, TLSVersion) of
 			#alert{} = Alert ->
