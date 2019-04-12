@@ -47,6 +47,7 @@
 	  hook/1,
 	  neg_indent/1,
 	  maps_syntax/1,
+          quoted_atom_types/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
@@ -74,7 +75,7 @@ groups() ->
     [{expr, [],
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
-       messages, maps_syntax
+       messages, maps_syntax, quoted_atom_types
     ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
@@ -912,6 +913,21 @@ maps_syntax(Config) when is_list(Config) ->
     ok = pp_forms(F),
     ok.
 
+quoted_atom_types(Config) when is_list(Config) ->
+    Q = [{quote_singleton_atom_types, true}],
+    U = [{encoding,unicode}],
+    L = [{encoding,latin1}],
+    F = "-type t() :: a | a().",
+    "-type t() :: 'a' | a().\n" =
+        lists:flatten(parse_and_pp_forms(F, Q ++ L)),
+    "-type t() :: 'a' | a().\n" =
+        lists:flatten(parse_and_pp_forms(F, Q ++ U)),
+    UF = "-type t() :: '\x{400}' | '\x{400}'().",
+    "-type t() :: '\\x{400}' | '\\x{400}'().\n" =
+        lists:flatten(parse_and_pp_forms(UF, Q ++ L)),
+    "-type t() :: '\x{400}' | '\x{400}'().\n" =
+        lists:flatten(parse_and_pp_forms(UF, Q ++ U)),
+    ok.
 
 %% OTP_8567. Avoid duplicated 'undefined' in record field types.
 otp_8567(Config) when is_list(Config) ->
