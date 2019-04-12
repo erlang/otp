@@ -63,10 +63,21 @@ JUMP(Fail) {
     Goto(*I);
 }
 
+GC_SWAPOUT() {
+    //
+    // Since a garbage collection is expensive anyway, we can afford
+    // to save the instruction counter so that the correct function will
+    // be pointed in the crash dump if the garbage collection fails
+    // because of insufficient memory.
+    //
+    SWAPOUT;
+    c_p->i = I;
+}
+
 GC_TEST(Ns, Nh, Live) {
     Uint need = $Nh + $Ns;
     if (ERTS_UNLIKELY(E - HTOP < need)) {
-       SWAPOUT;
+       $GC_SWAPOUT();
        PROCESS_MAIN_CHK_LOCKS(c_p);
        FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live, FCALLS);
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -79,7 +90,7 @@ GC_TEST(Ns, Nh, Live) {
 GC_TEST_PRESERVE(NeedHeap, Live, PreserveTerm) {
     Uint need = $NeedHeap;
     if (ERTS_UNLIKELY(E - HTOP < need)) {
-       SWAPOUT;
+       $GC_SWAPOUT();
        reg[$Live] = $PreserveTerm;
        PROCESS_MAIN_CHK_LOCKS(c_p);
        FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live+1, FCALLS);
