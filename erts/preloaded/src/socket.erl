@@ -2044,6 +2044,14 @@ recvmsg(Socket) ->
       Flags   :: recv_flags(),
       MsgHdr  :: msghdr(),
       Reason  :: term()
+                 ; (Socket, nowait) -> {ok, MsgHdr} |
+                                       {ok, SelInfo} |
+                                       {error, Reason} when
+      Socket  :: socket(),
+      MsgHdr  :: msghdr(),
+      SelInfo :: {select, RecvRef},
+      RecvRef :: reference(),
+      Reason  :: term()
                  ; (Socket, Timeout) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
       Timeout :: timeout(),
@@ -2055,7 +2063,16 @@ recvmsg(Socket, Flags) when is_list(Flags) ->
 recvmsg(Socket, Timeout) ->
     recvmsg(Socket, 0, 0, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
 
--spec recvmsg(Socket, Flags, Timeout) -> {ok, MsgHdr} | {error, Reason} when
+-spec recvmsg(Socket, Flags, nowait) -> {ok, MsgHdr} |
+                                        {ok, SelInfo} |
+                                        {error, Reason} when
+      Socket  :: socket(),
+      Flags   :: recv_flags(),
+      MsgHdr  :: msghdr(),
+      SelInfo :: {select, RecvRef},
+      RecvRef :: reference(),
+      Reason  :: term()
+                 ; (Socket, Flags, Timeout) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
       Flags   :: recv_flags(),
       Timeout :: timeout(),
@@ -2077,7 +2094,20 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz) andalso is_integer(CtrlSz)
 
 -spec recvmsg(Socket, 
               BufSz, CtrlSz,
-              Flags, Timeout) -> {ok, MsgHdr} | {error, Reason} when
+              Flags, nowait) -> {ok, MsgHdr} |
+                                {ok, SelInfo} |
+                                {error, Reason} when
+      Socket  :: socket(),
+      BufSz   :: non_neg_integer(),
+      CtrlSz  :: non_neg_integer(),
+      Flags   :: recv_flags(),
+      MsgHdr  :: msghdr(),
+      SelInfo :: {select, RecvRef},
+      RecvRef :: reference(),
+      Reason  :: term()
+                 ; (Socket, 
+                    BufSz, CtrlSz,
+                    Flags, Timeout) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
       BufSz   :: non_neg_integer(),
       CtrlSz  :: non_neg_integer(),
@@ -2090,7 +2120,9 @@ recvmsg(#socket{ref = SockRef}, BufSz, CtrlSz, Flags, Timeout)
   when (is_integer(BufSz) andalso (BufSz >= 0)) andalso
        (is_integer(CtrlSz) andalso (CtrlSz >= 0)) andalso
        is_list(Flags) andalso
-       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
+       (is_integer(Timeout) orelse
+        (Timeout =:= infinity) orelse
+        (Timeout =:= nowait)) ->
     EFlags = enc_recv_flags(Flags),
     do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout).
 
@@ -2100,6 +2132,10 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
     case nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags) of
         {ok, _MsgHdr} = OK ->
             OK;
+
+        {error, eagain} when (Timeout =:= nowait) ->
+            SelInfo = {select, RecvRef},
+            {ok, SelInfo};
 
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
