@@ -381,44 +381,6 @@
   </section>
 
     <section>
-      <marker id="REFERENCE_EXT"/>
-      <title>REFERENCE_EXT</title>
-      <table align="left">
-        <row>
-          <cell align="center">1</cell>
-          <cell align="center">N</cell>
-          <cell align="center">4</cell>
-          <cell align="center">1</cell>
-        </row>
-        <row>
-          <cell align="center"><c>101</c></cell>
-          <cell align="center"><c>Node</c></cell>
-          <cell align="center"><c>ID</c></cell>
-          <cell align="center"><c>Creation</c></cell>
-        </row>
-      <tcaption>REFERENCE_EXT</tcaption></table>
-      <p>
-        Encodes a reference object (an object generated with
-        <seealso marker="erlang#make_ref/0">erlang:make_ref/0</seealso>).
-        The <c>Node</c> term is an encoded atom, that is,
-        <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>, 
-        <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>, or
-        <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>. 
-        The <c>ID</c> field contains a big-endian unsigned integer,
-        but <em>is to be regarded as uninterpreted data</em>,
-        as this field is node-specific.
-        <c>Creation</c> is a byte containing a node serial number, which
-        makes it possible to separate old (crashed) nodes from a new one.
-      </p>
-      <p>
-        In <c>ID</c>, only 18 bits are significant; the rest are to be 0.
-        In <c>Creation</c>, only two bits are significant; the rest are to be 0.
-        See <seealso marker="#NEW_REFERENCE_EXT">
-        <c>NEW_REFERENCE_EXT</c></seealso>.
-      </p>
-    </section>
-
-    <section>
       <marker id="PORT_EXT"/>
       <title>PORT_EXT</title>
 	<table align="left">
@@ -436,13 +398,46 @@
 	  </row>
 	<tcaption>PORT_EXT</tcaption></table>
 	<p>
-	  Encodes a port object (obtained from
-          <seealso marker="erlang#open_port/2">
-          <c>erlang:open_port/2</c></seealso>).
-	  The <c>ID</c> is a node-specific identifier for a local port.
+	  Same as <seealso marker="#NEW_PORT_EXT"><c>NEW_PORT_EXT</c></seealso>
+	  except the <c>Creation</c> field is only one byte and only two
+	  bits are significant, the rest are to be 0.
+	</p>
+    </section>
+
+    <section>
+      <marker id="NEW_PORT_EXT"/>
+      <title>NEW_PORT_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">4</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>89</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>ID</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	  </row>
+	<tcaption>NEW_PORT_EXT</tcaption></table>
+	<p>
+	  Encodes a port identifier (obtained from
+          <seealso marker="erlang#open_port/2"><c>erlang:open_port/2</c></seealso>).
+	  <c>Node</c> is an encoded atom, that is,
+	  <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
+	  <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>
+	  or <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>.
+	  <c>ID</c> is a 32-bit big endian unsigned integer. Only 28 bits are
+	  significant; the rest are to be 0. The <c>Creation</c> works just like in
+	  <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>.
 	  Port operations are not allowed across node boundaries.
-	  The <c>Creation</c> works just like in
-	  <seealso marker="#REFERENCE_EXT"><c>REFERENCE_EXT</c></seealso>.
+	</p>
+	<p>Introduced in OTP 19, but only to be decoded and echoed back. Not
+	  encoded for local ports. Planned to supersede <seealso marker="#PORT_EXT">
+	  <c>PORT_EXT</c></seealso> in OTP 23 when
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_BIG_CREATON</c></seealso>
+	  becomes mandatory.
 	</p>
     </section>
 
@@ -466,12 +461,65 @@
 	  </row>
 	<tcaption>PID_EXT</tcaption></table>
 	<p>
-	  Encodes a process identifier object (obtained from
-          <seealso marker="erlang#spawn/3"><c>erlang:spawn/3</c></seealso> or
-	  friends). The <c>ID</c> and <c>Creation</c> fields works just like in
-	  <seealso marker="#REFERENCE_EXT"><c>REFERENCE_EXT</c></seealso>, while
-	  the <c>Serial</c> field is used to improve safety.	  
-	  In <c>ID</c>, only 15 bits are significant; the rest are to be 0.
+	  Same as <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>
+	  except the <c>Creation</c> field is only one byte and only two
+	  bits are significant, the rest are to be 0.
+	</p>
+    </section>
+
+    <section>
+      <marker id="NEW_PID_EXT"/>
+      <title>NEW_PID_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">4</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>88</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>ID</c></cell>
+	    <cell align="center"><c>Serial</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	  </row>
+	<tcaption>NEW_PID_EXT</tcaption></table>
+	<p>
+	  Encodes an Erlang process identifier object.
+	</p>
+	<taglist>
+	  <tag><c>Node</c></tag>
+	  <item><p>The name of the originating node, encoded using
+	    <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
+	    <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>
+	    or <seealso
+	    marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>.</p>
+	  </item>
+	  <tag><c>ID</c></tag>
+	  <item><p>A 32-bit big endian unsigned integer. Only 15 bits are
+	    significant; the rest are to be 0.</p>
+	  </item>
+	  <tag><c>Serial</c></tag>
+	  <item><p>A 32-bit big endian unsigned integer. Only 13 bits are
+	    significant; the rest are to be 0.</p>
+	  </item>
+	  <tag><c>Creation</c></tag>
+	  <item><p>A 32-bit big endian unsigned integer. All identifiers
+	    originating from the same node incarnation must have identical <c>Creation</c>
+	    values. This makes it possible to separate identifiers from old
+	    (crashed) nodes from a new one. The value zero should be avoided for
+	    normal operations as it is used as a wild card for debug purpose
+	    (like a pid returned by <seealso marker="erts:erlang#list_to_pid/1">
+	    erlang:list_to_pid/1</seealso>).</p>
+	  </item>
+	</taglist>
+	<p>Introduced in OTP 19, but only to be decoded and echoed back. Not
+	  encoded for local processes. Planned to supersede <seealso marker="#PID_EXT">
+	  <c>PID_EXT</c></seealso> in OTP 23 when
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_BIG_CREATON</c></seealso>
+	  becomes mandatory.
 	</p>
     </section>
 
@@ -695,6 +743,30 @@
     </section>
 
     <section>
+      <marker id="REFERENCE_EXT"/>
+      <title>REFERENCE_EXT (deprecated)</title>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">N</cell>
+          <cell align="center">4</cell>
+          <cell align="center">1</cell>
+        </row>
+        <row>
+          <cell align="center"><c>101</c></cell>
+          <cell align="center"><c>Node</c></cell>
+          <cell align="center"><c>ID</c></cell>
+          <cell align="center"><c>Creation</c></cell>
+        </row>
+      <tcaption>REFERENCE_EXT</tcaption></table>
+      <p>
+	The same as <seealso marker="#NEW_REFERENCE_EXT">
+	<c>NEW_REFERENCE_EXT</c></seealso> except <c>ID</c> is only one word
+	(<c>Len</c> = 1).
+      </p>
+    </section>
+
+    <section>
       <marker id="NEW_REFERENCE_EXT"/>
       <title>NEW_REFERENCE_EXT</title>
 	<table align="left">
@@ -714,29 +786,68 @@
 	  </row>
 	<tcaption>NEW_REFERENCE_EXT</tcaption></table>
 	<p>
-	  <c>Node</c> and <c>Creation</c> are as in
-	  <seealso marker="#REFERENCE_EXT"><c>REFERENCE_EXT</c></seealso>.
+	  The same as <seealso marker="#NEWER_REFERENCE_EXT">
+	  <c>NEWER_REFERENCE_EXT</c></seealso> <em>except</em>:
 	</p>
+	<taglist>
+	  <tag><c>ID</c></tag>
+	  <item><p>In the first word (4 bytes) of <c>ID</c>, only 18 bits are
+	    significant, the rest must be 0.</p>
+	  </item>
+	  <tag><c>Creation</c></tag>
+	  <item><p>Only one byte long and only two bits are significant, the rest must be 0.</p>
+	  </item>
+	</taglist>
+    </section>
+
+    <section>
+      <marker id="NEWER_REFERENCE_EXT"/>
+      <title>NEWER_REFERENCE_EXT</title>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">N</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">N'</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>90</c></cell>
+	    <cell align="center"><c>Len</c></cell>
+	    <cell align="center"><c>Node</c></cell>
+	    <cell align="center"><c>Creation</c></cell>
+	    <cell align="center"><c>ID ...</c></cell>
+	  </row>
+	<tcaption>NEWER_REFERENCE_EXT</tcaption></table>
 	<p>
-	  <c>ID</c> contains a sequence of big-endian unsigned integers
-	  (4 bytes each, so <c>N'</c> is a multiple of 4),
-	  but is to be regarded as uninterpreted data.
+	  Encodes a reference term generated with
+	  <seealso marker="erts:erlang#make_ref/0">erlang:make_ref/0</seealso>.
 	</p>
-	<p>
-	  <c>N'</c> = 4 * <c>Len</c>.
-	</p>
-	<p>
-	  In the first word (4 bytes) of <c>ID</c>, only 18 bits are
-	  significant, the rest are to be 0.
-	  In <c>Creation</c>, only two bits are significant,
-	  the rest are to be 0.
-	</p>
-	<p>
-	  <c>NEW_REFERENCE_EXT</c> was introduced with distribution version 4.
-	  In version 4, <c>N'</c> is to be at most 12.
-	</p>
-	<p>
-	  See <seealso marker="#REFERENCE_EXT"><c>REFERENCE_EXT</c></seealso>.
+	<taglist>
+	  <tag><c>Node</c></tag>
+	  <item><p>The name of the originating node, encoded using
+	    <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
+	    <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>
+	    or <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>.</p>
+	  </item>
+	  <tag><c>Len</c></tag>
+	  <item><p>A 16-bit big endian unsigned integer not larger than 3.</p>
+	  </item>
+	  <tag><c>ID</c></tag>
+	  <item><p>A sequence of <c>Len</c> big-endian unsigned integers
+	    (4 bytes each, so <c>N'</c>&nbsp;=&nbsp;4&nbsp;*&nbsp;<c>Len</c>),
+	    but is to be regarded as uninterpreted data.</p>
+	  </item>
+	  <tag><c>Creation</c></tag>
+	  <item><p>Works just like in
+	  <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>.</p>
+	  </item>
+	</taglist>
+	<p>Introduced in OTP 19, but only to be decoded and echoed back. Not
+	  encoded for local references. Planned to supersede <seealso marker="#NEW_REFERENCE_EXT">
+	  <c>NEW_REFERENCE_EXT</c></seealso> in OTP 23 when
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_BIG_CREATON</c></seealso>
+	  becomes mandatory.
 	</p>
     </section>
 
