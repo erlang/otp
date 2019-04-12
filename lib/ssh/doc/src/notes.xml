@@ -30,6 +30,31 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.7.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The callback <c>ssh_channel:init/1</c> was missing in
+	    OTP-21</p>
+          <p>
+	    Own Id: OTP-15762</p>
+        </item>
+        <item>
+          <p>
+	    If a client was connected to an server on an already open
+	    socket, the callback <c>fun(PeerName,FingerPrint)</c> in
+	    the <c>accept_callback</c> option passed the local name
+	    in the argument PeerName instead of the remote name.</p>
+          <p>
+	    Own Id: OTP-15763</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
