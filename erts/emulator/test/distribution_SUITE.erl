@@ -1527,13 +1527,19 @@ measure_latency(DataFun, Dropper, Echo, Payload) ->
              ok
      end || _ <- lists:seq(1,10)],
 
-    {TS, _} =
+    {TS, Times} =
         timer:tc(fun() ->
                          [begin
+                              T0 = erlang:monotonic_time(),
                               Echo ! {self(), hello},
-                              receive hello -> ok end
+                              receive hello -> ok end,
+                              (erlang:monotonic_time() - T0) / 1000000
                           end || _ <- lists:seq(1,100)]
                  end),
+    Avg = lists:sum(Times) / length(Times),
+    StdDev = math:sqrt(lists:sum([math:pow(V - Avg,2) || V <- Times]) / length(Times)),
+    ct:pal("Times: Avg: ~p Max: ~p Min: ~p Var: ~p",
+           [Avg, lists:max(Times), lists:min(Times), StdDev]),
     [begin
          Sender ! die,
          receive
