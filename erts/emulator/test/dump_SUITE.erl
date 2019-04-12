@@ -146,7 +146,7 @@ free_dump(Config) when is_list(Config) ->
                              Self ! ready,
                              receive
                                  ok ->
-                                     unlink(Self),
+                                     spawn(fun() -> timer:sleep(5), erlang:halt("dump") end),
                                      exit(lists:duplicate(1000,1000))
                              end
                      end),
@@ -155,8 +155,6 @@ free_dump(Config) when is_list(Config) ->
 
     [erlang:monitor(process, Pid) || _ <- lists:seq(1,10000)],
     receive ready -> unlink(Pid), Pid ! ok end,
-
-    rpc:call(Node, erlang, halt, ["dump"]),
 
     {ok, Bin} = get_dump_when_done(Dump),
 
