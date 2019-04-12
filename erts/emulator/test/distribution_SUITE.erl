@@ -1480,11 +1480,14 @@ measure_latency_large_message(Nodename, DataFun) ->
 
     Echo = spawn(N, fun F() -> receive {From, Msg} -> From ! Msg, F() end end),
 
-    case erlang:system_info(build_type) of
-        debug ->
+    BuildType = erlang:system_info(build_type),
+    WordSize = erlang:system_info(wordsize),
+
+    if
+        BuildType =/= opt; WordSize =:= 4 ->
             %% Test 3.2 MB and 32 MB and test the latency difference of sent messages
             Payloads = [{I, <<0:(I * 32 * 1024 * 8)>>} || I <- [1,10]];
-        _ ->
+        true ->
             %% Test 32 MB and 320 MB and test the latency difference of sent messages
             Payloads = [{I, <<0:(I * 32 * 1024 * 1024 * 8)>>} || I <- [1,10]]
     end,
@@ -1499,7 +1502,7 @@ measure_latency_large_message(Nodename, DataFun) ->
     stop_node(N),
 
     case {lists:max(Times), lists:min(Times)} of
-        {Max, Min} when Max * 0.25 > Min ->
+        {Max, Min} when Max * 0.25 > Min, BuildType =:= opt ->
             ct:fail({incorrect_latency, IndexTimes});
         _ ->
             ok
