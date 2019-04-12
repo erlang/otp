@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed build link error on Windows. Unresolved symbol
+	    'bcmp'.</p>
+          <p>
+	    Own Id: OTP-15750 Aux Id: ERL-905 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
