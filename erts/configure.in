@@ -590,6 +590,22 @@ AC_SUBST(WERRORFLAGS)
 ## Check if we can do profile guided optimization of beam_emu
 LM_CHECK_ENABLE_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
 LM_CHECK_ENABLE_CFLAG([-fprofile-use -Werror],[PROFILE_USE])
+LM_CHECK_ENABLE_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
+
+if test "X$PROFILE_CORRECTION" = "Xtrue"; then
+   saved_CFLAGS=$CFLAGS
+   saved_LDFLAGS=$LDFLAGS
+   CFLAGS="-fprofile-generate $saved_CFLAGS"
+   LDFLAGS="-fprofile-generate $saved_LDFLAGS"
+   AC_MSG_CHECKING([whether $CC links with -fprofile-generate])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([],[return 0;])],
+        [AC_MSG_RESULT([yes])
+         PROFILE_GENERATE=true],
+        [AC_MSG_RESULT([no])
+         PROFILE_GENERATE=false])
+   CFLAGS=$saved_CFLAGS
+   LDFLAGS=$saved_LDFLAGS
+fi
 
 ## Check if this is clang
 LM_CHECK_ENABLE_CFLAG([-fprofile-instr-generate -Werror],[PROFILE_INSTR_GENERATE])
@@ -614,8 +630,8 @@ if test "X$PROFILE_INSTR_GENERATE" = "Xtrue"; then
       if test "X$LLVM_PROFDATA" != "X"; then
         CFLAGS="-fprofile-instr-use=default.profdata -Werror $saved_CFLAGS";
         $LLVM_PROFDATA merge -output=default.profdata *.profraw;
-        AC_MSG_CHECKING([whether gcc accepts -fprofile-instr-use=default.profdata -Werror])
-        AC_COMPILE_IFELSE([],
+        AC_MSG_CHECKING([whether $CC accepts -fprofile-instr-use=default.profdata -Werror])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[return 0;])],
           [AC_MSG_RESULT([yes])
            PROFILE_INSTR_USE=true],
           [AC_MSG_RESULT([no])
@@ -636,8 +652,6 @@ AS_HELP_STRING([--enable-pgo],
     *)	enable_pgo=yes ;;
   esac
 ],enable_pgo=default)
-
-LM_CHECK_ENABLE_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
 
 USE_PGO=false
 AC_MSG_CHECKING([whether to do PGO of erts])
