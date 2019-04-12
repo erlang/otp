@@ -33,6 +33,7 @@
 
 -export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
          flat_size/1, get_internal_state/1, instructions/0,
+         interpreter_size/0,
          map_info/1, same/2, set_internal_state/2,
          size_shared/1, copy_shared/1, dirty_cpu/2, dirty_io/2, dirty/3,
          lcnt_control/1, lcnt_control/2, lcnt_collect/0, lcnt_clear/0,
@@ -116,6 +117,11 @@ get_internal_state(_) ->
 -spec instructions() -> [string()].
 
 instructions() ->
+    erlang:nif_error(undef).
+
+-spec interpreter_size() -> pos_integer().
+
+interpreter_size() ->
     erlang:nif_error(undef).
 
 -spec ic(F) -> Result when

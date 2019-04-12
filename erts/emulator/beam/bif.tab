@@ -437,6 +437,7 @@ bif erts_debug:set_internal_state/2
 bif erts_debug:display/1
 bif erts_debug:dist_ext_to_term/2
 bif erts_debug:instructions/0
+bif erts_debug:interpreter_size/0
 bif erts_debug:dirty_cpu/2
 bif erts_debug:dirty_io/2
 bif erts_debug:dirty/3

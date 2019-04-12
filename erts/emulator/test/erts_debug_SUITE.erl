@@ -20,10 +20,12 @@
 
 -module(erts_debug_SUITE).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
 
--export([all/0, suite/0,
+-export([all/0, suite/0, groups/0,
          test_size/1,flat_size_big/1,df/1,term_type/1,
-         instructions/1, stack_check/1, alloc_blocks_size/1]).
+         instructions/1, stack_check/1, alloc_blocks_size/1,
+         interpreter_size_bench/1]).
 
 -export([do_alloc_blocks_size/0]).
 
@@ -34,6 +36,15 @@ suite() ->
 all() -> 
     [test_size, flat_size_big, df, instructions, term_type,
      stack_check, alloc_blocks_size].
+
+groups() -> 
+    [{interpreter_size_bench, [], [interpreter_size_bench]}].
+
+interpreter_size_bench(_Config) ->
+    Size = erts_debug:interpreter_size(),
+    ct_event:notify(#event{name=benchmark_data,
+                           data=[{value,Size}]}),
+    {comment,integer_to_list(Size)++" bytes"}.
 
 test_size(Config) when is_list(Config) ->
     ConsCell1 = id([a|b]),
