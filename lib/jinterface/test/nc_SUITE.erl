@@ -142,7 +142,8 @@ fun_roundtrip(Config) when is_list(Config)->
     do_echo([fun(A, B) -> A + B end,
 	     fun(A) -> lists:reverse(A) end,
 	     fun() -> ok end,
-	     fun fun_roundtrip/1],
+	     fun fun_roundtrip/1,
+             fun ?MODULE:fun_roundtrip/1],
 	    Config).
 
 port_roundtrip(doc) -> [];
