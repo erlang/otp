@@ -157,6 +157,8 @@ repeated_passes(Opts) ->
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),
           ?PASS(ssa_opt_tail_phis),
+          ?PASS(ssa_opt_tuple_size),
+          ?PASS(ssa_opt_record),
           ?PASS(ssa_opt_type_continue)],        %Must run after ssa_opt_dead to
                                                 %clean up phi nodes.
     passes_1(Ps, Opts).
