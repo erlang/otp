@@ -519,19 +519,24 @@ simplify(#b_set{op={bif,tuple_size},args=[Term]}=I, Ts) ->
         _ ->
             I
     end;
-simplify(#b_set{op={bif,'=='},args=Args}=I, Ts) ->
+simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '=='; Op0 =:= '/=' ->
     Types = get_types(Args, Ts),
-    EqEq = case {meet(Types),join(Types)} of
-               {none,any} -> true;
-               {#t_integer{},#t_integer{}} -> true;
-               {float,float} -> true;
-               {{binary,_},_} -> true;
-               {#t_atom{},_} -> true;
-               {_,_} -> false
-           end,
+    EqEq0 = case {meet(Types),join(Types)} of
+                {none,any} -> true;
+                {#t_integer{},#t_integer{}} -> true;
+                {float,float} -> true;
+                {{binary,_},_} -> true;
+                {#t_atom{},_} -> true;
+                {_,_} -> false
+            end,
+    EqEq = EqEq0 orelse any_non_numeric_argument(Args, Ts),
     case EqEq of
         true ->
-            simplify(I#b_set{op={bif,'=:='}}, Ts);
+            Op = case Op0 of
+                     '==' -> '=:=';
+                     '/=' -> '=/='
+                 end,
+            simplify(I#b_set{op={bif,Op}}, Ts);
         false ->
             eval_bif(I, Ts)
     end;
@@ -596,6 +601,44 @@ simplify(#b_set{op=wait_timeout,args=[#b_literal{val=0}]}, _Ts) ->
 simplify(#b_set{op=wait_timeout,args=[#b_literal{val=infinity}]}=I, _Ts) ->
     I#b_set{op=wait,args=[]};
 simplify(I, _Ts) -> I.
+
+any_non_numeric_argument([#b_literal{val=Lit}|_], _Ts) ->
+    is_non_numeric(Lit);
+any_non_numeric_argument([#b_var{}=V|T], Ts) ->
+    is_non_numeric_type(get_type(V, Ts)) orelse any_non_numeric_argument(T, Ts);
+any_non_numeric_argument([], _Ts) -> false.
+
+is_non_numeric([H|T]) ->
+    is_non_numeric(H) andalso is_non_numeric(T);
+is_non_numeric(Tuple) when is_tuple(Tuple) ->
+    is_non_numeric_tuple(Tuple, tuple_size(Tuple));
+is_non_numeric(Map) when is_map(Map) ->
+    %% Note that 17.x and 18.x compare keys in different ways.
+    %% Be very conservative -- require that both keys and values
+    %% are non-numeric.
+    is_non_numeric(maps:to_list(Map));
+is_non_numeric(Num) when is_number(Num) ->
+    false;
+is_non_numeric(_) -> true.
+
+is_non_numeric_tuple(Tuple, El) when El >= 1 ->
+    is_non_numeric(element(El, Tuple)) andalso
+	is_non_numeric_tuple(Tuple, El-1);
+is_non_numeric_tuple(_Tuple, 0) -> true.
+
+is_non_numeric_type(#t_atom{}) -> true;
+is_non_numeric_type({binary,_}) -> true;
+is_non_numeric_type(nil) -> true;
+is_non_numeric_type(#t_tuple{size=Size,exact=true,elements=Types})
+  when map_size(Types) =:= Size ->
+    is_non_numeric_tuple_type(Size, Types);
+is_non_numeric_type(_) -> false.
+
+is_non_numeric_tuple_type(0, _Types) ->
+    true;
+is_non_numeric_tuple_type(Pos, Types) ->
+    is_non_numeric_type(map_get(Pos, Types)) andalso
+        is_non_numeric_tuple_type(Pos - 1, Types).
 
 make_literal_list(Args) ->
     make_literal_list(Args, []).
