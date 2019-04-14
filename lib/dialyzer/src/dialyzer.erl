@@ -347,9 +347,9 @@ message_to_string({neg_guard_fail, [Arg1, Infix, Arg2]}, I) ->
   io_lib:format("Guard test not(~ts ~s ~ts) can never succeed\n",
 		[a(Arg1, I), Infix, a(Arg2, I)]); % a/2 rather than c/2
 message_to_string({guard_fail, [Guard, Args]}, I) ->
-  io_lib:format("Guard test ~w~ts can never succeed\n", [Guard, a(Args, I)]);
+  io_lib:format("Guard test ~s~ts can never succeed\n", [Guard, a(Args, I)]);
 message_to_string({neg_guard_fail, [Guard, Args]}, I) ->
-  io_lib:format("Guard test not(~w~ts) can never succeed\n",
+  io_lib:format("Guard test not(~s~ts) can never succeed\n",
                 [Guard, a(Args, I)]);
 message_to_string({guard_fail_pat, [Pat, Type]}, I) ->
   io_lib:format("Clause guard cannot succeed. The ~ts was matched"
@@ -702,7 +702,7 @@ indentation(I) ->
 
 pp_type(Type) ->
   Form = {attribute, erl_anno:new(0), type, {t, Type, []}},
-  TypeDef = erl_pp:form(Form),
+  TypeDef = erl_pp:form(Form, [{quote_singleton_atom_types, true}]),
   {match, [S]} = re:run(TypeDef, <<"::\\s*(.*)\\.\\n*">>,
                         [{capture, all_but_first, list}, dotall]),
   S.
