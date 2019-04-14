@@ -407,14 +407,14 @@ encode_arg({atom, Atom}, Dict0) when is_atom(Atom) ->
     {Index, Dict} = beam_dict:atom(Atom, Dict0),
     {encode(?tag_a, Index), Dict};
 encode_arg({integer, N}, Dict) ->
-    %% Conservatily assume that all integers whose absolute
+    %% Conservatively assume that all integers whose absolute
     %% value is greater than 1 bsl 128 will be bignums in
     %% the runtime system.
     if
         N >= 1 bsl 128 ->
-            encode_arg({literal, N}, Dict);
+            encode_literal(N, Dict);
         N =< -(1 bsl 128) ->
-            encode_arg({literal, N}, Dict);
+            encode_literal(N, Dict);
         true ->
             {encode(?tag_i, N), Dict}
     end;
@@ -434,7 +434,7 @@ encode_arg({list, List}, Dict0) ->
     {L, Dict} = encode_list(List, Dict0, []),
     {[encode(?tag_z, 1), encode(?tag_u, length(List))|L], Dict};
 encode_arg({float, Float}, Dict) when is_float(Float) ->
-    encode_arg({literal,Float}, Dict);
+    encode_literal(Float, Dict);
 encode_arg({fr,Fr}, Dict) ->
     {[encode(?tag_z, 2),encode(?tag_u, Fr)], Dict};
 encode_arg({field_flags,Flags0}, Dict) ->
@@ -442,11 +442,23 @@ encode_arg({field_flags,Flags0}, Dict) ->
     {encode(?tag_u, Flags), Dict};
 encode_arg({alloc,List}, Dict) ->
     encode_alloc_list(List, Dict);
-encode_arg({literal,Lit}, Dict0) ->
-    {Index,Dict} = beam_dict:literal(Lit, Dict0),
-    {[encode(?tag_z, 4),encode(?tag_u, Index)],Dict};
+encode_arg({literal,Lit}, Dict) ->
+    if
+        Lit =:= [] ->
+            encode_arg(nil, Dict);
+        is_atom(Lit) ->
+            encode_arg({atom,Lit}, Dict);
+        is_integer(Lit) ->
+            encode_arg({integer,Lit}, Dict);
+        true ->
+            encode_literal(Lit, Dict)
+    end;
 encode_arg(Int, Dict) when is_integer(Int) ->
     {encode(?tag_u, Int),Dict}.
+
+encode_literal(Literal, Dict0) ->
+    {Index,Dict} = beam_dict:literal(Literal, Dict0),
+    {[encode(?tag_z, 4),encode(?tag_u, Index)],Dict}.
 
 %%flag_to_bit(aligned) -> 16#01; %% No longer useful.
 flag_to_bit(little)  -> 16#02;
