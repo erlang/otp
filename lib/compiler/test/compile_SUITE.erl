@@ -378,7 +378,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
             {dprecg, ".precodegen"},
             {dcg, ".codegen"},
             {dblk, ".block"},
-            {dexcept, ".except"},
             {djmp, ".jump"},
             {dclean, ".clean"},
             {dpeep, ".peep"},

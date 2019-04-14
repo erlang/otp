@@ -37,7 +37,8 @@
              used_labels=gb_sets:empty() :: gb_sets:set(ssa_label()),
              regs=#{} :: #{beam_ssa:var_name()=>ssa_register()},
              ultimate_fail=1 :: beam_label(),
-             catches=gb_sets:empty() :: gb_sets:set(ssa_label())
+             catches=gb_sets:empty() :: gb_sets:set(ssa_label()),
+             fc_label=1 :: beam_label()
              }).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
@@ -124,7 +125,7 @@ function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
         Labels = (St4#cg.labels)#{0=>Entry,?BADARG_BLOCK=>0},
         St5 = St4#cg{labels=Labels,used_labels=gb_sets:singleton(Entry),
                      ultimate_fail=Ult},
-        {Body,St} = cg_fun(Blocks, St5),
+        {Body,St} = cg_fun(Blocks, St5#cg{fc_label=Fi}),
         Asm = [{label,Fi},line(Anno),
                {func_info,AtomMod,{atom,Name},Arity}] ++
                add_parameter_annos(Body, Anno) ++
@@ -384,6 +385,7 @@ classify_heap_need(is_tagged_tuple) -> neutral;
 classify_heap_need(kill_try_tag) -> gc;
 classify_heap_need(landingpad) -> gc;
 classify_heap_need(make_fun) -> gc;
+classify_heap_need(match_fail) -> gc;
 classify_heap_need(new_try_tag) -> gc;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
@@ -1160,6 +1162,10 @@ cg_block([#cg_set{op=call}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,_Fail}, St) ->
     %% A call in try/catch block.
     cg_block([I], none, St);
+cg_block([#cg_set{op=match_fail}=I,
+          #cg_set{op=succeeded,dst=Bool}], {Bool,_Fail}, St) ->
+    %% A match_fail instruction in a try/catch block.
+    cg_block([I], none, St);
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
@@ -1216,6 +1222,28 @@ cg_block([#cg_set{op=copy}|_]=T0, Context, St0) ->
         no ->
             {Is,St}
     end;
+cg_block([#cg_set{op=match_fail,args=Args0,anno=Anno}], none, St) ->
+    Args = beam_args(Args0, St),
+    Is = cg_match_fail(Args, line(Anno), none),
+    {Is,St};
+cg_block([#cg_set{op=match_fail,args=Args0,anno=Anno}|T], Context, St0) ->
+    FcLabel = case Context of
+                  {return,_,none} ->
+                      %% There is no stack frame. If this is a function_clause
+                      %% exception, it is safe to jump to the label of the
+                      %% func_info instruction.
+                      St0#cg.fc_label;
+                  _ ->
+                      %% This is most probably not a function_clause.
+                      %% If this is a function_clause exception
+                      %% (rare), it is not safe to jump to the
+                      %% func_info label.
+                      none
+              end,
+    Args = beam_args(Args0, St0),
+    Is0 = cg_match_fail(Args, line(Anno), FcLabel),
+    {Is1,St} = cg_block(T, Context, St0),
+    {Is0++Is1,St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=Set], none, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     Is = cg_instr(Op, Args, Dst, Set),
@@ -1489,6 +1517,42 @@ cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=Args0},
     Is = setup_args(Args++[Func], Anno, Context, St) ++ Line ++ Call,
     {Is,St}.
 
+cg_match_fail([{atom,function_clause}|Args], Line, Fc) ->
+    case Fc of
+        none ->
+            %% There is a stack frame (probably because of inlining).
+            %% Jumping to the func_info label is not allowed by
+            %% beam_validator. Rewrite the instruction as a call to
+            %% erlang:error/2.
+            make_fc(Args, Line);
+        _ ->
+            setup_args(Args) ++ [{jump,{f,Fc}}]
+    end;
+cg_match_fail([{atom,Op}], Line, _Fc) ->
+    [Line,Op];
+cg_match_fail([{atom,Op},Val], Line, _Fc) ->
+    [Line,{Op,Val}].
+
+make_fc(Args, Line) ->
+    %% Recreate the original call to erlang:error/2.
+    Live = foldl(fun({x,X}, A) -> max(X+1, A);
+                    (_, A) -> A
+                 end, 0, Args),
+    TmpReg = {x,Live},
+    StkMoves = build_stk(reverse(Args), TmpReg, nil),
+    [{test_heap,2*length(Args),Live}|StkMoves] ++
+        [{move,{atom,function_clause},{x,0}},
+         Line,
+         {call_ext,2,{extfunc,erlang,error,2}}].
+
+build_stk([V], _TmpReg, Tail) ->
+    [{put_list,V,Tail,{x,1}}];
+build_stk([V|Vs], TmpReg, Tail) ->
+    I = {put_list,V,Tail,TmpReg},
+    [I|build_stk(Vs, TmpReg, TmpReg)];
+build_stk([], _TmpReg, nil) ->
+    [{move,nil,{x,1}}].
+
 build_call(call_fun, Arity, _Func, none, Dst) ->
     [{call_fun,Arity}|copy({x,0}, Dst)];
 build_call(call_fun, Arity, _Func, {return,Dst,N}, Dst) when is_integer(N) ->
@@ -1527,15 +1591,15 @@ build_apply(Arity, {return,Val,N}, _Dst) when is_integer(N) ->
 build_apply(Arity, none, Dst) ->
     [{apply,Arity}|copy({x,0}, Dst)].
 
-cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
-    Live = get_live(Set),
-    [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];
 cg_instr(bs_get_tail, [Src], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_tail,Src,Dst,Live}];
 cg_instr(bs_get_position, [Ctx], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_position,Ctx,Dst,Live}];
+cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
+    Live = get_live(Set),
+    [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];
 cg_instr(Op, Args, Dst, _Set) ->
     cg_instr(Op, Args, Dst).
 
