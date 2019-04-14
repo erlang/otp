@@ -51,7 +51,7 @@ simple1_api.erl:294: The call erlang:is_function(T::simple1_api:o1(),A::simple1_
 simple1_api.erl:300: The type test is_function(T::simple1_adt:o1(),A::simple1_api:i1()) breaks the opacity of the term T::simple1_adt:o1()
 simple1_api.erl:306: Guard test B::simple1_api:b2() =:= 'true' can never succeed
 simple1_api.erl:315: Guard test A::simple1_api:b1() =:= 'false' can never succeed
-simple1_api.erl:319: Guard test not('and'('true','true')) can never succeed
+simple1_api.erl:319: Guard test not(and('true','true')) can never succeed
 simple1_api.erl:337: Clause guard cannot succeed.
 simple1_api.erl:342: Guard test B::simple1_adt:b2() =:= 'true' contains an opaque term as 1st argument
 simple1_api.erl:347: Guard test A::simple1_adt:b1() =:= 'true' contains an opaque term as 1st argument

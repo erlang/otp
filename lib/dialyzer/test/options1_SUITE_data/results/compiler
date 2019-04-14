@@ -6,8 +6,8 @@ beam_disasm.erl:537: The variable X can never match since previous clauses compl
 beam_type.erl:284: The pattern <'pi', 0> can never match the type <_,1 | 2>
 beam_validator.erl:396: Matching of pattern {'vst', 'none', _} tagged with a record name violates the declared type of #vst{current::#st{ct::[]}}
 beam_validator.erl:690: The pattern <'term', OldT> can never match the type <{'tuple',[any(),...]},_>
-beam_validator.erl:693: Guard test 'or'('false','false') can never succeed
-beam_validator.erl:700: Guard test 'or'('false','false') can never succeed
+beam_validator.erl:693: Guard test or('false','false') can never succeed
+beam_validator.erl:700: Guard test or('false','false') can never succeed
 beam_validator.erl:702: The pattern <'number', OldT = {Type, _}> can never match the type <{'tuple',[any(),...]},_>
 beam_validator.erl:705: The pattern <'bool', {'atom', A}> can never match the type <{'tuple',[any(),...]},_>
 beam_validator.erl:707: The pattern <{'atom', A}, 'bool'> can never match the type <{'tuple',[any(),...]},_>
