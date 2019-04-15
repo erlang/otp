@@ -57,6 +57,10 @@
         ]).
 
 -export_type([
+              select_tag/0,
+              select_ref/0,
+              select_info/0,
+
               domain/0,
               type/0,
               protocol/0,
@@ -583,6 +587,13 @@
         #{level := ipv6,      type := integer(), data := binary()} |
         #{level := udp,       type := integer(), data := binary()} |
         #{level := integer(), type := integer(), data := binary()}.
+
+
+-type select_tag()  :: atom().
+-type select_ref()  :: reference().
+-type select_info() :: {select, select_tag(), select_ref()}.
+
+-define(SELECT_INFO(T, R), {select, T, R}).
 
 
 %% This is used in messages sent from the nif-code to erlang processes:
@@ -1431,7 +1442,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
             end;
 
 
-        {error, eagain} ->
+        {error, eagain} when (Timeout =:= nowait) ->
             SelInfo = {select, SendRef},
             {ok, SelInfo};
 
@@ -1724,15 +1735,14 @@ recv(Socket, Length) ->
       Data   :: binary(),
       Reason :: term()
                 ; (Socket, Length, nowait) -> {ok, Data} |
-                                              {ok, {Data, SelInfo}} |
-                                              {ok, SelInfo} |
+                                              {ok, SelectInfo} |
+                                              {ok, {Data, SelectInfo}} |
                                               {error, Reason} when
-      Socket  :: socket(),
-      Length  :: non_neg_integer(),
-      Data    :: binary(),
-      SelInfo :: {select, RecvRef},
-      RecvRef :: reference(),
-      Reason  :: term()
+      Socket     :: socket(),
+      Length     :: non_neg_integer(),
+      Data       :: binary(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, Length, Timeout) -> {ok, Data} |
                                                 {error, Reason} when
       Socket  :: socket(),
@@ -1747,24 +1757,23 @@ recv(Socket, Length, Timeout) ->
     recv(Socket, Length, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
 
 -spec recv(Socket, Length, Flags, nowait) -> {ok, Data} |
-                                             {ok, {Data, SelInfo}} |
-                                             {ok, SelInfo} |
+                                             {ok, SelectInfo} |
+                                             {ok, {Data, SelectInfo}} |
                                              {error, Reason} when
-      Socket  :: socket(),
-      Length  :: non_neg_integer(),
-      Flags   :: recv_flags(),
-      Data    :: binary(),
-      SelInfo :: {select, RecvRef},
-      RecvRef :: reference(),
-      Reason  :: term()
+      Socket     :: socket(),
+      Length     :: non_neg_integer(),
+      Flags      :: recv_flags(),
+      Data       :: binary(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, Length, Flags, Timeout) -> {ok, Data} |
                                                        {error, Reason} when
-      Socket  :: socket(),
-      Length  :: non_neg_integer(),
-      Flags   :: recv_flags(),
-      Timeout :: timeout(),
-      Data    :: binary(),
-      Reason  :: term().
+      Socket     :: socket(),
+      Length     :: non_neg_integer(),
+      Flags      :: recv_flags(),
+      Timeout    :: timeout(),
+      Data       :: binary(),
+      Reason     :: term().
 
 recv(#socket{ref = SockRef}, Length, Flags, Timeout)
   when (is_integer(Length) andalso (Length >= 0)) andalso
@@ -1811,8 +1820,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
         %% select info.
         {ok, false = _Completed, Bin} when (Timeout =:= nowait) andalso 
                                            (size(Acc) =:= 0) ->
-            SelInfo = {select, RecvRef},
-            {ok, {Bin, SelInfo}};
+            {ok, {Bin, ?SELECT_INFO(recv, RecvRef)}};
 
 
         {ok, false = _Completed, Bin} when (size(Acc) =:= 0) ->
@@ -1859,12 +1867,12 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
         %% via the select socket message (see below).
 
         {error, eagain} when (Timeout =:= nowait) ->
-            SelInfo = {select, RecvRef},
+            SelectInfo = ?SELECT_INFO(recv, RecvRef),
             if
                 (size(Acc) =:= 0) ->
-                    {ok, SelInfo};
+                    {ok, SelectInfo};
                 true ->
-                    {ok, {Acc, SelInfo}}
+                    {ok, {Acc, SelectInfo}}
             end;
 
 
@@ -1960,51 +1968,49 @@ recvfrom(Socket, BufSz) ->
 
 -spec recvfrom(Socket, Flags, nowait) -> 
                       {ok, {Source, Data}} |
-                      {ok, SelInfo} |
+                      {ok, SelectInfo} |
                       {error, Reason} when
-      Socket  :: socket(),
-      Flags   :: recv_flags(),
-      Source  :: sockaddr() | undefined,
-      Data    :: binary(),
-      SelInfo :: {select, RecvRef},
-      RecvRef :: reference(),
-      Reason  :: term()
+      Socket     :: socket(),
+      Flags      :: recv_flags(),
+      Source     :: sockaddr() | undefined,
+      Data       :: binary(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, Flags, Timeout) -> 
                       {ok, {Source, Data}} |
                       {error, Reason} when
-      Socket  :: socket(),
-      Flags   :: recv_flags(),
-      Timeout :: timeout(),
-      Source  :: sockaddr() | undefined,
-      Data    :: binary(),
-      Reason  :: term()
+      Socket     :: socket(),
+      Flags      :: recv_flags(),
+      Timeout    :: timeout(),
+      Source     :: sockaddr() | undefined,
+      Data       :: binary(),
+      Reason     :: term()
                  ; (Socket, BufSz, Flags) -> 
                       {ok, {Source, Data}} | {error, Reason} when
-      Socket :: socket(),
-      BufSz  :: non_neg_integer(),
-      Flags  :: recv_flags(),
-      Source :: sockaddr() | undefined,
-      Data   :: binary(),
-      Reason :: term()
+      Socket    :: socket(),
+      BufSz     :: non_neg_integer(),
+      Flags     :: recv_flags(),
+      Source    :: sockaddr() | undefined,
+      Data      :: binary(),
+      Reason    :: term()
                 ; (Socket, BufSz, nowait) -> 
                       {ok, {Source, Data}} |
-                      {ok, SelInfo} |
+                      {ok, SelectInfo} |
                       {error, Reason} when
-      Socket  :: socket(),
-      BufSz   :: non_neg_integer(),
-      Source  :: sockaddr() | undefined,
-      Data    :: binary(),
-      SelInfo :: {select, RecvRef},
-      RecvRef :: reference(),
-      Reason  :: term()
+      Socket     :: socket(),
+      BufSz      :: non_neg_integer(),
+      Source     :: sockaddr() | undefined,
+      Data       :: binary(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, BufSz, Timeout) -> 
                       {ok, {Source, Data}} | {error, Reason} when
-      Socket  :: socket(),
-      BufSz   :: non_neg_integer(),
-      Timeout :: timeout(),
-      Source  :: sockaddr() | undefined,
-      Data    :: binary(),
-      Reason  :: term().
+      Socket     :: socket(),
+      BufSz      :: non_neg_integer(),
+      Timeout    :: timeout(),
+      Source     :: sockaddr() | undefined,
+      Data       :: binary(),
+      Reason     :: term().
 
 recvfrom(Socket, Flags, Timeout) when is_list(Flags) ->
     recvfrom(Socket, 0, Flags, Timeout);
@@ -2015,16 +2021,15 @@ recvfrom(Socket, BufSz, Timeout) ->
 
 -spec recvfrom(Socket, BufSz, Flags, nowait) -> 
                       {ok, {Source, Data}} |
-                      {ok, SelInfo} |
+                      {ok, SelectInfo} |
                       {error, Reason} when
-      Socket  :: socket(),
-      BufSz   :: non_neg_integer(),
-      Flags   :: recv_flags(),
-      Source  :: sockaddr() | undefined,
-      Data    :: binary(),
-      SelInfo :: {select, RecvRef},
-      RecvRef :: reference(),
-      Reason  :: term()
+      Socket     :: socket(),
+      BufSz      :: non_neg_integer(),
+      Flags      :: recv_flags(),
+      Source     :: sockaddr() | undefined,
+      Data       :: binary(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, BufSz, Flags, Timeout) -> 
                       {ok, {Source, Data}} |
                       {error, Reason} when
@@ -2052,9 +2057,10 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
         {ok, {_Source, _NewData}} = OK ->
             OK;
 
+
         {error, eagain} when (Timeout =:= nowait) ->
-            SelInfo = {select, RecvRef},
-            {ok, SelInfo};
+            {ok, ?SELECT_INFO(recvfrom, RecvRef)};
+
 
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
@@ -2097,18 +2103,17 @@ recvmsg(Socket) ->
       MsgHdr  :: msghdr(),
       Reason  :: term()
                  ; (Socket, nowait) -> {ok, MsgHdr} |
-                                       {ok, SelInfo} |
+                                       {ok, SelectInfo} |
                                        {error, Reason} when
-      Socket  :: socket(),
-      MsgHdr  :: msghdr(),
-      SelInfo :: {select, RecvRef},
-      RecvRef :: reference(),
-      Reason  :: term()
+      Socket     :: socket(),
+      MsgHdr     :: msghdr(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, Timeout) -> {ok, MsgHdr} | {error, Reason} when
-      Socket  :: socket(),
-      Timeout :: timeout(),
-      MsgHdr  :: msghdr(),
-      Reason  :: term().
+      Socket     :: socket(),
+      Timeout    :: timeout(),
+      MsgHdr     :: msghdr(),
+      Reason     :: term().
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, ?SOCKET_RECV_TIMEOUT_DEFAULT);
@@ -2116,26 +2121,25 @@ recvmsg(Socket, Timeout) ->
     recvmsg(Socket, 0, 0, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
 
 -spec recvmsg(Socket, Flags, nowait) -> {ok, MsgHdr} |
-                                        {ok, SelInfo} |
+                                        {ok, SelectInfo} |
                                         {error, Reason} when
-      Socket  :: socket(),
-      Flags   :: recv_flags(),
-      MsgHdr  :: msghdr(),
-      SelInfo :: {select, RecvRef},
-      RecvRef :: reference(),
-      Reason  :: term()
+      Socket     :: socket(),
+      Flags      :: recv_flags(),
+      MsgHdr     :: msghdr(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, Flags, Timeout) -> {ok, MsgHdr} | {error, Reason} when
-      Socket  :: socket(),
-      Flags   :: recv_flags(),
-      Timeout :: timeout(),
-      MsgHdr  :: msghdr(),
-      Reason  :: term()
+      Socket     :: socket(),
+      Flags      :: recv_flags(),
+      Timeout    :: timeout(),
+      MsgHdr     :: msghdr(),
+      Reason     :: term()
                  ; (Socket, BufSz, CtrlSz) -> {ok, MsgHdr} | {error, Reason} when
-      Socket  :: socket(),
-      BufSz   :: non_neg_integer(),
-      CtrlSz  :: non_neg_integer(),
-      MsgHdr  :: msghdr(),
-      Reason  :: term().
+      Socket     :: socket(),
+      BufSz      :: non_neg_integer(),
+      CtrlSz     :: non_neg_integer(),
+      MsgHdr     :: msghdr(),
+      Reason     :: term().
 
 recvmsg(Socket, Flags, Timeout) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, Timeout);
@@ -2147,26 +2151,25 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz) andalso is_integer(CtrlSz)
 -spec recvmsg(Socket, 
               BufSz, CtrlSz,
               Flags, nowait) -> {ok, MsgHdr} |
-                                {ok, SelInfo} |
+                                {ok, SelectInfo} |
                                 {error, Reason} when
-      Socket  :: socket(),
-      BufSz   :: non_neg_integer(),
-      CtrlSz  :: non_neg_integer(),
-      Flags   :: recv_flags(),
-      MsgHdr  :: msghdr(),
-      SelInfo :: {select, RecvRef},
-      RecvRef :: reference(),
-      Reason  :: term()
+      Socket     :: socket(),
+      BufSz      :: non_neg_integer(),
+      CtrlSz     :: non_neg_integer(),
+      Flags      :: recv_flags(),
+      MsgHdr     :: msghdr(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, 
                     BufSz, CtrlSz,
                     Flags, Timeout) -> {ok, MsgHdr} | {error, Reason} when
-      Socket  :: socket(),
-      BufSz   :: non_neg_integer(),
-      CtrlSz  :: non_neg_integer(),
-      Flags   :: recv_flags(),
-      Timeout :: timeout(),
-      MsgHdr  :: msghdr(),
-      Reason  :: term().
+      Socket     :: socket(),
+      BufSz      :: non_neg_integer(),
+      CtrlSz     :: non_neg_integer(),
+      Flags      :: recv_flags(),
+      Timeout    :: timeout(),
+      MsgHdr     :: msghdr(),
+      Reason     :: term().
 
 recvmsg(#socket{ref = SockRef}, BufSz, CtrlSz, Flags, Timeout)
   when (is_integer(BufSz) andalso (BufSz >= 0)) andalso
@@ -2185,9 +2188,10 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
         {ok, _MsgHdr} = OK ->
             OK;
 
+
         {error, eagain} when (Timeout =:= nowait) ->
-            SelInfo = {select, RecvRef},
-            {ok, SelInfo};
+            {ok, ?SELECT_INFO(recvmsg, RecvRef)};
+
 
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
