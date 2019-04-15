@@ -24,7 +24,7 @@
 
 -export([newformat/3, post_chunked/3, post_204/3]).
 %% These are used by the inets test-suite
--export([delay/1, chunk_timeout/3]).
+-export([delay/1, chunk_timeout/3, get_chunks/3]).
 
 
 print(String) ->
@@ -196,3 +196,22 @@ chunk_timeout(SessionID, _, _StrInt) ->
     mod_esi:deliver(SessionID, top("Test chunk encoding timeout")),
     timer:sleep(20000),
     mod_esi:deliver(SessionID, footer()).
+
+get_chunks(Sid, _Env, In) ->
+    Tokens = string:tokens(In, [$&]),
+    PropList = lists:map(fun(E) ->
+                                 list_to_tuple(string:tokens(E,[$=])) end,
+                         Tokens),
+    HeaderDelay =
+        list_to_integer(proplists:get_value("header_delay", PropList, "0")),
+    ChunkDelay =
+        list_to_integer(proplists:get_value("chunk_delay", PropList, "0")),
+    BadChunkDelay =
+        list_to_integer(proplists:get_value("bad_chunk_delay", PropList, "0")),
+    timer:sleep(HeaderDelay),
+    mod_esi:deliver(Sid, ["Content-Type: text/plain\r\n\r\n"]),
+    mod_esi:deliver(Sid, "Chunk 0 ms\r\n"),
+    timer:sleep(ChunkDelay),
+    mod_esi:deliver(Sid, io_lib:format("Chunk ~p ms\r\n", [ChunkDelay])),
+    timer:sleep(ChunkDelay + BadChunkDelay),
+    mod_esi:deliver(Sid, "BAD Chunk\r\n").
