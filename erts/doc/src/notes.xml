@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Add missing documentation of new external tags
+	    <c>NEW_PID</c>, <c>NEW_PORT</c> and
+	    <c>NEWER_REFERENCE</c> introduced in OTP 19.</p> <p>These
+	    new tags are planned to be "activated" in OTP 23 when
+	    distribution capability flag <c>DFLAG_BIG_CREATION</c>
+	    becomes mandatory. Older nodes (>= 19) are able to decode
+	    these new tags and send them back to the new node. Nodes
+	    older than OTP 23 will however never encode their own
+	    local pids, ports and references using the new tags.</p>
+          <p>
+	    Own Id: OTP-15766</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
