@@ -1624,11 +1624,18 @@ sendmsg(Socket, MsgHdr) ->
       MsgHdr  :: msghdr(),
       Flags   :: send_flags(),
       Reason  :: term()
+                 ; (Socket, MsgHdr, nowait) -> ok |
+                                               {ok, SelectInfo} |
+                                               {error, Reason} when
+      Socket     :: socket(),
+      MsgHdr     :: msghdr(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, MsgHdr, Timeout) -> ok | {error, Reason} when
-      Socket  :: socket(),
-      MsgHdr  :: msghdr(),
-      Timeout :: timeout(),
-      Reason  :: term().
+      Socket     :: socket(),
+      MsgHdr     :: msghdr(),
+      Timeout    :: timeout(),
+      Reason     :: term().
 
 sendmsg(Socket, MsgHdr, Flags) when is_list(Flags) ->
     sendmsg(Socket, MsgHdr, Flags, ?SOCKET_SENDMSG_TIMEOUT_DEFAULT);
@@ -1637,19 +1644,34 @@ sendmsg(Socket, MsgHdr, Timeout)
     sendmsg(Socket, MsgHdr, ?SOCKET_SENDMSG_FLAGS_DEFAULT, Timeout).
 
 
--spec sendmsg(Socket, MsgHdr, Flags, Timeout) -> 
-                     ok | {ok, Remaining} | {error, Reason} when
-      Socket    :: socket(),
-      MsgHdr    :: msghdr(),
-      Flags     :: send_flags(),
-      Timeout   :: timeout(),
-      Remaining :: erlang:iovec(),
-      Reason    :: term().
+-spec sendmsg(Socket, MsgHdr, Flags, nowait) -> 
+                     ok |
+                     {ok, Remaining} |
+                     {ok, SelectInfo} |
+                     {error, Reason} when
+      Socket     :: socket(),
+      MsgHdr     :: msghdr(),
+      Flags      :: send_flags(),
+      Remaining  :: erlang:iovec(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
+                   ; (Socket, MsgHdr, Flags, Timeout) -> 
+                     ok |
+                     {ok, Remaining} |
+                     {error, Reason} when
+      Socket     :: socket(),
+      MsgHdr     :: msghdr(),
+      Flags      :: send_flags(),
+      Timeout    :: timeout(),
+      Remaining  :: erlang:iovec(),
+      Reason     :: term().
 
 sendmsg(#socket{ref = SockRef}, #{iov := IOV} = MsgHdr, Flags, Timeout)
   when is_list(IOV) andalso 
        is_list(Flags) andalso
-       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
+       ((Timeout =:= nowait) orelse
+        (Timeout =:= infinity) orelse
+        (is_integer(Timeout) andalso (Timeout > 0))) ->
     try ensure_msghdr(MsgHdr) of
         M ->
             EFlags = enc_send_flags(Flags),
@@ -1669,6 +1691,7 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
             %% We are done
             ok;
 
+
         {ok, Written} when is_integer(Written) andalso (Written > 0) ->
             %% We should not retry here since the protocol may not
             %% be able to handle a message being split. Leave it to
@@ -1679,6 +1702,11 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
             %%
             cancel(SockRef, sendmsg, SendRef),
             {ok, do_sendmsg_rest(maps:get(iov, MsgHdr), Written)};
+
+
+        {error, eagain} when (Timeout =:= nowait) ->
+            {ok, ?SELECT_INFO(sendmsg, SendRef)};
+            
 
         {error, eagain} ->
             receive
