@@ -151,41 +151,41 @@ formated_long_timestamp() ->
 %% the date in the formatted timestamp.
 %% ---------------------------------------------------------------------------
 
--spec format_timestamp(Now :: os:timestamp()) ->
+-spec format_timestamp(Now :: erlang:timestamp()) ->
     string().
 
 format_timestamp(Now) ->
     format_long_timestamp(Now).
 
--spec format_short_timestamp(Now :: os:timestamp()) ->
+-spec format_short_timestamp(Now :: erlang:timestamp()) ->
     string().
 
 format_short_timestamp(Now) ->
     N2T = fun(N) -> calendar:now_to_local_time(N) end,
     format_timestamp(short, Now, N2T).
 
--spec format_long_timestamp(Now :: os:timestamp()) ->
+-spec format_long_timestamp(Now :: erlang:timestamp()) ->
     string().
 
 format_long_timestamp(Now) ->
     N2T = fun(N) -> calendar:now_to_local_time(N) end,
     format_timestamp(long, Now, N2T).
 
--spec format_timestamp(Now :: os:timestamp(), 
+-spec format_timestamp(Now :: erlang:timestamp(), 
                        N2T :: function()) ->
     string().
 
 format_timestamp(Now, N2T) when is_tuple(Now) andalso is_function(N2T) ->
     format_long_timestamp(Now, N2T).
 
--spec format_short_timestamp(Now :: os:timestamp(), 
+-spec format_short_timestamp(Now :: erlang:timestamp(), 
                              N2T :: function()) ->
     string().
 
 format_short_timestamp(Now, N2T) when is_tuple(Now) andalso is_function(N2T) ->
     format_timestamp(short, Now, N2T).
 
--spec format_long_timestamp(Now :: os:timestamp(), 
+-spec format_long_timestamp(Now :: erlang:timestamp(), 
                             N2T :: function()) ->
     string().
 
@@ -195,14 +195,8 @@ format_long_timestamp(Now, N2T) when is_tuple(Now) andalso is_function(N2T) ->
 format_timestamp(Format, {_N1, _N2, N3} = Now, N2T) ->
     {Date, Time} = N2T(Now),
     do_format_timestamp(Format, Date, Time, N3).
-    %% case Format of
-    %%     short ->
-    %%         do_format_short_timestamp(Time, N3);
-    %%     long ->
-    %%         do_format_long_timestamp(Date, Time, N3)
-    %% end.
 
-do_format_timestamp(short, Date, Time, N3) ->
+do_format_timestamp(short, _Date, Time, N3) ->
     do_format_short_timestamp(Time, N3);
 do_format_timestamp(long, Date, Time, N3) ->
     do_format_long_timestamp(Date, Time, N3).
