@@ -1279,18 +1279,27 @@ listen(#socket{ref = SockRef}, Backlog)
 accept(Socket) ->
     accept(Socket, ?SOCKET_ACCEPT_TIMEOUT_DEFAULT).
 
--spec accept(LSocket, Timeout) -> {ok, Socket} | {error, Reason} when
-      LSocket :: socket(),
-      Timeout :: timeout(),
-      Socket  :: socket(),
-      Reason  :: term().
+-spec accept(LSocket, nowait) -> 
+                    {ok, Socket} |
+                    {ok, SelectInfo} |
+                    {error, Reason} when
+      LSocket    :: socket(),
+      Socket     :: socket(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
+                 ; (LSocket, Timeout) -> {ok, Socket} | {error, Reason} when
+      LSocket    :: socket(),
+      Timeout    :: timeout(),
+      Socket     :: socket(),
+      Reason     :: term().
 
 %% Do we really need this optimization?
 accept(_, Timeout) when is_integer(Timeout) andalso (Timeout =< 0) ->
     {error, timeout};
 accept(#socket{ref = LSockRef}, Timeout)
   when is_integer(Timeout) orelse
-       (Timeout =:= infinity) ->
+       (Timeout =:= infinity)  orelse
+       (Timeout =:= nowait) ->
     do_accept(LSockRef, Timeout).
 
 do_accept(LSockRef, Timeout) ->
@@ -1300,6 +1309,11 @@ do_accept(LSockRef, Timeout) ->
         {ok, SockRef} ->
             Socket = #socket{ref = SockRef},
             {ok, Socket};
+
+
+        {error, eagain} when (Timeout =:= nowait) ->
+            {ok, ?SELECT_INFO(accept, AccRef)};
+
 
         {error, eagain} ->
             %% Each call is non-blocking, but even then it takes
