@@ -60,6 +60,7 @@
          cbuf_stop_clear/0,
          cbuf_in/1,
          cbuf_list/0,
+         hex_dump/1, hex_dump/2,
          fmt_cbuf_items/0, fmt_cbuf_item/1
 	]).
 
@@ -439,3 +440,75 @@ fmt_value(#circ_buf_entry{module = M,
     io_lib:format("~p:~p  ~p/~p ~p~n~s",[M,L,F,A,Pid,fmt_value(V)]);
 fmt_value(Value) ->
     io_lib:format("~p",[Value]).
+
+%%%================================================================
+
+-record(h, {max_bytes = 65536,
+            bytes_per_line = 16,
+            address_len = 4
+           }).
+
+
+hex_dump(Data) -> hex_dump1(Data, hd_opts([])).
+
+hex_dump(X, Max) when is_integer(Max) ->
+    hex_dump(X, [{max_bytes,Max}]);
+hex_dump(X, OptList) when is_list(OptList) ->
+    hex_dump1(X, hd_opts(OptList)).
+
+hex_dump1(B, Opts) when is_binary(B) -> hex_dump1(binary_to_list(B), Opts);
+hex_dump1(L, Opts) when is_list(L), length(L) > Opts#h.max_bytes ->
+    io_lib:format("~s---- skip ~w bytes----~n", [hex_dump1(lists:sublist(L,Opts#h.max_bytes), Opts),
+                                                 length(L) - Opts#h.max_bytes
+                                                ]);
+hex_dump1(L, Opts0) when is_list(L) ->
+    Opts = Opts0#h{address_len = num_hex_digits(Opts0#h.max_bytes)},
+    Result = hex_dump(L, [{0,[],[]}], Opts),
+    [io_lib:format("~*.s | ~*s | ~s~n"
+                   "~*.c-+-~*c-+-~*c~n",
+                   [Opts#h.address_len, lists:sublist("Address",Opts#h.address_len),
+                    -3*Opts#h.bytes_per_line, lists:sublist("Hexdump",3*Opts#h.bytes_per_line),
+                    "ASCII",
+                    Opts#h.address_len, $-,
+                    3*Opts#h.bytes_per_line, $-,
+                    Opts#h.bytes_per_line, $-
+                   ]) |
+     [io_lib:format("~*.16.0b | ~s~*c | ~s~n",[Opts#h.address_len, N*Opts#h.bytes_per_line,
+                                               lists:reverse(Hexs),
+                                               3*(Opts#h.bytes_per_line-length(Hexs)), $ ,
+                                               lists:reverse(Chars)])
+      || {N,Hexs,Chars}  <- lists:reverse(Result)
+     ]
+    ].
+
+
+hd_opts(L) -> lists:foldl(fun hd_opt/2, #h{}, L).
+
+hd_opt({max_bytes,M},      O) -> O#h{max_bytes=M};
+hd_opt({bytes_per_line,M}, O) -> O#h{bytes_per_line=M}.
+
+
+num_hex_digits(N) when N<16 -> 1;
+num_hex_digits(N) -> trunc(math:ceil(math:log2(N)/4)).
+    
+
+hex_dump([L|Cs], Result0, Opts) when is_list(L) ->
+    Result = hex_dump(L,Result0, Opts),
+    hex_dump(Cs, Result, Opts);
+
+hex_dump(Cs, [{N0,_,Chars}|_]=Lines, Opts) when length(Chars) == Opts#h.bytes_per_line ->
+    hex_dump(Cs, [{N0+1,[],[]}|Lines], Opts);
+
+hex_dump([C|Cs], [{N,Hexs,Chars}|Lines], Opts) ->
+    Asc = if
+              16#20 =< C,C =< 16#7E -> C;
+              true -> $.
+          end,
+    Hex = io_lib:format("~2.16.0b ", [C]),
+    hex_dump(Cs, [{N, [Hex|Hexs], [Asc|Chars]} | Lines], Opts);
+
+hex_dump([], Result, _) ->
+    Result.
+
+    
+    
