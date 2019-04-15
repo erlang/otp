@@ -1278,7 +1278,8 @@ accept(Socket) ->
 accept(_, Timeout) when is_integer(Timeout) andalso (Timeout =< 0) ->
     {error, timeout};
 accept(#socket{ref = LSockRef}, Timeout)
-  when is_integer(Timeout) orelse (Timeout =:= infinity) ->
+  when is_integer(Timeout) orelse
+       (Timeout =:= infinity) ->
     do_accept(LSockRef, Timeout).
 
 do_accept(LSockRef, Timeout) ->
@@ -1331,29 +1332,65 @@ send(Socket, Data) ->
       Data    :: iodata(),
       Flags   :: send_flags(),
       Reason  :: term()
+                 ; (Socket, Data, nowait) -> ok |
+                                             {ok, SelInfo} |
+                                             {ok, {RestData, SelInfo}} |
+                                             {error, Reason} when
+      Socket   :: socket(),
+      Data     :: iodata(),
+      RestData :: binary(),
+      SelInfo  :: {select, SendRef},
+      SendRef  :: reference(),
+      Reason   :: term()
                  ; (Socket, Data, Timeout) -> ok | {error, Reason} when
-      Socket  :: socket(),
-      Data    :: iodata(),
-      Timeout :: timeout(),
-      Reason  :: term().
+      Socket   :: socket(),
+      Data     :: iodata(),
+      Timeout  :: timeout(),
+      Reason   :: term().
 
 send(Socket, Data, Flags) when is_list(Flags) ->
     send(Socket, Data, Flags, ?SOCKET_SEND_TIMEOUT_DEFAULT);
 send(Socket, Data, Timeout) ->
     send(Socket, Data, ?SOCKET_SEND_FLAGS_DEFAULT, Timeout).
 
--spec send(Socket, Data, Flags, Timeout) -> ok | {error, Reason} when
-      Socket  :: socket(),
-      Data    :: iodata(),
-      Flags   :: send_flags(),
-      Timeout :: timeout(),
-      Reason  :: term().
+-spec send(Socket, Data, Flags, nowait) -> ok |
+                                           {ok, SelInfo} |
+                                           {ok, {RestData, SelInfo}} |
+                                           {error, Reason} when
+      Socket   :: socket(),
+      Data     :: iodata(),
+      Flags    :: send_flags(),
+      RestData :: binary(),
+      SelInfo  :: {select, SendRef},
+      SendRef  :: reference(),
+      Reason   :: term()
+                 ; (Socket, Data, Flags, nowait) -> ok |
+                                                    {ok, SelInfo} |
+                                                    {ok, {RestData, SelInfo}} |
+                                                    {error, Reason} when
+      Socket   :: socket(),
+      Data     :: iodata(),
+      Flags    :: send_flags(),
+      RestData :: binary(),
+      SelInfo  :: {select, SendRef},
+      SendRef  :: reference(),
+      Reason   :: term()
+                 ; (Socket, Data, Flags, Timeout) -> ok | {error, Reason} when
+      Socket   :: socket(),
+      Data     :: iodata(),
+      Flags    :: send_flags(),
+      Timeout  :: timeout(),
+      Reason   :: term().
 
 send(Socket, Data, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     send(Socket, Bin, Flags, Timeout);
 send(#socket{ref = SockRef}, Data, Flags, Timeout)
-  when is_binary(Data) andalso is_list(Flags)  ->
+  when is_binary(Data) andalso 
+       is_list(Flags) andalso
+       ((Timeout =:= nowait) orelse
+        (Timeout =:= infinity) orelse
+        (is_integer(Timeout) andalso (Timeout > 0)))  ->
     EFlags = enc_send_flags(Flags),
     do_send(SockRef, Data, EFlags, Timeout).
 
@@ -1363,6 +1400,14 @@ do_send(SockRef, Data, EFlags, Timeout) ->
     case nif_send(SockRef, SendRef, Data, EFlags) of
         ok ->
             ok;
+
+
+        {ok, Written} when (Timeout =:= nowait) ->
+            <<_:Written/binary, Rest/binary>> = Data,
+            SelInfo = {select, SendRef},
+            {ok, {Rest, SelInfo}};
+
+
         {ok, Written} ->
 	    NewTimeout = next_timeout(TS, Timeout),
 	    %% We are partially done, wait for continuation
@@ -1384,6 +1429,13 @@ do_send(SockRef, Data, EFlags, Timeout) ->
                     cancel(SockRef, send, SendRef),
                     {error, {timeout, size(Data)}}
             end;
+
+
+        {error, eagain} ->
+            SelInfo = {select, SendRef},
+            {ok, SelInfo};
+
+
         {error, eagain} ->
             receive
                 {?SOCKET_TAG, #socket{ref = SockRef}, select, SendRef} ->
