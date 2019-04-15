@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,8 +20,10 @@
 
 -module(snmp_test_mgr).
 
+
 %%----------------------------------------------------------------------
-%% This module implements a simple SNMP manager for Erlang.
+%% This module implements a simple SNMP manager for Erlang. Its used
+%% during by the agent test suite.
 %%----------------------------------------------------------------------
 
 %% c(snmp_test_mgr).
@@ -49,16 +51,17 @@
 
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/include/STANDARD-MIB.hrl").
+-include("snmp_test_lib.hrl").
 
--record(state,{dbg         = true,
-	       quiet,
-	       parent,
-	       timeout     = 3500,
-	       print_traps = true,
-	       mini_mib,
-	       packet_server, 
-	       last_sent_pdu, 
-	       last_received_pdu}).
+-record(state, {dbg         = true,
+                quiet,
+                parent,
+                timeout     = 3500,
+                print_traps = true,
+                mini_mib,
+                packet_server, 
+                last_sent_pdu, 
+                last_received_pdu}).
 
 -define(SERVER, ?MODULE).
 -define(PACK_SERV, snmp_test_mgr_misc).
@@ -197,27 +200,28 @@ init({Options, CallerPid}) ->
 	    put(debug, get_value(debug, Options, false)),
 	    d("init -> (~p) extract options",[self()]),
  	    PacksDbg    = get_value(packet_server_debug, Options, false),
-	    io:format("[~w] ~p -> PacksDbg: ~p~n", [?MODULE, self(), PacksDbg]),
+	    print("[~w] ~p -> PacksDbg: ~p~n", [?MODULE, self(), PacksDbg]),
 	    RecBufSz    = get_value(recbuf,            Options, 1024),
-	    io:format("[~w] ~p -> RecBufSz: ~p~n", [?MODULE, self(), RecBufSz]),
+	    print("[~w] ~p -> RecBufSz: ~p~n", [?MODULE, self(), RecBufSz]),
 	    Mibs        = get_value(mibs,              Options, []),
-	    io:format("[~w] ~p -> Mibs: ~p~n", [?MODULE, self(), Mibs]),
+	    print("[~w] ~p -> Mibs: ~p~n", [?MODULE, self(), Mibs]),
 	    Udp         = get_value(agent_udp,         Options, 4000),
-	    io:format("[~w] ~p -> Udp: ~p~n", [?MODULE, self(), Udp]),
+	    print("[~w] ~p -> Udp: ~p~n", [?MODULE, self(), Udp]),
 	    User        = get_value(user,              Options, "initial"),
-	    io:format("[~w] ~p -> User: ~p~n", [?MODULE, self(), User]),
+	    print("[~w] ~p -> User: ~p~n", [?MODULE, self(), User]),
 	    EngineId    = get_value(engine_id,         Options, "agentEngine"),
-	    io:format("[~w] ~p -> EngineId: ~p~n", [?MODULE, self(), EngineId]),
+	    print("[~w] ~p -> EngineId: ~p~n", [?MODULE, self(), EngineId]),
 	    CtxEngineId = get_value(context_engine_id, Options, EngineId),
-	    io:format("[~w] ~p -> CtxEngineId: ~p~n", [?MODULE, self(), CtxEngineId]),
+	    print("[~w] ~p -> CtxEngineId: ~p~n", [?MODULE, self(), CtxEngineId]),
 	    TrapUdp     = get_value(trap_udp,          Options, 5000),
-	    io:format("[~w] ~p -> TrapUdp: ~p~n", [?MODULE, self(), TrapUdp]),
+	    print("[~w] ~p -> TrapUdp: ~p~n", [?MODULE, self(), TrapUdp]),
 	    Dir         = get_value(dir,               Options, "."),
-	    io:format("[~w] ~p -> Dir: ~p~n", [?MODULE, self(), Dir]),
+	    print("[~w] ~p -> Dir: ~p~n", [?MODULE, self(), Dir]),
 	    SecLevel    = get_value(sec_level,         Options, noAuthNoPriv),
-	    io:format("[~w] ~p -> SecLevel: ~p~n", [?MODULE, self(), SecLevel]),
+	    print("[~w] ~p -> SecLevel: ~p~n", [?MODULE, self(), SecLevel]),
 	    MiniMIB     = snmp_mini_mib:create(Mibs),
-	    io:format("[~w] ~p -> MiniMIB: ~p~n", [?MODULE, self(), MiniMIB]),
+	    d("[~w] ~p -> MiniMIB: "
+              "~n   ~p", [?MODULE, self(), MiniMIB]),
 	    Version     = case lists:member(v2, Options) of
 			      true -> 'version-2';
 			      false -> 
@@ -226,19 +230,19 @@ init({Options, CallerPid}) ->
 				      false -> 'version-1'
 				  end
 			  end,
-	    io:format("[~w] ~p -> Version: ~p~n", [?MODULE, self(), Version]),
+	    print("[~w] ~p -> Version: ~p~n", [?MODULE, self(), Version]),
 	    Com = case Version of
 		      'version-3' ->
 			  get_value(context, Options, "");
 		      _ ->
 			  get_value(community, Options, "public")
 		  end,
-	    io:format("[~w] ~p -> Com: ~p~n", [?MODULE, self(), Com]),
+	    print("[~w] ~p -> Com: ~p~n", [?MODULE, self(), Com]),
 	    VsnHdrD = 
 		{Com, User, EngineId, CtxEngineId, mk_seclevel(SecLevel)},
-	    io:format("[~w] ~p -> VsnHdrD: ~p~n", [?MODULE, self(), VsnHdrD]),
+	    print("[~w] ~p -> VsnHdrD: ~p~n", [?MODULE, self(), VsnHdrD]),
 	    IpFamily = get_value(ipfamily, Options, inet),
-	    io:format("[~w] ~p -> IpFamily: ~p~n", [?MODULE, self(), IpFamily]),
+	    print("[~w] ~p -> IpFamily: ~p~n", [?MODULE, self(), IpFamily]),
 	    AgIp = case snmp_misc:assq(agent, Options) of
 		       {value, Tuple4} when is_tuple(Tuple4) andalso 
 					    (size(Tuple4) =:= 4) ->
@@ -247,9 +251,9 @@ init({Options, CallerPid}) ->
 			   {ok, Ip} = snmp_misc:ip(Host, IpFamily),
 			   Ip
 		   end,
-	    io:format("[~w] ~p -> AgIp: ~p~n", [?MODULE, self(), AgIp]),
+	    print("[~w] ~p -> AgIp: ~p~n", [?MODULE, self(), AgIp]),
 	    Quiet = lists:member(quiet, Options),
-	    io:format("[~w] ~p -> Quiet: ~p~n", [?MODULE, self(), Quiet]),
+	    print("[~w] ~p -> Quiet: ~p~n", [?MODULE, self(), Quiet]),
 	    PackServ =
 		start_packet_server(
 		  Quiet, Options, CallerPid, AgIp, Udp, TrapUdp,
@@ -443,7 +447,8 @@ handle_cast({bulk, Args}, State) ->
     {noreply, execute_request(bulk, Args, State)};
 
 handle_cast({response, RespPdu}, State) ->
-    d("handle_cast -> response request with ~p", [RespPdu]),
+    d("handle_cast -> response request with "
+      "~n   ~p", [RespPdu]),
     ?PACK_SERV:send_pdu(RespPdu, State#state.packet_server),
     {noreply, State};
 
@@ -1126,14 +1131,15 @@ sizeOf(L) when is_list(L) ->
 sizeOf(B) when is_binary(B) ->
     size(B).
 
-d(F,A) -> d(get(debug),F,A).
+d(F, A) -> d(get(debug), F, A).
 
-d(true,F,A) ->
-    io:format("*** [~s] MGR_DBG *** " ++ F ++ "~n",
-	      [formated_timestamp()|A]);
+d(true, F, A) ->
+    print(F, A);
 d(_,_F,_A) -> 
     ok.
 
+print(F, A) ->
+    ?PRINT2("MGR " ++ F, A).
 
 formated_timestamp() ->
     snmp_test_lib:formated_timestamp().

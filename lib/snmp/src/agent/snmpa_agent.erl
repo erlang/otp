@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1794,9 +1794,8 @@ worker_loop(Master) ->
 					GbMaxVBs, Extra)
 			end
 		    catch 
-			T:E ->
-			    exit({worker_crash, Req, T, E, 
-				  erlang:get_stacktrace()})
+			C:E:S ->
+			    exit({worker_crash, Req, C, E, S})
 		    end,
 		Master ! worker_available,
 		HandlePduRes; % For debugging...
@@ -1822,9 +1821,8 @@ worker_loop(Master) ->
 						 get(net_if))
 			end
 		    catch 
-			T:E ->
-			    exit({worker_crash, Req, T, E, 
-				  erlang:get_stacktrace()})
+			C:E:S ->
+			    exit({worker_crash, Req, C, E, S})
 		    end,
 		Master ! worker_available, 
 		SendTrapRes; % For debugging...
@@ -2543,22 +2541,31 @@ process_msg(
 process_pdu(#pdu{type='get-request', request_id = ReqId, varbinds=Vbs},
 	    _PduMS, Vsn, MibView, _GbMaxVBs) ->
     ?vtrace("get ~p",[ReqId]),
-    Res = get_err(do_get(MibView, Vbs, false)),
-    ?vtrace("get result: "
-	    "~n   ~p",[Res]),
+    OrigRes = do_get(MibView, Vbs, false),
+    Res     = get_err(OrigRes),
     {ErrStatus, ErrIndex, ResVarbinds} =
 	if
 	    Vsn =:= 'version-1' -> validate_get_v1(Res);
 	    true -> Res
 	end,
-    ?vtrace("get final result: "
-	    "~n   Error status: ~p"
-	    "~n   Error index:  ~p"
-	    "~n   Varbinds:     ~p",
-	    [ErrStatus,ErrIndex,ResVarbinds]),
+    if
+        (ErrStatus =/= noError) ->
+            ?vlog("get final result: "
+                  "~n      Error status: ~p"
+                  "~n      Error index:  ~p"
+                  "~n   when"
+                  "~n      Original Result: "
+                  "~n         ~p", [ErrStatus, ErrIndex, OrigRes]);
+        true ->
+            ?vtrace("get final result: "
+                    "~n   Error status: ~p"
+                    "~n   Error index:  ~p"
+                    "~n   Varbinds:     ~p",
+                    [ErrStatus, ErrIndex, ResVarbinds])
+    end,
     ResponseVarbinds = lists:keysort(#varbind.org_index, ResVarbinds),
     ?vtrace("response varbinds: "
-	    "~n   ~p",[ResponseVarbinds]),
+	    "~n   ~p", [ResponseVarbinds]),
     make_response_pdu(ReqId, ErrStatus, ErrIndex, Vbs, ResponseVarbinds);
 
 process_pdu(#pdu{type = 'get-next-request', request_id = ReqId, varbinds = Vbs},
@@ -2566,22 +2573,31 @@ process_pdu(#pdu{type = 'get-next-request', request_id = ReqId, varbinds = Vbs},
     ?vtrace("process get-next-request -> entry with"
 	    "~n   ReqId:   ~p"
 	    "~n   Vbs:     ~p"
-	    "~n   MibView: ~p",[ReqId, Vbs, MibView]),
-    Res = get_err(do_get_next(MibView, Vbs)),
-    ?vtrace("get-next result: "
-	    "~n   ~p",[Res]),
+	    "~n   MibView: ~p", [ReqId, Vbs, MibView]),
+    OrigRes = do_get_next(MibView, Vbs),
+    Res     = get_err(OrigRes),
     {ErrStatus, ErrIndex, ResVarbinds} = 
 	if
 	    Vsn =:= 'version-1' -> validate_next_v1(Res, MibView);
 	    true -> Res
 	end,
-    ?vtrace("get-next final result -> validation result:"
-	    "~n   Error status: ~p"
-	    "~n   Error index:  ~p"
-	    "~n   Varbinds:     ~p",[ErrStatus,ErrIndex,ResVarbinds]),
+    if
+        (ErrStatus =/= noError) ->
+            ?vlog("get-next final result: "
+                  "~n   Error status: ~p"
+                  "~n   Error index:  ~p"
+                  "~n   when"
+                  "~n      Original Result: "
+                  "~n         ~p", [ErrStatus, ErrIndex, OrigRes]);
+        true ->
+            ?vtrace("get-next final result:"
+                    "~n   Error status: ~p"
+                    "~n   Error index:  ~p"
+                    "~n   Varbinds:     ~p", [ErrStatus, ErrIndex, ResVarbinds])
+    end,
     ResponseVarbinds = lists:keysort(#varbind.org_index, ResVarbinds),
     ?vtrace("get-next final result -> response varbinds: "
-	    "~n   ~p",[ResponseVarbinds]),
+	    "~n   ~p", [ResponseVarbinds]),
     make_response_pdu(ReqId, ErrStatus, ErrIndex, Vbs, ResponseVarbinds);
 
 process_pdu(#pdu{type         = 'get-bulk-request',
@@ -2590,30 +2606,49 @@ process_pdu(#pdu{type         = 'get-bulk-request',
 		 error_status = NonRepeaters, 
 		 error_index  = MaxRepetitions},
 	    PduMS, _Vsn, MibView, GbMaxVBs) ->
-    {ErrStatus, ErrIndex, ResponseVarbinds} = 
-	get_err(do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Vbs, 
-			    GbMaxVBs)),
-    ?vtrace("get-bulk final result: "
-	    "~n   Error status:     ~p"
-	    "~n   Error index:      ~p"
-	    "~n   Respons varbinds: ~p",
-	    [ErrStatus,ErrIndex,ResponseVarbinds]),
+    OrigRes = do_get_bulk(MibView, NonRepeaters, MaxRepetitions, PduMS, Vbs, 
+                          GbMaxVBs),
+    {ErrStatus, ErrIndex, ResponseVarbinds} = get_err(OrigRes),
+    if
+        (ErrStatus =/= noError) ->
+            ?vlog("get-bulk final result: "
+                  "~n   Error Status: ~p"
+                  "~n   Error Index:  ~p"
+                  "~n   when"
+                  "~n      Original Result: "
+                  "~n         ~p", [ErrStatus, ErrIndex, OrigRes]);
+        true ->
+            ?vtrace("get-bulk final result: "
+                    "~n   Error status:     ~p"
+                    "~n   Error index:      ~p"
+                    "~n   Response Varbinds: ~p",
+                    [ErrStatus, ErrIndex, ResponseVarbinds])
+    end,
     make_response_pdu(ReqId, ErrStatus, ErrIndex, Vbs, ResponseVarbinds);
 
 process_pdu(#pdu{type = 'set-request', request_id = ReqId, varbinds = Vbs},
-	    _PduMS, Vsn, MibView, _GbMaxVbs)->
-    Res = do_set(MibView, Vbs),
-    ?vtrace("set result: "
-	    "~n   ~p",[Res]),
+	    _PduMS, Vsn, MibView, _GbMaxVbs) ->
+    OrigRes = do_set(MibView, Vbs),
     {ErrStatus, ErrIndex} =
 	if 
-	    Vsn =:= 'version-1' -> validate_err(v2_to_v1, Res);
-	    true -> Res
+	    Vsn =:= 'version-1' -> validate_err(v2_to_v1, OrigRes);
+	    true -> OrigRes
 	end,
-    ?vtrace("set final result: "
-	    "~n   Error status: ~p"
-	    "~n   Error index:  ~p",[ErrStatus,ErrIndex]),
+    if
+        (ErrStatus =/= noError) ->
+            ?vlog("set final result: "
+                  "~n      Error Status: ~p"
+                  "~n      Error Index:  ~p"
+                  "~n   when"
+                  "~n      Original Result: "
+                  "~n         ~p", [ErrStatus, ErrIndex, OrigRes]);
+        true ->
+            ?vtrace("set final result: "
+                    "~n   Error Status: ~p"
+                    "~n   Error Index:  ~p", [ErrStatus, ErrIndex])
+    end,
     make_response_pdu(ReqId, ErrStatus, ErrIndex, Vbs, Vbs).
+
 
 %%-----------------------------------------------------------------
 %% Transform a value == noSuchInstance | noSuchObject or a 

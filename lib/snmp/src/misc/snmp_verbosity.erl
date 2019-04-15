@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -70,16 +70,7 @@ print2(_Verbosity,Format,Arguments) ->
 
 
 timestamp() ->
-    format_timestamp(os:timestamp()).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w ~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
+    snmp_misc:formated_timestamp().
 
 process_args([], Acc) ->
     lists:reverse(Acc);
@@ -155,7 +146,8 @@ image_of_sname(mgr)       -> "MGR";
 image_of_sname(mgr_misc)  -> "MGR_MISC";
 
 image_of_sname(undefined) -> "";
-image_of_sname(V)         -> lists:flatten(io_lib:format("~p",[V])).
+image_of_sname(N) when is_list(N) -> N; % Used in testing
+image_of_sname(N)         -> lists:flatten(io_lib:format("~p", [N])).
 
 
 validate(info)  -> info;
