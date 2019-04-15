@@ -29,14 +29,6 @@
 -define(DRIVER, inet_tcp).
 -define(FAMILY, inet).
 
--define(PROTOCOL, inet_crypto_dist_v1).
--define(HASH_ALGORITHM, sha256).
--define(BLOCK_CRYPTO, aes_gcm).
--define(IV_LEN, 12).
--define(KEY_LEN, 16).
--define(TAG_LEN, 16).
--define(REKEY_INTERVAL, 32768).
-
 -export([listen/1, accept/1, accept_connection/5,
 	 setup/5, close/1, select/1, is_node_name/1]).
 
@@ -55,6 +47,33 @@
 -include_lib("kernel/include/dist_util.hrl").
 
 %% -------------------------------------------------------------------------
+
+-record(params,
+        {socket,
+         dist_handle,
+         public_key_type,
+         public_key_params,
+         hmac_algorithm,
+         aead_cipher,
+         iv,
+         key,
+         tag_len,
+         rekey_interval
+        }).
+
+current_params(Socket) ->
+    #params{
+       socket = Socket,
+       public_key_type = ecdh,
+       public_key_params = brainpoolP384t1,
+       hmac_algorithm = sha256,
+       aead_cipher = aes_gcm,
+       iv = 12,
+       key = 16,
+       tag_len = 16,
+       rekey_interval = 32768}.
+
+%% -------------------------------------------------------------------------
 %% Erlang distribution plugin structure explained to myself
 %% -------
 %% These are the processes involved in the distribution:
@@ -68,7 +87,7 @@
 %%   is not one or two processes, but one port - a gen_tcp socket
 %%
 %% When the VM is started with the argument "-proto_dist inet_crypto"
-%% net_kernel registers the module inet_crypto_dist as distribution
+%% net_kernel registers the module inet_crypto_dist acli,oams distribution
 %% module.  net_kernel calls listen/1 to create a listen socket
 %% and then accept/1 with the listen socket as argument to spawn
 %% the Acceptor process, which is linked to net_kernel.  Apparently
@@ -617,10 +636,13 @@ nodelay() ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% XXX Missing to "productified":
-%%% * Cryptoanalysis by experts, e.g Forward Secrecy is missing, right?
+%%% * Cryptoanalysis by experts, this is crypto amateur work.
 %%% * Is it useful?
 %%% * An application to belong to (kernel)
 %%% * Restart and/or code reload policy (not needed in kernel)
+%%% * Fitting into the epmd/Erlang distro protocol version framework
+%%%   (something needs to be created for multiple protocols, epmd,
+%%%    multiple address families, etc)
 
 
 %% Debug client and server
@@ -693,17 +715,6 @@ reply({Ref, Pid}, Msg) ->
 
 %% -------------------------------------------------------------------------
 
--record(params,
-        {protocol, % Encryption protocol tag
-         socket,
-         dist_handle,
-         hash_algorithm,
-         block_crypto,
-         rekey_interval,
-         iv,
-         key,
-         tag_len}).
-
 -define(TCP_ACTIVE, 16).
 -define(CHUNK_SIZE, (65536 - 512)).
 
@@ -727,20 +738,34 @@ reply({Ref, Pid}, Msg) ->
 %% and waits for the other end's start message.  So if the send
 %% blocks we have a deadlock.
 %%
-%% The init message is unencrypted and contains the block cipher and hash
-%% algorithms the sender will use, the IV and a key salt.  Both sides'
-%% key salt is used with the mutual secret as input to the hash algorithm
-%% to create different encryption/decryption keys for both directions.
+%% The init + start sequence tries to implement Password Encrypted
+%% Key Exchange using an ephemeral public/private keypair and the
+%% shared secret (the Cookie) to create session encryption keys
+%% that can not be re-created if the shared secret is compromized,
+%% which should create forward secrecy.
 %%
-%% The start message is the first encrypted message and contains just
-%% encrypted zeros the width of the key, with the header of the init
-%% message as AAD data.  Successfully decrypting this message
-%% verifies that we have an encrypted channel.
+%% All exchanged messages uses {packet, 2} i.e 16 bit size header.
+%%
+%% The init message contains a random number and encrypted: a public key
+%% and two random numbers.  The encryption is done with Key and IV hashed
+%% from the unencrypted random number and the shared secret.
+%%
+%% The exchanged epemeral public/private keypairs are used
+%% to create a shared key that is hashed with one of the encrypted
+%% random numbers from each side to create Key and IV for the session.
+%%
+%% The start message contains the two encrypted random numbers
+%% this time encrypted with the session keys for verification
+%% by the other side, plus the rekey interval.  The rekey interval
+%% is just there to get an early check for if the other side's
+%% maximum rekey interal is acceptable, it is just an embryo
+%% of some better check.  Any side may rekey earlier but if the
+%% rekey interval is exceeded the connection fails.
 %%
 %% Subsequent encrypted messages has the sequence number and the length
-%% of the message as AAD data.  These messages has got a message type
-%% differentiating data from ticks.  Ticks have a random size in an
-%% attempt to make them less obvious to spot.
+%% of the message as AAD data, and an incrementing IV.  These messages
+%% has got a message type that differentes data from ticks and rekeys.
+%% Ticks have a random size in an attempt to make them less obvious to spot.
 %%
 %% The only reaction to errors is to crash noisily wich will bring
 %% down the connection and hopefully produce something useful
@@ -748,163 +773,140 @@ reply({Ref, Pid}, Msg) ->
 %% -------------------------------------------------------------------------
 
 init(Socket, Secret) ->
-    {SendParams, Header, Data} = init_params(Socket),
-    ok = gen_tcp:send(Socket, [Header, Data]),
-    init(
-      SendParams, Secret,
-      [<<(byte_size(Header) + byte_size(Data)):32>>, Header]).
+    Params = current_params(Socket),
+    {PrivKey, R2, R3, Msg} = init_msg(Params, Secret),
+    ok = gen_tcp:send(Socket, Msg),
+    init(Params, Secret, PrivKey, R2, R3).
 
 init(
-  #params{
-     socket = Socket,
-     hash_algorithm = SendHashAlgorithm,
-     key = {SendKeySalt, SendOtherSalt}} = SendParams, Secret, SendAAD) ->
+  #params{socket = Socket, iv = IVLen} = Params, Secret, PrivKey, R2, R3) ->
     %%
     {ok, InitMsg} = gen_tcp:recv(Socket, 0),
+    IVSaltLen = IVLen - 6,
     try
-        init_params(Socket, InitMsg)
-    of
-        {#params{
-            hash_algorithm = RecvHashAlgorithm,
-            key = {RecvKeySalt, RecvOtherSalt}} = RecvParams,
-         RecvHeader} ->
-            RecvAAD = [<<(byte_size(InitMsg)):32>>, RecvHeader],
-            SendKey =
-                hash_key(
-                  SendHashAlgorithm, SendKeySalt, [RecvOtherSalt, Secret]),
-            RecvKey =
-                hash_key(
-                  RecvHashAlgorithm, RecvKeySalt, [SendOtherSalt, Secret]),
-            SendParams_1 = SendParams#params{key = SendKey},
-            RecvParams_1 = RecvParams#params{key = RecvKey},
-            send_start(SendParams_1, SendAAD),
-            recv_start(RecvParams_1, RecvAAD),
-            {SendParams_1, RecvParams_1}
+        case init_msg(Params, Secret, PrivKey, R2, R3, InitMsg) of
+            {#params{iv = <<IV2ASalt:IVSaltLen/binary, IV2ANo:48>>} =
+                 SendParams,
+             RecvParams, SendStartMsg} ->
+                ok = gen_tcp:send(Socket, SendStartMsg),
+                {ok, RecvStartMsg} = gen_tcp:recv(Socket, 0),
+                #params{
+                   iv = <<IV2BSalt:IVSaltLen/binary, IV2BNo:48>>} =
+                    RecvParams_1 =
+                    start_msg(RecvParams, R2, R3, RecvStartMsg),
+                {SendParams#params{iv = {IV2ASalt, IV2ANo}},
+                 RecvParams_1#params{iv = {IV2BSalt, IV2BNo}}}
+        end
     catch
-        error : Reason ->
-            _ = trace(Reason),
-            exit(connection_closed)
-    end.
-
-send_start(
-  #params{
-     socket = Socket,
-     block_crypto = BlockCrypto,
-     iv = {IVSalt, IVNo},
-     key = Key,
-     tag_len = TagLen}, AAD) ->
-    %%
-    KeyLen = byte_size(Key),
-    Zeros = binary:copy(<<0>>, KeyLen),
-    IVBin = <<IVSalt/binary, IVNo:48>>,
-    {Ciphertext, CipherTag} =
-        crypto:block_encrypt(BlockCrypto, Key, IVBin, {AAD, Zeros, TagLen}),
-    ok = gen_tcp:send(Socket,  [Ciphertext, CipherTag]).
-
-recv_start(
-  #params{
-     socket = Socket,
-     block_crypto = BlockCrypto,
-     iv = {IVSalt, IVNo},
-     key = Key,
-     tag_len = TagLen}, AAD) ->
-    %%
-    {ok, Packet} = gen_tcp:recv(Socket, 0),
-    KeyLen = byte_size(Key),
-    PacketLen = KeyLen,
-    <<Ciphertext:PacketLen/binary, CipherTag:TagLen/binary>> = Packet,
-    IVBin = <<IVSalt/binary, IVNo:48>>,
-    Zeros = binary:copy(<<0>>, KeyLen),
-    case
-        crypto:block_decrypt(
-          BlockCrypto, Key, IVBin, {AAD, Ciphertext, CipherTag})
-    of
-        Zeros ->
-            ok;
-        _ ->
-            _ = trace(decrypt_error),
+        error : Reason : Stacktrace->
+            _ = trace({Reason, Stacktrace}),
             exit(connection_closed)
     end.
 
 
 
-init_params(Socket) ->
-    Protocol = ?PROTOCOL,
-    HashAlgorithm = ?HASH_ALGORITHM,
-    BlockCrypto = ?BLOCK_CRYPTO,
-    IVSaltLen = ?IV_LEN - 6,
-    KeyLen = ?KEY_LEN,
-    TagLen = ?TAG_LEN,
-    RekeyInterval = ?REKEY_INTERVAL,
+init_msg(
+  #params{
+     public_key_type = PublicKeyType,
+     public_key_params = PublicKeyParams,
+     hmac_algorithm = HmacAlgo,
+     aead_cipher = AeadCipher,
+     key = KeyLen,
+     iv = IVLen,
+     tag_len = TagLen}, Secret) ->
     %%
-    ProtocolBin = atom_to_binary(Protocol, utf8),
-    HashAlgorithmBin = atom_to_binary(HashAlgorithm, utf8),
-    BlockCryptoBin = atom_to_binary(BlockCrypto, utf8),
-    Header =
-	<<(byte_size(ProtocolBin)), ProtocolBin/binary,
-	  (byte_size(HashAlgorithmBin)), HashAlgorithmBin/binary,
-	  (byte_size(BlockCryptoBin)), BlockCryptoBin/binary,
-	  KeyLen, TagLen>>,
-    <<KeySalt:KeyLen/binary, OtherSalt:KeyLen/binary,
-      IVSalt:IVSaltLen/binary, IVNo:48>> =
-        Data = crypto:strong_rand_bytes(KeyLen + KeyLen + IVSaltLen + 6),
-    {#params{
-        socket = Socket,
-        protocol = Protocol,
-        hash_algorithm = HashAlgorithm,
-        block_crypto = BlockCrypto,
-        iv = {IVSalt, IVNo},
-        key = {KeySalt, OtherSalt},
-        tag_len = TagLen,
-        rekey_interval = RekeyInterval}, Header, Data}.
-
-init_params(Socket, Msg) ->
-    Protocol = ?PROTOCOL,
-    ProtocolBin = atom_to_binary(Protocol, utf8),
-    ProtocolBinLen = byte_size(ProtocolBin),
+    {PubKeyA, PrivKey} = crypto:generate_key(PublicKeyType, PublicKeyParams),
+    RLen = KeyLen + IVLen,
+    <<R1A:RLen/binary, R2A:RLen/binary, R3A:RLen/binary>> =
+        crypto:strong_rand_bytes(3 * RLen),
+    {Key1A, IV1A} = hmac_key_iv(HmacAlgo, R1A, Secret, KeyLen, IVLen),
+    Plaintext = [R2A, R3A, PubKeyA],
+    MsgLen = byte_size(R1A) + TagLen + iolist_size(Plaintext),
+    AAD = [<<MsgLen:32>>, R1A],
+    {Ciphertext, Tag} =
+        crypto:block_encrypt(AeadCipher, Key1A, IV1A, {AAD, Plaintext, TagLen}),
+    Msg = [R1A, Tag, Ciphertext],
+    {PrivKey, R2A, R3A, Msg}.
+%%
+init_msg(
+  #params{
+     public_key_type = PublicKeyType,
+     public_key_params = PublicKeyParams,
+     hmac_algorithm = HmacAlgo,
+     aead_cipher = AeadCipher,
+     key = KeyLen,
+     iv = IVLen,
+     tag_len = TagLen,
+     rekey_interval = RekeyInterval} = Params, Secret, PrivKey, R2A, R3A, Msg) ->
+    %%
+    RLen = KeyLen + IVLen,
     case Msg of
-	<<ProtocolBinLen, ProtocolBin:ProtocolBinLen/binary,
-	  Rest_1/binary>> ->
-	    HashAlgorithm = ?HASH_ALGORITHM,
-	    BlockCrypto = ?BLOCK_CRYPTO,
-	    HashAlgorithmBin = atom_to_binary(HashAlgorithm, utf8),
-	    HashAlgorithmBinLen = byte_size(HashAlgorithmBin),
-	    BlockCryptoBin = atom_to_binary(BlockCrypto, utf8),
-	    BlockCryptoBinLen = byte_size(BlockCryptoBin),
-	    case Rest_1 of
-		<<HashAlgorithmBinLen,
-		  HashAlgorithmBin:HashAlgorithmBinLen/binary,
-		  BlockCryptoBinLen,
-		  BlockCryptoBin:BlockCryptoBinLen/binary,
-		  Rest_2/binary>> ->
-                    IVSaltLen = ?IV_LEN - 6, KeyLen = ?KEY_LEN,
-		    TagLen = ?TAG_LEN, RekeyInterval = ?REKEY_INTERVAL,
-                    <<KeyLen, TagLen,
-                      KeySalt:KeyLen/binary,
-                      OtherSalt:KeyLen/binary,
-                      IVSalt:IVSaltLen/binary, IVNo:48>> = Rest_2,
-                    HeaderLen = byte_size(Msg) - (byte_size(Rest_2) - 2),
-                    <<Header:HeaderLen/binary, _/binary>> = Msg,
-		    {#params{
-                        socket = Socket,
-                        protocol = Protocol,
-                        hash_algorithm = HashAlgorithm,
-                        block_crypto = BlockCrypto,
-                        iv = {IVSalt, IVNo},
-                        key = {KeySalt, OtherSalt},
-                        tag_len = TagLen,
-                        rekey_interval = RekeyInterval},
-                     Header}
+        <<R1B:RLen/binary, Tag:TagLen/binary, Ciphertext/binary>> ->
+            {Key1B, IV1B} = hmac_key_iv(HmacAlgo, R1B, Secret, KeyLen, IVLen),
+            MsgLen = byte_size(Msg),
+            AAD = [<<MsgLen:32>>, R1B],
+            case
+                crypto:block_decrypt(
+                  AeadCipher, Key1B, IV1B, {AAD, Ciphertext, Tag})
+            of
+                <<R2B:RLen/binary, R3B:RLen/binary, PubKeyB/binary>> ->
+                    SharedSecret =
+                        crypto:compute_key(
+                          PublicKeyType, PubKeyB, PrivKey, PublicKeyParams),
+                    %%
+                    {Key2A, IV2A} =
+                        hmac_key_iv(
+                          HmacAlgo, SharedSecret, [R2A, R3B], KeyLen, IVLen),
+                    SendParams = Params#params{key = Key2A, iv = IV2A},
+                    %%
+                    StartCleartext = [R2B, R3B, <<RekeyInterval:32>>],
+                    StartMsgLen = TagLen + iolist_size(StartCleartext),
+                    StartAAD = <<StartMsgLen:32>>,
+                    {StartCiphertext, StartTag} =
+                        crypto:block_encrypt(
+                          AeadCipher, Key2A, IV2A,
+                          {StartAAD, StartCleartext, TagLen}),
+                    StartMsg = [StartTag, StartCiphertext],
+                    %%
+                    {Key2B, IV2B} =
+                        hmac_key_iv(
+                          HmacAlgo, SharedSecret, [R2B, R3A], KeyLen, IVLen),
+                    RecvParams = Params#params{key = Key2B, iv = IV2B},
+                    %%
+                    {SendParams, RecvParams, StartMsg}
             end
     end.
 
+start_msg(
+  #params{
+     aead_cipher = AeadCipher,
+     key = Key2B,
+     iv = IV2B,
+     tag_len = TagLen,
+     rekey_interval = RekeyIntervalA} = RecvParams, R2A, R3A, Msg) ->
+    %%
+    case Msg of
+        <<Tag:TagLen/binary, Ciphertext/binary>> ->
+            KeyLen = byte_size(Key2B),
+            IVLen = byte_size(IV2B),
+            RLen = KeyLen + IVLen,
+            MsgLen = byte_size(Msg),
+            AAD = <<MsgLen:32>>,
+            case
+                crypto:block_decrypt(
+                  AeadCipher, Key2B, IV2B, {AAD, Ciphertext, Tag})
+            of
+                <<R2A:RLen/binary, R3A:RLen/binary, RekeyIntervalB:32>>
+                  when RekeyIntervalA =< (RekeyIntervalB bsl 2),
+                       RekeyIntervalB =< (RekeyIntervalA bsl 2) ->
+                    RecvParams#params{rekey_interval = RekeyIntervalB}
+            end
+    end.
 
-
-hash_key(HashAlgorithm, KeySalt, KeyData) ->
-    KeyLen = byte_size(KeySalt),
-    <<Key:KeyLen/binary, _/binary>> =
-        crypto:hash(HashAlgorithm, [KeySalt, KeyData]),
-    Key.
+hmac_key_iv(HmacAlgo, MacKey, Data, KeyLen, IVLen) ->
+    <<Key:KeyLen/binary, IV:IVLen/binary>> =
+        crypto:hmac(HmacAlgo, MacKey, Data, KeyLen + IVLen),
+    {Key, IV}.
 
 %% -------------------------------------------------------------------------
 %% net_kernel distribution handshake in progress
@@ -1239,19 +1241,19 @@ deliver_data(DistHandle, Front, Size, Rear, Bin) ->
 encrypt_and_send_chunk(
   #params{
      socket = Socket, rekey_interval = Seq,
-     key = Key, iv = {IVSalt, _}, hash_algorithm = HashAlgorithm} = Params,
+     key = Key, iv = {IVSalt, _}, hmac_algorithm = HmacAlgo} = Params,
   Seq, Cleartext) ->
     %%
     KeyLen = byte_size(Key),
     IVSaltLen = byte_size(IVSalt),
-    Chunk = <<KeySalt:KeyLen/binary, IVSalt_1:IVSaltLen/binary, IVNo_1:48>> =
-        crypto:strong_rand_bytes(KeyLen + IVSaltLen + 6),
+    R = crypto:strong_rand_bytes(KeyLen + IVSaltLen + 6),
     case
         gen_tcp:send(
-          Socket, encrypt_chunk(Params, Seq, [?REKEY_CHUNK, Chunk]))
+          Socket, encrypt_chunk(Params, Seq, [?REKEY_CHUNK, R]))
     of
         ok ->
-            Key_1 = hash_key(HashAlgorithm, Key, KeySalt),
+            {Key_1, <<IVSalt_1:IVSaltLen/binary, IVNo_1:48>>} =
+                hmac_key_iv(HmacAlgo, Key, R, KeyLen, IVSaltLen + 6),
             Params_1 = Params#params{key = Key_1, iv = {IVSalt_1, IVNo_1}},
             Result =
                 gen_tcp:send(Socket, encrypt_chunk(Params_1, 0, Cleartext)),
@@ -1265,20 +1267,20 @@ encrypt_and_send_chunk(#params{socket = Socket} = Params, Seq, Cleartext) ->
 
 encrypt_chunk(
   #params{
-     block_crypto = BlockCrypto,
+     aead_cipher = AeadCipher,
      iv = {IVSalt, IVNo}, key = Key, tag_len = TagLen}, Seq, Cleartext) ->
     %%
     ChunkLen = iolist_size(Cleartext) + TagLen,
     AAD = <<Seq:32, ChunkLen:32>>,
     IVBin = <<IVSalt/binary, (IVNo + Seq):48>>,
     {Ciphertext, CipherTag} =
-        crypto:block_encrypt(BlockCrypto, Key, IVBin, {AAD, Cleartext, TagLen}),
+        crypto:block_encrypt(AeadCipher, Key, IVBin, {AAD, Cleartext, TagLen}),
     Chunk = [Ciphertext,CipherTag],
     Chunk.
 
 decrypt_chunk(
   #params{
-     block_crypto = BlockCrypto,
+     aead_cipher = AeadCipher,
      iv = {IVSalt, IVNo}, key = Key, tag_len = TagLen} = Params, Seq, Chunk) ->
     %%
     ChunkLen = byte_size(Chunk),
@@ -1293,7 +1295,7 @@ decrypt_chunk(
                 <<Ciphertext:CiphertextLen/binary,
                   CipherTag:TagLen/binary>> ->
                     block_decrypt(
-                      Params, Seq, BlockCrypto, Key, IVBin,
+                      Params, Seq, AeadCipher, Key, IVBin,
                       {AAD, Ciphertext, CipherTag});
                 _ ->
                     error
@@ -1302,17 +1304,20 @@ decrypt_chunk(
 
 block_decrypt(
   #params{rekey_interval = RekeyInterval} = Params,
-  Seq, CipherName, Key, IV, Data) ->
+  Seq, AeadCipher, Key, IV, Data) ->
     %%
-    case crypto:block_decrypt(CipherName, Key, IV, Data) of
+    case crypto:block_decrypt(AeadCipher, Key, IV, Data) of
         <<?REKEY_CHUNK, Rest/binary>> ->
             KeyLen = byte_size(Key),
-            IVSaltLen = byte_size(IV) - 6,
+            IVLen = byte_size(IV),
+            IVSaltLen = IVLen - 6,
+            RLen = KeyLen + IVLen,
             case Rest of
-                <<KeySalt:KeyLen/binary, IVSalt:IVSaltLen/binary, IVNo:48>> ->
-                    Key_1 =
-                        hash_key(
-                          Params#params.hash_algorithm, Key, KeySalt),
+                <<R:RLen/binary>> ->
+                    {Key_1, <<IVSalt:IVSaltLen/binary, IVNo:48>>} =
+                        hmac_key_iv(
+                          Params#params.hmac_algorithm,
+                          Key, R, KeyLen, IVLen),
                     Params#params{iv = {IVSalt, IVNo}, key = Key_1};
                 _ ->
                     error
