@@ -204,10 +204,15 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     Result = 
 	case lists:member(Case, DeprecatedApiCases) of
 	    true ->
-		%% ?SKIP(api_no_longer_supported);
 		{skip, api_no_longer_supported};
 	    false ->
-		init_per_testcase2(Case, Config)
+		try init_per_testcase2(Case, Config)
+                catch
+                    C:{skip, _} = E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+                        E;
+                    C:E:_ when ((C =:= throw) orelse (C =:= exit)) ->
+                        {skip, {catched, C, E}}
+                end
 	end,
     p(Case, "init_per_testcase end when"
       "~n      Nodes:  ~p"
@@ -326,9 +331,25 @@ init_per_testcase3(Case, Config) ->
 			true ->
 			    Config
 		    end,
+            %% We don't need to try catch this (init_agent)
+            %% since we have a try catch "higher up"...
 	    Conf2 = init_agent(Conf1),
-	    Conf3 = init_manager(AutoInform, Conf2), 
-	    Conf4 = init_mgr_user(Conf3),
+	    Conf3 = try init_manager(AutoInform, Conf2)
+                    catch AC:AE:_ ->
+                            %% Ouch we need to clean up: 
+                            %% The init_agent starts an agent node!
+                            init_per_testcase_fail_agent_cleanup(Conf2),
+                            throw({skip, {manager_init_failed, AC, AE}})
+                    end,
+	    Conf4 = try init_mgr_user(Conf3)
+                    catch MC:ME:_ ->
+                            %% Ouch we need to clean up: 
+                            %% The init_agent starts an agent node!
+                            %% The init_magager starts an manager node!
+                            init_per_testcase_fail_manager_cleanup(Conf3),
+                            init_per_testcase_fail_agent_cleanup(Conf3),
+                            throw({skip, {manager_user_init_failed, MC, ME}})
+                    end,
 	    case lists:member(Case, ApiCases02 ++ ApiCases03) of
 		true ->
 		    init_mgr_user_data2(Conf4);
@@ -338,6 +359,12 @@ init_per_testcase3(Case, Config) ->
 	false ->
 	    Config
     end.
+
+init_per_testcase_fail_manager_cleanup(Conf) ->
+    (catch fin_manager(Conf)).
+
+init_per_testcase_fail_agent_cleanup(Conf) ->
+    (catch fin_agent(Conf)).
 
 end_per_testcase(Case, Config) when is_list(Config) ->
     p(Case, "end_per_testcase begin when"
@@ -993,18 +1020,40 @@ notify_started02(Config) when is_list(Config) ->
 	    {config, [{verbosity, log}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     p("start snmpm client process"),
-    Pid1 = ns02_loop1_start(),
+    NumIterations = 5,
+    Pid1 = ns02_client_start(NumIterations),
 
-    p("start snmpm starter process"),
-    Pid2 = ns02_loop2_start(Opts),
-    
-    p("await snmpm client process exit"),
+    p("start snmpm ctrl (starter) process"),
+    Pid2 = ns02_ctrl_start(Opts, NumIterations),
+
+    %% On a reasonably fast machine, one iteration takes approx 4 seconds.
+    %% We measure the first iteration, and then we wait for the remaining
+    %% ones (4 in this case).
+    ApproxStartTime =
+        case ns02_client_await_approx_runtime(Pid1) of
+            {ok, T} ->
+                T;
+            {error, Reason} ->
+                %% Attempt cleanup just in case
+                exit(Pid1, kill),
+                exit(Pid2, kill),
+                ?FAIL(Reason);
+            {skip, Reason} ->
+                %% Attempt cleanup just in case
+                exit(Pid1, kill),
+                exit(Pid2, kill),
+                ?SKIP(Reason)
+        end,
+
+    p("await snmpm client process exit (max ~p+10000 msec)", [ApproxStartTime]),
     receive 
 	{'EXIT', Pid1, normal} ->
 	    ok;
 	{'EXIT', Pid1, Reason1} ->
-	    ?FAIL(Reason1)
-    after 25000 ->
+	    ?FAIL({client, Reason1})
+    after ApproxStartTime + 10000 ->
+            exit(Pid1, kill),
+            exit(Pid2, kill),
 	    ?FAIL(timeout)
     end,
 	
@@ -1013,8 +1062,9 @@ notify_started02(Config) when is_list(Config) ->
 	{'EXIT', Pid2, normal} ->
 	    ok;
 	{'EXIT', Pid2, Reason2} ->
-	    ?FAIL(Reason2)
+	    ?FAIL({ctrl, Reason2})
     after 5000 ->
+            exit(Pid2, kill),
 	    ?FAIL(timeout)
     end,
 	
@@ -1022,26 +1072,63 @@ notify_started02(Config) when is_list(Config) ->
     ok.
 
 
-ns02_loop1_start() ->
-    spawn_link(fun() -> ns02_loop1() end).
-		       
-ns02_loop1() ->
-    put(tname,ns02_loop1),
-    p("starting"),
-    ns02_loop1(dummy, snmpm:notify_started(?NS_TIMEOUT), 5).
+ns02_client_start(N) ->
+    Self = self(),
+    spawn_link(fun() -> ns02_client(Self, N) end).
 
-ns02_loop1(_Ref, _Pid, 0) ->
-    p("done"),
+ns02_client_await_approx_runtime(Pid) ->
+    receive
+        {?MODULE, client_time, Time} ->
+            {ok, Time};
+        {'EXIT', Pid, Reason} ->
+            p("client (~p) failed: "
+              "~n      ~p", [Pid, Reason]),
+            {error, Reason}
+                
+    after 15000 ->
+            %% Either something is *really* wrong or this machine 
+            %% is dog slow. Either way, this is a skip-reason...
+            {skip, approx_runtime_timeout}
+    end.
+    
+		       
+ns02_client(Parent, N) when is_pid(Parent) ->
+    put(tname, ns02_client),
+    p("starting"),
+    ns02_client_loop(Parent, 
+                     dummy, snmpm:notify_started(?NS_TIMEOUT),
+                     snmp_misc:now(ms), undefined,
+                     N).
+
+ns02_client_loop(_Parent, _Ref, _Pid, _Begin, _End, 0) ->
+    %% p("loop -> done"),
     exit(normal);
-ns02_loop1(Ref, Pid, N) ->
-    p("entry when"
-      "~n   Ref: ~p"
-      "~n   Pid: ~p"
-      "~n   N:   ~p", [Ref, Pid, N]),
+ns02_client_loop(Parent, Ref, Pid, Begin, End, N) 
+  when is_pid(Parent) andalso is_integer(Begin) andalso is_integer(End) ->
+    %% p("loop -> [~w] inform parent: ~w, ~w => ~w", [N, Begin, End, End-Begin]),
+    Parent ! {?MODULE, client_time, N*(End-Begin)},
+    ns02_client_loop(undefined, Ref, Pid, snmp_misc:now(ms), undefined, N);    
+ns02_client_loop(Parent, Ref, Pid, Begin, End, N) 
+  when is_integer(Begin) andalso is_integer(End) ->
+    %% p("loop -> [~w] entry when"
+    %%   "~n      Ref:   ~p"
+    %%   "~n      Pid:   ~p"
+    %%   "~n      Begin: ~p"
+    %%   "~n      End:   ~p", [N, Ref, Pid, Begin, End]),
+    ns02_client_loop(Parent, Ref, Pid, snmp_misc:now(ms), undefined, N);    
+ns02_client_loop(Parent, Ref, Pid, Begin, End, N) ->
+    %% p("loop(await message) -> [~w] entry when"
+    %%   "~n      Ref:   ~p"
+    %%   "~n      Pid:   ~p"
+    %%   "~n      Begin: ~p"
+    %%   "~n      End:   ~p", [N, Ref, Pid, Begin, End]),
     receive
 	{snmpm_started, Pid} ->
 	    p("received expected started message (~w)", [N]),
-	    ns02_loop1(snmpm:monitor(), dummy, N);
+	    ns02_client_loop(Parent,
+                             snmpm:monitor(), dummy,
+                             Begin, End,
+                             N);
 	{snmpm_start_timeout, Pid} ->
 	    p("unexpected timout"),
 	    ?FAIL({unexpected_start_timeout, Pid});
@@ -1049,24 +1136,24 @@ ns02_loop1(Ref, Pid, N) ->
 	    p("received expected DOWN message (~w) with"
 	      "~n   Obj:    ~p"
 	      "~n   Reason: ~p", [N, Obj, Reason]),
-	    ns02_loop1(dummy, snmpm:notify_started(?NS_TIMEOUT), N-1)
-    after 10000 ->
-	    ?FAIL(timeout)
+	    ns02_client_loop(Parent,
+                             dummy, snmpm:notify_started(?NS_TIMEOUT),
+                             Begin, snmp_misc:now(ms),
+                             N-1)
     end.
 
-
-ns02_loop2_start(Opts) ->
-    spawn_link(fun() -> ns02_loop2(Opts) end).
+ns02_ctrl_start(Opts, N) ->
+    spawn_link(fun() -> ns02_ctrl(Opts, N) end).
 		       
-ns02_loop2(Opts) ->
-    put(tname,ns02_loop2),
+ns02_ctrl(Opts, N) ->
+    put(tname, ns02_ctrl),
     p("starting"),
-    ns02_loop2(Opts, 5).
+    ns02_ctrl_loop(Opts, N).
 
-ns02_loop2(_Opts, 0) ->
+ns02_ctrl_loop(_Opts, 0) ->
     p("done"),
     exit(normal);
-ns02_loop2(Opts, N) ->
+ns02_ctrl_loop(Opts, N) ->
     p("entry when N: ~p", [N]),
     ?SLEEP(2000),
     p("start manager"),
@@ -1074,7 +1161,7 @@ ns02_loop2(Opts, N) ->
     ?SLEEP(2000),
     p("stop manager"),
     snmpm:stop(),
-    ns02_loop2(Opts, N-1).
+    ns02_ctrl_loop(Opts, N-1).
 
 
 %%======================================================================
@@ -5416,15 +5503,14 @@ init_manager(AutoInform, Config) ->
 	    start_manager(Node, Vsns, Conf)
 	end
     catch
-	T:E ->
-	    StackTrace = ?STACK(), 
+	C:E:S ->
 	    p("Failure during manager start: "
-	      "~n      Error Type: ~p"
-	      "~n      Error:      ~p"
-	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	      "~n      Error Class: ~p"
+	      "~n      Error:       ~p"
+	      "~n      StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
 	    (catch stop_node(Node)), 
-	    ?FAIL({failed_starting_manager, T, E, StackTrace})
+	    ?FAIL({failed_starting_manager, C, E, S})
     end.
 
 fin_manager(Config) ->
@@ -5432,7 +5518,7 @@ fin_manager(Config) ->
     StopMgrRes    = stop_manager(Node),
     StopCryptoRes = fin_crypto(Node),
     StopNode      = stop_node(Node),
-    p("fin_agent -> stop apps and (mgr node ~p) node results: "
+    p("fin_manager -> stop apps and (mgr node ~p) node results: "
       "~n      SNMP Mgr: ~p"
       "~n      Crypto:   ~p"
       "~n      Node:     ~p", 
@@ -5498,15 +5584,14 @@ init_agent(Config) ->
 	    start_agent(Node, Vsns, Conf)
 	end
     catch
-	T:E ->
-	    StackTrace = ?STACK(), 
+	C:E:S ->
 	    p("Failure during agent start: "
-	      "~n      Error Type: ~p"
-	      "~n      Error:      ~p"
-	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	      "~n      Error Class: ~p"
+	      "~n      Error:       ~p"
+	      "~n      StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
 	    (catch stop_node(Node)), 
-	    ?FAIL({failed_starting_agent, T, E, StackTrace})
+	    ?FAIL({failed_starting_agent, C, E, S})
     end.
 	      
 
