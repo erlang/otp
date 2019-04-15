@@ -1339,25 +1339,24 @@ send(Socket, Data) ->
     send(Socket, Data, ?SOCKET_SEND_FLAGS_DEFAULT, ?SOCKET_SEND_TIMEOUT_DEFAULT).
 
 -spec send(Socket, Data, Flags) -> ok | {error, Reason} when
-      Socket  :: socket(),
-      Data    :: iodata(),
-      Flags   :: send_flags(),
-      Reason  :: term()
+      Socket     :: socket(),
+      Data       :: iodata(),
+      Flags      :: send_flags(),
+      Reason     :: term()
                  ; (Socket, Data, nowait) -> ok |
-                                             {ok, SelInfo} |
-                                             {ok, {RestData, SelInfo}} |
+                                             {ok, SelectInfo} |
+                                             {ok, {RestData, SelectInfo}} |
                                              {error, Reason} when
-      Socket   :: socket(),
-      Data     :: iodata(),
-      RestData :: binary(),
-      SelInfo  :: {select, SendRef},
-      SendRef  :: reference(),
-      Reason   :: term()
+      Socket     :: socket(),
+      Data       :: iodata(),
+      RestData   :: binary(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, Data, Timeout) -> ok | {error, Reason} when
-      Socket   :: socket(),
-      Data     :: iodata(),
-      Timeout  :: timeout(),
-      Reason   :: term().
+      Socket     :: socket(),
+      Data       :: iodata(),
+      Timeout    :: timeout(),
+      Reason     :: term().
 
 send(Socket, Data, Flags) when is_list(Flags) ->
     send(Socket, Data, Flags, ?SOCKET_SEND_TIMEOUT_DEFAULT);
@@ -1365,33 +1364,31 @@ send(Socket, Data, Timeout) ->
     send(Socket, Data, ?SOCKET_SEND_FLAGS_DEFAULT, Timeout).
 
 -spec send(Socket, Data, Flags, nowait) -> ok |
-                                           {ok, SelInfo} |
-                                           {ok, {RestData, SelInfo}} |
+                                           {ok, SelectInfo} |
+                                           {ok, {RestData, SelectInfo}} |
                                            {error, Reason} when
-      Socket   :: socket(),
-      Data     :: iodata(),
-      Flags    :: send_flags(),
-      RestData :: binary(),
-      SelInfo  :: {select, SendRef},
-      SendRef  :: reference(),
-      Reason   :: term()
+      Socket     :: socket(),
+      Data       :: iodata(),
+      Flags      :: send_flags(),
+      RestData   :: binary(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, Data, Flags, nowait) -> ok |
-                                                    {ok, SelInfo} |
-                                                    {ok, {RestData, SelInfo}} |
+                                                    {ok, SelectInfo} |
+                                                    {ok, {RestData, SelectInfo}} |
                                                     {error, Reason} when
-      Socket   :: socket(),
-      Data     :: iodata(),
-      Flags    :: send_flags(),
-      RestData :: binary(),
-      SelInfo  :: {select, SendRef},
-      SendRef  :: reference(),
-      Reason   :: term()
+      Socket     :: socket(),
+      Data       :: iodata(),
+      Flags      :: send_flags(),
+      RestData   :: binary(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, Data, Flags, Timeout) -> ok | {error, Reason} when
-      Socket   :: socket(),
-      Data     :: iodata(),
-      Flags    :: send_flags(),
-      Timeout  :: timeout(),
-      Reason   :: term().
+      Socket     :: socket(),
+      Data       :: iodata(),
+      Flags      :: send_flags(),
+      Timeout    :: timeout(),
+      Reason     :: term().
 
 send(Socket, Data, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
@@ -1415,8 +1412,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
 
         {ok, Written} when (Timeout =:= nowait) ->
             <<_:Written/binary, Rest/binary>> = Data,
-            SelInfo = {select, SendRef},
-            {ok, {Rest, SelInfo}};
+            {ok, {Rest, ?SELECT_INFO(send, SendRef)}};
 
 
         {ok, Written} ->
@@ -1443,8 +1439,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
 
 
         {error, eagain} when (Timeout =:= nowait) ->
-            SelInfo = {select, SendRef},
-            {ok, SelInfo};
+            {ok, ?SELECT_INFO(send, SendRef)};
 
 
         {error, eagain} ->
@@ -1482,17 +1477,25 @@ sendto(Socket, Data, Dest) ->
     sendto(Socket, Data, Dest, ?SOCKET_SENDTO_FLAGS_DEFAULT).
 
 -spec sendto(Socket, Data, Dest, Flags) -> ok | {error, Reason} when
-      Socket :: socket(),
-      Data   :: binary(),
-      Dest   :: null | sockaddr(),
-      Flags  :: send_flags(),
-      Reason :: term()
+      Socket    :: socket(),
+      Data      :: binary(),
+      Dest      :: null | sockaddr(),
+      Flags     :: send_flags(),
+      Reason    :: term()
+                ; (Socket, Data, Dest, nowait) -> ok |
+                                                  {ok, SelectInfo} |
+                                                  {error, Reason} when
+      Socket     :: socket(),
+      Data       :: iodata(),
+      Dest       :: null | sockaddr(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
                  ; (Socket, Data, Dest, Timeout) -> ok | {error, Reason} when
-      Socket  :: socket(),
-      Data    :: iodata(),
-      Dest    :: null | sockaddr(),
-      Timeout :: timeout(),
-      Reason  :: term().
+      Socket     :: socket(),
+      Data       :: iodata(),
+      Dest       :: null | sockaddr(),
+      Timeout    :: timeout(),
+      Reason     :: term().
 
 sendto(Socket, Data, Dest, Flags) when is_list(Flags) ->
     sendto(Socket, Data, Dest, Flags, ?SOCKET_SENDTO_TIMEOUT_DEFAULT);
@@ -1500,13 +1503,22 @@ sendto(Socket, Data, Dest, Timeout) ->
     sendto(Socket, Data, Dest, ?SOCKET_SENDTO_FLAGS_DEFAULT, Timeout).
 
 
--spec sendto(Socket, Data, Dest, Flags, Timeout) -> ok | {error, Reason} when
-      Socket  :: socket(),
-      Data    :: binary(),
-      Dest    :: null | sockaddr(),
-      Flags   :: send_flags(),
-      Timeout :: timeout(),
-      Reason  :: term().
+-spec sendto(Socket, Data, Dest, Flags, nowait) -> ok |
+                                                   {ok, SelectInfo} |
+                                                   {error, Reason} when
+      Socket     :: socket(),
+      Data       :: binary(),
+      Dest       :: null | sockaddr(),
+      Flags      :: send_flags(),
+      SelectInfo :: select_info(),
+      Reason     :: term()
+                 ; (Socket, Data, Dest, Flags, Timeout) -> ok | {error, Reason} when
+      Socket     :: socket(),
+      Data       :: binary(),
+      Dest       :: null | sockaddr(),
+      Flags      :: send_flags(),
+      Timeout    :: timeout(),
+      Reason     :: term().
 
 sendto(Socket, Data, Dest, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
@@ -1515,14 +1527,18 @@ sendto(#socket{ref = SockRef}, Data, Dest, Flags, Timeout)
   when is_binary(Data) andalso
        (Dest =:= null) andalso
        is_list(Flags) andalso
-       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
+       ((Timeout =:= nowait) orelse
+        (Timeout =:= infinity) orelse
+        (is_integer(Timeout) andalso (Timeout > 0))) ->
     EFlags = enc_send_flags(Flags),
     do_sendto(SockRef, Data, Dest, EFlags, Timeout);
 sendto(#socket{ref = SockRef}, Data, #{family := Fam} = Dest, Flags, Timeout)
   when is_binary(Data) andalso
        ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso 
        is_list(Flags) andalso
-       (is_integer(Timeout) orelse (Timeout =:= infinity)) ->
+       ((Timeout =:= nowait) orelse
+        (Timeout =:= infinity) orelse
+        (is_integer(Timeout) andalso (Timeout > 0))) ->
     EFlags = enc_send_flags(Flags),
     do_sendto(SockRef, Data, Dest, EFlags, Timeout).
 
@@ -1533,6 +1549,11 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
         ok ->
             %% We are done
             ok;
+
+        {ok, Written} when (Timeout =:= nowait) ->
+            <<_:Written/binary, Rest/binary>> = Data,
+            {ok, {Rest, ?SELECT_INFO(sendto, SendRef)}};
+
 
         {ok, Written} ->
 	    %% We are partially done, wait for continuation
@@ -1554,6 +1575,11 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
                     cancel(SockRef, sendto, SendRef),
                     {error, timeout}
             end;
+
+
+        {error, eagain} when (Timeout =:= nowait) ->
+            {ok, ?SELECT_INFO(sendto, SendRef)};
+
 
         {error, eagain} ->
             receive
