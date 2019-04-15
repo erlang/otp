@@ -77,7 +77,7 @@
          optimistic_dflags_echo/0, optimistic_dflags_sender/1,
          roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
          dist_parallel_sender/3, dist_parallel_receiver/0,
-         dist_evil_parallel_receiver/0]).
+         dist_evil_parallel_receiver/0, make_busy/2]).
 
 %% epmd_module exports
 -export([start_link/0, register_node/2, register_node/3, port_please/2, address_please/3]).
