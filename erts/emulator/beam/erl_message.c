@@ -1590,6 +1590,9 @@ void erts_factory_undo(ErtsHeapFactory* factory)
 	    factory->message->hfrag.next = factory->heap_frags;
 	else
 	    factory->message->data.heap_frag = factory->heap_frags;
+        /* Set the message to NIL in order for this message not to be
+           treated as a distributed message by the cleanup_messages logic */
+        factory->message->m[0] = NIL;
 	erts_cleanup_messages(factory->message);
 	break;
     case FACTORY_TMP:
