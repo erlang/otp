@@ -16,8 +16,6 @@
 %% limitations under the License.
 %% 
 %% %CopyrightEnd%
-%%
-%% Purpose : Common utilities used by several optimization passes.
 %% 
 
 -module(bs_construct_SUITE).
@@ -27,9 +25,9 @@
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1,
 	 not_used/1, in_guard/1,
 	 mem_leak/1, coerce_to_float/1, bjorn/1, append_empty_is_same/1,
-	 huge_float_field/1, huge_binary/1, system_limit/1, badarg/1,
+	 huge_float_field/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
-	 otp_7422/1, zero_width/1, bad_append/1, bs_add_overflow/1]).
+	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,9 +38,9 @@ suite() ->
 all() -> 
     [test1, test2, test3, test4, test5, testf, not_used,
      in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
-     huge_float_field, huge_binary, system_limit, badarg,
+     huge_float_field, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
-     bad_append, bs_add_overflow].
+     bad_append, bs_append_overflow].
 
 init_per_suite(Config) ->
     Config.
@@ -543,56 +541,6 @@ huge_float_field(Config) when is_list(Config) ->
 huge_float_check({'EXIT',{system_limit,_}}) -> ok;
 huge_float_check({'EXIT',{badarg,_}}) -> ok.
 
-huge_binary(Config) when is_list(Config) ->
-    ct:timetrap({seconds, 60}),
-    16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
-    garbage_collect(),
-    FreeMem = free_mem(),
-    io:format("Free memory (Mb): ~p\n", [FreeMem]),
-    {Shift,Return} = case free_mem() of
-			 undefined ->
-			     %% This test has to be inlined inside the case to
-			     %% use a literal Shift
-			     garbage_collect(),
-			     id(<<0:((1 bsl 32)-1)>>),
-			     {32,ok};
-			 Mb when Mb > 600 ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 32)-1)>>),
-			     {32,ok};
-			 Mb when Mb > 300 ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 31)-1)>>),
-			     {31,"Limit huge binaries to 256 Mb"};
-			 Mb when Mb > 200 ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 30)-1)>>),
-			     {30,"Limit huge binary to 128 Mb"};
-			 _ ->
-			     garbage_collect(),
-			     id(<<0:((1 bsl 29)-1)>>),
-                             {29,"Limit huge binary to 64 Mb"}
-		     end,
-    garbage_collect(),
-    id(<<0:((1 bsl Shift)-1)>>),
-    garbage_collect(),
-    id(<<0:(id((1 bsl Shift)-1))>>),
-    garbage_collect(),
-    case Return of
-	ok -> ok;	     
-	Comment -> {comment, Comment}
-    end.
-
-%% Return the amount of free memory in Mb.
-free_mem() ->
-    {ok,Apps} = application:ensure_all_started(os_mon),
-    Mem = memsup:get_system_memory_data(),
-    [ok = application:stop(App)||App <- Apps],
-    case proplists:get_value(free_memory,Mem) of
-        undefined -> undefined;
-        Val -> Val div (1024*1024)
-    end.
-
 system_limit(Config) when is_list(Config) ->
     WordSize = erlang:system_info(wordsize),
     BitsPerWord = WordSize * 8,
@@ -904,33 +852,37 @@ append_unit_8(Bin) ->
 append_unit_16(Bin) ->
     <<Bin/binary-unit:16,0:1>>.
 
-%% Produce a large result of bs_add that, if cast to signed int, would overflow
-%% into a negative number that fits a smallnum.
-bs_add_overflow(_Config) ->
+%% Test that the bs_append instruction will correctly check for
+%% overflow by producing a binary whose total size would exceed the
+%% maximum allowed size for a binary on a 32-bit computer.
+
+bs_append_overflow(_Config) ->
     Memsize = memsize(),
     io:format("Memsize = ~w Bytes~n", [Memsize]),
     case erlang:system_info(wordsize) of
 	8 ->
+            %% Not possible to test on a 64-bit computer.
 	    {skip, "64-bit architecture"};
         _ when Memsize < (2 bsl 30) ->
-	    {skip, "Less then 2 GB of memory"};
+	    {skip, "Less than 2 GB of memory"};
 	4 ->
-            {'EXIT', {system_limit, _}} = (catch bs_add_overflow_signed()),
-            {'EXIT', {system_limit, _}} = (catch bs_add_overflow_unsigned()),
+            {'EXIT', {system_limit, _}} = (catch bs_append_overflow_signed()),
+            erlang:garbage_collect(),
+            {'EXIT', {system_limit, _}} = (catch bs_append_overflow_unsigned()),
+            erlang:garbage_collect(),
 	    ok
     end.
 
-bs_add_overflow_signed() ->
-    %% Produce a large result of bs_add that, if cast to signed int, would
+bs_append_overflow_signed() ->
+    %% Produce a large binary that, if cast to signed int, would
     %% overflow into a negative number that fits a smallnum.
     Large = <<0:((1 bsl 30)-1)>>,
     <<Large/bits, Large/bits, Large/bits, Large/bits,
       Large/bits, Large/bits, Large/bits, Large/bits,
       Large/bits>>.
 
-bs_add_overflow_unsigned() ->
-    %% Produce a large result of bs_add that goes beyond the limit of an
-    %% unsigned word. This used to succeed but produced an incorrect result
+bs_append_overflow_unsigned() ->
+    %% The following would succeed but would produce an incorrect result
     %% where B =:= C!
     A = <<0:((1 bsl 32)-8)>>,
     B = <<2, 3>>,

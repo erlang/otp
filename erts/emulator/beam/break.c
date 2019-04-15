@@ -394,8 +394,12 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
     erts_print(to, to_arg, "OldBinVHeap: %b64u\n", BIN_OLD_VHEAP(p));
     erts_print(to, to_arg, "BinVHeap unused: %b64u\n",
                BIN_VHEAP_SZ(p) - p->off_heap.overhead);
-    erts_print(to, to_arg, "OldBinVHeap unused: %b64u\n",
-               BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p));
+    if (BIN_OLD_VHEAP_SZ(p) >= BIN_OLD_VHEAP(p)) {
+        erts_print(to, to_arg, "OldBinVHeap unused: %b64u\n",
+                   BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p));
+    } else {
+        erts_print(to, to_arg, "OldBinVHeap unused: overflow\n");
+    }
     erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p, !0));
 
     if (garbing) {

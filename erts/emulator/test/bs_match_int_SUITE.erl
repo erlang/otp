@@ -234,34 +234,49 @@ mml_choose(<<_A:8>>) -> single_byte_binary;
 mml_choose(<<_A:8,_T/binary>>) -> multi_byte_binary.
 
 match_huge_int(Config) when is_list(Config) ->
-    Sz = 1 bsl 27,
-    Bin = <<0:Sz,13:8>>,
-    skip_huge_int_1(Sz, Bin),
-    0 = match_huge_int_1(Sz, Bin),
+    case ?MODULE of
+        bs_match_int_no_opt_SUITE ->
+            %% This test case is written with the assumption that
+            %% bs_skip2 instructions are used when the value of the
+            %% extracted segment will not be used. In OTP 21 and earlier, that
+            %% assumption was always true, because the bs_skip optimization
+            %% was included in v3_codegen and could not be disabled.
+            %% In OTP 22, the bs_skip optimization is done by beam_ssa_opt
+            %% and is disabled.
+            %%
+            %% On memory-constrained computers, using bs_get_integer2
+            %% instructions may cause the runtime system to terminate
+            %% because of insufficient memory.
+            {skip, "unoptimized code would use too much memory"};
+        bs_match_int_SUITE ->
+            Sz = 1 bsl 27,
+            Bin = <<0:Sz,13:8>>,
+            skip_huge_int_1(Sz, Bin),
+            0 = match_huge_int_1(Sz, Bin),
 
-    %% Test overflowing the size of an integer field.
-    nomatch = overflow_huge_int_skip_32(Bin),
-    case erlang:system_info(wordsize) of
-	4 ->
-	    nomatch = overflow_huge_int_32(Bin);
-	8 ->
-	    %% An attempt will be made to allocate heap space for
-	    %% the bignum (which will probably fail); only if the
-	    %% allocation succeeds will the matching fail because
-	    %% the binary is too small.
-	    ok
-    end,
-    nomatch = overflow_huge_int_skip_64(Bin),
-    nomatch = overflow_huge_int_64(Bin),
+            %% Test overflowing the size of an integer field.
+            nomatch = overflow_huge_int_skip_32(Bin),
+            case erlang:system_info(wordsize) of
+                4 ->
+                    nomatch = overflow_huge_int_32(Bin);
+                8 ->
+                    %% An attempt will be made to allocate heap space for
+                    %% the bignum (which will probably fail); only if the
+                    %% allocation succeeds will the matching fail because
+                    %% the binary is too small.
+                    ok
+            end,
+            nomatch = overflow_huge_int_skip_64(Bin),
+            nomatch = overflow_huge_int_64(Bin),
 
-    %% Test overflowing the size of an integer field using variables as sizes.
-    Sizes = case erlang:system_info(wordsize) of
-		      4 -> lists:seq(25, 32);
-		      8 -> []
-		  end ++ lists:seq(50, 64),
-    ok = overflow_huge_int_unit128(Bin, Sizes),
-
-    ok.
+            %% Test overflowing the size of an integer field using
+            %% variables as sizes.
+            Sizes = case erlang:system_info(wordsize) of
+                        4 -> lists:seq(25, 32);
+                        8 -> []
+                    end ++ lists:seq(50, 64),
+            ok = overflow_huge_int_unit128(Bin, Sizes)
+    end.
 
 overflow_huge_int_unit128(Bin, [Sz0|Sizes]) ->
     Sz = id(1 bsl Sz0),

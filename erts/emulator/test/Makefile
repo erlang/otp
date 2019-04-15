@@ -207,14 +207,10 @@ ERL_COMPILE_FLAGS +=
 # ----------------------------------------------------
 
 make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES)
-	# This special rule can be removed when communication with R7B nodes 
-	# is no longer supported.
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
-	'*_SUITE_make' > $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
 	$(MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt $(ERL_COMPILE_FLAGS) \
-	-o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
+        $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +native $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(NATIVE_MODULES) >> $(EMAKEFILE)
 

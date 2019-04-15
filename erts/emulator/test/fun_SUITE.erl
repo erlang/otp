@@ -513,6 +513,8 @@ refc(Config) when is_list(Config) ->
 	Other -> ct:fail({unexpected,Other})
     end,
     process_flag(trap_exit, false),
+    %% Wait to make sure that the process has terminated completely.
+    receive after 1 -> ok end,
     {refc,3} = erlang:fun_info(F1, refc),
 
     %% Garbage collect. Only the F2 fun will be left.

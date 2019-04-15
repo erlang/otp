@@ -1001,7 +1001,7 @@ catch_end(Y) {
             }
             /* only x(2) is included in the rootset here */
             if (E - HTOP < 3) {
-                SWAPOUT;
+                $GC_SWAPOUT();
                 PROCESS_MAIN_CHK_LOCKS(c_p);
                 FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+2, 1, FCALLS);
                 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
