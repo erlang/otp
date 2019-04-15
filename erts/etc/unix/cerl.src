@@ -320,7 +320,7 @@ if [ "x$GDB" = "x" ]; then
             if [ "$1" = "-p" ]; then
                 echo 'set $etp_rr_run_until_beam = 1' >> $cmdfile
             fi
-            cat $ROOTDIR/erts/etc/unix/etp-commands.in >> $cmdfile
+            cat $ROOTDIR/erts/etc/unix/etp-commands >> $cmdfile
             exec rr replay -x $cmdfile $*
         elif [ $1 = ps ]; then
             shift
