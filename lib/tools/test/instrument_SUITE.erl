@@ -260,13 +260,18 @@ test_format(Options0, Gather, Verify) ->
 test_abort(Gather) ->
     %% There's no way for us to tell whether this actually aborted or ran to
     %% completion, but it might catch a few segfaults.
+    %% This testcase is mostly useful when run in an debug emulator as it needs
+    %% the modified reduction count to trigger the odd trap scenarios
     Runner = self(),
     Ref = make_ref(),
     spawn_opt(fun() ->
-                  [Gather({Type, SchedId, 1, 1, Ref}) ||
-                   Type <- erlang:system_info(alloc_util_allocators),
-                   SchedId <- lists:seq(0, erlang:system_info(schedulers))],
-                  Runner ! Ref
+                      [begin
+                           Ref2 = make_ref(),
+                           [Gather({Type, SchedId, 1, 1, Ref2}) ||
+                               Type <- erlang:system_info(alloc_util_allocators),
+                               SchedId <- lists:seq(0, erlang:system_info(schedulers))]
+                       end || _ <- lists:seq(1,100)],
+                      Runner ! Ref
               end, [{priority, max}]),
     receive
         Ref -> ok
