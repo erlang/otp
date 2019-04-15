@@ -43,6 +43,23 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix inadvertently broad monitor that resulted in
+	    gen_server cast messages to hidden nodes from module
+	    diameter_dist.</p>
+          <p>
+	    Own Id: OTP-15768</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

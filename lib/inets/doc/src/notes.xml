@@ -33,7 +33,29 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.0.6</title>
+  <section><title>Inets 7.0.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the internal handling of the option
+	    erl_script_timeout in httpd. If explicit
+	    erl_script_timeout value was supplied in seconds it was
+	    not correctly converted to millisecond units for internal
+	    usage.</p>
+          <p>
+	    This change fixes the handling of erl_script_timeout in
+	    all possible configuration scenarios.</p>
+          <p>
+	    Own Id: OTP-15769 Aux Id: ERIERL-345 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.0.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
