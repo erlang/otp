@@ -61,7 +61,8 @@
   {"2.1.4",   [{restart_application, diameter}]},  %% 20.3
   {"2.1.4.1", [{restart_application, diameter}]},  %% 20.3.8.19
   {"2.1.5",   [{restart_application, diameter}]},  %% 21.0
-  {"2.1.6",   [{restart_application, diameter}]}   %% 21.1
+  {"2.1.6",   [{restart_application, diameter}]},  %% 21.1
+  {"2.2",     [{update, diameter_dist, {advanced, "2.2"}}]} %% 21.3
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -104,6 +105,7 @@
   {"2.1.4",   [{restart_application, diameter}]},
   {"2.1.4.1", [{restart_application, diameter}]},
   {"2.1.5",   [{restart_application, diameter}]},
-  {"2.1.6",   [{restart_application, diameter}]}
+  {"2.1.6",   [{restart_application, diameter}]},
+  {"2.2",     [{restart_application, diameter}]}
  ]
 }.
