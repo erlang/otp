@@ -454,7 +454,8 @@ start_link() ->
 init([]) ->
     ets:new(?NODE_TABLE,    [set, named_table]),
     ets:new(?SERVICE_TABLE, [bag, named_table]),
-    ok = net_kernel:monitor_nodes(true, [{node_type, all}, nodedown_reason]),
+    ok = net_kernel:monitor_nodes(true, [{node_type, visible},
+                                         nodedown_reason]),
     ets:insert(?NODE_TABLE, [{?B(N), N} || N <- [node() | nodes()]]),
     abcast({attach, node()}),
     {ok, sets:new()}.
@@ -520,6 +521,15 @@ terminate(_, _) ->
     ok.
 
 %% code_change/3
+
+%% Old code inadvertently monitored all nodes: start a new
+%% subscription and remove the old one.
+code_change(_OldVsn, State, "2.2") ->
+    ok = net_kernel:monitor_nodes(true, [{node_type, visible},
+                                         nodedown_reason]),
+    ok = net_kernel:monitor_nodes(false, [{node_type, all},
+                                          nodedown_reason]),
+    {ok, State};
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
