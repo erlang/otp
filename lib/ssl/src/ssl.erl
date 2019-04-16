@@ -80,6 +80,7 @@
               cipher_filters/0,
               sign_algo/0,
               protocol_version/0,
+              protocol_version_tuple/0,
               protocol_extensions/0,
               session_id/0,
               error_alert/0,
@@ -104,10 +105,13 @@
 -type ip_address()               :: inet:ip_address().
 -type session_id()               :: binary(). % exported
 -type protocol_version()         :: tls_version() | dtls_version(). % exported
+-type protocol_version_tuple()   :: tls_version_tuple() | dtls_version_tuple(). % exported
 -type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
+-type tls_version_tuple()        :: {3,0} | {3,1} | {3,2} | {3,3} | {3,4}.
 -type dtls_version()             :: 'dtlsv1.2' | dtls_legacy_version().
+-type dtls_version_tuple()       :: {254,254} | {254,253}.
 -type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' | sslv3.
--type dtls_legacy_version()      :: 'dtlsv1'. 
+-type dtls_legacy_version()      :: 'dtlsv1'.
 -type verify_type()              :: verify_none | verify_peer.
 -type cipher()                   :: aes_128_cbc |
                                     aes_256_cbc |
@@ -118,6 +122,7 @@
                                     aes_128_ccm_8 |
                                     aes_256_ccm_8 |                                    
                                     chacha20_poly1305 |
+                                    null |
                                     legacy_cipher(). % exported
 -type legacy_cipher()            ::  rc4_128 |
                                      des_cbc |
@@ -125,7 +130,8 @@
 
 -type hash()                     :: sha |
                                     sha2() |
-                                    legacy_hash(). % exported
+                                    legacy_hash() |
+                                    null. % exported
 
 -type sha2()                    ::  sha224 |
                                     sha256 |
@@ -156,7 +162,7 @@
                                    srp_rsa| srp_dss |
                                    psk | dhe_psk | rsa_psk |
                                    dh_anon | ecdh_anon | srp_anon |
-                                   any. %% TLS 1.3 , exported
+                                   any | null. %% TLS 1.3 , exported
 -type erl_cipher_suite()       :: #{key_exchange := kex_algo(),
                                     cipher := cipher(),
                                     mac    := hash() | aead,
@@ -424,7 +430,9 @@ stop() ->
 %%--------------------------------------------------------------------
 
 -spec connect(TCPSocket, TLSOptions) ->
-                     {ok, sslsocket()} | {error, reason()} when
+                     {ok, sslsocket()} |
+                     {error, reason()} |
+                     {option_not_a_key_value_tuple, any()} when
       TCPSocket :: socket(),
       TLSOptions :: [tls_client_option()].
 
@@ -439,7 +447,8 @@ connect(Socket, SslOptions) when is_port(Socket) ->
              (Host, Port, TLSOptions) ->
                      {ok, sslsocket()} |
                      {ok, sslsocket(),Ext :: protocol_extensions()} |
-                     {error, reason()} when
+                     {error, reason()} |
+                     {option_not_a_key_value_tuple, any()} when
       Host :: host(),
       Port :: inet:port_number(),
       TLSOptions :: [tls_client_option()].
@@ -464,7 +473,8 @@ connect(Host, Port, Options) ->
 -spec connect(Host, Port, TLSOptions, Timeout) ->
                      {ok, sslsocket()} |
                      {ok, sslsocket(),Ext :: protocol_extensions()} |
-                     {error, reason()} when
+                     {error, reason()} |
+                     {option_not_a_key_value_tuple, any()} when
       Host :: host(),
       Port :: inet:port_number(),
       TLSOptions :: [tls_client_option()],
@@ -582,21 +592,24 @@ ssl_accept(Socket, SslOptions, Timeout) ->
 %%--------------------------------------------------------------------
 
 %% Performs the SSL/TLS/DTLS server-side handshake.
--spec handshake(HsSocket) -> {ok, SslSocket} | {error, Reason} when
+-spec handshake(HsSocket) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
       SslSocket :: sslsocket(),
+      Ext :: protocol_extensions(),
       Reason :: closed | timeout | error_alert().
 
 handshake(ListenSocket) ->
     handshake(ListenSocket, infinity).
 
--spec handshake(HsSocket, Timeout) -> {ok, SslSocket} | {error, Reason} when
+-spec handshake(HsSocket, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
       Timeout :: timeout(),
       SslSocket :: sslsocket(),
+      Ext :: protocol_extensions(),
       Reason :: closed | timeout | error_alert();
-               (TcpSocket, Options) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
-      TcpSocket :: socket(),
+               (Socket, Options) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
+      Socket :: socket() | sslsocket(),
+      SslSocket :: sslsocket(),
       Options :: [server_option()],
       Ext :: protocol_extensions(),
       Reason :: closed | timeout | error_alert().
@@ -614,15 +627,16 @@ handshake(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Tim
 handshake(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
     handshake(ListenSocket, SslOptions, infinity).
 
--spec handshake(TcpSocket, Options, Timeout) ->
+-spec handshake(Socket, Options, Timeout) ->
                        {ok, SslSocket} |
                        {ok, SslSocket, Ext} |
                        {error, Reason} when
-      TcpSocket :: socket(),
+      Socket :: socket() | sslsocket(),
+      SslSocket :: sslsocket(),
       Options :: [server_option()],
       Timeout :: timeout(),
       Ext :: protocol_extensions(),
-      Reason :: closed | timeout | error_alert().
+      Reason :: closed | timeout | {options, any()} | error_alert().
 
 handshake(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or 
                                                     (Timeout == infinity)->
@@ -1001,7 +1015,7 @@ eccs() ->
 
 %%--------------------------------------------------------------------
 -spec eccs(Version) -> NamedCurves when
-      Version :: protocol_version(),
+      Version :: protocol_version() | protocol_version_tuple(),
       NamedCurves :: [named_curve()].
 
 %% Description: returns the curves supported for a given version of

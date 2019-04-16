@@ -136,14 +136,26 @@
        <name name="protocol_version"/>
      </datatype>
 
-       <datatype>
+     <datatype>
+       <name name="protocol_version_tuple"/>
+     </datatype>
+
+     <datatype>
        <name name="tls_version"/>
      </datatype>
-     
+
+     <datatype>
+       <name name="tls_version_tuple"/>
+     </datatype>
+
      <datatype>
        <name name="dtls_version"/>
      </datatype>
-     
+
+     <datatype>
+       <name name="dtls_version_tuple"/>
+     </datatype>
+
      <datatype>
        <name name="tls_legacy_version"/>
      </datatype>
@@ -151,9 +163,8 @@
      <datatype>
        <name name="dtls_legacy_version"/>
      </datatype>
-     
-     
-       <datatype>
+
+     <datatype>
        <name name="prf_random"/>
      </datatype>
      
@@ -1340,7 +1351,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name since="OTP 21.0" name="handshake" arity="3" />
       <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
       <desc>
-        <p>If <c>TcpSocket</c> is a ordinary <c>socket()</c>: upgrades a <c>gen_tcp</c>,
+        <p>If <c>Socket</c> is a ordinary <c>socket()</c>: upgrades a <c>gen_tcp</c>,
 	or equivalent, socket to an SSL socket, that is, performs
         the SSL/TLS server-side handshake and returns a TLS socket.</p>
 
