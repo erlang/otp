@@ -654,9 +654,19 @@ find_release({unix,linux}, Rel) ->
 find_release(_, _) -> none.
 
 find_rel_linux(Rel) ->
-    case suse_release() of
-	none -> [];
-	SuseRel -> find_rel_suse(Rel, SuseRel)
+    try
+        case ubuntu_release() of
+            none -> none;
+            [UbuntuRel |_] -> throw(find_rel_ubuntu(Rel, UbuntuRel))
+        end,
+        case suse_release() of
+            none -> none;
+            SuseRel -> throw(find_rel_suse(Rel, SuseRel))
+        end,
+        []
+    catch
+        throw:Result ->
+            Result
     end.
 
 find_rel_suse(Rel, SuseRel) ->
@@ -732,6 +742,93 @@ suse_release(Fd) ->
 		    Version
 	    end
     end.
+
+find_rel_ubuntu(_Rel, UbuntuRel) when is_integer(UbuntuRel), UbuntuRel < 16 ->
+    [];
+find_rel_ubuntu(Rel, UbuntuRel) when is_integer(UbuntuRel) ->
+    Root = "/usr/local/otp/releases/ubuntu",
+    lists:foldl(fun (ChkUbuntuRel, Acc) ->
+                        find_rel_ubuntu_aux1(Rel, Root++integer_to_list(ChkUbuntuRel))
+                            ++ Acc
+                end,
+                [],
+                lists:seq(16, UbuntuRel)).
+
+find_rel_ubuntu_aux1(Rel, RootWc) ->
+    case erlang:system_info(wordsize) of
+	4 ->
+	    find_rel_ubuntu_aux2(Rel, RootWc++"_32");
+	8 ->
+	    find_rel_ubuntu_aux2(Rel, RootWc++"_64") ++
+		find_rel_ubuntu_aux2(Rel, RootWc++"_32")
+    end.
+
+find_rel_ubuntu_aux2(Rel, RootWc) ->
+    RelDir = filename:dirname(RootWc),
+    Pat = filename:basename(RootWc ++ "_" ++ Rel) ++ ".*",
+    case file:list_dir(RelDir) of
+	{ok,Dirs} ->
+	    case lists:filter(fun(Dir) ->
+				      case re:run(Dir, Pat, [unicode]) of
+					  nomatch -> false;
+					  _       -> true
+				      end
+			      end, Dirs) of
+		[] ->
+		    [];
+		[R|_] ->
+		    [filename:join([RelDir,R,"bin","erl"])]
+	    end;
+	_ ->
+	    []
+    end.
+
+ubuntu_release() ->
+    case file:open("/etc/lsb-release", [read]) of
+	{ok,Fd} ->
+	    try
+		ubuntu_release(Fd, undefined, undefined)
+	    after
+		file:close(Fd)
+	    end;
+	{error,_} -> none
+    end.
+
+ubuntu_release(_Fd, DistrId, Rel) when DistrId /= undefined,
+                                      Rel /= undefined ->
+    Ubuntu = case DistrId of
+                 "Ubuntu" -> true;
+                 "ubuntu" -> true;
+                 _ -> false
+             end,
+    case Ubuntu of
+        false -> none;
+        true -> Rel
+    end;
+ubuntu_release(Fd, DistroId, Rel) ->
+    case io:get_line(Fd, '') of
+	eof ->
+            none;
+	Line when is_list(Line) ->
+	    case re:run(Line, "^DISTRIB_ID=(\\w+)$",
+                        [{capture,all_but_first,list}]) of
+		{match,[NewDistroId]} ->
+                    ubuntu_release(Fd, NewDistroId, Rel);
+                nomatch ->
+                    case re:run(Line, "^DISTRIB_RELEASE=(\\d+(?:\\.\\d+)*)$",
+                                [{capture,all_but_first,list}]) of
+                        {match,[RelList]} ->
+                            NewRel = lists:map(fun (N) ->
+                                                       list_to_integer(N)
+                                               end,
+                                               string:lexemes(RelList, ".")),
+                            ubuntu_release(Fd, DistroId, NewRel);
+                        nomatch ->
+                            ubuntu_release(Fd, DistroId, Rel)
+                    end
+            end
+    end.
+
 
 unpack(Bin) ->
     {One,Term} = split_binary(Bin, 1),
