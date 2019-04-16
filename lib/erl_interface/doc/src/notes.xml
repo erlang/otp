@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.10.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of Makefile dependencies so that parallel
+	    make works properly.</p>
+          <p>
+	    Own Id: OTP-15757</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.10.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

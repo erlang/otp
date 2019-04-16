@@ -34,7 +34,24 @@
   </header>
 
 
-  <section><title>SNMP 5.2.11</title>
+  <section><title>SNMP 5.2.11.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    [snmp|agent] Add a get-mechanism callback module (and a
+	    corresponding behaviour). The agent calls this module to
+	    handle each get (get, get-next and get-bulk) request.</p>
+          <p>
+	    Own Id: OTP-15691 Aux Id: ERIERL-324 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
