@@ -10550,6 +10550,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	if (!is_normal_sched & !!(flags & ERTS_RUNQ_FLG_HALTING)) {
 	    /* Wait for emulator to terminate... */
+	    erts_smp_runq_unlock(rq);
 	    while (1)
 		erts_milli_sleep(1000*1000);
 	}
@@ -14593,12 +14594,12 @@ void erts_halt(int code)
     if (-1 == erts_smp_atomic32_cmpxchg_acqb(&erts_halt_progress,
 					     erts_no_schedulers,
 					     -1)) {
+        notify_reap_ports_relb();
 #ifdef ERTS_DIRTY_SCHEDULERS
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_CPU_RUNQ, ERTS_RUNQ_FLG_HALTING);
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_IO_RUNQ, ERTS_RUNQ_FLG_HALTING);
 #endif
 	erts_halt_code = code;
-	notify_reap_ports_relb();
     }
 }
 
