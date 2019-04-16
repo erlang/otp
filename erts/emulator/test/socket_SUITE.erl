@@ -83,7 +83,7 @@
 
          %% *** API async ***
          api_a_sendto_and_recvfrom_udp4/1,
-         %% api_a_sendmsg_and_recvmsg_udp4/1,
+         api_a_sendmsg_and_recvmsg_udp4/1,
          %% api_a_send_and_recv_tcp4/1,
          %% api_a_sendmsg_and_recvmsg_tcp4/1,
 
@@ -669,8 +669,8 @@ api_basic_cases() ->
 
 api_async_cases() ->
     [
-     api_a_sendto_and_recvfrom_udp4%% ,
-     %% api_a_sendmsg_and_recvmsg_udp4,
+     api_a_sendto_and_recvfrom_udp4,
+     api_a_sendmsg_and_recvmsg_udp4%%,
      %% api_a_send_and_recv_tcp4,
      %% api_a_sendmsg_and_recvmsg_tcp4
     ].
@@ -2653,6 +2653,47 @@ api_a_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
                           end,
                    Recv = fun(Sock) ->
                                   socket:recvfrom(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive on an IPv4 UDP (dgram) socket using
+%% sendto and recvfrom. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recvfrom,
+%% since its much more difficult to "arrange" for sendto.
+%%
+api_a_sendmsg_and_recvmsg_udp4(suite) ->
+    [];
+api_a_sendmsg_and_recvmsg_udp4(doc) ->
+    [];
+api_a_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_a_sendmsg_and_recvmsg_udp4,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  MsgHdr = #{addr => Dest,
+                                             %% ctrl => CMsgHdrs,
+                                             iov  => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, #{addr  := Source,
+                                             iov   := [Data]}} ->
+                                          {ok, {Source, Data}};
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
                           end,
                    InitState = #{domain => inet,
                                  send   => Send,
