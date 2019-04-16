@@ -3842,6 +3842,10 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	    {died,{timetrap_timeout,TimetrapTimeout}} ->
 		progress(failed, Num, Mod, Func, GrName, Loc,
 			 timetrap_timeout, TimetrapTimeout, Comment, Style);
+	    {died,Reason={auto_skip,_Why}} ->
+                %% died in init_per_testcase or in a hook in this context
+		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
+			 Time, Comment, Style);
 	    {died,{Skip,Reason}} when Skip==skip; Skip==skipped ->
                 %% died in init_per_testcase
 		progress(skip, Num, Mod, Func, GrName, Loc, Reason,
