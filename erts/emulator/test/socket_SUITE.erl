@@ -85,7 +85,7 @@
          api_a_sendto_and_recvfrom_udp4/1,
          api_a_sendmsg_and_recvmsg_udp4/1,
          api_a_send_and_recv_tcp4/1,
-         %% api_a_sendmsg_and_recvmsg_tcp4/1,
+         api_a_sendmsg_and_recvmsg_tcp4/1,
 
          %% *** API Options ***
          api_opt_simple_otp_options/1,
@@ -671,8 +671,8 @@ api_async_cases() ->
     [
      api_a_sendto_and_recvfrom_udp4,
      api_a_sendmsg_and_recvmsg_udp4,
-     api_a_send_and_recv_tcp4%%,
-     %% api_a_sendmsg_and_recvmsg_tcp4
+     api_a_send_and_recv_tcp4,
+     api_a_sendmsg_and_recvmsg_tcp4
     ].
 
 api_options_cases() ->
@@ -3121,14 +3121,14 @@ api_a_send_and_recv_udp(InitState) ->
 %% the 'nowait' value for the Timeout argument (and await the eventual
 %% select message). Note that we only do this for the recv,
 %% since its much more difficult to "arrange" for send.
-%% We *also* test async for accept
+%% We *also* test async for accept.
 api_a_send_and_recv_tcp4(suite) ->
     [];
 api_a_send_and_recv_tcp4(doc) ->
     [];
 api_a_send_and_recv_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(api_b_send_and_recv_tcp4,
+    tc_try(api_a_send_and_recv_tcp4,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   socket:send(Sock, Data)
@@ -3142,6 +3142,44 @@ api_a_send_and_recv_tcp4(_Config) when is_list(_Config) ->
                    ok = api_a_send_and_recv_tcp(InitState)
            end).
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the msg functions (sendmsg and recvmsg)
+%% on an IPv4 TCP (stream) socket. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recvmsg,
+%% since its much more difficult to "arrange" for sendmsg.
+%% We *also* test async for accept.
+api_a_sendmsg_and_recvmsg_tcp4(suite) ->
+    [];
+api_a_sendmsg_and_recvmsg_tcp4(doc) ->
+    [];
+api_a_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_sendmsg_and_recvmsg_tcp4,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                       {ok, _} = OK ->
+                                          OK;
+                                     {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
