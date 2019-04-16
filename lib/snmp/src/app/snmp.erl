@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,7 +116,10 @@
 	      pdu/0, 
 	      trappdu/0, 
 	      mib/0, 
-	      mib_name/0, 
+	      mib_name/0,
+
+              error_status/0,
+              error_index/0,
  
 	      void/0
 	     ]).
@@ -207,6 +210,23 @@
 -type mib_name()      :: string().
 -type pdu()           :: #pdu{}.
 -type trappdu()       :: #trappdu{}.
+
+%% We should really specify all of these, but they are so numerous...
+%% See the validate_err/1 function in the snmpa_agent.
+%% Here are a number of them:
+%% badValue |
+%% commitFailed |
+%% genErr |
+%% inconsistentName | inconsistentValue |
+%% noAccess | noCreation |
+%% noSuchInstance | noSuchName | noSuchObject |
+%% notWritable |
+%% resourceUnavailable |
+%% undoFailed |
+%% wrongValue
+
+-type error_status()  :: atom().
+-type error_index()   :: pos_integer().
 
 -type void()          :: term().
 

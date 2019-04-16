@@ -390,7 +390,7 @@ dbg_apply(M,F,A) ->
         {'EXIT', {function_clause, [{M, F, A} | _]}} ->
             {'EXIT', {hook_function_clause, {M, F, A}}};
 
-						% XYZ: Older format for compatibility
+        %% XYZ: Older format for compatibility
         {'EXIT', {undef, {M, F, A}}} ->
             {'EXIT', {hook_undef, {M, F, A}}};
         {'EXIT', {function_clause, {M, F, A}}} ->
