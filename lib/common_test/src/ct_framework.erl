@@ -1075,8 +1075,7 @@ get_suite(Mod, all) ->
             catch
                 throw:{error,Error} ->
                     [{?MODULE,error_in_suite,[[{error,Error}]]}];
-                _:Error ->
-                    S = erlang:get_stacktrace(),
+                _:Error:S ->
                     [{?MODULE,error_in_suite,[[{error,{Error,S}}]]}]
             end;
         {error,{bad_return,_Bad}} ->
@@ -1148,8 +1147,7 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
             catch
                 throw:{error,Error} ->
                     [{?MODULE,error_in_suite,[[{error,Error}]]}];
-                _:Error ->
-                    S = erlang:get_stacktrace(),
+                _:Error:S ->
                     [{?MODULE,error_in_suite,[[{error,{Error,S}}]]}]
             end;
         {error,{bad_return,_Bad}} ->
@@ -1226,8 +1224,7 @@ get_all(Mod, ConfTests) ->
             catch
                 throw:{error,Error} ->
                     [{?MODULE,error_in_suite,[[{error,Error}]]}];
-                _:Error ->
-                    S = erlang:get_stacktrace(),
+                _:Error:S ->
                     [{?MODULE,error_in_suite,[[{error,{Error,S}}]]}]
             end;
         Skip = {skip,_Reason} ->
@@ -1648,8 +1645,8 @@ safe_apply_all_0(Mod) ->
         Bad ->
             {error,{bad_return,Bad}}
     catch
-        _:Reason ->
-            handle_callback_crash(Reason,erlang:get_stacktrace(),Mod,all,{error,undef})
+        _:Reason:Stacktrace ->
+            handle_callback_crash(Reason,Stacktrace,Mod,all,{error,undef})
     end.
 
 all_hook(Mod, All) ->
@@ -1678,9 +1675,8 @@ safe_apply_groups_0(Mod,Default) ->
         Bad ->
             {error,{bad_return,Bad}}
     catch
-        _:Reason ->
-            handle_callback_crash(Reason,erlang:get_stacktrace(),
-                                  Mod,groups,Default)
+        _:Reason:Stacktrace ->
+            handle_callback_crash(Reason,Stacktrace,Mod,groups,Default)
     end.
 
 handle_callback_crash(undef,[{Mod,Func,[],_}|_],Mod,Func,Default) ->
