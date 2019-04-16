@@ -90,7 +90,7 @@
          api_a_recvmsg_cancel_udp4/1,
          api_a_accept_cancel_tcp4/1,
          api_a_recv_cancel_tcp4/1,
-         %% api_a_recvmsg_cancel_tcp4/1,
+         api_a_recvmsg_cancel_tcp4/1,
 
          %% *** API Options ***
          api_opt_simple_otp_options/1,
@@ -681,8 +681,8 @@ api_async_cases() ->
      api_a_recvfrom_cancel_udp4,
      api_a_recvmsg_cancel_udp4,
      api_a_accept_cancel_tcp4,
-     api_a_recv_cancel_tcp4%%,
-     %% api_a_recvmsg_cancel_tcp4
+     api_a_recv_cancel_tcp4,
+     api_a_recvmsg_cancel_tcp4
     ].
 
 api_options_cases() ->
@@ -4193,6 +4193,29 @@ api_a_recv_cancel_tcp4(_Config) when is_list(_Config) ->
            fun() ->
                    Recv = fun(Sock) ->
                                   socket:recv(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_recv_cancel_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make an async (Timeout = nowait) call to recvmsg,
+%% wait some time and then cancel.
+%%
+api_a_recvmsg_cancel_tcp4(suite) ->
+    [];
+api_a_recvmsg_cancel_tcp4(doc) ->
+    [];
+api_a_recvmsg_cancel_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_recvmsg_cancel_tcp4,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  socket:recvmsg(Sock, nowait)
                           end,
                    InitState = #{domain => inet,
                                  recv   => Recv},
