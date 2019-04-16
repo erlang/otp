@@ -583,7 +583,7 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
         TRAPPING_COPY_TABLE_ERASE(ctx->new_table,
                                   ctx->tmp_table,
                                   new_size,
-                                  1,
+                                  ERTS_PERSISTENT_TERM_CPY_REHASH,
                                   ERASE1_TRAP_LOCATION_FINAL_COPY);
         erts_free(ERTS_ALC_T_PERSISTENT_TERM_TMP, ctx->tmp_table);
         /*
@@ -966,7 +966,7 @@ copy_table(ErtsPersistentTermCpyTableCtx* ctx)
          */
         *ctx->new_table = *ctx->old_table;
     L_copy_table_place_1:
-        for (i = MAX(0, ctx->iterations_done);
+        for (i = ctx->iterations_done;
              i < MIN(ctx->iterations_done + ctx->max_iterations,
                      ctx->new_size);
              i++) {
@@ -989,7 +989,7 @@ copy_table(ErtsPersistentTermCpyTableCtx* ctx)
         ctx->new_table->num_entries = ctx->old_table->num_entries;
         ctx->new_table->mask = ctx->new_size - 1;
     L_copy_table_place_2:
-        for (i = MAX(0, ctx->iterations_done);
+        for (i = ctx->iterations_done;
              i < MIN(ctx->iterations_done + ctx->max_iterations,
                      ctx->new_size);
              i++) {
@@ -1004,7 +1004,7 @@ copy_table(ErtsPersistentTermCpyTableCtx* ctx)
         }
         ctx->iterations_done = 0;
     L_copy_table_place_3:
-        for (i = MAX(0, ctx->iterations_done);
+        for (i = ctx->iterations_done;
              i < MIN(ctx->iterations_done + ctx->max_iterations,
                      old_size);
              i++) {
