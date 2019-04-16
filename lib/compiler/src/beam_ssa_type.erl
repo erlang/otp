@@ -552,6 +552,17 @@ simplify(#b_set{op={bif,'=:='},args=[A1,_A2]=Args}=I, Ts) ->
                 {true,#t_atom{elements=[true]}} ->
                     %% Bool =:= true  ==>  Bool
                     A1;
+                {true,#t_atom{elements=[false]}} ->
+                    %% Bool =:= false ==> not Bool
+                    %%
+                    %% This will be further optimized to eliminate the
+                    %% 'not', swapping the success and failure
+                    %% branches in the br instruction. If A1 comes
+                    %% from a type test (such as is_atom/1) or a
+                    %% comparison operator (such as >=) that can be
+                    %% translated to test instruction, this
+                    %% optimization will eliminate one instruction.
+                    simplify(I#b_set{op={bif,'not'},args=[A1]}, Ts);
                 {_,_} ->
                     eval_bif(I, Ts)
             end
