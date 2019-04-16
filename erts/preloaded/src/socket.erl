@@ -1387,16 +1387,6 @@ send(Socket, Data, Timeout) ->
       RestData   :: binary(),
       SelectInfo :: select_info(),
       Reason     :: term()
-                 ; (Socket, Data, Flags, nowait) -> ok |
-                                                    {ok, SelectInfo} |
-                                                    {ok, {RestData, SelectInfo}} |
-                                                    {error, Reason} when
-      Socket     :: socket(),
-      Data       :: iodata(),
-      Flags      :: send_flags(),
-      RestData   :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: term()
                  ; (Socket, Data, Flags, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
