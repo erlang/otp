@@ -68,7 +68,7 @@
 
 -type util_cpus() :: 'all' | integer() | [integer()].
 -type util_state() :: 'user' | 'nice_user' | 'kernel' | 'wait' | 'idle'.
--type util_value() :: [{util_state(), float()}] | float().
+-type util_value() :: [{util_state(), number()}] | number().
 -type util_desc() :: {util_cpus(), util_value(), util_value(), []}.
 
 %%----------------------------------------------------------------------
@@ -122,7 +122,7 @@ util(Args) when is_list (Args) ->
 util(_) ->
     erlang:error(badarg).
 
--spec util() -> float() | {'error', any()}.
+-spec util() -> number() | {'error', any()}.
 
 util() ->
     case util([]) of
