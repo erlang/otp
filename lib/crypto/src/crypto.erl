@@ -61,7 +61,8 @@
          crypto_one_time/4, crypto_one_time/5,
          crypto_one_time_aead/6, crypto_one_time_aead/7,
          crypto_dyn_iv_init/3,
-         crypto_dyn_iv_update/3
+         crypto_dyn_iv_update/3,
+         supports/1
         ]).
 
 
@@ -499,15 +500,22 @@ stop() ->
                              Macs :: [hmac | cmac | poly1305],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
-supports()->
-    {Hashs, PubKeys, Ciphers, Macs, Curves, RsaOpts} = algorithms(),
-    [{hashs, Hashs},
-     {ciphers, prepend_cipher_aliases(Ciphers)},
-     {public_keys, PubKeys},
-     {macs, Macs},
-     {curves, Curves},
-     {rsa_opts, RsaOpts}
-    ].
+supports() ->
+     [{hashs, hash_algorithms()},
+      {ciphers, prepend_old_aliases( cipher_algorithms())},
+      {public_keys, pubkey_algorithms()},
+      {macs, mac_algorithms()},
+      {curves, curve_algorithms()},
+      {rsa_opts, rsa_opts_algorithms()}
+     ].
+
+supports(hashs)       -> hash_algorithms();
+supports(public_keys) -> pubkey_algorithms();
+supports(ciphers)     -> cipher_algorithms();
+supports(macs)        -> mac_algorithms();
+supports(curves)      -> curve_algorithms();
+supports(rsa_opts)    -> rsa_opts_algorithms().
+
 
 -spec info_lib() -> [{Name,VerNum,VerStr}] when Name :: binary(),
                                                 VerNum :: integer(),
@@ -700,7 +708,7 @@ poly1305(Key, Data) ->
                                                  | xts_mode
                                                    .
 
-%% These ciphers are not available via the EVP interface on older cryptolibs.
+%% %% These ciphers are not available via the EVP interface on older cryptolibs.
 cipher_info(aes_ctr) ->
     #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
 cipher_info(aes_128_ctr) ->
@@ -709,9 +717,36 @@ cipher_info(aes_192_ctr) ->
     #{block_size => 1,iv_length => 16,key_length => 24,mode => ctr_mode,type => undefined};
 cipher_info(aes_256_ctr) ->
     #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
-%% This cipher is handled specialy.
+%% %% This cipher is handled specialy.
 cipher_info(aes_ige256) ->
     #{block_size => 16,iv_length => 32,key_length => 16,mode => ige_mode,type => undefined};
+%% %% These ciphers belong to the "old" interface:
+%% cipher_info(aes_cbc) ->
+%%     #{block_size => 16,iv_length => 16,key_length => 24,mode => cbc_mode,type => 423};
+%% cipher_info(aes_cbc128) ->
+%%     #{block_size => 16,iv_length => 16,key_length => 16,mode => cbc_mode,type => 419};
+%% cipher_info(aes_cbc256) ->
+%%     #{block_size => 16,iv_length => 16,key_length => 32,mode => cbc_mode,type => 427};
+%% cipher_info(aes_ccm) ->
+%%     #{block_size => 1,iv_length => 12,key_length => 24,mode => ccm_mode,type => 899};
+%% cipher_info(aes_cfb128) ->
+%%     #{block_size => 1,iv_length => 16,key_length => 32,mode => cfb_mode,type => 429};
+%% cipher_info(aes_cfb8) ->
+%%     #{block_size => 1,iv_length => 16,key_length => 32,mode => cfb_mode,type => 429};
+%% cipher_info(aes_ecb) ->
+%%     #{block_size => 16,iv_length => 0,key_length => 24,mode => ecb_mode,type => 422};
+%% cipher_info(aes_gcm) ->
+%%     #{block_size => 1,iv_length => 12,key_length => 24,mode => gcm_mode,type => 898};
+%% cipher_info(des3_cbc) ->
+%%     #{block_size => 8,iv_length => 8,key_length => 24,mode => cbc_mode,type => 44};
+%% cipher_info(des3_cbf) ->
+%%     #{block_size => 1,iv_length => 8,key_length => 24,mode => cfb_mode,type => 30};
+%% cipher_info(des3_cfb) ->
+%%     #{block_size => 1,iv_length => 8,key_length => 24,mode => cfb_mode,type => 30};
+%% cipher_info(des_ede3) ->
+%%     #{block_size => 8,iv_length => 8,key_length => 24,mode => cbc_mode,type => 44};
+%% cipher_info(des_ede3_cbf) ->
+%%     #{block_size => 1,iv_length => 8,key_length => 24,mode => cfb_mode,type => 30};
 cipher_info(Type) ->
     cipher_info_nif(alias(Type)).
 
@@ -1058,20 +1093,34 @@ ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
 %%%----------------------------------------------------------------
 %%% Cipher aliases
 %%%
-prepend_cipher_aliases(L0) ->
-    L =
-        case lists:member(des_ede3_cbc, L0) of
+-define(if_also(Cipher, Ciphers, AliasCiphers),
+        case lists:member(Cipher, Ciphers) of
             true ->
-                [des3_cbc, des_ede3, des_ede3_cbf, des3_cbf, des3_cfb | L0];
+                AliasCiphers;
             false ->
-                L0
-        end,
-    case lists:member(aes_128_cbc, L0) of
-        true ->
-            [aes_cbc128, aes_cbc256 | L];
-        false ->
-            L
-    end.
+                Ciphers
+        end).
+    
+
+prepend_old_aliases(L0) ->
+    L1 = ?if_also(des_ede3_cbc, L0,
+                  [des3_cbc, des_ede3, des_ede3_cbf, des3_cbf, des3_cfb | L0]),
+    L2 = ?if_also(aes_128_cbc, L1,
+                 [aes_cbc, aes_cbc128, aes_cbc256 | L1]),
+    L3 = ?if_also(aes_128_ctr, L2,
+                  [aes_ctr | L2]),
+    L4 = ?if_also(aes_128_ccm, L3,
+                  [aes_ccm | L3]),
+    L5 = ?if_also(aes_128_gcm, L4,
+                  [aes_gcm | L4]),
+    L6 = ?if_also(aes_128_cfb8, L5,
+                  [aes_cfb8 | L5]),
+    L7 = ?if_also(aes_128_cfb128, L6,
+                  [aes_cfb128 | L6]),
+    L8 = ?if_also(aes_128_ecb, L7,
+                  [aes_ecb | L7]),
+    L8.
+
 
 
 %%%---- des_ede3_cbc
@@ -1088,42 +1137,37 @@ alias(aes_cbc256)   -> aes_256_cbc;
 alias(Alg) -> Alg.
 
 
-%%%---- des_ede3_cbc
-alias(des3_cbc, _)     -> des_ede3_cbc;
-alias(des_ede3, _)     -> des_ede3_cbc;
-%%%---- des_ede3_cfb
-alias(des_ede3_cbf,_ ) -> des_ede3_cfb;
-alias(des3_cbf, _)     -> des_ede3_cfb;
-alias(des3_cfb, _)     -> des_ede3_cfb;
-%%%---- aes_*_cbc
-alias(aes_cbc128, _)   -> aes_128_cbc;
-alias(aes_cbc256, _)   -> aes_256_cbc;
+alias(Ciph, Key) -> alias2(alias(Ciph), Key).
 
-alias(aes_cbc, Key) when size(Key)==128  -> aes_128_cbc;
-alias(aes_cbc, Key) when size(Key)==192  -> aes_192_cbc;
-alias(aes_cbc, Key) when size(Key)==256  -> aes_256_cbc;
+alias2(aes_cbc, Key) when size(Key)==16  -> aes_128_cbc;
+alias2(aes_cbc, Key) when size(Key)==24  -> aes_192_cbc;
+alias2(aes_cbc, Key) when size(Key)==32  -> aes_256_cbc;
 
-alias(aes_cfb8, Key) when size(Key)==128  -> aes_128_cfb8;
-alias(aes_cfb8, Key) when size(Key)==192  -> aes_192_cfb8;
-alias(aes_cfb8, Key) when size(Key)==256  -> aes_256_cfb8;
+alias2(aes_cfb8, Key) when size(Key)==16  -> aes_128_cfb8;
+alias2(aes_cfb8, Key) when size(Key)==24  -> aes_192_cfb8;
+alias2(aes_cfb8, Key) when size(Key)==32  -> aes_256_cfb8;
 
-alias(aes_cfb128, Key) when size(Key)==128  -> aes_128_cfb128;
-alias(aes_cfb128, Key) when size(Key)==192  -> aes_192_cfb128;
-alias(aes_cfb128, Key) when size(Key)==256  -> aes_256_cfb128;
+alias2(aes_cfb128, Key) when size(Key)==16  -> aes_128_cfb128;
+alias2(aes_cfb128, Key) when size(Key)==24  -> aes_192_cfb128;
+alias2(aes_cfb128, Key) when size(Key)==32  -> aes_256_cfb128;
 
-alias(aes_ctr, Key) when size(Key)==128  -> aes_128_ctr;
-alias(aes_ctr, Key) when size(Key)==192  -> aes_192_ctr;
-alias(aes_ctr, Key) when size(Key)==256  -> aes_256_ctr;
+alias2(aes_ctr, Key) when size(Key)==16  -> aes_128_ctr;
+alias2(aes_ctr, Key) when size(Key)==24  -> aes_192_ctr;
+alias2(aes_ctr, Key) when size(Key)==32  -> aes_256_ctr;
 
-alias(aes_gcm, Key) when size(Key)==128  -> aes_128_gcm;
-alias(aes_gcm, Key) when size(Key)==192  -> aes_192_gcm;
-alias(aes_gcm, Key) when size(Key)==256  -> aes_256_gcm;
+alias2(aes_ecb, Key) when size(Key)==16  -> aes_128_ecb;
+alias2(aes_ecb, Key) when size(Key)==24  -> aes_192_ecb;
+alias2(aes_ecb, Key) when size(Key)==32  -> aes_256_ecb;
 
-alias(aes_ccm, Key) when size(Key)==128  -> aes_128_ccm;
-alias(aes_ccm, Key) when size(Key)==192  -> aes_192_ccm;
-alias(aes_ccm, Key) when size(Key)==256  -> aes_256_ccm;
+alias2(aes_gcm, Key) when size(Key)==16  -> aes_128_gcm;
+alias2(aes_gcm, Key) when size(Key)==24  -> aes_192_gcm;
+alias2(aes_gcm, Key) when size(Key)==32  -> aes_256_gcm;
 
-alias(Alg, _) -> Alg.
+alias2(aes_ccm, Key) when size(Key)==16  -> aes_128_ccm;
+alias2(aes_ccm, Key) when size(Key)==24  -> aes_192_ccm;
+alias2(aes_ccm, Key) when size(Key)==32  -> aes_256_ccm;
+
+alias2(Alg, _) -> Alg.
 
 %%%================================================================
 %%%
@@ -2387,7 +2431,13 @@ exor(Data1, Data2, _Size, MaxByts, Acc) ->
 
 do_exor(_A, _B) -> ?nif_stub.
 
-algorithms() -> ?nif_stub.
+hash_algorithms() -> ?nif_stub.
+pubkey_algorithms() -> ?nif_stub.
+cipher_algorithms() -> ?nif_stub.
+mac_algorithms() -> ?nif_stub.
+curve_algorithms() -> ?nif_stub.
+rsa_opts_algorithms() -> ?nif_stub.
+
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).

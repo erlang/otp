@@ -62,33 +62,17 @@ static struct cipher_type_t cipher_types[] =
     {{"blowfish_ecb"}, {NULL}, 0, 0},
 #endif
 
-    {{"aes_cbc"}, {&EVP_aes_128_cbc}, 16, 0},
-    {{"aes_cbc"}, {&EVP_aes_192_cbc}, 24, 0},
-    {{"aes_cbc"}, {&EVP_aes_256_cbc}, 32, 0},
-
     {{"aes_128_cbc"}, {&EVP_aes_128_cbc}, 16, 0},
     {{"aes_192_cbc"}, {&EVP_aes_192_cbc}, 24, 0},
     {{"aes_256_cbc"}, {&EVP_aes_256_cbc}, 32, 0},
-
-    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}, 16, NO_FIPS_CIPHER | AES_CFBx},
-    {{"aes_cfb8"}, {&EVP_aes_192_cfb8}, 24, NO_FIPS_CIPHER | AES_CFBx},
-    {{"aes_cfb8"}, {&EVP_aes_256_cfb8}, 32, NO_FIPS_CIPHER | AES_CFBx},
 
     {{"aes_128_cfb8"}, {&EVP_aes_128_cfb8}, 16, NO_FIPS_CIPHER | AES_CFBx},
     {{"aes_192_cfb8"}, {&EVP_aes_192_cfb8}, 24, NO_FIPS_CIPHER | AES_CFBx},
     {{"aes_256_cfb8"}, {&EVP_aes_256_cfb8}, 32, NO_FIPS_CIPHER | AES_CFBx},
 
-    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}, 16, NO_FIPS_CIPHER | AES_CFBx},
-    {{"aes_cfb128"}, {&EVP_aes_192_cfb128}, 24, NO_FIPS_CIPHER | AES_CFBx},
-    {{"aes_cfb128"}, {&EVP_aes_256_cfb128}, 32, NO_FIPS_CIPHER | AES_CFBx},
-
     {{"aes_128_cfb128"}, {&EVP_aes_128_cfb128}, 16, NO_FIPS_CIPHER | AES_CFBx},
     {{"aes_192_cfb128"}, {&EVP_aes_192_cfb128}, 24, NO_FIPS_CIPHER | AES_CFBx},
     {{"aes_256_cfb128"}, {&EVP_aes_256_cfb128}, 32, NO_FIPS_CIPHER | AES_CFBx},
-
-    {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16, ECB_BUG_0_9_8L},
-    {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24, ECB_BUG_0_9_8L},
-    {{"aes_ecb"}, {&EVP_aes_256_ecb}, 32, ECB_BUG_0_9_8L},
 
     {{"aes_128_ecb"}, {&EVP_aes_128_ecb}, 16, ECB_BUG_0_9_8L},
     {{"aes_192_ecb"}, {&EVP_aes_192_ecb}, 24, ECB_BUG_0_9_8L},
@@ -98,16 +82,10 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_128_ctr"}, {&EVP_aes_128_ctr}, 16, 0},
     {{"aes_192_ctr"}, {&EVP_aes_192_ctr}, 24, 0},
     {{"aes_256_ctr"}, {&EVP_aes_256_ctr}, 32, 0},
-    {{"aes_ctr"},    {&EVP_aes_128_ctr}, 16, 0},
-    {{"aes_ctr"},    {&EVP_aes_192_ctr}, 24, 0},
-    {{"aes_ctr"},    {&EVP_aes_256_ctr}, 32, 0},
 #else
     {{"aes_128_ctr"}, {NULL}, 16, AES_CTR_COMPAT},
     {{"aes_192_ctr"}, {NULL}, 24, AES_CTR_COMPAT},
     {{"aes_256_ctr"}, {NULL}, 32, AES_CTR_COMPAT},
-    {{"aes_ctr"},     {NULL}, 16, AES_CTR_COMPAT},
-    {{"aes_ctr"},     {NULL}, 24, AES_CTR_COMPAT},
-    {{"aes_ctr"},     {NULL}, 32, AES_CTR_COMPAT},
 #endif
 
 #if defined(HAVE_CHACHA20)
@@ -124,28 +102,20 @@ static struct cipher_type_t cipher_types[] =
 #endif
 
 #if defined(HAVE_GCM)
-    {{"aes_gcm"},     {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
-    {{"aes_gcm"},     {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
-    {{"aes_gcm"},     {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
     {{"aes_128_gcm"}, {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
     {{"aes_192_gcm"}, {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
     {{"aes_256_gcm"}, {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
 #else
-    {{"aes_gcm"},     {NULL},  0, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
     {{"aes_128_gcm"}, {NULL}, 16, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
     {{"aes_192_gcm"}, {NULL}, 24, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
     {{"aes_256_gcm"}, {NULL}, 32, AEAD_CIPHER|GCM_MODE, {{0,0,0}}},
 #endif
 
 #if defined(HAVE_CCM)
-    {{"aes_ccm"},     {&EVP_aes_128_ccm}, 16, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
-    {{"aes_ccm"},     {&EVP_aes_192_ccm}, 24, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
-    {{"aes_ccm"},     {&EVP_aes_256_ccm}, 32, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
     {{"aes_128_ccm"}, {&EVP_aes_128_ccm}, 16, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
     {{"aes_192_ccm"}, {&EVP_aes_192_ccm}, 24, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
     {{"aes_256_ccm"}, {&EVP_aes_256_ccm}, 32, AEAD_CIPHER|CCM_MODE, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
 #else
-    {{"aes_ccm"},     {NULL},  0, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
     {{"aes_128_ccm"}, {NULL}, 16, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
     {{"aes_192_ccm"}, {NULL}, 24, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
     {{"aes_256_ccm"}, {NULL}, 32, AEAD_CIPHER|CCM_MODE, {{0,0,0}}},
@@ -359,13 +329,15 @@ ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env)
     prev = atom_undefined;
 
     for (p = cipher_types; (p->type.atom & (p->type.atom != atom_false)); p++) {
-        if ((prev != p->type.atom) &&
-            ((p->cipher.p != NULL) ||
-             (p->flags & (NON_EVP_CIPHER|AES_CTR_COMPAT)) ) && /* Special handling. Bad indeed... */
-            ! FORBIDDEN_IN_FIPS(p)
-            )
-        hd = enif_make_list_cell(env, p->type.atom, hd);
-        prev = p->type.atom;
+        if ((prev == p->type.atom) ||
+            FORBIDDEN_IN_FIPS(p) )
+            continue;
+
+        if ((p->cipher.p != NULL) ||
+            (p->type.atom == atom_aes_ige256))  /* Special handling. Bad indeed... */
+            {
+                hd = enif_make_list_cell(env, p->type.atom, hd);
+            }
     }
 
     return hd;

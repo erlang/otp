@@ -116,8 +116,6 @@ groups() ->
                      {group, blowfish_ecb},
                      {group, blowfish_ofb64},
 
-                     {group, aes_cfb128},
-                     {group, aes_cfb8},
                      {group, aes_ige256},
                      {group, des_cbc},
                      {group, des_cfb},
@@ -125,7 +123,15 @@ groups() ->
                      {group, rc4},
 
                      ?NEW_CIPHER_TYPE_SCHEMA,
-                     ?RETIRED_TYPE_ALIASES
+                     {group, aes_128_cfb128},
+                     {group, aes_192_cfb128},
+                     {group, aes_256_cfb128},
+                     {group, aes_128_cfb8},
+                     {group, aes_192_cfb8},
+                     {group, aes_256_cfb8},
+                     ?RETIRED_TYPE_ALIASES,
+                     {group, aes_cfb128},
+                     {group, aes_cfb8}
                     ]},
      {fips, [], [
                  {group, no_blake2b},
@@ -210,9 +216,15 @@ groups() ->
      {des_ede3_cbc,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {des_ede3_cfb,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {rc2_cbc,              [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_cfb8,             [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_cfb8,             [], [block]},
+     {aes_128_cfb8,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_192_cfb8,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_256_cfb8,         [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {no_aes_cfb8,          [], [no_support, no_block]},
-     {aes_cfb128,           [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_cfb128,           [], [block]},
+     {aes_128_cfb128,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_192_cfb128,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_256_cfb128,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {no_aes_cfb128,        [], [no_support, no_block]},
      {aes_ige256,           [], [block]},
      {no_aes_ige256,        [], [no_support, no_block]},
@@ -889,8 +901,24 @@ cipher_info(Config) when is_list(Config) ->
     #{type := _,key_length := _,iv_length := _,
         block_size := _,mode := _} = crypto:cipher_info(aes_128_cbc),
     {'EXIT',_} = (catch crypto:cipher_info(not_a_cipher)),
-    lists:foreach(fun(C) -> crypto:cipher_info(C) end,
-        proplists:get_value(ciphers, crypto:supports())).
+    case lists:foldl(fun(C,Ok) ->
+                             try crypto:cipher_info(C)
+                             of
+                                 _ -> Ok
+                             catch Cls:Exc ->
+                                     ct:pal("~p:~p ~p",[Cls,Exc,C]),
+                                     false
+                             end
+                     end,
+                     true,
+crypto:supports(ciphers)) of
+%%                     proplists:get_value(ciphers, crypto:supports())) of
+        true ->
+            ok;
+        false ->
+            ct:fail('Cipher unsupported',[])
+    end.
+                                                                         
 
 %%--------------------------------------------------------------------
 hash_info() ->
@@ -2591,12 +2619,44 @@ aes_cfb8(Config) ->
               "CFB8VarTxt256.rsp", "CFB8VarKey256.rsp", "CFB8GFSbox256.rsp", "CFB8KeySbox256.rsp",
               "CFB8MMT128.rsp", "CFB8MMT192.rsp", "CFB8MMT256.rsp"]).
 
+aes_128_cfb8(Config) ->
+    read_rsp(Config, aes_128_cfb8,
+             ["CFB8VarTxt128.rsp", "CFB8VarKey128.rsp", "CFB8GFSbox128.rsp", "CFB8KeySbox128.rsp",
+              "CFB8MMT128.rsp"]).
+
+aes_192_cfb8(Config) ->
+    read_rsp(Config, aes_192_cfb8,
+             ["CFB8VarTxt192.rsp", "CFB8VarKey192.rsp", "CFB8GFSbox192.rsp", "CFB8KeySbox192.rsp",
+              "CFB8MMT192.rsp"]).
+
+aes_256_cfb8(Config) ->
+    read_rsp(Config, aes_256_cfb8,
+             ["CFB8VarTxt256.rsp", "CFB8VarKey256.rsp", "CFB8GFSbox256.rsp", "CFB8KeySbox256.rsp",
+              "CFB8MMT256.rsp"]).
+
+
 aes_cfb128(Config) ->
     read_rsp(Config, aes_cfb128,
              ["CFB128VarTxt128.rsp", "CFB128VarKey128.rsp", "CFB128GFSbox128.rsp", "CFB128KeySbox128.rsp",
               "CFB128VarTxt192.rsp", "CFB128VarKey192.rsp", "CFB128GFSbox192.rsp", "CFB128KeySbox192.rsp",
               "CFB128VarTxt256.rsp", "CFB128VarKey256.rsp", "CFB128GFSbox256.rsp", "CFB128KeySbox256.rsp",
               "CFB128MMT128.rsp", "CFB128MMT192.rsp", "CFB128MMT256.rsp"]).
+
+aes_128_cfb128(Config) ->
+    read_rsp(Config, aes_128_cfb128,
+             ["CFB128VarTxt128.rsp", "CFB128VarKey128.rsp", "CFB128GFSbox128.rsp", "CFB128KeySbox128.rsp",
+              "CFB128MMT128.rsp"]).
+
+aes_192_cfb128(Config) ->
+    read_rsp(Config, aes_192_cfb128,
+             ["CFB128VarTxt192.rsp", "CFB128VarKey192.rsp", "CFB128GFSbox192.rsp", "CFB128KeySbox192.rsp",
+              "CFB128MMT192.rsp"]).
+
+aes_256_cfb128(Config) ->
+    read_rsp(Config, aes_256_cfb128,
+             ["CFB128VarTxt256.rsp", "CFB128VarKey256.rsp", "CFB128GFSbox256.rsp", "CFB128KeySbox256.rsp",
+              "CFB128MMT256.rsp"]).
+
 
 blowfish_cbc(_) ->
     [{blowfish_cbc,

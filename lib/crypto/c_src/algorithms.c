@@ -255,29 +255,66 @@ void init_algorithms_types(ErlNifEnv* env)
     ASSERT(algo_rsa_opts_cnt <= sizeof(algo_rsa_opts)/sizeof(ERL_NIF_TERM));
 }
 
-ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-#ifdef FIPS_SUPPORT
-    int fips_mode  = FIPS_mode();
 
-    unsigned int hash_cnt   = fips_mode ? algo_hash_fips_cnt   : algo_hash_cnt;
-    unsigned int pubkey_cnt = fips_mode ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
-    unsigned int mac_cnt    = fips_mode ? algo_mac_fips_cnt    : algo_mac_cnt;
-    unsigned int curve_cnt    = fips_mode ? algo_curve_fips_cnt    : algo_curve_cnt;
-    unsigned int rsa_opts_cnt = fips_mode ? algo_rsa_opts_fips_cnt : algo_rsa_opts_cnt;
-#else
-    unsigned int hash_cnt   = algo_hash_cnt;
-    unsigned int pubkey_cnt = algo_pubkey_cnt;
-    unsigned int mac_cnt    = algo_mac_cnt;
-    unsigned int curve_cnt    = algo_curve_cnt;
-    unsigned int rsa_opts_cnt = algo_rsa_opts_cnt;
+ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned int cnt  =
+#ifdef FIPS_SUPPORT
+        FIPS_mode() ? algo_hash_fips_cnt :
 #endif
-    return enif_make_tuple6(env,
-                            enif_make_list_from_array(env, algo_hash,   hash_cnt),
-			    enif_make_list_from_array(env, algo_pubkey, pubkey_cnt),
-                            cipher_types_as_list(env),
-                            enif_make_list_from_array(env, algo_mac,    mac_cnt),
-			    enif_make_list_from_array(env, algo_curve,  curve_cnt),
-			    enif_make_list_from_array(env, algo_rsa_opts, rsa_opts_cnt)
-                            );
+        algo_hash_cnt;
+
+    return enif_make_list_from_array(env, algo_hash, cnt);
+}
+
+ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned int cnt  =
+#ifdef FIPS_SUPPORT
+        FIPS_mode() ? algo_pubkey_fips_cnt :
+#endif
+        algo_pubkey_cnt;
+
+    return enif_make_list_from_array(env, algo_pubkey, cnt);
+}
+
+
+ERL_NIF_TERM cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return cipher_types_as_list(env); /* Exclude old api ciphers */
+}
+
+ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned int cnt  =
+#ifdef FIPS_SUPPORT
+        FIPS_mode() ? algo_mac_fips_cnt :
+#endif
+        algo_mac_cnt;
+
+    return enif_make_list_from_array(env, algo_mac, cnt);
+}
+
+
+ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned int cnt  =
+#ifdef FIPS_SUPPORT
+        FIPS_mode() ? algo_curve_fips_cnt :
+#endif
+        algo_curve_cnt;
+
+    return enif_make_list_from_array(env, algo_curve, cnt);
+}
+
+
+ERL_NIF_TERM rsa_opts_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned int cnt  =
+#ifdef FIPS_SUPPORT
+        FIPS_mode() ? algo_rsa_opts_fips_cnt :
+#endif
+        algo_rsa_opts_cnt;
+
+    return enif_make_list_from_array(env, algo_rsa_opts, cnt);
 }
