@@ -29,7 +29,6 @@ CC=@CC@
 LD=@LD@
 AR=@AR@
 RANLIB=@RANLIB@
-RM=@RM@
 MKDIR=@MKDIR@
 INSTALL=@INSTALL@
 INSTALL_DIR=@INSTALL_DIR@
@@ -158,9 +157,9 @@ $(ERTS_LIB):
 docs:
 
 clean:
-	$(RM) -rf ../obj/*
-	$(RM) -rf ../bin/*
-	$(RM) -f ./*~
+	$(RM) -r ../obj/*
+	$(RM) -r ../bin/*
+	$(RM) ./*~
 
 .PHONY: all erts_lib docs clean
 
