@@ -53,7 +53,9 @@
          getopt/3,
 
          sockname/1,
-         peername/1
+         peername/1,
+
+         cancel/2
         ]).
 
 -export_type([
@@ -2584,6 +2586,25 @@ sockname(#socket{ref = SockRef}) ->
 
 peername(#socket{ref = SockRef}) ->
     nif_peername(SockRef).
+
+
+%% ===========================================================================
+%%
+%% cancel - cancel an operation resulting in a select
+%%
+%% A call to accept, recv/recvfrom/recvmsg and send/sendto/sendmsg
+%% can result in a select if they are called with the Timeout argument
+%% set to nowait. This is indicated by the return of the select-info.
+%% Such a operation can be cancelled by calling this function.
+%%
+
+-spec cancel(Socket, SelectInfo) -> ok | {error, Reason} when
+      Socket     :: socket(),
+      SelectInfo :: select_info(),
+      Reason     :: term().
+
+cancel(#socket{ref = SockRef}, {select, Tag, Ref}) ->
+    cancel(SockRef, Tag, Ref).
 
 
 
