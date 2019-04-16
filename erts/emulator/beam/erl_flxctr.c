@@ -46,6 +46,29 @@ typedef enum {
     ERTS_FLXCTR_SNAPSHOT_ONGOING_TP_THREAD_DO_FREE = 2
 } erts_flxctr_snapshot_status;
 
+#define ERTS_FLXCTR_DECENTRALIZED_COUNTER_ARRAY_SIZE    \
+    (sizeof(ErtsFlxCtrDecentralizedCtrArray) +          \
+    (sizeof(ErtsFlxCtrDecentralizedCtrArrayElem) *      \
+     ERTS_FLXCTR_DECENTRALIZED_NO_SLOTS) +              \
+     ERTS_CACHE_LINE_SIZE)
+
+#ifdef DEBUG
+#define FLXCTR_MEM_DEBUG 1
+#endif
+
+#ifdef FLXCTR_MEM_DEBUG
+static erts_atomic_t debug_mem_usage;
+#endif
+
+#ifdef FLXCTR_MEM_DEBUG
+#define FLXCTR_FREE(ALLOC_TYPE, ADDRESS) do {                           \
+        erts_free(ALLOC_TYPE, ADDRESS);   \
+        erts_atomic_add_mb(&debug_mem_usage, -ERTS_FLXCTR_DECENTRALIZED_COUNTER_ARRAY_SIZE); \
+    } while(0)
+#else
+#define FLXCTR_FREE(ALLOC_TYPE, ADDRESS) erts_free(ALLOC_TYPE, ADDRESS)
+#endif
+
 static void
 thr_prg_wake_up_and_count(void* bin_p)
 {
@@ -72,13 +95,13 @@ thr_prg_wake_up_and_count(void* bin_p)
     }
     /* Announce that the snapshot is done */
     {
-    Sint expected = ERTS_FLXCTR_SNAPSHOT_ONGOING;
-    if (expected != erts_atomic_cmpxchg_mb(&next->snapshot_status,
-                                           ERTS_FLXCTR_SNAPSHOT_NOT_ONGOING,
-                                           expected)) {
-        /* The CAS failed which means that this thread need to free the next array. */
-        erts_free(info->alloc_type, next->block_start);
-    }
+        Sint expected = ERTS_FLXCTR_SNAPSHOT_ONGOING;
+        if (expected != erts_atomic_cmpxchg_mb(&next->snapshot_status,
+                                               ERTS_FLXCTR_SNAPSHOT_NOT_ONGOING,
+                                               expected)) {
+            /* The CAS failed which means that this thread need to free the next array. */
+            FLXCTR_FREE(info->alloc_type, next->block_start);
+        }
     }
     /* Resume the process that requested the snapshot */
     erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
@@ -86,7 +109,7 @@ thr_prg_wake_up_and_count(void* bin_p)
         erts_resume(p, ERTS_PROC_LOCK_STATUS);
     }
     /* Free the memory that is no longer needed */
-    erts_free(info->alloc_type, array->block_start);
+    FLXCTR_FREE(info->alloc_type, array->block_start);
     erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     erts_proc_dec_refc(p);
     erts_bin_release(bin);
@@ -141,6 +164,14 @@ static void suspend_until_thr_prg(Process* p)
     erts_schedule_thr_prgr_later_op(thr_prg_wake_up_later, state_bin, &info->later_op);
 }
 
+size_t erts_flxctr_nr_of_allocated_bytes(ErtsFlxCtr* c)
+{
+    if (c->is_decentralized) {
+        return ERTS_FLXCTR_DECENTRALIZED_COUNTER_ARRAY_SIZE;
+    } else {
+        return 0;
+    }
+}
 
 static ErtsFlxCtrDecentralizedCtrArray*
 create_decentralized_ctr_array(ErtsAlcType_t alloc_type, Uint nr_of_counters) {
@@ -148,14 +179,14 @@ create_decentralized_ctr_array(ErtsAlcType_t alloc_type, Uint nr_of_counters) {
        the array field is located at the start of a cache line */
     char* bytes =
         erts_alloc(alloc_type,
-                   sizeof(ErtsFlxCtrDecentralizedCtrArray) +
-                   (sizeof(ErtsFlxCtrDecentralizedCtrArrayElem) *
-                    ERTS_FLXCTR_DECENTRALIZED_NO_SLOTS) +
-                   ERTS_CACHE_LINE_SIZE);
+                   ERTS_FLXCTR_DECENTRALIZED_COUNTER_ARRAY_SIZE);
     void* block_start = bytes;
     int bytes_to_next_cacheline_border;
     ErtsFlxCtrDecentralizedCtrArray* array;
     int i, sched;
+#ifdef FLXCTR_MEM_DEBUG
+    erts_atomic_add_mb(&debug_mem_usage, ERTS_FLXCTR_DECENTRALIZED_COUNTER_ARRAY_SIZE);
+#endif
     bytes = &bytes[offsetof(ErtsFlxCtrDecentralizedCtrArray, array)];
     bytes_to_next_cacheline_border =
         ERTS_CACHE_LINE_SIZE - (((Uint)bytes) % ERTS_CACHE_LINE_SIZE);
@@ -178,6 +209,9 @@ create_decentralized_ctr_array(ErtsAlcType_t alloc_type, Uint nr_of_counters) {
 void erts_flxctr_setup(int decentralized_counter_groups)
 {
     reader_groups_array_size = decentralized_counter_groups+1;
+#ifdef FLXCTR_MEM_DEBUG
+    erts_atomic_init_mb(&debug_mem_usage, 0);
+#endif
 }
 
 void erts_flxctr_init(ErtsFlxCtr* c,
@@ -203,7 +237,7 @@ void erts_flxctr_init(ErtsFlxCtr* c,
     }
 }
 
-void erts_flxctr_destroy(ErtsFlxCtr* c, ErtsAlcType_t type)
+void erts_flxctr_destroy(ErtsFlxCtr* c, ErtsAlcType_t alloc_type)
 {
     if (c->is_decentralized) {
         if (erts_flxctr_is_snapshot_ongoing(c)) {
@@ -220,10 +254,10 @@ void erts_flxctr_destroy(ErtsFlxCtr* c, ErtsAlcType_t type)
                    snapshot is ongoing anymore and the freeing needs
                    to be done here */
                 ERTS_ASSERT(!erts_flxctr_is_snapshot_ongoing(c));
-                erts_free(type, array->block_start);
+                FLXCTR_FREE(alloc_type, array->block_start);
             }
         } else {
-            erts_free(type, ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c)->block_start);
+            FLXCTR_FREE(alloc_type, ERTS_FLXCTR_GET_CTR_ARRAY_PTR(c)->block_start);
         }
     }
 }
@@ -257,7 +291,7 @@ erts_flxctr_snapshot(ErtsFlxCtr* c,
                 ErtsFlxCtrSnapshotResult res =
                     {.type = ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP};
                 suspend_until_thr_prg(p);
-                erts_free(alloc_type, new_array->block_start);
+                FLXCTR_FREE(alloc_type, new_array->block_start);
                 return res;
             }
             /* Create binary with info about the operation that can be
@@ -364,7 +398,19 @@ void erts_flxctr_reset(ErtsFlxCtr* c,
 }
 
 
-void erts_flxctr_set_slot(int group) {
+void erts_flxctr_set_slot(int group)
+{
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
     esdp->flxctr_slot_no = group;
 }
+
+Sint erts_flxctr_debug_memory_usage(void)
+{
+#ifdef FLXCTR_MEM_DEBUG
+    return erts_atomic_read_mb(&debug_mem_usage);
+#else
+    return -1;
+#endif
+}
+
+

@@ -4053,7 +4053,16 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
             BIF_RET(am_notsup);
 #endif
         }
-
+        else if (ERTS_IS_ATOM_STR("flxctr_memory_usage", BIF_ARG_1)) {
+            Sint mem = erts_flxctr_debug_memory_usage();
+            if (mem == -1) {
+                BIF_RET(am_notsup);
+            } else {
+		Uint hsz = BIG_UWORD_HEAP_SIZE((UWord)mem);
+		Eterm *hp = HAlloc(BIF_P, hsz);
+		BIF_RET(uword_to_big((UWord)mem, hp));
+            }
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
@@ -4642,6 +4651,8 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		flag = ERTS_DEBUG_WAIT_COMPLETED_TIMER_CANCELLATIONS;
             else if (ERTS_IS_ATOM_STR("aux_work", BIF_ARG_2))
                 flag = ERTS_DEBUG_WAIT_COMPLETED_AUX_WORK;
+            else if (ERTS_IS_ATOM_STR("thread_progress", BIF_ARG_2))
+                flag = ERTS_DEBUG_WAIT_COMPLETED_THREAD_PROGRESS;
 
             if (flag && erts_debug_wait_completed(BIF_P, flag)) {
                 ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
@@ -4723,7 +4734,6 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
         else if (ERTS_IS_ATOM_STR("ets_debug_random_split_join", BIF_ARG_1)) {
             if (is_tuple(BIF_ARG_2)) {
                 Eterm* tpl = tuple_val(BIF_ARG_2);
-
                 if (erts_ets_debug_random_split_join(tpl[1], tpl[2] == am_true))
                     BIF_RET(am_ok);
             }

@@ -53,9 +53,14 @@ typedef struct hash_db_term {
 #define DB_HASH_LOCK_CNT 64
 #endif
 
+typedef struct DbTableHashLockAndCounter {
+    Uint nitems;
+    erts_rwmtx_t lck;
+} DbTableHashLockAndCounter;
+
 typedef struct db_table_hash_fine_locks {
     union {
-	erts_rwmtx_t lck;
+	DbTableHashLockAndCounter lck_ctr;
 	byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_rwmtx_t))];
     }lck_vec[DB_HASH_LOCK_CNT];
 } DbTableHashFineLocks;
