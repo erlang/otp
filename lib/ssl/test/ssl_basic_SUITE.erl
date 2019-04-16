@@ -575,11 +575,10 @@ alerts(Config) when is_list(Config) ->
     Alerts = [?ALERT_REC(?WARNING, ?CLOSE_NOTIFY) | 
 	      [?ALERT_REC(?FATAL, Desc) || Desc <- Descriptions]],
     lists:foreach(fun(Alert) ->
-			case ssl_alert:alert_txt(Alert) of
-			    Txt when is_list(Txt) ->
-				ok;
-			    Other ->
-				ct:fail({unexpected, Other})
+                          try ssl_alert:alert_txt(Alert)
+                          catch
+			    C:E:T ->
+                                  ct:fail({unexpected, {C, E, T}})
 			end 
 		  end, Alerts).
 %%--------------------------------------------------------------------
@@ -3849,7 +3848,7 @@ listen_socket(Config) ->
     {error, enotconn} = ssl:peername(ListenSocket),
     {error, enotconn} = ssl:peercert(ListenSocket),
     {error, enotconn} = ssl:renegotiate(ListenSocket),
-    {error, enotconn} = ssl:prf(ListenSocket, 'master_secret', <<"Label">>, client_random, 256),
+    {error, enotconn} = ssl:prf(ListenSocket, 'master_secret', <<"Label">>, [client_random], 256),
     {error, enotconn} = ssl:shutdown(ListenSocket, read_write),
 
     ok = ssl:close(ListenSocket).
