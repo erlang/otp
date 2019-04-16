@@ -109,7 +109,7 @@ connect(Socket, UserOptions, Timeout) when is_port(Socket),
 	Options ->
             case valid_socket_to_use(Socket, ?GET_OPT(transport,Options)) of
 		ok ->
-		    {ok, {Host,_Port}} = inet:sockname(Socket),
+		    {ok, {Host,_Port}} = inet:peername(Socket),
 		    Opts = ?PUT_INTERNAL_OPT([{user_pid,self()}, {host,Host}], Options),
 		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
 		{error,SockError} ->
