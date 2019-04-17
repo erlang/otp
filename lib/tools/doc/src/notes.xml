@@ -128,6 +128,21 @@
 
 </section>
 
+<section><title>Tools 2.11.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor fixes for <c>make clean</c>.</p>
+          <p>
+	    Own Id: OTP-15657</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.11.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -1905,4 +1920,3 @@
     </section>
   </section>
 </chapter>
-
