@@ -1,0 +1,34 @@
+
+queue_use.erl:18: The call queue:is_empty
+         ({[], []}) does not have an opaque term of type 
+          queue:queue(_) as 1st argument
+queue_use.erl:22: The call queue:in
+         (42,
+          Q0 :: {[], []}) does not have an opaque term of type 
+          queue:queue(_) as 2nd argument
+queue_use.erl:27: The attempt to match a term of type 
+          queue:queue(_) against the pattern 
+          {"*", Q2} breaks the opacity of the term
+queue_use.erl:33: Attempt to test for equality between a term of type 
+          {[42, ...], []} and a term of opaque type 
+          queue:queue(_)
+queue_use.erl:36: The attempt to match a term of type 
+          queue:queue(_) against the pattern 
+          {F, _R} breaks the opacity of the term
+queue_use.erl:40: The call queue:out
+         ({"*", []}) does not have an opaque term of type 
+          queue:queue(_) as 1st argument
+queue_use.erl:51: The call queue_use:is_in_queue
+         (E :: 42,
+          DB :: #db{p :: [], q :: queue:queue(_)}) contains an opaque term as 2nd argument when terms of different types are expected in these positions
+queue_use.erl:56: The attempt to match a term of type 
+          #db{p :: [], q :: queue:queue(_)} against the pattern 
+          {'db', _, {L1, L2}} breaks the opacity of 
+          queue:queue(_)
+queue_use.erl:62: The call queue_use:tuple_queue
+         ({42, 'gazonk'}) does not have a term of type 
+          {_, queue:queue(_)} (with opaque subterms) as 1st argument
+queue_use.erl:65: The call queue:in
+         (F :: 42,
+          Q :: 'gazonk') does not have an opaque term of type 
+          queue:queue(_) as 2nd argument
