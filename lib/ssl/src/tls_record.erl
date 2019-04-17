@@ -577,16 +577,18 @@ encode_fragments(_Type, _Version, _Data, CS, _CompS, _CipherS, _Seq, _CipherFrag
 
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 chiphers are
 %% not vulnerable to this attack.
-split_iovec([<<FirstByte:8, Rest/binary>>|Data], Version, BCA, one_n_minus_one)
+split_iovec(Data, Version, BCA, one_n_minus_one)
   when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
                                {3, 0} == Version) ->
-    [[FirstByte]|split_iovec([Rest|Data])];
+    {Part, RestData} = split_iovec(Data, 1, []),
+    [Part|split_iovec(RestData)];
 %% 0/n splitting countermeasure for clients that are incompatible with 1/n-1
 %% splitting.
 split_iovec(Data, Version, BCA, zero_n)
   when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
                                {3, 0} == Version) ->
-    [<<>>|split_iovec(Data)];
+    {Part, RestData} = split_iovec(Data, 0, []),
+    [Part|split_iovec(RestData)];
 split_iovec(Data, _Version, _BCA, _BeatMitigation) ->
     split_iovec(Data).
 
@@ -596,16 +598,16 @@ split_iovec(Data) ->
     {Part,Rest} = split_iovec(Data, ?MAX_PLAIN_TEXT_LENGTH, []),
     [Part|split_iovec(Rest)].
 %%
-split_iovec([Bin|Data], SplitSize, Acc) ->
+split_iovec([Bin|Data] = Bin_Data, SplitSize, Acc) ->
     BinSize = byte_size(Bin),
     if
+        BinSize =< SplitSize ->
+            split_iovec(Data, SplitSize - BinSize, [Bin|Acc]);
+        SplitSize == 0 ->
+            {lists:reverse(Acc), Bin_Data};
         SplitSize < BinSize ->
             {Last, Rest} = erlang:split_binary(Bin, SplitSize),
-            {lists:reverse(Acc, [Last]), [Rest|Data]};
-        BinSize < SplitSize ->
-            split_iovec(Data, SplitSize - BinSize, [Bin|Acc]);
-        true -> % Perfect match
-            {lists:reverse(Acc, [Bin]), Data}
+            {lists:reverse(Acc, [Last]), [Rest|Data]}
     end;
 split_iovec([], _SplitSize, Acc) ->
     {lists:reverse(Acc),[]}.
