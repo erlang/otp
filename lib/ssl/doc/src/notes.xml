@@ -27,6 +27,23 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With the default BEAST Mitigation strategy for TLS 1.0 an
+	    empty TLS fragment could be sent after a one-byte
+	    fragment. This glitch has been fixed.</p>
+          <p>
+	    Own Id: OTP-15054 Aux Id: ERIERL-346 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
