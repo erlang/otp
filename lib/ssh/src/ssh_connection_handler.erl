@@ -594,7 +594,7 @@ handle_event(_, socket_control, {hello,_}=StateName, D) ->
 	    {stop, {shutdown,{unexpected_getopts_return, Other}}}
     end;
 
-handle_event(_, {info_line,_Line}, {hello,Role}=StateName, D) ->
+handle_event(_, {info_line,Line}, {hello,Role}=StateName, D) ->
     case Role of
 	client ->
 	    %% The server may send info lines to the client before the version_exchange
@@ -605,9 +605,9 @@ handle_event(_, {info_line,_Line}, {hello,Role}=StateName, D) ->
 	    %% But the client may NOT send them to the server. Openssh answers with cleartext,
 	    %% and so do we
 	    send_bytes("Protocol mismatch.", D),
-            ?call_disconnectfun_and_log_cond("Protocol mismatch.", 
-                                             "Protocol mismatch in version exchange. Client sent info lines.",
-                                             StateName, D),
+            Msg = io_lib:format("Protocol mismatch in version exchange. Client sent info lines.~n~s",
+                                [ssh_dbg:hex_dump(Line, 64)]),
+            ?call_disconnectfun_and_log_cond("Protocol mismatch.", Msg, StateName, D),
 	    {stop, {shutdown,"Protocol mismatch in version exchange. Client sent info lines."}}
     end;
 
