@@ -1468,14 +1468,14 @@ encrypt(#ssh{encrypt = SshCipher,
              encrypt_ctx = IV0} = Ssh,
         <<LenData:4/binary, PayloadData/binary>>) when SshCipher == 'AEAD_AES_128_GCM' ;
                                                        SshCipher == 'AEAD_AES_256_GCM' ->
-    {Ctext,Ctag} = crypto:block_encrypt(CryptoCipher, K, IV0, {LenData,PayloadData}),
+    {Ctext,Ctag} = crypto:crypto_one_time_aead(CryptoCipher, K, IV0, PayloadData, LenData, true),
     IV = next_gcm_iv(IV0),
     {Ssh#ssh{encrypt_ctx = IV}, {<<LenData/binary,Ctext/binary>>,Ctag}};
 
 encrypt(#ssh{encrypt_ctx = Ctx0} = Ssh, Data) ->
     Enc = crypto:crypto_update(Ctx0, Data),
     {Ssh, Enc}.
-  
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Decryption
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1516,6 +1516,7 @@ decrypt_init(#ssh{decrypt = SshCipher, role = Role} = Ssh) ->
                  decrypt_block_size = BlockBytes,
                  decrypt_ctx = Ctx0}}.
 
+
 decrypt_final(Ssh) ->
     {ok, Ssh#ssh {decrypt = none, 
 		  decrypt_keys = undefined,
@@ -1527,25 +1528,26 @@ decrypt(Ssh, <<>>) ->
     {Ssh, <<>>};
 
 decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
-             decrypt_keys = {K1,_K2},
-             recv_sequence = Seq} = Ssh, {length,EncryptedLen}) ->
-    PacketLenBin = crypto:crypto_one_time(chacha20, K1, <<0:8/unit:8, Seq:8/unit:8>>, EncryptedLen, false),
-    {Ssh, PacketLenBin};
-
-decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
-             decrypt_keys = {_K1,K2},
-             recv_sequence = Seq} = Ssh, {AAD,Ctext,Ctag}) ->
-    %% The length is already decoded and used to divide the input
-    %% Check the mac (important that it is timing-safe):
-    PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
-    case equal_const_time(Ctag, crypto:poly1305(PolyKey, <<AAD/binary,Ctext/binary>>)) of
-        true ->
-            %% MAC is ok, decode
-            IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
-            PlainText = crypto:crypto_one_time(chacha20, K2, IV2, Ctext, false),
-            {Ssh, PlainText};
-        false ->
-           {Ssh,error}
+             decrypt_keys = {K1,K2},
+             recv_sequence = Seq} = Ssh, Data) ->
+    case Data of
+        {length,EncryptedLen} ->
+            %% The length is decrypted separately in a first step
+            PacketLenBin = crypto:crypto_one_time(chacha20, K1, <<0:8/unit:8, Seq:8/unit:8>>, EncryptedLen, false),
+            {Ssh, PacketLenBin};
+         {AAD,Ctext,Ctag} ->
+            %% The length is already decrypted and used to divide the input
+            %% Check the mac (important that it is timing-safe):
+            PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
+            case equal_const_time(Ctag, crypto:poly1305(PolyKey, <<AAD/binary,Ctext/binary>>)) of
+                true ->
+                    %% MAC is ok, decode
+                    IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
+                    PlainText = crypto:crypto_one_time(chacha20, K2, IV2, Ctext, false),
+                    {Ssh, PlainText};
+                false ->
+                    {Ssh,error}
+            end
     end;
 
 decrypt(#ssh{decrypt = none} = Ssh, Data) ->
@@ -1554,9 +1556,9 @@ decrypt(#ssh{decrypt = none} = Ssh, Data) ->
 decrypt(#ssh{decrypt = SshCipher,
              decrypt_cipher = CryptoCipher,
 	     decrypt_keys = K,
-	     decrypt_ctx = IV0} = Ssh, Data = {_AAD,_Ctext,_Ctag}) when SshCipher == 'AEAD_AES_128_GCM' ;
-                                                                        SshCipher == 'AEAD_AES_256_GCM' ->
-    Dec = crypto:block_decrypt(CryptoCipher, K, IV0, Data), % Dec = PlainText | error
+	     decrypt_ctx = IV0} = Ssh, {AAD,Ctext,Ctag}) when SshCipher == 'AEAD_AES_128_GCM' ;
+                                                              SshCipher == 'AEAD_AES_256_GCM' ->
+    Dec = crypto:crypto_one_time_aead(CryptoCipher, K, IV0, Ctext, AAD, Ctag, false),
     IV = next_gcm_iv(IV0),
     {Ssh#ssh{decrypt_ctx = IV}, Dec};
 
