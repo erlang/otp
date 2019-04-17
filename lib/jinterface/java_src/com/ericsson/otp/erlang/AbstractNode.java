@@ -89,7 +89,7 @@ public class AbstractNode implements OtpTransportFactory {
     static final int dFlagHiddenAtomCache = 0x40; // NOT SUPPORTED
     static final int dflagNewFunTags = 0x80;
     static final int dFlagExtendedPidsPorts = 0x100;
-    static final int dFlagExportPtrTag = 0x200; // NOT SUPPORTED
+    static final int dFlagExportPtrTag = 0x200;
     static final int dFlagBitBinaries = 0x400;
     static final int dFlagNewFloats = 0x800;
     static final int dFlagUnicodeIo = 0x1000;
@@ -105,6 +105,7 @@ public class AbstractNode implements OtpTransportFactory {
     int flags = dFlagExtendedReferences | dFlagExtendedPidsPorts
             | dFlagBitBinaries | dFlagNewFloats | dFlagFunTags
             | dflagNewFunTags | dFlagUtf8Atoms | dFlagMapTag
+            | dFlagExportPtrTag
 	    | dFlagBigCreation;
 
     /* initialize hostname and default cookie */

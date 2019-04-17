@@ -43,8 +43,12 @@ init_per_testcase(Case, Config) ->
     runner:init_per_testcase(?MODULE, Case, Config).
 
 ei_accept(Config) when is_list(Config) ->
+    ei_accept_do(Config, 0),   % default
+    ei_accept_do(Config, 21).  % ei_set_compat_rel
+
+ei_accept_do(Config, CompatRel) ->
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, CompatRel),
 
     Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
     io:format("Myname ~p ~n",  [Myname]),
@@ -52,15 +56,18 @@ ei_accept(Config) when is_list(Config) ->
     io:format("EINode ~p ~n",  [EINode]),
 
     %% We take this opportunity to also test export-funs and bit-strings
-    %% with (ugly) tuple fallbacks.
+    %% with (ugly) tuple fallbacks in OTP 21 and older.
     %% Test both toward pending connection and established connection.
     RealTerms = [<<1:1>>,     fun lists:map/2],
-    Fallbacks = [{<<128>>,1}, {lists,map}],
+    EncTerms = case CompatRel of
+                   0 -> RealTerms;
+                   21 -> [{<<128>>,1}, {lists,map}]
+                end,
 
     Self = self(),
     Funny = fun() -> hello end,
     TermToSend = {call, Self, "Test", Funny, RealTerms},
-    TermToGet  = {call, Self, "Test", Funny, Fallbacks},
+    TermToGet  = {call, Self, "Test", Funny, EncTerms},
     Port = 6543,
     {ok, ListenFd} = ei_publish(P, Port),
     {any, EINode} ! TermToSend,
@@ -94,7 +101,7 @@ ei_threaded_accept(Config) when is_list(Config) ->
 %% Test erlang:monitor toward erl_interface "processes"
 monitor_ei_process(Config) when is_list(Config) ->
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, 0),
 
     Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
     io:format("Myname ~p ~n",  [Myname]),
@@ -167,8 +174,8 @@ start_einode(Einode, N, Host) ->
 
 %%% Interface functions for ei (erl_interface) functions.
 
-ei_connect_init(P, Num, Cookie, Creation) ->
-    send_command(P, ei_connect_init, [Num,Cookie,Creation]),
+ei_connect_init(P, Num, Cookie, Creation, Compat) ->
+    send_command(P, ei_connect_init, [Num,Cookie,Creation,Compat]),
     case get_term(P) of
         {term,Int} when is_integer(Int) -> Int
     end.

@@ -40,6 +40,12 @@ typedef struct
     erlang_char_encoding enc;
 }my_atom;
 
+typedef struct
+{
+    char bytes[MAXATOMLEN_UTF8];
+    size_t nbits;
+}my_bitstring;
+
 struct my_obj {
     union {
 	erlang_fun fun;
@@ -49,6 +55,7 @@ struct my_obj {
 	erlang_trace trace;
 	erlang_big big;
 	my_atom atom;
+        my_bitstring bits;
 
 	int arity;
     }u;
@@ -117,6 +124,26 @@ int ei_x_encode_my_atom(ei_x_buff* x, my_atom* a)
 struct Type my_atom_type = {
     "atom", "my_atom", (decodeFT*)ei_decode_my_atom,
     (encodeFT*)ei_encode_my_atom, (x_encodeFT*)ei_x_encode_my_atom
+};
+
+int ei_decode_my_bits(const char *buf, int *index, my_bitstring* a)
+{
+    return ei_decode_bitstring(buf, index, (a ? a->bytes : NULL),
+                               sizeof(a->bytes),
+                               (a ? &a->nbits : NULL));
+}
+int ei_encode_my_bits(char *buf, int *index, my_bitstring* a)
+{
+    return ei_encode_bitstring(buf, index, a->bytes, a->nbits);
+}
+int ei_x_encode_my_bits(ei_x_buff* x, my_bitstring* a)
+{
+    return ei_x_encode_bitstring(x, a->bytes, a->nbits);
+}
+
+struct Type my_bitstring_type = {
+    "bits", "my_bitstring", (decodeFT*)ei_decode_my_bits,
+    (encodeFT*)ei_encode_my_bits, (x_encodeFT*)ei_x_encode_my_bits
 };
 
 
@@ -535,6 +562,10 @@ TESTCASE(test_ei_decode_encode)
 	    &port_type, &ref_type
 	};
 	decode_encode(map, 7);
+    }
+
+    for (i=0; i <= 48; i++) {
+        decode_encode_one(&my_bitstring_type);
     }
 
     report(1);

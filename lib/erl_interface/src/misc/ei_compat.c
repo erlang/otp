@@ -22,19 +22,22 @@
 #include "ei.h"
 #include "ei_internal.h"
 
-#define EI_COMPAT_NO_REL (~((unsigned) 0))
+#include <limits.h>
 
-static unsigned compat_rel = EI_COMPAT_NO_REL;
+#ifndef EI_COMPAT
+#  define EI_COMPAT UINT_MAX
+#endif
+
+static unsigned compat_rel = EI_COMPAT;
 
 void
 ei_set_compat_rel(unsigned rel)
 {
-    if (compat_rel == EI_COMPAT_NO_REL)
-	compat_rel = rel;
+    compat_rel = rel;
 }
 
-int
-ei_internal_use_r9_pids_ports(void)
+int ei_internal_use_21_bitstr_expfun(void)
 {
-    return compat_rel < 10;
+    return compat_rel < 22;
 }
+

@@ -183,6 +183,35 @@ typedef enum {
       </func>
 
       <func>
+          <name since="OTP @OTP-15712@"><ret>int</ret><nametext>ei_decode_bitstring(const char *buf, int *index, void *p, size_t plen, size_t *bitsp)</nametext></name>
+          <fsummary>Decode a bitstring.</fsummary>
+          <desc>
+            <p>Decodes a bitstring from the binary format.</p>
+	    <taglist>
+	      <tag><c>p</c></tag>
+	      <item><p>Either <c>NULL</c> or points to a buffer where the bytes of the
+	        bitstring will be written.</p>
+	      </item>
+	      <tag><c>plen</c></tag>
+	      <item><p>The max size of the bitstring in <em>bytes</em>, that is the
+	        size of the buffer if <c>p != NULL</c>.</p>
+	      </item>
+	      <tag><c>*bitsp</c></tag>
+	      <item><p>If <c>bitsp</c> is not <c>NULL</c>, set to the actual
+	        number of <em>bits</em> of the bitstring.</p>
+	      </item>
+	    </taglist>
+	    <p>Returns <c>0</c> if it was a bitstring no longer than <c>plen</c>
+	      bytes. The actual length of the bitstring will be
+	      <c>(*bitsp+7)/8</c> bytes. If <c>(*bitsp % 8) > 0</c> only the high
+	      <c>(*bitsp % 8)</c> bits of the last byte are significant.</p>
+	    <p>Number of bits may be divisible by 8, which means a binary
+	      decodable by <c>ei_decode_binary</c> is also decodable by
+	      <c>ei_decode_bitstring</c>.</p>
+          </desc>
+      </func>
+
+      <func>
           <name since=""><ret>int</ret><nametext>ei_decode_boolean(const char *buf, int *index, int *p)</nametext></name>
           <fsummary>Decode a boolean.</fsummary>
           <desc>
@@ -349,8 +378,10 @@ typedef enum {
           <c>t</c> is actually an <c>ETERM**</c> (see
           <seealso marker="erl_eterm"><c>erl_eterm</c></seealso>).
           The term is later to be deallocated.</p>
-        <p>Notice that this function is located in the <c>Erl_Interface</c>
-          library.</p>
+	<note><p>This function is deprecated as of OTP 22 and will be removed in
+	  OTP 23 together with the old legacy <c>erl_interface</c> library (functions
+	  with prefix <c>erl_</c>).</p>
+	</note>
       </desc>
     </func>
 
@@ -455,6 +486,18 @@ typedef enum {
       <desc>
         <p>Encodes a binary in the binary format. The data is at
           <c>p</c>, of <c>len</c> bytes length.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-15712@"><ret>int</ret><nametext>ei_encode_bitstring(char *buf, int *index, const void *p, size_t bits)</nametext></name>
+      <name since="OTP @OTP-15712@"><ret>int</ret><nametext>ei_x_encode_bitstring(ei_x_buff* x, const void *p, size_t bits)</nametext></name>
+      <fsummary>Encode a bitstring.</fsummary>
+      <desc>
+        <p>Encodes a bitstring in the binary format. The data is at
+          <c>p</c>. The size of the data is <c>bits</c> bits or
+	  <c>(bits+7)/8</c> bytes. If <c>(bits%8) > 0</c> only the high
+	  <c>(bits%8)</c> bits of the last byte are significant.</p>
       </desc>
     </func>
 
@@ -656,6 +699,10 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
           <c>erl_interface</c>. Parameter <c>t</c> is
           actually an <c>ETERM</c> pointer. This function
           does not free the <c>ETERM</c>.</p>
+	<note><p>These functions are deprecated as of OTP 22 and will be removed in
+	  OTP 23 together with the old legacy <c>erl_interface</c> library
+	  (functions with prefix <c>erl_</c>).</p>
+	</note>
       </desc>
     </func>
     <func>
@@ -725,12 +772,12 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
       <name since=""><ret>int</ret><nametext>ei_get_type(const char *buf, const int *index, int *type, int *size)</nametext></name>
       <fsummary>Fetch the type and size of an encoded term.</fsummary>
       <desc>
-        <p>Returns the type in <c>type</c> and size in
-          <c>size</c> of the encoded term. For strings and atoms,
+        <p>Returns the type in <c>*type</c> and size in
+          <c>*size</c> of the encoded term. For strings and atoms,
           size is the number of characters <em>not</em> including the
-          terminating <c>NULL</c>. For binaries, <c>size</c> is the number of
-          bytes. For lists and tuples, <c>size</c> is the arity of
-          the object. For other types, <c>size</c> is 0. In all
+          terminating <c>NULL</c>. For binaries and bitstrings, <c>*size</c> is
+	  the number of bytes. For lists, tuples and maps, <c>*size</c> is the
+	  arity of the object. For other types, <c>*size</c> is 0. In all
           cases, <c>index</c> is left unchanged.</p>
       </desc>
     </func>

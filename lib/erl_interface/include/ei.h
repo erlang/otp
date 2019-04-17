@@ -154,11 +154,14 @@ typedef LONG_PTR ssize_t; /* Sigh... */
 #define ERL_STRING_EXT        'k'
 #define ERL_LIST_EXT          'l'
 #define ERL_BINARY_EXT        'm'
+#define ERL_BIT_BINARY_EXT    'M'
 #define ERL_SMALL_BIG_EXT     'n'
 #define ERL_LARGE_BIG_EXT     'o'
 #define ERL_NEW_FUN_EXT	      'p'
 #define ERL_MAP_EXT           't'
 #define ERL_FUN_EXT	      'u'
+#define ERL_EXPORT_EXT        'q'
+
  
 #define ERL_NEW_CACHE         'N' /* c nodes don't know these two */
 #define ERL_CACHED_ATOM       'C'
@@ -269,15 +272,23 @@ typedef struct {
 typedef struct {
     long arity;
     char module[MAXATOMLEN_UTF8];
-    erlang_char_encoding module_org_enc;
-    char md5[16];
-    long index;
-    long old_index;
-    long uniq;
-    long n_free_vars;
-    erlang_pid pid;
-    long free_var_len;
-    char* free_vars;
+    enum { EI_FUN_CLOSURE, EI_FUN_EXPORT } type;
+    union {
+        struct {
+            char md5[16];
+            long index;
+            long old_index;
+            long uniq;
+            long n_free_vars;
+            erlang_pid pid;
+            long free_var_len;
+            char* free_vars;
+        } closure;
+        struct {
+            char* func;
+            int func_allocated;
+        } export;
+    } u;
 } erlang_fun;
 
 /* a big */
@@ -515,7 +526,9 @@ int ei_x_encode_atom_len(ei_x_buff* x, const char* s, int len);
 int ei_x_encode_atom_len_as(ei_x_buff* x, const char* s, int len,
 			  erlang_char_encoding from, erlang_char_encoding to);
 int ei_encode_binary(char *buf, int *index, const void *p, long len);
+int ei_encode_bitstring(char *buf, int *index, const void *p, size_t bits);
 int ei_x_encode_binary(ei_x_buff* x, const void* s, int len);
+int ei_x_encode_bitstring(ei_x_buff* x, const void* p, size_t bits);
 int ei_encode_pid(char *buf, int *index, const erlang_pid *p);
 int ei_x_encode_pid(ei_x_buff* x, const erlang_pid* pid);
 int ei_encode_fun(char* buf, int* index, const erlang_fun* p);
@@ -524,8 +537,8 @@ int ei_encode_port(char *buf, int *index, const erlang_port *p);
 int ei_x_encode_port(ei_x_buff* x, const erlang_port *p);
 int ei_encode_ref(char *buf, int *index, const erlang_ref *p);
 int ei_x_encode_ref(ei_x_buff* x, const erlang_ref *p);
-int ei_encode_term(char *buf, int *index, void *t); /* ETERM* actually */
-int ei_x_encode_term(ei_x_buff* x, void* t);
+int ei_encode_term(char *buf, int *index, void *t) EI_DEPRECATED_ATTR;
+int ei_x_encode_term(ei_x_buff* x, void* t) EI_DEPRECATED_ATTR;
 int ei_encode_trace(char *buf, int *index, const erlang_trace *p);
 int ei_x_encode_trace(ei_x_buff* x, const erlang_trace *p);
 int ei_encode_tuple_header(char *buf, int *index, int arity);
@@ -547,8 +560,6 @@ int ei_x_encode_map_header(ei_x_buff* x, long n);
  */
 
 int ei_get_type(const char *buf, const int *index, int *type, int *size);
-int ei_get_type_internal(const char *buf, const int *index, int *type,
-			 int *size);
 
 /* Step through buffer, decoding the given type into the buffer
  * provided. On success, 0 is returned and index is updated to point
@@ -567,12 +578,13 @@ int ei_decode_string(const char *buf, int *index, char *p);
 int ei_decode_atom(const char *buf, int *index, char *p);
 int ei_decode_atom_as(const char *buf, int *index, char *p, int destlen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result);
 int ei_decode_binary(const char *buf, int *index, void *p, long *len);
+int ei_decode_bitstring(const char *buf, int *index, void *p, size_t plen, size_t *bitsp);
 int ei_decode_fun(const char* buf, int* index, erlang_fun* p);
 void free_fun(erlang_fun* f);
 int ei_decode_pid(const char *buf, int *index, erlang_pid *p);
 int ei_decode_port(const char *buf, int *index, erlang_port *p);
 int ei_decode_ref(const char *buf, int *index, erlang_ref *p);
-int ei_decode_term(const char *buf, int *index, void *t); /* ETERM** actually */
+int ei_decode_term(const char *buf, int *index, void *t) EI_DEPRECATED_ATTR;
 int ei_decode_trace(const char *buf, int *index, erlang_trace *p);
 int ei_decode_tuple_header(const char *buf, int *index, int *arity);
 int ei_decode_list_header(const char *buf, int *index, int *arity);

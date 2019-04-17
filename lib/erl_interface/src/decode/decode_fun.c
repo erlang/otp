@@ -33,22 +33,20 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
     int i, ix, ix0, n;
     erlang_pid* p_pid;
     char* p_module;
-    erlang_char_encoding* p_module_org_enc;
     long* p_index;
     long* p_uniq;
     long* p_old_index;
 
     if (p != NULL) {
-	p_pid = &p->pid;
+	p_pid = &p->u.closure.pid;
 	p_module = &p->module[0];
-	p_module_org_enc = &p->module_org_enc;
-	p_index = &p->index;
-	p_uniq = &p->uniq;
-	p_old_index = &p->old_index;
+	p_index = &p->u.closure.index;
+	p_uniq = &p->u.closure.uniq;
+	p_old_index = &p->u.closure.old_index;
     }
     else {
-	p_pid = NULL; p_module = NULL; p_module_org_enc = NULL;
 	p_index = NULL; p_uniq = NULL; p_old_index = NULL;
+	p_pid = NULL; p_module = NULL;
     }
 
     switch (get8(s)) {
@@ -63,7 +61,7 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 	    return -1;
 	/* then the module (atom) */
 	if (ei_decode_atom_as(s, &ix, p_module, MAXATOMLEN_UTF8, ERLANG_UTF8,
-			      p_module_org_enc, NULL) < 0)
+                              NULL, NULL) < 0)
 	    return -1;
 	/* then the index */
 	if (ei_decode_long(s, &ix, p_index) < 0)
@@ -78,11 +76,11 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 		return -1;
 	}
 	if (p != NULL) {
-	    p->n_free_vars = n;
-	    p->free_var_len = ix - ix0;
-	    p->free_vars = ei_malloc(ix - ix0);
-	    if (!(p->free_vars)) return -1;
-	    memcpy(p->free_vars, s + ix0, ix - ix0);
+	    p->u.closure.n_free_vars = n;
+	    p->u.closure.free_var_len = ix - ix0;
+	    p->u.closure.free_vars = ei_malloc(ix - ix0);
+	    if (!(p->u.closure.free_vars)) return -1;
+	    memcpy(p->u.closure.free_vars, s + ix0, ix - ix0);
 	}
 	s += ix;
 	*index += s-s0;
@@ -93,20 +91,23 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 	n = get32be(s);
 	/* then the arity */
 	i = get8(s);
-	if (p != NULL) p->arity = i;
-	/* then md5 */
-	if (p != NULL) memcpy(p->md5, s, 16);
+	if (p != NULL) {
+            p->type = EI_FUN_CLOSURE;
+            p->arity = i;
+            /* then md5 */
+            memcpy(p->u.closure.md5, s, 16);
+        }
 	s += 16;
 	/* then index */
 	i = get32be(s);
-	if (p != NULL) p->index = i;
+	if (p != NULL) p->u.closure.index = i;
 	/* then the number of free vars (environment) */
 	i = get32be(s);
-	if (p != NULL) p->n_free_vars = i;
+	if (p != NULL) p->u.closure.n_free_vars = i;
 	/* then the module (atom) */
 	ix = 0;
 	if (ei_decode_atom_as(s, &ix, p_module, MAXATOMLEN_UTF8, ERLANG_UTF8,
-			      p_module_org_enc, NULL) < 0)
+                              NULL, NULL) < 0)
 	    return -1;
 	/* then the old_index */
 	if (ei_decode_long(s, &ix, p_old_index) < 0)
@@ -122,17 +123,56 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 	n = n - (s - s0) + 1;
 	if (n < 0) return -1;
 	if (p != NULL) {
-	    p->free_var_len = n;
+	    p->u.closure.free_var_len = n;
 	    if (n > 0) {
-		p->free_vars = malloc(n);
-		if (!(p->free_vars)) return -1;
-		memcpy(p->free_vars, s, n);
+		p->u.closure.free_vars = malloc(n);
+		if (!(p->u.closure.free_vars)) return -1;
+		memcpy(p->u.closure.free_vars, s, n);
 	    }
 	}
 	s += n;
 	*index += s-s0;
         return 0;
 	break;
+    case ERL_EXPORT_EXT: {
+        char* p_func;
+        long* p_arity;
+        int used;
+
+        if (p) {
+            p->type = EI_FUN_EXPORT;
+            p_arity = &p->arity;
+        }
+        else {
+            p_arity = NULL;
+        }
+        if (ei_decode_atom_as(s, &ix, p_module, MAXATOMLEN_UTF8, ERLANG_UTF8,
+                              NULL, NULL) < 0)
+            return -1;
+        if (p) {
+            /* try use module buffer for function name */
+            used = strlen(p->module) + 1;
+            p_func = p->module + used;
+            p->u.export.func = p_func;
+            p->u.export.func_allocated = 0;
+        }
+        else {
+            used = 0;
+            p_func = NULL;
+        }
+        while (ei_decode_atom_as(s, &ix, p_func, MAXATOMLEN_UTF8-used,
+                                 ERLANG_UTF8, NULL, NULL) < 0) {
+            if (!used)
+                return -1;
+            p_func = malloc(MAXATOMLEN_UTF8);
+            p->u.export.func = p_func;
+            p->u.export.func_allocated = 1;
+            used = 0;
+        }
+        if (ei_decode_long(s, &ix, p_arity) < 0)
+            return -1;
+        return 0;
+    }
     default:
 	return -1;
     }
@@ -140,6 +180,14 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 
 void free_fun(erlang_fun* f)
 {
-  if (f->free_var_len > 0)
-      ei_free(f->free_vars);
+    switch (f->type) {
+    case EI_FUN_CLOSURE:
+        if (f->u.closure.free_var_len > 0)
+            ei_free(f->u.closure.free_vars);
+        break;
+    case EI_FUN_EXPORT:
+        if (f->u.export.func_allocated)
+            ei_free(f->u.export.func);
+        break;
+    }
 }

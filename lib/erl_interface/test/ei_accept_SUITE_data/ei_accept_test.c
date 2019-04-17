@@ -58,7 +58,7 @@ static struct {
     int num_args;		/* Number of arguments. */
     void (*func)(char* buf, int len);
 } commands[] = {
-    "ei_connect_init",  3, cmd_ei_connect_init,
+    "ei_connect_init",  4, cmd_ei_connect_init,
     "ei_publish", 	1, cmd_ei_publish,
     "ei_accept", 	1, cmd_ei_accept,
     "ei_receive",  	1, cmd_ei_receive,
@@ -106,21 +106,25 @@ TESTCASE(interpret)
 static void cmd_ei_connect_init(char* buf, int len)
 {
     int index = 0, r = 0;
-    int type, size;
-    long l;
-    char b[100];
+    long num, creation;
+    unsigned long compat;
+    char node_name[100];
     char cookie[MAXATOMLEN], * cp = cookie;
     ei_x_buff res;
-    if (ei_decode_long(buf, &index, &l) < 0)
+    if (ei_decode_long(buf, &index, &num) < 0)
 	fail("expected int");
-    sprintf(b, "c%d", l);
-    /* FIXME don't use internal and maybe use skip?! */
-    ei_get_type_internal(buf, &index, &type, &size);
+    sprintf(node_name, "c%d", num);
     if (ei_decode_atom(buf, &index, cookie) < 0)
 	fail("expected atom (cookie)");
     if (cookie[0] == '\0')
 	cp = NULL;
-    r = ei_connect_init(&ec, b, cp, 0);
+    if (ei_decode_long(buf, &index, &creation) < 0)
+	fail("expected int");
+    if (ei_decode_long(buf, &index, &compat) < 0)
+	fail("expected uint");
+    if (compat)
+        ei_set_compat_rel(compat);
+    r = ei_connect_init(&ec, node_name, cp, creation);
     ei_x_new_with_version(&res);
     ei_x_encode_long(&res, r);
     send_bin_term(&res);

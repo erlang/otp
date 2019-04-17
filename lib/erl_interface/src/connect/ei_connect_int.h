@@ -102,6 +102,8 @@ extern int h_errno;
 #define DFLAG_FUN_TAGS            16
 #define DFLAG_NEW_FUN_TAGS        0x80
 #define DFLAG_EXTENDED_PIDS_PORTS 0x100
+#define DFLAG_EXPORT_PTR_TAG      0x200
+#define DFLAG_BIT_BINARIES        0x400
 #define DFLAG_NEW_FLOATS          0x800
 #define DFLAG_SMALL_ATOM_TAGS     0x4000
 #define DFLAG_UTF8_ATOMS          0x10000

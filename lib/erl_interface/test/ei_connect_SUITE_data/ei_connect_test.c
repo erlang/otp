@@ -107,7 +107,6 @@ TESTCASE(interpret)
 static void cmd_ei_connect_init(char* buf, int len)
 {
     int index = 0, r = 0;
-    int type, size;
     long l;
     char b[100];
     char cookie[MAXATOMLEN], * cp = cookie;
@@ -115,8 +114,6 @@ static void cmd_ei_connect_init(char* buf, int len)
     if (ei_decode_long(buf, &index, &l) < 0)
 	fail("expected int");
     sprintf(b, "c%ld", l);
-    /* FIXME don't use internal and maybe use skip?! */
-    ei_get_type_internal(buf, &index, &type, &size);
     if (ei_decode_atom(buf, &index, cookie) < 0)
 	fail("expected atom (cookie)");
     if (cookie[0] == '\0')
@@ -212,6 +209,8 @@ static void cmd_ei_send_funs(char* buf, int len)
     erlang_pid pid;
     ei_x_buff x;
     erlang_fun fun1, fun2;
+    unsigned char bitstring[10];
+    size_t bits;
 
     if (ei_decode_long(buf, &index, &fd) < 0)
 	fail("expected long");
@@ -219,20 +218,24 @@ static void cmd_ei_send_funs(char* buf, int len)
 	fail("expected pid (node)");
     if (ei_decode_tuple_header(buf, &index, &n) < 0)
 	fail("expected tuple");
-    if (n != 2)
+    if (n != 3)
 	fail("expected tuple");
     if (ei_decode_fun(buf, &index, &fun1) < 0)
 	fail("expected Fun1");
     if (ei_decode_fun(buf, &index, &fun2) < 0)
 	fail("expected Fun2");
+    if (ei_decode_bitstring(buf, &index, bitstring, sizeof(bitstring), &bits) < 0)
+	fail("expected bitstring");
     if (ei_x_new_with_version(&x) < 0)
 	fail("ei_x_new_with_version");
-    if (ei_x_encode_tuple_header(&x, 2) < 0)
+    if (ei_x_encode_tuple_header(&x, 3) < 0)
 	fail("encode tuple header");
     if (ei_x_encode_fun(&x, &fun1) < 0)
 	fail("encode fun1");
     if (ei_x_encode_fun(&x, &fun2) < 0)
 	fail("encode fun2");
+    if (ei_x_encode_bitstring(&x, bitstring, bits) < 0)
+	fail("encode bitstring");
     free_fun(&fun1);
     free_fun(&fun2);
     send_errno_result(ei_send(fd, &pid, x.buff, x.index));
