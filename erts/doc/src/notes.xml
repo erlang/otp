@@ -2022,6 +2022,62 @@
 
 </section>
 
+<section><title>Erts 9.3.3.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixes of install/release phase in build system.</p>
+	    <list> <item>The source tree was modified when
+	    installing/releasing and/or applying a patch.</item>
+	    <item>Some files were installed with wrong access
+	    rights.</item> <item>If applying a patch (using
+	    <c>otp_patch_apply</c>) as another user (except root)
+	    than the user that built the source, the documentation
+	    was not properly updated.</item> </list>
+          <p>
+	    Own Id: OTP-15551</p>
+        </item>
+        <item>
+          <p>
+	    Minor fixes for <c>make clean</c>.</p>
+          <p>
+	    Own Id: OTP-15657</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug in all <c>ets:select*</c> and
+	    <c>ets:match*</c> functions that could in some rare cases
+	    lead to very poor performance.</p>
+          <p>
+	    Own Id: OTP-15660 Aux Id: ERL-869 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a possible deadlock when terminating the ERTS caused
+	    by a dirty scheduler not releasing it's run-queue lock
+	    when terminating.</p>
+          <p>
+	    Own Id: OTP-15690 Aux Id: PR-2172 </p>
+        </item>
+        <item>
+	    <p>Add missing documentation of new external tags
+	    <c>NEW_PID</c>, <c>NEW_PORT</c> and
+	    <c>NEWER_REFERENCE</c> introduced in OTP 19.</p> <p>These
+	    new tags are planned to be "activated" in OTP 23 when
+	    distribution capability flag <c>DFLAG_BIG_CREATION</c>
+	    becomes mandatory. Older nodes (>= 19) are able to decode
+	    these new tags and send them back to the new node. Nodes
+	    older than OTP 23 will however never encode their own
+	    local pids, ports and references using the new tags.</p>
+          <p>
+	    Own Id: OTP-15766</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.9</title>
 
     <section><title>Improvements and New Features</title>
