@@ -1399,7 +1399,7 @@ rekey_chk(Config, RLdaemon, RLclient) ->
     Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
 
     %% Make both sides send something:
-    {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
+    {ok, _SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     %% Check rekeying
     timer:sleep(?REKEY_DATA_TMO),

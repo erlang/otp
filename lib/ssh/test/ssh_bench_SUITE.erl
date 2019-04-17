@@ -178,7 +178,7 @@ gen_data(DataSz) ->
 
 
 connect_measure(Port, Cipher, Mac, Data, Options) ->
-    AES_GCM = {cipher,
+    _AES_GCM = {cipher,
                []},
                %% ['aes256-gcm@openssh.com',
                %%  'aes128-gcm@openssh.com']},
@@ -187,22 +187,22 @@ connect_measure(Port, Cipher, Mac, Data, Options) ->
                  {none,none} ->
                      [{modify_algorithms,[{prepend, [{cipher,[Cipher]},
                                                      {mac,[Mac]}]}
-%%%                                          ,{rm,[AES_GCM]}
+%%%                                          ,{rm,[_AES_GCM]}
                                          ]}];
                  {none,_} ->
                      [{modify_algorithms,[{prepend, [{cipher,[Cipher]}]}
-%%%                                          ,{rm,[AES_GCM]}
+%%%                                          ,{rm,[_AES_GCM]}
                                          ]},
                       {preferred_algorithms, [{mac,[Mac]}]}];
                  {_,none} ->
                      [{modify_algorithms,[{prepend, [{mac,[Mac]}]}
-%%%                                          ,{rm,[AES_GCM]}
+%%%                                          ,{rm,[_AES_GCM]}
                                          ]},
                       {preferred_algorithms, [{cipher,[Cipher]}]}];
                  _ ->
                      [{preferred_algorithms, [{cipher,[Cipher]},
                                               {mac,[Mac]}]}
-%%%                      ,{modify_algorithms, [{rm,[AES_GCM]}]}
+%%%                      ,{modify_algorithms, [{rm,[_AES_GCM]}]}
                      ]
              end,
     Times =

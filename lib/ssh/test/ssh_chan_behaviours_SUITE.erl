@@ -128,8 +128,8 @@ subsystem_client(Config) ->
     C = proplists:get_value(connref, Config),
 
     {ok,ChRef} = ssh_chan_behaviours_client:start_link(C),
-    IDclt = ?EXPECT({{C,Ch1clt},     {ssh_channel_up,Ch1clt,C}},     {C,Ch1clt}),
-    IDsrv = ?EXPECT({{_Csrv,Ch1srv}, {ssh_channel_up,Ch1srv,_Csrv}}, {_Csrv,Ch1srv}),
+    IDclt = ?EXPECT({{C,_Ch1clt},     {ssh_channel_up,_Ch1clt,C}},     {C,_Ch1clt}),
+    IDsrv = ?EXPECT({{_Csrv,_Ch1srv}, {ssh_channel_up,_Ch1srv,_Csrv}}, {_Csrv,_Ch1srv}),
 
     ok = ssh_chan_behaviours_client:stop(ChRef),
     ?EXPECT({IDclt, {terminate,normal}}, []), % From the proper channel handler

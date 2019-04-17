@@ -1133,7 +1133,7 @@ check_local_directory(ServerRootDir) ->
 
 check_local_directory(ServerRootDir, SleepTime, N) ->
     case do_check_local_directory(ServerRootDir) of
-        {error,Error} when N>0 ->
+        {error,_Error} when N>0 ->
             %% Could be that the erlang side is faster and the docker's operations
             %% are not yet finalized.
             %% Sleep for a while and retry a few times:
