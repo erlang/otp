@@ -5298,44 +5298,31 @@ erts_get_port_names(Eterm id, ErlDrvPort drv_port)
 	pnp->driver_name = NULL;
     }
     else {
-	int do_realloc = 1;
-	int len = -1;
-	size_t pnp_len = sizeof(ErtsPortNames);
-#ifndef DEBUG
-	pnp_len += 100; /* In most cases 100 characters will be enough... */
-	ASSERT(prt->common.id == id);
-#endif
-	pnp = erts_alloc(ERTS_ALC_T_PORT_NAMES, pnp_len);
-	do {
-	    int nlen;
-	    char *name, *driver_name;
-	    if (len > 0) {
-		erts_free(ERTS_ALC_T_PORT_NAMES, pnp);
-		pnp_len = sizeof(ErtsPortNames) + len;
-		pnp = erts_alloc(ERTS_ALC_T_PORT_NAMES, pnp_len);
-	    }
-	    name = prt->name;
-	    len = nlen = name ? sys_strlen(name) + 1 : 0;
-	    driver_name = (prt->drv_ptr ? prt->drv_ptr->name : NULL);
-	    len += driver_name ? sys_strlen(driver_name) + 1 : 0;
-	    if (len <= pnp_len - sizeof(ErtsPortNames)) {
-		if (!name)
-		    pnp->name = NULL;
-		else {
-		    pnp->name = ((char *) pnp) + sizeof(ErtsPortNames);
-		    sys_strcpy(pnp->name, name);
-		}
-		if (!driver_name)
-		    pnp->driver_name = NULL;
-		else {
-		    pnp->driver_name = (((char *) pnp)
-					+ sizeof(ErtsPortNames)
-					+ nlen);
-		    sys_strcpy(pnp->driver_name, driver_name);
-		}
-		do_realloc = 0;
-	    }
-	} while (do_realloc);
+	int len;
+        int nlen;
+        char *driver_name;
+
+        len = nlen = prt->name ? sys_strlen(prt->name) + 1 : 0;
+        driver_name = (prt->drv_ptr ? prt->drv_ptr->name : NULL);
+        len += driver_name ? sys_strlen(driver_name) + 1 : 0;
+
+        pnp = erts_alloc(ERTS_ALC_T_PORT_NAMES,
+                         sizeof(ErtsPortNames) + len);
+
+        if (!prt->name)
+            pnp->name = NULL;
+        else {
+            pnp->name = ((char *) pnp) + sizeof(ErtsPortNames);
+            sys_strcpy(pnp->name, prt->name);
+        }
+        if (!driver_name)
+            pnp->driver_name = NULL;
+        else {
+            pnp->driver_name = (((char *) pnp)
+                                + sizeof(ErtsPortNames)
+                                + nlen);
+            sys_strcpy(pnp->driver_name, driver_name);
+        }
     }
     return pnp;
 }
