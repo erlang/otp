@@ -2729,8 +2729,7 @@ api_a_send_and_recv_udp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create socket",
@@ -2864,8 +2863,7 @@ api_a_send_and_recv_udp(InitState) ->
          %% *** Init part ***
          #{desc => "local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "open socket",
@@ -2876,8 +2874,12 @@ api_a_send_and_recv_udp(InitState) ->
                    end},
          #{desc => "bind socket (to local address)",
            cmd  => fun(#{sock := Sock, lsa := LSA}) ->
-                           sock_bind(Sock, LSA),
-                           ok
+                          case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester}) ->
@@ -3209,8 +3211,7 @@ api_a_send_and_recv_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -3401,10 +3402,8 @@ api_a_send_and_recv_tcp(InitState) ->
          %% *** The init part ***
          #{desc => "which server (local) address",
            cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, 
-                                     addr   => LAddr},
-                           SSA   = LSA#{port => Port},
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
                            {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
@@ -3764,8 +3763,7 @@ api_a_recv_cancel_udp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create socket",
@@ -3999,8 +3997,7 @@ api_a_accept_cancel_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -4245,8 +4242,7 @@ api_a_recv_cancel_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -4389,10 +4385,8 @@ api_a_recv_cancel_tcp(InitState) ->
          %% *** The init part ***
          #{desc => "which server (local) address",
            cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, 
-                                     addr   => LAddr},
-                           SSA   = LSA#{port => Port},
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
                            {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
@@ -21692,7 +21686,9 @@ ttest_tcp_server_start(Node, _Domain, gen, Active) ->
     socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active);
 ttest_tcp_server_start(Node, Domain, sock, Active) ->
     TransportMod = socket_test_ttest_tcp_socket,
-    Transport    = {TransportMod, #{domain => Domain, method => plain}},
+    Transport    = {TransportMod, #{domain => Domain,
+                                    async  => true,
+                                    method => plain}},
     socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active).
 
 ttest_tcp_server_stop(Pid) ->
@@ -21714,7 +21710,9 @@ ttest_tcp_client_start(Node,
                        Domain, sock,
                        ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     TransportMod = socket_test_ttest_tcp_socket,
-    Transport    = {TransportMod, #{domain => Domain, method => plain}},
+    Transport    = {TransportMod, #{domain => Domain,
+                                    async  => true,
+                                    method => plain}},
     socket_test_ttest_tcp_client:start_monitor(Node,
                                                Notify,
                                                Transport,
