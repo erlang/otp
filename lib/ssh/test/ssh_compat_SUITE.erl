@@ -150,8 +150,7 @@ init_per_group(G, Config0) ->
                             stop_docker(ID),
                             {fail, "Can't contact docker sshd"}
                     catch
-                        Class:Exc ->
-                            ST = erlang:get_stacktrace(),
+                        Class:Exc:ST ->
                             ct:log("common_algs: ~p:~p~n~p",[Class,Exc,ST]),
                             stop_docker(ID),
                             {fail, "Failed during setup"}
@@ -160,8 +159,7 @@ init_per_group(G, Config0) ->
                 cant_start_docker ->
                     {skip, "Can't start docker"};
 
-                C:E ->
-                    ST = erlang:get_stacktrace(),
+                C:E:ST ->
                     ct:log("No ~p~n~p:~p~n~p",[G,C,E,ST]),
                     {skip, "Can't start docker"}
             end;
@@ -1026,8 +1024,7 @@ receive_hello(S) ->
         Result ->
             Result
     catch
-        Class:Error ->
-            ST = erlang:get_stacktrace(),
+        Class:Error:ST ->
             {error, {Class,Error,ST}}
     end.
         
@@ -1104,8 +1101,7 @@ sftp_tests_erl_server(Config, ServerIP, ServerPort, ServerRootDir, UserDir) ->
         call_sftp_in_docker(Config, ServerIP, ServerPort, Cmnds, UserDir),
         check_local_directory(ServerRootDir)
     catch
-        Class:Error ->
-            ST = erlang:get_stacktrace(),
+        Class:Error:ST ->
             {error, {Class,Error,ST}}
     end.
 
@@ -1347,8 +1343,7 @@ one_test_erl_client(SFTP, Id, C) when SFTP==sftp ; SFTP==sftp_async ->
         catch ssh_sftp:stop_channel(Ch),
         R
     catch
-        Class:Error ->
-            ST = erlang:get_stacktrace(),
+        Class:Error:ST ->
             {error, {SFTP,Id,Class,Error,ST}}
     end.
 

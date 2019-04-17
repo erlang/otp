@@ -970,7 +970,7 @@ expected_state(_) -> false.
 %%%----------------------------------------------------------------
 %%% Return a string with N random characters
 %%%
-random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
+random_chars(N) -> [($a-1)+rand:uniform($z-$a) || _<-lists:duplicate(N,x)].
 
 
 create_random_dir(Config) ->
