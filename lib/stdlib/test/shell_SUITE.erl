@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2591,7 +2591,7 @@ otp_7184(Config) when is_list(Config) ->
 otp_7232(Config) when is_list(Config) ->
     Info = <<"qlc:info(qlc:sort(qlc:q([X || X <- [55296,56296]]), "
              "{order, fun(A,B)-> A>B end})).">>,
-    "qlc:sort([55296,56296],\n"
+    "qlc:sort([55296, 56296],\n"
     "         [{order,\n"
     "           fun(A, B) ->\n"
     "                  A > B\n"
@@ -2752,7 +2752,7 @@ otp_10302(Config) when is_list(Config) ->
            h().">>,
 
     "ok.\n\"\x{400}\"\nA = \"\x{400}\".\nok.\n"
-    "1: io:setopts([{encoding,utf8}])\n-> ok.\n"
+    "1: io:setopts([{encoding, utf8}])\n-> ok.\n"
     "2: A = [1024] = \"\x{400}\"\n-> \"\x{400}\"\n"
     "3: b()\n-> ok.\nok.\n" = t({Node,Test4}),
 

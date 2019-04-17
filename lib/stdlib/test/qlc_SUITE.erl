@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2436,7 +2436,7 @@ info(Config) when is_list(Config) ->
        <<"{'EXIT', {badarg, _}} = 
                (catch qlc:info([X || {X} <- []], {n_elements, 0})),
           L = lists:seq(1, 1000),
-          \"[1,2,3,4,5,6,7,8,9,10|'...']\" = qlc:info(L, {n_elements, 10}),
+          \"[1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | '...']\" = qlc:info(L, {n_elements, 10}),
           {cons,A1,{integer,A2,1},{atom,A3,'...'}} =
             qlc:info(L, [{n_elements, 1},{format,abstract_code}]),
           1 = erl_anno:line(A1),
@@ -2447,8 +2447,8 @@ info(Config) when is_list(Config) ->
                                                             {atom,_,'...'}}}},
                      {call,_,_,_}]} = 
           qlc:info(Q, [{n_elements, 3},{format,abstract_code}]),
-          \"ets:match_spec_run([a,b,c,d,e,f],\n\"
-          \"                   ets:match_spec_compile([{'$1',[true],\"
+          \"ets:match_spec_run([a, b, c, d, e, f],\n\"
+          \"                   ets:match_spec_compile([{'$1', [true], \"
           \"[{{'$1'}}]}]))\" = 
              qlc:info(Q, [{n_elements, infinity}])">>,
 
@@ -6547,7 +6547,7 @@ otp_7114(Config) when is_list(Config) ->
 otp_7232(Config) when is_list(Config) ->
     Ts = [<<"L = [fun math:sqrt/1, list_to_pid(\"<0.4.1>\"),
                   erlang:make_ref()],
-             \"[fun math:sqrt/1,<0.4.1>,#Ref<\" ++ _  = qlc:info(L),
+             \"[fun math:sqrt/1, <0.4.1>, #Ref<\" ++ _  = qlc:info(L),
              {call,_,
                {remote,_,{atom,_,qlc},{atom,_,sort}},
                [{cons,_,
@@ -6563,7 +6563,7 @@ otp_7232(Config) when is_list(Config) ->
              \"qlc:sort([55296,56296],[{order,fun'-function/0-fun-2-'/2}])\" =
                 format_info(Q, true),
              AC = qlc:info(Q, {format, abstract_code}),
-             \"qlc:sort([55296,56296], [{order,fun '-function/0-fun-2-'/2}])\" =
+             \"qlc:sort([55296, 56296], [{order, fun '-function/0-fun-2-'/2}])\" =
                 binary_to_list(iolist_to_binary(erl_pp:expr(AC)))">>,
 
          %% OTP-7234. erl_parse:abstract() handles bit strings
@@ -7088,21 +7088,21 @@ manpage(Config) when is_list(Config) ->
               \"    V1 =\n\"
               \"        qlc:q([ \n\"
               \"               SQV ||\n\"
-              \"                   SQV <- [x,y]\n\"
+              \"                   SQV <- [x, y]\n\"
               \"              ],\n\"
-              \"              [{unique,true}]),\n\"
+              \"              [{unique, true}]),\n\"
               \"    V2 =\n\"
               \"        qlc:q([ \n\"
               \"               SQV ||\n\"
-              \"                   SQV <- [a,b]\n\"
+              \"                   SQV <- [a, b]\n\"
               \"              ],\n\"
-              \"              [{unique,true}]),\n\"
+              \"              [{unique, true}]),\n\"
               \"    qlc:q([ \n\"
-              \"           {X,Y} ||\n\"
+              \"           {X, Y} ||\n\"
               \"               X <- V1,\n\"
               \"               Y <- V2\n\"
               \"          ],\n\"
-              \"          [{unique,true}])\n\"
+              \"          [{unique, true}])\n\"
               \"end\",
           true = B =:= qlc:info(QH, unique_all)">>,
 
@@ -7118,19 +7118,19 @@ manpage(Config) when is_list(Config) ->
               \"    V1 =\n\"
               \"        qlc:q([ \n\"
               \"               P0 ||\n\"
-              \"                   P0 = {W,Y} <- ets:table(_)\n\"
+              \"                   P0 = {W, Y} <- ets:table(_)\n\"
               \"              ]),\n\"
               \"    V2 =\n\"
               \"        qlc:q([ \n\"
-              \"               [G1|G2] ||\n\"
+              \"               [G1 | G2] ||\n\"
               \"                   G2 <- V1,\n\"
               \"                   G1 <- ets:table(_),\n\"
               \"                   element(2, G1) =:= element(1, G2)\n\"
               \"              ],\n\"
-              \"              [{join,lookup}]),\n\"
+              \"              [{join, lookup}]),\n\"
               \"    qlc:q([ \n\"
-              \"           {X,Z,W} ||\n\"
-              \"               [{X,Z}|{W,Y}] <- V2\n\"
+              \"           {X, Z, W} ||\n\"
+              \"               [{X, Z} | {W, Y}] <- V2\n\"
               \"          ])\n\"
               \"end\",
           Info1 =
@@ -7155,25 +7155,28 @@ manpage(Config) when is_list(Config) ->
        \"    V1 =\n\"
        \"        qlc:q([ \n\"
        \"               P0 ||\n\"
-       \"                   P0 = {X,Z} <- qlc:keysort(1, [{a,1},{b,4},{c,6}], [])\n\"
+       \"                   P0 = {X, Z} <-\n\"
+       \"                       qlc:keysort(1, [{a, 1}, {b, 4}, {c, 6}], [])\n\"
        \"              ]),\n\"
        \"    V2 =\n\"
        \"        qlc:q([ \n\"
        \"               P0 ||\n\"
-       \"                   P0 = {W,Y} <- qlc:keysort(2, [{2,a},{3,b},{4,c}], [])\n\"
+       \"                   P0 = {W, Y} <-\n\"
+       \"                       qlc:keysort(2, [{2, a}, {3, b}, {4, c}], [])\n\"
+
        \"              ]),\n\"
        \"    V3 =\n\"
        \"        qlc:q([ \n\"
-       \"               [G1|G2] ||\n\"
+       \"               [G1 | G2] ||\n\"
        \"                   G1 <- V1,\n\"
        \"                   G2 <- V2,\n\"
        \"                   element(1, G1) == element(2, G2)\n\"
        \"              ],\n\"
-       \"              [{join,merge},{cache,list}]),\n\"
+       \"              [{join, merge}, {cache, list}]),\n\"
        \"    qlc:q([ \n\"
-       \"           {A,X,Z,W} ||\n\"
-       \"               A <- [a,b,c],\n\"
-       \"               [{X,Z}|{W,Y}] <- V3,\n\"
+       \"           {A, X, Z, W} ||\n\"
+       \"               A <- [a, b, c],\n\"
+       \"               [{X, Z} | {W, Y}] <- V3,\n\"
        \"               X =:= Y\n\"
        \"          ])\n\"
        \"end\",
@@ -7215,14 +7218,21 @@ manpage(Config) when is_list(Config) ->
                                             gb_trees:lookup(K,
                                                             gb_trees:from_orddict([]))
                                         of
-                                            {value,V} ->
-                                                [{K,V}];
+                                            {value, V} ->
+                                                [{K, V}];
                                             none ->
                                                 []
                                         end
                                  end,
-                                 [{1,a},{1,b},{1,c},{2,a},{2,b},{2,c}]),
-                   ets:match_spec_compile([{{{'$1','$2'},'_'},[],['$1']}]))\",
+                                 [{1, a},
+                                  {1, b},
+                                  {1, c},
+                                  {2, a},
+                                  {2, b},
+                                  {2, c}]),
+                   ets:match_spec_compile([{{{'$1', '$2'}, '_'},
+                                            [],
+                                            ['$1']}]))\",
           L = qlc:info(QH)">>
       ],
     run(Config, Ts),
