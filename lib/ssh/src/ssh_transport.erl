@@ -1328,13 +1328,15 @@ verify(PlainText, HashAlg, Sig, Key, _) ->
 
 %%% Start of a more parameterized crypto handling.
 cipher('AEAD_AES_128_GCM') ->
-    #cipher{key_bytes = 16,
+    #cipher{impl = aes_128_gcm,
+            key_bytes = 16,
             iv_bytes = 12,
             block_bytes = 16,
             pkt_type = aead};
 
 cipher('AEAD_AES_256_GCM') ->
-    #cipher{key_bytes = 32,
+    #cipher{impl = aes_256_gcm,
+            key_bytes = 32,
             iv_bytes = 12,
             block_bytes = 16,
             pkt_type = aead};
@@ -1346,7 +1348,7 @@ cipher('3des-cbc') ->
             block_bytes = 8};
     
 cipher('aes128-cbc') ->
-    #cipher{impl = aes_cbc,
+    #cipher{impl = aes_128_cbc,
             key_bytes = 16,
             iv_bytes = 16,
             block_bytes = 16};
@@ -1370,7 +1372,8 @@ cipher('aes256-ctr') ->
             block_bytes = 16};
 
 cipher('chacha20-poly1305@openssh.com') -> % FIXME: Verify!!
-    #cipher{key_bytes = 32,
+    #cipher{impl = chacha20_poly1305,
+            key_bytes = 32,
             iv_bytes = 12,
             block_bytes = 8,
             pkt_type = aead};
@@ -1407,12 +1410,14 @@ encrypt_init(#ssh{encrypt = 'chacha20-poly1305@openssh.com', role = Role} = Ssh)
 encrypt_init(#ssh{encrypt = SshCipher, role = Role} = Ssh) when SshCipher == 'AEAD_AES_128_GCM';
                                                                 SshCipher == 'AEAD_AES_256_GCM' ->
     {IvMagic, KeyMagic} = encrypt_magic(Role),
-    #cipher{key_bytes = KeyBytes,
+    #cipher{impl = CryptoCipher,
+            key_bytes = KeyBytes,
             iv_bytes = IvBytes,
             block_bytes = BlockBytes} = cipher(SshCipher),
     IV = hash(Ssh, IvMagic, 8*IvBytes),
     K = hash(Ssh, KeyMagic, 8*KeyBytes),
-    {ok, Ssh#ssh{encrypt_keys = K,
+    {ok, Ssh#ssh{encrypt_cipher = CryptoCipher,
+                 encrypt_keys = K,
 		 encrypt_block_size = BlockBytes,
 		 encrypt_ctx = IV}};
 
@@ -1425,11 +1430,12 @@ encrypt_init(#ssh{encrypt = SshCipher, role = Role} = Ssh) ->
     IV = hash(Ssh, IvMagic, 8*IvBytes),
     K = hash(Ssh, KeyMagic, 8*KeyBytes),
     Ctx0 = crypto:crypto_init(CryptoCipher, K, IV, true),
-    {ok, Ssh#ssh{encrypt_block_size = BlockBytes,
+    {ok, Ssh#ssh{encrypt_cipher = CryptoCipher,
+                 encrypt_block_size = BlockBytes,
                  encrypt_ctx = Ctx0}}.
 
 encrypt_final(Ssh) ->
-    {ok, Ssh#ssh{encrypt = none, 
+    {ok, Ssh#ssh{encrypt = none,
 		 encrypt_keys = undefined,
 		 encrypt_block_size = 8,
 		 encrypt_ctx = undefined
@@ -1457,11 +1463,12 @@ encrypt(#ssh{encrypt = 'chacha20-poly1305@openssh.com',
     {Ssh, {EncBytes,Ctag}};
 
 encrypt(#ssh{encrypt = SshCipher,
+             encrypt_cipher = CryptoCipher,
              encrypt_keys = K,
              encrypt_ctx = IV0} = Ssh,
         <<LenData:4/binary, PayloadData/binary>>) when SshCipher == 'AEAD_AES_128_GCM' ;
                                                        SshCipher == 'AEAD_AES_256_GCM' ->
-    {Ctext,Ctag} = crypto:block_encrypt(aes_gcm, K, IV0, {LenData,PayloadData}),
+    {Ctext,Ctag} = crypto:block_encrypt(CryptoCipher, K, IV0, {LenData,PayloadData}),
     IV = next_gcm_iv(IV0),
     {Ssh#ssh{encrypt_ctx = IV}, {<<LenData/binary,Ctext/binary>>,Ctag}};
 
@@ -1485,12 +1492,14 @@ decrypt_init(#ssh{decrypt = 'chacha20-poly1305@openssh.com', role = Role} = Ssh)
 decrypt_init(#ssh{decrypt = SshCipher, role = Role} = Ssh) when SshCipher == 'AEAD_AES_128_GCM';
                                                                 SshCipher == 'AEAD_AES_256_GCM' ->
     {IvMagic, KeyMagic} = decrypt_magic(Role),
-    #cipher{key_bytes = KeyBytes,
+    #cipher{impl = CryptoCipher,
+            key_bytes = KeyBytes,
             iv_bytes = IvBytes,
             block_bytes = BlockBytes} = cipher(SshCipher),
     IV = hash(Ssh, IvMagic, 8*IvBytes),
     K = hash(Ssh, KeyMagic, 8*KeyBytes),
-    {ok, Ssh#ssh{decrypt_keys = K,
+    {ok, Ssh#ssh{decrypt_cipher = CryptoCipher,
+                 decrypt_keys = K,
 		 decrypt_block_size = BlockBytes,
 		 decrypt_ctx = IV}};
 
@@ -1503,7 +1512,8 @@ decrypt_init(#ssh{decrypt = SshCipher, role = Role} = Ssh) ->
     IV = hash(Ssh, IvMagic, 8*IvBytes),
     K = hash(Ssh, KeyMagic, 8*KeyBytes),
     Ctx0 = crypto:crypto_init(CryptoCipher, K, IV, false),
-    {ok, Ssh#ssh{decrypt_block_size = BlockBytes,
+    {ok, Ssh#ssh{decrypt_cipher = CryptoCipher,
+                 decrypt_block_size = BlockBytes,
                  decrypt_ctx = Ctx0}}.
 
 decrypt_final(Ssh) ->
@@ -1542,10 +1552,11 @@ decrypt(#ssh{decrypt = none} = Ssh, Data) ->
     {Ssh, Data};
 
 decrypt(#ssh{decrypt = SshCipher,
+             decrypt_cipher = CryptoCipher,
 	     decrypt_keys = K,
 	     decrypt_ctx = IV0} = Ssh, Data = {_AAD,_Ctext,_Ctag}) when SshCipher == 'AEAD_AES_128_GCM' ;
                                                                         SshCipher == 'AEAD_AES_256_GCM' ->
-    Dec = crypto:block_decrypt(aes_gcm, K, IV0, Data), % Dec = PlainText | error 
+    Dec = crypto:block_decrypt(CryptoCipher, K, IV0, Data), % Dec = PlainText | error
     IV = next_gcm_iv(IV0),
     {Ssh#ssh{decrypt_ctx = IV}, Dec};
 

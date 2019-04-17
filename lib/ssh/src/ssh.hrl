@@ -396,11 +396,13 @@
 	  recv_mac_size = 0,
 
 	  encrypt = none,       %% encrypt algorithm
+          encrypt_cipher,       %% cipher. could be different from the algorithm
 	  encrypt_keys,         %% encrypt keys
 	  encrypt_block_size = 8,
 	  encrypt_ctx,
 
 	  decrypt = none,       %% decrypt algorithm
+          decrypt_cipher,       %% cipher. could be different from the algorithm
 	  decrypt_keys,         %% decrypt keys
 	  decrypt_block_size = 8,
 	  decrypt_ctx,          %% Decryption context   
