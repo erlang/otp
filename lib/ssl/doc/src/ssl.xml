@@ -240,6 +240,10 @@
       <name name="tls_alert"/>
      </datatype>
 
+     <datatype>
+      <name name="reason"/>
+     </datatype>
+
     <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</datatype_title>
     
     <datatype>
