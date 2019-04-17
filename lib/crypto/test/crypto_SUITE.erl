@@ -1553,7 +1553,7 @@ rand_uniform_aux_test(N) ->
     rand_uniform_aux_test(N-1).
 
 crypto_rand_uniform(L,H) ->
-    R1 = crypto:rand_uniform(L, H),
+    R1 = (L-1) + rand:uniform(H-L),
     case (R1 >= L) and (R1 < H) of
 	true  ->
 	    ok;
