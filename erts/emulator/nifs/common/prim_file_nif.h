@@ -30,6 +30,8 @@ enum efile_modes_t {
     EFILE_MODE_SKIP_TYPE_CHECK = (1 << 5), /* Special for device files on Unix. */
     EFILE_MODE_NO_TRUNCATE = (1 << 6), /* Special for reopening on VxWorks. */
 
+    EFILE_MODE_DIRECTORY = (1 << 7),
+
     EFILE_MODE_READ_WRITE = EFILE_MODE_READ | EFILE_MODE_WRITE
 };
 

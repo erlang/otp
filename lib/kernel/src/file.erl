@@ -460,7 +460,7 @@ raw_write_file_info(Name, #file_info{} = Info) ->
 -spec open(File, Modes) -> {ok, IoDevice} | {error, Reason} when
       File :: Filename | iodata(),
       Filename :: name_all(),
-      Modes :: [mode() | ram],
+      Modes :: [mode() | ram | directory],
       IoDevice :: io_device(),
       Reason :: posix() | badarg | system_limit.
 
@@ -1143,7 +1143,7 @@ path_script(Path, File, Bs) ->
              {ok, IoDevice, FullName} | {error, Reason} when
       Path :: [Dir :: name_all()],
       Filename :: name_all(),
-      Modes :: [mode()],
+      Modes :: [mode() | directory],
       IoDevice :: io_device(),
       FullName :: filename_all(),
       Reason :: posix() | badarg | system_limit.

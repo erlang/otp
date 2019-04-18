@@ -107,7 +107,7 @@ ERL_NIF_TERM efile_get_handle(ErlNifEnv *env, efile_data_t *d) {
     return result;
 }
 
-static int open_file_type_check(const efile_path_t *path, int fd) {
+static int open_file_is_dir(const efile_path_t *path, int fd) {
     struct stat file_info;
     int error;
 
@@ -119,27 +119,14 @@ static int open_file_type_check(const efile_path_t *path, int fd) {
     (void)path;
 #endif
 
-    if(error < 0) {
-        /* If we failed to stat assume success and let the next call handle the
-         * error. The old driver checked whether the file was to be used
-         * immediately in a read within the call, but the new implementation
-         * never does that. */
-         return 1;
-    }
-
-    /* Allow everything that isn't a directory, and error out on the next call
-     * if it's unsupported. */
-    if(S_ISDIR(file_info.st_mode)) {
-        return 0;
-    }
-
-    return 1;
+    /* Assume not a directory on error. */
+    return error == 0 && S_ISDIR(file_info.st_mode);
 }
 
 posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
         ErlNifResourceType *nif_type, efile_data_t **d) {
 
-    int flags, fd;
+    int mode, flags, fd;
 
     flags = 0;
 
@@ -174,18 +161,38 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
 #endif
     }
 
+    if(modes & EFILE_MODE_DIRECTORY) {
+        mode = DIR_MODE;
+#ifdef O_DIRECTORY
+        flags |= O_DIRECTORY;
+#endif
+    } else {
+        mode = FILE_MODE;
+    }
+
     do {
-        fd = open((const char*)path->data, flags, FILE_MODE);
+        fd = open((const char*)path->data, flags, mode);
     } while(fd == -1 && errno == EINTR);
 
     if(fd != -1) {
         efile_unix_t *u;
 
-        if(!(modes & EFILE_MODE_SKIP_TYPE_CHECK) && !open_file_type_check(path, fd)) {
+#ifndef O_DIRECTORY
+        /* On platforms without O_DIRECTORY support, ensure that using the
+         * directory flag to open a file fails. */
+        if(!(modes & EFILE_MODE_SKIP_TYPE_CHECK) &&
+           (modes & EFILE_MODE_DIRECTORY) && !open_file_is_dir(path, fd)) {
             close(fd);
+            return ENOTDIR;
+        }
+#endif
 
-            /* This is blatantly incorrect, but we're documented as returning
-             * this for everything that isn't a file. */
+        /* open() works on directories without the O_DIRECTORY flag but for
+         * consistency across platforms we require that the user has requested
+         * directory mode. */
+        if(!(modes & EFILE_MODE_SKIP_TYPE_CHECK) &&
+           !(modes & EFILE_MODE_DIRECTORY) && open_file_is_dir(path, fd)) {
+            close(fd);
             return EISDIR;
         }
 
