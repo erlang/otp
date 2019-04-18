@@ -67,7 +67,8 @@
          message_latency_large_message/1,
          message_latency_large_link_exit/1,
          message_latency_large_monitor_exit/1,
-         message_latency_large_exit2/1]).
+         message_latency_large_exit2/1,
+         system_limit/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -96,7 +97,7 @@ all() ->
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
      {group, message_latency},
      {group, bad_dist}, {group, bad_dist_ext},
-     start_epmd_false, epmd_module].
+     start_epmd_false, epmd_module, system_limit].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -1536,6 +1537,144 @@ flush() ->
     after 0 ->
             ok
     end.
+
+system_limit(Config) when is_list(Config) ->
+    case erlang:system_info(wordsize) of
+        8 ->
+            case proplists:get_value(system_total_memory,
+                                     memsup:get_system_memory_data()) of
+                Memory when is_integer(Memory),
+                            Memory > 6*1024*1024*1024 ->
+                    test_system_limit(Config),
+                    garbage_collect(),
+                    ok;
+                _ ->
+                    {skipped, "Not enough memory on this machine"}
+            end;
+        4 ->
+            {skipped, "Only interesting on 64-bit builds"}
+    end.
+
+test_system_limit(Config) when is_list(Config) ->
+    Bits = ((1 bsl 32)+1)*8,
+    HugeBin = <<0:Bits>>,
+    HugeListBin = [lists:duplicate(2000000,2000000), HugeBin],
+    {ok, N1} = start_node(Config),
+    monitor_node(N1, true),
+    receive
+        {nodedown, N1} ->
+            ct:fail({unexpected_nodedown, N1})
+    after 0 ->
+            ok
+    end,
+    P1 = spawn(N1,
+               fun () ->
+                       receive after infinity -> ok end
+               end),
+
+    io:format("~n** distributed send **~n~n", []),
+    try
+        P1 ! HugeBin,
+        exit(oops1)
+    catch
+        error:system_limit -> ok
+    end,
+    try
+        P1 ! HugeListBin,
+        exit(oops2)
+    catch
+        error:system_limit -> ok
+    end,
+
+    io:format("~n** distributed exit **~n~n", []),
+    try
+        exit(P1, HugeBin),
+        exit(oops3)
+    catch
+        error:system_limit -> ok
+    end,
+    try
+        exit(P1, HugeListBin),
+        exit(oops4)
+    catch
+        error:system_limit -> ok
+    end,
+
+    io:format("~n** distributed registered send **~n~n", []),
+    try
+        {missing_proc, N1} ! HugeBin,
+        exit(oops5)
+    catch
+        error:system_limit -> ok
+    end,
+    try
+        {missing_proc, N1} ! HugeListBin,
+        exit(oops6)
+    catch
+        error:system_limit -> ok
+    end,
+    receive
+        {nodedown, N1} ->
+            ct:fail({unexpected_nodedown, N1})
+    after 0 ->
+            ok
+    end,
+
+    %%
+    %% system_limit in exit reasons brings the
+    %% connection down...
+    %%
+
+    io:format("~n** distributed link exit **~n~n", []),
+    spawn(fun () ->
+                  link(P1),
+                  exit(HugeBin)
+          end),
+    receive {nodedown, N1} -> ok end,
+
+    {ok, N2} = start_node(Config),
+    monitor_node(N2, true),
+    P2 = spawn(N2,
+               fun () ->
+                       receive after infinity -> ok end
+               end),
+    spawn(fun () ->
+                  link(P2),
+                  exit(HugeListBin)
+          end),
+    receive {nodedown, N2} -> ok end,
+
+    io:format("~n** distributed monitor down **~n~n", []),
+    {ok, N3} = start_node(Config),
+    monitor_node(N3, true),
+    Go1 = make_ref(),
+    LP1 = spawn(fun () ->
+                        receive Go1 -> ok end,
+                        exit(HugeBin)
+                end),
+    _ = spawn(N3,
+               fun () ->
+                       _ = erlang:monitor(process, LP1),
+                       LP1 ! Go1,
+                       receive after infinity -> ok end
+               end),
+    receive {nodedown, N3} -> ok end,
+
+    {ok, N4} = start_node(Config),
+    monitor_node(N4, true),
+    Go2 = make_ref(),
+    LP2 = spawn(fun () ->
+                        receive Go2 -> ok end,
+                        exit(HugeListBin)
+                end),
+    _ = spawn(N4,
+              fun () ->
+                      _ = erlang:monitor(process, LP2),
+                      LP2 ! Go2,
+                      receive after infinity -> ok end
+              end),
+    receive {nodedown, N4} -> ok end,
+    ok.
 
 -define(COOKIE, '').
 -define(DOP_LINK,		1).

@@ -1344,11 +1344,18 @@ unsigned char* enif_make_new_binary(ErlNifEnv* env, size_t size,
 int enif_term_to_binary(ErlNifEnv *dst_env, ERL_NIF_TERM term,
                         ErlNifBinary *bin)
 {
-    Sint size;
+    Uint size;
     byte *bp;
     Binary* refbin;
 
-    size = erts_encode_ext_size(term);
+    switch (erts_encode_ext_size(term, &size)) {
+    case ERTS_EXT_SZ_SYSTEM_LIMIT:
+        return 0; /* system limit */
+    case ERTS_EXT_SZ_YIELD:
+        ERTS_INTERNAL_ERROR("Unexpected yield");
+    case ERTS_EXT_SZ_OK:
+        break;
+    }
     if (!enif_alloc_binary(size, bin))
         return 0;
 

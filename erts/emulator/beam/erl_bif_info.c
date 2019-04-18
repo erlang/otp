@@ -4236,7 +4236,10 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		Uint dflags = (TERM_TO_BINARY_DFLAGS
                                & ~DFLAG_EXPORT_PTR_TAG
                                & ~DFLAG_BIT_BINARIES);
-		BIF_RET(erts_term_to_binary(BIF_P, tp[2], 0, dflags));
+		Eterm res = erts_term_to_binary(BIF_P, tp[2], 0, dflags);
+                if (is_value(res))
+                    BIF_RET(res);
+                BIF_ERROR(BIF_P, SYSTEM_LIMIT);
 	    }
 	    else if (ERTS_IS_ATOM_STR("dist_ctrl", tp[1])) {
 		Eterm res = am_undefined;

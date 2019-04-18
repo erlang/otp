@@ -635,9 +635,11 @@ write_sys_msg_to_port(Eterm unused_to,
 		      Eterm message) {
     byte *buffer;
     byte *ptr;
-    unsigned size;
+    Uint size;
 
-    size = erts_encode_ext_size(message);
+    if (erts_encode_ext_size(message, &size) != ERTS_EXT_SZ_OK)
+	erts_exit(ERTS_ERROR_EXIT, "Internal error: System limit\n");
+
     buffer = (byte *) erts_alloc(ERTS_ALC_T_TMP, size);
 
     ptr = buffer;

@@ -2307,8 +2307,18 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 
 	    ctx->data_size = ctx->max_finalize_prepend;
 	    erts_reset_atom_cache_map(ctx->acmp);
-	    erts_encode_dist_ext_size(ctx->ctl, ctx->flags, ctx->acmp, &ctx->data_size);
 
+	    switch (erts_encode_dist_ext_size(ctx->ctl, ctx->flags,
+                                              ctx->acmp, &ctx->data_size)) {
+            case ERTS_EXT_SZ_OK:
+                break;
+            case ERTS_EXT_SZ_SYSTEM_LIMIT:
+                retval = ERTS_DSIG_SEND_TOO_LRG;
+                goto done;
+            case ERTS_EXT_SZ_YIELD:
+                ERTS_INTERNAL_ERROR("Unexpected yield result");
+                break;
+            }
 	    if (is_non_value(ctx->msg)) {
                 ctx->phase = ERTS_DSIG_SEND_PHASE_ALLOC;
                 break;
@@ -2318,17 +2328,31 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
             ctx->u.sc.level = 0;
 
             ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_SIZE;
-	case ERTS_DSIG_SEND_PHASE_MSG_SIZE:
-            if (!ctx->no_trap) {
-                if (erts_encode_dist_ext_size_int(ctx->msg, ctx, &ctx->data_size)) {
-                    retval = ERTS_DSIG_SEND_CONTINUE;
-                    goto done;
-                }
-            } else {
-                erts_encode_dist_ext_size(ctx->msg, ctx->flags, ctx->acmp, &ctx->data_size);
+	case ERTS_DSIG_SEND_PHASE_MSG_SIZE: {
+            ErtsExtSzRes sz_res;
+            sz_res = (!ctx->no_trap
+                      ? erts_encode_dist_ext_size_ctx(ctx->msg,
+                                                      ctx,
+                                                      &ctx->data_size)
+                      : erts_encode_dist_ext_size(ctx->msg,
+                                                  ctx->flags,
+                                                  ctx->acmp,
+                                                  &ctx->data_size));
+            switch (sz_res) {
+            case ERTS_EXT_SZ_OK:
+                break;
+            case ERTS_EXT_SZ_SYSTEM_LIMIT:
+                retval = ERTS_DSIG_SEND_TOO_LRG;
+                goto done;
+            case ERTS_EXT_SZ_YIELD:
+                if (ctx->no_trap)
+                    ERTS_INTERNAL_ERROR("Unexpected yield result");
+                retval = ERTS_DSIG_SEND_CONTINUE;
+                goto done;
             }
 
 	    ctx->phase = ERTS_DSIG_SEND_PHASE_ALLOC;
+        }
 	case ERTS_DSIG_SEND_PHASE_ALLOC:
 	    erts_finalize_atom_cache_map(ctx->acmp, ctx->flags);
 

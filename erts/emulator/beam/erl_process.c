@@ -12151,6 +12151,7 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         case ERTS_DSIG_SEND_OK:
             break;
         case ERTS_DSIG_SEND_TOO_LRG:
+            erts_kill_dist_connection(dep, dist->connection_id);
             erts_set_gc_state(c_p, 1);
             break;
         default:
@@ -12401,6 +12402,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
         case ERTS_DSIG_SEND_OK:
             break;
         case ERTS_DSIG_SEND_TOO_LRG:
+            erts_kill_dist_connection(dep, dist->connection_id);
             erts_set_gc_state(c_p, 1);
             break;
         default:
@@ -12897,7 +12899,9 @@ restart:
 
             switch (result) {
             case ERTS_DSIG_SEND_OK:
+                break;
             case ERTS_DSIG_SEND_TOO_LRG: /*SEND_SYSTEM_LIMIT*/
+                erts_kill_dist_connection(ctx->dep, ctx->connection_id);
                 break;
             case ERTS_DSIG_SEND_YIELD: /*SEND_YIELD_RETURN*/
             case ERTS_DSIG_SEND_CONTINUE: { /*SEND_YIELD_CONTINUE*/

@@ -4450,6 +4450,7 @@ erts_port_call(Process* c_p,
     char input_buf[256];
     char *bufp;
     byte *endp;
+    Uint uintsz;
     ErlDrvSizeT size;
     int try_call;
     erts_aint32_t sched_flags;
@@ -4462,7 +4463,9 @@ erts_port_call(Process* c_p,
 
     try_call = !(sched_flags & ERTS_PTS_FLGS_FORCE_SCHEDULE_OP);
 
-    size = erts_encode_ext_size(data);
+    if (erts_encode_ext_size(data, &uintsz) != ERTS_EXT_SZ_OK)
+        return ERTS_PORT_OP_BADARG;
+    size = (ErlDrvSizeT) uintsz;
 
     if (!try_call)
 	bufp = erts_alloc(ERTS_ALC_T_DRV_CALL_DATA, size);
