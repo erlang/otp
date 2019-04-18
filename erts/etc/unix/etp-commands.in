@@ -2090,7 +2090,7 @@ define etp-process-info-int
     etp-pid2proc-1 $etp_proc->common.id
     etp-process-info $proc
   else
-  if (*(((Uint32 *) &($etp_proc->state))) & 0x4) == 0
+  if (*(((Uint32 *) &($etp_proc->state))) & 0x800) == 0
     if ($etp_proc->common.u.alive.reg)
       printf "  Registered name: "
       etp-1 $etp_proc->common.u.alive.reg->name

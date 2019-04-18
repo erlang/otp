@@ -88,10 +88,10 @@ find_cerl(DBTop) ->
 	[Cerl | _ ] ->
 	    case filelib:is_regular(Cerl) of
 		true -> Cerl;
-		_ -> false
+		_ -> find_cerl(false)
 	    end;
 	_ ->
-	    false
+	    find_cerl(false)
     end.
 
 is_dir(false) ->

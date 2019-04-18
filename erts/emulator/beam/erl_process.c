@@ -12095,6 +12095,7 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     Eterm watched;
     Uint watcher_sz, ref_sz;
     ErtsHeapFactory factory;
+    Sint reds_consumed = 0;
 
     ASSERT(erts_monitor_is_target(mon) && mon->type == ERTS_MON_TYPE_DIST_PROC);
 
@@ -12139,11 +12140,13 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
                                      watched,
                                      ref,
                                      reason);
+        reds_consumed = reds - (ctx.reds / TERM_TO_BINARY_LOOP_FACTOR);
         switch (code) {
         case ERTS_DSIG_SEND_CONTINUE:
         case ERTS_DSIG_SEND_YIELD:
             erts_set_gc_state(c_p, 0);
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
+            reds_consumed = reds; /* force yield */
             break;
         case ERTS_DSIG_SEND_OK:
             break;
@@ -12163,7 +12166,7 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         erts_monitor_release(mon);
     else
         erts_monitor_release_both(mdp);
-    return reds - (ctx.reds / TERM_TO_BINARY_LOOP_FACTOR);
+    return reds_consumed;
 }
 
 int
@@ -12350,6 +12353,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
     ErtsLink *dlnk;
     ErtsLinkData *ldp = NULL;
     ErtsHeapFactory factory;
+    Sint reds_consumed = 0;
 
     ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
     dlnk = erts_link_to_other(lnk, &ldp);
@@ -12386,11 +12390,13 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
                                       item,
                                       reason,
                                       SEQ_TRACE_TOKEN(c_p));
+        reds_consumed = reds - (ctx.reds / TERM_TO_BINARY_LOOP_FACTOR);
         switch (code) {
         case ERTS_DSIG_SEND_YIELD:
         case ERTS_DSIG_SEND_CONTINUE:
             erts_set_gc_state(c_p, 0);
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
+            reds_consumed = reds; /* force yield */
             break;
         case ERTS_DSIG_SEND_OK:
             break;
@@ -12410,7 +12416,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
         erts_link_release_both(ldp);
     else if (lnk)
         erts_link_release(lnk);
-    return reds - (ctx.reds / TERM_TO_BINARY_LOOP_FACTOR);
+    return reds_consumed;
 }
 
 int

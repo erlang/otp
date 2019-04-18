@@ -75,7 +75,7 @@
          optimistic_dflags_echo/0, optimistic_dflags_sender/1,
          roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
          dist_parallel_sender/3, dist_parallel_receiver/0,
-         dist_evil_parallel_receiver/0]).
+         dist_evil_parallel_receiver/0, make_busy/2]).
 
 %% epmd_module exports
 -export([start_link/0, register_node/2, register_node/3, port_please/2, address_please/3]).
@@ -1460,11 +1460,14 @@ measure_latency_large_message(Nodename, DataFun) ->
 
     Echo = spawn(N, fun F() -> receive {From, Msg} -> From ! Msg, F() end end),
 
-    case erlang:system_info(build_type) of
-        debug ->
+    BuildType = erlang:system_info(build_type),
+    WordSize = erlang:system_info(wordsize),
+
+    if
+        BuildType =/= opt; WordSize =:= 4 ->
             %% Test 3.2 MB and 32 MB and test the latency difference of sent messages
             Payloads = [{I, <<0:(I * 32 * 1024 * 8)>>} || I <- [1,10]];
-        _ ->
+        true ->
             %% Test 32 MB and 320 MB and test the latency difference of sent messages
             Payloads = [{I, <<0:(I * 32 * 1024 * 1024 * 8)>>} || I <- [1,10]]
     end,
@@ -1479,7 +1482,7 @@ measure_latency_large_message(Nodename, DataFun) ->
     stop_node(N),
 
     case {lists:max(Times), lists:min(Times)} of
-        {Max, Min} when Max * 0.25 > Min ->
+        {Max, Min} when Max * 0.25 > Min, BuildType =:= opt ->
             ct:fail({incorrect_latency, IndexTimes});
         _ ->
             ok
@@ -1504,13 +1507,19 @@ measure_latency(DataFun, Dropper, Echo, Payload) ->
              ok
      end || _ <- lists:seq(1,10)],
 
-    {TS, _} =
+    {TS, Times} =
         timer:tc(fun() ->
                          [begin
+                              T0 = erlang:monotonic_time(),
                               Echo ! {self(), hello},
-                              receive hello -> ok end
+                              receive hello -> ok end,
+                              (erlang:monotonic_time() - T0) / 1000000
                           end || _ <- lists:seq(1,100)]
                  end),
+    Avg = lists:sum(Times) / length(Times),
+    StdDev = math:sqrt(lists:sum([math:pow(V - Avg,2) || V <- Times]) / length(Times)),
+    ct:pal("Times: Avg: ~p Max: ~p Min: ~p Var: ~p",
+           [Avg, lists:max(Times), lists:min(Times), StdDev]),
     [begin
          Sender ! die,
          receive

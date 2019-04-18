@@ -1260,7 +1260,6 @@ get_text(#xmlElement{content=[E]}) ->
 
 %% text_and_name_only(Es) -> {N, Ts}
 text_and_a_name_only(Es) ->
-    erlang:display(Es),
     case [Name || #xmlElement{
                      name = a,
                      attributes = [#xmlAttribute{name=name}]}=Name <- Es] of

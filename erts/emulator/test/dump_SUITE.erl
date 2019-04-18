@@ -137,26 +137,43 @@ exiting_dump(Config) when is_list(Config) ->
 free_dump(Config) when is_list(Config) ->
     Dump = filename:join(proplists:get_value(priv_dir, Config),"signal_abort.dump"),
 
-    {ok, Node} = start_node(Config),
+    {ok, NodeA} = start_node(Config),
+    {ok, NodeB} = start_node(Config),
+
 
     Self = self(),
 
-    Pid = spawn_link(Node,
-                     fun() ->
-                             Self ! ready,
-                             receive
-                                 ok ->
-                                     unlink(Self),
-                                     exit(lists:duplicate(1000,1000))
-                             end
-                     end),
+    PidA = spawn_link(
+             NodeA,
+             fun() ->
+                     Self ! ready,
+                     receive
+                         ok ->
+                             spawn(fun() ->
+                                           erlang:system_monitor(self(), [busy_dist_port]),
+                                           timer:sleep(5),
+                                           receive
+                                               M ->
+                                                   io:format("~p",[M]),
+                                                   erlang:halt("dump")
+                                           end
+                                   end),
+                             exit(lists:duplicate(1000000,100))
+                     end
+             end),
 
-    true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
+    spawn_link(NodeB,
+               fun() ->
+                       [erlang:monitor(process, PidA) || _ <- lists:seq(1,10000)],
+                       Self ! done,
+                       receive _ -> ok end
+               end),
 
-    [erlang:monitor(process, Pid) || _ <- lists:seq(1,10000)],
-    receive ready -> unlink(Pid), Pid ! ok end,
+    receive done -> ok end,
+    true = rpc:call(NodeA, os, putenv, ["ERL_CRASH_DUMP",Dump]),
+    ct:pal("~p",[rpc:call(NodeA, distribution_SUITE, make_busy, [NodeB, 1000])]),
 
-    rpc:call(Node, erlang, halt, ["dump"]),
+    receive ready -> unlink(PidA), PidA ! ok end,
 
     {ok, Bin} = get_dump_when_done(Dump),
 
