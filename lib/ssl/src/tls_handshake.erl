@@ -157,7 +157,7 @@ encode_handshake(Package, Version) ->
 %%--------------------------------------------------------------------
 -spec get_tls_handshake(tls_record:tls_version(), binary(), binary() | iolist(), 
                         #ssl_options{}) ->
-     {[tls_handshake()], binary()}.
+     {[{tls_handshake(), binary()}], binary()}.
 %%
 %% Description: Given buffered and new data from ssl_record, collects
 %% and returns it as a list of handshake messages, also returns leftover
