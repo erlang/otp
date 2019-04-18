@@ -264,6 +264,46 @@
       <name name="reason"/>
      </datatype>
 
+     <datatype>
+      <name name="http_packet"/>
+     </datatype>
+
+     <datatype>
+      <name name="http_request"/>
+     </datatype>
+
+     <datatype>
+      <name name="http_response"/>
+     </datatype>
+
+     <datatype>
+      <name name="http_header"/>
+     </datatype>
+
+     <datatype>
+      <name name="http_error"/>
+     </datatype>
+
+     <datatype>
+      <name name="http_method"/>
+     </datatype>
+
+     <datatype>
+      <name name="http_uri"/>
+     </datatype>
+
+     <datatype>
+      <name name="http_version"/>
+     </datatype>
+
+     <datatype>
+      <name name="http_field"/>
+     </datatype>
+
+     <datatype>
+      <name name="http_string"/>
+     </datatype>
+
     <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</datatype_title>
     
     <datatype>

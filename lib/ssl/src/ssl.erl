@@ -244,6 +244,74 @@
                                  bad_certificate_hash_value |
                                  unknown_psk_identity |
                                  no_application_protocol.
+-type http_packet()           :: http_request() |
+                                 http_response() |
+                                 http_header() |
+                                 http_eoh |
+                                 http_error().
+-type http_request()          :: {http_request, http_method(), http_uri(), http_version()}.
+-type http_response()         :: {http_response, http_version(), integer(), http_string()}.
+-type http_header()           :: {http_header, integer(), http_field(), Reserved :: term(),
+                                  Value :: http_string()}.
+-type http_error()            :: {http_error, http_string()}.
+-type http_method()           :: 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE'.
+-type http_uri()              :: any().
+-type http_version()          :: {Major :: integer(), Minor :: integer()}.
+-type http_field()            :: 'Cache-Control' |
+                                 'Connection' |
+                                 'Date' |
+                                 'Pragma' |
+                                 'Transfer-Encoding' |
+                                 'Upgrade' |
+                                 'Via' |
+                                 'Accept' |
+                                 'Accept-Charset' |
+                                 'Accept-Encoding' |
+                                 'Accept-Language' |
+                                 'Authorization' |
+                                 'From' |
+                                 'Host' |
+                                 'If-Modified-Since' |
+                                 'If-Match' |
+                                 'If-None-Match' |
+                                 'If-Range' |
+                                 'If-Unmodified-Since' |
+                                 'Max-Forwards' |
+                                 'Proxy-Authorization' |
+                                 'Range' |
+                                 'Referer' |
+                                 'User-Agent' |
+                                 'Age' |
+                                 'Location' |
+                                 'Proxy-Authenticate' |
+                                 'Public' |
+                                 'Retry-After' |
+                                 'Server' |
+                                 'Vary' |
+                                 'Warning' |
+                                 'Www-Authenticate' |
+                                 'Allow' |
+                                 'Content-Base' |
+                                 'Content-Encoding' |
+                                 'Content-Language' |
+                                 'Content-Length' |
+                                 'Content-Location' |
+                                 'Content-Md5' |
+                                 'Content-Range' |
+                                 'Content-Type' |
+                                 'Etag' |
+                                 'Expires' |
+                                 'Last-Modified' |
+                                 'Accept-Ranges' |
+                                 'Set-Cookie' |
+                                 'Set-Cookie2' |
+                                 'X-Forwarded-For' |
+                                 'Cookie' |
+                                 'Keep-Alive' |
+                                 'Proxy-Connection' |
+                                 http_string().
+-type http_string()           :: string() | binary().
+
 %% -------------------------------------------------------------------------------------------------------
 -type common_option()        :: {protocol, protocol()} |
                                 {handshake, handshake_completion()} |
@@ -773,7 +841,7 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: integer(),
-      Data :: binary() | list().
+      Data :: binary() | list() | http_packet().
 
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
@@ -781,7 +849,7 @@ recv(Socket, Length) ->
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: integer(),
-      Data :: binary() | list(),
+      Data :: binary() | list() | http_packet(),
       Timeout :: timeout().
 
 recv(#sslsocket{pid = [Pid|_]}, Length, Timeout) when is_pid(Pid),
