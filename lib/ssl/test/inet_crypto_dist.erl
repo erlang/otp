@@ -51,27 +51,69 @@
 -record(params,
         {socket,
          dist_handle,
-         public_key_type,
-         public_key_params,
-         hmac_algorithm,
-         aead_cipher,
-         iv,
-         key,
-         tag_len,
-         rekey_interval
+         hmac_algorithm = sha256,
+         aead_cipher = aes_gcm,
+         iv = 12,
+         key = 16,
+         tag_len = 16,
+         rekey_interval = 32768
         }).
 
-current_params(Socket) ->
-    #params{
-       socket = Socket,
-       public_key_type = ecdh,
-       public_key_params = brainpoolP384t1,
-       hmac_algorithm = sha256,
-       aead_cipher = aes_gcm,
-       iv = 12,
-       key = 16,
-       tag_len = 16,
-       rekey_interval = 32768}.
+-record(public_key_pair,
+        {type = ecdh,
+         params = brainpoolP384t1,
+         public,
+         private}).
+
+params(Socket) ->
+    #params{socket = Socket}.
+
+
+%% -------------------------------------------------------------------------
+%% Keep the same public/private key pair during the node's lifetime
+%% in the process state of a process linked to the acceptor process.
+%% Create it the first time it is needed.
+%%
+
+start_public_key_pair() ->
+    spawn_link(
+      fun () ->
+              register(?MODULE, self()),
+              public_key_pair(#public_key_pair{})
+      end).
+
+public_key_pair(PKP) ->
+    receive
+        {Pid, Tag, public_key_pair} ->
+            case PKP of
+                #public_key_pair{
+                   type = Type,
+                   params = Params,
+                   public = undefined} ->
+                    %%
+                    {Public, Private} = crypto:generate_key(Type, Params),
+                    PKP_1 =
+                        PKP#public_key_pair{
+                          public = Public, private = Private},
+                    Pid ! {Tag, PKP_1},
+                    public_key_pair(PKP_1);
+                #public_key_pair{} ->
+                    Pid ! {Tag, PKP},
+                    public_key_pair(PKP)
+            end
+    end.
+
+public_key_pair() ->
+    Pid = whereis(?MODULE),
+    Ref = erlang:monitor(process, Pid),
+    Pid ! {self(), Ref, public_key_pair},
+    receive
+        {Ref, PKP} ->
+            erlang:demonitor(Ref, [flush]),
+            PKP;
+        {'DOWN', Ref, process, Pid, Reason} ->
+            error(Reason)
+    end.
 
 %% -------------------------------------------------------------------------
 %% Erlang distribution plugin structure explained to myself
@@ -227,6 +269,7 @@ gen_accept(Listen, Driver) ->
     monitor_dist_proc(
       spawn_opt(
         fun () ->
+                start_public_key_pair(),
                 accept_loop(Listen, Driver, NetKernel)
         end,
         [link, {priority, max}])).
@@ -642,7 +685,7 @@ nodelay() ->
 %%% * Restart and/or code reload policy (not needed in kernel)
 %%% * Fitting into the epmd/Erlang distro protocol version framework
 %%%   (something needs to be created for multiple protocols, epmd,
-%%%    multiple address families, etc)
+%%%    multiple address families, fallback to previous version, etc)
 
 
 %% Debug client and server
@@ -739,19 +782,21 @@ reply({Ref, Pid}, Msg) ->
 %% blocks we have a deadlock.
 %%
 %% The init + start sequence tries to implement Password Encrypted
-%% Key Exchange using an ephemeral public/private keypair and the
+%% Key Exchange using a node public/private keypair and the
 %% shared secret (the Cookie) to create session encryption keys
 %% that can not be re-created if the shared secret is compromized,
-%% which should create forward secrecy.
+%% which should create forward secrecy.  You need both nodes'
+%% keypairs and the shared secret to decrypt the traffic
+%% between the nodes.
 %%
 %% All exchanged messages uses {packet, 2} i.e 16 bit size header.
 %%
-%% The init message contains a random number and encrypted: a public key
+%% The init message contains a random number and encrypted: the public key
 %% and two random numbers.  The encryption is done with Key and IV hashed
 %% from the unencrypted random number and the shared secret.
 %%
-%% The exchanged epemeral public/private keypairs are used
-%% to create a shared key that is hashed with one of the encrypted
+%% The other node's public key is used with the own node's private
+%% key to create a shared key that is hashed with one of the encrypted
 %% random numbers from each side to create Key and IV for the session.
 %%
 %% The start message contains the two encrypted random numbers
@@ -773,18 +818,19 @@ reply({Ref, Pid}, Msg) ->
 %% -------------------------------------------------------------------------
 
 init(Socket, Secret) ->
-    Params = current_params(Socket),
-    {PrivKey, R2, R3, Msg} = init_msg(Params, Secret),
+    #public_key_pair{public = PubKey} = PKP = public_key_pair(),
+    Params = params(Socket),
+    {R2, R3, Msg} = init_msg(Params, PubKey, Secret),
     ok = gen_tcp:send(Socket, Msg),
-    init(Params, Secret, PrivKey, R2, R3).
+    init_recv(Params, Secret, PKP, R2, R3).
 
-init(
-  #params{socket = Socket, iv = IVLen} = Params, Secret, PrivKey, R2, R3) ->
+init_recv(
+  #params{socket = Socket, iv = IVLen} = Params, Secret, PKP, R2, R3) ->
     %%
     {ok, InitMsg} = gen_tcp:recv(Socket, 0),
     IVSaltLen = IVLen - 6,
     try
-        case init_msg(Params, Secret, PrivKey, R2, R3, InitMsg) of
+        case init_msg(Params, Secret, PKP, R2, R3, InitMsg) of
             {#params{iv = <<IV2ASalt:IVSaltLen/binary, IV2ANo:48>>} =
                  SendParams,
              RecvParams, SendStartMsg} ->
@@ -807,15 +853,12 @@ init(
 
 init_msg(
   #params{
-     public_key_type = PublicKeyType,
-     public_key_params = PublicKeyParams,
      hmac_algorithm = HmacAlgo,
      aead_cipher = AeadCipher,
      key = KeyLen,
      iv = IVLen,
-     tag_len = TagLen}, Secret) ->
+     tag_len = TagLen}, PubKeyA, Secret) ->
     %%
-    {PubKeyA, PrivKey} = crypto:generate_key(PublicKeyType, PublicKeyParams),
     RLen = KeyLen + IVLen,
     <<R1A:RLen/binary, R2A:RLen/binary, R3A:RLen/binary>> =
         crypto:strong_rand_bytes(3 * RLen),
@@ -826,18 +869,22 @@ init_msg(
     {Ciphertext, Tag} =
         crypto:block_encrypt(AeadCipher, Key1A, IV1A, {AAD, Plaintext, TagLen}),
     Msg = [R1A, Tag, Ciphertext],
-    {PrivKey, R2A, R3A, Msg}.
+    {R2A, R3A, Msg}.
 %%
 init_msg(
   #params{
-     public_key_type = PublicKeyType,
-     public_key_params = PublicKeyParams,
      hmac_algorithm = HmacAlgo,
      aead_cipher = AeadCipher,
      key = KeyLen,
      iv = IVLen,
      tag_len = TagLen,
-     rekey_interval = RekeyInterval} = Params, Secret, PrivKey, R2A, R3A, Msg) ->
+     rekey_interval = RekeyInterval} = Params,
+  Secret,
+  #public_key_pair{
+     type = PublicKeyType,
+     params = PublicKeyParams,
+     private = PrivKey},
+  R2A, R3A, Msg) ->
     %%
     RLen = KeyLen + IVLen,
     case Msg of
