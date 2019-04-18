@@ -409,7 +409,7 @@ ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file
     setup_ecdsa_auth_keys(Size, DataDir, UserDir).
 
 setup_eddsa(Alg, DataDir, UserDir) ->
-    {IdPriv, IdPub, HostPriv, HostPub} =
+    {IdPriv, _IdPub, HostPriv, HostPub} =
         case Alg of
             ed25519 -> {"id_ed25519", "id_ed25519.pub", "ssh_host_ed25519_key", "ssh_host_ed25519_key.pub"};
             ed448   -> {"id_ed448",   "id_ed448.pub",   "ssh_host_ed448_key",   "ssh_host_ed448_key.pub"}
@@ -970,7 +970,7 @@ expected_state(_) -> false.
 %%%----------------------------------------------------------------
 %%% Return a string with N random characters
 %%%
-random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
+random_chars(N) -> [($a-1)+rand:uniform($z-$a) || _<-lists:duplicate(N,x)].
 
 
 create_random_dir(Config) ->

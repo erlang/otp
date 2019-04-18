@@ -70,6 +70,7 @@ ERL_NIF_TERM atom_onbasis;
 
 ERL_NIF_TERM atom_aes_cfb8;
 ERL_NIF_TERM atom_aes_cfb128;
+ERL_NIF_TERM atom_aes_ige256;
 #ifdef HAVE_GCM
 ERL_NIF_TERM atom_aes_gcm;
 #endif
@@ -188,6 +189,7 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
 
     atom_aes_cfb8 = enif_make_atom(env, "aes_cfb8");
     atom_aes_cfb128 = enif_make_atom(env, "aes_cfb128");
+    atom_aes_ige256 = enif_make_atom(env, "aes_ige256");
 #ifdef HAVE_GCM
     atom_aes_gcm = enif_make_atom(env, "aes_gcm");
 #endif

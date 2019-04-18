@@ -214,7 +214,7 @@ init_per_testcase(_TestCase, Config) ->
     file:make_dir(UserDir),
     [{user_dir,UserDir}|Config].
 
-end_per_testcase(_TestCase, Config) ->
+end_per_testcase(_TestCase, _Config) ->
     ssh:stop(),
     ok.
 
