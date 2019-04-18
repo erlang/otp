@@ -131,6 +131,7 @@ extern erts_atomic_t erts_ets_misc_mem_size;
 
 Eterm erts_ets_colliding_names(Process*, Eterm name, Uint cnt);
 int erts_ets_force_split(Eterm tid, int on);
+int erts_ets_debug_random_split_join(Eterm tid, int on);
 Uint erts_db_get_max_tabs(void);
 Eterm erts_db_make_tid(Process *c_p, DbTableCommon *tb);
 

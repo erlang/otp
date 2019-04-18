@@ -4461,21 +4461,24 @@ add_loop(T, I) ->
 
 
 test_table_counter_concurrency(WhatToTest) ->
+    IntStatePrevOn =
+        erts_debug:set_internal_state(available_internal_state, true),
     ItemsToAdd = 1000000,
     SizeLoopSize = 1000,
     T = ets:new(k, [public, ordered_set, {write_concurrency, true}]),
+    erts_debug:set_internal_state(ets_debug_random_split_join, {T, false}),
     0 = ets:info(T, size),
     P = self(),
     SpawnedSizeProcs =
-        [spawn(fun() -> 
-                       size_loop(T, SizeLoopSize, 0, WhatToTest),
-                       P ! done
-               end)
+        [spawn_link(fun() ->
+                            size_loop(T, SizeLoopSize, 0, WhatToTest),
+                            P ! done
+                    end)
          || _ <- lists:seq(1, 6)],
-    spawn(fun() -> 
-                  add_loop(T, ItemsToAdd),
-                  P ! done_add
-          end),
+    spawn_link(fun() ->
+                       add_loop(T, ItemsToAdd),
+                       P ! done_add
+               end),
     [receive
          done -> ok;
          done_add -> ok
@@ -4487,6 +4490,7 @@ test_table_counter_concurrency(WhatToTest) ->
         _ ->
             ok
     end,
+    erts_debug:set_internal_state(available_internal_state, IntStatePrevOn),
     ok.
 
 test_table_size_concurrency(Config) when is_list(Config) ->

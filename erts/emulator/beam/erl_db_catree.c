@@ -647,7 +647,8 @@ static int dbg_fastrand(void)
 static void dbg_provoke_random_splitjoin(DbTableCATree* tb,
                                          DbTableCATreeNode* base_node)
 {
-    if (tb->common.status & DB_CATREE_FORCE_SPLIT)
+    if (tb->common.status & DB_CATREE_FORCE_SPLIT ||
+        !(tb->common.status & DB_CATREE_DEBUG_RANDOM_SPLIT_JOIN))
         return;
 
     switch (dbg_fastrand() % 8) {
@@ -1406,6 +1407,9 @@ int db_create_catree(Process *p, DbTable *tbl)
     tb->deletion = 0;
     tb->base_nodes_to_free_list = NULL;
     tb->nr_of_deleted_items = 0;
+#ifdef DEBUG
+    tbl->common.status |= DB_CATREE_DEBUG_RANDOM_SPLIT_JOIN;
+#endif
     erts_atomic_init_relb(&(tb->root), (erts_aint_t)root);
     return DB_ERROR_NONE;
 }
@@ -2255,6 +2259,14 @@ void db_catree_force_split(DbTableCATree* tb, int on)
         tb->common.status |= DB_CATREE_FORCE_SPLIT;
     else
         tb->common.status &= ~DB_CATREE_FORCE_SPLIT;
+}
+
+void db_catree_debug_random_split_join(DbTableCATree* tb, int on)
+{
+    if (on)
+        tb->common.status |= DB_CATREE_DEBUG_RANDOM_SPLIT_JOIN;
+    else
+        tb->common.status &= ~DB_CATREE_DEBUG_RANDOM_SPLIT_JOIN;
 }
 
 void db_calc_stats_catree(DbTableCATree* tb, DbCATreeStats* stats)

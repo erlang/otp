@@ -124,6 +124,7 @@ void erts_lcnt_enable_db_catree_lock_count(DbTableCATree *tb, int enable);
 #endif
 
 void db_catree_force_split(DbTableCATree*, int on);
+void db_catree_debug_random_split_join(DbTableCATree*, int on);
 
 typedef struct {
     Uint route_nodes;

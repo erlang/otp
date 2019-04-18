@@ -4573,3 +4573,16 @@ int erts_ets_force_split(Eterm tid, int on)
     db_unlock(tb, LCK_WRITE);
     return 1;
 }
+
+int erts_ets_debug_random_split_join(Eterm tid, int on)
+{
+    DbTable* tb = tid2tab(tid);
+    if (!tb || !IS_CATREE_TABLE(tb->common.type))
+        return 0;
+
+    db_lock(tb, LCK_WRITE);
+    if (!(tb->common.status & DB_DELETE))
+        db_catree_debug_random_split_join(&tb->catree, on);
+    db_unlock(tb, LCK_WRITE);
+    return 1;
+}
