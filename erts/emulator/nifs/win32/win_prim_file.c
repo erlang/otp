@@ -270,6 +270,17 @@ static int normalize_path_result(ErlNifBinary *path) {
 }
 
 /* @brief Checks whether all the given attributes are set on the object at the
+ * given handle. Note that it assumes false on errors. */
+static int handle_has_file_attributes(HANDLE handle, DWORD mask) {
+    BY_HANDLE_FILE_INFORMATION native_file_info;
+    if(!GetFileInformationByHandle(handle, &native_file_info)) {
+        return 0;
+    }
+
+    return !!((native_file_info.dwFileAttributes & mask) == mask);
+}
+
+/* @brief Checks whether all the given attributes are set on the object at the
  * given path. Note that it assumes false on errors. */
 static int has_file_attributes(const efile_path_t *path, DWORD mask) {
     DWORD attributes = GetFileAttributesW((WCHAR*)path->data);
@@ -412,10 +423,15 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
 
     ASSERT_PATH_FORMAT(path);
 
+    attributes = 0;
     access_flags = 0;
     open_mode = 0;
 
-    if(modes & EFILE_MODE_READ && !(modes & EFILE_MODE_WRITE)) {
+    if(modes & EFILE_MODE_DIRECTORY) {
+        attributes = FILE_FLAG_BACKUP_SEMANTICS;
+        access_flags = GENERIC_READ;
+        open_mode = OPEN_EXISTING;
+    } else if(modes & EFILE_MODE_READ && !(modes & EFILE_MODE_WRITE)) {
         access_flags = GENERIC_READ;
         open_mode = OPEN_EXISTING;
     } else if(modes & EFILE_MODE_WRITE && !(modes & EFILE_MODE_READ)) {
@@ -438,9 +454,9 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
     }
 
     if(modes & EFILE_MODE_SYNC) {
-        attributes = FILE_FLAG_WRITE_THROUGH;
+        attributes |= FILE_FLAG_WRITE_THROUGH;
     } else {
-        attributes = FILE_ATTRIBUTE_NORMAL;
+        attributes |= FILE_ATTRIBUTE_NORMAL;
     }
 
     handle = CreateFileW((WCHAR*)path->data, access_flags,
@@ -448,6 +464,12 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
 
     if(handle != INVALID_HANDLE_VALUE) {
         efile_win_t *w;
+
+        /* Directory mode specified, but path is not a directory. */
+        if((modes & EFILE_MODE_DIRECTORY) && !handle_has_file_attributes(handle, FILE_ATTRIBUTE_DIRECTORY)) {
+            CloseHandle(handle);
+            return ENOTDIR;
+        }
 
         w = (efile_win_t*)enif_alloc_resource(nif_type, sizeof(efile_win_t));
         w->handle = handle;
@@ -461,7 +483,7 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
 
         /* Rewrite all failures on directories to EISDIR to match the old
          * driver. */
-        if(has_file_attributes(path, FILE_ATTRIBUTE_DIRECTORY)) {
+        if(!(modes & EFILE_MODE_DIRECTORY) && has_file_attributes(path, FILE_ATTRIBUTE_DIRECTORY)) {
             return EISDIR;
         }
 

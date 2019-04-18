@@ -987,6 +987,14 @@ new_modes(Config) when is_list(Config) ->
 	     ok
      end,
 
+     % open directory
+     {ok, Fd9} = ?FILE_MODULE:open(NewDir, [directory]),
+     ok = ?FILE_MODULE:close(Fd9),
+
+     % open raw directory
+     {ok, Fd10} = ?FILE_MODULE:open(NewDir, [raw, directory]),
+     ok = ?FILE_MODULE:close(Fd10),
+
      [] = flush(),
      ok.
 
@@ -1235,6 +1243,9 @@ open_errors(Config) when is_list(Config) ->
     {error, E3} = ?FILE_MODULE:open(DataDir, [write]),
     {error, E4} = ?FILE_MODULE:open(DataDirSlash, [write]),
     {eisdir,eisdir,eisdir,eisdir} = {E1,E2,E3,E4},
+
+    Real = filename:join(DataDir, "realmen.html"),
+    {error, enotdir} = ?FILE_MODULE:open(Real, [directory]),
 
     [] = flush(),
     ok.
