@@ -5338,7 +5338,15 @@ t_form_to_string({type, _L, tuple, any}) -> "tuple()";
 t_form_to_string({type, _L, tuple, Args}) ->
   "{" ++ flat_join(t_form_to_string_list(Args), ",") ++ "}";
 t_form_to_string({type, _L, union, Args}) ->
-  flat_join(t_form_to_string_list(Args), " | ");
+  flat_join(lists:map(fun(Arg) ->
+                          case Arg of
+                            {ann_type, _AL, _} ->
+                              "(" ++ t_form_to_string(Arg) ++ ")";
+                            _ ->
+                              t_form_to_string(Arg)
+                          end
+                      end, Args),
+            " | ");
 t_form_to_string({type, _L, Name, []} = T) ->
    try
      M = mod,
