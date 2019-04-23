@@ -287,7 +287,7 @@ typedef struct {
         struct {
             char* func;
             int func_allocated;
-        } export;
+        } exprt;
     } u;
 } erlang_fun;
 

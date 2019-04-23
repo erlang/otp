@@ -87,7 +87,7 @@ int ei_encode_fun(char *buf, int *index, const erlang_fun *p)
         ix++;
         if (ei_encode_atom_as(buf, &ix, p->module, ERLANG_UTF8, ERLANG_UTF8) < 0)
             return -1;
-        if (ei_encode_atom_as(buf, &ix, p->u.export.func, ERLANG_UTF8, ERLANG_UTF8) < 0)
+        if (ei_encode_atom_as(buf, &ix, p->u.exprt.func, ERLANG_UTF8, ERLANG_UTF8) < 0)
             return -1;
         if (ei_encode_long(buf, &ix, p->arity) < 0)
             return -1;
