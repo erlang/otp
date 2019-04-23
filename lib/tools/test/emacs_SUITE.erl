@@ -119,7 +119,7 @@ compile_and_load(_Config) ->
                                      false -> " "
                                  end,
                       emacs([Pedantic,
-                             " -f batch-byte-compile ",filename:join(Dir, File)]),
+                             " -f batch-byte-compile ", dquote(filename:join(Dir, File))]),
                       true
               end,
     lists:foreach(Compile, Files),
@@ -143,6 +143,10 @@ tests_compiled(_Config) ->
                    "-l erlang-test.elc -f ert-run-tests-batch-and-exit"]),
             ok
     end.
+
+
+dquote(Str) ->
+    "\"" ++ Str ++ "\"".
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -207,14 +211,14 @@ emacs_version_ok(AcceptVer) ->
 emacs(EmacsCmds) when is_list(EmacsCmds) ->
     Cmd = ["emacs ",
            "--batch --quick ",
-           "--directory ", emacs_dir(), " ",
+           "--directory ", dquote(emacs_dir()), " ",
            "--eval \"(require 'erlang-start)\" "
            | EmacsCmds],
     Res0 = os:cmd(Cmd ++ " ; echo $?"),
     Rows = string:lexemes(Res0, ["\r\n", $\n]),
     Res = lists:last(Rows),
     Output = string:join(lists:droplast(Rows), "\n"),
-    io:format("Cmd ~s:~n  => ~s ~ts~n", [Cmd, Res, Output]),
+    io:format("Cmd ~ts:~n  => ~s ~ts~n", [Cmd, Res, Output]),
     "0" = Res,
     Output.
 
