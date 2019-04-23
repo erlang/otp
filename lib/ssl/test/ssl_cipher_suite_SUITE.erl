@@ -317,7 +317,7 @@ end_per_testcase(_TestCase, Config) ->
     Config.
 
 init_certs(srp_rsa, Config) ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
+    DefConf = default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
     #{server_config := ServerOpts,
       client_config := ClientOpts} 
@@ -348,7 +348,7 @@ init_certs(rsa, Config) ->
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(dhe_dss, Config) ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
+    DefConf = default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(dsa, dsa, DefConf, DefConf),
     #{server_config := ServerOpts,
       client_config := ClientOpts} 
@@ -357,7 +357,7 @@ init_certs(dhe_dss, Config) ->
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(srp_dss, Config) ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
+    DefConf = default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(dsa, dsa, DefConf, DefConf),
     #{server_config := ServerOpts,
       client_config := ClientOpts} 
@@ -367,7 +367,7 @@ init_certs(srp_dss, Config) ->
        proplists:delete(tls_config, Config)];
 init_certs(GroupName, Config) when GroupName == dhe_rsa;
                                    GroupName == ecdhe_rsa ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
+    DefConf = default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
     #{server_config := ServerOpts,
       client_config := ClientOpts} 
@@ -377,7 +377,7 @@ init_certs(GroupName, Config) when GroupName == dhe_rsa;
      proplists:delete(tls_config, Config)];
 init_certs(GroupName, Config) when GroupName == dhe_ecdsa;
                                    GroupName == ecdhe_ecdsa ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
+    DefConf = default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(ecdsa, ecdsa, DefConf, DefConf),
     #{server_config := ServerOpts,
       client_config := ClientOpts} 
@@ -402,6 +402,21 @@ init_certs(_GroupName, Config) ->
      [{tls_config, #{server_config => [],
                      client_config => []}} |
        proplists:delete(tls_config, Config)].
+
+default_cert_chain_conf() ->
+    Digest = digest(),
+    [[Digest], [Digest], [Digest]].
+        
+
+digest() ->
+    case application:get_env(ssl, protocol_version, application:get_env(ssl, dtls_protocol_version)) of
+        Ver when Ver == 'tlsv1.2';
+                 Ver == 'dtlsv1.2' ->
+            {digest, sha256};
+        _ ->
+            {digest, sha1}
+    end.
+
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
