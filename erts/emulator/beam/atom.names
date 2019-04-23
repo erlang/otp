@@ -193,6 +193,7 @@ atom current_location
 atom current_stacktrace
 atom data
 atom debug_flags
+atom decentralized_counters
 atom decimals
 atom default
 atom delay_trap

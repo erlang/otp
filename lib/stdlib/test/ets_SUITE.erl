@@ -44,7 +44,8 @@
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,t_ets_dets/1]).
 -export([test_table_size_concurrency/1,test_table_memory_concurrency/1,
-         test_delete_table_while_size_snapshot/1, test_delete_table_while_size_snapshot_helper/1]).
+         test_delete_table_while_size_snapshot/1, test_delete_table_while_size_snapshot_helper/1,
+         test_disable_decentralized_counters/1]).
 
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_iter_bag/1,
@@ -2644,15 +2645,17 @@ write_concurrency(Config) when is_list(Config) ->
     Yes6 = ets_new(foo,[duplicate_bag,protected,{write_concurrency,true}]),
     No3 = ets_new(foo,[duplicate_bag,private,{write_concurrency,true}]),
 
-    Yes7 = ets_new(foo,[ordered_set,public,{write_concurrency,true}]),
-    Yes8 = ets_new(foo,[ordered_set,protected,{write_concurrency,true}]),
-    Yes9 = ets_new(foo,[ordered_set,{write_concurrency,true}]),
-    Yes10 = ets_new(foo,[{write_concurrency,true},ordered_set,public]),
-    Yes11 = ets_new(foo,[{write_concurrency,true},ordered_set,protected]),
+    NoCentCtrs = {decentralized_counters,false},
+    Yes7 = ets_new(foo,[ordered_set,public,{write_concurrency,true},NoCentCtrs]),
+    Yes8 = ets_new(foo,[ordered_set,protected,{write_concurrency,true},NoCentCtrs]),
+    Yes9 = ets_new(foo,[ordered_set,{write_concurrency,true},NoCentCtrs]),
+    Yes10 = ets_new(foo,[{write_concurrency,true},ordered_set,public,NoCentCtrs]),
+    Yes11 = ets_new(foo,[{write_concurrency,true},ordered_set,protected,NoCentCtrs]),
     Yes12 = ets_new(foo,[set,{write_concurrency,false},
-                         {write_concurrency,true},ordered_set,public]),
+                         {write_concurrency,true},ordered_set,public,NoCentCtrs]),
     Yes13 = ets_new(foo,[private,public,set,{write_concurrency,false},
-                         {write_concurrency,true},ordered_set]),
+                         {write_concurrency,true},ordered_set,NoCentCtrs]),
+    Yes14 = ets_new(foo,[ordered_set,public,{write_concurrency,true}]),
     No4 = ets_new(foo,[ordered_set,private,{write_concurrency,true}]),
     No5 = ets_new(foo,[ordered_set,public,{write_concurrency,false}]),
     No6 = ets_new(foo,[ordered_set,protected,{write_concurrency,false}]),
@@ -2664,6 +2667,7 @@ write_concurrency(Config) when is_list(Config) ->
     YesMem = ets:info(Yes1,memory),
     NoHashMem = ets:info(No1,memory),
     YesTreeMem = ets:info(Yes7,memory),
+    YesYesTreeMem = ets:info(Yes14,memory),
     NoTreeMem = ets:info(No4,memory),
     io:format("YesMem=~p NoHashMem=~p NoTreeMem=~p YesTreeMem=~p\n",[YesMem,NoHashMem,
                                                                      NoTreeMem,YesTreeMem]),
@@ -2692,21 +2696,15 @@ write_concurrency(Config) when is_list(Config) ->
     true = YesMem > NoHashMem,
     true = YesMem > NoTreeMem,
     true = YesMem > YesTreeMem,
-    %% The amount of memory used by ordered_set with write_concurrency
-    %% enabled depend on the number of schedulers due its use of
-    %% decentralized counters
-    case erlang:system_info(schedulers) of
-        N when N =< 4 ->
-            true = YesTreeMem < NoTreeMem;
-        _ -> ok
-    end,
+    true = YesTreeMem < NoTreeMem,
+    true = YesYesTreeMem > YesTreeMem,
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency,foo}])),
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency}])),
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency,true,foo}])),
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,write_concurrency])),
 
     lists:foreach(fun(T) -> ets:delete(T) end,
-        	  [Yes1,Yes2,Yes3,Yes4,Yes5,Yes6,Yes7,Yes8,Yes9,Yes10,Yes11,Yes12,Yes13,
+        	  [Yes1,Yes2,Yes3,Yes4,Yes5,Yes6,Yes7,Yes8,Yes9,Yes10,Yes11,Yes12,Yes13,Yes14,
         	   No1,No2,No3,No4,No5,No6,No7,No8,No9]),
     verify_etsmem(EtsMem),
     ok.
@@ -4589,6 +4587,8 @@ info_do(Opts) ->
     {value, {protection, Protection}} =
 	lists:keysearch(protection, 1, Res),
     {value, {id, Tab}} = lists:keysearch(id, 1, Res),
+    {value, {decentralized_counters, _DecentralizedCtrs}} =
+        lists:keysearch(decentralized_counters, 1, Res),
 
     %% Test 'binary'
     [] = ?ets_info(Tab, binary, SlavePid),
@@ -4836,6 +4836,39 @@ repeat_par_help(FunToRepeat, NrOfTimes, OrgNrOfTimes) ->
                   Parent ! done
           end),
     repeat_par_help(FunToRepeat, NrOfTimes-1, OrgNrOfTimes).
+
+test_disable_decentralized_counters(Config) when is_list(Config) ->
+    do_test_disable_decentralized_counters(set),
+    do_test_disable_decentralized_counters(ordered_set),
+    ok.
+
+do_test_disable_decentralized_counters(TableType) ->
+    wait_for_memory_deallocations(),
+    FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
+    lists:foreach(
+      fun(OptList) ->
+              T1 = ets:new(t1, [public, TableType] ++ OptList),
+              FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
+              ets:delete(T1)
+      end,
+      [[{write_concurrency, false}],
+       [{write_concurrency, true}, {decentralized_counters, false}]]),
+    lists:foreach(
+      fun(OptList) ->
+              T1 = ets:new(t1, [public,
+                                TableType,
+                                {write_concurrency, true}] ++ OptList),
+              case erts_debug:get_internal_state(flxctr_memory_usage) of
+                  notsup -> ok;
+                  X when X > FlxCtrMemUsage -> ok;
+                  _ -> ct:fail("Decentralized counter not used.")
+              end,
+              ets:delete(T1),
+              wait_for_memory_deallocations(),
+              FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage)
+      end,
+      [[], [{decentralized_counters, true}]]),
+    ok.
 
 %% Test various duplicate_bags stuff.
 dups(Config) when is_list(Config) ->
@@ -7724,10 +7757,10 @@ etsmem() ->
               AllTabs =
                   lists:sort(
                     [begin
-                         case ets:info(T,write_concurrency) of
+                         case ets:info(T, decentralized_counters) of
                              true ->
                                  ct:fail("Background ETS table (~p) that "
-                                         "use decentralized counters (Add exception?)",
+                                         "uses decentralized counters (Add exception?)",
                                          [ets:info(T,name)]);
                              _ -> ok
                          end,

@@ -3632,7 +3632,7 @@ void erts_lcnt_enable_db_hash_lock_count(DbTableHash *tb, int enable) {
     }
 
     for(i = 0; i < DB_HASH_LOCK_CNT; i++) {
-        erts_lcnt_ref_t *ref = &tb->locks->lck_vec[i].lck.lcnt;
+        erts_lcnt_ref_t *ref = &tb->locks->lck_vec[i].lck_ctr.lck.lcnt;
 
         if(enable) {
             erts_lcnt_install_new_lock_info(ref, "db_hash_slot", tb->common.the_name,
