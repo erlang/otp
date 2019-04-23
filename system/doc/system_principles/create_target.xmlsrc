@@ -352,7 +352,7 @@ fi
 START_ERL_DATA=${1:-$RELDIR/start_erl.data}
 
 $ROOTDIR/bin/run_erl -daemon /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR\
-$RELDIR $START_ERL_DATA -heart</code>
+$RELDIR $START_ERL_DATA -heart"</code>
     <p>We use the simplest possible <c>sys.config</c>, which we
       store in <c>releases/FIRST</c>:</p>
     <code type="none">
