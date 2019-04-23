@@ -31,6 +31,82 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A simple socket API is provided through the socket
+	    module. This is a low level API that does *not* replace
+	    gen_[tcp|udp|sctp]. It is intended to *eventually*
+	    replace the inet driver, but not the high level
+	    gen-modules (gen_tcp, gen_udp and gen_sctp). It also
+	    provides a basic API that facilitates the implementation
+	    of other protocols, than TCP, UDP and SCTP. </p>
+          <p>
+	    Known issues are; No support for the Windows OS
+	    (currently).</p>
+          <p>
+	    Own Id: OTP-14831</p>
+        </item>
+        <item>
+          <p>
+	    Improved the documentation for the linger option.</p>
+          <p>
+	    Own Id: OTP-15491 Aux Id:
+	    https://github.com/erlang/otp/pull/2019 </p>
+        </item>
+        <item>
+	    <p> Global no longer tries more than once when connecting
+	    to other nodes. </p>
+          <p>
+	    Own Id: OTP-15607 Aux Id: ERIERL-280 </p>
+        </item>
+        <item>
+          <p>
+	    The dist messages EXIT, EXIT2 and MONITOR_DOWN have been
+	    updated with new versions that send the reason term as
+	    part of the payload of the message instead of as part of
+	    the control message.</p>
+          <p>
+	    The old versions are still present and can be used when
+	    communicating with nodes that don't support the new
+	    versions.</p>
+          <p>
+	    Own Id: OTP-15611</p>
+        </item>
+        <item>
+          <p>
+	    Kernel configuration parameter <c>start_distribution =
+	    boolean()</c> is added. If set to <c>false</c>, the
+	    system is started with all distribution functionality
+	    disabled. Defaults to <c>true</c>.</p>
+          <p>
+	    Own Id: OTP-15668 Aux Id: PR-2088 </p>
+        </item>
+        <item>
+          <p>
+	    In OTP-21.3, a warning was introduced for duplicated
+	    applications/keys in configuration. This warning would be
+	    displayed both when the configuration was given as a file
+	    on system start, and during runtime via
+	    <c>application:set_env/1,2</c>.</p>
+          <p>
+	    The warning is now changed to a <c>badarg</c> exception
+	    in <c>application:set_env/1,2</c>. If the faulty
+	    configuration is given in a configuration file on system
+	    start, the startup will fail.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15692 Aux Id: PR-2170 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

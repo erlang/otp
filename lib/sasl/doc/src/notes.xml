@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 3.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change the first module called by erts to be names
+	    erl_init instead of otp_ring0. systools in sasl have been
+	    updated to reflect this change.</p>
+          <p>
+	    Own Id: OTP-15336 Aux Id: PR-1825 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.3</title>
 
     <section><title>Improvements and New Features</title>

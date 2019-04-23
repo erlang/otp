@@ -183,7 +183,7 @@ typedef enum {
       </func>
 
       <func>
-          <name since="OTP @OTP-15712@"><ret>int</ret><nametext>ei_decode_bitstring(const char *buf, int *index, void *p, size_t plen, size_t *bitsp)</nametext></name>
+          <name since="OTP 22.0"><ret>int</ret><nametext>ei_decode_bitstring(const char *buf, int *index, void *p, size_t plen, size_t *bitsp)</nametext></name>
           <fsummary>Decode a bitstring.</fsummary>
           <desc>
             <p>Decodes a bitstring from the binary format.</p>
@@ -490,8 +490,8 @@ typedef enum {
     </func>
 
     <func>
-      <name since="OTP @OTP-15712@"><ret>int</ret><nametext>ei_encode_bitstring(char *buf, int *index, const void *p, size_t bits)</nametext></name>
-      <name since="OTP @OTP-15712@"><ret>int</ret><nametext>ei_x_encode_bitstring(ei_x_buff* x, const void *p, size_t bits)</nametext></name>
+      <name since="OTP 22.0"><ret>int</ret><nametext>ei_encode_bitstring(char *buf, int *index, const void *p, size_t bits)</nametext></name>
+      <name since="OTP 22.0"><ret>int</ret><nametext>ei_x_encode_bitstring(ei_x_buff* x, const void *p, size_t bits)</nametext></name>
       <fsummary>Encode a bitstring.</fsummary>
       <desc>
         <p>Encodes a bitstring in the binary format. The data is at

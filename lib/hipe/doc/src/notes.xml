@@ -31,6 +31,52 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add function <c>hipe:erllvm_is_supported</c> to check
+	    presence of suitable version of the LLVM tool chain as
+	    well as supported hardware architecture. The old
+	    <c>hipe:llvm_support_available</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-15385 Aux Id: PR-1986 </p>
+        </item>
+        <item>
+          <p>
+	    Fix hipe LLVM for FreeBSD and other non-linux unix to use
+	    /tmp/ instead of /dev/shm/.</p>
+          <p>
+	    Own Id: OTP-15386 Aux Id: PR-1963 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>In OTP 22, HiPE (the native code compiler) is not
+	    fully functional. The reasons for this are:</p>
+	    <p>There are new BEAM instructions for binary matching
+	    that the HiPE native code compiler does not support.</p>
+	    <p>The new optimizations in the Erlang compiler create
+	    new combination of instructions that HiPE currently does
+	    not handle correctly.</p>
+	    <p>If erlc is invoked with the <c>+native</c> option, and
+	    if any of the new binary matching instructions are used,
+	    the compiler will issue a warning and produce a BEAM file
+	    without native code.</p>
+          <p>
+	    Own Id: OTP-15596</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.18.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
