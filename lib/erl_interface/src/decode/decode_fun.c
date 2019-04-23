@@ -153,8 +153,8 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
             /* try use module buffer for function name */
             used = strlen(p->module) + 1;
             p_func = p->module + used;
-            p->u.export.func = p_func;
-            p->u.export.func_allocated = 0;
+            p->u.exprt.func = p_func;
+            p->u.exprt.func_allocated = 0;
         }
         else {
             used = 0;
@@ -165,8 +165,8 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
             if (!used)
                 return -1;
             p_func = malloc(MAXATOMLEN_UTF8);
-            p->u.export.func = p_func;
-            p->u.export.func_allocated = 1;
+            p->u.exprt.func = p_func;
+            p->u.exprt.func_allocated = 1;
             used = 0;
         }
         if (ei_decode_long(s, &ix, p_arity) < 0)
@@ -186,8 +186,8 @@ void free_fun(erlang_fun* f)
             ei_free(f->u.closure.free_vars);
         break;
     case EI_FUN_EXPORT:
-        if (f->u.export.func_allocated)
-            ei_free(f->u.export.func);
+        if (f->u.exprt.func_allocated)
+            ei_free(f->u.exprt.func);
         break;
     }
 }
