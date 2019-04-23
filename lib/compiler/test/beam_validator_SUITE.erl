@@ -35,7 +35,7 @@
 	 map_field_lists/1,cover_bin_opt/1,
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
          receive_stacked/1,aliased_types/1,type_conflict/1,
-         infer_on_eq/1]).
+         infer_on_eq/1,infer_dead_value/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -65,7 +65,7 @@ groups() ->
        map_field_lists,cover_bin_opt,val_dsetel,
        bad_tuples,bad_try_catch_nesting,
        receive_stacked,aliased_types,type_conflict,
-       infer_on_eq]}].
+       infer_on_eq,infer_dead_value]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -678,6 +678,27 @@ infer_on_eq_3(T) ->
 infer_on_eq_4(T) ->
     true = erlang:tuple_size(T) =:= 1,
     {ok, erlang:element(1, T)}.
+
+%% ERIERL-348; types were inferred for dead values, causing validation to fail.
+
+infer_dead_value(Config) when is_list(Config) ->
+    a = idv_1({a, b, c, d, e, f, g}, {0, 0, 0, 0, 0, 0, 0}),
+    b = idv_1({a, b, c, d, 0, 0, 0}, {a, b, c, d, 0, 0, 0}),
+    c = idv_1({0, 0, 0, 0, 0, f, g}, {0, 0, 0, 0, 0, f, g}),
+    error = idv_1(gurka, gaffel),
+    ok.
+
+idv_1({_A, _B, _C, _D, _E, _F, _G},
+      {0, 0, 0, 0, 0, 0, 0}) ->
+    a;
+idv_1({A, B, C, D,_E, _F, _G}=_Tuple1,
+      {A, B, C, D, 0, 0, 0}=_Tuple2) ->
+    b;
+idv_1({_A, _B, _C, _D, _E, F, G},
+      {0, 0, 0, 0, 0, F, G}) ->
+    c;
+idv_1(_A, _B) ->
+    error.
 
 %%%-------------------------------------------------------------------------
 
