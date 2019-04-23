@@ -80,33 +80,38 @@
               cipher_filters/0,
               sign_algo/0,
               protocol_version/0,
+              protocol_version_tuple/0,
               protocol_extensions/0,
               session_id/0,
               error_alert/0,
               srp_param_type/0]).
 
 %% -------------------------------------------------------------------------------------------------------
--type socket()                   :: gen_tcp:socket().
--type socket_option()            :: gen_tcp:connect_option() | gen_tcp:listen_option() | gen_udp:option().
--type sslsocket()                :: any().
--type tls_option()               :: tls_client_option() | tls_server_option().
--type tls_client_option()        :: client_option() | common_option() | socket_option() |  transport_option().
--type tls_server_option()        :: server_option() | common_option() | socket_option() | transport_option().
+
+-type socket()                   :: gen_tcp:socket(). % exported
+-type socket_option()            :: gen_tcp:connect_option() | gen_tcp:listen_option() | gen_udp:option(). % exported
+-type sslsocket()                :: any(). % exported
+-type tls_option()               :: tls_client_option() | tls_server_option(). % exported
+-type tls_client_option()        :: client_option() | common_option() | socket_option() |  transport_option(). % exported
+-type tls_server_option()        :: server_option() | common_option() | socket_option() | transport_option(). % exported
 -type active_msgs()              :: {ssl, sslsocket(), Data::binary() | list()} | {ssl_closed, sslsocket()} |
-                                    {ssl_error, sslsocket(), Reason::term()} | {ssl_passive, sslsocket()}.
+                                    {ssl_error, sslsocket(), Reason::any()} | {ssl_passive, sslsocket()}. % exported
 -type transport_option()         :: {cb_info, {CallbackModule::atom(), DataTag::atom(),
                                                ClosedTag::atom(), ErrTag::atom()}} |  
                                     {cb_info, {CallbackModule::atom(), DataTag::atom(),
                                                ClosedTag::atom(), ErrTag::atom(), PassiveTag::atom()}}.
--type host()                     :: hostname() | ip_address().
+-type host()                     :: hostname() | ip_address(). % exported
 -type hostname()                 :: string().
 -type ip_address()               :: inet:ip_address().
--type session_id()               :: binary().
--type protocol_version()         :: tls_version() | dtls_version().
+-type session_id()               :: binary(). % exported
+-type protocol_version()         :: tls_version() | dtls_version(). % exported
+-type protocol_version_tuple()   :: tls_version_tuple() | dtls_version_tuple(). % exported
 -type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
+-type tls_version_tuple()        :: {3,0} | {3,1} | {3,2} | {3,3} | {3,4}.
 -type dtls_version()             :: 'dtlsv1.2' | dtls_legacy_version().
+-type dtls_version_tuple()       :: {254,254} | {254,253}.
 -type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' | sslv3.
--type dtls_legacy_version()      :: 'dtlsv1'. 
+-type dtls_legacy_version()      :: 'dtlsv1'.
 -type verify_type()              :: verify_none | verify_peer.
 -type cipher()                   :: aes_128_cbc |
                                     aes_256_cbc |
@@ -117,14 +122,16 @@
                                     aes_128_ccm_8 |
                                     aes_256_ccm_8 |                                    
                                     chacha20_poly1305 |
-                                    legacy_cipher().
+                                    null |
+                                    legacy_cipher(). % exported
 -type legacy_cipher()            ::  rc4_128 |
                                      des_cbc |
                                      '3des_ede_cbc'.
 
 -type hash()                     :: sha |
                                     sha2() |
-                                    legacy_hash().
+                                    legacy_hash() |
+                                    null. % exported
 
 -type sha2()                    ::  sha224 |
                                     sha256 |
@@ -133,7 +140,7 @@
 
 -type legacy_hash()             :: md5.
 
--type sign_algo()               :: rsa | dsa | ecdsa.
+-type sign_algo()               :: rsa | dsa | ecdsa. % exported
 
 -type sign_scheme()             :: rsa_pkcs1_sha256 
                                  | rsa_pkcs1_sha384
@@ -155,7 +162,7 @@
                                    srp_rsa| srp_dss |
                                    psk | dhe_psk | rsa_psk |
                                    dh_anon | ecdh_anon | srp_anon |
-                                   any. %% TLS 1.3
+                                   any | null. %% TLS 1.3 , exported
 -type erl_cipher_suite()       :: #{key_exchange := kex_algo(),
                                     cipher := cipher(),
                                     mac    := hash() | aead,
@@ -195,15 +202,18 @@
                                  secp160r1 |
                                  secp160r2.
 
+-type group() :: secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
+                 ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192.
+
 -type srp_param_type()        :: srp_1024 |
                                  srp_1536 |
                                  srp_2048 |
                                  srp_3072 |
                                  srp_4096 |
                                  srp_6144 |
-                                 srp_8192.
+                                 srp_8192. % exported
 
--type error_alert()           :: {tls_alert, {tls_alert(), Description::string()}}.
+-type error_alert()           :: {tls_alert, {tls_alert(), Description::string()}}. % exported
 
 -type tls_alert()             :: close_notify | 
                                  unexpected_message | 
@@ -234,6 +244,74 @@
                                  bad_certificate_hash_value |
                                  unknown_psk_identity |
                                  no_application_protocol.
+-type http_packet()           :: http_request() |
+                                 http_response() |
+                                 http_header() |
+                                 http_eoh |
+                                 http_error().
+-type http_request()          :: {http_request, http_method(), http_uri(), http_version()}.
+-type http_response()         :: {http_response, http_version(), integer(), http_string()}.
+-type http_header()           :: {http_header, integer(), http_field(), Reserved :: term(),
+                                  Value :: http_string()}.
+-type http_error()            :: {http_error, http_string()}.
+-type http_method()           :: 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE'.
+-type http_uri()              :: any().
+-type http_version()          :: {Major :: integer(), Minor :: integer()}.
+-type http_field()            :: 'Cache-Control' |
+                                 'Connection' |
+                                 'Date' |
+                                 'Pragma' |
+                                 'Transfer-Encoding' |
+                                 'Upgrade' |
+                                 'Via' |
+                                 'Accept' |
+                                 'Accept-Charset' |
+                                 'Accept-Encoding' |
+                                 'Accept-Language' |
+                                 'Authorization' |
+                                 'From' |
+                                 'Host' |
+                                 'If-Modified-Since' |
+                                 'If-Match' |
+                                 'If-None-Match' |
+                                 'If-Range' |
+                                 'If-Unmodified-Since' |
+                                 'Max-Forwards' |
+                                 'Proxy-Authorization' |
+                                 'Range' |
+                                 'Referer' |
+                                 'User-Agent' |
+                                 'Age' |
+                                 'Location' |
+                                 'Proxy-Authenticate' |
+                                 'Public' |
+                                 'Retry-After' |
+                                 'Server' |
+                                 'Vary' |
+                                 'Warning' |
+                                 'Www-Authenticate' |
+                                 'Allow' |
+                                 'Content-Base' |
+                                 'Content-Encoding' |
+                                 'Content-Language' |
+                                 'Content-Length' |
+                                 'Content-Location' |
+                                 'Content-Md5' |
+                                 'Content-Range' |
+                                 'Content-Type' |
+                                 'Etag' |
+                                 'Expires' |
+                                 'Last-Modified' |
+                                 'Accept-Ranges' |
+                                 'Set-Cookie' |
+                                 'Set-Cookie2' |
+                                 'X-Forwarded-For' |
+                                 'Cookie' |
+                                 'Keep-Alive' |
+                                 'Proxy-Connection' |
+                                 http_string().
+-type http_string()           :: string() | binary().
+
 %% -------------------------------------------------------------------------------------------------------
 -type common_option()        :: {protocol, protocol()} |
                                 {handshake, handshake_completion()} |
@@ -243,7 +321,7 @@
                                 {keyfile, key_pem()} |
                                 {password, key_password()} |
                                 {ciphers, cipher_suites()} |
-                                {eccs, eccs()} |
+                                {eccs, [named_curve()]} |
                                 {signature_algs_cert, signature_schemes()} |
                                 {secure_renegotiate, secure_renegotiation()} |
                                 {depth, allowed_cert_chain_length()} |
@@ -270,29 +348,28 @@
                                      #{algorithm := rsa | dss | ecdsa, 
                                        engine := crypto:engine_ref(), 
                                        key_id := crypto:key_id(), 
-                                       password => crypto:password()}.
+                                       password => crypto:password()}. % exported
 -type key_pem()                   :: file:filename().
 -type key_password()              :: string().
 -type cipher_suites()             :: ciphers().    
 -type ciphers()                   :: [erl_cipher_suite()] |
-                                     string(). % (according to old API)
+                                     string(). % (according to old API) exported
 -type cipher_filters()            :: list({key_exchange | cipher | mac | prf,
-                                        algo_filter()}).
+                                        algo_filter()}). % exported
 -type algo_filter()               :: fun((kex_algo()|cipher()|hash()|aead|default_prf) -> true | false).
--type eccs()                      :: [named_curve()].  
 -type secure_renegotiation()      :: boolean(). 
 -type allowed_cert_chain_length() :: integer().
 
--type custom_verify()               ::  {Verifyfun :: fun(), InitialUserState :: term()}.
+-type custom_verify()               ::  {Verifyfun :: fun(), InitialUserState :: any()}.
 -type crl_check()                :: boolean() | peer | best_effort.
--type crl_cache_opts()           :: [term()].
+-type crl_cache_opts()           :: [any()].
 -type handshake_size()           :: integer().
 -type hibernate_after()          :: timeout().
 -type root_fun()                 ::  fun().
 -type protocol_versions()        ::  [protocol_version()].
 -type signature_algs()           ::  [{hash(), sign_algo()}].
 -type signature_schemes()        ::  [sign_scheme()].
--type custom_user_lookup()       ::  {Lookupfun :: fun(), UserState :: term()}.
+-type custom_user_lookup()       ::  {Lookupfun :: fun(), UserState :: any()}.
 -type padding_check()            :: boolean(). 
 -type beast_mitigation()         :: one_n_minus_one | zero_n | disabled.
 -type srp_identity()             :: {Username :: string(), Password :: string()}.
@@ -375,7 +452,7 @@
 -type honor_ecc_order()          :: boolean().
 -type client_renegotiation()     :: boolean().
 %% -------------------------------------------------------------------------------------------------------
--type prf_random() :: client_random | server_random.
+-type prf_random() :: client_random | server_random. % exported
 -type protocol_extensions()  :: #{renegotiation_info => binary(),
                                   signature_algs => signature_algs(),
                                   alpn =>  app_level_protocol(),
@@ -383,7 +460,7 @@
                                   next_protocol => app_level_protocol(),
                                   ec_point_formats  => [0..2],
                                   elliptic_curves => [public_key:oid()],
-                                  sni => hostname()}.
+                                  sni => hostname()}. % exported
 %% -------------------------------------------------------------------------------------------------------
 
 %%%--------------------------------------------------------------------
@@ -419,14 +496,31 @@ stop() ->
 %%
 %% Description: Connect to an ssl server.
 %%--------------------------------------------------------------------
--spec connect(host() | port(), [tls_client_option()]) -> {ok, #sslsocket{}} |
-                                                      {error, reason()}.
+
+-spec connect(TCPSocket, TLSOptions) ->
+                     {ok, sslsocket()} |
+                     {error, reason()} |
+                     {option_not_a_key_value_tuple, any()} when
+      TCPSocket :: socket(),
+      TLSOptions :: [tls_client_option()].
+
 connect(Socket, SslOptions) when is_port(Socket) ->
     connect(Socket, SslOptions, infinity).
 
--spec connect(host() | port(), [tls_client_option()] | inet:port_number(),
-	      timeout() | list()) ->
-		     {ok, #sslsocket{}} | {error, reason()}.
+-spec connect(TCPSocket, TLSOptions, Timeout) ->
+                     {ok, sslsocket()} | {error, reason()} when
+      TCPSocket :: socket(),
+      TLSOptions :: [tls_client_option()],
+      Timeout :: timeout();
+             (Host, Port, TLSOptions) ->
+                     {ok, sslsocket()} |
+                     {ok, sslsocket(),Ext :: protocol_extensions()} |
+                     {error, reason()} |
+                     {option_not_a_key_value_tuple, any()} when
+      Host :: host(),
+      Port :: inet:port_number(),
+      TLSOptions :: [tls_client_option()].
+
 connect(Socket, SslOptions0, Timeout) when is_port(Socket),
                                            (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     CbInfo = handle_option(cb_info, SslOptions0, default_cb_info(tls)),
@@ -443,8 +537,16 @@ connect(Socket, SslOptions0, Timeout) when is_port(Socket),
 connect(Host, Port, Options) ->
     connect(Host, Port, Options, infinity).
 
--spec connect(host() | port(), inet:port_number(), list(), timeout()) ->
-		     {ok, #sslsocket{}} | {error, reason()}.
+
+-spec connect(Host, Port, TLSOptions, Timeout) ->
+                     {ok, sslsocket()} |
+                     {ok, sslsocket(),Ext :: protocol_extensions()} |
+                     {error, reason()} |
+                     {option_not_a_key_value_tuple, any()} when
+      Host :: host(),
+      Port :: inet:port_number(),
+      TLSOptions :: [tls_client_option()],
+      Timeout :: timeout().
 
 connect(Host, Port, Options, Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     try
@@ -461,7 +563,10 @@ connect(Host, Port, Options, Timeout) when (is_integer(Timeout) andalso Timeout 
     end.
 
 %%--------------------------------------------------------------------
--spec listen(inet:port_number(), [tls_server_option()]) ->{ok, #sslsocket{}} | {error, reason()}.
+-spec listen(Port, Options) -> {ok, ListenSocket} | {error, reason()} when
+      Port::inet:port_number(),
+      Options::[tls_server_option()],
+      ListenSocket :: sslsocket().
 
 %%
 %% Description: Creates an ssl listen socket.
@@ -480,13 +585,20 @@ listen(Port, Options0) ->
 %%
 %% Description: Performs transport accept on an ssl listen socket
 %%--------------------------------------------------------------------
--spec transport_accept(#sslsocket{}) -> {ok, #sslsocket{}} |
-					{error, reason()}.
+-spec transport_accept(ListenSocket) -> {ok, SslSocket} |
+					{error, reason()} when
+      ListenSocket :: sslsocket(),
+      SslSocket :: sslsocket().
+
 transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
 
--spec transport_accept(#sslsocket{}, timeout()) -> {ok, #sslsocket{}} |
-						   {error, reason()}.
+-spec transport_accept(ListenSocket, Timeout) -> {ok, SslSocket} |
+					{error, reason()} when
+      ListenSocket :: sslsocket(),
+      Timeout :: timeout(),
+      SslSocket :: sslsocket().
+
 transport_accept(#sslsocket{pid = {ListenSocket,
 				   #config{connection_cb = ConnectionCb} = Config}}, Timeout) 
   when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
@@ -502,12 +614,22 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake.
 %%--------------------------------------------------------------------
--spec ssl_accept(#sslsocket{}) -> ok | {error, timeout | closed | {options, any()}| error_alert()}.
+-spec ssl_accept(SslSocket) ->
+                        ok |
+                        {error, Reason} when
+      SslSocket :: sslsocket(),
+      Reason :: closed | timeout | error_alert().
+
 ssl_accept(ListenSocket) ->
     ssl_accept(ListenSocket, [], infinity).
 
--spec ssl_accept(#sslsocket{} | port(), timeout()| [tls_server_option()]) ->
-			ok | {ok, #sslsocket{}} | {error, timeout | closed | {options, any()}| error_alert()}.
+-spec ssl_accept(Socket, TimeoutOrOptions) ->
+			ok |
+                        {ok, sslsocket()} | {error, Reason} when
+      Socket :: sslsocket() | socket(),
+      TimeoutOrOptions :: timeout() | [tls_server_option()],
+      Reason :: timeout | closed | {options, any()} | error_alert().
+
 ssl_accept(Socket, Timeout)  when  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     ssl_accept(Socket, [], Timeout);
 ssl_accept(ListenSocket, SslOptions) when is_port(ListenSocket) ->
@@ -515,8 +637,13 @@ ssl_accept(ListenSocket, SslOptions) when is_port(ListenSocket) ->
 ssl_accept(Socket, Timeout) ->
     ssl_accept(Socket, [], Timeout).
 
--spec ssl_accept(#sslsocket{} | port(), [tls_server_option()], timeout()) ->
-			ok | {ok, #sslsocket{}} | {error, timeout | closed | {options, any()}| error_alert()}.
+-spec ssl_accept(Socket, Options, Timeout) ->
+			ok | {ok, sslsocket()} | {error, Reason} when
+      Socket :: sslsocket() | socket(),
+      Options :: [tls_server_option()],
+      Timeout :: timeout(),
+      Reason :: timeout | closed | {options, any()} | error_alert().
+
 ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
     handshake(Socket, SslOptions, Timeout);
 ssl_accept(Socket, SslOptions, Timeout) ->
@@ -533,13 +660,28 @@ ssl_accept(Socket, SslOptions, Timeout) ->
 %%--------------------------------------------------------------------
 
 %% Performs the SSL/TLS/DTLS server-side handshake.
--spec handshake(#sslsocket{}) -> {ok, #sslsocket{}} | {error, timeout | closed | {options, any()} | error_alert()}.
+-spec handshake(HsSocket) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
+      HsSocket :: sslsocket(),
+      SslSocket :: sslsocket(),
+      Ext :: protocol_extensions(),
+      Reason :: closed | timeout | error_alert().
 
 handshake(ListenSocket) ->
     handshake(ListenSocket, infinity).
 
--spec handshake(#sslsocket{} | port(), timeout()| [tls_server_option()]) ->
-                       {ok, #sslsocket{}} | {error, timeout | closed | {options, any()} | error_alert()}.
+-spec handshake(HsSocket, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
+      HsSocket :: sslsocket(),
+      Timeout :: timeout(),
+      SslSocket :: sslsocket(),
+      Ext :: protocol_extensions(),
+      Reason :: closed | timeout | error_alert();
+               (Socket, Options) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
+      Socket :: socket() | sslsocket(),
+      SslSocket :: sslsocket(),
+      Options :: [server_option()],
+      Ext :: protocol_extensions(),
+      Reason :: closed | timeout | error_alert().
+
 handshake(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Timeout >= 0) or 
                                                 (Timeout == infinity) ->
     ssl_connection:handshake(Socket, Timeout);
@@ -553,8 +695,17 @@ handshake(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Tim
 handshake(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
     handshake(ListenSocket, SslOptions, infinity).
 
--spec handshake(#sslsocket{} | port(), [tls_server_option()], timeout()) ->
-			{ok, #sslsocket{}} | {error, timeout | closed | {options, any()} | error_alert()}.
+-spec handshake(Socket, Options, Timeout) ->
+                       {ok, SslSocket} |
+                       {ok, SslSocket, Ext} |
+                       {error, Reason} when
+      Socket :: socket() | sslsocket(),
+      SslSocket :: sslsocket(),
+      Options :: [server_option()],
+      Timeout :: timeout(),
+      Ext :: protocol_extensions(),
+      Reason :: closed | timeout | {options, any()} | error_alert().
+
 handshake(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or 
                                                     (Timeout == infinity)->
     handshake(Socket, Timeout);
@@ -597,8 +748,12 @@ handshake(Socket, SslOptions, Timeout) when is_port(Socket),
 
 
 %%--------------------------------------------------------------------
--spec handshake_continue(#sslsocket{}, [tls_client_option() | tls_server_option()]) -> 
-                                {ok, #sslsocket{}} | {error, reason()}.
+-spec handshake_continue(HsSocket, Options) ->
+                                {ok, SslSocket} | {error, Reason} when
+      HsSocket :: sslsocket(),
+      Options :: [tls_client_option() | tls_server_option()],
+      SslSocket :: sslsocket(),
+      Reason :: closed | timeout | error_alert().
 %%
 %%
 %% Description: Continues the handshke possible with newly supplied options.
@@ -606,8 +761,13 @@ handshake(Socket, SslOptions, Timeout) when is_port(Socket),
 handshake_continue(Socket, SSLOptions) ->
     handshake_continue(Socket, SSLOptions, infinity).
 %%--------------------------------------------------------------------
--spec handshake_continue(#sslsocket{}, [tls_client_option() | tls_server_option()], timeout()) -> 
-                                {ok, #sslsocket{}} | {error, reason()}.
+-spec handshake_continue(HsSocket, Options, Timeout) ->
+                                {ok, SslSocket} | {error, Reason} when
+      HsSocket :: sslsocket(),
+      Options :: [tls_client_option() | tls_server_option()],
+      Timeout :: timeout(),
+      SslSocket :: sslsocket(),
+      Reason :: closed | timeout | error_alert().
 %%
 %%
 %% Description: Continues the handshke possible with newly supplied options.
@@ -615,7 +775,7 @@ handshake_continue(Socket, SSLOptions) ->
 handshake_continue(Socket, SSLOptions, Timeout) ->
     ssl_connection:handshake_continue(Socket, SSLOptions, Timeout).
 %%--------------------------------------------------------------------
--spec  handshake_cancel(#sslsocket{}) -> term().
+-spec  handshake_cancel(#sslsocket{}) -> any().
 %%
 %% Description: Cancels the handshakes sending a close alert.
 %%--------------------------------------------------------------------
@@ -623,7 +783,9 @@ handshake_cancel(Socket) ->
     ssl_connection:handshake_cancel(Socket).
 
 %%--------------------------------------------------------------------
--spec  close(#sslsocket{}) -> term().
+-spec  close(SslSocket) -> ok | {error, Reason} when
+      SslSocket :: sslsocket(),
+      Reason :: any().
 %%
 %% Description: Close an ssl connection
 %%--------------------------------------------------------------------
@@ -635,7 +797,10 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}
     Transport:close(ListenSocket).
 
 %%--------------------------------------------------------------------
--spec  close(#sslsocket{}, timeout() | {pid(), integer()}) -> term().
+-spec  close(SslSocket, How) -> ok | {ok, port()} | {error,Reason} when
+      SslSocket :: sslsocket(),
+      How :: timeout() | {NewController::pid(), timeout()},
+      Reason :: any().
 %%
 %% Description: Close an ssl connection
 %%--------------------------------------------------------------------
@@ -651,7 +816,9 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}
     Transport:close(ListenSocket).
 
 %%--------------------------------------------------------------------
--spec send(#sslsocket{}, iodata()) -> ok | {error, reason()}.
+-spec send(SslSocket, Data) -> ok | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Data :: iodata().
 %%
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
@@ -671,11 +838,20 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
 %%
 %% Description: Receives data when active = false
 %%--------------------------------------------------------------------
--spec recv(#sslsocket{}, integer()) -> {ok, binary()| list()} | {error, reason()}.
+-spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Length :: integer(),
+      Data :: binary() | list() | http_packet().
+
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
 
--spec recv(#sslsocket{}, integer(), timeout()) -> {ok, binary()| list()} | {error, reason()}.
+-spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Length :: integer(),
+      Data :: binary() | list() | http_packet(),
+      Timeout :: timeout().
+
 recv(#sslsocket{pid = [Pid|_]}, Length, Timeout) when is_pid(Pid),
 						  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     ssl_connection:recv(Pid, Length, Timeout);
@@ -687,7 +863,10 @@ recv(#sslsocket{pid = {Listen,
     Transport:recv(Listen, 0). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
--spec controlling_process(#sslsocket{}, pid()) -> ok | {error, reason()}.
+-spec controlling_process(SslSocket, NewOwner) -> ok | {error, Reason} when
+      SslSocket :: sslsocket(),
+      NewOwner :: pid(),
+      Reason :: any().
 %%
 %% Description: Changes process that receives the messages when active = true
 %% or once.
@@ -706,7 +885,11 @@ controlling_process(#sslsocket{pid = {Listen,
 
 
 %%--------------------------------------------------------------------
--spec connection_information(#sslsocket{}) -> {ok, list()} | {error, reason()}.
+-spec connection_information(SslSocket) -> {ok, Result} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Result :: [{OptionName, OptionValue}],
+      OptionName :: atom(),
+      OptionValue :: any().
 %%
 %% Description: Return SSL information for the connection
 %%--------------------------------------------------------------------
@@ -723,7 +906,12 @@ connection_information(#sslsocket{pid = {dtls,_}}) ->
     {error,enotconn}. 
 
 %%--------------------------------------------------------------------
--spec connection_information(#sslsocket{}, [atom()]) -> {ok, list()} | {error, reason()}.
+-spec connection_information(SslSocket, Items) -> {ok, Result} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Items :: [OptionName],
+      Result :: [{OptionName, OptionValue}],
+      OptionName :: atom(),
+      OptionValue :: any().
 %%
 %% Description: Return SSL information for the connection
 %%--------------------------------------------------------------------
@@ -737,7 +925,11 @@ connection_information(#sslsocket{pid = [Pid|_]}, Items) when is_pid(Pid) ->
     end.
 
 %%--------------------------------------------------------------------
--spec peername(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
+-spec peername(SslSocket) -> {ok, {Address, Port}} |
+                             {error, reason()} when
+      SslSocket :: sslsocket(),
+      Address :: inet:ip_address(),
+      Port :: inet:port_number().
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
@@ -753,7 +945,9 @@ peername(#sslsocket{pid = {dtls,_}}) ->
     {error,enotconn}.
 
 %%--------------------------------------------------------------------
--spec peercert(#sslsocket{}) ->{ok, DerCert::binary()} | {error, reason()}.
+-spec peercert(SslSocket) -> {ok, Cert} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Cert :: binary().
 %%
 %% Description: Returns the peercert.
 %%--------------------------------------------------------------------
@@ -770,7 +964,10 @@ peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
--spec negotiated_protocol(#sslsocket{}) -> {ok, binary()} | {error, reason()}.
+-spec negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, Reason} when
+      SslSocket :: sslsocket(),
+      Protocol :: binary(),
+      Reason :: protocol_not_negotiated.
 %%
 %% Description: Returns the protocol that has been negotiated. If no
 %% protocol has been negotiated will return {error, protocol_not_negotiated}
@@ -784,8 +981,9 @@ negotiated_protocol(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
 cipher_suites() ->
     cipher_suites(erlang).
 %%--------------------------------------------------------------------
--spec cipher_suites(erlang | openssl | all) -> 
-                           [old_cipher_suite() | string()].
+-spec cipher_suites(Type) -> [old_cipher_suite() | string()] when
+      Type :: erlang | openssl | all.
+
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
 cipher_suites(erlang) ->
@@ -799,9 +997,10 @@ cipher_suites(all) ->
     [ssl_cipher_format:suite_legacy(Suite) || Suite <- available_suites(all)].
 
 %%--------------------------------------------------------------------
--spec cipher_suites(default | all | anonymous, ssl_record:ssl_version() |
-                    tls_record:tls_atom_version() |  dtls_record:dtls_atom_version()) -> 
-                           [erl_cipher_suite()].
+-spec cipher_suites(Supported, Version) -> ciphers() when
+      Supported :: default | all | anonymous,
+      Version :: protocol_version().
+
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
 %%--------------------------------------------------------------------
@@ -817,9 +1016,10 @@ cipher_suites(Base, Version) ->
     [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- supported_suites(Base, Version)].
 
 %%--------------------------------------------------------------------
--spec filter_cipher_suites([erl_cipher_suite()] | [ssl_cipher_format:cipher_suite()] , 
-                           [{key_exchange | cipher | mac | prf, fun()}] | []) -> 
-                                  [erl_cipher_suite()] | [ssl_cipher_format:cipher_suite()].
+-spec filter_cipher_suites(Suites, Filters) -> Ciphers when
+      Suites :: ciphers(),
+      Filters :: cipher_filters(),
+      Ciphers :: ciphers().
 
 %% Description: Removes cipher suites if any of the filter functions returns false
 %% for any part of the cipher suite. This function also calls default filter functions
@@ -837,10 +1037,10 @@ filter_cipher_suites(Suites, Filters0) ->
                 prf_filters => add_filter(proplists:get_value(prf, Filters0), PrfF)},
     ssl_cipher:filter_suites(Suites, Filters).
 %%--------------------------------------------------------------------
--spec prepend_cipher_suites([erl_cipher_suite()] | 
-                            [{key_exchange | cipher | mac | prf, fun()}],
-                            [erl_cipher_suite()]) -> 
-                                   [erl_cipher_suite()].
+-spec prepend_cipher_suites(Preferred, Suites) -> ciphers() when
+      Preferred :: ciphers() | cipher_filters(),
+      Suites :: ciphers().
+
 %% Description: Make <Preferred> suites become the most prefered
 %%      suites that is put them at the head of the cipher suite list
 %%      and remove them from <Suites> if present. <Preferred> may be a
@@ -855,10 +1055,10 @@ prepend_cipher_suites(Filters, Suites) ->
     Preferred = filter_cipher_suites(Suites, Filters), 
     Preferred ++ (Suites -- Preferred).
 %%--------------------------------------------------------------------
--spec append_cipher_suites(Deferred :: [erl_cipher_suite()] | 
-                                       [{key_exchange | cipher | mac | prf, fun()}],
-                           [erl_cipher_suite()]) -> 
-                                  [erl_cipher_suite()].
+-spec append_cipher_suites(Deferred, Suites) -> ciphers() when
+      Deferred :: ciphers() | cipher_filters(),
+      Suites :: ciphers().
+
 %% Description: Make <Deferred> suites suites become the 
 %% least prefered suites that is put them at the end of the cipher suite list
 %% and removed them from <Suites> if present.
@@ -872,7 +1072,9 @@ append_cipher_suites(Filters, Suites) ->
     (Suites -- Deferred) ++  Deferred.
 
 %%--------------------------------------------------------------------
--spec eccs() -> tls_v1:curves().
+-spec eccs() -> NamedCurves when
+      NamedCurves :: [named_curve()].
+
 %% Description: returns all supported curves across all versions
 %%--------------------------------------------------------------------
 eccs() ->
@@ -880,9 +1082,10 @@ eccs() ->
     eccs_filter_supported(Curves).
 
 %%--------------------------------------------------------------------
--spec eccs(tls_record:tls_atom_version() |
-           ssl_record:ssl_version() | dtls_record:dtls_atom_version()) ->
-                  tls_v1:curves().
+-spec eccs(Version) -> NamedCurves when
+      Version :: protocol_version() | protocol_version_tuple(),
+      NamedCurves :: [named_curve()].
+
 %% Description: returns the curves supported for a given version of
 %% ssl/tls.
 %%--------------------------------------------------------------------
@@ -908,22 +1111,24 @@ eccs_filter_supported(Curves) ->
                  Curves).
 
 %%--------------------------------------------------------------------
--spec groups() -> tls_v1:supported_groups().
+-spec groups() -> [group()].
 %% Description: returns all supported groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
 groups() ->
     tls_v1:groups(4).
 
 %%--------------------------------------------------------------------
--spec groups(default) -> tls_v1:supported_groups().
+-spec groups(default) -> [group()].
 %% Description: returns the default groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
 groups(default) ->
     tls_v1:default_groups(4).
 
 %%--------------------------------------------------------------------
--spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
-		     {ok, [gen_tcp:option()]} | {error, reason()}.
+-spec getopts(SslSocket, OptionNames) ->
+		     {ok, [gen_tcp:option()]} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      OptionNames :: [gen_tcp:option_name()].
 %%
 %% Description: Gets options
 %%--------------------------------------------------------------------
@@ -954,7 +1159,9 @@ getopts(#sslsocket{}, OptionTags) ->
     {error, {options, {socket_options, OptionTags}}}.
 
 %%--------------------------------------------------------------------
--spec setopts(#sslsocket{},  [gen_tcp:option()]) -> ok | {error, reason()}.
+-spec setopts(SslSocket, Options) -> ok | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Options :: [gen_tcp:option()].
 %%
 %% Description: Sets options
 %%--------------------------------------------------------------------
@@ -1010,9 +1217,9 @@ setopts(#sslsocket{}, Options) ->
     {error, {options,{not_a_proplist, Options}}}.
 
 %%---------------------------------------------------------------
--spec getstat(Socket) ->
-	{ok, OptionValues} | {error, inet:posix()} when
-      Socket :: #sslsocket{},
+-spec getstat(SslSocket) ->
+                     {ok, OptionValues} | {error, inet:posix()} when
+      SslSocket :: sslsocket(),
       OptionValues :: [{inet:stat_option(), integer()}].
 %%
 %% Description: Get all statistic options for a socket.
@@ -1021,9 +1228,9 @@ getstat(Socket) ->
 	getstat(Socket, inet:stats()).
 
 %%---------------------------------------------------------------
--spec getstat(Socket, Options) ->
-	{ok, OptionValues} | {error, inet:posix()} when
-      Socket :: #sslsocket{},
+-spec getstat(SslSocket, Options) ->
+                     {ok, OptionValues} | {error, inet:posix()} when
+      SslSocket :: sslsocket(),
       Options :: [inet:stat_option()],
       OptionValues :: [{inet:stat_option(), integer()}].
 %%
@@ -1036,7 +1243,9 @@ getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _, _}}, Options) when
     tls_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
--spec shutdown(#sslsocket{}, read | write | read_write) ->  ok | {error, reason()}.
+-spec shutdown(SslSocket, How) ->  ok | {error, reason()} when
+      SslSocket :: sslsocket(),
+      How :: read | write | read_write.
 %%
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
@@ -1050,7 +1259,11 @@ shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
     ssl_connection:shutdown(Pid, How).
 
 %%--------------------------------------------------------------------
--spec sockname(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
+-spec sockname(SslSocket) ->
+                      {ok, {Address, Port}} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Address :: inet:ip_address(),
+      Port :: inet:port_number().
 %%
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
@@ -1064,10 +1277,10 @@ sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(P
     tls_socket:sockname(Transport, Socket).
 
 %%---------------------------------------------------------------
--spec versions() -> [{ssl_app, string()} | {supported, [tls_record:tls_atom_version()]} |
-                     {supported_dtls, [dtls_record:dtls_atom_version()]} |
-		     {available, [tls_record:tls_atom_version()]} |
-                     {available_dtls, [dtls_record:dtls_atom_version()]}].
+-spec versions() -> [VersionInfo] when
+      VersionInfo :: {ssl_app, string()} |
+                     {supported | available, [tls_version()]} |
+                     {supported_dtls | available_dtls, [dtls_version()]}.
 %%
 %% Description: Returns a list of relevant versions.
 %%--------------------------------------------------------------------
@@ -1085,7 +1298,8 @@ versions() ->
 
 
 %%---------------------------------------------------------------
--spec renegotiate(#sslsocket{}) -> ok | {error, reason()}.
+-spec renegotiate(SslSocket) -> ok | {error, reason()} when
+      SslSocket :: sslsocket().
 %%
 %% Description: Initiates a renegotiation.
 %%--------------------------------------------------------------------
@@ -1105,9 +1319,13 @@ renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
--spec prf(#sslsocket{}, binary() | 'master_secret', binary(),
-	  [binary() | prf_random()], non_neg_integer()) ->
-		 {ok, binary()} | {error, reason()}.
+-spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->
+                 {ok, binary()} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Secret :: binary() | 'master_secret',
+      Label::binary(),
+      Seed :: [binary() | prf_random()],
+      WantedLength :: non_neg_integer().
 %%
 %% Description: use a ssl sessions TLS PRF to generate key material
 %%--------------------------------------------------------------------
@@ -1128,7 +1346,8 @@ clear_pem_cache() ->
     ssl_pem_cache:clear().
 
 %%---------------------------------------------------------------
--spec format_error({error, term()}) -> list().
+-spec format_error({error, Reason}) -> string() when
+      Reason :: any().
 %%
 %% Description: Creates error string.
 %%--------------------------------------------------------------------
@@ -1167,7 +1386,8 @@ tls_version({254, _} = Version) ->
     dtls_v1:corresponding_tls_version(Version).
 
 %%--------------------------------------------------------------------
--spec suite_to_str(erl_cipher_suite()) -> string().
+-spec suite_to_str(CipherSuite) -> string() when
+      CipherSuite :: erl_cipher_suite().
 %%
 %% Description: Return the string representation of a cipher suite.
 %%--------------------------------------------------------------------

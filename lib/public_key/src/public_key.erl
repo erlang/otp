@@ -112,6 +112,7 @@
 -type ssh_file()             :: openssh_public_key | rfc4716_public_key | known_hosts |
 				auth_keys.
 -type digest_type()          :: none % None is for backwards compatibility
+                              | sha1 % Backwards compatibility
                               | crypto:rsa_digest_type()
                               | crypto:dss_digest_type()
                               | crypto:ecdsa_digest_type().

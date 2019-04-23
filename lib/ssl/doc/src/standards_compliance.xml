@@ -126,8 +126,33 @@
 
   <section>
     <title>TLS 1.3</title>
-    <p> This section describes the current state of standards compliance for TLS 1.3.</p>
-    <p>(C = Compliant, NC = Non-Compliant, P = Partially-Compliant, NA = Not Applicable)</p>
+    <p>OTP-22 introduces basic support for TLS 1.3 on the server side. Basic functionality
+    covers a simple TLS 1.3 handshake with support of the mandatory extensions
+    (supported_groups, signature_algorithms, key_share, supported_versions and
+    signature_algorithms_cert). The server supports a selective set of cryptographic algorithms:</p>
+    <list type="bulleted">
+      <item>Key Exchange: ECDHE</item>
+      <item>Groups: all standard groups supported for the Diffie-Hellman key exchange</item>
+      <item>Ciphers: TLS_AES_128_GCM_SHA256 and TLS_AES_256_GCM_SHA384</item>
+      <item>Signature Algorithms: RSA and RSA PSS</item>
+      <item>Certificates: currently only certificates with RSA keys are supported</item>
+    </list>
+    <p>Other notable features:</p>
+    <list type="bulleted">
+      <item>The server supports the HelloRetryRequest mechanism</item>
+      <item>PSK and session resumption not supported</item>
+      <item>Early data and 0-RTT not supported</item>
+      <item>Key and Initialization Vector Update not supported</item>
+    </list>
+    <p>For more detailed information see the
+    <seealso marker="#soc_table">Standards Compliance</seealso> below.</p>
+    <warning><p>Note that the client side is not yet functional. It is planned to be released
+    later in OTP-22.</p></warning>
+
+    <p> The following table describes the current state of standards compliance for TLS 1.3.</p>
+    <p>(<em>C</em> = Compliant, <em>NC</em> = Non-Compliant, <em>PC</em> = Partially-Compliant,
+    <em>NA</em> = Not Applicable)</p>
+    <marker id="soc_table"/>
     <table>
       <row>
         <cell align="left" valign="middle"><em>Section</em></cell>
@@ -155,7 +180,7 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">RSASSA-PSS signature schemes</cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle">22</cell>
       </row>
       <row>
@@ -178,7 +203,7 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -240,7 +265,7 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -783,7 +808,7 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -1265,7 +1290,7 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -1379,7 +1404,7 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -1456,7 +1481,7 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -1527,7 +1552,7 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em></em></cell>
       </row>
       <row>
@@ -1762,7 +1787,7 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -1924,7 +1949,7 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -1949,7 +1974,7 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Digital signatures</em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -1997,7 +2022,7 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -2108,7 +2133,7 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>TLS 1.3 ServerHello</em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -2160,7 +2185,7 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
       <row>
@@ -2223,7 +2248,7 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
 
@@ -2289,7 +2314,7 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>P</em></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
 	<cell align="left" valign="middle"><em>22</em></cell>
       </row>
 

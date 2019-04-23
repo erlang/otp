@@ -448,7 +448,7 @@ server_require_peer_cert_partial_chain_fun_fail(Config) when is_list(Config) ->
     [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ServerCAs),
 
     PartialChain =  fun(_CertChain) ->
-                            ture = false %% crash on purpose
+                            true = false %% crash on purpose
 		    end,
 
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},

@@ -98,7 +98,7 @@ hello_request() ->
     #hello_request{}.
 
 %%--------------------------------------------------------------------
--spec server_hello(#session{}, ssl_record:ssl_version(), ssl_record:connection_states(),
+-spec server_hello(binary(), ssl_record:ssl_version(), ssl_record:connection_states(),
 		   Extension::map()) -> #server_hello{}.
 %%
 %% Description: Creates a server hello message.
