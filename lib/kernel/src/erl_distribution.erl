@@ -21,6 +21,8 @@
 
 -behaviour(supervisor).
 
+-include_lib("kernel/include/logger.hrl").
+
 -export([start_link/0,start_link/2,init/1,start/1,stop/0]).
 
 -define(DBG,erlang:display([?MODULE,?LINE])).
@@ -82,6 +84,10 @@ init(NetArgs) ->
 do_start_link([{Arg,Flag}|T]) ->
     case init:get_argument(Arg) of
 	{ok,[[Name]]} ->
+	    start_link([list_to_atom(Name),Flag|ticktime()], true);
+        {ok,[[Name]|_Rest]} ->
+            ?LOG_WARNING("Multiple -~p given to erl, using the first, ~p",
+                         [Arg, Name]),
 	    start_link([list_to_atom(Name),Flag|ticktime()], true);
 	_ ->
 	    do_start_link(T)
