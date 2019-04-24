@@ -286,7 +286,9 @@
     entries as ASN.1 DER encoded entities.</fsummary>
   <desc> 
     <p>Decodes PEM binary data and returns entries as ASN.1 DER encoded entities.</p>
-    <p>Example <c>{ok, PemBin} = file:read_file("cert.pem").</c></p>
+    <p>Example <c>{ok, PemBin} = file:read_file("cert.pem").
+    PemEntries = public_key:pem_decode(PemBin).    
+    </c></p>
   </desc> 
   </func> 
     
