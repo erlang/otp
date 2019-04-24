@@ -1,1 +1,1 @@
-EDOC_VSN = 0.11
+EDOC_VSN = 0.10
