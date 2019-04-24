@@ -320,9 +320,12 @@ message_to_string({call_to_missing, [M, F, A]}) ->
 message_to_string({exact_eq, [Type1, Op, Type2]}) ->
   io_lib:format("The test ~ts ~s ~ts can never evaluate to 'true'\n",
 		[Type1, Op, Type2]);
-message_to_string({fun_app_args, [Args, Type]}) ->
+message_to_string({fun_app_args, [ArgNs, Args, Type]}) ->
+  PositionString = form_position_string(ArgNs),
   io_lib:format("Fun application with arguments ~ts will fail"
-		" since the function has type ~ts\n", [Args, Type]);
+		" since the function has type ~ts,"
+                " which differs in the ~s argument\n",
+                [Args, Type, PositionString]);
 message_to_string({fun_app_no_fun, [Op, Type, Arity]}) ->
   io_lib:format("Fun application will fail since ~ts :: ~ts"
 		" is not a function of arity ~w\n", [Op, Type, Arity]);
