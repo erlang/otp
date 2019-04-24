@@ -4138,7 +4138,7 @@ define etp-block2mbc-1
       set $etp_mbc = ($arg0)->u.carrier
   else
       # Allocated block
-      set $etp_mbc = (Carrier_t*) ((((UWord)($arg0) >> 18) - (($arg0)->bhdr >> $etp_MBC_ABLK_OFFSET_SHIFT)) << 18)
+      set $etp_mbc = (Carrier_t*) ((((UWord)($arg0) >> 18) - ((($arg0)->bhdr & $etp_MBC_ABLK_OFFSET_MASK) >> $etp_MBC_ABLK_OFFSET_SHIFT)) << 18)
   end
 end
 
@@ -4415,13 +4415,14 @@ define etp-init
   set $etp_arch64 = (sizeof(void *) == 8)
   if $etp_arch64
     set $etp_nil = 0xfffffffffffffffb
-    set $etp_MBC_ABLK_OFFSET_SHIFT = (64 - 24)
+    set $etp_MBC_ABLK_OFFSET_BITS = 23
   else
     set $etp_nil = 0xfffffffb
-    set $etp_MBC_ABLK_OFFSET_SHIFT = (32 - 9)
+    set $etp_MBC_ABLK_OFFSET_BITS = 8
   end
+  set $etp_MBC_ABLK_OFFSET_SHIFT = (sizeof(UWord)*8 - 1 - $etp_MBC_ABLK_OFFSET_BITS)
+  set $etp_MBC_ABLK_OFFSET_MASK = ((((UWord)1 << $etp_MBC_ABLK_OFFSET_BITS) - 1) << $etp_MBC_ABLK_OFFSET_SHIFT)
   set $etp_MBC_ABLK_SZ_MASK = ((UWord)1 << $etp_MBC_ABLK_OFFSET_SHIFT) - 1 - 7
-
   set $etp_flat = 0
   set $etp_chart_id = 0
   set $etp_chart = 0
