@@ -252,46 +252,6 @@
       <name name="reason"/>
      </datatype>
 
-     <datatype>
-      <name name="http_packet"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_request"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_response"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_header"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_error"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_method"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_uri"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_version"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_field"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_string"/>
-     </datatype>
-
     <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</datatype_title>
     
     <datatype>
@@ -1495,6 +1455,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name since="" name="recv" arity="2" />
       <name since="" name="recv" arity="3" />
       <fsummary>Receives data on a socket.</fsummary>
+      <type_desc variable="HttpPacket">See the description of
+        <c>HttpPacket</c> in
+        <seealso marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seealso>
+	in ERTS.
+      </type_desc>
       <desc>
         <p>Receives a packet from a socket in passive
           mode. A closed socket is indicated by return value
