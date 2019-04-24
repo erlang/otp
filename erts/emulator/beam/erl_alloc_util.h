@@ -334,8 +334,9 @@ void erts_alcu_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
 #endif
 
 #if MBC_ABLK_OFFSET_BITS
-#  define MBC_ABLK_OFFSET_SHIFT  (sizeof(UWord)*8 - MBC_ABLK_OFFSET_BITS)
-#  define MBC_ABLK_OFFSET_MASK   ((~((UWord)0) << MBC_ABLK_OFFSET_SHIFT) & ~BLK_FLG_MASK)
+/* The shift is reduced by 1 since the highest bit is used for a flag. */
+#  define MBC_ABLK_OFFSET_SHIFT  (sizeof(UWord)*8 - 1 - MBC_ABLK_OFFSET_BITS)
+#  define MBC_ABLK_OFFSET_MASK   (((1ul << MBC_ABLK_OFFSET_BITS) - 1ul) << MBC_ABLK_OFFSET_SHIFT)
 #  define MBC_ABLK_SZ_MASK	(~MBC_ABLK_OFFSET_MASK & ~BLK_FLG_MASK)
 #else
 #  define MBC_ABLK_SZ_MASK	(~BLK_FLG_MASK)

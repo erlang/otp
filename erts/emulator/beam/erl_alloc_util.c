@@ -6567,6 +6567,14 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
                  __FILE__, __LINE__);
     }
 
+    /* The various fields packed into the header word must not overlap */
+    ERTS_CT_ASSERT(!(MBC_ABLK_OFFSET_MASK & MBC_ABLK_SZ_MASK));
+    ERTS_CT_ASSERT(!(MBC_ABLK_OFFSET_MASK & BLK_FLG_MASK));
+    ERTS_CT_ASSERT(!(MBC_ABLK_SZ_MASK & BLK_FLG_MASK));
+    ERTS_CT_ASSERT(!(MBC_FBLK_SZ_MASK & BLK_FLG_MASK));
+    ERTS_CT_ASSERT(!(SBC_BLK_SZ_MASK & BLK_FLG_MASK));
+    ERTS_CT_ASSERT(!(CRR_SZ_MASK & CRR_FLG_MASK));
+
     if (!initialized)
 	goto error;
 
