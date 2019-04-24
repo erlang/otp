@@ -112,7 +112,6 @@
                                     aes_128_gcm |
                                     aes_256_gcm |
                                     chacha20_poly1305 |
-                                    null |
                                     legacy_cipher(). % exported
 -type legacy_cipher()            ::  rc4_128 |
                                      des_cbc |
@@ -120,8 +119,7 @@
 
 -type hash()                     :: sha |
                                     sha2() |
-                                    legacy_hash() |
-                                    null. % exported
+                                    legacy_hash(). % exported
 
 -type sha2()                    ::  sha224 |
                                     sha256 |
@@ -136,8 +134,8 @@
                                    ecdhe_ecdsa | ecdh_ecdsa | ecdh_rsa |
                                    srp_rsa| srp_dss |
                                    psk | dhe_psk | rsa_psk |
-                                   dh_anon | ecdh_anon | srp_anon |
-                                   any | null. %% TLS 1.3 , exported
+                                   dh_anon | ecdh_anon | srp_anon.
+
 -type erl_cipher_suite()       :: #{key_exchange := kex_algo(),
                                     cipher := cipher(),
                                     mac    := hash() | aead,
@@ -1264,7 +1262,13 @@ tls_version({254, _} = Version) ->
 
 %%--------------------------------------------------------------------
 -spec suite_to_str(CipherSuite) -> string() when
-      CipherSuite :: erl_cipher_suite().
+      CipherSuite :: erl_cipher_suite();
+                  (CipherSuite) -> string() when
+      %% For internal use!
+      CipherSuite :: #{key_exchange := null,
+                       cipher := null,
+                       mac := null,
+                       prf := null}.
 %%
 %% Description: Return the string representation of a cipher suite.
 %%--------------------------------------------------------------------
