@@ -79,7 +79,6 @@
               cipher_filters/0,
               sign_algo/0,
               protocol_version/0,
-              protocol_version_tuple/0,
               protocol_extensions/0,
               session_id/0,
               error_alert/0,
@@ -978,27 +977,23 @@ eccs() ->
 
 %%--------------------------------------------------------------------
 -spec eccs(Version) -> NamedCurves when
-      Version :: protocol_version() | protocol_version_tuple(),
+      Version :: protocol_version(),
       NamedCurves :: [named_curve()].
 
 %% Description: returns the curves supported for a given version of
 %% ssl/tls.
 %%--------------------------------------------------------------------
-eccs({3,0}) ->
+eccs(sslv3) ->
     [];
-eccs({3,_}) ->
-    Curves = tls_v1:ecc_curves(all),
-    eccs_filter_supported(Curves);
-eccs({254,_} = Version) ->
-    eccs(dtls_v1:corresponding_tls_version(Version));
+eccs('dtlsv1') ->
+    eccs('tlsv1.1');
+eccs('dtlsv1.2') ->
+    eccs('tlsv1.2');
 eccs(Version) when Version == 'tlsv1.2';
                    Version == 'tlsv1.1';
-                   Version == tlsv1;
-                   Version == sslv3 ->
-    eccs(tls_record:protocol_version(Version));
-eccs(Version) when Version == 'dtlsv1.2';
-                   Version == 'dtlsv1'->
-    eccs(dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Version))).
+                   Version == tlsv1 ->
+    Curves = tls_v1:ecc_curves(all),
+    eccs_filter_supported(Curves).
 
 eccs_filter_supported(Curves) ->
     CryptoCurves = crypto:ec_curves(),

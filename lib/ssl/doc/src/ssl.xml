@@ -128,7 +128,7 @@
       <name name="hostname"/>
      </datatype>
 
-       <datatype>
+     <datatype>
       <name name="ip_address"/>
      </datatype>
 
@@ -137,23 +137,11 @@
      </datatype>
 
      <datatype>
-       <name name="protocol_version_tuple"/>
-     </datatype>
-
-     <datatype>
        <name name="tls_version"/>
      </datatype>
 
      <datatype>
-       <name name="tls_version_tuple"/>
-     </datatype>
-
-     <datatype>
        <name name="dtls_version"/>
-     </datatype>
-
-     <datatype>
-       <name name="dtls_version_tuple"/>
      </datatype>
 
      <datatype>
