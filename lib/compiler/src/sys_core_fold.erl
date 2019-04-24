@@ -99,10 +99,6 @@
               t=#{} :: map(),                       %Types
               in_guard=false}).                     %In guard or not.
 
--type type_info() :: cerl:cerl() | 'bool' | 'integer' | {'fun', pos_integer()}.
--type yes_no_maybe() :: 'yes' | 'no' | 'maybe'.
--type sub() :: #sub{}.
-
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', cerl:c_module(), [_]}.
 
@@ -315,10 +311,10 @@ expr(#c_seq{arg=Arg0,body=B0}=Seq0, Ctxt, Sub) ->
 	false ->
 	    %% Arg cannot be "values" here - only a single value
 	    %% make sense here.
-            case {Ctxt,is_safe_simple(Arg, Sub)} of
+            case {Ctxt,is_safe_simple(Arg)} of
                 {effect,true} -> B1;
                 {effect,false} ->
-                    case is_safe_simple(B1, Sub) of
+                    case is_safe_simple(B1) of
                         true -> Arg;
                         false -> Seq0#c_seq{arg=Arg,body=B1}
                     end;
@@ -442,7 +438,7 @@ expr(#c_catch{anno=Anno,body=B}, effect, Sub) ->
 expr(#c_catch{body=B0}=Catch, _, Sub) ->
     %% We can remove catch if the value is simple
     B1 = body(B0, value, Sub),
-    case is_safe_simple(B1, Sub) of
+    case is_safe_simple(B1) of
 	true -> B1;
 	false -> Catch#c_catch{body=B1}
     end;
@@ -458,7 +454,7 @@ expr(#c_try{arg=E0,vars=[#c_var{name=X}],body=#c_var{name=X},
 
 	    %% We can remove try/catch if the expression is an
 	    %% expression that cannot fail.
-	    case is_safe_bool_expr(E2, Sub) orelse is_safe_simple(E2, Sub) of
+	    case is_safe_bool_expr(E2) orelse is_safe_simple(E2) of
 		true -> E2;
 		false -> Try#c_try{arg=E2}
 	    end;
@@ -472,7 +468,7 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
     E1 = body(E0, value, Sub0),
     {Vs1,Sub1} = var_list(Vs0, Sub0),
     B1 = body(B0, value, Sub1),
-    case is_safe_simple(E1, Sub0) of
+    case is_safe_simple(E1) of
 	true ->
 	    expr(#c_let{anno=A,vars=Vs1,arg=E1,body=B1}, value, Sub0);
 	false ->
@@ -602,20 +598,20 @@ is_literal_fun(_) -> false.
 %%  Currently, we don't attempt to check binaries because they
 %%  are difficult to check.
 
-is_safe_simple(#c_var{}=Var, _) ->
+is_safe_simple(#c_var{}=Var) ->
     not cerl:is_c_fname(Var);
-is_safe_simple(#c_cons{hd=H,tl=T}, Sub) ->
-    is_safe_simple(H, Sub) andalso is_safe_simple(T, Sub);
-is_safe_simple(#c_tuple{es=Es}, Sub) -> is_safe_simple_list(Es, Sub);
-is_safe_simple(#c_literal{}, _) -> true;
+is_safe_simple(#c_cons{hd=H,tl=T}) ->
+    is_safe_simple(H) andalso is_safe_simple(T);
+is_safe_simple(#c_tuple{es=Es}) -> is_safe_simple_list(Es);
+is_safe_simple(#c_literal{}) -> true;
 is_safe_simple(#c_call{module=#c_literal{val=erlang},
 		       name=#c_literal{val=Name},
-		       args=Args}, Sub) when is_atom(Name) ->
+		       args=Args}) when is_atom(Name) ->
     NumArgs = length(Args),
     case erl_internal:bool_op(Name, NumArgs) of
 	true ->
 	    %% Boolean operators are safe if the arguments are boolean.
-	    all(fun(C) -> is_boolean_type(C, Sub) =:= yes end, Args);
+	    all(fun is_bool_expr/1, Args);
 	false ->
 	    %% We need a rather complicated test to ensure that
 	    %% we only allow safe calls that are allowed in a guard.
@@ -624,9 +620,9 @@ is_safe_simple(#c_call{module=#c_literal{val=erlang},
 		      (erl_internal:comp_op(Name, NumArgs) orelse
 		       erl_internal:new_type_test(Name, NumArgs))
     end;
-is_safe_simple(_, _) -> false.
+is_safe_simple(_) -> false.
 
-is_safe_simple_list(Es, Sub) -> all(fun(E) -> is_safe_simple(E, Sub) end, Es).
+is_safe_simple_list(Es) -> all(fun(E) -> is_safe_simple(E) end, Es).
 
 %% will_fail(Expr) -> true|false.
 %%  Determine whether the expression will fail with an exception.
@@ -853,7 +849,7 @@ useless_call(_, _) -> no.
 %%  Anything that will not have any effect will be thrown away.
 
 make_effect_seq([H|T], Sub) ->
-    case is_safe_simple(H, Sub) of
+    case is_safe_simple(H) of
 	true -> make_effect_seq(T, Sub);
 	false -> #c_seq{arg=H,body=make_effect_seq(T, Sub)}
     end;
@@ -959,137 +955,13 @@ fold_lit_args(Call, Module, Name, Args0) ->
 %%  Attempt to evaluate some pure BIF calls with one or more
 %%  non-literals arguments.
 %%
-fold_non_lit_args(Call, erlang, is_boolean, [Arg], Sub) ->
-    eval_is_boolean(Call, Arg, Sub);
 fold_non_lit_args(Call, erlang, length, [Arg], _) ->
     eval_length(Call, Arg);
 fold_non_lit_args(Call, erlang, '++', [Arg1,Arg2], _) ->
     eval_append(Call, Arg1, Arg2);
 fold_non_lit_args(Call, lists, append, [Arg1,Arg2], _) ->
     eval_append(Call, Arg1, Arg2);
-fold_non_lit_args(Call, erlang, is_function, [Arg1], Sub) ->
-    eval_is_function_1(Call, Arg1, Sub);
-fold_non_lit_args(Call, erlang, is_function, [Arg1,Arg2], Sub) ->
-    eval_is_function_2(Call, Arg1, Arg2, Sub);
-fold_non_lit_args(Call, erlang, N, Args, Sub) ->
-    NumArgs = length(Args),
-    case erl_internal:comp_op(N, NumArgs) of
-	true ->
-	    eval_rel_op(Call, N, Args, Sub);
-	false ->
-	    case erl_internal:bool_op(N, NumArgs) of
-		true ->
-		    eval_bool_op(Call, N, Args, Sub);
-		false ->
-		    Call
-	    end
-    end;
 fold_non_lit_args(Call, _, _, _, _) -> Call.
-
-eval_is_function_1(Call, Arg1, Sub) ->
-    case get_type(Arg1, Sub) of
-        none -> Call;
-        {'fun',_} -> #c_literal{anno=cerl:get_ann(Call),val=true};
-        _ -> #c_literal{anno=cerl:get_ann(Call),val=false}
-    end.
-
-eval_is_function_2(Call, Arg1, #c_literal{val=Arity}, Sub)
-  when is_integer(Arity), Arity > 0 ->
-    case get_type(Arg1, Sub) of
-        none -> Call;
-        {'fun',Arity} -> #c_literal{anno=cerl:get_ann(Call),val=true};
-        _ -> #c_literal{anno=cerl:get_ann(Call),val=false}
-    end;
-eval_is_function_2(Call, _Arg1, _Arg2, _Sub) -> Call.
-
-%% Evaluate a relational operation using type information.
-eval_rel_op(Call, Op, [#c_var{name=V},#c_var{name=V}], _) ->
-    Bool = erlang:Op(same, same),
-    #c_literal{anno=cerl:get_ann(Call),val=Bool};
-eval_rel_op(Call, '=:=', [Term,#c_literal{val=true}], Sub) ->
-    %% BoolVar =:= true  ==>  BoolVar
-    case is_boolean_type(Term, Sub) of
-	yes -> Term;
-	maybe -> Call;
-	no -> #c_literal{val=false}
-    end;
-eval_rel_op(Call, '==', Ops, Sub) ->
-    case is_exact_eq_ok(Ops, Sub) of
-	true ->
-	    Name = #c_literal{anno=cerl:get_ann(Call),val='=:='},
-	    Call#c_call{name=Name};
-	false ->
-	    Call
-    end;
-eval_rel_op(Call, '/=', Ops, Sub) ->
-    case is_exact_eq_ok(Ops, Sub) of
-	true ->
-	    Name = #c_literal{anno=cerl:get_ann(Call),val='=/='},
-	    Call#c_call{name=Name};
-	false ->
-	    Call
-    end;
-eval_rel_op(Call, _, _, _) -> Call.
-
-is_exact_eq_ok([A,B]=L, Sub) ->
-    case is_int_type(A, Sub) =:= yes andalso is_int_type(B, Sub) =:= yes of
-	true -> true;
-	false -> is_exact_eq_ok_1(L)
-    end.
-
-is_exact_eq_ok_1([#c_literal{val=Lit}|_]) ->
-    is_non_numeric(Lit);
-is_exact_eq_ok_1([_|T]) ->
-    is_exact_eq_ok_1(T);
-is_exact_eq_ok_1([]) -> false.
-
-is_non_numeric([H|T]) ->
-    is_non_numeric(H) andalso is_non_numeric(T);
-is_non_numeric(Tuple) when is_tuple(Tuple) ->
-    is_non_numeric_tuple(Tuple, tuple_size(Tuple));
-is_non_numeric(Map) when is_map(Map) ->
-    %% Note that 17.x and 18.x compare keys in different ways.
-    %% Be very conservative -- require that both keys and values
-    %% are non-numeric.
-    is_non_numeric(maps:to_list(Map));
-is_non_numeric(Num) when is_number(Num) ->
-    false;
-is_non_numeric(_) -> true.
-
-is_non_numeric_tuple(Tuple, El) when El >= 1 ->
-    is_non_numeric(element(El, Tuple)) andalso
-	is_non_numeric_tuple(Tuple, El-1);
-is_non_numeric_tuple(_Tuple, 0) -> true.
-
-%% Evaluate a bool op using type information. We KNOW that
-%% there must be at least one non-literal argument (i.e.
-%% there is no need to handle the case that all argments
-%% are literal).
-
-eval_bool_op(Call, 'and', [#c_literal{val=true},Term], Sub) ->
-    eval_bool_op_1(Call, Term, Term, Sub);
-eval_bool_op(Call, 'and', [Term,#c_literal{val=true}], Sub) ->
-    eval_bool_op_1(Call, Term, Term, Sub);
-eval_bool_op(Call, 'and', [#c_literal{val=false}=Res,Term], Sub) ->
-    eval_bool_op_1(Call, Res, Term, Sub);
-eval_bool_op(Call, 'and', [Term,#c_literal{val=false}=Res], Sub) ->
-    eval_bool_op_1(Call, Res, Term, Sub);
-eval_bool_op(Call, _, _, _) -> Call.
-
-eval_bool_op_1(Call, Res, Term, Sub) ->
-    case is_boolean_type(Term, Sub) of
-	yes -> Res;
-	no -> eval_failure(Call, badarg);
-	maybe -> Call
-    end.
-
-%% Evaluate is_boolean/1 using type information.
-eval_is_boolean(Call, Term, Sub) ->
-    case is_boolean_type(Term, Sub) of
-	no -> #c_literal{val=false};
-	yes -> #c_literal{val=true};
-	maybe -> Call
-    end.
 
 %% eval_length(Call, List) -> Val.
 %%  Evaluates the length for the prefix of List which has a known
@@ -1804,7 +1676,7 @@ opt_bool_case_guard(#c_case{arg=#c_literal{}}=Case) ->
     %%
     Case;
 opt_bool_case_guard(#c_case{arg=Arg,clauses=Cs0}=Case) ->
-    case is_safe_bool_expr(Arg, sub_new()) of
+    case is_safe_bool_expr(Arg) of
 	false ->
 	    Case;
 	true ->
@@ -1945,7 +1817,7 @@ case_opt_arg(E0, Sub, Cs, LitExpr) ->
 		    {error,Cs};
 		false ->
 		    %% If possible, expand this variable to a previously
-		    %% matched term.
+		    %% constructed tuple
 		    E = case_expand_var(E0, Sub),
 		    case_opt_arg_1(E, Cs, LitExpr)
 	    end
@@ -2004,13 +1876,8 @@ case_opt_compiler_generated(Core) ->
 case_expand_var(E, #sub{t=Tdb}) ->
     Key = cerl:var_name(E),
     case Tdb of
-        #{Key:=T} ->
-	    case cerl:is_c_tuple(T) of
-		false -> E;
-		true -> T
-	    end;
-        _ ->
-	    E
+        #{Key:=T} -> T;
+        _ -> E
     end.
 
 %% case_opt_nomatch(E, Clauses, LitExpr) -> Clauses'
@@ -2302,43 +2169,30 @@ is_simple_case_arg(_) -> false.
 %%  Check whether the Core expression is guaranteed to return
 %%  a boolean IF IT RETURNS AT ALL.
 %%
-is_bool_expr(Core) ->
-    is_bool_expr(Core, sub_new()).
 
-%% is_bool_expr(Core, Sub) -> true|false
-%%  Check whether the Core expression is guaranteed to return
-%%  a boolean IF IT RETURNS AT ALL. Uses type information
-%%  to be able to identify more expressions as booleans.
-%%
 is_bool_expr(#c_call{module=#c_literal{val=erlang},
-		     name=#c_literal{val=Name},args=Args}=Call, _) ->
+		     name=#c_literal{val=Name},args=Args}=Call) ->
     NumArgs = length(Args),
     erl_internal:comp_op(Name, NumArgs) orelse
 	erl_internal:new_type_test(Name, NumArgs) orelse
         erl_internal:bool_op(Name, NumArgs) orelse
 	will_fail(Call);
 is_bool_expr(#c_try{arg=E,vars=[#c_var{name=X}],body=#c_var{name=X},
-		   handler=#c_literal{val=false}}, Sub) ->
-    is_bool_expr(E, Sub);
-is_bool_expr(#c_case{clauses=Cs}, Sub) ->
-    is_bool_expr_list(Cs, Sub);
-is_bool_expr(#c_clause{body=B}, Sub) ->
-    is_bool_expr(B, Sub);
-is_bool_expr(#c_let{vars=[V],arg=Arg,body=B}, Sub0) ->
-    Sub = case is_bool_expr(Arg, Sub0) of
-	      true -> update_types(V, [bool], Sub0);
-	      false -> Sub0
-	  end,
-    is_bool_expr(B, Sub);
-is_bool_expr(#c_let{body=B}, Sub) ->
-    %% Binding of multiple variables.
-    is_bool_expr(B, Sub);
-is_bool_expr(C, Sub) ->
-    is_boolean_type(C, Sub) =:= yes.
+		   handler=#c_literal{val=false}}) ->
+    is_bool_expr(E);
+is_bool_expr(#c_case{clauses=Cs}) ->
+    is_bool_expr_list(Cs);
+is_bool_expr(#c_clause{body=B}) ->
+    is_bool_expr(B);
+is_bool_expr(#c_let{body=B}) ->
+    is_bool_expr(B);
+is_bool_expr(#c_literal{val=Val}) ->
+    is_boolean(Val);
+is_bool_expr(_) -> false.
 
-is_bool_expr_list([C|Cs], Sub) ->
-    is_bool_expr(C, Sub) andalso is_bool_expr_list(Cs, Sub);
-is_bool_expr_list([], _) -> true.
+is_bool_expr_list([C|Cs]) ->
+    is_bool_expr(C) andalso is_bool_expr_list(Cs);
+is_bool_expr_list([]) -> true.
 
 %% is_safe_bool_expr(Core) -> true|false
 %%  Check whether the Core expression ALWAYS returns a boolean
@@ -2346,17 +2200,17 @@ is_bool_expr_list([], _) -> true.
 %%  is suitable for a guard (no calls to non-guard BIFs, local
 %%  functions, or is_record/2).
 %%
-is_safe_bool_expr(Core, Sub) ->
-    is_safe_bool_expr_1(Core, Sub, cerl_sets:new()).
+is_safe_bool_expr(Core) ->
+    is_safe_bool_expr_1(Core, cerl_sets:new()).
 
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_record},
                             args=[A,#c_literal{val=Tag},#c_literal{val=Size}]},
-                    Sub, _BoolVars) when is_atom(Tag), is_integer(Size) ->
-    is_safe_simple(A, Sub);
+                    _BoolVars) when is_atom(Tag), is_integer(Size) ->
+    is_safe_simple(A);
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_record}},
-                    _Sub, _BoolVars) ->
+                    _BoolVars) ->
     %% The is_record/2 BIF is NOT allowed in guards.
     %% The is_record/3 BIF where its second argument is not an atom or its third
     %% is not an integer is NOT allowed in guards.
@@ -2368,49 +2222,49 @@ is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_function},
                             args=[A,#c_literal{val=Arity}]},
-                    Sub, _BoolVars) when is_integer(Arity), Arity >= 0 ->
-    is_safe_simple(A, Sub);
+                    _BoolVars) when is_integer(Arity), Arity >= 0 ->
+    is_safe_simple(A);
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_function}},
-                    _Sub, _BoolVars) ->
+                    _BoolVars) ->
     false;
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
 			    name=#c_literal{val=Name},args=Args},
-		    Sub, BoolVars) ->
+		    BoolVars) ->
     NumArgs = length(Args),
     case (erl_internal:comp_op(Name, NumArgs) orelse
 	  erl_internal:new_type_test(Name, NumArgs)) andalso
-	is_safe_simple_list(Args, Sub) of
+	is_safe_simple_list(Args) of
 	true ->
 	    true;
 	false ->
 	    %% Boolean operators are safe if all arguments are boolean.
 	    erl_internal:bool_op(Name, NumArgs) andalso
-		is_safe_bool_expr_list(Args, Sub, BoolVars)
+		is_safe_bool_expr_list(Args, BoolVars)
     end;
-is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, Sub, BoolVars) ->
-    case is_safe_simple(Arg, Sub) of
+is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, BoolVars) ->
+    case is_safe_simple(Arg) of
 	true ->
-	    case {is_safe_bool_expr_1(Arg, Sub, BoolVars),Vars} of
+	    case {is_safe_bool_expr_1(Arg, BoolVars),Vars} of
 		{true,[#c_var{name=V}]} ->
-		    is_safe_bool_expr_1(B, Sub, cerl_sets:add_element(V, BoolVars));
+		    is_safe_bool_expr_1(B, cerl_sets:add_element(V, BoolVars));
 		{false,_} ->
-		    is_safe_bool_expr_1(B, Sub, BoolVars)
+		    is_safe_bool_expr_1(B, BoolVars)
 	    end;
 	false -> false
     end;
-is_safe_bool_expr_1(#c_literal{val=Val}, _Sub, _) ->
+is_safe_bool_expr_1(#c_literal{val=Val}, _BoolVars) ->
     is_boolean(Val);
-is_safe_bool_expr_1(#c_var{name=V}, _Sub, BoolVars) ->
+is_safe_bool_expr_1(#c_var{name=V}, BoolVars) ->
     cerl_sets:is_element(V, BoolVars);
-is_safe_bool_expr_1(_, _, _) -> false.
+is_safe_bool_expr_1(_, _) -> false.
 
-is_safe_bool_expr_list([C|Cs], Sub, BoolVars) ->
-    case is_safe_bool_expr_1(C, Sub, BoolVars) of
-	true -> is_safe_bool_expr_list(Cs, Sub, BoolVars);
+is_safe_bool_expr_list([C|Cs], BoolVars) ->
+    case is_safe_bool_expr_1(C, BoolVars) of
+	true -> is_safe_bool_expr_list(Cs, BoolVars);
 	false -> false
     end;
-is_safe_bool_expr_list([], _, _) -> true.
+is_safe_bool_expr_list([], _) -> true.
 
 %% simplify_let(Let, Sub) -> Expr | impossible
 %%  If the argument part of an let contains a complex expression, such
@@ -2785,7 +2639,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
                     %% with exported variables, but the return value is
                     %% ignored). We can remove the first variable and the
                     %% the first value returned from the 'let' argument.
-                    Arg2 = remove_first_value(Arg1, Sub),
+                    Arg2 = remove_first_value(Arg1),
                     Let1 = Let0#c_let{vars=Vars,arg=Arg2,body=Body},
                     post_opt_let(Let1, Sub);
                 true ->
@@ -2805,36 +2659,36 @@ post_opt_let(Let0, Sub) ->
     opt_build_stacktrace(Let1).
 
 
-%% remove_first_value(Core0, Sub) -> Core.
+%% remove_first_value(Core0) -> Core.
 %%  Core0 is an expression that returns at least two values.
 %%  Remove the first value returned from Core0.
 
-remove_first_value(#c_values{es=[V|Vs]}, Sub) ->
+remove_first_value(#c_values{es=[V|Vs]}) ->
     Values = core_lib:make_values(Vs),
-    case is_safe_simple(V, Sub) of
+    case is_safe_simple(V) of
         false ->
             #c_seq{arg=V,body=Values};
         true ->
             Values
     end;
-remove_first_value(#c_case{clauses=Cs0}=Core, Sub) ->
-    Cs = remove_first_value_cs(Cs0, Sub),
+remove_first_value(#c_case{clauses=Cs0}=Core) ->
+    Cs = remove_first_value_cs(Cs0),
     Core#c_case{clauses=Cs};
-remove_first_value(#c_receive{clauses=Cs0,action=Act0}=Core, Sub) ->
-    Cs = remove_first_value_cs(Cs0, Sub),
-    Act = remove_first_value(Act0, Sub),
+remove_first_value(#c_receive{clauses=Cs0,action=Act0}=Core) ->
+    Cs = remove_first_value_cs(Cs0),
+    Act = remove_first_value(Act0),
     Core#c_receive{clauses=Cs,action=Act};
-remove_first_value(#c_let{body=B}=Core, Sub) ->
-    Core#c_let{body=remove_first_value(B, Sub)};
-remove_first_value(#c_seq{body=B}=Core, Sub) ->
-    Core#c_seq{body=remove_first_value(B, Sub)};
-remove_first_value(#c_primop{}=Core, _Sub) ->
+remove_first_value(#c_let{body=B}=Core) ->
+    Core#c_let{body=remove_first_value(B)};
+remove_first_value(#c_seq{body=B}=Core) ->
+    Core#c_seq{body=remove_first_value(B)};
+remove_first_value(#c_primop{}=Core) ->
     Core;
-remove_first_value(#c_call{}=Core, _Sub) ->
+remove_first_value(#c_call{}=Core) ->
     Core.
 
-remove_first_value_cs(Cs, Sub) ->
-    [C#c_clause{body=remove_first_value(B, Sub)} ||
+remove_first_value_cs(Cs) ->
+    [C#c_clause{body=remove_first_value(B)} ||
         #c_clause{body=B}=C <- Cs].
 
 %% maybe_suppress_warnings(Arg, #c_var{}, PreviousBody) -> Arg'
@@ -2962,54 +2816,6 @@ move_case_into_arg(Expr, _) ->
     Expr.
 
 %%%
-%%% Retrieving information about types.
-%%%
-
--spec get_type(cerl:cerl(), #sub{}) -> type_info() | 'none'.
-
-get_type(#c_var{name=V}, #sub{t=Tdb}) ->
-    case Tdb of
-        #{V:=Type} -> Type;
-        _ -> none
-    end;
-get_type(C, _) ->
-    case cerl:type(C) of
-	binary -> C;
-	map -> C;
-	_ ->
-	    case cerl:is_data(C) of
-		true -> C;
-		false -> none
-	    end
-    end.
-
--spec is_boolean_type(cerl:cerl(), sub()) -> yes_no_maybe().
-
-is_boolean_type(Var, Sub) ->
-    case get_type(Var, Sub) of
-	none ->
-	    maybe;
-	bool ->
-	    yes;
-	C ->
-	    B = cerl:is_c_atom(C) andalso
-		is_boolean(cerl:atom_val(C)),
-	    yes_no(B)
-    end.
-
--spec is_int_type(cerl:cerl(), sub()) -> yes_no_maybe().
-
-is_int_type(Var, Sub) ->
-    case get_type(Var, Sub) of
-	none -> maybe;
-	integer -> yes;
-	C -> yes_no(cerl:is_c_int(C))
-    end.
-
-yes_no(true) -> yes;
-yes_no(false) -> no.
-
-%%%
 %%% Update type information.
 %%%
 
@@ -3020,70 +2826,14 @@ update_let_types(_Vs, _Arg, Sub) ->
     %% that returns multiple values.
     Sub.
 
-update_let_types_1([#c_var{}=V|Vs], [A|As], Sub0) ->
-    Sub = update_types_from_expr(V, A, Sub0),
+update_let_types_1([#c_var{name=V}|Vs], [A|As], Sub0) ->
+    Sub = update_types(V, A, Sub0),
     update_let_types_1(Vs, As, Sub);
 update_let_types_1([], [], Sub) -> Sub.
 
-update_types_from_expr(V, Expr, Sub) ->
-    Type = extract_type(Expr, Sub),
-    update_types(V, [Type], Sub).
-
-extract_type(#c_call{module=#c_literal{val=erlang},
-		     name=#c_literal{val=Name},
-		     args=Args}=Call, Sub) ->
-    case returns_integer(Name, Args) of
-	true -> integer;
-	false -> extract_type_1(Call, Sub)
-    end;
-extract_type(Expr, Sub) ->
-    extract_type_1(Expr, Sub).
-
-extract_type_1(Expr, Sub) ->
-    case is_bool_expr(Expr, Sub) of
-	false -> Expr;
-	true -> bool
-    end.
-
-returns_integer('band', [_,_]) -> true;
-returns_integer('bnot', [_]) -> true;
-returns_integer('bor', [_,_]) -> true;
-returns_integer('bxor', [_,_]) -> true;
-returns_integer(bit_size, [_]) -> true;
-returns_integer('bsl', [_,_]) -> true;
-returns_integer('bsr', [_,_]) -> true;
-returns_integer(byte_size, [_]) -> true;
-returns_integer(ceil, [_]) -> true;
-returns_integer('div', [_,_]) -> true;
-returns_integer(floor, [_]) -> true;
-returns_integer(length, [_]) -> true;
-returns_integer('rem', [_,_]) -> true;
-returns_integer('round', [_]) -> true;
-returns_integer(size, [_]) -> true;
-returns_integer(tuple_size, [_]) -> true;
-returns_integer(trunc, [_]) -> true;
-returns_integer(_, _) -> false.
-
-%% update_types(Expr, Pattern, Sub) -> Sub'
-%%  Update the type database.
-
--spec update_types(cerl:c_var(), [type_info()], sub()) -> sub().
-
-update_types(#c_var{name=V}, Pat, #sub{t=Tdb0}=Sub) ->
-    Tdb = update_types_1(V, Pat, Tdb0),
-    Sub#sub{t=Tdb}.
-
-update_types_1(V, [#c_tuple{}=P], Types) ->
-    Types#{V=>P};
-update_types_1(V, [#c_literal{val=Bool}], Types) when is_boolean(Bool) ->
-    Types#{V=>bool};
-update_types_1(V, [#c_fun{vars=Vars}], Types) ->
-    Types#{V=>{'fun',length(Vars)}};
-update_types_1(V, [#c_var{name={_,Arity}}], Types) ->
-    Types#{V=>{'fun',Arity}};
-update_types_1(V, [Type], Types) when is_atom(Type) ->
-    Types#{V=>Type};
-update_types_1(_, _, Types) -> Types.
+update_types(V, #c_tuple{}=P, #sub{t=Tdb}=Sub) ->
+    Sub#sub{t=Tdb#{V=>P}};
+update_types(_, _, Sub) -> Sub.
 
 %% kill_types(V, Tdb) -> Tdb'
 %%  Kill any entries that references the variable,
@@ -3099,10 +2849,6 @@ kill_types2(V, [{_,#c_tuple{}=Tuple}=Entry|Tdb]) ->
 	false -> [Entry|kill_types2(V, Tdb)];
 	true -> kill_types2(V, Tdb)
     end;
-kill_types2(V, [{_, {'fun',_}}=Entry|Tdb]) ->
-    [Entry|kill_types2(V, Tdb)];
-kill_types2(V, [{_,Atom}=Entry|Tdb]) when is_atom(Atom) ->
-    [Entry|kill_types2(V, Tdb)];
 kill_types2(_, []) -> [].
 
 %% copy_type(DestVar, SrcVar, Tdb) -> Tdb'
