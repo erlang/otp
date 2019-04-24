@@ -1600,7 +1600,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 21.0" name="suite_to_str" arity="1" />
+      <name since="OTP 21.0" name="suite_to_str" arity="1" clause_i="1" />
       <fsummary>Returns the string representation of a cipher suite.</fsummary>
       <desc>
         <p>Returns the string representation of a cipher suite.</p>
