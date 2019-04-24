@@ -217,6 +217,7 @@
                                  bad_certificate_hash_value |
                                  unknown_psk_identity |
                                  no_application_protocol.
+
 %% -------------------------------------------------------------------------------------------------------
 -type common_option()        :: {protocol, protocol()} |
                                 {handshake, handshake_completion()} |
@@ -733,7 +734,8 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: integer(),
-      Data :: binary() | list().
+      Data :: binary() | list() | HttpPacket,
+      HttpPacket :: any().
 
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
@@ -741,8 +743,9 @@ recv(Socket, Length) ->
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: integer(),
-      Data :: binary() | list(),
-      Timeout :: timeout().
+      Data :: binary() | list() | HttpPacket,
+      Timeout :: timeout(),
+      HttpPacket :: any().
 
 recv(#sslsocket{pid = [Pid|_]}, Length, Timeout) when is_pid(Pid),
 						  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->

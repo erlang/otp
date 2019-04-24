@@ -1425,6 +1425,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name since="" name="recv" arity="2" />
       <name since="" name="recv" arity="3" />
       <fsummary>Receives data on a socket.</fsummary>
+      <type_desc variable="HttpPacket">See the description of
+        <c>HttpPacket</c> in
+        <seealso marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seealso>
+	in ERTS.
+      </type_desc>
       <desc>
         <p>Receives a packet from a socket in passive
           mode. A closed socket is indicated by return value
