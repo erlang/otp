@@ -259,6 +259,12 @@ do_recv(Sock, Bs) ->
         <p>The optional <c><anno>Timeout</anno></c> parameter specifies a
           time-out in milliseconds. Defaults to <c>infinity</c>.</p>
         <note>
+          <p>Keep in mind that if the underlying OS <c>connect()</c> call returns
+            a timeout, <c>gen_tcp:connect</c> will also return a timeout
+            (i.e. <c>{error, etimedout}</c>), even if a larger <c>Timeout</c> was
+            specified.</p>
+        </note>
+        <note>
           <p>The default values for options specified to <c>connect</c> can
             be affected by the Kernel configuration parameter
             <c>inet_default_connect_options</c>. For details, see
