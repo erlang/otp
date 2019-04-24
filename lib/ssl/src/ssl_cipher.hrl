@@ -690,9 +690,9 @@
 -define(TLS_CHACHA20_POLY1305_SHA256, <<?BYTE(16#13),?BYTE(16#03)>>).
 
 %% %% TLS_AES_128_CCM_SHA256       = {0x13,0x04}
-%% -define(TLS_AES_128_CCM_SHA256, <<?BYTE(16#13), ?BYTE(16#04)>>).
+-define(TLS_AES_128_CCM_SHA256, <<?BYTE(16#13), ?BYTE(16#04)>>).
 
 %% %%  TLS_AES_128_CCM_8_SHA256    = {0x13,0x05}
-%% -define(TLS_AES_128_CCM_8_SHA256, <<?BYTE(16#13),?BYTE(16#05)>>).
+-define(TLS_AES_128_CCM_8_SHA256, <<?BYTE(16#13),?BYTE(16#05)>>).
 
 -endif. % -ifdef(ssl_cipher).
