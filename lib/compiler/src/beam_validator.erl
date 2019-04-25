@@ -1604,8 +1604,13 @@ infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
     end;
 infer_types_1(#value{op={bif,element},args=[{integer,Index}=Key,Tuple]}) ->
     fun(Val, S) ->
-            Type = get_term_type(Val, S),
-            update_type(fun meet/2,{tuple,[Index],#{ Key => Type }}, Tuple, S)
+            case is_value_alive(Tuple, S) of
+                true ->
+                    Type = {tuple,[Index], #{ Key => get_term_type(Val, S) }},
+                    update_type(fun meet/2, Type, Tuple, S);
+                false ->
+                    S
+            end
     end;
 infer_types_1(#value{op={bif,is_atom},args=[Src]}) ->
     infer_type_test_bif({atom,[]}, Src);
@@ -1629,7 +1634,10 @@ infer_types_1(#value{op={bif,is_tuple},args=[Src]}) ->
     infer_type_test_bif({tuple,[0],#{}}, Src);
 infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]}) ->
     fun({integer,Arity}, S) ->
-            update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
+            case is_value_alive(Tuple, S) of
+                true -> update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
+                false -> S
+            end;
        (_, S) -> S
     end;
 infer_types_1(_) ->
@@ -1637,7 +1645,10 @@ infer_types_1(_) ->
 
 infer_type_test_bif(Type, Src) ->
     fun({atom,true}, S) ->
-            update_type(fun meet/2, Type, Src, S);
+            case is_value_alive(Src, S) of
+                true -> update_type(fun meet/2, Type, Src, S);
+                false -> S
+            end;
        (_, S) ->
             S
     end.
@@ -2273,6 +2284,9 @@ get_raw_type(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
     end;
 get_raw_type(Src, #vst{}) ->
     get_literal_type(Src).
+
+is_value_alive(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
+    is_map_key(Ref, Vs).
 
 get_literal_type(nil=T) -> T;
 get_literal_type({atom,A}=T) when is_atom(A) -> T;
