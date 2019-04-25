@@ -1359,7 +1359,7 @@ send(Socket, Data) ->
       Data       :: iodata(),
       Flags      :: send_flags(),
       Reason     :: term()
-                 ; (Socket, Data, nowait) -> ok |
+                 ; (Socket, Data, Timeout :: nowait) -> ok |
                                              {ok, SelectInfo} |
                                              {ok, {RestData, SelectInfo}} |
                                              {error, Reason} when
@@ -1488,7 +1488,7 @@ sendto(Socket, Data, Dest) ->
       Dest      :: null | sockaddr(),
       Flags     :: send_flags(),
       Reason    :: term()
-                ; (Socket, Data, Dest, nowait) -> ok |
+                   ; (Socket, Data, Dest, Timeout :: nowait) -> ok |
                                                   {ok, SelectInfo} |
                                                   {error, Reason} when
       Socket     :: socket(),
@@ -1630,7 +1630,7 @@ sendmsg(Socket, MsgHdr) ->
       MsgHdr  :: msghdr(),
       Flags   :: send_flags(),
       Reason  :: term()
-                 ; (Socket, MsgHdr, nowait) -> ok |
+                 ; (Socket, MsgHdr, Timeout :: nowait) -> ok |
                                                {ok, SelectInfo} |
                                                {error, Reason} when
       Socket     :: socket(),
@@ -2162,7 +2162,7 @@ recvmsg(Socket) ->
       Flags   :: recv_flags(),
       MsgHdr  :: msghdr(),
       Reason  :: term()
-                 ; (Socket, nowait) -> {ok, MsgHdr} |
+                 ; (Socket, Timeout :: nowait) -> {ok, MsgHdr} |
                                        {ok, SelectInfo} |
                                        {error, Reason} when
       Socket     :: socket(),

@@ -34,11 +34,35 @@
     <title>Introduction</title>
     <p>The socket interface (module) is basically an "thin" layer on top of
     the OS socket interface. It is assumed that, unless you have special needs,
-    gen_[tcp|udp|sctp] should be sufficent. </p>
+    gen_[tcp|udp|sctp] should be sufficent (when they become available). </p>
     <p>Note that just because we have a documented and described option,
     it does <em>not</em> mean that the OS supports it. So its recommended
     that the user reads the platform specific documentation for the
     option used. </p>
+    <section>
+      <title>Asynchronous calls</title>
+      <p>Some functions allow for an <i>asynchronous</i> call
+      (<seealso marker="socket#accept_async"><c>accept/2</c></seealso>,
+      <seealso marker="socket#recv_async"><c>recv/3,4</c></seealso>,
+      <seealso marker="socket#recvfrom_async"><c>recvfrom/3,4</c></seealso>,
+      <seealso marker="socket#recvmsg_async"><c>recvmsg/2,3,5</c></seealso>,
+      <seealso marker="socket#send_async"><c>send/3,4</c></seealso>,
+      <seealso marker="socket#sendmsg_async"><c>sendmsg/3,4</c></seealso> and
+      <seealso marker="socket#sendto_async"><c>sendto/4,5</c></seealso>).
+      This is achieved by setting the <c>Timeout</c> argument to
+      <c>nowait</c>. For instance, if calling the
+      <seealso marker="socket#recv_async"><c>recv/3</c></seealso>
+      function with Timeout set to <c>nowait</c> (i.e. <c>recv(Sock, 0, nowait)</c>)
+      when there is actually nothing to read, it will return with
+      <c>{ok, SelectInfo}</c>. When data eventually arrives a 'select message'
+      will be sent to the caller:
+      <c>{'$socket', Sock, select, Info}</c>. The caller can make another
+      call to the recv function and now expect data.</p>
+      <p>Note that all other users are <em>locked out</em> until the
+      'current user' has called the function (recv in this case). So either
+      immediately call the function or
+      <seealso marker="socket#cancel/2"><c>cancel</c></seealso>. </p>
+    </section>
   </section>
 
   <section>

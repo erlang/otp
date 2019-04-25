@@ -41,6 +41,20 @@
     e.g. <seealso marker="#recv/3"><c>recv/3</c></seealso>, 
     has a timeout argument. </p>
     <note>
+      <p>Some functions allow for an <i>asynchronous</i> call.
+      This is achieved by setting the <c>Timeout</c> argument to
+      <c>nowait</c>. For instance, if calling the
+      <seealso marker="#recv/3"><c>recv/3</c></seealso>
+      function with Timeout set to <c>nowait</c> (<c>recv(Sock, 0, nowait)</c>)
+      when there is actually nothing to read, it will return with
+      <c>{ok, SelectInfo}</c>. When data eventually arrives a 'select' message
+      will be sent to the caller:
+      <c>{'$socket', Sock, select, Info}</c>. The caller can now make another
+      call to the recv function and now expect data.</p>
+      <p>Note that all other users are <em>locked out</em> until the
+      'current user' has called the function (recv in this case).</p>
+    </note>
+    <note>
       <p>There is currently <em>no</em> support for Windows. </p>
       <p>Support for IPv6 has been implemented but <em>not</em> tested. </p>
       <p>SCTP has only been partly implemented (and not tested). </p>
@@ -63,6 +77,15 @@
         <seealso marker="#open/2"><c>open/2,3,4</c></seealso> and
         <seealso marker="#accept/1"><c>accept/1,2</c></seealso>.</p>
       </desc>
+    </datatype>
+    <datatype>
+      <name name="select_tag"/>
+    </datatype>
+    <datatype>
+      <name name="select_ref"/>
+    </datatype>
+    <datatype>
+      <name name="select_info"/>
     </datatype>
     <datatype>
       <name name="ip4_address"/>
@@ -257,7 +280,7 @@
   <funcs>
     <func>
       <name name="accept" arity="1" since="OTP 22.0"/>
-      <name name="accept" arity="2" since="OTP 22.0"/>
+      <name name="accept" arity="2" clause_i="2" since="OTP 22.0"/>
       <fsummary>Accept a connection on a socket.</fsummary>
       <desc>
         <p>Accept a connection on a socket.</p>
@@ -265,6 +288,26 @@
 	(<c>stream</c> or <c>seqpacket</c>). It extracs the first pending
 	connection request for the listen socket and returns the (newly)
 	connected socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="accept" arity="2" clause_i="1" anchor="accept_async" since="OTP @OTP-15731@"/>
+      <fsummary>Accept a connection on a socket.</fsummary>
+      <desc>
+        <p>Accept a connection on a socket.</p>
+
+	<p>This call is used with connection-based socket types
+	(<c>stream</c> or <c>seqpacket</c>). It extracs the first pending
+	connection request for the listen socket and returns the (newly)
+	connected socket.</p>
+
+	<p>In the case when there is no connections waiting, the function 
+	will return with the <c>SelectInfo</c>. The caller can then await a 
+	select message, <c>{'$socket', Sock, select, Info}</c> (where
+	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
+	when a client connects (a subsequent call to accept will then return 
+	the socket). </p>
       </desc>
     </func>
 
@@ -278,6 +321,18 @@
 	it has no address assigned to it. <c>bind</c> assigns the
 	address specified by the <c>Addr</c> argument.</p>
 	<p>The rules used for name binding vary between domains.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cancel" arity="2" since="OTP @OTP-15731@"/>
+      <fsummary>Cancel an asynchronous request.</fsummary>
+      <desc>
+	<p>Cancel an asynchronous request.</p>
+
+	<p>Call this function in order to cancel a previous
+	asynchronous call to, e.g.
+	<seealso marker="#recv/3"><c>recv/3</c></seealso>. </p>
       </desc>
     </func>
 
@@ -406,8 +461,8 @@
       <name name="recv" arity="1" since="OTP 22.0"/>
       <name name="recv" arity="2" since="OTP 22.0"/>
       <name name="recv" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="recv" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="recv" arity="4" since="OTP 22.0"/>
+      <name name="recv" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="recv" arity="4" clause_i="2" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -418,21 +473,47 @@
     </func>
 
     <func>
+      <name name="recv" arity="3" clause_i="2" anchor="recv_async" since="OTP @OTP-15731@"/>
+      <name name="recv" arity="4" clause_i="1" since="OTP @OTP-15731@"/>
+      <fsummary>Receive a message from a socket.</fsummary>
+      <desc>
+        <p>Receive a message from a socket.</p>
+
+	<p>There is a special case for the argument <c>Length</c>.
+	If it is set to zero (0), it means "give me everything you 
+	currently have".</p>
+
+	<p>In the case when there is no data waiting, the function 
+	will return with the <c>SelectInfo</c>. The caller can then await a 
+	select message, <c>{'$socket', Sock, select, Info}</c> (where
+	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
+	when data has arrived (a subsequent call to recv will then return 
+	the data). </p>
+	<p>Note that if a length (<c>> 0</c>) is specified, and only part
+	of that amount of data is available, the function will return with
+	that data <em>and</em> the <c>SelectInfo</c> (if the caller don't 
+	want to wait for the remaining data, it must immediately call
+	the <seealso marker="#cancel/2"><c>cancel/2</c></seealso> function.)</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="recvfrom" arity="1" since="OTP 22.0"/>
       <name name="recvfrom" arity="2" since="OTP 22.0"/>
-      <name name="recvfrom" arity="3" clause_i="1" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="recvfrom" arity="4" since="OTP 22.0"/>
+      <name name="recvfrom" arity="3" clause_i="5" since="OTP 22.0"/>
+      <name name="recvfrom" arity="4" clause_i="2" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
         <p>This function reads "messages", which means that regardless of
-	how much we want to read, it returns when we get a message.</p>
+	how much we want to read, it returns when we get a message
+	(if the buffer size is to small, the message will be truncated).</p>
         <p>The <c>BufSz</c> argument basically defines the size of the
 	receive buffer. By setting the value to zero (0), the configured
-	size (setopt with <c>Level</c> = <c>otp</c> and <c>Key</c> = <c>rcvbuf</c>)
-	is used.</p>
+	size (setopt with <c>Level</c> = <c>otp</c> and
+	<c>Key</c> = <c>rcvbuf</c>) is used.</p>
         <p>It may be impossible to know what (buffer) size is appropriate
 	"in advance", and in those cases it may be convenient to use the
 	(recv) 'peek' flag. When this flag is provided, the message is *not*
@@ -442,12 +523,41 @@
     </func>
 
     <func>
+      <name name="recvfrom" arity="3" clause_i="1" anchor="recvfrom_async" since="OTP @OTP-15731@"/>
+      <name name="recvfrom" arity="3" clause_i="4" since="OTP @OTP-15731@"/>
+      <name name="recvfrom" arity="4" clause_i="1" since="OTP @OTP-15731@"/>
+      <fsummary>Receive a message from a socket.</fsummary>
+      <desc>
+        <p>Receive a message from a socket.</p>
+        <p>This function reads "messages", which means that regardless of
+	how much we want to read, it returns when we get a message
+	(if the buffer size is to small, the message will be truncated).</p>
+        <p>The <c>BufSz</c> argument basically defines the size of the
+	receive buffer. By setting the value to zero (0), the configured
+	size (setopt with <c>Level</c> = <c>otp</c> and
+	<c>Key</c> = <c>rcvbuf</c>) is used.</p>
+        <p>It may be impossible to know what (buffer) size is appropriate
+	"in advance", and in those cases it may be convenient to use the
+	(recv) 'peek' flag. When this flag is provided, the message is *not*
+	"consumed" from the underlying buffers, so another recvfrom call
+	is needed, possibly with a then adjusted buffer size.</p>
+
+	<p>In the case when there is no data waiting, the function 
+	will return with the <c>SelectInfo</c>. The caller can then await a 
+	select message, <c>{'$socket', Sock, select, Info}</c> (where
+	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
+	when data has arrived (a subsequent call to recvfrom will then return 
+	the data). </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="recvmsg" arity="1" since="OTP 22.0"/>
       <name name="recvmsg" arity="2" clause_i="1" since="OTP 22.0"/>
-      <name name="recvmsg" arity="2" clause_i="2" since="OTP 22.0"/>
-      <name name="recvmsg" arity="3" clause_i="1" since="OTP 22.0"/>
+      <name name="recvmsg" arity="2" clause_i="3" since="OTP 22.0"/>
       <name name="recvmsg" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="recvmsg" arity="5" since="OTP 22.0"/>
+      <name name="recvmsg" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="recvmsg" arity="5" clause_i="2" since="OTP 22.0"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
         <p>Receive a message from a socket.</p>
@@ -461,8 +571,8 @@
 	
         <p>The <c>BufSz</c> argument basically defines the size of the
 	receive buffer. By setting the value to zero (0), the configured
-	size (setopt with <c>Level</c> = <c>otp</c> and <c>Key</c> = <c>rcvbuf</c>)
-	is used.</p>
+	size (setopt with <c>Level</c> = <c>otp</c> and
+	<c>Key</c> = <c>rcvbuf</c>) is used.</p>
 
         <p>The <c>CtrlSz</c> argument basically defines the size of the
 	receive buffer for the control messages.
@@ -478,10 +588,50 @@
     </func>
 
     <func>
+      <name name="recvmsg" arity="2" clause_i="2" anchor="recvmsg_async" since="OTP @OTP-15731@"/>
+      <name name="recvmsg" arity="3" clause_i="1" since="OTP @OTP-15731@"/>
+      <name name="recvmsg" arity="5" clause_i="1" since="OTP @OTP-15731@"/>
+      <fsummary>Receive a message from a socket.</fsummary>
+      <desc>
+        <p>Receive a message from a socket.</p>
+        <p>This function reads "messages", which means that regardless of
+	how much we want to read, it returns when we get a message.</p>
+	<p>The message will be delivered in the form of a <c>msghdr()</c>,
+	which may contain the source address (if socket not connected),
+	a list of <c>cmsghdr_recv()</c> (depends on what socket options have
+	been set and what the protocol and platform supports) and
+	also a set of flags, providing further info about the read. </p>
+	
+        <p>The <c>BufSz</c> argument basically defines the size of the
+	receive buffer. By setting the value to zero (0), the configured
+	size (setopt with <c>Level</c> = <c>otp</c> and
+	<c>Key</c> = <c>rcvbuf</c>) is used.</p>
+
+        <p>The <c>CtrlSz</c> argument basically defines the size of the
+	receive buffer for the control messages.
+	By setting the value to zero (0), the configured size (setopt
+	with <c>Level</c> = <c>otp</c>) is used.</p>
+
+	<p>It may be impossible to know what (buffer) size is appropriate
+	"in advance", and in those cases it may be convenient to use the
+	(recv) 'peek' flag. When this flag is provided, the message is *not*
+	"consumed" from the underlying buffers, so another recvmsg call
+	is needed, possibly with a then adjusted buffer size.</p>
+
+	<p>In the case when there is no data waiting, the function 
+	will return with the <c>SelectInfo</c>. The caller can then await a 
+	select message, <c>{'$socket', Sock, select, Info}</c> (where
+	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
+	when data has arrived (a subsequent call to recvmsg will then return 
+	the data). </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="send" arity="2" since="OTP 22.0"/>
       <name name="send" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="send" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="send" arity="4" since="OTP 22.0"/>
+      <name name="send" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="send" arity="4" clause_i="2" since="OTP 22.0"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a connected socket.</p>
@@ -489,10 +639,31 @@
     </func>
 
     <func>
+      <name name="send" arity="3" clause_i="2" anchor="send_async" since="OTP @OTP-15731@"/>
+      <name name="send" arity="4" clause_i="1" since="OTP @OTP-15731@"/>
+      <fsummary>Send a message on a socket.</fsummary>
+      <desc>
+        <p>Send a message on a connected socket.</p>
+
+	<p>In the case when there is no room in the (system-) buffers,
+	the function will return with the <c>SelectInfo</c>. The caller
+	can then await a select message, <c>{'$socket', Sock, select, Info}</c>
+	(where <c>Info</c> is the <c>select_ref()</c> from the
+	<c>SelectInfo</c>), when there is room for more data (a subsequent
+	call to send will then send the data). </p>
+	<p>Note that if not all the data was sent, the function will return
+	with the remaining data <em>and</em> the <c>SelectInfo</c>
+	(if the caller don't 
+	want to wait to be able to send the rest, it should immediately call
+	the <seealso marker="#cancel/2"><c>cancel/2</c></seealso> function.)</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="sendmsg" arity="2" since="OTP 22.0"/>
       <name name="sendmsg" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="sendmsg" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="sendmsg" arity="4" since="OTP 22.0"/>
+      <name name="sendmsg" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="sendmsg" arity="4" clause_i="2" since="OTP 22.0"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
 	<p>Send a message on a socket. The destination, if needed
@@ -513,13 +684,57 @@
     </func>
 
     <func>
+      <name name="sendmsg" arity="3" clause_i="2" anchor="sendmsg_async" since="OTP @OTP-15731@"/>
+      <name name="sendmsg" arity="4" clause_i="1" since="OTP @OTP-15731@"/>
+      <fsummary>Send a message on a socket.</fsummary>
+      <desc>
+	<p>Send a message on a socket. The destination, if needed
+	(socket <em>not</em> connected) is provided in the <c>MsgHdr</c>,
+	which also contains the message to send,
+	The <c>MsgHdr</c> may also contain an list of optional <c>cmsghdr_send()</c>
+	(depends on what the protocol and platform supports).</p>
+
+	<p>Unlike the <seealso marker="#send/2"><c>send</c></seealso> function,
+	this one sends <em>one message</em>.
+	This means that if, for whatever reason, its not possible to send the
+	message in one go, the function will instead return with the
+	<em>remaining</em> data (<c>{ok, Remaining}</c>). Thereby leaving it
+	up to the caller to decide what to do (retry with the remaining data
+	of give up). </p>
+
+	<p>In the case when there is no room in the (system-) buffers,
+	the function will return with the <c>SelectInfo</c>. The caller
+	can then await a select message, <c>{'$socket', Sock, select, Info}</c>
+	(where <c>Info</c> is the <c>select_ref()</c> from the
+	<c>SelectInfo</c>), when there is room for more data (a subsequent
+	call to sendmsg will then send the data). </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="sendto" arity="3" since="OTP 22.0"/>
       <name name="sendto" arity="4" clause_i="1" since="OTP 22.0"/>
-      <name name="sendto" arity="4" clause_i="2" since="OTP 22.0"/>
-      <name name="sendto" arity="5" since="OTP 22.0"/>
+      <name name="sendto" arity="4" clause_i="3" since="OTP 22.0"/>
+      <name name="sendto" arity="5" clause_i="2" since="OTP 22.0"/>
       <fsummary>Send a message on a socket.</fsummary>
       <desc>
         <p>Send a message on a socket, to the specified destination.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sendto" arity="4" clause_i="2" anchor="sendto_async" since="OTP @OTP-15731@"/>
+      <name name="sendto" arity="5" clause_i="1" since="OTP @OTP-15731@"/>
+      <fsummary>Send a message on a socket.</fsummary>
+      <desc>
+        <p>Send a message on a socket, to the specified destination.</p>
+
+	<p>In the case when there is no room in the (system-) buffers,
+	the function will return with the <c>SelectInfo</c>. The caller
+	can then await a select message, <c>{'$socket', Sock, select, Info}</c>
+	(where <c>Info</c> is the <c>select_ref()</c> from the
+	<c>SelectInfo</c>), when there is room for more data (a subsequent
+	call to sendto will then send the data). </p>
       </desc>
     </func>
 
