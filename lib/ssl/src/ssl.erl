@@ -80,7 +80,6 @@
               cipher_filters/0,
               sign_algo/0,
               protocol_version/0,
-              protocol_version_tuple/0,
               protocol_extensions/0,
               session_id/0,
               error_alert/0,
@@ -105,11 +104,8 @@
 -type ip_address()               :: inet:ip_address().
 -type session_id()               :: binary(). % exported
 -type protocol_version()         :: tls_version() | dtls_version(). % exported
--type protocol_version_tuple()   :: tls_version_tuple() | dtls_version_tuple(). % exported
 -type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
--type tls_version_tuple()        :: {3,0} | {3,1} | {3,2} | {3,3} | {3,4}.
 -type dtls_version()             :: 'dtlsv1.2' | dtls_legacy_version().
--type dtls_version_tuple()       :: {254,254} | {254,253}.
 -type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' | sslv3.
 -type dtls_legacy_version()      :: 'dtlsv1'.
 -type verify_type()              :: verify_none | verify_peer.
@@ -122,7 +118,6 @@
                                     aes_128_ccm_8 |
                                     aes_256_ccm_8 |                                    
                                     chacha20_poly1305 |
-                                    null |
                                     legacy_cipher(). % exported
 -type legacy_cipher()            ::  rc4_128 |
                                      des_cbc |
@@ -130,8 +125,7 @@
 
 -type hash()                     :: sha |
                                     sha2() |
-                                    legacy_hash() |
-                                    null. % exported
+                                    legacy_hash(). % exported
 
 -type sha2()                    ::  sha224 |
                                     sha256 |
@@ -162,7 +156,7 @@
                                    srp_rsa| srp_dss |
                                    psk | dhe_psk | rsa_psk |
                                    dh_anon | ecdh_anon | srp_anon |
-                                   any | null. %% TLS 1.3 , exported
+                                   any. %% TLS 1.3 , exported
 -type erl_cipher_suite()       :: #{key_exchange := kex_algo(),
                                     cipher := cipher(),
                                     mac    := hash() | aead,
@@ -244,73 +238,6 @@
                                  bad_certificate_hash_value |
                                  unknown_psk_identity |
                                  no_application_protocol.
--type http_packet()           :: http_request() |
-                                 http_response() |
-                                 http_header() |
-                                 http_eoh |
-                                 http_error().
--type http_request()          :: {http_request, http_method(), http_uri(), http_version()}.
--type http_response()         :: {http_response, http_version(), integer(), http_string()}.
--type http_header()           :: {http_header, integer(), http_field(), Reserved :: term(),
-                                  Value :: http_string()}.
--type http_error()            :: {http_error, http_string()}.
--type http_method()           :: 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE'.
--type http_uri()              :: any().
--type http_version()          :: {Major :: integer(), Minor :: integer()}.
--type http_field()            :: 'Cache-Control' |
-                                 'Connection' |
-                                 'Date' |
-                                 'Pragma' |
-                                 'Transfer-Encoding' |
-                                 'Upgrade' |
-                                 'Via' |
-                                 'Accept' |
-                                 'Accept-Charset' |
-                                 'Accept-Encoding' |
-                                 'Accept-Language' |
-                                 'Authorization' |
-                                 'From' |
-                                 'Host' |
-                                 'If-Modified-Since' |
-                                 'If-Match' |
-                                 'If-None-Match' |
-                                 'If-Range' |
-                                 'If-Unmodified-Since' |
-                                 'Max-Forwards' |
-                                 'Proxy-Authorization' |
-                                 'Range' |
-                                 'Referer' |
-                                 'User-Agent' |
-                                 'Age' |
-                                 'Location' |
-                                 'Proxy-Authenticate' |
-                                 'Public' |
-                                 'Retry-After' |
-                                 'Server' |
-                                 'Vary' |
-                                 'Warning' |
-                                 'Www-Authenticate' |
-                                 'Allow' |
-                                 'Content-Base' |
-                                 'Content-Encoding' |
-                                 'Content-Language' |
-                                 'Content-Length' |
-                                 'Content-Location' |
-                                 'Content-Md5' |
-                                 'Content-Range' |
-                                 'Content-Type' |
-                                 'Etag' |
-                                 'Expires' |
-                                 'Last-Modified' |
-                                 'Accept-Ranges' |
-                                 'Set-Cookie' |
-                                 'Set-Cookie2' |
-                                 'X-Forwarded-For' |
-                                 'Cookie' |
-                                 'Keep-Alive' |
-                                 'Proxy-Connection' |
-                                 http_string().
--type http_string()           :: string() | binary().
 
 %% -------------------------------------------------------------------------------------------------------
 -type common_option()        :: {protocol, protocol()} |
@@ -841,7 +768,8 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: integer(),
-      Data :: binary() | list() | http_packet().
+      Data :: binary() | list() | HttpPacket,
+      HttpPacket :: any().
 
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
@@ -849,8 +777,9 @@ recv(Socket, Length) ->
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: integer(),
-      Data :: binary() | list() | http_packet(),
-      Timeout :: timeout().
+      Data :: binary() | list() | HttpPacket,
+      Timeout :: timeout(),
+      HttpPacket :: any().
 
 recv(#sslsocket{pid = [Pid|_]}, Length, Timeout) when is_pid(Pid),
 						  (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
@@ -1083,27 +1012,23 @@ eccs() ->
 
 %%--------------------------------------------------------------------
 -spec eccs(Version) -> NamedCurves when
-      Version :: protocol_version() | protocol_version_tuple(),
+      Version :: protocol_version(),
       NamedCurves :: [named_curve()].
 
 %% Description: returns the curves supported for a given version of
 %% ssl/tls.
 %%--------------------------------------------------------------------
-eccs({3,0}) ->
+eccs(sslv3) ->
     [];
-eccs({3,_}) ->
-    Curves = tls_v1:ecc_curves(all),
-    eccs_filter_supported(Curves);
-eccs({254,_} = Version) ->
-    eccs(dtls_v1:corresponding_tls_version(Version));
+eccs('dtlsv1') ->
+    eccs('tlsv1.1');
+eccs('dtlsv1.2') ->
+    eccs('tlsv1.2');
 eccs(Version) when Version == 'tlsv1.2';
                    Version == 'tlsv1.1';
-                   Version == tlsv1;
-                   Version == sslv3 ->
-    eccs(tls_record:protocol_version(Version));
-eccs(Version) when Version == 'dtlsv1.2';
-                   Version == 'dtlsv1'->
-    eccs(dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Version))).
+                   Version == tlsv1 ->
+    Curves = tls_v1:ecc_curves(all),
+    eccs_filter_supported(Curves).
 
 eccs_filter_supported(Curves) ->
     CryptoCurves = crypto:ec_curves(),
@@ -1387,7 +1312,13 @@ tls_version({254, _} = Version) ->
 
 %%--------------------------------------------------------------------
 -spec suite_to_str(CipherSuite) -> string() when
-      CipherSuite :: erl_cipher_suite().
+      CipherSuite :: erl_cipher_suite();
+                  (CipherSuite) -> string() when
+      %% For internal use!
+      CipherSuite :: #{key_exchange := null,
+                       cipher := null,
+                       mac := null,
+                       prf := null}.
 %%
 %% Description: Return the string representation of a cipher suite.
 %%--------------------------------------------------------------------

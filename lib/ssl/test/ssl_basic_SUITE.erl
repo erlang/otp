@@ -1832,14 +1832,12 @@ eccs() ->
 
 eccs(Config) when is_list(Config) ->
     [_|_] = All = ssl:eccs(),
-    [] = SSL3 = ssl:eccs({3,0}),
-    [_|_] = Tls = ssl:eccs({3,1}),
-    [_|_] = Tls1 = ssl:eccs({3,2}),
-    [_|_] = Tls2 = ssl:eccs({3,3}),
     [] = SSL3 = ssl:eccs(sslv3),
     [_|_] = Tls = ssl:eccs(tlsv1),
     [_|_] = Tls1 = ssl:eccs('tlsv1.1'),
     [_|_] = Tls2 = ssl:eccs('tlsv1.2'),
+    [_|_] = Tls1 = ssl:eccs('dtlsv1'),
+    [_|_] = Tls2 = ssl:eccs('dtlsv1.2'),
     %% ordering is currently unverified by the test
     true = lists:sort(All) =:= lists:usort(SSL3 ++ Tls ++ Tls1 ++ Tls2),
     ok.

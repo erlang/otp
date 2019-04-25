@@ -128,7 +128,7 @@
       <name name="hostname"/>
      </datatype>
 
-       <datatype>
+     <datatype>
       <name name="ip_address"/>
      </datatype>
 
@@ -137,23 +137,11 @@
      </datatype>
 
      <datatype>
-       <name name="protocol_version_tuple"/>
-     </datatype>
-
-     <datatype>
        <name name="tls_version"/>
      </datatype>
 
      <datatype>
-       <name name="tls_version_tuple"/>
-     </datatype>
-
-     <datatype>
        <name name="dtls_version"/>
-     </datatype>
-
-     <datatype>
-       <name name="dtls_version_tuple"/>
      </datatype>
 
      <datatype>
@@ -262,46 +250,6 @@
 
      <datatype>
       <name name="reason"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_packet"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_request"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_response"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_header"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_error"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_method"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_uri"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_version"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_field"/>
-     </datatype>
-
-     <datatype>
-      <name name="http_string"/>
      </datatype>
 
     <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</datatype_title>
@@ -1507,6 +1455,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name since="" name="recv" arity="2" />
       <name since="" name="recv" arity="3" />
       <fsummary>Receives data on a socket.</fsummary>
+      <type_desc variable="HttpPacket">See the description of
+        <c>HttpPacket</c> in
+        <seealso marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seealso>
+	in ERTS.
+      </type_desc>
       <desc>
         <p>Receives a packet from a socket in passive
           mode. A closed socket is indicated by return value
@@ -1612,7 +1565,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 21.0" name="suite_to_str" arity="1" />
+      <name since="OTP 21.0" name="suite_to_str" arity="1" clause_i="1" />
       <fsummary>Returns the string representation of a cipher suite.</fsummary>
       <desc>
         <p>Returns the string representation of a cipher suite.</p>
