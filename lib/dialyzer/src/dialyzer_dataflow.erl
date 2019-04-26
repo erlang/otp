@@ -405,8 +405,13 @@ handle_apply(Tree, Map, State) ->
                                     t_fun_args(OpType1, 'universe')),
 	      case any_none(NewArgs) of
 		true ->
+                  EnumNewArgs = lists:zip(lists:seq(1, length(NewArgs)),
+                                          NewArgs),
+                  ArgNs = [Arg ||
+                            {Arg, Type} <- EnumNewArgs, t_is_none(Type)],
 		  Msg = {fun_app_args,
-			 [format_args(Args, ArgTypes, State),
+			 [ArgNs,
+			  format_args(Args, ArgTypes, State),
 			  format_type(OpType, State)]},
 		  State3 = state__add_warning(State2, ?WARN_FAILING_CALL,
 					      Tree, Msg),
