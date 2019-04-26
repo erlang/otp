@@ -117,14 +117,14 @@ int ei_x_encode_binary(ei_x_buff* x, const void* p, int len)
     return ei_encode_binary(x->buff, &x->index, p, len);
 }
 
-int ei_x_encode_bitstring(ei_x_buff* x, const void* p, size_t bits)
+int ei_x_encode_bitstring(ei_x_buff* x, const char* p, size_t bitoffs, size_t bits)
 {
     int i = x->index;
-    if (ei_encode_bitstring(NULL, &i, p, bits) == -1)
+    if (ei_encode_bitstring(NULL, &i, p, bitoffs, bits) == -1)
       return -1;
     if (!x_fix_buff(x, i))
 	return -1;
-    return ei_encode_bitstring(x->buff, &x->index, p, bits);
+    return ei_encode_bitstring(x->buff, &x->index, p, bitoffs, bits);
 }
 
 int ei_x_encode_long(ei_x_buff* x, long n)

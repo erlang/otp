@@ -526,9 +526,9 @@ int ei_x_encode_atom_len(ei_x_buff* x, const char* s, int len);
 int ei_x_encode_atom_len_as(ei_x_buff* x, const char* s, int len,
 			  erlang_char_encoding from, erlang_char_encoding to);
 int ei_encode_binary(char *buf, int *index, const void *p, long len);
-int ei_encode_bitstring(char *buf, int *index, const void *p, size_t bits);
+int ei_encode_bitstring(char *buf, int *index, const char *p, size_t bitoffs, size_t bits);
 int ei_x_encode_binary(ei_x_buff* x, const void* s, int len);
-int ei_x_encode_bitstring(ei_x_buff* x, const void* p, size_t bits);
+int ei_x_encode_bitstring(ei_x_buff* x, const char* p, size_t bitoffs, size_t bits);
 int ei_encode_pid(char *buf, int *index, const erlang_pid *p);
 int ei_x_encode_pid(ei_x_buff* x, const erlang_pid* pid);
 int ei_encode_fun(char* buf, int* index, const erlang_fun* p);
@@ -578,7 +578,9 @@ int ei_decode_string(const char *buf, int *index, char *p);
 int ei_decode_atom(const char *buf, int *index, char *p);
 int ei_decode_atom_as(const char *buf, int *index, char *p, int destlen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result);
 int ei_decode_binary(const char *buf, int *index, void *p, long *len);
-int ei_decode_bitstring(const char *buf, int *index, void *p, size_t plen, size_t *bitsp);
+int ei_decode_bitstring(const char *buf, int *index, const char** pp,
+                        unsigned int* bitoffsp, size_t *nbitsp);
+
 int ei_decode_fun(const char* buf, int* index, erlang_fun* p);
 void free_fun(erlang_fun* f);
 int ei_decode_pid(const char *buf, int *index, erlang_pid *p);

@@ -42,7 +42,8 @@ typedef struct
 
 typedef struct
 {
-    char bytes[MAXATOMLEN_UTF8];
+    const char* bytes;
+    unsigned int bitoffs;
     size_t nbits;
 }my_bitstring;
 
@@ -128,17 +129,17 @@ struct Type my_atom_type = {
 
 int ei_decode_my_bits(const char *buf, int *index, my_bitstring* a)
 {
-    return ei_decode_bitstring(buf, index, (a ? a->bytes : NULL),
-                               sizeof(a->bytes),
+    return ei_decode_bitstring(buf, index, (a ? &a->bytes : NULL),
+                               (a ? &a->bitoffs : NULL),
                                (a ? &a->nbits : NULL));
 }
 int ei_encode_my_bits(char *buf, int *index, my_bitstring* a)
 {
-    return ei_encode_bitstring(buf, index, a->bytes, a->nbits);
+    return ei_encode_bitstring(buf, index, a->bytes, a->bitoffs, a->nbits);
 }
 int ei_x_encode_my_bits(ei_x_buff* x, my_bitstring* a)
 {
-    return ei_x_encode_bitstring(x, a->bytes, a->nbits);
+    return ei_x_encode_bitstring(x, a->bytes, a->bitoffs, a->nbits);
 }
 
 struct Type my_bitstring_type = {
@@ -264,11 +265,7 @@ void decode_encode(struct Type** tv, int nobj)
 	size1 = 0;
 	err = t->ei_decode_fp(inp, &size1, NULL);
 	if (err != 0) {
-	    if (err != -1) {
-		fail("decode returned non zero but not -1");
-	    } else {
-		fail1("decode '%s' returned non zero", t->name);
-	    }
+            fail2("decode '%s' returned non zero %d", t->name, err);
 	    return;
 	}
 	if (size1 < 1) {
@@ -497,6 +494,66 @@ void decode_encode_big(struct Type* t)
 }
 
 
+void encode_bitstring(void)
+{
+    char* packet;
+    char* inp;
+    char out_buf[BUFSZ];
+    int size;
+    int err, i;
+    ei_x_buff arg;
+    const char* p;
+    unsigned int bitoffs;
+    size_t nbits, org_nbits;
+
+    packet = read_packet(NULL);
+    inp = packet+1;
+
+    size = 0;
+    err = ei_decode_bitstring(inp, &size, &p, &bitoffs, &nbits);
+    if (err != 0) {
+        fail1("ei_decode_bitstring returned non zero %d", err);
+        return;
+    }
+
+    /*
+     * Now send a bunch of different sub-bitstrings back
+     * encoded both with ei_encode_ and ei_x_encode_.
+     */
+    org_nbits = nbits;
+    do {
+        size = 0;
+        err = ei_encode_bitstring(out_buf, &size, p, bitoffs, nbits);
+        if (err != 0) {
+            fail1("ei_encode_bitstring returned non zero %d", err);
+            return;
+        }
+
+        ei_x_new(&arg);
+        err = ei_x_encode_bitstring(&arg, p, bitoffs, nbits);
+        if (err != 0) {
+            fail1("ei_x_encode_bitstring returned non zero %d", err);
+            ei_x_free(&arg);
+            return;
+        }
+
+        if (arg.index < 1) {
+            fail("size is < 1");
+            ei_x_free(&arg);
+            return;
+        }
+
+        send_buffer(out_buf, size);
+        send_buffer(arg.buff, arg.index);
+        ei_x_free(&arg);
+
+        bitoffs++;
+        nbits -= (nbits / 20) + 1;
+    } while (nbits < org_nbits);
+
+    free_packet(packet);
+}
+
 
 /* ******************************************************************** */
 
@@ -567,6 +624,8 @@ TESTCASE(test_ei_decode_encode)
     for (i=0; i <= 48; i++) {
         decode_encode_one(&my_bitstring_type);
     }
+
+    encode_bitstring();
 
     report(1);
 }
