@@ -743,8 +743,9 @@ non_transaction(OldState, Fun, Args, ActivityKind, Mod) ->
 	{aborted, Reason} -> mnesia:abort(Reason);
 	Res -> Res
     catch
-	throw:Throw -> throw(Throw);
-	_:Reason    -> exit(Reason)
+    throw:Throw     -> throw(Throw);
+    error:Reason:ST -> exit({Reason, ST});
+    exit:Reason     -> exit(Reason)
     after
 	case OldState of
 	    undefined -> erase(mnesia_activity_state);
