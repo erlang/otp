@@ -30,6 +30,28 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.7.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    When an SSH server receives the very first message on a
+	    new TCP connection, and that message is not the expected
+	    one, the 64 first bytes of the received message are now
+	    dumped in the INFO REPORT that reports the Protocol
+	    Error.</p>
+          <p>
+	    This facilitates the debugging of who sends the bad
+	    message or of detecting a possible port scanning.</p>
+          <p>
+	    Own Id: OTP-15772</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
