@@ -1891,15 +1891,37 @@ expression_before_match_1(R) ->
 
 %% Make sure that context positions are updated on calls.
 restore_on_call(Config) when is_list(Config) ->
-    ok = restore_on_call_1(<<0, 1, 2>>).
-
-restore_on_call_1(<<0, Rest/binary>>) ->
-    <<2>> = restore_on_call_2(Rest),
-    <<2>> = restore_on_call_2(Rest), %% {badmatch, <<>>} on missing restore.
+    ok = restore_on_call_plain(<<0, 1, 2>>),
+    <<"x">> = restore_on_call_match(<<0, "x">>),
     ok.
 
-restore_on_call_2(<<1, Rest/binary>>) -> Rest;
-restore_on_call_2(Other) -> Other.
+restore_on_call_plain(<<0, Rest/binary>>) ->
+    <<2>> = restore_on_call_plain_1(Rest),
+    %% {badmatch, <<>>} on missing restore.
+    <<2>> = restore_on_call_plain_1(Rest),
+    ok.
+
+restore_on_call_plain_1(<<1, Rest/binary>>) -> Rest;
+restore_on_call_plain_1(Other) -> Other.
+
+%% Calls a function that moves the match context passed to it, and then matches
+%% on its result to confuse the reposition algorithm's success/fail logic.
+restore_on_call_match(<<0, Bin/binary>>) ->
+    case skip_until_zero(Bin) of
+        {skipped, Rest} ->
+            Rest;
+        not_found ->
+            %% The match context did not get repositioned before the
+            %% bs_get_tail instruction here.
+            Bin
+    end.
+
+skip_until_zero(<<0,Rest/binary>>) ->
+    {skipped, Rest};
+skip_until_zero(<<_C,Rest/binary>>) ->
+    skip_until_zero(Rest);
+skip_until_zero(_) ->
+    not_found.
 
 %% 'catch' must invalidate positions.
 restore_after_catch(Config) when is_list(Config) ->
@@ -1982,6 +2004,5 @@ do_matching_meets_apply(<<_/binary>>=Name, never_matches_b) ->
 do_matching_meets_apply(_Bin, {Handler, State}) ->
     %% Another case of the above.
     Handler:abs(State).
-
 
 id(I) -> I.
