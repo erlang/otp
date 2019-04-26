@@ -48,7 +48,7 @@
          del_table_copy_1/1, del_table_copy_2/1, del_table_copy_3/1,
          add_table_copy_1/1, add_table_copy_2/1, add_table_copy_3/1,
          add_table_copy_4/1, move_table_copy_1/1, move_table_copy_2/1,
-         move_table_copy_3/1, move_table_copy_4/1]).
+         move_table_copy_3/1, move_table_copy_4/1, dirty_error_stacktrace/1]).
 
 -export([update_trans/3]).
 
@@ -64,7 +64,7 @@ all() ->
      {group, dirty_update_counter}, {group, dirty_delete},
      {group, dirty_delete_object},
      {group, dirty_match_object}, {group, dirty_index},
-     {group, dirty_iter}, {group, admin_tests}].
+     {group, dirty_iter}, {group, admin_tests}, dirty_error_stacktrace].
 
 groups() -> 
     [{dirty_write, [],
@@ -114,6 +114,36 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Errors in dirty activity should have stacktrace
+dirty_error_stacktrace(Config) ->
+    %% Custom errors should have stacktrace
+    try
+        mnesia:async_dirty(fun() -> error(custom_error) end)
+    catch
+        exit:{custom_error, _} -> ok
+    end,
+
+    %% Undef error should have unknown module and function in the stacktrace
+    try
+        mnesia:async_dirty(fun() -> unknown_module:unknown_fun(arg) end)
+    catch
+        exit:{undef, [{unknown_module, unknown_fun, [arg], []} | _]} -> ok
+    end,
+
+    %% Exists don't have stacktrace
+    try
+        mnesia:async_dirty(fun() -> exit(custom_error) end)
+    catch
+        exit:custom_error -> ok
+    end,
+
+    %% Aborts don't have a stacktrace (unfortunately)
+    try
+        mnesia:async_dirty(fun() -> mnesia:abort(custom_abort) end)
+    catch
+        exit:{aborted, custom_abort} -> ok
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Write records dirty
