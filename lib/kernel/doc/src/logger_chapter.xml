@@ -1006,8 +1006,8 @@ ok</pre>
       module <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>,
       and configure it to log to file:</p>
     <pre>
-4> <input>Config = #{config => #{file => "./info.log"}, level => info}.</input>
-#{config => #{file => "./info.log"},level => info}
+4> <input>Config = #{config => #{type => {file, "./info.log"}}, level => info}.</input>
+#{config => #{type => {file,"./info.log"}},level => info}
 5> <input>logger:add_handler(myhandler, logger_std_h, Config).</input>
 ok</pre>
     <p>Since <c>filter_default</c> defaults to <c>log</c>, this
