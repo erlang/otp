@@ -28,10 +28,14 @@
 %%         ESOCK_TEST_TRAFFIC:     include
 %%         ESOCK_TEST_TTEST:       exclude
 %%
+%% Variable that controls "verbosity" of the test case(s):
+%%
+%%         ESOCK_TEST_QUIET: true (default) | false
+%%
 %% Defines the runtime of the ttest cases
 %% (This is the time during which "measurement" is performed. 
 %%  the actual time it takes for the test case to complete
-%%  will be longer)
+%%  will be longer; setup, completion, ...)
 %%
 %%          ESOCK_TEST_TTEST_RUNTIME: 10 seconds
 %%              Format of values: <integer>[<unit>]
@@ -1643,6 +1647,8 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
     tc_try(api_b_sendmsg_and_recvmsg_udp4,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
+                                  %% We need tests for this,
+                                  %% but this is not the place it.
                                   %% CMsgHdr  = #{level => ip,
                                   %%              type  => tos,
                                   %%              data  => reliability},
@@ -1653,9 +1659,12 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                                   socket:sendmsg(Sock, MsgHdr)
                           end,
                    Recv = fun(Sock) ->
+                                  %% We have some issues on old darwing...
+                                  socket:setopt(Sock, otp, debug, true),
                                   case socket:recvmsg(Sock) of
                                       {ok, #{addr  := Source,
                                              iov   := [Data]}} ->
+                                          socket:setopt(Sock, otp, debug, false),
                                           {ok, {Source, Data}};
                                       {error, _} = ERROR ->
                                           ERROR
@@ -1714,21 +1723,37 @@ api_b_send_and_recv_udp(InitState) ->
                    end},
          #{desc => "send req (to dst)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
-                           ok = Send(Sock, ?BASIC_REQ, Dst)
+                           Send(Sock, ?BASIC_REQ, Dst)
                    end},
          #{desc => "recv req (from src)",
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
-                           {ok, {Src, ?BASIC_REQ}} = Recv(Sock),
-                           ok
+                           case Recv(Sock) of
+                               {ok, {Src, ?BASIC_REQ}} ->
+                                   ok;
+                               {ok, UnexpData} ->
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, _} = ERROR ->
+                                   %% At the moment there is no way to get
+                                   %% status or state for the socket...
+                                   ERROR
+                           end
                    end},
          #{desc => "send rep (to src)",
            cmd  => fun(#{sock_dst := Sock, sa_src := Src, send := Send}) ->
-                           ok = Send(Sock, ?BASIC_REP, Src)
+                           Send(Sock, ?BASIC_REP, Src)
                    end},
          #{desc => "recv rep (from dst)",
            cmd  => fun(#{sock_src := Sock, sa_dst := Dst, recv := Recv}) ->
-                           {ok, {Dst, ?BASIC_REP}} = Recv(Sock),
-                           ok
+                           case Recv(Sock) of
+                               {ok, {Dst, ?BASIC_REP}} ->
+                                   ok;
+                               {ok, UnexpData} ->
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, _} = ERROR ->
+                                   %% At the moment there is no way to get
+                                   %% status or state for the socket...
+                                   ERROR
+                           end
                    end},
          #{desc => "close src socket",
            cmd  => fun(#{sock_src := Sock}) ->
@@ -3585,8 +3610,8 @@ api_to_connect_tcp(InitState) ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -3921,7 +3946,7 @@ api_to_connect_tcp_await_timeout2(_ID, To, ServerSA, NewSock) ->
     case socket:connect(Sock, ServerSA, To) of
         {error, timeout} ->
             Stop  = t(),
-            TDiff = tdiff(Start, Stop),
+            TDiff = Stop - Start,
             if
                 (TDiff >= To) ->
                     (catch socket:close(Sock)),
@@ -4033,7 +4058,7 @@ api_to_accept_tcp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    ok;
@@ -4169,7 +4194,7 @@ api_to_maccept_tcp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    ok;
@@ -4242,7 +4267,7 @@ api_to_maccept_tcp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    State1 = maps:remove(start, State),
@@ -4693,7 +4718,7 @@ api_to_receive_tcp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    State1 = maps:remove(start, State),
@@ -5000,7 +5025,8 @@ api_to_receive_udp(InitState) ->
                            Start = t(),
                            case Recv(Sock, To) of
                                {error, timeout} ->
-                                   {ok, State#{start => Start, stop => t()}};
+                                   {ok, State#{start => Start,
+                                               stop => t()}};
                                {ok, _} ->
                                    {error, unexpected_sucsess};
                                {error, _} = ERROR ->
@@ -5009,7 +5035,7 @@ api_to_receive_udp(InitState) ->
                    end},
          #{desc => "validate timeout time",
            cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
-                           TDiff  = tdiff(Start, Stop),
+                           TDiff  = Stop - Start,
                            if
                                (TDiff >= To) ->
                                    ok;
@@ -5021,7 +5047,7 @@ api_to_receive_udp(InitState) ->
          %% *** Termination ***
          #{desc => "close socket",
            cmd  => fun(#{sock := Sock} = _State) ->
-                           socket:setopt(Sock, otp, debug, true),
+                           %% socket:setopt(Sock, otp, debug, true),
                            sock_close(Sock),
                            ok
                    end},
@@ -5591,7 +5617,7 @@ sc_lc_receive_response_tcp(InitState) ->
                                    State1 = maps:remove(sock, State),
                                    {ok, State1};
                                {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Unexpected read faulure: "
+                                   ?SEV_EPRINT("Unexpected read failure: "
                                                "~n   ~p", [Reason]),
                                    ERROR
                            end
@@ -7218,8 +7244,8 @@ sc_rc_receive_response_tcp(InitState) ->
                                {ok, Node} ->
                                    ?SEV_IPRINT("client node ~p started", [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node 1",
@@ -8095,8 +8121,8 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -8987,6 +9013,7 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                    end},
          #{desc => "recv (one big)",
            cmd  => fun(#{tester := Tester, csock := Sock, size := Size} = _State) ->
+                           %% socket:setopt(Sock, otp, debug, true),
                            case socket:recv(Sock, Size) of
                                {ok, Data} ->
                                    ?SEV_ANNOUNCE_READY(Tester,
@@ -9045,8 +9072,8 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                                    ?SEV_IPRINT("(remote) client node ~p started",
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -10169,7 +10196,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) 
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp4,
            fun() ->
-                   ?TT(?SECS(20)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => inet,
                                  msg    => Msg,
                                  num    => Num},
@@ -10196,7 +10223,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) 
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(20)),
+                   ?TT(?SECS(30)),
                    InitState = #{domain => inet,
                                  msg    => Msg,
                                  num    => Num},
@@ -10523,8 +10550,8 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                                    ?SEV_IPRINT("(remote) client node ~p started", 
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -11044,7 +11071,7 @@ tpp_tcp_client_msg_exchange_loop(Sock, _Send, _Recv, _Msg,
     end;
 tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data, 
                                  Num, N, Sent, Received, Start) ->
-    %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) try send", [Num,N]),
+    %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) try send ~w", [Num,N,size(Data)]),
     case tpp_tcp_send_req(Sock, Send, Data) of
         {ok, SendSz} ->
             %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) sent - "
@@ -11057,11 +11084,13 @@ tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data,
                                                      Received+RecvSz, 
                                                      Start);
                 {error, RReason} ->
-                    ?SEV_EPRINT("recv (~w of ~w): ~p", [N, Num, RReason]),
+                    ?SEV_EPRINT("recv (~w of ~w): ~p: "
+                                "~n   ~p", [N, Num, RReason, mq()]),
                     exit({recv, RReason, N})
             end;
         {error, SReason} ->
-            ?SEV_EPRINT("send (~w of ~w): ~p", [N, Num, SReason]),
+            ?SEV_EPRINT("send (~w of ~w): ~p"
+                        "~n   ~p", [N, Num, SReason, mq()]),
             exit({send, SReason, N})
     end.
 
@@ -11121,7 +11150,7 @@ tpp_tcp_recv(Sock, Recv, Tag) ->
             tpp_tcp_recv(Sock, Recv, Tag, Remains, size(Msg), [Data]);
         {ok, <<Tag:32/integer, _/binary>>} ->
             {error, {invalid_msg_tag, Tag}};
-        {error, _} = ERROR ->
+        {error, _R} = ERROR ->
             ERROR
     end.
 
@@ -11135,7 +11164,7 @@ tpp_tcp_recv(Sock, Recv, Tag, Remaining, AccSz, Acc) ->
             tpp_tcp_recv(Sock, Recv, Tag, 
                          Remaining - size(Data), AccSz + size(Data),     
                          [Data | Acc]);
-        {error, _} = ERROR ->
+        {error, _R} = ERROR ->
             ERROR
     end.
                                                          
@@ -11173,6 +11202,14 @@ tpp_tcp_send_msg(Sock, Send, Msg, AccSz) when is_binary(Msg) ->
 %% size_of_iovec([B|IOVec], Sz) ->
 %%     size_of_iovec(IOVec, Sz+size(B)).
 
+mq() ->
+    mq(self()).
+
+mq(Pid) when is_pid(Pid) ->
+    Tag = messages,
+    {Tag, Msgs} = process_info(Pid, Tag),
+    Msgs.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -11198,7 +11235,7 @@ traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState) ->
                    MsgHdr = #{addr => Dest, iov => Data},
                    socket:sendmsg(Sock, MsgHdr)
            end,
-    Recv = fun(Sock, Sz)   -> 
+    Recv = fun(Sock, Sz)   ->
                    case socket:recvmsg(Sock, Sz, 0) of
                        {ok, #{addr  := Source,
                               iov   := [Data]}} ->
@@ -11329,7 +11366,9 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                                                [{handler, Handler}])
                    end},
          #{desc => "order handler to recv",
-           cmd  => fun(#{handler := Handler} = _State) ->
+           cmd  => fun(#{handler := Handler,
+                         sock    := _Sock} = _State) ->
+                           %% socket:setopt(Sock, otp, debug, true),
                            ?SEV_ANNOUNCE_CONTINUE(Handler, recv),
                            ok
                    end},
@@ -11425,8 +11464,8 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                                    ?SEV_IPRINT("(remote) client node ~p started", 
                                                [Node]),
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -17272,8 +17311,8 @@ ttest_tcp(InitState) ->
                            case start_node(Host, server) of
                                {ok, Node} ->
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor server node",
@@ -17369,8 +17408,8 @@ ttest_tcp(InitState) ->
                            case start_node(Host, client) of
                                {ok, Node} ->
                                    {ok, State#{node => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
+                               {error, Reason} ->
+                                   {skip, Reason}
                            end
                    end},
          #{desc => "monitor client node",
@@ -17686,7 +17725,28 @@ ttest_tcp_client_start(Node,
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% This mechanism has only one purpose: So that we are able to kill
+%% the node-starter process if it takes to long. The node-starter
+%% runs on the local node.
+%% This crapola is hopefully temporary, but we have seen that on
+%% some platforms the ct_slave:start simply hangs.
+-define(NODE_START_TIMEOUT, 10000).
 start_node(Host, NodeName) ->
+    start_node(Host, NodeName, ?NODE_START_TIMEOUT).
+
+start_node(Host, NodeName, Timeout) ->
+    {NodeStarter, _} =
+        spawn_monitor(fun() -> exit(start_unique_node(Host, NodeName)) end),
+    receive
+        {'DOWN', _, process, NodeStarter, Result} ->
+            %% i("Node Starter (~p) reported: ~p", [NodeStarter, Result]),
+            Result
+    after Timeout ->
+            exit(NodeStarter, kill),
+            {error, {failed_starting_node, NodeName, timeout}}
+    end.
+
+start_unique_node(Host, NodeName) ->
     UniqueNodeName = f("~w_~w", [NodeName, erlang:system_time(millisecond)]),
     case do_start_node(Host, UniqueNodeName) of
         {ok, _} = OK ->
@@ -17720,7 +17780,7 @@ stop_node(Node) ->
             ERROR
     end.
 
-
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -17877,9 +17937,15 @@ which_addr2(Domain, [_|IFO]) ->
 %% Here are all the *general* test vase condition functions.
 
 %% The idea is that this function shall test if the test host has 
-%% support for IPv6. If not there is no point in running IPv6 tests.
+%% support for IPv6. If not, there is no point in running IPv6 tests.
 %% Currently we just skip.
 has_support_ipv6() ->
+    %% case socket:supports(ipv6) of
+    %%     true ->
+    %%         ok;
+    %%     false ->
+    %%         {error, not_supported}
+    %% end.
     not_yet_implemented().
 
 
@@ -17896,8 +17962,10 @@ skip(Reason) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 t() ->
-    os:timestamp().
+    ts(ms).
 
+ts(ms) ->
+    erlang:monotonic_time(milli_seconds).
 
 tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
     T1 = A1*1000000000+B1*1000+(C1 div 1000), 
@@ -17930,11 +17998,15 @@ set_tc_name(N) when is_list(N) ->
 %%     get(tc_name).
 
 tc_begin(TC) ->
+    OldVal = process_flag(trap_exit, true),
+    put(old_trap_exit, OldVal),
     set_tc_name(TC),
     tc_print("begin ***",
              "~n----------------------------------------------------~n", "").
     
 tc_end(Result) when is_list(Result) ->
+    OldVal = erase(old_trap_exit),
+    process_flag(trap_exit, OldVal),
     tc_print("done: ~s", [Result], 
              "", "----------------------------------------------------~n~n"),
     ok.
@@ -17965,26 +18037,44 @@ tc_try(Case, TCCondFun, TCFun)
                     tc_end("ok")
                 end
             catch
-                throw:{skip, _} = SKIP ->
-                    tc_end("skipping"),
+                C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
+                    %% i("catched[tc] (skip): "
+                    %%   "~n   C:    ~p"
+                    %%   "~n   SKIP: ~p"
+                    %%   "~n", [C, SKIP]),
+                    tc_end( f("skipping(catched,~w,tc)", [C]) ),
                     SKIP;
-                Class:Error:Stack ->
-                    tc_end("failed"),
-                    erlang:raise(Class, Error, Stack)
+                C:E:S ->
+                    %% i("catched[tc]: "
+                    %%   "~n   C: ~p"
+                    %%   "~n   E: ~p"
+                    %%   "~n   S: ~p"
+                    %%    "~n", [C, E, S]),
+                    tc_end( f("failed(catched,~w,tc)", [C]) ),
+                    erlang:raise(C, E, S)
             end;
         {skip, _} = SKIP ->
-            tc_end("skipping"),
+            tc_end("skipping(tc)"),
             SKIP;
         {error, Reason} ->
-            tc_end("failed"),
+            tc_end("failed(tc)"),
             exit({tc_cond_failed, Reason})
     catch
-        throw:{skip, _} = SKIP ->
-            tc_end("skipping"),
+        C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
+            %% i("catched[cond] (skip): "
+            %%   "~n   C:    ~p"
+            %%   "~n   SKIP: ~p"
+            %%   "~n", [C, SKIP]),
+            tc_end( f("skipping(catched,~w,cond)", [C]) ),
             SKIP;
-        Class:Error:Stack ->
-            tc_end("failed"),
-            erlang:raise(Class, Error, Stack)
+        C:E:S ->
+            %% i("catched[cond]: "
+            %%   "~n   C: ~p"
+            %%   "~n   E: ~p"
+            %%   "~n   S: ~p"
+            %%   "~n", [C, E, S]),
+            tc_end( f("failed(catched,~w,cond)", [C]) ),
+            erlang:raise(C, E, S)
     end.
 
 

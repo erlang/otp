@@ -82,7 +82,7 @@ typedef union {
     struct sockaddr_un  un;
 #endif
 
-} SocketAddress;
+} ESockAddress;
 
 
 /* *** Boolean *type* stuff... *** */
@@ -388,5 +388,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define REALLOC_BIN(SZ, BP)       enif_realloc_binary((SZ), (BP))
 #define FREE_BIN(BP)              enif_release_binary((BP))
 
+/* Copy term T into environment E */
+#define CP_TERM(E, T) enif_make_copy((E), (T))
 
 #endif // SOCKET_INT_H__

@@ -274,10 +274,10 @@ ENET_NIF_FUNCS
 static ERL_NIF_TERM ncommand(ErlNifEnv*   env,
                              ERL_NIF_TERM cmd);
 static ERL_NIF_TERM ngethostname(ErlNifEnv* env);
-static ERL_NIF_TERM ngetnameinfo(ErlNifEnv*           env,
-                                 const SocketAddress* saP,
-                                 SOCKLEN_T            saLen,
-                                 int                  flags);
+static ERL_NIF_TERM ngetnameinfo(ErlNifEnv*          env,
+                                 const ESockAddress* saP,
+                                 SOCKLEN_T           saLen,
+                                 int                 flags);
 static ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
                                  char*      host,
                                  char*      serv);
@@ -627,12 +627,12 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    ERL_NIF_TERM  result;
-    ERL_NIF_TERM  eSockAddr, eFlags;
-    int           flags = 0; // Just in case...
-    SocketAddress sa;
-    SOCKLEN_T     saLen = 0; // Just in case...
-    char*         xres;
+    ERL_NIF_TERM result;
+    ERL_NIF_TERM eSockAddr, eFlags;
+    int          flags = 0; // Just in case...
+    ESockAddress sa;
+    SOCKLEN_T    saLen = 0; // Just in case...
+    char*        xres;
 
     NDBG( ("NET", "nif_getnameinfo -> entry (%d)\r\n", argc) );
 
@@ -674,10 +674,10 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM ngetnameinfo(ErlNifEnv*           env,
-                          const SocketAddress* saP,
-                          SOCKLEN_T            saLen,
-                          int                  flags)
+ERL_NIF_TERM ngetnameinfo(ErlNifEnv*          env,
+                          const ESockAddress* saP,
+                          SOCKLEN_T           saLen,
+                          int                 flags)
 {
     ERL_NIF_TERM result;
     char         host[HOSTNAME_LEN];
@@ -1429,7 +1429,7 @@ ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
     type  = encode_address_info_type(env,   addrInfoP->ai_socktype);
     proto = encode_address_info_proto(env,  addrInfoP->ai_protocol);
     esock_encode_sockaddr(env,
-                          (SocketAddress*) addrInfoP->ai_addr,
+                          (ESockAddress*) addrInfoP->ai_addr,
                           addrInfoP->ai_addrlen,
                           &addr);
     

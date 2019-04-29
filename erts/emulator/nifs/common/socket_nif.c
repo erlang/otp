@@ -32,7 +32,7 @@
  *
  * esock_dbg_printf("DEMONP", "[%d] %s: %T\r\n",
  *                  descP->sock, slogan,
- *                  MON2T(env, &monP->mon));
+ *                  esock_make_monitor_term(env, &mon));
  *
  */
 
@@ -116,7 +116,6 @@
 
 #undef WANT_NONBLOCKING
 #include "sys.h"
-
 
 
 
@@ -331,6 +330,20 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #include "socket_tarray.h"
 #include "socket_int.h"
 #include "socket_util.h"
+
+
+#if defined(ERTS_INLINE)
+#  define ESOCK_INLINE ERTS_INLINE
+#else
+#  if defined(__GNUC__)
+#    define ESOCK_INLINE __inline__
+#  elif defined(__WIN32__)
+#    define ESOCK_INLINE __inline
+#  else
+#    define ESOCK_INLINE
+#  endif
+#endif
+
 
 #if defined(SOL_IPV6) || defined(IPPROTO_IPV6)
 #define HAVE_IPV6
@@ -654,7 +667,9 @@ typedef union {
  *                                                                     *
  * =================================================================== */
 
+/* Global socket debug */
 #define SGDBG( proto )         ESOCK_DBG_PRINTF( data.dbg , proto )
+/* Socket specific debug */
 #define SSDBG( __D__ , proto ) ESOCK_DBG_PRINTF( (__D__)->dbg , proto )
 
 
@@ -759,25 +774,32 @@ static unsigned long one_value  = 1;
 
 
 typedef struct {
-    int is_active;
     ErlNifMonitor mon;
+    BOOLEAN_T     isActive;
 } ESockMonitor;
 
 typedef struct {
-    ErlNifPid     pid; // PID of the requesting process
-    ESockMonitor  mon; // Monitor to the requesting process
-    ERL_NIF_TERM  ref; // The (unique) reference (ID) of the request
-} SocketRequestor;
+    ErlNifPid    pid; // PID of the requesting process
+    ESockMonitor mon; // Monitor to the requesting process
 
-typedef struct socket_request_queue_element {
-    struct socket_request_queue_element* nextP;
-    SocketRequestor                      data;
-} SocketRequestQueueElement;
+    /* We need an environment for the copy of the ref we store here.
+     * We will also use this environment for any messages we send
+     * (with the ref in it). Such as the select message (used in the 
+     * select call) or the abort message.
+     */
+    ErlNifEnv*   env;
+    ERL_NIF_TERM ref; // The (unique) reference (ID) of the request
+} ESockRequestor;
+
+typedef struct esock_request_queue_element {
+    struct esock_request_queue_element* nextP;
+    ESockRequestor                      data;
+} ESockRequestQueueElement;
 
 typedef struct {
-    SocketRequestQueueElement* first;
-    SocketRequestQueueElement* last;
-} SocketRequestQueue;
+    ESockRequestQueueElement* first;
+    ESockRequestQueueElement* last;
+} ESockRequestQueue;
 
 
 typedef struct {
@@ -791,21 +813,18 @@ typedef struct {
     int                protocol;
 
     unsigned int       state;
-    SocketAddress      remote;
+    ESockAddress       remote;
     unsigned int       addrLen;
-
-    ErlNifEnv*         env;
 
     /* +++ Controller (owner) process +++ */
     ErlNifPid          ctrlPid;
-    // ErlNifMonitor   ctrlMon;
     ESockMonitor       ctrlMon;
 
     /* +++ Write stuff +++ */
     ErlNifMutex*       writeMtx;
-    SocketRequestor    currentWriter;
-    SocketRequestor*   currentWriterP; // NULL or points to currentWriter
-    SocketRequestQueue writersQ;
+    ESockRequestor     currentWriter;
+    ESockRequestor*    currentWriterP; // NULL or points to currentWriter
+    ESockRequestQueue  writersQ;
     BOOLEAN_T          isWritable;
     Uint32             writePkgCnt;
     Uint32             writeByteCnt;
@@ -815,9 +834,9 @@ typedef struct {
 
     /* +++ Read stuff +++ */
     ErlNifMutex*       readMtx;
-    SocketRequestor    currentReader;
-    SocketRequestor*   currentReaderP; // NULL or points to currentReader
-    SocketRequestQueue readersQ;
+    ESockRequestor     currentReader;
+    ESockRequestor*    currentReaderP; // NULL or points to currentReader
+    ESockRequestQueue  readersQ;
     BOOLEAN_T          isReadable;
     ErlNifBinary       rbuffer;      // DO WE NEED THIS
     Uint32             readCapacity; // DO WE NEED THIS
@@ -828,11 +847,12 @@ typedef struct {
 
     /* +++ Accept stuff +++ */
     ErlNifMutex*       accMtx;
-    SocketRequestor    currentAcceptor;
-    SocketRequestor*   currentAcceptorP; // NULL or points to currentAcceptor
-    SocketRequestQueue acceptorsQ;
+    ESockRequestor     currentAcceptor;
+    ESockRequestor*    currentAcceptorP; // NULL or points to currentAcceptor
+    ESockRequestQueue  acceptorsQ;
 
     /* +++ Config & Misc stuff +++ */
+    ErlNifMutex*       cfgMtx;
     size_t       rBufSz;  // Read buffer size (when data length = 0)
     /* rNum and rNumCnt are used (together with rBufSz) when calling the recv 
      * function with the Length argument set to 0 (zero).
@@ -856,7 +876,7 @@ typedef struct {
     ERL_NIF_TERM  closeRef;
     BOOLEAN_T     closeLocal;
 
-} SocketDescriptor;
+} ESockDescriptor;
 
 
 /* Global stuff.
@@ -880,7 +900,7 @@ typedef struct {
     Uint32       numProtoTCP;
     Uint32       numProtoUDP;
     Uint32       numProtoSCTP;
-} SocketData;
+} ESockData;
 
 
 /* ----------------------------------------------------------------------
@@ -980,122 +1000,131 @@ static ERL_NIF_TERM nopen(ErlNifEnv* env,
                           int        type,
                           int        protocol,
                           char*      netns);
-static ERL_NIF_TERM nbind(ErlNifEnv*        env,
-                          SocketDescriptor* descP,
-                          SocketAddress*    sockAddrP,
-                          unsigned int      addrLen);
-static ERL_NIF_TERM nconnect(ErlNifEnv*        env,
-                             SocketDescriptor* descP);
-static ERL_NIF_TERM nlisten(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            int               backlog);
-static ERL_NIF_TERM naccept(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            ERL_NIF_TERM      sockRef,
-                            ERL_NIF_TERM      ref);
-static ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      ref);
-static ERL_NIF_TERM naccept_listening_error(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      ref,
-                                            ErlNifPid         caller,
-                                            int               save_errno);
-static ERL_NIF_TERM naccept_listening_accept(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             SOCKET            accSock,
-                                             ErlNifPid         caller,
-                                             SocketAddress*    remote);
-static ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      sockRef,
-                                      ERL_NIF_TERM      ref);
-static ERL_NIF_TERM naccept_accepting_current(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      sockRef,
-                                              ERL_NIF_TERM      ref);
-static ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*        env,
-                                                     SocketDescriptor* descP,
-                                                     ERL_NIF_TERM      sockRef,
-                                                     SOCKET            accSock,
-                                                     SocketAddress*    remote);
-static ERL_NIF_TERM naccept_accepting_current_error(ErlNifEnv*        env,
-                                                    SocketDescriptor* descP,
-                                                    ERL_NIF_TERM      sockRef,
-                                                    ERL_NIF_TERM      opRef,
-                                                    int               save_errno);
-static ERL_NIF_TERM naccept_accepting_other(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      ref,
-                                            ErlNifPid         caller);
-static ERL_NIF_TERM naccept_busy_retry(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      ref,
-                                       ErlNifPid*        pid,
-                                       unsigned int      nextState);
-static BOOLEAN_T naccept_accepted(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  SOCKET            accSock,
-                                  ErlNifPid         pid,
-                                  SocketAddress*    remote,
-                                  ERL_NIF_TERM*     result);
-static ERL_NIF_TERM nsend(ErlNifEnv*        env,
-                          SocketDescriptor* descP,
-                          ERL_NIF_TERM      sockRef,
-                          ERL_NIF_TERM      sendRef,
-                          ErlNifBinary*     dataP,
-                          int               flags);
-static ERL_NIF_TERM nsendto(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            ERL_NIF_TERM      sockRef,
-                            ERL_NIF_TERM      sendRef,
-                            ErlNifBinary*     dataP,
-                            int               flags,
-                            SocketAddress*    toAddrP,
-                            unsigned int      toAddrLen);
-static ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             ERL_NIF_TERM      sockRef,
-                             ERL_NIF_TERM      sendRef,
-                             ERL_NIF_TERM      eMsgHdr,
-                             int               flags);
-static ERL_NIF_TERM nrecv(ErlNifEnv*        env,
-                          SocketDescriptor* descP,
-                          ERL_NIF_TERM      sendRef,
-                          ERL_NIF_TERM      recvRef,
-                          int               len,
-                          int               flags);
-static ERL_NIF_TERM nrecvfrom(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              ERL_NIF_TERM      sockRef,
-                              ERL_NIF_TERM      recvRef,
-                              Uint16            bufSz,
-                              int               flags);
-static ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             ERL_NIF_TERM      sockRef,
-                             ERL_NIF_TERM      recvRef,
-                             Uint16            bufLen,
-                             Uint16            ctrlLen,
-                             int               flags);
-static ERL_NIF_TERM nclose(ErlNifEnv*        env,
-                           SocketDescriptor* descP);
-static ERL_NIF_TERM nshutdown(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              int               how);
-static ERL_NIF_TERM nsetopt(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            BOOLEAN_T         isEncoded,
-                            BOOLEAN_T         isOTP,
-                            int               level,
-                            int               eOpt,
-                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nbind(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ESockAddress*    sockAddrP,
+                          unsigned int     addrLen);
+static ERL_NIF_TERM nconnect(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM nlisten(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            int              backlog);
+static ERL_NIF_TERM naccept(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     ref);
+static ERL_NIF_TERM naccept_listening(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     ref);
+static ERL_NIF_TERM naccept_listening_error(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     sockRef,
+                                            ERL_NIF_TERM     accRef,
+                                            ErlNifPid        caller,
+                                            int              save_errno);
+static ERL_NIF_TERM naccept_listening_accept(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             SOCKET           accSock,
+                                             ErlNifPid        caller,
+                                             ESockAddress*    remote);
+static ERL_NIF_TERM naccept_accepting(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     ref);
+static ERL_NIF_TERM naccept_accepting_current(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     sockRef,
+                                              ERL_NIF_TERM     ref);
+static ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*       env,
+                                                     ESockDescriptor* descP,
+                                                     ERL_NIF_TERM     sockRef,
+                                                     SOCKET           accSock,
+                                                     ESockAddress*    remote);
+static ERL_NIF_TERM naccept_accepting_current_error(ErlNifEnv*       env,
+                                                    ESockDescriptor* descP,
+                                                    ERL_NIF_TERM     sockRef,
+                                                    ERL_NIF_TERM     opRef,
+                                                    int              save_errno);
+static ERL_NIF_TERM naccept_accepting_other(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     ref,
+                                            ErlNifPid        caller);
+static ERL_NIF_TERM naccept_busy_retry(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef,
+                                       ERL_NIF_TERM     accRef,
+                                       ErlNifPid*       pid,
+                                       unsigned int     nextState);
+static BOOLEAN_T naccept_accepted(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  SOCKET           accSock,
+                                  ErlNifPid        pid,
+                                  ESockAddress*    remote,
+                                  ERL_NIF_TERM*    result);
+static ERL_NIF_TERM nsend(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     sockRef,
+                          ERL_NIF_TERM     sendRef,
+                          ErlNifBinary*    dataP,
+                          int              flags);
+static ERL_NIF_TERM nsendto(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     sendRef,
+                            ErlNifBinary*    dataP,
+                            int              flags,
+                            ESockAddress*    toAddrP,
+                            unsigned int     toAddrLen);
+static ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             ERL_NIF_TERM     sockRef,
+                             ERL_NIF_TERM     sendRef,
+                             ERL_NIF_TERM     eMsgHdr,
+                             int              flags);
+static ERL_NIF_TERM nrecv(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     sendRef,
+                          ERL_NIF_TERM     recvRef,
+                          int              len,
+                          int              flags);
+static ERL_NIF_TERM nrecvfrom(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              ERL_NIF_TERM     recvRef,
+                              Uint16           bufSz,
+                              int              flags);
+static ERL_NIF_TERM nrecvmsg(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             ERL_NIF_TERM     sockRef,
+                             ERL_NIF_TERM     recvRef,
+                             Uint16           bufLen,
+                             Uint16           ctrlLen,
+                             int              flags);
+static ERL_NIF_TERM nclose(ErlNifEnv*       env,
+                           ESockDescriptor* descP);
+static BOOLEAN_T nclose_check(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM*    reason);
+static ERL_NIF_TERM nclose_do(ErlNifEnv*       env,
+                              ESockDescriptor* descP);
+static ERL_NIF_TERM nshutdown(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              int              how);
+static ERL_NIF_TERM nsetopt(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            BOOLEAN_T        isEncoded,
+                            BOOLEAN_T        isOTP,
+                            int              level,
+                            int              eOpt,
+                            ERL_NIF_TERM     eVal);
 
 /* Set OTP level options */
-static ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                int               eOpt,
-                                ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_otp(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                int              eOpt,
+                                ERL_NIF_TERM     eVal);
 /* *** nsetopt_otp_debug      ***
  * *** nsetopt_otp_iow        ***
  * *** nsetopt_otp_ctrl_proc  ***
@@ -1111,171 +1140,171 @@ static ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
     NSETOPT_OTP_FUNC_DEF(rcvctrlbuf); \
     NSETOPT_OTP_FUNC_DEF(sndctrlbuf);
 #define NSETOPT_OTP_FUNC_DEF(F)                                 \
-    static ERL_NIF_TERM nsetopt_otp_##F(ErlNifEnv*        env,   \
-                                        SocketDescriptor* descP, \
-                                        ERL_NIF_TERM      eVal)
+    static ERL_NIF_TERM nsetopt_otp_##F(ErlNifEnv*       env,   \
+                                        ESockDescriptor* descP, \
+                                        ERL_NIF_TERM     eVal)
 NSETOPT_OTP_FUNCS
 #undef NSETOPT_OTP_FUNC_DEF
 
 /* Set native options */
-static ERL_NIF_TERM nsetopt_native(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   int               level,
-                                   int               eOpt,
-                                   ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_level(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  int               level,
-                                  int               eOpt,
-                                  ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       int               eOpt,
-                                       ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_native(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              level,
+                                   int              eOpt,
+                                   ERL_NIF_TERM     eVal);
+static ERL_NIF_TERM nsetopt_level(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  int              level,
+                                  int              eOpt,
+                                  ERL_NIF_TERM     eVal);
+static ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       int              eOpt,
+                                       ERL_NIF_TERM     eVal);
 
 
 /* *** Handling set of socket options for level = socket *** */
 
 #if defined(SO_BINDTODEVICE)
-static ERL_NIF_TERM nsetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_bindtodevice(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_BROADCAST)
-static ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_DEBUG)
-static ERL_NIF_TERM nsetopt_lvl_sock_debug(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_debug(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_DONTROUTE)
-static ERL_NIF_TERM nsetopt_lvl_sock_dontroute(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_dontroute(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_KEEPALIVE)
-static ERL_NIF_TERM nsetopt_lvl_sock_keepalive(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_keepalive(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_LINGER)
-static ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_OOBINLINE)
-static ERL_NIF_TERM nsetopt_lvl_sock_oobinline(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_oobinline(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_PEEK_OFF)
-static ERL_NIF_TERM nsetopt_lvl_sock_peek_off(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_peek_off(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_PRIORITY)
-static ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_RCVBUF)
-static ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_RCVLOWAT)
-static ERL_NIF_TERM nsetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_rcvlowat(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_RCVTIMEO)
-static ERL_NIF_TERM nsetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_rcvtimeo(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_REUSEADDR)
-static ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_REUSEPORT)
-static ERL_NIF_TERM nsetopt_lvl_sock_reuseport(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_reuseport(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_SNDBUF)
-static ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_SNDLOWAT)
-static ERL_NIF_TERM nsetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_sndlowat(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_SNDTIMEO)
-static ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_TIMESTAMP)
-static ERL_NIF_TERM nsetopt_lvl_sock_timestamp(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sock_timestamp(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
-static ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   int               eOpt,
-                                   ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              eOpt,
+                                   ERL_NIF_TERM     eVal);
 
 /* *** Handling set of socket options for level = ip *** */
 #if defined(IP_ADD_MEMBERSHIP)
-static ERL_NIF_TERM nsetopt_lvl_ip_add_membership(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_add_membership(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_ADD_SOURCE_MEMBERSHIP)
-static ERL_NIF_TERM nsetopt_lvl_ip_add_source_membership(ErlNifEnv*        env,
-                                                         SocketDescriptor* descP,
-                                                         ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_add_source_membership(ErlNifEnv*       env,
+                                                         ESockDescriptor* descP,
+                                                         ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_BLOCK_SOURCE)
-static ERL_NIF_TERM nsetopt_lvl_ip_block_source(ErlNifEnv*        env,
-                                                SocketDescriptor* descP,
-                                                ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_block_source(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_DROP_MEMBERSHIP)
-static ERL_NIF_TERM nsetopt_lvl_ip_drop_membership(ErlNifEnv*        env,
-                                                   SocketDescriptor* descP,
-                                                   ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_drop_membership(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_DROP_SOURCE_MEMBERSHIP)
-static ERL_NIF_TERM nsetopt_lvl_ip_drop_source_membership(ErlNifEnv*        env,
-                                                          SocketDescriptor* descP,
-                                                          ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_drop_source_membership(ErlNifEnv*       env,
+                                                          ESockDescriptor* descP,
+                                                          ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_FREEBIND)
-static ERL_NIF_TERM nsetopt_lvl_ip_freebind(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_freebind(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_HDRINCL)
-static ERL_NIF_TERM nsetopt_lvl_ip_hdrincl(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_hdrincl(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_MINTTL)
-static ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*        env,
-                                          SocketDescriptor* descP,
-                                          ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
-static ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 static BOOLEAN_T decode_ip_msfilter_mode(ErlNifEnv*   env,
                                          ERL_NIF_TERM eVal,
                                          Uint32*      mode);
@@ -1285,322 +1314,322 @@ static ERL_NIF_TERM nsetopt_lvl_ip_msfilter_set(ErlNifEnv*          env,
                                                 SOCKLEN_T           optLen);
 #endif
 #if defined(IP_MTU_DISCOVER)
-static ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
-                                                SocketDescriptor* descP,
-                                                ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_MULTICAST_ALL)
-static ERL_NIF_TERM nsetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
-                                                 SocketDescriptor* descP,
-                                                 ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_multicast_all(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_MULTICAST_IF)
-static ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
-                                                SocketDescriptor* descP,
-                                                ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_MULTICAST_LOOP)
-static ERL_NIF_TERM nsetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_multicast_loop(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_MULTICAST_TTL)
-static ERL_NIF_TERM nsetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
-                                                 SocketDescriptor* descP,
-                                                 ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_multicast_ttl(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_NODEFRAG)
-static ERL_NIF_TERM nsetopt_lvl_ip_nodefrag(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_nodefrag(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_PKTINFO)
-static ERL_NIF_TERM nsetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_pktinfo(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_RECVDSTADDR)
-static ERL_NIF_TERM nsetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_recvdstaddr(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_RECVERR)
-static ERL_NIF_TERM nsetopt_lvl_ip_recverr(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_recverr(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_RECVIF)
-static ERL_NIF_TERM nsetopt_lvl_ip_recvif(ErlNifEnv*        env,
-                                          SocketDescriptor* descP,
-                                          ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_recvif(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_RECVOPTS)
-static ERL_NIF_TERM nsetopt_lvl_ip_recvopts(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_recvopts(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_RECVORIGDSTADDR)
-static ERL_NIF_TERM nsetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
-                                                   SocketDescriptor* descP,
-                                                   ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_RECVTOS)
-static ERL_NIF_TERM nsetopt_lvl_ip_recvtos(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_recvtos(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_RECVTTL)
-static ERL_NIF_TERM nsetopt_lvl_ip_recvttl(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_recvttl(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_RETOPTS)
-static ERL_NIF_TERM nsetopt_lvl_ip_retopts(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_retopts(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_ROUTER_ALERT)
-static ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*        env,
-                                                SocketDescriptor* descP,
-                                                ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_SENDSRCADDR)
-static ERL_NIF_TERM nsetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_sendsrcaddr(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_TOS)
-static ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_TRANSPARENT)
-static ERL_NIF_TERM nsetopt_lvl_ip_transparent(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_transparent(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_TTL)
-static ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal);
 #endif
 #if defined(IP_UNBLOCK_SOURCE)
-static ERL_NIF_TERM nsetopt_lvl_ip_unblock_source(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ip_unblock_source(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     eVal);
 #endif
 
 #if defined(IP_DROP_MEMBERSHIP) || defined(IP_ADD_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal,
-                                              int               opt);
+ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal,
+                                              int              opt);
 #endif
 #if defined(IP_ADD_SOURCE_MEMBERSHIP) || defined(IP_DROP_SOURCE_MEMBERSHIP) || defined(IP_BLOCK_SOURCE) || defined(IP_UNBLOCK_SOURCE)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_update_source(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal,
-                                              int               opt);
+ERL_NIF_TERM nsetopt_lvl_ip_update_source(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     eVal,
+                                          int              opt);
 #endif
 
 
 /* *** Handling set of socket options for level = ipv6 *** */
 #if defined(HAVE_IPV6)
-static ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     int               eOpt,
-                                     ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              eOpt,
+                                     ERL_NIF_TERM     eVal);
 #if defined(IPV6_ADDRFORM)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_addrform(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_addrform(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_ADD_MEMBERSHIP)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_add_membership(ErlNifEnv*        env,
-                                                    SocketDescriptor* descP,
-                                                    ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_add_membership(ErlNifEnv*       env,
+                                                    ESockDescriptor* descP,
+                                                    ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_AUTHHDR)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_authhdr(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_authhdr(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_DROP_MEMBERSHIP)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_drop_membership(ErlNifEnv*        env,
-                                                     SocketDescriptor* descP,
-                                                     ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_drop_membership(ErlNifEnv*       env,
+                                                     ESockDescriptor* descP,
+                                                     ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_DSTOPTS)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_dstopts(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_FLOWINFO)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_flowinfo(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_flowinfo(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_HOPLIMIT)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_HOPOPTS)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_hopopts(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_hopopts(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_MTU)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_MTU_DISCOVER)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_mtu_discover(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_MULTICAST_HOPS)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
-                                                    SocketDescriptor* descP,
-                                                    ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_hops(ErlNifEnv*       env,
+                                                    ESockDescriptor* descP,
+                                                    ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_MULTICAST_IF)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_if(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_MULTICAST_LOOP)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
-                                                    SocketDescriptor* descP,
-                                                    ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_loop(ErlNifEnv*       env,
+                                                    ESockDescriptor* descP,
+                                                    ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_RECVERR)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_recverr(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_recverr(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
-                                                 SocketDescriptor* descP,
-                                                 ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_ROUTER_ALERT)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_RTHDR)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_UNICAST_HOPS)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_unicast_hops(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_unicast_hops(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_V6ONLY)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
 
 #if defined(IPV6_ADD_MEMBERSHIP) || defined(IPV6_DROP_MEMBERSHIP)
-static ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*        env,
-                                                       SocketDescriptor* descP,
-                                                       ERL_NIF_TERM      eVal,
-                                                       int               opt);
+static ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*       env,
+                                                       ESockDescriptor* descP,
+                                                       ERL_NIF_TERM     eVal,
+                                                       int              opt);
 #endif
 
 #endif // defined(HAVE_IPV6)
-static ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    int               eOpt,
-                                    ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              eOpt,
+                                    ERL_NIF_TERM     eVal);
 #if defined(TCP_CONGESTION)
-static ERL_NIF_TERM nsetopt_lvl_tcp_congestion(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_tcp_congestion(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(TCP_MAXSEG)
-static ERL_NIF_TERM nsetopt_lvl_tcp_maxseg(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_tcp_maxseg(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal);
 #endif
 #if defined(TCP_NODELAY)
-static ERL_NIF_TERM nsetopt_lvl_tcp_nodelay(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_tcp_nodelay(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
-static ERL_NIF_TERM nsetopt_lvl_udp(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    int               eOpt,
-                                    ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_udp(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              eOpt,
+                                    ERL_NIF_TERM     eVal);
 #if defined(UDP_CORK)
-static ERL_NIF_TERM nsetopt_lvl_udp_cork(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_udp_cork(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     eVal);
 #endif
 #if defined(HAVE_SCTP)
-static ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     int               eOpt,
-                                     ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              eOpt,
+                                     ERL_NIF_TERM     eVal);
 #if defined(SCTP_ASSOCINFO)
-static ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(SCTP_AUTOCLOSE)
-static ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     eVal);
 #endif
 #if defined(SCTP_DISABLE_FRAGMENTS)
-static ERL_NIF_TERM nsetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
-                                                       SocketDescriptor* descP,
-                                                       ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sctp_disable_fragments(ErlNifEnv*       env,
+                                                       ESockDescriptor* descP,
+                                                       ERL_NIF_TERM     eVal);
 #endif
 #if defined(SCTP_EVENTS)
-static ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
 #if defined(SCTP_INITMSG)
-static ERL_NIF_TERM nsetopt_lvl_sctp_initmsg(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sctp_initmsg(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal);
 #endif
 #if defined(SCTP_MAXSEG)
-static ERL_NIF_TERM nsetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sctp_maxseg(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal);
 #endif
 #if defined(SCTP_NODELAY)
-static ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal);
 #endif
 #if defined(SCTP_RTOINFO)
-static ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal);
 #endif
 #endif // defined(HAVE_SCTP)
 
-static ERL_NIF_TERM ngetopt(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            BOOLEAN_T         isEncoded,
-                            BOOLEAN_T         isOTP,
-                            int               level,
-                            ERL_NIF_TERM      eOpt);
+static ERL_NIF_TERM ngetopt(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            BOOLEAN_T        isEncoded,
+                            BOOLEAN_T        isOTP,
+                            int              level,
+                            ERL_NIF_TERM     eOpt);
 
-static ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                int               eOpt);
+static ERL_NIF_TERM ngetopt_otp(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                int              eOpt);
 /* *** ngetopt_otp_debug      ***
  * *** ngetopt_otp_iow        ***
  * *** ngetopt_otp_ctrl_proc  ***
@@ -1625,518 +1654,595 @@ static ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
     NGETOPT_OTP_FUNC_DEF(protocol);
 #define NGETOPT_OTP_FUNC_DEF(F)                               \
     static ERL_NIF_TERM ngetopt_otp_##F(ErlNifEnv*        env, \
-                                        SocketDescriptor* descP)
+                                        ESockDescriptor* descP)
 NGETOPT_OTP_FUNCS
 #undef NGETOPT_OTP_FUNC_DEF
 
-static ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   int               level,
-                                   ERL_NIF_TERM      eOpt);
-static ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*        env,
-                                          SocketDescriptor* descP,
-                                          int               level,
-                                          int               opt,
-                                          SOCKOPTLEN_T      valueSz);
-static ERL_NIF_TERM ngetopt_level(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  int               level,
-                                  int               eOpt);
-static ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       int               eOpt);
+static ERL_NIF_TERM ngetopt_native(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              level,
+                                   ERL_NIF_TERM     eOpt);
+static ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          int              level,
+                                          int              opt,
+                                          SOCKOPTLEN_T     valueSz);
+static ERL_NIF_TERM ngetopt_level(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  int              level,
+                                  int              eOpt);
+static ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       int              eOpt);
 #if defined(SO_ACCEPTCONN)
-static ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*        env,
-                                                SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*       env,
+                                                ESockDescriptor* descP);
 #endif
 #if defined(SO_BINDTODEVICE)
-static ERL_NIF_TERM ngetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_bindtodevice(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP);
 #endif
 #if defined(SO_BROADCAST)
-static ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(SO_DEBUG)
-static ERL_NIF_TERM ngetopt_lvl_sock_debug(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_debug(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 #endif
 #if defined(SO_DOMAIN)
-static ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
 #if defined(SO_DONTROUTE)
-static ERL_NIF_TERM ngetopt_lvl_sock_dontroute(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_dontroute(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(SO_KEEPALIVE)
-static ERL_NIF_TERM ngetopt_lvl_sock_keepalive(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_keepalive(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(SO_LINGER)
-static ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
 #if defined(SO_OOBINLINE)
-static ERL_NIF_TERM ngetopt_lvl_sock_oobinline(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_oobinline(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(SO_PEEK_OFF)
-static ERL_NIF_TERM ngetopt_lvl_sock_peek_off(ErlNifEnv*        env,
-                                              SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_peek_off(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(SO_PRIORITY)
-static ERL_NIF_TERM ngetopt_lvl_sock_priority(ErlNifEnv*        env,
-                                              SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_priority(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(SO_PROTOCOL)
-static ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
-                                              SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(SO_RCVBUF)
-static ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
 #if defined(SO_RCVLOWAT)
-static ERL_NIF_TERM ngetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
-                                              SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_rcvlowat(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(SO_RCVTIMEO)
-static ERL_NIF_TERM ngetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
-                                              SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_rcvtimeo(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(SO_REUSEADDR)
-static ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(SO_REUSEPORT)
-static ERL_NIF_TERM ngetopt_lvl_sock_reuseport(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_reuseport(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(SO_SNDBUF)
-static ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
 #if defined(SO_SNDLOWAT)
-static ERL_NIF_TERM ngetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
-                                              SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_sndlowat(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(SO_SNDTIMEO)
-static ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
-                                              SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(SO_TIMESTAMP)
-static ERL_NIF_TERM ngetopt_lvl_sock_timestamp(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_timestamp(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(SO_TYPE)
-static ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
-                                          SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*       env,
+                                          ESockDescriptor* descP);
 #endif
-static ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   int               eOpt);
+static ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              eOpt);
 #if defined(IP_FREEBIND)
-static ERL_NIF_TERM ngetopt_lvl_ip_freebind(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_freebind(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
 #if defined(IP_HDRINCL)
-static ERL_NIF_TERM ngetopt_lvl_ip_hdrincl(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_hdrincl(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 #endif
 #if defined(IP_MINTTL)
-static ERL_NIF_TERM ngetopt_lvl_ip_minttl(ErlNifEnv*        env,
-                                          SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_minttl(ErlNifEnv*       env,
+                                          ESockDescriptor* descP);
 #endif
 #if defined(IP_MTU)
-static ERL_NIF_TERM ngetopt_lvl_ip_mtu(ErlNifEnv*        env,
-                                       SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_mtu(ErlNifEnv*       env,
+                                       ESockDescriptor* descP);
 #endif
 #if defined(IP_MTU_DISCOVER)
-static ERL_NIF_TERM ngetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
-                                                SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_mtu_discover(ErlNifEnv*       env,
+                                                ESockDescriptor* descP);
 #endif
 #if defined(IP_MULTICAST_ALL)
-static ERL_NIF_TERM ngetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
-                                                 SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_multicast_all(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP);
 #endif
 #if defined(IP_MULTICAST_IF)
-static ERL_NIF_TERM ngetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
-                                                SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_multicast_if(ErlNifEnv*       env,
+                                                ESockDescriptor* descP);
 #endif
 #if defined(IP_MULTICAST_LOOP)
-static ERL_NIF_TERM ngetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_multicast_loop(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP);
 #endif
 #if defined(IP_MULTICAST_TTL)
-static ERL_NIF_TERM ngetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
-                                                 SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_multicast_ttl(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP);
 #endif
 #if defined(IP_NODEFRAG)
-static ERL_NIF_TERM ngetopt_lvl_ip_nodefrag(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_nodefrag(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
 #if defined(IP_PKTINFO)
-static ERL_NIF_TERM ngetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_pktinfo(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 #endif
 #if defined(IP_RECVDSTADDR)
-static ERL_NIF_TERM ngetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_recvdstaddr(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(IP_RECVERR)
-static ERL_NIF_TERM ngetopt_lvl_ip_recverr(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_recverr(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 #endif
 #if defined(IP_RECVIF)
-static ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*        env,
-                                          SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*       env,
+                                          ESockDescriptor* descP);
 #endif
 #if defined(IP_RECVOPTS)
-static ERL_NIF_TERM ngetopt_lvl_ip_recvopts(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_recvopts(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
 #if defined(IP_RECVORIGDSTADDR)
-static ERL_NIF_TERM ngetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
-                                                   SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP);
 #endif
 #if defined(IP_RECVTOS)
-static ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 #endif
 #if defined(IP_RECVTTL)
-static ERL_NIF_TERM ngetopt_lvl_ip_recvttl(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_recvttl(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 #endif
 #if defined(IP_RETOPTS)
-static ERL_NIF_TERM ngetopt_lvl_ip_retopts(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_retopts(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 #endif
 #if defined(IP_ROUTER_ALERT)
-static ERL_NIF_TERM ngetopt_lvl_ip_router_alert(ErlNifEnv*        env,
-                                                SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_router_alert(ErlNifEnv*       env,
+                                                ESockDescriptor* descP);
 #endif
 #if defined(IP_SENDSRCADDR)
-static ERL_NIF_TERM ngetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_sendsrcaddr(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(IP_TOS)
-static ERL_NIF_TERM ngetopt_lvl_ip_tos(ErlNifEnv*        env,
-                                       SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_tos(ErlNifEnv*       env,
+                                       ESockDescriptor* descP);
 #endif
 #if defined(IP_TRANSPARENT)
-static ERL_NIF_TERM ngetopt_lvl_ip_transparent(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_transparent(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(IP_TTL)
-static ERL_NIF_TERM ngetopt_lvl_ip_ttl(ErlNifEnv*        env,
-                                       SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ip_ttl(ErlNifEnv*       env,
+                                       ESockDescriptor* descP);
 #endif
 #if defined(HAVE_IPV6)
-static ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     int               eOpt);
+static ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              eOpt);
 #if defined(IPV6_AUTHHDR)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_authhdr(ErlNifEnv*        env,
-                                             SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_authhdr(ErlNifEnv*       env,
+                                             ESockDescriptor* descP);
 #endif
 #if defined(IPV6_DSTOPTS)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
-                                             SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_dstopts(ErlNifEnv*       env,
+                                             ESockDescriptor* descP);
 #endif
 #if defined(IPV6_FLOWINFO)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_flowinfo(ErlNifEnv*        env,
-                                              SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_flowinfo(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(IPV6_HOPLIMIT)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
-                                              SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(IPV6_HOPOPTS)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_hopopts(ErlNifEnv*        env,
-                                             SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_hopopts(ErlNifEnv*       env,
+                                             ESockDescriptor* descP);
 #endif
 #if defined(IPV6_MTU)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
-                                         SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*       env,
+                                         ESockDescriptor* descP);
 #endif
 #if defined(IPV6_MTU_DISCOVER)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_mtu_discover(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP);
 #endif
 #if defined(IPV6_MULTICAST_HOPS)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
-                                                    SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_hops(ErlNifEnv*       env,
+                                                    ESockDescriptor* descP);
 #endif
 #if defined(IPV6_MULTICAST_IF)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_if(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP);
 #endif
 #if defined(IPV6_MULTICAST_LOOP)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
-                                                    SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_loop(ErlNifEnv*       env,
+                                                    ESockDescriptor* descP);
 #endif
 #if defined(IPV6_RECVERR)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_recverr(ErlNifEnv*        env,
-                                             SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_recverr(ErlNifEnv*       env,
+                                             ESockDescriptor* descP);
 #endif
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
-                                                 SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP);
 #endif
 #if defined(IPV6_ROUTER_ALERT)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP);
 #endif
 #if defined(IPV6_RTHDR)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 #endif
 #if defined(IPV6_UNICAST_HOPS)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_unicast_hops(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_unicast_hops(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP);
 #endif
 #if defined(IPV6_V6ONLY)
-static ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
 
 #endif // defined(HAVE_IPV6)
 
-static ERL_NIF_TERM ngetopt_lvl_tcp(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    int               eOpt);
+static ERL_NIF_TERM ngetopt_lvl_tcp(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              eOpt);
 #if defined(TCP_CONGESTION)
-static ERL_NIF_TERM ngetopt_lvl_tcp_congestion(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_tcp_congestion(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(TCP_MAXSEG)
-static ERL_NIF_TERM ngetopt_lvl_tcp_maxseg(ErlNifEnv*        env,
-                                           SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_tcp_maxseg(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
 #endif
 #if defined(TCP_NODELAY)
-static ERL_NIF_TERM ngetopt_lvl_tcp_nodelay(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_tcp_nodelay(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
-static ERL_NIF_TERM ngetopt_lvl_udp(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    int               eOpt);
+static ERL_NIF_TERM ngetopt_lvl_udp(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              eOpt);
 #if defined(UDP_CORK)
-static ERL_NIF_TERM ngetopt_lvl_udp_cork(ErlNifEnv*        env,
-                                         SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_udp_cork(ErlNifEnv*       env,
+                                         ESockDescriptor* descP);
 #endif
 #if defined(HAVE_SCTP)
-static ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     int               eOpt);
+static ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              eOpt);
 #if defined(SCTP_ASSOCINFO)
-static ERL_NIF_TERM ngetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sctp_associnfo(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(SCTP_AUTOCLOSE)
-static ERL_NIF_TERM ngetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
-                                               SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sctp_autoclose(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 #endif
 #if defined(SCTP_DISABLE_FRAGMENTS)
-static ERL_NIF_TERM ngetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
-                                                       SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sctp_disable_fragments(ErlNifEnv*       env,
+                                                       ESockDescriptor* descP);
 #endif
 #if defined(SCTP_MAXSEG)
-static ERL_NIF_TERM ngetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
-                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sctp_maxseg(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #endif
 #if defined(SCTP_INITMSG)
-static ERL_NIF_TERM ngetopt_lvl_sctp_initmsg(ErlNifEnv*        env,
-                                             SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sctp_initmsg(ErlNifEnv*       env,
+                                             ESockDescriptor* descP);
 #endif
 #if defined(SCTP_NODELAY)
-static ERL_NIF_TERM ngetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
-                                             SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sctp_nodelay(ErlNifEnv*       env,
+                                             ESockDescriptor* descP);
 #endif
 #if defined(SCTP_RTOINFO)
-static ERL_NIF_TERM ngetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
-                                             SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_lvl_sctp_rtoinfo(ErlNifEnv*       env,
+                                             ESockDescriptor* descP);
 #endif
 #endif // defined(HAVE_SCTP)
-static ERL_NIF_TERM nsockname(ErlNifEnv*        env,
-                              SocketDescriptor* descP);
-static ERL_NIF_TERM npeername(ErlNifEnv*        env,
-                              SocketDescriptor* descP);
-static ERL_NIF_TERM ncancel(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            ERL_NIF_TERM      op,
-                            ERL_NIF_TERM      sockRef,
-                            ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_connect(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_accept(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   ERL_NIF_TERM      sockRef,
-                                   ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_accept_current(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      sockRef);
-static ERL_NIF_TERM ncancel_accept_waiting(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_send(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 ERL_NIF_TERM      sockRef,
-                                 ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_send_current(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      sockRef);
-static ERL_NIF_TERM ncancel_send_waiting(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_recv(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 ERL_NIF_TERM      sockRef,
-                                 ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_recv_current(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      sockRef);
-static ERL_NIF_TERM ncancel_recv_waiting(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_read_select(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_write_select(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      opRef);
-static ERL_NIF_TERM ncancel_mode_select(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      opRef,
-                                        int               smode,
-                                        int               rmode);
+static ERL_NIF_TERM nsockname(ErlNifEnv*       env,
+                              ESockDescriptor* descP);
+static ERL_NIF_TERM npeername(ErlNifEnv*       env,
+                              ESockDescriptor* descP);
+static ERL_NIF_TERM ncancel(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     op,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_connect(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_accept(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     sockRef,
+                                   ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_accept_current(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM ncancel_accept_waiting(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_send(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_send_current(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM ncancel_send_waiting(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_recv(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_recv_current(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM ncancel_recv_waiting(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_read_select(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_write_select(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM ncancel_mode_select(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     opRef,
+                                        int              smode,
+                                        int              rmode);
 
 #if defined(USE_SETOPT_STR_OPT)
-static ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    int               level,
-                                    int               opt,
-                                    int               max,
-                                    ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              level,
+                                    int              opt,
+                                    int              max,
+                                    ERL_NIF_TERM     eVal);
 #endif
-static ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     int               level,
-                                     int               opt,
-                                     ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    int               level,
-                                    int               opt,
-                                    ERL_NIF_TERM      eVal);
-static ERL_NIF_TERM nsetopt_timeval_opt(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        int               level,
-                                        int               opt,
-                                        ERL_NIF_TERM      eVal);
+static ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              level,
+                                     int              opt,
+                                     ERL_NIF_TERM     eVal);
+static ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              level,
+                                    int              opt,
+                                    ERL_NIF_TERM     eVal);
+static ERL_NIF_TERM nsetopt_timeval_opt(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        int              level,
+                                        int              opt,
+                                        ERL_NIF_TERM     eVal);
 
 #if defined(USE_GETOPT_STR_OPT)
-static ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    int               level,
-                                    int               opt,
-                                    int               max);
+static ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              level,
+                                    int              opt,
+                                    int              max);
 #endif
-static ERL_NIF_TERM ngetopt_bool_opt(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     int               level,
-                                     int               opt);
-static ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    int               level,
-                                    int               opt);
-static ERL_NIF_TERM ngetopt_timeval_opt(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        int               level,
-                                        int               opt);
+static ERL_NIF_TERM ngetopt_bool_opt(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              level,
+                                     int              opt);
+static ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              level,
+                                    int              opt);
+static ERL_NIF_TERM ngetopt_timeval_opt(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        int              level,
+                                        int              opt);
 
-static BOOLEAN_T send_check_writer(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   ERL_NIF_TERM      ref,
-                                   ERL_NIF_TERM*     checkResult);
-static ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ssize_t           written,
-                                      ssize_t           dataSize,
-                                      int               saveErrno,
-                                      ERL_NIF_TERM      sockRef,
-                                      ERL_NIF_TERM      sendRef);
-static BOOLEAN_T recv_check_reader(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   ERL_NIF_TERM      ref,
-                                   ERL_NIF_TERM*     checkResult);
-static char* recv_init_current_reader(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      ref);
-static ERL_NIF_TERM recv_update_current_reader(ErlNifEnv*        env,
-                                               SocketDescriptor* descP,
-                                               ERL_NIF_TERM      sockRef);
-static void recv_error_current_reader(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      sockRef,
-                                      ERL_NIF_TERM      reason);
-static ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      int               read,
-                                      int               toRead,
-                                      int               saveErrno,
-                                      ErlNifBinary*     bufP,
-                                      ERL_NIF_TERM      sockRef,
-                                      ERL_NIF_TERM      recvRef);
-static ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
-                                          SocketDescriptor* descP,
-                                          int               read,
-                                          int               saveErrno,
-                                          ErlNifBinary*     bufP,
-                                          SocketAddress*    fromAddrP,
-                                          unsigned int      fromAddrLen,
-                                          ERL_NIF_TERM      sockRef,
-                                          ERL_NIF_TERM      recvRef);
-static ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         int               read,
-                                         int               saveErrno,
-                                         struct msghdr*    msgHdrP,
-                                         ErlNifBinary*     dataBufP,
-                                         ErlNifBinary*     ctrlBufP,
-                                         ERL_NIF_TERM      sockRef,
-                                         ERL_NIF_TERM      recvRef);
+static BOOLEAN_T send_check_writer(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     ref,
+                                   ERL_NIF_TERM*    checkResult);
+static ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ssize_t          written,
+                                      ssize_t          dataSize,
+                                      int              saveErrno,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     sendRef);
+static ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ssize_t          written,
+                                  ssize_t          dataSize,
+                                  ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              saveErrno,
+                                    ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ssize_t          written,
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     sendRef);
+static BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     ref,
+                                   ERL_NIF_TERM*    checkResult);
+static char* recv_init_current_reader(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     ref);
+static ERL_NIF_TERM recv_update_current_reader(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     sockRef);
+static void recv_error_current_reader(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     reason);
+static ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      int              read,
+                                      int              toRead,
+                                      int              saveErrno,
+                                      ErlNifBinary*    bufP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              read,
+                                    int              toRead,
+                                    ErlNifBinary*    bufP,
+                                    ERL_NIF_TERM     sockRef,
+                                    ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               int              read,
+                                               int              toRead,
+                                               ErlNifBinary*    bufP,
+                                               ERL_NIF_TERM     sockRef,
+                                               ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              read,
+                                         ErlNifBinary*    bufP,
+                                         ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              saveErrno,
+                                    ErlNifBinary*    buf1P,
+                                    ErlNifBinary*    buf2P,
+                                    ERL_NIF_TERM     sockRef,
+                                    ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     sockRef,
+                                           ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       int              read,
+                                       int              toRead,
+                                       ErlNifBinary*    bufP,
+                                       ERL_NIF_TERM     sockRef,
+                                       ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            int              read,
+                                            ErlNifBinary*    bufP,
+                                            ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            int              read,
+                                            ErlNifBinary*    bufP,
+                                            ERL_NIF_TERM     sockRef,
+                                            ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        int              saveErrno,
+                                        ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          int              read,
+                                          int              saveErrno,
+                                          ErlNifBinary*    bufP,
+                                          ESockAddress*    fromAddrP,
+                                          unsigned int     fromAddrLen,
+                                          ERL_NIF_TERM     sockRef,
+                                          ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              read,
+                                         int              saveErrno,
+                                         struct msghdr*   msgHdrP,
+                                         ErlNifBinary*    dataBufP,
+                                         ErlNifBinary*    ctrlBufP,
+                                         ERL_NIF_TERM     sockRef,
+                                         ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      int              read,
+                                      struct msghdr*   msgHdrP,
+                                      ErlNifBinary*    dataBufP,
+                                      ErlNifBinary*    ctrlBufP,
+                                      ERL_NIF_TERM     sockRef);
 
-static ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
-                                         SocketDescriptor* descP);
-static ERL_NIF_TERM nfinalize_close(ErlNifEnv*        env,
-                                    SocketDescriptor* descP);
+static ERL_NIF_TERM nfinalize_connection(ErlNifEnv*       env,
+                                         ESockDescriptor* descP);
+static ERL_NIF_TERM nfinalize_close(ErlNifEnv*       env,
+                                    ESockDescriptor* descP);
 
-extern char* encode_msghdr(ErlNifEnv*        env,
-                           SocketDescriptor* descP,
-                           int               read,
-                           struct msghdr*    msgHdrP,
-                           ErlNifBinary*     dataBufP,
-                           ErlNifBinary*     ctrlBufP,
-                           ERL_NIF_TERM*     eSockAddr);
-extern char* encode_cmsghdrs(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             ErlNifBinary*     cmsgBinP,
-                             struct msghdr*    msgHdrP,
-                             ERL_NIF_TERM*     eCMsgHdr);
-extern char* decode_cmsghdrs(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             ERL_NIF_TERM      eCMsgHdr,
-                             char*             cmsgHdrBufP,
-                             size_t            cmsgHdrBufLen,
-                             size_t*           cmsgHdrBufUsed);
-extern char* decode_cmsghdr(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            ERL_NIF_TERM      eCMsgHdr,
-                            char*             bufP,
-                            size_t            rem,
-                            size_t*           used);
+extern char* encode_msghdr(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           int              read,
+                           struct msghdr*   msgHdrP,
+                           ErlNifBinary*    dataBufP,
+                           ErlNifBinary*    ctrlBufP,
+                           ERL_NIF_TERM*    eSockAddr);
+extern char* encode_cmsghdrs(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             ErlNifBinary*    cmsgBinP,
+                             struct msghdr*   msgHdrP,
+                             ERL_NIF_TERM*    eCMsgHdr);
+extern char* decode_cmsghdrs(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             ERL_NIF_TERM     eCMsgHdr,
+                             char*            cmsgHdrBufP,
+                             size_t           cmsgHdrBufLen,
+                             size_t*          cmsgHdrBufUsed);
+extern char* decode_cmsghdr(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     eCMsgHdr,
+                            char*            bufP,
+                            size_t           rem,
+                            size_t*          used);
 static char* encode_cmsghdr_level(ErlNifEnv*    env,
                                   int           level,
                                   ERL_NIF_TERM* eLevel);
@@ -2182,26 +2288,26 @@ static char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
                                       size_t         dataLen,
                                       ERL_NIF_TERM*  eCMsgHdrData);
 #endif
-extern char* encode_msghdr_flags(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 int               msgFlags,
-                                 ERL_NIF_TERM*     flags);
-static char* decode_cmsghdr_data(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 char*             bufP,
-                                 size_t            rem,
-                                 int               level,
-                                 int               type,
-                                 ERL_NIF_TERM      eData,
-                                 size_t*           used);
-static char* decode_cmsghdr_final(SocketDescriptor* descP,
-                                  char*             bufP,
-                                  size_t            rem,
-                                  int               level,
-                                  int               type,
-                                  char*             data,
-                                  int               sz,
-                                  size_t*           used);
+extern char* encode_msghdr_flags(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              msgFlags,
+                                 ERL_NIF_TERM*    flags);
+static char* decode_cmsghdr_data(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 char*            bufP,
+                                 size_t           rem,
+                                 int              level,
+                                 int              type,
+                                 ERL_NIF_TERM     eData,
+                                 size_t*          used);
+static char* decode_cmsghdr_final(ESockDescriptor* descP,
+                                  char*            bufP,
+                                  size_t           rem,
+                                  int              level,
+                                  int              type,
+                                  char*            data,
+                                  int              sz,
+                                  size_t*          used);
 static BOOLEAN_T decode_sock_linger(ErlNifEnv*     env,
                                     ERL_NIF_TERM   eVal,
                                     struct linger* valP);
@@ -2244,12 +2350,18 @@ static BOOLEAN_T decode_native_get_opt(ErlNifEnv*   env,
 // static void encode_bool(BOOLEAN_T val, ERL_NIF_TERM* eVal);
 static ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val);
 
-static void inform_waiting_procs(ErlNifEnv*          env,
-                                 char*               role,
-                                 SocketDescriptor*   descP,
-                                 SocketRequestQueue* q,
-                                 BOOLEAN_T           free,
-                                 ERL_NIF_TERM        reason);
+static void socket_stop_handle_current(ErlNifEnv*       env,
+                                       const char*      role,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef,
+                                       ESockRequestor*  reqP);
+static void inform_waiting_procs(ErlNifEnv*         env,
+                                 const char*        role,
+                                 ESockDescriptor*   descP,
+                                 ERL_NIF_TERM       sockRef,
+                                 ESockRequestQueue* q,
+                                 BOOLEAN_T          free,
+                                 ERL_NIF_TERM       reason);
 
 static int socket_setopt(int             sock,
                          int             level,
@@ -2257,9 +2369,9 @@ static int socket_setopt(int             sock,
                          const void*     optVal,
                          const socklen_t optLen);
 
-static BOOLEAN_T verify_is_connected(SocketDescriptor* descP, int* err);
+static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
-static SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
+static ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
 
 
 static BOOLEAN_T edomain2domain(int edomain, int* domain);
@@ -2303,21 +2415,13 @@ static void dec_socket(int domain, int type, int protocol);
     ACTIVATE_NEXT_FUNC_DEF(writer)   \
     ACTIVATE_NEXT_FUNC_DEF(reader)
 
-#define ACTIVATE_NEXT_FUNC_DEF(F)                                  \
-    static BOOLEAN_T activate_next_##F(ErlNifEnv*        env,      \
-                                       SocketDescriptor* descP,    \
-                                       ERL_NIF_TERM      sockRef);
+#define ACTIVATE_NEXT_FUNC_DEF(F)                                 \
+    static BOOLEAN_T activate_next_##F(ErlNifEnv*       env,      \
+                                       ESockDescriptor* descP,    \
+                                       ERL_NIF_TERM     sockRef);
 ACTIVATE_NEXT_FUNCS_DEFS
 #undef ACTIVATE_NEXT_FUNC_DEF
-
-/*
-static BOOLEAN_T activate_next(ErlNifEnv*          env,
-                               SocketDescriptor*   descP,
-                               SocketRequestor*    reqP,
-                               SocketRequestQueue* q,
-                               ERL_NIF_TERM        sockRef);
-*/
-
+    
 /* *** acceptor_search4pid | writer_search4pid | reader_search4pid ***
  * *** acceptor_push       | writer_push       | reader_push       ***
  * *** acceptor_pop        | writer_pop        | reader_pop        ***
@@ -2333,48 +2437,51 @@ static BOOLEAN_T activate_next(ErlNifEnv*          env,
     ESOCK_OPERATOR_FUNCS_DEF(writer)   \
     ESOCK_OPERATOR_FUNCS_DEF(reader)
 
-#define ESOCK_OPERATOR_FUNCS_DEF(O)                             \
-    static BOOLEAN_T O##_search4pid(ErlNifEnv*        env,      \
-                                    SocketDescriptor* descP,    \
-                                    ErlNifPid*        pid);     \
-    static ERL_NIF_TERM O##_push(ErlNifEnv*        env,         \
-                                 SocketDescriptor* descP,       \
-                                 ErlNifPid         pid,         \
-                                 ERL_NIF_TERM      ref);        \
-    static BOOLEAN_T O##_pop(ErlNifEnv*        env,             \
-                             SocketDescriptor* descP,           \
-                             SocketRequestor*  reqP);           \
-    static BOOLEAN_T O##_unqueue(ErlNifEnv*        env,         \
-                                 SocketDescriptor* descP,       \
-                                 const ErlNifPid*  pid);
+#define ESOCK_OPERATOR_FUNCS_DEF(O)                            \
+    static BOOLEAN_T O##_search4pid(ErlNifEnv*       env,      \
+                                    ESockDescriptor* descP,    \
+                                    ErlNifPid*       pid);     \
+    static ERL_NIF_TERM O##_push(ErlNifEnv*       env,         \
+                                 ESockDescriptor* descP,       \
+                                 ErlNifPid        pid,         \
+                                 ERL_NIF_TERM     ref);        \
+    static BOOLEAN_T O##_pop(ErlNifEnv*       env,             \
+                             ESockDescriptor* descP,           \
+                             ESockRequestor*  reqP);           \
+    static BOOLEAN_T O##_unqueue(ErlNifEnv*       env,         \
+                                 ESockDescriptor* descP,       \
+                                 const ErlNifPid* pid);
 ESOCK_OPERATOR_FUNCS_DEFS
 #undef ESOCK_OPERATOR_FUNCS_DEF
 
-static BOOLEAN_T requestor_pop(SocketRequestQueue* q,
-                               SocketRequestor*    reqP);
+static BOOLEAN_T requestor_pop(ESockRequestQueue* q,
+                               ESockRequestor*    reqP);
 
-static BOOLEAN_T qsearch4pid(ErlNifEnv*          env,
-                             SocketRequestQueue* q,
-                             ErlNifPid*          pid);
-static void qpush(SocketRequestQueue*        q,
-                  SocketRequestQueueElement* e);
-static SocketRequestQueueElement* qpop(SocketRequestQueue* q);
-static BOOLEAN_T qunqueue(ErlNifEnv*          env,
-                          SocketDescriptor*   descP,
-                          const char*         slogan,
-                          SocketRequestQueue* q,
-                          const ErlNifPid*    pid);
+static BOOLEAN_T qsearch4pid(ErlNifEnv*         env,
+                             ESockRequestQueue* q,
+                             ErlNifPid*         pid);
+static void qpush(ESockRequestQueue*        q,
+                  ESockRequestQueueElement* e);
+static ESockRequestQueueElement* qpop(ESockRequestQueue* q);
+static BOOLEAN_T qunqueue(ErlNifEnv*         env,
+                          ESockDescriptor*   descP,
+                          const char*        slogan,
+                          ESockRequestQueue* q,
+                          const ErlNifPid*   pid);
 
-static int esock_monitor(const char*       slogan,
-                         ErlNifEnv*        env,
-                         SocketDescriptor* descP,
-                         const ErlNifPid*  pid,
-                         ESockMonitor*     mon);
-static int esock_demonitor(const char*       slogan,
-                           ErlNifEnv*        env,
-                           SocketDescriptor* descP,
-                           ESockMonitor*     monP);
+static int esock_monitor(const char*      slogan,
+                         ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         const ErlNifPid* pid,
+                         ESockMonitor*    mon);
+static int esock_demonitor(const char*      slogan,
+                           ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ESockMonitor*    monP);
 static void esock_monitor_init(ESockMonitor* mon);
+static ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv*          env,
+                                            const ESockMonitor* monP);
+
 
 #endif // if defined(__WIN32__)
 
@@ -2396,48 +2503,62 @@ static void socket_down(ErlNifEnv*           env,
 
 #if !defined(__WIN32__)
 
-static void socket_down_acceptor(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 ERL_NIF_TERM      sockRef,
-                                 const ErlNifPid*  pid);
-static void socket_down_writer(ErlNifEnv*        env,
-                               SocketDescriptor* descP,
-                               ERL_NIF_TERM      sockRef,
-                               const ErlNifPid*  pid);
-static void socket_down_reader(ErlNifEnv*        env,
-                               SocketDescriptor* descP,
-                               ERL_NIF_TERM      sockRef,
-                               const ErlNifPid*  pid);
+static void socket_down_acceptor(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 const ErlNifPid* pid);
+static void socket_down_writer(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               const ErlNifPid* pid);
+static void socket_down_reader(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               const ErlNifPid* pid);
 
-static char* esock_send_close_msg(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  ERL_NIF_TERM      sockRef);
+static char* esock_send_close_msg(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ErlNifPid*       pid);
 static char* esock_send_abort_msg(ErlNifEnv*   env,
                                   ERL_NIF_TERM sockRef,
                                   ERL_NIF_TERM recvRef,
+                                  ErlNifEnv*   msgEnv,
                                   ERL_NIF_TERM reason,
                                   ErlNifPid*   pid);
-static char* esock_send_socket_msg(ErlNifEnv*   env,
-                                   ERL_NIF_TERM sockRef,
-                                   ERL_NIF_TERM tag,
-                                   ERL_NIF_TERM info,
-                                   ErlNifPid*   pid,
-                                   ErlNifEnv* msg_env);
 static char* esock_send_msg(ErlNifEnv*   env,
-                            ERL_NIF_TERM msg,
                             ErlNifPid*   pid,
-                            ErlNifEnv* msg_env);
+                            ERL_NIF_TERM msg,
+                            ErlNifEnv*   msgEnv);
+
+static ERL_NIF_TERM mk_abort_msg(ErlNifEnv*   env,
+                                 ERL_NIF_TERM sockRef,
+                                 ERL_NIF_TERM opRef,
+                                 ERL_NIF_TERM reason);
+static ERL_NIF_TERM mk_close_msg(ErlNifEnv*   env,
+                                 ERL_NIF_TERM sockRef,
+                                 ERL_NIF_TERM closeRef);
+static ERL_NIF_TERM mk_select_msg(ErlNifEnv*   env,
+                                  ERL_NIF_TERM sockRef,
+                                  ERL_NIF_TERM selectRef);
+static ERL_NIF_TERM mk_socket_msg(ErlNifEnv*   env,
+                                  ERL_NIF_TERM sockRef,
+                                  ERL_NIF_TERM tag,
+                                  ERL_NIF_TERM info);
+static ERL_NIF_TERM mk_socket(ErlNifEnv*   env,
+                              ERL_NIF_TERM sockRef);
 
 static int esock_select_read(ErlNifEnv*       env,
                              ErlNifEvent      event,
                              void*            obj,
                              const ErlNifPid* pid,
-                             ERL_NIF_TERM     ref);
+                             ERL_NIF_TERM     sockRef,
+                             ERL_NIF_TERM     selectRef);
 static int esock_select_write(ErlNifEnv*       env,
                               ErlNifEvent      event,
                               void*            obj,
                               const ErlNifPid* pid,
-                              ERL_NIF_TERM     ref);
+                              ERL_NIF_TERM     sockRef,
+                              ERL_NIF_TERM     selectRef);
 static int esock_select_stop(ErlNifEnv*  env,
                              ErlNifEvent event,
                              void*       obj);
@@ -2786,7 +2907,30 @@ static ErlNifResourceTypeInit socketInit = {
 };
 
 // Initiated when the nif is loaded
-static SocketData data;
+static ESockData data;
+
+
+/* These two (inline) functions are primarily intended for debugging,
+ * that is, to make it easy to add debug printouts.
+ */
+static ESOCK_INLINE void esock_free_env(const char* slogan, ErlNifEnv* env)
+{
+    SGDBG( ("SOCKET", "env free - %s: 0x%lX\r\n", slogan, env) );
+    // esock_dbg_printf("SOCK ENV", "free - %s: 0x%lX\r\n", slogan, env);
+
+    if (env != NULL) enif_free_env(env);
+}
+
+
+static ESOCK_INLINE ErlNifEnv* esock_alloc_env(const char* slogan)
+{
+    ErlNifEnv* env = enif_alloc_env();
+
+    SGDBG( ("SOCKET", "env alloc - %s: 0x%lX\r\n", slogan, env) );
+    // esock_dbg_printf("SOCK ENV", "alloc - %s: 0x%lX\r\n", slogan, env);
+
+    return env;
+}
 
 
 /* ----------------------------------------------------------------------
@@ -4282,13 +4426,13 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
                    int domain, int type, int protocol,
                    char* netns)
 {
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      res;
-    int               save_errno = 0;
-    SOCKET            sock;
-    HANDLE            event;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     res;
+    int              save_errno = 0;
+    SOCKET           sock;
+    HANDLE           event;
 #ifdef HAVE_SETNS
-    int               current_ns = 0;
+    int              current_ns = 0;
 #endif
 
     SGDBG( ("SOCKET", "nopen -> entry with"
@@ -4502,11 +4646,11 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      eSockAddr;
-    SocketAddress     sockAddr;
-    unsigned int      addrLen;
-    char*             xres;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     eSockAddr;
+    ESockAddress     sockAddr;
+    unsigned int     addrLen;
+    char*            xres;
 
     SGDBG( ("SOCKET", "nif_bind -> entry with argc: %d\r\n", argc) );
 
@@ -4544,10 +4688,10 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nbind(ErlNifEnv*        env,
-                   SocketDescriptor* descP,
-                   SocketAddress*    sockAddrP,
-                   unsigned int      addrLen)
+ERL_NIF_TERM nbind(ErlNifEnv*       env,
+                   ESockDescriptor* descP,
+                   ESockAddress*    sockAddrP,
+                   unsigned int     addrLen)
 {
     int port, ntohs_port;
 
@@ -4563,7 +4707,7 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
     port = which_address_port(sockAddrP);
     SSDBG( descP, ("SOCKET", "nbind -> port: %d\r\n", port) );
     if (port == 0) {
-        SOCKLEN_T len = sizeof(SocketAddress);
+        SOCKLEN_T len = sizeof(ESockAddress);
         sys_memzero((char *) sockAddrP, len);
         sock_name(descP->sock, &sockAddrP->sa, &len);
         port = which_address_port(sockAddrP);
@@ -4603,16 +4747,17 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      res, eSockAddr;
-    char*             xres;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     res, eSockAddr, sockRef;
+    char*            xres;
 
     SGDBG( ("SOCKET", "nif_connect -> entry with argc: %d\r\n", argc) );
 
     /* Extract arguments and perform preliminary validation */
 
+    sockRef = argv[0];
     if ((argc != 2) ||
-        !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+        !enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
         return enif_make_badarg(env);
     }
     eSockAddr = argv[1];
@@ -4624,16 +4769,24 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
             "\r\n", descP->sock, argv[0], eSockAddr) );
     
     if ((xres = esock_decode_sockaddr(env, eSockAddr,
-                                      &descP->remote, &descP->addrLen)) != NULL) {
+                                      &descP->remote,
+                                      &descP->addrLen)) != NULL) {
         return esock_make_error_str(env, xres);
     }
 
 
+    /* Only a *!%&$*# would send an opened but non-connected socket
+     * somewhere (before its actually usable), but just to be on the
+     * safe side we do the best we can to avoid complications...
+     */
+
     MLOCK(descP->readMtx);
     MLOCK(descP->writeMtx);
+    MLOCK(descP->cfgMtx);
 
-    res = nconnect(env, descP);
+    res = nconnect(env, descP, sockRef);
 
+    MUNLOCK(descP->cfgMtx);
     MUNLOCK(descP->writeMtx);
     MUNLOCK(descP->readMtx);
 
@@ -4645,8 +4798,9 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nconnect(ErlNifEnv*        env,
-                      SocketDescriptor* descP)
+ERL_NIF_TERM nconnect(ErlNifEnv*       env,
+                      ESockDescriptor* descP,
+                      ERL_NIF_TERM     sockRef)
 {
     ERL_NIF_TERM res, ref;
     int          code, sres, save_errno = 0;
@@ -4691,7 +4845,8 @@ ERL_NIF_TERM nconnect(ErlNifEnv*        env,
          (save_errno == EINPROGRESS))) {  /* Unix & OSE!!        */
         ref = MKREF(env);
         descP->state = SOCKET_STATE_CONNECTING;
-        if ((sres = esock_select_write(env, descP->sock, descP, NULL, ref)) < 0) {
+        if ((sres = esock_select_write(env, descP->sock, descP, NULL,
+                                       sockRef, ref)) < 0) {
             res = esock_make_error(env,
                                    MKT2(env,
                                         esock_atom_select_failed,
@@ -4721,6 +4876,9 @@ ERL_NIF_TERM nconnect(ErlNifEnv*        env,
  *
  * Description:
  * Make socket ready for input and output.
+ * This function is called if we where made to wait when we called the
+ * nif_connect function (we made a select, and the select message has
+ * now been received).
  *
  * Arguments:
  * Socket (ref) - Points to the socket descriptor.
@@ -4733,7 +4891,7 @@ ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
+    ESockDescriptor* descP;
 
     /* Extract arguments and perform preliminary validation */
 
@@ -4753,8 +4911,8 @@ ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
-                                  SocketDescriptor* descP)
+ERL_NIF_TERM nfinalize_connection(ErlNifEnv*       env,
+                                  ESockDescriptor* descP)
 {
     int error;
 
@@ -4780,7 +4938,7 @@ ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
  */
 #if !defined(__WIN32__)
 static
-BOOLEAN_T verify_is_connected(SocketDescriptor* descP, int* err)
+BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err)
 {
     /*
      * *** This is strange ***
@@ -4848,8 +5006,8 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    int               backlog;
+    ESockDescriptor* descP;
+    int              backlog;
 
     SGDBG( ("SOCKET", "nif_listen -> entry with argc: %d\r\n", argc) );
     
@@ -4876,9 +5034,9 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nlisten(ErlNifEnv*        env,
-                     SocketDescriptor* descP,
-                     int               backlog)
+ERL_NIF_TERM nlisten(ErlNifEnv*       env,
+                     ESockDescriptor* descP,
+                     int              backlog)
 {
     
     /* 
@@ -4930,8 +5088,8 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      sockRef, ref, res;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     sockRef, ref, res;
 
     SGDBG( ("SOCKET", "nif_accept -> entry with argc: %d\r\n", argc) );
     
@@ -4944,13 +5102,29 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
     }
     ref = argv[1];
     
+    MLOCK(descP->accMtx);
+
     SSDBG( descP,
            ("SOCKET", "nif_accept -> args when sock = %d:"
-            "\r\n   Socket: %T"
-            "\r\n   ReqRef: %T"
-            "\r\n", descP->sock, argv[0], ref) );
-
-    MLOCK(descP->accMtx);
+            "\r\n   Socket:                %T"
+            "\r\n   ReqRef:                %T"
+            "\r\nwhen"
+            "\r\n   State:                 %s"
+            "\r\n   Current Acceptor Addr: 0x%lX"
+            "\r\n   Current Acceptor pid:  %T"
+            "\r\n   Current Acceptor mon:  %T"
+            "\r\n   Current Acceptor env:  0x%lX"
+            "\r\n   Current Acceptor ref:  %T"
+            "\r\n",
+            descP->sock,
+            sockRef, ref,
+            ((descP->state == SOCKET_STATE_LISTENING) ? "listening" :
+             ((descP->state == SOCKET_STATE_ACCEPTING) ? "accepting" : "other")),
+            descP->currentAcceptorP,
+            descP->currentAcceptor.pid,
+            esock_make_monitor_term(env, &descP->currentAcceptor.mon),
+            descP->currentAcceptor.env,
+            descP->currentAcceptor.ref) );
 
     res = naccept(env, descP, sockRef, ref);
 
@@ -4964,10 +5138,10 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM naccept(ErlNifEnv*        env,
-                     SocketDescriptor* descP,
-                     ERL_NIF_TERM      sockRef,
-                     ERL_NIF_TERM      ref)
+ERL_NIF_TERM naccept(ErlNifEnv*       env,
+                     ESockDescriptor* descP,
+                     ERL_NIF_TERM     sockRef,
+                     ERL_NIF_TERM     ref)
 {
     ERL_NIF_TERM res;
 
@@ -4976,7 +5150,7 @@ ERL_NIF_TERM naccept(ErlNifEnv*        env,
     
     switch (descP->state) {
     case SOCKET_STATE_LISTENING:
-        res = naccept_listening(env, descP, ref);
+        res = naccept_listening(env, descP, sockRef, ref);
         break;
 
     case SOCKET_STATE_ACCEPTING:
@@ -4994,15 +5168,17 @@ ERL_NIF_TERM naccept(ErlNifEnv*        env,
 
 
 /* *** naccept_listening ***
- * We have no active acceptor (and no acceptors in queue).
+ *
+ * We have no active acceptor (and therefor no acceptors in queue).
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
-                               SocketDescriptor* descP,
-                               ERL_NIF_TERM      ref)
+ERL_NIF_TERM naccept_listening(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     accRef)
 {
-    SocketAddress remote;
+    ESockAddress  remote;
     unsigned int  n;
     SOCKET        accSock;
     int           save_errno;
@@ -5026,7 +5202,8 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
                ("SOCKET",
                 "naccept_listening -> accept failed (%d)\r\n", save_errno) );
 
-        res = naccept_listening_error(env, descP, ref, caller, save_errno);
+        res = naccept_listening_error(env, descP, sockRef, accRef,
+                                      caller, save_errno);
 
     } else {
 
@@ -5045,38 +5222,45 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
 
 
 /* *** naccept_listening_error ***
+ *
  * The accept call resultet in an error - handle it.
  * There are only two cases: 
  * 1) BLOCK => Attempt a "retry"
  * 2) Other => Return the value (converted to an atom)
  */
 static
-ERL_NIF_TERM naccept_listening_error(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      ref,
-                                     ErlNifPid         caller,
-                                     int               save_errno)
+ERL_NIF_TERM naccept_listening_error(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     accRef,
+                                     ErlNifPid        caller,
+                                     int              save_errno)
 {
     ERL_NIF_TERM res;
 
     if (save_errno == ERRNO_BLOCK) {
 
         /* *** Try again later *** */
-        SSDBG( descP, ("SOCKET", "naccept_listening_error -> would block\r\n") );
+
+        SSDBG( descP,
+               ("SOCKET", "naccept_listening_error -> would block\r\n") );
 
         descP->currentAcceptor.pid = caller;
         if (MONP("naccept_listening -> current acceptor",
                  env, descP,
                  &descP->currentAcceptor.pid,
-                 &descP->currentAcceptor.mon) != 0)
-            return esock_make_error(env, atom_exmon);
-
-        descP->currentAcceptor.ref = enif_make_copy(descP->env, ref);
-        descP->currentAcceptorP    = &descP->currentAcceptor;
-
-        res = naccept_busy_retry(env, descP, ref, NULL, SOCKET_STATE_ACCEPTING);
-        
-
+                 &descP->currentAcceptor.mon) != 0) {
+            enif_set_pid_undefined(&descP->currentAcceptor.pid);
+            res = esock_make_error(env, atom_exmon);
+        } else {
+            descP->currentAcceptor.env = esock_alloc_env("current acceptor");
+            descP->currentAcceptor.ref = CP_TERM(descP->currentAcceptor.env,
+                                                 accRef);
+            descP->currentAcceptorP    = &descP->currentAcceptor;
+            res = naccept_busy_retry(env, descP,
+                                     sockRef, accRef,
+                                     NULL, SOCKET_STATE_ACCEPTING);
+        }
     } else {
         SSDBG( descP,
                ("SOCKET",
@@ -5089,14 +5273,15 @@ ERL_NIF_TERM naccept_listening_error(ErlNifEnv*        env,
 
 
 /* *** naccept_listening_accept ***
+ *
  * The accept call was successful (accepted) - handle the new connection.
  */
 static
-ERL_NIF_TERM naccept_listening_accept(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      SOCKET            accSock,
-                                      ErlNifPid         caller,
-                                      SocketAddress*    remote)
+ERL_NIF_TERM naccept_listening_accept(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      SOCKET           accSock,
+                                      ErlNifPid        caller,
+                                      ESockAddress*    remote)
 {
     ERL_NIF_TERM res;
 
@@ -5109,16 +5294,17 @@ ERL_NIF_TERM naccept_listening_accept(ErlNifEnv*        env,
 
 
 /* *** naccept_accepting ***
+ *
  * We have an active acceptor and possibly acceptors waiting in queue.
  * If the pid of the calling process is not the pid of the "current process",
  * push the requester onto the (acceptor) queue.
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
-                               SocketDescriptor* descP,
-                               ERL_NIF_TERM      sockRef,
-                               ERL_NIF_TERM      ref)
+ERL_NIF_TERM naccept_accepting(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     ref)
 {
     ErlNifPid     caller;
     ERL_NIF_TERM  res;
@@ -5162,12 +5348,12 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
  * Handles when the current acceptor makes another attempt.
  */
 static
-ERL_NIF_TERM naccept_accepting_current(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      sockRef,
-                                       ERL_NIF_TERM      accRef)
+ERL_NIF_TERM naccept_accepting_current(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef,
+                                       ERL_NIF_TERM     accRef)
 {
-    SocketAddress remote;
+    ESockAddress  remote;
     unsigned int  n;
     SOCKET        accSock;
     int           save_errno;
@@ -5207,24 +5393,24 @@ ERL_NIF_TERM naccept_accepting_current(ErlNifEnv*        env,
  * handle the new connection.
  */
 static
-ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      sockRef,
-                                              SOCKET            accSock,
-                                              SocketAddress*    remote)
+ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     sockRef,
+                                              SOCKET           accSock,
+                                              ESockAddress*    remote)
 {
     ERL_NIF_TERM res;
 
     if (naccept_accepted(env, descP, accSock,
                          descP->currentAcceptor.pid, remote, &res)) {
 
-        /* We should really go through the queue until we succeed to activate
-         * a waiting acceptor. For now we just pop once and hope for the best...
-         * This will leave any remaining acceptors *hanging*...
-         *
-         * We need a "activate-next" function.
-         *
-         */
+        /* Clean out the old cobweb's before trying to invite a new spider */
+
+        descP->currentAcceptor.ref = esock_atom_undefined;
+        enif_set_pid_undefined(&descP->currentAcceptor.pid);
+        esock_free_env("naccept_accepting_current_accept - "
+                       "current-accept-env",
+                       descP->currentAcceptor.env);
 
         if (!activate_next_acceptor(env, descP, sockRef)) {
 
@@ -5236,9 +5422,8 @@ ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*        env,
             descP->state               = SOCKET_STATE_LISTENING;
 
             descP->currentAcceptorP    = NULL;
-            descP->currentAcceptor.ref = esock_atom_undefined;
-            enif_set_pid_undefined(&descP->currentAcceptor.pid);
-            esock_monitor_init(&descP->currentAcceptor.mon);
+            descP->currentAcceptor.env = NULL;
+            MON_INIT(&descP->currentAcceptor.mon);
         }
 
     }
@@ -5254,14 +5439,14 @@ ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*        env,
  * 2) Other => Return the value (converted to an atom)
  */
 static
-ERL_NIF_TERM naccept_accepting_current_error(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      sockRef,
-                                             ERL_NIF_TERM      opRef,
-                                             int               save_errno)
+ERL_NIF_TERM naccept_accepting_current_error(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     sockRef,
+                                             ERL_NIF_TERM     opRef,
+                                             int              save_errno)
 {
-    SocketRequestor req;
-    ERL_NIF_TERM    res, reason;
+    ESockRequestor req;
+    ERL_NIF_TERM   res, reason;
 
     if (save_errno == ERRNO_BLOCK) {
 
@@ -5274,7 +5459,8 @@ ERL_NIF_TERM naccept_accepting_current_error(ErlNifEnv*        env,
                 "naccept_accepting_current_error -> "
                 "would block: try again\r\n") );
 
-        res = naccept_busy_retry(env, descP, opRef, &descP->currentAcceptor.pid,
+        res = naccept_busy_retry(env, descP, sockRef, opRef,
+                                 &descP->currentAcceptor.pid,
                                  /* No state change */
                                  descP->state);
 
@@ -5287,7 +5473,8 @@ ERL_NIF_TERM naccept_accepting_current_error(ErlNifEnv*        env,
             SSDBG( descP,
                    ("SOCKET", "naccept_accepting_current_error -> abort %T\r\n",
                     req.pid) );
-            esock_send_abort_msg(env, sockRef, req.ref, reason, &req.pid);
+            esock_send_abort_msg(env, sockRef, req.ref, req.env,
+                                 reason, &req.pid);
             DEMONP("naccept_accepting_current_error -> pop'ed writer",
                    env, descP, &req.mon);
         }
@@ -5304,10 +5491,10 @@ ERL_NIF_TERM naccept_accepting_current_error(ErlNifEnv*        env,
  * acceptor queue.
  */
 static
-ERL_NIF_TERM naccept_accepting_other(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      ref,
-                                     ErlNifPid         caller)
+ERL_NIF_TERM naccept_accepting_other(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     ref,
+                                     ErlNifPid        caller)
 {
     ERL_NIF_TERM  result;
 
@@ -5323,25 +5510,28 @@ ERL_NIF_TERM naccept_accepting_other(ErlNifEnv*        env,
 
 
 /* *** naccept_busy_retry ***
+ *
  * Perform a retry select. If successful, set nextState.
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM naccept_busy_retry(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                ERL_NIF_TERM      ref,
-                                ErlNifPid*        pid,
-                                unsigned int      nextState)
+ERL_NIF_TERM naccept_busy_retry(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     accRef,
+                                ErlNifPid*       pid,
+                                unsigned int     nextState)
 {
     int          sres;
     ERL_NIF_TERM res, reason;
 
-    if ((sres = esock_select_read(env, descP->sock, descP, pid, ref)) < 0) {
+    if ((sres = esock_select_read(env, descP->sock, descP, pid,
+                                  sockRef, accRef)) < 0) {
         reason = MKT2(env, esock_atom_select_failed, MKI(env, sres));
         res    = esock_make_error(env, reason);
     } else {
         descP->state = nextState;
-        res          = esock_make_error(env, esock_atom_eagain);
+        res          = esock_make_error(env, esock_atom_eagain); // OK!!
     }
 
     return res;
@@ -5350,20 +5540,21 @@ ERL_NIF_TERM naccept_busy_retry(ErlNifEnv*        env,
 
 
 /* *** naccept_accepted ***
+ *
  * Generic function handling a successful accept.
  */
 static
-BOOLEAN_T naccept_accepted(ErlNifEnv*        env,
-                           SocketDescriptor* descP,
-                           SOCKET            accSock,
-                           ErlNifPid         pid,
-                           SocketAddress*    remote,
-                           ERL_NIF_TERM*     result)
+BOOLEAN_T naccept_accepted(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           SOCKET           accSock,
+                           ErlNifPid        pid,
+                           ESockAddress*    remote,
+                           ERL_NIF_TERM*    result)
 {
-    SocketDescriptor* accDescP;
-    HANDLE            accEvent;
-    ERL_NIF_TERM      accRef;
-    int               save_errno;
+    ESockDescriptor* accDescP;
+    HANDLE           accEvent;
+    ERL_NIF_TERM     accRef;
+    int              save_errno;
 
     /*
      * We got one
@@ -5389,7 +5580,7 @@ BOOLEAN_T naccept_accepted(ErlNifEnv*        env,
     accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
     accDescP->rNum     = descP->rNum;    // Inherit buffer uses
     accDescP->rNumCnt  = 0;
-    accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer siez
+    accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
     accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
 
     accRef = enif_make_resource(env, accDescP);
@@ -5401,6 +5592,7 @@ BOOLEAN_T naccept_accepted(ErlNifEnv*        env,
              &accDescP->ctrlPid,
              &accDescP->ctrlMon) != 0) {
         sock_close(accSock);
+        enif_set_pid_undefined(&descP->ctrlPid);
         *result = esock_make_error(env, atom_exmon);
         return FALSE;
     }
@@ -5442,12 +5634,12 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      sockRef, sendRef;
-    ErlNifBinary      sndData;
-    unsigned int      eflags;
-    int               flags;
-    ERL_NIF_TERM      res;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     sockRef, sendRef;
+    ErlNifBinary     sndData;
+    unsigned int     eflags;
+    int              flags;
+    ERL_NIF_TERM     res;
 
     SGDBG( ("SOCKET", "nif_send -> entry with argc: %d\r\n", argc) );
 
@@ -5484,11 +5676,6 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
      * this time (resulting in an select). The write of the
      * other process must be made to wait until current
      * is done!
-     * Basically, we need a write queue!
-     *
-     * A 'writing' field (boolean), which is set if we did
-     * not manage to write the entire message and reset every
-     * time we do.
      */
 
     res = nsend(env, descP, sockRef, sendRef, &sndData, flags);
@@ -5496,6 +5683,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     MUNLOCK(descP->writeMtx);
 
     return res;
+
 #endif // if defined(__WIN32__)
 }
 
@@ -5510,12 +5698,12 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nsend(ErlNifEnv*        env,
-                   SocketDescriptor* descP,
-                   ERL_NIF_TERM      sockRef,
-                   ERL_NIF_TERM      sendRef,
-                   ErlNifBinary*     sndDataP,
-                   int               flags)
+ERL_NIF_TERM nsend(ErlNifEnv*       env,
+                   ESockDescriptor* descP,
+                   ERL_NIF_TERM     sockRef,
+                   ERL_NIF_TERM     sendRef,
+                   ErlNifBinary*    sndDataP,
+                   int              flags)
 {
     int          save_errno;
     ssize_t      written;
@@ -5570,16 +5758,16 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      sockRef, sendRef;
-    ErlNifBinary      sndData;
-    unsigned int      eflags;
-    int               flags;
-    ERL_NIF_TERM      eSockAddr;
-    SocketAddress     remoteAddr;
-    unsigned int      remoteAddrLen;
-    char*             xres;
-    ERL_NIF_TERM      res;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     sockRef, sendRef;
+    ErlNifBinary     sndData;
+    unsigned int     eflags;
+    int              flags;
+    ERL_NIF_TERM     eSockAddr;
+    ESockAddress     remoteAddr;
+    unsigned int     remoteAddrLen;
+    char*            xres;
+    ERL_NIF_TERM     res;
 
     SGDBG( ("SOCKET", "nif_sendto -> entry with argc: %d\r\n", argc) );
 
@@ -5617,7 +5805,8 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     if ((xres = esock_decode_sockaddr(env, eSockAddr,
                                       &remoteAddr,
                                       &remoteAddrLen)) != NULL) {
-        SSDBG( descP, ("SOCKET", "nif_sendto -> sockaddr decode: %s\r\n", xres) );
+        SSDBG( descP,
+               ("SOCKET", "nif_sendto -> sockaddr decode: %s\r\n", xres) );
         return esock_make_error_str(env, xres);
     }
 
@@ -5633,20 +5822,21 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
             "\r\n", res) );
 
     return res;
+
 #endif // if defined(__WIN32__)
 }
 
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nsendto(ErlNifEnv*        env,
-                     SocketDescriptor* descP,
-                     ERL_NIF_TERM      sockRef,
-                     ERL_NIF_TERM      sendRef,
-                     ErlNifBinary*     dataP,
-                     int               flags,
-                     SocketAddress*    toAddrP,
-                     unsigned int      toAddrLen)
+ERL_NIF_TERM nsendto(ErlNifEnv*       env,
+                     ESockDescriptor* descP,
+                     ERL_NIF_TERM     sockRef,
+                     ERL_NIF_TERM     sendRef,
+                     ErlNifBinary*    dataP,
+                     int              flags,
+                     ESockAddress*    toAddrP,
+                     unsigned int     toAddrLen)
 {
     int          save_errno;
     ssize_t      written;
@@ -5706,10 +5896,10 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    ERL_NIF_TERM      res, sockRef, sendRef, eMsgHdr;
-    SocketDescriptor* descP;
-    unsigned int      eflags;
-    int               flags;
+    ERL_NIF_TERM     res, sockRef, sendRef, eMsgHdr;
+    ESockDescriptor* descP;
+    unsigned int     eflags;
+    int              flags;
 
     SGDBG( ("SOCKET", "nif_sendmsg -> entry with argc: %d\r\n", argc) );
 
@@ -5751,21 +5941,22 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
             "\r\n", res) );
 
     return res;
+
 #endif // if defined(__WIN32__)
 }
 
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
-                      SocketDescriptor* descP,
-                      ERL_NIF_TERM      sockRef,
-                      ERL_NIF_TERM      sendRef,
-                      ERL_NIF_TERM      eMsgHdr,
-                      int               flags)
+ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
+                      ESockDescriptor* descP,
+                      ERL_NIF_TERM     sockRef,
+                      ERL_NIF_TERM     sendRef,
+                      ERL_NIF_TERM     eMsgHdr,
+                      int              flags)
 {
     ERL_NIF_TERM  res, eAddr, eIOV, eCtrl;
-    SocketAddress addr;
+    ESockAddress  addr;
     struct msghdr msgHdr;
     ErlNifBinary* iovBins;
     struct iovec* iov;
@@ -5908,6 +6099,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
     if (ctrlBuf != NULL) FREE(ctrlBuf);
     
     return res;
+
 }
 #endif // if !defined(__WIN32__)
 
@@ -5928,10 +6120,10 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
 
 #ifdef FOBAR
 static
-ERL_NIF_TERM nwritev(ErlNifEnv*        env,
-                     SocketDescriptor* descP,
-                     ERL_NIF_TERM      sendRef,
-                     ERL_NIF_TERM      data)
+ERL_NIF_TERM nwritev(ErlNifEnv*       env,
+                     ESockDescriptor* descP,
+                     ERL_NIF_TERM     sendRef,
+                     ERL_NIF_TERM     data)
 {
     ERL_NIF_TERM tail;
     ErlNifIOVec  vec;
@@ -6006,12 +6198,12 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      sockRef, recvRef;
-    int               len;
-    unsigned int      eflags;
-    int               flags;
-    ERL_NIF_TERM      res;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     sockRef, recvRef;
+    int              len;
+    unsigned int     eflags;
+    int              flags;
+    ERL_NIF_TERM     res;
 
     if ((argc != 4) ||
         !GET_INT(env, argv[2], &len) ||
@@ -6036,11 +6228,6 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
      * this time (resulting in an select). The read of the
      * other process must be made to wait until current
      * is done!
-     * Basically, we need a read queue!
-     *
-     * A 'reading' field (boolean), which is set if we did
-     * not manage to read the entire message and reset every
-     * time we do.
      */
 
     res = nrecv(env, descP, sockRef, recvRef, len, flags);
@@ -6048,23 +6235,24 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return res;
+
 #endif // if defined(__WIN32__)
 }
 
 
-/* The (read) buffer handling *must* be optimized!
+/* The (read) buffer handling should be optimized!
  * But for now we make it easy for ourselves by
  * allocating a binary (of the specified or default
  * size) and then throwing it away...
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nrecv(ErlNifEnv*        env,
-                   SocketDescriptor* descP,
-                   ERL_NIF_TERM      sockRef,
-                   ERL_NIF_TERM      recvRef,
-                   int               len,
-                   int               flags)
+ERL_NIF_TERM nrecv(ErlNifEnv*       env,
+                   ESockDescriptor* descP,
+                   ERL_NIF_TERM     sockRef,
+                   ERL_NIF_TERM     recvRef,
+                   int              len,
+                   int              flags)
 {
     ssize_t      read;
     ErlNifBinary buf;
@@ -6150,12 +6338,12 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      sockRef, recvRef;
-    unsigned int      bufSz;
-    unsigned int      eflags;
-    int               flags;
-    ERL_NIF_TERM      res;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     sockRef, recvRef;
+    unsigned int     bufSz;
+    unsigned int     eflags;
+    int              flags;
+    ERL_NIF_TERM     res;
 
     SGDBG( ("SOCKET", "nif_recvfrom -> entry with argc: %d\r\n", argc) );
 
@@ -6222,14 +6410,14 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nrecvfrom(ErlNifEnv*        env,
-                       SocketDescriptor* descP,
-                       ERL_NIF_TERM      sockRef,
-                       ERL_NIF_TERM      recvRef,
-                       Uint16            len,
-                       int               flags)
+ERL_NIF_TERM nrecvfrom(ErlNifEnv*       env,
+                       ESockDescriptor* descP,
+                       ERL_NIF_TERM     sockRef,
+                       ERL_NIF_TERM     recvRef,
+                       Uint16           len,
+                       int              flags)
 {
-    SocketAddress fromAddr;
+    ESockAddress  fromAddr;
     unsigned int  addrLen;
     ssize_t       read;
     int           save_errno;
@@ -6319,13 +6507,13 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      sockRef, recvRef;
-    unsigned int      bufSz;
-    unsigned int      ctrlSz;
-    unsigned int      eflags;
-    int               flags;
-    ERL_NIF_TERM      res;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     sockRef, recvRef;
+    unsigned int     bufSz;
+    unsigned int     ctrlSz;
+    unsigned int     eflags;
+    int              flags;
+    ERL_NIF_TERM     res;
 
     SGDBG( ("SOCKET", "nif_recvmsg -> entry with argc: %d\r\n", argc) );
 
@@ -6394,13 +6582,13 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
-                      SocketDescriptor* descP,
-                      ERL_NIF_TERM      sockRef,
-                      ERL_NIF_TERM      recvRef,
-                      Uint16            bufLen,
-                      Uint16            ctrlLen,
-                      int               flags)
+ERL_NIF_TERM nrecvmsg(ErlNifEnv*       env,
+                      ESockDescriptor* descP,
+                      ERL_NIF_TERM     sockRef,
+                      ERL_NIF_TERM     recvRef,
+                      Uint16           bufLen,
+                      Uint16           ctrlLen,
+                      int              flags)
 {
     unsigned int  addrLen;
     ssize_t       read;
@@ -6412,7 +6600,7 @@ ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
     ErlNifBinary  data[1]; // Shall we always use 1?
     ErlNifBinary  ctrl;
     ERL_NIF_TERM  readerCheck;
-    SocketAddress addr;
+    ESockAddress  addr;
 
     SSDBG( descP, ("SOCKET", "nrecvmsg -> entry with"
                    "\r\n   bufSz:  %d (%d)"
@@ -6502,7 +6690,7 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
+    ESockDescriptor* descP;
 
     if ((argc != 1) ||
         !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
@@ -6519,15 +6707,11 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nclose(ErlNifEnv*        env,
-                    SocketDescriptor* descP)
+ERL_NIF_TERM nclose(ErlNifEnv*       env,
+                    ESockDescriptor* descP)
 {
     ERL_NIF_TERM reply, reason;
     BOOLEAN_T    doClose;
-    int          selectRes;
-    int          domain   = descP->domain;
-    int          type     = descP->type;
-    int          protocol = descP->protocol;
 
     SSDBG( descP, ("SOCKET", 
                    "nclose -> [%d] entry (0x%lX, 0x%lX, 0x%lX, 0x%lX)\r\n",
@@ -6539,91 +6723,10 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
 
     MLOCK(descP->closeMtx);
 
-    if (descP->state == SOCKET_STATE_CLOSED) {
-        reason  = atom_closed;
-        doClose = FALSE;
-    } else if (descP->state == SOCKET_STATE_CLOSING) {
-        reason  = atom_closing;
-        doClose = FALSE;
-    } else {
-
-        /* Store the PID of the caller,
-         * since we need to inform it when we
-         * (that is, the stop callback function)
-         * completes.
-         */
-
-        if (enif_self(env, &descP->closerPid) == NULL) {
-            MUNLOCK(descP->closeMtx);
-            return esock_make_error(env, atom_exself);
-        }
-
-        /* Monitor the caller, since we should complete this operation even if
-         * the caller dies (for whatever reason).
-         *
-         * <KOLLA>
-         *
-         * Can we actiually use this for anything?
-         *
-         * </KOLLA>
-         */
-
-        if (MONP("nclose -> closer",
-                 env, descP,
-                 &descP->closerPid,
-                 &descP->closerMon) != 0) {
-            MUNLOCK(descP->closeMtx);
-            return esock_make_error(env, atom_exmon);
-        }
-
-        descP->closeLocal = TRUE;
-        descP->state      = SOCKET_STATE_CLOSING;
-        descP->isReadable = FALSE;
-        descP->isWritable = FALSE;
-        doClose           = TRUE;
-    }
+    doClose = nclose_check(env, descP, &reason);
 
     if (doClose) {
-        descP->closeEnv = enif_alloc_env();
-        descP->closeRef = MKREF(descP->closeEnv);
-        selectRes       = esock_select_stop(env, descP->sock, descP);
-        if (selectRes & ERL_NIF_SELECT_STOP_CALLED) {
-            /* Prep done - inform the caller it can finalize (close) directly */
-            SSDBG( descP,
-                   ("SOCKET", "nclose -> [%d] stop was called\r\n", descP->sock) );
-            dec_socket(domain, type, protocol);
-            reply = esock_atom_ok;
-        } else if (selectRes & ERL_NIF_SELECT_STOP_SCHEDULED) {
-            /* The stop callback function has been *scheduled* which means that we
-             * have to wait for it to complete. */
-            SSDBG( descP,
-                   ("SOCKET", "nclose -> [%d] stop was scheduled\r\n",
-                    descP->sock) );
-            dec_socket(domain, type, protocol); // SHALL WE DO THIS AT finalize?
-            reply = esock_make_ok2(env, descP->closeRef);
-        } else {
-
-            SSDBG( descP,
-                   ("SOCKET", "nclose -> [%d] stop failed: %d\r\n",
-                    descP->sock, selectRes) );
-
-            /* <KOLLA>
-             *
-             * WE SHOULD REALLY HAVE A WAY TO CLOBBER THE SOCKET,
-             * SO WE DON'T LET STUFF LEAK.
-             * NOW, BECAUSE WE FAILED TO SELECT, WE CANNOT FINISH
-             * THE CLOSE, WHAT TO DO? ABORT?
-             *
-             * </KOLLA>
-             */
-
-            // No point in having this?
-            DEMONP("nclose -> closer", env, descP, &descP->closerMon); 
-
-            reason = MKT2(env, atom_select, MKI(env, selectRes));
-            reply  = esock_make_error(env, reason);
-        }
-
+        reply = nclose_do(env, descP);
     } else {
         reply = esock_make_error(env, reason);
     }
@@ -6638,6 +6741,149 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
 
     return reply;
 }
+
+
+
+/* *** nclose_check ***
+ *
+ * Check if we should try to perform the first stage close.
+ */
+static
+BOOLEAN_T nclose_check(ErlNifEnv*       env,
+                       ESockDescriptor* descP,
+                       ERL_NIF_TERM*    reason)
+{
+    BOOLEAN_T doClose;
+
+    if (descP->state == SOCKET_STATE_CLOSED) {
+
+        doClose = FALSE;
+        *reason = atom_closed;
+
+    } else if (descP->state == SOCKET_STATE_CLOSING) {
+
+        doClose = FALSE;
+        *reason = atom_closing;
+
+    } else {
+
+        /* Store the PID of the caller,
+         * since we need to inform it when we
+         * (that is, the stop callback function)
+         * completes.
+         */
+
+        if (enif_self(env, &descP->closerPid) == NULL) {
+
+            doClose = FALSE;
+            *reason = atom_exself;
+
+        } else {
+
+            /* Monitor the caller, since we should complete this
+             * operation even if the caller dies (for whatever reason).
+             *
+             * <KOLLA>
+             *
+             * Can we actually use this for anything?
+             *
+             * </KOLLA>
+             */
+
+            if (MONP("nclose_check -> closer",
+                     env, descP,
+                     &descP->closerPid,
+                     &descP->closerMon) != 0) {
+
+                doClose = FALSE;
+                *reason = atom_exmon;
+
+            } else {
+
+                descP->closeLocal = TRUE;
+                descP->state      = SOCKET_STATE_CLOSING;
+                descP->isReadable = FALSE;
+                descP->isWritable = FALSE;
+                doClose           = TRUE;
+                *reason           = esock_atom_undefined; // NOT used !!
+
+            }
+        }
+    }
+
+    return doClose;
+    
+}
+
+
+
+/* *** nclose_do ***
+ *
+ * Perform (do) the first stage close.
+ */
+static
+ERL_NIF_TERM nclose_do(ErlNifEnv*       env,
+                       ESockDescriptor* descP)
+{
+    int          domain   = descP->domain;
+    int          type     = descP->type;
+    int          protocol = descP->protocol;
+    int          sres;
+    ERL_NIF_TERM reply, reason;
+
+    descP->closeEnv = esock_alloc_env("nclose-do - close-env");
+    descP->closeRef = MKREF(descP->closeEnv);
+
+    sres            = esock_select_stop(env, descP->sock, descP);
+
+    if (sres & ERL_NIF_SELECT_STOP_CALLED) {
+
+        /* Prep done - inform the caller it can finalize (close) directly */
+        SSDBG( descP,
+               ("SOCKET", "nclose -> [%d] stop was called\r\n", descP->sock) );
+
+        dec_socket(domain, type, protocol);
+        reply = esock_atom_ok;
+
+    } else if (sres & ERL_NIF_SELECT_STOP_SCHEDULED) {
+
+        /* The stop callback function has been *scheduled* which means that we
+         * have to wait for it to complete. */
+        SSDBG( descP,
+               ("SOCKET", "nclose -> [%d] stop was scheduled\r\n",
+                descP->sock) );
+
+        dec_socket(domain, type, protocol); // SHALL WE DO THIS AT finalize?
+        reply = esock_make_ok2(env, enif_make_copy(env, descP->closeRef));
+
+    } else {
+
+        SSDBG( descP,
+               ("SOCKET", "nclose -> [%d] stop failed: %d\r\n",
+                descP->sock, sres) );
+
+        /* <KOLLA>
+         *
+         * WE SHOULD REALLY HAVE A WAY TO CLOBBER THE SOCKET,
+         * SO WE DON'T LET STUFF LEAK.
+         * NOW, BECAUSE WE FAILED TO SELECT, WE CANNOT FINISH
+         * THE CLOSE, WHAT TO DO? ABORT?
+         *
+         * </KOLLA>
+         */
+
+        // Do we need this?
+        DEMONP("nclose_do -> closer", env, descP, &descP->closerMon); 
+
+        reason = MKT2(env, esock_atom_select_failed, MKI(env, sres));
+        reply  = esock_make_error(env, reason);
+    }
+
+    return reply;
+}
+
+
+
 #endif // if !defined(__WIN32__)
 
 
@@ -6660,7 +6906,7 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
+    ESockDescriptor* descP;
 
     /* Extract arguments and perform preliminary validation */
 
@@ -6679,8 +6925,8 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nfinalize_close(ErlNifEnv*        env,
-                             SocketDescriptor* descP)
+ERL_NIF_TERM nfinalize_close(ErlNifEnv*       env,
+                             ESockDescriptor* descP)
 {
     ERL_NIF_TERM reply;
 
@@ -6744,9 +6990,9 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    unsigned int      ehow;
-    int               how;
+    ESockDescriptor* descP;
+    unsigned int     ehow;
+    int              how;
 
     if ((argc != 2) ||
         !enif_get_resource(env, argv[0], sockets, (void**) &descP) ||
@@ -6768,9 +7014,9 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nshutdown(ErlNifEnv*        env,
-                       SocketDescriptor* descP,
-                       int               how)
+ERL_NIF_TERM nshutdown(ErlNifEnv*       env,
+                       ESockDescriptor* descP,
+                       int              how)
 {
     ERL_NIF_TERM reply;
 
@@ -6825,13 +7071,13 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
 #if defined(__WIN32__) 
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP = NULL;
-    int               eLevel, level = -1;
-    int               eOpt;
-    ERL_NIF_TERM      eIsEncoded;
-    ERL_NIF_TERM      eVal;
-    BOOLEAN_T         isEncoded, isOTP;
-    ERL_NIF_TERM      result;
+    ESockDescriptor* descP = NULL;
+    int              eLevel, level = -1;
+    int              eOpt;
+    ERL_NIF_TERM     eIsEncoded;
+    ERL_NIF_TERM     eVal;
+    BOOLEAN_T        isEncoded, isOTP;
+    ERL_NIF_TERM     result;
 
     SGDBG( ("SOCKET", "nif_setopt -> entry with argc: %d\r\n", argc) );
 
@@ -6873,7 +7119,11 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
             level, eLevel,
             eOpt, eVal) );
 
+    MLOCK(descP->cfgMtx);
+
     result = nsetopt(env, descP, isEncoded, isOTP, level, eOpt, eVal);
+
+    MUNLOCK(descP->cfgMtx);
 
     SSDBG( descP,
            ("SOCKET", "nif_setopt -> done when"
@@ -6881,19 +7131,20 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
             "\r\n", result) );
 
     return result;
+
 #endif // if defined(__WIN32__)
 }
 
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nsetopt(ErlNifEnv*        env,
-                     SocketDescriptor* descP,
-                     BOOLEAN_T         isEncoded,
-                     BOOLEAN_T         isOTP,
-                     int               level,
-                     int               eOpt,
-                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt(ErlNifEnv*       env,
+                     ESockDescriptor* descP,
+                     BOOLEAN_T        isEncoded,
+                     BOOLEAN_T        isOTP,
+                     int              level,
+                     int              eOpt,
+                     ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -6916,10 +7167,10 @@ ERL_NIF_TERM nsetopt(ErlNifEnv*        env,
 /* nsetopt_otp - Handle OTP (level) options
  */
 static
-ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
-                         SocketDescriptor* descP,
-                         int               eOpt,
-                         ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_otp(ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         int              eOpt,
+                         ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -6966,9 +7217,9 @@ ERL_NIF_TERM nsetopt_otp(ErlNifEnv*        env,
 /* nsetopt_otp_debug - Handle the OTP (level) debug options
  */
 static
-ERL_NIF_TERM nsetopt_otp_debug(ErlNifEnv*        env,
-                               SocketDescriptor* descP,
-                               ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_otp_debug(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     eVal)
 {
     descP->dbg = esock_decode_bool(eVal);
 
@@ -6979,9 +7230,9 @@ ERL_NIF_TERM nsetopt_otp_debug(ErlNifEnv*        env,
 /* nsetopt_otp_iow - Handle the OTP (level) iow options
  */
 static
-ERL_NIF_TERM nsetopt_otp_iow(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_otp_iow(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             ERL_NIF_TERM     eVal)
 {
     descP->iow = esock_decode_bool(eVal);
 
@@ -6993,12 +7244,11 @@ ERL_NIF_TERM nsetopt_otp_iow(ErlNifEnv*        env,
 /* nsetopt_otp_ctrl_proc - Handle the OTP (level) controlling_process options
  */
 static
-ERL_NIF_TERM nsetopt_otp_ctrl_proc(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_otp_ctrl_proc(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     eVal)
 {
     ErlNifPid     caller, newCtrlPid;
-    // ErlNifMonitor newCtrlMon;
     ESockMonitor  newCtrlMon;
     int           xres;
 
@@ -7053,9 +7303,9 @@ ERL_NIF_TERM nsetopt_otp_ctrl_proc(ErlNifEnv*        env,
  * Where N is the max number of reads.
  */
 static
-ERL_NIF_TERM nsetopt_otp_rcvbuf(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_otp_rcvbuf(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     eVal)
 {
     const ERL_NIF_TERM* t;   // The array of the elements of the tuple
     int                 tsz; // The size of the tuple - should be 2
@@ -7108,9 +7358,9 @@ ERL_NIF_TERM nsetopt_otp_rcvbuf(ErlNifEnv*        env,
 /* nsetopt_otp_rcvctrlbuf - Handle the OTP (level) rcvctrlbuf option
  */
 static
-ERL_NIF_TERM nsetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_otp_rcvctrlbuf(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
     size_t val;
     char*  xres;
@@ -7131,9 +7381,9 @@ ERL_NIF_TERM nsetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
 /* nsetopt_otp_sndctrlbuf - Handle the OTP (level) sndctrlbuf option
  */
 static
-ERL_NIF_TERM nsetopt_otp_sndctrlbuf(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_otp_sndctrlbuf(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
     size_t val;
     char*  xres;
@@ -7155,11 +7405,11 @@ ERL_NIF_TERM nsetopt_otp_sndctrlbuf(ErlNifEnv*        env,
  * in "native mode" (option is provided as is and value as a binary).
  */
 static
-ERL_NIF_TERM nsetopt_native(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            int               level,
-                            int               opt,
-                            ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_native(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            int              level,
+                            int              opt,
+                            ERL_NIF_TERM     eVal)
 {
     ErlNifBinary val;
     ERL_NIF_TERM result;
@@ -7195,11 +7445,11 @@ ERL_NIF_TERM nsetopt_native(ErlNifEnv*        env,
 /* nsetopt_level - A "proper" level (option) has been specified
  */
 static
-ERL_NIF_TERM nsetopt_level(ErlNifEnv*        env,
-                           SocketDescriptor* descP,
-                           int               level,
-                           int               eOpt,
-                           ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_level(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           int              level,
+                           int              eOpt,
+                           ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -7265,10 +7515,10 @@ ERL_NIF_TERM nsetopt_level(ErlNifEnv*        env,
 /* nsetopt_lvl_socket - Level *SOCKET* option
  */
 static
-ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                int               eOpt,
-                                ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                int              eOpt,
+                                ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -7404,9 +7654,9 @@ ERL_NIF_TERM nsetopt_lvl_socket(ErlNifEnv*        env,
 
 #if defined(SO_BINDTODEVICE)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_bindtodevice(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal)
 {
     return nsetopt_str_opt(env, descP,
                            SOL_SOCKET, SO_BROADCAST,
@@ -7417,9 +7667,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
 
 #if defined(SO_BROADCAST)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_BROADCAST, eVal);
 }
@@ -7428,9 +7678,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_broadcast(ErlNifEnv*        env,
 
 #if defined(SO_DEBUG)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_debug(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_debug(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_DEBUG, eVal);
 }
@@ -7439,9 +7689,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_debug(ErlNifEnv*        env,
 
 #if defined(SO_DONTROUTE)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_dontroute(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_dontroute(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_DONTROUTE, eVal);
 }
@@ -7450,9 +7700,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_dontroute(ErlNifEnv*        env,
 
 #if defined(SO_KEEPALIVE)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_keepalive(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_keepalive(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_KEEPALIVE, eVal);
 }
@@ -7461,9 +7711,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_keepalive(ErlNifEnv*        env,
 
 #if defined(SO_LINGER)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM  result;
     struct linger val;
@@ -7487,9 +7737,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_linger(ErlNifEnv*        env,
 
 #if defined(SO_OOBINLINE)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_oobinline(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_oobinline(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_OOBINLINE, eVal);
 }
@@ -7498,9 +7748,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_oobinline(ErlNifEnv*        env,
 
 #if defined(SO_PEEK_OFF)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_peek_off(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_peek_off(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_PEEK_OFF, eVal);
 }
@@ -7509,9 +7759,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_peek_off(ErlNifEnv*        env,
 
 #if defined(SO_PRIORITY)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_PRIORITY, eVal);
 }
@@ -7520,9 +7770,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_priority(ErlNifEnv*        env,
 
 #if defined(SO_RCVBUF)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_RCVBUF, eVal);
 }
@@ -7531,9 +7781,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
 
 #if defined(SO_RCVLOWAT)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_rcvlowat(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_RCVLOWAT, eVal);
 }
@@ -7542,9 +7792,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
 
 #if defined(SO_RCVTIMEO)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_rcvtimeo(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
 {
     return nsetopt_timeval_opt(env, descP, SOL_SOCKET, SO_RCVTIMEO, eVal);
 }
@@ -7553,9 +7803,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
 
 #if defined(SO_REUSEADDR)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_REUSEADDR, eVal);
 }
@@ -7564,9 +7814,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
 
 #if defined(SO_REUSEPORT)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_reuseport(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_reuseport(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_REUSEPORT, eVal);
 }
@@ -7575,9 +7825,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_reuseport(ErlNifEnv*        env,
 
 #if defined(SO_SNDBUF)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDBUF, eVal);
 }
@@ -7586,9 +7836,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
 
 #if defined(SO_SNDLOWAT)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_sndlowat(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDLOWAT, eVal);
 }
@@ -7597,9 +7847,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
 
 #if defined(SO_SNDTIMEO)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
 {
     SSDBG( descP,
            ("SOCKET", "nsetopt_lvl_sock_sndtimeo -> entry with"
@@ -7613,9 +7863,9 @@ ERL_NIF_TERM nsetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
 
 #if defined(SO_TIMESTAMP)
 static
-ERL_NIF_TERM nsetopt_lvl_sock_timestamp(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sock_timestamp(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_SOCKET, SO_TIMESTAMP, eVal);
 }
@@ -7626,10 +7876,10 @@ ERL_NIF_TERM nsetopt_lvl_sock_timestamp(ErlNifEnv*        env,
 /* nsetopt_lvl_ip - Level *IP* option(s)
  */
 static
-ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            int               eOpt,
-                            ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            int              eOpt,
+                            ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -7843,9 +8093,9 @@ ERL_NIF_TERM nsetopt_lvl_ip(ErlNifEnv*        env,
  */
 #if defined(IP_ADD_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_add_membership(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_add_membership(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal)
 {
     return nsetopt_lvl_ip_update_membership(env, descP, eVal, IP_ADD_MEMBERSHIP);
 }
@@ -7863,9 +8113,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_add_membership(ErlNifEnv*        env,
  */
 #if defined(IP_ADD_SOURCE_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_add_source_membership(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_add_source_membership(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     eVal)
 {
     return nsetopt_lvl_ip_update_source(env, descP, eVal,
                                         IP_ADD_SOURCE_MEMBERSHIP);
@@ -7884,9 +8134,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_add_source_membership(ErlNifEnv*        env,
  */
 #if defined(IP_BLOCK_SOURCE)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_block_source(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_block_source(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     eVal)
 {
     return nsetopt_lvl_ip_update_source(env, descP, eVal, IP_BLOCK_SOURCE);
 }
@@ -7906,9 +8156,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_block_source(ErlNifEnv*        env,
  */
 #if defined(IP_DROP_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_drop_membership(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_drop_membership(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal)
 {
     return nsetopt_lvl_ip_update_membership(env, descP, eVal,
                                             IP_DROP_MEMBERSHIP);
@@ -7928,9 +8178,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_drop_membership(ErlNifEnv*        env,
  */
 #if defined(IP_DROP_SOURCE_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_drop_source_membership(ErlNifEnv*        env,
-                                                  SocketDescriptor* descP,
-                                                  ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_drop_source_membership(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   ERL_NIF_TERM     eVal)
 {
     return nsetopt_lvl_ip_update_source(env, descP, eVal,
                                         IP_DROP_SOURCE_MEMBERSHIP);
@@ -7943,9 +8193,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_drop_source_membership(ErlNifEnv*        env,
  */
 #if defined(IP_FREEBIND)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_freebind(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_freebind(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -7963,9 +8213,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_freebind(ErlNifEnv*        env,
  */
 #if defined(IP_HDRINCL)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_hdrincl(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_hdrincl(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -7983,9 +8233,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_hdrincl(ErlNifEnv*        env,
  */
 #if defined(IP_MINTTL)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8005,9 +8255,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_minttl(ErlNifEnv*        env,
  */
 #if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -8058,7 +8308,7 @@ ERL_NIF_TERM nsetopt_lvl_ip_msfilter(ErlNifEnv*        env,
             return esock_make_error(env, esock_atom_einval);
         }
         
-        if (!decode_ip_msfilter_mode(env, eFMode, &msfP->imsf_fmode)) {
+        if (!decode_ip_msfilter_mode(env, eFMode, (Uint32*) &msfP->imsf_fmode)) {
             FREE(msfP);
             return esock_make_error(env, esock_atom_einval);
         }
@@ -8138,9 +8388,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_msfilter_set(ErlNifEnv*          env,
  */
 #if defined(IP_MTU_DISCOVER)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM   result;
     int            val;
@@ -8177,9 +8427,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
  */
 #if defined(IP_MULTICAST_ALL)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
-                                          SocketDescriptor* descP,
-                                          ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_multicast_all(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8198,9 +8448,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
  */
 #if defined(IP_MULTICAST_IF)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM   result;
     struct in_addr ifAddr;
@@ -8235,9 +8485,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
  */
 #if defined(IP_MULTICAST_LOOP)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_multicast_loop(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8254,9 +8504,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
  */
 #if defined(IP_MULTICAST_TTL)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
-                                          SocketDescriptor* descP,
-                                          ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_multicast_ttl(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8273,9 +8523,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
  */
 #if defined(IP_NODEFRAG)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_nodefrag(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_nodefrag(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8292,9 +8542,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_nodefrag(ErlNifEnv*        env,
  */
 #if defined(IP_PKTINFO)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_pktinfo(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8311,9 +8561,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
  */
 #if defined(IP_RECVDSTADDR)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_recvdstaddr(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8330,9 +8580,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
  */
 #if defined(IP_RECVERR)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_recverr(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_recverr(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8349,9 +8599,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_recverr(ErlNifEnv*        env,
  */
 #if defined(IP_RECVIF)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_recvif(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_recvif(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8368,9 +8618,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_recvif(ErlNifEnv*        env,
  */
 #if defined(IP_RECVOPTS)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_recvopts(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_recvopts(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8387,9 +8637,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_recvopts(ErlNifEnv*        env,
  */
 #if defined(IP_RECVORIGDSTADDR)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
-                                            SocketDescriptor* descP,
-                                            ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8406,9 +8656,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
  */
 #if defined(IP_RECVTOS)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_recvtos(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_recvtos(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8425,9 +8675,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_recvtos(ErlNifEnv*        env,
  */
 #if defined(IP_RECVTTL)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_recvttl(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_recvttl(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8444,9 +8694,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_recvttl(ErlNifEnv*        env,
  */
 #if defined(IP_RETOPTS)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_retopts(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_retopts(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8463,9 +8713,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_retopts(ErlNifEnv*        env,
  */
 #if defined(IP_ROUTER_ALERT)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*        env,
-                                         SocketDescriptor* descP,
-                                         ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8482,9 +8732,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_router_alert(ErlNifEnv*        env,
  */
 #if defined(IP_SENDSRCADDR)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_sendsrcaddr(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8501,9 +8751,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
  */
 #if defined(IP_TOS)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int          level = SOL_IP;
@@ -8534,9 +8784,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_tos(ErlNifEnv*        env,
  */
 #if defined(IP_TRANSPARENT)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_transparent(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_transparent(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8554,9 +8804,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_transparent(ErlNifEnv*        env,
  */
 #if defined(IP_TTL)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -8581,9 +8831,9 @@ ERL_NIF_TERM nsetopt_lvl_ip_ttl(ErlNifEnv*        env,
  */
 #if defined(IP_UNBLOCK_SOURCE)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_unblock_source(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ip_unblock_source(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal)
 {
     return nsetopt_lvl_ip_update_source(env, descP, eVal, IP_UNBLOCK_SOURCE);
 }
@@ -8593,10 +8843,10 @@ ERL_NIF_TERM nsetopt_lvl_ip_unblock_source(ErlNifEnv*        env,
 
 #if defined(IP_ADD_MEMBERSHIP) || defined(IP_DROP_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal,
-                                              int               opt)
+ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal,
+                                              int              opt)
 {
     ERL_NIF_TERM   result, eMultiAddr, eInterface;
     struct ip_mreq mreq;
@@ -8647,10 +8897,10 @@ ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*        env,
 
 #if defined(IP_ADD_SOURCE_MEMBERSHIP) || defined(IP_DROP_SOURCE_MEMBERSHIP) || defined(IP_BLOCK_SOURCE) || defined(IP_UNBLOCK_SOURCE)
 static
-ERL_NIF_TERM nsetopt_lvl_ip_update_source(ErlNifEnv*        env,
-                                          SocketDescriptor* descP,
-                                          ERL_NIF_TERM      eVal,
-                                          int               opt)
+ERL_NIF_TERM nsetopt_lvl_ip_update_source(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     eVal,
+                                          int              opt)
 {
     ERL_NIF_TERM          result, eMultiAddr, eInterface, eSourceAddr;
     struct ip_mreq_source mreq;
@@ -8714,10 +8964,10 @@ ERL_NIF_TERM nsetopt_lvl_ip_update_source(ErlNifEnv*        env,
  */
 #if defined(HAVE_IPV6)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              int               eOpt,
-                              ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              int              eOpt,
+                              ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -8859,9 +9109,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6(ErlNifEnv*        env,
 
 #if defined(IPV6_ADDRFORM)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_addrform(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_addrform(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
     int          res, edomain, domain;
@@ -8901,9 +9151,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_addrform(ErlNifEnv*        env,
 
 #if defined(IPV6_ADD_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_add_membership(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_add_membership(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal)
 {
     return nsetopt_lvl_ipv6_update_membership(env, descP, eVal,
                                               IPV6_ADD_MEMBERSHIP);
@@ -8913,9 +9163,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_add_membership(ErlNifEnv*        env,
 
 #if defined(IPV6_AUTHHDR)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_authhdr(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_authhdr(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_AUTHHDR, eVal);
 }
@@ -8924,9 +9174,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_authhdr(ErlNifEnv*        env,
 
 #if defined(IPV6_DROP_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_drop_membership(ErlNifEnv*        env,
-                                              SocketDescriptor* descP,
-                                              ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_drop_membership(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal)
 {
     return nsetopt_lvl_ipv6_update_membership(env, descP, eVal,
                                               IPV6_DROP_MEMBERSHIP);
@@ -8936,9 +9186,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_drop_membership(ErlNifEnv*        env,
 
 #if defined(IPV6_DSTOPTS)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_dstopts(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -8953,9 +9203,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
 
 #if defined(IPV6_FLOWINFO)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_flowinfo(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_flowinfo(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -8970,9 +9220,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_flowinfo(ErlNifEnv*        env,
 
 #if defined(IPV6_HOPLIMIT)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
-                                       SocketDescriptor* descP,
-                                       ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -8987,9 +9237,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
 
 #if defined(IPV6_HOPOPTS)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_hopopts(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_hopopts(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9004,9 +9254,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_hopopts(ErlNifEnv*        env,
 
 #if defined(IPV6_MTU)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9025,9 +9275,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
  */
 #if defined(IPV6_MTU_DISCOVER)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_mtu_discover(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM  result;
     int           val;
@@ -9063,9 +9313,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
 
 #if defined(IPV6_MULTICAST_HOPS)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_hops(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9081,9 +9331,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
 
 #if defined(IPV6_MULTICAST_IF)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_if(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9099,9 +9349,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
 
 #if defined(IPV6_MULTICAST_LOOP)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
-                                             SocketDescriptor* descP,
-                                             ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_loop(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9116,9 +9366,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
 
 #if defined(IPV6_RECVERR)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_recverr(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_recverr(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9133,9 +9383,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_recverr(ErlNifEnv*        env,
 
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
-                                          SocketDescriptor* descP,
-                                          ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9155,9 +9405,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
 
 #if defined(IPV6_ROUTER_ALERT)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9173,9 +9423,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
 
 #if defined(IPV6_RTHDR)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9190,9 +9440,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
 
 #if defined(IPV6_UNICAST_HOPS)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_unicast_hops(ErlNifEnv*        env,
-                                           SocketDescriptor* descP,
-                                           ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_unicast_hops(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9208,9 +9458,9 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_unicast_hops(ErlNifEnv*        env,
 
 #if defined(IPV6_V6ONLY)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -9225,10 +9475,10 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
 
 #if defined(IPV6_ADD_MEMBERSHIP) || defined(IPV6_DROP_MEMBERSHIP)
 static
-ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*        env,
-                                                SocketDescriptor* descP,
-                                                ERL_NIF_TERM      eVal,
-                                                int               opt)
+ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     eVal,
+                                                int              opt)
 {
     ERL_NIF_TERM     result, eMultiAddr, eInterface;
     struct ipv6_mreq mreq;
@@ -9283,10 +9533,10 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*        env,
 /* nsetopt_lvl_tcp - Level *TCP* option(s)
  */
 static
-ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               eOpt,
-                             ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              eOpt,
+                             ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -9327,9 +9577,9 @@ ERL_NIF_TERM nsetopt_lvl_tcp(ErlNifEnv*        env,
  */
 #if defined(TCP_CONGESTION)
 static
-ERL_NIF_TERM nsetopt_lvl_tcp_congestion(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_tcp_congestion(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     int max = SOCKET_OPT_TCP_CONGESTION_NAME_MAX+1;
 
@@ -9342,9 +9592,9 @@ ERL_NIF_TERM nsetopt_lvl_tcp_congestion(ErlNifEnv*        env,
  */
 #if defined(TCP_MAXSEG)
 static
-ERL_NIF_TERM nsetopt_lvl_tcp_maxseg(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_tcp_maxseg(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, IPPROTO_TCP, TCP_MAXSEG, eVal);
 }
@@ -9355,9 +9605,9 @@ ERL_NIF_TERM nsetopt_lvl_tcp_maxseg(ErlNifEnv*        env,
  */
 #if defined(TCP_NODELAY)
 static
-ERL_NIF_TERM nsetopt_lvl_tcp_nodelay(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_tcp_nodelay(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, IPPROTO_TCP, TCP_NODELAY, eVal);
 }
@@ -9368,10 +9618,10 @@ ERL_NIF_TERM nsetopt_lvl_tcp_nodelay(ErlNifEnv*        env,
 /* nsetopt_lvl_udp - Level *UDP* option(s)
  */
 static
-ERL_NIF_TERM nsetopt_lvl_udp(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               eOpt,
-                             ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_udp(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              eOpt,
+                             ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -9400,9 +9650,9 @@ ERL_NIF_TERM nsetopt_lvl_udp(ErlNifEnv*        env,
  */
 #if defined(UDP_CORK)
 static
-ERL_NIF_TERM nsetopt_lvl_udp_cork(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_udp_cork(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, IPPROTO_UDP, UDP_CORK, eVal);
 }
@@ -9415,10 +9665,10 @@ ERL_NIF_TERM nsetopt_lvl_udp_cork(ErlNifEnv*        env,
  */
 #if defined(HAVE_SCTP)
 static
-ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              int               eOpt,
-                              ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              int              eOpt,
+                              ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
 
@@ -9489,9 +9739,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp(ErlNifEnv*        env,
  */
 #if defined(SCTP_ASSOCINFO)
 static
-ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM            result;
     ERL_NIF_TERM            eAssocId, eMaxRxt, eNumPeerDests;
@@ -9614,9 +9864,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
  */
 #if defined(SCTP_AUTOCLOSE)
 static
-ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_AUTOCLOSE, eVal);
 }
@@ -9627,9 +9877,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
  */
 #if defined(SCTP_DISABLE_FRAGMENTS)
 static
-ERL_NIF_TERM nsetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
-                                                SocketDescriptor* descP,
-                                                ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sctp_disable_fragments(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, IPPROTO_SCTP, SCTP_DISABLE_FRAGMENTS, eVal);
 }
@@ -9640,9 +9890,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
  */
 #if defined(SCTP_EVENTS)
 static
-ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM                result;
     ERL_NIF_TERM                eDataIn, eAssoc, eAddr, eSndFailure;
@@ -9752,9 +10002,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
  */
 #if defined(SCTP_INITMSG)
 static
-ERL_NIF_TERM nsetopt_lvl_sctp_initmsg(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sctp_initmsg(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM        result;
     ERL_NIF_TERM        eNumOut, eMaxIn, eMaxAttempts, eMaxInitTO;
@@ -9836,9 +10086,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp_initmsg(ErlNifEnv*        env,
  */
 #if defined(SCTP_MAXSEG)
 static
-ERL_NIF_TERM nsetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
-                                     SocketDescriptor* descP,
-                                     ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sctp_maxseg(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     eVal)
 {
     return nsetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_MAXSEG, eVal);
 }
@@ -9849,9 +10099,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
  */
 #if defined(SCTP_NODELAY)
 static
-ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     eVal)
 {
     return nsetopt_bool_opt(env, descP, IPPROTO_SCTP, SCTP_NODELAY, eVal);
 }
@@ -9862,9 +10112,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
  */
 #if defined(SCTP_RTOINFO)
 static
-ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
-                                      SocketDescriptor* descP,
-                                      ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM        result;
     ERL_NIF_TERM        eAssocId, eInitial, eMax, eMin;
@@ -9925,11 +10175,6 @@ ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
 #else
     SIZE CHECK FOR ASSOC ID FAILED
 #endif
-        /*
-    if (!GET_INT(env, eAssocId, &tmpAssocId))
-        return esock_make_error(env, esock_atom_einval);
-    rtoInfo.srto_assoc_id = (typeof(rtoInfo.srto_assoc_id)) tmpAssocId;
-        */
     
     if (!GET_UINT(env, eInitial, &rtoInfo.srto_initial))
         return esock_make_error(env, esock_atom_einval);
@@ -9971,11 +10216,11 @@ ERL_NIF_TERM nsetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
 /* nsetopt_bool_opt - set an option that has an (integer) bool value
  */
 static
-ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              int               level,
-                              int               opt,
-                              ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              int              level,
+                              int              opt,
+                              ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
     BOOLEAN_T    val;
@@ -9998,11 +10243,11 @@ ERL_NIF_TERM nsetopt_bool_opt(ErlNifEnv*        env,
 /* nsetopt_int_opt - set an option that has an integer value
  */
 static
-ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               level,
-                             int               opt,
-                             ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              level,
+                             int              opt,
+                             ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
     int          val;
@@ -10037,12 +10282,12 @@ ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
  */
 #if defined(USE_SETOPT_STR_OPT)
 static
-ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               level,
-                             int               opt,
-                             int               max,
-                             ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              level,
+                             int              opt,
+                             int              max,
+                             ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM result;
     char*        val = MALLOC(max);
@@ -10070,11 +10315,11 @@ ERL_NIF_TERM nsetopt_str_opt(ErlNifEnv*        env,
 /* nsetopt_timeval_opt - set an option that has an (timeval) bool value
  */
 static
-ERL_NIF_TERM nsetopt_timeval_opt(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 int               level,
-                                 int               opt,
-                                 ERL_NIF_TERM      eVal)
+ERL_NIF_TERM nsetopt_timeval_opt(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              level,
+                                 int              opt,
+                                 ERL_NIF_TERM     eVal)
 {
     ERL_NIF_TERM   result;
     struct timeval timeVal;
@@ -10303,10 +10548,11 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    int               eLevel, level = -1;
-    ERL_NIF_TERM      eIsEncoded, eOpt;
-    BOOLEAN_T         isEncoded, isOTP;
+    ESockDescriptor* descP;
+    int              eLevel, level = -1;
+    ERL_NIF_TERM     eIsEncoded, eOpt;
+    BOOLEAN_T        isEncoded, isOTP;
+    ERL_NIF_TERM     result;
 
     SGDBG( ("SOCKET", "nif_getopt -> entry with argc: %d\r\n", argc) );
 
@@ -10335,7 +10581,14 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     if (!elevel2level(isEncoded, eLevel, &isOTP, &level))
         return esock_make_error(env, esock_atom_einval);
 
-    return ngetopt(env, descP, isEncoded, isOTP, level, eOpt);
+    MLOCK(descP->cfgMtx);
+
+    result = ngetopt(env, descP, isEncoded, isOTP, level, eOpt);
+    
+    MUNLOCK(descP->cfgMtx);
+
+    return result;
+
 #endif // if defined(__WIN32__)
 }
 
@@ -10343,12 +10596,12 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM ngetopt(ErlNifEnv*        env,
-                     SocketDescriptor* descP,
-                     BOOLEAN_T         isEncoded,
-                     BOOLEAN_T         isOTP,
-                     int               level,
-                     ERL_NIF_TERM      eOpt)
+ERL_NIF_TERM ngetopt(ErlNifEnv*       env,
+                     ESockDescriptor* descP,
+                     BOOLEAN_T        isEncoded,
+                     BOOLEAN_T        isOTP,
+                     int              level,
+                     ERL_NIF_TERM     eOpt)
 {
     ERL_NIF_TERM result;
     int          opt;
@@ -10391,9 +10644,9 @@ ERL_NIF_TERM ngetopt(ErlNifEnv*        env,
 /* ngetopt_otp - Handle OTP (level) options
  */
 static
-ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
-                         SocketDescriptor* descP,
-                         int               eOpt)
+ERL_NIF_TERM ngetopt_otp(ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         int              eOpt)
 {
     ERL_NIF_TERM result;
 
@@ -10461,8 +10714,8 @@ ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
 /* ngetopt_otp_debug - Handle the OTP (level) debug option
  */
 static
-ERL_NIF_TERM ngetopt_otp_debug(ErlNifEnv*        env,
-                               SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_debug(ErlNifEnv*       env,
+                               ESockDescriptor* descP)
 {
     ERL_NIF_TERM eVal = esock_encode_bool(descP->dbg);
 
@@ -10473,8 +10726,8 @@ ERL_NIF_TERM ngetopt_otp_debug(ErlNifEnv*        env,
 /* ngetopt_otp_iow - Handle the OTP (level) iow option
  */
 static
-ERL_NIF_TERM ngetopt_otp_iow(ErlNifEnv*        env,
-                             SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_iow(ErlNifEnv*       env,
+                             ESockDescriptor* descP)
 {
     ERL_NIF_TERM eVal = esock_encode_bool(descP->iow);
 
@@ -10485,8 +10738,8 @@ ERL_NIF_TERM ngetopt_otp_iow(ErlNifEnv*        env,
 /* ngetopt_otp_ctrl_proc - Handle the OTP (level) controlling_process option
  */
 static
-ERL_NIF_TERM ngetopt_otp_ctrl_proc(ErlNifEnv*        env,
-                                   SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_ctrl_proc(ErlNifEnv*       env,
+                                   ESockDescriptor* descP)
 {
     ERL_NIF_TERM eVal = MKPID(env, &descP->ctrlPid);
 
@@ -10498,8 +10751,8 @@ ERL_NIF_TERM ngetopt_otp_ctrl_proc(ErlNifEnv*        env,
 /* ngetopt_otp_rcvbuf - Handle the OTP (level) rcvbuf option
  */
 static
-ERL_NIF_TERM ngetopt_otp_rcvbuf(ErlNifEnv*        env,
-                                SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_rcvbuf(ErlNifEnv*       env,
+                                ESockDescriptor* descP)
 {
     ERL_NIF_TERM eVal;
 
@@ -10516,8 +10769,8 @@ ERL_NIF_TERM ngetopt_otp_rcvbuf(ErlNifEnv*        env,
 /* ngetopt_otp_rcvctrlbuf - Handle the OTP (level) rcvctrlbuf option
  */
 static
-ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
     ERL_NIF_TERM eVal = MKI(env, descP->rCtrlSz);
 
@@ -10528,8 +10781,8 @@ ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
 /* ngetopt_otp_sndctrlbuf - Handle the OTP (level) sndctrlbuf option
  */
 static
-ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
     ERL_NIF_TERM eVal = MKI(env, descP->wCtrlSz);
 
@@ -10540,8 +10793,8 @@ ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
 /* ngetopt_otp_fd - Handle the OTP (level) fd option
  */
 static
-ERL_NIF_TERM ngetopt_otp_fd(ErlNifEnv*        env,
-                            SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_fd(ErlNifEnv*       env,
+                            ESockDescriptor* descP)
 {
     ERL_NIF_TERM eVal = MKI(env, descP->sock);
 
@@ -10552,8 +10805,8 @@ ERL_NIF_TERM ngetopt_otp_fd(ErlNifEnv*        env,
 /* ngetopt_otp_domain - Handle the OTP (level) domain option
  */
 static
-ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*        env,
-                                SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*       env,
+                                ESockDescriptor* descP)
 {
     ERL_NIF_TERM result, reason;
     int          val = descP->domain;
@@ -10588,8 +10841,8 @@ ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*        env,
 /* ngetopt_otp_type - Handle the OTP (level) type options.
  */
 static
-ERL_NIF_TERM ngetopt_otp_type(ErlNifEnv*        env,
-                              SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_type(ErlNifEnv*       env,
+                              ESockDescriptor* descP)
 {
     ERL_NIF_TERM result, reason;
     int          val = descP->type;
@@ -10629,8 +10882,8 @@ ERL_NIF_TERM ngetopt_otp_type(ErlNifEnv*        env,
 /* ngetopt_otp_protocol - Handle the OTP (level) protocol options.
  */
 static
-ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*        env,
-                                  SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*       env,
+                                  ESockDescriptor* descP)
 {
     ERL_NIF_TERM result, reason;
     int          val = descP->protocol;
@@ -10670,10 +10923,10 @@ ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*        env,
  * format: {NativeOpt :: integer(), ValueSize :: non_neg_integer()}
  */
 static
-ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            int               level,
-                            ERL_NIF_TERM      eOpt)
+ERL_NIF_TERM ngetopt_native(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            int              level,
+                            ERL_NIF_TERM     eOpt)
 {
     ERL_NIF_TERM result = enif_make_badarg(env);
     int          opt;
@@ -10728,11 +10981,11 @@ ERL_NIF_TERM ngetopt_native(ErlNifEnv*        env,
 
 
 static
-ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   int               level,
-                                   int               opt,
-                                   SOCKOPTLEN_T      valueSz)
+ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              level,
+                                   int              opt,
+                                   SOCKOPTLEN_T     valueSz)
 {
     ERL_NIF_TERM result = esock_make_error(env, esock_atom_einval);
     int          res;
@@ -10798,10 +11051,10 @@ ERL_NIF_TERM ngetopt_native_unspec(ErlNifEnv*        env,
 /* ngetopt_level - A "proper" level (option) has been specified
  */
 static
-ERL_NIF_TERM ngetopt_level(ErlNifEnv*        env,
-                           SocketDescriptor* descP,
-                           int               level,
-                           int               eOpt)
+ERL_NIF_TERM ngetopt_level(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           int              level,
+                           int              eOpt)
 {
     ERL_NIF_TERM result;
 
@@ -10865,9 +11118,9 @@ ERL_NIF_TERM ngetopt_level(ErlNifEnv*        env,
 /* ngetopt_lvl_socket - Level *SOCKET* option
  */
 static
-ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
-                                SocketDescriptor* descP,
-                                int               eOpt)
+ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                int              eOpt)
 {
     ERL_NIF_TERM result;
 
@@ -11025,8 +11278,8 @@ ERL_NIF_TERM ngetopt_lvl_socket(ErlNifEnv*        env,
 
 #if defined(SO_ACCEPTCONN)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*       env,
+                                         ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_ACCEPTCONN);
 }
@@ -11035,8 +11288,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_acceptconn(ErlNifEnv*        env,
 
 #if defined(SO_BINDTODEVICE)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
-                                           SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_bindtodevice(ErlNifEnv*       env,
+                                           ESockDescriptor* descP)
 {
     SSDBG( descP,
            ("SOCKET", "ngetopt_lvl_sock_bindtodevice -> entry with\r\n") );
@@ -11048,8 +11301,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_bindtodevice(ErlNifEnv*        env,
 
 #if defined(SO_BROADCAST)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_BROADCAST);
 }
@@ -11058,8 +11311,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_broadcast(ErlNifEnv*        env,
 
 #if defined(SO_DEBUG)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_debug(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_debug(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_DEBUG);
 }
@@ -11068,8 +11321,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_debug(ErlNifEnv*        env,
 
 #if defined(SO_DOMAIN)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
     ERL_NIF_TERM result, reason;
     int          val;
@@ -11113,8 +11366,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_domain(ErlNifEnv*        env,
 
 #if defined(SO_DONTROUTE)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_dontroute(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_dontroute(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_DONTROUTE);
 }
@@ -11123,8 +11376,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_dontroute(ErlNifEnv*        env,
 
 #if defined(SO_KEEPALIVE)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_keepalive(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_keepalive(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_KEEPALIVE);
 }
@@ -11133,8 +11386,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_keepalive(ErlNifEnv*        env,
 
 #if defined(SO_LINGER)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
     ERL_NIF_TERM  result;
     struct linger val;
@@ -11163,8 +11416,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_linger(ErlNifEnv*        env,
 
 #if defined(SO_OOBINLINE)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_oobinline(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_oobinline(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_OOBINLINE);
 }
@@ -11173,8 +11426,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_oobinline(ErlNifEnv*        env,
 
 #if defined(SO_PEEK_OFF)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_peek_off(ErlNifEnv*        env,
-                                       SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_peek_off(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_PEEK_OFF);
 }
@@ -11183,8 +11436,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_peek_off(ErlNifEnv*        env,
 
 #if defined(SO_PRIORITY)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_priority(ErlNifEnv*        env,
-                                       SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_priority(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_PRIORITY);
 }
@@ -11193,8 +11446,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_priority(ErlNifEnv*        env,
 
 #if defined(SO_PROTOCOL)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
-                                       SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
 {
     ERL_NIF_TERM result, reason;
     int          val;
@@ -11240,8 +11493,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*        env,
 
 #if defined(SO_RCVBUF)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_RCVBUF);
 }
@@ -11250,8 +11503,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_rcvbuf(ErlNifEnv*        env,
 
 #if defined(SO_RCVLOWAT)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
-                                       SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_rcvlowat(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_RCVLOWAT);
 }
@@ -11260,8 +11513,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_rcvlowat(ErlNifEnv*        env,
 
 #if defined(SO_RCVTIMEO)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
-                                       SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_rcvtimeo(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
 {
     return ngetopt_timeval_opt(env, descP, SOL_SOCKET, SO_RCVTIMEO);
 }
@@ -11270,8 +11523,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_rcvtimeo(ErlNifEnv*        env,
 
 #if defined(SO_REUSEADDR)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_REUSEADDR);
 }
@@ -11280,8 +11533,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_reuseaddr(ErlNifEnv*        env,
 
 #if defined(SO_REUSEPORT)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_reuseport(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_reuseport(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_REUSEPORT);
 }
@@ -11290,8 +11543,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_reuseport(ErlNifEnv*        env,
 
 #if defined(SO_SNDBUF)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDBUF);
 }
@@ -11300,8 +11553,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_sndbuf(ErlNifEnv*        env,
 
 #if defined(SO_SNDLOWAT)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
-                                       SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_sndlowat(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, SOL_SOCKET, SO_SNDLOWAT);
 }
@@ -11310,8 +11563,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_sndlowat(ErlNifEnv*        env,
 
 #if defined(SO_SNDTIMEO)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
-                                       SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
 {
     return ngetopt_timeval_opt(env, descP, SOL_SOCKET, SO_SNDTIMEO);
 }
@@ -11320,8 +11573,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_sndtimeo(ErlNifEnv*        env,
 
 #if defined(SO_TIMESTAMP)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_timestamp(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_timestamp(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_SOCKET, SO_TIMESTAMP);
 }
@@ -11330,8 +11583,8 @@ ERL_NIF_TERM ngetopt_lvl_sock_timestamp(ErlNifEnv*        env,
 
 #if defined(SO_TYPE)
 static
-ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*       env,
+                                   ESockDescriptor* descP)
 {
     ERL_NIF_TERM result, reason;
     int          val;
@@ -11376,9 +11629,9 @@ ERL_NIF_TERM ngetopt_lvl_sock_type(ErlNifEnv*        env,
 /* ngetopt_lvl_ip - Level *IP* option(s)
  */
 static
-ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            int               eOpt)
+ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            int              eOpt)
 {
     ERL_NIF_TERM result;
 
@@ -11552,8 +11805,8 @@ ERL_NIF_TERM ngetopt_lvl_ip(ErlNifEnv*        env,
  */
 #if defined(IP_MINTTL)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_minttl(ErlNifEnv*        env,
-                                   SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_minttl(ErlNifEnv*       env,
+                                   ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11570,8 +11823,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_minttl(ErlNifEnv*        env,
  */
 #if defined(IP_FREEBIND)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_freebind(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_freebind(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11588,8 +11841,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_freebind(ErlNifEnv*        env,
  */
 #if defined(IP_HDRINCL)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_hdrincl(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_hdrincl(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11606,8 +11859,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_hdrincl(ErlNifEnv*        env,
  */
 #if defined(IP_MTU)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_mtu(ErlNifEnv*        env,
-                                SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_mtu(ErlNifEnv*       env,
+                                ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11624,8 +11877,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_mtu(ErlNifEnv*        env,
  */
 #if defined(IP_MTU_DISCOVER)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
-                                         SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_mtu_discover(ErlNifEnv*       env,
+                                         ESockDescriptor* descP)
 {
     ERL_NIF_TERM   result;
     ERL_NIF_TERM   eMtuDisc;
@@ -11658,8 +11911,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_mtu_discover(ErlNifEnv*        env,
  */
 #if defined(IP_MULTICAST_ALL)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
-                                          SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_multicast_all(ErlNifEnv*       env,
+                                          ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11676,8 +11929,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_multicast_all(ErlNifEnv*        env,
  */
 #if defined(IP_MULTICAST_IF)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
-                                         SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_multicast_if(ErlNifEnv*       env,
+                                         ESockDescriptor* descP)
 {
     ERL_NIF_TERM   result;
     ERL_NIF_TERM   eAddr;
@@ -11713,8 +11966,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_multicast_if(ErlNifEnv*        env,
  */
 #if defined(IP_MULTICAST_LOOP)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
-                                           SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_multicast_loop(ErlNifEnv*       env,
+                                           ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11731,8 +11984,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_multicast_loop(ErlNifEnv*        env,
  */
 #if defined(IP_MULTICAST_TTL)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
-                                          SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_multicast_ttl(ErlNifEnv*       env,
+                                          ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11749,8 +12002,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_multicast_ttl(ErlNifEnv*        env,
  */
 #if defined(IP_NODEFRAG)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_nodefrag(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_nodefrag(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11767,8 +12020,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_nodefrag(ErlNifEnv*        env,
  */
 #if defined(IP_PKTINFO)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_pktinfo(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11785,8 +12038,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_pktinfo(ErlNifEnv*        env,
  */
 #if defined(IP_RECVTOS)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11803,8 +12056,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvtos(ErlNifEnv*        env,
  */
 #if defined(IP_RECVDSTADDR)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_recvdstaddr(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11821,8 +12074,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvdstaddr(ErlNifEnv*        env,
  */
 #if defined(IP_RECVERR)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_recverr(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_recverr(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11839,8 +12092,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_recverr(ErlNifEnv*        env,
  */
 #if defined(IP_RECVIF)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*        env,
-                                   SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*       env,
+                                   ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11857,8 +12110,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvif(ErlNifEnv*        env,
  */
 #if defined(IP_RECVOPTS)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_recvopts(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_recvopts(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11875,8 +12128,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvopts(ErlNifEnv*        env,
  */
 #if defined(IP_RECVORIGDSTADDR)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
-                                            SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*       env,
+                                            ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11893,8 +12146,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvorigdstaddr(ErlNifEnv*        env,
  */
 #if defined(IP_RECVTTL)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_recvttl(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_recvttl(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11911,8 +12164,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_recvttl(ErlNifEnv*        env,
  */
 #if defined(IP_RETOPTS)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_retopts(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_retopts(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11929,8 +12182,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_retopts(ErlNifEnv*        env,
  */
 #if defined(IP_ROUTER_ALERT)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_router_alert(ErlNifEnv*        env,
-                                         SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_router_alert(ErlNifEnv*       env,
+                                         ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11947,8 +12200,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_router_alert(ErlNifEnv*        env,
  */
 #if defined(IP_SENDSRCADDR)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_sendsrcaddr(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -11965,8 +12218,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_sendsrcaddr(ErlNifEnv*        env,
  */
 #if defined(IP_TOS)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_tos(ErlNifEnv*        env,
-                                SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_tos(ErlNifEnv*       env,
+                                ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int          level = SOL_IP;
@@ -11995,8 +12248,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_tos(ErlNifEnv*        env,
  */
 #if defined(IP_TRANSPARENT)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_transparent(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_transparent(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -12014,8 +12267,8 @@ ERL_NIF_TERM ngetopt_lvl_ip_transparent(ErlNifEnv*        env,
  */
 #if defined(IP_TTL)
 static
-ERL_NIF_TERM ngetopt_lvl_ip_ttl(ErlNifEnv*        env,
-                                SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ip_ttl(ErlNifEnv*       env,
+                                ESockDescriptor* descP)
 {
 #if defined(SOL_IP)
     int level = SOL_IP;
@@ -12033,9 +12286,9 @@ ERL_NIF_TERM ngetopt_lvl_ip_ttl(ErlNifEnv*        env,
  */
 #if defined(HAVE_IPV6)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              int               eOpt)
+ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              int              eOpt)
 {
     ERL_NIF_TERM result;
 
@@ -12157,8 +12410,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6(ErlNifEnv*        env,
 
 #if defined(IPV6_AUTHHDR)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_authhdr(ErlNifEnv*        env,
-                                      SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_authhdr(ErlNifEnv*       env,
+                                      ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_AUTHHDR);
 }
@@ -12167,8 +12420,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_authhdr(ErlNifEnv*        env,
 
 #if defined(IPV6_DSTOPTS)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
-                                      SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_dstopts(ErlNifEnv*       env,
+                                      ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12182,8 +12435,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
 
 #if defined(IPV6_FLOWINFO)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_flowinfo(ErlNifEnv*        env,
-                                       SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_flowinfo(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12198,8 +12451,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_flowinfo(ErlNifEnv*        env,
 
 #if defined(IPV6_HOPLIMIT)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
-                                       SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12214,8 +12467,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
 
 #if defined(IPV6_HOPOPTS)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_hopopts(ErlNifEnv*        env,
-                                      SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_hopopts(ErlNifEnv*       env,
+                                      ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12230,8 +12483,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_hopopts(ErlNifEnv*        env,
 
 #if defined(IPV6_MTU)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
-                                  SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*       env,
+                                  ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12248,8 +12501,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
  */
 #if defined(IPV6_MTU_DISCOVER)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
-                                           SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_mtu_discover(ErlNifEnv*       env,
+                                           ESockDescriptor* descP)
 {
     ERL_NIF_TERM  result;
     ERL_NIF_TERM  eMtuDisc;
@@ -12280,8 +12533,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
 
 #if defined(IPV6_MULTICAST_HOPS)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
-                                             SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_hops(ErlNifEnv*       env,
+                                             ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12296,8 +12549,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
 
 #if defined(IPV6_MULTICAST_IF)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
-                                           SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_if(ErlNifEnv*       env,
+                                           ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12312,8 +12565,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
 
 #if defined(IPV6_MULTICAST_LOOP)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
-                                             SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_loop(ErlNifEnv*       env,
+                                             ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12328,8 +12581,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
 
 #if defined(IPV6_RECVERR)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_recverr(ErlNifEnv*        env,
-                                      SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_recverr(ErlNifEnv*       env,
+                                      ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12344,8 +12597,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_recverr(ErlNifEnv*        env,
 
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
-                                          SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
+                                          ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12365,8 +12618,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
 
 #if defined(IPV6_ROUTER_ALERT)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
-                                           SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
+                                           ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12381,8 +12634,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
 
 #if defined(IPV6_RTHDR)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12397,8 +12650,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
 
 #if defined(IPV6_UNICAST_HOPS)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_unicast_hops(ErlNifEnv*        env,
-                                           SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_unicast_hops(ErlNifEnv*       env,
+                                           ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12413,8 +12666,8 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_unicast_hops(ErlNifEnv*        env,
 
 #if defined(IPV6_V6ONLY)
 static
-ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
     int level = SOL_IPV6;
@@ -12434,9 +12687,9 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
 /* ngetopt_lvl_tcp - Level *TCP* option(s)
  */
 static
-ERL_NIF_TERM ngetopt_lvl_tcp(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               eOpt)
+ERL_NIF_TERM ngetopt_lvl_tcp(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              eOpt)
 {
     ERL_NIF_TERM result;
 
@@ -12472,8 +12725,8 @@ ERL_NIF_TERM ngetopt_lvl_tcp(ErlNifEnv*        env,
  */
 #if defined(TCP_CONGESTION)
 static
-ERL_NIF_TERM ngetopt_lvl_tcp_congestion(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_tcp_congestion(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     int max = SOCKET_OPT_TCP_CONGESTION_NAME_MAX+1;
 
@@ -12486,8 +12739,8 @@ ERL_NIF_TERM ngetopt_lvl_tcp_congestion(ErlNifEnv*        env,
  */
 #if defined(TCP_MAXSEG)
 static
-ERL_NIF_TERM ngetopt_lvl_tcp_maxseg(ErlNifEnv*        env,
-                                    SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_tcp_maxseg(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, IPPROTO_TCP, TCP_MAXSEG);
 }
@@ -12498,8 +12751,8 @@ ERL_NIF_TERM ngetopt_lvl_tcp_maxseg(ErlNifEnv*        env,
  */
 #if defined(TCP_NODELAY)
 static
-ERL_NIF_TERM ngetopt_lvl_tcp_nodelay(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_tcp_nodelay(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, IPPROTO_TCP, TCP_NODELAY);
 }
@@ -12510,9 +12763,9 @@ ERL_NIF_TERM ngetopt_lvl_tcp_nodelay(ErlNifEnv*        env,
 /* ngetopt_lvl_udp - Level *UDP* option(s)
  */
 static
-ERL_NIF_TERM ngetopt_lvl_udp(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               eOpt)
+ERL_NIF_TERM ngetopt_lvl_udp(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              eOpt)
 {
     ERL_NIF_TERM result;
 
@@ -12536,8 +12789,8 @@ ERL_NIF_TERM ngetopt_lvl_udp(ErlNifEnv*        env,
  */
 #if defined(UDP_CORK)
 static
-ERL_NIF_TERM ngetopt_lvl_udp_cork(ErlNifEnv*        env,
-                                  SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_udp_cork(ErlNifEnv*       env,
+                                  ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, IPPROTO_UDP, UDP_CORK);
 }
@@ -12549,9 +12802,9 @@ ERL_NIF_TERM ngetopt_lvl_udp_cork(ErlNifEnv*        env,
  */
 #if defined(HAVE_SCTP)
 static
-ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              int               eOpt)
+ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              int              eOpt)
 {
     ERL_NIF_TERM result;
 
@@ -12632,8 +12885,8 @@ ERL_NIF_TERM ngetopt_lvl_sctp(ErlNifEnv*        env,
  */
 #if defined(SCTP_ASSOCINFO)
 static
-ERL_NIF_TERM ngetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sctp_associnfo(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     ERL_NIF_TERM            result;
     struct sctp_assocparams val;
@@ -12683,8 +12936,8 @@ ERL_NIF_TERM ngetopt_lvl_sctp_associnfo(ErlNifEnv*        env,
  */
 #if defined(SCTP_AUTOCLOSE)
 static
-ERL_NIF_TERM ngetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
-                                        SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sctp_autoclose(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_AUTOCLOSE);
 }
@@ -12695,8 +12948,8 @@ ERL_NIF_TERM ngetopt_lvl_sctp_autoclose(ErlNifEnv*        env,
  */
 #if defined(SCTP_DISABLE_FRAGMENTS)
 static
-ERL_NIF_TERM ngetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
-                                                SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sctp_disable_fragments(ErlNifEnv*       env,
+                                                ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, IPPROTO_SCTP, SCTP_DISABLE_FRAGMENTS);
 }
@@ -12708,8 +12961,8 @@ ERL_NIF_TERM ngetopt_lvl_sctp_disable_fragments(ErlNifEnv*        env,
  */
 #if defined(SCTP_INITMSG)
 static
-ERL_NIF_TERM ngetopt_lvl_sctp_initmsg(ErlNifEnv*        env,
-                                      SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sctp_initmsg(ErlNifEnv*       env,
+                                      ESockDescriptor* descP)
 {
     ERL_NIF_TERM        result;
     struct sctp_initmsg val;
@@ -12757,8 +13010,8 @@ ERL_NIF_TERM ngetopt_lvl_sctp_initmsg(ErlNifEnv*        env,
  */
 #if defined(SCTP_MAXSEG)
 static
-ERL_NIF_TERM ngetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
-                                     SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sctp_maxseg(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
 {
     return ngetopt_int_opt(env, descP, IPPROTO_SCTP, SCTP_MAXSEG);
 }
@@ -12769,8 +13022,8 @@ ERL_NIF_TERM ngetopt_lvl_sctp_maxseg(ErlNifEnv*        env,
  */
 #if defined(SCTP_NODELAY)
 static
-ERL_NIF_TERM ngetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
-                                      SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sctp_nodelay(ErlNifEnv*       env,
+                                      ESockDescriptor* descP)
 {
     return ngetopt_bool_opt(env, descP, IPPROTO_SCTP, SCTP_NODELAY);
 }
@@ -12792,8 +13045,8 @@ ERL_NIF_TERM ngetopt_lvl_sctp_nodelay(ErlNifEnv*        env,
  */
 #if defined(SCTP_RTOINFO)
 static
-ERL_NIF_TERM ngetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
-                                      SocketDescriptor* descP)
+ERL_NIF_TERM ngetopt_lvl_sctp_rtoinfo(ErlNifEnv*       env,
+                                      ESockDescriptor* descP)
 {
     ERL_NIF_TERM        result;
     struct sctp_rtoinfo val;
@@ -12844,10 +13097,10 @@ ERL_NIF_TERM ngetopt_lvl_sctp_rtoinfo(ErlNifEnv*        env,
 /* ngetopt_bool_opt - get an (integer) bool option
  */
 static
-ERL_NIF_TERM ngetopt_bool_opt(ErlNifEnv*        env,
-                              SocketDescriptor* descP,
-                              int               level,
-                              int               opt)
+ERL_NIF_TERM ngetopt_bool_opt(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              int              level,
+                              int              opt)
 {
     ERL_NIF_TERM result;
     int          val;
@@ -12885,10 +13138,10 @@ ERL_NIF_TERM ngetopt_bool_opt(ErlNifEnv*        env,
 /* ngetopt_int_opt - get an integer option
  */
 static
-ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               level,
-                             int               opt)
+ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              level,
+                             int              opt)
 {
     ERL_NIF_TERM result;
     int          val;
@@ -12911,10 +13164,10 @@ ERL_NIF_TERM ngetopt_int_opt(ErlNifEnv*        env,
 /* ngetopt_timeval_opt - get an timeval option
  */
 static
-ERL_NIF_TERM ngetopt_timeval_opt(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 int               level,
-                                 int               opt)
+ERL_NIF_TERM ngetopt_timeval_opt(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              level,
+                                 int              opt)
 {
     ERL_NIF_TERM   result;
     struct timeval val;
@@ -12961,11 +13214,11 @@ ERL_NIF_TERM ngetopt_timeval_opt(ErlNifEnv*        env,
  */
 #if defined(USE_GETOPT_STR_OPT)
 static
-ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             int               level,
-                             int               opt,
-                             int               max)
+ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              level,
+                             int              opt,
+                             int              max)
 {
     ERL_NIF_TERM result;
     char*        val   = MALLOC(max);
@@ -13021,8 +13274,8 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      res;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     res;
 
     SGDBG( ("SOCKET", "nif_sockname -> entry with argc: %d\r\n", argc) );
 
@@ -13053,12 +13306,12 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nsockname(ErlNifEnv*        env,
-                       SocketDescriptor* descP)
+ERL_NIF_TERM nsockname(ErlNifEnv*       env,
+                       ESockDescriptor* descP)
 {
-    SocketAddress  sa;
-    SocketAddress* saP = &sa;
-    unsigned int   sz  = sizeof(SocketAddress);
+    ESockAddress  sa;
+    ESockAddress* saP = &sa;
+    unsigned int  sz  = sizeof(ESockAddress);
 
     sys_memzero((char*) saP, sz);
     if (IS_SOCKET_ERROR(sock_name(descP->sock, (struct sockaddr*) saP, &sz))) {
@@ -13095,8 +13348,8 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      res;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     res;
 
     SGDBG( ("SOCKET", "nif_peername -> entry with argc: %d\r\n", argc) );
 
@@ -13127,12 +13380,12 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM npeername(ErlNifEnv*        env,
-                       SocketDescriptor* descP)
+ERL_NIF_TERM npeername(ErlNifEnv*       env,
+                       ESockDescriptor* descP)
 {
-    SocketAddress  sa;
-    SocketAddress* saP = &sa;
-    unsigned int   sz  = sizeof(SocketAddress);
+    ESockAddress  sa;
+    ESockAddress* saP = &sa;
+    unsigned int  sz  = sizeof(ESockAddress);
 
     sys_memzero((char*) saP, sz);
     if (IS_SOCKET_ERROR(sock_peer(descP->sock, (struct sockaddr*) saP, &sz))) {
@@ -13170,8 +13423,8 @@ ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    SocketDescriptor* descP;
-    ERL_NIF_TERM      op, sockRef, opRef, result;
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     op, sockRef, opRef, result;
 
     SGDBG( ("SOCKET", "nif_cancel -> entry with argc: %d\r\n", argc) );
 
@@ -13208,11 +13461,11 @@ ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM ncancel(ErlNifEnv*        env,
-                     SocketDescriptor* descP,
-                     ERL_NIF_TERM      op,
-                     ERL_NIF_TERM      sockRef,
-                     ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel(ErlNifEnv*       env,
+                     ESockDescriptor* descP,
+                     ERL_NIF_TERM     op,
+                     ERL_NIF_TERM     sockRef,
+                     ERL_NIF_TERM     opRef)
 {
     /* <KOLLA>
      *
@@ -13250,9 +13503,9 @@ ERL_NIF_TERM ncancel(ErlNifEnv*        env,
  *
  */
 static
-ERL_NIF_TERM ncancel_connect(ErlNifEnv*        env,
-                             SocketDescriptor* descP,
-                             ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel_connect(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             ERL_NIF_TERM     opRef)
 {
     return ncancel_write_select(env, descP, opRef);
 }
@@ -13269,10 +13522,10 @@ ERL_NIF_TERM ncancel_connect(ErlNifEnv*        env,
  *
  */
 static
-ERL_NIF_TERM ncancel_accept(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            ERL_NIF_TERM      sockRef,
-                            ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel_accept(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     opRef)
 {
     ERL_NIF_TERM res;
 
@@ -13312,9 +13565,9 @@ ERL_NIF_TERM ncancel_accept(ErlNifEnv*        env,
  * in the acceptor queue).
  */
 static
-ERL_NIF_TERM ncancel_accept_current(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      sockRef)
+ERL_NIF_TERM ncancel_accept_current(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     sockRef)
 {
     ERL_NIF_TERM res;
 
@@ -13352,9 +13605,9 @@ ERL_NIF_TERM ncancel_accept_current(ErlNifEnv*        env,
  * remove them from the acceptor queue.
  */
 static
-ERL_NIF_TERM ncancel_accept_waiting(ErlNifEnv*        env,
-                                    SocketDescriptor* descP,
-                                    ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel_accept_waiting(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     opRef)
 {
     ErlNifPid caller;
 
@@ -13379,10 +13632,10 @@ ERL_NIF_TERM ncancel_accept_waiting(ErlNifEnv*        env,
  * Its either the current writer or one of the waiting writers.
  */
 static
-ERL_NIF_TERM ncancel_send(ErlNifEnv*        env,
-                          SocketDescriptor* descP,
-                          ERL_NIF_TERM      sockRef,
-                          ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel_send(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     sockRef,
+                          ERL_NIF_TERM     opRef)
 {
     ERL_NIF_TERM res;
 
@@ -13423,9 +13676,9 @@ ERL_NIF_TERM ncancel_send(ErlNifEnv*        env,
  * in the writer queue).
  */
 static
-ERL_NIF_TERM ncancel_send_current(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  ERL_NIF_TERM      sockRef)
+ERL_NIF_TERM ncancel_send_current(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef)
 {
     ERL_NIF_TERM res;
 
@@ -13459,9 +13712,9 @@ ERL_NIF_TERM ncancel_send_current(ErlNifEnv*        env,
  * remove them from the writer queue.
  */
 static
-ERL_NIF_TERM ncancel_send_waiting(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel_send_waiting(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     opRef)
 {
     ErlNifPid caller;
 
@@ -13486,10 +13739,10 @@ ERL_NIF_TERM ncancel_send_waiting(ErlNifEnv*        env,
  * Its either the current reader or one of the waiting readers.
  */
 static
-ERL_NIF_TERM ncancel_recv(ErlNifEnv*        env,
-                          SocketDescriptor* descP,
-                          ERL_NIF_TERM      sockRef,
-                          ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel_recv(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     sockRef,
+                          ERL_NIF_TERM     opRef)
 {
     ERL_NIF_TERM res;
 
@@ -13529,9 +13782,9 @@ ERL_NIF_TERM ncancel_recv(ErlNifEnv*        env,
  * in the reader queue).
  */
 static
-ERL_NIF_TERM ncancel_recv_current(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  ERL_NIF_TERM      sockRef)
+ERL_NIF_TERM ncancel_recv_current(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef)
 {
     ERL_NIF_TERM res;
 
@@ -13565,9 +13818,9 @@ ERL_NIF_TERM ncancel_recv_current(ErlNifEnv*        env,
  * remove them from the reader queue.
  */
 static
-ERL_NIF_TERM ncancel_recv_waiting(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel_recv_waiting(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     opRef)
 {
     ErlNifPid caller;
 
@@ -13587,9 +13840,9 @@ ERL_NIF_TERM ncancel_recv_waiting(ErlNifEnv*        env,
 
 
 static
-ERL_NIF_TERM ncancel_read_select(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel_read_select(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     opRef)
 {
     return ncancel_mode_select(env, descP, opRef,
                                ERL_NIF_SELECT_READ,
@@ -13598,9 +13851,9 @@ ERL_NIF_TERM ncancel_read_select(ErlNifEnv*        env,
 
 
 static
-ERL_NIF_TERM ncancel_write_select(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  ERL_NIF_TERM      opRef)
+ERL_NIF_TERM ncancel_write_select(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     opRef)
 {
     return ncancel_mode_select(env, descP, opRef,
                                ERL_NIF_SELECT_WRITE,
@@ -13609,11 +13862,11 @@ ERL_NIF_TERM ncancel_write_select(ErlNifEnv*        env,
 
 
 static
-ERL_NIF_TERM ncancel_mode_select(ErlNifEnv*        env,
-                                 SocketDescriptor* descP,
-                                 ERL_NIF_TERM      opRef,
-                                 int               smode,
-                                 int               rmode)
+ERL_NIF_TERM ncancel_mode_select(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     opRef,
+                                 int              smode,
+                                 int              rmode)
 {
     int selectRes = esock_select_cancel(env, descP->sock, smode, descP);
 
@@ -13643,15 +13896,16 @@ ERL_NIF_TERM ncancel_mode_select(ErlNifEnv*        env,
 
 /* *** send_check_writer ***
  *
- * Checks if we have a current writer and if that is us. If not, then we must
- * be made to wait for our turn. This is done by pushing us unto the writer queue.
+ * Checks if we have a current writer and if that is us.
+ * If not (current writer), then we must be made to wait
+ * for our turn. This is done by pushing us unto the writer queue.
  */
 #if !defined(__WIN32__)
 static
-BOOLEAN_T send_check_writer(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            ERL_NIF_TERM      ref,
-                            ERL_NIF_TERM*     checkResult)
+BOOLEAN_T send_check_writer(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     ref,
+                            ERL_NIF_TERM*    checkResult)
 {
     if (descP->currentWriterP != NULL) {
         ErlNifPid caller;
@@ -13665,7 +13919,8 @@ BOOLEAN_T send_check_writer(ErlNifEnv*        env,
             /* Not the "current writer", so (maybe) push onto queue */
 
             SSDBG( descP,
-                   ("SOCKET", "send_check_writer -> not (current) writer\r\n") );
+                   ("SOCKET",
+                    "send_check_writer -> not (current) writer\r\n") );
 
             if (!writer_search4pid(env, descP, &caller))
                 *checkResult = writer_push(env, descP, caller, ref);
@@ -13683,7 +13938,8 @@ BOOLEAN_T send_check_writer(ErlNifEnv*        env,
         
     }
 
-    *checkResult = esock_atom_ok; // Does not actually matter in this case, but ...
+    // Does not actually matter in this case, but ...
+    *checkResult = esock_atom_ok;
 
     return TRUE;
 }
@@ -13702,17 +13958,18 @@ BOOLEAN_T send_check_writer(ErlNifEnv*        env,
  * If the write fail, we give up and return with the appropriate error code.
  *
  * What about the remaining writers!!
+ *
  */
 static
-ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
-                               SocketDescriptor* descP,
-                               ssize_t           written,
-                               ssize_t           dataSize,
-                               int               saveErrno,
-                               ERL_NIF_TERM      sockRef,
-                               ERL_NIF_TERM      sendRef)
+ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ssize_t          written,
+                               ssize_t          dataSize,
+                               int              saveErrno,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     sendRef)
 {
-    int sres;
+    ERL_NIF_TERM res;
 
     SSDBG( descP,
            ("SOCKET", "send_check_result -> entry with"
@@ -13723,143 +13980,219 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
 
     if (written >= dataSize) {
 
-        cnt_inc(&descP->writePkgCnt,  1);
-        cnt_inc(&descP->writeByteCnt, written);
-        if (descP->currentWriterP != NULL)
-            DEMONP("send_check_result -> current writer",
-                   env, descP, &descP->currentWriter.mon);
-
-        SSDBG( descP,
-               ("SOCKET", "send_check_result -> "
-                "everything written (%d,%d) - done\r\n", dataSize, written) );
-
-        /* Ok, this write is done maybe activate the next (if any) */
-
-        if (!activate_next_writer(env, descP, sockRef)) {
-            descP->currentWriterP    = NULL;
-            descP->currentWriter.ref = esock_atom_undefined;
-            enif_set_pid_undefined(&descP->currentWriter.pid);
-            esock_monitor_init(&descP->currentWriter.mon);
-        }
-
-        return esock_atom_ok;
+        res = send_check_ok(env, descP, written, dataSize, sockRef);
 
     } else if (written < 0) {
 
         /* Some kind of send failure - check what kind */
 
         if ((saveErrno != EAGAIN) && (saveErrno != EINTR)) {
-            SocketRequestor req;
-            ERL_NIF_TERM    res, reason;
 
-            /* 
-             * An actual failure - we (and everyone waiting) give up
-             */
-
-            cnt_inc(&descP->writeFails, 1);
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "send_check_result -> error: %d\r\n", saveErrno) );
-
-            reason = MKA(env, erl_errno_id(saveErrno));
-            res    = esock_make_error(env, reason);
-
-            if (descP->currentWriterP != NULL) {
-
-                DEMONP("send_check_result -> current writer",
-                       env, descP, &descP->currentWriter.mon);
-
-                while (writer_pop(env, descP, &req)) {
-                    SSDBG( descP,
-                           ("SOCKET", "send_check_result -> abort %T\r\n",
-                            req.pid) );
-                    esock_send_abort_msg(env, sockRef, req.ref,
-                                         reason, &req.pid);
-                    DEMONP("send_check_result -> pop'ed writer",
-                           env, descP, &req.mon);
-                }
-            }
-            
-            return res;
+            res = send_check_fail(env, descP, saveErrno, sockRef);
 
         } else {
+
             /* Ok, try again later */
 
             SSDBG( descP, ("SOCKET", "send_check_result -> try again\r\n") );
+
+            res = send_check_retry(env, descP, written, sockRef, sendRef);
+
         }
 
-    }
-    else {
+    } else {
+
+        /* Not the entire package */
+
         SSDBG( descP,
                ("SOCKET", "send_check_result -> "
-                "not entire package written (%d of %d)\r\n", written, dataSize) );
+                "not entire package written (%d of %d)\r\n",
+                written, dataSize) );
+
+        res = send_check_retry(env, descP, written, sockRef, sendRef);
+
     }
 
-    /* We failed to write the *entire* packet (anything less then size
-     * of the packet, which is 0 <= written < sizeof packet),
-     * so schedule the rest for later.
+    SSDBG( descP, ("SOCKET", "send_check_result -> done: %T\r\n", res) );
+
+    return res;
+}
+
+
+/* *** send_check_ok ***
+ *
+ * Processing done upon successful send.
+ */
+static
+ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ssize_t          written,
+                           ssize_t          dataSize,
+                           ERL_NIF_TERM     sockRef)
+{
+    cnt_inc(&descP->writePkgCnt,  1);
+    cnt_inc(&descP->writeByteCnt, written);
+
+    if (descP->currentWriterP != NULL) {
+        DEMONP("send_check_ok -> current writer",
+               env, descP, &descP->currentWriter.mon);
+        esock_free_env("send_check_ok", descP->currentWriter.env);
+    }
+
+    SSDBG( descP,
+           ("SOCKET", "send_check_ok -> "
+            "everything written (%d,%d) - done\r\n", dataSize, written) );
+
+    /*
+     * Ok, this write is done maybe activate the next (if any)
      */
 
+    if (!activate_next_writer(env, descP, sockRef)) {
+        descP->currentWriterP    = NULL;
+        descP->currentWriter.env = NULL;
+        descP->currentWriter.ref = esock_atom_undefined;
+        enif_set_pid_undefined(&descP->currentWriter.pid);
+        esock_monitor_init(&descP->currentWriter.mon);
+    }
+
+    return esock_atom_ok;
+}
+
+
+
+/* *** send_check_failure ***
+ *
+ * Processing done upon failed send.
+ * An actual failure - we (and everyone waiting) give up.
+ */
+static
+ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              saveErrno,
+                             ERL_NIF_TERM     sockRef)
+{
+    ESockRequestor req;
+    ERL_NIF_TERM   reason;
+
+    cnt_inc(&descP->writeFails, 1);
+
+    SSDBG( descP, ("SOCKET", "send_check_fail -> error: %d\r\n", saveErrno) );
+
+    reason = MKA(env, erl_errno_id(saveErrno));
+
+    if (descP->currentWriterP != NULL) {
+
+        DEMONP("send_check_fail -> current writer",
+               env, descP, &descP->currentWriter.mon);
+
+        while (writer_pop(env, descP, &req)) {
+            SSDBG( descP,
+                   ("SOCKET", "send_check_fail -> abort %T\r\n", req.pid) );
+            esock_send_abort_msg(env, sockRef, req.ref, req.env,
+                                 reason, &req.pid);
+            DEMONP("send_check_fail -> pop'ed writer", env, descP, &req.mon);
+        }
+    }
+
+    return esock_make_error(env, reason);
+}
+
+
+
+/* *** send_check_retry ***
+ *
+ * Processing done upon uncomplete or blocked send.
+ *
+ * We failed to write the *entire* packet (anything less
+ * then size of the packet, which is 0 <= written < sizeof
+ * packet, so schedule the rest for later.
+ */
+static
+ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ssize_t          written,
+                              ERL_NIF_TERM     sockRef,
+                              ERL_NIF_TERM     sendRef)
+{
+    int          sres;
+    ErlNifPid    caller;
+    ERL_NIF_TERM res;
+
     if (descP->currentWriterP == NULL) {
-        ErlNifPid caller;
 
         if (enif_self(env, &caller) == NULL)
             return esock_make_error(env, atom_exself);
         descP->currentWriter.pid = caller;
-        if (MONP("send_check_result -> current writer",
+
+        if (MONP("send_check_retry -> current writer",
                  env, descP,
                  &descP->currentWriter.pid,
-                 &descP->currentWriter.mon) != 0)
+                 &descP->currentWriter.mon) != 0) {
+            enif_set_pid_undefined(&descP->currentWriter.pid);
             return esock_make_error(env, atom_exmon);
-        descP->currentWriter.ref = enif_make_copy(descP->env, sendRef);
-        descP->currentWriterP    = &descP->currentWriter;
+        } else {
+            descP->currentWriter.env = esock_alloc_env("current-writer");
+            descP->currentWriter.ref = CP_TERM(descP->currentWriter.env, sendRef);
+            descP->currentWriterP    = &descP->currentWriter;
+        }
     }
 
     cnt_inc(&descP->writeWaits, 1);
 
-    sres = esock_select_write(env, descP->sock, descP, NULL, sendRef);
-    
+    sres = esock_select_write(env, descP->sock, descP, NULL, sockRef, sendRef);
+
     if (written >= 0) {
+
+        /* Partial *write* success */
+
         if (sres < 0) {
             /* Returned: {error, Reason}
              * Reason:   {select_failed, sres, written}
              */
-            return esock_make_error(env,
-                                    MKT3(env,
-                                         esock_atom_select_failed,
-                                         MKI(env, sres),
-                                         MKI(env, written)));
+            res = esock_make_error(env,
+                                   MKT3(env,
+                                        esock_atom_select_failed,
+                                        MKI(env, sres),
+                                        MKI(env, written)));
         } else {
-            return esock_make_ok2(env, MKI(env, written));
+            res = esock_make_ok2(env, MKI(env, written));
         }
+
     } else {
+
         if (sres < 0) {
             /* Returned: {error, Reason}
              * Reason:   {select_failed, sres}
              */
-            return esock_make_error(env,
-                                    MKT2(env,
-                                         esock_atom_select_failed,
-                                         MKI(env, sres)));
+            res = esock_make_error(env,
+                                   MKT2(env,
+                                        esock_atom_select_failed,
+                                        MKI(env, sres)));
         } else {
-            return esock_make_error(env, esock_atom_eagain);
+            res = esock_make_error(env, esock_atom_eagain);
         }
     }
+
+    return res;
 }
+
 
 
 
 /* *** recv_check_reader ***
  *
- * Checks if we have a current reader and if that is us. If not, then we must
- * be made to wait for our turn. This is done by pushing us unto the reader queue.
+ * Checks if we have a current reader and if that is us. If not,
+ * then we must be made to wait for our turn. This is done by pushing
+ * us unto the reader queue.
+ * Note that we do *not* actually initiate the currentReader structure
+ * here, since we do not actually know yet if we need to! We do that in
+ * the [recv|recvfrom|recvmsg]_check_result function.
  */
 static
-BOOLEAN_T recv_check_reader(ErlNifEnv*        env,
-                            SocketDescriptor* descP,
-                            ERL_NIF_TERM      ref,
-                            ERL_NIF_TERM*     checkResult)
+BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     ref,
+                            ERL_NIF_TERM*    checkResult)
 {
     if (descP->currentReaderP != NULL) {
         ErlNifPid caller;
@@ -13875,7 +14208,8 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*        env,
             /* Not the "current reader", so (maybe) push onto queue */
 
             SSDBG( descP,
-                   ("SOCKET", "recv_check_reader -> not (current) reader\r\n") );
+                   ("SOCKET",
+                    "recv_check_reader -> not (current) reader\r\n") );
 
             if (!reader_search4pid(env, descP, &caller))
                 tmp = reader_push(env, descP, caller, ref);
@@ -13894,7 +14228,8 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*        env,
         
     }
 
-    *checkResult = esock_atom_ok; // Does not actually matter in this case, but ...
+    // Does not actually matter in this case, but ...
+    *checkResult = esock_atom_ok;
 
     return TRUE;
 }
@@ -13907,9 +14242,9 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*        env,
  * Including monitoring the calling process.
  */
 static
-char* recv_init_current_reader(ErlNifEnv*        env,
-                               SocketDescriptor* descP,
-                               ERL_NIF_TERM      recvRef)
+char* recv_init_current_reader(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     recvRef)
 {
     if (descP->currentReaderP == NULL) {
         ErlNifPid caller;
@@ -13922,10 +14257,26 @@ char* recv_init_current_reader(ErlNifEnv*        env,
                  env, descP,
                  &descP->currentReader.pid,
                  &descP->currentReader.mon) != 0) {
+            enif_set_pid_undefined(&descP->currentReader.pid);
             return str_exmon;
+        } else {
+            
+            descP->currentReader.env = esock_alloc_env("current-reader");
+            descP->currentReader.ref = CP_TERM(descP->currentReader.env,
+                                               recvRef);
+            descP->currentReaderP    = &descP->currentReader;
         }
-        descP->currentReader.ref = enif_make_copy(descP->env, recvRef);
-        descP->currentReaderP    = &descP->currentReader;
+    } else {
+
+        /*
+         * This is a retry:
+         * We have done, for instance, recv(Sock, X), but only received Y < X.
+         * We then call recv again with size = X-Y. So, we then get a new ref.
+         * 
+         * Make use of the existing environment
+         */
+
+        descP->currentReader.ref = CP_TERM(descP->currentReader.env, recvRef);
     }
 
     return NULL;
@@ -13941,17 +14292,21 @@ char* recv_init_current_reader(ErlNifEnv*        env,
  */
 
 static
-ERL_NIF_TERM recv_update_current_reader(ErlNifEnv*        env,
-                                        SocketDescriptor* descP,
-                                        ERL_NIF_TERM      sockRef)
+ERL_NIF_TERM recv_update_current_reader(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     sockRef)
 {
     ERL_NIF_TERM res = esock_atom_ok;
 
     if (descP->currentReaderP != NULL) {
         
-        DEMONP("recv_update_current_reader -> current reader",
+        DEMONP("recv_update_current_reader",
                env, descP, &descP->currentReader.mon);
-        
+
+        esock_free_env("recv_update_current_reader - current-read-env",
+                       descP->currentReader.env);
+        descP->currentReader.env = NULL;
+
         if (!activate_next_reader(env, descP, sockRef)) {
 
             SSDBG( descP,
@@ -13979,12 +14334,12 @@ ERL_NIF_TERM recv_update_current_reader(ErlNifEnv*        env,
  * nif_abort message will be sent (with reaf and reason).
  */
 static
-void recv_error_current_reader(ErlNifEnv*        env,
-                               SocketDescriptor* descP,
-                               ERL_NIF_TERM      sockRef,
-                               ERL_NIF_TERM      reason)
+void recv_error_current_reader(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     reason)
 {
-    SocketRequestor req;
+    ESockRequestor req;
 
     if (descP->currentReaderP != NULL) {
 
@@ -13995,7 +14350,8 @@ void recv_error_current_reader(ErlNifEnv*        env,
             SSDBG( descP,
                    ("SOCKET", "recv_error_current_reader -> abort %T\r\n",
                     req.pid) );
-            esock_send_abort_msg(env, sockRef, req.ref, reason, &req.pid);
+            esock_send_abort_msg(env, sockRef, req.ref, req.env,
+                                 reason, &req.pid);
             DEMONP("recv_error_current_reader -> pop'ed reader",
                    env, descP, &req.mon);
         }
@@ -14009,18 +14365,16 @@ void recv_error_current_reader(ErlNifEnv*        env,
  * Process the result of a call to recv.
  */
 static
-ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
-                               SocketDescriptor* descP,
-                               int               read,
-                               int               toRead,
-                               int               saveErrno,
-                               ErlNifBinary*     bufP,
-                               ERL_NIF_TERM      sockRef,
-                               ERL_NIF_TERM      recvRef)
+ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               int              read,
+                               int              toRead,
+                               int              saveErrno,
+                               ErlNifBinary*    bufP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     recvRef)
 {
-    char*        xres;
-    int          sres;
-    ERL_NIF_TERM res, data;
+    ERL_NIF_TERM res;
 
     SSDBG( descP,
            ("SOCKET", "recv_check_result -> entry with"
@@ -14044,8 +14398,8 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
         res = esock_make_error(env, atom_closed);
         
         /*
-         * When a stream socket peer has performed an orderly shutdown, the return
-         * value will be 0 (the traditional "end-of-file" return).
+         * When a stream socket peer has performed an orderly shutdown,
+         * the return value will be 0 (the traditional "end-of-file" return).
          *
          * *We* do never actually try to read 0 bytes from a stream socket!
          *
@@ -14056,276 +14410,482 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
         FREE_BIN(bufP);
 
-        return res;
-
-    }
+    } else {
     
-    /* There is a special case: If the provided 'to read' value is
-     * zero (0) (only for type =/= stream).
-     * That means that we reads as much as we can, using the default
-     * read buffer size.
-     */
+        /* There is a special case: If the provided 'to read' value is
+         * zero (0) (only for type =/= stream).
+         * That means that we reads as much as we can, using the default
+         * read buffer size.
+         */
 
-    if (bufP->size == read) {
+        if (bufP->size == read) {
 
-        /* +++ We filled the buffer +++ */
+            /* +++ We filled the buffer +++ */
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "recv_check_result -> [%d] filled the buffer\r\n",
+                    toRead) );
+
+            res = recv_check_full(env, descP, read, toRead, bufP,
+                                  sockRef, recvRef);
+
+        } else if (read < 0) {
+
+            /* +++ Error handling +++ */
+
+            res = recv_check_fail(env, descP, saveErrno, bufP, NULL,
+                                  sockRef, recvRef);
+
+        } else {
+
+            /* +++ We did not fill the buffer +++ */
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "recv_check_result -> [%d] "
+                    "did not fill the buffer (%d of %d)\r\n",
+                    toRead, read, bufP->size) );
+
+            res = recv_check_partial(env, descP, read, toRead, bufP,
+                                     sockRef, recvRef);
+
+        }
+    }
+
+    return res;
+}
+
+
+
+/* *** recv_check_full ***
+ *
+ * This function is called if we filled the allocated buffer.
+ * But are we done yet?
+ *
+ * toRead = 0 means: Give me everything you have => maybe
+ * toRead > 0 means: Yes
+ */
+static
+ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              read,
+                             int              toRead,
+                             ErlNifBinary*    bufP,
+                             ERL_NIF_TERM     sockRef,
+                             ERL_NIF_TERM     recvRef)
+{
+    ERL_NIF_TERM res;
+
+    if (toRead == 0) {
+
+        /* +++ Give us everything you have got =>     *
+         *     (maybe) needs to continue          +++ */
+
+        /* Send up each chunk of data for each of the read
+         * and let the erlang code assemble it: {ok, false, Bin}
+         * (when complete it should return {ok, true, Bin}).
+         * We need to read atleast one more time to be sure if its
+         * done...
+         *
+         * Also, we need to check if the rNumCnt has reached its max (rNum),
+         * in which case we will assume the read to be done!
+         */
 
         SSDBG( descP,
-               ("SOCKET",
-                "recv_check_result -> [%d] filled the buffer\r\n", toRead) );
+               ("SOCKET", "recv_check_full -> shall we continue reading"
+                "\r\n   read:    %d"
+                "\r\n   rNum:    %d"
+                "\r\n   rNumCnt: %d"
+                "\r\n", read, descP->rNum, descP->rNumCnt) );
 
-        if (toRead == 0) {
-
-            /* +++ Give us everything you have got =>     *
-             *     (maybe) needs to continue          +++ */
-
-            /* How do we do this?
-             * Either:
-             * 1) Send up each chunk of data for each of the read
-             *    and let the erlang code assemble it: {ok, false, Bin}
-             *    (when complete it should return {ok, true, Bin}).
-             *    We need to read atleast one more time to be sure if its
-             *    done...
-             * 2) Or put it in a buffer here, and then let the erlang code
-             *    know that it should call again (special return value)
-             *    (continuous binary realloc "here").
-             *
-             * => We choose alt 1 for now.
-             *
-             * Also, we need to check if the rNumCnt has reached its max (rNum),
-             * in which case we will assume the read to be done!
-             */
-
-            cnt_inc(&descP->readByteCnt, read);
-
-            SSDBG( descP,
-                   ("SOCKET", "recv_check_result -> shall we continue reading"
-                    "\r\n   read:    %d"
-                    "\r\n   rNum:    %d"
-                    "\r\n   rNumCnt: %d"
-                    "\r\n", read, descP->rNum, descP->rNumCnt) );
-
-            if (descP->rNum > 0) {
-
-                descP->rNumCnt++;
-                if (descP->rNumCnt >= descP->rNum) {
-
-                    descP->rNumCnt = 0;
-
-                    cnt_inc(&descP->readPkgCnt, 1);
-                    
-                    recv_update_current_reader(env, descP, sockRef);
-                    
-                    /* This transfers "ownership" of the *allocated* binary to an
-                     * erlang term (no need for an explicit free).
-                     */
-                    data = MKBIN(env, bufP);
-                    
-                    return esock_make_ok3(env, atom_true, data);
-
-                }
-            }
-
-            /* Yes, we *do* need to continue reading */
-
-            if ((xres = recv_init_current_reader(env,
-                                                 descP, recvRef)) != NULL) {
-                descP->rNumCnt = 0;
-                FREE_BIN(bufP);
-                return esock_make_error_str(env, xres);
-            }
-
-            /* This transfers "ownership" of the *allocated* binary to an
-             * erlang term (no need for an explicit free).
-             */
-            data = MKBIN(env, bufP);
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recv_check_result -> [%d] "
-                    "we are done for now - read more\r\n", toRead) );
-
-            return esock_make_ok3(env, atom_false, data);
-
-        } else {
-
-            /* +++ We got exactly as much as we requested => We are done +++ */
-
-            cnt_inc(&descP->readPkgCnt,  1);
-            cnt_inc(&descP->readByteCnt, read);
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recv_check_result -> [%d] "
-                    "we got exactly what we could fit\r\n", toRead) );
-
-            recv_update_current_reader(env, descP, sockRef);
-
-            /* This transfers "ownership" of the *allocated* binary to an
-             * erlang term (no need for an explicit free).
-             */
-            data = MKBIN(env, bufP);
-
-            return esock_make_ok3(env, atom_true, data);
-
-        }
-
-    } else if (read < 0) {
-
-        /* +++ Error handling +++ */
-
-        FREE_BIN(bufP);
-
-        if (saveErrno == ECONNRESET)  {
-
-            res = esock_make_error(env, atom_closed);
-
-            /* +++ Oups - closed +++ */
-
-            SSDBG( descP, ("SOCKET",
-                           "recv_check_result -> [%d] closed\r\n", toRead) );
-
-            /* <KOLLA>
-             *
-             * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
-             * PROCESS, WE NEED TO INFORM IT!!!
-             *
-             * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
-             * HANDLED BY THE STOP (CALLBACK) FUNCTION?
-             *
-             * SINCE THIS IS A REMOTE CLOSE, WE DON'T NEED TO WAIT
-             * FOR OUTPUT TO BE WRITTEN (NO ONE WILL READ), JUST
-             * ABORT THE SOCKET REGARDLESS OF LINGER???
-             *
-             * </KOLLA>
-             */
-
-            descP->closeLocal = FALSE;
-            descP->state      = SOCKET_STATE_CLOSING;
-
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
-                esock_warning_msg("Failed stop select (closed) "
-                                  "for current reader (%T): %d\r\n",
-                                  recvRef, sres);
-            }
-
-            return res;
-
-        } else if ((saveErrno == ERRNO_BLOCK) ||
-                   (saveErrno == EAGAIN)) {
-
-            SSDBG( descP, ("SOCKET",
-                           "recv_check_result -> [%d] eagain\r\n", toRead) );
-
-            descP->rNumCnt = 0;
-            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
-                return esock_make_error_str(env, xres);
-            
-            SSDBG( descP, ("SOCKET", "recv_check_result -> SELECT for more\r\n") );
-
-            if ((sres = esock_select_read(env, descP->sock, descP,
-                                          NULL, recvRef)) < 0) {
-                res = esock_make_error(env,
-                                       MKT2(env,
-                                            esock_atom_select_failed,
-                                            MKI(env, sres)));
-            } else {
-                res = esock_make_error(env, esock_atom_eagain);
-            }
-
-            return res;
-        } else {
-            ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
-
-            SSDBG( descP, ("SOCKET", "recv_check_result -> [%d] errno: %d\r\n",
-                           toRead, saveErrno) );
-
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            return res;
-        }
+        res = recv_check_full_maybe_done(env, descP, read, toRead, bufP,
+                                         sockRef, recvRef);
 
     } else {
 
-        /* +++ We did not fill the buffer +++ */
+        /* +++ We got exactly as much as we requested => We are done +++ */
 
         SSDBG( descP,
                ("SOCKET",
-                "recv_check_result -> [%d] "
-                "did not fill the buffer (%d of %d)\r\n",
-                toRead, read, bufP->size) );
+                "recv_check_full -> [%d] "
+                "we got exactly what we could fit\r\n", toRead) );
 
-        if (toRead == 0) {
+        res = recv_check_full_done(env, descP, read, bufP, sockRef);
 
-            /* +++ We got it all, but since we      +++
-             * +++ did not fill the buffer, we      +++
-             * +++ must split it into a sub-binary. +++
-             */
+    }
 
-            SSDBG( descP, ("SOCKET",
-                           "recv_check_result -> [%d] split buffer\r\n", toRead) );
+    return res;
+
+}
+
+
+
+/* *** recv_check_full_maybe_done ***
+ *
+ * Send up each chunk of data for each of the read
+ * and let the erlang code assemble it: {ok, false, Bin}
+ * (when complete it should return {ok, true, Bin}).
+ * We need to read atleast one more time to be sure if its
+ * done...
+ *
+ * Also, we need to check if the rNumCnt has reached its max (rNum),
+ * in which case we will assume the read to be done!
+ */
+static
+ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        int              read,
+                                        int              toRead,
+                                        ErlNifBinary*    bufP,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     recvRef)
+{
+    char* xres;
+
+    cnt_inc(&descP->readByteCnt, read);
+
+    if (descP->rNum > 0) {
+
+        descP->rNumCnt++;
+        if (descP->rNumCnt >= descP->rNum) {
 
             descP->rNumCnt = 0;
-            cnt_inc(&descP->readPkgCnt,  1);
-            cnt_inc(&descP->readByteCnt, read);
+
+            cnt_inc(&descP->readPkgCnt, 1);
 
             recv_update_current_reader(env, descP, sockRef);
 
             /* This transfers "ownership" of the *allocated* binary to an
              * erlang term (no need for an explicit free).
              */
-            data = MKBIN(env, bufP);
-            data = MKSBIN(env, data, 0, read);
 
-            SSDBG( descP,
-                   ("SOCKET", "recv_check_result -> [%d] done\r\n", toRead) );
+            return esock_make_ok3(env, atom_true, MKBIN(env, bufP));
 
-            return esock_make_ok3(env, atom_true, data);
-
-        } else {
-
-            /* +++ We got only a part of what was expected +++
-             * +++ => select for more more later and       +++
-             * +++    deliver what we got.                 +++ */
-
-            SSDBG( descP, ("SOCKET", "recv_check_result -> [%d] "
-                           "only part of message - expect more\r\n", toRead) );
-
-            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL) {
-                FREE_BIN(bufP);
-                return esock_make_error_str(env, xres);
-            }
-
-            data = MKBIN(env, bufP);
-            data = MKSBIN(env, data, 0, read);
-
-            cnt_inc(&descP->readByteCnt, read);
-
-            /* SELECT for more data */
-
-            if ((sres = esock_select_read(env, descP->sock, descP,
-                                          NULL, recvRef)) < 0) {
-                /* Result: {error, Reason}
-                 * Reason: {select_failed, sres, data}
-                 */
-                res = esock_make_error(env,
-                                       MKT3(env,
-                                            esock_atom_select_failed,
-                                            MKI(env, sres),
-                                            data));
-            } else {
-                res = esock_make_ok3(env, atom_false, data);
-            }
-            
-            /* This transfers "ownership" of the *allocated* binary to an
-             * erlang term (no need for an explicit free).
-             */
-            return res;
         }
     }
+
+    /* Yes, we *do* need to continue reading */
+
+    if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL) {
+        descP->rNumCnt = 0;
+        FREE_BIN(bufP);
+        return esock_make_error_str(env, xres);
+    }
+
+    /* This transfers "ownership" of the *allocated* binary to an
+     * erlang term (no need for an explicit free).
+     */
+
+    SSDBG( descP,
+           ("SOCKET",
+            "recv_check_full_maybe_done -> [%d] "
+            "we are done for now - read more\r\n", toRead) );
+
+    return esock_make_ok3(env, atom_false, MKBIN(env, bufP));
 }
+
+
+
+/* *** recv_check_full_done ***
+ *
+ * A successful recv and we filled the buffer.
+ */
+static
+ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  int              read,
+                                  ErlNifBinary*    bufP,
+                                  ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM data;
+
+    cnt_inc(&descP->readPkgCnt,  1);
+    cnt_inc(&descP->readByteCnt, read);
+
+    recv_update_current_reader(env, descP, sockRef);
+
+    /* This transfers "ownership" of the *allocated* binary to an
+     * erlang term (no need for an explicit free).
+     */
+    data = MKBIN(env, bufP);
+
+    return esock_make_ok3(env, atom_true, data);
+}
+
+
+
+/* *** recv_check_fail ***
+ *
+ * Handle recv failure.
+ */
+static
+ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              saveErrno,
+                             ErlNifBinary*    buf1P,
+                             ErlNifBinary*    buf2P,
+                             ERL_NIF_TERM     sockRef,
+                             ERL_NIF_TERM     recvRef)
+{
+    ERL_NIF_TERM res;
+
+    FREE_BIN(buf1P); if (buf2P != NULL) FREE_BIN(buf2P);
+
+    if (saveErrno == ECONNRESET)  {
+
+        /* +++ Oups - closed +++ */
+
+        SSDBG( descP, ("SOCKET", "recv_check_fail -> closed\r\n") );
+
+        res = recv_check_fail_closed(env, descP, sockRef, recvRef);
+
+    } else if ((saveErrno == ERRNO_BLOCK) ||
+               (saveErrno == EAGAIN)) {
+
+        SSDBG( descP, ("SOCKET", "recv_check_fail -> eagain\r\n") );
+
+        res = recv_check_retry(env, descP, sockRef, recvRef);
+
+    } else {
+
+        SSDBG( descP, ("SOCKET", "recv_check_fail -> errno: %d\r\n",
+                       saveErrno) );
+
+        res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
+    }
+
+    return res;
+}
+
+
+
+/* *** recv_check_fail_closed ***
+ *
+ * We detected that the socket was closed wile reading.
+ * Inform current and waiting readers.
+ */
+static
+ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ERL_NIF_TERM     sockRef,
+                                    ERL_NIF_TERM     recvRef)
+{
+    ERL_NIF_TERM res = esock_make_error(env, atom_closed);
+    int          sres;
+
+    /* <KOLLA>
+     *
+     * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
+     * PROCESS, WE NEED TO INFORM IT!!!
+     *
+     * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
+     * HANDLED BY THE STOP (CALLBACK) FUNCTION?
+     *
+     * SINCE THIS IS A REMOTE CLOSE, WE DON'T NEED TO WAIT
+     * FOR OUTPUT TO BE WRITTEN (NO ONE WILL READ), JUST
+     * ABORT THE SOCKET REGARDLESS OF LINGER???
+     *
+     * </KOLLA>
+     */
+
+    descP->closeLocal = FALSE;
+    descP->state      = SOCKET_STATE_CLOSING;
+
+    recv_error_current_reader(env, descP, sockRef, res);
+
+    if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
+        esock_warning_msg("Failed stop select (closed) "
+                          "for current reader (%T): %d\r\n",
+                          recvRef, sres);
+    }
+
+    return res;
+}
+
+
+
+/* *** recv_check_retry ***
+ *
+ * The recv call would have blocked, so retry.
+ */
+static
+ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              ERL_NIF_TERM     recvRef)
+{
+    int          sres;
+    char*        xres;
+    ERL_NIF_TERM reason;
+
+    descP->rNumCnt = 0;
+    if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
+        return esock_make_error_str(env, xres);
+
+    SSDBG( descP, ("SOCKET", "recv_check_retry -> SELECT for more\r\n") );
+
+    if ((sres = esock_select_read(env, descP->sock, descP, NULL,
+                                  sockRef, recvRef)) < 0) {
+        /* Ouch
+         * Now what? We have copied ref into *its own* environment!
+         */
+        reason = MKT2(env, esock_atom_select_failed, MKI(env, sres));
+    } else {
+        reason = esock_atom_eagain;
+    }
+
+    return esock_make_error(env, reason);
+
+}
+
+
+
+/* *** recv_check_fail_gen ***
+ *
+ * The recv call had a "general" failure.
+ */
+static
+ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              saveErrno,
+                                 ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
+
+    recv_error_current_reader(env, descP, sockRef, res);
+
+    return res;
+}
+
+
+
+/* *** recv_check_partial ***
+ *
+ * Handle a sucessful recv which only partly filled the specified buffer.
+ */
+static
+ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                int              read,
+                                int              toRead,
+                                ErlNifBinary*    bufP,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     recvRef)
+{
+    ERL_NIF_TERM res;
+
+    if (toRead == 0) {
+
+        /* +++ We got it all, but since we      +++
+         * +++ did not fill the buffer, we      +++
+         * +++ must split it into a sub-binary. +++
+         */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "recv_check_partial -> [%d] split buffer\r\n", toRead) );
+
+        res = recv_check_partial_done(env, descP, read, bufP, sockRef);
+
+    } else {
+
+        SSDBG( descP, ("SOCKET", "recv_check_partial -> [%d] "
+                       "only part of message - expect more\r\n", toRead) );
+
+        res = recv_check_partial_part(env, descP, read, bufP, sockRef, recvRef);
+    }
+
+    return res;
+}
+
+
+
+/* *** recv_check_partial_done ***
+ *
+ * A successful but only partial recv, which fulfilled the required read.
+ */
+static
+ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              read,
+                                     ErlNifBinary*    bufP,
+                                     ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM data;
+
+    descP->rNumCnt = 0;
+    cnt_inc(&descP->readPkgCnt,  1);
+    cnt_inc(&descP->readByteCnt, read);
+
+    recv_update_current_reader(env, descP, sockRef);
+
+    /* This transfers "ownership" of the *allocated* binary to an
+     * erlang term (no need for an explicit free).
+     */
+    data = MKBIN(env, bufP);
+    data = MKSBIN(env, data, 0, read);
+
+    SSDBG( descP,
+           ("SOCKET", "recv_check_partial_done -> [%d] done\r\n", read) );
+
+    return esock_make_ok3(env, atom_true, data);
+}
+
+
+
+/* *** recv_check_partial_part ***
+ *
+ * A successful but only partial recv, which only partly fulfilled
+ * the required read.
+ */
+static
+ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              read,
+                                     ErlNifBinary*    bufP,
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     recvRef)
+{
+    ERL_NIF_TERM res, reason, data;
+    char*        xres;
+    int          sres;
+
+    if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL) {
+        FREE_BIN(bufP);
+        return esock_make_error_str(env, xres);
+    }
+
+    data = MKBIN(env, bufP);
+    data = MKSBIN(env, data, 0, read);
+
+    cnt_inc(&descP->readByteCnt, read);
+
+    /* SELECT for more data */
+
+    sres = esock_select_read(env, descP->sock, descP, NULL,
+                             sockRef, recvRef);
+    if (sres < 0) {
+        /* Result: {error, Reason}
+         * Reason: {select_failed, sres, data}
+         */
+        reason = MKT3(env, esock_atom_select_failed, MKI(env, sres), data);
+        res    = esock_make_error(env, reason);
+
+    } else {
+
+        res = esock_make_ok3(env, atom_false, data);
+
+    }
+
+    /* This transfers "ownership" of the *allocated* binary to an
+     * erlang term (no need for an explicit free).
+     */
+    return res;
+}
+
+
+
 
 
 /* The recvfrom function delivers one (1) message. If our buffer
@@ -14334,18 +14894,16 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
  * to get regarding this message.
  */
 static
-ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
-                                   SocketDescriptor* descP,
-                                   int               read,
-                                   int               saveErrno,
-                                   ErlNifBinary*     bufP,
-                                   SocketAddress*    fromAddrP,
-                                   unsigned int      fromAddrLen,
-                                   ERL_NIF_TERM      sockRef,
-                                   ERL_NIF_TERM      recvRef)
+ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              read,
+                                   int              saveErrno,
+                                   ErlNifBinary*    bufP,
+                                   ESockAddress*    fromAddrP,
+                                   unsigned int     fromAddrLen,
+                                   ERL_NIF_TERM     sockRef,
+                                   ERL_NIF_TERM     recvRef)
 {
-    char*        xres;
-    int          sres;
     ERL_NIF_TERM data, res;
 
     SSDBG( descP,
@@ -14355,82 +14913,12 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
             "\r\n   recvRef:   %T"
             "\r\n", read, saveErrno, recvRef) );
 
-
-    /* There is a special case: If the provided 'to read' value is
-     * zero (0). That means that we reads as much as we can, using
-     * the default read buffer size.
-     */
-
     if (read < 0) {
 
         /* +++ Error handling +++ */
 
-        if (saveErrno == ECONNRESET)  {
-            res = esock_make_error(env, atom_closed);
-
-            /* +++ Oups - closed +++ */
-
-            SSDBG( descP, ("SOCKET", "recvfrom_check_result -> closed\r\n") );
-
-            /* <KOLLA>
-             * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
-             * PROCESS, WE NEED TO INFORM IT!!!
-             *
-             * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
-             *
-             * </KOLLA>
-             */
-
-            descP->closeLocal = FALSE;
-            descP->state      = SOCKET_STATE_CLOSING;
-
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
-                esock_warning_msg("Failed stop select (closed) "
-                                  "for current reader (%T): %d\r\n",
-                                  recvRef, sres);
-            }
-
-            FREE_BIN(bufP);
-
-            return res;
-
-        } else if ((saveErrno == ERRNO_BLOCK) ||
-                   (saveErrno == EAGAIN)) {
-
-            SSDBG( descP, ("SOCKET", "recvfrom_check_result -> eagain\r\n") );
-
-            FREE_BIN(bufP);
-
-            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
-                return esock_make_error_str(env, xres);
-            
-            if ((sres = esock_select_read(env, descP->sock, descP,
-                                          NULL, recvRef)) < 0) {
-                res = esock_make_error(env,
-                                       MKT2(env,
-                                            esock_atom_select_failed,
-                                            MKI(env, sres)));
-            } else {
-                res = esock_make_error(env, esock_atom_eagain);
-            }
-
-            return res;
-        } else {
-
-            res = esock_make_error_errno(env, saveErrno);
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recvfrom_check_result -> errno: %d\r\n", saveErrno) );
-            
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            FREE_BIN(bufP);
-
-            return res;
-        }
+        res = recv_check_fail(env, descP, saveErrno, bufP, NULL,
+                              sockRef, recvRef);
 
     } else {
 
@@ -14443,7 +14931,9 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
                               &eSockAddr);
 
         if (read == bufP->size) {
+
             data = MKBIN(env, bufP);
+
         } else {
 
             /* +++ We got a chunk of data but +++
@@ -14458,30 +14948,34 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
 
         recv_update_current_reader(env, descP, sockRef);
         
-        return esock_make_ok2(env, MKT2(env, eSockAddr, data));
+        res = esock_make_ok2(env, MKT2(env, eSockAddr, data));
 
     }
+
+    return res;
+
 }
 
 
 
-/* The recvmsg function delivers one (1) message. If our buffer
+/* *** recvmsg_check_result ***
+ *
+ * The recvmsg function delivers one (1) message. If our buffer
  * is to small, the message will be truncated. So, regardless
  * if we filled the buffer or not, we have got what we are going
  * to get regarding this message.
  */
 static
-ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
-                                  SocketDescriptor* descP,
-                                  int               read,
-                                  int               saveErrno,
-                                  struct msghdr*    msgHdrP,
-                                  ErlNifBinary*     dataBufP,
-                                  ErlNifBinary*     ctrlBufP,
-                                  ERL_NIF_TERM      sockRef,
-                                  ERL_NIF_TERM      recvRef)
+ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  int              read,
+                                  int              saveErrno,
+                                  struct msghdr*   msgHdrP,
+                                  ErlNifBinary*    dataBufP,
+                                  ErlNifBinary*    ctrlBufP,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     recvRef)
 {
-    int          sres;
     ERL_NIF_TERM res;
 
     SSDBG( descP,
@@ -14503,8 +14997,8 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
     if ((read == 0) && (descP->type == SOCK_STREAM)) {
         
         /*
-         * When a stream socket peer has performed an orderly shutdown, the return
-         * value will be 0 (the traditional "end-of-file" return).
+         * When a stream socket peer has performed an orderly shutdown,
+         * the return value will be 0 (the traditional "end-of-file" return).
          *
          * *We* do never actually try to read 0 bytes from a stream socket!
          */
@@ -14526,119 +15020,76 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
 
         /* +++ Error handling +++ */
 
-        if (saveErrno == ECONNRESET)  {
-
-            /* +++ Oups - closed +++ */
-
-            SSDBG( descP, ("SOCKET", "recvmsg_check_result -> closed\r\n") );
-
-            /* <KOLLA>
-             * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
-             * PROCESS, WE NEED TO INFORM IT!!!
-             *
-             * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
-             *
-             * </KOLLA>
-             */
-
-            res               = esock_make_error(env, atom_closed);
-            descP->closeLocal = FALSE;
-            descP->state      = SOCKET_STATE_CLOSING;
-
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
-                esock_warning_msg("Failed stop select (closed) "
-                                  "for current reader (%T): %d\r\n",
-                                  recvRef, sres);
-            }
-
-            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-            return res;;
-
-        } else if ((saveErrno == ERRNO_BLOCK) ||
-                   (saveErrno == EAGAIN)) {
-            char* xres;
-
-            SSDBG( descP, ("SOCKET", "recvmsg_check_result -> eagain\r\n") );
-            
-            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
-                return esock_make_error_str(env, xres);
-            
-            if ((sres = esock_select_read(env, descP->sock, descP,
-                                          NULL, recvRef)) < 0) {
-                res = esock_make_error(env,
-                                       MKT2(env,
-                                            esock_atom_select_failed,
-                                            MKI(env, sres)));
-            } else {
-                res = esock_make_error(env, esock_atom_eagain);
-            }
-
-            return res;
-
-        } else {
-
-            res = esock_make_error_errno(env, saveErrno);
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recvmsg_check_result -> errno: %d\r\n", saveErrno) );
-            
-            recv_error_current_reader(env, descP, sockRef, res);
-
-            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-            return res;
-        }
+        res = recv_check_fail(env, descP, saveErrno, dataBufP, ctrlBufP,
+                              sockRef, recvRef);
 
     } else {
 
         /* +++ We sucessfully got a message - time to encode it +++ */
 
-        ERL_NIF_TERM eMsgHdr;
-        char*        xres;
-
-        /*
-         * <KOLLA>
-         *
-         * The return value of recvmsg is the *total* number of bytes
-         * that where successfully read. This data has been put into
-         * the *IO vector*.
-         *
-         * </KOLLA>
-         */
-
-        if ((xres = encode_msghdr(env, descP,
-                                  read, msgHdrP, dataBufP, ctrlBufP,
-                                  &eMsgHdr)) != NULL) {
-            
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recvmsg_check_result -> "
-                    "(msghdr) encode failed: %s\r\n", xres) );
-            
-            recv_update_current_reader(env, descP, sockRef);
-        
-            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-            return esock_make_error_str(env, xres);
-        } else {
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recvmsg_check_result -> "
-                    "(msghdr) encode ok: %T\r\n", eMsgHdr) );
-            
-            recv_update_current_reader(env, descP, sockRef);
-
-            return esock_make_ok2(env, eMsgHdr);
-        }
+        res = recvmsg_check_msg(env, descP, read, msgHdrP,
+                                dataBufP, ctrlBufP, sockRef);
 
     }
+
+    return res;
+
+}
+
+
+
+/* *** recvmsg_check_msg ***
+ *
+ * We successfully read one message. Time to process.
+ */
+static
+ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               int              read,
+                               struct msghdr*   msgHdrP,
+                               ErlNifBinary*    dataBufP,
+                               ErlNifBinary*    ctrlBufP,
+                               ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM res, eMsgHdr;
+    char*        xres;
+
+    /*
+     * <KOLLA>
+     *
+     * The return value of recvmsg is the *total* number of bytes
+     * that where successfully read. This data has been put into
+     * the *IO vector*.
+     *
+     * </KOLLA>
+     */
+
+    if ((xres = encode_msghdr(env, descP,
+                              read, msgHdrP, dataBufP, ctrlBufP,
+                              &eMsgHdr)) != NULL) {
+
+        SSDBG( descP,
+               ("SOCKET",
+                "recvmsg_check_result -> "
+                "(msghdr) encode failed: %s\r\n", xres) );
+
+        recv_update_current_reader(env, descP, sockRef);
+
+        FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
+
+        res = esock_make_error_str(env, xres);
+
+    } else {
+
+        SSDBG( descP,
+               ("SOCKET", "recvmsg_check_result -> (msghdr) encode ok\r\n") );
+
+        recv_update_current_reader(env, descP, sockRef);
+
+        res = esock_make_ok2(env, eMsgHdr);
+    }
+
+    return res;
 }
 
 
@@ -14656,13 +15107,13 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
  */
 
 extern
-char* encode_msghdr(ErlNifEnv*        env,
-                    SocketDescriptor* descP,
-                    int               read,
-                    struct msghdr*    msgHdrP,
-                    ErlNifBinary*     dataBufP,
-                    ErlNifBinary*     ctrlBufP,
-                    ERL_NIF_TERM*     eSockAddr)
+char* encode_msghdr(ErlNifEnv*       env,
+                    ESockDescriptor* descP,
+                    int              read,
+                    struct msghdr*   msgHdrP,
+                    ErlNifBinary*    dataBufP,
+                    ErlNifBinary*    ctrlBufP,
+                    ERL_NIF_TERM*    eSockAddr)
 {
     char*        xres;
     ERL_NIF_TERM addr, iov, ctrl, flags;
@@ -14677,7 +15128,7 @@ char* encode_msghdr(ErlNifEnv*        env,
      */
     if (msgHdrP->msg_namelen != 0) {
         if ((xres = esock_encode_sockaddr(env,
-                                          (SocketAddress*) msgHdrP->msg_name,
+                                          (ESockAddress*) msgHdrP->msg_name,
                                           msgHdrP->msg_namelen,
                                           &addr)) != NULL)
             return xres;
@@ -14705,10 +15156,9 @@ char* encode_msghdr(ErlNifEnv*        env,
     SSDBG( descP,
            ("SOCKET", "encode_msghdr -> components encoded:"
             "\r\n   addr:  %T"
-            "\r\n   iov:   %T"
             "\r\n   ctrl:  %T"
             "\r\n   flags: %T"
-           "\r\n", addr, iov, ctrl, flags) );
+           "\r\n", addr, ctrl, flags) );
     {
         ERL_NIF_TERM keys[]  = {esock_atom_addr,
                                 esock_atom_iov,
@@ -14725,9 +15175,7 @@ char* encode_msghdr(ErlNifEnv*        env,
         if (!MKMA(env, keys, vals, numKeys, &tmp))
             return ESOCK_STR_EINVAL;
 
-        SSDBG( descP, ("SOCKET", "encode_msghdr -> msghdr: "
-                       "\r\n   %T"
-                       "\r\n", tmp) );
+        SSDBG( descP, ("SOCKET", "encode_msghdr -> msghdr encoded\r\n") );
 
         *eSockAddr = tmp;
     }
@@ -14761,21 +15209,35 @@ char* encode_msghdr(ErlNifEnv*        env,
  */
 
 extern
-char* encode_cmsghdrs(ErlNifEnv*        env,
-                      SocketDescriptor* descP,
-                      ErlNifBinary*     cmsgBinP,
-                      struct msghdr*    msgHdrP,
-                      ERL_NIF_TERM*     eCMsgHdr)
+char* encode_cmsghdrs(ErlNifEnv*       env,
+                      ESockDescriptor* descP,
+                      ErlNifBinary*    cmsgBinP,
+                      struct msghdr*   msgHdrP,
+                      ERL_NIF_TERM*    eCMsgHdr)
 {
     ERL_NIF_TERM    ctrlBuf  = MKBIN(env, cmsgBinP); // The *entire* binary
     SocketTArray    cmsghdrs = TARRAY_CREATE(128);
     struct cmsghdr* firstP   = CMSG_FIRSTHDR(msgHdrP);
     struct cmsghdr* currentP;
     
-    SSDBG( descP, ("SOCKET", "encode_cmsghdrs -> entry\r\n") );
+    SSDBG( descP, ("SOCKET", "encode_cmsghdrs -> entry when"
+                   "\r\n   msg ctrl len:  %d"
+                   "\r\n   (ctrl) firstP: 0x%lX"
+                   "\r\n",
+                   msgHdrP->msg_controllen, firstP) );
 
     for (currentP = firstP;
-         currentP != NULL;
+         /*
+          * In *old* versions of darwin, the CMSG_FIRSTHDR does not
+          * check the msg_controllen, so we do it here.
+          * We should really test this stuff during configure,
+          * but for now, this will have to do.
+          */
+#if defined(__DARWIN__)
+         (msgHdrP->msg_controllen >= sizeof(struct cmsghdr)) && (currentP != NULL);
+#else
+         (currentP != NULL);
+#endif
          currentP = CMSG_NXTHDR(msgHdrP, currentP)) {
 
         SSDBG( descP,
@@ -14788,9 +15250,23 @@ char* encode_cmsghdrs(ErlNifEnv*        env,
          */
         if (((CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP)) >
             msgHdrP->msg_controllen) {
+
             /* Ouch, fatal error - give up 
              * We assume we cannot trust any data if this is wrong.
              */
+
+            SSDBG( descP,
+                   ("SOCKET", "encode_cmsghdrs -> check failed when: "
+                    "\r\n   currentP:           0x%lX"
+                    "\r\n   (current) cmsg_len: %d"
+                    "\r\n   firstP:             0x%lX"
+                    "\r\n   =>                  %d"
+                    "\r\n   msg ctrl len:       %d"
+                    "\r\n",
+                    CHARP(currentP), currentP->cmsg_len, CHARP(firstP),
+                    (CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP),
+                    msgHdrP->msg_controllen) );
+
             TARRAY_DELETE(cmsghdrs);
             return ESOCK_STR_EINVAL;
         } else {
@@ -14883,12 +15359,12 @@ char* encode_cmsghdrs(ErlNifEnv*        env,
  */
 
 extern
-char* decode_cmsghdrs(ErlNifEnv*        env,
-                      SocketDescriptor* descP,
-                      ERL_NIF_TERM      eCMsgHdr,
-                      char*             cmsgHdrBufP,
-                      size_t            cmsgHdrBufLen,
-                      size_t*           cmsgHdrBufUsed)
+char* decode_cmsghdrs(ErlNifEnv*       env,
+                      ESockDescriptor* descP,
+                      ERL_NIF_TERM     eCMsgHdr,
+                      char*            cmsgHdrBufP,
+                      size_t           cmsgHdrBufLen,
+                      size_t*          cmsgHdrBufUsed)
 {
     ERL_NIF_TERM elem, tail, list;
     char*        bufP;
@@ -14966,12 +15442,12 @@ char* decode_cmsghdrs(ErlNifEnv*        env,
  *                                which means that the data is already coded.
  */
 extern
-char* decode_cmsghdr(ErlNifEnv*        env,
-                     SocketDescriptor* descP,
-                     ERL_NIF_TERM      eCMsgHdr,
-                     char*             bufP,
-                     size_t            rem,
-                     size_t*           used)
+char* decode_cmsghdr(ErlNifEnv*       env,
+                     ESockDescriptor* descP,
+                     ERL_NIF_TERM     eCMsgHdr,
+                     char*            bufP,
+                     size_t           rem,
+                     size_t*          used)
 {
     SSDBG( descP, ("SOCKET", "decode_cmsghdr -> entry with"
                    "\r\n   eCMsgHdr: %T"
@@ -15038,14 +15514,14 @@ char* decode_cmsghdr(ErlNifEnv*        env,
  * an integer and ip_tos() respectively.
  */
 static
-char* decode_cmsghdr_data(ErlNifEnv*        env,
-                          SocketDescriptor* descP,
-                          char*             bufP,
-                          size_t            rem,
-                          int               level,
-                          int               type,
-                          ERL_NIF_TERM      eData,
-                          size_t*           used)
+char* decode_cmsghdr_data(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          char*            bufP,
+                          size_t           rem,
+                          int              level,
+                          int              type,
+                          ERL_NIF_TERM     eData,
+                          size_t*          used)
 {
     char* xres;
 
@@ -15137,14 +15613,14 @@ char* decode_cmsghdr_data(ErlNifEnv*        env,
  * This does the final create of the cmsghdr (including the data copy).
  */
 static
-char* decode_cmsghdr_final(SocketDescriptor* descP,
-                           char*             bufP,
-                           size_t            rem,
-                           int               level,
-                           int               type,
-                           char*             data,
-                           int               sz,
-                           size_t*           used)
+char* decode_cmsghdr_final(ESockDescriptor* descP,
+                           char*            bufP,
+                           size_t           rem,
+                           int              level,
+                           int              type,
+                           char*            data,
+                           int              sz,
+                           size_t*          used)
 {
     int len   = CMSG_LEN(sz);
     int space = CMSG_SPACE(sz);
@@ -15823,10 +16299,10 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
  */
 
 extern
-char* encode_msghdr_flags(ErlNifEnv*        env,
-                          SocketDescriptor* descP,
-                          int               msgFlags,
-                          ERL_NIF_TERM*     flags)
+char* encode_msghdr_flags(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          int              msgFlags,
+                          ERL_NIF_TERM*    flags)
 {
     SSDBG( descP,
            ("SOCKET", "encode_cmsghdrs_flags -> entry with"
@@ -16281,18 +16757,22 @@ ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val)
  *
  */
 static
-SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
+ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
 {
-    SocketDescriptor* descP;
+    ESockDescriptor* descP;
 
-    if ((descP = enif_alloc_resource(sockets, sizeof(SocketDescriptor))) != NULL) {
+    if ((descP = enif_alloc_resource(sockets, sizeof(ESockDescriptor))) != NULL) {
         char buf[64]; /* Buffer used for building the mutex name */
 
         // This needs to be released when the socket is closed!
-        descP->env            = enif_alloc_env();
+        // descP->env            = enif_alloc_env();
 
-        sprintf(buf, "socket[w,%d]", sock);
+        sprintf(buf, "esock[w,%d]", sock);
         descP->writeMtx       = MCREATE(buf);
+        enif_set_pid_undefined(&descP->currentWriter.pid);
+        MON_INIT(&descP->currentWriter.mon);
+        descP->currentWriter.env = NULL;
+        descP->currentWriter.ref = esock_atom_undefined;
         descP->currentWriterP = NULL; // currentWriter not used
         descP->writersQ.first = NULL;
         descP->writersQ.last  = NULL;
@@ -16303,8 +16783,12 @@ SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->writeWaits     = 0;
         descP->writeFails     = 0;
 
-        sprintf(buf, "socket[r,%d]", sock);
+        sprintf(buf, "esock[r,%d]", sock);
         descP->readMtx        = MCREATE(buf);
+        enif_set_pid_undefined(&descP->currentReader.pid);
+        MON_INIT(&descP->currentReader.mon);
+        descP->currentReader.env = NULL;
+        descP->currentReader.ref = esock_atom_undefined;
         descP->currentReaderP = NULL; // currentReader not used
         descP->readersQ.first = NULL;
         descP->readersQ.last  = NULL;
@@ -16314,17 +16798,25 @@ SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->readTries      = 0;
         descP->readWaits      = 0;
 
-        sprintf(buf, "socket[acc,%d]", sock);
+        sprintf(buf, "esock[acc,%d]", sock);
         descP->accMtx           = MCREATE(buf);
+        enif_set_pid_undefined(&descP->currentAcceptor.pid);
+        MON_INIT(&descP->currentAcceptor.mon);
+        descP->currentAcceptor.env = NULL;
+        descP->currentAcceptor.ref = esock_atom_undefined;
         descP->currentAcceptorP = NULL; // currentAcceptor not used
         descP->acceptorsQ.first = NULL;
         descP->acceptorsQ.last  = NULL;
 
-        sprintf(buf, "socket[close,%d]", sock);
+        sprintf(buf, "esock[close,%d]", sock);
         descP->closeMtx         = MCREATE(buf);
         descP->closeEnv         = NULL;
         descP->closeRef         = esock_atom_undefined;
+        enif_set_pid_undefined(&descP->closerPid);
+        MON_INIT(&descP->closerMon);
 
+        sprintf(buf, "esock[cfg,%d]", sock);
+        descP->cfgMtx           = MCREATE(buf);
         descP->rBufSz           = SOCKET_RECV_BUFFER_SIZE_DEFAULT;
         descP->rNum             = 0;
         descP->rNumCnt          = 0;
@@ -16336,11 +16828,9 @@ SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->sock             = sock;
         descP->event            = event;
 
-        MON_INIT(&descP->currentWriter.mon);
-        MON_INIT(&descP->currentReader.mon);
-        MON_INIT(&descP->currentAcceptor.mon);
+        enif_set_pid_undefined(&descP->ctrlPid);
         MON_INIT(&descP->ctrlMon);
-        MON_INIT(&descP->closerMon);
+
     }
 
     return descP;
@@ -16851,75 +17341,41 @@ size_t my_strnlen(const char *s, size_t maxlen)
 #endif
 
 
-/* Send an error closed message to the specified process:
- *
- * This message is for processes that are waiting in the
- * erlang API functions for a select message.
- */
-/*
-static
-char* send_msg_error_closed(ErlNifEnv* env,
-                            ErlNifPid* pid)
-{
-  return send_msg_error(env, atom_closed, pid);
-}
-*/
-
-/* Send an error message to the specified process:
- * A message in the form:
- *
- *     {error, Reason}
- *
- * This message is for processes that are waiting in the
- * erlang API functions for a select message.
- */
-/*
-static
-char* send_msg_error(ErlNifEnv*   env,
-                     ERL_NIF_TERM reason,
-                     ErlNifPid*   pid)
-{
-    ERL_NIF_TERM msg = enif_make_tuple2(env, atom_error, reason);
-
-    return send_msg(env, msg, pid);
-}
-*/
-
-
 /* Send an close message to the specified process:
  * A message in the form:
  *
- *     {'$socket', SockRef, close, CloseRef}
+ *     {'$socket', Socket, close, CloseRef}
  *
  * This message is for processes that is waiting in the
  * erlang API (close-) function for the socket to be "closed"
  * (actually that the 'stop' callback function has been called).
  */
 static
-char* esock_send_close_msg(ErlNifEnv*        env,
-                           SocketDescriptor* descP,
-                           ERL_NIF_TERM      sockRef)
+char* esock_send_close_msg(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ErlNifPid*       pid)
 {
-    ERL_NIF_TERM sr = ((descP->closeEnv != NULL) ?
-                       enif_make_copy(descP->closeEnv, sockRef) :
-                       sockRef);
-    char*        res = esock_send_socket_msg(env,
-                                             sr,
-                                             esock_atom_close,
-                                             descP->closeRef,
-                                             &descP->closerPid,
-                                             descP->closeEnv);
-
-    descP->closeEnv = NULL;
-
-    return res;
+    ERL_NIF_TERM sockRef, msg;
+    ErlNifEnv*   menv;
+    
+    if (descP->closeEnv != NULL) {
+        sockRef = enif_make_resource(descP->closeEnv, descP);
+        msg     = mk_close_msg(descP->closeEnv, sockRef, descP->closeRef);
+        menv    = descP->closeEnv;
+    } else {
+        sockRef = enif_make_resource(env, descP);
+        msg     = mk_close_msg(env, sockRef, descP->closeRef);
+        menv    = NULL; // This has the effect that the message will be copied
+    }
+    
+    return esock_send_msg(env, pid, msg, menv);
 }
 
 
 /* Send an abort message to the specified process:
  * A message in the form:
  *
- *     {'$socket', SockRef, abort, {RecvRef, Reason}}
+ *     {'$socket', Socket, abort, {RecvRef, Reason}}
  *
  * This message is for processes that is waiting in the
  * erlang API functions for a select message.
@@ -16927,53 +17383,17 @@ char* esock_send_close_msg(ErlNifEnv*        env,
 static
 char* esock_send_abort_msg(ErlNifEnv*   env,
                            ERL_NIF_TERM sockRef,
-                           ERL_NIF_TERM recvRef,
+                           ERL_NIF_TERM opRef,
+                           ErlNifEnv*   msgEnv,
                            ERL_NIF_TERM reason,
                            ErlNifPid*   pid)
 {
-    ErlNifEnv*   msg_env = enif_alloc_env();
-    ERL_NIF_TERM info    = MKT2(msg_env,
-                                enif_make_copy(msg_env, recvRef),
-                                enif_make_copy(msg_env, reason));
+    ERL_NIF_TERM msg = mk_abort_msg(msgEnv,
+                                    /* sockRef not in msgEnv so copy */
+                                    CP_TERM(msgEnv, sockRef),
+                                    opRef, reason);
 
-    return esock_send_socket_msg(env, sockRef, esock_atom_abort, info, pid,
-                                 msg_env);
-}
-
-
-/* *** esock_send_socket_msg ***
- *
- * This function sends a general purpose socket message to an erlang
- * process. A general 'socket' message has the ("erlang") form: 
- *
- *      {'$socket', SockRef, Tag, Info}
- *
- * Where
- *
- *   SockRef: reference()
- *   Tag:     atom()
- *   Info:    term()
- *
- */
-
-static
-char* esock_send_socket_msg(ErlNifEnv*   env,
-                            ERL_NIF_TERM sockRef,
-                            ERL_NIF_TERM tag,
-                            ERL_NIF_TERM info,
-                            ErlNifPid*   pid,
-                            ErlNifEnv*   msg_env)
-{
-    ERL_NIF_TERM msg;
-    if (!msg_env) {
-        msg_env = enif_alloc_env();
-        sockRef = enif_make_copy(msg_env, sockRef);
-        tag = enif_make_copy(msg_env, tag);
-        info = enif_make_copy(msg_env, info);
-    }
-    msg = MKT4(msg_env, esock_atom_socket_tag, sockRef, tag, info);
-
-    return esock_send_msg(env, msg, pid, msg_env);
+    return esock_send_msg(env, pid, msg, msgEnv);
 }
 
 
@@ -16981,46 +17401,166 @@ char* esock_send_socket_msg(ErlNifEnv*   env,
  */
 static
 char* esock_send_msg(ErlNifEnv*   env,
-                     ERL_NIF_TERM msg,
                      ErlNifPid*   pid,
-                     ErlNifEnv* msg_env)
+                     ERL_NIF_TERM msg,
+                     ErlNifEnv*   msgEnv)
 {
-    int res = enif_send(env, pid, msg_env, msg);
-    if (msg_env)
-        enif_free_env(msg_env);
+    int res = enif_send(env, pid, msgEnv, msg);
+    if (msgEnv)
+        esock_free_env("esock_msg_send - msg-env", msgEnv);
 
     if (!res)
         return str_exsend;
     else
         return NULL;
 }
+
+
+
+/* *** mk_abort_msg ***
+ *
+ * Create the abort message, which has the following form:
+ *
+ *     {'$socket', Socket, abort, {OpRef, Reason}}
+ *
+ * This message is for processes that are waiting in the
+ * erlang API functions for a select (or this) message.
+ */
+static
+ERL_NIF_TERM mk_abort_msg(ErlNifEnv*   env,
+                          ERL_NIF_TERM sockRef,
+                          ERL_NIF_TERM opRef,
+                          ERL_NIF_TERM reason)
+{
+    ERL_NIF_TERM info = MKT2(env, opRef, reason);
+    
+    return mk_socket_msg(env, sockRef, esock_atom_abort, info);
+}
+
+
+/* *** mk_close_msg ***
+ *
+ * Construct a close (socket) message. It has the form: 
+ *
+ *         {'$socket', Socket, close, closeRef}
+ *
+ */
+static
+ERL_NIF_TERM mk_close_msg(ErlNifEnv*   env,
+                          ERL_NIF_TERM sockRef,
+                          ERL_NIF_TERM closeRef)
+{
+    return mk_socket_msg(env, sockRef, esock_atom_close, closeRef);
+}
+
+
+/* *** mk_select_msg ***
+ *
+ * Construct a select (socket) message. It has the form: 
+ *
+ *         {'$socket', Socket, select, selectRef}
+ *
+ */
+static
+ERL_NIF_TERM mk_select_msg(ErlNifEnv*   env,
+                           ERL_NIF_TERM sockRef,
+                           ERL_NIF_TERM selectRef)
+{
+    return mk_socket_msg(env, sockRef, atom_select, selectRef);
+}
+
+
+/* *** mk_socket_msg ***
+ *
+ * Construct the socket message:
+ *
+ *         {'$socket', Socket, Tag, Info}
+ *
+ * Socket :: socket() (#socket{})
+ * Tag    :: atom()
+ * Info   :: term()
+ *
+ */
+static
+ERL_NIF_TERM mk_socket_msg(ErlNifEnv*   env,
+                           ERL_NIF_TERM sockRef,
+                           ERL_NIF_TERM tag,
+                           ERL_NIF_TERM info)
+{
+    ERL_NIF_TERM socket = mk_socket(env, sockRef);
+
+    return MKT4(env, esock_atom_socket_tag, socket, tag, info);
+}
+
+
+/* *** mk_socket ***
+ *
+ * Simple utility function that construct the socket resord:
+ *
+ *      #socket{ref = SockRef} => {socket, SockRef :: reference()}
+ */
+static
+ERL_NIF_TERM mk_socket(ErlNifEnv*   env,
+                       ERL_NIF_TERM sockRef)
+{
+    return MKT2(env, esock_atom_socket, sockRef);
+}
+
 #endif // #if defined(__WIN32__)
 
-
+                              
 /* ----------------------------------------------------------------------
  *  S e l e c t   W r a p p e r   F u n c t i o n s
  * ----------------------------------------------------------------------
  */
 
+/* *** esock_select_read ***
+ *
+ * Perform a read select. When the select is triggered, a 'select'
+ * message (see mk_select_msg) will be sent.
+ *
+ * There are two ways to handle the select message:
+ * 1) Create "your own" environment and create the message using it
+ *    and then pass it on to the select function.
+ * 2) Or, to create the message using any available environment,
+ *    and then pass a NULL pointer to the select function.
+ *    This will have the effect that the select function will 
+ *    create its own environment and then copy the message to it.
+ * We choose the second alternative.
+ */
 static
 int esock_select_read(ErlNifEnv*       env,
-                      ErlNifEvent      event,
-                      void*            obj,
-                      const ErlNifPid* pid,
-                      ERL_NIF_TERM     ref)
+                      ErlNifEvent      event,     // The file descriptor
+                      void*            obj,       // The socket descriptor object
+                      const ErlNifPid* pid,       // Destination
+                      ERL_NIF_TERM     sockRef,   // Socket
+                      ERL_NIF_TERM     selectRef) // "ID" of the operation
 {
-    return enif_select(env, event, (ERL_NIF_SELECT_READ), obj, pid, ref);
+    ERL_NIF_TERM selectMsg = mk_select_msg(env, sockRef, selectRef);
+
+    return enif_select_read(env, event, obj, pid, selectMsg, NULL);
+
 }
 
 
+/* *** esock_select_write ***
+ *
+ * Perform a write select. When the select is triggered, a 'select'
+ * message (see mk_select_msg) will be sent.
+ * The sockRef is copied to the msgEnv when the socket message is created,
+ * so no need to do that here, but the selectRef needs to be copied.
+ */
 static
 int esock_select_write(ErlNifEnv*       env,
-                       ErlNifEvent      event,
-                       void*            obj,
-                       const ErlNifPid* pid,
-                       ERL_NIF_TERM     ref)
+                       ErlNifEvent      event,     // The file descriptor
+                       void*            obj,       // The socket descriptor
+                       const ErlNifPid* pid,       // Destination
+                       ERL_NIF_TERM     sockRef,   // Socket
+                       ERL_NIF_TERM     selectRef) // "ID" of the operation
 {
-    return enif_select(env, event, (ERL_NIF_SELECT_WRITE), obj, pid, ref);
+    ERL_NIF_TERM selectMsg = mk_select_msg(env, sockRef, selectRef);
+
+    return enif_select_write(env, event, obj, pid, selectMsg, NULL);
 }
 
 
@@ -17058,6 +17598,8 @@ int esock_select_cancel(ErlNifEnv*             env,
  * Return value indicates if a new requestor was activated or not.
  */
 
+#if !defined(__WIN32__)
+
 #define ACTIVATE_NEXT_FUNCS                                               \
     ACTIVATE_NEXT_FUNC_DECL(acceptor, read,  currentAcceptor, acceptorsQ) \
     ACTIVATE_NEXT_FUNC_DECL(writer,   write, currentWriter,   writersQ)   \
@@ -17065,14 +17607,15 @@ int esock_select_cancel(ErlNifEnv*             env,
 
 #define ACTIVATE_NEXT_FUNC_DECL(F, S, R, Q)                  \
     static                                                   \
-    BOOLEAN_T activate_next_##F(ErlNifEnv*        env,       \
-                                SocketDescriptor* descP,     \
-                                ERL_NIF_TERM      sockRef)   \
+    BOOLEAN_T activate_next_##F(ErlNifEnv*       env,        \
+                                ESockDescriptor* descP,      \
+                                ERL_NIF_TERM     sockRef)    \
     {                                                        \
-        BOOLEAN_T           popped, activated;               \
-        int                 sres;                            \
-        SocketRequestor*    reqP = &descP->R;                \
-        SocketRequestQueue* q    = &descP->Q;                \
+        BOOLEAN_T          popped, activated;                \
+        int                sres;                             \
+        ERL_NIF_TERM       reason;                           \
+        ESockRequestor*    reqP = &descP->R;                 \
+        ESockRequestQueue* q    = &descP->Q;                 \
                                                              \
         popped = FALSE;                                      \
         do {                                                 \
@@ -17088,15 +17631,22 @@ int esock_select_cancel(ErlNifEnv*             env,
                         "\r\n   ref: %T"                                \
                         "\r\n", reqP->pid, reqP->ref) );                \
                                                                         \
+                /* We need to copy req ref to 'env' */                  \
                 if ((sres = esock_select_##S(env, descP->sock, descP,   \
-                                             &reqP->pid, reqP->ref)) < 0) { \
+                                             &reqP->pid, sockRef,       \
+                                             CP_TERM(env, reqP->ref))) < 0) { \
+                                                                        \
                     /* We need to inform this process, reqP->pid,  */   \
                     /* that we failed to select, so we don't leave */   \
                     /* it hanging.                                 */   \
                     /* => send abort                               */   \
                                                                         \
-                    esock_send_abort_msg(env, sockRef, reqP->ref,       \
-                                         sres, &reqP->pid);             \
+                    reason = MKT2(env,                                  \
+                                  esock_atom_select_failed,             \
+                                  MKI(env, sres));                      \
+                    esock_send_abort_msg(env, sockRef,                  \
+                                         reqP->ref, reqP->env,          \
+                                         reason, &reqP->pid);           \
                                                                         \
                 } else {                                                \
                                                                         \
@@ -17128,6 +17678,7 @@ ACTIVATE_NEXT_FUNCS
 #undef ACTIVATE_NEXT_FUNC_DECL
 
 
+#endif // if !defined(__WIN32__)
 
 
 /* ----------------------------------------------------------------------
@@ -17154,13 +17705,13 @@ ACTIVATE_NEXT_FUNCS
     REQ_SEARCH4PID_FUNC_DECL(writer,   writersQ)   \
     REQ_SEARCH4PID_FUNC_DECL(reader,   readersQ)
 
-#define REQ_SEARCH4PID_FUNC_DECL(F, Q)                  \
-    static                                              \
-    BOOLEAN_T F##_search4pid(ErlNifEnv*        env,     \
-                             SocketDescriptor* descP,   \
-                             ErlNifPid*        pid)     \
-    {                                                   \
-        return qsearch4pid(env, &descP->Q, pid);        \
+#define REQ_SEARCH4PID_FUNC_DECL(F, Q)                 \
+    static                                             \
+    BOOLEAN_T F##_search4pid(ErlNifEnv*       env,     \
+                             ESockDescriptor* descP,   \
+                             ErlNifPid*       pid)     \
+    {                                                  \
+        return qsearch4pid(env, &descP->Q, pid);       \
     }
 REQ_SEARCH4PID_FUNCS
 #undef REQ_SEARCH4PID_FUNC_DECL
@@ -17181,28 +17732,28 @@ REQ_SEARCH4PID_FUNCS
     REQ_PUSH_FUNC_DECL(writer,   writersQ)   \
     REQ_PUSH_FUNC_DECL(reader,   readersQ)
 
-#define REQ_PUSH_FUNC_DECL(F, Q)                                        \
-    static                                                              \
-    ERL_NIF_TERM F##_push(ErlNifEnv*        env,                        \
-                          SocketDescriptor* descP,                      \
-                          ErlNifPid         pid,                        \
-                          ERL_NIF_TERM      ref)                        \
-    {                                                                   \
-        SocketRequestQueueElement* e    = MALLOC(sizeof(SocketRequestQueueElement)); \
-        SocketRequestor*           reqP = &e->data;                     \
-                                                                        \
-        reqP->pid = pid;                                                \
-        reqP->ref = enif_make_copy(descP->env, ref);                    \
-                                                                        \
-        if (MONP("reader_push -> " #F " request",                       \
-                 env, descP, &pid, &reqP->mon) != 0) {                  \
-            FREE(reqP);                                                 \
-            return esock_make_error(env, atom_exmon);                   \
-        }                                                               \
-                                                                        \
-        qpush(&descP->Q, e);                                            \
-                                                                        \
-        return esock_make_error(env, esock_atom_eagain);                \
+#define REQ_PUSH_FUNC_DECL(F, Q)                                       \
+    static                                                             \
+    ERL_NIF_TERM F##_push(ErlNifEnv*       env,                        \
+                          ESockDescriptor* descP,                      \
+                          ErlNifPid        pid,                        \
+                          ERL_NIF_TERM     ref)                        \
+    {                                                                  \
+        ESockRequestQueueElement* e    = MALLOC(sizeof(ESockRequestQueueElement)); \
+        ESockRequestor*           reqP = &e->data;                     \
+                                                                       \
+        reqP->pid = pid;                                               \
+        if (MONP("reader_push -> " #F " request",                      \
+                 env, descP, &pid, &reqP->mon) != 0) {                 \
+            FREE(reqP);                                                \
+            return esock_make_error(env, atom_exmon);                  \
+        }                                                              \
+        reqP->env = esock_alloc_env(#F "_push");                                  \
+        reqP->ref = enif_make_copy(reqP->env, ref);                    \
+                                                                       \
+        qpush(&descP->Q, e);                                           \
+                                                                       \
+        return esock_make_error(env, esock_atom_eagain);               \
     }
 REQ_PUSH_FUNCS
 #undef REQ_PUSH_FUNC_DECL
@@ -17221,13 +17772,13 @@ REQ_PUSH_FUNCS
     REQ_POP_FUNC_DECL(writer,   writersQ)   \
     REQ_POP_FUNC_DECL(reader,   readersQ)
 
-#define REQ_POP_FUNC_DECL(F, Q)                 \
-    static                                      \
-    BOOLEAN_T F##_pop(ErlNifEnv*        env,    \
-                      SocketDescriptor* descP,  \
-                      SocketRequestor*  reqP)   \
-    {                                           \
-        return requestor_pop(&descP->Q, reqP);  \
+#define REQ_POP_FUNC_DECL(F, Q)                \
+    static                                     \
+    BOOLEAN_T F##_pop(ErlNifEnv*       env,    \
+                      ESockDescriptor* descP,  \
+                      ESockRequestor*  reqP)   \
+    {                                          \
+        return requestor_pop(&descP->Q, reqP); \
     }
 REQ_POP_FUNCS
 #undef REQ_POP_FUNC_DECL
@@ -17247,14 +17798,14 @@ REQ_POP_FUNCS
     REQ_UNQUEUE_FUNC_DECL(writer,   writersQ)   \
     REQ_UNQUEUE_FUNC_DECL(reader,   readersQ)
 
-#define REQ_UNQUEUE_FUNC_DECL(F, Q)                             \
-    static                                                      \
-    BOOLEAN_T F##_unqueue(ErlNifEnv*        env,                \
-                          SocketDescriptor* descP,              \
-                          const ErlNifPid*  pid)                \
-    {                                                           \
-        return qunqueue(env, descP, "qunqueue -> waiting " #F,  \
-                        &descP->Q, pid);                        \
+#define REQ_UNQUEUE_FUNC_DECL(F, Q)                            \
+    static                                                     \
+    BOOLEAN_T F##_unqueue(ErlNifEnv*       env,                \
+                          ESockDescriptor* descP,              \
+                          const ErlNifPid* pid)                \
+    {                                                          \
+        return qunqueue(env, descP, "qunqueue -> waiting " #F, \
+                        &descP->Q, pid);                       \
     }
 REQ_UNQUEUE_FUNCS
 #undef REQ_UNQUEUE_FUNC_DECL
@@ -17266,21 +17817,23 @@ REQ_UNQUEUE_FUNCS
  * Pop an requestor from its queue.
  */
 static
-BOOLEAN_T requestor_pop(SocketRequestQueue* q,
-                        SocketRequestor*    reqP)
+BOOLEAN_T requestor_pop(ESockRequestQueue* q,
+                        ESockRequestor*    reqP)
 {
-    SocketRequestQueueElement* e = qpop(q);
+    ESockRequestQueueElement* e = qpop(q);
 
     if (e != NULL) {
         reqP->pid = e->data.pid;
         reqP->mon = e->data.mon;
+        reqP->env = e->data.env;
         reqP->ref = e->data.ref;
         FREE(e);
         return TRUE;
     } else {
-        /* (writers) Queue was empty */
+        /* Queue was empty */
         enif_set_pid_undefined(&reqP->pid);
-        // *reqP->mon = NULL; we have no null value for monitors
+        MON_INIT(&reqP->mon);
+        reqP->env = NULL;
         reqP->ref = esock_atom_undefined; // Just in case
         return FALSE;
     }
@@ -17289,11 +17842,11 @@ BOOLEAN_T requestor_pop(SocketRequestQueue* q,
 
 
 static
-BOOLEAN_T qsearch4pid(ErlNifEnv*          env,
-                      SocketRequestQueue* q,
-                      ErlNifPid*          pid)
+BOOLEAN_T qsearch4pid(ErlNifEnv*         env,
+                      ESockRequestQueue* q,
+                      ErlNifPid*         pid)
 {
-    SocketRequestQueueElement* tmp = q->first;
+    ESockRequestQueueElement* tmp = q->first;
     
     while (tmp != NULL) {
         if (COMPARE_PIDS(&tmp->data.pid, pid) == 0)
@@ -17307,8 +17860,8 @@ BOOLEAN_T qsearch4pid(ErlNifEnv*          env,
 
 
 static
-void qpush(SocketRequestQueue*        q,
-           SocketRequestQueueElement* e)
+void qpush(ESockRequestQueue*        q,
+           ESockRequestQueueElement* e)
 {
     if (q->first != NULL) {
         q->last->nextP = e;
@@ -17323,9 +17876,9 @@ void qpush(SocketRequestQueue*        q,
  
  
 static
-SocketRequestQueueElement* qpop(SocketRequestQueue* q)
+ESockRequestQueueElement* qpop(ESockRequestQueue* q)
 {
-    SocketRequestQueueElement* e = q->first;
+    ESockRequestQueueElement* e = q->first;
     
     if (e != NULL) {
         /* Atleast one element in the queue */
@@ -17344,14 +17897,14 @@ SocketRequestQueueElement* qpop(SocketRequestQueue* q)
 
 
 static
-BOOLEAN_T qunqueue(ErlNifEnv*          env,
-                   SocketDescriptor*   descP,
-                   const char*         slogan,
-                   SocketRequestQueue* q,
-                   const ErlNifPid*    pid)
+BOOLEAN_T qunqueue(ErlNifEnv*         env,
+                   ESockDescriptor*   descP,
+                   const char*        slogan,
+                   ESockRequestQueue* q,
+                   const ErlNifPid*   pid)
 {
-    SocketRequestQueueElement* e = q->first;
-    SocketRequestQueueElement* p = NULL;
+    ESockRequestQueueElement* e = q->first;
+    ESockRequestQueueElement* p = NULL;
 
     /* Check if it was one of the waiting acceptor processes */
     while (e != NULL) {
@@ -17446,11 +17999,11 @@ void cnt_dec(Uint32* cnt, Uint32 dec)
 #if !defined(__WIN32__)
 
 static
-int esock_monitor(const char*       slogan,
-                  ErlNifEnv*        env,
-                  SocketDescriptor* descP,
-                  const ErlNifPid*  pid,
-                  ESockMonitor*     monP)
+int esock_monitor(const char*      slogan,
+                  ErlNifEnv*       env,
+                  ESockDescriptor* descP,
+                  const ErlNifPid* pid,
+                  ESockMonitor*    monP)
 {
     int res;
 
@@ -17458,10 +18011,10 @@ int esock_monitor(const char*       slogan,
     res = enif_monitor_process(env, descP, pid, &monP->mon);
 
     if (res != 0) {
-        monP->is_active = 0;
+        monP->isActive = FALSE;
         SSDBG( descP, ("SOCKET", "[%d] monitor failed: %d\r\n", descP->sock, res) );
     } else {
-        monP->is_active = 1;
+        monP->isActive = TRUE;
     }
 
     return res;
@@ -17469,14 +18022,14 @@ int esock_monitor(const char*       slogan,
 
 
 static
-int esock_demonitor(const char*       slogan,
-                    ErlNifEnv*        env,
-                    SocketDescriptor* descP,
-                    ESockMonitor*     monP)
+int esock_demonitor(const char*      slogan,
+                    ErlNifEnv*       env,
+                    ESockDescriptor* descP,
+                    ESockMonitor*    monP)
 {
     int res;
 
-    if (!monP->is_active)
+    if (!monP->isActive)
         return 1;
 
     SSDBG( descP, ("SOCKET", "[%d] %s: try demonitor\r\n", descP->sock, slogan) );
@@ -17497,20 +18050,23 @@ int esock_demonitor(const char*       slogan,
 static
 void esock_monitor_init(ESockMonitor* monP)
 {
-    monP->is_active = 0;
+    monP->isActive = FALSE;
 }
+
+
+static
+ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv* env, const ESockMonitor* monP)
+{
+    if (monP->isActive)
+        return enif_make_monitor_term(env, &monP->mon);
+    else
+        return esock_atom_undefined;
+}
+
+
 
 #endif // if !defined(__WIN32__)
 
-
-/*
-static
-int esock_monitor_compare(const ErlNifMonitor* mon1,
-                          const ESockMonitor*  mon2)
-{
-    return enif_compare_monitors(mon1, &mon2->mon);
-}
-*/
 
 
 /* ----------------------------------------------------------------------
@@ -17526,16 +18082,13 @@ static
 void socket_dtor(ErlNifEnv* env, void* obj)
 {
 #if !defined(__WIN32__)    
-  SocketDescriptor* descP = (SocketDescriptor*) obj;
-
-  enif_clear_env(descP->env);
-  enif_free_env(descP->env);
-  descP->env = NULL;
+  ESockDescriptor* descP = (ESockDescriptor*) obj;
 
   MDESTROY(descP->writeMtx);
   MDESTROY(descP->readMtx);
   MDESTROY(descP->accMtx);
   MDESTROY(descP->closeMtx);
+  MDESTROY(descP->cfgMtx);
 #endif
 }
 
@@ -17559,8 +18112,8 @@ static
 void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 {
 #if !defined(__WIN32__)
-    SocketDescriptor* descP = (SocketDescriptor*) obj;
-    ERL_NIF_TERM      sockRef;
+    ESockDescriptor* descP = (ESockDescriptor*) obj;
+    ERL_NIF_TERM     sockRef;
 
     SSDBG( descP,
            ("SOCKET", "socket_stop -> entry when %s"
@@ -17573,6 +18126,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     MLOCK(descP->writeMtx);
     MLOCK(descP->readMtx);
     MLOCK(descP->accMtx);
+    MLOCK(descP->cfgMtx);
     if (!is_direct_call) MLOCK(descP->closeMtx);
     
     SSDBG( descP, ("SOCKET", "socket_stop -> "
@@ -17622,37 +18176,19 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
      */
 
     if (descP->currentWriterP != NULL) {
+
         /* We have a (current) writer and *may* therefor also have
          * writers waiting.
          */
 
-        DEMONP("socket_stop -> current writer",
-               env, descP, &descP->currentWriter.mon);
+        socket_stop_handle_current(env,
+                                   "writer",
+                                   descP, sockRef, &descP->currentWriter);
 
-        SSDBG( descP, ("SOCKET", "socket_stop -> handle current writer\r\n") );
-        if (COMPARE_PIDS(&descP->closerPid, &descP->currentWriter.pid) != 0) {
-            SSDBG( descP, ("SOCKET", "socket_stop -> "
-                           "send abort message to current writer %T\r\n",
-                           descP->currentWriter.pid) );
-            if (esock_send_abort_msg(env,
-                                     sockRef,
-                                     descP->currentWriter.ref,
-                                     atom_closed,
-                                     &descP->currentWriter.pid) != NULL) {
-                /* Shall we really do this? 
-                 * This happens if the controlling process has been killed!
-                 */
-                esock_warning_msg("Failed sending abort (%T) message to "
-                                  "current writer %T\r\n",
-                                  descP->currentWriter.ref,
-                                  descP->currentWriter.pid);
-            }
-        }
-        
         /* And also deal with the waiting writers (in the same way) */
         SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting writer(s)\r\n") );
         inform_waiting_procs(env, "writer",
-                             descP, &descP->writersQ, TRUE, atom_closed);
+                             descP, sockRef, &descP->writersQ, TRUE, atom_closed);
     }
 
 
@@ -17669,38 +18205,14 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * readers waiting.
          */
         
-        DEMONP("socket_stop -> current reader",
-               env, descP, &descP->currentReader.mon);
+        socket_stop_handle_current(env,
+                                   "reader",
+                                   descP, sockRef, &descP->currentReader);
 
-        SSDBG( descP, ("SOCKET", "socket_stop -> handle current reader\r\n") );
-        if (COMPARE_PIDS(&descP->closerPid, &descP->currentReader.pid) != 0) {
-            SSDBG( descP, ("SOCKET", "socket_stop -> "
-                           "send abort message to current reader %T\r\n",
-                           descP->currentReader.pid) );
-            /*
-            esock_dbg_printf("SOCKET", "socket_stop -> "
-                             "send abort message to current reader %T\r\n",
-                             descP->currentReader.pid);
-            */
-            if (esock_send_abort_msg(env,
-                                     sockRef,
-                                     descP->currentReader.ref,
-                                     atom_closed,
-                                     &descP->currentReader.pid) != NULL) {
-                /* Shall we really do this? 
-                 * This happens if the controlling process has been killed!
-                 */
-                esock_warning_msg("Failed sending abort (%T) message to "
-                                  "current reader %T\r\n",
-                                  descP->currentReader.ref,
-                                  descP->currentReader.pid);
-            }
-        }
-        
         /* And also deal with the waiting readers (in the same way) */
         SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting reader(s)\r\n") );
         inform_waiting_procs(env, "reader",
-                             descP, &descP->readersQ, TRUE, atom_closed);
+                             descP, sockRef, &descP->readersQ, TRUE, atom_closed);
     }
 
 
@@ -17713,37 +18225,19 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
      */
 
     if (descP->currentAcceptorP != NULL) {
+
         /* We have a (current) acceptor and *may* therefor also have
          * acceptors waiting.
          */
-        
-        DEMONP("socket_stop -> current acceptor",
-               env, descP, &descP->currentAcceptor.mon);
 
-        SSDBG( descP, ("SOCKET", "socket_stop -> handle current acceptor\r\n") );
-        if (COMPARE_PIDS(&descP->closerPid, &descP->currentAcceptor.pid) != 0) {
-            SSDBG( descP, ("SOCKET", "socket_stop -> "
-                           "send abort message to current acceptor %T\r\n",
-                           descP->currentAcceptor.pid) );
-            if (esock_send_abort_msg(env,
-                                     sockRef,
-                                     descP->currentAcceptor.ref,
-                                     atom_closed,
-                                     &descP->currentAcceptor.pid) != NULL) {
-                /* Shall we really do this? 
-                 * This happens if the controlling process has been killed!
-                 */
-                esock_warning_msg("Failed sending abort (%T) message to "
-                                  "current acceptor %T\r\n",
-                                  descP->currentAcceptor.ref,
-                                  descP->currentAcceptor.pid);
-            }
-        }
-        
+        socket_stop_handle_current(env,
+                                   "acceptor",
+                                   descP, sockRef, &descP->currentAcceptor);
+
         /* And also deal with the waiting acceptors (in the same way) */
         SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting acceptor(s)\r\n") );
         inform_waiting_procs(env, "acceptor",
-                             descP, &descP->acceptorsQ, TRUE, atom_closed);
+                             descP, sockRef, &descP->acceptorsQ, TRUE, atom_closed);
     }
     
     
@@ -17756,15 +18250,15 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
      */
 
     if (descP->sock != INVALID_SOCKET) {
-        
+
         if (descP->closeLocal) {
 
             if (!is_direct_call) {
                 
                 /* +++ send close message to the waiting process +++ */
 
-                esock_send_close_msg(env, descP, sockRef);
-                
+                esock_send_close_msg(env, descP, &descP->closerPid);
+
                 DEMONP("socket_stop -> closer", env, descP, &descP->closerMon);
 
             } else {
@@ -17773,11 +18267,8 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                  * since the message send takes care of it if scheduled.
                  */
 
-                if (descP->closeEnv != NULL) {
-                    enif_clear_env(descP->closeEnv);
-                    enif_free_env(descP->closeEnv);
-                    descP->closeEnv = NULL;
-                }
+                if (descP->closeEnv != NULL)
+                    esock_free_env("socket_stop - close-env", descP->closeEnv);
 
             }
         }
@@ -17787,6 +18278,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     SSDBG( descP, ("SOCKET", "socket_stop -> unlock all mutex(s)\r\n") );
 
     if (!is_direct_call) MUNLOCK(descP->closeMtx);
+    MUNLOCK(descP->cfgMtx);
     MUNLOCK(descP->accMtx);
     MUNLOCK(descP->readMtx);
     MUNLOCK(descP->writeMtx);
@@ -17799,29 +18291,60 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 
 
 
+/* *** socket_stop_handle_current ***
+ *
+ * Handle current requestor (reader, writer or acceptor) during
+ * socket stop.
+ */
+#if !defined(__WIN32__)
+static
+void socket_stop_handle_current(ErlNifEnv*       env,
+                                const char*      role,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                ESockRequestor*  reqP)
+{
+    SSDBG( descP, ("SOCKET", "socket_stop -> handle current %s\r\n", role) );
+
+    DEMONP("socket_stop_handle_current", env, descP, &reqP->mon);
+
+    if (COMPARE_PIDS(&descP->closerPid, &reqP->pid) != 0) {
+
+        SSDBG( descP, ("SOCKET", "socket_stop_handle_current -> "
+                       "send abort message to current %s %T\r\n",
+                       role, reqP->pid) );
+
+        if (esock_send_abort_msg(env, sockRef, reqP->ref, reqP->env,
+                                 atom_closed, &reqP->pid) != NULL) {
+
+            esock_warning_msg("Failed sending abort (%T) message to "
+                              "current %s %T\r\n",
+                              reqP->ref, role, reqP->pid);
+        }
+    }
+}
+
+
+
 /* This function traverse the queue and sends the specified
  * nif_abort message with the specified reason to each member,
  * and if the 'free' argument is TRUE, the queue will be emptied.
  */
-#if !defined(__WIN32__)
-static void inform_waiting_procs(ErlNifEnv*          env,
-                                 char*               role,
-                                 SocketDescriptor*   descP,
-                                 SocketRequestQueue* q,
-                                 BOOLEAN_T           free,
-                                 ERL_NIF_TERM        reason)
+static
+void inform_waiting_procs(ErlNifEnv*         env,
+                          const char*        role,
+                          ESockDescriptor*   descP,
+                          ERL_NIF_TERM       sockRef,
+                          ESockRequestQueue* q,
+                          BOOLEAN_T          free,
+                          ERL_NIF_TERM       reason)
 {
-    SocketRequestQueueElement* currentP = q->first;
-    SocketRequestQueueElement* nextP;
-    ERL_NIF_TERM               sockRef = enif_make_resource(env, descP);
+    ESockRequestQueueElement* currentP = q->first;
+    ESockRequestQueueElement* nextP;
 
-    /*
-    esock_dbg_printf("SOCKET", "inform_waiting_procs -> entry with: "
-                     "\r\n   role:   %s"
-                     "\r\n   free:   %s"
-                     "\r\n   reason: %T"
-                     "\r\n", role, B2S(free), reason);
-    */
+    SSDBG( descP,
+           ("SOCKET",
+            "inform_waiting_procs -> handle waiting %s(s)\r\n", role) );
 
     while (currentP != NULL) {
 
@@ -17835,18 +18358,14 @@ static void inform_waiting_procs(ErlNifEnv*          env,
          */
 
         SSDBG( descP,
-               ("SOCKET", "inform_waiting_procs -> abort request %T (from %T)\r\n",
+               ("SOCKET",
+                "inform_waiting_procs -> abort request %T (from %T)\r\n",
                 currentP->data.ref, currentP->data.pid) );
-
-        /*
-        esock_dbg_printf("SOCKET", "inform_waiting_procs -> "
-                         "try sending abort to %s %T "
-                         "\r\n", role, currentP->data.pid);
-        */
 
         if (esock_send_abort_msg(env,
                                  sockRef,
                                  currentP->data.ref,
+                                 currentP->data.env,
                                  reason,
                                  &currentP->data.pid) != NULL) {
 
@@ -17884,9 +18403,9 @@ void socket_down(ErlNifEnv*           env,
                  const ErlNifMonitor* mon)
 {
 #if !defined(__WIN32__)
-    SocketDescriptor* descP = (SocketDescriptor*) obj;
-    int               sres;
-    ERL_NIF_TERM      sockRef;
+    ESockDescriptor* descP = (ESockDescriptor*) obj;
+    int              sres;
+    ERL_NIF_TERM     sockRef;
 
     SSDBG( descP, ("SOCKET", "socket_down -> entry with"
                    "\r\n   sock:  %d"
@@ -17912,7 +18431,7 @@ void socket_down(ErlNifEnv*           env,
             descP->closeLocal = TRUE;
             descP->closerPid  = *pid;
             MON_INIT(&descP->closerMon);
-            
+
             sres = esock_select_stop(env, descP->sock, descP);
 
             if (sres & ERL_NIF_SELECT_STOP_CALLED) {
@@ -18035,10 +18554,10 @@ void socket_down(ErlNifEnv*           env,
  */
 #if !defined(__WIN32__)
 static
-void socket_down_acceptor(ErlNifEnv*        env,
-                          SocketDescriptor* descP,
-                          ERL_NIF_TERM      sockRef,
-                          const ErlNifPid*  pid)
+void socket_down_acceptor(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     sockRef,
+                          const ErlNifPid* pid)
 {
     if (COMPARE_PIDS(&descP->currentAcceptor.pid, pid) == 0) {
         
@@ -18080,10 +18599,10 @@ void socket_down_acceptor(ErlNifEnv*        env,
  *
  */
 static
-void socket_down_writer(ErlNifEnv*        env,
-                        SocketDescriptor* descP,
-                        ERL_NIF_TERM      sockRef,
-                        const ErlNifPid*  pid)
+void socket_down_writer(ErlNifEnv*       env,
+                        ESockDescriptor* descP,
+                        ERL_NIF_TERM     sockRef,
+                        const ErlNifPid* pid)
 {
     if (COMPARE_PIDS(&descP->currentWriter.pid, pid) == 0) {
         
@@ -18121,10 +18640,10 @@ void socket_down_writer(ErlNifEnv*        env,
  *
  */
 static
-void socket_down_reader(ErlNifEnv*        env,
-                        SocketDescriptor* descP,
-                        ERL_NIF_TERM      sockRef,
-                        const ErlNifPid*  pid)
+void socket_down_reader(ErlNifEnv*       env,
+                        ESockDescriptor* descP,
+                        ERL_NIF_TERM     sockRef,
+                        const ErlNifPid* pid)
 {
     if (COMPARE_PIDS(&descP->currentReader.pid, pid) == 0) {
         

@@ -213,10 +213,10 @@ char* esock_decode_iov(ErlNifEnv*    env,
  */
 
 extern
-char* esock_decode_sockaddr(ErlNifEnv*     env,
-                            ERL_NIF_TERM   eSockAddr,
-                            SocketAddress* sockAddrP,
-                            unsigned int*  addrLen)
+char* esock_decode_sockaddr(ErlNifEnv*    env,
+                            ERL_NIF_TERM  eSockAddr,
+                            ESockAddress* sockAddrP,
+                            unsigned int* addrLen)
 {
     ERL_NIF_TERM efam;
     int          fam;
@@ -279,10 +279,10 @@ char* esock_decode_sockaddr(ErlNifEnv*     env,
  */
 
 extern
-char* esock_encode_sockaddr(ErlNifEnv*     env,
-                            SocketAddress* sockAddrP,
-                            unsigned int   addrLen,
-                            ERL_NIF_TERM*  eSockAddr)
+char* esock_encode_sockaddr(ErlNifEnv*    env,
+                            ESockAddress* sockAddrP,
+                            unsigned int  addrLen,
+                            ERL_NIF_TERM* eSockAddr)
 {
     char* xres;
 
