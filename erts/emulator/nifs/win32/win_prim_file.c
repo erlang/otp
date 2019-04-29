@@ -773,77 +773,10 @@ static int is_name_surrogate(const efile_path_t *path) {
      return result;
 }
 
-posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_fileinfo_t *result) {
-    BY_HANDLE_FILE_INFORMATION native_file_info;
+static void build_file_info(BY_HANDLE_FILE_INFORMATION *native_file_info, const efile_path_t *path, int is_link, efile_fileinfo_t *result) {
     DWORD attributes;
-    int is_link;
 
-    sys_memset(&native_file_info, 0, sizeof(native_file_info));
-    is_link = 0;
-
-    attributes = GetFileAttributesW((WCHAR*)path->data);
-
-    if(attributes == INVALID_FILE_ATTRIBUTES) {
-        DWORD last_error = GetLastError();
-
-        /* Querying a network share root fails with ERROR_BAD_NETPATH, so we'll
-         * fake it as a directory just like local roots. */
-        if(!is_path_root(path) || last_error != ERROR_BAD_NETPATH) {
-            return windows_to_posix_errno(last_error);
-        }
-
-        attributes = FILE_ATTRIBUTE_DIRECTORY;
-    } else if(is_path_root(path)) {
-        /* Local (or mounted) roots can be queried with GetFileAttributesW but
-         * lack support for GetFileInformationByHandle, so we'll skip that
-         * part. */
-    } else {
-        HANDLE handle;
-
-        if(attributes & FILE_ATTRIBUTE_REPARSE_POINT) {
-            is_link = is_name_surrogate(path);
-        }
-
-        if(follow_links && is_link) {
-            posix_errno_t posix_errno;
-            efile_path_t resolved_path;
-
-            posix_errno = internal_read_link(path, &resolved_path);
-
-            if(posix_errno != 0) {
-                return posix_errno;
-            }
-
-            return efile_read_info(&resolved_path, 0, result);
-        }
-
-        handle = CreateFileW((const WCHAR*)path->data, GENERIC_READ,
-            FILE_SHARE_FLAGS, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS,
-            NULL);
-
-        /* The old driver never cared whether this succeeded. */
-        if(handle != INVALID_HANDLE_VALUE) {
-            GetFileInformationByHandle(handle, &native_file_info);
-            CloseHandle(handle);
-        }
-
-        FILETIME_TO_EPOCH(result->m_time, native_file_info.ftLastWriteTime);
-        FILETIME_TO_EPOCH(result->a_time, native_file_info.ftLastAccessTime);
-        FILETIME_TO_EPOCH(result->c_time, native_file_info.ftCreationTime);
-
-        if(result->m_time == -EPOCH_DIFFERENCE) {
-            /* Default to 1970 just like the old driver. */
-            result->m_time = 0;
-        }
-
-        if(result->a_time == -EPOCH_DIFFERENCE) {
-            result->a_time = result->m_time;
-        }
-
-        if(result->c_time == -EPOCH_DIFFERENCE) {
-            result->c_time = result->m_time;
-        }
-    }
+    attributes = native_file_info->dwFileAttributes;
 
     if(is_link) {
         result->type = EFILE_FILETYPE_SYMLINK;
@@ -875,16 +808,135 @@ posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_
     result->mode |= (result->mode & 0700) >> 6;
 
     result->size =
-        ((Uint64)native_file_info.nFileSizeHigh << 32ull) |
-        (Uint64)native_file_info.nFileSizeLow;
-
-    result->links = MAX(1, native_file_info.nNumberOfLinks);
+        ((Uint64)native_file_info->nFileSizeHigh << 32ull) |
+        (Uint64)native_file_info->nFileSizeLow;
+    result->links = MAX(1, native_file_info->nNumberOfLinks);
 
     result->major_device = get_drive_number(path);
     result->minor_device = 0;
     result->inode = 0;
     result->uid = 0;
     result->gid = 0;
+}
+
+static void build_file_info_times(BY_HANDLE_FILE_INFORMATION *native_file_info, efile_fileinfo_t *result) {
+    FILETIME_TO_EPOCH(result->m_time, native_file_info->ftLastWriteTime);
+    FILETIME_TO_EPOCH(result->a_time, native_file_info->ftLastAccessTime);
+    FILETIME_TO_EPOCH(result->c_time, native_file_info->ftCreationTime);
+
+    if(result->m_time == -EPOCH_DIFFERENCE) {
+        /* Default to 1970 just like the old driver. */
+        result->m_time = 0;
+    }
+
+    if(result->a_time == -EPOCH_DIFFERENCE) {
+        result->a_time = result->m_time;
+    }
+
+    if(result->c_time == -EPOCH_DIFFERENCE) {
+        result->c_time = result->m_time;
+    }
+}
+
+posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_fileinfo_t *result) {
+    BY_HANDLE_FILE_INFORMATION native_file_info;
+    DWORD attributes;
+    int is_link;
+
+    sys_memset(&native_file_info, 0, sizeof(native_file_info));
+    is_link = 0;
+
+    attributes = GetFileAttributesW((WCHAR*)path->data);
+
+    if(attributes == INVALID_FILE_ATTRIBUTES) {
+        DWORD last_error = GetLastError();
+
+        /* Querying a network share root fails with ERROR_BAD_NETPATH, so we'll
+         * fake it as a directory just like local roots. */
+        if(!is_path_root(path) || last_error != ERROR_BAD_NETPATH) {
+            return windows_to_posix_errno(last_error);
+        }
+
+        native_file_info.dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+    } else if(is_path_root(path)) {
+        /* Local (or mounted) roots can be queried with GetFileAttributesW but
+         * lack support for GetFileInformationByHandle, so we'll skip that
+         * part. */
+        native_file_info.dwFileAttributes = attributes;
+    } else {
+        HANDLE handle;
+        DWORD last_error;
+        DWORD flags;
+
+        if(attributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+            is_link = is_name_surrogate(path);
+        }
+
+        flags = FILE_FLAG_BACKUP_SEMANTICS;
+        if(!follow_links && is_link) {
+            flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+        }
+
+        handle = CreateFileW((const WCHAR*)path->data, GENERIC_READ,
+            FILE_SHARE_FLAGS, NULL, OPEN_EXISTING, flags, NULL);
+        last_error = GetLastError();
+
+        if(handle == INVALID_HANDLE_VALUE) {
+            return windows_to_posix_errno(last_error);
+        }
+
+        if(follow_links && is_link) {
+            posix_errno_t posix_errno;
+            efile_path_t resolved_path;
+
+            posix_errno = internal_read_link(handle, &resolved_path);
+
+            CloseHandle(handle);
+
+            if(posix_errno != 0) {
+                return posix_errno;
+            }
+
+            return efile_read_info(&resolved_path, 0, result);
+        }
+
+        GetFileInformationByHandle(handle, &native_file_info);
+        CloseHandle(handle);
+
+        build_file_info_times(&native_file_info, result);
+    }
+
+    build_file_info(&native_file_info, path, is_link, result);
+
+    return 0;
+}
+
+posix_errno_t efile_read_handle_info(efile_data_t *d, efile_fileinfo_t *result) {
+    efile_win_t *w = (efile_win_t*)d;
+    HANDLE handle;
+    BY_HANDLE_FILE_INFORMATION native_file_info;
+    posix_errno_t posix_errno;
+    efile_path_t path;
+    int length;
+
+    sys_memset(&native_file_info, 0, sizeof(native_file_info));
+
+    posix_errno = internal_read_link(w->handle, &path);
+    if(posix_errno != 0) {
+        return posix_errno;
+    }
+
+    if(GetFileInformationByHandle(w->handle, &native_file_info)) {
+        build_file_info_times(&native_file_info, result);
+    } else if(is_path_root(&path)) {
+        /* GetFileInformationByHandle is not supported on path roots, so
+         * fall back to efile_read_info. */
+        return efile_read_info(&path, 0, result);
+    } else {
+        return windows_to_posix_errno(GetLastError());
+    }
+
+    build_file_info(&native_file_info, &path, 0, result);
 
     return 0;
 }
@@ -963,39 +1015,26 @@ posix_errno_t efile_set_time(const efile_path_t *path, Sint64 a_time, Sint64 m_t
     return windows_to_posix_errno(last_error);
 }
 
-static posix_errno_t internal_read_link(const efile_path_t *path, efile_path_t *result) {
+static posix_errno_t internal_read_link(HANDLE link_handle, efile_path_t *result) {
     DWORD required_length, actual_length;
-    HANDLE link_handle;
     DWORD last_error;
-
-    link_handle = CreateFileW((WCHAR*)path->data, GENERIC_READ,
-        FILE_SHARE_FLAGS, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
-    last_error = GetLastError();
-
-    if(link_handle == INVALID_HANDLE_VALUE) {
-        return windows_to_posix_errno(last_error);
-    }
 
     required_length = GetFinalPathNameByHandleW(link_handle, NULL, 0, 0);
     last_error = GetLastError();
 
     if(required_length <= 0) {
-        CloseHandle(link_handle);
         return windows_to_posix_errno(last_error);
     }
 
     /* Unlike many other path functions (eg. GetFullPathNameW), this one
      * includes the NUL terminator in its required length. */
     if(!enif_alloc_binary(required_length * sizeof(WCHAR), result)) {
-        CloseHandle(link_handle);
         return ENOMEM;
     }
 
     actual_length = GetFinalPathNameByHandleW(link_handle,
         (WCHAR*)result->data, required_length, 0);
     last_error = GetLastError();
-
-    CloseHandle(link_handle);
 
     if(actual_length == 0 || actual_length >= required_length) {
         enif_release_binary(result);
@@ -1014,6 +1053,8 @@ posix_errno_t efile_read_link(ErlNifEnv *env, const efile_path_t *path, ERL_NIF_
     posix_errno_t posix_errno;
     ErlNifBinary result_bin;
     DWORD attributes;
+    HANDLE handle;
+    DWORD last_error;
 
     ASSERT_PATH_FORMAT(path);
 
@@ -1029,7 +1070,17 @@ posix_errno_t efile_read_link(ErlNifEnv *env, const efile_path_t *path, ERL_NIF_
         return EINVAL;
     }
 
-    posix_errno = internal_read_link(path, &result_bin);
+    handle = CreateFileW((WCHAR*)path->data, GENERIC_READ,
+        FILE_SHARE_FLAGS, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS,
+        NULL);
+    last_error = GetLastError();
+
+    if(handle == INVALID_HANDLE_VALUE) {
+        return windows_to_posix_errno(last_error);
+    }
+    posix_errno = internal_read_link(handle, &result_bin);
+
+    CloseHandle(handle);
 
     if(posix_errno == 0) {
         if(!normalize_path_result(&result_bin)) {
