@@ -701,7 +701,8 @@ remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
         if (slot < ERTS_TW_SOON_WHEEL_END_SLOT) {
             if (empty_slot
                 && tiw->true_next_timeout_time
-                && p->timeout_pos == tiw->next_timeout_pos) {
+                && p->timeout_pos == tiw->next_timeout_pos
+                && tiw->yield_slot == ERTS_TW_SLOT_INACTIVE) {
                 tiw->true_next_timeout_time = 0;
             }
             if (--tiw->soon.nto == 0)
@@ -714,7 +715,8 @@ remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
                 ErtsMonotonicTime tpos = tiw->later.min_tpos;
                 tpos &= ERTS_TW_LATER_WHEEL_POS_MASK;
                 tpos -= ERTS_TW_LATER_WHEEL_SLOT_SIZE;
-                if (tpos == tiw->next_timeout_pos)
+                if (tpos == tiw->next_timeout_pos
+                    && tiw->yield_slot == ERTS_TW_SLOT_INACTIVE)
                     tiw->true_next_timeout_time = 0;
             }
             if (--tiw->later.nto == 0) {
