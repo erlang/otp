@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -386,6 +386,8 @@ format_error({redefine_callback, {F, A}}) ->
 format_error({bad_callback, {M, F, A}}) ->
     io_lib:format("explicit module not allowed for callback ~tw:~tw/~w",
                   [M, F, A]);
+format_error({bad_module, {M, F, A}}) ->
+    io_lib:format("spec for function ~w:~tw/~w from other module", [M, F, A]);
 format_error({spec_fun_undefined, {F, A}}) ->
     io_lib:format("spec for undefined function ~tw/~w", [F, A]);
 format_error({missing_spec, {F,A}}) ->
@@ -3010,7 +3012,13 @@ spec_decl(Line, MFA0, TypeSpecs, St00 = #lint{specs = Specs, module = Mod}) ->
     St1 = St0#lint{specs = dict:store(MFA, Line, Specs)},
     case dict:is_key(MFA, Specs) of
 	true -> add_error(Line, {redefine_spec, MFA0}, St1);
-	false -> check_specs(TypeSpecs, spec_wrong_arity, Arity, St1)
+	false ->
+            case MFA of
+                {Mod, _, _} ->
+                    check_specs(TypeSpecs, spec_wrong_arity, Arity, St1);
+                _ ->
+                    add_error(Line, {bad_module, MFA}, St1)
+            end
     end.
 
 %% callback_decl(Line, Fun, Types, State) -> State.

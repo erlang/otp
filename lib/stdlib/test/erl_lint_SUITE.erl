@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@
          non_latin1_module/1, otp_14323/1,
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
-         external_funs/1,otp_15456/1]).
+         external_funs/1,otp_15456/1,otp_15563/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -90,7 +90,7 @@ all() ->
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
-     otp_15456].
+     otp_15456, otp_15563].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4010,6 +4010,8 @@ non_latin1_module(Config) ->
         format_error(non_latin1_module_unsupported),
     BadCallback =
         {bad_callback,{'кирилли́ческий атом','кирилли́ческий атом',0}},
+    BadModule =
+        {bad_module,{'кирилли́ческий атом','кирилли́ческий атом',0}},
     "explicit module not allowed for callback "
     "'кирилли́ческий атом':'кирилли́ческий атом'/0" =
         format_error(BadCallback),
@@ -4052,6 +4054,7 @@ non_latin1_module(Config) ->
              {11,erl_lint,illegal_guard_expr},
              {15,erl_lint,non_latin1_module_unsupported},
              {17,erl_lint,non_latin1_module_unsupported},
+             {17,erl_lint,BadModule},
              {20,erl_lint,non_latin1_module_unsupported},
              {23,erl_lint,non_latin1_module_unsupported},
              {25,erl_lint,non_latin1_module_unsupported}],
@@ -4227,6 +4230,21 @@ external_funs(Config) when is_list(Config) ->
            {warnings,[{2,erl_lint,{unused_var,'BugVar'}},
                       {5,erl_lint,{unused_var,'BugVar'}}]}}],
     run(Config, Ts),
+    ok.
+
+otp_15563(Config) when is_list(Config) ->
+    Ts = [{otp_15563,
+           <<"-type deep_list(A) :: [A | deep_list(A)].
+              -spec lists:flatten(deep_list(A)) -> [A].
+              -callback lists:concat([_]) -> string().
+              -spec ?MODULE:foo() -> any().
+              foo() -> a.
+           ">>,
+           [warn_unused_vars],
+           {errors,[{2,erl_lint,{bad_module,{lists,flatten,1}}},
+                    {3,erl_lint,{bad_callback,{lists,concat,1}}}],
+            []}}],
+    [] = run(Config, Ts),
     ok.
 
 format_error(E) ->
