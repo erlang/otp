@@ -3455,6 +3455,8 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
         obufsize -= size_obuf(obuf);
         if (reds < 0) {
             erts_de_runlock(dep);
+            if (obufsize)
+                erts_atomic_add_nob(&dep->qsize, (erts_aint_t) -obufsize);
             ERTS_BIF_YIELD1(bif_export[BIF_dist_ctrl_get_data_1],
                             BIF_P, BIF_ARG_1);
         }
