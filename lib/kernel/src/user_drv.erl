@@ -120,7 +120,7 @@ server1(Iport, Oport, Shell) ->
     {Curr,Shell1} =
 	case init:get_argument(remsh) of
 	    {ok,[[Node]]} ->
-		ANode = list_to_atom(Node),
+		ANode = list_to_atom(append_hostname(Node)),
 		RShell = {ANode,shell,start,[]},
 		RGr = group:start(self(), RShell, rem_sh_opts(ANode)),
 		{RGr,RShell};
@@ -138,6 +138,12 @@ server1(Iport, Oport, Shell) ->
 
     %% Enter the server loop.
     server_loop(Iport, Oport, Curr, User, Gr, {false, queue:new()}).
+
+append_hostname(Node) ->
+    case string:find(Node, "@") of
+	nomatch -> Node ++ string:find(atom_to_list(node()), "@");
+	_ -> Node
+    end.
 
 rem_sh_opts(Node) ->
     [{expand_fun,fun(B)-> rpc:call(Node,edlin_expand,expand,[B]) end}].
