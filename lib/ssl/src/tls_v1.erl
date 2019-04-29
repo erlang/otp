@@ -501,18 +501,18 @@ suites(3) ->
 suites(4) ->
     [?TLS_AES_256_GCM_SHA384,
      ?TLS_AES_128_GCM_SHA256,
-     ?TLS_CHACHA20_POLY1305_SHA256
+     ?TLS_CHACHA20_POLY1305_SHA256,
+     ?TLS_AES_128_CCM_SHA256
      %% Not supported
-     %% ?TLS_AES_128_CCM_SHA256,
      %% ?TLS_AES_128_CCM_8_SHA256
     ] ++ suites(3);
 
 suites('TLS_v1.3') ->
     [?TLS_AES_256_GCM_SHA384,
      ?TLS_AES_128_GCM_SHA256,
-     ?TLS_CHACHA20_POLY1305_SHA256
+     ?TLS_CHACHA20_POLY1305_SHA256,
+     ?TLS_AES_128_CCM_SHA256
      %% Not supported
-     %% ?TLS_AES_128_CCM_SHA256,
      %% ?TLS_AES_128_CCM_8_SHA256
     ].
 

@@ -133,7 +133,8 @@
     <list type="bulleted">
       <item>Key Exchange: ECDHE</item>
       <item>Groups: all standard groups supported for the Diffie-Hellman key exchange</item>
-      <item>Ciphers: TLS_AES_128_GCM_SHA256 and TLS_AES_256_GCM_SHA384</item>
+      <item>Ciphers: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384,
+      TLS_CHACHA20_POLY1305_SHA256 and TLS_AES_128_CCM_SHA256</item>
       <item>Signature Algorithms: RSA and RSA PSS</item>
       <item>Certificates: currently only certificates with RSA keys are supported</item>
     </list>
@@ -1967,8 +1968,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">SHOULD implement the TLS_CHACHA20_POLY1305_SHA256</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">22</cell>
       </row>
 
       <row>
@@ -2203,14 +2204,14 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">TLS_CHACHA20_POLY1305_SHA256</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">22</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">TLS_AES_128_CCM_SHA256</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle">22</cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>

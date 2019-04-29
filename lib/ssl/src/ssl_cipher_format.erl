@@ -955,12 +955,12 @@ suite_bin_to_map(?TLS_CHACHA20_POLY1305_SHA256) ->
     #{key_exchange => any,
       cipher => chacha20_poly1305,
       mac => aead,
-      prf => sha256}.
-%% suite_bin_to_map(?TLS_AES_128_CCM_SHA256) ->
-%%      #{key_exchange => any,
-%%        cipher => aes_128_ccm,
-%%        mac => aead
-%%        prf => sha256};
+      prf => sha256};
+suite_bin_to_map(?TLS_AES_128_CCM_SHA256) ->
+     #{key_exchange => any,
+       cipher => aes_128_ccm,
+       mac => aead,
+       prf => sha256}.
 %% suite_bin_to_map(?TLS_AES_128_CCM_8_SHA256) ->
 %%      #{key_exchange => any,
 %%       cipher => aes_128_ccm_8,
@@ -1690,12 +1690,12 @@ suite_map_to_bin(#{key_exchange := any,
       cipher := chacha20_poly1305,
       mac := aead,
       prf := sha256}) ->
-    ?TLS_CHACHA20_POLY1305_SHA256.
-%% suite_map_to_bin(#{key_exchange := any,
-%%       cipher := aes_128_ccm,
-%%       mac := aead,
-%%       prf := sha256}) ->
-%%     ?TLS_AES_128_CCM_SHA256;
+    ?TLS_CHACHA20_POLY1305_SHA256;
+suite_map_to_bin(#{key_exchange := any,
+      cipher := aes_128_ccm,
+      mac := aead,
+      prf := sha256}) ->
+    ?TLS_AES_128_CCM_SHA256.
 %% suite_map_to_bin(#{key_exchange := any,
 %%       cipher := aes_128_ccm_8,
 %%       mac := aead,
