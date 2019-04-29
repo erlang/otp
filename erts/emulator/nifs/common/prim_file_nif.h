@@ -170,6 +170,7 @@ int efile_close(efile_data_t *d, posix_errno_t *error);
 /* **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** */
 
 posix_errno_t efile_read_info(const efile_path_t *path, int follow_link, efile_fileinfo_t *result);
+posix_errno_t efile_read_handle_info(efile_data_t *d, efile_fileinfo_t *result);
 
 /** @brief Sets the file times to the given values. Refer to efile_fileinfo_t
  * for a description of each. */

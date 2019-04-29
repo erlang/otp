@@ -58,6 +58,8 @@
 -export([ file_info_basic_file/1, file_info_basic_directory/1,
 	  file_info_bad/1, file_info_times/1, file_write_file_info/1,
           file_wfi_helpers/1]).
+-export([ file_handle_info_basic_file/1, file_handle_info_basic_directory/1,
+	  file_handle_info_times/1]).
 -export([rename/1, access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1, exclusive/1]).
 -export([ e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
@@ -153,7 +155,10 @@ groups() ->
      {pos, [], [pos1, pos2, pos3]},
      {file_info, [],
       [file_info_basic_file, file_info_basic_directory,
-       file_info_bad, file_info_times, file_write_file_info,
+       file_info_bad, file_info_times,
+       file_handle_info_basic_file, file_handle_info_basic_directory,
+       file_handle_info_times,
+       file_write_file_info,
        file_wfi_helpers]},
      {consult, [], [consult1, path_consult]},
      {eval, [], [eval1, path_eval]},
@@ -1417,7 +1422,8 @@ file_info_basic_directory(Config) when is_list(Config) ->
         {win32, _} ->
             test_directory("/", read_write),
             test_directory("c:/", read_write),
-            test_directory("c:\\", read_write);
+            test_directory("c:\\", read_write),
+            test_directory("\\\\localhost\\c$", read_write);
         _ ->
             test_directory("/", read)
     end,
@@ -1548,6 +1554,180 @@ filter_atime(Atime, Config) ->
 	false ->
 	    Atime
     end.
+
+%% Test read_file_info on I/O devices.
+
+file_handle_info_basic_file(Config) when is_list(Config) ->
+    RootDir = proplists:get_value(priv_dir, Config),
+
+    %% Create a short file.
+    Name = filename:join(RootDir,
+			 atom_to_list(?MODULE)
+			 ++"_basic_test.fil"),
+    {ok,Fd1} = ?FILE_MODULE:open(Name, write),
+    io:put_chars(Fd1, "foo bar"),
+    ok = ?FILE_MODULE:close(Fd1),
+
+    %% Test that the file has the expected attributes.
+    %% The times are tricky, so we will save them to a separate test case.
+
+    {ok, Fd} = ?FILE_MODULE:open(Name, read),
+    {ok,FileInfo} = ?FILE_MODULE:read_file_info(Fd),
+    ok = ?FILE_MODULE:close(Fd),
+
+    {ok, FdRaw} = ?FILE_MODULE:open(Name, [read, raw]),
+    {ok,FileInfoRaw} = ?FILE_MODULE:read_file_info(FdRaw),
+    ok = ?FILE_MODULE:close(FdRaw),
+
+    #file_info{size=Size,type=Type,access=Access,
+	       atime=AccessTime,mtime=ModifyTime} = FileInfo = FileInfoRaw,
+    io:format("Access ~p, Modify ~p", [AccessTime, ModifyTime]),
+    Size = 7,
+    Type = regular,
+    read_write = Access,
+    true = abs(time_dist(filter_atime(AccessTime, Config),
+			 filter_atime(ModifyTime,
+				      Config))) < 5,
+    all_integers(tuple_to_list(AccessTime) ++ tuple_to_list(ModifyTime)),
+
+    [] = flush(),
+    ok.
+
+file_handle_info_basic_directory(Config) when is_list(Config) ->
+    %% Note: filename:join/1 removes any trailing slash,
+    %% which is essential for ?FILE_MODULE:file_info/1 to work on
+    %% platforms such as Windows95.
+    RootDir = filename:join([proplists:get_value(priv_dir, Config)]),
+
+    %% Test that the RootDir directory has the expected attributes.
+    test_directory_handle(RootDir, read_write),
+
+    %% Note that on Windows file systems,
+    %% "/" or "c:/" are *NOT* directories.
+    %% Therefore, test that ?FILE_MODULE:file_info/1 behaves as if they were
+    %% directories.
+    case os:type() of
+        {win32, _} ->
+            test_directory_handle("/", read_write),
+            test_directory_handle("c:/", read_write),
+            test_directory_handle("c:\\", read_write),
+            test_directory_handle("\\\\localhost\\c$", read_write);
+        _ ->
+            test_directory_handle("/", read)
+    end,
+    ok.
+
+test_directory_handle(Name, ExpectedAccess) ->
+    {ok, DirFd} = file:open(Name, [read, directory]),
+    try
+        {ok,FileInfo} = ?FILE_MODULE:read_file_info(DirFd),
+        {ok,FileInfo} = ?FILE_MODULE:read_file_info(DirFd, [raw]),
+        #file_info{size=Size,type=Type,access=Access,
+                   atime=AccessTime,mtime=ModifyTime} = FileInfo,
+        io:format("Testing directory ~s", [Name]),
+        io:format("Directory size is ~p", [Size]),
+        io:format("Access ~p", [Access]),
+        io:format("Access time ~p; Modify time~p",
+                  [AccessTime, ModifyTime]),
+        Type = directory,
+        Access = ExpectedAccess,
+        all_integers(tuple_to_list(AccessTime) ++ tuple_to_list(ModifyTime)),
+        [] = flush(),
+        ok
+    after
+        file:close(DirFd)
+    end.
+
+%% Test that the file times behave as they should.
+
+file_handle_info_times(Config) when is_list(Config) ->
+    %% We have to try this twice, since if the test runs across the change
+    %% of a month the time diff calculations will fail. But it won't happen
+    %% if you run it twice in succession.
+    test_server:m_out_of_n(
+      1,2,
+      fun() -> file_handle_info_int(Config) end),
+    ok.
+
+file_handle_info_int(Config) ->
+    %% Note: filename:join/1 removes any trailing slash,
+    %% which is essential for ?FILE_MODULE:file_info/1 to work on
+    %% platforms such as Windows95.
+
+    RootDir = filename:join([proplists:get_value(priv_dir, Config)]),
+    io:format("RootDir = ~p", [RootDir]),
+
+    Name = filename:join(RootDir,
+			 atom_to_list(?MODULE)
+			 ++"_file_info.fil"),
+    {ok,Fd1} = ?FILE_MODULE:open(Name, write),
+    io:put_chars(Fd1,"foo"),
+    {ok,FileInfo1} = ?FILE_MODULE:read_file_info(Fd1),
+    ok = ?FILE_MODULE:close(Fd1),
+
+    {ok,Fd1Raw} = ?FILE_MODULE:open(Name, [read, raw]),
+    {ok,FileInfo1Raw} = ?FILE_MODULE:read_file_info(Fd1Raw),
+    ok = ?FILE_MODULE:close(Fd1Raw),
+
+    %% We assert that everything but the size is the same, on some OSs the
+    %% size may not have been flushed to disc and we do not want to do a
+    %% sync to force it.
+    FileInfo1Raw = FileInfo1#file_info{ size = FileInfo1Raw#file_info.size },
+
+    #file_info{type=regular,atime=AccTime1,mtime=ModTime1} = FileInfo1,
+
+    Now = erlang:localtime(), %???
+    io:format("Now ~p",[Now]),
+    io:format("Open file Acc ~p Mod ~p",[AccTime1,ModTime1]),
+    true = abs(time_dist(filter_atime(Now, Config),
+			 filter_atime(AccTime1,
+				      Config))) < 8,
+    true = abs(time_dist(Now,ModTime1)) < 8,
+
+    %% Sleep until we can be sure the seconds value has changed.
+    %% Note: FAT-based filesystem (like on Windows 95) have
+    %% a resolution of 2 seconds.
+    timer:sleep(2200),
+
+    %% close the file, and watch the modify date change
+
+    {ok,Fd2} = ?FILE_MODULE:open(Name, read),
+    {ok,FileInfo2} = ?FILE_MODULE:read_file_info(Fd2),
+    ok = ?FILE_MODULE:close(Fd2),
+
+    {ok,Fd2Raw} = ?FILE_MODULE:open(Name, [read, raw]),
+    {ok,FileInfo2Raw} = ?FILE_MODULE:read_file_info(Fd2Raw),
+    ok = ?FILE_MODULE:close(Fd2Raw),
+
+    #file_info{size=Size,type=regular,access=Access,
+               atime=AccTime2,mtime=ModTime2} = FileInfo2 = FileInfo2Raw,
+    io:format("Closed file Acc ~p Mod ~p",[AccTime2,ModTime2]),
+    true = time_dist(ModTime1,ModTime2) >= 0,
+
+    %% this file is supposed to be binary, so it'd better keep it's size
+    Size = 3,
+    Access = read_write,
+
+    %% Do some directory checking
+
+    {ok,Fd3} = ?FILE_MODULE:open(RootDir, [read, directory]),
+    {ok,FileInfo3} = ?FILE_MODULE:read_file_info(Fd3),
+    ok = ?FILE_MODULE:close(Fd3),
+
+    {ok,Fd3Raw} = ?FILE_MODULE:open(RootDir, [read, directory, raw]),
+    {ok,FileInfo3Raw} = ?FILE_MODULE:read_file_info(Fd3Raw),
+    ok = ?FILE_MODULE:close(Fd3Raw),
+
+    #file_info{size=DSize,type=directory,access=DAccess,
+               atime=AccTime3,mtime=ModTime3} = FileInfo3 = FileInfo3Raw,
+    %% this dir was modified only a few secs ago
+    io:format("Dir Acc ~p; Mod ~p; Now ~p", [AccTime3, ModTime3, Now]),
+    true = abs(time_dist(Now,ModTime3)) < 5,
+    DAccess = read_write,
+    io:format("Dir size is ~p",[DSize]),
+
+    [] = flush(),
+    ok.
 
 %% Test the write_file_info/2 function.
 

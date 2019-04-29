@@ -162,6 +162,7 @@ WRAP_FILE_HANDLE_EXPORT(allocate_nif)
 WRAP_FILE_HANDLE_EXPORT(advise_nif)
 WRAP_FILE_HANDLE_EXPORT(get_handle_nif)
 WRAP_FILE_HANDLE_EXPORT(ipread_s32bu_p32bu_nif)
+WRAP_FILE_HANDLE_EXPORT(read_handle_info_nif)
 
 static ErlNifFunc nif_funcs[] = {
     /* File handle ops */
@@ -176,6 +177,7 @@ static ErlNifFunc nif_funcs[] = {
     {"truncate_nif", 1, truncate_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"allocate_nif", 3, allocate_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"advise_nif", 4, advise_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"read_handle_info_nif", 1, read_handle_info_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     /* Filesystem ops */
     {"make_hard_link_nif", 2, make_hard_link_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
@@ -896,6 +898,26 @@ static ERL_NIF_TERM get_handle_nif_impl(efile_data_t *d, ErlNifEnv *env, int arg
     return efile_get_handle(env, d);
 }
 
+static ERL_NIF_TERM build_file_info(ErlNifEnv *env, efile_fileinfo_t *info) {
+    /* #file_info as declared in file.hrl */
+    return enif_make_tuple(env, 14,
+        am_file_info,
+        enif_make_uint64(env, info->size),
+        efile_filetype_to_atom(info->type),
+        efile_access_to_atom(info->access),
+        enif_make_int64(env, MAX(EFILE_MIN_FILETIME, info->a_time)),
+        enif_make_int64(env, MAX(EFILE_MIN_FILETIME, info->m_time)),
+        enif_make_int64(env, MAX(EFILE_MIN_FILETIME, info->c_time)),
+        enif_make_uint(env, info->mode),
+        enif_make_uint(env, info->links),
+        enif_make_uint(env, info->major_device),
+        enif_make_uint(env, info->minor_device),
+        enif_make_uint(env, info->inode),
+        enif_make_uint(env, info->uid),
+        enif_make_uint(env, info->gid)
+    );
+}
+
 static ERL_NIF_TERM read_info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     posix_errno_t posix_errno;
 
@@ -914,23 +936,20 @@ static ERL_NIF_TERM read_info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
         return posix_error_to_tuple(env, posix_errno);
     }
 
-    /* #file_info as declared in file.hrl */
-    return enif_make_tuple(env, 14,
-        am_file_info,
-        enif_make_uint64(env, info.size),
-        efile_filetype_to_atom(info.type),
-        efile_access_to_atom(info.access),
-        enif_make_int64(env, MAX(EFILE_MIN_FILETIME, info.a_time)),
-        enif_make_int64(env, MAX(EFILE_MIN_FILETIME, info.m_time)),
-        enif_make_int64(env, MAX(EFILE_MIN_FILETIME, info.c_time)),
-        enif_make_uint(env, info.mode),
-        enif_make_uint(env, info.links),
-        enif_make_uint(env, info.major_device),
-        enif_make_uint(env, info.minor_device),
-        enif_make_uint(env, info.inode),
-        enif_make_uint(env, info.uid),
-        enif_make_uint(env, info.gid)
-    );
+    return build_file_info(env, &info);
+}
+
+static ERL_NIF_TERM read_handle_info_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    posix_errno_t posix_errno;
+    efile_fileinfo_t info = {0};
+
+    ASSERT(argc == 0);
+
+    if((posix_errno = efile_read_handle_info(d, &info))) {
+        return posix_error_to_tuple(env, posix_errno);
+    }
+
+    return build_file_info(env, &info);
 }
 
 static ERL_NIF_TERM set_permissions_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {

@@ -627,6 +627,33 @@ int efile_truncate(efile_data_t *d) {
     return 1;
 }
 
+static void build_file_info(struct stat *data, efile_fileinfo_t *result) {
+    if(S_ISCHR(data->st_mode) || S_ISBLK(data->st_mode)) {
+        result->type = EFILE_FILETYPE_DEVICE;
+    } else if(S_ISDIR(data->st_mode)) {
+        result->type = EFILE_FILETYPE_DIRECTORY;
+    } else if(S_ISREG(data->st_mode)) {
+        result->type = EFILE_FILETYPE_REGULAR;
+    } else if(S_ISLNK(data->st_mode)) {
+        result->type = EFILE_FILETYPE_SYMLINK;
+    } else {
+        result->type = EFILE_FILETYPE_OTHER;
+    }
+
+    result->a_time = (Sint64)data->st_atime;
+    result->m_time = (Sint64)data->st_mtime;
+    result->c_time = (Sint64)data->st_ctime;
+    result->size = data->st_size;
+
+    result->major_device = data->st_dev;
+    result->minor_device = data->st_rdev;
+    result->links = data->st_nlink;
+    result->inode = data->st_ino;
+    result->mode = data->st_mode;
+    result->uid = data->st_uid;
+    result->gid = data->st_gid;
+}
+
 posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_fileinfo_t *result) {
     struct stat data;
 
@@ -640,30 +667,7 @@ posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_
         }
     }
 
-    if(S_ISCHR(data.st_mode) || S_ISBLK(data.st_mode)) {
-        result->type = EFILE_FILETYPE_DEVICE;
-    } else if(S_ISDIR(data.st_mode)) {
-        result->type = EFILE_FILETYPE_DIRECTORY;
-    } else if(S_ISREG(data.st_mode)) {
-        result->type = EFILE_FILETYPE_REGULAR;
-    } else if(S_ISLNK(data.st_mode)) {
-        result->type = EFILE_FILETYPE_SYMLINK;
-    } else {
-        result->type = EFILE_FILETYPE_OTHER;
-    }
-
-    result->a_time = (Sint64)data.st_atime;
-    result->m_time = (Sint64)data.st_mtime;
-    result->c_time = (Sint64)data.st_ctime;
-    result->size = data.st_size;
-
-    result->major_device = data.st_dev;
-    result->minor_device = data.st_rdev;
-    result->links = data.st_nlink;
-    result->inode = data.st_ino;
-    result->mode = data.st_mode;
-    result->uid = data.st_uid;
-    result->gid = data.st_gid;
+    build_file_info(&data, result);
 
 #ifndef NO_ACCESS
     result->access = EFILE_ACCESS_NONE;
@@ -680,6 +684,56 @@ posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_
 #endif
 
     return 0;
+}
+
+static int check_access(struct stat *st) {
+    int ret = EFILE_ACCESS_NONE;
+
+    if(st->st_uid == getuid()) {
+        if(st->st_mode & S_IRUSR) {
+            ret |= EFILE_ACCESS_READ;
+        }
+        if(st->st_mode & S_IWUSR) {
+            ret |= EFILE_ACCESS_WRITE;
+        }
+        return ret;
+    }
+
+    if(st->st_gid == getgid()) {
+        if(st->st_mode & S_IRGRP) {
+            ret |= EFILE_ACCESS_READ;
+        }
+        if(st->st_mode & S_IWGRP) {
+            ret |= EFILE_ACCESS_WRITE;
+        }
+        return ret;
+    }
+
+    if(st->st_mode & S_IROTH) {
+        ret |= EFILE_ACCESS_READ;
+    }
+    if(st->st_mode & S_IWOTH) {
+        ret |= EFILE_ACCESS_WRITE;
+    }
+    return ret;
+}
+
+posix_errno_t efile_read_handle_info(efile_data_t *d, efile_fileinfo_t *result) {
+    struct stat data;
+    efile_unix_t *u = (efile_unix_t*)d;
+
+#ifdef HAVE_FSTAT
+    if(fstat(u->fd, &data) < 0) {
+        return errno;
+    }
+
+    build_file_info(&data, result);
+    result->access = check_access(&data);
+
+    return 0;
+#else
+    return ENOTSUP;
+#endif
 }
 
 posix_errno_t efile_set_permissions(const efile_path_t *path, Uint32 permissions) {

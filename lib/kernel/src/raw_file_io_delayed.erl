@@ -23,7 +23,8 @@
 
 -export([close/1, sync/1, datasync/1, truncate/1, advise/4, allocate/3,
          position/2, write/2, pwrite/2, pwrite/3,
-         read_line/1, read/2, pread/2, pread/3]).
+         read_line/1, read/2, pread/2, pread/3,
+         read_handle_info/2]).
 
 %% OTP internal.
 -export([ipread_s32bu_p32bu/3, sendfile/8]).
@@ -303,6 +304,9 @@ ipread_s32bu_p32bu(Fd, Offset, MaxSize) ->
 
 sendfile(_,_,_,_,_,_,_,_) ->
     {error, enotsup}.
+
+read_handle_info(Fd, Opts) ->
+    wrap_call(Fd, [Opts]).
 
 wrap_call(Fd, Command) ->
     #{ pid := Pid } = get_fd_data(Fd),

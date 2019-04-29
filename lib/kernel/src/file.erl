@@ -239,19 +239,29 @@ make_dir(Name) ->
 del_dir(Name) ->
     check_and_call(del_dir, [file_name(Name)]).
 
--spec read_file_info(Filename) -> {ok, FileInfo} | {error, Reason} when
-      Filename :: name_all(),
+-spec read_file_info(File) -> {ok, FileInfo} | {error, Reason} when
+      File :: name_all() | io_device(),
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
+
+read_file_info(IoDevice)
+  when is_pid(IoDevice); is_record(IoDevice, file_descriptor) ->
+    read_file_info(IoDevice, []);
 
 read_file_info(Name) ->
     check_and_call(read_file_info, [file_name(Name)]).
 
--spec read_file_info(Filename, Opts) -> {ok, FileInfo} | {error, Reason} when
-      Filename :: name_all(),
+-spec read_file_info(File, Opts) -> {ok, FileInfo} | {error, Reason} when
+      File :: name_all() | io_device(),
       Opts :: [file_info_option()],
       FileInfo :: file_info(),
       Reason :: posix() | badarg.
+
+read_file_info(IoDevice, Opts) when is_pid(IoDevice), is_list(Opts) ->
+    file_request(IoDevice, {read_handle_info, Opts});
+
+read_file_info(#file_descriptor{module = Module} = Handle, Opts) when is_list(Opts) ->
+    Module:read_handle_info(Handle, Opts);
 
 read_file_info(Name, Opts) when is_list(Opts) ->
     Args = [file_name(Name), Opts],
