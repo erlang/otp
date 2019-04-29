@@ -92,6 +92,7 @@
          api_a_recv_cancel_tcp4/1,
          api_a_recvmsg_cancel_tcp4/1,
          api_a_mrecvfrom_cancel_udp4/1,
+         api_a_mrecvmsg_cancel_udp4/1,
 
 
          %% *** API Options ***
@@ -685,7 +686,8 @@ api_async_cases() ->
      api_a_accept_cancel_tcp4,
      api_a_recv_cancel_tcp4,
      api_a_recvmsg_cancel_tcp4,
-     api_a_mrecvfrom_cancel_udp4
+     api_a_mrecvfrom_cancel_udp4,
+     api_a_mrecvmsg_cancel_udp4
     ].
 
 api_options_cases() ->
@@ -4591,6 +4593,35 @@ api_a_mrecvfrom_cancel_udp4(_Config) when is_list(_Config) ->
            fun() ->
                    Recv = fun(Sock) ->
                                   case socket:recvfrom(Sock, 0, nowait) of
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_mrecv_cancel_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make multiple async (Timeout = nowait) call to recvmsg
+%% (from *several* processes), wait some time and then cancel.
+%% This should result in abort messages to the 'other' processes.
+%%
+api_a_mrecvmsg_cancel_udp4(suite) ->
+    [];
+api_a_mrecvmsg_cancel_udp4(doc) ->
+    [];
+api_a_mrecvmsg_cancel_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_mrecvmsg_cancel_udp4,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
                                       {ok, _} = OK ->
                                           OK;
                                       {error, _} = ERROR ->
