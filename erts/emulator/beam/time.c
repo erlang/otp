@@ -316,7 +316,7 @@ struct ErtsTimerWheel_ {
 #define ERTS_TW_SLOT_AT_ONCE (-1)
 
 #define ERTS_TW_BUMP_LATER_WHEEL(TIW) \
-    ((tiw)->pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE >= (TIW)->later.pos)
+    ((TIW)->pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE >= (TIW)->later.pos)
 
 static int bump_later_wheel(ErtsTimerWheel *tiw, int *yield_count_p);
 
@@ -908,7 +908,6 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 
             {
                 ErtsMonotonicTime tmp_slots = bump_to - tiw->pos;
-                tmp_slots = (bump_to - tiw->pos);
                 if (tmp_slots < ERTS_TW_SOON_WHEEL_SIZE)
                     slots = (int) tmp_slots;
                 else
