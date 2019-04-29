@@ -4124,14 +4124,6 @@ define etp-block-size-1
       set $etp_blk_sz = ($arg0)->bhdr & ~7
   else
       # Allocated block
-      if !$etp_MBC_ABLK_SZ_MASK
-        if etp_arch_bits == 64
-          set $etp_MBC_ABLK_OFFSET_SHIFT = (64 - 24)
-        else
-          set $etp_MBC_ABLK_OFFSET_SHIFT = (32 - 9)
-        end
-        set $etp_MBC_ABLK_SZ_MASK = ((UWord)1 << $etp_MBC_ABLK_OFFSET_SHIFT) - 1 - 7
-      end
       set $etp_blk_sz = ($arg0)->bhdr & $etp_MBC_ABLK_SZ_MASK
   end
 end
@@ -4146,14 +4138,7 @@ define etp-block2mbc-1
       set $etp_mbc = ($arg0)->u.carrier
   else
       # Allocated block
-      if !$etp_MBC_ABLK_OFFSET_SHIFT
-        if etp_arch_bits == 64
-          set $etp_MBC_ABLK_OFFSET_SHIFT = (64 - 24)
-        else
-          set $etp_MBC_ABLK_OFFSET_SHIFT = (32 - 9)
-        end
-      end
-      set $etp_mbc = (Carrier_t*) ((((UWord)($arg0) >> 18) - (($arg0)->bhdr >> $etp_MBC_ABLK_OFFSET_SHIFT)) << 18)
+      set $etp_mbc = (Carrier_t*) ((((UWord)($arg0) >> 18) - ((($arg0)->bhdr & $etp_MBC_ABLK_OFFSET_MASK) >> $etp_MBC_ABLK_OFFSET_SHIFT)) << 18)
   end
 end
 
@@ -4197,7 +4182,7 @@ document etp-smp-atomic
 %---------------------------------------------------------------------------
 end
 
-define etp-carrier-blocks
+define etp-carrier-blocks-1
   set $etp_crr = (Carrier_t*) $arg0
   etp-smp-atomic $etp_crr->allctr $etp_alc
   set $etp_alc = (Allctr_t*)($etp_alc & ~7)
@@ -4208,12 +4193,6 @@ define etp-carrier-blocks
   set $etp_ablk_cnt = 0
   set $etp_fblk_cnt = 0
   set $etp_aborted = 0
-
-  if $argc == 2
-    set $etp_be_silent = $arg1
-  else
-    set $etp_be_silent = 0
-  end
 
   while 1
     if !$etp_be_silent
@@ -4235,6 +4214,12 @@ define etp-carrier-blocks
         end
         if !($etp_blk->bhdr & 2)
           printf "ERROR: Missing PREV_FREE_BLK_HDR_FLG (2) in block at %#lx\n", $etp_blk
+	  set $etp_error_cnt = $etp_error_cnt + 1
+        end
+      else
+	# Prev is ALLOCATED
+        if ($etp_blk->bhdr & 2)
+          printf "ERROR: Invalid PREV_FREE_BLK_HDR_FLG (2) set in block at %#lx\n", $etp_blk
 	  set $etp_error_cnt = $etp_error_cnt + 1
         end
       end
@@ -4274,12 +4259,30 @@ define etp-carrier-blocks
   end
 end
 
-document etp-carrier-blocks
+define etp-carrier-print
+  set $etp_be_silent = 0
+  etp-carrier-blocks-1 $arg0
+end
+
+document etp-carrier-print
 %---------------------------------------------------------------------------
-% Check and (maybe) print all memory blocks in carrier
-% Args: (Carrier_t*) [1=be_silent]
+% Print all memory blocks in carrier
+% Args: (Carrier_t*)
 %---------------------------------------------------------------------------
 end
+
+define etp-carrier-check
+  set $etp_be_silent = 1
+  etp-carrier-blocks-1 $arg0
+end
+
+document etp-carrier-check
+%---------------------------------------------------------------------------
+% Check all memory blocks in carrier
+% Args: (Carrier_t*)
+%---------------------------------------------------------------------------
+end
+
 
 define etp-address-to-beam-opcode
   set $etp_i = 0
@@ -4412,9 +4415,14 @@ define etp-init
   set $etp_arch64 = (sizeof(void *) == 8)
   if $etp_arch64
     set $etp_nil = 0xfffffffffffffffb
+    set $etp_MBC_ABLK_OFFSET_BITS = 23
   else
     set $etp_nil = 0xfffffffb
+    set $etp_MBC_ABLK_OFFSET_BITS = 8
   end
+  set $etp_MBC_ABLK_OFFSET_SHIFT = (sizeof(UWord)*8 - 1 - $etp_MBC_ABLK_OFFSET_BITS)
+  set $etp_MBC_ABLK_OFFSET_MASK = ((((UWord)1 << $etp_MBC_ABLK_OFFSET_BITS) - 1) << $etp_MBC_ABLK_OFFSET_SHIFT)
+  set $etp_MBC_ABLK_SZ_MASK = ((UWord)1 << $etp_MBC_ABLK_OFFSET_SHIFT) - 1 - 7
   set $etp_flat = 0
   set $etp_chart_id = 0
   set $etp_chart = 0
