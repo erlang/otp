@@ -631,6 +631,40 @@ make_rsa_cert_chains(UserConf, Config, Suffix) ->
      [{reuseaddr, true}, {verify, verify_peer} | ServerConf]
     }.
 
+make_ecc_cert_chains(UserConf, Config, Suffix) ->
+    ClientChain = proplists:get_value(client_chain, UserConf, default_cert_chain_conf()),
+    ServerChain = proplists:get_value(server_chain, UserConf, default_cert_chain_conf()),
+    CertChainConf = gen_conf(ecdsa, ecdsa, ClientChain, ServerChain),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "ecdsa" ++ Suffix]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "ecdsa" ++ Suffix]),
+    GenCertData = public_key:pkix_test_data(CertChainConf),
+    [{server_config, ServerConf}, 
+     {client_config, ClientConf}] = 
+        x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
+    {[{verify, verify_peer} | ClientConf],
+     [{reuseaddr, true}, {verify, verify_peer} | ServerConf]
+    }.
+
+
+make_dsa_cert_chains(UserConf, Config, Suffix) ->  
+    CryptoSupport = crypto:supports(),
+    case proplists:get_bool(dss, proplists:get_value(public_keys, CryptoSupport)) of
+        true ->
+            ClientChain = proplists:get_value(client_chain, UserConf, default_cert_chain_conf()),
+            ServerChain = proplists:get_value(server_chain, UserConf, default_cert_chain_conf()),
+            CertChainConf = gen_conf(dsa, dsa, ClientChain, ServerChain),
+            ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "dsa" ++ Suffix]),
+            ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "dsa" ++ Suffix]),
+            GenCertData = public_key:pkix_test_data(CertChainConf),
+            [{server_config, ServerConf}, 
+             {client_config, ClientConf}] = 
+                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
+            {[{verify, verify_peer} | ClientConf],
+             [{reuseaddr, true}, {verify, verify_peer} | ServerConf]};
+      false ->
+          Config
+  end.
+
 make_ec_cert_chains(UserConf, ClientChainType, ServerChainType, Config) ->
     make_ec_cert_chains(UserConf, ClientChainType, ServerChainType, Config, ?DEFAULT_CURVE).
 %%
@@ -1067,7 +1101,7 @@ accepters(Acc, N) ->
 basic_test(COpts, SOpts, Config) ->
     SType = proplists:get_value(server_type, Config),
     CType = proplists:get_value(client_type, Config),
-    {Server, Port} = start_server(SType, SOpts, Config),
+    {Server, Port} = start_server(SType, COpts, SOpts, Config),
     Client = start_client(CType, Port, COpts, Config),
     gen_check_result(Server, SType, Client, CType),
     stop(Server, Client).    
@@ -1134,7 +1168,7 @@ start_client(erlang, Port, ClientOpts, Config) ->
 			       {host, Hostname},
 			       {from, self()},
 			       {mfa, {ssl_test_lib, check_key_exchange_send_active, [KeyEx]}},
-			       {options, [{verify, verify_peer} | ClientOpts]}]).
+			       {options, ClientOpts}]).
 
 %% Workaround for running tests on machines where openssl
 %% s_client would use an IPv6 address with localhost. As
@@ -1169,20 +1203,19 @@ start_client_ecc_error(erlang, Port, ClientOpts, ECCOpts, Config) ->
                                       [{verify, verify_peer} | ClientOpts]}]).
 
 
-start_server(openssl, ServerOpts, Config) ->
-    Cert = proplists:get_value(certfile, ServerOpts),
-    Key = proplists:get_value(keyfile, ServerOpts),
-    CA = proplists:get_value(cacertfile, ServerOpts),
+start_server(openssl, ClientOpts, ServerOpts, Config) ->
     Port = inet_port(node()),
     Version = protocol_version(Config),
     Exe = "openssl",
-    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
-	    "-verify", "2", "-cert", Cert, "-CAfile", CA,
-	    "-key", Key, "-msg", "-debug"],
+    CertArgs = openssl_cert_options(ServerOpts),
+    [Cipher|_] = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
+    Args = ["s_server", "-accept", integer_to_list(Port), "-cipher",
+            ssl_cipher_format:suite_map_to_openssl_str(Cipher),
+            ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"],
     OpenSslPort = portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
-start_server(erlang, ServerOpts, Config) ->
+start_server(erlang, _, ServerOpts, Config) ->
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     KeyEx = proplists:get_value(check_keyex, Config, false),
     Server = start_server([{node, ServerNode}, {port, 0},
@@ -1244,6 +1277,29 @@ stop(Pid, Port) when is_port(Port) ->
 stop(Client, Server)  ->
     close(Server),
     close(Client).
+
+
+openssl_cert_options(ServerOpts) ->
+    Cert = proplists:get_value(certfile, ServerOpts, undefined),
+    Key = proplists:get_value(keyfile, ServerOpts, undefined),
+    CA = proplists:get_value(cacertfile, ServerOpts, undefined),
+    case CA of
+        undefined ->
+            case cert_option("-cert", Cert) ++ cert_option("-key", Key) of
+                [] ->
+                    ["-nocert"];
+                Other ->
+                    Other
+            end;
+        _ ->
+            cert_option("-cert", Cert) ++  cert_option("-CAfile", CA) ++
+                cert_option("-key", Key) ++ ["-verify", "2"]
+    end.
+
+cert_option(_, undefined) ->
+    [];
+cert_option(Opt, Value) ->
+    [Opt, Value].
 
 supported_eccs(Opts) ->
     ToCheck = proplists:get_value(eccs, Opts, []),
@@ -2374,3 +2430,16 @@ user_lookup(srp, Username, _UserState) ->
     Salt = ssl_cipher:random_bytes(16),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
     {ok, {srp_1024, Salt, UserPassHash}}.
+
+test_cipher(TestCase, Config) ->
+    [{name, Group} |_] = proplists:get_value(tc_group_properties, Config),
+    list_to_atom(re:replace(atom_to_list(TestCase), atom_to_list(Group) ++ "_",  "", [{return, list}])).
+
+digest() ->
+    case application:get_env(ssl, protocol_version, application:get_env(ssl, dtls_protocol_version)) of
+        Ver when Ver == 'tlsv1.2';
+                 Ver == 'dtlsv1.2' ->
+            {digest, sha256};
+        _ ->
+            {digest, sha1}
+    end.

@@ -44,6 +44,7 @@ MODULES = \
 	ssl_bench_SUITE \
 	ssl_cipher_SUITE \
         ssl_cipher_suite_SUITE \
+	openssl_server_cipher_suite_SUITE\
 	ssl_certificate_verify_SUITE\
 	ssl_crl_SUITE\
 	ssl_dist_SUITE \

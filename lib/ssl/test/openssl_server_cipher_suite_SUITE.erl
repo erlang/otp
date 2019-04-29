@@ -20,7 +20,7 @@
 
 %%
 
--module(ssl_cipher_suite_SUITE).
+-module(openssl_server_cipher_suite_SUITE).
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -31,7 +31,7 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() -> 
-    [
+   [
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
@@ -41,13 +41,15 @@ all() ->
     ].
 
 groups() ->
+    %% TODO: Enable SRP, PSK suites (needs OpenSSL s_server conf)
+    %% TODO: Enable all "kex" on DTLS
     [
      {'tlsv1.2', [], kex()},
      {'tlsv1.1', [], kex()},
      {'tlsv1', [], kex()},
      {'sslv3', [], kex()},
-     {'dtlsv1.2', [], kex()},
-     {'dtlsv1', [], kex()},
+     {'dtlsv1.2', [], dtls_kex()},
+     {'dtlsv1', [], dtls_kex()},
      {dhe_rsa, [],[dhe_rsa_3des_ede_cbc, 
                    dhe_rsa_aes_128_cbc,
                    dhe_rsa_aes_256_cbc,
@@ -76,17 +78,17 @@ groups() ->
      {dhe_dss, [], [dhe_dss_3des_ede_cbc, 
                     dhe_dss_aes_128_cbc,
                     dhe_dss_aes_256_cbc]},
-     {srp_rsa, [], [srp_rsa_3des_ede_cbc, 
-                    srp_rsa_aes_128_cbc,
-                    srp_rsa_aes_256_cbc]},
-     {srp_dss, [], [srp_dss_3des_ede_cbc, 
-                    srp_dss_aes_128_cbc,
-                    srp_dss_aes_256_cbc]},
-     {rsa_psk, [], [rsa_psk_3des_ede_cbc,                    
-                    rsa_psk_rc4_128,
-                    rsa_psk_aes_128_cbc,
-                    rsa_psk_aes_256_cbc
-                   ]},
+     %% {srp_rsa, [], [srp_rsa_3des_ede_cbc, 
+     %%                srp_rsa_aes_128_cbc,
+     %%                srp_rsa_aes_256_cbc]},
+     %% {srp_dss, [], [srp_dss_3des_ede_cbc, 
+     %%                srp_dss_aes_128_cbc,
+     %%                srp_dss_aes_256_cbc]},
+     %% {rsa_psk, [], [rsa_psk_3des_ede_cbc,                    
+     %%                rsa_psk_rc4_128,
+     %%                rsa_psk_aes_128_cbc,
+     %%                rsa_psk_aes_256_cbc
+     %%               ]},
      {dh_anon, [], [dh_anon_rc4_128,
                     dh_anon_3des_ede_cbc, 
                     dh_anon_aes_128_cbc,
@@ -96,62 +98,71 @@ groups() ->
      {ecdh_anon, [], [ecdh_anon_3des_ede_cbc, 
                       ecdh_anon_aes_128_cbc,
                       ecdh_anon_aes_256_cbc
-                     ]},     
-     {srp_anon, [], [srp_anon_3des_ede_cbc, 
-                     srp_anon_aes_128_cbc,
-                     srp_anon_aes_256_cbc]},
-     {psk, [], [psk_3des_ede_cbc,                    
-                psk_rc4_128,
-                psk_aes_128_cbc,
-                psk_aes_128_ccm,
-                psk_aes_128_ccm_8,
-                psk_aes_256_cbc,
-                psk_aes_256_ccm,
-                psk_aes_256_ccm_8
-               ]},
-     {dhe_psk, [], [dhe_psk_3des_ede_cbc,                    
-                    dhe_psk_rc4_128,
-                    dhe_psk_aes_128_cbc,
-                    dhe_psk_aes_128_ccm,
-                    dhe_psk_aes_128_ccm_8,
-                    dhe_psk_aes_256_cbc,
-                    dhe_psk_aes_256_ccm,
-                    dhe_psk_aes_256_ccm_8
-               ]},
-     {ecdhe_psk, [], [ecdhe_psk_3des_ede_cbc,                    
-                     ecdhe_psk_rc4_128,
-                     ecdhe_psk_aes_128_cbc,
-                     ecdhe_psk_aes_128_ccm,
-                     ecdhe_psk_aes_128_ccm_8,
-                     ecdhe_psk_aes_256_cbc
-               ]}
+                     ]}    
+     %% {srp_anon, [], [srp_anon_3des_ede_cbc, 
+     %%                 srp_anon_aes_128_cbc,
+     %%                 srp_anon_aes_256_cbc]},
+     %% {psk, [], [psk_3des_ede_cbc,                    
+     %%            psk_rc4_128,
+     %%            psk_aes_128_cbc,
+     %%            psk_aes_128_ccm,
+     %%            psk_aes_128_ccm_8,
+     %%            psk_aes_256_cbc,
+     %%            psk_aes_256_ccm,
+     %%            psk_aes_256_ccm_8
+     %%           ]},
+     %% {dhe_psk, [], [dhe_psk_3des_ede_cbc,                    
+     %%                dhe_psk_rc4_128,
+     %%                dhe_psk_aes_128_cbc,
+     %%                dhe_psk_aes_128_ccm,
+     %%                dhe_psk_aes_128_ccm_8,
+     %%                dhe_psk_aes_256_cbc,
+     %%                dhe_psk_aes_256_ccm,
+     %%                dhe_psk_aes_256_ccm_8
+     %%           ]},
+     %% {ecdhe_psk, [], [ecdhe_psk_3des_ede_cbc,                    
+     %%                 ecdhe_psk_rc4_128,
+     %%                 ecdhe_psk_aes_128_cbc,
+     %%                 ecdhe_psk_aes_128_ccm,
+     %%                 ecdhe_psk_aes_128_ccm_8,
+     %%                 ecdhe_psk_aes_256_cbc
+     %%           ]}
     ].
 
 kex() ->
      rsa() ++ ecdsa() ++ dss() ++ anonymous().
 
+dtls_kex() -> %% Should be all kex in the future
+      dtls_rsa() ++ dss() ++ anonymous().
+
 rsa() ->
     [{group, dhe_rsa},
      {group, ecdhe_rsa},
-     {group, rsa},
-     {group, srp_rsa},
-     {group, rsa_psk}
+     {group, rsa} %%, {group, srp_rsa},
+     %%{group, rsa_psk}
+    ].
+
+dtls_rsa() ->
+    [
+     {group, rsa} 
+     %%,{group, rsa_psk}
     ].
 
 ecdsa() ->
     [{group, ecdhe_ecdsa}].
     
 dss() ->
-    [{group, dhe_dss},
-     {group, srp_dss}].
+    [{group, dhe_dss}
+     %%{group, srp_dss}
+    ].
 
 anonymous() ->
     [{group, dh_anon},
-     {group, ecdh_anon},
-     {group, psk},
-     {group, dhe_psk},
-     {group, ecdhe_psk},
-     {group, srp_anon}
+     {group, ecdh_anon}
+     %% {group, psk},
+     %%{group, dhe_psk},
+     %%{group, ecdhe_psk}
+     %%{group, srp_anon}
     ].
 
 init_per_suite(Config) ->
@@ -168,8 +179,21 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
+%%--------------------------------------------------------------------
+init_per_group(GroupName, Config) ->
+       case ssl_test_lib:is_tls_version(GroupName) of
+           true ->
+               case ssl_test_lib:supports_ssl_tls_version(GroupName) of
+                   true ->
+                       do_init_per_group(GroupName, Config);
+                   false ->
+                       {skip, {openssl_does_not_support, GroupName}}
+               end;  
+           false ->
+               do_init_per_group(GroupName, Config)
+       end.
 
-init_per_group(GroupName, Config) when GroupName == ecdh_anon;
+do_init_per_group(GroupName, Config) when GroupName == ecdh_anon;
                                        GroupName == ecdhe_rsa;
                                        GroupName == ecdhe_psk ->
     case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
@@ -178,7 +202,7 @@ init_per_group(GroupName, Config) when GroupName == ecdh_anon;
         false ->
             {skip, "Missing EC crypto support"}
     end;
-init_per_group(ecdhe_ecdsa = GroupName, Config) ->
+do_init_per_group(ecdhe_ecdsa = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(ecdh, PKAlg) andalso lists:member(ecdsa, PKAlg) of
         true ->
@@ -186,7 +210,7 @@ init_per_group(ecdhe_ecdsa = GroupName, Config) ->
         false ->
             {skip, "Missing EC crypto support"}
     end;
-init_per_group(dhe_dss = GroupName, Config) ->
+do_init_per_group(dhe_dss = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) of
         true ->
@@ -194,7 +218,7 @@ init_per_group(dhe_dss = GroupName, Config) ->
         false ->
             {skip, "Missing DSS crypto support"}
     end;
-init_per_group(srp_dss = GroupName, Config) ->
+do_init_per_group(srp_dss = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(dss, PKAlg) andalso lists:member(srp, PKAlg) of
         true ->
@@ -202,7 +226,7 @@ init_per_group(srp_dss = GroupName, Config) ->
         false ->
             {skip, "Missing DSS_SRP crypto support"}
     end;
-init_per_group(GroupName, Config) when GroupName == srp_anon;
+do_init_per_group(GroupName, Config) when GroupName == srp_anon;
                                        GroupName == srp_rsa ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(srp, PKAlg) of
@@ -211,7 +235,7 @@ init_per_group(GroupName, Config) when GroupName == srp_anon;
         false ->
             {skip, "Missing SRP crypto support"}
     end;
-init_per_group(dhe_psk = GroupName, Config) ->
+do_init_per_group(dhe_psk = GroupName, Config) ->
     PKAlg = proplists:get_value(public_keys, crypto:supports()),
     case lists:member(dh, PKAlg) of
         true ->
@@ -219,7 +243,7 @@ init_per_group(dhe_psk = GroupName, Config) ->
         false ->
             {skip, "Missing SRP crypto support"}
     end;
-init_per_group(GroupName, Config0) ->
+do_init_per_group(GroupName, Config0) ->
     case ssl_test_lib:is_tls_version(GroupName) of
         true ->
             ssl_test_lib:init_tls_version(GroupName, end_per_group(GroupName, Config0));
@@ -315,15 +339,12 @@ end_per_testcase(_TestCase, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-%% Initializtion   ------------------------------------------
+%% Initializtion ------------------------------------------
 %%--------------------------------------------------------------------
-
 init_certs(srp_rsa, Config) ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
-    CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
-        = public_key:pkix_test_data(CertChainConf),
+    {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
+                                                                  {client_chain, ssl_test_lib:default_cert_chain_conf()}],
+                                                                 Config, ""),
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}} | ServerOpts],
                     client_config => [{srp_identity, {"Test-User", "secret"}} | ClientOpts]}} |
      proplists:delete(tls_config, Config)];
@@ -332,9 +353,11 @@ init_certs(srp_anon, Config) ->
                     client_config => [{srp_identity, {"Test-User", "secret"}}]}} |
      proplists:delete(tls_config, Config)];
 init_certs(rsa_psk, Config) ->
-    ClientExt = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
+    Ext = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
     {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
-                                                                   [[],[],[{extensions, ClientExt}]]}], 
+                                                                   [[ssl_test_lib:digest()],[ssl_test_lib:digest()],
+                                                                    [ssl_test_lib:digest(), {extensions, Ext}]]},
+                                                                  {client_chain, ssl_test_lib:default_cert_chain_conf()}], 
                                                                  Config, "_peer_keyEncipherment"),
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}} | ServerOpts],
@@ -342,48 +365,42 @@ init_certs(rsa_psk, Config) ->
                                       {user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}} | ClientOpts]}} |
      proplists:delete(tls_config, Config)];
 init_certs(rsa, Config) ->
-    ClientExt = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
+    Ext = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
     {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
-                                                                   [[],[],[{extensions, ClientExt}]]}], 
+                                                                   [[ssl_test_lib:digest()],[ssl_test_lib:digest()],
+                                                                    [ssl_test_lib:digest(), {extensions, Ext}]]} 
+                                                                 ], 
                                                                  Config, "_peer_keyEncipherment"),
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(dhe_dss, Config) ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
-    CertChainConf = ssl_test_lib:gen_conf(dsa, dsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
-        = public_key:pkix_test_data(CertChainConf),
+     {ClientOpts, ServerOpts} = ssl_test_lib:make_dsa_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
+                                                                  {client_chain, ssl_test_lib:default_cert_chain_conf()}], 
+                                                                  Config, ""),
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(srp_dss, Config) ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
-    CertChainConf = ssl_test_lib:gen_conf(dsa, dsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
-        = public_key:pkix_test_data(CertChainConf),
+    {ClientOpts, ServerOpts} = ssl_test_lib:make_dsa_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
+                                                                  {client_chain, ssl_test_lib:default_cert_chain_conf()}], 
+                                                                 Config, ""),
     [{tls_config, #{server_config => [{user_lookup_fun, {fun ssl_test_lib:user_lookup/3, undefined}} | ServerOpts],
                     client_config => [{srp_identity, {"Test-User", "secret"}} | ClientOpts]}} |
        proplists:delete(tls_config, Config)];
 init_certs(GroupName, Config) when GroupName == dhe_rsa;
                                    GroupName == ecdhe_rsa ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
-    CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
-        = public_key:pkix_test_data(CertChainConf),
+    {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
+                                                                  {client_chain, ssl_test_lib:default_cert_chain_conf()}], 
+                                                                 Config, ""),
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(GroupName, Config) when GroupName == dhe_ecdsa;
                                    GroupName == ecdhe_ecdsa ->
-    DefConf = ssl_test_lib:default_cert_chain_conf(),
-    CertChainConf = ssl_test_lib:gen_conf(ecdsa, ecdsa, DefConf, DefConf),
-    #{server_config := ServerOpts,
-      client_config := ClientOpts} 
-        = public_key:pkix_test_data(CertChainConf),
+    {ClientOpts, ServerOpts} = ssl_test_lib:make_ecc_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
+                                                                 {client_chain, ssl_test_lib:default_cert_chain_conf()}], 
+                                                                 Config, ""),
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
@@ -404,7 +421,6 @@ init_certs(_GroupName, Config) ->
      [{tls_config, #{server_config => [],
                      client_config => []}} |
        proplists:delete(tls_config, Config)].
-
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
@@ -716,38 +732,20 @@ run_ciphers_test(Kex, Cipher, Config) ->
             {skip, {not_sup, Kex, Cipher, Version}}
     end.
 
-cipher_suite_test(ErlangCipherSuite, Version, Config) ->
+cipher_suite_test(CipherSuite, _Version, Config) ->
     #{server_config := SOpts,
       client_config := COpts} = proplists:get_value(tls_config, Config),
     ServerOpts = ssl_test_lib:ssl_options(SOpts, Config),
     ClientOpts = ssl_test_lib:ssl_options(COpts, Config),
-    ct:log("Testing CipherSuite ~p~n", [ErlangCipherSuite]),
+    ct:log("Testing CipherSuite ~p~n", [CipherSuite]),
     ct:log("Server Opts ~p~n", [ServerOpts]),
     ct:log("Client Opts ~p~n", [ClientOpts]),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    ConnectionInfo = {ok, {Version, ErlangCipherSuite}},
-    
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-                                        {mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
-                                        {options, [{versions, [Version]}, {ciphers, [ErlangCipherSuite]} | ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-					{from, self()},
-					{mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
-					{options, [{versions, [Version]}, {ciphers, [ErlangCipherSuite]} |
-                                                   ClientOpts]}]),
-
-    ssl_test_lib:check_result(Server, ok, Client, ok),
-    
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    ssl_test_lib:basic_test([{ciphers, [CipherSuite]} | COpts], SOpts, [{client_type, erlang},
+                                                                        {server_type, openssl} | Config]).
 
 
 test_ciphers(Kex, Cipher, Version) ->
-    ssl:filter_cipher_suites(ssl:cipher_suites(all, Version) ++ ssl:cipher_suites(anonymous, Version), 
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(default, Version) ++ ssl:cipher_suites(anonymous, Version), 
                              [{key_exchange, 
                                fun(Kex0) when Kex0 == Kex -> true; 
                                   (_) -> false 
@@ -755,5 +753,16 @@ test_ciphers(Kex, Cipher, Version) ->
                               {cipher,  
                                fun(Cipher0) when Cipher0 == Cipher -> true; 
                                   (_) -> false 
-                               end}]).
+                               end}]),
+    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    OpenSSLCiphers = openssl_ciphers(),
+    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    lists:filter(fun(C) ->
+                         ct:log("Cipher ~p~n", [C]),
+                         lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
+                 end, Ciphers).
 
+
+openssl_ciphers() ->
+    Str = os:cmd("openssl ciphers"),
+    string:split(string:strip(Str, right, $\n), ":", all).

@@ -33,77 +33,23 @@
 %%--------------------------------------------------------------------
 
 all() ->
-    case test_cases() of
-        [_|_] ->
-            all_groups();
-        [] ->
-            [skip]
-    end.
-
-all_groups() ->
     case ssl_test_lib:openssl_sane_dtls() of 
         true ->
             [{group, 'tlsv1.2'},
-             {group, 'tlsv1.1'},
-             {group, 'tlsv1'},
-             {group, 'dtlsv1.2'},
-             {group, 'dtlsv1'}];
+             {group, 'dtlsv1.2'}];   
         false ->
-            [{group, 'tlsv1.2'},
-             {group, 'tlsv1.1'},
-             {group, 'tlsv1'}]
+            [{group, 'tlsv1.2'}]
     end.
 
 groups() ->
     case ssl_test_lib:openssl_sane_dtls() of 
         true ->
-            [{'tlsv1.2', [], [mix_sign | test_cases()]},
-             {'tlsv1.1', [], test_cases()},
-             {'tlsv1', [], test_cases()},
-             {'dtlsv1.2', [],  [mix_sign | test_cases()]},
-             {'dtlsv1', [], test_cases()}];
+            [{'tlsv1.2', [], [mix_sign]},
+             {'dtlsv1.2', [],  [mix_sign]}];
         false ->
-            [{'tlsv1.2', [], [mix_sign | test_cases()]},
-             {'tlsv1.1', [], test_cases()},
-             {'tlsv1', [], test_cases()}]
+            [{'tlsv1.2', [], [mix_sign]}]
     end.
-
-test_cases()->
-   cert_combinations().
   
-cert_combinations() ->
-    lists:append(lists:map(fun({Name, Suites}) -> 
-                                   case ssl_test_lib:openssl_filter(Name) of
-                                       [] ->
-                                           [];
-                                       [_|_] ->
-                                           Suites
-                                   end
-                           end, [{"ECDH-ECDSA", server_ecdh_ecdsa()},
-                                 {"ECDH-RSA", server_ecdh_rsa()},
-                                 {"ECDHE-RSA", server_ecdhe_rsa()},
-                                 {"ECDHE-ECDSA", server_ecdhe_ecdsa()}
-                                ])).
-server_ecdh_rsa() ->
-    [client_ecdh_rsa_server_ecdh_rsa,
-     client_ecdhe_rsa_server_ecdh_rsa,     
-     client_ecdhe_ecdsa_server_ecdh_rsa].
-
-server_ecdhe_rsa() ->
-    [client_ecdh_rsa_server_ecdhe_rsa,
-     client_ecdhe_rsa_server_ecdhe_rsa,
-     client_ecdhe_ecdsa_server_ecdhe_rsa].
-
-server_ecdh_ecdsa() ->
-    [client_ecdh_ecdsa_server_ecdh_ecdsa,
-     client_ecdhe_rsa_server_ecdh_ecdsa,
-     client_ecdhe_ecdsa_server_ecdh_ecdsa].
-
-server_ecdhe_ecdsa() ->
-    [client_ecdh_rsa_server_ecdhe_ecdsa,
-     client_ecdh_ecdsa_server_ecdhe_ecdsa,
-     client_ecdhe_ecdsa_server_ecdhe_ecdsa].
-
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     end_per_suite(Config0),
@@ -170,38 +116,6 @@ end_per_testcase(_TestCase, Config) ->
 
 skip(Config) when is_list(Config) ->
     {skip, openssl_does_not_support_ECC}.
-
-%% Test diffrent certificate chain types, note that it is the servers
-%% chain that affect what cipher suit that will be choosen
-
-%% ECDH_RSA 
-client_ecdh_rsa_server_ecdh_rsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdh_rsa_server_ecdh_rsa(Config).
-client_ecdhe_rsa_server_ecdh_rsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_rsa_server_ecdh_rsa(Config).
-client_ecdhe_ecdsa_server_ecdh_rsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_ecdsa_server_ecdh_rsa(Config).
-%% ECDHE_RSA    
-client_ecdh_rsa_server_ecdhe_rsa(Config)  when is_list(Config) ->
-    ssl_ECC:client_ecdh_rsa_server_ecdhe_rsa(Config).
-client_ecdhe_rsa_server_ecdhe_rsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_rsa_server_ecdhe_rsa(Config).
-client_ecdhe_ecdsa_server_ecdhe_rsa(Config) when is_list(Config) ->
-   ssl_ECC:client_ecdhe_ecdsa_server_ecdhe_rsa(Config).
-%% ECDH_ECDSA
-client_ecdh_ecdsa_server_ecdh_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdh_ecdsa_server_ecdh_ecdsa(Config).
-client_ecdhe_rsa_server_ecdh_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_rsa_server_ecdh_ecdsa(Config).
-client_ecdhe_ecdsa_server_ecdh_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_ecdsa_server_ecdh_ecdsa(Config).
-%% ECDHE_ECDSA
-client_ecdh_rsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdh_rsa_server_ecdhe_ecdsa(Config).
-client_ecdh_ecdsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdh_ecdsa_server_ecdhe_ecdsa(Config).
-client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
-     ssl_ECC:client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config).
 
 mix_sign(Config) ->
     {COpts0, SOpts0} = ssl_test_lib:make_mix_cert(Config),
