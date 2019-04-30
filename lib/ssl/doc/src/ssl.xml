@@ -332,14 +332,7 @@
 	matters.</p>
       </desc>
     </datatype>
-    
-    <datatype>
-      <name name="eccs"/>
-      <desc><p> Allows to specify the order of preference for named curves
-      and to restrict their usage when using a cipher suite supporting them.</p>
-      </desc>
-    </datatype>
-    
+
     <datatype>
       <name name="secure_renegotiation"/>
       <desc><p>Specifies if to reject renegotiation attempt that does

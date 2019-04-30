@@ -175,9 +175,6 @@
                                  secp160r1 |
                                  secp160r2.
 
--type group() :: secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
-                 ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192.
-
 -type srp_param_type()        :: srp_1024 |
                                  srp_1536 |
                                  srp_2048 |
@@ -227,7 +224,6 @@
                                 {keyfile, key_pem()} |
                                 {password, key_password()} |
                                 {ciphers, cipher_suites()} |
-                                {eccs, eccs()} |
                                 {secure_renegotiate, secure_renegotiation()} |
                                 {depth, allowed_cert_chain_length()} |
                                 {verify_fun, custom_verify()} |
@@ -315,7 +311,6 @@
 -type ssl_imp()                  :: new | old.
 
 %% -------------------------------------------------------------------------------------------------------
-
 -type server_option()        :: {cacerts, server_cacerts()} |
                                 {cacertfile, server_cafile()} |
                                 {dh, dh_der()} |
