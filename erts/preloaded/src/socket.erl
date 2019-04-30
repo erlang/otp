@@ -1794,7 +1794,7 @@ recv(Socket, Length) ->
       Flags  :: recv_flags(),
       Data   :: binary(),
       Reason :: term()
-                ; (Socket, Length, nowait) -> {ok, Data} |
+                ; (Socket, Length, Timeout :: nowait) -> {ok, Data} |
                                               {ok, SelectInfo} |
                                               {ok, {Data, SelectInfo}} |
                                               {error, Reason} when
