@@ -140,162 +140,366 @@
     <marker id="distribution_header"/>
     <title>Distribution Header</title>
     <p>
-      The distribution header only contains an atom cache
-      reference section, but can in the future contain more
-      information. The distribution header precedes one or more Erlang
-      terms on the external format. For more information, see the
-      documentation of the
+      The distribution header is sent by the erlang distribution to
+      carry metadata about the coming
+      <seealso marker="erl_dist_protocol#control_message">control message</seealso>
+      and potential payload. It is primarily used to handle the atom cache
+      in the Erlang distribution. Since OTP-22 it is also used to fragment
+      large distribution messages into multiple smaller fragments.
+      For more information about how the distribution uses the distribution header,
+      see the documentation of the
       <seealso marker="erl_dist_protocol#connected_nodes">protocol between
       connected nodes</seealso> in the
       <seealso marker="erl_dist_protocol">distribution protocol</seealso>
       documentation.
     </p>
     <p>
-      <seealso marker="#ATOM_CACHE_REF">ATOM_CACHE_REF</seealso>
+      Any <seealso marker="#ATOM_CACHE_REF">ATOM_CACHE_REF</seealso>
       entries with corresponding <c>AtomCacheReferenceIndex</c> in terms
       encoded on the external format following a distribution header refer
       to the atom cache references made in the distribution header. The range
       is 0 &lt;= <c>AtomCacheReferenceIndex</c> &lt; 255, that is, at most 255
       different atom cache references from the following terms can be made.
     </p>
-    <p>
-      The distribution header format is as follows:
-    </p>
-    <table align="left">
-      <row>
-        <cell align="center">1</cell>
-        <cell align="center">1</cell>
-        <cell align="center">1</cell>
-        <cell align="center">NumberOfAtomCacheRefs/2+1 | 0</cell>
-        <cell align="center">N | 0</cell>
-      </row>
-      <row>
-        <cell align="center"><c>131</c></cell>
-        <cell align="center"><c>68</c></cell>
-        <cell align="center"><c>NumberOfAtomCacheRefs</c></cell>
-        <cell align="center"><c>Flags</c></cell>
-        <cell align="center"><c>AtomCacheRefs</c></cell>
-      </row>
-    <tcaption>Distribution Header Format</tcaption></table>
-    <p>
-      <c>Flags</c> consist of <c>NumberOfAtomCacheRefs/2+1</c> bytes,
-      unless <c>NumberOfAtomCacheRefs</c> is <c>0</c>. If
-      <c>NumberOfAtomCacheRefs</c> is <c>0</c>, <c>Flags</c> and
-      <c>AtomCacheRefs</c> are omitted. Each atom cache reference has
-      a half byte flag field. Flags corresponding to a specific
-      <c>AtomCacheReferenceIndex</c> are located in flag byte number
-      <c>AtomCacheReferenceIndex/2</c>. Flag byte 0 is the first byte
-      after the <c>NumberOfAtomCacheRefs</c> byte. Flags for an even
-      <c>AtomCacheReferenceIndex</c> are located in the least significant
-      half byte and flags for an odd <c>AtomCacheReferenceIndex</c> are
-      located in the most significant half byte.
-    </p>
-    <p>
-      The flag field of an atom cache reference has the following
-      format:
-    </p>
-    <table align="left">
-      <row>
-        <cell align="center">1 bit</cell>
-        <cell align="center">3 bits</cell>
-      </row>
-      <row>
-        <cell align="center"><c>NewCacheEntryFlag</c></cell>
-        <cell align="center"><c>SegmentIndex</c></cell>
-      </row>
-    <tcaption></tcaption></table>
-    <p>
-      The most significant bit is the <c>NewCacheEntryFlag</c>. If set,
-      the corresponding cache reference is new. The three least
-      significant bits are the <c>SegmentIndex</c> of the corresponding
-      atom cache entry. An atom cache consists of 8 segments, each of size
-      256, that is, an atom cache can contain 2048 entries.
-    </p>
-    <p>
-      After flag fields for atom cache references, another half byte flag
-      field is located with the following format:
-    </p>
-    <table align="left">
-      <row>
-        <cell align="center">3 bits</cell>
-        <cell align="center">1 bit</cell>
-      </row>
-      <row>
-        <cell align="center"><c>CurrentlyUnused</c></cell>
-        <cell align="center"><c>LongAtoms</c></cell>
-      </row>
-    <tcaption></tcaption></table>
-    <p>
-      The least significant bit in that half byte is flag <c>LongAtoms</c>.
-      If it is set, 2 bytes are used for atom lengths instead of
-      1 byte in the distribution header.
-    </p>
-    <p>
-      After the <c>Flags</c> field follow the <c>AtomCacheRefs</c>. The
-      first <c>AtomCacheRef</c> is the one corresponding to
-      <c>AtomCacheReferenceIndex</c> 0. Higher indices follow
-      in sequence up to index <c>NumberOfAtomCacheRefs - 1</c>.
-    </p>
-    <p>
-      If the <c>NewCacheEntryFlag</c> for the next <c>AtomCacheRef</c> has
-      been set, a <c>NewAtomCacheRef</c> on the following format follows:
-    </p>
-    <table align="left">
-      <row>
-        <cell align="center">1</cell>
-        <cell align="center">1 | 2</cell>
-        <cell align="center">Length</cell>
-      </row>
-      <row>
-        <cell align="center"><c>InternalSegmentIndex</c></cell>
-        <cell align="center"><c>Length</c></cell>
-        <cell align="center"><c>AtomText</c></cell>
-      </row>
-    <tcaption></tcaption></table>
-    <p>
-      <c>InternalSegmentIndex</c> together with the <c>SegmentIndex</c>
-      completely identify the location of an atom cache entry in the
-      atom cache. <c>Length</c> is the number of bytes that <c>AtomText</c>
-      consists of. Length is a 2 byte big-endian integer
-      if flag <c>LongAtoms</c> has been set, otherwise a 1 byte
-      integer. When distribution flag
-      <seealso marker="erl_dist_protocol#dflags">
-      <c>DFLAG_UTF8_ATOMS</c></seealso>
-      has been exchanged between both nodes in the
-      <seealso marker="erl_dist_protocol#distribution_handshake">
-      distribution handshake</seealso>,
-      characters in <c>AtomText</c> are encoded in UTF-8, otherwise
-      in Latin-1. The following <c>CachedAtomRef</c>s with the same
-      <c>SegmentIndex</c> and <c>InternalSegmentIndex</c> as this
-      <c>NewAtomCacheRef</c> refer to this atom until a new
-      <c>NewAtomCacheRef</c> with the same <c>SegmentIndex</c>
-      and <c>InternalSegmentIndex</c> appear.
-    </p>
-    <p>
-      For more information on encoding of atoms, see the
-      <seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
-      in the beginning of this section.
-    </p>
-    <p>
-      If the <c>NewCacheEntryFlag</c> for the next <c>AtomCacheRef</c>
-      has not been set, a <c>CachedAtomRef</c> on the following format
-      follows:
-    </p>
-    <table align="left">
-      <row>
-        <cell align="center">1</cell>
-      </row>
-      <row>
-        <cell align="center"><c>InternalSegmentIndex</c></cell>
-      </row>
-    <tcaption></tcaption></table>
-    <p>
-      <c>InternalSegmentIndex</c> together with the <c>SegmentIndex</c>
-      identify the location of the atom cache entry in the atom cache.
-      The atom corresponding to this <c>CachedAtomRef</c> is the
-      latest <c>NewAtomCacheRef</c> preceding this <c>CachedAtomRef</c>
-      in another previously passed distribution header.
-    </p>
+    <section>
+      <title>Normal Distribution Header</title>
+      <p>
+        The non-fragmented distribution header format is as follows:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">NumberOfAtomCacheRefs/2+1 | 0</cell>
+          <cell align="center">N | 0</cell>
+        </row>
+        <row>
+          <cell align="center"><c>131</c></cell>
+          <cell align="center"><c>68</c></cell>
+          <cell align="center"><c>NumberOfAtomCacheRefs</c></cell>
+          <cell align="center"><c>Flags</c></cell>
+          <cell align="center"><c>AtomCacheRefs</c></cell>
+        </row>
+      <tcaption>Normal Distribution Header Format</tcaption></table>
+      <p>
+        <c>Flags</c> consist of <c>NumberOfAtomCacheRefs/2+1</c> bytes,
+        unless <c>NumberOfAtomCacheRefs</c> is <c>0</c>. If
+        <c>NumberOfAtomCacheRefs</c> is <c>0</c>, <c>Flags</c> and
+        <c>AtomCacheRefs</c> are omitted. Each atom cache reference has
+        a half byte flag field. Flags corresponding to a specific
+        <c>AtomCacheReferenceIndex</c> are located in flag byte number
+        <c>AtomCacheReferenceIndex/2</c>. Flag byte 0 is the first byte
+        after the <c>NumberOfAtomCacheRefs</c> byte. Flags for an even
+        <c>AtomCacheReferenceIndex</c> are located in the least significant
+        half byte and flags for an odd <c>AtomCacheReferenceIndex</c> are
+        located in the most significant half byte.
+      </p>
+      <p>
+        The flag field of an atom cache reference has the following
+        format:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">1 bit</cell>
+          <cell align="center">3 bits</cell>
+        </row>
+        <row>
+          <cell align="center"><c>NewCacheEntryFlag</c></cell>
+          <cell align="center"><c>SegmentIndex</c></cell>
+        </row>
+      <tcaption></tcaption></table>
+      <p>
+        The most significant bit is the <c>NewCacheEntryFlag</c>. If set,
+        the corresponding cache reference is new. The three least
+        significant bits are the <c>SegmentIndex</c> of the corresponding
+        atom cache entry. An atom cache consists of 8 segments, each of size
+        256, that is, an atom cache can contain 2048 entries.
+      </p>
+      <p>
+        After flag fields for atom cache references, another half byte flag
+        field is located with the following format:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">3 bits</cell>
+          <cell align="center">1 bit</cell>
+        </row>
+        <row>
+          <cell align="center"><c>CurrentlyUnused</c></cell>
+          <cell align="center"><c>LongAtoms</c></cell>
+        </row>
+      <tcaption></tcaption></table>
+      <p>
+        The least significant bit in that half byte is flag <c>LongAtoms</c>.
+        If it is set, 2 bytes are used for atom lengths instead of
+        1 byte in the distribution header.
+      </p>
+      <p>
+        After the <c>Flags</c> field follow the <c>AtomCacheRefs</c>. The
+        first <c>AtomCacheRef</c> is the one corresponding to
+        <c>AtomCacheReferenceIndex</c> 0. Higher indices follow
+        in sequence up to index <c>NumberOfAtomCacheRefs - 1</c>.
+      </p>
+      <p>
+        If the <c>NewCacheEntryFlag</c> for the next <c>AtomCacheRef</c> has
+        been set, a <c>NewAtomCacheRef</c> on the following format follows:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1 | 2</cell>
+          <cell align="center">Length</cell>
+        </row>
+        <row>
+          <cell align="center"><c>InternalSegmentIndex</c></cell>
+          <cell align="center"><c>Length</c></cell>
+          <cell align="center"><c>AtomText</c></cell>
+        </row>
+      <tcaption></tcaption></table>
+      <p>
+        <c>InternalSegmentIndex</c> together with the <c>SegmentIndex</c>
+        completely identify the location of an atom cache entry in the
+        atom cache. <c>Length</c> is the number of bytes that <c>AtomText</c>
+        consists of. Length is a 2 byte big-endian integer
+        if flag <c>LongAtoms</c> has been set, otherwise a 1 byte
+        integer. When distribution flag
+        <seealso marker="erl_dist_protocol#dflags">
+        <c>DFLAG_UTF8_ATOMS</c></seealso>
+        has been exchanged between both nodes in the
+        <seealso marker="erl_dist_protocol#distribution_handshake">
+          distribution handshake</seealso>,
+          characters in <c>AtomText</c> are encoded in UTF-8, otherwise
+          in Latin-1. The following <c>CachedAtomRef</c>s with the same
+          <c>SegmentIndex</c> and <c>InternalSegmentIndex</c> as this
+          <c>NewAtomCacheRef</c> refer to this atom until a new
+          <c>NewAtomCacheRef</c> with the same <c>SegmentIndex</c>
+          and <c>InternalSegmentIndex</c> appear.
+      </p>
+      <p>
+        For more information on encoding of atoms, see the
+        <seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+        in the beginning of this section.
+      </p>
+      <p>
+        If the <c>NewCacheEntryFlag</c> for the next <c>AtomCacheRef</c>
+        has not been set, a <c>CachedAtomRef</c> on the following format
+        follows:
+      </p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+        </row>
+        <row>
+          <cell align="center"><c>InternalSegmentIndex</c></cell>
+        </row>
+      <tcaption></tcaption></table>
+      <p>
+        <c>InternalSegmentIndex</c> together with the <c>SegmentIndex</c>
+        identify the location of the atom cache entry in the atom cache.
+        The atom corresponding to this <c>CachedAtomRef</c> is the
+        latest <c>NewAtomCacheRef</c> preceding this <c>CachedAtomRef</c>
+        in another previously passed distribution header.
+      </p>
+    </section>
+    <section>
+      <marker id="fragments"/>
+      <title>Distribution Header for fragmented messages</title>
+      <p>Messages sent between Erlang nodes can sometimes be
+      quite large. Since OTP-22 it is possible to split large messages
+      into smaller fragments in order to allow smaller messages to be interleaved
+      between larges messages. It is only the <c>message</c> part of each
+      <seealso marker="erl_dist_protocol#connected_nodes">distributed message</seealso>
+      that may be split using fragmentation. Therefore it is recommended to use the
+      <seealso marker="erl_dist_protocol#new-ctrlmessages-for-erlang-otp-22">
+        PAYLOAD control messages</seealso> introduced in OTP-22.
+      </p>
+      <p>Fragmented distribution messages are only used if the receiving node
+      signals that it supports them via the
+      <seealso marker="erl_dist_protocol#dflags">DFLAG_FRAGMENTS</seealso> distribution
+      flag.</p>
+      <p>A process must complete the sending of a fragmented message before it
+      can start sending any other message on the same distribution channel.</p>
+
+      <p>The start of a sequence of fragmented messages looks like this:</p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">8</cell>
+          <cell align="center">8</cell>
+          <cell align="center">1</cell>
+          <cell align="center">NumberOfAtomCacheRefs/2+1 | 0</cell>
+          <cell align="center">N | 0</cell>
+        </row>
+        <row>
+          <cell align="center"><c>131</c></cell>
+          <cell align="center"><c>69</c></cell>
+          <cell align="center"><c>SequenceId</c></cell>
+          <cell align="center"><c>FragmentId</c></cell>
+          <cell align="center"><c>NumberOfAtomCacheRefs</c></cell>
+          <cell align="center"><c>Flags</c></cell>
+          <cell align="center"><c>AtomCacheRefs</c></cell>
+        </row>
+        <tcaption>Starting Fragmented Distribution Header Format</tcaption>
+      </table>
+
+      <p>The continuation of a sequence of fragmented messages looks like this:</p>
+      <table align="left">
+        <row>
+          <cell align="center">1</cell>
+          <cell align="center">1</cell>
+          <cell align="center">8</cell>
+          <cell align="center">8</cell>
+        </row>
+        <row>
+          <cell align="center"><c>131</c></cell>
+          <cell align="center"><c>70</c></cell>
+          <cell align="center"><c>SequenceId</c></cell>
+          <cell align="center"><c>FragmentId</c></cell>
+        </row>
+        <tcaption>Continuing Fragmented Distribution Header Format</tcaption>
+      </table>
+
+      <p>
+        The starting distribution header is very similar to a non-fragmented distribution
+        header. The atom cache works the same as for normal distribution header and
+        is the same for the entire sequence. The additional fields added are the
+        sequence id and fragment id.
+      </p>
+
+      <taglist>
+        <tag>Sequence ID</tag>
+        <item>
+          <p>
+            The sequence id is used to uniquely identify a fragmented message sent
+            from one process to another on the same distributed connection. This is used
+            to identify which sequence a fragment is a part of as the same process can
+            be in the process of receiving multiple sequences at the same time.
+          </p>
+          <p>
+            As one process can only be sending one fragmented message at once,
+            it can be convenient to use the local PID as the sequence id.
+          </p>
+        </item>
+        <tag>Fragments ID</tag>
+        <item>
+          <p>
+            The Fragment ID is used to number the fragments in a sequence.
+            The id starts at the total number of fragments and then decrements to 1
+            (which is the final fragment). So if a sequence consists of 3 fragments
+            the fragment id in the starting header will be 3, and then fragments 2 and 1
+            are sent.
+          </p>
+          <p>
+            The fragments must be delivered in the correct order, so if an unordered
+            distribution carrier is used, they must be ordered before delivered to the
+            Erlang run-time.
+          </p>
+        </item>
+      </taglist>
+
+      <section>
+        <title>Example:</title>
+        <p>
+          As an example, let say that we want to send
+          <c>{call, &lt;0.245.2>, {set_get_state, &lt;&lt;0:1024>>}}</c> to
+          registered process <c>reg</c> using a fragment size of 128. To send
+          this message we need a distribution header, atom cache updates,
+          the control message (which would be <c>{6, &lt;0.245.2>, [], reg}</c> in this case)
+          and finally the actual message. This would all be encoded into:
+        </p>
+
+        <code>
+131,69,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,2,               %% Header with seq and frag id
+5,4,137,9,10,5,236,3,114,101,103,9,4,99,97,108,108,      %% Atom cache updates
+238,13,115,101,116,95,103,101,116,95,115,116,97,116,101,
+104,4,97,6,103,82,0,0,0,0,85,0,0,0,0,2,82,1,82,2,        %% Control message
+104,3,82,3,103,82,0,0,0,0,245,0,0,0,2,2,                 %% Actual message using cached atoms
+104,2,82,4,109,0,0,0,128,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+131,70,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,1,               %% Cont Header with seq and frag id
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,               %% Rest of payload
+0,0,0,0</code>
+
+       <p>
+         Let us break that apart into its components. First we have the
+         distribution header tags together with the sequence id and
+         a fragment id of 2.
+       </p>
+       <code>
+131,69,                   %% Start fragment header
+0,0,2,168,0,0,5,83,       %% The sequence ID
+0,0,0,0,0,0,0,2,           %% The fragment ID
+</code>
+       <p>Then we have the updates to the atom cache:</p>
+       <code>
+5,4,137,9,  %% 5 atoms and their flags
+10,5,       %% The already cached atom ids
+236,3,114,101,103,  %% The atom 'reg'
+9,4,99,97,108,108,  %% The atom 'call'
+238,13,115,101,116,95,103,101,116,95,115,116,97,116,101, %% The atom 'set_get_state'
+       </code>
+       <p>
+         The first byte says that we have 5 atoms that are part
+         of the cache. Then follows three bytes that are the
+         atom cache ref flags. Each of the flags uses 4 bits so
+         they are a bit hard to read in decimal byte form. In
+         binary half-byte form they look like this:
+       </p>
+       <code>0000, 0100, 1000, 1001, 1001</code>
+       <p>
+         As the high bit of the first two atoms in the
+         cache are not set we know that they are already in the cache,
+         so they do not have to be sent again (this is the node name of the
+         receiving and sending node). Then follows the atoms that have to be sent,
+         together with their segment ids.
+       </p>
+       <p>
+         Then the listing of the atoms comes, starting with 10 and 5
+         which are the atom refs of the already cached atoms. Then the
+         new atoms are sent.
+       </p>
+       <p>
+         When the atom cache is setup correctly the control message is sent.
+       </p>
+       <code>104,4,97,6,103,82,0,0,0,0,85,0,0,0,0,2,82,1,82,2,</code>
+       <p>
+         Note that up until here it is not allowed to fragments the message.
+         The entire atom cache and control message has to be part of the
+         starting fragment. After the control message the payload of the message
+         is sent using 128 bytes:
+       </p>
+       <code>
+104,3,82,3,103,82,0,0,0,0,245,0,0,0,2,2,
+104,2,82,4,109,0,0,0,128,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+       </code>
+       <p>
+         Since the payload is larger than 128-bytes it is split into two
+         fragments. The second fragment does not have any atom cache update
+         instructions so it is a lot simpler:
+       </p>
+       <code>
+131,70,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,1, %% Continuation dist header 70 with seq and frag id
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, %% remaining payload
+0,0,0,0
+       </code>
+       <note>
+         <p>
+           The fragment size of 128 is only used as an example.
+           Any fragments size may be used when sending fragmented messages.
+         </p>
+       </note>
+      </section>
+    </section>
   </section>
 
   <section>

@@ -850,10 +850,15 @@ DiB == gen_digest(ChA, ICA)?
         <tag><c>-define(DFLAG_EXIT_PAYLOAD, 16#400000).</c></tag>
         <item>
           <p>Use the <c>PAYLOAD_EXIT</c>, <c>PAYLOAD_EXIT_TT</c>,
-          <c>PAYLOAD_EXIT2</c>, <c>PAYLOAD_EXIT2_TT</c>
-          and <c>PAYLOAD_MONITOR_P_EXIT</c>
-          <seealso marker="#control_message">control message</seealso>s
-          instead of the non-PAYLOAD variants.</p>
+            <c>PAYLOAD_EXIT2</c>, <c>PAYLOAD_EXIT2_TT</c>
+            and <c>PAYLOAD_MONITOR_P_EXIT</c>
+            <seealso marker="#control_message">control message</seealso>s
+            instead of the non-PAYLOAD variants.</p>
+        </item>
+        <tag><c>-define(DFLAG_FRAGMENTS, 16#800000).</c></tag>
+        <item>
+          <p>Use <seealso marker="erl_ext_dist#fragments">fragmented</seealso>
+            distribution messages to send large messages.</p>
         </item>
       </taglist>
       <p>
