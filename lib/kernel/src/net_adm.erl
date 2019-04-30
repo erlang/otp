@@ -20,7 +20,7 @@
 -module(net_adm).
 -export([host_file/0,
 	 localhost/0,
-	 names/0, names/1,
+	 names/0, names/1, names/2,
 	 ping_list/1,
 	 world/0,world/1,
 	 world_list/1, world_list/2,
@@ -98,6 +98,18 @@ names() ->
 names(Hostname) ->
     ErlEpmd = net_kernel:epmd_module(),
     ErlEpmd:names(Hostname).
+
+-spec names(Host, Family) -> {ok, [{Name, Port}]} | {error, Reason} when
+  Host :: atom() | string() | inet:ip_address(),
+  Family :: inet:address_family(),
+  Name :: string(),
+  Port :: non_neg_integer(),
+  Reason :: address | file:posix().
+
+names(Hostname, Family) ->
+  ErlEpmd = net_kernel:epmd_module(),
+  ErlEpmd:names(Hostname, Family).
+
 
 -spec dns_hostname(Host) -> {ok, Name} | {error, Host} when
       Host :: atom() | string(),

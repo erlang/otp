@@ -41,7 +41,7 @@
 
 %% External exports
 -export([start/0, start_link/0, stop/0, port_please/2, 
-	 port_please/3, names/0, names/1,
+	 port_please/3, names/0, names/1, names/2,
 	 register_node/2, register_node/3, address_please/3, open/0, open/1, open/2]).
 
 %% gen_server callbacks
@@ -131,14 +131,29 @@ names() ->
       Reason :: address | file:posix().
 
 names(HostName) when is_atom(HostName); is_list(HostName) ->
-  case inet:gethostbyname(HostName) of
-    {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
-      get_names(EpmdAddr);
-    Else ->
-      Else
-  end;
+    case inet:gethostbyname(HostName) of
+        {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
+            get_names(EpmdAddr);
+        Else ->
+            Else
+    end;
 names(EpmdAddr) ->
-  get_names(EpmdAddr).
+    get_names(EpmdAddr).
+
+-spec names(Host, Family) -> {ok, [{Name, Port}]} | {error, Reason} when
+      Host :: atom() | string() | inet:ip_address(),
+      Family :: inet:address_family(),
+      Name :: string(),
+      Port :: non_neg_integer(),
+      Reason :: address | file:posix().
+
+names(HostName, Family) when is_atom(HostName); is_list(HostName) ->
+    case inet:gethostbyname(HostName, Family) of
+        {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
+            get_names(EpmdAddr);
+        Else ->
+            Else
+    end.
 
 -spec register_node(Name, Port) -> Result when
 	  Name :: string(),
