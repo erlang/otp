@@ -168,7 +168,7 @@
       <fsummary>Test if a queue is empty.</fsummary>
       <desc>
         <p>Tests if <c><anno>Q</anno></c> is empty and returns <c>true</c> if
-          so, otherwise otherwise.</p>
+          so, otherwise <c>false</c>.</p>
       </desc>
     </func>
 
