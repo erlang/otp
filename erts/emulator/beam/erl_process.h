@@ -2634,6 +2634,9 @@ void erts_notify_inc_runq(ErtsRunQueue *runq);
 void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, erts_aint32_t);
 ERTS_GLB_INLINE void erts_sched_poke(ErtsSchedulerSleepInfo *ssi);
 void erts_aux_thread_poke(void);
+ERTS_GLB_INLINE Uint32 erts_sched_local_random_hash_64_to_32_shift(Uint64 key);
+ERTS_GLB_INLINE Uint32 erts_sched_local_random(Uint additional_seed);
+
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -2649,6 +2652,39 @@ erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
     }
 }
 
+
+/*
+ * Source: https://gist.github.com/badboy/6267743
+ *         http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttwang/tech/inthash.htm
+ */
+ERTS_GLB_INLINE
+Uint32 erts_sched_local_random_hash_64_to_32_shift(Uint64 key)
+{
+    key = (~key) + (key << 18); /* key = (key << 18) - key - 1; */
+    key = key ^ (key >> 31);
+    key = (key + (key << 2)) + (key << 4);
+    key = key ^ (key >> 11);
+    key = key + (key << 6);
+    key = key ^ (key >> 22);
+    return (Uint32) key;
+}
+
+/*
+ * This function attempts to return a random number based on the state
+ * of the scheduler, the current process and the additional_seed
+ * parameter.
+ */
+ERTS_GLB_INLINE
+Uint32 erts_sched_local_random(Uint additional_seed)
+{
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    Uint64 seed =
+        additional_seed +
+        esdp->reductions +
+        esdp->current_process->fcalls +
+        (((Uint64)esdp->no) << 32);
+    return erts_sched_local_random_hash_64_to_32_shift(seed);
+}
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
