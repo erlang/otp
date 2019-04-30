@@ -202,7 +202,8 @@ gen_static(Fd) ->
     io:put_chars(Fd, "                {Upper,_} -> [Upper|Str];\n"),
     io:put_chars(Fd, "                {Upper,_,_,_} -> [Upper|Str]\n"),
     io:put_chars(Fd, "            end;\n"),
-    io:put_chars(Fd, "        [] -> []\n"),
+    io:put_chars(Fd, "        [] -> [];\n"),
+    io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
     io:put_chars(Fd, "-spec lowercase(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
@@ -213,7 +214,8 @@ gen_static(Fd) ->
     io:put_chars(Fd, "                {_,Lower} -> [Lower|Str];\n"),
     io:put_chars(Fd, "                {_,Lower,_,_} -> [Lower|Str]\n"),
     io:put_chars(Fd, "            end;\n"),
-    io:put_chars(Fd, "        [] -> []\n"),
+    io:put_chars(Fd, "        [] -> [];\n"),
+    io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
     io:put_chars(Fd, "-spec titlecase(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
@@ -224,7 +226,8 @@ gen_static(Fd) ->
     io:put_chars(Fd, "                {_,_,Title,_} -> [Title|Str];\n"),
     io:put_chars(Fd, "                {Upper,_} -> [Upper|Str]\n"),
     io:put_chars(Fd, "            end;\n"),
-    io:put_chars(Fd, "        [] -> []\n"),
+    io:put_chars(Fd, "        [] -> [];\n"),
+    io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
     io:put_chars(Fd, "-spec casefold(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
@@ -235,7 +238,8 @@ gen_static(Fd) ->
     io:put_chars(Fd, "                {_,_,_,Fold} -> [Fold|Str];\n"),
     io:put_chars(Fd, "                {_,Lower} -> [Lower|Str]\n"),
     io:put_chars(Fd, "            end;\n"),
-    io:put_chars(Fd, "        [] -> []\n"),
+    io:put_chars(Fd, "        [] -> [];\n"),
+    io:put_chars(Fd, "        {error,Err} -> error({badarg, Err})\n"),
     io:put_chars(Fd, "    end.\n\n"),
 
     ok.

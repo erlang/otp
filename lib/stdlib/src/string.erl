@@ -128,7 +128,8 @@ length(CD) ->
 to_graphemes(CD0) ->
     case unicode_util:gc(CD0) of
         [GC|CD] -> [GC|to_graphemes(CD)];
-        [] -> []
+        [] -> [];
+        {error, Err} -> error({badarg, Err})
     end.
 
 %% Compare two strings return boolean, assumes that the input are
@@ -332,7 +333,10 @@ uppercase(<<CP1/utf8, Rest/binary>>=Orig) ->
     catch unchanged -> Orig
     end;
 uppercase(<<>>) ->
-    <<>>.
+    <<>>;
+uppercase(Bin) ->
+    error({badarg, Bin}).
+
 
 %% Lowercase all chars in Str
 -spec lowercase(String::unicode:chardata()) -> unicode:chardata().
@@ -346,7 +350,10 @@ lowercase(<<CP1/utf8, Rest/binary>>=Orig) ->
     catch unchanged -> Orig
     end;
 lowercase(<<>>) ->
-    <<>>.
+    <<>>;
+lowercase(Bin) ->
+    error({badarg, Bin}).
+
 
 %% Make a titlecase of the first char in Str
 -spec titlecase(String::unicode:chardata()) -> unicode:chardata().
@@ -375,7 +382,9 @@ casefold(<<CP1/utf8, Rest/binary>>=Orig) ->
     catch unchanged -> Orig
     end;
 casefold(<<>>) ->
-    <<>>.
+    <<>>;
+casefold(Bin) ->
+    error({badarg, Bin}).
 
 -spec to_integer(String) -> {Int, Rest} | {'error', Reason} when
       String :: unicode:chardata(),
@@ -544,7 +553,8 @@ length_1([CP1|[CP2|_]=Cont], N) when ?ASCII_LIST(CP1,CP2) ->
 length_1(Str, N) ->
     case unicode_util:gc(Str) of
         [] -> N;
-        [_|Rest] -> length_1(Rest, N+1)
+        [_|Rest] -> length_1(Rest, N+1);
+        {error, Err} -> error({badarg, Err})
     end.
 
 length_b(<<CP2/utf8, Rest/binary>>, CP1, N)
@@ -554,7 +564,8 @@ length_b(Bin0, CP1, N) ->
     [_|Bin1] = unicode_util:gc([CP1|Bin0]),
     case unicode_util:cp(Bin1) of
         [] -> N+1;
-        [CP3|Bin] -> length_b(Bin, CP3, N+1)
+        [CP3|Bin] -> length_b(Bin, CP3, N+1);
+        {error, Err} -> error({badarg, Err})
     end.
 
 equal_1([A|AR], [B|BR]) when is_integer(A), is_integer(B) ->
@@ -599,7 +610,8 @@ reverse_1([CP1|[CP2|_]=Cont], Acc) when ?ASCII_LIST(CP1,CP2) ->
 reverse_1(CD, Acc) ->
     case unicode_util:gc(CD) of
         [GC|Rest] -> reverse_1(Rest, [GC|Acc]);
-        [] -> Acc
+        [] -> Acc;
+        {error, Err} -> error({badarg, Err})
     end.
 
 reverse_b(<<CP2/utf8, Rest/binary>>, CP1, Acc)
@@ -609,7 +621,8 @@ reverse_b(Bin0, CP1, Acc) ->
     [GC|Bin1] = unicode_util:gc([CP1|Bin0]),
     case unicode_util:cp(Bin1) of
         [] -> [GC|Acc];
-        [CP3|Bin] -> reverse_b(Bin, CP3, [GC|Acc])
+        [CP3|Bin] -> reverse_b(Bin, CP3, [GC|Acc]);
+        {error, Err} -> error({badarg, Err})
     end.
 
 slice_l0(<<CP1/utf8, Bin/binary>>, N) when N > 0 ->
@@ -622,7 +635,8 @@ slice_l([CP1|[CP2|_]=Cont], N) when ?ASCII_LIST(CP1,CP2),N > 0 ->
 slice_l(CD, N) when N > 0 ->
     case unicode_util:gc(CD) of
         [_|Cont] -> slice_l(Cont, N-1);
-        [] -> []
+        [] -> [];
+        {error, Err} -> error({badarg, Err})
     end;
 slice_l(Cont, 0) ->
     Cont.
@@ -634,7 +648,8 @@ slice_lb(Bin, CP1, N) ->
     if N > 1 ->
             case unicode_util:cp(Rest) of
                 [CP2|Cont] -> slice_lb(Cont, CP2, N-1);
-                [] -> <<>>
+                [] -> <<>>;
+                {error, Err} -> error({badarg, Err})
             end;
        N =:= 1 ->
             Rest
@@ -647,7 +662,10 @@ slice_trail(Orig, N) when is_binary(Orig) ->
             Sz = byte_size(Orig) - Length,
             <<Keep:Sz/binary, _/binary>> = Orig,
             Keep;
-        _ -> <<>>
+        <<_, _/binary>> when N > 0 ->
+            error({badarg, Orig});
+        _ ->
+            <<>>
     end;
 slice_trail(CD, N) when is_list(CD) ->
     slice_list(CD, N).
@@ -657,7 +675,8 @@ slice_list([CP1|[CP2|_]=Cont], N) when ?ASCII_LIST(CP1,CP2),N > 0 ->
 slice_list(CD, N) when N > 0 ->
     case unicode_util:gc(CD) of
         [GC|Cont] -> append(GC, slice_list(Cont, N-1));
-        [] -> []
+        [] -> [];
+        {error, Err} -> error({badarg, Err})
     end;
 slice_list(_, 0) ->
     [].
@@ -668,7 +687,8 @@ slice_bin(CD, CP1, N) when N > 0 ->
     [_|Bin] = unicode_util:gc([CP1|CD]),
     case unicode_util:cp(Bin) of
         [CP2|Cont] -> slice_bin(Cont, CP2, N-1);
-        [] -> 0
+        [] -> 0;
+        {error, Err} -> error({badarg, Err})
     end;
 slice_bin(CD, CP1, 0) ->
     byte_size(CD)+byte_size(<<CP1/utf8>>).
@@ -703,14 +723,18 @@ uppercase_bin(CP1, Bin, Changed) ->
                 [] when Changed ->
                     [CP1];
                 [] ->
-                    throw(unchanged)
+                    throw(unchanged);
+                {error, Err} ->
+                    error({badarg, Err})
             end;
         [Char|CPs] ->
             case unicode_util:cp(CPs) of
                 [Next|Rest] ->
                     [Char|uppercase_bin(Next, Rest, true)];
                 [] ->
-                    [Char]
+                    [Char];
+                {error, Err} ->
+                    error({badarg, Err})
             end
     end.
 
@@ -744,14 +768,18 @@ lowercase_bin(CP1, Bin, Changed) ->
                 [] when Changed ->
                     [CP1];
                 [] ->
-                    throw(unchanged)
+                    throw(unchanged);
+                {error, Err} ->
+                    error({badarg, Err})
             end;
         [Char|CPs] ->
             case unicode_util:cp(CPs) of
                 [Next|Rest] ->
                     [Char|lowercase_bin(Next, Rest, true)];
                 [] ->
-                    [Char]
+                    [Char];
+                {error, Err} ->
+                    error({badarg, Err})
             end
     end.
 
@@ -785,14 +813,18 @@ casefold_bin(CP1, Bin, Changed) ->
                 [] when Changed ->
                     [CP1];
                 [] ->
-                    throw(unchanged)
+                    throw(unchanged);
+                {error, Err} ->
+                    error({badarg, Err})
             end;
         [Char|CPs] ->
             case unicode_util:cp(CPs) of
                 [Next|Rest] ->
                     [Char|casefold_bin(Next, Rest, true)];
                 [] ->
-                    [Char]
+                    [Char];
+                {error, Err} ->
+                    error({badarg, Err})
             end
     end.
 
@@ -1634,7 +1666,9 @@ bin_search_inv_1(<<CP1/utf8, BinRest/binary>>=Bin0, Cont, Sep) ->
 bin_search_inv_1(<<>>, Cont, _Sep) ->
     {nomatch, Cont};
 bin_search_inv_1([], Cont, _Sep) ->
-    {nomatch, Cont}.
+    {nomatch, Cont};
+bin_search_inv_1(Bin, _, _) ->
+    error({badarg, Bin}).
 
 
 bin_search_inv_n(<<CP1/utf8, BinRest/binary>>=Bin0, Cont, Seps) ->
@@ -1666,7 +1700,9 @@ bin_search_inv_n(<<CP1/utf8, BinRest/binary>>=Bin0, Cont, Seps) ->
 bin_search_inv_n(<<>>, Cont, _Sep) ->
     {nomatch, Cont};
 bin_search_inv_n([], Cont, _Sep) ->
-    {nomatch, Cont}.
+    {nomatch, Cont};
+bin_search_inv_n(Bin, _, _) ->
+    error({badarg, Bin}).
 
 bin_search_str(Bin0, Start, [], SearchCPs) ->
     Compiled = binary:compile_pattern(unicode:characters_to_binary(SearchCPs)),
