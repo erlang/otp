@@ -342,21 +342,22 @@ make_save_point_dict_1([], Ctx, I, Acc) ->
     [{Ctx,I}|Acc].
 
 bs_restores([{L,#b_blk{is=Is,last=Last}}|Bs], CtxChain, D0, Rs0) ->
-    FPos = case D0 of
-               #{L:=Pos0} -> Pos0;
-               #{} -> #{}
-           end,
-    {SPos,Rs} = bs_restores_is(Is, CtxChain, FPos, Rs0),
-    D = bs_update_successors(Last, SPos, FPos, D0),
+    InPos = maps:get(L, D0, #{}),
+    {SuccPos, FailPos, Rs} = bs_restores_is(Is, CtxChain, InPos, InPos, Rs0),
+
+    D = bs_update_successors(Last, SuccPos, FailPos, D0),
     bs_restores(Bs, CtxChain, D, Rs);
 bs_restores([], _, _, Rs) -> Rs.
 
 bs_update_successors(#b_br{succ=Succ,fail=Fail}, SPos, FPos, D) ->
     join_positions([{Succ,SPos},{Fail,FPos}], D);
-bs_update_successors(#b_switch{fail=Fail,list=List}, SPos, _FPos, D) ->
+bs_update_successors(#b_switch{fail=Fail,list=List}, SPos, FPos, D) ->
+    SPos = FPos,                                %Assertion.
     Update = [{L,SPos} || {_,L} <- List] ++ [{Fail,SPos}],
     join_positions(Update, D);
-bs_update_successors(#b_ret{}, _, _, D) -> D.
+bs_update_successors(#b_ret{}, SPos, FPos, D) ->
+    SPos = FPos,                                %Assertion.
+    D.
 
 join_positions([{L,MapPos0}|T], D) ->
     case D of
@@ -382,75 +383,91 @@ join_positions_1(MapPos0, MapPos1) ->
                        end, MapPos1),
     maps:merge(MapPos0, MapPos2).
 
+%%
+%% Updates the restore and position maps according to the given instructions.
+%%
+%% Note that positions may be updated even when a match fails; if a match
+%% requires a restore, the position at the fail block will be the position
+%% we've *restored to* and not the one we entered the current block with.
+%%
+
 bs_restores_is([#b_set{op=bs_start_match,dst=Start}|Is],
-               CtxChain, PosMap0, Rs) ->
-    PosMap = PosMap0#{Start=>Start},
-    bs_restores_is(Is, CtxChain, PosMap, Rs);
+               CtxChain, SPos0, FPos, Rs) ->
+    %% We only allow one match per block.
+    SPos0 = FPos,                               %Assertion.
+    SPos = SPos0#{Start=>Start},
+    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
 bs_restores_is([#b_set{op=bs_match,dst=NewPos,args=Args}=I|Is],
-               CtxChain, PosMap0, Rs0) ->
+               CtxChain, SPos0, FPos0, Rs0) ->
+    SPos0 = FPos0,                              %Assertion.
     Start = bs_subst_ctx(NewPos, CtxChain),
     [_,FromPos|_] = Args,
-    case PosMap0 of
+    case SPos0 of
         #{Start:=FromPos} ->
             %% Same position, no restore needed.
-            PosMap = case bs_match_type(I) of
+            SPos = case bs_match_type(I) of
                          plain ->
                              %% Update position to new position.
-                             PosMap0#{Start:=NewPos};
+                             SPos0#{Start:=NewPos};
                          _ ->
                              %% Position will not change (test_unit
                              %% instruction or no instruction at
                              %% all).
-                             PosMap0#{Start:=FromPos}
+                             SPos0#{Start:=FromPos}
                      end,
-            bs_restores_is(Is, CtxChain, PosMap, Rs0);
+            bs_restores_is(Is, CtxChain, SPos, FPos0, Rs0);
         #{Start:=_} ->
             %% Different positions, might need a restore instruction.
             case bs_match_type(I) of
                 none ->
-                    %% The tail test will be optimized away.
-                    %% No need to do a restore.
-                    PosMap = PosMap0#{Start:=FromPos},
-                    bs_restores_is(Is, CtxChain, PosMap, Rs0);
+                    %% This is a tail test that will be optimized away.
+                    %% There's no need to do a restore, and all
+                    %% positions are unchanged.
+                    bs_restores_is(Is, CtxChain, SPos0, FPos0, Rs0);
                 test_unit ->
                     %% This match instruction will be replaced by
                     %% a test_unit instruction. We will need a
                     %% restore. The new position will be the position
                     %% restored to (NOT NewPos).
-                    PosMap = PosMap0#{Start:=FromPos},
+                    SPos = SPos0#{Start:=FromPos},
+                    FPos = FPos0#{Start:=FromPos},
                     Rs = Rs0#{NewPos=>{Start,FromPos}},
-                    bs_restores_is(Is, CtxChain, PosMap, Rs);
+                    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
                 plain ->
                     %% Match or skip. Position will be changed.
-                    PosMap = PosMap0#{Start:=NewPos},
+                    SPos = SPos0#{Start:=NewPos},
+                    FPos = FPos0#{Start:=FromPos},
                     Rs = Rs0#{NewPos=>{Start,FromPos}},
-                    bs_restores_is(Is, CtxChain, PosMap, Rs)
+                    bs_restores_is(Is, CtxChain, SPos, FPos, Rs)
             end
     end;
 bs_restores_is([#b_set{op=bs_extract,args=[FromPos|_]}|Is],
-               CtxChain, PosMap, Rs) ->
+               CtxChain, SPos, FPos, Rs) ->
     Start = bs_subst_ctx(FromPos, CtxChain),
-    #{Start:=FromPos} = PosMap,                 %Assertion.
-    bs_restores_is(Is, CtxChain, PosMap, Rs);
+    #{Start:=FromPos} = SPos,                   %Assertion.
+    #{Start:=FromPos} = FPos,                   %Assertion.
+    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
 bs_restores_is([#b_set{op=call,dst=Dst,args=Args}|Is],
-               CtxChain, PosMap0, Rs0) ->
-    {Rs,PosMap1} = bs_restore_args(Args, PosMap0, CtxChain, Dst, Rs0),
-    PosMap = bs_invalidate_pos(Args, PosMap1, CtxChain),
-    bs_restores_is(Is, CtxChain, PosMap, Rs);
-bs_restores_is([#b_set{op=landingpad}|Is], CtxChain, PosMap0, Rs) ->
+               CtxChain, SPos0, FPos0, Rs0) ->
+    {Rs, SPos1, FPos1} = bs_restore_args(Args, SPos0, FPos0, CtxChain, Dst, Rs0),
+    {SPos, FPos} = bs_invalidate_pos(Args, SPos1, FPos1, CtxChain),
+    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
+bs_restores_is([#b_set{op=landingpad}|Is], CtxChain, SPos0, FPos0, Rs) ->
     %% We can land here from any point, so all positions are invalid.
-    PosMap = maps:map(fun(_Start,_Pos) -> unknown end, PosMap0),
-    bs_restores_is(Is, CtxChain, PosMap, Rs);
+    Invalidate = fun(_Start,_Pos) -> unknown end,
+    SPos = maps:map(Invalidate, SPos0),
+    FPos = maps:map(Invalidate, FPos0),
+    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
 bs_restores_is([#b_set{op=Op,dst=Dst,args=Args}|Is],
-               CtxChain, PosMap0, Rs0)
+               CtxChain, SPos0, FPos0, Rs0)
   when Op =:= bs_test_tail;
        Op =:= bs_get_tail ->
-    {Rs,PosMap} = bs_restore_args(Args, PosMap0, CtxChain, Dst, Rs0),
-    bs_restores_is(Is, CtxChain, PosMap, Rs);
-bs_restores_is([_|Is], CtxChain, PosMap, Rs) ->
-    bs_restores_is(Is, CtxChain, PosMap, Rs);
-bs_restores_is([], _CtxChain, PosMap, Rs) ->
-    {PosMap,Rs}.
+    {Rs, SPos, FPos} = bs_restore_args(Args, SPos0, FPos0, CtxChain, Dst, Rs0),
+    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
+bs_restores_is([_|Is], CtxChain, SPos, FPos, Rs) ->
+    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
+bs_restores_is([], _CtxChain, SPos, FPos, Rs) ->
+    {SPos, FPos, Rs}.
 
 bs_match_type(#b_set{args=[#b_literal{val=skip},_Ctx,
                              #b_literal{val=binary},_Flags,
@@ -464,40 +481,42 @@ bs_match_type(_) ->
 
 %% Call instructions leave the match position in an undefined state,
 %% requiring us to invalidate each affected argument.
-bs_invalidate_pos([#b_var{}=Arg|Args], PosMap0, CtxChain) ->
+bs_invalidate_pos([#b_var{}=Arg|Args], SPos0, FPos0, CtxChain) ->
     Start = bs_subst_ctx(Arg, CtxChain),
-    case PosMap0 of
+    case SPos0 of
         #{Start:=_} ->
-            PosMap = PosMap0#{Start:=unknown},
-            bs_invalidate_pos(Args, PosMap, CtxChain);
+            SPos = SPos0#{Start:=unknown},
+            FPos = FPos0#{Start:=unknown},
+            bs_invalidate_pos(Args, SPos, FPos, CtxChain);
         #{} ->
             %% Not a match context.
-            bs_invalidate_pos(Args, PosMap0, CtxChain)
+            bs_invalidate_pos(Args, SPos0, FPos0, CtxChain)
     end;
-bs_invalidate_pos([_|Args], PosMap, CtxChain) ->
-    bs_invalidate_pos(Args, PosMap, CtxChain);
-bs_invalidate_pos([], PosMap, _CtxChain) ->
-    PosMap.
+bs_invalidate_pos([_|Args], SPos, FPos, CtxChain) ->
+    bs_invalidate_pos(Args, SPos, FPos, CtxChain);
+bs_invalidate_pos([], SPos, FPos, _CtxChain) ->
+    {SPos, FPos}.
 
-bs_restore_args([#b_var{}=Arg|Args], PosMap0, CtxChain, Dst, Rs0) ->
+bs_restore_args([#b_var{}=Arg|Args], SPos0, FPos0, CtxChain, Dst, Rs0) ->
     Start = bs_subst_ctx(Arg, CtxChain),
-    case PosMap0 of
+    case SPos0 of
         #{Start:=Arg} ->
             %% Same position, no restore needed.
-            bs_restore_args(Args, PosMap0, CtxChain, Dst, Rs0);
+            bs_restore_args(Args, SPos0, FPos0, CtxChain, Dst, Rs0);
         #{Start:=_} ->
             %% Different positions, need a restore instruction.
-            PosMap = PosMap0#{Start:=Arg},
+            SPos = SPos0#{Start:=Arg},
+            FPos = FPos0#{Start:=Arg},
             Rs = Rs0#{Dst=>{Start,Arg}},
-            bs_restore_args(Args, PosMap, CtxChain, Dst, Rs);
+            bs_restore_args(Args, SPos, FPos, CtxChain, Dst, Rs);
         #{} ->
             %% Not a match context.
-            bs_restore_args(Args, PosMap0, CtxChain, Dst, Rs0)
+            bs_restore_args(Args, SPos0, FPos0, CtxChain, Dst, Rs0)
     end;
-bs_restore_args([_|Args], PosMap, CtxChain, Dst, Rs) ->
-    bs_restore_args(Args, PosMap, CtxChain, Dst, Rs);
-bs_restore_args([], PosMap, _CtxChain, _Dst, Rs) ->
-    {Rs,PosMap}.
+bs_restore_args([_|Args], SPos, FPos, CtxChain, Dst, Rs) ->
+    bs_restore_args(Args, SPos, FPos, CtxChain, Dst, Rs);
+bs_restore_args([], SPos, FPos, _CtxChain, _Dst, Rs) ->
+    {Rs,SPos,FPos}.
 
 %% Insert all bs_save and bs_restore instructions.
 
