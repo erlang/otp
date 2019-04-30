@@ -760,7 +760,7 @@ downgrade(Type, Event, State) ->
 callback_mode() ->
     state_functions.
 
-terminate({shutdown, sender_died, Reason}, _StateName,
+terminate({shutdown, {sender_died, Reason}}, _StateName,
           #state{static_env = #static_env{socket = Socket, 
                                           transport_cb = Transport}} 
           = State) ->
@@ -939,7 +939,7 @@ handle_info({CloseTag, Socket}, StateName,
     end;
 handle_info({'EXIT', Sender, Reason}, _,
             #state{protocol_specific = #{sender := Sender}} = State) ->
-    {stop, {shutdown, sender_died, Reason}, State};
+    {stop, {shutdown, {sender_died, Reason}}, State};
 handle_info(Msg, StateName, State) ->
     ssl_connection:StateName(info, Msg, State, ?MODULE).
 

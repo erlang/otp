@@ -1850,6 +1850,14 @@ check_sane_openssl_version(Version) ->
 	    case {Version, os:cmd("openssl version")} of
                 {'sslv3', "OpenSSL 1.0.2" ++ _} ->
                     false;
+                {'dtlsv1', "OpenSSL 0" ++ _} ->
+		    false;
+		{'dtlsv1.2', "OpenSSL 0" ++ _} ->
+		    false;
+                {'dtlsv1.2', "OpenSSL 1.0.2" ++ _} ->
+		    false;
+		{'dtlsv1',  "OpenSSL 1.0.0" ++ _} ->
+		    false;
                 {'dtlsv1', _} ->
 		    not is_fips(openssl);
 		{'dtlsv1.2', _} ->
@@ -1862,17 +1870,9 @@ check_sane_openssl_version(Version) ->
 		    false;
 		{'tlsv1.1', "OpenSSL 1.0.0" ++ _} ->
 		    false;
-                {'dtlsv1.2', "OpenSSL 1.0.2" ++ _} ->
-		    false;
-		{'dtlsv1',  "OpenSSL 1.0.0" ++ _} ->
-		    false;
 		{'tlsv1.2', "OpenSSL 0" ++ _} ->
 		    false;
 		{'tlsv1.1', "OpenSSL 0" ++ _} ->
-		    false;
-                {'dtlsv1', "OpenSSL 0" ++ _} ->
-		    false;
-		{'dtlsv1.2', "OpenSSL 0" ++ _} ->
 		    false;
 		{_, _} ->
 		    true
