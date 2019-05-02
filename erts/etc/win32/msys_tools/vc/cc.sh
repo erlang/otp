@@ -195,7 +195,6 @@ mkdir $TMPOBJDIR
 
 # Compile
 for x in $SOURCES; do
-    start_time=`date '+%s'` 
     # Compile each source
     if [ $LINKING = false ]; then
 	# We should have an output defined, which is a directory 
@@ -260,16 +259,28 @@ for x in $SOURCES; do
     else
 	tail -n +2 $ERR_FILE >&2
 	if test $DEPENDENCIES = true; then
-	    if test `grep -v $x $MSG_FILE | grep -c '#line'` != "0"; then
-		o=`echo $x | sed 's,.*/,,' | sed 's,\.cp*$,.o,'`
-		echo -n $o':'
-#		cat $MSG_FILE | grep '#line' | grep -v $x | awk -F\" '{printf("%s\n",$2)}' | sort -u | grep -v " " | xargs -n 1 win2msys_path.sh | awk '{printf("\\\n %s ",$0)}' 
-		cat $MSG_FILE | grep '#line' | grep -v $x | awk -F\" '{printf("%s\n",$2)}' | sort -u | grep -v " " | sed 's,^\([A-Za-z]\):[\\/]*,/\1/,;s,\\\\*,/,g'| awk '{printf("\\\n %s ",$0)}' 
-		echo
-		echo 
-		after_sed=`date '+%s'`
-		echo Made dependencies for $x':' `expr $after_sed '-' $start_time` 's' >&2
-	    fi 
+	    perl -e '
+my $file = "'$x'";
+while (<>) {
+      next unless /^#line/;
+      next if /$file/o;
+      (undef,$_) = split(/\"/);
+      next if / /;
+      $all{$_} = 1;
+}
+foreach (sort keys %all) {
+      s@^([A-Za-z]):@/$1@;
+      s@\\\\@/@g;
+      push @f, "\\\n $_ ";
+}
+if (@f) {
+     my $oname = $file;
+     $oname =~ s@.*/@@;
+     $oname =~ s@[.]cp*@.o@;
+     print $oname, ":", @f;
+     print "\n\n";
+     print STDERR "Made dependencies for $file\n";
+}' $MSG_FILE
 	else
 	    cat $MSG_FILE
 	fi
