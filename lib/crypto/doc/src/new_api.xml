@@ -59,9 +59,9 @@
       <item><seealso marker="crypto#stream_init-2">stream_init/3</seealso></item>
       <item><seealso marker="crypto#stream_encrypt-2">stream_encrypt/2</seealso></item>
       <item><seealso marker="crypto#stream_decrypt-2">stream_decrypt/2</seealso></item>
-      <item><seealso marker="crypto#supports-0">suppports/0</seealso></item>
+      <item><seealso marker="crypto#supports-0">supports/0</seealso></item>
     </list>
-    <p>They are not deprecated for now, but may be in a future.
+    <p>They are not deprecated for now, but may be in a future release.
     </p>
   </section>
 
@@ -76,7 +76,8 @@
       <item><seealso marker="crypto#crypto_one_time_aead/7">crypto_one_time_aead/7</seealso></item>
     </list>
     <p>In those functions the internal crypto state is first created and initialized
-    with the cipher type, the key and possibly other data. Then the data is encrypted or decrypted,
+    with the cipher type, the key and possibly other data. Then the single binary is encrypted
+    or decrypted,
     the crypto state is de-allocated and the result of the crypto operation is returned.
     </p>
     <p>The <c>crypto_one_time_aead</c> functions are for the ciphers of mode <c>ccm</c> or
@@ -114,29 +115,39 @@
 
     <section>
       <title>Examples of crypto_init/4 and crypto_update/2</title>
-      <p>Encrypting two blocks:</p>
+      <p>The functions <seealso marker="crypto#crypto_init/4">crypto_init/4</seealso>
+      and <seealso marker="crypto#crypto_update/2">crypto_update/2</seealso> are intended
+      to be used for encrypting or decrypting a sequence of blocks. First one call of
+      <c>crypto_init/4</c> initialises the crypto context. One or more calls <c>crypto_update/2</c>
+      does the actual encryption or decryption for each block.
+      </p>
+      <p>This example shows first the encryption of two blocks and then decryptions of the cipher
+      text, but divided into three blocks just to show that it is possible to divide the plain text and
+      cipher text differently for some ciphers:</p>
       <code type="erl">
 	1> crypto:start().
 	ok
 	2> Key = &lt;&lt;1:128>>.
-	2> IV = &lt;&lt;0:128>>.
-	2> StateEnc = crypto:crypto_init(aes_128_ctr, Key, IV, true). % encrypt -> true
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
+	3> IV = &lt;&lt;0:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>
+	4> StateEnc = crypto:crypto_init(aes_128_ctr, Key, IV, true). % encrypt -> true
 	#Ref&lt;0.3768901617.1128660993.124047>
-	3> crypto:crypto_update(StateEnc, &lt;&lt;"First bytes">>).
+	5> crypto:crypto_update(StateEnc, &lt;&lt;"First bytes">>).
 	&lt;&lt;67,44,216,166,25,130,203,5,66,6,162>>
-	4> crypto:crypto_update(StateEnc, &lt;&lt;"Second bytes">>).
+	6> crypto:crypto_update(StateEnc, &lt;&lt;"Second bytes">>).
 	&lt;&lt;16,79,94,115,234,197,94,253,16,144,151,41>>
-	5>
-	5> StateDec = crypto:crypto_init(aes_128_ctr, Key, IV, false). % decrypt -> false
+	7>
+	7> StateDec = crypto:crypto_init(aes_128_ctr, Key, IV, false). % decrypt -> false
 	#Ref&lt;0.3768901617.1128660994.124255>
-	6> crypto:crypto_update(StateDec, &lt;&lt;67,44,216,166,25,130,203>>).
+	8> crypto:crypto_update(StateDec, &lt;&lt;67,44,216,166,25,130,203>>).
 	&lt;&lt;"First b">>
-	7> crypto:crypto_update(StateDec, &lt;&lt;5,66,6,162,16,79,94,115,234,197,
-                                                                     94,253,16,144,151>>).
+	9> crypto:crypto_update(StateDec, &lt;&lt;5,66,6,162,16,79,94,115,234,197,
+                                            94,253,16,144,151>>).
 	&lt;&lt;"ytesSecond byte">>
-	8> crypto:crypto_update(StateDec, &lt;&lt;41>>).
+	10> crypto:crypto_update(StateDec, &lt;&lt;41>>).
 	&lt;&lt;"s">>
-	9>
+	11>
       </code>
       <p>Note that the internal data that the <c>StateEnc</c> and <c>StateDec</c> references are
       destructivly updated by the calls to <seealso marker="crypto#crypto_update/2">crypto_update/2</seealso>.
@@ -163,21 +174,51 @@
       <title>Example of crypto_one_time/5</title>
       <p>The same example as in the
       <seealso marker="#examples-of-crypto_init-4-and-crypto_update-2">previous section</seealso>,
-      but now with one call to <c>crypto_one_time/5</c>:
+      but now with one call to <seealso marker="crypto#crypto_one_time/5">crypto_one_time/5</seealso>:
       </p>
       <code>
-	2> Key = &lt;&lt;1:128>>.
+	1> Key = &lt;&lt;1:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
 	2> IV = &lt;&lt;0:128>>.
-	2> Txt = [&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>],
-	2> crypto:crypto_one_time(aes_128_ctr, Key, IV, Txt, true).
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>
+	3> Txt = [&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>].
+	[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]
+	4> crypto:crypto_one_time(aes_128_ctr, Key, IV, Txt, true).
 	&lt;&lt;67,44,216,166,25,130,203,5,66,6,162,16,79,94,115,234,
 	197,94,253,16,144,151,41>>
-	3>
+	5>
       </code>
       <p>The <c>[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]</c> could of course have been one
       single binary: <c>&lt;&lt;"First bytesSecond bytes">></c>.
       </p>
     </section>
+
+    <section>
+      <title>Example of crypto_one_time_aead/6</title>
+      <p>The same example as in the
+      <seealso marker="#example-of-crypto_one_time-5">previous section</seealso>,
+      but now with one call to <seealso marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seealso>:
+      </p>
+      <code>
+	1> Key = &lt;&lt;1:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
+	2> IV = &lt;&lt;0:128>>.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>
+	3> Txt = [&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>].
+	[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]
+	4> AAD = &lt;&lt;"Some bytes">>.
+	&lt;&lt;"Some bytes">>
+	5> crypto:crypto_one_time_aead(aes_128_gcm, Key, IV, Txt, AAD, true).
+	{&lt;&lt;240,130,38,96,130,241,189,52,3,190,179,213,132,1,72,
+	192,103,176,90,104,15,71,158>>,
+	&lt;&lt;131,47,45,91,142,85,9,244,21,141,214,71,31,135,2,155>>}
+	9>
+      </code>
+      <p>The <c>[&lt;&lt;"First bytes">>,&lt;&lt;"Second bytes">>]</c> could of course have been one
+      single binary: <c>&lt;&lt;"First bytesSecond bytes">></c>.
+      </p>
+    </section>
+
   </section>
 
   <section>
