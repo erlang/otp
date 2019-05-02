@@ -399,9 +399,9 @@ reader_loop(#{active    := false,
     end;
 
 %% Read *once* and then change to false
-reader_loop(#{async     := false,
-              active    := once,
-	      sock      := Sock,
+reader_loop(#{active    := once,
+	      async     := false,
+              sock      := Sock,
               method    := Method,
 	      ctrl_proc := Pid} = State) ->
     case do_recv(Method, Sock) of
@@ -443,14 +443,14 @@ reader_loop(#{async     := false,
 	    Pid ! ?ERROR_MSG(Sock, Method, Reason),
             reader_exit(State, E2)
     end;
-reader_loop(#{async       := true,
+reader_loop(#{active      := once,
+	      async       := true,
               select_info := undefined,
-              active      := once,
-	      sock        := Sock,
+              sock        := Sock,
               method      := Method,
 	      ctrl_proc   := Pid} = State) ->
     case do_recv(Method, Sock, nowait) of
-        {ok, {select, _, _} = SelectInfo} ->
+        {select, SelectInfo} ->
             reader_loop(State#{select_info => SelectInfo});
 	{ok, Data} ->
 	    Pid ! ?DATA_MSG(Sock, Method, Data),
@@ -464,11 +464,11 @@ reader_loop(#{async       := true,
 	    Pid ! ?ERROR_MSG(Sock, Method, Reason),
             reader_exit(State, E2)
     end;
-reader_loop(#{async       := true,
-              select_info := {select, _, Ref},
+reader_loop(#{active      := once,
+	      async       := true,
+              select_info := {select_info, _, Ref},
               select_num  := N,
-              active      := once,
-	      sock        := Sock,
+              sock        := Sock,
               method      := Method,
 	      ctrl_proc   := Pid} = State) ->
     receive
@@ -513,8 +513,8 @@ reader_loop(#{async       := true,
     end;
 
 %% Read and forward data continuously
-reader_loop(#{async     := false,
-	      active    := true,
+reader_loop(#{active    := true,
+	      async     := false,
 	      sock      := Sock,
               method    := Method,
 	      ctrl_proc := Pid} = State) ->
@@ -557,14 +557,14 @@ reader_loop(#{async     := false,
 	    Pid ! ?ERROR_MSG(Sock, Method, Reason),
             reader_exit(State, E2)
     end;
-reader_loop(#{async       := true,
+reader_loop(#{active      := true,
+	      async       := true,
               select_info := undefined,
-	      active      := true,
 	      sock        := Sock,
               method      := Method,
 	      ctrl_proc   := Pid} = State) ->
     case do_recv(Method, Sock) of
-        {ok, {select, _, _} = SelectInfo} ->
+        {select, SelectInfo} ->
             reader_loop(State#{select_info => SelectInfo});
 	{ok, Data} ->
 	    Pid ! ?DATA_MSG(Sock, Method, Data),
@@ -578,10 +578,10 @@ reader_loop(#{async       := true,
 	    Pid ! ?ERROR_MSG(Sock, Method, Reason),
             reader_exit(State, E2)
     end;
-reader_loop(#{async       := true,
-              select_info := {select, _, Ref},
+reader_loop(#{active      := true,
+	      async       := true,
+              select_info := {select_info, _, Ref},
               select_num  := N,
-	      active      := true,
 	      sock        := Sock,
               method      := Method,
 	      ctrl_proc   := Pid} = State) ->
@@ -635,8 +635,8 @@ do_recv(msg, Sock, Timeout) ->
     case socket:recvmsg(Sock, 0, 0, [], Timeout) of
         {ok, #{iov := [Bin]}} ->
             {ok, Bin};
-        {ok, {select, _, _}} = OK ->
-            OK;
+        {select, _} = SELECT ->
+            SELECT;
         {error, _} = ERROR ->
             ERROR
     end.

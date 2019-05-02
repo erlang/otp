@@ -22592,7 +22592,7 @@ which_ttest_runtime_env(false) ->
 %% ms: milliseconds
 %% s:  seconds (default)
 %% m:  minutes
-which_ttest_runtime_env2([$m, $s | MS]) when (length(MS) > 0) ->
+which_ttest_runtime_env2([$s, $m | MS]) when (length(MS) > 0) ->
     convert_time(MS, fun(X) -> X end);
 which_ttest_runtime_env2([$m | M]) when (length(M) > 0) ->
     convert_time(M, fun(X) -> ?MINS(X) end);
