@@ -428,7 +428,15 @@ mode(deep_l, Bin) -> [unicode:characters_to_list(Bin)].
 fetch(Str, F) ->
     case F(Str) of
         [] -> [];
-        [CP|R] -> [CP|fetch(R,F)]
+        [CP|R] ->
+            %% If input is a binary R should be binary
+            if is_binary(Str) == false -> ok;
+               is_binary(R); R =:= [] -> ok;
+               true ->
+                    io:format("Char: ~tc Tail:~tP~n", [CP,R,10]),
+                    exit({bug, F})
+            end,
+            [CP|fetch(R,F)]
     end.
 
 %% *Test.txt file helpers

@@ -623,7 +623,7 @@ gen_gc(Fd, GBP) ->
     GenHangulT = fun(Range) -> io:format(Fd, "gc_1~s gc_h_T(R1,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulT(CP) || CP <- merge_ranges(maps:get(t,GBP))],
     io:put_chars(Fd, "%% Handle Hangul LV and LVT special, since they are large\n"),
-    io:put_chars(Fd, "gc_1([CP|_]=R0) when 44000 < CP, CP < 56000 -> gc_h_lv_lvt(R0, []);\n"),
+    io:put_chars(Fd, "gc_1([CP|_]=R0) when 44000 < CP, CP < 56000 -> gc_h_lv_lvt(R0, R0, []);\n"),
 
     io:put_chars(Fd, "\n%% Handle Regional\n"),
     GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,CP);\n", [gen_clause(Range)]) end,
@@ -752,7 +752,7 @@ gen_gc(Fd, GBP) ->
     GenHangulL_2 = fun(Range) -> io:format(Fd, "~8c~s gc_h_V(R1,[CP|Acc]);\n",
                                            [$\s,gen_case_clause(Range)]) end,
     [GenHangulL_2(CP) || CP <- merge_ranges(maps:get(v,GBP))],
-    io:put_chars(Fd, "        R1 -> gc_h_lv_lvt(R1, Acc)\n    end.\n\n"),
+    io:put_chars(Fd, "        R1 -> gc_h_lv_lvt(R1, R0, Acc)\n    end.\n\n"),
 
     io:put_chars(Fd, "%% Handle Hangul V\n"),
     io:put_chars(Fd, "gc_h_V(R0, Acc) ->\n    case cp(R0) of\n"),
@@ -787,10 +787,10 @@ gen_gc(Fd, GBP) ->
     GenHangulLVT = fun(Range) -> io:format(Fd, "gc_h_lv_lvt~s gc_h_T(R1,[CP|Acc]);\n",
                                            [gen_clause2(Range)]) end,
     [GenHangulLVT(CP) || CP <- merge_ranges(maps:get(lvt,GBP))],
-    io:put_chars(Fd, "gc_h_lv_lvt([CP|R], []) -> gc_extend(cp(R), R, CP);\n"), %% From gc_1/1
+    io:put_chars(Fd, "gc_h_lv_lvt([CP|R1], _, []) -> gc_extend(cp(R1), R1, CP);\n"), %% From gc_1/1
     io:put_chars(Fd, "%% Also handles error tuples\n"),
-    io:put_chars(Fd, "gc_h_lv_lvt(R, [CP]) -> gc_extend(R, R, CP);\n"),
-    io:put_chars(Fd, "gc_h_lv_lvt(R, Acc) -> gc_extend2(R, R, Acc).\n\n"),
+    io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, [CP]) -> gc_extend(R1, R0, CP);\n"),
+    io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, Acc) -> gc_extend2(R1, R0, Acc).\n\n"),
     ok.
 
 gen_compose_pairs(Fd, ExclData, Data) ->
@@ -891,9 +891,9 @@ gen_clause({R0, R1}) ->
     io_lib:format("([CP|R1]=R0) when ~w =< CP, CP =< ~w ->", [R0,R1]).
 
 gen_clause2({R0, undefined}) ->
-    io_lib:format("([~w=CP|R1], Acc) ->", [R0]);
+    io_lib:format("([~w=CP|R1], R0, Acc) ->", [R0]);
 gen_clause2({R0, R1}) ->
-    io_lib:format("([CP|R1], Acc) when ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("([CP|R1], R0, Acc) when ~w =< CP, CP =< ~w ->", [R0,R1]).
 
 gen_case_clause({R0, undefined}) ->
     io_lib:format("[~w=CP|R1] ->", [R0]);
