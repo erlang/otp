@@ -662,15 +662,6 @@ int main(int argc, char **argv)
 		    }
 		    break;
 
-		  case 'i':
-		    if (strcmp(argv[i], "-instr") == 0) {
-			add_Eargs("-Mim");
-			add_Eargs("true");
-		    }
-		    else
-			add_arg(argv[i]);
-		    break;
-
 		  case 'e':
 		    if (strcmp(argv[i], "-extra") == 0) {
 			process_args = 0;
