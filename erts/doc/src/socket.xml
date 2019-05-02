@@ -47,24 +47,40 @@
       <seealso marker="#recv_async"><c>recv/3</c></seealso>
       function with Timeout set to <c>nowait</c> (<c>recv(Sock, 0, nowait)</c>)
       when there is actually nothing to read, it will return with
-      <c>{ok, SelectInfo}</c>. When data eventually arrives a 'select' message
-      will be sent to the caller:
+      <c>{ok, </c>
+      <seealso marker="#type-select_info"><c>SelectInfo</c></seealso><c>}</c>.
+      When data eventually arrives a 'select' message
+      will be sent to the caller: </p>
+      <!--
       <list type="ordered">
 	<item><c>{'$socket', Sock, select, Info}</c></item>
       </list>
-      The caller can now make another
+      -->
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{'$socket', Sock, select, Info}</c></item>
+      </taglist>
+      <p>The caller can now make another
       call to the recv function and now expect data.</p>
       <p>Note that all other users are <em>locked out</em> until the
       'current user' has called the function (recv in this case).</p>
       <p>Another message the user must be prepared for (when making asynchronous
-      calls) is the <c>abort</c> message:
+      calls) is the <c>abort</c> message:</p>
+      <!--
       <list type="ordered">
-	<item><c>{'$socket', Sock, abort, Reason}</c></item>
+	<item><c>{'$socket', Sock, abort, Info}</c></item>
       </list>
-      This message indicates
+      -->
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{'$socket', Sock, abort, Info}</c></item>
+      </taglist>
+      <p>This message indicates
       that the (asynchronous) operation has been aborted.
       If, for instance, the socket has been
-      closed (by another process), <c>Reason</c> will be <c>{Ref, closed}</c>. </p>
+      closed (by another process), <c>Info</c> will be <c>{Ref, closed}</c>. </p>
     </note>
     <note>
       <p>There is currently <em>no</em> support for Windows. </p>
