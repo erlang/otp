@@ -36,8 +36,7 @@
                 atomics,
                 counters,
 		zlib,
-		net,
-		socket
+		%ESOCK_MODS%
 	    ]},
 	{registered, []},
 	{applications, []},

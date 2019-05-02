@@ -633,6 +633,15 @@ GENERATE += $(TTF_DIR)/driver_tab.c
 # This list must be consistent with PRE_LOADED_MODULES in
 # erts/preloaded/src/Makefile.
 
+ifeq ($(USE_ESOCK), yes)
+ESOCK_PRELOAD_BEAM = \
+	$(ERL_TOP)/erts/preloaded/ebin/socket.beam \
+	$(ERL_TOP)/erts/preloaded/ebin/net.beam
+else
+ESOCK_PRELOAD_BEAM = \
+	$(ERL_TOP)/erts/preloaded/ebin/net.beam
+endif
+
 PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_init.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/init.beam \
@@ -641,8 +650,7 @@ PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
-		$(ERL_TOP)/erts/preloaded/ebin/socket.beam \
-		$(ERL_TOP)/erts/preloaded/ebin/net.beam \
+		$(ESOCK_PRELOAD_BEAM) \
 		$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
@@ -835,6 +843,15 @@ EMU_OBJS = \
 	$(OBJDIR)/beam_catches.o 	$(OBJDIR)/code_ix.o \
 	$(OBJDIR)/beam_ranges.o
 
+
+ifeq ($(USE_ESOCK), yes)
+
+# WE ARE USING ESOCK
+
+ESOCK_NIF_OBJS = \
+	$(OBJDIR)/socket_nif.o \
+	$(OBJDIR)/net_nif.o
+
 ifneq ($(TARGET), win32)
 # These are *currently* only needed for non-win32,
 # since the nif-functions for socket and net are basically
@@ -846,6 +863,16 @@ ESOCK_RUN_OBJS = \
 else
 ESOCK_RUN_OBJS =
 endif
+
+else
+
+# WE ARE *NOT* USING ESOCK
+
+ESOCK_NIF_OBJS =
+ESOCK_RUN_OBJS =
+
+endif
+
 
 RUN_OBJS += \
 	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
@@ -903,8 +930,7 @@ NIF_OBJS = \
 	$(OBJDIR)/prim_buffer_nif.o \
 	$(OBJDIR)/prim_file_nif.o \
 	$(OBJDIR)/zlib_nif.o \
-	$(OBJDIR)/socket_nif.o \
-	$(OBJDIR)/net_nif.o
+	$(ESOCK_NIF_OBJS)
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \

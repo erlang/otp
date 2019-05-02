@@ -4,7 +4,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,8 @@ DEFAULT_TARGETS =  opt debug release release_docs clean docs
 TYPES = @TYPES@
 
 USE_PGO = @USE_PGO@
+
+USE_ESOCK = @USE_ESOCK@
 
 # Slash separated list of return values from $(origin VAR)
 # that are untrusted - set default in this file instead.

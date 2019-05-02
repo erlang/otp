@@ -127,12 +127,17 @@ api_basic_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
-    case os:type() of
-        {win32, _} ->
-            not_yet_implemented();
-        _ ->
-            %% ?LOGGER:start(),
-            Config
+    case lists:member(socket, erlang:loaded()) of
+        true ->
+            case os:type() of
+                {win32, _} ->
+                    not_yet_implemented();
+                _ ->
+                    %% ?LOGGER:start(),
+                    Config
+            end;
+        false ->
+            {skip, "esock disabled"}
     end.
 
 end_per_suite(_) ->
