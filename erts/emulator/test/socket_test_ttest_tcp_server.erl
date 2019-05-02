@@ -169,7 +169,7 @@ server_init(Starter, Parent, Transport, Active) ->
     end.
 
 process_transport(Mod, _) when is_atom(Mod) ->
-    {Mod, false, fun(Port) -> Mod:listen(Port) end, infinity};
+    {Mod, fun(Port) -> Mod:listen(Port) end, infinity};
 process_transport({Mod, #{stats_interval := T} = Opts}, Active)
   when (Active =/= false) ->
     {Mod, fun(Port) -> Mod:listen(Port, Opts#{stats_to => self()}) end, T};
