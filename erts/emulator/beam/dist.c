@@ -1844,7 +1844,7 @@ int erts_net_message(Port *prt,
 
 	    if (locks)
 		erts_proc_unlock(rp, locks);
-	} else if (ede_hfrag) {
+	} else if (ede_hfrag != NULL) {
             erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
             free_message_buffer(ede_hfrag);
         }
@@ -1886,16 +1886,18 @@ int erts_net_message(Port *prt,
 	    goto invalid_message;
 	}
 	rp = erts_proc_lookup(to);
+
 	if (rp) {
 	    ErtsProcLocks locks = 0;
 
 	    erts_queue_dist_message(rp, locks, edep, ede_hfrag, token, am_Empty);
 	    if (locks)
 		erts_proc_unlock(rp, locks);
-	} else if (ede_hfrag) {
+        } else if (ede_hfrag != NULL) {
             erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
             free_message_buffer(ede_hfrag);
         }
+	
 	break;
     }
 
@@ -1936,15 +1938,19 @@ int erts_net_message(Port *prt,
             goto invalid_message;
         }
 
-        if (!erts_proc_lookup(watcher)) break; /* Process not alive */
-
-        if (reason == THE_NON_VALUE) {
+        if (!erts_proc_lookup(watcher)) {
+            if (ede_hfrag != NULL) {
+                erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
+                free_message_buffer(ede_hfrag);
+            }
+            break; /* Process not alive */
+        }
 
 #ifdef ERTS_DIST_MSG_DBG
+        if (reason == THE_NON_VALUE) {
             dist_msg_dbg(edep, "MSG", buf, orig_len);
-#endif
-
         }
+#endif
 
         erts_proc_sig_send_dist_monitor_down(
             dep, ref, watched, watcher, edep, ede_hfrag, reason);
@@ -1993,13 +1999,19 @@ int erts_net_message(Port *prt,
 	    goto invalid_message;
 	}
 
-        if (!erts_proc_lookup(to)) break; /* Process not alive */
-
-        if (reason == THE_NON_VALUE) {
-#ifdef ERTS_DIST_MSG_DBG
-            dist_msg_dbg(edep, "MSG", buf, orig_len);
-#endif
+        if (!erts_proc_lookup(to)) {
+            if (ede_hfrag != NULL) {
+                erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
+                free_message_buffer(ede_hfrag);
+            }
+            break; /* Process not alive */
         }
+
+#ifdef ERTS_DIST_MSG_DBG
+        if (reason == THE_NON_VALUE) {
+            dist_msg_dbg(edep, "MSG", buf, orig_len);
+        }
+#endif
 
         erts_proc_sig_send_dist_link_exit(dep,
                                           from, to, edep, ede_hfrag,
@@ -2048,13 +2060,19 @@ int erts_net_message(Port *prt,
 	    goto invalid_message;
 	}
 
-        if (!erts_proc_lookup(to)) break; /* Process not alive */
-
-        if (reason == THE_NON_VALUE) {
-#ifdef ERTS_DIST_MSG_DBG
-            dist_msg_dbg(edep, "MSG", buf, orig_len);
-#endif
+        if (!erts_proc_lookup(to)) {
+            if (ede_hfrag != NULL) {
+                erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
+                free_message_buffer(ede_hfrag);
+            }
+            break; /* Process not alive */
         }
+
+#ifdef ERTS_DIST_MSG_DBG
+        if (reason == THE_NON_VALUE) {
+            dist_msg_dbg(edep, "MSG", buf, orig_len);
+        }
+#endif
 
         erts_proc_sig_send_dist_exit(dep, from, to, edep, ede_hfrag, reason, token);
 	break;
