@@ -250,12 +250,13 @@ static int print_term(FILE* fp, ei_x_buff* x,
 	ei_free(p);
 	break;
     case ERL_BIT_BINARY_EXT: {
+        const char* cp;
         size_t bits;
+        unsigned int bitoffs;
         int trunc = 0;
-        p = ei_malloc(n);
-        if (p == NULL) goto err;
-        if (ei_decode_bitstring(buf, index, p, n, &bits) < 0) {
-            ei_free(p);
+
+        if (ei_decode_bitstring(buf, index, &cp, &bitoffs, &bits) < 0
+            || bitoffs != 0) {
             goto err;
         }
         ch_written += xprintf(fp, x, "#Bits<");
@@ -266,15 +267,14 @@ static int print_term(FILE* fp, ei_x_buff* x,
         }
         --m;
         for (i = 0; i < m; ++i) {
-            ch_written += xprintf(fp, x, "%d,", p[i]);
+            ch_written += xprintf(fp, x, "%d,", cp[i]);
         }
-        ch_written += xprintf(fp, x, "%d", p[i]);
+        ch_written += xprintf(fp, x, "%d", cp[i]);
         if (trunc)
             ch_written += xprintf(fp, x, ",...");
         else if (bits % 8 != 0)
             ch_written += xprintf(fp, x, ":%u", (unsigned)(bits % 8));
         xputc('>', fp, x); ++ch_written;
-        ei_free(p);
         break;
     }
     case ERL_SMALL_INTEGER_EXT:

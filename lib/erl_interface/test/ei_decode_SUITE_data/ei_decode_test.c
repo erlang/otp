@@ -319,17 +319,18 @@ static void decode_bin(int exp_size, const char* val, int exp_len)
 
 static void decode_bits(int exp_size, const char* val, size_t exp_bits)
 {
-    char p[1024];
+    const char* p;
     char *buf;
     size_t bits;
+    int bitoffs;
     int size1 = 0;
     int size2 = 0;
     int err;
     message("ei_decode_bitstring should be %d bits", (int)exp_bits);
     buf = read_packet(NULL);
-    err = ei_decode_bitstring(buf+1, &size1, NULL, sizeof(p), &bits);
-    message("err = %d, size = %d, len = %d, expected size = %d, expected bits = %d\n",\
-            err,size1, (int)bits, exp_size, (int)exp_bits);
+    err = ei_decode_bitstring(buf+1, &size1, NULL, &bitoffs, &bits);
+    message("err = %d, size = %d, bitoffs = %d, bits = %d, expected size = %d, expected bits = %d\n",\
+            err,size1, bitoffs, (int)bits, exp_size, (int)exp_bits);
 
     if (err != 0) {
         if (err != -1) {
@@ -344,8 +345,12 @@ static void decode_bits(int exp_size, const char* val, size_t exp_bits)
         fail("number of bits is not correct");
         return;
     }
+    if (bitoffs != 0) {
+        fail("non zero bit offset");
+        return;
+    }
 
-    err = ei_decode_bitstring(buf+1, &size2, p, sizeof(p), &bits);
+    err = ei_decode_bitstring(buf+1, &size2, &p, NULL, &bits);
     message("err = %d, size = %d, len = %d, expected size = %d, expected len = %d\n",\
             err,size2, (int)bits, exp_size, (int)exp_bits);
     if (err != 0) {

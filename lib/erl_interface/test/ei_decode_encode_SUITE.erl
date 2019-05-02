@@ -122,8 +122,28 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 
     [send_rec(P, <<16#dec0deb175:B/little>>) || B <- lists:seq(0,48)],
 
+    % And last an ugly duckling to test ei_encode_bitstring with bitoffs != 0
+    encode_bitstring(P),
+
     runner:recv_eot(P),
     ok.
+
+encode_bitstring(P) ->
+    %% Send one bitstring to c-node
+    Bits = <<16#18f6d4b2907e5c3a1:66>>,
+    P ! {self(), {command, term_to_binary(Bits, [{minor_version, 2}])}},
+
+    %% and then receive and verify a number of different sub-bitstrings
+    receive_sub_bitstring(P, Bits, 0, bit_size(Bits)).
+
+receive_sub_bitstring(_, _, _, NBits) when NBits < 0 ->
+    ok;
+receive_sub_bitstring(P, Bits, BitOffs, NBits) ->
+    <<_:BitOffs, Sub:NBits/bits, _/bits>> = Bits,
+    %%io:format("expecting term_to_binary(~p) = ~p\n", [Sub, term_to_binary(Sub)]),
+    {_B,Sub} = get_buf_and_term(P),
+    receive_sub_bitstring(P, Bits, BitOffs+1, NBits - ((NBits div 20)+1)).
+
 
 
 %% ######################################################################## %%
