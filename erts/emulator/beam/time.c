@@ -316,7 +316,7 @@ struct ErtsTimerWheel_ {
 #define ERTS_TW_SLOT_AT_ONCE (-1)
 
 #define ERTS_TW_BUMP_LATER_WHEEL(TIW) \
-    ((tiw)->pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE >= (TIW)->later.pos)
+    ((TIW)->pos + ERTS_TW_LATER_WHEEL_SLOT_SIZE >= (TIW)->later.pos)
 
 static int bump_later_wheel(ErtsTimerWheel *tiw, int *yield_count_p);
 
@@ -701,7 +701,8 @@ remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
         if (slot < ERTS_TW_SOON_WHEEL_END_SLOT) {
             if (empty_slot
                 && tiw->true_next_timeout_time
-                && p->timeout_pos == tiw->next_timeout_pos) {
+                && p->timeout_pos == tiw->next_timeout_pos
+                && tiw->yield_slot == ERTS_TW_SLOT_INACTIVE) {
                 tiw->true_next_timeout_time = 0;
             }
             if (--tiw->soon.nto == 0)
@@ -714,7 +715,8 @@ remove_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
                 ErtsMonotonicTime tpos = tiw->later.min_tpos;
                 tpos &= ERTS_TW_LATER_WHEEL_POS_MASK;
                 tpos -= ERTS_TW_LATER_WHEEL_SLOT_SIZE;
-                if (tpos == tiw->next_timeout_pos)
+                if (tpos == tiw->next_timeout_pos
+                    && tiw->yield_slot == ERTS_TW_SLOT_INACTIVE)
                     tiw->true_next_timeout_time = 0;
             }
             if (--tiw->later.nto == 0) {
@@ -908,7 +910,6 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 
             {
                 ErtsMonotonicTime tmp_slots = bump_to - tiw->pos;
-                tmp_slots = (bump_to - tiw->pos);
                 if (tmp_slots < ERTS_TW_SOON_WHEEL_SIZE)
                     slots = (int) tmp_slots;
                 else
