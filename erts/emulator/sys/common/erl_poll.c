@@ -924,7 +924,7 @@ update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
         ERTS_EV_SET(&evts[len++], fd, EVFILT_WRITE, flags, (void *) ERTS_POLL_EV_OUT);
     }
 #else
-    uint32_t flags = EV_ADD;
+    uint32_t flags = EV_ADD|EV_ENABLE;
 
     if (ps->oneshot) flags |= EV_ONESHOT;
 
@@ -932,9 +932,27 @@ update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
         erts_atomic_dec_nob(&ps->no_of_user_fds);
         /* We don't do anything when a delete is issued. The fds will be removed
            when they are triggered, or when they are closed. */
-        events = 0;
+        if (ps->oneshot)
+            events = 0;
+        else {
+            flags = EV_DELETE;
+            events = ERTS_POLL_EV_IN;
+        }
     } else if (op == ERTS_POLL_OP_ADD) {
         erts_atomic_inc_nob(&ps->no_of_user_fds);
+        /* Only allow EV_IN in non-oneshot poll-sets */
+        ASSERT(ps->oneshot || events == ERTS_POLL_EV_IN);
+    } else if (!ps->oneshot) {
+        ASSERT(op == ERTS_POLL_OP_MOD);
+        /* If we are not oneshot and do a mod we should disable the FD.
+           We assume that it is only the read side that is active as
+           currently only read is selected upon in the non-oneshot
+           poll-sets. */
+        if (!events)
+            flags = EV_DISABLE;
+        else
+            flags = EV_ENABLE;
+        events = ERTS_POLL_EV_IN;
     }
 
     if (events & ERTS_POLL_EV_IN) {
@@ -961,16 +979,15 @@ update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
         for (i = 0; i < len; i++) {
             const char *flags = "UNKNOWN";
             if (evts[i].flags == (EV_DELETE)) flags = "EV_DELETE";
-            if (evts[i].flags == (EV_ADD|EV_ONESHOT)) flags = "EV_ADD|EV_ONESHOT";
             if (evts[i].flags == (EV_ADD)) flags = "EV_ADD";
-#ifdef EV_DISPATCH
-            if (evts[i].flags == (EV_ADD|EV_DISPATCH)) flags = "EV_ADD|EV_DISPATCH";
-            if (evts[i].flags == (EV_ADD|EV_DISABLE)) flags = "EV_ADD|EV_DISABLE";
-            if (evts[i].flags == (EV_ENABLE|EV_DISPATCH)) flags = "EV_ENABLE|EV_DISPATCH";
+            if (evts[i].flags == (EV_ADD|EV_ONESHOT)) flags = "EV_ADD|EV_ONESHOT";
             if (evts[i].flags == (EV_ENABLE)) flags = "EV_ENABLE";
             if (evts[i].flags == (EV_DISABLE)) flags = "EV_DISABLE";
+            if (evts[i].flags == (EV_ADD|EV_DISABLE)) flags = "EV_ADD|EV_DISABLE";
+#ifdef EV_DISPATCH
+            if (evts[i].flags == (EV_ADD|EV_DISPATCH)) flags = "EV_ADD|EV_DISPATCH";
+            if (evts[i].flags == (EV_ENABLE|EV_DISPATCH)) flags = "EV_ENABLE|EV_DISPATCH";
             if (evts[i].flags == (EV_DISABLE|EV_DISPATCH)) flags = "EV_DISABLE|EV_DISABLE";
-            if (evts[i].flags == (EV_DISABLE)) flags = "EV_DISABLE";
 #endif
 
             keventbp += sprintf(keventbp, "%s{%lu, %s, %s}",i > 0 ? ", " : "",
