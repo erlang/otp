@@ -46,6 +46,9 @@
 -include_lib("kernel/include/dist.hrl").
 -include_lib("kernel/include/dist_util.hrl").
 
+-define(PACKET_SIZE, 65536).
+-define(BUFFER_SIZE, (?PACKET_SIZE bsl 4)).
+
 %% -------------------------------------------------------------------------
 
 -record(params,
@@ -61,7 +64,14 @@
 
 -record(public_key_pair,
         {type = ecdh,
-         params = brainpoolP384t1,
+         %% The curve choice greatly affects setup time,
+         %% we really want an Edwards curve but that would
+         %% require a very new openssl version.
+         %% Twisted brainpool curves (*t1) are faster than
+         %% non-twisted (*r1), 256 is much faster than 384,
+         %% and so on...
+%%%         params = brainpoolP384t1,
+         params = brainpoolP256t1,
          public,
          private}).
 
@@ -208,6 +218,12 @@ public_key_pair() ->
 %% terminate with reason 'normal'.
 %% -------------------------------------------------------------------------
 
+-compile({inline, [socket_options/0]}).
+socket_options() ->
+    [binary, {active, false}, {packet, 2}, {nodelay, true},
+     {sndbuf, ?BUFFER_SIZE}, {recbuf, ?BUFFER_SIZE},
+     {buffer, ?BUFFER_SIZE}].
+
 %% -------------------------------------------------------------------------
 %% select/1 is called by net_kernel to ask if this distribution protocol
 %% is willing to handle Node
@@ -244,7 +260,7 @@ listen(Name) ->
 gen_listen(Name, Driver) ->
     case inet_tcp_dist:gen_listen(Driver, Name) of
         {ok, {Socket, Address, Creation}} ->
-            inet:setopts(Socket, [binary, {nodelay, true}]),
+            inet:setopts(Socket, socket_options()),
             {ok,
              {Socket, Address#net_address{protocol = ?DIST_PROTO}, Creation}};
         Other ->
@@ -431,10 +447,7 @@ do_setup_connect(
   Node, Type, MyNode, Timer, Driver, NetKernel,
   Ip, TcpPort, Version) ->
     dist_util:reset_timer(Timer),
-    ConnectOpts =
-        trace(
-          connect_options(
-            [binary, {active, false}, {packet, 2}, {nodelay, true}])),
+    ConnectOpts = trace(connect_options(socket_options())),
     case Driver:connect(Ip, TcpPort, ConnectOpts) of
         {ok, Socket} ->
             DistCtrl =
@@ -691,16 +704,14 @@ nodelay() ->
 %% Debug client and server
 
 test_server() ->
-    {ok, Listen} = gen_tcp:listen(0, [{packet, 2}, {active, false}, binary]),
+    {ok, Listen} = gen_tcp:listen(0, socket_options()),
     {ok, Port} = inet:port(Listen),
     io:format(?MODULE_STRING":test_client(~w).~n", [Port]),
     {ok, Socket} = gen_tcp:accept(Listen),
     test(Socket).
 
 test_client(Port) ->
-    {ok, Socket} =
-        gen_tcp:connect(
-          localhost, Port, [{packet, 2}, {active, false}, binary]),
+    {ok, Socket} = gen_tcp:connect(localhost, Port, socket_options()),
     test(Socket).
 
 test(Socket) ->
@@ -759,7 +770,7 @@ reply({Ref, Pid}, Msg) ->
 %% -------------------------------------------------------------------------
 
 -define(TCP_ACTIVE, 16).
--define(CHUNK_SIZE, (65536 - 512)).
+-define(CHUNK_SIZE, (?PACKET_SIZE - 512)).
 
 %% The start chunk starts with zeros, so it seems logical to
 %% not have a chunk type with value 0
