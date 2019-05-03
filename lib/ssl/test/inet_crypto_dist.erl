@@ -80,37 +80,56 @@ params(Socket) ->
 
 
 %% -------------------------------------------------------------------------
-%% Keep the same public/private key pair during the node's lifetime
-%% in the process state of a process linked to the acceptor process.
+%% Keep the node's public/private key pair in the process state
+%% of a process linked to the acceptor process.
 %% Create it the first time it is needed.
 %%
+
+-define(KEYPAIR_LIFETIME, 3600000).
+-define(KEYPAIR_LIFECOUNT, 256).
 
 start_public_key_pair() ->
     spawn_link(
       fun () ->
               register(?MODULE, self()),
-              public_key_pair(#public_key_pair{})
+              public_key_pair_loop()
       end).
 
-public_key_pair(PKP) ->
+public_key_pair_loop() ->
+    public_key_pair_loop(undefined, undefined, undefined).
+%%
+public_key_pair_loop(_PKP, Timer, 0) ->
+    case erlang:cancel_timer(Timer) of
+        false ->
+            receive
+                {timeout, Timer, _} -> ok
+            end;
+        _RemainingTime ->
+            ok
+    end,
+    public_key_pair_loop();
+public_key_pair_loop(PKP, Timer, Count) ->
     receive
         {Pid, Tag, public_key_pair} ->
             case PKP of
-                #public_key_pair{
-                   type = Type,
-                   params = Params,
-                   public = undefined} ->
-                    %%
-                    {Public, Private} = crypto:generate_key(Type, Params),
+                undefined ->
+                    #public_key_pair{type = Type, params = Params} =
+                        #public_key_pair{},
+                    {Public, Private} =
+                        crypto:generate_key(Type, Params),
                     PKP_1 =
-                        PKP#public_key_pair{
-                          public = Public, private = Private},
+                        #public_key_pair{public = Public, private = Private},
                     Pid ! {Tag, PKP_1},
-                    public_key_pair(PKP_1);
+                    public_key_pair_loop(
+                      PKP_1,
+                      erlang:start_timer(?KEYPAIR_LIFETIME, self(), renew),
+                      ?KEYPAIR_LIFECOUNT);
                 #public_key_pair{} ->
                     Pid ! {Tag, PKP},
-                    public_key_pair(PKP)
-            end
+                    public_key_pair_loop(PKP, Timer, Count - 1)
+            end;
+        {timeout, Timer, renew} when is_reference(Timer) ->
+            public_key_pair_loop()
     end.
 
 public_key_pair() ->
@@ -772,8 +791,6 @@ reply({Ref, Pid}, Msg) ->
 -define(TCP_ACTIVE, 16).
 -define(CHUNK_SIZE, (?PACKET_SIZE - 512)).
 
-%% The start chunk starts with zeros, so it seems logical to
-%% not have a chunk type with value 0
 -define(HANDSHAKE_CHUNK, 1).
 -define(DATA_CHUNK, 2).
 -define(TICK_CHUNK, 3).
