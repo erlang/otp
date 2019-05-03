@@ -51,35 +51,7 @@ groups() ->
     ].
 
 test_cases()->
-    key_cert_combinations()
-        ++ misc() 
-        ++ ecc_negotiation().
-
-key_cert_combinations() ->
-    server_ecdh_rsa() ++
-        server_ecdhe_rsa() ++
-        server_ecdh_ecdsa() ++
-        server_ecdhe_ecdsa().
-
-server_ecdh_rsa() ->
-    [client_ecdh_rsa_server_ecdh_rsa,
-     client_ecdhe_rsa_server_ecdh_rsa,     
-     client_ecdhe_ecdsa_server_ecdh_rsa].
-
-server_ecdhe_rsa() ->
-    [client_ecdh_rsa_server_ecdhe_rsa,
-     client_ecdhe_rsa_server_ecdhe_rsa,
-     client_ecdhe_ecdsa_server_ecdhe_rsa].
-
-server_ecdh_ecdsa() ->
-    [client_ecdh_ecdsa_server_ecdh_ecdsa,
-     client_ecdhe_rsa_server_ecdh_ecdsa,
-     client_ecdhe_ecdsa_server_ecdh_ecdsa].
-
-server_ecdhe_ecdsa() ->
-    [client_ecdh_rsa_server_ecdhe_ecdsa,
-     client_ecdh_ecdsa_server_ecdhe_ecdsa,
-     client_ecdhe_ecdsa_server_ecdhe_ecdsa].
+    misc() ++ ecc_negotiation().
 
 misc()->
     [client_ecdsa_server_ecdsa_with_raw_key].
@@ -159,35 +131,6 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test diffrent certificate chain types, note that it is the servers
 %% chain that affect what cipher suit that will be choosen
-
-%% ECDH_RSA 
-client_ecdh_rsa_server_ecdh_rsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdh_rsa_server_ecdh_rsa(Config).
-client_ecdhe_rsa_server_ecdh_rsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_rsa_server_ecdh_rsa(Config).
-client_ecdhe_ecdsa_server_ecdh_rsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_ecdsa_server_ecdh_rsa(Config).
-%% ECDHE_RSA    
-client_ecdh_rsa_server_ecdhe_rsa(Config)  when is_list(Config) ->
-    ssl_ECC:client_ecdh_rsa_server_ecdhe_rsa(Config).
-client_ecdhe_rsa_server_ecdhe_rsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_rsa_server_ecdhe_rsa(Config).
-client_ecdhe_ecdsa_server_ecdhe_rsa(Config) when is_list(Config) ->
-   ssl_ECC:client_ecdhe_ecdsa_server_ecdhe_rsa(Config).
-%% ECDH_ECDSA
-client_ecdh_ecdsa_server_ecdh_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdh_ecdsa_server_ecdh_ecdsa(Config).
-client_ecdhe_rsa_server_ecdh_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_rsa_server_ecdh_ecdsa(Config).
-client_ecdhe_ecdsa_server_ecdh_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdhe_ecdsa_server_ecdh_ecdsa(Config).
-%% ECDHE_ECDSA
-client_ecdh_rsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdh_rsa_server_ecdhe_ecdsa(Config).
-client_ecdh_ecdsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
-    ssl_ECC:client_ecdh_ecdsa_server_ecdhe_ecdsa(Config).
-client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
-     ssl_ECC:client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config).
 
 client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
      Default = ssl_test_lib:default_cert_chain_conf(),
