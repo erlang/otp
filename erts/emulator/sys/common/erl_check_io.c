@@ -534,6 +534,7 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
             if (state->active_events & ERTS_POLL_EV_OUT)
                 oready(state->driver.select->outport, state);
             state->active_events = 0;
+            active_events = 0;
         }
     }
 
