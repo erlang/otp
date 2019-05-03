@@ -678,7 +678,8 @@
 	</p>
 	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
 	</p>
-	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
+	<p>See <seealso marker="crypto:new_api#examples-of-crypto_init-4-and-crypto_update-2">
+	examples in the User's Guide.</seealso>
 	</p>
       </desc>
     </func>
@@ -696,7 +697,8 @@
 	or
 	<seealso marker="crypto#crypto_init/4">crypto_init/4</seealso>.
 	</p>
-	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
+	<p>See <seealso marker="crypto:new_api#examples-of-crypto_init-4-and-crypto_update-2">
+	examples in the User's Guide.</seealso>
 	</p>
       </desc>
     </func>
@@ -712,8 +714,6 @@
 	</p>
 	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
 	</p>
-	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
-	</p>
       </desc>
     </func>
 
@@ -725,8 +725,6 @@
 	Do an actual crypto operation on a part of the full text and the IV is supplied for each part.
 	The <c>State</c> should be created with
 	<seealso marker="crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso>.
-	</p>
-	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
 	</p>
       </desc>
     </func>
@@ -744,11 +742,11 @@
       <fsummary>Do a complete encrypt or decrypt of the full text</fsummary>
       <desc>
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
-	Do a complete encrypt or decrypt of the full text.
+	Do a complete encrypt or decrypt of the full text in the argument <c>Data</c>.
 	</p>
 	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
 	</p>
-	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
+	<p>See <seealso marker="crypto:new_api#example-of-crypto_one_time-5">examples in the User's Guide.</seealso>
 	</p>
       </desc>
     </func>
@@ -768,7 +766,7 @@
 	<p>For decryption, set the <c>EncryptFlag</c> to <c>false</c> and put the tag to be checked
 	in the argument	<c>TagOrTagLength</c>.
 	</p>
-	<p>See <seealso marker="crypto:new_api#the-new-api">examples in the User's Guide.</seealso>
+	<p>See <seealso marker="crypto:new_api#example-of-crypto_one_time_aead-6">examples in the User's Guide.</seealso>
 	</p>
       </desc>
     </func>
