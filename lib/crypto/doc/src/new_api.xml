@@ -59,6 +59,7 @@
       <item><seealso marker="crypto#stream_init-2">stream_init/3</seealso></item>
       <item><seealso marker="crypto#stream_encrypt-2">stream_encrypt/2</seealso></item>
       <item><seealso marker="crypto#stream_decrypt-2">stream_decrypt/2</seealso></item>
+      <item><seealso marker="crypto#supports-0">suppports/0</seealso></item>
     </list>
     <p>They are not deprecated for now, but may be in a future.
     </p>
@@ -94,7 +95,7 @@
     <c>crypto_update</c> does the acual encryption or decryption. Note that AEAD ciphers
     can't be handled this way due to their nature.
     </p>
-    <p>Finally, for repeated encryption or decryption of a text divided in parts where the
+    <p>For repeated encryption or decryption of a text divided in parts where the
     same cipher and same key is used, but a new initialization vector (nounce) should be applied
     for each part, the functions are:
     </p>
@@ -103,6 +104,13 @@
       <item><seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso></item>
     </list>
     <p>An example of where those functions are needed, is when handling the TLS protocol.</p>
+    <p>For information about available algorithms, use:
+    </p>
+    <list>
+      <item><seealso marker="crypto#supports-1">supports/1</seealso></item>
+      <item><seealso marker="crypto#hash_info-1">hash_info/1</seealso></item>
+      <item><seealso marker="crypto#cipher_info-1">cipher_info/1</seealso></item>
+    </list>
 
     <section>
       <title>Examples of crypto_init/4 and crypto_update/2</title>

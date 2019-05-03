@@ -772,6 +772,19 @@
 	</p>
       </desc>
     </func>
+
+    <func>
+      <name name="supports" arity="1" since="OTP 22.0"/>
+      <fsummary>Provide a list of available crypto algorithms.</fsummary>
+      <desc>
+        <p> Can be used to determine which crypto algorithms that are supported
+	by the underlying libcrypto library</p>
+	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
+	for information about the hash and cipher algorithms.
+	</p>
+      </desc>
+    </func>
+
   </funcs>
 
   <section>
@@ -1425,18 +1438,6 @@ FloatValue = rand:uniform().     % again
       </desc>
     </func>
 
-   <func>
-      <name name="supports" arity="0" since="OTP R16B01"/>
-      <fsummary>Provide a list of available crypto algorithms.</fsummary>
-      <desc>
-        <p> Can be used to determine which crypto algorithms that are supported
-	by the underlying libcrypto library</p>
-	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
-	for information about the hash and cipher algorithms.
-	</p>
-      </desc>
-    </func>
-
     <func>
       <name name="ec_curves" arity="0" since="OTP 17.0"/>
       <fsummary>Provide a list of available named elliptic curves.</fsummary>
@@ -1944,6 +1945,21 @@ FloatValue = rand:uniform().     % again
 	<c>PlainText</c> can be any number of bytes. The initial <c>State</c> is created using
         <seealso marker="#stream_init-2">stream_init</seealso>.
 	<c>NewState</c> must be passed into the next call to <c>stream_decrypt</c>.</p>
+      </desc>
+    </func>
+
+   <func>
+      <name name="supports" arity="0" since="OTP R16B01"/>
+      <fsummary>Provide a list of available crypto algorithms.</fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	<seealso marker="crypto#supports-1">supports/1</seealso> in
+	<seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
+        <p> Can be used to determine which crypto algorithms that are supported
+	by the underlying libcrypto library</p>
+	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
+	for information about the hash and cipher algorithms.
+	</p>
       </desc>
     </func>
 

@@ -509,6 +509,27 @@ supports() ->
       {rsa_opts, rsa_opts_algorithms()}
      ].
 
+
+-spec supports(Type) -> Support
+                        when Type :: hashs
+			           | ciphers
+                                   | public_keys
+                                   | macs
+                                   | curves
+                                   | rsa_opts,
+			     Support :: Hashs
+                                      | Ciphers
+                                      | PKs
+                                      | Macs
+                                      | Curves
+                                      | RSAopts,
+                             Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
+                             Ciphers :: [cipher()],
+                             PKs :: [rsa | dss | ecdsa | dh | ecdh | ec_gf2m],
+                             Macs :: [hmac | cmac | poly1305],
+                             Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
+                             RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
+
 supports(hashs)       -> hash_algorithms();
 supports(public_keys) -> pubkey_algorithms();
 supports(ciphers)     -> cipher_algorithms();
