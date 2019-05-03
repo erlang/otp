@@ -200,7 +200,7 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
          numy=none :: none | undecided | index(),
          %% Available heap size.
          h=0,
-         %Available heap size for floats.
+         %%Available heap size for floats.
          hf=0,
          %% Floating point state.
          fls=undefined,
@@ -240,7 +240,7 @@ index_parameter_types([{function,_,_,Entry,Code0}|Fs], Acc0) ->
 	    Acc = index_parameter_types_1(Is, Entry, Acc0),
 	    index_parameter_types(Fs, Acc);
 	_ ->
-	    %% Something serious is wrong. Ignore it for now.
+	    %% Something is seriously wrong. Ignore it for now.
 	    %% It will be detected and diagnosed later.
 	    index_parameter_types(Fs, Acc0)
     end;
