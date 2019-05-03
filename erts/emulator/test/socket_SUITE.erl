@@ -1580,11 +1580,12 @@ init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
               "~n", [_GroupName, Config]),
+    ttest_manager_start(),
     case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
         {value, _} ->
             Config;
         false ->
-            [{esock_test_ttest_runtime, which_ttest_runtime_env()}|Config]
+            [{esock_test_ttest_runtime, which_ttest_runtime_env()} | Config]
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -1593,6 +1594,7 @@ end_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
               "~n", [_GroupName, Config]),
+    ttest_manager_stop(),
     lists:keydelete(esock_test_ttest_runtime, 1, Config);
 end_per_group(_GroupName, Config) ->
     Config.
@@ -1602,16 +1604,16 @@ init_per_testcase(_TC, Config) ->
     io:format("init_per_testcase(~w) -> entry with"
               "~n   Config: ~p"
               "~n", [_TC, Config]),
-    case quiet_mode(Config) of
-        default ->
-            ?LOGGER:start();
-        Quiet ->
-            ?LOGGER:start(Quiet)
-    end,
+    %% case quiet_mode(Config) of
+    %%     default ->
+    %%         ?LOGGER:start();
+    %%     Quiet ->
+    %%         ?LOGGER:start(Quiet)
+    %% end,
     Config.
 
 end_per_testcase(_TC, Config) ->
-    ?LOGGER:stop(),
+    %% ?LOGGER:stop(),
     Config.
 
 
@@ -4691,8 +4693,7 @@ api_a_mrecv_cancel_udp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create socket",
@@ -5084,8 +5085,7 @@ api_a_maccept_cancel_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -5499,8 +5499,7 @@ api_a_mrecv_cancel_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -5706,10 +5705,8 @@ api_a_mrecv_cancel_tcp(InitState) ->
          %% *** The init part ***
          #{desc => "which server (local) address",
            cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, 
-                                     addr   => LAddr},
-                           SSA   = LSA#{port => Port},
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
                            {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
@@ -23017,12 +23014,23 @@ ttest_tcp(InitState) ->
          
          %% Present the results
          #{desc => "present the results",
-           cmd  => fun(#{result := Result} = State) ->
+           cmd  => fun(#{result        := Result,
+                         domain        := Domain,
+                         server_mod    := ServerTrans,
+                         server_active := ServerActive,
+                         client_mod    := ClientTrans,
+                         client_active := ClientActive,
+                         msg_id        := MsgID} = State) ->
                            case Result of
                                #{status  := ok,
                                  runtime := RunTime,
                                  cnt     := Cnt,
                                  bcnt    := BCnt} ->
+                                   ttest_report(Domain,
+                                                ServerTrans, ServerActive,
+                                                ClientTrans, ClientActive,
+                                                MsgID,
+                                                RunTime, BCnt, Cnt),
                                    ?SEV_IPRINT(
                                       "TTest results: "
                                       "~n   Run Time:                    ~s"
@@ -23148,6 +23156,183 @@ ttest_tcp_client_start(Node,
                                                ServerInfo,
                                                Active,
                                                MsgID, MaxOutstanding, RunTime).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(TTEST_MANAGER, esock_ttest_manager).
+
+-record(ttest_report_id,
+        {domain        :: socket:domain(),
+         serv_trans    :: gen | sock,
+         serv_active   :: once | boolean(),
+         client_trans  :: gen | sock,
+         client_active :: once | boolean(),
+         msg_id        :: small | medium | large}).
+
+-record(ttest_report, {id    :: #ttest_report_id{},
+                       time  :: non_neg_integer(),
+                       bytes :: non_neg_integer(),
+                       msgs  :: non_neg_integer()}).
+
+-spec ttest_report(Domain      :: socket:domain(),
+                   ServTrans   :: gen | sock, ServActive   :: once | boolean(),
+                   ClientTrans :: gen | sock, ClientActive :: once | boolean(),
+                   MsgID       :: 1 | 2 | 3,
+                   RunTime     :: non_neg_integer(),
+                   NumBytes    :: non_neg_integer(),
+                   NumMsgs     :: non_neg_integer()) -> ok.
+
+ttest_report(Domain,
+             ServTrans,   ServActive,
+             ClientTrans, ClientActive,
+             MsgID,
+             RunTime,
+             NumBytes,
+             NumMsgs) ->
+    ID = #ttest_report_id{domain        = Domain,
+                          serv_trans    = ServTrans,
+                          serv_active   = ServActive,
+                          client_trans  = ClientTrans,
+                          client_active = ClientActive,
+                          msg_id        = ttest_msg_id_num_to_name(MsgID)},
+    Report = #ttest_report{id    = ID,
+                           time  = RunTime,
+                           bytes = NumBytes,
+                           msgs  = NumMsgs},
+    %% If we run just one test case, the group init has never been run
+    %% and therefor the ttest manager is not running (we also don't actually
+    %% care about collecting reports in that case).
+    (catch global:send(?TTEST_MANAGER, Report)),
+    ok.
+
+ttest_msg_id_num_to_name(1) ->
+    small;
+ttest_msg_id_num_to_name(2) ->
+    medium;
+ttest_msg_id_num_to_name(3) ->
+    large.
+    
+ttest_manager_start() ->
+    Self = self(),
+    {Pid, MRef} = spawn_monitor(fun() -> ttest_manager_init(Self) end),
+    receive
+        {ttest_manager_started, Pid} ->
+            erlang:demonitor(MRef, [flush]),
+            ok;
+        {'DOWN', MRef, process, Pid, Reason} ->
+            exit({failed_starting, ttest_manager, Reason})
+    after 5000 ->
+            exit(Pid, kill),
+            exit({failed_starting, ttest_manager, timeout})
+    end.
+
+ttest_manager_stop() ->
+    case global:whereis_name(?TTEST_MANAGER) of
+        Pid when is_pid(Pid) ->
+            erlang:monitor(process, Pid),
+            global:send(?TTEST_MANAGER, stop),
+            receive
+                {'DOWN', _MRef, process, Pid, _} ->
+                    ok
+            after 10000 ->
+                    exit(Pid, kill),
+                    ok
+            end;
+        _ ->
+            ok
+    end.
+
+ttest_manager_init(Parent) ->
+    yes = global:register_name(?TTEST_MANAGER, self()),
+    ets:new(?TTEST_MANAGER, 
+            [{keypos, #ttest_report.id}, named_table, protected, ordered_set]),
+    Parent ! {ttest_manager_started, self()},
+    ttest_manager_loop().
+
+ttest_manager_loop() ->
+    receive
+        stop ->
+            ?LOGGER:format("manager stopping~n", []),
+            ttest_manager_done();
+
+        #ttest_report{id    = _ID,
+                      time  = _RunTime,
+                      bytes = _NumBytes,
+                      msgs  = _NumMsgs} = Report ->
+            true = ets:insert_new(?TTEST_MANAGER, Report),
+            ttest_manager_loop()
+    end.
+
+%% We are supposed to pretty print the result here...
+ttest_manager_done() ->
+    format_reports(inet),
+    %% format_reports(inet6),
+    ets:delete(?TTEST_MANAGER),
+    exit(normal).
+
+format_reports(Domain) ->
+    ?LOGGER:format("Domain ~w reports:~n~n", [Domain]),
+    format_reports(Domain, small),
+    format_reports(Domain, medium),
+    format_reports(Domain, large).
+    
+format_reports(Domain, MsgID) when is_atom(MsgID) ->
+    case which_ttest_reports(Domain, MsgID) of
+        [] ->
+            ?LOGGER:format("   No ~w reports~n~n", [MsgID]);
+        Reports ->
+            ?LOGGER:format("   ~w reports: ~n", [MsgID]),
+            lists:foreach(fun(R) -> format_report(R) end, Reports)
+    end.
+
+%% This should really be a table like this:
+%%
+%%             client
+%% server      gen(false)  gen(once)  gen(true)  sock(false)  sock(once)  sock(true)
+%% gen(false)  nnn
+%% gen(once)   nnn
+%% gen(true)   nnn
+%% sock(false) nnn
+%% sock(once)  nnn
+%% sock(true)  nnn
+%%
+format_report(#ttest_report{id    = #ttest_report_id{serv_trans    = STrans,
+                                                     serv_active   = SActive,
+                                                     client_trans  = CTrans,
+                                                     client_active = CActive},
+                            time  = RunTime,
+                            bytes = BCnt,
+                            msgs  = MCnt}) ->
+    ?LOGGER:format("      server ~w[~w] - client ~w[~w] => "
+                   "~n         Run Time: ~s"
+                   "~n         Bytes:    ~s"
+                   "~n         Messages: ~s"
+                   "~n", [STrans, SActive, CTrans, CActive,
+                          ?TTEST_LIB:format_time(RunTime),
+                          if ((BCnt =:= 0) orelse (RunTime =:= 0)) ->
+                                  ?TTEST_LIB:format("~w, ~w",
+                                                    [BCnt, RunTime]);
+                             true ->
+                                  ?TTEST_LIB:format("~p => ~p byte / ms",
+                                                    [BCnt, BCnt div RunTime])
+                          end,
+                          if (RunTime =:= 0) ->
+                                  "-";
+                             true ->
+                                  ?TTEST_LIB:format("~p => ~p iterations / ms",
+                                                    [MCnt, MCnt div RunTime])
+                          end]),
+    ok.
+
+
+which_ttest_reports(Domain, all) ->
+    [R || R = #ttest_report{id = #ttest_report_id{domain = D}} <- 
+              ets:tab2list(?TTEST_MANAGER), Domain =:= D];
+which_ttest_reports(Domain, MsgID) ->
+    [R || R = #ttest_report{id = #ttest_report_id{domain = D, msg_id = MID}} <- 
+              ets:tab2list(?TTEST_MANAGER), (Domain =:= D) andalso (MsgID =:= MID)].
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

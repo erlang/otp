@@ -43,7 +43,7 @@ start(Quiet) ->
             ok;
         undefined ->
             Self = self(),
-            Pid = spawn_link(fun() -> init(Self, Quiet) end),
+            Pid = spawn(fun() -> init(Self, Quiet) end),
             yes = global:register_name(?LOGGER, Pid),
             ok
     end.
