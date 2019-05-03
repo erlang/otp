@@ -56,6 +56,7 @@
          dist_handle,
          hmac_algorithm = sha256,
          aead_cipher = aes_gcm,
+         shared_secret,
          iv = 12,
          key = 16,
          tag_len = 16,
@@ -932,7 +933,10 @@ init_msg(
                     {Key2A, IV2A} =
                         hmac_key_iv(
                           HmacAlgo, SharedSecret, [R2A, R3B], KeyLen, IVLen),
-                    SendParams = Params#params{key = Key2A, iv = IV2A},
+                    SendParams =
+                        Params#params{
+                          shared_secret = SharedSecret,
+                          key = Key2A, iv = IV2A},
                     %%
                     StartCleartext = [R2B, R3B, <<RekeyInterval:32>>],
                     StartMsgLen = TagLen + iolist_size(StartCleartext),
@@ -946,7 +950,10 @@ init_msg(
                     {Key2B, IV2B} =
                         hmac_key_iv(
                           HmacAlgo, SharedSecret, [R2B, R3A], KeyLen, IVLen),
-                    RecvParams = Params#params{key = Key2B, iv = IV2B},
+                    RecvParams =
+                        Params#params{
+                          shared_secret = SharedSecret,
+                          key = Key2B, iv = IV2B},
                     %%
                     {SendParams, RecvParams, StartMsg}
             end
@@ -1316,6 +1323,7 @@ deliver_data(DistHandle, Front, Size, Rear, Bin) ->
 encrypt_and_send_chunk(
   #params{
      socket = Socket, rekey_interval = Seq,
+     shared_secret = SharedSecret,
      key = Key, iv = {IVSalt, _}, hmac_algorithm = HmacAlgo} = Params,
   Seq, Cleartext) ->
     %%
@@ -1328,7 +1336,8 @@ encrypt_and_send_chunk(
     of
         ok ->
             {Key_1, <<IVSalt_1:IVSaltLen/binary, IVNo_1:48>>} =
-                hmac_key_iv(HmacAlgo, Key, R, KeyLen, IVSaltLen + 6),
+                hmac_key_iv(
+                  HmacAlgo, SharedSecret, R, KeyLen, IVSaltLen + 6),
             Params_1 = Params#params{key = Key_1, iv = {IVSalt_1, IVNo_1}},
             Result =
                 gen_tcp:send(Socket, encrypt_chunk(Params_1, 0, Cleartext)),
@@ -1378,7 +1387,9 @@ decrypt_chunk(
     end.
 
 block_decrypt(
-  #params{rekey_interval = RekeyInterval} = Params,
+  #params{
+     shared_secret = SharedSecret,
+     rekey_interval = RekeyInterval} = Params,
   Seq, AeadCipher, Key, IV, Data) ->
     %%
     case crypto:block_decrypt(AeadCipher, Key, IV, Data) of
@@ -1392,7 +1403,7 @@ block_decrypt(
                     {Key_1, <<IVSalt:IVSaltLen/binary, IVNo:48>>} =
                         hmac_key_iv(
                           Params#params.hmac_algorithm,
-                          Key, R, KeyLen, IVLen),
+                          SharedSecret, R, KeyLen, IVLen),
                     Params#params{iv = {IVSalt, IVNo}, key = Key_1};
                 _ ->
                     error
