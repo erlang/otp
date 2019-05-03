@@ -55,7 +55,6 @@
  */
 #if 0
 #define ERTS_DIST_MSG_DBG
-FILE *dbg_file;
 #endif
 #if 0
 /* Enable this to print the dist debug messages to a file instead */
@@ -67,6 +66,7 @@ FILE *dbg_file;
 #endif
 
 #if defined(ERTS_DIST_MSG_DBG) || defined(ERTS_RAW_DIST_MSG_DBG)
+FILE *dbg_file;
 static void bw(byte *buf, ErlDrvSizeT sz)
 {
     bin_write(ERTS_PRINT_FILE, dbg_file, buf, sz);
@@ -743,7 +743,7 @@ void init_dist(void)
         sprintf(buff, ERTS_DIST_MSG_DBG_FILE, getpid());
         dbg_file = fopen(buff,"w+");
     }
-#elif defined (ERTS_DIST_MSG_DBG)
+#elif defined(ERTS_DIST_MSG_DBG) || defined(ERTS_RAW_DIST_MSG_DBG)
     dbg_file = stderr;
 #endif
 
