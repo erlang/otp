@@ -56,14 +56,18 @@
          dist_handle,
          hmac_algorithm = sha256,
          aead_cipher = aes_gcm,
-         shared_secret,
+         rekey_key,
          iv = 12,
          key = 16,
          tag_len = 16,
-         rekey_interval = 32768
+         rekey_interval = 262144
         }).
 
--record(public_key_pair,
+params(Socket) ->
+    #params{socket = Socket}.
+
+
+-record(key_pair,
         {type = ecdh,
          %% The curve choice greatly affects setup time,
          %% we really want an Edwards curve but that would
@@ -76,30 +80,67 @@
          public,
          private}).
 
-params(Socket) ->
-    #params{socket = Socket}.
+-define(KEY_PAIR_LIFE_TIME, 3600000). % 1 hour
+-define(KEY_PAIR_LIFE_COUNT, 256). % Number of connection setups
 
 
 %% -------------------------------------------------------------------------
 %% Keep the node's public/private key pair in the process state
-%% of a process linked to the acceptor process.
-%% Create it the first time it is needed.
+%% of a key pair server linked to the acceptor process.
+%% Create the key pair the first time it is needed
+%% so crypto gets time to start first.
 %%
 
--define(KEYPAIR_LIFETIME, 3600000).
--define(KEYPAIR_LIFECOUNT, 256).
+start_key_pair_server() ->
+    monitor_dist_proc(
+      spawn_link(
+        fun () ->
+                register(?MODULE, self()),
+                key_pair_server()
+        end)).
 
-start_public_key_pair() ->
-    spawn_link(
-      fun () ->
-              register(?MODULE, self()),
-              public_key_pair_loop()
-      end).
-
-public_key_pair_loop() ->
-    public_key_pair_loop(undefined, undefined, undefined).
+key_pair_server() ->
+    key_pair_server(undefined, undefined, undefined).
 %%
-public_key_pair_loop(_PKP, Timer, 0) ->
+key_pair_server(KeyPair) ->
+    key_pair_server(
+      KeyPair,
+      erlang:start_timer(?KEY_PAIR_LIFE_TIME, self(), discard),
+      ?KEY_PAIR_LIFE_COUNT).
+%%    
+key_pair_server(_KeyPair, Timer, 0) ->
+    cancel_timer(Timer),
+    key_pair_server();
+key_pair_server(KeyPair, Timer, Count) ->
+    receive
+        {Pid, Tag, get_key_pair} ->
+            case KeyPair of
+                undefined ->
+                    KeyPair_1 = generate_key_pair(),
+                    Pid ! {Tag, KeyPair_1},
+                    key_pair_server(KeyPair_1);
+                #key_pair{} ->
+                    Pid ! {Tag, KeyPair},
+                    key_pair_server(KeyPair, Timer, Count - 1)
+            end;
+        {Pid, Tag, get_new_key_pair} ->
+            cancel_timer(Timer),
+            KeyPair_1 = generate_key_pair(),
+            Pid ! {Tag, KeyPair_1},
+            key_pair_server(KeyPair_1);
+        {timeout, Timer, discard} when is_reference(Timer) ->
+            key_pair_server()
+    end.
+
+generate_key_pair() ->
+    #key_pair{type = Type, params = Params} = #key_pair{},
+    {Public, Private} =
+        crypto:generate_key(Type, Params),
+    #key_pair{public = Public, private = Private}.
+
+cancel_timer(undefined) ->
+    ok;
+cancel_timer(Timer) ->
     case erlang:cancel_timer(Timer) of
         false ->
             receive
@@ -107,43 +148,33 @@ public_key_pair_loop(_PKP, Timer, 0) ->
             end;
         _RemainingTime ->
             ok
-    end,
-    public_key_pair_loop();
-public_key_pair_loop(PKP, Timer, Count) ->
-    receive
-        {Pid, Tag, public_key_pair} ->
-            case PKP of
-                undefined ->
-                    #public_key_pair{type = Type, params = Params} =
-                        #public_key_pair{},
-                    {Public, Private} =
-                        crypto:generate_key(Type, Params),
-                    PKP_1 =
-                        #public_key_pair{public = Public, private = Private},
-                    Pid ! {Tag, PKP_1},
-                    public_key_pair_loop(
-                      PKP_1,
-                      erlang:start_timer(?KEYPAIR_LIFETIME, self(), renew),
-                      ?KEYPAIR_LIFECOUNT);
-                #public_key_pair{} ->
-                    Pid ! {Tag, PKP},
-                    public_key_pair_loop(PKP, Timer, Count - 1)
-            end;
-        {timeout, Timer, renew} when is_reference(Timer) ->
-            public_key_pair_loop()
     end.
 
-public_key_pair() ->
+get_key_pair() ->
+    call_key_pair_server(get_key_pair).
+
+get_new_key_pair() ->
+    call_key_pair_server(get_new_key_pair).
+
+call_key_pair_server(Request) ->
     Pid = whereis(?MODULE),
     Ref = erlang:monitor(process, Pid),
-    Pid ! {self(), Ref, public_key_pair},
+    Pid ! {self(), Ref, Request},
     receive
-        {Ref, PKP} ->
+        {Ref, Reply} ->
             erlang:demonitor(Ref, [flush]),
-            PKP;
+            Reply;
         {'DOWN', Ref, process, Pid, Reason} ->
             error(Reason)
     end.
+
+compute_shared_secret(
+  #key_pair{
+     type = PublicKeyType,
+     params = PublicKeyParams,
+     private = PrivKey}, PubKey) ->
+    %%
+    crypto:compute_key(PublicKeyType, PubKey, PrivKey, PublicKeyParams).
 
 %% -------------------------------------------------------------------------
 %% Erlang distribution plugin structure explained to myself
@@ -305,7 +336,7 @@ gen_accept(Listen, Driver) ->
     monitor_dist_proc(
       spawn_opt(
         fun () ->
-                start_public_key_pair(),
+                start_key_pair_server(),
                 accept_loop(Listen, Driver, NetKernel)
         end,
         [link, {priority, max}])).
@@ -713,7 +744,8 @@ nodelay() ->
 
 %%% XXX Missing to "productified":
 %%% * Cryptoanalysis by experts, this is crypto amateur work.
-%%% * Is it useful?
+%%% * Is it useful over inet_tls_dist; i.e to not have to bother
+%%%   with certificates but instead manage a secret cluster cookie?
 %%% * An application to belong to (kernel)
 %%% * Restart and/or code reload policy (not needed in kernel)
 %%% * Fitting into the epmd/Erlang distro protocol version framework
@@ -811,11 +843,11 @@ reply({Ref, Pid}, Msg) ->
 %% blocks we have a deadlock.
 %%
 %% The init + start sequence tries to implement Password Encrypted
-%% Key Exchange using a node public/private keypair and the
+%% Key Exchange using a node public/private key pair and the
 %% shared secret (the Cookie) to create session encryption keys
 %% that can not be re-created if the shared secret is compromized,
 %% which should create forward secrecy.  You need both nodes'
-%% keypairs and the shared secret to decrypt the traffic
+%% key pairs and the shared secret to decrypt the traffic
 %% between the nodes.
 %%
 %% All exchanged messages uses {packet, 2} i.e 16 bit size header.
@@ -838,28 +870,39 @@ reply({Ref, Pid}, Msg) ->
 %%
 %% Subsequent encrypted messages has the sequence number and the length
 %% of the message as AAD data, and an incrementing IV.  These messages
-%% has got a message type that differentes data from ticks and rekeys.
+%% has got a message type that differentiates data from ticks and rekeys.
 %% Ticks have a random size in an attempt to make them less obvious to spot.
 %%
-%% The only reaction to errors is to crash noisily wich will bring
+%% Rekeying is done by the sender that creates a new key pair and
+%% a new shared secret from the other end's public key and with
+%% this and the current key and iv hashes a new key and iv.
+%% The new public key is sent to the other end that uses it
+%% and its old private key to create the same new shared
+%% secret and from that a new key and iv.
+%% So the receiver keeps its private key, and the sender keeps
+%% the receivers public key for the connection's life time.
+%% While the sender generates a new key pair at every rekey,
+%% which changes the shared secret at every rekey.
+%%
+%% The only reaction to errors is to crash noisily (?) wich will bring
 %% down the connection and hopefully produce something useful
 %% in the local log, but all the other end sees is a closed connection.
 %% -------------------------------------------------------------------------
 
 init(Socket, Secret) ->
-    #public_key_pair{public = PubKey} = PKP = public_key_pair(),
+    #key_pair{public = PubKey} = KeyPair = get_key_pair(),
     Params = params(Socket),
     {R2, R3, Msg} = init_msg(Params, PubKey, Secret),
     ok = gen_tcp:send(Socket, Msg),
-    init_recv(Params, Secret, PKP, R2, R3).
+    init_recv(Params, Secret, KeyPair, R2, R3).
 
 init_recv(
-  #params{socket = Socket, iv = IVLen} = Params, Secret, PKP, R2, R3) ->
+  #params{socket = Socket, iv = IVLen} = Params, Secret, KeyPair, R2, R3) ->
     %%
     {ok, InitMsg} = gen_tcp:recv(Socket, 0),
     IVSaltLen = IVLen - 6,
     try
-        case init_msg(Params, Secret, PKP, R2, R3, InitMsg) of
+        case init_msg(Params, Secret, KeyPair, R2, R3, InitMsg) of
             {#params{iv = <<IV2ASalt:IVSaltLen/binary, IV2ANo:48>>} =
                  SendParams,
              RecvParams, SendStartMsg} ->
@@ -908,12 +951,7 @@ init_msg(
      iv = IVLen,
      tag_len = TagLen,
      rekey_interval = RekeyInterval} = Params,
-  Secret,
-  #public_key_pair{
-     type = PublicKeyType,
-     params = PublicKeyParams,
-     private = PrivKey},
-  R2A, R3A, Msg) ->
+  Secret, KeyPair, R2A, R3A, Msg) ->
     %%
     RLen = KeyLen + IVLen,
     case Msg of
@@ -926,16 +964,14 @@ init_msg(
                   AeadCipher, Key1B, IV1B, {AAD, Ciphertext, Tag})
             of
                 <<R2B:RLen/binary, R3B:RLen/binary, PubKeyB/binary>> ->
-                    SharedSecret =
-                        crypto:compute_key(
-                          PublicKeyType, PubKeyB, PrivKey, PublicKeyParams),
+                    SharedSecret = compute_shared_secret(KeyPair, PubKeyB),
                     %%
                     {Key2A, IV2A} =
                         hmac_key_iv(
                           HmacAlgo, SharedSecret, [R2A, R3B], KeyLen, IVLen),
                     SendParams =
                         Params#params{
-                          shared_secret = SharedSecret,
+                          rekey_key = PubKeyB,
                           key = Key2A, iv = IV2A},
                     %%
                     StartCleartext = [R2B, R3B, <<RekeyInterval:32>>],
@@ -952,7 +988,7 @@ init_msg(
                           HmacAlgo, SharedSecret, [R2B, R3A], KeyLen, IVLen),
                     RecvParams =
                         Params#params{
-                          shared_secret = SharedSecret,
+                          rekey_key = KeyPair,
                           key = Key2B, iv = IV2B},
                     %%
                     {SendParams, RecvParams, StartMsg}
@@ -1322,22 +1358,28 @@ deliver_data(DistHandle, Front, Size, Rear, Bin) ->
 
 encrypt_and_send_chunk(
   #params{
-     socket = Socket, rekey_interval = Seq,
-     shared_secret = SharedSecret,
-     key = Key, iv = {IVSalt, _}, hmac_algorithm = HmacAlgo} = Params,
+     socket = Socket,
+     rekey_interval = Seq,
+     rekey_key = PubKeyB,
+     key = Key,
+     iv = {IVSalt, IVNo},
+     hmac_algorithm = HmacAlgo} = Params,
   Seq, Cleartext) ->
     %%
     KeyLen = byte_size(Key),
     IVSaltLen = byte_size(IVSalt),
-    R = crypto:strong_rand_bytes(KeyLen + IVSaltLen + 6),
+    #key_pair{public = PubKeyA} = KeyPair = get_new_key_pair(),
     case
         gen_tcp:send(
-          Socket, encrypt_chunk(Params, Seq, [?REKEY_CHUNK, R]))
+          Socket, encrypt_chunk(Params, Seq, [?REKEY_CHUNK, PubKeyA]))
     of
         ok ->
+            SharedSecret = compute_shared_secret(KeyPair, PubKeyB),
+            IV = <<(IVNo + Seq):48>>,
             {Key_1, <<IVSalt_1:IVSaltLen/binary, IVNo_1:48>>} =
                 hmac_key_iv(
-                  HmacAlgo, SharedSecret, R, KeyLen, IVSaltLen + 6),
+                  HmacAlgo, SharedSecret, [Key, IVSalt, IV],
+                  KeyLen, IVSaltLen + 6),
             Params_1 = Params#params{key = Key_1, iv = {IVSalt_1, IVNo_1}},
             Result =
                 gen_tcp:send(Socket, encrypt_chunk(Params_1, 0, Cleartext)),
@@ -1388,22 +1430,23 @@ decrypt_chunk(
 
 block_decrypt(
   #params{
-     shared_secret = SharedSecret,
+     rekey_key = #key_pair{public = PubKeyA} = KeyPair,
      rekey_interval = RekeyInterval} = Params,
   Seq, AeadCipher, Key, IV, Data) ->
     %%
     case crypto:block_decrypt(AeadCipher, Key, IV, Data) of
         <<?REKEY_CHUNK, Rest/binary>> ->
-            KeyLen = byte_size(Key),
-            IVLen = byte_size(IV),
-            IVSaltLen = IVLen - 6,
-            RLen = KeyLen + IVLen,
+            PubKeyLen = byte_size(PubKeyA),
             case Rest of
-                <<R:RLen/binary>> ->
+                <<PubKeyB:PubKeyLen/binary>> ->
+                    SharedSecret = compute_shared_secret(KeyPair, PubKeyB),
+                    KeyLen = byte_size(Key),
+                    IVLen = byte_size(IV),
+                    IVSaltLen = IVLen - 6,
                     {Key_1, <<IVSalt:IVSaltLen/binary, IVNo:48>>} =
                         hmac_key_iv(
                           Params#params.hmac_algorithm,
-                          SharedSecret, R, KeyLen, IVLen),
+                          SharedSecret, [Key, IV], KeyLen, IVLen),
                     Params#params{iv = {IVSalt, IVNo}, key = Key_1};
                 _ ->
                     error
@@ -1463,24 +1506,29 @@ death_row(Reason) -> receive after 5000 -> exit(Reason) end.
 trace(Term) -> Term.
 
 %% Keep an eye on this Pid (debug)
+-ifndef(undefined).
 monitor_dist_proc(Pid) ->
-%%%    spawn(
-%%%      fun () ->
-%%%              MRef = erlang:monitor(process, Pid),
-%%%              receive
-%%%                  {'DOWN', MRef, _, _, normal} ->
-%%%                      error_logger:error_report(
-%%%                        [dist_proc_died,
-%%%                         {reason, normal},
-%%%                         {pid, Pid}]);
-%%%                  {'DOWN', MRef, _, _, Reason} ->
-%%%                      error_logger:info_report(
-%%%                        [dist_proc_died,
-%%%                         {reason, Reason},
-%%%                         {pid, Pid}])
-%%%              end
-%%%      end),
     Pid.
+-else.
+monitor_dist_proc(Pid) ->
+    spawn(
+      fun () ->
+              MRef = erlang:monitor(process, Pid),
+              receive
+                  {'DOWN', MRef, _, _, normal} ->
+                      error_logger:error_report(
+                        [dist_proc_died,
+                         {reason, normal},
+                         {pid, Pid}]);
+                  {'DOWN', MRef, _, _, Reason} ->
+                      error_logger:info_report(
+                        [dist_proc_died,
+                         {reason, Reason},
+                         {pid, Pid}])
+              end
+      end),
+    Pid.
+-endif.
 
 dbg() ->
     dbg:stop(),
