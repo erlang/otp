@@ -591,8 +591,8 @@
         #{level := integer(), type := integer(), data := binary()}.
 
 
--type select_tag()  :: atom().
--opaque select_ref()  :: reference().
+-opaque select_tag() :: atom().
+-opaque select_ref() :: reference().
 
 -record(select_info, {tag :: select_tag(), ref :: select_ref()}).
 

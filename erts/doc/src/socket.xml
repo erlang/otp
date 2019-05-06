@@ -98,10 +98,14 @@
     </datatype>
     <datatype>
       <name name="select_tag"/>
+      <desc>
+	<p>A tag that describes the (select) operation.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="select_ref"/>
-      <desc><p>A reference that uniquely identifies the (select) operation.</p>
+      <desc>
+	<p>A reference that uniquely identifies the (select) operation.</p>
       </desc>
     </datatype>
     <datatype>

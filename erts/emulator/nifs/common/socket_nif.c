@@ -4966,7 +4966,7 @@ ERL_NIF_TERM nconnect(ErlNifEnv*       env,
 
         descP->state      = SOCKET_STATE_CONNECTED;
         enif_set_pid_undefined(&descP->connPid);
-        MON_INIT(&descP->connMon);
+        DEMONP("nconnect -> connected", env, descP, &descP->connMon);
         descP->isReadable = TRUE;
         descP->isWritable = TRUE;
 
@@ -5026,7 +5026,7 @@ ERL_NIF_TERM nfinalize_connection(ErlNifEnv*       env,
 {
     int error;
 
-    if (descP->state != SOCKET_STATE_CONNECTING)
+    if (!IS_CONNECTING(descP))
         return esock_make_error(env, atom_enotconn);
 
     if (!verify_is_connected(descP, &error)) {
@@ -5035,6 +5035,8 @@ ERL_NIF_TERM nfinalize_connection(ErlNifEnv*       env,
     }
 
     descP->state      = SOCKET_STATE_CONNECTED;
+    enif_set_pid_undefined(&descP->connPid);
+    DEMONP("nfinalize_connection -> connected", env, descP, &descP->connMon);
     descP->isReadable = TRUE;
     descP->isWritable = TRUE;
 
@@ -18704,6 +18706,17 @@ void socket_down(ErlNifEnv*           env,
                                   "\r\n", sres, pid, descP->sock,
                                   MON2T(env, mon));
             }
+
+        } else if (COMPARE_PIDS(&descP->connPid, pid) == 0) {
+
+            /* The connPid is only set during the connection.
+             * The same goes for the monitor (connMon).
+             */
+
+            descP->state = SOCKET_STATE_OPEN;  /* restore state */
+            enif_set_pid_undefined(&descP->connPid);
+            DEMONP("socket_down -> connector",
+                   env, descP, &descP->connMon);
 
         } else {
 
