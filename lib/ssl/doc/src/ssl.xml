@@ -128,7 +128,7 @@
       <name name="hostname"/>
      </datatype>
 
-       <datatype>
+     <datatype>
       <name name="ip_address"/>
      </datatype>
 
@@ -136,19 +136,19 @@
        <name name="protocol_version"/>
      </datatype>
 
-       <datatype>
+     <datatype>
        <name name="tls_version"/>
      </datatype>
-     
+
      <datatype>
        <name name="dtls_version"/>
      </datatype>
-     
+
      <datatype>
        <name name="legacy_version"/>
      </datatype>
-     
-       <datatype>
+
+     <datatype>
        <name name="prf_random"/>
      </datatype>
      
@@ -209,10 +209,6 @@
      </datatype>
 
      <datatype>
-      <name name="eccs"/>
-     </datatype>
-
-     <datatype>
       <name name="named_curve"/>
      </datatype>
 
@@ -242,6 +238,10 @@
 
      <datatype>
       <name name="tls_alert"/>
+     </datatype>
+
+     <datatype>
+      <name name="reason"/>
      </datatype>
 
     <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</datatype_title>
@@ -332,14 +332,7 @@
 	matters.</p>
       </desc>
     </datatype>
-    
-    <datatype>
-      <name name="eccs"/>
-      <desc><p> Allows to specify the order of preference for named curves
-      and to restrict their usage when using a cipher suite supporting them.</p>
-      </desc>
-    </datatype>
-    
+
     <datatype>
       <name name="secure_renegotiation"/>
       <desc><p>Specifies if to reject renegotiation attempt that does
@@ -1071,13 +1064,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
   <funcs>
 
     <func>
-      <name since="OTP 20.3">append_cipher_suites(Deferred, Suites) -> ciphers() </name>
+      <name name="append_cipher_suites" arity="2" since="OTP 20.3"/>
       <fsummary></fsummary>
-      <type>
-        <v>Deferred = <seealso marker="#type-ciphers">ciphers()</seealso> |
-	<seealso marker="#type-cipher_filters">cipher_filters()</seealso></v>
-	<v>Suites  =  <seealso marker="#type-ciphers">ciphers()</seealso></v>
-      </type>
       <desc><p>Make <c>Deferred</c> suites become the least preferred
       suites, that is put them at the end of the cipher suite list
       <c>Suites</c> after removing them from <c>Suites</c> if
@@ -1088,25 +1076,18 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="OTP R14B">cipher_suites() -></name>
-      <name since="OTP R14B">cipher_suites(Type) -> [old_cipher_suite()]</name>
+      <name name="cipher_suites" arity="0" since="OTP R14B"/>
+      <name name="cipher_suites" arity="1" since="OTP R14B"/>
       <fsummary>Returns a list of supported cipher suites.</fsummary>
-      <type>
-        <v>Type = erlang | openssl | all</v>
-      </type>
       <desc>
 	<p>Deprecated in OTP 21, use <seealso marker="#cipher_suites-2">cipher_suites/2</seealso> instead.</p>
       </desc>
     </func>
     
    <func>
-      <name since="OTP 20.3">cipher_suites(Supported, Version) ->  ciphers()</name>
+      <name name="cipher_suites" arity="2" since="OTP 20.3"/>
       <fsummary>Returns a list of all default or
       all supported cipher suites.</fsummary>
-      <type>
-        <v> Supported = default | all | anonymous </v>
-	<v> Version = <seealso marker="#type-protocol_version">protocol_version() </seealso></v>
-      </type>
       <desc><p>Returns all default or all supported (except anonymous),
       or all anonymous cipher suites for a
       TLS version</p>
@@ -1114,16 +1095,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 19.2">eccs() -></name>
-      <name since="OTP 19.2">eccs(Version) -> NamedCurves</name>
+      <name name="eccs" arity="0" since="OTP 19.2"/>
+      <name name="eccs" arity="1" since="OTP 19.2"/>
       <fsummary>Returns a list of supported ECCs.</fsummary>
-
-      <type>
-	<v> Version = <seealso marker="#type-protocol_version">protocol_version() </seealso></v>
-	<v> NamedCurves = <seealso marker="#type-named_curve">[named_curve()] </seealso></v>
-	
-      </type>
-      
       <desc><p>Returns a list of supported ECCs. <c>eccs()</c>
       is equivalent to calling <c>eccs(Protocol)</c> with all
       supported protocols and then deduplicating the output.</p>
@@ -1131,9 +1105,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="OTP 17.5">clear_pem_cache() -> ok </name>
+      <name name="clear_pem_cache" arity="0" since="OTP 17.5"/>
       <fsummary> Clears the pem cache</fsummary>
-
       <desc><p>PEM files, used by ssl API-functions, are cached. The
       cache is regularly checked to see if any cache entries should be
       invalidated, however this function provides a way to
@@ -1143,19 +1116,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
    
     <func>
-      <name since="OTP R14B">connect(Socket, Options) -> </name>
-      <name since="">connect(Socket, Options, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext}
-	| {error, Reason}</name>
+      <name name="connect" arity="2" since="OTP R14B"/>
+      <name name="connect" arity="3" clause_i="1" since=""/>
       <fsummary>Upgrades a <c>gen_tcp</c>, or
 	equivalent, connected socket to an TLS socket.</fsummary>
-      <type>
-	<v>Socket = <seealso marker="#type-socket"> socket() </seealso></v>
-	<v>Options = <seealso marker="#type-tls_client_option"> [tls_client_option()] </seealso></v>
-	<v>Timeout = timeout()</v>
-	<v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	<v>Ext = <seealso marker="#type-protocol_extensions">protocol_extensions()</seealso></v>
-	<v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
-      </type>
       <desc><p>Upgrades a <c>gen_tcp</c>, or equivalent,
 	  connected socket to an TLS socket, that is, performs the
 	  client-side TLS handshake.</p>
@@ -1187,18 +1151,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="">connect(Host, Port, Options) -></name>
-      <name since="">connect(Host, Port, Options, Timeout) ->
-	  {ok, SslSocket}| {ok, SslSocket, Ext} | {error, Reason}</name>
+      <name since="" name="connect" arity="3" clause_i="2"/>
+      <name since="" name="connect" arity="4"/>
       <fsummary>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</fsummary>
-      <type>
-	  <v>Host =<seealso marker="#type-host"> host() </seealso> </v>
-	  <v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
-	  <v>Options = <seealso marker="#type-tls_client_option"> [tls_client_option()]</seealso></v>
-	  <v>Timeout = timeout()</v>
-	  <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	  <v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
-      </type>
       <desc><p>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</p>
       
       <p> When the option <c>verify</c> is set to <c>verify_peer</c> the check 
@@ -1235,24 +1190,15 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="">close(SslSocket) -> ok | {error, Reason}</name>
+      <name since="" name="close" arity="1" />
       <fsummary>Closes an TLS/DTLS connection.</fsummary>
-      <type>
-	  <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	  <v>Reason = term()</v>
-      </type>
       <desc><p>Closes an TLS/DTLS connection.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 18.1">close(SslSocket, How) -> ok | {ok, port()} | {error, Reason}</name>
+      <name since="OTP 18.1" name="close" arity="2"/>
       <fsummary>Closes an TLS connection.</fsummary>
-      <type>
-	  <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	  <v>How =  timeout() | {NewController::pid(), timeout()} </v>
-	  <v>Reason = term()</v>
-      </type>
       <desc><p>Closes or downgrades an TLS connection. In the latter case the transport
       connection will be handed over to the <c>NewController</c> process after receiving
       the TLS close alert from the peer. The returned transport socket will have
@@ -1261,15 +1207,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="">controlling_process(SslSocket, NewOwner) ->
-	ok | {error, Reason}</name>
+      <name since="" name="controlling_process" arity="2" />
 	<fsummary>Assigns a new controlling process to the
 	TLS/DTLS socket.</fsummary>
-	<type>
-	  <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	  <v>NewOwner = pid()</v>
-	  <v>Reason = term()</v>
-	</type>
 	<desc><p>Assigns a new controlling process to the SSL socket. A
 	controlling process is the owner of an SSL socket, and receives
 	all messages from the socket.</p>
@@ -1277,17 +1217,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 18.0">connection_information(SslSocket) ->
-        {ok, Result} |  {error, Reason} </name>
+      <name since="OTP 18.0" name="connection_information" arity="1"/>
       <fsummary>Returns all the connection information.
       </fsummary>
-      <type>
-	<v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Item = protocol | selected_cipher_suite | sni_hostname | ecc | session_id | atom()</v>
-	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
-	<v>Result = [{Item::atom(), Value::term()}]</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><p>Returns the most relevant information about the connection, ssl options that
       are undefined will be filtered out. Note that values that affect the security of the
       connection will only be returned if explicitly requested by connection_information/2.</p>
@@ -1298,34 +1230,23 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 18.0">connection_information(SslSocket, Items) ->
-        {ok, Result} |  {error, Reason} </name>
+      <name since="OTP 18.0" name="connection_information" arity="2"/>
       <fsummary>Returns the requested connection information.
       </fsummary>
-      <type>
-	<v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	<v>Items = [Item]</v>
-	<v>Item = protocol | cipher_suite | sni_hostname | ecc | session_id | client_random 
-          | server_random  | master_secret | atom()</v>
-	<d>Note that client_random, server_random  and master_secret are values
-        that affect the security of connection. Meaningful atoms, not specified above, are the ssl option names.</d>
-	<v>Result = [{Item::atom(), Value::term()}]</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><p>Returns the requested information items about the connection,
       if they are defined.</p>
+      <p>Note that client_random, server_random  and master_secret are values
+      that affect the security of connection. Meaningful atoms, not specified
+      above, are the ssl option names.</p>
+
       <note><p>If only undefined options are requested the
       resulting list can be empty.</p></note>
       </desc>
     </func>
 
       <func>
-      <name since="OTP 20.3">filter_cipher_suites(Suites, Filters) -> ciphers()</name>
+      <name since="OTP 20.3" name="filter_cipher_suites" arity="2" />
       <fsummary></fsummary>
-      <type>
-	<v> Suites =  <seealso marker="#type-ciphers"> ciphers() </seealso></v>
-        <v> Filters =  <seealso marker="#type-cipher_filters"> cipher_filters() </seealso></v>
-      </type>
       <desc><p>Removes cipher suites if any of the filter functions
       returns false for any part of the cipher suite. This function
       also calls default filter functions to make sure the cipher
@@ -1335,24 +1256,16 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="">format_error(Reason) -> string()</name>
+      <name since="" name="format_error" arity="1" />
       <fsummary>Returns an error string.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Presents the error returned by an SSL function as a printable string.</p>
       </desc>
     </func>
    
     <func>
-      <name since="">getopts(SslSocket, OptionNames) ->
-	{ok, [socketoption()]} | {error, Reason}</name>
+      <name since="" name="getopts" arity="2" />
       <fsummary>Gets the values of the specified options.</fsummary>
-      <type>
-	<v>Socket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	<v>OptionNames = [atom()]</v>
-      </type>
       <desc>
 	<p>Gets the values of the specified socket options.
 	</p>
@@ -1360,16 +1273,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 19.0">getstat(SslSocket) ->
-        {ok, OptionValues} | {error, inet:posix()}</name>
-      <name since="OTP 19.0">getstat(SslSocket, OptionNames) ->
-        {ok, OptionValues} | {error, inet:posix()}</name>
+      <name since="OTP 19.0" name="getstat" arity="1" />
+      <name since="OTP 19.0" name="getstat" arity="2" />
       <fsummary>Get one or more statistic options for a socket</fsummary>
-      <type>
-    <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-    <v>OptionNames = [atom()]</v>
-        <v>OptionValues = [{inet:stat_option(), integer()}]</v>
-      </type>
       <desc>
         <p>Gets one or more statistic options for the underlying TCP socket.</p>
         <p>See inet:getstat/2 for statistic options description.</p>
@@ -1377,14 +1283,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 21.0">handshake(HsSocket) -> </name>
-      <name since="OTP 21.0">handshake(HsSocket, Timeout) -> {ok, SslSocket}  | {error, Reason}</name>
+      <name since="OTP 21.0" name="handshake" arity="1" />
+      <name since="OTP 21.0" name="handshake" arity="2" clause_i="1" />
       <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
-      <type>
-        <v>HsSocket = SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Timeout = timeout()</v>
-        <v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
-      </type>
       <desc>
         <p>Performs the SSL/TLS/DTLS server-side handshake.</p>
 	<p>Returns a new TLS/DTLS socket if the handshake is successful.</p>
@@ -1397,17 +1298,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 21.0">handshake(Socket, Options) -> </name>
-      <name since="OTP 21.0">handshake(Socket, Options, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason}</name>
+      <name since="OTP 21.0" name="handshake" arity="2" clause_i="2" />
+      <name since="OTP 21.0" name="handshake" arity="3" />
       <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
-      <type>
-        <v>Socket = socket() |  <seealso marker="#type-sslsocket"> socket() </seealso> </v>
-	<v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso> </v>
-	<v>Ext =  <seealso marker="#type-protocol_extensions">protocol_extensions()</seealso></v>
-	<v>Options = <seealso marker="#type-tls_server_option"> [server_option()] </seealso>  </v>
-        <v>Timeout = timeout()</v>
-        <v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
-      </type>
       <desc>
         <p>If <c>Socket</c> is a ordinary <c>socket()</c>: upgrades a <c>gen_tcp</c>,
 	or equivalent, socket to an SSL socket, that is, performs
@@ -1443,52 +1336,33 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 21.0">handshake_cancel(SslSocket) -> ok </name>
+      <name since="OTP 21.0" name="handshake_cancel" arity="1" />
       <fsummary>Cancel handshake with a fatal alert</fsummary>
-      <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-      </type>
       <desc>
         <p>Cancel the handshake with a fatal <c>USER_CANCELED</c> alert.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 21.0">handshake_continue(HsSocket, Options) -> {ok, SslSocket} | {error, Reason}</name>
-      <name since="OTP 21.0">handshake_continue(HsSocket, Options, Timeout) -> {ok, SslSocket} | {error, Reason}</name>
+      <name since="OTP 21.0" name="handshake_continue" arity="2" />
+      <name since="OTP 21.0" name="handshake_continue" arity="3" />
       <fsummary>Continue the SSL/TLS handshake.</fsummary>
-      <type>
-	<v>HsSocket = SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	<v>Options = <seealso marker="#type-tls_option"> tls_option() </seealso> </v>
-	<v>Timeout = timeout()</v>
-	<v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
-      </type>
       <desc>
         <p>Continue the SSL/TLS handshake possiby with new, additional or changed options.</p>
       </desc>
     </func>
     
     <func>
-      <name since="">listen(Port, Options) ->
-	{ok, ListenSocket} | {error, Reason}</name>
+      <name since="" name="listen" arity="2" />
       <fsummary>Creates an SSL listen socket.</fsummary>
-      <type>
-	<v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
-	<v>Options = <seealso marker="#type-tls_server_option"> [server_option()] </seealso></v>
-	<v>ListenSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-      </type>
       <desc>
 	<p>Creates an SSL listen socket.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 18.0">negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, protocol_not_negotiated}</name>
+      <name since="OTP 18.0" name="negotiated_protocol" arity="1" />
       <fsummary>Returns the protocol negotiated through ALPN or NPN extensions.</fsummary>
-      <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Protocol = binary()</v>
-      </type>
       <desc>
         <p>
           Returns the protocol negotiated through ALPN or NPN extensions.
@@ -1497,12 +1371,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="">peercert(SslSocket) -> {ok, Cert} | {error, Reason}</name>
+      <name since="" name="peercert" arity="1" />
       <fsummary>Returns the peer certificate.</fsummary>
-     <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Cert = binary()</v>
-      </type>
       <desc>
         <p>The peer certificate is returned as a DER-encoded binary.
 	  The certificate can be decoded with
@@ -1512,27 +1382,16 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="">peername(SslSocket) -> {ok, {Address, Port}} |
-	{error, Reason}</name>
+      <name since="" name="peername" arity="1" />
       <fsummary>Returns the peer address and port.</fsummary>
-      <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Address = ipaddress()</v>
-	<v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
-      </type>
       <desc>
         <p>Returns the address and port number of the peer.</p>
       </desc>
     </func>
     
       <func>
-      <name since="OTP 20.3">prepend_cipher_suites(Preferred, Suites) -> ciphers()</name>
+      <name since="OTP 20.3" name="prepend_cipher_suites" arity="2" />
       <fsummary></fsummary>
-      <type>
-	<v>Preferred = <seealso marker="#type-ciphers">ciphers()</seealso> |
-	<seealso marker="#type-cipher_filters">cipher_filters()</seealso></v>
-	<v>Suites  =  <seealso marker="#type-ciphers">ciphers()</seealso></v>
-      </type>
       <desc><p>Make <c>Preferred</c> suites become the most preferred
       suites that is put them at the head of the cipher suite list
       <c>Suites</c> after removing them from <c>Suites</c> if
@@ -1543,15 +1402,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP R15B01">prf(Socket, Secret, Label, Seed, WantedLength) -> {ok, binary()} | {error, reason()}</name>
+      <name since="OTP R15B01" name="prf" arity="5" />
       <fsummary>Uses a session Pseudo-Random Function to generate key material.</fsummary>
-      <type>
-	<v>Socket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	<v>Secret = binary() | master_secret</v>
-	<v>Label = binary()</v>
-	<v>Seed = [binary() | <seealso marker="#type-prf_random"> prf_random()</seealso>]</v>
-	<v>WantedLength = non_neg_integer()</v>
-      </type>
       <desc>
         <p>Uses the Pseudo-Random Function (PRF) of a TLS session to generate
 	  extra key material. It either takes user-generated values for
@@ -1563,16 +1415,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="">recv(SslSocket, Length) -> </name>
-      <name since="">recv(SslSocket, Length, Timeout) -> {ok, Data} | {error,
-	Reason}</name>
+      <name since="" name="recv" arity="2" />
+      <name since="" name="recv" arity="3" />
       <fsummary>Receives data on a socket.</fsummary>
-      <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Length = integer()</v>
-        <v>Timeout = timeout()</v>
-        <v>Data = [char()] | binary()</v>
-      </type>
+      <type_desc variable="HttpPacket">See the description of
+        <c>HttpPacket</c> in
+        <seealso marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seealso>
+	in ERTS.
+      </type_desc>
       <desc>
         <p>Receives a packet from a socket in passive
           mode. A closed socket is indicated by return value
@@ -1590,11 +1440,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="OTP R14B">renegotiate(SslSocket) -> ok | {error, Reason}</name>
+      <name since="OTP R14B" name="renegotiate" arity="1" />
       <fsummary>Initiates a new handshake.</fsummary>
-      <type>
-	<v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-      </type>
       <desc><p>Initiates a new handshake. A notable return value is
       <c>{error, renegotiation_rejected}</c> indicating that the peer
       refused to go through with the renegotiation, but the connection
@@ -1603,40 +1450,27 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="">send(SslSocket, Data) -> ok | {error, Reason}</name>
+      <name since="" name="send" arity="2" />
       <fsummary>Writes data to a socket.</fsummary>
-      <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Data = iodata()</v>
-      </type>
       <desc>
-        <p>Writes <c>Data</c> to <c>Socket</c>.</p>
+        <p>Writes <c>Data</c> to <c>SslSocket</c>.</p>
         <p>A notable return value is <c>{error, closed}</c> indicating that
           the socket is closed.</p>
       </desc>
     </func>
 
     <func>
-      <name since="">setopts(SslSocket, Options) -> ok | {error, Reason}</name>
+      <name since="" name="setopts" arity="2" />
       <fsummary>Sets socket options.</fsummary>
-      <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Options = <seealso marker="#type-socket_option"> [socket_option()] </seealso></v>
-      </type>
       <desc>
         <p>Sets options according to <c>Options</c> for socket
-          <c>Socket</c>.</p>
+          <c>SslSocket</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R14B">shutdown(SslSocket, How) -> ok | {error, Reason}</name>
+      <name since="OTP R14B" name="shutdown" arity="2" />
       <fsummary>Immediately closes a socket.</fsummary>
-      <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>How = read | write | read_write</v>
-        <v>Reason = reason()</v>
-      </type>
       <desc>
         <p>Immediately closes a socket in one or two directions.</p>
         <p><c>How == write</c> means closing the socket for writing,
@@ -1648,14 +1482,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="">ssl_accept(SslSocket) -> </name>
-      <name since="">ssl_accept(SslSocket, Timeout) -> ok | {error, Reason}</name>
+      <name since="" name="ssl_accept" arity="1" />
+      <name since="" name="ssl_accept" arity="2" />
       <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
-      <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Timeout = timeout()</v>
-        <v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
-      </type>
       <desc>
 	<p>Deprecated in OTP 21, use <seealso marker="#handshake-1">handshake/[1,2]</seealso> instead.</p>
 	<note><p>handshake/[1,2] always returns a new socket.</p></note>
@@ -1663,15 +1492,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="">ssl_accept(Socket, Options) -> </name>
-      <name since="OTP R14B">ssl_accept(Socket, Options, Timeout) -> {ok, Socket} | ok | {error, Reason}</name>
+      <name since="OTP R14B" name="ssl_accept" arity="3" />
       <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
-      <type>
-        <v>Socket = socket() |  <seealso marker="#type-sslsocket"> sslsocket() </seealso> </v>
-	<v>Options =  <seealso marker="#type-tls_server_option"> [server_option()] </seealso> </v>
-        <v>Timeout = timeout()</v>
-        <v>Reason = closed | timeout | <seealso marker="#type-error_alert"> error_alert() </seealso></v>
-      </type>
       <desc>
 	<p>Deprecated in OTP 21, use  <seealso marker="#handshake-3">handshake/[2,3]</seealso> instead.</p>
 	<note><p>handshake/[2,3] always returns a new socket.</p></note>
@@ -1679,27 +1501,18 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="">sockname(SslSocket) -> {ok, {Address, Port}} |
-	{error, Reason}</name>
+      <name since="" name="sockname" arity="1" />
       <fsummary>Returns the local address and port.</fsummary>
-      <type>
-        <v>SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-	<v>Address = <seealso marker="#type-ip_address">ip_address()</seealso></v>
-	<v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
-      </type>
       <desc>
         <p>Returns the local address and port number of socket
-          <c>Socket</c>.</p>
+          <c>SslSocket</c>.</p>
       </desc>
     </func>
     
     <func>
-      <name since="OTP R14B">start() -> </name>
+      <name since="OTP R14B" name="start" arity="0" />
       <name since="OTP R14B">start(Type) -> ok | {error, Reason}</name>
       <fsummary>Starts the SSL application.</fsummary>
-      <type>
-        <v>Type = permanent | transient | temporary</v>
-      </type>
       <desc>
         <p>Starts the SSL application. Default type
           is <c>temporary</c>.</p>
@@ -1707,7 +1520,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP R14B">stop() -> ok </name>
+      <name since="OTP R14B" name="stop" arity="0" />
       <fsummary>Stops the SSL application.</fsummary>
       <desc>
         <p>Stops the SSL application.</p>
@@ -1715,28 +1528,18 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name since="OTP 21.0">suite_to_str(CipherSuite) -> String</name>
+      <name since="OTP 21.0" name="suite_to_str" arity="1" clause_i="1" />
       <fsummary>Returns the string representation of a cipher suite.</fsummary>
-      <type>
-        <v>CipherSuite =  <seealso marker="#type-erl_cipher_suite"> erl_cipher_suite() </seealso></v>
-	<v>String = string()</v>
-      </type>
       <desc>
         <p>Returns the string representation of a cipher suite.</p>
       </desc>
     </func>
 
     <func>
-      <name since="">transport_accept(ListenSocket) -></name>
-      <name since="">transport_accept(ListenSocket, Timeout) ->
-	{ok, SslSocket} | {error, Reason}</name>
+      <name since="" name="transport_accept" arity="1" />
+      <name since="" name="transport_accept" arity="2" />
       <fsummary>Accepts an incoming connection and
 	prepares for <c>ssl_accept</c>.</fsummary>
-      <type>
-        <v>ListenSocket = SslSocket =  <seealso marker="#type-sslsocket"> sslsocket() </seealso></v>
-        <v>Timeout = timeout()</v>
-        <v>Reason = reason()</v>
-      </type>
       <desc>
         <p>Accepts an incoming connection request on a listen socket.
 	<c>ListenSocket</c> must be a socket returned from
@@ -1762,13 +1565,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name since="OTP R14B">versions() -> [versions_info()]</name>
+      <name since="OTP R14B" name="versions" arity="0" />
       <fsummary>Returns version information relevant for the
 	SSL application.</fsummary>
-      <type>
-	<v>versions_info() = {app_vsn, string()} | {supported | available, [ssl_tls_protocol()]} |
-	{supported_dtls | available_dtls, [dtls_protocol()]}	</v>
-      </type>
       <desc>
 	<p>Returns version information relevant for the SSL
 	application.</p>

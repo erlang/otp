@@ -575,11 +575,10 @@ alerts(Config) when is_list(Config) ->
     Alerts = [?ALERT_REC(?WARNING, ?CLOSE_NOTIFY) | 
 	      [?ALERT_REC(?FATAL, Desc) || Desc <- Descriptions]],
     lists:foreach(fun(Alert) ->
-			case ssl_alert:alert_txt(Alert) of
-			    Txt when is_list(Txt) ->
-				ok;
-			    Other ->
-				ct:fail({unexpected, Other})
+                          try ssl_alert:alert_txt(Alert)
+                          catch
+			    C:E:T ->
+                                  ct:fail({unexpected, {C, E, T}})
 			end 
 		  end, Alerts).
 %%--------------------------------------------------------------------
@@ -1859,14 +1858,12 @@ eccs() ->
 
 eccs(Config) when is_list(Config) ->
     [_|_] = All = ssl:eccs(),
-    [] = SSL3 = ssl:eccs({3,0}),
-    [_|_] = Tls = ssl:eccs({3,1}),
-    [_|_] = Tls1 = ssl:eccs({3,2}),
-    [_|_] = Tls2 = ssl:eccs({3,3}),
     [] = SSL3 = ssl:eccs(sslv3),
     [_|_] = Tls = ssl:eccs(tlsv1),
     [_|_] = Tls1 = ssl:eccs('tlsv1.1'),
     [_|_] = Tls2 = ssl:eccs('tlsv1.2'),
+    [_|_] = Tls1 = ssl:eccs('dtlsv1'),
+    [_|_] = Tls2 = ssl:eccs('dtlsv1.2'),
     %% ordering is currently unverified by the test
     true = lists:sort(All) =:= lists:usort(SSL3 ++ Tls ++ Tls1 ++ Tls2),
     ok.
@@ -3849,7 +3846,7 @@ listen_socket(Config) ->
     {error, enotconn} = ssl:peername(ListenSocket),
     {error, enotconn} = ssl:peercert(ListenSocket),
     {error, enotconn} = ssl:renegotiate(ListenSocket),
-    {error, enotconn} = ssl:prf(ListenSocket, 'master_secret', <<"Label">>, client_random, 256),
+    {error, enotconn} = ssl:prf(ListenSocket, 'master_secret', <<"Label">>, [client_random], 256),
     {error, enotconn} = ssl:shutdown(ListenSocket, read_write),
 
     ok = ssl:close(ListenSocket).

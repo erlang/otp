@@ -294,6 +294,9 @@ fe80::204:acff:fe17:bf38
     <datatype>
       <name name="socket_protocol"/>
     </datatype>
+    <datatype>
+      <name name="stat_option"/>
+    </datatype>
   </datatypes>
 
   <funcs>
