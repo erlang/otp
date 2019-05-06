@@ -142,7 +142,7 @@ dirty_error_stacktrace(Config) ->
     try
         mnesia:async_dirty(fun() -> mnesia:abort(custom_abort) end)
     catch
-        exit:{aborted, custom_error} -> ok
+        exit:{aborted, custom_abort} -> ok
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
