@@ -51,15 +51,10 @@
       <seealso marker="#type-select_info"><c>SelectInfo</c></seealso><c>}</c>.
       When data eventually arrives a 'select' message
       will be sent to the caller: </p>
-      <!--
-      <list type="ordered">
-	<item><c>{'$socket', Sock, select, Info}</c></item>
-      </list>
-      -->
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
-	<item><c>{'$socket', Sock, select, Info}</c></item>
+	<item><c>{'$socket', socket(), select, select_ref()}</c></item>
       </taglist>
       <p>The caller can now make another
       call to the recv function and now expect data.</p>
@@ -67,20 +62,15 @@
       'current user' has called the function (recv in this case).</p>
       <p>Another message the user must be prepared for (when making asynchronous
       calls) is the <c>abort</c> message:</p>
-      <!--
-      <list type="ordered">
-	<item><c>{'$socket', Sock, abort, Info}</c></item>
-      </list>
-      -->
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
-	<item><c>{'$socket', Sock, abort, Info}</c></item>
+	<item><c>{'$socket', socket(), abort, Info}</c></item>
       </taglist>
       <p>This message indicates
       that the (asynchronous) operation has been aborted.
-      If, for instance, the socket has been
-      closed (by another process), <c>Info</c> will be <c>{Ref, closed}</c>. </p>
+      If, for instance, the socket has been closed (by another process),
+      <c>Info</c> will be <c>{select_ref(), closed}</c>. </p>
     </note>
     <note>
       <p>There is currently <em>no</em> support for Windows. </p>
@@ -111,6 +101,8 @@
     </datatype>
     <datatype>
       <name name="select_ref"/>
+      <desc><p>A reference that uniquely identifies the (select) operation.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="select_info"/>
