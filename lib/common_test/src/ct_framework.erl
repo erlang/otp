@@ -696,9 +696,16 @@ end_tc(Mod,IPTC={init_per_testcase,_Func},_TCPid,Result,Args,Return) ->
             end
     end;
 
-end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
+end_tc(Mod,Func00,TCPid,Result,Args,Return) ->
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Args),
+    {OnlyCleanup,Func0} =
+        case Func00 of
+            {cleanup,F0} ->
+                {true,F0};
+            _ ->
+                {false,Func00}
+        end,
     {Func,FuncSpec,HookFunc} =
         case Func0 of
             {end_per_testcase_not_run,F} ->
@@ -742,6 +749,8 @@ end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
         case HookFunc of
             undefined ->
                 {ok,Result};
+            _ when OnlyCleanup ->
+                {ok,Result};
             _ ->
                 case ct_hooks:end_tc(Suite,HookFunc,Args,Result,Return) of
                     '$ct_no_change' ->
@@ -752,6 +761,8 @@ end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
         end,
     FinalResult =
 	case get('$test_server_framework_test') of
+            _ when OnlyCleanup ->
+                Result1;
 	    undefined ->
 		%% send sync notification so that event handlers may print
 		%% in the log file before it gets closed

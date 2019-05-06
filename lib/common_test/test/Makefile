@@ -75,6 +75,7 @@ MODULES= \
 	ct_keep_logs_SUITE \
 	ct_unicode_SUITE \
 	ct_auto_clean_SUITE \
+	ct_util_SUITE \
 	ct_tc_repeat_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
