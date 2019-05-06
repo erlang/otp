@@ -72,14 +72,15 @@
       <fsummary>Returns the list of all test case groups and test cases
 	in the module.</fsummary>
       <type>
-	<v>Tests = [TestCase | {group,GroupName} | {group,GroupName,Properties} | {group,GroupName,Properties,SubGroups}]</v>
+	<v>Tests = [TestCase | {testcase,TestCase,TCRepeatProps} | {group,GroupName} | {group,GroupName,Properties} | {group,GroupName,Properties,SubGroups}]</v>
 	<v>TestCase = atom()</v>
+	<v>TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</v>
 	<v>GroupName = atom()</v>
-	<v>Properties = [parallel | sequence | Shuffle | {RepeatType,N}] | default</v>
+	<v>Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}] | default</v>
 	<v>SubGroups = [{GroupName,Properties} | {GroupName,Properties,SubGroups}]</v>
 	<v>Shuffle = shuffle | {shuffle,Seed}</v>
 	<v>Seed = {integer(),integer(),integer()}</v>
-	<v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+	<v>GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
 	<v>N = integer() | forever</v>
 	<v>Reason = term()</v>
       </type>
@@ -91,7 +92,8 @@
           test suite module to be executed. This list also specifies the
           order the cases and groups are executed by <c>Common Test</c>.
           A test case is represented by an atom,
-	  the name of the test case function. A test case group is
+	  the name of the test case function, or a <c>testcase</c> tuple
+	  indicating that the test case shall be repeated. A test case group is
 	  represented by a <c>group</c> tuple, where <c>GroupName</c>,
 	  an atom, is the name of the group (defined in
 	  <seealso marker="#Module:groups-0"><c>groups/0</c></seealso>).
@@ -121,12 +123,13 @@
         <v>GroupDefs = [Group]</v>
         <v>Group = {GroupName,Properties,GroupsAndTestCases}</v>
         <v>GroupName = atom()</v>
-        <v>Properties = [parallel | sequence | Shuffle | {RepeatType,N}]</v>
-        <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase]</v>
+        <v>Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]</v>
+        <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase | {testcase,TestCase,TCRepeatProps}]</v>
         <v>TestCase = atom()</v>
+	<v>TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</v>
         <v>Shuffle = shuffle | {shuffle,Seed}</v>
         <v>Seed = {integer(),integer(),integer()}</v>
-        <v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
+        <v>GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</v>
         <v>N = integer() | forever</v>
       </type>
 

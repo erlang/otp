@@ -455,8 +455,10 @@
  GroupDefs = [GroupDef]
  GroupDef = {GroupName,Properties,GroupsAndTestCases}
  GroupName = atom()
- GroupsAndTestCases = [GroupDef | {group,GroupName} | TestCase]
- TestCase = atom()</pre>
+ GroupsAndTestCases = [GroupDef | {group,GroupName} | TestCase |
+                      {testcase,TestCase,TCRepeatProps}]
+ TestCase = atom()
+ TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</pre>
 
     <p><c>GroupName</c> is the name of the group and must be unique within
     the test suite module. Groups can be nested, by including a group definition 
@@ -464,11 +466,11 @@
     <c>Properties</c> is the list of execution 
     properties for the group. The possible values are as follows:</p>
     <pre>
- Properties = [parallel | sequence | Shuffle | {RepeatType,N}]
+ Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]
  Shuffle = shuffle | {shuffle,Seed}
  Seed = {integer(),integer(),integer()}
- RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |
-              repeat_until_any_ok | repeat_until_any_fail
+ GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |
+                   repeat_until_any_ok | repeat_until_any_fail
  N = integer() | forever</pre>
 
     <p><em>Explanations:</em></p>
@@ -481,8 +483,8 @@
     Dependencies Between Test Cases and Suites.</p></item>
        <tag><c>shuffle</c></tag>
        <item><p>The cases in the group are executed in random order.</p></item>
-       <tag><c>repeat</c></tag>
-       <item><p>Orders <c>Common Test</c> to repeat execution of the cases in the 
+       <tag><c>repeat, repeat_until_*</c></tag>
+       <item><p>Orders <c>Common Test</c> to repeat execution of all the cases in the 
        group a given number of times, or until any, or all, cases fail or succeed.</p></item>
      </taglist>
       
@@ -496,7 +498,7 @@
     <c>{group,GroupName}</c> to the <c>all/0</c> list.</p>
     <p><em>Example:</em></p>
     <pre>
- all() -> [testcase1, {group,group1}, testcase2, {group,group2}].</pre>
+ all() -> [testcase1, {group,group1}, {testcase,testcase2,[{repeat,10}]}, {group,group2}].</pre>
 
     <p>Execution properties with a group tuple in 
     <c>all/0</c>: <c>{group,GroupName,Properties}</c> can also be specified. 
