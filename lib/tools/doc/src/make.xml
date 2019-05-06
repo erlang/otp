@@ -145,5 +145,10 @@ Modules.
 {'*',[debug_info]}.    </code>
     <p></p>
   </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="compiler:compile"><c>compile(3)</c></seealso></p>
+  </section>
 </erlref>
 
