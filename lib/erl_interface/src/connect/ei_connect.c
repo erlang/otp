@@ -791,14 +791,17 @@ int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
 	if (strcmp(hp->h_name, "localhost") == 0) {
 	    /* We use a short node name */    
 	    if ((ct = strchr(thishostname, '.')) != NULL) *ct = '\0';
-	    sprintf(thisnodename, "%s@%s", this_node_name, thishostname);
 	} else {
 	    /* We use a short node name */    
 	    if ((ct = strchr(hp->h_name, '.')) != NULL) *ct = '\0';
 	    strcpy(thishostname, hp->h_name);
-	    sprintf(thisnodename, "%s@%s", this_node_name, hp->h_name);
 	}
     }
+    if (strlen(this_node_name) + 1 + strlen(thishostname) > MAXNODELEN) {
+        EI_TRACE_ERR0("ei_connect_init_ussi","this node name is too long");
+        return ERL_ERROR;
+    }
+    sprintf(thisnodename, "%s@%s", this_node_name, thishostname);
     res = ei_connect_xinit_ussi(ec, thishostname, thisalivename, thisnodename,
                                 (struct in_addr *)*hp->h_addr_list, cookie, creation,
                                 cbs, cbs_sz, setup_context);
@@ -889,6 +892,11 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
     int ei_h_errno;
 #endif /* !win32 */
     int res;
+
+    if (strlen(nodename) > MAXNODELEN) {
+	EI_TRACE_ERR0("ei_connect","Too long nodename");
+	return ERL_ERROR;
+    }
     
     /* extract the host and alive parts from nodename */
     if (!(hostname = strchr(nodename,'@'))) {

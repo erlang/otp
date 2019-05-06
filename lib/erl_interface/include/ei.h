@@ -213,12 +213,12 @@ extern volatile int __erl_errno;
  * library and when using the library we set a value that we use
  */
 
-#define EI_MAXHOSTNAMELEN 64
-#define EI_MAXALIVELEN 63
 #define EI_MAX_COOKIE_SIZE 512
 #define MAXATOMLEN (255 + 1)
 #define MAXATOMLEN_UTF8 (255*4 + 1)
-#define MAXNODELEN EI_MAXALIVELEN+1+EI_MAXHOSTNAMELEN
+#define EI_MAXHOSTNAMELEN (MAXATOMLEN - 2)
+#define EI_MAXALIVELEN (MAXATOMLEN - 2)
+#define MAXNODELEN MAXATOMLEN
 
 typedef enum { 
     ERLANG_ASCII = 1,
