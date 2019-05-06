@@ -3277,7 +3277,7 @@ erts_current_reductions(Process *c_p, Process *p)
     } else {
         reds_left = c_p->fcalls;
     }
-    return REDS_IN(c_p) - reds_left;
+    return REDS_IN(c_p) - reds_left - erts_proc_sched_data(p)->virtual_reds;
 }
 
 int
