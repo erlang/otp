@@ -1226,7 +1226,8 @@ handle_set_file(Option, Fname, TagTm, TagInfo, ParseFun, From,
 		    _ ->
                         ets:insert(Db, {TagInfo, undefined}),
                         TimeZero = - (?RES_FILE_UPDATE_TM + 1), % Early enough
-                        ets:insert(Db, {TagTm, TimeZero})
+                        ets:insert(Db, {TagTm, TimeZero}),
+                        <<>>
 		end,
 	    handle_set_file(ParseFun, Bin, From, State);
 	false -> {reply,error,State}
