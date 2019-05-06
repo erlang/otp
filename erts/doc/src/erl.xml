@@ -460,7 +460,10 @@
       <tag><c><![CDATA[-remsh Node]]></c></tag>
       <item>
         <p>Starts Erlang with a remote shell connected to
-          <c><![CDATA[Node]]></c>.</p>
+          <c><![CDATA[Node]]></c>. Requires either <c><![CDATA[-name]]></c>
+          or <c><![CDATA[-sname]]></c> to be given. If <c><![CDATA[Node]]></c>
+          does not contain a hostname, one is automatically taken from
+          <c><![CDATA[-name]]></c> or <c><![CDATA[-sname]]></c></p>
       </item>
       <tag><c><![CDATA[-rsh Program]]></c></tag>
       <item>
