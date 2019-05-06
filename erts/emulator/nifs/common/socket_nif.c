@@ -825,6 +825,10 @@ typedef struct {
     ErlNifPid          ctrlPid;
     ESockMonitor       ctrlMon;
 
+    /* +++ Connector process +++ */
+    ErlNifPid          connPid;
+    ESockMonitor       connMon;
+
     /* +++ Write stuff +++ */
     ErlNifMutex*       writeMtx;
     ESockRequestor     currentWriter;
@@ -2377,6 +2381,8 @@ static int socket_setopt(int             sock,
                          const void*     optVal,
                          const socklen_t optLen);
 
+static BOOLEAN_T is_connector(ErlNifEnv*       env,
+                              ESockDescriptor* descP);
 static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
 static ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
@@ -4904,7 +4910,7 @@ ERL_NIF_TERM nconnect(ErlNifEnv*       env,
         return esock_make_error(env, atom_eisconn);
     }
 
-    if (IS_CONNECTING(descP)) {
+    if (IS_CONNECTING(descP) && !is_connector(env, descP)) {
         SSDBG( descP, ("SOCKET", "nif_connect -> already connecting\r\n") );
         return esock_make_error(env, esock_atom_einval);
     }
@@ -4926,19 +4932,41 @@ ERL_NIF_TERM nconnect(ErlNifEnv*       env,
         ((save_errno == ERRNO_BLOCK) ||   /* Winsock2            */
          (save_errno == EINPROGRESS))) {  /* Unix & OSE!!        */
         ref = MKREF(env);
-        descP->state = SOCKET_STATE_CONNECTING;
-        if ((sres = esock_select_write(env, descP->sock, descP, NULL,
-                                       sockRef, ref)) < 0) {
-            res = esock_make_error(env,
-                                   MKT2(env,
-                                        esock_atom_select_failed,
-                                        MKI(env, sres)));
-        } else {
+
+        if (IS_CONNECTING(descP)) {
+            /* Glitch */
             res = esock_make_ok2(env, ref);
+        } else {
+
+            /* First time here */
+
+            if (enif_self(env, &descP->connPid) == NULL)
+                return esock_make_error(env, atom_exself);
+
+            if (MONP("nconnect -> conn",
+                     env, descP,
+                     &descP->connPid,
+                     &descP->connMon) != 0)
+                return esock_make_error(env, atom_exmon);
+
+            descP->state = SOCKET_STATE_CONNECTING;
+
+            if ((sres = esock_select_write(env, descP->sock, descP, NULL,
+                                           sockRef, ref)) < 0) {
+                res = esock_make_error(env,
+                                       MKT2(env,
+                                            esock_atom_select_failed,
+                                            MKI(env, sres)));
+            } else {
+                res = esock_make_ok2(env, ref);
+            }
         }
+
     } else if (code == 0) {                 /* ok we are connected */
 
         descP->state      = SOCKET_STATE_CONNECTED;
+        enif_set_pid_undefined(&descP->connPid);
+        MON_INIT(&descP->connMon);
         descP->isReadable = TRUE;
         descP->isWritable = TRUE;
 
@@ -5064,6 +5092,29 @@ BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err)
     *err = 0;
 
     return TRUE;
+}
+#endif
+
+
+
+/* *** is_connector ***
+ * Check if the current process is the connector process.
+ */
+#if !defined(__WIN32__)
+static
+BOOLEAN_T is_connector(ErlNifEnv*       env,
+                       ESockDescriptor* descP)
+{
+    ErlNifPid caller;
+
+    if (enif_self(env, &caller) == NULL)
+        return FALSE;
+
+    if (COMPARE_PIDS(&descP->connPid, &caller) == 0)
+        return TRUE;
+    else
+        return FALSE;
+    
 }
 #endif
 
@@ -16873,7 +16924,9 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         char buf[64]; /* Buffer used for building the mutex name */
 
         // This needs to be released when the socket is closed!
-        // descP->env            = enif_alloc_env();
+
+        enif_set_pid_undefined(&descP->connPid);
+        MON_INIT(&descP->connMon);
 
         sprintf(buf, "esock[w,%d]", sock);
         descP->writeMtx       = MCREATE(buf);

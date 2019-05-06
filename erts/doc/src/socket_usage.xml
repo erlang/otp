@@ -43,6 +43,7 @@
       <title>Asynchronous calls</title>
       <p>Some functions allow for an <i>asynchronous</i> call
       (<seealso marker="socket#accept_async"><c>accept/2</c></seealso>,
+      <seealso marker="socket#connect_async"><c>connect/3</c></seealso>,
       <seealso marker="socket#recv_async"><c>recv/3,4</c></seealso>,
       <seealso marker="socket#recvfrom_async"><c>recvfrom/3,4</c></seealso>,
       <seealso marker="socket#recvmsg_async"><c>recvmsg/2,3,5</c></seealso>,
@@ -52,21 +53,17 @@
       This is achieved by setting the <c>Timeout</c> argument to
       <c>nowait</c>. For instance, if calling the
       <seealso marker="socket#recv_async"><c>recv/3</c></seealso>
-      function with Timeout set to <c>nowait</c> (i.e. <c>recv(Sock, 0, nowait)</c>)
+      function with Timeout set to <c>nowait</c> (i.e. 
+      <c>recv(Sock, 0, nowait)</c>)
       when there is actually nothing to read, it will return with
       <c>{ok, </c>
       <seealso marker="socket#type-select_info"><c>SelectInfo</c></seealso><c>}</c>.
       When data eventually arrives a 'select message'
       will be sent to the caller:</p>
-      <!--
-      <list type="ordered">
-	<item><c>{'$socket', Sock, select, Info}</c></item>
-      </list>
-      -->
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
-	<item><c>{'$socket', Sock, select, Info}</c></item>
+	<item><c>{'$socket', socket(), select, select_ref()}</c></item>
       </taglist>
       <p>The caller can then make another
       call to the recv function and now expect data.</p>
@@ -79,24 +76,18 @@
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
-	<item><c>{'$socket', Sock, abort, Info}</c></item>
+	<item><c>{'$socket', socket(), abort, Info}</c></item>
       </taglist>
       <p>If the operation is aborted
       for whatever reason (e.g. if the socket is closed "by someone else").
       The <c>Info</c> part contains the abort reason (in this case that
-      the socket has been closed <c>Info = {Ref, closed}</c>). </p>
+      the socket has been closed <c>Info = {select_ref(), closed}</c>). </p>
       <p>Note that all other users are <em>locked out</em> until the
       'current user' has called the function (recv in this case). So either
       immediately call the function or
       <seealso marker="socket#cancel/2"><c>cancel</c></seealso>. </p>
+
       <p>The general form of the 'socket' message is: </p>
-      <!--
-      <list type="ordered">
-	<item>
-	  <c>{'$socket', Socket :: socket(), Tag :: atom(), Info :: term()}</c>
-	</item>
-      </list>
-      -->
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
@@ -110,15 +101,15 @@
 	</row>
 	<row>
 	  <cell>select</cell>
-	  <cell>reference()</cell>
+	  <cell>select_ref()</cell>
 	</row>
 	<row>
 	  <cell>abort</cell>
-	  <cell>{reference(), Reason :: term()}</cell>
+	  <cell>{select_ref(), Reason :: term()}</cell>
 	</row>
 	<tcaption>socket message info value type</tcaption>
       </table>
-      <p>The <c>reference()</c> is the same as was received in the
+      <p>The <c>select_ref()</c> is the same as was received in the
       <seealso marker="socket#type-select_info"><c>SelectInfo</c></seealso>. </p>
     </section>
   </section>

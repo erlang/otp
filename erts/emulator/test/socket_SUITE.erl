@@ -82,6 +82,7 @@
          api_b_sendmsg_and_recvmsg_tcpL/1,
 
          %% *** API async ***
+         api_a_connect_tcp4/1,
          api_a_sendto_and_recvfrom_udp4/1,
          api_a_sendmsg_and_recvmsg_udp4/1,
          api_a_send_and_recv_tcp4/1,
@@ -680,6 +681,7 @@ api_basic_cases() ->
 
 api_async_cases() ->
     [
+     api_a_connect_tcp4,
      api_a_sendto_and_recvfrom_udp4,
      api_a_sendmsg_and_recvmsg_udp4,
      api_a_send_and_recv_tcp4,
@@ -2653,6 +2655,385 @@ api_b_send_and_recv_tcp(InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically establish a TCP connection via an async connect. 
+
+api_a_connect_tcp4(suite) ->
+    [];
+api_a_connect_tcp4(doc) ->
+    [];
+api_a_connect_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_connect_tcp4,
+           fun() ->
+                   Connect = fun(Sock, SockAddr) ->
+                                     socket:connect(Sock, SockAddr, nowait)
+                             end,
+                   InitState = #{domain  => inet,
+                                 connect => Connect},
+                   ok = api_a_connect_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_a_connect_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    ServerSeq = 
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create listen socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{lport => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester, lport := Port}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Port),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
+                   end},
+         #{desc => "await connection",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   ?SEV_IPRINT("accepted: ~n   ~p", [Sock]),
+                                   {ok, State#{csock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, accept),
+                           ok
+                   end},
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket",
+           cmd  => fun(#{csock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(csock, State)}
+                   end},
+         #{desc => "close listen socket",
+           cmd  => fun(#{lsock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(lsock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    ClientSeq = 
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           {Tester, Port} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_port => Port}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** The init part ***
+         #{desc => "which server (local) address",
+           cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, 
+                                     addr   => LAddr},
+                           SSA   = LSA#{port => Port},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "await continue (async connect)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, async_connect)
+                   end},
+         #{desc => "connect (async) to server",
+           cmd  => fun(#{sock      := Sock,
+                         server_sa := SSA,
+                         connect   := Connect} = State) ->
+                           case Connect(Sock, SSA) of
+                               ok ->
+                                   {error, unexpected_success};
+                               {select, {select_info, ST, SR}} ->
+                                   ?SEV_IPRINT("select ->"
+                                               "~n   tag: ~p"
+                                               "~n   ref: ~p", [ST, SR]),
+                                   {ok, State#{connect_stag => ST,
+                                               connect_sref => SR}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (connect select)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, connect_select),
+                           ok
+                   end},
+         #{desc => "await select message",
+           cmd  => fun(#{sock := Sock, connect_sref := Ref}) ->
+                           receive
+                               {'$socket', Sock, select, Ref} ->
+                                   ?SEV_IPRINT("select message ->"
+                                               "~n   ref: ~p", [Ref]),
+                                   ok
+                           after 5000 ->
+                                   ?SEV_EPRINT("timeout: "
+                                               "~n   message queue: ~p",
+                                               [mq()]),
+                                   {error, timeout}
+                           end
+                   end},
+         #{desc => "announce ready (select)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, select),
+                           ok
+                   end},
+         #{desc => "connect (async) to server",
+           cmd  => fun(#{sock := Sock, server_sa := SSA, connect := Connect}) ->
+                           case Connect(Sock, SSA) of
+                               ok ->
+                                   ok = socket:setopt(Sock, otp, debug, false),
+                                   ok;
+                               {select, SelectInfo} ->
+                                   {error, {unexpected_select, SelectInfo}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (connect)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, connect),
+                           ok
+                   end},
+         #{desc => "get peername",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case socket:peername(Sock) of
+                               {ok, SockAddr} ->
+                                   ?SEV_IPRINT("Peer Name: ~p", [SockAddr]),
+                                   ok;
+                                {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           State2 = maps:remove(sock,         State),
+                           State3 = maps:remove(connect_stag, State2),
+                           State4 = maps:remove(connect_sref, State3),
+                           {ok, State4}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = State) ->
+                           {ok, Port} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{server_port => Port}}
+                   end},
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{client := Pid, server_port := Port} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, Port),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client, init)
+                   end},
+
+
+         %% *** The actual test ***
+         #{desc => "order client to continue (async connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, async_connect),
+                           ok
+                   end},
+         #{desc => "await client ready (connect select)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, connect_select)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order server to continue (with accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, accept),
+                           ok
+                   end},
+         #{desc => "await client ready (select)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, select)
+                   end},
+         #{desc => "await client ready (connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, connect)
+                   end},
+         #{desc => "await server ready (accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, accept)
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "order client to terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(client, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           State1 = maps:remove(server, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start server evaluator"),
+    Server = ?SEV_START("server", ServerSeq, InitState),
+
+    i("start client evaluator"),
+    Client = ?SEV_START("client", ClientSeq, InitState),
+    i("await evaluator(s)"),
+
+    i("start tester evaluator"),
+    TesterInitState = #{server => Server#ev.pid,
+                        client => Client#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically send and receive on an IPv4 UDP (dgram) socket using
 %% sendto and recvfrom. But we try to be async. That is, we use
 %% the 'nowait' value for the Timeout argument (and await the eventual
@@ -2787,7 +3168,7 @@ api_a_send_and_recv_udp(InitState) ->
                                    {ok, State#{recv_stag => Tag,
                                                recv_sref => RecvRef}};
                                {ok, X} ->
-                                   {error, {unexpected_select_info, X}};
+                                   {error, {unexpected_succes, X}};
                                {error, _} = ERROR ->
                                    ERROR
                            end

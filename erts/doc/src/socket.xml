@@ -324,7 +324,7 @@
 
 	<p>In the case when there is no connections waiting, the function 
 	will return with the <c>SelectInfo</c>. The caller can then await a 
-	select message, <c>{'$socket', Sock, select, Info}</c> (where
+	select message, <c>{'$socket', Socket, select, Info}</c> (where
 	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
 	when a client connects (a subsequent call to accept will then return 
 	the socket). </p>
@@ -377,12 +377,30 @@
 
     <func>
       <name name="connect" arity="2" since="OTP 22.0"/>
-      <name name="connect" arity="3" since="OTP 22.0"/>
+      <name name="connect" arity="3" clause_i="2" since="OTP 22.0"/>
       <fsummary>Initiate a connection on a socket.</fsummary>
       <desc>
         <p>This function connects the socket to the address
 	specied by the <c>SockAddr</c> argument.</p>
       </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="3" clause_i="1" anchor="connect_async" since="OTP @OTP-15731@"/>
+      <fsummary>Initiate a connection on a socket.</fsummary>
+      <desc>
+        <p>This function connects the socket to the address
+	specied by the <c>SockAddr</c> argument.</p>
+
+ 	<p>In the case when its not possible to immediately establish a
+	connection, the function will return with the
+	<seealso marker="#type-select_info"><c>SelectInfo</c></seealso>.
+	The caller can then await a 
+	select message, <c>{'$socket', Socket, select, Info}</c> (where
+	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>,
+	a subsequent call to connect will then 
+	establish the connection). </p>
+     </desc>
     </func>
 
     <func>
@@ -505,7 +523,7 @@
 
 	<p>In the case when there is no data waiting, the function 
 	will return with the <c>SelectInfo</c>. The caller can then await a 
-	select message, <c>{'$socket', Sock, select, Info}</c> (where
+	select message, <c>{'$socket', Socket, select, Info}</c> (where
 	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
 	when data has arrived (a subsequent call to recv will then return 
 	the data). </p>
@@ -564,7 +582,7 @@
 
 	<p>In the case when there is no data waiting, the function 
 	will return with the <c>SelectInfo</c>. The caller can then await a 
-	select message, <c>{'$socket', Sock, select, Info}</c> (where
+	select message, <c>{'$socket', Socket, select, Info}</c> (where
 	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
 	when data has arrived (a subsequent call to recvfrom will then return 
 	the data). </p>
@@ -640,7 +658,7 @@
 
 	<p>In the case when there is no data waiting, the function 
 	will return with the <c>SelectInfo</c>. The caller can then await a 
-	select message, <c>{'$socket', Sock, select, Info}</c> (where
+	select message, <c>{'$socket', Socket, select, Info}</c> (where
 	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
 	when data has arrived (a subsequent call to recvmsg will then return 
 	the data). </p>
@@ -667,7 +685,8 @@
 
 	<p>In the case when there is no room in the (system-) buffers,
 	the function will return with the <c>SelectInfo</c>. The caller
-	can then await a select message, <c>{'$socket', Sock, select, Info}</c>
+	can then await a select message,
+	<c>{'$socket', Socket, select, Info}</c>
 	(where <c>Info</c> is the <c>select_ref()</c> from the
 	<c>SelectInfo</c>), when there is room for more data (a subsequent
 	call to send will then send the data). </p>
@@ -724,7 +743,8 @@
 
 	<p>In the case when there is no room in the (system-) buffers,
 	the function will return with the <c>SelectInfo</c>. The caller
-	can then await a select message, <c>{'$socket', Sock, select, Info}</c>
+	can then await a select message,
+	<c>{'$socket', Socket, select, Info}</c>
 	(where <c>Info</c> is the <c>select_ref()</c> from the
 	<c>SelectInfo</c>), when there is room for more data (a subsequent
 	call to sendmsg will then send the data). </p>
@@ -751,7 +771,8 @@
 
 	<p>In the case when there is no room in the (system-) buffers,
 	the function will return with the <c>SelectInfo</c>. The caller
-	can then await a select message, <c>{'$socket', Sock, select, Info}</c>
+	can then await a select message,
+	<c>{'$socket', Socket, select, Info}</c>
 	(where <c>Info</c> is the <c>select_ref()</c> from the
 	<c>SelectInfo</c>), when there is room for more data (a subsequent
 	call to sendto will then send the data). </p>

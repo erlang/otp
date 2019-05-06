@@ -1206,18 +1206,24 @@ validate_inet6_addrs(Addrs) ->
 %%
 
 -spec connect(Socket, SockAddr) -> ok | {error, Reason} when
-      Socket   :: socket(),
-      SockAddr :: sockaddr(),
-      Reason   :: term().
+    Socket   :: socket(),
+    SockAddr :: sockaddr(),
+    Reason   :: term().
 
 connect(Socket, SockAddr) ->
     connect(Socket, SockAddr, infinity).
 
--spec connect(Socket, SockAddr, Timeout) -> ok | {error, Reason} when
-      Socket   :: socket(),
-      SockAddr :: sockaddr(),
-      Timeout  :: timeout(),
-      Reason   :: term().
+-spec connect(Socket, SockAddr, nowait) ->
+           ok | {select, SelectInfo} | {error, Reason} when
+    Socket     :: socket(),
+    SockAddr   :: sockaddr(),
+    SelectInfo :: select_info(),
+    Reason     :: term()
+        ; (Socket, SockAddr, Timeout) -> ok | {error, Reason} when
+    Socket   :: socket(),
+    SockAddr :: sockaddr(),
+    Timeout  :: timeout(),
+    Reason   :: term().
 
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
@@ -1227,12 +1233,18 @@ connect(_Socket, _SockAddr, Timeout)
     {error, timeout};
 connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
   when ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso
-       ((Timeout =:= infinity) orelse is_integer(Timeout)) ->
+       ((Timeout =:= nowait) orelse 
+        (Timeout =:= infinity) orelse is_integer(Timeout)) ->
     TS = timestamp(Timeout),
     case nif_connect(SockRef, SockAddr) of
         ok ->
             %% Connected!
             ok;
+
+        {ok, Ref} when (Timeout =:= nowait) ->
+            %% Connecting, but the caller does not want to wait...
+            ?SELECT(connect, Ref);
+
         {ok, Ref} ->
             %% Connecting...
 	    NewTimeout = next_timeout(TS, Timeout),
