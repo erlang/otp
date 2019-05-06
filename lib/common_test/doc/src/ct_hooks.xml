@@ -109,7 +109,7 @@
     </func>
 
     <func>
-      <name since="OTP @OTP-14746@">Module:post_groups(SuiteName, GroupDefs) -&gt; NewGroupDefs</name>
+      <name since="OTP 21.3.8">Module:post_groups(SuiteName, GroupDefs) -&gt; NewGroupDefs</name>
       <fsummary>Called after groups/0.</fsummary>
       <type>
         <v>SuiteName = atom()</v>
@@ -165,7 +165,7 @@
     </func>
 
     <func>
-      <name since="OTP @OTP-14746@">Module:post_all(SuiteName, Return, GroupDefs) -&gt; NewReturn</name>
+      <name since="OTP 21.3.8">Module:post_all(SuiteName, Return, GroupDefs) -&gt; NewReturn</name>
       <fsummary>Called after all/0.</fsummary>
       <type>
         <v>SuiteName = atom()</v>

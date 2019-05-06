@@ -35,6 +35,26 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Back port of bug fix ERL-893 from OTP-22 and document
+	    enhancements that will solve dialyzer warnings for users
+	    of the ssl application.</p>
+          <p>
+	    This change also affects public_key, eldap (and inet
+	    doc).</p>
+          <p>
+	    Own Id: OTP-15785 Aux Id: ERL-929, ERL-893, PR-2215 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.6.5</title>
 
     <section><title>Improvements and New Features</title>

@@ -27,6 +27,40 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Missing check of size of user_data_buffer made internal
+	    socket behave as an active socket instead of active N.
+	    This could cause memory problems.</p>
+          <p>
+	    Own Id: OTP-15802 Aux Id: ERL-934 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Back port of bug fix ERL-893 from OTP-22 and document
+	    enhancements that will solve dialyzer warnings for users
+	    of the ssl application.</p>
+          <p>
+	    This change also affects public_key, eldap (and inet
+	    doc).</p>
+          <p>
+	    Own Id: OTP-15785 Aux Id: ERL-929, ERL-893, PR-2215 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
