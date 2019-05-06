@@ -185,7 +185,13 @@ init_per_group(GroupName, Config) ->
            true ->
                case ssl_test_lib:supports_ssl_tls_version(GroupName) of
                    true ->
-                       do_init_per_group(GroupName, Config);
+                       case ssl_test_lib:check_sane_openssl_version(GroupName) of
+                           true ->
+                               ssl_test_lib:init_tls_version(GroupName, Config),
+                               do_init_per_group(GroupName, Config);
+                           false ->
+                               {skip, openssl_does_not_support_version}
+                       end;
                    false ->
                        {skip, {openssl_does_not_support, GroupName}}
                end;  
