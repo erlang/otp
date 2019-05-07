@@ -25,6 +25,13 @@
 -define(APPLICATION, snmp).
 -endif.
 
+
+-define(SNMP_RAND_SEED_ALG,    exrop).
+-define(SNMP_RAND_SEED(),      rand:seed(?SNMP_RAND_SEED_ALG,
+                                         {erlang:phash2([node()]),
+                                          erlang:monotonic_time(),
+                                          erlang:unique_integer()})).
+
 -define(snmp_info(C, F, A),    ?snmp_msg(info_msg, C, F, A)).
 -define(snmp_warning(C, F, A), ?snmp_msg(warning_msg, C, F, A)).
 -define(snmp_error(C, F, A),   ?snmp_msg(error_msg, C, F, A)).
@@ -36,6 +43,4 @@
 		[?APPLICATION, Component, ?MODULE, self() | Args]))).
 
 -endif. % -ifdef(snmp_internal).
-
-
 

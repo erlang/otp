@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 -include_lib("snmp/src/manager/snmpm_usm.hrl").
+-include_lib("snmp/src/app/snmp_internal.hrl").
 
 
 %%----------------------------------------------------------------------
@@ -2259,11 +2260,13 @@ create_and_increment(Conf) when is_list(Conf) ->
     ?line {ok, _Pid} = snmpm_config:start_link(Opts),
 
     %% Random init
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
+    ?SNMP_RAND_SEED(),
+    %% rand:seed(exrop,
+    %%           {erlang:phash2([node()]),
+    %%            erlang:monotonic_time(),
+    %%            erlang:unique_integer()}),
 
-    StartVal = random:uniform(2147483647),
+    StartVal = rand:uniform(2147483647),
     IncVal   = 42, 
     EndVal   = StartVal + IncVal,
 
