@@ -1,1 +1,1 @@
-{dialyzer_options, [{warnings, [specdiffs]}]}.
+{dialyzer_options, [{indent_opt, false}, {warnings, [specdiffs]}]}.

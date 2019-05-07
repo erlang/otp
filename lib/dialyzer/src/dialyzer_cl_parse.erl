@@ -134,6 +134,9 @@ cl(["--raw"|T]) ->
 cl(["--fullpath"|T]) ->
   put(dialyzer_filename_opt, fullpath),
   cl(T);
+cl(["--no_indentation"|T]) ->
+  put(dialyzer_indent_opt, false),
+  cl(T);
 cl(["-pa", Path|T]) ->
   case code:add_patha(Path) of
     true -> cl(T);
@@ -254,6 +257,7 @@ init() ->
   put(dialyzer_options_files,     DefaultOpts#options.files),
   put(dialyzer_output_format,     formatted),
   put(dialyzer_filename_opt,      basename),
+  put(dialyzer_indent_opt,        ?INDENT_OPT),
   put(dialyzer_options_check_plt, DefaultOpts#options.check_plt),
   put(dialyzer_timing,            DefaultOpts#options.timing),
   put(dialyzer_solvers,           DefaultOpts#options.solvers),
@@ -295,6 +299,7 @@ cl_options() ->
    {output_file, get(dialyzer_output)},
    {output_format, get(dialyzer_output_format)},
    {filename_opt, get(dialyzer_filename_opt)},
+   {indent_opt, get(dialyzer_indent_opt)},
    {analysis_type, get(dialyzer_options_analysis_type)},
    {get_warnings, get(dialyzer_options_get_warnings)},
    {timing, get(dialyzer_timing)},
@@ -361,7 +366,7 @@ help_message() ->
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--dump_callgraph file] [--no_native] [--fullpath]
-                [--statistics] [--no_native_cache]
+                [--no_indentation] [--statistics] [--no_native_cache]
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -473,6 +478,9 @@ Options:
       caching.
   --fullpath
       Display the full path names of files for which warnings are emitted.
+  --no_indentation
+      Do not indent contracts and success typings. Note that this option has
+      no effect when combined with the --raw option.
   --gui
       Use the GUI.
 

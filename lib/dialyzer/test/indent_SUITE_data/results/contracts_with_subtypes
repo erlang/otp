@@ -1,0 +1,142 @@
+
+contracts_with_subtypes.erl:106: The call contracts_with_subtypes:rec_arg
+         ({'a', 'b'}) breaks the contract 
+          (Arg) -> 'ok'
+             when
+                 Arg :: {'a', A} | {'b', B},
+                 A :: 'a' | {'b', B},
+                 B :: 'b' | {'a', A}
+contracts_with_subtypes.erl:107: The call contracts_with_subtypes:rec_arg
+         ({'b', 'a'}) breaks the contract 
+          (Arg) -> 'ok'
+             when
+                 Arg :: {'a', A} | {'b', B},
+                 A :: 'a' | {'b', B},
+                 B :: 'b' | {'a', A}
+contracts_with_subtypes.erl:109: The call contracts_with_subtypes:rec_arg
+         ({'b', {'a', 'b'}}) breaks the contract 
+          (Arg) -> 'ok'
+             when
+                 Arg :: {'a', A} | {'b', B},
+                 A :: 'a' | {'b', B},
+                 B :: 'b' | {'a', A}
+contracts_with_subtypes.erl:135: The call contracts_with_subtypes:rec2
+         ({'a', 'b'}) breaks the contract 
+          (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:136: The call contracts_with_subtypes:rec2
+         ({'b', 'a'}) breaks the contract 
+          (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:137: The call contracts_with_subtypes:rec2
+         ({'a', {'b', 'a'}}) breaks the contract 
+          (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:138: The call contracts_with_subtypes:rec2
+         ({'b', {'a', 'b'}}) breaks the contract 
+          (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:139: The call contracts_with_subtypes:rec2
+         ({'a', {'b', {'a', 'b'}}}) breaks the contract 
+          (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:140: The call contracts_with_subtypes:rec2
+         ({'b', {'a', {'b', 'a'}}}) breaks the contract 
+          (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:141: The call contracts_with_subtypes:rec2
+         ({'a', {'b', {'a', {'b', 'a'}}}}) breaks the contract 
+          (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:142: The call contracts_with_subtypes:rec2
+         ({'b', {'a', {'b', {'a', 'b'}}}}) breaks the contract 
+          (Arg) -> 'ok' when Arg :: ab()
+contracts_with_subtypes.erl:175: The pattern 
+          1 can never match the type 
+          string()
+contracts_with_subtypes.erl:178: The pattern 
+          'alpha' can never match the type 
+          {'ok', _} | {'ok', _, string()}
+contracts_with_subtypes.erl:180: The pattern 
+          42 can never match the type 
+          {'ok', _} | {'ok', _, string()}
+contracts_with_subtypes.erl:196: The pattern 
+          'alpha' can never match the type 
+          {'ok', _}
+contracts_with_subtypes.erl:198: The pattern 
+          42 can never match the type 
+          {'ok', _}
+contracts_with_subtypes.erl:216: The pattern 
+          'alpha' can never match the type 
+          {'ok', _}
+contracts_with_subtypes.erl:218: The pattern 
+          42 can never match the type 
+          {'ok', _}
+contracts_with_subtypes.erl:235: The pattern 
+          1 can never match the type 
+          string()
+contracts_with_subtypes.erl:238: The pattern 
+          {'ok', _} can never match the type 
+          {'ok', _, string()}
+contracts_with_subtypes.erl:239: The pattern 
+          'alpha' can never match the type 
+          {'ok', _, string()}
+contracts_with_subtypes.erl:23: Invalid type specification for function contracts_with_subtypes:extract2/0. The success typing is 
+          () -> 'something'
+contracts_with_subtypes.erl:240: The pattern 
+          {'ok', 42} can never match the type 
+          {'ok', _, string()}
+contracts_with_subtypes.erl:241: The pattern 
+          42 can never match the type 
+          {'ok', _, string()}
+contracts_with_subtypes.erl:268: The call contracts_with_subtypes:flat_ets_new
+         (12,
+          []) breaks the contract 
+          (Name, Options) -> atom()
+             when
+                 Name :: atom(),
+                 Options :: [Option],
+                 Option ::
+                     'set' | 'ordered_set' | 'bag' | 'duplicate_bag' |
+                     'public' | 'protected' | 'private' |
+                     'named_table' |
+                     {'keypos', integer()} |
+                     {'heir', pid(), term()} |
+                     {'heir', 'none'} |
+                     {'write_concurrency', boolean()} |
+                     {'read_concurrency', boolean()} |
+                     'compressed'
+contracts_with_subtypes.erl:295: The call contracts_with_subtypes:factored_ets_new
+         (12,
+          []) breaks the contract 
+          (Name, Options) -> atom()
+             when
+                 Name :: atom(),
+                 Options :: [Option],
+                 Option ::
+                     Type | Access | 'named_table' |
+                     {'keypos', Pos} |
+                     {'heir', Pid :: pid(), HeirData} |
+                     {'heir', 'none'} |
+                     Tweaks,
+                 Type :: type(),
+                 Access :: access(),
+                 Tweaks ::
+                     {'write_concurrency', boolean()} |
+                     {'read_concurrency', boolean()} |
+                     'compressed',
+                 Pos :: pos_integer(),
+                 HeirData :: term()
+contracts_with_subtypes.erl:77: The call contracts_with_subtypes:foo1
+         (5) breaks the contract 
+          (Arg1) -> Res when Arg1 :: atom(), Res :: atom()
+contracts_with_subtypes.erl:78: The call contracts_with_subtypes:foo2
+         (5) breaks the contract 
+          (Arg1) -> Res when Arg1 :: Arg2, Arg2 :: atom(), Res :: atom()
+contracts_with_subtypes.erl:79: The call contracts_with_subtypes:foo3
+         (5) breaks the contract 
+          (Arg1) -> Res when Arg2 :: atom(), Arg1 :: Arg2, Res :: atom()
+contracts_with_subtypes.erl:7: Invalid type specification for function contracts_with_subtypes:extract/0. The success typing is 
+          () -> 'something'
+contracts_with_subtypes.erl:80: The call contracts_with_subtypes:foo4
+         (5) breaks the contract 
+          (Type) -> Type when Type :: atom()
+contracts_with_subtypes.erl:81: The call contracts_with_subtypes:foo5
+         (5) breaks the contract 
+          (Type :: atom()) -> Type :: atom()
+contracts_with_subtypes.erl:82: The call contracts_with_subtypes:foo6
+         (5) breaks the contract 
+          (Type) -> Type when Type :: atom()

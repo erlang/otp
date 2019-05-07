@@ -147,7 +147,8 @@ check(TestCase, Opts, Dir, OutDir) ->
     try dialyzer:run([{files, Files},{from, src_code},{init_plt, PltFilename},
 		      {check_plt, false}|ProperOpts]) of
 	RawWarns ->
-	    Warns = lists:sort([dialyzer:format_warning(W) || W <- RawWarns]),
+	    Warns = lists:sort([dialyzer:format_warning(W, ProperOpts) ||
+                                   W <- RawWarns]),
 	    case Warns of
 		[] -> ok;
 		_  ->

@@ -1,0 +1,7 @@
+
+union_paren.erl:12: Function t2/0 has no local return
+union_paren.erl:13: The call union_paren:t2(3.14) breaks the contract (integer() | atom()) -> integer()
+union_paren.erl:19: Function t3/0 has no local return
+union_paren.erl:20: The pattern 3.14 can never match the type atom() | integer()
+union_paren.erl:5: Function t1/0 has no local return
+union_paren.erl:6: The call union_paren:t1(3.14) breaks the contract ((A::integer()) | (B::atom())) -> integer()
