@@ -43,5 +43,5 @@ $ERL_TOP/bin/dialyzer --build_plt -Wunknown --apps $BASE_PLT $APP_PLT --statisti
 $ERL_TOP/bin/dialyzer -n -Wunknown -Wunmatched_returns --apps $UNMATCHED --statistics
 $ERL_TOP/bin/dialyzer -n -Wunknown --apps $NO_UNMATCHED --statistics
 if [ "X$WARNINGS" != "X" ]; then
-    $ERL_TOP/bin/dialyzer -n --apps $WARNINGS --statistics
+    $ERL_TOP/bin/dialyzer -n --apps $WARNINGS --statistics || true
 fi
