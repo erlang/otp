@@ -32,7 +32,7 @@
          io_with_huge_message_queue/1, format_string/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
-         otp_15159/1, otp_15639/1]).
+         otp_15159/1, otp_15639/1, otp_15705/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -65,7 +65,7 @@ all() ->
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
-     otp_15639].
+     otp_15639, otp_15705].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -2504,9 +2504,11 @@ otp_14983(_Config) ->
 
 trunc_string() ->
     "str " = trf("str ", [], 10),
-    "str ..." = trf("str ~s", ["str"], 6),
+    "str str" = trf("str ~s", ["str"], 6),
+    "str ..." = trf("str ~s", ["str1"], 6),
     "str str" = trf("str ~s", ["str"], 7),
-    "str ..." = trf("str ~8s", ["str"], 6),
+    "str str" = trf("str ~8s", ["str"], 6),
+    "str ..." = trf("str ~8s", ["str1"], 6),
     Pa = filename:dirname(code:which(?MODULE)),
     {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
 					 [{args, " +pc unicode -pa " ++ Pa}]),
@@ -2679,4 +2681,30 @@ otp_15639(_Config) ->
     "[49,50|...]" = pretty("12345678"++[x], UOpts),
     "\"12345678\"..." = pretty("123456789"++[x], UOpts),
     "[[...]|...]" = pretty(["1","2","3","4","5","6","7","8"], UOpts),
+    ok.
+
+otp_15705(_Config) ->
+    L = [<<"an">>,["at"],[["om"]]],
+    "..." = trf("~s", [L], 0),
+    "..." = trf("~s", [L], 1),
+    "..." = trf("~s", [L], 2),
+    "..." = trf("~s", [L], 3),
+    "a..." = trf("~s", [L], 4),
+    "an..." = trf("~s", [L], 5),
+    "anatom" = trf("~s", [L], 6),
+    L2 = ["a",[<<"na">>],[["tom"]]],
+    "..." = trf("~s", [L2], 3),
+    "a..." = trf("~s", [L2], 4),
+    "an..." = trf("~s", [L2], 5),
+    "anatom" = trf("~s", [L2], 6),
+
+    A = [[<<"äpple"/utf8>>, "plus", <<"äpple">>]],
+    "äp..." = trf("~ts", [A], 5),
+    "äppleplusäpple" = trf("~ts", [A], 14),
+    U = [["ки"],"рилл","и́ческий атом"],
+    "ки..." = trf("~ts", [U], 5),
+    "кирилли́ческий..." = trf("~ts", [U], 16),
+    "кирилли́ческий атом" = trf("~ts", [U], 20),
+
+    "|кирилли́чес|" = trf("|~10ts|", [U], -1),
     ok.

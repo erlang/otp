@@ -720,55 +720,40 @@ printable_list(_L, 1, _T, _Enc) ->
     false;
 printable_list(L, _D, T, latin1) when T < 0 ->
     io_lib:printable_latin1_list(L);
-printable_list(L, _D, T, Enc) when T >= 0 ->
-    case slice(L, tsub(T, 2), Enc) of
-        false ->
-            false;
-        {prefix, Prefix} when Enc =:= latin1 ->
-            io_lib:printable_latin1_list(Prefix) andalso {true, Prefix};
-        {prefix, Prefix} ->
-            %% Probably an overestimation.
-            io_lib:printable_list(Prefix) andalso {true, Prefix};
-        all when Enc =:= latin1 ->
-            io_lib:printable_latin1_list(L);
+printable_list(L, _D, T, latin1) when T >= 0 ->
+    N = tsub(T, 2),
+    case printable_latin1_list(L, N) of
         all ->
-            io_lib:printable_list(L)
+            true;
+        0 ->
+            {L1, _} = lists:split(N, L),
+            {true, L1};
+        _NC ->
+            false
     end;
-printable_list(L, _D, T, _Uni) when T < 0->
-    io_lib:printable_list(L).
-
-slice(L, N, latin1) ->
-    try lists:split(N, L) of
-        {_, []} ->
-            all;
-        {[], _} ->
-            false;
-        {L1, _} ->
-            {prefix, L1}
-    catch
-        _:_ ->
-            all
-    end;
-slice(L, N, _Uni) ->
+printable_list(L, _D, T, _Unicode) when T >= 0 ->
+    N = tsub(T, 2),
     %% Be careful not to traverse more of L than necessary.
     try string:slice(L, 0, N) of
         "" ->
             false;
         Prefix ->
-            %% Assume no binaries are introduced by string:slice().
             case is_flat(L, lists:flatlength(Prefix)) of
                 true ->
                     case string:equal(Prefix, L) of
                         true ->
-                            all;
+                            io_lib:printable_list(L);
                         false ->
-                            {prefix, Prefix}
+                            io_lib:printable_list(Prefix)
+                            andalso {true, Prefix}
                     end;
                 false ->
                     false
             end
     catch _:_ -> false
-    end.
+    end;
+printable_list(L, _D, T, _Uni) when T < 0->
+    io_lib:printable_list(L).
 
 is_flat(_L, 0) ->
     true;
@@ -845,7 +830,7 @@ printable_bin1(Bin, Start, Len) ->
     end.
 
 %% -> all | integer() >=0. Adopted from io_lib.erl.
-% printable_latin1_list([_ | _], 0) -> 0;
+printable_latin1_list([_ | _], 0) -> 0;
 printable_latin1_list([C | Cs], N) when C >= $\s, C =< $~ ->
     printable_latin1_list(Cs, N - 1);
 printable_latin1_list([C | Cs], N) when C >= $\240, C =< $\377 ->
