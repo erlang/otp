@@ -2186,7 +2186,7 @@ nodes(_Arg) ->
 -spec open_port(PortName, PortSettings) -> port() when
       PortName :: {spawn, Command :: string() | binary()} |
                   {spawn_driver, Command :: string() | binary()} |
-                  {spawn_executable, FileName :: file:name() } |
+                  {spawn_executable, FileName :: file:name_all() } |
                   {fd, In :: non_neg_integer(), Out :: non_neg_integer()},
       PortSettings :: [Opt],
       Opt :: {packet, N :: 1 | 2 | 4}
