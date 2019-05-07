@@ -987,7 +987,7 @@ cipher_suites(Base, Version) ->
     [ssl_cipher_format:suite_bin_to_map(Suite) || Suite <- supported_suites(Base, Version)].
 
 %%--------------------------------------------------------------------
--spec cipher_suites(Supported, Version, rfc | openssl) -> string() when
+-spec cipher_suites(Supported, Version, rfc | openssl) -> [string()] when
       Supported :: default | all | anonymous,
       Version :: protocol_version().
 
