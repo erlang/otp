@@ -2078,6 +2078,2015 @@
 
 </section>
 
+<section><title>Erts 10.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed more bugs in <c>process_info(reductions)</c>
+	    causing it to sometimes behave non-monotonic. That is, a
+	    subsequent call toward the same process could return a
+	    lower reduction value.</p>
+          <p>
+	    Own Id: OTP-15793 Aux Id: ERIERL-337, OTP-15709 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Add missing documentation of new external tags
+	    <c>NEW_PID</c>, <c>NEW_PORT</c> and
+	    <c>NEWER_REFERENCE</c> introduced in OTP 19.</p> <p>These
+	    new tags are planned to be "activated" in OTP 23 when
+	    distribution capability flag <c>DFLAG_BIG_CREATION</c>
+	    becomes mandatory. Older nodes (>= 19) are able to decode
+	    these new tags and send them back to the new node. Nodes
+	    older than OTP 23 will however never encode their own
+	    local pids, ports and references using the new tags.</p>
+          <p>
+	    Own Id: OTP-15766</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>erlang:open_port/2</c> with the <c>fd</c> option
+	    to correctly cleanup the pollset when the port is closed.
+	    Before this fix there would be error printouts sent to
+	    logger when the same fd was reused in a new port.</p>
+          <p>
+	    Own Id: OTP-15753 Aux Id: ERL-900 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in <c>seq_trace:reset_trace/0</c> that
+	    could crash the emulator.</p>
+          <p>
+	    Own Id: OTP-15704</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>process_info(reductions)</c> causing it
+	    to sometimes return invalid results.</p>
+          <p>
+	    Own Id: OTP-15709 Aux Id: ERIERL-337 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>If a suspend/resume signal pair was sent to a process
+	    while it was executing dirty, the receiving process could
+	    later end up in a suspended state indefinitely. This bug
+	    was introduced in ERTS version 10.0 (OTP 21.0).</p>
+	    <p>Suspend/resume signals are sent from <seealso
+	    marker="erts:erlang#suspend_process/1"><c>erlang:suspend_process()</c></seealso>/<seealso
+	    marker="erts:erlang#resume_process/1"><c>erlang:resume_process()</c></seealso>.
+	    The <seealso
+	    marker="runtime_tools:dbg"><c>dbg</c></seealso> trace
+	    tool utilize this functionality and could thus trigger
+	    this bug.</p>
+          <p>
+	    Own Id: OTP-15688</p>
+        </item>
+        <item>
+          <p>
+	    Fix a possible deadlock when terminating the ERTS caused
+	    by a dirty scheduler not releasing it's run-queue lock
+	    when terminating.</p>
+          <p>
+	    Own Id: OTP-15690 Aux Id: PR-2172 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When multiplying a number by itself, a word beyond the
+	    number on the heap could be read (and ignored). This bug
+	    was extremely unlikely to actually cause a real
+	    problem.</p>
+          <p>
+	    Own Id: OTP-15484</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where doing <c>seq_trace:reset_trace()</c> while
+	    another process was doing a garbage collection could
+	    cause the run-time system to segfault.</p>
+          <p>
+	    Own Id: OTP-15490</p>
+        </item>
+        <item>
+          <p>
+	    Fix reading of ancillary data from packet oriented
+	    sockets on old Linux kernel versions. Without this fix,
+	    getting the data would cause the port to enter an
+	    infinite loop.</p>
+          <p>
+	    Own Id: OTP-15494</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where crash dumping or doing
+	    <c>erlang:system_info(procs)</c> while another process
+	    was doing a garbage collection could cause the run-time
+	    system to segfault.</p>
+          <p>
+	    Own Id: OTP-15527</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>erlang:system_info(kernel_poll)</c> to return
+	    correct value. Before this fix, the call always returned
+	    <c>false</c>.</p>
+          <p>
+	    Own Id: OTP-15556</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>enif_make_map_from_arrays</c> that would
+	    produce broken maps when number of keys were 32. Bug
+	    exists since OTP 21.0.</p>
+          <p>
+	    Own Id: OTP-15567</p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug in <c>binary:encode_unsigned</c> that may cause
+	    a read of uninitialized memory.</p>
+          <p>
+	    The bug existed since the function was added (OTP
+	    R16B02).</p>
+          <p>
+	    Own Id: OTP-15583 Aux Id: PR-2118 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug that could cause <c>heart</c> to kill an
+	    exiting node before it had time to flush all buffered
+	    writes. If environment variable
+	    <c>HEART_KILL_SIGNAL=SIGABRT</c> was set a superfluous
+	    core dump could also be generated.</p>
+          <p>
+	    Own Id: OTP-15599 Aux Id: ERIERL-298 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>enif_consume_timeslice</c> to be a no-op on dirty
+	    scheduler and not crash debug compiled emulator.</p>
+          <p>
+	    Own Id: OTP-15604</p>
+        </item>
+        <item>
+          <p>
+	    Fixed macro redefinition warnings.</p>
+          <p>
+	    Own Id: OTP-15629</p>
+        </item>
+        <item>
+          <p>
+	    <c>to_erl</c> fixed to not garble terminal input beyond
+	    7-bit ASCII.</p>
+          <p>
+	    Own Id: OTP-15650 Aux Id: ERL-854, PR-2161 </p>
+        </item>
+        <item>
+          <p>
+	    Minor fixes for <c>make clean</c>.</p>
+          <p>
+	    Own Id: OTP-15657</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug in all <c>ets:select*</c> and
+	    <c>ets:match*</c> functions that could in some rare cases
+	    lead to very poor performance.</p>
+          <p>
+	    Own Id: OTP-15660 Aux Id: ERL-869 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>erlang:system_flag(system_logger, Pid)</c> and
+	    <c>erlang:system_info(system_logger)</c>. This
+	    system_flag can be used to set the process that will
+	    receive the logging messages generated by ERTS.</p>
+          <p>
+	    Own Id: OTP-15375</p>
+        </item>
+        <item>
+	    <p><c>integer_to_list/2</c> and
+	    <c>integer_to_binary/2</c> are now implemented in C,
+	    improving their performance.</p>
+          <p>
+	    Own Id: OTP-15503 Aux Id: PR-2052 </p>
+        </item>
+        <item>
+          <p>
+	    Improved <c>term_to_binary</c> to do more fair reduction
+	    count and yielding when encoding large byte lists
+	    (strings).</p>
+          <p>
+	    Own Id: OTP-15514 Aux Id: ERL-774 </p>
+        </item>
+        <item>
+          <p>
+	    Made internal port drivers more robust against
+	    <c>erlang:port_control</c> with invalid arguments and
+	    added documentation warnings about such abuse.</p>
+          <p>
+	    Own Id: OTP-15555 Aux Id: ERIERL-231 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug on NetBSD where the <c>exit_status</c> from a
+	    port program would never be sent.</p>
+          <p>
+	    Own Id: OTP-15558 Aux Id: ERL-725 </p>
+        </item>
+        <item>
+	    <p>There is a new function <c>persistent:term(Key,
+	    Default)</c> to allow specifying a default when looking
+	    up a persistent term.</p>
+          <p>
+	    Own Id: OTP-15576 Aux Id: ERL-843 </p>
+        </item>
+        <item>
+	    <p>A transitory emulator option '<c>+ztma true</c>' has
+	    been added to allow running existing BEAM code that
+	    relies on "tuple calls" (dispatch on parameterized
+	    modules) which has been compiled under OTP 20 or earlier.
+	    This option will be removed in OTP 22, so such modules
+	    should eventually be recompiled with the
+	    <c>+tuple_calls</c> option.</p>
+          <p>
+	    Own Id: OTP-15580 Aux Id: PR-2113 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixes of install/release phase in build system.</p>
+	    <list> <item>The source tree was modified when
+	    installing/releasing and/or applying a patch.</item>
+	    <item>Some files were installed with wrong access
+	    rights.</item> <item>If applying a patch (using
+	    <c>otp_patch_apply</c>) as another user (except root)
+	    than the user that built the source, the documentation
+	    was not properly updated.</item> </list>
+          <p>
+	    Own Id: OTP-15551</p>
+        </item>
+        <item>
+          <p>
+	    Setting the <c>recbuf</c> size of an inet socket the
+	    <c>buffer</c> is also automatically increased. Fix a bug
+	    where the auto adjustment of inet buffer size would be
+	    triggered even if an explicit inet buffer size had
+	    already been set.</p>
+          <p>
+	    Own Id: OTP-15651 Aux Id: ERIERL-304 </p>
+        </item>
+        <item>
+          <p>
+	    Reading from UDP using active <c>true</c> or active
+	    <c>N</c> mode has been optimized when more packets than
+	    specified by <c>read_packets</c> are available on the
+	    socket.</p>
+          <p>
+	    Own Id: OTP-15652 Aux Id: ERIERL-304 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When using the <c>{linger,{true,T}}</c> option;
+	    <c>gen_tcp:listen/2</c> used the full linger time before
+	    returning for example <c>eaddrinuse</c>. This bug has now
+	    been corrected.</p>
+          <p>
+	    Own Id: OTP-14728 Aux Id: ERIERL-303 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where doing a <c>gen_tcp:send</c> on a socket
+	    with <c>delay_send</c> set to true could cause a segfault
+	    if the other side closes the connection.</p>
+          <p>
+	    Bug was introduced in erts-10.2 (OTP-21.2).</p>
+          <p>
+	    Own Id: OTP-15536 Aux Id: ERL-827 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a race condition when a port program closes that
+	    could result in the next started port to hang during
+	    startup.</p>
+          <p>
+	    When this fault happens the following error is normally
+	    (but not always) logged:</p>
+          <p>
+	    <c> =ERROR REPORT==== 14-Jan-2019::10:45:52.868246
+	    ===</c><br/><c> Bad input fd in erts_poll()! fd=11,
+	    port=#Port&lt;0.505>, driver=spawn, name=/bin/sh -s
+	    unix:cmd </c></p>
+          <p>
+	    Bug was introduced in erts-10.0 (OTP-21.0).</p>
+          <p>
+	    Own Id: OTP-15537</p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug where polling for external events could be
+	    delayed for a very long time if all active schedulers
+	    were 100% loaded.</p>
+          <p>
+	    Bug was introduced in erts-10.2 (OTP-21.2).</p>
+          <p>
+	    Own Id: OTP-15538 Aux Id: ERIERL-229 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a crash when dangling files were closed after
+	    <c>init:restart/0</c>.</p>
+          <p>
+	    Own Id: OTP-15495 Aux Id: ERL-821 </p>
+        </item>
+        <item>
+          <p>
+	    A bug that could cause dirty schedulers to become
+	    unresponsive has been fixed.</p>
+          <p>
+	    Own Id: OTP-15509 Aux Id: PR-2027, PR-2093 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug on big endian architectures when changing file
+	    permissions or ownership with <c>file:change_mode</c>,
+	    <c>change_owner</c>, <c>change_group</c> or
+	    <c>write_file_info</c>. Bug exists since OTP-21.0.</p>
+          <p>
+	    Own Id: OTP-15485</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>atomics</c> with option
+	    <c>{signed,false}</c> when returned values are <c>(1 bsl
+	    63)</c> or larger. Could cause heap corruption leading to
+	    VM crash or other unpleasant symptoms. Bug exists since
+	    OTP-21.2 when module <c>atomics</c> was introduced.</p>
+          <p>
+	    Own Id: OTP-15486 Aux Id: PR-2061 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in operator <c>band</c> of two negative
+	    operands causing erroneous result if the absolute value
+	    of one of the operands have the lowest <c>N*W</c> bits as
+	    zero and the other absolute value is not larger than
+	    <c>N*W</c> bits. <c>N</c> is an integer of 1 or larger
+	    and <c>W</c> is 32 or 64 depending on word size.</p>
+          <p>
+	    Own Id: OTP-15487 Aux Id: ERL-804 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When a process was waiting for a TCP socket send
+	    operation to complete, and another process closed the
+	    socket during that send, the sending process could hang.
+	    This bug has now been corrected.</p>
+          <p>
+	    Own Id: OTP-12242 Aux Id: ERL-561 </p>
+        </item>
+        <item>
+          <p>
+	    Document <c>bit_size</c> in match specifications and
+	    allow it in <c>ets:fun2ms</c>.</p>
+          <p>
+	    Own Id: OTP-15343 Aux Id: PR-1962 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ets:select_replace</c> when called with a
+	    fully bound key could cause a following call to
+	    <c>ets:next</c> or <c>ets:prev</c> to crash the emulator
+	    or return invalid result.</p>
+          <p>
+	    Own Id: OTP-15346</p>
+        </item>
+        <item>
+	    <p>When a module has been purged from memory, any
+	    literals belonging to that module will be copied to all
+	    processes that hold references to them. The max heap size
+	    limit would be ignored in the garbage collection
+	    initiated when copying literals to a process. If the max
+	    heap size was exceeded, the process would typically be
+	    terminated in the following garbage collection. Corrected
+	    to terminate the process directly if copying a literal
+	    would exceed the max heap size.</p>
+          <p>
+	    Own Id: OTP-15360</p>
+        </item>
+        <item>
+          <p>
+	    Fix compilation of run_erl on Solaris 11.4 and later.</p>
+          <p>
+	    Own Id: OTP-15389</p>
+        </item>
+        <item>
+	    <p>Fixed a bug where <c>lists:reverse/1-2</c> could use
+	    far too many reductions. This bug was introduced in
+	    <c>OTP 21.1</c>.</p>
+          <p>
+	    Own Id: OTP-15436</p>
+        </item>
+        <item>
+	    <p>Fixed a bug where a dirty scheduler could stay awake
+	    forever if a distribution entry was removed as part of a
+	    dirty GC.</p>
+          <p>
+	    Own Id: OTP-15446 Aux Id: PR-2024 </p>
+        </item>
+        <item>
+          <p>
+	    Fix microstate accounting handing in various places. Most
+	    importantly the GC states when the GC is run on a dirty
+	    scheduler are now managed correctly.</p>
+          <p>
+	    Own Id: OTP-15450 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>file:sendfile</c> when the send operation
+	    failed. For sockets in <c>active</c> modes it could cause
+	    emulator crash or a hanging call. For sockets with
+	    <c>{active,false}</c> an unexpected <c>{inet_reply, _,
+	    _}</c> message could be sent to the calling process. The
+	    bug exists since OTP-21.0.</p>
+          <p>
+	    Own Id: OTP-15461 Aux Id: ERL-784 </p>
+        </item>
+        <item>
+          <p>
+	    The erts configure script has been updated to reject any
+	    CFLAGS that does not have <c>-O</c>. This in order to
+	    prevent the common mistake of forgetting to add
+	    <c>-O2</c> to custom CFLAGS.</p>
+          <p>
+	    Own Id: OTP-15465</p>
+        </item>
+        <item>
+          <p>
+	    Fix reduction count in lists:member/2</p>
+          <p>
+	    Own Id: OTP-15474 Aux Id: ERIERL-229 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New <c>counters</c> and <c>atomics</c> modules supplies
+	    access to highly efficient operations on mutable fixed
+	    word sized variables.</p>
+          <p>
+	    Own Id: OTP-13468</p>
+        </item>
+        <item>
+	    <p>There is a new module <c>persistent_term</c> that
+	    implements a term storage suitable for terms that are
+	    frequently used but never or infrequently updated.
+	    Lookups are done in constant time without copying the
+	    terms.</p>
+          <p>
+	    Own Id: OTP-14669 Aux Id: PR-1989 </p>
+        </item>
+        <item>
+          <p>
+	    A function <c>inet:getifaddrs/1</c> that takes a list
+	    with a namespace option has been added, for platforms
+	    that support that feature, for example Linux (only?).</p>
+          <p>
+	    Own Id: OTP-15121 Aux Id: ERIERL-189, PR-1974 </p>
+        </item>
+        <item>
+	    <p>Added the <c>nopush</c> option for TCP sockets, which
+	    corresponds to <c>TCP_NOPUSH</c> on *BSD and
+	    <c>TCP_CORK</c> on Linux.</p>
+	    <p>This is also used internally in <c>file:sendfile</c>
+	    to reduce latency on subsequent send operations.</p>
+          <p>
+	    Own Id: OTP-15357 Aux Id: ERL-698 </p>
+        </item>
+        <item>
+	    <p>List subtraction (The <c>--</c> operator) will now
+	    yield properly on large inputs.</p>
+          <p>
+	    Own Id: OTP-15371</p>
+        </item>
+        <item>
+          <p>
+	    Optimize handling of send_delay for tcp sockes to better
+	    work with the new pollthread implementation introduced in
+	    OTP-21.</p>
+          <p>
+	    Own Id: OTP-15471 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Optimize driver_set_timer with a zero timeout to
+	    short-circuit and not create any timer structure, but
+	    instead schedule the timer immediately.</p>
+          <p>
+	    Own Id: OTP-15472 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Add <c>erl_xcomp_code_model_small</c> as a cross
+	    configure variable in order to let the emulator be build
+	    with the assumption that a small code model will be used
+	    on the target machine.</p>
+          <p>
+	    Own Id: OTP-15473 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Add a new pollset that is made to handle sockets that use
+	    <c>{active, true}</c> or <c>{active, N}</c>. The new
+	    pollset will not be polled by a pollthread, but instead
+	    polled by a normal scheduler.</p>
+          <p>
+	    This change was made because of the overhead associated
+	    with constantly having to re-apply the ONESHOT mechanism
+	    on fds that all input events were interesting.</p>
+          <p>
+	    The new pollset is only active on platforms that support
+	    concurrent kernel poll updates, i.e. Linux and BSD.</p>
+          <p>
+	    Own Id: OTP-15475 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where emulator would segfault if a literal
+	    message was sent when sequence tracing was enabled.</p>
+          <p>
+	    Own Id: OTP-15478 Aux Id: ERL-741 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.1.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Added an optional <c>./configure</c> flag to compile
+	    the emulator with spectre mitigation:
+	    <c>--with-spectre-mitigation</c></p>
+	    <p>Note that this requires a recent version of GCC with
+	    support for spectre mitigation and the
+	    <c>--mindirect-branch=thunk</c> flag, such as
+	    <c>8.1</c>.</p>
+          <p>
+	    Own Id: OTP-15430 Aux Id: ERIERL-237 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a rare bug where files could be closed on a
+	    normal instead of an IO scheduler, resulting in system
+	    instability if the operation blocked.</p>
+          <p>
+	    Own Id: OTP-15421</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug where the socket option 'pktoptions' caused a read
+	    of uninitialized memory has been fixed. Would cause
+	    malfunction on FreeBSD.</p>
+          <p>
+	    Own Id: OTP-14297 Aux Id: OTP-15141 </p>
+        </item>
+        <item>
+	    <p>Fixed a memory leak on errors when reading files.</p>
+          <p>
+	    Own Id: OTP-15318</p>
+        </item>
+        <item>
+	    <p>File access through UNC paths works again on Windows.
+	    This regression was introduced in OTP 21.</p>
+          <p>
+	    Own Id: OTP-15333 Aux Id: ERL-737 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the seq_trace token to not be cleared when a process
+	    receives messages sent by erts. Some examples of when
+	    this could happen is all port BIFs, i.e.
+	    <c>open_port</c>, <c>port_command</c> etc etc.</p>
+          <p>
+	    Fix so that messages sent by nifs can be traced using
+	    normal and <c>seq_trace</c> tracing.</p>
+          <p>
+	    Own Id: OTP-15038 Aux Id: ERL-602 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed specs and documentation for <c>process_info</c>
+	    item <c>monitored_by</c> to include port identifiers and
+	    nif resources as possible types.</p>
+          <p>
+	    Own Id: OTP-15180 Aux Id: ERL-648 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in generation of erl_crash.dump, which could
+	    cause VM to crash.</p>
+          <p>
+	    Bug exist since erts-9.2 (OTP-20.2).</p>
+          <p>
+	    Own Id: OTP-15181</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where ctrl-break or ctrl-c would not trigger the
+	    break mode properly on Windows. This bug was introduced
+	    in erts-10.0 (OTP-21).</p>
+          <p>
+	    Own Id: OTP-15205</p>
+        </item>
+        <item>
+          <p>
+	    Fix a performance bug for reception of UDP packages,
+	    where a memory buffer would be reallocated when it should
+	    not have been.</p>
+          <p>
+	    Introduce a limit on the maximum automatic increase of
+	    the UDP user-space buffer to the theoretical max of the
+	    network PATH, i.e. 65535.</p>
+          <p>
+	    Own Id: OTP-15206</p>
+        </item>
+        <item>
+          <p>
+	    Fix alignment of erts allocator state internally in erts.
+	    With the improper alignment the emulator would refuse to
+	    start when compiled with clang on 32-bit systems.</p>
+          <p>
+	    Own Id: OTP-15208 Aux Id: PR-1897 ERL-677 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where too many concurrent calls to
+	    <c>erlang:open_port({spawn,"cmd"},...)</c> would result
+	    in the emulator terminating with the reason "Failed to
+	    write to erl_child_setup: ". After this fix the
+	    <c>open_port</c> call will throw an <c>emfile</c>
+	    exception instead.</p>
+          <p>
+	    Own Id: OTP-15210</p>
+        </item>
+        <item>
+          <p>
+	    Upgraded the ERTS internal PCRE library from version 8.41
+	    to version 8.42. See <url
+	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
+	    for information about changes made to PCRE. This library
+	    implements major parts of the <seealso
+	    marker="stdlib:re"><c>re</c></seealso> regular
+	    expressions module.</p>
+          <p>
+	    Own Id: OTP-15217</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>open_port({fd,X,Y}, ...)</c> to release the file
+	    descriptors from the pollset when closing the port.
+	    Without this fix the same file descriptor number could
+	    not be reused when doing multiple open_port and
+	    port_close sequences.</p>
+          <p>
+	    Own Id: OTP-15236 Aux Id: ERL-692 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>float_to_list/2</c> and
+	    <c>float_to_binary/2</c> with options
+	    <c>[{decimals,0},compact]</c> causing totally wrong
+	    results. Bug exists since OTP-21.0.</p>
+          <p>
+	    Own Id: OTP-15276 Aux Id: PR-1920 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>erlang:memory</c> causing <c>ets</c> to
+	    report too much. This small false memory leak (16 bytes
+	    each time) can only happen when a specific race condition
+	    occurs between scheduler threads on a table with option
+	    <c>write_concurrency</c>.</p>
+          <p>
+	    Own Id: OTP-15278</p>
+        </item>
+        <item>
+          <p>
+	    Minor <c>configure</c> test fixes</p>
+          <p>
+	    Own Id: OTP-15282</p>
+        </item>
+        <item>
+          <p>
+	    Improved robustness of distribution connection setup. In
+	    OTP-21.0 a truly asynchronous connection setup was
+	    introduced. This is further improvement on that work to
+	    make the emulator more robust and also be able to recover
+	    in cases when involved Erlang processes misbehave.</p>
+          <p>
+	    Own Id: OTP-15297 Aux Id: OTP-15279, OTP-15280 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The socket options <c>recvtos</c>, <c>recvttl</c>,
+	    <c>recvtclass</c> and <c>pktoptions</c> have been
+	    implemented in the socket modules. See the documentation
+	    for the <c>gen_tcp</c>, <c>gen_udp</c> and <c>inet</c>
+	    modules. Note that support for these in the runtime
+	    system is platform dependent. Especially for
+	    <c>pktoptions</c> which is very Linux specific and
+	    obsoleted by the RFCs that defined it.</p>
+          <p>
+	    Own Id: OTP-15145 Aux Id: ERIERL-187 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.0.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    As of ERTS version 10.0 (OTP 21.0) the
+	    <c>erl_child_setup</c> program, which creates port
+	    programs, ignores <c>TERM</c> signals. This setting was
+	    unintentionally inherited by port programs. Handling of
+	    <c>TERM</c> signals in port programs has now been
+	    restored to the default behavior. That is, terminate the
+	    process.</p>
+          <p>
+	    Own Id: OTP-15289 Aux Id: ERIERL-235, OTP-14943, ERL-576 </p>
+        </item>
+        <item>
+          <p>
+	    The fix made for OTP-15279 in erts-10.07 (OTP-21.0.8) was
+	    not complete. It could cause a new connection attempt to
+	    be incorrectly aborted in certain cases. This fix will
+	    amend that flaw.</p>
+          <p>
+	    Own Id: OTP-15296 Aux Id: OTP-15279, ERIERL-226 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.0.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A process could get stuck in an infinite rescheduling
+	    loop between normal and dirty schedulers. This bug was
+	    introduced in ERTS version 10.0.</p>
+          <p>
+	    Thanks to Maxim Fedorov for finding and fixing this
+	    issue.</p>
+          <p>
+	    Own Id: OTP-15275 Aux Id: PR-1943 </p>
+        </item>
+        <item>
+          <p>
+	    Garbage collection of a distribution entry could cause an
+	    emulator crash if <c>net_kernel</c> had not brought
+	    previous connection attempts on it down properly.</p>
+          <p>
+	    Own Id: OTP-15279 Aux Id: ERIERL-226 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.0.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race between termination of a process and resume of the
+	    same process via <c>erlang:resume_process/1</c> could
+	    cause the VM to crash. This bug was introduced in erts
+	    version 10.0 (OTP 21.0).</p>
+          <p>
+	    Own Id: OTP-15237</p>
+        </item>
+        <item>
+          <p>
+	    When tracing on <c>running</c>, <c>in</c> trace events
+	    could be lost when a process was rescheduled between a
+	    dirty and a normal scheduler.</p>
+          <p>
+	    Own Id: OTP-15269 Aux Id: ERL-713 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug which caused an emulator crash when
+	    <c>enif_send()</c> was called by a NIF that executed on a
+	    dirty scheduler. The bug was either triggered when the
+	    NIF called <c>enif_send()</c> without a message
+	    environment, or when the process executing the NIF was
+	    <c>send</c> traced.</p>
+          <p>
+	    Own Id: OTP-15223</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug causing some Erlang references to be
+	    inconsistently ordered. This could for example cause
+	    failure to look up certain elements with references as
+	    keys in search data structures. This bug was introduced
+	    in R13B02.</p>
+          <p>
+	    Thanks to Simon Cornish for finding the bug and supplying
+	    a fix.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15225</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that prevented the <c>noshell</c> option
+	    from working correctly on Mac OS X and BSD.</p>
+          <p>
+	    Own Id: OTP-15169</p>
+        </item>
+        <item>
+	    <p>Fixed a crash when matching directly against a literal
+	    map using a single key that had been saved on the
+	    stack.</p>
+          <p>
+	    Own Id: OTP-15184</p>
+        </item>
+        <item>
+	    <p>Fix node crash when passing a bad time option to
+	    <c>file:read_file_info/2</c>.</p>
+          <p>
+	    Own Id: OTP-15196</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a scheduler bug that caused normal schedulers to
+	    run dirty code.</p>
+          <p>
+	    Own Id: OTP-15154</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug in <c>erlang:trace_info/2</c> which caused
+	    the emulator to crash when a bad argument was passed. The
+	    bug was introduced in ERTS version 10.0.</p>
+          <p>
+	    Own Id: OTP-15183 Aux Id: ERL-670 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a rare bug that could cause processes to be
+	    scheduled after they had been freed.</p>
+          <p>
+	    Own Id: OTP-15067 Aux Id: ERL-573 </p>
+        </item>
+        <item>
+	    <p>Fixed a race condition in the inet driver that could
+	    cause receive to hang when the emulator was compiled with
+	    gcc 8.</p>
+          <p>
+	    Own Id: OTP-15158 Aux Id: ERL-654 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The keys used in <c>os:getenv</c> and <c>os:putenv</c>
+	    are case-insensitive again on Windows.</p>
+          <p>
+	    Own Id: OTP-15147 Aux Id: ERL-644 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 10.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The type specifications for <c>file:posix/0</c> and
+	    <c>inet:posix/0</c> have been updated according to which
+	    errors file and socket operations should be able to
+	    return.</p>
+          <p>
+	    Own Id: OTP-14019 Aux Id: ERL-550 </p>
+        </item>
+        <item>
+          <p>
+	    Fix error printout from run_erl and a bug that could
+	    cause unintended fds to be leaked into the started
+	    program.</p>
+          <p>
+	    Own Id: OTP-14537 Aux Id: PR1529 </p>
+        </item>
+        <item>
+	    <p> File operations used to accept <seealso
+	    marker="kernel:file#type-name_all">filenames</seealso>
+	    containing null characters (integer value zero). This
+	    caused the name to be truncated and in some cases
+	    arguments to primitive operations to be mixed up.
+	    Filenames containing null characters inside the filename
+	    are now <em>rejected</em> and will cause primitive file
+	    operations to fail. </p> <p> Also environment variable
+	    operations used to accept <seealso
+	    marker="kernel:os#type-env_var_name">names</seealso> and
+	    <seealso
+	    marker="kernel:os#type-env_var_value">values</seealso> of
+	    environment variables containing null characters (integer
+	    value zero). This caused operations to silently produce
+	    erroneous results. Environment variable names and values
+	    containing null characters inside the name or value are
+	    now <em>rejected</em> and will cause environment variable
+	    operations to fail. </p> <p>Primitive environment
+	    variable operations also used to accept the <c>$=</c>
+	    character in environment variable names causing various
+	    problems. <c>$=</c> characters in environment variable
+	    names are now also <em>rejected</em>. </p> <p>Also
+	    <seealso
+	    marker="kernel:os#cmd/1"><c>os:cmd/1</c></seealso> now
+	    reject null characters inside its <seealso
+	    marker="kernel:os#type-os_command">command</seealso>.
+	    </p> <p><seealso
+	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seealso>
+	    will also reject null characters inside the port name
+	    from now on.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14543 Aux Id: ERL-370 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bugs related to the bookkeeping of microstate
+	    accounting states.</p>
+          <p>
+	    Own Id: OTP-14652</p>
+        </item>
+        <item>
+	    <p><c>os:putenv</c> and <c>os:getenv</c> no longer access
+	    the process environment directly and instead work on a
+	    thread-safe emulation. The only observable difference is
+	    that it's <em>not</em> kept in sync with libc
+	    <c>getenv(3)</c> / <c>putenv(3)</c>, so those who relied
+	    on that behavior in drivers or NIFs will need to add
+	    manual synchronization.</p> <p>On Windows this means that
+	    you can no longer resolve DLL dependencies by modifying
+	    the <c>PATH</c> just before loading the driver/NIF. To
+	    make this less of a problem, the emulator now adds the
+	    target DLL's folder to the DLL search path.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14666</p>
+        </item>
+        <item>
+	    <p>Corrected <c>erlang:is_builtin(erlang, M, F)</c> to
+	    return <c>true</c> for <c>apply/2</c> and
+	    <c>yield/0</c>.</p>
+          <p>
+	    Own Id: OTP-14713 Aux Id: ERL-500 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug where the PATH environment variable wasn't
+	    updated correctly on a release downgrade, effectively
+	    keeping the PATH of the new release.</p>
+          <p>
+	    Own Id: OTP-14719</p>
+        </item>
+        <item>
+	    <p>A receive optimization that avoids scanning the entire
+	    message queue when receiving a message containing a
+	    freshly created reference could in rare circumstances
+	    (involving recursive calls to the functions that does the
+	    receive) cause the receive to hang. This has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14782 Aux Id: ERL-511 </p>
+        </item>
+        <item>
+          <p>
+	    Fix building of Erlang/OTP on platforms which have small
+	    data area with short addressing. For example the
+	    PowerPC/RTEMS platform.</p>
+          <p>
+	    Own Id: OTP-14909 Aux Id: PR-1692 </p>
+        </item>
+        <item>
+	    <p>Fixed a crash when <c>enif_make_binary</c> is called
+	    with a binary produced by <c>enif_inspect_binary</c> in a
+	    different environment.</p>
+          <p>
+	    Own Id: OTP-14931</p>
+        </item>
+        <item>
+	    <p>Fixed a crash when <c>enif_make_binary</c> is called
+	    more than once with a binary that had previously been
+	    added to an <c>enif_ioq</c>.</p>
+          <p>
+	    Own Id: OTP-14932</p>
+        </item>
+        <item>
+          <p>
+	    The erl_child_setup program now ignores SIGTERM signals.</p>
+          <p>
+	    Own Id: OTP-14943 Aux Id: ERL-576 </p>
+        </item>
+        <item>
+          <p>
+	    Force 64-bit alignment on pre-allocators on architectures
+	    which needs it.</p>
+          <p>
+	    Own Id: OTP-14977</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where dirty scheduler picked up non-dirty
+	    work.</p>
+          <p>
+	    Own Id: OTP-14978</p>
+        </item>
+        <item>
+          <p>
+	    Calls to <c>gen_tcp:send/2</c> on closed sockets now
+	    returns <c>{error, closed}</c> instead of
+	    <c>{error,enotconn}</c>.</p>
+          <p>
+	    Own Id: OTP-15001</p>
+        </item>
+        <item>
+          <p>
+	    <c>erlang:monotonic_time/1</c> failed with <c>badarg</c>
+	    when passing the <c>perf_counter</c> time unit as
+	    argument.</p>
+          <p>
+	    Own Id: OTP-15008</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where rapid <c>init:restart()</c> calls would
+	    sometimes crash because a code load request leaked in
+	    between the restarts.</p>
+          <p>
+	    Own Id: OTP-15013</p>
+        </item>
+        <item>
+          <p>
+	    Improve <c>float_to_list(F, [{decimals,D}])</c> to closer
+	    conform with <c>io_lib:format("~.*f", [D,F])</c>.</p>
+          <p>
+	    There are however, still cases when <c>float_to_list</c>
+	    does not produce the exact same result as
+	    <c>io_lib:format</c>, especially for large values
+	    <c>F</c> and/or many decimals <c>D</c>.</p>
+          <p>
+	    Own Id: OTP-15015 Aux Id: OTP-14890 </p>
+        </item>
+        <item>
+	    <p>Fixed a deadlock that would occur on certain
+	    allocators when a reallocation failed with <c>+ramv</c>
+	    enabled.</p>
+          <p>
+	    Own Id: OTP-15024</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug that made it impossible to use an erl_tracer as
+	    the seq_trace trace receiver.</p>
+          <p>
+	    Own Id: OTP-15029</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where a large (> 1 GB) emulator generated error
+	    logger message would cause the emulator to crash.</p>
+          <p>
+	    Own Id: OTP-15032</p>
+        </item>
+        <item>
+	    <p>The emulator will no longer crash when reading the
+	    file information of an ordinary file that has an NTFS
+	    reparse point, such as files stored in a OneDrive-mapped
+	    folder.</p>
+          <p>
+	    Own Id: OTP-15062 Aux Id: ERL-615 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>enif_binary_to_term</c> which could cause
+	    memory corruption for immediate terms (atoms, small
+	    integers, pids, ports, empty lists).</p>
+          <p>
+	    Own Id: OTP-15080</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>erlang:system_profile/2</c> that could
+	    cause superfluous <c>{profile,_,active,_,_}</c> messages
+	    for terminating processes.</p>
+          <p>
+	    Own Id: OTP-15085</p>
+        </item>
+        <item>
+          <p>
+	    On OSs with per thread CPU time support, change
+	    <c>cpu_timestamp</c> in <seealso
+	    marker="erlang#trace/3">erlang:trace/3</seealso> to use
+	    it instead of per process CPU time. This makes this
+	    option useable on such OSs when running multiple
+	    schedulers.</p>
+          <p>
+	    Own Id: OTP-15090</p>
+        </item>
+        <item>
+          <p>
+	    Fix segfault in abort_signal_task which could happen if a
+	    port terminated while there were outstanding port tasks
+	    that were not signals, for example a
+	    ready_input/ready_output event.</p>
+          <p>
+	    Own Id: OTP-15108 Aux Id: ERL-621 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ets</c> that could cause VM crash if
+	    process A terminates after fixating a table and process B
+	    deletes the table at "the same time". The table fixation
+	    could be done with <c>ets:safe_fixtable</c> or if process
+	    A terminates in the middle of a long running
+	    <c>select</c> or <c>match</c> call.</p>
+          <p>
+	    Own Id: OTP-15109</p>
+        </item>
+        <item>
+	    <p>Owner and group changes through
+	    <c>file:write_file_info</c>, <c>file:change_owner</c>,
+	    and <c>file:change_group</c> will no longer report
+	    success on permission errors.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15118</p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug error reporting from escripts on windows where
+	    the error message would get garbled.</p>
+          <p>
+	    Own Id: OTP-15119 Aux Id: PR-1826 </p>
+        </item>
+        <item>
+          <p>
+	    Fix segfault when a process is interally re-scheduled
+	    while being traced for in out events. This bug was
+	    introduced in erts-8.0 (OTP-19.0).</p>
+          <p>
+	    Own Id: OTP-15125</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>It is now possible to open device files and FIFOs with
+	    <c>file:open/2</c>.</p>
+          <p>
+	    Own Id: OTP-11462</p>
+        </item>
+        <item>
+          <p>
+	    The <c>erlang:system_flag(scheduler_wall_time,Bool)</c>
+	    call is now reference counted and will be turned off if
+	    the (last) process that started the performance
+	    statistics dies. Thus it is no longer possible to start
+	    the statistics with <c>rpc:call(Node, erlang,
+	    system_flag, [scheduler_wall_time, true])</c> since it
+	    will be turned off directly afterwards when the rpc
+	    process dies.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11694</p>
+        </item>
+        <item>
+	    <p>A new logging API is added to Erlang/OTP, see the
+	    <seealso
+	    marker="kernel:logger"><c>logger(3)</c></seealso> manual
+	    page, and section <seealso
+	    marker="kernel:logger_chapter">Logging</seealso> in the
+	    Kernel User's Guide.</p>
+	    <p>Calls to <c>error_logger</c> are automatically
+	    redirected to the new API, and legacy error logger event
+	    handlers can still be used. It is, however, recommended
+	    to use the Logger API directly when writing new code.</p>
+	    <p>Notice the following potential incompatibilities:</p>
+	    <list> <item><p>Kernel configuration parameters
+	    <c>error_logger</c> still works, but is overruled if the
+	    default handler's output destination is configured with
+	    Kernel configuration parameter <c>logger</c>.</p> <p>In
+	    general, parameters for configuring error logger are
+	    overwritten by new parameters for configuring
+	    Logger.</p></item> <item><p>The concept of SASL error
+	    logging is deprecated, meaning that by default the SASL
+	    application does not affect which log events are
+	    logged.</p> <p>By default, supervisor reports and crash
+	    reports are logged by the default Logger handler started
+	    by Kernel, and end up at the same destination (terminal
+	    or file) as other standard log event from Erlang/OTP.</p>
+	    <p>Progress reports are not logged by default, but can be
+	    enabled by setting the primary log level to info, for
+	    example with the Kernel configuration parameter
+	    <c>logger_level</c>.</p> <p>To obtain backwards
+	    compatibility with the SASL error logging functionality
+	    from earlier releases, set Kernel configuration parameter
+	    <c>logger_sasl_compatible</c> to <c>true</c>. This
+	    prevents the default Logger handler from logging any
+	    supervisor-, crash-, or progress reports. Instead, SASL
+	    adds a separate Logger handler during application start,
+	    which takes care of these log events. The SASL
+	    configuration parameters <c>sasl_error_logger</c> and
+	    <c>sasl_errlog_type</c> specify the destination (terminal
+	    or file) and severity level to log for these
+	    events.</p></item></list>
+          <p>
+	    Since Logger is new in Erlang/OTP 21.0, we do reserve the
+	    right to introduce changes to the Logger API and
+	    functionality in patches following this release. These
+	    changes might or might not be backwards compatible with
+	    the initial version.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13295</p>
+        </item>
+        <item>
+          <p>
+	    <c>gen_sctp:connect_init/4</c> or rather connect in
+	    <c>inet_drv.c</c> for SCTP has been fixed to not check
+	    the write file descriptor for writeability after a
+	    connect, since for SCTP (SOCK_SEQPACKET) that property
+	    does not seem to be any kind of indicator for when a
+	    connect has finished. This fixes connects that the OS
+	    returned as "in progress" that was misinterpreted by
+	    <c>gen_sctp:connect_init</c> as failed.</p>
+          <p>
+	    Own Id: OTP-13760 Aux Id: PR-1592 </p>
+        </item>
+        <item>
+	    <p>The file driver has been rewritten as a NIF,
+	    decreasing the latency of file operations. Notable
+	    incompatibilities are:</p> <list> <item><p>The
+	    <c>use_threads</c> option for <c>file:sendfile/5</c> no
+	    longer has any effect; we either use non-blocking
+	    <c>sendfile(2)</c> or fall back to <c>file:read</c> +
+	    <c>gen_tcp:send</c>. </p></item> <item><p>The
+	    file-specific DTrace probes have been removed. The same
+	    effect can be achieved with normal tracing together with
+	    the <c>nif__entry</c>/<c>nif__return</c> probes to track
+	    scheduling.</p></item> </list>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14256</p>
+        </item>
+        <item>
+	    <p>The I/O polling functionality of erts has been
+	    re-written to better make use of the OSs polling
+	    mechanisms. This change means that erts will now always
+	    prefer to use a kernel-polling mechanism if possible.
+	    Also all of the I/O polling has been moved to dedicated
+	    threads instead of being placed in the scheduler
+	    loops.</p> <p>As a result of this, the <c>erl</c> options
+	    <c>+K</c> and <c>+secio</c> have been removed. It is
+	    still possible to disable kernel-poll, but it has to be
+	    done at compile time through the configure option
+	    <c>--disable-kernel-poll</c>.</p> <p>The new <c>erl</c>
+	    options <seealso marker="erl#+IOt"><c>+IOt</c></seealso>
+	    and <seealso marker="erl#+IOp"><c>+IOp</c></seealso> can
+	    be used to change how many IO poll threads and poll sets
+	    that erts should use. See their respective documentation
+	    for more details.</p>
+          <p>
+	    Own Id: OTP-14346</p>
+        </item>
+        <item>
+	    <p>Truly asynchronous auto-connect. Earlier, when
+	    <c>erlang:send</c> was aimed toward an unconnected node,
+	    the function would not return until the connection setup
+	    had completed (or failed). Now the function returns
+	    directly after the message has been enqueued and the
+	    connection setup started.</p>
+	    <p>The same applies to all distributed operations that
+	    may trigger auto-connect, i.e. <c>'!'</c>, <c>send</c>,
+	    <c>link</c>, <c>monitor</c>, <c>monitor_node</c>,
+	    <c>exit/2</c> and <c>group_leader</c>.</p>
+	    <p>The interface for all these functions are unchanged as
+	    they do not return connection failures. The only
+	    exception is <c>erlang:monitor</c> where a <em>possible
+	    incompatibility</em> is introduced: An attempt to monitor
+	    a process on a primitive node (such as erl_interface or
+	    jinterface), where remote process monitoring is not
+	    implemented, will no longer fail with <c>badarg</c>
+	    exception. Instead a monitor will be created, but it will
+	    only supervise the connection to the node.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14370</p>
+        </item>
+        <item>
+	    <p>Changed the default behaviour of <c>.erlang</c>
+	    loading: <c>.erlang</c> is no longer loaded from the
+	    current directory. <c>c:erlangrc(PathList)</c> can be
+	    used to search and load an <c>.erlang</c> file from user
+	    specified directories.</p> <p><c>escript</c>,
+	    <c>erlc</c>, <c>dialyzer</c> and <c>typer</c> no longer
+	    load an <c>.erlang</c> at all.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14439</p>
+        </item>
+        <item>
+          <p>
+	    New functionality for implementation of alternative
+	    carriers for the Erlang distribution has been introduced.
+	    This mainly consists of support for usage of distribution
+	    controller processes (previously only ports could be used
+	    as distribution controllers). For more information see
+	    <seealso marker="erts:alt_dist#distribution_module">ERTS
+	    User's Guide ➜ How to implement an Alternative Carrier
+	    for the Erlang Distribution ➜ Distribution
+	    Module</seealso>.</p>
+          <p>
+	    Own Id: OTP-14459</p>
+        </item>
+        <item>
+          <p>
+	    Add support for the lcc compiler and in extension the
+	    Elbrus 2000 platform.</p>
+          <p>
+	    Own Id: OTP-14492</p>
+        </item>
+        <item>
+	    <p>Support for "tuple calls" have been removed from the
+	    run-time system. Tuple calls was an undocumented and
+	    unsupported feature which allowed the module argument for
+	    an apply operation to be a tuple: <c>Var = dict:new(),
+	    Var:size()</c>. This "feature" frequently caused
+	    confusion, especially when such call failed. The
+	    stacktrace would point out functions that don't exist in
+	    the source code.</p>
+	    <p>For legacy code that need to use parameterized modules
+	    or tuple calls for some other reason, there is a new
+	    compiler option called <c>tuple_calls</c>. When this
+	    option is given, the compiler will generate extra code
+	    that emulates the old behavior for calls where the module
+	    is a variable.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14497</p>
+        </item>
+        <item>
+	    <p>Creation of small maps with literal keys has been
+	    optimized to be faster and potentially use less memory.
+	    The keys are combined into a literal key tuple which is
+	    put into the literal pool. The key tuple can be shared
+	    between many instances of maps having the same keys.</p>
+          <p>
+	    Own Id: OTP-14502</p>
+        </item>
+        <item>
+          <p>
+	    When an exception is thrown, include the arguments of the
+	    call in the stacktrace for BIFs <c>band</c>, <c>bor</c>,
+	    <c>bsl</c>, <c>bsr</c>, <c>bxor</c>, <c>div</c>,
+	    <c>rem</c> and the operators <c>+</c>, <c>-</c>, <c>*</c>
+	    and <c>/</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14508</p>
+        </item>
+        <item>
+          <p>
+	    The non-smp emulators have been removed. This means that
+	    the configure options <c>--disable-threads</c> and
+	    <c>--enable-plain-emulator</c> have been removed and
+	    configure will now refuse to build Erlang/OTP on
+	    platforms without thread support.</p>
+          <p>
+	    In order to achieve a similar setup as the non-smp
+	    emulator, it is possible to start Erlang/OTP with the
+	    <c>+S 1</c> option.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14518</p>
+        </item>
+        <item>
+	    <p>Modules that use floating point constants compiled
+	    with R15 or earlier will need to be re-compiled before
+	    they can be loaded.</p>
+          <p>
+	    Own Id: OTP-14575</p>
+        </item>
+        <item>
+          <p>
+	    Implementation of true asynchronous signaling between
+	    processes in order to improve scalability. Signals
+	    affected include exit, monitor, demonitor, monitor
+	    triggered, link, unlink, and group leader.</p>
+          <p>
+	    Own Id: OTP-14589</p>
+        </item>
+        <item>
+          <p>
+	    Added a PGO (profile guided optimization) pass to the
+	    build step of erts. This can be disabled by passing
+	    --disable-pgo to configure.</p>
+          <p>
+	    Own Id: OTP-14604</p>
+        </item>
+        <item>
+          <p>
+	    Improved the performance of <c>binary:split</c> and
+	    <c>binary:match</c>.</p>
+          <p>
+	    Own Id: OTP-14610 Aux Id: PR-1480 </p>
+        </item>
+        <item>
+          <p>
+	    It is not longer possible to disable dirty schedulers
+	    when building erlang.</p>
+          <p>
+	    Own Id: OTP-14613</p>
+        </item>
+        <item>
+	    <p>Loaded BEAM code in a 64-bit system requires less
+	    memory because of better packing of operands for
+	    instructions.</p>
+	    <p>These memory savings were achieved by major
+	    improvements to the <c>beam_makeops</c> scripts used when
+	    building the run time system and BEAM compiler. There is
+	    also new for documentation for <c>beam_makeops</c> that
+	    describes how new BEAM instructions and loader
+	    transformations can be implemented. The documentation is
+	    found in here in a source directory or git repository:
+	    erts/emulator/internal_doc/beam_makeops.md. An online
+	    version can be found here:
+	    https://github.com/erlang/otp/blob/master/erts/emulator/internal_doc/beam_makeops.md</p>
+          <p>
+	    Own Id: OTP-14626</p>
+        </item>
+        <item>
+	    <p><c>file:read_file</c> has been changed to read the
+	    content of files that report a size of 0 even when data
+	    can be read from them. An example of such a file is
+	    <c>/proc/cpuinfo</c> on Linux.</p>
+          <p>
+	    Own Id: OTP-14637 Aux Id: ERL-327 PR-1524 </p>
+        </item>
+        <item>
+          <p>
+	    It is no longer possible to disable the <c>temp_alloc</c>
+	    allocator. Disabling it caused serious performance
+	    degradations and was never what was wanted.</p>
+          <p>
+	    Own Id: OTP-14651</p>
+        </item>
+        <item>
+	    <p>The reduction cost of sending messages is now
+	    constant. It will no longer scale according to the length
+	    of the receiving process' message queue.</p>
+          <p>
+	    Own Id: OTP-14667</p>
+        </item>
+        <item>
+          <p>
+	    Improved loading of modules with <c>-on_load</c>
+	    directive, to no longer block all schedulers when the
+	    load operation is completed.</p>
+          <p>
+	    Own Id: OTP-14680</p>
+        </item>
+        <item>
+          <p>
+	    On platforms with real-time signals available, SIGRTMIN+1
+	    is now used as the internal scheduler suspend signal
+	    instead of SIGUSR2.</p>
+          <p>
+	    Own Id: OTP-14682</p>
+        </item>
+        <item>
+	    <p>When the value returned from a '<c>catch</c>'
+	    expression is ignored, no stacktrace will be built if an
+	    exception is caught. That will save time and produce less
+	    garbage. There are also some minor optimizations of
+	    '<c>try</c>/<c>catch</c>' both in the compiler and
+	    run-time system.</p>
+          <p>
+	    Own Id: OTP-14683</p>
+        </item>
+        <item>
+	    <p>The guarantees and non-guarantees of
+	    <c>erlang:get_stacktrace/0</c> are now documented.</p>
+          <p>
+	    Own Id: OTP-14687</p>
+        </item>
+        <item>
+	    <p>There is a new syntax in '<c>try/catch</c>' for
+	    retrieving the stacktrace without calling
+	    '<c>erlang:get_stacktrace/0</c>'. See the reference
+	    manual for a description of the new syntax. The
+	    '<c>erlang:get_stacktrace/0</c>' BIF is now
+	    deprecated.</p>
+          <p>
+	    Own Id: OTP-14692</p>
+        </item>
+        <item>
+          <p>
+	    New 'used' option for <c>binary_to_term/2</c> that will
+	    also return number of bytes actually read from the
+	    binary. This enables easy access to any extra data in the
+	    binary located directly after the returned term.</p>
+          <p>
+	    Own Id: OTP-14780</p>
+        </item>
+        <item>
+          <p>
+	    Added more statistics for
+	    <c>erlang:system_info({allocator,A})</c> in the
+	    <c>mbcs_pool</c> section.</p>
+          <p>
+	    Own Id: OTP-14795 Aux Id: ERL-88 </p>
+        </item>
+        <item>
+	    <p>Added <c>enif_ioq_peek_head</c> to retrieve Erlang
+	    terms from NIF IO queues without having to resort to
+	    copying.</p>
+          <p>
+	    Own Id: OTP-14797</p>
+        </item>
+        <item>
+	    <p>There is a new option '<c>makedep_side_effect</c>' for
+	    the compiler and <c>-MMD</c> for '<c>erlc</c>' that
+	    generates dependencies and continues to compile as
+	    normal.</p>
+          <p>
+	    Own Id: OTP-14830</p>
+        </item>
+        <item>
+	    <p>Added <c>ets:whereis/1</c> for retrieving the table
+	    identifier of a named table.</p>
+          <p>
+	    Own Id: OTP-14884</p>
+        </item>
+        <item>
+	    <p><c>seq_trace</c> labels may now be any erlang
+	    term.</p>
+          <p>
+	    Own Id: OTP-14899</p>
+        </item>
+        <item>
+          <p>
+	    Optimized the common case of <c>monitor</c> followed by
+	    <c>send</c> to the same local process. The monitor signal
+	    is now delayed in order to be piggybacked with the sent
+	    message and thereby only get one lock operation on the
+	    message queue of the receiver. A delayed monitor signal
+	    is flushed if no <c>send</c> has been done at the latest
+	    when the process is scheduled out.</p>
+          <p>
+	    Own Id: OTP-14901</p>
+        </item>
+        <item>
+          <p>
+	    Make hipe compiled code work on x86_64 (amd64) with OS
+	    security feature PIE, where executable code can be loaded
+	    into a random location. Old behavior, if hipe was
+	    enabled, was to disable PIE build options for the VM.</p>
+          <p>
+	    Own Id: OTP-14903</p>
+        </item>
+        <item>
+	    <p>The number of driver async threads will now default to
+	    1 as the standard drivers do not use them anymore. Users
+	    that changed this value to tweak the file driver should
+	    replace <c>+A</c> with <c>+SDio</c> since it now uses
+	    dirty IO schedulers instead of async threads.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14928</p>
+        </item>
+        <item>
+          <p>
+	    Optimize <c>==</c> and <c>/=</c> for binaries with
+	    different sizes to be constant in time instead of
+	    proportional to the size of their common prefix.</p>
+          <p>
+	    Own Id: OTP-14934 Aux Id: PR-1708 </p>
+        </item>
+        <item>
+          <p>
+	    Refactorings making some internal process flags available
+	    for other usage.</p>
+          <p>
+	    Own Id: OTP-14948</p>
+        </item>
+        <item>
+          <p>
+	    Removed need for HiPE to allocate native executable
+	    memory in low 2GB address space on x86_64. Command line
+	    option <c>+MXscs</c> is thereby obsolete and ignored.</p>
+          <p>
+	    Own Id: OTP-14951</p>
+        </item>
+        <item>
+	    <p>Added <c>enif_make_map_from_arrays</c> for creating a
+	    populated map, analogous to
+	    <c>enif_make_list_from_array</c>.</p>
+          <p>
+	    Own Id: OTP-14954</p>
+        </item>
+        <item>
+	    <p>Added configuration switches for busy-wait and wake up
+	    thresholds for dirty schedulers, and changing these
+	    settings for normal schedulers will no longer affect
+	    dirty schedulers. </p> <p>Refer to the documentation for
+	    details. The new switches are <seealso
+	    marker="erl#+sbwtdcpu">+sbwtdcpu</seealso>, <seealso
+	    marker="erl#+sbwtdio">+sbwtdio</seealso>, <seealso
+	    marker="erl#+swtdcpu">+swtdcpu</seealso>, and <seealso
+	    marker="erl#+swtdio">+swtdio</seealso>.</p> <p>The
+	    default busy wait threshold for dirty scheduler threads
+	    has also been lowered to <c>short</c>.</p>
+          <p>
+	    Own Id: OTP-14959</p>
+        </item>
+        <item>
+          <p>
+	    The list of "taints" now also includes dynamic loaded
+	    drivers in addition to NIF libraries. Statically linked
+	    drivers and NIF libraries that are part of erts are not
+	    included. The "taints" are returned by
+	    <c>system_info(taints)</c> and printed in the header of
+	    <c>erl_crash.dump</c> files.</p>
+          <p>
+	    Own Id: OTP-14960</p>
+        </item>
+        <item>
+	    <p>Added <c>instrument:allocations</c> and
+	    <c>instrument:carriers</c> for retrieving information
+	    about memory utilization and fragmentation.</p>
+	    <p>The old <c>instrument</c> interface has been removed,
+	    as have the related options <c>+Mim</c> and
+	    <c>+Mis</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14961</p>
+        </item>
+        <item>
+	    <p>The process suspend functionality used by the <seealso
+	    marker="erlang#suspend_process/2">erlang:suspend_process/2</seealso>
+	    BIF has been reimplemented using the newly introduced
+	    true asynchronous signaling between processes. This
+	    mainly to reduce memory usage in the process control
+	    block of all processes, but also in order to simplify the
+	    implementation.</p> <warning> <p>You can easily create
+	    deadlocks if processes suspends each other (directly or
+	    in circles). In ERTS versions prior to ERTS version 10.0,
+	    the runtime system prevented such deadlocks, but this
+	    prevention has now been removed due to performance
+	    reasons.</p> </warning> <p>Other ERTS internal
+	    functionality that used the previous process suspend
+	    functionality have also been reimplemented to use
+	    asynchronous signaling instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14964 Aux Id: OTP-14589 </p>
+        </item>
+        <item>
+	    <p>Added the <c>nifs</c> option to
+	    <c>?MODULE:module_info/1</c> for listing a module's
+	    installed NIF functions.</p>
+          <p>
+	    Own Id: OTP-14965</p>
+        </item>
+        <item>
+          <p>
+	    New implementation of <c>erlang:process_info/[1,2]</c>.</p>
+          <p>
+	    In the general case when inspecting another process, the
+	    new implementation sends an asynchronous process-info
+	    request signal to the other process and waits for the
+	    result instead of locking the other process and reading
+	    the result directly. In some special cases where no
+	    conflicts occur, signal order wont be violated, and the
+	    amount of data requested is guaranteed to be small, the
+	    inspected process may be inspected directly.</p>
+          <p>
+	    Appropriate amount of reductions are now also bumped when
+	    inspecting a process.</p>
+          <p>
+	    Own Id: OTP-14966</p>
+        </item>
+        <item>
+          <p>
+	    Removed process start time from crash dump in order to
+	    save memory in process control block.</p>
+          <p>
+	    Own Id: OTP-14975 Aux Id: PR-1597 </p>
+        </item>
+        <item>
+          <p>
+	    Optimize <c>erlang:put/2</c> when updating existing key
+	    with a new immediate value (atom, small integer, pid,
+	    port).</p>
+          <p>
+	    Own Id: OTP-14976</p>
+        </item>
+        <item>
+          <p>
+	    <c>erlang:process_info/1</c> has been changed to no
+	    longer include <c>messages</c> by default. Instead
+	    <c>erlang:process_info/2</c> should be used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14986 Aux Id: PR-1745 </p>
+        </item>
+        <item>
+          <p>
+	    New <c>erlang:system_info(ets_count)</c> to get total
+	    number of ets tables existing at the local node.</p>
+          <p>
+	    Own Id: OTP-14987</p>
+        </item>
+        <item>
+          <p>
+	    New NIF functions: <c>enif_mutex_name</c>,
+	    <c>enif_cond_name</c>, <c>enif_rwlock_name</c>,
+	    <c>enif_thread_name</c>, <c>enif_vfprintf</c>,
+	    <c>enif_vsnprintf</c>.</p>
+          <p>
+	    Own Id: OTP-14994</p>
+        </item>
+        <item>
+	    <p>When <c>erlang:system_flag(backtrace_depth, 0)</c> has
+	    been called, all exceptions will now contain the entry
+	    for <em>one</em> function (despite the zero). It used to
+	    be that a hand-made stack backtrace passed to
+	    <c>erlang:raise/3</c> would be be truncated to an empty
+	    list.</p>
+          <p>
+	    Own Id: OTP-15026</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug for named <c>ets</c> tables which could cause
+	    unexpected results from matchspec iteration functions
+	    (<c>ets:select*</c> and <c>ets:match*</c>) if the table
+	    was deleted and recreated with the same name during the
+	    iteration. The iteration could incorrectly continue
+	    through the recreated table. The expected correct
+	    behavior is now for the iteration call to fail with a
+	    <c>badarg</c> exception if the table is deleted before
+	    the iteration has completed.</p>
+          <p>
+	    Own Id: OTP-15031</p>
+        </item>
+        <item>
+	    <p>Two new guards BIFs operating on maps have been added:
+	    <c>map_get/2</c> and <c>is_map_key/2</c>. They do the
+	    same as <c>maps:get/2</c> and <c>maps:is_key/2</c>,
+	    respectively, except that they are allowed to be used in
+	    guards.</p>
+          <p>
+	    Own Id: OTP-15037 Aux Id: PR-1784, PR-1802 </p>
+        </item>
+        <item>
+          <p>
+	    Release run-queue lock while cleaning up terminated dirty
+	    process.</p>
+          <p>
+	    Own Id: OTP-15081</p>
+        </item>
+        <item>
+	    <p>The callback module passed as <c>-epmd_module</c> to
+	    erl has been expanded to be able to do name and port
+	    resolving.</p> <p>Documentation has also been added in
+	    the <seealso
+	    marker="kernel:erl_epmd"><c>erl_epmd</c></seealso>
+	    reference manual and ERTS User's Guide <seealso
+	    marker="erts:alt_disco">How to Implement an Alternative
+	    Service Discovery for Erlang Distribution</seealso>.</p>
+          <p>
+	    Own Id: OTP-15086 Aux Id: PR-1694 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.9</title>
 
     <section><title>Improvements and New Features</title>

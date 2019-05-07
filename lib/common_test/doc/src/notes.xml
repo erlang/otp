@@ -216,6 +216,183 @@
 
 </section>
 
+<section><title>Common_Test 1.17.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The test result when a hook function fails is in general
+	    the same as if the function that the hook is associated
+	    with fails. For example, if <c>post_init_per_testcase</c>
+	    fails the result is that the test case is skipped, as is
+	    the case when <c>init_per_testcase</c> fails.This,
+	    however, was earlier not true for timetrap timeouts or
+	    other error situations where the process running the hook
+	    function was killed. This is now corrected, so the error
+	    handling should be the same no matter how the hook
+	    function fails.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15717 Aux Id: ERIERL-334 </p>
+        </item>
+        <item>
+          <p>
+	    In some rare cases, when two common_test nodes used the
+	    same log directory, a timing problem could occur which
+	    caused common_test to crash because it's log cache file
+	    was unexpectedly empty. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15758 Aux Id: ERIERL-342 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Two new common_test hook functions are introduced:</p>
+          <p>
+	    <c>post_groups/2</c>, which is called after
+	    <c>Suite:groups/0</c><br/> <c>post_all/3</c>, which is
+	    called after <c>Suite:all/0</c></p>
+          <p>
+	    These functions allow modifying the return values from
+	    the <c>groups/0</c> and <c>all/0</c> functions,
+	    respectively.</p>
+          <p>
+	    A new term, <c>{testcase,TestCase,RepeatProperties}</c>
+	    is now also allowed in the return from <c>all/0</c>. This
+	    can be used for repeating a single test case a specific
+	    number of times, or until it fails or succeeds once.</p>
+          <p>
+	    Own Id: OTP-14746 Aux Id: ERIERL-143 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.17.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    OTP internal test improvements.</p>
+          <p>
+	    Own Id: OTP-15716</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug caused <c>ct:encrypt_config_file/3</c> and
+	    <c>ct:decrypt_config_file/3</c> to fail with
+	    <c>badmatch</c> if input parameter <c>KeyOrFile</c> was
+	    <c>{key,string()}</c>. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15540</p>
+        </item>
+        <item>
+          <p>
+	    The status of a test case which failed with timetrap
+	    timeout in <c>end_per_testcase</c> could not be modified
+	    by returning <c>{fail,Reason}</c> from a
+	    <c>post_end_per_testcase</c> hook function. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-15584 Aux Id: ERIERL-282 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new variant of the <c>newline</c> option to
+	    <c>ct_telnet:cmd/3</c> and <c>ct_telnet:send/3</c> is
+	    added, which allows to specify a string to append as
+	    newline indicator on a command. By default, the value is
+	    "\n", but in some cases it is required to be "\r\n",
+	    which this option allows.</p>
+          <p>
+	    A faulty regular expression given as parameter to
+	    <c>ct_telnet:expect/2,3</c> would earlier crash and look
+	    like an internal error in common_test. A better error
+	    indication is now given, but the test case will still
+	    fail.</p>
+          <p>
+	    Own Id: OTP-15229 Aux Id: ERIERL-203 </p>
+        </item>
+        <item>
+          <p>
+	    Since the yang RFC allows more than one top element of
+	    config data in an <c>edit-config</c> element,
+	    <c>ct_netconfc:edit_config/3,4,5</c> can now take a list
+	    of XML elements.</p>
+          <p>
+	    Own Id: OTP-15298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The Logger handler cth_log_redirect earlier called the
+	    report callback (report_cb) before calling the logger
+	    formatter. In some cases this would fail, since
+	    cth_log_redirect could not handle report callbacks with
+	    two arguments. This is now corrected, so only the
+	    formatter will call the report callback.</p>
+          <p>
+	    Own Id: OTP-15307</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.16</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Use the compiler option <c>nowarn_export_all</c> to
+	    disable <c>export_all</c> warnings when automatically
+	    compiling test suites.</p>
+          <p>
+	    Own Id: OTP-14810</p>
+        </item>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.15.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
