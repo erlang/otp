@@ -162,39 +162,54 @@ util_values(Config) when is_list(Config) ->
     Ref = make_ref(),
     Loop = fun (L) -> L(L) end,
     Spinner = fun () ->
-                      Looper = spawn_link(fun () -> Loop(Loop) end),
+                      NrOfProcesses = 100,
+                      Loopers = [spawn_link(fun () -> Loop(Loop) end)
+                                 || _ <- lists:seq(1,NrOfProcesses)],
                       receive after ?SPIN_TIME -> ok end,
-                      unlink(Looper),
-                      exit(Looper, kill),
-                      Tester ! Ref
+                      [(fun () ->
+                                unlink(Looper),
+                                exit(Looper, kill),
+                                Tester ! Ref
+                       end)()
+                       || Looper <- Loopers]
+
               end,
-
     cpu_sup:util(),
-
-    spawn_link(Spinner),
-    receive Ref -> ok end,
-    HighUtil1 = cpu_sup:util(),
-
     receive after ?SPIN_TIME -> ok end,
-    LowUtil1 = cpu_sup:util(),
+    LowUtil0 = cpu_sup:util(),
+    NrOfProcessors = erlang:system_info(logical_processors_available),
+    case LowUtil0 of
+        U when U > ((100.0 / NrOfProcessors) * 0.5) ->
+            %% We cannot run this test if the system is doing other
+            %% work at the same time as the result will be unreliable
+            {skip, io_lib:format("CPU utilization was too high (~f%)", [LowUtil0])};
+        _ ->
+            cpu_sup:util(),
+            spawn_link(Spinner),
+            receive Ref -> ok end,
+            HighUtil1 = cpu_sup:util(),
 
-    spawn_link(Spinner),
-    receive Ref -> ok end,
-    HighUtil2 = cpu_sup:util(),
+            receive after ?SPIN_TIME -> ok end,
+            LowUtil1 = cpu_sup:util(),
 
-    receive after ?SPIN_TIME -> ok end,
-    LowUtil2 = cpu_sup:util(),
+            spawn_link(Spinner),
+            receive Ref -> ok end,
+            HighUtil2 = cpu_sup:util(),
 
-    Utils = [{high1,HighUtil1}, {low1,LowUtil1},
-             {high2,HighUtil2}, {low2,LowUtil2}],
-    io:format("Utils: ~p~n", [Utils]),
+            receive after ?SPIN_TIME -> ok end,
+            LowUtil2 = cpu_sup:util(),
 
-    false = LowUtil1 > HighUtil1,
-    false = LowUtil1 > HighUtil2,
-    false = LowUtil2 > HighUtil1,
-    false = LowUtil2 > HighUtil2,
+            Utils = [{high1,HighUtil1}, {low1,LowUtil1},
+                     {high2,HighUtil2}, {low2,LowUtil2}],
+            io:format("Utils: ~p~n", [Utils]),
 
-    ok.
+            false = LowUtil1 > HighUtil1,
+            false = LowUtil1 > HighUtil2,
+            false = LowUtil2 > HighUtil1,
+            false = LowUtil2 > HighUtil2,
+
+            ok
+    end.
 
 
 % Outdated
