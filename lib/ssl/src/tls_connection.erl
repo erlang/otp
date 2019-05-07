@@ -171,21 +171,19 @@ next_record(#state{protocol_buffers =
                    connection_states = ConnectionStates,
                    ssl_options = #ssl_options{padding_check = Check}} = State) ->
     next_record(State, CipherTexts, ConnectionStates, Check);
-next_record(#state{user_data_buffer = {_,0,_},
-                   protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
-                   protocol_specific = #{active_n_toggle := true, 
-                                         active_n := N} = ProtocolSpec,
+next_record(#state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
+                   protocol_specific = #{active_n_toggle := true, active_n := N} = ProtocolSpec,
                    static_env = #static_env{socket = Socket,
                                             close_tag = CloseTag,
                                             transport_cb = Transport}  
-                  } = State)  ->
+                  } = State) ->
     case tls_socket:setopts(Transport, Socket, [{active, N}]) of
  	ok ->
-            {no_record, State#state{protocol_specific = ProtocolSpec#{active_n_toggle => false}}}; 
+             {no_record, State#state{protocol_specific = ProtocolSpec#{active_n_toggle => false}}}; 
  	_ ->
-            self() ! {CloseTag, Socket},
-            {no_record, State}
-    end;
+             self() ! {CloseTag, Socket},
+             {no_record, State}
+     end;
 next_record(State) ->
     {no_record, State}.
 
