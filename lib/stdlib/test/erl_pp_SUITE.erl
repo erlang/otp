@@ -829,7 +829,7 @@ type_examples() ->
 	     "(t24()) -> D when is_subtype(D, atom()),"
 	     "                      is_subtype(D, t14()),"
 	     "                      is_subtype(D, '\\'t::4'()).">>},
-     {ex32,<<"-spec mod:t2() -> any(). ">>},
+     {ex32,<<"-spec erl_pp_test:t2() -> any(). ">>},
      {ex33,<<"-opaque attributes_data() :: "
        "[{'column', column()} | {'line', info_line()} |"
        " {'text', string()}] |  {line(),column()}. ">>},
