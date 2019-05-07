@@ -2668,8 +2668,16 @@ api_a_connect_tcp4(_Config) when is_list(_Config) ->
                    Connect = fun(Sock, SockAddr) ->
                                      socket:connect(Sock, SockAddr, nowait)
                              end,
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
                    InitState = #{domain  => inet,
-                                 connect => Connect},
+                                 connect => Connect,
+                                 send    => Send,
+                                 recv    => Recv},
                    ok = api_a_connect_tcp(InitState)
            end).
 
@@ -2747,6 +2755,43 @@ api_a_connect_tcp(InitState) ->
                            ?SEV_ANNOUNCE_READY(Tester, accept),
                            ok
                    end},
+
+         #{desc => "await continue (recv_req)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_req)
+                   end},
+         #{desc => "recv req",
+           cmd  => fun(#{csock := Sock, recv := Recv}) ->
+                           case Recv(Sock) of
+                               {ok, ?BASIC_REQ} ->
+                                   ok;
+                               {ok, UnexpData} ->
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, _} = ERROR ->
+                                   %% At the moment there is no way to get
+                                   %% status or state for the socket...
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (recv_req)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_req),
+                           ok
+                   end},
+         #{desc => "await continue (send_rep)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_rep)
+                   end},
+         #{desc => "send rep",
+           cmd  => fun(#{csock := Sock, send := Send}) ->
+                           Send(Sock, ?BASIC_REP)
+                   end},
+         #{desc => "announce ready (send_rep)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_rep),
+                           ok
+                   end},
+	 
 
          %% *** Termination ***
          #{desc => "await terminate",
@@ -2831,7 +2876,10 @@ api_a_connect_tcp(InitState) ->
                          connect   := Connect} = State) ->
                            case Connect(Sock, SSA) of
                                ok ->
-                                   {error, unexpected_success};
+                                   ?SEV_IPRINT("ok -> "
+					       "unexpected success => SKIP", 
+                                               []),
+                                   {skip, unexpected_success};
                                {select, {select_info, ST, SR}} ->
                                    ?SEV_IPRINT("select ->"
                                                "~n   tag: ~p"
@@ -2870,7 +2918,6 @@ api_a_connect_tcp(InitState) ->
            cmd  => fun(#{sock := Sock, server_sa := SSA, connect := Connect}) ->
                            case Connect(Sock, SSA) of
                                ok ->
-                                   ok = socket:setopt(Sock, otp, debug, false),
                                    ok;
                                {select, SelectInfo} ->
                                    {error, {unexpected_select, SelectInfo}};
@@ -2892,6 +2939,42 @@ api_a_connect_tcp(InitState) ->
                                 {error, _} = ERROR ->
                                    ERROR
                            end
+                   end},
+
+         #{desc => "await continue (send_req)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_req)
+                   end},
+         #{desc => "send req",
+           cmd  => fun(#{sock := Sock, send := Send}) ->
+                           Send(Sock, ?BASIC_REQ)
+                   end},
+         #{desc => "announce ready (send_req)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_req),
+                           ok
+                   end},
+         #{desc => "await continue (recv_rep)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_rep)
+                   end},
+         #{desc => "recv rep",
+           cmd  => fun(#{sock := Sock, recv := Recv}) ->
+                           case Recv(Sock) of
+                               {ok, ?BASIC_REP} ->
+                                   ok;
+                               {ok, UnexpData} ->
+                                   {error, {unexpected_data, UnexpData}};
+                               {error, _} = ERROR ->
+                                   %% At the moment there is no way to get
+                                   %% status or state for the socket...
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (recv_rep)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_rep),
+                           ok
                    end},
 
          %% *** Termination ***
@@ -2984,6 +3067,45 @@ api_a_connect_tcp(InitState) ->
          #{desc => "await server ready (accept)",
            cmd  => fun(#{server := Server} = _State) ->
                            ?SEV_AWAIT_READY(Server, server, accept)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order server to recv test req (recv req)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, recv_req),
+                           ok
+                   end},
+         #{desc => "order client to send test req (send req)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send_req),
+                           ok
+                   end},
+         #{desc => "await client ready (send_req)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, send_req)
+                   end},
+         #{desc => "await server ready (recv_req)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, recv_req)
+                   end},
+         #{desc => "order client to recv test rep (send rep)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, recv_rep),
+                           ok
+                   end},
+         #{desc => "order server to send test rep (send rep)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, send_rep),
+                           ok
+                   end},
+         #{desc => "await server ready (send_rep)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, send_rep)
+                   end},
+         #{desc => "await client ready (recv_rep)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, recv_rep)
                    end},
 
 
