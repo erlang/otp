@@ -93,10 +93,16 @@ suite_str_to_map("TLS_EMPTY_RENEGOTIATION_INFO_SCSV") ->
       mac => null,
       prf => null};
 suite_str_to_map(SuiteStr)->
-    Str0 = string:trim(SuiteStr, leading, "TLS_"),
+    Str0 = string:prefix(SuiteStr, "TLS_"),
     case string:split(Str0, "_WITH_") of
         [Rest] ->
             tls_1_3_suite_str_to_map(Rest);
+        [Prefix, Kex | Rest] when Prefix == "SPR"; 
+                                  Prefix == "PSK";                                  
+                                  Prefix == "DHE"; 
+                                  Prefix == "ECDHE" 
+                                  ->
+            pre_tls_1_3_suite_str_to_map(Prefix ++ "_" ++ Kex, Rest);
         [Kex| Rest] ->
             pre_tls_1_3_suite_str_to_map(Kex, Rest)
     end.
@@ -108,9 +114,15 @@ suite_map_to_openssl_str(#{key_exchange := any,
 suite_map_to_openssl_str(#{key_exchange := null} = Suite) ->
     %% TLS_EMPTY_RENEGOTIATION_INFO_SCSV
     suite_map_to_str(Suite);
+suite_map_to_openssl_str(#{key_exchange := rsa = Kex,
+                           cipher := Cipher,
+                           mac := Mac}) when Cipher == "des_cbc";
+                                             Cipher == "3des_ede_cbc" ->
+    openssl_cipher_name(Kex, string:to_upper(atom_to_list(Cipher))) ++
+        "-" ++ string:to_upper(atom_to_list(Mac));
 suite_map_to_openssl_str(#{key_exchange := Kex,
-                       cipher := chacha20_poly1305 = Cipher,
-                       mac := aead}) ->
+                           cipher := chacha20_poly1305 = Cipher,
+                           mac := aead}) ->
     openssl_suite_start(string:to_upper(atom_to_list(Kex))) 
         ++  openssl_cipher_name(Kex, string:to_upper(atom_to_list(Cipher)));
 suite_map_to_openssl_str(#{key_exchange := Kex,
@@ -130,6 +142,12 @@ suite_map_to_openssl_str(#{key_exchange := Kex,
 
 suite_openssl_str_to_map("TLS_" ++ _ = SuiteStr) ->
     suite_str_to_map(SuiteStr);
+suite_openssl_str_to_map("DES-CBC-SHA") ->
+    suite_str_to_map("TLS_RSA_WITH_DES_CBC_SHA");
+suite_openssl_str_to_map("DES-CBC3-SHA") ->
+    suite_str_to_map("TLS_RSA_WITH_3DES_EDE_CBC_SHA");
+suite_openssl_str_to_map("SRP-DSS-DES-CBC3-SHA") ->
+    suite_str_to_map("TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA");
 suite_openssl_str_to_map("DHE-RSA-" ++ Rest) ->
     suite_openssl_str_to_map("DHE-RSA", Rest);
 suite_openssl_str_to_map("DHE-DSS-" ++ Rest) ->
@@ -164,6 +182,8 @@ suite_openssl_str_to_map("PSK-" ++ Rest) ->
     suite_openssl_str_to_map("PSK", Rest);
 suite_openssl_str_to_map("SRP-RSA-" ++ Rest) ->
     suite_openssl_str_to_map("SRP-RSA", Rest);
+suite_openssl_str_to_map("SRP-DSS-" ++ Rest) ->
+    suite_openssl_str_to_map("SRP-DSS", Rest);
 suite_openssl_str_to_map("SRP-" ++ Rest) ->
     suite_openssl_str_to_map("SRP", Rest).
 
@@ -451,7 +471,7 @@ suite_bin_to_map(?TLS_PSK_WITH_AES_256_CBC_SHA384) ->
     #{key_exchange => psk, 
       cipher => aes_256_cbc, 
       mac => sha384, 
-      prf => default_prf};
+      prf => sha384};
 suite_bin_to_map(?TLS_DHE_PSK_WITH_AES_128_CBC_SHA256) ->
     #{key_exchange => dhe_psk, 
       cipher => aes_128_cbc, 
@@ -461,7 +481,7 @@ suite_bin_to_map(?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384) ->
     #{key_exchange => dhe_psk, 
       cipher => aes_256_cbc, 
       mac => sha384, 
-      prf => default_prf};
+      prf => sha384};
 suite_bin_to_map(?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256) ->
     #{key_exchange => rsa_psk, 
       cipher => aes_128_cbc, 
@@ -471,7 +491,7 @@ suite_bin_to_map(?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384) ->
     #{key_exchange => rsa_psk, 
       cipher => aes_256_cbc, 
       mac => sha384, 
-      prf => default_prf};
+      prf => sha384};
 suite_bin_to_map(?TLS_PSK_WITH_NULL_SHA256) ->
     #{key_exchange => psk, 
       cipher => null, 
@@ -481,7 +501,7 @@ suite_bin_to_map(?TLS_PSK_WITH_NULL_SHA384) ->
     #{key_exchange => psk, 
       cipher => null, 
       mac => sha384, 
-      prf => default_prf};
+      prf => sha384};
 suite_bin_to_map(?TLS_DHE_PSK_WITH_NULL_SHA256) ->
     #{key_exchange => dhe_psk, 
       cipher => null, 
@@ -491,7 +511,7 @@ suite_bin_to_map(?TLS_DHE_PSK_WITH_NULL_SHA384) ->
     #{key_exchange => dhe_psk, 
       cipher => null, 
       mac => sha384, 
-      prf => default_prf};
+      prf => sha384};
 suite_bin_to_map(?TLS_RSA_PSK_WITH_NULL_SHA256) ->
     #{key_exchange => rsa_psk, 
       cipher => null, 
@@ -501,7 +521,7 @@ suite_bin_to_map(?TLS_RSA_PSK_WITH_NULL_SHA384) ->
     #{key_exchange => rsa_psk, 
       cipher => null, 
       mac => sha384, 
-      prf => default_prf};
+      prf => sha384};
 %%% ECDHE PSK Cipher Suites RFC 5489
 suite_bin_to_map(?TLS_ECDHE_PSK_WITH_RC4_128_SHA) ->
     #{key_exchange => ecdhe_psk, 
@@ -532,7 +552,7 @@ suite_bin_to_map(?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA384) ->
     #{key_exchange => ecdhe_psk, 
       cipher => aes_256_cbc, 
       mac => sha384, 
-      prf => default_prf};
+      prf => sha384};
 suite_bin_to_map(?TLS_ECDHE_PSK_WITH_NULL_SHA256) ->
     #{key_exchange => ecdhe_psk, 
       cipher => null, 
@@ -541,7 +561,7 @@ suite_bin_to_map(?TLS_ECDHE_PSK_WITH_NULL_SHA256) ->
 suite_bin_to_map(?TLS_ECDHE_PSK_WITH_NULL_SHA384) ->
     #{key_exchange => ecdhe_psk, 
       cipher => null, mac => sha384, 
-      prf => default_prf};
+      prf => sha384};
 %%% ECDHE_PSK with AES-GCM and AES-CCM Cipher Suites, draft-ietf-tls-ecdhe-psk-aead-05
 suite_bin_to_map(?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256) ->
     #{key_exchange => ecdhe_psk, 
@@ -557,12 +577,12 @@ suite_bin_to_map(?TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256) ->
      #{key_exchange => ecdhe_psk, 
       cipher => aes_128_ccm, 
        mac => null, 
-       prf =>sha256};
+       prf => sha256};
 suite_bin_to_map(?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256) ->
     #{key_exchange => ecdhe_psk, 
       cipher => aes_128_ccm_8, 
       mac => null, 
-      prf =>sha256};
+      prf => sha256};
 %%% SRP Cipher Suites RFC 5054
 suite_bin_to_map(?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA) ->
     #{key_exchange => srp_anon, 
@@ -1704,7 +1724,7 @@ suite_map_to_bin(#{key_exchange := any,
 
 
 tls_1_3_suite_str_to_map(CipherStr) ->
-    {Cipher, Mac, Prf} = cipher_str_to_algs(CipherStr, ""),
+    {Cipher, Mac, Prf} = cipher_str_to_algs(any, CipherStr, ""),
     #{key_exchange => any,
       mac => Mac,
       cipher => Cipher,
@@ -1714,36 +1734,55 @@ tls_1_3_suite_str_to_map(CipherStr) ->
 pre_tls_1_3_suite_str_to_map(KexStr, Rest) ->
     Kex = algo_str_to_atom(KexStr),
     [CipherStr, AlgStr] = string:split(Rest, "_", trailing),
-    {Cipher, Mac, Prf} = cipher_str_to_algs(CipherStr, AlgStr),
+    {Cipher, Mac, Prf} = cipher_str_to_algs(Kex, CipherStr, AlgStr),
     #{key_exchange => Kex,
       mac => Mac,
       cipher => Cipher,
       prf => Prf   
      }.
                 
-cipher_str_to_algs(CipherStr, "CCM"= End) -> %% PRE TLS 1.3
+cipher_str_to_algs(_, CipherStr, "CCM"= End) -> %% PRE TLS 1.3
     Cipher = algo_str_to_atom(CipherStr ++ "_" ++ End),
     {Cipher, aead, sha256};
-cipher_str_to_algs(CipherStr, "8" = End) -> %% PRE TLS 1.3
+cipher_str_to_algs(_, CipherStr, "8" = End) -> %% PRE TLS 1.3
     Cipher = algo_str_to_atom(CipherStr ++ "_" ++ End),
     {Cipher, aead, sha256};
-cipher_str_to_algs(CipherStr, "CHACHA20_POLY1305" = End) -> %% PRE TLS 1.3
+cipher_str_to_algs(_, CipherStr, "CHACHA20_POLY1305" = End) -> %% PRE TLS 1.3
     Cipher = algo_str_to_atom(CipherStr ++ "_" ++ End),
     {Cipher, aead, sha256};
-cipher_str_to_algs(CipherStr0, "") -> %% TLS 1.3
+cipher_str_to_algs(_, CipherStr0, "") -> %% TLS 1.3
     [CipherStr, AlgStr] = string:split(CipherStr0, "_", trailing),
     Hash = algo_str_to_atom(AlgStr),
     Cipher = algo_str_to_atom(CipherStr),
     {Cipher, aead, Hash};
-cipher_str_to_algs(CipherStr, HashStr) -> %% PRE TLS 1.3
+cipher_str_to_algs(Kex, CipherStr, HashStr) -> %% PRE TLS 1.3
     Hash = algo_str_to_atom(HashStr),
     Cipher = algo_str_to_atom(CipherStr),
     case is_aead_cipher(CipherStr) of
         true ->
             {Cipher, aead, Hash};
         false ->
-            {Cipher, Hash, default_prf}
+            {Cipher, Hash, default_prf(Kex, Hash)}
     end.
+
+default_prf(_, md5) ->
+    default_prf;
+default_prf(_, sha) ->
+    default_prf;
+default_prf(ecdhe_ecdsa, sha256) ->
+    sha256;
+default_prf(ecdhe_rsa, sha256) ->
+    sha256;
+default_prf(dhe_rsa, sha256) ->
+    default_prf;
+default_prf(dhe_dss, sha256) ->
+    default_prf;
+default_prf(rsa, sha256) ->
+    default_prf;
+default_prf(rsa_psk, sha256) ->
+    default_prf;
+default_prf(_, Hash) ->
+    Hash.
 
 %% PRE TLS 1.3
 is_aead_cipher("CHACHA20_POLY1305") ->
@@ -1762,10 +1801,13 @@ openssl_is_aead_cipher(CipherStr) ->
             false
     end.  
 
+algo_str_to_atom("SRP_SHA_DSS") ->
+    srp_dss;
 algo_str_to_atom(AlgoStr) ->
     erlang:list_to_existing_atom(string:to_lower(AlgoStr)).
 
-
+openssl_cipher_name(_, "3DES_EDE_CBC" ++ _) ->
+    "DES-CBC3";
 openssl_cipher_name(Kex, "AES_128_CBC" ++ _ = CipherStr) when Kex == rsa;
                                                               Kex == dhe_rsa;
                                                               Kex == ecdhe_rsa;
@@ -1828,6 +1870,10 @@ cipher_name_from_openssl("AES128-GCM") ->
     "AES_128_GCM";
 cipher_name_from_openssl("AES256-GCM") ->
     "AES_256_GCM";
+cipher_name_from_openssl("DES-CBC") ->
+    "DES_CBC";
+cipher_name_from_openssl("DES-CBC3") ->
+    "3DES_EDE_CBC";
 cipher_name_from_openssl("RC4") ->
     "RC4_128";
 cipher_name_from_openssl(Str) ->
@@ -1842,7 +1888,7 @@ openssl_name_concat(Str0) ->
 suite_openssl_str_to_map(Kex0, Rest) ->
     Kex = algo_str_to_atom(kex_name_from_openssl(Kex0)),
     [CipherStr, AlgStr] = string:split(Rest, "-", trailing),
-    {Cipher, Mac, Prf} = openssl_cipher_str_to_algs(CipherStr, AlgStr),
+    {Cipher, Mac, Prf} = openssl_cipher_str_to_algs(Kex, CipherStr, AlgStr),
     #{key_exchange => Kex,
       mac => Mac,
       cipher => Cipher,
@@ -1850,31 +1896,24 @@ suite_openssl_str_to_map(Kex0, Rest) ->
      }.
 
 %% Does only need own implementation PRE TLS 1.3 
-openssl_cipher_str_to_algs(CipherStr, "CCM"= End) -> 
+openssl_cipher_str_to_algs(_, CipherStr, "CCM"= End) -> 
     Cipher = algo_str_to_atom(CipherStr ++ "_" ++ End),
     {Cipher, aead, sha256};
-openssl_cipher_str_to_algs(CipherStr, "8" = End) -> 
+openssl_cipher_str_to_algs(_, CipherStr, "8" = End) -> 
     Cipher = algo_str_to_atom(CipherStr ++ "_" ++ End),
     {Cipher, aead, sha256};
-openssl_cipher_str_to_algs(CipherStr, "POLY1305" = End) -> 
+openssl_cipher_str_to_algs(_, CipherStr, "POLY1305" = End) -> 
     Cipher = algo_str_to_atom(CipherStr ++ "_" ++ End),
     {Cipher, aead, sha256};
-openssl_cipher_str_to_algs(CipherStr, HashStr) ->
+openssl_cipher_str_to_algs(Kex, CipherStr, HashStr) ->
     Hash = algo_str_to_atom(HashStr),
     Cipher = algo_str_to_atom(cipher_name_from_openssl(CipherStr)),
     case openssl_is_aead_cipher(CipherStr) of
         true ->
             {Cipher, aead, Hash};
         false ->
-            {Cipher, Hash, openssl_prf(Hash)}
+            {Cipher, Hash, default_prf(Kex, Hash)}
     end.
-
-openssl_prf(sha256)->
-    sha256;
-openssl_prf(sha384) ->
-    sha384;
-openssl_prf(_) ->
-    default_prf.
 
 
 

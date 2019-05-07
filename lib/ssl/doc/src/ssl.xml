@@ -1132,6 +1132,15 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
+      <name name="cipher_suites" arity="3" since="OTP 22.0"/>
+      <fsummary>Returns a list of RFC or OpenSSL names</fsummary>
+      <desc><p>Same as <seealso marker="#cipher_suites-2">cipher_suites/2</seealso>
+      but lists RFC or OpenSSL string names instead of <seealso marker="#type-erl_cipher_suite">erl_cipher_suite()</seealso>
+    </p>
+    </desc>
+    </func>
+    
+    <func>
       <name name="eccs" arity="0" since="OTP 19.2"/>
       <name name="eccs" arity="1" since="OTP 19.2"/>
       <fsummary>Returns a list of supported ECCs.</fsummary>
@@ -1563,12 +1572,36 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <p>Stops the SSL application.</p>
       </desc>
     </func>
+  
+    <func>
+      <name since="OTP 22.0" name="str_to_suite" arity="1" />
+      <fsummary>Converts an RFC or OpenSSL name string to an erlang cipher suite format</fsummary>
+      <desc>
+        <p>Converts an RFC or OpenSSL name string to an
+	<seealso marker="#type-erl_cipher_suite">erl_cipher_suite()</seealso>
+	Returns an error if the cipher suite is not supported or the name is not a valid cipher suite name.</p>
+      </desc>
+    </func>
 
     <func>
-      <name since="OTP 21.0" name="suite_to_str" arity="1" clause_i="1" />
-      <fsummary>Returns the string representation of a cipher suite.</fsummary>
+      <name since="OTP 22.0" name="suite_to_openssl_str" arity="1" />
+      <fsummary>Converts erlang cipher suite format to an OpenSSL name string.
+      </fsummary>
       <desc>
-        <p>Returns the string representation of a cipher suite.</p>
+        <p>Converts <seealso marker="#type-erl_cipher_suite">erl_cipher_suite()</seealso>
+	to OpenSSL name string. </p>
+	
+	<p>PRE TLS-1.3 these names differ for RFC names</p>
+	
+      </desc>
+    </func>
+    
+    <func>
+      <name since="OTP 21.0" name="suite_to_str" arity="1" clause_i="1" />
+      <fsummary>Converts an erlang cipher suite to an RFC name string.</fsummary>
+      <desc>
+        <p>Converts <seealso marker="#type-erl_cipher_suite">erl_cipher_suite()</seealso>
+	to RFC name string.</p>
       </desc>
     </func>
 
