@@ -62,7 +62,7 @@
          close/5, protocol_name/0]).
 
 %% Data handling
--export([next_record/1, socket/4, setopts/3, getopts/3]).
+-export([socket/4, setopts/3, getopts/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
