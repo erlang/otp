@@ -594,10 +594,13 @@ unused_ip() ->
     io:format("we = ~p, unused_ip = ~p~n", [Hent, IP]),
     IP.
 
-unused_ip(_, _, _, 255) -> error;
+unused_ip(255, 255, 255, 255) -> error;
+unused_ip(255, B, C, D) -> unused_ip(1, B + 1, C, D);
+unused_ip(A, 255, C, D) -> unused_ip(A, 1, C + 1, D);
+unused_ip(A, B, 255, D) -> unused_ip(A, B, 1, D + 1);
 unused_ip(A, B, C, D) ->
     case inet:gethostbyaddr({A, B, C, D}) of
-	{ok, _} -> unused_ip(A, B, C, D+1);
+	{ok, _} -> unused_ip(A + 1, B, C, D);
 	{error, _} -> {ok, {A, B, C, D}}
     end.
 
