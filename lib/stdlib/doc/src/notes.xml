@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug in gen_statem has been fixed where the internal
+	    timeout message could arrive as an info to the callback
+	    module during high load due to incorrect use of
+	    asynchronous timer cancel.</p>
+          <p>
+	    Own Id: OTP-15295</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

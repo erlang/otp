@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed more bugs in <c>process_info(reductions)</c>
+	    causing it to sometimes behave non-monotonic. That is, a
+	    subsequent call toward the same process could return a
+	    lower reduction value.</p>
+          <p>
+	    Own Id: OTP-15793 Aux Id: ERIERL-337, OTP-15709 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
