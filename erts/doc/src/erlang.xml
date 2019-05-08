@@ -3016,6 +3016,7 @@ false</code>
   Map = #{42 => value_two,1337 => "value one","a" => 1},
   map_get(Key,Map).
 "value one"</code>
+        <p>Allowed in guard tests.</p>
       </desc>
     </func>
 
