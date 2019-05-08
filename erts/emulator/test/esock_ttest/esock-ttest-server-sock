@@ -37,7 +37,7 @@ if [ $# = 2 ]; then
 	ASYNC=
     fi
 
-    ACTIVE="--active $async"
+    ACTIVE="--active $active"
 
 else
     echo "<ERROR> Missing args: async and active"
