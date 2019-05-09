@@ -105,7 +105,7 @@ client_hello(Host, Port, ConnectionStates,
 		   {tls_record:tls_version(), {resumed | new, #session{}}, 
 		    ssl_record:connection_states(), binary() | undefined, 
                     HelloExt::map(), {ssl:hash(), ssl:sign_algo()} | 
-                    undefined} | #alert{}.
+                    undefined} | {atom(), atom()} |#alert{}.
 %%
 %% Description: Handles a received hello message
 %%--------------------------------------------------------------------
@@ -148,29 +148,48 @@ hello(#server_hello{server_version = {Major, Minor},
 %%
 %% - If "supported_version" is present (ServerHello):
 %%   - Abort handshake with an "illegal_parameter" alert
-hello(#server_hello{server_version = Version,
+hello(#server_hello{server_version = LegacyVersion,
+                    random = Random,
+		    cipher_suite = CipherSuite,
+		    compression_method = Compression,
+		    session_id = SessionId,
                     extensions = #{server_hello_selected_version :=
-                                       #server_hello_selected_version{selected_version = Version}}
+                                       #server_hello_selected_version{selected_version = Version} = HelloExt}
                    },
-      #ssl_options{versions = SupportedVersions},
-      _ConnectionStates0, _Renegotiation) ->
-    case tls_record:is_higher({3,4}, Version) of
+      #ssl_options{versions = SupportedVersions} = SslOpt,
+      ConnectionStates0, Renegotiation) ->
+    %% In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension
+    %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
+    %% number for TLS 1.2.
+    %% The "supported_versions" extension is supported from TLS 1.2.
+    case LegacyVersion > {3,3} orelse
+        LegacyVersion =:= {3,3} andalso Version < {3,3} of
         true ->
             ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
         false ->
             case tls_record:is_acceptable_version(Version, SupportedVersions) of
                 true ->
-                    %% Implement TLS 1.3 statem ???
-                    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION);
+                    case Version of
+                        {3,3} ->
+                            %% TLS 1.2 ServerHello with "supported_versions" (special case)
+                            handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
+                                                           Compression, HelloExt, SslOpt,
+                                                           ConnectionStates0, Renegotiation);
+                        {3,4} ->
+                            %% TLS 1.3
+                            {next_state, wait_sh}
+                    end;
                 false ->
                     ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
             end
     end;
 
-hello(#server_hello{server_version = Version, random = Random,
+hello(#server_hello{server_version = Version,
+                    random = Random,
 		    cipher_suite = CipherSuite,
 		    compression_method = Compression,
-		    session_id = SessionId, extensions = HelloExt},
+		    session_id = SessionId,
+                    extensions = HelloExt},
       #ssl_options{versions = SupportedVersions} = SslOpt,
       ConnectionStates0, Renegotiation) ->
     case tls_record:is_acceptable_version(Version, SupportedVersions) of

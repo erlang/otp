@@ -46,7 +46,10 @@
          do_negotiated/2,
          do_wait_cert/2,
          do_wait_cv/2,
-         do_wait_finished/2]).
+         do_wait_finished/2,
+         do_wait_sh/2,
+         do_wait_ee/2,
+         do_wait_cert_cr/2]).
 
 %%====================================================================
 %% Create handshake messages
@@ -79,6 +82,9 @@ server_hello_random(server_hello, #security_parameters{server_random = Random}) 
 %%   CF 21 AD 74 E5 9A 61 11 BE 1D 8C 02 1E 65 B8 91
 %%   C2 A2 11 16 7A BB 8C 5E 07 9E 09 E2 C8 A8 33 9C
 server_hello_random(hello_retry_request, _) ->
+    hello_retry_request_random().
+
+hello_retry_request_random() ->
     crypto:hash(sha256, "HelloRetryRequest").
 
 
@@ -436,7 +442,6 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                            signature_algs = ServerSignAlgs,
                                            supported_groups = ServerGroups0},
                 session = #session{own_certificate = Cert}} = State0) ->
-
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     ClientGroups = get_supported_groups(ClientGroups0),
     ServerGroups = get_supported_groups(ServerGroups0),
@@ -515,7 +520,7 @@ do_negotiated(start_handshake,
                                         own_certificate = OwnCert,
                                         ecc = SelectedGroup,
                                         sign_alg = SignatureScheme,
-                                        dh_public_value = ClientKey},
+                                        dh_public_value = ClientPublicKey},
                      ssl_options = #ssl_options{} = SslOpts,
                      key_share = KeyShare,
                      handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
@@ -526,6 +531,8 @@ do_negotiated(start_handshake,
                                      socket = _Socket,
                                      transport_cb = _Transport}
                     } = State0) ->
+    ServerPrivateKey = get_server_private_key(KeyShare),
+
     {Ref,Maybe} = maybe(),
 
     try
@@ -536,7 +543,7 @@ do_negotiated(start_handshake,
         {State1, _} = tls_connection:send_handshake(ServerHello, State0),
 
         State2 =
-            calculate_handshake_secrets(ClientKey, SelectedGroup, KeyShare, State1),
+            calculate_handshake_secrets(ClientPublicKey, ServerPrivateKey, SelectedGroup, State1),
 
         State3 = ssl_record:step_encryption_state(State2),
 
@@ -596,7 +603,8 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
     end.
 
 
-do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, State0) ->
+do_wait_cv(#certificate_verify_1_3{} = CertificateVerify,
+           #state{static_env = #static_env{role = server}} = State0) ->
     {Ref,Maybe} = maybe(),
     try
         Maybe(verify_signature_algorithm(State0, CertificateVerify)),
@@ -608,7 +616,26 @@ do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, State0) ->
             {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {verify, badarg}), State};
         {Ref, {{handshake_failure, Reason}, State}} ->
             {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {handshake_failure, Reason}), State}
+    end;
+do_wait_cv(#certificate_verify_1_3{} = _CertificateVerify,
+           #state{static_env = #static_env{role = client}} = State0) ->
+    {Ref,_Maybe} = maybe(),
+    try
+        %% TODO: implement validation
+        %% Maybe(verify_signature_algorithm(State0, CertificateVerify)),
+        %% Maybe(verify_certificate_verify(State0, CertificateVerify))
+        {State0, wait_finished}
+    catch
+        {Ref, {{bad_certificate, Reason}, State}} ->
+            {?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, {bad_certificate, Reason}), State};
+        {Ref, {badarg, State}} ->
+            {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {verify, badarg}), State};
+        {Ref, {{handshake_failure, Reason}, State}} ->
+            {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {handshake_failure, Reason}), State}
     end.
+
+
+
 
 
 do_wait_finished(#finished{verify_data = VerifyData},
@@ -619,6 +646,7 @@ do_wait_finished(#finished{verify_data = VerifyData},
                      key_share = _KeyShare,
                      handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
                      static_env = #static_env{
+                                     role = server,
                                      cert_db = _CertDbHandle,
                                      cert_db_ref = _CertDbRef,
                                      socket = _Socket,
@@ -639,6 +667,141 @@ do_wait_finished(#finished{verify_data = VerifyData},
     catch
         {Ref, decrypt_error} ->
             ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)
+    end;
+do_wait_finished(#finished{verify_data = _VerifyData},
+              #state{connection_states = _ConnectionStates0,
+                     session = #session{session_id = _SessionId,
+                                        own_certificate = _OwnCert},
+                     ssl_options = #ssl_options{} = _SslOpts,
+                     key_share = _KeyShare,
+                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
+                     static_env = #static_env{
+                                     role = client,
+                                     cert_db = _CertDbHandle,
+                                     cert_db_ref = _CertDbRef,
+                                     socket = _Socket,
+                                     transport_cb = _Transport}
+                    } = State0) ->
+    {Ref,_Maybe} = maybe(),
+
+    try
+        %% Maybe(validate_client_finished(State0, VerifyData)),
+
+        %% Maybe send Certificate + CertificateVerify
+
+        %% Send Finished
+        %% Create Finished
+        Finished = finished(State0),
+
+        %% Encode Finished
+        State1 = tls_connection:queue_handshake(Finished, State0),
+
+        %% Send first flight
+        {State2, _} = tls_connection:send_handshake_flight(State1),
+
+        State3 = calculate_traffic_secrets(State2),
+
+        %% Configure traffic keys
+        ssl_record:step_encryption_state(State3)
+
+    catch
+        {Ref, decrypt_error} ->
+            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)
+    end.
+
+
+
+do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
+                         session_id = SessionId,
+                         extensions = Extensions} = ServerHello,
+           #state{connection_states = _ConnectionStates0,
+                  key_share = ClientKeyShare0,
+                  ssl_options = #ssl_options{ciphers = _ClientCiphers,
+                                             signature_algs = _ClientSignAlgs,
+                                             supported_groups = _ClientGroups},
+                  session = #session{own_certificate = _Cert}} = State0) ->
+    ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
+    ServerKeyShare = get_key_shares(ServerKeyShare0),
+    ClientKeyShare = get_key_shares(ClientKeyShare0),
+
+    {Ref,Maybe} = maybe(),
+    try
+        %% Go to state 'start' if server replies with 'HelloRetryRequest'.
+        Maybe(maybe_hello_retry_request(ServerHello, State0)),
+
+        %% TODO: implement validation
+        %% Maybe(validate_cipher_suite(SelectedCipherSuite, ClientCiphers)),
+        %% Maybe(validate_key_share(ServerKeyShare, ClientGroups)),
+
+        %% Get server public key
+        {SelectedGroup, ServerPublicKey} = get_server_public_key(ServerKeyShare),
+
+        {_, ClientPrivateKey} = get_client_private_key([SelectedGroup], ClientKeyShare),
+
+        %% Update state
+        State1 = update_start_state(State0, SelectedCipherSuite, ClientKeyShare0, SessionId,
+                                    SelectedGroup, todo, ServerPublicKey),
+
+        State2 = calculate_handshake_secrets(ServerPublicKey, ClientPrivateKey, SelectedGroup, State1),
+
+        State3 = ssl_record:step_encryption_state(State2),
+
+        {State3, wait_ee}
+
+    catch
+        {Ref, {new_state, State, StateName}} ->
+            {State, StateName};
+        {Ref, {insufficient_security, no_suitable_groups}} ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
+        {Ref, illegal_parameter} ->
+            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+        {Ref, no_suitable_cipher} ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
+        {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
+        {Ref, {insufficient_security, no_suitable_public_key}} ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)
+    end.
+
+
+do_wait_ee(#encrypted_extensions{extensions = _Extensions} = _EE,
+           #state{connection_states = _ConnectionStates0,
+                  ssl_options = #ssl_options{ciphers = _ServerCiphers,
+                                             signature_algs = _ServerSignAlgs,
+                                             supported_groups = _ServerGroups0},
+                  session = #session{own_certificate = _Cert}} = State0) ->
+    {Ref,_Maybe} = maybe(),
+    try
+        {State0, wait_cert_cr}
+    catch
+        {Ref, {insufficient_security, no_suitable_groups}} ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
+        {Ref, illegal_parameter} ->
+            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+        {Ref, no_suitable_cipher} ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
+        {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
+        {Ref, {insufficient_security, no_suitable_public_key}} ->
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)
+    end.
+
+
+do_wait_cert_cr(#certificate_1_3{} = _Certificate, State0) ->
+    {Ref,_Maybe} = maybe(),
+    try
+        %% TODO: implement validation
+        %% Maybe(process_server_certificate(Certificate, State0))
+        {State0, wait_cv}
+    catch
+        {Ref, {certificate_required, _State}} ->
+            ?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required);
+        {Ref, {{certificate_unknown, Reason}, _State}} ->
+            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason);
+        {Ref, {{internal_error, Reason}, _State}} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason);
+        {Ref, {{handshake_failure, Reason}, _State}} ->
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason)
     end.
 
 
@@ -651,6 +814,25 @@ do_wait_finished(#finished{verify_data = VerifyData},
 %%     State = ssl_record:step_encryption_state(State1),
 %%     {error, {not_implemented, State, Reason}}.
 
+
+%% For reasons of backward compatibility with middleboxes (see
+%% Appendix D.4), the HelloRetryRequest message uses the same structure
+%% as the ServerHello, but with Random set to the special value of the
+%% SHA-256 of "HelloRetryRequest":
+%%
+%%   CF 21 AD 74 E5 9A 61 11 BE 1D 8C 02 1E 65 B8 91
+%%   C2 A2 11 16 7A BB 8C 5E 07 9E 09 E2 C8 A8 33 9C
+%%
+%% Upon receiving a message with type server_hello, implementations MUST
+%% first examine the Random value and, if it matches this value, process
+%% it as described in Section 4.1.4).
+maybe_hello_retry_request(#server_hello{cipher_suite = Random}, State0) ->
+    case Random =:= hello_retry_request_random() of
+        true ->
+            {error, State0, start};
+        false ->
+            ok
+    end.
 
 
 %% Recipients of Finished messages MUST verify that the contents are
@@ -861,7 +1043,7 @@ message_hash(ClientHello1, HKDFAlgo) ->
      crypto:hash(HKDFAlgo, ClientHello1)].
 
 
-calculate_handshake_secrets(ClientKey, SelectedGroup, KeyShare,
+calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup,
                               #state{connection_states = ConnectionStates,
                                      handshake_env =
                                          #handshake_env{
@@ -874,9 +1056,8 @@ calculate_handshake_secrets(ClientKey, SelectedGroup, KeyShare,
     %% Calculate handshake_secret
     PSK = binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo)),
     EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, PSK}),
-    PrivateKey = get_server_private_key(KeyShare),  %% #'ECPrivateKey'{}
 
-    IKM = calculate_shared_secret(ClientKey, PrivateKey, SelectedGroup),
+    IKM = calculate_shared_secret(PublicKey, PrivateKey, SelectedGroup),
     HandshakeSecret = tls_v1:key_schedule(handshake_secret, HKDFAlgo, IKM, EarlySecret),
 
     %% Calculate [sender]_handshake_traffic_secret
@@ -899,10 +1080,13 @@ calculate_handshake_secrets(ClientKey, SelectedGroup, KeyShare,
                                      ReadKey, ReadIV, ReadFinishedKey,
                                      WriteKey, WriteIV, WriteFinishedKey).
 
-calculate_traffic_secrets(#state{connection_states = ConnectionStates,
-                                 handshake_env =
-                                     #handshake_env{
-                                        tls_handshake_history = HHistory}} = State0) ->
+
+calculate_traffic_secrets(#state{
+                             static_env = #static_env{role = Role},
+                             connection_states = ConnectionStates,
+                             handshake_env =
+                                 #handshake_env{
+                                    tls_handshake_history = HHistory}} = State0) ->
     #{security_parameters := SecParamsR} =
         ssl_record:pending_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDFAlgo,
@@ -913,7 +1097,7 @@ calculate_traffic_secrets(#state{connection_states = ConnectionStates,
         tls_v1:key_schedule(master_secret, HKDFAlgo, HandshakeSecret),
 
     %% Get the correct list messages for the handshake context.
-    Messages = get_handshake_context(HHistory),
+    Messages = get_handshake_context(Role, HHistory),
 
     %% Calculate [sender]_application_traffic_secret_0
     ClientAppTrafficSecret0 =
@@ -966,9 +1150,11 @@ calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
     public_key:compute_key(Point, MyKey).
 
 
-update_pending_connection_states(#state{connection_states =
-                                            CS = #{pending_read := PendingRead0,
-                                                   pending_write := PendingWrite0}} = State,
+update_pending_connection_states(#state{
+                                    static_env = #static_env{role = server},
+                                    connection_states =
+                                        CS = #{pending_read := PendingRead0,
+                                               pending_write := PendingWrite0}} = State,
                                  HandshakeSecret,
                                  ReadKey, ReadIV, ReadFinishedKey,
                                  WriteKey, WriteIV, WriteFinishedKey) ->
@@ -977,7 +1163,22 @@ update_pending_connection_states(#state{connection_states =
     PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret,
                                            WriteKey, WriteIV, WriteFinishedKey),
     State#state{connection_states = CS#{pending_read => PendingRead,
+                                        pending_write => PendingWrite}};
+update_pending_connection_states(#state{
+                                    static_env = #static_env{role = client},
+                                    connection_states =
+                                        CS = #{pending_read := PendingRead0,
+                                               pending_write := PendingWrite0}} = State,
+                                 HandshakeSecret,
+                                 ReadKey, ReadIV, ReadFinishedKey,
+                                 WriteKey, WriteIV, WriteFinishedKey) ->
+    PendingRead = update_connection_state(PendingRead0, HandshakeSecret,
+                                          WriteKey, WriteIV, WriteFinishedKey),
+    PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret,
+                                           ReadKey, ReadIV, ReadFinishedKey),
+    State#state{connection_states = CS#{pending_read => PendingRead,
                                         pending_write => PendingWrite}}.
+
 
 update_connection_state(ConnectionState = #{security_parameters := SecurityParameters0},
                         HandshakeSecret, Key, IV, FinishedKey) ->
@@ -1071,12 +1272,19 @@ get_handshake_context_cv({[<<15,_/binary>>|Messages], _}) ->
 %%
 %% Drop all client messages from the front of the iolist using the property that
 %% incoming messages are binaries.
-get_handshake_context({Messages, _}) ->
-    get_handshake_context(Messages);
-get_handshake_context([H|T]) when is_binary(H) ->
-    get_handshake_context(T);
-get_handshake_context(L) ->
+get_handshake_context(server, {Messages, _}) ->
+    get_handshake_context_server(Messages);
+get_handshake_context(client, {Messages, _}) ->
+    get_handshake_context_client(Messages).
+
+get_handshake_context_server([H|T]) when is_binary(H) ->
+    get_handshake_context_server(T);
+get_handshake_context_server(L) ->
     L.
+
+%% TODO: tested only with basic handshake!
+get_handshake_context_client([_H|T]) ->
+    T.
 
 
 %% If sent by a client, the signature algorithm used in the signature
@@ -1196,6 +1404,27 @@ get_client_public_key([Group|Groups], ClientShares, PreferredGroup) ->
          false ->
              get_client_public_key(Groups, ClientShares, PreferredGroup)
      end.
+
+get_client_private_key([Group|_] = Groups, ClientShares) ->
+    get_client_private_key(Groups, ClientShares, Group).
+%%
+get_client_private_key(_, [], PreferredGroup) ->
+    {PreferredGroup, no_suitable_key};
+get_client_private_key([], _, PreferredGroup) ->
+    {PreferredGroup, no_suitable_key};
+get_client_private_key([Group|Groups], ClientShares, PreferredGroup) ->
+     case lists:keysearch(Group, 2, ClientShares) of
+         {value, {_, _, {_, ClientPrivateKey}}} ->
+             {Group, ClientPrivateKey};
+         {value, {_, _, #'ECPrivateKey'{} = ClientPrivateKey}} ->
+             {Group, ClientPrivateKey};
+         false ->
+             get_client_private_key(Groups, ClientShares, PreferredGroup)
+     end.
+
+
+get_server_public_key({key_share_entry, Group, PublicKey}) ->
+                             {Group, PublicKey}.
 
 
 %% get_client_public_key(Group, ClientShares) ->
@@ -1331,7 +1560,9 @@ get_supported_groups(#supported_groups{supported_groups = Groups}) ->
     Groups.
 
 get_key_shares(#key_share_client_hello{client_shares = ClientShares}) ->
-    ClientShares.
+    ClientShares;
+get_key_shares(#key_share_server_hello{server_share = ServerShare}) ->
+    ServerShare.
 
 maybe() ->
     Ref = erlang:make_ref(),

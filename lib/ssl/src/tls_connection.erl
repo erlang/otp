@@ -394,6 +394,7 @@ queue_handshake(Handshake, #state{handshake_env = #handshake_env{tls_handshake_h
                  handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist},
 		 flight_buffer = Flight0 ++ [BinHandshake]}.
 
+
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport},
 			     flight_buffer = Flight} = State0) ->
@@ -659,10 +660,16 @@ hello(internal, #server_hello{} = Hello,
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert -> %%TODO
 	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello,
-                                            State#state{connection_env = CEnv#connection_env{negotiated_version = ReqVersion}});
+                                            State#state{connection_env =
+                                                            CEnv#connection_env{negotiated_version = ReqVersion}});
+        %% Legacy TLS 1.2 and older
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
+					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State);
+        %% TLS 1.3
+        {next_state, wait_sh} ->
+            %% Continue in TLS 1.3 'wait_sh' state
+            {next_state, wait_sh, State, [{next_event, internal, Hello}]}
     end;
 hello(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
