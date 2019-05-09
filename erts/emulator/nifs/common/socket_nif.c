@@ -17745,7 +17745,7 @@ REQ_SEARCH4PID_FUNCS
         reqP->pid = pid;                                               \
         if (MONP("reader_push -> " #F " request",                      \
                  env, descP, &pid, &reqP->mon) != 0) {                 \
-            FREE(reqP);                                                \
+            FREE(e);                                                   \
             return esock_make_error(env, atom_exmon);                  \
         }                                                              \
         reqP->env = esock_alloc_env(#F "_push");                                  \
