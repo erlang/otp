@@ -64,6 +64,39 @@
 
 </section>
 
+<section><title>Erl_Interface 3.11.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>erl_interface</c>/<c>ei</c> refused to use node names
+	    with an alive name (the part of the node name preceding
+	    the @ sign) longer than 63 characters and a host name
+	    longer than 64 characters. The total amount of characters
+	    allowed in a node name (alivename@hostname) was thus
+	    limited to 128 characters. These limits applied both to
+	    the own node name as well as node names of other nodes.
+	    Ordinary Erlang nodes limit the node name length to 256
+	    characters, which meant that you could not communicate
+	    with certain Erlang nodes due to their node name used.</p>
+          <p>
+	    <c>erl_interface</c>/<c>ei</c> now allow the total amount
+	    of characters in a node name to be up to 256 characters.
+	    These characters may be distributed between alive name
+	    and host name in whatever way needed. That is, the
+	    maximum amount of characters in the alive name may be 254
+	    and the maximum amount of characters in the host name may
+	    be 254, but in total the node name must not exceed 256
+	    characters.</p>
+          <p>
+	    Own Id: OTP-15781 Aux Id: ERIERL-356 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.11.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
