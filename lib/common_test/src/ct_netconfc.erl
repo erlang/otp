@@ -1,7 +1,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1545,12 +1545,12 @@ decode_hello({hello,_Attrs,Hello}) ->
 	    {error,{incorrect_hello,no_session_id_found}}
     end.
 
-decode_caps([{capability,[],[?NETCONF_BASE_CAP++Vsn=Cap]} |Caps], Acc, _) ->
+decode_caps([{capability,[],[?NETCONF_BASE_CAP++Vsn=Cap]} |Caps], Acc, Base) ->
     case Vsn of
 	?NETCONF_BASE_CAP_VSN ->
 	    decode_caps(Caps, [Cap|Acc], true);
-	_ ->
-	    {error,{incompatible_base_capability_vsn,Vsn}}
+	_ ->  %% unsupported version: discard
+	    decode_caps(Caps, Acc, Base)
     end;
 decode_caps([{capability,[],[Cap]}|Caps],Acc,Base) ->
     decode_caps(Caps,[Cap|Acc],Base);
