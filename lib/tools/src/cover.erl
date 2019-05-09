@@ -167,6 +167,8 @@ start() ->
 		receive 
 		    {?SERVER,started} -> 
 			{ok,Pid};
+		    {?SERVER,{error,Error}} -> 
+			{error,Error};
 		    {'DOWN', Ref, _Type, _Object, Info} -> 
 			{error,Info}
 		end,
@@ -628,21 +630,33 @@ remote_reply(MainNode,Reply) ->
 %%%----------------------------------------------------------------------
 
 init_main(Starter) ->
-    register(?SERVER,self()),
-    %% Having write concurrancy here gives a 40% performance boost
-    %% when collect/1 is called. 
-    ?COVER_TABLE = ets:new(?COVER_TABLE, [set, public, named_table,
-                                          {write_concurrency, true}]),
-    ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
+    try register(?SERVER,self()) of
+            true ->
+        %% Having write concurrancy here gives a 40% performance boost
+        %% when collect/1 is called. 
+        ?COVER_TABLE = ets:new(?COVER_TABLE, [set, public, named_table,
+                                              {write_concurrency, true}]),
+        ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
+                                                            named_table]),
+        ?BINARY_TABLE = ets:new(?BINARY_TABLE, [set, public, named_table]),
+        ?COLLECTION_TABLE = ets:new(?COLLECTION_TABLE, [set, public,
                                                         named_table]),
-    ?BINARY_TABLE = ets:new(?BINARY_TABLE, [set, public, named_table]),
-    ?COLLECTION_TABLE = ets:new(?COLLECTION_TABLE, [set, public,
-                                                    named_table]),
-    ?COLLECTION_CLAUSE_TABLE = ets:new(?COLLECTION_CLAUSE_TABLE, [set, public,
-                                                                  named_table]),
-    ok = net_kernel:monitor_nodes(true),
-    Starter ! {?SERVER,started},
-    main_process_loop(#main_state{}).
+        ?COLLECTION_CLAUSE_TABLE = ets:new(?COLLECTION_CLAUSE_TABLE,
+                                           [set, public, named_table]),
+        ok = net_kernel:monitor_nodes(true),
+        Starter ! {?SERVER,started},
+        main_process_loop(#main_state{})
+    catch
+        error:badarg ->
+            %% The server's already registered; either report that it's already
+            %% started or try again if it died before we could find its pid.
+            case whereis(?SERVER) of
+                undefined ->
+                    init_main(Starter);
+                Pid ->
+                    Starter ! {?SERVER, {error, {already_started, Pid}}}
+            end
+    end.
 
 main_process_loop(State) ->
     receive
