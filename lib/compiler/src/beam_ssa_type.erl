@@ -24,9 +24,8 @@
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
 
--import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
-                keyfind/3,reverse/1,reverse/2,
-                sort/1,split/2,zip/2]).
+-import(lists, [all/2,any/2,droplast/1,duplicate/2,foldl/3,last/1,member/2,
+                keyfind/3,reverse/1,reverse/2,sort/1,split/2,zip/2]).
 
 -define(UNICODE_MAX, (16#10FFFF)).
 
@@ -272,6 +271,12 @@ opt_is([#b_set{op=call,args=Args0,dst=Dst}=I0|Is],
                     opt_is(Is, Ts, Ds0, Fdb, D, Sub, Acc)
             end
     end;
+opt_is([#b_set{op=make_fun,args=Args0}=I0|Is],
+       Ts0, Ds0, Fdb0, D, Sub0, Acc) ->
+    Args = simplify_args(Args0, Sub0, Ts0),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    {Ts,Ds,Fdb,I} = opt_make_fun(I1, D, Ts0, Ds0, Fdb0),
+    opt_is(Is, Ts, Ds, Fdb, D, Sub0, [I|Acc]);
 opt_is([#b_set{op=succeeded,args=[Arg],dst=Dst}=I],
        Ts0, Ds0, Fdb, D, Sub0, Acc) ->
     case Ds0 of
@@ -376,19 +381,22 @@ simplify_remote_call(Mod, Name, Args0, I) ->
             end
     end.
 
-opt_call(#b_set{dst=Dst,args=[#b_var{}=Fun|Args]}=I, _D, Ts0, Ds0, Fdb) ->
-    Type = #t_fun{arity=length(Args)},
-    Ts = Ts0#{ Fun => Type, Dst => any },
-    Ds = Ds0#{ Dst => I },
-    {Ts, Ds, Fdb, I};
 opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, D, Ts0, Ds0, Fdb0) ->
     {Ts, Ds, I} = opt_local_call(I0, Ts0, Ds0, Fdb0),
     case Fdb0 of
         #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
+            %% Match contexts are treated as bitstrings when optimizing
+            %% arguments, as we don't yet support removing the
+            %% "bs_start_match3" instruction.
+            Types = [case get_type(Arg, Ts) of
+                          #t_bs_context{} -> #t_bitstring{};
+                          Type -> Type
+                     end || Arg <- Args],
+
             %% Update the argument types of *this exact call*, the types
             %% will be joined later when the callee is optimized.
             CallId = {D#d.func_id, Dst},
-            ArgTypes = update_arg_types(Args, ArgTypes0, CallId, Ts0),
+            ArgTypes = update_arg_types(Types, ArgTypes0, CallId),
 
             Fdb = Fdb0#{ Callee => Info#func_info{arg_types=ArgTypes} },
             {Ts, Ds, Fdb, I};
@@ -397,7 +405,13 @@ opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, D, Ts0, Ds0, Fdb0) ->
             %% can receive anything as part of an external call.
             {Ts, Ds, Fdb0, I}
     end;
+opt_call(#b_set{dst=Dst,args=[#b_var{}=Fun|Args]}=I, _D, Ts0, Ds0, Fdb) ->
+    Type = #t_fun{arity=length(Args)},
+    Ts = Ts0#{ Fun => Type, Dst => any },
+    Ds = Ds0#{ Dst => I },
+    {Ts, Ds, Fdb, I};
 opt_call(#b_set{dst=Dst}=I, _D, Ts0, Ds0, Fdb) ->
+    %% #b_remote{} and literal funs
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
     {Ts, Ds, Fdb, I}.
@@ -416,16 +430,37 @@ opt_local_call(#b_set{dst=Dst,args=[Id|_]}=I0, Ts0, Ds0, Fdb) ->
     Ds = Ds0#{ Dst => I },
     {Ts, Ds, I}.
 
-update_arg_types([Arg | Args], [TypeMap0 | TypeMaps], CallId, Ts) ->
-    %% Match contexts are treated as bitstrings when optimizing arguments, as
-    %% we don't yet support removing the "bs_start_match3" instruction.
-    NewType = case get_type(Arg, Ts) of
-                  #t_bs_context{} -> #t_bitstring{unit=1};
-                  Type -> Type
-              end,
-    TypeMap = TypeMap0#{ CallId => NewType },
-    [TypeMap | update_arg_types(Args, TypeMaps, CallId, Ts)];
-update_arg_types([], [], _CallId, _Ts) ->
+%% While we have no way to know which arguments a fun will be called with, we
+%% do know its free variables and can update their types as if this were a
+%% local call.
+opt_make_fun(#b_set{op=make_fun,
+                    dst=Dst,
+                    args=[#b_local{}=Callee | FreeVars]}=I,
+             D, Ts0, Ds0, Fdb0) ->
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    case Fdb0 of
+        #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
+            ArgCount = Callee#b_local.arity - length(FreeVars),
+
+            FVTypes = [get_type(FreeVar, Ts) || FreeVar <- FreeVars],
+            Types = duplicate(ArgCount, any) ++ FVTypes,
+
+            CallId = {D#d.func_id, Dst},
+            ArgTypes = update_arg_types(Types, ArgTypes0, CallId),
+
+            Fdb = Fdb0#{ Callee => Info#func_info{arg_types=ArgTypes} },
+            {Ts, Ds, Fdb, I};
+        #{} ->
+            %% We can't narrow the argument types of exported functions as they
+            %% can receive anything as part of an external call.
+            {Ts, Ds, Fdb0, I}
+    end.
+
+update_arg_types([ArgType | ArgTypes], [TypeMap0 | TypeMaps], CallId) ->
+    TypeMap = TypeMap0#{ CallId => ArgType },
+    [TypeMap | update_arg_types(ArgTypes, TypeMaps, CallId)];
+update_arg_types([], [], _CallId) ->
     [].
 
 simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->

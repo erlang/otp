@@ -145,7 +145,8 @@ prologue_passes(Opts) ->
           ?PASS(ssa_opt_linearize),
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
-          ?PASS(ssa_opt_cse),                   %Helps the first type pass.
+          ?PASS(ssa_opt_cse),                   % Helps the first type pass.
+          ?PASS(ssa_opt_live),                  % ...
           ?PASS(ssa_opt_type_start)],
     passes_1(Ps, Opts).
 
