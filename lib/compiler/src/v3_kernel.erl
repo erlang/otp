@@ -88,6 +88,7 @@
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
+-define(EXPAND_MAX_SIZE_SEGMENT, 1024).
 
 %% These are not defined in v3_kernel.hrl.
 get_kanno(Kthing) -> element(2, Kthing).
@@ -1152,7 +1153,7 @@ validate_bin_element_size(#k_int{val=V}) when V >= 0 -> ok;
 validate_bin_element_size(#k_atom{val=all}) -> ok;
 validate_bin_element_size(#k_atom{val=undefined}) -> ok;
 validate_bin_element_size(_) -> throw(bad_element_size).
-    
+
 %% atomic_list([Cexpr], Sub, State) -> {[Kexpr],[PreKexpr],State}.
 
 atomic_list(Ces, Sub, St) ->
@@ -1278,13 +1279,62 @@ pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0],
 		_ -> Isub0
 	    end,
     {Es,{Isub,Osub},St3} = pattern_bin_1(Es0, Isub1, Osub1, St2),
-    {#k_bin_seg{anno=A,size=S,
-		unit=U0,
-		type=cerl:concrete(T),
-		flags=Fs0,
-		seg=E,next=Es},
-     {Isub,Osub},St3};
+    {build_bin_seg(A, S, U0, cerl:concrete(T), Fs0, E, Es),{Isub,Osub},St3};
 pattern_bin_1([], Isub, Osub, St) -> {#k_bin_end{},{Isub,Osub},St}.
+
+%% build_bin_seg(Anno, Size, Unit, Type, Flags, Seg, Next) -> #k_bin_seg{}.
+%%  This function normalizes literal integers with size > 8 and literal
+%%  utf8 segments into integers with size = 8 (and potentially an integer
+%%  with size less than 8 at the end). This is so further optimizations
+%%  have a normalized view of literal integers, allowing us to generate
+%%  more literals and group more clauses. Those integers may be "squeezed"
+%%  later into the largest integer possible.
+%%
+build_bin_seg(A, #k_int{val=Bits} = Sz, U, integer=Type, [unsigned,big]=Flags, #k_literal{val=Int}=Seg, Next) ->
+    Size = Bits * U,
+    case integer_fits_and_is_expandable(Int, Size) of
+	true -> build_bin_seg_integer_recur(A, Size, Int, Next);
+	false -> #k_bin_seg{anno=A,size=Sz,unit=U,type=Type,flags=Flags,seg=Seg,next=Next}
+    end;
+build_bin_seg(A, Sz, U, utf8=Type, [unsigned,big]=Flags, #k_literal{val=Utf8} = Seg, Next) ->
+    case utf8_fits(Utf8) of
+      {Int, Bits} -> build_bin_seg_integer_recur(A, Bits, Int, Next);
+      error -> #k_bin_seg{anno=A,size=Sz,unit=U,type=Type,flags=Flags,seg=Seg,next=Next}
+    end;
+build_bin_seg(A, Sz, U, Type, Flags, Seg, Next) ->
+    #k_bin_seg{anno=A,size=Sz,unit=U,type=Type,flags=Flags,seg=Seg,next=Next}.
+
+build_bin_seg_integer_recur(A, Bits, Val, Next) when Bits > 8 ->
+    NextBits = Bits - 8,
+    NextVal = Val band ((1 bsl NextBits) - 1),
+    Last = build_bin_seg_integer_recur(A, NextBits, NextVal, Next),
+    build_bin_seg_integer(A, 8, Val bsr NextBits, Last);
+
+build_bin_seg_integer_recur(A, Bits, Val, Next) ->
+    build_bin_seg_integer(A, Bits, Val, Next).
+
+build_bin_seg_integer(A, Bits, Val, Next) ->
+    Sz = #k_int{anno=A,val=Bits},
+    Seg = #k_literal{anno=A,val=Val},
+    #k_bin_seg{anno=A,size=Sz,unit=1,type=integer,flags=[unsigned,big],seg=Seg,next=Next}.
+
+integer_fits_and_is_expandable(Int, Size) when 0 < Size, Size =< ?EXPAND_MAX_SIZE_SEGMENT ->
+    case <<Int:Size>> of
+	<<Int:Size>> -> true;
+	_ -> false
+    end;
+integer_fits_and_is_expandable(_Int, _Size) ->
+    false.
+
+utf8_fits(Utf8) ->
+    try
+	Bin = <<Utf8/utf8>>,
+	Bits = bit_size(Bin),
+	<<Int:Bits>> = Bin,
+	{Int, Bits}
+    catch
+	_:_ -> error
+    end.
 
 %% pattern_list([Cexpr], Sub, State) -> {[Kexpr],Sub,State}.
 
@@ -1535,7 +1585,7 @@ maybe_add_warning(Ke, MatchAnno, St) ->
 get_line([Line|_]) when is_integer(Line) -> Line;
 get_line([_|T]) -> get_line(T);
 get_line([]) -> none.
-    
+
 get_file([{file,File}|_]) -> File;
 get_file([_|T]) -> get_file(T);
 get_file([]) -> "no_file". % should not happen
@@ -1743,27 +1793,10 @@ do_combine_lit_pat(#k_tuple{anno=A,es=Es0}) ->
 do_combine_lit_pat(_) ->
     throw(not_possible).
 
-combine_bin_segs(#k_bin_seg{size=Size0,unit=Unit,type=integer,
-                            flags=[unsigned,big],seg=Seg,next=Next}) ->
-    #k_literal{val=Size1} = do_combine_lit_pat(Size0),
-    #k_literal{val=Int} = do_combine_lit_pat(Seg),
-    Size = Size1 * Unit,
-    if
-        0 < Size, Size < 64 ->
-            Bin = <<Int:Size>>,
-            case Bin of
-                <<Int:Size>> ->
-                    NextBin = combine_bin_segs(Next),
-                    <<Bin/bits,NextBin/bits>>;
-                _ ->
-                    %% The integer Int does not fit in the segment,
-                    %% thus it will not match.
-                    throw(not_possible)
-            end;
-        true ->
-            %% Avoid creating huge binary literals.
-            throw(not_possible)
-    end;
+combine_bin_segs(#k_bin_seg{size=#k_int{val=8},unit=1,type=integer,
+                            flags=[unsigned,big],seg=#k_literal{val=Int},next=Next})
+	when is_integer(Int), 0 =< Int, Int =< 255 ->
+    <<Int,(combine_bin_segs(Next))/bits>>;
 combine_bin_segs(#k_bin_end{}) ->
     <<>>;
 combine_bin_segs(_) ->
@@ -1833,11 +1866,10 @@ handle_bin_con_not_possible([]) -> [].
 select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
  					  size=#k_int{val=Bits0}=Sz,unit=U,
  					  flags=Fl,seg=#k_literal{val=Val},
-					  next=N}|Ps]}=C|Cs0])
-  when is_integer(Val) ->
+					  next=N}|Ps]}=C|Cs0]) ->
     Bits = U * Bits0,
     if
-	Bits > 1024 -> throw(not_possible); %Expands the code too much.
+	Bits > ?EXPAND_MAX_SIZE_SEGMENT -> throw(not_possible); %Expands the code too much.
 	true -> ok
     end,
     select_assert_match_possible(Bits, Val, Fl),
@@ -1846,16 +1878,6 @@ select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
 	true -> throw(not_possible);
 	false -> ok
     end,
-    Cs = select_bin_int_1(Cs0, Bits, Fl, Val),
-    [{k_bin_int,[C#iclause{pats=[P|Ps]}|Cs]}];
-select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=utf8,
- 					  flags=[unsigned,big]=Fl,
-					  seg=#k_literal{val=Val0},
-					  next=N}|Ps]}=C|Cs0])
-  when is_integer(Val0) ->
-    {Val,Bits} = select_utf8(Val0),
-    P = #k_bin_int{anno=A,size=#k_int{val=Bits},unit=1,
-		   flags=Fl,val=Val,next=N},
     Cs = select_bin_int_1(Cs0, Bits, Fl, Val),
     [{k_bin_int,[C#iclause{pats=[P|Ps]}|Cs]}];
 select_bin_int(_) -> throw(not_possible).
@@ -1871,18 +1893,6 @@ select_bin_int_1([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
 	true -> throw(not_possible)
     end,
     P = #k_bin_int{anno=A,size=Sz,unit=U,flags=Fl,val=Val,next=N},
-    [C#iclause{pats=[P|Ps]}|select_bin_int_1(Cs, Bits, Fl, Val)];
-select_bin_int_1([#iclause{pats=[#k_bin_seg{anno=A,type=utf8,
-					    flags=Fl,
-					    seg=#k_literal{val=Val0},
-					    next=N}|Ps]}=C|Cs],
-		 Bits, Fl, Val) when is_integer(Val0) ->
-    case select_utf8(Val0) of
-	{Val,Bits} -> ok;
-	{_,_} -> throw(not_possible)
-    end,
-    P = #k_bin_int{anno=A,size=#k_int{val=Bits},unit=1,
-		   flags=[unsigned,big],val=Val,next=N},
     [C#iclause{pats=[P|Ps]}|select_bin_int_1(Cs, Bits, Fl, Val)];
 select_bin_int_1([], _, _, _) -> [];
 select_bin_int_1(_, _, _, _) -> throw(not_possible).
@@ -1907,17 +1917,6 @@ select_assert_match_possible(Sz, Val, Fs) ->
 match_fun(Val) ->
     fun(match, {{integer,_,_},NewV,Bs}) when NewV =:= Val ->
 	    {match,Bs}
-    end.
-
-select_utf8(Val0) ->
-    try
-	Bin = <<Val0/utf8>>,
-	Size = bit_size(Bin),
-	<<Val:Size>> = Bin,
-	{Val,Size}
-    catch
-	error:_ ->
-	    throw(not_possible)
     end.
 
 %% match_value([Var], Con, [Clause], Default, State) -> {SelectExpr,State}.
@@ -2039,7 +2038,8 @@ match_clause([U|Us], [C|_]=Cs0, Def, St0) ->
     {Match0,Vs,St1} = get_match(get_con(Cs0), St0),
     Match = sub_size_var(Match0, Cs0),
     {Cs1,St2} = new_clauses(Cs0, U, St1),
-    {B,St3} = match(Vs ++ Us, Cs1, Def, St2),
+    Cs2 = squeeze_clauses_by_bin_integer_count(Cs1, []),
+    {B,St3} = match(Vs ++ Us, Cs2, Def, St2),
     {#k_val_clause{anno=Anno,val=Match,body=B},St3}.
 
 sub_size_var(#k_bin_seg{size=#k_var{name=Name}=Kvar}=BinSeg, [#iclause{isub=Sub}|_]) ->
@@ -2108,6 +2108,102 @@ new_clauses(Cs0, U, St) ->
 		      C#iclause{isub=Isub1,osub=Osub1,pats=Head}
 	      end, Cs0),
     {Cs1,St}.
+
+%% group and squeeze
+%%  The goal of those functions is to group subsequent integer k_bin_seg
+%%  literals by count so we can leverage bs_get_integer_16 whenever possible.
+%%
+%%  The priority is to create large groups. So if we have three clauses matching
+%%  on 16-bits/16-bits/8-bits, we will first have a single 8-bits match for all
+%%  three clauses instead of clauses (one with 16 and another with 8). But note
+%%  the algorithm is recursive, so the remaining 8-bits for the first two clauses
+%%  will be grouped next.
+%%
+%%  We also try to not create too large groups. If we have too many clauses,
+%%  it is preferrable to match on 8-bits, select a branch, then match on the
+%%  next 8-bits, rather than match on 16-bits which would force us to have
+%%  to select to many values at the same time, which would not be efficient.
+%%
+%%  Another restriction is that we create groups only if the end of the
+%%  group is a variadic clause or the end of the binary. That's because
+%%  if we have 16-bits/16-bits/catch-all, breaking it into a 16-bits lookup
+%%  will make the catch-all more expensive.
+%%
+%%  Clauses are grouped in reverse when squeezing and then flattened and
+%%  re-reversed at the end.
+squeeze_clauses_by_bin_integer_count([Clause | Clauses], Acc) ->
+    case clause_count_bin_integer_segments(Clause) of
+	{literal, N} -> squeeze_clauses_by_bin_integer_count(Clauses, N, 1, [Clause], Acc);
+	_ -> squeeze_clauses_by_bin_integer_count(Clauses, [[Clause] | Acc])
+    end;
+squeeze_clauses_by_bin_integer_count(_, Acc) ->
+    flat_reverse(Acc, []).
+
+squeeze_clauses_by_bin_integer_count([], N, Count, GroupAcc, Acc) ->
+    Squeezed = squeeze_clauses(GroupAcc, fix_count_without_variadic_segment(N), Count),
+    flat_reverse([Squeezed | Acc], []);
+squeeze_clauses_by_bin_integer_count([#iclause{pats=[#k_bin_end{} | _]} = Clause], N, Count, GroupAcc, Acc) ->
+    Squeezed = squeeze_clauses(GroupAcc, fix_count_without_variadic_segment(N), Count),
+    flat_reverse([[Clause | Squeezed] | Acc], []);
+squeeze_clauses_by_bin_integer_count([Clause | Clauses], N, Count, GroupAcc, Acc) ->
+    case clause_count_bin_integer_segments(Clause) of
+	{literal, NewN} ->
+	    squeeze_clauses_by_bin_integer_count(Clauses, min(N, NewN), Count + 1, [Clause | GroupAcc], Acc);
+
+	{variadic, NewN} when NewN =< N ->
+	    Squeezed = squeeze_clauses(GroupAcc, NewN, Count),
+	    squeeze_clauses_by_bin_integer_count(Clauses, [[Clause | Squeezed] | Acc]);
+
+	_ ->
+	    squeeze_clauses_by_bin_integer_count(Clauses, [[Clause | GroupAcc] | Acc])
+    end.
+
+clause_count_bin_integer_segments(#iclause{pats=[#k_bin_seg{seg=#k_literal{}} = BinSeg | _]}) ->
+    count_bin_integer_segments(BinSeg, 0);
+clause_count_bin_integer_segments(#iclause{pats=[#k_bin_seg{size=#k_int{val=Size},unit=Unit,
+					   type=integer,flags=[unsigned,big], seg=#k_var{}} | _]})
+					   when ((Size * Unit) rem 8) =:= 0 ->
+    {variadic, (Size * Unit) div 8};
+clause_count_bin_integer_segments(_) ->
+    error.
+
+count_bin_integer_segments(#k_bin_seg{size=#k_int{val=8},unit=1,type=integer,flags=[unsigned,big],
+	    seg=#k_literal{val=Int},next=Next}, Count) when is_integer(Int), 0 =< Int, Int =< 255 ->
+    count_bin_integer_segments(Next, Count + 1);
+count_bin_integer_segments(_, Count) when Count > 0 ->
+    {literal, Count};
+count_bin_integer_segments(_, _Count) ->
+    error.
+
+%% Since 4 bytes in on 32-bits systems are bignums, we convert
+%% anything more than 3 into 2 bytes lookup. The goal is to convert
+%% any multi-clause segment into 2-byte lookups with a potential
+%% 3 byte lookup at the end.
+fix_count_without_variadic_segment(N) when N > 3 -> 2;
+fix_count_without_variadic_segment(N) -> N.
+
+%% If we have more than 16 clauses, then it is better
+%% to branch multiple times than getting a large integer.
+%% We also abort if we have nothing to squeeze.
+squeeze_clauses(Clauses, Size, Count) when Count >= 16; Size == 1 -> Clauses;
+squeeze_clauses(Clauses, Size, _Count) -> squeeze_clauses(Clauses, Size).
+
+squeeze_clauses([#iclause{pats=[#k_bin_seg{seg=#k_literal{}} = BinSeg | Pats]} = Clause | Clauses], Size) ->
+    [Clause#iclause{pats=[squeeze_segments(BinSeg, 0, 0, Size) | Pats]} |
+     squeeze_clauses(Clauses, Size)];
+squeeze_clauses([], _Size) ->
+    [].
+
+squeeze_segments(#k_bin_seg{size=Sz, seg=#k_literal{val=Val}=Lit} = BinSeg, Acc, Size, 1) ->
+    BinSeg#k_bin_seg{size=Sz#k_int{val=Size + 8}, seg=Lit#k_literal{val=(Acc bsl 8) bor Val}};
+squeeze_segments(#k_bin_seg{seg=#k_literal{val=Val},next=Next}, Acc, Size, Count) ->
+    squeeze_segments(Next, (Acc bsl 8) bor Val, Size + 8, Count - 1).
+
+flat_reverse([Head | Tail], Acc) -> flat_reverse(Tail, flat_reverse_1(Head, Acc));
+flat_reverse([], Acc) -> Acc.
+
+flat_reverse_1([Head | Tail], Acc) -> flat_reverse_1(Tail, [Head | Acc]);
+flat_reverse_1([], Acc) -> Acc.
 
 %% build_guard([GuardClause]) -> GuardExpr.
 
