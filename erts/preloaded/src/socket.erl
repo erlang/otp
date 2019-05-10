@@ -29,7 +29,8 @@
 
          ensure_sockaddr/1,
 
-         command/1,
+         debug/1,
+         %% command/1,
 	 info/0,
          supports/0, supports/1, supports/2, supports/3
         ]).
@@ -66,7 +67,7 @@
               select_ref/0,
               select_info/0,
 
-              command/0,
+              %% command/0,
 
               domain/0,
               type/0,
@@ -150,7 +151,7 @@
                            command := debug,
                            data    := boolean()
                           }.
--type command() :: debug_command().
+%% -type command() :: debug_command().
 
 -type uint8()  :: 0..16#FF.
 -type uint16() :: 0..16#FFFF.
@@ -884,8 +885,16 @@ info() ->
     nif_info().
 
 
--spec command(Command) -> term() when
-      Command :: command().
+-spec debug(D) -> ok when
+      D :: boolean().
+
+debug(D) when is_boolean(D) ->
+    command(#{command => debug,
+              data    => D}).
+
+
+-spec command(Command) -> ok when
+      Command :: debug_command().
 
 command(#{command := debug,
           data    := Dbg} = Command) when is_boolean(Dbg) ->
