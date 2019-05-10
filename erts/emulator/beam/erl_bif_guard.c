@@ -306,7 +306,7 @@ Eterm erts_trapping_length_1(Process* p, Eterm* args)
      * We reached the end of the list successfully. Bump reductions
      * and return result.
      */
-    BUMP_REDS(p, saved_max_iter / 16);
+    BUMP_REDS(p, (saved_max_iter - max_iter) / 16);
     return make_small(i);
 }
 
