@@ -13063,8 +13063,8 @@ otp_8183_r1_mgc_reply_msg(Mid, TransId, CR, Cid) ->
 	{?MODULE, otp_8183_r1_mg_verify_handle_connect, []}).
 -define(otp_8183_r1_mg_verify_service_change_rep_fun(),
 	{?MODULE, otp_8183_r1_mg_verify_service_change_rep, []}).
--define(otp_8183_r1_mg_verify_notify_rep_fun(Nr
-	{?MODULE, otp_8183_r1_mg_verify_notify_rep, [Nr).
+-define(otp_8183_r1_mg_verify_notify_rep_fun(Nr),
+	{?MODULE, otp_8183_r1_mg_verify_notify_rep, [Nr]}).
 -else.
 -define(otp_8183_r1_mg_verify_handle_connect_fun(),
 	otp_8183_r1_mg_verify_handle_connect_fun()).
