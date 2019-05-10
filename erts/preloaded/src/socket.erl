@@ -26,9 +26,12 @@
 %% Administrative and "global" utility functions
 -export([
 	 on_load/0, on_load/1,
+
+         ensure_sockaddr/1,
+
+         command/1,
 	 info/0,
-         supports/0, supports/1, supports/2, supports/3,
-         ensure_sockaddr/1
+         supports/0, supports/1, supports/2, supports/3
         ]).
 
 -export([
@@ -62,6 +65,8 @@
               select_tag/0,
               select_ref/0,
               select_info/0,
+
+              command/0,
 
               domain/0,
               type/0,
@@ -134,6 +139,18 @@
               int32/0
              ]).
 
+
+%% The command type has the general form: 
+%% #{
+%%   command := atom(),
+%%   data    := term()
+%%  }
+%% But only certain values are actually valid, so the type gets the form:
+-type debug_command() :: #{
+                           command := debug,
+                           data    := boolean()
+                          }.
+-type command() :: debug_command().
 
 -type uint8()  :: 0..16#FF.
 -type uint16() :: 0..16#FFFF.
@@ -865,6 +882,14 @@ on_load(Extra) ->
 
 info() ->
     nif_info().
+
+
+-spec command(Command) -> term() when
+      Command :: command().
+
+command(#{command := debug,
+          data    := Dbg} = Command) when is_boolean(Dbg) ->
+    nif_command(Command).
 
 
 
@@ -3843,6 +3868,9 @@ error(Reason) ->
 %% ===========================================================================
 
 nif_info() ->
+    erlang:nif_error(undef).
+
+nif_command(_Command) ->
     erlang:nif_error(undef).
 
 nif_supports(_Key) ->
