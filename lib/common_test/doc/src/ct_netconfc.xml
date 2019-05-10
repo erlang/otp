@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2017</year>
+      <year>2010</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,11 +37,10 @@
 
   <description>
 
-    <p>NETCONF client module.</p>
-
-    <p>The NETCONF client is compliant with RFC 4741 NETCONF Configuration
-      Protocol and RFC 4742 Using the NETCONF Configuration Protocol over
-      Secure SHell (SSH).</p>
+    <p>NETCONF client module compliant with RFC 6241, NETCONF Configuration
+      Protocol, and RFC 6242, Using the NETCONF Configuration Protocol over
+      Secure SHell (SSH), and with support for RFC 5277, NETCONF Event
+      Notifications.</p>
 
     <marker id="Connecting"/>
     <p><em>Connecting to a NETCONF server</em></p>
