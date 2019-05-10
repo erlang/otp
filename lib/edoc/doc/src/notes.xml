@@ -32,6 +32,20 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Correct links in the documentation. </p>
+          <p>
+	    Own Id: OTP-15761</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.10</title>
 
     <section><title>Improvements and New Features</title>

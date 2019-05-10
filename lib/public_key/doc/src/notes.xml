@@ -35,6 +35,58 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    RSA options passed to crypto for encrypt and decrypt with
+	    public or private key.</p>
+          <p>
+	    Own Id: OTP-15754 Aux Id: ERL-878 </p>
+        </item>
+        <item>
+          <p>
+	    Fix dialyzer warnings caused by a faulty type
+	    specification for digest_type().</p>
+          <p>
+	    This change updates digest_type() and the functions
+	    operating with this argument type to accept both 'sha1'
+	    and 'sha' as digest_type().</p>
+          <p>
+	    Own Id: OTP-15776</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to read PEM files encrypted with old PEM
+	    encryption using AES-256</p>
+          <p>
+	    Own Id: OTP-13726</p>
+        </item>
+        <item>
+          <p>
+	    Relax decoding of certificates to so that "harmless"
+	    third party encoding errors may be accepted but not
+	    created by the public_key application. This adds
+	    acceptance of using an incorrect three character country
+	    code, the PKIX standard use two character country codes.
+	    It is also accepted that the country code is utf8 encoded
+	    but the specification says it should be ASCII.</p>
+          <p>
+	    Own Id: OTP-15687 Aux Id: PR-2162 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.6.6</title>
 
     <section><title>Improvements and New Features</title>

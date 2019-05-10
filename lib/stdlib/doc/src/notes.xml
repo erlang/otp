@@ -31,6 +31,247 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug in <c>string:lexemes/2</c>. </p> <p> The
+	    bug was found when optimizing the handling of deep lists
+	    of Unicode characters in the <c>string</c> module. </p>
+          <p>
+	    Own Id: OTP-15649</p>
+        </item>
+        <item>
+	    <p>A bug has been fixed in the <c>maps</c> implementation
+	    that could cause a crash or memory usage to grow until
+	    the machine ran out of memory. This could happen when
+	    inserting a new key-value pair with a key <c>K1</c>
+	    containing a binary <c>B1</c> into a map <c>M</c> having
+	    a key <c>K2</c> with a binary <c>B2</c> if the following
+	    conditions were met:</p> <list> <item><c>B1 =/=
+	    B2</c></item> <item><c>size(B1) >= 4294967296</c></item>
+	    <item><c>size(B2) >= 4294967296</c></item>
+	    <item><c>size(M) >= 32</c></item> <item><c>(size(B1) rem
+	    4294967296) == (size(B2) rem 4294967296)</c></item>
+	    <item>the first <c>(size(B1) rem 4294967296)</c> bytes
+	    are the same both in <c>B1</c> and <c>B2</c></item>
+	    <item>substituting <c>B1</c> in <c>K1</c> with <c>B2</c>
+	    would create a term with the same value as
+	    <c>K2</c></item> </list> <p>The root cause of the problem
+	    is that the <c>maps</c> implementation only hashed the
+	    first <c>(X rem 4294967296)</c> bytes of binaries so that
+	    different binaries could get the same hash value
+	    independently of the hash seed.</p>
+          <p>
+	    Own Id: OTP-15707</p>
+        </item>
+        <item>
+	    <p> Since the introduction of the stack trace variable,
+	    the Erlang Pretty Printer has left out the exception
+	    class <c>throw</c> even when the stack trace variable
+	    cannot be left out, which is not correct Erlang code. The
+	    fix is to always include the exception class
+	    <c>throw</c>. </p>
+          <p>
+	    Own Id: OTP-15751</p>
+        </item>
+        <item>
+	    <p><c>record_info/2</c> is a pseudo-function that
+	    requires literal arguments known at compile time.
+	    Therefore, the following usage is illegal: <c>fun
+	    record/info/2</c>. The compiler would crash when during
+	    compilation of that kind of code. Corrected to issue a
+	    compilation error.</p>
+          <p>
+	    Own Id: OTP-15760 Aux Id: ERL-907 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> A new <c>rand</c> module algorithm, <c>exro928ss</c>
+	    (Xoroshiro928**), has been implemented. It has got a
+	    really long period and good statistical quality for all
+	    output bits, while still being only about 50% slower than
+	    the default algorithm. </p><p> The same generator is also
+	    used as a long period counter in a new <c>crypto</c>
+	    plugin for the <c>rand</c> module, algorithm
+	    <c>crypto_aes</c>. This plugin uses AES-256 to scramble
+	    the counter which buries any detectable statistical
+	    artifacts. Scrambling is done in chunks which are cached
+	    to get good amortized speed (about half of the default
+	    algorithm). </p>
+          <p>
+	    Own Id: OTP-14461 Aux Id: PR-1857 </p>
+        </item>
+        <item>
+          <p>
+	    Types related to server naming and starting have been
+	    exported from <c>gen_statem</c>. These are:
+	    <c>server_name/0</c>, <c>server_ref/0</c>,
+	    <c>start_opt/0</c>, <c>start_ret/0</c> and
+	    <c>enter_loop_opt/0</c>.</p>
+          <p>
+	    Own Id: OTP-14724 Aux Id: PR-2056 </p>
+        </item>
+        <item>
+          <p>
+	    The default algorithm for the <c>rand</c> module has been
+	    changed to <c>exsss</c> (Xorshift116**) which is a
+	    combination of the Xorshift116 (<c>exsp</c>) state update
+	    and a new scrambler "StarStar" from the 2018 paper
+	    "Scrambled Linear Pseudorandom Number Generators" by
+	    David Blackman and Sebastiano Vigna. This combination
+	    should not have the caveat of weak low bits that the
+	    previous default algorithm(s) have had, with the cost of
+	    about 10% lower speed. See GitHub pull request #1969.</p>
+          <p>
+	    Own Id: OTP-14731 Aux Id: PR-1969 </p>
+        </item>
+        <item>
+          <p>
+	    The generic state machine behaviour <c>gen_statem</c> has
+	    gotten code cleanup and documentation improvements from
+	    GitHub Pull Request #1855, even though the PR itself was
+	    rejected.</p>
+          <p>
+	    Own Id: OTP-14737 Aux Id: PR-1855 </p>
+        </item>
+        <item>
+          <p>
+	    Update Unicode specification to version 11.0.</p>
+          <p>
+	    Own Id: OTP-15111</p>
+        </item>
+        <item>
+          <p>
+	    ETS option <c>write_concurrency</c> now also affects and
+	    improves the scalability of <c>ordered_set</c> tables.
+	    The implementation is based on a data structure called
+	    contention adapting search tree, where the lock
+	    granularity adapts to the actual amount of concurrency
+	    exploited by the applications in runtime.</p>
+          <p>
+	    Own Id: OTP-15128</p>
+        </item>
+        <item>
+          <p>
+	    Optimized <c>maps:new/0</c> with trivial Erlang
+	    implementation, making use of literal terms (the empty
+	    map) not needing dynamic heap allocation.</p>
+          <p>
+	    Own Id: OTP-15200 Aux Id: PR-1878 </p>
+        </item>
+        <item>
+	    <p>The <c>gen_*</c> behaviours have been changed so that
+	    if logging of the last N messages through
+	    <c>sys:log/2,3</c> is active for the server, this log is
+	    included in the terminate report.</p> <p>To accomplish
+	    this the format of "System Events" as defined in the man
+	    page for <c>sys</c> has been clarified and cleaned up, a
+	    new function <c>sys:get_log/1</c> has been added, and
+	    <c>sys:get_debug/3</c> has been deprecated. Due to these
+	    changes, code that relies on the internal badly
+	    documented format of "System Events", need to be
+	    corrected.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15381</p>
+        </item>
+        <item>
+          <p>
+	    The <c>gen_statem</c> behaviour engine loop has been
+	    optimized for better performance in particular when the
+	    callback module returns some actions, that is better
+	    performance for more realistic applications than the Echo
+	    Benchmark.</p>
+          <p>
+	    Own Id: OTP-15452</p>
+        </item>
+        <item>
+	    <p> Do not allow function specifications for functions
+	    residing in other modules. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15563 Aux Id: ERL-845, OTP-15562 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>persistent_term</c> functions <c>put/2</c> and
+	    <c>erase/1</c> are now yielding.</p>
+          <p>
+	    Own Id: OTP-15615</p>
+        </item>
+        <item>
+	    <p>Previously, all ETS tables used centralized counter
+	    variables to keep track of the number of items stored and
+	    the amount of memory consumed. These counters can cause
+	    scalability problems (especially on big NUMA systems).
+	    This change adds an implementation of a decentralized
+	    counter and modifies the implementation of ETS so that
+	    ETS tables of type <c>ordered_set</c> with
+	    <c>write_concurrency</c> enabled use the decentralized
+	    counter. Experiments indicate that this change
+	    substantially improves the scalability of ETS
+	    <c>ordered_set</c> tables with <c>write_concurrency</c>
+	    enabled in scenarios with frequent <c>ets:insert/2</c>
+	    and <c>ets:delete/2</c> calls.</p>
+          <p>
+	    Own Id: OTP-15623 Aux Id: PR-2190 </p>
+        </item>
+        <item>
+	    <p> Use <c>ssh</c> instead of <c>rsh</c> as the default
+	    remote shell. </p>
+          <p>
+	    Own Id: OTP-15633 Aux Id: PR-1787 </p>
+        </item>
+        <item>
+	    <p>Added <c>beam_lib:strip/2</c> and friends, which
+	    accept a list of chunks that should be preserved when
+	    stripping.</p>
+          <p>
+	    Own Id: OTP-15680 Aux Id: PR-2114 </p>
+        </item>
+        <item>
+	    <p> Optimize printing of maps with <c>io_lib:write()</c>.
+	    Also optimize pretty printing of strings (<c>~s</c> and
+	    <c>~ts</c>) when limiting the output with the
+	    <c>chars_limit</c> option. </p>
+          <p>
+	    Own Id: OTP-15705</p>
+        </item>
+        <item>
+	    <p> There are new compiler options <c>nowarn_removed</c>
+	    and <c>{nowarn_removed,Items}</c> to suppress warnings
+	    for functions and modules that have been removed from
+	    OTP.</p>
+          <p>
+	    Own Id: OTP-15749 Aux Id: ERL-904 </p>
+        </item>
+        <item>
+	    <p> Let the Erlang Pretty Printer put atomic parts on the
+	    same line. </p>
+          <p>
+	    Own Id: OTP-15755</p>
+        </item>
+        <item>
+	    <p> Add option <c>quote_singleton_atom_types</c> to the
+	    Erlang Pretty Printer's functions. Setting the option to
+	    <c>true</c> adds quotes to all singleton atom types. </p>
+          <p>
+	    Own Id: OTP-15756</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -33,7 +33,24 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.0.7</title>
+  <section><title>Inets 7.0.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.0.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -27,6 +27,81 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The distribution handshake with TLS distribution
+	    (<c>inet_tls_dist</c>) does now utilize the socket option
+	    <c>{nodelay, true}</c>, which decreases the distribution
+	    setup time significantly.</p>
+          <p>
+	    Own Id: OTP-14792</p>
+        </item>
+        <item>
+          <p>
+	    Correct shutdown reason to avoid an incorrect crash
+	    report</p>
+          <p>
+	    Own Id: OTP-15710 Aux Id: ERL-893 </p>
+        </item>
+        <item>
+          <p>
+	    Enhance documentation and type specifications.</p>
+          <p>
+	    Own Id: OTP-15746 Aux Id: ERIERL-333 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    TLS-1.0, TLS-1.1 and DTLS-1.0 are now considered legacy
+	    and not supported by default</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14865</p>
+        </item>
+        <item>
+          <p>
+	    Use new logger API in ssl. Introduce log levels and
+	    verbose debug logging for SSL.</p>
+          <p>
+	    Own Id: OTP-15055</p>
+        </item>
+        <item>
+          <p>
+	    Add new API function str_to_suite/1, cipher_suites/3
+	    (list cipher suites as rfc or OpenSSL name strings) and
+	    suite_to_openssl_str/1</p>
+          <p>
+	    Own Id: OTP-15483 Aux Id: ERL-924 </p>
+        </item>
+        <item>
+          <p>
+	    Basic support for TLS 1.3 Server for experimental use.
+	    The client is not yet functional, for more information
+	    see the Standards Compliance chapter of the User's Guide.</p>
+          <p>
+	    Own Id: OTP-15591</p>
+        </item>
+        <item>
+          <p>
+	    Add support for PSK CCM ciphers from RFC 6655</p>
+          <p>
+	    Own Id: OTP-15626</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

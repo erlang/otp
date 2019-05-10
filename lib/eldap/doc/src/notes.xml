@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
+<section><title>Eldap 1.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix dialyzer warnings in eldap when not matching the
+	    return value of ssl:close/1.</p>
+          <p>
+	    Own Id: OTP-15775</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eldap 1.2.7</title>
 
     <section><title>Improvements and New Features</title>

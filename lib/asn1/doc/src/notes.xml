@@ -32,6 +32,32 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All incorrect (that is, all) uses of "can not" has been
+	    corrected to "cannot" in source code comments,
+	    documentation, examples, and so on.</p>
+          <p>
+	    Own Id: OTP-14282 Aux Id: PR-1891 </p>
+        </item>
+        <item>
+	    <p>Corrected problems with the following value
+	    definitions:</p> <list> <item>value of SEQUENCE OF CHOICE
+	    with extensions</item> <item>value of CHOICE with
+	    extensions</item> <item>DEFAULT used with OCTET
+	    STRING</item> </list>
+          <p>
+	    Own Id: OTP-15697 Aux Id: PR-2159 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
