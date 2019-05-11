@@ -70,6 +70,8 @@
          %% *** API Basic ***
          api_b_open_and_close_udp4/1,
          api_b_open_and_close_tcp4/1,
+         api_b_open_and_close_udpL/1,
+         api_b_open_and_close_tcpL/1,
          api_b_sendto_and_recvfrom_udp4/1,
          api_b_sendmsg_and_recvmsg_udp4/1,
          api_b_send_and_recv_tcp4/1,
@@ -588,6 +590,8 @@ api_basic_cases() ->
     [
      api_b_open_and_close_udp4,
      api_b_open_and_close_tcp4,
+     api_b_open_and_close_udpL,
+     api_b_open_and_close_tcpL,
      api_b_sendto_and_recvfrom_udp4,
      api_b_sendmsg_and_recvmsg_udp4,
      api_b_send_and_recv_tcp4,
@@ -1510,6 +1514,44 @@ api_b_open_and_close_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically open (create) and close an Unix Domain dgram (UDP) socket.
+%% With some extra checks...
+api_b_open_and_close_udpL(suite) ->
+    [];
+api_b_open_and_close_udpL(doc) ->
+    [];
+api_b_open_and_close_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_close_udpL,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 type     => dgram,
+                                 protocol => default},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and close an Unix Domain stream (TCP) socket.
+%% With some extra checks...
+api_b_open_and_close_tcpL(suite) ->
+    [];
+api_b_open_and_close_tcpL(doc) ->
+    [];
+api_b_open_and_close_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_close_tcpL,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 type     => stream,
+                                 protocol => default},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 api_b_open_and_close(InitState) ->
     Seq = 
         [
@@ -1665,11 +1707,11 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                           end,
                    Recv = fun(Sock) ->
                                   %% We have some issues on old darwing...
-                                  socket:setopt(Sock, otp, debug, true),
+                                  %% socket:setopt(Sock, otp, debug, true),
                                   case socket:recvmsg(Sock) of
                                       {ok, #{addr  := Source,
                                              iov   := [Data]}} ->
-                                          socket:setopt(Sock, otp, debug, false),
+                                          %% socket:setopt(Sock, otp, debug, false),
                                           {ok, {Source, Data}};
                                       {error, _} = ERROR ->
                                           ERROR
