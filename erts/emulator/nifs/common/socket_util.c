@@ -1656,7 +1656,7 @@ char* make_sockaddr_un(ErlNifEnv*    env,
                        ERL_NIF_TERM* sa)
 {
     ERL_NIF_TERM keys[] = {esock_atom_family, esock_atom_path};
-    ERL_NIF_TERM vals[] = {esock_atom_inet, path};
+    ERL_NIF_TERM vals[] = {esock_atom_local,  path};
     unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
     unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
     

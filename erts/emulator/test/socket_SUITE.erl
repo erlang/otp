@@ -77,6 +77,7 @@
          api_b_send_and_recv_tcp4/1,
          api_b_send_and_recv_tcpL/1,
          api_b_sendmsg_and_recvmsg_tcp4/1,
+         api_b_sendmsg_and_recvmsg_tcpL/1,
 
          %% *** API Options ***
          api_opt_simple_otp_options/1,
@@ -597,7 +598,8 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_udp4,
      api_b_send_and_recv_tcp4,
      api_b_send_and_recv_tcpL,
-     api_b_sendmsg_and_recvmsg_tcp4
+     api_b_sendmsg_and_recvmsg_tcp4,
+     api_b_sendmsg_and_recvmsg_tcpL
     ].
 
 api_options_cases() ->
@@ -1913,6 +1915,41 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically send and receive using the msg functions (sendmsg and recvmsg)
+%% on an IPv4 TCP (stream) socket.
+api_b_sendmsg_and_recvmsg_tcpL(suite) ->
+    [];
+api_b_sendmsg_and_recvmsg_tcpL(doc) ->
+    [];
+api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_b_sendmsg_and_recvmsg_tcpL,
+           fun() -> supports_unix_domain_socket() end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock) of
+                                      {ok, #{addr  := #{family := local},
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => local,
+                                 type   => stream,
+                                 proto  => default,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 api_b_send_and_recv_tcp(InitState) ->
     process_flag(trap_exit, true),
     ServerSeq = 
@@ -2181,7 +2218,7 @@ api_b_send_and_recv_tcp(InitState) ->
                                    ok
                            end,
                            ok;
-                      (#{sock := Sock} = S) ->
+                      (#{sock := Sock} = _S) ->
                            socket:close(Sock)
                    end},
 

@@ -15180,7 +15180,7 @@ char* encode_msghdr(ErlNifEnv*       env,
             "\r\n   read: %d"
             "\r\n", read) );
 
-    /* The address is not used if we are connected,
+    /* The address is not used if we are connected (unless family is 'local'),
      * so check (length = 0) before we try to encodel
      */
     if (msgHdrP->msg_namelen != 0) {
