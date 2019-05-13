@@ -202,11 +202,15 @@ atom_free(Atom* obj)
     ASSERT(obj->slot.index == atom_val(am_ErtsSecretAtom));
 }
 
-static void latin1_to_utf8(byte* conv_buf, const byte** srcp, int* lenp)
+static void latin1_to_utf8(byte* conv_buf, Uint buf_sz,
+                           const byte** srcp, Uint* lenp)
 {
     byte* dst;
     const byte* src = *srcp;
-    int i, len = *lenp;
+    Uint i, len = *lenp;
+
+    ASSERT(len <= MAX_ATOM_CHARACTERS);
+    ASSERT(buf_sz >= MAX_ATOM_SZ_FROM_LATIN1);
 
     for (i=0 ; i < len; ++i) {
 	if (src[i] & 0x80) {
@@ -236,11 +240,11 @@ need_convertion:
  * erts_atom_put_index() may fail. Returns negative indexes for errors.
  */
 int
-erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
+erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 {
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     const byte *text = name;
-    int tlen = len;
+    Uint tlen;
     Sint no_latin1_chars;
     Atom a;
     int aix;
@@ -249,12 +253,15 @@ erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     erts_smp_atomic_inc_nob(&atom_put_ops);
 #endif
 
-    if (tlen < 0) {
-	if (trunc)
-	    tlen = 0;
-	else
-	    return ATOM_MAX_CHARS_ERROR;
+    if (len < 0) {
+        if (trunc) {
+            len = 0;
+        } else {
+            return ATOM_MAX_CHARS_ERROR;
+        }
     }
+
+    tlen = len;
 
     switch (enc) {
     case ERTS_ATOM_ENC_7BIT_ASCII:
@@ -279,7 +286,7 @@ erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 		return ATOM_MAX_CHARS_ERROR;
 	}
 	no_latin1_chars = tlen;
-	latin1_to_utf8(utf8_copy, &text, &tlen);
+	latin1_to_utf8(utf8_copy, sizeof(utf8_copy), &text, &tlen);
 	break;
     case ERTS_ATOM_ENC_UTF8:
 	/* First sanity check; need to verify later */
@@ -340,7 +347,7 @@ erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
  * erts_atom_put() may fail. If it fails THE_NON_VALUE is returned!
  */
 Eterm
-erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
+erts_atom_put(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 {
     int aix = erts_atom_put_index(name, len, enc, trunc);
     if (aix >= 0)
@@ -350,7 +357,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 }
 
 Eterm
-am_atom_put(const char* name, int len)
+am_atom_put(const char* name, Sint len)
 {
     /* Assumes 7-bit ascii; use erts_atom_put() for other encodings... */
     return erts_atom_put((byte *) name, len, ERTS_ATOM_ENC_7BIT_ASCII, 1);
@@ -389,23 +396,57 @@ int atom_table_sz(void)
 }
 
 int
-erts_atom_get(const char *name, int len, Eterm* ap, ErtsAtomEncoding enc)
+erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
 {
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     Atom a;
     int i;
     int res;
 
-    a.len = (Sint16) len;
-    a.name = (byte *)name;
-    if (enc == ERTS_ATOM_ENC_LATIN1) {
-	latin1_to_utf8(utf8_copy, (const byte**)&a.name, &len);
-	a.len = (Sint16) len;
+    switch (enc) {
+    case ERTS_ATOM_ENC_LATIN1:
+        if (len > MAX_ATOM_CHARACTERS) {
+            return 0;
+        }
+
+        latin1_to_utf8(utf8_copy, sizeof(utf8_copy), (const byte**)&name, &len);
+
+        a.name = (byte*)name;
+        a.len = (Sint16)len;
+        break;
+    case ERTS_ATOM_ENC_7BIT_ASCII:
+        if (len > MAX_ATOM_CHARACTERS) {
+            return 0;
+        }
+
+        for (i = 0; i < len; i++) {
+            if (name[i] & 0x80) {
+                return 0;
+            }
+        }
+
+        a.len = (Sint16)len;
+        a.name = (byte*)name;
+        break;
+    case ERTS_ATOM_ENC_UTF8:
+        if (len > MAX_ATOM_SZ_LIMIT) {
+            return 0;
+        }
+
+        /* We don't need to check whether the encoding is legal as all atom
+         * names are stored as UTF-8 and we know a lookup with a badly encoded
+         * name will fail. */
+
+        a.len = (Sint16)len;
+        a.name = (byte*)name;
+        break;
     }
+
     atom_read_lock();
     i = index_get(&erts_atom_table, (void*) &a);
     res = i < 0 ? 0 : (*ap = make_atom(i), 1);
     atom_read_unlock();
+
     return res;
 }
 
