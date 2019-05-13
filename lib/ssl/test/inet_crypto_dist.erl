@@ -78,10 +78,10 @@ params(Socket) ->
 %%%         params = brainpoolP384t1,
          params = brainpoolP256t1,
          public,
-         private}).
-
--define(KEY_PAIR_LIFE_TIME, 3600000). % 1 hour
--define(KEY_PAIR_LIFE_COUNT, 256). % Number of connection setups
+         private,
+         life_time = 3600000, % 1 hour
+         life_count = 256 % Number of connection setups
+        }).
 
 
 %% -------------------------------------------------------------------------
@@ -102,11 +102,11 @@ start_key_pair_server() ->
 key_pair_server() ->
     key_pair_server(undefined, undefined, undefined).
 %%
-key_pair_server(KeyPair) ->
-    key_pair_server(
-      KeyPair,
-      erlang:start_timer(?KEY_PAIR_LIFE_TIME, self(), discard),
-      ?KEY_PAIR_LIFE_COUNT).
+key_pair_server(
+  #key_pair{life_time = LifeTime, life_count = LifeCount} = KeyPair) ->
+    %%
+    Timer = erlang:start_timer(LifeTime, self(), discard),
+    key_pair_server(KeyPair, Timer, LifeCount).
 %%    
 key_pair_server(_KeyPair, Timer, 0) ->
     cancel_timer(Timer),
