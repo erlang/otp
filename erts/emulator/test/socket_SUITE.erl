@@ -123,6 +123,7 @@
          sc_lc_recv_response_tcpL/1,
          sc_lc_recvfrom_response_udp4/1,
          sc_lc_recvfrom_response_udp6/1,
+         sc_lc_recvfrom_response_udpL/1,
          sc_lc_recvmsg_response_tcp4/1,
          sc_lc_recvmsg_response_tcp6/1,
          sc_lc_recvmsg_response_tcpL/1,
@@ -674,6 +675,7 @@ sc_lc_cases() ->
 
      sc_lc_recvfrom_response_udp4,
      sc_lc_recvfrom_response_udp6,
+     sc_lc_recvfrom_response_udpL,
 
      sc_lc_recvmsg_response_tcp4,
      sc_lc_recvmsg_response_tcp6,
@@ -6062,9 +6064,8 @@ sc_lc_receive_response_tcp(InitState) ->
 
          %% The actual test
          #{desc => "await continue (connect)",
-           cmd  => fun(#{domain   := local = Domain,
-                         tester   := Tester,
-                         local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local = Domain,
+                         tester := Tester} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, connect) of
                                {ok, ServerPath} ->
                                    ?SEV_IPRINT("Server Path: "
@@ -6118,7 +6119,7 @@ sc_lc_receive_response_tcp(InitState) ->
                                                "~n   ~s", [Result]),
                                    State
                                end,
-                           {ok, maps:remove(sock, State)};
+                           {ok, maps:remove(sock, State1)};
                        (#{sock := Sock} = State) ->
                            sock_close(Sock),
                            {ok, maps:remove(sock, State)}
@@ -6397,7 +6398,6 @@ sc_lc_recvfrom_response_udp4(_Config) when is_list(_Config) ->
            fun() ->
                    Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
                    InitState = #{domain   => inet,
-                                 type     => dgram,
                                  protocol => udp,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_udp(InitState)
@@ -6419,8 +6419,31 @@ sc_lc_recvfrom_response_udp6(_Config) when is_list(_Config) ->
            fun() -> has_support_ipv6() end,
            fun() ->
                    Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
-                   InitState = #{domain => inet6,
-                                 recv   => Recv},
+                   InitState = #{domain   => inet6,
+                                 protocol => udp,
+                                 recv     => Recv},
+                   ok = sc_lc_receive_response_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recv function.
+%% Socket is Unix Domainm (dgram) socket.
+
+sc_lc_recvfrom_response_udpL(suite) ->
+    [];
+sc_lc_recvfrom_response_udpL(doc) ->
+    [];
+sc_lc_recvfrom_response_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(sc_lc_recvfrom_response_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
+                                 recv     => Recv},
                    ok = sc_lc_receive_response_udp(InitState)
            end).
 
@@ -6449,8 +6472,8 @@ sc_lc_receive_response_udp(InitState) ->
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "open socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           Sock = sock_open(Domain, dgram, udp),
+           cmd  => fun(#{domain := Domain, protocol := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
                            SA   = sock_sockname(Sock),
                            {ok, State#{sock => Sock, sa => SA}}
                    end},
@@ -6496,7 +6519,21 @@ sc_lc_receive_response_udp(InitState) ->
                            ok = ?SEV_AWAIT_CONTINUE(Tester, tester, close)
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{sock := Sock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       maps:remove(local_sa, State);
+                                   Result ->
+                                       ?SEV_IPRINT("unlink result: "
+                                                   "~n   ~s", [Result]),
+                                       State
+                               end,
+                           {ok, maps:remove(sock, State1)};
+                      (#{sock := Sock} = State) ->
                            case socket:close(Sock) of
                                ok ->
                                    {ok, maps:remove(sock, State)};
@@ -6789,9 +6826,9 @@ sc_lc_receive_response_udp(InitState) ->
 
     i("start 'tester' evaluator"),
     TesterInitState = #{prim_server => PrimServer#ev.pid,
-                        sec_server1  => SecServer1#ev.pid,
-                        sec_server2  => SecServer2#ev.pid,
-                        sec_server3  => SecServer3#ev.pid},
+                        sec_server1 => SecServer1#ev.pid,
+                        sec_server2 => SecServer2#ev.pid,
+                        sec_server3 => SecServer3#ev.pid},
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     i("await evaluator"),
@@ -6880,8 +6917,9 @@ sc_lc_recvmsg_response_udp4(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(10)),
                    Recv      = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
-                   InitState = #{domain => inet,
-                                 recv   => Recv},
+                   InitState = #{domain   => inet,
+                                 protocol => udp,
+                                 recv     => Recv},
                    ok = sc_lc_receive_response_udp(InitState)
            end).
 
@@ -6901,8 +6939,9 @@ sc_lc_recvmsg_response_udp6(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(10)),
                    Recv      = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
-                   InitState = #{domain => inet6,
-                                 recv   => Recv},
+                   InitState = #{domain   => inet6,
+                                 protocol => udp,
+                                 recv     => Recv},
                    ok = sc_lc_receive_response_udp(InitState)
            end).
 
@@ -18199,7 +18238,9 @@ sock_bind(Sock, SockAddr) ->
         {ok, Port} ->
             Port;
         {error, Reason} ->
-            i("sock_bind -> error: ~p", [Reason]),
+            i("sock_bind -> error: "
+              "~n   SockAddr: ~p"
+              "~n   Reason:   ~p", [SockAddr, Reason]),
             ?FAIL({bind, Reason})
     catch
         C:E:S ->
