@@ -120,6 +120,7 @@
 
          sc_lc_recv_response_tcp4/1,
          sc_lc_recv_response_tcp6/1,
+         sc_lc_recv_response_tcpL/1,
          sc_lc_recvfrom_response_udp4/1,
          sc_lc_recvfrom_response_udp6/1,
          sc_lc_recvmsg_response_tcp4/1,
@@ -668,6 +669,7 @@ sc_lc_cases() ->
     [
      sc_lc_recv_response_tcp4,
      sc_lc_recv_response_tcp6,
+     sc_lc_recv_response_tcpL,
 
      sc_lc_recvfrom_response_udp4,
      sc_lc_recvfrom_response_udp6,
@@ -1535,7 +1537,7 @@ api_b_open_and_close_udpL(doc) ->
 api_b_open_and_close_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_open_and_close_udpL,
-           fun() -> supports_unix_domain_socket() end,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain   => local,
                                  type     => dgram,
@@ -1555,7 +1557,7 @@ api_b_open_and_close_tcpL(doc) ->
 api_b_open_and_close_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_open_and_close_tcpL,
-           fun() -> supports_unix_domain_socket() end,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain   => local,
                                  type     => stream,
@@ -1707,7 +1709,7 @@ api_b_sendto_and_recvfrom_udpL(doc) ->
 api_b_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_sendto_and_recvfrom_udpL,
-           fun() -> supports_unix_domain_socket() end,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
                                   socket:sendto(Sock, Data, Dest)
@@ -1778,7 +1780,7 @@ api_b_sendmsg_and_recvmsg_udpL(doc) ->
 api_b_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_sendmsg_and_recvmsg_udpL,
-           fun() -> supports_unix_domain_socket() end,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
                                   %% We need tests for this,
@@ -1980,7 +1982,7 @@ api_b_send_and_recv_tcpL(doc) ->
 api_b_send_and_recv_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_b_send_and_recv_tcpL,
-           fun() -> supports_unix_domain_socket() end,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   socket:send(Sock, Data)
@@ -2040,7 +2042,7 @@ api_b_sendmsg_and_recvmsg_tcpL(doc) ->
 api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_b_sendmsg_and_recvmsg_tcpL,
-           fun() -> supports_unix_domain_socket() end,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   MsgHdr = #{iov => [Data]},
@@ -3709,11 +3711,11 @@ api_to_connect_tcp4(suite) ->
 api_to_connect_tcp4(doc) ->
     [];
 api_to_connect_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     Cond = fun() -> api_to_connect_cond() end,
     tc_try(api_to_connect_tcp4,
            Cond,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain        => inet,
                                  backlog       => 1,
                                  timeout       => 5000,
@@ -3766,10 +3768,10 @@ api_to_connect_tcp6(suite) ->
 api_to_connect_tcp6(doc) ->
     [];
 api_to_connect_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_connect_tcp6,
            fun() -> has_support_ipv6(), api_to_connect_cond() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain        => inet6,
                                  backlog       => 1,
                                  timeout       => 5000,
@@ -4256,9 +4258,9 @@ api_to_accept_tcp4(suite) ->
 api_to_accept_tcp4(doc) ->
     [];
 api_to_accept_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_accept_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain => inet, timeout => 5000},
                    ok = api_to_accept_tcp(InitState)
            end).
@@ -4273,10 +4275,10 @@ api_to_accept_tcp6(suite) ->
 api_to_accept_tcp6(doc) ->
     [];
 api_to_accept_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_accept_tcp4,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain => inet6, timeout => 5000},
                    ok = api_to_accept_tcp(InitState)
            end).
@@ -4870,9 +4872,9 @@ api_to_recv_tcp4(suite) ->
 api_to_recv_tcp4(doc) ->
     [];
 api_to_recv_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recv_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recv(Sock, 0, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
@@ -4890,12 +4892,12 @@ api_to_recv_tcp6(suite) ->
 api_to_recv_tcp6(doc) ->
     [];
 api_to_recv_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recv_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
                    case socket:supports(ipv6) of
                        true ->
-                           ?TT(?SECS(10)),
                            Recv = fun(Sock, To) -> 
                                           socket:recv(Sock, 0, To)
                                   end,
@@ -5226,9 +5228,9 @@ api_to_recvfrom_udp4(suite) ->
 api_to_recvfrom_udp4(doc) ->
     [];
 api_to_recvfrom_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvfrom_udp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvfrom(Sock, 0, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
@@ -5246,10 +5248,10 @@ api_to_recvfrom_udp6(suite) ->
 api_to_recvfrom_udp6(doc) ->
     [];
 api_to_recvfrom_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvfrom_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvfrom(Sock, 0, To) end,
                    InitState = #{domain  => inet6,
                                  recv    => Recv,
@@ -5342,9 +5344,9 @@ api_to_recvmsg_udp4(suite) ->
 api_to_recvmsg_udp4(doc) ->
     [];
 api_to_recvmsg_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvmsg_udp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
@@ -5362,10 +5364,10 @@ api_to_recvmsg_udp6(suite) ->
 api_to_recvmsg_udp6(doc) ->
     [];
 api_to_recvmsg_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvmsg_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet6,
                                  recv    => Recv,
@@ -5383,9 +5385,9 @@ api_to_recvmsg_tcp4(suite) ->
 api_to_recvmsg_tcp4(doc) ->
     [];
 api_to_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvmsg_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
@@ -5403,10 +5405,10 @@ api_to_recvmsg_tcp6(suite) ->
 api_to_recvmsg_tcp6(doc) ->
     [];
 api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvmsg_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet6,
                                  recv    => Recv,
@@ -5434,9 +5436,9 @@ sc_cpe_socket_cleanup_tcp4(suite) ->
 sc_cpe_socket_cleanup_tcp4(doc) ->
     [];
 sc_cpe_socket_cleanup_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_tcp4,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => inet,
                                  type     => stream,
                                  protocol => tcp},
@@ -5454,10 +5456,10 @@ sc_cpe_socket_cleanup_tcp6(suite) ->
 sc_cpe_socket_cleanup_tcp6(doc) ->
     [];
 sc_cpe_socket_cleanup_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => inet6,
                                  type     => stream,
                                  protocol => tcp},
@@ -5475,10 +5477,10 @@ sc_cpe_socket_cleanup_tcpL(suite) ->
 sc_cpe_socket_cleanup_tcpL(doc) ->
     [];
 sc_cpe_socket_cleanup_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_tcpL,
-           fun() -> supports_unix_domain_socket() end,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => local,
                                  type     => stream,
                                  protocol => default},
@@ -5496,9 +5498,9 @@ sc_cpe_socket_cleanup_udp4(suite) ->
 sc_cpe_socket_cleanup_udp4(doc) ->
     [];
 sc_cpe_socket_cleanup_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_udp4,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => inet,
                                  type     => dgram,
                                  protocol => udp},
@@ -5517,10 +5519,10 @@ sc_cpe_socket_cleanup_udp6(suite) ->
 sc_cpe_socket_cleanup_udp6(doc) ->
     [];
 sc_cpe_socket_cleanup_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => inet6,
                                  type     => dgram,
                                  protocol => udp},
@@ -5538,10 +5540,10 @@ sc_cpe_socket_cleanup_udpL(suite) ->
 sc_cpe_socket_cleanup_udpL(doc) ->
     [];
 sc_cpe_socket_cleanup_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_udpL,
-           fun() -> supports_unix_domain_socket() end,
+           fun() -> has_support_unix_domain_socket() end,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => local,
                                  type     => dgram,
                                  protocol => default},
@@ -5693,12 +5695,11 @@ sc_lc_recv_response_tcp4(suite) ->
 sc_lc_recv_response_tcp4(doc) ->
     [];
 sc_lc_recv_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_recv_response_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_tcp(InitState)
@@ -5715,14 +5716,35 @@ sc_lc_recv_response_tcp6(suite) ->
 sc_lc_recv_response_tcp6(doc) ->
     [];
 sc_lc_recv_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_recv_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet6,
-                                 type     => stream,
                                  protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_lc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recv function.
+%% Socket is IPv6.
+
+sc_lc_recv_response_tcpL(suite) ->
+    [];
+sc_lc_recv_response_tcpL(doc) ->
+    [];
+sc_lc_recv_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_lc_recv_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_tcp(InitState)
            end).
@@ -5752,13 +5774,12 @@ sc_lc_receive_response_tcp(InitState) ->
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            LSA = which_local_socket_addr(Domain),
-                           {ok, State#{local_sa => LSA}}
+                           {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create (listen) socket",
            cmd  => fun(#{domain   := Domain, 
-                         type     := Type, 
                          protocol := Proto} = State) ->
-                           case socket:open(Domain, Type, Proto) of
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -5766,9 +5787,22 @@ sc_lc_receive_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+                           ?SEV_IPRINT("bind to LSA: "
+                                       "~n   ~p", [LSA]),
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock,
+                         lsa   := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -5779,7 +5813,12 @@ sc_lc_receive_response_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, lport := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester,
+                         lsa    := #{path := Path}}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok;
+                      (#{tester := Tester, lport := Port}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, Port),
                            ok
                    end},
@@ -5800,7 +5839,8 @@ sc_lc_receive_response_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
-                                   ?SEV_IPRINT("connection accepted"),
+                                   ?SEV_IPRINT("connection accepted: "
+                                               "~n   ~p", [socket:sockname(Sock)]),
                                    {ok, State#{csock => Sock}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -5831,9 +5871,8 @@ sc_lc_receive_response_tcp(InitState) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, close),
                            ok
                    end},
-         #{desc => "close the connection socket",
+         #{desc => "close connection socket",
            cmd  => fun(#{csock := Sock} = State) ->
-                           %% ok = socket:setopt(Sock, otp, debug, true),
                            case socket:close(Sock) of
                                ok ->
                                    {ok, maps:remove(csock, State)};
@@ -5857,8 +5896,24 @@ sc_lc_receive_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "close socket",
-           cmd  => fun(#{lsock := Sock} = State) ->
+         #{desc => "close listen socket",
+           cmd  => fun(#{domain := local,
+                         lsock  := Sock,
+                         lsa    := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       maps:remove(lsa, State);
+                               Result ->
+                                   ?SEV_IPRINT("unlink result: "
+                                               "~n   ~s", [Result]),
+                                   State
+                               end,
+                           State2 = maps:remove(lsock, State1),
+                           State3 = maps:remove(lport, State2),
+                           {ok, State3};
+                      (#{lsock := Sock} = State) ->
                            case socket:close(Sock) of
                                ok ->
                                    State1 = maps:remove(lsock, State),
@@ -5978,9 +6033,8 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "create socket",
            cmd  => fun(#{domain   := Domain, 
-                         type     := Type, 
                          protocol := Proto} = State) ->
-                           case socket:open(Domain, Type, Proto) of
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
@@ -5989,6 +6043,8 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "bind socket to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           ?SEV_IPRINT("bind to LSA: "
+                                       "~n   ~p", [LSA]),
                            case socket:bind(Sock, LSA) of
                                {ok, _} ->
                                    ok;
@@ -6004,7 +6060,20 @@ sc_lc_receive_response_tcp(InitState) ->
 
          %% The actual test
          #{desc => "await continue (connect)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain   := local = Domain,
+                         tester   := Tester,
+                         local_sa := LSA} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, connect) of
+                               {ok, ServerPath} ->
+                                   ?SEV_IPRINT("Server Path: "
+                                               "~n   ~s", [ServerPath]),
+                                   ServerSA = #{family => Domain,
+                                                path   => ServerPath},
+                                   {ok, State#{server_sa => ServerSA}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{tester := Tester, local_sa := LSA} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, connect) of
                                {ok, Port} ->
                                    ServerSA = LSA#{port => Port},
@@ -6034,7 +6103,21 @@ sc_lc_receive_response_tcp(InitState) ->
                            end                           
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{sock := Sock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           sock_close(Sock),
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       maps:remove(local_sa, State);
+                               Result ->
+                                   ?SEV_IPRINT("unlink result: "
+                                               "~n   ~s", [Result]),
+                                   State
+                               end,
+                           {ok, maps:remove(sock, State)};
+                       (#{sock := Sock} = State) ->
                            sock_close(Sock),
                            {ok, maps:remove(sock, State)}
                    end},
@@ -6081,8 +6164,8 @@ sc_lc_receive_response_tcp(InitState) ->
          #{desc => "await acceptor ready (init)",
            cmd  => fun(#{acceptor := Pid} = State) ->
                            case ?SEV_AWAIT_READY(Pid, acceptor, init) of
-                               {ok, Port} ->
-                                   {ok, State#{lport => Port}};
+                               {ok, PortOrPath} ->
+                                   {ok, State#{server_info => PortOrPath}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -6139,8 +6222,8 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          ?SEV_SLEEP(?SECS(1)),
          #{desc => "order client to continue (connect)",
-           cmd  => fun(#{client := Pid, lport := Port} = _State) ->
-                           ?SEV_ANNOUNCE_CONTINUE(Pid, connect, Port),
+           cmd  => fun(#{client := Pid, server_info := Info} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, connect, Info),
                            ok
                    end},
          #{desc => "await acceptor ready (accept)",
@@ -6307,9 +6390,9 @@ sc_lc_recvfrom_response_udp4(suite) ->
 sc_lc_recvfrom_response_udp4(doc) ->
     [];
 sc_lc_recvfrom_response_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_lc_recvfrom_response_udp4,
            fun() ->
-                   ?TT(?SECS(30)),
                    Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
                    InitState = #{domain   => inet,
                                  type     => dgram,
@@ -6329,10 +6412,10 @@ sc_lc_recvfrom_response_udp6(suite) ->
 sc_lc_recvfrom_response_udp6(doc) ->
     [];
 sc_lc_recvfrom_response_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_lc_recvfrom_response_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(30)),
                    Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
                    InitState = #{domain => inet6,
                                  recv   => Recv},
@@ -6726,9 +6809,9 @@ sc_lc_recvmsg_response_tcp4(suite) ->
 sc_lc_recvmsg_response_tcp4(doc) ->
     [];
 sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_recvmsg_response_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -6748,10 +6831,10 @@ sc_lc_recvmsg_response_tcp6(suite) ->
 sc_lc_recvmsg_response_tcp6(doc) ->
     [];
 sc_lc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_recvmsg_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet6,
                                  type     => stream,
@@ -18235,7 +18318,7 @@ which_addr2(Domain, [_|IFO]) ->
 
 %% Here are all the *general* test vase condition functions.
 
-supports_unix_domain_socket() ->
+has_support_unix_domain_socket() ->
     case os:type() of
         {win32, _} ->
             {skip, "Not supported"};
