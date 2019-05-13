@@ -73,6 +73,7 @@
          api_b_open_and_close_udpL/1,
          api_b_open_and_close_tcpL/1,
          api_b_sendto_and_recvfrom_udp4/1,
+         api_b_sendto_and_recvfrom_udpL/1,
          api_b_sendmsg_and_recvmsg_udp4/1,
          api_b_send_and_recv_tcp4/1,
          api_b_send_and_recv_tcpL/1,
@@ -595,6 +596,7 @@ api_basic_cases() ->
      api_b_open_and_close_udpL,
      api_b_open_and_close_tcpL,
      api_b_sendto_and_recvfrom_udp4,
+     api_b_sendto_and_recvfrom_udpL,
      api_b_sendmsg_and_recvmsg_udp4,
      api_b_send_and_recv_tcp4,
      api_b_send_and_recv_tcpL,
@@ -1681,6 +1683,34 @@ api_b_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
                                   socket:recvfrom(Sock)
                           end,
                    InitState = #{domain => inet,
+                                 proto  => udp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive on an IPv4 UDP (dgram) socket using
+%% sendto and recvfrom..
+api_b_sendto_and_recvfrom_udpL(suite) ->
+    [];
+api_b_sendto_and_recvfrom_udpL(doc) ->
+    [];
+api_b_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_sendto_and_recvfrom_udpL,
+           fun() -> supports_unix_domain_socket() end,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  socket:sendto(Sock, Data, Dest)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recvfrom(Sock)
+                          end,
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_udp(InitState)
@@ -1724,6 +1754,7 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_udp(InitState)
@@ -1736,41 +1767,52 @@ api_b_send_and_recv_udp(InitState) ->
     Seq = 
         [
          #{desc => "local address",
-           cmd  => fun(#{domain := Domain} = State) ->
+           cmd  => fun(#{domain := local = Domain} = State) ->
+                           LSASrc = which_local_socket_addr(Domain),
+                           LSADst = which_local_socket_addr(Domain),
+                           {ok, State#{lsa_src => LSASrc,
+                                       lsa_dst => LSADst}};
+                      (#{domain := Domain} = State) ->
                            LSA = which_local_socket_addr(Domain),
-                           {ok, State#{lsa => LSA}}
+                           {ok, State#{lsa_src => LSA,
+                                       lsa_dst => LSA}}
                    end},
+
          #{desc => "open src socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           Sock = sock_open(Domain, dgram, udp),
-                           SASrc = sock_sockname(Sock),
-                           {ok, State#{sock_src => Sock, sa_src => SASrc}}
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
+                           {ok, State#{sock_src => Sock}}
                    end},
          #{desc => "bind src",
-           cmd  => fun(#{sock_src := Sock, lsa := LSA}) ->
+           cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            sock_bind(Sock, LSA),
                            ok
                    end},
          #{desc => "sockname src socket",
            cmd  => fun(#{sock_src := Sock} = State) ->
                            SASrc = sock_sockname(Sock),
-                           %% ei("src sockaddr: ~p", [SASrc]),
+                           ?SEV_IPRINT("src sockaddr: "
+                                       "~n   ~p", [SASrc]),
                            {ok, State#{sa_src => SASrc}}
                    end},
+
          #{desc => "open dst socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           Sock = sock_open(Domain, dgram, udp),
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
                            {ok, State#{sock_dst => Sock}}
                    end},
          #{desc => "bind dst",
-           cmd  => fun(#{sock_dst := Sock, lsa := LSA}) ->
+           cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            sock_bind(Sock, LSA),
                            ok
                    end},
          #{desc => "sockname dst socket",
            cmd  => fun(#{sock_dst := Sock} = State) ->
                            SADst = sock_sockname(Sock),
-                           %% ei("dst sockaddr: ~p", [SADst]),
+                           ?SEV_IPRINT("dst sockaddr: "
+                                       "~n   ~p", [SADst]),
                            {ok, State#{sa_dst => SADst}}
                    end},
          #{desc => "send req (to dst)",
@@ -1808,11 +1850,37 @@ api_b_send_and_recv_udp(InitState) ->
                            end
                    end},
          #{desc => "close src socket",
-           cmd  => fun(#{sock_src := Sock}) ->
+           cmd  => fun(#{domain   := local,
+                         sock_src := Sock,
+                         lsa_src  := #{path := Path}}) ->
+                           ok = socket:close(Sock),
+                           case os:cmd("unlink " ++ Path) of
+                               "" ->
+                                   ok;
+                               Result ->
+                                   ?SEV_IPRINT("unlink result: "
+                                               "~n   ~s", [Result]),
+                                   ok
+                           end,
+                           ok;
+                      (#{sock_src := Sock}) ->
                            ok = socket:close(Sock)
                    end},
          #{desc => "close dst socket",
-           cmd  => fun(#{sock_dst := Sock}) ->
+           cmd  => fun(#{domain   := local,
+                         sock_dst := Sock,
+                         lsa_dst  := #{path := Path}}) ->
+                           ok = socket:close(Sock),
+                           case os:cmd("unlink " ++ Path) of
+                               "" ->
+                                   ok;
+                               Result ->
+                                   ?SEV_IPRINT("unlink result: "
+                                               "~n   ~s", [Result]),
+                                   ok
+                           end,
+                           ok;
+                      (#{sock_dst := Sock}) ->
                            ok = socket:close(Sock)
                    end},
 
@@ -1843,7 +1911,6 @@ api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
                                   socket:recv(Sock)
                           end,
                    InitState = #{domain => inet,
-                                 type   => stream,
                                  proto  => tcp,
                                  send   => Send,
                                  recv   => Recv},
@@ -1854,7 +1921,7 @@ api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically send and receive using the "common" functions (send and recv)
-%% on an IPv4 TCP (stream) socket.
+%% on an Unix Domain (stream) socket (TCP).
 api_b_send_and_recv_tcpL(suite) ->
     [];
 api_b_send_and_recv_tcpL(doc) ->
@@ -1871,7 +1938,6 @@ api_b_send_and_recv_tcpL(_Config) when is_list(_Config) ->
                                   socket:recv(Sock)
                           end,
                    InitState = #{domain => local,
-                                 type   => stream,
                                  proto  => default,
                                  send   => Send,
                                  recv   => Recv},
@@ -1905,7 +1971,6 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
-                                 type   => stream,
                                  proto  => tcp,
                                  send   => Send,
                                  recv   => Recv},
@@ -1916,7 +1981,7 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically send and receive using the msg functions (sendmsg and recvmsg)
-%% on an IPv4 TCP (stream) socket.
+%% on an Unix Domain (stream) socket (TCP).
 api_b_sendmsg_and_recvmsg_tcpL(suite) ->
     [];
 api_b_sendmsg_and_recvmsg_tcpL(doc) ->
@@ -1940,7 +2005,6 @@ api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => local,
-                                 type   => stream,
                                  proto  => default,
                                  send   => Send,
                                  recv   => Recv},
@@ -1974,9 +2038,8 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "create listen socket",
            cmd  => fun(#{domain := Domain,
-                         type   := Type,
                          proto  := Proto} = State) ->
-                           case socket:open(Domain, Type, Proto) of
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -2132,9 +2195,8 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "create socket",
            cmd  => fun(#{domain := Domain,
-                         type   := Type,
                          proto  := Proto} = State) ->
-                           case socket:open(Domain, Type, Proto) of
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
