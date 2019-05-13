@@ -2569,8 +2569,8 @@ linear_scan(#st{intervals=Intervals0,res=Res}=St0) ->
     {UnhandledRes,Unhandled} = partition(IsReserved, Intervals),
     L = #l{unhandled_res=UnhandledRes,
            unhandled_any=Unhandled,free=Free},
-    #l{regs=Regs} = do_linear(L),
-    St#st{regs=maps:from_list(Regs)}.
+    #l{regs=Regs,free=#{{next,x}:=Scratch}} = do_linear(L),
+    St#st{regs=maps:from_list([{scratch,{x,Scratch}}|Regs])}.
 
 init_interval({V,[{Start,_}|_]=Rs}, Res) ->
     Info = map_get(V, Res),

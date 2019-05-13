@@ -28,7 +28,7 @@
 
 -include("beam_ssa.hrl").
 
--import(lists, [foldl/3,keymember/3,keysort/2,last/1,map/2,mapfoldl/3,
+-import(lists, [foldl/3,keymember/3,keysort/2,max/1,map/2,mapfoldl/3,
                 reverse/1,reverse/2,sort/1,splitwith/2,takewhile/2]).
 
 -record(cg, {lcount=1 :: beam_label(),          %Label counter
@@ -1241,13 +1241,13 @@ cg_block([], {Bool0,Fail}, St) ->
     [Bool] = beam_args([Bool0], St),
     {[{test,is_eq_exact,Fail,[Bool,{atom,true}]}],St}.
 
-cg_copy(T0, St) ->
+cg_copy(T0, #cg{regs=Regs}=St) ->
     {Copies,T} = splitwith(fun(#cg_set{op=copy}) -> true;
                               (_) -> false
                            end, T0),
     Moves0 = cg_copy_1(Copies, St),
     Moves1 = [Move || {move,Src,Dst}=Move <- Moves0, Src =/= Dst],
-    Scratch = {x,1022},
+    Scratch = map_get(scratch, Regs),
     Moves = order_moves(Moves1, Scratch),
     {Moves,T}.
 
@@ -1863,7 +1863,7 @@ setup_args([]) ->
     [];
 setup_args([_|_]=Args) ->
     Moves = gen_moves(Args, 0, []),
-    Scratch = {x,1+last(sort([length(Args)-1|[X || {x,X} <- Args]]))},
+    Scratch = {x,1+max(length(Args)-1, max([X || {x,X} <- Args]))},
     order_moves(Moves, Scratch).
 
 %% kill_yregs(Anno, #cg{}) -> [{kill,{y,Y}}].
@@ -1941,12 +1941,14 @@ get_register(V, Regs) ->
         false -> maps:get(V, Regs)
     end.
 
-beam_args(As, St) ->
-    [beam_arg(A, St) || A <- As].
+beam_args(As, #cg{regs=Regs}) ->
+    [beam_arg_1(A, Regs) || A <- As].
 
-beam_arg(#b_var{}=Name, #cg{regs=Regs}) ->
-    maps:get(Name, Regs);
-beam_arg(#b_literal{val=Val}, _) ->
+beam_arg(A, #cg{regs=Regs}) -> beam_arg_1(A, Regs).
+
+beam_arg_1(#b_var{}=Name, Regs) ->
+    map_get(Name, Regs);
+beam_arg_1(#b_literal{val=Val}, _) ->
     if
         is_atom(Val) -> {atom,Val};
         is_float(Val) -> {float,Val};
@@ -1954,7 +1956,7 @@ beam_arg(#b_literal{val=Val}, _) ->
         Val =:= [] -> nil;
         true -> {literal,Val}
     end;
-beam_arg(Reg, _) ->
+beam_arg_1(Reg, _) ->
     verify_beam_register(Reg).
 
 new_block_label(L, St0) ->
