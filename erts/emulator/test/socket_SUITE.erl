@@ -113,8 +113,10 @@
          %% *** Socket Closure ***
          sc_cpe_socket_cleanup_tcp4/1,
          sc_cpe_socket_cleanup_tcp6/1,
+         sc_cpe_socket_cleanup_tcpL/1,
          sc_cpe_socket_cleanup_udp4/1,
          sc_cpe_socket_cleanup_udp6/1,
+         sc_cpe_socket_cleanup_udpL/1,
 
          sc_lc_recv_response_tcp4/1,
          sc_lc_recv_response_tcp6/1,
@@ -650,13 +652,15 @@ socket_closure_cases() ->
     ].
 
 %% These cases are all about socket cleanup after the controlling process
-%% exits *without* calling socket:close/1.
+%% exits *without* explicitly calling socket:close/1.
 sc_cp_exit_cases() ->
     [
      sc_cpe_socket_cleanup_tcp4,
      sc_cpe_socket_cleanup_tcp6,
+     sc_cpe_socket_cleanup_tcpL,
      sc_cpe_socket_cleanup_udp4,
-     sc_cpe_socket_cleanup_udp6
+     sc_cpe_socket_cleanup_udp6,
+     sc_cpe_socket_cleanup_udpL
     ].
 
 %% These cases tests what happens when the socket is closed locally.
@@ -5464,6 +5468,27 @@ sc_cpe_socket_cleanup_tcp6(_Config) when is_list(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to test that the sockets are cleaned up
 %% ("removed") when the controlling process terminates (without explicitly 
+%% calling the close function). For a Unix Domain (stream) socket (TCP).
+
+sc_cpe_socket_cleanup_tcpL(suite) ->
+    [];
+sc_cpe_socket_cleanup_tcpL(doc) ->
+    [];
+sc_cpe_socket_cleanup_tcpL(_Config) when is_list(_Config) ->
+    tc_try(sc_cpe_socket_cleanup_tcpL,
+           fun() -> supports_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(5)),
+                   InitState = #{domain   => local,
+                                 type     => stream,
+                                 protocol => default},
+                   ok = sc_cpe_socket_cleanup(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sockets are cleaned up
+%% ("removed") when the controlling process terminates (without explicitly 
 %% calling the close function). For a IPv4 UDP (dgram) socket.
 
 sc_cpe_socket_cleanup_udp4(suite) ->
@@ -5501,6 +5526,28 @@ sc_cpe_socket_cleanup_udp6(_Config) when is_list(_Config) ->
                                  protocol => udp},
                    ok = sc_cpe_socket_cleanup(InitState)
            end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sockets are cleaned up
+%% ("removed") when the controlling process terminates (without explicitly 
+%% calling the close function). For a Unix Domain (dgram) socket (UDP).
+
+sc_cpe_socket_cleanup_udpL(suite) ->
+    [];
+sc_cpe_socket_cleanup_udpL(doc) ->
+    [];
+sc_cpe_socket_cleanup_udpL(_Config) when is_list(_Config) ->
+    tc_try(sc_cpe_socket_cleanup_udpL,
+           fun() -> supports_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(5)),
+                   InitState = #{domain   => local,
+                                 type     => dgram,
+                                 protocol => default},
+                   ok = sc_cpe_socket_cleanup(InitState)
+           end).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
