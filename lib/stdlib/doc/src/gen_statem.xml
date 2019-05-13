@@ -40,7 +40,7 @@
     <p>
       This reference manual describes types generated from the types
       in the <c>gen_statem</c> source code, so they are correct.
-      However, the generated descriptions also reflect the type hiearchy,
+      However, the generated descriptions also reflect the type hierarchy,
       which makes them kind of hard to read.
     </p>
     <p>
