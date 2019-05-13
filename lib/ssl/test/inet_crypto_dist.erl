@@ -106,10 +106,16 @@ key_pair_server() ->
 %%
 key_pair_server(
   #key_pair{life_time = LifeTime, life_count = LifeCount} = KeyPair) ->
-    %%
-    Timer = erlang:start_timer(LifeTime, self(), discard),
-    key_pair_server(KeyPair, Timer, LifeCount).
-%%    
+    %% Presuming: 1 < LifeCount
+    Timer =
+        case LifeCount of
+            1 ->
+                undefined;
+            _ ->
+                erlang:start_timer(LifeTime, self(), discard)
+        end,
+    key_pair_server(KeyPair, Timer, LifeCount - 1).
+%%
 key_pair_server(_KeyPair, Timer, 0) ->
     cancel_timer(Timer),
     key_pair_server();
@@ -875,11 +881,12 @@ reply({Ref, Pid}, Msg) ->
 %%
 %% The start message contains the two encrypted random numbers
 %% this time encrypted with the session keys for verification
-%% by the other side, plus the rekey interval.  The rekey interval
+%% by the other side, plus the rekey count.  The rekey count
 %% is just there to get an early check for if the other side's
-%% maximum rekey interval is acceptable, it is just an embryo
+%% maximum rekey count is acceptable, it is just an embryo
 %% of some better check.  Any side may rekey earlier but if the
-%% rekey interval is exceeded the connection fails.
+%% rekey count is exceeded the connection fails.  Rekey is also
+%% triggered by a timer.
 %%
 %% Subsequent encrypted messages has the sequence number and the length
 %% of the message as AAD data, and an incrementing IV.  These messages
