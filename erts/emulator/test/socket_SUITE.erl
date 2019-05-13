@@ -75,6 +75,7 @@
          api_b_sendto_and_recvfrom_udp4/1,
          api_b_sendmsg_and_recvmsg_udp4/1,
          api_b_send_and_recv_tcp4/1,
+         api_b_send_and_recv_tcpL/1,
          api_b_sendmsg_and_recvmsg_tcp4/1,
 
          %% *** API Options ***
@@ -595,6 +596,7 @@ api_basic_cases() ->
      api_b_sendto_and_recvfrom_udp4,
      api_b_sendmsg_and_recvmsg_udp4,
      api_b_send_and_recv_tcp4,
+     api_b_send_and_recv_tcpL,
      api_b_sendmsg_and_recvmsg_tcp4
     ].
 
@@ -1523,6 +1525,7 @@ api_b_open_and_close_udpL(doc) ->
 api_b_open_and_close_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_open_and_close_udpL,
+           fun() -> supports_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain   => local,
                                  type     => dgram,
@@ -1542,6 +1545,7 @@ api_b_open_and_close_tcpL(doc) ->
 api_b_open_and_close_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_open_and_close_tcpL,
+           fun() -> supports_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain   => local,
                                  type     => stream,
@@ -1731,8 +1735,7 @@ api_b_send_and_recv_udp(InitState) ->
         [
          #{desc => "local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "open src socket",
@@ -1838,6 +1841,36 @@ api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
                                   socket:recv(Sock)
                           end,
                    InitState = #{domain => inet,
+                                 type   => stream,
+                                 proto  => tcp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the "common" functions (send and recv)
+%% on an IPv4 TCP (stream) socket.
+api_b_send_and_recv_tcpL(suite) ->
+    [];
+api_b_send_and_recv_tcpL(doc) ->
+    [];
+api_b_send_and_recv_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_b_send_and_recv_tcpL,
+           fun() -> supports_unix_domain_socket() end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
+                   InitState = #{domain => local,
+                                 type   => stream,
+                                 proto  => default,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_tcp(InitState)
@@ -1870,6 +1903,8 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 type   => stream,
+                                 proto  => tcp,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_tcp(InitState)
@@ -1897,13 +1932,14 @@ api_b_send_and_recv_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain,
+                         type   := Type,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -1911,9 +1947,19 @@ api_b_send_and_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock, lsa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -1924,7 +1970,12 @@ api_b_send_and_recv_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, lport := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester, lsa := #{path := Path}}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok;
+                      (#{tester := Tester, lport := Port}) ->
+                           %% This is actually not used for unix domain socket
                            ?SEV_ANNOUNCE_READY(Tester, init, Port),
                            ok
                    end},
@@ -1988,7 +2039,20 @@ api_b_send_and_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "close connection socket",
-           cmd  => fun(#{csock := Sock}) ->
+           cmd  => fun(#{domain := local,
+                         csock  := Sock,
+                         lsa    := #{path := Path}}) ->
+                           ok = socket:close(Sock),
+                           case os:cmd("unlink " ++ Path) of
+                               "" ->
+                                   ok;
+                               Result ->
+                                   ?SEV_IPRINT("unlink result: "
+                                               "~n   ~s", [Result]),
+                                   ok
+                           end,
+                           ok;
+                      (#{csock := Sock}) ->
                            socket:close(Sock)
                    end},
          #{desc => "close listen socket",
@@ -2004,7 +2068,10 @@ api_b_send_and_recv_tcp(InitState) ->
         [
          %% *** Wait for start order ***
          #{desc => "await start (from tester)",
-           cmd  => fun(State) ->
+           cmd  => fun(#{domain := local} = State) ->
+                           {Tester, Path} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_path => Path}};
+                      (State) ->
                            {Tester, Port} = ?SEV_AWAIT_START(),
                            {ok, State#{tester => Tester, server_port => Port}}
                    end},
@@ -2016,16 +2083,21 @@ api_b_send_and_recv_tcp(InitState) ->
 
          %% *** The init part ***
          #{desc => "which server (local) address",
-           cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, 
-                                     addr   => LAddr},
-                           SSA   = LSA#{port => Port},
+           cmd  => fun(#{domain      := local = Domain,
+                         server_path := Path} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = #{family => Domain, path => Path},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}};
+                      (#{domain := Domain, server_port := Port} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
                            {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain,
+                         type   := Type,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
@@ -2096,7 +2168,20 @@ api_b_send_and_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{sock := Sock}) ->
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}}) ->
+                           ok = socket:close(Sock),
+                           case os:cmd("unlink " ++ Path) of
+                               "" ->
+                                   ok;
+                               Result ->
+                                   ?SEV_IPRINT("unlink result:"
+                                               "~n   ~s", [Result]),
+                                   ok
+                           end,
+                           ok;
+                      (#{sock := Sock} = S) ->
                            socket:close(Sock)
                    end},
 
@@ -2572,8 +2657,7 @@ api_opt_simple_otp_rcvbuf_option() ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -2818,8 +2902,7 @@ api_opt_simple_otp_rcvbuf_option() ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create socket",
@@ -3573,8 +3656,7 @@ api_to_connect_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -3645,8 +3727,7 @@ api_to_connect_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create node",
@@ -3796,8 +3877,7 @@ api_to_connect_tcp(InitState) ->
                    end},
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "order server start",
@@ -3948,9 +4028,7 @@ api_toc_tcp_client_await_terminate(Parent) ->
     end.
 
 api_to_connect_tcp_await_timeout(To, ServerSA, Domain, ConLimit) ->
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain,
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     NewSock = fun() ->
                       S = case socket:open(Domain, stream, tcp) of
                               {ok, Sock} ->
@@ -4062,8 +4140,7 @@ api_to_accept_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create (listen) socket",
@@ -4187,8 +4264,7 @@ api_to_maccept_tcp(InitState) ->
                    end},
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create (listen) socket",
@@ -4705,8 +4781,7 @@ api_to_receive_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -4824,10 +4899,8 @@ api_to_receive_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain,
-                                     addr   => LAddr},
-                           SSA   = LSA#{port => Port},
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
                            {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
@@ -5043,8 +5116,7 @@ api_to_receive_udp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create socket",
@@ -5486,8 +5558,7 @@ sc_lc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create (listen) socket",
@@ -5709,8 +5780,7 @@ sc_lc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create socket",
@@ -6097,8 +6167,7 @@ sc_lc_receive_response_udp(InitState) ->
          %% *** Init part ***
          #{desc => "local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "open socket",
@@ -6606,8 +6675,7 @@ sc_lc_acceptor_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create (listen) socket",
@@ -7046,8 +7114,7 @@ sc_rc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -7756,9 +7823,7 @@ sc_rc_tcp_client_create(Domain) ->
 
 sc_rc_tcp_client_bind(Sock, Domain) ->
     i("sc_rc_tcp_client_bind -> entry"),
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain, 
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
             ok;
@@ -7994,8 +8059,7 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            i("get local address for ~p", [Domain]),
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -8590,9 +8654,7 @@ sc_rs_tcp_client_create(Domain) ->
 
 sc_rs_tcp_client_bind(Sock, Domain) ->
     i("sc_rs_tcp_client_bind -> entry"),
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain,
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
             ok;
@@ -8865,8 +8927,7 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -9750,9 +9811,7 @@ traffic_snr_tcp_client_create(Domain) ->
 
 traffic_snr_tcp_client_bind(Sock, Domain) ->
     i("traffic_snr_tcp_client_bind -> entry"),
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain, 
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
             ok;
@@ -10423,8 +10482,7 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -11151,9 +11209,7 @@ tpp_tcp_client_sock_open(Domain, BufInit) ->
     end.
 
 tpp_tcp_client_sock_bind(Sock, Domain) ->
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain, 
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
             ok;
@@ -11342,8 +11398,7 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -12049,9 +12104,7 @@ tpp_udp_sock_open(Domain, BufInit) ->
     end.
 
 tpp_udp_sock_bind(Sock, Domain) ->
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain, 
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
             ok;
@@ -17941,13 +17994,19 @@ local_host() ->
     end.
 
 
+which_local_socket_addr(local = Domain) ->
+    #{family => Domain,
+      path   => ?LIB:f("/tmp/socket_~w", [erlang:unique_integer()])};
+
 %% This gets the local address (not 127.0...)
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
-which_local_addr(Domain) ->
+which_local_socket_addr(Domain) ->
     case inet:getifaddrs() of
         {ok, IFL} ->
-            which_addr(Domain, IFL);
+            Addr = which_addr(Domain, IFL),
+            #{family => Domain,
+              addr   => Addr};
         {error, Reason} ->
             ?FAIL({inet, getifaddrs, Reason})
     end.
@@ -17982,6 +18041,15 @@ which_addr2(Domain, [_|IFO]) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Here are all the *general* test vase condition functions.
+
+supports_unix_domain_socket() ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Not supported"};
+        _ ->
+            ok
+    end.
+
 
 %% The idea is that this function shall test if the test host has 
 %% support for IPv6. If not, there is no point in running IPv6 tests.
