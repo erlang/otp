@@ -60,7 +60,9 @@
          iv = 12,
          key = 16,
          tag_len = 16,
-         rekey_interval = 262144
+         rekey_count = 262144,
+         rekey_time = 7200000, % 2 hours
+         rekey_msg
         }).
 
 params(Socket) ->
@@ -138,9 +140,20 @@ generate_key_pair() ->
         crypto:generate_key(Type, Params),
     #key_pair{public = Public, private = Private}.
 
+
 cancel_timer(undefined) ->
     ok;
 cancel_timer(Timer) ->
+    erlang_cancel_timer(Timer).
+
+start_rekey_timer(Time) ->
+    Timer = erlang:start_timer(Time, self(), rekey_time),
+    {timeout, Timer, rekey_time}.
+
+cancel_rekey_timer({timeout, Timer, rekey_time}) ->
+    erlang_cancel_timer(Timer).
+
+erlang_cancel_timer(Timer) ->
     case erlang:cancel_timer(Timer) of
         false ->
             receive
@@ -864,7 +877,7 @@ reply({Ref, Pid}, Msg) ->
 %% this time encrypted with the session keys for verification
 %% by the other side, plus the rekey interval.  The rekey interval
 %% is just there to get an early check for if the other side's
-%% maximum rekey interal is acceptable, it is just an embryo
+%% maximum rekey interval is acceptable, it is just an embryo
 %% of some better check.  Any side may rekey earlier but if the
 %% rekey interval is exceeded the connection fails.
 %%
@@ -950,7 +963,7 @@ init_msg(
      key = KeyLen,
      iv = IVLen,
      tag_len = TagLen,
-     rekey_interval = RekeyInterval} = Params,
+     rekey_count = RekeyCount} = Params,
   Secret, KeyPair, R2A, R3A, Msg) ->
     %%
     RLen = KeyLen + IVLen,
@@ -974,7 +987,7 @@ init_msg(
                           rekey_key = PubKeyB,
                           key = Key2A, iv = IV2A},
                     %%
-                    StartCleartext = [R2B, R3B, <<RekeyInterval:32>>],
+                    StartCleartext = [R2B, R3B, <<RekeyCount:32>>],
                     StartMsgLen = TagLen + iolist_size(StartCleartext),
                     StartAAD = <<StartMsgLen:32>>,
                     {StartCiphertext, StartTag} =
@@ -1001,7 +1014,7 @@ start_msg(
      key = Key2B,
      iv = IV2B,
      tag_len = TagLen,
-     rekey_interval = RekeyIntervalA} = RecvParams, R2A, R3A, Msg) ->
+     rekey_count = RekeyCountA} = RecvParams, R2A, R3A, Msg) ->
     %%
     case Msg of
         <<Tag:TagLen/binary, Ciphertext/binary>> ->
@@ -1014,10 +1027,10 @@ start_msg(
                 crypto:block_decrypt(
                   AeadCipher, Key2B, IV2B, {AAD, Ciphertext, Tag})
             of
-                <<R2A:RLen/binary, R3A:RLen/binary, RekeyIntervalB:32>>
-                  when RekeyIntervalA =< (RekeyIntervalB bsl 2),
-                       RekeyIntervalB =< (RekeyIntervalA bsl 2) ->
-                    RecvParams#params{rekey_interval = RekeyIntervalB}
+                <<R2A:RLen/binary, R3A:RLen/binary, RekeyCountB:32>>
+                  when RekeyCountA =< (RekeyCountB bsl 2),
+                       RekeyCountB =< (RekeyCountA bsl 2) ->
+                    RecvParams#params{rekey_count = RekeyCountB}
             end
     end.
 
@@ -1071,7 +1084,10 @@ handshake(
             process_flag(priority, normal),
             erlang:dist_ctrl_get_data_notification(DistHandle),
             output_handler(
-              SendParams#params{dist_handle = DistHandle}, SendSeq);
+              SendParams#params{
+                dist_handle = DistHandle,
+                rekey_msg = start_rekey_timer(SendParams#params.rekey_time)},
+              SendSeq);
         %%
         {?MODULE, From, {send, Data}} ->
             case
@@ -1137,9 +1153,12 @@ output_handler(Params, Seq) ->
                     output_handler_data(Params, Seq);
                 dist_tick ->
                     output_handler_tick(Params, Seq);
-                Other ->
+                _ when Msg =:= Params#params.rekey_msg ->
+                    Params_1 = output_handler_rekey(Params, Seq),
+                    output_handler(Params_1, 0);
+                _ ->
                     %% Ignore
-                    _ = trace(Other),
+                    _ = trace(Msg),
                     output_handler(Params, Seq)
             end
     end.
@@ -1152,9 +1171,12 @@ output_handler_data(Params, Seq) ->
                     output_handler_data(Params, Seq);
                 dist_tick ->
                     output_handler_data(Params, Seq);
-                Other ->
+                _ when Msg =:= Params#params.rekey_msg ->
+                    Params_1 = output_handler_rekey(Params, Seq),
+                    output_handler_data(Params_1, 0);
+                _ ->
                     %% Ignore
-                    _ = trace(Other),
+                    _ = trace(Msg),
                     output_handler_data(Params, Seq)
             end
     after 0 ->
@@ -1173,9 +1195,12 @@ output_handler_tick(Params, Seq) ->
                     output_handler_data(Params, Seq);
                 dist_tick ->
                     output_handler_tick(Params, Seq);
-                Other ->
+                _ when Msg =:= Params#params.rekey_msg ->
+                    Params_1 = output_handler_rekey(Params, Seq),
+                    output_handler(Params_1, 0);
+                _ ->
                     %% Ignore
-                    _ = trace(Other),
+                    _ = trace(Msg),
                     output_handler_tick(Params, Seq)
             end
     after 0 ->
@@ -1192,22 +1217,31 @@ output_handler_tick(Params, Seq) ->
             end
     end.
 
+output_handler_rekey(Params, Seq) ->
+    case encrypt_and_send_rekey_chunk(Params, Seq) of
+        #params{} = Params_1 ->
+            Params_1;
+        SendError ->
+            _ = trace(SendError),
+            death_row()
+    end.
+
 output_handler_send(Params, Seq, {_, Size, _} = Q) ->
     if
         ?CHUNK_SIZE < Size ->
-            output_handler_send(Params, Seq, Q, ?CHUNK_SIZE);
+            output_handler_deq_send(Params, Seq, Q, ?CHUNK_SIZE);
         true ->
             case get_data(Params#params.dist_handle, Q) of
                 {_, 0, _} ->
                     {Params, Seq};
                 {_, Size, _} = Q_1 -> % Got no more
-                    output_handler_send(Params, Seq, Q_1, Size);
+                    output_handler_deq_send(Params, Seq, Q_1, Size);
                 Q_1 ->
                     output_handler_send(Params, Seq, Q_1)
             end
     end.
 
-output_handler_send(Params, Seq, Q, Size) ->
+output_handler_deq_send(Params, Seq, Q, Size) ->
     {Cleartext, Q_1} = deq_iovec(Size, Q),
     case
         encrypt_and_send_chunk(Params, Seq, [?DATA_CHUNK, Cleartext])
@@ -1358,13 +1392,30 @@ deliver_data(DistHandle, Front, Size, Rear, Bin) ->
 
 encrypt_and_send_chunk(
   #params{
+     socket = Socket, rekey_count = Seq, rekey_msg = RekeyMsg} = Params,
+  Seq, Cleartext) ->
+    %%
+    cancel_rekey_timer(RekeyMsg),
+    case encrypt_and_send_rekey_chunk(Params, Seq) of
+        #params{} = Params_1 ->
+            Result =
+                gen_tcp:send(Socket, encrypt_chunk(Params, 0, Cleartext)),
+            {Params_1, 1, Result};
+        SendError ->
+            {Params, Seq + 1, SendError}
+    end;
+encrypt_and_send_chunk(#params{socket = Socket} = Params, Seq, Cleartext) ->
+    Result = gen_tcp:send(Socket, encrypt_chunk(Params, Seq, Cleartext)),
+    {Params, Seq + 1, Result}.
+
+encrypt_and_send_rekey_chunk(
+  #params{
      socket = Socket,
-     rekey_interval = Seq,
      rekey_key = PubKeyB,
      key = Key,
      iv = {IVSalt, IVNo},
      hmac_algorithm = HmacAlgo} = Params,
-  Seq, Cleartext) ->
+  Seq) ->
     %%
     KeyLen = byte_size(Key),
     IVSaltLen = byte_size(IVSalt),
@@ -1380,17 +1431,13 @@ encrypt_and_send_chunk(
                 hmac_key_iv(
                   HmacAlgo, SharedSecret, [Key, IVSalt, IV],
                   KeyLen, IVSaltLen + 6),
-            Params_1 = Params#params{key = Key_1, iv = {IVSalt_1, IVNo_1}},
-            Result =
-                gen_tcp:send(Socket, encrypt_chunk(Params_1, 0, Cleartext)),
-            {Params_1, 1, Result};
+            Params#params{
+              key = Key_1, iv = {IVSalt_1, IVNo_1},
+              rekey_msg = start_rekey_timer(Params#params.rekey_time)};
         SendError ->
-            {Params, Seq + 1, SendError}
-    end;
-encrypt_and_send_chunk(#params{socket = Socket} = Params, Seq, Cleartext) ->
-    Result = gen_tcp:send(Socket, encrypt_chunk(Params, Seq, Cleartext)),
-    {Params, Seq + 1, Result}.
-
+            SendError
+    end.
+    
 encrypt_chunk(
   #params{
      aead_cipher = AeadCipher,
@@ -1431,7 +1478,7 @@ decrypt_chunk(
 block_decrypt(
   #params{
      rekey_key = #key_pair{public = PubKeyA} = KeyPair,
-     rekey_interval = RekeyInterval} = Params,
+     rekey_count = RekeyCount} = Params,
   Seq, AeadCipher, Key, IV, Data) ->
     %%
     case crypto:block_decrypt(AeadCipher, Key, IV, Data) of
@@ -1453,7 +1500,7 @@ block_decrypt(
             end;
         Chunk when is_binary(Chunk) ->
             case Seq of
-                RekeyInterval ->
+                RekeyCount ->
                     %% This was one chunk too many without rekeying
                     error;
                 _ ->
