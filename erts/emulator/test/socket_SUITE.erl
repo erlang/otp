@@ -75,6 +75,7 @@
          api_b_sendto_and_recvfrom_udp4/1,
          api_b_sendto_and_recvfrom_udpL/1,
          api_b_sendmsg_and_recvmsg_udp4/1,
+         api_b_sendmsg_and_recvmsg_udpL/1,
          api_b_send_and_recv_tcp4/1,
          api_b_send_and_recv_tcpL/1,
          api_b_sendmsg_and_recvmsg_tcp4/1,
@@ -598,6 +599,7 @@ api_basic_cases() ->
      api_b_sendto_and_recvfrom_udp4,
      api_b_sendto_and_recvfrom_udpL,
      api_b_sendmsg_and_recvmsg_udp4,
+     api_b_sendmsg_and_recvmsg_udpL,
      api_b_send_and_recv_tcp4,
      api_b_send_and_recv_tcpL,
      api_b_sendmsg_and_recvmsg_tcp4,
@@ -1693,7 +1695,7 @@ api_b_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically send and receive on an IPv4 UDP (dgram) socket using
-%% sendto and recvfrom..
+%% sendto and recvfrom.
 api_b_sendto_and_recvfrom_udpL(suite) ->
     [];
 api_b_sendto_and_recvfrom_udpL(doc) ->
@@ -1755,6 +1757,51 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                           end,
                    InitState = #{domain => inet,
                                  proto  => udp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive on an IPv4 UDP (dgram) socket
+%% using sendmsg and recvmsg.
+api_b_sendmsg_and_recvmsg_udpL(suite) ->
+    [];
+api_b_sendmsg_and_recvmsg_udpL(doc) ->
+    [];
+api_b_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_sendmsg_and_recvmsg_udpL,
+           fun() -> supports_unix_domain_socket() end,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  %% We need tests for this,
+                                  %% but this is not the place it.
+                                  %% CMsgHdr  = #{level => ip,
+                                  %%              type  => tos,
+                                  %%              data  => reliability},
+                                  %% CMsgHdrs = [CMsgHdr],
+                                  MsgHdr = #{addr => Dest,
+                                             %% ctrl => CMsgHdrs,
+                                             iov  => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  %% We have some issues on old darwing...
+                                  %% socket:setopt(Sock, otp, debug, true),
+                                  case socket:recvmsg(Sock) of
+                                      {ok, #{addr  := Source,
+                                             iov   := [Data]}} ->
+                                          %% socket:setopt(Sock, otp, debug, false),
+                                          {ok, {Source, Data}};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_udp(InitState)
