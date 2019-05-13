@@ -125,6 +125,7 @@
          sc_lc_recvfrom_response_udp6/1,
          sc_lc_recvmsg_response_tcp4/1,
          sc_lc_recvmsg_response_tcp6/1,
+         sc_lc_recvmsg_response_tcpL/1,
          sc_lc_recvmsg_response_udp4/1,
          sc_lc_recvmsg_response_udp6/1,
          sc_lc_acceptor_response_tcp4/1,
@@ -676,6 +677,7 @@ sc_lc_cases() ->
 
      sc_lc_recvmsg_response_tcp4,
      sc_lc_recvmsg_response_tcp6,
+     sc_lc_recvmsg_response_tcpL,
      sc_lc_recvmsg_response_udp4,
      sc_lc_recvmsg_response_udp6,
 
@@ -5731,7 +5733,7 @@ sc_lc_recv_response_tcp6(_Config) when is_list(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to test what happens when a socket is 
 %% locally closed while the process is calling the recv function.
-%% Socket is IPv6.
+%% Socket is Unix Domain (stream) socket.
 
 sc_lc_recv_response_tcpL(suite) ->
     [];
@@ -6814,7 +6816,6 @@ sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
            fun() ->
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_tcp(InitState)
@@ -6837,8 +6838,29 @@ sc_lc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
            fun() ->
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet6,
-                                 type     => stream,
                                  protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_lc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recvmsg function.
+%% Socket is Unix Domain (stream) socket.
+
+sc_lc_recvmsg_response_tcpL(suite) ->
+    [];
+sc_lc_recvmsg_response_tcpL(doc) ->
+    [];
+sc_lc_recvmsg_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_recvmsg_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_tcp(InitState)
            end).
