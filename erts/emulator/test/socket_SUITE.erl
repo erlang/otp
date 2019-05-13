@@ -132,6 +132,7 @@
          sc_lc_recvmsg_response_udpL/1,
          sc_lc_acceptor_response_tcp4/1,
          sc_lc_acceptor_response_tcp6/1,
+         sc_lc_acceptor_response_tcpL/1,
 
          sc_rc_recv_response_tcp4/1,
          sc_rc_recv_response_tcp6/1,
@@ -686,7 +687,8 @@ sc_lc_cases() ->
      sc_lc_recvmsg_response_udpL,
 
      sc_lc_acceptor_response_tcp4,
-     sc_lc_acceptor_response_tcp6
+     sc_lc_acceptor_response_tcp6,
+     sc_lc_acceptor_response_tcpL
     ].
 
 %% These cases tests what happens when the socket is closed remotely.
@@ -6984,11 +6986,10 @@ sc_lc_acceptor_response_tcp4(suite) ->
 sc_lc_acceptor_response_tcp4(doc) ->
     [];
 sc_lc_acceptor_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_acceptor_response_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp},
                    ok = sc_lc_acceptor_response_tcp(InitState)
            end).
@@ -7006,13 +7007,34 @@ sc_lc_acceptor_response_tcp6(suite) ->
 sc_lc_acceptor_response_tcp6(doc) ->
     [];
 sc_lc_acceptor_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_acceptor_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
-                   InitState = #{domain   => inet,
-                                 type     => stream,
+                   InitState = #{domain   => inet6,
                                  protocol => tcp},
+                   ok = sc_lc_acceptor_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the accept function.
+%% We test what happens with a non-controlling_process also, since we 
+%% git the setup anyway.
+%% Socket is Unix Domain (stream) socket.
+
+sc_lc_acceptor_response_tcpL(suite) ->
+    [];
+sc_lc_acceptor_response_tcpL(doc) ->
+    [];
+sc_lc_acceptor_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_lc_acceptor_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 protocol => default},
                    ok = sc_lc_acceptor_response_tcp(InitState)
            end).
 
@@ -7042,9 +7064,8 @@ sc_lc_acceptor_response_tcp(InitState) ->
                    end},
          #{desc => "create (listen) socket",
            cmd  => fun(#{domain   := Domain, 
-                         type     := Type, 
                          protocol := Proto} = State) ->
-                           case socket:open(Domain, Type, Proto) of
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
@@ -7081,8 +7102,8 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "await connection",
-           cmd  => fun(#{sock := Sock, timeout := Timeout} = _State) ->
-                           case socket:accept(Sock, Timeout) of
+           cmd  => fun(#{sock := LSock, timeout := Timeout} = _State) ->
+                           case socket:accept(LSock, Timeout) of
                                {error, timeout} ->
                                    ok;
                                {ok, Sock} ->
@@ -7103,7 +7124,25 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            ok = ?SEV_AWAIT_CONTINUE(Tester, tester, close)
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{sock := Sock} = State) ->
+           cmd  => fun(#{domain := local,
+                         sock   := Sock,
+                         lsa    := #{path := Path}} = State) ->
+                           case socket:close(Sock) of
+                               ok ->
+                                   State1 =
+                                       case os:cmd("unlink " ++ Path) of
+                                           "" ->
+                                               maps:remove(lsa, State);
+                                           Result ->
+                                               ?SEV_IPRINT("unlink result: "
+                                                           "~n   ~s", [Result]),
+                                               State
+                                       end,
+                                   {ok, maps:remove(sock, State1)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{sock := Sock} = State) ->
                            case socket:close(Sock) of
                                ok ->
                                    {ok, maps:remove(sock, State)};
@@ -7418,9 +7457,9 @@ sc_rc_recv_response_tcp4(suite) ->
 sc_rc_recv_response_tcp4(doc) ->
     [];
 sc_rc_recv_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rc_recv_response_tcp4,
            fun() ->
-                   ?TT(?SECS(30)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -7440,10 +7479,10 @@ sc_rc_recv_response_tcp6(suite) ->
 sc_rc_recv_response_tcp6(doc) ->
     [];
 sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rc_recv_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet6,
                                  type     => stream,
