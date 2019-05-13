@@ -129,6 +129,7 @@
          sc_lc_recvmsg_response_tcpL/1,
          sc_lc_recvmsg_response_udp4/1,
          sc_lc_recvmsg_response_udp6/1,
+         sc_lc_recvmsg_response_udpL/1,
          sc_lc_acceptor_response_tcp4/1,
          sc_lc_acceptor_response_tcp6/1,
 
@@ -682,6 +683,7 @@ sc_lc_cases() ->
      sc_lc_recvmsg_response_tcpL,
      sc_lc_recvmsg_response_udp4,
      sc_lc_recvmsg_response_udp6,
+     sc_lc_recvmsg_response_udpL,
 
      sc_lc_acceptor_response_tcp4,
      sc_lc_acceptor_response_tcp6
@@ -6941,6 +6943,29 @@ sc_lc_recvmsg_response_udp6(_Config) when is_list(_Config) ->
                    Recv      = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain   => inet6,
                                  protocol => udp,
+                                 recv     => Recv},
+                   ok = sc_lc_receive_response_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recvmsg function.
+%% Socket is Unix Domain (dgram) socket.
+
+sc_lc_recvmsg_response_udpL(suite) ->
+    [];
+sc_lc_recvmsg_response_udpL(doc) ->
+    [];
+sc_lc_recvmsg_response_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_recvmsg_response_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_udp(InitState)
            end).
