@@ -48,21 +48,27 @@ groups() ->
 
 payload_tests() ->
     [server_echos_passive_small,
+     server_echos_passive_chunk_small,
      server_echos_active_once_small,
      server_echos_active_small,
      client_echos_passive_small,
+     client_echos_passive_chunk_small,
      client_echos_active_once_small,
      client_echos_active_small,
      server_echos_passive_big,
+     server_echos_passive_chunk_big,
      server_echos_active_once_big,
      server_echos_active_big,
      client_echos_passive_big,
+     client_echos_passive_chunk_big,
      client_echos_active_once_big,
      client_echos_active_big,
      server_echos_passive_huge,
+     server_echos_passive_chunk_huge,
      server_echos_active_once_huge,
      server_echos_active_huge,
      client_echos_passive_huge,
+     client_echos_passive_chunk_huge,
      client_echos_active_once_huge,
      client_echos_active_huge,
      client_active_once_server_close].
@@ -109,9 +115,11 @@ end_per_group(GroupName, Config) ->
 
 init_per_testcase(TestCase, Config)
   when TestCase == server_echos_passive_huge;
+       TestCase == server_echos_passive_chunk_huge;
        TestCase == server_echos_active_once_huge;
        TestCase == server_echos_active_huge;
        TestCase == client_echos_passive_huge;
+       TestCase == client_echos_passive_chunk_huge;
        TestCase == client_echos_active_once_huge;
        TestCase == client_echos_active_huge ->
     case erlang:system_info(system_architecture) of
@@ -124,9 +132,11 @@ init_per_testcase(TestCase, Config)
 
 init_per_testcase(TestCase, Config)
   when TestCase == server_echos_passive_big;
+       TestCase == server_echos_passive_chunk_big;
        TestCase == server_echos_active_once_big;
        TestCase == server_echos_active_big;
        TestCase == client_echos_passive_big;
+       TestCase == client_echos_passive_chunk_big;
        TestCase == client_echos_active_once_big;
        TestCase == client_echos_active_big ->
     ct:timetrap({seconds, 60}),
@@ -154,6 +164,22 @@ server_echos_passive_small(Config) when is_list(Config) ->
     Data = binary:copy(<<"1234567890">>, 100),
     server_echos_passive(
       Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
+
+%%--------------------------------------------------------------------
+
+server_echos_passive_chunk_small() ->
+    [{doc, "Client sends 1000 bytes in passive mode to server, that receives them in chunks, "
+     "sends them back, and closes."}].
+
+server_echos_passive_chunk_small(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %%
+    Data = binary:copy(<<"1234567890">>, 100),
+    server_echos_passive_chunk(
+      Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
+
 
 %%--------------------------------------------------------------------
 
@@ -200,6 +226,21 @@ client_echos_passive_small(Config) when is_list(Config) ->
       Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
 
 %%--------------------------------------------------------------------
+client_echos_passive_chunk__small() ->
+    [{doc, "Server sends 1000 bytes in passive mode to client, that receives them in chunks, "
+      "sends them back, and closes."}].
+
+client_echos_passive_chunk_small(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %%
+    Data = binary:copy(<<"1234567890">>, 100),
+    client_echos_passive_chunk(
+      Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
+
+
+%%--------------------------------------------------------------------
 client_echos_active_once_small() ->
     ["Server sends 1000 bytes in active once mode to client, that receives "
      "them, sends them back, and closes."].
@@ -240,6 +281,19 @@ server_echos_passive_big(Config) when is_list(Config) ->
     %%
     Data = binary:copy(<<"1234567890">>, 5000),
     server_echos_passive(
+      Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
+%%--------------------------------------------------------------------
+server_echos_passive_chunk_big() ->
+    [{doc, "Client sends 50000 bytes to server in passive mode, that receives them, "
+     "sends them back, and closes."}].
+
+server_echos_passive_chunk_big(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %%
+    Data = binary:copy(<<"1234567890">>, 5000),
+    server_echos_passive_chunk(
       Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
 
 %%--------------------------------------------------------------------
@@ -286,6 +340,22 @@ client_echos_passive_big(Config) when is_list(Config) ->
     client_echos_passive(
       Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
 
+
+%%--------------------------------------------------------------------
+client_echos_passive_chunk_big() ->
+    [{doc, "Server sends 50000 bytes to client in passive mode, that receives them, "
+     "sends them back, and closes."}].
+
+client_echos_passive_chunk_big(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %%
+    Data = binary:copy(<<"1234567890">>, 5000),
+    client_echos_passive_chunk(
+      Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
+
+
 %%--------------------------------------------------------------------
 client_echos_active_once_big() ->
     [{doc, "Server sends 50000 bytes to client in active once mode, that receives"
@@ -329,6 +399,20 @@ server_echos_passive_huge(Config) when is_list(Config) ->
       Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
 
 %%--------------------------------------------------------------------
+server_echos_passive_chunk_huge() ->
+    [{doc, "Client sends 500000 bytes to server in passive mode, that receives "
+      " them, sends them back, and closes."}].
+
+server_echos_passive_chunk_huge(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %%
+    Data = binary:copy(<<"1234567890">>, 50000),
+    server_echos_passive_chunk(
+      Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
+
+%%--------------------------------------------------------------------
 server_echos_active_once_huge() ->
     [{doc, "Client sends 500000 bytes to server in active once mode, that receives "
       "them, sends them back, and closes."}].
@@ -369,7 +453,19 @@ client_echos_passive_huge(Config) when is_list(Config) ->
     Data = binary:copy(<<"1234567890">>, 50000),
     client_echos_passive(
       Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
+%%--------------------------------------------------------------------
+client_echos_passive_chunk_huge() ->
+    [{doc, "Server sends 500000 bytes to client in passive mode, that receives "
+     "them, sends them back, and closes."}].
 
+client_echos_passive_chunk_huge(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %%
+    Data = binary:copy(<<"1234567890">>, 50000),
+    client_echos_passive_chunk(
+      Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
 %%--------------------------------------------------------------------
 client_echos_active_once_huge() ->
     [{doc, "Server sends 500000 bytes to client in active once mode, that receives "
@@ -442,6 +538,28 @@ server_echos_passive(
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
+server_echos_passive_chunk(
+  Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname) ->
+    Length = byte_size(Data),
+    Server =
+        ssl_test_lib:start_server(
+          [{node, ServerNode}, {port, 0},
+           {from, self()},
+           {mfa, {?MODULE, echoer_chunk, [Length]}},
+           {options, [{active, false}, {mode, binary} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+        ssl_test_lib:start_client(
+          [{node, ClientNode}, {port, Port},
+           {host, Hostname},
+           {from, self()},
+           {mfa, {?MODULE, sender, [Data]}},
+           {options, [{active, false}, {mode, binary} | ClientOpts]}]),
+    %%
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    %%
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 server_echos_active_once(
   Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname) ->
@@ -512,6 +630,31 @@ client_echos_passive(
     %%
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+
+client_echos_passive_chunk(
+  Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname) ->
+    Length = byte_size(Data),
+    Server =
+        ssl_test_lib:start_server(
+          [{node, ServerNode}, {port, 0},
+           {from, self()},
+           {mfa, {?MODULE, sender, [Data]}},
+           {options, [{active, false}, {mode, binary} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+        ssl_test_lib:start_client(
+          [{node, ClientNode}, {port, Port},
+           {host, Hostname},
+           {from, self()},
+           {mfa, {?MODULE, echoer_chunk, [Length]}},
+           {options, [{active, false}, {mode, binary} | ClientOpts]}]),
+    %%
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    %%
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 client_echos_active_once(
   Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname) ->
@@ -615,6 +758,10 @@ echoer(Socket, Size) ->
     ct:log("Echoer recv: ~p~n", [ssl:getopts(Socket, [active])]),
     echo_recv(Socket, Size * 100).
 
+echoer_chunk(Socket, Size) ->
+    ct:log("Echoer recv: ~p~n", [ssl:getopts(Socket, [active])]),
+    echo_recv_chunk(Socket, Size, Size * 100).
+
 echoer_active_once(Socket, Size) ->
     ct:log("Echoer active once: ~p~n", [ssl:getopts(Socket, [active])]),
     echo_active_once(Socket, Size * 100).
@@ -631,6 +778,16 @@ echo_recv(Socket, Size) ->
     {ok, Data} = ssl:recv(Socket, 0),
     ok = ssl:send(Socket, Data),
     echo_recv(Socket, Size - byte_size(Data)).
+
+
+%% Receive Size bytes
+echo_recv_chunk(_Socket, _, 0) ->
+    ok;
+echo_recv_chunk(Socket, ChunkSize, Size) ->
+    {ok, Data} = ssl:recv(Socket, ChunkSize),
+    ok = ssl:send(Socket, Data),
+    echo_recv_chunk(Socket, ChunkSize, Size - ChunkSize).
+
 
 %% Receive Size bytes
 echo_active_once(_Socket, 0) ->
