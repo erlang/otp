@@ -609,6 +609,16 @@ binary_to_existing_atom(Config) when is_list(Config) ->
 
     UnlikelyAtom = binary_to_atom(id(UnlikelyBin), latin1),
     UnlikelyAtom = binary_to_existing_atom(UnlikelyBin, latin1),
+
+    %% ERL-944; a binary that was too large would overflow the latin1-to-utf8
+    %% conversion buffer.
+    OverflowAtom = <<0:511/unit:8,
+                     196, 133, 196, 133, 196, 133, 196, 133, 196, 133,
+                     196, 133, 196, 133, 196, 133, 196, 133, 196, 133,
+                     196, 133, 196, 133, 196, 133, 196, 133, 196, 133,
+                     196, 133, 196, 133, 196, 133, 196, 133, 196, 133>>,
+    {'EXIT', _} = (catch binary_to_existing_atom(OverflowAtom, latin1)),
+
     ok.
 
 
