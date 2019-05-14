@@ -24,7 +24,7 @@
 	 accept/1, accept/2,
 	 active/2,
 	 close/1,
-	 connect/2, connect/3,
+	 connect/1, connect/2, connect/3,
 	 controlling_process/2,
 	 listen/0, listen/1, listen/2,
 	 port/1,
@@ -35,6 +35,8 @@
 	 sockname/1
 	]).
 
+
+-define(LIB, socket_test_lib).
 
 -define(READER_RECV_TIMEOUT, 1000).
 
@@ -100,30 +102,56 @@ close(#{sock := Sock, reader := Pid}) ->
     socket:close(Sock).
 
 %% Create a socket and connect it to a peer
-connect(Addr, Port) ->
-    connect(Addr, Port, #{method => plain}).
+connect(ServerPath) when is_list(ServerPath) ->
+    Domain   = local,
+    ServerSA = #{family => Domain, path => ServerPath},
+    Opts     = #{domain => Domain,
+                 proto  => default,
+                 method => plain},
+    do_connect(ServerSA, Opts).
 
-connect(Addr, Port, #{method := Method} = Opts) ->
+connect(Addr, Port) when is_tuple(Addr) andalso is_integer(Port) ->
+    Domain   = inet,
+    ServerSA = #{family => Domain,
+                 addr   => Addr,
+                 port   => Port},
+    Opts     = #{domain => Domain,
+                 proto  => tcp,
+                 method => plain},
+    do_connect(ServerSA, Opts);
+connect(ServerPath,
+        #{domain := local = Domain, proto := default} = Opts)
+  when is_list(ServerPath) ->
+    ServerSA = #{family => Domain, path => ServerPath},
+    do_connect(ServerSA, Opts).
+
+connect(Addr, Port, #{domain := Domain, proto := tcp} = Opts) ->
+    ServerSA = #{family => Domain,
+                 addr   => Addr,
+                 port   => Port},
+    do_connect(ServerSA, Opts).
+
+do_connect(ServerSA, #{domain := Domain,
+                       proto  := Proto, 
+                       method := Method} = Opts) ->
     try
 	begin
 	    Sock =
-		case socket:open(inet, stream, tcp) of
+		case socket:open(Domain, stream, Proto) of
 		    {ok, S} ->
 			S;
 		    {error, OReason} ->
 			throw({error, {open, OReason}})
 		end,
-	    case socket:bind(Sock, any) of
+            LocalSA = which_sa(Domain),
+	    case socket:bind(Sock, LocalSA) of
 		{ok, _} ->
 		    ok;
 		{error, BReason} ->
 		    (catch socket:close(Sock)),
 		    throw({error, {bind, BReason}})
 	    end,
-	    SA = #{family => inet,
-		   addr   => Addr,
-		   port   => Port},
-	    case socket:connect(Sock, SA) of
+	    case socket:connect(Sock, ServerSA) of
 		ok ->
 		    ok;
 		{error, CReason} ->
@@ -140,6 +168,15 @@ connect(Addr, Port, #{method := Method} = Opts) ->
 	    ERROR
     end.
 
+which_sa(local = Domain) ->
+    #{family => Domain,
+      path   => mk_unique_path()};
+which_sa(_) ->
+    any.
+
+mk_unique_path() ->
+    [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
+    ?LIB:f("/tmp/esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]).
 
 maybe_start_stats_timer(#{stats_to       := Pid,
                           stats_interval := T},
