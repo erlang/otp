@@ -165,6 +165,7 @@
 
          traffic_ping_pong_small_sendto_and_recvfrom_udp4/1,
          traffic_ping_pong_small_sendto_and_recvfrom_udp6/1,
+         traffic_ping_pong_small_sendto_and_recvfrom_udpL/1,
          traffic_ping_pong_medium_sendto_and_recvfrom_udp4/1,
          traffic_ping_pong_medium_sendto_and_recvfrom_udp6/1,
 
@@ -743,6 +744,7 @@ traffic_cases() ->
 
      traffic_ping_pong_small_sendto_and_recvfrom_udp4,
      traffic_ping_pong_small_sendto_and_recvfrom_udp6,
+     traffic_ping_pong_small_sendto_and_recvfrom_udpL,
      traffic_ping_pong_medium_sendto_and_recvfrom_udp4,
      traffic_ping_pong_medium_sendto_and_recvfrom_udp6,
 
@@ -10894,13 +10896,43 @@ traffic_ping_pong_small_sendto_and_recvfrom_udp6(suite) ->
 traffic_ping_pong_small_sendto_and_recvfrom_udp6(doc) ->
     [];
 traffic_ping_pong_small_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(45)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(45)),
-                   InitState = #{domain => inet,
+                   InitState = #{domain => inet6,
                                  proto  => udp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendto and recvfrom 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for two different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for Unix Domain (dgram) socket.
+
+traffic_ping_pong_small_sendto_and_recvfrom_udpL(suite) ->
+    [];
+traffic_ping_pong_small_sendto_and_recvfrom_udpL(doc) ->
+    [];
+traffic_ping_pong_small_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(45)),
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -12325,8 +12357,8 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, dgram, udp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, dgram, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
@@ -12334,7 +12366,15 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{sock := Sock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         sock := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{sock := Sock, local_sa := LSA} = State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{port => Port}};
@@ -12377,7 +12417,11 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                            end
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, port := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester, local_sa := LSA}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester := Tester, local_sa := LSA, port := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -12415,6 +12459,24 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                                {error, _} = ERROR ->
                                    ERROR
                            end
+                   end},
+         #{desc => "(maybe) unlink socket",
+           cmd  => fun(#{domain   := local,
+                         local_sa := #{path := Path}} = State) ->
+                           case os:cmd("unlink " ++ Path) of
+                               "" ->
+                                   ?SEV_IPRINT("path unlinked: "
+                                               "~n   Path: ~s", [Path]),
+                                   {ok, maps:remove(local_sa, State)};
+                               Result ->
+                                   ?SEV_EPRINT("unlink maybe failed: "
+                                               "~n   Path: ~s"
+                                               "~n   Res:  ~s",
+                                               [Path, Result]),
+                                   ok
+                           end;
+                      (_) ->
+                           ok
                    end},
          #{desc => "announce ready (close)",
            cmd  => fun(#{tester := Tester} = _State) ->
@@ -12512,11 +12574,13 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          #{desc => "order remote handler to start",
            cmd  => fun(#{handler   := Handler,
                          server_sa := ServerSA,
+                         proto     := Proto,
                          buf_init  := BufInit,
                          send      := Send,
                          recv      := Recv}) ->
                            ?SEV_ANNOUNCE_START(Handler, 
-                                               {ServerSA, BufInit, Send, Recv}),
+                                               {ServerSA, Proto, BufInit,
+                                                Send, Recv}),
                            ok
                    end},
          #{desc => "await (remote) handler ready",
@@ -12761,6 +12825,7 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
 
     i("start server evaluator"),
     ServerInitState = #{domain   => maps:get(domain,   InitState),
+                        proto    => maps:get(proto,    InitState),
                         recv     => maps:get(recv,     InitState),
                         send     => maps:get(send,     InitState),
                         buf_init => maps:get(buf_init, InitState)},
@@ -12861,12 +12926,12 @@ tpp_udp_client_handler_create(Node) ->
 tpp_udp_client_handler(Parent) ->
     tpp_udp_client_handler_init(Parent),
     ?SEV_IPRINT("await start command"),
-    {ServerSA, BufInit, Send, Recv} = tpp_udp_handler_await_start(Parent),
+    {ServerSA, Proto, BufInit, Send, Recv} = tpp_udp_handler_await_start(Parent),
     ?SEV_IPRINT("start command with"
                 "~n   ServerSA: ~p", [ServerSA]),
     Domain   = maps:get(family, ServerSA),
-    Sock     = tpp_udp_sock_open(Domain, BufInit),
-    tpp_udp_sock_bind(Sock, Domain),
+    Sock     = tpp_udp_sock_open(Domain, Proto, BufInit),
+    Path     = tpp_udp_sock_bind(Sock, Domain),
     ?SEV_IPRINT("announce ready", []),
     tpp_udp_handler_announce_ready(Parent, init),
     {InitMsg, Num} = tpp_udp_handler_await_continue(Parent, send),
@@ -12879,7 +12944,7 @@ tpp_udp_client_handler(Parent) ->
     ?SEV_IPRINT("await terminate"),
     Reason = tpp_udp_handler_await_terminate(Parent),
     ?SEV_IPRINT("terminate with ~p", [Reason]),
-    tpp_udp_sock_close(Sock),
+    tpp_udp_sock_close(Sock, Path),
     ?SEV_IPRINT("terminating"),
     exit(Reason).
 
@@ -13017,8 +13082,8 @@ tpp_udp_handler_await_terminate(Parent) ->
     end.
 
 
-tpp_udp_sock_open(Domain, BufInit) ->
-    case socket:open(Domain, dgram, udp) of
+tpp_udp_sock_open(Domain, Proto, BufInit) ->
+    case socket:open(Domain, dgram, Proto) of
         {ok, Sock} ->
             ok = BufInit(Sock),
             Sock;
@@ -13035,12 +13100,16 @@ tpp_udp_sock_bind(Sock, Domain) ->
             exit({bind, Reason})
     end.
 
-tpp_udp_sock_close(Sock) ->
+tpp_udp_sock_close(Sock, Path) ->
     case socket:close(Sock) of
         ok ->
+            unlink_socket(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("Failed closing socket: "
+                        "~n   ~p", [Reason]),
+            unlink_socket(Path),
+            {error, {close, Reason}}
     end.
 
 
