@@ -22,12 +22,12 @@
 #   <local ref> <local sha1> <remote ref> <remote sha1>
 #
 
-NEW_RELEASES="21 20 19 18 17"
+NEW_RELEASES="22 21 20 19 18 17"
 OLD_RELEASES="r16 r15 r14 r13"
 RELEASES="$NEW_RELEASES $OLD_RELEASES"
 
 # First commit on master, not allowed in other branches
-MASTER_ONLY=aea2a053e28a11497796879715be29ab0c3cd1a0
+MASTER_ONLY=f633fe962ea7078c32f8c81d34950c0ebce0f472
 
 # Number of commits and files allowed in one push by this script
 NCOMMITS_MAX=100
