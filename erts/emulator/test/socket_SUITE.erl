@@ -146,6 +146,7 @@
          sc_rs_recv_send_shutdown_receive_tcpL/1,
          sc_rs_recvmsg_send_shutdown_receive_tcp4/1,
          sc_rs_recvmsg_send_shutdown_receive_tcp6/1,
+         sc_rs_recvmsg_send_shutdown_receive_tcpL/1,
 
          %% *** Traffic ***
          traffic_send_and_recv_chunks_tcp4/1,
@@ -715,7 +716,8 @@ sc_rs_cases() ->
      sc_rs_recv_send_shutdown_receive_tcpL,
 
      sc_rs_recvmsg_send_shutdown_receive_tcp4,
-     sc_rs_recvmsg_send_shutdown_receive_tcp6
+     sc_rs_recvmsg_send_shutdown_receive_tcp6,
+     sc_rs_recvmsg_send_shutdown_receive_tcpL
     ].
 
 
@@ -9389,11 +9391,52 @@ sc_rs_recvmsg_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
                                        end
                                end,
                    Send      = fun(Sock, Data) when is_binary(Data) ->
-                                  MsgHdr = #{iov => [Data]},
-                                  socket:sendmsg(Sock, MsgHdr)
+                                       MsgHdr = #{iov => [Data]},
+                                       socket:sendmsg(Sock, MsgHdr)
                                end,
                    InitState = #{domain => inet6,
                                  proto  => tcp,
+                                 recv   => Recv,
+                                 send   => Send,
+                                 data   => MsgData},
+                   ok = sc_rs_send_shutdown_receive_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is
+%% remotely closed while the process is calling the recvmsg function.
+%% The remote client sends data, then shutdown(write) and then the
+%% reader attempts a recv.
+%% Socket is UNix Domain (stream) socket.
+
+sc_rs_recvmsg_send_shutdown_receive_tcpL(suite) ->
+    [];
+sc_rs_recvmsg_send_shutdown_receive_tcpL(doc) ->
+    [];
+sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_rs_recvmsg_send_shutdown_receive_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   {ok, CWD} = file:get_cwd(),
+                   ?SEV_IPRINT("CWD: ~s", [CWD]),
+                   MsgData   = ?DATA,
+                   Recv      = fun(Sock) ->
+                                       case socket:recvmsg(Sock) of
+                                           {ok, #{addr  := #{family := local},
+                                                  iov   := [Data]}} ->
+                                               {ok, Data};
+                                           {error, _} = ERROR ->
+                                               ERROR
+                                       end
+                               end,
+                   Send      = fun(Sock, Data) when is_binary(Data) ->
+                                       MsgHdr = #{iov => [Data]},
+                                       socket:sendmsg(Sock, MsgHdr)
+                               end,
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  recv   => Recv,
                                  send   => Send,
                                  data   => MsgData},
@@ -18536,7 +18579,8 @@ local_host() ->
 %% don't clash.
 mk_unique_path() ->
     [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
-    ?LIB:f("/tmp/socket_~s_~w", [NodeName, erlang:unique_integer()]).
+    %% ?LIB:f("/tmp/socket_~s_~w", [NodeName, erlang:unique_integer()]).
+    ?LIB:f("/tmp/socket_~s_~w", [NodeName, erlang:system_time(nanosecond)]).
 
 which_local_socket_addr(local = Domain) ->
     #{family => Domain,
