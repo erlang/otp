@@ -92,6 +92,7 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/hash$(TYPEMARKER).o \
 	$(OBJDIR)/hmac$(TYPEMARKER).o \
 	$(OBJDIR)/info$(TYPEMARKER).o \
+	$(OBJDIR)/mac$(TYPEMARKER).o \
 	$(OBJDIR)/math$(TYPEMARKER).o \
 	$(OBJDIR)/pkey$(TYPEMARKER).o \
 	$(OBJDIR)/poly1305$(TYPEMARKER).o \

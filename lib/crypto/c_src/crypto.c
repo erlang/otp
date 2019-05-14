@@ -32,6 +32,7 @@
 #include "bn.h"
 #include "cipher.h"
 #include "cmac.h"
+#include "mac.h"
 #include "dh.h"
 #include "digest.h"
 #include "dss.h"
@@ -81,6 +82,7 @@ static ErlNifFunc nif_funcs[] = {
     {"hmac_final_nif", 1, hmac_final_nif, 0},
     {"hmac_final_nif", 2, hmac_final_nif, 0},
     {"cmac_nif", 3, cmac_nif, 0},
+    {"mac_nif", 4, mac_nif, 0},
     {"cipher_info_nif", 1, cipher_info_nif, 0},
     {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif, 0},
     {"ng_crypto_init_nif", 4, ng_crypto_init_nif, 0},
@@ -248,6 +250,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #endif /* OPENSSL_THREADS */
 
     init_digest_types(env);
+    init_mac_types(env);
     init_cipher_types(env);
     init_algorithms_types(env);
 

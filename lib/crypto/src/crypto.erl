@@ -62,7 +62,8 @@
          crypto_one_time_aead/6, crypto_one_time_aead/7,
          crypto_dyn_iv_init/3,
          crypto_dyn_iv_update/3,
-         supports/1
+         supports/1,
+         mac/3, mac/4, mac/5
         ]).
 
 
@@ -601,6 +602,19 @@ hash_final(Context) ->
 %%% MACs (Message Authentication Codes)
 %%% 
 %%%================================================================
+
+mac(Type, SubType, Key, Data, MacLength) ->
+    erlang:binary_part(mac(Type, SubType, Key, Data), 0, MacLength).
+
+mac(poly1305, _, Key, Data) -> mac_nif(poly1305, undefined, Key, Data);
+mac(Type, SubType, Key, Data) -> mac_nif(Type, SubType, Key, Data).
+
+mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
+
+    
+
+mac_nif(_Type, _SubType, _Key, _Data) -> ?nif_stub.
+
 
 %%%---- HMAC
 

@@ -34,6 +34,10 @@ extern ERL_NIF_TERM atom_rsa_no_padding;
 extern ERL_NIF_TERM atom_signature_md;
 extern ERL_NIF_TERM atom_undefined;
 
+extern ERL_NIF_TERM atom_hmac;
+extern ERL_NIF_TERM atom_cmac;
+extern ERL_NIF_TERM atom_poly1305;
+
 extern ERL_NIF_TERM atom_ok;
 extern ERL_NIF_TERM atom_none;
 extern ERL_NIF_TERM atom_notsup;

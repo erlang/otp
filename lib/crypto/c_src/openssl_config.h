@@ -110,6 +110,12 @@
 #  define HAS_EVP_PKEY_CTX
 #  define HAVE_EVP_CIPHER_CTX_COPY
 # endif
+
+# if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)
+#   define HAVE_PKEY_new_raw_private_key
+#   define HAVE_EVP_PKEY_new_CMAC_key
+#   define HAVE_DigestSign_as_single_op
+# endif
 #endif
 
 
@@ -278,6 +284,7 @@
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+# define HAVE_PKEY_HMAC
 # ifdef RSA_PKCS1_PSS_PADDING
 #  define HAVE_RSA_PKCS1_PSS_PADDING
 # endif
