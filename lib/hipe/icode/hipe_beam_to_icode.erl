@@ -1204,6 +1204,17 @@ trans_fun([{bs_get_position=Name,_,_,_}|_Instructions], _Env) ->
 trans_fun([{bs_set_position=Name,_,_}|_Instructions], _Env) ->
   nyi(Name);
 %%--------------------------------------------------------------------
+%% New instructions added in OTP 23.
+%%--------------------------------------------------------------------
+%%--- swap ---
+trans_fun([{swap,Reg1,Reg2}|Instructions], Env) ->
+  Var1 = mk_var(Reg1),
+  Var2 = mk_var(Reg2),
+  Temp = mk_var(new),
+  [hipe_icode:mk_move(Temp, Var1),
+   hipe_icode:mk_move(Var1, Var2),
+   hipe_icode:mk_move(Var2, Temp) | trans_fun(Instructions, Env)];
+%%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------
 trans_fun([X|_], _) ->

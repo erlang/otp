@@ -596,3 +596,7 @@ BEAM_FORMAT_NUMBER=0
 ## @spec bs_set_positon Ctx Pos
 ## @doc  Sets the current position of Ctx to Pos
 168: bs_set_position/2
+
+## @spec swap Register1 Register2
+## @doc  Swaps the contents of two registers.
+169: swap/2

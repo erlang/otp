@@ -244,6 +244,9 @@ remap([{make_fun2,_,_,_,_}=I|T], Map, Acc) ->
 remap([{deallocate,N}|Is], Map, Acc) ->
     I = {deallocate,Map({frame_size,N})},
     remap(Is, Map, [I|Acc]);
+remap([{swap,Reg1,Reg2}|Is], Map, Acc) ->
+    I = {swap,Map(Reg1),Map(Reg2)},
+    remap(Is, Map, [I|Acc]);
 remap([{test,Name,Fail,Ss}|Is], Map, Acc) ->
     I = {test,Name,Fail,[Map(S) || S <- Ss]},
     remap(Is, Map, [I|Acc]);
@@ -382,6 +385,8 @@ frame_size([{bs_set_position,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{bs_get_tail,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
+frame_size([{swap,_,_}|Is], Safe) ->
+    frame_size(Is, Safe);
 frame_size(_, _) -> throw(not_possible).
 
 frame_size_branch(0, Is, Safe) ->
@@ -444,6 +449,8 @@ is_not_used(Y, [{line,_}|Is]) ->
     is_not_used(Y, Is);
 is_not_used(Y, [{make_fun2,_,_,_,_}|Is]) ->
     is_not_used(Y, Is);
+is_not_used(Y, [{swap,Reg1,Reg2}|Is]) ->
+    Y =/= Reg1 andalso Y =/= Reg2 andalso is_not_used(Y, Is);
 is_not_used(Y, [{test,_,_,Ss}|Is]) ->
     not member(Y, Ss) andalso is_not_used(Y, Is);
 is_not_used(Y, [{test,_Op,{f,_},_Live,Ss,Dst}|Is]) ->

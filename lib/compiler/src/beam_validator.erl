@@ -392,6 +392,23 @@ valfun_1(build_stacktrace=I, Vst) ->
     call(I, 1, Vst);
 valfun_1({move,Src,Dst}, Vst) ->
     assign(Src, Dst, Vst);
+valfun_1({swap,RegA,RegB}, Vst0) ->
+    assert_movable(RegA, Vst0),
+    assert_movable(RegB, Vst0),
+
+    %% We don't expect fragile registers to be swapped.
+    %% Therefore, we can conservatively make both registers
+    %% fragile if one of the register is fragile instead of
+    %% swapping the fragility of the registers.
+    Sources = [RegA,RegB],
+    Vst1 = propagate_fragility(RegA, Sources, Vst0),
+    Vst2 = propagate_fragility(RegB, Sources, Vst1),
+
+    %% Swap the value references.
+    VrefA = get_reg_vref(RegA, Vst2),
+    VrefB = get_reg_vref(RegB, Vst2),
+    Vst = set_reg_vref(VrefB, RegA, Vst2),
+    set_reg_vref(VrefA, RegB, Vst);
 valfun_1({fmove,Src,{fr,_}=Dst}, Vst) ->
     assert_type(float, Src, Vst),
     set_freg(Dst, Vst);
