@@ -168,6 +168,7 @@
          traffic_ping_pong_small_sendto_and_recvfrom_udpL/1,
          traffic_ping_pong_medium_sendto_and_recvfrom_udp4/1,
          traffic_ping_pong_medium_sendto_and_recvfrom_udp6/1,
+         traffic_ping_pong_medium_sendto_and_recvfrom_udpL/1,
 
          traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4/1,
          traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6/1,
@@ -747,6 +748,7 @@ traffic_cases() ->
      traffic_ping_pong_small_sendto_and_recvfrom_udpL,
      traffic_ping_pong_medium_sendto_and_recvfrom_udp4,
      traffic_ping_pong_medium_sendto_and_recvfrom_udp6,
+     traffic_ping_pong_medium_sendto_and_recvfrom_udpL,
 
      traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
      traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
@@ -10989,6 +10991,35 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udp6(_Config) when is_list(_Config)
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
                                  proto  => udp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendto and recvfrom 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for two different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for Unix Domain (dgram) socket.
+
+traffic_ping_pong_medium_sendto_and_recvfrom_udpL(suite) ->
+    [];
+traffic_ping_pong_medium_sendto_and_recvfrom_udpL(doc) ->
+    [];
+traffic_ping_pong_medium_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(45)),
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
