@@ -442,8 +442,7 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 passive_receive(State0 = #state{user_data_buffer = {_,BufferSize,_}}, StateName, Connection, StartTimerAction) ->
     case BufferSize of
 	0 ->
-	    {Record, State} = Connection:next_record(State0),
-	    Connection:next_event(StateName, Record, State, StartTimerAction);
+	    Connection:next_event(StateName, no_record, State0, StartTimerAction);
 	_ ->
 	    case read_application_data(<<>>, State0) of
                 {stop, _, _} = ShutdownError ->
@@ -1188,10 +1187,8 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 cipher(internal, #next_protocol{selected_protocol = SelectedProtocol},
        #state{static_env = #static_env{role = server},
               handshake_env = #handshake_env{expecting_finished = true,
-                                             expecting_next_protocol_negotiation = true} = HsEnv} = State0, Connection) ->
-    {Record, State} = 
-	Connection:next_record(State0),
-    Connection:next_event(?FUNCTION_NAME, Record, 
+                                             expecting_next_protocol_negotiation = true} = HsEnv} = State, Connection) ->
+    Connection:next_event(?FUNCTION_NAME, no_record, 
 			  State#state{handshake_env = HsEnv#handshake_env{negotiated_protocol = SelectedProtocol,
                                                                           expecting_next_protocol_negotiation = false}});
 cipher(internal, #change_cipher_spec{type = <<1>>},  #state{handshake_env = HsEnv, connection_states = ConnectionStates0} =
