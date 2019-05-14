@@ -289,12 +289,8 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
 	{stop, _, _} = Stop->
             Stop;
 	{Record, State1} ->
-            case next_event(StateName, Record, State1) of
-                {next_state, StateName, State, Actions} ->
-                    ssl_connection:hibernate_after(StateName, State, Actions);
-                {stop, _, _} = Stop ->
-                    Stop
-            end
+            {next_state, StateName, State, Actions} = next_event(StateName, Record, State1), 
+            ssl_connection:hibernate_after(StateName, State, Actions)
     end;
 %%% TLS record protocol level handshake messages 
 handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data}, 
