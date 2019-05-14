@@ -139,6 +139,7 @@
          sc_rc_recv_response_tcpL/1,
          sc_rc_recvmsg_response_tcp4/1,
          sc_rc_recvmsg_response_tcp6/1,
+         sc_rc_recvmsg_response_tcpL/1,
 
          sc_rs_recv_send_shutdown_receive_tcp4/1,
          sc_rs_recv_send_shutdown_receive_tcp6/1,
@@ -700,7 +701,8 @@ sc_rc_cases() ->
      sc_rc_recv_response_tcpL,
 
      sc_rc_recvmsg_response_tcp4,
-     sc_rc_recvmsg_response_tcp6
+     sc_rc_recvmsg_response_tcp6,
+     sc_rc_recvmsg_response_tcpL
     ].
 
 %% These cases tests what happens when the socket is shutdown/closed remotely
@@ -8395,12 +8397,11 @@ sc_rc_recvmsg_response_tcp4(suite) ->
 sc_rc_recvmsg_response_tcp4(doc) ->
     [];
 sc_rc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rc_recvmsg_response_tcp4,
            fun() ->
-                   ?TT(?SECS(30)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
                    ok = sc_rc_receive_response_tcp(InitState)
@@ -8417,14 +8418,35 @@ sc_rc_recvmsg_response_tcp6(suite) ->
 sc_rc_recvmsg_response_tcp6(doc) ->
     [];
 sc_rc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rc_recvmsg_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet6,
-                                 type     => stream,
                                  protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_rc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recvmsg function.
+%% Socket is Unix Domain (stream) socket.
+
+sc_rc_recvmsg_response_tcpL(suite) ->
+    [];
+sc_rc_recvmsg_response_tcpL(doc) ->
+    [];
+sc_rc_recvmsg_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(sc_rc_recvmsg_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
                                  recv     => Recv},
                    ok = sc_rc_receive_response_tcp(InitState)
            end).
