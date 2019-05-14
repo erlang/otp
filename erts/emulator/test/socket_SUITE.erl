@@ -151,6 +151,7 @@
          %% *** Traffic ***
          traffic_send_and_recv_chunks_tcp4/1,
          traffic_send_and_recv_chunks_tcp6/1,
+         traffic_send_and_recv_chunks_tcpL/1,
 
          traffic_ping_pong_small_send_and_recv_tcp4/1,
          traffic_ping_pong_small_send_and_recv_tcp6/1,
@@ -725,6 +726,7 @@ traffic_cases() ->
     [
      traffic_send_and_recv_chunks_tcp4,
      traffic_send_and_recv_chunks_tcp6,
+     traffic_send_and_recv_chunks_tcpL,
 
      traffic_ping_pong_small_send_and_recv_tcp4,
      traffic_ping_pong_small_send_and_recv_tcp6,
@@ -9456,10 +9458,11 @@ traffic_send_and_recv_chunks_tcp4(suite) ->
 traffic_send_and_recv_chunks_tcp4(doc) ->
     [];
 traffic_send_and_recv_chunks_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(traffic_send_and_recv_chunks_tcp4,
            fun() ->
-                   ?TT(?SECS(30)),
-                   InitState = #{domain => inet},
+                   InitState = #{domain => inet,
+                                 proto  => tcp},
                    ok = traffic_send_and_recv_chunks_tcp(InitState)
            end).
 
@@ -9477,11 +9480,34 @@ traffic_send_and_recv_chunks_tcp6(suite) ->
 traffic_send_and_recv_chunks_tcp6(doc) ->
     [];
 traffic_send_and_recv_chunks_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(traffic_send_and_recv_chunks_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(30)),
-                   InitState = #{domain => inet6},
+                   InitState = #{domain => inet6,
+                                 proto  => tcp},
+                   ok = traffic_send_and_recv_chunks_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% behave as expected when sending and/or reading chunks.
+%% First send data in one "big" chunk, and read it in "small" chunks.
+%% Second, send in a bunch of "small" chunks, and read in one "big" chunk.
+%% Socket is UNix Domain (Stream) socket.
+
+traffic_send_and_recv_chunks_tcpL(suite) ->
+    [];
+traffic_send_and_recv_chunks_tcpL(doc) ->
+    [];
+traffic_send_and_recv_chunks_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(traffic_send_and_recv_chunks_tcp6,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default},
                    ok = traffic_send_and_recv_chunks_tcp(InitState)
            end).
 
@@ -9510,8 +9536,8 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -9519,7 +9545,17 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := LSock,
+                         local_sa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock    := LSock,
+                         local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{lport => Port}};
@@ -9532,7 +9568,14 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, lport := Port}) ->
+           cmd  => fun(#{domain   := local,
+                         tester   := Tester,
+                         local_sa := LSA}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester   := Tester,
+                         local_sa := LSA,
+                         lport    := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -9780,8 +9823,10 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            ok
                    end},
          #{desc => "order remote client to start",
-           cmd  => fun(#{rclient := Client, server_sa := ServerSA}) ->
-                           ?SEV_ANNOUNCE_START(Client, ServerSA),
+           cmd  => fun(#{rclient   := Client,
+                         server_sa := ServerSA,
+                         proto     := Proto}) ->
+                           ?SEV_ANNOUNCE_START(Client, {ServerSA, Proto}),
                            ok
                    end},
          #{desc => "await remote client ready",
@@ -10369,9 +10414,9 @@ traffic_snr_tcp_client_init(Parent) ->
     put(sname, "rclient"),
     ?SEV_IPRINT("init"),
     _MRef = erlang:monitor(process, Parent),
-    ServerSA = traffic_snr_tcp_client_await_start(Parent),
+    {ServerSA, Proto} = traffic_snr_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
-    Sock     = traffic_snr_tcp_client_create(Domain),
+    Sock     = traffic_snr_tcp_client_create(Domain, Proto),
     traffic_snr_tcp_client_bind(Sock, Domain),
     {Sock, ServerSA}.
 
@@ -10379,9 +10424,9 @@ traffic_snr_tcp_client_await_start(Parent) ->
     i("traffic_snr_tcp_client_await_start -> entry"),
     ?SEV_AWAIT_START(Parent).
 
-traffic_snr_tcp_client_create(Domain) ->
+traffic_snr_tcp_client_create(Domain, Proto) ->
     i("traffic_snr_tcp_client_create -> entry"),
-    case socket:open(Domain, stream, tcp) of
+    case socket:open(Domain, stream, Proto) of
         {ok, Sock} ->
             Sock;
         {error, Reason} ->
