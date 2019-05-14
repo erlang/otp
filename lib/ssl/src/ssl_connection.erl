@@ -1194,7 +1194,7 @@ cipher(internal, #next_protocol{selected_protocol = SelectedProtocol},
        #state{static_env = #static_env{role = server},
               handshake_env = #handshake_env{expecting_finished = true,
                                              expecting_next_protocol_negotiation = true} = HsEnv} = State, Connection) ->
-    Connection:next_event(?FUNCTION_NAME, no_record,
+    Connection:next_event(?FUNCTION_NAME, no_record, 
 			  State#state{handshake_env = HsEnv#handshake_env{negotiated_protocol = SelectedProtocol,
                                                                           expecting_next_protocol_negotiation = false}});
 cipher(internal, #change_cipher_spec{type = <<1>>},  #state{handshake_env = HsEnv, connection_states = ConnectionStates0} =
