@@ -136,6 +136,7 @@
 
          sc_rc_recv_response_tcp4/1,
          sc_rc_recv_response_tcp6/1,
+         sc_rc_recv_response_tcpL/1,
          sc_rc_recvmsg_response_tcp4/1,
          sc_rc_recvmsg_response_tcp6/1,
 
@@ -696,6 +697,7 @@ sc_rc_cases() ->
     [
      sc_rc_recv_response_tcp4,
      sc_rc_recv_response_tcp6,
+     sc_rc_recv_response_tcpL,
 
      sc_rc_recvmsg_response_tcp4,
      sc_rc_recvmsg_response_tcp6
@@ -7462,7 +7464,6 @@ sc_rc_recv_response_tcp4(_Config) when is_list(_Config) ->
            fun() ->
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
                    ok = sc_rc_receive_response_tcp(InitState)
@@ -7485,8 +7486,29 @@ sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
            fun() ->
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet6,
-                                 type     => stream,
                                  protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_rc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recv function.
+%% Socket is Unix Domain (stream) socket.
+
+sc_rc_recv_response_tcpL(suite) ->
+    [];
+sc_rc_recv_response_tcpL(doc) ->
+    [];
+sc_rc_recv_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(sc_rc_recv_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
                                  recv     => Recv},
                    ok = sc_rc_receive_response_tcp(InitState)
            end).
@@ -7519,8 +7541,8 @@ sc_rc_receive_response_tcp(InitState) ->
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, protocol := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -7528,7 +7550,17 @@ sc_rc_receive_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock    := LSock,
+                         local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{lport => Port}};
@@ -7541,7 +7573,15 @@ sc_rc_receive_response_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, lport := Port}) ->
+           cmd  => fun(#{domain   := local,
+                         tester   := Tester,
+                         local_sa := LSA}) ->
+                           %% Actually we only need to send the path,
+                           %% but to keep it simple, we send the "same"
+                           %% as for non-local.
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester := Tester, local_sa := LSA, lport := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -7723,7 +7763,25 @@ sc_rc_receive_response_tcp(InitState) ->
                            {ok, State2}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := LSock} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := #{path := Path}} = State) ->
+                           case socket:close(LSock) of
+                               ok ->
+                                   State1 =
+                                       case os:cmd("unlink " ++ Path) of
+                                           "" ->
+                                               maps:remove(lsa, State);
+                                           Result ->
+                                               ?SEV_IPRINT("unlink result: "
+                                                           "~n   ~s", [Result]),
+                                               State
+                                       end,
+                                   {ok, maps:remove(lsock, State1)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock} = State) ->
                            case socket:close(LSock) of
                                ok ->
                                    {ok, maps:remove(lsock, State)};
@@ -7780,8 +7838,10 @@ sc_rc_receive_response_tcp(InitState) ->
                            ok
                    end},
          #{desc => "order remote client to start",
-           cmd  => fun(#{rclient := Client, server_sa := ServerSA}) ->
-                           ?SEV_ANNOUNCE_START(Client, ServerSA),
+           cmd  => fun(#{rclient   := Client,
+                         server_sa := ServerSA,
+                         protocol  := Proto}) ->
+                           ?SEV_ANNOUNCE_START(Client, {ServerSA, Proto}),
                            ok
                    end},
          #{desc => "await remote client ready",
@@ -8182,9 +8242,9 @@ sc_rc_tcp_client_start(Node) ->
 
 sc_rc_tcp_client(Parent) ->
     sc_rc_tcp_client_init(Parent),
-    ServerSA = sc_rc_tcp_client_await_start(Parent),
+    {ServerSA, Proto} = sc_rc_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
-    Sock     = sc_rc_tcp_client_create(Domain),
+    Sock     = sc_rc_tcp_client_create(Domain, Proto),
     sc_rc_tcp_client_bind(Sock, Domain),
     sc_rc_tcp_client_announce_ready(Parent, init),
     sc_rc_tcp_client_await_continue(Parent, connect),
@@ -8207,9 +8267,9 @@ sc_rc_tcp_client_await_start(Parent) ->
     i("sc_rc_tcp_client_await_start -> entry"),
     ?SEV_AWAIT_START(Parent).
 
-sc_rc_tcp_client_create(Domain) ->
+sc_rc_tcp_client_create(Domain, Proto) ->
     i("sc_rc_tcp_client_create -> entry"),
-    case socket:open(Domain, stream, tcp) of
+    case socket:open(Domain, stream, Proto) of
         {ok, Sock} ->
             case socket:getopt(Sock, otp, fd) of
                 {ok, FD} ->
@@ -18397,9 +18457,15 @@ local_host() ->
     end.
 
 
+%% The point of this is to "ensure" that paths from different test runs
+%% don't clash.
+mk_unique_path() ->
+    [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
+    ?LIB:f("/tmp/socket_~s_~w", [NodeName, erlang:unique_integer()]).
+
 which_local_socket_addr(local = Domain) ->
     #{family => Domain,
-      path   => ?LIB:f("/tmp/socket_~w", [erlang:unique_integer()])};
+      path   => mk_unique_path()};
 
 %% This gets the local address (not 127.0...)
 %% We should really implement this using the (new) net module,
