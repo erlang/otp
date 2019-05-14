@@ -67,5 +67,5 @@ EPMD_NODE_TYPE=110
 # Distribution format 5 contains the new md5 based handshake.
 
 EPMD_DIST_LOW=5
-EPMD_DIST_HIGH=5
+EPMD_DIST_HIGH=6
 

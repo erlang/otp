@@ -2176,6 +2176,24 @@ term_to_Uint64(Eterm term, Uint64 *up)
 #endif
 }
 
+int
+term_to_Uint32(Eterm term, Uint32 *up)
+{
+#if ERTS_SIZEOF_ETERM == 4
+    return term_to_Uint(term,up);
+#else
+    if (is_small(term)) {
+	Sint i = signed_val(term);
+	if (i >= 0) {
+            *up = (Uint32) i;
+            return 1;
+        }
+    }
+    *up = BADARG;
+    return 0;
+#endif
+}
+
 
 int term_to_Sint(Eterm term, Sint *sp)
 {
