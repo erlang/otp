@@ -143,6 +143,7 @@
 
          sc_rs_recv_send_shutdown_receive_tcp4/1,
          sc_rs_recv_send_shutdown_receive_tcp6/1,
+         sc_rs_recv_send_shutdown_receive_tcpL/1,
          sc_rs_recvmsg_send_shutdown_receive_tcp4/1,
          sc_rs_recvmsg_send_shutdown_receive_tcp6/1,
 
@@ -711,6 +712,7 @@ sc_rs_cases() ->
     [
      sc_rs_recv_send_shutdown_receive_tcp4,
      sc_rs_recv_send_shutdown_receive_tcp6,
+     sc_rs_recv_send_shutdown_receive_tcpL,
 
      sc_rs_recvmsg_send_shutdown_receive_tcp4,
      sc_rs_recvmsg_send_shutdown_receive_tcp6
@@ -8462,6 +8464,7 @@ sc_rc_recvmsg_response_tcpL(_Config) when is_list(_Config) ->
 %% To minimize the chance of "weirdness", we should really have test cases
 %% where the two sides of the connection is on different machines. But for
 %% now, we will make do with different VMs on the same host.
+%% This would of course not work for Unix Domain sockets.
 %%
 
 sc_rs_recv_send_shutdown_receive_tcp4(suite) ->
@@ -8469,9 +8472,9 @@ sc_rs_recv_send_shutdown_receive_tcp4(suite) ->
 sc_rs_recv_send_shutdown_receive_tcp4(doc) ->
     [];
 sc_rs_recv_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rs_recv_send_shutdown_receive_tcp4,
            fun() ->
-                   ?TT(?SECS(30)),
                    MsgData   = ?DATA,
                    Recv      = fun(Sock) ->
                                        socket:recv(Sock)
@@ -8480,6 +8483,7 @@ sc_rs_recv_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
                                        socket:send(Sock, Data)
                                end,
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  recv   => Recv,
                                  send   => Send,
                                  data   => MsgData},
@@ -8511,6 +8515,39 @@ sc_rs_recv_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
                                        socket:send(Sock, Data)
                                end,
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 recv   => Recv,
+                                 send   => Send,
+                                 data   => MsgData},
+                   ok = sc_rs_send_shutdown_receive_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is
+%% remotely closed while the process is calling the recv function.
+%% The remote client sends data, then shutdown(write) and then the
+%% reader attempts a recv.
+%% Socket is Unix Domain (stream) socket.
+
+sc_rs_recv_send_shutdown_receive_tcpL(suite) ->
+    [];
+sc_rs_recv_send_shutdown_receive_tcpL(doc) ->
+    [];
+sc_rs_recv_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_rs_recv_send_shutdown_receive_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   MsgData   = ?DATA,
+                   Recv      = fun(Sock) ->
+                                       socket:recv(Sock)
+                               end,
+                   Send      = fun(Sock, Data) ->
+                                       socket:send(Sock, Data)
+                               end,
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  recv   => Recv,
                                  send   => Send,
                                  data   => MsgData},
@@ -8546,8 +8583,8 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -8555,9 +8592,19 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := LSock,
+                         local_sa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock, local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -8568,7 +8615,11 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, lport := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester, local_sa := LSA}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester := Tester, local_sa := LSA, lport := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -8737,8 +8788,10 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            ok
                    end},
          #{desc => "order remote client to start",
-           cmd  => fun(#{rclient := Client, server_sa := ServerSA}) ->
-                           ?SEV_ANNOUNCE_START(Client, ServerSA),
+           cmd  => fun(#{rclient   := Client,
+                         proto     := Proto,
+                         server_sa := ServerSA}) ->
+                           ?SEV_ANNOUNCE_START(Client, {ServerSA, Proto}),
                            ok
                    end},
          #{desc => "await remote client ready",
@@ -9068,12 +9121,14 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
 
     i("start server evaluator"),
     ServerInitState = #{domain => maps:get(domain, InitState),
+                        proto  => maps:get(proto,  InitState),
                         recv   => maps:get(recv,   InitState)},
     Server = ?SEV_START("server", ServerSeq, ServerInitState),
 
     i("start client evaluator"),
     ClientInitState = #{host   => local_host(),
                         domain => maps:get(domain, InitState),
+                        proto  => maps:get(proto,  InitState),
                         send   => maps:get(send, InitState)},
     Client = ?SEV_START("client", ClientSeq, ClientInitState),
 
@@ -9095,9 +9150,9 @@ sc_rs_tcp_client_start(Node, Send) ->
 
 sc_rs_tcp_client(Parent, Send) ->
     sc_rs_tcp_client_init(Parent),
-    ServerSA = sc_rs_tcp_client_await_start(Parent),
+    {ServerSA, Proto} = sc_rs_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
-    Sock     = sc_rs_tcp_client_create(Domain),
+    Sock     = sc_rs_tcp_client_create(Domain, Proto),
     sc_rs_tcp_client_bind(Sock, Domain),
     sc_rs_tcp_client_announce_ready(Parent, init),
     sc_rs_tcp_client_await_continue(Parent, connect),
@@ -9126,9 +9181,9 @@ sc_rs_tcp_client_await_start(Parent) ->
     i("sc_rs_tcp_client_await_start -> entry"),
     ?SEV_AWAIT_START(Parent).
 
-sc_rs_tcp_client_create(Domain) ->
+sc_rs_tcp_client_create(Domain, Proto) ->
     i("sc_rs_tcp_client_create -> entry"),
-    case socket:open(Domain, stream, tcp) of
+    case socket:open(Domain, stream, Proto) of
         {ok, Sock} ->
             Sock;
         {error, Reason} ->
@@ -9298,12 +9353,11 @@ sc_rs_recvmsg_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
                                   MsgHdr = #{iov => [Data]},
                                   socket:sendmsg(Sock, MsgHdr)
                                end,
-                   InitState = #{domain   => inet,
-                                 type     => stream,
-                                 protocol => tcp,
-                                 recv     => Recv,
-                                 send     => Send,
-                                 data     => MsgData},
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 recv   => Recv,
+                                 send   => Send,
+                                 data   => MsgData},
                    ok = sc_rs_send_shutdown_receive_tcp(InitState)
            end).
 
@@ -9338,12 +9392,11 @@ sc_rs_recvmsg_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
                                   MsgHdr = #{iov => [Data]},
                                   socket:sendmsg(Sock, MsgHdr)
                                end,
-                   InitState = #{domain   => inet6,
-                                 type     => stream,
-                                 protocol => tcp,
-                                 recv     => Recv,
-                                 send     => Send,
-                                 data     => MsgData},
+                   InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 recv   => Recv,
+                                 send   => Send,
+                                 data   => MsgData},
                    ok = sc_rs_send_shutdown_receive_tcp(InitState)
            end).
 
