@@ -27,6 +27,23 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct solution for retaining tcp flow control OTP-15802
+	    (ERL-934) as to not break ssl:recv as reported in
+	    (ERL-938)</p>
+          <p>
+	    Own Id: OTP-15823 Aux Id: ERL-934, ERL-938 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
