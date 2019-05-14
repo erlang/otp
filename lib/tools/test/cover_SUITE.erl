@@ -35,7 +35,8 @@ all() ->
                  distribution, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
                  export_import, otp_5031, otp_6115,
-                 otp_8270, otp_10979_hanging_node, otp_14817],
+                 otp_8270, otp_10979_hanging_node, otp_14817,
+                 startup_race],
     case whereis(cover_server) of
         undefined ->
             [coverage,StartStop ++ NoStartStop];
@@ -1740,6 +1741,32 @@ otp_13289(Config) ->
     File = cc_mod(t, Test, Config),
     <<1,2,3>> = t:t(),
     ok = file:delete(File),
+    ok.
+
+%% ERL-943; We should not crash on startup when multiple servers race to
+%% register the server name.
+startup_race(Config) when is_list(Config) ->
+    PidRefs = [spawn_monitor(fun() ->
+                                     case cover:start() of
+                                         {error, {already_started, _Pid}} ->
+                                             ok;
+                                         {ok, _Pid} ->
+                                             ok
+                                     end
+                             end) || _<- lists:seq(1,8)],
+    startup_race_1(PidRefs).
+
+startup_race_1([{Pid, Ref} | PidRefs]) ->
+    receive
+        {'DOWN', Ref, process, Pid, normal} ->
+            startup_race_1(PidRefs);
+        {'DOWN', Ref, process, Pid, _Other} ->
+            ct:fail("Cover server crashed on startup.")
+    after 5000 ->
+            ct:fail("Timed out.")
+    end;
+startup_race_1([]) ->
+    cover:stop(),
     ok.
 
 %%--Auxiliary------------------------------------------------------------
