@@ -138,6 +138,16 @@
           for compiling native code, which must be compiled with the same
           runtime system that it is to be run on.</p>
       </item>
+      <tag><c>-no-server</c></tag>
+      <item>
+        <p>Do not use the
+	<seealso marker="#compile_server">compile server</seealso>.</p>
+      </item>
+      <tag><c>-server</c></tag>
+      <item>
+        <p>Use the
+	<seealso marker="#compile_server">compile server</seealso>.</p>
+      </item>
       <tag><c>-M</c></tag>
       <item>
         <p>Produces a Makefile rule to track header dependencies. The
@@ -298,6 +308,52 @@ erlc +export_all file.erl</pre>
   </section>
 
   <section>
+    <marker id="compile_server"></marker>
+    <title>Compile Server</title>
+    <p>The compile server can be used to potentially speed up the
+    build of multi-file projects by avoiding to start an Erlang system
+    for each file to compile. Whether it will speed up the build
+    depends on the nature of the project and the build machine.</p>
+
+    <p>By default, the compile server is not used. It can be
+    enabled by giving <c>erlc</c> the option <c>-server</c> or by
+    setting the environment variable <c>ERLC_USE_SERVER</c> to
+    <c>yes</c> or <c>true</c>.</p>
+
+    <p>When the compile server is enabled, <c>erlc</c> will
+    automatically use the server if it is started and start the server
+    if has not already started. The server will terminate itself when
+    it has been idle for some number of seconds.</p>
+
+    <p><c>erlc</c> and the compile server communicate using the
+    Erlang distribution. The compile server is started as a hidden
+    node, with a name that includes the current user. Thus, each user
+    on a computer has their own compile server.</p>
+
+    <p>Using the compile server does not always speed up the build, as
+    the compile server sometimes must be restarted to ensure correctness.
+    Here are some examples of situtations that force a restart:</p>
+
+    <list type="bulleted">
+      <item><c>erlc</c> wants to use a different version of Erlang
+      than the compile server is using.</item>
+      <item><c>erlc</c> wants to use different options for <c>erl</c>
+      than the compile server was started with. (A change to code path
+      using the option <c>-pa</c> could cause different parse
+      transforms to be loaded. To be safe, the compile server will be
+      restarted when any <c>erl</c> option is changed.)</item>
+      <item>If the current working directory for <c>erlc</c> is
+      different from the working directory active when the compile
+      server was started, <strong>and</strong> if the compile server
+      has active jobs, it will be restarted as soon as those jobs have
+      finished. (Build systems that build files randomly across multiple
+      directories in parallel will probably not benefit from the
+      compile server.)</item>
+    </list>
+  </section>
+
+    <section>
+    <marker id="environment_variables"></marker>
     <title>Environment Variables</title>
     <taglist>
       <tag><c>ERLC_EMULATOR</c></tag>
@@ -305,6 +361,13 @@ erlc +export_all file.erl</pre>
         in the same directory as the <c>erlc</c> program itself,
         or, if it does not exist, <c>erl</c> in any of the directories
         specified in environment variable <c>PATH</c>.</item>
+      <tag><c>ERLC_USE_SERVER</c></tag>
+      <item>Allowed values are <c>yes</c> or <c>true</c> to use the
+      <seealso marker="#compile_server">compile
+      server</seealso>, and <c>no</c> or <c>false</c> to not use the
+      compile server. If other values are given, <c>erlc</c> will
+      print a warning message and continue.
+      </item>
     </taglist>
   </section>
 
