@@ -178,6 +178,7 @@
          traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL/1,
          traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4/1,
          traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6/1,
+         traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL/1,
 
          traffic_ping_pong_small_sendmsg_and_recvmsg_udp4/1,
          traffic_ping_pong_small_sendmsg_and_recvmsg_udp6/1,
@@ -760,6 +761,7 @@ traffic_cases() ->
      traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL,
      traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
      traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
+     traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL,
 
      traffic_ping_pong_small_sendmsg_and_recvmsg_udp4,
      traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
@@ -11246,6 +11248,35 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
                                  proto  => tcp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'large' message test case, for Unix Domain (stream) socket.
+
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(suite) ->
+    [];
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(doc) ->
+    [];
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_LARGE),
+    Num = ?TPP_LARGE_NUM,
+    tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(30)),
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
