@@ -34,7 +34,8 @@ module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Used = find_all_used(WorkList, All, cerl_sets:from_list(WorkList)),
     Fs1 = remove_unused(Order, Used, All),
     {Fs2,Lc} = clean_labels(Fs1),
-    Fs = maybe_remove_lines(Fs2, Opts),
+    Fs3 = fix_swap(Fs2, Opts),
+    Fs = maybe_remove_lines(Fs3, Opts),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% Determine the rootset, i.e. exported functions and
@@ -137,31 +138,54 @@ function_replace([{function,Name,Arity,Entry,Asm0}|Fs], Dict, Acc) ->
 function_replace([], _, Acc) -> Acc.
 
 %%%
+%%% If compatibility with a previous release (OTP 22 or earlier) has
+%%% been requested, replace swap instructions with a sequence of moves.
+%%%
+
+fix_swap(Fs, Opts) ->
+    case proplists:get_bool(no_swap, Opts) of
+        false -> Fs;
+        true -> fold_functions(fun swap_moves/1, Fs)
+    end.
+
+swap_moves([{swap,Reg1,Reg2}|Is]) ->
+    Temp = {x,1022},
+    [{move,Reg1,Temp},{move,Reg2,Reg1},{move,Temp,Reg2}|swap_moves(Is)];
+swap_moves([I|Is]) ->
+    [I|swap_moves(Is)];
+swap_moves([]) -> [].
+
+%%%
 %%% Remove line instructions if requested.
 %%%
 
 maybe_remove_lines(Fs, Opts) ->
     case proplists:get_bool(no_line_info, Opts) of
 	false -> Fs;
-	true -> remove_lines(Fs)
+	true -> fold_functions(fun remove_lines/1, Fs)
     end.
 
-remove_lines([{function,N,A,Lbl,Is0}|T]) ->
-    Is = remove_lines_fun(Is0),
-    [{function,N,A,Lbl,Is}|remove_lines(T)];
-remove_lines([]) -> [].
-
-remove_lines_fun([{line,_}|Is]) ->
-    remove_lines_fun(Is);
-remove_lines_fun([{block,Bl0}|Is]) ->
+remove_lines([{line,_}|Is]) ->
+    remove_lines(Is);
+remove_lines([{block,Bl0}|Is]) ->
     Bl = remove_lines_block(Bl0),
-    [{block,Bl}|remove_lines_fun(Is)];
-remove_lines_fun([I|Is]) ->
-    [I|remove_lines_fun(Is)];
-remove_lines_fun([]) -> [].
+    [{block,Bl}|remove_lines(Is)];
+remove_lines([I|Is]) ->
+    [I|remove_lines(Is)];
+remove_lines([]) -> [].
 
 remove_lines_block([{set,_,_,{line,_}}|Is]) ->
     remove_lines_block(Is);
 remove_lines_block([I|Is]) ->
     [I|remove_lines_block(Is)];
 remove_lines_block([]) -> [].
+
+
+%%%
+%%% Helpers.
+%%%
+
+fold_functions(F, [{function,N,A,Lbl,Is0}|T]) ->
+    Is = F(Is0),
+    [{function,N,A,Lbl,Is}|fold_functions(F, T)];
+fold_functions(_F, []) -> [].

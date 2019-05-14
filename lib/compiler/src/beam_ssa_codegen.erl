@@ -28,7 +28,7 @@
 
 -include("beam_ssa.hrl").
 
--import(lists, [foldl/3,keymember/3,keysort/2,last/1,map/2,mapfoldl/3,
+-import(lists, [foldl/3,keymember/3,keysort/2,map/2,mapfoldl/3,
                 reverse/1,reverse/2,sort/1,splitwith/2,takewhile/2]).
 
 -record(cg, {lcount=1 :: beam_label(),          %Label counter
@@ -1247,8 +1247,7 @@ cg_copy(T0, St) ->
                            end, T0),
     Moves0 = cg_copy_1(Copies, St),
     Moves1 = [Move || {move,Src,Dst}=Move <- Moves0, Src =/= Dst],
-    Scratch = {x,1022},
-    Moves = order_moves(Moves1, Scratch),
+    Moves = order_moves(Moves1),
     {Moves,T}.
 
 cg_copy_1([#cg_set{dst=Dst0,args=Args}|T], St) ->
@@ -1707,7 +1706,7 @@ cg_catch(Agg, T0, Context, St0) ->
 
 cg_try(Agg, Tag, T0, Context, St0) ->
     {Moves0,T1} = cg_extract(T0, Agg, St0),
-    Moves = order_moves(Moves0, {x,3}),
+    Moves = order_moves(Moves0),
     [#cg_set{op=kill_try_tag}|T2] = T1,
     {T,St} = cg_block(T2, Context, St0),
     {[{try_case,Tag}|Moves++T],St}.
@@ -1863,8 +1862,7 @@ setup_args([]) ->
     [];
 setup_args([_|_]=Args) ->
     Moves = gen_moves(Args, 0, []),
-    Scratch = {x,1+last(sort([length(Args)-1|[X || {x,X} <- Args]]))},
-    order_moves(Moves, Scratch).
+    order_moves(Moves).
 
 %% kill_yregs(Anno, #cg{}) -> [{kill,{y,Y}}].
 %%  Kill Y registers that will not be used again.
@@ -1884,47 +1882,48 @@ gen_moves([A|As], I, Acc) ->
 gen_moves([], _, Acc) ->
     keysort(3, Acc).
 
-%% order_moves([Move], ScratchReg) -> [Move]
+%% order_moves([Move]) -> [Move]
 %%  Orders move instruction so that source registers are not
 %%  destroyed before they are used. If there are cycles
 %%  (such as {move,{x,0},{x,1}}, {move,{x,1},{x,1}}),
-%%  the scratch register is used to break up the cycle.
-%%    If possible, the first move of the input list is placed
+%%  swap instructions will be used to break up the cycle.
+%%
+%%  If possible, the first move of the input list is placed
 %%  last in the result list (to make the move to {x,0} occur
 %%  just before the call to allow the Beam loader to coalesce
 %%  the instructions).
 
-order_moves(Ms, Scr) -> order_moves(Ms, Scr, []).
+order_moves(Ms) -> order_moves(Ms, []).
 
-order_moves([{move,_,_}=M|Ms0], ScrReg, Acc0) ->
-    {Chain,Ms} = collect_chain(Ms0, [M], ScrReg),
+order_moves([{move,_,_}=M|Ms0], Acc0) ->
+    {Chain,Ms} = collect_chain(Ms0, [M]),
     Acc = reverse(Chain, Acc0),
-    order_moves(Ms, ScrReg, Acc);
-order_moves([], _, Acc) -> Acc.
+    order_moves(Ms, Acc);
+order_moves([], Acc) -> Acc.
 
-collect_chain(Ms, Path, ScrReg) ->
-    collect_chain(Ms, Path, [], ScrReg).
+collect_chain(Ms, Path) ->
+    collect_chain(Ms, Path, []).
 
-collect_chain([{move,Src,Same}=M|Ms0], [{move,Same,_}|_]=Path, Others, ScrReg) ->
+collect_chain([{move,Src,Same}=M|Ms0], [{move,Same,_}|_]=Path, Others) ->
     case keymember(Src, 3, Path) of
         false ->
-            collect_chain(reverse(Others, Ms0), [M|Path], [], ScrReg);
+            collect_chain(reverse(Others, Ms0), [M|Path], []);
         true ->
-            %% There is a cycle, which we must break up.
-            {break_up_cycle(M, Path, ScrReg),reverse(Others, Ms0)}
+            %% There is a cycle.
+            {break_up_cycle(M, Path),reverse(Others, Ms0)}
     end;
-collect_chain([M|Ms], Path, Others, ScrReg) ->
-    collect_chain(Ms, Path, [M|Others], ScrReg);
-collect_chain([], Path, Others, _) ->
+collect_chain([M|Ms], Path, Others) ->
+    collect_chain(Ms, Path, [M|Others]);
+collect_chain([], Path, Others) ->
     {Path,Others}.
 
-break_up_cycle({move,Src,_}=M, Path, ScrReg) ->
-    [{move,ScrReg,Src},M|break_up_cycle1(Src, Path, ScrReg)].
+break_up_cycle({move,Src,_Dst}=M, Path) ->
+    break_up_cycle_1(Src, [M|Path], []).
 
-break_up_cycle1(Dst, [{move,Src,Dst}|Path], ScrReg) ->
-    [{move,Src,ScrReg}|Path];
-break_up_cycle1(Dst, [M|Path], LastMove) ->
-    [M|break_up_cycle1(Dst, Path, LastMove)].
+break_up_cycle_1(Dst, [{move,_Src,Dst}|Path], Acc) ->
+    reverse(Acc, Path);
+break_up_cycle_1(Dst, [{move,S,D}|Path], Acc) ->
+    break_up_cycle_1(Dst, Path, [{swap,S,D}|Acc]).
 
 %%%
 %%% General utility functions.

@@ -82,6 +82,7 @@ opt_opts(Mod) ->
                      (no_ssa_float) -> true;
                      (no_ssa_opt) -> true;
                      (no_stack_trimming) -> true;
+                     (no_swap) -> true;
                      (no_type_opt) -> true;
                      (_) -> false
                 end, Opts).

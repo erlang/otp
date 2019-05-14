@@ -683,10 +683,11 @@ swap(R1, R2) {
     $R2 = V;
 }
 
-swap_temp(R1, R2, Tmp) {
-    Eterm V = $R1;
-    $R1 = $R2;
-    $R2 = $Tmp = V;
+swap2(R1, R2, R3) {
+    Eterm V = $R2;
+    $R2 = $R1;
+    $R1 = $R3;
+    $R3 = V;
 }
 
 test_heap(Nh, Live) {
