@@ -129,7 +129,7 @@
      </datatype>
 
      <datatype>
-      <name name="ip_address"/>
+      <name name="socket_address"/>
      </datatype>
 
      <datatype>

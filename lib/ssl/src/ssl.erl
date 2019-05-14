@@ -141,9 +141,9 @@
                                                ClosedTag::atom(), ErrTag::atom()}} |  
                                     {cb_info, {CallbackModule::atom(), DataTag::atom(),
                                                ClosedTag::atom(), ErrTag::atom(), PassiveTag::atom()}}.
--type host()                     :: hostname() | ip_address(). % exported
+-type host()                     :: hostname() | socket_address(). % exported
 -type hostname()                 :: string().
--type ip_address()               :: inet:ip_address().
+-type socket_address()           :: inet:socket_address().
 -type session_id()               :: binary(). % exported
 -type protocol_version()         :: tls_version() | dtls_version(). % exported
 -type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
@@ -896,11 +896,12 @@ connection_information(#sslsocket{pid = [Pid|_]}, Items) when is_pid(Pid) ->
     end.
 
 %%--------------------------------------------------------------------
--spec peername(SslSocket) -> {ok, {Address, Port}} |
+-spec peername(SslSocket) -> {ok, {Address, Port} | NonIpAddress} |
                              {error, reason()} when
       SslSocket :: sslsocket(),
       Address :: inet:ip_address(),
-      Port :: inet:port_number().
+      Port :: inet:port_number(),
+      NonIpAddress :: inet:returned_non_ip_address().
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
@@ -1250,10 +1251,11 @@ shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
 
 %%--------------------------------------------------------------------
 -spec sockname(SslSocket) ->
-                      {ok, {Address, Port}} | {error, reason()} when
+                      {ok, {Address, Port} | NonIpAddress} | {error, reason()} when
       SslSocket :: sslsocket(),
       Address :: inet:ip_address(),
-      Port :: inet:port_number().
+      Port :: inet:port_number(),
+      NonIpAddress :: inet:returned_non_ip_address().
 %%
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
