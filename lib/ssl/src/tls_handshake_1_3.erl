@@ -465,7 +465,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% the client.
         Cipher = Maybe(select_cipher_suite(ClientCiphers, ServerCiphers)),
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
-        Maybe(validate_key_share(ClientGroups, ClientShares)),
+        Maybe(validate_client_key_share(ClientGroups, ClientShares)),
 
         {PublicKeyAlgo, SignAlgo, SignHash} = get_certificate_params(Cert),
 
@@ -716,10 +716,11 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
                          extensions = Extensions} = ServerHello,
            #state{connection_states = _ConnectionStates0,
                   key_share = ClientKeyShare0,
-                  ssl_options = #ssl_options{ciphers = _ClientCiphers,
+                  ssl_options = #ssl_options{ciphers = ClientCiphers,
                                              signature_algs = _ClientSignAlgs,
-                                             supported_groups = _ClientGroups},
+                                             supported_groups = ClientGroups0},
                   session = #session{own_certificate = _Cert}} = State0) ->
+    ClientGroups = get_supported_groups(ClientGroups0),
     ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
     ServerKeyShare = get_key_shares(ServerKeyShare0),
     ClientKeyShare = get_key_shares(ClientKeyShare0),
@@ -729,9 +730,8 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
         %% Go to state 'start' if server replies with 'HelloRetryRequest'.
         Maybe(maybe_hello_retry_request(ServerHello, State0)),
 
-        %% TODO: implement validation
-        %% Maybe(validate_cipher_suite(SelectedCipherSuite, ClientCiphers)),
-        %% Maybe(validate_key_share(ServerKeyShare, ClientGroups)),
+        Maybe(validate_cipher_suite(SelectedCipherSuite, ClientCiphers)),
+        Maybe(validate_server_key_share(ClientGroups, ServerKeyShare)),
 
         %% Get server public key
         {SelectedGroup, ServerPublicKey} = get_server_public_key(ServerKeyShare),
@@ -1380,14 +1380,21 @@ select_common_groups(ServerGroups, ClientGroups) ->
 %% for groups not listed in the client's "supported_groups" extension.
 %% Servers MAY check for violations of these rules and abort the
 %% handshake with an "illegal_parameter" alert if one is violated.
-validate_key_share(_ ,[]) ->
+validate_client_key_share(_ ,[]) ->
     ok;
-validate_key_share([], _) ->
+validate_client_key_share([], _) ->
     {error, illegal_parameter};
-validate_key_share([G|ClientGroups], [{_, G, _}|ClientShares]) ->
-    validate_key_share(ClientGroups, ClientShares);
-validate_key_share([_|ClientGroups], [_|_] = ClientShares) ->
-    validate_key_share(ClientGroups, ClientShares).
+validate_client_key_share([G|ClientGroups], [{_, G, _}|ClientShares]) ->
+    validate_client_key_share(ClientGroups, ClientShares);
+validate_client_key_share([_|ClientGroups], [_|_] = ClientShares) ->
+    validate_client_key_share(ClientGroups, ClientShares).
+
+
+%% Verify that selected group is offered by the client.
+validate_server_key_share([G|_ClientGroups], {_, G, _}) ->
+    ok;
+validate_server_key_share([_|ClientGroups], {_, _, _} = ServerKeyShare) ->
+    validate_server_key_share(ClientGroups, ServerKeyShare).
 
 
 get_client_public_key([Group|_] = Groups, ClientShares) ->
@@ -1451,6 +1458,19 @@ select_cipher_suite([Cipher|ClientCiphers], ServerCiphers) ->
         false ->
             select_cipher_suite(ClientCiphers, ServerCiphers)
     end.
+
+
+%% RFC 8446 4.1.3 ServerHello
+%% A client which receives a cipher suite that was not offered MUST abort the
+%% handshake with an "illegal_parameter" alert.
+validate_cipher_suite(Cipher, ClientCiphers) ->
+    case lists:member(Cipher, ClientCiphers) of
+        true ->
+            ok;
+        false ->
+            {error, illegal_parameter}
+    end.
+
 
 %% RFC 8446 (TLS 1.3)
 %% TLS 1.3 provides two extensions for indicating which signature
