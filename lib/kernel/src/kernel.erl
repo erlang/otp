@@ -166,10 +166,12 @@ init([]) ->
                        modules => dynamic},
 
             Timer = start_timer(),
+            CompileServer = start_compile_server(),
 
             {ok, {SupFlags,
                   [Code, InetDb | DistChildren] ++
-                  [File, SigSrv, StdError, User, Config, RefC, SafeSup, LoggerSup] ++ Timer}}
+                      [File, SigSrv, StdError, User, Config, RefC, SafeSup, LoggerSup] ++
+                      Timer ++ CompileServer}}
     end;
 init(safe) ->
     SupFlags = #{strategy => one_for_one,
@@ -299,6 +301,19 @@ start_timer() ->
                shutdown => 1000,
                type => worker,
                modules => [timer]}];
+        _ ->
+            []
+    end.
+
+start_compile_server() ->
+    case application:get_env(kernel, start_compile_server) of
+        {ok, true} ->
+            [#{id => erl_compile_server,
+               start => {erl_compile_server, start_link, []},
+               restart => permanent,
+               shutdown => 2000,
+               type => worker,
+               modules => [erl_compile_server]}];
         _ ->
             []
     end.
