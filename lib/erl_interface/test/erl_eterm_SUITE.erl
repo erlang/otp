@@ -73,6 +73,10 @@
 
 -import(runner, [get_term/1]).
 
+-define(REFERENCE_EXT, $e).
+-define(NEW_REFERENCE_EXT, $r).
+-define(NEWER_REFERENCE_EXT, $Z).
+
 %% This test suite controls the running of the C language functions
 %% in eterm_test.c and print_term.c.
 
@@ -1026,9 +1030,11 @@ cnode_1(Config) when is_list(Config) ->
 
 check_ref(Ref) ->
     case bin_ext_type(Ref) of
-        101 ->
+        ?REFERENCE_EXT ->
             ct:fail(oldref);
-        114 ->
+        ?NEW_REFERENCE_EXT ->
+            ok;
+        ?NEWER_REFERENCE_EXT ->
             ok;
         Type ->
             ct:fail({type, Type})
