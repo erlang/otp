@@ -155,6 +155,7 @@
 
          traffic_ping_pong_small_send_and_recv_tcp4/1,
          traffic_ping_pong_small_send_and_recv_tcp6/1,
+         traffic_ping_pong_small_send_and_recv_tcpL/1,
          traffic_ping_pong_medium_send_and_recv_tcp4/1,
          traffic_ping_pong_medium_send_and_recv_tcp6/1,
          traffic_ping_pong_large_send_and_recv_tcp4/1,
@@ -730,6 +731,7 @@ traffic_cases() ->
 
      traffic_ping_pong_small_send_and_recv_tcp4,
      traffic_ping_pong_small_send_and_recv_tcp6,
+     traffic_ping_pong_small_send_and_recv_tcpL,
      traffic_ping_pong_medium_send_and_recv_tcp4,
      traffic_ping_pong_medium_send_and_recv_tcp6,
      traffic_ping_pong_large_send_and_recv_tcp4,
@@ -1923,36 +1925,48 @@ api_b_send_and_recv_udp(InitState) ->
          #{desc => "close src socket",
            cmd  => fun(#{domain   := local,
                          sock_src := Sock,
-                         lsa_src  := #{path := Path}}) ->
+                         lsa_src  := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
-                           case os:cmd("unlink " ++ Path) of
-                               "" ->
-                                   ok;
-                               Result ->
-                                   ?SEV_IPRINT("unlink result: "
-                                               "~n   ~s", [Result]),
-                                   ok
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       ?SEV_IPRINT("path unlinked: "
+                                                   "~n   Path: ~s", [Path]),
+                                       maps:remove(lsa_src, State);
+                                   Result ->
+                                       ?SEV_EPRINT("unlink maybe failed: "
+                                                   "~n   Path: ~s"
+                                                   "~n   Res:  ~s",
+                                                   [Path, Result]),
+                                       State
                            end,
-                           ok;
-                      (#{sock_src := Sock}) ->
-                           ok = socket:close(Sock)
+                           {ok, maps:remove(sock_src, State1)};
+                      (#{sock_src := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock_src, State)}
                    end},
          #{desc => "close dst socket",
            cmd  => fun(#{domain   := local,
                          sock_dst := Sock,
-                         lsa_dst  := #{path := Path}}) ->
+                         lsa_dst  := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
-                           case os:cmd("unlink " ++ Path) of
-                               "" ->
-                                   ok;
-                               Result ->
-                                   ?SEV_IPRINT("unlink result: "
-                                               "~n   ~s", [Result]),
-                                   ok
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       ?SEV_IPRINT("path unlinked: "
+                                                   "~n   Path: ~s", [Path]),
+                                       maps:remove(lsa_dst, State);
+                                   Result ->
+                                       ?SEV_EPRINT("unlink maybe failed: "
+                                                   "~n   Path: ~s"
+                                                   "~n   Res:  ~s",
+                                                   [Path, Result]),
+                                       State
                            end,
-                           ok;
-                      (#{sock_dst := Sock}) ->
-                           ok = socket:close(Sock)
+                           {ok, maps:remove(sock_dst, State1)};
+                      (#{sock_dst := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock_dst, State)}
                    end},
 
          %% *** We are done ***
@@ -2210,25 +2224,36 @@ api_b_send_and_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "close connection socket",
-           cmd  => fun(#{domain := local,
-                         csock  := Sock,
-                         lsa    := #{path := Path}}) ->
+           cmd  => fun(#{csock := Sock} = State) ->
                            ok = socket:close(Sock),
-                           case os:cmd("unlink " ++ Path) of
-                               "" ->
-                                   ok;
-                               Result ->
-                                   ?SEV_IPRINT("unlink result: "
-                                               "~n   ~s", [Result]),
-                                   ok
-                           end,
-                           ok;
-                      (#{csock := Sock}) ->
-                           socket:close(Sock)
+                           {ok, maps:remove(csock, State)}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := Sock}) ->
-                           socket:close(Sock)
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       ?SEV_IPRINT("path unlinked: "
+                                                   "~n   Path: ~s", [Path]),
+                                       maps:remove(local_sa, State);
+                                   Result ->
+                                       ?SEV_EPRINT("unlink maybe failed: "
+                                                   "~n   Path: ~s"
+                                                   "~n   Res:  ~s",
+                                                   [Path, Result]),
+                                       State
+                               end,
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := LSock} = State) ->
+                           case socket:close(LSock) of
+                               ok ->
+                                   {ok, maps:remove(lsock, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
                    end},
 
          %% *** We are done ***
@@ -2340,19 +2365,25 @@ api_b_send_and_recv_tcp(InitState) ->
          #{desc => "close socket",
            cmd  => fun(#{domain   := local,
                          sock     := Sock,
-                         local_sa := #{path := Path}}) ->
+                         local_sa := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
-                           case os:cmd("unlink " ++ Path) of
-                               "" ->
-                                   ok;
-                               Result ->
-                                   ?SEV_IPRINT("unlink result:"
-                                               "~n   ~s", [Result]),
-                                   ok
-                           end,
-                           ok;
-                      (#{sock := Sock} = _S) ->
-                           socket:close(Sock)
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       ?SEV_IPRINT("path unlinked: "
+                                                   "~n   Path: ~s", [Path]),
+                                       maps:remove(local_sa, State);
+                                   Result ->
+                                       ?SEV_EPRINT("unlink maybe failed: "
+                                                   "~n   Path: ~s"
+                                                   "~n   Res:  ~s",
+                                                   [Path, Result]),
+                                       State
+                               end,
+                           {ok, maps:remove(sock, State1)};
+                      (#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
                    end},
 
          %% *** We are done ***
@@ -5922,11 +5953,15 @@ sc_lc_receive_response_tcp(InitState) ->
                            State1 =
                                case os:cmd("unlink " ++ Path) of
                                    "" ->
+                                       ?SEV_IPRINT("path unlinked: "
+                                                   "~n   Path: ~s", [Path]),
                                        maps:remove(lsa, State);
-                               Result ->
-                                   ?SEV_IPRINT("unlink result: "
-                                               "~n   ~s", [Result]),
-                                   State
+                                   Result ->
+                                       ?SEV_EPRINT("unlink maybe failed: "
+                                                   "~n   Path: ~s"
+                                                   "~n   Res:  ~s",
+                                                   [Path, Result]),
+                                       State
                                end,
                            State2 = maps:remove(lsock, State1),
                            State3 = maps:remove(lport, State2),
@@ -6127,11 +6162,15 @@ sc_lc_receive_response_tcp(InitState) ->
                            State1 =
                                case os:cmd("unlink " ++ Path) of
                                    "" ->
+                                       ?SEV_IPRINT("path unlinked: "
+                                                   "~n   Path: ~s", [Path]),
                                        maps:remove(local_sa, State);
-                               Result ->
-                                   ?SEV_IPRINT("unlink result: "
-                                               "~n   ~s", [Result]),
-                                   State
+                                   Result ->
+                                       ?SEV_EPRINT("unlink maybe failed: "
+                                                   "~n   Path: ~s"
+                                                   "~n   Res:  ~s",
+                                                   [Path, Result]),
+                                       State
                                end,
                            {ok, maps:remove(sock, State1)};
                        (#{sock := Sock} = State) ->
@@ -6540,10 +6579,14 @@ sc_lc_receive_response_udp(InitState) ->
                            State1 =
                                case os:cmd("unlink " ++ Path) of
                                    "" ->
+                                       ?SEV_IPRINT("path unlinked: "
+                                                   "~n   Path: ~s", [Path]),
                                        maps:remove(local_sa, State);
                                    Result ->
-                                       ?SEV_IPRINT("unlink result: "
-                                                   "~n   ~s", [Result]),
+                                       ?SEV_EPRINT("unlink maybe failed: "
+                                                   "~n   Path: ~s"
+                                                   "~n   Res:  ~s",
+                                                   [Path, Result]),
                                        State
                                end,
                            {ok, maps:remove(sock, State1)};
@@ -7142,10 +7185,14 @@ sc_lc_acceptor_response_tcp(InitState) ->
                                    State1 =
                                        case os:cmd("unlink " ++ Path) of
                                            "" ->
+                                               ?SEV_IPRINT("path unlinked: "
+                                                           "~n   Path: ~s", [Path]),
                                                maps:remove(lsa, State);
                                            Result ->
-                                               ?SEV_IPRINT("unlink result: "
-                                                           "~n   ~s", [Result]),
+                                               ?SEV_EPRINT("unlink maybe failed: "
+                                                           "~n   Path: ~s"
+                                                           "~n   Res:  ~s",
+                                                           [Path, Result]),
                                                State
                                        end,
                                    {ok, maps:remove(sock, State1)};
@@ -7779,10 +7826,14 @@ sc_rc_receive_response_tcp(InitState) ->
                                    State1 =
                                        case os:cmd("unlink " ++ Path) of
                                            "" ->
+                                               ?SEV_IPRINT("path unlinked: "
+                                                           "~n   Path: ~s", [Path]),
                                                maps:remove(lsa, State);
                                            Result ->
-                                               ?SEV_IPRINT("unlink result: "
-                                                           "~n   ~s", [Result]),
+                                               ?SEV_EPRINT("unlink maybe failed: "
+                                                           "~n   Path: ~s"
+                                                           "~n   Res:  ~s",
+                                                           [Path, Result]),
                                                State
                                        end,
                                    {ok, maps:remove(lsock, State1)};
@@ -8253,13 +8304,13 @@ sc_rc_tcp_client(Parent) ->
     {ServerSA, Proto} = sc_rc_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
     Sock     = sc_rc_tcp_client_create(Domain, Proto),
-    sc_rc_tcp_client_bind(Sock, Domain),
+    Path     = sc_rc_tcp_client_bind(Sock, Domain),
     sc_rc_tcp_client_announce_ready(Parent, init),
     sc_rc_tcp_client_await_continue(Parent, connect),
     sc_rc_tcp_client_connect(Sock, ServerSA),
     sc_rc_tcp_client_announce_ready(Parent, connect),
     sc_rc_tcp_client_await_continue(Parent, close),
-    sc_rc_tcp_client_close(Sock),
+    sc_rc_tcp_client_close(Sock, Path),
     sc_rc_tcp_client_announce_ready(Parent, close),
     Reason = sc_rc_tcp_client_await_terminate(Parent),
     ?SEV_IPRINT("terminate"),
@@ -8295,7 +8346,14 @@ sc_rc_tcp_client_bind(Sock, Domain) ->
     LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
-            ok;
+            case socket:sockname(Sock) of
+                {ok, #{family := local, path := Path}} ->
+                    Path;
+                {ok, _} ->
+                    undefined;
+                {error, Reason1} ->
+                    exit({sockname, Reason1})
+            end;
         {error, Reason} ->
             exit({bind, Reason})
     end.
@@ -8317,13 +8375,17 @@ sc_rc_tcp_client_connect(Sock, ServerSA) ->
             exit({connect, Reason})
     end.
 
-sc_rc_tcp_client_close(Sock) ->
+sc_rc_tcp_client_close(Sock, Path) ->
     i("sc_rc_tcp_client_close -> entry"),
     case socket:close(Sock) of
         ok ->
+            unlink_socket(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("failed closing: "
+                        "~n   Reason: ~p", [Reason]),
+            unlink_socket(Path),
+            {error, {close, Reason}}
     end.
 
 sc_rc_tcp_client_await_terminate(Parent) ->
@@ -8734,7 +8796,25 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            {ok, State2}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := LSock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       ?SEV_IPRINT("path unlinked: "
+                                                   "~n   Path: ~s", [Path]),
+                                       maps:remove(local_sa, State);
+                                   Result ->
+                                       ?SEV_EPRINT("unlink maybe failed: "
+                                                   "~n   Path: ~s"
+                                                   "~n   Res:  ~s",
+                                                   [Path, Result]),
+                                       State
+                               end,
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := LSock} = State) ->
                            case socket:close(LSock) of
                                ok ->
                                    {ok, maps:remove(lsock, State)};
@@ -9157,7 +9237,7 @@ sc_rs_tcp_client(Parent, Send) ->
     {ServerSA, Proto} = sc_rs_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
     Sock     = sc_rs_tcp_client_create(Domain, Proto),
-    sc_rs_tcp_client_bind(Sock, Domain),
+    Path     = sc_rs_tcp_client_bind(Sock, Domain),
     sc_rs_tcp_client_announce_ready(Parent, init),
     sc_rs_tcp_client_await_continue(Parent, connect),
     sc_rs_tcp_client_connect(Sock, ServerSA),
@@ -9169,7 +9249,7 @@ sc_rs_tcp_client(Parent, Send) ->
     sc_rs_tcp_client_shutdown(Sock),
     sc_rs_tcp_client_announce_ready(Parent, shutdown),
     sc_rs_tcp_client_await_continue(Parent, close),
-    sc_rs_tcp_client_close(Sock),
+    sc_rs_tcp_client_close(Sock, Path),
     sc_rs_tcp_client_announce_ready(Parent, close),
     Reason = sc_rs_tcp_client_await_terminate(Parent),
     ?SEV_IPRINT("terminate"),
@@ -9199,7 +9279,14 @@ sc_rs_tcp_client_bind(Sock, Domain) ->
     LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
-            ok;
+            case socket:sockname(Sock) of
+                {ok, #{family := local, path := Path}} ->
+                    Path;
+                {ok, _} ->
+                    undefined;
+                {error, Reason1} ->
+                    exit({sockname, Reason1})
+            end;
         {error, Reason} ->
             exit({bind, Reason})
     end.
@@ -9246,13 +9333,17 @@ sc_rs_tcp_client_shutdown(Sock) ->
             exit({shutdown, Reason})
     end.
 
-sc_rs_tcp_client_close(Sock) ->
+sc_rs_tcp_client_close(Sock, Path) ->
     i("sc_rs_tcp_client_close -> entry"),
     case socket:close(Sock) of
         ok ->
+            unlink_socket(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("failed closing: "
+                        "~n   Reason: ~p", [Reason]),
+            unlink_socket(Path),
+            {error, {close, Reason}}
     end.
 
 sc_rs_tcp_client_await_terminate(Parent) ->
@@ -9770,9 +9861,23 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            {ok, maps:remove(csock, State)}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := Sock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       maps:remove(local_sa, State);
+                                   Result ->
+                                       ?SEV_IPRINT("unlink result: "
+                                                   "~n   ~s", [Result]),
+                                       State
+                               end,
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := Sock} = State) ->
                            (catch socket:close(Sock)),
-                            {ok, maps:remove(lsock, State)}
+                           {ok, maps:remove(lsock, State)}
                    end},
 
          %% *** We are done ***
@@ -10381,14 +10486,14 @@ traffic_snr_tcp_client_start(Node) ->
     erlang:spawn(Node, Fun).
 
 traffic_snr_tcp_client(Parent) ->
-    {Sock, ServerSA} = traffic_snr_tcp_client_init(Parent),
+    {Sock, ServerSA, Path} = traffic_snr_tcp_client_init(Parent),
     traffic_snr_tcp_client_announce_ready(Parent, init),
     traffic_snr_tcp_client_await_continue(Parent, connect),
     traffic_snr_tcp_client_connect(Sock, ServerSA),
     traffic_snr_tcp_client_announce_ready(Parent, connect),
     traffic_snr_tcp_client_send_loop(Parent, Sock),
     Reason = traffic_snr_tcp_client_await_terminate(Parent),
-    traffic_snr_tcp_client_close(Sock),
+    traffic_snr_tcp_client_close(Sock, Path),
     exit(Reason).
 
 
@@ -10417,8 +10522,8 @@ traffic_snr_tcp_client_init(Parent) ->
     {ServerSA, Proto} = traffic_snr_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
     Sock     = traffic_snr_tcp_client_create(Domain, Proto),
-    traffic_snr_tcp_client_bind(Sock, Domain),
-    {Sock, ServerSA}.
+    Path     = traffic_snr_tcp_client_bind(Sock, Domain),
+    {Sock, ServerSA, Path}.
 
 traffic_snr_tcp_client_await_start(Parent) ->
     i("traffic_snr_tcp_client_await_start -> entry"),
@@ -10438,7 +10543,14 @@ traffic_snr_tcp_client_bind(Sock, Domain) ->
     LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
-            ok;
+            case socket:sockname(Sock) of
+                {ok, #{family := local, path := Path}} ->
+                    Path;
+                {ok, _} ->
+                    undefined;
+                {error, Reason1} ->
+                    exit({sockname, Reason1})
+            end;
         {error, Reason} ->
             exit({bind, Reason})
     end.
@@ -10459,13 +10571,17 @@ traffic_snr_tcp_client_connect(Sock, ServerSA) ->
             exit({connect, Reason})
     end.
 
-traffic_snr_tcp_client_close(Sock) ->
+traffic_snr_tcp_client_close(Sock, Path) ->
     i("traffic_snr_tcp_client_close -> entry"),
     case socket:close(Sock) of
         ok ->
+            unlink_socket(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("failed closing: "
+                        "~n   Reason: ~p", [Reason]),
+            unlink_socket(Path),
+            {error, {close, Reason}}
     end.
 
 traffic_snr_tcp_client_await_terminate(Parent) ->
@@ -10493,12 +10609,13 @@ traffic_ping_pong_small_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_small_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_send_and_recv_tcp4,
            fun() ->
-                   ?TT(?SECS(15)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -10520,13 +10637,42 @@ traffic_ping_pong_small_send_and_recv_tcp6(suite) ->
 traffic_ping_pong_small_send_and_recv_tcp6(doc) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_send_and_recv_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(15)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for Unix Domain (stream) socket.
+
+traffic_ping_pong_small_send_and_recv_tcpL(suite) ->
+    [];
+traffic_ping_pong_small_send_and_recv_tcpL(doc) ->
+    [];
+traffic_ping_pong_small_send_and_recv_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_send_and_recv_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -10553,6 +10699,7 @@ traffic_ping_pong_medium_send_and_recv_tcp4(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -10580,6 +10727,7 @@ traffic_ping_pong_medium_send_and_recv_tcp6(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -10607,6 +10755,7 @@ traffic_ping_pong_large_send_and_recv_tcp4(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -10634,6 +10783,7 @@ traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -10661,6 +10811,7 @@ traffic_ping_pong_small_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -10687,6 +10838,7 @@ traffic_ping_pong_small_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -10714,6 +10866,7 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udp4(_Config) when is_list(_Config)
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -10741,6 +10894,7 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udp6(_Config) when is_list(_Config)
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -10768,6 +10922,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(20)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10795,6 +10950,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(20)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10821,6 +10977,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config)
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10847,7 +11004,8 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config)
            fun() -> has_support_ipv6() end,
            fun() ->
                    ?TT(?SECS(20)),
-                   InitState = #{domain => ine6,
+                   InitState = #{domain => inet6,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10874,6 +11032,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10901,6 +11060,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10928,6 +11088,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(60)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
@@ -10955,6 +11116,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
@@ -10981,6 +11143,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config)
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
@@ -11007,7 +11170,8 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config)
            fun() -> has_support_ipv6() end,
            fun() ->
                    ?TT(?SECS(20)),
-                   InitState = #{domain => ine6,
+                   InitState = #{domain => inet6,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
@@ -11027,14 +11191,19 @@ traffic_ping_pong_send_and_recv_tcp(InitState) ->
                            },
     traffic_ping_pong_send_and_receive_tcp(InitState2).
 
-traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
-    Send = fun(Sock, Data) when is_binary(Data) ->
-                   MsgHdr = #{iov => [Data]},
-                   socket:sendmsg(Sock, MsgHdr);
-              (Sock, Data) when is_list(Data) -> %% We assume iovec...
-                   MsgHdr = #{iov => Data},
-                   socket:sendmsg(Sock, MsgHdr)
+traffic_ping_pong_sendmsg_and_recvmsg_tcp(#{domain := local} = InitState) ->
+    Recv = fun(Sock, Sz)   -> 
+                   case socket:recvmsg(Sock, Sz, 0) of
+                       {ok, #{addr  := #{family := local},
+                              iov   := [Data]}} ->
+                           {ok, Data};
+                       {error, _} = ERROR ->
+                           ERROR
+                   end
            end,
+    InitState2 = InitState#{recv => Recv},  % Receive function
+    traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState2);
+traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
     Recv = fun(Sock, Sz)   -> 
                    case socket:recvmsg(Sock, Sz, 0) of
                        {ok, #{addr  := undefined,
@@ -11044,9 +11213,18 @@ traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
                            ERROR
                    end
            end,
-    InitState2 = InitState#{send => Send, % Send function
-                            recv => Recv  % Receive function
-                           },
+    InitState2 = InitState#{recv => Recv},  % Receive function
+    traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState2).
+
+traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState) ->
+    Send = fun(Sock, Data) when is_binary(Data) ->
+                   MsgHdr = #{iov => [Data]},
+                   socket:sendmsg(Sock, MsgHdr);
+              (Sock, Data) when is_list(Data) -> %% We assume iovec...
+                   MsgHdr = #{iov => Data},
+                   socket:sendmsg(Sock, MsgHdr)
+           end,
+    InitState2 = InitState#{send => Send}, % Send function
     traffic_ping_pong_send_and_receive_tcp(InitState2).
 
 
@@ -11110,8 +11288,8 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -11119,9 +11297,19 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock, local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -11136,7 +11324,11 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, lport := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester, local_sa := LSA}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester := Tester, local_sa := LSA, lport := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -11247,9 +11439,27 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := Sock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
                            (catch socket:close(Sock)),
-                            {ok, maps:remove(lsock, State)}
+                           State1 =
+                               case os:cmd("unlink " ++ Path) of
+                                   "" ->
+                                       ?SEV_IPRINT("path unlinked: "
+                                                   "~n   Path: ~s", [Path]),
+                                       maps:remove(local_sa, State);
+                                   Result ->
+                                       ?SEV_EPRINT("unlink maybe failed: "
+                                                   "~n   Path: ~s"
+                                                   "~n   Res:  ~s",
+                                                   [Path, Result]),
+                                       State
+                               end,
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := Sock} = State) ->
+                           (catch socket:close(Sock)),
+                           {ok, maps:remove(lsock, State)}
                    end},
 
          %% *** We are done ***
@@ -11301,12 +11511,14 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                    end},
          #{desc => "order remote client to start",
            cmd  => fun(#{rclient   := RClient,
+                         proto     := Proto,
                          server_sa := ServerSA,
                          buf_init  := BufInit,
                          send      := Send,
                          recv      := Recv}) ->
                            ?SEV_ANNOUNCE_START(RClient, 
-                                               {ServerSA, BufInit, Send, Recv}),
+                                               {ServerSA, Proto, BufInit,
+                                                Send, Recv}),
                            ok
                    end},
          #{desc => "await remote client ready",
@@ -11607,6 +11819,7 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
 
     i("start server evaluator"),
     ServerInitState = #{domain   => maps:get(domain,   InitState),
+                        proto    => maps:get(proto,    InitState),
                         recv     => maps:get(recv,     InitState),
                         send     => maps:get(send,     InitState),
                         buf_init => maps:get(buf_init, InitState)},
@@ -11700,14 +11913,6 @@ tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, N, Sent, Received, Start) ->
                     ?SEV_EPRINT("send (~w): ~p", [N, SReason]),
                     exit({send, SReason, N})
             end;
-        %% {error, timeout} ->
-        %%     ?SEV_IPRINT("timeout(~w) - try again", [N]),
-        %%     case Send(Sock, list_to_binary("ping")) of
-        %%         ok ->
-        %%             exit({'ping-send', ok, N});
-        %%         {error, Reason} ->
-        %%             exit({'ping-send', Reason, N})
-        %%     end;
         {error, closed} ->
             ?SEV_IPRINT("closed - we are done: ~w, ~w, ~w", [N, Sent, Received]),
             Stop = ?LIB:timestamp(),
@@ -11726,10 +11931,10 @@ tpp_tcp_client_create(Node) ->
 
 tpp_tcp_client(Parent) ->
     tpp_tcp_client_init(Parent),
-    {ServerSA, BufInit, Send, Recv} = tpp_tcp_client_await_start(Parent),
+    {ServerSA, Proto, BufInit, Send, Recv} = tpp_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
-    Sock     = tpp_tcp_client_sock_open(Domain, BufInit),
-    tpp_tcp_client_sock_bind(Sock, Domain),
+    Sock     = tpp_tcp_client_sock_open(Domain, Proto, BufInit),
+    Path     = tpp_tcp_client_sock_bind(Sock, Domain),
     tpp_tcp_client_announce_ready(Parent, init),
     tpp_tcp_client_await_continue(Parent, connect),
     tpp_tcp_client_sock_connect(Sock, ServerSA),
@@ -11738,7 +11943,7 @@ tpp_tcp_client(Parent) ->
     Result = tpp_tcp_client_msg_exchange(Sock, Send, Recv, InitMsg, Num),
     tpp_tcp_client_announce_ready(Parent, send, Result),
     Reason = tpp_tcp_client_await_terminate(Parent),
-    tpp_tcp_client_sock_close(Sock),
+    tpp_tcp_client_sock_close(Sock, Path),
     ?SEV_IPRINT("terminating"),
     exit(Reason).
 
@@ -11778,8 +11983,10 @@ tpp_tcp_client_await_terminate(Parent) ->
     ?SEV_IPRINT("await terminate"),
     case ?SEV_AWAIT_TERMINATE(Parent, parent) of
         ok ->
-            ok;
+            ?SEV_IPRINT("termination received: normal"),
+            normal;
         {error, Reason} ->
+            ?SEV_IPRINT("termination received: ~w", [Reason]),
             Reason
     end.
 
@@ -11823,8 +12030,8 @@ tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data,
             exit({send, SReason, N})
     end.
 
-tpp_tcp_client_sock_open(Domain, BufInit) ->
-    case socket:open(Domain, stream, tcp) of
+tpp_tcp_client_sock_open(Domain, Proto, BufInit) ->
+    case socket:open(Domain, stream, Proto) of
         {ok, Sock} ->
             ok = BufInit(Sock),
             Sock;
@@ -11836,9 +12043,16 @@ tpp_tcp_client_sock_bind(Sock, Domain) ->
     LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
-            ok;
-        {error, Reason} ->
-            exit({bind, Reason})
+            case socket:sockname(Sock) of
+                {ok, #{family := local, path := Path}} ->
+                    Path;
+                {ok, _} ->
+                    undefined;
+                {error, Reason1} ->
+                    exit({sockname, Reason1})
+            end;
+        {error, Reason2} ->
+            exit({bind, Reason2})
     end.
 
 tpp_tcp_client_sock_connect(Sock, ServerSA) ->
@@ -11849,14 +12063,37 @@ tpp_tcp_client_sock_connect(Sock, ServerSA) ->
             exit({connect, Reason})
     end.
 
-tpp_tcp_client_sock_close(Sock) ->
+tpp_tcp_client_sock_close(Sock, Path) ->
     case socket:close(Sock) of
         ok ->
+            unlink_socket(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("failed closing: "
+                        "~n   Reason: ~p", [Reason]),
+            unlink_socket(Path),
+            {error, {close, Reason}}
     end.
 
+unlink_socket(Path) when is_list(Path) ->
+    ?SEV_IPRINT("try unlink path: "
+                "~n   ~s", [Path]),
+    case os:cmd("unlink " ++ Path) of
+        "" ->
+            ?SEV_IPRINT("path unlinked: "
+                        "~n   Path: ~s", [Path]),
+            ok;
+        Result ->
+            ?SEV_EPRINT("unlink maybe failed: "
+                        "~n   Path: ~s"
+                        "~n   Res: ~s", [Path, Result]),
+            ok
+    end;
+unlink_socket(_) ->
+    ok.
+
+    
+    
 -define(TPP_REQUEST, 1).
 -define(TPP_REPLY,   2).
 

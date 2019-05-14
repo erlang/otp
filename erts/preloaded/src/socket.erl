@@ -2537,7 +2537,7 @@ enc_setopt_value(otp, rcvbuf, V, _, _, _) when is_integer(V) andalso (V > 0) ->
     V;
 %% N: Number of reads (when specifying length = 0)
 %% V: Size of the "read" buffer
-enc_setopt_value(otp, rcvbuf, {N, BufSz} = V, _, stream = _T, tcp = _P) 
+enc_setopt_value(otp, rcvbuf, {N, BufSz} = V, _, stream = _T, _P) 
   when (is_integer(N) andalso (N > 0)) andalso 
        (is_integer(BufSz) andalso (BufSz > 0)) ->
     V;
