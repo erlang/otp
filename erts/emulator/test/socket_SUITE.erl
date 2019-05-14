@@ -536,71 +536,75 @@ use_group(Group, Env, Default) ->
     
 
 groups() -> 
-    [{api,                 [], api_cases()},
-     {api_basic,           [], api_basic_cases()},
-     {api_options,         [], api_options_cases()},
-     {api_op_with_timeout, [], api_op_with_timeout_cases()},
-     {socket_closure,      [], socket_closure_cases()},
-     {sc_ctrl_proc_exit,   [], sc_cp_exit_cases()},
-     {sc_local_close,      [], sc_lc_cases()},
-     {sc_remote_close,     [], sc_rc_cases()},
-     {sc_remote_shutdown,  [], sc_rs_cases()},
-     {traffic,             [], traffic_cases()},
-     {ttest,               [], ttest_cases()},
-     {ttest_sgenf,         [], ttest_sgenf_cases()},
-     {ttest_sgenf_cgen,    [], ttest_sgenf_cgen_cases()},
-     {ttest_sgenf_cgenf,   [], ttest_sgenf_cgenf_cases()},
-     {ttest_sgenf_cgeno,   [], ttest_sgenf_cgeno_cases()},
-     {ttest_sgenf_cgent,   [], ttest_sgenf_cgent_cases()},
-     {ttest_sgenf_csock,   [], ttest_sgenf_csock_cases()},
-     {ttest_sgenf_csockf,  [], ttest_sgenf_csockf_cases()},
-     {ttest_sgenf_csocko,  [], ttest_sgenf_csocko_cases()},
-     {ttest_sgenf_csockt,  [], ttest_sgenf_csockt_cases()},
-     {ttest_sgeno,         [], ttest_sgeno_cases()},
-     {ttest_sgeno_cgen,    [], ttest_sgeno_cgen_cases()},
-     {ttest_sgeno_cgenf,   [], ttest_sgeno_cgenf_cases()},
-     {ttest_sgeno_cgeno,   [], ttest_sgeno_cgeno_cases()},
-     {ttest_sgeno_cgent,   [], ttest_sgeno_cgent_cases()},
-     {ttest_sgeno_csock,   [], ttest_sgeno_csock_cases()},
-     {ttest_sgeno_csockf,  [], ttest_sgeno_csockf_cases()},
-     {ttest_sgeno_csocko,  [], ttest_sgeno_csocko_cases()},
-     {ttest_sgeno_csockt,  [], ttest_sgeno_csockt_cases()},
-     {ttest_sgent,         [], ttest_sgent_cases()},
-     {ttest_sgent_cgen,    [], ttest_sgent_cgen_cases()},
-     {ttest_sgent_cgenf,   [], ttest_sgent_cgenf_cases()},
-     {ttest_sgent_cgeno,   [], ttest_sgent_cgeno_cases()},
-     {ttest_sgent_cgent,   [], ttest_sgent_cgent_cases()},
-     {ttest_sgent_csock,   [], ttest_sgent_csock_cases()},
-     {ttest_sgent_csockf,  [], ttest_sgent_csockf_cases()},
-     {ttest_sgent_csocko,  [], ttest_sgent_csocko_cases()},
-     {ttest_sgent_csockt,  [], ttest_sgent_csockt_cases()},
-     {ttest_ssockf,        [], ttest_ssockf_cases()},
-     {ttest_ssockf_cgen,   [], ttest_ssockf_cgen_cases()},
-     {ttest_ssockf_cgenf,  [], ttest_ssockf_cgenf_cases()},
-     {ttest_ssockf_cgeno,  [], ttest_ssockf_cgeno_cases()},
-     {ttest_ssockf_cgent,  [], ttest_ssockf_cgent_cases()},
-     {ttest_ssockf_csock,  [], ttest_ssockf_csock_cases()},
-     {ttest_ssockf_csockf, [], ttest_ssockf_csockf_cases()},
-     {ttest_ssockf_csocko, [], ttest_ssockf_csocko_cases()},
-     {ttest_ssockf_csockt, [], ttest_ssockf_csockt_cases()},
-     {ttest_ssocko,        [], ttest_ssocko_cases()},
-     {ttest_ssocko_cgen,   [], ttest_ssocko_cgen_cases()},
-     {ttest_ssocko_cgenf,  [], ttest_ssocko_cgenf_cases()},
-     {ttest_ssocko_cgeno,  [], ttest_ssocko_cgeno_cases()},
-     {ttest_ssocko_cgent,  [], ttest_ssocko_cgent_cases()},
-     {ttest_ssocko_csock,  [], ttest_ssocko_csock_cases()},
-     {ttest_ssocko_csockf, [], ttest_ssocko_csockf_cases()},
-     {ttest_ssocko_csocko, [], ttest_ssocko_csocko_cases()},
-     {ttest_ssocko_csockt, [], ttest_ssocko_csockt_cases()},
-     {ttest_ssockt,        [], ttest_ssockt_cases()},
-     {ttest_ssockt_cgen,   [], ttest_ssockt_cgen_cases()},
-     {ttest_ssockt_cgenf,  [], ttest_ssockt_cgenf_cases()},
-     {ttest_ssockt_cgeno,  [], ttest_ssockt_cgeno_cases()},
-     {ttest_ssockt_cgent,  [], ttest_ssockt_cgent_cases()},
-     {ttest_ssockt_csock,  [], ttest_ssockt_csock_cases()},
-     {ttest_ssockt_csockf, [], ttest_ssockt_csockf_cases()},
-     {ttest_ssockt_csocko, [], ttest_ssockt_csocko_cases()},
-     {ttest_ssockt_csockt, [], ttest_ssockt_csockt_cases()}
+    [{api,                        [], api_cases()},
+     {api_basic,                  [], api_basic_cases()},
+     {api_options,                [], api_options_cases()},
+     {api_op_with_timeout,        [], api_op_with_timeout_cases()},
+     {socket_closure,             [], socket_closure_cases()},
+     {sc_ctrl_proc_exit,          [], sc_cp_exit_cases()},
+     {sc_local_close,             [], sc_lc_cases()},
+     {sc_remote_close,            [], sc_rc_cases()},
+     {sc_remote_shutdown,         [], sc_rs_cases()},
+     {traffic,                    [], traffic_cases()},
+     {traffic_chunks,             [], traffic_chunks_cases()},
+     {traffic_pp_send_recv,       [], traffic_pp_send_recv_cases()},
+     {traffic_pp_sendto_recvfrom, [], traffic_pp_sendto_recvfrom_cases()},
+     {traffic_pp_sendmsg_recvmsg, [], traffic_pp_sendmsg_recvmsg_cases()},
+     {ttest,                      [], ttest_cases()},
+     {ttest_sgenf,                [], ttest_sgenf_cases()},
+     {ttest_sgenf_cgen,           [], ttest_sgenf_cgen_cases()},
+     {ttest_sgenf_cgenf,          [], ttest_sgenf_cgenf_cases()},
+     {ttest_sgenf_cgeno,          [], ttest_sgenf_cgeno_cases()},
+     {ttest_sgenf_cgent,          [], ttest_sgenf_cgent_cases()},
+     {ttest_sgenf_csock,          [], ttest_sgenf_csock_cases()},
+     {ttest_sgenf_csockf,         [], ttest_sgenf_csockf_cases()},
+     {ttest_sgenf_csocko,         [], ttest_sgenf_csocko_cases()},
+     {ttest_sgenf_csockt,         [], ttest_sgenf_csockt_cases()},
+     {ttest_sgeno,                [], ttest_sgeno_cases()},
+     {ttest_sgeno_cgen,           [], ttest_sgeno_cgen_cases()},
+     {ttest_sgeno_cgenf,          [], ttest_sgeno_cgenf_cases()},
+     {ttest_sgeno_cgeno,          [], ttest_sgeno_cgeno_cases()},
+     {ttest_sgeno_cgent,          [], ttest_sgeno_cgent_cases()},
+     {ttest_sgeno_csock,          [], ttest_sgeno_csock_cases()},
+     {ttest_sgeno_csockf,         [], ttest_sgeno_csockf_cases()},
+     {ttest_sgeno_csocko,         [], ttest_sgeno_csocko_cases()},
+     {ttest_sgeno_csockt,         [], ttest_sgeno_csockt_cases()},
+     {ttest_sgent,                [], ttest_sgent_cases()},
+     {ttest_sgent_cgen,           [], ttest_sgent_cgen_cases()},
+     {ttest_sgent_cgenf,          [], ttest_sgent_cgenf_cases()},
+     {ttest_sgent_cgeno,          [], ttest_sgent_cgeno_cases()},
+     {ttest_sgent_cgent,          [], ttest_sgent_cgent_cases()},
+     {ttest_sgent_csock,          [], ttest_sgent_csock_cases()},
+     {ttest_sgent_csockf,         [], ttest_sgent_csockf_cases()},
+     {ttest_sgent_csocko,         [], ttest_sgent_csocko_cases()},
+     {ttest_sgent_csockt,         [], ttest_sgent_csockt_cases()},
+     {ttest_ssockf,               [], ttest_ssockf_cases()},
+     {ttest_ssockf_cgen,          [], ttest_ssockf_cgen_cases()},
+     {ttest_ssockf_cgenf,         [], ttest_ssockf_cgenf_cases()},
+     {ttest_ssockf_cgeno,         [], ttest_ssockf_cgeno_cases()},
+     {ttest_ssockf_cgent,         [], ttest_ssockf_cgent_cases()},
+     {ttest_ssockf_csock,         [], ttest_ssockf_csock_cases()},
+     {ttest_ssockf_csockf,        [], ttest_ssockf_csockf_cases()},
+     {ttest_ssockf_csocko,        [], ttest_ssockf_csocko_cases()},
+     {ttest_ssockf_csockt,        [], ttest_ssockf_csockt_cases()},
+     {ttest_ssocko,               [], ttest_ssocko_cases()},
+     {ttest_ssocko_cgen,          [], ttest_ssocko_cgen_cases()},
+     {ttest_ssocko_cgenf,         [], ttest_ssocko_cgenf_cases()},
+     {ttest_ssocko_cgeno,         [], ttest_ssocko_cgeno_cases()},
+     {ttest_ssocko_cgent,         [], ttest_ssocko_cgent_cases()},
+     {ttest_ssocko_csock,         [], ttest_ssocko_csock_cases()},
+     {ttest_ssocko_csockf,        [], ttest_ssocko_csockf_cases()},
+     {ttest_ssocko_csocko,        [], ttest_ssocko_csocko_cases()},
+     {ttest_ssocko_csockt,        [], ttest_ssocko_csockt_cases()},
+     {ttest_ssockt,               [], ttest_ssockt_cases()},
+     {ttest_ssockt_cgen,          [], ttest_ssockt_cgen_cases()},
+     {ttest_ssockt_cgenf,         [], ttest_ssockt_cgenf_cases()},
+     {ttest_ssockt_cgeno,         [], ttest_ssockt_cgeno_cases()},
+     {ttest_ssockt_cgent,         [], ttest_ssockt_cgent_cases()},
+     {ttest_ssockt_csock,         [], ttest_ssockt_csock_cases()},
+     {ttest_ssockt_csockf,        [], ttest_ssockt_csockf_cases()},
+     {ttest_ssockt_csocko,        [], ttest_ssockt_csocko_cases()},
+     {ttest_ssockt_csockt,        [], ttest_ssockt_csockt_cases()}
 
      %% {tickets,             [], ticket_cases()}
     ].
@@ -734,10 +738,21 @@ sc_rs_cases() ->
 
 traffic_cases() ->
     [
+     {group, traffic_chunks},
+     {group, traffic_pp_send_recv},
+     {group, traffic_pp_sendto_recvfrom},
+     {group, traffic_pp_sendmsg_recvmsg}
+    ].
+
+traffic_chunks_cases() ->
+    [
      traffic_send_and_recv_chunks_tcp4,
      traffic_send_and_recv_chunks_tcp6,
-     traffic_send_and_recv_chunks_tcpL,
+     traffic_send_and_recv_chunks_tcpL
+    ].
 
+traffic_pp_send_recv_cases() ->
+    [
      traffic_ping_pong_small_send_and_recv_tcp4,
      traffic_ping_pong_small_send_and_recv_tcp6,
      traffic_ping_pong_small_send_and_recv_tcpL,
@@ -746,15 +761,21 @@ traffic_cases() ->
      traffic_ping_pong_medium_send_and_recv_tcpL,
      traffic_ping_pong_large_send_and_recv_tcp4,
      traffic_ping_pong_large_send_and_recv_tcp6,
-     traffic_ping_pong_large_send_and_recv_tcpL,
+     traffic_ping_pong_large_send_and_recv_tcpL
+    ].    
 
+traffic_pp_sendto_recvfrom_cases() ->
+    [
      traffic_ping_pong_small_sendto_and_recvfrom_udp4,
      traffic_ping_pong_small_sendto_and_recvfrom_udp6,
      traffic_ping_pong_small_sendto_and_recvfrom_udpL,
      traffic_ping_pong_medium_sendto_and_recvfrom_udp4,
      traffic_ping_pong_medium_sendto_and_recvfrom_udp6,
-     traffic_ping_pong_medium_sendto_and_recvfrom_udpL,
+     traffic_ping_pong_medium_sendto_and_recvfrom_udpL
+    ].
 
+traffic_pp_sendmsg_recvmsg_cases() ->
+    [    
      traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
      traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
      traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL,
@@ -772,8 +793,7 @@ traffic_cases() ->
      traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6,
      traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL
     ].
-
-
+    
 ttest_cases() ->
     [
      %% Server: transport = gen_tcp, active = false
@@ -1946,18 +1966,9 @@ api_b_send_and_recv_udp(InitState) ->
                          lsa_src  := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       ?SEV_IPRINT("path unlinked: "
-                                                   "~n   Path: ~s", [Path]),
-                                       maps:remove(lsa_src, State);
-                                   Result ->
-                                       ?SEV_EPRINT("unlink maybe failed: "
-                                                   "~n   Path: ~s"
-                                                   "~n   Res:  ~s",
-                                                   [Path, Result]),
-                                       State
-                           end,
+                               unlink_path(Path,
+                                           fun() -> maps:remove(lsa_src, State) end,
+                                           fun() -> State end),
                            {ok, maps:remove(sock_src, State1)};
                       (#{sock_src := Sock} = State) ->
                            ok = socket:close(Sock),
@@ -1969,18 +1980,9 @@ api_b_send_and_recv_udp(InitState) ->
                          lsa_dst  := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       ?SEV_IPRINT("path unlinked: "
-                                                   "~n   Path: ~s", [Path]),
-                                       maps:remove(lsa_dst, State);
-                                   Result ->
-                                       ?SEV_EPRINT("unlink maybe failed: "
-                                                   "~n   Path: ~s"
-                                                   "~n   Res:  ~s",
-                                                   [Path, Result]),
-                                       State
-                           end,
+                               unlink_path(Path,
+                                           fun() -> maps:remove(lsa_dst, State) end,
+                                           fun() -> State end),
                            {ok, maps:remove(sock_dst, State1)};
                       (#{sock_dst := Sock} = State) ->
                            ok = socket:close(Sock),
@@ -2252,18 +2254,11 @@ api_b_send_and_recv_tcp(InitState) ->
                          local_sa := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       ?SEV_IPRINT("path unlinked: "
-                                                   "~n   Path: ~s", [Path]),
-                                       maps:remove(local_sa, State);
-                                   Result ->
-                                       ?SEV_EPRINT("unlink maybe failed: "
-                                                   "~n   Path: ~s"
-                                                   "~n   Res:  ~s",
-                                                   [Path, Result]),
-                                       State
-                               end,
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
                            {ok, maps:remove(lsock, State1)};
                       (#{lsock := LSock} = State) ->
                            case socket:close(LSock) of
@@ -2386,18 +2381,11 @@ api_b_send_and_recv_tcp(InitState) ->
                          local_sa := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       ?SEV_IPRINT("path unlinked: "
-                                                   "~n   Path: ~s", [Path]),
-                                       maps:remove(local_sa, State);
-                                   Result ->
-                                       ?SEV_EPRINT("unlink maybe failed: "
-                                                   "~n   Path: ~s"
-                                                   "~n   Res:  ~s",
-                                                   [Path, Result]),
-                                       State
-                               end,
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
                            {ok, maps:remove(sock, State1)};
                       (#{sock := Sock} = State) ->
                            ok = socket:close(Sock),
@@ -5969,18 +5957,9 @@ sc_lc_receive_response_tcp(InitState) ->
                          lsa    := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       ?SEV_IPRINT("path unlinked: "
-                                                   "~n   Path: ~s", [Path]),
-                                       maps:remove(lsa, State);
-                                   Result ->
-                                       ?SEV_EPRINT("unlink maybe failed: "
-                                                   "~n   Path: ~s"
-                                                   "~n   Res:  ~s",
-                                                   [Path, Result]),
-                                       State
-                               end,
+                               unlink_path(Path,
+                                           fun() ->maps:remove(lsa, State) end,
+                                           fun() -> State end),
                            State2 = maps:remove(lsock, State1),
                            State3 = maps:remove(lport, State2),
                            {ok, State3};
@@ -6178,18 +6157,11 @@ sc_lc_receive_response_tcp(InitState) ->
                          local_sa := #{path := Path}} = State) ->
                            sock_close(Sock),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       ?SEV_IPRINT("path unlinked: "
-                                                   "~n   Path: ~s", [Path]),
-                                       maps:remove(local_sa, State);
-                                   Result ->
-                                       ?SEV_EPRINT("unlink maybe failed: "
-                                                   "~n   Path: ~s"
-                                                   "~n   Res:  ~s",
-                                                   [Path, Result]),
-                                       State
-                               end,
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
                            {ok, maps:remove(sock, State1)};
                        (#{sock := Sock} = State) ->
                            sock_close(Sock),
@@ -6595,18 +6567,11 @@ sc_lc_receive_response_udp(InitState) ->
                          local_sa := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       ?SEV_IPRINT("path unlinked: "
-                                                   "~n   Path: ~s", [Path]),
-                                       maps:remove(local_sa, State);
-                                   Result ->
-                                       ?SEV_EPRINT("unlink maybe failed: "
-                                                   "~n   Path: ~s"
-                                                   "~n   Res:  ~s",
-                                                   [Path, Result]),
-                                       State
-                               end,
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
                            {ok, maps:remove(sock, State1)};
                       (#{sock := Sock} = State) ->
                            case socket:close(Sock) of
@@ -7201,20 +7166,16 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            case socket:close(Sock) of
                                ok ->
                                    State1 =
-                                       case os:cmd("unlink " ++ Path) of
-                                           "" ->
-                                               ?SEV_IPRINT("path unlinked: "
-                                                           "~n   Path: ~s", [Path]),
-                                               maps:remove(lsa, State);
-                                           Result ->
-                                               ?SEV_EPRINT("unlink maybe failed: "
-                                                           "~n   Path: ~s"
-                                                           "~n   Res:  ~s",
-                                                           [Path, Result]),
-                                               State
-                                       end,
+                                       unlink_path(Path,
+                                                   fun() ->
+                                                           maps:remove(lsa, State)
+                                                   end,
+                                                   fun() ->
+                                                           State
+                                                   end),
                                    {ok, maps:remove(sock, State1)};
                                {error, _} = ERROR ->
+                                   unlink_path(Path),
                                    ERROR
                            end;
                       (#{sock := Sock} = State) ->
@@ -7842,20 +7803,16 @@ sc_rc_receive_response_tcp(InitState) ->
                            case socket:close(LSock) of
                                ok ->
                                    State1 =
-                                       case os:cmd("unlink " ++ Path) of
-                                           "" ->
-                                               ?SEV_IPRINT("path unlinked: "
-                                                           "~n   Path: ~s", [Path]),
-                                               maps:remove(lsa, State);
-                                           Result ->
-                                               ?SEV_EPRINT("unlink maybe failed: "
-                                                           "~n   Path: ~s"
-                                                           "~n   Res:  ~s",
-                                                           [Path, Result]),
-                                               State
-                                       end,
+                                       unlink_path(Path,
+                                                   fun() ->
+                                                           maps:remove(lsa, State)
+                                                   end,
+                                                   fun() ->
+                                                           State
+                                                   end),
                                    {ok, maps:remove(lsock, State1)};
                                {error, _} = ERROR ->
+                                   unlink_path(Path),
                                    ERROR
                            end;
                       (#{lsock := LSock} = State) ->
@@ -8397,12 +8354,12 @@ sc_rc_tcp_client_close(Sock, Path) ->
     i("sc_rc_tcp_client_close -> entry"),
     case socket:close(Sock) of
         ok ->
-            unlink_socket(Path),
+            unlink_path(Path),
             ok;
         {error, Reason} ->
             ?SEV_EPRINT("failed closing: "
                         "~n   Reason: ~p", [Reason]),
-            unlink_socket(Path),
+            unlink_path(Path),
             {error, {close, Reason}}
     end.
 
@@ -8817,20 +8774,13 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
            cmd  => fun(#{domain   := local,
                          lsock    := Sock,
                          local_sa := #{path := Path}} = State) ->
-                           ok = socket:close(Sock),
+                           socket:close(Sock),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       ?SEV_IPRINT("path unlinked: "
-                                                   "~n   Path: ~s", [Path]),
-                                       maps:remove(local_sa, State);
-                                   Result ->
-                                       ?SEV_EPRINT("unlink maybe failed: "
-                                                   "~n   Path: ~s"
-                                                   "~n   Res:  ~s",
-                                                   [Path, Result]),
-                                       State
-                               end,
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
                            {ok, maps:remove(lsock, State1)};
                       (#{lsock := LSock} = State) ->
                            case socket:close(LSock) of
@@ -9355,12 +9305,12 @@ sc_rs_tcp_client_close(Sock, Path) ->
     i("sc_rs_tcp_client_close -> entry"),
     case socket:close(Sock) of
         ok ->
-            unlink_socket(Path),
+            unlink_path(Path),
             ok;
         {error, Reason} ->
             ?SEV_EPRINT("failed closing: "
                         "~n   Reason: ~p", [Reason]),
-            unlink_socket(Path),
+            unlink_path(Path),
             {error, {close, Reason}}
     end.
 
@@ -9884,14 +9834,11 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                          local_sa := #{path := Path}} = State) ->
                            ok = socket:close(Sock),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       maps:remove(local_sa, State);
-                                   Result ->
-                                       ?SEV_IPRINT("unlink result: "
-                                                   "~n   ~s", [Result]),
-                                       State
-                               end,
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
                            {ok, maps:remove(lsock, State1)};
                       (#{lsock := Sock} = State) ->
                            (catch socket:close(Sock)),
@@ -10593,12 +10540,12 @@ traffic_snr_tcp_client_close(Sock, Path) ->
     i("traffic_snr_tcp_client_close -> entry"),
     case socket:close(Sock) of
         ok ->
-            unlink_socket(Path),
+            unlink_path(Path),
             ok;
         {error, Reason} ->
             ?SEV_EPRINT("failed closing: "
                         "~n   Reason: ~p", [Reason]),
-            unlink_socket(Path),
+            unlink_path(Path),
             {error, {close, Reason}}
     end.
 
@@ -11721,18 +11668,11 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                          local_sa := #{path := Path}} = State) ->
                            (catch socket:close(Sock)),
                            State1 =
-                               case os:cmd("unlink " ++ Path) of
-                                   "" ->
-                                       ?SEV_IPRINT("path unlinked: "
-                                                   "~n   Path: ~s", [Path]),
-                                       maps:remove(local_sa, State);
-                                   Result ->
-                                       ?SEV_EPRINT("unlink maybe failed: "
-                                                   "~n   Path: ~s"
-                                                   "~n   Res:  ~s",
-                                                   [Path, Result]),
-                                       State
-                               end,
+                               unlink_path(Path,
+                                           fun() -> 
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
                            {ok, maps:remove(lsock, State1)};
                       (#{lsock := Sock} = State) ->
                            (catch socket:close(Sock)),
@@ -12343,31 +12283,14 @@ tpp_tcp_client_sock_connect(Sock, ServerSA) ->
 tpp_tcp_client_sock_close(Sock, Path) ->
     case socket:close(Sock) of
         ok ->
-            unlink_socket(Path),
+            unlink_path(Path),
             ok;
         {error, Reason} ->
             ?SEV_EPRINT("failed closing: "
                         "~n   Reason: ~p", [Reason]),
-            unlink_socket(Path),
+            unlink_path(Path),
             {error, {close, Reason}}
     end.
-
-unlink_socket(Path) when is_list(Path) ->
-    ?SEV_IPRINT("try unlink path: "
-                "~n   ~s", [Path]),
-    case os:cmd("unlink " ++ Path) of
-        "" ->
-            ?SEV_IPRINT("path unlinked: "
-                        "~n   Path: ~s", [Path]),
-            ok;
-        Result ->
-            ?SEV_EPRINT("unlink maybe failed: "
-                        "~n   Path: ~s"
-                        "~n   Res: ~s", [Path, Result]),
-            ok
-    end;
-unlink_socket(_) ->
-    ok.
 
     
     
@@ -12646,18 +12569,13 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          #{desc => "(maybe) unlink socket",
            cmd  => fun(#{domain   := local,
                          local_sa := #{path := Path}} = State) ->
-                           case os:cmd("unlink " ++ Path) of
-                               "" ->
-                                   ?SEV_IPRINT("path unlinked: "
-                                               "~n   Path: ~s", [Path]),
-                                   {ok, maps:remove(local_sa, State)};
-                               Result ->
-                                   ?SEV_EPRINT("unlink maybe failed: "
-                                               "~n   Path: ~s"
-                                               "~n   Res:  ~s",
-                                               [Path, Result]),
-                                   ok
-                           end;
+                           unlink_path(Path,
+                                       fun() ->
+                                               {ok, maps:remove(local_sa, State)}
+                                       end,
+                                       fun() ->
+                                               ok
+                                       end);
                       (_) ->
                            ok
                    end},
@@ -13286,12 +13204,12 @@ tpp_udp_sock_bind(Sock, Domain) ->
 tpp_udp_sock_close(Sock, Path) ->
     case socket:close(Sock) of
         ok ->
-            unlink_socket(Path),
+            unlink_path(Path),
             ok;
         {error, Reason} ->
             ?SEV_EPRINT("Failed closing socket: "
                         "~n   ~p", [Reason]),
-            unlink_socket(Path),
+            unlink_path(Path),
             {error, {close, Reason}}
     end.
 
@@ -19175,8 +19093,7 @@ local_host() ->
 %% don't clash.
 mk_unique_path() ->
     [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
-    %% ?LIB:f("/tmp/socket_~s_~w", [NodeName, erlang:unique_integer()]).
-    ?LIB:f("/tmp/socket_~s_~w", [NodeName, erlang:system_time(nanosecond)]).
+    ?LIB:f("/tmp/esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]).
 
 which_local_socket_addr(local = Domain) ->
     #{family => Domain,
@@ -19220,6 +19137,27 @@ which_addr2(Domain, [_|IFO]) ->
 
 
 
+unlink_path(Path) ->
+    unlink_path(Path, fun() -> ok end, fun() -> ok end).
+                          
+unlink_path(Path, Success, Failure) when is_list(Path) andalso 
+                                         is_function(Success, 0) andalso
+                                         is_function(Failure, 0) ->
+    ?SEV_IPRINT("try unlink path: "
+                "~n   ~s", [Path]),
+    case os:cmd("unlink " ++ Path) of
+        "" ->
+            ?SEV_IPRINT("path unlinked: "
+                        "~n   Path: ~s", [Path]),
+            Success();
+        Result ->
+            ?SEV_EPRINT("unlink maybe failed: "
+                        "~n   Path: ~s"
+                        "~n   Res:  ~s", [Path, Result]),
+            Failure()
+    end;
+unlink_path(_, _, _) ->
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
