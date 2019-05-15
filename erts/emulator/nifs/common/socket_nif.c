@@ -660,6 +660,9 @@ typedef union {
 #define SOCKET_SUPPORTS_SCTP    0x0002
 #define SOCKET_SUPPORTS_IPV6    0x0003
 
+#define ESOCK_WHICH_PROTO_ERROR -1
+#define ESOCK_WHICH_PROTO_UNSUP -2
+
 
 
 /* =================================================================== *
@@ -4465,9 +4468,16 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
     
     if ((proto != 0) && (domain != AF_LOCAL))
         if (!nopen_which_protocol(sock, &proto)) {
-            save_errno = sock_errno();
-            while ((sock_close(sock) == INVALID_SOCKET) && (sock_errno() == EINTR));
-            return esock_make_error_errno(env, save_errno);
+            if (proto == ESOCK_WHICH_PROTO_ERROR) {
+                save_errno = sock_errno();
+                while ((sock_close(sock) == INVALID_SOCKET) &&
+                       (sock_errno() == EINTR));
+                return esock_make_error_errno(env, save_errno);
+            } else {
+                while ((sock_close(sock) == INVALID_SOCKET) &&
+                       (sock_errno() == EINTR));
+                return esock_make_error(env, esock_atom_eafnosupport);
+            }   
         }
 
 
@@ -4544,6 +4554,7 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
 static
 BOOLEAN_T nopen_which_protocol(SOCKET sock, int* proto)
 {
+#if defined(SO_PROTOCOL)
     int          val;
     SOCKOPTLEN_T valSz = sizeof(val);
     int          res;
@@ -4551,11 +4562,16 @@ BOOLEAN_T nopen_which_protocol(SOCKET sock, int* proto)
     res = sock_getopt(sock, SOL_SOCKET, SO_PROTOCOL, &val, &valSz);
 
     if (res != 0) {
+        *proto = ESOCK_WHICH_PROTO_ERROR;
         return FALSE;
     } else {
         *proto = val;
         return TRUE;
     }
+#else
+    *proto = ESOCK_WHICH_PROTO_UNSUP;
+    return FALSE;
+#endif
 }
 
 
@@ -16303,8 +16319,6 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
                                size_t         dataLen,
                                ERL_NIF_TERM*  eCMsgHdrData)
 {
-    char* xres;
-
     switch (type) {
 #if defined(IPV6_PKTINFO)
     case IPV6_PKTINFO:
@@ -16312,6 +16326,7 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
             struct in6_pktinfo* pktInfoP = (struct in6_pktinfo*) dataP;
             ERL_NIF_TERM        ifIndex  = MKI(env, pktInfoP->ipi6_ifindex);
             ERL_NIF_TERM        addr;
+            char*               xres;
 
             if ((xres = esock_encode_ip6_address(env,
                                                  &pktInfoP->ipi6_addr,
