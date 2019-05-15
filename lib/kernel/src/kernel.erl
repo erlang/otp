@@ -116,7 +116,7 @@ init([]) ->
                  restart => temporary,
                  shutdown => 2000,
                  type => supervisor,
-                 modules => [user_sup]},
+                 modules => [standard_error]},
 
     User = #{id => user,
              start => {user_sup, start, []},
