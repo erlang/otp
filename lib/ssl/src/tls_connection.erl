@@ -171,7 +171,6 @@ next_record(_, #state{protocol_buffers =
                       connection_states = ConnectionStates,
                       ssl_options = #ssl_options{padding_check = Check}} = State) ->
     next_record(State, CipherTexts, ConnectionStates, Check);
-
 next_record(connection, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
                                protocol_specific = #{active_n_toggle := true}
                               } = State) ->
