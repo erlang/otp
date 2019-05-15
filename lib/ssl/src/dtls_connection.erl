@@ -51,7 +51,7 @@
 -export([encode_alert/3, send_alert/2, send_alert_in_connection/2, close/5, protocol_name/0]).
 
 %% Data handling
--export([next_record/1, socket/4, setopts/3, getopts/3]).
+-export([socket/4, setopts/3, getopts/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -451,11 +451,11 @@ init({call, From}, {start, Timeout},
     HelloVersion = dtls_record:hello_version(Version, SslOpts#ssl_options.versions),
     State1 = prepare_flight(State0#state{connection_env = CEnv#connection_env{negotiated_version = Version}}),
     {State2, Actions} = send_handshake(Hello, State1#state{connection_env = CEnv#connection_env{negotiated_version = HelloVersion}}),  
-    State3 = State2#state{connection_env = CEnv#connection_env{negotiated_version = Version}, %% RequestedVersion
+    State = State2#state{connection_env = CEnv#connection_env{negotiated_version = Version}, %% RequestedVersion
 			  session =
 			      Session0#session{session_id = Hello#client_hello.session_id},
 			  start_or_recv_from = From},
-    next_event(hello, no_record, State3, [{{timeout, handshake}, Timeout, close} | Actions]);
+    next_event(hello, no_record, State, [{{timeout, handshake}, Timeout, close} | Actions]);
 init({call, _} = Type, Event, #state{static_env = #static_env{role = server},
                                      protocol_specific = PS} = State) ->
     Result = gen_handshake(?FUNCTION_NAME, Type, Event, 
@@ -514,7 +514,7 @@ hello(internal, #client_hello{cookie = <<>>,
     VerifyRequest = dtls_handshake:hello_verify_request(Cookie, ?HELLO_VERIFY_REQUEST_VERSION),
     State1 = prepare_flight(State0#state{connection_env = CEnv#connection_env{negotiated_version = Version}}),
     {State, Actions} = send_handshake(VerifyRequest, State1),
-    next_event(?FUNCTION_NAME, no_record,
+    next_event(?FUNCTION_NAME, no_record, 
                State#state{handshake_env = HsEnv#handshake_env{
                                              tls_handshake_history = 
                                                  ssl_handshake:init_handshake_history()}}, 
