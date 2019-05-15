@@ -609,17 +609,15 @@ thing_to_list(X) when is_list(X)    -> X.	%Assumed to be a string
 %% flatten(List, Tail)
 %%  Flatten a list, adding optional tail.
 
--spec flatten(DeepList) -> List when
-      DeepList :: [term() | DeepList],
-      List :: [term()].
+-spec flatten(DeepList) -> list() when
+      DeepList :: list().
 
 flatten(List) when is_list(List) ->
     do_flatten(List, []).
 
--spec flatten(DeepList, Tail) -> List when
+-spec flatten(DeepList, Tail) -> list() when
       DeepList :: [term() | DeepList],
-      Tail :: [term()],
-      List :: [term()].
+      Tail :: [term()].
 
 flatten(List, Tail) when is_list(List), is_list(Tail) ->
     do_flatten(List, Tail).
@@ -635,7 +633,7 @@ do_flatten([], Tail) ->
 %%  Calculate the length of a list of lists.
 
 -spec flatlength(DeepList) -> non_neg_integer() when
-      DeepList :: [term() | DeepList].
+      DeepList :: list().
 
 flatlength(List) ->
     flatlength(List, 0).
@@ -2850,4 +2848,3 @@ rufmerge2_2(H1, T1, Fun, [], M, H2M) ->
         false ->
             lists:reverse(T1, [H1, H2M | M])
     end.
-
