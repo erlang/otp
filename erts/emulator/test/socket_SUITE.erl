@@ -359,6 +359,7 @@
          ttest_ssockf_csockf_medium_tcpL/1,
          ttest_ssockf_csockf_large_tcp4/1,
          ttest_ssockf_csockf_large_tcp6/1,
+         ttest_ssockf_csockf_large_tcpL/1,
 
          ttest_ssockf_csocko_small_tcp4/1,
          ttest_ssockf_csocko_small_tcp6/1,
@@ -1208,7 +1209,8 @@ ttest_ssockf_csockf_cases() ->
      ttest_ssockf_csockf_medium_tcpL,
 
      ttest_ssockf_csockf_large_tcp4,
-     ttest_ssockf_csockf_large_tcp6
+     ttest_ssockf_csockf_large_tcp6,
+     ttest_ssockf_csockf_large_tcpL
     ].
 
 %% Server: transport = socket(tcp), active = false
@@ -16429,6 +16431,30 @@ ttest_ssockf_csockf_large_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssockf_csockf_large_tcp6,
               Runtime,
               inet6,
+              sock, false,
+              sock, false,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csockf_large_tcpL(suite) ->
+    [];
+ttest_ssockf_csockf_large_tcpL(doc) ->
+    [];
+ttest_ssockf_csockf_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csockf_large_tcpL,
+              Runtime,
+              local,
               sock, false,
               sock, false,
               3, 2).
