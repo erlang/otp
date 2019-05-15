@@ -149,6 +149,7 @@ server_init(Starter, Parent, Transport, Active) ->
 				  mod            => Mod,
                                   active         => Active,
                                   lsock          => LSock,
+                                  port_or_path   => PortOrPath,
                                   handlers       => [],
                                   stats_interval => StatsInterval,
 				  %% Accumulation
@@ -205,14 +206,21 @@ server_accept(#{mod      := Mod,
                 {error, CPReason} ->
 		    (catch Mod:close(Sock)),
 		    (catch Mod:close(LSock)),
+                    maybe_unlink(maps:get(port_or_path, State)),
                     exit({controlling_process, CPReason})
             end;
         {error, timeout} ->
             State;
         {error, AReason} ->
 	    (catch Mod:close(LSock)),
+            maybe_unlink(maps:get(port_or_path, State)),
             exit({accept, AReason})
     end.
+
+maybe_unlink(Path) when is_list(Path) ->
+    os:cmd("unlink " ++ Path);
+maybe_unlink(_) ->
+    ok.
 
 format_peername({Addr, Port}) ->
     case inet:gethostbyaddr(Addr) of
@@ -247,6 +255,8 @@ server_handle_message(#{parent := Parent, handlers := H} = State) ->
         {?MODULE, Ref, Parent, stop} ->
             reply(Parent, Ref, ok),
             lists:foreach(fun(P) -> handler_stop(P) end, H),
+            (catch socket:close(maps:get(lsock, State))),
+             maybe_unlink(maps:get(port_or_path, State)),
             exit(normal);
 
         {'DOWN', _MRef, process, Pid, Reason} -> 
