@@ -369,8 +369,8 @@ parse_eq(_, State) ->
 %%----------------------------------------------------------------------
 parse_value(<<C, Rest/binary>>, State) when ?is_whitespace(C) ->
     parse_value(Rest, State);
-parse_value(<<C, Rest/binary>>, _State) when C == $'; C == $" ->
-    parse_value_1(Rest, C, []);
+parse_value(<<C, Rest/binary>>, State) when C == $'; C == $" ->
+    parse_value_1(Rest, C, [], State);
 parse_value(_, State) ->
     ?fatal_error(State, "\', \" or whitespace expected").
 
@@ -383,10 +383,12 @@ parse_value(_, State) ->
 %%          Rest = binary()
 %% Description: Parsing an attribute value from the stream.
 %%----------------------------------------------------------------------
-parse_value_1(<<Stop, Rest/binary>>, Stop, Acc) ->
+parse_value_1(<<Stop, Rest/binary>>, Stop, Acc, _State) ->
     {lists:reverse(Acc), Rest};
-parse_value_1(<<C, Rest/binary>>, Stop, Acc) ->
-    parse_value_1(Rest, Stop, [C |Acc]).
+parse_value_1(<<C, Rest/binary>>, Stop, Acc, State) ->
+    parse_value_1(Rest, Stop, [C |Acc], State);
+parse_value_1(_, _Stop, _Acc, State) ->
+    ?fatal_error(State, "end of input and no \' or \" found").
 
 %%======================================================================
 %% Default functions
