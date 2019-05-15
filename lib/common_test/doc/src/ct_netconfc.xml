@@ -243,6 +243,19 @@
 	  Common options used are <c>user</c>, <c>password</c>
 	  and <c>user_dir</c>. The <c>SshConnectOptions</c> are
 	  verfied by the SSH application.</p>
+
+        <p>Option <c>capability</c> specifies the content of a
+        corresponding element in an outgoing hello message: each
+        option specifies the content of a single element as a list of
+        strings.
+        If no base NETCONF capability is configured then the RFC 4741
+        1.0 capability, "urn:ietf:params:netconf:base:1.0", is added,
+        otherwise not.
+        In particular, the RFC 6241 1.1 capability must be explicitly
+        configured.</p>
+
+        <p>Capability options are ignored by connect/1-3 and only_open/1-2,
+        which don't cause a hello message to be sent.</p>
       </desc>
     </datatype>
     <datatype>
@@ -560,23 +573,7 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
       <name name="get_capabilities" arity="2" since="OTP R15B02"/>
       <fsummary>Returns the server side capabilities.</fsummary>
       <desc>
-        <p>Returns the server side capabilities.</p>
-
-        <p>The following capability identifiers, defined in RFC 4741 NETCONF
-          Configuration Protocol, can be returned:</p>
-
-        <list>
-          <item><p><c>"urn:ietf:params:netconf:base:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:writable-running:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:candidate:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:confirmed-commit:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:rollback-on-error:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:startup:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:url:1.0"</c></p></item>
-          <item><p><c>"urn:ietf:params:netconf:capability:xpath:1.0"</c></p></item>
-        </list>
- 
-        <p>More identifiers can exist, for example, server-side namespace.</p>
+        <p>Returns the server capabilities as received in its hello message.</p>
       </desc>
     </func>
 
@@ -651,10 +648,12 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
       <name name="hello" arity="3" since="OTP 17.5.3"/>
       <fsummary>Exchanges hello messages with the server.</fsummary>
       <desc>
-        <p>Exchanges <c>hello</c> messages with the server.</p>
+        <p>Exchanges <c>hello</c> messages with the server. Returns
+        when the server hello has been received or after the
+        specified timeout.</p>
 
-        <p>Adds optional capabilities and sends a <c>hello</c> message to the
-          server and waits for the return.</p>
+        <p>Note that capabilities for an outgoing hello can be passed
+        directly to <seealso marker="#open-2">open/2</seealso>.</p>
       </desc>
     </func>
 

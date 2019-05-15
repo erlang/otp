@@ -215,10 +215,10 @@
 -type options() :: [option()].
 -type option() :: {ssh,host()} | {port,inet:port_number()} | {user,string()} |
 		  {password,string()} | {user_dir,string()} |
-		  {timeout,timeout()}.
+		  {timeout,timeout()} | {capability, [string()]}.
 
 -type session_options() :: [session_option()].
--type session_option() :: {timeout,timeout()}.
+-type session_option() :: {timeout,timeout()} | {capability, [string()]}.
 
 -type host() :: inet:hostname() | inet:ip_address().
 
@@ -263,32 +263,43 @@
 %% Open an SSH connection to a Netconf server
 %% If the server options are specified in a configuration file, use
 %% open/2.
+
+%% connect/1
+
 -spec connect(Options) -> Result when
       Options :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
+      Result :: {ok, handle()} | {error, error_reason()}.
 connect(Options) ->
-    do_connect(Options, #options{type=connection},[]).
+    connect(Options, #options{type = connection}, []).
 
--spec connect(KeyOrName,ExtraOptions) -> Result when
+%% connect/2
+
+-spec connect(KeyOrName, ExtraOptions) -> Result when
       KeyOrName :: ct:key_or_name(),
       ExtraOptions :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
-connect(KeyOrName, ExtraOptions) ->
-    SortedExtra = lists:keysort(1,ExtraOptions),
-    SortedConfig = lists:keysort(1,ct:get_config(KeyOrName,[])),
-    AllOpts = lists:ukeymerge(1,SortedConfig,SortedExtra),
-    do_connect(AllOpts,#options{name=KeyOrName,type=connection},[{name,KeyOrName}]).
+      Result :: {ok, handle()} | {error, error_reason()}.
 
-do_connect(OptList,InitOptRec,NameOpt) ->
-    case check_options(OptList,InitOptRec) of
-	{Host,Port,Options} ->
-	    ct_gen_conn:start({Host,Port},Options,?MODULE,
-                              NameOpt ++ [{reconnect,false},
-                                          {use_existing_connection,false},
-                                          {forward_messages,false}]);
-	Error ->
-	    Error
+connect(KeyOrName, ExtraOptions) ->
+    connect(make_opts(KeyOrName, ExtraOptions),
+            #options{name = KeyOrName, type = connection},
+            [{name, KeyOrName}]).
+
+%% connect/3
+
+connect(Opts, InitRec, NameOpt) ->
+    case make_options(Opts, InitRec) of
+        #options{} = Rec ->
+            start(Rec, NameOpt, false);
+        {error, _} = No ->
+            No
     end.
+
+%% make_opts/2
+
+make_opts(KeyOrName, ExtraOptions) ->
+    SortedExtra = lists:keysort(1, ExtraOptions),
+    SortedConfig = lists:keysort(1, ct:get_config(KeyOrName, [])),
+    lists:ukeymerge(1, SortedConfig, SortedExtra).
 
 %%----------------------------------------------------------------------
 %% Close the given SSH connection.
@@ -305,146 +316,185 @@ disconnect(Conn) ->
 %%----------------------------------------------------------------------
 %% Open a netconf session as a channel on the given SSH connection,
 %% and exchange `hello' messages.
+
+%% session/1
+
 -spec session(Conn) -> Result when
       Conn :: handle(),
-      Result :: {ok,handle()} | {error,error_reason()}.
+      Result :: {ok, handle()} | {error, error_reason()}.
+
 session(Conn) ->
-    do_session(Conn,[],#options{type=channel},[]).
+    session(Conn, [], #options{type = channel}, []).
 
--spec session(Conn,Options) -> Result when
+%% session/2
+
+-spec session(Conn, Options) -> Result when
       Conn :: handle(),
       Options :: session_options(),
-      Result :: {ok,handle()} | {error,error_reason()};
-             (KeyOrName,Conn) -> Result when
+      Result :: {ok, handle()} | {error, error_reason()};
+             (KeyOrName, Conn) -> Result when
       KeyOrName :: ct:key_or_name(),
       Conn :: handle(),
-      Result :: {ok,handle()} | {error,error_reason()}.
-session(Conn,Options) when is_list(Options) ->
-    do_session(Conn,Options,#options{type=channel},[]);
-session(KeyOrName,Conn) ->
-    do_session(Conn,[],#options{name=KeyOrName,type=channel},[{name,KeyOrName}]).
+      Result :: {ok, handle()} | {error, error_reason()}.
 
--spec session(KeyOrName,Conn,Options) -> Result when
+session(Conn, Options) when is_list(Options) ->
+    session(Conn, Options, #options{type = channel}, []);
+
+session(KeyOrName, Conn) ->
+    session(Conn,
+            [],
+            #options{name = KeyOrName, type = channel},
+            [{name, KeyOrName}]).
+
+%% session/3
+
+-spec session(KeyOrName, Conn, Options) -> Result when
       Conn :: handle(),
       Options :: session_options(),
       KeyOrName :: ct:key_or_name(),
-      Result :: {ok,handle()} | {error,error_reason()}.
-session(KeyOrName,Conn,ExtraOptions) ->
-    SortedExtra = lists:keysort(1,ExtraOptions),
-    SortedConfig = lists:keysort(1,ct:get_config(KeyOrName,[])),
-    AllOpts = lists:ukeymerge(1,SortedConfig,SortedExtra),
-    do_session(Conn,AllOpts,#options{name=KeyOrName,type=channel},
-               [{name,KeyOrName}]).
+      Result :: {ok, handle()} | {error, error_reason()}.
 
-do_session(Conn,OptList,InitOptRec,NameOpt) ->
-    case call(Conn,get_ssh_connection) of
-        {ok,SshConn} ->
-            case check_session_options(OptList,InitOptRec) of
-                {ok,Options} ->
-                    case ct_gen_conn:start(SshConn,Options,?MODULE,
-                                           NameOpt ++
-                                               [{reconnect,false},
-                                                {use_existing_connection,false},
-                                                {forward_messages,true}]) of
-                        {ok,Client} ->
-                            case hello(Client,Options#options.timeout) of
-                                ok ->
-                                    {ok,Client};
-                                Error ->
-                                    Error
-                            end;
-                        Error ->
-                            Error
-                    end;
-                Error ->
-                    Error
-            end;
-	Error ->
-	    Error
+session(KeyOrName, Conn, ExtraOptions) ->
+    session(Conn,
+            make_opts(KeyOrName, ExtraOptions),
+            #options{name = KeyOrName, type = channel},
+            [{name, KeyOrName}]).
+
+%% session/4
+
+session(Conn, Opts, InitRec, NameOpt) ->
+    T = make_ref(),
+    try
+        [_ | {ok, SshConn}] = [T | call(Conn, get_ssh_connection)],
+        [_ | #options{} = Rec] = [T | make_session_options(Opts, InitRec)],
+        [_ | {ok, Client} = Ok] = [T | start(SshConn, Rec, NameOpt, true)],
+        [_ | ok] = [T | hello(Client, caps(Opts), Rec#options.timeout)],
+        Ok
+    catch
+        error: {badmatch, [T | Error]} ->
+            Error
     end.
+
+%% caps/1
+
+caps(Opts) ->
+    [T || {capability, _} = T <- Opts].
 
 %%----------------------------------------------------------------------
 %% Open a netconf session and exchange 'hello' messages.
 %% If the server options are specified in a configuration file, use
 %% open/2.
+
+%% open/1
+
 -spec open(Options) -> Result when
       Options :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
+      Result :: {ok, handle()} | {error, error_reason()}.
+
 open(Options) ->
-    open(Options,#options{type=connection_and_channel},[],true).
+    open(Options,
+         #options{type = connection_and_channel},
+         [],
+         true).
 
 -spec open(KeyOrName, ExtraOptions) -> Result when
       KeyOrName :: ct:key_or_name(),
       ExtraOptions :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
+      Result :: {ok, handle()} | {error, error_reason()}.
+
 open(KeyOrName, ExtraOpts) ->
     open(KeyOrName, ExtraOpts, true).
 
-open(KeyOrName, ExtraOpts, Hello) ->
-    SortedExtra = lists:keysort(1,ExtraOpts),
-    SortedConfig = lists:keysort(1,ct:get_config(KeyOrName,[])),
-    AllOpts = lists:ukeymerge(1,SortedConfig,SortedExtra),
-    open(AllOpts,#options{name=KeyOrName,type=connection_and_channel},
-         [{name,KeyOrName}],Hello).
+%% open/3
 
-open(OptList,InitOptRec,NameOpt,Hello) ->
-    case check_options(OptList,InitOptRec) of
-	{Host,Port,Options} ->
-	    case ct_gen_conn:start({Host,Port},Options,?MODULE,
-				   NameOpt ++ [{reconnect,false},
-					       {use_existing_connection,false},
-					       {forward_messages,true}]) of
-		{ok,Client} when Hello==true ->
-		    case hello(Client,Options#options.timeout) of
-			ok ->
-			    {ok,Client};
-			Error ->
-			    Error
-		    end;
-		Other ->
-		    Other
-	    end;
-	Error ->
-	    Error
+open(KeyOrName, ExtraOptions, Hello) ->
+    open(make_opts(KeyOrName, ExtraOptions),
+         #options{name = KeyOrName, type = connection_and_channel},
+         [{name, KeyOrName}],
+         Hello).
+
+%% open/4
+
+open(Opts, InitRec, NameOpt, Hello) ->
+    T = make_ref(),
+    try
+        [_, #options{} = Rec] = [T, make_options(Opts, InitRec)],
+        [_, {ok, Client} = Ok | true] = [T, start(Rec, NameOpt, true) | Hello],
+        [_, ok] = [T, hello(Client, caps(Opts), Rec#options.timeout)],
+        Ok
+    catch
+        error: {badmatch, [T, Res | _]} ->
+            Res
     end.
 
+%% start/3
+
+start(#options{host = undefined}, _, _) ->
+    {error, no_host_address};
+
+start(#options{port = undefined}, _, _) ->
+    {error, no_port};
+
+start(#options{host = Host, port = Port} = Opts, NameOpt, Fwd) ->
+    start({Host, Port}, Opts, NameOpt, Fwd).
+
+%% start/4
+
+start(Ep, Opts, NameOpt, Fwd) ->
+    ct_gen_conn:start(Ep, Opts, ?MODULE, [{reconnect, false},
+                                          {use_existing_connection, false},
+                                          {forward_messages, Fwd}
+                                          | NameOpt]).
 
 %%----------------------------------------------------------------------
-%% As open/1,2, except no 'hello' message is sent.
+%% Like open/1,2, but no 'hello' message is sent.
+
 -spec only_open(Options) -> Result when
       Options :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
-only_open(Options) ->
-    open(Options,#options{type=connection_and_channel},[],false).
+      Result :: {ok, handle()} | {error, error_reason()}.
 
--spec only_open(KeyOrName,ExtraOptions) -> Result when
+only_open(Options) ->
+    open(Options, #options{type = connection_and_channel}, [], false).
+
+-spec only_open(KeyOrName, ExtraOptions) -> Result when
       KeyOrName :: ct:key_or_name(),
       ExtraOptions :: options(),
-      Result :: {ok,handle()} | {error,error_reason()}.
+      Result :: {ok, handle()} | {error, error_reason()}.
+
 only_open(KeyOrName, ExtraOpts) ->
     open(KeyOrName, ExtraOpts, false).
 
 %%----------------------------------------------------------------------
 %% Send a 'hello' message.
+
+%% hello/1
+
 -spec hello(Client) -> Result when
       Client :: handle(),
-      Result :: ok | {error,error_reason()}.
-hello(Client) ->
-    hello(Client,[],?DEFAULT_TIMEOUT).
+      Result :: ok | {error, error_reason()}.
 
--spec hello(Client,Timeout) -> Result when
+hello(Client) ->
+    hello(Client, [], ?DEFAULT_TIMEOUT).
+
+%% hello/2
+
+-spec hello(Client, Timeout) -> Result when
       Client :: handle(),
       Timeout :: timeout(),
-      Result :: ok | {error,error_reason()}.
-hello(Client,Timeout) ->
-    hello(Client,[],Timeout).
+      Result :: ok | {error, error_reason()}.
 
--spec hello(Client,Options,Timeout) -> Result when
+hello(Client, Timeout) ->
+    hello(Client, [], Timeout).
+
+%% hello/3
+
+-spec hello(Client, Options, Timeout) -> Result when
       Client :: handle(),
       Options :: [{capability, [string()]}],
       Timeout :: timeout(),
-      Result :: ok | {error,error_reason()}.
-hello(Client,Options,Timeout) ->
+      Result :: ok | {error, error_reason()}.
+
+hello(Client, Options, Timeout) ->
     call(Client, {hello, Options, Timeout}).
 
 
@@ -1079,36 +1129,56 @@ get_handle(Client) ->
 	    Error
     end.
 
-check_options(OptList,Options) ->
-    check_options(OptList,undefined,undefined,Options).
+%% make_options/2
 
-check_options([], undefined, _Port, _Options) ->
-    {error, no_host_address};
-check_options([], _Host, undefined, _Options) ->
-    {error, no_port};
-check_options([], Host, Port, Options) ->
-    {Host,Port,Options};
-check_options([{ssh, Host}|T], _, Port, Options) ->
-    check_options(T, Host, Port, Options#options{host=Host});
-check_options([{port,Port}|T], Host, _, Options) ->
-    check_options(T, Host, Port, Options#options{port=Port});
-check_options([{timeout, Timeout}|T], Host, Port, Options)
-  when is_integer(Timeout); Timeout==infinity ->
-    check_options(T, Host, Port, Options#options{timeout = Timeout});
-check_options([{timeout, _} = Opt|_T], _Host, _Port, _Options) ->
-    {error, {invalid_option, Opt}};
-check_options([Opt|T], Host, Port, #options{ssh=SshOpts}=Options) ->
-    %% Option verified by ssh
-    check_options(T, Host, Port, Options#options{ssh=[Opt|SshOpts]}).
+make_options(Opts, Rec) ->
+    make_options(Opts, Rec#options{port = undefined}, fun opt/2).
 
-check_session_options([],Options) ->
-    {ok,Options};
-check_session_options([{timeout, Timeout}|T], Options)
-  when is_integer(Timeout); Timeout==infinity ->
-    check_session_options(T, Options#options{timeout = Timeout});
-check_session_options([Opt|_T], _Options) ->
-    {error, {invalid_option, Opt}}.
+opt({ssh, Host}, Rec) ->
+    Rec#options{host = Host};
 
+opt({port, Port}, Rec) ->
+    Rec#options{port = Port};
+
+opt({timeout, Tmo}, Rec)
+  when is_integer(Tmo);
+       Tmo == infinity ->
+    Rec#options{timeout = Tmo};
+
+opt({timeout, _} = T, _) ->
+    throw(T);
+
+opt({capability, _}, Rec) ->
+    Rec;
+
+opt(Opt, #options{ssh = Opts} = Rec) -> %% option verified by ssh
+    Rec#options{ssh = [Opt | Opts]}.
+
+%% make_session_options/2
+
+make_session_options(Opts, Rec) ->
+    make_options(Opts, Rec, fun session_opt/2).
+
+session_opt({capability, _}, Rec) ->
+    Rec;
+
+session_opt({timeout, Tmo}, Rec)
+  when is_integer(Tmo);
+       Tmo == infinity ->
+    Rec#options{timeout = Tmo};
+
+session_opt(T, _Rec) ->
+    throw(T).
+
+%% make_options/3
+
+make_options(Opts, Rec, F) ->
+    try
+        #options{} = lists:foldl(F, Rec, Opts)
+    catch
+        T ->
+            {error, {invalid_option, T}}
+    end.
 
 %%%-----------------------------------------------------------------
 set_request_timer(infinity) ->
