@@ -353,6 +353,7 @@
          %% Client: transport = socket(tcp)
          ttest_ssockf_csockf_small_tcp4/1,
          ttest_ssockf_csockf_small_tcp6/1,
+         ttest_ssockf_csockf_small_tcpL/1,
          ttest_ssockf_csockf_medium_tcp4/1,
          ttest_ssockf_csockf_medium_tcp6/1,
          ttest_ssockf_csockf_large_tcp4/1,
@@ -1199,6 +1200,7 @@ ttest_ssockf_csockf_cases() ->
     [
      ttest_ssockf_csockf_small_tcp4,
      ttest_ssockf_csockf_small_tcp6,
+     ttest_ssockf_csockf_small_tcpL,
 
      ttest_ssockf_csockf_medium_tcp4,
      ttest_ssockf_csockf_medium_tcp6,
@@ -16292,6 +16294,30 @@ ttest_ssockf_csockf_small_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = false
 %% Client:       Transport = socket(tcp), Active = false
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csockf_small_tcpL(suite) ->
+    [];
+ttest_ssockf_csockf_small_tcpL(doc) ->
+    [];
+ttest_ssockf_csockf_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csockf_small_tcpL,
+              Runtime,
+              local,
+              sock, false,
+              sock, false,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = false
 %% Message Size: medium (=2)
 %% Domain:       inet
 %%
@@ -18460,7 +18486,8 @@ ttest_tcp(TC,
     tc_try(TC,
            fun() ->
                    if
-                       (Domain =/= inet) -> has_support_ipv6(); 
+                       (Domain =:= local) -> has_support_unix_domain_socket(); 
+                       (Domain =:= inet6) -> has_support_ipv6(); 
                        true -> ok 
                    end
            end,
@@ -18514,11 +18541,25 @@ ttest_tcp(InitState) ->
                            ok
                    end},
          #{desc => "start ttest (remote) server",
-           cmd  => fun(#{mod    := Mod,
+           cmd  => fun(#{domain := local = Domain,
+                         mod    := Mod,
                          active := Active,
                          node   := Node} = State) ->
-                           case ttest_tcp_server_start(Node, Mod, Active) of
-                               {ok, {{Pid, _MRef}, {Addr, Port}}} ->
+                           case ttest_tcp_server_start(Node,
+                                                       Domain, Mod, Active) of
+                               {ok, {{Pid, _}, Path}} ->
+                                   {ok, State#{rserver => Pid,
+                                               path    => Path}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{domain := Domain,
+                         mod    := Mod,
+                         active := Active,
+                         node   := Node} = State) ->
+                           case ttest_tcp_server_start(Node,
+                                                       Domain, Mod, Active) of
+                               {ok, {{Pid, _}, {Addr, Port}}} ->
                                    {ok, State#{rserver => Pid,
                                                addr    => Addr,
                                                port    => Port}};
@@ -18527,7 +18568,12 @@ ttest_tcp(InitState) ->
                            end
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester,
+           cmd  => fun(#{domain := local,
+                         tester := Tester,
+                         path   := Path}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok;
+                      (#{tester := Tester,
                          addr   := Addr,
                          port   := Port}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, {Addr, Port}),
@@ -18582,8 +18628,14 @@ ttest_tcp(InitState) ->
         [
          %% *** Wait for start order part ***
          #{desc => "await start",
-           cmd  => fun(State) ->
-                           {Tester, {ServerAddr, ServerPort}} = ?SEV_AWAIT_START(),
+           cmd  => fun(#{domain := local} = State) ->
+                           {Tester, ServerPath} = 
+                               ?SEV_AWAIT_START(),
+                           {ok, State#{tester      => Tester,
+                                       server_path => ServerPath}};
+                      (State) ->
+                           {Tester, {ServerAddr, ServerPort}} = 
+                               ?SEV_AWAIT_START(),
                            {ok, State#{tester      => Tester,
                                        server_addr => ServerAddr,
                                        server_port => ServerPort}}
@@ -18624,7 +18676,32 @@ ttest_tcp(InitState) ->
                            ok
                    end},
          #{desc => "start ttest (remote) client",
-           cmd  => fun(#{node            := Node,
+           cmd  => fun(#{domain          := local = Domain,
+                         node            := Node,
+                         mod             := Mod,
+                         active          := Active,
+                         msg_id          := MsgID,
+                         max_outstanding := MaxOutstanding,
+                         runtime         := RunTime,
+                         server_path     := Path} = State) ->
+                           Self   = self(),
+                           Notify =
+                               fun(Result) ->
+                                       ?SEV_ANNOUNCE_READY(Self, ttest, Result)
+                               end,                           
+                           case ttest_tcp_client_start(Node, Notify,
+                                                       Domain, Mod,
+                                                       Path,
+                                                       Active,
+                                                       MsgID, MaxOutstanding,
+                                                       RunTime) of
+                               {ok, {Pid, _MRef}} ->
+                                   {ok, State#{rclient => Pid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{domain          := Domain,
+                         node            := Node,
                          mod             := Mod,
                          active          := Active,
                          msg_id          := MsgID,
@@ -18638,8 +18715,9 @@ ttest_tcp(InitState) ->
                                        ?SEV_ANNOUNCE_READY(Self, ttest, Result)
                                end,                           
                            case ttest_tcp_client_start(Node, Notify,
-                                                       Mod, Active,
-                                                       Addr, Port,
+                                                       Domain, Mod,
+                                                       {Addr, Port},
+                                                       Active,
                                                        MsgID, MaxOutstanding,
                                                        RunTime) of
                                {ok, {Pid, _MRef}} ->
@@ -18651,8 +18729,6 @@ ttest_tcp(InitState) ->
          #{desc => "await ttest ready",
            cmd  => fun(#{tester  := Tester,
                          rclient := RClient} = State) ->
-                           %% TTestResult = ?SEV_AWAIT_READY(RClient, rclient, ttest, 
-                           %%                                [{tester, Tester}]),
                            case ?SEV_AWAIT_READY(RClient, rclient, ttest, 
                                                  [{tester, Tester}]) of
                              {ok, Result} ->
@@ -18723,8 +18799,13 @@ ttest_tcp(InitState) ->
                            ok
                    end},
          #{desc => "await server ready (init)",
-           cmd  => fun(#{server := Pid} = State) ->
-                           {ok, {Addr, Port}} = ?SEV_AWAIT_READY(Pid, server, init),
+           cmd  => fun(#{domain := local,
+                         server := Pid} = State) ->
+                           {ok, Path} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{server_path => Path}};
+                      (#{server := Pid} = State) ->
+                           {ok, {Addr, Port}} =
+                               ?SEV_AWAIT_READY(Pid, server, init),
                            {ok, State#{server_addr => Addr,
                                        server_port => Port}}
                    end},
@@ -18732,7 +18813,12 @@ ttest_tcp(InitState) ->
 
          %% Start the client
          #{desc => "order client start",
-           cmd  => fun(#{client      := Pid,
+           cmd  => fun(#{domain      := local,
+                         client      := Pid,
+                         server_path := Path} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, Path),
+                           ok;
+                      (#{client      := Pid,
                          server_addr := Addr,
                          server_port := Port} = _State) ->
                            ?SEV_ANNOUNCE_START(Pid, {Addr, Port}),
@@ -18871,7 +18957,8 @@ ttest_tcp(InitState) ->
     Client          = ?SEV_START("client", ClientSeq, ClientInitState),
     
     i("start 'tester' evaluator"),
-    TesterInitState = #{server => Server#ev.pid,
+    TesterInitState = #{domain => maps:get(domain, InitState),
+                        server => Server#ev.pid,
                         client => Client#ev.pid},
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
@@ -18880,12 +18967,12 @@ ttest_tcp(InitState) ->
 
 
 
-ttest_tcp_server_start(Node, gen, Active) ->
+ttest_tcp_server_start(Node, _Domain, gen, Active) ->
     Transport = socket_test_ttest_tcp_gen,
     socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active);
-ttest_tcp_server_start(Node, sock, Active) ->
+ttest_tcp_server_start(Node, Domain, sock, Active) ->
     TransportMod = socket_test_ttest_tcp_socket,
-    Transport    = {TransportMod, #{method => plain}},
+    Transport    = {TransportMod, #{domain => Domain, method => plain}},
     socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active).
 
 ttest_tcp_server_stop(Pid) ->
@@ -18893,26 +18980,26 @@ ttest_tcp_server_stop(Pid) ->
 
 ttest_tcp_client_start(Node,
                        Notify,
-                       gen,
-                       Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+                       _Domain, gen,
+                       ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     Transport = socket_test_ttest_tcp_gen,
     socket_test_ttest_tcp_client:start_monitor(Node,
                                                Notify,
                                                Transport,
+                                               ServerInfo,
                                                Active,
-                                               Addr, Port,
                                                MsgID, MaxOutstanding, RunTime);
 ttest_tcp_client_start(Node,
                        Notify,
-                       sock,
-                       Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+                       Domain, sock,
+                       ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     TransportMod = socket_test_ttest_tcp_socket,
-    Transport    = {TransportMod, #{method => plain}},
+    Transport    = {TransportMod, #{domain => Domain, method => plain}},
     socket_test_ttest_tcp_client:start_monitor(Node,
                                                Notify,
                                                Transport,
+                                               ServerInfo,
                                                Active,
-                                               Addr, Port,
                                                MsgID, MaxOutstanding, RunTime).
 
 

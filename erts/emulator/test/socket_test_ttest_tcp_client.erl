@@ -42,16 +42,16 @@
 
 -export([
          %% These are for the test suite
-         start_monitor/6, start_monitor/7, start_monitor/9,
+         start_monitor/5, start_monitor/6, start_monitor/8,
 
          %% These are for starting in a shell when run "manually"
-         start/4, start/5, start/7, start/8,
+         start/3, start/4, start/6, start/7,
          stop/1
         ]).
 
 %% Internal exports
 -export([
-         do_start/10
+         do_start/9
         ]).
 
 -include_lib("kernel/include/inet.hrl").
@@ -80,25 +80,25 @@
 
 %% ==========================================================================
 
-start_monitor(Node, Notify, Transport, Active, Addr, Port) ->
-    start_monitor(Node, Notify, Transport, Active, Addr, Port, ?MSG_ID_DEFAULT).
+start_monitor(Node, Notify, Transport, ServerInfo, Active) ->
+    start_monitor(Node, Notify, Transport, ServerInfo, Active, ?MSG_ID_DEFAULT).
 
-start_monitor(Node, Notify, Transport, Active, Addr, Port, 1 = MsgID) ->
-    start_monitor(Node, Notify, Transport, Active, Addr, Port, MsgID,
+start_monitor(Node, Notify, Transport, ServerInfo, Active, 1 = MsgID) ->
+    start_monitor(Node, Notify, Transport, ServerInfo, Active, MsgID,
                   ?MAX_OUTSTANDING_DEFAULT_1, ?RUNTIME_DEFAULT);
-start_monitor(Node, Notify, Transport, Active, Addr, Port, 2 = MsgID) ->
-    start_monitor(Node, Notify, Transport, Active, Addr, Port, MsgID,
+start_monitor(Node, Notify, Transport, ServerInfo, Active, 2 = MsgID) ->
+    start_monitor(Node, Notify, Transport, ServerInfo, Active, MsgID,
                   ?MAX_OUTSTANDING_DEFAULT_2, ?RUNTIME_DEFAULT);
-start_monitor(Node, Notify, Transport, Active, Addr, Port, 3 = MsgID) ->
-    start_monitor(Node, Notify, Transport, Active, Addr, Port, MsgID,
+start_monitor(Node, Notify, Transport, ServerInfo, Active, 3 = MsgID) ->
+    start_monitor(Node, Notify, Transport, ServerInfo, Active, MsgID,
                   ?MAX_OUTSTANDING_DEFAULT_3, ?RUNTIME_DEFAULT).
 
-start_monitor(Node, Notify, Transport, Active, Addr, Port,
+start_monitor(Node, Notify, Transport, ServerInfo, Active,
               MsgID, MaxOutstanding, RunTime)
   when (Node =/= node()) ->
     Args = [false,
 	    self(), Notify,
-            Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime],
+            Transport, ServerInfo, Active, MsgID, MaxOutstanding, RunTime],
     case rpc:call(Node, ?MODULE, do_start, Args) of
         {badrpc, _} = Reason ->
             {error, Reason};
@@ -108,11 +108,11 @@ start_monitor(Node, Notify, Transport, Active, Addr, Port,
         {error, _} = ERROR ->
             ERROR
     end;
-start_monitor(_, Notify, Transport, Active, Addr, Port,
+start_monitor(_, Notify, Transport, ServerInfo, Active,
               MsgID, MaxOutstanding, RunTime) ->
     case do_start(false,
 		  self(), Notify,
-                  Transport, Active, Addr, Port,
+                  Transport, Active, ServerInfo,
                   MsgID, MaxOutstanding, RunTime) of
         {ok, Pid} ->
             MRef = erlang:monitor(process, Pid),
@@ -122,50 +122,48 @@ start_monitor(_, Notify, Transport, Active, Addr, Port,
     end.
 
 
-start(Transport, Active, Addr, Port) ->
-    start(Transport, Active, Addr, Port, ?MSG_ID_DEFAULT).
+start(Transport, ServerInfo, Active) ->
+    start(Transport, ServerInfo, Active, ?MSG_ID_DEFAULT).
 
-start(Transport, Active, Addr, Port, 1 = MsgID) ->
+start(Transport, ServerInfo, Active, 1 = MsgID) ->
     start(false,
-	  Transport, Active, Addr, Port, MsgID,
+	  Transport, ServerInfo, Active, MsgID,
           ?MAX_OUTSTANDING_DEFAULT_1, ?RUNTIME_DEFAULT);
-start(Transport, Active, Addr, Port, 2 = MsgID) ->
+start(Transport, ServerInfo, Active, 2 = MsgID) ->
     start(false,
-	  Transport, Active, Addr, Port, MsgID,
+	  Transport, ServerInfo, Active, MsgID,
           ?MAX_OUTSTANDING_DEFAULT_2, ?RUNTIME_DEFAULT);
-start(Transport, Active, Addr, Port, 3 = MsgID) ->
+start(Transport, ServerInfo, Active, 3 = MsgID) ->
     start(false,
-	  Transport, Active, Addr, Port, MsgID,
+	  Transport, ServerInfo, Active, MsgID,
           ?MAX_OUTSTANDING_DEFAULT_3, ?RUNTIME_DEFAULT).
 
-start(Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+start(Transport, ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     start(false,
-	  Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime).
+	  Transport, ServerInfo, Active, MsgID, MaxOutstanding, RunTime).
 
-start(Quiet, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+start(Quiet, Transport, ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     Notify = fun(R) -> present_results(R) end,
     do_start(Quiet,
 	     self(), Notify,
-             Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime).
+             Transport, ServerInfo, Active, MsgID, MaxOutstanding, RunTime).
                       
 
 -spec do_start(Quiet,
 	       Parent,
                Notify,
                Transport,
+               ServerInfo,
                Active,
-               Addr,
-               Port,
                MsgID,
                MaxOutstanding,
                RunTime) -> {ok, Pid} | {error, Reason} when
-      Quiet          :: pid(),
+      Quiet          :: boolean(),
       Parent         :: pid(),
       Notify         :: function(),
       Transport      :: atom() | tuple(),
+      ServerInfo     :: {inet:ip_address(), inet:port_number()} | string(),
       Active         :: active(),
-      Addr           :: inet:ip_address(),
-      Port           :: inet:port_number(),
       MsgID          :: msg_id(),
       MaxOutstanding :: max_outstanding(),
       RunTime        :: runtime(),
@@ -174,14 +172,13 @@ start(Quiet, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
 
 do_start(Quiet,
 	 Parent, Notify,
-         Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime)
+         Transport, ServerInfo, Active, MsgID, MaxOutstanding, RunTime)
   when is_boolean(Quiet) andalso
        is_pid(Parent) andalso
        is_function(Notify) andalso
        (is_atom(Transport) orelse is_tuple(Transport)) andalso
        (is_boolean(Active) orelse (Active =:= once)) andalso
-       is_tuple(Addr) andalso 
-       (is_integer(Port) andalso (Port > 0)) andalso
+       (is_tuple(ServerInfo) orelse is_list(ServerInfo)) andalso 
        (is_integer(MsgID) andalso (MsgID >= 1) andalso (MsgID =< 3)) andalso
        (is_integer(MaxOutstanding) andalso (MaxOutstanding > 0)) andalso
        (is_integer(RunTime) andalso (RunTime > 0)) ->
@@ -191,7 +188,7 @@ do_start(Quiet,
 			 Starter, 
                          Parent,
                          Notify,
-                         Transport, Active, Addr, Port,
+                         Transport, Active, ServerInfo,
                          MsgID, MaxOutstanding, RunTime)
            end,
     {Pid, MRef} = spawn_monitor(Init),
@@ -217,25 +214,30 @@ stop(Pid) when is_pid(Pid) ->
 init(Quiet,
      Starter,
      Parent, Notify,
-     Transport, Active, Addr, Port,
+     Transport, Active, ServerInfo,
      MsgID, MaxOutstanding, RunTime) ->
     if
 	not Quiet ->
 	    ?I("init with"
 	       "~n   Transport:            ~p"
 	       "~n   Active:               ~p"
-	       "~n   Addr:                 ~s"
-	       "~n   Port:                 ~p"
+	       "~n   ServerInfo:           ~s"
 	       "~n   Msg ID:               ~p (=> 16 + ~w bytes)"
 	       "~n   Max Outstanding:      ~p"
 	       "~n   (Suggested) Run Time: ~p ms",
-	       [Transport, Active, inet:ntoa(Addr), Port,
+	       [Transport, Active,
+                case ServerInfo of
+                    {Addr, Port} ->
+                        ?F("Addr: ~s, Port: ~w", [inet:ntoa(Addr), Port]);
+                    Path ->
+                        Path
+                end,
 		MsgID, size(which_msg_data(MsgID)), MaxOutstanding, RunTime]);
 	true ->
 	    ok
     end,
     {Mod, Connect} = process_transport(Transport),
-    case Connect(Addr, Port) of
+    case Connect(ServerInfo) of
         {ok, Sock} ->
             if not Quiet -> ?I("connected");
 	       true      -> ok
@@ -269,9 +271,15 @@ init(Quiet,
     end.
 
 process_transport(Mod) when is_atom(Mod) ->
-    {Mod, fun(A, P) -> Mod:connect(A, P) end};
-process_transport({Mod, Opts}) ->
-    {Mod, fun(A, P) -> Mod:connect(A, P, Opts) end}.
+    %% In this case we assume it to be a plain tcp socket
+    {Mod, fun({A, P}) -> Mod:connect(A, P) end};
+process_transport({Mod, #{domain := Domain} = Opts}) ->
+    Connect =
+        case Domain of
+            local -> fun(Path)   -> Mod:connect(Path, Opts) end;
+            _     -> fun({A, P}) -> Mod:connect(A, P, Opts) end
+        end,
+    {Mod, Connect}.
 
             
 which_msg_data(1) -> ?MSG_DATA1;

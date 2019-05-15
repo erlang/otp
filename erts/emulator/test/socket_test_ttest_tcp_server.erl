@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,8 +96,9 @@ do_start(Parent, Transport, Active)
        (is_atom(Transport) orelse is_tuple(Transport)) andalso
        (is_boolean(Active) orelse (Active =:= once)) ->
     Starter    = self(),
-    ServerInit = fun() -> put(sname, "server"),
-                          server_init(Starter, Parent, Transport, Active)
+    ServerInit = fun() -> 
+                         put(sname, "server"),
+                         server_init(Starter, Parent, Transport, Active)
                  end,
     {Pid, MRef} = spawn_monitor(ServerInit),
     receive
@@ -126,13 +127,24 @@ server_init(Starter, Parent, Transport, Active) ->
     case Listen(0) of
         {ok, LSock} ->
             case Mod:port(LSock) of
-                {ok, Port} ->
-		    Addr = which_addr(), % This is just for convenience
-                    ?I("listening on:"
-                       "~n   Addr: ~p (~s)"
-                       "~n   Port: ~w"
-                       "~n", [Addr, inet:ntoa(Addr), Port]),
-                    Starter ! {?MODULE, self(), {ok, {Addr, Port}}},
+                {ok, PortOrPath} ->
+                    Result =
+                        if
+                            is_integer(PortOrPath) ->
+                                %% This is just for convenience
+                                Addr = which_addr(),
+                                ?I("listening on:"
+                                   "~n   Addr: ~p (~s)"
+                                   "~n   Port: ~w"
+                                   "~n", [Addr, inet:ntoa(Addr), PortOrPath]),
+                                {Addr, PortOrPath};
+                            is_list(PortOrPath) ->
+                                ?I("listening on:"
+                                   "~n   Path: ~s"
+                                   "~n", [PortOrPath]),
+                                PortOrPath
+                        end,
+                    Starter ! {?MODULE, self(), {ok, Result}},
                     server_loop(#{parent         => Parent,
 				  mod            => Mod,
                                   active         => Active,
@@ -208,7 +220,9 @@ format_peername({Addr, Port}) ->
             ?F("~s (~s:~w)", [N, inet:ntoa(Addr), Port]);
         {error, _} ->
             ?F("~p, ~p", [Addr, Port])
-    end.
+    end;
+format_peername(Path) when is_list(Path) ->
+    Path.
 
 maybe_start_stats_timer(#{active := Active, stats_interval := Time}, Handler)
   when (Active =/= false) andalso (is_integer(Time) andalso (Time > 0)) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 	 accept/1, accept/2,
 	 active/2,
 	 close/1,
-	 connect/2,
+	 connect/2, connect/3,
 	 controlling_process/2,
 	 listen/0, listen/1,
 	 peername/1,
@@ -80,6 +80,13 @@ close(Sock) ->
 
 connect(Addr, Port) ->
     Opts = [binary, {packet, raw}, {active, false}, {buffer, 32*1024}], 
+    do_connect(Addr, Port, Opts).
+
+connect(Addr, Port, #{domain := Domain}) ->
+    Opts = [Domain, binary, {packet, raw}, {active, false}, {buffer, 32*1024}], 
+    do_connect(Addr, Port, Opts).
+
+do_connect(Addr, Port, Opts) ->
     case gen_tcp:connect(Addr, Port, Opts) of
 	{ok, Sock} ->
 	    {ok, Sock};
