@@ -821,6 +821,7 @@
 -define(SOCKET_SUPPORTS_OPTIONS, 16#0001).
 -define(SOCKET_SUPPORTS_SCTP,    16#0002).
 -define(SOCKET_SUPPORTS_IPV6,    16#0003).
+-define(SOCKET_SUPPORTS_LOCAL,   16#0004).
 
 
 %% ===========================================================================
@@ -876,18 +877,21 @@ info() ->
 
 -spec supports() -> [{options, supports_options()} | 
                      {sctp,    boolean()} |
-                     {ipv6,    boolean()}].
+                     {ipv6,    boolean()} |
+                     {local,   boolean()}].
 
 supports() ->
     [{options, supports(options)},
      {sctp,    supports(sctp)},
-     {ipv6,    supports(ipv6)}].
+     {ipv6,    supports(ipv6)},
+     {local,   supports(local)}].
 
 
 -dialyzer({nowarn_function, supports/1}).
 -spec supports(options) -> supports_options();
               (sctp)    -> boolean();
               (ipv6)    -> boolean();
+              (local)   -> boolean();
               (Key1)    -> false when
       Key1 :: term().
                         
@@ -897,6 +901,8 @@ supports(sctp) ->
     nif_supports(?SOCKET_SUPPORTS_SCTP);
 supports(ipv6) ->
     nif_supports(?SOCKET_SUPPORTS_IPV6);
+supports(local) ->
+    nif_supports(?SOCKET_SUPPORTS_LOCAL);
 supports(_Key1) ->
     false.
 

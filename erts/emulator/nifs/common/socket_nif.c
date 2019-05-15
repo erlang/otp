@@ -659,6 +659,7 @@ typedef union {
 #define SOCKET_SUPPORTS_OPTIONS 0x0001
 #define SOCKET_SUPPORTS_SCTP    0x0002
 #define SOCKET_SUPPORTS_IPV6    0x0003
+#define SOCKET_SUPPORTS_LOCAL   0x0004
 
 #define ESOCK_WHICH_PROTO_ERROR -1
 #define ESOCK_WHICH_PROTO_UNSUP -2
@@ -998,6 +999,7 @@ static ERL_NIF_TERM nsupports_options_udp(ErlNifEnv* env);
 static ERL_NIF_TERM nsupports_options_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM nsupports_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM nsupports_ipv6(ErlNifEnv* env);
+static ERL_NIF_TERM nsupports_local(ErlNifEnv* env);
 
 static ERL_NIF_TERM nopen(ErlNifEnv* env,
                           int        domain,
@@ -3053,6 +3055,9 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
  *                  {tcp,    [{Opt, boolean()}]},
  *                  {udp,    [{Opt, boolean()}]},
  *                  {sctp,   [{Opt, boolean()}]}]
+ * sctp            boolean()
+ * ipv6            boolean()
+ * local           boolean()
  */
 
 static
@@ -3080,13 +3085,10 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
 
 
 
-/* nopen - create an endpoint for communication
+/* nsupports - what features do we support
  *
- * Assumes the input has been validated.
- *
- * Normally we want debugging on (individual) sockets to be controlled
- * by the sockets own debug flag. But since we don't even have a socket
- * yet, we must use the global debug flag.
+ * This is to prove information about what features actually
+ * work on the current platform.
  */
 #if !defined(__WIN32__)
 static
@@ -3107,6 +3109,10 @@ ERL_NIF_TERM nsupports(ErlNifEnv* env, int key)
 
     case SOCKET_SUPPORTS_IPV6:
         result = nsupports_ipv6(env);
+        break;
+
+    case SOCKET_SUPPORTS_LOCAL:
+        result = nsupports_local(env);
         break;
 
     default:
@@ -4320,6 +4326,24 @@ ERL_NIF_TERM nsupports_ipv6(ErlNifEnv* env)
 
     /* Is this (test) really sufficient for testing if we support IPv6? */
 #if defined(HAVE_IPV6)
+    supports = esock_atom_true;
+#else
+    supports = esock_atom_false;
+#endif
+
+    return supports;
+}
+#endif
+
+
+
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM nsupports_local(ErlNifEnv* env)
+{
+    ERL_NIF_TERM supports;
+
+#if defined(AF_LOCAL)
     supports = esock_atom_true;
 #else
     supports = esock_atom_false;
