@@ -93,11 +93,9 @@
     erts_flxctr_dec_read_centralized(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
 #define RESET_NITEMS(DB)                                                \
     erts_flxctr_reset(&(DB)->common.counters, ERTS_DB_TABLE_NITEMS_COUNTER_ID)
-/* 
- * The following symbols can be manipulated to "tune" the linear hash array 
- */
+
 #define GROW_LIMIT(NACTIVE) ((NACTIVE)*1)
-#define SHRINK_LIMIT(NACTIVE) ((NACTIVE) / 2)
+#define SHRINK_LIMIT(TB) erts_atomic_read_nob(&(TB)->shrink_limit)
 
 /*
 ** We want the first mandatory segment to be small (to reduce minimal footprint)
@@ -476,10 +474,8 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 
 static ERTS_INLINE void try_shrink(DbTableHash* tb)
 {
-    int nactive = NACTIVE(tb);
     int nitems = NITEMS(tb);
-    if (nactive > FIRST_SEGSZ && nitems < SHRINK_LIMIT(nactive)
-	&& !IS_FIXED(tb)) {
+    if (nitems < SHRINK_LIMIT(tb) && !IS_FIXED(tb)) {
 	shrink(tb, nitems);
     }
 }	
@@ -690,6 +686,7 @@ int db_create_hash(Process *p, DbTable *tbl)
 
     erts_atomic_init_nob(&tb->szm, FIRST_SEGSZ_MASK);
     erts_atomic_init_nob(&tb->nactive, FIRST_SEGSZ);
+    erts_atomic_init_nob(&tb->shrink_limit, 0);
     erts_atomic_init_nob(&tb->fixdel, (erts_aint_t)NULL);
     erts_atomic_init_nob(&tb->segtab, (erts_aint_t)NULL);
     SET_SEGTAB(tb, tb->first_segtab);
@@ -2669,6 +2666,34 @@ static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix)
     return est;
 }
 
+static void calc_shrink_limit(DbTableHash* tb)
+{
+    erts_aint_t shrink_limit;
+
+    if (tb->nslots >= (FIRST_SEGSZ + 2*EXT_SEGSZ)) {
+        /*
+         * Start shrink when we can remove one extra segment
+         * and still remain below 50% load.
+         */
+        shrink_limit = (tb->nslots - EXT_SEGSZ) / 2;
+    }
+    else {
+        /*
+         * But don't shrink below two segments.
+         * Why? In order to have chance of getting rid of the last extra segment,
+         * and rehash it into the first small segment, we either have to start
+         * early and do speculative joining of buckets or we have to join a lot
+         * of buckets during each delete-op.
+         *
+         * Instead keep segment #2 once allocated. I also think it's a good bet
+         * a shrinking large table will grow large again.
+         */
+        shrink_limit = 0;
+    }
+    erts_atomic_set_nob(&tb->shrink_limit, shrink_limit);
+}
+
+
 /* Extend table with one new segment
 */
 static void alloc_seg(DbTableHash *tb)
@@ -2696,6 +2721,8 @@ static void alloc_seg(DbTableHash *tb)
     }
 #endif
     tb->nslots += EXT_SEGSZ;
+
+    calc_shrink_limit(tb);
 }
 
 static void dealloc_ext_segtab(void* lop_data)
@@ -2789,6 +2816,7 @@ static int remove_seg(DbTableHash *tb, int free_records,
     if (seg_ix < tb->nsegs)
         SEGTAB(tb)[seg_ix] = NULL;
 #endif
+    calc_shrink_limit(tb);
     return nrecords;
 }
 
@@ -3003,7 +3031,7 @@ static void shrink(DbTableHash* tb, int nitems)
         if (!begin_resizing(tb))
             return; /* already in progress */
         nactive = NACTIVE(tb);
-        if (!(nactive > FIRST_SEGSZ && nitems < SHRINK_LIMIT(nactive))) {
+        if (!(nitems < SHRINK_LIMIT(tb))) {
             goto abort; /* already done (race) */
         }
         src_ix = nactive - 1;
@@ -3062,8 +3090,7 @@ static void shrink(DbTableHash* tb, int nitems)
             ds_ops.segp = NULL;
         }
 
-    } while (--loop_limit
-             && nactive > FIRST_SEGSZ && nitems < SHRINK_LIMIT(nactive));
+    } while (--loop_limit && nitems < SHRINK_LIMIT(tb));
     return;
 
 abort:
