@@ -986,9 +986,27 @@ char* esock_decode_timeval(ErlNifEnv*      env,
     if (!GET_LONG(env, eSec, &timeP->tv_sec))
         return ESOCK_STR_EINVAL;
     
+#if (SIZEOF_INT == 4)
+    {
+        int usec;
+        if (!GET_INT(env, eUSec, &usec))
+            return ESOCK_STR_EINVAL;
+        timeP->tv_usec = (typeof(timeP->tv_usec)) usec;
+    }
+#elif (SIZEOF_LONG == 4)
+    {
+        long usec;
+        if (!GET_LONG(env, eUSec, &usec))
+            return ESOCK_STR_EINVAL;
+        timeP->tv_usec = (typeof(timeP->tv_usec)) usec;
+    }
+#else
+    /* Ok, we give up... */
     if (!GET_LONG(env, eUSec, &timeP->tv_usec))
         return ESOCK_STR_EINVAL;
 
+#endif
+    
     return NULL;
 }
 
