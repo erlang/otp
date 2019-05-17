@@ -15224,8 +15224,8 @@ char* encode_msghdr(ErlNifEnv*       env,
             "\r\n   read: %d"
             "\r\n", read) );
 
-    /* The address is not used if we are connected (unless family is 'local'),
-     * so check (length = 0) before we try to encodel
+    /* The address is not used if we are connected (unless, maybe,
+     * family is 'local'), so check (length = 0) before we try to encodel
      */
     if (msgHdrP->msg_namelen != 0) {
         if ((xres = esock_encode_sockaddr(env,

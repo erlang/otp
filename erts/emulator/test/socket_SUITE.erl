@@ -2156,10 +2156,25 @@ api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
                           end,
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock) of
-                                      {ok, #{addr  := #{family := local},
+                                      %% On some platforms, the address
+                                      %% is *not* provided (e.g. FreeBSD)
+                                      {ok, #{addr  := undefined,
                                              iov   := [Data]}} ->
                                           {ok, Data};
+                                      %% On some platforms, the address
+                                      %% *is* provided (e.g. linux)
+                                      {ok, #{addr  := #{family := local},
+                                             iov   := [Data]}} ->
+                                          socket:setopt(Sock, 
+                                                        otp, 
+                                                        debug, 
+                                                        false),
+                                          {ok, Data};
                                       {error, _} = ERROR ->
+                                          socket:setopt(Sock, 
+                                                        otp, 
+                                                        debug, 
+                                                        false),
                                           ERROR
                                   end
                           end,
@@ -9539,6 +9554,13 @@ sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
                    MsgData   = ?DATA,
                    Recv      = fun(Sock) ->
                                        case socket:recvmsg(Sock) of
+                                           %% On some platforms, the address
+                                           %% is *not* provided (e.g. FreeBSD)
+                                           {ok, #{addr  := undefined,
+                                                  iov   := [Data]}} ->
+                                               {ok, Data};
+                                           %% On some platforms, the address
+                                           %% *is* provided (e.g. linux)
                                            {ok, #{addr  := #{family := local},
                                                   iov   := [Data]}} ->
                                                {ok, Data};
@@ -11472,6 +11494,13 @@ traffic_ping_pong_send_and_recv_tcp(InitState) ->
 traffic_ping_pong_sendmsg_and_recvmsg_tcp(#{domain := local} = InitState) ->
     Recv = fun(Sock, Sz)   -> 
                    case socket:recvmsg(Sock, Sz, 0) of
+                       %% On some platforms, the address
+                       %% is *not* provided (e.g. FreeBSD)
+                       {ok, #{addr  := undefined,
+                              iov   := [Data]}} ->
+                           {ok, Data};
+                       %% On some platforms, the address
+                       %% *is* provided (e.g. linux)
                        {ok, #{addr  := #{family := local},
                               iov   := [Data]}} ->
                            {ok, Data};
@@ -19932,7 +19961,12 @@ has_support_unix_domain_socket() ->
         {win32, _} ->
             {skip, "Not supported"};
         _ ->
-            ok
+            case socket:supports(local) of
+                true ->
+                    ok;
+                false ->
+                    {skip, "Not supported"}
+            end
     end.
 
 
