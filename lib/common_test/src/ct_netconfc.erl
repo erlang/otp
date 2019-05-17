@@ -1687,23 +1687,29 @@ get_all_xmlns_attrs([],XmlnsAttrs) ->
     XmlnsAttrs.
 
 %% Decode server hello to pick out session id and capabilities
-decode_hello({hello,_Attrs,Hello}) ->
-    case lists:keyfind('session-id',1,Hello) of
-	{'session-id',_,[SessionId]} ->
-	    case lists:keyfind(capabilities,1,Hello) of
-		{capabilities,_,Capabilities} ->
-		    case decode_caps(Capabilities,[],false) of
-			{ok,Caps} ->
-			    {ok,list_to_integer(SessionId),Caps};
-			Error ->
-			    Error
-		    end;
-		false ->
-		    {error,{incorrect_hello,capabilities_not_found}}
-	    end;
-	false ->
-	    {error,{incorrect_hello,no_session_id_found}}
+decode_hello({hello, _Attrs, Hello}) ->
+    U = make_ref(),
+    try
+        [{'session-id', _, [SessionId]}, _ | _]
+            = [find('session-id', Hello), no_session_id_found | U],
+        [{ok, Id}, _ | _]
+            = [catch {ok, list_to_integer(SessionId)}, invalid_session_id | U],
+        [true, _ | _]
+            = [0 < Id, invalid_session_id | U],
+        [{capabilities, _, Capabilities}, _ | _]
+            = [find(capabilities, Hello), capabilities_not_found | U],
+        [{ok, Caps}, _ | _]
+            = [decode_caps(Capabilities, [], false), false | U],
+        {ok, Id, Caps}
+    catch
+        error: {badmatch, [Error, false | U]} ->
+            Error;
+        error: {badmatch, [_, Reason | U]} ->
+            {error, {incorrect_hello, Reason}}
     end.
+
+find(Key, List) ->
+    lists:keyfind(Key, 1, List).
 
 decode_caps([{capability, [], [?NETCONF_BASE_CAP ++ _ = Cap]} | Caps],
             Acc,
