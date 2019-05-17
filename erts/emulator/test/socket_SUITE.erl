@@ -3855,7 +3855,9 @@ api_to_connect_cond() ->
 %% So, just to simplify, we require atleast 4.15
 api_to_connect_cond({unix, linux}, {Maj, Min, _Rev}) ->
     if
-        ((Maj >= 4) andalso (Min >= 15)) ->
+        (Maj > 4) ->
+            ok;
+        ((Maj =:= 4) andalso (Min >= 15)) ->
             ok;
         true ->
             skip("TC does not work")
