@@ -1016,12 +1016,6 @@ open(Domain, Type) ->
     open(Domain, Type, default).
 
 -spec open(Domain, Type, Protocol) -> {ok, Socket} | {error, Reason} when
-      Domain   :: local,
-      Type     :: stream | dgram,
-      Protocol :: default,
-      Socket   :: socket(),
-      Reason   :: term();
-          (Domain, Type, Protocol) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
       Protocol :: default | protocol(),
@@ -1032,13 +1026,6 @@ open(Domain, Type, Protocol) ->
     open(Domain, Type, Protocol, #{}).
 
 -spec open(Domain, Type, Protocol, Extra) -> {ok, Socket} | {error, Reason} when
-      Domain   :: local,
-      Type     :: stream | dgram,
-      Protocol :: default,
-      Extra    :: map(),
-      Socket   :: socket(),
-      Reason   :: term();
-          (Domain, Type, Protocol, Extra) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
       Protocol :: default | protocol(),

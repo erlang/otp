@@ -4490,7 +4490,11 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
      * local (AF_LOCAL) we need to explicitly get the protocol here!
      */
     
-    if ((proto != 0) && (domain != AF_LOCAL))
+    if ((proto == 0)
+#if defined(AF_LOCAL)
+        && (domain != AF_LOCAL)
+#endif
+        )
         if (!nopen_which_protocol(sock, &proto)) {
             if (proto == ESOCK_WHICH_PROTO_ERROR) {
                 save_errno = sock_errno();
@@ -4501,7 +4505,7 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
                 while ((sock_close(sock) == INVALID_SOCKET) &&
                        (sock_errno() == EINTR));
                 return esock_make_error(env, esock_atom_eafnosupport);
-            }   
+            }
         }
 
 
