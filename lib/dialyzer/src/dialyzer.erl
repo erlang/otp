@@ -605,11 +605,9 @@ ordinal(N) when is_integer(N) -> io_lib:format("~wth", [N]).
 %% Functions that parse type strings, literal strings, and contract
 %% strings. Return strings formatted by erl_pp.
 
-%% If lib/hipe/cerl/erl_types.erl is compiled with DEBUG=true,
-%% the contents of opaque types are showed inside brackets.
-%% Since erl_parse:parse_form() cannot handle the bracket syntax,
-%% no indentation is done.
-%%-define(DEBUG , true).
+%% Note we always have to catch any error when trying to parse
+%% the syntax because other BEAM languages may not emit an
+%% Erlang AST that transforms into valid Erlang Source Code.
 
 -define(IND, 10).
 
@@ -620,13 +618,15 @@ con(M, F, Src, I) ->
 sig(Src, false) ->
   Src;
 sig(Src, true) ->
-  Str = lists:flatten(io_lib:format("-spec ~w:~tw~ts.", [a, b, Src])),
-  {ok, Tokens, _EndLocation} = erl_scan:string(Str),
-  exec(fun() ->
-           {ok, {attribute, _, spec, {_MFA, Types}}} =
-             erl_parse:parse_form(Tokens),
-           indentation(?IND) ++ pp_spec(Types)
-       end, Src).
+  try
+    Str = lists:flatten(io_lib:format("-spec ~w:~tw~ts.", [a, b, Src])),
+    {ok, Tokens, _EndLocation} = erl_scan:string(Str),
+    {ok, {attribute, _, spec, {_MFA, Types}}} =
+      erl_parse:parse_form(Tokens),
+    indentation(?IND) ++ pp_spec(Types)
+  catch
+    _:_ -> Src
+  end.
 
 %% Argument(list)s are a mix of types and Erlang code. Note: sometimes
 %% (contract_range, call_without_opaque, opaque_type_test), the initial
@@ -681,21 +681,15 @@ ts(Src) ->
   [C1|Src1] = Src, % $< (product) or $( (arglist)
   [C2|RevSrc2] = lists:reverse(Src1),
   Src2 = lists:reverse(RevSrc2),
-  exec(fun() ->
-           Types = parse_types_and_literals(Src2),
-           CommaInd = [$, | Ind],
-           (indentation(?IND-1) ++
-            [C1 | lists:join(CommaInd, [pp_type(Type) || Type <- Types])] ++
-            [C2])
-       end, Src).
-
--ifdef(DEBUG).
-exec(F, R) ->
-  try F() catch _:_ -> R end.
--else.
-exec(F, _) ->
-  F().
--endif.
+  try
+    Types = parse_types_and_literals(Src2),
+    CommaInd = [$, | Ind],
+    (indentation(?IND-1) ++
+     [C1 | lists:join(CommaInd, [pp_type(Type) || Type <- Types])] ++
+     [C2])
+  catch
+    _:_ -> Src
+  end.
 
 indentation(I) ->
   [$\n | lists:duplicate(I, $\s)].
