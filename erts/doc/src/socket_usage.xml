@@ -205,7 +205,7 @@
 	<cell>protocol()</cell>
 	<cell>no</cell>
 	<cell>yes</cell>
-	<cell>none</cell>
+	<cell><em>Not</em> on (some) Darwin (for instance)</cell>
       </row>
       <row>
 	<cell>rcvbuf</cell>

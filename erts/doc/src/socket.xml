@@ -373,19 +373,24 @@
       <name name="open" arity="4" since="OTP 22.0"/>
       <fsummary>Create an endpoint for communication.</fsummary>
       <desc>
-        <p>Creates an endpoint (socket) for communication.</p>
-        <p>For some <c>types</c> there is a default protocol, which will
-	be used if no protocol is specified: </p>
+	<p>Creates an endpoint (socket) for communication.</p>
 
-	<list>
-	  <item><p><c>stream</c>: <c>tcp</c></p></item>
-          <item><p><c>dgram</c>: <c>udp</c></p></item>
-          <item><p><c>seqpacket</c>: <c>sctp</c></p></item>
-	</list>
+	<p>For some <c>types</c> there is a default protocol,
+	indicated by <c>default</c>, which it <em>may</em> be
+	possible to specify.
+	And for <c>Domain = local</c>, if a protocol <em>is</em> pecified,
+	it <em>must</em> be <c>default</c>. </p>
 
 	<p>The <c>Extra</c> argument is intended for "obscure" options.
 	Currently the only supported option is <c>netns</c>, which
 	is only supported on the linux platform.</p>
+
+	<note>
+	  <p>It may not be possible to specify the default protocol (except
+	  when <c>Domain = local</c>). We need to be able to retreive
+	  the resulting protocol, which is <em>not</em> possble on all
+	  platforms. </p>
+	</note>
       </desc>
     </func>
 
