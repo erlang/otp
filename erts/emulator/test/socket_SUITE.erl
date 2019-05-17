@@ -10879,7 +10879,10 @@ traffic_ping_pong_large_send_and_recv_tcpL(_Config) when is_list(_Config) ->
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   has_support_unix_domain_socket(),
+                   traffic_ping_pong_large_host_cond()
+           end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
@@ -10888,6 +10891,15 @@ traffic_ping_pong_large_send_and_recv_tcpL(_Config) when is_list(_Config) ->
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
+%% This test case is a bit extreme and fails on some hosts
+%% (e.g. OpenIndiana Hipster), so exclude them.
+traffic_ping_pong_large_host_cond() ->
+    traffic_ping_pong_large_host_cond(os:type(), os:version()).
+
+traffic_ping_pong_large_host_cond({unix, sunos}, _) ->
+    skip("TC does not work on platform");
+traffic_ping_pong_large_host_cond(_, _) ->
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
