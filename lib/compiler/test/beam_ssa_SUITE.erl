@@ -344,47 +344,7 @@ cover_ssa_dead(_Config) ->
     40.0 = percentage(4.0, 10.0),
     60.0 = percentage(6, 10),
 
-    %% Cover '=:=', followed by '=/='.
-    false = 'cover__=:=__=/='(41),
-    true = 'cover__=:=__=/='(42),
-    false = 'cover__=:=__=/='(43),
-
-    %% Cover '<', followed by '=/='.
-    true = 'cover__<__=/='(41),
-    false = 'cover__<__=/='(42),
-    false = 'cover__<__=/='(43),
-
-    %% Cover '=<', followed by '=/='.
-    true = 'cover__=<__=/='(41),
-    true = 'cover__=<__=/='(42),
-    false = 'cover__=<__=/='(43),
-
-    %% Cover '>=', followed by '=/='.
-    false = 'cover__>=__=/='(41),
-    true = 'cover__>=__=/='(42),
-    true = 'cover__>=__=/='(43),
-
-    %% Cover '>', followed by '=/='.
-    false = 'cover__>__=/='(41),
-    false = 'cover__>__=/='(42),
-    true = 'cover__>__=/='(43),
-
     ok.
-
-'cover__=:=__=/='(X) when X =:= 42 -> X =/= 43;
-'cover__=:=__=/='(_) -> false.
-
-'cover__<__=/='(X) when X < 42 -> X =/= 42;
-'cover__<__=/='(_) -> false.
-
-'cover__=<__=/='(X) when X =< 42 -> X =/= 43;
-'cover__=<__=/='(_) -> false.
-
-'cover__>=__=/='(X) when X >= 42 -> X =/= 41;
-'cover__>=__=/='(_) -> false.
-
-'cover__>__=/='(X) when X > 42 -> X =/= 42;
-'cover__>__=/='(_) -> false.
 
 format_str(Str, FormatData, IoList, EscChars) ->
     Escapable = FormatData =:= escapable,
