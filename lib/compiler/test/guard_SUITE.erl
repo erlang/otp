@@ -19,7 +19,7 @@
 %%
 -module(guard_SUITE).
 
--include_lib("common_test/include/ct.hrl").
+-include_lib("syntax_tools/include/merl.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -31,7 +31,8 @@
 	 old_guard_tests/1,complex_guard/1,
 	 build_in_guard/1,gbif/1,
 	 t_is_boolean/1,is_function_2/1,
-	 tricky/1,rel_ops/1,rel_op_combinations/1,literal_type_tests/1,
+	 tricky/1,rel_ops/1,rel_op_combinations/1,
+         generated_combinations/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
@@ -51,7 +52,7 @@ groups() ->
        more_xor_guards,build_in_guard,
        old_guard_tests,complex_guard,gbif,
        t_is_boolean,is_function_2,tricky,
-       rel_ops,rel_op_combinations,
+       rel_ops,rel_op_combinations,generated_combinations,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
        bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
@@ -1578,6 +1579,122 @@ redundant_11(_) -> none.
 redundant_12(X) when X >= 50, X =< 80 -> 2*X;
 redundant_12(X) when X < 51 -> 5*X;
 redundant_12(_) -> none.
+
+generated_combinations(Config) ->
+    case ?MODULE of
+	guard_SUITE -> generated_combinations_1(Config);
+	_ -> {skip,"Enough to run this case once."}
+    end.
+
+%% Exhaustively test all combinations of relational operators
+%% to ensure the correctness of the optimizations in beam_ssa_dead.
+
+generated_combinations_1(Config) ->
+    Mod = ?FUNCTION_NAME,
+    RelOps = ['=:=','=/=','==','/=','<','=<','>=','>'],
+    Combinations0 = [{Op1,Op2} || Op1 <- RelOps, Op2 <- RelOps],
+    Combinations1 = gen_lit_combs(Combinations0),
+    Combinations2 = [{neq,Comb} ||
+                        {_Op1,_Lit1,Op2,_Lit2}=Comb <- Combinations1,
+                        Op2 =:= '=/=' orelse Op2 =:= '/='] ++ Combinations1,
+    Combinations = gen_func_names(Combinations2, 0),
+    Fs = gen_rel_op_functions(Combinations),
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    %%merl:print(Tree),
+    Opts = test_lib:opt_opts(?MODULE),
+    {ok,_Bin} = merl:compile_and_load(Tree, Opts),
+    test_combinations(Combinations, Mod).
+
+gen_lit_combs([{Op1,Op2}|T]) ->
+    [{Op1,7,Op2,6},
+     {Op1,7.0,Op2,6},
+     {Op1,7,Op2,6.0},
+     {Op1,7.0,Op2,6.0},
+
+     {Op1,7,Op2,7},
+     {Op1,7.0,Op2,7},
+     {Op1,7,Op2,7.0},
+     {Op1,7.0,Op2,7.0},
+
+     {Op1,6,Op2,7},
+     {Op1,6.0,Op2,7},
+     {Op1,6,Op2,7.0},
+     {Op1,6.0,Op2,7.0}|gen_lit_combs(T)];
+gen_lit_combs([]) -> [].
+
+gen_func_names([E|Es], I) ->
+    Name = list_to_atom("f" ++ integer_to_list(I)),
+    [{Name,E}|gen_func_names(Es, I+1)];
+gen_func_names([], _) -> [].
+
+gen_rel_op_functions([{Name,{neq,{Op1,Lit1,Op2,Lit2}}}|T]) ->
+    %% Note that in the translation to SSA, '=/=' will be
+    %% translated to '=:=' in a guard (with switched success
+    %% and failure labels). Therefore, to test the optimization,
+    %% we must use '=/=' (or '/=') in a body context.
+    %%
+    %% Here is an example of a generated function:
+    %%
+    %%     f160(A) when erlang:'>='(A, 7) ->
+    %%          one;
+    %%     f160(A) ->
+    %%          true = erlang:'/='(A, 7),
+    %%          two.
+    [?Q("'@Name@'(A) when erlang:'@Op1@'(A, _@Lit1@) -> one;
+        '@Name@'(A) -> true = erlang:'@Op2@'(A, _@Lit2@), two. ")|
+     gen_rel_op_functions(T)];
+gen_rel_op_functions([{Name,{Op1,Lit1,Op2,Lit2}}|T]) ->
+    %% Example of a generated function:
+    %%
+    %% f721(A) when erlang:'=<'(A, 7.0) -> one;
+    %% f721(A) when erlang:'<'(A, 6) -> two;
+    %% f721(_) -> three.
+    [?Q("'@Name@'(A) when erlang:'@Op1@'(A, _@Lit1@) -> one;
+        '@Name@'(A) when erlang:'@Op2@'(A, _@Lit2@) -> two;
+        '@Name@'(_) -> three.")|gen_rel_op_functions(T)];
+gen_rel_op_functions([]) -> [].
+
+test_combinations([{Name,E}|T], Mod) ->
+    try
+        test_combinations_1([5,6,7,8,9], E, fun Mod:Name/1),
+        test_combination(6.5, E, fun Mod:Name/1)
+    catch
+        error:Reason:Stk ->
+            io:format("~p: ~p\n", [Name,E]),
+            erlang:raise(error, Reason, Stk)
+    end,
+    test_combinations(T, Mod);
+test_combinations([], _Mod) -> ok.
+
+test_combinations_1([V|Vs], E, Fun) ->
+    test_combination(V, E, Fun),
+    test_combination(float(V), E, Fun),
+    test_combinations_1(Vs, E, Fun);
+test_combinations_1([], _, _) -> ok.
+
+test_combination(Val, {neq,Expr}, Fun) ->
+    Result = eval_combination_expr(Expr, Val),
+    Result = try
+                 Fun(Val)                       %Returns 'one' or 'two'.
+             catch
+                 error:{badmatch,_} ->
+                     three
+             end;
+test_combination(Val, Expr, Fun) ->
+    Result = eval_combination_expr(Expr, Val),
+    Result = Fun(Val).
+
+eval_combination_expr({Op1,Lit1,Op2,Lit2}, Val) ->
+    case erlang:Op1(Val, Lit1) of
+        true ->
+            one;
+        false ->
+            case erlang:Op2(Val, Lit2) of
+                true -> two;
+                false -> three
+            end
+    end.
 
 %% Test type tests on literal values. (From emulator test suites.)
 literal_type_tests(Config) when is_list(Config) ->

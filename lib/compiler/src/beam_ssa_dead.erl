@@ -730,8 +730,8 @@ will_succeed_1('=/=', A, '=:=', B) when A =:= B -> no;
 will_succeed_1('<', A, '=:=', B)  when B >= A -> no;
 will_succeed_1('<', A, '=/=', B)  when B >= A -> yes;
 will_succeed_1('<', A, '<',   B)  when B >= A -> yes;
-will_succeed_1('<', A, '=<',  B)  when B > A  -> yes;
-will_succeed_1('<', A, '>=',  B)  when B > A  -> no;
+will_succeed_1('<', A, '=<',  B)  when B >= A -> yes;
+will_succeed_1('<', A, '>=',  B)  when B >= A -> no;
 will_succeed_1('<', A, '>',   B)  when B >= A -> no;
 
 will_succeed_1('=<', A, '=:=', B) when B > A  -> no;
@@ -751,9 +751,9 @@ will_succeed_1('>=', A, '>',   B) when B < A  -> yes;
 will_succeed_1('>', A, '=:=', B)  when B =< A -> no;
 will_succeed_1('>', A, '=/=', B)  when B =< A -> yes;
 will_succeed_1('>', A, '<',   B)  when B =< A -> no;
-will_succeed_1('>', A, '=<',  B)  when B < A  -> no;
+will_succeed_1('>', A, '=<',  B)  when B =< A -> no;
 will_succeed_1('>', A, '>=',  B)  when B =< A -> yes;
-will_succeed_1('>', A, '>',   B)  when B < A  -> yes;
+will_succeed_1('>', A, '>',   B)  when B =< A -> yes;
 
 will_succeed_1('==', A, '==', B) ->
     if
