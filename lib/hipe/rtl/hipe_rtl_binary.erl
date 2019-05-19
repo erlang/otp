@@ -44,6 +44,10 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SysLimName, ConstTab) ->
 
 type_of_operation({bs_start_match,_}) -> match;
 type_of_operation({{bs_start_match,_},_}) -> match;
+type_of_operation(bs_start_match3) -> match;
+type_of_operation(bs_get_tail) -> match;
+type_of_operation(bs_get_position) -> match;
+type_of_operation(bs_set_position) -> match;
 type_of_operation({bs_get_binary,_,_}) -> match;
 type_of_operation({bs_get_binary_all,_,_}) -> match;
 type_of_operation({bs_get_binary_all_2,_,_}) -> match;

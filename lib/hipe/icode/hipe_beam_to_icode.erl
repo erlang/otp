@@ -1192,17 +1192,29 @@ trans_fun([raw_raise|Instructions], Env) ->
 %% New binary matching added in OTP 22.
 %%--------------------------------------------------------------------
 %%--- bs_get_tail ---
-trans_fun([{bs_get_tail=Name,_,_,_}|_Instructions], _Env) ->
-  nyi(Name);
+trans_fun([{bs_get_tail,Ctx,Dst,_Live}|Instructions], Env) ->
+  Ms = trans_arg(Ctx),
+  DstVar = mk_var(Dst),
+  [hipe_icode:mk_primop([DstVar], {hipe_bs_primop, bs_get_tail}, [Ms]) |
+   trans_fun(Instructions, Env)];
 %%--- bs_start_match3 ---
-trans_fun([{bs_start_match3=Name,_,_,_,_}|_Instructions], _Env) ->
-  nyi(Name);
+trans_fun([{bs_start_match3,{f,Lbl},X,_Live,Ms}|Instructions], Env) ->
+  Bin = trans_arg(X),
+  MsVar = mk_var(Ms),
+  trans_op_call({hipe_bs_primop, bs_start_match3}, Lbl, [Bin],
+		[MsVar], Env, Instructions);
 %%--- bs_get_position ---
-trans_fun([{bs_get_position=Name,_,_,_}|_Instructions], _Env) ->
-  nyi(Name);
+trans_fun([{bs_get_position,Ctx,Dst,_Live}|Instructions], Env) ->
+  Ms = trans_arg(Ctx),
+  DstVar = mk_var(Dst),
+  [hipe_icode:mk_primop([DstVar], {hipe_bs_primop, bs_get_position}, [Ms]) |
+   trans_fun(Instructions, Env)];
 %%--- bs_set_position ---
-trans_fun([{bs_set_position=Name,_,_}|_Instructions], _Env) ->
-  nyi(Name);
+trans_fun([{bs_set_position,Ctx,Pos}|Instructions], Env) ->
+  Ms = trans_arg(Ctx),
+  PosVar = trans_arg(Pos),
+  [hipe_icode:mk_primop([], {hipe_bs_primop, bs_set_position}, [Ms,PosVar]) |
+   trans_fun(Instructions, Env)];
 %%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------
@@ -1210,9 +1222,6 @@ trans_fun([X|_], _) ->
   ?EXIT({'trans_fun/2',X});
 trans_fun([], _) ->
   [].
-
-nyi(Name) ->
-  throw({unimplemented_instruction,Name}).
 
 %%--------------------------------------------------------------------
 %% trans_call and trans_enter generate correct Icode calls/tail-calls,

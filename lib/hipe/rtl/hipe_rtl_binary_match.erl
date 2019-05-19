@@ -39,6 +39,24 @@
 %%--------------------------------------------------------------------
 
 %% ----- bs_start_match -----
+gen_rtl(bs_start_match3, [Ms], [Binary], TrueLblName, FalseLblName) ->
+  % ReInitLbl = hipe_rtl:mk_new_label(),
+  BinaryLbl = hipe_rtl:mk_new_label(),
+  % Arch64 = hipe_rtl_arch:word_size() == 8,
+  TestCode =
+    [hipe_rtl:mk_move(Ms,Binary),
+     hipe_tagscheme:test_matchstate(Binary,
+				    TrueLblName,
+				    hipe_rtl:label_name(BinaryLbl),
+				    0.99)],
+  OrdinaryCode = make_matchstate3(Binary, Ms, TrueLblName, FalseLblName),
+  [TestCode,[BinaryLbl|OrdinaryCode]];
+gen_rtl(bs_start_match3, [], [Binary], TrueLblName, FalseLblName) ->
+  MatchStateLbl = hipe_rtl:mk_new_label(),
+  [hipe_tagscheme:test_bitstr(Binary, TrueLblName,
+			      hipe_rtl:label_name(MatchStateLbl), 0.99),
+   MatchStateLbl,
+   hipe_tagscheme:test_matchstate(Binary, TrueLblName, FalseLblName, 0.99)];
 gen_rtl({bs_start_match, 0}, [Ms], [Binary], TrueLblName, FalseLblName) ->
   ReInitLbl = hipe_rtl:mk_new_label(),
   BinaryLbl = hipe_rtl:mk_new_label(),
@@ -103,6 +121,29 @@ gen_rtl({{bs_start_match, ok_matchstate}, _Max}, [], [Binary],
 			      hipe_rtl:label_name(MatchStateLbl), 0.99),
    MatchStateLbl, 
    hipe_tagscheme:test_matchstate(Binary, TrueLblName, FalseLblName, 0.99)];
+%% ----- bs_get_tail -----
+gen_rtl(bs_get_tail, [Dst], [Ms],
+	TrueLblName, _FalseLblName) ->
+  {[Offset,Size,Orig], ExCode} = extract_matchstate_vars([offset,binsize,orig], Ms),
+  [hipe_rtl:mk_gctest(?SUB_BIN_WORDSIZE),
+   ExCode,
+   hipe_rtl:mk_alu(Size, Size, sub, Offset)]
+   ++ construct_subbin(Dst, Size, Offset, Orig)
+   ++ [hipe_rtl:mk_goto(TrueLblName)];
+%% ----- bs_set_position -----
+gen_rtl(bs_set_position, [], [Ms,Pos],
+	TrueLblName, _FalseLblName) ->
+  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
+  [hipe_tagscheme:realuntag_fixnum(Tmp, Pos),
+   set_field_from_term({matchstate, {matchbuffer, offset}}, Ms, Tmp),
+   hipe_rtl:mk_goto(TrueLblName)];
+%% ----- bs_get_position -----
+gen_rtl(bs_get_position, [Dst], [Ms],
+	TrueLblName, _FalseLblName) ->
+  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
+  [get_field_from_term({matchstate, {matchbuffer, offset}}, Ms, Tmp),
+   hipe_tagscheme:realtag_fixnum(Dst, Tmp),
+   hipe_rtl:mk_goto(TrueLblName)];
 %% ----- bs_get_integer -----
 gen_rtl({bs_get_integer, 0, _Flags}, [Dst, NewMs], [Ms],
 	TrueLblName, _FalseLblName) ->
@@ -553,6 +594,19 @@ make_matchstate(Binary, Max, Ms, TrueLblName, FalseLblName) ->
    hipe_tagscheme:create_matchstate(Max, BinSize, Base, Offset, Orig, Ms),
    hipe_rtl:mk_goto(TrueLblName)].
 
+make_matchstate3(Binary, Ms, TrueLblName, FalseLblName) ->
+  Base = hipe_rtl:mk_new_reg(),
+  Orig = hipe_rtl:mk_new_var(),
+  BinSize = hipe_rtl:mk_new_reg_gcsafe(),
+  Offset = hipe_rtl:mk_new_reg_gcsafe(),
+  Lbl = hipe_rtl:mk_new_label(),
+  [hipe_rtl:mk_gctest(?MS_MIN_SIZE),
+   get_binary_bytes(Binary, BinSize, Base, Offset,
+		    Orig, hipe_rtl:label_name(Lbl), FalseLblName),
+   Lbl,
+   hipe_tagscheme:create_matchstate3(BinSize, Base, Offset, Orig, Ms),
+   hipe_rtl:mk_goto(TrueLblName)].
+
 resize_matchstate(Ms, Max, TrueLblName) ->
   Base = hipe_rtl:mk_new_reg(),
   Orig = hipe_rtl:mk_new_var(),
@@ -697,8 +751,11 @@ get_binary_bytes(Binary, BinSize, Base, Offset, Orig,
 		 TrueLblName, FalseLblName) ->
   [OrigOffset,BitSize,BitOffset] = create_gcsafe_regs(3),
   [SuccessLbl,SubLbl,OtherLbl,JoinLbl] = create_lbls(4),
+  %% TODO: Determine if the redundant "is boxed" checks and header loads are
+  %%       eliminated with later RTL optimization passes.
   [hipe_tagscheme:test_bitstr(Binary, hipe_rtl:label_name(SuccessLbl),
 			      FalseLblName, 0.99),
+   % NOTE: ^ Redundant "is boxed" check and header load
    SuccessLbl,
    get_field_from_term({sub_binary, binsize}, Binary, BinSize),
    hipe_rtl:mk_alu(BinSize, BinSize, sll, hipe_rtl:mk_imm(?BYTE_SHIFT)),
@@ -721,6 +778,18 @@ get_binary_bytes(Binary, BinSize, Base, Offset, Orig,
     get_base(Orig,Base) ++
     [hipe_rtl:mk_goto(TrueLblName)].
 
+% Predef: Binary, Offset (default 0), BitSize (default 0)
+%
+% if (is_bitstr(Binary))
+% {
+%     BinSize = binary_size(Binary) * 8
+%     ERTS_GET_REAL_BIN(Binary, Orig, Offset, BitOffset, BitSize)
+%     // Kind of but not actually how this is organized:
+%     BinSize += Offset;
+%     BinSize += BitSize;
+%     get_base(Orig, Base)
+% }
+
 %%%%%%%%%%%%%%%%%%%%%%%%% UTILS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 get_base(Orig,Base) ->
@@ -729,6 +798,7 @@ get_base(Orig,Base) ->
 
   [hipe_tagscheme:test_heap_binary(Orig, hipe_rtl:label_name(HeapLbl),
 				   hipe_rtl:label_name(REFCLbl)),
+   % NOTE: ^ Possibly redundant header load
    HeapLbl,
    hipe_tagscheme:get_field_addr_from_term({heap_bin, {data, 0}}, Orig, Base),
    hipe_rtl:mk_goto(hipe_rtl:label_name(EndLbl)),
