@@ -41,7 +41,7 @@
 	 big_boot_embedded/1,
          module_status/1,
 	 native_early_modules/1, get_mode/1,
-	 normalized_paths/1]).
+	 normalized_paths/1, mult_embedded_flags/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1]).
@@ -72,7 +72,8 @@ all() ->
      on_load_purge, on_load_self_call, on_load_pending,
      on_load_deleted,
      module_status,
-     big_boot_embedded, native_early_modules, get_mode, normalized_paths].
+     big_boot_embedded, native_early_modules, get_mode, normalized_paths,
+     mult_embedded_flags].
 
 %% These need to run in order
 groups() -> [{sequence, [sequence], [on_load_update,
@@ -354,7 +355,7 @@ load_abs(Config) when is_list(Config) ->
 ensure_loaded(Config) when is_list(Config) ->
     {module, lists} = code:ensure_loaded(lists),
     case init:get_argument(mode) of
-	{ok, [["embedded"]]} ->
+	{ok, [["embedded"] | _]} ->
 	    {error, embedded} = code:ensure_loaded(code_b_test),
 	    {error, badarg} = code:ensure_loaded(34),
 	    ok;
@@ -1834,6 +1835,28 @@ do_normalized_paths([M|Ms]) ->
 	    do_normalized_paths(Ms)
     end;
 do_normalized_paths([]) ->
+    ok.
+
+%% Make sure that the extra -mode flags are ignored
+mult_embedded_flags(_Config) ->
+    Modes = [{" -mode embedded", embedded},
+	     {" -mode interactive", interactive},
+	     {" -mode invalid", interactive}],
+
+    [ begin
+	  {ArgMode, ExpectedMode} = Mode,
+	  {ok, Node} = start_node(mode_test, ArgMode),
+	  ExpectedMode = rpc:call(Node, code, get_mode, []),
+	  true = stop_node(Node)
+      end || Mode <- Modes],
+
+    [ begin
+	  {ArgIgnoredMode, _} = IgnoredMode,
+	  {ArgRelevantMode, ExpectedMode} = RelevantMode,
+	  {ok, Node} = start_node(mode_test, ArgRelevantMode ++ ArgIgnoredMode),
+	  ExpectedMode = rpc:call(Node, code, get_mode, []),
+	  true = stop_node(Node)
+      end || IgnoredMode <- Modes, RelevantMode <- Modes],
     ok.
 
 %% Test that module_status/1 behaves as expected
