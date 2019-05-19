@@ -255,8 +255,6 @@ read(Io, Prompt) ->
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[1]}) of
 	{ok,Toks,_EndLine} ->
 	    erl_parse:parse_term(Toks);
-%	{error, Reason} when atom(Reason) ->
-%	    erlang:error(conv_reason(read, Reason), [Io, Prompt]);
 	{error,E,_EndLine} ->
 	    {error,E};
 	{eof,_EndLine} ->
