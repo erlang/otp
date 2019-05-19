@@ -91,6 +91,10 @@ is_safe(#closure_element{}) -> true;
 is_safe(#element{}) -> false;
 %% is_safe(#gc_test{}) -> ???
 is_safe({hipe_bs_primop, {bs_start_match, _}}) -> false;
+is_safe({hipe_bs_primop, bs_start_match3}) -> false;
+is_safe({hipe_bs_primop, bs_get_tail}) -> true;
+is_safe({hipe_bs_primop, bs_get_position}) -> true;
+is_safe({hipe_bs_primop, bs_set_position}) -> false;
 is_safe({hipe_bs_primop, {{bs_start_match, bitstr}, _}}) -> true;
 is_safe({hipe_bs_primop, {{bs_start_match, ok_matchstate}, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_get_binary, _, _}}) -> false;
@@ -196,6 +200,10 @@ fails(#element{}) -> true;
 fails({hipe_bs_primop, {bs_start_match, _}}) -> true;
 fails({hipe_bs_primop, {{bs_start_match, bitstr}, _}}) -> true;
 fails({hipe_bs_primop, {{bs_start_match, ok_matchstate}, _}}) -> true;
+fails({hipe_bs_primop, bs_start_match3}) -> true;
+fails({hipe_bs_primop, bs_get_tail}) -> false;
+fails({hipe_bs_primop, bs_get_position}) -> false;
+fails({hipe_bs_primop, bs_set_position}) -> false;
 fails({hipe_bs_primop, {bs_get_binary, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_get_binary_all, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_get_binary_all_2, _, _}}) -> true;
@@ -284,6 +292,14 @@ pp(Dev, Op) ->
 	  io:format(Dev, "bs_skip_bits_all<~w,~w>", [Unit, Flags]);
 	{bs_skip_bits, Unit} ->
 	  io:format(Dev, "bs_skip_bits<~w>", [Unit]);
+	bs_start_match3 ->
+	  io:format(Dev, "bs_start_match3", []);
+	bs_get_tail ->
+	  io:format(Dev, "bs_get_tail", []);
+	bs_get_position ->
+	  io:format(Dev, "bs_get_position", []);
+	bs_set_position ->
+	  io:format(Dev, "bs_set_position", []);
 	{bs_start_match, Max} ->
 	  io:format(Dev, "bs_start_match<~w>", [Max]);
 	{{bs_start_match, Type}, Max} ->
@@ -496,6 +512,24 @@ type(Primop, Args) ->
 	false -> 
 	  erl_types:t_matchstate(Init, Max)
       end;
+    {hipe_bs_primop, bs_start_match3} ->
+      [Type] = Args,
+      Init =
+	erl_types:t_sup(
+	  erl_types:t_matchstate_present(Type),
+	  erl_types:t_inf(erl_types:t_bitstr(1, 0), Type)),
+      case erl_types:t_is_none(Init) of
+	true ->
+	  erl_types:t_none();
+	false ->
+	  erl_types:t_matchstate(Init, 0)
+      end;
+    {hipe_bs_primop, bs_get_tail} ->
+      erl_types:t_bitstr();
+    {hipe_bs_primop, bs_get_position} ->
+      erl_types:t_integer();
+    {hipe_bs_primop, bs_set_position} ->
+      erl_types:t_none();
     {hipe_bs_primop, {bs_get_integer, Size, Flags}} ->
       Signed = Flags band 4,
       [MatchState|RestArgs] = Args,
