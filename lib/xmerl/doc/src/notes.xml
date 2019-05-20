@@ -47,6 +47,23 @@
 
 </section>
 
+<section><title>Xmerl 1.3.20.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>xmerl_sax_parser</c> crashed during charset detection
+	    when the xml declarations attribute values was missing
+	    the closing quotation (&apos; or &quot;).</p>
+          <p>
+	    Own Id: OTP-15826</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.20</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
