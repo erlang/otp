@@ -86,7 +86,7 @@ all(suite) ->
        scope_suite_state_cth,
        fail_pre_suite_cth, double_fail_pre_suite_cth,
        fail_post_suite_cth, skip_pre_suite_cth, skip_pre_end_cth,
-       skip_pre_init_tc_cth,
+       skip_pre_init_tc_cth, fail_post_init_tc_cth,
        skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
        state_update_cth, update_result_cth, options_cth, same_id_cth,
        fail_n_skip_with_minimal_cth, prio_cth, no_config,
@@ -205,6 +205,10 @@ skip_post_suite_cth(Config) when is_list(Config) ->
 skip_pre_init_tc_cth(Config) ->
     do_test(skip_pre_init_tc_cth, "ct_cth_empty_SUITE.erl",
 	    [skip_pre_init_tc_cth],Config).
+
+fail_post_init_tc_cth(Config) ->
+    do_test(fail_post_init_tc_cth, "ct_fail_init_tc_SUITE.erl",
+	    [fail_post_init_tc_cth],Config).
 
 recover_post_suite_cth(Config) when is_list(Config) ->
     do_test(recover_post_suite_cth, "ct_cth_fail_per_suite_SUITE.erl",
@@ -1031,6 +1035,44 @@ test_events(skip_pre_init_tc_cth) ->
      {?eh,cth,{empty_cth,post_end_per_suite,
                [ct_cth_empty_SUITE,'$proplist',ok,[]]}},
      {?eh,tc_done,{ct_cth_empty_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,cth,{empty_cth,terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(fail_post_init_tc_cth) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,cth,{empty_cth,init,['_',[]]}},
+     {?eh,start_info,{1,1,1}},
+     {?eh,tc_start,{ct_fail_init_tc_SUITE,init_per_suite}},
+     {?eh,cth,{empty_cth,pre_init_per_suite,[ct_fail_init_tc_SUITE,'$proplist',[]]}},
+     {?eh,cth,{empty_cth,post_init_per_suite,
+               [ct_fail_init_tc_SUITE,'$proplist','$proplist',[]]}},
+     {?eh,tc_done,{ct_fail_init_tc_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{ct_fail_init_tc_SUITE,test_case}},
+     {?eh,cth,{empty_cth,pre_init_per_testcase,
+               [ct_fail_init_tc_SUITE,test_case,'$proplist',[]]}},
+     {?eh,cth,{empty_cth,post_init_per_testcase,
+               [ct_fail_init_tc_SUITE,test_case,'$proplist',
+                {skip,
+                 {failed,
+                  {ct_fail_init_tc_SUITE,init_per_testcase,
+                   {{test_case_failed,"Failed in init_per_testcase"},'_'}}}},
+                []]}},
+     {?eh,tc_done,{ct_fail_init_tc_SUITE,test_case,
+                   {failed,"Changed skip to fail in post_init_per_testcase"}}},
+     {?eh,cth,{empty_cth,on_tc_fail,
+               [ct_fail_init_tc_SUITE,test_case,
+                "Changed skip to fail in post_init_per_testcase",
+                []]}},
+     {?eh,test_stats,{0,1,{0,0}}},
+     {?eh,tc_start,{ct_fail_init_tc_SUITE,end_per_suite}},
+     {?eh,cth,{empty_cth,pre_end_per_suite,[ct_fail_init_tc_SUITE,'$proplist',[]]}},
+     {?eh,cth,{empty_cth,post_end_per_suite,
+               [ct_fail_init_tc_SUITE,'$proplist',ok,[]]}},
+     {?eh,tc_done,{ct_fail_init_tc_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth,{empty_cth,terminate,[[]]}},
      {?eh,stop_logging,[]}
