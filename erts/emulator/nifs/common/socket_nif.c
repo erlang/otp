@@ -10977,11 +10977,15 @@ ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*       env,
 
         switch (val) {
         case IPPROTO_IP:
+#if defined(AF_LOCAL)
             if (descP->domain == AF_LOCAL) {
                 result = esock_make_ok2(env, esock_atom_default);
             } else {
                 result = esock_make_ok2(env, esock_atom_ip);
             }
+#else
+            result = esock_make_ok2(env, esock_atom_ip);
+#endif
             break;
 
         case IPPROTO_TCP:
@@ -11553,10 +11557,14 @@ ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*       env,
     } else {
         switch (val) {
         case IPPROTO_IP:
+#if defined(AF_LOCAL)
             if (descP->domain == AF_LOCAL)
                 result = esock_make_ok2(env, esock_atom_default);
             else
                 result = esock_make_ok2(env, esock_atom_ip);
+#else
+            result = esock_make_ok2(env, esock_atom_ip);
+#endif
             break;
 
         case IPPROTO_TCP:
