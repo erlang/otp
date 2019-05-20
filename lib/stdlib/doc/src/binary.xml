@@ -505,15 +505,16 @@ store(Binary, GBSet) ->
 &lt;&lt;1,1,1,1,1 ...
 2> byte_size(A).
 100
-3> binary:referenced_byte_size(A)
+3> binary:referenced_byte_size(A).
 100
-4> &lt;&lt;_:10/binary,B:10/binary,_/binary&gt;&gt; = A.
+4> &lt;&lt;B:10/binary, C:90/binary&gt;&gt; = A.
 &lt;&lt;1,1,1,1,1 ...
-5> byte_size(B).
-10
-6> binary:referenced_byte_size(B)
-100</code>
-
+5> {byte_size(B), binary:referenced_byte_size(B)}.
+{10,10}
+6> {byte_size(C), binary:referenced_byte_size(C)}.
+{90,100}</code>
+      <p>In the above example, the small binary <c>B</c> was copied while the
+      larger binary <c>C</c> references binary <c>A</c>.</p>
       <note>
       <p>Binary data is shared among processes. If another process
       still references the larger binary, copying the part this
