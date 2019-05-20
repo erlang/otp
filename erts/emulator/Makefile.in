@@ -636,10 +636,9 @@ GENERATE += $(TTF_DIR)/driver_tab.c
 ifeq ($(USE_ESOCK), yes)
 ESOCK_PRELOAD_BEAM = \
 	$(ERL_TOP)/erts/preloaded/ebin/socket.beam \
-	$(ERL_TOP)/erts/preloaded/ebin/net.beam
+	$(ERL_TOP)/erts/preloaded/ebin/prim_net.beam
 else
-ESOCK_PRELOAD_BEAM = \
-	$(ERL_TOP)/erts/preloaded/ebin/net.beam
+ESOCK_PRELOAD_BEAM =
 endif
 
 PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
@@ -850,7 +849,7 @@ ifeq ($(USE_ESOCK), yes)
 
 ESOCK_NIF_OBJS = \
 	$(OBJDIR)/socket_nif.o \
-	$(OBJDIR)/net_nif.o
+	$(OBJDIR)/prim_net_nif.o
 
 ifneq ($(TARGET), win32)
 # These are *currently* only needed for non-win32,
