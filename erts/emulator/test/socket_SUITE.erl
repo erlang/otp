@@ -1951,8 +1951,14 @@ api_b_send_and_recv_udp(InitState) ->
                    end},
          #{desc => "bind src",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
-                           sock_bind(Sock, LSA),
-                           ok
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("src bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
                    end},
          #{desc => "sockname src socket",
            cmd  => fun(#{sock_src := Sock} = State) ->
@@ -1970,8 +1976,14 @@ api_b_send_and_recv_udp(InitState) ->
                    end},
          #{desc => "bind dst",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
-                           sock_bind(Sock, LSA),
-                           ok
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("src bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
                    end},
          #{desc => "sockname dst socket",
            cmd  => fun(#{sock_dst := Sock} = State) ->
@@ -6593,8 +6605,14 @@ sc_lc_receive_response_udp(InitState) ->
                    end},
          #{desc => "bind socket",
            cmd  => fun(#{sock := Sock, local_sa := LSA}) ->
-                           sock_bind(Sock, LSA),
-                           ok
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("src bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, sock := Sock}) ->
@@ -19899,8 +19917,27 @@ local_host() ->
 %% don't clash.
 mk_unique_path() ->
     [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
-    ?LIB:f("/tmp/esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]).
+    Path = ?LIB:f("/tmp/esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]),
+    ensure_unique_path(Path).
 
+ensure_unique_path(Path) ->
+    case file:read_file_info(Path) of
+        {ok, _} -> % Ouch, append a unique ID and try again
+            ensure_unique_path(Path, 1);
+        {error, _} -> % We assume this means it does not exist yet...
+            Path
+    end.
+
+ensure_unique_path(Path, ID) ->
+    NewPath = ?LIB:f("~s_~w", [Path, ID]),
+    case file:read_file_info(NewPath) of
+        {ok, _} -> % Ouch, this also existed, increment and try again
+            ensure_unique_path(Path, ID + 1);
+        {error, _} -> % We assume this means it does not exist yet...
+            NewPath
+    end.
+    
+            
 which_local_socket_addr(local = Domain) ->
     #{family => Domain,
       path   => mk_unique_path()};
