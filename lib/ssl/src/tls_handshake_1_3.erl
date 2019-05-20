@@ -117,7 +117,7 @@ add_signature_algorithms_cert(Extensions, undefined) ->
     Extensions;
 add_signature_algorithms_cert(Extensions, SignAlgsCert) ->
     Extensions#{signature_algorithms_cert =>
-                    #signature_algorithms{signature_scheme_list = SignAlgsCert}}.
+                    #signature_algorithms_cert{signature_scheme_list = SignAlgsCert}}.
 
 
 filter_tls13_algs(undefined) -> undefined;
@@ -125,7 +125,6 @@ filter_tls13_algs(Algo) ->
     lists:filter(fun is_atom/1, Algo).
 
 
-%% TODO: use maybe monad for error handling!
 %% enum {
 %%     X509(0),
 %%     RawPublicKey(2),
@@ -148,18 +147,28 @@ filter_tls13_algs(Algo) ->
 %%     opaque certificate_request_context<0..2^8-1>;
 %%     CertificateEntry certificate_list<0..2^24-1>;
 %% } Certificate;
-certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, server) ->
+certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, Role) ->
     case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
 	{ok, _, Chain} ->
             CertList = chain_to_cert_list(Chain),
             %% If this message is in response to a CertificateRequest, the value of
             %% certificate_request_context in that message. Otherwise (in the case
             %%of server authentication), this field SHALL be zero length.
-	    #certificate_1_3{
-               certificate_request_context = <<>>,
-               certificate_list = CertList};
-	{error, Error} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {server_has_no_suitable_certificates, Error})
+	    {ok, #certificate_1_3{
+                    certificate_request_context = <<>>,
+                    certificate_list = CertList}};
+	{error, Error} when Role =:= server ->
+            {error, {no_suitable_certificates, Error}};
+	{error, _Error} when Role =:= client ->
+            %% The client MUST send a Certificate message if and only if the server
+            %% has requested client authentication via a CertificateRequest message
+            %% (Section 4.3.2).  If the server requests client authentication but no
+            %% suitable certificate is available, the client MUST send a Certificate
+            %% message containing no certificates (i.e., with the "certificate_list"
+            %% field having length 0).
+            {ok, #certificate_1_3{
+                    certificate_request_context = <<>>,
+                    certificate_list = []}}
     end.
 
 
@@ -167,7 +176,7 @@ certificate_verify(PrivateKey, SignatureScheme,
                    #state{connection_states = ConnectionStates,
                           handshake_env =
                               #handshake_env{
-                                 tls_handshake_history = {Messages, _}}}, server) ->
+                                 tls_handshake_history = {Messages, _}}}, Role) ->
     #{security_parameters := SecParamsR} =
         ssl_record:pending_connection_state(ConnectionStates, write),
     #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
@@ -179,11 +188,11 @@ certificate_verify(PrivateKey, SignatureScheme,
 
     %% Transcript-Hash uses the HKDF hash function defined by the cipher suite.
     THash = tls_v1:transcript_hash(Context, HKDFAlgo),
+    ContextString = context_string(Role),
 
     %% Digital signatures use the hash function defined by the selected signature
     %% scheme.
-    case sign(THash, <<"TLS 1.3, server CertificateVerify">>,
-                        HashAlgo, PrivateKey) of
+    case sign(THash, ContextString, HashAlgo, PrivateKey) of
         {ok, Signature} ->
             {ok, #certificate_verify_1_3{
                     algorithm = SignatureScheme,
@@ -454,8 +463,6 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
     ClientSignAlgsCert = get_signature_scheme_list(
                            maps:get(signature_algs_cert, Extensions, undefined)),
 
-    %% TODO: use library function if it exists
-    %% Init the maybe "monad"
     {Ref,Maybe} = maybe(),
 
     try
@@ -557,7 +564,7 @@ do_negotiated(start_handshake,
         {State5, NextState} = maybe_send_certificate_request(State4, SslOpts),
 
         %% Create Certificate
-        Certificate = certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, server),
+        Certificate = Maybe(certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, server)),
 
         %% Encode Certificate
         State6 = tls_connection:queue_handshake(Certificate, State5),
@@ -581,14 +588,16 @@ do_negotiated(start_handshake,
 
     catch
         {Ref, badarg} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {digitally_sign, badarg})
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {digitally_sign, badarg});
+        {Ref, {no_suitable_certificates, Reason}} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {no_suitable_certificates, Reason})
     end.
 
 
 do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
     {Ref,Maybe} = maybe(),
     try
-        Maybe(process_client_certificate(Certificate, State0))
+        Maybe(process_certificate(Certificate, State0))
     catch
         {Ref, {certificate_required, State}} ->
             {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State};
@@ -603,28 +612,11 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
     end.
 
 
-do_wait_cv(#certificate_verify_1_3{} = CertificateVerify,
-           #state{static_env = #static_env{role = server}} = State0) ->
+do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, State0) ->
     {Ref,Maybe} = maybe(),
     try
-        Maybe(verify_signature_algorithm(State0, CertificateVerify)),
-        Maybe(verify_certificate_verify(State0, CertificateVerify))
-    catch
-        {Ref, {{bad_certificate, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, {bad_certificate, Reason}), State};
-        {Ref, {badarg, State}} ->
-            {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {verify, badarg}), State};
-        {Ref, {{handshake_failure, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {handshake_failure, Reason}), State}
-    end;
-do_wait_cv(#certificate_verify_1_3{} = _CertificateVerify,
-           #state{static_env = #static_env{role = client}} = State0) ->
-    {Ref,_Maybe} = maybe(),
-    try
-        %% TODO: implement validation
-        %% Maybe(verify_signature_algorithm(State0, CertificateVerify)),
-        %% Maybe(verify_certificate_verify(State0, CertificateVerify))
-        {State0, wait_finished}
+        State1 = Maybe(verify_signature_algorithm(State0, CertificateVerify)),
+        Maybe(verify_certificate_verify(State1, CertificateVerify))
     catch
         {Ref, {{bad_certificate, Reason}, State}} ->
             {?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, {bad_certificate, Reason}), State};
@@ -634,24 +626,9 @@ do_wait_cv(#certificate_verify_1_3{} = _CertificateVerify,
             {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {handshake_failure, Reason}), State}
     end.
 
-
-
-
-
+%% TLS Server
 do_wait_finished(#finished{verify_data = VerifyData},
-              #state{connection_states = _ConnectionStates0,
-                     session = #session{session_id = _SessionId,
-                                        own_certificate = _OwnCert},
-                     ssl_options = #ssl_options{} = _SslOpts,
-                     key_share = _KeyShare,
-                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
-                     static_env = #static_env{
-                                     role = server,
-                                     cert_db = _CertDbHandle,
-                                     cert_db_ref = _CertDbRef,
-                                     socket = _Socket,
-                                     transport_cb = _Transport}
-                    } = State0) ->
+                 #state{static_env = #static_env{role = server}} = State0) ->
 
     {Ref,Maybe} = maybe(),
 
@@ -668,58 +645,47 @@ do_wait_finished(#finished{verify_data = VerifyData},
         {Ref, decrypt_error} ->
             ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)
     end;
+%% TLS Client
 do_wait_finished(#finished{verify_data = _VerifyData},
-              #state{connection_states = _ConnectionStates0,
-                     session = #session{session_id = _SessionId,
-                                        own_certificate = _OwnCert},
-                     ssl_options = #ssl_options{} = _SslOpts,
-                     key_share = _KeyShare,
-                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
-                     static_env = #static_env{
-                                     role = client,
-                                     cert_db = _CertDbHandle,
-                                     cert_db_ref = _CertDbRef,
-                                     socket = _Socket,
-                                     transport_cb = _Transport}
-                    } = State0) ->
-    {Ref,_Maybe} = maybe(),
+                 #state{static_env = #static_env{role = client}} = State0) ->
+
+    {Ref,Maybe} = maybe(),
 
     try
         %% Maybe(validate_client_finished(State0, VerifyData)),
 
         %% Maybe send Certificate + CertificateVerify
+        State1 = Maybe(maybe_queue_cert_cert_cv(State0)),
 
-        %% Send Finished
-        %% Create Finished
-        Finished = finished(State0),
+        Finished = finished(State1),
 
         %% Encode Finished
-        State1 = tls_connection:queue_handshake(Finished, State0),
+        State2 = tls_connection:queue_handshake(Finished, State1),
 
         %% Send first flight
-        {State2, _} = tls_connection:send_handshake_flight(State1),
+        {State3, _} = tls_connection:send_handshake_flight(State2),
 
-        State3 = calculate_traffic_secrets(State2),
+        State4 = calculate_traffic_secrets(State3),
 
         %% Configure traffic keys
-        ssl_record:step_encryption_state(State3)
+        ssl_record:step_encryption_state(State4)
 
     catch
         {Ref, decrypt_error} ->
-            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)
+            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error);
+        {Ref, badarg} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {digitally_sign, badarg});
+        {Ref, {no_suitable_certificates, Reason}} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {no_suitable_certificates, Reason})
     end.
-
 
 
 do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
                          session_id = SessionId,
                          extensions = Extensions} = ServerHello,
-           #state{connection_states = _ConnectionStates0,
-                  key_share = ClientKeyShare0,
+           #state{key_share = ClientKeyShare0,
                   ssl_options = #ssl_options{ciphers = ClientCiphers,
-                                             signature_algs = _ClientSignAlgs,
-                                             supported_groups = ClientGroups0},
-                  session = #session{own_certificate = _Cert}} = State0) ->
+                                             supported_groups = ClientGroups0}} = State0) ->
     ClientGroups = get_supported_groups(ClientGroups0),
     ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
     ServerKeyShare = get_key_shares(ServerKeyShare0),
@@ -740,7 +706,7 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
 
         %% Update state
         State1 = update_start_state(State0, SelectedCipherSuite, ClientKeyShare0, SessionId,
-                                    SelectedGroup, todo, ServerPublicKey),
+                                    SelectedGroup, undefined, ServerPublicKey),
 
         State2 = calculate_handshake_secrets(ServerPublicKey, ClientPrivateKey, SelectedGroup, State1),
 
@@ -764,13 +730,10 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
     end.
 
 
-do_wait_ee(#encrypted_extensions{extensions = _Extensions} = _EE,
-           #state{connection_states = _ConnectionStates0,
-                  ssl_options = #ssl_options{ciphers = _ServerCiphers,
-                                             signature_algs = _ServerSignAlgs,
-                                             supported_groups = _ServerGroups0},
-                  session = #session{own_certificate = _Cert}} = State0) ->
+do_wait_ee(#encrypted_extensions{extensions = _Extensions}, State0) ->
+
     {Ref,_Maybe} = maybe(),
+
     try
         {State0, wait_cert_cr}
     catch
@@ -787,12 +750,10 @@ do_wait_ee(#encrypted_extensions{extensions = _Extensions} = _EE,
     end.
 
 
-do_wait_cert_cr(#certificate_1_3{} = _Certificate, State0) ->
-    {Ref,_Maybe} = maybe(),
+do_wait_cert_cr(#certificate_1_3{} = Certificate, State0) ->
+    {Ref,Maybe} = maybe(),
     try
-        %% TODO: implement validation
-        %% Maybe(process_server_certificate(Certificate, State0))
-        {State0, wait_cv}
+        Maybe(process_certificate(Certificate, State0))
     catch
         {Ref, {certificate_required, _State}} ->
             ?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required);
@@ -802,7 +763,24 @@ do_wait_cert_cr(#certificate_1_3{} = _Certificate, State0) ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason);
         {Ref, {{handshake_failure, Reason}, _State}} ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason)
+    end;
+do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
+    {Ref,Maybe} = maybe(),
+    try
+        Maybe(process_certificate_request(CertificateRequest, State0))
+    catch
+        {Ref, {certificate_required, _State}} ->
+            ?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required);
+        {Ref, {{certificate_unknown, Reason}, _State}} ->
+            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason);
+        {Ref, {illegal_parameter, Reason}} ->
+            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, Reason);
+        {Ref, {{internal_error, Reason}, _State}} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason);
+        {Ref, {{handshake_failure, Reason}, _State}} ->
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason)
     end.
+
 
 
 %% TODO: Remove this function!
@@ -833,6 +811,64 @@ maybe_hello_retry_request(#server_hello{cipher_suite = Random}, State0) ->
         false ->
             ok
     end.
+
+
+maybe_queue_cert_cert_cv(#state{client_certificate_requested = false} = State) ->
+    {ok, State};
+maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
+                                session = #session{session_id = _SessionId,
+                                                   own_certificate = OwnCert,
+                                                   sign_alg = SignatureScheme},
+                                ssl_options = #ssl_options{} = _SslOpts,
+                                key_share = _KeyShare,
+                                handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
+                                connection_env = #connection_env{private_key = CertPrivateKey},
+                                static_env = #static_env{
+                                                role = client,
+                                                cert_db = CertDbHandle,
+                                                cert_db_ref = CertDbRef,
+                                                socket = _Socket,
+                                                transport_cb = _Transport}
+                               } = State0) ->
+    {Ref,Maybe} = maybe(),
+    try
+        %% Create Certificate
+        Certificate = Maybe(certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, client)),
+
+        %% Encode Certificate
+        State1 = tls_connection:queue_handshake(Certificate, State0),
+
+        %% Maybe create and queue CertificateVerify
+        State = Maybe(maybe_queue_cert_verify(Certificate, State1)),
+        {ok, State}
+    catch
+        {Ref, badarg} ->
+            {error, badarg}
+    end.
+
+
+%% Clients MUST send this message whenever authenticating via a certificate
+%% (i.e., when the Certificate message is non-empty).
+maybe_queue_cert_verify(#certificate_1_3{certificate_list = []}, State) ->
+    {ok, State};
+maybe_queue_cert_verify(_Certificate,
+                        #state{connection_states = _ConnectionStates0,
+                               session = #session{sign_alg = SignatureScheme},
+                               connection_env = #connection_env{private_key = CertPrivateKey},
+                               static_env = #static_env{role = client}
+                              } = State) ->
+    {Ref,Maybe} = maybe(),
+    try
+        CertificateVerify = Maybe(certificate_verify(CertPrivateKey, SignatureScheme, State, client)),
+        {ok, tls_connection:queue_handshake(CertificateVerify, State)}
+    catch
+        {Ref, badarg} ->
+            {error, badarg}
+    end.
+
+
+
+
 
 
 %% Recipients of Finished messages MUST verify that the contents are
@@ -866,7 +902,7 @@ send_hello_retry_request(#state{connection_states = ConnectionStates0} = State0,
     ServerHello = server_hello(hello_retry_request, SessionId, KeyShare, ConnectionStates0),
     {State1, _} = tls_connection:send_handshake(ServerHello, State0),
 
-    %% TODO: Fix handshake history!
+    %% Update handshake history
     State2 = replace_ch1_with_message_hash(State1),
 
     {ok, {State2, start}};
@@ -885,19 +921,48 @@ maybe_send_certificate_request(State, #ssl_options{
     {tls_connection:queue_handshake(CertificateRequest, State), wait_cert}.
 
 
-process_client_certificate(#certificate_1_3{
-                              certificate_request_context = <<>>,
-                              certificate_list = []},
-                           #state{ssl_options =
-                                      #ssl_options{
-                                         fail_if_no_peer_cert = false}} = State) ->
+process_certificate_request(#certificate_request_1_3{
+                              extensions = Extensions},
+                            #state{session = #session{own_certificate = undefined}} = State) ->
+    {ok, {State#state{client_certificate_requested = true}, wait_cert}};
+
+process_certificate_request(#certificate_request_1_3{
+                              extensions = Extensions},
+                            #state{session = #session{own_certificate = Cert} = Session} = State) ->
+    ServerSignAlgs = get_signature_scheme_list(
+                       maps:get(signature_algs, Extensions, undefined)),
+    ServerSignAlgsCert = get_signature_scheme_list(
+                           maps:get(signature_algs_cert, Extensions, undefined)),
+
+    %% Validate CertificateRequest
+
+    %% Validate if client certificate has a signature algorithm supported by the server.
+    {_PublicKeyAlgo, SignAlgo, SignHash} = get_certificate_params(Cert),
+
+    %% Check if server supports signature algorithm of client certificate
+    case check_cert_sign_algo(SignAlgo, SignHash, ServerSignAlgs, ServerSignAlgsCert) of
+        ok ->
+            {ok, {State#state{client_certificate_requested = true}, wait_cert}};
+        {error, _} ->
+            %% Certificate not supported: send empty certificate in state 'wait_finished'
+            {ok, {State#state{client_certificate_requested = true,
+                              session = Session#session{own_certificate = undefined}}, wait_cert}}
+    end.
+
+
+process_certificate(#certificate_1_3{
+                       certificate_request_context = <<>>,
+                       certificate_list = []},
+                    #state{ssl_options =
+                               #ssl_options{
+                                  fail_if_no_peer_cert = false}} = State) ->
     {ok, {State, wait_finished}};
-process_client_certificate(#certificate_1_3{
-                              certificate_request_context = <<>>,
-                              certificate_list = []},
-                           #state{ssl_options =
-                                      #ssl_options{
-                                         fail_if_no_peer_cert = true}} = State0) ->
+process_certificate(#certificate_1_3{
+                       certificate_request_context = <<>>,
+                       certificate_list = []},
+                    #state{ssl_options =
+                               #ssl_options{
+                                  fail_if_no_peer_cert = true}} = State0) ->
 
     %% At this point the client believes that the connection is up and starts using
     %% its traffic secrets. In order to be able send an proper Alert to the client
@@ -906,19 +971,18 @@ process_client_certificate(#certificate_1_3{
     State1 = calculate_traffic_secrets(State0),
     State = ssl_record:step_encryption_state(State1),
     {error, {certificate_required, State}};
-process_client_certificate(#certificate_1_3{certificate_list = Certs0},
-                           #state{ssl_options =
-                                      #ssl_options{signature_algs = SignAlgs,
-                                                   signature_algs_cert = SignAlgsCert} = SslOptions,
-                                  static_env =
-                                      #static_env{
-                                         role = Role,
-                                         host = Host,
-                                         cert_db = CertDbHandle,
-                                         cert_db_ref = CertDbRef,
-                                         crl_db = CRLDbHandle}} = State0) ->
+process_certificate(#certificate_1_3{certificate_list = Certs0},
+                    #state{ssl_options =
+                               #ssl_options{signature_algs = SignAlgs,
+                                            signature_algs_cert = SignAlgsCert} = SslOptions,
+                           static_env =
+                               #static_env{
+                                  role = Role,
+                                  host = Host,
+                                  cert_db = CertDbHandle,
+                                  cert_db_ref = CertDbRef,
+                                  crl_db = CRLDbHandle}} = State0) ->
     %% TODO: handle extensions!
-
     %% Remove extensions from list of certificates!
     Certs = convert_certificate_chain(Certs0),
     case is_supported_signature_algorithm(Certs, SignAlgs, SignAlgsCert) of
@@ -1282,22 +1346,31 @@ get_handshake_context_server([H|T]) when is_binary(H) ->
 get_handshake_context_server(L) ->
     L.
 
-%% TODO: tested only with basic handshake!
-get_handshake_context_client([_H|T]) ->
-    T.
+
+get_handshake_context_client([H|T]) when is_list(H) ->
+    get_handshake_context_client(T);
+get_handshake_context_client(L) ->
+    L.
 
 
+%% If the CertificateVerify message is sent by a server, the signature
+%% algorithm MUST be one offered in the client's "signature_algorithms"
+%% extension unless no valid certificate chain can be produced without
+%% unsupported algorithms
+%%
 %% If sent by a client, the signature algorithm used in the signature
 %% MUST be one of those present in the supported_signature_algorithms
 %% field of the "signature_algorithms" extension in the
 %% CertificateRequest message.
-verify_signature_algorithm(#state{ssl_options =
-                                      #ssl_options{
-                                         signature_algs = ServerSignAlgs}} = State0,
-                           #certificate_verify_1_3{algorithm = ClientSignAlg}) ->
-    case lists:member(ClientSignAlg, ServerSignAlgs) of
+verify_signature_algorithm(#state{
+                              static_env = #static_env{role = Role},
+                              ssl_options =
+                                  #ssl_options{
+                                     signature_algs = LocalSignAlgs}} = State0,
+                           #certificate_verify_1_3{algorithm = PeerSignAlg}) ->
+    case lists:member(PeerSignAlg, LocalSignAlgs) of
         true ->
-            ok;
+            {ok, maybe_update_selected_sign_alg(State0, PeerSignAlg, Role)};
         false ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
@@ -1306,11 +1379,19 @@ verify_signature_algorithm(#state{ssl_options =
     end.
 
 
-verify_certificate_verify(#state{connection_states = ConnectionStates,
-                                 handshake_env =
-                                     #handshake_env{
-                                        public_key_info = PublicKeyInfo,
-                                        tls_handshake_history = HHistory}} = State0,
+maybe_update_selected_sign_alg(#state{session = Session} = State, SignAlg, client) ->
+    State#state{session = Session#session{sign_alg = SignAlg}};
+maybe_update_selected_sign_alg(State, _, _) ->
+    State.
+
+
+verify_certificate_verify(#state{
+                             static_env = #static_env{role = Role},
+                             connection_states = ConnectionStates,
+                             handshake_env =
+                                 #handshake_env{
+                                    public_key_info = PublicKeyInfo,
+                                    tls_handshake_history = HHistory}} = State0,
                           #certificate_verify_1_3{
                              algorithm = SignatureScheme,
                              signature = Signature}) ->
@@ -1330,10 +1411,11 @@ verify_certificate_verify(#state{connection_states = ConnectionStates,
 
     PublicKey = get_public_key(PublicKeyInfo),
 
+    ContextString = peer_context_string(Role),
+
     %% Digital signatures use the hash function defined by the selected signature
     %% scheme.
-    case verify(THash, <<"TLS 1.3, client CertificateVerify">>,
-                        HashAlgo, Signature, PublicKey) of
+    case verify(THash, ContextString, HashAlgo, Signature, PublicKey) of
         {ok, true} ->
             {ok, {State0, wait_finished}};
         {ok, false} ->
@@ -1345,6 +1427,19 @@ verify_certificate_verify(#state{connection_states = ConnectionStates,
             State = ssl_record:step_encryption_state(State1),
             {error, {badarg, State}}
     end.
+
+
+context_string(server) ->
+    <<"TLS 1.3, server CertificateVerify">>;
+context_string(client) ->
+    <<"TLS 1.3, client CertificateVerify">>.
+
+
+%% Return context string for verifing peer signature
+peer_context_string(server) ->
+    <<"TLS 1.3, client CertificateVerify">>;
+peer_context_string(client) ->
+    <<"TLS 1.3, server CertificateVerify">>.
 
 
 %% If there is no overlap between the received

@@ -227,7 +227,15 @@ wait_cert_cr(internal, #change_cipher_spec{}, State0, _Module) ->
 wait_cert_cr(internal, #certificate_1_3{} = Certificate, State0, _Module) ->
     case tls_handshake_1_3:do_wait_cert_cr(Certificate, State0) of
         #alert{} = Alert ->
-            ssl_connection:handle_own_alert(Alert, {3,4}, wait_cert_cv, State0);
+            ssl_connection:handle_own_alert(Alert, {3,4}, wait_cert_cr, State0);
+        {State1, NextState} ->
+            {Record, State} = tls_connection:next_record(State1),
+            tls_connection:next_event(NextState, Record, State)
+    end;
+wait_cert_cr(internal, #certificate_request_1_3{} = CertificateRequest, State0, _Module) ->
+    case tls_handshake_1_3:do_wait_cert_cr(CertificateRequest, State0) of
+        #alert{} = Alert ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, wait_cert_cr, State0);
         {State1, NextState} ->
             {Record, State} = tls_connection:next_record(State1),
             tls_connection:next_event(NextState, Record, State)
