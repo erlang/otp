@@ -27,6 +27,23 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Missing check of size of user_data_buffer made internal
+	    socket behave as an active socket instead of active N.
+	    This could cause memory problems.</p>
+          <p>
+	    Own Id: OTP-15825 Aux Id: ERL-934, OTP-15823 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
