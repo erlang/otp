@@ -1293,9 +1293,10 @@ maybe_generate_client_shares(#ssl_options{
                             versions = [Version|_],
                             supported_groups =
                                 #supported_groups{
-                                  supported_groups = Groups}})
+                                  supported_groups = [Group|_]}})
   when Version =:= {3,4} ->
-    ssl_cipher:generate_client_shares(Groups);
+    %% Generate only key_share entry for the most preferred group
+    ssl_cipher:generate_client_shares([Group]);
 maybe_generate_client_shares(_) ->
     undefined.
 
