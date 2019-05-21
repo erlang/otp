@@ -253,7 +253,7 @@ tls13_test_group() ->
      tls13_custom_groups_ssl_server_openssl_client,
      tls13_custom_groups_ssl_server_ssl_client,
      tls13_hello_retry_request_ssl_server_openssl_client,
-     %% TODO: tls13_hello_retry_request_ssl_server_ssl_client,
+     tls13_hello_retry_request_ssl_server_ssl_client,
      tls13_client_auth_empty_cert_alert_ssl_server_openssl_client,
      tls13_client_auth_empty_cert_alert_ssl_server_ssl_client,
      tls13_client_auth_empty_cert_ssl_server_openssl_client,
@@ -261,8 +261,11 @@ tls13_test_group() ->
      tls13_client_auth_ssl_server_openssl_client,
      tls13_client_auth_ssl_server_ssl_client,
      tls13_hrr_client_auth_empty_cert_alert_ssl_server_openssl_client,
+     tls13_hrr_client_auth_empty_cert_alert_ssl_server_ssl_client,
      tls13_hrr_client_auth_empty_cert_ssl_server_openssl_client,
+     tls13_hrr_client_auth_empty_cert_ssl_server_ssl_client,
      tls13_hrr_client_auth_ssl_server_openssl_client,
+     tls13_hrr_client_auth_ssl_server_ssl_client,
      tls13_unsupported_sign_algo_client_auth_ssl_server_openssl_client,
      tls13_unsupported_sign_algo_client_auth_ssl_server_ssl_client,
      tls13_unsupported_sign_algo_cert_client_auth_ssl_server_openssl_client,
@@ -5447,6 +5450,38 @@ tls13_hello_retry_request_ssl_server_openssl_client(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
+
+tls13_hello_retry_request_ssl_server_ssl_client() ->
+    [{doc,"Test that ssl server can request a new group when the client's first key share"
+      "is not supported"}].
+
+tls13_hello_retry_request_ssl_server_ssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {supported_groups, [x448, x25519]}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {supported_groups, [secp256r1, x25519]}|ClientOpts0],
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
 tls13_client_auth_empty_cert_alert_ssl_server_openssl_client() ->
      [{doc,"TLS 1.3: Test client authentication when client sends an empty certificate and fail_if_no_peer_cert is set to true."}].
 
@@ -5674,6 +5709,46 @@ tls13_hrr_client_auth_empty_cert_alert_ssl_server_openssl_client(Config) ->
     ssl_test_lib:close_port(Client).
 
 
+tls13_hrr_client_auth_empty_cert_alert_ssl_server_ssl_client() ->
+     [{doc,"TLS 1.3 (HelloRetryRequest): Test client authentication when client sends an empty certificate and fail_if_no_peer_cert is set to true."}].
+
+tls13_hrr_client_auth_empty_cert_alert_ssl_server_ssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    %% Delete Client Cert and Key
+    ClientOpts1 = proplists:delete(certfile, ClientOpts0),
+    ClientOpts2 = proplists:delete(keyfile, ClientOpts1),
+
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {verify, verify_peer},
+                  {fail_if_no_peer_cert, true},
+                  {supported_groups, [x448, x25519]}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {supported_groups, [secp256r1, x25519]}|ClientOpts2],
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server,
+                              {error,
+                               {tls_alert,
+                                {certificate_required,
+                                 "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+
 tls13_hrr_client_auth_empty_cert_ssl_server_openssl_client() ->
      [{doc,"TLS 1.3 (HelloRetryRequest): Test client authentication when client sends an empty certificate and fail_if_no_peer_cert is set to false."}].
 
@@ -5705,6 +5780,42 @@ tls13_hrr_client_auth_empty_cert_ssl_server_openssl_client(Config) ->
     ssl_test_lib:close_port(Client).
 
 
+tls13_hrr_client_auth_empty_cert_ssl_server_ssl_client() ->
+     [{doc,"TLS 1.3 (HelloRetryRequest): Test client authentication when client sends an empty certificate and fail_if_no_peer_cert is set to false."}].
+
+tls13_hrr_client_auth_empty_cert_ssl_server_ssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    %% Delete Client Cert and Key
+    ClientOpts1 = proplists:delete(certfile, ClientOpts0),
+    ClientOpts2 = proplists:delete(keyfile, ClientOpts1),
+
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {verify, verify_peer},
+                  {fail_if_no_peer_cert, false},
+                  {supported_groups, [x448, x25519]}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {supported_groups, [secp256r1, x25519]}|ClientOpts2],
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+
 tls13_hrr_client_auth_ssl_server_openssl_client() ->
      [{doc,"TLS 1.3 (HelloRetryRequest): Test client authentication."}].
 
@@ -5729,6 +5840,39 @@ tls13_hrr_client_auth_ssl_server_openssl_client(Config) ->
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
     ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+
+tls13_hrr_client_auth_ssl_server_ssl_client() ->
+     [{doc,"TLS 1.3 (HelloRetryRequest): Test client authentication."}].
+
+tls13_hrr_client_auth_ssl_server_ssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {verify, verify_peer},
+                  {fail_if_no_peer_cert, true},
+                  {supported_groups, [x448, x25519]}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {supported_groups, [secp256r1, x25519]}|ClientOpts0],
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 

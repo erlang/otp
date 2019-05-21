@@ -130,6 +130,13 @@ start(internal, #client_hello{} = Hello, State0, _Module) ->
         {State, negotiated} ->
             {next_state, negotiated, State, [{next_event, internal, start_handshake}]}
     end;
+start(internal, #server_hello{} = ServerHello, State0, _Module) ->
+    case tls_handshake_1_3:do_start(ServerHello, State0) of
+        #alert{} = Alert ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, start, State0);
+        {State, NextState} ->
+            {next_state, NextState, State, []}
+    end;
 start(Type, Msg, State, Connection) ->
     ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
@@ -194,9 +201,9 @@ wait_sh(internal, #server_hello{} = Hello, State0, _Module) ->
     case tls_handshake_1_3:do_wait_sh(Hello, State0) of
         #alert{} = Alert ->
             ssl_connection:handle_own_alert(Alert, {3,4}, wait_sh, State0);
-        {State1, start} ->
-            %% TODO: Implement hello_retry_request
-            {next_state, start, State1, []};
+        {State1, start, ServerHello} ->
+            %% hello_retry_request: go to start
+            {next_state, start, State1, [{next_event, internal, ServerHello}]};
         {State1, wait_ee} ->
             tls_connection:next_event(wait_ee, no_record, State1)
     end;

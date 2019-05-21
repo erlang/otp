@@ -51,6 +51,13 @@
          do_wait_ee/2,
          do_wait_cert_cr/2]).
 
+
+%% crypto:hash(sha256, "HelloRetryRequest").
+-define(HELLO_RETRY_REQUEST_RANDOM, <<207,33,173,116,229,154,97,17,
+                                      190,29,140,2,30,101,184,145,
+                                      194,162,17,22,122,187,140,94,
+                                      7,158,9,226,200,168,51,156>>).
+
 %%====================================================================
 %% Create handshake messages
 %%====================================================================
@@ -82,10 +89,7 @@ server_hello_random(server_hello, #security_parameters{server_random = Random}) 
 %%   CF 21 AD 74 E5 9A 61 11 BE 1D 8C 02 1E 65 B8 91
 %%   C2 A2 11 16 7A BB 8C 5E 07 9E 09 E2 C8 A8 33 9C
 server_hello_random(hello_retry_request, _) ->
-    hello_retry_request_random().
-
-hello_retry_request_random() ->
-    crypto:hash(sha256, "HelloRetryRequest").
+    ?HELLO_RETRY_REQUEST_RANDOM.
 
 
 %% TODO: implement support for encrypted_extensions
@@ -267,6 +271,21 @@ encode_handshake(HandshakeMsg) ->
 %% Decode handshake
 %%====================================================================
 
+
+decode_handshake(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
+                                  ?BYTE(SID_length), Session_ID:SID_length/binary,
+                                  Cipher_suite:2/binary, ?BYTE(Comp_method),
+                                  ?UINT16(ExtLen), Extensions:ExtLen/binary>>)
+  when Random =:= ?HELLO_RETRY_REQUEST_RANDOM ->
+    HelloExtensions = ssl_handshake:decode_hello_extensions(Extensions, {3,4}, {Major, Minor},
+                                                            hello_retry_request),
+    #server_hello{
+       server_version = {Major,Minor},
+       random = Random,
+       session_id = Session_ID,
+       cipher_suite = Cipher_suite,
+       compression_method = Comp_method,
+       extensions = HelloExtensions};
 decode_handshake(?CERTIFICATE_REQUEST, <<?BYTE(0), ?UINT16(Size), EncExts:Size/binary>>) ->
     Exts = decode_extensions(EncExts, certificate_request),
     #certificate_request_1_3{
@@ -443,6 +462,7 @@ build_content(Context, THash) ->
 %%====================================================================
 
 
+%% TLS Server
 do_start(#client_hello{cipher_suites = ClientCiphers,
                        session_id = SessionId,
                        extensions = Extensions} = _Hello,
@@ -518,6 +538,81 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
         {Ref, {insufficient_security, no_suitable_public_key}} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)
+    end;
+%% TLS Client
+do_start(#server_hello{cipher_suite = SelectedCipherSuite,
+                       session_id = SessionId,
+                       extensions = Extensions} = _ServerHello,
+         #state{static_env = #static_env{role = client,
+                                         host = Host,
+                                         port = Port,
+                                         transport_cb = Transport,
+                                         socket = Socket,
+                                         session_cache = Cache,
+                                         session_cache_cb = CacheCb},
+                handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
+                                               tls_handshake_history = _HHistory} = HsEnv,
+                connection_env = CEnv,
+                ssl_options = #ssl_options{ciphers = ClientCiphers,
+                                           supported_groups = ClientGroups0} = SslOpts,
+                session = #session{own_certificate = Cert} = Session0,
+                connection_states = ConnectionStates0
+               } = State0) ->
+    ClientGroups = get_supported_groups(ClientGroups0),
+
+    {Ref,Maybe} = maybe(),
+    try
+        ServerKeyShare = maps:get(key_share, Extensions, undefined),
+        SelectedGroup = get_selected_group(ServerKeyShare),
+
+        %% Upon receipt of this extension in a HelloRetryRequest, the client
+        %% MUST verify that (1) the selected_group field corresponds to a group
+        %% which was provided in the "supported_groups" extension in the
+        %% original ClientHello and (2) the selected_group field does not
+        %% correspond to a group which was provided in the "key_share" extension
+        %% in the original ClientHello.  If either of these checks fails, then
+        %% the client MUST abort the handshake with an "illegal_parameter"
+        %% alert.
+        Maybe(validate_selected_group(SelectedGroup, ClientGroups)),
+
+        Maybe(validate_cipher_suite(SelectedCipherSuite, ClientCiphers)),
+
+        %% Otherwise, when sending the new ClientHello, the client MUST
+        %% replace the original "key_share" extension with one containing only a
+        %% new KeyShareEntry for the group indicated in the selected_group field
+        %% of the triggering HelloRetryRequest.
+        ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
+        Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
+                                           Cache, CacheCb, Renegotiation, Cert, ClientKeyShare),
+
+        HelloVersion = tls_record:hello_version(SslOpts#ssl_options.versions),
+
+        %% Update state
+        State1 = update_start_state(State0, SelectedCipherSuite, ClientKeyShare, SessionId,
+                                    SelectedGroup, undefined, undefined),
+
+        %% Replace ClientHello1 with a special synthetic handshake message
+        State2 = replace_ch1_with_message_hash(State1),
+        #state{handshake_env = #handshake_env{tls_handshake_history = HHistory}} = State2,
+
+        {BinMsg, ConnectionStates, Handshake} =
+            tls_connection:encode_handshake(Hello,  HelloVersion, ConnectionStates0, HHistory),
+        tls_socket:send(Transport, Socket, BinMsg),
+        ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Hello),
+        ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinMsg),
+
+        State = State2#state{
+                  connection_states = ConnectionStates,
+                  connection_env = CEnv#connection_env{negotiated_version = HelloVersion}, %% Requested version
+                  session = Session0#session{session_id = Hello#client_hello.session_id},
+                  handshake_env = HsEnv#handshake_env{tls_handshake_history = Handshake},
+                  key_share = ClientKeyShare},
+
+        {State, wait_sh}
+
+    catch
+        {Ref, {illegal_parameter, Reason}} ->
+            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, Reason)
     end.
 
 
@@ -688,13 +783,14 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
                                              supported_groups = ClientGroups0}} = State0) ->
     ClientGroups = get_supported_groups(ClientGroups0),
     ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
-    ServerKeyShare = get_key_shares(ServerKeyShare0),
     ClientKeyShare = get_key_shares(ClientKeyShare0),
 
     {Ref,Maybe} = maybe(),
     try
         %% Go to state 'start' if server replies with 'HelloRetryRequest'.
         Maybe(maybe_hello_retry_request(ServerHello, State0)),
+
+        ServerKeyShare = get_key_shares(ServerKeyShare0),
 
         Maybe(validate_cipher_suite(SelectedCipherSuite, ClientCiphers)),
         Maybe(validate_server_key_share(ClientGroups, ServerKeyShare)),
@@ -715,8 +811,8 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
         {State3, wait_ee}
 
     catch
-        {Ref, {new_state, State, StateName}} ->
-            {State, StateName};
+        {Ref, {State, StateName, ServerHello}} ->
+            {State, StateName, ServerHello};
         {Ref, {insufficient_security, no_suitable_groups}} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
         {Ref, illegal_parameter} ->
@@ -786,7 +882,7 @@ do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
 %% TODO: Remove this function!
 %% not_implemented(State, Reason) ->
 %%     {error, {not_implemented, State, Reason}}.
-%%
+
 %% not_implemented(update_secrets, State0, Reason) ->
 %%     State1 = calculate_traffic_secrets(State0),
 %%     State = ssl_record:step_encryption_state(State1),
@@ -804,25 +900,20 @@ do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
 %% Upon receiving a message with type server_hello, implementations MUST
 %% first examine the Random value and, if it matches this value, process
 %% it as described in Section 4.1.4).
-maybe_hello_retry_request(#server_hello{cipher_suite = Random}, State0) ->
-    case Random =:= hello_retry_request_random() of
-        true ->
-            {error, State0, start};
-        false ->
-            ok
-    end.
+maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM} = ServerHello, State0) ->
+    {error, {State0, start, ServerHello}};
+maybe_hello_retry_request(_, _) ->
+    ok.
 
 
 maybe_queue_cert_cert_cv(#state{client_certificate_requested = false} = State) ->
     {ok, State};
 maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
                                 session = #session{session_id = _SessionId,
-                                                   own_certificate = OwnCert,
-                                                   sign_alg = SignatureScheme},
+                                                   own_certificate = OwnCert},
                                 ssl_options = #ssl_options{} = _SslOpts,
                                 key_share = _KeyShare,
                                 handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
-                                connection_env = #connection_env{private_key = CertPrivateKey},
                                 static_env = #static_env{
                                                 role = client,
                                                 cert_db = CertDbHandle,
@@ -865,10 +956,6 @@ maybe_queue_cert_verify(_Certificate,
         {Ref, badarg} ->
             {error, badarg}
     end.
-
-
-
-
 
 
 %% Recipients of Finished messages MUST verify that the contents are
@@ -921,8 +1008,7 @@ maybe_send_certificate_request(State, #ssl_options{
     {tls_connection:queue_handshake(CertificateRequest, State), wait_cert}.
 
 
-process_certificate_request(#certificate_request_1_3{
-                              extensions = Extensions},
+process_certificate_request(#certificate_request_1_3{},
                             #state{session = #session{own_certificate = undefined}} = State) ->
     {ok, {State#state{client_certificate_requested = true}, wait_cert}};
 
@@ -934,9 +1020,6 @@ process_certificate_request(#certificate_request_1_3{
     ServerSignAlgsCert = get_signature_scheme_list(
                            maps:get(signature_algs_cert, Extensions, undefined)),
 
-    %% Validate CertificateRequest
-
-    %% Validate if client certificate has a signature algorithm supported by the server.
     {_PublicKeyAlgo, SignAlgo, SignHash} = get_certificate_params(Cert),
 
     %% Check if server supports signature algorithm of client certificate
@@ -1126,6 +1209,7 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup,
 
     %% Calculate [sender]_handshake_traffic_secret
     {Messages, _} =  HHistory,
+
     ClientHSTrafficSecret =
         tls_v1:client_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages)),
     ServerHSTrafficSecret =
@@ -1492,6 +1576,21 @@ validate_server_key_share([_|ClientGroups], {_, _, _} = ServerKeyShare) ->
     validate_server_key_share(ClientGroups, ServerKeyShare).
 
 
+validate_selected_group(SelectedGroup, [SelectedGroup|_]) ->
+    {error, {illegal_parameter,
+             "Selected group sent by the server shall not correspond to a group"
+             " which was provided in the key_share extension"}};
+validate_selected_group(SelectedGroup, ClientGroups) ->
+    case lists:member(SelectedGroup, ClientGroups) of
+        true ->
+            ok;
+        false ->
+            {error, {illegal_parameter,
+                     "Selected group sent by the server shall correspond to a group"
+                     " which was provided in the supported_groups extension"}}
+    end.
+
+
 get_client_public_key([Group|_] = Groups, ClientShares) ->
     get_client_public_key(Groups, ClientShares, Group).
 %%
@@ -1678,6 +1777,9 @@ get_key_shares(#key_share_client_hello{client_shares = ClientShares}) ->
     ClientShares;
 get_key_shares(#key_share_server_hello{server_share = ServerShare}) ->
     ServerShare.
+
+get_selected_group(#key_share_hello_retry_request{selected_group = SelectedGroup}) ->
+    SelectedGroup.
 
 maybe() ->
     Ref = erlang:make_ref(),
