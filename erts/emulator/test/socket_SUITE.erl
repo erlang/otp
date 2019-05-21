@@ -1821,7 +1821,10 @@ api_b_sendto_and_recvfrom_udpL(doc) ->
 api_b_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_sendto_and_recvfrom_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   has_support_unix_domain_socket(),
+                   unix_domain_socket_host_cond()
+           end,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
                                   socket:sendto(Sock, Data, Dest)
@@ -1892,7 +1895,10 @@ api_b_sendmsg_and_recvmsg_udpL(doc) ->
 api_b_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_sendmsg_and_recvmsg_udpL,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   has_support_unix_domain_socket(),
+                   unix_domain_socket_host_cond()
+           end,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
                                   %% We need tests for this,
@@ -19813,21 +19819,6 @@ sock_open(Domain, Type, Proto) ->
     end.
 
 
-sock_bind(Sock, SockAddr) ->
-    try socket:bind(Sock, SockAddr) of
-        {ok, Port} ->
-            Port;
-        {error, Reason} ->
-            i("sock_bind -> error: "
-              "~n   SockAddr: ~p"
-              "~n   Reason:   ~p", [SockAddr, Reason]),
-            ?FAIL({bind, Reason})
-    catch
-        C:E:S ->
-            i("sock_bind -> failed: ~p, ~p, ~p", [C, E, S]),
-            ?FAIL({bind, C, E, S})
-    end.
-
 sock_connect(Sock, SockAddr) ->
     try socket:connect(Sock, SockAddr) of
         ok ->
@@ -20007,16 +19998,24 @@ unlink_path(_, _, _) ->
 
 %% Here are all the *general* test vase condition functions.
 
+unix_domain_socket_host_cond() ->
+    unix_domain_socket_host_cond(os:type(), os:version()).
+
+unix_domain_socket_host_cond({unix, linux}, {M, _, _}) when (M < 3) ->
+    skip("TC may not work on this version");
+unix_domain_socket_host_cond(_, _) ->
+    ok.
+
 has_support_unix_domain_socket() ->
     case os:type() of
         {win32, _} ->
-            {skip, "Not supported"};
+            skip("Not supported");
         _ ->
             case socket:supports(local) of
                 true ->
                     ok;
                 false ->
-                    {skip, "Not supported"}
+                    skip("Not supported")
             end
     end.
 
