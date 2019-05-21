@@ -121,6 +121,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
     erlang_pid pid;
     erlang_port port;
     erlang_ref ref;
+    erlang_fun fun;
     double d;
     long l;
 
@@ -328,6 +329,23 @@ static int print_term(FILE* fp, ei_x_buff* x,
 	}
 	*index = tindex;
 	xputc('}', fp, x); ch_written++;
+	break;
+    case ERL_FUN_EXT:
+    case ERL_NEW_FUN_EXT:
+    case ERL_EXPORT_EXT:
+	if (ei_decode_fun(buf, &tindex, &fun) < 0) goto err;
+        if (fun.type == EI_FUN_EXPORT) {
+            ch_written += xprintf(fp, x, "fun %s:%s/%ld",
+                                  fun.module,
+                                  fun.u.exprt.func,
+                                  fun.arity);
+        } else {
+            ch_written += xprintf(fp, x, "#Fun{%s.%ld.%lu}",
+                                  fun.module,
+                                  fun.u.closure.index,
+                                  fun.u.closure.uniq);
+        }
+	*index = tindex;
 	break;
     default:
 	goto err;

@@ -26,7 +26,8 @@
 
 -export([all/0, suite/0,
          init_per_testcase/2,
-         atoms/1, tuples/1, lists/1, strings/1, maps/1]).
+         atoms/1, tuples/1, lists/1, strings/1,
+         maps/1, funs/1]).
 
 -import(runner, [get_term/1]).
 
@@ -37,7 +38,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [atoms, tuples, lists, strings, maps].
+    [atoms, tuples, lists, strings, maps, funs].
 
 init_per_testcase(Case, Config) ->
     runner:init_per_testcase(?MODULE, Case, Config).
@@ -149,6 +150,16 @@ maps(Config) ->
     {term, "#{}"} = get_term(P),
     {term, "#{key => value}"} = get_term(P),
     {term, "#{key => value, another_key => {ok, 42}}"} = get_term(P),
+
+    runner:recv_eot(P),
+    ok.
+
+funs(Config) ->
+    P = runner:start(Config, ?funs),
+
+    {term, "#Fun{some_module.42.3735928559}"} = get_term(P),
+    {term, "#Fun{some_module.37.195935983}"} = get_term(P),
+    {term, "fun erlang:abs/1"} = get_term(P),
 
     runner:recv_eot(P),
     ok.
