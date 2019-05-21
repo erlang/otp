@@ -146,6 +146,7 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
         else {
             p_arity = NULL;
         }
+	ix = 0;
         if (ei_decode_atom_as(s, &ix, p_module, MAXATOMLEN_UTF8, ERLANG_UTF8,
                               NULL, NULL) < 0)
             return -1;
@@ -171,6 +172,8 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
         }
         if (ei_decode_long(s, &ix, p_arity) < 0)
             return -1;
+	s += ix;
+	*index += s - s0;
         return 0;
     }
     default:
