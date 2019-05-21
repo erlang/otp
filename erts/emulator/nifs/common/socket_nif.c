@@ -5253,6 +5253,7 @@ ERL_NIF_TERM naccept_listening_error(ErlNifEnv*       env,
             enif_set_pid_undefined(&descP->currentAcceptor.pid);
             res = esock_make_error(env, atom_exmon);
         } else {
+            ESOCK_ASSERT(!descP->currentAcceptor.env);
             descP->currentAcceptor.env = esock_alloc_env("current acceptor");
             descP->currentAcceptor.ref = CP_TERM(descP->currentAcceptor.env,
                                                  accRef);
@@ -5411,6 +5412,7 @@ ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*       env,
         esock_free_env("naccept_accepting_current_accept - "
                        "current-accept-env",
                        descP->currentAcceptor.env);
+        descP->currentAcceptor.env =  NULL;
 
         if (!activate_next_acceptor(env, descP, sockRef)) {
 
@@ -5422,6 +5424,7 @@ ERL_NIF_TERM naccept_accepting_current_accept(ErlNifEnv*       env,
             descP->state               = SOCKET_STATE_LISTENING;
 
             descP->currentAcceptorP    = NULL;
+            ESOCK_ASSERT(!descP->currentAcceptor.env);
             descP->currentAcceptor.env = NULL;
             MON_INIT(&descP->currentAcceptor.mon);
         }
@@ -5448,6 +5451,7 @@ ERL_NIF_TERM naccept_accepting_current_error(ErlNifEnv*       env,
     ESockRequestor req;
     ERL_NIF_TERM   res, reason;
 
+    req.env = NULL;
     if (save_errno == ERRNO_BLOCK) {
 
         /*
@@ -5475,6 +5479,7 @@ ERL_NIF_TERM naccept_accepting_current_error(ErlNifEnv*       env,
                     req.pid) );
             esock_send_abort_msg(env, sockRef, req.ref, req.env,
                                  reason, &req.pid);
+            req.env = NULL;
             DEMONP("naccept_accepting_current_error -> pop'ed writer",
                    env, descP, &req.mon);
         }
@@ -14037,6 +14042,7 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
         DEMONP("send_check_ok -> current writer",
                env, descP, &descP->currentWriter.mon);
         esock_free_env("send_check_ok", descP->currentWriter.env);
+        descP->currentWriter.env = NULL;
     }
 
     SSDBG( descP,
@@ -14049,6 +14055,7 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
 
     if (!activate_next_writer(env, descP, sockRef)) {
         descP->currentWriterP    = NULL;
+        ESOCK_ASSERT(!descP->currentWriter.env);
         descP->currentWriter.env = NULL;
         descP->currentWriter.ref = esock_atom_undefined;
         enif_set_pid_undefined(&descP->currentWriter.pid);
@@ -14074,6 +14081,7 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
     ESockRequestor req;
     ERL_NIF_TERM   reason;
 
+    req.env = NULL;
     cnt_inc(&descP->writeFails, 1);
 
     SSDBG( descP, ("SOCKET", "send_check_fail -> error: %d\r\n", saveErrno) );
@@ -14090,6 +14098,7 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                    ("SOCKET", "send_check_fail -> abort %T\r\n", req.pid) );
             esock_send_abort_msg(env, sockRef, req.ref, req.env,
                                  reason, &req.pid);
+            req.env = NULL;
             DEMONP("send_check_fail -> pop'ed writer", env, descP, &req.mon);
         }
     }
@@ -14131,6 +14140,7 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
             enif_set_pid_undefined(&descP->currentWriter.pid);
             return esock_make_error(env, atom_exmon);
         } else {
+            ESOCK_ASSERT(!descP->currentWriter.env);
             descP->currentWriter.env = esock_alloc_env("current-writer");
             descP->currentWriter.ref = CP_TERM(descP->currentWriter.env, sendRef);
             descP->currentWriterP    = &descP->currentWriter;
@@ -14260,7 +14270,7 @@ char* recv_init_current_reader(ErlNifEnv*       env,
             enif_set_pid_undefined(&descP->currentReader.pid);
             return str_exmon;
         } else {
-            
+            ESOCK_ASSERT(!descP->currentReader.env);
             descP->currentReader.env = esock_alloc_env("current-reader");
             descP->currentReader.ref = CP_TERM(descP->currentReader.env,
                                                recvRef);
@@ -14341,6 +14351,7 @@ void recv_error_current_reader(ErlNifEnv*       env,
 {
     ESockRequestor req;
 
+    req.env = NULL;
     if (descP->currentReaderP != NULL) {
 
         DEMONP("recv_error_current_reader -> current reader",
@@ -14352,6 +14363,7 @@ void recv_error_current_reader(ErlNifEnv*       env,
                     req.pid) );
             esock_send_abort_msg(env, sockRef, req.ref, req.env,
                                  reason, &req.pid);
+            req.env = NULL;
             DEMONP("recv_error_current_reader -> pop'ed reader",
                    env, descP, &req.mon);
         }
@@ -17647,6 +17659,7 @@ int esock_select_cancel(ErlNifEnv*             env,
                     esock_send_abort_msg(env, sockRef,                  \
                                          reqP->ref, reqP->env,          \
                                          reason, &reqP->pid);           \
+                    reqP->env = NULL;                                  \
                                                                         \
                 } else {                                                \
                                                                         \
@@ -17745,7 +17758,7 @@ REQ_SEARCH4PID_FUNCS
         reqP->pid = pid;                                               \
         if (MONP("reader_push -> " #F " request",                      \
                  env, descP, &pid, &reqP->mon) != 0) {                 \
-            FREE(reqP);                                                \
+            FREE(e);                                                   \
             return esock_make_error(env, atom_exmon);                  \
         }                                                              \
         reqP->env = esock_alloc_env(#F "_push");                                  \
@@ -17821,6 +17834,9 @@ BOOLEAN_T requestor_pop(ESockRequestQueue* q,
                         ESockRequestor*    reqP)
 {
     ESockRequestQueueElement* e = qpop(q);
+
+    if (reqP->env)
+        esock_free_env("requestor_pop", reqP->env);
 
     if (e != NULL) {
         reqP->pid = e->data.pid;
@@ -17933,6 +17949,8 @@ BOOLEAN_T qunqueue(ErlNifEnv*         env,
                 }
             }
 
+            if (e->data.env)
+                esock_free_env("qunqueue", e->data.env);
             FREE(e);
 
             return TRUE;
@@ -18074,6 +18092,18 @@ ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv* env, const ESockMonitor* monP)
  * ----------------------------------------------------------------------
  */
 
+
+static void free_request_queue(ESockRequestQueue* q)
+{
+    while (q->first) {
+        ESockRequestQueueElement* free_me = q->first;
+        q->first = free_me->nextP;
+        if (free_me->data.env)
+            esock_free_env("dtor", free_me->data.env);
+        FREE(free_me);
+    }
+}
+
 /* =========================================================================
  * socket_dtor - Callback function for resource destructor
  *
@@ -18089,6 +18119,16 @@ void socket_dtor(ErlNifEnv* env, void* obj)
   MDESTROY(descP->accMtx);
   MDESTROY(descP->closeMtx);
   MDESTROY(descP->cfgMtx);
+
+  if (descP->currentReader.env)
+      esock_free_env("dtor reader", descP->currentReader.env);
+  if (descP->currentWriter.env)
+      esock_free_env("dtor writer", descP->currentWriter.env);
+  if (descP->currentAcceptor.env)
+      esock_free_env("dtor acceptor", descP->currentAcceptor.env);
+  free_request_queue(&descP->readersQ);
+  free_request_queue(&descP->writersQ);
+  free_request_queue(&descP->acceptorsQ);
 #endif
 }
 
@@ -18321,6 +18361,7 @@ void socket_stop_handle_current(ErlNifEnv*       env,
                               "current %s %T\r\n",
                               reqP->ref, role, reqP->pid);
         }
+        reqP->env = NULL;
     }
 }
 
@@ -18376,6 +18417,7 @@ void inform_waiting_procs(ErlNifEnv*         env,
                               currentP->data.pid);
 
         }
+        currentP->data.env = NULL,
 
         DEMONP("inform_waiting_procs -> current 'request'",
                env, descP, &currentP->data.mon);
