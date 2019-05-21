@@ -215,10 +215,11 @@
 -type options() :: [option()].
 -type option() :: {ssh,host()} | {port,inet:port_number()} | {user,string()} |
 		  {password,string()} | {user_dir,string()} |
-		  {timeout,timeout()} | {capability, [string()]}.
+		  {timeout,timeout()} | {capability, string() | [string()]}.
 
 -type session_options() :: [session_option()].
--type session_option() :: {timeout,timeout()} | {capability, [string()]}.
+-type session_option() :: {timeout,timeout()}
+                        | {capability, string() | [string()]}.
 
 -type host() :: inet:hostname() | inet:ip_address().
 
@@ -1207,7 +1208,7 @@ cancel_request_timer(Ref,TRef) ->
 
 client_hello(Opts)
   when is_list(Opts) ->
-    UserCaps = [T || {capability, C} = T <- Opts, is_list(hd(C))],
+    UserCaps = [{T, cap(lists:flatten(Cs))} || {capability = T, Cs} <- Opts],
     Vsns = versions(UserCaps),
     put(?KEY(protocol_vsn), Vsns),
     {hello,
@@ -1215,6 +1216,22 @@ client_hello(Opts)
      [{capabilities, [{capability, [?NETCONF_BASE_CAP, ?NETCONF_BASE_CAP_VSN]}
                       || [] == Vsns]
                      ++ UserCaps}]}.
+
+%% cap/1
+%%
+%% Let NETCONF capabilities be specified in the shorthand documented in
+%% RFC 6241.
+
+%% This shorthand is documented in RFC 6241 10.4 NETCONF Capabilities
+%% URNS, but not in 8 Capabilities.
+cap(":base:" ++ _ = Str) ->
+    ["urn:ietf:params:netconf", Str];
+
+cap([$:|_] = Str) ->
+    ["urn:ietf:params:netconf:capability", Str];
+
+cap(Str) ->
+    [Str].
 
 %% versions/1
 %%

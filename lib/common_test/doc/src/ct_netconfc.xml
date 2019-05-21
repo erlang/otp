@@ -253,14 +253,17 @@
         reception.</p>
 
         <p>Option <c>capability</c> specifies the content of a
-        corresponding element in an outgoing hello message: each
-        option specifies the content of a single element as a list of
-        strings.
+        corresponding element in an outgoing hello message, each
+        option specifying the content of a single element.
         If no base NETCONF capability is configured then the RFC 4741
         1.0 capability, "urn:ietf:params:netconf:base:1.0", is added,
         otherwise not.
         In particular, the RFC 6241 1.1 capability must be explicitly
-        configured.</p>
+        configured.
+        NETCONF capabilities can be specified using the shorthand notation
+        defined in RFC 6241, any capability string starting with a
+        colon being prefixed by either "urn:ietf:params:netconf" or
+        "urn:ietf:params:netconf:capability", as appropriate.</p>
 
         <p>Capability options are ignored by connect/1-3 and only_open/1-2,
         which don't cause a hello message to be sent.</p>
