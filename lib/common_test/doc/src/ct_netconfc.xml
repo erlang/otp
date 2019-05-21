@@ -238,11 +238,12 @@
     <datatype>
       <name name="option"/>
       <desc>
-        <p><c>SshConnectOption</c> is any valid option to
-          <seealso marker="ssh:ssh#connect-3"><c>ssh:connect/3,4</c></seealso>.
-	  Common options used are <c>user</c>, <c>password</c>
-	  and <c>user_dir</c>. The <c>SshConnectOptions</c> are
-	  verfied by the SSH application.</p>
+        <p>Options <c>host</c> and <c>port</c> specify the
+        server endpoint to which to connect, and are passed directly
+        to <seealso
+        marker="ssh:ssh#connect-3"><c>ssh:connect/4</c></seealso>,
+        as are arbitrary ssh options. Common options are <c>user</c>,
+        <c>password</c> and <c>user_dir</c>.</p>
 
         <p>Option <c>timeout</c> specifies the number of
         milliseconds to allow for connection establishment and, if the

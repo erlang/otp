@@ -213,9 +213,11 @@
 -opaque handle() :: pid().
 
 -type options() :: [option()].
--type option() :: {ssh,host()} | {port,inet:port_number()} | {user,string()} |
-		  {password,string()} | {user_dir,string()} |
-		  {timeout,timeout()} | {capability, string() | [string()]}.
+-type option() :: {host | ssh, host()}
+                | {port, inet:port_number()}
+                | {timeout, timeout()}
+                | {capability, string() | [string()]}
+                | ssh:client_option().
 
 -type session_options() :: [session_option()].
 -type session_option() :: {timeout,timeout()}
@@ -1135,7 +1137,9 @@ get_handle(Client) ->
 make_options(Opts, Rec) ->
     make_options(Opts, Rec#options{port = undefined}, fun opt/2).
 
-opt({ssh, Host}, Rec) ->
+opt({T, Host}, Rec)
+  when T == ssh;
+       T == host ->
     Rec#options{host = Host};
 
 opt({port, Port}, Rec) ->
