@@ -244,6 +244,14 @@
 	  and <c>user_dir</c>. The <c>SshConnectOptions</c> are
 	  verfied by the SSH application.</p>
 
+        <p>Option <c>timeout</c> specifies the number of
+        milliseconds to allow for connection establishment and, if the
+        function in question results in an outgoing hello message,
+        reception of the server hello. The timeout applies to
+        connection and hello independently;
+        one timeout for connection establishment, another for hello
+        reception.</p>
+
         <p>Option <c>capability</c> specifies the content of a
         corresponding element in an outgoing hello message: each
         option specifies the content of a single element as a list of
@@ -365,10 +373,6 @@
           function is required as connection identifier when opening
           sessions over this connection, see
           <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.</p>
-
-        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
-          SSH connection. It is not used for any other purposes during the
-          lifetime of the connection.</p>
       </desc>
     </func>
 
@@ -403,10 +407,6 @@
           or a <c>require</c> statement in the test suite, then this name can
           be used instead of
 	  <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
-
-        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
-          SSH connection. It is not used for any other purposes during the
-          lifetime of the connection.</p>
       </desc>
     </func>
 
@@ -738,11 +738,6 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
 	  reference returned from this
           function is required as client identifier when calling any other
           function in this module.</p>
-
-        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
-          SSH connection and when waiting for the <c>hello</c> message from
-          the server. It is not used for any other purposes during the
-          lifetime of the connection.</p>
       </desc>
     </func>
 
@@ -777,11 +772,6 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
            or a <c>require</c> statement in the test suite, then this name can
            be used instead of
 	   <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
-
-        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
-          SSH connection and when waiting for the <c>hello</c> message from
-          the server. It is not used for any other purposes during the
-          lifetime of the connection.</p>
 
          <p>See also
            <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
