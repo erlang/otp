@@ -3131,27 +3131,6 @@ mixed_types(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
     return 0;
 }
 
-static int
-is_killed_apply(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
-{
-    return Reg.type == TAG_x && Live.type == TAG_u &&
-	Live.val+2 <= Reg.val;
-}
-
-static int
-is_killed(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
-{
-    return Reg.type == TAG_x && Live.type == TAG_u &&
-	Live.val <= Reg.val;
-}
-
-static int
-is_killed_by_call_fun(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
-{
-    return Reg.type == TAG_x && Live.type == TAG_u &&
-	Live.val+1 <= Reg.val;
-}
-
 /*
  * Test whether register Reg is killed by make_fun instruction that
  * creates the fun given by index idx.
@@ -3169,16 +3148,6 @@ is_killed_by_make_fun(LoaderState* stp, GenOpArg Reg, GenOpArg idx)
         num_free = stp->lambdas[idx.val].num_free;
         return Reg.type == TAG_x && num_free <= Reg.val;
     }
-}
-
-/*
- * Test whether register Reg is killed by the send instruction that follows.
- */
-
-static int
-is_killed_by_send(LoaderState* stp, GenOpArg Reg)
-{
-    return Reg.type == TAG_x && 2 <= Reg.val;
 }
 
 /*

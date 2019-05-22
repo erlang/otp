@@ -1410,8 +1410,13 @@ bc_options(Config) ->
          {158, small_maps, [r20]},
          {158, small_maps, [r21]},
 
+         {164, small_maps, [r22]},
+         {164, big, [r22]},
          {164, small_maps, []},
-         {164, big, []}
+         {164, big, []},
+
+         {168, small, [r22]},
+         {168, small, []}
         ],
 
     Test = fun({Expected,Mod,Options}) ->

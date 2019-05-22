@@ -1123,6 +1123,13 @@ resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
     {put_tuple2,Dst,{list,List}};
 
 %%
+%% OTP 23.
+%%
+resolve_inst({swap,[_,_]=List},_,_,_) ->
+    [R1,R2] = resolve_args(List),
+    {swap,R1,R2};
+
+%%
 %% Catches instructions that are not yet handled.
 %%
 resolve_inst(X,_,_,_) -> ?exit({resolve_inst,X}).
