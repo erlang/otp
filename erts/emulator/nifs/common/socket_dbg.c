@@ -30,6 +30,7 @@
 #include <time.h>
 
 #include <erl_nif.h>
+#include "socket_util.h"
 #include "socket_dbg.h"
 
 #define TSELF()            enif_thread_self()
@@ -37,12 +38,6 @@
 #define TSNAME()           TNAME(TSELF())
 
 static FILE* dbgout = NULL;
-
-#if defined(CLOCK_REALTIME)
-static int realtime(struct timespec* tsP);
-static int timespec2str(char *buf, unsigned int len, struct timespec *ts);
-#endif
-
 
 extern
 void esock_dbg_init(char* filename)
@@ -73,10 +68,7 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
 {
   va_list         args;
   char            f[512 + sizeof(format)]; // This has to suffice...
-#if defined(CLOCK_REALTIME)
   char            stamp[30];
-  struct timespec ts;
-#endif
   int             res;
 
   /*
@@ -85,64 +77,21 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
    * But then I must change the API....something for later.
    */
 
-#if defined(CLOCK_REALTIME)
-  if (!realtime(&ts) &&
-      (timespec2str(stamp, sizeof(stamp), &ts) == 0)) {
+  if (esock_timestamp(stamp, sizeof(stamp))) {
       res = enif_snprintf(f, sizeof(f), "%s [%s] [%s] %s",
                           prefix, stamp, TSNAME(), format);
   } else {
       res = enif_snprintf(f, sizeof(f), "%s [%s] %s",
                           prefix, TSNAME(), format);
   }
-#else
-  res = enif_snprintf(f, sizeof(f), "%s [%s] %s",
-                      prefix, TSNAME(), format);
-#endif
   
   if (res > 0) {
       va_start (args, format);
       enif_vfprintf (dbgout, f, args);
       va_end (args);
-      fflush(stdout);
+      fflush(dbgout);
   }
 
   return;
 }
 
-
-#if defined(CLOCK_REALTIME)
-static
-int realtime(struct timespec* tsP)
-{
-    return clock_gettime(CLOCK_REALTIME, tsP);
-}
-
-
-
-
-/*
- * Convert a timespec struct into a readable/printable string
- */
-static
-int timespec2str(char *buf, unsigned int len, struct timespec *ts)
-{
-  int       ret, buflen;
-  struct tm t;
-
-  tzset();
-  if (localtime_r(&(ts->tv_sec), &t) == NULL)
-    return 1;
-
-  ret = strftime(buf, len, "%F %T", &t);
-  if (ret == 0)
-    return 2;
-  len -= ret - 1;
-  buflen = strlen(buf);
-
-  ret = snprintf(&buf[buflen], len, ".%06ld", ts->tv_nsec/1000);
-  if (ret >= len)
-    return 3;
-
-  return 0;
-}
-#endif

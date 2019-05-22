@@ -52,6 +52,10 @@
 extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
 
 #if defined(CLOCK_REALTIME)
+// #define ESOCK_USE_CLOCK_REALTIME 1
+#endif
+
+#if defined(ESOCK_USE_CLOCK_REALTIME)
 static int realtime(struct timespec* tsP);
 static int timespec2str(char *buf,
                         unsigned int len,
@@ -1510,10 +1514,7 @@ void esock_warning_msg( const char* format, ... )
 {
   va_list         args;
   char            f[512 + sizeof(format)]; // This has to suffice...
-#if defined(CLOCK_REALTIME)
   char            stamp[64]; // Just in case...
-  struct timespec ts;
-#endif
   int             res;
 
   /*
@@ -1525,18 +1526,13 @@ void esock_warning_msg( const char* format, ... )
   // 2018-06-29 12:13:21.232089
   // 29-Jun-2018::13:47:25.097097
 
-#if defined(CLOCK_REALTIME)
-  if (!realtime(&ts) &&
-      (timespec2str(stamp, sizeof(stamp), &ts) == 0)) {
+  if (esock_timestamp(stamp, sizeof(stamp))) {
       res = enif_snprintf(f, sizeof(f),
                           "=WARNING MSG==== %s ===\r\n%s",
                           stamp, format);
   } else {
       res = enif_snprintf(f, sizeof(f), "=WARNING MSG==== %s", format);
   }
-#else
-  res = enif_snprintf(f, sizeof(f), "=WARNING MSG==== %s", format);
-#endif
 
   if (res > 0) {
       va_start (args, format);
@@ -1549,11 +1545,67 @@ void esock_warning_msg( const char* format, ... )
 }
 
 
-#if defined(CLOCK_REALTIME)
+/* *** esock_timestamp ***
+ *
+ * Create a timestamp string.
+ * If awailable, it uses the realtime(CLOCK_REALTIME) function(s)
+ * and produces a nice readable timetamp. But if not, it produces
+ * a timestamp in the form of an Epoch.
+ */
+
+/* We should really have: ESOCK_USE_PRETTY_TIMESTAMP */
+extern
+BOOLEAN_T esock_timestamp(char *buf, unsigned int len)
+{
+#if defined(ESOCK_USE_CLOCK_REALTIME)
+
+    struct timespec ts;
+
+    if (!realtime(&ts) && (timespec2str(buf, len, &ts) == 0)) {
+        return TRUE;
+    } else {
+        return FALSE;
+    }
+
+#else
+
+    int        ret, buflen;
+    ErlNifTime monTime = enif_monotonic_time(ERL_NIF_USEC);
+    ErlNifTime offTime = enif_time_offset(ERL_NIF_USEC);
+    ErlNifTime time    = monTime + offTime;
+    time_t     sec     = time / 1000000; // (if _MSEC) sec  = time / 1000;
+    time_t     usec    = time % 1000000; // (if _MSEC) msec = time % 1000;
+    struct tm  t;
+
+    /* Ideally, we would convert this plain integer into a
+     * nice readable string, but...
+     */
+
+    if (localtime_r(&sec, &t) == NULL)
+        return FALSE;
+
+    ret = strftime(buf, len, "%d-%B-%Y::%T", &t);
+    if (ret == 0)
+        return FALSE;
+    len -= ret - 1;
+    buflen = strlen(buf);
+
+    ret = enif_snprintf(&buf[buflen], len, ".%06b64d", usec);
+    if (ret >= len)
+        return FALSE;
+
+    return TRUE;
+
+#endif
+}
+
+
+
+#if defined(ESOCK_USE_CLOCK_REALTIME)
 static
 int realtime(struct timespec* tsP)
 {
-  return clock_gettime(CLOCK_REALTIME, tsP);
+    return clock_gettime(CLOCK_REALTIME, tsP);
 }
 
 
@@ -1579,13 +1631,14 @@ int timespec2str(char *buf, unsigned int len, struct timespec *ts)
   len -= ret - 1;
   buflen = strlen(buf);
 
-  ret = snprintf(&buf[buflen], len, ".%06ld", ts->tv_nsec/1000);
+  ret = enif_snprintf(&buf[buflen], len, ".%06b64d", ts->tv_nsec/1000);
   if (ret >= len)
     return 3;
 
   return 0;
 }
 #endif
+
 
 
 /* =================================================================== *

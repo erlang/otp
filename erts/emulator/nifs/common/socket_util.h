@@ -199,6 +199,9 @@ extern
 ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err);
 
 extern
+BOOLEAN_T esock_timestamp(char *buf, unsigned int len);
+
+extern
 void esock_warning_msg(const char* format, ... );
 
 
