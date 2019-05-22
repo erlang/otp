@@ -55,20 +55,10 @@
 
 extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
 
-#if defined(CLOCK_REALTIME)
-// #define ESOCK_USE_CLOCK_REALTIME 1
-#endif
 #if (defined(HAVE_LOCALTIME_R) && defined(HAVE_STRFTIME))
 #define ESOCK_USE_PRETTY_TIMESTAMP 1
 #endif
     
-
-#if defined(ESOCK_USE_CLOCK_REALTIME)
-static int realtime(struct timespec* tsP);
-static int timespec2str(char *buf,
-                        unsigned int len,
-                        struct timespec *ts);
-#endif
 
 static char* make_sockaddr_in4(ErlNifEnv*    env,
                                ERL_NIF_TERM  port,
@@ -1556,27 +1546,16 @@ void esock_warning_msg( const char* format, ... )
 /* *** esock_timestamp ***
  *
  * Create a timestamp string.
- * If awailable, it uses the realtime(CLOCK_REALTIME) function(s)
- * and produces a nice readable timetamp. But if not, it produces
- * a timestamp in the form of an Epoch.
+ * If awailable, we use the localtime_r and strftime function(s)
+ * to produces a nice readable timestamp. But if not (awailable),
+ * it produces a timestamp in the form of an "Epoch" (A real epoch
+ * is the number of seconds since 1/1 1970, but our timestamp is
+ * the number micro seconds since 1/1 1970).
  */
 
-/* We should really have: ESOCK_USE_PRETTY_TIMESTAMP */
 extern
 BOOLEAN_T esock_timestamp(char *buf, unsigned int len)
 {
-#if defined(ESOCK_USE_CLOCK_REALTIME)
-
-    struct timespec ts;
-
-    if (!realtime(&ts) && (timespec2str(buf, len, &ts) == 0)) {
-        return TRUE;
-    } else {
-        return FALSE;
-    }
-
-#else
-
     int        ret;
     ErlNifTime monTime = enif_monotonic_time(ERL_NIF_USEC);
     ErlNifTime offTime = enif_time_offset(ERL_NIF_USEC);
@@ -1586,10 +1565,6 @@ BOOLEAN_T esock_timestamp(char *buf, unsigned int len)
     time_t     usec    = time % 1000000; // (if _MSEC) msec = time % 1000;
     int        buflen;
     struct tm  t;
-
-    /* Ideally, we would convert this plain integer into a
-     * nice readable string, but...
-     */
 
     if (localtime_r(&sec, &t) == NULL)
         return FALSE;
@@ -1612,49 +1587,7 @@ BOOLEAN_T esock_timestamp(char *buf, unsigned int len)
     else
         return TRUE;
 #endif
-
-#endif
 }
-
-
-
-#if defined(ESOCK_USE_CLOCK_REALTIME)
-static
-int realtime(struct timespec* tsP)
-{
-    return clock_gettime(CLOCK_REALTIME, tsP);
-}
-
-
-/*
- * Convert a timespec struct into a readable/printable string.
- *
- * "%F::%T"       => 2018-06-29 12:13:21[.232089]
- * "%d-%b-%Y::%T" => 29-Jun-2018::13:47:25.097097
- */
-static
-int timespec2str(char *buf, unsigned int len, struct timespec *ts)
-{
-  int       ret, buflen;
-  struct tm t;
-
-  tzset();
-  if (localtime_r(&(ts->tv_sec), &t) == NULL)
-    return 1;
-
-  ret = strftime(buf, len, "%d-%B-%Y::%T", &t);
-  if (ret == 0)
-    return 2;
-  len -= ret - 1;
-  buflen = strlen(buf);
-
-  ret = enif_snprintf(&buf[buflen], len, ".%06b64d", ts->tv_nsec/1000);
-  if (ret >= len)
-    return 3;
-
-  return 0;
-}
-#endif
 
 
 
