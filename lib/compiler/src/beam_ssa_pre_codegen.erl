@@ -108,7 +108,8 @@ functions([], _Ps, _UseBSM3) -> [].
              intervals=[] :: [{b_var(),[range()]}],
              res=[] :: [{b_var(),reservation()}] | #{b_var():=reservation()},
              regs=#{} :: #{b_var():=ssa_register()},
-             extra_annos=[] :: [{atom(),term()}]
+             extra_annos=[] :: [{atom(),term()}],
+             location :: term()
             }).
 -define(PASS(N), {N,fun N/1}).
 
@@ -120,6 +121,7 @@ passes(Opts) ->
           %% Preliminaries.
           ?PASS(fix_bs),
           ?PASS(sanitize),
+          ?PASS(match_fail_instructions),
           case FixTuples of
               false -> ignore;
               true -> ?PASS(fix_tuples)
@@ -162,7 +164,9 @@ passes(Opts) ->
 function(#b_function{anno=Anno,args=Args,bs=Blocks0,cnt=Count0}=F0,
          Ps, UseBSM3) ->
     try
-        St0 = #st{ssa=Blocks0,args=Args,use_bsm3=UseBSM3,cnt=Count0},
+        Location = maps:get(location, Anno, none),
+        St0 = #st{ssa=Blocks0,args=Args,use_bsm3=UseBSM3,
+                  cnt=Count0,location=Location},
         St = compile:run_sub_passes(Ps, St0),
         #st{ssa=Blocks,cnt=Count,regs=Regs,extra_annos=ExtraAnnos} = St,
         F1 = add_extra_annos(F0, ExtraAnnos),
@@ -853,6 +857,114 @@ prune_phi(#b_set{args=Args0}=Phi, Reachable) ->
     Args = [A || {_,Pred}=A <- Args0,
                  gb_sets:is_element(Pred, Reachable)],
     Phi#b_set{args=Args}.
+
+%%% Rewrite certain calls to erlang:error/{1,2} to specialized
+%%% instructions:
+%%%
+%%% erlang:error({badmatch,Value})       => badmatch Value
+%%% erlang:error({case_clause,Value})    => case_end Value
+%%% erlang:error({try_clause,Value})     => try_case_end Value
+%%% erlang:error(if_clause)              => if_end
+%%% erlang:error(function_clause, Args)  => jump FuncInfoLabel
+%%%
+%%% In SSA code, we represent those instructions as a 'match_fail'
+%%% instruction with the name of the BEAM instruction as the first
+%%% argument.
+
+match_fail_instructions(#st{ssa=Blocks0,args=Args,location=Location}=St) ->
+    Ls = maps:to_list(Blocks0),
+    Info = {length(Args),Location},
+    Blocks = match_fail_instrs_1(Ls, Info, Blocks0),
+    St#st{ssa=Blocks}.
+
+match_fail_instrs_1([{L,#b_blk{is=Is0}=Blk}|Bs], Arity, Blocks0) ->
+    case match_fail_instrs_blk(Is0, Arity, []) of
+        none ->
+            match_fail_instrs_1(Bs, Arity, Blocks0);
+        Is ->
+            Blocks = Blocks0#{L:=Blk#b_blk{is=Is}},
+            match_fail_instrs_1(Bs, Arity, Blocks)
+    end;
+match_fail_instrs_1([], _Arity, Blocks) -> Blocks.
+
+match_fail_instrs_blk([#b_set{op=put_tuple,dst=Dst,
+                              args=[#b_literal{val=Tag},Val]},
+                       #b_set{op=call,
+                              args=[#b_remote{mod=#b_literal{val=erlang},
+                                              name=#b_literal{val=error}},
+                                    Dst]}=Call|Is],
+                      _Arity, Acc) ->
+    match_fail_instr(Call, Tag, Val, Is, Acc);
+match_fail_instrs_blk([#b_set{op=call,
+                              args=[#b_remote{mod=#b_literal{val=erlang},
+                                              name=#b_literal{val=error}},
+                                    #b_literal{val={Tag,Val}}]}=Call|Is],
+                      _Arity, Acc) ->
+    match_fail_instr(Call, Tag, #b_literal{val=Val}, Is, Acc);
+match_fail_instrs_blk([#b_set{op=call,
+                              args=[#b_remote{mod=#b_literal{val=erlang},
+                                              name=#b_literal{val=error}},
+                                    #b_literal{val=if_clause}]}=Call|Is],
+                      _Arity, Acc) ->
+    I = Call#b_set{op=match_fail,args=[#b_literal{val=if_end}]},
+    reverse(Acc, [I|Is]);
+match_fail_instrs_blk([#b_set{op=call,anno=Anno,
+                              args=[#b_remote{mod=#b_literal{val=erlang},
+                                              name=#b_literal{val=error}},
+                                    #b_literal{val=function_clause},
+                                    Stk]}=Call],
+                      {Arity,Location}, Acc) ->
+    case match_fail_stk(Stk, Acc, [], []) of
+        {[_|_]=Vars,Is} when length(Vars) =:= Arity ->
+            case maps:get(location, Anno, none) of
+                Location ->
+                    I = Call#b_set{op=match_fail,
+                                   args=[#b_literal{val=function_clause}|Vars]},
+                    Is ++ [I];
+                _ ->
+                    %% erlang:error/2 has a different location than the
+                    %% func_info instruction at the beginning of the function
+                    %% (probably because of inlining). Keep the original call.
+                    reverse(Acc, [Call])
+            end;
+        _ ->
+            %% Either the stacktrace could not be picked apart (for example,
+            %% if the call to erlang:error/2 was handwritten) or the number
+            %% of arguments in the stacktrace was different from the arity
+            %% of the host function (because it is the implementation of a
+            %% fun). Keep the original call.
+            reverse(Acc, [Call])
+    end;
+match_fail_instrs_blk([I|Is], Arity, Acc) ->
+    match_fail_instrs_blk(Is, Arity, [I|Acc]);
+match_fail_instrs_blk(_, _, _) ->
+    none.
+
+match_fail_instr(Call, Tag, Val, Is, Acc) ->
+    Op = case Tag of
+             badmatch -> Tag;
+             case_clause -> case_end;
+             try_clause -> try_case_end;
+             _ -> none
+         end,
+    case Op of
+        none ->
+            none;
+        _ ->
+            I = Call#b_set{op=match_fail,args=[#b_literal{val=Op},Val]},
+            reverse(Acc, [I|Is])
+    end.
+
+match_fail_stk(#b_var{}=V, [#b_set{op=put_list,dst=V,args=[H,T]}|Is], IAcc, VAcc) ->
+    match_fail_stk(T, Is, IAcc, [H|VAcc]);
+match_fail_stk(#b_literal{val=[H|T]}, Is, IAcc, VAcc) ->
+    match_fail_stk(#b_literal{val=T}, Is, IAcc, [#b_literal{val=H}|VAcc]);
+match_fail_stk(#b_literal{val=[]}, [], IAcc, VAcc) ->
+    {reverse(VAcc),IAcc};
+match_fail_stk(T, [#b_set{op=Op}=I|Is], IAcc, VAcc)
+  when Op =:= bs_get_tail; Op =:= bs_set_position ->
+    match_fail_stk(T, Is, [I|IAcc], VAcc);
+match_fail_stk(_, _, _, _) -> none.
 
 %%%
 %%% Fix tuples.

@@ -52,7 +52,6 @@ MODULES =  \
 	beam_clean \
 	beam_dict \
 	beam_disasm \
-	beam_except \
 	beam_flatten \
 	beam_jump \
 	beam_listing \
