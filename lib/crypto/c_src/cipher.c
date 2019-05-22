@@ -334,6 +334,7 @@ ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env)
             continue;
 
         if ((p->cipher.p != NULL) ||
+            (p->flags & AES_CTR_COMPAT) ||
             (p->type.atom == atom_aes_ige256))  /* Special handling. Bad indeed... */
             {
                 hd = enif_make_list_cell(env, p->type.atom, hd);
