@@ -74,7 +74,7 @@ decode(Data, Password,"AES-256-CBC"= Cipher, KeyDevParams) ->
 
 
 %%--------------------------------------------------------------------
--spec pbdkdf1(string(), iodata(), integer(), atom()) -> binary().
+-spec pbdkdf1(iodata(), iodata(), integer(), atom()) -> binary().
 %%
 %% Description: Implements password based decryption key derive function 1.
 %% Exported mainly for testing purposes.
@@ -86,7 +86,7 @@ pbdkdf1(Password, Salt, Count, Hash) ->
     do_pbdkdf1(Result, Count-1, Result, Hash).
 
 %%--------------------------------------------------------------------
--spec pbdkdf2(string(), iodata(), integer(), integer(), fun(), atom(), integer())
+-spec pbdkdf2(iodata(), iodata(), integer(), integer(), fun(), atom(), integer())
 	     -> binary().
 %%
 %% Description: Implements password based decryption key derive function 2.
