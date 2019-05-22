@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -440,10 +440,12 @@ usmUserSpinLock(print) ->
     
 usmUserSpinLock(new) ->
     snmp_generic:variable_func(new, {usmUserSpinLock, volatile}),
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
-    Val = random:uniform(2147483648) - 1,
+    ?SNMP_RAND_SEED(),
+    %% rand:seed(exrop,
+    %%           {erlang:phash2([node()]),
+    %%            erlang:monotonic_time(),
+    %%            erlang:unique_integer()}),
+    Val = rand:uniform(2147483648) - 1,
     snmp_generic:variable_func(set, Val, {usmUserSpinLock, volatile});
 
 usmUserSpinLock(delete) ->

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 -export([init/3]).
 
 -include_lib("stdlib/include/erl_compile.hrl").
+-include_lib("snmp/src/app/snmp_internal.hrl").
 -include("snmp_types.hrl").
 -include("snmpc.hrl").
 -include("snmpc_lib.hrl").
@@ -413,9 +414,11 @@ get_verbosity(Options) ->
 %%----------------------------------------------------------------------
 
 init(From, MibFileName, Options) ->
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
+    ?SNMP_RAND_SEED(),
+    %% rand:seed(exrop,
+    %%           {erlang:phash2([node()]),
+    %%            erlang:monotonic_time(),
+    %%            erlang:unique_integer()}),
     put(options,            Options),
     put(verbosity,          get_verbosity(Options)),
     put(description,        get_description(Options)),

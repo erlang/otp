@@ -52,6 +52,7 @@
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/include/STANDARD-MIB.hrl").
 -include("snmp_test_lib.hrl").
+-include_lib("snmp/src/app/snmp_internal.hrl").
 
 -record(state, {dbg         = true,
                 quiet,
@@ -192,9 +193,11 @@ receive_trap(Timeout) ->
 init({Options, CallerPid}) ->
     put(sname,     mgr),
     put(verbosity, debug), 
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
+    ?SNMP_RAND_SEED(),
+    %% rand:seed(exrop,
+    %%           {erlang:phash2([node()]),
+    %%            erlang:monotonic_time(),
+    %%            erlang:unique_integer()}),
     case (catch is_options_ok(Options)) of
 	true ->
 	    put(debug, get_value(debug, Options, false)),
@@ -668,7 +671,6 @@ make_vb(Oid) ->
     #varbind{oid = Oid, variabletype = 'NULL', value = 'NULL'}.
 
 make_request_id() ->
-    %% random:uniform(16#FFFFFFF-1).
     snmp_test_mgr_counter_server:increment(mgr_request_id, 1, 1, 2147483647).
 
 echo_pdu(PDU, MiniMIB) ->
@@ -1141,5 +1143,5 @@ d(_,_F,_A) ->
 print(F, A) ->
     ?PRINT2("MGR " ++ F, A).
 
-formated_timestamp() ->
-    snmp_test_lib:formated_timestamp().
+%% formated_timestamp() ->
+%%     snmp_test_lib:formated_timestamp().
