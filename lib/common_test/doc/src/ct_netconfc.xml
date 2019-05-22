@@ -188,11 +188,11 @@
     <p><em>Notifications</em></p>
 
     <p>The NETCONF client is also compliant with RFC 5277 NETCONF Event
-      Notifications, which defines a mechanism for an asynchronous message 
+      Notifications, which defines a mechanism for an asynchronous message
       notification delivery service for the NETCONF protocol.</p>
 
     <p>Specific functions to support this are
-      <seealso marker="#create_subscription-1"><c>create_subscription/1-6</c></seealso>
+      <seealso marker="#create_subscription-2"><c>create_subscription/2-3</c></seealso>
       and
       <seealso marker="#get_event_streams-1"><c>get_event_streams/1-3</c></seealso>.</p>
 
@@ -428,80 +428,54 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">create_subscription(Client) -> Result</name>
-      <name since="OTP R15B02">create_subscription(Client, Stream) -> Result</name>
-      <name since="OTP R15B02">create_subscription(Client, Stream, Filter) -> Result</name>
-      <name since="OTP R15B02">create_subscription(Client, Stream, Filter, Timeout) -> Result</name>
-      <name name="create_subscription" arity="5" clause_i="2" since="OTP R15B02"/>
-      <name name="create_subscription" arity="6" since="OTP R15B02"/>
+      <name name="create_subscription" arity="2" clause_i="1"/>
+      <name name="create_subscription" arity="3" clause_i="1"/>
       <fsummary>Creates a subscription for event notifications.</fsummary>
       <desc>
-        <p>Creates a subscription for event notifications.</p>
+        <p>Creates a subscription for event notifications by sending
+           an RFC 5277 create-subscription RPC to the server.
+           The calling process receives events as messages of
+           type <seealso marker="#type-notification"><c>notification()</c></seealso>.</p>
 
-        <p>This function sets up a subscription for NETCONF event
-          notifications of the specified stream type, matching the specified
-          filter. The calling process receives notifications as messages of
-          type <seealso marker="#type-notification"><c>notification()</c></seealso>.</p>
-
-	<p>Only a subset of the function clauses are show above. The
-	  full set of valid combinations of input parameters is as
-	  follows:</p>
-
-<pre>create_subscription(Client)
-
-create_subscription(Client, Timeout)
-create_subscription(Client, Stream)
-create_subscription(Client, Filter)
-
-create_subscription(Client, Stream, Timeout)
-create_subscription(Client, Filter, Timeout)
-create_subscription(Client, Stream, Filter)
-create_subscription(Client, StartTime, StopTime)
-
-create_subscription(Client, Stream, Filter, Timeout)
-create_subscription(Client, StartTime, StopTime, Timeout)
-create_subscription(Client, Stream, StartTime, StopTime)
-create_subscription(Client, Filter, StartTime, StopTime)
-
-create_subscription(Client, Stream, StartTime, StopTime, Timeout)
-create_subscription(Client, Stream, Filter, StartTime, StopTime)
-create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
+	<p>From RFC 5722, 2.1 Subscribing to Receive Event Notifications:</p>
 
         <taglist>
           <tag><c><anno>Stream</anno></c></tag>
-          <item><p>Optional parameter that indicates which stream of event
+          <item><p>Indicates which stream of event
             is of interest. If not present, events in the default NETCONF
             stream are sent.</p></item>
           <tag><c><anno>Filter</anno></c></tag>
-          <item><p>Optional parameter that indicates which subset of all
+          <item><p>Indicates which subset of all
             possible events is of interest. The parameter format is the
             same as that of the filter parameter in the NETCONF protocol
             operations. If not present, all events not precluded by other
             parameters are sent.</p></item>
           <tag><c><anno>StartTime</anno></c></tag>
-          <item><p>Optional parameter used to trigger the replay feature and
+          <item><p>Used to trigger the replay feature and
               indicate that the replay is to start at the time specified.
               If <c><anno>StartTime</anno></c> is not present, this is not a
-	      replay subscription.</p>
-            <p>It is not valid to specify start times that are later than
+	      replay subscription.
+              It is not valid to specify start times that are later than
               the current time. If <c><anno>StartTime</anno></c> is specified
 	      earlier than the log can support, the replay begins with the
-	      earliest available notification.</p>
-            <p>This parameter is of type <c>dateTime</c> and compliant to
+	      earliest available notification.
+              This parameter is of type <c>dateTime</c> and compliant to
               RFC 3339. Implementations must support time zones.</p></item>
           <tag><c><anno>StopTime</anno></c></tag>
-          <item><p>Optional parameter used with the optional replay feature
+          <item><p>Used with the optional replay feature
               to indicate the newest notifications of interest. If
               <c><anno>StopTime</anno></c> is not present, the notifications
-	      continues until the subscription is terminated.</p>
-            <p>Must be used with and be later than <c>StartTime</c>. Values
+	      continues until the subscription is terminated.
+              Must be used with and be later than <c>StartTime</c>. Values
               of <c><anno>StopTime</anno></c> in the future are valid. This
 	      parameter is of type <c>dateTime</c> and compliant to RFC 3339.
               Implementations must support time zones.</p></item>
         </taglist>
 
-        <p>For more details about the event notification mechanism, see
-          RFC 5277.</p>
+        <p>See RFC 5277 for more details. The requirement that
+        <c>StopTime</c> must only be used with <c>StartTime</c> is not
+           enforced, to allow an invalid request to be sent to the
+           server.</p>
       </desc>
     </func>
 

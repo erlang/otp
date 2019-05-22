@@ -55,9 +55,8 @@
 %% The netconf client is also compliant with RFC5277 NETCONF Event
 %% Notifications, which defines a mechanism for an asynchronous
 %% message notification delivery service for the netconf protocol.
-%%
-%% Specific functions to support this are create_subscription/6
-%% get_event_streams/3. (The functions also exist with other arities.)
+%% Functions supporting this are create_subscription/3
+%% get_event_streams/3.
 %%
 %%----------------------------------------------------------------------
 -module(ct_netconfc).
@@ -109,12 +108,8 @@
 	 copy_config/4,
 	 action/2,
 	 action/3,
-	 create_subscription/1,
 	 create_subscription/2,
 	 create_subscription/3,
-	 create_subscription/4,
-	 create_subscription/5,
-	 create_subscription/6,
 	 get_event_streams/1,
 	 get_event_streams/2,
 	 get_event_streams/3,
@@ -122,6 +117,12 @@
 	 get_capabilities/2,
 	 get_session_id/1,
 	 get_session_id/2]).
+
+%% historic, no longer documented
+-export([create_subscription/1,
+	 create_subscription/4,
+	 create_subscription/5,
+	 create_subscription/6]).
 
 %%----------------------------------------------------------------------
 %% Exported types
@@ -733,117 +734,122 @@ action(Client,Action,Timeout) ->
 %%----------------------------------------------------------------------
 %% Send a 'create-subscription' request
 %% See RFC5277, NETCONF Event Notifications
--spec create_subscription(Client) -> Result when
-      Client :: client(),
-      Result :: ok | {error,error_reason()}.
-create_subscription(Client) ->
-    create_subscription(Client,?DEFAULT_STREAM,?DEFAULT_TIMEOUT).
 
--spec create_subscription(Client, Stream | Filter | Timeout) -> Result when
+%% create_subscription/2
+
+-spec create_subscription(Client, Values) -> Result when
       Client :: client(),
+      Values :: #{stream => Stream,
+                  filter => Filter,
+                  start => StartTime,
+                  stop => StopTime},
       Stream :: stream_name(),
       Filter :: simple_xml() | [simple_xml()],
-      Timeout :: timeout(),
-      Result :: ok | {error,error_reason()}.
-create_subscription(Client,Timeout)
-  when ?is_timeout(Timeout) ->
-    create_subscription(Client,?DEFAULT_STREAM,Timeout);
-create_subscription(Client,Stream)
-  when ?is_string(Stream) ->
-    create_subscription(Client,Stream,?DEFAULT_TIMEOUT);
-create_subscription(Client,Filter)
-  when ?is_filter(Filter) ->
-    create_subscription(Client,?DEFAULT_STREAM,Filter,
-			?DEFAULT_TIMEOUT).
-
-create_subscription(Client,Stream,Timeout)
-  when ?is_string(Stream) andalso
-       ?is_timeout(Timeout) ->
-    call(Client,{send_rpc_op,{create_subscription,self()},
-		 [Stream,undefined,undefined,undefined],
-		 Timeout});
-create_subscription(Client,StartTime,StopTime)
-  when ?is_string(StartTime) andalso
-       ?is_string(StopTime) ->
-    create_subscription(Client,?DEFAULT_STREAM,StartTime,StopTime,
-			?DEFAULT_TIMEOUT);
-create_subscription(Client,Filter,Timeout)
-  when ?is_filter(Filter) andalso
-       ?is_timeout(Timeout) ->
-    create_subscription(Client,?DEFAULT_STREAM,Filter,Timeout);
-create_subscription(Client,Stream,Filter)
-  when ?is_string(Stream) andalso
-       ?is_filter(Filter) ->
-    create_subscription(Client,Stream,Filter,?DEFAULT_TIMEOUT).
-
-create_subscription(Client,StartTime,StopTime,Timeout)
-  when ?is_string(StartTime) andalso
-       ?is_string(StopTime) andalso
-       ?is_timeout(Timeout) ->
-    create_subscription(Client,?DEFAULT_STREAM,StartTime,StopTime,Timeout);
-create_subscription(Client,Stream,StartTime,StopTime)
-  when ?is_string(Stream) andalso
-       ?is_string(StartTime) andalso
-       ?is_string(StopTime) ->
-    create_subscription(Client,Stream,StartTime,StopTime,?DEFAULT_TIMEOUT);
-create_subscription(Client,Filter,StartTime,StopTime)
-  when ?is_filter(Filter) andalso
-       ?is_string(StartTime) andalso
-       ?is_string(StopTime) ->
-    create_subscription(Client,?DEFAULT_STREAM,Filter,
-			StartTime,StopTime,?DEFAULT_TIMEOUT);
-create_subscription(Client,Stream,Filter,Timeout)
-  when ?is_string(Stream) andalso
-       ?is_filter(Filter) andalso
-       ?is_timeout(Timeout) ->
-    call(Client,{send_rpc_op,{create_subscription,self()},
-		 [Stream,Filter,undefined,undefined],
-		 Timeout}).
-
--spec create_subscription(Client, Stream, StartTime, StopTime, Timeout) ->
-				 Result when
+      StartTime :: xs_datetime(),
+      StopTime :: xs_datetime(),
+      Result :: ok | {error,error_reason()};
+      %% historic, no longer documented
+                         (Client, list() | timeout()) -> Result when
       Client :: client(),
+      Result :: ok | {error,error_reason()}.
+
+create_subscription(Client, #{} = Values) ->
+    create_subscription(Client, Values, ?DEFAULT_TIMEOUT);
+
+%% historic clauses
+create_subscription(Client, Timeout)
+  when ?is_timeout(Timeout) ->
+    create_subscription(Client, #{}, Timeout);
+create_subscription(Client, Stream)
+  when ?is_string(Stream) ->
+    create_subscription(Client, #{stream => Stream});
+create_subscription(Client, Filter)
+  when ?is_filter(Filter) ->
+    create_subscription(Client, #{filter => Filter}).
+
+-spec create_subscription(Client, Values, Timeout) -> Result when
+      Client :: client(),
+      Values :: #{stream => Stream,
+                  filter => Filter,
+                  start => StartTime,
+                  stop => StopTime},
       Stream :: stream_name(),
+      Filter :: simple_xml() | [simple_xml()],
       StartTime :: xs_datetime(),
       StopTime :: xs_datetime(),
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()};
-                         (Client, Stream, Filter,StartTime, StopTime) ->
-				 Result when
+      %% historic, no longer documented
+                         (Client, list(), list() | timeout()) -> Result when
       Client :: client(),
-      Stream :: stream_name(),
-      Filter :: simple_xml() | [simple_xml()],
-      StartTime :: xs_datetime(),
-      StopTime :: xs_datetime(),
       Result :: ok | {error,error_reason()}.
-create_subscription(Client,Stream,StartTime,StopTime,Timeout)
-  when ?is_string(Stream) andalso
-       ?is_string(StartTime) andalso
-       ?is_string(StopTime) andalso
-       ?is_timeout(Timeout) ->
-    call(Client,{send_rpc_op,{create_subscription,self()},
-		 [Stream,undefined,StartTime,StopTime],
-		 Timeout});
-create_subscription(Client,Stream,Filter,StartTime,StopTime)
-  when ?is_string(Stream) andalso
-       ?is_filter(Filter) andalso
-       ?is_string(StartTime) andalso
-       ?is_string(StopTime) ->
-    create_subscription(Client,Stream,Filter,StartTime,StopTime,?DEFAULT_TIMEOUT).
 
--spec create_subscription(Client, Stream, Filter,StartTime, StopTime, Timeout) ->
-				 Result when
-      Client :: client(),
-      Stream :: stream_name(),
-      Filter :: simple_xml() | [simple_xml()],
-      StartTime :: xs_datetime(),
-      StopTime :: xs_datetime(),
-      Timeout :: timeout(),
-      Result :: ok | {error,error_reason()}.
-create_subscription(Client,Stream,Filter,StartTime,StopTime,Timeout) ->
-    call(Client,{send_rpc_op,{create_subscription, self()},
-		 [Stream,Filter,StartTime,StopTime],
-		 Timeout}).
+create_subscription(Client, #{} = Values, Timeout) ->
+    Keys = [{stream, ?DEFAULT_STREAM},
+            {filter, undefined},
+            {start, undefined},
+            {stop, undefined}],
+    call(Client, {send_rpc_op, {create_subscription, self()},
+                               [maps:get(K, Values, D) || {K,D} <- Keys],
+                               Timeout});
+
+%% historic clauses, arity 3
+create_subscription(Client, Stream, Timeout)
+  when ?is_string(Stream), ?is_timeout(Timeout) ->
+    create_subscription(Client, #{stream => Stream}, Timeout);
+create_subscription(Client, StartTime, StopTime)
+  when ?is_string(StartTime), ?is_string(StopTime) ->
+    create_subscription(Client, #{start => StartTime, stop => StopTime});
+create_subscription(Client, Filter, Timeout)
+  when ?is_filter(Filter), ?is_timeout(Timeout) ->
+    create_subscription(Client, #{filter => Filter}, Timeout);
+create_subscription(Client, Stream, Filter)
+  when ?is_string(Stream), ?is_filter(Filter) ->
+    create_subscription(Client, #{stream => Stream, filter => Filter}).
+
+%% historic clauses, arity 1,4-5
+create_subscription(Client) ->
+    create_subscription(Client, #{}).
+create_subscription(Client, StartTime, StopTime, Timeout)
+  when ?is_string(StartTime), ?is_string(StopTime), ?is_timeout(Timeout) ->
+    Values = #{start => StartTime,
+               stop => StopTime},
+    create_subscription(Client, Values, Timeout);
+create_subscription(Client, Stream, StartTime, StopTime)
+  when ?is_string(Stream), ?is_string(StartTime), ?is_string(StopTime) ->
+    create_subscription(Client, #{stream => Stream,
+                                  start => StartTime,
+                                  stop => StopTime});
+create_subscription(Client, Filter, StartTime, StopTime)
+  when ?is_filter(Filter), ?is_string(StartTime), ?is_string(StopTime) ->
+    create_subscription(Client, #{filter => Filter,
+                                  start => StartTime,
+                                  stop => StopTime});
+create_subscription(Client, Stream, Filter, Timeout)
+  when ?is_string(Stream), ?is_filter(Filter), ?is_timeout(Timeout) ->
+    Values = #{stream => Stream,
+               filter => Filter},
+    create_subscription(Client, Values, Timeout).
+create_subscription(Client, Stream, StartTime, StopTime, Timeout)
+  when ?is_string(Stream), ?is_string(StartTime), ?is_string(StopTime),
+       ?is_timeout(Timeout) ->
+    Values = #{stream => Stream,
+               start => StartTime,
+               stop => StopTime},
+    create_subscription(Client, Values, Timeout);
+create_subscription(Client, Stream, Filter, StartTime, StopTime)
+  when ?is_string(Stream), ?is_filter(Filter), ?is_string(StartTime),
+       ?is_string(StopTime) ->
+    create_subscription(Client, #{stream => Stream,
+                                  filter => Filter,
+                                  start => StartTime,
+                                  stop => StopTime}).
+create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout) ->
+    Values = #{stream => Stream,
+               filter => Filter,
+               start => StartTime,
+               stop => StopTime},
+    create_subscription(Client, Values, Timeout).
 
 %%----------------------------------------------------------------------
 %% Send a request to get the given event streams
