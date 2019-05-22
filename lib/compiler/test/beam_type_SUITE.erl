@@ -271,7 +271,21 @@ setelement(_Config) ->
     T0 = id({a,42}),
     {a,_} = T0,
     {b,_} = setelement(1, T0, b),
+    {z,b} = do_setelement_1(<<(id(1)):32>>, {a,b}, z),
+    {new,two} = do_setelement_2(<<(id(1)):1>>, {one,two}, new),
     ok.
+
+do_setelement_1(<<N:32>>, Tuple, NewValue) ->
+    _ = element(N, Tuple),
+    %% While updating the type for Tuple, beam_ssa_type would do:
+    %%   maps:without(lists:seq(0, 4294967295), Elements)
+    setelement(N, Tuple, NewValue).
+
+do_setelement_2(<<N:1>>, Tuple, NewValue) ->
+    %% Cover the second clause in remove_element_info/2. The
+    %% type for the second element will be kept.
+    two = element(2, Tuple),
+    setelement(N, Tuple, NewValue).
 
 cons(_Config) ->
     [did] = cons(assigned, did),
