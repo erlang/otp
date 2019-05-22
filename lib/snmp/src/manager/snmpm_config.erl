@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -479,10 +479,7 @@ agent_info(Domain, Address, Item) when is_atom(Domain) ->
 	NAddress ->
 	    do_agent_info(Domain, NAddress, Item)
     catch
-	_Thrown ->
-	    %% p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
-	    %%   "    ~p",
-	    %%   [Domain, Address, Item, _Thrown, erlang:get_stacktrace()]),
+	_C:_E:_S ->
 	    {error, not_found}
     end;
 agent_info(Ip, Port, Item) when is_integer(Port) ->
@@ -493,10 +490,7 @@ agent_info(Ip, Port, Item) when is_integer(Port) ->
 	Address ->
 	    do_agent_info(Domain, Address, Item)
     catch
-	_Thrown ->
-	    %% p(?MODULE_STRING":agent_info(~p, ~p, ~p) throwed ~p at.~n"
-	    %%   "    ~p",
-	    %%   [Ip, Port, Item, _Thrown, erlang:get_stacktrace()]),
+	_C:_E:_S ->
 	    {error, not_found}
     end.
 
@@ -1688,9 +1682,10 @@ read_agents_config_file(Dir) ->
     Check = fun check_agent_config/2,
     try read_file(Dir, "agents.conf", Order, Check, [])
     catch
-	throw:Error ->
-	    ?vlog("agent config error: ~p", [Error]),
-	    erlang:raise(throw, Error, erlang:get_stacktrace())
+	throw:E:S ->
+	    ?vlog("agent config error: "
+                  "~n   ~p", [E]),
+	    erlang:raise(throw, E, S)
     end.
 
 check_agent_config(Agent, State) ->
@@ -1935,9 +1930,10 @@ read_users_config_file(Dir) ->
     Check = fun (User, State) -> {check_user_config(User), State} end,
     try read_file(Dir, "users.conf", Order, Check, [])
     catch
-	throw:Error ->
-	    ?vlog("failure reading users config file: ~n   ~p", [Error]),
-	    erlang:raise(throw, Error, erlang:get_stacktrace())
+	throw:E:S ->
+	    ?vlog("failure reading users config file: "
+                  "~n   ~p", [E]),
+	    erlang:raise(throw, E, S)
     end.
 
 check_user_config({Id, Mod, Data}) ->
@@ -2351,10 +2347,11 @@ read_file(Dir, FileName, Order, Check, Default) ->
 read_file(Dir, FileName, Order, Check) ->
     try snmp_conf:read(filename:join(Dir, FileName), Order, Check)
     catch
-	throw:{error, Reason} = Error
+	throw:{error, Reason} = E:S
 	  when element(1, Reason) =:= failed_open ->
-	    error_msg("failed reading config from ~s: ~p", [FileName, Reason]),
-	    erlang:raise(throw, Error, erlang:get_stacktrace())
+	    error_msg("failed reading config from ~s: "
+                      "~n   ~p", [FileName, Reason]),
+	    erlang:raise(throw, E, S)
     end.
 
 %%--------------------------------------------------------------------

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -364,13 +364,14 @@ send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID,
 			 LocalEngineID, ExtraInfo, NetIf)
 	end
     catch
-	T:E ->
-	    Info = [{args, [TrapRec, NotifyName, ContextName, 
-			    Recv, Vbs, LocalEngineID, ExtraInfo, NetIf]},
-		    {tag,  T},
-		    {err,  E},
-		    {stacktrace, erlang:get_stacktrace()}],
-	    ?vlog("snmpa_trap:send_trap exception: ~p", [Info]),
+	C:E:S ->
+	    Info = [{args,  [TrapRec, NotifyName, ContextName, 
+                             Recv, Vbs, LocalEngineID, ExtraInfo, NetIf]},
+		    {class, C},
+		    {err,   E},
+		    {stacktrace, S}],
+	    ?vlog("snmpa_trap:send_trap exception: "
+                  "~n   ~p", [Info]),
 	    {error, {failed_sending_trap, Info}}
     end.
      

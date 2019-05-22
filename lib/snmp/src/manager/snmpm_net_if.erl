@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -182,11 +182,9 @@ worker(Worker, Failer, #state{log = Log} = State) ->
 		      %% Winds up in handle_info {'DOWN', ...}
 		      erlang:exit({net_if_worker, Result})
 	      catch
-		  Class:Reason ->
+		  C:E:S ->
 		      %% Winds up in handle_info {'DOWN', ...}
-		      erlang:exit(
-			{net_if_worker, Failer,
-			 Class, Reason, erlang:get_stacktrace()})
+		      erlang:exit({net_if_worker, Failer, C, E, S})
 	      end
       end,
       [monitor]).
@@ -983,11 +981,10 @@ udp_send(Sock, To, Msg) ->
 	    error_msg("failed sending message to ~p:~p:~n"
 		      "   ~p",[IpAddr, IpPort, Reason])
     catch
-	error:Error ->
-	    error_msg("failed sending message to ~p:~p:~n"
-		      "   error:~p~n"
-		      "   ~p",
-		      [IpAddr, IpPort, Error, erlang:get_stacktrace()])
+	error:E:S ->
+	    error_msg("failed sending message to ~p:~p:"
+		      "~n   ~p"
+		      "~n   ~p", [IpAddr, IpPort, E, S])
     end.
 
 sz(B) when is_binary(B) ->

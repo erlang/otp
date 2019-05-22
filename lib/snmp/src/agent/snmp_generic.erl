@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -421,12 +421,12 @@ table_check_status(NameDb, Col, ?'RowStatus_createAndGo', RowIndex, Cols) ->
 			_Found -> {inconsistentValue, Col}
 		    end
             catch
-                _:_Reason ->
+                _:_E:_S ->
 		    ?vtrace(
 		       "failed construct row (createAndGo): "
-		       " n   Reason: ~p"
-		       " n   Stack:  ~p",
-		       [_Reason, erlang:get_stacktrace()]),
+		       " n   Error: ~p"
+		       " n   Stack: ~p",
+		       [_E, _S]),
 		    {noCreation, Col}           % Bad RowIndex
 	    end;
 	true -> {inconsistentValue, Col}
@@ -441,12 +441,12 @@ table_check_status(NameDb, Col, ?'RowStatus_createAndWait', RowIndex, Cols) ->
 		_Row ->
 		    {noError, 0}
             catch
-                _:_Reason ->
+                _:_E:_S ->
 		    ?vtrace(
 		       "failed construct row (createAndWait): "
-		       " n   Reason: ~p"
-		       " n   Stack:  ~p",
-		       [_Reason, erlang:get_stacktrace()]),
+		       " n   Error: ~p"
+		       " n   Stack: ~p",
+		       [_E, _S]),
 		    {noCreation, Col}           % Bad RowIndex
 	    end;
 	true -> {inconsistentValue, Col}

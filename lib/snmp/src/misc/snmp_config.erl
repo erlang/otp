@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2573,15 +2573,17 @@ write_config_file(Dir, FileName, Order, Check, Write, Entries)
 		    Error
 	    end
     catch
-	Error ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s throwed: ~p~n    ~p~n",
-	      [FileName, Error, S]),
-	    Error;
-	C:E ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,C,E,S]),
+	throw:E:S ->
+	    d("File write of ~s throwed: "
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [FileName, E, S]),
+	    E;
+	C:E:S ->
+	    d("File write of ~s exception: "
+              "~n   ~p:~p"
+              "~n   ~p"
+              "~n", [FileName, C, E, S]),
 	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
 
@@ -2590,16 +2592,18 @@ write_config_file(Dir, FileName, Write, Entries, Fd) ->
 	ok ->
 	    close_config_file(Dir, FileName, Fd)
     catch
-	Error ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s throwed: ~p~n    ~p~n",
-	      [FileName, Error, S]),
+	throw:E:S ->
+	    d("File write of ~s throwed: "
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [FileName, E, S]),
 	    close_config_file(Dir, FileName, Fd),
-	    Error;
-	C:E ->
-	    S = erlang:get_stacktrace(),
-	    d("File write of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,C,E,S]),
+	    E;
+	C:E:S ->
+	    d("File write of ~s exception: "
+              "~n   ~p:~p"
+              "~n   ~p"
+              "~n", [FileName, C, E, S]),
 	    close_config_file(Dir, FileName, Fd),
 	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
@@ -2661,16 +2665,18 @@ append_config_file(Dir, FileName, Order, Check, Write, Entries, Fd) ->
 	ok ->
 	    close_config_file(Dir, FileName, Fd)
     catch
-	Error ->
-	    S = erlang:get_stacktrace(),
-	    d("File append of ~s throwed: ~p~n    ~p~n",
-	      [FileName, Error, S]),
+	throw:E:S ->
+	    d("File append of ~s throwed: "
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [FileName, E, S]),
 	    close_config_file(Dir, FileName, Fd),
-	    Error;
-	C:E ->
-	    S = erlang:get_stacktrace(),
-	    d("File append of ~s exception: ~p:~p~n    ~p~n",
-	      [FileName,C,E,S]),
+	    E;
+	C:E:S ->
+	    d("File append of ~s exception: "
+              "~n   ~p:~p"
+              "~n   ~p"
+              "~n", [FileName, C, E, S]),
 	    close_config_file(Dir, FileName, Fd),
 	    {error, {failed_append, Dir, FileName, {C, E, S}}}
     end.
@@ -2702,16 +2708,18 @@ read_config_file(Dir, FileName, Order, Check)
 		SortedLines = sort_lines(Lines, Order),
 		{ok, verify_lines(SortedLines, Check, undefined, [])}
 	    catch
-		Error ->
-		    S = erlang:get_stacktrace(),
-		    d("File read of ~s throwed: ~p~n    ~p~n",
-		      [FileName, Error, S]),
-		    {error, Error};
-		T:E ->
-		    S = erlang:get_stacktrace(),
-		    d("File read of ~s exception: ~p:~p~n    ~p~n",
-		      [FileName,T,E,S]),
-		    {error, {failed_read, Dir, FileName, {T, E, S}}}
+		throw:E:S ->
+		    d("File read of ~s throwed: "
+                      "~n   ~p"
+                      "~n   ~p"
+                      "~n", [FileName, E, S]),
+		    {error, E};
+		C:E:S ->
+		    d("File read of ~s exception: "
+                      "~n   ~p:~p"
+                      "~n    ~p"
+                      "~n", [FileName, C, E, S]),
+		    {error, {failed_read, Dir, FileName, {C, E, S}}}
 	    after
 		file:close(Fd)
 	    end;
@@ -2760,11 +2768,10 @@ verify_lines(
 	{{ok, NewTerm}, NewState} ->
 	    verify_lines(Lines, Check, NewState, [NewTerm|Acc])
     catch
-	{error, Reason} ->
+	throw:{error, Reason}:_ ->
 	    throw({failed_check, StartLine, EndLine, Reason});
-	C:R ->
-	    S = erlang:get_stacktrace(),
-	    throw({failed_check, StartLine, EndLine, {C, R, S}})
+	C:E:S ->
+	    throw({failed_check, StartLine, EndLine, {C, E, S}})
     end.
 
 
