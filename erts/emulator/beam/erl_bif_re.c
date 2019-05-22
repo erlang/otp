@@ -46,7 +46,7 @@ static Export *urun_trap_exportp = NULL;
 static Export *ucompile_trap_exportp = NULL;
 
 static BIF_RETTYPE re_exec_trap(BIF_ALIST_3);
-static BIF_RETTYPE re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
+static BIF_RETTYPE re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first);
 
 static void *erts_erts_pcre_malloc(size_t size) {
     return erts_alloc(ERTS_ALC_T_RE_HEAP,size);
@@ -1110,7 +1110,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
  * The actual re:run/2,3 BIFs
  */
 static BIF_RETTYPE
-re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
+re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 {
     const pcre *code_tmp;
     RestartContext restart;
@@ -1135,6 +1135,14 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 		      &match_limit,&match_limit_recursion)
 	< 0) {
 	BIF_ERROR(p,BADARG);
+    }
+    if (!first) {
+        /*
+         * 'first' is false when re:grun() previously has called re:internal_run()
+         * with the same subject; i.e., no need to do yet another validation of
+         * the subject regarding utf8 encoding...
+         */
+        options |= PCRE_NO_UTF8_CHECK;
     }
     is_list_cap = ((pflags & PARSE_FLAG_CAPTURE_OPT) && 
 		   (capture[CAPSPEC_TYPE] == am_list));
@@ -1387,15 +1395,28 @@ handle_iolist:
 }
 
 BIF_RETTYPE
+re_internal_run_4(BIF_ALIST_4)
+{
+    int first;
+    if (BIF_ARG_4 == am_false)
+        first = 0;
+    else if (BIF_ARG_4 == am_true)
+        first = !0;
+    else
+        BIF_ERROR(BIF_P,BADARG);
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, first);
+}
+
+BIF_RETTYPE
 re_run_3(BIF_ALIST_3)
 {
-    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, !0);
 }
 
 BIF_RETTYPE
 re_run_2(BIF_ALIST_2) 
 {
-    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, NIL);
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, NIL, !0);
 }
 
 /*
