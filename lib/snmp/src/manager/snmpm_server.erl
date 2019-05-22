@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1755,9 +1755,10 @@ handle_error(_UserId, Mod, Reason, ReqId, Data, _State) ->
 			Mod:handle_error(ReqId, Reason, Data)
 		    end
 		catch
-		    T:E ->
+		    C:E:S ->
 			CallbackArgs = [ReqId, Reason, Data], 
-			handle_invalid_result(handle_error, CallbackArgs, T, E)
+			handle_invalid_result(handle_error, CallbackArgs,
+                                              C, E, S)
 		end
 	end,
     handle_callback(F),
@@ -1948,9 +1949,10 @@ handle_pdu(
 			Mod:handle_pdu(TargetName, ReqId, SnmpResponse, Data)
 		    end
 		catch
-		    T:E ->
+		    C:E:S ->
 			CallbackArgs = [TargetName, ReqId, SnmpResponse, Data], 
-			handle_invalid_result(handle_pdu, CallbackArgs, T, E) 
+			handle_invalid_result(handle_pdu, CallbackArgs,
+                                              C, E, S) 
 		end
 	end,
     handle_callback(F),
@@ -2119,10 +2121,10 @@ do_handle_agent(DefUserId, DefMod,
 		      "<~p,~p>: ~n~w", [Type, Domain, Addr, SnmpInfo])
 	    end;
 	
-	T:E ->
+	C:E:S ->
 	    CallbackArgs =
 		[Domain_or_Ip, Addr_or_Port, Type, SnmpInfo, DefData],
-	    handle_invalid_result(handle_agent, CallbackArgs, T, E)
+	    handle_invalid_result(handle_agent, CallbackArgs, C, E, S)
 	    
     end.
 
@@ -2331,8 +2333,8 @@ do_handle_trap(
 	    handle_invalid_result(handle_trap, CallbackArgs, InvalidResult)
 
     catch
-	T:E ->
-	    handle_invalid_result(handle_trap, CallbackArgs, T, E)
+	C:E:S ->
+	    handle_invalid_result(handle_trap, CallbackArgs, C, E, S)
 
     end.
 
@@ -2523,8 +2525,8 @@ do_handle_inform(
 		reply
 
 	catch
-	    T:E ->
-		handle_invalid_result(handle_inform, CallbackArgs, T, E), 
+	    C:E:S ->
+		handle_invalid_result(handle_inform, CallbackArgs, C, E, S), 
 		reply
 
 	end,
@@ -2837,8 +2839,8 @@ do_handle_report(
 	    reply
 
     catch
-	T:E ->
-	    handle_invalid_result(handle_report, CallbackArgs, T, E),
+	C:E:S ->
+	    handle_invalid_result(handle_report, CallbackArgs, C, E, S),
 	    reply
 
     end.
@@ -2855,15 +2857,14 @@ handle_callback(F) ->
 
     
 
-handle_invalid_result(Func, Args, T, E) ->
-    Stacktrace = ?STACK(), 
+handle_invalid_result(Func, Args, C, E, S) ->
     error_msg("Callback function failed: "
 	      "~n   Function:   ~p"
 	      "~n   Args:       ~p"
-	      "~n   Error Type: ~p"
+	      "~n   Class:      ~p"
 	      "~n   Error:      ~p"
 	      "~n   Stacktrace: ~p", 
-	      [Func, Args, T, E, Stacktrace]). 
+	      [Func, Args, C, E, S]). 
 
 handle_invalid_result(Func, Args, InvalidResult) ->
     error_msg("Callback function returned invalid result: "

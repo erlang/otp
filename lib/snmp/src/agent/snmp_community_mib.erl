@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -206,10 +206,10 @@ do_add_community(Community) ->
 		    {error, create_failed}
 	    end
     catch
-	{error, Reason} ->
-	    {error, Reason};
-	Class:Reason ->
-	    {error, {Class, Reason, erlang:get_stacktrace()}}
+	throw:{error, _} = ERROR ->
+	    ERROR;
+	C:E:S ->
+	    {error, {C, E, S}}
     end.
 
 %% FIXME: does not work with mnesia

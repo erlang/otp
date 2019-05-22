@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -236,15 +236,16 @@ read_check(File, Check, [{StartLine, Row, EndLine}|Lines], State, Res) ->
 		    "   NewRow: ~p~n", [NewRow]),
 	    read_check(File, Check, Lines, NewState, [NewRow | Res])
     catch
-	{error, Reason} ->
-	    ?vtrace("read_check -> error:~n"
-		    "   Reason: ~p", [Reason]),
+	throw:{error, Reason} ->
+	    ?vtrace("read_check -> error:"
+		    "~n   Reason: ~p", [Reason]),
 	    error({failed_check, File, StartLine, EndLine, Reason});
-	Class:Reason ->
-	    Error = {Class,Reason,erlang:get_stacktrace()},
-	    ?vtrace("read_check -> failure:~n"
-		    "   Error: ~p", [Error]),
-	    error({failed_check, File, StartLine, EndLine, Error})
+	C:E:S ->
+	    ?vtrace("read_check -> failure:"
+                    "~n   Class: ~p"
+		    "~n   Error: ~p"
+		    "~n   Stack: ~p", [C, E, S]),
+	    error({failed_check, File, StartLine, EndLine, {C, E, S}})
     end.
 
 open_file(File) ->
