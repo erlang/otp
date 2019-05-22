@@ -1811,7 +1811,8 @@ force_safe(Ce, St0) ->
 
 is_safe(#c_cons{}) -> true;
 is_safe(#c_tuple{}) -> true;
-is_safe(#c_var{}) -> true;
+is_safe(#c_var{name={_,_}}) -> false;           %Fun. Not safe.
+is_safe(#c_var{name=_}) -> true;                %Ordinary variable.
 is_safe(#c_literal{}) -> true;
 is_safe(_) -> false.
 
