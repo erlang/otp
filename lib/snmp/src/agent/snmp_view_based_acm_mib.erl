@@ -48,6 +48,7 @@
 -include("SNMPv2-TC.hrl").
 -include("SNMP-VIEW-BASED-ACM-MIB.hrl").
 -include("snmpa_vacm.hrl").
+-include("snmpa_internal.hrl").
 
 
 -define(VMODULE,"VACM-MIB").
@@ -860,10 +861,12 @@ vacmViewSpinLock(print) ->
 
 vacmViewSpinLock(new) ->
     snmp_generic:variable_func(new, volatile_db(vacmViewSpinLock)),
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
-    Val = random:uniform(2147483648) - 1,
+    ?SNMP_RAND_SEED(),
+    %% rand:seed(exrop,
+    %%           {erlang:phash2([node()]),
+    %%            erlang:monotonic_time(),
+    %%            erlang:unique_integer()}),
+    Val = rand:uniform(2147483648) - 1,
     snmp_generic:variable_func(set, Val, volatile_db(vacmViewSpinLock));
 
 vacmViewSpinLock(delete) ->

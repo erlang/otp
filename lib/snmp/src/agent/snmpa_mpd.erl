@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,11 +76,9 @@
 init(Vsns) ->
     ?vlog("init -> entry with"
 	"~n   Vsns: ~p", [Vsns]),
-    random:seed(erlang:phash2([node()]),
-                erlang:monotonic_time(),
-                erlang:unique_integer()),
-    ets:insert(snmp_agent_table, {msg_id, random:uniform(2147483647)}),
-    ets:insert(snmp_agent_table, {req_id, random:uniform(2147483647)}),
+    ?SNMP_RAND_SEED(),
+    ets:insert(snmp_agent_table, {msg_id, rand:uniform(2147483647)}),
+    ets:insert(snmp_agent_table, {req_id, rand:uniform(2147483647)}),
     init_counters(),
     init_versions(Vsns, #state{}).
 
