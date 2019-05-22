@@ -1049,6 +1049,25 @@ cmac_check({cmac, Type, Key, Text, Size, CMac}) ->
             ct:fail({{crypto, cmac, [Type, Key, Text, Size]}, {expected, ExpCMac}, {got, Other}})
     end.
 
+
+mac_check({MacType, SubType, Key, Text, Mac}) ->
+    ExpMac = iolist_to_binary(Mac),
+    case crypto:mac(MacType, SubType, Key, Text) of
+        ExpMac ->
+            ok;
+        Other ->
+            ct:fail({{crypto, mac, [MacType, SubType, Key, Text]}, {expected, ExpMac}, {got, Other}})
+    end;
+mac_check({MacType, SubType, Key, Text, Size, Mac}) ->
+    ExpMac = iolist_to_binary(Mac),
+    case crypto:mac(MacType, SubType, Key, Text, Size) of
+        ExpMac ->
+            ok;
+        Other ->
+            ct:fail({{crypto, mac, [MacType, SubType, Key, Text]}, {expected, ExpMac}, {got, Other}})
+    end.
+
+
 block_cipher({Type, Key,  PlainText}) ->
     Plain = iolist_to_binary(PlainText),
     CipherText = crypto:block_encrypt(Type, Key, PlainText),
