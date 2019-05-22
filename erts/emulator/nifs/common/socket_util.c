@@ -35,6 +35,10 @@
 #include "socket_util.h"
 #include "socket_dbg.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 /* We don't have a "debug flag" to check here, so we 
  * should use the compile debug flag, whatever that is...
  */
@@ -54,6 +58,10 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
 #if defined(CLOCK_REALTIME)
 // #define ESOCK_USE_CLOCK_REALTIME 1
 #endif
+#if (defined(HAVE_LOCALTIME_R) && defined(HAVE_STRFTIME))
+#define ESOCK_USE_PRETTY_TIMESTAMP 1
+#endif
+    
 
 #if defined(ESOCK_USE_CLOCK_REALTIME)
 static int realtime(struct timespec* tsP);
@@ -1569,12 +1577,14 @@ BOOLEAN_T esock_timestamp(char *buf, unsigned int len)
 
 #else
 
-    int        ret, buflen;
+    int        ret;
     ErlNifTime monTime = enif_monotonic_time(ERL_NIF_USEC);
     ErlNifTime offTime = enif_time_offset(ERL_NIF_USEC);
     ErlNifTime time    = monTime + offTime;
+#if defined(ESOCK_USE_PRETTY_TIMESTAMP)
     time_t     sec     = time / 1000000; // (if _MSEC) sec  = time / 1000;
     time_t     usec    = time % 1000000; // (if _MSEC) msec = time % 1000;
+    int        buflen;
     struct tm  t;
 
     /* Ideally, we would convert this plain integer into a
@@ -1595,6 +1605,13 @@ BOOLEAN_T esock_timestamp(char *buf, unsigned int len)
         return FALSE;
 
     return TRUE;
+#else
+    ret = enif_snprintf(buf, len, "%b64d", time);
+    if (ret == 0)
+        return FALSE;
+    else
+        return TRUE;
+#endif
 
 #endif
 }
