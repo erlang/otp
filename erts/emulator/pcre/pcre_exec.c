@@ -6642,10 +6642,16 @@ typedef struct {
     REAL_PCRE *Xre;
     heapframe Xframe_zero; /* Always NO_RECURSE */
 
+    /* for yield in valid_utf() */
+
+    struct PRIV(valid_utf_ystate) valid_utf_ystate;
+    
     /* Original function parameters that need be saved */
     int Xstart_offset;
     int Xoffsetcount;
     int *Xoffsets;
+    int Xlength;
+    PCRE_SPTR Xsubject;
 } PcreExecContext;
 #endif  
    
@@ -6675,6 +6681,7 @@ pcre32_exec(const pcre32 *argument_re, const pcre32_extra *extra_data,
 #endif
 {
 #ifndef ERLANG_INTEGRATION
+#define ERTS_UPDATE_CONSUMED(X, MD)
 int rc, ocount, arg_offset_max;
 int newline;
 BOOL using_temporary_offsets = FALSE;
@@ -6736,6 +6743,8 @@ heapframe frame_zero;
   start_offset = exec_context->Xstart_offset;   \
   offsetcount = exec_context->Xoffsetcount;     \
   offsets = exec_context->Xoffsets;             \
+  length = exec_context->Xlength;               \
+  subject = exec_context->Xsubject;             \
 } while (0)
 
 #define SWAPOUT() do {				\
@@ -6750,8 +6759,30 @@ heapframe frame_zero;
   exec_context->Xstart_offset = start_offset;   \
   exec_context->Xoffsetcount = offsetcount;     \
   exec_context->Xoffsets = offsets;             \
+  exec_context->Xlength = length;               \
+  exec_context->Xsubject = subject;             \
 } while (0)
 
+#define ERTS_UPDATE_CONSUMED(X, MD)                                 \
+do {                                                                \
+    if (((X)->flags & PCRE_EXTRA_LOOP_LIMIT) != 0) {                \
+        unsigned long consumed__;                                   \
+        if (!(X)->restart_data) {                                   \
+            consumed__ = 0;                                         \
+        }                                                           \
+        else {                                                      \
+            PcreExecContext *ctx__ = (PcreExecContext *)            \
+                (*(X)->restart_data);                               \
+            consumed__ = ctx__->valid_utf_ystate.cnt;               \
+            ctx__->valid_utf_ystate.cnt = 0;                        \
+        }                                                           \
+        if ((MD)) {                                                 \
+            match_data *md__ = (MD);                                \
+            consumed__ += (X)->loop_limit - md__->loop_limit;       \
+        }                                                           \
+        *((X)->loop_counter_return) = consumed__;                   \
+    }                                                               \
+} while (0)
 PcreExecContext *exec_context;
 PcreExecContext internal_context;
 
@@ -6776,15 +6807,21 @@ pcre_uchar req_char;
      /* we are restarting, every initialization is skipped and we jump directly into the loop */
    exec_context = (PcreExecContext *) *(extra_data->restart_data);
    SWAPIN();
-
+   if (exec_context->valid_utf_ystate.yielded)
+       goto restart_valid_utf;
    goto RESTART_INTERRUPTED;
  } else {
    if (extra_data != NULL && 
        (extra_data->flags & PCRE_EXTRA_LOOP_LIMIT)) {
      exec_context = (PcreExecContext *) (erts_pcre_malloc)(sizeof(PcreExecContext));
-     *(extra_data->restart_data) = (void *) exec_context; 
+     *(extra_data->restart_data) = (void *) exec_context;
+     exec_context->valid_utf_ystate.yielded = 0;
      /* need freeing by special routine from client */
    } else {
+#if defined(ERLANG_INTEGRATION)
+     fprintf(stderr, "Unexpected execution path\n");
+     abort();
+#endif
      exec_context = &internal_context;
    }
    
@@ -6865,9 +6902,38 @@ code for an invalid string if a results vector is available. */
 if (utf && (options & PCRE_NO_UTF8_CHECK) == 0)
   {
   int erroroffset;
-  int errorcode = PRIV(valid_utf)((PCRE_PUCHAR)subject, length, &erroroffset);
+  int errorcode;
+
+#if !defined(ERLANG_INTEGRATION)
+  errorcode = PRIV(valid_utf)((PCRE_PUCHAR)subject, length);
+#else
+  struct PRIV(valid_utf_ystate) *ystate;
+  
+  if (!extra_data || !extra_data->restart_data) {
+      ystate = NULL;
+  }
+  else if (!(extra_data->flags & PCRE_EXTRA_LOOP_LIMIT)) {
+      exec_context->valid_utf_ystate.cnt = 10;
+      ystate = NULL;
+  }
+  else {
+      exec_context->valid_utf_ystate.yielded = 0;
+  restart_valid_utf:
+      ystate = &exec_context->valid_utf_ystate;
+      ystate->cnt = (int) extra_data->loop_limit;
+  }
+  errorcode = PRIV(yielding_valid_utf)((PCRE_PUCHAR)subject, length,
+                                       &erroroffset, ystate);
+#endif
   if (errorcode != 0)
     {
+#if defined(ERLANG_INTEGRATION)
+    if (ystate && ystate->yielded) {
+        ERTS_UPDATE_CONSUMED(extra_data, NULL);
+        SWAPOUT();
+        return PCRE_ERROR_LOOP_LIMIT;
+    }
+#endif
     if (offsetcount >= 2)
       {
       offsets[0] = erroroffset;
@@ -6890,6 +6956,11 @@ if (utf && (options & PCRE_NO_UTF8_CHECK) == 0)
     return PCRE_ERROR_BADUTF8_OFFSET;
 #endif
   }
+#if defined(ERLANG_INTEGRATION)
+else {
+    exec_context->valid_utf_ystate.cnt = 0;
+}
+#endif
 #endif
 
 /* If the pattern was successfully studied with JIT support, run the JIT
@@ -6950,7 +7021,11 @@ if (extra_data != NULL)
 #ifdef ERLANG_INTEGRATION
   if ((flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
     {
-    md->loop_limit = extra_data->loop_limit;
+        md->loop_limit = extra_data->loop_limit;
+        if (extra_data->restart_data)
+          md->loop_limit -= extra_data->loop_limit - exec_context->valid_utf_ystate.cnt;
+        if (md->loop_limit < 10)
+            md->loop_limit = 10; /* At least do something if we've come this far... */
     }
 #endif
   }
@@ -7266,14 +7341,8 @@ for(;;)
 #endif
         if ((start_bits[c/8] & (1 << (c&7))) != 0)
 	  {
-#ifdef ERLANG_INTEGRATION
-          if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
-            {
-            *extra_data->loop_counter_return = 
-               (extra_data->loop_limit - md->loop_limit);
-            }
-#endif
-          break;
+              ERTS_UPDATE_CONSUMED(extra_data, md);
+              break;
 	  }
         start_match++;
         }
@@ -7298,13 +7367,7 @@ for(;;)
         (pcre_uint32)(end_subject - start_match) < study->minlength)
       {
       rc = MATCH_NOMATCH;
-#ifdef ERLANG_INTEGRATION
-      if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
- 	{
- 	*extra_data->loop_counter_return = 
- 	  (extra_data->loop_limit - md->loop_limit);
-        }
-#endif
+      ERTS_UPDATE_CONSUMED(extra_data, md);
       break;
       }
 
@@ -7353,13 +7416,7 @@ for(;;)
         if (p >= end_subject)
           {
           rc = MATCH_NOMATCH;
-#ifdef ERLANG_INTEGRATION
-	if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
-	  {
-	  *extra_data->loop_counter_return = 
-	    (extra_data->loop_limit - md->loop_limit);
-          }
-#endif
+          ERTS_UPDATE_CONSUMED(extra_data, md);
           break;
           }
 
@@ -7390,11 +7447,7 @@ for(;;)
   EDEBUGF(("Calling match..."));
   rc = match(start_match, md->start_code, start_match, 2, md, NULL, 0);
 #ifdef ERLANG_INTEGRATION
-  if ((extra_data->flags & PCRE_EXTRA_LOOP_LIMIT) != 0) 
-    {
-    *extra_data->loop_counter_return = 
-       (extra_data->loop_limit - md->loop_limit);
-    }
+  ERTS_UPDATE_CONSUMED(extra_data, md);
   SWAPOUT();
   while(rc == PCRE_ERROR_LOOP_LIMIT) {
       EDEBUGF(("Loop limit break detected"));

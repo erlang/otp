@@ -1434,6 +1434,7 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
     loop_count = 0xFFFFFFFF;
 #endif
     rc = erts_pcre_exec(NULL, &(restartp->extra), NULL, 0, 0, 0, NULL, 0);
+
     ASSERT(loop_count != 0xFFFFFFFF);
     BUMP_REDS(BIF_P, loop_count / LOOP_FACTOR);
     if (rc == PCRE_ERROR_LOOP_LIMIT) {
