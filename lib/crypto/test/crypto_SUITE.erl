@@ -265,9 +265,9 @@ groups() ->
      %% New cipher nameing schema
      {des_ede3_cbc, [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {des_ede3_cfb, [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
      {aes_192_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
      {aes_128_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_192_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_256_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
@@ -1836,13 +1836,12 @@ group_config(ecdh, Config) ->
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
     [{generate_compute, GenerateCompute} | Config];
-
-group_config(aes_cbc128 = Type, Config) ->
-    Block = fun() -> aes_cbc128(Config) end,
+group_config(aes_128_cbc = Type, Config) ->
+    Block = fun() -> aes_128_cbc(Config) end,
     Pairs = fun() -> cmac_nist(Config, Type) end,
     [{cipher, Block}, {cmac, Pairs} | Config];
-group_config(aes_cbc256 = Type, Config) ->
-    Block = fun() -> aes_cbc256(Config) end,
+group_config(aes_256_cbc = Type, Config) ->
+    Block = fun() -> aes_256_cbc(Config) end,
     Pairs = fun() -> cmac_nist(Config, Type) end,
     [{cipher, Block}, {cmac, Pairs} | Config];
 group_config(chacha20_poly1305, Config) ->
@@ -3843,11 +3842,11 @@ ecc() ->
                  end,
                  TestCases).
 
-cmac_nist(Config, aes_cbc128 = Type) ->
+cmac_nist(Config, aes_128_cbc = Type) ->
    read_rsp(Config, Type,
             ["CMACGenAES128.rsp", "CMACVerAES128.rsp"]);
 
-cmac_nist(Config, aes_cbc256 = Type) ->
+cmac_nist(Config, aes_256_cbc = Type) ->
    read_rsp(Config, Type,
             ["CMACGenAES256.rsp", "CMACVerAES256.rsp"]).
 
