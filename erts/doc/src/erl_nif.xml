@@ -1495,6 +1495,9 @@ enif_free_iovec(iovec);]]></code>
           <c>term</c>.</p>
         <p>Returns <c>true</c> on success, or <c>false</c> if <c>term</c> is
           not a handle to a resource object of type <c>type</c>.</p>
+	<p><c>enif_get_resource</c> does not add a reference to the resource
+	  object. However, the pointer received in <c>*objp</c> is guaranteed to
+	  be valid at least as long as the resource handle <c>term</c> is valid.</p>
       </desc>
     </func>
 
@@ -2947,6 +2950,10 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           References made by <seealso marker="#enif_make_resource">
           <c>enif_make_resource</c></seealso>
           can only be removed by the garbage collector.</p>
+	<p>There are no guarantees exactly when the destructor of an
+	  unreferenced resource is called. It could be called directly by
+	  <c>enif_release_resource</c> but it could also be scheduled to be
+	  called at a later time possibly by another thread.</p>
       </desc>
     </func>
 

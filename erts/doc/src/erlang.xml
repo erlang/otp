@@ -9413,6 +9413,18 @@ Metadata = #{ pid => pid(),
         <p>Returns the previous system monitor settings just like
           <seealso marker="#system_monitor/0">
           <c>erlang:system_monitor/0</c></seealso>.</p>
+	<p>The arguments to <c>system_monitor/2</c> specifies how all
+	  system monitoring on the node should be done, not how it should be
+	  changed. This means only one process at a time
+	  (<c><anno>MonitorPid</anno></c>) can be the receiver of system monitor
+	  messages. Also, the way to clear a specific monitor option
+	  is to not include it in the list <c><anno>Options</anno></c>. All
+	  system monitoring will, however, be cleared if the process identified by
+	  <c><anno>MonitorPid</anno></c> terminates.</p>
+	<p>There are no special option values (like zero) to clear an option.
+	  Some of the options have a unspecified minimum value. Lower values
+	  will be adjusted to the minimum value. For example, it is currently not
+	  possible to monitor all garbage collections with <c>{long_gc, 0}</c>.</p>
         <note>
           <p>If a monitoring process gets so large that it itself
             starts to cause system monitor messages when garbage
