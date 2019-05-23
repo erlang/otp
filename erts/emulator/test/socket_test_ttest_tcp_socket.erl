@@ -111,14 +111,15 @@ close(#{sock := Sock, reader := Pid}) ->
 
 %% Create a socket and connect it to a peer
 connect(ServerPath) when is_list(ServerPath) ->
-    Domain   = local,
-    LocalSA  = #{family => Domain,
-                 path   => mk_unique_path()},
-    ServerSA = #{family => Domain, path => ServerPath},
-    Opts     = #{domain => Domain,
-                 proto  => default,
-                 method => plain},
-    Cleanup = fun() -> os:cmd("unlink " ++ ServerPath), ok end,
+    Domain     = local,
+    ClientPath = mk_unique_path(),
+    LocalSA    = #{family => Domain,
+                   path   => ClientPath},
+    ServerSA   = #{family => Domain, path => ServerPath},
+    Opts       = #{domain => Domain,
+                   proto  => default,
+                   method => plain},
+    Cleanup = fun() -> os:cmd("unlink " ++ ClientPath), ok end,
     do_connect(LocalSA, ServerSA, Cleanup, Opts).
 
 connect(Addr, Port) when is_tuple(Addr) andalso is_integer(Port) ->
@@ -135,11 +136,12 @@ connect(Addr, Port) when is_tuple(Addr) andalso is_integer(Port) ->
 connect(ServerPath,
         #{domain := local = Domain} = Opts)
   when is_list(ServerPath) ->
-    LocalSA  = #{family => Domain,
-                 path   => mk_unique_path()},
-    ServerSA = #{family => Domain,
-                 path   => ServerPath},
-    Cleanup  = fun() -> os:cmd("unlink " ++ ServerPath), ok end,
+    ClientPath = mk_unique_path(),
+    LocalSA    = #{family => Domain,
+                   path   => ClientPath},
+    ServerSA   = #{family => Domain,
+                   path   => ServerPath},
+    Cleanup    = fun() -> os:cmd("unlink " ++ ClientPath), ok end,
     do_connect(LocalSA, ServerSA, Cleanup, Opts#{proto => default}).
 
 connect(Addr, Port, #{domain := Domain} = Opts) ->

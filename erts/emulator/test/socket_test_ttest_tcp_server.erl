@@ -206,21 +206,14 @@ server_accept(#{mod      := Mod,
                 {error, CPReason} ->
 		    (catch Mod:close(Sock)),
 		    (catch Mod:close(LSock)),
-                    maybe_unlink(maps:get(port_or_path, State)),
                     exit({controlling_process, CPReason})
             end;
         {error, timeout} ->
             State;
         {error, AReason} ->
 	    (catch Mod:close(LSock)),
-            maybe_unlink(maps:get(port_or_path, State)),
             exit({accept, AReason})
     end.
-
-maybe_unlink(Path) when is_list(Path) ->
-    os:cmd("unlink " ++ Path);
-maybe_unlink(_) ->
-    ok.
 
 format_peername({Addr, Port}) ->
     case inet:gethostbyaddr(Addr) of
@@ -241,7 +234,10 @@ maybe_start_stats_timer(_, _) ->
 start_stats_timer(Time, ProcStr, Pid) ->
     erlang:start_timer(Time, self(), {stats, Time, ProcStr, Pid}).
 
-server_handle_message(#{parent := Parent, handlers := H} = State) ->
+server_handle_message(#{mod      := Mod,
+                        lsock    := LSock,
+                        parent   := Parent,
+                        handlers := H} = State) ->
     receive
         {timeout, _TRef, {stats, Interval, ProcStr, Pid}} ->
             case server_handle_stats(ProcStr, Pid) of
@@ -255,8 +251,7 @@ server_handle_message(#{parent := Parent, handlers := H} = State) ->
         {?MODULE, Ref, Parent, stop} ->
             reply(Parent, Ref, ok),
             lists:foreach(fun(P) -> handler_stop(P) end, H),
-            (catch socket:close(maps:get(lsock, State))),
-             maybe_unlink(maps:get(port_or_path, State)),
+            (catch Mod:close(LSock)),
             exit(normal);
 
         {'DOWN', _MRef, process, Pid, Reason} -> 

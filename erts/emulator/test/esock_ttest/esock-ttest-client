@@ -26,33 +26,46 @@ ESOCK_TTEST=$EMU_TEST/esock_ttest
 
 RUNTIME=30
 
-MSGID=$1
-SERVER_ADDR=$2
-SERVER_PORT=$3
+if [ $# = 3 ]; then
+    MSGID=$1
+    SERVER_INFO=$2:$3
+
+    ITERATIONS="\
+       gen  false  $MSGID
+       gen  true   $MSGID
+       gen  once   $MSGID
+       sock false  $MSGID
+       sock true   $MSGID
+       sock once   $MSGID"
+
+else
+    if [ $# = 2 ]; then
+	MSGID=$1
+	SERVER_INFO=$2
+
+	ITERATIONS="\
+           sock false  $MSGID
+           sock true   $MSGID
+           sock once   $MSGID"
+
+    else
+	echo "Invalid number of args"
+	exit 1;
+    fi
+fi
+
 
 # ---------------------------------------------------------------------------
 
-ITERATIONS="\
-    gen  false  $MSGID
-    gen  true   $MSGID
-    gen  once   $MSGID
-    sock false  $MSGID
-    sock true   $MSGID
-    sock once   $MSGID"
+# For when we have figured out how to configure local for gen_tcp...
 
-#     gen  false  2
-#     gen  true   2
-#     gen  once   2
-#     sock false  2
-#     sock true   2
-#     sock once   2
-#     gen  false  3
-#     gen  true   3
-#     gen  once   3
-#     sock false  3
-#     sock true   3
-#     sock once   3
-# 
+#ITERATIONS="\
+#   gen  false  $MSGID
+#   gen  true   $MSGID
+#   gen  once   $MSGID
+#   sock false  $MSGID
+#   sock true   $MSGID
+#   sock once   $MSGID"
 
 # ---------------------------------------------------------------------------
 
@@ -64,7 +77,7 @@ echo "$ITERATIONS" |
       # The /dev/null at the end is necessary because erlang "does things" with stdin
       # and this case would cause the 'while read' to "fail" so that we only would
       # loop one time
-      $ESOCK_TTEST/esock-ttest --client --transport $TRANSPORT --active $ACTIVE --msg-id $MSG_ID --scon $SERVER_ADDR:$SERVER_PORT --runtime $RUNTIME </dev/null
+      $ESOCK_TTEST/esock-ttest --client --transport $TRANSPORT --active $ACTIVE --msg-id $MSG_ID --scon $SERVER_INFO --runtime $RUNTIME </dev/null
       echo ""
 
   done
