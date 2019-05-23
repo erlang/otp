@@ -250,6 +250,7 @@ tls13_test_group() ->
      tls13_1_RTT_handshake,
      tls13_basic_ssl_server_openssl_client,
      tls13_basic_ssl_server_ssl_client,
+     tls13_basic_openssl_server_ssl_client,
      tls13_custom_groups_ssl_server_openssl_client,
      tls13_custom_groups_ssl_server_ssl_client,
      tls13_hello_retry_request_ssl_server_openssl_client,
@@ -5366,6 +5367,50 @@ tls13_basic_ssl_server_ssl_client(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
+
+
+tls13_basic_openssl_server_ssl_client() ->
+     [{doc,"Test TLS 1.3 basic connection between openssl server and ssl client"}].
+
+tls13_basic_openssl_server_ssl_client(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = "From openssl to erlang",
+
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+    Exe = "openssl",
+    Args = ["s_server", "-accept", integer_to_list(Port),
+            "-tls1_3",
+            "-cert", CertFile, "-CAfile", CaCertFile,
+            "-key", KeyFile, "-Verify", "2"],
+
+    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),
+
+    ssl_test_lib:wait_for_openssl_server(Port, tls),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {?MODULE,
+                                               erlang_ssl_receive, [Data]}},
+                                        {options, ClientOpts}]),
+    true = port_command(OpensslPort, Data),
+
+    ssl_test_lib:check_result(Client, ok),
+
+    %% Clean close down!   Server needs to be closed first !!
+    ssl_test_lib:close_port(OpensslPort),
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false).
 
 
 tls13_custom_groups_ssl_server_openssl_client() ->
