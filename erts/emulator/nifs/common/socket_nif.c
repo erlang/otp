@@ -4004,7 +4004,7 @@ ERL_NIF_TERM nsupports_options_tcp(ErlNifEnv* env)
 
 
     /* *** SOCKET_OPT_TCP_MAXSEG => TCP_MAXSEG *** */
-#if defined(TCP_)
+#if defined(TCP_MAXSEG)
     tmp = MKT2(env, esock_atom_maxseg, esock_atom_true);
 #else
     tmp = MKT2(env, esock_atom_maxseg, esock_atom_false);
@@ -4018,7 +4018,7 @@ ERL_NIF_TERM nsupports_options_tcp(ErlNifEnv* env)
 
 
     /* *** SOCKET_OPT_TCP_NODELAY => TCP_NODELAY *** */
-#if defined(TCP_)
+#if defined(TCP_NODELAY)
     tmp = MKT2(env, esock_atom_nodelay, esock_atom_true);
 #else
     tmp = MKT2(env, esock_atom_nodelay, esock_atom_false);
