@@ -4,7 +4,7 @@
 <!-- %% -->
 <!-- %% %CopyrightBegin% -->
 <!-- %% -->
-<!-- %% Copyright Ericsson AB and Kjell Winblad 1996-2018. All Rights Reserved. -->
+<!-- %% Copyright Ericsson AB and Kjell Winblad 1996-2019. All Rights Reserved. -->
 <!-- %% -->
 <!-- %% Licensed under the Apache License, Version 2.0 (the "License"); -->
 <!-- %% you may not use this file except in compliance with the License. -->
@@ -43,6 +43,12 @@
     Paste the generated data in the field below and press the Render button:
     <br>
     <textarea id="dataField" rows="4" cols="50">#bench_data_placeholder</textarea> 
+    <br>
+    <input type="checkbox" id="throughputPlot" checked> Include Throughput Plot
+    <br>
+    <input type="checkbox" id="betterThanWorstPlot"> Include % More Throughput Than Worst Plot
+    <br>
+    <input type="checkbox" id="worseThanBestPlot"> Include % Less Throughput Than Best Plot
     <br>
     <input type="checkbox" id="barPlot"> Bar Plot
     <br>
@@ -148,10 +154,52 @@
           }
           return data;
       }
+      function toCompareData(dataParam, compareWithWorst) {
+          var data = $.extend(true, [], dataParam);
+          var worstSoFarMap = {};
+          var defaultSoFarValue = compareWithWorst ? Number.MAX_VALUE : Number.MIN_VALUE;
+          function getWorstBestSoFar(x){
+              return worstSoFarMap[x] === undefined ? defaultSoFarValue : worstSoFarMap[x];
+          }
+          function setWorstBestSoFar(x, y){
+              return worstSoFarMap[x] = y;
+          }
+          function lessOrGreaterThan(n1, n2){
+            return compareWithWorst ? n1 < n2 : n1 > n2;
+          } 
+          $.each(data, function(i, allResConfig) {
+            $.each(allResConfig.y, function(index, res) {
+                var xName = allResConfig.x[index];
+                if(lessOrGreaterThan(res, getWorstBestSoFar(xName))){
+                    setWorstBestSoFar(xName, res);                     
+                }
+            });
+          });
+          $.each(data, function(i, allResConfig) {
+            $.each(allResConfig.y, function(index, res) {
+                var xName = allResConfig.x[index];
+                if(compareWithWorst){
+                    allResConfig.y[index] = ((res / getWorstBestSoFar(xName))-1.0) * 100;
+                }else{
+                    allResConfig.y[index] = (1.0 -(res / getWorstBestSoFar(xName))) * 100;
+                }
+            });
+          });
+          return data;
+      }
+      function toBetterThanWorstData(data){
+        return toCompareData(data, true);
+      }
+      function toWorseThanBestData(data){
+        return toCompareData(data, false);
+      }
       function plotGraphs(){
           var insertPlaceholder = $("#insertPlaceholder");
           var sameSpacing = $('#sameSpacing').is(":checked");
           var barPlot = $('#barPlot').is(":checked");
+          var throughputPlot = $('#throughputPlot').is(":checked");
+          var betterThanWorstPlot = $('#betterThanWorstPlot').is(":checked");
+          var worseThanBestPlot = $('#worseThanBestPlot').is(":checked");
           var lines = $("#dataField").val();
           $('.showCheck').each(function() {
               var item = $(this);
@@ -188,42 +236,59 @@
                           plotGraph(lines, sameSpacing, barPlot, prefix));
               }
           }
+          var nrOfGraphs = 0;
+          function plotScenario(name, plotType) {
+              var data = scenarioDataMap[name];
+              var yAxisTitle = undefined;
+              nrOfGraphs = nrOfGraphs + 1;
+              $("<div class='added' id='graph" + nrOfGraphs + "'>")
+                  .insertBefore(insertPlaceholder);
+              $("<button type='button' class='added' id='fullscreenButton" + nrOfGraphs + "'>Fill screen</button>")
+                  .insertBefore(insertPlaceholder);
+              $("<span class='added'><br><hr><br></span>")
+                  .insertBefore(insertPlaceholder);
+              if (plotType === 'throughput') {
+                  yAxisTitle = 'Operations/Second';
+              } else if (plotType === 'better_than_worst') {
+                  yAxisTitle = '% More Throughput Than Worst';
+                  data = toBetterThanWorstData(data);
+              } else {
+                  yAxisTitle = '% Less Throughput Than Best';
+                  data = toWorseThanBestData(data);
+              }
+              var layout = {
+                  title: name,
+                  xaxis: {
+                      title: '# of Processes'
+                  },
+                  yaxis: {
+                      title: yAxisTitle
+                  }
+              };
+              $("#fullscreenButton" + nrOfGraphs).click(
+                  function () {
+                      $('#graph' + nrOfGraphs).replaceWith(
+                          $("<div class='added' id='graph" + nrOfGraphs + "'>"));
+                      layout = $.extend({}, layout, {
+                          width: $(window).width() - 40,
+                          height: $(window).height() - 40
+                      });
+                      Plotly.newPlot('graph' + nrOfGraphs, data, layout);
+                  });
+              Plotly.newPlot('graph' + nrOfGraphs, data, layout);
+          }
           $.each(scenarioList,
-                 function( index, name ) {
-                     var nrOfGraphs = index + 1;
-                     var data = scenarioDataMap[name];
-                     $( "<div class='added' id='graph"+nrOfGraphs+"'>")
-                         .insertBefore( insertPlaceholder );
-                     $( "<button type='button' class='added' id='fullscreenButton"+nrOfGraphs+"'>Fill screen</button>")
-                         .insertBefore( insertPlaceholder );
-                     $( "<span class='added'><br><hr><br></span>")
-                         .insertBefore( insertPlaceholder );
-                     var layout = {
-                         title:name,
-                         xaxis: {
-                             title: '# of Processes'
-                         },
-                         yaxis: {
-                             title: 'Operations/Second'
-                         }
-                         
-                     };
-                     
-                     $("#fullscreenButton"+nrOfGraphs).click(
-                         function(){
-                             $('#graph'+nrOfGraphs).replaceWith(
-                                 $("<div class='added' id='graph"+nrOfGraphs+"'>"));
-                             layout = $.extend({}, layout, {
-                                 width:$(window).width()-40,
-                                 height:$(window).height()-40
-                             });      
-                             Plotly.newPlot('graph'+nrOfGraphs,  data, layout);                         
-                         });
-                     Plotly.newPlot('graph'+nrOfGraphs,  data, layout);
-
-                 });
-          
-          
+              function (index, name) {
+                  if (throughputPlot) {
+                      plotScenario(name, 'throughput');
+                  }
+                  if (betterThanWorstPlot) {
+                      plotScenario(name, 'better_than_worst');
+                  }
+                  if (worseThanBestPlot) {
+                      plotScenario(name, 'worse_than_best');
+                  }
+              });
       }
     $(document).ready(function(){
         $('#renderButton').click(
