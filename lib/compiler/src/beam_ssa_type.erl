@@ -22,6 +22,8 @@
 -export([opt_start/4, opt_continue/4, opt_finish/3]).
 
 -include("beam_ssa_opt.hrl").
+-include("beam_types.hrl").
+
 -import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
                 keyfind/3,reverse/1,reverse/2,
                 sort/1,split/2]).
@@ -37,23 +39,6 @@
          sub = #{} :: #{beam_ssa:b_var():=beam_ssa:value()},
          ret_type = [] :: [type()]}).
 
--define(ATOM_SET_SIZE, 5).
-
-%% Records that represent type information.
--record(t_atom, {elements=any :: 'any' | [atom()]}).
--record(t_bs_match, {type :: type()}).
--record(t_fun, {arity=any :: arity() | 'any'}).
--record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
--record(t_tuple, {size=0 :: integer(),
-                  exact=false :: boolean(),
-                  %% Known element types (1-based index), unknown elements are
-                  %% are assumed to be 'any'.
-                  elements=#{} :: #{ non_neg_integer() => type() }}).
-
--type type() :: 'any' | 'none' |
-                #t_atom{} | #t_bs_match{} | #t_fun{} | #t_integer{} | #t_tuple{} |
-                {'binary',pos_integer()} | 'cons' | 'float' |
-                'list' | 'map' | 'nil' | 'number'.
 -type type_db() :: #{beam_ssa:var_name():=type()}.
 
 -spec opt_start(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
@@ -100,7 +85,7 @@ join_arg_types(Args, ArgTypes, Anno) ->
               end, Ts0, ParamTypes).
 
 join_arg_types_1([Arg | Args], [TM | TMs], Ts) when map_size(TM) =/= 0 ->
-    join_arg_types_1(Args, TMs, Ts#{ Arg => join(maps:values(TM))});
+    join_arg_types_1(Args, TMs, Ts#{ Arg => beam_types:join(maps:values(TM))});
 join_arg_types_1([Arg | Args], [_TM | TMs], Ts) ->
     join_arg_types_1(Args, TMs, Ts#{ Arg => any });
 join_arg_types_1([], [], Ts) ->
@@ -159,7 +144,7 @@ opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo)
        map_size(TypeMap) =:= 0 ->
     opt_finish_1(Args, TypeMaps, ParamInfo);
 opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo0) ->
-    JoinedType0 = verified_type(join(maps:values(TypeMap))),
+    JoinedType0 = beam_types:join(maps:values(TypeMap)),
     case validator_anno(JoinedType0) of
         any ->
             opt_finish_1(Args, TypeMaps, ParamInfo0);
@@ -232,7 +217,7 @@ opt_1(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
             %% potentially narrow the type of the phi node
             %% in the former successor.
             Ls = maps:remove(L, D0#d.ls),
-            RetType = join([none|D0#d.ret_type]),
+            RetType = beam_types:join([none|D0#d.ret_type]),
             D = D0#d{ds=Ds,ls=Ls,sub=Sub,
                      func_db=Fdb,ret_type=[RetType]},
             Blk = Blk0#b_blk{is=Is,last=Ret},
@@ -553,14 +538,14 @@ simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
     end;
 simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '=='; Op0 =:= '/=' ->
     Types = get_types(Args, Ts),
-    EqEq0 = case {meet(Types),join(Types)} of
-                {none,any} -> true;
-                {#t_integer{},#t_integer{}} -> true;
-                {float,float} -> true;
-                {{binary,_},_} -> true;
-                {#t_atom{},_} -> true;
-                {_,_} -> false
-            end,
+    EqEq0 = case {beam_types:meet(Types),beam_types:join(Types)} of
+               {none,any} -> true;
+               {#t_integer{},#t_integer{}} -> true;
+               {float,float} -> true;
+               {{binary,_},_} -> true;
+               {#t_atom{},_} -> true;
+               {_,_} -> false
+           end,
     EqEq = EqEq0 orelse any_non_numeric_argument(Args, Ts),
     case EqEq of
         true ->
@@ -576,7 +561,7 @@ simplify(#b_set{op={bif,'=:='},args=[Same,Same]}, _Ts) ->
     #b_literal{val=true};
 simplify(#b_set{op={bif,'=:='},args=[A1,_A2]=Args}=I, Ts) ->
     [T1,T2] = get_types(Args, Ts),
-    case meet(T1, T2) of
+    case beam_types:meet(T1, T2) of
         none ->
             #b_literal{val=false};
         _ ->
@@ -813,7 +798,7 @@ opt_switch(#b_switch{fail=Fail,list=List0}=Sw0, Type, Ts, Ds) ->
 prune_switch_list([{_,Fail}|T], Fail, Type, Ts) ->
     prune_switch_list(T, Fail, Type, Ts);
 prune_switch_list([{Arg,_}=Pair|T], Fail, Type, Ts) ->
-    case meet(get_type(Arg, Ts), Type) of
+    case beam_types:meet(get_type(Arg, Ts), Type) of
         none ->
             %% Different types. This value can never match.
             prune_switch_list(T, Fail, Type, Ts);
@@ -873,7 +858,7 @@ update_successors(#b_ret{arg=Arg}, Ts, D) ->
             %% type.
             D;
         #{} ->
-            RetType = join([get_type(Arg, Ts) | D#d.ret_type]),
+            RetType = beam_types:join([get_type(Arg, Ts) | D#d.ret_type]),
             D#d{ret_type=[RetType]}
     end.
 
@@ -882,7 +867,7 @@ subtract_sw_list(V, List, Ts) ->
 
 sub_sw_list_1(Type, [{Val,_}|T], Ts) ->
     ValType = get_type(Val, Ts),
-    sub_sw_list_1(subtract(Type, ValType), T, Ts);
+    sub_sw_list_1(beam_types:subtract(Type, ValType), T, Ts);
 sub_sw_list_1(Type, [], _Ts) ->
     Type.
 
@@ -916,7 +901,7 @@ update_types(#b_set{op=Op,dst=Dst,args=Args}, Ts, Ds) ->
 
 type(phi, Args, Ts, _Ds) ->
     Types = [get_type(A, Ts) || {A,_} <- Args],
-    join(Types);
+    beam_types:join(Types);
 type({bif,'band'}, Args, Ts, _Ds) ->
     band_type(Args, Ts);
 type({bif,Bif}, Args, Ts, _Ds) ->
@@ -1158,8 +1143,8 @@ t_two_tuple(Type1, Type2) ->
 %%  Test whether TestOperation applied to an argument of type Type
 %%  will succeed.  Return yes, no, or maybe.
 %%
-%%  Type is a type as described in the comment for verified_type/1 at
-%%  the very end of this file, but it will *never* be 'any'.
+%%  Type can be any type as described in beam_types.hrl, but it must *never* be
+%%  any.
 
 will_succeed(is_atom, Type) ->
     case Type of
@@ -1351,7 +1336,7 @@ simplify_is_record(I, #t_tuple{exact=Exact,
                    #b_literal{} -> no;
                    none ->
                        %% Is it at all possible for the tag to match?
-                       case meet(get_type(RecTag, Ts), TagType) of
+                       case beam_types:meet(get_type(RecTag, Ts), TagType) of
                            none -> no;
                            _ -> maybe
                        end
@@ -1548,7 +1533,7 @@ infer_eq_type({bif,'=:='}, [#b_var{}=Arg0,#b_var{}=Arg1], Ts, _Ds) ->
     %% be inferred that L1 is 'cons' (the meet of 'cons' and 'list').
     Type0 = get_type(Arg0, Ts),
     Type1 = get_type(Arg1, Ts),
-    Type = meet(Type0, Type1),
+    Type = beam_types:meet(Type0, Type1),
     [{V,MeetType} ||
         {V,OrigType,MeetType} <-
             [{Arg0,Type0,Type},{Arg1,Type1,Type}],
@@ -1748,7 +1733,7 @@ join_types_1([V|Vs], Ts0, Ts1) ->
         {#{V:=Same},#{V:=Same}} ->
             join_types_1(Vs, Ts0, Ts1);
         {#{V:=T0},#{V:=T1}} ->
-            case join(T0, T1) of
+            case beam_types:join(T0, T1) of
                 T1 ->
                     join_types_1(Vs, Ts0, Ts1);
                 T ->
@@ -1759,10 +1744,6 @@ join_types_1([V|Vs], Ts0, Ts1) ->
     end;
 join_types_1([], Ts0, Ts1) ->
     maps:merge(Ts0, Ts1).
-
-join([T1,T2|Ts]) ->
-    join([join(T1, T2)|Ts]);
-join([T]) -> T.
 
 get_literal_from_type(#t_atom{elements=[Atom]}) ->
     #b_literal{val=Atom};
@@ -1825,271 +1806,18 @@ set_element_type(Key, any, Es) ->
 set_element_type(Key, Type, Es) ->
     Es#{ Key => Type }.
 
-%% join(Type1, Type2) -> Type
-%%  Return the "join" of Type1 and Type2. The join is a more general
-%%  type than Type1 and Type2. For example:
-%%
-%%     join(#t_integer{elements=any}, #t_integer=elements={0,3}}) ->
-%%          #t_integer{}
-%%
-%%  The join for two different types result in 'any', which is
-%%  the top element for our type lattice:
-%%
-%%     join(#t_integer{}, map) -> any
-
--spec join(type(), type()) -> type().
-
-join(T, T) ->
-    verified_type(T);
-join(none, T) ->
-    verified_type(T);
-join(T, none) ->
-    verified_type(T);
-join(any, _) -> any;
-join(_, any) -> any;
-join(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
-    Set = ordsets:union(Set1, Set2),
-    case ordsets:size(Set) of
-        Size when Size =< ?ATOM_SET_SIZE ->
-            #t_atom{elements=Set};
-        _Size ->
-            #t_atom{elements=any}
-    end;
-join(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
-join(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
-join({binary,U1}, {binary,U2}) ->
-    {binary,gcd(U1, U2)};
-join(#t_fun{}, #t_fun{}) -> #t_fun{};
-join(#t_integer{elements={MinA,MaxA}},
-     #t_integer{elements={MinB,MaxB}}) ->
-    #t_integer{elements={min(MinA,MinB),max(MaxA,MaxB)}};
-join(#t_integer{}, #t_integer{}) -> t_integer();
-join(list, cons) -> list;
-join(cons, list) -> list;
-join(nil, cons) -> list;
-join(cons, nil) -> list;
-join(nil, list) -> list;
-join(list, nil) -> list;
-join(#t_integer{}, float) -> number;
-join(float, #t_integer{}) -> number;
-join(#t_integer{}, number) -> number;
-join(number, #t_integer{}) -> number;
-join(float, number) -> number;
-join(number, float) -> number;
-join(#t_tuple{size=Sz,exact=ExactA,elements=EsA},
-     #t_tuple{size=Sz,exact=ExactB,elements=EsB}) ->
-    Exact = ExactA and ExactB,
-    Es = join_tuple_elements(Sz, EsA, EsB),
-    #t_tuple{size=Sz,exact=Exact,elements=Es};
-join(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
-    Sz = min(SzA, SzB),
-    Es = join_tuple_elements(Sz, EsA, EsB),
-    #t_tuple{size=Sz,elements=Es};
-join(_T1, _T2) ->
-    %%io:format("~p ~p\n", [_T1,_T2]),
-    any.
-
-join_tuple_elements(MinSize, EsA, EsB) ->
-    Es0 = join_elements(EsA, EsB),
-    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
-
-join_elements(Es1, Es2) ->
-    Keys = if
-               map_size(Es1) =< map_size(Es2) -> maps:keys(Es1);
-               map_size(Es1) > map_size(Es2) -> maps:keys(Es2)
-           end,
-    join_elements_1(Keys, Es1, Es2, #{}).
-
-join_elements_1([Key | Keys], Es1, Es2, Acc0) ->
-    case {Es1, Es2} of
-        {#{ Key := Type1 }, #{ Key := Type2 }} ->
-            Acc = set_element_type(Key, join(Type1, Type2), Acc0),
-            join_elements_1(Keys, Es1, Es2, Acc);
-        {#{}, #{}} ->
-            join_elements_1(Keys, Es1, Es2, Acc0)
-    end;
-join_elements_1([], _Es1, _Es2, Acc) ->
-    Acc.
-
-gcd(A, B) ->
-    case A rem B of
-        0 -> B;
-        X -> gcd(B, X)
-    end.
-
 meet_types([{V,T0}|Vs], Ts) ->
     #{V:=T1} = Ts,
-    case meet(T0, T1) of
+    case beam_types:meet(T0, T1) of
         T1 -> meet_types(Vs, Ts);
         T -> meet_types(Vs, Ts#{V:=T})
     end;
 meet_types([], Ts) -> Ts.
 
-meet([T1,T2|Ts]) ->
-    meet([meet(T1, T2)|Ts]);
-meet([T]) -> T.
-
 subtract_types([{V,T0}|Vs], Ts) ->
     #{V:=T1} = Ts,
-    case subtract(T1, T0) of
+    case beam_types:subtract(T1, T0) of
         T1 -> subtract_types(Vs, Ts);
         T -> subtract_types(Vs, Ts#{V:=T})
     end;
 subtract_types([], Ts) -> Ts.
-
-%% subtract(Type1, Type2) -> Type.
-%%  Subtract Type2 from Type1. Example:
-%%
-%%     subtract(list, cons) -> nil
-
-subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
-    case ordsets:subtract(Set0, Set1) of
-        [] -> none;
-        [_|_]=Set -> #t_atom{elements=Set}
-    end;
-subtract(number, float) -> #t_integer{};
-subtract(number, #t_integer{elements=any}) -> float;
-subtract(list, cons) -> nil;
-subtract(list, nil) -> cons;
-subtract(T, _) -> T.
-
-%% meet(Type1, Type2) -> Type
-%%  Return the "meet" of Type1 and Type2. The meet is a narrower
-%%  type than Type1 and Type2. For example:
-%%
-%%     meet(#t_integer{elements=any}, #t_integer{elements={0,3}}) ->
-%%          #t_integer{elements={0,3}}
-%%
-%%  The meet for two different types result in 'none', which is
-%%  the bottom element for our type lattice:
-%%
-%%     meet(#t_integer{}, map) -> none
-
--spec meet(type(), type()) -> type().
-
-meet(T, T) ->
-    verified_type(T);
-meet(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
-    case ordsets:intersection(Set1, Set2) of
-        [] ->
-            none;
-        [_|_]=Set ->
-            #t_atom{elements=Set}
-    end;
-meet(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
-    T;
-meet(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
-    T;
-meet(#t_fun{arity=any}, #t_fun{}=T) ->
-    T;
-meet(#t_fun{}=T, #t_fun{arity=any}) ->
-    T;
-meet(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
-    T;
-meet(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
-    T;
-meet(#t_integer{elements={MinA,MaxA}}, #t_integer{elements={MinB,MaxB}})
-  when MinA >= MinB, MaxA =< MaxB;
-       MinB >= MinA, MaxB =< MaxA ->
-    #t_integer{elements={max(MinA, MinB),min(MaxA, MaxB)}};
-meet(#t_integer{}=T, number) -> T;
-meet(float=T, number) -> T;
-meet(number, #t_integer{}=T) -> T;
-meet(number, float=T) -> T;
-meet(list, cons) -> cons;
-meet(list, nil) -> nil;
-meet(cons, list) -> cons;
-meet(nil, list) -> nil;
-meet(#t_tuple{}=T1, #t_tuple{}=T2) ->
-    meet_tuples(T1, T2);
-meet({binary,U1}, {binary,U2}) ->
-    {binary, U1 * U2 div gcd(U1, U2)};
-meet(any, T) ->
-    verified_type(T);
-meet(T, any) ->
-    verified_type(T);
-meet(_, _) ->
-    %% Inconsistent types. There will be an exception at runtime.
-    none.
-
-meet_tuples(#t_tuple{size=Sz1,exact=true},
-            #t_tuple{size=Sz2,exact=true}) when Sz1 =/= Sz2 ->
-    none;
-meet_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
-            #t_tuple{size=Sz2,exact=Ex2,elements=Es2}) ->
-    Size = max(Sz1, Sz2),
-    Exact = Ex1 or Ex2,
-    case meet_elements(Es1, Es2) of
-        none ->
-            none;
-        Es ->
-            #t_tuple{size=Size,exact=Exact,elements=Es}
-    end.
-
-meet_elements(Es1, Es2) ->
-    Keys = maps:keys(Es1) ++ maps:keys(Es2),
-    meet_elements_1(Keys, Es1, Es2, #{}).
-
-meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
-    case {Es1, Es2} of
-        {#{ Key := Type1 }, #{ Key := Type2 }} ->
-            case meet(Type1, Type2) of
-                none -> none;
-                Type -> meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
-            end;
-        {#{ Key := Type1 }, _} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
-        {_, #{ Key := Type2 }} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
-    end;
-meet_elements_1([], _Es1, _Es2, Acc) ->
-    Acc.
-
-%% verified_type(Type) -> Type
-%%  Returns the passed in type if it is one of the defined types.
-%%  Crashes if there is anything wrong with the type.
-%%
-%%  Here are all possible types:
-%%
-%%  any                  Any Erlang term (top element for the type lattice).
-%%
-%%  #t_atom{}            Any atom or some specific atoms.
-%%  {binary,Unit}        Binary/bitstring aligned to unit Unit.
-%%  float                Floating point number.
-%%  #t_integer{}         Integer
-%%  list                 Empty or nonempty list.
-%%  map                  Map.
-%%  nil                  Empty list.
-%%  cons                 Cons (nonempty list).
-%%  number               A number (float or integer).
-%%  #t_tuple{}           Tuple.
-%%
-%%  none                 No type (bottom element for the type lattice).
-
--spec verified_type(T) -> T when
-      T :: type().
-
-verified_type(any=T) -> T;
-verified_type(none=T) -> T;
-verified_type(#t_atom{elements=any}=T) -> T;
-verified_type(#t_atom{elements=[_|_]}=T) -> T;
-verified_type({binary,U}=T) when is_integer(U) -> T;
-verified_type(#t_fun{arity=Arity}=T) when Arity =:= any; is_integer(Arity) -> T;
-verified_type(#t_integer{elements=any}=T) -> T;
-verified_type(#t_integer{elements={Min,Max}}=T)
-  when is_integer(Min), is_integer(Max), Min =< Max -> T;
-verified_type(list=T) -> T;
-verified_type(map=T) -> T;
-verified_type(nil=T) -> T;
-verified_type(cons=T) -> T;
-verified_type(number=T) -> T;
-verified_type(#t_tuple{size=Size,elements=Es}=T) ->
-    %% All known elements must have a valid index and type. 'any' is prohibited
-    %% since it's implicit and should never be present in the map.
-    maps:fold(fun(Index, Element, _) when is_integer(Index),
-                                          1 =< Index, Index =< Size,
-                                          Element =/= any, Element =/= none ->
-                      verified_type(Element)
-              end, [], Es),
-    T;
-verified_type(float=T) -> T.

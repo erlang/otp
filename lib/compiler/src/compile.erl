@@ -2111,6 +2111,7 @@ pre_load() ->
 	 beam_ssa_share,
 	 beam_ssa_type,
 	 beam_trim,
+	 beam_types,
 	 beam_utils,
 	 beam_validator,
 	 beam_z,
