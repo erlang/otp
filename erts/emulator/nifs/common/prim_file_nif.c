@@ -231,6 +231,7 @@ static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM prim_file_pid)
     am_append = enif_make_atom(env, "append");
     am_sync = enif_make_atom(env, "sync");
     am_skip_type_check = enif_make_atom(env, "skip_type_check");
+    am_directory = enif_make_atom(env, "directory");
 
     am_read_write = enif_make_atom(env, "read_write");
     am_none = enif_make_atom(env, "none");
@@ -447,6 +448,8 @@ static enum efile_modes_t efile_translate_modelist(ErlNifEnv *env, ERL_NIF_TERM 
             modes |= EFILE_MODE_SYNC;
         } else if(enif_is_identical(head, am_skip_type_check)) {
             modes |= EFILE_MODE_SKIP_TYPE_CHECK;
+        } else if (enif_is_identical(head, am_directory)) {
+            modes |= EFILE_MODE_DIRECTORY;
         } else {
             /* Modes like 'raw', 'ram', 'delayed_writes' etc are handled
              * further up the chain. */

@@ -939,6 +939,10 @@ f.txt:  {person, "kalle", 25}.
             support for POSIX <c>O_SYNC</c> or equivalent, use of the <c>sync</c>
 	    flag causes <c>open</c> to return <c>{error, enotsup}</c>.</p>
           </item>
+          <tag><c>directory</c></tag>
+          <item>
+            <p>Allows <c>open</c> to work on directories.</p>
+          </item>
         </taglist>
         <p>Returns:</p>
         <taglist>
@@ -985,8 +989,10 @@ f.txt:  {person, "kalle", 25}.
           </item>
           <tag><c>enotdir</c></tag>
           <item>
-            <p>A component of the filename is not a directory. On some
-              platforms, <c>enoent</c> is returned instead.</p>
+            <p>A component of the filename is not a directory, or the
+              filename itself is not a directory if <c>directory</c>
+              mode was specified. On some platforms, <c>enoent</c> is
+              returned instead.</p>
           </item>
           <tag><c>enospc</c></tag>
           <item>
