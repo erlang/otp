@@ -45,42 +45,56 @@
     <marker id="Connecting"/>
     <p><em>Connecting to a NETCONF server</em></p>
 
-    <p>NETCONF sessions can either be opened by a single call
-      to <seealso marker="#open-1"><c>open/1,2</c></seealso> or by a call
-      to <seealso marker="#connect-1"><c>connect/1,2</c></seealso> followed
-      by one or more calls to
-      <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.</p>
+    <p>Call <seealso marker="#connect-1"><c>connect/1,2</c></seealso>
+    to establish a connection to a server, then pass the returned
+    handle to <seealso marker="#session-1"><c>session/1-3</c></seealso> to
+    establish a NETCONF session on a new SSH channel.
+    Each call to
+    <seealso marker="#session-1"><c>session/1-3</c></seealso> establishes a
+    new session on the same connection, and results in a hello message
+    to the server.</p>
 
-    <p>The properties of the sessions will be exactly the same, except
-      that when
-      using <seealso marker="#connect-1"><c>connect/1,2</c></seealso>, you
-      may start multiple sessions over the same SSH connection. Each
-      session is implemented as an SSH channel.</p>
+    <p>Alternately,
+    <seealso marker="#open-1"><c>open/1,2</c></seealso> can be used to
+    establish a single session on a dedicated connection.
+    (Or, equivalently,
+    <seealso marker="#only_open-1"><c>only_open/1,2</c></seealso>
+    followed by <seealso marker="#hello-1"><c>hello/1-3</c></seealso>.)</p>
 
-    <p><seealso marker="#open-1"><c>open/1,2</c></seealso> will establish one
-      SSH connection with one SSH channel implementing one NETCONF
-      session. You may start mutiple sessions by
-      calling <seealso marker="#open-1"><c>open/1,2</c></seealso> multiple
-      times, but then a new SSH connection will be established for each
-      session.</p>
-
-    <p>For each server to test against, the following entry can be added to a
-      configuration file:</p>
+    <p>Connect/session options can be specified in a configuration
+    file with entries like the following.</p>
 
     <pre>
- {server_id(),options()}.</pre>
+ {server_id(), [option()]}.</pre>
 
     <p>The <seealso marker="#type-server_id"><c>server_id()</c></seealso>
-      or an associated
-      <seealso marker="ct#type-target_name"><c>ct:target_name()</c></seealso>
-      must then be used in calls to
-      <seealso marker="#connect-2"><c>connect/2</c></seealso>
-      or <seealso marker="#open-2"><c>open/2</c></seealso>.</p>
+    or an associated
+    <seealso marker="ct#type-target_name"><c>ct:target_name()</c></seealso>
+    can then be passed to the aforementioned functions to use the
+    referenced configuration.</p>
 
-    <p>If no configuration exists for a server,
-      use <seealso marker="#connect-1"><c>connect/1</c></seealso>
-      or <seealso marker="#open-1"><c>open/1</c></seealso> instead,
-      and specify all necessary options in the <c>Options</c> parameter.</p>
+    <marker id="Signaling"/>
+    <p><em>Signaling</em></p>
+
+    <p>Protocol operations in the NETCONF protocol are realized as remote
+    procedure calls (RPCs) from client to server and a corresponding
+    reply from server to client.
+    RPCs are sent using like-named functions (eg.
+    <seealso marker="#edit_config-3"><c>edit_config/3-5</c></seealso>
+    to send an edit-config RPC), with the server reply
+    as return value.
+    There are functions for each RPC defined in RFC 6241 and
+    the create-subscription RPC from RFC 5277, all of which are
+    wrappers on <seealso marker="#send_rpc-2"><c>send_rpc/2,3</c></seealso>,
+    that can be used to send an arbitrary RPC
+    not defined in RFC 6241 or RFC 5277.</p>
+
+    <p>All of the signaling functions have one variant with a
+    <c>Timeout</c> argument and one without, corresponding to an
+    infinite timeout.
+    The latter is inappropriate in most cases since a non-response by
+    the server or a missing message-id causes the call to hang
+    indefinitely.</p>
 
     <marker id="Logging"/>
     <p><em>Logging</em></p>
@@ -92,7 +106,7 @@
 
     <pre>
  suite() -&gt;
-    [{ct_hooks, [{cth_conn_log, [{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>,<seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}]}].</pre>
+    [{ct_hooks, [{cth_conn_log, [{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>, <seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}]}].</pre>
 
     <p><c>conn_log_mod()</c> is the name of the <c>Common Test</c> module
       implementing the connection protocol, for example, <c>ct_netconfc</c>.</p>
@@ -132,7 +146,7 @@
       configuration variable <c>ct_conn_log</c>:</p>
 
     <pre>
- {ct_conn_log,[{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>,<seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}.</pre>
+ {ct_conn_log,[{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>, <seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}.</pre>
 
     <p>For example:</p>
 
@@ -184,56 +198,54 @@
       would cause HTML logging of all NETCONF connections in to the test
       case HTML log.</p>
 
-    <marker id="Notifications"/>
-    <p><em>Notifications</em></p>
-
-    <p>The NETCONF client is also compliant with RFC 5277 NETCONF Event
-      Notifications, which defines a mechanism for an asynchronous message
-      notification delivery service for the NETCONF protocol.</p>
-
-    <p>Specific functions to support this are
-      <seealso marker="#create_subscription-2"><c>create_subscription/2-3</c></seealso>
-      and
-      <seealso marker="#get_event_streams-1"><c>get_event_streams/1-3</c></seealso>.</p>
-
-    <marker id="Default_timeout"/>
-    <p><em>Default Timeout</em></p>
-
-    <p>Most of the functions in this module have one variant with
-      a <c>Timeout</c> parameter, and one without. If nothing else is
-      specified, the default value <c>infinity</c> is used when
-      the <c>Timeout</c> parameter is not given.</p>
-
   </description>
+
+  <!-- ====================================================================== -->
 
   <datatypes>
     <datatype>
       <name name="client"/>
+      <desc>
+        <p>Handle to a NETCONF session, as required by signaling
+        functions.</p>
+      </desc>
     </datatype>
     <datatype>
-      <name name="error_reason"/>
+      <name name="handle"/>
+      <desc>
+        <p>Handle to a connection to a NETCONF server as
+        returned by
+        <seealso marker="#connect-1"><c>connect/1,2</c></seealso>,
+        or to a session as returned by
+        <seealso marker="#session-1"><c>session/1-3</c></seealso>,
+        <seealso marker="#open-1"><c>open/1,2</c></seealso>,
+        or <seealso marker="#only_open-1"><c>only_open/1,2</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="xs_datetime"/>
+      <desc>
+	<p>Date and time of a startTime/stopTime element in an RFC
+        5277 create-subscription request. Of XML primitive type
+        <c>dateTime</c>, which has the (informal) form</p>
+        <pre>
+ [-]YYYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]</pre>
+        <p>where <c>T</c> and <c>Z</c> are literal and <c>.s</c> is
+        one or more fractional seconds.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="event_time"/>
     </datatype>
     <datatype>
-      <name name="handle"/>
-      <desc>
-	<p>Opaque reference for a connection to a NETCONF server or a
-	  NETCONF session.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="host"/>
-    </datatype>
-    <datatype>
-      <name name="netconf_db"/>
+      <name name="notification_content"/>
     </datatype>
     <datatype>
       <name name="notification"/>
-    </datatype>
-    <datatype>
-      <name name="notification_content"/>
+      <desc>
+        <p>Event notification messages sent as a result of calls to
+        <seealso marker="#create_subscription-2"><c>create_subscription/2,3</c></seealso>.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="option"/>
@@ -267,42 +279,30 @@
         "urn:ietf:params:netconf:capability", as appropriate.</p>
 
         <p>Capability options are ignored by connect/1-3 and only_open/1-2,
-        which don't cause a hello message to be sent.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="options"/>
-      <desc>
-	<p>Options used for setting up an SSH connection to a NETCONF
-          server.</p>
+        which don't result in an outgoing hello message.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="server_id"/>
       <desc>
-        <p>The identity of a server, specified in a configuration
-          file.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="simple_xml"/>
-      <desc>
-	<p>This type is further described in application
-          <seealso marker="xmerl:index"><c>xmerl</c></seealso>.</p>
+        <p>Identity of connection or session configuration in a
+        configuration file.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="stream_data"/>
-      <desc>
-	<p>For details about the data format for the string values, see
-          "XML Schema for Event Notifications" in RFC 5277.</p>
-      </desc>
     </datatype>
     <datatype>
       <name name="stream_name"/>
     </datatype>
     <datatype>
       <name name="streams"/>
+      <desc>
+        <p>Stream information as returned by
+        <seealso marker="#get_event_streams-1"><c>get_event_streams/1-3</c></seealso>.
+        See RFC 5277, "XML Schema for Event Notifications", for detail
+        on the format of the string values.</p>
+      </desc>
     </datatype>
     <datatype>
       <name name="xml_attribute_tag"/>
@@ -320,19 +320,27 @@
       <name name="xml_tag"/>
     </datatype>
     <datatype>
+      <name name="simple_xml"/>
+      <desc>
+	<p>Representation of XML, as described in application
+        <seealso marker="xmerl:index"><c>xmerl</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="xpath"/>
     </datatype>
     <datatype>
-      <name name="xs_datetime"/>
-      <desc>
-	<p>This date and time identifier has the same format as the XML type
-          <c>dateTime</c> and is compliant with RFC 3339 Date and Time on
-          the Internet Timestamps. The format is as follows:</p>
-	<pre>
- [-]CCYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]</pre>
-      </desc>
+      <name name="error_reason"/>
+    </datatype>
+    <datatype>
+      <name name="host"/>
+    </datatype>
+    <datatype>
+      <name name="netconf_db"/>
     </datatype>
   </datatypes>
+
+  <!-- ====================================================================== -->
 
   <funcs>
     <func>
@@ -376,7 +384,7 @@
 	  reference returned from this
           function is required as connection identifier when opening
           sessions over this connection, see
-          <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.</p>
+          <seealso marker="#session-1"><c>session/1-3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -391,10 +399,9 @@
           <c>target_name()</c> associated with such an Id, then the options
           for this server are fetched from the configuration file.</p>
 
-        <p>Argument <c><anno>ExtraOptions</anno></c> is added to the
-          options found in the configuration file. If the same options
-          are specified, the values from the configuration file
-          overwrite <c><anno>ExtraOptions</anno></c>.</p>
+        <p>The options list is added to those of the
+          configuration file. If an option is specified in both lists,
+          the configuration file takes precedence.</p>
 
         <p>If the server is not specified in a configuration file, use
           <seealso marker="#connect-1"><c>connect/1</c></seealso>
@@ -404,7 +411,7 @@
 	  reference returned from this
           function can be used as connection identifier when opening
           sessions over this connection, see
-          <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.
+          <seealso marker="#session-1"><c>session/1-3</c></seealso>.
           However, if <c><anno>KeyOrName</anno></c> is a
           <c>target_name()</c>, that is, if the server is named through a
           call to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
@@ -631,7 +638,7 @@
         specified timeout.</p>
 
         <p>Note that capabilities for an outgoing hello can be passed
-        directly to <seealso marker="#open-2">open/2</seealso>.</p>
+        directly to <seealso marker="#open-2"><c>open/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -732,10 +739,9 @@
            <c>target_name()</c> associated with such an Id, then the options
            for this server are fetched from the configuration file.</p>
 
-         <p>Argument <c><anno>ExtraOptions</anno></c> is added to the
-           options found in the configuration file. If the same
-           options are specified, the values from the configuration
-           file overwrite <c><anno>ExtraOptions</anno></c>.</p>
+        <p>The options list is added to those of the
+          configuration file. If an option is specified in both lists,
+          the configuration file take precedence.</p>
 
          <p>If the server is not specified in a configuration file, use
            <seealso marker="#open-1"><c>open/1</c></seealso>
@@ -793,7 +799,6 @@
       <fsummary>Opens a NETCONF session as a channel on the given SSH
 	connection, and exchanges hello messages with the
 	server.</fsummary>
-      <type name="session_options"/>
       <type name="session_option"/>
       <desc>
 	<p>Opens a NETCONF session as a channel on the given SSH

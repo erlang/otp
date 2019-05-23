@@ -26,7 +26,7 @@
 %% Netconf servers can be configured by adding the following statement
 %% to a configuration file:
 %%
-%% {server_id(),options()}.
+%% {server_id(), [option()]}.
 %%
 %% The server_id() or an associated ct:target_name() shall then be
 %% used in calls to open/2 connect/2.
@@ -212,14 +212,12 @@
 -type client() :: handle() | server_id() | ct:target_name().
 -opaque handle() :: pid().
 
--type options() :: [option()].
 -type option() :: {host | ssh, host()}
                 | {port, inet:port_number()}
                 | {timeout, timeout()}
                 | {capability, string() | [string()]}
                 | ssh:client_option().
 
--type session_options() :: [session_option()].
 -type session_option() :: {timeout,timeout()}
                         | {capability, string() | [string()]}.
 
@@ -270,7 +268,7 @@
 %% connect/1
 
 -spec connect(Options) -> Result when
-      Options :: options(),
+      Options :: [option()],
       Result :: {ok, handle()} | {error, error_reason()}.
 connect(Options) ->
     connect(Options, #options{type = connection}, []).
@@ -279,7 +277,7 @@ connect(Options) ->
 
 -spec connect(KeyOrName, ExtraOptions) -> Result when
       KeyOrName :: ct:key_or_name(),
-      ExtraOptions :: options(),
+      ExtraOptions :: [option()],
       Result :: {ok, handle()} | {error, error_reason()}.
 
 connect(KeyOrName, ExtraOptions) ->
@@ -333,7 +331,7 @@ session(Conn) ->
 
 -spec session(Conn, Options) -> Result when
       Conn :: handle(),
-      Options :: session_options(),
+      Options :: [session_option()],
       Result :: {ok, handle()} | {error, error_reason()};
              (KeyOrName, Conn) -> Result when
       KeyOrName :: ct:key_or_name(),
@@ -353,7 +351,7 @@ session(KeyOrName, Conn) ->
 
 -spec session(KeyOrName, Conn, Options) -> Result when
       Conn :: handle(),
-      Options :: session_options(),
+      Options :: [session_option()],
       KeyOrName :: ct:key_or_name(),
       Result :: {ok, handle()} | {error, error_reason()}.
 
@@ -391,7 +389,7 @@ caps(Opts) ->
 %% open/1
 
 -spec open(Options) -> Result when
-      Options :: options(),
+      Options :: [option()],
       Result :: {ok, handle()} | {error, error_reason()}.
 
 open(Options) ->
@@ -400,9 +398,9 @@ open(Options) ->
          [],
          true).
 
--spec open(KeyOrName, ExtraOptions) -> Result when
+-spec open(KeyOrName, ExtraOption) -> Result when
       KeyOrName :: ct:key_or_name(),
-      ExtraOptions :: options(),
+      ExtraOption :: [option()],
       Result :: {ok, handle()} | {error, error_reason()}.
 
 open(KeyOrName, ExtraOpts) ->
@@ -453,7 +451,7 @@ start(Ep, Opts, NameOpt, Fwd) ->
 %% Like open/1,2, but no 'hello' message is sent.
 
 -spec only_open(Options) -> Result when
-      Options :: options(),
+      Options :: [option()],
       Result :: {ok, handle()} | {error, error_reason()}.
 
 only_open(Options) ->
@@ -461,7 +459,7 @@ only_open(Options) ->
 
 -spec only_open(KeyOrName, ExtraOptions) -> Result when
       KeyOrName :: ct:key_or_name(),
-      ExtraOptions :: options(),
+      ExtraOptions :: [option()],
       Result :: {ok, handle()} | {error, error_reason()}.
 
 only_open(KeyOrName, ExtraOpts) ->
