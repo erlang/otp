@@ -1527,12 +1527,15 @@ fix_receive([], _Defs, Blocks, Count) ->
 find_loop_exit([L1,L2|_Ls], Blocks) ->
     Path1 = beam_ssa:rpo([L1], Blocks),
     Path2 = beam_ssa:rpo([L2], Blocks),
-    find_loop_exit_1(reverse(Path1), reverse(Path2), none);
+    find_loop_exit_1(Path1, cerl_sets:from_list(Path2));
 find_loop_exit(_, _) -> none.
 
-find_loop_exit_1([H|T1], [H|T2], _) ->
-    find_loop_exit_1(T1, T2, H);
-find_loop_exit_1(_, _, Exit) -> Exit.
+find_loop_exit_1([H|T], OtherPath) ->
+    case cerl_sets:is_element(H, OtherPath) of
+        true -> H;
+        false ->  find_loop_exit_1(T, OtherPath)
+    end;
+find_loop_exit_1([], _) -> none.
 
 %% find_rm_blocks(StartLabel, Blocks) -> [Label].
 %%  Find all blocks that start with remove_message within the receive

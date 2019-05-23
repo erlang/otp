@@ -26,7 +26,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
 	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1,
-         match_built_terms/1]).
+         match_built_terms/1,elusive_common_exit/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -47,7 +47,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [recv,coverage,otp_7980,ref_opt,export,wait,
        recv_in_try,double_recv,receive_var_zero,
-       match_built_terms]}].
+       match_built_terms,elusive_common_exit]}].
 
 
 init_per_suite(Config) ->
@@ -426,5 +426,27 @@ match_built_terms(Config) when is_list(Config) ->
     ?MATCH_BUILT_TERM(Ref, {A, B}),
     ?MATCH_BUILT_TERM(Ref, <<A, B>>),
     ?MATCH_BUILT_TERM(Ref, #{ 1 => A, 2 => B}).
+
+elusive_common_exit(_Config) ->
+    self() ! {1, a},
+    self() ! {2, b},
+    {[z], [{2,b},{1,a}]} = elusive_loop([x,y,z], 2, []),
+    ok.
+
+elusive_loop(List, 0, Results) ->
+    {List, Results};
+elusive_loop(List, ToReceive, Results) ->
+    {Result, RemList} =
+        receive
+            {_Pos, _R} = Res when List =/= [] ->
+                [_H|T] = List,
+                {Res, T};
+            {_Pos, _R} = Res when List =:= [] ->
+                {Res, []}
+        end,
+    %% beam_ssa_pre_codegen:fix_receives() would fail to find
+    %% the common exit block for this receive. That would mean
+    %% that it would not insert all necessary copy instructions.
+    elusive_loop(RemList, ToReceive-1, [Result | Results]).
 
 id(I) -> I.
