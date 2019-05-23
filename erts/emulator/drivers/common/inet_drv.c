@@ -3379,6 +3379,71 @@ static int udp_parse_ancillary_data(ErlDrvTermData *spec, int i,
     i = LOAD_NIL(spec, i);
     return LOAD_LIST(spec, i, n+1);
 }
+
+static int compile_ancillary_data(struct msghdr *mhdr,
+                                  char *ptr, ErlDrvSizeT anc_len) {
+    struct cmsghdr *cmsg;
+    size_t controllen = 0;
+    cmsg = CMSG_FIRSTHDR(mhdr);
+    for (;;) {
+        if (anc_len == 0) {
+            /* End of options to compile */
+            mhdr->msg_controllen = controllen;
+            return 0;
+        }
+        if (cmsg == NULL) {
+            /* End of destination before end of options */
+            return 1;
+        }
+
+#define COMPILE_ANCILLARY_DATA_ITEM(Level, Opt, Type, Get, Size)        \
+        do {                                                            \
+            if (anc_len < (Size)) return 1;                             \
+            sys_memset(cmsg, '\0', CMSG_SPACE(sizeof(Type)));           \
+            cmsg->cmsg_level = Level;                                   \
+            cmsg->cmsg_type = Opt;                                      \
+            cmsg->cmsg_len = CMSG_LEN(sizeof(Type));                    \
+            *((Type *) CMSG_DATA(cmsg)) = Get(ptr);                     \
+            controllen += CMSG_SPACE(sizeof(Type));                     \
+            cmsg = CMSG_NXTHDR(mhdr, cmsg);                             \
+            ptr += 4;                                                   \
+            anc_len -= 4;                                               \
+        } while (0)
+#define SIZEOF_ANCILLARY_DATA (2 * CMSG_SPACE(sizeof(int)))
+        /* (IP_TOS | IPV6_TCLASS) + IP_TTL */
+
+        switch (anc_len--, *ptr++) {
+        case INET_OPT_TOS: {
+#if defined(IPPROTO_IP) && defined(IP_TOS)
+            COMPILE_ANCILLARY_DATA_ITEM(IPPROTO_IP, IP_TOS, int, get_int32, 4);
+#else
+            return 1; /* Socket option not implemented */
+#endif
+            break;
+        }
+        case INET_OPT_TTL: {
+#if defined(IPPROTO_IP) && defined(IP_TTL)
+            COMPILE_ANCILLARY_DATA_ITEM(IPPROTO_IP, IP_TTL, int, get_int32, 4);
+#else
+            return 1; /* Socket option not implemented */
+#endif
+            break;
+        }
+        case INET_OPT_TCLASS: {
+#if defined(IPPROTO_IPV6) && defined(IPV6_TCLASS)
+            COMPILE_ANCILLARY_DATA_ITEM(IPPROTO_IPV6, IPV6_TCLASS, int, get_int32, 4);
+#else
+            return 1; /* Socket option not implemented */
+#endif
+            break;
+        }
+        default:
+            /* Unknow socket option */
+            return 1;
+        }
+#undef COMPILE_ANCILLARY_DATA_ITEM
+    }
+}
 #endif /* ifndef __WIN32__ */
 
 /* 
@@ -11386,7 +11451,7 @@ static int tcp_shutdown_error(tcp_descriptor* desc, int err)
 static void tcp_inet_delay_send(ErlDrvData data, ErlDrvTermData dummy)
 {
     tcp_descriptor *desc = (tcp_descriptor*)data;
-    (void)tcp_inet_output(desc, INETP(desc)->s);
+    (void)tcp_inet_output(desc, (HANDLE) INETP(desc)->s);
 }
 
 /*
@@ -12553,7 +12618,7 @@ static void packet_inet_timeout(ErlDrvData e)
 	sock_select(desc, FD_READ, 0);
         async_error_am (desc, am_timeout);
     } else {
-        (void)packet_inet_input(udesc, desc->s);
+        (void)packet_inet_input(udesc, (HANDLE) desc->s);
     }
 }
 
@@ -12597,11 +12662,8 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	    char ancd[CMSG_SPACE(sizeof(*sri))];
 	} cmsg;
 	
-	if (len < SCTP_GET_SENDPARAMS_LEN) {
-	    inet_reply_error(desc, EINVAL);
-	    return;
-	}
-	
+	if (len < SCTP_GET_SENDPARAMS_LEN) goto return_einval;
+
 	/* The ancillary data */
 	sri = (struct sctp_sndrcvinfo *) (CMSG_DATA(&cmsg.hdr));
 	/* Get the "sndrcvinfo" from the buffer, advancing the "ptr": */
@@ -12634,28 +12696,85 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	goto check_result_code;
     }
 #endif
-    /* UDP socket. Even if it is connected, there is an address prefix
-       here -- ignored for connected sockets: */
-    sz = len;
-    qtr = ptr;
-    xerror = inet_set_faddress(desc->sfamily, &other, &qtr, &sz);
-    if (xerror != NULL) {
-        inet_reply_error_am(desc, driver_mk_atom(xerror));
-	return;
-    }
-    len -= (qtr - ptr);
-    ptr = qtr;
-    /* Now "ptr" is the user data ptr, "len" is data length: */
-    inet_output_count(desc, len);
-    
-    if (desc->state & INET_F_ACTIVE) { /* connected (ignore address) */
-	code = sock_send(desc->s, ptr, len, 0);
-    }
-    else {
-	code = sock_sendto(desc->s, ptr, len, 0, &other.sa, sz);
+    {
+        ErlDrvSizeT anc_len;
+        
+        /* UDP socket. Even if it is connected, there is an address prefix
+           here -- ignored for connected sockets: */
+        sz = len;
+        qtr = ptr;
+        xerror = inet_set_faddress(desc->sfamily, &other, &qtr, &sz);
+        if (xerror != NULL) {
+            inet_reply_error_am(desc, driver_mk_atom(xerror));
+            return;
+        }
+        len -= (qtr - ptr);
+        ptr = qtr;
+
+        /* Here comes ancillary data */
+        if (len < 4) goto return_einval;
+        anc_len = get_int32(ptr);
+        len -= 4; ptr += 4;
+        if (len < anc_len) goto return_einval;
+
+        if (anc_len == 0 && !!0/*XXX-short-circuit-for-testing*/) {
+            /* Empty ancillary data */
+            /* Now "ptr" is the user data ptr, "len" is data length: */
+            inet_output_count(desc, len);
+            if (desc->state & INET_F_ACTIVE) {
+                /* connected (ignore address) */
+                code = sock_send(desc->s, ptr, len, 0);
+            }
+            else {
+                code = sock_sendto(desc->s, ptr, len, 0, &other.sa, sz);
+            }
+        }
+        else {
+#ifdef __WIN32__
+            goto return_einval; /* Can not send ancillary data on Windows */
+#else
+            struct iovec iov[1];
+            struct msghdr mhdr;
+            union { /* For ancillary data         */
+                struct cmsghdr hdr;
+                char ancd[SIZEOF_ANCILLARY_DATA];
+            } cmsg;
+            sys_memset(&iov, '\0', sizeof(iov));
+            sys_memset(&mhdr, '\0', sizeof(mhdr));
+            sys_memset(&cmsg, '\0', sizeof(cmsg));
+            if (desc->state & INET_F_ACTIVE) {
+                /* connected (ignore address) */
+                mhdr.msg_name = NULL;
+                mhdr.msg_namelen = 0;
+            }
+            else {
+                mhdr.msg_name = &other;
+                mhdr.msg_namelen = sz;
+            }
+            mhdr.msg_control = cmsg.ancd;
+            mhdr.msg_controllen = sizeof(cmsg.ancd);
+            if (compile_ancillary_data(&mhdr, ptr, anc_len) != 0) {
+                goto return_einval;
+            }
+            if (mhdr.msg_controllen == 0) {
+                /* XXX Testing - only possible for anc_len == 0 */
+                mhdr.msg_control = NULL;
+            }
+            len -= anc_len;
+            ptr += anc_len;
+            /* Now "ptr" is the user data ptr, "len" is data length: */
+            iov[0].iov_len = len;
+            iov[0].iov_base = ptr;
+            mhdr.msg_iov = iov;
+            mhdr.msg_iovlen = 1;
+            mhdr.msg_flags = 0;
+            inet_output_count(desc, len);
+            code = sock_sendmsg(desc->s, &mhdr, 0);
+#endif
+        }
     }
 
-#ifdef HAVE_SCTP    
+#ifdef HAVE_SCTP
  check_result_code:
     /* "code" analysis is the same for both SCTP and UDP cases above: */
 #endif
@@ -12665,8 +12784,15 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     }
     else
 	inet_reply_ok(desc);
+    return;
+    
+ return_einval:
+    inet_reply_error(desc, EINVAL);
+    return;
 }
-#endif
+
+#endif /* HAVE_UDP */
+
 
 #ifdef __WIN32__
 static void packet_inet_event(ErlDrvData e, ErlDrvEvent event)

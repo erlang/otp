@@ -1984,7 +1984,7 @@ recvtclass(_Config) ->
 recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
 recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 %% Using the option returns einval, so it is not implemented.
-recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
+recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,1,0});
 recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %% Does not return any value - not implemented for pktoptions
 recvtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
@@ -1996,7 +1996,7 @@ recvtos_ok(_, _) -> false.
 recvttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
 recvttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 %% Using the option returns einval, so it is not implemented.
-recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
+recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,1,0});
 recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %% Does not return any value - not implemented for pktoptions
 recvttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {2,7,0});
@@ -2009,7 +2009,7 @@ recvtclass_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
 recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %% Using the option returns einval, so it is not implemented.
-recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
+recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,1,0});
 %% Does not return any value - not implemented for pktoptions
 recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
 %%

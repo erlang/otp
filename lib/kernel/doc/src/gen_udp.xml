@@ -213,12 +213,93 @@
     </func>
 
     <func>
-      <name name="send" arity="4" since=""/>
+      <name name="send" arity="3" since="OTP @OTP-15747@"/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>
-	  Sends a packet to the specified address and port. Argument
-          <c><anno>Address</anno></c> can be a hostname or a socket address.
+	  Sends a packet to the specified <c><anno>Destination</anno></c>.
+	</p>
+	<p>
+	  This function is equivalent to
+	  <seealso marker="#send-4-AncData"><c>send(<anno>Socket</anno>, <anno>Destination</anno>, [], <anno>Packet</anno>)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="4" clause_i="1" since=""/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified <c><anno>Host</anno></c>
+	  and <c><anno>Port</anno></c>.
+	</p>
+	<p>
+	  This clause is equivalent to
+	  <seealso marker="#send/5"><c>send(<anno>Socket</anno>, <anno>Host</anno>, <anno>Port</anno>, [], <anno>Packet</anno>)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="4" clause_i="2" anchor="send-4-AncData" since="OTP @OTP-15747@"/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified <c><anno>Destination</anno></c>
+	  with ancillary data <c><anno>AncData</anno></c>.
+	</p>
+	<note>
+	  <p>
+	    The ancillary data <c><anno>AncData</anno></c>
+	    contains options that for this single message
+	    override the default options for the socket,
+	    an operation that may not be supported on all platforms,
+	    and if so return <c>{error, einval}</c>.
+	    Using more than one of an ancillary data item type
+	    may also not be supported.
+	    <c><anno>AncData</anno> =:= []</c> is always supported.
+	  </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="4" clause_i="3" since="OTP @OTP-15747@"/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified <c><anno>Destination</anno></c>.
+	  Since <c><anno>Destination</anno></c> is complete,
+	  <c><anno>PortZero</anno></c> is redundant and has to be <c>0</c>.
+	</p>
+	<p>
+	  This is a legacy clause mostly for
+	  <c><anno>Destination</anno> = {local, Binary}</c>
+	  where <c><anno>PortZero</anno></c> is superfluous.
+	  It is equivalent to
+	  <seealso marker="#send-4-AncData"><c>send(<anno>Socket</anno>, <anno>Destination</anno>, [], <anno>Packet</anno>)</c></seealso>, the clause right above here.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="5" since="OTP @OTP-15747@"/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified <c><anno>Host</anno></c>
+	  and <c><anno>Port</anno></c>,
+	  with ancillary data <c><anno>AncData</anno></c>.
+	</p>
+	<p>
+	  Argument <c><anno>Host</anno></c> can be
+	  a hostname or a socket address,
+	  and <c><anno>Port</anno></c> can be a port number
+	  or a service name atom.
+	  These are resolved into a <c>Destination</c> and after that
+	  this function is equivalent to
+	  <seealso marker="#send-4-AncData"><c>send(<anno>Socket</anno>, Destination, <anno>AncData</anno>, <anno>Packet</anno>)</c></seealso>, read there about ancillary data.
 	</p>
       </desc>
     </func>

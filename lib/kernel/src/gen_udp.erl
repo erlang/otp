@@ -20,7 +20,7 @@
 -module(gen_udp).
 
 -export([open/1, open/2, close/1]).
--export([send/2, send/4, recv/2, recv/3, connect/3]).
+-export([send/2, send/3, send/4, send/5, recv/2, recv/3, connect/3]).
 -export([controlling_process/2]).
 -export([fdopen/2]).
 
@@ -125,20 +125,80 @@ open(Port, Opts0) ->
 close(S) ->
     inet:udp_close(S).
 
--spec send(Socket, Address, Port, Packet) -> ok | {error, Reason} when
+-spec send(Socket, Destination, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
-      Address :: inet:socket_address() | inet:hostname(),
-      Port :: inet:port_number(),
+      Destination :: {inet:ip_address(), inet:port_number()} |
+                     inet:family_address(),
       Packet :: iodata(),
       Reason :: not_owner | inet:posix().
+%%%
+send(Socket, Destination, Packet) ->
+    send(Socket, Destination, [], Packet).
 
-send(S, Address, Port, Packet) when is_port(S) ->
+-spec send(Socket, Host, Port, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Host :: inet:hostname() | inet:ip_address(),
+      Port :: inet:port_number() | atom(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix();
+%%%
+          (Socket, Destination, AncData, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Destination :: {inet:ip_address(), inet:port_number()} |
+                     inet:family_address(),
+      AncData :: inet:ancillary_data(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix();
+%%%
+          (Socket, Destination, PortZero, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Destination :: {inet:ip_address(), inet:port_number()} |
+                     inet:family_address(),
+      PortZero :: inet:port_number(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix().
+%%%
+send(S, {_,_} = Destination, PortZero = AncData, Packet) when is_port(S) ->
+    %% Destination is {Family,Addr} | {IP,Port},
+    %% so it is complete - argument PortZero is redundant
+    if
+        PortZero =:= 0 ->
+            case inet_db:lookup_socket(S) of
+                {ok, Mod} ->
+                    Mod:send(S, Destination, [], Packet);
+                Error ->
+                    Error
+            end;
+        is_integer(PortZero) ->
+            %% Redundant PortZero; must be 0
+            {error, einval};
+        is_list(AncData) ->
+            case inet_db:lookup_socket(S) of
+                {ok, Mod} ->
+                    Mod:send(S, Destination, AncData, Packet);
+                Error ->
+                    Error
+            end
+    end;
+send(S, Host, Port, Packet) when is_port(S) ->
+    send(S, Host, Port, [], Packet).
+
+-spec send(Socket, Host, Port, AncData, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Host :: inet:hostname() | inet:ip_address() | inet:local_address(),
+      Port :: inet:port_number() | atom(),
+      AncData :: inet:ancillary_data(),
+      Packet :: iodata(),
+      Reason :: not_owner | inet:posix().
+%%%
+send(S, Host, Port, AncData, Packet)
+  when is_port(S), is_list(AncData) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
-	    case Mod:getaddr(Address) of
+	    case Mod:getaddr(Host) of
 		{ok,IP} ->
 		    case Mod:getserv(Port) of
-			{ok,UP} -> Mod:send(S, IP, UP, Packet);
+			{ok,P} -> Mod:send(S, {IP,P}, AncData, Packet);
 			{error,einval} -> exit(badarg);
 			Error -> Error
 		    end;
@@ -149,6 +209,7 @@ send(S, Address, Port, Packet) when is_port(S) ->
 	    Error
     end.
 
+%% Connected send
 send(S, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
