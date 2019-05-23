@@ -312,7 +312,6 @@ read_packets(Config) when is_list(Config) ->
     {ok,R} = gen_udp:open(0, [{read_packets,N1}]),
     {ok,RP} = inet:port(R),
     {ok,Node} = start_node(gen_udp_SUITE_read_packets),
-    Die = make_ref(),
     %%
     {V1, Trace1} = read_packets_test(R, RP, Msgs, Node),
     {ok,[{read_packets,N1}]} = inet:getopts(R, [read_packets]),
@@ -324,7 +323,7 @@ read_packets(Config) when is_list(Config) ->
     stop_node(Node),
     ct:log("N1=~p, V1=~p vs N2=~p, V2=~p",[N1,V1,N2,V2]),
 
-    dump_terms(Config, "trace1.terms", Trace2),
+    dump_terms(Config, "trace1.terms", Trace1),
     dump_terms(Config, "trace2.terms", Trace2),
 
     %% Because of the inherit racy-ness of the feature it is
@@ -347,15 +346,6 @@ dump_terms(Config, Name, Terms) ->
     FName = filename:join(proplists:get_value(priv_dir, Config),Name),
     file:write_file(FName, term_to_binary(Terms)),
     ct:log("Logged terms to ~s",[FName]).
-
-infinite_loop(Die) ->
-    receive 
-	Die ->
-	    ok
-    after
-	0 ->
-	    infinite_loop(Die)
-    end.
 
 read_packets_test(R, RP, Msgs, Node) ->
     Receiver = self(),
