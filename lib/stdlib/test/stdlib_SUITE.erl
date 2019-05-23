@@ -23,6 +23,8 @@
 -module(stdlib_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
+-compile(r21).
+
 -compile(export_all).
 
 %%
@@ -96,7 +98,7 @@ appup_tests(App,{OkVsns0,NokVsns}) ->
 create_test_vsns(App) ->
     ThisMajor = erlang:system_info(otp_release),
     FirstMajor = previous_major(ThisMajor),
-    SecondMajor = previous_major(FirstMajor),
+    SecondMajor = previous_major(previous_major(FirstMajor)),
     Ok = app_vsn(App,[ThisMajor,FirstMajor]),
     Nok0 = app_vsn(App,[SecondMajor]),
     Nok = case Ok of
