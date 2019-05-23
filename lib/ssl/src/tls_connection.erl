@@ -31,6 +31,7 @@
 
 -include("tls_connection.hrl").
 -include("tls_handshake.hrl").
+-include("tls_handshake_1_3.hrl").
 -include("ssl_alert.hrl").
 -include("tls_record.hrl").
 -include("ssl_cipher.hrl").
@@ -808,6 +809,11 @@ connection(internal, #client_hello{},
     Alert = ?ALERT_REC(?WARNING, ?NO_RENEGOTIATION),
     send_alert_in_connection(Alert, State0),
     State = reinit_handshake_data(State0),
+    next_event(?FUNCTION_NAME, no_record, State);
+
+connection(internal, #new_session_ticket{}, State) ->
+    %% TLS 1.3
+    %% Drop NewSessionTicket (currently not supported)
     next_event(?FUNCTION_NAME, no_record, State);
 
 connection(Type, Event, State) ->
