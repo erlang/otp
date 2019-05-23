@@ -296,28 +296,26 @@ server_handle_handler_down(Pid,
     AccMCnt2    = AccMCnt + MCnt,
     AccBCnt2    = AccBCnt + BCnt,
     AccHCnt2    = AccHCnt + 1,
-    ?I("handler ~p (~w) done => accumulated results: "
-       "~n   Run Time:      ~s ms"
+    MsgCount2Str =
+        fun(RT, ART, MC, AMC) when (RT > 0) ->
+                ?F("~w => ~w (~w) msgs / ms", [MC, MC div RT, AMC div ART]);
+           (_, _, MC, AMC) ->
+                ?F("~w (~w)", [MC, AMC])
+        end,
+    ByteCount2Str =
+        fun(RT, ART, BC, ABC) when (RT > 0) ->
+                ?F("~w => ~w (~w) bytes / ms", [BC, BC div RT, ABC div ART]);
+           (_, _, BC, ABC) ->
+                ?F("~w", [BC, ABC])
+        end,
+    ?I("handler ~p (~w) done: "
+       "~n   Run Time:      ~s"
        "~n   Message Count: ~s"
        "~n   Byte Count:    ~s",
        [Pid, AccHCnt2,
-        ?FORMAT_TIME(AccRunTime2),
-        if (AccRunTime2 > 0) ->
-                ?F("~w => ~w (~w) msgs / ms", 
-                   [AccMCnt2,
-                    AccMCnt2 div AccRunTime2,
-                    (AccMCnt2 div AccHCnt2) div AccRunTime2]);
-           true ->
-                ?F("~w", [AccMCnt2])
-        end,
-        if (AccRunTime2 > 0) ->
-                ?F("~w => ~w (~w) bytes / ms",
-                   [AccBCnt2,
-                    AccBCnt2 div AccRunTime2,
-                    (AccBCnt2 div AccHCnt2) div AccRunTime2]);
-           true ->
-                ?F("~w", [AccBCnt2])
-        end]),
+        ?FORMAT_TIME(RunTime),
+        MsgCount2Str(RunTime, AccRunTime2, MCnt, AccMCnt2),
+        ByteCount2Str(RunTime, AccRunTime2, BCnt, AccBCnt2)]),
     State#{runtime => AccRunTime2,
 	   mcnt    => AccMCnt2,
 	   bcnt    => AccBCnt2,

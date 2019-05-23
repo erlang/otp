@@ -26,7 +26,7 @@
 	 close/1,
 	 connect/2, connect/3,
 	 controlling_process/2,
-	 listen/0, listen/1,
+	 listen/0, listen/1, listen/2,
 	 peername/1,
 	 port/1,
 	 recv/2, recv/3,
@@ -102,8 +102,12 @@ controlling_process(Sock, NewPid) ->
 listen() ->
     listen(0).
 
-listen(Port) when is_integer(Port) andalso (Port >= 0) ->
-    Opts = [binary, {ip, {0,0,0,0}}, {packet, raw}, {active, false},
+listen(Port) ->
+    listen(Port, #{domain => inet}).
+
+listen(Port, #{domain := Domain}) when is_integer(Port) andalso (Port >= 0) ->
+    Opts = [Domain,
+            binary, {ip, {0,0,0,0}}, {packet, raw}, {active, false},
             {buffer, 32*1024}],
     case gen_tcp:listen(Port, Opts) of
 	{ok, Sock} ->

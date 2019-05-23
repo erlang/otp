@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,23 +21,18 @@
 -module(socket_test_ttest_tcp_server_socket).
 
 -export([
-         start/2,
+         start/3,
          stop/1
         ]).
 
 -define(TRANSPORT_MOD, socket_test_ttest_tcp_socket).
-%% -define(MOD(M),        {?TRANSPORT_MOD, #{method         => M,
+%% -define(MOD(D, M),     {?TRANSPORT_MOD, #{domain         => D,
+%%                                           method         => M,
 %%                                           stats_interval => 10000}}).
--define(MOD(M),        {?TRANSPORT_MOD, #{method => M}}).
+-define(MOD(D, M),     {?TRANSPORT_MOD, #{domain => D, method => M}}).
 
-start(Method, Active) ->
-    socket_test_ttest_tcp_server:start(?MOD(Method), Active).
-    %%     {ok, {Pid, AddrPort}} ->
-    %%         MRef = erlang:monitor(process, Pid),
-    %%         {ok, {Pid, MRef, AddrPort}};
-    %%     {error, _} = ERROR ->
-    %%         ERROR
-    %% end.
+start(Method, Domain, Active) ->
+    socket_test_ttest_tcp_server:start(?MOD(Domain, Method), Active).
 
 stop(Pid) ->
     socket_test_ttest_tcp_server:stop(Pid).

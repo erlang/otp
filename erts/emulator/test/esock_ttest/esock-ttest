@@ -266,7 +266,7 @@ exec(#{role      := server,
 exec(#{role      := server,
        active    := Active,
        transport := {sock, Method}}) ->
-    case socket_test_ttest_tcp_server_socket:start(Method, Active) of
+    case socket_test_ttest_tcp_server_socket:start(Method, inet, Active) of
         {ok, {Pid, _}} ->
             MRef = erlang:monitor(process, Pid),
             receive
@@ -283,15 +283,15 @@ exec(#{role   := client,
        server := undefined}) ->
     usage("Mandatory option 'server' not provided");
 exec(#{role            := client,
-       server          := {Addr, Port},
+       server          := {_Addr, _Port} = ServerInfo,
        active          := Active,
        transport       := gen,
        msg_id          := MsgID,
        max_outstanding := MaxOutstanding,
        runtime         := RunTime}) ->
     case socket_test_ttest_tcp_client_gen:start(true,
+                                                ServerInfo,
                                                 Active,
-                                                Addr, Port,
                                                 MsgID, MaxOutstanding,
                                                 RunTime) of
         {ok, Pid} ->
@@ -306,7 +306,7 @@ exec(#{role            := client,
             error
     end;
 exec(#{role            := client,
-       server          := {Addr, Port},
+       server          := {_Addr, _Port} = ServerInfo,
        active          := Active,
        transport       := {sock, Method},
        msg_id          := MsgID,
@@ -314,8 +314,8 @@ exec(#{role            := client,
        runtime         := RunTime}) ->
     case socket_test_ttest_tcp_client_socket:start(true,
                                                    Method,
+                                                   ServerInfo,
                                                    Active,
-                                                   Addr, Port,
                                                    MsgID, MaxOutstanding,
                                                    RunTime) of
         {ok, Pid} ->
