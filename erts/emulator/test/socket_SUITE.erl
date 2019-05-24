@@ -11281,6 +11281,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) 
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
+           fun() -> traffic_ping_pong_large_sendmsg_and_recvmsg_cond() end,
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
@@ -11289,6 +11290,16 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) 
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
            end).
+
+
+traffic_ping_pong_large_sendmsg_and_recvmsg_cond() ->
+    traffic_ping_pong_large_sendmsg_and_recvmsg_cond(os:type(), os:version()).
+
+traffic_ping_pong_large_sendmsg_and_recvmsg_cond({unix, linux}, {M, _, _})
+  when (M < 3) ->
+    skip("TC may not work on this version");
+traffic_ping_pong_large_sendmsg_and_recvmsg_cond(_, _) ->
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -11308,7 +11319,10 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   has_support_ipv6(),
+                   traffic_ping_pong_large_sendmsg_and_recvmsg_cond()
+           end,
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
@@ -19915,18 +19929,24 @@ ensure_unique_path(Path) ->
     case file:read_file_info(Path) of
         {ok, _} -> % Ouch, append a unique ID and try again
             ensure_unique_path(Path, 1);
-        {error, _} -> % We assume this means it does not exist yet...
+        {error, _} ->
+            %% We assume this means it does not exist yet...
+            %% If we have several process in paralell trying to create
+            %% (unique) path's, then we are in trouble. To *really* be
+            %% on the safe side we should have a (central) path registry...
             Path
     end.
 
-ensure_unique_path(Path, ID) ->
+ensure_unique_path(Path, ID) when (ID < 100) -> % If this is not enough...
     NewPath = ?LIB:f("~s_~w", [Path, ID]),
     case file:read_file_info(NewPath) of
         {ok, _} -> % Ouch, this also existed, increment and try again
             ensure_unique_path(Path, ID + 1);
         {error, _} -> % We assume this means it does not exist yet...
             NewPath
-    end.
+    end;
+ensure_unique_path(_, _) -> 
+    skip("Could not create unique path").
     
             
 which_local_socket_addr(local = Domain) ->
