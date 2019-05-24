@@ -23,6 +23,7 @@
 -export([all/0, suite/0,
          badmatch/1, pending_errors/1, nil_arith/1, top_of_stacktrace/1,
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
+         change_exception_class/1,
          exception_with_heap_frag/1, backtrace_depth/1,
          line_numbers/1]).
 
@@ -48,6 +49,7 @@ suite() ->
 all() -> 
     [badmatch, pending_errors, nil_arith, top_of_stacktrace,
      stacktrace, nested_stacktrace, raise, gunilla, per,
+     change_exception_class,
      exception_with_heap_frag, backtrace_depth, line_numbers].
 
 -define(try_match(E),
@@ -511,6 +513,38 @@ t1(_,X,_) ->
 
 t2(_,X,_) ->
     (X bsl 1) + 1.
+
+change_exception_class(_Config) ->
+    try
+        change_exception_class_1(fun() -> throw(arne) end)
+    catch
+        error:arne ->
+            ok;
+        Class:arne ->
+            ct:fail({wrong_exception_class,Class})
+    end.
+
+change_exception_class_1(F) ->
+    try
+        change_exception_class_2(F)
+    after
+        %% The exception would be caught and rethrown using
+        %% an i_raise instruction. Before the correction
+        %% of the raw_raise instruction, the change of class
+        %% would not stick.
+        io:put_chars("Exception automatically rethrown here\n")
+    end.
+
+change_exception_class_2(F) ->
+    try
+        F()
+    catch
+        throw:Reason:Stack ->
+            %% Translated to a raw_raise instruction.
+            %% The change of exception class would not stick
+            %% if the i_raise instruction was later executed.
+            erlang:raise(error, Reason, Stack)
+    end.
 
 %%
 %% Make sure that even if a BIF builds an heap fragment, then causes an exception,
