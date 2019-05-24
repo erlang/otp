@@ -24,7 +24,7 @@
 	 integers/1,numbers/1,coverage/1,booleans/1,setelement/1,
 	 cons/1,tuple/1,record_float/1,binary_float/1,float_compare/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
-         test_size/1,cover_lists_functions/1]).
+         test_size/1,cover_lists_functions/1,list_append/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -47,7 +47,8 @@ groups() ->
        elixir_binaries,
        find_best,
        test_size,
-       cover_lists_functions
+       cover_lists_functions,
+       list_append
       ]}].
 
 init_per_suite(Config) ->
@@ -485,6 +486,12 @@ cover_lists_functions(Config) ->
                            lists:duplicate(length(Config), zip),
                            Config),
     true = is_list(Zipped),
+    ok.
+
+list_append(_Config) ->
+    %% '++'/2 has a quirk where it returns the right-hand argument as-is when
+    %% the left-hand is [].
+    hello = id([]) ++ id(hello),
     ok.
 
 id(I) ->

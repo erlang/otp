@@ -2844,10 +2844,14 @@ call_return_type_1(erlang, setelement, 3, Vst) ->
             setelement(3, TupleType, #{})
     end;
 call_return_type_1(erlang, '++', 2, Vst) ->
-    case get_term_type({x,0}, Vst) =:= cons orelse
-        get_term_type({x,1}, Vst) =:= cons of
-        true -> cons;
-        false -> list
+    LType = get_term_type({x,0}, Vst),
+    RType = get_term_type({x,1}, Vst),
+    case LType =:= cons orelse RType =:= cons of
+        true ->
+            cons;
+        false ->
+            %% `[] ++ RHS` yields RHS, even if RHS is not a list
+            join(list, RType)
     end;
 call_return_type_1(erlang, '--', 2, _Vst) ->
     list;
