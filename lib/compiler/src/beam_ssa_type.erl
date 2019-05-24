@@ -23,7 +23,7 @@
 
 -include("beam_ssa_opt.hrl").
 -import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
-                keyfind/3,partition/2,reverse/1,reverse/2,
+                keyfind/3,reverse/1,reverse/2,
                 seq/2,sort/1,split/2]).
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
@@ -1388,24 +1388,11 @@ get_type(#b_literal{val=Val}, _Ts) ->
 %%  type for L. For example, if L was known to be 'list', subtracting
 %%  'cons' would give 'nil' as the only possible type. The result of the
 %%  subtraction for L will be added to FailTypes.
-%%
-%%  Here is another example, asking about the variable Bool:
-%%
-%%     Head = bif:hd L
-%%     Bool = succeeded Head
-%%
-%%  'succeeded Head' will evaluate to 'true' if the instrution that
-%%  defined Head succeeded. In this case, it is the 'bif:hd L'
-%%  instruction, which will succeed if L is 'cons'. Thus, the meet of
-%%  the previous type for L and 'cons' will be added to SuccTypes.
-%%
-%%  If 'succeeded Head' evaluates to 'false', it means that 'bif:hd L'
-%%  failed and that L is not 'cons'. 'cons' can be subtracted from the
-%%  previously known type for L and the result put in FailTypes.
 
 infer_types_br(#b_var{}=V, Ts, #d{ds=Ds}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
-    Types0 = infer_type(Op, Args, Ds),
+    PosTypes0 = infer_type(Op, Args, Ds),
+    NegTypes0 = infer_type_negative(Op, Args, Ds),
 
     %% We must be careful with types inferred from '=:='.
     %%
@@ -1416,13 +1403,17 @@ infer_types_br(#b_var{}=V, Ts, #d{ds=Ds}) ->
     %%
     %% However, it is safe to subtract a type inferred from '=:=' if
     %% it is single-valued, e.g. if it is [] or the atom 'true'.
-    EqTypes0 = infer_eq_type(Op, Args, Ts, Ds),
-    {Types1,EqTypes} = partition(fun({_,T}) ->
-                                         is_singleton_type(T)
-                                 end, EqTypes0),
 
-    Types = Types1 ++ Types0,
-    {meet_types(EqTypes++Types, Ts),subtract_types(Types, Ts)}.
+    EqTypes = infer_eq_type(Op, Args, Ts, Ds),
+    NegTypes1 = [P || {_,T}=P <- EqTypes, is_singleton_type(T)],
+
+    PosTypes = EqTypes ++ PosTypes0,
+    SuccTs = meet_types(PosTypes, Ts),
+
+    NegTypes = NegTypes0 ++ NegTypes1,
+    FailTs = subtract_types(NegTypes, Ts),
+
+    {SuccTs,FailTs}.
 
 infer_types_switch(V, Lit, Ts, #d{ds=Ds}) ->
     Types = infer_eq_type({bif,'=:='}, [V, Lit], Ts, Ds),
@@ -1456,6 +1447,19 @@ infer_eq_lit(#b_set{op=get_tuple_element,
     Es = set_element_type(Index, get_type(Lit, #{}), #{}),
     [{Tuple,#t_tuple{size=Index,elements=Es}}];
 infer_eq_lit(_, _) -> [].
+
+infer_type_negative(Op, Args, Ds) ->
+    case is_negative_inference_safe(Op, Args) of
+        true ->
+            infer_type(Op, Args, Ds);
+        false ->
+            []
+    end.
+
+%% Conservative list of instructions for which negative
+%% inference is safe.
+is_negative_inference_safe(is_nonempty_list, _Args) -> true;
+is_negative_inference_safe(_, _) -> false.
 
 infer_type({bif,element}, [#b_literal{val=Pos},#b_var{}=Tuple], _Ds) ->
     if
