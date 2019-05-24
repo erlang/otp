@@ -31,6 +31,7 @@
 
 -include("tls_connection.hrl").
 -include("tls_handshake.hrl").
+-include("tls_handshake_1_3.hrl").
 -include("ssl_alert.hrl").
 -include("tls_record.hrl").
 -include("ssl_cipher.hrl").
@@ -394,6 +395,7 @@ queue_handshake(Handshake, #state{handshake_env = #handshake_env{tls_handshake_h
                  handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist},
 		 flight_buffer = Flight0 ++ [BinHandshake]}.
 
+
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport},
 			     flight_buffer = Flight} = State0) ->
@@ -659,10 +661,16 @@ hello(internal, #server_hello{} = Hello,
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert -> %%TODO
 	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello,
-                                            State#state{connection_env = CEnv#connection_env{negotiated_version = ReqVersion}});
+                                            State#state{connection_env =
+                                                            CEnv#connection_env{negotiated_version = ReqVersion}});
+        %% Legacy TLS 1.2 and older
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
+					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State);
+        %% TLS 1.3
+        {next_state, wait_sh} ->
+            %% Continue in TLS 1.3 'wait_sh' state
+            {next_state, wait_sh, State, [{next_event, internal, Hello}]}
     end;
 hello(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
@@ -801,6 +809,11 @@ connection(internal, #client_hello{},
     Alert = ?ALERT_REC(?WARNING, ?NO_RENEGOTIATION),
     send_alert_in_connection(Alert, State0),
     State = reinit_handshake_data(State0),
+    next_event(?FUNCTION_NAME, no_record, State);
+
+connection(internal, #new_session_ticket{}, State) ->
+    %% TLS 1.3
+    %% Drop NewSessionTicket (currently not supported)
     next_event(?FUNCTION_NAME, no_record, State);
 
 connection(Type, Event, State) ->
@@ -1286,9 +1299,10 @@ maybe_generate_client_shares(#ssl_options{
                             versions = [Version|_],
                             supported_groups =
                                 #supported_groups{
-                                  supported_groups = Groups}})
+                                  supported_groups = [Group|_]}})
   when Version =:= {3,4} ->
-    ssl_cipher:generate_client_shares(Groups);
+    %% Generate only key_share entry for the most preferred group
+    ssl_cipher:generate_client_shares([Group]);
 maybe_generate_client_shares(_) ->
     undefined.
 
