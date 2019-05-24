@@ -200,6 +200,11 @@ parse_handshake(Direction, #encrypted_extensions{} = EncryptedExtensions) ->
     Header = io_lib:format("~s Handshake, EncryptedExtensions",
                            [header_prefix(Direction)]),
     Message = io_lib:format("~p", [?rec_info(encrypted_extensions, EncryptedExtensions)]),
+    {Header, Message};
+parse_handshake(Direction, #new_session_ticket{} = NewSessionTicket) ->
+    Header = io_lib:format("~s Post-Handshake, NewSessionTicket",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(new_session_ticket, NewSessionTicket)]),
     {Header, Message}.
 
 
