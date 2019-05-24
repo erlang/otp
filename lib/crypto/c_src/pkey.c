@@ -59,8 +59,9 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 			       EVP_PKEY **pkey);
 static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM options,
 				  PKeyCryptOptions *opt);
+#ifdef HAVE_RSA_SSLV23_PADDING
 static size_t size_of_RSA(EVP_PKEY *pkey);
-
+#endif
 
 static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM type,
 				const EVP_MD **md)
@@ -1031,6 +1032,7 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
     return PKEY_BADARG;
 }
 
+#ifdef HAVE_RSA_SSLV23_PADDING
 static size_t size_of_RSA(EVP_PKEY *pkey) {
     int ret = 0;
     RSA *rsa = NULL;
@@ -1045,6 +1047,7 @@ static size_t size_of_RSA(EVP_PKEY *pkey) {
 
     return (ret < 0) ? 0 : (size_t)ret;
 }
+#endif
 
 ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* (Algorithm, Data, PublKey=[E,N]|[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Options, IsPrivate, IsEncrypt) */
