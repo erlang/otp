@@ -129,7 +129,7 @@
     <p>OTP-22 introduces basic support for TLS 1.3. Basic functionality
     covers a simple TLS 1.3 handshake with support of the mandatory extensions
     (supported_groups, signature_algorithms, key_share, supported_versions and
-    signature_algorithms_cert). The server supports a selective set of cryptographic algorithms:</p>
+    signature_algorithms_cert). The current implementation supports a selective set of cryptographic algorithms:</p>
     <list type="bulleted">
       <item>Key Exchange: ECDHE</item>
       <item>Groups: all standard groups supported for the Diffie-Hellman key exchange</item>
@@ -140,7 +140,6 @@
     </list>
     <p>Other notable features:</p>
     <list type="bulleted">
-      <item>The server supports the HelloRetryRequest mechanism</item>
       <item>PSK and session resumption not supported</item>
       <item>Early data and 0-RTT not supported</item>
       <item>Key and Initialization Vector Update not supported</item>
@@ -965,8 +964,8 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em>Client</em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -2122,14 +2121,14 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>TLS 1.3 ClientHello</em></cell>
-	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
 	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">If not containing a "pre_shared_key" extension, it MUST contain both a "signature_algorithms" extension and a "supported_groups" extension.</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -2158,30 +2157,44 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>MUST correctly handle extensible fields</em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
-        <cell align="left" valign="middle">A client sending a ClientHello MUST support all parameters advertised in it.</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">A client sending a ClientHello MUST support all parameters
+	advertised in it. Otherwise, the server may fail to interoperate by selecting one of those parameters.</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
-        <cell align="left" valign="middle">A middlebox which terminates a TLS connection MUST behave as a compliant TLS server</cell>
+        <cell align="left" valign="middle">A server receiving a ClientHello MUST correctly ignore all
+	unrecognized cipher suites, extensions, and other parameters. Otherwise, it may fail to
+	interoperate with newer clients. In TLS 1.3, a client receiving a CertificateRequest or
+	NewSessionTicket MUST also ignore all unrecognized extensions.</cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">A middlebox which terminates a TLS connection MUST behave as a
+	compliant TLS server</cell>
 	<cell align="left" valign="middle"><em>NA</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
-        <cell align="left" valign="middle">A middlebox which forwards ClientHello parameters it does not understand MUST NOT process any messages beyond that ClientHello.</cell>
+        <cell align="left" valign="middle">A middlebox which forwards ClientHello parameters it does not
+	understand MUST NOT process any messages beyond that ClientHello. It MUST forward all subsequent
+	traffic unmodified.  Otherwise, it may fail to interoperate with newer clients and servers.</cell>
 	<cell align="left" valign="middle"><em>NA</em></cell>
 	<cell align="left" valign="middle"></cell>
       </row>
