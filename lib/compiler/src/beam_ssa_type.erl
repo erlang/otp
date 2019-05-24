@@ -1242,22 +1242,41 @@ band_type([Other,#b_literal{val=Int}], Ts) when is_integer(Int) ->
 band_type([_,_], _) -> t_integer().
 
 band_type_1(Int, OtherSrc, Ts) ->
-    Type = band_type_2(Int, 0),
     OtherType = get_type(OtherSrc, Ts),
-    meet(Type, OtherType).
+    case OtherType of
+        #t_integer{elements={Min0,Max0}} when Max0 - Min0 < 1 bsl 256 ->
+            {Intersection, Union} = range_masks(Min0, Max0),
 
-band_type_2(N, Bits) when Bits < 64 ->
-    case 1 bsl Bits of
-        P when P =:= N + 1 ->
-            t_integer(0, N);
-        P when P > N + 1 ->
-            t_integer();
-        _ ->
-            band_type_2(N, Bits+1)
-    end;
-band_type_2(_, _) ->
-    %% Negative or large positive number. Give up.
-    t_integer().
+            Min = Intersection band Int,
+            Max = min(Max0, Union band Int),
+
+            #t_integer{elements={Min,Max}};
+        _ when Int >= 0 ->
+            %% The range is either unknown or too wide, conservatively assume
+            %% that the new range is 0 .. Int.
+            #t_integer{elements={0,Int}};
+        _ when Int < 0 ->
+            %% We can't infer boundaries when the range is unknown and the
+            %% other operand is a negative number, as the latter sign-extends
+            %% to infinity and we can't express an inverted range at the
+            %% moment (cf. X band -8; either less than 7 or greater than 7).
+            #t_integer{}
+    end.
+
+%% Returns two bitmasks describing all possible values between From and To.
+%%
+%% The first contains the bits that are common to all values, and the second
+%% contains the bits that are set by any value in the range.
+range_masks(From, To) when From =< To ->
+    range_masks_1(From, To, 0, -1, 0).
+
+range_masks_1(From, To, BitPos, Intersection, Union) when From < To ->
+    range_masks_1(From + (1 bsl BitPos), To, BitPos + 1,
+                  Intersection band From, Union bor From);
+range_masks_1(_From, To, _BitPos, Intersection0, Union0) ->
+    Intersection = To band Intersection0,
+    Union = To bor Union0,
+    {Intersection, Union}.
 
 bs_match_type([#b_literal{val=Type}|Args]) ->
     bs_match_type(Type, Args).
