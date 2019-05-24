@@ -414,6 +414,7 @@ static Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
 static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 			    ErtsCodeMFA *bif_mfa, Eterm args);
 static struct StackTrace * get_trace_from_exc(Eterm exc);
+static Eterm *get_freason_ptr_from_exc(Eterm exc);
 static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 
 void
@@ -1899,6 +1900,25 @@ static int is_raised_exc(Eterm exc) {
     } else {
         ASSERT(is_list(exc));
         return bignum_header_is_neg(*big_val(CDR(list_val(exc))));
+    }
+}
+
+static Eterm *get_freason_ptr_from_exc(Eterm exc) {
+    static Eterm dummy_freason;
+    struct StackTrace* s;
+
+    if (exc == NIL) {
+        /*
+         * Is is not exactly clear when exc can be NIL. Probably only
+         * when the exception has been generated from native code.
+         * Return a pointer to an Eterm that can be safely written and
+         * ignored.
+         */
+	return &dummy_freason;
+    } else {
+	ASSERT(is_list(exc));
+        s = (struct StackTrace *) big_val(CDR(list_val(exc)));
+        return &s->freason;
     }
 }
 
