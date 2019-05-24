@@ -55,11 +55,11 @@ commutativity(Config) when is_list(Config) ->
 binary_consistency(Config) when is_list(Config) ->
     %% These binaries should meet into {binary,12} as that's the best common
     %% unit for both types.
-    A = {binary, 4},
-    B = {binary, 6},
+    A = #t_bitstring{unit=4},
+    B = #t_bitstring{unit=6},
 
-    {binary, 12} = beam_types:meet(A, B),
-    {binary, 2} = beam_types:join(A, B),
+    #t_bitstring{unit=12} = beam_types:meet(A, B),
+    #t_bitstring{unit=2} = beam_types:join(A, B),
 
     A = beam_types:meet(A, beam_types:join(A, B)),
     A = beam_types:join(A, beam_types:meet(A, B)),

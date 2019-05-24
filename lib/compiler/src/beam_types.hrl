@@ -25,15 +25,15 @@
 %%
 %%  any                  Any Erlang term (top element).
 %%
-%%    - atom             An atom.
-%%    - {binary,Unit}    A bitstring aligned to unit Unit.
-%%    - #t_bs_match{}    A match context.
-%%    - #t_fun{}         A fun.
-%%    - map              A map.
-%%    - number           A number.
+%%    - #t_atom{}        Atom, or a set thereof.
+%%    - #t_bitstring{}   Bitstring.
+%%    - #t_bs_context{}  Match context.
+%%    - #t_fun{}         Fun.
+%%    - #t_map{}         Map.
+%%    - number           Any number.
 %%       -- float        Floating point number.
 %%       -- integer      Integer.
-%%    - list             A list.
+%%    - list             Any list.
 %%       -- cons         Cons (nonempty list).
 %%       -- nil          The empty list.
 %%    - #t_tuple{}       Tuple.
@@ -45,14 +45,25 @@
 -record(t_atom, {elements=any :: 'any' | [atom()]}).
 -record(t_fun, {arity=any :: arity() | 'any'}).
 -record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
--record(t_bs_match, {type :: type()}).
+-record(t_bitstring, {unit=1 :: pos_integer()}).
+-record(t_bs_context, {slots=0 :: non_neg_integer(),
+                       valid=0 :: non_neg_integer()}).
+-record(t_map, {elements=#{} :: map_elements()}).
 -record(t_tuple, {size=0 :: integer(),
                   exact=false :: boolean(),
-                  %% Known element types (1-based index), unknown elements are
-                  %% are assumed to be 'any'.
-                  elements=#{} :: #{ non_neg_integer() => type() }}).
+                  elements=#{} :: tuple_elements()}).
 
--type type() :: 'any' | 'none' |
-                #t_atom{} | #t_bs_match{} | #t_fun{} | #t_integer{} |
-                #t_tuple{} | {'binary',pos_integer()} | 'cons' | 'float' |
-                'list' | 'map' | 'nil' | 'number'.
+%% Known element types, unknown elements are assumed to be 'any'. The key is
+%% a 1-based integer index for tuples, and a plain literal for maps (that is,
+%% not wrapped in a #b_literal{}, just the value itself).
+
+-type tuple_elements() :: #{ Key :: pos_integer() => type() }.
+-type map_elements() :: #{ Key :: term() => type() }.
+
+-type elements() :: tuple_elements() | map_elements().
+
+-type type() :: any | none |
+                list | number |
+                #t_atom{} | #t_bitstring{} | #t_bs_context{} | #t_fun{} |
+                #t_integer{} | #t_map{} | #t_tuple{} | 'cons' |
+                'float' | 'nil'.

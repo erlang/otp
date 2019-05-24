@@ -2093,6 +2093,7 @@ pre_load() ->
     L = [beam_a,
 	 beam_asm,
 	 beam_block,
+	 beam_call_types,
 	 beam_clean,
 	 beam_dict,
 	 beam_flatten,

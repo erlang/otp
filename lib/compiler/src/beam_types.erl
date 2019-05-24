@@ -22,22 +22,21 @@
 
 -include("beam_types.hrl").
 
--import(lists, [foldl/3, reverse/1]).
+-export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
--export([meet/1, meet/2, join/1, join/2, subtract/2, verified_type/1]).
+-export([get_singleton_value/1,
+         get_tuple_size/1,
+         is_singleton_type/1,
+         is_boolean_type/1]).
 
--export([call_types/3]).
+-export([get_element_type/2, set_element_type/3]).
 
-%%%
-%%% Type constructors
-%%%
-
--spec t_boolean() -> type().
-t_boolean() -> #t_atom{elements=[false,true]}.
-
-%%%
-%%% Type operators
-%%%
+-export([make_atom/1,
+         make_boolean/0,
+         make_integer/1,
+         make_integer/2,
+         make_tuple/2,
+         make_tuple/3]).
 
 %% Return the "join" of Type1 and Type2. The join is a more general
 %% type than Type1 and Type2. For example:
@@ -48,7 +47,7 @@ t_boolean() -> #t_atom{elements=[false,true]}.
 %% The join for two different types result in 'any', which is
 %% the top element for our type lattice:
 %%
-%%    join(#t_integer{}, map) -> any
+%%    join(#t_integer{}, #t_map{}) -> any
 
 -spec join(type(), type()) -> type().
 
@@ -70,13 +69,17 @@ join(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
     end;
 join(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
 join(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
-join({binary,U1}, {binary,U2}) ->
-    {binary,gcd(U1, U2)};
+join(#t_bitstring{unit=U1}, #t_bitstring{unit=U2}) ->
+    #t_bitstring{unit=gcd(U1, U2)};
 join(#t_fun{}, #t_fun{}) ->
     #t_fun{};
 join(#t_integer{elements={MinA,MaxA}},
      #t_integer{elements={MinB,MaxB}}) ->
     #t_integer{elements={min(MinA,MinB),max(MaxA,MaxB)}};
+join(#t_bs_context{slots=SlotsA,valid=ValidA},
+     #t_bs_context{slots=SlotsB,valid=ValidB}) ->
+    #t_bs_context{slots=min(SlotsA, SlotsB),
+                  valid=ValidA band ValidB};
 join(#t_integer{}, #t_integer{}) -> #t_integer{};
 join(list, cons) -> list;
 join(cons, list) -> list;
@@ -131,28 +134,12 @@ gcd(A, B) ->
         X -> gcd(B, X)
     end.
 
-set_element_type(_Key, none, Es) ->
-    Es;
-set_element_type(Key, any, Es) ->
-    maps:remove(Key, Es);
-set_element_type(Key, Type, Es) ->
-    Es#{ Key => Type }.
+%% Joins all the given types into a single type.
+-spec join([type()]) -> type().
 
-%% Subtract Type2 from Type1. Example:
-%%    subtract(list, cons) -> nil
-
--spec subtract(type(), type()) -> type().
-
-subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
-    case ordsets:subtract(Set0, Set1) of
-        [] -> none;
-        [_|_]=Set -> #t_atom{elements=Set}
-    end;
-subtract(number, float) -> #t_integer{};
-subtract(number, #t_integer{elements=any}) -> float;
-subtract(list, cons) -> nil;
-subtract(list, nil) -> cons;
-subtract(T, _) -> T.
+join([T1,T2|Ts]) ->
+    join([join(T1, T2)|Ts]);
+join([T]) -> T.
 
 %% Return the "meet" of Type1 and Type2. The meet is a narrower
 %% type than Type1 and Type2. For example:
@@ -163,7 +150,7 @@ subtract(T, _) -> T.
 %% The meet for two different types result in 'none', which is
 %% the bottom element for our type lattice:
 %%
-%%    meet(#t_integer{}, map) -> none
+%%    meet(#t_integer{}, #t_map{}) -> none
 
 -spec meet(type(), type()) -> type().
 
@@ -202,8 +189,8 @@ meet(cons, list) -> cons;
 meet(nil, list) -> nil;
 meet(#t_tuple{}=T1, #t_tuple{}=T2) ->
     meet_tuples(T1, T2);
-meet({binary,U1}, {binary,U2}) ->
-    {binary, U1 * U2 div gcd(U1, U2)};
+meet(#t_bitstring{unit=U1}, #t_bitstring{unit=U2}) ->
+    #t_bitstring{unit=U1 * U2 div gcd(U1, U2)};
 meet(any, T) ->
     verified_type(T);
 meet(T, any) ->
@@ -245,11 +232,30 @@ meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
 meet_elements_1([], _Es1, _Es2, Acc) ->
     Acc.
 
-%% Returns the passed in type if it is well-formed and safe to pass to
-%% arbitrary code, and crashes if there's anything wrong with it.
-%%
-%% Currently, all types described in beam_types.hrl except for #t_bs_match{}
-%% are considered safe.
+%% Meets all the given types into a single type.
+-spec meet([type()]) -> type().
+
+meet([T1,T2|Ts]) ->
+    meet([meet(T1, T2)|Ts]);
+meet([T]) -> T.
+
+%% Subtract Type2 from Type1. Example:
+%%    subtract(list, cons) -> nil
+
+-spec subtract(type(), type()) -> type().
+
+subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
+    case ordsets:subtract(Set0, Set1) of
+        [] -> none;
+        [_|_]=Set -> #t_atom{elements=Set}
+    end;
+subtract(number, float) -> #t_integer{};
+subtract(number, #t_integer{elements=any}) -> float;
+subtract(list, cons) -> nil;
+subtract(list, nil) -> cons;
+subtract(T, _) -> T.
+
+%% Verifies that the given type is well-formed.
 
 -spec verified_type(T) -> T when
       T :: type().
@@ -258,13 +264,14 @@ verified_type(any=T) -> T;
 verified_type(none=T) -> T;
 verified_type(#t_atom{elements=any}=T) -> T;
 verified_type(#t_atom{elements=[_|_]}=T) -> T;
-verified_type({binary,U}=T) when is_integer(U) -> T;
+verified_type(#t_bitstring{unit=U}=T) when is_integer(U), U >= 1 -> T;
+verified_type(#t_bs_context{}=T) -> T;
 verified_type(#t_fun{arity=Arity}=T) when Arity =:= any; is_integer(Arity) -> T;
 verified_type(#t_integer{elements=any}=T) -> T;
 verified_type(#t_integer{elements={Min,Max}}=T)
   when is_integer(Min), is_integer(Max), Min =< Max -> T;
 verified_type(list=T) -> T;
-verified_type(map=T) -> T;
+verified_type(#t_map{}=T) -> T;
 verified_type(nil=T) -> T;
 verified_type(cons=T) -> T;
 verified_type(number=T) -> T;
@@ -279,16 +286,97 @@ verified_type(#t_tuple{size=Size,elements=Es}=T) ->
     T;
 verified_type(float=T) -> T.
 
-%% Joins all the given types into a single type.
--spec join([type()]) -> type().
+%%%
+%%% Type operators
+%%%
 
-join([T1,T2|Ts]) ->
-    join([join(T1, T2)|Ts]);
-join([T]) -> T.
+-spec get_singleton_value(Type) -> Result when
+      Type :: type(),
+      Result :: {ok, term()} | error.
+get_singleton_value(#t_atom{elements=[Atom]}) ->
+    {ok, Atom};
+get_singleton_value(#t_integer{elements={Int,Int}}) ->
+    {ok, Int};
+get_singleton_value(nil) ->
+    {ok, []};
+get_singleton_value(_) ->
+    error.
 
-%% Meets all the given types into a single type.
--spec meet([type()]) -> type().
+-spec get_tuple_size(Type) -> Result when
+      Type :: type(),
+      Result :: none | {at_least, Size} | {exact, Size},
+      Size :: non_neg_integer().
+get_tuple_size(#t_tuple{size=Size,exact=false}) ->
+    {at_least,Size};
+get_tuple_size(#t_tuple{size=Size,exact=true}) ->
+    {exact,Size};
+get_tuple_size(_) ->
+    none.
 
-meet([T1,T2|Ts]) ->
-    meet([meet(T1, T2)|Ts]);
-meet([T]) -> T.
+-spec is_boolean_type(type()) -> boolean().
+is_boolean_type(#t_atom{elements=[F,T]}) ->
+    F =:= false andalso T =:= true;
+is_boolean_type(#t_atom{elements=[B]}) ->
+    is_boolean(B);
+is_boolean_type(_) -> false.
+
+-spec is_singleton_type(type()) -> boolean().
+is_singleton_type(Type) ->
+    get_singleton_value(Type) =/= error.
+
+-spec set_element_type(Key, Type, Elements) -> Elements when
+      Key :: term(),
+      Type :: type(),
+      Elements :: elements().
+set_element_type(_Key, none, Es) ->
+    Es;
+set_element_type(Key, any, Es) ->
+    maps:remove(Key, Es);
+set_element_type(Key, Type, Es) ->
+    Es#{ Key => Type }.
+
+-spec get_element_type(Key, Elements) -> type() when
+      Key :: term(),
+      Elements :: elements().
+get_element_type(Index, Es) ->
+    case Es of
+        #{ Index := T } -> T;
+        #{} -> any
+    end.
+
+%%%
+%%% Type constructors
+%%%
+
+-spec make_atom(atom()) -> type().
+make_atom(Atom) when is_atom(Atom) ->
+    #t_atom{elements=[Atom]}.
+
+-spec make_boolean() -> type().
+make_boolean() ->
+    #t_atom{elements=[false,true]}.
+
+-spec make_integer(integer()) -> type().
+make_integer(Int) when is_integer(Int) ->
+    make_integer(Int, Int).
+
+-spec make_integer(Min, Max) -> type() when
+      Min :: integer(),
+      Max :: integer().
+make_integer(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
+    #t_integer{elements={Min,Max}}.
+
+-spec make_tuple(Size, Exact) -> type() when
+      Size :: non_neg_integer(),
+      Exact :: boolean().
+make_tuple(Size, Exact) ->
+    make_tuple(Size, Exact, #{}).
+
+-spec make_tuple(Size, Exact, Elements) -> type() when
+      Size :: non_neg_integer(),
+      Exact :: boolean(),
+      Elements :: #{ non_neg_integer() => type() }.
+make_tuple(Size, Exact, Elements) ->
+    #t_tuple{size=Size,
+             exact=Exact,
+             elements=Elements}.

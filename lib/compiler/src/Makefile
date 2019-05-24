@@ -49,6 +49,7 @@ MODULES =  \
 	beam_a \
 	beam_asm \
 	beam_block \
+	beam_call_types \
 	beam_clean \
 	beam_dict \
 	beam_disasm \
@@ -191,6 +192,7 @@ release_docs_spec:
 # Dependencies -- alphabetically, please
 # ---------------------------------------------------- 
 
+$(EBIN)/beam_call_types.beam: beam_types.hrl
 $(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl
 $(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl
 $(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
