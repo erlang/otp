@@ -35,7 +35,8 @@
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
-         guard_in_catch/1,beam_bool_SUITE/1]).
+         guard_in_catch/1,beam_bool_SUITE/1,
+         repeated_type_tests/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -53,7 +54,8 @@ groups() ->
        rel_ops,rel_op_combinations,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
-       bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE]}].
+       bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
+       repeated_type_tests]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2260,6 +2262,25 @@ maps() ->
 %% Cover handling of put_map in in split_block_label_used/2.
 evidence(#{0 := Charge}) when 0; #{[] => Charge} == #{[] => 42} ->
     ok.
+
+repeated_type_tests(_Config) ->
+    binary = repeated_type_test(<<42>>),
+    bitstring = repeated_type_test(<<1:1>>),
+    other = repeated_type_test(atom),
+    ok.
+
+repeated_type_test(T) ->
+    %% Test for a bug in beam_ssa_dead.
+    if is_bitstring(T) ->
+            if is_binary(T) ->                  %This test would be optimized away.
+                    binary;
+               true ->
+                    bitstring
+            end;
+       true ->
+            other
+    end.
+
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.
