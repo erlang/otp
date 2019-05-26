@@ -1,0 +1,43 @@
+FROM erlang/ubuntu-build:64bit
+
+RUN apt-get update && apt-get install -y sudo && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user to use for development -
+# test for applications like `ssh` fail when executed as root
+RUN useradd --create-home --user-group --groups sudo dev
+RUN echo 'dev ALL=(ALL:ALL) NOPASSWD: ALL' >> /etc/sudoers.d/dev
+
+# Create the root directory for development
+RUN mkdir -p /buildroot && chown -R dev:dev /buildroot
+
+# Set up the environment
+ENV ERL_TOP /buildroot/otp
+ENV PATH $ERL_TOP/bin:$PATH
+ENV PREFIX /usr/local
+ENV MAKEFLAGS -j4
+
+# Create top-level OTP directory and own it!
+RUN mkdir -p $ERL_TOP && chown -R dev:dev $ERL_TOP
+
+# Switch to the development user and directory
+USER dev
+WORKDIR $ERL_TOP
+
+# Copy sources from the Docker build context
+COPY --chown=dev ./otp $ERL_TOP
+
+# Install a release required for a number of tests to execute successfully -
+# https://github.com/erlang/otp/wiki/Running-tests
+RUN $ERL_TOP/otp_build setup -a --prefix=$PREFIX && $ERL_TOP/otp_build release
+RUN sudo make --directory=$ERL_TOP install
+
+# Set up PropEr for property-based testing which used in some OTP tests
+RUN git clone git://github.com/proper-testing/proper.git /buildroot/proper
+RUN make --directory=/buildroot/proper
+ENV ERL_LIBS /buildroot/proper:$ERL_LIBS
+
+# Enable erl shell history
+ENV ERL_AFLAGS -kernel shell_history enabled
+
+# Run an Erlang session by default
+CMD ["/usr/local/bin/erl"]

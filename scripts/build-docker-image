@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# Create a Docker image for development:
+#
+# 1. Create an archive from the master branch
+# 2. Inject Dockerfile.develop
+# 3. Send these to Docker as the build context
+# 4. Build the development image according to Dockerfile.develop
+
+HERE=$(realpath "$(dirname "$0")")
+DOCKERFILE="Dockerfile.develop"
+
+git archive --format=tar --prefix=otp/ master | tar -C $HERE -c -f - $DOCKERFILE @- | gzip | docker build --file $DOCKERFILE --tag otp-dev -
