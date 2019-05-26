@@ -25,7 +25,15 @@
 -include("ssh.hrl").
 -include("ssh_agent.hrl").
 
--export([encode/1, decode/1]).
+-export([pack/1, unpack/1, encode/1, decode/1]).
+
+%% Message packing and unpacking
+
+pack(Data) ->
+    <<(size(Data)):32/unsigned-big-integer, Data/binary>>.
+
+unpack(<<Len:32/unsigned-big-integer, Data:Len/binary>>) ->
+    Data.
 
 %% SSH Agent message encoding
 
@@ -43,7 +51,7 @@ encode(#ssh_agent_sign_request{
 decode_identities(<<>>, Acc, 0) ->
     lists:reverse(Acc);
 
-decode_identities(<<?DEC_BIN(KeyBlob, _KLen), ?DEC_BIN(Comment, _CLen), Rest/binary>>, Acc, N) ->
+decode_identities(<<?DEC_BIN(KeyBlob, _KeyBlobLen), ?DEC_BIN(Comment, _CommentLen), Rest/binary>>, Acc, N) ->
     Identity = #ssh_agent_identity{key_blob = KeyBlob, comment = Comment},
     decode_identities(Rest, [Identity | Acc], N - 1).
 
@@ -57,5 +65,5 @@ decode(<<?BYTE(?SSH_AGENT_IDENTITIES_ANSWER), ?UINT32(NumKeys), KeyData/binary>>
     Keys = decode_identities(KeyData, [], NumKeys),
     #ssh_agent_identities_response{nkeys = NumKeys, keys = Keys};
 
-decode(<<?BYTE(?SSH_AGENT_SIGN_RESPONSE), ?DEC_BIN(Signature, _SLen)>>) ->
+decode(<<?BYTE(?SSH_AGENT_SIGN_RESPONSE), ?DEC_BIN(Signature, _SignatureLen)>>) ->
     #ssh_agent_sign_response{signature = Signature}.
