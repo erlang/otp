@@ -61,14 +61,6 @@
 -export([pack/3, adjust_algs_for_peer_version/2]).
 -export([decompress/2,  decrypt_blocks/3, is_valid_mac/3 ]). % FIXME: remove
 
--define(Estring(X), ?STRING((if is_binary(X) -> X;
-				is_list(X) -> list_to_binary(X);
-				X==undefined -> <<>>
-			     end))).
--define(Empint(X),     (ssh_bits:mpint(X))/binary ).
--define(Ebinary(X),    ?STRING(X) ).
--define(Euint32(X),   ?UINT32(X) ).
-
 %%%----------------------------------------------------------------------------
 %%%
 %%% There is a difference between supported and default algorithms. The
