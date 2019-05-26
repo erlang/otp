@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+# Start a container from the OTP development Docker image
+#
+# The image is built with `scripts/build-docker-image`.
+#
+# Mount the local repo on the host machine as the build root so you can develop
+# with your own editor and setup, but run builds and tests inside the container.
+
+ROOT=$(realpath "$(dirname "$0")/..")
+
+IMAGE=otp-dev
+
+exec docker run \
+  --interactive \
+  --tty \
+  --rm \
+  --hostname otp-dev \
+  --volume $ROOT:/buildroot/otp \
+  $IMAGE \
+  bash
