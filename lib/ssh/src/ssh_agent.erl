@@ -48,3 +48,55 @@
 -define(SSH_AGENT_EXTENSION_FAILURE,              28).
 -define(SSH_AGENT_IDENTITIES_ANSWER,              12).
 -define(SSH_AGENT_SIGN_RESPONSE,                  14).
+
+%% SSH Agent messages
+%%
+%% Reference: https://tools.ietf.org/html/draft-miller-ssh-agent-02#section-4
+
+%% 4.1 Generic server responses
+
+-record(ssh_agent_success,
+	{
+	 }).
+
+-record(ssh_agent_failure,
+	{
+	 }).
+
+%% 4.4 Requesting a list of keys
+
+-record(ssh_agent_identities_request,
+	{
+	 }).
+
+-record(ssh_agent_identity,
+    {
+      key_blob, % string
+      comment   % string
+     }).
+
+-record(ssh_agent_identities_response,
+    {
+      nkeys, % integer
+      keys   % list of ssh_agent_identity records
+     }).
+
+%% 4.5 Private key operations
+
+-record(ssh_agent_sign_request,
+	{
+	  key_blob, % string
+	  data,		% string
+	  flags		% integer
+	 }).
+
+-record(ssh_agent_sign_response,
+	{
+	  signature % string
+  	 }).
+
+%% SSH Agent message encoding
+%%
+
+%% SSH Agent message decoding
+%%
