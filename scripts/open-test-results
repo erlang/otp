@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+ROOT=$(realpath "$(dirname "$0")/..")
+
+open $ROOT/release/tests/test_server/index.html
