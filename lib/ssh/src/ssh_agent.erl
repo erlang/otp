@@ -22,6 +22,10 @@
 
 -module(ssh_agent).
 
+-include("ssh.hrl").
+
+-export([encode/1, decode/1]).
+
 %% SSH Agent message numbers
 %%
 %% Reference: https://tools.ietf.org/html/draft-miller-ssh-agent-02#section-5.1
@@ -98,5 +102,34 @@
 %% SSH Agent message encoding
 %%
 
+encode(#ssh_agent_identities_request{}) ->
+    <<?Ebyte(?SSH_AGENTC_REQUEST_IDENTITIES)>>;
+
+encode(#ssh_agent_sign_request{
+      key_blob = KeyBlob,
+      data = Data,
+      flags = Flags}) ->
+    <<?Ebyte(?SSH_AGENTC_SIGN_REQUEST), ?Ebinary(KeyBlob), ?Ebinary(Data), ?Euint32(Flags)>>.
+
 %% SSH Agent message decoding
 %%
+
+decode_identities(<<>>, Acc, 0) ->
+    lists:reverse(Acc);
+
+decode_identities(<<?DEC_BIN(KeyBlob, _KLen), ?DEC_BIN(Comment, _CLen), Rest/binary>>, Acc, N) ->
+    Identity = #ssh_agent_identity{key_blob = KeyBlob, comment = Comment},
+    decode_identities(Rest, [Identity | Acc], N - 1).
+
+decode(<<?BYTE(?SSH_AGENT_SUCCESS)>>) ->
+    #ssh_agent_success{};
+
+decode(<<?BYTE(?SSH_AGENT_FAILURE)>>) ->
+    #ssh_agent_failure{};
+
+decode(<<?BYTE(?SSH_AGENT_IDENTITIES_ANSWER), ?UINT32(NumKeys), KeyData/binary>>) ->
+    Keys = decode_identities(KeyData, [], NumKeys),
+    #ssh_agent_identities_response{nkeys = NumKeys, keys = Keys};
+
+decode(<<?BYTE(?SSH_AGENT_SIGN_RESPONSE), ?DEC_BIN(Signature, _SLen)>>) ->
+    #ssh_agent_sign_response{signature = Signature}.
