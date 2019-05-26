@@ -26,7 +26,7 @@
 -include_lib("ssh/src/ssh.hrl").
 -include_lib("ssh/src/ssh_transport.hrl").
 -include_lib("ssh/src/ssh_connect.hrl").
--include_lib("ssh/src/ssh_userauth.hrl").
+-include_lib("ssh/src/ssh_auth.hrl").
 
 %%%================================================================
 %%%

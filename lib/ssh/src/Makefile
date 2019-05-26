@@ -99,7 +99,7 @@ APP_TARGET= $(EBIN)/$(APP_FILE)
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
-INTERNAL_HRL_FILES = ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl ssh.hrl ssh_userauth.hrl ssh_xfer.hrl
+INTERNAL_HRL_FILES = ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl ssh.hrl ssh_xfer.hrl
 
 # ----------------------------------------------------
 # FLAGS
