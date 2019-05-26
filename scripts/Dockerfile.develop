@@ -21,6 +21,7 @@ RUN mkdir -p $ERL_TOP && chown -R dev:dev $ERL_TOP
 
 # Switch to the development user and directory
 USER dev
+ENV USER dev
 WORKDIR $ERL_TOP
 
 # Copy sources from the Docker build context
