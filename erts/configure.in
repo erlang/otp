@@ -676,7 +676,7 @@ elif test "X$PROFILE_INSTR_GENERATE" = "Xtrue" -a "X$PROFILE_INSTR_USE" = "Xtrue
   PROFILE_COMPILER=clang
   AC_MSG_RESULT([yes, using -fprofile-instr-generate])
 else
-  if $enable_pgo = yes; then
+  if test $enable_pgo = yes; then
     AC_MSG_ERROR(cannot use PGO with this compiler)
   else
     AC_MSG_RESULT([no])
