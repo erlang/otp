@@ -41,8 +41,9 @@
 
 %% Records that represent type information.
 -record(t_atom, {elements=any :: 'any' | [atom()]}).
--record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
 -record(t_bs_match, {type :: type()}).
+-record(t_fun, {arity=any :: arity() | 'any'}).
+-record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
 -record(t_tuple, {size=0 :: integer(),
                   exact=false :: boolean(),
                   %% Known element types (1-based index), unknown elements are
@@ -50,8 +51,9 @@
                   elements=#{} :: #{ non_neg_integer() => type() }}).
 
 -type type() :: 'any' | 'none' |
-                #t_atom{} | #t_integer{} | #t_bs_match{} | #t_tuple{} |
-                {'binary',pos_integer()} | 'cons' | 'float' | 'list' | 'map' | 'nil' | 'number'.
+                #t_atom{} | #t_bs_match{} | #t_fun{} | #t_integer{} | #t_tuple{} |
+                {'binary',pos_integer()} | 'cons' | 'float' |
+                'list' | 'map' | 'nil' | 'number'.
 -type type_db() :: #{beam_ssa:var_name():=type()}.
 
 -spec opt_start(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
@@ -157,21 +159,29 @@ opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo)
        map_size(TypeMap) =:= 0 ->
     opt_finish_1(Args, TypeMaps, ParamInfo);
 opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo0) ->
-    case join(maps:values(TypeMap)) of
+    JoinedType0 = verified_type(join(maps:values(TypeMap))),
+    case validator_anno(JoinedType0) of
         any ->
             opt_finish_1(Args, TypeMaps, ParamInfo0);
         JoinedType ->
-            JoinedType = verified_type(JoinedType),
-            ParamInfo = ParamInfo0#{ Arg => validator_anno(JoinedType) },
+            ParamInfo = ParamInfo0#{ Arg => JoinedType },
             opt_finish_1(Args, TypeMaps, ParamInfo)
     end;
 opt_finish_1([], [], ParamInfo) ->
     ParamInfo.
 
+validator_anno(any) ->
+    any;
+validator_anno(#t_fun{}) ->
+    %% There is no need make funs visible to beam_validator.
+    any;
 validator_anno(#t_tuple{size=Size,exact=Exact,elements=Elements0}) ->
-    Elements = maps:fold(fun(Index, Type, Acc) ->
+    Elements = maps:fold(fun(Index, Type0, Acc) ->
                                  Key = beam_validator:type_anno(integer, Index),
-                                 Acc#{ Key => validator_anno(Type) }
+                                 case validator_anno(Type0) of
+                                     any -> Acc;
+                                     Type -> Acc#{Key=>Type}
+                                 end
                          end, #{}, Elements0),
     beam_validator:type_anno(tuple, Size, Exact, Elements);
 validator_anno(#t_integer{elements={Same,Same}}) ->
@@ -413,6 +423,11 @@ simplify_remote_call(Mod, Name, Args0, I) ->
             end
     end.
 
+opt_call(#b_set{dst=Dst,args=[#b_var{}=Fun|Args]}=I, _D, Ts0, Ds0, Fdb) ->
+    Type = #t_fun{arity=length(Args)},
+    Ts = Ts0#{ Fun => Type, Dst => any },
+    Ds = Ds0#{ Dst => I },
+    {Ts, Ds, Fdb, I};
 opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, D, Ts0, Ds0, Fdb0) ->
     {Ts, Ds, I} = opt_local_call(I0, Ts0, Ds0, Fdb0),
     case Fdb0 of
@@ -440,9 +455,15 @@ opt_local_call(#b_set{dst=Dst,args=[Id|_]}=I0, Ts0, Ds0, Fdb) ->
                #{} -> any
            end,
     I = case Type of
-            any -> I0;
-            none -> I0;
-            _ -> beam_ssa:add_anno(result_type, validator_anno(Type), I0)
+            none ->
+                I0;
+            _ ->
+                case validator_anno(Type) of
+                    any ->
+                        I0;
+                    ValidatorType ->
+                        beam_ssa:add_anno(result_type, ValidatorType, I0)
+                end
         end,
     Ts = Ts0#{ Dst => Type },
     Ds = Ds0#{ Dst => I },
@@ -519,19 +540,36 @@ simplify(#b_set{op={bif,tuple_size},args=[Term]}=I, Ts) ->
         _ ->
             I
     end;
-simplify(#b_set{op={bif,'=='},args=Args}=I, Ts) ->
+simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
+  when is_integer(Arity), Arity >= 0 ->
+    case get_type(Fun, Ts) of
+        #t_fun{arity=any} ->
+            I;
+        #t_fun{arity=Arity} ->
+            #b_literal{val=true};
+        any ->
+            I;
+        _ ->
+            #b_literal{val=false}
+    end;
+simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '=='; Op0 =:= '/=' ->
     Types = get_types(Args, Ts),
-    EqEq = case {meet(Types),join(Types)} of
-               {none,any} -> true;
-               {#t_integer{},#t_integer{}} -> true;
-               {float,float} -> true;
-               {{binary,_},_} -> true;
-               {#t_atom{},_} -> true;
-               {_,_} -> false
-           end,
+    EqEq0 = case {meet(Types),join(Types)} of
+                {none,any} -> true;
+                {#t_integer{},#t_integer{}} -> true;
+                {float,float} -> true;
+                {{binary,_},_} -> true;
+                {#t_atom{},_} -> true;
+                {_,_} -> false
+            end,
+    EqEq = EqEq0 orelse any_non_numeric_argument(Args, Ts),
     case EqEq of
         true ->
-            simplify(I#b_set{op={bif,'=:='}}, Ts);
+            Op = case Op0 of
+                     '==' -> '=:=';
+                     '/=' -> '=/='
+                 end,
+            simplify(I#b_set{op={bif,Op}}, Ts);
         false ->
             eval_bif(I, Ts)
     end;
@@ -547,6 +585,17 @@ simplify(#b_set{op={bif,'=:='},args=[A1,_A2]=Args}=I, Ts) ->
                 {true,#t_atom{elements=[true]}} ->
                     %% Bool =:= true  ==>  Bool
                     A1;
+                {true,#t_atom{elements=[false]}} ->
+                    %% Bool =:= false ==> not Bool
+                    %%
+                    %% This will be further optimized to eliminate the
+                    %% 'not', swapping the success and failure
+                    %% branches in the br instruction. If A1 comes
+                    %% from a type test (such as is_atom/1) or a
+                    %% comparison operator (such as >=) that can be
+                    %% translated to test instruction, this
+                    %% optimization will eliminate one instruction.
+                    simplify(I#b_set{op={bif,'not'},args=[A1]}, Ts);
                 {_,_} ->
                     eval_bif(I, Ts)
             end
@@ -596,6 +645,44 @@ simplify(#b_set{op=wait_timeout,args=[#b_literal{val=0}]}, _Ts) ->
 simplify(#b_set{op=wait_timeout,args=[#b_literal{val=infinity}]}=I, _Ts) ->
     I#b_set{op=wait,args=[]};
 simplify(I, _Ts) -> I.
+
+any_non_numeric_argument([#b_literal{val=Lit}|_], _Ts) ->
+    is_non_numeric(Lit);
+any_non_numeric_argument([#b_var{}=V|T], Ts) ->
+    is_non_numeric_type(get_type(V, Ts)) orelse any_non_numeric_argument(T, Ts);
+any_non_numeric_argument([], _Ts) -> false.
+
+is_non_numeric([H|T]) ->
+    is_non_numeric(H) andalso is_non_numeric(T);
+is_non_numeric(Tuple) when is_tuple(Tuple) ->
+    is_non_numeric_tuple(Tuple, tuple_size(Tuple));
+is_non_numeric(Map) when is_map(Map) ->
+    %% Note that 17.x and 18.x compare keys in different ways.
+    %% Be very conservative -- require that both keys and values
+    %% are non-numeric.
+    is_non_numeric(maps:to_list(Map));
+is_non_numeric(Num) when is_number(Num) ->
+    false;
+is_non_numeric(_) -> true.
+
+is_non_numeric_tuple(Tuple, El) when El >= 1 ->
+    is_non_numeric(element(El, Tuple)) andalso
+	is_non_numeric_tuple(Tuple, El-1);
+is_non_numeric_tuple(_Tuple, 0) -> true.
+
+is_non_numeric_type(#t_atom{}) -> true;
+is_non_numeric_type({binary,_}) -> true;
+is_non_numeric_type(nil) -> true;
+is_non_numeric_type(#t_tuple{size=Size,exact=true,elements=Types})
+  when map_size(Types) =:= Size ->
+    is_non_numeric_tuple_type(Size, Types);
+is_non_numeric_type(_) -> false.
+
+is_non_numeric_tuple_type(0, _Types) ->
+    true;
+is_non_numeric_tuple_type(Pos, Types) ->
+    is_non_numeric_type(map_get(Pos, Types)) andalso
+        is_non_numeric_tuple_type(Pos - 1, Types).
 
 make_literal_list(Args) ->
     make_literal_list(Args, []).
@@ -859,6 +946,13 @@ type(bs_get_tail, _Args, _Ts, _Ds) ->
 type(call, [#b_remote{mod=#b_literal{val=Mod},
                       name=#b_literal{val=Name}}|Args], Ts, _Ds) ->
     case {Mod,Name,Args} of
+        {erlang,make_fun,[_,_,Arity0]} ->
+            case Arity0 of
+                #b_literal{val=Arity} when is_integer(Arity), Arity >= 0 ->
+                    #t_fun{arity=Arity};
+                _ ->
+                    #t_fun{}
+            end;
         {erlang,setelement,[Pos,Tuple,Arg]} ->
             case {get_type(Pos, Ts),get_type(Tuple, Ts)} of
                 {#t_integer{elements={Index,Index}},
@@ -927,6 +1021,8 @@ type(is_nonempty_list, [_], _Ts, _Ds) ->
     t_boolean();
 type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Ts, _Ds) ->
     t_boolean();
+type(make_fun, [#b_local{arity=TotalArity}|Env], _Ts, _Ds) ->
+    #t_fun{arity=TotalArity-length(Env)};
 type(put_map, _Args, _Ts, _Ds) ->
     map;
 type(put_list, _Args, _Ts, _Ds) ->
@@ -1106,6 +1202,11 @@ will_succeed(is_float, Type) ->
     case Type of
         float -> yes;
         number -> maybe;
+        _ -> no
+    end;
+will_succeed(is_function, Type) ->
+    case Type of
+        #t_fun{} -> yes;
         _ -> no
     end;
 will_succeed(is_integer, Type) ->
@@ -1347,6 +1448,9 @@ get_type(#b_literal{val=Val}, _Ts) ->
             t_atom(Val);
         is_float(Val) ->
             float;
+        is_function(Val) ->
+            {arity,Arity} = erlang:fun_info(Val, arity),
+            #t_fun{arity=Arity};
         is_integer(Val) ->
             t_integer(Val);
         is_list(Val), Val =/= [] ->
@@ -1740,6 +1844,7 @@ join(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
 join(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
 join({binary,U1}, {binary,U2}) ->
     {binary,gcd(U1, U2)};
+join(#t_fun{}, #t_fun{}) -> #t_fun{};
 join(#t_integer{}, #t_integer{}) -> t_integer();
 join(list, cons) -> list;
 join(cons, list) -> list;
@@ -1857,6 +1962,10 @@ meet(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
     T;
 meet(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
     T;
+meet(#t_fun{arity=any}, #t_fun{}=T) ->
+    T;
+meet(#t_fun{}=T, #t_fun{arity=any}) ->
+    T;
 meet(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
     T;
 meet(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
@@ -1946,6 +2055,7 @@ verified_type(none=T) -> T;
 verified_type(#t_atom{elements=any}=T) -> T;
 verified_type(#t_atom{elements=[_|_]}=T) -> T;
 verified_type({binary,U}=T) when is_integer(U) -> T;
+verified_type(#t_fun{arity=Arity}=T) when Arity =:= any; is_integer(Arity) -> T;
 verified_type(#t_integer{elements=any}=T) -> T;
 verified_type(#t_integer{elements={Min,Max}}=T)
   when is_integer(Min), is_integer(Max) -> T;

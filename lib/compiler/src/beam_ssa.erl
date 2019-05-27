@@ -79,7 +79,7 @@
 -type var_base()   :: atom() | non_neg_integer().
 
 -type literal_value() :: atom() | integer() | float() | list() |
-                         nil() | tuple() | map() | binary().
+                         nil() | tuple() | map() | binary() | fun().
 
 -type op()   :: {'bif',atom()} | {'float',float_op()} | prim_op() | cg_prim_op().
 -type anno() :: #{atom() := any()}.
