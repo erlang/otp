@@ -147,17 +147,19 @@ tracer_set_get(Config) when is_list(Config) ->
     ok.
 
 print(Config) when is_list(Config) ->
-    lists:foreach(fun do_print/1, ?TIMESTAMP_MODES).
+    [do_print(TsType, Label) || TsType <- ?TIMESTAMP_MODES,
+                                Label <- [17, "label"]].
     
-do_print(TsType) ->
+do_print(TsType, Label) ->
     start_tracer(),
+    seq_trace:set_token(label, Label),
     set_token_flags([print, TsType]),
-    seq_trace:print(0,print1),
+    seq_trace:print(Label,print1),
     seq_trace:print(1,print2),
     seq_trace:print(print3),
     seq_trace:reset_trace(),
-    [{0,{print,_,_,[],print1}, Ts0},
-	   {0,{print,_,_,[],print3}, Ts1}] = stop_tracer(2),
+    [{Label,{print,_,_,[],print1}, Ts0},
+     {Label,{print,_,_,[],print3}, Ts1}] = stop_tracer(2),
     check_ts(TsType, Ts0),
     check_ts(TsType, Ts1).
     

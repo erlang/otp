@@ -2060,10 +2060,7 @@ BIF_RETTYPE seq_trace_print_2(BIF_ALIST_2)
     if (have_no_seqtrace(SEQ_TRACE_TOKEN(BIF_P))) {
 	BIF_RET(am_false);
     }
-    if (!(is_atom(BIF_ARG_1) || is_small(BIF_ARG_1))) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    if (SEQ_TRACE_TOKEN_LABEL(BIF_P) != BIF_ARG_1)
+    if (!EQ(BIF_ARG_1, SEQ_TRACE_TOKEN_LABEL(BIF_P)))
 	BIF_RET(am_false);
     seq_trace_update_send(BIF_P);
     seq_trace_output(SEQ_TRACE_TOKEN(BIF_P), BIF_ARG_2, 
