@@ -214,7 +214,7 @@ standard_outputv(ErlDrvData drv_data, ErlIOVec* ev)
 
    if(binref == NULL) { /* realloc */
      max = sd->max_bins + DEF_BINS;
-     driver_realloc(sd->bin, sizeof(WXEBinRef)*max);
+     sd->bin = driver_realloc(sd->bin, sizeof(WXEBinRef)*max);
      for(i=sd->max_bins; i < max; i++) {
        sd->bin[i].from = 0;
      }
