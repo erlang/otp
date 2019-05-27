@@ -127,7 +127,8 @@
               error_alert/0,
               tls_alert/0,
               srp_param_type/0,
-              named_curve/0]).
+              named_curve/0,
+              sign_scheme/0]).
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -193,7 +194,7 @@
                                  | rsa_pss_pss_sha384
                                  | rsa_pss_pss_sha512
                                  | rsa_pkcs1_sha1
-                                 | ecdsa_sha1.
+                                 | ecdsa_sha1. % exported
 
 -type kex_algo()                :: rsa |
                                    dhe_rsa | dhe_dss |
