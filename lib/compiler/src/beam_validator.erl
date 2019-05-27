@@ -200,7 +200,7 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
          numy=none :: none | undecided | index(),
          %% Available heap size.
          h=0,
-         %Available heap size for floats.
+         %%Available heap size for floats.
          hf=0,
          %% Floating point state.
          fls=undefined,
@@ -240,7 +240,7 @@ index_parameter_types([{function,_,_,Entry,Code0}|Fs], Acc0) ->
 	    Acc = index_parameter_types_1(Is, Entry, Acc0),
 	    index_parameter_types(Fs, Acc);
 	_ ->
-	    %% Something serious is wrong. Ignore it for now.
+	    %% Something is seriously wrong. Ignore it for now.
 	    %% It will be detected and diagnosed later.
 	    index_parameter_types(Fs, Acc0)
     end;
@@ -1865,16 +1865,9 @@ get_reg_vref({y,_}=Src, #vst{current=#st{ys=Ys}}) ->
     end.
 
 set_type(Type, #value_ref{}=Ref, #vst{current=#st{vs=Vs0}=St}=Vst) ->
-    case Vs0 of
-        #{ Ref := #value{}=Entry } ->
-            Vs = Vs0#{ Ref => Entry#value{type=Type} },
-            Vst#vst{current=St#st{vs=Vs}};
-        #{} ->
-            %% Dead references may happen during type inference and are not an
-            %% error in and of themselves. If a problem were to arise from this
-            %% it'll explode elsewhere.
-            Vst
-    end.
+    #{ Ref := #value{}=Entry } = Vs0,
+    Vs = Vs0#{ Ref => Entry#value{type=Type} },
+    Vst#vst{current=St#st{vs=Vs}}.
 
 new_value(Type, Op, Ss, #vst{current=#st{vs=Vs0}=St,ref_ctr=Counter}=Vst) ->
     Ref = #value_ref{id=Counter},

@@ -11019,8 +11019,13 @@ erts_set_gc_state(Process *c_p, int enable)
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
 
     if (!enable) {
-	c_p->flags |= F_DISABLE_GC;
-	return 0;
+        /* Strictly speaking it's not illegal to disable the GC when it's
+         * already disabled, but we risk enabling the GC prematurely if (for
+         * example) a BIF were to blindly disable it when trapping and then
+         * re-enable it before returning its result. */
+        ASSERT(!(c_p->flags & F_DISABLE_GC));
+        c_p->flags |= F_DISABLE_GC;
+        return 0;
     }
 
     c_p->flags &= ~F_DISABLE_GC;
