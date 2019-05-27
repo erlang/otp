@@ -140,8 +140,11 @@ fix_block_1([{set,[],[],{alloc,Live,{F1,F2,Needed0,F3}}}|Is], Words) ->
             [{set,[],[],{alloc,Live,{F1,F2,Needed,F3}}}|Is]
     end;
 fix_block_1([I|Is], Words) ->
-    [I|fix_block_1(Is, Words)].
-
+    [I|fix_block_1(Is, Words)];
+fix_block_1([], _Words) ->
+    %% Rare. The heap allocation was probably done by a binary
+    %% construction instruction.
+    [].
 
 dig_out_fc(Arity, Is0) ->
     Regs0 = maps:from_list([{{x,X},{arg,X}} || X <- seq(0, Arity-1)]),
