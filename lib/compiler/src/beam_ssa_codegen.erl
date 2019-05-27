@@ -1016,6 +1016,14 @@ bif_fail({catch_tag,_}) -> {f,0}.
 next_block([]) -> none;
 next_block([{Next,_}|_]) -> Next.
 
+%% Certain instructions (such as get_map_element or is_nonempty_list)
+%% are only used in guards and **must** have a non-zero label;
+%% otherwise, the loader will refuse to load the
+%% module. ensure_label/2 replaces a zero label with the "ultimate
+%% failure" label to make the module loadable.  The instruction that
+%% have had the zero label replaced is **not** supposed to ever fail
+%% and actually jump to the label.
+
 ensure_label(Fail0, #cg{ultimate_fail=Lbl}) ->
     case bif_fail(Fail0) of
         {f,0} -> {f,Lbl};
@@ -1160,6 +1168,11 @@ cg_block([#cg_set{op=call}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,_Fail}, St) ->
     %% A call in try/catch block.
     cg_block([I], none, St);
+cg_block([#cg_set{op=get_map_element,dst=Dst0,args=Args0},
+          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
+    [Dst,Map,Key] = beam_args([Dst0|Args0], St),
+    Fail = ensure_label(Fail0, St),
+    {[{get_map_elements,Fail,Map,{list,[Key,Dst]}}],St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
@@ -1606,8 +1619,6 @@ cg_test({float,Op0}, Fail, Args, Dst, #cg_set{anno=Anno}) ->
              '/' -> fdiv
          end,
     [line(Anno),{bif,Op,Fail,Args,Dst}];
-cg_test(get_map_element, Fail, [Map,Key], Dst, _I) ->
-    [{get_map_elements,Fail,Map,{list,[Key,Dst]}}];
 cg_test(peek_message, Fail, [], Dst, _I) ->
     [{loop_rec,Fail,{x,0}}|copy({x,0}, Dst)];
 cg_test(put_map, Fail, [{atom,exact},SrcMap|Ss], Dst, Set) ->
