@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
-%%
+%% Reference: https://tools.ietf.org/html/draft-miller-ssh-agent-02
 
 %% SSH Agent message numbers
 %%
