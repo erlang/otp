@@ -21,7 +21,8 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 multiple_allocs/1,bs_get_tail/1,coverage/1]).
+	 multiple_allocs/1,bs_get_tail/1,coverage/1,
+         binary_construction_allocation/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -32,7 +33,8 @@ groups() ->
     [{p,[parallel],
       [multiple_allocs,
        bs_get_tail,
-       coverage]}].
+       coverage,
+       binary_construction_allocation]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -117,6 +119,20 @@ coverage(_) ->
     ok.
 
 fake_function_clause(A) -> error(function_clause, [A,42.0]).
+
+
+binary_construction_allocation(_Config) ->
+    ok = do_binary_construction_allocation("PUT"),
+    ok.
+
+do_binary_construction_allocation(Req) ->
+    %% Allocation for building the error term was done by the
+    %% bs_init2 instruction. beam_except crashed because it expected
+    %% an explicit allocation instruction.
+    ok = case Req of
+             "POST" -> {error, <<"BAD METHOD ", Req/binary>>, Req};
+             _ -> ok
+         end.
 
 id(I) -> I.
 
