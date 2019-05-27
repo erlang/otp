@@ -132,14 +132,14 @@ define etp-1
   if (($arg0) & 0x3) == 1
     # Cons pointer
     if $etp_flat
-      printf "<etpf-cons %#x>", ($arg0)
+      printf "<etpf-cons %p>", (($arg0)-1)
     else
       etp-list-1 ($arg0) ($arg1)
     end
   else
     if (($arg0) & 0x3) == 2
       if $etp_flat
-        printf "<etpf-boxed %#x>", ($arg0)
+        printf "<etpf-boxed %p>", (($arg0)-2)
       else
         etp-boxed-1 ($arg0) ($arg1)
       end
@@ -187,7 +187,7 @@ define etp-list-1
 # Reentrant
 #
   if (($arg0) & 0x3) != 0x1
-    printf "#NotCons<%#x>", ($arg0)
+    printf "#NotCons<%p>", ($arg0)
   else
     # Cons pointer
     if $etp_chart
@@ -210,7 +210,7 @@ define etp-list-printable-1
 # Returns: $etp_list_printable
 #
   if (($arg0) & 0x3) != 0x1
-    printf "#NotCons<%#x>", ($arg0)
+    printf "#NotCons<%p>", ($arg0)
   else
     # Loop to check if it is a printable string
     set $etp_list_p = ($arg0)
@@ -272,7 +272,7 @@ define etp-list-2
 # Reentrant
 #
   if (($arg0) & 0x3) != 0x1
-    printf "#NotCons<%#x>", ($arg0)
+    printf "#NotCons<%p>", ($arg0)
   else
     # Cons pointer
     if ($arg1) >= $etp_max_depth
@@ -307,7 +307,7 @@ define etpf-cons
 # Reentrant capable
 #
   if ((Eterm)($arg0) & 0x3) != 0x1
-    printf "#NotCons<%#x>", ($arg0)
+    printf "#NotCons<%p>", ($arg0)
   else
     # Cons pointer
     set $etp_flat = 1
@@ -336,13 +336,13 @@ define etp-boxed-1
 # Reentrant
 #
   if (($arg0) & 0x3) != 0x2
-    printf "#NotBoxed<%#x>", ($arg0)
+    printf "#NotBoxed<%p>", ($arg0)
   else
     if (((Eterm*)(($arg0) & ~0x3))[0] & 0x3) != 0x0
       if $etp_chart
         etp-chart-entry-1 (($arg0)&~0x3) ($arg1) 1
       end
-      printf "#BoxedError<%#x>", ($arg0)
+      printf "#BoxedError<%p>", ($arg0)
     else
       if $etp_chart
         etp-chart-entry-1 (($arg0)&~0x3) ($arg1) \
@@ -390,10 +390,10 @@ define etp-boxed-immediate-1
 # Non-reentrant
 #
   if (($arg0) & 0x3) != 0x2
-    printf "#NotBoxed<%#x>", ($arg0)
+    printf "#NotBoxed<%p>", ($arg0)
   else
     if (((Eterm*)(($arg0) & ~0x3))[0] & 0x3) != 0x0
-      printf "#BoxedError<%#x>", ($arg0)
+      printf "#BoxedError<%p>", ($arg0)
     else
       set $etp_boxed_immediate_p = (Eterm*)(($arg0) & ~0x3)
       set $etp_boxed_immediate_h = ($etp_boxed_immediate_p[0] >> 2) & 0xF
@@ -438,12 +438,12 @@ define etp-boxed-immediate-1
                   while $etp_boxed_immediate_arity > 0
                     set $etp_boxed_immediate_p++
                     if $etp_boxed_immediate_arity > 1
-                      printf "%#x,", *$etp_boxed_immediate_p
+                      printf "%p,", *$etp_boxed_immediate_p
                     else
-                      printf "%#x", *$etp_boxed_immediate_p
+                      printf "%p", *$etp_boxed_immediate_p
         	      if ($etp_boxed_immediate_h == 0xA)
                         set $etp_boxed_immediate_p++
-		    	printf ":%#x", *$etp_boxed_immediate_p
+			printf ":%p", *$etp_boxed_immediate_p
 		      end
 		      printf ">"
                     end
@@ -558,7 +558,7 @@ define etp-immediate-1
 # Reentrant capable
 #
   if (($arg0) & 0x3) != 0x3
-    printf "#NotImmediate<%#x>", ($arg0)
+    printf "#NotImmediate<%p>", ($arg0)
   else
     if (($arg0) & 0xF) == 0x3 
       etp-pid-1 ($arg0)
@@ -580,7 +580,7 @@ define etp-immediate-1
               if (($arg0) == $etp_nil)
                 printf "[]"
               else
-                printf "#UnknownImmediate<%#x>", ($arg0)
+                printf "#UnknownImmediate<%p>", ($arg0)
               end
             end
           end
@@ -598,7 +598,7 @@ define etp-atom-1
 # Non-reentrant
 #
   if ((Eterm)($arg0) & 0x3f) != 0xb
-    printf "#NotAtom<%#x>", ($arg0)
+    printf "#NotAtom<%p>", ($arg0)
   else
     set $etp_atom_1_ap = (Atom*)erts_atom_table.seg_table[(Eterm)($arg0)>>16][((Eterm)($arg0)>>6)&0x3FF]
     set $etp_atom_1_i = ($etp_atom_1_ap)->len
@@ -652,7 +652,7 @@ define etp-char-1
 # Non-reentrant
 #
   if (($arg0) < 0) || (0377 < ($arg0))
-    printf "#NotChar<%#x>", ($arg0)
+    printf "#NotChar<%p>", ($arg0)
   else
     if ($arg0) == ($arg1)
       printf "\\%c", ($arg0)
@@ -787,7 +787,7 @@ define etp-pid-1
     # Internal pid
     printf "<0.%u.%u>", $etp_pid_data & 0x7fff, ($etp_pid_data >> 15) & 0x1fff
   else
-    printf "#NotPid<%#x>", ($arg0)
+    printf "#NotPid<%p>", ($arg0)
   end
 end
 
@@ -797,11 +797,11 @@ define etp-extpid-1
 # Non-reentrant
 #
   if ((Eterm)($arg0) & 0x3) != 0x2
-    printf "#NotBoxed<%#x>", (Eterm)($arg0)
+    printf "#NotBoxed<%p>", (Eterm)($arg0)
   else
     set $etp_extpid_1_p = (ExternalThing*)((Eterm)($arg0) & ~0x3)
     if ($etp_extpid_1_p->header & 0x3f) != 0x30
-      printf "#NotExternalPid<%#x>", $etp_extpid_1_p->header
+      printf "#NotExternalPid<%p>", $etp_extpid_1_p->header
     else
       ## External pid
       set $etp_extpid_1_number = $etp_extpid_1_p->data.ui[0]&0x7fff
@@ -812,7 +812,7 @@ define etp-extpid-1
       set $etp_extpid_1_node = $etp_extpid_1_np->sysname
       if ($etp_extpid_1_node & 0x3f) != 0xb
         # Should be an atom
-        printf "#ExternalPidError<%#x>", ($arg0)
+        printf "#ExternalPidError<%p>", ($arg0)
       else
         if $etp_extpid_1_dep == erts_this_dist_entry
           printf "<0:"
@@ -847,7 +847,7 @@ define etp-port-1
     # Internal port
     printf "#Port<0.%u>", $etp_port_data
   else
-    printf "#NotPort<%#x>", ($arg0)
+    printf "#NotPort<%p>", ($arg0)
   end
 end
 
@@ -857,11 +857,11 @@ define etp-extport-1
 # Non-reentrant
 #
   if ((Eterm)($arg0) & 0x3) != 0x2
-    printf "#NotBoxed<%#x>", (Eterm)($arg0)
+    printf "#NotBoxed<%p>", (Eterm)($arg0)
   else
     set $etp_extport_1_p = (ExternalThing*)((Eterm)($arg0) & ~0x3)
     if ($etp_extport_1_p->header & 0x3F) != 0x34
-      printf "#NotExternalPort<%#x>", $etp_extport_1->header
+      printf "#NotExternalPort<%p>", $etp_extport_1->header
     else
       ## External port
       set $etp_extport_1_number = $etp_extport_1_p->data.ui[0]&0x3ffff
@@ -871,7 +871,7 @@ define etp-extport-1
       set $etp_extport_1_node = $etp_extport_1_np->sysname
       if ($etp_extport_1_node & 0x3f) != 0xb
         # Should be an atom
-        printf "#ExternalPortError<%#x>", ($arg0)
+        printf "#ExternalPortError<%p>", ($arg0)
       else
         if $etp_extport_1_dep == erts_this_dist_entry
           printf "#Port<0:"
@@ -893,15 +893,15 @@ define etp-bignum-1
 # Non-reentrant
 #
   if ((Eterm)($arg0) & 0x3) != 0x2
-    printf "#NotBoxed<%#x>", (Eterm)($arg0)
+    printf "#NotBoxed<%p>", (Eterm)($arg0)
   else
     set $etp_bignum_1_p = (Eterm*)((Eterm)($arg0) & ~0x3)
     if ($etp_bignum_1_p[0] & 0x3b) != 0x08
-      printf "#NotBignum<%#x>", $etp_bignum_1_p[0]
+      printf "#NotBignum<%p>", $etp_bignum_1_p[0]
     else
       set $etp_bignum_1_i = ($etp_bignum_1_p[0] >> 6)
       if $etp_bignum_1_i < 1
-        printf "#BignumError<%#x>", (Eterm)($arg0)
+        printf "#BignumError<%p>", (Eterm)($arg0)
       else
         if $etp_bignum_1_p[0] & 0x04
           printf "-"
@@ -932,11 +932,11 @@ define etp-float-1
 # Non-reentrant
 #
   if ((Eterm)($arg0) & 0x3) != 0x2
-    printf "#NotBoxed<%#x>", (Eterm)($arg0)
+    printf "#NotBoxed<%p>", (Eterm)($arg0)
   else
     set $etp_float_1_p = (Eterm*)((Eterm)($arg0) & ~0x3)
     if ($etp_float_1_p[0] & 0x3f) != 0x18
-      printf "#NotFloat<%#x>", $etp_float_1_p[0]
+      printf "#NotFloat<%p>", $etp_float_1_p[0]
     else
       printf "%f", *(double*)($etp_float_1_p+1)
     end
@@ -951,14 +951,14 @@ define etp-ref-1
 # Non-reentrant
 #
   if ((Eterm)($arg0) & 0x3) != 0x2
-    printf "#NotBoxed<%#x>", (Eterm)($arg0)
+    printf "#NotBoxed<%p>", (Eterm)($arg0)
   else
     set $etp_ref_1_p = (ErtsORefThing *)((Eterm)($arg0) & ~0x3)
     if ($etp_ref_1_p->header & 0x3b) != 0x10
-      printf "#NotRef<%#x>", $etp_ref_1_p->header
+      printf "#NotRef<%p>", $etp_ref_1_p->header
     else
       if $etp_ref_1_p->header != etp_ref_header && $etp_ref_1_p->header != etp_magic_ref_header
-        printf "#InternalRefError<%#x>", ($arg0)
+        printf "#InternalRefError<%p>", ($arg0)
       else
 	set $etp_magic_ref = 0
 	set $etp_ref_1_i = 3
@@ -998,11 +998,11 @@ define etp-extref-1
 # Non-reentrant
 #
   if ((Eterm)($arg0) & 0x3) != 0x2
-    printf "#NotBoxed<%#x>", (Eterm)($arg0)
+    printf "#NotBoxed<%p>", (Eterm)($arg0)
   else
     set $etp_extref_1_p = (ExternalThing*)((Eterm)($arg0) & ~0x3)
     if ($etp_extref_1_p->header & 0x3F) != 0x38
-      printf "#NotExternalRef<%#x>", $etp_extref_1->header
+      printf "#NotExternalRef<%p>", $etp_extref_1->header
     else
       ## External ref
       set $etp_extref_1_nump = (Uint32 *) 0
@@ -1041,7 +1041,7 @@ define etp-extref-1
         end
       end
       if $etp_extref_1_error
-        printf "#ExternalRefError<%#x>", ($arg0)
+        printf "#ExternalRefError<%p>", ($arg0)
       else
         set $etp_extref_1_i--
         while $etp_extref_1_i >= 0
@@ -1166,7 +1166,7 @@ define etp-cp-1
         if *(Eterm*)($etp_cp) == beam_return_to_trace[0]
 	  printf "#Cp<return to trace>"
 	else
-          printf "#Cp<%#x>", $etp_cp
+          printf "#Cp<%p>", $etp_cp
 	end
       end
     end
@@ -1743,7 +1743,7 @@ define etp-term-dump-pid
     # Internal pid
     printf "| <0.%04u.%03u> ", $etp_pid_data & 0x7fff, ($etp_pid_data >> 15) & 0x1fff
   else
-    printf "| #NotPid<%#x> ", ($arg0)
+    printf "| #NotPid<%p> ", ($arg0)
   end
 end
 
@@ -3324,7 +3324,7 @@ define etp-offheapdump
       set $etp_offheapdump_p = $etp_offheapdump_p->next
       set $etp_offheapdump_i++
     else
-      printf "#TaggedPtr<%#x>", $etp_offheapdump_p
+      printf "#TaggedPtr<%p>", $etp_offheapdump_p
       set $etp_offheapdump_p = 0
     end
   end
@@ -3363,12 +3363,12 @@ define etp-search-heaps
 #
 # Non-reentrant
 #
-  printf "%% Search all (<%u) process heaps for ", erts_max_processes
+  printf "%% Search all (<%u) process heaps for ", erts_proc.r.o.max
   set $etp_flat = 1
   etp-1 ($arg0) 0
   set $etp_flat = 0
   printf ":...\n"
-  etp-search-heaps-1 ((Eterm*)((Eterm)($arg0)&~3))
+  etp-search-heaps-1 ((Eterm*)((Eterm)($arg0)&~(Eterm)3))
 end
 
 define etp-search-heaps-1
@@ -3376,8 +3376,8 @@ define etp-search-heaps-1
 #
 # Non-reentrant
 #
-  set $etp_search_heaps_q = erts_max_processes / 10
-  set $etp_search_heaps_r = erts_max_processes % 10
+  set $etp_search_heaps_q = erts_proc.r.o.max / 10
+  set $etp_search_heaps_r = erts_proc.r.o.max % 10
   set $etp_search_heaps_t = 10
   set $etp_search_heaps_m = $etp_search_heaps_q
   if $etp_search_heaps_r > 0
@@ -3387,7 +3387,7 @@ define etp-search-heaps-1
   set $etp_search_heaps_i = 0
   set $etp_search_heaps_found = 0
   while $etp_search_heaps_i < erts_proc.r.o.max
-    set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[$proc_ix])
+    set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[$etp_search_heaps_i])
     if $proc
       if ($proc->heap <= ($arg0)) && \
          (($arg0) < $proc->hend)
@@ -3404,7 +3404,7 @@ define etp-search-heaps-1
       while $etp_search_heaps_p && ($etp_search_heaps_cnt < $etp_max_depth)
         set $etp_search_heaps_cnt++
         if (&($etp_search_heaps_p->mem) <= ($arg0)) && \
-           (($arg0) < &($etp_search_heaps_p->mem)+$etp_search_heaps_p->size)
+           (($arg0) < &($etp_search_heaps_p->mem)+$etp_search_heaps_p->used_size)
           printf "process_tab[%d]->mbuf(%d)+%d\n", \
                  $etp_search_heaps_i, $etp_search_heaps_cnt, \
                  ($arg0)-&($etp_search_heaps_p->mem)
@@ -3700,8 +3700,8 @@ define etp-overlapped-heaps
 # Non-reentrant
 #
   printf "%% Dumping heap addresses to \"etp-commands.bin\"\n"
-  set $etp_overlapped_heaps_q = erts_max_processes / 10
-  set $etp_overlapped_heaps_r = erts_max_processes % 10
+  set $etp_overlapped_heaps_q = erts_proc.r.o.max / 10
+  set $etp_overlapped_heaps_r = erts_proc.r.o.max % 10
   set $etp_overlapped_heaps_t = 10
   set $etp_overlapped_heaps_m = $etp_overlapped_heaps_q
   if $etp_overlapped_heaps_r > 0
@@ -3727,7 +3727,7 @@ define etp-overlapped-heaps
   append binary value etp-commands.bin 'p'
   append binary value etp-commands.bin 's'
   append binary value etp-commands.bin '\0'
-  while $etp_overlapped_heaps_i < erts_max_processes
+  while $etp_overlapped_heaps_i < erts_proc.r.o.max
     if process_tab[$etp_overlapped_heaps_i]
       append binary value etp-commands.bin \
         (Eterm)$etp_overlapped_heaps_i
@@ -3868,7 +3868,7 @@ define etp-chart-entry-1
   append binary value etp-commands.bin (Eterm)(($arg2)*sizeof(Eterm))
   append binary value etp-commands.bin (Eterm)$etp_chart_id
   append binary value etp-commands.bin (Eterm)($arg1)
-#   printf "<dumped %#x %lu %lu %lu>", ($arg0)&~0x3, \
+#   printf "<dumped %p %lu %lu %lu>", ($arg0)&~0x3, \
 #     (Eterm)(($arg2)*sizeof(Eterm)), (Eterm)$etp_chart_id, (Eterm)($arg1)
 end
 
