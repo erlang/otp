@@ -327,32 +327,33 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 %%====================================================================
 %% Alert and close handling
 %%====================================================================
-handle_own_alert(Alert, _, StateName,
+handle_own_alert(Alert0, _, StateName,
 		 #state{static_env = #static_env{role = Role,
                                                  protocol_cb = Connection},
                         ssl_options = SslOpts} = State) ->
     try %% Try to tell the other side
-        send_alert(Alert, StateName, State)
+        send_alert(Alert0, StateName, State)
     catch _:_ ->  %% Can crash if we are in a uninitialized state
 	    ignore
     end,
     try %% Try to tell the local user
-	log_alert(SslOpts#ssl_options.log_alert, Role, Connection:protocol_name(), StateName, Alert#alert{role = Role}),
+        Alert = Alert0#alert{role = Role},
+	log_alert(SslOpts#ssl_options.log_alert, Role, Connection:protocol_name(), StateName, Alert),
 	handle_normal_shutdown(Alert,StateName, State)
     catch _:_ ->
 	    ok
     end,
     {stop, {shutdown, own_alert}, State}.
 
-handle_normal_shutdown(Alert, _, #state{static_env = #static_env{role = Role,
-                                                                 socket = Socket,
-                                                                 transport_cb = Transport,
-                                                                 protocol_cb = Connection,
-                                                                 tracker = Tracker},
-                                        handshake_env = #handshake_env{renegotiation = {false, first}},
-					start_or_recv_from = StartFrom} = State) ->
+handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = Role,
+                                                                         socket = Socket,
+                                                                         transport_cb = Transport,
+                                                                         protocol_cb = Connection,
+                                                                         tracker = Tracker},
+                                                handshake_env = #handshake_env{renegotiation = {false, first}},
+                                                start_or_recv_from = StartFrom} = State) ->
     Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Tracker,Socket, StartFrom, Alert, Role, Connection);
+    alert_user(Pids, Transport, Tracker,Socket, StartFrom, Alert, Role, StateName, Connection);
 
 handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = Role,
                                                                          socket = Socket,
@@ -363,9 +364,9 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                 socket_options = Opts,
 						start_or_recv_from = RecvFrom} = State) ->
     Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role, Connection).
+    alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
 
-handle_alert(#alert{level = ?FATAL} = Alert, StateName,
+handle_alert(#alert{level = ?FATAL} = Alert0, StateName,
 	     #state{static_env = #static_env{role = Role,
                                              socket = Socket,
                                              host = Host,
@@ -379,10 +380,11 @@ handle_alert(#alert{level = ?FATAL} = Alert, StateName,
                     session = Session, 
 		    socket_options = Opts} = State) ->
     invalidate_session(Role, Host, Port, Session),
+    Alert = Alert0#alert{role = opposite_role(Role)},
     log_alert(SslOpts#ssl_options.log_alert, Role, Connection:protocol_name(), 
-              StateName, Alert#alert{role = opposite_role(Role)}),
+              StateName, Alert),
     Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role, Connection),
+    alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role, StateName, Connection),
     {stop, {shutdown, normal}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
@@ -392,13 +394,14 @@ handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert,
 	    StateName, State) -> 
     handle_normal_shutdown(Alert, StateName, State),
     {stop,{shutdown, peer_close}, State};
-handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
+handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert0, StateName, 
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
                     handshake_env = #handshake_env{renegotiation = {true, internal}},
                     ssl_options = SslOpts} = State) ->
+    Alert = Alert0#alert{role = opposite_role(Role)},
     log_alert(SslOpts#ssl_options.log_alert, Role, 
-              Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
+              Connection:protocol_name(), StateName, Alert),
     handle_normal_shutdown(Alert, StateName, State),
     {stop,{shutdown, peer_close}, State};
 
@@ -1439,7 +1442,7 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
 		  } = State)  when StateName =/= connection ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Tracker,Socket, 
-	       StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, Connection),
+	       StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, StateName, Connection),
     {stop, {shutdown, normal}, State};
 
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{socket = Socket,
@@ -2858,22 +2861,22 @@ send_user(Pid, Msg) ->
     Pid ! Msg,
     ok.
 
-alert_user(Pids, Transport, Tracker, Socket, connection, Opts, Pid, From, Alert, Role, Connection) ->
-    alert_user(Pids, Transport, Tracker, Socket, Opts#socket_options.active, Pid, From, Alert, Role, Connection);
-alert_user(Pids, Transport, Tracker, Socket,_, _, _, From, Alert, Role, Connection) ->
-    alert_user(Pids, Transport, Tracker, Socket, From, Alert, Role, Connection).
+alert_user(Pids, Transport, Tracker, Socket, connection, Opts, Pid, From, Alert, Role, StateName, Connection) ->
+    alert_user(Pids, Transport, Tracker, Socket, Opts#socket_options.active, Pid, From, Alert, Role, StateName, Connection);
+alert_user(Pids, Transport, Tracker, Socket,_, _, _, From, Alert, Role, StateName, Connection) ->
+    alert_user(Pids, Transport, Tracker, Socket, From, Alert, Role, StateName, Connection).
 
-alert_user(Pids, Transport, Tracker, Socket, From, Alert, Role, Connection) ->
-    alert_user(Pids, Transport, Tracker, Socket, false, no_pid, From, Alert, Role, Connection).
+alert_user(Pids, Transport, Tracker, Socket, From, Alert, Role, StateName, Connection) ->
+    alert_user(Pids, Transport, Tracker, Socket, false, no_pid, From, Alert, Role, StateName, Connection).
 
-alert_user(_, _, _, _, false = Active, Pid, From,  Alert, Role, _) when From =/= undefined ->
+alert_user(_, _, _, _, false = Active, Pid, From,  Alert, Role, StateName, Connection) when From =/= undefined ->
     %% If there is an outstanding ssl_accept | recv
     %% From will be defined and send_or_reply will
     %% send the appropriate error message.
-    ReasonCode = ssl_alert:reason_code(Alert, Role),
+    ReasonCode = ssl_alert:reason_code(Alert, Role, Connection:protocol_name(), StateName),
     send_or_reply(Active, Pid, From, {error, ReasonCode});
-alert_user(Pids, Transport, Tracker, Socket, Active, Pid, From, Alert, Role, Connection) ->
-    case ssl_alert:reason_code(Alert, Role) of
+alert_user(Pids, Transport, Tracker, Socket, Active, Pid, From, Alert, Role, StateName, Connection) ->
+    case ssl_alert:reason_code(Alert, Role, Connection:protocol_name(), StateName) of
 	closed ->
 	    send_or_reply(Active, Pid, From,
 			  {ssl_closed, Connection:socket(Pids, Transport, Socket, Tracker)});
@@ -2884,10 +2887,10 @@ alert_user(Pids, Transport, Tracker, Socket, Active, Pid, From, Alert, Role, Con
 
 log_alert(true, Role, ProtocolName, StateName, #alert{role = Role} = Alert) ->
     Txt = ssl_alert:own_alert_txt(Alert),
-    error_logger:info_report(io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]));
+    error_logger:info_report(ssl_alert:alert_txt(ProtocolName, Role, StateName, Txt));
 log_alert(true, Role, ProtocolName, StateName, Alert) ->
     Txt = ssl_alert:alert_txt(Alert),
-    error_logger:info_report(io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]));
+    error_logger:info_report(ssl_alert:alert_txt(ProtocolName, Role, StateName, Txt));
 log_alert(false, _, _, _, _) ->
     ok.
 
