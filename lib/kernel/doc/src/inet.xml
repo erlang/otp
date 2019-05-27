@@ -540,7 +540,7 @@ get_tcpi_sacked(Sock) ->
         <p>Gets one or more statistic options for a socket.</p>
         <p><c>getstat(<anno>Socket</anno>)</c> is equivalent to
           <c>getstat(<anno>Socket</anno>, [recv_avg, recv_cnt, recv_dvi,
-          recv_max, recv_oct, send_avg, send_cnt, send_dvi, send_max,
+          recv_max, recv_oct, send_avg, send_cnt, send_pend, send_max,
           send_oct])</c>.</p>
         <p>The following options are available:</p>
         <taglist>
@@ -572,9 +572,9 @@ get_tcpi_sacked(Sock) ->
           <item>
             <p>Number of packets sent from the socket.</p>
           </item>
-          <tag><c>send_dvi</c></tag>
+          <tag><c>send_pend</c></tag>
           <item>
-            <p>Average packet size deviation, in bytes, sent from the socket.</p>
+            <p>Number of bytes waiting to be sent by the socket.</p>
           </item>
           <tag><c>send_max</c></tag>
           <item>
