@@ -3363,12 +3363,12 @@ define etp-search-heaps
 #
 # Non-reentrant
 #
-  printf "%% Search all (<%u) process heaps for ", erts_max_processes
+  printf "%% Search all (<%u) process heaps for ", erts_proc.r.o.max
   set $etp_flat = 1
   etp-1 ($arg0) 0
   set $etp_flat = 0
   printf ":...\n"
-  etp-search-heaps-1 ((Eterm*)((Eterm)($arg0)&~3))
+  etp-search-heaps-1 ((Eterm*)((Eterm)($arg0)&~(Eterm)3))
 end
 
 define etp-search-heaps-1
@@ -3376,8 +3376,8 @@ define etp-search-heaps-1
 #
 # Non-reentrant
 #
-  set $etp_search_heaps_q = erts_max_processes / 10
-  set $etp_search_heaps_r = erts_max_processes % 10
+  set $etp_search_heaps_q = erts_proc.r.o.max / 10
+  set $etp_search_heaps_r = erts_proc.r.o.max % 10
   set $etp_search_heaps_t = 10
   set $etp_search_heaps_m = $etp_search_heaps_q
   if $etp_search_heaps_r > 0
@@ -3387,7 +3387,7 @@ define etp-search-heaps-1
   set $etp_search_heaps_i = 0
   set $etp_search_heaps_found = 0
   while $etp_search_heaps_i < erts_proc.r.o.max
-    set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[$proc_ix])
+    set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[$etp_search_heaps_i])
     if $proc
       if ($proc->heap <= ($arg0)) && \
          (($arg0) < $proc->hend)
@@ -3404,7 +3404,7 @@ define etp-search-heaps-1
       while $etp_search_heaps_p && ($etp_search_heaps_cnt < $etp_max_depth)
         set $etp_search_heaps_cnt++
         if (&($etp_search_heaps_p->mem) <= ($arg0)) && \
-           (($arg0) < &($etp_search_heaps_p->mem)+$etp_search_heaps_p->size)
+           (($arg0) < &($etp_search_heaps_p->mem)+$etp_search_heaps_p->used_size)
           printf "process_tab[%d]->mbuf(%d)+%d\n", \
                  $etp_search_heaps_i, $etp_search_heaps_cnt, \
                  ($arg0)-&($etp_search_heaps_p->mem)
@@ -3700,8 +3700,8 @@ define etp-overlapped-heaps
 # Non-reentrant
 #
   printf "%% Dumping heap addresses to \"etp-commands.bin\"\n"
-  set $etp_overlapped_heaps_q = erts_max_processes / 10
-  set $etp_overlapped_heaps_r = erts_max_processes % 10
+  set $etp_overlapped_heaps_q = erts_proc.r.o.max / 10
+  set $etp_overlapped_heaps_r = erts_proc.r.o.max % 10
   set $etp_overlapped_heaps_t = 10
   set $etp_overlapped_heaps_m = $etp_overlapped_heaps_q
   if $etp_overlapped_heaps_r > 0
@@ -3727,7 +3727,7 @@ define etp-overlapped-heaps
   append binary value etp-commands.bin 'p'
   append binary value etp-commands.bin 's'
   append binary value etp-commands.bin '\0'
-  while $etp_overlapped_heaps_i < erts_max_processes
+  while $etp_overlapped_heaps_i < erts_proc.r.o.max
     if process_tab[$etp_overlapped_heaps_i]
       append binary value etp-commands.bin \
         (Eterm)$etp_overlapped_heaps_i
