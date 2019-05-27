@@ -67,6 +67,20 @@ AC_PROG_CXX
 AC_PROG_RANLIB
 AC_PROG_CPP
 
+AC_LANG_PUSH([C++])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+  [[#ifndef __cplusplus
+    #error "broken C++"
+    #endif]])],,
+  [CXX=;])
+AC_LANG_POP([C++])
+if test "X$CXX" = X ; then
+   echo "Can not find C++ compiler" >> ./CONF_INFO
+   WXERL_CAN_BUILD_DRIVER=false
+   AC_MSG_WARN([Can not find C++ compiler])
+fi
+WXERL_CAN_BUILD_DRIVER=false
+
 AC_MSG_NOTICE(Building for [$host_os])
 WXERL_CAN_BUILD_DRIVER=true
 
@@ -142,7 +156,7 @@ case $host_os in
 	      if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
 		AC_MSG_ERROR([Can not find compiler to compile Cocoa applications])
 	      else
-		echo "Can not find compiler to compile Cocoa applications" > ./CONF_INFO
+		echo "Can not find compiler to compile Cocoa applications" >> ./CONF_INFO
 		WXERL_CAN_BUILD_DRIVER=false
 		AC_MSG_WARN([Can not find compiler to compile Cocoa applications])
 	      fi
@@ -329,7 +343,7 @@ dnl
 dnl  Check for wxwidgets
 dnl 
 if test "$cross_compiling" = "yes"; then
-    echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" > ./CONF_INFO
+    echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" >> ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
 elif test  X"$MIXED_CYGWIN_VC" = X"no" -a X"$MIXED_MSYS_VC" = X"no"; then
     WX_VERSION=`wx-config --version`
@@ -401,7 +415,7 @@ define(wx_warn_text,[
         if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
 	   AC_MSG_ERROR([wx_warn_text])
 	else
-	   echo "wxWidgets not found, wx will NOT be usable" > ./CONF_INFO
+	   echo "wxWidgets not found, wx will NOT be usable" >> ./CONF_INFO
 	   WXERL_CAN_BUILD_DRIVER=false
 	   AC_MSG_WARN([wx_warn_text])
 	fi
@@ -505,7 +519,7 @@ else
         if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
 		AC_MSG_ERROR([Cannot find core lib version for wxWidgets])
 	else
-		echo "No usable wxWidgets not found, wx will not be useable" > ./CONF_INFO
+		echo "No usable wxWidgets not found, wx will not be useable" >> ./CONF_INFO
 		WXERL_CAN_BUILD_DRIVER=false
 		AC_MSG_WARN([Cannot find core lib version for wxWidgets])
 	fi
@@ -550,8 +564,8 @@ AC_MSG_RESULT($HAVE_GL_SUPPORT)
 AC_SUBST(HAVE_GL_SUPPORT)
 
 if test X"$HAVE_GL_SUPPORT" != X"yes" ; then
-   		echo "wxWidgets don't have gl support, wx will NOT be useable" > ./CONF_INFO
-		WXERL_CAN_BUILD_DRIVER=false
+   echo "wxWidgets don't have gl support, wx will NOT be useable" >> ./CONF_INFO
+   WXERL_CAN_BUILD_DRIVER=false
 fi
 
 dnl Check for GLintptr
@@ -610,7 +624,7 @@ dnl
 AC_CHECK_HEADERS([wx/stc/stc.h],
         [],
     	[WXERL_CAN_BUILD_DRIVER=false
-	 echo "wxWidgets don't have wxStyledTextControl (stc.h), wx will NOT be useable" > ./CONF_INFO
+	 echo "wxWidgets don't have wxStyledTextControl (stc.h), wx will NOT be useable" >> ./CONF_INFO
      	 AC_MSG_WARN([Can not find wx/stc/stc.h $CXXFLAGS])      
      	],
 	[#ifdef WIN32
@@ -670,9 +684,9 @@ AC_LANG_POP(C++)
 AC_MSG_RESULT($CAN_LINK_WX)
 
 if test X"$CAN_LINK_WX" != X"yes" ; then
-   		echo "Can not link the wx driver, wx will NOT be useable" > ./CONF_INFO
-		WXERL_CAN_BUILD_DRIVER=false
-		AC_MSG_WARN([Can not link wx program are all developer packages installed?])
+   echo "Can not link the wx driver, wx will NOT be useable" >> ./CONF_INFO
+   WXERL_CAN_BUILD_DRIVER=false
+   AC_MSG_WARN([Can not link wx program are all developer packages installed?])
 fi
 
 fi dnl - if test "$WXERL_CAN_BUILD_DRIVER" != "false"
