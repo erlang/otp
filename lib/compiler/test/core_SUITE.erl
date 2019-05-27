@@ -29,7 +29,8 @@
 	 bs_shadowed_size_var/1,
 	 cover_v3_kernel_1/1,cover_v3_kernel_2/1,cover_v3_kernel_3/1,
 	 cover_v3_kernel_4/1,cover_v3_kernel_5/1,
-         non_variable_apply/1,name_capture/1,fun_letrec_effect/1]).
+         non_variable_apply/1,name_capture/1,fun_letrec_effect/1,
+         get_map_element/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -57,7 +58,8 @@ groups() ->
        bs_shadowed_size_var,
        cover_v3_kernel_1,cover_v3_kernel_2,cover_v3_kernel_3,
        cover_v3_kernel_4,cover_v3_kernel_5,
-       non_variable_apply,name_capture,fun_letrec_effect
+       non_variable_apply,name_capture,fun_letrec_effect,
+       get_map_element
       ]}].
 
 
@@ -95,6 +97,7 @@ end_per_group(_GroupName, Config) ->
 ?comp(non_variable_apply).
 ?comp(name_capture).
 ?comp(fun_letrec_effect).
+?comp(get_map_element).
 
 try_it(Mod, Conf) ->
     Src = filename:join(proplists:get_value(data_dir, Conf),
