@@ -92,6 +92,12 @@
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 0
 #endif
 
+#ifdef __GNUC__
+#  define ERTS_NOINLINE __attribute__((__noinline__))
+#else
+#  define ERTS_NOINLINE
+#endif
+
 #if defined(VALGRIND) && !defined(NO_FPE_SIGNALS)
 #  define NO_FPE_SIGNALS
 #endif

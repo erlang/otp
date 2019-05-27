@@ -70,6 +70,7 @@ int erts_fit_in_bits_uint(Uint);
 Sint erts_list_length(Eterm);
 int erts_is_builtin(Eterm, Eterm, int);
 Uint32 make_hash2(Eterm);
+Uint32 trapping_make_hash2(Eterm, Eterm*, struct process*);
 Uint32 make_hash(Eterm);
 Uint32 make_internal_hash(Eterm, Uint32 salt);
 

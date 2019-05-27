@@ -277,6 +277,7 @@ type	SETUP_CONN_ARG	SHORT_LIVED	PROCESSES	setup_connection_argument
 type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
 type    CONT_EXIT_TRAP  SHORT_LIVED     PROCESSES       continue_exit_trap_state
 type    SEQ_YIELD_STATE SHORT_LIVED     SYSTEM          dist_seq_yield_state
+type    PHASH2_TRAP     SHORT_LIVED     PROCESSES       phash2_trap_state
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 

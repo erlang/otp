@@ -90,6 +90,7 @@ MODULES= \
 	gc_SUITE \
 	guard_SUITE \
 	hash_SUITE \
+	hash_property_test_SUITE \
 	hibernate_SUITE \
 	hipe_SUITE \
 	iovec_SUITE \
@@ -252,7 +253,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
 

@@ -4866,9 +4866,13 @@ BIF_RETTYPE phash_2(BIF_ALIST_2)
 BIF_RETTYPE phash2_1(BIF_ALIST_1)
 {
     Uint32 hash;
-
-    hash = make_hash2(BIF_ARG_1);
-    BIF_RET(make_small(hash & ((1L << 27) - 1)));
+    Eterm trap_state = THE_NON_VALUE;
+    hash = trapping_make_hash2(BIF_ARG_1, &trap_state, BIF_P);
+    if (trap_state == THE_NON_VALUE) {
+        BIF_RET(make_small(hash & ((1L << 27) - 1)));
+    } else {
+        BIF_TRAP1(bif_export[BIF_phash2_1], BIF_P, trap_state);
+    }
 }
 
 BIF_RETTYPE phash2_2(BIF_ALIST_2)
@@ -4876,6 +4880,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
     Uint32 hash;
     Uint32 final_hash;
     Uint32 range;
+    Eterm trap_state = THE_NON_VALUE;
 
     /* Check for special case 2^32 */
     if (term_equals_2pow32(BIF_ARG_2)) {
@@ -4887,7 +4892,10 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
 	}
 	range = (Uint32) u;
     }
-    hash = make_hash2(BIF_ARG_1);
+    hash = trapping_make_hash2(BIF_ARG_1, &trap_state, BIF_P);
+    if (trap_state != THE_NON_VALUE) {
+        BIF_TRAP2(bif_export[BIF_phash2_2], BIF_P, trap_state, BIF_ARG_2);
+    }
     if (range) {
 	final_hash = hash % range; /* [0..range-1] */
     } else {
