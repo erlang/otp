@@ -30,17 +30,11 @@ if test -f ./CONF_INFO; then
 fi
 
 if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
-  AC_CONFIG_AUX_DIRS(autoconf)
-  WX_BUILDING_INSIDE_ERLSRC=false    
+  AC_MSG_ERROR([ERL_TOP is not set])
 else
   erl_top=${ERL_TOP}
-  if test -d $erl_top/erts/autoconf; then 
-     AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
-     WX_BUILDING_INSIDE_ERLSRC=true
-  else
-     AC_CONFIG_AUX_DIRS(autoconf)
-     WX_BUILDING_INSIDE_ERLSRC=false
-  fi
+  AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
+  WX_BUILDING_INSIDE_ERLSRC=true
 fi
 
 if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
@@ -153,13 +147,9 @@ case $host_os in
 	   if test X$APPLE_CC = X -o X$APPLE_CXX = X; then
 	      AC_MSG_RESULT([no])
 	      dnl Complete failure, we cannot build Cocoa code
-	      if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
-		AC_MSG_ERROR([Can not find compiler to compile Cocoa applications])
-	      else
-		echo "Can not find compiler to compile Cocoa applications" >> ./CONF_INFO
-		WXERL_CAN_BUILD_DRIVER=false
-		AC_MSG_WARN([Can not find compiler to compile Cocoa applications])
-	      fi
+	      echo "Can not find compiler to compile Cocoa applications" >> ./CONF_INFO
+	      WXERL_CAN_BUILD_DRIVER=false
+	      AC_MSG_WARN([Can not find compiler to compile Cocoa applications])
 	      WXERL_CAN_BUILD_DRIVER=false
 	   else
 	      dnl We think we found an Apple compiler and will add 
@@ -265,11 +255,13 @@ if test X"$host_os" != X"win32" ; then
 	    AC_CHECK_HEADERS([GL/gl.h])
 	    if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
 		AC_MSG_WARN([No OpenGL headers found, wx will NOT be usable])
+		echo "No OpenGL headers found, wx will NOT be usable" >> ./CONF_INFO
+		WXERL_CAN_BUILD_DRIVER=false
 		CPPFLAGS="$saved_CPPFLAGS"
-	    else 
+	    else
 	    	GL_LIBS="-L/usr/local/lib $GL_LIBS"
 	    fi
-	else 
+	else
     	    GL_LIBS="-L/usr/X11R6/lib $GL_LIBS"
        	fi
     fi
@@ -284,6 +276,8 @@ if test X"$host_os" != X"win32" ; then
         test X"$ac_cv_header_OpenGL_glu_h" != Xyes
     then
 	AC_MSG_WARN([No GLU headers found, wx will NOT be usable])
+	echo "No GLU headers (glu.h) found, wx will NOT be usable" >> ./CONF_INFO
+	WXERL_CAN_BUILD_DRIVER=false
     fi
 else
     AC_CHECK_HEADERS([gl/glu.h],[],[],[#include <windows.h>])
@@ -301,40 +295,10 @@ AC_SUBST(DEBUG_CFLAGS)
 AC_SUBST(DEBUG_CXXFLAGS)
 
 
-if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
-    AC_MSG_CHECKING(for erl)
-    if test X$ERL != X; then 
-       AC_MSG_RESULT([yes; using $ERL])
-    else 
-       type erl >/dev/null 2>&1
-       if test $? -eq 0 ; then 
-          ERL=erl
-          AC_MSG_RESULT([yes])
-       else 
-	  AC_MSG_ERROR([Cannot find erl in path])
-       fi
-    fi
-    AC_MSG_CHECKING(for erlc)
-    if test X$ERLC != X; then 
-       AC_MSG_RESULT([yes; using $ERLC])
-    else 
-       type erlc >/dev/null 2>&1
-       if test $? -eq 0 ; then 
-          ERLC=erlc
-          AC_MSG_RESULT([yes])
-       else 
-	  AC_MSG_ERROR([Cannot find erlc in path])
-       fi
-    fi
-    ERLANG_ROOT_DIR=`erl -noshell -eval 'io:format("~s~n",[[code:root_dir()]])' -s erlang halt`
-    AC_MSG_NOTICE(ERL ROOT DIR: [$ERLANG_ROOT_DIR])
-    ERLWX_VSN=`grep WX_VSN $srcdir/vsn.mk | sed 's/^.*=[ ]*//'`
-else
-    ERLC=erlc
-    ERL=erl
-    ERLANG_ROOT_DIR=$ERL_TOP
-    AC_SUBST(ERLC)
-fi
+ERLC=erlc
+ERL=erl
+ERLANG_ROOT_DIR=$ERL_TOP
+AC_SUBST(ERLC)
 
 AC_SUBST(WX_BUILDING_INSIDE_ERLSRC)
 AC_SUBST(ERLANG_ROOT_DIR)
@@ -412,13 +376,9 @@ define(wx_warn_text,[
 		wxWidgets version is $reqwx or above.])
 
     if test "$wxWin" != 1; then
-        if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
-	   AC_MSG_ERROR([wx_warn_text])
-	else
-	   echo "wxWidgets not found, wx will NOT be usable" >> ./CONF_INFO
-	   WXERL_CAN_BUILD_DRIVER=false
-	   AC_MSG_WARN([wx_warn_text])
-	fi
+       echo "wxWidgets not found, wx will NOT be usable" >> ./CONF_INFO
+       WXERL_CAN_BUILD_DRIVER=false
+       AC_MSG_WARN([wx_warn_text])
     fi
 else
     AC_MSG_CHECKING(for wxWidgets in standard locations)
@@ -516,13 +476,9 @@ else
 
     if test -z "$WX_LIBS_STATIC"; then
 	AC_MSG_RESULT([failed])
-        if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
-		AC_MSG_ERROR([Cannot find core lib version for wxWidgets])
-	else
-		echo "No usable wxWidgets not found, wx will not be useable" >> ./CONF_INFO
-		WXERL_CAN_BUILD_DRIVER=false
-		AC_MSG_WARN([Cannot find core lib version for wxWidgets])
-	fi
+	echo "No usable wxWidgets not found, wx will not be useable" >> ./CONF_INFO
+	WXERL_CAN_BUILD_DRIVER=false
+	AC_MSG_WARN([Cannot find core lib version for wxWidgets])
     fi
     WX_HAVE_STATIC_LIBS=true
     AC_SUBST(WX_CFLAGS)
@@ -751,12 +707,6 @@ CONFIG_STATUS=$WXERL_SYS_TYPE/config.status
 
 dnl
 
-if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
-   if test X"$WXERL_CAN_BUILD_DRIVER" != X"true" ; then 
-      AC_MSG_ERROR([Cannot build wxErlang driver, see ./CONF_INFO for information])
-   fi
-fi
-
 AC_CONFIG_FILES([ 
 	config.mk
 	c_src/Makefile 
@@ -764,20 +714,9 @@ AC_CONFIG_FILES([
 
 AC_OUTPUT
 
-if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
-   AC_MSG_NOTICE()
-   AC_MSG_NOTICE(--------------------------------------------------)
-   AC_MSG_NOTICE(Using erlang compiler: [$ERLC])
-   AC_MSG_NOTICE(wxErlang Install in: [$ERLANG_ROOT_DIR/lib/wx-$ERLWX_VSN])
-   AC_MSG_NOTICE(Erlang driver in priv/[$WXERL_SYS_TYPE]/wxe_driver[$SO_EXT])
-   AC_MSG_NOTICE(--------------------------------------------------)
-fi
-
-if test X"$WX_BUILDING_INSIDE_ERLSRC" = X"true" ; then
-   CORES=`ls core* 2>/dev/null`
-   if test X"$CORES" != X"" ; then
-      echo "Configure dumped core files" > ignore_core_files
-   fi
+CORES=`ls core* 2>/dev/null`
+if test X"$CORES" != X"" ; then
+   echo "Configure dumped core files" > ignore_core_files
 fi
 
 
