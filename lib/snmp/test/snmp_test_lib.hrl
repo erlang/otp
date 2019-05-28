@@ -150,8 +150,10 @@
 	snmp_test_lib:print(P, ?MODULE, ?LINE, F, A)).
 
 -define(PRINT1(F, A),  snmp_test_lib:print1(F, A)).
+-define(PRINT1(F),     ?PRINT1(F, [])).
 -define(EPRINT1(F, A), ?PRINT1("<ERROR> " ++ F, A)).
 
 -define(PRINT2(F, A),  snmp_test_lib:print2(F, A)).
+-define(PRINT2(F),     ?PRINT2(F, [])).
 -define(EPRINT2(F, A), ?PRINT2("<ERROR> " ++ F, A)).
 
