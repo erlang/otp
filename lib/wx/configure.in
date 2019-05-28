@@ -229,11 +229,21 @@ case $host_os in
 	;;
     *)
 	DEBUG_CFLAGS="-g -Wall -fPIC $CFLAGS -DDEBUG"
-	CFLAGS="-g -Wall -O2 -fPIC $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
+	CFLAGS="-Wall -fPIC $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
 	;;
 esac
 
-dnl  
+dnl
+dnl  Use -O1 -fno-move-loop-invariants for wxe_funcs.cpp to reduce
+dnl  compilation time
+dnl
+
+if test "x$GCC" = xyes -a X"$host_os" != X"win32" ; then
+   CXXNOOPT="-O1"
+   LM_TRY_ENABLE_CFLAG([-fno-move-loop-invariants], [CXXNOOPT])
+fi
+
+dnl
 dnl  Opengl tests
 dnl
 
@@ -288,12 +298,12 @@ AC_SUBST(GL_LIBS)
 DEBUG_CXXFLAGS="$CXXFLAGS $DEBUG_CFLAGS $CPPFLAGS"
 DEBUG_CFLAGS="$DEBUG_CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
 
-CXXFLAGS="$CXXFLAGS $CFLAGS $CPPFLAGS" 
+CXXNOOPTFLAGS="$CXXFLAGS $CFLAGS $CPPFLAGS $CXXNOOPT"
+CXXFLAGS="$CXXFLAGS $CFLAGS $CPPFLAGS"
 CFLAGS="$CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
 
 AC_SUBST(DEBUG_CFLAGS)
 AC_SUBST(DEBUG_CXXFLAGS)
-
 
 ERLC=erlc
 ERL=erl
@@ -691,6 +701,7 @@ esac
 
 AC_SUBST(SO_EXT)
 AC_SUBST(RUN_ERL)
+AC_SUBST(CXXNOOPTFLAGS)
 
 
 if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
