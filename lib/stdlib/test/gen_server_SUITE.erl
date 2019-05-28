@@ -38,7 +38,9 @@
 	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
 	 undef_init/1, undef_code_change/1, undef_terminate1/1,
 	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1,
-	 undef_handle_continue/1
+	 undef_handle_continue/1,
+
+         format_log_1/1, format_log_2/1
 	]).
 
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
@@ -71,7 +73,8 @@ all() ->
      call_format_status, error_format_status, terminate_crash_format,
      get_state, replace_state,
      call_with_huge_message_queue, {group, undef_callbacks},
-     undef_in_terminate, undef_in_handle_info].
+     undef_in_terminate, undef_in_handle_info,
+     format_log_1, format_log_2].
 
 groups() -> 
     [{stop, [],
@@ -1527,6 +1530,208 @@ wait_until_processed(Pid, Message, N) ->
         false ->
             ok
     end.
+
+%% Test report callback for Logger handler error_logger
+format_log_1(_Config) ->
+    FD = application:get_env(kernel,error_logger_format_depth),
+    application:unset_env(kernel,error_logger_format_depth),
+    Term = lists:seq(1,15),
+    Name = self(),
+    Report = #{label=>{gen_server,terminate},
+               name=>Name,
+               last_message=>Term,
+               state=>Term,
+               log=>[],
+               reason=>Term,
+               client_info=>{self(),{clientname,[]}}},
+    {F1,A1} = gen_server:format_log(Report),
+    FExpected1 = "** Generic server ~tp terminating \n"
+        "** Last message in was ~tp~n"
+        "** When Server state == ~tp~n"
+        "** Reason for termination ==~n** ~tp~n"
+        "** Client ~tp stacktrace~n"
+        "** ~tp~n",
+    ct:log("F1: ~ts~nA1: ~tp",[F1,A1]),
+    FExpected1=F1,
+    [Name,Term,Term,Term,clientname,[]] = A1,
+
+    Warning = #{label=>{gen_server,no_handle_info},
+                module=>?MODULE,
+                message=>Term},
+    {WF1,WA1} = gen_server:format_log(Warning),
+    WFExpected1 = "** Undefined handle_info in ~p~n"
+        "** Unhandled message: ~tp~n",
+    ct:log("WF1: ~ts~nWA1: ~tp",[WF1,WA1]),
+    WFExpected1=WF1,
+    [?MODULE,Term] = WA1,
+
+    Depth = 10,
+    ok = application:set_env(kernel,error_logger_format_depth,Depth),
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    {F2,A2} = gen_server:format_log(#{label=>{gen_server,terminate},
+                                      name=>Name,
+                                      last_message=>Term,
+                                      state=>Term,
+                                      log=>[],
+                                      reason=>Term,
+                                      client_info=>{self(),{clientname,[]}}}),
+    FExpected2 = "** Generic server ~tP terminating \n"
+        "** Last message in was ~tP~n"
+        "** When Server state == ~tP~n"
+        "** Reason for termination ==~n** ~tP~n"
+        "** Client ~tP stacktrace~n"
+        "** ~tP~n",
+    ct:log("F2: ~ts~nA2: ~tp",[F2,A2]),
+    FExpected2=F2,
+    [Name,Depth,Limited,Depth,Limited,Depth,Limited,Depth,
+     clientname,Depth,[],Depth] = A2,
+
+    {WF2,WA2} = gen_server:format_log(Warning),
+    WFExpected2 = "** Undefined handle_info in ~p~n"
+        "** Unhandled message: ~tP~n",
+    ct:log("WF2: ~ts~nWA2: ~tp",[WF2,WA2]),
+    WFExpected2=WF2,
+    [?MODULE,Limited,Depth] = WA2,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel,error_logger_format_depth);
+        _ ->
+            application:set_env(kernel,error_logger_format_depth,FD)
+    end,
+    ok.
+
+%% Test report callback for any Logger handler
+format_log_2(_Config) ->
+    Term = lists:seq(1,15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Report = #{label=>{gen_server,terminate},
+               name=>Name,
+               last_message=>Term,
+               state=>Term,
+               log=>[],
+               reason=>Term,
+               client_info=>{self(),{clientname,[]}}},
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report,FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "** Generic server "++NameStr++" terminating \n"
+        "** Last message in was ",
+    ct:log("Str1: ~ts",[Str1]),
+    ct:log("length(Str1): ~p",[L1]),
+    true = lists:prefix(Expected1,Str1),
+
+    Warning = #{label=>{gen_server,no_handle_info},
+                module=>?MODULE,
+                message=>Term},
+    WStr1 = flatten_format_log(Warning,FormatOpts1),
+    WL1 = length(WStr1),
+    WExpected1 = "** Undefined handle_info in gen_server_SUITE\n"
+        "** Unhandled message: ",
+    ct:log("WStr1: ~ts",[WStr1]),
+    ct:log("length(WStr1): ~p",[WL1]),
+    true = lists:prefix(WExpected1,WStr1),
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report,FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "** Generic server "++NameStr++" terminating \n"
+        "** Last message in was ",
+    ct:log("Str2: ~ts",[Str2]),
+    ct:log("length(Str2): ~p",[L2]),
+    true = lists:prefix(Expected2,Str2),
+    true = L2<L1,
+
+    WStr2 = flatten_format_log(Warning,FormatOpts2),
+    WL2 = length(WStr2),
+    WExpected2 = "** Undefined handle_info in gen_server_SUITE\n"
+        "** Unhandled message: ",
+    ct:log("WStr2: ~ts",[WStr2]),
+    ct:log("length(WStr2): ~p",[WL2]),
+    true = lists:prefix(WExpected2,WStr2),
+    true = WL2<WL1,
+
+    FormatOpts3 = #{chars_limit=>200},
+    Str3 = flatten_format_log(Report,FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "** Generic server "++NameStr++" terminating \n"
+        "** Last message in was ",
+    ct:log("Str3: ~ts",[Str3]),
+    ct:log("length(Str3): ~p",[L3]),
+    true = lists:prefix(Expected3,Str3),
+    true = L3<L1,
+
+    WFormatOpts3 = #{chars_limit=>80},
+    WStr3 = flatten_format_log(Warning,WFormatOpts3),
+    WL3 = length(WStr3),
+    WExpected3 = "** Undefined handle_info in gen_server_SUITE\n"
+        "** Unhandled message: ",
+    ct:log("WStr3: ~ts",[WStr3]),
+    ct:log("length(WStr3): ~p",[WL3]),
+    true = lists:prefix(WExpected3,WStr3),
+    true = WL3<WL1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report,FormatOpts4),
+    L4 = length(Str4),
+    Expected4 = "Generic server "++NameStr++" terminating. Reason: ",
+    ct:log("Str4: ~ts",[Str4]),
+    ct:log("length(Str4): ~p",[L4]),
+    true = lists:prefix(Expected4,Str4),
+    true = L4<L1,
+
+    WStr4 = flatten_format_log(Warning,FormatOpts4),
+    WL4 = length(WStr4),
+    WExpected4 = "Undefined handle_info in gen_server_SUITE. "
+        "Unhandled message: ",
+    ct:log("WStr4: ~ts",[WStr4]),
+    ct:log("length(WStr4): ~p",[WL4]),
+    true = lists:prefix(WExpected4,WStr4),
+    true = WL4<WL1,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report,FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "Generic server "++NameStr++" terminating. Reason: ",
+    ct:log("Str5: ~ts",[Str5]),
+    ct:log("length(Str5): ~p",[L5]),
+    true = lists:prefix(Expected5,Str5),
+    true = L5<L4,
+
+    WStr5 = flatten_format_log(Warning,FormatOpts5),
+    WL5 = length(WStr5),
+    WExpected5 = "Undefined handle_info in gen_server_SUITE. "
+        "Unhandled message: ",
+    ct:log("WStr5: ~ts",[WStr5]),
+    ct:log("length(WStr5): ~p",[WL5]),
+    true = lists:prefix(WExpected5,WStr5),
+    true = WL5<WL4,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>200},
+    Str6 = flatten_format_log(Report,FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "Generic server "++NameStr++" terminating. Reason: ",
+    ct:log("Str6: ~ts",[Str6]),
+    ct:log("length(Str6): ~p",[L6]),
+    true = lists:prefix(Expected6,Str6),
+    true = L6<L4,
+
+    WFormatOpts6 = #{single_line=>true, chars_limit=>80},
+    WStr6 = flatten_format_log(Warning,WFormatOpts6),
+    WL6 = length(WStr6),
+    WExpected6 = "Undefined handle_info in gen_server_SUITE. "
+        "Unhandled message: ",
+    ct:log("WStr6: ~ts",[WStr6]),
+    ct:log("length(WStr6): ~p",[WL6]),
+    true = lists:prefix(WExpected6,WStr6),
+    true = WL6<WL4,
+
+    ok.
+
+flatten_format_log(Report, Format) ->
+    lists:flatten(gen_server:format_log(Report, Format)).
 
 %%--------------------------------------------------------------
 %% Help functions to spec_init_*
