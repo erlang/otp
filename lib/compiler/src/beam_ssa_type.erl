@@ -990,11 +990,15 @@ type(call, [#b_remote{mod=#b_literal{val=Mod},
                 {_,_} ->
                     #t_tuple{}
             end;
-        {erlang,'++',[List1,List2]} ->
-            case get_type(List1, Ts) =:= cons orelse
-                get_type(List2, Ts) =:= cons of
-                true -> cons;
-                false -> list
+        {erlang,'++',[LHS,RHS]} ->
+            LType = get_type(LHS, Ts),
+            RType = get_type(RHS, Ts),
+            case LType =:= cons orelse RType =:= cons of
+                true ->
+                    cons;
+                false ->
+                    %% `[] ++ RHS` yields RHS, even if RHS is not a list.
+                    join(list, RType)
             end;
         {erlang,'--',[_,_]} ->
             list;
