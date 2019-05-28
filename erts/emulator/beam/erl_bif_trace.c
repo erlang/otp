@@ -1858,6 +1858,8 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
 
     if (arg1 == am_send) {
 	current_flag = SEQ_TRACE_SEND;
+    } else if (arg1 == am_spawn) {
+	current_flag = SEQ_TRACE_SPAWN;
     } else if (arg1 == am_receive) {
 	current_flag = SEQ_TRACE_RECEIVE; 
     } else if (arg1 == am_print) {
@@ -1966,8 +1968,9 @@ BIF_RETTYPE erl_seq_trace_info(Process *p, Eterm item)
     }
 
     if (have_no_seqtrace(SEQ_TRACE_TOKEN(p))) {
-	if ((item == am_send)  || (item == am_receive) || 
-	    (item == am_print) || (item == am_timestamp)
+	if ((item == am_send) || (item == am_spawn) ||
+        (item == am_receive) || (item == am_print)
+        || (item == am_timestamp)
 	    || (item == am_monotonic_timestamp)
 	    || (item == am_strict_monotonic_timestamp)) {
 	    hp = HAlloc(p,3);
@@ -1982,6 +1985,8 @@ BIF_RETTYPE erl_seq_trace_info(Process *p, Eterm item)
 
     if (item == am_send) {
 	current_flag = SEQ_TRACE_SEND;
+    } else if (item == am_spawn) {
+	current_flag = SEQ_TRACE_SPAWN;
     } else if (item == am_receive) {
 	current_flag = SEQ_TRACE_RECEIVE; 
     } else if (item == am_print) {
@@ -2031,7 +2036,7 @@ BIF_RETTYPE seq_trace_print_1(BIF_ALIST_1)
     if (have_no_seqtrace(SEQ_TRACE_TOKEN(BIF_P))) {
 	BIF_RET(am_false);
     }
-    seq_trace_update_send(BIF_P);
+    seq_trace_update_serial(BIF_P);
     seq_trace_output(SEQ_TRACE_TOKEN(BIF_P), BIF_ARG_1, 
 		     SEQ_TRACE_PRINT, NIL, BIF_P);
     BIF_RET(am_true);
@@ -2055,7 +2060,7 @@ BIF_RETTYPE seq_trace_print_2(BIF_ALIST_2)
     }
     if (SEQ_TRACE_TOKEN_LABEL(BIF_P) != BIF_ARG_1)
 	BIF_RET(am_false);
-    seq_trace_update_send(BIF_P);
+    seq_trace_update_serial(BIF_P);
     seq_trace_output(SEQ_TRACE_TOKEN(BIF_P), BIF_ARG_2, 
 		     SEQ_TRACE_PRINT, NIL, BIF_P);
     BIF_RET(am_true);

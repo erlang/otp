@@ -107,6 +107,12 @@ seq_trace:set_token(OldToken), % activate the trace token again
               enables/disables tracing on message sending. Default is
               <c>false</c>.</p>
           </item>
+          <tag><c>set_token('spawn', <anno>Bool</anno>)</c></tag>
+          <item>
+            <p>A trace token flag (<c>true | false</c>) which
+              enables/disables tracing on process spawning. Default is
+              <c>false</c>.</p>
+          </item>
           <tag><c>set_token('receive', <anno>Bool</anno>)</c></tag>
           <item>
             <p>A trace token flag (<c>true | false</c>) which
@@ -257,7 +263,12 @@ TimeStamp = {Seconds, Milliseconds, Microseconds}
       <tag><c>{send, Serial, From, To, Message}</c></tag>
       <item>
         <p>Used when a process <c>From</c> with its trace token flag
-          <c>print</c> set to <c>true</c> has sent a message.</p>
+          <c>send</c> set to <c>true</c> has sent a message.</p>
+      </item>
+      <tag><c>{spawn, Serial, Parent, Child, _}</c></tag>
+      <item>
+        <p>Used when a process <c>Parent</c> with its trace token flag
+          <c>spawn</c> set to <c>true</c> has spawned a process.</p>
       </item>
       <tag><c>{'receive', Serial, From, To, Message}</c></tag>
       <item>
@@ -295,8 +306,8 @@ TimeStamp = {Seconds, Milliseconds, Microseconds}
       is initiated by a single message. In short, it works as follows:</p>
     <p>Each process has a <em>trace token</em>, which can be empty or
       not empty. When not empty, the trace token can be seen as
-      the tuple <c>{Label, Flags, Serial, From}</c>. The trace token is
-      passed invisibly with each message.</p>
+      the tuple <c>{Label, Flags, Serial, From}</c>. The trace token is passed
+      invisibly to spawned processes and with each message sent.</p>
     <p>To start a sequential trace, the user must explicitly set
       the trace token in the process that will send the first message
       in a sequence.</p>
@@ -306,9 +317,10 @@ TimeStamp = {Seconds, Milliseconds, Microseconds}
     <p>On each Erlang node, a process can be set as the <em>system tracer</em>.
       This process will receive trace messages each time
       a message with a trace token is sent or received (if the trace
-      token flag <c>send</c> or <c>'receive'</c> is set). The system
-      tracer can then print each trace event, write it to a file, or
-      whatever suitable.</p>
+      token flag <c>send</c> or <c>'receive'</c> is set), and when a process
+      with a non-empty trace token spawns another (if the trace token flag
+      <c>spawn</c> is set). The system tracer can then print each trace event,
+      write it to a file, or whatever suitable.</p>
     <note>
       <p>The system tracer only receives those trace events that
         occur locally within the Erlang node. To get the whole picture
@@ -322,10 +334,9 @@ TimeStamp = {Seconds, Milliseconds, Microseconds}
 
   <section>
     <title>Trace Token</title>
-    <p>Each process has a current trace token. Initially, the token is
-      empty. When the process sends a message to another process, a
-      copy of the current token is sent "invisibly" along with
-      the message.</p>
+    <p>Each process has a current trace token, which is copied from the process
+      that spawned it. When a process sends a message to another process, a
+      copy of the current token is sent "invisibly" along with the message.</p>
     <p>The current token of a process is set in one of the following two
       ways:</p>
     <list type="bulleted">
@@ -354,8 +365,9 @@ TimeStamp = {Seconds, Milliseconds, Microseconds}
     <p>The algorithm for updating <c>Serial</c> can be described as
       follows:</p>
     <p>Let each process have two counters, <c>prev_cnt</c> and
-      <c>curr_cnt</c>, both are set to <c>0</c> when a process is created.
-      The counters are updated at the following occasions:</p>
+      <c>curr_cnt</c>, both are set to <c>0</c> when a process is created
+      outside of a trace sequence. The counters are updated at the following
+      occasions:</p>
     <list type="bulleted">
       <item>
         <p><em>When the process is about to send a message and the trace token
@@ -368,6 +380,16 @@ tprev := prev_cnt
 tcurr := curr_cnt</pre>
         <p>The trace token with <c>tprev</c> and <c>tcurr</c> is then
           passed along with the message.</p>
+      </item>
+      <item>
+        <p><em>When the process is about to spawn another process and the trace
+          token is not empty.</em></p>
+        <p>The counters of the parent process are updated in the same way as
+          for send above. The trace token is then passed to the child process,
+          whose counters will be set as follows:</p>
+        <code>
+curr_cnt := tcurr
+prev_cnt := tcurr</code>
       </item>
       <item>
         <p><em>When the process calls</em> <c>seq_trace:print(Label, Info)</c>,
@@ -487,9 +509,9 @@ tracer() ->
            print_trace(Label,TraceInfo,false);
         {seq_trace,Label,TraceInfo,Ts} ->
            print_trace(Label,TraceInfo,Ts);
-        Other -> ignore
+        _Other -> ignore
     end,
-    tracer().        
+    tracer().
 
 print_trace(Label,TraceInfo,false) ->
     io:format("~p:",[Label]),
@@ -504,8 +526,11 @@ print_trace({'receive',Serial,From,To,Message}) ->
     io:format("~p Received ~p FROM ~p WITH~n~p~n", 
               [To,Serial,From,Message]);
 print_trace({send,Serial,From,To,Message}) ->
-    io:format("~p Sent ~p TO ~p WITH~n~p~n", 
-              [From,Serial,To,Message]).</code>
+    io:format("~p Sent ~p TO ~p WITH~n~p~n",
+              [From,Serial,To,Message]);
+print_trace({spawn,Serial,Parent,Child,_}) ->
+    io:format("~p Spawned ~p AT ~p~n",
+              [Parent,Child,Serial]).</code>
     <p>The code that creates a process that runs this tracer function
       and sets that process as the system tracer can look like this:</p>
     <code type="none">

@@ -1051,7 +1051,7 @@ erts_dsig_send_msg(ErtsDSigSendContext* ctx, Eterm remote, Eterm message)
 #endif
 
     if (have_seqtrace(SEQ_TRACE_TOKEN(sender))) {
-	seq_trace_update_send(sender);
+	seq_trace_update_serial(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote, sender);
     }
@@ -1125,7 +1125,7 @@ erts_dsig_send_reg_msg(ErtsDSigSendContext* ctx, Eterm remote_name, Eterm messag
 #endif
 
     if (have_seqtrace(SEQ_TRACE_TOKEN(sender))) {
-	seq_trace_update_send(sender);
+	seq_trace_update_serial(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote_name, sender);
     }
@@ -1184,7 +1184,7 @@ erts_dsig_send_exit_tt(ErtsDSigSendContext *ctx, Eterm local, Eterm remote,
         msg = reason;
 
     if (have_seqtrace(token)) {
-	seq_trace_update_send(ctx->c_p);
+	seq_trace_update_serial(ctx->c_p);
 	seq_trace_output_exit(token, reason, SEQ_TRACE_SEND, remote, local);
         if (ctx->dep->flags & DFLAG_EXIT_PAYLOAD) {
             ctl = TUPLE4(&ctx->ctl_heap[0],

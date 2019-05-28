@@ -1987,7 +1987,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
                 trace_send(p, portid, msg);
 
             if (have_seqtrace(SEQ_TRACE_TOKEN(p))) {
-                seq_trace_update_send(p);
+                seq_trace_update_serial(p);
                 seq_trace_output(SEQ_TRACE_TOKEN(p), msg,
                                  SEQ_TRACE_SEND, portid, p);
             }
