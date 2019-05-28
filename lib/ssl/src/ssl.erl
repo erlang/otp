@@ -82,6 +82,7 @@
               protocol_extensions/0,
               session_id/0,
               error_alert/0,
+              tls_alert/0,
               srp_param_type/0]).
 
 %% -------------------------------------------------------------------------------------------------------
@@ -213,7 +214,7 @@
                                  bad_certificate_status_response |
                                  bad_certificate_hash_value |
                                  unknown_psk_identity |
-                                 no_application_protocol.
+                                 no_application_protocol. % exported
 
 %% -------------------------------------------------------------------------------------------------------
 -type common_option()        :: {protocol, protocol()} |
