@@ -795,6 +795,8 @@ printable_bin0(Bin, D, T, Enc) ->
           end,
     printable_bin(Bin, Len, D, Enc).
 
+printable_bin(_Bin, 0, _D, _Enc) ->
+    false;
 printable_bin(Bin, Len, D, latin1) ->
     N = erlang:min(20, Len),
     L = binary_to_list(Bin, 1, N),
