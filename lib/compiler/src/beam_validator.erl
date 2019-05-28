@@ -154,8 +154,7 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 
 %% Match context type.
 -record(ms,
-        {id=make_ref() :: reference(),          %Unique ID.
-         valid=0 :: non_neg_integer(),          %Valid slots
+        {valid=0 :: non_neg_integer(),          %Valid slots
          slots=0 :: non_neg_integer()           %Number of slots
         }).
 
@@ -487,7 +486,9 @@ valfun_1(remove_message, Vst) ->
     %% without restrictions.
     remove_fragility(Vst);
 valfun_1({'%', {type_info, Reg, match_context}}, Vst) ->
-    update_type(fun meet/2, #ms{}, Reg, Vst);
+    %% This is a gross hack, but we'll be rid of it once we have proper union
+    %% types.
+    override_type(#ms{}, Reg, Vst);
 valfun_1({'%', {type_info, Reg, Type}}, Vst) ->
     %% Explicit type information inserted by optimization passes to indicate
     %% that Reg has a certain type, so that we can accept cross-function type
@@ -1260,21 +1261,22 @@ verify_remote_args_1(X, Vst) ->
 
 verify_local_args(-1, _Lbl, _CtxIds, _Vst) ->
     ok;
-verify_local_args(X, Lbl, CtxIds, Vst) ->
+verify_local_args(X, Lbl, CtxRefs, Vst) ->
     Reg = {x, X},
     assert_not_fragile(Reg, Vst),
     case get_movable_term_type(Reg, Vst) of
-        #ms{id=Id}=Type ->
-            case CtxIds of
-                #{ Id := Other } ->
+        #ms{}=Type ->
+            VRef = get_reg_vref(Reg, Vst),
+            case CtxRefs of
+                #{ VRef := Other } ->
                     error({multiple_match_contexts, [Reg, Other]});
                 #{} ->
                     verify_arg_type(Lbl, Reg, Type, Vst),
-                    verify_local_args(X - 1, Lbl, CtxIds#{ Id => Reg }, Vst)
+                    verify_local_args(X - 1, Lbl, CtxRefs#{ VRef => Reg }, Vst)
             end;
         Type ->
             verify_arg_type(Lbl, Reg, Type, Vst),
-            verify_local_args(X - 1, Lbl, CtxIds, Vst)
+            verify_local_args(X - 1, Lbl, CtxRefs, Vst)
     end.
 
 %% Verifies that the given argument narrows to what the function expects.
@@ -2039,13 +2041,9 @@ join({atom,A}, {atom,B}) when is_boolean(A), is_boolean(B) ->
     bool;
 join({atom,_}, {atom,_}) ->
     {atom,[]};
-join(#ms{id=Id1,valid=B1,slots=Slots1},
-     #ms{id=Id2,valid=B2,slots=Slots2}) ->
-    Id = if
-             Id1 =:= Id2 -> Id1;
-             true -> make_ref()
-         end,
-    #ms{id=Id,valid=B1 band B2,slots=min(Slots1, Slots2)};
+join(#ms{valid=B1,slots=Slots1},
+     #ms{valid=B2,slots=Slots2}) ->
+    #ms{valid=B1 band B2,slots=min(Slots1, Slots2)};
 join(T1, T2) when T1 =/= T2 ->
     %% We've exhaused all other options, so the type must either be a list or
     %% a 'term'.
@@ -2107,10 +2105,6 @@ meet(term, Other) ->
     Other;
 meet(Other, term) ->
     Other;
-meet(#ms{}, binary) ->
-    #ms{};
-meet(binary, #ms{}) ->
-    #ms{};
 meet({literal,_}, {literal,_}) ->
     none;
 meet(T1, {literal,_}=T2) ->
