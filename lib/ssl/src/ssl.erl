@@ -125,7 +125,9 @@
               protocol_extensions/0,
               session_id/0,
               error_alert/0,
-              srp_param_type/0]).
+              tls_alert/0,
+              srp_param_type/0,
+              named_curve/0]).
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -192,6 +194,7 @@
                                  | rsa_pss_pss_sha512
                                  | rsa_pkcs1_sha1
                                  | ecdsa_sha1.
+
 -type kex_algo()                :: rsa |
                                    dhe_rsa | dhe_dss |
                                    ecdhe_ecdsa | ecdh_ecdsa | ecdh_rsa |
@@ -236,7 +239,7 @@
                                  sect163r2 |
                                  secp160k1 |
                                  secp160r1 |
-                                 secp160r2.
+                                 secp160r2. % exported
 
 -type group() :: secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
                  ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192.
@@ -279,7 +282,7 @@
                                  bad_certificate_status_response |
                                  bad_certificate_hash_value |
                                  unknown_psk_identity |
-                                 no_application_protocol.
+                                 no_application_protocol. % exported
 
 %% -------------------------------------------------------------------------------------------------------
 -type common_option()        :: {protocol, protocol()} |
