@@ -751,11 +751,8 @@ get_binary_bytes(Binary, BinSize, Base, Offset, Orig,
 		 TrueLblName, FalseLblName) ->
   [OrigOffset,BitSize,BitOffset] = create_gcsafe_regs(3),
   [SuccessLbl,SubLbl,OtherLbl,JoinLbl] = create_lbls(4),
-  %% TODO: Determine if the redundant "is boxed" checks and header loads are
-  %%       eliminated with later RTL optimization passes.
   [hipe_tagscheme:test_bitstr(Binary, hipe_rtl:label_name(SuccessLbl),
 			      FalseLblName, 0.99),
-   % NOTE: ^ Redundant "is boxed" check and header load
    SuccessLbl,
    get_field_from_term({sub_binary, binsize}, Binary, BinSize),
    hipe_rtl:mk_alu(BinSize, BinSize, sll, hipe_rtl:mk_imm(?BYTE_SHIFT)),
@@ -777,18 +774,6 @@ get_binary_bytes(Binary, BinSize, Base, Offset, Orig,
    JoinLbl] ++
     get_base(Orig,Base) ++
     [hipe_rtl:mk_goto(TrueLblName)].
-
-% Predef: Binary, Offset (default 0), BitSize (default 0)
-%
-% if (is_bitstr(Binary))
-% {
-%     BinSize = binary_size(Binary) * 8
-%     ERTS_GET_REAL_BIN(Binary, Orig, Offset, BitOffset, BitSize)
-%     // Kind of but not actually how this is organized:
-%     BinSize += Offset;
-%     BinSize += BitSize;
-%     get_base(Orig, Base)
-% }
 
 %%%%%%%%%%%%%%%%%%%%%%%%% UTILS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
