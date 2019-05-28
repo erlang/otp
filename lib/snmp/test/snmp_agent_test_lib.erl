@@ -276,14 +276,18 @@ init_case(Config) when is_list(Config) ->
 %%% configuration.
 %%%--------------------------------------------------
 
-try_test(Mod, Func) ->
-    tc_try(get(mgr_node), ?MODULE, tc_run, [Mod, Func, [], []]).
+try_test(TcRunMod, TcRunFunc) ->
+    try_test(TcRunMod, TcRunFunc, []).
 
-try_test(Mod, Func, A) ->
-    tc_try(get(mgr_node), ?MODULE, tc_run, [Mod, Func, A, []]).
+try_test(TcRunMod, TcRunFunc, TcRunArgs) ->
+    try_test(TcRunMod, TcRunFunc, TcRunArgs, []).
 
-try_test(Mod, Func, A, Opts) ->
-    tc_try(get(mgr_node), ?MODULE, tc_run, [Mod, Func, A, Opts]).
+try_test(TcRunMod, TcRunFunc, TcRunArgs, TcRunOpts) ->
+    Node      = get(mgr_node),
+    Mod       = ?MODULE,
+    Func      = tc_run,
+    Args      = [TcRunMod, TcRunFunc, TcRunArgs, TcRunOpts],
+    tc_try(Node, Mod, Func, Args).
 
 %% We spawn a test case runner process on the manager node.
 %% The assumption is that the manager shall do something, but
@@ -291,6 +295,10 @@ try_test(Mod, Func, A, Opts) ->
 %% In some cases we make a rpc call back to the agent node directly
 %% and call something in the agent... (for example the info_test
 %% test case).
+%% We should use link (instead of monitor) in order for the test case
+%% timeout cleanup (kills) should have effect on the test case runner
+%% process as well.
+
 tc_try(N, M, F, A) ->
     ?PRINT2("tc_try -> entry with"
             "~n      N:     ~p"
@@ -304,19 +312,20 @@ tc_try(N, M, F, A) ->
                    get()]),
     case net_adm:ping(N) of
         pong ->
-            ?PRINT2("tc_try -> ~p still running~n", [N]),
-            Runner = spawn(N, ?MODULE, tc_wait, [self(), get(), M, F, A]),
-            MRef   = erlang:monitor(process, Runner),
-            await_tc_runner_started(Runner, MRef),
-            await_tc_runner_done(Runner, MRef);
+            ?PRINT2("tc_try -> ~p still running - start runner~n", [N]),
+            OldFlag = trap_exit(true), % Make sure we catch it
+            Runner  = spawn_link(N, ?MODULE, tc_wait, [self(), get(), M, F, A]),
+            await_tc_runner_started(Runner, OldFlag),
+            await_tc_runner_done(Runner, OldFlag);
         pang ->
             ?EPRINT2("tc_try -> ~p *not* running~n", [N]),
             exit({node_not_running, N})
     end.
 
-await_tc_runner_started(Runner, MRef) ->
+await_tc_runner_started(Runner, OldFlag) ->
+    ?PRINT2("await tc-runner (~p) start ack~n", [Runner]),
     receive
-        {'DOWN', MRef, process, Runner, Reason} ->
+        {'EXIT', Runner, Reason} ->
             ?EPRINT2("TC runner start failed: "
                      "~n   ~p~n", [Reason]),
             exit({tx_runner_start_failed, Reason});
@@ -324,7 +333,8 @@ await_tc_runner_started(Runner, MRef) ->
             ?PRINT2("TC runner start acknowledged~n"),
             ok
     after 10000 ->
-            erlang:demonitor(MRef, [flush]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
             RunnerInfo = process_info(Runner),
             ?EPRINT2("TC runner start timeout: "
                      "~n   ~p", [RunnerInfo]),
@@ -333,9 +343,9 @@ await_tc_runner_started(Runner, MRef) ->
             exit({tc_runner_start, timeout, RunnerInfo})
     end.
 
-await_tc_runner_done(Runner, MRef) ->
+await_tc_runner_done(Runner, OldFlag) ->
     receive
-        {'DOWN', MRef, process, Runner, Reason} ->
+        {'EXIT', Runner, Reason} ->
             ?EPRINT2("TC runner failed: "
                      "~n   ~p~n", [Reason]),
             exit({tx_runner_failed, Reason});
@@ -344,13 +354,16 @@ await_tc_runner_done(Runner, MRef) ->
                     "~n   Rn:  ~p"
                     "~n   Loc: ~p"
                     "~n", [Rn, Loc]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
 	    put(test_server_loc, Loc),
 	    exit(Rn);
 	{tc_runner_done, Runner, Ret, _Zed} -> 
 	    ?DBG("call -> done:"
 		 "~n   Ret: ~p"
 		 "~n   Zed: ~p", [Ret, _Zed]),
-            erlang:demonitor(MRef, [flush]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
 	    case Ret of
 		{error, Reason} ->
 		    exit(Reason);
@@ -358,8 +371,19 @@ await_tc_runner_done(Runner, MRef) ->
 		    OK
 	    end
     end.
-    
-    
+
+trap_exit(Flag) when is_boolean(Flag) ->    
+    erlang:process_flag(trap_exit, Flag).
+
+unlink_and_flush_exit(Pid) ->
+    unlink(Pid),
+    receive
+        {'EXIT', Pid, _} ->
+            ok
+    after 0 ->
+            ok
+    end.
+
 tc_wait(From, Env, M, F, A) ->
     ?PRINT2("tc_wait -> entry with"
             "~n   From: ~p"
