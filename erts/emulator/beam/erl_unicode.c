@@ -1346,6 +1346,19 @@ Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
     return do_utf8_to_list(p, num, bytes, sz, left, num_built, num_eaten, tail);
 }
 
+Eterm erts_utf8_to_list_x(Eterm **hpp, byte *bytes, Uint sz)
+{
+    Uint num_eaten;
+    Uint num_built;
+    Eterm ret;
+
+    ret = make_list_from_utf8_buf(hpp, sz, bytes, sz,
+                                  &num_built, &num_eaten, NIL);
+    ASSERT(num_eaten == sz);
+
+    return ret;
+}
+
 Uint erts_atom_to_string_length(Eterm atom)
 {
     Atom *ap;

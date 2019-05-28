@@ -1801,20 +1801,58 @@ read_line_table(LoaderState* stp)
 
     /*
      * Read all filenames.
+     * Add the implicit filename manually.
      */
 
-    if (stp->num_fnames != 0) {
-	stp->fname = (Eterm *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-					      stp->num_fnames *
-					      sizeof(Eterm));
-	for (i = 0; i < stp->num_fnames; i++) {
-	    byte* fname;
-	    Uint n;
+    stp->num_fnames++;
+    stp->fname = (Eterm *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                      stp->num_fnames * sizeof(Eterm));
+    {
+        Eterm buf[(255 + 4) * 2];
+        Eterm *thp = buf;
+        Eterm *hp;
+        Eterm fname_term;
+        Uint lit;
+        Uint size;
 
-	    GetInt(stp, 2, n);
-	    GetString(stp, fname, n);
-	    stp->fname[i] = erts_atom_put(fname, n, ERTS_ATOM_ENC_UTF8, 1);
-	}
+        Atom* ap = atom_tab(atom_val(stp->module));
+        fname_term = buf_to_intlist(&thp, ".erl", 4, NIL);
+        fname_term = buf_to_intlist(&thp, (char*)ap->name, ap->len, fname_term);
+
+        size = thp - buf;
+
+        if (!find_literal(stp, fname_term, &lit)) {
+            lit = new_literal(stp, &hp, size);
+            fname_term = buf_to_intlist(&hp, ".erl", 4, NIL);
+            fname_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, fname_term);
+            stp->literals[lit].term = fname_term;
+        }
+
+        stp->fname[0] = lit;
+    }
+
+    for (i = 1; i < stp->num_fnames; i++) {
+        byte* fname;
+        Uint n;
+        Eterm buf[255 * 2];
+        Eterm *thp = buf;
+        Eterm *hp;
+        Eterm fname_term;
+        Uint lit;
+        Uint size;
+
+        GetInt(stp, 2, n);
+        GetString(stp, fname, n);
+
+        fname_term = erts_utf8_to_list_x(&thp, fname, n);
+        size = thp - buf;
+
+        if (!find_literal(stp, fname_term, &lit)) {
+            lit = new_literal(stp, &hp, size);
+            fname_term = erts_utf8_to_list_x(&hp, fname, n);
+            stp->literals[lit].term = fname_term;
+        }
+        stp->fname[i] = lit;
     }
 
     /*
@@ -1919,7 +1957,7 @@ read_code_header(LoaderState* stp)
         code = stp->codev = (BeamInstr*) &stp->hdr->functions;          \
     } 									\
 } while (0)
-    
+
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
 static void init_label(Label* lp)
@@ -4959,9 +4997,9 @@ freeze_code(LoaderState* stp)
 	line_items[i] = codev + stp->ci - 1;
 
 	line_tab->fname_ptr = (Eterm*) &line_items[i + 1];
-        if (stp->num_fnames)
-            sys_memcpy(line_tab->fname_ptr, stp->fname,
-                       stp->num_fnames*sizeof(Eterm));
+        for (i = 0; i < stp->num_fnames; i++) {
+            line_tab->fname_ptr[i] = stp->literals[stp->fname[i]].term;
+        }
 
 	line_tab->loc_size = stp->loc_size;
 	if (stp->loc_size == 2) {
@@ -6337,15 +6375,7 @@ erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
 	Eterm tuple;
 	int line = LOC_LINE(fi->loc);
 	int file = LOC_FILE(fi->loc);
-	Eterm file_term = NIL;
-
-	if (file == 0) {
-	    Atom* ap = atom_tab(atom_val(fi->mfa->module));
-	    file_term = buf_to_intlist(&hp, ".erl", 4, NIL);
-	    file_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, file_term);
-	} else {
-            file_term = erts_atom_to_string(&hp, (fi->fname_ptr)[file-1]);
-	}
+	Eterm file_term = fi->fname_ptr[file];
 
 	tuple = TUPLE2(hp, am_line, make_small(line));
 	hp += 3;

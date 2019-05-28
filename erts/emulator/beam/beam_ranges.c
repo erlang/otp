@@ -321,7 +321,6 @@ lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
 	if (pc < mid[0]) {
 	    high = mid;
 	} else if (pc < mid[1]) {
-	    int file;
 	    int index = mid - lt->func_tab[0];
 
 	    if (lt->loc_size == 2) {
@@ -334,14 +333,6 @@ lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
 		return;
 	    }
 	    fi->needed += 3+2+3+2;
-	    file = LOC_FILE(fi->loc);
-	    if (file == 0) {
-		/* Special case: Module name with ".erl" appended */
-		Atom* mod_atom = atom_tab(atom_val(fi->mfa->module));
-		fi->needed += 2*(mod_atom->len+4);
-	    } else {
-                fi->needed += 2*erts_atom_to_string_length((fi->fname_ptr)[file-1]);
-	    }
 	    return;
 	} else {
 	    low = mid + 1;

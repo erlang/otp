@@ -1300,6 +1300,7 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
 Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes);
 Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail);
+Eterm erts_utf8_to_list_x(Eterm **hpp, byte *bytes, Uint sz);
 int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_OK 0
 #define ERTS_UTF8_INCOMPLETE 1
