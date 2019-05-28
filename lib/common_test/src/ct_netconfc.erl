@@ -201,10 +201,9 @@
                      type}).
 
 %% Pending replies from server
--record(pending, {tref,    % timer ref (returned from timer:xxx)
-		  ref,     % pending ref
+-record(pending, {tref :: false | reference(),  % timer reference
 		  msg_id,
-		  op,
+                  op,
 		  caller}).% pid which sent the request
 
 %%----------------------------------------------------------------------
@@ -966,9 +965,8 @@ handle_msg({hello, Options, Timeout},
            = State) ->
     case do_send(Connection, client_hello(Options)) of
 	ok when HelloStatus == undefined -> %% server hello not yet received
-            {Ref, TRef} = set_request_timer(Timeout),
+            TRef = set_request_timer(Timeout, hello),
             {noreply, State#state{hello_status = #pending{tref = TRef,
-                                                          ref = Ref,
                                                           caller = From}}};
         ok ->                               %% or yes: negotiate version
             handle_capx(State);
@@ -1003,9 +1001,8 @@ handle_msg({send, Timeout, SimpleXml},
            = State) ->
     case do_send(Connection, SimpleXml) of
         ok ->
-            {Ref, TRef} = set_request_timer(Timeout),
+            TRef = set_request_timer(Timeout, send),
             {noreply, State#state{pending = [#pending{tref = TRef,
-                                                      ref = Ref,
                                                       caller = From}
                                              | Pending]}};
         Error ->
@@ -1047,25 +1044,26 @@ handle_msg({ssh_cm, _CM, _SshCloseMsg}, State) ->
 
     {stop, State};
 
-handle_msg({Ref, timeout}, #state{hello_status = #pending{ref = Ref,
-                                                          caller = From}}
-                           = State) ->
+handle_msg({timeout, TRef, hello},
+           #state{hello_status = #pending{tref = TRef,
+                                          caller = From}}
+           = State) ->
     ct_gen_conn:return(From, {error, {hello_session_failed, timeout}}),
     {stop, State#state{hello_status = {error,timeout}}};
 
-handle_msg({Ref, timeout}, #state{pending = Pending} = State) ->
-    {value, #pending{op = Op, caller = Caller}, Rest}
-        = lists:keytake(Ref, #pending.ref, Pending),
-    ct_gen_conn:return(Caller, {error, timeout}),
-    R = case Op of
-            close_session -> stop;
-            _             -> noreply
-	end,
-    %% Discard received bytes in hope that the server has sent an
-    %% incomplete message. Otherwise this is doomed to leave the
-    %% connection in an unusable state.
-    {R, State#state{pending = Rest,
-                    buf = is_binary(State#state.buf)}}.
+handle_msg({timeout, TRef, Op}, #state{pending = Pending} = State) ->
+    case lists:keytake(TRef, #pending.tref, Pending) of
+        {value, #pending{caller = From}, Rest} ->
+            ct_gen_conn:return(From, {error, timeout}),
+            %% Discard received bytes in hope that the server has sent
+            %% an incomplete message. Otherwise this is doomed to
+            %% leave the connection in an unusable state.
+            {if Op == close_session -> stop; true -> noreply end,
+             State#state{pending = Rest,
+                         buf = is_binary(State#state.buf)}};
+        false ->
+            {noreply, State}
+    end.
 
 %% close/1
 
@@ -1193,21 +1191,20 @@ make_options(Opts, Rec, F) ->
     end.
 
 %%%-----------------------------------------------------------------
-set_request_timer(infinity) ->
-    {undefined,undefined};
-set_request_timer(T) ->
-    Ref = make_ref(),
-    {ok,TRef} = timer:send_after(T,{Ref,timeout}),
-    {Ref,TRef}.
+
+set_request_timer(infinity, _) ->
+    false;
+
+set_request_timer(Tmo, Op) ->
+    erlang:start_timer(Tmo, self(), Op).
 
 %%%-----------------------------------------------------------------
-cancel_request_timer(undefined,undefined) ->
+
+cancel_request_timer(false) ->
     ok;
-cancel_request_timer(Ref,TRef) ->
-    _ = timer:cancel(TRef),
-    receive {Ref,timeout} -> ok
-    after 0 -> ok
-    end.
+
+cancel_request_timer(TRef) ->
+    erlang:cancel_timer(TRef).
 
 %%%-----------------------------------------------------------------
 
@@ -1352,9 +1349,8 @@ do_send_rpc(Op, SimpleXml, Timeout, Caller, #state{connection = Connection,
     Next = MsgId + 1,
     case do_send(Connection, Msg) of
         ok ->
-            {Ref, TRef} = set_request_timer(Timeout),
+            TRef = set_request_timer(Timeout, Op),
             Rec = #pending{tref = TRef,
-                           ref = Ref,
                            msg_id = MsgId,
                            op = Op,
                            caller = Caller},
@@ -1462,10 +1458,9 @@ handle_error(_Reason, #state{pending = []} = State) ->
 handle_error(Reason, #state{pending = Pending} = State) ->
     %% Assuming the first request gets the first answer.
     Rec = #pending{tref = TRef,
-                   ref = Ref,
                    caller = Caller}
         = lists:last(Pending),
-    cancel_request_timer(Ref, TRef),
+    cancel_request_timer(TRef),
     ct_gen_conn:return(Caller,{error, {failed_to_parse_received_data, Reason}}),
     State#state{pending = lists:delete(Rec, Pending)}.
 
@@ -1549,10 +1544,9 @@ decode(hello, E, #state{hello_status = undefined} = State) ->
 
 %% Incoming hello, outgoing already sent: negotiate protocol version.
 decode(hello, E, #state{hello_status = #pending{tref = TRef,
-                                                ref = Ref,
                                                 caller = From}}
                  = State) ->
-    cancel_request_timer(Ref, TRef),
+    cancel_request_timer(TRef),
     case decode_hello(E) of
         {ok, SessionId, Capabilities} ->
             reply(From, handle_capx(State#state{session_id = SessionId,
@@ -1622,9 +1616,9 @@ decode_rpc_reply(MsgId,
                  = State) ->
     case lists:keytake(MsgId, #pending.msg_id, Pending) of
         {value, Rec, Rest} ->
-            #pending{tref = TRef, ref = Ref, op = Op, caller = From}
+            #pending{tref = TRef, op = Op, caller = From}
                 = Rec,
-            cancel_request_timer(Ref, TRef),
+            cancel_request_timer(TRef),
             Content = forward_xmlns_attr(Attrs, Content0),
             {Reply, T} = do_decode_rpc_reply(Op,
                                              Content,
@@ -1638,16 +1632,15 @@ decode_rpc_reply(MsgId,
 %% decode_send/2
 %%
 %% Result of send/2,3. Only handle one at a time there since all
-%% pendings have msg_id/op = undefined.
+%% pendings have msg_id = undefined.
 
 decode_send(ErrorT, Elem, #state{pending = Pending} = State) ->
-    case [P || #pending{msg_id = undefined, op = undefined} = P <- Pending] of
+    case [P || #pending{msg_id = undefined} = P <- Pending] of
         [Rec] ->
             #pending{tref = TRef,
-                     ref = Ref,
                      caller = From}
                 = Rec,
-            cancel_request_timer(Ref, TRef),
+            cancel_request_timer(TRef),
             ct_gen_conn:return(From, Elem),
             State#state{pending = []};
         _ ->
