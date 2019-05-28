@@ -1860,6 +1860,9 @@ join(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
 join({binary,U1}, {binary,U2}) ->
     {binary,gcd(U1, U2)};
 join(#t_fun{}, #t_fun{}) -> #t_fun{};
+join(#t_integer{elements={MinA,MaxA}},
+     #t_integer{elements={MinB,MaxB}}) ->
+    #t_integer{elements={min(MinA,MinB),max(MaxA,MaxB)}};
 join(#t_integer{}, #t_integer{}) -> t_integer();
 join(list, cons) -> list;
 join(cons, list) -> list;
@@ -1985,9 +1988,10 @@ meet(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
     T;
 meet(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
     T;
-meet(#t_integer{elements={Min1,Max1}},
-     #t_integer{elements={Min2,Max2}}) ->
-    #t_integer{elements={max(Min1, Min2),min(Max1, Max2)}};
+meet(#t_integer{elements={MinA,MaxA}}, #t_integer{elements={MinB,MaxB}})
+  when MinA >= MinB, MaxA =< MaxB;
+       MinB >= MinA, MaxB =< MaxA ->
+    #t_integer{elements={max(MinA, MinB),min(MaxA, MaxB)}};
 meet(#t_integer{}=T, number) -> T;
 meet(float=T, number) -> T;
 meet(number, #t_integer{}=T) -> T;
@@ -1999,7 +2003,7 @@ meet(nil, list) -> nil;
 meet(#t_tuple{}=T1, #t_tuple{}=T2) ->
     meet_tuples(T1, T2);
 meet({binary,U1}, {binary,U2}) ->
-    {binary,max(U1, U2)};
+    {binary, U1 * U2 div gcd(U1, U2)};
 meet(any, T) ->
     verified_type(T);
 meet(T, any) ->
@@ -2073,7 +2077,7 @@ verified_type({binary,U}=T) when is_integer(U) -> T;
 verified_type(#t_fun{arity=Arity}=T) when Arity =:= any; is_integer(Arity) -> T;
 verified_type(#t_integer{elements=any}=T) -> T;
 verified_type(#t_integer{elements={Min,Max}}=T)
-  when is_integer(Min), is_integer(Max) -> T;
+  when is_integer(Min), is_integer(Max), Min =< Max -> T;
 verified_type(list=T) -> T;
 verified_type(map=T) -> T;
 verified_type(nil=T) -> T;
