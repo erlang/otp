@@ -141,7 +141,7 @@ init([]) ->
                   modules => [logger_sup]},
 
     case init:get_argument(mode) of
-        {ok, [["minimal"]]} ->
+        {ok, [["minimal"]|_]} ->
             {ok, {SupFlags,
                   [Code, File, StdError, User, LoggerSup, Config, RefC, SafeSup]}};
         _ ->
