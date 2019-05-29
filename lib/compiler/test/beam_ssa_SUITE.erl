@@ -22,7 +22,8 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
          calls/1,tuple_matching/1,recv/1,maps/1,
-         cover_ssa_dead/1,combine_sw/1,share_opt/1]).
+         cover_ssa_dead/1,combine_sw/1,share_opt/1,
+         beam_ssa_dead_crash/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -37,7 +38,8 @@ groups() ->
        maps,
        cover_ssa_dead,
        combine_sw,
-       share_opt
+       share_opt,
+       beam_ssa_dead_crash
       ]}].
 
 init_per_suite(Config) ->
@@ -491,6 +493,60 @@ do_share_opt(A) ->
         2 -> c
     end,
     receive after 1 -> ok end.
+
+beam_ssa_dead_crash(_Config) ->
+    not_A_B = do_beam_ssa_dead_crash(id(false), id(true)),
+    not_A_not_B = do_beam_ssa_dead_crash(false, false),
+    neither = do_beam_ssa_dead_crash(true, false),
+    neither = do_beam_ssa_dead_crash(true, true),
+    ok.
+
+do_beam_ssa_dead_crash(A, B) ->
+    %% beam_ssa_dead attempts to shortcut branches that branch other
+    %% branches. When a two-way branch is encountered, beam_ssa_dead
+    %% will simulate execution along both paths, in the hope that both
+    %% paths happens to end up in the same place.
+    %%
+    %% During the simulated execution of this function, the boolean
+    %% varible for a `br` instruction would be replaced with the
+    %% literal atom `nil`, which is not allowed, and would crash the
+    %% compiler. In practice, during the actual execution, control
+    %% would never be transferred to that `br` instruction when the
+    %% variable in question had the value `nil`.
+    %%
+    %% beam_ssa_dead has been updated to immediately abort the search
+    %% along the current path if there is an attempt to substitute a
+    %% non-boolean value into a `br` instruction.
+
+    case
+        case not A of
+            false ->
+                false;
+            true ->
+                B
+        end
+    of
+        V
+            when
+                V /= nil
+                andalso
+                V /= false ->
+            not_A_B;
+        _ ->
+            case
+                case not A of
+                    false ->
+                        false;
+                    true ->
+                        not B
+                end
+            of
+                true ->
+                    not_A_not_B;
+                false ->
+                    neither
+            end
+    end.
 
 
 %% The identity function.
