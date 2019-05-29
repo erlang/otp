@@ -123,8 +123,36 @@ struct mac_type_t* get_mac_type(ERL_NIF_TERM type)
 
 
 
+/*******************************************************************
+ *
+ * Mac nif
+ *
+ ******************************************************************/
+ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (MacType, SubType, Key, Text) */
+    ErlNifBinary  text;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[3], &text))
+        return EXCP_BADARG(env, "Bad text");
+
+    if (text.size > INT_MAX)
+        return EXCP_BADARG(env, "Too long text");
+
+    /* Run long jobs on a dirty scheduler to not block the current emulator thread */
+    if (text.size > MAX_BYTES_TO_NIF) {
+        return enif_schedule_nif(env, "mac_one_time",
+                                 ERL_NIF_DIRTY_JOB_CPU_BOUND,
+                                 mac_one_time, argc, argv);
+    }
+
+    return mac_one_time(env, argc, argv);
+}
+
+
+
+ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (MacType, SubType, Key, Text) */
 
     ErlNifBinary key_bin, text;
@@ -382,8 +410,6 @@ done:
 #endif
     return return_term;
 }
-
-
 
 
 
