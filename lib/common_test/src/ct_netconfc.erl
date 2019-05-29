@@ -985,9 +985,10 @@ handle_msg(get_ssh_connection, _From, #state{connection=Connection}=State) ->
         end,
     {reply, Reply, State};
 
-handle_msg(_, _From, #state{session_id=undefined} = State) ->
-    %% Hello is not yet excanged - this shall never happen
-    {reply,{error,waiting_for_hello},State};
+%% Request before server hello. Possible with only_open, since a
+%% handle is then returned without waiting for the server.
+handle_msg(_, _From, #state{session_id = undefined} = State) ->
+    {reply, {error, waiting_for_hello}, State};
 
 handle_msg(get_capabilities, _From, #state{capabilities = Caps} = State) ->
     {reply, Caps, State};
