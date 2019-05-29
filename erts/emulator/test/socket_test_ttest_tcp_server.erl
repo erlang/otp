@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,8 +96,9 @@ do_start(Parent, Transport, Active)
        (is_atom(Transport) orelse is_tuple(Transport)) andalso
        (is_boolean(Active) orelse (Active =:= once)) ->
     Starter    = self(),
-    ServerInit = fun() -> put(sname, "server"),
-                          server_init(Starter, Parent, Transport, Active)
+    ServerInit = fun() -> 
+                         put(sname, "server"),
+                         server_init(Starter, Parent, Transport, Active)
                  end,
     {Pid, MRef} = spawn_monitor(ServerInit),
     receive
@@ -126,17 +127,29 @@ server_init(Starter, Parent, Transport, Active) ->
     case Listen(0) of
         {ok, LSock} ->
             case Mod:port(LSock) of
-                {ok, Port} ->
-		    Addr = which_addr(), % This is just for convenience
-                    ?I("listening on:"
-                       "~n   Addr: ~p (~s)"
-                       "~n   Port: ~w"
-                       "~n", [Addr, inet:ntoa(Addr), Port]),
-                    Starter ! {?MODULE, self(), {ok, {Addr, Port}}},
+                {ok, PortOrPath} ->
+                    Result =
+                        if
+                            is_integer(PortOrPath) ->
+                                %% This is just for convenience
+                                Addr = which_addr(),
+                                ?I("listening on:"
+                                   "~n   Addr: ~p (~s)"
+                                   "~n   Port: ~w"
+                                   "~n", [Addr, inet:ntoa(Addr), PortOrPath]),
+                                {Addr, PortOrPath};
+                            is_list(PortOrPath) ->
+                                ?I("listening on:"
+                                   "~n   Path: ~s"
+                                   "~n", [PortOrPath]),
+                                PortOrPath
+                        end,
+                    Starter ! {?MODULE, self(), {ok, Result}},
                     server_loop(#{parent         => Parent,
 				  mod            => Mod,
                                   active         => Active,
                                   lsock          => LSock,
+                                  port_or_path   => PortOrPath,
                                   handlers       => [],
                                   stats_interval => StatsInterval,
 				  %% Accumulation
@@ -208,7 +221,9 @@ format_peername({Addr, Port}) ->
             ?F("~s (~s:~w)", [N, inet:ntoa(Addr), Port]);
         {error, _} ->
             ?F("~p, ~p", [Addr, Port])
-    end.
+    end;
+format_peername(Path) when is_list(Path) ->
+    Path.
 
 maybe_start_stats_timer(#{active := Active, stats_interval := Time}, Handler)
   when (Active =/= false) andalso (is_integer(Time) andalso (Time > 0)) ->
@@ -219,7 +234,10 @@ maybe_start_stats_timer(_, _) ->
 start_stats_timer(Time, ProcStr, Pid) ->
     erlang:start_timer(Time, self(), {stats, Time, ProcStr, Pid}).
 
-server_handle_message(#{parent := Parent, handlers := H} = State) ->
+server_handle_message(#{mod      := Mod,
+                        lsock    := LSock,
+                        parent   := Parent,
+                        handlers := H} = State) ->
     receive
         {timeout, _TRef, {stats, Interval, ProcStr, Pid}} ->
             case server_handle_stats(ProcStr, Pid) of
@@ -233,6 +251,7 @@ server_handle_message(#{parent := Parent, handlers := H} = State) ->
         {?MODULE, Ref, Parent, stop} ->
             reply(Parent, Ref, ok),
             lists:foreach(fun(P) -> handler_stop(P) end, H),
+            (catch Mod:close(LSock)),
             exit(normal);
 
         {'DOWN', _MRef, process, Pid, Reason} -> 
@@ -272,28 +291,26 @@ server_handle_handler_down(Pid,
     AccMCnt2    = AccMCnt + MCnt,
     AccBCnt2    = AccBCnt + BCnt,
     AccHCnt2    = AccHCnt + 1,
-    ?I("handler ~p (~w) done => accumulated results: "
-       "~n   Run Time:      ~s ms"
+    MsgCount2Str =
+        fun(RT, ART, MC, AMC) when (RT > 0) ->
+                ?F("~w => ~w (~w) msgs / ms", [MC, MC div RT, AMC div ART]);
+           (_, _, MC, AMC) ->
+                ?F("~w (~w)", [MC, AMC])
+        end,
+    ByteCount2Str =
+        fun(RT, ART, BC, ABC) when (RT > 0) ->
+                ?F("~w => ~w (~w) bytes / ms", [BC, BC div RT, ABC div ART]);
+           (_, _, BC, ABC) ->
+                ?F("~w", [BC, ABC])
+        end,
+    ?I("handler ~p (~w) done: "
+       "~n   Run Time:      ~s"
        "~n   Message Count: ~s"
        "~n   Byte Count:    ~s",
        [Pid, AccHCnt2,
-        ?FORMAT_TIME(AccRunTime2),
-        if (AccRunTime2 > 0) ->
-                ?F("~w => ~w (~w) msgs / ms", 
-                   [AccMCnt2,
-                    AccMCnt2 div AccRunTime2,
-                    (AccMCnt2 div AccHCnt2) div AccRunTime2]);
-           true ->
-                ?F("~w", [AccMCnt2])
-        end,
-        if (AccRunTime2 > 0) ->
-                ?F("~w => ~w (~w) bytes / ms",
-                   [AccBCnt2,
-                    AccBCnt2 div AccRunTime2,
-                    (AccBCnt2 div AccHCnt2) div AccRunTime2]);
-           true ->
-                ?F("~w", [AccBCnt2])
-        end]),
+        ?FORMAT_TIME(RunTime),
+        MsgCount2Str(RunTime, AccRunTime2, MCnt, AccMCnt2),
+        ByteCount2Str(RunTime, AccRunTime2, BCnt, AccBCnt2)]),
     State#{runtime => AccRunTime2,
 	   mcnt    => AccMCnt2,
 	   bcnt    => AccBCnt2,

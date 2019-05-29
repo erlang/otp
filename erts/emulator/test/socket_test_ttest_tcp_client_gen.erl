@@ -21,28 +21,28 @@
 -module(socket_test_ttest_tcp_client_gen).
 
 -export([
-         start/3, start/4, start/6, start/7,
+         start/2, start/3, start/5, start/6,
          stop/1
         ]).
 
 -define(TRANSPORT_MOD, socket_test_ttest_tcp_gen).
 
-start(Active, Addr, Port) ->
-    socket_test_ttest_tcp_client:start(?TRANSPORT_MOD, Active, Addr, Port).
+start(ServerInfo, Active) ->
+    socket_test_ttest_tcp_client:start(?TRANSPORT_MOD, ServerInfo, Active).
 
-start(Active, Addr, Port, MsgID) ->
-    socket_test_ttest_tcp_client:start(?TRANSPORT_MOD, Active, Addr, Port, MsgID).
+start(ServerInfo, Active, MsgID) ->
+    socket_test_ttest_tcp_client:start(?TRANSPORT_MOD, ServerInfo, Active, MsgID).
 
-start(Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+start(ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     socket_test_ttest_tcp_client:start(false,
 				       ?TRANSPORT_MOD,
-                                       Active, Addr, Port,
+                                       ServerInfo, Active,
                                        MsgID, MaxOutstanding, RunTime).
 
-start(Quiet, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+start(Quiet, ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     socket_test_ttest_tcp_client:start(Quiet,
 				       ?TRANSPORT_MOD,
-                                       Active, Addr, Port,
+                                       ServerInfo, Active,
                                        MsgID, MaxOutstanding, RunTime).
 
 stop(Pid) ->

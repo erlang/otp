@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@
 	 accept/1, accept/2,
 	 active/2,
 	 close/1,
-	 connect/2,
+	 connect/2, connect/3,
 	 controlling_process/2,
-	 listen/0, listen/1,
+	 listen/0, listen/1, listen/2,
 	 peername/1,
 	 port/1,
 	 recv/2, recv/3,
@@ -80,6 +80,13 @@ close(Sock) ->
 
 connect(Addr, Port) ->
     Opts = [binary, {packet, raw}, {active, false}, {buffer, 32*1024}], 
+    do_connect(Addr, Port, Opts).
+
+connect(Addr, Port, #{domain := Domain}) ->
+    Opts = [Domain, binary, {packet, raw}, {active, false}, {buffer, 32*1024}], 
+    do_connect(Addr, Port, Opts).
+
+do_connect(Addr, Port, Opts) ->
     case gen_tcp:connect(Addr, Port, Opts) of
 	{ok, Sock} ->
 	    {ok, Sock};
@@ -95,8 +102,12 @@ controlling_process(Sock, NewPid) ->
 listen() ->
     listen(0).
 
-listen(Port) when is_integer(Port) andalso (Port >= 0) ->
-    Opts = [binary, {ip, {0,0,0,0}}, {packet, raw}, {active, false},
+listen(Port) ->
+    listen(Port, #{domain => inet}).
+
+listen(Port, #{domain := Domain}) when is_integer(Port) andalso (Port >= 0) ->
+    Opts = [Domain,
+            binary, {ip, {0,0,0,0}}, {packet, raw}, {active, false},
             {buffer, 32*1024}],
     case gen_tcp:listen(Port, Opts) of
 	{ok, Sock} ->

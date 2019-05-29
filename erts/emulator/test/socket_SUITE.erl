@@ -70,10 +70,16 @@
          %% *** API Basic ***
          api_b_open_and_close_udp4/1,
          api_b_open_and_close_tcp4/1,
+         api_b_open_and_close_udpL/1,
+         api_b_open_and_close_tcpL/1,
          api_b_sendto_and_recvfrom_udp4/1,
+         api_b_sendto_and_recvfrom_udpL/1,
          api_b_sendmsg_and_recvmsg_udp4/1,
+         api_b_sendmsg_and_recvmsg_udpL/1,
          api_b_send_and_recv_tcp4/1,
+         api_b_send_and_recv_tcpL/1,
          api_b_sendmsg_and_recvmsg_tcp4/1,
+         api_b_sendmsg_and_recvmsg_tcpL/1,
 
          %% *** API Options ***
          api_opt_simple_otp_options/1,
@@ -107,57 +113,79 @@
          %% *** Socket Closure ***
          sc_cpe_socket_cleanup_tcp4/1,
          sc_cpe_socket_cleanup_tcp6/1,
+         sc_cpe_socket_cleanup_tcpL/1,
          sc_cpe_socket_cleanup_udp4/1,
          sc_cpe_socket_cleanup_udp6/1,
+         sc_cpe_socket_cleanup_udpL/1,
 
          sc_lc_recv_response_tcp4/1,
          sc_lc_recv_response_tcp6/1,
+         sc_lc_recv_response_tcpL/1,
          sc_lc_recvfrom_response_udp4/1,
          sc_lc_recvfrom_response_udp6/1,
+         sc_lc_recvfrom_response_udpL/1,
          sc_lc_recvmsg_response_tcp4/1,
          sc_lc_recvmsg_response_tcp6/1,
+         sc_lc_recvmsg_response_tcpL/1,
          sc_lc_recvmsg_response_udp4/1,
          sc_lc_recvmsg_response_udp6/1,
+         sc_lc_recvmsg_response_udpL/1,
          sc_lc_acceptor_response_tcp4/1,
          sc_lc_acceptor_response_tcp6/1,
+         sc_lc_acceptor_response_tcpL/1,
 
          sc_rc_recv_response_tcp4/1,
          sc_rc_recv_response_tcp6/1,
+         sc_rc_recv_response_tcpL/1,
          sc_rc_recvmsg_response_tcp4/1,
          sc_rc_recvmsg_response_tcp6/1,
+         sc_rc_recvmsg_response_tcpL/1,
 
          sc_rs_recv_send_shutdown_receive_tcp4/1,
          sc_rs_recv_send_shutdown_receive_tcp6/1,
+         sc_rs_recv_send_shutdown_receive_tcpL/1,
          sc_rs_recvmsg_send_shutdown_receive_tcp4/1,
          sc_rs_recvmsg_send_shutdown_receive_tcp6/1,
+         sc_rs_recvmsg_send_shutdown_receive_tcpL/1,
 
          %% *** Traffic ***
          traffic_send_and_recv_chunks_tcp4/1,
          traffic_send_and_recv_chunks_tcp6/1,
+         traffic_send_and_recv_chunks_tcpL/1,
 
          traffic_ping_pong_small_send_and_recv_tcp4/1,
          traffic_ping_pong_small_send_and_recv_tcp6/1,
+         traffic_ping_pong_small_send_and_recv_tcpL/1,
          traffic_ping_pong_medium_send_and_recv_tcp4/1,
          traffic_ping_pong_medium_send_and_recv_tcp6/1,
+         traffic_ping_pong_medium_send_and_recv_tcpL/1,
          traffic_ping_pong_large_send_and_recv_tcp4/1,
          traffic_ping_pong_large_send_and_recv_tcp6/1,
+         traffic_ping_pong_large_send_and_recv_tcpL/1,
 
          traffic_ping_pong_small_sendto_and_recvfrom_udp4/1,
          traffic_ping_pong_small_sendto_and_recvfrom_udp6/1,
+         traffic_ping_pong_small_sendto_and_recvfrom_udpL/1,
          traffic_ping_pong_medium_sendto_and_recvfrom_udp4/1,
          traffic_ping_pong_medium_sendto_and_recvfrom_udp6/1,
+         traffic_ping_pong_medium_sendto_and_recvfrom_udpL/1,
 
          traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4/1,
          traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6/1,
+         traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL/1,
          traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4/1,
          traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6/1,
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL/1,
          traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4/1,
          traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6/1,
+         traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL/1,
 
          traffic_ping_pong_small_sendmsg_and_recvmsg_udp4/1,
          traffic_ping_pong_small_sendmsg_and_recvmsg_udp6/1,
+         traffic_ping_pong_small_sendmsg_and_recvmsg_udpL/1,
          traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4/1,
          traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6/1,
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL/1,
 
          %% *** Time Test ***
          %% Server: transport = gen_tcp, active = false
@@ -325,24 +353,33 @@
          %% Client: transport = socket(tcp)
          ttest_ssockf_csockf_small_tcp4/1,
          ttest_ssockf_csockf_small_tcp6/1,
+         ttest_ssockf_csockf_small_tcpL/1,
          ttest_ssockf_csockf_medium_tcp4/1,
          ttest_ssockf_csockf_medium_tcp6/1,
+         ttest_ssockf_csockf_medium_tcpL/1,
          ttest_ssockf_csockf_large_tcp4/1,
          ttest_ssockf_csockf_large_tcp6/1,
+         ttest_ssockf_csockf_large_tcpL/1,
 
          ttest_ssockf_csocko_small_tcp4/1,
          ttest_ssockf_csocko_small_tcp6/1,
+         ttest_ssockf_csocko_small_tcpL/1,
          ttest_ssockf_csocko_medium_tcp4/1,
          ttest_ssockf_csocko_medium_tcp6/1,
+         ttest_ssockf_csocko_medium_tcpL/1,
          ttest_ssockf_csocko_large_tcp4/1,
          ttest_ssockf_csocko_large_tcp6/1,
+         ttest_ssockf_csocko_large_tcpL/1,
 
          ttest_ssockf_csockt_small_tcp4/1,
          ttest_ssockf_csockt_small_tcp6/1,
+         ttest_ssockf_csockt_small_tcpL/1,
          ttest_ssockf_csockt_medium_tcp4/1,
          ttest_ssockf_csockt_medium_tcp6/1,
+         ttest_ssockf_csockt_medium_tcpL/1,
          ttest_ssockf_csockt_large_tcp4/1,
          ttest_ssockf_csockt_large_tcp6/1,
+         ttest_ssockf_csockt_large_tcpL/1,
 
          %% Server: transport = socket(tcp), active = once
          %% Client: transport = gen_tcp
@@ -371,24 +408,33 @@
          %% Client: transport = socket(tcp)
          ttest_ssocko_csockf_small_tcp4/1,
          ttest_ssocko_csockf_small_tcp6/1,
+         ttest_ssocko_csockf_small_tcpL/1,
          ttest_ssocko_csockf_medium_tcp4/1,
+         ttest_ssocko_csockf_medium_tcpL/1,
          ttest_ssocko_csockf_medium_tcp6/1,
          ttest_ssocko_csockf_large_tcp4/1,
          ttest_ssocko_csockf_large_tcp6/1,
+         ttest_ssocko_csockf_large_tcpL/1,
 
          ttest_ssocko_csocko_small_tcp4/1,
          ttest_ssocko_csocko_small_tcp6/1,
+         ttest_ssocko_csocko_small_tcpL/1,
          ttest_ssocko_csocko_medium_tcp4/1,
          ttest_ssocko_csocko_medium_tcp6/1,
+         ttest_ssocko_csocko_medium_tcpL/1,
          ttest_ssocko_csocko_large_tcp4/1,
          ttest_ssocko_csocko_large_tcp6/1,
+         ttest_ssocko_csocko_large_tcpL/1,
 
          ttest_ssocko_csockt_small_tcp4/1,
          ttest_ssocko_csockt_small_tcp6/1,
+         ttest_ssocko_csockt_small_tcpL/1,
          ttest_ssocko_csockt_medium_tcp4/1,
          ttest_ssocko_csockt_medium_tcp6/1,
+         ttest_ssocko_csockt_medium_tcpL/1,
          ttest_ssocko_csockt_large_tcp4/1,
          ttest_ssocko_csockt_large_tcp6/1,
+         ttest_ssocko_csockt_large_tcpL/1,
 
          %% Server: transport = socket(tcp), active = true
          %% Client: transport = gen_tcp
@@ -417,24 +463,33 @@
          %% Client: transport = socket(tcp)
          ttest_ssockt_csockf_small_tcp4/1,
          ttest_ssockt_csockf_small_tcp6/1,
+         ttest_ssockt_csockf_small_tcpL/1,
          ttest_ssockt_csockf_medium_tcp4/1,
          ttest_ssockt_csockf_medium_tcp6/1,
+         ttest_ssockt_csockf_medium_tcpL/1,
          ttest_ssockt_csockf_large_tcp4/1,
          ttest_ssockt_csockf_large_tcp6/1,
+         ttest_ssockt_csockf_large_tcpL/1,
 
          ttest_ssockt_csocko_small_tcp4/1,
          ttest_ssockt_csocko_small_tcp6/1,
+         ttest_ssockt_csocko_small_tcpL/1,
          ttest_ssockt_csocko_medium_tcp4/1,
          ttest_ssockt_csocko_medium_tcp6/1,
+         ttest_ssockt_csocko_medium_tcpL/1,
          ttest_ssockt_csocko_large_tcp4/1,
          ttest_ssockt_csocko_large_tcp6/1,
+         ttest_ssockt_csocko_large_tcpL/1,
 
          ttest_ssockt_csockt_small_tcp4/1,
          ttest_ssockt_csockt_small_tcp6/1,
+         ttest_ssockt_csockt_small_tcpL/1,
          ttest_ssockt_csockt_medium_tcp4/1,
          ttest_ssockt_csockt_medium_tcp6/1,
+         ttest_ssockt_csockt_medium_tcpL/1,
          ttest_ssockt_csockt_large_tcp4/1,
-         ttest_ssockt_csockt_large_tcp6/1
+         ttest_ssockt_csockt_large_tcp6/1,
+         ttest_ssockt_csockt_large_tcpL/1
 
          %% Tickets
         ]).
@@ -508,71 +563,75 @@ use_group(Group, Env, Default) ->
     
 
 groups() -> 
-    [{api,                 [], api_cases()},
-     {api_basic,           [], api_basic_cases()},
-     {api_options,         [], api_options_cases()},
-     {api_op_with_timeout, [], api_op_with_timeout_cases()},
-     {socket_closure,      [], socket_closure_cases()},
-     {sc_ctrl_proc_exit,   [], sc_cp_exit_cases()},
-     {sc_local_close,      [], sc_lc_cases()},
-     {sc_remote_close,     [], sc_rc_cases()},
-     {sc_remote_shutdown,  [], sc_rs_cases()},
-     {traffic,             [], traffic_cases()},
-     {ttest,               [], ttest_cases()},
-     {ttest_sgenf,         [], ttest_sgenf_cases()},
-     {ttest_sgenf_cgen,    [], ttest_sgenf_cgen_cases()},
-     {ttest_sgenf_cgenf,   [], ttest_sgenf_cgenf_cases()},
-     {ttest_sgenf_cgeno,   [], ttest_sgenf_cgeno_cases()},
-     {ttest_sgenf_cgent,   [], ttest_sgenf_cgent_cases()},
-     {ttest_sgenf_csock,   [], ttest_sgenf_csock_cases()},
-     {ttest_sgenf_csockf,  [], ttest_sgenf_csockf_cases()},
-     {ttest_sgenf_csocko,  [], ttest_sgenf_csocko_cases()},
-     {ttest_sgenf_csockt,  [], ttest_sgenf_csockt_cases()},
-     {ttest_sgeno,         [], ttest_sgeno_cases()},
-     {ttest_sgeno_cgen,    [], ttest_sgeno_cgen_cases()},
-     {ttest_sgeno_cgenf,   [], ttest_sgeno_cgenf_cases()},
-     {ttest_sgeno_cgeno,   [], ttest_sgeno_cgeno_cases()},
-     {ttest_sgeno_cgent,   [], ttest_sgeno_cgent_cases()},
-     {ttest_sgeno_csock,   [], ttest_sgeno_csock_cases()},
-     {ttest_sgeno_csockf,  [], ttest_sgeno_csockf_cases()},
-     {ttest_sgeno_csocko,  [], ttest_sgeno_csocko_cases()},
-     {ttest_sgeno_csockt,  [], ttest_sgeno_csockt_cases()},
-     {ttest_sgent,         [], ttest_sgent_cases()},
-     {ttest_sgent_cgen,    [], ttest_sgent_cgen_cases()},
-     {ttest_sgent_cgenf,   [], ttest_sgent_cgenf_cases()},
-     {ttest_sgent_cgeno,   [], ttest_sgent_cgeno_cases()},
-     {ttest_sgent_cgent,   [], ttest_sgent_cgent_cases()},
-     {ttest_sgent_csock,   [], ttest_sgent_csock_cases()},
-     {ttest_sgent_csockf,  [], ttest_sgent_csockf_cases()},
-     {ttest_sgent_csocko,  [], ttest_sgent_csocko_cases()},
-     {ttest_sgent_csockt,  [], ttest_sgent_csockt_cases()},
-     {ttest_ssockf,        [], ttest_ssockf_cases()},
-     {ttest_ssockf_cgen,   [], ttest_ssockf_cgen_cases()},
-     {ttest_ssockf_cgenf,  [], ttest_ssockf_cgenf_cases()},
-     {ttest_ssockf_cgeno,  [], ttest_ssockf_cgeno_cases()},
-     {ttest_ssockf_cgent,  [], ttest_ssockf_cgent_cases()},
-     {ttest_ssockf_csock,  [], ttest_ssockf_csock_cases()},
-     {ttest_ssockf_csockf, [], ttest_ssockf_csockf_cases()},
-     {ttest_ssockf_csocko, [], ttest_ssockf_csocko_cases()},
-     {ttest_ssockf_csockt, [], ttest_ssockf_csockt_cases()},
-     {ttest_ssocko,        [], ttest_ssocko_cases()},
-     {ttest_ssocko_cgen,   [], ttest_ssocko_cgen_cases()},
-     {ttest_ssocko_cgenf,  [], ttest_ssocko_cgenf_cases()},
-     {ttest_ssocko_cgeno,  [], ttest_ssocko_cgeno_cases()},
-     {ttest_ssocko_cgent,  [], ttest_ssocko_cgent_cases()},
-     {ttest_ssocko_csock,  [], ttest_ssocko_csock_cases()},
-     {ttest_ssocko_csockf, [], ttest_ssocko_csockf_cases()},
-     {ttest_ssocko_csocko, [], ttest_ssocko_csocko_cases()},
-     {ttest_ssocko_csockt, [], ttest_ssocko_csockt_cases()},
-     {ttest_ssockt,        [], ttest_ssockt_cases()},
-     {ttest_ssockt_cgen,   [], ttest_ssockt_cgen_cases()},
-     {ttest_ssockt_cgenf,  [], ttest_ssockt_cgenf_cases()},
-     {ttest_ssockt_cgeno,  [], ttest_ssockt_cgeno_cases()},
-     {ttest_ssockt_cgent,  [], ttest_ssockt_cgent_cases()},
-     {ttest_ssockt_csock,  [], ttest_ssockt_csock_cases()},
-     {ttest_ssockt_csockf, [], ttest_ssockt_csockf_cases()},
-     {ttest_ssockt_csocko, [], ttest_ssockt_csocko_cases()},
-     {ttest_ssockt_csockt, [], ttest_ssockt_csockt_cases()}
+    [{api,                        [], api_cases()},
+     {api_basic,                  [], api_basic_cases()},
+     {api_options,                [], api_options_cases()},
+     {api_op_with_timeout,        [], api_op_with_timeout_cases()},
+     {socket_closure,             [], socket_closure_cases()},
+     {sc_ctrl_proc_exit,          [], sc_cp_exit_cases()},
+     {sc_local_close,             [], sc_lc_cases()},
+     {sc_remote_close,            [], sc_rc_cases()},
+     {sc_remote_shutdown,         [], sc_rs_cases()},
+     {traffic,                    [], traffic_cases()},
+     {traffic_chunks,             [], traffic_chunks_cases()},
+     {traffic_pp_send_recv,       [], traffic_pp_send_recv_cases()},
+     {traffic_pp_sendto_recvfrom, [], traffic_pp_sendto_recvfrom_cases()},
+     {traffic_pp_sendmsg_recvmsg, [], traffic_pp_sendmsg_recvmsg_cases()},
+     {ttest,                      [], ttest_cases()},
+     {ttest_sgenf,                [], ttest_sgenf_cases()},
+     {ttest_sgenf_cgen,           [], ttest_sgenf_cgen_cases()},
+     {ttest_sgenf_cgenf,          [], ttest_sgenf_cgenf_cases()},
+     {ttest_sgenf_cgeno,          [], ttest_sgenf_cgeno_cases()},
+     {ttest_sgenf_cgent,          [], ttest_sgenf_cgent_cases()},
+     {ttest_sgenf_csock,          [], ttest_sgenf_csock_cases()},
+     {ttest_sgenf_csockf,         [], ttest_sgenf_csockf_cases()},
+     {ttest_sgenf_csocko,         [], ttest_sgenf_csocko_cases()},
+     {ttest_sgenf_csockt,         [], ttest_sgenf_csockt_cases()},
+     {ttest_sgeno,                [], ttest_sgeno_cases()},
+     {ttest_sgeno_cgen,           [], ttest_sgeno_cgen_cases()},
+     {ttest_sgeno_cgenf,          [], ttest_sgeno_cgenf_cases()},
+     {ttest_sgeno_cgeno,          [], ttest_sgeno_cgeno_cases()},
+     {ttest_sgeno_cgent,          [], ttest_sgeno_cgent_cases()},
+     {ttest_sgeno_csock,          [], ttest_sgeno_csock_cases()},
+     {ttest_sgeno_csockf,         [], ttest_sgeno_csockf_cases()},
+     {ttest_sgeno_csocko,         [], ttest_sgeno_csocko_cases()},
+     {ttest_sgeno_csockt,         [], ttest_sgeno_csockt_cases()},
+     {ttest_sgent,                [], ttest_sgent_cases()},
+     {ttest_sgent_cgen,           [], ttest_sgent_cgen_cases()},
+     {ttest_sgent_cgenf,          [], ttest_sgent_cgenf_cases()},
+     {ttest_sgent_cgeno,          [], ttest_sgent_cgeno_cases()},
+     {ttest_sgent_cgent,          [], ttest_sgent_cgent_cases()},
+     {ttest_sgent_csock,          [], ttest_sgent_csock_cases()},
+     {ttest_sgent_csockf,         [], ttest_sgent_csockf_cases()},
+     {ttest_sgent_csocko,         [], ttest_sgent_csocko_cases()},
+     {ttest_sgent_csockt,         [], ttest_sgent_csockt_cases()},
+     {ttest_ssockf,               [], ttest_ssockf_cases()},
+     {ttest_ssockf_cgen,          [], ttest_ssockf_cgen_cases()},
+     {ttest_ssockf_cgenf,         [], ttest_ssockf_cgenf_cases()},
+     {ttest_ssockf_cgeno,         [], ttest_ssockf_cgeno_cases()},
+     {ttest_ssockf_cgent,         [], ttest_ssockf_cgent_cases()},
+     {ttest_ssockf_csock,         [], ttest_ssockf_csock_cases()},
+     {ttest_ssockf_csockf,        [], ttest_ssockf_csockf_cases()},
+     {ttest_ssockf_csocko,        [], ttest_ssockf_csocko_cases()},
+     {ttest_ssockf_csockt,        [], ttest_ssockf_csockt_cases()},
+     {ttest_ssocko,               [], ttest_ssocko_cases()},
+     {ttest_ssocko_cgen,          [], ttest_ssocko_cgen_cases()},
+     {ttest_ssocko_cgenf,         [], ttest_ssocko_cgenf_cases()},
+     {ttest_ssocko_cgeno,         [], ttest_ssocko_cgeno_cases()},
+     {ttest_ssocko_cgent,         [], ttest_ssocko_cgent_cases()},
+     {ttest_ssocko_csock,         [], ttest_ssocko_csock_cases()},
+     {ttest_ssocko_csockf,        [], ttest_ssocko_csockf_cases()},
+     {ttest_ssocko_csocko,        [], ttest_ssocko_csocko_cases()},
+     {ttest_ssocko_csockt,        [], ttest_ssocko_csockt_cases()},
+     {ttest_ssockt,               [], ttest_ssockt_cases()},
+     {ttest_ssockt_cgen,          [], ttest_ssockt_cgen_cases()},
+     {ttest_ssockt_cgenf,         [], ttest_ssockt_cgenf_cases()},
+     {ttest_ssockt_cgeno,         [], ttest_ssockt_cgeno_cases()},
+     {ttest_ssockt_cgent,         [], ttest_ssockt_cgent_cases()},
+     {ttest_ssockt_csock,         [], ttest_ssockt_csock_cases()},
+     {ttest_ssockt_csockf,        [], ttest_ssockt_csockf_cases()},
+     {ttest_ssockt_csocko,        [], ttest_ssockt_csocko_cases()},
+     {ttest_ssockt_csockt,        [], ttest_ssockt_csockt_cases()}
 
      %% {tickets,             [], ticket_cases()}
     ].
@@ -588,10 +647,16 @@ api_basic_cases() ->
     [
      api_b_open_and_close_udp4,
      api_b_open_and_close_tcp4,
+     api_b_open_and_close_udpL,
+     api_b_open_and_close_tcpL,
      api_b_sendto_and_recvfrom_udp4,
+     api_b_sendto_and_recvfrom_udpL,
      api_b_sendmsg_and_recvmsg_udp4,
+     api_b_sendmsg_and_recvmsg_udpL,
      api_b_send_and_recv_tcp4,
-     api_b_sendmsg_and_recvmsg_tcp4
+     api_b_send_and_recv_tcpL,
+     api_b_sendmsg_and_recvmsg_tcp4,
+     api_b_sendmsg_and_recvmsg_tcpL
     ].
 
 api_options_cases() ->
@@ -638,13 +703,15 @@ socket_closure_cases() ->
     ].
 
 %% These cases are all about socket cleanup after the controlling process
-%% exits *without* calling socket:close/1.
+%% exits *without* explicitly calling socket:close/1.
 sc_cp_exit_cases() ->
     [
      sc_cpe_socket_cleanup_tcp4,
      sc_cpe_socket_cleanup_tcp6,
+     sc_cpe_socket_cleanup_tcpL,
      sc_cpe_socket_cleanup_udp4,
-     sc_cpe_socket_cleanup_udp6
+     sc_cpe_socket_cleanup_udp6,
+     sc_cpe_socket_cleanup_udpL
     ].
 
 %% These cases tests what happens when the socket is closed locally.
@@ -652,17 +719,22 @@ sc_lc_cases() ->
     [
      sc_lc_recv_response_tcp4,
      sc_lc_recv_response_tcp6,
+     sc_lc_recv_response_tcpL,
 
      sc_lc_recvfrom_response_udp4,
      sc_lc_recvfrom_response_udp6,
+     sc_lc_recvfrom_response_udpL,
 
      sc_lc_recvmsg_response_tcp4,
      sc_lc_recvmsg_response_tcp6,
+     sc_lc_recvmsg_response_tcpL,
      sc_lc_recvmsg_response_udp4,
      sc_lc_recvmsg_response_udp6,
+     sc_lc_recvmsg_response_udpL,
 
      sc_lc_acceptor_response_tcp4,
-     sc_lc_acceptor_response_tcp6
+     sc_lc_acceptor_response_tcp6,
+     sc_lc_acceptor_response_tcpL
     ].
 
 %% These cases tests what happens when the socket is closed remotely.
@@ -670,9 +742,11 @@ sc_rc_cases() ->
     [
      sc_rc_recv_response_tcp4,
      sc_rc_recv_response_tcp6,
+     sc_rc_recv_response_tcpL,
 
      sc_rc_recvmsg_response_tcp4,
-     sc_rc_recvmsg_response_tcp6
+     sc_rc_recvmsg_response_tcp6,
+     sc_rc_recvmsg_response_tcpL
     ].
 
 %% These cases tests what happens when the socket is shutdown/closed remotely
@@ -681,43 +755,72 @@ sc_rs_cases() ->
     [
      sc_rs_recv_send_shutdown_receive_tcp4,
      sc_rs_recv_send_shutdown_receive_tcp6,
+     sc_rs_recv_send_shutdown_receive_tcpL,
 
      sc_rs_recvmsg_send_shutdown_receive_tcp4,
-     sc_rs_recvmsg_send_shutdown_receive_tcp6
+     sc_rs_recvmsg_send_shutdown_receive_tcp6,
+     sc_rs_recvmsg_send_shutdown_receive_tcpL
     ].
 
 
 traffic_cases() ->
     [
+     {group, traffic_chunks},
+     {group, traffic_pp_send_recv},
+     {group, traffic_pp_sendto_recvfrom},
+     {group, traffic_pp_sendmsg_recvmsg}
+    ].
+
+traffic_chunks_cases() ->
+    [
      traffic_send_and_recv_chunks_tcp4,
      traffic_send_and_recv_chunks_tcp6,
+     traffic_send_and_recv_chunks_tcpL
+    ].
 
+traffic_pp_send_recv_cases() ->
+    [
      traffic_ping_pong_small_send_and_recv_tcp4,
      traffic_ping_pong_small_send_and_recv_tcp6,
+     traffic_ping_pong_small_send_and_recv_tcpL,
      traffic_ping_pong_medium_send_and_recv_tcp4,
      traffic_ping_pong_medium_send_and_recv_tcp6,
+     traffic_ping_pong_medium_send_and_recv_tcpL,
      traffic_ping_pong_large_send_and_recv_tcp4,
      traffic_ping_pong_large_send_and_recv_tcp6,
+     traffic_ping_pong_large_send_and_recv_tcpL
+    ].    
 
+traffic_pp_sendto_recvfrom_cases() ->
+    [
      traffic_ping_pong_small_sendto_and_recvfrom_udp4,
      traffic_ping_pong_small_sendto_and_recvfrom_udp6,
+     traffic_ping_pong_small_sendto_and_recvfrom_udpL,
      traffic_ping_pong_medium_sendto_and_recvfrom_udp4,
      traffic_ping_pong_medium_sendto_and_recvfrom_udp6,
+     traffic_ping_pong_medium_sendto_and_recvfrom_udpL
+    ].
 
+traffic_pp_sendmsg_recvmsg_cases() ->
+    [    
      traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
      traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
+     traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL,
      traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
      traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
+     traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL,
      traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
      traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
+     traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL,
 
      traffic_ping_pong_small_sendmsg_and_recvmsg_udp4,
      traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
+     traffic_ping_pong_small_sendmsg_and_recvmsg_udpL,
      traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4,
-     traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6
+     traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6,
+     traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL
     ].
-
-
+    
 ttest_cases() ->
     [
      %% Server: transport = gen_tcp, active = false
@@ -1123,12 +1226,15 @@ ttest_ssockf_csockf_cases() ->
     [
      ttest_ssockf_csockf_small_tcp4,
      ttest_ssockf_csockf_small_tcp6,
+     ttest_ssockf_csockf_small_tcpL,
 
      ttest_ssockf_csockf_medium_tcp4,
      ttest_ssockf_csockf_medium_tcp6,
+     ttest_ssockf_csockf_medium_tcpL,
 
      ttest_ssockf_csockf_large_tcp4,
-     ttest_ssockf_csockf_large_tcp6
+     ttest_ssockf_csockf_large_tcp6,
+     ttest_ssockf_csockf_large_tcpL
     ].
 
 %% Server: transport = socket(tcp), active = false
@@ -1137,12 +1243,15 @@ ttest_ssockf_csocko_cases() ->
     [
      ttest_ssockf_csocko_small_tcp4,
      ttest_ssockf_csocko_small_tcp6,
+     ttest_ssockf_csocko_small_tcpL,
 
      ttest_ssockf_csocko_medium_tcp4,
      ttest_ssockf_csocko_medium_tcp6,
+     ttest_ssockf_csocko_medium_tcpL,
 
      ttest_ssockf_csocko_large_tcp4,
-     ttest_ssockf_csocko_large_tcp6
+     ttest_ssockf_csocko_large_tcp6,
+     ttest_ssockf_csocko_large_tcpL
     ].
 
 %% Server: transport = socket(tcp), active = false
@@ -1151,12 +1260,15 @@ ttest_ssockf_csockt_cases() ->
     [
      ttest_ssockf_csockt_small_tcp4,
      ttest_ssockf_csockt_small_tcp6,
+     ttest_ssockf_csockt_small_tcpL,
 
      ttest_ssockf_csockt_medium_tcp4,
      ttest_ssockf_csockt_medium_tcp6,
+     ttest_ssockf_csockt_medium_tcpL,
 
      ttest_ssockf_csockt_large_tcp4,
-     ttest_ssockf_csockt_large_tcp6
+     ttest_ssockf_csockt_large_tcp6,
+     ttest_ssockf_csockt_large_tcpL
     ].
 
 %% Server: transport = socket(tcp), active = once
@@ -1232,12 +1344,15 @@ ttest_ssocko_csockf_cases() ->
     [
      ttest_ssocko_csockf_small_tcp4,
      ttest_ssocko_csockf_small_tcp6,
+     ttest_ssocko_csockf_small_tcpL,
 
      ttest_ssocko_csockf_medium_tcp4,
      ttest_ssocko_csockf_medium_tcp6,
+     ttest_ssocko_csockf_medium_tcpL,
 
      ttest_ssocko_csockf_large_tcp4,
-     ttest_ssocko_csockf_large_tcp6
+     ttest_ssocko_csockf_large_tcp6,
+     ttest_ssocko_csockf_large_tcpL
     ].
 
 %% Server: transport = socket(tcp), active = once
@@ -1246,12 +1361,15 @@ ttest_ssocko_csocko_cases() ->
     [
      ttest_ssocko_csocko_small_tcp4,
      ttest_ssocko_csocko_small_tcp6,
+     ttest_ssocko_csocko_small_tcpL,
 
      ttest_ssocko_csocko_medium_tcp4,
      ttest_ssocko_csocko_medium_tcp6,
+     ttest_ssocko_csocko_medium_tcpL,
 
      ttest_ssocko_csocko_large_tcp4,
-     ttest_ssocko_csocko_large_tcp6
+     ttest_ssocko_csocko_large_tcp6,
+     ttest_ssocko_csocko_large_tcpL
     ].
 
 %% Server: transport = socket(tcp), active = once
@@ -1260,12 +1378,15 @@ ttest_ssocko_csockt_cases() ->
     [
      ttest_ssocko_csockt_small_tcp4,
      ttest_ssocko_csockt_small_tcp6,
+     ttest_ssocko_csockt_small_tcpL,
 
      ttest_ssocko_csockt_medium_tcp4,
      ttest_ssocko_csockt_medium_tcp6,
+     ttest_ssocko_csockt_medium_tcpL,
 
      ttest_ssocko_csockt_large_tcp4,
-     ttest_ssocko_csockt_large_tcp6
+     ttest_ssocko_csockt_large_tcp6,
+     ttest_ssocko_csockt_large_tcpL
     ].
 
 %% Server: transport = socket(tcp), active = true
@@ -1341,12 +1462,15 @@ ttest_ssockt_csockf_cases() ->
     [
      ttest_ssockt_csockf_small_tcp4,
      ttest_ssockt_csockf_small_tcp6,
+     ttest_ssockt_csockf_small_tcpL,
 
      ttest_ssockt_csockf_medium_tcp4,
      ttest_ssockt_csockf_medium_tcp6,
+     ttest_ssockt_csockf_medium_tcpL,
 
      ttest_ssockt_csockf_large_tcp4,
-     ttest_ssockt_csockf_large_tcp6
+     ttest_ssockt_csockf_large_tcp6,
+     ttest_ssockt_csockf_large_tcpL
     ].
 
 %% Server: transport = socket(tcp), active = true
@@ -1355,12 +1479,15 @@ ttest_ssockt_csocko_cases() ->
     [
      ttest_ssockt_csocko_small_tcp4,
      ttest_ssockt_csocko_small_tcp6,
+     ttest_ssockt_csocko_small_tcpL,
 
      ttest_ssockt_csocko_medium_tcp4,
      ttest_ssockt_csocko_medium_tcp6,
+     ttest_ssockt_csocko_medium_tcpL,
 
      ttest_ssockt_csocko_large_tcp4,
-     ttest_ssockt_csocko_large_tcp6
+     ttest_ssockt_csocko_large_tcp6,
+     ttest_ssockt_csocko_large_tcpL
     ].
 
 %% Server: transport = socket(tcp), active = true
@@ -1369,12 +1496,15 @@ ttest_ssockt_csockt_cases() ->
     [
      ttest_ssockt_csockt_small_tcp4,
      ttest_ssockt_csockt_small_tcp6,
+     ttest_ssockt_csockt_small_tcpL,
 
      ttest_ssockt_csockt_medium_tcp4,
      ttest_ssockt_csockt_medium_tcp6,
+     ttest_ssockt_csockt_medium_tcpL,
 
      ttest_ssockt_csockt_large_tcp4,
-     ttest_ssockt_csockt_large_tcp6
+     ttest_ssockt_csockt_large_tcp6,
+     ttest_ssockt_csockt_large_tcpL
     ].
 
 %% ticket_cases() ->
@@ -1510,6 +1640,46 @@ api_b_open_and_close_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically open (create) and close an Unix Domain dgram (UDP) socket.
+%% With some extra checks...
+api_b_open_and_close_udpL(suite) ->
+    [];
+api_b_open_and_close_udpL(doc) ->
+    [];
+api_b_open_and_close_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_close_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 type     => dgram,
+                                 protocol => default},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and close an Unix Domain stream (TCP) socket.
+%% With some extra checks...
+api_b_open_and_close_tcpL(suite) ->
+    [];
+api_b_open_and_close_tcpL(doc) ->
+    [];
+api_b_open_and_close_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_close_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 type     => stream,
+                                 protocol => default},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 api_b_open_and_close(InitState) ->
     Seq = 
         [
@@ -1633,6 +1803,37 @@ api_b_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
                                   socket:recvfrom(Sock)
                           end,
                    InitState = #{domain => inet,
+                                 proto  => udp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive on an IPv4 UDP (dgram) socket using
+%% sendto and recvfrom.
+api_b_sendto_and_recvfrom_udpL(suite) ->
+    [];
+api_b_sendto_and_recvfrom_udpL(doc) ->
+    [];
+api_b_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_sendto_and_recvfrom_udpL,
+           fun() ->
+                   has_support_unix_domain_socket(),
+                   unix_domain_socket_host_cond()
+           end,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  socket:sendto(Sock, Data, Dest)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recvfrom(Sock)
+                          end,
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_udp(InitState)
@@ -1665,17 +1866,66 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                           end,
                    Recv = fun(Sock) ->
                                   %% We have some issues on old darwing...
-                                  socket:setopt(Sock, otp, debug, true),
+                                  %% socket:setopt(Sock, otp, debug, true),
                                   case socket:recvmsg(Sock) of
                                       {ok, #{addr  := Source,
                                              iov   := [Data]}} ->
-                                          socket:setopt(Sock, otp, debug, false),
+                                          %% socket:setopt(Sock, otp, debug, false),
                                           {ok, {Source, Data}};
                                       {error, _} = ERROR ->
                                           ERROR
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 proto  => udp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive on an IPv4 UDP (dgram) socket
+%% using sendmsg and recvmsg.
+api_b_sendmsg_and_recvmsg_udpL(suite) ->
+    [];
+api_b_sendmsg_and_recvmsg_udpL(doc) ->
+    [];
+api_b_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_sendmsg_and_recvmsg_udpL,
+           fun() ->
+                   has_support_unix_domain_socket(),
+                   unix_domain_socket_host_cond()
+           end,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  %% We need tests for this,
+                                  %% but this is not the place it.
+                                  %% CMsgHdr  = #{level => ip,
+                                  %%              type  => tos,
+                                  %%              data  => reliability},
+                                  %% CMsgHdrs = [CMsgHdr],
+                                  MsgHdr = #{addr => Dest,
+                                             %% ctrl => CMsgHdrs,
+                                             iov  => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  %% We have some issues on old darwing...
+                                  %% socket:setopt(Sock, otp, debug, true),
+                                  case socket:recvmsg(Sock) of
+                                      {ok, #{addr  := Source,
+                                             iov   := [Data]}} ->
+                                          %% socket:setopt(Sock, otp, debug, false),
+                                          {ok, {Source, Data}};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_udp(InitState)
@@ -1688,42 +1938,64 @@ api_b_send_and_recv_udp(InitState) ->
     Seq = 
         [
          #{desc => "local address",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
-                           {ok, State#{lsa => LSA}}
+           cmd  => fun(#{domain := local = Domain} = State) ->
+                           LSASrc = which_local_socket_addr(Domain),
+                           LSADst = which_local_socket_addr(Domain),
+                           {ok, State#{lsa_src => LSASrc,
+                                       lsa_dst => LSADst}};
+                      (#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa_src => LSA,
+                                       lsa_dst => LSA}}
                    end},
+
          #{desc => "open src socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           Sock = sock_open(Domain, dgram, udp),
-                           SASrc = sock_sockname(Sock),
-                           {ok, State#{sock_src => Sock, sa_src => SASrc}}
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
+                           {ok, State#{sock_src => Sock}}
                    end},
          #{desc => "bind src",
-           cmd  => fun(#{sock_src := Sock, lsa := LSA}) ->
-                           sock_bind(Sock, LSA),
-                           ok
+           cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("src bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
                    end},
          #{desc => "sockname src socket",
            cmd  => fun(#{sock_src := Sock} = State) ->
                            SASrc = sock_sockname(Sock),
-                           %% ei("src sockaddr: ~p", [SASrc]),
+                           ?SEV_IPRINT("src sockaddr: "
+                                       "~n   ~p", [SASrc]),
                            {ok, State#{sa_src => SASrc}}
                    end},
+
          #{desc => "open dst socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           Sock = sock_open(Domain, dgram, udp),
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
                            {ok, State#{sock_dst => Sock}}
                    end},
          #{desc => "bind dst",
-           cmd  => fun(#{sock_dst := Sock, lsa := LSA}) ->
-                           sock_bind(Sock, LSA),
-                           ok
+           cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("src bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
                    end},
          #{desc => "sockname dst socket",
            cmd  => fun(#{sock_dst := Sock} = State) ->
                            SADst = sock_sockname(Sock),
-                           %% ei("dst sockaddr: ~p", [SADst]),
+                           ?SEV_IPRINT("dst sockaddr: "
+                                       "~n   ~p", [SADst]),
                            {ok, State#{sa_dst => SADst}}
                    end},
          #{desc => "send req (to dst)",
@@ -1761,12 +2033,32 @@ api_b_send_and_recv_udp(InitState) ->
                            end
                    end},
          #{desc => "close src socket",
-           cmd  => fun(#{sock_src := Sock}) ->
-                           ok = socket:close(Sock)
+           cmd  => fun(#{domain   := local,
+                         sock_src := Sock,
+                         lsa_src  := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() -> maps:remove(lsa_src, State) end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock_src, State1)};
+                      (#{sock_src := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock_src, State)}
                    end},
          #{desc => "close dst socket",
-           cmd  => fun(#{sock_dst := Sock}) ->
-                           ok = socket:close(Sock)
+           cmd  => fun(#{domain   := local,
+                         sock_dst := Sock,
+                         lsa_dst  := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() -> maps:remove(lsa_dst, State) end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock_dst, State1)};
+                      (#{sock_dst := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock_dst, State)}
                    end},
 
          %% *** We are done ***
@@ -1796,6 +2088,34 @@ api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
                                   socket:recv(Sock)
                           end,
                    InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the "common" functions (send and recv)
+%% on an Unix Domain (stream) socket (TCP).
+api_b_send_and_recv_tcpL(suite) ->
+    [];
+api_b_send_and_recv_tcpL(doc) ->
+    [];
+api_b_send_and_recv_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_b_send_and_recv_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_tcp(InitState)
@@ -1828,6 +2148,56 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the msg functions (sendmsg and recvmsg)
+%% on an Unix Domain (stream) socket (TCP).
+api_b_sendmsg_and_recvmsg_tcpL(suite) ->
+    [];
+api_b_sendmsg_and_recvmsg_tcpL(doc) ->
+    [];
+api_b_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_b_sendmsg_and_recvmsg_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock) of
+                                      %% On some platforms, the address
+                                      %% is *not* provided (e.g. FreeBSD)
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      %% On some platforms, the address
+                                      %% *is* provided (e.g. linux)
+                                      {ok, #{addr  := #{family := local},
+                                             iov   := [Data]}} ->
+                                          socket:setopt(Sock, 
+                                                        otp, 
+                                                        debug, 
+                                                        false),
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          socket:setopt(Sock, 
+                                                        otp, 
+                                                        debug, 
+                                                        false),
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_tcp(InitState)
@@ -1855,13 +2225,13 @@ api_b_send_and_recv_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -1869,9 +2239,19 @@ api_b_send_and_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock, lsa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -1882,7 +2262,12 @@ api_b_send_and_recv_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, lport := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester, lsa := #{path := Path}}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok;
+                      (#{tester := Tester, lport := Port}) ->
+                           %% This is actually not used for unix domain socket
                            ?SEV_ANNOUNCE_READY(Tester, init, Port),
                            ok
                    end},
@@ -1946,12 +2331,29 @@ api_b_send_and_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "close connection socket",
-           cmd  => fun(#{csock := Sock}) ->
-                           socket:close(Sock)
+           cmd  => fun(#{csock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(csock, State)}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := Sock}) ->
-                           socket:close(Sock)
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := LSock} = State) ->
+                           case socket:close(LSock) of
+                               ok ->
+                                   {ok, maps:remove(lsock, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
                    end},
 
          %% *** We are done ***
@@ -1962,7 +2364,10 @@ api_b_send_and_recv_tcp(InitState) ->
         [
          %% *** Wait for start order ***
          #{desc => "await start (from tester)",
-           cmd  => fun(State) ->
+           cmd  => fun(#{domain := local} = State) ->
+                           {Tester, Path} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_path => Path}};
+                      (State) ->
                            {Tester, Port} = ?SEV_AWAIT_START(),
                            {ok, State#{tester => Tester, server_port => Port}}
                    end},
@@ -1974,16 +2379,20 @@ api_b_send_and_recv_tcp(InitState) ->
 
          %% *** The init part ***
          #{desc => "which server (local) address",
-           cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, 
-                                     addr   => LAddr},
-                           SSA   = LSA#{port => Port},
+           cmd  => fun(#{domain      := local = Domain,
+                         server_path := Path} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = #{family => Domain, path => Path},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}};
+                      (#{domain := Domain, server_port := Port} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
                            {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
@@ -2054,8 +2463,20 @@ api_b_send_and_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{sock := Sock}) ->
-                           socket:close(Sock)
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock, State1)};
+                      (#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
                    end},
 
          %% *** We are done ***
@@ -2530,8 +2951,7 @@ api_opt_simple_otp_rcvbuf_option() ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -2776,8 +3196,7 @@ api_opt_simple_otp_rcvbuf_option() ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create socket",
@@ -3434,11 +3853,11 @@ api_to_connect_tcp4(suite) ->
 api_to_connect_tcp4(doc) ->
     [];
 api_to_connect_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     Cond = fun() -> api_to_connect_cond() end,
     tc_try(api_to_connect_tcp4,
            Cond,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain        => inet,
                                  backlog       => 1,
                                  timeout       => 5000,
@@ -3454,7 +3873,9 @@ api_to_connect_cond() ->
 %% So, just to simplify, we require atleast 4.15
 api_to_connect_cond({unix, linux}, {Maj, Min, _Rev}) ->
     if
-        ((Maj >= 4) andalso (Min >= 15)) ->
+        (Maj > 4) ->
+            ok;
+        ((Maj =:= 4) andalso (Min >= 15)) ->
             ok;
         true ->
             skip("TC does not work")
@@ -3491,10 +3912,10 @@ api_to_connect_tcp6(suite) ->
 api_to_connect_tcp6(doc) ->
     [];
 api_to_connect_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_connect_tcp6,
            fun() -> has_support_ipv6(), api_to_connect_cond() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain        => inet6,
                                  backlog       => 1,
                                  timeout       => 5000,
@@ -3531,8 +3952,7 @@ api_to_connect_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -3603,8 +4023,7 @@ api_to_connect_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create node",
@@ -3754,8 +4173,7 @@ api_to_connect_tcp(InitState) ->
                    end},
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "order server start",
@@ -3906,9 +4324,7 @@ api_toc_tcp_client_await_terminate(Parent) ->
     end.
 
 api_to_connect_tcp_await_timeout(To, ServerSA, Domain, ConLimit) ->
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain,
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     NewSock = fun() ->
                       S = case socket:open(Domain, stream, tcp) of
                               {ok, Sock} ->
@@ -3986,9 +4402,9 @@ api_to_accept_tcp4(suite) ->
 api_to_accept_tcp4(doc) ->
     [];
 api_to_accept_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_accept_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain => inet, timeout => 5000},
                    ok = api_to_accept_tcp(InitState)
            end).
@@ -4003,10 +4419,10 @@ api_to_accept_tcp6(suite) ->
 api_to_accept_tcp6(doc) ->
     [];
 api_to_accept_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_accept_tcp4,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain => inet6, timeout => 5000},
                    ok = api_to_accept_tcp(InitState)
            end).
@@ -4020,8 +4436,7 @@ api_to_accept_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create (listen) socket",
@@ -4145,8 +4560,7 @@ api_to_maccept_tcp(InitState) ->
                    end},
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create (listen) socket",
@@ -4602,9 +5016,9 @@ api_to_recv_tcp4(suite) ->
 api_to_recv_tcp4(doc) ->
     [];
 api_to_recv_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recv_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recv(Sock, 0, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
@@ -4622,12 +5036,12 @@ api_to_recv_tcp6(suite) ->
 api_to_recv_tcp6(doc) ->
     [];
 api_to_recv_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recv_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
                    case socket:supports(ipv6) of
                        true ->
-                           ?TT(?SECS(10)),
                            Recv = fun(Sock, To) -> 
                                           socket:recv(Sock, 0, To)
                                   end,
@@ -4663,8 +5077,7 @@ api_to_receive_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -4782,10 +5195,8 @@ api_to_receive_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain,
-                                     addr   => LAddr},
-                           SSA   = LSA#{port => Port},
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
                            {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
@@ -4961,9 +5372,9 @@ api_to_recvfrom_udp4(suite) ->
 api_to_recvfrom_udp4(doc) ->
     [];
 api_to_recvfrom_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvfrom_udp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvfrom(Sock, 0, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
@@ -4981,10 +5392,10 @@ api_to_recvfrom_udp6(suite) ->
 api_to_recvfrom_udp6(doc) ->
     [];
 api_to_recvfrom_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvfrom_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvfrom(Sock, 0, To) end,
                    InitState = #{domain  => inet6,
                                  recv    => Recv,
@@ -5001,8 +5412,7 @@ api_to_receive_udp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create socket",
@@ -5078,9 +5488,9 @@ api_to_recvmsg_udp4(suite) ->
 api_to_recvmsg_udp4(doc) ->
     [];
 api_to_recvmsg_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvmsg_udp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
@@ -5098,10 +5508,10 @@ api_to_recvmsg_udp6(suite) ->
 api_to_recvmsg_udp6(doc) ->
     [];
 api_to_recvmsg_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvmsg_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet6,
                                  recv    => Recv,
@@ -5119,9 +5529,9 @@ api_to_recvmsg_tcp4(suite) ->
 api_to_recvmsg_tcp4(doc) ->
     [];
 api_to_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvmsg_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet,
                                  recv    => Recv,
@@ -5139,10 +5549,10 @@ api_to_recvmsg_tcp6(suite) ->
 api_to_recvmsg_tcp6(doc) ->
     [];
 api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(api_to_recvmsg_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
                    InitState = #{domain  => inet6,
                                  recv    => Recv,
@@ -5170,9 +5580,9 @@ sc_cpe_socket_cleanup_tcp4(suite) ->
 sc_cpe_socket_cleanup_tcp4(doc) ->
     [];
 sc_cpe_socket_cleanup_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_tcp4,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => inet,
                                  type     => stream,
                                  protocol => tcp},
@@ -5190,13 +5600,34 @@ sc_cpe_socket_cleanup_tcp6(suite) ->
 sc_cpe_socket_cleanup_tcp6(doc) ->
     [];
 sc_cpe_socket_cleanup_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => inet6,
                                  type     => stream,
                                  protocol => tcp},
+                   ok = sc_cpe_socket_cleanup(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sockets are cleaned up
+%% ("removed") when the controlling process terminates (without explicitly 
+%% calling the close function). For a Unix Domain (stream) socket (TCP).
+
+sc_cpe_socket_cleanup_tcpL(suite) ->
+    [];
+sc_cpe_socket_cleanup_tcpL(doc) ->
+    [];
+sc_cpe_socket_cleanup_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(sc_cpe_socket_cleanup_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 type     => stream,
+                                 protocol => default},
                    ok = sc_cpe_socket_cleanup(InitState)
            end).
 
@@ -5211,9 +5642,9 @@ sc_cpe_socket_cleanup_udp4(suite) ->
 sc_cpe_socket_cleanup_udp4(doc) ->
     [];
 sc_cpe_socket_cleanup_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_udp4,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => inet,
                                  type     => dgram,
                                  protocol => udp},
@@ -5232,15 +5663,37 @@ sc_cpe_socket_cleanup_udp6(suite) ->
 sc_cpe_socket_cleanup_udp6(doc) ->
     [];
 sc_cpe_socket_cleanup_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
     tc_try(sc_cpe_socket_cleanup_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(5)),
                    InitState = #{domain   => inet6,
                                  type     => dgram,
                                  protocol => udp},
                    ok = sc_cpe_socket_cleanup(InitState)
            end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sockets are cleaned up
+%% ("removed") when the controlling process terminates (without explicitly 
+%% calling the close function). For a Unix Domain (dgram) socket (UDP).
+
+sc_cpe_socket_cleanup_udpL(suite) ->
+    [];
+sc_cpe_socket_cleanup_udpL(doc) ->
+    [];
+sc_cpe_socket_cleanup_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(sc_cpe_socket_cleanup_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 type     => dgram,
+                                 protocol => default},
+                   ok = sc_cpe_socket_cleanup(InitState)
+           end).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -5386,12 +5839,11 @@ sc_lc_recv_response_tcp4(suite) ->
 sc_lc_recv_response_tcp4(doc) ->
     [];
 sc_lc_recv_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_recv_response_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_tcp(InitState)
@@ -5408,14 +5860,35 @@ sc_lc_recv_response_tcp6(suite) ->
 sc_lc_recv_response_tcp6(doc) ->
     [];
 sc_lc_recv_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_recv_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet6,
-                                 type     => stream,
                                  protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_lc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recv function.
+%% Socket is Unix Domain (stream) socket.
+
+sc_lc_recv_response_tcpL(suite) ->
+    [];
+sc_lc_recv_response_tcpL(doc) ->
+    [];
+sc_lc_recv_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_lc_recv_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_tcp(InitState)
            end).
@@ -5444,15 +5917,13 @@ sc_lc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
-                           {ok, State#{local_sa => LSA}}
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create (listen) socket",
            cmd  => fun(#{domain   := Domain, 
-                         type     := Type, 
                          protocol := Proto} = State) ->
-                           case socket:open(Domain, Type, Proto) of
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -5460,9 +5931,22 @@ sc_lc_receive_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+                           ?SEV_IPRINT("bind to LSA: "
+                                       "~n   ~p", [LSA]),
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock,
+                         lsa   := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -5473,7 +5957,12 @@ sc_lc_receive_response_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, lport := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester,
+                         lsa    := #{path := Path}}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok;
+                      (#{tester := Tester, lport := Port}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, Port),
                            ok
                    end},
@@ -5494,7 +5983,8 @@ sc_lc_receive_response_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
-                                   ?SEV_IPRINT("connection accepted"),
+                                   ?SEV_IPRINT("connection accepted: "
+                                               "~n   ~p", [socket:sockname(Sock)]),
                                    {ok, State#{csock => Sock}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -5525,9 +6015,8 @@ sc_lc_receive_response_tcp(InitState) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, close),
                            ok
                    end},
-         #{desc => "close the connection socket",
+         #{desc => "close connection socket",
            cmd  => fun(#{csock := Sock} = State) ->
-                           %% ok = socket:setopt(Sock, otp, debug, true),
                            case socket:close(Sock) of
                                ok ->
                                    {ok, maps:remove(csock, State)};
@@ -5551,8 +6040,19 @@ sc_lc_receive_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "close socket",
-           cmd  => fun(#{lsock := Sock} = State) ->
+         #{desc => "close listen socket",
+           cmd  => fun(#{domain := local,
+                         lsock  := Sock,
+                         lsa    := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->maps:remove(lsa, State) end,
+                                           fun() -> State end),
+                           State2 = maps:remove(lsock, State1),
+                           State3 = maps:remove(lport, State2),
+                           {ok, State3};
+                      (#{lsock := Sock} = State) ->
                            case socket:close(Sock) of
                                ok ->
                                    State1 = maps:remove(lsock, State),
@@ -5667,15 +6167,13 @@ sc_lc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create socket",
            cmd  => fun(#{domain   := Domain, 
-                         type     := Type, 
                          protocol := Proto} = State) ->
-                           case socket:open(Domain, Type, Proto) of
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
@@ -5684,6 +6182,8 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "bind socket to local address",
            cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           ?SEV_IPRINT("bind to LSA: "
+                                       "~n   ~p", [LSA]),
                            case socket:bind(Sock, LSA) of
                                {ok, _} ->
                                    ok;
@@ -5699,7 +6199,19 @@ sc_lc_receive_response_tcp(InitState) ->
 
          %% The actual test
          #{desc => "await continue (connect)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local = Domain,
+                         tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, connect) of
+                               {ok, ServerPath} ->
+                                   ?SEV_IPRINT("Server Path: "
+                                               "~n   ~s", [ServerPath]),
+                                   ServerSA = #{family => Domain,
+                                                path   => ServerPath},
+                                   {ok, State#{server_sa => ServerSA}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{tester := Tester, local_sa := LSA} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, connect) of
                                {ok, Port} ->
                                    ServerSA = LSA#{port => Port},
@@ -5729,7 +6241,18 @@ sc_lc_receive_response_tcp(InitState) ->
                            end                           
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{sock := Sock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           sock_close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock, State1)};
+                       (#{sock := Sock} = State) ->
                            sock_close(Sock),
                            {ok, maps:remove(sock, State)}
                    end},
@@ -5776,8 +6299,8 @@ sc_lc_receive_response_tcp(InitState) ->
          #{desc => "await acceptor ready (init)",
            cmd  => fun(#{acceptor := Pid} = State) ->
                            case ?SEV_AWAIT_READY(Pid, acceptor, init) of
-                               {ok, Port} ->
-                                   {ok, State#{lport => Port}};
+                               {ok, PortOrPath} ->
+                                   {ok, State#{server_info => PortOrPath}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -5834,8 +6357,8 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          ?SEV_SLEEP(?SECS(1)),
          #{desc => "order client to continue (connect)",
-           cmd  => fun(#{client := Pid, lport := Port} = _State) ->
-                           ?SEV_ANNOUNCE_CONTINUE(Pid, connect, Port),
+           cmd  => fun(#{client := Pid, server_info := Info} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, connect, Info),
                            ok
                    end},
          #{desc => "await acceptor ready (accept)",
@@ -6002,12 +6525,11 @@ sc_lc_recvfrom_response_udp4(suite) ->
 sc_lc_recvfrom_response_udp4(doc) ->
     [];
 sc_lc_recvfrom_response_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_lc_recvfrom_response_udp4,
            fun() ->
-                   ?TT(?SECS(30)),
                    Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
                    InitState = #{domain   => inet,
-                                 type     => dgram,
                                  protocol => udp,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_udp(InitState)
@@ -6024,13 +6546,36 @@ sc_lc_recvfrom_response_udp6(suite) ->
 sc_lc_recvfrom_response_udp6(doc) ->
     [];
 sc_lc_recvfrom_response_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_lc_recvfrom_response_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(30)),
                    Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
-                   InitState = #{domain => inet6,
-                                 recv   => Recv},
+                   InitState = #{domain   => inet6,
+                                 protocol => udp,
+                                 recv     => Recv},
+                   ok = sc_lc_receive_response_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recv function.
+%% Socket is Unix Domainm (dgram) socket.
+
+sc_lc_recvfrom_response_udpL(suite) ->
+    [];
+sc_lc_recvfrom_response_udpL(doc) ->
+    [];
+sc_lc_recvfrom_response_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(sc_lc_recvfrom_response_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
+                                 recv     => Recv},
                    ok = sc_lc_receive_response_udp(InitState)
            end).
 
@@ -6055,20 +6600,25 @@ sc_lc_receive_response_udp(InitState) ->
          %% *** Init part ***
          #{desc => "local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "open socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           Sock = sock_open(Domain, dgram, udp),
+           cmd  => fun(#{domain := Domain, protocol := Proto} = State) ->
+                           Sock = sock_open(Domain, dgram, Proto),
                            SA   = sock_sockname(Sock),
                            {ok, State#{sock => Sock, sa => SA}}
                    end},
          #{desc => "bind socket",
            cmd  => fun(#{sock := Sock, local_sa := LSA}) ->
-                           sock_bind(Sock, LSA),
-                           ok
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("src bound"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("src bind failed: ~p", [Reason]),
+                                   ERROR
+                           end
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, sock := Sock}) ->
@@ -6107,7 +6657,18 @@ sc_lc_receive_response_udp(InitState) ->
                            ok = ?SEV_AWAIT_CONTINUE(Tester, tester, close)
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{sock := Sock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock, State1)};
+                      (#{sock := Sock} = State) ->
                            case socket:close(Sock) of
                                ok ->
                                    {ok, maps:remove(sock, State)};
@@ -6400,9 +6961,9 @@ sc_lc_receive_response_udp(InitState) ->
 
     i("start 'tester' evaluator"),
     TesterInitState = #{prim_server => PrimServer#ev.pid,
-                        sec_server1  => SecServer1#ev.pid,
-                        sec_server2  => SecServer2#ev.pid,
-                        sec_server3  => SecServer3#ev.pid},
+                        sec_server1 => SecServer1#ev.pid,
+                        sec_server2 => SecServer2#ev.pid,
+                        sec_server3 => SecServer3#ev.pid},
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     i("await evaluator"),
@@ -6422,12 +6983,11 @@ sc_lc_recvmsg_response_tcp4(suite) ->
 sc_lc_recvmsg_response_tcp4(doc) ->
     [];
 sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_recvmsg_response_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_tcp(InitState)
@@ -6444,14 +7004,35 @@ sc_lc_recvmsg_response_tcp6(suite) ->
 sc_lc_recvmsg_response_tcp6(doc) ->
     [];
 sc_lc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_recvmsg_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet6,
-                                 type     => stream,
                                  protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_lc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recvmsg function.
+%% Socket is Unix Domain (stream) socket.
+
+sc_lc_recvmsg_response_tcpL(suite) ->
+    [];
+sc_lc_recvmsg_response_tcpL(doc) ->
+    [];
+sc_lc_recvmsg_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_recvmsg_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
                                  recv     => Recv},
                    ok = sc_lc_receive_response_tcp(InitState)
            end).
@@ -6471,8 +7052,9 @@ sc_lc_recvmsg_response_udp4(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(10)),
                    Recv      = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
-                   InitState = #{domain => inet,
-                                 recv   => Recv},
+                   InitState = #{domain   => inet,
+                                 protocol => udp,
+                                 recv     => Recv},
                    ok = sc_lc_receive_response_udp(InitState)
            end).
 
@@ -6492,8 +7074,32 @@ sc_lc_recvmsg_response_udp6(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(10)),
                    Recv      = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
-                   InitState = #{domain => inet6,
-                                 recv   => Recv},
+                   InitState = #{domain   => inet6,
+                                 protocol => udp,
+                                 recv     => Recv},
+                   ok = sc_lc_receive_response_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recvmsg function.
+%% Socket is Unix Domain (dgram) socket.
+
+sc_lc_recvmsg_response_udpL(suite) ->
+    [];
+sc_lc_recvmsg_response_udpL(doc) ->
+    [];
+sc_lc_recvmsg_response_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_recvmsg_response_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
+                                 recv     => Recv},
                    ok = sc_lc_receive_response_udp(InitState)
            end).
 
@@ -6511,11 +7117,10 @@ sc_lc_acceptor_response_tcp4(suite) ->
 sc_lc_acceptor_response_tcp4(doc) ->
     [];
 sc_lc_acceptor_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_acceptor_response_tcp4,
            fun() ->
-                   ?TT(?SECS(10)),
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp},
                    ok = sc_lc_acceptor_response_tcp(InitState)
            end).
@@ -6533,13 +7138,34 @@ sc_lc_acceptor_response_tcp6(suite) ->
 sc_lc_acceptor_response_tcp6(doc) ->
     [];
 sc_lc_acceptor_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
     tc_try(sc_lc_acceptor_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
-                   InitState = #{domain   => inet,
-                                 type     => stream,
+                   InitState = #{domain   => inet6,
                                  protocol => tcp},
+                   ok = sc_lc_acceptor_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the accept function.
+%% We test what happens with a non-controlling_process also, since we 
+%% git the setup anyway.
+%% Socket is Unix Domain (stream) socket.
+
+sc_lc_acceptor_response_tcpL(suite) ->
+    [];
+sc_lc_acceptor_response_tcpL(doc) ->
+    [];
+sc_lc_acceptor_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_lc_acceptor_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 protocol => default},
                    ok = sc_lc_acceptor_response_tcp(InitState)
            end).
 
@@ -6564,15 +7190,13 @@ sc_lc_acceptor_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create (listen) socket",
            cmd  => fun(#{domain   := Domain, 
-                         type     := Type, 
                          protocol := Proto} = State) ->
-                           case socket:open(Domain, Type, Proto) of
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
@@ -6609,8 +7233,8 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "await connection",
-           cmd  => fun(#{sock := Sock, timeout := Timeout} = _State) ->
-                           case socket:accept(Sock, Timeout) of
+           cmd  => fun(#{sock := LSock, timeout := Timeout} = _State) ->
+                           case socket:accept(LSock, Timeout) of
                                {error, timeout} ->
                                    ok;
                                {ok, Sock} ->
@@ -6631,7 +7255,25 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            ok = ?SEV_AWAIT_CONTINUE(Tester, tester, close)
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{sock := Sock} = State) ->
+           cmd  => fun(#{domain := local,
+                         sock   := Sock,
+                         lsa    := #{path := Path}} = State) ->
+                           case socket:close(Sock) of
+                               ok ->
+                                   State1 =
+                                       unlink_path(Path,
+                                                   fun() ->
+                                                           maps:remove(lsa, State)
+                                                   end,
+                                                   fun() ->
+                                                           State
+                                                   end),
+                                   {ok, maps:remove(sock, State1)};
+                               {error, _} = ERROR ->
+                                   unlink_path(Path),
+                                   ERROR
+                           end;
+                      (#{sock := Sock} = State) ->
                            case socket:close(Sock) of
                                ok ->
                                    {ok, maps:remove(sock, State)};
@@ -6946,12 +7588,11 @@ sc_rc_recv_response_tcp4(suite) ->
 sc_rc_recv_response_tcp4(doc) ->
     [];
 sc_rc_recv_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rc_recv_response_tcp4,
            fun() ->
-                   ?TT(?SECS(30)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
                    ok = sc_rc_receive_response_tcp(InitState)
@@ -6968,14 +7609,35 @@ sc_rc_recv_response_tcp6(suite) ->
 sc_rc_recv_response_tcp6(doc) ->
     [];
 sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rc_recv_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet6,
-                                 type     => stream,
                                  protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_rc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recv function.
+%% Socket is Unix Domain (stream) socket.
+
+sc_rc_recv_response_tcpL(suite) ->
+    [];
+sc_rc_recv_response_tcpL(doc) ->
+    [];
+sc_rc_recv_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(sc_rc_recv_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
                                  recv     => Recv},
                    ok = sc_rc_receive_response_tcp(InitState)
            end).
@@ -7004,13 +7666,12 @@ sc_rc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, protocol := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -7018,7 +7679,17 @@ sc_rc_receive_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock    := LSock,
+                         local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{lport => Port}};
@@ -7031,7 +7702,15 @@ sc_rc_receive_response_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, lport := Port}) ->
+           cmd  => fun(#{domain   := local,
+                         tester   := Tester,
+                         local_sa := LSA}) ->
+                           %% Actually we only need to send the path,
+                           %% but to keep it simple, we send the "same"
+                           %% as for non-local.
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester := Tester, local_sa := LSA, lport := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -7213,7 +7892,25 @@ sc_rc_receive_response_tcp(InitState) ->
                            {ok, State2}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := LSock} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := #{path := Path}} = State) ->
+                           case socket:close(LSock) of
+                               ok ->
+                                   State1 =
+                                       unlink_path(Path,
+                                                   fun() ->
+                                                           maps:remove(lsa, State)
+                                                   end,
+                                                   fun() ->
+                                                           State
+                                                   end),
+                                   {ok, maps:remove(lsock, State1)};
+                               {error, _} = ERROR ->
+                                   unlink_path(Path),
+                                   ERROR
+                           end;
+                      (#{lsock := LSock} = State) ->
                            case socket:close(LSock) of
                                ok ->
                                    {ok, maps:remove(lsock, State)};
@@ -7270,8 +7967,10 @@ sc_rc_receive_response_tcp(InitState) ->
                            ok
                    end},
          #{desc => "order remote client to start",
-           cmd  => fun(#{rclient := Client, server_sa := ServerSA}) ->
-                           ?SEV_ANNOUNCE_START(Client, ServerSA),
+           cmd  => fun(#{rclient   := Client,
+                         server_sa := ServerSA,
+                         protocol  := Proto}) ->
+                           ?SEV_ANNOUNCE_START(Client, {ServerSA, Proto}),
                            ok
                    end},
          #{desc => "await remote client ready",
@@ -7672,16 +8371,16 @@ sc_rc_tcp_client_start(Node) ->
 
 sc_rc_tcp_client(Parent) ->
     sc_rc_tcp_client_init(Parent),
-    ServerSA = sc_rc_tcp_client_await_start(Parent),
+    {ServerSA, Proto} = sc_rc_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
-    Sock     = sc_rc_tcp_client_create(Domain),
-    sc_rc_tcp_client_bind(Sock, Domain),
+    Sock     = sc_rc_tcp_client_create(Domain, Proto),
+    Path     = sc_rc_tcp_client_bind(Sock, Domain),
     sc_rc_tcp_client_announce_ready(Parent, init),
     sc_rc_tcp_client_await_continue(Parent, connect),
     sc_rc_tcp_client_connect(Sock, ServerSA),
     sc_rc_tcp_client_announce_ready(Parent, connect),
     sc_rc_tcp_client_await_continue(Parent, close),
-    sc_rc_tcp_client_close(Sock),
+    sc_rc_tcp_client_close(Sock, Path),
     sc_rc_tcp_client_announce_ready(Parent, close),
     Reason = sc_rc_tcp_client_await_terminate(Parent),
     ?SEV_IPRINT("terminate"),
@@ -7697,9 +8396,9 @@ sc_rc_tcp_client_await_start(Parent) ->
     i("sc_rc_tcp_client_await_start -> entry"),
     ?SEV_AWAIT_START(Parent).
 
-sc_rc_tcp_client_create(Domain) ->
+sc_rc_tcp_client_create(Domain, Proto) ->
     i("sc_rc_tcp_client_create -> entry"),
-    case socket:open(Domain, stream, tcp) of
+    case socket:open(Domain, stream, Proto) of
         {ok, Sock} ->
             case socket:getopt(Sock, otp, fd) of
                 {ok, FD} ->
@@ -7714,12 +8413,17 @@ sc_rc_tcp_client_create(Domain) ->
 
 sc_rc_tcp_client_bind(Sock, Domain) ->
     i("sc_rc_tcp_client_bind -> entry"),
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain, 
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
-            ok;
+            case socket:sockname(Sock) of
+                {ok, #{family := local, path := Path}} ->
+                    Path;
+                {ok, _} ->
+                    undefined;
+                {error, Reason1} ->
+                    exit({sockname, Reason1})
+            end;
         {error, Reason} ->
             exit({bind, Reason})
     end.
@@ -7741,13 +8445,17 @@ sc_rc_tcp_client_connect(Sock, ServerSA) ->
             exit({connect, Reason})
     end.
 
-sc_rc_tcp_client_close(Sock) ->
+sc_rc_tcp_client_close(Sock, Path) ->
     i("sc_rc_tcp_client_close -> entry"),
     case socket:close(Sock) of
         ok ->
+            unlink_path(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("failed closing: "
+                        "~n   Reason: ~p", [Reason]),
+            unlink_path(Path),
+            {error, {close, Reason}}
     end.
 
 sc_rc_tcp_client_await_terminate(Parent) ->
@@ -7827,12 +8535,11 @@ sc_rc_recvmsg_response_tcp4(suite) ->
 sc_rc_recvmsg_response_tcp4(doc) ->
     [];
 sc_rc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rc_recvmsg_response_tcp4,
            fun() ->
-                   ?TT(?SECS(30)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet,
-                                 type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
                    ok = sc_rc_receive_response_tcp(InitState)
@@ -7849,14 +8556,35 @@ sc_rc_recvmsg_response_tcp6(suite) ->
 sc_rc_recvmsg_response_tcp6(doc) ->
     [];
 sc_rc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rc_recvmsg_response_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(10)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet6,
-                                 type     => stream,
                                  protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_rc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recvmsg function.
+%% Socket is Unix Domain (stream) socket.
+
+sc_rc_recvmsg_response_tcpL(suite) ->
+    [];
+sc_rc_recvmsg_response_tcpL(doc) ->
+    [];
+sc_rc_recvmsg_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(sc_rc_recvmsg_response_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
+                   InitState = #{domain   => local,
+                                 protocol => default,
                                  recv     => Recv},
                    ok = sc_rc_receive_response_tcp(InitState)
            end).
@@ -7872,6 +8600,7 @@ sc_rc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
 %% To minimize the chance of "weirdness", we should really have test cases
 %% where the two sides of the connection is on different machines. But for
 %% now, we will make do with different VMs on the same host.
+%% This would of course not work for Unix Domain sockets.
 %%
 
 sc_rs_recv_send_shutdown_receive_tcp4(suite) ->
@@ -7879,9 +8608,9 @@ sc_rs_recv_send_shutdown_receive_tcp4(suite) ->
 sc_rs_recv_send_shutdown_receive_tcp4(doc) ->
     [];
 sc_rs_recv_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(sc_rs_recv_send_shutdown_receive_tcp4,
            fun() ->
-                   ?TT(?SECS(30)),
                    MsgData   = ?DATA,
                    Recv      = fun(Sock) ->
                                        socket:recv(Sock)
@@ -7890,6 +8619,7 @@ sc_rs_recv_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
                                        socket:send(Sock, Data)
                                end,
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  recv   => Recv,
                                  send   => Send,
                                  data   => MsgData},
@@ -7921,6 +8651,39 @@ sc_rs_recv_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
                                        socket:send(Sock, Data)
                                end,
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 recv   => Recv,
+                                 send   => Send,
+                                 data   => MsgData},
+                   ok = sc_rs_send_shutdown_receive_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is
+%% remotely closed while the process is calling the recv function.
+%% The remote client sends data, then shutdown(write) and then the
+%% reader attempts a recv.
+%% Socket is Unix Domain (stream) socket.
+
+sc_rs_recv_send_shutdown_receive_tcpL(suite) ->
+    [];
+sc_rs_recv_send_shutdown_receive_tcpL(doc) ->
+    [];
+sc_rs_recv_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_rs_recv_send_shutdown_receive_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   MsgData   = ?DATA,
+                   Recv      = fun(Sock) ->
+                                       socket:recv(Sock)
+                               end,
+                   Send      = fun(Sock, Data) ->
+                                       socket:send(Sock, Data)
+                               end,
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  recv   => Recv,
                                  send   => Send,
                                  data   => MsgData},
@@ -7952,13 +8715,12 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            i("get local address for ~p", [Domain]),
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -7966,9 +8728,19 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := LSock,
+                         local_sa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock, local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -7979,7 +8751,11 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, lport := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester, local_sa := LSA}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester := Tester, local_sa := LSA, lport := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -8090,7 +8866,18 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            {ok, State2}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := LSock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := LSock} = State) ->
                            case socket:close(LSock) of
                                ok ->
                                    {ok, maps:remove(lsock, State)};
@@ -8148,8 +8935,10 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
                            ok
                    end},
          #{desc => "order remote client to start",
-           cmd  => fun(#{rclient := Client, server_sa := ServerSA}) ->
-                           ?SEV_ANNOUNCE_START(Client, ServerSA),
+           cmd  => fun(#{rclient   := Client,
+                         proto     := Proto,
+                         server_sa := ServerSA}) ->
+                           ?SEV_ANNOUNCE_START(Client, {ServerSA, Proto}),
                            ok
                    end},
          #{desc => "await remote client ready",
@@ -8479,12 +9268,14 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
 
     i("start server evaluator"),
     ServerInitState = #{domain => maps:get(domain, InitState),
+                        proto  => maps:get(proto,  InitState),
                         recv   => maps:get(recv,   InitState)},
     Server = ?SEV_START("server", ServerSeq, ServerInitState),
 
     i("start client evaluator"),
     ClientInitState = #{host   => local_host(),
                         domain => maps:get(domain, InitState),
+                        proto  => maps:get(proto,  InitState),
                         send   => maps:get(send, InitState)},
     Client = ?SEV_START("client", ClientSeq, ClientInitState),
 
@@ -8506,10 +9297,10 @@ sc_rs_tcp_client_start(Node, Send) ->
 
 sc_rs_tcp_client(Parent, Send) ->
     sc_rs_tcp_client_init(Parent),
-    ServerSA = sc_rs_tcp_client_await_start(Parent),
+    {ServerSA, Proto} = sc_rs_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
-    Sock     = sc_rs_tcp_client_create(Domain),
-    sc_rs_tcp_client_bind(Sock, Domain),
+    Sock     = sc_rs_tcp_client_create(Domain, Proto),
+    Path     = sc_rs_tcp_client_bind(Sock, Domain),
     sc_rs_tcp_client_announce_ready(Parent, init),
     sc_rs_tcp_client_await_continue(Parent, connect),
     sc_rs_tcp_client_connect(Sock, ServerSA),
@@ -8521,7 +9312,7 @@ sc_rs_tcp_client(Parent, Send) ->
     sc_rs_tcp_client_shutdown(Sock),
     sc_rs_tcp_client_announce_ready(Parent, shutdown),
     sc_rs_tcp_client_await_continue(Parent, close),
-    sc_rs_tcp_client_close(Sock),
+    sc_rs_tcp_client_close(Sock, Path),
     sc_rs_tcp_client_announce_ready(Parent, close),
     Reason = sc_rs_tcp_client_await_terminate(Parent),
     ?SEV_IPRINT("terminate"),
@@ -8537,9 +9328,9 @@ sc_rs_tcp_client_await_start(Parent) ->
     i("sc_rs_tcp_client_await_start -> entry"),
     ?SEV_AWAIT_START(Parent).
 
-sc_rs_tcp_client_create(Domain) ->
+sc_rs_tcp_client_create(Domain, Proto) ->
     i("sc_rs_tcp_client_create -> entry"),
-    case socket:open(Domain, stream, tcp) of
+    case socket:open(Domain, stream, Proto) of
         {ok, Sock} ->
             Sock;
         {error, Reason} ->
@@ -8548,12 +9339,17 @@ sc_rs_tcp_client_create(Domain) ->
 
 sc_rs_tcp_client_bind(Sock, Domain) ->
     i("sc_rs_tcp_client_bind -> entry"),
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain,
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
-            ok;
+            case socket:sockname(Sock) of
+                {ok, #{family := local, path := Path}} ->
+                    Path;
+                {ok, _} ->
+                    undefined;
+                {error, Reason1} ->
+                    exit({sockname, Reason1})
+            end;
         {error, Reason} ->
             exit({bind, Reason})
     end.
@@ -8600,13 +9396,17 @@ sc_rs_tcp_client_shutdown(Sock) ->
             exit({shutdown, Reason})
     end.
 
-sc_rs_tcp_client_close(Sock) ->
+sc_rs_tcp_client_close(Sock, Path) ->
     i("sc_rs_tcp_client_close -> entry"),
     case socket:close(Sock) of
         ok ->
+            unlink_path(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("failed closing: "
+                        "~n   Reason: ~p", [Reason]),
+            unlink_path(Path),
+            {error, {close, Reason}}
     end.
 
 sc_rs_tcp_client_await_terminate(Parent) ->
@@ -8711,12 +9511,11 @@ sc_rs_recvmsg_send_shutdown_receive_tcp4(_Config) when is_list(_Config) ->
                                   MsgHdr = #{iov => [Data]},
                                   socket:sendmsg(Sock, MsgHdr)
                                end,
-                   InitState = #{domain   => inet,
-                                 type     => stream,
-                                 protocol => tcp,
-                                 recv     => Recv,
-                                 send     => Send,
-                                 data     => MsgData},
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 recv   => Recv,
+                                 send   => Send,
+                                 data   => MsgData},
                    ok = sc_rs_send_shutdown_receive_tcp(InitState)
            end).
 
@@ -8748,15 +9547,62 @@ sc_rs_recvmsg_send_shutdown_receive_tcp6(_Config) when is_list(_Config) ->
                                        end
                                end,
                    Send      = fun(Sock, Data) when is_binary(Data) ->
-                                  MsgHdr = #{iov => [Data]},
-                                  socket:sendmsg(Sock, MsgHdr)
+                                       MsgHdr = #{iov => [Data]},
+                                       socket:sendmsg(Sock, MsgHdr)
                                end,
-                   InitState = #{domain   => inet6,
-                                 type     => stream,
-                                 protocol => tcp,
-                                 recv     => Recv,
-                                 send     => Send,
-                                 data     => MsgData},
+                   InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 recv   => Recv,
+                                 send   => Send,
+                                 data   => MsgData},
+                   ok = sc_rs_send_shutdown_receive_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is
+%% remotely closed while the process is calling the recvmsg function.
+%% The remote client sends data, then shutdown(write) and then the
+%% reader attempts a recv.
+%% Socket is UNix Domain (stream) socket.
+
+sc_rs_recvmsg_send_shutdown_receive_tcpL(suite) ->
+    [];
+sc_rs_recvmsg_send_shutdown_receive_tcpL(doc) ->
+    [];
+sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_rs_recvmsg_send_shutdown_receive_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   {ok, CWD} = file:get_cwd(),
+                   ?SEV_IPRINT("CWD: ~s", [CWD]),
+                   MsgData   = ?DATA,
+                   Recv      = fun(Sock) ->
+                                       case socket:recvmsg(Sock) of
+                                           %% On some platforms, the address
+                                           %% is *not* provided (e.g. FreeBSD)
+                                           {ok, #{addr  := undefined,
+                                                  iov   := [Data]}} ->
+                                               {ok, Data};
+                                           %% On some platforms, the address
+                                           %% *is* provided (e.g. linux)
+                                           {ok, #{addr  := #{family := local},
+                                                  iov   := [Data]}} ->
+                                               {ok, Data};
+                                           {error, _} = ERROR ->
+                                               ERROR
+                                       end
+                               end,
+                   Send      = fun(Sock, Data) when is_binary(Data) ->
+                                       MsgHdr = #{iov => [Data]},
+                                       socket:sendmsg(Sock, MsgHdr)
+                               end,
+                   InitState = #{domain => local,
+                                 proto  => default,
+                                 recv   => Recv,
+                                 send   => Send,
+                                 data   => MsgData},
                    ok = sc_rs_send_shutdown_receive_tcp(InitState)
            end).
 
@@ -8773,10 +9619,11 @@ traffic_send_and_recv_chunks_tcp4(suite) ->
 traffic_send_and_recv_chunks_tcp4(doc) ->
     [];
 traffic_send_and_recv_chunks_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(traffic_send_and_recv_chunks_tcp4,
            fun() ->
-                   ?TT(?SECS(30)),
-                   InitState = #{domain => inet},
+                   InitState = #{domain => inet,
+                                 proto  => tcp},
                    ok = traffic_send_and_recv_chunks_tcp(InitState)
            end).
 
@@ -8794,11 +9641,34 @@ traffic_send_and_recv_chunks_tcp6(suite) ->
 traffic_send_and_recv_chunks_tcp6(doc) ->
     [];
 traffic_send_and_recv_chunks_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
     tc_try(traffic_send_and_recv_chunks_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(30)),
-                   InitState = #{domain => inet6},
+                   InitState = #{domain => inet6,
+                                 proto  => tcp},
+                   ok = traffic_send_and_recv_chunks_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% behave as expected when sending and/or reading chunks.
+%% First send data in one "big" chunk, and read it in "small" chunks.
+%% Second, send in a bunch of "small" chunks, and read in one "big" chunk.
+%% Socket is UNix Domain (Stream) socket.
+
+traffic_send_and_recv_chunks_tcpL(suite) ->
+    [];
+traffic_send_and_recv_chunks_tcpL(doc) ->
+    [];
+traffic_send_and_recv_chunks_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(traffic_send_and_recv_chunks_tcp6,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default},
                    ok = traffic_send_and_recv_chunks_tcp(InitState)
            end).
 
@@ -8823,13 +9693,12 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -8837,7 +9706,17 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := LSock,
+                         local_sa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock    := LSock,
+                         local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{lport => Port}};
@@ -8850,7 +9729,14 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, lport := Port}) ->
+           cmd  => fun(#{domain   := local,
+                         tester   := Tester,
+                         local_sa := LSA}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester   := Tester,
+                         local_sa := LSA,
+                         lport    := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -9045,9 +9931,20 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            {ok, maps:remove(csock, State)}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := Sock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := Sock} = State) ->
                            (catch socket:close(Sock)),
-                            {ok, maps:remove(lsock, State)}
+                           {ok, maps:remove(lsock, State)}
                    end},
 
          %% *** We are done ***
@@ -9098,8 +9995,10 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
                            ok
                    end},
          #{desc => "order remote client to start",
-           cmd  => fun(#{rclient := Client, server_sa := ServerSA}) ->
-                           ?SEV_ANNOUNCE_START(Client, ServerSA),
+           cmd  => fun(#{rclient   := Client,
+                         server_sa := ServerSA,
+                         proto     := Proto}) ->
+                           ?SEV_ANNOUNCE_START(Client, {ServerSA, Proto}),
                            ok
                    end},
          #{desc => "await remote client ready",
@@ -9654,14 +10553,14 @@ traffic_snr_tcp_client_start(Node) ->
     erlang:spawn(Node, Fun).
 
 traffic_snr_tcp_client(Parent) ->
-    {Sock, ServerSA} = traffic_snr_tcp_client_init(Parent),
+    {Sock, ServerSA, Path} = traffic_snr_tcp_client_init(Parent),
     traffic_snr_tcp_client_announce_ready(Parent, init),
     traffic_snr_tcp_client_await_continue(Parent, connect),
     traffic_snr_tcp_client_connect(Sock, ServerSA),
     traffic_snr_tcp_client_announce_ready(Parent, connect),
     traffic_snr_tcp_client_send_loop(Parent, Sock),
     Reason = traffic_snr_tcp_client_await_terminate(Parent),
-    traffic_snr_tcp_client_close(Sock),
+    traffic_snr_tcp_client_close(Sock, Path),
     exit(Reason).
 
 
@@ -9687,19 +10586,19 @@ traffic_snr_tcp_client_init(Parent) ->
     put(sname, "rclient"),
     ?SEV_IPRINT("init"),
     _MRef = erlang:monitor(process, Parent),
-    ServerSA = traffic_snr_tcp_client_await_start(Parent),
+    {ServerSA, Proto} = traffic_snr_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
-    Sock     = traffic_snr_tcp_client_create(Domain),
-    traffic_snr_tcp_client_bind(Sock, Domain),
-    {Sock, ServerSA}.
+    Sock     = traffic_snr_tcp_client_create(Domain, Proto),
+    Path     = traffic_snr_tcp_client_bind(Sock, Domain),
+    {Sock, ServerSA, Path}.
 
 traffic_snr_tcp_client_await_start(Parent) ->
     i("traffic_snr_tcp_client_await_start -> entry"),
     ?SEV_AWAIT_START(Parent).
 
-traffic_snr_tcp_client_create(Domain) ->
+traffic_snr_tcp_client_create(Domain, Proto) ->
     i("traffic_snr_tcp_client_create -> entry"),
-    case socket:open(Domain, stream, tcp) of
+    case socket:open(Domain, stream, Proto) of
         {ok, Sock} ->
             Sock;
         {error, Reason} ->
@@ -9708,12 +10607,17 @@ traffic_snr_tcp_client_create(Domain) ->
 
 traffic_snr_tcp_client_bind(Sock, Domain) ->
     i("traffic_snr_tcp_client_bind -> entry"),
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain, 
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
-            ok;
+            case socket:sockname(Sock) of
+                {ok, #{family := local, path := Path}} ->
+                    Path;
+                {ok, _} ->
+                    undefined;
+                {error, Reason1} ->
+                    exit({sockname, Reason1})
+            end;
         {error, Reason} ->
             exit({bind, Reason})
     end.
@@ -9734,13 +10638,17 @@ traffic_snr_tcp_client_connect(Sock, ServerSA) ->
             exit({connect, Reason})
     end.
 
-traffic_snr_tcp_client_close(Sock) ->
+traffic_snr_tcp_client_close(Sock, Path) ->
     i("traffic_snr_tcp_client_close -> entry"),
     case socket:close(Sock) of
         ok ->
+            unlink_path(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("failed closing: "
+                        "~n   Reason: ~p", [Reason]),
+            unlink_path(Path),
+            {error, {close, Reason}}
     end.
 
 traffic_snr_tcp_client_await_terminate(Parent) ->
@@ -9768,12 +10676,13 @@ traffic_ping_pong_small_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_small_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_send_and_recv_tcp4,
            fun() ->
-                   ?TT(?SECS(15)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -9795,13 +10704,42 @@ traffic_ping_pong_small_send_and_recv_tcp6(suite) ->
 traffic_ping_pong_small_send_and_recv_tcp6(doc) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_send_and_recv_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(15)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for Unix Domain (stream) socket.
+
+traffic_ping_pong_small_send_and_recv_tcpL(suite) ->
+    [];
+traffic_ping_pong_small_send_and_recv_tcpL(doc) ->
+    [];
+traffic_ping_pong_small_send_and_recv_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_send_and_recv_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -9828,6 +10766,7 @@ traffic_ping_pong_medium_send_and_recv_tcp4(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -9855,6 +10794,36 @@ traffic_ping_pong_medium_send_and_recv_tcp6(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for Unix Domain (stream) socket.
+
+traffic_ping_pong_medium_send_and_recv_tcpL(suite) ->
+    [];
+traffic_ping_pong_medium_send_and_recv_tcpL(doc) ->
+    [];
+traffic_ping_pong_medium_send_and_recv_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_send_and_recv_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -9876,12 +10845,13 @@ traffic_ping_pong_large_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_large_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(45)),
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp4,
            fun() ->
-                   ?TT(?SECS(45)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
@@ -9909,11 +10879,53 @@ traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'large' message test case, for UNix Domain (stream) socket.
+
+traffic_ping_pong_large_send_and_recv_tcpL(suite) ->
+    [];
+traffic_ping_pong_large_send_and_recv_tcpL(doc) ->
+    [];
+traffic_ping_pong_large_send_and_recv_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(45)),
+    Msg = l2b(?TPP_LARGE),
+    Num = ?TPP_LARGE_NUM,
+    tc_try(traffic_ping_pong_large_send_and_recv_tcpL,
+           fun() ->
+                   has_support_unix_domain_socket(),
+                   traffic_ping_pong_large_host_cond()
+           end,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+           end).
+
+%% This test case is a bit extreme and fails on some hosts
+%% (e.g. OpenIndiana Hipster), so exclude them.
+traffic_ping_pong_large_host_cond() ->
+    traffic_ping_pong_large_host_cond(os:type(), os:version()).
+
+traffic_ping_pong_large_host_cond({unix, sunos}, _) ->
+    skip("TC does not work on platform");
+traffic_ping_pong_large_host_cond(_, _) ->
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -9936,6 +10948,7 @@ traffic_ping_pong_small_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -9956,12 +10969,43 @@ traffic_ping_pong_small_sendto_and_recvfrom_udp6(suite) ->
 traffic_ping_pong_small_sendto_and_recvfrom_udp6(doc) ->
     [];
 traffic_ping_pong_small_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(45)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(45)),
-                   InitState = #{domain => inet,
+                   InitState = #{domain => inet6,
+                                 proto  => udp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendto and recvfrom 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for two different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for Unix Domain (dgram) socket.
+
+traffic_ping_pong_small_sendto_and_recvfrom_udpL(suite) ->
+    [];
+traffic_ping_pong_small_sendto_and_recvfrom_udpL(doc) ->
+    [];
+traffic_ping_pong_small_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(45)),
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -9989,6 +11033,7 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udp4(_Config) when is_list(_Config)
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -10016,6 +11061,36 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udp6(_Config) when is_list(_Config)
            fun() ->
                    ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
+                                 proto  => udp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendto and recvfrom 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for two different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for Unix Domain (dgram) socket.
+
+traffic_ping_pong_medium_sendto_and_recvfrom_udpL(suite) ->
+    [];
+traffic_ping_pong_medium_sendto_and_recvfrom_udpL(doc) ->
+    [];
+traffic_ping_pong_medium_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(45)),
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -10043,6 +11118,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(20)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10070,6 +11146,35 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(20)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for Unix Domain (stream) socket.
+
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL(suite) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL(doc) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(20)),
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10096,6 +11201,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config)
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10122,7 +11228,36 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config)
            fun() -> has_support_ipv6() end,
            fun() ->
                    ?TT(?SECS(20)),
-                   InitState = #{domain => ine6,
+                   InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for Unix Domain (stream) socket.
+
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(suite) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(doc) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(20)),
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10146,13 +11281,25 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) 
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
+           fun() -> traffic_ping_pong_large_sendmsg_and_recvmsg_cond() end,
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
+                                 proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
            end).
+
+
+traffic_ping_pong_large_sendmsg_and_recvmsg_cond() ->
+    traffic_ping_pong_large_sendmsg_and_recvmsg_cond(os:type(), os:version()).
+
+traffic_ping_pong_large_sendmsg_and_recvmsg_cond({unix, linux}, {M, _, _})
+  when (M < 3) ->
+    skip("TC may not work on this version");
+traffic_ping_pong_large_sendmsg_and_recvmsg_cond(_, _) ->
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -10172,10 +11319,43 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   has_support_ipv6(),
+                   traffic_ping_pong_large_sendmsg_and_recvmsg_cond()
+           end,
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'large' message test case, for Unix Domain (stream) socket.
+
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(suite) ->
+    [];
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(doc) ->
+    [];
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_LARGE),
+    Num = ?TPP_LARGE_NUM,
+    tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(30)),
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -10203,6 +11383,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) 
            fun() ->
                    ?TT(?SECS(60)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
@@ -10229,7 +11410,36 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) 
            fun() -> has_support_ipv6() end,
            fun() ->
                    ?TT(?SECS(30)),
-                   InitState = #{domain => inet,
+                   InitState = #{domain => inet6,
+                                 proto  => udp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for Unix Domain (dgram) socket.
+
+traffic_ping_pong_small_sendmsg_and_recvmsg_udpL(suite) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_udpL(doc) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(30)),
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
@@ -10256,6 +11466,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config)
            fun() ->
                    ?TT(?SECS(30)),
                    InitState = #{domain => inet,
+                                 proto  => udp,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
@@ -10282,7 +11493,37 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config)
            fun() -> has_support_ipv6() end,
            fun() ->
                    ?TT(?SECS(20)),
-                   InitState = #{domain => ine6,
+                   InitState = #{domain => inet6,
+                                 proto  => udp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for Unix Domain (dgram) socket.
+
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(suite) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(doc) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   ?TT(?SECS(20)),
+                   InitState = #{domain => local,
+                                 proto  => default,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
@@ -10302,14 +11543,26 @@ traffic_ping_pong_send_and_recv_tcp(InitState) ->
                            },
     traffic_ping_pong_send_and_receive_tcp(InitState2).
 
-traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
-    Send = fun(Sock, Data) when is_binary(Data) ->
-                   MsgHdr = #{iov => [Data]},
-                   socket:sendmsg(Sock, MsgHdr);
-              (Sock, Data) when is_list(Data) -> %% We assume iovec...
-                   MsgHdr = #{iov => Data},
-                   socket:sendmsg(Sock, MsgHdr)
+traffic_ping_pong_sendmsg_and_recvmsg_tcp(#{domain := local} = InitState) ->
+    Recv = fun(Sock, Sz)   -> 
+                   case socket:recvmsg(Sock, Sz, 0) of
+                       %% On some platforms, the address
+                       %% is *not* provided (e.g. FreeBSD)
+                       {ok, #{addr  := undefined,
+                              iov   := [Data]}} ->
+                           {ok, Data};
+                       %% On some platforms, the address
+                       %% *is* provided (e.g. linux)
+                       {ok, #{addr  := #{family := local},
+                              iov   := [Data]}} ->
+                           {ok, Data};
+                       {error, _} = ERROR ->
+                           ERROR
+                   end
            end,
+    InitState2 = InitState#{recv => Recv},  % Receive function
+    traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState2);
+traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
     Recv = fun(Sock, Sz)   -> 
                    case socket:recvmsg(Sock, Sz, 0) of
                        {ok, #{addr  := undefined,
@@ -10319,9 +11572,18 @@ traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
                            ERROR
                    end
            end,
-    InitState2 = InitState#{send => Send, % Send function
-                            recv => Recv  % Receive function
-                           },
+    InitState2 = InitState#{recv => Recv},  % Receive function
+    traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState2).
+
+traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState) ->
+    Send = fun(Sock, Data) when is_binary(Data) ->
+                   MsgHdr = #{iov => [Data]},
+                   socket:sendmsg(Sock, MsgHdr);
+              (Sock, Data) when is_list(Data) -> %% We assume iovec...
+                   MsgHdr = #{iov => Data},
+                   socket:sendmsg(Sock, MsgHdr)
+           end,
+    InitState2 = InitState#{send => Send}, % Send function
     traffic_ping_pong_send_and_receive_tcp(InitState2).
 
 
@@ -10381,13 +11643,12 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -10395,9 +11656,19 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock, local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -10412,7 +11683,11 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, lport := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester, local_sa := LSA}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester := Tester, local_sa := LSA, lport := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -10523,9 +11798,20 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            {ok, State1}
                    end},
          #{desc => "close listen socket",
-           cmd  => fun(#{lsock := Sock} = State) ->
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
                            (catch socket:close(Sock)),
-                            {ok, maps:remove(lsock, State)}
+                           State1 =
+                               unlink_path(Path,
+                                           fun() -> 
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := Sock} = State) ->
+                           (catch socket:close(Sock)),
+                           {ok, maps:remove(lsock, State)}
                    end},
 
          %% *** We are done ***
@@ -10577,12 +11863,14 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                    end},
          #{desc => "order remote client to start",
            cmd  => fun(#{rclient   := RClient,
+                         proto     := Proto,
                          server_sa := ServerSA,
                          buf_init  := BufInit,
                          send      := Send,
                          recv      := Recv}) ->
                            ?SEV_ANNOUNCE_START(RClient, 
-                                               {ServerSA, BufInit, Send, Recv}),
+                                               {ServerSA, Proto, BufInit,
+                                                Send, Recv}),
                            ok
                    end},
          #{desc => "await remote client ready",
@@ -10883,6 +12171,7 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
 
     i("start server evaluator"),
     ServerInitState = #{domain   => maps:get(domain,   InitState),
+                        proto    => maps:get(proto,    InitState),
                         recv     => maps:get(recv,     InitState),
                         send     => maps:get(send,     InitState),
                         buf_init => maps:get(buf_init, InitState)},
@@ -10976,14 +12265,6 @@ tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, N, Sent, Received, Start) ->
                     ?SEV_EPRINT("send (~w): ~p", [N, SReason]),
                     exit({send, SReason, N})
             end;
-        %% {error, timeout} ->
-        %%     ?SEV_IPRINT("timeout(~w) - try again", [N]),
-        %%     case Send(Sock, list_to_binary("ping")) of
-        %%         ok ->
-        %%             exit({'ping-send', ok, N});
-        %%         {error, Reason} ->
-        %%             exit({'ping-send', Reason, N})
-        %%     end;
         {error, closed} ->
             ?SEV_IPRINT("closed - we are done: ~w, ~w, ~w", [N, Sent, Received]),
             Stop = ?LIB:timestamp(),
@@ -11002,10 +12283,10 @@ tpp_tcp_client_create(Node) ->
 
 tpp_tcp_client(Parent) ->
     tpp_tcp_client_init(Parent),
-    {ServerSA, BufInit, Send, Recv} = tpp_tcp_client_await_start(Parent),
+    {ServerSA, Proto, BufInit, Send, Recv} = tpp_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
-    Sock     = tpp_tcp_client_sock_open(Domain, BufInit),
-    tpp_tcp_client_sock_bind(Sock, Domain),
+    Sock     = tpp_tcp_client_sock_open(Domain, Proto, BufInit),
+    Path     = tpp_tcp_client_sock_bind(Sock, Domain),
     tpp_tcp_client_announce_ready(Parent, init),
     tpp_tcp_client_await_continue(Parent, connect),
     tpp_tcp_client_sock_connect(Sock, ServerSA),
@@ -11014,7 +12295,7 @@ tpp_tcp_client(Parent) ->
     Result = tpp_tcp_client_msg_exchange(Sock, Send, Recv, InitMsg, Num),
     tpp_tcp_client_announce_ready(Parent, send, Result),
     Reason = tpp_tcp_client_await_terminate(Parent),
-    tpp_tcp_client_sock_close(Sock),
+    tpp_tcp_client_sock_close(Sock, Path),
     ?SEV_IPRINT("terminating"),
     exit(Reason).
 
@@ -11054,8 +12335,10 @@ tpp_tcp_client_await_terminate(Parent) ->
     ?SEV_IPRINT("await terminate"),
     case ?SEV_AWAIT_TERMINATE(Parent, parent) of
         ok ->
-            ok;
+            ?SEV_IPRINT("termination received: normal"),
+            normal;
         {error, Reason} ->
+            ?SEV_IPRINT("termination received: ~w", [Reason]),
             Reason
     end.
 
@@ -11099,8 +12382,8 @@ tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data,
             exit({send, SReason, N})
     end.
 
-tpp_tcp_client_sock_open(Domain, BufInit) ->
-    case socket:open(Domain, stream, tcp) of
+tpp_tcp_client_sock_open(Domain, Proto, BufInit) ->
+    case socket:open(Domain, stream, Proto) of
         {ok, Sock} ->
             ok = BufInit(Sock),
             Sock;
@@ -11109,14 +12392,19 @@ tpp_tcp_client_sock_open(Domain, BufInit) ->
     end.
 
 tpp_tcp_client_sock_bind(Sock, Domain) ->
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain, 
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
-            ok;
-        {error, Reason} ->
-            exit({bind, Reason})
+            case socket:sockname(Sock) of
+                {ok, #{family := local, path := Path}} ->
+                    Path;
+                {ok, _} ->
+                    undefined;
+                {error, Reason1} ->
+                    exit({sockname, Reason1})
+            end;
+        {error, Reason2} ->
+            exit({bind, Reason2})
     end.
 
 tpp_tcp_client_sock_connect(Sock, ServerSA) ->
@@ -11127,14 +12415,20 @@ tpp_tcp_client_sock_connect(Sock, ServerSA) ->
             exit({connect, Reason})
     end.
 
-tpp_tcp_client_sock_close(Sock) ->
+tpp_tcp_client_sock_close(Sock, Path) ->
     case socket:close(Sock) of
         ok ->
+            unlink_path(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("failed closing: "
+                        "~n   Reason: ~p", [Reason]),
+            unlink_path(Path),
+            {error, {close, Reason}}
     end.
 
+    
+    
 -define(TPP_REQUEST, 1).
 -define(TPP_REPLY,   2).
 
@@ -11300,13 +12594,12 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, dgram, udp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, dgram, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
@@ -11314,7 +12607,15 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{sock := Sock, local_sa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         sock := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{sock := Sock, local_sa := LSA} = State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{port => Port}};
@@ -11357,7 +12658,11 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                            end
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester, local_sa := LSA, port := Port}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester, local_sa := LSA}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, LSA),
+                           ok;
+                      (#{tester := Tester, local_sa := LSA, port := Port}) ->
                            ServerSA = LSA#{port => Port},
                            ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
                            ok
@@ -11395,6 +12700,19 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                                {error, _} = ERROR ->
                                    ERROR
                            end
+                   end},
+         #{desc => "(maybe) unlink socket",
+           cmd  => fun(#{domain   := local,
+                         local_sa := #{path := Path}} = State) ->
+                           unlink_path(Path,
+                                       fun() ->
+                                               {ok, maps:remove(local_sa, State)}
+                                       end,
+                                       fun() ->
+                                               ok
+                                       end);
+                      (_) ->
+                           ok
                    end},
          #{desc => "announce ready (close)",
            cmd  => fun(#{tester := Tester} = _State) ->
@@ -11492,11 +12810,13 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          #{desc => "order remote handler to start",
            cmd  => fun(#{handler   := Handler,
                          server_sa := ServerSA,
+                         proto     := Proto,
                          buf_init  := BufInit,
                          send      := Send,
                          recv      := Recv}) ->
                            ?SEV_ANNOUNCE_START(Handler, 
-                                               {ServerSA, BufInit, Send, Recv}),
+                                               {ServerSA, Proto, BufInit,
+                                                Send, Recv}),
                            ok
                    end},
          #{desc => "await (remote) handler ready",
@@ -11741,6 +13061,7 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
 
     i("start server evaluator"),
     ServerInitState = #{domain   => maps:get(domain,   InitState),
+                        proto    => maps:get(proto,    InitState),
                         recv     => maps:get(recv,     InitState),
                         send     => maps:get(send,     InitState),
                         buf_init => maps:get(buf_init, InitState)},
@@ -11841,12 +13162,12 @@ tpp_udp_client_handler_create(Node) ->
 tpp_udp_client_handler(Parent) ->
     tpp_udp_client_handler_init(Parent),
     ?SEV_IPRINT("await start command"),
-    {ServerSA, BufInit, Send, Recv} = tpp_udp_handler_await_start(Parent),
+    {ServerSA, Proto, BufInit, Send, Recv} = tpp_udp_handler_await_start(Parent),
     ?SEV_IPRINT("start command with"
                 "~n   ServerSA: ~p", [ServerSA]),
     Domain   = maps:get(family, ServerSA),
-    Sock     = tpp_udp_sock_open(Domain, BufInit),
-    tpp_udp_sock_bind(Sock, Domain),
+    Sock     = tpp_udp_sock_open(Domain, Proto, BufInit),
+    Path     = tpp_udp_sock_bind(Sock, Domain),
     ?SEV_IPRINT("announce ready", []),
     tpp_udp_handler_announce_ready(Parent, init),
     {InitMsg, Num} = tpp_udp_handler_await_continue(Parent, send),
@@ -11859,7 +13180,7 @@ tpp_udp_client_handler(Parent) ->
     ?SEV_IPRINT("await terminate"),
     Reason = tpp_udp_handler_await_terminate(Parent),
     ?SEV_IPRINT("terminate with ~p", [Reason]),
-    tpp_udp_sock_close(Sock),
+    tpp_udp_sock_close(Sock, Path),
     ?SEV_IPRINT("terminating"),
     exit(Reason).
 
@@ -11997,8 +13318,8 @@ tpp_udp_handler_await_terminate(Parent) ->
     end.
 
 
-tpp_udp_sock_open(Domain, BufInit) ->
-    case socket:open(Domain, dgram, udp) of
+tpp_udp_sock_open(Domain, Proto, BufInit) ->
+    case socket:open(Domain, dgram, Proto) of
         {ok, Sock} ->
             ok = BufInit(Sock),
             Sock;
@@ -12007,9 +13328,7 @@ tpp_udp_sock_open(Domain, BufInit) ->
     end.
 
 tpp_udp_sock_bind(Sock, Domain) ->
-    LAddr = which_local_addr(Domain),
-    LSA   = #{family => Domain, 
-              addr   => LAddr},
+    LSA = which_local_socket_addr(Domain),
     case socket:bind(Sock, LSA) of
         {ok, _} ->
             ok;
@@ -12017,12 +13336,16 @@ tpp_udp_sock_bind(Sock, Domain) ->
             exit({bind, Reason})
     end.
 
-tpp_udp_sock_close(Sock) ->
+tpp_udp_sock_close(Sock, Path) ->
     case socket:close(Sock) of
         ok ->
+            unlink_path(Path),
             ok;
         {error, Reason} ->
-            exit({close, Reason})
+            ?SEV_EPRINT("Failed closing socket: "
+                        "~n   ~p", [Reason]),
+            unlink_path(Path),
+            {error, {close, Reason}}
     end.
 
 
@@ -15104,6 +16427,30 @@ ttest_ssockf_csockf_small_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = false
 %% Client:       Transport = socket(tcp), Active = false
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csockf_small_tcpL(suite) ->
+    [];
+ttest_ssockf_csockf_small_tcpL(doc) ->
+    [];
+ttest_ssockf_csockf_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csockf_small_tcpL,
+              Runtime,
+              local,
+              sock, false,
+              sock, false,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = false
 %% Message Size: medium (=2)
 %% Domain:       inet
 %%
@@ -15152,6 +16499,30 @@ ttest_ssockf_csockf_medium_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = false
 %% Client:       Transport = socket(tcp), Active = false
+%% Message Size: medium (=2)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csockf_medium_tcpL(suite) ->
+    [];
+ttest_ssockf_csockf_medium_tcpL(doc) ->
+    [];
+ttest_ssockf_csockf_medium_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csockf_medium_tcpL,
+              Runtime,
+              local,
+              sock, false,
+              sock, false,
+              2, 20).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = false
 %% Message Size: large (=3)
 %% Domain:       inet
 %%
@@ -15189,6 +16560,30 @@ ttest_ssockf_csockf_large_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssockf_csockf_large_tcp6,
               Runtime,
               inet6,
+              sock, false,
+              sock, false,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csockf_large_tcpL(suite) ->
+    [];
+ttest_ssockf_csockf_large_tcpL(doc) ->
+    [];
+ttest_ssockf_csockf_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csockf_large_tcpL,
+              Runtime,
+              local,
               sock, false,
               sock, false,
               3, 2).
@@ -15248,6 +16643,30 @@ ttest_ssockf_csocko_small_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = false
 %% Client:       Transport = socket(tcp), Active = once
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csocko_small_tcpL(suite) ->
+    [];
+ttest_ssockf_csocko_small_tcpL(doc) ->
+    [];
+ttest_ssockf_csocko_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csocko_small_tcpL,
+              Runtime,
+              local,
+              sock, false,
+              sock, once,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = once
 %% Message Size: medium (=2)
 %% Domain:       inet
 %%
@@ -15285,6 +16704,30 @@ ttest_ssockf_csocko_medium_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssockf_csocko_medium_tcp6,
               Runtime,
               inet6,
+              sock, false,
+              sock, once,
+              2, 20).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = once
+%% Message Size: medium (=2)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csocko_medium_tcpL(suite) ->
+    [];
+ttest_ssockf_csocko_medium_tcpL(doc) ->
+    [];
+ttest_ssockf_csocko_medium_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csocko_medium_tcpL,
+              Runtime,
+              local,
               sock, false,
               sock, once,
               2, 20).
@@ -15343,6 +16786,30 @@ ttest_ssockf_csocko_large_tcp6(Config) when is_list(Config) ->
 %% This test case uses the time test (ttest) utility to implement a 
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = once
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csocko_large_tcpL(suite) ->
+    [];
+ttest_ssockf_csocko_large_tcpL(doc) ->
+    [];
+ttest_ssockf_csocko_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csocko_large_tcpL,
+              Runtime,
+              local,
+              sock, false,
+              sock, once,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
 %% Client:       Transport = socket(tcp), Active = true
 %% Message Size: small (=1)
 %% Domain:       inet
@@ -15381,6 +16848,30 @@ ttest_ssockf_csockt_small_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssockf_csocko_small_tcp6,
               Runtime,
               inet6,
+              sock, false,
+              sock, true,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport =  socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = true
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csockt_small_tcpL(suite) ->
+    [];
+ttest_ssockf_csockt_small_tcpL(doc) ->
+    [];
+ttest_ssockf_csockt_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csocko_small_tcpL,
+              Runtime,
+              local,
               sock, false,
               sock, true,
               1, 200).
@@ -15440,6 +16931,30 @@ ttest_ssockf_csockt_medium_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = false
 %% Client:       Transport = socket(tcp), Active = true
+%% Message Size: medium (=2)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csockt_medium_tcpL(suite) ->
+    [];
+ttest_ssockf_csockt_medium_tcpL(doc) ->
+    [];
+ttest_ssockf_csockt_medium_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csockt_medium_tcpL,
+              Runtime,
+              local,
+              sock, false,
+              sock, true,
+              2, 20).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = true
 %% Message Size: large (=3)
 %% Domain:       inet
 %%
@@ -15477,6 +16992,30 @@ ttest_ssockf_csockt_large_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssockf_csockt_large_tcp6,
               Runtime,
               inet6,
+              sock, false,
+              sock, true,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = false
+%% Client:       Transport = socket(tcp), Active = true
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssockf_csockt_large_tcpL(suite) ->
+    [];
+ttest_ssockf_csockt_large_tcpL(doc) ->
+    [];
+ttest_ssockf_csockt_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockf_csockt_large_tcpL,
+              Runtime,
+              local,
               sock, false,
               sock, true,
               3, 2).
@@ -15968,6 +17507,30 @@ ttest_ssocko_csockf_small_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = once
 %% Client:       Transport = socket(tcp), Active = false
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssocko_csockf_small_tcpL(suite) ->
+    [];
+ttest_ssocko_csockf_small_tcpL(doc) ->
+    [];
+ttest_ssocko_csockf_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssocko_csockf_small_tcpL,
+              Runtime,
+              local,
+              sock, once,
+              sock, false,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = once
+%% Client:       Transport = socket(tcp), Active = false
 %% Message Size: medium (=2)
 %% Domain:       inet
 %%
@@ -16016,6 +17579,30 @@ ttest_ssocko_csockf_medium_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = once
 %% Client:       Transport = socket(tcp), Active = false
+%% Message Size: medium (=2)
+%% Domain:       local
+%% 
+
+ttest_ssocko_csockf_medium_tcpL(suite) ->
+    [];
+ttest_ssocko_csockf_medium_tcpL(doc) ->
+    [];
+ttest_ssocko_csockf_medium_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssocko_csockf_medium_tcpL,
+              Runtime,
+              local,
+              sock, once,
+              sock, false,
+              2, 20).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = once
+%% Client:       Transport = socket(tcp), Active = false
 %% Message Size: large (=3)
 %% Domain:       inet
 %%
@@ -16053,6 +17640,30 @@ ttest_ssocko_csockf_large_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssocko_csockf_large_tcp6,
               Runtime,
               inet6,
+              sock, once,
+              sock, false,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = once
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssocko_csockf_large_tcpL(suite) ->
+    [];
+ttest_ssocko_csockf_large_tcpL(doc) ->
+    [];
+ttest_ssocko_csockf_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssocko_csockf_large_tcpL,
+              Runtime,
+              local,
               sock, once,
               sock, false,
               3, 2).
@@ -16112,6 +17723,30 @@ ttest_ssocko_csocko_small_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = once
 %% Client:       Transport = socket(tcp), Active = once
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssocko_csocko_small_tcpL(suite) ->
+    [];
+ttest_ssocko_csocko_small_tcpL(doc) ->
+    [];
+ttest_ssocko_csocko_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssocko_csocko_small_tcpL,
+              Runtime,
+              local,
+              sock, once,
+              sock, once,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = once
+%% Client:       Transport = socket(tcp), Active = once
 %% Message Size: medium (=2)
 %% Domain:       inet
 %%
@@ -16149,6 +17784,30 @@ ttest_ssocko_csocko_medium_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssocko_csocko_medium_tcp6,
               Runtime,
               inet6,
+              sock, once,
+              sock, once,
+              2, 20).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = once
+%% Client:       Transport = socket(tcp), Active = once
+%% Message Size: medium (=2)
+%% Domain:       local
+%% 
+
+ttest_ssocko_csocko_medium_tcpL(suite) ->
+    [];
+ttest_ssocko_csocko_medium_tcpL(doc) ->
+    [];
+ttest_ssocko_csocko_medium_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssocko_csocko_medium_tcpL,
+              Runtime,
+              local,
               sock, once,
               sock, once,
               2, 20).
@@ -16207,6 +17866,30 @@ ttest_ssocko_csocko_large_tcp6(Config) when is_list(Config) ->
 %% This test case uses the time test (ttest) utility to implement a 
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = once
+%% Client:       Transport = socket(tcp), Active = once
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssocko_csocko_large_tcpL(suite) ->
+    [];
+ttest_ssocko_csocko_large_tcpL(doc) ->
+    [];
+ttest_ssocko_csocko_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssocko_csocko_large_tcpL,
+              Runtime,
+              local,
+              sock, once,
+              sock, once,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = once
 %% Client:       Transport = socket(tcp), Active = true
 %% Message Size: small (=1)
 %% Domain:       inet
@@ -16245,6 +17928,30 @@ ttest_ssocko_csockt_small_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssocko_csocko_small_tcp6,
               Runtime,
               inet6,
+              sock, once,
+              sock, true,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport =  socket(tcp), Active = once
+%% Client:       Transport = socket(tcp), Active = true
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssocko_csockt_small_tcpL(suite) ->
+    [];
+ttest_ssocko_csockt_small_tcpL(doc) ->
+    [];
+ttest_ssocko_csockt_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssocko_csocko_small_tcpL,
+              Runtime,
+              local,
               sock, once,
               sock, true,
               1, 200).
@@ -16304,6 +18011,30 @@ ttest_ssocko_csockt_medium_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = once
 %% Client:       Transport = socket(tcp), Active = true
+%% Message Size: medium (=2)
+%% Domain:       local
+%% 
+
+ttest_ssocko_csockt_medium_tcpL(suite) ->
+    [];
+ttest_ssocko_csockt_medium_tcpL(doc) ->
+    [];
+ttest_ssocko_csockt_medium_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssocko_csockt_medium_tcpL,
+              Runtime,
+              local,
+              sock, once,
+              sock, true,
+              2, 20).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = once
+%% Client:       Transport = socket(tcp), Active = true
 %% Message Size: large (=3)
 %% Domain:       inet
 %%
@@ -16341,6 +18072,30 @@ ttest_ssocko_csockt_large_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssocko_csockt_large_tcp6,
               Runtime,
               inet6,
+              sock, once,
+              sock, true,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = once
+%% Client:       Transport = socket(tcp), Active = true
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssocko_csockt_large_tcpL(suite) ->
+    [];
+ttest_ssocko_csockt_large_tcpL(doc) ->
+    [];
+ttest_ssocko_csockt_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssocko_csockt_large_tcpL,
+              Runtime,
+              local,
               sock, once,
               sock, true,
               3, 2).
@@ -16832,6 +18587,30 @@ ttest_ssockt_csockf_small_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = true
 %% Client:       Transport = socket(tcp), Active = false
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssockt_csockf_small_tcpL(suite) ->
+    [];
+ttest_ssockt_csockf_small_tcpL(doc) ->
+    [];
+ttest_ssockt_csockf_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockt_csockf_small_tcpL,
+              Runtime,
+              local,
+              sock, true,
+              sock, false,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = false
 %% Message Size: medium (=2)
 %% Domain:       inet
 %%
@@ -16880,6 +18659,30 @@ ttest_ssockt_csockf_medium_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = true
 %% Client:       Transport = socket(tcp), Active = false
+%% Message Size: medium (=2)
+%% Domain:       local
+%% 
+
+ttest_ssockt_csockf_medium_tcpL(suite) ->
+    [];
+ttest_ssockt_csockf_medium_tcpL(doc) ->
+    [];
+ttest_ssockt_csockf_medium_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockt_csockf_medium_tcpL,
+              Runtime,
+              local,
+              sock, true,
+              sock, false,
+              2, 20).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = false
 %% Message Size: large (=3)
 %% Domain:       inet
 %%
@@ -16917,6 +18720,30 @@ ttest_ssockt_csockf_large_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssockt_csockf_large_tcp6,
               Runtime,
               inet6,
+              sock, true,
+              sock, false,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = false
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssockt_csockf_large_tcpL(suite) ->
+    [];
+ttest_ssockt_csockf_large_tcpL(doc) ->
+    [];
+ttest_ssockt_csockf_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockt_csockf_large_tcpL,
+              Runtime,
+              local,
               sock, true,
               sock, false,
               3, 2).
@@ -16976,6 +18803,30 @@ ttest_ssockt_csocko_small_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = true
 %% Client:       Transport = socket(tcp), Active = once
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssockt_csocko_small_tcpL(suite) ->
+    [];
+ttest_ssockt_csocko_small_tcpL(doc) ->
+    [];
+ttest_ssockt_csocko_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockt_csocko_small_tcpL,
+              Runtime,
+              local,
+              sock, true,
+              sock, once,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = once
 %% Message Size: medium (=2)
 %% Domain:       inet
 %%
@@ -17013,6 +18864,30 @@ ttest_ssockt_csocko_medium_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssockt_csocko_medium_tcp6,
               Runtime,
               inet6,
+              sock, true,
+              sock, once,
+              2, 20).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = once
+%% Message Size: medium (=2)
+%% Domain:       local
+%% 
+
+ttest_ssockt_csocko_medium_tcpL(suite) ->
+    [];
+ttest_ssockt_csocko_medium_tcpL(doc) ->
+    [];
+ttest_ssockt_csocko_medium_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockt_csocko_medium_tcpL,
+              Runtime,
+              local,
               sock, true,
               sock, once,
               2, 20).
@@ -17071,6 +18946,30 @@ ttest_ssockt_csocko_large_tcp6(Config) when is_list(Config) ->
 %% This test case uses the time test (ttest) utility to implement a 
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = once
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssockt_csocko_large_tcpL(suite) ->
+    [];
+ttest_ssockt_csocko_large_tcpL(doc) ->
+    [];
+ttest_ssockt_csocko_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockt_csocko_large_tcpL,
+              Runtime,
+              local,
+              sock, true,
+              sock, once,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
 %% Client:       Transport = socket(tcp), Active = true
 %% Message Size: small (=1)
 %% Domain:       inet
@@ -17109,6 +19008,30 @@ ttest_ssockt_csockt_small_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssockt_csocko_small_tcp6,
               Runtime,
               inet6,
+              sock, true,
+              sock, true,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport =  socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = true
+%% Message Size: small (=1)
+%% Domain:       local
+%% 
+
+ttest_ssockt_csockt_small_tcpL(suite) ->
+    [];
+ttest_ssockt_csockt_small_tcpL(doc) ->
+    [];
+ttest_ssockt_csockt_small_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockt_csocko_small_tcpL,
+              Runtime,
+              local,
               sock, true,
               sock, true,
               1, 200).
@@ -17168,6 +19091,30 @@ ttest_ssockt_csockt_medium_tcp6(Config) when is_list(Config) ->
 %% ping-pong like test case.
 %% Server:       Transport = socket(tcp), Active = true
 %% Client:       Transport = socket(tcp), Active = true
+%% Message Size: medium (=2)
+%% Domain:       local
+%% 
+
+ttest_ssockt_csockt_medium_tcpL(suite) ->
+    [];
+ttest_ssockt_csockt_medium_tcpL(doc) ->
+    [];
+ttest_ssockt_csockt_medium_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockt_csockt_medium_tcpL,
+              Runtime,
+              local,
+              sock, true,
+              sock, true,
+              2, 20).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = true
 %% Message Size: large (=3)
 %% Domain:       inet
 %%
@@ -17205,6 +19152,30 @@ ttest_ssockt_csockt_large_tcp6(Config) when is_list(Config) ->
     ttest_tcp(ttest_ssockt_csockt_large_tcp6,
               Runtime,
               inet6,
+              sock, true,
+              sock, true,
+              3, 2).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+%% Server:       Transport = socket(tcp), Active = true
+%% Client:       Transport = socket(tcp), Active = true
+%% Message Size: large (=3)
+%% Domain:       local
+%% 
+
+ttest_ssockt_csockt_large_tcpL(suite) ->
+    [];
+ttest_ssockt_csockt_large_tcpL(doc) ->
+    [];
+ttest_ssockt_csockt_large_tcpL(Config) when is_list(Config) ->
+    Runtime = which_ttest_runtime(Config),
+    ttest_tcp(ttest_ssockt_csockt_large_tcpL,
+              Runtime,
+              local,
               sock, true,
               sock, true,
               3, 2).
@@ -17272,7 +19243,8 @@ ttest_tcp(TC,
     tc_try(TC,
            fun() ->
                    if
-                       (Domain =/= inet) -> has_support_ipv6(); 
+                       (Domain =:= local) -> has_support_unix_domain_socket(); 
+                       (Domain =:= inet6) -> has_support_ipv6(); 
                        true -> ok 
                    end
            end,
@@ -17326,11 +19298,25 @@ ttest_tcp(InitState) ->
                            ok
                    end},
          #{desc => "start ttest (remote) server",
-           cmd  => fun(#{mod    := Mod,
+           cmd  => fun(#{domain := local = Domain,
+                         mod    := Mod,
                          active := Active,
                          node   := Node} = State) ->
-                           case ttest_tcp_server_start(Node, Mod, Active) of
-                               {ok, {{Pid, _MRef}, {Addr, Port}}} ->
+                           case ttest_tcp_server_start(Node,
+                                                       Domain, Mod, Active) of
+                               {ok, {{Pid, _}, Path}} ->
+                                   {ok, State#{rserver => Pid,
+                                               path    => Path}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{domain := Domain,
+                         mod    := Mod,
+                         active := Active,
+                         node   := Node} = State) ->
+                           case ttest_tcp_server_start(Node,
+                                                       Domain, Mod, Active) of
+                               {ok, {{Pid, _}, {Addr, Port}}} ->
                                    {ok, State#{rserver => Pid,
                                                addr    => Addr,
                                                port    => Port}};
@@ -17339,7 +19325,12 @@ ttest_tcp(InitState) ->
                            end
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{tester := Tester,
+           cmd  => fun(#{domain := local,
+                         tester := Tester,
+                         path   := Path}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok;
+                      (#{tester := Tester,
                          addr   := Addr,
                          port   := Port}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, {Addr, Port}),
@@ -17394,8 +19385,14 @@ ttest_tcp(InitState) ->
         [
          %% *** Wait for start order part ***
          #{desc => "await start",
-           cmd  => fun(State) ->
-                           {Tester, {ServerAddr, ServerPort}} = ?SEV_AWAIT_START(),
+           cmd  => fun(#{domain := local} = State) ->
+                           {Tester, ServerPath} = 
+                               ?SEV_AWAIT_START(),
+                           {ok, State#{tester      => Tester,
+                                       server_path => ServerPath}};
+                      (State) ->
+                           {Tester, {ServerAddr, ServerPort}} = 
+                               ?SEV_AWAIT_START(),
                            {ok, State#{tester      => Tester,
                                        server_addr => ServerAddr,
                                        server_port => ServerPort}}
@@ -17436,7 +19433,32 @@ ttest_tcp(InitState) ->
                            ok
                    end},
          #{desc => "start ttest (remote) client",
-           cmd  => fun(#{node            := Node,
+           cmd  => fun(#{domain          := local = Domain,
+                         node            := Node,
+                         mod             := Mod,
+                         active          := Active,
+                         msg_id          := MsgID,
+                         max_outstanding := MaxOutstanding,
+                         runtime         := RunTime,
+                         server_path     := Path} = State) ->
+                           Self   = self(),
+                           Notify =
+                               fun(Result) ->
+                                       ?SEV_ANNOUNCE_READY(Self, ttest, Result)
+                               end,                           
+                           case ttest_tcp_client_start(Node, Notify,
+                                                       Domain, Mod,
+                                                       Path,
+                                                       Active,
+                                                       MsgID, MaxOutstanding,
+                                                       RunTime) of
+                               {ok, {Pid, _MRef}} ->
+                                   {ok, State#{rclient => Pid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{domain          := Domain,
+                         node            := Node,
                          mod             := Mod,
                          active          := Active,
                          msg_id          := MsgID,
@@ -17450,8 +19472,9 @@ ttest_tcp(InitState) ->
                                        ?SEV_ANNOUNCE_READY(Self, ttest, Result)
                                end,                           
                            case ttest_tcp_client_start(Node, Notify,
-                                                       Mod, Active,
-                                                       Addr, Port,
+                                                       Domain, Mod,
+                                                       {Addr, Port},
+                                                       Active,
                                                        MsgID, MaxOutstanding,
                                                        RunTime) of
                                {ok, {Pid, _MRef}} ->
@@ -17463,8 +19486,6 @@ ttest_tcp(InitState) ->
          #{desc => "await ttest ready",
            cmd  => fun(#{tester  := Tester,
                          rclient := RClient} = State) ->
-                           %% TTestResult = ?SEV_AWAIT_READY(RClient, rclient, ttest, 
-                           %%                                [{tester, Tester}]),
                            case ?SEV_AWAIT_READY(RClient, rclient, ttest, 
                                                  [{tester, Tester}]) of
                              {ok, Result} ->
@@ -17535,8 +19556,13 @@ ttest_tcp(InitState) ->
                            ok
                    end},
          #{desc => "await server ready (init)",
-           cmd  => fun(#{server := Pid} = State) ->
-                           {ok, {Addr, Port}} = ?SEV_AWAIT_READY(Pid, server, init),
+           cmd  => fun(#{domain := local,
+                         server := Pid} = State) ->
+                           {ok, Path} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{server_path => Path}};
+                      (#{server := Pid} = State) ->
+                           {ok, {Addr, Port}} =
+                               ?SEV_AWAIT_READY(Pid, server, init),
                            {ok, State#{server_addr => Addr,
                                        server_port => Port}}
                    end},
@@ -17544,7 +19570,12 @@ ttest_tcp(InitState) ->
 
          %% Start the client
          #{desc => "order client start",
-           cmd  => fun(#{client      := Pid,
+           cmd  => fun(#{domain      := local,
+                         client      := Pid,
+                         server_path := Path} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, Path),
+                           ok;
+                      (#{client      := Pid,
                          server_addr := Addr,
                          server_port := Port} = _State) ->
                            ?SEV_ANNOUNCE_START(Pid, {Addr, Port}),
@@ -17683,7 +19714,8 @@ ttest_tcp(InitState) ->
     Client          = ?SEV_START("client", ClientSeq, ClientInitState),
     
     i("start 'tester' evaluator"),
-    TesterInitState = #{server => Server#ev.pid,
+    TesterInitState = #{domain => maps:get(domain, InitState),
+                        server => Server#ev.pid,
                         client => Client#ev.pid},
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
@@ -17692,12 +19724,12 @@ ttest_tcp(InitState) ->
 
 
 
-ttest_tcp_server_start(Node, gen, Active) ->
+ttest_tcp_server_start(Node, _Domain, gen, Active) ->
     Transport = socket_test_ttest_tcp_gen,
     socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active);
-ttest_tcp_server_start(Node, sock, Active) ->
+ttest_tcp_server_start(Node, Domain, sock, Active) ->
     TransportMod = socket_test_ttest_tcp_socket,
-    Transport    = {TransportMod, #{method => plain}},
+    Transport    = {TransportMod, #{domain => Domain, method => plain}},
     socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active).
 
 ttest_tcp_server_stop(Pid) ->
@@ -17705,26 +19737,26 @@ ttest_tcp_server_stop(Pid) ->
 
 ttest_tcp_client_start(Node,
                        Notify,
-                       gen,
-                       Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+                       _Domain, gen,
+                       ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     Transport = socket_test_ttest_tcp_gen,
     socket_test_ttest_tcp_client:start_monitor(Node,
                                                Notify,
                                                Transport,
+                                               ServerInfo,
                                                Active,
-                                               Addr, Port,
                                                MsgID, MaxOutstanding, RunTime);
 ttest_tcp_client_start(Node,
                        Notify,
-                       sock,
-                       Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+                       Domain, sock,
+                       ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
     TransportMod = socket_test_ttest_tcp_socket,
-    Transport    = {TransportMod, #{method => plain}},
+    Transport    = {TransportMod, #{domain => Domain, method => plain}},
     socket_test_ttest_tcp_client:start_monitor(Node,
                                                Notify,
                                                Transport,
+                                               ServerInfo,
                                                Active,
-                                               Addr, Port,
                                                MsgID, MaxOutstanding, RunTime).
 
 
@@ -17800,19 +19832,6 @@ sock_open(Domain, Type, Proto) ->
             ?FAIL({open, C, E, S})
     end.
 
-
-sock_bind(Sock, SockAddr) ->
-    try socket:bind(Sock, SockAddr) of
-        {ok, Port} ->
-            Port;
-        {error, Reason} ->
-            i("sock_bind -> error: ~p", [Reason]),
-            ?FAIL({bind, Reason})
-    catch
-        C:E:S ->
-            i("sock_bind -> failed: ~p, ~p, ~p", [C, E, S]),
-            ?FAIL({bind, C, E, S})
-    end.
 
 sock_connect(Sock, SockAddr) ->
     try socket:connect(Sock, SockAddr) of
@@ -17899,13 +19918,50 @@ local_host() ->
     end.
 
 
+%% The point of this is to "ensure" that paths from different test runs
+%% don't clash.
+mk_unique_path() ->
+    [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
+    Path = ?LIB:f("/tmp/esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]),
+    ensure_unique_path(Path).
+
+ensure_unique_path(Path) ->
+    case file:read_file_info(Path) of
+        {ok, _} -> % Ouch, append a unique ID and try again
+            ensure_unique_path(Path, 1);
+        {error, _} ->
+            %% We assume this means it does not exist yet...
+            %% If we have several process in paralell trying to create
+            %% (unique) path's, then we are in trouble. To *really* be
+            %% on the safe side we should have a (central) path registry...
+            Path
+    end.
+
+ensure_unique_path(Path, ID) when (ID < 100) -> % If this is not enough...
+    NewPath = ?LIB:f("~s_~w", [Path, ID]),
+    case file:read_file_info(NewPath) of
+        {ok, _} -> % Ouch, this also existed, increment and try again
+            ensure_unique_path(Path, ID + 1);
+        {error, _} -> % We assume this means it does not exist yet...
+            NewPath
+    end;
+ensure_unique_path(_, _) -> 
+    skip("Could not create unique path").
+    
+            
+which_local_socket_addr(local = Domain) ->
+    #{family => Domain,
+      path   => mk_unique_path()};
+
 %% This gets the local address (not 127.0...)
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
-which_local_addr(Domain) ->
+which_local_socket_addr(Domain) ->
     case inet:getifaddrs() of
         {ok, IFL} ->
-            which_addr(Domain, IFL);
+            Addr = which_addr(Domain, IFL),
+            #{family => Domain,
+              addr   => Addr};
         {error, Reason} ->
             ?FAIL({inet, getifaddrs, Reason})
     end.
@@ -17935,11 +19991,54 @@ which_addr2(Domain, [_|IFO]) ->
 
 
 
+unlink_path(Path) ->
+    unlink_path(Path, fun() -> ok end, fun() -> ok end).
+                          
+unlink_path(Path, Success, Failure) when is_list(Path) andalso 
+                                         is_function(Success, 0) andalso
+                                         is_function(Failure, 0) ->
+    ?SEV_IPRINT("try unlink path: "
+                "~n   ~s", [Path]),
+    case os:cmd("unlink " ++ Path) of
+        "" ->
+            ?SEV_IPRINT("path unlinked: "
+                        "~n   Path: ~s", [Path]),
+            Success();
+        Result ->
+            ?SEV_EPRINT("unlink maybe failed: "
+                        "~n   Path: ~s"
+                        "~n   Res:  ~s", [Path, Result]),
+            Failure()
+    end;
+unlink_path(_, _, _) ->
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Here are all the *general* test vase condition functions.
+
+unix_domain_socket_host_cond() ->
+    unix_domain_socket_host_cond(os:type(), os:version()).
+
+unix_domain_socket_host_cond({unix, linux}, {M, _, _}) when (M < 3) ->
+    skip("TC may not work on this version");
+unix_domain_socket_host_cond(_, _) ->
+    ok.
+
+has_support_unix_domain_socket() ->
+    case os:type() of
+        {win32, _} ->
+            skip("Not supported");
+        _ ->
+            case socket:supports(local) of
+                true ->
+                    ok;
+                false ->
+                    skip("Not supported")
+            end
+    end.
+
 
 %% The idea is that this function shall test if the test host has 
 %% support for IPv6. If not, there is no point in running IPv6 tests.

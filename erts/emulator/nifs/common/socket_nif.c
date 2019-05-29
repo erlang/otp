@@ -528,6 +528,7 @@ typedef union {
 #define SOCKET_TYPE_SEQPACKET     5
 
 /* protocol */
+#define SOCKET_PROTOCOL_DEFAULT   0
 #define SOCKET_PROTOCOL_IP        1
 #define SOCKET_PROTOCOL_TCP       2
 #define SOCKET_PROTOCOL_UDP       3
@@ -658,6 +659,10 @@ typedef union {
 #define SOCKET_SUPPORTS_OPTIONS 0x0001
 #define SOCKET_SUPPORTS_SCTP    0x0002
 #define SOCKET_SUPPORTS_IPV6    0x0003
+#define SOCKET_SUPPORTS_LOCAL   0x0004
+
+#define ESOCK_WHICH_PROTO_ERROR -1
+#define ESOCK_WHICH_PROTO_UNSUP -2
 
 
 
@@ -994,12 +999,15 @@ static ERL_NIF_TERM nsupports_options_udp(ErlNifEnv* env);
 static ERL_NIF_TERM nsupports_options_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM nsupports_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM nsupports_ipv6(ErlNifEnv* env);
+static ERL_NIF_TERM nsupports_local(ErlNifEnv* env);
 
 static ERL_NIF_TERM nopen(ErlNifEnv* env,
                           int        domain,
                           int        type,
                           int        protocol,
                           char*      netns);
+static BOOLEAN_T nopen_which_protocol(SOCKET sock, int* proto);
+
 static ERL_NIF_TERM nbind(ErlNifEnv*       env,
                           ESockDescriptor* descP,
                           ESockAddress*    sockAddrP,
@@ -2644,6 +2652,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(ctrunc);                          \
     GLOBAL_ATOM_DECL(data);                            \
     GLOBAL_ATOM_DECL(debug);                           \
+    GLOBAL_ATOM_DECL(default);                         \
     GLOBAL_ATOM_DECL(default_send_params);             \
     GLOBAL_ATOM_DECL(delayed_ack_time);                \
     GLOBAL_ATOM_DECL(dgram);                           \
@@ -3046,6 +3055,9 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
  *                  {tcp,    [{Opt, boolean()}]},
  *                  {udp,    [{Opt, boolean()}]},
  *                  {sctp,   [{Opt, boolean()}]}]
+ * sctp            boolean()
+ * ipv6            boolean()
+ * local           boolean()
  */
 
 static
@@ -3073,13 +3085,10 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
 
 
 
-/* nopen - create an endpoint for communication
+/* nsupports - what features do we support
  *
- * Assumes the input has been validated.
- *
- * Normally we want debugging on (individual) sockets to be controlled
- * by the sockets own debug flag. But since we don't even have a socket
- * yet, we must use the global debug flag.
+ * This is to prove information about what features actually
+ * work on the current platform.
  */
 #if !defined(__WIN32__)
 static
@@ -3100,6 +3109,10 @@ ERL_NIF_TERM nsupports(ErlNifEnv* env, int key)
 
     case SOCKET_SUPPORTS_IPV6:
         result = nsupports_ipv6(env);
+        break;
+
+    case SOCKET_SUPPORTS_LOCAL:
+        result = nsupports_local(env);
         break;
 
     default:
@@ -4324,6 +4337,24 @@ ERL_NIF_TERM nsupports_ipv6(ErlNifEnv* env)
 
 
 
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM nsupports_local(ErlNifEnv* env)
+{
+    ERL_NIF_TERM supports;
+
+#if defined(AF_LOCAL)
+    supports = esock_atom_true;
+#else
+    supports = esock_atom_false;
+#endif
+
+    return supports;
+}
+#endif
+
+
+
 /* ----------------------------------------------------------------------
  * nif_open
  *
@@ -4421,6 +4452,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
  * yet, we must use the global debug flag.
  */
 #if !defined(__WIN32__)
+
 static
 ERL_NIF_TERM nopen(ErlNifEnv* env,
                    int domain, int type, int protocol,
@@ -4428,7 +4460,7 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
 {
     ESockDescriptor* descP;
     ERL_NIF_TERM     res;
-    int              save_errno = 0;
+    int              proto = protocol, save_errno = 0;
     SOCKET           sock;
     HANDLE           event;
 #ifdef HAVE_SETNS
@@ -4448,10 +4480,34 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
         return esock_make_error_errno(env, save_errno);
 #endif
 
-    if ((sock = sock_open(domain, type, protocol)) == INVALID_SOCKET)
+    if ((sock = sock_open(domain, type, proto)) == INVALID_SOCKET)
         return esock_make_error_errno(env, sock_errno());
 
     SGDBG( ("SOCKET", "nopen -> open success: %d\r\n", sock) );
+
+
+    /* NOTE that if the protocol = 0 (default) and the domain is not
+     * local (AF_LOCAL) we need to explicitly get the protocol here!
+     */
+    
+    if ((proto == 0)
+#if defined(AF_LOCAL)
+        && (domain != AF_LOCAL)
+#endif
+        )
+        if (!nopen_which_protocol(sock, &proto)) {
+            if (proto == ESOCK_WHICH_PROTO_ERROR) {
+                save_errno = sock_errno();
+                while ((sock_close(sock) == INVALID_SOCKET) &&
+                       (sock_errno() == EINTR));
+                return esock_make_error_errno(env, save_errno);
+            } else {
+                while ((sock_close(sock) == INVALID_SOCKET) &&
+                       (sock_errno() == EINTR));
+                return esock_make_error(env, esock_atom_eafnosupport);
+            }
+        }
+
 
 #ifdef HAVE_SETNS
     if ((netns != NULL) &&
@@ -4484,7 +4540,7 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
     descP->state    = SOCKET_STATE_OPEN;
     descP->domain   = domain;
     descP->type     = type;
-    descP->protocol = protocol;
+    descP->protocol = proto;
 
     /* Does this apply to other types? Such as RAW?
      * Also, is this really correct? Should we not wait for bind?
@@ -4521,6 +4577,32 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
 
     return esock_make_ok2(env, res);
 }
+
+
+static
+BOOLEAN_T nopen_which_protocol(SOCKET sock, int* proto)
+{
+#if defined(SO_PROTOCOL)
+    int          val;
+    SOCKOPTLEN_T valSz = sizeof(val);
+    int          res;
+
+    res = sock_getopt(sock, SOL_SOCKET, SO_PROTOCOL, &val, &valSz);
+
+    if (res != 0) {
+        *proto = ESOCK_WHICH_PROTO_ERROR;
+        return FALSE;
+    } else {
+        *proto = val;
+        return TRUE;
+    }
+#else
+    *proto = ESOCK_WHICH_PROTO_UNSUP;
+    return FALSE;
+#endif
+}
+
+
 #endif // if !defined(__WIN32__)
 
 
@@ -10895,7 +10977,15 @@ ERL_NIF_TERM ngetopt_otp_protocol(ErlNifEnv*       env,
 
         switch (val) {
         case IPPROTO_IP:
+#if defined(AF_LOCAL)
+            if (descP->domain == AF_LOCAL) {
+                result = esock_make_ok2(env, esock_atom_default);
+            } else {
+                result = esock_make_ok2(env, esock_atom_ip);
+            }
+#else
             result = esock_make_ok2(env, esock_atom_ip);
+#endif
             break;
 
         case IPPROTO_TCP:
@@ -11467,7 +11557,14 @@ ERL_NIF_TERM ngetopt_lvl_sock_protocol(ErlNifEnv*       env,
     } else {
         switch (val) {
         case IPPROTO_IP:
+#if defined(AF_LOCAL)
+            if (descP->domain == AF_LOCAL)
+                result = esock_make_ok2(env, esock_atom_default);
+            else
+                result = esock_make_ok2(env, esock_atom_ip);
+#else
             result = esock_make_ok2(env, esock_atom_ip);
+#endif
             break;
 
         case IPPROTO_TCP:
@@ -15135,8 +15232,8 @@ char* encode_msghdr(ErlNifEnv*       env,
             "\r\n   read: %d"
             "\r\n", read) );
 
-    /* The address is not used if we are connected,
-     * so check (length = 0) before we try to encodel
+    /* The address is not used if we are connected (unless, maybe,
+     * family is 'local'), so check (length = 0) before we try to encodel
      */
     if (msgHdrP->msg_namelen != 0) {
         if ((xres = esock_encode_sockaddr(env,
@@ -16258,8 +16355,6 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
                                size_t         dataLen,
                                ERL_NIF_TERM*  eCMsgHdrData)
 {
-    char* xres;
-
     switch (type) {
 #if defined(IPV6_PKTINFO)
     case IPV6_PKTINFO:
@@ -16267,6 +16362,7 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
             struct in6_pktinfo* pktInfoP = (struct in6_pktinfo*) dataP;
             ERL_NIF_TERM        ifIndex  = MKI(env, pktInfoP->ipi6_ifindex);
             ERL_NIF_TERM        addr;
+            char*               xres;
 
             if ((xres = esock_encode_ip6_address(env,
                                                  &pktInfoP->ipi6_addr,
@@ -17039,6 +17135,10 @@ BOOLEAN_T eproto2proto(ErlNifEnv*   env,
         }
 
         switch (ep) {
+        case SOCKET_PROTOCOL_DEFAULT:
+            *proto = 0; // default - note that _IP also has the value 0...
+            break;
+            
         case SOCKET_PROTOCOL_IP:
             *proto = IPPROTO_IP;
             break;

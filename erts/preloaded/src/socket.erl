@@ -602,12 +602,13 @@
 %% -define(SOCKET_TYPE_RDM,       4).
 -define(SOCKET_TYPE_SEQPACKET, 5).
 
--define(SOCKET_PROTOCOL_IP,    1).
--define(SOCKET_PROTOCOL_TCP,   2).
--define(SOCKET_PROTOCOL_UDP,   3).
--define(SOCKET_PROTOCOL_SCTP,  4).
--define(SOCKET_PROTOCOL_ICMP,  5).
--define(SOCKET_PROTOCOL_IGMP,  6).
+-define(SOCKET_PROTOCOL_DEFAULT, 0).
+-define(SOCKET_PROTOCOL_IP,      1).
+-define(SOCKET_PROTOCOL_TCP,     2).
+-define(SOCKET_PROTOCOL_UDP,     3).
+-define(SOCKET_PROTOCOL_SCTP,    4).
+-define(SOCKET_PROTOCOL_ICMP,    5).
+-define(SOCKET_PROTOCOL_IGMP,    6).
 
 -define(SOCKET_LISTEN_BACKLOG_DEFAULT, 5).
 
@@ -820,6 +821,7 @@
 -define(SOCKET_SUPPORTS_OPTIONS, 16#0001).
 -define(SOCKET_SUPPORTS_SCTP,    16#0002).
 -define(SOCKET_SUPPORTS_IPV6,    16#0003).
+-define(SOCKET_SUPPORTS_LOCAL,   16#0004).
 
 
 %% ===========================================================================
@@ -875,18 +877,21 @@ info() ->
 
 -spec supports() -> [{options, supports_options()} | 
                      {sctp,    boolean()} |
-                     {ipv6,    boolean()}].
+                     {ipv6,    boolean()} |
+                     {local,   boolean()}].
 
 supports() ->
     [{options, supports(options)},
      {sctp,    supports(sctp)},
-     {ipv6,    supports(ipv6)}].
+     {ipv6,    supports(ipv6)},
+     {local,   supports(local)}].
 
 
 -dialyzer({nowarn_function, supports/1}).
 -spec supports(options) -> supports_options();
               (sctp)    -> boolean();
               (ipv6)    -> boolean();
+              (local)   -> boolean();
               (Key1)    -> false when
       Key1 :: term().
                         
@@ -896,6 +901,8 @@ supports(sctp) ->
     nif_supports(?SOCKET_SUPPORTS_SCTP);
 supports(ipv6) ->
     nif_supports(?SOCKET_SUPPORTS_IPV6);
+supports(local) ->
+    nif_supports(?SOCKET_SUPPORTS_LOCAL);
 supports(_Key1) ->
     false.
 
@@ -1006,12 +1013,12 @@ supports(_Key1, _Key2, _Key3) ->
       Reason   :: term().
 
 open(Domain, Type) ->
-    open(Domain, Type, null).
+    open(Domain, Type, default).
 
 -spec open(Domain, Type, Protocol) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
-      Protocol :: null | protocol(),
+      Protocol :: default | protocol(),
       Socket   :: socket(),
       Reason   :: term().
 
@@ -1021,15 +1028,14 @@ open(Domain, Type, Protocol) ->
 -spec open(Domain, Type, Protocol, Extra) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
-      Protocol :: null | protocol(),
+      Protocol :: default | protocol(),
       Extra    :: map(),
       Socket   :: socket(),
       Reason   :: term().
 
-open(Domain, Type, Protocol0, Extra) when is_map(Extra) ->
+open(Domain, Type, Protocol, Extra) when is_map(Extra) ->
     try
         begin
-            Protocol  = default_protocol(Protocol0, Type),
             EDomain   = enc_domain(Domain),
             EType     = enc_type(Domain, Type),
             EProtocol = enc_protocol(Type, Protocol),
@@ -1052,15 +1058,6 @@ open(Domain, Type, Protocol0, Extra) when is_map(Extra) ->
             {error, Reason}
     end.
 
-%% Note that this is just a convenience function for when the protocol was
-%% not specified. If its actually specified, then that will be selected.
-%% Also, this only works for the some of the type's (stream, dgram and
-%% seqpacket).
-default_protocol(null, stream)    -> tcp;
-default_protocol(null, dgram)     -> udp;
-default_protocol(null, seqpacket) -> sctp;
-default_protocol(null, Type)      -> throw({error, {no_default_protocol, Type}});
-default_protocol(Protocol, _)     -> Protocol.
 
 
 %% ===========================================================================
@@ -2355,7 +2352,7 @@ peername(#socket{ref = SockRef}) ->
 enc_domain(local)  -> ?SOCKET_DOMAIN_LOCAL;
 enc_domain(inet)   -> ?SOCKET_DOMAIN_INET;
 enc_domain(inet6)  -> ?SOCKET_DOMAIN_INET6;
-enc_domain(Domain) -> throw({error, {invalid_domain, Domain}}).
+enc_domain(Domain) -> invalid_domain(Domain).
 
 -spec enc_type(Domain, Type) -> non_neg_integer() when
       Domain :: domain(),
@@ -2366,22 +2363,23 @@ enc_type(_, stream)    -> ?SOCKET_TYPE_STREAM;
 enc_type(_, dgram)     -> ?SOCKET_TYPE_DGRAM;
 enc_type(_, raw)       -> ?SOCKET_TYPE_RAW;
 enc_type(_, seqpacket) -> ?SOCKET_TYPE_SEQPACKET;
-enc_type(_, Type)      -> throw({error, {invalid_type, Type}}).
+enc_type(_, Type)      -> invalid_type(Type).
 
 -spec enc_protocol(Type, Protocol) -> non_neg_integer() | 
                                       {raw, non_neg_integer()} when
       Type     :: type(),
       Protocol :: protocol().
 
-enc_protocol(dgram,     ip)   -> ?SOCKET_PROTOCOL_IP;
-enc_protocol(stream,    tcp)  -> ?SOCKET_PROTOCOL_TCP;
-enc_protocol(dgram,     udp)  -> ?SOCKET_PROTOCOL_UDP;
-enc_protocol(seqpacket, sctp) -> ?SOCKET_PROTOCOL_SCTP;
-enc_protocol(raw,       icmp) -> ?SOCKET_PROTOCOL_ICMP;
-enc_protocol(raw,       igmp) -> ?SOCKET_PROTOCOL_IGMP;
+enc_protocol(_,         default) -> ?SOCKET_PROTOCOL_DEFAULT;
+enc_protocol(dgram,     ip)      -> ?SOCKET_PROTOCOL_IP;
+enc_protocol(stream,    tcp)     -> ?SOCKET_PROTOCOL_TCP;
+enc_protocol(dgram,     udp)     -> ?SOCKET_PROTOCOL_UDP;
+enc_protocol(seqpacket, sctp)    -> ?SOCKET_PROTOCOL_SCTP;
+enc_protocol(raw,       icmp)    -> ?SOCKET_PROTOCOL_ICMP;
+enc_protocol(raw,       igmp)    -> ?SOCKET_PROTOCOL_IGMP;
 enc_protocol(raw,       {raw, P} = RAW) when is_integer(P) -> RAW;
 enc_protocol(Type, Proto) -> 
-    throw({error, {invalid_protocol, {Type, Proto}}}).
+    invalid_protocol(Type, Proto).
 
 
 -spec enc_send_flags(Flags) -> non_neg_integer() when
@@ -2532,7 +2530,7 @@ enc_setopt_value(otp, rcvbuf, V, _, _, _) when is_integer(V) andalso (V > 0) ->
     V;
 %% N: Number of reads (when specifying length = 0)
 %% V: Size of the "read" buffer
-enc_setopt_value(otp, rcvbuf, {N, BufSz} = V, _, stream = _T, tcp = _P) 
+enc_setopt_value(otp, rcvbuf, {N, BufSz} = V, _, stream = _T, _P) 
   when (is_integer(N) andalso (N > 0)) andalso 
        (is_integer(BufSz) andalso (BufSz > 0)) ->
     V;
@@ -3509,6 +3507,25 @@ tdiff(T1, T2) ->
 %% Error functions
 %%
 %% ===========================================================================
+
+-spec invalid_domain(Domain) -> no_return() when
+      Domain :: term().
+
+invalid_domain(Domain) ->
+    error({invalid_domain, Domain}).
+
+-spec invalid_type(Type) -> no_return() when
+      Type :: term().
+
+invalid_type(Type) ->
+    error({invalid_type, Type}).
+
+-spec invalid_protocol(Type, Proto) -> no_return() when
+      Type  :: term(),
+      Proto :: term().
+
+invalid_protocol(Type, Proto) ->
+    error({invalid_protocol, {Type, Proto}}).
 
 -spec not_supported(What) -> no_return() when
       What :: term().
