@@ -694,11 +694,8 @@ will_succeed_test(is_list, is_nonempty_list) ->
     maybe;
 will_succeed_test(is_nonempty_list, is_list) ->
     yes;
-will_succeed_test(T1, T2) ->
-    case is_numeric_test(T1) andalso is_numeric_test(T2) of
-        true -> maybe;
-        false -> no
-    end.
+will_succeed_test(_T1, _T2) ->
+    maybe.
 
 will_succeed_1('=:=', A, '<', B) ->
     if
@@ -782,11 +779,6 @@ will_succeed_vars('/=', Val1, '==', Val2) when Val1 == Val2 -> no;
 will_succeed_vars('==', Val1, '/=', Val2) when Val1 == Val2 -> no;
 
 will_succeed_vars(_, _, _, _) -> maybe.
-
-is_numeric_test(is_float) -> true;
-is_numeric_test(is_integer) -> true;
-is_numeric_test(is_number) -> true;
-is_numeric_test(_) -> false.
 
 eval_type_test(Test, Arg) ->
     case eval_type_test_1(Test, Arg) of
