@@ -156,7 +156,8 @@ init:stop()</pre>
       command-line flag <c>-mode</c>.</p>
     <pre>
 % <input>erl -mode embedded</input></pre>
-    <p>Default mode is <c>interactive</c>.</p>
+    <p>Default mode is <c>interactive</c> and extra <c>-mode</c> flags are
+      ignored.</p>
     <p>The mode properties are as follows:</p>
     <list type="bulleted">
       <item>In embedded mode, all code is loaded during system startup

@@ -19,6 +19,8 @@
 %%
 -module(code).
 
+-include_lib("kernel/include/logger.hrl").
+
 %% This is the interface module to the code server. It also contains
 %% some implementation details.  See also related modules: code_*.erl
 %% in this directory.
@@ -707,8 +709,20 @@ do_s(Lib) ->
 
 start_get_mode() ->
     case init:get_argument(mode) of
-	{ok,[["embedded"]]} ->
-	    embedded;
+	{ok, [FirstMode | Rest]} ->
+	    case Rest of
+		[] ->
+		    ok;
+		_ ->
+		    ?LOG_WARNING("Multiple -mode given to erl, using the first, ~p",
+				 [FirstMode])
+	    end,
+	    case FirstMode of
+		["embedded"] ->
+		    embedded;
+		_ ->
+		    interactive
+	    end;
 	_ ->
 	    interactive
     end.
