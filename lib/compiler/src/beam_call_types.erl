@@ -24,7 +24,39 @@
 
 -import(lists, [duplicate/2,foldl/3]).
 
--export([types/3]).
+-export([never_throws/3, types/3]).
+
+-spec never_throws(Mod, Func, Arity) -> boolean() when
+      Mod :: atom(),
+      Func :: atom(),
+      Arity :: non_neg_integer().
+
+never_throws(erlang, '/=', 2) -> true;
+never_throws(erlang, '<', 2) -> true;
+never_throws(erlang, '=/=', 2) -> true;
+never_throws(erlang, '=:=', 2) -> true;
+never_throws(erlang, '=<', 2) -> true;
+never_throws(erlang, '==', 2) -> true;
+never_throws(erlang, '>', 2) -> true;
+never_throws(erlang, '>=', 2) -> true;
+never_throws(erlang, is_atom, 1) -> true;
+never_throws(erlang, is_boolean, 1) -> true;
+never_throws(erlang, is_binary, 1) -> true;
+never_throws(erlang, is_bitstring, 1) -> true;
+never_throws(erlang, is_float, 1) -> true;
+never_throws(erlang, is_function, 1) -> true;
+never_throws(erlang, is_integer, 1) -> true;
+never_throws(erlang, is_list, 1) -> true;
+never_throws(erlang, is_map, 1) -> true;
+never_throws(erlang, is_number, 1) -> true;
+never_throws(erlang, is_pid, 1) -> true;
+never_throws(erlang, is_port, 1) -> true;
+never_throws(erlang, is_reference, 1) -> true;
+never_throws(erlang, is_tuple, 1) -> true;
+never_throws(erlang, get, 1) -> true;
+never_throws(erlang, self, 0) -> true;
+never_throws(erlang, node, 0) -> true;
+never_throws(_, _, _) -> false.
 
 %%
 %% Returns the inferred return and argument types for known functions, and

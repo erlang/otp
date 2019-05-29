@@ -144,49 +144,14 @@ opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo)
        map_size(TypeMap) =:= 0 ->
     opt_finish_1(Args, TypeMaps, ParamInfo);
 opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo0) ->
-    JoinedType0 = beam_types:join(maps:values(TypeMap)),
-    case validator_anno(JoinedType0) of
-        any ->
-            opt_finish_1(Args, TypeMaps, ParamInfo0);
-        JoinedType ->
-            ParamInfo = ParamInfo0#{ Arg => JoinedType },
-            opt_finish_1(Args, TypeMaps, ParamInfo)
-    end;
+    JoinedType = beam_types:join(maps:values(TypeMap)),
+    ParamInfo = case JoinedType of
+                    any -> ParamInfo0;
+                    _ -> ParamInfo0#{ Arg => JoinedType }
+                end,
+    opt_finish_1(Args, TypeMaps, ParamInfo);
 opt_finish_1([], [], ParamInfo) ->
     ParamInfo.
-
-validator_anno(any) ->
-    any;
-validator_anno(#t_fun{}) ->
-    %% There is no need make funs visible to beam_validator.
-    any;
-validator_anno(#t_tuple{size=Size,exact=Exact,elements=Elements0}) ->
-    Elements = maps:fold(fun(Index, Type0, Acc) ->
-                                 case validator_anno(Type0) of
-                                     any -> Acc;
-                                     Type -> Acc#{ Index => Type }
-                                 end
-                         end, #{}, Elements0),
-    beam_validator:type_anno(tuple, Size, Exact, Elements);
-validator_anno(#t_integer{elements={Same,Same}}) ->
-    beam_validator:type_anno(integer, Same);
-validator_anno(#t_integer{}) ->
-    beam_validator:type_anno(integer);
-validator_anno(#t_bitstring{unit=U}) ->
-    beam_validator:type_anno({binary,U});
-validator_anno(float) ->
-    beam_validator:type_anno(float);
-validator_anno(#t_map{}) ->
-    beam_validator:type_anno(map);
-validator_anno(#t_atom{elements=[Val]}) ->
-    beam_validator:type_anno(atom, Val);
-validator_anno(#t_atom{}=A) ->
-    case beam_types:is_boolean_type(A) of
-        true -> beam_validator:type_anno(bool);
-        false -> beam_validator:type_anno(atom)
-    end;
-validator_anno(T) ->
-    beam_validator:type_anno(T).
 
 get_func_id(Anno) ->
     #{func_info:={_Mod, Name, Arity}} = Anno,
@@ -443,15 +408,9 @@ opt_local_call(#b_set{dst=Dst,args=[Id|_]}=I0, Ts0, Ds0, Fdb) ->
                #{} -> any
            end,
     I = case Type of
-            none ->
-                I0;
-            _ ->
-                case validator_anno(Type) of
-                    any ->
-                        I0;
-                    ValidatorType ->
-                        beam_ssa:add_anno(result_type, ValidatorType, I0)
-                end
+            any -> I0;
+            none -> I0;
+            _ -> beam_ssa:add_anno(result_type, Type, I0)
         end,
     Ts = Ts0#{ Dst => Type },
     Ds = Ds0#{ Dst => I },
