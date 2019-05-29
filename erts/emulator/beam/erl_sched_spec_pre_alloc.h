@@ -49,7 +49,7 @@ do {									\
 #endif
 
 #ifdef DEBUG
-extern Uint erts_no_schedulers;
+extern Uint ERTS_WRITE_UNLIKELY(erts_no_schedulers);
 #endif
 
 #define ERTS_SSPA_FORCE_THR_CHECK_PROGRESS 10
