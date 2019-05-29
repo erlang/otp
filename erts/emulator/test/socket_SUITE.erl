@@ -8146,7 +8146,7 @@ which_multicast_address3(Domain, [MAddrStr|MAddrs]) ->
     end.
     
 which_local_host_ifname(Domain) ->
-    case which_local_host_info(Domain) of
+    case ?LIB:which_local_host_info(Domain) of
         {ok, {Name, _Addr, _Flags}} ->
             Name;
         {error, Reason} ->
@@ -19408,13 +19408,37 @@ tpp_udp_client_handler_msg_exchange_loop(_Sock, _Dest, _Send, _Recv, _Msg,
                                          Start) ->
     Stop = ?LIB:timestamp(),
     {Sent, Received, Start, Stop};
-tpp_udp_client_handler_msg_exchange_loop(Sock, Dest, Send, Recv, Data,
+tpp_udp_client_handler_msg_exchange_loop(Sock,
+					 #{family := local} = Dest,
+					 Send, Recv, Data,
                                          Num, N, Sent, Received, Start) ->
     case tpp_udp_send_req(Sock, Send, Data, Dest) of
         {ok, SendSz} ->
             case tpp_udp_recv_rep(Sock, Recv) of
                 {ok, NewData, RecvSz, Dest} ->
                     tpp_udp_client_handler_msg_exchange_loop(Sock, Dest,
+                                                             Send, Recv,
+                                                             NewData, Num, N+1,
+                                                             Sent+SendSz, 
+                                                             Received+RecvSz, 
+                                                             Start);
+                {error, RReason} ->
+                    ?SEV_EPRINT("recv (~w of ~w): ~p", [N, Num, RReason]),
+                    exit({recv, RReason, N})
+            end;
+        {error, SReason} ->
+            ?SEV_EPRINT("send (~w of ~w): ~p", [N, Num, SReason]),
+            exit({send, SReason, N})
+    end;
+tpp_udp_client_handler_msg_exchange_loop(Sock,
+					 #{addr := Addr, port := Port} = Dest0,
+					 Send, Recv, Data,
+                                         Num, N, Sent, Received, Start) ->
+    case tpp_udp_send_req(Sock, Send, Data, Dest0) of
+        {ok, SendSz} ->
+            case tpp_udp_recv_rep(Sock, Recv) of
+                {ok, NewData, RecvSz, #{addr := Addr, port := Port} = Dest1} ->
+                    tpp_udp_client_handler_msg_exchange_loop(Sock, Dest1,
                                                              Send, Recv,
                                                              NewData, Num, N+1,
                                                              Sent+SendSz, 
@@ -26355,7 +26379,7 @@ which_local_socket_addr(local = Domain) ->
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_socket_addr(Domain) ->
-    case which_local_host_info(Domain) of
+    case ?LIB:which_local_host_info(Domain) of
         {ok, {_Name, _Flags, Addr}} ->
             #{family => Domain,
               addr   => Addr};
@@ -26366,52 +26390,52 @@ which_local_socket_addr(Domain) ->
 
 %% Returns the interface (name), flags and address (not 127...)
 %% of the local host.
-which_local_host_info(Domain) ->
-    case inet:getifaddrs() of
-        {ok, IFL} ->
-            which_local_host_info(Domain, IFL);
-        {error, _} = ERROR ->
-            ERROR
-    end.
+%% which_local_host_info(Domain) ->
+%%     case inet:getifaddrs() of
+%%         {ok, IFL} ->
+%%             which_local_host_info(Domain, IFL);
+%%         {error, _} = ERROR ->
+%%             ERROR
+%%     end.
 
-which_local_host_info(_Domain, []) ->
-    ?FAIL(no_address);
-which_local_host_info(Domain, [{"lo" ++ _, _}|IFL]) ->
-    which_local_host_info(Domain, IFL);
-which_local_host_info(Domain, [{"docker" ++ _, _}|IFL]) ->
-    which_local_host_info(Domain, IFL);
-which_local_host_info(Domain, [{"br-" ++ _, _}|IFL]) ->
-    which_local_host_info(Domain, IFL);
-which_local_host_info(Domain, [{Name, IFO}|IFL]) ->
-    case which_local_host_info2(Domain, IFO) of
-        {ok, {Flags, Addr}} ->
-            {ok, {Name, Flags, Addr}};
-        {error, _} ->
-            which_local_host_info(Domain, IFL)
-    end;
-which_local_host_info(Domain, [_|IFL]) ->
-    which_local_host_info(Domain, IFL).
+%% which_local_host_info(_Domain, []) ->
+%%     ?FAIL(no_address);
+%% which_local_host_info(Domain, [{"lo" ++ _, _}|IFL]) ->
+%%     which_local_host_info(Domain, IFL);
+%% which_local_host_info(Domain, [{"docker" ++ _, _}|IFL]) ->
+%%     which_local_host_info(Domain, IFL);
+%% which_local_host_info(Domain, [{"br-" ++ _, _}|IFL]) ->
+%%     which_local_host_info(Domain, IFL);
+%% which_local_host_info(Domain, [{Name, IFO}|IFL]) ->
+%%     case which_local_host_info2(Domain, IFO) of
+%%         {ok, {Flags, Addr}} ->
+%%             {ok, {Name, Flags, Addr}};
+%%         {error, _} ->
+%%             which_local_host_info(Domain, IFL)
+%%     end;
+%% which_local_host_info(Domain, [_|IFL]) ->
+%%     which_local_host_info(Domain, IFL).
 
-which_local_host_info2(Domain, IFO) ->
-    case lists:keysearch(flags, 1, IFO) of
-        {value, {flags, Flags}} ->
-            which_local_host_info2(Domain, IFO, Flags);
-        false ->
-            {error, no_flags}
-    end.
+%% which_local_host_info2(Domain, IFO) ->
+%%     case lists:keysearch(flags, 1, IFO) of
+%%         {value, {flags, Flags}} ->
+%%             which_local_host_info2(Domain, IFO, Flags);
+%%         false ->
+%%             {error, no_flags}
+%%     end.
 
-which_local_host_info2(_Domain, [], _Flags) ->
-    {error, no_address};
-which_local_host_info2(inet = _Domain, [{addr, Addr}|_IFO], Flags)
-  when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
-    {ok, {Flags, Addr}};
-which_local_host_info2(inet6 = _Domain, [{addr, Addr}|_IFO], Flags)
-  when (size(Addr) =:= 8) andalso 
-       (element(1, Addr) =/= 0) andalso
-       (element(1, Addr) =/= 16#fe80) ->
-    {ok, {Flags, Addr}};
-which_local_host_info2(Domain, [_|IFO], Flags) ->
-    which_local_host_info2(Domain, IFO, Flags).
+%% which_local_host_info2(_Domain, [], _Flags) ->
+%%     {error, no_address};
+%% which_local_host_info2(inet = _Domain, [{addr, Addr}|_IFO], Flags)
+%%   when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
+%%     {ok, {Flags, Addr}};
+%% which_local_host_info2(inet6 = _Domain, [{addr, Addr}|_IFO], Flags)
+%%   when (size(Addr) =:= 8) andalso 
+%%        (element(1, Addr) =/= 0) andalso
+%%        (element(1, Addr) =/= 16#fe80) ->
+%%     {ok, {Flags, Addr}};
+%% which_local_host_info2(Domain, [_|IFO], Flags) ->
+%%     which_local_host_info2(Domain, IFO, Flags).
 
 
 
@@ -26429,7 +26453,7 @@ has_ip_multicast_support() ->
     case os:type() of
         {unix, OsName} when (OsName =:= linux) orelse
                             (OsName =:= sunos) ->
-            case which_local_host_info(inet) of
+            case ?LIB:which_local_host_info(inet) of
                 {ok, {_Name, Flags, _Addr}} ->
                     case lists:member(multicast, Flags) of
                         true ->
@@ -26491,13 +26515,8 @@ has_support_unix_domain_socket() ->
 %% support for IPv6. If not, there is no point in running IPv6 tests.
 %% Currently we just skip.
 has_support_ipv6() ->
-    %% case socket:supports(ipv6) of
-    %%     true ->
-    %%         ok;
-    %%     false ->
-    %%         {error, not_supported}
-    %% end.
-    not_yet_implemented().
+    %%not_yet_implemented().
+    ?LIB:has_support_ipv6().
 
 
 

@@ -1301,7 +1301,7 @@ connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
        ((Timeout =:= nowait) orelse 
         (Timeout =:= infinity) orelse is_integer(Timeout)) ->
     TS = timestamp(Timeout),
-    case nif_connect(SockRef, SockAddr) of
+    case nif_connect(SockRef, ensure_sockaddr(SockAddr)) of
         ok ->
             %% Connected!
             ok;
@@ -1620,7 +1620,7 @@ sendto(#socket{ref = SockRef}, Data, Dest, Flags, Timeout)
         (Timeout =:= infinity) orelse
         (is_integer(Timeout) andalso (Timeout > 0))) ->
     EFlags = enc_send_flags(Flags),
-    do_sendto(SockRef, Data, Dest, EFlags, Timeout);
+    do_sendto(SockRef, Data, ensure_sockaddr(Dest), EFlags, Timeout);
 sendto(#socket{ref = SockRef}, Data, #{family := Fam} = Dest, Flags, Timeout)
   when is_binary(Data) andalso
        ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso 
@@ -1629,7 +1629,7 @@ sendto(#socket{ref = SockRef}, Data, #{family := Fam} = Dest, Flags, Timeout)
         (Timeout =:= infinity) orelse
         (is_integer(Timeout) andalso (Timeout > 0))) ->
     EFlags = enc_send_flags(Flags),
-    do_sendto(SockRef, Data, Dest, EFlags, Timeout).
+    do_sendto(SockRef, Data, ensure_sockaddr(Dest), EFlags, Timeout).
 
 do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
     TS      = timestamp(Timeout),
@@ -1820,8 +1820,12 @@ do_sendmsg_rest([B|IOVec], Written) ->
 
 ensure_msghdr(#{ctrl := []} = M) ->
     ensure_msghdr(maps:remove(ctrl, M));
-ensure_msghdr(#{iov := IOV} = M) when is_list(IOV) andalso (IOV =/= []) ->
-    M#{iov := erlang:iolist_to_iovec(IOV)};
+ensure_msghdr(#{iov := IOV, addr := Addr} = M) 
+  when is_list(IOV) andalso (IOV =/= []) ->
+    M#{iov => erlang:iolist_to_iovec(IOV), addr => ensure_sockaddr(Addr)};
+ensure_msghdr(#{iov := IOV} = M) 
+  when is_list(IOV) andalso (IOV =/= []) ->
+    M#{iov => erlang:iolist_to_iovec(IOV)};
 ensure_msghdr(_) ->
     einval().
 

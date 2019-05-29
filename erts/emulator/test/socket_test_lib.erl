@@ -32,10 +32,20 @@
          %% String and format
          f/2,
 
+         %% Generic 'has support' test function(s)
+         has_support_ipv6/0,
+
+         which_local_host_info/1,
+
          %% Skipping
          not_yet_implemented/0,
          skip/1
         ]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(FAIL(R), exit(R)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -84,6 +94,176 @@ format_timestamp({_N1, _N2, _N3} = TS) ->
 
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+has_support_ipv6() ->
+    case socket:supports(ipv6) of
+        true ->
+            ok;
+        false ->
+            skip("IPv6 Not Supported")
+    end,
+    Domain = inet6,
+    LocalAddr =
+        case which_local_addr(Domain) of
+            {ok, Addr} ->
+                Addr;
+            {error, R1} ->
+                skip(f("Local Address eval failed: ~p", [R1]))
+        end,
+    ServerSock =
+        case socket:open(Domain, dgram, udp) of
+            {ok, SS} ->
+                SS;
+            {error, R2} ->
+                skip(f("(server) socket open failed: ~p", [R2]))
+        end,
+    LocalSA = #{family => Domain, addr => LocalAddr},
+    ServerPort =
+        case socket:bind(ServerSock, LocalSA) of
+            {ok, P1} ->
+                P1;
+            {error, R3} ->
+                socket:close(ServerSock),
+                skip(f("(server) socket bind failed: ~p", [R3]))
+        end,
+    ServerSA = LocalSA#{port => ServerPort},
+    ClientSock =
+        case socket:open(Domain, dgram, udp) of
+            {ok, CS} ->
+                CS;
+            {error, R4} ->
+                skip(f("(client) socket open failed: ~p", [R4]))
+        end,
+    case socket:bind(ClientSock, LocalSA) of
+        {ok, _} ->
+            ok;
+        {error, R5} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            skip(f("(client) socket bind failed: ~p", [R5]))
+    end,
+    case socket:sendto(ClientSock, <<"hejsan">>, ServerSA) of
+        ok ->
+            ok;
+        {error, R6} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            skip(f("failed socket sendto test: ~p", [R6]))
+    end,
+    case socket:recvfrom(ServerSock) of
+        {ok, {_, <<"hejsan">>}} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            ok;
+        {error, R7} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            skip(f("failed socket recvfrom test: ~p", [R7]))
+   end.
+            
+            
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This gets the local address (not {127, _} or {0, ...} or {16#fe80, ...})
+%% We should really implement this using the (new) net module,
+%% but until that gets the necessary functionality...
+which_local_addr(Domain) ->
+    case which_local_host_info(Domain) of
+        {ok, {_Name, _Flags, Addr}} ->
+            {ok, Addr};
+        {error, _Reason} = ERROR ->
+            ERROR
+    end.
+    
+%%     case inet:getifaddrs() of
+%%         {ok, IFL} ->
+%%             which_addr(Domain, IFL);
+%%         {error, Reason} ->
+%%             ?FAIL({inet, getifaddrs, Reason})
+%%     end.
+
+%% which_addr(_Domain, []) ->
+%%     ?FAIL(no_address);
+%% which_addr(Domain, [{"lo" ++ _, _}|IFL]) ->
+%%     which_addr(Domain, IFL);
+%% which_addr(Domain, [{_Name, IFO}|IFL]) ->
+%%     case which_addr2(Domain, IFO) of
+%%         {ok, Addr} ->
+%%             Addr;
+%%         {error, no_address} ->
+%%             which_addr(Domain, IFL)
+%%     end;
+%% which_addr(Domain, [_|IFL]) ->
+%%     which_addr(Domain, IFL).
+
+%% which_addr2(_Domain, []) ->
+%%     {error, no_address};
+%% which_addr2(inet = _Domain, [{addr, Addr}|_IFO])
+%%   when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
+%%     {ok, Addr};
+%% which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO])
+%%   when (size(Addr) =:= 8) andalso 
+%%        (element(1, Addr) =/= 0) andalso
+%%        (element(1, Addr) =/= 16#fe80) ->
+%%     {ok, Addr};
+%% which_addr2(Domain, [_|IFO]) ->
+%%     which_addr2(Domain, IFO).
+
+
+%% Returns the interface (name), flags and address (not 127...)
+%% of the local host.
+which_local_host_info(Domain) ->
+    case inet:getifaddrs() of
+        {ok, IFL} ->
+            which_local_host_info(Domain, IFL);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+which_local_host_info(_Domain, []) ->
+    {error, no_address};
+which_local_host_info(Domain, [{"lo" ++ _, _}|IFL]) ->
+    which_local_host_info(Domain, IFL);
+which_local_host_info(Domain, [{"docker" ++ _, _}|IFL]) ->
+    which_local_host_info(Domain, IFL);
+which_local_host_info(Domain, [{"br-" ++ _, _}|IFL]) ->
+    which_local_host_info(Domain, IFL);
+which_local_host_info(Domain, [{Name, IFO}|IFL]) ->
+    case which_local_host_info2(Domain, IFO) of
+        {ok, {Flags, Addr}} ->
+            {ok, {Name, Flags, Addr}};
+        {error, _} ->
+            which_local_host_info(Domain, IFL)
+    end;
+which_local_host_info(Domain, [_|IFL]) ->
+    which_local_host_info(Domain, IFL).
+
+which_local_host_info2(Domain, IFO) ->
+    case lists:keysearch(flags, 1, IFO) of
+        {value, {flags, Flags}} ->
+            which_local_host_info2(Domain, IFO, Flags);
+        false ->
+            {error, no_flags}
+    end.
+
+which_local_host_info2(_Domain, [], _Flags) ->
+    {error, no_address};
+which_local_host_info2(inet = _Domain, [{addr, Addr}|_IFO], Flags)
+  when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
+    {ok, {Flags, Addr}};
+which_local_host_info2(inet6 = _Domain, [{addr, Addr}|_IFO], Flags)
+  when (size(Addr) =:= 8) andalso 
+       (element(1, Addr) =/= 0) andalso
+       (element(1, Addr) =/= 16#fe80) ->
+    {ok, {Flags, Addr}};
+which_local_host_info2(Domain, [_|IFO], Flags) ->
+    which_local_host_info2(Domain, IFO, Flags).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
