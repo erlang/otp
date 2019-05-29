@@ -24057,9 +24057,13 @@ which_addr(Domain, [_|IFL]) ->
 
 which_addr2(_Domain, []) ->
     {error, no_address};
-which_addr2(inet = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 4) ->
+which_addr2(inet = _Domain, [{addr, Addr}|_IFO])
+  when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
     {ok, Addr};
-which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 8) ->
+which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO])
+  when (size(Addr) =:= 8) andalso 
+       (element(1, Addr) =/= 0) andalso
+       (element(1, Addr) =/= 16#fe80) ->
     {ok, Addr};
 which_addr2(Domain, [_|IFO]) ->
     which_addr2(Domain, IFO).
