@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In nested use of <c>try</c>/<c>catch</c>, rethrowing
+	    an exception using <c>erlang:raise/3</c> with a different
+	    class would not always be able to change the class of the
+	    exception.</p>
+          <p>
+	    Own Id: OTP-15834 Aux Id: ERIERL-367 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
