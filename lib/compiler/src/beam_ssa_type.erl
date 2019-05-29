@@ -177,10 +177,9 @@ validator_anno(#t_fun{}) ->
     any;
 validator_anno(#t_tuple{size=Size,exact=Exact,elements=Elements0}) ->
     Elements = maps:fold(fun(Index, Type0, Acc) ->
-                                 Key = beam_validator:type_anno(integer, Index),
                                  case validator_anno(Type0) of
                                      any -> Acc;
-                                     Type -> Acc#{Key=>Type}
+                                     Type -> Acc#{ Index => Type }
                                  end
                          end, #{}, Elements0),
     beam_validator:type_anno(tuple, Size, Exact, Elements);

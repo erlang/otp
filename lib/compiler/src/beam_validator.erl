@@ -170,7 +170,7 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
                 number |
                 term |
                 tuple_in_progress |
-                {tuple, tuple_sz(), #{ literal() => type() }} |
+                {tuple, tuple_sz(), #{ pos_integer() => type() }} |
                 literal().
 
 -type tag() :: initialized |
@@ -448,7 +448,7 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
     Vst = eat_heap(Size+1, Vst0),
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
                        Type = get_term_type(Val, Vst0),
-                       Es = set_element_type({integer,Index}, Type, Es0),
+                       Es = set_element_type(Index, Type, Es0),
                        {Es, Index + 1}
                    end, {#{}, 1}, Elements),
     Type = {tuple,Size,Es},
@@ -467,12 +467,12 @@ valfun_1({put,Src}, Vst0) ->
         #st{puts_left=none} ->
             error(not_building_a_tuple);
         #st{puts_left={1,{Dst,Sz,Es0}}} ->
-            Es = Es0#{ {integer,Sz} => get_term_type(Src, Vst0) },
+            Es = Es0#{ Sz => get_term_type(Src, Vst0) },
             St = St0#st{puts_left=none},
             create_term({tuple,Sz,Es}, put_tuple, [], Dst, Vst#vst{current=St});
         #st{puts_left={PutsLeft,{Dst,Sz,Es0}}} when is_integer(PutsLeft) ->
             Index = Sz - PutsLeft + 1,
-            Es = Es0#{ {integer,Index} => get_term_type(Src, Vst0) },
+            Es = Es0#{ Index => get_term_type(Src, Vst0) },
             St = St0#st{puts_left={PutsLeft-1,{Dst,Sz,Es}}},
             Vst#vst{current=St}
     end;
@@ -590,11 +590,11 @@ valfun_1({get_tl,Src,Dst}, Vst) ->
     assert_type(cons, Src, Vst),
     extract_term(term, get_tl, [Src], Dst, Vst);
 valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
+    Index = N+1,
     assert_not_literal(Src),
-    assert_type({tuple_element,N+1}, Src, Vst),
-    Index = {integer,N+1},
+    assert_type({tuple_element,Index}, Src, Vst),
     Type = get_element_type(Index, Src, Vst),
-    extract_term(Type, {bif,element}, [Index, Src], Dst, Vst);
+    extract_term(Type, {bif,element}, [{integer, Index}, Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
     branch(Lbl, Vst,
            fun(SuccVst) ->
@@ -723,7 +723,12 @@ valfun_4({bif,element,{f,Fail},[Pos,Src],Dst}, Vst) ->
                    SuccVst = update_type(fun meet/2, {integer,[]},
                                          Pos, SuccVst1),
 
-                   ElementType = get_element_type(PosType, Src, SuccVst),
+                   ElementType = case PosType of
+                                     {integer,Index} ->
+                                         get_element_type(Index, Src, SuccVst);
+                                     _ ->
+                                         term
+                                 end,
                    extract_term(ElementType, {bif,element}, [Pos,Src],
                                 Dst, SuccVst)
            end);
@@ -816,7 +821,7 @@ valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
     %% narrowing) known elements, and we can't use extract_term either since
     %% the source tuple may be aliased.
     {tuple, Sz, Es0} = get_term_type(Tuple, Vst),
-    Es = set_element_type({integer,I}, get_term_type(Src, Vst), Es0),
+    Es = set_element_type(I, get_term_type(Src, Vst), Es0),
     override_type({tuple, Sz, Es}, Tuple, Vst);
 %% Match instructions.
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
@@ -923,7 +928,7 @@ valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     type_test(Lbl, Type, Tuple, Vst);
 valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
     assert_term(Src, Vst),
-    Type = {tuple, Sz, #{ {integer,1} => Atom }},
+    Type = {tuple, Sz, #{ 1 => Atom }},
     type_test(Lbl, Type, Src, Vst);
 valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
     validate_src(Ss, Vst),
@@ -1619,11 +1624,11 @@ infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
             Infer_R(RHS, Infer_L(LHS, S));
        (_, S) -> S
     end;
-infer_types_1(#value{op={bif,element},args=[{integer,Index}=Key,Tuple]}) ->
+infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]}) ->
     fun(Val, S) ->
             case is_value_alive(Tuple, S) of
                 true ->
-                    Type = {tuple,[Index], #{ Key => get_term_type(Val, S) }},
+                    Type = {tuple,[Index], #{ Index => get_term_type(Val, S) }},
                     update_type(fun meet/2, Type, Tuple, S);
                 false ->
                     S
@@ -2048,7 +2053,7 @@ join(T1, T2) when T1 =/= T2 ->
 
 join_tuple_elements(Limit, EsA, EsB) ->
     Es0 = join_elements(EsA, EsB),
-    maps:filter(fun({integer,Index}, _Type) -> Index =< Limit end, Es0).
+    maps:filter(fun(Index, _Type) -> Index =< Limit end, Es0).
 
 join_elements(Es1, Es2) ->
     Keys = if
@@ -2168,7 +2173,7 @@ meet_elements_1([], _Es1, _Es2, Acc) ->
 
 %% No tuple elements may have an index above the known size.
 assert_tuple_elements(Limit, Es) ->
-    true = maps:fold(fun({integer,Index}, _T, true) ->
+    true = maps:fold(fun(Index, _T, true) ->
                              Index =< Limit
                      end, true, Es).            %Assertion.
 
@@ -2209,13 +2214,11 @@ assert_type(Needed, Actual) ->
 get_element_type(Key, Src, Vst) ->
     get_element_type_1(Key, get_term_type(Src, Vst)).
 
-get_element_type_1({integer,_}=Key, {tuple,_Sz,Es}) ->
+get_element_type_1(Key, {tuple,_Sz,Es}) ->
     case Es of
         #{ Key := Type } -> Type;
         #{} -> term
-    end;
-get_element_type_1(_Index, _Type) ->
-    term.
+    end.
 
 set_element_type(_Key, none, Es) ->
     Es;
@@ -2316,7 +2319,7 @@ glt_1(I) when is_integer(I) -> {integer, I};
 glt_1(T) when is_tuple(T) ->
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
                            Type = glt_1(Val),
-                           Es = set_element_type({integer,Index}, Type, Es0),
+                           Es = set_element_type(Index, Type, Es0),
                            {Es, Index + 1}
                    end, {#{}, 1}, tuple_to_list(T)),
     {tuple, tuple_size(T), Es};
@@ -2843,7 +2846,7 @@ call_return_type_1(erlang, setelement, 3, Vst) ->
             case meet({tuple,[I],#{}}, TupleType) of
                 {tuple, Sz, Es0} ->
                     ValueType = get_term_type({x,2}, Vst),
-                    Es = set_element_type({integer,I}, ValueType, Es0),
+                    Es = set_element_type(I, ValueType, Es0),
                     {tuple, Sz, Es};
                 none ->
                     TupleType
@@ -2931,7 +2934,7 @@ lists_mod_return_type(map, 2, Vst) ->
     same_length_type({x,1}, Vst);
 lists_mod_return_type(MF, 3, Vst) when MF =:= mapfoldl; MF =:= mapfoldr ->
     ListType = same_length_type({x,2}, Vst),
-    {tuple,2,#{ {integer,1} => ListType} };
+    {tuple, 2, #{ 1 => ListType }};
 lists_mod_return_type(partition, 2, _Vst) ->
     two_tuple(list, list);
 lists_mod_return_type(reverse, 1, Vst) ->
@@ -2959,8 +2962,7 @@ lists_mod_return_type(_, _, _) ->
     term.
 
 two_tuple(Type1, Type2) ->
-    {tuple,2,#{ {integer,1} => Type1,
-                {integer,2} => Type2 }}.
+    {tuple, 2, #{ 1 => Type1, 2 => Type2 }}.
 
 same_length_type(Reg, Vst) ->
     case get_term_type(Reg, Vst) of
