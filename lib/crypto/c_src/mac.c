@@ -23,113 +23,132 @@
 #include "digest.h"
 #include "mac.h"
 
-#ifdef HAS_EVP_PKEY_CTX
+/***************************
+     MAC type declaration
+***************************/
+
 struct mac_type_t {
     union {
 	const char*  str;        /* before init, NULL for end-of-table */
 	ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
-    }type;
+    }name;
     union {
-        const int type;
+        const int pkey_type;
     }alg;
+    int type;
 };
 
+#define NO_mac 0
+#define HMAC_mac 1
+#define CMAC_mac 2
+#define POLY1305_mac 3
 
 static struct mac_type_t mac_types[] =
 {
     {{"poly1305"},
 #ifdef HAVE_POLY1305
-     {EVP_PKEY_POLY1305}
+     /* If we have POLY then we have EVP_PKEY */
+     {EVP_PKEY_POLY1305}, POLY1305_mac
 #else
-     {EVP_PKEY_NONE}
+     {EVP_PKEY_NONE}, NO_mac
 #endif
     },
 
     {{"hmac"},
-#ifdef HAVE_PKEY_HMAC
-     {EVP_PKEY_HMAC}
+#ifdef HAS_EVP_PKEY_CTX
+     {EVP_PKEY_HMAC}, HMAC_mac
 #else
-     {EVP_PKEY_NONE}
+     /* HMAC is always supported, but possibly with low-level routines */
+     {EVP_PKEY_NONE}, HMAC_mac
 #endif
     },
 
     {{"cmac"},
 #ifdef HAVE_CMAC
-     {EVP_PKEY_CMAC}
+     /* If we have CMAC then we have EVP_PKEY */
+     {EVP_PKEY_CMAC}, CMAC_mac
 #else
-     {EVP_PKEY_NONE}
+     {EVP_PKEY_NONE}, NO_mac
 #endif
     },
     /*==== End of list ==== */
-    {{NULL},{0}}
+    {{NULL},{0},NO_mac}
 };
 
-#endif /* HAS_EVP_PKEY_CTX */
 
+/***************************
+ Mandatory prototypes
+***************************/
+
+struct mac_type_t* get_mac_type(ERL_NIF_TERM type);
+
+ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+#if defined(HAVE_CMAC) && !defined(HAVE_EVP_PKEY_new_CMAC_key)
+int cmac_low_level(ErlNifEnv* env,
+                   ErlNifBinary key_bin, const struct cipher_type_t *cipherp, ErlNifBinary text,
+                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term);
+#endif
+
+#if !defined(HAS_EVP_PKEY_CTX)
+int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
+                   ErlNifBinary key_bin, ErlNifBinary text,
+                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term);
+#endif
+
+
+/********************************
+ Support functions for type array
+*********************************/
 
 void init_mac_types(ErlNifEnv* env)
 {
-#ifdef HAS_EVP_PKEY_CTX
     struct mac_type_t* p = mac_types;
 
-    for (p = mac_types; p->type.str; p++) {
-	p->type.atom = enif_make_atom(env, p->type.str);
+    for (p = mac_types; p->name.str; p++) {
+	p->name.atom = enif_make_atom(env, p->name.str);
     }
-    p->type.atom = atom_false;  /* end marker */
-#endif    
+    p->name.atom = atom_false;  /* end marker */
 }
 
 
 ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
 {
-#ifdef HAS_EVP_PKEY_CTX
     struct mac_type_t* p;
     ERL_NIF_TERM prev, hd;
 
     hd = enif_make_list(env, 0);
     prev = atom_undefined;
 
-    for (p = mac_types; (p->type.atom & (p->type.atom != atom_false)); p++) {
-        if (prev == p->type.atom)
+    for (p = mac_types; (p->name.atom & (p->name.atom != atom_false)); p++) {
+        if (prev == p->name.atom)
             continue;
 
-        if (p->alg.type != EVP_PKEY_NONE)
+        if (p->type != NO_mac)
             {
-                hd = enif_make_list_cell(env, p->type.atom, hd);
+                hd = enif_make_list_cell(env, p->name.atom, hd);
             }
     }
 
     return hd;
-#else
-    return enif_make_list1(env, atom_hmac);
-#endif
 }
-
-     
-#ifdef HAS_EVP_PKEY_CTX
-struct mac_type_t* get_mac_type(ERL_NIF_TERM type);
 
 struct mac_type_t* get_mac_type(ERL_NIF_TERM type)
 {
     struct mac_type_t* p = NULL;
-    for (p = mac_types; p->type.atom != atom_false; p++) {
-	if (type == p->type.atom) {
+    for (p = mac_types; p->name.atom != atom_false; p++) {
+	if (type == p->name.atom) {
 	    return p;
 	}
     }
     return NULL;
 }
-#endif
-
-
 
 /*******************************************************************
  *
  * Mac nif
  *
  ******************************************************************/
-ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
 ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (MacType, SubType, Key, Text) */
     ErlNifBinary  text;
@@ -155,18 +174,22 @@ ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (MacType, SubType, Key, Text) */
 
+    struct mac_type_t *macp;
     ErlNifBinary key_bin, text;
     int ret_bin_alloc = 0;
-    size_t size;
     ERL_NIF_TERM return_term;
     const EVP_MD *md = NULL;
     ErlNifBinary ret_bin;
 #ifdef HAS_EVP_PKEY_CTX
+    size_t size;
     EVP_PKEY *pkey = NULL;
     EVP_MD_CTX *mctx = NULL;
     EVP_PKEY_CTX *pctx = NULL;
 #endif
 
+    /*---------------------------------
+      Get common indata and validate it
+    */
     if (!enif_inspect_iolist_as_binary(env, argv[2], &key_bin))
         {
             return_term = EXCP_BADARG(env, "Bad key");
@@ -178,11 +201,29 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             return_term = EXCP_BADARG(env, "Bad text");
             goto err;
         }
-    
-    if (argv[0] == atom_hmac)
+
+    if (!(macp = get_mac_type(argv[0])))
+        {
+            return_term = EXCP_BADARG(env, "Unknown mac algorithm");
+            goto err;
+        }
+
+    /*--------------------------------------------------
+      Algorithm dependent indata checking and computation.
+      If EVP_PKEY is available, only set the pkey variable
+      and do the computation after the switch statement.
+      If not available, do the low-level calls in the 
+      corresponding case part
+    */
+    switch (macp->type) {
+
+        /********
+         * HMAC *
+         ********/
+    case HMAC_mac:
         {
             struct digest_type_t *digp;
-            
+
             if ((digp = get_digest_type(argv[1])) == NULL)
                 {
                     return_term = EXCP_BADARG(env, "Bad digest algorithm for HMAC");
@@ -196,42 +237,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
             md = digp->md.p;
 
-#ifndef HAS_EVP_PKEY_CTX
-            /* Old cryptolib: use low level functions */
-            {
-                unsigned int size_int;
-
-                /* Find the needed space */
-                if (HMAC(md,
-                         key_bin.data, (int)key_bin.size,
-                         text.data, text.size,
-                         NULL, &size_int) == NULL)
-                    {
-                        return_term = EXCP_ERROR(env, "Get HMAC size failed");
-                        goto err;
-                    }
-
-                size = (size_t)size_int; /* Otherwise "size" is unused in 0.9.8.... */
-                if (!enif_alloc_binary(size, &ret_bin))
-                    {
-                        return_term = EXCP_ERROR(env, "Alloc binary");
-                        goto err;
-                    }
-                ret_bin_alloc = 1;
-
-                /* And do the real HMAC calc */
-                if (HMAC(md,
-                         key_bin.data, (int)key_bin.size,
-                         text.data, text.size,
-                         ret_bin.data, &size_int) == NULL)
-                    {
-                        return_term = EXCP_ERROR(env, "HMAC sign failed");
-                        goto err;
-                    }
-            }
-#else
-/* HAS_EVP_PKEY_CTX and HMAC is the type. Produce a PKEY for later use */
-
+#ifdef HAS_EVP_PKEY_CTX
 # ifdef HAVE_PKEY_new_raw_private_key
             /* Prefered for new applications according to EVP_PKEY_new_mac_key(3) */
             pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, /*engine*/ NULL, key_bin.data,  key_bin.size);
@@ -239,11 +245,23 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             /* Available in older versions */
             pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, /*engine*/ NULL, key_bin.data,  key_bin.size);
 # endif
-        }
 
-    else if (argv[0] == atom_cmac)
-        {
+#else
+            if (!hmac_low_level(env, md, key_bin, text, &ret_bin, &ret_bin_alloc, &return_term))
+                goto err;
+            else
+                goto success;
+#endif
+        }
+        break;
+
+
+        /********
+         * CMAC *
+         ********/
 #ifdef HAVE_CMAC
+    case CMAC_mac:
+        {
             const struct cipher_type_t *cipherp;
             if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
                 { /* Something went wrong. Find out what by retrying in another way. */
@@ -270,81 +288,52 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # ifdef HAVE_EVP_PKEY_new_CMAC_key
             pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipherp->cipher.p);
 # else
-            /* Compatibility with < 1.1.1 that doesn't have EVP_PKEY_new_CMAC_key
-               It is a complicated flow so just do some goto to get out of it.
-             */
-            {
-                CMAC_CTX *ctx = NULL;
-
-                if ((ctx = CMAC_CTX_new()) == NULL)
-                    goto local_err;
-
-                if (!CMAC_Init(ctx, key_bin.data, key_bin.size, cipherp->cipher.p, NULL))
-                    goto local_err;
-
-                if (!CMAC_Update(ctx, text.data, text.size))
-                    goto local_err;
-
-                if ((size = (size_t)EVP_CIPHER_block_size(cipherp->cipher.p)) < 0)
-                    goto local_err;
-
-                if (!enif_alloc_binary(size, &ret_bin))
-                    goto local_err;
-                ret_bin_alloc = 1;
-                
-                if (!CMAC_Final(ctx, ret_bin.data, &ret_bin.size))
-                    goto local_err;
-
-                CONSUME_REDS(env, text);
-
-                return_term = enif_make_binary(env, &ret_bin);
-                ret_bin_alloc = 0;
-                goto done;
-
-            local_err:
-                 if (ctx)
-                     CMAC_CTX_free(ctx);
-
-                 return_term=EXCP_ERROR(env,"Compat cmac");
-                 goto err;
-            }
+            if (!cmac_low_level(env, key_bin, cipherp, text, &ret_bin, &ret_bin_alloc, &return_term))
+                goto err;
+            else
+                goto success;
+            /* End of CMAC compatibility functions */
 # endif
-#else
-            return_term = EXCP_NOTSUP(env, "Unsupported mac type");
-            goto err;  
+        }
+        break;
 #endif /* HAVE_CMAC */
-        }
 
-    else if (argv[0] == atom_poly1305)
-        {
+
+        /************
+         * POLY1305 *
+         ************/
 #ifdef HAVE_POLY1305
-            if (key_bin.size != 32)
-                {
-                    return_term = EXCP_BADARG(env, "Bad key size, != 32 bytes");
-                    goto err;
-                }
-            /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
-            pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ NULL, key_bin.data,  key_bin.size);
-#else
-            return_term = EXCP_NOTSUP(env, "Unsupported mac type");
-            goto err;  
-#endif /* HAVE_POLY1305 */
-#endif /* HAS_EVP_PKEY_CTX */
+    case POLY1305_mac:
+        if (key_bin.size != 32)
+            {
+                return_term = EXCP_BADARG(env, "Bad key size, != 32 bytes");
+                goto err;
+            }
+        /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
+        pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ NULL, key_bin.data,  key_bin.size);
+        break;
+#endif
 
-        }
-    else
-        {
-            return_term = EXCP_BADARG(env, "Bad mac type");
-            goto err;
-        }
 
+        /***************
+         * Unknown MAC *
+         ***************/
+    case NO_mac:
+    default:
+        /* We know that this mac is supported with some version(s) of cryptolib */
+        return_term = EXCP_NOTSUP(env, "Unsupported mac algorithm");
+        goto err;
+    }
+
+    /*-----------------------------------------
+      Common computations when we have EVP_PKEY
+    */
 #ifdef HAS_EVP_PKEY_CTX
     if (!pkey)
         {
             return_term = EXCP_ERROR(env, "EVP_PKEY_key creation");
             goto err;
         }
-
     
     if ((mctx = EVP_MD_CTX_new()) == NULL)
         {
@@ -360,6 +349,10 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 # ifdef HAVE_DigestSign_as_single_op
     if (EVP_DigestSign(mctx, NULL, &size, text.data, text.size) != 1)
+        {
+            return_term = EXCP_ERROR(env, "Can't get sign size");
+            goto err;
+        }
 # else
     if (EVP_DigestSignUpdate(mctx, text.data, text.size) != 1)
         {
@@ -368,11 +361,11 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         }
 
     if (EVP_DigestSignFinal(mctx, NULL, &size) != 1)
-# endif
         {
             return_term = EXCP_ERROR(env, "Can't get sign size");
             goto err;
         }
+# endif
    
     if (!enif_alloc_binary(size, &ret_bin))
         {
@@ -390,26 +383,131 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             return_term = EXCP_ERROR(env, "Signing");
             goto err;
         }
-    
+
+    goto success; /* The label "success:" could be left without any "goto success"
+                     in some combination of flags. This prevents a compiler warning
+                  */
 #endif /* ifdef HAS_EVP_PKEY_CTX */
 
+
+    /****************************
+     Exit when we got a signature
+    *****************************/
+ success:
     CONSUME_REDS(env, text);
 
     return_term = enif_make_binary(env, &ret_bin);
     ret_bin_alloc = 0;
-    goto done;
 
-err:
-    if (ret_bin_alloc)
-        enif_release_binary(&ret_bin);
+ out: /* Common for success: and for err: */
 
-done:
 #ifdef HAS_EVP_PKEY_CTX
     if (pkey)
         EVP_PKEY_free(pkey);
+    if (mctx)
+        EVP_MD_CTX_free(mctx);
 #endif
+
     return return_term;
+
+
+    /*****************
+     Error exit
+    ******************/
+ err:
+    if (ret_bin_alloc)
+        enif_release_binary(&ret_bin);
+
+    goto out;
 }
 
 
+/*****************************************************************
+ *****************************************************************
 
+ Low level compatibility functions for HMAC and CMAC
+
+ *****************************************************************
+ ****************************************************************/
+
+#if defined(HAVE_CMAC) && !defined(HAVE_EVP_PKEY_new_CMAC_key)
+
+int cmac_low_level(ErlNifEnv* env,
+                   ErlNifBinary key_bin, const struct cipher_type_t *cipherp, ErlNifBinary text,
+                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term)
+{
+    CMAC_CTX *ctx = NULL;
+    size_t size;
+
+    if ((ctx = CMAC_CTX_new()) == NULL)
+        goto local_err;
+
+    if (!CMAC_Init(ctx, key_bin.data, key_bin.size, cipherp->cipher.p, NULL))
+        goto local_err;
+
+    if (!CMAC_Update(ctx, text.data, text.size))
+        goto local_err;
+
+    if ((size = (size_t)EVP_CIPHER_block_size(cipherp->cipher.p)) < 0)
+        goto local_err;
+
+    if (!enif_alloc_binary(size, ret_bin))
+        goto local_err;
+    *ret_bin_alloc = 1;
+                
+    if (!CMAC_Final(ctx, ret_bin->data, &ret_bin->size))
+        goto local_err;
+
+    CMAC_CTX_free(ctx);
+    return 1;
+
+ local_err:
+    if (ctx)
+        CMAC_CTX_free(ctx);
+
+    *return_term = EXCP_ERROR(env,"Compat cmac");
+    return 0;
+}
+
+#endif
+
+
+#if !defined(HAS_EVP_PKEY_CTX)
+int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
+                   ErlNifBinary key_bin, ErlNifBinary text,
+                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term)
+{
+    unsigned int size_int;
+    size_t size;
+
+    /* Find the needed space */
+    if (HMAC(md,
+             key_bin.data, (int)key_bin.size,
+             text.data, text.size,
+             NULL, &size_int) == NULL)
+        {
+            *return_term = EXCP_ERROR(env, "Get HMAC size failed");
+            return 0;
+        }
+
+    size = (size_t)size_int; /* Otherwise "size" is unused in 0.9.8.... */
+    if (!enif_alloc_binary(size, ret_bin))
+        {
+            *return_term = EXCP_ERROR(env, "Alloc binary");
+            return 0;
+        }
+    *ret_bin_alloc = 1;
+
+    /* And do the real HMAC calc */
+    if (HMAC(md,
+             key_bin.data, (int)key_bin.size,
+             text.data, text.size,
+             ret_bin->data, &size_int) == NULL)
+        {
+            *return_term = EXCP_ERROR(env, "HMAC sign failed");
+            return 0;
+        }
+                    
+    return 1;
+}
+#endif
