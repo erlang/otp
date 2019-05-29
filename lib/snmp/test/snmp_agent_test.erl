@@ -687,24 +687,18 @@ init_per_group_ipv6(GroupName, Config, Init) ->
         true ->
             {skip, "Host *may* not *properly* support IPV6"};
         false ->
-            %% And now for the "proper" test...
-            case ct:require(ipv6_hosts) of
-                ok ->
-                    {ok, Hostname0} = inet:gethostname(),
-                    case lists:member(list_to_atom(Hostname0),
-                                      ct:get_config(ipv6_hosts)) of
-                        true ->
-                            Init(
-                              snmp_test_lib:init_group_top_dir(
-                                GroupName,
-                                [{ipfamily, inet6},
-                                 {ip, ?LOCALHOST(inet6)}
-                                 | lists:keydelete(ip, 1, Config)]));
-                        false ->
-                            {skip, "Host does not support IPV6"}
-                    end;
-                _ ->
-                    {skip, "Test config ipv6_hosts is missing"}
+            %% Even if this host supports IPv6 we don't use it unless its
+            %% one of the configured/supported IPv6 hosts...
+            case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
+                true ->
+                    Init(
+                      snmp_test_lib:init_group_top_dir(
+                        GroupName,
+                        [{ipfamily, inet6},
+                         {ip, ?LOCALHOST(inet6)}
+                         | lists:keydelete(ip, 1, Config)]));
+                false ->
+                    {skip, "Host does not support IPv6"}
             end
     end.
 

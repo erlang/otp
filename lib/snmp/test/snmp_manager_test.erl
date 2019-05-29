@@ -649,22 +649,17 @@ init_per_group_ipv6(GroupName, Config) ->
         true ->
             {skip, "Host *may* not *properly* support IPV6"};
         false ->
-            {ok, Hostname} = inet:gethostname(),
-            case ct:require(ipv6_hosts) of
-                ok ->
-                    case lists:member(list_to_atom(Hostname),
-                                      ct:get_config(ipv6_hosts)) of
-                        true ->
-                            ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, 
-                                                                       Config));
-                        false ->
-                            {skip, "Host does not support IPv6"}
-                    end;
-                _ ->
-                    {skip, "Test config ipv6_hosts is missing"}
+            %% Even if this host supports IPv6 we don't use it unless its
+            %% one of the configures/supported IPv6 hosts...
+            case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
+                true ->
+                    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+                false ->
+                    {skip, "Host does not support IPv6"}
             end
     end.
-    
+
+
 end_per_group(_GroupName, Config) ->
     %% Do we really need to do this?
     lists:keydelete(snmp_group_top_dir, 1, Config).
