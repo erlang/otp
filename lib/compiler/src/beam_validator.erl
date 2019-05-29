@@ -169,8 +169,7 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
                 number |
                 term |
                 tuple_in_progress |
-                {tuple, tuple_sz(), #{ pos_integer() => type() }} |
-                literal().
+                {tuple, tuple_sz(), #{ pos_integer() => type() }}.
 
 -type tag() :: initialized |
                uninitialized |
@@ -1327,8 +1326,6 @@ vat_1({float,A}, {float,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
 vat_1({float,_}, number) -> true;
 vat_1({integer,A}, {integer,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
 vat_1({integer,_}, number) -> true;
-vat_1(_, {literal,_}) -> false;
-vat_1({literal,_}=Lit, Required) -> vat_1(get_literal_type(Lit), Required);
 vat_1(nil, list) -> true;
 vat_1({tuple,SzA,EsA}, {tuple,SzB,EsB}) ->
     if
@@ -2015,10 +2012,6 @@ join(none, Other) ->
     Other;
 join(Other, none) ->
     Other;
-join({literal,_}=T1, T2) ->
-    join_literal(T1, T2);
-join(T1, {literal,_}=T2) ->
-    join_literal(T2, T1);
 join({tuple,Size,EsA}, {tuple,Size,EsB}) ->
     Es = join_tuple_elements(tuple_sz(Size), EsA, EsB),
     {tuple, Size, Es};
@@ -2079,16 +2072,6 @@ join_elements_1([Key | Keys], Es1, Es2, Acc0) ->
 join_elements_1([], _Es1, _Es2, Acc) ->
     Acc.
 
-%% Joins types of literals; note that the left argument must either be a
-%% literal or exactly equal to the second argument.
-join_literal(Same, Same) ->
-    Same;
-join_literal({literal,_}=Lit, T) ->
-    join_literal(T, get_literal_type(Lit));
-join_literal(T1, T2) ->
-    %% We're done extracting the types, try merging them again.
-    join(T1, T2).
-
 join_list(nil, cons) -> list;
 join_list(nil, list) -> list;
 join_list(cons, list) -> list;
@@ -2113,15 +2096,6 @@ meet(term, Other) ->
     Other;
 meet(Other, term) ->
     Other;
-meet({literal,_}, {literal,_}) ->
-    none;
-meet(T1, {literal,_}=T2) ->
-    meet(T2, T1);
-meet({literal,_}=T1, T2) ->
-    case meet(get_literal_type(T1), T2) of
-        none -> none;
-        _ -> T1
-    end;
 meet(T1, T2) ->
     case {erlang:min(T1, T2),erlang:max(T1, T2)} of
         {{atom,_}=A,{atom,[]}} -> A;
@@ -2199,16 +2173,11 @@ assert_type(WantedType, Term, Vst) ->
 assert_type(Correct, Correct) -> ok;
 assert_type(float, {float,_}) -> ok;
 assert_type(tuple, {tuple,_,_}) -> ok;
-assert_type(tuple, {literal,Tuple}) when is_tuple(Tuple) -> ok;
 assert_type({tuple_element,I}, {tuple,[Sz],_})
   when 1 =< I, I =< Sz ->
     ok;
 assert_type({tuple_element,I}, {tuple,Sz,_})
   when is_integer(Sz), 1 =< I, I =< Sz ->
-    ok;
-assert_type({tuple_element,I}, {literal,Lit}) when I =< tuple_size(Lit) ->
-    ok;
-assert_type(cons, {literal,[_|_]}) ->
     ok;
 assert_type(Needed, Actual) ->
     error({bad_type,{needed,Needed},{actual,Actual}}).
@@ -2258,7 +2227,6 @@ get_movable_term_type(Src, Vst) ->
         {catchtag,_} -> error({catchtag,Src});
         {trytag,_} -> error({trytag,Src});
         tuple_in_progress -> error({tuple_in_progress,Src});
-        {literal,_}=Lit -> get_literal_type(Lit);
         Type -> Type
     end.
 
@@ -2303,21 +2271,20 @@ get_raw_type(Src, #vst{}) ->
 is_value_alive(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
     is_map_key(Ref, Vs).
 
-get_literal_type(nil=T) -> T;
-get_literal_type({atom,A}=T) when is_atom(A) -> T;
-get_literal_type({float,F}=T) when is_float(F) -> T;
-get_literal_type({integer,I}=T) when is_integer(I) -> T;
-get_literal_type({literal,[_|_]}) -> cons;
-get_literal_type({literal,Bitstring}) when is_bitstring(Bitstring) -> binary;
-get_literal_type({literal,Map}) when is_map(Map) -> map;
-get_literal_type({literal,Tuple}) when is_tuple(Tuple) -> glt_1(Tuple);
-get_literal_type({literal,_}) -> term;
+get_literal_type(nil) -> glt_1([]);
+get_literal_type({atom,A}) when is_atom(A) -> glt_1(A);
+get_literal_type({float,F}) when is_float(F) -> glt_1(F);
+get_literal_type({integer,I}) when is_integer(I) -> glt_1(I);
+get_literal_type({literal,L}) -> glt_1(L);
 get_literal_type(T) -> error({not_literal,T}).
 
 glt_1([]) -> nil;
+glt_1([_|_]) -> cons;
 glt_1(A) when is_atom(A) -> {atom, A};
+glt_1(B) when is_bitstring(B) -> binary;
 glt_1(F) when is_float(F) -> {float, F};
 glt_1(I) when is_integer(I) -> {integer, I};
+glt_1(M) when is_map(M) -> map;
 glt_1(T) when is_tuple(T) ->
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
                            Type = glt_1(Val),
@@ -2325,8 +2292,8 @@ glt_1(T) when is_tuple(T) ->
                            {Es, Index + 1}
                    end, {#{}, 1}, tuple_to_list(T)),
     {tuple, tuple_size(T), Es};
-glt_1(L) ->
-    {literal, L}.
+glt_1(_Term) ->
+    term.
 
 %%%
 %%% Branch tracking
@@ -2839,7 +2806,6 @@ call_return_type_1(erlang, setelement, 3, Vst) ->
     IndexType = get_term_type({x,0}, Vst),
     TupleType =
         case get_term_type({x,1}, Vst) of
-            {literal,Tuple}=Lit when is_tuple(Tuple) -> get_literal_type(Lit);
             {tuple,_,_}=TT -> TT;
             _ -> {tuple,[0],#{}}
         end,
@@ -2968,7 +2934,6 @@ two_tuple(Type1, Type2) ->
 
 same_length_type(Reg, Vst) ->
     case get_term_type(Reg, Vst) of
-        {literal,[_|_]} -> cons;
         cons -> cons;
         nil -> nil;
         _ -> list
