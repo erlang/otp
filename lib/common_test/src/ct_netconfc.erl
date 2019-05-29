@@ -1642,7 +1642,7 @@ decode_send(ErrorT, Elem, #state{pending = Pending} = State) ->
                 = Rec,
             cancel_request_timer(TRef),
             ct_gen_conn:return(From, Elem),
-            State#state{pending = []};
+            State#state{pending = lists:delete(Rec, Pending)};
         _ ->
             Conn = State#state.connection,
             ?error(Conn#connection.name, [ErrorT, {expecting, Pending}]),
