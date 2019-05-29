@@ -436,8 +436,22 @@ get_phi_arg([{Val,From}|_], From) -> Val;
 get_phi_arg([_|As], From) -> get_phi_arg(As, From).
 
 eval_terminator(#b_br{bool=#b_var{}=Bool}=Br, Bs, _St) ->
-    Val = get_value(Bool, Bs),
-    beam_ssa:normalize(Br#b_br{bool=Val});
+    case get_value(Bool, Bs) of
+        #b_literal{val=Val}=Lit ->
+            case is_boolean(Val) of
+                true ->
+                    beam_ssa:normalize(Br#b_br{bool=Lit});
+                false ->
+                    %% Non-boolean literal. This means that this `br`
+                    %% terminator will never actually be reached with
+                    %% these bindings. (There must be a previous two-way
+                    %% branch that branches the other way when Bool
+                    %% is bound to a non-boolean literal.)
+                    none
+            end;
+        #b_var{}=Var ->
+            beam_ssa:normalize(Br#b_br{bool=Var})
+    end;
 eval_terminator(#b_br{bool=#b_literal{}}=Br, _Bs, _St) ->
     beam_ssa:normalize(Br);
 eval_terminator(#b_switch{arg=Arg,fail=Fail,list=List}=Sw, Bs, St) ->
