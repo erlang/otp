@@ -1230,9 +1230,10 @@ void erts_check_for_holes(Process* p);
 
 /* The sequential tracing token is a tuple of size 5:
  *
- *    {Flags, Label, Serial, Sender}
+ *    {Flags, Label, Serial, Sender, LastCnt}
+ *
+ *  WARNING: The top 5-tuple is *MUTABLE* and thus INTERNAL ONLY.
  */
-
 #define SEQ_TRACE_TOKEN_ARITY(p)    (arityval(*(tuple_val(SEQ_TRACE_TOKEN(p)))))
 #define SEQ_TRACE_TOKEN_FLAGS(p)    (*(tuple_val(SEQ_TRACE_TOKEN(p)) + 1))
 #define SEQ_TRACE_TOKEN_LABEL(p)    (*(tuple_val(SEQ_TRACE_TOKEN(p)) + 2))

@@ -62,7 +62,7 @@ set_token({Flags,Label,Serial,_From,Lastcnt}) ->
     F = decode_flags(Flags),
     set_token2([{label,Label},{serial,{Lastcnt, Serial}} | F]).
 
--spec set_token(Component, Val) -> {Component, OldVal} when
+-spec set_token(Component, Val) -> OldVal when
       Component :: component(),
       Val :: value(),
       OldVal :: value().

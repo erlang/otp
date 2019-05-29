@@ -74,7 +74,7 @@ static void smp_bp_finisher(void* arg);
 static BIF_RETTYPE
 system_monitor(Process *p, Eterm monitor_pid, Eterm list);
 
-static void new_seq_trace_token(Process* p); /* help func for seq_trace_2*/
+static void new_seq_trace_token(Process* p, int); /* help func for seq_trace_2*/
 static Eterm trace_info_pid(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_func(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_on_load(Process* p, Eterm key);
@@ -1876,7 +1876,7 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
 
     if (current_flag && ( (arg2 == am_true) || (arg2 == am_false)) ) {
 	/* Flags */
-        new_seq_trace_token(p);
+        new_seq_trace_token(p, 0);
         flags = unsigned_val(SEQ_TRACE_TOKEN_FLAGS(p));
 	if (build_result) {
 	    old_value = flags & current_flag ? am_true : am_false;
@@ -1891,11 +1891,11 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
 	return old_value;
     }
     else if (arg1 == am_label) {
-        new_seq_trace_token(p);
+        new_seq_trace_token(p, is_not_immed(arg2));
 	if (build_result) {
 	    old_value = SEQ_TRACE_TOKEN_LABEL(p);
 	}
-	SEQ_TRACE_TOKEN_LABEL(p) = arg2;
+        SEQ_TRACE_TOKEN_LABEL(p) = arg2;
     	return old_value;
     }
     else if (arg1 == am_serial) {
@@ -1907,7 +1907,7 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
 	if ((*tp != make_arityval(2)) || is_not_small(*(tp+1)) || is_not_small(*(tp+2))) {
 	    return THE_NON_VALUE;
         }
-        new_seq_trace_token(p);
+        new_seq_trace_token(p, 0);
 	if (build_result) {
 	    hp = HAlloc(p,3);
 	    old_value = TUPLE2(hp, SEQ_TRACE_TOKEN_LASTCNT(p),
@@ -1942,8 +1942,8 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
     }
 }
 
-void
-new_seq_trace_token(Process* p)
+static void
+new_seq_trace_token(Process* p, int ensure_new_heap)
 {
     Eterm* hp;
 
@@ -1954,6 +1954,16 @@ new_seq_trace_token(Process* p)
 				    make_small(0),		/* Serial */
 				    p->common.id, /* Internal pid */	/* From   */
 				    make_small(p->seq_trace_lastcnt));
+    }
+    else if (ensure_new_heap) {
+        Eterm* tpl = tuple_val(SEQ_TRACE_TOKEN(p));
+        ASSERT(arityval(tpl[0]) == 5);
+        if (ErtsInArea(tpl, OLD_HEAP(p),
+                       (OLD_HEND(p) - OLD_HEAP(p))*sizeof(Eterm))) {
+            hp = HAlloc(p, 6);
+            sys_memcpy(hp, tpl, 6*sizeof(Eterm));
+            SEQ_TRACE_TOKEN(p) = make_tuple(hp);
+        }
     }
 }
 
@@ -2055,10 +2065,7 @@ BIF_RETTYPE seq_trace_print_2(BIF_ALIST_2)
     if (have_no_seqtrace(SEQ_TRACE_TOKEN(BIF_P))) {
 	BIF_RET(am_false);
     }
-    if (!(is_atom(BIF_ARG_1) || is_small(BIF_ARG_1))) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    if (SEQ_TRACE_TOKEN_LABEL(BIF_P) != BIF_ARG_1)
+    if (!EQ(BIF_ARG_1, SEQ_TRACE_TOKEN_LABEL(BIF_P)))
 	BIF_RET(am_false);
     seq_trace_update_serial(BIF_P);
     seq_trace_output(SEQ_TRACE_TOKEN(BIF_P), BIF_ARG_2, 
