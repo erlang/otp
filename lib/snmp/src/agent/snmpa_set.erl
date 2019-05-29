@@ -163,10 +163,14 @@ set_phase_two(MyVarbinds, SubagentVarbinds) ->
 	    [MyVarbinds, SubagentVarbinds]),
     case snmpa_set_lib:try_set(MyVarbinds) of
 	{noError, 0} ->
+            ?vtrace("set phase two: (local) varbinds set ok", []),
 	    set_phase_two_subagents(SubagentVarbinds);
-	{ErrorStatus, Index} ->
+	{ErrorStatus, ErrorIndex} ->
+            ?vlog("set phase two: (local) varbinds set failed"
+                  "~n   ErrorStatus: ~p" 
+                  "~n   ErrorIndex:  ~p", [ErrorStatus, ErrorIndex]),
 	    set_phase_two_undo_subagents(SubagentVarbinds),
-	    {ErrorStatus, Index}
+	    {ErrorStatus, ErrorIndex}
     end.
 
 %%-----------------------------------------------------------------
@@ -188,6 +192,7 @@ set_phase_two_subagents([{SubAgentPid, SAVbs} | SubagentVarbinds]) ->
     {_SAOids, Vbs} = sa_split(SAVbs),
     case catch snmpa_agent:subagent_set(SubAgentPid, [phase_two, set, Vbs]) of
 	{noError, 0} ->
+            ?vtrace("set phase two: subagent ~p varbinds set ok", [SubAgentPid]),
 	    set_phase_two_subagents(SubagentVarbinds);
 	{'EXIT', Reason} ->
 	    user_err("Lost contact with subagent (set)~n~w. Using genErr", 
@@ -195,10 +200,14 @@ set_phase_two_subagents([{SubAgentPid, SAVbs} | SubagentVarbinds]) ->
 	    set_phase_two_undo_subagents(SubagentVarbinds),
 	    {genErr, 0};
 	{ErrorStatus, ErrorIndex} ->
+            ?vlog("set phase two: subagent ~p varbinds set failed"
+                  "~n   ErrorStatus: ~p"
+                  "~n   ErrorIndex:  ~p", [SubAgentPid, ErrorStatus, ErrorIndex]),
 	    set_phase_two_undo_subagents(SubagentVarbinds),
 	    {ErrorStatus, ErrorIndex}
     end;
 set_phase_two_subagents([]) ->
+    ?vtrace("set phase two: subagent(s) set ok", []),
     {noError, 0}.
 
 %%-----------------------------------------------------------------
