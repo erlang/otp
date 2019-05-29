@@ -50,43 +50,47 @@ usage() ->
               "~n   units (server or client)."
               "~n"
               "~n   options: "
-              "~n     --help                    Display this info and exit. "
-              "~n     --server [server-options] Start a server. "
-              "~n                               There are no mandatory server options."
-              "~n     --client client-options   Start a client"
-              "~n                               Some client options are mandatory and"
-              "~n                               others optional."
-              "~n     --active <active>         boolean() | once."
-              "~n                               Valid for both client and server."
-              "~n                               Defaults to: false"
-              "~n     --transport <transport>   Which transport to use: gen|sock[:plain|msg]"
-              "~n                                 gen:  gen_tcp"
-              "~n                                 sock: socket"
-              "~n                                       plain: recv/send (default)"
-              "~n                                       msg:   recvmsg/sendmsg"
-              "~n                               Defaults to: sock:plain"
-              "~n     --scon <addr>:<port>      Address and port of the server."
-              "~n                               The address part is in the standard form:"
-              "~n                               \"a.b.c.d\"."
-              "~n                               Only valid for client."
-              "~n                               Mandatory."
-              "~n     --msg-id <1|2|3>          Choose which message to use during the test."
-              "~n                               Basically: "
-              "~n                                  1: small"
-              "~n                                  2: medium"
-              "~n                                  3: large"
-              "~n                               Defaults to: 1"
-              "~n     --max-outstanding <Num>   How many messages to send before waiting for"
-              "~n                               a reply."
-              "~n                               Valid only for client."
-              "~n                               Defaults to: "
-              "~n                                  MsgID 1: 100"
-              "~n                                  MsgID 2:  10"
-              "~n                                  MsgID 3:   1"
-              "~n     --runtime <Time>          Time of the test in seconds."
-              "~n                               Only valid for client."
-              "~n                               Mandatory."
-              "~n                               Defaults to: 60 (seconds)"
+              "~n     --help                       Display this info and exit. "
+              "~n     --server [server-options]    Start a server. "
+              "~n                                  There are no mandatory server options."
+              "~n     --client client-options      Start a client"
+              "~n                                  Some client options are mandatory and"
+              "~n                                  others optional."
+              "~n     --domain <domain>            local | inet | inet6"
+              "~n                                  Which domain to use."
+              "~n                                  Only valid for server."
+              "~n                                  Defaults to: inet"
+              "~n     --active <active>            boolean() | once."
+              "~n                                  Valid for both client and server."
+              "~n                                  Defaults to: false"
+              "~n     --transport <transport>      Which transport to use: gen|sock[:plain|msg]"
+              "~n                                     gen:  gen_tcp"
+              "~n                                     sock: socket"
+              "~n                                          plain: recv/send (default)"
+              "~n                                          msg:   recvmsg/sendmsg"
+              "~n                                  Defaults to: sock:plain"
+              "~n     --scon <addr>:<port>|<path>  Server info."
+              "~n                                  The address part is in the standard form:"
+              "~n                                       \"a.b.c.d\"."
+              "~n                                  <path> is used for Unix Domain sockets (local)."
+              "~n                                  Only valid, and mandatory, for client."
+              "~n     --msg-id <1|2|3>             Choose which message to use during the test."
+              "~n                                  Basically: "
+              "~n                                     1: small"
+              "~n                                     2: medium"
+              "~n                                     3: large"
+              "~n                                  Defaults to: 1"
+              "~n     --max-outstanding <Num>      How many messages to send before waiting for"
+              "~n                                  a reply."
+              "~n                                  Valid only for client."
+              "~n                                  Defaults to: "
+              "~n                                     MsgID 1: 100"
+              "~n                                     MsgID 2:  10"
+              "~n                                     MsgID 3:   1"
+              "~n     --runtime <Time>             Time of the test in seconds."
+              "~n                                  Only valid for client."
+              "~n                                  Mandatory."
+              "~n                                  Defaults to: 60 (seconds)"
               "~n"
               "~n"
               "~n", 
@@ -106,12 +110,19 @@ process_args(Args) ->
 
 process_server_args(Args) ->
     Defaults = #{role      => server,
+                 domain    => inet,
                  active    => false,
                  transport => {sock, plain}},
     process_server_args(Args, Defaults).
 
 process_server_args([], State) ->
     State;
+
+process_server_args(["--domain", Domain|Args], State) 
+  when ((Domain =:= "local") orelse
+        (Domain =:= "inet") orelse
+        (Domain =:= "inet6")) ->
+    process_server_args(Args, State#{domain => list_to_atom(Domain)});
 
 process_server_args(["--active", Active|Args], State) 
   when ((Active =:= "false") orelse
@@ -137,7 +148,7 @@ process_client_args(Args) ->
                  active          => false,
                  transport       => {sock, plain},
                  %% Will cause error if not provided
-                 %% Should be "addr:port"
+                 %% Should be "addr:port or string()
                  server          => undefined,
                  msg_id          => 1,
                  %% Will be filled in based on msg_id if not provided
@@ -199,6 +210,8 @@ process_client_args(["--scon", Server|Args], State) ->
                            usage(f("Invalid Server Port: ~s", [PortStr]))
                    end,
             process_client_args(Args, State#{server => {Addr, Port}});
+        [Path] ->
+            process_client_args(Args, State#{server => Path});
         _ ->
             usage(f("Invalid Server: ~s", [Server]))
     end;
@@ -249,9 +262,11 @@ process_client_args_ensure_max_outstanding(
 %% ==========================================================================
 
 exec(#{role      := server,
+       domain    := Domain,
        active    := Active,
-       transport := gen}) ->
-    case socket_test_ttest_tcp_server_gen:start(Active) of
+       transport := gen})
+  when (Domain =:= inet) orelse (Domain =:= inet6) ->
+    case socket_test_ttest_tcp_server_gen:start(Domain, Active) of
         {ok, {Pid, _}} ->
             MRef = erlang:monitor(process, Pid),
             receive
@@ -264,9 +279,10 @@ exec(#{role      := server,
             error
     end;
 exec(#{role      := server,
+       domain    := Domain,
        active    := Active,
        transport := {sock, Method}}) ->
-    case socket_test_ttest_tcp_server_socket:start(Method, Active) of
+    case socket_test_ttest_tcp_server_socket:start(Method, Domain, Active) of
         {ok, {Pid, _}} ->
             MRef = erlang:monitor(process, Pid),
             receive
@@ -283,15 +299,15 @@ exec(#{role   := client,
        server := undefined}) ->
     usage("Mandatory option 'server' not provided");
 exec(#{role            := client,
-       server          := {Addr, Port},
+       server          := {_Addr, _Port} = ServerInfo,
        active          := Active,
        transport       := gen,
        msg_id          := MsgID,
        max_outstanding := MaxOutstanding,
        runtime         := RunTime}) ->
     case socket_test_ttest_tcp_client_gen:start(true,
+                                                ServerInfo,
                                                 Active,
-                                                Addr, Port,
                                                 MsgID, MaxOutstanding,
                                                 RunTime) of
         {ok, Pid} ->
@@ -306,7 +322,7 @@ exec(#{role            := client,
             error
     end;
 exec(#{role            := client,
-       server          := {Addr, Port},
+       server          := ServerInfo,
        active          := Active,
        transport       := {sock, Method},
        msg_id          := MsgID,
@@ -314,8 +330,8 @@ exec(#{role            := client,
        runtime         := RunTime}) ->
     case socket_test_ttest_tcp_client_socket:start(true,
                                                    Method,
+                                                   ServerInfo,
                                                    Active,
-                                                   Addr, Port,
                                                    MsgID, MaxOutstanding,
                                                    RunTime) of
         {ok, Pid} ->

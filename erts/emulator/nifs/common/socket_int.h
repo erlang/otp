@@ -139,6 +139,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(ctrunc);                   \
     GLOBAL_ATOM_DEF(data);                     \
     GLOBAL_ATOM_DEF(debug);                    \
+    GLOBAL_ATOM_DEF(default);      \
     GLOBAL_ATOM_DEF(default_send_params);      \
     GLOBAL_ATOM_DEF(delayed_ack_time);         \
     GLOBAL_ATOM_DEF(dgram);                    \

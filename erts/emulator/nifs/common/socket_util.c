@@ -986,9 +986,27 @@ char* esock_decode_timeval(ErlNifEnv*      env,
     if (!GET_LONG(env, eSec, &timeP->tv_sec))
         return ESOCK_STR_EINVAL;
     
+#if (SIZEOF_INT == 4)
+    {
+        int usec;
+        if (!GET_INT(env, eUSec, &usec))
+            return ESOCK_STR_EINVAL;
+        timeP->tv_usec = (typeof(timeP->tv_usec)) usec;
+    }
+#elif (SIZEOF_LONG == 4)
+    {
+        long usec;
+        if (!GET_LONG(env, eUSec, &usec))
+            return ESOCK_STR_EINVAL;
+        timeP->tv_usec = (typeof(timeP->tv_usec)) usec;
+    }
+#else
+    /* Ok, we give up... */
     if (!GET_LONG(env, eUSec, &timeP->tv_usec))
         return ESOCK_STR_EINVAL;
 
+#endif
+    
     return NULL;
 }
 
@@ -1656,7 +1674,7 @@ char* make_sockaddr_un(ErlNifEnv*    env,
                        ERL_NIF_TERM* sa)
 {
     ERL_NIF_TERM keys[] = {esock_atom_family, esock_atom_path};
-    ERL_NIF_TERM vals[] = {esock_atom_inet, path};
+    ERL_NIF_TERM vals[] = {esock_atom_local,  path};
     unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
     unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
     

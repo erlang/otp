@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 	 accept/1, accept/2,
 	 active/2,
 	 close/1,
-	 connect/2, connect/3,
+	 connect/1, connect/2, connect/3,
 	 controlling_process/2,
 	 listen/0, listen/1, listen/2,
 	 port/1,
@@ -35,6 +35,8 @@
 	 sockname/1
 	]).
 
+
+-define(LIB, socket_test_lib).
 
 -define(READER_RECV_TIMEOUT, 1000).
 
@@ -97,37 +99,85 @@ active(#{reader := Pid}, NewActive)
 
 close(#{sock := Sock, reader := Pid}) ->
     Pid ! {?MODULE, stop},
-    socket:close(Sock).
+    Unlink = case socket:sockname(Sock) of
+                 {ok, #{family := local, path := Path}} ->
+                     fun() -> os:cmd("unlink " ++ Path), ok end;
+                 _ ->
+                     fun() -> ok end
+             end,
+    Res = socket:close(Sock),
+    Unlink(),
+    Res.
 
 %% Create a socket and connect it to a peer
-connect(Addr, Port) ->
-    connect(Addr, Port, #{method => plain}).
+connect(ServerPath) when is_list(ServerPath) ->
+    Domain     = local,
+    ClientPath = mk_unique_path(),
+    LocalSA    = #{family => Domain,
+                   path   => ClientPath},
+    ServerSA   = #{family => Domain, path => ServerPath},
+    Opts       = #{domain => Domain,
+                   proto  => default,
+                   method => plain},
+    Cleanup = fun() -> os:cmd("unlink " ++ ClientPath), ok end,
+    do_connect(LocalSA, ServerSA, Cleanup, Opts).
 
-connect(Addr, Port, #{method := Method} = Opts) ->
+connect(Addr, Port) when is_tuple(Addr) andalso is_integer(Port) ->
+    Domain   = inet,
+    LocalSA  = any,
+    ServerSA = #{family => Domain,
+                 addr   => Addr,
+                 port   => Port},
+    Opts     = #{domain => Domain,
+                 proto  => tcp,
+                 method => plain},
+    Cleanup  = fun() -> ok end,
+    do_connect(LocalSA, ServerSA, Cleanup, Opts);
+connect(ServerPath,
+        #{domain := local = Domain} = Opts)
+  when is_list(ServerPath) ->
+    ClientPath = mk_unique_path(),
+    LocalSA    = #{family => Domain,
+                   path   => ClientPath},
+    ServerSA   = #{family => Domain,
+                   path   => ServerPath},
+    Cleanup    = fun() -> os:cmd("unlink " ++ ClientPath), ok end,
+    do_connect(LocalSA, ServerSA, Cleanup, Opts#{proto => default}).
+
+connect(Addr, Port, #{domain := Domain} = Opts) ->
+    LocalSA  = any,
+    ServerSA = #{family => Domain,
+                 addr   => Addr,
+                 port   => Port},
+    Cleanup  = fun() -> ok end,
+    do_connect(LocalSA, ServerSA, Cleanup, Opts#{proto => tcp}).
+
+do_connect(LocalSA, ServerSA, Cleanup, #{domain := Domain,
+                                         proto  := Proto, 
+                                         method := Method} = Opts) ->
     try
 	begin
 	    Sock =
-		case socket:open(inet, stream, tcp) of
+		case socket:open(Domain, stream, Proto) of
 		    {ok, S} ->
 			S;
 		    {error, OReason} ->
 			throw({error, {open, OReason}})
 		end,
-	    case socket:bind(Sock, any) of
+	    case socket:bind(Sock, LocalSA) of
 		{ok, _} ->
 		    ok;
 		{error, BReason} ->
 		    (catch socket:close(Sock)),
+                    Cleanup(),
 		    throw({error, {bind, BReason}})
 	    end,
-	    SA = #{family => inet,
-		   addr   => Addr,
-		   port   => Port},
-	    case socket:connect(Sock, SA) of
+	    case socket:connect(Sock, ServerSA) of
 		ok ->
 		    ok;
 		{error, CReason} ->
 		    (catch socket:close(Sock)),
+                    Cleanup(),
 		    throw({error, {connect, CReason}})
 	    end,
 	    Self   = self(),
@@ -140,6 +190,9 @@ connect(Addr, Port, #{method := Method} = Opts) ->
 	    ERROR
     end.
 
+mk_unique_path() ->
+    [NodeName | _] = string:tokens(atom_to_list(node()), [$@]),
+    ?LIB:f("/tmp/esock_~s_~w", [NodeName, erlang:system_time(nanosecond)]).
 
 maybe_start_stats_timer(#{stats_to       := Pid,
                           stats_interval := T},
@@ -163,37 +216,57 @@ controlling_process(#{sock := Sock, reader := Pid}, NewPid) ->
 
 %% Create a listen socket
 listen() ->
-    listen(0, #{method => plain}).
+    listen(0).
 
-listen(Port) ->
-    listen(Port, #{method => plain}).
-listen(Port, #{method := Method} = Opts)
-  when (is_integer(Port) andalso (Port >= 0)) andalso
-       ((Method =:= plain) orelse (Method =:= msg)) ->
+listen(Port) when is_integer(Port) ->
+    listen(Port, #{domain => inet, method => plain});
+listen(Path) when is_list(Path) ->
+    listen(Path, #{domain => local, method => plain}).
+
+listen(0, #{domain := local} = Opts) ->
+    listen(mk_unique_path(), Opts);
+listen(Path, #{domain := local = Domain} = Opts)
+  when is_list(Path) andalso (Path =/= []) ->
+    SA = #{family => Domain,
+           path   => Path},
+    Cleanup = fun() -> os:cmd("unlink " ++ Path), ok end,
+    do_listen(SA, Cleanup, Opts#{proto => default});
+listen(Port, #{domain := Domain} = Opts)
+  when is_integer(Port) andalso (Port >= 0) ->
+    %% Bind fills in the rest
+    SA = #{family => Domain,
+           port   => Port},
+    Cleanup = fun() -> ok end,
+    do_listen(SA, Cleanup, Opts#{proto => tcp}).
+
+do_listen(SA,
+          Cleanup,
+          #{domain := Domain, proto := Proto, method := Method} = Opts)
+  when (Method =:= plain) orelse (Method =:= msg) ->
     try
 	begin
-	    Sock = case socket:open(inet, stream, tcp) of
+	    Sock = case socket:open(Domain, stream, Proto) of
 		       {ok, S} ->
 			   S;
 		       {error, OReason} ->
 			   throw({error, {open, OReason}})
 		   end,
-	    SA = #{family => inet,
-		   port   => Port},
 	    case socket:bind(Sock, SA) of
 		{ok, _} ->
 		    ok;
 		{error, BReason} ->
 		    (catch socket:close(Sock)),
+                    Cleanup(),
 		    throw({error, {bind, BReason}})
 	    end,
 	    case socket:listen(Sock) of
 		ok ->
-                        ok;
-                    {error, LReason} ->
+                    ok;
+                {error, LReason} ->
 		    (catch socket:close(Sock)),
-                        throw({error, {listen, LReason}})
-                end,
+                    Cleanup(),
+                    throw({error, {listen, LReason}})
+            end,
 	    {ok, #{sock => Sock, opts => Opts}}
 	end
     catch
@@ -204,6 +277,8 @@ listen(Port, #{method := Method} = Opts)
 
 port(#{sock := Sock}) ->
     case socket:sockname(Sock) of
+	{ok, #{family := local, path := Path}} ->
+	    {ok, Path};
 	{ok, #{port := Port}} ->
 	    {ok, Port};
 	{error, _} = ERROR ->
@@ -213,6 +288,8 @@ port(#{sock := Sock}) ->
 
 peername(#{sock := Sock}) ->
     case socket:peername(Sock) of
+	{ok, #{family := local, path := Path}} ->
+	    {ok, Path};
 	{ok, #{addr := Addr, port := Port}} ->
 	    {ok, {Addr, Port}};
 	{error, _} = ERROR ->
