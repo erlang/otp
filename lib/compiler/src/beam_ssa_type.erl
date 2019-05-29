@@ -24,7 +24,7 @@
 -include("beam_ssa_opt.hrl").
 -import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
                 keyfind/3,partition/2,reverse/1,reverse/2,
-                seq/2,sort/1,split/2]).
+                sort/1,split/2]).
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
 
@@ -874,11 +874,11 @@ type(call, [#b_remote{mod=#b_literal{val=Mod},
                         true ->
                             none
                     end;
-                {#t_integer{elements={Min,Max}},
+                {#t_integer{elements={Min,_}}=IntType,
                  #t_tuple{elements=Es0,size=Size}=T} ->
-                    %% We know this will land between Min and Max, so kill the
-                    %% types for those indexes.
-                    Es = maps:without(seq(Min, Max), Es0),
+                    %% Remove type information for all indices that
+                    %% falls into the range of the integer.
+                    Es = remove_element_info(IntType, Es0),
                     case T#t_tuple.exact of
                         false ->
                             T#t_tuple{elements=Es,size=max(Min, Size)};
@@ -1648,6 +1648,12 @@ get_literal_from_type(#t_integer{elements={Int,Int}}) ->
 get_literal_from_type(nil) ->
     #b_literal{val=[]};
 get_literal_from_type(_) -> none.
+
+remove_element_info(#t_integer{elements={Min,Max}}, Es) ->
+    foldl(fun(El, Acc) when Min =< El, El =< Max ->
+                  maps:remove(El, Acc);
+             (_El, Acc) -> Acc
+          end, Es, maps:keys(Es)).
 
 t_atom() ->
     #t_atom{elements=any}.
