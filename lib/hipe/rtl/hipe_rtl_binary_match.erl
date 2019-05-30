@@ -49,7 +49,7 @@ gen_rtl(bs_start_match3, [Ms], [Binary], TrueLblName, FalseLblName) ->
 				    TrueLblName,
 				    hipe_rtl:label_name(BinaryLbl),
 				    0.99)],
-  OrdinaryCode = make_matchstate3(Binary, Ms, TrueLblName, FalseLblName),
+  OrdinaryCode = make_matchstate(Binary, 0, Ms, TrueLblName, FalseLblName, true),
   [TestCode,[BinaryLbl|OrdinaryCode]];
 gen_rtl(bs_start_match3, [], [Binary], TrueLblName, FalseLblName) ->
   MatchStateLbl = hipe_rtl:mk_new_label(),
@@ -582,6 +582,9 @@ get_unknown_size_int(SizeReg, Ms, Dst1, Signed, Little,
   end.
 
 make_matchstate(Binary, Max, Ms, TrueLblName, FalseLblName) ->
+	make_matchstate(Binary, Max, Ms, TrueLblName, FalseLblName, false).
+
+make_matchstate(Binary, Max, Ms, TrueLblName, FalseLblName, IsNewMatch) ->
   Base = hipe_rtl:mk_new_reg(),
   Orig = hipe_rtl:mk_new_var(),
   BinSize = hipe_rtl:mk_new_reg_gcsafe(),
@@ -591,20 +594,7 @@ make_matchstate(Binary, Max, Ms, TrueLblName, FalseLblName) ->
    get_binary_bytes(Binary, BinSize, Base, Offset,
 		    Orig, hipe_rtl:label_name(Lbl), FalseLblName),
    Lbl,
-   hipe_tagscheme:create_matchstate(Max, BinSize, Base, Offset, Orig, Ms),
-   hipe_rtl:mk_goto(TrueLblName)].
-
-make_matchstate3(Binary, Ms, TrueLblName, FalseLblName) ->
-  Base = hipe_rtl:mk_new_reg(),
-  Orig = hipe_rtl:mk_new_var(),
-  BinSize = hipe_rtl:mk_new_reg_gcsafe(),
-  Offset = hipe_rtl:mk_new_reg_gcsafe(),
-  Lbl = hipe_rtl:mk_new_label(),
-  [hipe_rtl:mk_gctest(?MS_MIN_SIZE),
-   get_binary_bytes(Binary, BinSize, Base, Offset,
-		    Orig, hipe_rtl:label_name(Lbl), FalseLblName),
-   Lbl,
-   hipe_tagscheme:create_matchstate3(BinSize, Base, Offset, Orig, Ms),
+   hipe_tagscheme:create_matchstate(Max, BinSize, Base, Offset, Orig, Ms, IsNewMatch),
    hipe_rtl:mk_goto(TrueLblName)].
 
 resize_matchstate(Ms, Max, TrueLblName) ->
