@@ -32,7 +32,11 @@
 -include("ssl_record.hrl").
 -include("ssl_internal.hrl").
 
--export([decode/1, own_alert_txt/1, alert_txt/1, reason_code/2]).
+-export([decode/1, 
+         own_alert_txt/1, 
+         alert_txt/1,
+         alert_txt/4, 
+         reason_code/4]).
 
 %%====================================================================
 %% Internal application API
@@ -48,20 +52,29 @@ decode(Bin) ->
     decode(Bin, [], 0).
 
 %%--------------------------------------------------------------------
-%% -spec reason_code(#alert{}, client | server) ->
-%%                          {tls_alert, unicode:chardata()} | closed.
-%-spec reason_code(#alert{}, client | server) -> closed | {essl, string()}.
+-spec reason_code(#alert{}, client | server, ProtocolName::string(), StateName::atom()) ->
+                         {tls_alert, {atom(), unicode:chardata()}} | closed.
 %%
 %% Description: Returns the error reason that will be returned to the
 %% user.
 %%--------------------------------------------------------------------
 
-reason_code(#alert{description = ?CLOSE_NOTIFY}, _) ->
+reason_code(#alert{description = ?CLOSE_NOTIFY}, _, _, _) ->
     closed;
-reason_code(#alert{description = Description, role = Role} = Alert, Role) ->
-    {tls_alert, {description_atom(Description), own_alert_txt(Alert)}};
-reason_code(#alert{description = Description} = Alert, Role) ->
-    {tls_alert, {description_atom(Description), alert_txt(Alert#alert{role = Role})}}.
+reason_code(#alert{description = Description, role = Role} = Alert, Role, ProtocolName, StateName) ->
+    Txt = lists:flatten(alert_txt(ProtocolName, Role, StateName, own_alert_txt(Alert))),
+    {tls_alert, {description_atom(Description), Txt}};
+reason_code(#alert{description = Description} = Alert, Role, ProtocolName, StateName) ->
+    Txt = lists:flatten(alert_txt(ProtocolName, Role, StateName, alert_txt(Alert))),
+    {tls_alert, {description_atom(Description), Txt}}.
+
+%%--------------------------------------------------------------------
+-spec alert_txt(string(), server | client, StateNam::atom(), string()) -> string().
+%%
+%% Description: Generates alert text for log or string part of error return.
+%%--------------------------------------------------------------------
+alert_txt(ProtocolName, Role, StateName, Txt) ->
+    io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]).
 
 %%--------------------------------------------------------------------
 -spec own_alert_txt(#alert{}) -> string().
