@@ -564,6 +564,7 @@ TESTCASE(test_ei_decode_encode)
     ei_init();
 
     decode_encode_one(&fun_type);
+    decode_encode_one(&fun_type);
     decode_encode_one(&pid_type);
     decode_encode_one(&port_type);
     decode_encode_one(&ref_type);

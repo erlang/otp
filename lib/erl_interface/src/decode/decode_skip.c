@@ -97,6 +97,7 @@ int ei_skip_term(const char* buf, int* index)
 	break;
     case ERL_FUN_EXT:
     case ERL_NEW_FUN_EXT:
+    case ERL_EXPORT_EXT:
 	if (ei_decode_fun(buf, index, NULL) < 0) return -1;
 	break;
     default:

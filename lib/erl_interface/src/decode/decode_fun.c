@@ -77,10 +77,12 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
 	}
 	if (p != NULL) {
 	    p->u.closure.n_free_vars = n;
-	    p->u.closure.free_var_len = ix - ix0;
-	    p->u.closure.free_vars = ei_malloc(ix - ix0);
-	    if (!(p->u.closure.free_vars)) return -1;
-	    memcpy(p->u.closure.free_vars, s + ix0, ix - ix0);
+            p->u.closure.free_var_len = ix - ix0;
+            if (p->u.closure.free_var_len > 0) {
+                p->u.closure.free_vars = ei_malloc(p->u.closure.free_var_len);
+                if (!(p->u.closure.free_vars)) return -1;
+                memcpy(p->u.closure.free_vars, s + ix0, p->u.closure.free_var_len);
+            }
 	}
 	s += ix;
 	*index += s-s0;
@@ -146,6 +148,7 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
         else {
             p_arity = NULL;
         }
+	ix = 0;
         if (ei_decode_atom_as(s, &ix, p_module, MAXATOMLEN_UTF8, ERLANG_UTF8,
                               NULL, NULL) < 0)
             return -1;
@@ -171,6 +174,8 @@ int ei_decode_fun(const char *buf, int *index, erlang_fun *p)
         }
         if (ei_decode_long(s, &ix, p_arity) < 0)
             return -1;
+	s += ix;
+	*index += s - s0;
         return 0;
     }
     default:

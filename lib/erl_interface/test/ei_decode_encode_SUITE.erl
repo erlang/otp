@@ -48,7 +48,8 @@ init_per_testcase(Case, Config) ->
 test_ei_decode_encode(Config) when is_list(Config) ->
     P = runner:start(Config, ?test_ei_decode_encode),
 
-    Fun   = fun (X) -> {X,true} end,
+    Fun1  = fun (X) -> {X,true} end,
+    Fun2  = fun runner:init_per_testcase/3,
     Pid   = self(),
     Port  = case os:type() of
                 {win32,_} ->
@@ -70,7 +71,8 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     BigLargeB = 1 bsl 11112 + BigSmallB,
     BigLargeC = BigSmallA * BigSmallB * BigSmallC * BigSmallA,
 
-    send_rec(P, Fun),
+    send_rec(P, Fun1),
+    send_rec(P, Fun2),
     send_rec(P, Pid),
     send_rec(P, Port),
     send_rec(P, Ref),
@@ -115,7 +117,7 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     send_rec(P, {}),
     send_rec(P, {atom, Pid, Port, Ref}),
     send_rec(P, [atom, Pid, Port, Ref]),
-    send_rec(P, [atom | Fun]),
+    send_rec(P, [atom | Fun1]),
     send_rec(P, #{}),
     send_rec(P, #{key => value}),
     send_rec(P, maps:put(Port, Ref, #{key => value, key2 => Pid})),
