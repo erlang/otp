@@ -140,13 +140,13 @@ free_dump(Config) when is_list(Config) ->
     {ok, NodeA} = start_node(Config),
     {ok, NodeB} = start_node(Config),
 
-
     Self = self(),
 
     PidA = spawn_link(
              NodeA,
              fun() ->
                      Self ! ready,
+                     Reason = lists:duplicate(1000000,100),
                      receive
                          ok ->
                              spawn(fun() ->
@@ -154,24 +154,29 @@ free_dump(Config) when is_list(Config) ->
                                            timer:sleep(5),
                                            receive
                                                M ->
-                                                   io:format("~p",[M]),
-                                                   erlang:halt("dump")
-                                           end
+                                                   io:format("~p",[M])
+%% We may want to add this timeout here in-case no busy condition is triggered
+%%                                           after 60 * 1000 ->
+%%                                                   io:format("Timeout")
+                                           end,
+                                           erlang:halt("dump")
                                    end),
-                             exit(lists:duplicate(1000000,100))
+                             exit(Reason)
                      end
              end),
 
-    spawn_link(NodeB,
-               fun() ->
-                       [erlang:monitor(process, PidA) || _ <- lists:seq(1,10000)],
-                       Self ! done,
-                       receive _ -> ok end
-               end),
+    PidB = spawn_link(NodeB,
+                      fun() ->
+                              [erlang:monitor(process, PidA) || _ <- lists:seq(1,10000)],
+                              Self ! done,
+                              receive _ -> ok end
+                      end),
 
     receive done -> ok end,
     true = rpc:call(NodeA, os, putenv, ["ERL_CRASH_DUMP",Dump]),
-    ct:pal("~p",[rpc:call(NodeA, distribution_SUITE, make_busy, [NodeB, 1000])]),
+    %% Make the node busy towards NodeB for 10 seconds.
+    BusyPid = rpc:call(NodeA, distribution_SUITE, make_busy, [NodeB,10000]),
+    ct:pal("~p",[BusyPid]),
 
     receive ready -> unlink(PidA), PidA ! ok end,
 
@@ -184,6 +189,10 @@ free_dump(Config) when is_list(Config) ->
     true = length(Matches) == 1,
 
     file:delete(Dump),
+
+    unlink(PidB),
+
+    rpc:call(NodeB, erlang, halt, [0]),
 
     ok.
 
