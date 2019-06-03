@@ -951,19 +951,30 @@ raw_raise() {
     Eterm class = x(0);
     Eterm value = x(1);
     Eterm stacktrace = x(2);
+    Eterm* freason_ptr;
+
+    /*
+     * Note that the i_raise instruction will override c_p->freason
+     * with the freason field stored inside the StackTrace struct in
+     * ftrace. Therefore, we must take care to store the class both
+     * inside the StackTrace struct and in c_p->freason (important if
+     * the class is different from the class of the original
+     * exception).
+     */
+    freason_ptr = get_freason_ptr_from_exc(stacktrace);
 
     if (class == am_error) {
-        c_p->freason = EXC_ERROR & ~EXF_SAVETRACE;
+        *freason_ptr = c_p->freason = EXC_ERROR & ~EXF_SAVETRACE;
         c_p->fvalue = value;
         c_p->ftrace = stacktrace;
         goto find_func_info;
     } else if (class == am_exit) {
-        c_p->freason = EXC_EXIT & ~EXF_SAVETRACE;
+        *freason_ptr = c_p->freason = EXC_EXIT & ~EXF_SAVETRACE;
         c_p->fvalue = value;
         c_p->ftrace = stacktrace;
         goto find_func_info;
     } else if (class == am_throw) {
-        c_p->freason = EXC_THROWN & ~EXF_SAVETRACE;
+        *freason_ptr = c_p->freason = EXC_THROWN & ~EXF_SAVETRACE;
         c_p->fvalue = value;
         c_p->ftrace = stacktrace;
         goto find_func_info;
