@@ -66,6 +66,7 @@
                         sni_hostname = undefined,
                         expecting_next_protocol_negotiation = false ::boolean(),
                         next_protocol = undefined                   :: undefined | binary(),
+                        alpn = undefined,     %% Used in TLS 1.3
                         negotiated_protocol,
                         hashsign_algorithm = {undefined, undefined},
                         cert_hashsign_algorithm = {undefined, undefined},
@@ -76,7 +77,7 @@
                         srp_params           :: #srp_user{} | secret_printout() | 'undefined',
                         public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
                         premaster_secret     :: binary() | secret_printout() | 'undefined',
-                        server_psk_identity         :: binary() | 'undefined' % server psk identity hint
+                        server_psk_identity         :: binary() | 'undefined'  % server psk identity hint
                        }).
 
 -record(connection_env, { 
