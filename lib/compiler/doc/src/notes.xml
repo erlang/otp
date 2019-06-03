@@ -32,6 +32,67 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The type optimization pass of the compiler could hang
+	    or loop for a long time when analyzing a
+	    <c>setelement/3</c> call with a varible position.</p>
+          <p>
+	    Own Id: OTP-15828 Aux Id: ERL-948 </p>
+        </item>
+        <item>
+	    <p>Certain complex receive statements would result in an
+	    internal compiler failure.</p>
+          <p>
+	    Own Id: OTP-15832 Aux Id: ERL-950 </p>
+        </item>
+        <item>
+	    <p>Fixed an unsafe type optimization.</p>
+          <p>
+	    Own Id: OTP-15838</p>
+        </item>
+        <item>
+	    <p>Fixed a crash when optimizing compiler-generated
+	    exceptions (like badmatch) whose offending term was a
+	    constructed binary.</p>
+          <p>
+	    Own Id: OTP-15839 Aux Id: ERL-954 </p>
+        </item>
+        <item>
+	    <p>Fixed a bad optimization related to the <c>++/2</c>
+	    operator, where the compiler assumed that it always
+	    produced a list (<c>[] ++ RHS</c> returns <c>RHS</c>
+	    verbatim, even if it's not a list).</p>
+          <p>
+	    Own Id: OTP-15841</p>
+        </item>
+        <item>
+	    <p>An <c>is_binary/1</c> test followed by
+	    <c>is_bitstring/1</c> (or vice versa) could fail because
+	    of an usafe optimization.</p>
+          <p>
+	    Own Id: OTP-15845</p>
+        </item>
+        <item>
+	    <p>A Core Erlang module where the last clause in a
+	    <c>case</c> matched a map would fail to load.</p>
+          <p>
+	    Own Id: OTP-15846 Aux Id: ERL-955 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug that could cause the compiler to crash
+	    when compiling complex nested case expressions.</p>
+          <p>
+	    Own Id: OTP-15848 Aux Id: ERL-956 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
