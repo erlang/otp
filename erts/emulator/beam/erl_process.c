@@ -12070,6 +12070,7 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     ErtsHeapFactory factory;
     Sint reds_consumed = 0;
 
+    ASSERT(c_p->flags & F_DISABLE_GC);
     ASSERT(erts_monitor_is_target(mon) && mon->type == ERTS_MON_TYPE_DIST_PROC);
 
     mdp = erts_monitor_to_data(mon);
@@ -12117,7 +12118,6 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         switch (code) {
         case ERTS_DSIG_SEND_CONTINUE:
         case ERTS_DSIG_SEND_YIELD:
-            erts_set_gc_state(c_p, 0);
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
             reds_consumed = reds; /* force yield */
             break;
@@ -12125,7 +12125,6 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             break;
         case ERTS_DSIG_SEND_TOO_LRG:
             erts_kill_dist_connection(dep, dist->connection_id);
-            erts_set_gc_state(c_p, 1);
             break;
         default:
             ASSERT(! "Invalid dsig send exit monitor result");
@@ -12329,6 +12328,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
     ErtsHeapFactory factory;
     Sint reds_consumed = 0;
 
+    ASSERT(c_p->flags & F_DISABLE_GC);
     ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
     dlnk = erts_link_to_other(lnk, &ldp);
     dist = ((ErtsLinkDataExtended *) ldp)->dist;
@@ -12368,7 +12368,6 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
         switch (code) {
         case ERTS_DSIG_SEND_YIELD:
         case ERTS_DSIG_SEND_CONTINUE:
-            erts_set_gc_state(c_p, 0);
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
             reds_consumed = reds; /* force yield */
             break;
@@ -12376,7 +12375,6 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
             break;
         case ERTS_DSIG_SEND_TOO_LRG:
             erts_kill_dist_connection(dep, dist->connection_id);
-            erts_set_gc_state(c_p, 1);
             break;
         default:
             ASSERT(! "Invalid dsig send exit monitor result");
@@ -12924,6 +12922,8 @@ restart:
         yield_allowed = 0;
 #endif
 
+        /* Enable GC again, through strictly not needed it puts
+           the process in a consistent state. */
         erts_set_gc_state(p, 1);
 
         /* Set state to not active as we don't want this process
