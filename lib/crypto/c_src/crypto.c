@@ -73,11 +73,10 @@ static ErlNifFunc nif_funcs[] = {
     {"hash_init_nif", 1, hash_init_nif, 0},
     {"hash_update_nif", 2, hash_update_nif, 0},
     {"hash_final_nif", 1, hash_final_nif, 0},
-    {"hmac_init_nif", 2, hmac_init_nif, 0},
-    {"hmac_update_nif", 2, hmac_update_nif, 0},
-    {"hmac_final_nif", 1, hmac_final_nif, 0},
-    {"hmac_final_nif", 2, hmac_final_nif, 0},
     {"mac_nif", 4, mac_nif, 0},
+    {"mac_init_nif", 3, mac_init_nif, 0},
+    {"mac_update_nif", 2, mac_update_nif, 0},
+    {"mac_final_nif", 1, mac_final_nif, 0},
     {"cipher_info_nif", 1, cipher_info_nif, 0},
     {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif, 0},
     {"ng_crypto_init_nif", 4, ng_crypto_init_nif, 0},
@@ -176,9 +175,15 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!enif_inspect_binary(env, tpl_array[1], &lib_bin))
         return __LINE__;
 
+#ifdef HAS_EVP_PKEY_CTX
+    if (!init_mac_ctx(env)) {
+	return __LINE__;
+    }
+#else
     if (!init_hmac_ctx(env)) {
 	return __LINE__;
     }
+#endif
     if (!init_hash_ctx(env)) {
         return __LINE__;
     }

@@ -63,7 +63,8 @@
          crypto_dyn_iv_init/3,
          crypto_dyn_iv_update/3,
          supports/1,
-         mac/3, mac/4, mac/5
+         mac/3, mac/4, mac/5,
+         mac_init/3, mac_update/2, mac_final/1
         ]).
 
 
@@ -617,16 +618,32 @@ hash_final(Context) ->
 %%%================================================================
 
 mac(Type, SubType, Key, Data, MacLength) ->
-    erlang:binary_part(mac(Type, SubType, Key, Data), 0, MacLength).
+    erlang:binary_part(mac(Type,SubType,Key,Data), 0, MacLength).
 
-mac(poly1305, _, Key, Data) -> mac_nif(poly1305, undefined, Key, Data);
+mac(poly1305, _, Key, Data) -> mac(poly1305, undefined, Key, Data);
 mac(Type, SubType, Key, Data) -> mac_nif(Type, SubType, Key, Data).
 
 mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 
-    
+
+mac_init(Type, SubType, Key) ->
+    mac_init_nif(Type, SubType, Key).
+
+mac_update(Ref, Data) ->
+    mac_update_nif(Ref, Data).
+
+mac_final(Ref) ->
+    mac_final_nif(Ref).
+
+mac_final(Ref, MacLength) ->
+    erlang:binary_part(mac_final(Ref), 0, MacLength).
+
 
 mac_nif(_Type, _SubType, _Key, _Data) -> ?nif_stub.
+
+mac_init_nif(_Type, _SubType, _Key) -> ?nif_stub.
+mac_update_nif(_Ref, _Data) -> ?nif_stub.
+mac_final_nif(_Ref) -> ?nif_stub.
 
 
 %%%---- HMAC
@@ -641,8 +658,7 @@ mac_nif(_Type, _SubType, _Key, _Data) -> ?nif_stub.
                            Data :: iodata(),
                            Mac :: binary() .
 hmac(Type, Key, Data) ->
-    Data1 = iolist_to_binary(Data),
-    hmac(Type, Key, Data1, undefined, erlang:byte_size(Data1), max_bytes()).
+    ?COMPAT(mac(hmac, Type, Key, Data)).
 
 -spec hmac(Type, Key, Data, MacLength) -> 
                   Mac when Type :: hmac_hash_algorithm(),
@@ -652,8 +668,7 @@ hmac(Type, Key, Data) ->
                            Mac :: binary() .
 
 hmac(Type, Key, Data, MacLength) ->
-    Data1 = iolist_to_binary(Data),
-    hmac(Type, Key, Data1, MacLength, erlang:byte_size(Data1), max_bytes()).
+    ?COMPAT(mac(hmac, Type, Key, Data, MacLength)).
 
 %%%---- hmac_init, hamc_update, hmac_final
 
@@ -664,29 +679,28 @@ hmac(Type, Key, Data, MacLength) ->
                                   Key :: iodata(),
                                   State :: hmac_state() .
 hmac_init(Type, Key) ->
-    notsup_to_error(hmac_init_nif(Type, Key)).
+    ?COMPAT(mac_init(hmac, Type, Key)).
 
 %%%---- hmac_update
 
 -spec hmac_update(State, Data) -> NewState when Data :: iodata(),
                                                 State :: hmac_state(),
                                                 NewState :: hmac_state().
-hmac_update(State, Data0) ->
-    Data = iolist_to_binary(Data0),
-    hmac_update(State, Data, erlang:byte_size(Data), max_bytes()).
+hmac_update(State, Data) ->
+    ?COMPAT(mac_update(State, Data)).
 
 %%%---- hmac_final
 
 -spec hmac_final(State) -> Mac when State :: hmac_state(),
                                     Mac :: binary().
 hmac_final(Context) ->
-    notsup_to_error(hmac_final_nif(Context)).
+    ?COMPAT(mac_final(Context)).
 
 -spec hmac_final_n(State, HashLen) -> Mac when State :: hmac_state(),
                                                HashLen :: integer(),
                                                Mac :: binary().
 hmac_final_n(Context, HashLen) ->
-    notsup_to_error(hmac_final_nif(Context, HashLen)).
+    ?COMPAT(mac_final(Context, HashLen)).
 
 %%%---- CMAC
 
@@ -708,14 +722,14 @@ cmac(Type, Key, Data) ->
                            Mac :: binary().
 
 cmac(Type, Key, Data, MacLength) ->
-    erlang:binary_part(cmac(alias(Type), Key, Data), 0, MacLength).
+    ?COMPAT(mac(cmac, alias(Type), Key, Data, MacLength)).
 
 %%%---- POLY1305
 
 -spec poly1305(iodata(), iodata()) -> Mac when Mac ::  binary().
 
 poly1305(Key, Data) ->
-    ?COMPAT( mac(poly1305, Key, Data) ).
+    ?COMPAT(mac(poly1305, Key, Data)).
 
 %%%================================================================
 %%%
@@ -2259,35 +2273,6 @@ hash_nif(_Hash, _Data) -> ?nif_stub.
 hash_init_nif(_Hash) -> ?nif_stub.
 hash_update_nif(_State, _Data) -> ?nif_stub.
 hash_final_nif(_State) -> ?nif_stub.
-
-%% HMAC --------------------------------------------------------------------
-
-hmac(Type, Key, Data, MacSize, Size, MaxBytes) when Size =< MaxBytes ->
-    ?COMPAT(
-       case MacSize of
-           undefined -> mac(hmac, Type, Key, Data);
-           _         -> mac(hmac, Type, Key, Data, MacSize)
-       end
-      );
-hmac(Type, Key, Data, MacSize, Size, MaxBytes) ->
-    State0 = hmac_init(Type, Key),
-    State1 = hmac_update(State0, Data, Size, MaxBytes),
-    case MacSize of
-        undefined -> hmac_final(State1);
-        _         -> hmac_final_n(State1, MacSize)
-    end.
-
-hmac_update(State, Data, Size, MaxBytes)  when Size =< MaxBytes ->
-    notsup_to_error(hmac_update_nif(State, Data));
-hmac_update(State0, Data, _, MaxBytes) ->
-    <<Increment:MaxBytes/binary, Rest/binary>> = Data,
-    State = notsup_to_error(hmac_update_nif(State0, Increment)),
-    hmac_update(State, Rest, erlang:byte_size(Rest), MaxBytes).
-
-hmac_init_nif(_Type, _Key) -> ?nif_stub.
-hmac_update_nif(_Context, _Data) -> ?nif_stub.
-hmac_final_nif(_Context) -> ?nif_stub.
-hmac_final_nif(_Context, _MacSize) -> ?nif_stub.
 
 %% CIPHERS --------------------------------------------------------------------
 

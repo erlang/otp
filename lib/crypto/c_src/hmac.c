@@ -18,6 +18,8 @@
  * %CopyrightEnd%
  */
 
+#ifndef HAS_EVP_PKEY_CTX
+
 #include "hmac.h"
 #include "digest.h"
 
@@ -63,17 +65,17 @@ static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
 }
 
 ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Key) */
+{/* (hmac, Type, Key) */
     struct digest_type_t *digp = NULL;
     ErlNifBinary         key;
     ERL_NIF_TERM         ret;
     struct hmac_context  *obj = NULL;
 
-    ASSERT(argc == 2);
+    ASSERT(argc == 3);
 
-    if ((digp = get_digest_type(argv[0])) == NULL)
+    if ((digp = get_digest_type(argv[1])) == NULL)
         goto bad_arg;
-    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
+    if (!enif_inspect_iolist_as_binary(env, argv[2], &key))
         goto bad_arg;
     if (key.size > INT_MAX)
         goto bad_arg;
@@ -213,3 +215,4 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 }
 
+#endif
