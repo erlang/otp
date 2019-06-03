@@ -1642,6 +1642,8 @@ is_tls_version('dtlsv1.2') ->
     true;
 is_tls_version('dtlsv1') ->
     true;
+is_tls_version('tlsv1.3') ->
+    true;
 is_tls_version('tlsv1.2') ->
     true;
 is_tls_version('tlsv1.1') ->

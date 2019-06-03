@@ -40,6 +40,7 @@
 %%--------------------------------------------------------------------
 all() ->
     [
+     {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
@@ -50,6 +51,7 @@ all() ->
 
 groups() ->
     [
+     {'tlsv1.3', [], all_protocol_groups()},
      {'tlsv1.2', [], all_protocol_groups()},
      {'tlsv1.1', [], all_protocol_groups()},
      {'tlsv1', [], all_protocol_groups()},
