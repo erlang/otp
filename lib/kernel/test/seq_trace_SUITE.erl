@@ -23,6 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([token_set_get/1, tracer_set_get/1, print/1,
+         old_heap_token/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
 	 match_set_seq_token/1, gc_seq_token/1, label_capability_mismatch/1,
@@ -47,6 +48,7 @@ suite() ->
 all() -> 
     [token_set_get, tracer_set_get, print, send, send_literal,
      distributed_send, recv, distributed_recv, trace_exit,
+     old_heap_token,
      distributed_exit, call, port, match_set_seq_token,
      gc_seq_token, label_capability_mismatch].
 
@@ -146,17 +148,19 @@ tracer_set_get(Config) when is_list(Config) ->
     ok.
 
 print(Config) when is_list(Config) ->
-    lists:foreach(fun do_print/1, ?TIMESTAMP_MODES).
+    [do_print(TsType, Label) || TsType <- ?TIMESTAMP_MODES,
+                                Label <- [17, "label"]].
     
-do_print(TsType) ->
+do_print(TsType, Label) ->
     start_tracer(),
+    seq_trace:set_token(label, Label),
     set_token_flags([print, TsType]),
-    seq_trace:print(0,print1),
+    seq_trace:print(Label,print1),
     seq_trace:print(1,print2),
     seq_trace:print(print3),
     seq_trace:reset_trace(),
-    [{0,{print,_,_,[],print1}, Ts0},
-	   {0,{print,_,_,[],print3}, Ts1}] = stop_tracer(2),
+    [{Label,{print,_,_,[],print1}, Ts0},
+     {Label,{print,_,_,[],print3}, Ts1}] = stop_tracer(2),
     check_ts(TsType, Ts0),
     check_ts(TsType, Ts1).
 
@@ -559,6 +563,24 @@ get_port_message(Port) ->
 	    ct:fail(timeout)
     end.
 
+
+%% OTP-15849 ERL-700
+%% Verify changing label on existing token when it resides on old heap.
+%% Bug caused faulty ref from old to new heap.
+old_heap_token(Config) when is_list(Config) ->
+    seq_trace:set_token(label, 1),
+    erlang:garbage_collect(self(), [{type, minor}]),
+    erlang:garbage_collect(self(), [{type, minor}]),
+    %% Now token tuple should be on old-heap.
+    %% Set a new non-literal label which should reside on new-heap.
+    NewLabel = {self(), "new label"},
+    1 = seq_trace:set_token(label, NewLabel),
+
+    %% If bug, we now have a ref from old to new heap. Yet another minor gc
+    %% will make that a ref to deallocated memory.
+    erlang:garbage_collect(self(), [{type, minor}]),
+    {label,NewLabel} = seq_trace:get_token(label),
+    ok.
 
 
 match_set_seq_token(doc) ->
