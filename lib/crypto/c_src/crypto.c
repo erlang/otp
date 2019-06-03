@@ -31,7 +31,6 @@
 #include "api_ng.h"
 #include "bn.h"
 #include "cipher.h"
-#include "cmac.h"
 #include "mac.h"
 #include "dh.h"
 #include "digest.h"
@@ -47,7 +46,6 @@
 #include "info.h"
 #include "math.h"
 #include "pkey.h"
-#include "poly1305.h"
 #include "rand.h"
 #include "rsa.h"
 #include "srp.h"
@@ -75,13 +73,10 @@ static ErlNifFunc nif_funcs[] = {
     {"hash_init_nif", 1, hash_init_nif, 0},
     {"hash_update_nif", 2, hash_update_nif, 0},
     {"hash_final_nif", 1, hash_final_nif, 0},
-    {"hmac_nif", 3, hmac_nif, 0},
-    {"hmac_nif", 4, hmac_nif, 0},
     {"hmac_init_nif", 2, hmac_init_nif, 0},
     {"hmac_update_nif", 2, hmac_update_nif, 0},
     {"hmac_final_nif", 1, hmac_final_nif, 0},
     {"hmac_final_nif", 2, hmac_final_nif, 0},
-    {"cmac_nif", 3, cmac_nif, 0},
     {"mac_nif", 4, mac_nif, 0},
     {"cipher_info_nif", 1, cipher_info_nif, 0},
     {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif, 0},
@@ -113,8 +108,6 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_seed_nif", 1, rand_seed_nif, 0},
 
     {"aead_cipher", 7, aead_cipher, 0},
-
-    {"poly1305_nif", 2, poly1305_nif, 0},
 
     {"engine_by_id_nif", 1, engine_by_id_nif, 0},
     {"engine_init_nif", 1, engine_init_nif, 0},

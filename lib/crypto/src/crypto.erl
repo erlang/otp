@@ -458,6 +458,19 @@
 
 
 %%--------------------------------------------------------------------
+%%
+%% Make the new descriptive_error() look like the old run_time_error()
+%%
+-define(COMPAT(CALL),
+        try begin CALL end
+        catch
+            error:{error, {_File,_Line}, _Reason} ->
+                error(badarg);
+            error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
+                error(E)
+        end).
+
+%%--------------------------------------------------------------------
 -compile(no_native).
 -on_load(on_load/0).
 -define(CRYPTO_NIF_VSN,302).
@@ -685,7 +698,7 @@ hmac_final_n(Context, HashLen) ->
                            Data :: iodata(),
                            Mac :: binary().
 cmac(Type, Key, Data) ->
-    notsup_to_error(cmac_nif(alias(Type), Key, Data)).
+    ?COMPAT(mac(cmac, alias(Type), Key, Data)).
 
 -spec cmac(Type, Key, Data, MacLength) ->
                   Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
@@ -702,22 +715,13 @@ cmac(Type, Key, Data, MacLength) ->
 -spec poly1305(iodata(), iodata()) -> Mac when Mac ::  binary().
 
 poly1305(Key, Data) ->
-    poly1305_nif(Key, Data).
+    ?COMPAT( mac(poly1305, Key, Data) ).
 
 %%%================================================================
 %%%
 %%% Encrypt/decrypt, The "Old API"
 %%%
 %%%================================================================
-
--define(COMPAT(CALL),
-        try begin CALL end
-        catch
-            error:{error, {_File,_Line}, _Reason} ->
-                error(badarg);
-            error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
-                error(E)
-        end).
 
 %%%---- Cipher info
 %%%----------------------------------------------------------------
@@ -2259,11 +2263,12 @@ hash_final_nif(_State) -> ?nif_stub.
 %% HMAC --------------------------------------------------------------------
 
 hmac(Type, Key, Data, MacSize, Size, MaxBytes) when Size =< MaxBytes ->
-    notsup_to_error(
-    case MacSize of
-          undefined -> hmac_nif(Type, Key, Data);
-          _         -> hmac_nif(Type, Key, Data, MacSize)
-      end);
+    ?COMPAT(
+       case MacSize of
+           undefined -> mac(hmac, Type, Key, Data);
+           _         -> mac(hmac, Type, Key, Data, MacSize)
+       end
+      );
 hmac(Type, Key, Data, MacSize, Size, MaxBytes) ->
     State0 = hmac_init(Type, Key),
     State1 = hmac_update(State0, Data, Size, MaxBytes),
@@ -2279,19 +2284,10 @@ hmac_update(State0, Data, _, MaxBytes) ->
     State = notsup_to_error(hmac_update_nif(State0, Increment)),
     hmac_update(State, Rest, erlang:byte_size(Rest), MaxBytes).
 
-hmac_nif(_Type, _Key, _Data) -> ?nif_stub.
-hmac_nif(_Type, _Key, _Data, _MacSize) -> ?nif_stub.
 hmac_init_nif(_Type, _Key) -> ?nif_stub.
 hmac_update_nif(_Context, _Data) -> ?nif_stub.
 hmac_final_nif(_Context) -> ?nif_stub.
 hmac_final_nif(_Context, _MacSize) -> ?nif_stub.
-
-%% CMAC
-cmac_nif(_Type, _Key, _Data) -> ?nif_stub.
-
-%% POLY1305
-poly1305_nif(_Key, _Data) -> ?nif_stub.
-
 
 %% CIPHERS --------------------------------------------------------------------
 
