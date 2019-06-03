@@ -5484,13 +5484,10 @@ tls13_client_auth_empty_cert_alert_ssl_server_openssl_client(Config) ->
 
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
-    ssl_test_lib:check_result(Server,
-                              {error,
-                               {tls_alert,
-                                {certificate_required,
-                                 "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:check_server_alert(Server, certificate_required),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
+
 
 tls13_client_auth_empty_cert_ssl_server_openssl_client() ->
      [{doc,"TLS 1.3: Test client authentication when client sends an empty certificate and fail_if_no_peer_cert is set to false."}].
@@ -5573,11 +5570,7 @@ tls13_hrr_client_auth_empty_cert_alert_ssl_server_openssl_client(Config) ->
 
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
-    ssl_test_lib:check_result(Server,
-                              {error,
-                               {tls_alert,
-                                {certificate_required,
-                                 "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:check_server_alert(Server, certificate_required),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
@@ -5664,13 +5657,7 @@ tls13_unsupported_sign_algo_client_auth_ssl_server_openssl_client(Config) ->
 
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
-    ssl_test_lib:check_result(
-      Server,
-      {error,
-       {tls_alert,
-        {insufficient_security,
-         "received SERVER ALERT: Fatal - Insufficient Security - "
-         "\"No suitable signature algorithm\""}}}),
+    ssl_test_lib:check_server_alert(Server, insufficient_security),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
@@ -5703,12 +5690,7 @@ tls13_unsupported_sign_algo_cert_client_auth_ssl_server_openssl_client(Config) -
 
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
-    ssl_test_lib:check_result(
-      Server,
-      {error,
-       {tls_alert,
-        {illegal_parameter,
-         "received CLIENT ALERT: Fatal - Illegal Parameter"}}}),
+    ssl_test_lib:check_server_alert(Server, certificate_required),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
