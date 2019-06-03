@@ -29,6 +29,46 @@
  */
 
 static void
+send_printed_buf(ei_x_buff* x)
+{
+    char* b = NULL;
+    char fn[256];
+    char *tmp = getenv("temp");
+    FILE* f;
+    int n, index = 0, ver;
+
+#ifdef VXWORKS
+    tmp = ".";
+#else
+    if (tmp == NULL) {
+        tmp = "/tmp";
+    }
+#endif
+    strcpy(fn, tmp);
+    strcat(fn, "/ei_print_test.txt");
+    f = fopen(fn, "w+");
+    ei_decode_version(x->buff, &index, &ver);
+    n = ei_print_term(f, x->buff, &index);
+    if (n < 0) {
+        fclose(f);
+        x->index = 0;
+        ei_x_format(x, "~s", "ERROR: term decoding failed");
+        send_bin_term(x);
+    } else {
+        fseek(f, 0, SEEK_SET);
+        b = malloc(n+1);
+        fread(b, 1, n, f);
+        b[n] = '\0';
+        fclose(f);
+        x->index = 0;
+        ei_x_format(x, "~s", b);
+        send_bin_term(x);
+        free(b);
+    }
+}
+
+
+static void
 send_printed3(char* format, char* p1, char* p2, int fl)
 {
     char* b = NULL;
@@ -43,25 +83,7 @@ send_printed3(char* format, char* p1, char* p2, int fl)
     } else {
 	ei_x_format(&x, format, p1, p2);
     }
-#ifdef VXWORKS
-    tmp = ".";
-#else
-    if (tmp == NULL) tmp = "/tmp";
-#endif
-    strcpy(fn, tmp);
-    strcat(fn, "/ei_print_test.txt");
-    f = fopen(fn, "w+");
-    ei_decode_version(x.buff, &index, &ver);
-    n = ei_print_term(f, x.buff, &index);
-    fseek(f, 0, SEEK_SET);
-    b = malloc(n+1);
-    fread(b, 1, n, f);
-    b[n] = '\0';
-    fclose(f);
-    x.index = 0;
-    ei_x_format(&x, "~s", b);
-    send_bin_term(&x);
-    free(b);
+    send_printed_buf(&x);
     ei_x_free(&x);
 }
 
@@ -184,4 +206,85 @@ TESTCASE(strings)
     report(1);
 }
 
+TESTCASE(maps)
+{
+    ei_x_buff x;
 
+    ei_init();
+
+    ei_x_new_with_version(&x);
+    ei_x_encode_map_header(&x, 0);
+    send_printed_buf(&x);
+    ei_x_free(&x);
+
+    ei_x_new_with_version(&x);
+    ei_x_encode_map_header(&x, 1);
+    ei_x_encode_atom(&x, "key");
+    ei_x_encode_atom(&x, "value");
+    send_printed_buf(&x);
+    ei_x_free(&x);
+
+    ei_x_new_with_version(&x);
+    ei_x_encode_map_header(&x, 2);
+    ei_x_encode_atom(&x, "key");
+    ei_x_encode_atom(&x, "value");
+    ei_x_encode_atom(&x, "another_key");
+    ei_x_encode_tuple_header(&x, 2);
+    ei_x_encode_atom(&x, "ok");
+    ei_x_encode_long(&x, 42L);
+    send_printed_buf(&x);
+    ei_x_free(&x);
+
+    report(1);
+}
+
+TESTCASE(funs)
+{
+    ei_x_buff x;
+    erlang_pid self;
+    erlang_fun fun;
+
+    strcpy(self.node, "node@host");
+    self.num = 9;
+    self.serial = 99;
+    self.creation = 1;
+
+    ei_init();
+
+    ei_x_new_with_version(&x);
+    fun.arity = -1;             /* Will encode as FUN_EXT */
+    strcpy(fun.module, "some_module");
+    fun.type = EI_FUN_CLOSURE;
+    fun.u.closure.pid = self;
+    fun.u.closure.index = fun.u.closure.old_index = 42;
+    fun.u.closure.uniq = 0xDEADBEEF;
+    fun.u.closure.n_free_vars = 0;
+    fun.u.closure.free_var_len = 0;
+    ei_x_encode_fun(&x, &fun);
+    send_printed_buf(&x);
+    ei_x_free(&x);
+
+    ei_x_new_with_version(&x);
+    fun.arity = 0;              /* Will encode as NEW_FUN_EXT */
+    strcpy(fun.module, "some_module");
+    fun.type = EI_FUN_CLOSURE;
+    fun.u.closure.pid = self;
+    fun.u.closure.index = fun.u.closure.old_index = 37;
+    fun.u.closure.uniq = 0xBADBEEF;
+    fun.u.closure.n_free_vars = 0;
+    fun.u.closure.free_var_len = 0;
+    ei_x_encode_fun(&x, &fun);
+    send_printed_buf(&x);
+    ei_x_free(&x);
+
+    ei_x_new_with_version(&x);
+    fun.arity = 1;
+    strcpy(fun.module, "erlang");
+    fun.type = EI_FUN_EXPORT;
+    fun.u.exprt.func = "abs";
+    ei_x_encode_fun(&x, &fun);
+    send_printed_buf(&x);
+    ei_x_free(&x);
+
+    report(1);
+}
