@@ -1690,9 +1690,9 @@ static char **build_args_from_string(char *string)
     for(;;) {
 	switch (state) {
 	case Start:
-	    if (!*p) 
+	    if (!*p)
 		goto done;
-	    if (argc >= alloced - 1) { /* Make room for extra NULL */
+	    if (argc >= alloced - 2) { /* Make room for extra NULL and "--" */
 		argv = erealloc(argv, (alloced += 10) * sizeof(char *));
 	    }
 	    cur_s = argc + argv;
@@ -1781,11 +1781,14 @@ static char **build_args_from_string(char *string)
 	}
     }
 done:
-    argv[argc] = NULL; /* Sure to be large enough */
     if (!argc) {
 	efree(argv);
 	return NULL;
     }
+    argv[argc++] = "--"; /* Add a -- separator in order
+                            for different from different environments
+                            to effect each other */
+    argv[argc++] = NULL; /* Sure to be large enough */
     return argv;
 #undef ENSURE
 }
@@ -2036,11 +2039,13 @@ initial_argv_massage(int *argc, char ***argv)
     argv_buf ab = {0}, xab = {0};
     int ix, vix, ac;
     char **av;
+    char *sep = "--";
     struct {
 	int argc;
 	char **argv;
     } avv[] = {{INT_MAX, NULL}, {INT_MAX, NULL}, {INT_MAX, NULL},
-	       {INT_MAX, NULL}, {INT_MAX, NULL}, {INT_MAX, NULL}};
+	       {INT_MAX, NULL}, {INT_MAX, NULL},
+               {INT_MAX, NULL}, {INT_MAX, NULL}};
     /*
      * The environment flag containing OTP release is intentionally
      * undocumented and intended for OTP internal use only.
@@ -2060,6 +2065,8 @@ initial_argv_massage(int *argc, char ***argv)
     if (*argc > 1) {
 	avv[vix].argc = *argc - 1;
 	avv[vix++].argv = &(*argv)[1];
+        avv[vix].argc = 1;
+        avv[vix++].argv = &sep;
     }
 
     av = build_args_from_env("ERL_FLAGS");
