@@ -5551,11 +5551,7 @@ tls13_client_auth_empty_cert_alert_ssl_server_openssl_client(Config) ->
 
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
-    ssl_test_lib:check_result(Server,
-                              {error,
-                               {tls_alert,
-                                {certificate_required,
-                                 "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:check_server_alert(Server, certificate_required),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
@@ -5589,11 +5585,7 @@ tls13_client_auth_empty_cert_alert_ssl_server_ssl_client(Config) ->
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
 					{options, ClientOpts}]),
 
-    ssl_test_lib:check_result(Server,
-                              {error,
-                               {tls_alert,
-                                {certificate_required,
-                                 "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:check_server_alert(Server, certificate_required),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
@@ -5745,11 +5737,7 @@ tls13_hrr_client_auth_empty_cert_alert_ssl_server_openssl_client(Config) ->
 
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
-    ssl_test_lib:check_result(Server,
-                              {error,
-                               {tls_alert,
-                                {certificate_required,
-                                 "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:check_server_alert(Server, certificate_required),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
@@ -5785,11 +5773,7 @@ tls13_hrr_client_auth_empty_cert_alert_ssl_server_ssl_client(Config) ->
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
 					{options, ClientOpts}]),
 
-    ssl_test_lib:check_result(Server,
-                              {error,
-                               {tls_alert,
-                                {certificate_required,
-                                 "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:check_server_alert(Server, certificate_required),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
@@ -5945,13 +5929,7 @@ tls13_unsupported_sign_algo_client_auth_ssl_server_openssl_client(Config) ->
 
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
-    ssl_test_lib:check_result(
-      Server,
-      {error,
-       {tls_alert,
-        {insufficient_security,
-         "received SERVER ALERT: Fatal - Insufficient Security - "
-         "\"No suitable signature algorithm\""}}}),
+    ssl_test_lib:check_server_alert(Server, insufficient_security),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
@@ -5984,13 +5962,7 @@ tls13_unsupported_sign_algo_client_auth_ssl_server_ssl_client(Config) ->
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
 					{options, ClientOpts}]),
 
-    ssl_test_lib:check_result(
-      Server,
-      {error,
-       {tls_alert,
-        {insufficient_security,
-         "received SERVER ALERT: Fatal - Insufficient Security - "
-         "\"No suitable signature algorithm\""}}}),
+    ssl_test_lib:check_server_alert(Server, insufficient_security),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
@@ -6024,12 +5996,7 @@ tls13_unsupported_sign_algo_cert_client_auth_ssl_server_openssl_client(Config) -
 
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
-    ssl_test_lib:check_result(
-      Server,
-      {error,
-       {tls_alert,
-        {certificate_required,
-         "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:check_server_alert(Server, certificate_required),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
@@ -6068,12 +6035,7 @@ tls13_unsupported_sign_algo_cert_client_auth_ssl_server_ssl_client(Config) ->
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
 					{options, ClientOpts}]),
 
-    ssl_test_lib:check_result(
-      Server,
-      {error,
-       {tls_alert,
-        {certificate_required,
-         "received SERVER ALERT: Fatal - Certificate required - certificate_required"}}}),
+    ssl_test_lib:check_server_alert(Server, certificate_required),
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
