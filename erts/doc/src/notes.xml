@@ -31,6 +31,41 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In nested use of <c>try</c>/<c>catch</c>, rethrowing
+	    an exception using <c>erlang:raise/3</c> with a different
+	    class would not always be able to change the class of the
+	    exception.</p>
+          <p>
+	    Own Id: OTP-15834 Aux Id: ERIERL-367 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>seq_trace:set_token(label,Term)</c> which
+	    could cause VM crash if <c>Term</c> was heap allocated
+	    (not an atom, small integer, local pid or port). Bug
+	    exists since OTP 21.0 when terms other than small
+	    integers were first allowed as labels.</p>
+          <p>
+	    Own Id: OTP-15849 Aux Id: ERL-700 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>seq_trace:print/2</c> not to raise <c>badarg</c>
+	    exception if label is not a small integer. Bug exists
+	    since OTP 21.0.</p>
+          <p>
+	    Own Id: OTP-15859 Aux Id: ERL-700 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
