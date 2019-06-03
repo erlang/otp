@@ -3368,7 +3368,7 @@ dist_get_stat_1(BIF_ALIST_1)
                              am_ok,
                              erts_bld_sint64(hpp, szp, read),
                              erts_bld_sint64(hpp, szp, write),
-                             pend ? am_true : am_false);
+                             erts_bld_sint64(hpp, szp, pend));
         if (hpp)
             break;
         hp = HAlloc(BIF_P, sz);
