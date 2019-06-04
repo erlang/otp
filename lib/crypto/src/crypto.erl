@@ -28,9 +28,6 @@
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
--export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
--export([cmac/3, cmac/4]).
--export([poly1305/2]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
 -export([rand_seed/0, rand_seed_alg/1, rand_seed_alg/2]).
 -export([rand_seed_s/0, rand_seed_alg_s/1, rand_seed_alg_s/2]).
@@ -48,6 +45,9 @@
 -export([rand_seed/1]).
 
 %% Old interface. Now implemented with the New interface
+-export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
+-export([cmac/3, cmac/4]).
+-export([poly1305/2]).
 -export([stream_init/2, stream_init/3,
          stream_encrypt/2,
          stream_decrypt/2,
@@ -617,14 +617,20 @@ hash_final(Context) ->
 %%%
 %%%================================================================
 
+%%%----------------------------------------------------------------
+%%% Calculate MAC for the whole text at once
+
+mac(Type, Key, Data) -> mac(Type, undefined, Key, Data).
+
+mac(Type, Key, Data, MacLength) when is_integer(MacLength) ->mac(Type,undefined,Key,Data);
+mac(Type, SubType, Key, Data) -> mac_nif(Type, SubType, Key, Data).
+
 mac(Type, SubType, Key, Data, MacLength) ->
     erlang:binary_part(mac(Type,SubType,Key,Data), 0, MacLength).
 
-mac(poly1305, _, Key, Data) -> mac(poly1305, undefined, Key, Data);
-mac(Type, SubType, Key, Data) -> mac_nif(Type, SubType, Key, Data).
 
-mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
-
+%%%----------------------------------------------------------------
+%%% Calculate the MAC by uppdating by pieces of the text
 
 mac_init(Type, SubType, Key) ->
     mac_init_nif(Type, SubType, Key).
@@ -639,12 +645,25 @@ mac_final(Ref, MacLength) ->
     erlang:binary_part(mac_final(Ref), 0, MacLength).
 
 
+%%%----------------------------------------------------------------
+%%% NIFs for the functions above
+
 mac_nif(_Type, _SubType, _Key, _Data) -> ?nif_stub.
 
 mac_init_nif(_Type, _SubType, _Key) -> ?nif_stub.
 mac_update_nif(_Ref, _Data) -> ?nif_stub.
 mac_final_nif(_Ref) -> ?nif_stub.
 
+%%%================================================================
+%%%
+%%% The "Old API", kept for compatibility
+%%%
+%%%================================================================
+
+%%%----------------------------------------------------------------
+%%%----------------------------------------------------------------
+%%% Message Authentication Codes, MAC
+%%%
 
 %%%---- HMAC
 
@@ -731,14 +750,12 @@ cmac(Type, Key, Data, MacLength) ->
 poly1305(Key, Data) ->
     ?COMPAT(mac(poly1305, Key, Data)).
 
-%%%================================================================
-%%%
-%%% Encrypt/decrypt, The "Old API"
-%%%
-%%%================================================================
+%%%----------------------------------------------------------------
+%%%----------------------------------------------------------------
+%%% Ciphers
+
 
 %%%---- Cipher info
-%%%----------------------------------------------------------------
 -spec cipher_info(Type) -> Result | run_time_error()
                                when Type :: cipher(),
                                     Result :: #{key_length := integer(),
