@@ -733,6 +733,8 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
             {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), State};
         {Ref, {{handshake_failure, Reason}, State}} ->
             {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason), State};
+        {Ref, {#alert{} = Alert, State}} ->
+            {Alert, State};
         {#alert{} = Alert, State} ->
             {Alert, State}
     end.
@@ -893,7 +895,9 @@ do_wait_cert_cr(#certificate_1_3{} = Certificate, State0) ->
         {Ref, {{internal_error, Reason}, _State}} ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason);
         {Ref, {{handshake_failure, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason)
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
+        {Ref, {#alert{} = Alert, State}} ->
+            {Alert, State}
     end;
 do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
     {Ref,Maybe} = maybe(),
@@ -1112,13 +1116,11 @@ process_certificate(#certificate_1_3{certificate_list = Certs0},
                     State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
                     {ok, {State, wait_cv}};
                 {error, Reason} ->
-                    State1 = calculate_traffic_secrets(State0),
-                    State = ssl_record:step_encryption_state(State1),
+                    State = update_encryption_state(Role, State0),
                     {error, {Reason, State}};
-                #alert{} = Alert ->
-                    State1 = calculate_traffic_secrets(State0),
-                    State = ssl_record:step_encryption_state(State1),
-                    {Alert, State}
+                {ok, #alert{} = Alert} ->
+                    State = update_encryption_state(Role, State0),
+                    {error, {Alert, State}}
             end;
         false ->
             State1 = calculate_traffic_secrets(State0),
@@ -1142,6 +1144,17 @@ is_supported_signature_algorithm([BinCert|_], SignAlgs0) ->
     lists:member(Scheme, SignAlgs).
 
 
+%% Sets correct encryption state when sending Alerts in shared states that use different secrets.
+%% - If client: use handshake secrets.
+%% - If server: use traffic secrets as by this time the client's state machine
+%%              already stepped into the 'connection' state.
+update_encryption_state(server, State0) ->
+    State1 = calculate_traffic_secrets(State0),
+    ssl_record:step_encryption_state(State1);
+update_encryption_state(client, State) ->
+    State.
+
+
 validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHandle, Role, Host) ->
     ServerName = ssl_handshake:server_name(SslOptions#ssl_options.server_name_indication, Host, Role),
     [PeerCert | ChainCerts ] = Certs,
@@ -1162,9 +1175,9 @@ validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHand
             {ok, {PublicKeyInfo,_}} ->
                 {ok, {PeerCert, PublicKeyInfo}};
             {error, Reason} ->
-                ssl_handshake:handle_path_validation_error(Reason, PeerCert, ChainCerts,
-                                                           SslOptions, Options,
-                                                           CertDbHandle, CertDbRef)
+                {ok, ssl_handshake:handle_path_validation_error(Reason, PeerCert, ChainCerts,
+                                                                SslOptions, Options,
+                                                                CertDbHandle, CertDbRef)}
         end
     catch
         error:{badmatch,{asn1, Asn1Reason}} ->

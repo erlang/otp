@@ -302,7 +302,13 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{active, Active} | BadClientOpts]}]),
 
-    ssl_test_lib:check_server_alert(Server, Client, handshake_failure).
+    Version = proplists:get_value(version,Config),
+    case Version of
+        'tlsv1.3' ->
+            ssl_test_lib:check_server_alert(Server, Client, certificate_required);
+        _ ->
+            ssl_test_lib:check_server_alert(Server, Client, handshake_failure)
+    end.
 
 %%--------------------------------------------------------------------
 server_require_peer_cert_empty_ok() ->
@@ -855,6 +861,7 @@ invalid_signature_server(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{verify, verify_peer} | ClientOpts]}]),
     ssl_test_lib:check_server_alert(Server, Client, unknown_ca).
+
 %%--------------------------------------------------------------------
 
 invalid_signature_client() ->

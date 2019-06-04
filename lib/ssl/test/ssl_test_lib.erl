@@ -428,41 +428,42 @@ check_result(Pid, Msg) ->
 		      {got, Unexpected}},
 	    ct:fail(Reason)
     end.
+
 check_server_alert(Pid, Alert) ->
     receive
 	{Pid, {error, {tls_alert, {Alert, STxt}}}} ->
             check_server_txt(STxt),
+            ok;
+        {Pid, {error, closed}} ->
             ok
     end.
 check_server_alert(Server, Client, Alert) ->
     receive
 	{Server, {error, {tls_alert, {Alert, STxt}}}} ->
             check_server_txt(STxt),
-	    receive
-		{Client, {error, {tls_alert, {Alert, CTxt}}}} ->
-                    check_client_txt(CTxt),
-		    ok;
-		{Client, {error, closed}} ->
-		    ok
-	    end
+            check_client_alert(Client, Alert)
     end.
 check_client_alert(Pid, Alert) ->
     receive
 	{Pid, {error, {tls_alert, {Alert, CTxt}}}} ->
             check_client_txt(CTxt),
+            ok;
+        {Pid, {ssl_error, _, {tls_alert, {Alert, CTxt}}}} ->
+            check_client_txt(CTxt),
+            ok;
+        {Pid, {error, closed}} ->
             ok
     end.
 check_client_alert(Server, Client, Alert) ->
     receive
 	{Client, {error, {tls_alert, {Alert, CTxt}}}} ->
             check_client_txt(CTxt),
-	    receive
-		{Server, {error, {tls_alert, {Alert, STxt}}}} ->
-                      check_server_txt(STxt),
-		    ok;
-		{Server, {error, closed}} ->
-		    ok
-	    end
+            check_server_alert(Server, Alert);
+        {Client, {ssl_error, _, {tls_alert, {Alert, CTxt}}}} ->
+            check_client_txt(CTxt),
+            ok;
+        {Client, {error, closed}} ->
+            ok
     end.
 check_server_txt("TLS server" ++ _) ->
     ok;
@@ -1103,7 +1104,15 @@ run_client_error(Opts) ->
     Options = proplists:get_value(options, Opts),
     ct:log("~p:~p~nssl:connect(~p, ~p, ~p)~n", [?MODULE,?LINE, Host, Port, Options]),
     Error = Transport:connect(Host, Port, Options),
-    Pid ! {self(), Error}.
+    case Error of
+        {error, {tls_alert, _}} ->
+            Pid ! {self(), Error};
+        {ok, _Socket} ->
+            receive
+                {ssl_error, _, {tls_alert, _}} = SslError ->
+                                Pid ! {self(), SslError}
+            end
+    end.
 
 accepters(N) ->
     accepters([], N).
