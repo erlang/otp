@@ -312,8 +312,11 @@ if [ "x$GDB" = "x" ]; then
 	    # on multiple cores (especially with async threads). Valgrind only run one pthread
 	    # at a time anyway so there is no point letting it utilize more than one core.
 	    # Use $sched_arg to force all schedulers online to emulate multicore.
-	    taskset1="taskset 1"
 	    ncpu=`cat /proc/cpuinfo | grep -w processor | wc -l`
+            # Choose a random core in order to not collide with any other valgrind
+            # run on the same machine.
+            taskset1=$((1 << (`shuf -i 1-$ncpu -n 1` - 1) ))
+	    taskset1="taskset $taskset1"
 	    sched_arg="-S$ncpu:$ncpu"
 	else
 	    taskset1=
