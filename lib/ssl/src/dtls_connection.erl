@@ -836,9 +836,12 @@ initial_flight_state(_) ->
 next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
 						   dtls_record_buffer = Buf0,
 						   dtls_cipher_texts = CT0} = Buffers,
+                                         connection_env = #connection_env{negotiated_version = Version},
+                                         static_env = #static_env{data_tag = DataTag},
                                          ssl_options = SslOpts} = State0) ->
     case dtls_record:get_dtls_records(Data,
-                                      acceptable_record_versions(StateName, State0), 
+                                      {DataTag, StateName, Version, 
+                                       [dtls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS]}, 
                                       Buf0, SslOpts) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
@@ -849,10 +852,6 @@ next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
 	    Alert
     end.
 
-acceptable_record_versions(hello, _) ->
-    [dtls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_DATAGRAM_VERSIONS];
-acceptable_record_versions(_, #state{connection_env = #connection_env{negotiated_version = Version}}) ->
-    [Version].
 
 dtls_handshake_events(Packets) ->
     lists:map(fun(Packet) ->
