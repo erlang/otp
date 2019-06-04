@@ -159,6 +159,7 @@ connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts) ->
 
     case ssl:handshake(AcceptSocket, SslOpts, Timeout) of
 	{ok, Socket0, Ext} ->
+            [_|_] = maps:get(sni, Ext),
             ct:log("Ext ~p:~n", [Ext]),            
             ct:log("~p:~p~nssl:handshake_continue(~p,~p,~p)~n", [?MODULE,?LINE, Socket0, ContOpts,Timeout]),            
             case ssl:handshake_continue(Socket0, ContOpts, Timeout) of
