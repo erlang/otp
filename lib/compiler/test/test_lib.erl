@@ -79,6 +79,7 @@ opt_opts(Mod) ->
                      (no_put_tuple2) -> true;
                      (no_recv_opt) -> true;
                      (no_share_opt) -> true;
+                     (no_shared_fun_wrappers) -> true;
                      (no_ssa_float) -> true;
                      (no_ssa_opt) -> true;
                      (no_stack_trimming) -> true;
