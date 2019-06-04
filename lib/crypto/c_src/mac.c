@@ -97,6 +97,8 @@ int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
                    ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term);
 #endif
 
+ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
 
 /********************************
  Support functions for type array
@@ -550,7 +552,7 @@ static void mac_context_dtor(ErlNifEnv* env, struct mac_context *obj)
 
 /*******************************************************************
  *
- * Mac nif
+ * mac_init, mac_update, mac_final nifs
  *
  ******************************************************************/
 
@@ -730,6 +732,27 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 
 ERL_NIF_TERM mac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Ref, Text) */
+    ErlNifBinary  text;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &text))
+        return EXCP_BADARG(env, "Bad text");
+
+    if (text.size > INT_MAX)
+        return EXCP_BADARG(env, "Too long text");
+
+    /* Run long jobs on a dirty scheduler to not block the current emulator thread */
+    if (text.size > MAX_BYTES_TO_NIF) {
+        return enif_schedule_nif(env, "mac_update",
+                                 ERL_NIF_DIRTY_JOB_CPU_BOUND,
+                                 mac_update, argc, argv);
+    }
+
+    return mac_update(env, argc, argv);
+}
+
+
+ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Ref, Text) */
 #ifdef HAS_EVP_PKEY_CTX
     struct mac_context *obj = NULL;
