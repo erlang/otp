@@ -16452,8 +16452,6 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
 #if defined(IPV6_PKTINFO)
     case IPV6_PKTINFO:
         {
-            char* xres;
-
             struct in6_pktinfo* pktInfoP = (struct in6_pktinfo*) dataP;
             ERL_NIF_TERM        ifIndex  = MKI(env, pktInfoP->ipi6_ifindex);
             ERL_NIF_TERM        addr;

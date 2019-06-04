@@ -2703,8 +2703,7 @@ api_a_connect_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, addr => LAddr},
+                           LSA = which_local_socket_addr(Domain),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
@@ -2835,10 +2834,8 @@ api_a_connect_tcp(InitState) ->
          %% *** The init part ***
          #{desc => "which server (local) address",
            cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
-                           LAddr = which_local_addr(Domain),
-                           LSA   = #{family => Domain, 
-                                     addr   => LAddr},
-                           SSA   = LSA#{port => Port},
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
                            {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
@@ -4992,16 +4989,6 @@ api_a_recv_cancel_tcp(InitState) ->
                            _MRef = erlang:monitor(process, Pid),
                            ok
                    end},
-         #{desc => "monitor alt-server 1",
-           cmd  => fun(#{alt_server1 := Pid} = _State) ->
-                           _MRef = erlang:monitor(process, Pid),
-                           ok
-                   end},
-         #{desc => "monitor alt-server 2",
-           cmd  => fun(#{alt_server2 := Pid} = _State) ->
-                           _MRef = erlang:monitor(process, Pid),
-                           ok
-                   end},
 
          %% Start the server
          #{desc => "order server start",
@@ -5368,6 +5355,16 @@ api_a_mrecv_cancel_udp(InitState) ->
          %% *** Init part ***
          #{desc => "monitor server",
            cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor alt-server 1",
+           cmd  => fun(#{alt_server1 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor alt-server 2",
+           cmd  => fun(#{alt_server2 := Pid} = _State) ->
                            _MRef = erlang:monitor(process, Pid),
                            ok
                    end},
