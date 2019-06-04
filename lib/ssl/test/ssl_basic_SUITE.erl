@@ -271,7 +271,11 @@ tls13_test_group() ->
      tls13_unsupported_sign_algo_client_auth_ssl_server_ssl_client,
      tls13_unsupported_sign_algo_cert_client_auth_ssl_server_openssl_client,
      tls13_unsupported_sign_algo_cert_client_auth_ssl_server_ssl_client,
-     tls13_connection_information].
+     tls13_connection_information,
+     tls13_ssl_server_with_alpn_ssl_client,
+     tls13_ssl_server_with_alpn_ssl_client_empty_alpn,
+     tls13_ssl_server_with_alpn_ssl_client_bad_alpn,
+     tls13_ssl_server_with_alpn_ssl_client_alpn].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
@@ -6059,6 +6063,132 @@ tls13_connection_information(Config) ->
     Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
 
     ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+
+tls13_ssl_server_with_alpn_ssl_client() ->
+     [{doc,"Test TLS 1.3 between ssl server with ALPN configured and ssl client"}].
+
+tls13_ssl_server_with_alpn_ssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {alpn_preferred_protocols, [<<5,6>>, <<1>>]}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+
+tls13_ssl_server_with_alpn_ssl_client_empty_alpn() ->
+     [{doc,"Test TLS 1.3 between ssl server with ALPN configured and ssl client with empty ALPN"}].
+
+tls13_ssl_server_with_alpn_ssl_client_empty_alpn(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {alpn_preferred_protocols, [<<5,6>>, <<1>>]}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {alpn_advertised_protocols, []}|ClientOpts0],
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_server_alert(Server, no_application_protocol),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+
+tls13_ssl_server_with_alpn_ssl_client_bad_alpn() ->
+     [{doc,"Test TLS 1.3 between ssl server with ALPN configured and ssl client with bad ALPN"}].
+
+tls13_ssl_server_with_alpn_ssl_client_bad_alpn(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {alpn_preferred_protocols, [<<5,6>>, <<1>>]}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {alpn_advertised_protocols, [<<1,2,3,4>>]}|ClientOpts0],
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_server_alert(Server, no_application_protocol),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+tls13_ssl_server_with_alpn_ssl_client_alpn() ->
+     [{doc,"Test TLS 1.3 between ssl server with ALPN configured and ssl client with correct ALPN"}].
+
+tls13_ssl_server_with_alpn_ssl_client_alpn(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {alpn_preferred_protocols, [<<5,6>>, <<1>>]}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {alpn_advertised_protocols, [<<1,2,3,4>>, <<5,6>>]}|ClientOpts0],
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
 
