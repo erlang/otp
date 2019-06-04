@@ -113,7 +113,7 @@
               hash_state/0,
               crypto_state/0
              ]).
-   
+
 %% Private. For tests.
 -export([packed_openssl_version/4, engine_methods_convert_to_bitmask/2,
 	 get_test_engine/0]).
@@ -138,7 +138,7 @@
 -type rsa_private() :: [key_integer()] . % [E, N, D] | [E, N, D, P1, P2, E1, E2, C]
 -type rsa_params() :: {ModulusSizeInBits::integer(), PublicExponent::key_integer()} .
 
--type dss_public() :: [key_integer()] . % [P, Q, G, Y] 
+-type dss_public() :: [key_integer()] . % [P, Q, G, Y]
 -type dss_private() :: [key_integer()] . % [P, Q, G, X]
 
 -type ecdsa_public()  :: key_integer() .
@@ -284,7 +284,7 @@
 %%% New cipher schema
 %%%
 -type cipher() :: cipher_no_iv()
-                | cipher_iv() 
+                | cipher_iv()
                 | cipher_aead() .
 
 -type cipher_no_iv() :: aes_128_ecb
@@ -328,7 +328,7 @@
 -type cipher_aead() :: aes_128_ccm
                      | aes_192_ccm
                      | aes_256_ccm
-                       
+
                      | aes_128_gcm
                      | aes_192_gcm
                      | aes_256_gcm
@@ -348,7 +348,7 @@
 %%                                    | des_ede3     % des_ede3_cbc
 %%                                    | des_ede3_cbf % des_ede3_cfb
 %%                                    | des3_cbf     % des_ede3_cfb
-%%                                    | des3_cfb .   % des_ede3_cfb 
+%%                                    | des3_cfb .   % des_ede3_cfb
 
 %% -type retired_cipher_aead_aliases() :: aes_ccm
 %%                                      | aes_gcm .
@@ -367,7 +367,7 @@
 -type stream_cipher() :: ctr_cipher()
                        | chacha20
                        | rc4 .
-                         
+
 
 %%%----
 -type cbc_cipher()  :: aes_128_cbc
@@ -376,7 +376,7 @@
                      | blowfish_cbc
                      | des_cbc
                      | des_ede3_cbc
-                     | rc2_cbc 
+                     | rc2_cbc
                      | retired_cbc_cipher_aliases() .
 
 -type retired_cbc_cipher_aliases() :: aes_cbc      % aes_*_cbc
@@ -384,7 +384,7 @@
                                     | aes_cbc256   % aes_256_cbc
                                     | des3_cbc     % des_ede3_cbc
                                     | des_ede3 .   % des_ede3_cbc
-                                    
+
 %%%----
 -type cfb_cipher() :: aes_128_cfb128
                     | aes_192_cfb128
@@ -400,7 +400,7 @@
 -type retired_cfb_cipher_aliases() :: aes_cfb8      % aes_*_cfb8
                                     | aes_cfb128    % aes_*_cfb128
                                     | des3_cbf      % des_ede3_cfb, cfb misspelled
-                                    | des3_cfb      % des_ede3_cfb 
+                                    | des3_cfb      % des_ede3_cfb
                                     | des_ede3_cbf .% cfb misspelled
 
 
@@ -595,7 +595,7 @@ hash(Type, Data) ->
 
 -spec hash_init(Type) -> State when Type :: hash_algorithm(),
                                     State :: hash_state().
-hash_init(Type) -> 
+hash_init(Type) ->
     notsup_to_error(hash_init_nif(Type)).
 
 -spec hash_update(State, Data) -> NewState when State :: hash_state(),
@@ -614,7 +614,7 @@ hash_final(Context) ->
 %%%================================================================
 %%%
 %%% MACs (Message Authentication Codes)
-%%% 
+%%%
 %%%================================================================
 
 mac(Type, SubType, Key, Data, MacLength) ->
@@ -650,9 +650,9 @@ mac_final_nif(_Ref) -> ?nif_stub.
 
 -type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
 
-%%%---- hmac/3,4 
+%%%---- hmac/3,4
 
--spec hmac(Type, Key, Data) -> 
+-spec hmac(Type, Key, Data) ->
                   Mac when Type :: hmac_hash_algorithm(),
                            Key :: iodata(),
                            Data :: iodata(),
@@ -660,7 +660,7 @@ mac_final_nif(_Ref) -> ?nif_stub.
 hmac(Type, Key, Data) ->
     ?COMPAT(mac(hmac, Type, Key, Data)).
 
--spec hmac(Type, Key, Data, MacLength) -> 
+-spec hmac(Type, Key, Data, MacLength) ->
                   Mac when Type :: hmac_hash_algorithm(),
                            Key :: iodata(),
                            Data :: iodata(),
@@ -718,7 +718,7 @@ cmac(Type, Key, Data) ->
                   Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
                            Key :: iodata(),
                            Data :: iodata(),
-                           MacLength :: integer(), 
+                           MacLength :: integer(),
                            Mac :: binary().
 
 cmac(Type, Key, Data, MacLength) ->
@@ -877,7 +877,7 @@ block_decrypt(Type, Key0, CryptoText) ->
                                                Key :: iodata(),
                                                IVec ::binary(),
                                                State :: stream_state() .
-stream_init(Type, Key0, IVec) when is_binary(IVec) -> 
+stream_init(Type, Key0, IVec) when is_binary(IVec) ->
     Key = iolist_to_binary(Key0),
     Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
                                      Key, iolist_to_binary(IVec),
@@ -965,7 +965,7 @@ next_iv(Type, Data, _Ivec) ->
 %%%----------------------------------------------------------------
 %%%
 %%% Create and initialize a new state for encryption or decryption
-%%% 
+%%%
 
 -spec crypto_init(Cipher, Key, EncryptFlag) -> State | descriptive_error()
                                                    when Cipher :: cipher_no_iv(),
@@ -1003,7 +1003,7 @@ crypto_dyn_iv_init(Cipher, Key, EncryptFlag) ->
 %%% Encrypt/decrypt a sequence of bytes.  The sum of the sizes
 %%% of all blocks must be an integer multiple of the crypto's
 %%% blocksize.
-%%% 
+%%%
 
 -spec crypto_update(State, Data) -> Result | descriptive_error()
                                         when State :: crypto_state(),
@@ -1037,7 +1037,7 @@ crypto_dyn_iv_update(State, Data0, IV) ->
 %%%
 %%% Encrypt/decrypt one set bytes.
 %%% The size must be an integer multiple of the crypto's blocksize.
-%%% 
+%%%
 
 -spec crypto_one_time(Cipher, Key, Data, EncryptFlag) ->
                              Result | descriptive_error()
@@ -1160,7 +1160,7 @@ ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
             false ->
                 Ciphers
         end).
-    
+
 
 prepend_old_aliases(L0) ->
     L1 = ?if_also(des_ede3_cbc, L0,
@@ -1504,7 +1504,7 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 %%% Sign
 
 -spec sign(Algorithm, DigestType, Msg, Key)
-          -> Signature 
+          -> Signature
                  when Algorithm :: pk_sign_verify_algs(),
                       DigestType :: rsa_digest_type()
                                   | dss_digest_type()
@@ -1522,7 +1522,7 @@ sign(Algorithm, Type, Data, Key) ->
 
 
 -spec sign(Algorithm, DigestType, Msg, Key, Options)
-          -> Signature 
+          -> Signature
                  when Algorithm :: pk_sign_verify_algs(),
                       DigestType :: rsa_digest_type()
                                   | dss_digest_type()
@@ -1619,7 +1619,7 @@ sign_verify_compatibility(Algorithm0, Type0, _Digest) ->
                      | rsa_x931_padding
                      | rsa_no_padding.
 
--type rsa_opt() :: {rsa_padding, rsa_padding()} 
+-type rsa_opt() :: {rsa_padding, rsa_padding()}
                  | {signature_md, atom()}
                  | {rsa_mgf1_md, sha}
                  | {rsa_oaep_label, binary()}
@@ -1692,7 +1692,7 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 %%%================================================================
 
 -spec generate_key(Type, Params)
-                 -> {PublicKey, PrivKeyOut} 
+                 -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | rsa | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
@@ -1702,7 +1702,7 @@ generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
 -spec generate_key(Type, Params, PrivKeyIn)
-                 -> {PublicKey, PrivKeyOut} 
+                 -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | rsa | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
@@ -1853,7 +1853,7 @@ mod_pow(Base, Exponent, Prime) ->
 %%%======================================================================
 %%%
 %%% Engine functions
-%%% 
+%%%
 %%%======================================================================
 
 %%%---- Refering to keys stored in an engine:
@@ -2160,7 +2160,7 @@ ensure_engine_unloaded(Engine) ->
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/2
 %%----------------------------------------------------------------------
--spec ensure_engine_unloaded(Engine, EngineMethods) -> 
+-spec ensure_engine_unloaded(Engine, EngineMethods) ->
                                     Result when Engine :: engine_ref(),
                                                 EngineMethods :: [engine_method_type()],
                                                 Result :: ok | {error, Reason::term()}.
@@ -2242,7 +2242,7 @@ path2bin(Path) when is_list(Path) ->
 %%%================================================================
 %%%
 %%% Internal functions
-%%% 
+%%%
 %%%================================================================
 
 max_bytes() ->
