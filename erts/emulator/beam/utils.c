@@ -907,7 +907,7 @@ tail_recur:
 	    hash = hash * FUNNY_NUMBER10 + num_free;
 	    hash = hash*FUNNY_NUMBER1 +
 		(atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue);
-	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_index;
+	    hash = hash*FUNNY_NUMBER2 + funp->fe->index;
 	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_uniq;
 	    if (num_free > 0) {
 		if (num_free > 1) {
@@ -1636,7 +1636,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 		     atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue,
 		     HCONST);
 		UINT32_HASH_2
-		    (funp->fe->old_index, funp->fe->old_uniq, HCONST);
+		    (funp->fe->index, funp->fe->old_uniq, HCONST);
 		if (ctx.num_free == 0) {
 		    goto hash2_common;
 		} else {
@@ -2160,7 +2160,7 @@ make_internal_hash(Eterm term, Uint32 salt)
 		ErlFunThing* funp = (ErlFunThing *) fun_val(term);
 		Uint num_free = funp->num_free;
                 UINT32_HASH_2(num_free, funp->fe->module, HCONST_20);
-                UINT32_HASH_2(funp->fe->old_index, funp->fe->old_uniq, HCONST_21);
+                UINT32_HASH_2(funp->fe->index, funp->fe->old_uniq, HCONST_21);
 		if (num_free == 0) {
 		    goto pop_next;
 		} else {
@@ -2810,7 +2810,7 @@ tailrecur_ne:
 		    f1 = (ErlFunThing *) fun_val(a);
 		    f2 = (ErlFunThing *) fun_val(b);
 		    if (f1->fe->module != f2->fe->module ||
-			f1->fe->old_index != f2->fe->old_index ||
+			f1->fe->index != f2->fe->index ||
 			f1->fe->old_uniq != f2->fe->old_uniq ||
 			f1->num_free != f2->num_free) {
 			goto not_equal;
@@ -3405,7 +3405,7 @@ tailrecur_ne:
 		    if (diff != 0) {
 			RETURN_NEQ(diff);
 		    }
-		    diff = f1->fe->old_index - f2->fe->old_index;
+		    diff = f1->fe->index - f2->fe->index;
 		    if (diff != 0) {
 			RETURN_NEQ(diff);
 		    }

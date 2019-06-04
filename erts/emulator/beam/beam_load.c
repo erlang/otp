@@ -315,6 +315,7 @@ typedef struct LoaderState {
 				 * (or 0 if there is no on_load function)
 				 */
     int otp_20_or_higher;       /* Compiled with OTP 20 or higher */
+    unsigned max_opcode;        /* Highest opcode used in module */
 
     /*
      * Atom table.
@@ -1588,6 +1589,17 @@ static int
 read_lambda_table(LoaderState* stp)
 {
     unsigned int i;
+    unsigned int otp_22_or_lower;
+
+    /*
+     * Determine whether this module was compiled with OTP 22 or lower
+     * by looking at the max opcode number. The compiler in OTP 23 will
+     * always set the max opcode to the opcode for `swap` (whether
+     * actually used or not) so that a module compiled for OTP 23
+     * cannot be loaded in earlier versions.
+     */
+
+    otp_22_or_lower = stp->max_opcode < genop_swap_2;
 
     GetInt(stp, 4, stp->num_lambdas);
     if (stp->num_lambdas > stp->lambdas_allocated) {
@@ -1619,6 +1631,29 @@ read_lambda_table(LoaderState* stp)
 	GetInt(stp, 4, Index);
 	GetInt(stp, 4, stp->lambdas[i].num_free);
 	GetInt(stp, 4, OldUniq);
+
+        /*
+         * Fun entries are now keyed by the explicit ("new") index in
+         * the fun entry. That allows multiple make_fun2 instructions
+         * to share the same fun entry (when the `fun F/A` syntax is
+         * used). Before OTP 23, fun entries were keyed by the old
+         * index, which is the order of the entries in the fun
+         * chunk. Each make_fun2 needed to refer to its own fun entry.
+         *
+         * Modules compiled before OTP 23 can safely be loaded if the
+         * old index and the new index are equal. That is true for all
+         * modules compiled with OTP R15 and later.
+         */
+        if (otp_22_or_lower && i != Index) {
+            /*
+             * Compiled with a compiler before OTP R15B. The new indices
+             * are not reliable, so it is not safe to load this module.
+             */
+            LoadError2(stp, "please re-compile this module with an "
+                       ERLANG_OTP_RELEASE " compiler "
+                       "(old-style fun with indices: %d/%d)",
+                       i, Index);
+        }
 	fe = erts_put_fun_entry2(stp->module, OldUniq, i, stp->mod_md5,
 				 Index, arity-stp->lambdas[i].num_free);
 	stp->lambdas[i].fe = fe;
@@ -1839,7 +1874,6 @@ read_code_header(LoaderState* stp)
 {
     unsigned head_size;
     unsigned version;
-    unsigned opcode_max;
     int i;
 
     /*
@@ -1871,8 +1905,8 @@ read_code_header(LoaderState* stp)
     /*
      * Verify the number of the highest opcode used.
      */
-    GetInt(stp, 4, opcode_max);
-    if (opcode_max > MAX_GENERIC_OPCODE) {
+    GetInt(stp, 4, stp->max_opcode);
+    if (stp->max_opcode > MAX_GENERIC_OPCODE) {
 	LoadError2(stp,
 		   "This BEAM file was compiled for a later version"
 		   " of the run-time system than " ERLANG_OTP_RELEASE ".\n"
@@ -1880,7 +1914,7 @@ read_code_header(LoaderState* stp)
 		   ERLANG_OTP_RELEASE " compiler.\n"
 		   "  (Use of opcode %d; this emulator supports "
 		   "only up to %d.)",
-		   opcode_max, MAX_GENERIC_OPCODE);
+		   stp->max_opcode, MAX_GENERIC_OPCODE);
     }
 
     GetInt(stp, 4, stp->num_labels);

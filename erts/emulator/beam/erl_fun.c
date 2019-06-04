@@ -109,12 +109,12 @@ erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
 
     ASSERT(is_atom(mod));
     template.old_uniq = old_uniq;
-    template.old_index = old_index;
+    template.index = index;
     template.module = mod;
     erts_fun_write_lock();
     fe = (ErlFunEntry *) hash_put(&erts_fun_table, (void*) &template);
     sys_memcpy(fe->uniq, uniq, sizeof(fe->uniq));
-    fe->index = index;
+    fe->old_index = old_index;
     fe->arity = arity;
     refc = erts_refc_inctest(&fe->refc, 0);
     if (refc < 2) /* New or pending delete */
@@ -131,7 +131,7 @@ erts_get_fun_entry(Eterm mod, int uniq, int index)
 
     ASSERT(is_atom(mod));
     template.old_uniq = uniq;
-    template.old_index = index;
+    template.index = index;
     template.module = mod;
     erts_fun_read_lock();
     ret = (ErlFunEntry *) hash_get(&erts_fun_table, (void*) &template);
@@ -287,15 +287,27 @@ erts_dump_fun_entries(fmtfn_t to, void *to_arg)
 static HashValue
 fun_hash(ErlFunEntry* obj)
 {
-    return (HashValue) (obj->old_uniq ^ obj->old_index ^ atom_val(obj->module));
+    return (HashValue) (obj->old_uniq ^ obj->index ^ atom_val(obj->module));
 }
 
 static int
 fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2)
 {
-    return !(obj1->module == obj2->module && 
+    /*
+     * OTP 23: Use 'index' (instead of 'old_index') when comparing fun
+     * entries. In OTP 23, multiple make_fun2 instructions may refer to the
+     * the same 'index' (for the wrapper function generated for the
+     * 'fun F/A' syntax).
+     *
+     * This is safe when loading code compiled with OTP R15 and later,
+     * because since R15 (2011), the 'index' has been reliably equal
+     * to 'old_index'. The loader refuses to load modules compiled before
+     * OTP R15.
+     */
+
+    return !(obj1->module == obj2->module &&
 	     obj1->old_uniq == obj2->old_uniq &&
-	     obj1->old_index == obj2->old_index);
+	     obj1->index == obj2->index);
 }
 
 static ErlFunEntry*
@@ -305,7 +317,7 @@ fun_alloc(ErlFunEntry* template)
 						  sizeof(ErlFunEntry));
 
     obj->old_uniq = template->old_uniq;
-    obj->old_index = template->old_index;
+    obj->index = template->index;
     obj->module = template->module;
     erts_refc_init(&obj->refc, -1);
     obj->address = unloaded_fun;
