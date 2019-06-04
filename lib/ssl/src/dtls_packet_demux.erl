@@ -154,9 +154,9 @@ handle_info({Transport, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket
 handle_info({PassiveTag, Socket},
             #state{active_n = N,
                    listener = Socket,
-                   transport = {_,_,_, udp_error, PassiveTag}}) ->
-    next_datagram(Socket, N);
-
+                   transport = {_, _, _, _, PassiveTag}} = State) ->
+    next_datagram(Socket, N),
+    {noreply, State}; 
 %% UDP socket does not have a connection and should not receive an econnreset
 %% This does however happens on some windows versions. Just ignoring it
 %% appears to make things work as expected! 
