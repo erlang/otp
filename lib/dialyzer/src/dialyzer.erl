@@ -642,11 +642,11 @@ c(Cerl, _I) ->
 field_diffs(Src, false) ->
   Src;
 field_diffs(Src, true) ->
-  Fields = string:split(Src, " and "),
+  Fields = string:split(Src, " and ", all),
   lists:join(" and ", [field_diff(Field) || Field <- Fields]).
 
 field_diff(Field) ->
-  [F | Ts] = string:split(Field, "::"),
+  [F | Ts] = string:split(Field, "::", all),
   F ++ " ::" ++ t(lists:flatten(lists:join("::", Ts)), true).
 
 rec_type("record "++Src, I) ->
@@ -658,7 +658,7 @@ ps("pattern "++Src, I) ->
 ps("variable "++_=Src, _I) ->
   Src;
 ps("record field"++Rest, I) ->
-  [S, TypeStr] = string:split(Rest, "of type "),
+  [S, TypeStr] = string:split(Rest, "of type ", all),
   "record field" ++ S ++ "of type " ++ t(TypeStr, I).
 
 %% Scan and parse a type or a literal, and pretty-print it using erl_pp.
