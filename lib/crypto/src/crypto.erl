@@ -63,8 +63,8 @@
          crypto_dyn_iv_init/3,
          crypto_dyn_iv_update/3,
          supports/1,
-         mac/3, mac/4, mac/5,
-         mac_init/3, mac_update/2, mac_final/1
+         mac/3, mac/4, macN/4, macN/5,
+         mac_init/2, mac_init/3, mac_update/2, mac_final/1, mac_finalN/2
         ]).
 
 
@@ -111,7 +111,8 @@
               stream_state/0,
               hmac_state/0,
               hash_state/0,
-              crypto_state/0
+              crypto_state/0,
+              mac_state/0
              ]).
 
 %% Private. For tests.
@@ -335,23 +336,6 @@
 
                      | chacha20_poly1305 .
 
-
-%% -type retired_cipher_no_iv_aliases() :: aes_ecb .
-
-%% -type retired_cipher_iv_aliases() :: aes_cbc
-%%                                    | aes_cbc128  % aes_128_cbc
-%%                                    | aes_cbc256  % aes_256_cbc
-%%                                    | aes_cfb128
-%%                                    | aes_cfb8
-%%                                    | aes_ctr
-%%                                    | des3_cbc     % des_ede3_cbc
-%%                                    | des_ede3     % des_ede3_cbc
-%%                                    | des_ede3_cbf % des_ede3_cfb
-%%                                    | des3_cbf     % des_ede3_cfb
-%%                                    | des3_cfb .   % des_ede3_cfb
-
-%% -type retired_cipher_aead_aliases() :: aes_ccm
-%%                                      | aes_gcm .
 
 %%%----------------------------------------------------------------
 %%% Old cipher scheme
@@ -617,31 +601,100 @@ hash_final(Context) ->
 %%%
 %%%================================================================
 
+-type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
+
+-type cmac_cipher_algorithm() :: aes_128_cbc | aes_192_cbc | aes_256_cbc | blowfish_cbc
+                               | des_cbc | des_ede3_cbc | rc2_cbc
+                               | aes_128_cfb128 | aes_192_cfb128 | aes_256_cfb128
+                               | aes_128_cfb8 | aes_192_cfb8 | aes_256_cfb8
+                                 .
+
 %%%----------------------------------------------------------------
 %%% Calculate MAC for the whole text at once
 
-mac(Type, Key, Data) -> mac(Type, undefined, Key, Data).
+-spec mac(Type :: poly1305, Key, Data) -> Mac | descriptive_error()
+                     when Key :: iodata(),
+                          Data :: iodata(),
+                          Mac :: binary().
 
-mac(Type, Key, Data, MacLength) when is_integer(MacLength) ->mac(Type,undefined,Key,Data);
+mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
+
+
+-spec mac(Type, SubType, Key, Data) -> Mac | descriptive_error()
+                     when Type :: hmac | cmac | poly1305,
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                          Key :: iodata(),
+                          Data :: iodata(),
+                          Mac :: binary().
+
 mac(Type, SubType, Key, Data) -> mac_nif(Type, SubType, Key, Data).
 
-mac(Type, SubType, Key, Data, MacLength) ->
+
+
+-spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac | descriptive_error()
+                     when Key :: iodata(),
+                          Data :: iodata(),
+                          Mac :: binary(),
+                          MacLength :: pos_integer().
+
+macN(Type, Key, Data, MacLength) ->
+    macN(Type, undefined, Key, Data, MacLength).
+
+
+-spec macN(Type, SubType, Key, Data, MacLength) -> Mac | descriptive_error()
+                     when Type :: hmac | cmac | poly1305,
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                          Key :: iodata(),
+                          Data :: iodata(),
+                          Mac :: binary(),
+                          MacLength :: pos_integer().
+
+macN(Type, SubType, Key, Data, MacLength) ->
     erlang:binary_part(mac(Type,SubType,Key,Data), 0, MacLength).
 
 
 %%%----------------------------------------------------------------
 %%% Calculate the MAC by uppdating by pieces of the text
 
+-opaque mac_state() :: reference() .
+
+-spec mac_init(Type :: poly1305, Key) -> State | descriptive_error()
+                          when Key :: iodata(),
+                               State :: mac_state() .
+mac_init(poly1305, Key) ->
+    mac_init_nif(poly1305, undefined, Key).
+
+
+-spec mac_init(Type, SubType, Key) -> State | descriptive_error()
+                          when Type :: hmac | cmac | poly1305,
+                               SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                               Key :: iodata(),
+                               State :: mac_state() .
 mac_init(Type, SubType, Key) ->
     mac_init_nif(Type, SubType, Key).
 
+
+-spec mac_update(State0, Data) -> State | descriptive_error()
+                     when Data :: iodata(),
+                          State0 :: mac_state(),
+                          State :: mac_state().
 mac_update(Ref, Data) ->
     mac_update_nif(Ref, Data).
 
+
+
+-spec mac_final(State) -> Mac | descriptive_error()
+                              when State :: mac_state(),
+                                   Mac :: binary().
 mac_final(Ref) ->
     mac_final_nif(Ref).
 
-mac_final(Ref, MacLength) ->
+
+-spec mac_finalN(State, MacLength) -> Mac | descriptive_error()
+                              when State :: mac_state(),
+                                   MacLength :: pos_integer(),
+                                   Mac :: binary().
+mac_finalN(Ref, MacLength) ->
     erlang:binary_part(mac_final(Ref), 0, MacLength).
 
 
@@ -667,8 +720,6 @@ mac_final_nif(_Ref) -> ?nif_stub.
 
 %%%---- HMAC
 
--type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
-
 %%%---- hmac/3,4
 
 -spec hmac(Type, Key, Data) ->
@@ -687,11 +738,11 @@ hmac(Type, Key, Data) ->
                            Mac :: binary() .
 
 hmac(Type, Key, Data, MacLength) ->
-    ?COMPAT(mac(hmac, Type, Key, Data, MacLength)).
+    ?COMPAT(macN(hmac, Type, Key, Data, MacLength)).
 
 %%%---- hmac_init, hamc_update, hmac_final
 
--opaque hmac_state() :: binary().
+-opaque hmac_state() :: mac_state(). % Was: binary().
 
 -spec hmac_init(Type, Key) ->
                        State when Type :: hmac_hash_algorithm(),
@@ -719,11 +770,11 @@ hmac_final(Context) ->
                                                HashLen :: integer(),
                                                Mac :: binary().
 hmac_final_n(Context, HashLen) ->
-    ?COMPAT(mac_final(Context, HashLen)).
+    ?COMPAT(mac_finalN(Context, HashLen)).
 
 %%%---- CMAC
 
--define(CMAC_CIPHER_ALGORITHM, cbc_cipher() | cfb_cipher() | blowfish_cbc | des_ede3 | rc2_cbc  ).
+-define(CMAC_CIPHER_ALGORITHM, cbc_cipher() | cfb_cipher() | blowfish_cbc | des_ede3 | rc2_cbc ).
 
 -spec cmac(Type, Key, Data) ->
                   Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
@@ -741,7 +792,7 @@ cmac(Type, Key, Data) ->
                            Mac :: binary().
 
 cmac(Type, Key, Data, MacLength) ->
-    ?COMPAT(mac(cmac, alias(Type), Key, Data, MacLength)).
+    ?COMPAT(macN(cmac, alias(Type), Key, Data, MacLength)).
 
 %%%---- POLY1305
 
@@ -1023,9 +1074,9 @@ crypto_dyn_iv_init(Cipher, Key, EncryptFlag) ->
 %%%
 
 -spec crypto_update(State, Data) -> Result | descriptive_error()
-                                        when State :: crypto_state(),
-                                             Data :: iodata(),
-                                             Result :: binary() .
+                            when State :: crypto_state(),
+                                 Data :: iodata(),
+                                 Result :: binary() .
 crypto_update(State, Data0) ->
     case iolist_to_binary(Data0) of
         <<>> ->
