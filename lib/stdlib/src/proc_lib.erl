@@ -784,18 +784,61 @@ format(CrashReport, Encoding, Depth) ->
                              encoding => Encoding,
                              single_line => false}).
 
-do_format([OwnReport,LinkReport], #{single_line:=Single}=Extra) ->
+do_format([OwnReport,LinkReport], #{single_line:=Single,
+                                    chars_limit:=Limit00}=Extra0) ->
     Indent = if Single -> "";
                 true -> "  "
              end,
+    Extra =
+        if is_integer(Limit00) ->
+                %% 22 is the length of the hardcoded heading +
+                %% separators in the final format string below,
+                %% including neighbours. Just make sure the limit
+                %% does not become negative.
+                Limit0 = max(Limit00-22,1),
+
+                %% Divide the available characters over all report
+                %% parts. Spend one third of the characters on the
+                %% crash reason, and let the rest of the elements
+                %% (including the neighbours) share the other two
+                %% thirds. This is to make sure we see a good part of
+                %% the crash reason. Most of the other elements in the
+                %% crasher's report are quite small, so we don't loose
+                %% a lot of info from these anyway.
+                EL = Limit0 div 3,
+                Num = length(OwnReport),
+                L = (Limit0-EL) div (Num),
+                Extra0#{chars_limit=>L, error_limit=>EL};
+           true ->
+                Extra0#{error_limit=>Limit00}
+        end,
+    LinkFormat = format_link_reports(LinkReport, Indent, Extra),
+
     MyIndent = Indent ++ Indent,
-    Sep = nl(Single,"; "),
     OwnFormat = format_report(OwnReport, MyIndent, Extra),
-    LinkFormat = lists:join(Sep,format_link_report(LinkReport, MyIndent, Extra)),
     Nl = nl(Single," "),
-    Str = io_lib:format("~scrasher:"++Nl++"~ts"++Sep++"~sneighbours:"++Nl++"~ts",
-                        [Indent,OwnFormat,Indent,LinkFormat]),
-    lists:flatten(Str).
+    Sep = nl(Single,"; "),
+    io_lib:format("~scrasher:"++Nl++"~ts"++Sep++"~ts",
+                  [Indent,OwnFormat,LinkFormat]).
+
+%% If the size of the total report is limited by chars_limit, then
+%% print only the pids.
+format_link_reports(LinkReports, Indent,
+                    #{chars_limit:=Limit, encoding:=Enc, depth:=Depth,
+                      single_line:=Single}) when is_integer(Limit) ->
+    Pids = [P || {neighbour,[{pid,P}|_]} <- LinkReports],
+    {P,Tl} = p(Enc,Depth),
+    Width = if Single -> "0";
+               true -> ""
+            end,
+    io_lib:format(Indent++"neighbours: ~"++Width++P,
+                  [Pids|Tl],
+                  [{chars_limit,Limit}]);
+format_link_reports(LinkReports, Indent, #{single_line:=Single}=Extra) ->
+    MyIndent = Indent ++ Indent,
+    LinkFormat = lists:join(nl(Single,"; "),
+                            format_link_report(LinkReports, MyIndent, Extra)),
+    [Indent,"neighbours:",nl(Single," "),LinkFormat].
 
 format_link_report([Link|Reps], Indent0, #{single_line:=Single}=Extra) ->
     Rep = case Link of
@@ -826,8 +869,8 @@ format_report(Rep, Indent0, #{encoding:=Enc,depth:=Depth,
 
 format_rep([{initial_call,InitialCall}|Rep], Indent, Extra) ->
     [format_mfa(Indent, InitialCall, Extra)|format_rep(Rep, Indent, Extra)];
-format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Indent, Extra) ->
-    [format_exception(Class, Reason, StackTrace, Extra)|
+format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Indent, #{error_limit:=EL}=Extra) ->
+    [format_exception(Class, Reason, StackTrace, Extra#{chars_limit=>EL})|
      format_rep(Rep, Indent, Extra)];
 format_rep([{Tag,Data}|Rep], Indent, Extra) ->
     [format_tag(Indent, Tag, Data, Extra)|format_rep(Rep, Indent, Extra)];

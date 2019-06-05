@@ -98,7 +98,7 @@ gen_server_crash(Config, Encoding) ->
                                               (_,_) -> ignore
                                            end,[]}),
     ct:log("Local node Logger config:~n~p",
-           [rpc:call(Node,logger,get_config,[])]),
+           [logger:get_config()]),
     ct:log("Remote node Logger config:~n~p",
            [rpc:call(Node,logger,get_config,[])]),
     ct:log("Remote node error_logger handlers: ~p",
