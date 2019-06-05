@@ -21,6 +21,7 @@
 #include "common.h"
 #include "cipher.h"
 #include "digest.h"
+#include "cmac.h"
 #include "hmac.h"
 #include "mac.h"
 
@@ -84,18 +85,6 @@ static struct mac_type_t mac_types[] =
 struct mac_type_t* get_mac_type(ERL_NIF_TERM type);
 
 ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-#if defined(HAVE_CMAC) && !defined(HAVE_EVP_PKEY_new_CMAC_key)
-int cmac_low_level(ErlNifEnv* env,
-                   ErlNifBinary key_bin, const struct cipher_type_t *cipherp, ErlNifBinary text,
-                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term);
-#endif
-
-#if !defined(HAS_EVP_PKEY_CTX)
-int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
-                   ErlNifBinary key_bin, ErlNifBinary text,
-                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term);
-#endif
 
 ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
@@ -290,11 +279,10 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # ifdef HAVE_EVP_PKEY_new_CMAC_key
             pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipherp->cipher.p);
 # else
-            if (!cmac_low_level(env, key_bin, cipherp, text, &ret_bin, &ret_bin_alloc, &return_term))
+            if (!cmac_low_level(env, key_bin, cipherp->cipher.p, text, &ret_bin, &ret_bin_alloc, &return_term))
                 goto err;
             else
                 goto success;
-            /* End of CMAC compatibility functions */
 # endif
         }
         break;
@@ -415,97 +403,6 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     return return_term;
 }
-
-
-/*****************************************************************
- *****************************************************************
-
- Low level compatibility functions for HMAC and CMAC
-
- *****************************************************************
- ****************************************************************/
-
-#if defined(HAVE_CMAC) && !defined(HAVE_EVP_PKEY_new_CMAC_key)
-
-int cmac_low_level(ErlNifEnv* env,
-                   ErlNifBinary key_bin, const struct cipher_type_t *cipherp, ErlNifBinary text,
-                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term)
-{
-    CMAC_CTX *ctx = NULL;
-    size_t size;
-
-    if ((ctx = CMAC_CTX_new()) == NULL)
-        goto local_err;
-
-    if (!CMAC_Init(ctx, key_bin.data, key_bin.size, cipherp->cipher.p, NULL))
-        goto local_err;
-
-    if (!CMAC_Update(ctx, text.data, text.size))
-        goto local_err;
-
-    if ((size = (size_t)EVP_CIPHER_block_size(cipherp->cipher.p)) < 0)
-        goto local_err;
-
-    if (!enif_alloc_binary(size, ret_bin))
-        goto local_err;
-    *ret_bin_alloc = 1;
-                
-    if (!CMAC_Final(ctx, ret_bin->data, &ret_bin->size))
-        goto local_err;
-
-    CMAC_CTX_free(ctx);
-    return 1;
-
- local_err:
-    if (ctx)
-        CMAC_CTX_free(ctx);
-
-    *return_term = EXCP_ERROR(env,"Compat cmac");
-    return 0;
-}
-
-#endif
-
-
-#if !defined(HAS_EVP_PKEY_CTX)
-int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
-                   ErlNifBinary key_bin, ErlNifBinary text,
-                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term)
-{
-    unsigned int size_int;
-    size_t size;
-
-    /* Find the needed space */
-    if (HMAC(md,
-             key_bin.data, (int)key_bin.size,
-             text.data, text.size,
-             NULL, &size_int) == NULL)
-        {
-            *return_term = EXCP_ERROR(env, "Get HMAC size failed");
-            return 0;
-        }
-
-    size = (size_t)size_int; /* Otherwise "size" is unused in 0.9.8.... */
-    if (!enif_alloc_binary(size, ret_bin))
-        {
-            *return_term = EXCP_ERROR(env, "Alloc binary");
-            return 0;
-        }
-    *ret_bin_alloc = 1;
-
-    /* And do the real HMAC calc */
-    if (HMAC(md,
-             key_bin.data, (int)key_bin.size,
-             text.data, text.size,
-             ret_bin->data, &size_int) == NULL)
-        {
-            *return_term = EXCP_ERROR(env, "HMAC sign failed");
-            return 0;
-        }
-                    
-    return 1;
-}
-#endif
 
 
 /*******************************************************************

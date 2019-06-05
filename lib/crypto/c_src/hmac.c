@@ -18,6 +18,16 @@
  * %CopyrightEnd%
  */
 
+
+/*****************************************************************
+ *
+ * This file has functions for compatibility with cryptolibs
+ * lacking the EVP_Digest API.
+ *
+ * See mac.c for the implementation using the EVP interface.
+ *
+ ****************************************************************/
+
 #ifndef HAS_EVP_PKEY_CTX
 
 #include "hmac.h"
@@ -213,6 +223,46 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  done:
     enif_mutex_unlock(obj->mtx);
     return ret;
+}
+
+
+
+int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
+                   ErlNifBinary key_bin, ErlNifBinary text,
+                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term)
+{
+    unsigned int size_int;
+    size_t size;
+
+    /* Find the needed space */
+    if (HMAC(md,
+             key_bin.data, (int)key_bin.size,
+             text.data, text.size,
+             NULL, &size_int) == NULL)
+        {
+            *return_term = EXCP_ERROR(env, "Get HMAC size failed");
+            return 0;
+        }
+
+    size = (size_t)size_int; /* Otherwise "size" is unused in 0.9.8.... */
+    if (!enif_alloc_binary(size, ret_bin))
+        {
+            *return_term = EXCP_ERROR(env, "Alloc binary");
+            return 0;
+        }
+    *ret_bin_alloc = 1;
+
+    /* And do the real HMAC calc */
+    if (HMAC(md,
+             key_bin.data, (int)key_bin.size,
+             text.data, text.size,
+             ret_bin->data, &size_int) == NULL)
+        {
+            *return_term = EXCP_ERROR(env, "HMAC sign failed");
+            return 0;
+        }
+                    
+    return 1;
 }
 
 #endif
