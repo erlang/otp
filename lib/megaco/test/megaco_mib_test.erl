@@ -24,7 +24,32 @@
 %%----------------------------------------------------------------------
 -module(megaco_mib_test).
 
--compile(export_all).
+-export([
+         t/0, t/1,
+
+         all/0,
+         groups/0,
+         init_per_testcase/2,
+         end_per_testcase/2,
+         init_per_group/2,
+         end_per_group/2,
+
+         plain/1,
+         connect/1,
+         traffic/1,
+
+         mg/3,
+         mgc/3,
+
+         handle_connect/3,
+         handle_disconnect/4,
+         handle_syntax_error/4,
+         handle_message_error/4,
+         handle_trans_request/4,
+         handle_trans_long_request/4,
+         handle_trans_reply/5,
+         handle_trans_ack/5
+        ]).
 
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
