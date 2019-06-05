@@ -132,6 +132,7 @@ all() ->
      bad_input,
      reconfig,
      file_opts,
+     relative_file_path,
      sync,
      write_failure,
      sync_failure,
@@ -691,6 +692,54 @@ file_opts(Config) ->
     try_read_file(Log, {ok,B1}, filesync_rep_int()),
     ok.
 file_opts(cleanup, _Config) ->
+    logger:remove_handler(?MODULE).
+
+relative_file_path(_Config) ->
+    {ok,Dir} = file:get_cwd(),
+    AbsName1 = filename:join(Dir,?MODULE),
+    ok = logger:add_handler(?MODULE,
+                            logger_std_h,
+                            #{config => #{type=>file},
+                              filter_default=>log,
+                              filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
+                              formatter=>{?MODULE,self()}}),
+    #{cb_state := #{handler_state := #{file:=AbsName1}}} =
+        logger_olp:info(h_proc_name()),
+    {ok,#{config := #{file:=AbsName1}}} =
+        logger:get_handler_config(?MODULE),
+    ok = logger:remove_handler(?MODULE),
+
+    RelName2 = filename:join(atom_to_list(?FUNCTION_NAME),
+                             lists:concat([?FUNCTION_NAME,".log"])),
+    AbsName2 = filename:join(Dir,RelName2),
+    ok = logger:add_handler(?MODULE,
+                            logger_std_h,
+                            #{config => #{file => RelName2},
+                              filter_default=>log,
+                              filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
+                              formatter=>{?MODULE,self()}}),
+    #{cb_state := #{handler_state := #{file:=AbsName2}}} =
+        logger_olp:info(h_proc_name()),
+    {ok,#{config := #{file:=AbsName2}}} =
+        logger:get_handler_config(?MODULE),
+    logger:notice(M1=?msg,?domain),
+    ?check(M1),
+    B1 = ?bin(M1),
+    try_read_file(AbsName2, {ok,B1}, filesync_rep_int()),
+
+    ok = file:set_cwd(".."),
+    logger:notice(M2=?msg,?domain),
+    ?check(M2),
+    B20 = ?bin(M2),
+    B2 = <<B1/binary,B20/binary>>,
+    try_read_file(AbsName2, {ok,B2}, filesync_rep_int()),
+
+    {error,_} = logger:update_handler_config(?MODULE,config,#{file=>RelName2}),
+    ok = logger:update_handler_config(?MODULE,config,#{file=>AbsName2}),
+    ok = file:set_cwd(Dir),
+    ok = logger:update_handler_config(?MODULE,config,#{file=>RelName2}),
+    ok.
+relative_file_path(cleanup,_Config) ->
     logger:remove_handler(?MODULE).
 
 
