@@ -118,12 +118,27 @@ then
 		fi
                 if [ $remote_ref != refs/heads/master -a "$MASTER_ONLY" ] && git merge-base --is-ancestor $MASTER_ONLY $local_sha
                 then
-		    echo "$0 says:"
-		    echo "***"
-		    echo "*** INVALID MERGE: Commit $MASTER_ONLY should not be reachable from '$branch'!!!!"
-                    echo "***                You have probably merged master into '$branch' by mistake"
-		    echo "***"
-		    exit 1
+		    THIS_SCRIPT=`git rev-parse --git-path hooks/pre-push`
+		    if git show master:scripts/pre-push | diff -q $THIS_SCRIPT - > /dev/null 2>&1
+		    then
+			echo "$0 says:"
+			echo "***"
+			echo "*** INVALID MERGE: Commit $MASTER_ONLY should not be reachable from '$branch'!!!!"
+			echo "***                You have probably merged master into '$branch' by mistake"
+			echo "***"
+			exit 1
+		    else
+			echo "$0 says:"
+			echo "***"
+			echo "*** The script '$THIS_SCRIPT' of this OTP repo needs updating."
+			echo "*** Do it by executing the following command:"
+			echo "***"
+			echo "***     git show master:scripts/pre-push > $THIS_SCRIPT"
+			echo "***"
+			echo "*** And then retry the push."
+			echo "***"
+			exit 1
+		    fi
                 fi
                 if [ ${remote_ref#refs/heads/maint-} != $remote_ref ] && git merge-base --is-ancestor refs/remotes/$remote/maint $local_sha
                 then
