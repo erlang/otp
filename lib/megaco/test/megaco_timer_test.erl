@@ -359,7 +359,12 @@ integer_timer_start_and_stop(Config) when is_list(Config) ->
 	{timeout, Timeout} ->
 	    error(bad_timeout)
     after Timeout - 100 ->
-	    tmr_stop(Ref)
+	    case tmr_stop(Ref) of
+                ok ->
+                    ok;
+                CancelRes ->
+                    ?SKIP({cancel_failed, CancelRes})
+            end
     end,
 
     %% Make sure it does not reach us after we attempted to stop it.
@@ -446,13 +451,5 @@ print(Prefix, F, A) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 formated_timestamp() ->
-    format_timestamp(now()).
+    megaco:format_timestamp(os:timestamp()).
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).
