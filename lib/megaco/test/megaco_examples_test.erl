@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,7 +56,8 @@ load_examples() ->
 	{error, Reason} ->
 	    {error, Reason};
 	Dir ->
-	    [code:load_abs(filename:join([Dir, examples, simple, M])) || M <- example_modules()]
+	    [code:load_abs(filename:join([Dir, examples, simple, M])) || 
+                M <- example_modules()]
     end.
 
 purge_examples() ->
@@ -66,6 +67,7 @@ purge_examples() ->
 	_Dir ->
 	    [code:purge(M) || M <- example_modules()]
     end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
@@ -88,70 +90,109 @@ simple(suite) ->
     [];
 simple(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
-    d("simple -> proxy start",[]),
+    d("simple -> proxy start"),
     ProxyPid = megaco_test_lib:proxy_start({?MODULE, ?LINE}),
 
-    d("simple -> start megaco",[]),
+    d("simple -> start megaco"),
     ?VERIFY(ok, megaco:start()),
     
-    d("simple -> start mgc",[]),
-    ?APPLY(ProxyPid, fun() -> megaco_simple_mgc:start() end),
-    receive
-	{res, _, {ok, MgcAll}} when is_list(MgcAll) ->
-	    MgcBad = [MgcRes || MgcRes <- MgcAll, element(1, MgcRes) /= ok],
-	    ?VERIFY([], MgcBad),
-	    %% MgcGood = MgcAll -- MgcBad,
-	    %% MgcRecHandles = [MgcRH || {ok, _MgcPort, MgcRH} <- MgcGood],
+    start_mgc(ProxyPid),
 
-	    d("simple -> start mg",[]),
-	    ?APPLY(ProxyPid, fun() -> megaco_simple_mg:start() end),
-	    receive
-		{res, _, MgList} when is_list(MgList) andalso (length(MgList) =:= 4) ->
-		    d("simple -> received res: ~p",[MgList]),		    
-		    Verify = 
-			fun({_MgMid, {TransId, Res}}) when TransId =:= 1 ->
-				case Res of
-				    {ok, [AR]} when is_record(AR, 'ActionReply') ->
-					case AR#'ActionReply'.commandReply of
-					    [{serviceChangeReply, SCR}] ->
-						case SCR#'ServiceChangeReply'.serviceChangeResult of
-						    {serviceChangeResParms, MgcMid} when MgcMid /= asn1_NOVALUE ->
-							ok;
-						    Error ->
-							?ERROR(Error)
-						end;
-					    Error ->
-						?ERROR(Error)
-					end;
-				    Error ->
-					?ERROR(Error)
-				end;
-			   (Error) ->
-				?ERROR(Error)
-			end,
-		    lists:map(Verify, MgList);
-		Error ->
-		    ?ERROR(Error)
-	    end;
-	Error ->
-	    ?ERROR(Error)
-    end,
-    d("simple -> verify info()",[]),
+    ?SLEEP(1000), % This is just to make it easier to read the test logs
+
+    start_mg(ProxyPid),
+    
+    ?SLEEP(1000), % This is just to make it easier to read the test logs
+
+    d("simple -> verify info()"),
     info(),
-    d("simple -> verify system_info(users)",[]),
+
+    d("simple -> verify system_info(users)"),
     users(),
-    d("simple -> stop mgc",[]),
+
+    d("simple -> stop mgc"),
     ?VERIFY(5, length(megaco_simple_mgc:stop())),
-    d("simple -> verify system_info(users)",[]),
+    ?SLEEP(1000), % This is just to make it easier to read the test logs
+
+    d("simple -> verify system_info(users)"),
     users(),
-    d("simple -> stop megaco",[]),
+
+    d("simple -> stop megaco"),
     ?VERIFY(ok, megaco:stop()),
-    d("simple -> kill (exit) ProxyPid: ~p",[ProxyPid]),
+    ?SLEEP(1000), % This is just to make it easier to read the test logs
+
+    d("simple -> kill (exit) ProxyPid: ~p", [ProxyPid]),
     exit(ProxyPid, shutdown), % Controlled kill of transport supervisors
 
     ok.
 
 
+start_mgc(ProxyPid) ->
+    d("start_mgc -> start"),
+    ?APPLY(ProxyPid, fun() -> megaco_simple_mgc:start() end),
+    receive
+	{res, _, {ok, MgcAll}} when is_list(MgcAll) ->
+            ?SLEEP(1000), % This is just to make it easier to read the test logs
+            d("start_mgc -> received MGC response: "
+              "~n   ~p", [MgcAll]),
+	    MgcBad = [MgcRes || MgcRes <- MgcAll, element(1, MgcRes) /= ok],
+	    ?VERIFY([], MgcBad),
+            ok;
+        Error ->
+            ?ERROR(Error)
+    end.
+
+start_mg(ProxyPid) ->
+    d("start_mg -> start"),
+    ?APPLY(ProxyPid, fun() -> megaco_simple_mg:start() end),
+    receive
+        {res, _, MgList} when is_list(MgList) andalso (length(MgList) =:= 4) ->
+            ?SLEEP(1000), % This is just to make it easier to read the test logs
+            d("start_mg -> received MG response: "
+              "~n   ~p", [MgList]),
+            Verify = 
+                fun({_MgMid, {TransId, Res}}) when TransId =:= 1 ->
+                        case Res of
+                            {ok, [AR]} when is_record(AR, 'ActionReply') ->
+                                case AR#'ActionReply'.commandReply of
+                                    [{serviceChangeReply, SCR}] ->
+                                        case SCR#'ServiceChangeReply'.serviceChangeResult of
+                                            {serviceChangeResParms, MgcMid}
+                                              when MgcMid =/= asn1_NOVALUE ->
+                                                ok;
+                                            Error ->
+                                                d("start_mg -> "
+                                                  "invalid service "
+                                                  "change parms: "
+                                                  "~n   ~p", [SCR]),
+                                               ?ERROR(Error)
+                                        end;
+                                    Error ->
+                                        d("start_mg -> "
+                                          "invalid service change reply: "
+                                          "~n   ~p", [Error]),
+                                        ?ERROR(Error)
+                                end;
+                            Error ->
+                                d("start_mg -> "
+                                  "invalid result: "
+                                  "~n   ~p", [Error]),
+                                ?ERROR(Error)
+                        end;
+                   (Error) ->
+                        d("start_mg -> "
+                          "invalid reply: "
+                          "~n   ~p", [Error]),
+                        ?ERROR(Error)
+                end,
+            lists:map(Verify, MgList);
+        Error -> 
+            d("start_mg -> "
+              "invalid result: "
+              "~n   ~p", [Error]),
+           ?ERROR(Error)
+    end.    
+                
 info() ->
     case (catch megaco:info()) of
 	{'EXIT', _} = Error ->
@@ -171,10 +212,12 @@ users() ->
 
 
 
-d(F,A) ->
-    d(get(dbg),F,A).
+d(F) ->
+    d(F, []).
+d(F, A) ->
+    d(get(dbg), F, A).
 
-d(true,F,A) ->
-    io:format("DBG: " ++ F ++ "~n",A);
+d(true, F, A) ->
+    io:format("DBG: ~s " ++ F ++ "~n", [?FT() | A]);
 d(_, _F, _A) ->
     ok.
