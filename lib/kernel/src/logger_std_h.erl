@@ -170,9 +170,11 @@ check_h_config(_Type,[]) ->
     ok.
 
 normalize_config(#{type:={file,File}}=HConfig) ->
-    HConfig#{type=>file,file=>File};
+    normalize_config(HConfig#{type=>file,file=>File});
 normalize_config(#{type:={file,File,Modes}}=HConfig) ->
-    HConfig#{type=>file,file=>File,modes=>Modes};
+    normalize_config(HConfig#{type=>file,file=>File,modes=>Modes});
+normalize_config(#{file:=File}=HConfig) ->
+    HConfig#{file=>filename:absname(File)};
 normalize_config(HConfig) ->
     HConfig.
 
@@ -188,7 +190,7 @@ merge_default_config(Name,Type,HConfig) ->
 
 get_default_config(Name,file) ->
      #{type => file,
-       file => atom_to_list(Name),
+       file => filename:absname(atom_to_list(Name)),
        modes => [raw,append],
        file_check => 0,
        max_no_bytes => infinity,
