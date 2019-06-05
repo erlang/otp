@@ -40,7 +40,7 @@
     to maintain.
     </p>
     <p>It turned out that using the old api in the new way (more about that later), and still keep it
-    backwards compatible, was not possible. Specially as more precision in the error messages was wanted
+    backwards compatible, was not possible. Specially as more precision in the error messages is desired
     it could not be combined with the old standard.
     </p>
     <p>Therefore the old api (see next section) is kept for now but internally implemented with new primitives.
@@ -49,7 +49,7 @@
 
   <section>
     <title>The old API</title>
-    <p>The old functions - not recommended for new programs - are:</p>
+    <p>The old functions - not recommended for new programs - are for chipers:</p>
     <list>
       <item><seealso marker="crypto#block_encrypt-3">block_encrypt/3</seealso></item>
       <item><seealso marker="crypto#block_encrypt-4">block_encrypt/4</seealso></item>
@@ -59,7 +59,22 @@
       <item><seealso marker="crypto#stream_init-2">stream_init/3</seealso></item>
       <item><seealso marker="crypto#stream_encrypt-2">stream_encrypt/2</seealso></item>
       <item><seealso marker="crypto#stream_decrypt-2">stream_decrypt/2</seealso></item>
+    </list>
+    <p>for lists of supported algorithms:</p>
+    <list>
       <item><seealso marker="crypto#supports-0">supports/0</seealso></item>
+    </list>
+    <p>and for MACs (Message Authentication Codes):</p>
+    <list>
+      <item><seealso marker="crypto#cmac-3">cmac/3</seealso></item>
+      <item><seealso marker="crypto#cmac-4">cmac/4</seealso></item>
+      <item><seealso marker="crypto#hmac-3">hmac/3</seealso></item>
+      <item><seealso marker="crypto#hmac-4">hmac/4</seealso></item>
+      <item><seealso marker="crypto#hmac_init-2">hmac_init/2</seealso></item>
+      <item><seealso marker="crypto#hmac_update-2">hmac_update/2</seealso></item>
+      <item><seealso marker="crypto#hmac_final-1">hmac_final/1</seealso></item>
+      <item><seealso marker="crypto#hmac_final_n-2">hmac_final_n/2</seealso></item>
+      <item><seealso marker="crypto#poly1305-2">poly1305/2</seealso></item>
     </list>
     <p>They are not deprecated for now, but may be in a future release.
     </p>
@@ -67,52 +82,77 @@
 
   <section>
     <title>The new API</title>
-    <p>The new functions for encrypting or decrypting one single binary are:
-    </p>
-    <list>
-      <item><seealso marker="crypto#crypto_one_time/4">crypto_one_time/4</seealso></item>
-      <item><seealso marker="crypto#crypto_one_time/5">crypto_one_time/5</seealso></item>
-      <item><seealso marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seealso></item>
-      <item><seealso marker="crypto#crypto_one_time_aead/7">crypto_one_time_aead/7</seealso></item>
-    </list>
-    <p>In those functions the internal crypto state is first created and initialized
-    with the cipher type, the key and possibly other data. Then the single binary is encrypted
-    or decrypted,
-    the crypto state is de-allocated and the result of the crypto operation is returned.
-    </p>
-    <p>The <c>crypto_one_time_aead</c> functions are for the ciphers of mode <c>ccm</c> or
-    <c>gcm</c>, and for the cipher <c>chacha20-poly1305</c>.
-    </p>
-    <p>For repeated encryption or decryption of a text divided in parts, where the internal
-    crypto state is initialized once, and then many binaries are encrypted or decrypted with
-    the same state, the functions are:
-    </p>
-    <list>
-      <item><seealso marker="crypto#crypto_init/4">crypto_init/4</seealso></item>
-      <item><seealso marker="crypto#crypto_init/3">crypto_init/3</seealso></item>
-      <item><seealso marker="crypto#crypto_update/2">crypto_update/2</seealso></item>
-    </list>
-    <p>The <c>crypto_init</c> initialies an internal cipher state, and one or more calls of
-    <c>crypto_update</c> does the acual encryption or decryption. Note that AEAD ciphers
-    can't be handled this way due to their nature.
-    </p>
-    <p>For repeated encryption or decryption of a text divided in parts where the
-    same cipher and same key is used, but a new initialization vector (nounce) should be applied
-    for each part, the functions are:
-    </p>
-    <list>
-      <item><seealso marker="crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso></item>
-      <item><seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso></item>
-    </list>
-    <p>An example of where those functions are needed, is when handling the TLS protocol.</p>
-    <p>For information about available algorithms, use:
-    </p>
-    <list>
-      <item><seealso marker="crypto#supports-1">supports/1</seealso></item>
-      <item><seealso marker="crypto#hash_info-1">hash_info/1</seealso></item>
-      <item><seealso marker="crypto#cipher_info-1">cipher_info/1</seealso></item>
-    </list>
+    <section>
+      <title>Encryption and decryption</title>
+      <p>The new functions for encrypting or decrypting one single binary are:
+      </p>
+      <list>
+	<item><seealso marker="crypto#crypto_one_time/4">crypto_one_time/4</seealso></item>
+	<item><seealso marker="crypto#crypto_one_time/5">crypto_one_time/5</seealso></item>
+	<item><seealso marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seealso></item>
+	<item><seealso marker="crypto#crypto_one_time_aead/7">crypto_one_time_aead/7</seealso></item>
+      </list>
+      <p>In those functions the internal crypto state is first created and initialized
+      with the cipher type, the key and possibly other data. Then the single binary is encrypted
+      or decrypted,
+      the crypto state is de-allocated and the result of the crypto operation is returned.
+      </p>
+      <p>The <c>crypto_one_time_aead</c> functions are for the ciphers of mode <c>ccm</c> or
+      <c>gcm</c>, and for the cipher <c>chacha20-poly1305</c>.
+      </p>
+      <p>For repeated encryption or decryption of a text divided in parts, where the internal
+      crypto state is initialized once, and then many binaries are encrypted or decrypted with
+      the same state, the functions are:
+      </p>
+      <list>
+	<item><seealso marker="crypto#crypto_init/4">crypto_init/4</seealso></item>
+	<item><seealso marker="crypto#crypto_init/3">crypto_init/3</seealso></item>
+	<item><seealso marker="crypto#crypto_update/2">crypto_update/2</seealso></item>
+      </list>
+      <p>The <c>crypto_init</c> initialies an internal cipher state, and one or more calls of
+      <c>crypto_update</c> does the acual encryption or decryption. Note that AEAD ciphers
+      can't be handled this way due to their nature.
+      </p>
+      <p>For repeated encryption or decryption of a text divided in parts where the
+      same cipher and same key is used, but a new initialization vector (nounce) should be applied
+      for each part, the functions are:
+      </p>
+      <list>
+	<item><seealso marker="crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso></item>
+	<item><seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso></item>
+      </list>
+      <p>An example of where those functions are needed, is when handling the TLS protocol.</p>
+      <p>For information about available algorithms, use:
+      </p>
+      <list>
+	<item><seealso marker="crypto#supports-1">supports/1</seealso></item>
+	<item><seealso marker="crypto#hash_info-1">hash_info/1</seealso></item>
+	<item><seealso marker="crypto#cipher_info-1">cipher_info/1</seealso></item>
+      </list>
+    </section>
 
+    <section>
+      <title>MACs (Message Authentication Codes)</title>
+      <p>The new functions for calculating a MAC of a single piece of text are:</p>
+      <list>
+        <item><seealso marker="crypto#mac-3">mac/3</seealso></item>
+        <item><seealso marker="crypto#mac-4">mac/4</seealso></item>
+        <item><seealso marker="crypto#macN-4">macN/4</seealso></item>
+        <item><seealso marker="crypto#macN-5">macN/5</seealso></item>
+      </list>
+      <p>For calculating a MAC of a text divided in parts use:</p>
+      <list>
+        <item><seealso marker="crypto#mac_init-2">mac_init/2</seealso></item>
+        <item><seealso marker="crypto#mac_init-3">mac_init/3</seealso></item>
+        <item><seealso marker="crypto#mac_update-2">mac_update/2</seealso></item>
+        <item><seealso marker="crypto#mac_final-1">mac_final/1</seealso></item>
+        <item><seealso marker="crypto#mac_finalN-2">mac_finalN/2</seealso></item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Examples of the new api</title>
     <section>
       <title>Examples of crypto_init/4 and crypto_update/2</title>
       <p>The functions <seealso marker="crypto#crypto_init/4">crypto_init/4</seealso>
@@ -143,7 +183,7 @@
 	8> crypto:crypto_update(StateDec, &lt;&lt;67,44,216,166,25,130,203>>).
 	&lt;&lt;"First b">>
 	9> crypto:crypto_update(StateDec, &lt;&lt;5,66,6,162,16,79,94,115,234,197,
-                                            94,253,16,144,151>>).
+        94,253,16,144,151>>).
 	&lt;&lt;"ytesSecond byte">>
 	10> crypto:crypto_update(StateDec, &lt;&lt;41>>).
 	&lt;&lt;"s">>
@@ -159,16 +199,16 @@
       </p>
       <code type="erl">
 	encode(Crypto, Key, IV) ->
-	    crypto_loop(crypto:crypto_init(Crypto, Key, IV, true)).
+	crypto_loop(crypto:crypto_init(Crypto, Key, IV, true)).
 
 	crypto_loop(State) ->
-	    receive
-                {Text, Requester} ->
-                    Requester ! crypto:crypto_update(State, Text),
-	            loop(State)
-	    end.
+	receive
+        {Text, Requester} ->
+        Requester ! crypto:crypto_update(State, Text),
+	loop(State)
+	end.
       </code>
-     </section>
+    </section>
 
     <section>
       <title>Example of crypto_one_time/5</title>
@@ -219,6 +259,35 @@
       </p>
     </section>
 
+    <section>
+      <title>Example of mac_init mac_update and mac_final</title>
+      <code>
+	1> Key = &lt;&lt;1:128>>.           
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>
+	2> StateMac = crypto:mac_init(cmac, aes_128_cbc, Key).                   
+	#Ref&lt;0.2424664121.2781478916.232610>
+	3> crypto:mac_update(StateMac, &lt;&lt;"First bytes">>).
+	#Ref&lt;0.2424664121.2781478916.232610>
+	4> crypto:mac_update(StateMac, " ").              
+	#Ref&lt;0.2424664121.2781478916.232610>
+	5> crypto:mac_update(StateMac, &lt;&lt;"last bytes">>). 
+	#Ref&lt;0.2424664121.2781478916.232610>
+	6> crypto:mac_final(StateMac).
+	&lt;&lt;68,191,219,128,84,77,11,193,197,238,107,6,214,141,160,
+	249>>
+	7>
+      </code>
+      <p>and compare the result with a single calculation just for this example:</p>
+      <code>
+	7> crypto:mac(cmac, aes_128_cbc, Key, "First bytes last bytes").
+	&lt;&lt;68,191,219,128,84,77,11,193,197,238,107,6,214,141,160,
+	249>>
+	8> v(7) == v(6).
+	true
+	9> 
+      </code>
+    </section>
+
   </section>
 
   <section>
@@ -233,7 +302,7 @@
     on the mode. An example is the ccm mode which has a variant called ccm8 where the so called tag
     has a length of eight bits.
     </p>
-    <p>The old names had by time lost any common naming which the new names now introduces. The new names include
+    <p>The old names had by time lost any common naming convention which the new names now introduces. The new names include
     the key length which improves the error checking in the lower levels of the crypto application.
     </p>
 
