@@ -1441,7 +1441,25 @@ int erts_net_message(Port *prt,
 	    token = tuple[4];
 	    reason = tuple[5];
 	}
-	if (is_not_pid(from) || is_not_internal_pid(to)) {
+	if (is_not_pid(from)) {
+	    goto invalid_message;
+	}
+	if (is_not_internal_pid(to)) {
+	    if (is_external_pid(to)) {
+		DistEntry *dep = external_pid_dist_entry(to);
+		if (dep == erts_this_dist_entry) {
+		    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
+		    erts_dsprintf(dsbufp,
+				  "Discarding exit/2 signal with reason "
+				  "%.200T from %T (%T) to %T in an old "
+				  "incarnation (%d) of this node %T (%d)\n",
+				  reason, from, pid_node_name(from), to,
+				  external_pid_creation(to), dep->sysname,
+				  erts_this_node->creation);
+		    erts_send_warning_to_logger_nogl(dsbufp);
+		    break;
+		}
+	    }
 	    goto invalid_message;
 	}
 	rp = erts_pid2proc_opt(NULL, 0, to, rp_locks,
