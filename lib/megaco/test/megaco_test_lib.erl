@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,46 @@
 
 -module(megaco_test_lib).
 
--compile(export_all).
+%% -compile(export_all).
+
+-export([
+         log/4,
+         error/3,
+
+         sleep/1,
+         hours/1, minutes/1, seconds/1,
+         formated_timestamp/0, format_timestamp/1,
+
+         skip/3,
+         non_pc_tc_maybe_skip/4,
+         os_based_skip/1,
+
+         flush/0,
+         still_alive/1,
+         watchdog/2,
+
+         display_alloc_info/0,
+         display_system_info/1, display_system_info/2, display_system_info/3,
+
+         tickets/1,
+         prepare_test_case/5,
+
+         t/1,
+         groups/1,
+         init_suite/2,
+         end_suite/2,
+         init_group/3,
+         end_group/3,
+         t/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         proxy_start/1, proxy_start/2,
+
+         start_nodes/3
+        ]).
+
+-export([do_eval/4, proxy_init/2]).
 
 -include("megaco_test_lib.hrl").
 
@@ -51,6 +90,13 @@ sleep(MSecs) ->
 hours(N)   -> trunc(N * 1000 * 60 * 60).
 minutes(N) -> trunc(N * 1000 * 60).
 seconds(N) -> trunc(N * 1000).
+
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp(TS) ->
+    megaco:format_timestamp(TS).
 
 
 %% ----------------------------------------------------------------
@@ -367,7 +413,7 @@ eval(Mod, Fun, Config) ->
     Flag = process_flag(trap_exit, true),
     put(megaco_test_server, true),
     Config2 = Mod:init_per_testcase(Fun, Config),
-    Pid = spawn_link(?MODULE, do_eval, [self(), Mod, Fun, Config2]),
+    Pid = spawn_link(fun() -> do_eval(self(), Mod, Fun, Config2) end),
     R = wait_for_evaluator(Pid, Mod, Fun, Config2, []),
     Mod:end_per_testcase(Fun, Config2),
     erase(megaco_test_server),    
@@ -837,7 +883,7 @@ reset_kill_timer(Config) ->
     end.
 
 watchdog(Pid, Time) ->
-    erlang:now(),
+    _ = os:timestamp(),
     receive
 	stop ->
 	    ok

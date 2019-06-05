@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,9 +80,7 @@
 
 
 -define(SLEEP(MSEC),    megaco_test_lib:sleep(MSEC)).
--define(M(),            megaco_test_lib:millis()).
--define(MDIFF(A,B),     megaco_test_lib:millis_diff(A,B)).
-
 -define(HOURS(T),       megaco_test_lib:hours(T)).
 -define(MINUTES(T),     megaco_test_lib:minutes(T)).
 -define(SECONDS(T),     megaco_test_lib:seconds(T)).
+-define(FT(),           megaco_test_lib:formated_timestamp()).
