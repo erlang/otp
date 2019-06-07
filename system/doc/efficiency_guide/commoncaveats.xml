@@ -62,7 +62,7 @@
     dangerous in a system that runs continuously.
     If only certain well-defined atoms are allowed as input,
     <seealso marker="erts:erlang#list_to_existing_atom/1">list_to_existing_atom/1</seealso>
-    can be used to
+    can be used
     to guard against a denial-of-service attack. (All atoms that are allowed
     must have been created earlier, for example, by simply using all of them
     in a module and loading that module.)</p>
