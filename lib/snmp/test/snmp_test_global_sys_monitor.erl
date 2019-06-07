@@ -1,0 +1,159 @@
+%% 
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% 
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%% 
+%% %CopyrightEnd%
+%% 
+
+-module(snmp_test_global_sys_monitor).
+
+-export([start/0, stop/0, log/1,
+         init/1]).
+
+-define(NAME, ?MODULE).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+start() ->
+    Parent = self(),
+    proc_lib:start(?MODULE, init, [Parent]).
+
+stop() ->
+    global:send(?NAME, {?MODULE, stop}).
+
+
+log(Event) ->
+    global:send(?NAME, {?MODULE, node(), Event}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+init(Parent) ->
+    process_flag(priority, high),
+    case global:register_name(?NAME, self()) of
+        yes ->
+            info_msg("Starting", []),
+            proc_lib:init_ack(Parent, {ok, self()}),
+            loop(#{parent => Parent});
+        no ->
+            warning_msg("Already started", []),
+            proc_lib:init_ack(Parent, {error, already_started}),
+            exit(normal)
+    end.
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+loop(State) ->
+    receive
+        {?MODULE, stop} ->
+            warning_msg("Stopping", []),
+            exit(normal);
+
+        {?MODULE, Node, Event} ->
+            State2 = process_event(State, Node, Event),
+            loop(State2);
+
+        {nodedown = Event, Node} ->
+            State2 = process_event(State, Node, Event),
+            loop(State2);            
+
+        _ ->
+            loop(State)
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+process_event(State, Node, {Pid, TS, Tag, Info}) ->
+    process_system_event(State, Node, Pid, TS, Tag, Info);
+
+process_event(State, Node, {TS, starting}) ->
+    FTS = snmp_misc:format_timestamp(TS),
+    info_msg("System Monitor on node ~p starting at ~s", [Node, FTS]),
+    if
+        (Node =/= node()) ->
+            erlang:monitor_node(Node, true);
+        true ->
+            ok
+    end,
+    State;
+
+process_event(State, Node, {TS, already_started}) ->
+    FTS = snmp_misc:format_timestamp(TS),
+    info_msg("System Monitor on node ~p already started", [Node, FTS]),
+    State;
+
+process_event(State, Node, nodedown) ->
+    info_msg("Node ~p down", [Node]),
+    State;
+
+process_event(State, Node, Event) ->
+    warning_msg("Received unknown event from node ~p:"
+                "~n   ~p", [Node, Event]),
+    State.
+
+
+%% System Monitor events
+process_system_event(State, Node, Pid, TS, long_gc, Info) ->
+    print_system_event("Long GC", Node, Pid, TS, Info),
+    State;
+process_system_event(State, Node, Pid, TS, long_schedule, Info) ->
+    print_system_event("Long Schedule", Node, Pid, TS, Info),
+    State;
+process_system_event(State, Node, Pid, TS, large_heap, Info) ->
+    print_system_event("Large Heap", Node, Pid, TS, Info),
+    State;
+process_system_event(State, Node, Pid, TS, busy_port, Info) ->
+    print_system_event("Busy port", Node, Pid, TS, Info),
+    State;
+process_system_event(State, Node, Pid, TS, busy_dist_port, Info) ->
+    print_system_event("Busy dist port", Node, Pid, TS, Info),
+    State;
+
+%% And everything else
+process_system_event(State, Node, Pid, TS, Tag, Info) ->
+    Pre = f("Unknown Event '~p'", [Tag]),
+    print_system_event(Pre, Node, Pid, TS, Info),
+    State.
+
+
+print_system_event(Pre, Node, Pid, TS, Info) ->
+    FTS = snmp_misc:format_timestamp(TS),
+    warning_msg("~s from ~p (~p) at ~s:"
+                "~n   ~p", [Pre, Node, Pid, FTS, Info]).
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+info_msg(F, A) ->
+    error_logger:info_msg(format_msg(F, A), []).
+
+warning_msg(F, A) ->
+    error_logger:warning_msg(format_msg(F, A), []).
+
+                             
+format_msg(F, A) ->
+    lists:flatten(io_lib:format(
+                    "~n" ++ 
+                        "****** SNMP TEST GLOBAL SYSTEM MONITOR ******~n~n" ++ 
+                        F ++ "~n~n",
+                    A)).
+   

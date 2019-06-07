@@ -557,6 +557,8 @@ init_per_suite(Config0) when is_list(Config0) ->
 
     Config3 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2],
 
+    snmp_test_global_sys_monitor:start(),
+    snmp_test_sys_monitor:start(), % We need one on this node also
     snmp_test_mgr_counter_server:start(), 
 
     p("init_per_suite -> end when"
@@ -580,6 +582,8 @@ end_per_suite(Config) when is_list(Config) ->
     	    p("end_per_suite -> failed stopping counter server"
 	      "~n      Reason: ~p", [Reason])
     end,
+    snmp_test_sys_monitor:stop(),
+    snmp_test_global_sys_monitor:stop(),
 
     p("end_per_suite -> end when"
       "~n      Nodes:  ~p", [erlang:nodes()]),
@@ -1654,7 +1658,7 @@ create_local_db_dir(Config) when is_list(Config) ->
     Name = list_to_atom(atom_to_list(create_local_db_dir)
                         ++"-"++As++"-"++Bs++"-"++Cs),
     Pa = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = ?t:start_node(Name, slave, [{args, "-pa "++Pa}]),
+    {ok,Node} = ?t:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
 
     %% first start with a nonexisting DbDir
     Fun1 = fun() ->

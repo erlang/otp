@@ -1453,12 +1453,15 @@ start_node(Name) ->
 		      ""
 	      end,
     %% Do not use start_link!!! (the proc that calls this one is tmp)
-    ?DBG("start_node -> Args: ~p~n",[Args]),
-    A = Args ++ " -pa " ++ Pa,
+    ?DBG("start_node -> Args: ~p~n", [Args]),
+    A = Args ++ " -pa " ++ Pa ++ 
+        " -s " ++ atom_to_list(snmp_test_sys_monitor) ++ " start" ++ 
+        " -s global sync",
     case (catch ?START_NODE(Name, A)) of
 	{ok, Node} ->
 	    %% Tell the test_server to not clean up things it never started.
 	    ?DBG("start_node -> Node: ~p",[Node]),
+            global:sync(),
 	    {ok, Node};
 	Else  -> 
 	    ?ERR("start_node -> failed with(other): Else: ~p",[Else]),
