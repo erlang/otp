@@ -161,8 +161,8 @@ update_with(Key,Fun,Map) ->
 
 -spec update_with(Key,Fun,Init,Map1) -> Map2 when
       Key :: term(),
-      Map1 :: Map1,
-      Map2 :: Map2,
+      Map1 :: map(),
+      Map2 :: map(),
       Fun :: fun((Value1 :: term()) -> Value2 :: term()),
       Init :: term().
 
