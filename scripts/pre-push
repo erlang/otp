@@ -22,6 +22,9 @@
 #   <local ref> <local sha1> <remote ref> <remote sha1>
 #
 
+# Bump this version to give users an update notification.
+PRE_PUSH_SCRIPT_VERSION=1
+
 NEW_RELEASES="22 21 20 19 18 17"
 OLD_RELEASES="r16 r15 r14 r13"
 RELEASES="$NEW_RELEASES $OLD_RELEASES"
@@ -119,7 +122,8 @@ then
                 if [ $remote_ref != refs/heads/master -a "$MASTER_ONLY" ] && git merge-base --is-ancestor $MASTER_ONLY $local_sha
                 then
 		    THIS_SCRIPT=`git rev-parse --git-path hooks/pre-push`
-		    if git show master:scripts/pre-push | diff -q $THIS_SCRIPT - > /dev/null 2>&1
+		    THIS_SCRIPT=`realpath $THIS_SCRIPT`
+		    if git show refs/remotes/$remote/master:scripts/pre-push | diff -q --context=0 $THIS_SCRIPT - > /dev/null 2>&1
 		    then
 			echo "$0 says:"
 			echo "***"
@@ -130,10 +134,10 @@ then
 		    else
 			echo "$0 says:"
 			echo "***"
-			echo "*** The script '$THIS_SCRIPT' of this OTP repo needs updating."
+			echo "*** The pre-push hook of this OTP repo needs updating."
 			echo "*** Do it by executing the following command:"
 			echo "***"
-			echo "***     git show master:scripts/pre-push > $THIS_SCRIPT"
+			echo "***     git show refs/remotes/$remote/master:scripts/pre-push > $THIS_SCRIPT"
 			echo "***"
 			echo "*** And then retry the push."
 			echo "***"
@@ -241,6 +245,20 @@ then
 		;;
 	esac
     done
+
+    echo "$0: OK"
+
+    THIS_SCRIPT=`git rev-parse --git-path hooks/pre-push`
+    THIS_SCRIPT=`realpath $THIS_SCRIPT`
+    if git show refs/remotes/$remote/master:scripts/pre-push | diff --context=0 $THIS_SCRIPT - | grep -q PRE_PUSH_SCRIPT_VERSION > /dev/null 2>&1
+    then
+	echo ""
+	echo "NOTE: There is a newer version of the pre-push hook in this OTP repo."
+	echo "      You can install it by executing the following command:"
+	echo
+	echo "     git show refs/remotes/$remote/master:scripts/pre-push > $THIS_SCRIPT"
+	echo
+    fi
 else
     echo "$0: No checks done for remote '$remote' at $url."
 fi
