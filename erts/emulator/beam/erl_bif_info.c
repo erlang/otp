@@ -768,7 +768,7 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_memory, 0, ERTS_PI_FLAG_NEED_MSGQ_LEN|ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
     {am_garbage_collection, 3+2 + 3+2 + 3+2 + 3+2 + 3+2 + ERTS_MAX_HEAP_SIZE_MAP_SZ, 0, ERTS_PROC_LOCK_MAIN},
     {am_group_leader, 0, 0, ERTS_PROC_LOCK_MAIN},
-    {am_reductions, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
+    {am_reductions, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_priority, 0, 0, 0},
     {am_trace, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_binary, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
