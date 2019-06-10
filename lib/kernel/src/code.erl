@@ -70,6 +70,7 @@
 	 where_is_file/2,
 	 set_primary_archive/4,
 	 clash/0,
+         module_status/0,
          module_status/1,
          modified_modules/0,
          get_mode/0]).
@@ -78,6 +79,7 @@
 
 -export_type([load_error_rsn/0, load_ret/0]).
 -export_type([prepared_code/0]).
+-export_type([module_status/0]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -901,8 +903,19 @@ load_all_native_1([{Mod,BeamFilename}|T], ChunkTag) ->
 load_all_native_1([], _) ->
     ok.
 
+-type module_status() :: not_loaded | loaded | modified | removed.
+
+%% Returns the list of all loaded modules and their current status
+-spec module_status() -> [{module(), module_status()}].
+module_status() ->
+    module_status([M || {M, _} <- all_loaded()]).
+
 %% Returns the status of the module in relation to object file on disk.
--spec module_status(Module :: module()) -> not_loaded | loaded | modified | removed.
+-spec module_status (Module :: module() | [module()]) ->
+          module_status() | [{module(), module_status()}].
+module_status(Modules) when is_list(Modules) ->
+    PathFiles = path_files(),
+    [{M, module_status(M, PathFiles)} || M <- Modules];
 module_status(Module) ->
     module_status(Module, code:get_path()).
 
@@ -977,9 +990,7 @@ get_beam_chunk(Path, Chunk) ->
 %% Returns a list of all modules modified on disk.
 -spec modified_modules() -> [module()].
 modified_modules() ->
-    PathFiles = path_files(),
-    [M || {M, _} <- code:all_loaded(),
-          module_status(M, PathFiles) =:= modified].
+    [M || {M, modified} <- module_status()].
 
 %% prefetch the directory contents of code path directories
 path_files() ->
