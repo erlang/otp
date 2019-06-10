@@ -30,24 +30,39 @@
 #include "hipe_native_bif.h"	/* nbif_callemu() */
 #include "hipe_bif0.h"
 
+#ifndef __has_builtin
+# define __has_builtin(x) 0
+#endif
+
 /* Flush dcache and invalidate icache for a range of addresses. */
 void hipe_flush_icache_range(void *address, unsigned int nbytes)
 {
-#if defined(__ARM_EABI__)
+    void* end = (char*)address + nbytes;
+
+#if ERTS_AT_LEAST_GCC_VSN__(4, 3, 0) || __has_builtin(__builtin___clear_cache)
+    __builtin___clear_cache(address, end);
+#elif defined(__clang__)
+    void __clear_cache(void *start, void *end);
+    __clear_cache(address, end);
+#elif defined(__linux__)
+# if defined(__ARM_EABI__)
     register unsigned long beg __asm__("r0") = (unsigned long)address;
-    register unsigned long end __asm__("r1") = (unsigned long)address + nbytes;
+    register unsigned long end __asm__("r1") = (unsigned long)end;
     register unsigned long flg __asm__("r2") = 0;
     register unsigned long scno __asm__("r7") = 0xf0002;
     __asm__ __volatile__("swi 0"	/* sys_cacheflush() */
 			 : "=r"(beg)
 			 : "0"(beg), "r"(end), "r"(flg), "r"(scno));
-#else
+# else
     register unsigned long beg __asm__("r0") = (unsigned long)address;
-    register unsigned long end __asm__("r1") = (unsigned long)address + nbytes;
+    register unsigned long end __asm__("r1") = (unsigned long)end;
     register unsigned long flg __asm__("r2") = 0;
     __asm__ __volatile__("swi 0x9f0002"	/* sys_cacheflush() */
 			 : "=r"(beg)
 			 : "0"(beg), "r"(end), "r"(flg));
+# endif
+#else
+# error "Don't know how to flush instruction cache"
 #endif
 }
 
