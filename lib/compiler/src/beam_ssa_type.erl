@@ -840,15 +840,8 @@ type({bif,Bif}, Args, Ts, _Ds) ->
         Type ->
             Type
     end;
-type(bs_init, [#b_literal{val=Type}|Args], _Ts, _Ds) ->
-    case {Type,Args} of
-        {new,[_,#b_literal{val=Unit}]} ->
-            {binary,Unit};
-        {append,[_,_,#b_literal{val=Unit}]} ->
-            {binary,Unit};
-        {private_append,[_,_,#b_literal{val=Unit}]} ->
-            {binary,Unit}
-    end;
+type(bs_init, _Args, _Ts, _Ds) ->
+    {binary, 1};
 type(bs_extract, [Ctx], Ts, _Ds) ->
     #t_bs_match{type=Type} = get_type(Ctx, Ts),
     Type;
