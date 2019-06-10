@@ -62,6 +62,7 @@
 
          proxy_start/1, proxy_start/2,
 
+         mk_nodes/1,
          start_nodes/3
         ]).
 
@@ -765,6 +766,7 @@ still_alive(Pid) ->
 	    end 
     end.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% The proxy process
 
@@ -776,31 +778,50 @@ proxy_start(Node, ProxyId) ->
 
 proxy_init(ProxyId, Controller) ->
     process_flag(trap_exit, true),
-    ?LOG("[~p] proxy started by ~p~n",[ProxyId, Controller]),
+    IdStr = proxyid2string(ProxyId),
+    put(id, IdStr),
+    ?LOG("[~s] proxy started by ~p~n", [IdStr, Controller]),
     proxy_loop(ProxyId, Controller).
 
 proxy_loop(OwnId, Controller) ->
     receive
 	{'EXIT', Controller, Reason} ->
-	    p("proxy_loop -> received exit from controller"
+	    pprint("proxy_loop -> received exit from controller"
+                   "~n   Reason: ~p", [Reason]),
+	    exit(Reason);
+	{stop, Controller, Reason} ->
+	    p("proxy_loop -> received stop from controller"
 	      "~n   Reason: ~p"
 	      "~n", [Reason]),
 	    exit(Reason);
+	
 	{apply, Fun} ->
-	    p("proxy_loop -> received apply request~n", []),
+            pprint("proxy_loop -> received apply request"),
 	    Res = Fun(),
-	    p("proxy_loop -> apply result: "
-	      "~n   ~p"
-	      "~n", [Res]),
+            pprint("proxy_loop -> apply result: "
+                   "~n   ~p", [Res]),
 	    Controller ! {res, OwnId, Res},
 	    proxy_loop(OwnId, Controller);
 	OtherMsg ->
-	    p("proxy_loop -> received unknown message: "
-	      "~n  OtherMsg: ~p"
-	      "~n", [OtherMsg]),
+	    pprint("proxy_loop -> received unknown message: "
+                   "~n  ~p", [OtherMsg]),
 	    Controller ! {msg, OwnId, OtherMsg},
 	    proxy_loop(OwnId, Controller)
     end.
+
+proxyid2string(Id) when is_list(Id) ->
+    Id;
+proxyid2string(Id) when is_atom(Id) ->
+    atom_to_list(Id);
+proxyid2string(Id) ->
+    f("~p", [Id]).
+
+pprint(F) ->
+    pprint(F, []).
+
+pprint(F, A) ->
+    io:format("[~s] ~p ~s " ++ F ++ "~n",
+              [get(id), self(), formated_timestamp() | A]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -943,7 +964,10 @@ default_config() ->
     [{nodes, default_nodes()}, {ts, megaco}].
 
 default_nodes() ->    
-    mk_nodes(2, []).
+    mk_nodes(3, []).
+
+mk_nodes(N) when (N > 0) ->
+    mk_nodes(N, []).
 
 mk_nodes(0, Nodes) ->
     Nodes;
@@ -982,6 +1006,12 @@ start_nodes([Node | Nodes], File, Line) ->
     end;
 start_nodes([], _File, _Line) ->
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
 
 p(F, A) ->
     io:format("~p~w:" ++ F ++ "~n", [self(), ?MODULE |A]).
