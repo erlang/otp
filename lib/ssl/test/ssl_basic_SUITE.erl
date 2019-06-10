@@ -164,6 +164,7 @@ api_tests() ->
      prf,
      socket_options,
      active_n,
+     internal_active_1,
      cipher_suites,
      handshake_continue,
      handshake_continue_timeout,
@@ -500,6 +501,15 @@ init_per_testcase(accept_pool, Config) ->
 	    ssl_test_lib:ct_log_supported_protocol_versions(Config),
 	    Config
     end;
+
+init_per_testcase(internal_active_1, Config) ->
+    ssl:stop(),
+    application:load(ssl),
+    application:set_env(ssl, internal_active_n, 1),
+    ssl:start(),
+    ct:timetrap({seconds, 5}),
+    Config;
+
 init_per_testcase(controller_dies, Config) ->
     ct:timetrap({seconds, 10}),
     Config;
@@ -520,6 +530,10 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),
     application:unset_env(ssl, session_delay_cleanup_time),
+    end_per_testcase(default_action, Config);
+
+end_per_testcase(internal_active_n, Config) ->
+    application:unset_env(ssl, internal_active_n),
     end_per_testcase(default_action, Config);
 
 end_per_testcase(Case, Config) when Case == protocol_versions;
@@ -1987,6 +2001,10 @@ recv_active_once(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
+
+
+
+
 %%--------------------------------------------------------------------
 recv_active_n() ->
     [{doc,"Test recv on active (n) socket"}].
@@ -2012,6 +2030,7 @@ recv_active_n(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 %% Test case adapted from gen_tcp_misc_SUITE.
@@ -2237,6 +2256,33 @@ upgrade_result(Socket) ->
 	{ssl, _, <<"Hello world">>}  ->
 	    ok
     end.
+
+
+%%--------------------------------------------------------------------
+internal_active_1() ->
+    [{doc,"Test internal active 1 (behave as internal active once)"}].
+
+internal_active_1(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()}, 
+				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
+				   {options,  [{active, true} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = 
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+				   {host, Hostname},
+				   {from, self()}, 
+				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
+				   {options, [{active, true} | ClientOpts]}]),
+        
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 tls_upgrade_with_timeout() ->
