@@ -22,6 +22,9 @@
 #   <local ref> <local sha1> <remote ref> <remote sha1>
 #
 
+# Bump this version to give users an update notification.
+PRE_PUSH_SCRIPT_VERSION=1
+
 NEW_RELEASES="22 21 20 19 18 17"
 OLD_RELEASES="r16 r15 r14 r13"
 RELEASES="$NEW_RELEASES $OLD_RELEASES"
@@ -54,13 +57,23 @@ null=0000000000000000000000000000000000000000
 #echo "pre-push hook: remote=$remote"
 #echo "pre-push hook: url=$url"
 
+red_on() {
+    printf '%b' "\033[31m"
+}
+
+red_off() {
+    printf '%b' "\033[0m"
+}
+
 if [ "$url" = 'https://github.com/erlang/otp.git' -o "$url" = 'git@github.com:erlang/otp.git' ]
 then
     if [ $remote = "$url" ]; then
+	red_on
         echo "$0 says:"
         echo "***"
         echo "*** Push to $url without using a named remote is NOT ALLOWED!!!!"
         echo "***"
+	red_off
         exit 1
     fi
     IFS=' '
@@ -73,18 +86,22 @@ then
 
 	if [ "$local_sha" = $null ]
 	then
+	    red_on
             echo "$0 says:"
             echo "***"
             echo "*** DELETE push to '$remote' NOT ALLOWED!!!!!"
             echo "***"
+	    red_off
             exit 1
 	fi
 	if [ "$local_ref" != "$remote_ref" ]
 	then
+	    red_on
 	    echo "$0 says:"
 	    echo "***"
 	    echo "*** RENAME push: $local_ref pushed as $remote_ref to '$remote' NOT ALLOWED!!!!"
 	    echo "***"
+	    red_off
 	    exit 1
 	fi
 	case "$remote_ref" in
@@ -92,61 +109,74 @@ then
 		branch=${remote_ref#refs/heads/}
                 if [ "$remote_sha" = $null ]
                 then
+		    red_on
                     echo "$0 says:"
 		    echo "***"
 		    echo "*** UNKNOWN BRANCH: '$branch' does not exist at '$remote'!!!!"
 		    echo "***"
+		    red_off
 		    exit 1
                 fi
 		if ! git log -1 --oneline $remote_sha > /dev/null 2>&1
 		then
+		    red_on
 		    echo "$0 says:"
 		    echo "***"
 		    echo "*** The top of '$branch' at '$remote' ($remote_sha)"
 		    echo "*** does not exist locally!!!"
 		    echo "*** You probably need to refresh local '$branch' and redo merge."
 		    echo "***"
+		    red_off
 		    exit 1
 		fi
 		if ! git merge-base --is-ancestor $remote_sha $local_sha
 		then
+		    red_on
 		    echo "$0 says:"
 		    echo "***"
 		    echo "*** FORCE push branch to '$remote' NOT ALLOWED!!!"
 		    echo "***"
+		    red_off
 		    exit 1
 		fi
                 if [ $remote_ref != refs/heads/master -a "$MASTER_ONLY" ] && git merge-base --is-ancestor $MASTER_ONLY $local_sha
                 then
 		    THIS_SCRIPT=`git rev-parse --git-path hooks/pre-push`
-		    if git show master:scripts/pre-push | diff -q $THIS_SCRIPT - > /dev/null 2>&1
+		    THIS_SCRIPT=`realpath $THIS_SCRIPT`
+		    if git show refs/remotes/$remote/master:scripts/pre-push | diff -q --context=0 $THIS_SCRIPT - > /dev/null 2>&1
 		    then
+			red_on
 			echo "$0 says:"
 			echo "***"
 			echo "*** INVALID MERGE: Commit $MASTER_ONLY should not be reachable from '$branch'!!!!"
 			echo "***                You have probably merged master into '$branch' by mistake"
 			echo "***"
+			red_off
 			exit 1
 		    else
+			red_on
 			echo "$0 says:"
 			echo "***"
-			echo "*** The script '$THIS_SCRIPT' of this OTP repo needs updating."
+			echo "*** The pre-push hook of this OTP repo needs updating."
 			echo "*** Do it by executing the following command:"
 			echo "***"
-			echo "***     git show master:scripts/pre-push > $THIS_SCRIPT"
+			echo "***     git show refs/remotes/$remote/master:scripts/pre-push > $THIS_SCRIPT"
 			echo "***"
 			echo "*** And then retry the push."
 			echo "***"
+			red_off
 			exit 1
 		    fi
                 fi
                 if [ ${remote_ref#refs/heads/maint-} != $remote_ref ] && git merge-base --is-ancestor refs/remotes/$remote/maint $local_sha
                 then
+		    red_on
 		    echo "$0 says:"
 		    echo "***"
 		    echo "*** INVALID MERGE: Branch maint should not be reachable from '$branch'!!!!"
                     echo "***                You have probably merged maint into '$branch' by mistake."
 		    echo "***"
+		    red_off
 		    exit 1
                 fi
                 if [ $remote_ref = refs/heads/maint -o $remote_ref = refs/heads/master ]; then
@@ -162,29 +192,35 @@ then
                 fi
                 if [ $remote_ref = refs/heads/master ] && ! git merge-base --is-ancestor refs/remotes/$remote/maint $local_sha
                 then
+		    red_on
                     echo "$0 says:"
 		    echo "***"
 		    echo "*** INVALID PUSH: Branch '$remote/maint' is not reachable from master!!!!"
                     echo "***               Someone needs to merge maint forward to master and push."
 		    echo "***"
+		    red_off
 		    exit 1
                 fi
 		NCOMMITS=`git rev-list --count $remote_sha..$local_sha`
 		if [ $NCOMMITS -gt $NCOMMITS_MAX ]
 		then
+		    red_on
 		    echo "$0 says:"
 		    echo "***"
 		    echo "*** HUGE push: $NCOMMITS commits (> $NCOMMITS_MAX) to '$branch' at '$remote' NOT ALLOWED!!!!"
 		    echo "***"
+		    red_off
 		    exit 1
 		fi
 		NFILES=`git diff --name-only $remote_sha $local_sha | wc --lines`
 		if [ $NFILES -gt $NFILES_MAX ]
 		then
+		    red_on
 		    echo "$0 says:"
 		    echo "***"
 		    echo "*** HUGE push: $NFILES changed files (> $NFILES_MAX) to '$branch' at '$remote' NOT ALLOWED!!!!"
 		    echo "***"
+		    red_off
 		    exit 1
 		fi
 		;;
@@ -200,49 +236,74 @@ then
 		done
 		if [ $REL = "UNKNOWN" ]
 		then
+		    red_on
 		    echo "$0 says:"
 		    echo "***"
 		    echo "*** Unknown OTP release number in tag '$tag'"
 		    echo "***"
+		    red_off
 		    exit 1
 		fi
 		if [ "$remote_sha" != $null ]
 		then
+		    red_on
 		    echo "$0 says:"
 		    echo "***"
 		    echo "*** FORCE push tag to '$remote' NOT ALLOWED!!!"
 		    echo "*** Tag '$tag' already exists at '$remote'."
 		    echo "***"
+		    red_off
 		    exit 1
 		fi
 		;;
             refs/heads/*)
 		branch=${remote_ref#refs/heads/}
+		red_on
 		echo "$0 says:"
 		echo "***"
 		echo "*** UNKNOWN branch name: '$branch' pushed to '$remote' NOT ALLOWED!!!!"
 		echo "***"
+		red_off
 		exit 1
 		;;
 	    refs/tags/*)
 		tag=${remote_ref#refs/tags/}
+		red_on
 		echo "$0 says:"
 		echo "***"
 		echo "*** UNKNOWN tag name: '$tag' pushed to '$remote' NOT ALLOWED!!!!"
 		echo "***"
+		red_off
 		exit 1
 		;;
 	    *)
+		red_on
 		echo "$0 says:"
 		echo "***"
 		echo "*** STRANGE ref: '$remote_ref' pushed to '$remote' NOT ALLOWED!!!!"
 		echo "***"
+		red_off
 		exit 1
 		;;
 	esac
     done
+
+    echo "$0: OK"
+
+    THIS_SCRIPT=`git rev-parse --git-path hooks/pre-push`
+    THIS_SCRIPT=`realpath $THIS_SCRIPT`
+    if git show refs/remotes/$remote/master:scripts/pre-push | diff --context=0 $THIS_SCRIPT - | grep -q PRE_PUSH_SCRIPT_VERSION > /dev/null 2>&1
+    then
+	echo ""
+	echo "NOTE: There is a newer version of the pre-push hook in this OTP repo."
+	echo "      You can install it by executing the following command:"
+	echo
+	echo "     git show refs/remotes/$remote/master:scripts/pre-push > $THIS_SCRIPT"
+	echo
+    fi
 else
     echo "$0: No checks done for remote '$remote' at $url."
 fi
 
 exit 0
+
