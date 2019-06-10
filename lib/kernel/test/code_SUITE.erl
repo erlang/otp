@@ -1880,6 +1880,11 @@ module_status() ->
     loaded = code:module_status(erlang),        % preloaded
     loaded = code:module_status(?MODULE),       % normal known loaded
 
+    %% module_status/0 returns status for each loaded module
+    true = (lists:sort([{M, code:module_status(M)}
+                        || {M, _} <- code:all_loaded()])
+            =:= lists:sort(code:module_status())),
+
     non_existing = code:which(?TESTMOD), % verify dummy name not in path
     code:purge(?TESTMOD), % ensure no previous version in memory
     code:delete(?TESTMOD),
@@ -1891,6 +1896,11 @@ module_status() ->
     ok = ?TESTMOD:f(),
     "" = code:which(?TESTMOD), % verify empty string for source file
     loaded = code:module_status(?TESTMOD),
+
+    %% module_status/1 also accepts a list of modules
+    [] = code:module_status([]),
+    [{erlang, loaded},{?MODULE,loaded},{?TESTMOD,loaded}] =
+        code:module_status([erlang, ?MODULE, ?TESTMOD]),
 
     %% deleting generated code
     true = code:delete(?TESTMOD),
