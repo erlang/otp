@@ -1,0 +1,39 @@
+CMSAesRsaesOaep {iso(1) member-body(2) us(840) rsadsi(113549)
+      pkcs(1) pkcs-9(9) smime(16) modules(0) id-mod-cms-aes(19) }
+
+
+DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- EXPORTS ALL --
+IMPORTS
+    -- PKIX
+      AlgorithmIdentifier
+          FROM PKIX1Explicit88 {iso(1) identified-organization(3) dod(6)
+              internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+              id-pkix1-explicit(18)};
+
+-- AES information object identifiers --
+
+aes OBJECT IDENTIFIER ::= { joint-iso-itu-t(2) country(16) us(840)
+               organization(1) gov(101) csor(3) nistAlgorithms(4)  1 }
+
+-- AES using CBC-chaining mode for key sizes of 128, 192, 256
+
+id-aes128-CBC OBJECT IDENTIFIER ::= { aes 2 }
+id-aes192-CBC OBJECT IDENTIFIER ::= { aes 22 }
+id-aes256-CBC OBJECT IDENTIFIER ::= { aes 42 }
+
+-- AES-IV is a the parameter for all the above object identifiers.
+
+AES-IV ::= OCTET STRING (SIZE(16))
+
+
+-- AES Key Wrap Algorithm Identifiers  - Parameter is absent
+
+id-aes128-wrap OBJECT IDENTIFIER ::= { aes 5 }
+id-aes192-wrap OBJECT IDENTIFIER ::= { aes 25 }
+id-aes256-wrap OBJECT IDENTIFIER ::= { aes 45 }
+
+
+END
