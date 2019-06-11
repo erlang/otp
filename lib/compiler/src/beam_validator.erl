@@ -1673,10 +1673,14 @@ infer_types_1(_) ->
     fun(_, S) -> S end.
 
 infer_type_test_bif(Type, Src) ->
-    fun({atom,true}, S) ->
+    fun({atom,Bool}, S) when is_boolean(Bool) ->
             case is_value_alive(Src, S) of
-                true -> update_type(fun meet/2, Type, Src, S);
-                false -> S
+                true when Bool =:= true ->
+                    update_type(fun meet/2, Type, Src, S);
+                true when Bool =:= false ->
+                    update_type(fun subtract/2, Type, Src, S);
+                false ->
+                    S
             end;
        (_, S) ->
             S
@@ -1798,6 +1802,34 @@ update_type(Merge, With, Literal, Vst) ->
         _Type -> Vst
     end.
 
+update_ne_types(LHS, {atom,Bool}=RHS, Vst) when is_boolean(Bool) ->
+    %% This is a stopgap to make negative inference work for type test BIFs
+    %% like is_tuple. Consider the following unoptimized code:
+    %%
+    %%    {call_ext,2,{extfunc,erlang,'--',2}}.
+    %%    {bif,is_tuple,{f,0},[{x,0}],{x,1}}.
+    %%    {test,is_eq_exact,{x,1},{f,2},{atom,false}}.
+    %%    ... snip ...
+    %%    {label,1}.
+    %%    {test,is_eq_exact,{x,1},{f,1},{atom,true}}.
+    %%    ... unreachable because {x,0} is known to be a list, so {x,1} can't
+    %%        be true ...
+    %%    {label,2}.
+    %%    ... unreachable because {x,1} is neither true nor false! ...
+    %%
+    %% If we fail to determine that the first is_eq_exact never fails, our
+    %% state will be inconsistent after the second is_eq_exact check; we know
+    %% for certain that {x,0} is a list so infer_types says it can't succeed,
+    %% but it can't fail either because we also know that {x,1} is a boolean,
+    %% and the first check ruled out 'false'.
+    LType = get_term_type(LHS, Vst),
+    if
+        LType =:= bool ->
+            update_eq_types(LHS, {atom, not Bool}, Vst);
+        LType =/= bool ->
+            RType = get_term_type(RHS, Vst),
+            update_type(fun subtract/2, RType, LHS, Vst)
+    end;
 update_ne_types(LHS, RHS, Vst) ->
     %% While updating types on equality is fairly straightforward, inequality
     %% is a bit trickier since all we know is that the *value* of LHS differs
