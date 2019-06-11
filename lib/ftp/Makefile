@@ -76,3 +76,5 @@ dialyzer: $(DIA_PLT)
 	@dialyzer --plt $< \
                   ../$(APPLICATION)/ebin \
                   --verbose
+
+include $(ERL_TOP)/make/app_targets.mk

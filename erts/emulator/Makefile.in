@@ -1291,3 +1291,5 @@ ifndef VOID_EMULATOR
 endif
 endif
 endif
+
+include $(ERL_TOP)/make/app_targets.mk

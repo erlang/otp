@@ -31,3 +31,5 @@ info:
 	@echo "APP_VSN = $(APP_VSN)"
 
 .PHONY: info
+
+include $(ERL_TOP)/make/app_targets.mk

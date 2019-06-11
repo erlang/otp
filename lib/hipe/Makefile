@@ -75,3 +75,4 @@ distclean:
 realclean:
 	$(V_at)$(MAKE) MAKETARGET="realclean" all-subdirs all-subdirs-x
 
+include $(ERL_TOP)/make/app_targets.mk
