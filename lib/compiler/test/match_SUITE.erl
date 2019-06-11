@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
 	 coverage/1,grab_bag/1,literal_binary/1,
-         unary_op/1,eq_types/1,match_after_return/1]).
+         unary_op/1,eq_types/1,match_after_return/1,match_right_tuple/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -41,7 +41,7 @@ groups() ->
        shortcut_boolean,letify_guard,selectify,deselectify,
        underscore,match_map,map_vars_used,coverage,
        grab_bag,literal_binary,unary_op,eq_types,
-       match_after_return]}].
+       match_after_return,match_right_tuple]}].
 
 
 init_per_suite(Config) ->
@@ -901,5 +901,25 @@ match_after_return(Config) when is_list(Config) ->
          end.
 
 mar_test_tuple(I) -> {gurka, I}.
+
+match_right_tuple(Config) when is_list(Config) ->
+    %% The loader wrongly coalesced certain get_tuple_element sequences, fusing
+    %% the code below into a single i_get_tuple_element2 operating on {x,0}
+    %% even though the first one overwrites it.
+    %%
+    %%    {get_tuple_element,{x,0},0,{x,0}}.
+    %%    {get_tuple_element,{x,0},1,{x,1}}.
+
+    Inner = {id(wrong_element), id(ok)},
+    Outer = {Inner, id(wrong_tuple)},
+    ok = match_right_tuple_1(Outer).
+
+match_right_tuple_1(T) ->
+    {A, _} = T,
+    {_, B} = A,
+    %% The call ensures that A is in {x,0} and B is in {x,1}
+    id(force_succ_regs(A, B)).
+
+force_succ_regs(_A, B) -> B.
 
 id(I) -> I.

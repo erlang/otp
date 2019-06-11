@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -638,13 +638,18 @@ is_tuple NotTupleFail Tuple=x | is_tagged_tuple WrongRecordFail Tuple Arity Atom
 
 is_tagged_tuple_ff f? f? rx A a
 
-get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
+get_tuple_element Reg=x P1 D1=x | \
+   get_tuple_element Reg=x P2 D2=x | \
    get_tuple_element Reg=x P3 D3=x | \
-   succ(P1, P2) | succ(P2, P3) | \
-   succ(D1, D2) | succ(D2, D3) => i_get_tuple_element3 Reg P1 D1
+   succ(P1, P2) | succ(P2, P3) | succ(D1, D2) | succ(D2, D3) | \
+   distinct(D1, Reg) | distinct(D2, Reg) | distinct(D3, Reg) => \
+      i_get_tuple_element3 Reg P1 D1
 
-get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
-   succ(P1, P2) | succ(D1, D2) => i_get_tuple_element2 Reg P1 D1
+get_tuple_element Reg=x P1 D1=x | \
+   get_tuple_element Reg=x P2 D2=x | \
+   succ(P1, P2) | succ(D1, D2) | \
+   distinct(D1, Reg) => \
+      i_get_tuple_element2 Reg P1 D1
 
 get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
    succ(P1, P2) | distinct(D1, Reg) => i_get_tuple_element2_dst Reg P1 D1 D2
