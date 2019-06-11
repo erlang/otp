@@ -340,8 +340,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">application_layer_protocol_negotiation (RFC7301)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -479,8 +479,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">application_layer_protocol_negotiation (RFC7301)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
