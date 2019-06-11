@@ -1913,7 +1913,7 @@ validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
 handle_cb_info({V1, V2, V3, V4}, {_,_,_,_,_}) ->
-    {V1,V2,V3,V4, list_to_atom(atom_to_list(V2) ++ "passive")};
+    {V1,V2,V3,V4, list_to_atom(atom_to_list(V2) ++ "_passive")};
 handle_cb_info(CbInfo, _) ->
     CbInfo.
 
