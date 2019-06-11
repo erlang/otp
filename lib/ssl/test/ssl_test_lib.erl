@@ -1103,7 +1103,15 @@ run_client_error(Opts) ->
     Options = proplists:get_value(options, Opts),
     ct:log("~p:~p~nssl:connect(~p, ~p, ~p)~n", [?MODULE,?LINE, Host, Port, Options]),
     Error = Transport:connect(Host, Port, Options),
-    Pid ! {self(), Error}.
+    case Error of
+        {error, _} ->
+            Pid ! {self(), Error};
+        {ok, _Socket} ->
+            receive
+                {ssl_error, _, {tls_alert, _}} = SslError ->
+                                Pid ! {self(), SslError}
+            end
+    end.
 
 accepters(N) ->
     accepters([], N).
