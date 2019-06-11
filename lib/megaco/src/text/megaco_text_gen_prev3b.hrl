@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2862,6 +2862,7 @@ enc_integer(Val, _State, Min, Max) ->
 enc_list(List, State) ->
     enc_list(List, State, fun(_S) -> ?COMMA_INDENT(_S) end, false).
 
+-dialyzer({nowarn_function, enc_list/4}). % Future compat
 enc_list([], _State, _SepEncoder, _NeedsSep) ->
     [];
 enc_list([{Elems, ElemEncoder} | Tail], State, SepEncoder, NeedsSep) ->

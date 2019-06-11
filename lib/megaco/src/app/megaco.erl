@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -686,13 +686,8 @@ sys_info() ->
     [{arch, SysArch}, {ver, SysVer}].
 
 os_info() ->
-    V = os:version(),
-    case os:type() of
-        {OsFam, OsName} ->
-            [{fam, OsFam}, {name, OsName}, {ver, V}];
-        OsFam ->
-            [{fam, OsFam}, {ver, V}]
-    end.
+    {OsFam, OsName} = os:type(),
+    [{fam, OsFam}, {name, OsName}, {ver, os:version()}].
     
 ms() ->    
     ms1().
