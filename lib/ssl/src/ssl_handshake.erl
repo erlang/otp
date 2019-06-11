@@ -76,7 +76,8 @@
 	 handle_client_hello_extensions/9, %% Returns server hello extensions
 	 handle_server_hello_extensions/9, select_curve/2, select_curve/3,
          select_hashsign/4, select_hashsign/5,
-	 select_hashsign_algs/3, empty_extensions/2, add_server_share/3
+	 select_hashsign_algs/3, empty_extensions/2, add_server_share/3,
+	 add_alpn/2, add_selected_version/1, decode_alpn/1
 	]).
 
 -export([get_cert_params/1,
@@ -1165,6 +1166,13 @@ add_server_share(hello_retry_request, Extensions,
     Extensions#{key_share => #key_share_hello_retry_request{
                                 selected_group = Group}}.
 
+add_alpn(Extensions, ALPN0) ->
+    ALPN = encode_alpn([ALPN0], false),
+    Extensions#{alpn => ALPN}.
+
+add_selected_version(Extensions) ->
+    SupportedVersions = #server_hello_selected_version{selected_version = {3,4}},
+    Extensions#{server_hello_selected_version => SupportedVersions}.
 
 kse_remove_private_key(#key_share_entry{
                       group = Group,

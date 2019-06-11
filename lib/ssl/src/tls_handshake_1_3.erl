@@ -39,8 +39,7 @@
 %% Create handshake messages
 -export([certificate/5,
          certificate_verify/4,
-         encrypted_extensions/0,
-         server_hello/4]).
+         encrypted_extensions/0]).
 
 -export([do_start/2,
          do_negotiated/2,
@@ -62,10 +61,10 @@
 %% Create handshake messages
 %%====================================================================
 
-server_hello(MsgType, SessionId, KeyShare, ConnectionStates) ->
+server_hello(MsgType, SessionId, KeyShare, ConnectionStates, ALPN) ->
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
-    Extensions = server_hello_extensions(MsgType, KeyShare),
+    Extensions = server_hello_extensions(MsgType, KeyShare, ALPN),
     #server_hello{server_version = {3,3}, %% legacy_version
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
                   compression_method = 0, %% legacy attribute
@@ -74,10 +73,26 @@ server_hello(MsgType, SessionId, KeyShare, ConnectionStates) ->
 		  extensions = Extensions
 		 }.
 
-server_hello_extensions(MsgType, KeyShare) ->
+%% The server's extensions MUST contain "supported_versions".
+%% Additionally, it SHOULD contain the minimal set of extensions
+%% necessary for the client to generate a correct ClientHello pair.  As
+%% with the ServerHello, a HelloRetryRequest MUST NOT contain any
+%% extensions that were not first offered by the client in its
+%% ClientHello, with the exception of optionally the "cookie" (see
+%% Section 4.2.2) extension.
+server_hello_extensions(hello_retry_request = MsgType, KeyShare, _) ->
     SupportedVersions = #server_hello_selected_version{selected_version = {3,4}},
     Extensions = #{server_hello_selected_version => SupportedVersions},
-    ssl_handshake:add_server_share(MsgType, Extensions, KeyShare).
+    ssl_handshake:add_server_share(MsgType, Extensions, KeyShare);
+server_hello_extensions(MsgType, KeyShare, undefined) ->
+    SupportedVersions = #server_hello_selected_version{selected_version = {3,4}},
+    Extensions = #{server_hello_selected_version => SupportedVersions},
+    ssl_handshake:add_server_share(MsgType, Extensions, KeyShare);
+server_hello_extensions(MsgType, KeyShare, ALPN0) ->
+    Extensions0 = ssl_handshake:add_selected_version(#{}),  %% {3,4} (TLS 1.3)
+    Extensions1 = ssl_handshake:add_alpn(Extensions0, ALPN0),
+    ssl_handshake:add_server_share(MsgType, Extensions1, KeyShare).
+
 
 server_hello_random(server_hello, #security_parameters{server_random = Random}) ->
     Random;
@@ -469,7 +484,8 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
          #state{connection_states = _ConnectionStates0,
                 ssl_options = #ssl_options{ciphers = ServerCiphers,
                                            signature_algs = ServerSignAlgs,
-                                           supported_groups = ServerGroups0},
+                                           supported_groups = ServerGroups0,
+                                           alpn_preferred_protocols = ALPNPreferredProtocols},
                 session = #session{own_certificate = Cert}} = State0) ->
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     ClientGroups = get_supported_groups(ClientGroups0),
@@ -477,6 +493,9 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
 
     ClientShares0 = maps:get(key_share, Extensions, undefined),
     ClientShares = get_key_shares(ClientShares0),
+
+    ClientALPN0 = maps:get(alpn, Extensions, undefined),
+    ClientALPN = ssl_handshake:decode_alpn(ClientALPN0),
 
     ClientSignAlgs = get_signature_scheme_list(
                        maps:get(signature_algs, Extensions, undefined)),
@@ -486,6 +505,9 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
     {Ref,Maybe} = maybe(),
 
     try
+        %% Handle ALPN extension if ALPN is configured
+        ALPNProtocol = Maybe(handle_alpn(ALPNPreferredProtocols, ClientALPN)),
+
         %% If the server does not select a PSK, then the server independently selects a
         %% cipher suite, an (EC)DHE group and key share for key establishment,
         %% and a signature algorithm/certificate pair to authenticate itself to
@@ -511,8 +533,14 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
 
-        State1 = update_start_state(State0, Cipher, KeyShare, SessionId,
-                                    Group, SelectedSignAlg, ClientPubKey),
+        State1 = update_start_state(State0,
+                                    #{cipher => Cipher,
+                                      key_share => KeyShare,
+                                      session_id => SessionId,
+                                      group => Group,
+                                      sign_alg => SelectedSignAlg,
+                                      peer_public_key => ClientPubKey,
+                                      alpn => ALPNProtocol}),
 
         %% 4.1.4.  Hello Retry Request
         %%
@@ -522,10 +550,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% the handshake.
         Maybe(send_hello_retry_request(State1, ClientPubKey, KeyShare, SessionId))
 
-        %% TODO:
-        %%   - session handling
-        %%   - handle extensions: ALPN
-        %%     (do not handle: NPN, srp, renegotiation_info, ec_point_formats)
+        %% TODO: session handling
 
     catch
         {Ref, {insufficient_security, no_suitable_groups}} ->
@@ -537,7 +562,9 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
         {Ref, {insufficient_security, no_suitable_public_key}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)
+            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key);
+        {Ref, no_application_protocol} ->
+            ?ALERT_REC(?FATAL, ?NO_APPLICATION_PROTOCOL)
     end;
 %% TLS Client
 do_start(#server_hello{cipher_suite = SelectedCipherSuite,
@@ -588,8 +615,11 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         HelloVersion = tls_record:hello_version(SslOpts#ssl_options.versions),
 
         %% Update state
-        State1 = update_start_state(State0, SelectedCipherSuite, ClientKeyShare, SessionId,
-                                    SelectedGroup, undefined, undefined),
+        State1 = update_start_state(State0,
+                                    #{cipher => SelectedCipherSuite,
+                                      key_share => ClientKeyShare,
+                                      session_id => SessionId,
+                                      group => SelectedGroup}),
 
         %% Replace ClientHello1 with a special synthetic handshake message
         State2 = replace_ch1_with_message_hash(State1),
@@ -625,7 +655,8 @@ do_negotiated(start_handshake,
                                         dh_public_value = ClientPublicKey},
                      ssl_options = #ssl_options{} = SslOpts,
                      key_share = KeyShare,
-                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
+                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0,
+                                                    alpn = ALPN},
                      connection_env = #connection_env{private_key = CertPrivateKey},
                      static_env = #static_env{
                                      cert_db = CertDbHandle,
@@ -640,7 +671,7 @@ do_negotiated(start_handshake,
     try
         %% Create server_hello
         %% Extensions: supported_versions, key_share, (pre_shared_key)
-        ServerHello = server_hello(server_hello, SessionId, KeyShare, ConnectionStates0),
+        ServerHello = server_hello(server_hello, SessionId, KeyShare, ConnectionStates0, ALPN),
 
         {State1, _} = tls_connection:send_handshake(ServerHello, State0),
 
@@ -702,6 +733,8 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
             {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), State};
         {Ref, {{handshake_failure, Reason}, State}} ->
             {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason), State};
+        {Ref, {#alert{} = Alert, State}} ->
+            {Alert, State};
         {#alert{} = Alert, State} ->
             {Alert, State}
     end.
@@ -801,8 +834,12 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
         {_, ClientPrivateKey} = get_client_private_key([SelectedGroup], ClientKeyShare),
 
         %% Update state
-        State1 = update_start_state(State0, SelectedCipherSuite, ClientKeyShare0, SessionId,
-                                    SelectedGroup, undefined, ServerPublicKey),
+        State1 = update_start_state(State0,
+                                    #{cipher => SelectedCipherSuite,
+                                     key_share => ClientKeyShare0,
+                                     session_id => SessionId,
+                                     group => SelectedGroup,
+                                     peer_public_key => ServerPublicKey}),
 
         State2 = calculate_handshake_secrets(ServerPublicKey, ClientPrivateKey, SelectedGroup, State1),
 
@@ -858,7 +895,9 @@ do_wait_cert_cr(#certificate_1_3{} = Certificate, State0) ->
         {Ref, {{internal_error, Reason}, _State}} ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason);
         {Ref, {{handshake_failure, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason)
+            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
+        {Ref, {#alert{} = Alert, State}} ->
+            {Alert, State}
     end;
 do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
     {Ref,Maybe} = maybe(),
@@ -984,9 +1023,10 @@ compare_verify_data(_, _) ->
     {error, decrypt_error}.
 
 
-send_hello_retry_request(#state{connection_states = ConnectionStates0} = State0,
+send_hello_retry_request(#state{connection_states = ConnectionStates0,
+                                handshake_env = #handshake_env{alpn = ALPN}} = State0,
                          no_suitable_key, KeyShare, SessionId) ->
-    ServerHello = server_hello(hello_retry_request, SessionId, KeyShare, ConnectionStates0),
+    ServerHello = server_hello(hello_retry_request, SessionId, KeyShare, ConnectionStates0, ALPN),
     {State1, _} = tls_connection:send_handshake(ServerHello, State0),
 
     %% Update handshake history
@@ -1076,13 +1116,11 @@ process_certificate(#certificate_1_3{certificate_list = Certs0},
                     State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
                     {ok, {State, wait_cv}};
                 {error, Reason} ->
-                    State1 = calculate_traffic_secrets(State0),
-                    State = ssl_record:step_encryption_state(State1),
+                    State = update_encryption_state(Role, State0),
                     {error, {Reason, State}};
-                #alert{} = Alert ->
-                    State1 = calculate_traffic_secrets(State0),
-                    State = ssl_record:step_encryption_state(State1),
-                    {Alert, State}
+                {ok, #alert{} = Alert} ->
+                    State = update_encryption_state(Role, State0),
+                    {error, {Alert, State}}
             end;
         false ->
             State1 = calculate_traffic_secrets(State0),
@@ -1106,6 +1144,17 @@ is_supported_signature_algorithm([BinCert|_], SignAlgs0) ->
     lists:member(Scheme, SignAlgs).
 
 
+%% Sets correct encryption state when sending Alerts in shared states that use different secrets.
+%% - If client: use handshake secrets.
+%% - If server: use traffic secrets as by this time the client's state machine
+%%              already stepped into the 'connection' state.
+update_encryption_state(server, State0) ->
+    State1 = calculate_traffic_secrets(State0),
+    ssl_record:step_encryption_state(State1);
+update_encryption_state(client, State) ->
+    State.
+
+
 validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHandle, Role, Host) ->
     ServerName = ssl_handshake:server_name(SslOptions#ssl_options.server_name_indication, Host, Role),
     [PeerCert | ChainCerts ] = Certs,
@@ -1126,9 +1175,9 @@ validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHand
             {ok, {PublicKeyInfo,_}} ->
                 {ok, {PeerCert, PublicKeyInfo}};
             {error, Reason} ->
-                ssl_handshake:handle_path_validation_error(Reason, PeerCert, ChainCerts,
-                                                           SslOptions, Options,
-                                                           CertDbHandle, CertDbRef)
+                {ok, ssl_handshake:handle_path_validation_error(Reason, PeerCert, ChainCerts,
+                                                                SslOptions, Options,
+                                                                CertDbHandle, CertDbRef)}
         end
     catch
         error:{badmatch,{asn1, Asn1Reason}} ->
@@ -1337,11 +1386,24 @@ update_connection_state(ConnectionState = #{security_parameters := SecurityParam
                      cipher_state => cipher_init(Key, IV, FinishedKey)}.
 
 
+update_start_state(State, Map) ->
+    Cipher = maps:get(cipher, Map, undefined),
+    KeyShare = maps:get(key_share, Map, undefined),
+    SessionId = maps:get(session_id, Map, undefined),
+    Group = maps:get(group, Map, undefined),
+    SelectedSignAlg = maps:get(sign_alg, Map, undefined),
+    PeerPublicKey = maps:get(peer_public_key, Map, undefined),
+    ALPNProtocol = maps:get(alpn, Map, undefined),
+    update_start_state(State, Cipher, KeyShare, SessionId,
+                       Group, SelectedSignAlg, PeerPublicKey,
+                       ALPNProtocol).
+%%
 update_start_state(#state{connection_states = ConnectionStates0,
+                          handshake_env = #handshake_env{} = HsEnv,
                           connection_env = CEnv,
                           session = Session} = State,
                    Cipher, KeyShare, SessionId,
-                   Group, SelectedSignAlg, ClientPubKey) ->
+                   Group, SelectedSignAlg, PeerPublicKey, ALPNProtocol) ->
     #{security_parameters := SecParamsR0} = PendingRead =
         maps:get(pending_read, ConnectionStates0),
     #{security_parameters := SecParamsW0} = PendingWrite =
@@ -1352,11 +1414,12 @@ update_start_state(#state{connection_states = ConnectionStates0,
         ConnectionStates0#{pending_read => PendingRead#{security_parameters => SecParamsR},
                            pending_write => PendingWrite#{security_parameters => SecParamsW}},
     State#state{connection_states = ConnectionStates,
+                handshake_env = HsEnv#handshake_env{alpn = ALPNProtocol},
                 key_share = KeyShare,
                 session = Session#session{session_id = SessionId,
                                           ecc = Group,
                                           sign_alg = SelectedSignAlg,
-                                          dh_public_value = ClientPubKey,
+                                          dh_public_value = PeerPublicKey,
                                           cipher_suite = Cipher},
                 connection_env = CEnv#connection_env{negotiated_version = {3,4}}}.
 
@@ -1628,19 +1691,28 @@ get_server_public_key({key_share_entry, Group, PublicKey}) ->
                              {Group, PublicKey}.
 
 
-%% get_client_public_key(Group, ClientShares) ->
-%%      case lists:keysearch(Group, 2, ClientShares) of
-%%          {value, {_, _, ClientPublicKey}} ->
-%%              ClientPublicKey;
-%%          false ->
-%%              %% 4.1.4.  Hello Retry Request
-%%              %%
-%%              %% The server will send this message in response to a ClientHello
-%%              %% message if it is able to find an acceptable set of parameters but the
-%%              %% ClientHello does not contain sufficient information to proceed with
-%%              %% the handshake.
-%%              no_suitable_key
-%%      end.
+%% RFC 7301 - Application-Layer Protocol Negotiation Extension
+%% It is expected that a server will have a list of protocols that it
+%% supports, in preference order, and will only select a protocol if the
+%% client supports it.  In that case, the server SHOULD select the most
+%% highly preferred protocol that it supports and that is also
+%% advertised by the client.  In the event that the server supports no
+%% protocols that the client advertises, then the server SHALL respond
+%% with a fatal "no_application_protocol" alert.
+handle_alpn(undefined, _) ->
+    {ok, undefined};
+handle_alpn([], _) ->
+    {error, no_application_protocol};
+handle_alpn([_|_], undefined) ->
+    {ok, undefined};
+handle_alpn([ServerProtocol|T], ClientProtocols) ->
+    case lists:member(ServerProtocol, ClientProtocols) of
+        true ->
+            {ok, ServerProtocol};
+        false ->
+            handle_alpn(T, ClientProtocols)
+    end.
+
 
 select_cipher_suite([], _) ->
     {error, no_suitable_cipher};
