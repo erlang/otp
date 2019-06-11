@@ -119,7 +119,7 @@ format_error(Error) ->
 %%  format as used in the compiler and in .S files.
 
 validate(Module, Fs) ->
-    Ft = index_parameter_types(Fs, []),
+    Ft = build_function_table(Fs, []),
     validate_0(Module, Fs, Ft).
 
 validate_0(_Module, [], _) -> [];
@@ -224,36 +224,36 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
          branched=gb_trees:empty() :: branched_tab(),
          %% All defined labels
          labels=gb_sets:empty()    :: label_set(),
-         %% Argument information of other functions in the module
+         %% Information of other functions in the module
          ft=gb_trees:empty()       :: ft_tab(),
          %% Counter for #value_ref{} creation
          ref_ctr=0                 :: index()
         }).
 
-index_parameter_types([{function,_,_,Entry,Code0}|Fs], Acc0) ->
+build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc0) ->
     Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
 			(_) -> true
 		     end, Code0),
     case Code of
 	[{label,Entry}|Is] ->
-	    Acc = index_parameter_types_1(Is, Entry, Acc0),
-	    index_parameter_types(Fs, Acc);
+	    Info = #{ arity => Arity,
+                  parameter_types => find_parameter_types(Is, #{}) },
+	    build_function_table(Fs, [{Entry, Info} | Acc0]);
 	_ ->
 	    %% Something is seriously wrong. Ignore it for now.
 	    %% It will be detected and diagnosed later.
-	    index_parameter_types(Fs, Acc0)
+	    build_function_table(Fs, Acc0)
     end;
-index_parameter_types([], Acc) ->
+build_function_table([], Acc) ->
     gb_trees:from_orddict(sort(Acc)).
 
-index_parameter_types_1([{'%', {type_info, Reg, Type0}} | Is], Entry, Acc) ->
+find_parameter_types([{'%', {type_info, Reg, Type0}} | Is], Acc) ->
     Type = case Type0 of
                 match_context -> #ms{};
                 _ -> Type0
             end,
-    Key = {Entry, Reg},
-    index_parameter_types_1(Is, Entry, [{Key, Type} | Acc]);
-index_parameter_types_1(_, _, Acc) ->
+    find_parameter_types(Is, Acc#{ Reg => Type });
+find_parameter_types(_, Acc) ->
     Acc.
 
 validate_1(Is, Name, Arity, Entry, Ft) ->
@@ -1246,8 +1246,15 @@ tail_call(Name, Live, Vst0) ->
 
 verify_call_args(_, 0, #vst{}) ->
     ok;
-verify_call_args({f,Lbl}, Live, Vst) when is_integer(Live)->
-    verify_local_args(Live - 1, Lbl, #{}, Vst);
+verify_call_args({f,Lbl}, Live, #vst{ft=Ft}=Vst) when is_integer(Live) ->
+    case gb_trees:lookup(Lbl, Ft) of
+        {value, FuncInfo} ->
+            #{ arity := Live,
+               parameter_types := ParamTypes } = FuncInfo,
+            verify_local_args(Live - 1, ParamTypes, #{}, Vst);
+        none ->
+            error(local_call_to_unknown_function)
+    end;
 verify_call_args(_, Live, Vst) when is_integer(Live)->
     verify_remote_args_1(Live - 1, Vst);
 verify_call_args(_, Live, _) ->
@@ -1259,9 +1266,9 @@ verify_remote_args_1(X, Vst) ->
     assert_durable_term({x, X}, Vst),
     verify_remote_args_1(X - 1, Vst).
 
-verify_local_args(-1, _Lbl, _CtxIds, _Vst) ->
+verify_local_args(-1, _ParamTypes, _CtxIds, _Vst) ->
     ok;
-verify_local_args(X, Lbl, CtxRefs, Vst) ->
+verify_local_args(X, ParamTypes, CtxRefs, Vst) ->
     Reg = {x, X},
     assert_not_fragile(Reg, Vst),
     case get_movable_term_type(Reg, Vst) of
@@ -1271,34 +1278,35 @@ verify_local_args(X, Lbl, CtxRefs, Vst) ->
                 #{ VRef := Other } ->
                     error({multiple_match_contexts, [Reg, Other]});
                 #{} ->
-                    verify_arg_type(Lbl, Reg, Type, Vst),
-                    verify_local_args(X - 1, Lbl, CtxRefs#{ VRef => Reg }, Vst)
+                    verify_arg_type(Reg, Type, ParamTypes),
+                    verify_local_args(X - 1, ParamTypes,
+                                      CtxRefs#{ VRef => Reg }, Vst)
             end;
         Type ->
-            verify_arg_type(Lbl, Reg, Type, Vst),
-            verify_local_args(X - 1, Lbl, CtxRefs, Vst)
+            verify_arg_type(Reg, Type, ParamTypes),
+            verify_local_args(X - 1, ParamTypes, CtxRefs, Vst)
     end.
 
 %% Verifies that the given argument narrows to what the function expects.
-verify_arg_type(Lbl, Reg, #ms{}, #vst{ft=Ft}) ->
+verify_arg_type(Reg, #ms{}, ParamTypes) ->
     %% Match contexts require explicit support, and may not be passed to a
     %% function that accepts arbitrary terms.
-    case gb_trees:lookup({Lbl, Reg}, Ft) of
-        {value, #ms{}} -> ok;
-        _ -> error(no_bs_start_match2)
+    case ParamTypes of
+        #{ Reg := #ms{}} -> ok;
+        #{} -> error(no_bs_start_match2)
     end;
-verify_arg_type(Lbl, Reg, GivenType, #vst{ft=Ft}) ->
-    case gb_trees:lookup({Lbl, Reg}, Ft) of
-        {value, #ms{}} ->
+verify_arg_type(Reg, GivenType, ParamTypes) ->
+    case ParamTypes of
+        #{ Reg := #ms{}} ->
             %% Functions that accept match contexts also accept all other
             %% terms. This will change once we support union types.
             ok;
-        {value, RequiredType} ->
+        #{ Reg := RequiredType } ->
             case vat_1(GivenType, RequiredType) of
                 true -> ok;
                 false -> error({bad_arg_type, Reg, GivenType, RequiredType})
             end;
-        none ->
+        #{} ->
             ok
     end.
 
