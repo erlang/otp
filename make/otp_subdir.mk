@@ -20,7 +20,7 @@
 # Make include file for otp
 
 .PHONY: debug opt lcnt release docs release_docs tests release_tests \
-	clean depend valgrind static_lib
+	clean depend valgrind static_lib test
 
 #
 # Targets that don't affect documentation directories
@@ -56,3 +56,6 @@ opt debug lcnt release docs release_docs tests release_tests clean depend valgri
 	    fi	;							\
 	    echo "=== Leaving application" `basename $$app_pwd` ;	\
 	fi
+
+test:
+	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)

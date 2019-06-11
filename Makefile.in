@@ -1090,7 +1090,7 @@ $(IBIN_DIR):
 
 # ----------------------------------------------------------------------
 
-.PHONY: clean eclean bootstrap_root_clean bootstrap_clean
+.PHONY: clean eclean bootstrap_root_clean bootstrap_clean test
 
 #
 # Clean targets
@@ -1141,3 +1141,6 @@ bootstrap_clean:
 		|| $(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT) bootstrap_root_clean
 
 # ----------------------------------------------------------------------
+
+test: all release_tests
+	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
