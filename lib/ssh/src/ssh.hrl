@@ -68,6 +68,25 @@
 -define(string(X), ?string_utf8(X)).
 -define(binary(X), << ?STRING(X) >>).
 
+-define('2bin'(X), (if is_binary(X) -> X;
+		       is_list(X) -> list_to_binary(X);
+		       X==undefined -> <<>>
+		    end) ).
+
+%% encoding macros
+-define('E...'(X),    ?'2bin'(X)/binary ).
+-define(Eboolean(X),  ?BOOLEAN(case X of
+				   true -> ?TRUE;
+				   false -> ?FALSE
+			       end) ).
+-define(Ebyte(X),        ?BYTE(X) ).
+-define(Euint32(X),      ?UINT32(X) ).
+-define(Estring(X),      ?STRING(?'2bin'(X)) ).
+-define(Estring_utf8(X), ?string_utf8(X)/binary ).
+-define(Ename_list(X),   ?STRING(ssh_bits:name_list(X)) ).
+-define(Empint(X),       (ssh_bits:mpint(X))/binary ).
+-define(Ebinary(X),      ?STRING(X) ).
+
 %% Cipher details
 -define(SSH_CIPHER_NONE, 0).
 -define(SSH_CIPHER_3DES, 3).
