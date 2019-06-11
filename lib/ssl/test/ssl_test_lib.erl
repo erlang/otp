@@ -2149,7 +2149,8 @@ clean_env() ->
     application:unset_env(ssl, session_cache_server_max),
     application:unset_env(ssl, ssl_pem_cache_clean),
     application:unset_env(ssl, bypass_pem_cache),
-    application:unset_env(ssl, alert_timeout).
+    application:unset_env(ssl, alert_timeout),
+    application:unset_env(ssl, internal_active_n).
 
 clean_start() ->
     ssl:stop(),
