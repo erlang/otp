@@ -34,24 +34,6 @@
 
 -export([dbg_trace/3]).
 
--define('2bin'(X), (if is_binary(X) -> X;
-		       is_list(X) -> list_to_binary(X);
-		       X==undefined -> <<>>
-		    end) ).
-
--define('E...'(X),    ?'2bin'(X)/binary ).
--define(Eboolean(X),  ?BOOLEAN(case X of
-				   true -> ?TRUE;
-				   false -> ?FALSE
-			       end) ).
--define(Ebyte(X),        ?BYTE(X) ).
--define(Euint32(X),      ?UINT32(X) ).
--define(Estring(X),      ?STRING(?'2bin'(X)) ).
--define(Estring_utf8(X), ?string_utf8(X)/binary ).
--define(Ename_list(X),   ?STRING(ssh_bits:name_list(X)) ).
--define(Empint(X),       (ssh_bits:mpint(X))/binary ).
--define(Ebinary(X),      ?STRING(X) ).
-
 ucl(B) ->
     try unicode:characters_to_list(B) of
 	L when is_list(L) -> L;
