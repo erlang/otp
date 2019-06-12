@@ -489,10 +489,20 @@ expand_dependent_modules_1([], Included, _ModDeps) ->
 
 -spec hipe_compile([file:filename()], #options{}) -> 'ok'.
 
-hipe_compile(Files, #options{erlang_mode = ErlangMode} = Options) ->
-  NoNative = (get(dialyzer_options_native) =:= false),
+hipe_compile(Files, #options{erlang_mode = ErlangMode,
+                             native = Native,
+                             native_cache = NativeCache} = Options) ->
+  NoNative =
+    case ErlangMode of
+      true ->
+        %% In Erlang mode, native compilation must be explicitly enabled
+        Native =/= true;
+      false ->
+        %% In CLI mode, perform native compilation unless disabled
+        Native =:= false
+    end,
   FewFiles = (length(Files) < ?MIN_FILES_FOR_NATIVE_COMPILE),
-  case NoNative orelse FewFiles orelse ErlangMode of
+  case NoNative orelse FewFiles of
     true -> ok;
     false ->
       case erlang:system_info(hipe_architecture) of
@@ -508,8 +518,7 @@ hipe_compile(Files, #options{erlang_mode = ErlangMode} = Options) ->
 		  dialyzer_worker],
 	  report_native_comp(Options),
 	  {T1, _} = statistics(wall_clock),
-	  Cache = (get(dialyzer_options_native_cache) =/= false),
-	  native_compile(Mods, Cache),
+	  native_compile(Mods, NativeCache),
 	  {T2, _} = statistics(wall_clock),
 	  report_elapsed_time(T1, T2, Options)
       end

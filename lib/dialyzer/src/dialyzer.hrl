@@ -160,7 +160,9 @@
                   indent_opt      = ?INDENT_OPT    :: iopt(),
 		  callgraph_file  = ""             :: file:filename(),
 		  check_plt       = true           :: boolean(),
-                  solvers         = []             :: [solver()]}).
+                  solvers         = []             :: [solver()],
+                  native          = maybe          :: boolean() | 'maybe',
+                  native_cache    = true           :: boolean()}).
 
 -record(contract, {contracts	  = []		   :: [contract_pair()],
 		   args		  = []		   :: [erl_types:erl_type()],
