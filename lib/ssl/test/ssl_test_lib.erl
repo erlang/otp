@@ -429,14 +429,17 @@ check_result(Pid, Msg) ->
     end.
 check_server_alert(Pid, Alert) ->
     receive
-	{Pid, {error, {tls_alert, {Alert, _}}}} ->
+	{Pid, {error, {tls_alert, {Alert, STxt}}}} ->
+            check_server_txt(STxt),
             ok
     end.
 check_server_alert(Server, Client, Alert) ->
     receive
-	{Server, {error, {tls_alert, {Alert, _}}}} ->
+	{Server, {error, {tls_alert, {Alert, STxt}}}} ->
+            check_server_txt(STxt),
 	    receive
-		{Client, {error, {tls_alert, {Alert, _}}}} ->
+		{Client, {error, {tls_alert, {Alert, CTxt}}}} ->
+                    check_client_txt(CTxt),
 		    ok;
 		{Client, {error, closed}} ->
 		    ok
@@ -444,20 +447,35 @@ check_server_alert(Server, Client, Alert) ->
     end.
 check_client_alert(Pid, Alert) ->
     receive
-	{Pid, {error, {tls_alert, {Alert, _}}}} ->
+	{Pid, {error, {tls_alert, {Alert, CTxt}}}} ->
+            check_client_txt(CTxt),
             ok
     end.
 check_client_alert(Server, Client, Alert) ->
     receive
-	{Client, {error, {tls_alert, {Alert, _}}}} ->
+	{Client, {error, {tls_alert, {Alert, CTxt}}}} ->
+            check_client_txt(CTxt),
 	    receive
-		{Server, {error, {tls_alert, {Alert, _}}}} ->
+		{Server, {error, {tls_alert, {Alert, STxt}}}} ->
+                      check_server_txt(STxt),
 		    ok;
 		{Server, {error, closed}} ->
 		    ok
 	    end
     end.
+check_server_txt("TLS server" ++ _) ->
+    ok;
+check_server_txt("DTLS server" ++ _) ->
+    ok;
+check_server_txt(Txt) ->
+    ct:fail({expected_server, {got, Txt}}).
 
+check_client_txt("TLS client" ++ _) ->
+    ok;
+check_client_txt("DTLS client" ++ _) ->
+    ok;
+check_client_txt(Txt) ->
+    ct:fail({expected_server, {got, Txt}}).
 
 wait_for_result(Server, ServerMsg, Client, ClientMsg) -> 
     receive 
