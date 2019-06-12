@@ -41,42 +41,42 @@
 %% ----- bs_start_match -----
 gen_rtl(bs_start_match3, [Ms], [Binary], TrueLblName, FalseLblName) ->
   case hipe_rtl_arch:word_size() of
-    4 ->
-       [MatchStateLbl, BinaryLbl, PosOverflowLbl] = create_lbls(3),
-       [Pos, SavedOffset, Offset, Orig, BinSize, Base] = create_gcsafe_regs(6),
-       [hipe_tagscheme:test_matchstate(Binary,
-				       hipe_rtl:label_name(MatchStateLbl),
-				       hipe_rtl:label_name(BinaryLbl),
-				       0.99),
-	MatchStateLbl,
-	hipe_rtl:mk_move(Ms,Binary),
-	get_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset),
-	get_field_from_term({matchstate,{saveoffset, 0}}, Ms, SavedOffset),
-	hipe_rtl:mk_alu(Pos, Offset, sub, SavedOffset),
-	hipe_rtl:mk_branch(Pos, ltu, hipe_rtl:mk_imm(1 bsl ?MAX_SMALL_BITS),
-                           TrueLblName,
-                           hipe_rtl:label_name(PosOverflowLbl),
-                           0.99),
-	PosOverflowLbl,
-	% Create a new match state if calculated position exceeds supported limit
-	hipe_rtl:mk_gctest(?MS_MIN_SIZE+1),
-	get_field_from_term({matchstate,{matchbuffer,orig}}, Ms, Orig),
-	get_field_from_term({matchstate,{matchbuffer,binsize}}, Ms, BinSize),
-	get_field_from_term({matchstate,{matchbuffer,base}}, Ms, Base),
-	hipe_tagscheme:create_matchstate(0, BinSize, Base, Offset, Orig, Ms, false),
-	set_field_from_term({matchstate,{saveoffset, 0}}, Ms, Offset),
-	hipe_rtl:mk_goto(TrueLblName),
-	BinaryLbl,
-	make_matchstate(Binary, 0, Ms, TrueLblName, FalseLblName)];
-    8 ->
-       BinaryLbl = hipe_rtl:mk_new_label(),
-       [hipe_rtl:mk_move(Ms,Binary),
-        hipe_tagscheme:test_matchstate(Binary,
-           TrueLblName,
-           hipe_rtl:label_name(BinaryLbl),
-           0.99),
-        BinaryLbl,
-        make_matchstate(Binary, 0, Ms, TrueLblName, FalseLblName, true)]
+    4 -> %% 32-bit
+      [MatchStateLbl, BinaryLbl, PosOverflowLbl] = create_lbls(3),
+      [Pos, SavedOffset, Offset, Orig, BinSize, Base] = create_gcsafe_regs(6),
+      [hipe_tagscheme:test_matchstate(Binary,
+                                      hipe_rtl:label_name(MatchStateLbl),
+                                      hipe_rtl:label_name(BinaryLbl),
+                                      0.99),
+       MatchStateLbl,
+       hipe_rtl:mk_move(Ms,Binary),
+       get_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset),
+       get_field_from_term({matchstate,{saveoffset, 0}}, Ms, SavedOffset),
+       hipe_rtl:mk_alu(Pos, Offset, sub, SavedOffset),
+       hipe_rtl:mk_branch(Pos, ltu, hipe_rtl:mk_imm(1 bsl ?MAX_SMALL_BITS),
+                          TrueLblName,
+                          hipe_rtl:label_name(PosOverflowLbl),
+                          0.99),
+       PosOverflowLbl,
+       % Create a new match state if calculated position exceeds supported limit
+       hipe_rtl:mk_gctest(?MS_MIN_SIZE+1),
+       get_field_from_term({matchstate,{matchbuffer,orig}}, Ms, Orig),
+       get_field_from_term({matchstate,{matchbuffer,binsize}}, Ms, BinSize),
+       get_field_from_term({matchstate,{matchbuffer,base}}, Ms, Base),
+       hipe_tagscheme:create_matchstate(0, BinSize, Base, Offset, Orig, Ms, false),
+       set_field_from_term({matchstate,{saveoffset, 0}}, Ms, Offset),
+       hipe_rtl:mk_goto(TrueLblName),
+       BinaryLbl,
+       make_matchstate(Binary, 0, Ms, TrueLblName, FalseLblName)];
+    8 -> %% 64-bit
+      BinaryLbl = hipe_rtl:mk_new_label(),
+      [hipe_rtl:mk_move(Ms,Binary),
+       hipe_tagscheme:test_matchstate(Binary,
+                                      TrueLblName,
+                                      hipe_rtl:label_name(BinaryLbl),
+                                      0.99),
+       BinaryLbl,
+       make_matchstate(Binary, 0, Ms, TrueLblName, FalseLblName, true)]
   end;
 gen_rtl(bs_start_match3, [], [Binary], TrueLblName, FalseLblName) ->
   MatchStateLbl = hipe_rtl:mk_new_label(),

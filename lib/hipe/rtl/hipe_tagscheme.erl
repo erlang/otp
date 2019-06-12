@@ -1088,9 +1088,9 @@ create_matchstate(Max, BinSize, Base, Offset, Orig, Ms, IsNewMatch) ->
   WordSize = hipe_rtl_arch:word_size(),
   {GetHPInsn, HP, PutHPInsn} = hipe_rtl_arch:heap_pointer(),
   ByteSize = case IsNewMatch of
-	true -> ?MS_SAVEOFFSET;
-	false ->  (Max+1)*WordSize + ?MS_SAVEOFFSET
-  end,
+                     true -> ?MS_SAVEOFFSET;
+                     false ->  (Max+1)*WordSize + ?MS_SAVEOFFSET
+             end,
   SizeInWords = ((ByteSize div WordSize) - 1),
   Header = hipe_rtl:mk_imm(mk_header(SizeInWords, ?TAG_HEADER_BIN_MATCHSTATE)),
   [GetHPInsn,
@@ -1101,8 +1101,8 @@ create_matchstate(Max, BinSize, Base, Offset, Orig, Ms, IsNewMatch) ->
    set_field_from_term({matchstate,{matchbuffer,binsize}}, Ms, BinSize),
    set_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset) |
    case IsNewMatch of
-	   true ->  [];
-	   false -> [set_field_from_term({matchstate,{saveoffset, 0}}, Ms, Offset)]
+           true ->  [];
+           false -> [set_field_from_term({matchstate,{saveoffset, 0}}, Ms, Offset)]
    end] ++
    [hipe_rtl:mk_alu(HP, HP, add, hipe_rtl:mk_imm(ByteSize)),
     PutHPInsn].
