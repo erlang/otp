@@ -128,7 +128,7 @@
 	are deprecated and are only kept for backward
 	compatibility when decoding terms encoded by older nodes.</p>
       <p>Support for UTF-8 encoded atoms in the external format has been
-        available since ERTS 5.10 (OTP R16). This abillity allows such old nodes
+        available since ERTS 5.10 (OTP R16). This ability allows such old nodes
 	to decode, store and encode any Unicode atoms received from a new OTP 20
         node.</p>
       <p>The maximum number of allowed characters in an atom is 255. In the
@@ -913,7 +913,7 @@
 	<tcaption>SMALL_BIG_EXT</tcaption></table>
 	<p>
 	  Bignums are stored in unary form with a <c>Sign</c> byte,
-	  that is, 0 if the binum is positive and 1 if it is negative. The
+	  that is, 0 if the bignum is positive and 1 if it is negative. The
 	  digits are stored with the least significant byte stored first. To
 	  calculate the integer, the following formula can be used:
 	</p>
