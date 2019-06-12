@@ -84,8 +84,9 @@ process_info(fmtfn_t to, void *to_arg)
 	     * they are most likely just created and has invalid data
 	     */
 	    if (p->heap != NULL) {
-                ErtsProcLocks locks = (p == esdp->current_process ||
-                                       p == esdp->free_process) ? ERTS_PROC_LOCK_MAIN : 0;
+                ErtsProcLocks locks = ((esdp && (p == esdp->current_process ||
+                                                 p == esdp->free_process))
+                                       ? ERTS_PROC_LOCK_MAIN : 0);
 		print_process_info(to, to_arg, p, locks);
             }
 	}
