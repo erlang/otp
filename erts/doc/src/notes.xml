@@ -31,6 +31,39 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed <c>process_info(Pid,reductions)</c> to not
+	    categorically increase reduction count of the measured
+	    process <c>Pid</c>. Repeated reduction measure of an idle
+	    process will most often (but not guaranteed) return the
+	    same value, like it behaved before OTP 21.3.8.</p>
+          <p>
+	    Own Id: OTP-15865 Aux Id: ERL-964 </p>
+        </item>
+        <item>
+	    <p>Fixed an incorrect load-time optimization that could
+	    cause a crash when extracting deeply nested tuple
+	    elements.</p>
+          <p>
+	    Own Id: OTP-15871 Aux Id: ERIERL-374 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing VM crash when pressing P for "proc info"
+	    in Erlang shell break menu. Bug exists since OTP 22.0.</p>
+          <p>
+	    Own Id: OTP-15873 Aux Id: ERL-965 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
