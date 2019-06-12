@@ -124,7 +124,7 @@ handshake(#sslsocket{pid = [Pid|_]} = Socket, Timeout) ->
 	connected ->
 	    {ok, Socket};
         {ok, Ext} ->
-            {ok, Socket, Ext};
+            {ok, Socket, no_records(Ext)};
  	Error ->
 	    Error
     end.
@@ -709,6 +709,7 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 
     {ExpectNPN, Protocol} = case Protocol0 of
 				undefined -> 
+
 				    {false, CurrentProtocol};
 				_ -> 
 				    {ProtoExt =:= npn, Protocol0}
@@ -3000,3 +3001,8 @@ new_emulated([], EmOpts) ->
     EmOpts;
 new_emulated(NewEmOpts, _) ->
     NewEmOpts.
+
+no_records(Extensions) ->
+    maps:map(fun(_, Value) ->
+                     ssl_handshake:extension_value(Value)
+             end, Extensions).  
