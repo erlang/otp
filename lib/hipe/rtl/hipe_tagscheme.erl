@@ -1088,8 +1088,8 @@ create_matchstate(Max, BinSize, Base, Offset, Orig, Ms, IsNewMatch) ->
   WordSize = hipe_rtl_arch:word_size(),
   {GetHPInsn, HP, PutHPInsn} = hipe_rtl_arch:heap_pointer(),
   ByteSize = case IsNewMatch of
-	true ->  (Max+1)*WordSize + ?MS_SAVEOFFSET;
-	false -> ?MS_SAVEOFFSET
+	true -> ?MS_SAVEOFFSET;
+	false ->  (Max+1)*WordSize + ?MS_SAVEOFFSET %% Not sure why this is Max+1 and not just Max
   end,
   SizeInWords = ((ByteSize div WordSize) - 1),
   Header = hipe_rtl:mk_imm(mk_header(SizeInWords, ?TAG_HEADER_BIN_MATCHSTATE)),
