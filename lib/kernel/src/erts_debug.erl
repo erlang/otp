@@ -92,7 +92,7 @@ copy_shared(_) ->
 
 -spec get_internal_state(W) -> term() when
       W :: reds_left | node_and_dist_references | monitoring_nodes
-         | next_pid | 'DbTable_words' | check_io_debug
+         | next_pid | 'DbTable_words' | check_io_debug | lc_graph
          | process_info_args | processes | processes_bif_info
          | max_atom_out_cache_index | nbalance | available_internal_state
          | force_heap_frags | memory
