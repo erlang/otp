@@ -20,8 +20,11 @@
 
 -module(snmp_test_global_sys_monitor).
 
--export([start/0, stop/0, log/1,
-         init/1]).
+-export([start/0, stop/0,
+         reset_events/0,
+         events/0,
+         log/1]).
+-export([init/1]).
 
 -define(NAME, ?MODULE).
 
@@ -33,11 +36,18 @@ start() ->
     proc_lib:start(?MODULE, init, [Parent]).
 
 stop() ->
-    global:send(?NAME, {?MODULE, stop}).
+    cast(stop).
 
+%% This does not reset the global counter but the "collector"
+%% See events for more info.
+reset_events() ->
+    cast(reset_events).
+
+events() ->
+    call(events).
 
 log(Event) ->
-    global:send(?NAME, {?MODULE, node(), Event}).
+    cast({node(), Event}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -48,7 +58,7 @@ init(Parent) ->
         yes ->
             info_msg("Starting", []),
             proc_lib:init_ack(Parent, {ok, self()}),
-            loop(#{parent => Parent});
+            loop(#{parent => Parent, ev_cnt => 0, evs => []});
         no ->
             warning_msg("Already started", []),
             proc_lib:init_ack(Parent, {error, already_started}),
@@ -61,10 +71,19 @@ init(Parent) ->
 loop(State) ->
     receive
         {?MODULE, stop} ->
-            warning_msg("Stopping", []),
+            warning_msg("Stopping with ~w events counted",
+                        [maps:get(ev_cnt, State)]),
             exit(normal);
 
-        {?MODULE, Node, Event} ->
+        {?MODULE, reset_events} ->
+            loop(State#{evs => []});
+
+        {?MODULE, Ref, From, events} ->
+            Evs = maps:get(evs, State),
+            From ! {?MODULE, Ref, lists:reverse(Evs)},
+            loop(State);
+
+        {?MODULE, {Node, Event}} ->
             State2 = process_event(State, Node, Event),
             loop(State2);
 
@@ -109,21 +128,27 @@ process_event(State, Node, Event) ->
 
 
 %% System Monitor events
-process_system_event(State, Node, Pid, TS, long_gc, Info) ->
+%% We only *count* system events
+process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
+                     Node, Pid, TS, long_gc = Ev, Info) ->
     print_system_event("Long GC", Node, Pid, TS, Info),
-    State;
-process_system_event(State, Node, Pid, TS, long_schedule, Info) ->
+    State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
+process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
+                     Node, Pid, TS, long_schedule = Ev, Info) ->
     print_system_event("Long Schedule", Node, Pid, TS, Info),
-    State;
-process_system_event(State, Node, Pid, TS, large_heap, Info) ->
+    State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
+process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
+                     Node, Pid, TS, large_heap = Ev, Info) ->
     print_system_event("Large Heap", Node, Pid, TS, Info),
-    State;
-process_system_event(State, Node, Pid, TS, busy_port, Info) ->
+    State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
+process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
+                     Node, Pid, TS, busy_port = Ev, Info) ->
     print_system_event("Busy port", Node, Pid, TS, Info),
-    State;
-process_system_event(State, Node, Pid, TS, busy_dist_port, Info) ->
+    State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
+process_system_event(#{ev_cnt := Cnt, evs := Evs} = State,
+                     Node, Pid, TS, busy_dist_port = Ev, Info) ->
     print_system_event("Busy dist port", Node, Pid, TS, Info),
-    State;
+    State#{ev_cnt => Cnt + 1, evs => [{Node, Ev} | Evs]};
 
 %% And everything else
 process_system_event(State, Node, Pid, TS, Tag, Info) ->
@@ -143,6 +168,36 @@ f(F, A) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+cast(Msg) ->
+    try global:send(?NAME, {?MODULE, Msg}) of
+        Pid when is_pid(Pid) ->
+            ok
+    catch
+        C:E:_ ->
+            {error, {catched, C, E}}
+    end.
+
+call(Req) ->
+    call(Req, infinity).
+
+call(Req, Timeout) ->
+    Ref = make_ref(),
+    try global:send(?NAME, {?MODULE, Ref, self(), Req}) of
+        Pid when is_pid(Pid) ->
+            receive
+                {?MODULE, Ref, Rep} ->
+                    Rep
+            after Timeout ->
+                    {error, timeout}
+            end
+    catch
+        C:E:_ ->
+            {error, {catched, C, E}}
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 info_msg(F, A) ->
     error_logger:info_msg(format_msg(F, A), []).
 
@@ -151,9 +206,9 @@ warning_msg(F, A) ->
 
                              
 format_msg(F, A) ->
-    lists:flatten(io_lib:format(
-                    "~n" ++ 
-                        "****** SNMP TEST GLOBAL SYSTEM MONITOR ******~n~n" ++ 
-                        F ++ "~n~n",
-                    A)).
+    f("~n" ++ 
+          "****** SNMP TEST GLOBAL SYSTEM MONITOR ******~n~n" ++ 
+          F ++ 
+          "~n~n",
+      A).
    

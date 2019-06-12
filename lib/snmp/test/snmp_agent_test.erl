@@ -772,6 +772,8 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 
     Result = init_per_testcase1(Case, Config),
 
+    snmp_test_global_sys_monitor:reset_events(),
+
     p("init_per_testcase -> done when"
       "~n      Result: ~p"
       "~n      Nodes:  ~p", [Result, erlang:nodes()]),
@@ -821,6 +823,9 @@ end_per_testcase(Case, Config) when is_list(Config) ->
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
     display_log(Config),
+
+    p("system events during test: "
+      "~n   ~p", [snmp_test_global_sys_monitor:events()]),
     
     Result = end_per_testcase1(Case, Config),
 

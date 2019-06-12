@@ -332,7 +332,7 @@ await_tc_runner_started(Runner, OldFlag) ->
         {tc_runner_started, Runner} ->
             ?PRINT2("TC runner start acknowledged~n"),
             ok
-    after 10000 ->
+    after 10000 -> %% We should *really* not have to wait this long, but...
             trap_exit(OldFlag),
             unlink_and_flush_exit(Runner),
             RunnerInfo = process_info(Runner),
@@ -367,6 +367,8 @@ await_tc_runner_done(Runner, OldFlag) ->
 	    case Ret of
 		{error, Reason} ->
 		    exit(Reason);
+		{skip, _} = SKIP ->
+		    exit(SKIP);
 		OK ->
 		    OK
 	    end
@@ -1332,10 +1334,23 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	      {Type2, Err2, Idx2, VBs2}, 
 	      ReqId}};
 	
-	Error ->
-	    io_format_expect("received error (16):  "
+
+	{error, timeout} = Error ->
+            SysEvs = snmp_test_global_sys_monitor:events(),
+	    io_format_expect("got timeout (16) when system events:"
+                             "~n   ~p", [SysEvs]),
+            if
+                (SysEvs =/= []) ->
+                    Error;
+                true ->
+                    {skip, {system_events, SysEvs}}
+            end;
+
+
+        Error ->
+            io_format_expect("received error (17):  "
                              "~n   Error: ~p", [Error]),
-	    Error
+            Error
     end.
 
 
