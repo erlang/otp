@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -795,12 +795,6 @@ save_line({stack, U, _L, D}, Line) ->
     {stack, U, Line, D}.
 
 get_lines(Ls) -> get_all_lines(Ls).
-%get_lines({stack, U, {}, []}) ->
-%    U;
-%get_lines({stack, U, {}, D}) ->
-%    tl(lists:reverse(D, U));
-%get_lines({stack, U, L, D}) ->
-%    get_lines({stack, U, {}, [L|D]}).
 
 %% There's a funny behaviour whenever the line stack doesn't have a "\n"
 %% at its end -- get_lines() seemed to work on the assumption it *will* be
