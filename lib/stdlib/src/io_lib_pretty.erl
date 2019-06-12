@@ -895,9 +895,6 @@ write_string(S, _Uni) ->
     io_lib:write_string(S, $"). %"
 
 expand({_, _, _Dots=0, no_more} = If, _T, _Dd) -> If;
-%% expand({{list,L}, _Len, _, no_more}, T, Dd) ->
-%%     {NL, NLen, NDots} = expand_list(L, T, Dd, 2),
-%%     {{list,NL}, NLen, NDots, no_more};
 expand({{tuple,IsTagged,L}, _Len, _, no_more}, T, Dd) ->
     {NL, NLen, NDots} = expand_list(L, T, Dd, 2),
     {{tuple,IsTagged,NL}, NLen, NDots, no_more};
