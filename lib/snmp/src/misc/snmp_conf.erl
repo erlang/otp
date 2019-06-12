@@ -257,7 +257,8 @@ open_file(File) ->
     end.
 
 do_read(Io, Prompt, StartLine) ->
-    case io:request(Io, {get_until,Prompt,erl_scan,tokens,[StartLine]}) of
+    Enc = latin1,
+    case io:request(Io, {get_until,Enc,Prompt,erl_scan,tokens,[StartLine]}) of
 	{ok, Toks, EndLine} ->
 	    case erl_parse:parse_term(Toks) of
 		{ok, Term} ->
