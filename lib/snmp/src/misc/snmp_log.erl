@@ -343,6 +343,7 @@ validate_loop({Cont, Terms, BadBytes}, Log, Validator, PrevTS, PrevSN) ->
 	    "~n   NextTS: ~p"
 	    "~n   NextSN: ~p", [NextTS, NextSN]),
     validate_loop(disk_log:chunk(Log, Cont), Log, Validator, NextTS, NextSN);
+-dialyzer({nowarn_function, validate_loop/5}). % Future compat
 validate_loop(Error, _Log, _Write, _PrevTS, _PrevSN) ->
     Error.
     

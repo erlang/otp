@@ -136,11 +136,17 @@ dclean:
 
 dialyzer_plt: $(DIA_PLT)
 
-$(DIA_PLT): 
+$(DIA_PLT): Makefile
 	@echo "Building $(APPLICATION) plt file"
 	@dialyzer --build_plt \
                   --output_plt $@ \
                   -r ../$(APPLICATION)/ebin \
+                     ../../lib/kernel/ebin \
+                     ../../lib/stdlib/ebin \
+                     ../../lib/runtime_tools/ebin \
+                     ../../lib/crypto/ebin \
+                     ../../lib/mnesia/ebin \
+                     ../../erts/preloaded/ebin \
                   --output $(DIA_ANALYSIS) \
                   --verbose
 

@@ -711,13 +711,8 @@ sys_info() ->
     [{arch, SysArch}, {ver, SysVer}].
  
 os_info() ->
-    V = os:version(),
-    case os:type() of
-        {OsFam, OsName} ->
-            [{fam, OsFam}, {name, OsName}, {ver, V}];
-        OsFam ->
-            [{fam, OsFam}, {ver, V}]
-    end.
+    {OsFam, OsName} = os:type(),
+    [{fam, OsFam}, {name, OsName}, {ver, os:version()}].
 
 ms1() ->
     App    = ?APPLICATION,
