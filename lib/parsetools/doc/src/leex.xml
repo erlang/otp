@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2017</year>
+      <year>2009</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -193,7 +193,7 @@ Token = tuple()</code>
           but used through the i/o system where it can typically be
           called in an application by:</p>
         <code>
-io:request(InFile, {get_until,Prompt,Module,token,[Line]})
+io:request(InFile, {get_until,unicode,Prompt,Module,token,[Line]})
   -> TokenRet</code>
       </desc>
     </func>
@@ -240,7 +240,7 @@ io:request(InFile, {get_until,Prompt,Module,token,[Line]})
           but used through the i/o system where it can typically be
           called in an application by:</p>
         <code>
-io:request(InFile, {get_until,Prompt,Module,tokens,[Line]})
+io:request(InFile, {get_until,unicode,Prompt,Module,tokens,[Line]})
   -> TokensRet</code>
       </desc>
     </func>
