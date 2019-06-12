@@ -340,16 +340,17 @@ types(lists, takewhile, [_,_]) ->
 types(lists, usort, [List]) ->
     sub_unsafe(same_length_type(List), [list]);
 types(lists, zip, [A,B]) ->
-    RetType = beam_types:join(same_length_type(A), same_length_type(B)),
-    sub_unsafe(RetType, [list, list]);
+    ZipType = lists_zip_type([A,B]),
+    sub_unsafe(ZipType, [ZipType, ZipType]);
+types(lists, zip3, [A,B,C]) ->
+    ZipType = lists_zip_type([A,B,C]),
+    sub_unsafe(ZipType, [ZipType, ZipType, ZipType]);
 types(lists, zipwith, [_,A,B]) ->
-    RetType = beam_types:join(same_length_type(A), same_length_type(B)),
-    sub_unsafe(RetType, [#t_fun{arity=2}, list, list]);
+    ZipType = lists_zip_type([A,B]),
+    sub_unsafe(ZipType, [#t_fun{arity=2}, ZipType, ZipType]);
 types(lists, zipwith3, [_,A,B,C]) ->
-    RetType = beam_types:join([same_length_type(A),
-                               same_length_type(B),
-                               same_length_type(C)]),
-    sub_unsafe(RetType, [#t_fun{arity=3}, list, list, list]);
+    ZipType = lists_zip_type([A,B,C]),
+    sub_unsafe(ZipType, [#t_fun{arity=3}, ZipType, ZipType, ZipType]);
 
 %% Functions with complex return values.
 types(lists, partition, [_,_]) ->
@@ -455,11 +456,21 @@ discard_tuple_element_info(Min, Max, Es) ->
              (_El, Acc) -> Acc
           end, Es, maps:keys(Es)).
 
-%% For a lists function that return a list of the same
-%% length as the input list, return the type of the list.
+%% For a lists function that return a list of the same length as the input
+%% list, return the type of the list.
 same_length_type(cons) -> cons;
 same_length_type(nil) -> nil;
 same_length_type(_) -> list.
+
+%% lists:zip/2 and friends only succeed when all arguments have the same
+%% length, so if one of them is cons, we can infer that all of them are cons
+%% on success.
+lists_zip_type(Types) ->
+    foldl(fun(cons, _) -> cons;
+             (_, cons) -> cons;
+             (nil, _) -> nil;
+             (_, T) -> T
+          end, list, Types).
 
 make_two_tuple(Type1, Type2) ->
     #t_tuple{size=2,exact=true,
