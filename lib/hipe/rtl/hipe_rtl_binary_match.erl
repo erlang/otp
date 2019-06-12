@@ -53,7 +53,7 @@ gen_rtl(bs_start_match3, [Ms], [Binary], TrueLblName, FalseLblName) ->
 	get_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset),
 	get_field_from_term({matchstate,{saveoffset, 0}}, Ms, SavedOffset),
 	hipe_rtl:mk_alu(Pos, Offset, sub, SavedOffset),
-	hipe_rtl:mk_branch(Pos, ltu, hipe_rtl:mk_imm(1 << ?MAX_SMALL_BITS),
+	hipe_rtl:mk_branch(Pos, ltu, hipe_rtl:mk_imm(1 bsl ?MAX_SMALL_BITS),
                            TrueLblName,
                            hipe_rtl:label_name(PosOverflowLbl),
                            0.99),
@@ -67,9 +67,7 @@ gen_rtl(bs_start_match3, [Ms], [Binary], TrueLblName, FalseLblName) ->
 	set_field_from_term({matchstate,{saveoffset, 0}}, Ms, Offset),
 	hipe_rtl:mk_goto(TrueLblName),
 	BinaryLbl,
-	make_matchstate(Binary, 0, Ms, TrueLblName, FalseLblName),
-	hipe_rtl:mk_goto(TrueLblName),
-];
+	make_matchstate(Binary, 0, Ms, TrueLblName, FalseLblName)];
     8 ->
        BinaryLbl = hipe_rtl:mk_new_label(),
        [hipe_rtl:mk_move(Ms,Binary),
