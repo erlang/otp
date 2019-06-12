@@ -289,7 +289,7 @@ Slogan: &lt;reason&gt;</pre>
     <marker id="memory"></marker>
     <title>Memory Information</title>
     <p>Under the tag <em>=memory</em> is shown information similar
-      to what can be obtainted on a living node with
+      to what can be obtained on a living node with
       <seealso marker="erts:erlang#memory/0">
       <c>erlang:memory()</c></seealso>.</p>
   </section>

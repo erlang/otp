@@ -391,7 +391,7 @@ void encode_result(ei_x_buff* x, PGresult* res, PGconn* conn)
     <p>Before a driver can be called from Erlang, it must be
       loaded and opened. Loading is done using the <c><![CDATA[erl_ddll]]></c>
       module (the <c><![CDATA[erl_ddll]]></c> driver that loads dynamic
-      driver is actually a driver itself). If loading is successfull,
+      driver is actually a driver itself). If loading is successful,
       the port can be opened with <c><![CDATA[open_port/2]]></c>. The port
       name must match the name of the shared library and
       the name in the driver entry structure.</p>
