@@ -31,12 +31,12 @@
                  megaco_encoder:action_reply() | 
                  megaco_encoder:action_request() | 
                  megaco_encoder:command_request(),
-      Version :: integer(),
+      Version :: megaco_encoder:protocol_version(),
       T       :: term().
 
 -callback decode(T, Version) -> R when
       T       :: term(),
-      Version :: integer() | dynamic,
+      Version :: megaco_encoder:protocol_version() | dynamic,
       R       :: megaco_encoder:megaco_message() |
                  megaco_encoder:transaction() | 
                  megaco_encoder:action_reply() | 

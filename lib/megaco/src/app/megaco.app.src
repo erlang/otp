@@ -107,6 +107,7 @@
 	megaco_udp,
 	megaco_udp_server,
 	megaco_udp_sup,
+	megaco_user,
 	megaco_user_default
        ]},
   {registered, [megaco_config, megaco_monitor, 

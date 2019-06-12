@@ -42,7 +42,16 @@
 
   <section>
     <title>DATA TYPES</title>
+    <description>
+      <p>Note that the actual definition of (some of) these records depend on
+      the megaco protocol version used. For instance, the
+      <c>'TransactionReply'</c> record
+      has two more fields in version 3, so a simple erlang type definition
+      cannot be made here. </p>
+    </description>
     <code type="none"><![CDATA[
+protocol_version() = integer()
+segment_no()       = integer()
 megaco_message() = #'MegacoMessage{}'
 transaction() = {transactionRequest,     transaction_request()}      |
                 {transactionPending,     transaction_reply()}        |
@@ -57,6 +66,8 @@ transaction_ack() = #'TransactionAck'{}
 segment_reply() = #'SegmentReply'{}
 action_request() = #'ActionRequest'{}
 action_reply() = #'ActionReply'{}
+command_request() = #'CommandRequest'{}
+error_desc()   = #'ErrorDescriptor'{}
     ]]></code>
 
     <marker id="encode_message"></marker>
