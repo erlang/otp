@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -537,54 +537,6 @@ get_line_doit(Prompt, Port, Q, Accu, Enc) ->
 binrev(L, T) ->
     list_to_binary(lists:reverse(L, T)).
 
-%%  is_cr_at(Pos,Bin) ->
-%%      case Bin of
-%%  	<<_:Pos/binary,$\r,_/binary>> ->
-%%  	    true;
-%%  	_ ->
-%%  	    false
-%%      end.
-
-%%  collect_line_bin_re(Bin,_Data,Stack,_) ->
-%%      case re:run(Bin,<<"\n">>) of
-%%  	nomatch ->
-%%  	    X = byte_size(Bin)-1,
-%%  	    case is_cr_at(X,Bin) of
-%%  		true ->
-%%  		    <<D:X/binary,_/binary>> = Bin,
-%%  		    [<<$\r>>,D|Stack]; 
-%%  		false ->
-%%  		    [Bin|Stack]
-%%  	    end;
-%%  	{match,[{Pos,1}]} ->
-%%  	    PosPlus = Pos + 1,
-%%  	    case Stack of
-%%  		[] ->
-%%  		    case is_cr_at(Pos - 1,Bin) of
-%%  			false ->
-%%  			    <<Head:PosPlus/binary,Tail/binary>> = Bin, 
-%%  			    {stop, Head, Tail};
-%%  			true ->
-%%  			    PosMinus = Pos - 1,
-%%  			    <<Head:PosMinus/binary,_,_,Tail/binary>> = Bin,
-%%  			    {stop, binrev([],[Head,$\n]),Tail}
-%%  		    end;
-%%  		[<<$\r>>|Stack1] when Pos =:= 0 ->
-
-%%  		    <<_:PosPlus/binary,Tail/binary>> = Bin, 
-%%  		    {stop,binrev(Stack1, [$\n]),Tail};
-%%  		_ ->
-%%  		    case is_cr_at(Pos - 1,Bin) of
-%%  			false ->
-%%  			    <<Head:PosPlus/binary,Tail/binary>> = Bin, 
-%%  			    {stop,binrev(Stack, [Head]),Tail};
-%%  			true ->
-%%  			    PosMinus = Pos - 1,
-%%  			    <<Head:PosMinus/binary,_,_,Tail/binary>> = Bin,
-%%  			    {stop, binrev(Stack,[Head,$\n]),Tail}
-%%  		    end
-%%  	    end
-%%      end.
 %% get_chars(Prompt, Module, Function, XtraArg, Port, Queue, Encoding)
 %%  Gets characters from the input port until the applied function
 %%  returns {stop,Result,RestBuf}. Does not block output until input 
@@ -618,9 +570,6 @@ get_chars(Prompt, M, F, Xa, Port, Q, State, Enc) ->
 		{Port, eof} ->
 		    put(eof, true),
 		    {ok, eof, queue:new()};
-		%%{io_request,From,ReplyAs,Request} when is_pid(From) ->
-		%%    get_chars_req(Prompt, M, F, Xa, Port, queue:new(), State,
-		%%		  Request, From, ReplyAs);
                 {io_request,From,ReplyAs,{get_geometry,_}=Req} when is_pid(From) ->
                     do_io_request(Req, From, ReplyAs, Port, 
                                   queue:new()), %Keep Q over this call
