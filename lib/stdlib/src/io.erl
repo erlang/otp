@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,7 +106,6 @@ nl() ->
       IoDevice :: device().
 
 nl(Io) ->
-%    o_request(Io, {put_chars,io_lib:nl()}).
     o_request(Io, nl, nl).
 
 -spec columns() -> {'ok', pos_integer()} | {'error', 'enotsup'}.
@@ -255,13 +254,12 @@ read(Io, Prompt) ->
     case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[1]}) of
 	{ok,Toks,_EndLine} ->
 	    erl_parse:parse_term(Toks);
-%	{error, Reason} when atom(Reason) ->
-%	    erlang:error(conv_reason(read, Reason), [Io, Prompt]);
 	{error,E,_EndLine} ->
 	    {error,E};
 	{eof,_EndLine} ->
 	    eof;
 	Other ->
+erlang:display({other,Other}),
 	    Other
     end.
 
@@ -353,8 +351,6 @@ fread(Prompt, Format) ->
 
 fread(Io, Prompt, Format) ->
     case request(Io, {fread,Prompt,Format}) of
-%	{error, Reason} when atom(Reason) ->
-%	    erlang:error(conv_reason(fread, Reason), [Io, Prompt, Format]);
 	Other ->
 	    Other
     end.
