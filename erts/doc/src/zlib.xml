@@ -411,7 +411,7 @@ list_to_binary([B1,B2])</pre>
 
     <func>
       <name name="deflateParams" arity="3" since=""/>
-      <fsummary>Dynamicly update deflate parameters.</fsummary>
+      <fsummary>Dynamically update deflate parameters.</fsummary>
       <desc>
         <p>Dynamically updates the compression level and compression
           strategy. The interpretation of <c><anno>Level</anno></c> and
