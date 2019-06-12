@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,14 +25,102 @@
 
 -module(megaco_encoder).
 
--export([behaviour_info/1]).
+-export_type([
+              megaco_message/0,
+              transaction/0,
+              transaction_request/0,
+              transaction_pending/0,
+              transaction_reply/0,
+              transaction_response_ack/0,
+              transaction_ack/0,
+              segment_reply/0,
+              action_request/0,
+              action_reply/0,
+              command_request/0
+             ]).
 
-behaviour_info(callbacks) ->
-    [{encode_message,         3}, 
-     {decode_message,         3},
-     {decode_mini_message,    3},
-     {encode_transaction,     3},
-     {encode_action_requests, 3},
-     {encode_action_reply,    3}];
-behaviour_info(_) ->
-    undefined.
+
+-include("megaco_message_internal.hrl").
+
+-type megaco_message() :: #'MegacoMessage'{}.
+-type transaction()    :: {transactionRequest,     transaction_request()}      |
+                          {transactionPending,     transaction_reply()}        |
+                          {transactionReply,       transaction_pending()}      |
+                          {transactionResponseAck, transaction_response_ack()} |
+                          {segmentReply,           segment_reply()}.
+-type transaction_request()      :: #'TransactionRequest'{}.
+-type transaction_pending()      :: #'TransactionPending'{}.
+%% The problem with TransactionReply is that its definition depend
+%% on which version of the protocol we are using. As of version 3,
+%% it has two more fields.
+%% -type transaction_reply()        :: #'TransactionReply'{}.
+-type transaction_reply()        :: {'TransactionReply', _, _} |
+                                    {'TransactionReply', _, _, _, _}.
+-type transaction_response_ack() :: [transaction_ack()].
+-type transaction_ack()          :: #'TransactionAck'{}.
+-type segment_reply()            :: #'SegmentReply'{}.
+%% -type action_request()           :: #'ActionRequest'{}.
+-type action_request()           :: {'ActionRequest', _, _, _, _}.
+%% -type action_reply()             :: #'ActionReply'{}.
+-type action_reply()             :: {'ActionReply', _, _, _}.
+%% -type command_request()           :: #'CommandRequest'{}.
+-type command_request()           :: {'CommandRequest', _, _, _}.
+
+-callback encode_message(EncodingConfig,
+                         Version,
+                         Message) -> {ok, Bin} | Error when
+      EncodingConfig :: list(),
+      Version        :: integer(),
+      Message        :: megaco_message(),
+      Bin            :: binary(),
+      Error          :: term().
+
+-callback decode_message(EncodingConfig,
+                         Version,
+                         Bin) -> {ok, Message} | Error when
+      EncodingConfig :: list(),
+      Version        :: integer() | dynamic,
+      Bin            :: binary(),
+      Message        :: megaco_message(),
+      Error          :: term().
+
+-callback decode_mini_message(EncodingConfig,
+                              Version,
+                              Bin) -> {ok, Message} | Error when
+      EncodingConfig :: list(),
+      Version        :: integer() | dynamic,
+      Bin            :: binary(),
+      Message        :: megaco_message(),
+      Error          :: term().
+
+-callback encode_transaction(EncodingConfig,
+                             Version,
+                             Transaction) -> {ok, Bin} | {error, Reason} when
+      EncodingConfig :: list(),
+      Version        :: integer(),
+      Transaction    :: transaction(),
+      Bin            :: binary(),
+      Reason         :: not_implemented | term().
+
+-callback encode_action_requests(EncodingConfig,
+                                 Version,
+                                 ARs) -> {ok, Bin} | {error, Reason} when
+      EncodingConfig :: list(),
+      Version        :: integer(),
+      ARs            :: [action_request()],
+      Bin            :: binary(),
+      Reason         :: not_implemented | term().
+
+-callback encode_action_reply(EncodingConfig,
+                              Version,
+                              AR) -> {ok, Bin} | {error, Reason} when
+      EncodingConfig :: list(),
+      Version        :: integer(),
+      AR             :: action_reply(),
+      Bin            :: binary(),
+      Reason         :: not_implemented | term().
+
+-optional_callbacks(
+   [
+    encode_action_reply/3 % Only used if segementation is used
+   ]).
