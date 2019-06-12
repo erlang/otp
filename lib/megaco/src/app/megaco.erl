@@ -94,6 +94,11 @@
 %% This is for XREF
 -deprecated([{format_versions, 1, eventually}]).
 
+-export_type([
+              void/0
+             ]).
+
+-type void() :: term().
 
 -include("megaco_internal.hrl").
 

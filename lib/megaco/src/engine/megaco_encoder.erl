@@ -26,6 +26,8 @@
 -module(megaco_encoder).
 
 -export_type([
+              protocol_version/0,
+              segment_no/0,
               megaco_message/0,
               transaction/0,
               transaction_request/0,
@@ -36,12 +38,15 @@
               segment_reply/0,
               action_request/0,
               action_reply/0,
-              command_request/0
+              command_request/0,
+              error_desc/0
              ]).
 
 
 -include("megaco_message_internal.hrl").
 
+-type protocol_version() :: integer().
+-type segment_no()       :: integer().
 -type megaco_message() :: #'MegacoMessage'{}.
 -type transaction()    :: {transactionRequest,     transaction_request()}      |
                           {transactionPending,     transaction_reply()}        |
@@ -64,13 +69,14 @@
 %% -type action_reply()             :: #'ActionReply'{}.
 -type action_reply()             :: {'ActionReply', _, _, _}.
 %% -type command_request()           :: #'CommandRequest'{}.
--type command_request()           :: {'CommandRequest', _, _, _}.
+-type command_request()          :: {'CommandRequest', _, _, _}.
+-type error_desc()               :: #'ErrorDescriptor'{}.
 
 -callback encode_message(EncodingConfig,
                          Version,
                          Message) -> {ok, Bin} | Error when
       EncodingConfig :: list(),
-      Version        :: integer(),
+      Version        :: protocol_version(),
       Message        :: megaco_message(),
       Bin            :: binary(),
       Error          :: term().
@@ -79,7 +85,7 @@
                          Version,
                          Bin) -> {ok, Message} | Error when
       EncodingConfig :: list(),
-      Version        :: integer() | dynamic,
+      Version        :: protocol_version() | dynamic,
       Bin            :: binary(),
       Message        :: megaco_message(),
       Error          :: term().
@@ -88,7 +94,7 @@
                               Version,
                               Bin) -> {ok, Message} | Error when
       EncodingConfig :: list(),
-      Version        :: integer() | dynamic,
+      Version        :: protocol_version() | dynamic,
       Bin            :: binary(),
       Message        :: megaco_message(),
       Error          :: term().
@@ -97,7 +103,7 @@
                              Version,
                              Transaction) -> {ok, Bin} | {error, Reason} when
       EncodingConfig :: list(),
-      Version        :: integer(),
+      Version        :: protocol_version(),
       Transaction    :: transaction(),
       Bin            :: binary(),
       Reason         :: not_implemented | term().
@@ -106,7 +112,7 @@
                                  Version,
                                  ARs) -> {ok, Bin} | {error, Reason} when
       EncodingConfig :: list(),
-      Version        :: integer(),
+      Version        :: protocol_version(),
       ARs            :: [action_request()],
       Bin            :: binary(),
       Reason         :: not_implemented | term().
@@ -115,7 +121,7 @@
                               Version,
                               AR) -> {ok, Bin} | {error, Reason} when
       EncodingConfig :: list(),
-      Version        :: integer(),
+      Version        :: protocol_version(),
       AR             :: action_reply(),
       Bin            :: binary(),
       Reason         :: not_implemented | term().

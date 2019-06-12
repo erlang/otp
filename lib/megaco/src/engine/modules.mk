@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2001-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 BEHAVIOUR_MODULES = \
 	megaco_edist_compress \
 	megaco_encoder \
+	megaco_user \
 	megaco_transport
 
 MODULES = \
