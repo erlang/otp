@@ -89,7 +89,8 @@ tests() ->
      critical_extension_verify_server,
      critical_extension_verify_none,
      customize_hostname_check,
-     incomplete_chain
+     incomplete_chain,
+     long_chain
     ].
 
 error_handling_tests()->
@@ -1150,6 +1151,44 @@ incomplete_chain(Config) when is_list(Config) ->
                                         {mfa, {ssl_test_lib, ReceiveFunction, []}},
                                         {options, [{active, Active}, 
                                                    {verify, verify_peer},
+                                                   {cacerts,  ServerCas ++ ClientCas} | 
+                                                   proplists:delete(cacerts, ClientConf)]}]),
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+long_chain() ->
+    [{doc,"Test option verify_peer"}].
+long_chain(Config) when is_list(Config) ->      
+    #{server_config := ServerConf,
+      client_config := ClientConf} = public_key:pkix_test_data(#{server_chain => #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                                                  intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}], 
+                                                                                                    [{key, ssl_test_lib:hardcode_rsa_key(3)}],
+                                                                                                    [{key, ssl_test_lib:hardcode_rsa_key(4)}]],
+                                                                                  peer => [{key, ssl_test_lib:hardcode_rsa_key(5)}]},
+                                                                 client_chain => #{root => [{key, ssl_test_lib:hardcode_rsa_key(3)}], 
+                                                                                  intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                                                                  peer => [{key, ssl_test_lib:hardcode_rsa_key(1)}]}}), 
+    [ServerRoot| _] = ServerCas = proplists:get_value(cacerts, ServerConf),
+    ClientCas = proplists:get_value(cacerts, ClientConf),
+    
+    Active = proplists:get_value(active, Config),
+    ReceiveFunction =  proplists:get_value(receive_function, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                        {mfa, {ssl_test_lib, ReceiveFunction, []}},
+                                        {options, [{active, Active}, {verify, verify_peer},
+                                                   {cacerts, [ServerRoot]} |  
+                                                   proplists:delete(cacerts, ServerConf)]}]),
+    Port  = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, ReceiveFunction, []}},
+                                        {options, [{active, Active}, 
+                                                   {verify, verify_peer},
+                                                   {depth, 5},
                                                    {cacerts,  ServerCas ++ ClientCas} | 
                                                    proplists:delete(cacerts, ClientConf)]}]),
     ssl_test_lib:check_result(Server, ok, Client, ok),
