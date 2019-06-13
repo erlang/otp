@@ -22,11 +22,13 @@
 -export([opt_start/4, opt_continue/4, opt_finish/3]).
 
 -include("beam_ssa_opt.hrl").
+-include("beam_types.hrl").
+
 -import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
                 keyfind/3,reverse/1,reverse/2,
-                sort/1,split/2]).
+                sort/1,split/2,zip/2]).
 
--define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
+-define(UNICODE_MAX, (16#10FFFF)).
 
 -record(d,
         {ds :: #{beam_ssa:b_var():=beam_ssa:b_set()},
@@ -37,23 +39,6 @@
          sub = #{} :: #{beam_ssa:b_var():=beam_ssa:value()},
          ret_type = [] :: [type()]}).
 
--define(ATOM_SET_SIZE, 5).
-
-%% Records that represent type information.
--record(t_atom, {elements=any :: 'any' | [atom()]}).
--record(t_bs_match, {type :: type()}).
--record(t_fun, {arity=any :: arity() | 'any'}).
--record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
--record(t_tuple, {size=0 :: integer(),
-                  exact=false :: boolean(),
-                  %% Known element types (1-based index), unknown elements are
-                  %% are assumed to be 'any'.
-                  elements=#{} :: #{ non_neg_integer() => type() }}).
-
--type type() :: 'any' | 'none' |
-                #t_atom{} | #t_bs_match{} | #t_fun{} | #t_integer{} | #t_tuple{} |
-                {'binary',pos_integer()} | 'cons' | 'float' |
-                'list' | 'map' | 'nil' | 'number'.
 -type type_db() :: #{beam_ssa:var_name():=type()}.
 
 -spec opt_start(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
@@ -100,7 +85,7 @@ join_arg_types(Args, ArgTypes, Anno) ->
               end, Ts0, ParamTypes).
 
 join_arg_types_1([Arg | Args], [TM | TMs], Ts) when map_size(TM) =/= 0 ->
-    join_arg_types_1(Args, TMs, Ts#{ Arg => join(maps:values(TM))});
+    join_arg_types_1(Args, TMs, Ts#{ Arg => beam_types:join(maps:values(TM))});
 join_arg_types_1([Arg | Args], [_TM | TMs], Ts) ->
     join_arg_types_1(Args, TMs, Ts#{ Arg => any });
 join_arg_types_1([], [], Ts) ->
@@ -159,46 +144,14 @@ opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo)
        map_size(TypeMap) =:= 0 ->
     opt_finish_1(Args, TypeMaps, ParamInfo);
 opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo0) ->
-    JoinedType0 = verified_type(join(maps:values(TypeMap))),
-    case validator_anno(JoinedType0) of
-        any ->
-            opt_finish_1(Args, TypeMaps, ParamInfo0);
-        JoinedType ->
-            ParamInfo = ParamInfo0#{ Arg => JoinedType },
-            opt_finish_1(Args, TypeMaps, ParamInfo)
-    end;
+    JoinedType = beam_types:join(maps:values(TypeMap)),
+    ParamInfo = case JoinedType of
+                    any -> ParamInfo0;
+                    _ -> ParamInfo0#{ Arg => JoinedType }
+                end,
+    opt_finish_1(Args, TypeMaps, ParamInfo);
 opt_finish_1([], [], ParamInfo) ->
     ParamInfo.
-
-validator_anno(any) ->
-    any;
-validator_anno(#t_fun{}) ->
-    %% There is no need make funs visible to beam_validator.
-    any;
-validator_anno(#t_tuple{size=Size,exact=Exact,elements=Elements0}) ->
-    Elements = maps:fold(fun(Index, Type0, Acc) ->
-                                 Key = beam_validator:type_anno(integer, Index),
-                                 case validator_anno(Type0) of
-                                     any -> Acc;
-                                     Type -> Acc#{Key=>Type}
-                                 end
-                         end, #{}, Elements0),
-    beam_validator:type_anno(tuple, Size, Exact, Elements);
-validator_anno(#t_integer{elements={Same,Same}}) ->
-    beam_validator:type_anno(integer, Same);
-validator_anno(#t_integer{}) ->
-    beam_validator:type_anno(integer);
-validator_anno(float) ->
-    beam_validator:type_anno(float);
-validator_anno(#t_atom{elements=[Val]}) ->
-    beam_validator:type_anno(atom, Val);
-validator_anno(#t_atom{}=A) ->
-    case t_is_boolean(A) of
-        true -> beam_validator:type_anno(bool);
-        false -> beam_validator:type_anno(atom)
-    end;
-validator_anno(T) ->
-    beam_validator:type_anno(T).
 
 get_func_id(Anno) ->
     #{func_info:={_Mod, Name, Arity}} = Anno,
@@ -233,7 +186,7 @@ opt_1(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
             %% potentially narrow the type of the phi node
             %% in the former successor.
             Ls = maps:remove(L, D0#d.ls),
-            RetType = join([none|D0#d.ret_type]),
+            RetType = beam_types:join([none|D0#d.ret_type]),
             D = D0#d{ds=Ds,ls=Ls,sub=Sub,
                      func_db=Fdb,ret_type=[RetType]},
             Blk = Blk0#b_blk{is=Is,last=Ret},
@@ -333,11 +286,11 @@ opt_is([#b_set{op=succeeded,args=[Arg],dst=Dst}=I],
         #{} ->
             Args = simplify_args([Arg], Sub0, Ts0),
             Type = type(succeeded, Args, Ts0, Ds0),
-            case get_literal_from_type(Type) of
-                #b_literal{}=Lit ->
-                    Sub = Sub0#{Dst=>Lit},
+            case beam_types:get_singleton_value(Type) of
+                {ok, Lit} ->
+                    Sub = Sub0#{Dst=>#b_literal{val=Lit}},
                     opt_is([], Ts0, Ds0, Fdb, D, Sub, Acc);
-                none ->
+                error ->
                     Ts = Ts0#{Dst=>Type},
                     Ds = Ds0#{Dst=>I},
                     opt_is([], Ts, Ds, Fdb, D, Sub0, [I|Acc])
@@ -380,7 +333,7 @@ simplify_call(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I) ->
                 false ->
                     I
             end;
-         #b_remote{} ->
+        #b_remote{} ->
             I
     end;
 simplify_call(I) -> I.
@@ -455,15 +408,9 @@ opt_local_call(#b_set{dst=Dst,args=[Id|_]}=I0, Ts0, Ds0, Fdb) ->
                #{} -> any
            end,
     I = case Type of
-            none ->
-                I0;
-            _ ->
-                case validator_anno(Type) of
-                    any ->
-                        I0;
-                    ValidatorType ->
-                        beam_ssa:add_anno(result_type, ValidatorType, I0)
-                end
+            any -> I0;
+            none -> I0;
+            _ -> beam_ssa:add_anno(result_type, Type, I0)
         end,
     Ts = Ts0#{ Dst => Type },
     Ds = Ds0#{ Dst => I },
@@ -473,7 +420,7 @@ update_arg_types([Arg | Args], [TypeMap0 | TypeMaps], CallId, Ts) ->
     %% Match contexts are treated as bitstrings when optimizing arguments, as
     %% we don't yet support removing the "bs_start_match3" instruction.
     NewType = case get_type(Arg, Ts) of
-                  #t_bs_match{} -> {binary, 1};
+                  #t_bs_context{} -> #t_bitstring{unit=1};
                   Type -> Type
               end,
     TypeMap = TypeMap0#{ CallId => NewType },
@@ -504,7 +451,7 @@ simplify(#b_set{op={bif,'or'},args=Args}=I, Ts) ->
             I
     end;
 simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts) ->
-    case t_tuple_size(get_type(Tuple, Ts)) of
+    case beam_types:get_tuple_size(get_type(Tuple, Ts)) of
         {_,Size} when is_integer(Index), 1 =< Index, Index =< Size ->
             I = I0#b_set{op=get_tuple_element,
                          args=[Tuple,#b_literal{val=Index-1}]},
@@ -554,14 +501,14 @@ simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
     end;
 simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '=='; Op0 =:= '/=' ->
     Types = get_types(Args, Ts),
-    EqEq0 = case {meet(Types),join(Types)} of
-                {none,any} -> true;
-                {#t_integer{},#t_integer{}} -> true;
-                {float,float} -> true;
-                {{binary,_},_} -> true;
-                {#t_atom{},_} -> true;
-                {_,_} -> false
-            end,
+    EqEq0 = case {beam_types:meet(Types),beam_types:join(Types)} of
+               {none,any} -> true;
+               {#t_integer{},#t_integer{}} -> true;
+               {float,float} -> true;
+               {#t_bitstring{},_} -> true;
+               {#t_atom{},_} -> true;
+               {_,_} -> false
+           end,
     EqEq = EqEq0 orelse any_non_numeric_argument(Args, Ts),
     case EqEq of
         true ->
@@ -577,11 +524,11 @@ simplify(#b_set{op={bif,'=:='},args=[Same,Same]}, _Ts) ->
     #b_literal{val=true};
 simplify(#b_set{op={bif,'=:='},args=[A1,_A2]=Args}=I, Ts) ->
     [T1,T2] = get_types(Args, Ts),
-    case meet(T1, T2) of
+    case beam_types:meet(T1, T2) of
         none ->
             #b_literal{val=false};
         _ ->
-            case {t_is_boolean(T1),T2} of
+            case {beam_types:is_boolean_type(T1),T2} of
                 {true,#t_atom{elements=[true]}} ->
                     %% Bool =:= true  ==>  Bool
                     A1;
@@ -612,10 +559,10 @@ simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
 simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=N}]}=I, Ts) ->
     case get_type(Tuple, Ts) of
         #t_tuple{size=Size,elements=Es} when Size > N ->
-            ElemType = get_element_type(N + 1, Es),
-            case get_literal_from_type(ElemType) of
-                #b_literal{}=Lit -> Lit;
-                none -> I
+            ElemType = beam_types:get_element_type(N + 1, Es),
+            case beam_types:get_singleton_value(ElemType) of
+                {ok, Val} -> #b_literal{val=Val};
+                error -> I
             end;
         none ->
             %% Will never be executed because of type conflict.
@@ -671,7 +618,7 @@ is_non_numeric_tuple(Tuple, El) when El >= 1 ->
 is_non_numeric_tuple(_Tuple, 0) -> true.
 
 is_non_numeric_type(#t_atom{}) -> true;
-is_non_numeric_type({binary,_}) -> true;
+is_non_numeric_type(#t_bitstring{}) -> true;
 is_non_numeric_type(nil) -> true;
 is_non_numeric_type(#t_tuple{size=Size,exact=true,elements=Types})
   when map_size(Types) =:= Size ->
@@ -696,7 +643,7 @@ make_literal_list([], Acc) ->
 
 is_safe_bool_op(Args, Ts) ->
     [T1,T2] = get_types(Args, Ts),
-    t_is_boolean(T1) andalso t_is_boolean(T2).
+    beam_types:is_boolean_type(T1) andalso beam_types:is_boolean_type(T2).
 
 all_same([{H,_}|T]) ->
     all(fun({E,_}) -> E =:= H end, T).
@@ -743,9 +690,9 @@ simplify_arg(#b_var{}=Arg0, Sub, Ts) ->
             LitArg;
         #b_var{}=Arg ->
             Type = get_type(Arg, Ts),
-            case get_literal_from_type(Type) of
-                none -> Arg;
-                #b_literal{}=Lit -> Lit
+            case beam_types:get_singleton_value(Type) of
+                {ok, Val} -> #b_literal{val=Val};
+                error -> Arg
             end
     end;
 simplify_arg(#b_remote{mod=Mod,name=Name}=Rem, Sub, Ts) ->
@@ -800,7 +747,7 @@ opt_switch(#b_switch{fail=Fail,list=List0}=Sw0, Type, Ts, Ds) ->
         #t_integer{elements={_,_}=Range} ->
             simplify_switch_int(Sw1, Range);
         #t_atom{elements=[_|_]} ->
-            case t_is_boolean(Type) of
+            case beam_types:is_boolean_type(Type) of
                 true ->
                     #b_br{} = Br = simplify_switch_bool(Sw1, Ts, Ds),
                     opt_terminator(Br, Ts, Ds);
@@ -814,7 +761,7 @@ opt_switch(#b_switch{fail=Fail,list=List0}=Sw0, Type, Ts, Ds) ->
 prune_switch_list([{_,Fail}|T], Fail, Type, Ts) ->
     prune_switch_list(T, Fail, Type, Ts);
 prune_switch_list([{Arg,_}=Pair|T], Fail, Type, Ts) ->
-    case meet(get_type(Arg, Ts), Type) of
+    case beam_types:meet(get_type(Arg, Ts), Type) of
         none ->
             %% Different types. This value can never match.
             prune_switch_list(T, Fail, Type, Ts);
@@ -874,7 +821,7 @@ update_successors(#b_ret{arg=Arg}, Ts, D) ->
             %% type.
             D;
         #{} ->
-            RetType = join([get_type(Arg, Ts) | D#d.ret_type]),
+            RetType = beam_types:join([get_type(Arg, Ts) | D#d.ret_type]),
             D#d{ret_type=[RetType]}
     end.
 
@@ -883,14 +830,14 @@ subtract_sw_list(V, List, Ts) ->
 
 sub_sw_list_1(Type, [{Val,_}|T], Ts) ->
     ValType = get_type(Val, Ts),
-    sub_sw_list_1(subtract(Type, ValType), T, Ts);
+    sub_sw_list_1(beam_types:subtract(Type, ValType), T, Ts);
 sub_sw_list_1(Type, [], _Ts) ->
     Type.
 
 update_successor_bool(#b_var{}=Var, BoolValue, S, Ts, D) ->
-    case t_is_boolean(get_type(Var, Ts)) of
+    case beam_types:is_boolean_type(get_type(Var, Ts)) of
         true ->
-            update_successor(S, Ts#{Var:=t_atom(BoolValue)}, D);
+            update_successor(S, Ts#{ Var := beam_types:make_atom(BoolValue) }, D);
         false ->
             %% The `br` terminator is preceeded by an instruction that
             %% does not produce a boolean value, such a `new_try_tag`.
@@ -917,118 +864,43 @@ update_types(#b_set{op=Op,dst=Dst,args=Args}, Ts, Ds) ->
 
 type(phi, Args, Ts, _Ds) ->
     Types = [get_type(A, Ts) || {A,_} <- Args],
-    join(Types);
-type({bif,'band'}, Args, Ts, _Ds) ->
-    band_type(Args, Ts);
+    beam_types:join(Types);
 type({bif,Bif}, Args, Ts, _Ds) ->
-    case bif_type(Bif, Args) of
-        number ->
-            arith_op_type(Args, Ts);
-        Type ->
-            Type
-    end;
+    {RetType, _, _} = beam_call_types:types(erlang, Bif, get_types(Args, Ts)),
+    RetType;
 type(bs_init, _Args, _Ts, _Ds) ->
-    {binary, 1};
-type(bs_extract, [Ctx], Ts, _Ds) ->
-    #t_bs_match{type=Type} = get_type(Ctx, Ts),
-    Type;
-type(bs_match, Args, _Ts, _Ds) ->
-    #t_bs_match{type=bs_match_type(Args)};
+    #t_bitstring{};
+type(bs_extract, [Ctx], _Ts, Ds) ->
+    #b_set{op=bs_match,args=Args} = map_get(Ctx, Ds),
+    bs_match_type(Args);
+type(bs_match, _Args, _Ts, _Ds) ->
+    #t_bs_context{};
 type(bs_get_tail, _Args, _Ts, _Ds) ->
-    {binary, 1};
+    #t_bitstring{};
 type(call, [#b_remote{mod=#b_literal{val=Mod},
                       name=#b_literal{val=Name}}|Args], Ts, _Ds) ->
-    case {Mod,Name,Args} of
-        {erlang,make_fun,[_,_,Arity0]} ->
-            case Arity0 of
-                #b_literal{val=Arity} when is_integer(Arity), Arity >= 0 ->
-                    #t_fun{arity=Arity};
-                _ ->
-                    #t_fun{}
-            end;
-        {erlang,setelement,[Pos,Tuple,Arg]} ->
-            case {get_type(Pos, Ts),get_type(Tuple, Ts)} of
-                {#t_integer{elements={Index,Index}},
-                 #t_tuple{elements=Es0,size=Size}=T} ->
-                    %% This is an exact index, update the type of said element
-                    %% or return 'none' if it's known to be out of bounds.
-                    Es = set_element_type(Index, get_type(Arg, Ts), Es0),
-                    case T#t_tuple.exact of
-                        false ->
-                            T#t_tuple{size=max(Index, Size),elements=Es};
-                        true when Index =< Size ->
-                            T#t_tuple{elements=Es};
-                        true ->
-                            none
-                    end;
-                {#t_integer{elements={Min,_}}=IntType,
-                 #t_tuple{elements=Es0,size=Size}=T} ->
-                    %% Remove type information for all indices that
-                    %% falls into the range of the integer.
-                    Es = remove_element_info(IntType, Es0),
-                    case T#t_tuple.exact of
-                        false ->
-                            T#t_tuple{elements=Es,size=max(Min, Size)};
-                        true when Min =< Size ->
-                            T#t_tuple{elements=Es,size=Size};
-                        true ->
-                            none
-                    end;
-                {_,#t_tuple{}=T} ->
-                    %% Position unknown, so we have to discard all element
-                    %% information.
-                    T#t_tuple{elements=#{}};
-                {#t_integer{elements={Min,_Max}},_} ->
-                    #t_tuple{size=Min};
-                {_,_} ->
-                    #t_tuple{}
-            end;
-        {erlang,'++',[LHS,RHS]} ->
-            LType = get_type(LHS, Ts),
-            RType = get_type(RHS, Ts),
-            case LType =:= cons orelse RType =:= cons of
-                true ->
-                    cons;
-                false ->
-                    %% `[] ++ RHS` yields RHS, even if RHS is not a list.
-                    join(list, RType)
-            end;
-        {erlang,'--',[_,_]} ->
-            list;
-        {lists,F,Args} ->
-            Types = get_types(Args, Ts),
-            lists_function_type(F, Types);
-        {math,_,_} ->
-            case is_math_bif(Name, length(Args)) of
-                false -> any;
-                true -> float
-            end;
-        {_,_,_} ->
-            case erl_bifs:is_exit_bif(Mod, Name, length(Args)) of
-                true -> none;
-                false -> any
-            end
-    end;
+    {RetType, _, _} = beam_call_types:types(Mod, Name, get_types(Args, Ts)),
+    RetType;
 type(get_tuple_element, [Tuple, Offset], Ts, _Ds) ->
     #t_tuple{size=Size,elements=Es} = get_type(Tuple, Ts),
     #b_literal{val=N} = Offset,
     true = Size > N, %Assertion.
-    get_element_type(N + 1, Es);
+    beam_types:get_element_type(N + 1, Es);
 type(is_nonempty_list, [_], _Ts, _Ds) ->
-    t_boolean();
+    beam_types:make_boolean();
 type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Ts, _Ds) ->
-    t_boolean();
+    beam_types:make_boolean();
 type(make_fun, [#b_local{arity=TotalArity}|Env], _Ts, _Ds) ->
     #t_fun{arity=TotalArity-length(Env)};
 type(put_map, _Args, _Ts, _Ds) ->
-    map;
+    #t_map{};
 type(put_list, _Args, _Ts, _Ds) ->
     cons;
 type(put_tuple, Args, Ts, _Ds) ->
     {Es, _} = foldl(fun(Arg, {Es0, Index}) ->
-                        Type = get_type(Arg, Ts),
-                        Es = set_element_type(Index, Type, Es0),
-                        {Es, Index + 1}
+                            Type = get_type(Arg, Ts),
+                            Es = beam_types:set_element_type(Index, Type, Es0),
+                            {Es, Index + 1}
                     end, {#{}, 1}, Args),
     #t_tuple{exact=true,size=length(Args),elements=Es};
 type(succeeded, [#b_var{}=Src], Ts, Ds) ->
@@ -1037,130 +909,51 @@ type(succeeded, [#b_var{}=Src], Ts, Ds) ->
             Types = get_types(BifArgs, Ts),
             case {Bif,Types} of
                 {BoolOp,[T1,T2]} when BoolOp =:= 'and'; BoolOp =:= 'or' ->
-                    case t_is_boolean(T1) andalso t_is_boolean(T2) of
-                        true -> t_atom(true);
-                        false -> t_boolean()
+                    BothBool = beam_types:is_boolean_type(T1) andalso
+                        beam_types:is_boolean_type(T2),
+                    case BothBool of
+                        true -> beam_types:make_atom(true);
+                        false -> beam_types:make_boolean()
                     end;
-                {byte_size,[{binary,_}]} ->
-                    t_atom(true);
-                {bit_size,[{binary,_}]} ->
-                    t_atom(true);
-                {map_size,[map]} ->
-                    t_atom(true);
+                {byte_size,[#t_bitstring{}]} ->
+                    beam_types:make_atom(true);
+                {bit_size,[#t_bitstring{}]} ->
+                    beam_types:make_atom(true);
+                {map_size,[#t_map{}]} ->
+                    beam_types:make_atom(true);
                 {'not',[Type]} ->
-                    case t_is_boolean(Type) of
-                        true -> t_atom(true);
-                        false -> t_boolean()
+                    case beam_types:is_boolean_type(Type) of
+                        true -> beam_types:make_atom(true);
+                        false -> beam_types:make_boolean()
                     end;
-                {size,[{binary,_}]} ->
-                    t_atom(true);
+                {size,[#t_bitstring{}]} ->
+                    beam_types:make_atom(true);
                 {tuple_size,[#t_tuple{}]} ->
-                    t_atom(true);
+                    beam_types:make_atom(true);
                 {_,_} ->
-                    t_boolean()
+                    beam_types:make_boolean()
             end;
         #b_set{op=get_hd} ->
-            t_atom(true);
+            beam_types:make_atom(true);
         #b_set{op=get_tl} ->
-            t_atom(true);
+            beam_types:make_atom(true);
         #b_set{op=get_tuple_element} ->
-            t_atom(true);
+            beam_types:make_atom(true);
         #b_set{op=wait} ->
-            t_atom(false);
+            beam_types:make_atom(false);
         #b_set{} ->
-            t_boolean()
+            beam_types:make_boolean()
     end;
 type(succeeded, [#b_literal{}], _Ts, _Ds) ->
-    t_atom(true);
+    beam_types:make_atom(true);
 type(_, _, _, _) -> any.
-
-arith_op_type(Args, Ts) ->
-    Types = get_types(Args, Ts),
-    foldl(fun(#t_integer{}, unknown) -> t_integer();
-             (#t_integer{}, number) -> number;
-             (#t_integer{}, float) -> float;
-             (#t_integer{}, #t_integer{}) -> t_integer();
-             (float, unknown) -> float;
-             (float, #t_integer{}) -> float;
-             (float, number) -> float;
-             (number, unknown) -> number;
-             (number, #t_integer{}) -> number;
-             (number, float) -> float;
-             (any, _) -> number;
-             (Same, Same) -> Same;
-             (_, _) -> none
-          end, unknown, Types).
-
-lists_function_type(F, Types) ->
-    case {F,Types} of
-        %% Functions that return booleans.
-        {all,[_,_]} ->
-            t_boolean();
-        {any,[_,_]} ->
-            t_boolean();
-        {keymember,[_,_,_]} ->
-            t_boolean();
-        {member,[_,_]} ->
-            t_boolean();
-        {prefix,[_,_]} ->
-            t_boolean();
-        {suffix,[_,_]} ->
-            t_boolean();
-
-        %% Functions that return lists.
-        {dropwhile,[_,_]} ->
-            list;
-        {duplicate,[_,_]} ->
-            list;
-        {filter,[_,_]} ->
-            list;
-        {flatten,[_]} ->
-            list;
-        {map,[_Fun,List]} ->
-            same_length_type(List);
-        {MapFold,[_Fun,_Acc,List]} when MapFold =:= mapfoldl;
-                                        MapFold =:= mapfoldr ->
-            #t_tuple{size=2,exact=true,
-                     elements=#{1=>same_length_type(List)}};
-        {partition,[_,_]} ->
-            t_two_tuple(list, list);
-        {reverse,[List]} ->
-            same_length_type(List);
-        {sort,[List]} ->
-            same_length_type(List);
-        {splitwith,[_,_]} ->
-            t_two_tuple(list, list);
-        {takewhile,[_,_]} ->
-            list;
-        {unzip,[List]} ->
-            ListType = same_length_type(List),
-            t_two_tuple(ListType, ListType);
-        {usort,[List]} ->
-            same_length_type(List);
-        {zip,[_,_]} ->
-            list;
-        {zipwith,[_,_,_]} ->
-            list;
-        {_,_} ->
-            any
-    end.
-
-%% For a lists function that return a list of the same
-%% length as the input list, return the type of the list.
-same_length_type(cons) -> cons;
-same_length_type(nil) -> nil;
-same_length_type(_) -> list.
-
-t_two_tuple(Type1, Type2) ->
-    #t_tuple{size=2,exact=true,
-             elements=#{1=>Type1,2=>Type2}}.
 
 %% will_succeed(TestOperation, Type) -> yes|no|maybe.
 %%  Test whether TestOperation applied to an argument of type Type
 %%  will succeed.  Return yes, no, or maybe.
 %%
-%%  Type is a type as described in the comment for verified_type/1 at
-%%  the very end of this file, but it will *never* be 'any'.
+%%  Type can be any type as described in beam_types.hrl, but it must *never* be
+%%  any.
 
 will_succeed(is_atom, Type) ->
     case Type of
@@ -1169,13 +962,13 @@ will_succeed(is_atom, Type) ->
     end;
 will_succeed(is_binary, Type) ->
     case Type of
-        {binary,U} when U rem 8 =:= 0 -> yes;
-        {binary,_} -> maybe;
+        #t_bitstring{unit=U} when U rem 8 =:= 0 -> yes;
+        #t_bitstring{} -> maybe;
         _ -> no
     end;
 will_succeed(is_bitstring, Type) ->
     case Type of
-        {binary,_} -> yes;
+        #t_bitstring{} -> yes;
         _ -> no
     end;
 will_succeed(is_boolean, Type) ->
@@ -1183,7 +976,7 @@ will_succeed(is_boolean, Type) ->
         #t_atom{elements=any} ->
             maybe;
         #t_atom{elements=Es} ->
-            case t_is_boolean(Type) of
+            case beam_types:is_boolean_type(Type) of
                 true ->
                     yes;
                 false ->
@@ -1220,7 +1013,7 @@ will_succeed(is_list, Type) ->
     end;
 will_succeed(is_map, Type) ->
     case Type of
-        map -> yes;
+        #t_map{} -> yes;
         _ -> no
     end;
 will_succeed(is_number, Type) ->
@@ -1237,35 +1030,12 @@ will_succeed(is_tuple, Type) ->
     end;
 will_succeed(_, _) -> maybe.
 
-
-band_type([Other,#b_literal{val=Int}], Ts) when is_integer(Int) ->
-    band_type_1(Int, Other, Ts);
-band_type([_,_], _) -> t_integer().
-
-band_type_1(Int, OtherSrc, Ts) ->
-    Type = band_type_2(Int, 0),
-    OtherType = get_type(OtherSrc, Ts),
-    meet(Type, OtherType).
-
-band_type_2(N, Bits) when Bits < 64 ->
-    case 1 bsl Bits of
-        P when P =:= N + 1 ->
-            t_integer(0, N);
-        P when P > N + 1 ->
-            t_integer();
-        _ ->
-            band_type_2(N, Bits+1)
-    end;
-band_type_2(_, _) ->
-    %% Negative or large positive number. Give up.
-    t_integer().
-
 bs_match_type([#b_literal{val=Type}|Args]) ->
     bs_match_type(Type, Args).
 
 bs_match_type(binary, Args) ->
     [_,_,_,#b_literal{val=U}] = Args,
-    {binary,U};
+    #t_bitstring{unit=U};
 bs_match_type(float, _) ->
     float;
 bs_match_type(integer, Args) ->
@@ -1277,24 +1047,24 @@ bs_match_type(integer, Args) ->
             NumBits = Size * Unit,
             case member(unsigned, Flags) of
                 true ->
-                    t_integer(0, (1 bsl NumBits)-1);
+                    beam_types:make_integer(0, (1 bsl NumBits)-1);
                 false ->
                     %% Signed integer. Don't bother.
-                    t_integer()
+                    #t_integer{}
             end;
         [_|_] ->
-            t_integer()
+            #t_integer{}
     end;
 bs_match_type(skip, _) ->
     any;
 bs_match_type(string, _) ->
     any;
 bs_match_type(utf8, _) ->
-    ?UNICODE_INT;
+    beam_types:make_integer(0, ?UNICODE_MAX);
 bs_match_type(utf16, _) ->
-    ?UNICODE_INT;
+    beam_types:make_integer(0, ?UNICODE_MAX);
 bs_match_type(utf32, _) ->
-    ?UNICODE_INT.
+    beam_types:make_integer(0, ?UNICODE_MAX).
 
 simplify_switch_atom(#t_atom{elements=Atoms}, #b_switch{list=List0}=Sw) ->
     case sort([A || {#b_literal{val=A},_} <- List0]) of
@@ -1326,14 +1096,14 @@ eq_ranges(_, _, _) -> false.
 simplify_is_record(I, #t_tuple{exact=Exact,
                                size=Size,
                                elements=Es},
-                   RecSize, RecTag, Ts) ->
+                   RecSize, #b_literal{val=TagVal}=RecTag, Ts) ->
     TagType = maps:get(1, Es, any),
-    TagMatch = case get_literal_from_type(TagType) of
-                   #b_literal{}=RecTag -> yes;
-                   #b_literal{} -> no;
-                   none ->
+    TagMatch = case beam_types:get_singleton_value(TagType) of
+                   {ok, TagVal} -> yes;
+                   {ok, _} -> no;
+                   error ->
                        %% Is it at all possible for the tag to match?
-                       case meet(get_type(RecTag, Ts), TagType) of
+                       case beam_types:meet(get_type(RecTag, Ts), TagType) of
                            none -> no;
                            _ -> maybe
                        end
@@ -1363,7 +1133,7 @@ simplify_switch_bool(#b_switch{arg=B,fail=Fail,list=List0}, Ts, Ds) ->
 simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
     case Ds of
         #{V:=#b_set{op={bif,'not'},args=[Bool]}} ->
-            case t_is_boolean(get_type(Bool, Ts)) of
+            case beam_types:is_boolean_type(get_type(Bool, Ts)) of
                 true ->
                     Br = Br0#b_br{bool=Bool,succ=Fail,fail=Succ},
                     beam_ssa:normalize(Br);
@@ -1442,27 +1212,29 @@ get_type(#b_var{}=V, Ts) ->
 get_type(#b_literal{val=Val}, _Ts) ->
     if
         is_atom(Val) ->
-            t_atom(Val);
+            beam_types:make_atom(Val);
         is_float(Val) ->
             float;
         is_function(Val) ->
             {arity,Arity} = erlang:fun_info(Val, arity),
             #t_fun{arity=Arity};
         is_integer(Val) ->
-            t_integer(Val);
+            beam_types:make_integer(Val);
         is_list(Val), Val =/= [] ->
             cons;
         is_map(Val) ->
-            map;
+            #t_map{};
         Val =:= {} ->
-            #t_tuple{exact=true};
+            beam_types:make_tuple(0, true);
         is_tuple(Val) ->
             {Es, _} = foldl(fun(E, {Es0, Index}) ->
-                                Type = get_type(#b_literal{val=E}, #{}),
-                                Es = set_element_type(Index, Type, Es0),
-                                {Es, Index + 1}
+                                    Type = get_type(#b_literal{val=E}, #{}),
+                                    Es = beam_types:set_element_type(Index,
+                                                                     Type,
+                                                                     Es0),
+                                    {Es, Index + 1}
                             end, {#{}, 1}, tuple_to_list(Val)),
-            #t_tuple{exact=true,size=tuple_size(Val),elements=Es};
+            beam_types:make_tuple(tuple_size(Val), true, Es);
         Val =:= [] ->
             nil;
         true ->
@@ -1492,8 +1264,7 @@ get_type(#b_literal{val=Val}, _Ts) ->
 
 infer_types_br(#b_var{}=V, Ts, #d{ds=Ds}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
-    PosTypes0 = infer_type(Op, Args, Ds),
-    NegTypes0 = infer_type_negative(Op, Args, Ds),
+    {PosTypes0, NegTypes0} = infer_type(Op, Args, Ts, Ds),
 
     %% We must be careful with types inferred from '=:='.
     %%
@@ -1506,7 +1277,7 @@ infer_types_br(#b_var{}=V, Ts, #d{ds=Ds}) ->
     %% it is single-valued, e.g. if it is [] or the atom 'true'.
 
     EqTypes = infer_eq_type(Op, Args, Ts, Ds),
-    NegTypes1 = [P || {_,T}=P <- EqTypes, is_singleton_type(T)],
+    NegTypes1 = [P || {_,T}=P <- EqTypes, beam_types:is_singleton_type(T)],
 
     PosTypes = EqTypes ++ PosTypes0,
     SuccTs = meet_types(PosTypes, Ts),
@@ -1530,7 +1301,7 @@ infer_eq_type({bif,'=:='}, [#b_var{}=Arg0,#b_var{}=Arg1], Ts, _Ds) ->
     %% be inferred that L1 is 'cons' (the meet of 'cons' and 'list').
     Type0 = get_type(Arg0, Ts),
     Type1 = get_type(Arg1, Ts),
-    Type = meet(Type0, Type1),
+    Type = beam_types:meet(Type0, Type1),
     [{V,MeetType} ||
         {V,OrigType,MeetType} <-
             [{Arg0,Type0,Type},{Arg1,Type1,Type}],
@@ -1545,177 +1316,72 @@ infer_eq_lit(#b_set{op=get_tuple_element,
                     args=[#b_var{}=Tuple,#b_literal{val=N}]},
              #b_literal{}=Lit) ->
     Index = N + 1,
-    Es = set_element_type(Index, get_type(Lit, #{}), #{}),
+    Es = beam_types:set_element_type(Index, get_type(Lit, #{}), #{}),
     [{Tuple,#t_tuple{size=Index,elements=Es}}];
 infer_eq_lit(_, _) -> [].
 
-infer_type_negative(Op, Args, Ds) ->
-    case is_negative_inference_safe(Op, Args) of
-        true ->
-            infer_type(Op, Args, Ds);
-        false ->
-            []
-    end.
-
-%% Conservative list of instructions for which negative
-%% inference is safe.
-is_negative_inference_safe(is_nonempty_list, _Args) -> true;
-is_negative_inference_safe(_, _) -> false.
-
-infer_type({bif,element}, [#b_literal{val=Pos},#b_var{}=Tuple], _Ds) ->
-    if
-        is_integer(Pos), 1 =< Pos ->
-            [{Tuple,#t_tuple{size=Pos}}];
-        true ->
-            []
-    end;
-infer_type({bif,element}, [#b_var{}=Position,#b_var{}=Tuple], _Ds) ->
-    [{Position,t_integer()},{Tuple,#t_tuple{}}];
-infer_type({bif,Bif}, [#b_var{}=Src]=Args, _Ds) ->
-    case inferred_bif_type(Bif, Args) of
-        any -> [];
-        T -> [{Src,T}]
-    end;
-infer_type({bif,binary_part}, [#b_var{}=Src,_], _Ds) ->
-    [{Src,{binary,8}}];
-infer_type({bif,is_map_key}, [_,#b_var{}=Src], _Ds) ->
-    [{Src,map}];
-infer_type({bif,map_get}, [_,#b_var{}=Src], _Ds) ->
-    [{Src,map}];
-infer_type({bif,Bif}, [_,_]=Args, _Ds) ->
-    case inferred_bif_type(Bif, Args) of
-        any -> [];
-        T -> [{A,T} || #b_var{}=A <- Args]
-    end;
-infer_type({bif,binary_part}, [#b_var{}=Src,Pos,Len], _Ds) ->
-    [{Src,{binary,8}}|
-     [{V,t_integer()} || #b_var{}=V <- [Pos,Len]]];
-infer_type(bs_start_match, [#b_var{}=Bin], _Ds) ->
-    [{Bin,{binary,1}}];
-infer_type(is_nonempty_list, [#b_var{}=Src], _Ds) ->
-    [{Src,cons}];
-infer_type(is_tagged_tuple, [#b_var{}=Src,#b_literal{val=Size},
-                             #b_literal{}=Tag], _Ds) ->
-    Es = set_element_type(1, get_type(Tag, #{}), #{}),
-    [{Src,#t_tuple{exact=true,size=Size,elements=Es}}];
-infer_type(succeeded, [#b_var{}=Src], Ds) ->
+infer_type(succeeded, [#b_var{}=Src], Ts, Ds) ->
     #b_set{op=Op,args=Args} = maps:get(Src, Ds),
-    infer_type(Op, Args, Ds);
-infer_type(_Op, _Args, _Ds) ->
-    [].
+    infer_type(Op, Args, Ts, Ds);
+infer_type(bs_start_match, [#b_var{}=Bin], _Ts, _Ds) ->
+    T = {Bin,#t_bitstring{}},
+    {[T], [T]};
+infer_type(is_nonempty_list, [#b_var{}=Src], _Ts, _Ds) ->
+    T = {Src,cons},
+    {[T], [T]};
+infer_type(is_tagged_tuple, [#b_var{}=Src,#b_literal{val=Size},
+                             #b_literal{}=Tag], _Ts, _Ds) ->
+    Es = beam_types:set_element_type(1, get_type(Tag, #{}), #{}),
+    T = {Src,#t_tuple{exact=true,size=Size,elements=Es}},
+    {[T], [T]};
 
-%% bif_type(Name, Args) -> Type
-%%  Return the return type for the guard BIF or operator Name with
-%%  arguments Args.
-%%
-%%  Note that that the following BIFs are handle elsewhere:
-%%
-%%     band/2
+%% Type tests are handled separately from other BIFs as we're inferring types
+%% based on their result rather than whether they succeeded, so we know that
+%% subtraction is always safe.
+infer_type({bif,is_atom}, [Arg], _Ts, _Ds) ->
+    T = {Arg, #t_atom{}},
+    {[T], [T]};
+infer_type({bif,is_binary}, [Arg], _Ts, _Ds) ->
+    T = {Arg, #t_bitstring{unit=8}},
+    {[T], [T]};
+infer_type({bif,is_bitstring}, [Arg], _Ts, _Ds) ->
+    T = {Arg, #t_bitstring{}},
+    {[T], [T]};
+infer_type({bif,is_boolean}, [Arg], _Ts, _Ds) ->
+    T = {Arg, beam_types:make_boolean()},
+    {[T], [T]};
+infer_type({bif,is_float}, [Arg], _Ts, _Ds) ->
+    T = {Arg, float},
+    {[T], [T]};
+infer_type({bif,is_integer}, [Arg], _Ts, _Ds) ->
+    T = {Arg, #t_integer{}},
+    {[T], [T]};
+infer_type({bif,is_list}, [Arg], _Ts, _Ds) ->
+    T = {Arg, list},
+    {[T], [T]};
+infer_type({bif,is_map}, [Arg], _Ts, _Ds) ->
+    T = {Arg, #t_map{}},
+    {[T], [T]};
+infer_type({bif,is_number}, [Arg], _Ts, _Ds) ->
+    T = {Arg, number},
+    {[T], [T]};
+infer_type({bif,is_tuple}, [Arg], _Ts, _Ds) ->
+    T = {Arg, #t_tuple{}},
+    {[T], [T]};
 
-bif_type(abs, [_]) -> number;
-bif_type(bit_size, [_]) -> t_integer();
-bif_type(byte_size, [_]) -> t_integer();
-bif_type(ceil, [_]) -> t_integer();
-bif_type(float, [_]) -> float;
-bif_type(floor, [_]) -> t_integer();
-bif_type(is_map_key, [_,_]) -> t_boolean();
-bif_type(length, [_]) -> t_integer();
-bif_type(map_size, [_]) -> t_integer();
-bif_type(node, []) -> #t_atom{};
-bif_type(node, [_]) -> #t_atom{};
-bif_type(round, [_]) -> t_integer();
-bif_type(size, [_]) -> t_integer();
-bif_type(trunc, [_]) -> t_integer();
-bif_type(tuple_size, [_]) -> t_integer();
-bif_type('bnot', [_]) -> t_integer();
-bif_type('bor', [_,_]) -> t_integer();
-bif_type('bsl', [_,_]) -> t_integer();
-bif_type('bsr', [_,_]) -> t_integer();
-bif_type('bxor', [_,_]) -> t_integer();
-bif_type('div', [_,_]) -> t_integer();
-bif_type('rem', [_,_]) -> t_integer();
-bif_type('/', [_,_]) -> float;
-bif_type(Name, Args) ->
-    Arity = length(Args),
-    case erl_internal:new_type_test(Name, Arity) orelse
-        erl_internal:bool_op(Name, Arity) orelse
-        erl_internal:comp_op(Name, Arity) of
-        true ->
-            t_boolean();
-        false ->
-            case erl_internal:arith_op(Name, Arity) of
-                true -> number;
-                false -> any
-            end
-    end.
+infer_type({bif,Op}, Args, Ts, _Ds) ->
+    ArgTypes = get_types(Args, Ts),
 
-inferred_bif_type(is_atom, [_]) -> t_atom();
-inferred_bif_type(is_binary, [_]) -> {binary,8};
-inferred_bif_type(is_bitstring, [_]) -> {binary,1};
-inferred_bif_type(is_boolean, [_]) -> t_boolean();
-inferred_bif_type(is_float, [_]) -> float;
-inferred_bif_type(is_integer, [_]) -> t_integer();
-inferred_bif_type(is_list, [_]) -> list;
-inferred_bif_type(is_map, [_]) -> map;
-inferred_bif_type(is_number, [_]) -> number;
-inferred_bif_type(is_tuple, [_]) -> #t_tuple{};
-inferred_bif_type(abs, [_]) -> number;
-inferred_bif_type(bit_size, [_]) -> {binary,1};
-inferred_bif_type('bnot', [_]) -> t_integer();
-inferred_bif_type(byte_size, [_]) -> {binary,1};
-inferred_bif_type(ceil, [_]) -> number;
-inferred_bif_type(float, [_]) -> number;
-inferred_bif_type(floor, [_]) -> number;
-inferred_bif_type(hd, [_]) -> cons;
-inferred_bif_type(length, [_]) -> list;
-inferred_bif_type(map_size, [_]) -> map;
-inferred_bif_type('not', [_]) -> t_boolean();
-inferred_bif_type(round, [_]) -> number;
-inferred_bif_type(trunc, [_]) -> number;
-inferred_bif_type(tl, [_]) -> cons;
-inferred_bif_type(tuple_size, [_]) -> #t_tuple{};
-inferred_bif_type('and', [_,_]) -> t_boolean();
-inferred_bif_type('or', [_,_]) -> t_boolean();
-inferred_bif_type('xor', [_,_]) -> t_boolean();
-inferred_bif_type('band', [_,_]) -> t_integer();
-inferred_bif_type('bor', [_,_]) -> t_integer();
-inferred_bif_type('bsl', [_,_]) -> t_integer();
-inferred_bif_type('bsr', [_,_]) -> t_integer();
-inferred_bif_type('bxor', [_,_]) -> t_integer();
-inferred_bif_type('div', [_,_]) -> t_integer();
-inferred_bif_type('rem', [_,_]) -> t_integer();
-inferred_bif_type('+', [_,_]) -> number;
-inferred_bif_type('-', [_,_]) -> number;
-inferred_bif_type('*', [_,_]) -> number;
-inferred_bif_type('/', [_,_]) -> number;
-inferred_bif_type(_, _) -> any.
+    {_, PosTypes0, CanSubtract} = beam_call_types:types(erlang, Op, ArgTypes),
+    PosTypes = [T || {#b_var{},_}=T <- zip(Args, PosTypes0)],
 
-is_math_bif(cos, 1) -> true;
-is_math_bif(cosh, 1) -> true;
-is_math_bif(sin, 1) -> true;
-is_math_bif(sinh, 1) -> true;
-is_math_bif(tan, 1) -> true;
-is_math_bif(tanh, 1) -> true;
-is_math_bif(acos, 1) -> true;
-is_math_bif(acosh, 1) -> true;
-is_math_bif(asin, 1) -> true;
-is_math_bif(asinh, 1) -> true;
-is_math_bif(atan, 1) -> true;
-is_math_bif(atanh, 1) -> true;
-is_math_bif(erf, 1) -> true;
-is_math_bif(erfc, 1) -> true;
-is_math_bif(exp, 1) -> true;
-is_math_bif(log, 1) -> true;
-is_math_bif(log2, 1) -> true;
-is_math_bif(log10, 1) -> true;
-is_math_bif(sqrt, 1) -> true;
-is_math_bif(atan2, 2) -> true;
-is_math_bif(pow, 2) -> true;
-is_math_bif(ceil, 1) -> true;
-is_math_bif(floor, 1) -> true;
-is_math_bif(fmod, 2) -> true;
-is_math_bif(pi, 0) -> true;
-is_math_bif(_, _) -> false.
+    case CanSubtract of
+        true -> {PosTypes, PosTypes};
+        false -> {PosTypes, []}
+    end;
+
+infer_type(_Op, _Args, _Ts, _Ds) ->
+    {[], []}.
 
 join_types(Ts0, Ts1) ->
     if
@@ -1730,7 +1396,7 @@ join_types_1([V|Vs], Ts0, Ts1) ->
         {#{V:=Same},#{V:=Same}} ->
             join_types_1(Vs, Ts0, Ts1);
         {#{V:=T0},#{V:=T1}} ->
-            case join(T0, T1) of
+            case beam_types:join(T0, T1) of
                 T1 ->
                     join_types_1(Vs, Ts0, Ts1);
                 T ->
@@ -1742,332 +1408,18 @@ join_types_1([V|Vs], Ts0, Ts1) ->
 join_types_1([], Ts0, Ts1) ->
     maps:merge(Ts0, Ts1).
 
-join([T1,T2|Ts]) ->
-    join([join(T1, T2)|Ts]);
-join([T]) -> T.
-
-get_literal_from_type(#t_atom{elements=[Atom]}) ->
-    #b_literal{val=Atom};
-get_literal_from_type(#t_integer{elements={Int,Int}}) ->
-    #b_literal{val=Int};
-get_literal_from_type(nil) ->
-    #b_literal{val=[]};
-get_literal_from_type(_) -> none.
-
-remove_element_info(#t_integer{elements={Min,Max}}, Es) ->
-    foldl(fun(El, Acc) when Min =< El, El =< Max ->
-                  maps:remove(El, Acc);
-             (_El, Acc) -> Acc
-          end, Es, maps:keys(Es)).
-
-t_atom() ->
-    #t_atom{elements=any}.
-
-t_atom(Atom) when is_atom(Atom) ->
-    #t_atom{elements=[Atom]}.
-
-t_boolean() ->
-    #t_atom{elements=[false,true]}.
-
-t_integer() ->
-    #t_integer{elements=any}.
-
-t_integer(Int) when is_integer(Int) ->
-    #t_integer{elements={Int,Int}}.
-
-t_integer(Min, Max) when is_integer(Min), is_integer(Max) ->
-    #t_integer{elements={Min,Max}}.
-
-t_is_boolean(#t_atom{elements=[F,T]}) ->
-    F =:= false andalso T =:= true;
-t_is_boolean(#t_atom{elements=[B]}) ->
-    is_boolean(B);
-t_is_boolean(_) -> false.
-
-t_tuple_size(#t_tuple{size=Size,exact=false}) ->
-    {at_least,Size};
-t_tuple_size(#t_tuple{size=Size,exact=true}) ->
-    {exact,Size};
-t_tuple_size(_) ->
-    none.
-
-is_singleton_type(Type) ->
-    get_literal_from_type(Type) =/= none.
-
-get_element_type(Index, Es) ->
-    case Es of
-        #{ Index := T } -> T;
-        #{} -> any
-    end.
-
-set_element_type(_Key, none, Es) ->
-    Es;
-set_element_type(Key, any, Es) ->
-    maps:remove(Key, Es);
-set_element_type(Key, Type, Es) ->
-    Es#{ Key => Type }.
-
-%% join(Type1, Type2) -> Type
-%%  Return the "join" of Type1 and Type2. The join is a more general
-%%  type than Type1 and Type2. For example:
-%%
-%%     join(#t_integer{elements=any}, #t_integer=elements={0,3}}) ->
-%%          #t_integer{}
-%%
-%%  The join for two different types result in 'any', which is
-%%  the top element for our type lattice:
-%%
-%%     join(#t_integer{}, map) -> any
-
--spec join(type(), type()) -> type().
-
-join(T, T) ->
-    verified_type(T);
-join(none, T) ->
-    verified_type(T);
-join(T, none) ->
-    verified_type(T);
-join(any, _) -> any;
-join(_, any) -> any;
-join(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
-    Set = ordsets:union(Set1, Set2),
-    case ordsets:size(Set) of
-        Size when Size =< ?ATOM_SET_SIZE ->
-            #t_atom{elements=Set};
-        _Size ->
-            #t_atom{elements=any}
-    end;
-join(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
-join(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
-join({binary,U1}, {binary,U2}) ->
-    {binary,gcd(U1, U2)};
-join(#t_fun{}, #t_fun{}) -> #t_fun{};
-join(#t_integer{}, #t_integer{}) -> t_integer();
-join(list, cons) -> list;
-join(cons, list) -> list;
-join(nil, cons) -> list;
-join(cons, nil) -> list;
-join(nil, list) -> list;
-join(list, nil) -> list;
-join(#t_integer{}, float) -> number;
-join(float, #t_integer{}) -> number;
-join(#t_integer{}, number) -> number;
-join(number, #t_integer{}) -> number;
-join(float, number) -> number;
-join(number, float) -> number;
-join(#t_tuple{size=Sz,exact=ExactA,elements=EsA},
-     #t_tuple{size=Sz,exact=ExactB,elements=EsB}) ->
-    Exact = ExactA and ExactB,
-    Es = join_tuple_elements(Sz, EsA, EsB),
-    #t_tuple{size=Sz,exact=Exact,elements=Es};
-join(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
-    Sz = min(SzA, SzB),
-    Es = join_tuple_elements(Sz, EsA, EsB),
-    #t_tuple{size=Sz,elements=Es};
-join(_T1, _T2) ->
-    %%io:format("~p ~p\n", [_T1,_T2]),
-    any.
-
-join_tuple_elements(MinSize, EsA, EsB) ->
-    Es0 = join_elements(EsA, EsB),
-    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
-
-join_elements(Es1, Es2) ->
-    Keys = if
-               map_size(Es1) =< map_size(Es2) -> maps:keys(Es1);
-               map_size(Es1) > map_size(Es2) -> maps:keys(Es2)
-           end,
-    join_elements_1(Keys, Es1, Es2, #{}).
-
-join_elements_1([Key | Keys], Es1, Es2, Acc0) ->
-    case {Es1, Es2} of
-        {#{ Key := Type1 }, #{ Key := Type2 }} ->
-            Acc = set_element_type(Key, join(Type1, Type2), Acc0),
-            join_elements_1(Keys, Es1, Es2, Acc);
-        {#{}, #{}} ->
-            join_elements_1(Keys, Es1, Es2, Acc0)
-    end;
-join_elements_1([], _Es1, _Es2, Acc) ->
-    Acc.
-
-gcd(A, B) ->
-    case A rem B of
-        0 -> B;
-        X -> gcd(B, X)
-    end.
-
 meet_types([{V,T0}|Vs], Ts) ->
     #{V:=T1} = Ts,
-    case meet(T0, T1) of
+    case beam_types:meet(T0, T1) of
         T1 -> meet_types(Vs, Ts);
         T -> meet_types(Vs, Ts#{V:=T})
     end;
 meet_types([], Ts) -> Ts.
 
-meet([T1,T2|Ts]) ->
-    meet([meet(T1, T2)|Ts]);
-meet([T]) -> T.
-
 subtract_types([{V,T0}|Vs], Ts) ->
     #{V:=T1} = Ts,
-    case subtract(T1, T0) of
+    case beam_types:subtract(T1, T0) of
         T1 -> subtract_types(Vs, Ts);
         T -> subtract_types(Vs, Ts#{V:=T})
     end;
 subtract_types([], Ts) -> Ts.
-
-%% subtract(Type1, Type2) -> Type.
-%%  Subtract Type2 from Type1. Example:
-%%
-%%     subtract(list, cons) -> nil
-
-subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
-    case ordsets:subtract(Set0, Set1) of
-        [] -> none;
-        [_|_]=Set -> #t_atom{elements=Set}
-    end;
-subtract(number, float) -> #t_integer{};
-subtract(number, #t_integer{elements=any}) -> float;
-subtract(list, cons) -> nil;
-subtract(list, nil) -> cons;
-subtract(T, _) -> T.
-
-%% meet(Type1, Type2) -> Type
-%%  Return the "meet" of Type1 and Type2. The meet is a narrower
-%%  type than Type1 and Type2. For example:
-%%
-%%     meet(#t_integer{elements=any}, #t_integer{elements={0,3}}) ->
-%%          #t_integer{elements={0,3}}
-%%
-%%  The meet for two different types result in 'none', which is
-%%  the bottom element for our type lattice:
-%%
-%%     meet(#t_integer{}, map) -> none
-
--spec meet(type(), type()) -> type().
-
-meet(T, T) ->
-    verified_type(T);
-meet(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
-    case ordsets:intersection(Set1, Set2) of
-        [] ->
-            none;
-        [_|_]=Set ->
-            #t_atom{elements=Set}
-    end;
-meet(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
-    T;
-meet(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
-    T;
-meet(#t_fun{arity=any}, #t_fun{}=T) ->
-    T;
-meet(#t_fun{}=T, #t_fun{arity=any}) ->
-    T;
-meet(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
-    T;
-meet(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
-    T;
-meet(#t_integer{elements={Min1,Max1}},
-     #t_integer{elements={Min2,Max2}}) ->
-    #t_integer{elements={max(Min1, Min2),min(Max1, Max2)}};
-meet(#t_integer{}=T, number) -> T;
-meet(float=T, number) -> T;
-meet(number, #t_integer{}=T) -> T;
-meet(number, float=T) -> T;
-meet(list, cons) -> cons;
-meet(list, nil) -> nil;
-meet(cons, list) -> cons;
-meet(nil, list) -> nil;
-meet(#t_tuple{}=T1, #t_tuple{}=T2) ->
-    meet_tuples(T1, T2);
-meet({binary,U1}, {binary,U2}) ->
-    {binary,max(U1, U2)};
-meet(any, T) ->
-    verified_type(T);
-meet(T, any) ->
-    verified_type(T);
-meet(_, _) ->
-    %% Inconsistent types. There will be an exception at runtime.
-    none.
-
-meet_tuples(#t_tuple{size=Sz1,exact=true},
-            #t_tuple{size=Sz2,exact=true}) when Sz1 =/= Sz2 ->
-    none;
-meet_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
-            #t_tuple{size=Sz2,exact=Ex2,elements=Es2}) ->
-    Size = max(Sz1, Sz2),
-    Exact = Ex1 or Ex2,
-    case meet_elements(Es1, Es2) of
-        none ->
-            none;
-        Es ->
-            #t_tuple{size=Size,exact=Exact,elements=Es}
-    end.
-
-meet_elements(Es1, Es2) ->
-    Keys = maps:keys(Es1) ++ maps:keys(Es2),
-    meet_elements_1(Keys, Es1, Es2, #{}).
-
-meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
-    case {Es1, Es2} of
-        {#{ Key := Type1 }, #{ Key := Type2 }} ->
-            case meet(Type1, Type2) of
-                none -> none;
-                Type -> meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
-            end;
-        {#{ Key := Type1 }, _} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
-        {_, #{ Key := Type2 }} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
-    end;
-meet_elements_1([], _Es1, _Es2, Acc) ->
-    Acc.
-
-%% verified_type(Type) -> Type
-%%  Returns the passed in type if it is one of the defined types.
-%%  Crashes if there is anything wrong with the type.
-%%
-%%  Here are all possible types:
-%%
-%%  any                  Any Erlang term (top element for the type lattice).
-%%
-%%  #t_atom{}            Any atom or some specific atoms.
-%%  {binary,Unit}        Binary/bitstring aligned to unit Unit.
-%%  float                Floating point number.
-%%  #t_integer{}         Integer
-%%  list                 Empty or nonempty list.
-%%  map                  Map.
-%%  nil                  Empty list.
-%%  cons                 Cons (nonempty list).
-%%  number               A number (float or integer).
-%%  #t_tuple{}           Tuple.
-%%
-%%  none                 No type (bottom element for the type lattice).
-
--spec verified_type(T) -> T when
-      T :: type().
-
-verified_type(any=T) -> T;
-verified_type(none=T) -> T;
-verified_type(#t_atom{elements=any}=T) -> T;
-verified_type(#t_atom{elements=[_|_]}=T) -> T;
-verified_type({binary,U}=T) when is_integer(U) -> T;
-verified_type(#t_fun{arity=Arity}=T) when Arity =:= any; is_integer(Arity) -> T;
-verified_type(#t_integer{elements=any}=T) -> T;
-verified_type(#t_integer{elements={Min,Max}}=T)
-  when is_integer(Min), is_integer(Max) -> T;
-verified_type(list=T) -> T;
-verified_type(map=T) -> T;
-verified_type(nil=T) -> T;
-verified_type(cons=T) -> T;
-verified_type(number=T) -> T;
-verified_type(#t_tuple{size=Size,elements=Es}=T) ->
-    %% All known elements must have a valid index and type. 'any' is prohibited
-    %% since it's implicit and should never be present in the map.
-    maps:fold(fun(Index, Element, _) when is_integer(Index),
-                                          1 =< Index, Index =< Size,
-                                          Element =/= any, Element =/= none ->
-                      verified_type(Element)
-              end, [], Es),
-    T;
-verified_type(float=T) -> T.

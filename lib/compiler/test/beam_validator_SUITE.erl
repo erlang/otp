@@ -217,11 +217,11 @@ bad_catch_try(Config) when is_list(Config) ->
       {{catch_end,{x,9}},
        8,{invalid_tag_register,{x,9}}}},
      {{bad_catch_try,bad_3,1},
-      {{catch_end,{y,1}},9,{invalid_tag,{y,1},{atom,kalle}}}},
+      {{catch_end,{y,1}},9,{invalid_tag,{y,1},{t_atom,[kalle]}}}},
      {{bad_catch_try,bad_4,1},
       {{'try',{x,0},{f,15}},5,{invalid_tag_register,{x,0}}}},
      {{bad_catch_try,bad_5,1},
-      {{try_case,{y,1}},12,{invalid_tag,{y,1},term}}},
+      {{try_case,{y,1}},12,{invalid_tag,{y,1},any}}},
      {{bad_catch_try,bad_6,1},
       {{move,{integer,1},{y,1}},7,
        {invalid_store,{y,1}}}}] = Errors,
@@ -232,7 +232,7 @@ cons_guard(Config) when is_list(Config) ->
     [{{cons,foo,1},
       {{get_list,{x,0},{x,1},{x,2}},
        5,
-       {bad_type,{needed,cons},{actual,term}}}}] = Errors,
+       {bad_type,{needed,cons},{actual,any}}}}] = Errors,
     ok.
 
 freg_range(Config) when is_list(Config) ->

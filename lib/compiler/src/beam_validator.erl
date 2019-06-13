@@ -19,6 +19,10 @@
 
 -module(beam_validator).
 
+-include("beam_types.hrl").
+
+-define(UNICODE_MAX, (16#10FFFF)).
+
 -compile({no_auto_import,[min/2]}).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
@@ -26,7 +30,6 @@
 
 %% Interface for compiler.
 -export([module/2, format_error/1]).
--export([type_anno/1, type_anno/2, type_anno/4]).
 
 -import(lists, [dropwhile/2,foldl/3,member/2,reverse/1,sort/1,zip/2]).
 
@@ -43,34 +46,6 @@ module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
 	Es0 ->
 	    Es = [{?MODULE,E} || E <- Es0],
 	    {error,[{atom_to_list(Mod),Es}]}
-    end.
-
-%% Provides a stable interface for type annotations, used by certain passes to
-%% indicate that we can safely assume that a register has a given type.
--spec type_anno(term()) -> term().
-type_anno(atom) -> {atom,[]};
-type_anno(bool) -> bool;
-type_anno({binary,_}) -> binary;
-type_anno(cons) -> cons;
-type_anno(float) -> {float,[]};
-type_anno(integer) -> {integer,[]};
-type_anno(list) -> list;
-type_anno(map) -> map;
-type_anno(match_context) -> match_context;
-type_anno(number) -> number;
-type_anno(nil) -> nil.
-
--spec type_anno(term(), term()) -> term().
-type_anno(atom, Value) when is_atom(Value) -> {atom, Value};
-type_anno(float, Value) when is_float(Value)  -> {float, Value};
-type_anno(integer, Value) when is_integer(Value) -> {integer, Value}.
-
--spec type_anno(term(), term(), term(), term()) -> term().
-type_anno(tuple, Size, Exact, Elements) when is_integer(Size), Size >= 0,
-                                             is_map(Elements) ->
-    case Exact of
-        true -> {tuple, Size, Elements};
-        false -> {tuple, [Size], Elements}
     end.
 
 -spec format_error(term()) -> iolist().
@@ -119,7 +94,7 @@ format_error(Error) ->
 %%  format as used in the compiler and in .S files.
 
 validate(Module, Fs) ->
-    Ft = index_parameter_types(Fs, []),
+    Ft = build_function_table(Fs, []),
     validate_0(Module, Fs, Ft).
 
 validate_0(_Module, [], _) -> [];
@@ -148,30 +123,6 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
                    {integer, [] | integer()} |
                    {literal, term()} |
                    nil.
-
--type tuple_sz() :: [non_neg_integer()] | %% Inexact
-                    non_neg_integer(). %% Exact.
-
-%% Match context type.
--record(ms,
-        {id=make_ref() :: reference(),          %Unique ID.
-         valid=0 :: non_neg_integer(),          %Valid slots
-         slots=0 :: non_neg_integer()           %Number of slots
-        }).
-
--type type() :: binary |
-                cons |
-                list |
-                map |
-                nil |
-                #ms{} |
-                ms_position |
-                none |
-                number |
-                term |
-                tuple_in_progress |
-                {tuple, tuple_sz(), #{ literal() => type() }} |
-                literal().
 
 -type tag() :: initialized |
                uninitialized |
@@ -225,36 +176,32 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
          branched=gb_trees:empty() :: branched_tab(),
          %% All defined labels
          labels=gb_sets:empty()    :: label_set(),
-         %% Argument information of other functions in the module
+         %% Information of other functions in the module
          ft=gb_trees:empty()       :: ft_tab(),
          %% Counter for #value_ref{} creation
          ref_ctr=0                 :: index()
         }).
 
-index_parameter_types([{function,_,_,Entry,Code0}|Fs], Acc0) ->
+build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc0) ->
     Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
 			(_) -> true
 		     end, Code0),
     case Code of
 	[{label,Entry}|Is] ->
-	    Acc = index_parameter_types_1(Is, Entry, Acc0),
-	    index_parameter_types(Fs, Acc);
+	    Info = #{ arity => Arity,
+                  parameter_types => find_parameter_types(Is, #{}) },
+	    build_function_table(Fs, [{Entry, Info} | Acc0]);
 	_ ->
 	    %% Something is seriously wrong. Ignore it for now.
 	    %% It will be detected and diagnosed later.
-	    index_parameter_types(Fs, Acc0)
+	    build_function_table(Fs, Acc0)
     end;
-index_parameter_types([], Acc) ->
+build_function_table([], Acc) ->
     gb_trees:from_orddict(sort(Acc)).
 
-index_parameter_types_1([{'%', {type_info, Reg, Type0}} | Is], Entry, Acc) ->
-    Type = case Type0 of
-                match_context -> #ms{};
-                _ -> Type0
-            end,
-    Key = {Entry, Reg},
-    index_parameter_types_1(Is, Entry, [{Key, Type} | Acc]);
-index_parameter_types_1(_, _, Acc) ->
+find_parameter_types([{'%', {type_info, Reg, Type}} | Is], Acc) ->
+    find_parameter_types(Is, Acc#{ Reg => Type });
+find_parameter_types(_, Acc) ->
     Acc.
 
 validate_1(Is, Name, Arity, Entry, Ft) ->
@@ -326,7 +273,7 @@ init_vst(Arity, Ls1, Ls2, Ft) ->
 init_function_args(-1, Vst) ->
     Vst;
 init_function_args(X, Vst) ->
-    init_function_args(X - 1, create_term(term, argument, [], {x,X}, Vst)).
+    init_function_args(X - 1, create_term(any, argument, [], {x,X}, Vst)).
 
 kill_heap_allocation(St) ->
     St#st{h=0,hf=0}.
@@ -385,7 +332,7 @@ valfun_1({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
-    extract_term(binary, bs_get_tail, [Ctx], Dst, Vst, Vst0);
+    extract_term(#t_bitstring{}, bs_get_tail, [Ctx], Dst, Vst, Vst0);
 valfun_1(bs_init_writable=I, Vst) ->
     call(I, 1, Vst);
 valfun_1(build_stacktrace=I, Vst) ->
@@ -416,7 +363,7 @@ valfun_1({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_freg_set(Src, Vst0),
     assert_fls(checked, Vst0),
     Vst = eat_heap_float(Vst0),
-    create_term({float,[]}, fmove, [], Dst, Vst);
+    create_term(float, fmove, [], Dst, Vst);
 valfun_1({kill,Reg}, Vst) ->
     create_tag(initialized, kill, [], Reg, Vst);
 valfun_1({init,Reg}, Vst) ->
@@ -424,17 +371,16 @@ valfun_1({init,Reg}, Vst) ->
 valfun_1({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
 valfun_1({bif,Op,{f,_},Ss,Dst}=I, Vst) ->
-    case is_bif_safe(Op, length(Ss)) of
-	false ->
-	    %% Since the BIF can fail, make sure that any catch state
-	    %% is updated.
-	    valfun_2(I, Vst);
-	true ->
-	    %% It can't fail, so we finish handling it here (not updating
-	    %% catch state).
-	    validate_src(Ss, Vst),
-	    Type = bif_return_type(Op, Ss, Vst),
-	    extract_term(Type, {bif,Op}, Ss, Dst, Vst)
+    case beam_call_types:never_throws(erlang, Op, length(Ss)) of
+        true ->
+            %% It can't fail, so we finish handling it here (not updating
+            %% catch state).
+            {RetType, _, _} = bif_types(Op, Ss, Vst),
+            extract_term(RetType, {bif,Op}, Ss, Dst, Vst);
+        false ->
+            %% Since the BIF can fail, make sure that any catch state
+            %% is updated.
+            valfun_2(I, Vst)
     end;
 %% Put instructions.
 valfun_1({put_list,A,B,Dst}, Vst0) ->
@@ -448,14 +394,15 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
     Vst = eat_heap(Size+1, Vst0),
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
                        Type = get_term_type(Val, Vst0),
-                       Es = set_element_type({integer,Index}, Type, Es0),
+                       Es = beam_types:set_element_type(Index, Type, Es0),
                        {Es, Index + 1}
                    end, {#{}, 1}, Elements),
-    Type = {tuple,Size,Es},
+    Type = #t_tuple{exact=true,size=Size,elements=Es},
     create_term(Type, put_tuple2, [], Dst, Vst);
 valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
     Vst1 = eat_heap(1, Vst0),
-    Vst = create_term(tuple_in_progress, put_tuple, [], Dst, Vst1),
+    Vst = create_term(#t_abstract{kind=tuple_in_progress}, put_tuple, [],
+                      Dst, Vst1),
     #vst{current=St0} = Vst,
     St = St0#st{puts_left={Sz,{Dst,Sz,#{}}}},
     Vst#vst{current=St};
@@ -467,12 +414,15 @@ valfun_1({put,Src}, Vst0) ->
         #st{puts_left=none} ->
             error(not_building_a_tuple);
         #st{puts_left={1,{Dst,Sz,Es0}}} ->
-            Es = Es0#{ {integer,Sz} => get_term_type(Src, Vst0) },
+            ElementType = get_term_type(Src, Vst0),
+            Es = beam_types:set_element_type(Sz, ElementType, Es0),
             St = St0#st{puts_left=none},
-            create_term({tuple,Sz,Es}, put_tuple, [], Dst, Vst#vst{current=St});
+            Type = #t_tuple{exact=true,size=Sz,elements=Es},
+            create_term(Type, put_tuple, [], Dst, Vst#vst{current=St});
         #st{puts_left={PutsLeft,{Dst,Sz,Es0}}} when is_integer(PutsLeft) ->
             Index = Sz - PutsLeft + 1,
-            Es = Es0#{ {integer,Index} => get_term_type(Src, Vst0) },
+            ElementType = get_term_type(Src, Vst0),
+            Es = beam_types:set_element_type(Index, ElementType, Es0),
             St = St0#st{puts_left={PutsLeft-1,{Dst,Sz,Es}}},
             Vst#vst{current=St}
     end;
@@ -486,8 +436,10 @@ valfun_1(remove_message, Vst) ->
     %% The message term is no longer fragile. It can be used
     %% without restrictions.
     remove_fragility(Vst);
-valfun_1({'%', {type_info, Reg, match_context}}, Vst) ->
-    update_type(fun meet/2, #ms{}, Reg, Vst);
+valfun_1({'%', {type_info, Reg, #t_bs_context{}=Type}}, Vst) ->
+    %% This is a gross hack, but we'll be rid of it once we have proper union
+    %% types.
+    override_type(Type, Reg, Vst);
 valfun_1({'%', {type_info, Reg, Type}}, Vst) ->
     %% Explicit type information inserted by optimization passes to indicate
     %% that Reg has a certain type, so that we can accept cross-function type
@@ -507,15 +459,15 @@ valfun_1({line,_}, Vst) ->
     Vst;
 %% Exception generating calls
 valfun_1({call_ext,Live,Func}=I, Vst) ->
-    case call_return_type(Func, Vst) of
-	exception ->
-	    verify_live(Live, Vst),
+    case call_types(Func, Live, Vst) of
+        {none, _, _} ->
+            verify_live(Live, Vst),
             %% The stack will be scanned, so Y registers
             %% must be initialized.
             verify_y_init(Vst),
-	    kill_state(Vst);
-	_ ->
-	    valfun_2(I, Vst)
+            kill_state(Vst);
+        _ ->
+            valfun_2(I, Vst)
     end;
 valfun_1(_I, #vst{current=#st{ct=undecided}}) ->
     error(unknown_catch_try_state);
@@ -551,7 +503,7 @@ valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|_]}}=Vst0) ->
     case get_tag_type(Reg, Vst0) of
         {catchtag,Fail} ->
             %% {x,0} contains the caught term, if any.
-            create_term(term, catch_end, [], {x,0}, kill_catch_tag(Reg, Vst0));
+            create_term(any, catch_end, [], {x,0}, kill_catch_tag(Reg, Vst0));
         Type ->
             error({wrong_tag_type,Type})
     end;
@@ -570,31 +522,32 @@ valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|_]}}=Vst0) ->
             Vst1 = prune_x_regs(0, kill_catch_tag(Reg, Vst0)),
 
             %% Class:Error:Stacktrace
-            Vst2 = create_term({atom,[]}, try_case, [], {x,0}, Vst1),
-            Vst = create_term(term, try_case, [], {x,1}, Vst2),
-            create_term(term, try_case, [], {x,2}, Vst);
+            Vst2 = create_term(#t_atom{}, try_case, [], {x,0}, Vst1),
+            Vst = create_term(any, try_case, [], {x,1}, Vst2),
+            create_term(any, try_case, [], {x,2}, Vst);
         Type ->
             error({wrong_tag_type,Type})
     end;
 valfun_1({get_list,Src,D1,D2}, Vst0) ->
     assert_not_literal(Src),
     assert_type(cons, Src, Vst0),
-    Vst = extract_term(term, get_hd, [Src], D1, Vst0),
-    extract_term(term, get_tl, [Src], D2, Vst);
+    Vst = extract_term(any, get_hd, [Src], D1, Vst0),
+    extract_term(any, get_tl, [Src], D2, Vst);
 valfun_1({get_hd,Src,Dst}, Vst) ->
     assert_not_literal(Src),
     assert_type(cons, Src, Vst),
-    extract_term(term, get_hd, [Src], Dst, Vst);
+    extract_term(any, get_hd, [Src], Dst, Vst);
 valfun_1({get_tl,Src,Dst}, Vst) ->
     assert_not_literal(Src),
     assert_type(cons, Src, Vst),
-    extract_term(term, get_tl, [Src], Dst, Vst);
+    extract_term(any, get_tl, [Src], Dst, Vst);
 valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
+    Index = N+1,
     assert_not_literal(Src),
-    assert_type({tuple_element,N+1}, Src, Vst),
-    Index = {integer,N+1},
-    Type = get_element_type(Index, Src, Vst),
-    extract_term(Type, {bif,element}, [Index, Src], Dst, Vst);
+    assert_type(#t_tuple{size=Index}, Src, Vst),
+    #t_tuple{elements=Es} = get_term_type(Src, Vst),
+    Type = beam_types:get_element_type(Index, Es),
+    extract_term(Type, {bif,element}, [{integer,Index}, Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
     branch(Lbl, Vst,
            fun(SuccVst) ->
@@ -625,9 +578,9 @@ init_try_catch_branch(Tag, Dst, Fail, Vst0) ->
 %% Set the initial state at the try/catch label. Assume that Y registers
 %% contain terms or try/catch tags.
 init_catch_handler_1(Reg, initialized, Vst) ->
-    create_term(term, 'catch_handler', [], Reg, Vst);
+    create_term(any, 'catch_handler', [], Reg, Vst);
 init_catch_handler_1(Reg, uninitialized, Vst) ->
-    create_term(term, 'catch_handler', [], Reg, Vst);
+    create_term(any, 'catch_handler', [], Reg, Vst);
 init_catch_handler_1(_, _, Vst) ->
     Vst.
 
@@ -689,8 +642,16 @@ valfun_4({apply,Live}, Vst) ->
 valfun_4({apply_last,Live,_}, Vst) ->
     tail_call(apply, Live+2, Vst);
 valfun_4({call_fun,Live}, Vst) ->
-    validate_src([{x,Live}], Vst),
-    call('fun', Live+1, Vst);
+    Fun = {x,Live},
+    assert_term(Fun, Vst),
+
+    %% An exception is raised on error, hence branching to 0.
+    branch(0, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
+                                         Fun, SuccVst0),
+                   call('fun', Live+1, SuccVst)
+           end);
 valfun_4({call,Live,Func}, Vst) ->
     call(Func, Live, Vst);
 valfun_4({call_ext,Live,Func}, Vst) ->
@@ -709,53 +670,26 @@ valfun_4({call_ext_last,Live,Func,StkSize},
     tail_call(Func, Live, Vst);
 valfun_4({call_ext_last,_,_,_}, #vst{current=#st{numy=NumY}}) ->
     error({allocated,NumY});
-valfun_4({make_fun2,_,_,_,Live}, Vst) ->
-    call(make_fun, Live, Vst);
+valfun_4({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
+    #{ arity := Arity0 } = gb_trees:get(Lbl, Ft),
+    Arity = Arity0 - NumFree,
+
+    true = Arity >= 0,                          %Assertion.
+
+    Vst = prune_x_regs(NumFree, Vst0),
+    verify_call_args(make_fun, NumFree, Vst),
+    verify_y_init(Vst),
+
+    create_term(#t_fun{arity=Arity}, make_fun, [], {x,0}, Vst);
 %% Other BIFs
-valfun_4({bif,element,{f,Fail},[Pos,Src],Dst}, Vst) ->
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   PosType = get_term_type(Pos, SuccVst0),
-                   TupleType = {tuple,[get_tuple_size(PosType)],#{}},
-
-                   SuccVst1 = update_type(fun meet/2, TupleType,
-                                         Src, SuccVst0),
-                   SuccVst = update_type(fun meet/2, {integer,[]},
-                                         Pos, SuccVst1),
-
-                   ElementType = get_element_type(PosType, Src, SuccVst),
-                   extract_term(ElementType, {bif,element}, [Pos,Src],
-                                Dst, SuccVst)
-           end);
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
     kill_state(Vst);
 valfun_4(raw_raise=I, Vst) ->
     call(I, 3, Vst);
-valfun_4({bif,Op,{f,Fail},[Src]=Ss,Dst}, Vst) when Op =:= hd; Op =:= tl ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(FailVst) ->
-                   update_type(fun subtract/2, cons, Src, FailVst)
-           end,
-           fun(SuccVst0) ->
-                   SuccVst = update_type(fun meet/2, cons, Src, SuccVst0),
-                   extract_term(term, {bif,Op}, Ss, Dst, SuccVst)
-           end);
 valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst) ->
     validate_src(Ss, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   %% Infer argument types. Note that we can't subtract
-                   %% types as the BIF could fail for reasons other than
-                   %% bad argument types.
-                   ArgTypes = bif_arg_types(Op, Ss),
-                   SuccVst = foldl(fun({Arg, T}, V) ->
-                                           update_type(fun meet/2, T, Arg, V)
-                                   end, SuccVst0, zip(Ss, ArgTypes)),
-                   Type = bif_return_type(Op, Ss, SuccVst),
-                   extract_term(Type, {bif,Op}, Ss, Dst, SuccVst)
-           end);
+    validate_bif(bif, Op, Fail, Ss, Dst, Vst, Vst);
 valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
     validate_src(Ss, Vst0),
     verify_live(Live, Vst0),
@@ -766,19 +700,7 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
     St = kill_heap_allocation(St0),
     Vst = prune_x_regs(Live, Vst0#vst{current=St}),
 
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   ArgTypes = bif_arg_types(Op, Ss),
-                   SuccVst = foldl(fun({Arg, T}, V) ->
-                                           update_type(fun meet/2, T, Arg, V)
-                                   end, SuccVst0, zip(Ss, ArgTypes)),
-
-                   Type = bif_return_type(Op, Ss, SuccVst),
-
-                   %% We're passing Vst0 as the original because the
-                   %% registers were pruned before the branch.
-                   extract_term(Type, {gc_bif,Op}, Ss, Dst, SuccVst, Vst0)
-           end);
+    validate_bif(gc_bif, Op, Fail, Ss, Dst, Vst0, Vst);
 valfun_4(return, #vst{current=#st{numy=none}}=Vst) ->
     assert_durable_term({x,0}, Vst),
     kill_state(Vst);
@@ -790,7 +712,7 @@ valfun_4({loop_rec,{f,Fail},Dst}, Vst) ->
     %% part of this term must be stored in a Y register.
     branch(Fail, Vst,
            fun(SuccVst0) ->
-                   {Ref, SuccVst} = new_value(term, loop_rec, [], SuccVst0),
+                   {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
                    mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
            end);
 valfun_4({wait,_}, Vst) ->
@@ -810,21 +732,21 @@ valfun_4(send, Vst) ->
 valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
     I = N + 1,
     assert_term(Src, Vst),
-    assert_type({tuple_element,I}, Tuple, Vst),
+    assert_type(#t_tuple{size=I}, Tuple, Vst),
     %% Manually update the tuple type; we can't rely on the ordinary update
     %% helpers as we must support overwriting (rather than just widening or
     %% narrowing) known elements, and we can't use extract_term either since
     %% the source tuple may be aliased.
-    {tuple, Sz, Es0} = get_term_type(Tuple, Vst),
-    Es = set_element_type({integer,I}, get_term_type(Src, Vst), Es0),
-    override_type({tuple, Sz, Es}, Tuple, Vst);
+    #t_tuple{elements=Es0}=Type = get_term_type(Tuple, Vst),
+    Es = beam_types:set_element_type(I, get_term_type(Src, Vst), Es0),
+    override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
 %% Match instructions.
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
     assert_term(Src, Vst),
     assert_choices(Choices),
     validate_select_val(Fail, Choices, Src, Vst);
 valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
-    assert_type(tuple, Tuple, Vst),
+    assert_type(#t_tuple{}, Tuple, Vst),
     assert_arities(Choices),
     validate_select_tuple_arity(Fail, Choices, Tuple, Vst);
 
@@ -852,18 +774,34 @@ valfun_4({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
     validate_bs_skip_utf(Fail, Ctx, Live, Vst);
 valfun_4({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
     validate_bs_skip_utf(Fail, Ctx, Live, Vst);
-valfun_4({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+valfun_4({test,bs_get_integer2=Op,{f,Fail},Live,
+         [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst)
+  when Size * Unit =< 64 ->
+    Type = case member(unsigned, Flags) of
+               true ->
+                   NumBits = Size * Unit,
+                   beam_types:make_integer(0, (1 bsl NumBits)-1);
+               false ->
+                   %% Signed integer or way too large, don't bother.
+                   #t_integer{}
+           end,
+    validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst);
+valfun_4({test,bs_get_integer2=Op,{f,Fail},Live,
+         [Ctx,_Size,_Unit,_Flags],Dst},Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, #t_integer{}, Dst, Vst);
 valfun_4({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {float, []}, Dst, Vst);
-valfun_4({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, binary, Dst, Vst);
+    validate_bs_get(Op, Fail, Ctx, Live, float, Dst, Vst);
+valfun_4({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,Unit,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, #t_bitstring{unit=Unit}, Dst, Vst);
 valfun_4({test,bs_get_utf8=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+    Type = beam_types:make_integer(0, ?UNICODE_MAX),
+    validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst);
 valfun_4({test,bs_get_utf16=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+    Type = beam_types:make_integer(0, ?UNICODE_MAX),
+    validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst);
 valfun_4({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+    Type = beam_types:make_integer(0, ?UNICODE_MAX),
+    validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst);
 valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
     bsm_save(Ctx, SavePoint, Vst);
 valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
@@ -873,31 +811,32 @@ valfun_4({bs_get_position, Ctx, Dst, Live}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
-    create_term(ms_position, bs_get_position, [Ctx], Dst, Vst, Vst0);
+    create_term(#t_abstract{kind=ms_position}, bs_get_position, [Ctx],
+                Dst, Vst, Vst0);
 valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
     bsm_validate_context(Ctx, Vst),
-    assert_type(ms_position, Pos, Vst),
+    assert_type(#t_abstract{kind=ms_position}, Pos, Vst),
     Vst;
 
 %% Other test instructions.
 valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
-    assert_type(map, Src, Vst),
+    assert_type(#t_map{}, Src, Vst),
     assert_unique_map_keys(List),
     branch(Lbl, Vst, fun(V) -> V end);
 valfun_4({test,is_atom,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, {atom,[]}, Src, Vst);
+    type_test(Lbl, #t_atom{}, Src, Vst);
 valfun_4({test,is_binary,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, binary, Src, Vst);
+    type_test(Lbl, #t_bitstring{unit=8}, Src, Vst);
 valfun_4({test,is_bitstr,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, binary, Src, Vst);
+    type_test(Lbl, #t_bitstring{}, Src, Vst);
 valfun_4({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, bool, Src, Vst);
+    type_test(Lbl, beam_types:make_boolean(), Src, Vst);
 valfun_4({test,is_float,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, {float,[]}, Src, Vst);
+    type_test(Lbl, float, Src, Vst);
 valfun_4({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, {tuple,[0],#{}}, Src, Vst);
+    type_test(Lbl, #t_tuple{}, Src, Vst);
 valfun_4({test,is_integer,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, {integer,[]}, Src, Vst);
+    type_test(Lbl, #t_integer{}, Src, Vst);
 valfun_4({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, cons, Src, Vst);
 valfun_4({test,is_number,{f,Lbl},[Src]}, Vst) ->
@@ -905,7 +844,7 @@ valfun_4({test,is_number,{f,Lbl},[Src]}, Vst) ->
 valfun_4({test,is_list,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, list, Src, Vst);
 valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, map, Src, Vst);
+    type_test(Lbl, #t_map{}, Src, Vst);
 valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
     %% is_nil is an exact check against the 'nil' value, and should not be
     %% treated as a simple type test.
@@ -918,12 +857,13 @@ valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
                    update_eq_types(Src, nil, SuccVst)
            end);
 valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
-    assert_type(tuple, Tuple, Vst),
-    Type = {tuple, Sz, #{}},
+    assert_type(#t_tuple{}, Tuple, Vst),
+    Type =  #t_tuple{exact=true,size=Sz},
     type_test(Lbl, Type, Tuple, Vst);
 valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
     assert_term(Src, Vst),
-    Type = {tuple, Sz, #{ {integer,1} => Atom }},
+    Es = #{ 1 => get_literal_type(Atom) },
+    Type = #t_tuple{exact=true,size=Sz,elements=Es},
     type_test(Lbl, Type, Src, Vst);
 valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
     validate_src(Ss, Vst),
@@ -952,19 +892,19 @@ valfun_4({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
     assert_term(B, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   create_term({integer,[]}, bs_add, [A, B], Dst, SuccVst)
+                   create_term(#t_integer{}, bs_add, [A, B], Dst, SuccVst)
            end);
 valfun_4({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   create_term({integer,[]}, bs_utf8_size, [A], Dst, SuccVst)
+                   create_term(#t_integer{}, bs_utf8_size, [A], Dst, SuccVst)
            end);
 valfun_4({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   create_term({integer,[]}, bs_utf16_size, [A], Dst, SuccVst)
+                   create_term(#t_integer{}, bs_utf16_size, [A], Dst, SuccVst)
            end);
 valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
@@ -979,7 +919,8 @@ valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     branch(Fail, Vst,
            fun(SuccVst0) ->
                    SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(binary, bs_init2, [], Dst, SuccVst, SuccVst0)
+                   create_term(#t_bitstring{unit=8}, bs_init2, [], Dst,
+                               SuccVst, SuccVst0)
            end);
 valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
@@ -994,9 +935,9 @@ valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     branch(Fail, Vst,
            fun(SuccVst0) ->
                    SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(binary, bs_init_bits, [], Dst, SuccVst)
+                   create_term(#t_bitstring{}, bs_init_bits, [], Dst, SuccVst)
            end);
-valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
+valfun_4({bs_append,{f,Fail},Bits,Heap,Live,Unit,Bin,_Flags,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     assert_term(Bits, Vst0),
@@ -1005,14 +946,16 @@ valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     branch(Fail, Vst,
            fun(SuccVst0) ->
                    SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(binary, bs_append, [Bin], Dst, SuccVst, SuccVst0)
+                   create_term(#t_bitstring{unit=Unit}, bs_append,
+                               [Bin], Dst, SuccVst, SuccVst0)
            end);
-valfun_4({bs_private_append,{f,Fail},Bits,_Unit,Bin,_Flags,Dst}, Vst) ->
+valfun_4({bs_private_append,{f,Fail},Bits,Unit,Bin,_Flags,Dst}, Vst) ->
     assert_term(Bits, Vst),
     assert_term(Bin, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   create_term(binary, bs_private_append, [Bin], Dst, SuccVst)
+                   create_term(#t_bitstring{unit=Unit}, bs_private_append,
+                               [Bin], Dst, SuccVst)
            end);
 valfun_4({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
     Vst;
@@ -1021,39 +964,39 @@ valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Src, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   update_type(fun meet/2, binary, Src, SuccVst)
+                   update_type(fun meet/2, #t_bitstring{}, Src, SuccVst)
            end);
 valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
     assert_term(Src, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   update_type(fun meet/2, {float,[]}, Src, SuccVst)
+                   update_type(fun meet/2, float, Src, SuccVst)
            end);
 valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
     assert_term(Src, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   update_type(fun meet/2, {integer,[]}, Src, SuccVst)
+                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
            end);
 valfun_4({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
     assert_term(Src, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   update_type(fun meet/2, {integer,[]}, Src, SuccVst)
+                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
            end);
 valfun_4({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
     assert_term(Src, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   update_type(fun meet/2, {integer,[]}, Src, SuccVst)
+                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
            end);
 valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
     assert_term(Src, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   update_type(fun meet/2, {integer,[]}, Src, SuccVst)
+                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
            end);
 %% Map instructions.
 valfun_4({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
@@ -1067,7 +1010,7 @@ valfun_4(_, _) ->
 
 verify_get_map(Fail, Src, List, Vst0) ->
     assert_not_literal(Src),                    %OTP 22.
-    assert_type(map, Src, Vst0),
+    assert_type(#t_map{}, Src, Vst0),
 
     branch(Fail, Vst0,
            fun(FailVst) ->
@@ -1088,7 +1031,7 @@ verify_get_map(Fail, Src, List, Vst0) ->
 clobber_map_vals([Key,Dst|T], Map, Vst0) ->
     case is_reg_defined(Dst, Vst0) of
         true ->
-            Vst = extract_term(term, {bif,map_get}, [Key, Map], Dst, Vst0),
+            Vst = extract_term(any, {bif,map_get}, [Key, Map], Dst, Vst0),
             clobber_map_vals(T, Map, Vst);
         false ->
             clobber_map_vals(T, Map, Vst0)
@@ -1102,13 +1045,13 @@ extract_map_keys([]) -> [].
 
 extract_map_vals([Key,Dst|Vs], Map, Vst0, Vsti0) ->
     assert_term(Key, Vst0),
-    Vsti = extract_term(term, {bif,map_get}, [Key, Map], Dst, Vsti0),
+    Vsti = extract_term(any, {bif,map_get}, [Key, Map], Dst, Vsti0),
     extract_map_vals(Vs, Map, Vst0, Vsti);
 extract_map_vals([], _Map, _Vst0, Vst) ->
     Vst.
 
 verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
-    assert_type(map, Src, Vst0),
+    assert_type(#t_map{}, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     _ = [assert_term(Term, Vst0) || Term <- List],
@@ -1119,8 +1062,38 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
                    SuccVst = prune_x_regs(Live, SuccVst0),
                    Keys = extract_map_keys(List),
                    assert_unique_map_keys(Keys),
-                   create_term(map, Op, [Src], Dst, SuccVst, SuccVst0)
+                   create_term(#t_map{}, Op, [Src], Dst, SuccVst, SuccVst0)
            end).
+
+%%
+%% Common code for validating BIFs.
+%%
+%% OrigVst is the state we entered the instruction with, which is needed for
+%% gc_bifs as X registers are pruned prior to calling this function, which may
+%% have clobbered the sources.
+%%
+validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
+    {Type, ArgTypes, CanSubtract} = bif_types(Op, Ss, Vst),
+    ZippedArgs = zip(Ss, ArgTypes),
+
+    FailFun = case CanSubtract of
+                  true ->
+                          fun(FailVst0) ->
+                              foldl(fun({A, T}, V) ->
+                                            update_type(fun subtract/2, T, A, V)
+                                    end, FailVst0, ZippedArgs)
+                          end;
+                  false ->
+                      fun(S) -> S end
+               end,
+    SuccFun = fun(SuccVst0) ->
+                  SuccVst = foldl(fun({A, T}, V) ->
+                                          update_type(fun meet/2, T, A, V)
+                                  end, SuccVst0, ZippedArgs),
+                  extract_term(Type, {Kind,Op}, Ss, Dst, SuccVst, OrigVst)
+              end,
+
+    branch(Fail, Vst, FailFun, SuccFun).
 
 %%
 %% Common code for validating bs_start_match* instructions.
@@ -1130,18 +1103,18 @@ validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
     verify_live(Live, Vst),
     verify_y_init(Vst),
 
-    %% #ms{} can represent either a match context or a term, so we have to mark
-    %% the source as a term if it fails with a match context as an input. This
-    %% hack is only needed until we get proper union types.
+    %% #t_bs_context{} can represent either a match context or a term, so we
+    %% have to mark the source as a term if it fails with a match context as an
+    %% input. This hack is only needed until we get proper union types.
     branch(Fail, Vst,
            fun(FailVst) ->
                    case get_movable_term_type(Src, FailVst) of
-                       #ms{} -> override_type(term, Src, FailVst);
+                       #t_bs_context{} -> override_type(any, Src, FailVst);
                        _ -> FailVst
                    end
            end,
            fun(SuccVst0) ->
-                   SuccVst1 = update_type(fun meet/2, binary,
+                   SuccVst1 = update_type(fun meet/2, #t_bitstring{},
                                           Src, SuccVst0),
                    SuccVst = prune_x_regs(Live, SuccVst1),
                    extract_term(Type, bs_start_match, [Src], Dst,
@@ -1220,12 +1193,12 @@ kill_state(Vst) ->
 call(Name, Live, #vst{current=St0}=Vst0) ->
     verify_call_args(Name, Live, Vst0),
     verify_y_init(Vst0),
-    case call_return_type(Name, Vst0) of
-        Type when Type =/= exception ->
-            %% Type is never 'exception' because it has been handled earlier.
+    case call_types(Name, Live, Vst0) of
+        {RetType, _, _} ->
+            %% Type is never 'none' because it has been handled earlier.
             St = St0#st{f=init_fregs()},
             Vst = prune_x_regs(0, Vst0#vst{current=St}),
-            create_term(Type, call, [], {x,0}, Vst)
+            create_term(RetType, call, [], {x,0}, Vst)
     end.
 
 %% Tail call.
@@ -1240,8 +1213,15 @@ tail_call(Name, Live, Vst0) ->
 
 verify_call_args(_, 0, #vst{}) ->
     ok;
-verify_call_args({f,Lbl}, Live, Vst) when is_integer(Live)->
-    verify_local_args(Live - 1, Lbl, #{}, Vst);
+verify_call_args({f,Lbl}, Live, #vst{ft=Ft}=Vst) when is_integer(Live) ->
+    case gb_trees:lookup(Lbl, Ft) of
+        {value, FuncInfo} ->
+            #{ arity := Live,
+               parameter_types := ParamTypes } = FuncInfo,
+            verify_local_args(Live - 1, ParamTypes, #{}, Vst);
+        none ->
+            error(local_call_to_unknown_function)
+    end;
 verify_call_args(_, Live, Vst) when is_integer(Live)->
     verify_remote_args_1(Live - 1, Vst);
 verify_call_args(_, Live, _) ->
@@ -1253,86 +1233,49 @@ verify_remote_args_1(X, Vst) ->
     assert_durable_term({x, X}, Vst),
     verify_remote_args_1(X - 1, Vst).
 
-verify_local_args(-1, _Lbl, _CtxIds, _Vst) ->
+verify_local_args(-1, _ParamTypes, _CtxIds, _Vst) ->
     ok;
-verify_local_args(X, Lbl, CtxIds, Vst) ->
+verify_local_args(X, ParamTypes, CtxRefs, Vst) ->
     Reg = {x, X},
     assert_not_fragile(Reg, Vst),
     case get_movable_term_type(Reg, Vst) of
-        #ms{id=Id}=Type ->
-            case CtxIds of
-                #{ Id := Other } ->
+        #t_bs_context{}=Type ->
+            VRef = get_reg_vref(Reg, Vst),
+            case CtxRefs of
+                #{ VRef := Other } ->
                     error({multiple_match_contexts, [Reg, Other]});
                 #{} ->
-                    verify_arg_type(Lbl, Reg, Type, Vst),
-                    verify_local_args(X - 1, Lbl, CtxIds#{ Id => Reg }, Vst)
+                    verify_arg_type(Reg, Type, ParamTypes),
+                    verify_local_args(X - 1, ParamTypes,
+                                      CtxRefs#{ VRef => Reg }, Vst)
             end;
         Type ->
-            verify_arg_type(Lbl, Reg, Type, Vst),
-            verify_local_args(X - 1, Lbl, CtxIds, Vst)
+            verify_arg_type(Reg, Type, ParamTypes),
+            verify_local_args(X - 1, ParamTypes, CtxRefs, Vst)
     end.
 
 %% Verifies that the given argument narrows to what the function expects.
-verify_arg_type(Lbl, Reg, #ms{}, #vst{ft=Ft}) ->
+verify_arg_type(Reg, #t_bs_context{}, ParamTypes) ->
     %% Match contexts require explicit support, and may not be passed to a
     %% function that accepts arbitrary terms.
-    case gb_trees:lookup({Lbl, Reg}, Ft) of
-        {value, #ms{}} -> ok;
-        _ -> error(no_bs_start_match2)
+    case ParamTypes of
+        #{ Reg := #t_bs_context{}} -> ok;
+        #{} -> error(no_bs_start_match2)
     end;
-verify_arg_type(Lbl, Reg, GivenType, #vst{ft=Ft}) ->
-    case gb_trees:lookup({Lbl, Reg}, Ft) of
-        {value, #ms{}} ->
+verify_arg_type(Reg, GivenType, ParamTypes) ->
+    case ParamTypes of
+        #{ Reg := #t_bs_context{}} ->
             %% Functions that accept match contexts also accept all other
             %% terms. This will change once we support union types.
             ok;
-        {value, RequiredType} ->
-            case vat_1(GivenType, RequiredType) of
-                true -> ok;
-                false -> error({bad_arg_type, Reg, GivenType, RequiredType})
+        #{ Reg := RequiredType } ->
+            case meet(GivenType, RequiredType) of
+                GivenType -> ok;
+                _ -> error({bad_arg_type, Reg, GivenType, RequiredType})
             end;
-        none ->
+        #{} ->
             ok
     end.
-
-%% Checks whether the Given argument is compatible with the Required one. This
-%% is essentially a relaxed version of 'meet(Given, Req) =:= Given', where we
-%% accept that the Given value has the right type but not necessarily the exact
-%% same value; if {atom,gurka} is required, we'll consider {atom,[]} valid.
-%%
-%% This will catch all problems that could crash the emulator, like passing a
-%% 1-tuple when the callee expects a 3-tuple, but some value errors might slip
-%% through.
-vat_1(Same, Same) -> true;
-vat_1({atom,A}, {atom,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
-vat_1({atom,A}, bool) -> is_boolean(A) orelse is_list(A);
-vat_1(bool, {atom,B}) -> is_boolean(B) orelse is_list(B);
-vat_1(cons, list) -> true;
-vat_1({float,A}, {float,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
-vat_1({float,_}, number) -> true;
-vat_1({integer,A}, {integer,B}) -> A =:= B orelse is_list(A) orelse is_list(B);
-vat_1({integer,_}, number) -> true;
-vat_1(_, {literal,_}) -> false;
-vat_1({literal,_}=Lit, Required) -> vat_1(get_literal_type(Lit), Required);
-vat_1(nil, list) -> true;
-vat_1({tuple,SzA,EsA}, {tuple,SzB,EsB}) ->
-    if
-        is_list(SzB) ->
-            tuple_sz(SzA) >= tuple_sz(SzB) andalso vat_elements(EsA, EsB);
-        SzA =:= SzB ->
-            vat_elements(EsA, EsB);
-        SzA =/= SzB ->
-            false
-    end;
-vat_1(_, _) -> false.
-
-vat_elements(EsA, EsB) ->
-    maps:fold(fun(Key, Req, Acc) ->
-                      case EsA of
-                          #{ Key := Given } -> Acc andalso vat_1(Given, Req);
-                          #{} -> false
-                      end
-              end, true, EsB).
 
 allocate(Tag, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
     verify_live(Live, Vst0),
@@ -1515,9 +1458,9 @@ assert_unique_map_keys([_,_|_]=Ls) ->
 %%%
 
 bsm_match_state() ->
-    #ms{}.
+    #t_bs_context{}.
 bsm_match_state(Slots) ->
-    #ms{slots=Slots}.
+    #t_bs_context{slots=Slots}.
 
 bsm_validate_context(Reg, Vst) ->
     _ = bsm_get_context(Reg, Vst),
@@ -1525,7 +1468,7 @@ bsm_validate_context(Reg, Vst) ->
 
 bsm_get_context({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y->
     case get_movable_term_type(Reg, Vst) of
-        #ms{}=Ctx -> Ctx;
+        #t_bs_context{}=Ctx -> Ctx;
         _ -> error({no_bsm_context,Reg})
     end;
 bsm_get_context(Reg, _) ->
@@ -1538,8 +1481,8 @@ bsm_save(Reg, {atom,start}, Vst) ->
     Vst;
 bsm_save(Reg, SavePoint, Vst) ->
     case bsm_get_context(Reg, Vst) of
-	#ms{valid=Bits,slots=Slots}=Ctxt0 when SavePoint < Slots ->
-	    Ctx = Ctxt0#ms{valid=Bits bor (1 bsl SavePoint),slots=Slots},
+	#t_bs_context{valid=Bits,slots=Slots}=Ctxt0 when SavePoint < Slots ->
+	    Ctx = Ctxt0#t_bs_context{valid=Bits bor (1 bsl SavePoint),slots=Slots},
 	    override_type(Ctx, Reg, Vst);
 	_ -> error({illegal_save,SavePoint})
     end.
@@ -1551,7 +1494,7 @@ bsm_restore(Reg, {atom,start}, Vst) ->
     Vst;
 bsm_restore(Reg, SavePoint, Vst) ->
     case bsm_get_context(Reg, Vst) of
-	#ms{valid=Bits,slots=Slots} when SavePoint < Slots ->
+	#t_bs_context{valid=Bits,slots=Slots} when SavePoint < Slots ->
 	    case Bits band (1 bsl SavePoint) of
 		0 -> error({illegal_restore,SavePoint,not_set});
 		_ -> Vst
@@ -1584,7 +1527,7 @@ validate_select_tuple_arity(_Fail, _Choices, _Src, #vst{current=none}=Vst) ->
     %% can't reach the fail label or any of the remaining choices.
     Vst;
 validate_select_tuple_arity(Fail, [Arity,{f,L}|T], Tuple, Vst0) ->
-    Type = {tuple, Arity, #{}},
+    Type = #t_tuple{exact=true,size=Arity},
     Vst = branch(L, Vst0,
                  fun(BranchVst) ->
                          update_type(fun meet/2, Type, Tuple, BranchVst)
@@ -1619,41 +1562,46 @@ infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
             Infer_R(RHS, Infer_L(LHS, S));
        (_, S) -> S
     end;
-infer_types_1(#value{op={bif,element},args=[{integer,Index}=Key,Tuple]}) ->
+infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]}) ->
     fun(Val, S) ->
             case is_value_alive(Tuple, S) of
                 true ->
-                    Type = {tuple,[Index], #{ Key => get_term_type(Val, S) }},
+                    ElementType = get_term_type(Val, S),
+                    Es = beam_types:set_element_type(Index, ElementType, #{}),
+                    Type = #t_tuple{size=Index,elements=Es},
                     update_type(fun meet/2, Type, Tuple, S);
                 false ->
                     S
             end
     end;
 infer_types_1(#value{op={bif,is_atom},args=[Src]}) ->
-    infer_type_test_bif({atom,[]}, Src);
+    infer_type_test_bif(#t_atom{}, Src);
 infer_types_1(#value{op={bif,is_boolean},args=[Src]}) ->
-    infer_type_test_bif(bool, Src);
+    infer_type_test_bif(beam_types:make_boolean(), Src);
 infer_types_1(#value{op={bif,is_binary},args=[Src]}) ->
-    infer_type_test_bif(binary, Src);
+    infer_type_test_bif(#t_bitstring{unit=8}, Src);
 infer_types_1(#value{op={bif,is_bitstring},args=[Src]}) ->
-    infer_type_test_bif(binary, Src);
+    infer_type_test_bif(#t_bitstring{}, Src);
 infer_types_1(#value{op={bif,is_float},args=[Src]}) ->
     infer_type_test_bif(float, Src);
 infer_types_1(#value{op={bif,is_integer},args=[Src]}) ->
-    infer_type_test_bif({integer,{}}, Src);
+    infer_type_test_bif(#t_integer{}, Src);
 infer_types_1(#value{op={bif,is_list},args=[Src]}) ->
     infer_type_test_bif(list, Src);
 infer_types_1(#value{op={bif,is_map},args=[Src]}) ->
-    infer_type_test_bif(map, Src);
+    infer_type_test_bif(#t_map{}, Src);
 infer_types_1(#value{op={bif,is_number},args=[Src]}) ->
     infer_type_test_bif(number, Src);
 infer_types_1(#value{op={bif,is_tuple},args=[Src]}) ->
-    infer_type_test_bif({tuple,[0],#{}}, Src);
+    infer_type_test_bif(#t_tuple{}, Src);
 infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]}) ->
     fun({integer,Arity}, S) ->
             case is_value_alive(Tuple, S) of
-                true -> update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
-                false -> S
+                true ->
+                    Type = #t_tuple{exact=true,size=Arity},
+                    update_type(fun meet/2, Type, Tuple, S);
+                false ->
+                    S
             end;
        (_, S) -> S
     end;
@@ -1661,10 +1609,14 @@ infer_types_1(_) ->
     fun(_, S) -> S end.
 
 infer_type_test_bif(Type, Src) ->
-    fun({atom,true}, S) ->
+    fun({atom,Bool}, S) when is_boolean(Bool) ->
             case is_value_alive(Src, S) of
-                true -> update_type(fun meet/2, Type, Src, S);
-                false -> S
+                true when Bool =:= true ->
+                    update_type(fun meet/2, Type, Src, S);
+                true when Bool =:= false ->
+                    update_type(fun subtract/2, Type, Src, S);
+                false ->
+                    S
             end;
        (_, S) ->
             S
@@ -1778,26 +1730,52 @@ update_type(Merge, With, #value_ref{}=Ref, Vst) ->
 update_type(Merge, With, {Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
     update_type(Merge, With, get_reg_vref(Reg, Vst), Vst);
 update_type(Merge, With, Literal, Vst) ->
-    assert_literal(Literal),
     %% Literals always retain their type, but we still need to bail on type
     %% conflicts.
-    case Merge(Literal, With) of
-        none -> throw({type_conflict, Literal, With});
+    Type = get_literal_type(Literal),
+    case Merge(Type, With) of
+        none -> throw({type_conflict, Type, With});
         _Type -> Vst
     end.
 
+update_ne_types(LHS, {atom,Bool}=RHS, Vst) when is_boolean(Bool) ->
+    %% This is a stopgap to make negative inference work for type test BIFs
+    %% like is_tuple. Consider the following unoptimized code:
+    %%
+    %%    {call_ext,2,{extfunc,erlang,'--',2}}.
+    %%    {bif,is_tuple,{f,0},[{x,0}],{x,1}}.
+    %%    {test,is_eq_exact,{x,1},{f,2},{atom,false}}.
+    %%    ... snip ...
+    %%    {label,1}.
+    %%    {test,is_eq_exact,{x,1},{f,1},{atom,true}}.
+    %%    ... unreachable because {x,0} is known to be a list, so {x,1} can't
+    %%        be true ...
+    %%    {label,2}.
+    %%    ... unreachable because {x,1} is neither true nor false! ...
+    %%
+    %% If we fail to determine that the first is_eq_exact never fails, our
+    %% state will be inconsistent after the second is_eq_exact check; we know
+    %% for certain that {x,0} is a list so infer_types says it can't succeed,
+    %% but it can't fail either because we also know that {x,1} is a boolean,
+    %% and the first check ruled out 'false'.
+    LType = get_term_type(LHS, Vst),
+    RType = get_term_type(RHS, Vst),
+    case beam_types:is_boolean_type(LType) of
+        true -> update_eq_types(LHS, {atom, not Bool}, Vst);
+        false -> update_type(fun subtract/2, RType, LHS, Vst)
+    end;
 update_ne_types(LHS, RHS, Vst) ->
     %% While updating types on equality is fairly straightforward, inequality
     %% is a bit trickier since all we know is that the *value* of LHS differs
     %% from RHS, so we can't blindly subtract their types.
     %%
-    %% Consider `number =/= {integer,[]}`; all we know is that LHS isn't equal
+    %% Consider `number =/= #t_integer{}`; all we know is that LHS isn't equal
     %% to some *specific integer* of unknown value, and if we were to subtract
-    %% {integer,[]} we would erroneously infer that the new type is {float,[]}.
+    %% #t_integer{} we would erroneously infer that the new type is float.
     %%
     %% Therefore, we only subtract when we know that RHS has a specific value.
     RType = get_term_type(RHS, Vst),
-    case is_literal(RType) of
+    case beam_types:is_singleton_type(RType) of
         true -> update_type(fun subtract/2, RType, LHS, Vst);
         false -> Vst
     end.
@@ -1930,303 +1908,40 @@ is_literal(_) -> false.
 %%
 %% First non-term types:
 %%
-%% initialized		Only for Y registers. Means that the Y register
-%%			has been initialized with some valid term so that
-%%			it is safe to pass to the garbage collector.
-%%			NOT safe to use in any other way (will not crash the
-%%			emulator, but clearly points to a bug in the compiler).
+%% initialized          Only for Y registers. Means that the Y register
+%%                      has been initialized with some valid term so that
+%%	                    it is safe to pass to the garbage collector.
+%%	                    NOT safe to use in any other way (will not crash the
+%%	                    emulator, but clearly points to a bug in the compiler).
 %%
-%% {catchtag,[Lbl]}	A special term used within a catch. Must only be used
-%%			by the catch instructions; NOT safe to use in other
-%%			instructions.
+%% {catchtag,[Lbl]}     A special term used within a catch. Must only be used
+%%	                    by the catch instructions; NOT safe to use in other
+%%	                    instructions.
 %%
-%% {trytag,[Lbl]}	A special term used within a try block. Must only be
-%%			used by the catch instructions; NOT safe to use in other
-%%			instructions.
+%% {trytag,[Lbl]}       A special term used within a try block. Must only be
+%%	                    used by the catch instructions; NOT safe to use in other
+%%	                    instructions.
 %%
-%% exception            Can only be used as a type returned by
-%%                      call_return_type/2 (which gives the type of the value
-%%                      returned by a call). Thus 'exception' is never stored
-%%                      as type descriptor for a register.
+%% #t_bs_context{}	    A match context for bit syntax matching. We do allow
+%%	                    it to moved/to from stack, but otherwise it must only
+%%	                    be accessed by bit syntax matching instructions.
 %%
-%% #ms{}	        A match context for bit syntax matching. We do allow
-%%			it to moved/to from stack, but otherwise it must only
-%%			be accessed by bit syntax matching instructions.
-%%
-%%
-%% Normal terms:
-%%
-%% term			Any valid Erlang (but not of the special types above).
-%%
-%% binary               Binary or bitstring.
-%%
-%% bool			The atom 'true' or the atom 'false'.
-%%
-%% cons         	Cons cell: [_|_]
-%%
-%% nil			Empty list: []
-%%
-%% list                 List: [] or [_|_]
-%%
-%% {tuple,[Sz],Es}      Tuple. An element has been accessed using
-%%                      element/2 or setelement/3 so that it is known that
-%%                      the type is a tuple of size at least Sz. Es is a map
-%%                      containing known types by tuple index.
-%%
-%% {tuple,Sz,Es}	Tuple. A test_arity instruction has been seen
-%%           		so that it is known that the size is exactly Sz.
-%%
-%% {atom,[]}		Atom.
-%% {atom,Atom}
-%%
-%% {integer,[]}		Integer.
-%% {integer,Integer}
-%%
-%% {float,[]}		Float.
-%% {float,Float}
-%%
-%% number		Integer or Float of unknown value
-%%
-%% map			Map.
-%%
-%% none                 A conflict in types. There will be an exception at runtime.
-%%
+%% These are simple wrappers around
 
-%% join(Type1, Type2) -> Type
-%%  Return the most specific type possible.
-join(Same, Same) ->
-    Same;
-join(none, Other) ->
-    Other;
-join(Other, none) ->
-    Other;
-join({literal,_}=T1, T2) ->
-    join_literal(T1, T2);
-join(T1, {literal,_}=T2) ->
-    join_literal(T2, T1);
-join({tuple,Size,EsA}, {tuple,Size,EsB}) ->
-    Es = join_tuple_elements(tuple_sz(Size), EsA, EsB),
-    {tuple, Size, Es};
-join({tuple,A,EsA}, {tuple,B,EsB}) ->
-    Size = min(tuple_sz(A), tuple_sz(B)),
-    Es = join_tuple_elements(Size, EsA, EsB),
-    {tuple, [Size], Es};
-join({Type,A}, {Type,B})
-  when Type =:= atom; Type =:= integer; Type =:= float ->
-    if A =:= B -> {Type,A};
-       true -> {Type,[]}
-    end;
-join({Type,_}, number) 
-  when Type =:= integer; Type =:= float ->
-    number;
-join(number, {Type,_}) 
-  when Type =:= integer; Type =:= float ->
-    number;
-join({integer,_}, {float,_}) ->
-    number;
-join({float,_}, {integer,_}) ->
-    number;
-join(bool, {atom,A}) ->
-    join_bool(A);
-join({atom,A}, bool) ->
-    join_bool(A);
-join({atom,A}, {atom,B}) when is_boolean(A), is_boolean(B) ->
-    bool;
-join({atom,_}, {atom,_}) ->
-    {atom,[]};
-join(#ms{id=Id1,valid=B1,slots=Slots1},
-     #ms{id=Id2,valid=B2,slots=Slots2}) ->
-    Id = if
-             Id1 =:= Id2 -> Id1;
-             true -> make_ref()
-         end,
-    #ms{id=Id,valid=B1 band B2,slots=min(Slots1, Slots2)};
-join(T1, T2) when T1 =/= T2 ->
-    %% We've exhaused all other options, so the type must either be a list or
-    %% a 'term'.
-    join_list(T1, T2).
+join(#t_abstract{}=Same, #t_abstract{}=Same) -> Same;
+join(A, B) -> beam_types:join(A, B).
 
-join_tuple_elements(Limit, EsA, EsB) ->
-    Es0 = join_elements(EsA, EsB),
-    maps:filter(fun({integer,Index}, _Type) -> Index =< Limit end, Es0).
+meet(#t_abstract{}=Same, #t_abstract{}=Same) -> Same;
+meet(A, B) -> beam_types:meet(A, B).
 
-join_elements(Es1, Es2) ->
-    Keys = if
-               map_size(Es1) =< map_size(Es2) -> maps:keys(Es1);
-               map_size(Es1) > map_size(Es2) -> maps:keys(Es2)
-           end,
-    join_elements_1(Keys, Es1, Es2, #{}).
+subtract(A, B) -> beam_types:subtract(A, B).
 
-join_elements_1([Key | Keys], Es1, Es2, Acc0) ->
-    Type = case {Es1, Es2} of
-               {#{ Key := Same }, #{ Key := Same }} -> Same;
-               {#{ Key := Type1 }, #{ Key := Type2 }} -> join(Type1, Type2);
-               {#{}, #{}} -> term
-           end,
-    Acc = set_element_type(Key, Type, Acc0),
-    join_elements_1(Keys, Es1, Es2, Acc);
-join_elements_1([], _Es1, _Es2, Acc) ->
-    Acc.
-
-%% Joins types of literals; note that the left argument must either be a
-%% literal or exactly equal to the second argument.
-join_literal(Same, Same) ->
-    Same;
-join_literal({literal,_}=Lit, T) ->
-    join_literal(T, get_literal_type(Lit));
-join_literal(T1, T2) ->
-    %% We're done extracting the types, try merging them again.
-    join(T1, T2).
-
-join_list(nil, cons) -> list;
-join_list(nil, list) -> list;
-join_list(cons, list) -> list;
-join_list(T, nil) -> join_list(nil, T);
-join_list(T, cons) -> join_list(cons, T);
-join_list(_, _) ->
-    %% Not a list, so it must be a term.
-    term.
-
-join_bool([]) -> {atom,[]};
-join_bool(true) -> bool;
-join_bool(false) -> bool;
-join_bool(_) -> {atom,[]}.
-
-%% meet(Type1, Type2) -> Type
-%%  Return the meet of two types. The meet is a more specific type.
-%%  It will be 'none' if the types are in conflict.
-
-meet(Same, Same) ->
-    Same;
-meet(term, Other) ->
-    Other;
-meet(Other, term) ->
-    Other;
-meet(#ms{}, binary) ->
-    #ms{};
-meet(binary, #ms{}) ->
-    #ms{};
-meet({literal,_}, {literal,_}) ->
-    none;
-meet(T1, {literal,_}=T2) ->
-    meet(T2, T1);
-meet({literal,_}=T1, T2) ->
-    case meet(get_literal_type(T1), T2) of
-        none -> none;
-        _ -> T1
-    end;
-meet(T1, T2) ->
-    case {erlang:min(T1, T2),erlang:max(T1, T2)} of
-        {{atom,_}=A,{atom,[]}} -> A;
-        {bool,{atom,B}=Atom} when is_boolean(B) -> Atom;
-        {bool,{atom,[]}} -> bool;
-        {cons,list} -> cons;
-        {{float,_}=T,{float,[]}} -> T;
-        {{integer,_}=T,{integer,[]}} -> T;
-        {list,nil} -> nil;
-        {number,{integer,_}=T} -> T;
-        {number,{float,_}=T} -> T;
-        {{tuple,Size1,Es1},{tuple,Size2,Es2}} ->
-            Es = meet_elements(Es1, Es2),
-            case {Size1,Size2,Es} of
-                {_, _, none} ->
-                    none;
-                {[Sz1],[Sz2],_} ->
-                    Sz = erlang:max(Sz1, Sz2),
-                    assert_tuple_elements(Sz, Es),
-                    {tuple,[Sz],Es};
-                {Sz1,[Sz2],_} when Sz2 =< Sz1 ->
-                    assert_tuple_elements(Sz1, Es),
-                    {tuple,Sz1,Es};
-                {Sz,Sz,_} ->
-                    assert_tuple_elements(Sz, Es),
-                    {tuple,Sz,Es};
-                {_,_,_} ->
-                    none
-            end;
-        {_,_} -> none
+assert_type(RequiredType, Term, Vst) ->
+    GivenType = get_term_type(Term, Vst),
+    case meet(RequiredType, GivenType) of
+        GivenType -> ok;
+        _RequiredType -> error({bad_type,{needed,RequiredType},{actual,GivenType}})
     end.
-
-meet_elements(Es1, Es2) ->
-    Keys = maps:keys(Es1) ++ maps:keys(Es2),
-    meet_elements_1(Keys, Es1, Es2, #{}).
-
-meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
-    case {Es1, Es2} of
-        {#{ Key := Type1 }, #{ Key := Type2 }} ->
-            case meet(Type1, Type2) of
-                none -> none;
-                Type -> meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
-            end;
-        {#{ Key := Type1 }, _} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
-        {_, #{ Key := Type2 }} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
-    end;
-meet_elements_1([], _Es1, _Es2, Acc) ->
-    Acc.
-
-%% No tuple elements may have an index above the known size.
-assert_tuple_elements(Limit, Es) ->
-    true = maps:fold(fun({integer,Index}, _T, true) ->
-                             Index =< Limit
-                     end, true, Es).            %Assertion.
-
-%% subtract(Type1, Type2) -> Type
-%%  Subtract Type2 from Type2. Example:
-%%      subtract(list, nil) -> cons
-
-subtract(Same, Same) -> none;
-subtract(list, nil) -> cons;
-subtract(list, cons) -> nil;
-subtract(number, {integer,[]}) -> {float,[]};
-subtract(number, {float,[]}) -> {integer,[]};
-subtract(bool, {atom,false}) -> {atom, true};
-subtract(bool, {atom,true}) -> {atom, false};
-subtract(Type, _) -> Type.
-
-assert_type(WantedType, Term, Vst) ->
-    Type = get_term_type(Term, Vst),
-    assert_type(WantedType, Type).
-
-assert_type(Correct, Correct) -> ok;
-assert_type(float, {float,_}) -> ok;
-assert_type(tuple, {tuple,_,_}) -> ok;
-assert_type(tuple, {literal,Tuple}) when is_tuple(Tuple) -> ok;
-assert_type({tuple_element,I}, {tuple,[Sz],_})
-  when 1 =< I, I =< Sz ->
-    ok;
-assert_type({tuple_element,I}, {tuple,Sz,_})
-  when is_integer(Sz), 1 =< I, I =< Sz ->
-    ok;
-assert_type({tuple_element,I}, {literal,Lit}) when I =< tuple_size(Lit) ->
-    ok;
-assert_type(cons, {literal,[_|_]}) ->
-    ok;
-assert_type(Needed, Actual) ->
-    error({bad_type,{needed,Needed},{actual,Actual}}).
-
-get_element_type(Key, Src, Vst) ->
-    get_element_type_1(Key, get_term_type(Src, Vst)).
-
-get_element_type_1({integer,_}=Key, {tuple,_Sz,Es}) ->
-    case Es of
-        #{ Key := Type } -> Type;
-        #{} -> term
-    end;
-get_element_type_1(_Index, _Type) ->
-    term.
-
-set_element_type(_Key, none, Es) ->
-    Es;
-set_element_type(Key, term, Es) ->
-    maps:remove(Key, Es);
-set_element_type(Key, Type, Es) ->
-    Es#{ Key => Type }.
-
-get_tuple_size({integer,[]}) -> 0;
-get_tuple_size({integer,Sz}) -> Sz;
-get_tuple_size(_) -> 0.
 
 validate_src(Ss, Vst) when is_list(Ss) ->
     _ = [assert_term(S, Vst) || S <- Ss],
@@ -2238,7 +1953,7 @@ validate_src(Ss, Vst) when is_list(Ss) ->
 
 get_term_type(Src, Vst) ->
     case get_movable_term_type(Src, Vst) of
-        #ms{} -> error({match_context,Src});
+        #t_bs_context{} -> error({match_context,Src});
         Type -> Type
     end.
 
@@ -2248,12 +1963,11 @@ get_term_type(Src, Vst) ->
 
 get_movable_term_type(Src, Vst) ->
     case get_raw_type(Src, Vst) of
+        #t_abstract{kind=tuple_in_progress=Kind} -> error({Kind,Src});
         initialized -> error({unassigned,Src});
         uninitialized -> error({uninitialized_reg,Src});
         {catchtag,_} -> error({catchtag,Src});
         {trytag,_} -> error({trytag,Src});
-        tuple_in_progress -> error({tuple_in_progress,Src});
-        {literal,_}=Lit -> get_literal_type(Lit);
         Type -> Type
     end.
 
@@ -2296,32 +2010,36 @@ get_raw_type(Src, #vst{}) ->
     get_literal_type(Src).
 
 is_value_alive(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
-    is_map_key(Ref, Vs).
+    is_map_key(Ref, Vs);
+is_value_alive(_, _) ->
+    false.
 
-get_literal_type(nil=T) -> T;
-get_literal_type({atom,A}=T) when is_atom(A) -> T;
-get_literal_type({float,F}=T) when is_float(F) -> T;
-get_literal_type({integer,I}=T) when is_integer(I) -> T;
-get_literal_type({literal,[_|_]}) -> cons;
-get_literal_type({literal,Bitstring}) when is_bitstring(Bitstring) -> binary;
-get_literal_type({literal,Map}) when is_map(Map) -> map;
-get_literal_type({literal,Tuple}) when is_tuple(Tuple) -> glt_1(Tuple);
-get_literal_type({literal,_}) -> term;
+get_literal_type(nil) -> glt_1([]);
+get_literal_type({atom,A}) when is_atom(A) -> glt_1(A);
+get_literal_type({float,F}) when is_float(F) -> glt_1(F);
+get_literal_type({integer,I}) when is_integer(I) -> glt_1(I);
+get_literal_type({literal,L}) -> glt_1(L);
 get_literal_type(T) -> error({not_literal,T}).
 
 glt_1([]) -> nil;
-glt_1(A) when is_atom(A) -> {atom, A};
-glt_1(F) when is_float(F) -> {float, F};
-glt_1(I) when is_integer(I) -> {integer, I};
+glt_1([_|_]) -> cons;
+glt_1(A) when is_atom(A) -> #t_atom{elements=[A]};
+glt_1(B) when is_bitstring(B) -> #t_bitstring{};
+glt_1(F) when is_float(F) -> float;
+glt_1(F) when is_function(F) ->
+    {arity, Arity} = erlang:fun_info(F, arity),
+    #t_fun{arity=Arity};
+glt_1(I) when is_integer(I) -> beam_types:make_integer(I);
+glt_1(M) when is_map(M) -> #t_map{};
 glt_1(T) when is_tuple(T) ->
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
                            Type = glt_1(Val),
-                           Es = set_element_type({integer,Index}, Type, Es0),
+                           Es = beam_types:set_element_type(Index, Type, Es0),
                            {Es, Index + 1}
                    end, {#{}, 1}, tuple_to_list(T)),
-    {tuple, tuple_size(T), Es};
-glt_1(L) ->
-    {literal, L}.
+    #t_tuple{exact=true,size=tuple_size(T),elements=Es};
+glt_1(_Term) ->
+    any.
 
 %%%
 %%% Branch tracking
@@ -2512,9 +2230,6 @@ merge_ct_1([C0|Ct0], [C1|Ct1]) ->
 merge_ct_1([], []) -> [];
 merge_ct_1(_, _) -> undecided.
 
-tuple_sz([Sz]) -> Sz;
-tuple_sz(Sz) -> Sz.
-
 verify_y_init(#vst{current=#st{numy=NumY,ys=Ys}}=Vst) when is_integer(NumY) ->
     HighestY = maps:fold(fun({y,Y}, _, Acc) -> max(Y, Acc) end, -1, Ys),
     true = NumY > HighestY,                     %Assertion.
@@ -2656,319 +2371,26 @@ assert_not_fragile(Lit, #vst{}) ->
     ok.
 
 %%%
-%%% Return/argument types of BIFs
+%%% Return/argument types of calls and BIFs
 %%%
 
-bif_return_type('-', Src, Vst) ->
-    arith_return_type(Src, Vst);
-bif_return_type('+', Src, Vst) ->
-    arith_return_type(Src, Vst);
-bif_return_type('*', Src, Vst) ->
-    arith_return_type(Src, Vst);
-bif_return_type(abs, [Num], Vst) ->
-    case get_term_type(Num, Vst) of
-        {float,_}=T -> T;
-        {integer,_}=T -> T;
-        _ -> number
-    end;
-bif_return_type(float, _, _) -> {float,[]};
-bif_return_type('/', _, _) -> {float,[]};
-%% Binary operations
-bif_return_type('binary_part', [_,_], _) -> binary;
-bif_return_type('binary_part', [_,_,_], _) -> binary;
-bif_return_type('bit_size', [_], _) -> {integer,[]};
-bif_return_type('byte_size', [_], _) -> {integer,[]};
-%% Integer operations.
-bif_return_type(ceil, [_], _) -> {integer,[]};
-bif_return_type('div', [_,_], _) -> {integer,[]};
-bif_return_type(floor, [_], _) -> {integer,[]};
-bif_return_type('rem', [_,_], _) -> {integer,[]};
-bif_return_type(length, [_], _) -> {integer,[]};
-bif_return_type(size, [_], _) -> {integer,[]};
-bif_return_type(trunc, [_], _) -> {integer,[]};
-bif_return_type(round, [_], _) -> {integer,[]};
-bif_return_type('band', [_,_], _) -> {integer,[]};
-bif_return_type('bor', [_,_], _) -> {integer,[]};
-bif_return_type('bxor', [_,_], _) -> {integer,[]};
-bif_return_type('bnot', [_], _) -> {integer,[]};
-bif_return_type('bsl', [_,_], _) -> {integer,[]};
-bif_return_type('bsr', [_,_], _) -> {integer,[]};
-%% Booleans.
-bif_return_type('==', [_,_], _) -> bool;
-bif_return_type('/=', [_,_], _) -> bool;
-bif_return_type('=<', [_,_], _) -> bool;
-bif_return_type('<', [_,_], _) -> bool;
-bif_return_type('>=', [_,_], _) -> bool;
-bif_return_type('>', [_,_], _) -> bool;
-bif_return_type('=:=', [_,_], _) -> bool;
-bif_return_type('=/=', [_,_], _) -> bool;
-bif_return_type('not', [_], _) -> bool;
-bif_return_type('and', [_,_], _) -> bool;
-bif_return_type('or', [_,_], _) -> bool;
-bif_return_type('xor', [_,_], _) -> bool;
-bif_return_type(is_atom, [_], _) -> bool;
-bif_return_type(is_boolean, [_], _) -> bool;
-bif_return_type(is_binary, [_], _) -> bool;
-bif_return_type(is_float, [_], _) -> bool;
-bif_return_type(is_function, [_], _) -> bool;
-bif_return_type(is_function, [_,_], _) -> bool;
-bif_return_type(is_integer, [_], _) -> bool;
-bif_return_type(is_list, [_], _) -> bool;
-bif_return_type(is_map, [_], _) -> bool;
-bif_return_type(is_number, [_], _) -> bool;
-bif_return_type(is_pid, [_], _) -> bool;
-bif_return_type(is_port, [_], _) -> bool;
-bif_return_type(is_reference, [_], _) -> bool;
-bif_return_type(is_tuple, [_], _) -> bool;
-%% Misc.
-bif_return_type(tuple_size, [_], _) -> {integer,[]};
-bif_return_type(map_size, [_], _) -> {integer,[]};
-bif_return_type(node, [], _) -> {atom,[]};
-bif_return_type(node, [_], _) -> {atom,[]};
-bif_return_type(hd, [_], _) -> term;
-bif_return_type(tl, [_], _) -> term;
-bif_return_type(get, [_], _) -> term;
-bif_return_type(Bif, _, _) when is_atom(Bif) -> term.
+bif_types(Op, Ss, Vst) ->
+    Args = [get_term_type(Arg, Vst) || Arg <- Ss],
+    beam_call_types:types(erlang, Op, Args).
 
-%% Generic
-bif_arg_types(tuple_size, [_]) -> [{tuple,[0],#{}}];
-bif_arg_types(map_size, [_]) -> [map];
-bif_arg_types(is_map_key, [_,_]) -> [term, map];
-bif_arg_types(map_get, [_,_]) -> [term, map];
-bif_arg_types(length, [_]) -> [list];
-bif_arg_types(hd, [_]) -> [cons];
-bif_arg_types(tl, [_]) -> [cons];
-%% Boolean
-bif_arg_types('not', [_]) -> [bool];
-bif_arg_types('and', [_,_]) -> [bool, bool];
-bif_arg_types('or', [_,_]) -> [bool, bool];
-bif_arg_types('xor', [_,_]) -> [bool, bool];
-%% Binary
-bif_arg_types('binary_part', [_,_]) ->
-    PosLen = {tuple, 2, #{ {integer,1} => {integer,[]},
-                           {integer,2} => {integer,[]} }},
-    [binary, PosLen];
-bif_arg_types('binary_part', [_,_,_]) ->
-    [binary, {integer,[]}, {integer,[]}];
-bif_arg_types('bit_size', [_]) -> [binary];
-bif_arg_types('byte_size', [_]) -> [binary];
-%% Numerical
-bif_arg_types('-', [_]) -> [number];
-bif_arg_types('-', [_,_]) -> [number,number];
-bif_arg_types('+', [_]) -> [number];
-bif_arg_types('+', [_,_]) -> [number,number];
-bif_arg_types('*', [_,_]) -> [number, number];
-bif_arg_types('/', [_,_]) -> [number, number];
-bif_arg_types(abs, [_]) -> [number];
-bif_arg_types(ceil, [_]) -> [number];
-bif_arg_types(float, [_]) -> [number];
-bif_arg_types(floor, [_]) -> [number];
-bif_arg_types(trunc, [_]) -> [number];
-bif_arg_types(round, [_]) -> [number];
-%% Integer-specific
-bif_arg_types('div', [_,_]) -> [{integer,[]}, {integer,[]}];
-bif_arg_types('rem', [_,_]) -> [{integer,[]}, {integer,[]}];
-bif_arg_types('band', [_,_]) -> [{integer,[]}, {integer,[]}];
-bif_arg_types('bor', [_,_]) -> [{integer,[]}, {integer,[]}];
-bif_arg_types('bxor', [_,_]) -> [{integer,[]}, {integer,[]}];
-bif_arg_types('bnot', [_]) -> [{integer,[]}];
-bif_arg_types('bsl', [_,_]) -> [{integer,[]}, {integer,[]}];
-bif_arg_types('bsr', [_,_]) -> [{integer,[]}, {integer,[]}];
-%% Unsafe type tests that may fail if an argument doesn't have the right type.
-bif_arg_types(is_function, [_,_]) -> [term, {integer,[]}];
-bif_arg_types(_, Args) -> [term || _Arg <- Args].
+call_types({extfunc,M,F,A}, A, Vst) ->
+    Args = get_call_args(A, Vst),
+    beam_call_types:types(M, F, Args);
+call_types(_, A, Vst) ->
+    {any, get_call_args(A, Vst), false}.
 
-is_bif_safe('/=', 2) -> true;
-is_bif_safe('<', 2) -> true;
-is_bif_safe('=/=', 2) -> true;
-is_bif_safe('=:=', 2) -> true;
-is_bif_safe('=<', 2) -> true;
-is_bif_safe('==', 2) -> true;
-is_bif_safe('>', 2) -> true;
-is_bif_safe('>=', 2) -> true;
-is_bif_safe(is_atom, 1) -> true;
-is_bif_safe(is_boolean, 1) -> true;
-is_bif_safe(is_binary, 1) -> true;
-is_bif_safe(is_bitstring, 1) -> true;
-is_bif_safe(is_float, 1) -> true;
-is_bif_safe(is_function, 1) -> true;
-is_bif_safe(is_integer, 1) -> true;
-is_bif_safe(is_list, 1) -> true;
-is_bif_safe(is_map, 1) -> true;
-is_bif_safe(is_number, 1) -> true;
-is_bif_safe(is_pid, 1) -> true;
-is_bif_safe(is_port, 1) -> true;
-is_bif_safe(is_reference, 1) -> true;
-is_bif_safe(is_tuple, 1) -> true;
-is_bif_safe(get, 1) -> true;
-is_bif_safe(self, 0) -> true;
-is_bif_safe(node, 0) -> true;
-is_bif_safe(_, _) -> false.
+get_call_args(Arity, Vst) ->
+    get_call_args_1(0, Arity, Vst).
 
-arith_return_type([A], Vst) ->
-    %% Unary '+' or '-'.
-    case get_term_type(A, Vst) of
-	{integer,_} -> {integer,[]};
-	{float,_} -> {float,[]};
-        _ -> number
-    end;
-arith_return_type([A,B], Vst) ->
-    TypeA = get_term_type(A, Vst),
-    TypeB = get_term_type(B, Vst),
-    case {TypeA, TypeB} of
-	{{integer,_},{integer,_}} -> {integer,[]};
-	{{float,_},_} -> {float,[]};
-	{_,{float,_}} -> {float,[]};
-	{_,_} -> number
-    end;
-arith_return_type(_, _) -> number.
-
-%%%
-%%% Return/argument types of calls
-%%%
-
-call_return_type({extfunc,M,F,A}, Vst) -> call_return_type_1(M, F, A, Vst);
-call_return_type(_, _) -> term.
-
-call_return_type_1(erlang, setelement, 3, Vst) ->
-    IndexType = get_term_type({x,0}, Vst),
-    TupleType =
-        case get_term_type({x,1}, Vst) of
-            {literal,Tuple}=Lit when is_tuple(Tuple) -> get_literal_type(Lit);
-            {tuple,_,_}=TT -> TT;
-            _ -> {tuple,[0],#{}}
-        end,
-    case IndexType of
-        {integer,I} when is_integer(I) ->
-            case meet({tuple,[I],#{}}, TupleType) of
-                {tuple, Sz, Es0} ->
-                    ValueType = get_term_type({x,2}, Vst),
-                    Es = set_element_type({integer,I}, ValueType, Es0),
-                    {tuple, Sz, Es};
-                none ->
-                    TupleType
-            end;
-        _ ->
-            %% The index could point anywhere, so we must discard all element
-            %% information.
-            setelement(3, TupleType, #{})
-    end;
-call_return_type_1(erlang, '++', 2, Vst) ->
-    LType = get_term_type({x,0}, Vst),
-    RType = get_term_type({x,1}, Vst),
-    case LType =:= cons orelse RType =:= cons of
-        true ->
-            cons;
-        false ->
-            %% `[] ++ RHS` yields RHS, even if RHS is not a list
-            join(list, RType)
-    end;
-call_return_type_1(erlang, '--', 2, _Vst) ->
-    list;
-call_return_type_1(erlang, F, A, _) ->
-    erlang_mod_return_type(F, A);
-call_return_type_1(lists, F, A, Vst) ->
-    lists_mod_return_type(F, A, Vst);
-call_return_type_1(math, F, A, _) ->
-    math_mod_return_type(F, A);
-call_return_type_1(M, F, A, _) when is_atom(M), is_atom(F), is_integer(A), A >= 0 ->
-    term.
-
-erlang_mod_return_type(exit, 1) -> exception;
-erlang_mod_return_type(throw, 1) -> exception;
-erlang_mod_return_type(error, 1) -> exception;
-erlang_mod_return_type(error, 2) -> exception;
-erlang_mod_return_type(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
-
-math_mod_return_type(cos, 1) -> {float,[]};
-math_mod_return_type(cosh, 1) -> {float,[]};
-math_mod_return_type(sin, 1) -> {float,[]};
-math_mod_return_type(sinh, 1) -> {float,[]};
-math_mod_return_type(tan, 1) -> {float,[]};
-math_mod_return_type(tanh, 1) -> {float,[]};
-math_mod_return_type(acos, 1) -> {float,[]};
-math_mod_return_type(acosh, 1) -> {float,[]};
-math_mod_return_type(asin, 1) -> {float,[]};
-math_mod_return_type(asinh, 1) -> {float,[]};
-math_mod_return_type(atan, 1) -> {float,[]};
-math_mod_return_type(atanh, 1) -> {float,[]};
-math_mod_return_type(erf, 1) -> {float,[]};
-math_mod_return_type(erfc, 1) -> {float,[]};
-math_mod_return_type(exp, 1) -> {float,[]};
-math_mod_return_type(log, 1) -> {float,[]};
-math_mod_return_type(log2, 1) -> {float,[]};
-math_mod_return_type(log10, 1) -> {float,[]};
-math_mod_return_type(sqrt, 1) -> {float,[]};
-math_mod_return_type(atan2, 2) -> {float,[]};
-math_mod_return_type(pow, 2) -> {float,[]};
-math_mod_return_type(ceil, 1) -> {float,[]};
-math_mod_return_type(floor, 1) -> {float,[]};
-math_mod_return_type(fmod, 2) -> {float,[]};
-math_mod_return_type(pi, 0) -> {float,[]};
-math_mod_return_type(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
-
-lists_mod_return_type(all, 2, _Vst) ->
-    bool;
-lists_mod_return_type(any, 2, _Vst) ->
-    bool;
-lists_mod_return_type(keymember, 3, _Vst) ->
-    bool;
-lists_mod_return_type(member, 2, _Vst) ->
-    bool;
-lists_mod_return_type(prefix, 2, _Vst) ->
-    bool;
-lists_mod_return_type(suffix, 2, _Vst) ->
-    bool;
-lists_mod_return_type(dropwhile, 2, _Vst) ->
-    list;
-lists_mod_return_type(duplicate, 2, _Vst) ->
-    list;
-lists_mod_return_type(filter, 2, _Vst) ->
-    list;
-lists_mod_return_type(flatten, 1, _Vst) ->
-    list;
-lists_mod_return_type(map, 2, Vst) ->
-    same_length_type({x,1}, Vst);
-lists_mod_return_type(MF, 3, Vst) when MF =:= mapfoldl; MF =:= mapfoldr ->
-    ListType = same_length_type({x,2}, Vst),
-    {tuple,2,#{ {integer,1} => ListType} };
-lists_mod_return_type(partition, 2, _Vst) ->
-    two_tuple(list, list);
-lists_mod_return_type(reverse, 1, Vst) ->
-    same_length_type({x,0}, Vst);
-lists_mod_return_type(seq, 2, _Vst) ->
-    list;
-lists_mod_return_type(sort, 1, Vst) ->
-    same_length_type({x,0}, Vst);
-lists_mod_return_type(sort, 2, Vst) ->
-    same_length_type({x,1}, Vst);
-lists_mod_return_type(splitwith, 2, _Vst) ->
-    two_tuple(list, list);
-lists_mod_return_type(takewhile, 2, _Vst) ->
-    list;
-lists_mod_return_type(unzip, 1, Vst) ->
-    ListType = same_length_type({x,0}, Vst),
-    two_tuple(ListType, ListType);
-lists_mod_return_type(usort, 1, Vst) ->
-    same_length_type({x,0}, Vst);
-lists_mod_return_type(zip, 2, _Vst) ->
-    list;
-lists_mod_return_type(zipwith, 3, _Vst) ->
-    list;
-lists_mod_return_type(_, _, _) ->
-    term.
-
-two_tuple(Type1, Type2) ->
-    {tuple,2,#{ {integer,1} => Type1,
-                {integer,2} => Type2 }}.
-
-same_length_type(Reg, Vst) ->
-    case get_term_type(Reg, Vst) of
-        {literal,[_|_]} -> cons;
-        cons -> cons;
-        nil -> nil;
-        _ -> list
-    end.
+get_call_args_1(Arity, Arity, _) ->
+    [];
+get_call_args_1(N, Arity, Vst) when N < Arity ->
+    [get_movable_term_type({x,N}, Vst) | get_call_args_1(N + 1, Arity, Vst)].
 
 check_limit({x,X}=Src) when is_integer(X) ->
     if

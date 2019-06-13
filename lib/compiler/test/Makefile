@@ -16,6 +16,7 @@ MODULES= \
 	beam_reorder_SUITE \
 	beam_ssa_SUITE \
 	beam_type_SUITE \
+	beam_types_SUITE \
 	beam_utils_SUITE \
 	bif_SUITE \
 	bs_bincomp_SUITE \
@@ -225,6 +226,6 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(ERL_DUMMY_FILES) "$(RELSYSDIR)"
 	rm $(ERL_DUMMY_FILES)
 	chmod -R u+w "$(RELSYSDIR)"
-	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:

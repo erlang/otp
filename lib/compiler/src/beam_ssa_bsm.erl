@@ -57,6 +57,7 @@
 -export([module/2, format_error/1]).
 
 -include("beam_ssa.hrl").
+-include("beam_types.hrl").
 
 -import(lists, [member/2, reverse/1, splitwith/2, map/2, foldl/3, mapfoldl/3,
                 nth/2, max/1, unzip/1]).
@@ -879,8 +880,7 @@ annotate_context_parameters(F, ModInfo) ->
                                  %% Assertion.
                                  error(conflicting_parameter_types);
                             (K, suitable_for_reuse, Acc) ->
-                                 T = beam_validator:type_anno(match_context),
-                                 Acc#{ K => T };
+                                 Acc#{ K => #t_bs_context{} };
                             (_K, _V, Acc) ->
                                  Acc
                          end, TypeAnno0, ParamInfo),
