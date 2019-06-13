@@ -38,6 +38,7 @@ struct mac_type_t {
         const int pkey_type;
     }alg;
     int type;
+    size_t key_len;      /* != 0 to also match on key_len */
 };
 
 #define NO_mac 0
@@ -50,31 +51,34 @@ static struct mac_type_t mac_types[] =
     {{"poly1305"},
 #ifdef HAVE_POLY1305
      /* If we have POLY then we have EVP_PKEY */
-     {EVP_PKEY_POLY1305}, POLY1305_mac
+     {EVP_PKEY_POLY1305}, POLY1305_mac, 32
 #else
-     {EVP_PKEY_NONE}, NO_mac
+     {EVP_PKEY_NONE}, NO_mac, 0
 #endif
     },
 
     {{"hmac"},
 #ifdef HAS_EVP_PKEY_CTX
-     {EVP_PKEY_HMAC}, HMAC_mac
+     {EVP_PKEY_HMAC}, HMAC_mac, 0
 #else
      /* HMAC is always supported, but possibly with low-level routines */
-     {EVP_PKEY_NONE}, HMAC_mac
+     {EVP_PKEY_NONE}, HMAC_mac, 0
 #endif
     },
 
     {{"cmac"},
 #ifdef HAVE_CMAC
      /* If we have CMAC then we have EVP_PKEY */
-     {EVP_PKEY_CMAC}, CMAC_mac
+     {EVP_PKEY_CMAC}, CMAC_mac, 0
 #else
-     {EVP_PKEY_NONE}, NO_mac
+     {EVP_PKEY_NONE}, NO_mac, 0
 #endif
     },
+
     /*==== End of list ==== */
-    {{NULL},{0},NO_mac}
+    {{NULL},
+     {0}, NO_mac, 0
+    }
 };
 
 
@@ -82,7 +86,8 @@ static struct mac_type_t mac_types[] =
  Mandatory prototypes
 ***************************/
 
-struct mac_type_t* get_mac_type(ERL_NIF_TERM type);
+struct mac_type_t* get_mac_type(ERL_NIF_TERM type, size_t key_len);
+struct mac_type_t* get_mac_type_no_key(ERL_NIF_TERM type);
 
 ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
@@ -125,7 +130,19 @@ ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
     return hd;
 }
 
-struct mac_type_t* get_mac_type(ERL_NIF_TERM type)
+struct mac_type_t* get_mac_type(ERL_NIF_TERM type, size_t key_len)
+{
+    struct mac_type_t* p = NULL;
+    for (p = mac_types; p->name.atom != atom_false; p++) {
+	if (type == p->name.atom) {
+            if ((p->key_len == 0) || (p->key_len == key_len))
+                return p;
+	}
+    }
+    return NULL;
+}
+
+struct mac_type_t* get_mac_type_no_key(ERL_NIF_TERM type)
 {
     struct mac_type_t* p = NULL;
     for (p = mac_types; p->name.atom != atom_false; p++) {
@@ -193,9 +210,12 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto err;
         }
 
-    if (!(macp = get_mac_type(argv[0])))
+    if (!(macp = get_mac_type(argv[0], key_bin.size)))
         {
-            return_term = EXCP_BADARG(env, "Unknown mac algorithm");
+            if (!get_mac_type_no_key(argv[0]))
+                return_term = EXCP_BADARG(env, "Unknown mac algorithm");
+            else
+                return_term = EXCP_BADARG(env, "Bad key length");
             goto err;
         }
 
@@ -294,11 +314,6 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ************/
 #ifdef HAVE_POLY1305
     case POLY1305_mac:
-        if (key_bin.size != 32)
-            {
-                return_term = EXCP_BADARG(env, "Bad key size, != 32 bytes");
-                goto err;
-            }
         /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
         pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ NULL, key_bin.data,  key_bin.size);
         break;
@@ -472,9 +487,12 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto err;
         }
 
-    if (!(macp = get_mac_type(argv[0])))
+    if (!(macp = get_mac_type(argv[0], key_bin.size)))
         {
-            return_term = EXCP_BADARG(env, "Unknown mac algorithm");
+            if (!get_mac_type_no_key(argv[0]))
+                return_term = EXCP_BADARG(env, "Unknown mac algorithm");
+            else
+                return_term = EXCP_BADARG(env, "Bad key length");
             goto err;
         }
 
@@ -558,11 +576,6 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ************/
 #ifdef HAVE_POLY1305
     case POLY1305_mac:
-        if (key_bin.size != 32)
-            {
-                return_term = EXCP_BADARG(env, "Bad key size, != 32 bytes");
-                goto err;
-            }
         /* poly1305 implies that EVP_PKEY_new_raw_private_key exists */
         pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_POLY1305, /*engine*/ NULL, key_bin.data,  key_bin.size);
         break;
