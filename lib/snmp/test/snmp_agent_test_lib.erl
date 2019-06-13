@@ -1340,7 +1340,7 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	    io_format_expect("got timeout (16) when system events:"
                              "~n   ~p", [SysEvs]),
             if
-                (SysEvs =/= []) ->
+                (SysEvs =:= []) ->
                     Error;
                 true ->
                     {skip, {system_events, SysEvs}}
