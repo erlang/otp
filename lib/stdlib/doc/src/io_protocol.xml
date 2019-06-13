@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1999</year>
-      <year>2016</year>
+      <year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -168,16 +168,6 @@ ok
         returns it "as is".</item>
     </list>
 
-    <p>For backward compatibility, the following <c>Request</c>s are also to be
-      handled by an I/O server (they are not to be present after
-      Erlang/OTP R15B):</p>
-
-    <pre>
-{put_chars, Characters}
-{put_chars, Module, Function, Args}</pre>
-
-    <p>These are to behave as <c>{put_chars, latin1, Characters}</c> and
-      <c>{put_chars, latin1, Module, Function, Args}</c>, respectively.</p>
   </section>
 
   <section>
@@ -332,19 +322,6 @@ eof
       </item>
     </list>
 
-    <p>For backward compatibility, the following <c>Request</c>s are also to be
-      handled by an I/O server (they are not to be present after
-      Erlang/OTP R15B):</p>
-
-    <pre>
-{get_until, Prompt, Module, Function, ExtraArgs}
-{get_chars, Prompt, N}
-{get_line, Prompt}</pre>
-
-    <p>These are to behave as
-      <c>{get_until, latin1, Prompt, Module, Function, ExtraArgs}</c>,
-      <c>{get_chars, latin1, Prompt, N}</c>, and
-      <c>{get_line, latin1, Prompt}</c>, respectively.</p>
   </section>
 
   <section>
@@ -636,24 +613,6 @@ request({requests, Reqs}, State) -&gt;
     <p>The multi-request tag (<c>requests</c>) is handled in a separate loop
       function applying the requests in the list one after another, returning
       the last result.</p>
-
-    <p>We need to handle backward compatibility and the
-      <seealso marker="kernel:file"><c>file</c></seealso> module (which
-      uses the old requests until backward compatibility with pre-R13 nodes is
-      no longer needed). Notice that the I/O server does not work with a simple
-      <c>file:write/2</c> if these are not added:</p>
-
-    <code>
-request({put_chars,Chars}, State) -&gt;
-    request({put_chars,latin1,Chars}, State);
-request({put_chars,M,F,As}, State) -&gt;
-    request({put_chars,latin1,M,F,As}, State);
-request({get_chars,Prompt,N}, State) -&gt;
-    request({get_chars,latin1,Prompt,N}, State);
-request({get_line,Prompt}, State) -&gt;
-    request({get_line,latin1,Prompt}, State);
-request({get_until, Prompt,M,F,As}, State) -&gt;
-    request({get_until,latin1,Prompt,M,F,As}, State);</code>
 
     <p><c>{error, request}</c> must be returned if the request is not
       recognized:</p>
