@@ -100,27 +100,6 @@ int erts_fun_table_sz(void)
 }
 
 ErlFunEntry*
-erts_put_fun_entry(Eterm mod, int uniq, int index)
-{
-    ErlFunEntry template;
-    ErlFunEntry* fe;
-    erts_aint_t refc;
-    ASSERT(is_atom(mod));
-    template.old_uniq = uniq;
-    template.old_index = index;
-    template.module = mod;
-    erts_fun_write_lock();
-    fe = (ErlFunEntry *) hash_put(&erts_fun_table, (void*) &template);
-    sys_memset(fe->uniq, 0, sizeof(fe->uniq));
-    fe->index = 0;
-    refc = erts_refc_inctest(&fe->refc, 0);
-    if (refc < 2) /* New or pending delete */
-	erts_refc_inc(&fe->refc, 1);
-    erts_fun_write_unlock();
-    return fe;
-}
-
-ErlFunEntry*
 erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
 		    byte* uniq, int index, int arity)
 {

@@ -74,7 +74,6 @@ void erts_init_fun_table(void);
 void erts_fun_info(fmtfn_t, void *);
 int erts_fun_table_sz(void);
 
-ErlFunEntry* erts_put_fun_entry(Eterm mod, int uniq, int index);
 ErlFunEntry* erts_get_fun_entry(Eterm mod, int uniq, int index);
 
 ErlFunEntry* erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
