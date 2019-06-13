@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed an incorrect type determination for constructed
+	    binaries, which could cause <c>is_binary</c> checks to
+	    succeed when they shouldn't have.</p>
+          <p>
+	    Own Id: OTP-15872</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
