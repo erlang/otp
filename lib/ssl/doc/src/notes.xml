@@ -27,6 +27,36 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Returned "alert error string" is now same as logged alert
+	    string</p>
+          <p>
+	    Own Id: OTP-15844</p>
+        </item>
+        <item>
+          <p>
+	    Fix returned extension map fields to follow the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-15862 Aux Id: ERL-951 </p>
+        </item>
+        <item>
+          <p>
+	    Avoid DTLS crash due to missing gen_server return value
+	    in DTLS packet demux process.</p>
+          <p>
+	    Own Id: OTP-15864 Aux Id: ERL-962 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
