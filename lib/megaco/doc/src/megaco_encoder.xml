@@ -42,13 +42,13 @@
 
   <section>
     <title>DATA TYPES</title>
-    <description>
+    <note>
       <p>Note that the actual definition of (some of) these records depend on
       the megaco protocol version used. For instance, the
       <c>'TransactionReply'</c> record
       has two more fields in version 3, so a simple erlang type definition
       cannot be made here. </p>
-    </description>
+    </note>
     <code type="none"><![CDATA[
 protocol_version() = integer()
 segment_no()       = integer()
