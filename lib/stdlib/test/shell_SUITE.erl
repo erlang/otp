@@ -3141,25 +3141,16 @@ io_request({get_geometry,columns}, S) ->
     {ok,80,S};
 io_request({get_geometry,rows}, S) ->
     {ok,24,S};
-io_request({put_chars,Chars}, S) ->
-    {ok,ok,S#state{reply = [S#state.reply | Chars]}};
 io_request({put_chars,latin1,Chars}, S) ->
     {ok,ok,S#state{reply = [S#state.reply | Chars]}};
 io_request({put_chars,unicode,Chars0}, S) ->
     Chars = unicode:characters_to_list(Chars0),
     {ok,ok,S#state{reply = [S#state.reply | Chars]}};
-io_request({put_chars,Mod,Func,Args}, S) ->
-    case catch apply(Mod, Func, Args) of
-        Chars when is_list(Chars) -> 
-            io_request({put_chars,Chars}, S)
-    end;
 io_request({put_chars,Enc,Mod,Func,Args}, S) ->
     case catch apply(Mod, Func, Args) of
         Chars when is_list(Chars) -> 
             io_request({put_chars,Enc,Chars}, S)
     end;
-io_request({get_until,_Prompt,Mod,Func,ExtraArgs}, S) ->
-    get_until(Mod, Func, ExtraArgs, S, latin1);
 io_request({get_until,Enc,_Prompt,Mod,Func,ExtraArgs}, S) ->
     get_until(Mod, Func, ExtraArgs, S, Enc).
 
