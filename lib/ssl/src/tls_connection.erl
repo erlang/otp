@@ -317,8 +317,7 @@ handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data},
                     _ ->
                         HsEnv = State#state.handshake_env,
                         {next_state, StateName, 
-                         State#state{protocol_buffers = Buffers,
-                                     handshake_env = 
+                         State#state{handshake_env = 
                                          HsEnv#handshake_env{unprocessed_handshake_events 
                                                              = unprocessed_events(Events)}}, Events}
                 end
