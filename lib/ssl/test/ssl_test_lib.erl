@@ -1105,7 +1105,7 @@ run_client_error(Opts) ->
     ct:log("~p:~p~nssl:connect(~p, ~p, ~p)~n", [?MODULE,?LINE, Host, Port, Options]),
     Error = Transport:connect(Host, Port, Options),
     case Error of
-        {error, {tls_alert, _}} ->
+        {error, _} ->
             Pid ! {self(), Error};
         {ok, _Socket} ->
             receive
