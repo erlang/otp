@@ -356,6 +356,7 @@ read_config_file(Dir, File, Order, Check) ->
 
 %% ---- config file utility functions ----
 
+-dialyzer({nowarn_function, check_ok/1}). % Future compat
 check_ok(ok) ->
     ok;
 check_ok({ok, _}) ->
