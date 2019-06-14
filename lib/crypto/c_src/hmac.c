@@ -18,6 +18,18 @@
  * %CopyrightEnd%
  */
 
+
+/*****************************************************************
+ *
+ * This file has functions for compatibility with cryptolibs
+ * lacking the EVP_Digest API.
+ *
+ * See mac.c for the implementation using the EVP interface.
+ *
+ ****************************************************************/
+
+#ifndef HAS_EVP_PKEY_CTX
+
 #include "hmac.h"
 #include "digest.h"
 
@@ -47,61 +59,6 @@ int init_hmac_ctx(ErlNifEnv *env) {
     return 0;
 }
 
-ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Key, Data) or (Type, Key, Data, MacSize) */
-    struct digest_type_t *digp = NULL;
-    ErlNifBinary         key, data;
-    unsigned char        buff[EVP_MAX_MD_SIZE];
-    unsigned             size = 0, req_size = 0;
-    ERL_NIF_TERM         ret;
-    unsigned char        *outp;
-
-    ASSERT(argc == 3 || argc == 4);
-
-    if ((digp = get_digest_type(argv[0])) == NULL)
-        goto bad_arg;
-    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
-        goto bad_arg;
-    if (key.size > INT_MAX)
-        goto bad_arg;
-    if (!enif_inspect_iolist_as_binary(env, argv[2], &data))
-        goto bad_arg;
-    if (argc == 4) {
-        if (!enif_get_uint(env, argv[3], &req_size))
-            goto bad_arg;
-    }
-
-    if (digp->md.p == NULL)
-        goto err;
-    if (HMAC(digp->md.p,
-             key.data, (int)key.size,
-             data.data, data.size,
-             buff, &size) == NULL)
-        goto err;
-
-    ASSERT(0 < size && size <= EVP_MAX_MD_SIZE);
-    CONSUME_REDS(env, data);
-
-    if (argc == 4) {
-        if (req_size > size)
-            goto bad_arg;
-
-        size = req_size;
-    }
-
-    if ((outp = enif_make_new_binary(env, size, &ret)) == NULL)
-        goto err;
-
-    memcpy(outp, buff, size);
-    return ret;
-
- bad_arg:
-    return enif_make_badarg(env);
-
- err:
-    return atom_notsup;
-}
-
 static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
 {
     if (obj == NULL)
@@ -118,17 +75,17 @@ static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
 }
 
 ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Key) */
+{/* (hmac, Type, Key) */
     struct digest_type_t *digp = NULL;
     ErlNifBinary         key;
     ERL_NIF_TERM         ret;
     struct hmac_context  *obj = NULL;
 
-    ASSERT(argc == 2);
+    ASSERT(argc == 3);
 
-    if ((digp = get_digest_type(argv[0])) == NULL)
+    if ((digp = get_digest_type(argv[1])) == NULL)
         goto bad_arg;
-    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
+    if (!enif_inspect_iolist_as_binary(env, argv[2], &key))
         goto bad_arg;
     if (key.size > INT_MAX)
         goto bad_arg;
@@ -268,3 +225,44 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 }
 
+
+
+int hmac_low_level(ErlNifEnv* env, const EVP_MD *md,
+                   ErlNifBinary key_bin, ErlNifBinary text,
+                   ErlNifBinary *ret_bin, int *ret_bin_alloc, ERL_NIF_TERM *return_term)
+{
+    unsigned int size_int;
+    size_t size;
+
+    /* Find the needed space */
+    if (HMAC(md,
+             key_bin.data, (int)key_bin.size,
+             text.data, text.size,
+             NULL, &size_int) == NULL)
+        {
+            *return_term = EXCP_ERROR(env, "Get HMAC size failed");
+            return 0;
+        }
+
+    size = (size_t)size_int; /* Otherwise "size" is unused in 0.9.8.... */
+    if (!enif_alloc_binary(size, ret_bin))
+        {
+            *return_term = EXCP_ERROR(env, "Alloc binary");
+            return 0;
+        }
+    *ret_bin_alloc = 1;
+
+    /* And do the real HMAC calc */
+    if (HMAC(md,
+             key_bin.data, (int)key_bin.size,
+             text.data, text.size,
+             ret_bin->data, &size_int) == NULL)
+        {
+            *return_term = EXCP_ERROR(env, "HMAC sign failed");
+            return 0;
+        }
+                    
+    return 1;
+}
+
+#endif

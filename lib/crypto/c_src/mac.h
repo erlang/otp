@@ -18,11 +18,21 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_POLY1305_H__
-#define E_POLY1305_H__ 1
+#ifndef E_MAC_H__
+#define E_MAC_H__ 1
 
 #include "common.h"
 
-ERL_NIF_TERM poly1305_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+int init_mac_ctx(ErlNifEnv *env);
 
-#endif /* E_POLY1305_H__ */
+void init_mac_types(ErlNifEnv* env);
+
+ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env);
+
+ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM mac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM mac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+#endif /* E_MAC_H__ */

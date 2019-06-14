@@ -28,9 +28,6 @@
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
--export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
--export([cmac/3, cmac/4]).
--export([poly1305/2]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
 -export([rand_seed/0, rand_seed_alg/1, rand_seed_alg/2]).
 -export([rand_seed_s/0, rand_seed_alg_s/1, rand_seed_alg_s/2]).
@@ -48,6 +45,9 @@
 -export([rand_seed/1]).
 
 %% Old interface. Now implemented with the New interface
+-export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
+-export([cmac/3, cmac/4]).
+-export([poly1305/2]).
 -export([stream_init/2, stream_init/3,
          stream_encrypt/2,
          stream_decrypt/2,
@@ -62,7 +62,9 @@
          crypto_one_time_aead/6, crypto_one_time_aead/7,
          crypto_dyn_iv_init/3,
          crypto_dyn_iv_update/3,
-         supports/1
+         supports/1,
+         mac/3, mac/4, macN/4, macN/5,
+         mac_init/2, mac_init/3, mac_update/2, mac_final/1, mac_finalN/2
         ]).
 
 
@@ -109,9 +111,10 @@
               stream_state/0,
               hmac_state/0,
               hash_state/0,
-              crypto_state/0
+              crypto_state/0,
+              mac_state/0
              ]).
-   
+
 %% Private. For tests.
 -export([packed_openssl_version/4, engine_methods_convert_to_bitmask/2,
 	 get_test_engine/0]).
@@ -136,7 +139,7 @@
 -type rsa_private() :: [key_integer()] . % [E, N, D] | [E, N, D, P1, P2, E1, E2, C]
 -type rsa_params() :: {ModulusSizeInBits::integer(), PublicExponent::key_integer()} .
 
--type dss_public() :: [key_integer()] . % [P, Q, G, Y] 
+-type dss_public() :: [key_integer()] . % [P, Q, G, Y]
 -type dss_private() :: [key_integer()] . % [P, Q, G, X]
 
 -type ecdsa_public()  :: key_integer() .
@@ -282,7 +285,7 @@
 %%% New cipher schema
 %%%
 -type cipher() :: cipher_no_iv()
-                | cipher_iv() 
+                | cipher_iv()
                 | cipher_aead() .
 
 -type cipher_no_iv() :: aes_128_ecb
@@ -326,30 +329,13 @@
 -type cipher_aead() :: aes_128_ccm
                      | aes_192_ccm
                      | aes_256_ccm
-                       
+
                      | aes_128_gcm
                      | aes_192_gcm
                      | aes_256_gcm
 
                      | chacha20_poly1305 .
 
-
-%% -type retired_cipher_no_iv_aliases() :: aes_ecb .
-
-%% -type retired_cipher_iv_aliases() :: aes_cbc
-%%                                    | aes_cbc128  % aes_128_cbc
-%%                                    | aes_cbc256  % aes_256_cbc
-%%                                    | aes_cfb128
-%%                                    | aes_cfb8
-%%                                    | aes_ctr
-%%                                    | des3_cbc     % des_ede3_cbc
-%%                                    | des_ede3     % des_ede3_cbc
-%%                                    | des_ede3_cbf % des_ede3_cfb
-%%                                    | des3_cbf     % des_ede3_cfb
-%%                                    | des3_cfb .   % des_ede3_cfb 
-
-%% -type retired_cipher_aead_aliases() :: aes_ccm
-%%                                      | aes_gcm .
 
 %%%----------------------------------------------------------------
 %%% Old cipher scheme
@@ -365,7 +351,7 @@
 -type stream_cipher() :: ctr_cipher()
                        | chacha20
                        | rc4 .
-                         
+
 
 %%%----
 -type cbc_cipher()  :: aes_128_cbc
@@ -374,7 +360,7 @@
                      | blowfish_cbc
                      | des_cbc
                      | des_ede3_cbc
-                     | rc2_cbc 
+                     | rc2_cbc
                      | retired_cbc_cipher_aliases() .
 
 -type retired_cbc_cipher_aliases() :: aes_cbc      % aes_*_cbc
@@ -382,7 +368,7 @@
                                     | aes_cbc256   % aes_256_cbc
                                     | des3_cbc     % des_ede3_cbc
                                     | des_ede3 .   % des_ede3_cbc
-                                    
+
 %%%----
 -type cfb_cipher() :: aes_128_cfb128
                     | aes_192_cfb128
@@ -398,7 +384,7 @@
 -type retired_cfb_cipher_aliases() :: aes_cfb8      % aes_*_cfb8
                                     | aes_cfb128    % aes_*_cfb128
                                     | des3_cbf      % des_ede3_cfb, cfb misspelled
-                                    | des3_cfb      % des_ede3_cfb 
+                                    | des3_cfb      % des_ede3_cfb
                                     | des_ede3_cbf .% cfb misspelled
 
 
@@ -455,6 +441,19 @@
 %%   error:{error,Reason::term()}
 -type descriptive_error() :: no_return() .
 
+
+%%--------------------------------------------------------------------
+%%
+%% Make the new descriptive_error() look like the old run_time_error()
+%%
+-define(COMPAT(CALL),
+        try begin CALL end
+        catch
+            error:{error, {_File,_Line}, _Reason} ->
+                error(badarg);
+            error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
+                error(E)
+        end).
 
 %%--------------------------------------------------------------------
 -compile(no_native).
@@ -580,7 +579,7 @@ hash(Type, Data) ->
 
 -spec hash_init(Type) -> State when Type :: hash_algorithm(),
                                     State :: hash_state().
-hash_init(Type) -> 
+hash_init(Type) ->
     notsup_to_error(hash_init_nif(Type)).
 
 -spec hash_update(State, Data) -> NewState when State :: hash_state(),
@@ -599,25 +598,139 @@ hash_final(Context) ->
 %%%================================================================
 %%%
 %%% MACs (Message Authentication Codes)
-%%% 
+%%%
 %%%================================================================
-
-%%%---- HMAC
 
 -type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
 
-%%%---- hmac/3,4 
+-type cmac_cipher_algorithm() :: aes_128_cbc | aes_192_cbc | aes_256_cbc | blowfish_cbc
+                               | des_cbc | des_ede3_cbc | rc2_cbc
+                               | aes_128_cfb128 | aes_192_cfb128 | aes_256_cfb128
+                               | aes_128_cfb8 | aes_192_cfb8 | aes_256_cfb8
+                                 .
 
--spec hmac(Type, Key, Data) -> 
+%%%----------------------------------------------------------------
+%%% Calculate MAC for the whole text at once
+
+-spec mac(Type :: poly1305, Key, Data) -> Mac | descriptive_error()
+                     when Key :: iodata(),
+                          Data :: iodata(),
+                          Mac :: binary().
+
+mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
+
+
+-spec mac(Type, SubType, Key, Data) -> Mac | descriptive_error()
+                     when Type :: hmac | cmac | poly1305,
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                          Key :: iodata(),
+                          Data :: iodata(),
+                          Mac :: binary().
+
+mac(Type, SubType, Key, Data) -> mac_nif(Type, SubType, Key, Data).
+
+
+
+-spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac | descriptive_error()
+                     when Key :: iodata(),
+                          Data :: iodata(),
+                          Mac :: binary(),
+                          MacLength :: pos_integer().
+
+macN(Type, Key, Data, MacLength) ->
+    macN(Type, undefined, Key, Data, MacLength).
+
+
+-spec macN(Type, SubType, Key, Data, MacLength) -> Mac | descriptive_error()
+                     when Type :: hmac | cmac | poly1305,
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                          Key :: iodata(),
+                          Data :: iodata(),
+                          Mac :: binary(),
+                          MacLength :: pos_integer().
+
+macN(Type, SubType, Key, Data, MacLength) ->
+    erlang:binary_part(mac(Type,SubType,Key,Data), 0, MacLength).
+
+
+%%%----------------------------------------------------------------
+%%% Calculate the MAC by uppdating by pieces of the text
+
+-opaque mac_state() :: reference() .
+
+-spec mac_init(Type :: poly1305, Key) -> State | descriptive_error()
+                          when Key :: iodata(),
+                               State :: mac_state() .
+mac_init(poly1305, Key) ->
+    mac_init_nif(poly1305, undefined, Key).
+
+
+-spec mac_init(Type, SubType, Key) -> State | descriptive_error()
+                          when Type :: hmac | cmac | poly1305,
+                               SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
+                               Key :: iodata(),
+                               State :: mac_state() .
+mac_init(Type, SubType, Key) ->
+    mac_init_nif(Type, SubType, Key).
+
+
+-spec mac_update(State0, Data) -> State | descriptive_error()
+                     when Data :: iodata(),
+                          State0 :: mac_state(),
+                          State :: mac_state().
+mac_update(Ref, Data) ->
+    mac_update_nif(Ref, Data).
+
+
+
+-spec mac_final(State) -> Mac | descriptive_error()
+                              when State :: mac_state(),
+                                   Mac :: binary().
+mac_final(Ref) ->
+    mac_final_nif(Ref).
+
+
+-spec mac_finalN(State, MacLength) -> Mac | descriptive_error()
+                              when State :: mac_state(),
+                                   MacLength :: pos_integer(),
+                                   Mac :: binary().
+mac_finalN(Ref, MacLength) ->
+    erlang:binary_part(mac_final(Ref), 0, MacLength).
+
+
+%%%----------------------------------------------------------------
+%%% NIFs for the functions above
+
+mac_nif(_Type, _SubType, _Key, _Data) -> ?nif_stub.
+
+mac_init_nif(_Type, _SubType, _Key) -> ?nif_stub.
+mac_update_nif(_Ref, _Data) -> ?nif_stub.
+mac_final_nif(_Ref) -> ?nif_stub.
+
+%%%================================================================
+%%%
+%%% The "Old API", kept for compatibility
+%%%
+%%%================================================================
+
+%%%----------------------------------------------------------------
+%%%----------------------------------------------------------------
+%%% Message Authentication Codes, MAC
+%%%
+
+%%%---- HMAC
+
+%%%---- hmac/3,4
+
+-spec hmac(Type, Key, Data) ->
                   Mac when Type :: hmac_hash_algorithm(),
                            Key :: iodata(),
                            Data :: iodata(),
                            Mac :: binary() .
 hmac(Type, Key, Data) ->
-    Data1 = iolist_to_binary(Data),
-    hmac(Type, Key, Data1, undefined, erlang:byte_size(Data1), max_bytes()).
+    ?COMPAT(mac(hmac, Type, Key, Data)).
 
--spec hmac(Type, Key, Data, MacLength) -> 
+-spec hmac(Type, Key, Data, MacLength) ->
                   Mac when Type :: hmac_hash_algorithm(),
                            Key :: iodata(),
                            Data :: iodata(),
@@ -625,45 +738,43 @@ hmac(Type, Key, Data) ->
                            Mac :: binary() .
 
 hmac(Type, Key, Data, MacLength) ->
-    Data1 = iolist_to_binary(Data),
-    hmac(Type, Key, Data1, MacLength, erlang:byte_size(Data1), max_bytes()).
+    ?COMPAT(macN(hmac, Type, Key, Data, MacLength)).
 
 %%%---- hmac_init, hamc_update, hmac_final
 
--opaque hmac_state() :: binary().
+-opaque hmac_state() :: mac_state(). % Was: binary().
 
 -spec hmac_init(Type, Key) ->
                        State when Type :: hmac_hash_algorithm(),
                                   Key :: iodata(),
                                   State :: hmac_state() .
 hmac_init(Type, Key) ->
-    notsup_to_error(hmac_init_nif(Type, Key)).
+    ?COMPAT(mac_init(hmac, Type, Key)).
 
 %%%---- hmac_update
 
 -spec hmac_update(State, Data) -> NewState when Data :: iodata(),
                                                 State :: hmac_state(),
                                                 NewState :: hmac_state().
-hmac_update(State, Data0) ->
-    Data = iolist_to_binary(Data0),
-    hmac_update(State, Data, erlang:byte_size(Data), max_bytes()).
+hmac_update(State, Data) ->
+    ?COMPAT(mac_update(State, Data)).
 
 %%%---- hmac_final
 
 -spec hmac_final(State) -> Mac when State :: hmac_state(),
                                     Mac :: binary().
 hmac_final(Context) ->
-    notsup_to_error(hmac_final_nif(Context)).
+    ?COMPAT(mac_final(Context)).
 
 -spec hmac_final_n(State, HashLen) -> Mac when State :: hmac_state(),
                                                HashLen :: integer(),
                                                Mac :: binary().
 hmac_final_n(Context, HashLen) ->
-    notsup_to_error(hmac_final_nif(Context, HashLen)).
+    ?COMPAT(mac_finalN(Context, HashLen)).
 
 %%%---- CMAC
 
--define(CMAC_CIPHER_ALGORITHM, cbc_cipher() | cfb_cipher() | blowfish_cbc | des_ede3 | rc2_cbc  ).
+-define(CMAC_CIPHER_ALGORITHM, cbc_cipher() | cfb_cipher() | blowfish_cbc | des_ede3 | rc2_cbc ).
 
 -spec cmac(Type, Key, Data) ->
                   Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
@@ -671,42 +782,31 @@ hmac_final_n(Context, HashLen) ->
                            Data :: iodata(),
                            Mac :: binary().
 cmac(Type, Key, Data) ->
-    notsup_to_error(cmac_nif(alias(Type), Key, Data)).
+    ?COMPAT(mac(cmac, alias(Type), Key, Data)).
 
 -spec cmac(Type, Key, Data, MacLength) ->
                   Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
                            Key :: iodata(),
                            Data :: iodata(),
-                           MacLength :: integer(), 
+                           MacLength :: integer(),
                            Mac :: binary().
 
 cmac(Type, Key, Data, MacLength) ->
-    erlang:binary_part(cmac(alias(Type), Key, Data), 0, MacLength).
+    ?COMPAT(macN(cmac, alias(Type), Key, Data, MacLength)).
 
 %%%---- POLY1305
 
 -spec poly1305(iodata(), iodata()) -> Mac when Mac ::  binary().
 
 poly1305(Key, Data) ->
-    poly1305_nif(Key, Data).
+    ?COMPAT(mac(poly1305, Key, Data)).
 
-%%%================================================================
-%%%
-%%% Encrypt/decrypt, The "Old API"
-%%%
-%%%================================================================
+%%%----------------------------------------------------------------
+%%%----------------------------------------------------------------
+%%% Ciphers
 
--define(COMPAT(CALL),
-        try begin CALL end
-        catch
-            error:{error, {_File,_Line}, _Reason} ->
-                error(badarg);
-            error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
-                error(E)
-        end).
 
 %%%---- Cipher info
-%%%----------------------------------------------------------------
 -spec cipher_info(Type) -> Result | run_time_error()
                                when Type :: cipher(),
                                     Result :: #{key_length := integer(),
@@ -845,7 +945,7 @@ block_decrypt(Type, Key0, CryptoText) ->
                                                Key :: iodata(),
                                                IVec ::binary(),
                                                State :: stream_state() .
-stream_init(Type, Key0, IVec) when is_binary(IVec) -> 
+stream_init(Type, Key0, IVec) when is_binary(IVec) ->
     Key = iolist_to_binary(Key0),
     Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
                                      Key, iolist_to_binary(IVec),
@@ -933,7 +1033,7 @@ next_iv(Type, Data, _Ivec) ->
 %%%----------------------------------------------------------------
 %%%
 %%% Create and initialize a new state for encryption or decryption
-%%% 
+%%%
 
 -spec crypto_init(Cipher, Key, EncryptFlag) -> State | descriptive_error()
                                                    when Cipher :: cipher_no_iv(),
@@ -971,12 +1071,12 @@ crypto_dyn_iv_init(Cipher, Key, EncryptFlag) ->
 %%% Encrypt/decrypt a sequence of bytes.  The sum of the sizes
 %%% of all blocks must be an integer multiple of the crypto's
 %%% blocksize.
-%%% 
+%%%
 
 -spec crypto_update(State, Data) -> Result | descriptive_error()
-                                        when State :: crypto_state(),
-                                             Data :: iodata(),
-                                             Result :: binary() .
+                            when State :: crypto_state(),
+                                 Data :: iodata(),
+                                 Result :: binary() .
 crypto_update(State, Data0) ->
     case iolist_to_binary(Data0) of
         <<>> ->
@@ -1005,7 +1105,7 @@ crypto_dyn_iv_update(State, Data0, IV) ->
 %%%
 %%% Encrypt/decrypt one set bytes.
 %%% The size must be an integer multiple of the crypto's blocksize.
-%%% 
+%%%
 
 -spec crypto_one_time(Cipher, Key, Data, EncryptFlag) ->
                              Result | descriptive_error()
@@ -1128,7 +1228,7 @@ ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
             false ->
                 Ciphers
         end).
-    
+
 
 prepend_old_aliases(L0) ->
     L1 = ?if_also(des_ede3_cbc, L0,
@@ -1472,7 +1572,7 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 %%% Sign
 
 -spec sign(Algorithm, DigestType, Msg, Key)
-          -> Signature 
+          -> Signature
                  when Algorithm :: pk_sign_verify_algs(),
                       DigestType :: rsa_digest_type()
                                   | dss_digest_type()
@@ -1490,7 +1590,7 @@ sign(Algorithm, Type, Data, Key) ->
 
 
 -spec sign(Algorithm, DigestType, Msg, Key, Options)
-          -> Signature 
+          -> Signature
                  when Algorithm :: pk_sign_verify_algs(),
                       DigestType :: rsa_digest_type()
                                   | dss_digest_type()
@@ -1587,7 +1687,7 @@ sign_verify_compatibility(Algorithm0, Type0, _Digest) ->
                      | rsa_x931_padding
                      | rsa_no_padding.
 
--type rsa_opt() :: {rsa_padding, rsa_padding()} 
+-type rsa_opt() :: {rsa_padding, rsa_padding()}
                  | {signature_md, atom()}
                  | {rsa_mgf1_md, sha}
                  | {rsa_oaep_label, binary()}
@@ -1660,7 +1760,7 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 %%%================================================================
 
 -spec generate_key(Type, Params)
-                 -> {PublicKey, PrivKeyOut} 
+                 -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | rsa | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
@@ -1670,7 +1770,7 @@ generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
 -spec generate_key(Type, Params, PrivKeyIn)
-                 -> {PublicKey, PrivKeyOut} 
+                 -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | rsa | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
@@ -1821,7 +1921,7 @@ mod_pow(Base, Exponent, Prime) ->
 %%%======================================================================
 %%%
 %%% Engine functions
-%%% 
+%%%
 %%%======================================================================
 
 %%%---- Refering to keys stored in an engine:
@@ -2128,7 +2228,7 @@ ensure_engine_unloaded(Engine) ->
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/2
 %%----------------------------------------------------------------------
--spec ensure_engine_unloaded(Engine, EngineMethods) -> 
+-spec ensure_engine_unloaded(Engine, EngineMethods) ->
                                     Result when Engine :: engine_ref(),
                                                 EngineMethods :: [engine_method_type()],
                                                 Result :: ok | {error, Reason::term()}.
@@ -2210,7 +2310,7 @@ path2bin(Path) when is_list(Path) ->
 %%%================================================================
 %%%
 %%% Internal functions
-%%% 
+%%%
 %%%================================================================
 
 max_bytes() ->
@@ -2241,43 +2341,6 @@ hash_nif(_Hash, _Data) -> ?nif_stub.
 hash_init_nif(_Hash) -> ?nif_stub.
 hash_update_nif(_State, _Data) -> ?nif_stub.
 hash_final_nif(_State) -> ?nif_stub.
-
-%% HMAC --------------------------------------------------------------------
-
-hmac(Type, Key, Data, MacSize, Size, MaxBytes) when Size =< MaxBytes ->
-    notsup_to_error(
-    case MacSize of
-          undefined -> hmac_nif(Type, Key, Data);
-          _         -> hmac_nif(Type, Key, Data, MacSize)
-      end);
-hmac(Type, Key, Data, MacSize, Size, MaxBytes) ->
-    State0 = hmac_init(Type, Key),
-    State1 = hmac_update(State0, Data, Size, MaxBytes),
-    case MacSize of
-        undefined -> hmac_final(State1);
-        _         -> hmac_final_n(State1, MacSize)
-    end.
-
-hmac_update(State, Data, Size, MaxBytes)  when Size =< MaxBytes ->
-    notsup_to_error(hmac_update_nif(State, Data));
-hmac_update(State0, Data, _, MaxBytes) ->
-    <<Increment:MaxBytes/binary, Rest/binary>> = Data,
-    State = notsup_to_error(hmac_update_nif(State0, Increment)),
-    hmac_update(State, Rest, erlang:byte_size(Rest), MaxBytes).
-
-hmac_nif(_Type, _Key, _Data) -> ?nif_stub.
-hmac_nif(_Type, _Key, _Data, _MacSize) -> ?nif_stub.
-hmac_init_nif(_Type, _Key) -> ?nif_stub.
-hmac_update_nif(_Context, _Data) -> ?nif_stub.
-hmac_final_nif(_Context) -> ?nif_stub.
-hmac_final_nif(_Context, _MacSize) -> ?nif_stub.
-
-%% CMAC
-cmac_nif(_Type, _Key, _Data) -> ?nif_stub.
-
-%% POLY1305
-poly1305_nif(_Key, _Data) -> ?nif_stub.
-
 
 %% CIPHERS --------------------------------------------------------------------
 

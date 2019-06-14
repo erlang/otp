@@ -31,7 +31,7 @@
 #include "api_ng.h"
 #include "bn.h"
 #include "cipher.h"
-#include "cmac.h"
+#include "mac.h"
 #include "dh.h"
 #include "digest.h"
 #include "dss.h"
@@ -46,7 +46,6 @@
 #include "info.h"
 #include "math.h"
 #include "pkey.h"
-#include "poly1305.h"
 #include "rand.h"
 #include "rsa.h"
 #include "srp.h"
@@ -74,13 +73,10 @@ static ErlNifFunc nif_funcs[] = {
     {"hash_init_nif", 1, hash_init_nif, 0},
     {"hash_update_nif", 2, hash_update_nif, 0},
     {"hash_final_nif", 1, hash_final_nif, 0},
-    {"hmac_nif", 3, hmac_nif, 0},
-    {"hmac_nif", 4, hmac_nif, 0},
-    {"hmac_init_nif", 2, hmac_init_nif, 0},
-    {"hmac_update_nif", 2, hmac_update_nif, 0},
-    {"hmac_final_nif", 1, hmac_final_nif, 0},
-    {"hmac_final_nif", 2, hmac_final_nif, 0},
-    {"cmac_nif", 3, cmac_nif, 0},
+    {"mac_nif", 4, mac_nif, 0},
+    {"mac_init_nif", 3, mac_init_nif, 0},
+    {"mac_update_nif", 2, mac_update_nif, 0},
+    {"mac_final_nif", 1, mac_final_nif, 0},
     {"cipher_info_nif", 1, cipher_info_nif, 0},
     {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif, 0},
     {"ng_crypto_init_nif", 4, ng_crypto_init_nif, 0},
@@ -111,8 +107,6 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_seed_nif", 1, rand_seed_nif, 0},
 
     {"aead_cipher", 7, aead_cipher, 0},
-
-    {"poly1305_nif", 2, poly1305_nif, 0},
 
     {"engine_by_id_nif", 1, engine_by_id_nif, 0},
     {"engine_init_nif", 1, engine_init_nif, 0},
@@ -181,9 +175,15 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!enif_inspect_binary(env, tpl_array[1], &lib_bin))
         return __LINE__;
 
+#ifdef HAS_EVP_PKEY_CTX
+    if (!init_mac_ctx(env)) {
+	return __LINE__;
+    }
+#else
     if (!init_hmac_ctx(env)) {
 	return __LINE__;
     }
+#endif
     if (!init_hash_ctx(env)) {
         return __LINE__;
     }
@@ -248,6 +248,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #endif /* OPENSSL_THREADS */
 
     init_digest_types(env);
+    init_mac_types(env);
     init_cipher_types(env);
     init_algorithms_types(env);
 
