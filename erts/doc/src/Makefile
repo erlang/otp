@@ -56,8 +56,7 @@ XML_REF3_EFILES = \
 	atomics.xml \
 	counters.xml \
 	zlib.xml \
-	socket.xml \
-	net.xml
+	socket.xml
 
 XML_REF3_FILES = \
 	$(XML_REF3_EFILES) \

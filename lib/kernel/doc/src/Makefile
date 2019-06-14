@@ -62,6 +62,7 @@ XML_REF3_FILES = application.xml \
         logger_disk_log_h.xml \
         logger_filters.xml \
         logger_formatter.xml \
+	net.xml \
 	net_adm.xml \
 	net_kernel.xml \
 	os.xml \
