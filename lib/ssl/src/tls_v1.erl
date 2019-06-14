@@ -606,8 +606,26 @@ signature_schemes(Version, SignatureSchemes) when is_tuple(Version)
                           Acc
                   end;
               %% Special clause for filtering out the legacy hash-sign tuples.
-              (_ , Acc) ->
-                  Acc
+              ({Hash, dsa = Sign} = Alg, Acc) ->
+                  case proplists:get_bool(dss, PubKeys)
+                      andalso proplists:get_bool(Hash, Hashes)
+                      andalso is_pair(Hash, Sign, Hashes)
+                  of
+                      true ->
+                          [Alg | Acc];
+                      false ->
+                          Acc
+                  end;
+              ({Hash, Sign} = Alg, Acc) ->
+                  case proplists:get_bool(Sign, PubKeys)
+                      andalso proplists:get_bool(Hash, Hashes)
+                      andalso is_pair(Hash, Sign, Hashes)
+                  of
+                      true ->
+                          [Alg | Acc];
+                      false ->
+                          Acc
+                  end
           end,
     Supported = lists:foldl(Fun, [], SignatureSchemes),
     lists:reverse(Supported);
