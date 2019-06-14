@@ -537,7 +537,10 @@ Option   :: {files,          [Filename :: string()]}
                              'plt_check' |
                              'plt_remove'}
           | {warnings,       [WarnOpts]}
-          | {get_warnings,   bool()}
+          | {get_warnings,   boolean()}
+          | {native,         boolean()}
+                               %% Defaults to false when invoked from Erlang
+          | {native_cache,   boolean()}
 
 WarnOpts :: error_handling
           | no_behaviours

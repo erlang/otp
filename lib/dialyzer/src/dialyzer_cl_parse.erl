@@ -316,7 +316,9 @@ common_options() ->
    {use_spec, get(dialyzer_options_use_contracts)},
    {warnings, get(dialyzer_warnings)},
    {check_plt, get(dialyzer_options_check_plt)},
-   {solvers, get(dialyzer_solvers)}].
+   {solvers, get(dialyzer_solvers)},
+   {native, get(dialyzer_options_native)},
+   {native_cache, get(dialyzer_options_native_cache)}].
 
 %%-----------------------------------------------------------------------
 
