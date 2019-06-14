@@ -47,6 +47,12 @@ XML_REF1_FILES = epmd.xml \
 	run_erl.xml \
 	start.xml
 
+ifeq ($(USE_ESOCK), yes)
+XML_REF3_ESOCK_EFILES = socket.xml
+else
+XML_REF3_ESOCK_EFILES =
+endif
+
 XML_REF3_EFILES = \
 	erl_prim_loader.xml \
 	erlang.xml \
@@ -56,7 +62,7 @@ XML_REF3_EFILES = \
 	atomics.xml \
 	counters.xml \
 	zlib.xml \
-	socket.xml
+	$(XML_REF3_ESOCK_EFILES)
 
 XML_REF3_FILES = \
 	$(XML_REF3_EFILES) \

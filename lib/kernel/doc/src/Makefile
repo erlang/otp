@@ -36,6 +36,13 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
+
+ifeq ($(USE_ESOCK), yes)
+XML_REF3_ESOCK_FILES = net.xml
+else
+XML_REF3_ESOCK_FILES =
+endif
+
 XML_REF3_FILES = application.xml \
 	auth.xml \
 	code.xml \
@@ -62,7 +69,7 @@ XML_REF3_FILES = application.xml \
         logger_disk_log_h.xml \
         logger_filters.xml \
         logger_formatter.xml \
-	net.xml \
+	$(XML_REF3_ESOCK_FILES) \
 	net_adm.xml \
 	net_kernel.xml \
 	os.xml \
