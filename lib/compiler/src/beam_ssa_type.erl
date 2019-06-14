@@ -1210,36 +1210,7 @@ get_type(#b_var{}=V, Ts) ->
     #{V:=T} = Ts,
     T;
 get_type(#b_literal{val=Val}, _Ts) ->
-    if
-        is_atom(Val) ->
-            beam_types:make_atom(Val);
-        is_float(Val) ->
-            float;
-        is_function(Val) ->
-            {arity,Arity} = erlang:fun_info(Val, arity),
-            #t_fun{arity=Arity};
-        is_integer(Val) ->
-            beam_types:make_integer(Val);
-        is_list(Val), Val =/= [] ->
-            cons;
-        is_map(Val) ->
-            #t_map{};
-        Val =:= {} ->
-            beam_types:make_tuple(0, true);
-        is_tuple(Val) ->
-            {Es, _} = foldl(fun(E, {Es0, Index}) ->
-                                    Type = get_type(#b_literal{val=E}, #{}),
-                                    Es = beam_types:set_element_type(Index,
-                                                                     Type,
-                                                                     Es0),
-                                    {Es, Index + 1}
-                            end, {#{}, 1}, tuple_to_list(Val)),
-            beam_types:make_tuple(tuple_size(Val), true, Es);
-        Val =:= [] ->
-            nil;
-        true ->
-            any
-    end.
+    beam_types:make_type_from_value(Val).
 
 %% infer_types(Var, Types, #d{}) -> {SuccTypes,FailTypes}
 %%  Looking at the expression that defines the variable Var, infer

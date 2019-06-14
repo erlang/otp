@@ -22,6 +22,8 @@
 
 -include("beam_types.hrl").
 
+-import(lists, [foldl/3]).
+
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
 -export([get_singleton_value/1,
@@ -30,6 +32,8 @@
          is_boolean_type/1]).
 
 -export([get_element_type/2, set_element_type/3]).
+
+-export([make_type_from_value/1]).
 
 -export([make_atom/1,
          make_boolean/0,
@@ -347,6 +351,31 @@ get_element_type(Index, Es) ->
 %%%
 %%% Type constructors
 %%%
+
+-spec make_type_from_value(term()) -> type().
+make_type_from_value(Value) ->
+    mtfv_1(Value).
+
+mtfv_1([]) -> nil;
+mtfv_1([_|_]) -> cons;
+mtfv_1(A) when is_atom(A) -> #t_atom{elements=[A]};
+mtfv_1(B) when is_binary(B) -> #t_bitstring{unit=8};
+mtfv_1(B) when is_bitstring(B) -> #t_bitstring{};
+mtfv_1(F) when is_float(F) -> float;
+mtfv_1(F) when is_function(F) ->
+    {arity, Arity} = erlang:fun_info(F, arity),
+    #t_fun{arity=Arity};
+mtfv_1(I) when is_integer(I) -> make_integer(I);
+mtfv_1(M) when is_map(M) -> #t_map{};
+mtfv_1(T) when is_tuple(T) ->
+    {Es,_} = foldl(fun(Val, {Es0, Index}) ->
+                           Type = mtfv_1(Val),
+                           Es = set_element_type(Index, Type, Es0),
+                           {Es, Index + 1}
+                   end, {#{}, 1}, tuple_to_list(T)),
+    #t_tuple{exact=true,size=tuple_size(T),elements=Es};
+mtfv_1(_Term) ->
+    any.
 
 -spec make_atom(atom()) -> type().
 make_atom(Atom) when is_atom(Atom) ->

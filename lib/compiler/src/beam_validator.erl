@@ -2014,32 +2014,18 @@ is_value_alive(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
 is_value_alive(_, _) ->
     false.
 
-get_literal_type(nil) -> glt_1([]);
-get_literal_type({atom,A}) when is_atom(A) -> glt_1(A);
-get_literal_type({float,F}) when is_float(F) -> glt_1(F);
-get_literal_type({integer,I}) when is_integer(I) -> glt_1(I);
-get_literal_type({literal,L}) -> glt_1(L);
-get_literal_type(T) -> error({not_literal,T}).
-
-glt_1([]) -> nil;
-glt_1([_|_]) -> cons;
-glt_1(A) when is_atom(A) -> #t_atom{elements=[A]};
-glt_1(B) when is_bitstring(B) -> #t_bitstring{};
-glt_1(F) when is_float(F) -> float;
-glt_1(F) when is_function(F) ->
-    {arity, Arity} = erlang:fun_info(F, arity),
-    #t_fun{arity=Arity};
-glt_1(I) when is_integer(I) -> beam_types:make_integer(I);
-glt_1(M) when is_map(M) -> #t_map{};
-glt_1(T) when is_tuple(T) ->
-    {Es,_} = foldl(fun(Val, {Es0, Index}) ->
-                           Type = glt_1(Val),
-                           Es = beam_types:set_element_type(Index, Type, Es0),
-                           {Es, Index + 1}
-                   end, {#{}, 1}, tuple_to_list(T)),
-    #t_tuple{exact=true,size=tuple_size(T),elements=Es};
-glt_1(_Term) ->
-    any.
+get_literal_type(nil) -> 
+    beam_types:make_type_from_value([]);
+get_literal_type({atom,A}) when is_atom(A) -> 
+    beam_types:make_type_from_value(A);
+get_literal_type({float,F}) when is_float(F) -> 
+    beam_types:make_type_from_value(F);
+get_literal_type({integer,I}) when is_integer(I) -> 
+    beam_types:make_type_from_value(I);
+get_literal_type({literal,L}) -> 
+    beam_types:make_type_from_value(L);
+get_literal_type(T) ->
+    error({not_literal,T}).
 
 %%%
 %%% Branch tracking
