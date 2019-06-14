@@ -168,6 +168,7 @@ do_get_subagents([], Res, _IsNotification) ->
 %%          #varbind |
 %%          List of #varbind
 %%-----------------------------------------------------------------
+
 try_get(IVb, IsNotification) when is_record(IVb, ivarbind) ->
     ?vtrace("try_get(ivarbind) -> entry with"
 	    "~n   IVb: ~p", [IVb]),
@@ -185,6 +186,7 @@ try_get({TableOid, TableVbs}, IsNotification) ->
 	NVbs ->
 	    NVbs ++ NoAccessVbs
     end.
+
 
 %%-----------------------------------------------------------------
 %% Make sure all requested columns are accessible.

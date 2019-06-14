@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -189,7 +189,8 @@ read(#tab{id = ID}, Key) ->
 write(#tab{id = ID, rec_name = RecName}, Rec) 
   when (is_tuple(Rec) andalso (element(1, Rec) =:= RecName)) ->
     ?vtrace("write to table ~p", [ID]),
-    ets:insert(ID, Rec).
+    ets:insert(ID, Rec),
+    ok.
 
 
 %% ---------------------------------------------------------------
@@ -213,7 +214,9 @@ delete(#tab{id = ID, file = File}) ->
 %% ---------------------------------------------------------------
 delete(#tab{id = ID}, Key) ->
     ?vtrace("delete from table ~p: ~p", [ID, Key]),
-    ets:delete(ID, Key).
+    ets:delete(ID, Key),
+    ok.
+        
 
 
 %% ---------------------------------------------------------------

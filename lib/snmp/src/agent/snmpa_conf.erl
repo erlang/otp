@@ -83,6 +83,34 @@
 
 
 
+-export_type([
+              usm_entry/0
+             ]).
+
+-type usm_entry() :: {
+                      EngineID    :: string(),
+                      UserName    :: string(),
+                      SecName     :: string(),
+                      Clone       :: zeroDotZero | [non_neg_integer()],
+                      AuthP       :: usmNoAuthProtocol |
+                                     usmHMACMD5AuthProtocol |
+                                     usmHMACSHAAuthProtocol,
+                      AuthKeyC    :: string(),
+                      OwnAuthKeyC :: string(),
+                      PrivP       :: usmNoPrivProtocol |
+                                     usmDESPrivProtocol |
+                                     usmAesCfb128Protocol,
+                      PrivKeyC    :: string(),
+                      OwnPrivKeyC :: string(),
+                      Public      :: string(),
+                      %% Size 16 for usmHMACMD5AuthProtocol
+                      %% Size 20 for usmHMACSHAAuthProtocol
+                      AuthKey     :: [non_neg_integer()],
+                      %% Size 16 for usmDESPrivProtocol | usmAesCfb128Protocol
+                      PrivKey     :: [non_neg_integer()]
+                     }.
+
+
 %%
 %% ------ agent.conf ------
 %%
