@@ -30,6 +30,10 @@ ERL_NIF_TERM atom_rsa_no_padding;
 ERL_NIF_TERM atom_signature_md;
 ERL_NIF_TERM atom_undefined;
 
+ERL_NIF_TERM atom_hmac;
+ERL_NIF_TERM atom_cmac;
+ERL_NIF_TERM atom_poly1305;
+
 ERL_NIF_TERM atom_ok;
 ERL_NIF_TERM atom_none;
 ERL_NIF_TERM atom_notsup;
@@ -155,6 +159,11 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_rsa_no_padding = enif_make_atom(env,"rsa_no_padding");
     atom_signature_md = enif_make_atom(env,"signature_md");
     atom_undefined = enif_make_atom(env,"undefined");
+
+    atom_hmac = enif_make_atom(env,"hmac");
+    atom_cmac = enif_make_atom(env,"cmac");
+    atom_poly1305 = enif_make_atom(env,"poly1305");
+
     atom_ok = enif_make_atom(env,"ok");
     atom_none = enif_make_atom(env,"none");
     atom_notsup = enif_make_atom(env,"notsup");

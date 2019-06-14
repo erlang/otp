@@ -20,13 +20,12 @@
 
 #include "algorithms.h"
 #include "cipher.h"
+#include "mac.h"
 
 static unsigned int algo_hash_cnt, algo_hash_fips_cnt;
 static ERL_NIF_TERM algo_hash[14];   /* increase when extending the list */
 static unsigned int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
-static unsigned int algo_mac_cnt, algo_mac_fips_cnt;
-static ERL_NIF_TERM algo_mac[3]; /* increase when extending the list */
 static unsigned int algo_curve_cnt, algo_curve_fips_cnt;
 static ERL_NIF_TERM algo_curve[89]; /* increase when extending the list */
 static unsigned int algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
@@ -100,19 +99,6 @@ void init_algorithms_types(ErlNifEnv* env)
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddsa");
 #endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
-
- 
-    // Validated algorithms first
-    algo_mac_cnt = 0;
-    algo_mac[algo_mac_cnt++] = enif_make_atom(env,"hmac");
-#ifdef HAVE_CMAC
-    algo_mac[algo_mac_cnt++] = enif_make_atom(env,"cmac");
-#endif
-#ifdef HAVE_POLY1305
-    algo_mac[algo_mac_cnt++] = enif_make_atom(env,"poly1305");
-#endif
-    // Non-validated algorithms follow
-    algo_mac_fips_cnt = algo_mac_cnt;
 
     // Validated algorithms first
     algo_curve_cnt = 0;
@@ -250,7 +236,6 @@ void init_algorithms_types(ErlNifEnv* env)
     // Check that the max number of algos is updated
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
-    ASSERT(algo_mac_cnt <= sizeof(algo_mac)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_rsa_opts_cnt <= sizeof(algo_rsa_opts)/sizeof(ERL_NIF_TERM));
 }
@@ -284,17 +269,11 @@ ERL_NIF_TERM cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return cipher_types_as_list(env); /* Exclude old api ciphers */
 }
 
+
 ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    unsigned int cnt  =
-#ifdef FIPS_SUPPORT
-        FIPS_mode() ? algo_mac_fips_cnt :
-#endif
-        algo_mac_cnt;
-
-    return enif_make_list_from_array(env, algo_mac, cnt);
+    return mac_types_as_list(env);
 }
-
 
 ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {

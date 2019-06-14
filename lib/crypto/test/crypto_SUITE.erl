@@ -176,19 +176,19 @@ groups() ->
                 ]},
 
      {md4,                  [], [hash]},
-     {md5,                  [], [hash, hmac]},
+     {md5,                  [], [hash, hmac, hmac_update]},
      {ripemd160,            [], [hash]},
-     {sha,                  [], [hash, hmac]},
-     {sha224,               [], [hash, hmac]},
-     {sha256,               [], [hash, hmac]},
-     {sha384,               [], [hash, hmac]},
-     {sha512,               [], [hash, hmac]},
-     {sha3_224,             [], [hash, hmac]},
-     {sha3_256,             [], [hash, hmac]},
-     {sha3_384,             [], [hash, hmac]},
-     {sha3_512,             [], [hash, hmac]},
-     {blake2b,              [], [hash, hmac]},
-     {blake2s,              [], [hash, hmac]},
+     {sha,                  [], [hash, hmac, hmac_update]},
+     {sha224,               [], [hash, hmac, hmac_update]},
+     {sha256,               [], [hash, hmac, hmac_update]},
+     {sha384,               [], [hash, hmac, hmac_update]},
+     {sha512,               [], [hash, hmac, hmac_update]},
+     {sha3_224,             [], [hash, hmac, hmac_update]},
+     {sha3_256,             [], [hash, hmac, hmac_update]},
+     {sha3_384,             [], [hash, hmac, hmac_update]},
+     {sha3_512,             [], [hash, hmac, hmac_update]},
+     {blake2b,              [], [hash, hmac, hmac_update]},
+     {blake2s,              [], [hash, hmac, hmac_update]},
      {no_blake2b,           [], [no_hash, no_hmac]},
      {no_blake2s,           [], [no_hash, no_hmac]},
      {rsa,                  [], [sign_verify,
@@ -265,9 +265,9 @@ groups() ->
      %% New cipher nameing schema
      {des_ede3_cbc, [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {des_ede3_cfb, [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
      {aes_192_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac]},
      {aes_128_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_192_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_256_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
@@ -386,7 +386,7 @@ init_per_testcase(info, Config) ->
 init_per_testcase(cmac, Config) ->
     case is_supported(cmac) of
         true ->
-            Config;
+            configure_mac(cmac, proplists:get_value(type,Config), Config);
         false ->
             {skip, "CMAC is not supported"}
     end;
@@ -405,6 +405,8 @@ init_per_testcase(generate, Config) ->
 	    end;
 	_ -> Config
     end;
+init_per_testcase(hmac, Config) ->
+    configure_mac(hmac, proplists:get_value(type,Config), Config);
 init_per_testcase(_Name,Config) ->
     Config.
 
@@ -452,27 +454,41 @@ no_hash(Config) when is_list(Config) ->
     notsup(fun crypto:hash_init/1, [Type]).
 %%--------------------------------------------------------------------
 hmac() ->
-     [{doc, "Test all different hmac functions"}].
+     [{doc, "Test hmac function"}].
 hmac(Config) when is_list(Config) ->
-    {Type, Keys, DataLE, Expected} = proplists:get_value(hmac, Config),
-    Data = lazy_eval(DataLE),
-    hmac(Type, Keys, Data, Expected),
-    hmac(Type, lists:map(fun iolistify/1, Keys), lists:map(fun iolistify/1, Data), Expected),
-    hmac_increment(Type).
+    Tuples = lazy_eval(proplists:get_value(hmac, Config)),
+    lists:foreach(fun hmac_check/1, Tuples),
+    lists:foreach(fun hmac_check/1, mac_listify(Tuples)).
+
 %%--------------------------------------------------------------------
 no_hmac() ->
      [{doc, "Test all disabled hmac functions"}].
 no_hmac(Config) when is_list(Config) ->
     Type = ?config(type, Config),
-    notsup(fun crypto:hmac/3, [Type, <<"Key">>, <<"Hi There">>]),
+    notsup(fun crypto:hmac/3, [Type, <<"Key">>, <<"Hi There">>]).
+
+%%--------------------------------------------------------------------
+hmac_update() ->
+     [{doc, "Test all incremental hmac functions"}].
+hmac_update(Config) ->
+    Type = ?config(type, Config),
+    hmac_increment(Type).
+
+%%--------------------------------------------------------------------
+no_hmac_update() ->
+     [{doc, "Test all disabled incremental hmac functions"}].
+no_hmac_update(Config) ->
+    Type = ?config(type, Config),
     notsup(fun crypto:hmac_init/2, [Type, <<"Key">>]).
+
 %%--------------------------------------------------------------------
 cmac() ->
      [{doc, "Test all different cmac functions"}].
 cmac(Config) when is_list(Config) ->
     Pairs = lazy_eval(proplists:get_value(cmac, Config)),
     lists:foreach(fun cmac_check/1, Pairs),
-    lists:foreach(fun cmac_check/1, cmac_iolistify(Pairs)).
+    lists:foreach(fun cmac_check/1, mac_listify(Pairs)).
+
 %%--------------------------------------------------------------------
 poly1305() ->
     [{doc, "Test poly1305 function"}].
@@ -957,33 +973,46 @@ hash_increment(State0, [Increment | Rest]) ->
     State = crypto:hash_update(State0, Increment),
     hash_increment(State, Rest).
 
-hmac(_, [],[],[]) ->
-    ok;
-hmac(sha = Type, [Key | Keys], [ <<"Test With Truncation">> = Data| Rest], [Expected | Expects]) ->
-    call_crypto_hmac([Type, Key, Data, 20], Type, Expected),
-    hmac(Type, Keys, Rest, Expects);
-hmac(Type, [Key | Keys], [ <<"Test With Truncation">> = Data| Rest], [Expected | Expects]) ->
-    call_crypto_hmac([Type, Key, Data, 16], Type, Expected),
-    hmac(Type, Keys, Rest, Expects);
-hmac(Type, [Key | Keys], [Data| Rest], [Expected | Expects]) ->
-    call_crypto_hmac([Type, Key, Data], Type, Expected),
-    hmac(Type, Keys, Rest, Expects).
 
-call_crypto_hmac(Args, Type, Expected) ->
-    try apply(crypto, hmac, Args)
+%%%----------------------------------------------------------------
+hmac_check({hmac, sha=Type, Key, <<"Test With Truncation">>=Data, Expected}) ->
+    do_hmac_check(Type, Key, Data, 20, Expected);
+hmac_check({hmac, Type, Key, <<"Test With Truncation">>=Data, Expected}) ->
+    do_hmac_check(Type, Key, Data, 16, Expected);
+hmac_check({hmac, Type, Key, Data, Expected}) ->
+    do_hmac_check(Type, Key, Data, Expected).
+
+
+do_hmac_check(Type, Key, Data, Expected) ->
+    try crypto:hmac(Type, Key, Data)
     of
 	Expected ->
 	    ok;
 	Other ->
-	    ct:fail({{crypto,hmac,Args}, {expected,Expected}, {got,Other}})
+	    ct:fail({{crypto,hmac,[Type,Key,Data]}, {expected,Expected}, {got,Other}})
     catch
         error:notsup ->
             ct:fail("HMAC ~p not supported", [Type]);
         Class:Cause ->
-            ct:fail({{crypto,hmac,Args}, {expected,Expected}, {got,{Class,Cause}}})
+            ct:fail({{crypto,hmac,[Type,Key,Data]}, {expected,Expected}, {got,{Class,Cause}}})
+    end.
+
+do_hmac_check(Type, Key, Data, MacLength, Expected) ->
+    try crypto:hmac(Type, Key, Data, MacLength)
+    of
+	Expected ->
+	    ok;
+	Other ->
+	    ct:fail({{crypto,hmac,[Type,Key,Data,MacLength]}, {expected,Expected}, {got,Other}})
+    catch
+        error:notsup ->
+            ct:fail("HMAC ~p not supported", [Type]);
+        Class:Cause ->
+            ct:fail({{crypto,hmac,[Type,Key,Data,MacLength]}, {expected,Expected}, {got,{Class,Cause}}})
     end.
 
 
+%%%----------------------------------------------------------------
 hmac_increment(Type) ->
     Key = hmac_key(Type),
     Increments = hmac_inc(Type),
@@ -1002,7 +1031,8 @@ hmac_increment(State0, [Increment | Rest]) ->
     State = crypto:hmac_update(State0, Increment),
     hmac_increment(State, Rest).
 
-cmac_check({Type, Key, Text, CMac}) ->
+%%%----------------------------------------------------------------
+cmac_check({cmac, Type, Key, Text, CMac}) ->
     ExpCMac = iolist_to_binary(CMac),
     case crypto:cmac(Type, Key, Text) of
         ExpCMac ->
@@ -1010,13 +1040,31 @@ cmac_check({Type, Key, Text, CMac}) ->
         Other ->
             ct:fail({{crypto, cmac, [Type, Key, Text]}, {expected, ExpCMac}, {got, Other}})
     end;
-cmac_check({Type, Key, Text, Size, CMac}) ->
+cmac_check({cmac, Type, Key, Text, Size, CMac}) ->
     ExpCMac = iolist_to_binary(CMac),
     case crypto:cmac(Type, Key, Text, Size) of
         ExpCMac ->
             ok;
         Other ->
             ct:fail({{crypto, cmac, [Type, Key, Text, Size]}, {expected, ExpCMac}, {got, Other}})
+    end.
+
+
+mac_check({MacType, SubType, Key, Text, Mac}) ->
+    ExpMac = iolist_to_binary(Mac),
+    case crypto:mac(MacType, SubType, Key, Text) of
+        ExpMac ->
+            ok;
+        Other ->
+            ct:fail({{crypto, mac, [MacType, SubType, Key, Text]}, {expected, ExpMac}, {got, Other}})
+    end;
+mac_check({MacType, SubType, Key, Text, Size, Mac}) ->
+    ExpMac = iolist_to_binary(Mac),
+    case crypto:mac(MacType, SubType, Key, Text, Size) of
+        ExpMac ->
+            ok;
+        Other ->
+            ct:fail({{crypto, mac, [MacType, SubType, Key, Text]}, {expected, ExpMac}, {got, Other}})
     end.
 
 
@@ -1450,17 +1498,17 @@ decstr2int(S) ->
 is_supported(Group) ->
     lists:member(Group, lists:append([Algo ||  {_, Algo}  <- crypto:supports()])). 
 
-cmac_iolistify(Blocks) ->
-    lists:map(fun do_cmac_iolistify/1, Blocks).
+mac_listify(Blocks) ->
+    lists:map(fun do_mac_listify/1, Blocks).
 block_iolistify(Blocks) ->
     lists:map(fun do_block_iolistify/1, Blocks).
 stream_iolistify(Streams) ->
     lists:map(fun do_stream_iolistify/1, Streams).
 
-do_cmac_iolistify({Type, Key, Text, CMac}) ->
-    {Type, iolistify(Key), iolistify(Text), CMac};
-do_cmac_iolistify({Type, Key, Text, Size, CMac}) ->
-    {Type, iolistify(Key), iolistify(Text), Size, CMac}.
+do_mac_listify({MType, Type, Key, Text, CMac}) ->
+    {MType, Type, iolistify(Key), iolistify(Text), CMac};
+do_mac_listify({MType, Type, Key, Text, Size, CMac}) ->
+    {MType, Type, iolistify(Key), iolistify(Text), Size, CMac}.
 
 do_stream_iolistify({Type, Key, PlainText}) ->
     {Type, iolistify(Key), iolistify(PlainText)};
@@ -1694,10 +1742,7 @@ group_config(md4 = Type, Config) ->
 group_config(md5 = Type, Config) ->
     Msgs = rfc_1321_msgs(),
     Digests = rfc_1321_md5_digests(),
-    Keys = rfc_2202_md5_keys() ++ [long_hmac_key(md5)],
-    Data = rfc_2202_msgs() ++ [long_msg()],
-    Hmac = rfc_2202_hmac_md5()  ++ [long_hmac(md5)],
-    [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}} | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(ripemd160 = Type, Config) ->
     Msgs = ripemd160_msgs(),
     Digests = ripemd160_digests(),
@@ -1705,56 +1750,41 @@ group_config(ripemd160 = Type, Config) ->
 group_config(sha = Type, Config) ->
     Msgs = [rfc_4634_test1(), rfc_4634_test2_1(),long_msg()],
     Digests = rfc_4634_sha_digests() ++ [long_sha_digest()],
-    Keys = rfc_2202_sha_keys() ++ [long_hmac_key(sha)],
-    Data = rfc_2202_msgs() ++ [long_msg()],
-    Hmac = rfc_2202_hmac_sha()  ++ [long_hmac(sha)],
-    [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}} | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha224 = Type, Config) ->
     Msgs = [rfc_4634_test1(), rfc_4634_test2_1()], 
     Digests = rfc_4634_sha224_digests(),
-    Keys = rfc_4231_keys(),
-    Data = rfc_4231_msgs(),
-    Hmac = rfc4231_hmac_sha224(),
-    [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha256 = Type, Config) ->
     Msgs =   [rfc_4634_test1(), rfc_4634_test2_1(), long_msg()],
     Digests = rfc_4634_sha256_digests()  ++ [long_sha256_digest()],
-    Keys = rfc_4231_keys() ++ [long_hmac_key(sha256)],
-    Data = rfc_4231_msgs()  ++ [long_msg()],
-    Hmac = rfc4231_hmac_sha256()  ++ [long_hmac(sha256)],
-    [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha384 = Type, Config) ->
     Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
     Digests = rfc_4634_sha384_digests()  ++ [long_sha384_digest()],
-    Keys = rfc_4231_keys() ++ [long_hmac_key(sha384)],
-    Data = rfc_4231_msgs()  ++ [long_msg()],
-    Hmac = rfc4231_hmac_sha384()  ++ [long_hmac(sha384)],
-    [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha512 = Type, Config) ->
     Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
     Digests = rfc_4634_sha512_digests() ++ [long_sha512_digest()],
-    Keys = rfc_4231_keys() ++ [long_hmac_key(sha512)],
-    Data = rfc_4231_msgs() ++ [long_msg()],
-    Hmac = rfc4231_hmac_sha512() ++ [long_hmac(sha512)],
-    [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}}  | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha3_224 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
-    [{hash, {Type, Msgs, Digests}}, {hmac, hmac_sha3(Type)} | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha3_256 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
-    [{hash, {Type, Msgs, Digests}}, {hmac, hmac_sha3(Type)} | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha3_384 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
-    [{hash, {Type, Msgs, Digests}}, {hmac, hmac_sha3(Type)} | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha3_512 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
-    [{hash, {Type, Msgs, Digests}}, {hmac, hmac_sha3(Type)} | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(blake2b = Type, Config) ->
     {Msgs, Digests} = blake2_test_vectors(Type),
-    [{hash, {Type, Msgs, Digests}}, {hmac, blake2_hmac(Type)} | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(blake2s = Type, Config) ->
     {Msgs, Digests} = blake2_test_vectors(Type),
-    [{hash, {Type, Msgs, Digests}}, {hmac, blake2_hmac(Type)} | Config];
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(rsa, Config) ->
     Msg = rsa_plain(),
     Public = rsa_public(),
@@ -1828,7 +1858,6 @@ group_config(Type, Config) when Type == ed25519 ; Type == ed448 ->
 group_config(srp, Config) ->
     GenerateCompute = [srp3(), srp6(), srp6a(), srp6a_smaller_prime()],
     [{generate_compute, GenerateCompute} | Config];
-
 group_config(ecdh, Config) ->
     Compute = ecdh(),
     Generate = ecc(),
@@ -1836,19 +1865,6 @@ group_config(ecdh, Config) ->
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
     [{generate_compute, GenerateCompute} | Config];
-
-group_config(aes_cbc128 = Type, Config) ->
-    Block = fun() -> aes_cbc128(Config) end,
-    Pairs = fun() -> cmac_nist(Config, Type) end,
-    [{cipher, Block}, {cmac, Pairs} | Config];
-group_config(aes_cbc256 = Type, Config) ->
-    Block = fun() -> aes_cbc256(Config) end,
-    Pairs = fun() -> cmac_nist(Config, Type) end,
-    [{cipher, Block}, {cmac, Pairs} | Config];
-group_config(chacha20_poly1305, Config) ->
-    AEAD = chacha20_poly1305(Config),
-    [{cipher, AEAD} | Config];
-
 group_config(poly1305, Config) ->
     V = [%% {Key, Txt, Expect}
          {%% RFC7539 2.5.2
@@ -1863,6 +1879,76 @@ group_config(F, Config) ->
     TestVectors = fun() -> ?MODULE:F(Config) end,
     [{cipher, TestVectors} | Config].
 
+
+configure_mac(MacType, SubType, Config) ->
+    case do_configure_mac(MacType, SubType, Config) of
+        undefined ->
+            {skip, io:format("No ~p test vectors for ~p", [MacType, SubType])};
+        Pairs ->
+            [{MacType, Pairs} | Config]
+    end.
+
+do_configure_mac(hmac, Type, _Config) ->
+    case Type of
+        md5 ->
+            Keys = rfc_2202_md5_keys() ++ [long_hmac_key(md5)],
+            Data = rfc_2202_msgs() ++ [long_msg()],
+            Hmac = rfc_2202_hmac_md5()  ++ [long_hmac(md5)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha ->
+            Keys = rfc_2202_sha_keys() ++ [long_hmac_key(sha)],
+            Data = rfc_2202_msgs() ++ [long_msg()],
+            Hmac = rfc_2202_hmac_sha()  ++ [long_hmac(sha)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha224 ->
+            Keys = rfc_4231_keys(),
+            Data = rfc_4231_msgs(),
+            Hmac = rfc4231_hmac_sha224(),
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha256 ->
+            Keys = rfc_4231_keys() ++ [long_hmac_key(sha256)],
+            Data = rfc_4231_msgs()  ++ [long_msg()],
+            Hmac = rfc4231_hmac_sha256()  ++ [long_hmac(sha256)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha384 ->
+            Keys = rfc_4231_keys() ++ [long_hmac_key(sha384)],
+            Data = rfc_4231_msgs()  ++ [long_msg()],
+            Hmac = rfc4231_hmac_sha384()  ++ [long_hmac(sha384)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha512 ->
+            Keys = rfc_4231_keys() ++ [long_hmac_key(sha512)],
+            Data = rfc_4231_msgs() ++ [long_msg()],
+            Hmac = rfc4231_hmac_sha512() ++ [long_hmac(sha512)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha3_224 ->
+            hmac_sha3(Type);
+        sha3_256 ->
+            hmac_sha3(Type);
+        sha3_384 ->
+            hmac_sha3(Type);
+        sha3_512 ->
+            hmac_sha3(Type);
+        blake2b ->
+            blake2_hmac(Type);
+        blake2s ->
+            blake2_hmac(Type);
+        _ ->
+            undefined
+    end;
+do_configure_mac(cmac, Cipher, Config) ->
+    case Cipher of
+        aes_128_cbc ->
+            fun() -> read_rsp(Config, Cipher,  ["CMACGenAES128.rsp", "CMACVerAES128.rsp"]) end;
+        aes_256_cbc ->
+            fun() -> read_rsp(Config, Cipher,  ["CMACGenAES256.rsp", "CMACVerAES256.rsp"]) end;
+        _ ->
+            undefined
+    end.
+
+
+zip3_special(Type, SubType, As, Bs, Cs) ->
+    [{Type, SubType, A, B, C}
+     || {A,B,C} <- lists:zip3(As, Bs, Cs)].
 
 
 rsa_sign_verify_tests(Config, Msg, Public, Private, PublicS, PrivateS, OptsToTry) ->
@@ -1981,10 +2067,8 @@ blake2_test_vectors(blake2s) ->
      ]}.
 
 blake2_hmac(Type) ->
-    {Ks, Ds, Hs} = lists:unzip3(
-        [ {hexstr2bin(K), hexstr2bin(D), H}
-          || {{K, D}, H} <- lists:zip(blake2_hmac_key_data(), blake2_hmac_hmac(Type)) ]),
-    {Type, Ks, Ds, Hs}.
+    [{hmac, Type, hexstr2bin(K), hexstr2bin(D), H}
+     || {{K, D}, H} <- lists:zip(blake2_hmac_key_data(), blake2_hmac_hmac(Type)) ].
 
 blake2_hmac_key_data() ->
     [ {"0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b 0b0b0b0b",
@@ -2083,12 +2167,8 @@ hmac_sha3(Type) ->
             sha3_384 -> 3;
             sha3_512 -> 4
         end,
-    {Keys, Datas, Hmacs} =
-        lists:unzip3(
-          [{hexstr2bin(Key), hexstr2bin(Data), hexstr2bin(element(N,Hmacs))} 
-           || {Key,Data,Hmacs} <- hmac_sha3_data()]),
-    {Type, Keys, Datas, Hmacs}.
-        
+    [{hmac, Type, hexstr2bin(Key), hexstr2bin(Data), hexstr2bin(element(N,Hmacs))} 
+     || {Key,Data,Hmacs} <- hmac_sha3_data()].
 
 hmac_sha3_data() ->    
     [
@@ -3843,14 +3923,6 @@ ecc() ->
                  end,
                  TestCases).
 
-cmac_nist(Config, aes_cbc128 = Type) ->
-   read_rsp(Config, Type,
-            ["CMACGenAES128.rsp", "CMACVerAES128.rsp"]);
-
-cmac_nist(Config, aes_cbc256 = Type) ->
-   read_rsp(Config, Type,
-            ["CMACGenAES256.rsp", "CMACVerAES256.rsp"]).
-
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).
 
@@ -4068,12 +4140,11 @@ parse_rsp_cmac(Type, Key0, Msg0, Mlen0, Tlen, MAC0, Next, State, Acc) ->
     Mlen = binary_to_integer(Mlen0),
     <<Msg:Mlen/bytes, _/binary>> = hexstr2bin(Msg0),
     MAC = hexstr2bin(MAC0),
-
     case binary_to_integer(Tlen) of
         0 ->
-            parse_rsp(Type, Next, State, [{Type, Key, Msg, MAC}|Acc]);
+            parse_rsp(Type, Next, State, [{cmac, Type, Key, Msg, MAC}|Acc]);
         I ->
-            parse_rsp(Type, Next, State, [{Type, Key, Msg, I, MAC}|Acc])
+            parse_rsp(Type, Next, State, [{cmac, Type, Key, Msg, I, MAC}|Acc])
     end.
 
 api_errors_ecdh(Config) when is_list(Config) ->

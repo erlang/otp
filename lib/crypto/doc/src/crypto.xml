@@ -302,6 +302,12 @@
     </datatype>
 
     <datatype>
+      <name name="cmac_cipher_algorithm"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="rsa_digest_type"/>
       <desc>
       </desc>
@@ -324,6 +330,11 @@
       <name name="sha2"/>
       <name name="sha3"/>
       <name name="blake2"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="compatibility_only_hash"/>
       <desc>
 	<p>The <c>compatibility_only_hash()</c> algorithms are recommended only for compatibility with existing applications.</p>
@@ -575,10 +586,11 @@
     <datatype_title>Internal data types</datatype_title>
 
     <datatype>
-      <name name="stream_state"/>
-      <name name="hmac_state"/>
-      <name name="hash_state"/>
       <name name="crypto_state"/>
+      <name name="hash_state"/>
+      <name name="hmac_state"/>
+      <name name="mac_state"/>
+      <name name="stream_state"/>
       <desc>
 	<p>Contexts with an internal state that should not be manipulated but passed between function calls.
 	</p>
@@ -783,6 +795,161 @@
       </desc>
     </func>
 
+    <func>
+      <name name="mac" arity="3" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Short for <seealso marker="#mac-4">mac(Type, undefined, Key, Data)</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac" arity="4" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Computes a MAC (Message Authentication Code) of type <c>Type</c> from <c>Data</c>.
+	</p>
+
+	<p><c>SubType</c> depends on the MAC <c>Type</c>:
+	</p>
+	<list>
+	  <item>For <c>hmac</c> it is a hash algorithm</item>
+	  <item>For <c>cmac</c> it is a cipher suitable for cmac</item>
+	  <item>For <c>poly1305</c> it should be set to <c>undefined</c> or the
+	  <seealso marker="#mac-3">mac/3</seealso> function could be used instead.</item>
+	</list>
+
+	<p><c>Key</c> is the authentication key with a length according to the
+	<c>Type</c> and <c>SubType</c>.
+	The key length could be found with the
+	<seealso marker="#hash_info-1">hash_info/1</seealso> (<c>hmac</c>) for and
+	<seealso marker="#cipher_info-1">cipher_info/1</seealso> (<c>cmac</c>)
+	functions. For <c>poly1305</c> the key length is 32 bytes. Note that
+	the cryptographic quality of the key is not checked.
+	</p>
+
+	<p>The <c>Mac</c> result will have a default length depending on the <c>Type</c> and <c>SubType</c>.
+	To set a shorter length, use <seealso marker="#macN-4">macN/4</seealso> or
+	<seealso marker="#macN-5">macN/5</seealso> instead.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="macN" arity="4" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Short for <seealso marker="#macN-5">macN(Type, undefined, Key, Data, MacLength)</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="macN" arity="5" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Computes a MAC (Message Authentication Code)
+	as <seealso marker="#mac-3">mac/3</seealso> and <seealso marker="#mac-4">mac/4</seealso> but
+	<c>MacLength</c> will limit the size of the resultant <c>Mac</c> to
+	at most <c>MacLength</c> bytes.
+	Note that if <c>MacLength</c> is greater than the actual number of
+	bytes returned from the underlying hash, the returned hash will have
+	that shorter length instead.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_init" arity="2" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Short for <seealso marker="#mac_init-3">mac_init(Type, undefined, Key)</seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_init" arity="3" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Initializes the context for streaming MAC operations.
+	</p>
+	<p><c>Type</c> determines which mac algorithm to use in the MAC operation.
+	</p>
+
+	<p><c>SubType</c> depends on the MAC <c>Type</c>:
+	</p>
+	<list>
+	  <item>For <c>hmac</c> it is a hash algorithm</item>
+	  <item>For <c>cmac</c> it is a cipher suitable for cmac</item>
+	  <item>For <c>poly1305</c> it should be set to <c>undefined</c> or the
+	  <seealso marker="#mac_init-2">mac/2</seealso> function could be used instead.</item>
+	</list>
+
+	<p><c>Key</c> is the authentication key with a length according to the
+	<c>Type</c> and <c>SubType</c>.
+	The key length could be found with the
+	<seealso marker="#hash_info-1">hash_info/1</seealso> (<c>hmac</c>) for and
+	<seealso marker="#cipher_info-1">cipher_info/1</seealso> (<c>cmac</c>)
+	functions. For <c>poly1305</c> the key length is 32 bytes.  Note that
+	the cryptographic quality of the key is not checked.
+	</p>
+
+	<p>The returned <c>State</c> should be used in one or more subsequent calls to
+	<seealso marker="#mac_update-2">mac_update/2</seealso>.
+	The MAC value is finally returned by calling
+	<seealso marker="#mac_final-1">mac_final/1</seealso> or
+	<seealso marker="#mac_finalN-2">mac_finalN/2</seealso>.
+	</p>
+
+	<p>See <seealso marker="crypto:new_api#example-of-mac_init-mac_update-and-mac_final">
+	examples in the User's Guide.</seealso>
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_update" arity="2" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Updates the MAC represented by <c>State0</c> using the given <c>Data</c> which
+	could be of any length.
+	</p>
+	<p>The <c>State0</c> is the State value originally from a MAC init function, that is
+	<seealso marker="#mac_init-2">mac_init/2</seealso>,
+	<seealso marker="#mac_init-3">mac_init/3</seealso> or
+	a previous call of <c>mac_update/2</c>.
+	The value <c>State0</c> is returned unchanged by the function as <c>State</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_final" arity="1" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Finalizes the MAC operation referenced by <c>State</c>. The <c>Mac</c> result will have
+	a default length depending on the <c>Type</c> and <c>SubType</c> in the
+	<seealso marker="#mac_init-3">mac_init/2,3</seealso> call.
+	To set a shorter length, use <seealso marker="#mac_finalN-2">mac_finalN/2</seealso> instead.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mac_finalN" arity="2" since="OTP @OTP-13872@"/>
+      <fsummary></fsummary>
+      <desc>
+        <p>Finalizes the MAC operation referenced by <c>State</c>.
+	</p>
+	<p><c>Mac</c> will be a binary with at most <c>MacLength</c> bytes.
+	Note that if <c>MacLength</c> is greater than the actual number of
+	bytes returned from the underlying hash, the returned hash will have
+	that shorter length instead.
+	</p>
+      </desc>
+    </func>
   </funcs>
 
   <section>
@@ -882,75 +1049,6 @@
 	from a previous call to <seealso marker="#hash_update-2">hash_update</seealso>.
 	The size of <c>Digest</c> is determined by the type of hash
 	function used to generate it.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="hmac" arity="3" since="OTP R16B"/>
-      <name name="hmac" arity="4" since="OTP R16B"/>
-      <fsummary></fsummary>
-      <desc>
-        <p>Computes a HMAC of type <c>Type</c> from <c>Data</c> using
-        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
-        will limit the size of the resultant <c>Mac</c>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="hmac_init" arity="2" since="OTP R14B03"/>
-      <fsummary></fsummary>
-      <desc>
-        <p>Initializes the context for streaming HMAC operations. <c>Type</c> determines
-        which hash function to use in the HMAC operation. <c>Key</c> is the authentication
-        key. The key can be any length.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="hmac_update" arity="2" since="OTP R14B03"/>
-      <fsummary></fsummary>
-      <desc>
-        <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
-        must have been generated using an HMAC init function (such as
-        <seealso marker="#hmac_init-2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
-        must be passed into the next call to <c>hmac_update</c>
-	or to one of the functions <seealso marker="#hmac_final-1">hmac_final</seealso> and
-	<seealso marker="#hmac_final_n-2">hmac_final_n</seealso>
-	</p>
-	<warning><p>Do not use a <c>Context</c> as argument in more than one
-	call to	hmac_update or hmac_final. The semantics of reusing old contexts
-	in any way is undefined and could even crash the VM in earlier releases.
-	The reason for this limitation is a lack of support in the underlying
-	libcrypto	API.</p></warning>
-      </desc>
-    </func>
-
-    <func>
-      <name name="hmac_final" arity="1" since="OTP R14B03"/>
-      <fsummary></fsummary>
-      <desc>
-        <p>Finalizes the HMAC operation referenced by <c>Context</c>. The size of the resultant MAC is
-        determined by the type of hash function used to generate it.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="hmac_final_n" arity="2" since="OTP R14B03"/>
-      <fsummary></fsummary>
-      <desc>
-        <p>Finalizes the HMAC operation referenced by <c>Context</c>. <c>HashLen</c> must be greater than
-        zero. <c>Mac</c> will be a binary with at most <c>HashLen</c> bytes. Note that if HashLen is greater than the actual number of bytes returned from the underlying hash, the returned hash will have fewer than <c>HashLen</c> bytes.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="cmac" arity="3" since="OTP 20.0"/>
-      <name name="cmac" arity="4" since="OTP 20.0"/>
-      <fsummary>Calculates the Cipher-based Message Authentication Code.</fsummary>
-      <desc>
-        <p>Computes a CMAC of type <c>Type</c> from <c>Data</c> using
-        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
-        will limit the size of the resultant <c>Mac</c>.</p>
       </desc>
     </func>
 
@@ -1064,15 +1162,6 @@
 	encrypted data from the previous iteration step. The <c>IVec</c>
 	argument is only needed for <c>des_cfb</c> as the vector used
 	in the previous iteration step.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="poly1305" arity="2" since="OTP 21.1"/>
-      <fsummary></fsummary>
-      <desc>
-        <p>Computes a POLY1305 message authentication code (<c>Mac</c>) from <c>Data</c> using
-        <c>Key</c> as the authentication key.</p>
       </desc>
     </func>
 
@@ -1958,6 +2047,115 @@ FloatValue = rand:uniform().     % again
 	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
 	for information about the hash and cipher algorithms.
 	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac" arity="3" since="OTP R16B"/>
+      <name name="hmac" arity="4" since="OTP R16B"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac-4">mac/4</seealso> or
+	      <seealso marker="crypto#macN-5">macN/5</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Computes a HMAC of type <c>Type</c> from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac_init" arity="2" since="OTP R14B03"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac_init-3">mac_init/3</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Initializes the context for streaming HMAC operations. <c>Type</c> determines
+        which hash function to use in the HMAC operation. <c>Key</c> is the authentication
+        key. The key can be any length.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac_update" arity="2" since="OTP R14B03"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac_update-2">mac_update/2</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
+        must have been generated using an HMAC init function (such as
+        <seealso marker="#hmac_init-2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
+        must be passed into the next call to <c>hmac_update</c>
+	or to one of the functions <seealso marker="#hmac_final-1">hmac_final</seealso> and
+	<seealso marker="#hmac_final_n-2">hmac_final_n</seealso>
+	</p>
+	<warning><p>Do not use a <c>Context</c> as argument in more than one
+	call to	hmac_update or hmac_final. The semantics of reusing old contexts
+	in any way is undefined and could even crash the VM in earlier releases.
+	The reason for this limitation is a lack of support in the underlying
+	libcrypto	API.</p></warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac_final" arity="1" since="OTP R14B03"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac_final-1">mac_final/1</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Finalizes the HMAC operation referenced by <c>Context</c>. The size of the resultant MAC is
+        determined by the type of hash function used to generate it.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="hmac_final_n" arity="2" since="OTP R14B03"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac_finalN-2">mac_finalN/2</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Finalizes the HMAC operation referenced by <c>Context</c>. <c>HashLen</c> must be greater than
+        zero. <c>Mac</c> will be a binary with at most <c>HashLen</c> bytes. Note that if HashLen is greater than the actual number of bytes returned from the underlying hash, the returned hash will have fewer than <c>HashLen</c> bytes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cmac" arity="3" since="OTP 20.0"/>
+      <name name="cmac" arity="4" since="OTP 20.0"/>
+      <fsummary>Calculates the Cipher-based Message Authentication Code.</fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac-4">mac/4</seealso> or
+	      <seealso marker="crypto#macN-5">macN/5</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Computes a CMAC of type <c>Type</c> from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="poly1305" arity="2" since="OTP 21.1"/>
+      <fsummary></fsummary>
+      <desc>
+	<dont><p>Don't use this function for new programs! Use
+	      <seealso marker="crypto#mac-3">mac/3</seealso> or
+	      <seealso marker="crypto#macN-4">macN/4</seealso> in
+	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
+	</dont>
+        <p>Computes a POLY1305 message authentication code (<c>Mac</c>) from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p>
       </desc>
     </func>
 
