@@ -1364,23 +1364,29 @@ do_end_tc_call(Mod, IPTC={init_per_testcase,Func}, Res, Return) ->
 	 {NOk,_} when NOk == auto_skip; NOk == fail;
 		      NOk == skip ; NOk == skipped ->
 	     {_,Args} = Res,
-	     IPTCEndRes =
+	     {NewConfig,IPTCEndRes} =
 		 case do_end_tc_call1(Mod, IPTC, Res, Return) of
 		     IPTCEndConfig when is_list(IPTCEndConfig) ->
-			 IPTCEndConfig;
+			 {IPTCEndConfig,IPTCEndConfig};
+                     {failed,RetReason} when Return=:={fail,RetReason} ->
+                         %% Fail reason not changed by framework or hook
+                         {Args,Return};
+                     {SF,_} = IPTCEndResult when SF=:=skip; SF=:=skipped;
+                                                 SF=:=fail; SF=:=failed ->
+                         {Args,IPTCEndResult};
 		     _ ->
-			 Args
+			 {Args,Return}
 		 end,
 	     EPTCInitRes =
 		 case do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
-				      IPTCEndRes,Return) of
+				      NewConfig,IPTCEndRes) of
 		     {ok,EPTCInitConfig} when is_list(EPTCInitConfig) ->
-			 {Return,EPTCInitConfig};
+			 {IPTCEndRes,EPTCInitConfig};
 		     _ ->
-                         {Return,IPTCEndRes}
+                         {IPTCEndRes,NewConfig}
 		 end,
 	     do_end_tc_call1(Mod, {end_per_testcase_not_run,Func},
-			     EPTCInitRes, Return);
+			     EPTCInitRes, IPTCEndRes);
 	 _Ok ->
 	     do_end_tc_call1(Mod, IPTC, Res, Return)
      end;
