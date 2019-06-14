@@ -90,7 +90,9 @@ start_monitor(_, Transport, Active) ->
 start(Transport, Active) ->
     do_start(self(), Transport, Active).
 
-
+%% Note that the Async option is actually only "used" for the
+%% socket transport module (it details how to implement the
+%% active feature).
 do_start(Parent, Transport, Active)
   when is_pid(Parent) andalso
        (is_atom(Transport) orelse is_tuple(Transport)) andalso
@@ -179,41 +181,58 @@ process_transport({Mod, Opts}, _Active) ->
 
 
 server_loop(State) ->
-    server_loop( server_handle_message( server_accept(State) ) ).
+    server_loop( server_handle_message( server_accept(State, ?ACC_TIMEOUT), 0) ).
 
-server_accept(#{mod      := Mod,
-		active   := Active,
-                lsock    := LSock,
-                handlers := Handlers} = State) ->
-    case Mod:accept(LSock, ?ACC_TIMEOUT) of
+server_accept(#{mod := Mod, lsock := LSock} = State, Timeout) ->
+    case Mod:accept(LSock, Timeout) of
         {ok, Sock} ->
-            ?I("accepted connection from ~s", 
-               [case Mod:peername(Sock) of
-                    {ok, Peer} ->
-                        format_peername(Peer);
-                    {error, _} ->
-                        "-"
-                end]),
-            {Pid, _} = handler_start(),
-            ?I("handler ~p started -> try transfer socket control", [Pid]),
-            case Mod:controlling_process(Sock, Pid) of
-                ok ->
-                    maybe_start_stats_timer(State, Pid),
-                    ?I("server-accept: handler ~p started", [Pid]),
-                    handler_continue(Pid, Mod, Sock, Active),
-                    Handlers2 = [Pid | Handlers],
-                    State#{handlers => Handlers2};
-                {error, CPReason} ->
-		    (catch Mod:close(Sock)),
-		    (catch Mod:close(LSock)),
-                    exit({controlling_process, CPReason})
-            end;
-        {error, timeout} ->
+            server_handle_accepted(State, Sock);
+        {error, timeout} when (Timeout =/= nowait) ->
             State;
         {error, AReason} ->
 	    (catch Mod:close(LSock)),
             exit({accept, AReason})
     end.
+
+%% server_accept(#{mod   := Mod,
+%%                 lsock := LSock} = State) ->
+%%     case Mod:accept(LSock, ?ACC_TIMEOUT) of
+%%         {ok, Sock} ->
+%%             server_handle_accepted(State, Sock);
+%%         {error, timeout} ->
+%%             State;
+%%         {error, AReason} ->
+%% 	    (catch Mod:close(LSock)),
+%%             exit({accept, AReason})
+%%     end.
+
+server_handle_accepted(#{mod      := Mod,
+                         lsock    := LSock,
+                         active   := Active,
+                         handlers := Handlers} = State,
+                      Sock) ->
+    ?I("accepted connection from ~s", 
+       [case Mod:peername(Sock) of
+            {ok, Peer} ->
+                format_peername(Peer);
+            {error, _} ->
+                "-"
+        end]),
+    {Pid, _} = handler_start(),
+    ?I("handler ~p started -> try transfer socket control", [Pid]),
+    case Mod:controlling_process(Sock, Pid) of
+        ok ->
+            maybe_start_stats_timer(State, Pid),
+            ?I("server-accept: handler ~p started", [Pid]),
+            handler_continue(Pid, Mod, Sock, Active),
+            Handlers2 = [Pid | Handlers],
+            State#{handlers => Handlers2};
+        {error, CPReason} ->
+            (catch Mod:close(Sock)),
+            (catch Mod:close(LSock)),
+            exit({controlling_process, CPReason})
+    end.
+    
 
 format_peername({Addr, Port}) ->
     case inet:gethostbyaddr(Addr) of
@@ -237,7 +256,7 @@ start_stats_timer(Time, ProcStr, Pid) ->
 server_handle_message(#{mod      := Mod,
                         lsock    := LSock,
                         parent   := Parent,
-                        handlers := H} = State) ->
+                        handlers := H} = State, Timeout) ->
     receive
         {timeout, _TRef, {stats, Interval, ProcStr, Pid}} ->
             case server_handle_stats(ProcStr, Pid) of
@@ -247,7 +266,7 @@ server_handle_message(#{mod      := Mod,
                     ok
             end,
             State;
-            
+
         {?MODULE, Ref, Parent, stop} ->
             reply(Parent, Ref, ok),
             lists:foreach(fun(P) -> handler_stop(P) end, H),
@@ -257,7 +276,7 @@ server_handle_message(#{mod      := Mod,
         {'DOWN', _MRef, process, Pid, Reason} -> 
 	    server_handle_down(Pid, Reason, State)
             
-    after 0 ->
+    after Timeout ->
             State
     end.
 
@@ -342,15 +361,15 @@ handler_init(Parent) ->
 	    ?I("received continue"),
 	    reply(Parent, Ref, ok),
 	    handler_initial_activation(Mod, Sock, Active),
-	    handler_loop(#{parent     => Parent,
-			   mod        => Mod,
-			   sock       => Sock,
-			   active     => Active,
-			   start      => ?T(),
-			   mcnt       => 0,
-			   bcnt       => 0,
-			   last_reply => none,
-			   acc        => <<>>})
+	    handler_loop(#{parent      => Parent,
+			   mod         => Mod,
+			   sock        => Sock,
+			   active      => Active,
+			   start       => ?T(),
+			   mcnt        => 0,
+			   bcnt        => 0,
+			   last_reply  => none,
+			   acc         => <<>>})
 
     after 5000 ->
 	    ?I("timeout when message queue: "

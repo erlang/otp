@@ -24,9 +24,27 @@ EMU=$ERL_TOP/erts/emulator
 EMU_TEST=$EMU/test
 ESOCK_TTEST=$EMU_TEST/esock_ttest
 
-if [ $# = 1 ]; then
-    ACTIVE="--active $1"
+# $1 - async  - boolean()
+# $2 - active - once | boolean()
+if [ $# = 2 ]; then
+
+    async=$1
+    active=$2
+
+    if [ $async = true ]; then
+	ASYNC="--async"
+    else
+	ASYNC=
+    fi
+
+    ACTIVE="--active $active"
+
+else
+    echo "<ERROR> Missing args: async and active"
+    echo ""
+    exit 1
 fi
 
-$ESOCK_TTEST/esock-ttest --server --transport sock $ACTIVE
+
+$ESOCK_TTEST/esock-ttest --server $ASYNC --transport sock $ACTIVE
 

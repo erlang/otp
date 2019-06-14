@@ -825,6 +825,10 @@ typedef struct {
     ErlNifPid          ctrlPid;
     ESockMonitor       ctrlMon;
 
+    /* +++ Connector process +++ */
+    ErlNifPid          connPid;
+    ESockMonitor       connMon;
+
     /* +++ Write stuff +++ */
     ErlNifMutex*       writeMtx;
     ESockRequestor     currentWriter;
@@ -2377,6 +2381,8 @@ static int socket_setopt(int             sock,
                          const void*     optVal,
                          const socklen_t optLen);
 
+static BOOLEAN_T is_connector(ErlNifEnv*       env,
+                              ESockDescriptor* descP);
 static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
 static ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event);
@@ -4895,17 +4901,17 @@ ERL_NIF_TERM nconnect(ErlNifEnv*       env,
         return esock_make_error(env, atom_closed);
     
     if (!IS_OPEN(descP)) {
-        SSDBG( descP, ("SOCKET", "nif_connect -> not open\r\n") );
+        SSDBG( descP, ("SOCKET", "nconnect -> not open\r\n") );
         return esock_make_error(env, atom_exbadstate);
     }
 
     if (IS_CONNECTED(descP)) {
-        SSDBG( descP, ("SOCKET", "nif_connect -> already connected\r\n") );
+        SSDBG( descP, ("SOCKET", "nconnect -> already connected\r\n") );
         return esock_make_error(env, atom_eisconn);
     }
 
-    if (IS_CONNECTING(descP)) {
-        SSDBG( descP, ("SOCKET", "nif_connect -> already connecting\r\n") );
+    if (IS_CONNECTING(descP) && !is_connector(env, descP)) {
+        SSDBG( descP, ("SOCKET", "nconnect -> already connecting\r\n") );
         return esock_make_error(env, esock_atom_einval);
     }
     
@@ -4919,31 +4925,93 @@ ERL_NIF_TERM nconnect(ErlNifEnv*       env,
                         descP->addrLen);
     save_errno = sock_errno();
 
-    SSDBG( descP, ("SOCKET", "nif_connect -> connect result: %d, %d\r\n",
+    SSDBG( descP, ("SOCKET", "nconnect -> connect result: %d, %d\r\n",
                    code, save_errno) );
 
-    if (IS_SOCKET_ERROR(code) &&
-        ((save_errno == ERRNO_BLOCK) ||   /* Winsock2            */
-         (save_errno == EINPROGRESS))) {  /* Unix & OSE!!        */
-        ref = MKREF(env);
-        descP->state = SOCKET_STATE_CONNECTING;
-        if ((sres = esock_select_write(env, descP->sock, descP, NULL,
-                                       sockRef, ref)) < 0) {
-            res = esock_make_error(env,
-                                   MKT2(env,
-                                        esock_atom_select_failed,
-                                        MKI(env, sres)));
-        } else {
-            res = esock_make_ok2(env, ref);
+    if (IS_SOCKET_ERROR(code)) {
+        switch (save_errno) {
+        case ERRNO_BLOCK:   /* Winsock2            */
+        case EINPROGRESS:   /* Unix & OSE!!        */
+            SSDBG( descP, ("SOCKET", "nconnect -> would block => select\r\n") );
+
+            ref = MKREF(env);
+
+            if (IS_CONNECTING(descP)) {
+                /* Glitch */
+                res = esock_make_ok2(env, ref);
+            } else {
+
+                /* First time here */
+
+                if (enif_self(env, &descP->connPid) == NULL)
+                    return esock_make_error(env, atom_exself);
+
+                if (MONP("nconnect -> conn",
+                         env, descP,
+                         &descP->connPid,
+                         &descP->connMon) != 0)
+                    return esock_make_error(env, atom_exmon);
+
+                descP->state = SOCKET_STATE_CONNECTING;
+
+                if ((sres = esock_select_write(env, descP->sock, descP, NULL,
+                                               sockRef, ref)) < 0) {
+                    res = esock_make_error(env,
+                                           MKT2(env,
+                                                esock_atom_select_failed,
+                                                MKI(env, sres)));
+                } else {
+                    res = esock_make_ok2(env, ref);
+                }
+            }
+            break;
+
+        case EISCONN:
+            SSDBG( descP, ("SOCKET", "nconnect -> *already* connected\r\n") );
+            {
+                /* This is ***strange*** so make sure */
+                int err = 0;
+                if (!verify_is_connected(descP, &err)) {
+                    descP->state = SOCKET_STATE_OPEN;  /* restore state */
+                    res = esock_make_error_errno(env, err);
+                } else {
+                    descP->state = SOCKET_STATE_CONNECTED;
+                    /* And just to be on the safe side, reset these */
+                    enif_set_pid_undefined(&descP->connPid);
+                    DEMONP("nconnect -> connected",
+                           env, descP, &descP->connMon);
+                    descP->isReadable = TRUE;
+                    descP->isWritable = TRUE;
+                    res = esock_atom_ok;
+                }
+            }
+            break;
+
+        default:
+            SSDBG( descP, ("SOCKET", "nconnect -> other error(1): %d\r\n",
+                           save_errno) );
+            res = esock_make_error_errno(env, save_errno);
+            break;
         }
+
     } else if (code == 0) {                 /* ok we are connected */
 
+        SSDBG( descP, ("SOCKET", "nconnect -> connected\r\n") );
+
         descP->state      = SOCKET_STATE_CONNECTED;
+        enif_set_pid_undefined(&descP->connPid);
+        DEMONP("nconnect -> connected", env, descP, &descP->connMon);
         descP->isReadable = TRUE;
         descP->isWritable = TRUE;
 
         res = esock_atom_ok;
+
     } else {
+        /* Do we really need this case? */
+
+        SSDBG( descP, ("SOCKET", "nconnect -> other error(2): %d\r\n",
+                       save_errno) );
+
         res = esock_make_error_errno(env, save_errno);
     }
 
@@ -4998,7 +5066,7 @@ ERL_NIF_TERM nfinalize_connection(ErlNifEnv*       env,
 {
     int error;
 
-    if (descP->state != SOCKET_STATE_CONNECTING)
+    if (!IS_CONNECTING(descP))
         return esock_make_error(env, atom_enotconn);
 
     if (!verify_is_connected(descP, &error)) {
@@ -5007,6 +5075,8 @@ ERL_NIF_TERM nfinalize_connection(ErlNifEnv*       env,
     }
 
     descP->state      = SOCKET_STATE_CONNECTED;
+    enif_set_pid_undefined(&descP->connPid);
+    DEMONP("nfinalize_connection -> connected", env, descP, &descP->connMon);
     descP->isReadable = TRUE;
     descP->isWritable = TRUE;
 
@@ -5064,6 +5134,29 @@ BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err)
     *err = 0;
 
     return TRUE;
+}
+#endif
+
+
+
+/* *** is_connector ***
+ * Check if the current process is the connector process.
+ */
+#if !defined(__WIN32__)
+static
+BOOLEAN_T is_connector(ErlNifEnv*       env,
+                       ESockDescriptor* descP)
+{
+    ErlNifPid caller;
+
+    if (enif_self(env, &caller) == NULL)
+        return FALSE;
+
+    if (COMPARE_PIDS(&descP->connPid, &caller) == 0)
+        return TRUE;
+    else
+        return FALSE;
+    
 }
 #endif
 
@@ -16873,7 +16966,9 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         char buf[64]; /* Buffer used for building the mutex name */
 
         // This needs to be released when the socket is closed!
-        // descP->env            = enif_alloc_env();
+
+        enif_set_pid_undefined(&descP->connPid);
+        MON_INIT(&descP->connMon);
 
         sprintf(buf, "esock[w,%d]", sock);
         descP->writeMtx       = MCREATE(buf);
@@ -18651,6 +18746,17 @@ void socket_down(ErlNifEnv*           env,
                                   "\r\n", sres, pid, descP->sock,
                                   MON2T(env, mon));
             }
+
+        } else if (COMPARE_PIDS(&descP->connPid, pid) == 0) {
+
+            /* The connPid is only set during the connection.
+             * The same goes for the monitor (connMon).
+             */
+
+            descP->state = SOCKET_STATE_OPEN;  /* restore state */
+            enif_set_pid_undefined(&descP->connPid);
+            DEMONP("socket_down -> connector",
+                   env, descP, &descP->connMon);
 
         } else {
 
