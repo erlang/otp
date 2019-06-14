@@ -1015,8 +1015,15 @@ crypto_dyn_iv_update(State, Data0, IV) ->
                                       EncryptFlag :: boolean(),
                                       Result :: binary() .
 
-crypto_one_time(Cipher, Key, Data, EncryptFlag) ->
-    crypto_one_time(Cipher, Key, <<>>, Data, EncryptFlag).
+crypto_one_time(Cipher, Key, Data0, EncryptFlag) ->
+    case iolist_to_binary(Data0) of
+        <<>> ->
+            <<>>;                           % Known to fail on OpenSSL 0.9.8h
+        Data ->
+            ng_crypto_one_time_nif(Cipher,
+                                   iolist_to_binary(Key), <<>>, Data,
+                                   EncryptFlag)
+    end.
 
 -spec crypto_one_time(Cipher, Key, IV, Data, EncryptFlag) ->
                              Result | descriptive_error()
