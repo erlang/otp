@@ -21,89 +21,95 @@
 -module(socket_test_ttest_tcp_client_socket).
 
 -export([
-         start/3, start/4, start/6, start/7,
+         start/4, start/5, start/7, start/8,
          stop/1
         ]).
 
 -define(TRANSPORT_MOD, socket_test_ttest_tcp_socket).
--define(MOD(D, M),     {?TRANSPORT_MOD, #{domain => D, method => M}}).
+-define(MOD(D, A, M),  {?TRANSPORT_MOD, #{domain => D,
+                                          async  => A,
+                                          method => M}}).
 
-start(Method, ServerInfo, Active)
+start(Method, Async, Active, ServerInfo)
   when is_list(ServerInfo) ->
     Domain = local,
-    socket_test_ttest_tcp_client:start_monitor(?MOD(Domain, Method),
-                                               ServerInfo, Active);
-start(Method, ServerInfo = {Addr, _}, Active)
+    socket_test_ttest_tcp_client:start_monitor(?MOD(Domain, Async, Method),
+                                               Active, ServerInfo);
+start(Method, Async, Active, ServerInfo = {Addr, _})
   when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
     Domain = inet,
-    socket_test_ttest_tcp_client:start_monitor(?MOD(Domain, Method),
-                                               ServerInfo, Active);
-start(Method, ServerInfo = {Addr, _}, Active)
+    socket_test_ttest_tcp_client:start_monitor(?MOD(Domain, Async, Method),
+                                               Active, ServerInfo);
+start(Method, Async, Active, ServerInfo = {Addr, _})
   when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
     Domain = inet6,
-    socket_test_ttest_tcp_client:start_monitor(?MOD(Domain, Method),
-                                               ServerInfo, Active).
+    socket_test_ttest_tcp_client:start_monitor(?MOD(Domain, Async, Method),
+                                               Active, ServerInfo).
 
-start(Method, ServerInfo, Active, MsgID)
+start(Method, Async, Active, ServerInfo, MsgID)
   when is_list(ServerInfo) ->
     %% This is just a simplification
     Domain = local,
-    socket_test_ttest_tcp_client:start(?MOD(Domain, Method),
-                                       ServerInfo, Active, MsgID);
-start(Method, ServerInfo = {Addr, _}, Active, MsgID)
+    socket_test_ttest_tcp_client:start(?MOD(Domain, Async, Method),
+                                       Active, ServerInfo, MsgID);
+start(Method, Async, Active, ServerInfo = {Addr, _}, MsgID)
   when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
     %% This is just a simplification
     Domain = inet,
-    socket_test_ttest_tcp_client:start(?MOD(Domain, Method),
-                                       ServerInfo, Active, MsgID);
-start(Method, ServerInfo = {Addr, _}, Active, MsgID)
+    socket_test_ttest_tcp_client:start(?MOD(Domain, Async, Method),
+                                       Active, ServerInfo, MsgID);
+start(Method, Async, Active, ServerInfo = {Addr, _}, MsgID)
   when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
     Domain = inet6,
-    socket_test_ttest_tcp_client:start(?MOD(Domain, Method),
-                                       ServerInfo, Active, MsgID).
+    socket_test_ttest_tcp_client:start(?MOD(Domain, Async, Method),
+                                       Active, ServerInfo, MsgID).
 
-start(Method, ServerInfo, Active, MsgID, MaxOutstanding, RunTime)
+start(Method, Async, Active, ServerInfo, MsgID, MaxOutstanding, RunTime)
   when is_list(ServerInfo) ->
     Domain = local,
     socket_test_ttest_tcp_client:start(false,
-				       ?MOD(Domain, Method),
-                                       ServerInfo, Active,
+				       ?MOD(Domain, Async, Method),
+                                       Active, ServerInfo, 
                                        MsgID, MaxOutstanding, RunTime);
-start(Method, ServerInfo = {Addr, _}, Active, MsgID, MaxOutstanding, RunTime)
+start(Method, Async, Active, ServerInfo = {Addr, _},
+      MsgID, MaxOutstanding, RunTime)
   when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
     Domain = inet,
     socket_test_ttest_tcp_client:start(false,
-				       ?MOD(Domain, Method),
-                                       ServerInfo, Active,
+				       ?MOD(Domain, Async, Method),
+                                       Active, ServerInfo,
                                        MsgID, MaxOutstanding, RunTime);
-start(Method, ServerInfo = {Addr, _}, Active, MsgID, MaxOutstanding, RunTime)
+start(Method, Async, Active, ServerInfo = {Addr, _},
+      MsgID, MaxOutstanding, RunTime)
   when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
     Domain = inet6,
     socket_test_ttest_tcp_client:start(false,
-				       ?MOD(Domain, Method),
-                                       ServerInfo, Active,
+				       ?MOD(Domain, Async, Method),
+                                       Active, ServerInfo,
                                        MsgID, MaxOutstanding, RunTime).
 
-start(Quiet, Method, ServerInfo, Active, MsgID, MaxOutstanding, RunTime)
+start(Quiet, Async, Active, Method, ServerInfo, MsgID, MaxOutstanding, RunTime)
   when is_list(ServerInfo) ->
     Domain = local,
     socket_test_ttest_tcp_client:start(Quiet,
-				       ?MOD(Domain, Method),
-                                       ServerInfo, Active,
+				       ?MOD(Domain, Async, Method),
+                                       Active, ServerInfo,
                                        MsgID, MaxOutstanding, RunTime);
-start(Quiet, Method, ServerInfo = {Addr, _}, Active, MsgID, MaxOutstanding, RunTime)
+start(Quiet, Async, Active, Method, ServerInfo = {Addr, _},
+      MsgID, MaxOutstanding, RunTime)
   when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
     Domain = inet,
     socket_test_ttest_tcp_client:start(Quiet,
-				       ?MOD(Domain, Method),
-                                       ServerInfo, Active,
+				       ?MOD(Domain, Async, Method),
+                                       Active, ServerInfo,
                                        MsgID, MaxOutstanding, RunTime);
-start(Quiet, Method, ServerInfo = {Addr, _}, Active, MsgID, MaxOutstanding, RunTime)
+start(Quiet, Async, Active, Method, ServerInfo = {Addr, _}, 
+      MsgID, MaxOutstanding, RunTime)
   when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
     Domain = inet6,
     socket_test_ttest_tcp_client:start(Quiet,
-				       ?MOD(Domain, Method),
-                                       ServerInfo, Active,
+				       ?MOD(Domain, Async, Method),
+                                       Active, ServerInfo,
                                        MsgID, MaxOutstanding, RunTime).
 
 stop(Pid) ->

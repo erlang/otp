@@ -60,6 +60,9 @@ usage() ->
               "~n                                  Which domain to use."
               "~n                                  Only valid for server."
               "~n                                  Defaults to: inet"
+              "~n     --async                      Asynchronous mode (Timeout = nowait)"
+              "~n                                  This option is only valid for transport = sock."
+              "~n                                  Also, its only used when active =/= false."
               "~n     --active <active>            boolean() | once."
               "~n                                  Valid for both client and server."
               "~n                                  Defaults to: false"
@@ -111,6 +114,7 @@ process_args(Args) ->
 process_server_args(Args) ->
     Defaults = #{role      => server,
                  domain    => inet,
+                 async     => false,
                  active    => false,
                  transport => {sock, plain}},
     process_server_args(Args, Defaults).
@@ -123,6 +127,9 @@ process_server_args(["--domain", Domain|Args], State)
         (Domain =:= "inet") orelse
         (Domain =:= "inet6")) ->
     process_server_args(Args, State#{domain => list_to_atom(Domain)});
+
+process_server_args(["--async"|Args], State) ->
+    process_server_args(Args, State#{async => true});
 
 process_server_args(["--active", Active|Args], State) 
   when ((Active =:= "false") orelse
@@ -145,6 +152,7 @@ process_server_args([Arg|_], _State) ->
 
 process_client_args(Args) ->
     Defaults = #{role            => client,
+                 async           => false,
                  active          => false,
                  transport       => {sock, plain},
                  %% Will cause error if not provided
@@ -159,10 +167,13 @@ process_client_args(Args) ->
 process_client_args([], State) ->
     process_client_args_ensure_max_outstanding(State);
 
+process_client_args(["--async"|Args], State) ->
+    process_client_args(Args, State#{async => true});
+
 process_client_args(["--active", Active|Args], State) 
-  when ((Active =:= "false") orelse
-        (Active =:= "once") orelse
-        (Active =:= "true")) ->
+  when (Active =:= "false") orelse
+       (Active =:= "once") orelse
+       (Active =:= "true") ->
     process_client_args(Args, State#{active => list_to_atom(Active)});
 
 process_client_args(["--transport", "gen" | Args], State) ->
@@ -280,9 +291,10 @@ exec(#{role      := server,
     end;
 exec(#{role      := server,
        domain    := Domain,
+       async     := Async,
        active    := Active,
        transport := {sock, Method}}) ->
-    case socket_test_ttest_tcp_server_socket:start(Method, Domain, Active) of
+    case socket_test_ttest_tcp_server_socket:start(Method, Domain, Async, Active) of
         {ok, {Pid, _}} ->
             MRef = erlang:monitor(process, Pid),
             receive
@@ -323,12 +335,14 @@ exec(#{role            := client,
     end;
 exec(#{role            := client,
        server          := ServerInfo,
+       async           := Async,
        active          := Active,
        transport       := {sock, Method},
        msg_id          := MsgID,
        max_outstanding := MaxOutstanding,
        runtime         := RunTime}) ->
     case socket_test_ttest_tcp_client_socket:start(true,
+                                                   Async,
                                                    Method,
                                                    ServerInfo,
                                                    Active,

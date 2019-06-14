@@ -21,18 +21,26 @@
 -module(socket_test_ttest_tcp_server_socket).
 
 -export([
-         start/3,
+         start/4,
          stop/1
         ]).
 
 -define(TRANSPORT_MOD, socket_test_ttest_tcp_socket).
-%% -define(MOD(D, M),     {?TRANSPORT_MOD, #{domain         => D,
+%% -define(MOD(M),        {?TRANSPORT_MOD, #{async          => false, 
 %%                                           method         => M,
 %%                                           stats_interval => 10000}}).
--define(MOD(D, M),     {?TRANSPORT_MOD, #{domain => D, method => M}}).
+-define(MOD(D,M,A),      {?TRANSPORT_MOD, #{domain => D,
+                                            async  => A,
+                                            method => M}}).
 
-start(Method, Domain, Active) ->
-    socket_test_ttest_tcp_server:start(?MOD(Domain, Method), Active).
+start(Method, Domain, Async, Active) ->
+    socket_test_ttest_tcp_server:start(?MOD(Domain, Method, Async), Active).
+    %%     {ok, {Pid, AddrPort}} ->
+    %%         MRef = erlang:monitor(process, Pid),
+    %%         {ok, {Pid, MRef, AddrPort}};
+    %%     {error, _} = ERROR ->
+    %%         ERROR
+    %% end.
 
 stop(Pid) ->
     socket_test_ttest_tcp_server:stop(Pid).
