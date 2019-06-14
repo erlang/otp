@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.3.3.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a buffer overflow when
+	    <c>binary_to_existing_atom/2</c> and
+	    <c>list_to_existing_atom/2</c> was used with the
+	    <c>latin1</c> encoding.</p>
+          <p>
+	    Own Id: OTP-15819 Aux Id: ERL-944 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

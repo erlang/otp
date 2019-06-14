@@ -33,6 +33,37 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.15.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a ct hook is installed in the <c>suite/0</c> function
+	    in a test suite, then the hook's <c>terminate/1</c>
+	    function would be called several times without it's
+	    <c>init/2</c> function being called first. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-15863 Aux Id: ERIERL-370 </p>
+        </item>
+        <item>
+          <p>
+	    If <c>init_per_testcase</c> fails, the test itself is
+	    skipped. According to the documentation, it should be
+	    possible to change the result to failed in a hook
+	    function. The only available hook function in this case
+	    is <c>post_init_per_testcase</c>, but changing the return
+	    value there did not affect the test case result. This is
+	    now corrected.</p>
+          <p>
+	    Own Id: OTP-15869 Aux Id: ERIERL-350 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.15.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
