@@ -429,6 +429,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define SOCKET_STATE_CONNECTING      (SOCKET_STATE_OPEN      | SOCKET_FLAG_CON)
 #define SOCKET_STATE_ACCEPTING       (SOCKET_STATE_LISTENING | SOCKET_FLAG_ACC)
 #define SOCKET_STATE_CLOSING         (SOCKET_FLAG_CLOSE)
+#define SOCKET_STATE_DTOR            (0xFFFF)
 
 #define IS_CLOSED(d)                            \
     ((d)->state == SOCKET_STATE_CLOSED)
@@ -484,6 +485,9 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define SOCKET_OPT_VALUE_TYPE_UNSPEC 0
 #define SOCKET_OPT_VALUE_TYPE_INT    1
 #define SOCKET_OPT_VALUE_TYPE_BOOL   2
+
+#define ESOCK_DESC_PATTERN_CREATED 0x03030303
+#define ESOCK_DESC_PATTERN_DTOR    0xC0C0C0C0
 
 typedef union {
     struct {
@@ -808,6 +812,14 @@ typedef struct {
 
 
 typedef struct {
+    /* 
+     * +++ This is a way to, possibly, detect memory overrides "and stuff" +++
+     *
+     * We have two patterns. One is set when the descriptor is created (allocated)
+     * and one is set when the descriptor is dtor'ed.
+     */
+    Uint32             pattern;
+
     /* +++ The actual socket +++ */
     SOCKET             sock;
     HANDLE             event;
@@ -16965,7 +16977,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
     if ((descP = enif_alloc_resource(sockets, sizeof(ESockDescriptor))) != NULL) {
         char buf[64]; /* Buffer used for building the mutex name */
 
-        // This needs to be released when the socket is closed!
+        descP->pattern        = ESOCK_DESC_PATTERN_CREATED;
 
         enif_set_pid_undefined(&descP->connPid);
         MON_INIT(&descP->connMon);
@@ -18309,21 +18321,30 @@ void socket_dtor(ErlNifEnv* env, void* obj)
 #if !defined(__WIN32__)    
   ESockDescriptor* descP = (ESockDescriptor*) obj;
 
-  MDESTROY(descP->writeMtx);
-  MDESTROY(descP->readMtx);
-  MDESTROY(descP->accMtx);
-  MDESTROY(descP->closeMtx);
-  MDESTROY(descP->cfgMtx);
+  MDESTROY(descP->writeMtx); descP->writeMtx = NULL;
+  MDESTROY(descP->readMtx);  descP->readMtx  = NULL;
+  MDESTROY(descP->accMtx);   descP->accMtx   = NULL;
+  MDESTROY(descP->closeMtx); descP->closeMtx = NULL;
+  MDESTROY(descP->cfgMtx);   descP->cfgMtx   = NULL;
 
-  if (descP->currentReader.env)
+  if (descP->currentReader.env) {
       esock_free_env("dtor reader", descP->currentReader.env);
-  if (descP->currentWriter.env)
+      descP->currentReader.env = NULL;
+  }
+  if (descP->currentWriter.env) {
       esock_free_env("dtor writer", descP->currentWriter.env);
-  if (descP->currentAcceptor.env)
+      descP->currentWriter.env = NULL;
+  }
+  if (descP->currentAcceptor.env) {
       esock_free_env("dtor acceptor", descP->currentAcceptor.env);
+      descP->currentAcceptor.env = NULL;
+  }
   free_request_queue(&descP->readersQ);
   free_request_queue(&descP->writersQ);
   free_request_queue(&descP->acceptorsQ);
+
+  descP->state   = SOCKET_STATE_DTOR;
+  descP->pattern = ESOCK_DESC_PATTERN_DTOR;  
 #endif
 }
 
