@@ -454,9 +454,9 @@ translate_initial_call(DictOrPid) ->
 raw_initial_call({X,Y,Z}) when is_integer(X), is_integer(Y), is_integer(Z) ->
     raw_initial_call(c:pid(X,Y,Z));
 raw_initial_call(Pid) when is_pid(Pid) ->
-    case get_process_info(Pid, dictionary) of
-	{dictionary,Dict} ->
-	    raw_init_call(Dict);
+    case process_info(Pid, {dictionary, '$initial_call'}) of
+	{_, {_, _, _} = MFA} ->
+	    MFA;
 	_ ->
 	    false
     end;
@@ -598,14 +598,9 @@ clean_dict([]) ->
     [].
 
 get_dictionary(Pid,Tag) ->
-    case get_process_info(Pid,dictionary) of
-	{dictionary,Dict} ->
-	    case lists:keysearch(Tag,1,Dict) of
-		{value,Value} -> Value;
-		_             -> undefined
-	    end;
-	_ ->
-	    undefined
+    case get_process_info(Pid, {dictionary, Tag}) of
+	{_, undefined} -> undefined;
+	{_, Value} -> {Tag, Value}
     end.
 
 linked_info(Pid) ->
