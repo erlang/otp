@@ -666,9 +666,15 @@ test_events(scope_suite_cth) ->
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      %% check that post_groups and post_all comes before init when hook
      %% is installed in suite/0
+     %% And there should be no terminate after these, since init is
+     %% not yet called.
      {?eh,cth,{'_',post_groups,['_',[]]}},
-     {?eh,cth,{'_',post_all,['_','_',[]]}},
-     {?eh,tc_start,{ct_scope_suite_cth_SUITE,init_per_suite}},
+     {negative,
+      {?eh,cth,{'_',terminate,['_']}},
+      {?eh,cth,{'_',post_all,['_','_',[]]}}},
+     {negative,
+      {?eh,cth,{'_',terminate,['_']}},
+      {?eh,tc_start,{ct_scope_suite_cth_SUITE,init_per_suite}}},
      {?eh,cth,{'_',id,[[]]}},
      {?eh,cth,{'_',init,['_',[]]}},
      {?eh,cth,{'_',pre_init_per_suite,[ct_scope_suite_cth_SUITE,'$proplist',[]]}},
