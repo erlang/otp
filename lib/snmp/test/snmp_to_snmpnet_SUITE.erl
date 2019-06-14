@@ -247,9 +247,17 @@ erlang_agent_netsnmp_get(Config) when is_list(Config) ->
     start_agent(Config),
     Oid = ?sysDescr_instance,
     Expected = expected(Oid, get),
-    [Expected = snmpget(Oid, Transport, Config)
-     || Transport <- Transports],
-    ok.
+    try
+        begin
+            [Expected = snmpget(Oid, Transport, Config)
+             || Transport <- Transports],
+            ok
+        end
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end.
+
 
 %%--------------------------------------------------------------------
 erlang_manager_netsnmp_get() ->
@@ -260,29 +268,34 @@ erlang_manager_netsnmp_get(Config) when is_list(Config) ->
     SysDescr = "Net-SNMP agent",
     TargetName = "Target Net-SNMP agent",
     Transports = ?config(transports, Config),
-    ProgHandle = start_snmpd(Community, SysDescr, Config),
-    start_manager(Config),
-    snmp_manager_user:start_link(self(), test_user),
-    [snmp_manager_user:register_agent(
-       TargetName++domain_suffix(Domain),
-       [{reg_type, target_name},
-	{tdomain, Domain}, {taddress, Addr},
-	{community, Community}, {engine_id, "EngineId"},
-	{version, v2}, {sec_model, v2c}, {sec_level, noAuthNoPriv}])
-     || {Domain, Addr} <- Transports],
-    Results =
-	[snmp_manager_user:sync_get(
-	   TargetName++domain_suffix(Domain),
-	   [?sysDescr_instance])
-	 || {Domain, _} <- Transports],
-    ct:pal("sync_get -> ~p", [Results]),
-    snmp_manager_user:stop(),
-    stop_program(ProgHandle),
-    [{ok,
-      {noError, 0,
-       [{varbind, ?sysDescr_instance, 'OCTET STRING', SysDescr,1}] },
-      _} = R || R <- Results],
-    ok.
+    case start_snmpd(Community, SysDescr, Config) of
+        {skip, _} = SKIP ->
+            SKIP;
+        ProgHandle ->
+            start_manager(Config),
+            snmp_manager_user:start_link(self(), test_user),
+            [snmp_manager_user:register_agent(
+               TargetName++domain_suffix(Domain),
+               [{reg_type, target_name},
+                {tdomain, Domain}, {taddress, Addr},
+                {community, Community}, {engine_id, "EngineId"},
+                {version, v2}, {sec_model, v2c}, {sec_level, noAuthNoPriv}])
+             || {Domain, Addr} <- Transports],
+            Results =
+                [snmp_manager_user:sync_get(
+                   TargetName++domain_suffix(Domain),
+                   [?sysDescr_instance])
+                 || {Domain, _} <- Transports],
+            ct:pal("sync_get -> ~p", [Results]),
+            snmp_manager_user:stop(),
+            stop_program(ProgHandle),
+            [{ok,
+              {noError, 0,
+               [{varbind, ?sysDescr_instance, 'OCTET STRING', SysDescr,1}] },
+              _} = R || R <- Results],
+            ok
+    end.
+
 
 %%--------------------------------------------------------------------
 erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
@@ -292,17 +305,19 @@ erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
     start_agent(Config),
     ok = snmpa:load_mib(snmp_master_agent, filename:join(DataDir, Mib)),
 
-    ProgHandle = start_snmptrapd(Mib, Config),
-
-    snmpa:send_notification(
-      snmp_master_agent, testTrapv22, {erlang_agent_test, self()}),
-
-    receive
-	{snmp_targets, erlang_agent_test, Addresses} ->
-	    ct:pal("Notification sent to: ~p~n", [Addresses]),
-	    erlang_agent_netsnmp_inform_responses(Addresses)
-    end,
-    stop_program(ProgHandle).
+    case start_snmptrapd(Mib, Config) of
+        {skip, _} = SKIP ->
+            SKIP;
+        ProgHandle ->
+            snmpa:send_notification(
+              snmp_master_agent, testTrapv22, {erlang_agent_test, self()}),
+            receive
+                {snmp_targets, erlang_agent_test, Addresses} ->
+                    ct:pal("Notification sent to: ~p~n", [Addresses]),
+                    erlang_agent_netsnmp_inform_responses(Addresses)
+            end,
+            stop_program(ProgHandle)
+    end.
 
 erlang_agent_netsnmp_inform_responses([]) ->
     receive
@@ -326,6 +341,7 @@ erlang_agent_netsnmp_inform_responses([Address | Addresses]) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+
 snmpget(Oid, Transport, Config) ->
     Versions = ?config(snmp_versions, Config),
 
@@ -335,10 +351,14 @@ snmpget(Oid, Transport, Config) ->
 	 "-Cf",
 	 net_snmp_addr_str(Transport),
 	 oid_str(Oid)],
-    ProgHandle = start_program(snmpget, Args, none, Config),
-    {_, line, Line} = get_program_output(ProgHandle),
-    stop_program(ProgHandle),
-    Line.
+    case start_program(snmpget, Args, none, Config) of
+        {skip, _} = SKIP ->
+            throw(SKIP);
+        ProgHandle ->
+            {_, line, Line} = get_program_output(ProgHandle),
+            stop_program(ProgHandle),
+            Line
+    end.
 
 start_snmptrapd(Mibs, Config) ->
     DataDir = ?config(data_dir, Config),
@@ -382,12 +402,13 @@ start_program(Prog, Args, StartCheckMP, Config) ->
     DataDir = ?config(data_dir, Config),
     StartWrapper = filename:join(DataDir, "start_stop_wrapper"),
     Parent = self(),
-    Pid =
-	spawn_link(
+    %% process_flag(trap_exit, true),
+    {Pid, Mon} =
+	spawn_monitor(
 	  fun () ->
 		  run_program(Parent, StartWrapper, [Path | Args])
 	  end),
-    start_check(Pid, erlang:monitor(process, Pid), StartCheckMP).
+    start_check(Pid, Mon, StartCheckMP).
 
 start_check(Pid, Mon, none) ->
     {Pid, Mon};
@@ -400,6 +421,10 @@ start_check(Pid, Mon, StartCheckMP) ->
 		nomatch ->
 		    start_check(Pid, Mon, StartCheckMP)
 	    end;
+	{'DOWN', Mon, _, _Pid, {skip, Reason} = SKIP} ->
+	    ct:pal("Received DOWN from ~p"
+                   "~n   Skip Reason: ~p", [_Pid, Reason]),
+            SKIP;
 	{'DOWN', Mon, _, _, Reason} ->
 	    ct:fail("Prog ~p start failed: ~p", [Pid, Reason])
     end.
@@ -446,14 +471,34 @@ run_program_loop(Parent, Port, Buf) ->
 	{Port, {data, {Flag, Data}}} ->
 	    case Flag of
 		eol ->
-		    Line = iolist_to_binary(lists:reverse(Buf, Data)),
-		    ct:pal("Prog ~p output: ~s", [Port, Line]),
-		    Parent ! {self(), line, Line},
-		    run_program_loop(Parent, Port, []);
+		    Line  = iolist_to_binary(lists:reverse(Buf, Data)),
+                    ct:pal("Prog ~p output: ~s", [Port, Line]),
+                    %% There are potentially many different fail outputs,
+                    %% but for now we test for just this one: illegal option
+                    IOpt = "illegal option",
+                    case string:find(binary_to_list(Line), IOpt) of
+                        nomatch ->
+                            Parent ! {self(), line, Line},
+                            run_program_loop(Parent, Port, []);
+                        Line2 ->
+                            %% Try to extract the actual illegal option string
+                            IOpt2 =
+                                case string:take(
+                                       string:prefix(Line2, IOpt), [$-, $ ]) of
+                                    {_, Str} when length(Str) > 0 ->
+                                        Str;
+                                    _X ->
+                                        Line2
+                                end,
+                            ct:pal("Force program ~p stop", [Port]),
+                            true = port_command(Port, <<"stop\n">>),
+                            (catch port_close(Port)),
+                            exit({skip, {illegal_option, IOpt2}})
+                    end;
 		noeol ->
 		    run_program_loop(Parent, Port, [Data | Buf])
 	    end;
-	{Port, {exit_status,ExitStatus}} ->
+	{Port, {exit_status, ExitStatus}} ->
 	    ct:pal("Prog ~p exit: ~p", [Port, ExitStatus]),
 	    catch port_close(Port),
 	    Parent ! {self(), exit, ExitStatus};
