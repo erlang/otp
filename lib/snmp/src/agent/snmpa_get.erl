@@ -75,6 +75,9 @@
 %%          {ErrorStatus, ErrorIndex, []}
 %%-----------------------------------------------------------------
 
+%% There is now to properly spec the behaviour of the ?AGENT:subagent_get/3
+%% function (it *can* exit).
+-dialyzer({nowarn_function, do_get/3}).
 do_get(UnsortedVarbinds, IsNotification, _Extra) ->
     {MyVarbinds, SubagentVarbinds} = ?LIB:agent_sort_vbs(UnsortedVarbinds),
     case do_get_local(MyVarbinds, IsNotification) of
@@ -122,6 +125,7 @@ do_get(MibView, UnsortedVarbinds, IsNotification, Extra) ->
 do_get_local(VBs, IsNotification) ->
     do_get_local(VBs, [], IsNotification).
 
+-dialyzer({nowarn_function, do_get_local/3}).
 do_get_local([Vb | Vbs], Res, IsNotification) ->
     case try_get(Vb, IsNotification) of
 	NewVb when is_record(NewVb, varbind) ->
@@ -144,11 +148,16 @@ do_get_local([], Res, _IsNotification) ->
 %% Returns: {noError, 0, ListOfNewVarbinds} |
 %%          {ErrorStatus, ErrorIndex, []}
 %%-----------------------------------------------------------------
+
+%% There is now to properly spec the behaviour of the ?AGENT:subagent_get/3
+%% function (it *can* exit).
+-dialyzer({nowarn_function, do_get_subagents/3}).
 do_get_subagents(SubagentVarbinds, IsNotification) ->
     do_get_subagents(SubagentVarbinds, [], IsNotification).
+
 do_get_subagents([{SubAgentPid, SAVbs} | Tail], Res, IsNotification) ->
     {_SAOids, Vbs} = ?LIB:sa_split(SAVbs),
-    case catch ?AGENT:subagent_get(SubAgentPid, Vbs, IsNotification) of
+    case (catch ?AGENT:subagent_get(SubAgentPid, Vbs, IsNotification)) of
 	{noError, 0, NewVbs} ->
 	    do_get_subagents(Tail, lists:append(NewVbs, Res), IsNotification);
 	{ErrorStatus, ErrorIndex, _} ->
@@ -169,6 +178,7 @@ do_get_subagents([], Res, _IsNotification) ->
 %%          List of #varbind
 %%-----------------------------------------------------------------
 
+-dialyzer({nowarn_function, try_get/2}).
 try_get(IVb, IsNotification) when is_record(IVb, ivarbind) ->
     ?vtrace("try_get(ivarbind) -> entry with"
 	    "~n   IVb: ~p", [IVb]),
@@ -191,6 +201,8 @@ try_get({TableOid, TableVbs}, IsNotification) ->
 %%-----------------------------------------------------------------
 %% Make sure all requested columns are accessible.
 %%-----------------------------------------------------------------
+
+-dialyzer({nowarn_function, check_all_table_vbs/4}).
 check_all_table_vbs([IVb| IVbs], IsNotification, NoA, A) ->
     #ivarbind{mibentry = Me, varbind = Vb} = IVb,
     case Me#me.access of
@@ -212,6 +224,7 @@ check_all_table_vbs([], _IsNotification, NoA, A) -> {NoA, A}.
 %% Returns: {error, ErrorStatus, OrgIndex} |
 %%          #varbind
 %%-----------------------------------------------------------------
+-dialyzer({nowarn_function, get_var_value_from_ivb/2}).
 get_var_value_from_ivb(IVb, IsNotification)
   when IVb#ivarbind.status =:= noError ->
     ?vtrace("get_var_value_from_ivb(noError) -> entry", []),
@@ -244,6 +257,7 @@ get_var_value_from_ivb(#ivarbind{status = Status, varbind = Vb}, _) ->
 %%-----------------------------------------------------------------
 %% Pre: Oid is a correct instance Oid (lookup checked that).
 %% Returns: A correct return value (see ?AGENT:make_value_a_correct_value)
+-dialyzer({nowarn_function, get_var_value_from_mib/2}).
 get_var_value_from_mib(#me{entrytype = variable,
 			   asn1_type = ASN1Type,
 			   mfa       = {Mod, Func, Args}},
@@ -282,6 +296,7 @@ get_var_value_from_mib(#me{entrytype = table_column,
 %% non-existing row).
 %% Returns: {error, ErrorStatus, OrgIndex} |
 %%          {value, Type, Value}
+-dialyzer({nowarn_function, get_tab_value_from_mib/3}).
 get_tab_value_from_mib(#me{mfa = {Mod, Func, Args}}, TableOid, TableVbs) ->
     ?vtrace("get_tab_value_from_mib -> entry when"
 	    "~n   Mod:  ~p"
@@ -304,12 +319,14 @@ get_tab_value_from_mib(#me{mfa = {Mod, Func, Args}}, TableOid, TableVbs) ->
 %% #varbind.
 %% The Values list comes from validate_tab_res.
 %%-----------------------------------------------------------------
+-dialyzer({nowarn_function, merge_varbinds_and_value/2}).
 merge_varbinds_and_value(IVbs, [{{value, Type, Value}, Index} | Values]) ->
     #ivarbind{varbind = Vb} = lists:nth(Index, IVbs),
     [Vb#varbind{variabletype = Type, value = Value} |
      merge_varbinds_and_value(IVbs, Values)];
 merge_varbinds_and_value(_, []) -> [].
     
+-dialyzer({nowarn_function, get_value_all_rows/5}).
 get_value_all_rows([{[], OrgCols} | Rows], Mod, Func, Args, Res) ->
     ?vtrace("get_value_all_rows -> entry when"
 	    "~n   OrgCols: ~p", [OrgCols]),
@@ -354,10 +371,13 @@ delete_index([]) -> [].
 %% the retrieved values to reconstruct the original column list,
 %% but with the retrieved value for each column.
 %%-----------------------------------------------------------------
+
+-dialyzer({nowarn_function, remove_duplicates/1}).
 remove_duplicates(Cols) ->
     remove_duplicates(Cols, [], []).
 
 
+-dialyzer({nowarn_function, remove_duplicates/3}).
 remove_duplicates([{Col, V1, OrgIdx1}, {Col, V2, OrgIdx2} | T], NCols, Dup) ->
     remove_duplicates([{Col, V1, OrgIdx1} | T], NCols, 
 		      [{Col, V2, OrgIdx2} | Dup]);
@@ -366,6 +386,7 @@ remove_duplicates([Col | T], NCols, Dup) ->
 remove_duplicates([], NCols, Dup) ->
     {lists:reverse(NCols), lists:reverse(Dup)}.
 
+-dialyzer({nowarn_function, restore_duplicates/2}).
 restore_duplicates([], Cols) ->
     [{Val, OrgIndex} || {_Col, Val, OrgIndex} <- Cols];
 restore_duplicates([{Col, _Val2, OrgIndex2} | Dup],
@@ -387,6 +408,7 @@ restore_duplicates(Dup, [{_Col, Val, OrgIndex} | T]) ->
 %%         each element in Values and OrgCols correspond to each
 %%         other.
 %%-----------------------------------------------------------------
+-dialyzer({nowarn_function, validate_tab_res/3}).
 validate_tab_res(Values, OrgCols, Mfa) when is_list(Values) ->
     {_Col, _ASN1Type, OneIdx} = hd(OrgCols),
     validate_tab_res(Values, OrgCols, Mfa, [], OneIdx);
@@ -409,6 +431,7 @@ validate_tab_res(Error, [{_Col, _ASN1Type, Index} | _OrgCols], Mfa) ->
     ?LIB:user_err("Invalid return value ~w from ~w (get)",[Error, Mfa]),
     {error, genErr, Index}.
 
+-dialyzer({nowarn_function, validate_tab_res/5}).
 validate_tab_res([Value | Values], 
 		 [{Col, ASN1Type, Index} | OrgCols],
 		 Mfa, Res, I) ->

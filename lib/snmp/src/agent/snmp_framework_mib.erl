@@ -246,6 +246,7 @@ check_agent(X) ->
 
 %% Ordering function to sort intAgentTransportDomain first
 %% hence before intAgentIpAddress.  Sort other entries on the key.
+-dialyzer({nowarn_function, order_agent/2}).
 order_agent(EntryA, EntryB) ->
     snmp_conf:keyorder(
       1, EntryA, EntryB,
