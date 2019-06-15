@@ -40,45 +40,44 @@
 
 %% ----- bs_start_match -----
 gen_rtl(bs_start_match3, [Ms], [Binary], TrueLblName, FalseLblName) ->
-  % ReInitLbl = hipe_rtl:mk_new_label(),
-  BinaryLbl = hipe_rtl:mk_new_label(),
-  Arch64 = hipe_rtl_arch:word_size() == 8,
-  TestCode =
-  if Arch64 ->
-	    [hipe_rtl:mk_move(Ms,Binary),
-	     hipe_tagscheme:test_matchstate(Binary,
-					    TrueLblName,
-					    hipe_rtl:label_name(BinaryLbl),
-					    0.99)];
-     true ->
-  	    IsMsLbl = hipe_rtl:mk_new_label(),
-  	    BigPositionLbl = hipe_rtl:mk_new_label(),
-  	    Position = hipe_rtl:mk_new_reg_gcsafe(),
-            Offset = hipe_rtl:mk_new_reg_gcsafe(),
-            SavedOffset = hipe_rtl:mk_new_reg_gcsafe(),
-            [Position, SavedOffset, Offset, Orig, BinSize, Base] = create_gcsafe_regs(6),
-	    [hipe_tagscheme:test_matchstate(Binary,
-					    hipe_rtl:label_name(IsMsLbl),
-					    hipe_rtl:label_name(BinaryLbl),
-					    0.99),
-	    IsMsLbl,
-            hipe_rtl:mk_move(Ms,Binary),
-            get_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset),
-            get_field_from_term({matchstate,{saveoffset, 0}}, Ms, SavedOffset),
-            hipe_rtl:mk_alu(Position, Offset, sub, SavedOffset),
-	    hipe_rtl:mk_branch(Position, ltu, hipe_rtl:mk_imm(1 << ?MAX_SMALL_BITS), TrueLblName, hipe_rtl:label_name(BigPositionLbl), 0.99),
-	    BigPositionLbl,
-  	    hipe_rtl:mk_gctest(?MS_MIN_SIZE+1),
-  	    get_field_from_term({matchstate,{matchbuffer,orig}}, Ms, Orig),
-  	    get_field_from_term({matchstate,{matchbuffer,binsize}}, Ms, BinSize),
-            get_field_from_term({matchstate,{matchbuffer,base}}, Ms, Base),
-
-   	    hipe_tagscheme:create_matchstate(1, BinSize, Base, Offset, Orig, Ms),
-   	    hipe_rtl:mk_goto(TrueLblName)]
-
-  end,
-  OrdinaryCode = make_matchstate3(Binary, Ms, TrueLblName, FalseLblName),
-  [TestCode,[BinaryLbl|OrdinaryCode]];
+  case hipe_rtl_arch:word_size() of
+    4 -> %% 32-bit
+      [MatchStateLbl, BinaryLbl, PosOverflowLbl] = create_lbls(3),
+      [Pos, SavedOffset, Offset, Orig, BinSize, Base] = create_gcsafe_regs(6),
+      [hipe_tagscheme:test_matchstate(Binary,
+                                      hipe_rtl:label_name(MatchStateLbl),
+                                      hipe_rtl:label_name(BinaryLbl),
+                                      0.99),
+       MatchStateLbl,
+       hipe_rtl:mk_move(Ms,Binary),
+       get_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset),
+       get_field_from_term({matchstate,{saveoffset, 0}}, Ms, SavedOffset),
+       hipe_rtl:mk_alu(Pos, Offset, sub, SavedOffset),
+       hipe_rtl:mk_branch(Pos, ltu, hipe_rtl:mk_imm(1 bsl ?MAX_SMALL_BITS),
+                          TrueLblName,
+                          hipe_rtl:label_name(PosOverflowLbl),
+                          0.99),
+       PosOverflowLbl,
+       % Create a new match state if calculated position exceeds supported limit
+       hipe_rtl:mk_gctest(?MS_MIN_SIZE+1),
+       get_field_from_term({matchstate,{matchbuffer,orig}}, Ms, Orig),
+       get_field_from_term({matchstate,{matchbuffer,binsize}}, Ms, BinSize),
+       get_field_from_term({matchstate,{matchbuffer,base}}, Ms, Base),
+       hipe_tagscheme:create_matchstate(0, BinSize, Base, Offset, Orig, Ms, false),
+       set_field_from_term({matchstate,{saveoffset, 0}}, Ms, Offset),
+       hipe_rtl:mk_goto(TrueLblName),
+       BinaryLbl,
+       make_matchstate(Binary, 0, Ms, TrueLblName, FalseLblName)];
+    8 -> %% 64-bit
+      BinaryLbl = hipe_rtl:mk_new_label(),
+      [hipe_rtl:mk_move(Ms,Binary),
+       hipe_tagscheme:test_matchstate(Binary,
+                                      TrueLblName,
+                                      hipe_rtl:label_name(BinaryLbl),
+                                      0.99),
+       BinaryLbl,
+       make_matchstate(Binary, 0, Ms, TrueLblName, FalseLblName, true)]
+  end;
 gen_rtl(bs_start_match3, [], [Binary], TrueLblName, FalseLblName) ->
   MatchStateLbl = hipe_rtl:mk_new_label(),
   [hipe_tagscheme:test_bitstr(Binary, TrueLblName,
@@ -610,29 +609,19 @@ get_unknown_size_int(SizeReg, Ms, Dst1, Signed, Little,
   end.
 
 make_matchstate(Binary, Max, Ms, TrueLblName, FalseLblName) ->
-  Base = hipe_rtl:mk_new_reg(),
-  Orig = hipe_rtl:mk_new_var(),
-  BinSize = hipe_rtl:mk_new_reg_gcsafe(),
-  Offset = hipe_rtl:mk_new_reg_gcsafe(),
-  Lbl = hipe_rtl:mk_new_label(),
-  [hipe_rtl:mk_gctest(?MS_MIN_SIZE+Max),
-   get_binary_bytes(Binary, BinSize, Base, Offset,
-		    Orig, hipe_rtl:label_name(Lbl), FalseLblName),
-   Lbl,
-   hipe_tagscheme:create_matchstate(Max, BinSize, Base, Offset, Orig, Ms),
-   hipe_rtl:mk_goto(TrueLblName)].
+	make_matchstate(Binary, Max, Ms, TrueLblName, FalseLblName, false).
 
-make_matchstate3(Binary, Ms, TrueLblName, FalseLblName) ->
+make_matchstate(Binary, Max, Ms, TrueLblName, FalseLblName, IsNewMatch) ->
   Base = hipe_rtl:mk_new_reg(),
   Orig = hipe_rtl:mk_new_var(),
   BinSize = hipe_rtl:mk_new_reg_gcsafe(),
   Offset = hipe_rtl:mk_new_reg_gcsafe(),
   Lbl = hipe_rtl:mk_new_label(),
-  [hipe_rtl:mk_gctest(?MS_MIN_SIZE),
+  [hipe_rtl:mk_gctest(?MS_MIN_SIZE+Max+1),
    get_binary_bytes(Binary, BinSize, Base, Offset,
 		    Orig, hipe_rtl:label_name(Lbl), FalseLblName),
    Lbl,
-   hipe_tagscheme:create_matchstate3(BinSize, Base, Offset, Orig, Ms),
+   hipe_tagscheme:create_matchstate(Max, BinSize, Base, Offset, Orig, Ms, IsNewMatch),
    hipe_rtl:mk_goto(TrueLblName)].
 
 resize_matchstate(Ms, Max, TrueLblName) ->
@@ -640,12 +629,12 @@ resize_matchstate(Ms, Max, TrueLblName) ->
   Orig = hipe_rtl:mk_new_var(),
   BinSize = hipe_rtl:mk_new_reg_gcsafe(),
   Offset = hipe_rtl:mk_new_reg_gcsafe(),
-  [hipe_rtl:mk_gctest(?MS_MIN_SIZE+Max),
+  [hipe_rtl:mk_gctest(?MS_MIN_SIZE+Max+1),
    get_field_from_term({matchstate, {matchbuffer, binsize}}, Ms, BinSize),
    get_field_from_term({matchstate, {matchbuffer, base}}, Ms, Base),
    get_field_from_term({matchstate, {matchbuffer, orig}}, Ms, Orig),
    get_field_from_term({matchstate, {matchbuffer, offset}}, Ms, Offset),
-   hipe_tagscheme:create_matchstate(Max, BinSize, Base, Offset, Orig, Ms),
+   hipe_tagscheme:create_matchstate(Max, BinSize, Base, Offset, Orig, Ms, false),
    hipe_rtl:mk_goto(TrueLblName)].
 
 reinit_matchstate(Ms, TrueLblName) -> 

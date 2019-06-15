@@ -62,11 +62,6 @@
       and the runtime system that have limited or no support for HiPE compiled modules.
     </p>
     <taglist>
-      <tag>Binary matching</tag>
-      <item><p>The HiPE compiler will crash on modules containing binary
-      matching.</p>
-      </item>
-
       <tag>Stack traces</tag>
       <item><p>Stack traces returned from <seealso marker="erts:erlang#get_stacktrace/0">
       <c>erlang:get_stacktrace/0</c></seealso> or as part of <c>'EXIT'</c> terms

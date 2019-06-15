@@ -52,7 +52,7 @@
 	 unsafe_get_one_word_pos_bignum/2]).
 -export([test_subbinary/3, test_heap_binary/3]).
 -export([create_heap_binary/3, create_refc_binary/3, create_refc_binary/4]).
--export([create_matchstate/6, create_matchstate3/5, convert_matchstate/1, compare_matchstate/4]).
+-export([create_matchstate/7, convert_matchstate/1, compare_matchstate/4]).
 -export([get_field_addr_from_term/3,
 	 get_field_from_term/3, get_field_from_pointer/3,
 	 set_field_from_term/3, set_field_from_pointer/3,
@@ -1084,10 +1084,13 @@ bignum_sizeneed_code(SizeReg,FixNumLblName) ->
 %%
 %% MatchState Code
 
-create_matchstate(Max, BinSize, Base, Offset, Orig, Ms) -> 
+create_matchstate(Max, BinSize, Base, Offset, Orig, Ms, IsNewMatch) ->
   WordSize = hipe_rtl_arch:word_size(),
   {GetHPInsn, HP, PutHPInsn} = hipe_rtl_arch:heap_pointer(),
-  ByteSize = (Max+1)*WordSize + ?MS_SAVEOFFSET,
+  ByteSize = case IsNewMatch of
+                     true -> ?MS_SAVEOFFSET;
+                     false ->  (Max+1)*WordSize + ?MS_SAVEOFFSET
+             end,
   SizeInWords = ((ByteSize div WordSize) - 1),
   Header = hipe_rtl:mk_imm(mk_header(SizeInWords, ?TAG_HEADER_BIN_MATCHSTATE)),
   [GetHPInsn,
@@ -1096,26 +1099,13 @@ create_matchstate(Max, BinSize, Base, Offset, Orig, Ms) ->
    set_field_from_term({matchstate,{matchbuffer,orig}}, Ms, Orig),
    set_field_from_term({matchstate,{matchbuffer,base}}, Ms, Base),
    set_field_from_term({matchstate,{matchbuffer,binsize}}, Ms, BinSize),
-   set_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset),
-   set_field_from_term({matchstate,{saveoffset, 0}}, Ms, Offset),
-   hipe_rtl:mk_alu(HP, HP, add, hipe_rtl:mk_imm(ByteSize)),
-   PutHPInsn].
-
-create_matchstate3(BinSize, Base, Offset, Orig, Ms) ->
-  WordSize = hipe_rtl_arch:word_size(),
-  {GetHPInsn, HP, PutHPInsn} = hipe_rtl_arch:heap_pointer(),
-  ByteSize = ?MS_SAVEOFFSET,
-  SizeInWords = ((ByteSize div WordSize) - 1),
-  Header = hipe_rtl:mk_imm(mk_header(SizeInWords, ?TAG_HEADER_BIN_MATCHSTATE)),
-  [GetHPInsn,
-   tag_boxed(Ms, HP),
-   set_field_from_term({matchstate,thing_word}, Ms, Header),
-   set_field_from_term({matchstate,{matchbuffer,orig}}, Ms, Orig),
-   set_field_from_term({matchstate,{matchbuffer,base}}, Ms, Base),
-   set_field_from_term({matchstate,{matchbuffer,binsize}}, Ms, BinSize),
-   set_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset),
-   hipe_rtl:mk_alu(HP, HP, add, hipe_rtl:mk_imm(ByteSize)),
-   PutHPInsn].
+   set_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset) |
+   case IsNewMatch of
+           true ->  [];
+           false -> [set_field_from_term({matchstate,{saveoffset, 0}}, Ms, Offset)]
+   end] ++
+   [hipe_rtl:mk_alu(HP, HP, add, hipe_rtl:mk_imm(ByteSize)),
+    PutHPInsn].
 
 convert_matchstate(Ms) ->
   WordSize = hipe_rtl_arch:word_size(),
