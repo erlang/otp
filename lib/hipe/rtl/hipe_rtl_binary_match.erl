@@ -35,6 +35,7 @@
 -define(LOW_BITS, 7). %% Three lowest bits set 
 -define(BYTE_SIZE, 8).
 -define(MAX_SMALL_BITS, (hipe_rtl_arch:word_size() * ?BYTE_SIZE - 5)).
+-define(BIG_UINT_HEAP_SIZE, 2).
 
 %%--------------------------------------------------------------------
 
@@ -43,16 +44,17 @@ gen_rtl(bs_start_match3, [Ms], [Binary], TrueLblName, FalseLblName) ->
   case hipe_rtl_arch:word_size() of
     4 -> %% 32-bit
       [MatchStateLbl, BinaryLbl, PosOverflowLbl] = create_lbls(3),
-      [Pos, SavedOffset, Offset, Orig, BinSize, Base] = create_gcsafe_regs(6),
+      Pos = hipe_rtl:mk_new_reg_gcsafe(),
+      {[Offset,SaveOffset], ExtractCodePos} = extract_matchstate_vars([offset,{saveoffset,0}], Ms),
+      {[Orig,BinSize,Base], ExtractCodeMs} = extract_matchstate_vars([orig,binsize,base], Ms),
       [hipe_tagscheme:test_matchstate(Binary,
                                       hipe_rtl:label_name(MatchStateLbl),
                                       hipe_rtl:label_name(BinaryLbl),
                                       0.99),
        MatchStateLbl,
        hipe_rtl:mk_move(Ms,Binary),
-       get_field_from_term({matchstate,{matchbuffer,offset}}, Ms, Offset),
-       get_field_from_term({matchstate,{saveoffset, 0}}, Ms, SavedOffset),
-       hipe_rtl:mk_alu(Pos, Offset, sub, SavedOffset),
+       ExtractCodePos,
+       hipe_rtl:mk_alu(Pos, Offset, sub, SaveOffset),
        hipe_rtl:mk_branch(Pos, ltu, hipe_rtl:mk_imm(1 bsl ?MAX_SMALL_BITS),
                           TrueLblName,
                           hipe_rtl:label_name(PosOverflowLbl),
@@ -60,9 +62,7 @@ gen_rtl(bs_start_match3, [Ms], [Binary], TrueLblName, FalseLblName) ->
        PosOverflowLbl,
        % Create a new match state if calculated position exceeds supported limit
        hipe_rtl:mk_gctest(?MS_MIN_SIZE+1),
-       get_field_from_term({matchstate,{matchbuffer,orig}}, Ms, Orig),
-       get_field_from_term({matchstate,{matchbuffer,binsize}}, Ms, BinSize),
-       get_field_from_term({matchstate,{matchbuffer,base}}, Ms, Base),
+       ExtractCodeMs,
        hipe_tagscheme:create_matchstate(0, BinSize, Base, Offset, Orig, Ms, false),
        set_field_from_term({matchstate,{saveoffset, 0}}, Ms, Offset),
        hipe_rtl:mk_goto(TrueLblName),
@@ -160,17 +160,56 @@ gen_rtl(bs_get_tail, [Dst], [Ms],
 %% ----- bs_set_position -----
 gen_rtl(bs_set_position, [], [Ms,Pos],
 	TrueLblName, _FalseLblName) ->
-  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
-  [hipe_tagscheme:realuntag_fixnum(Tmp, Pos),
-   set_field_from_term({matchstate, {matchbuffer, offset}}, Ms, Tmp),
-   hipe_rtl:mk_goto(TrueLblName)];
+  case hipe_rtl_arch:word_size() of
+    4 -> %% 32-bit
+      [SmallLbl, BigLbl, RestLbl] = create_lbls(3),
+      Tmp = hipe_rtl:mk_new_reg_gcsafe(),
+      {SaveOffset, ExtractSaveOffset} = extract_matchstate_var({saveoffset,0}, Ms),
+      [ExtractSaveOffset,
+       hipe_tagscheme:test_fixnum(Pos,
+				  hipe_rtl:label_name(SmallLbl),
+				  hipe_rtl:label_name(BigLbl),
+				  0.99),
+       SmallLbl,
+       hipe_tagscheme:realuntag_fixnum(Tmp, Pos),
+       hipe_rtl:mk_goto(hipe_rtl:label_name(RestLbl)),
+       BigLbl,
+       unsafe_get_one_word_pos_bignum(Tmp, Pos),
+       RestLbl,
+       hipe_rtl:mk_alu(Tmp, Tmp, add, SaveOffset)
+       set_field_from_term({matchstate,{matchbuffer, offset}}, Ms, Tmp),
+       hipe_rtl:mk_goto(TrueLblName)];
+    8 -> %% 64-bit
+      Tmp = hipe_rtl:mk_new_reg_gcsafe(),
+      [hipe_tagscheme:realuntag_fixnum(Tmp, Pos),
+       set_field_from_term({matchstate, {matchbuffer, offset}}, Ms, Tmp),
+       hipe_rtl:mk_goto(TrueLblName)]
+  end;
 %% ----- bs_get_position -----
 gen_rtl(bs_get_position, [Dst], [Ms],
 	TrueLblName, _FalseLblName) ->
-  Tmp = hipe_rtl:mk_new_reg_gcsafe(),
-  [get_field_from_term({matchstate, {matchbuffer, offset}}, Ms, Tmp),
-   hipe_tagscheme:realtag_fixnum(Dst, Tmp),
-   hipe_rtl:mk_goto(TrueLblName)];
+  case hipe_rtl_arch:word_size() of
+    4 -> %% 32-bit
+      PosOverflowLbl = hipe_rtl:mk_new_label(),
+      Pos = hipe_rtl:mk_new_reg_gcsafe(),
+      {SaveOffset, ExtractSaveOffset} = extract_matchstate_var({saveoffset,0}, Ms),
+      [ExtractSaveOffset,
+       hipe_rtl:mk_alu(Pos, Offset, sub, SaveOffset),
+       hipe_tagscheme:realtag_fixnum(Dst, Pos),
+       hipe_rtl:mk_branch(Pos, ltu, hipe_rtl:mk_imm(1 bsl ?MAX_SMALL_BITS),
+                          TrueLblName,
+                          hipe_rtl:label_name(PosOverflowLbl),
+                          0.99),
+       PosOverflowLbl,
+       hipe_rtl:mk_gctest(?BIG_UINT_HEAP_SIZE),
+       hipe_tagscheme:unsafe_mk_big(Dst, Pos, unsigned),
+       hipe_rtl:mk_goto(TrueLblName)];
+    8 -> %% 64-bit
+      {Offset, ExtractOffset} = extract_matchstate_var(offset, Ms),
+      [ExtractOffset,
+       hipe_tagscheme:realtag_fixnum(Dst, Offset),
+       hipe_rtl:mk_goto(TrueLblName)]
+  end;
 %% ----- bs_get_integer -----
 gen_rtl({bs_get_integer, 0, _Flags}, [Dst, NewMs], [Ms],
 	TrueLblName, _FalseLblName) ->
@@ -830,7 +869,11 @@ extract_matchstate_var(base, Ms) ->
 extract_matchstate_var(orig, Ms) ->
   Orig = hipe_rtl:mk_new_var(),
   {Orig, 
-   get_field_from_term({matchstate, {matchbuffer, orig}}, Ms, Orig)}.
+   get_field_from_term({matchstate, {matchbuffer, orig}}, Ms, Orig)};
+extract_matchstate_var({saveoffset, N}, Ms) ->
+  SaveOffset = hipe_rtl:mk_new_reg_gcsafe(),
+  {SaveOffset, 
+   get_field_from_term({matchstate, {saveoffset, N}}, Ms, SaveOffset)}.
 
 extract_matchstate_vars(List, Ms) ->
   lists:unzip([extract_matchstate_var(Name, Ms) || Name <- List]).
