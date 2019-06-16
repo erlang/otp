@@ -174,9 +174,9 @@ gen_rtl(bs_set_position, [], [Ms,Pos],
        hipe_tagscheme:realuntag_fixnum(Tmp, Pos),
        hipe_rtl:mk_goto(hipe_rtl:label_name(RestLbl)),
        BigLbl,
-       unsafe_get_one_word_pos_bignum(Tmp, Pos),
+       hipe_tagscheme:unsafe_get_one_word_pos_bignum(Tmp, Pos),
        RestLbl,
-       hipe_rtl:mk_alu(Tmp, Tmp, add, SaveOffset)
+       hipe_rtl:mk_alu(Tmp, Tmp, add, SaveOffset),
        set_field_from_term({matchstate,{matchbuffer, offset}}, Ms, Tmp),
        hipe_rtl:mk_goto(TrueLblName)];
     8 -> %% 64-bit
