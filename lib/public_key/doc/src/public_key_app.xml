@@ -51,6 +51,9 @@
       Diffie-Hellman Key Agreement Standard </item>
       <item>Supports <url href="http://www.ietf.org/rfc/rfc2898.txt"> PKCS-5</url> - 
       Password-Based Cryptography Standard </item>
+      <item>Supports <url href="http://www.ietf.org/rfc/fc3565.txt"> AES </url> -
+      Use of the Advanced Encryption Standard (AES) Algorithm in Cryptographic Message Syntax (CMS)
+      </item>
       <item>Supports <url href="http://www.ietf.org/rfc/rfc5208.txt"> PKCS-8</url> - 
       Private-Key Information Syntax Standard</item>
       <item>Supports <url href="http://www.ietf.org/rfc/rfc5967.txt"> PKCS-10</url> - 
