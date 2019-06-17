@@ -22,14 +22,14 @@
 
 -include("beam_types.hrl").
 
--import(lists, [foldl/3]).
+-import(lists, [foldl/3, reverse/1, reverse/2]).
 
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
 -export([get_singleton_value/1,
-         get_tuple_size/1,
          is_singleton_type/1,
-         is_boolean_type/1]).
+         is_boolean_type/1,
+         normalize/1]).
 
 -export([get_element_type/2, set_element_type/3]).
 
@@ -38,121 +38,39 @@
 -export([make_atom/1,
          make_boolean/0,
          make_integer/1,
-         make_integer/2,
-         make_tuple/2,
-         make_tuple/3]).
+         make_integer/2]).
 
-%% Return the "join" of Type1 and Type2. The join is a more general
-%% type than Type1 and Type2. For example:
+-define(IS_LIST_TYPE(N),
+        N =:= list orelse
+        N =:= cons orelse
+        N =:= nil).
+
+-define(IS_NUMBER_TYPE(N),
+        N =:= number orelse
+        N =:= float orelse
+        is_record(N, t_integer)).
+
+-define(TUPLE_SET_LIMIT, 20).
+
+%% Folds meet/2 over a list.
+
+-spec meet([type()]) -> type().
+
+meet([T1, T2 | Ts]) ->
+    meet([meet(T1, T2) | Ts]);
+meet([T]) -> T.
+
+%% Return the "meet" of Type1 and Type2, which is more general than Type1 and
+%% Type2. This is identical to glb/2 but can operate on and produce unions.
 %%
-%%    join(#t_integer{elements=any}, #t_integer=elements={0,3}}) ->
-%%         #t_integer{}
+%%    A = #t_union{list=nil, number=[number], other=[#t_map{}]}
+%%    B = #t_union{number=[#t_integer{}], other=[#t_map{}]}
 %%
-%% The join for two different types result in 'any', which is
-%% the top element for our type lattice:
+%%    meet(A, B) ->
+%%         #t_union{number=[#t_integer{}], other=[#t_map{}]}
 %%
-%%    join(#t_integer{}, #t_map{}) -> any
-
--spec join(type(), type()) -> type().
-
-join(T, T) ->
-    verified_type(T);
-join(none, T) ->
-    verified_type(T);
-join(T, none) ->
-    verified_type(T);
-join(any, _) -> any;
-join(_, any) -> any;
-join(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
-    Set = ordsets:union(Set1, Set2),
-    case ordsets:size(Set) of
-        Size when Size =< ?ATOM_SET_SIZE ->
-            #t_atom{elements=Set};
-        _Size ->
-            #t_atom{elements=any}
-    end;
-join(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
-join(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
-join(#t_bitstring{unit=U1}, #t_bitstring{unit=U2}) ->
-    #t_bitstring{unit=gcd(U1, U2)};
-join(#t_fun{}, #t_fun{}) ->
-    #t_fun{};
-join(#t_integer{elements={MinA,MaxA}},
-     #t_integer{elements={MinB,MaxB}}) ->
-    #t_integer{elements={min(MinA,MinB),max(MaxA,MaxB)}};
-join(#t_bs_context{slots=SlotsA,valid=ValidA},
-     #t_bs_context{slots=SlotsB,valid=ValidB}) ->
-    #t_bs_context{slots=min(SlotsA, SlotsB),
-                  valid=ValidA band ValidB};
-join(#t_integer{}, #t_integer{}) -> #t_integer{};
-join(list, cons) -> list;
-join(cons, list) -> list;
-join(nil, cons) -> list;
-join(cons, nil) -> list;
-join(nil, list) -> list;
-join(list, nil) -> list;
-join(#t_integer{}, float) -> number;
-join(float, #t_integer{}) -> number;
-join(#t_integer{}, number) -> number;
-join(number, #t_integer{}) -> number;
-join(float, number) -> number;
-join(number, float) -> number;
-join(#t_tuple{size=Sz,exact=ExactA,elements=EsA},
-     #t_tuple{size=Sz,exact=ExactB,elements=EsB}) ->
-    Exact = ExactA and ExactB,
-    Es = join_tuple_elements(Sz, EsA, EsB),
-    #t_tuple{size=Sz,exact=Exact,elements=Es};
-join(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
-    Sz = min(SzA, SzB),
-    Es = join_tuple_elements(Sz, EsA, EsB),
-    #t_tuple{size=Sz,elements=Es};
-join(_T1, _T2) ->
-    %%io:format("~p ~p\n", [_T1,_T2]),
-    any.
-
-join_tuple_elements(MinSize, EsA, EsB) ->
-    Es0 = join_elements(EsA, EsB),
-    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
-
-join_elements(Es1, Es2) ->
-    Keys = if
-               map_size(Es1) =< map_size(Es2) -> maps:keys(Es1);
-               map_size(Es1) > map_size(Es2) -> maps:keys(Es2)
-           end,
-    join_elements_1(Keys, Es1, Es2, #{}).
-
-join_elements_1([Key | Keys], Es1, Es2, Acc0) ->
-    case {Es1, Es2} of
-        {#{ Key := Type1 }, #{ Key := Type2 }} ->
-            Acc = set_element_type(Key, join(Type1, Type2), Acc0),
-            join_elements_1(Keys, Es1, Es2, Acc);
-        {#{}, #{}} ->
-            join_elements_1(Keys, Es1, Es2, Acc0)
-    end;
-join_elements_1([], _Es1, _Es2, Acc) ->
-    Acc.
-
-gcd(A, B) ->
-    case A rem B of
-        0 -> B;
-        X -> gcd(B, X)
-    end.
-
-%% Joins all the given types into a single type.
--spec join([type()]) -> type().
-
-join([T1,T2|Ts]) ->
-    join([join(T1, T2)|Ts]);
-join([T]) -> T.
-
-%% Return the "meet" of Type1 and Type2. The meet is a narrower
-%% type than Type1 and Type2. For example:
-%%
-%%    meet(#t_integer{elements=any}, #t_integer{elements={0,3}}) ->
-%%         #t_integer{elements={0,3}}
-%%
-%% The meet for two different types result in 'none', which is
-%% the bottom element for our type lattice:
+%% The meet of two different types result in 'none', which is the bottom
+%% element for our type lattice:
 %%
 %%    meet(#t_integer{}, #t_map{}) -> none
 
@@ -160,101 +78,236 @@ join([T]) -> T.
 
 meet(T, T) ->
     verified_type(T);
-meet(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
-    case ordsets:intersection(Set1, Set2) of
-        [] ->
-            none;
-        [_|_]=Set ->
-            #t_atom{elements=Set}
-    end;
-meet(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
-    T;
-meet(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
-    T;
-meet(#t_bs_context{slots=SlotCountA,valid=ValidSlotsA},
-     #t_bs_context{slots=SlotCountB,valid=ValidSlotsB}) ->
-    CommonSlotMask = (1 bsl min(SlotCountA, SlotCountB)) - 1,
-    CommonSlotsA = ValidSlotsA band CommonSlotMask,
-    CommonSlotsB = ValidSlotsB band CommonSlotMask,
-    if
-        CommonSlotsA =:= CommonSlotsB ->
-            #t_bs_context{slots=max(SlotCountA, SlotCountB),
-                          valid=ValidSlotsA bor ValidSlotsB};
-        CommonSlotsA =/= CommonSlotsB ->
-            none
-    end;
-meet(#t_fun{arity=any}, #t_fun{}=T) ->
-    T;
-meet(#t_fun{}=T, #t_fun{arity=any}) ->
-    T;
-meet(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
-    T;
-meet(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
-    T;
-meet(#t_integer{elements={MinA,MaxA}}, #t_integer{elements={MinB,MaxB}})
-  when MinA >= MinB, MinA =< MaxB;
-       MinB >= MinA, MinB =< MaxA ->
-    true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
-    #t_integer{elements={max(MinA, MinB),min(MaxA, MaxB)}};
-meet(#t_integer{}=T, number) -> T;
-meet(float=T, number) -> T;
-meet(number, #t_integer{}=T) -> T;
-meet(number, float=T) -> T;
-meet(list, cons) -> cons;
-meet(list, nil) -> nil;
-meet(cons, list) -> cons;
-meet(nil, list) -> nil;
-meet(#t_tuple{}=T1, #t_tuple{}=T2) ->
-    meet_tuples(T1, T2);
-meet(#t_bitstring{unit=U1}, #t_bitstring{unit=U2}) ->
-    #t_bitstring{unit=U1 * U2 div gcd(U1, U2)};
 meet(any, T) ->
     verified_type(T);
 meet(T, any) ->
     verified_type(T);
-meet(_, _) ->
-    %% Inconsistent types. There will be an exception at runtime.
-    none.
+meet(#t_union{}=A, B) ->
+    meet_unions(A, B);
+meet(A, #t_union{}=B) ->
+    meet_unions(B, A);
+meet(A, B) ->
+    glb(A, B).
 
-meet_tuples(#t_tuple{size=Sz1,exact=true},
-            #t_tuple{size=Sz2,exact=true}) when Sz1 =/= Sz2 ->
-    none;
-meet_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
-            #t_tuple{size=Sz2,exact=Ex2,elements=Es2}) ->
-    Size = max(Sz1, Sz2),
-    Exact = Ex1 or Ex2,
-    case meet_elements(Es1, Es2) of
-        none ->
-            none;
-        Es ->
-            #t_tuple{size=Size,exact=Exact,elements=Es}
+meet_unions(#t_union{atom=AtomA,list=ListA,number=NumberA,
+                     tuple_set=TSetA,other=OtherA},
+            #t_union{atom=AtomB,list=ListB,number=NumberB,
+                     tuple_set=TSetB,other=OtherB}) ->
+    Union = #t_union{atom=glb(AtomA, AtomB),
+                     list=glb(ListA, ListB),
+                     number=glb(NumberA, NumberB),
+                     tuple_set=meet_tuple_sets(TSetA, TSetB),
+                     other=glb(OtherA, OtherB)},
+    shrink_union(Union);
+meet_unions(#t_union{atom=AtomA}, #t_atom{}=B) ->
+    case glb(AtomA, B) of
+        none -> none;
+        Atom -> Atom
+    end;
+meet_unions(#t_union{number=NumberA}, B) when ?IS_NUMBER_TYPE(B) ->
+    case glb(NumberA, B) of
+        none -> none;
+        Number -> Number
+    end;
+meet_unions(#t_union{list=ListA}, B) when ?IS_LIST_TYPE(B) ->
+    case glb(ListA, B) of
+        none -> none;
+        List -> List
+    end;
+meet_unions(#t_union{tuple_set=Tuples}, #t_tuple{}=B) ->
+    Set = meet_tuple_sets(Tuples, new_tuple_set(B)),
+    shrink_union(#t_union{tuple_set=Set});
+meet_unions(#t_union{other=OtherA}, OtherB) ->
+    case glb(OtherA, OtherB) of
+        none -> none;
+        Other -> Other
     end.
 
-meet_elements(Es1, Es2) ->
-    Keys = maps:keys(Es1) ++ maps:keys(Es2),
-    meet_elements_1(Keys, Es1, Es2, #{}).
+meet_tuple_sets(none, _) ->
+    none;
+meet_tuple_sets(_, none) ->
+    none;
+meet_tuple_sets(#t_tuple{}=A, #t_tuple{}=B) ->
+    new_tuple_set(glb(A, B));
+meet_tuple_sets(#t_tuple{}=Tuple, Records) ->
+    mts_tuple(Records, Tuple, []);
+meet_tuple_sets(Records, #t_tuple{}=Tuple) ->
+    meet_tuple_sets(Tuple, Records);
+meet_tuple_sets(RecordsA, RecordsB) ->
+    mts_records(RecordsA, RecordsB).
 
-meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
-    case {Es1, Es2} of
-        {#{ Key := Type1 }, #{ Key := Type2 }} ->
-            case meet(Type1, Type2) of
-                none -> none;
-                Type -> meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
-            end;
-        {#{ Key := Type1 }, _} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
-        {_, #{ Key := Type2 }} ->
-            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
+mts_tuple([{Key, Type} | Records], Tuple, Acc) ->
+    case glb(Type, Tuple) of
+        none -> mts_tuple(Records, Tuple, Acc);
+        T -> mts_tuple(Records, Tuple, [{Key, T} | Acc])
     end;
-meet_elements_1([], _Es1, _Es2, Acc) ->
+mts_tuple([], _Tuple, [_|_]=Acc) ->
+    reverse(Acc);
+mts_tuple([], _Tuple, []) ->
+    none.
+
+mts_records(RecordsA, RecordsB) ->
+    mts_records(RecordsA, RecordsB, []).
+
+mts_records([{Key, A} | RsA], [{Key, B} | RsB], Acc) ->
+    case glb(A, B) of
+        none -> mts_records(RsA, RsB, Acc);
+        T -> mts_records(RsA, RsB, [{Key, T} | Acc])
+    end;
+mts_records([{KeyA, _} | _ ]=RsA, [{KeyB, _} | RsB], Acc) when KeyA > KeyB ->
+    mts_records(RsA, RsB, Acc);
+mts_records([{KeyA, _} | RsA], [{KeyB, _} | _] = RsB, Acc) when KeyA < KeyB ->
+    mts_records(RsA, RsB, Acc);
+mts_records(_RsA, [], [_|_]=Acc) ->
+    reverse(Acc);
+mts_records([], _RsB, [_|_]=Acc) ->
+    reverse(Acc);
+mts_records(_RsA, _RsB, []) ->
+    none.
+
+%% Folds join/2 over a list.
+
+-spec join([type()]) -> type().
+
+join([T1, T2| Ts]) ->
+    join([join(T1, T2) | Ts]);
+join([T]) -> T.
+
+%% Return the "join" of Type1 and Type2, which is more general than Type1 and
+%% Type2. This is identical to lub/2 but can operate on and produce unions.
+%%
+%%    join(#t_integer{}, #t_map{}) -> #t_union{number=[#t_integer{}],
+%%                                             other=[#t_map{}]}
+
+-spec join(type(), type()) -> type().
+
+join(T, T) -> T;
+join(_T, any) -> any;
+join(any, _T) -> any;
+join(T, none) -> T;
+join(none, T) -> T;
+
+join(#t_union{}=A, B) ->
+    join_unions(A, B);
+join(A, #t_union{}=B) ->
+    join_unions(B, A);
+
+%% Union creation...
+join(#t_atom{}=A, #t_atom{}=B) ->
+    lub(A, B);
+join(#t_atom{}=A, B) when ?IS_LIST_TYPE(B) ->
+    #t_union{atom=A,list=B};
+join(#t_atom{}=A, B) when ?IS_NUMBER_TYPE(B) ->
+    #t_union{atom=A,number=B};
+join(#t_atom{}=A, #t_tuple{}=B) ->
+    #t_union{atom=A,tuple_set=new_tuple_set(B)};
+join(#t_atom{}=A, B) ->
+    #t_union{atom=A,other=B};
+join(A, #t_atom{}=B) ->
+    join(B, A);
+
+join(A, B) when ?IS_LIST_TYPE(A), ?IS_LIST_TYPE(B) ->
+    lub(A, B);
+join(A, B) when ?IS_LIST_TYPE(A), ?IS_NUMBER_TYPE(B) ->
+    #t_union{list=A,number=B};
+join(A, #t_tuple{}=B) when ?IS_LIST_TYPE(A) ->
+    #t_union{list=A,tuple_set=new_tuple_set(B)};
+join(A, B) when ?IS_LIST_TYPE(A) ->
+    #t_union{list=A,other=B};
+join(A, B) when ?IS_LIST_TYPE(B) ->
+    join(B, A);
+
+join(A, B) when ?IS_NUMBER_TYPE(A), ?IS_NUMBER_TYPE(B) ->
+    lub(A, B);
+join(A, #t_tuple{}=B) when ?IS_NUMBER_TYPE(A) ->
+    #t_union{number=A,tuple_set=new_tuple_set(B)};
+join(A, B) when ?IS_NUMBER_TYPE(A) ->
+    #t_union{number=A,other=B};
+join(A, B) when ?IS_NUMBER_TYPE(B) ->
+    join(B, A);
+
+join(#t_tuple{}=A, #t_tuple{}=B) ->
+    case {record_key(A), record_key(B)} of
+        {Same, Same} ->
+            lub(A, B);
+        {none, _Key} ->
+            lub(A, B);
+        {_Key, none} ->
+            lub(A, B);
+        {KeyA, KeyB} when KeyA < KeyB ->
+            #t_union{tuple_set=[{KeyA, A}, {KeyB, B}]};
+        {KeyA, KeyB} when KeyA > KeyB ->
+            #t_union{tuple_set=[{KeyB, B}, {KeyA, A}]}
+    end;
+join(#t_tuple{}=A, B) ->
+    %% All other combinations have been tried already, so B must be 'other'
+    #t_union{tuple_set=new_tuple_set(A),other=B};
+join(A, #t_tuple{}=B) ->
+    join(B, A);
+
+join(A, B) ->
+    lub(A, B).
+
+join_unions(#t_union{atom=AtomA,list=ListA,number=NumberA,
+                     tuple_set=TSetA,other=OtherA},
+            #t_union{atom=AtomB,list=ListB,number=NumberB,
+                     tuple_set=TSetB,other=OtherB}) ->
+    Union = #t_union{atom=lub(AtomA, AtomB),
+                     list=lub(ListA, ListB),
+                     number=lub(NumberA, NumberB),
+                     tuple_set=join_tuple_sets(TSetA, TSetB),
+                     other=lub(OtherA, OtherB)},
+    shrink_union(Union);
+join_unions(#t_union{atom=AtomA}=A, #t_atom{}=B) ->
+    A#t_union{atom=lub(AtomA, B)};
+join_unions(#t_union{list=ListA}=A, B) when ?IS_LIST_TYPE(B) ->
+    A#t_union{list=lub(ListA, B)};
+join_unions(#t_union{number=NumberA}=A, B) when ?IS_NUMBER_TYPE(B) ->
+    A#t_union{number=lub(NumberA, B)};
+join_unions(#t_union{tuple_set=TSetA}=A, #t_tuple{}=B) ->
+    Set = join_tuple_sets(TSetA, new_tuple_set(B)),
+    shrink_union(A#t_union{tuple_set=Set});
+join_unions(#t_union{other=OtherA}=A, B) ->
+    case lub(OtherA, B) of
+        any -> any;
+        T -> A#t_union{other=T}
+    end.
+
+join_tuple_sets(A, none) ->
+    A;
+join_tuple_sets(none, B) ->
+    B;
+join_tuple_sets(#t_tuple{}=A, #t_tuple{}=B) ->
+    lub(A, B);
+join_tuple_sets(#t_tuple{}=Tuple, Records) ->
+    jts_tuple(Records, Tuple);
+join_tuple_sets(Records, #t_tuple{}=Tuple) ->
+    join_tuple_sets(Tuple, Records);
+join_tuple_sets(RecordsA, RecordsB) ->
+    jts_records(RecordsA, RecordsB).
+
+jts_tuple([{_Key, Tuple} | Records], Acc) ->
+    jts_tuple(Records, lub(Tuple, Acc));
+jts_tuple([], Acc) ->
     Acc.
 
-%% Meets all the given types into a single type.
--spec meet([type()]) -> type().
+jts_records(RsA, RsB) ->
+    jts_records(RsA, RsB, 0, []).
 
-meet([T1,T2|Ts]) ->
-    meet([meet(T1, T2)|Ts]);
-meet([T]) -> T.
+jts_records(RsA, RsB, N, Acc) when N > ?TUPLE_SET_LIMIT ->
+    A = normalize_tuple_set(RsA, none),
+    B = normalize_tuple_set(RsB, A),
+    #t_tuple{} = normalize_tuple_set(Acc, B);
+jts_records([{Key, A} | RsA], [{Key, B} | RsB], N, Acc) ->
+    jts_records(RsA, RsB, N + 1, [{Key, lub(A, B)} | Acc]);
+jts_records([{KeyA, _} | _]=RsA, [{KeyB, B} | RsB], N, Acc) when KeyA > KeyB ->
+    jts_records(RsA, RsB, N + 1, [{KeyB, B} | Acc]);
+jts_records([{KeyA, A} | RsA], [{KeyB, _} | _] = RsB, N, Acc) when KeyA < KeyB ->
+    jts_records(RsA, RsB, N + 1, [{KeyA, A} | Acc]);
+jts_records([], RsB, _N, Acc) ->
+    reverse(Acc, RsB);
+jts_records(RsA, [], _N, Acc) ->
+    reverse(Acc, RsA).
 
 %% Subtract Type2 from Type1. Example:
 %%    subtract(list, cons) -> nil
@@ -270,38 +323,28 @@ subtract(number, float) -> #t_integer{};
 subtract(number, #t_integer{elements=any}) -> float;
 subtract(list, cons) -> nil;
 subtract(list, nil) -> cons;
+
+subtract(#t_union{atom=Atom}=A, #t_atom{}=B)->
+    shrink_union(A#t_union{atom=subtract(Atom, B)});
+subtract(#t_union{number=Number}=A, B) when ?IS_NUMBER_TYPE(B) ->
+    shrink_union(A#t_union{number=subtract(Number, B)});
+subtract(#t_union{list=List}=A, B) when ?IS_LIST_TYPE(B) ->
+    shrink_union(A#t_union{list=subtract(List, B)});
+subtract(#t_union{tuple_set=[_|_]=Records0}=A, #t_tuple{}=B) ->
+    %% Filter out all records that are strictly more specific than B.
+    NewSet = case [{Key, T} || {Key, T} <- Records0, meet(T, B) =/= T] of
+                 [_|_]=Records -> Records;
+                 [] -> none
+             end,
+    shrink_union(A#t_union{tuple_set=NewSet});
+subtract(#t_union{tuple_set=#t_tuple{}=Tuple}=A, #t_tuple{}=B) ->
+    %% Exclude Tuple if it's strictly more specific than B.
+    case meet(Tuple, B) of
+        Tuple -> shrink_union(A#t_union{tuple_set=none});
+        _ -> A
+    end;
+
 subtract(T, _) -> T.
-
-%% Verifies that the given type is well-formed.
-
--spec verified_type(T) -> T when
-      T :: type().
-
-verified_type(any=T) -> T;
-verified_type(none=T) -> T;
-verified_type(#t_atom{elements=any}=T) -> T;
-verified_type(#t_atom{elements=[_|_]}=T) -> T;
-verified_type(#t_bitstring{unit=U}=T) when is_integer(U), U >= 1 -> T;
-verified_type(#t_bs_context{}=T) -> T;
-verified_type(#t_fun{arity=Arity}=T) when Arity =:= any; is_integer(Arity) -> T;
-verified_type(#t_integer{elements=any}=T) -> T;
-verified_type(#t_integer{elements={Min,Max}}=T)
-  when is_integer(Min), is_integer(Max), Min =< Max -> T;
-verified_type(list=T) -> T;
-verified_type(#t_map{}=T) -> T;
-verified_type(nil=T) -> T;
-verified_type(cons=T) -> T;
-verified_type(number=T) -> T;
-verified_type(#t_tuple{size=Size,elements=Es}=T) ->
-    %% All known elements must have a valid index and type. 'any' is prohibited
-    %% since it's implicit and should never be present in the map.
-    maps:fold(fun(Index, Element, _) when is_integer(Index),
-                                          1 =< Index, Index =< Size,
-                                          Element =/= any, Element =/= none ->
-                      verified_type(Element)
-              end, [], Es),
-    T;
-verified_type(float=T) -> T.
 
 %%%
 %%% Type operators
@@ -319,23 +362,15 @@ get_singleton_value(nil) ->
 get_singleton_value(_) ->
     error.
 
--spec get_tuple_size(Type) -> Result when
-      Type :: type(),
-      Result :: none | {at_least, Size} | {exact, Size},
-      Size :: non_neg_integer().
-get_tuple_size(#t_tuple{size=Size,exact=false}) ->
-    {at_least,Size};
-get_tuple_size(#t_tuple{size=Size,exact=true}) ->
-    {exact,Size};
-get_tuple_size(_) ->
-    none.
-
 -spec is_boolean_type(type()) -> boolean().
 is_boolean_type(#t_atom{elements=[F,T]}) ->
     F =:= false andalso T =:= true;
 is_boolean_type(#t_atom{elements=[B]}) ->
     is_boolean(B);
-is_boolean_type(_) -> false.
+is_boolean_type(#t_union{}=T) ->
+    is_boolean_type(normalize(T));
+is_boolean_type(_) ->
+    false.
 
 -spec is_singleton_type(type()) -> boolean().
 is_singleton_type(Type) ->
@@ -360,6 +395,23 @@ get_element_type(Index, Es) ->
         #{ Index := T } -> T;
         #{} -> any
     end.
+
+-spec normalize(type()) -> normal_type().
+normalize(#t_union{atom=Atom,list=List,number=Number,
+                   tuple_set=Tuples,other=Other}) ->
+    A = lub(Atom, List),
+    B = lub(A, Number),
+    C = lub(B, Other),
+    normalize_tuple_set(Tuples, C);
+normalize(T) ->
+    verified_normal_type(T).
+
+normalize_tuple_set([{_, A} | Records], B) ->
+    normalize_tuple_set(Records, lub(A, B));
+normalize_tuple_set([], B) ->
+    B;
+normalize_tuple_set(A, B) ->
+    lub(A, B).
 
 %%%
 %%% Type constructors
@@ -408,17 +460,319 @@ make_integer(Int) when is_integer(Int) ->
 make_integer(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
     #t_integer{elements={Min,Max}}.
 
--spec make_tuple(Size, Exact) -> type() when
-      Size :: non_neg_integer(),
-      Exact :: boolean().
-make_tuple(Size, Exact) ->
-    make_tuple(Size, Exact, #{}).
+%%%
+%%% Helpers
+%%%
 
--spec make_tuple(Size, Exact, Elements) -> type() when
-      Size :: non_neg_integer(),
-      Exact :: boolean(),
-      Elements :: #{ non_neg_integer() => type() }.
-make_tuple(Size, Exact, Elements) ->
-    #t_tuple{size=Size,
-             exact=Exact,
-             elements=Elements}.
+%% Return the greatest lower bound of the types Type1 and Type2. The GLB is a
+%% more specific type than Type1 and Type2, and is always a normal type.
+%%
+%%    glb(#t_integer{elements=any}, #t_integer{elements={0,3}}) ->
+%%         #t_integer{elements={0,3}}
+%%
+%% The GLB of two different types result in 'none', which is the bottom
+%% element for our type lattice:
+%%
+%%    glb(#t_integer{}, #t_map{}) -> none
+
+-spec glb(normal_type(), normal_type()) -> normal_type().
+
+glb(T, T) ->
+    verified_normal_type(T);
+glb(any, T) ->
+    verified_normal_type(T);
+glb(T, any) ->
+    verified_normal_type(T);
+glb(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
+    case ordsets:intersection(Set1, Set2) of
+        [] ->
+            none;
+        [_|_]=Set ->
+            #t_atom{elements=Set}
+    end;
+glb(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
+    T;
+glb(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
+    T;
+glb(#t_bs_context{slots=SlotCountA,valid=ValidSlotsA},
+    #t_bs_context{slots=SlotCountB,valid=ValidSlotsB}) ->
+    CommonSlotMask = (1 bsl min(SlotCountA, SlotCountB)) - 1,
+    CommonSlotsA = ValidSlotsA band CommonSlotMask,
+    CommonSlotsB = ValidSlotsB band CommonSlotMask,
+    if
+        CommonSlotsA =:= CommonSlotsB ->
+            #t_bs_context{slots=max(SlotCountA, SlotCountB),
+                          valid=ValidSlotsA bor ValidSlotsB};
+        CommonSlotsA =/= CommonSlotsB ->
+            none
+    end;
+glb(#t_fun{arity=any}, #t_fun{}=T) ->
+    T;
+glb(#t_fun{}=T, #t_fun{arity=any}) ->
+    T;
+glb(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
+    T;
+glb(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
+    T;
+glb(#t_integer{elements={MinA,MaxA}}, #t_integer{elements={MinB,MaxB}})
+  when MinA >= MinB, MinA =< MaxB;
+       MinB >= MinA, MinB =< MaxA ->
+    true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
+    #t_integer{elements={max(MinA, MinB),min(MaxA, MaxB)}};
+glb(#t_integer{}=T, number) -> T;
+glb(float=T, number) -> T;
+glb(number, #t_integer{}=T) -> T;
+glb(number, float=T) -> T;
+glb(list, cons) -> cons;
+glb(list, nil) -> nil;
+glb(cons, list) -> cons;
+glb(nil, list) -> nil;
+glb(#t_tuple{}=T1, #t_tuple{}=T2) ->
+    glb_tuples(T1, T2);
+glb(#t_bitstring{unit=U1}, #t_bitstring{unit=U2}) ->
+    #t_bitstring{unit=U1 * U2 div gcd(U1, U2)};
+glb(_, _) ->
+    %% Inconsistent types. There will be an exception at runtime.
+    none.
+
+glb_tuples(#t_tuple{size=Sz1,exact=true},
+           #t_tuple{size=Sz2,exact=true}) when Sz1 =/= Sz2 ->
+    none;
+glb_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
+           #t_tuple{size=Sz2,exact=Ex2,elements=Es2}) ->
+    Size = max(Sz1, Sz2),
+    Exact = Ex1 or Ex2,
+    case glb_elements(Es1, Es2) of
+        none ->
+            none;
+        Es ->
+            #t_tuple{size=Size,exact=Exact,elements=Es}
+    end.
+
+glb_elements(Es1, Es2) ->
+    Keys = maps:keys(Es1) ++ maps:keys(Es2),
+    glb_elements_1(Keys, Es1, Es2, #{}).
+
+glb_elements_1([Key | Keys], Es1, Es2, Acc) ->
+    case {Es1, Es2} of
+        {#{ Key := Type1 }, #{ Key := Type2 }} ->
+            %% Note the use of meet/2; elements don't need to be normal types.
+            case meet(Type1, Type2) of
+                none -> none;
+                Type -> glb_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
+            end;
+        {#{ Key := Type1 }, _} ->
+            glb_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
+        {_, #{ Key := Type2 }} ->
+            glb_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
+    end;
+glb_elements_1([], _Es1, _Es2, Acc) ->
+    Acc.
+
+%% Return the least upper bound of the types Type1 and Type2. The LUB is a more
+%% general type than Type1 and Type2, and is always a normal type.
+%%
+%% For example:
+%%
+%%    lub(#t_integer{elements=any}, #t_integer=elements={0,3}}) ->
+%%         #t_integer{}
+%%
+%% The LUB for two different types result in 'any' (not a union type!), which
+%% is the top element for our type lattice:
+%%
+%%    lub(#t_integer{}, #t_map{}) -> any
+
+-spec lub(normal_type(), normal_type()) -> normal_type().
+
+lub(T, T) ->
+    verified_normal_type(T);
+lub(none, T) ->
+    verified_normal_type(T);
+lub(T, none) ->
+    verified_normal_type(T);
+lub(any, _) ->
+    any;
+lub(_, any) ->
+    any;
+lub(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
+    Set = ordsets:union(Set1, Set2),
+    case ordsets:size(Set) of
+        Size when Size =< ?ATOM_SET_SIZE ->
+            #t_atom{elements=Set};
+        _Size ->
+            #t_atom{elements=any}
+    end;
+lub(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
+lub(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
+lub(#t_bitstring{unit=U1}, #t_bitstring{unit=U2}) ->
+    #t_bitstring{unit=gcd(U1, U2)};
+lub(#t_fun{}, #t_fun{}) ->
+    #t_fun{};
+lub(#t_integer{elements={MinA,MaxA}},
+    #t_integer{elements={MinB,MaxB}}) ->
+    #t_integer{elements={min(MinA,MinB),max(MaxA,MaxB)}};
+lub(#t_bs_context{slots=SlotsA,valid=ValidA},
+    #t_bs_context{slots=SlotsB,valid=ValidB}) ->
+    #t_bs_context{slots=min(SlotsA, SlotsB),
+                  valid=ValidA band ValidB};
+lub(#t_integer{}, #t_integer{}) -> #t_integer{};
+lub(list, cons) -> list;
+lub(cons, list) -> list;
+lub(nil, cons) -> list;
+lub(cons, nil) -> list;
+lub(nil, list) -> list;
+lub(list, nil) -> list;
+lub(#t_integer{}, float) -> number;
+lub(float, #t_integer{}) -> number;
+lub(#t_integer{}, number) -> number;
+lub(number, #t_integer{}) -> number;
+lub(float, number) -> number;
+lub(number, float) -> number;
+lub(#t_tuple{size=Sz,exact=ExactA,elements=EsA},
+    #t_tuple{size=Sz,exact=ExactB,elements=EsB}) ->
+    Exact = ExactA and ExactB,
+    Es = lub_tuple_elements(Sz, EsA, EsB),
+    #t_tuple{size=Sz,exact=Exact,elements=Es};
+lub(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
+    Sz = min(SzA, SzB),
+    Es = lub_tuple_elements(Sz, EsA, EsB),
+    #t_tuple{size=Sz,elements=Es};
+lub(_T1, _T2) ->
+    %%io:format("~p ~p\n", [_T1,_T2]),
+    any.
+
+lub_tuple_elements(MinSize, EsA, EsB) ->
+    Es0 = lub_elements(EsA, EsB),
+    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
+
+lub_elements(Es1, Es2) ->
+    Keys = if
+               map_size(Es1) =< map_size(Es2) -> maps:keys(Es1);
+               map_size(Es1) > map_size(Es2) -> maps:keys(Es2)
+           end,
+    lub_elements_1(Keys, Es1, Es2, #{}).
+
+lub_elements_1([Key | Keys], Es1, Es2, Acc0) ->
+    case {Es1, Es2} of
+        {#{ Key := Type1 }, #{ Key := Type2 }} ->
+            %% Note the use of join/2; elements don't need to be normal types.
+            Acc = set_element_type(Key, join(Type1, Type2), Acc0),
+            lub_elements_1(Keys, Es1, Es2, Acc);
+        {#{}, #{}} ->
+            lub_elements_1(Keys, Es1, Es2, Acc0)
+    end;
+lub_elements_1([], _Es1, _Es2, Acc) ->
+    Acc.
+
+%%
+
+gcd(A, B) ->
+    case A rem B of
+        0 -> B;
+        X -> gcd(B, X)
+    end.
+
+%%
+
+record_key(#t_tuple{exact=true,size=Size,elements=#{ 1 := Tag }}) ->
+    case is_singleton_type(Tag) of
+        true -> {Size, Tag};
+        false -> none
+    end;
+record_key(_) ->
+    none.
+
+new_tuple_set(T) ->
+    case record_key(T) of
+        none -> T;
+        Key -> [{Key, T}]
+    end.
+
+%%
+
+shrink_union(#t_union{other=any}) ->
+    any;
+shrink_union(#t_union{atom=Atom,list=none,number=none,
+                      tuple_set=none,other=none}) ->
+    Atom;
+shrink_union(#t_union{atom=none,list=List,number=none,
+                      tuple_set=none,other=none}) ->
+    List;
+shrink_union(#t_union{atom=none,list=none,number=Number,
+                      tuple_set=none,other=none}) ->
+    Number;
+shrink_union(#t_union{atom=none,list=none,number=none,
+                      tuple_set=#t_tuple{}=Tuple,other=none}) ->
+    Tuple;
+shrink_union(#t_union{atom=none,list=none,number=none,
+                      tuple_set=[{_Key, Record}],other=none}) ->
+    #t_tuple{} = Record;                        %Assertion.
+shrink_union(#t_union{atom=none,list=none,number=none,
+                      tuple_set=none,other=Other}) ->
+    Other;
+shrink_union(#t_union{}=T) ->
+    T.
+
+%% Verifies that the given type is well-formed.
+
+-spec verified_type(T) -> T when
+      T :: type().
+
+verified_type(#t_union{atom=Atom,
+                       list=List,
+                       number=Number,
+                       tuple_set=TSet,
+                       other=Other}=T) ->
+    _ = verified_normal_type(Atom),
+    _ = verified_normal_type(List),
+    _ = verified_normal_type(Number),
+    _ = verify_tuple_set(TSet),
+    _ = verified_normal_type(Other),
+    T;
+verified_type(T) ->
+    verified_normal_type(T).
+
+verify_tuple_set([_|_]=T) ->
+    _ = [verified_normal_type(Rec) || {_, Rec} <- T],
+    T;
+verify_tuple_set(#t_tuple{}=T) ->
+    none = record_key(T),                       %Assertion.
+    T;
+verify_tuple_set(none=T) ->
+    T.
+
+-spec verified_normal_type(T) -> T when
+      T :: normal_type().
+
+verified_normal_type(any=T) -> T;
+verified_normal_type(none=T) -> T;
+verified_normal_type(#t_atom{elements=any}=T) -> T;
+verified_normal_type(#t_atom{elements=[_|_]}=T) -> T;
+verified_normal_type(#t_bitstring{unit=U}=T)
+  when is_integer(U), U >= 1 ->
+    T;
+verified_normal_type(#t_bs_context{}=T) -> T;
+verified_normal_type(#t_fun{arity=Arity}=T)
+  when Arity =:= any; is_integer(Arity) ->
+    T;
+verified_normal_type(float=T) -> T;
+verified_normal_type(#t_integer{elements=any}=T) -> T;
+verified_normal_type(#t_integer{elements={Min,Max}}=T)
+  when is_integer(Min), is_integer(Max), Min =< Max ->
+    T;
+verified_normal_type(list=T) -> T;
+verified_normal_type(#t_map{}=T) -> T;
+verified_normal_type(nil=T) -> T;
+verified_normal_type(cons=T) -> T;
+verified_normal_type(number=T) -> T;
+verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
+    %% All known elements must have a valid index and type (which may be a
+    %% union). 'any' is prohibited since it's implicit and should never be
+    %% present in the map, and a 'none' element ought to have reduced the
+    %% entire tuple to 'none'.
+    maps:fold(fun(Index, Element, _) when is_integer(Index),
+                                          1 =< Index, Index =< Size,
+                                          Element =/= any, Element =/= none ->
+                      verified_type(Element)
+              end, [], Es),
+    T.

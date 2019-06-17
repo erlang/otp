@@ -84,7 +84,8 @@ join_arg_types(Args, ArgTypes, Anno) ->
               end, Ts0, ParamTypes).
 
 join_arg_types_1([Arg | Args], [TM | TMs], Ts) when map_size(TM) =/= 0 ->
-    join_arg_types_1(Args, TMs, Ts#{ Arg => beam_types:join(maps:values(TM))});
+    Type = beam_types:join(maps:values(TM)),
+    join_arg_types_1(Args, TMs, Ts#{ Arg => Type });
 join_arg_types_1([Arg | Args], [_TM | TMs], Ts) ->
     join_arg_types_1(Args, TMs, Ts#{ Arg => any });
 join_arg_types_1([], [], Ts) ->
@@ -388,9 +389,9 @@ opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, D, Ts0, Ds0, Fdb0) ->
             %% Match contexts are treated as bitstrings when optimizing
             %% arguments, as we don't yet support removing the
             %% "bs_start_match3" instruction.
-            Types = [case get_type(Arg, Ts) of
-                          #t_bs_context{} -> #t_bitstring{};
-                          Type -> Type
+            Types = [case raw_type(Arg, Ts) of
+                         #t_bs_context{} -> #t_bitstring{};
+                         Type -> Type
                      end || Arg <- Args],
 
             %% Update the argument types of *this exact call*, the types
@@ -443,7 +444,7 @@ opt_make_fun(#b_set{op=make_fun,
         #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
             ArgCount = Callee#b_local.arity - length(FreeVars),
 
-            FVTypes = [get_type(FreeVar, Ts) || FreeVar <- FreeVars],
+            FVTypes = [raw_type(FreeVar, Ts) || FreeVar <- FreeVars],
             Types = duplicate(ArgCount, any) ++ FVTypes,
 
             CallId = {D#d.func_id, Dst},
@@ -486,8 +487,10 @@ simplify(#b_set{op={bif,'or'},args=Args}=I, Ts) ->
             I
     end;
 simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts) ->
-    case beam_types:get_tuple_size(get_type(Tuple, Ts)) of
-        {_,Size} when is_integer(Index), 1 =< Index, Index =< Size ->
+    case normalized_type(Tuple, Ts) of
+        #t_tuple{size=Size} when is_integer(Index),
+                                 1 =< Index,
+                                 Index =< Size ->
             I = I0#b_set{op=get_tuple_element,
                          args=[Tuple,#b_literal{val=Index-1}]},
             simplify(I, Ts);
@@ -495,28 +498,28 @@ simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts) ->
             eval_bif(I0, Ts)
     end;
 simplify(#b_set{op={bif,hd},args=[List]}=I, Ts) ->
-    case get_type(List, Ts) of
+    case normalized_type(List, Ts) of
         cons ->
             I#b_set{op=get_hd};
         _ ->
             eval_bif(I, Ts)
     end;
 simplify(#b_set{op={bif,tl},args=[List]}=I, Ts) ->
-    case get_type(List, Ts) of
+    case normalized_type(List, Ts) of
         cons ->
             I#b_set{op=get_tl};
         _ ->
             eval_bif(I, Ts)
     end;
 simplify(#b_set{op={bif,size},args=[Term]}=I, Ts) ->
-    case get_type(Term, Ts) of
+    case normalized_type(Term, Ts) of
         #t_tuple{} ->
             simplify(I#b_set{op={bif,tuple_size}}, Ts);
         _ ->
             eval_bif(I, Ts)
     end;
 simplify(#b_set{op={bif,tuple_size},args=[Term]}=I, Ts) ->
-    case get_type(Term, Ts) of
+    case normalized_type(Term, Ts) of
         #t_tuple{size=Size,exact=true} ->
             #b_literal{val=Size};
         _ ->
@@ -524,7 +527,7 @@ simplify(#b_set{op={bif,tuple_size},args=[Term]}=I, Ts) ->
     end;
 simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
   when is_integer(Arity), Arity >= 0 ->
-    case get_type(Fun, Ts) of
+    case normalized_type(Fun, Ts) of
         #t_fun{arity=any} ->
             I;
         #t_fun{arity=Arity} ->
@@ -535,15 +538,15 @@ simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
             #b_literal{val=false}
     end;
 simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '=='; Op0 =:= '/=' ->
-    Types = get_types(Args, Ts),
+    Types = normalized_types(Args, Ts),
     EqEq0 = case {beam_types:meet(Types),beam_types:join(Types)} of
-               {none,any} -> true;
-               {#t_integer{},#t_integer{}} -> true;
-               {float,float} -> true;
-               {#t_bitstring{},_} -> true;
-               {#t_atom{},_} -> true;
-               {_,_} -> false
-           end,
+                {none,any} -> true;
+                {#t_integer{},#t_integer{}} -> true;
+                {float,float} -> true;
+                {#t_bitstring{},_} -> true;
+                {#t_atom{},_} -> true;
+                {_,_} -> false
+            end,
     EqEq = EqEq0 orelse any_non_numeric_argument(Args, Ts),
     case EqEq of
         true ->
@@ -557,33 +560,35 @@ simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '=='; Op0 =:= '/=' -
     end;
 simplify(#b_set{op={bif,'=:='},args=[Same,Same]}, _Ts) ->
     #b_literal{val=true};
-simplify(#b_set{op={bif,'=:='},args=[A1,_A2]=Args}=I, Ts) ->
-    [T1,T2] = get_types(Args, Ts),
-    case beam_types:meet(T1, T2) of
+simplify(#b_set{op={bif,'=:='},args=[LHS,RHS]}=I, Ts) ->
+    LType = raw_type(LHS, Ts),
+    RType = raw_type(RHS, Ts),
+    case beam_types:meet(LType, RType) of
         none ->
             #b_literal{val=false};
         _ ->
-            case {beam_types:is_boolean_type(T1),T2} of
+            case {beam_types:is_boolean_type(LType),
+                  beam_types:normalize(RType)} of
                 {true,#t_atom{elements=[true]}} ->
                     %% Bool =:= true  ==>  Bool
-                    A1;
+                    LHS;
                 {true,#t_atom{elements=[false]}} ->
                     %% Bool =:= false ==> not Bool
                     %%
                     %% This will be further optimized to eliminate the
                     %% 'not', swapping the success and failure
-                    %% branches in the br instruction. If A1 comes
+                    %% branches in the br instruction. If LHS comes
                     %% from a type test (such as is_atom/1) or a
                     %% comparison operator (such as >=) that can be
                     %% translated to test instruction, this
                     %% optimization will eliminate one instruction.
-                    simplify(I#b_set{op={bif,'not'},args=[A1]}, Ts);
+                    simplify(I#b_set{op={bif,'not'},args=[LHS]}, Ts);
                 {_,_} ->
                     eval_bif(I, Ts)
             end
     end;
 simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
-    Types = get_types(Args, Ts),
+    Types = normalized_types(Args, Ts),
     case is_float_op(Op, Types) of
         false ->
             eval_bif(I, Ts);
@@ -592,7 +597,7 @@ simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
             eval_bif(beam_ssa:add_anno(float_op, AnnoArgs, I), Ts)
     end;
 simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=N}]}=I, Ts) ->
-    case get_type(Tuple, Ts) of
+    case normalized_type(Tuple, Ts) of
         #t_tuple{size=Size,elements=Es} when Size > N ->
             ElemType = beam_types:get_element_type(N + 1, Es),
             case beam_types:get_singleton_value(ElemType) of
@@ -605,7 +610,7 @@ simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=N}]}=I, Ts) ->
             I
     end;
 simplify(#b_set{op=is_nonempty_list,args=[Src]}=I, Ts) ->
-    case get_type(Src, Ts) of
+    case normalized_type(Src, Ts) of
         any ->  I;
         list -> I;
         cons -> #b_literal{val=true};
@@ -613,7 +618,7 @@ simplify(#b_set{op=is_nonempty_list,args=[Src]}=I, Ts) ->
     end;
 simplify(#b_set{op=is_tagged_tuple,
                 args=[Src,#b_literal{val=Size},#b_literal{}=Tag]}=I, Ts) ->
-    simplify_is_record(I, get_type(Src, Ts), Size, Tag, Ts);
+    simplify_is_record(I, normalized_type(Src, Ts), Size, Tag, Ts);
 simplify(#b_set{op=put_list,args=[#b_literal{val=H},
                                   #b_literal{val=T}]}, _Ts) ->
     #b_literal{val=[H|T]};
@@ -631,7 +636,7 @@ simplify(I, _Ts) -> I.
 any_non_numeric_argument([#b_literal{val=Lit}|_], _Ts) ->
     is_non_numeric(Lit);
 any_non_numeric_argument([#b_var{}=V|T], Ts) ->
-    is_non_numeric_type(get_type(V, Ts)) orelse any_non_numeric_argument(T, Ts);
+    is_non_numeric_type(raw_type(V, Ts)) orelse any_non_numeric_argument(T, Ts);
 any_non_numeric_argument([], _Ts) -> false.
 
 is_non_numeric([H|T]) ->
@@ -649,7 +654,7 @@ is_non_numeric(_) -> true.
 
 is_non_numeric_tuple(Tuple, El) when El >= 1 ->
     is_non_numeric(element(El, Tuple)) andalso
-	is_non_numeric_tuple(Tuple, El-1);
+        is_non_numeric_tuple(Tuple, El-1);
 is_non_numeric_tuple(_Tuple, 0) -> true.
 
 is_non_numeric_type(#t_atom{}) -> true;
@@ -676,9 +681,11 @@ make_literal_list([_|_], _) ->
 make_literal_list([], Acc) ->
     reverse(Acc).
 
-is_safe_bool_op(Args, Ts) ->
-    [T1,T2] = get_types(Args, Ts),
-    beam_types:is_boolean_type(T1) andalso beam_types:is_boolean_type(T2).
+is_safe_bool_op([LHS, RHS], Ts) ->
+    LType = raw_type(LHS, Ts),
+    RType = raw_type(RHS, Ts),
+    beam_types:is_boolean_type(LType) andalso
+        beam_types:is_boolean_type(RType).
 
 all_same([{H,_}|T]) ->
     all(fun({E,_}) -> E =:= H end, T).
@@ -691,7 +698,7 @@ eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
         true ->
             case make_literal_list(Args) of
                 none ->
-                    case get_types(Args, Ts) of
+                    case normalized_types(Args, Ts) of
                         [any] ->
                             I;
                         [Type] ->
@@ -724,8 +731,7 @@ simplify_arg(#b_var{}=Arg0, Sub, Ts) ->
         #b_literal{}=LitArg ->
             LitArg;
         #b_var{}=Arg ->
-            Type = get_type(Arg, Ts),
-            case beam_types:get_singleton_value(Type) of
+            case beam_types:get_singleton_value(raw_type(Arg, Ts)) of
                 {ok, Val} -> #b_literal{val=Val};
                 error -> Arg
             end
@@ -766,7 +772,7 @@ opt_terminator(#b_br{bool=#b_var{}}=Br, Ts, Ds) ->
 opt_terminator(#b_switch{arg=#b_literal{}}=Sw, _Ts, _Ds) ->
     beam_ssa:normalize(Sw);
 opt_terminator(#b_switch{arg=#b_var{}=V}=Sw, Ts, Ds) ->
-    case get_type(V, Ts) of
+    case normalized_type(V, Ts) of
         any ->
             beam_ssa:normalize(Sw);
         Type ->
@@ -796,7 +802,7 @@ opt_switch(#b_switch{fail=Fail,list=List0}=Sw0, Type, Ts, Ds) ->
 prune_switch_list([{_,Fail}|T], Fail, Type, Ts) ->
     prune_switch_list(T, Fail, Type, Ts);
 prune_switch_list([{Arg,_}=Pair|T], Fail, Type, Ts) ->
-    case beam_types:meet(get_type(Arg, Ts), Type) of
+    case beam_types:meet(raw_type(Arg, Ts), Type) of
         none ->
             %% Different types. This value can never match.
             prune_switch_list(T, Fail, Type, Ts);
@@ -860,7 +866,7 @@ update_successors(#b_ret{arg=Arg}=Last, Ts, D0) ->
                 %% type.
                 D0;
             #{} ->
-                RetType = beam_types:join([get_type(Arg, Ts) | D0#d.ret_type]),
+                RetType = beam_types:join([raw_type(Arg, Ts) | D0#d.ret_type]),
                 D0#d{ret_type=[RetType]}
         end,
     {Last, D}.
@@ -881,13 +887,13 @@ update_switch([], _V, _UsedOnce, _Ts, Acc, D) ->
     {Acc, D}.
 
 subtract_sw_list(V, List, Ts) ->
-    case sub_sw_list_1(get_type(V, Ts), List, Ts) of
+    case sub_sw_list_1(raw_type(V, Ts), List, Ts) of
         none -> none;
         Type -> Ts#{ V := Type }
     end.
 
 sub_sw_list_1(Type, [{Val,_}|T], Ts) ->
-    ValType = get_type(Val, Ts),
+    ValType = raw_type(Val, Ts),
     sub_sw_list_1(beam_types:subtract(Type, ValType), T, Ts);
 sub_sw_list_1(Type, [], _Ts) ->
     Type.
@@ -911,10 +917,11 @@ update_types(#b_set{op=Op,dst=Dst,args=Args}, Ts, Ds) ->
     Ts#{Dst=>T}.
 
 type(phi, Args, Ts, _Ds) ->
-    Types = [get_type(A, Ts) || {A,_} <- Args],
+    Types = [raw_type(A, Ts) || {A,_} <- Args],
     beam_types:join(Types);
 type({bif,Bif}, Args, Ts, _Ds) ->
-    {RetType, _, _} = beam_call_types:types(erlang, Bif, get_types(Args, Ts)),
+    ArgTypes = normalized_types(Args, Ts),
+    {RetType, _, _} = beam_call_types:types(erlang, Bif, ArgTypes),
     RetType;
 type(bs_init, _Args, _Ts, _Ds) ->
     #t_bitstring{};
@@ -927,10 +934,11 @@ type(bs_get_tail, _Args, _Ts, _Ds) ->
     #t_bitstring{};
 type(call, [#b_remote{mod=#b_literal{val=Mod},
                       name=#b_literal{val=Name}}|Args], Ts, _Ds) ->
-    {RetType, _, _} = beam_call_types:types(Mod, Name, get_types(Args, Ts)),
+    ArgTypes = normalized_types(Args, Ts),
+    {RetType, _, _} = beam_call_types:types(Mod, Name, ArgTypes),
     RetType;
 type(get_tuple_element, [Tuple, Offset], Ts, _Ds) ->
-    #t_tuple{size=Size,elements=Es} = get_type(Tuple, Ts),
+    #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
     #b_literal{val=N} = Offset,
     true = Size > N, %Assertion.
     beam_types:get_element_type(N + 1, Es);
@@ -946,7 +954,7 @@ type(put_list, _Args, _Ts, _Ds) ->
     cons;
 type(put_tuple, Args, Ts, _Ds) ->
     {Es, _} = foldl(fun(Arg, {Es0, Index}) ->
-                            Type = get_type(Arg, Ts),
+                            Type = raw_type(Arg, Ts),
                             Es = beam_types:set_element_type(Index, Type, Es0),
                             {Es, Index + 1}
                     end, {#{}, 1}, Args),
@@ -954,7 +962,7 @@ type(put_tuple, Args, Ts, _Ds) ->
 type(succeeded, [#b_var{}=Src], Ts, Ds) ->
     case maps:get(Src, Ds) of
         #b_set{op={bif,Bif},args=BifArgs} ->
-            Types = get_types(BifArgs, Ts),
+            Types = normalized_types(BifArgs, Ts),
             case {Bif,Types} of
                 {BoolOp,[T1,T2]} when BoolOp =:= 'and'; BoolOp =:= 'or' ->
                     BothBool = beam_types:is_boolean_type(T1) andalso
@@ -1151,7 +1159,7 @@ simplify_is_record(I, #t_tuple{exact=Exact,
                    {ok, _} -> no;
                    error ->
                        %% Is it at all possible for the tag to match?
-                       case beam_types:meet(get_type(RecTag, Ts), TagType) of
+                       case beam_types:meet(raw_type(RecTag, Ts), TagType) of
                            none -> no;
                            _ -> maybe
                        end
@@ -1181,7 +1189,7 @@ simplify_switch_bool(#b_switch{arg=B,fail=Fail,list=List0}, Ts, Ds) ->
 simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
     case Ds of
         #{V:=#b_set{op={bif,'not'},args=[Bool]}} ->
-            case beam_types:is_boolean_type(get_type(Bool, Ts)) of
+            case beam_types:is_boolean_type(raw_type(Bool, Ts)) of
                 true ->
                     Br = Br0#b_br{bool=Bool,succ=Fail,fail=Succ},
                     beam_ssa:normalize(Br);
@@ -1249,16 +1257,18 @@ used_once_last_uses([V|Vs], L, Uses) ->
     end;
 used_once_last_uses([], _, Uses) -> Uses.
 
+normalized_types(Values, Ts) ->
+    [normalized_type(Val, Ts) || Val <- Values].
 
-get_types(Values, Ts) ->
-    [get_type(Val, Ts) || Val <- Values].
--spec get_type(beam_ssa:value(), type_db()) -> type().
+normalized_type(V, Ts) ->
+    beam_types:normalize(raw_type(V, Ts)).
 
-get_type(#b_var{}=V, Ts) ->
-    #{V:=T} = Ts,
-    T;
-get_type(#b_literal{val=Val}, _Ts) ->
-    beam_types:make_type_from_value(Val).
+-spec raw_type(beam_ssa:value(), type_db()) -> type().
+
+raw_type(#b_literal{val=Value}, _Ts) ->
+    beam_types:make_type_from_value(Value);
+raw_type(V, Ts) ->
+    map_get(V, Ts).
 
 %% infer_types(Var, Types, #d{}) -> {SuccTypes,FailTypes}
 %%  Looking at the expression that defines the variable Var, infer
@@ -1332,14 +1342,14 @@ infer_types_switch(V, Lit, Ts, #d{ds=Ds}) ->
 
 infer_eq_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
     Def = maps:get(Src, Ds),
-    Type = get_type(Lit, Ts),
+    Type = raw_type(Lit, Ts),
     [{Src,Type} | infer_eq_lit(Def, Lit)];
 infer_eq_type({bif,'=:='}, [#b_var{}=Arg0,#b_var{}=Arg1], Ts, _Ds) ->
     %% As an example, assume that L1 is known to be 'list', and L2 is
     %% known to be 'cons'. Then if 'L1 =:= L2' evaluates to 'true', it can
     %% be inferred that L1 is 'cons' (the meet of 'cons' and 'list').
-    Type0 = get_type(Arg0, Ts),
-    Type1 = get_type(Arg1, Ts),
+    Type0 = raw_type(Arg0, Ts),
+    Type1 = raw_type(Arg1, Ts),
     Type = beam_types:meet(Type0, Type1),
     [{V,MeetType} ||
         {V,OrigType,MeetType} <-
@@ -1355,7 +1365,7 @@ infer_eq_lit(#b_set{op=get_tuple_element,
                     args=[#b_var{}=Tuple,#b_literal{val=N}]},
              #b_literal{}=Lit) ->
     Index = N + 1,
-    Es = beam_types:set_element_type(Index, get_type(Lit, #{}), #{}),
+    Es = beam_types:set_element_type(Index, raw_type(Lit, #{}), #{}),
     [{Tuple,#t_tuple{size=Index,elements=Es}}];
 infer_eq_lit(_, _) -> [].
 
@@ -1368,7 +1378,7 @@ infer_type(succeeded, [#b_var{}=Src], Ts, Ds) ->
 %% not branching on 'succeeded'.
 infer_type(is_tagged_tuple, [#b_var{}=Src,#b_literal{val=Size},
                              #b_literal{}=Tag], _Ts, _Ds) ->
-    Es = beam_types:set_element_type(1, get_type(Tag, #{}), #{}),
+    Es = beam_types:set_element_type(1, raw_type(Tag, #{}), #{}),
     T = {Src,#t_tuple{exact=true,size=Size,elements=Es}},
     {[T], [T]};
 infer_type(is_nonempty_list, [#b_var{}=Src], _Ts, _Ds) ->
@@ -1408,7 +1418,7 @@ infer_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
 infer_success_type({bif,Op}, Args, Ts, _Ds) ->
-    ArgTypes = get_types(Args, Ts),
+    ArgTypes = normalized_types(Args, Ts),
 
     {_, PosTypes0, CanSubtract} = beam_call_types:types(erlang, Op, ArgTypes),
     PosTypes = [T || {#b_var{},_}=T <- zip(Args, PosTypes0)],

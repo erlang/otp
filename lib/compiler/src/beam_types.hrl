@@ -39,6 +39,13 @@
 %%    - #t_tuple{}       Tuple.
 %%
 %%  none                 No type (bottom element).
+%%
+%% We also use #t_union{} to represent conflicting types produced by certain
+%% expressions, e.g. the "#t_atom{} or #t_tuple{}" of lists:keyfind/3, which is
+%% very useful for preserving type information when we would otherwise have
+%% reduced it to 'any'. Since few operations can make direct use of this extra
+%% type information, types should generally be normalized to one of the above
+%% before use.
 
 -define(ATOM_SET_SIZE, 5).
 
@@ -62,8 +69,20 @@
 
 -type elements() :: tuple_elements() | map_elements().
 
--type type() :: any | none |
-                list | number |
-                #t_atom{} | #t_bitstring{} | #t_bs_context{} |
-                #t_fun{} | #t_integer{} | #t_map{} | #t_tuple{} |
-                'cons' | 'float' | 'nil'.
+-type normal_type() :: any | none |
+                       list | number |
+                       #t_atom{} | #t_bitstring{} | #t_bs_context{} |
+                       #t_fun{} | #t_integer{} | #t_map{} | #t_tuple{} |
+                       'cons' | 'float' | 'nil'.
+
+-type record_key() :: {Arity :: integer(), Tag :: normal_type() }.
+-type record_set() :: ordsets:ordset({record_key(), #t_tuple{}}).
+-type tuple_set() :: #t_tuple{} | record_set().
+
+-record(t_union, {atom=none :: none | #t_atom{},
+                  list=none :: none | list | cons | nil,
+                  number=none :: none | number | float | #t_integer{},
+                  tuple_set=none :: none | tuple_set(),
+                  other=none :: normal_type()}).
+
+-type type() :: #t_union{} | normal_type().

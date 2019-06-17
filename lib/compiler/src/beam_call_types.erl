@@ -37,7 +37,7 @@
 -spec types(Mod, Func, ArgTypes) -> {RetType, ArgTypes, CanSubtract} when
       Mod :: atom(),
       Func :: atom(),
-      ArgTypes :: [type()],
+      ArgTypes :: [normal_type()],
       RetType :: type(),
       CanSubtract :: boolean().
 

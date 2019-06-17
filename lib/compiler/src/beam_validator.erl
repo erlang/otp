@@ -570,7 +570,7 @@ valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
     Index = N+1,
     assert_not_literal(Src),
     assert_type(#t_tuple{size=Index}, Src, Vst),
-    #t_tuple{elements=Es} = get_term_type(Src, Vst),
+    #t_tuple{elements=Es} = normalize(get_term_type(Src, Vst)),
     Type = beam_types:get_element_type(Index, Es),
     extract_term(Type, {bif,element}, [{integer,Index}, Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
@@ -762,7 +762,7 @@ valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
     %% helpers as we must support overwriting (rather than just widening or
     %% narrowing) known elements, and we can't use extract_term either since
     %% the source tuple may be aliased.
-    #t_tuple{elements=Es0}=Type = get_term_type(Tuple, Vst),
+    #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
     Es = beam_types:set_element_type(I, get_term_type(Src, Vst), Es0),
     override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
 %% Match instructions.
@@ -1927,6 +1927,9 @@ is_literal(_) -> false.
 %% The funny-looking abstract types produced here are intended to provoke
 %% errors on actual use; they do no harm just lying around.
 
+normalize(#t_abstract{}=A) -> error({abstract_type, A});
+normalize(T) -> beam_types:normalize(T).
+
 join(Same, Same) -> Same;
 join(#t_abstract{}=A, B) -> #t_abstract{kind={join, A, B}};
 join(A, #t_abstract{}=B) -> #t_abstract{kind={join, A, B}};
@@ -2369,7 +2372,7 @@ assert_not_fragile(Lit, #vst{}) ->
 %%%
 
 bif_types(Op, Ss, Vst) ->
-    Args = [get_term_type(Arg, Vst) || Arg <- Ss],
+    Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
     beam_call_types:types(erlang, Op, Args).
 
 call_types({extfunc,M,F,A}, A, Vst) ->
@@ -2384,7 +2387,8 @@ get_call_args(Arity, Vst) ->
 get_call_args_1(Arity, Arity, _) ->
     [];
 get_call_args_1(N, Arity, Vst) when N < Arity ->
-    [get_movable_term_type({x,N}, Vst) | get_call_args_1(N + 1, Arity, Vst)].
+    ArgType = normalize(get_movable_term_type({x,N}, Vst)),
+    [ArgType | get_call_args_1(N + 1, Arity, Vst)].
 
 check_limit({x,X}=Src) when is_integer(X) ->
     if

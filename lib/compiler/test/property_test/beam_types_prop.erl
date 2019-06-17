@@ -49,10 +49,10 @@ absorption_1() ->
 
 absorption_check(A, B) ->
     %% a ∨ (a ∧ b) = a,
-    A = beam_types:join(A, beam_types:meet(A, B)),
+    A = join(A, meet(A, B)),
 
     %% a ∧ (a ∨ b) = a.
-    A = beam_types:meet(A, beam_types:join(A, B)),
+    A = meet(A, join(A, B)),
 
     true.
 
@@ -68,13 +68,13 @@ associativity_1() ->
 
 associativity_check(A, B, C) ->
     %% a ∨ (b ∨ c) = (a ∨ b) ∨ c,
-    LHS_Join = beam_types:join(A, beam_types:join(B, C)),
-    RHS_Join = beam_types:join(beam_types:join(A, B), C),
+    LHS_Join = join(A, join(B, C)),
+    RHS_Join = join(join(A, B), C),
     LHS_Join = RHS_Join,
 
     %% a ∧ (b ∧ c) = (a ∧ b) ∧ c.
-    LHS_Meet = beam_types:meet(A, beam_types:meet(B, C)),
-    RHS_Meet = beam_types:meet(beam_types:meet(A, B), C),
+    LHS_Meet = meet(A, meet(B, C)),
+    RHS_Meet = meet(meet(A, B), C),
     LHS_Meet = RHS_Meet,
 
     true.
@@ -90,10 +90,10 @@ commutativity_1() ->
 
 commutativity_check(A, B) ->
     %% a ∨ b = b ∨ a,
-    true = beam_types:join(A, B) =:= beam_types:join(B, A),
+    true = join(A, B) =:= join(B, A),
 
     %% a ∧ b = b ∧ a.
-    true = beam_types:meet(A, B) =:= beam_types:meet(B, A),
+    true = meet(A, B) =:= meet(B, A),
 
     true.
 
@@ -105,10 +105,10 @@ idempotence_1() ->
 
 idempotence_check(Type) ->
     %% a ∨ a = a,
-    Type = beam_types:join(Type, Type),
+    Type = join(Type, Type),
 
     %% a ∧ a = a.
-    Type = beam_types:meet(Type, Type),
+    Type = meet(Type, Type),
 
     true.
 
@@ -117,12 +117,15 @@ identity() ->
 
 identity_check(Type) ->
     %% a ∨ [bottom element] = a,
-    Type = beam_types:join(Type, none),
+    Type = join(Type, none),
 
     %% a ∧ [top element] = a.
-    Type = beam_types:meet(Type, any),
+    Type = meet(Type, any),
 
     true.
+
+meet(A, B) -> beam_types:meet(A, B).
+join(A, B) -> beam_types:join(A, B).
 
 %%%
 %%% Generators
@@ -149,8 +152,8 @@ list_types() ->
 numerical_types() ->
     [gen_integer(), float, number].
 
-nested_types(Depth) when Depth >= 3 -> [];
-nested_types(Depth) -> [#t_map{}, gen_tuple(Depth + 1)].
+nested_types(Depth) when Depth >= 3 -> [none];
+nested_types(Depth) -> [#t_map{}, gen_union(Depth + 1), gen_tuple(Depth + 1)].
 
 gen_atom() ->
     ?LET(Size, range(0, ?ATOM_SET_SIZE),
@@ -158,11 +161,14 @@ gen_atom() ->
              0 ->
                  #t_atom{};
              _ ->
-                 ?LET(Set, sized_list(Size, atom()),
+                 ?LET(Set, sized_list(Size, gen_atom_val()),
                       begin
                           #t_atom{elements=ordsets:from_list(Set)}
                       end)
          end).
+
+gen_atom_val() ->
+    ?LET(N, range($0, $~), list_to_atom([N])).
 
 gen_binary() ->
     ?SHRINK(#t_bitstring{unit=range(1, 128)}, [#t_bitstring{unit=1}]).
@@ -185,6 +191,25 @@ gen_tuple(Depth) ->
                              elements=Elements}
                 end)).
 
+gen_union(Depth) ->
+    ?LAZY(oneof([gen_wide_union(Depth), gen_tuple_union(Depth)])).
+
+gen_wide_union(Depth) ->
+    ?LET({A, B, C, D}, {oneof(nested_types(Depth)),
+                        oneof(numerical_types()),
+                        oneof(list_types()),
+                        oneof(other_types())},
+          begin
+              T0 = join(A, B),
+              T1 = join(T0, C),
+              join(T1, D)
+          end).
+
+gen_tuple_union(Depth) ->
+    ?SIZED(Size,
+           ?LET(Tuples, sized_list(Size, gen_tuple(Depth)),
+                lists:foldl(fun join/2, none, Tuples))).
+
 gen_tuple_elements(Size, Depth) ->
     ?LET(Types, sized_list(rand:uniform(Size div 4 + 1), gen_element(Depth)),
          maps:from_list([{rand:uniform(Size), T} || T <- Types])).
@@ -196,7 +221,6 @@ gen_element(Depth) ->
                         none -> false;
                         _ -> true
                     end)).
-
 
 sized_list(0, _Gen) -> [];
 sized_list(N, Gen) -> [Gen | sized_list(N - 1, Gen)].
