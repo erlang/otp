@@ -1713,9 +1713,17 @@ int erts_net_message(Port *prt,
 	    token = tuple[4];
 	    reason = tuple[5];
 	}
-	if (is_not_pid(from) || is_not_internal_pid(to)) {
+	if (is_not_pid(from)) {
 	    goto invalid_message;
 	}
+        if (is_not_internal_pid(to)) {
+            if (is_external_pid(to)) {
+		DistEntry *dep = external_pid_dist_entry(to);
+		if (dep == erts_this_dist_entry)
+                    break; /* Old incarnation of this node... */
+            }
+            goto invalid_message;
+        }
 
         erts_proc_sig_send_exit(NULL, from, to, reason, token, 0);
 	break;
