@@ -2055,10 +2055,17 @@ int erts_net_message(Port *prt,
             token = tuple[4];
         }
 	if (is_not_pid(from)
-            || dep != external_pid_dist_entry(from)
-            || is_not_internal_pid(to)) {
+            || dep != external_pid_dist_entry(from)) {
 	    goto invalid_message;
 	}
+        if (is_not_internal_pid(to)) {
+            if (is_external_pid(to)) {
+		DistEntry *dep = external_pid_dist_entry(to);
+		if (dep == erts_this_dist_entry)
+                    break; /* Old incarnation of this node... */
+            }
+            goto invalid_message;
+        }
 
         if (!erts_proc_lookup(to)) {
             if (ede_hfrag != NULL) {
