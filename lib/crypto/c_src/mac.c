@@ -34,12 +34,16 @@ struct mac_type_t {
 	const char*  str;        /* before init, NULL for end-of-table */
 	ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
     }name;
+    unsigned flags;
     union {
         const int pkey_type;
     }alg;
     int type;
     size_t key_len;      /* != 0 to also match on key_len */
 };
+
+/* masks in the flags field if mac_type_t */
+#define NO_FIPS_MAC 1
 
 #define NO_mac 0
 #define HMAC_mac 1
@@ -48,7 +52,7 @@ struct mac_type_t {
 
 static struct mac_type_t mac_types[] =
 {
-    {{"poly1305"},
+    {{"poly1305"}, NO_FIPS_MAC,
 #ifdef HAVE_POLY1305
      /* If we have POLY then we have EVP_PKEY */
      {EVP_PKEY_POLY1305}, POLY1305_mac, 32
@@ -57,7 +61,7 @@ static struct mac_type_t mac_types[] =
 #endif
     },
 
-    {{"hmac"},
+    {{"hmac"}, 0,
 #ifdef HAS_EVP_PKEY_CTX
      {EVP_PKEY_HMAC}, HMAC_mac, 0
 #else
@@ -66,7 +70,7 @@ static struct mac_type_t mac_types[] =
 #endif
     },
 
-    {{"cmac"},
+    {{"cmac"}, 0,
 #ifdef HAVE_CMAC
      /* If we have CMAC then we have EVP_PKEY */
      {EVP_PKEY_CMAC}, CMAC_mac, 0
@@ -76,10 +80,19 @@ static struct mac_type_t mac_types[] =
     },
 
     /*==== End of list ==== */
-    {{NULL},
+    {{NULL}, 0,
      {0}, NO_mac, 0
     }
 };
+
+
+#ifdef FIPS_SUPPORT
+/* May have FIPS support, must check dynamically if it is enabled */
+# define MAC_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_MAC) && FIPS_mode())
+#else
+/* No FIPS support since the symbol FIPS_SUPPORT is undefined */
+# define MAC_FORBIDDEN_IN_FIPS(P) 0
+#endif
 
 
 /***************************
@@ -216,6 +229,12 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 return_term = EXCP_BADARG(env, "Unknown mac algorithm");
             else
                 return_term = EXCP_BADARG(env, "Bad key length");
+            goto err;
+        }
+
+    if (MAC_FORBIDDEN_IN_FIPS(macp))
+        {
+            return_term = EXCP_NOTSUP(env, "MAC algorithm forbidden in FIPS");
             goto err;
         }
 
@@ -497,6 +516,12 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 return_term = EXCP_BADARG(env, "Unknown mac algorithm");
             else
                 return_term = EXCP_BADARG(env, "Bad key length");
+            goto err;
+        }
+
+    if (MAC_FORBIDDEN_IN_FIPS(macp))
+        {
+            return_term = EXCP_NOTSUP(env, "MAC algorithm forbidden in FIPS");
             goto err;
         }
 
