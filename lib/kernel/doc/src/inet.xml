@@ -118,6 +118,42 @@ fe80::204:acff:fe17:bf38
       <name name="port_number"/>
     </datatype>
     <datatype>
+      <name name="family_address" since="OTP @OTP-15747@"/>
+      <desc>
+	<p>
+	  A general address format on the form <c>{Family, Destination}</c>
+	  where <c>Family</c> is an atom such as <c>local</c>
+	  and the format of <c>Destination</c> depends on <c>Family</c>,
+	  and is a complete address
+	  (for example an IP address including port number).
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="inet_address" since="OTP @OTP-15747@"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="inet6_address" since="OTP @OTP-15747@"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="local_address"/>
       <desc>
 	<p>
@@ -180,12 +216,16 @@ fe80::204:acff:fe17:bf38
       <name name="ancillary_data"/>
       <desc>
 	<p>
-	  Ancillary data received with the data packet
-	  or read with the socket option
+	  Ancillary data received with the data packet,
+	  read with the socket option
 	  <seealso marker="gen_tcp#type-pktoptions_value">
 	    <c>pktoptions</c>
 	  </seealso>
-	  from a TCP socket.
+	  from a TCP socket,
+	  or to set in a call to
+	  <seealso marker="gen_udp#send-4-AncData"><c>gen_udp:send/4</c></seealso>
+	  or
+	  <seealso marker="gen_udp#send/5"><c>gen_udp:send/5</c></seealso>.
 	</p>
 	<p>
 	  The value(s) correspond to the currently active socket
@@ -193,7 +233,9 @@ fe80::204:acff:fe17:bf38
 	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
 	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
 	  and
-	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>.
+	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>,
+	  or for a single send operation the option(s) to override
+	  the currently active socket option(s).
 	</p>
       </desc>
     </datatype>

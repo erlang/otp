@@ -37,6 +37,7 @@
 	 buffer_size/1, binary_passive_recv/1, max_buffer_size/1, bad_address/1,
 	 read_packets/1, open_fd/1, connect/1, implicit_inet6/1,
          recvtos/1, recvtosttl/1, recvttl/1, recvtclass/1,
+         sendtos/1, sendtosttl/1, sendttl/1, sendtclass/1,
 	 local_basic/1, local_unbound/1,
 	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1]).
 
@@ -49,6 +50,7 @@ all() ->
      bad_address, read_packets, open_fd, connect,
      implicit_inet6, active_n,
      recvtos, recvtosttl, recvttl, recvtclass,
+     sendtos, sendtosttl, sendttl, sendtclass,
      {group, local}].
 
 groups() -> 
@@ -312,7 +314,6 @@ read_packets(Config) when is_list(Config) ->
     {ok,R} = gen_udp:open(0, [{read_packets,N1}]),
     {ok,RP} = inet:port(R),
     {ok,Node} = start_node(gen_udp_SUITE_read_packets),
-    Die = make_ref(),
     %%
     {V1, Trace1} = read_packets_test(R, RP, Msgs, Node),
     {ok,[{read_packets,N1}]} = inet:getopts(R, [read_packets]),
@@ -324,7 +325,7 @@ read_packets(Config) when is_list(Config) ->
     stop_node(Node),
     ct:log("N1=~p, V1=~p vs N2=~p, V2=~p",[N1,V1,N2,V2]),
 
-    dump_terms(Config, "trace1.terms", Trace2),
+    dump_terms(Config, "trace1.terms", Trace1),
     dump_terms(Config, "trace2.terms", Trace2),
 
     %% Because of the inherit racy-ness of the feature it is
@@ -347,15 +348,6 @@ dump_terms(Config, Name, Terms) ->
     FName = filename:join(proplists:get_value(priv_dir, Config),Name),
     file:write_file(FName, term_to_binary(Terms)),
     ct:log("Logged terms to ~s",[FName]).
-
-infinite_loop(Die) ->
-    receive 
-	Die ->
-	    ok
-    after
-	0 ->
-	    infinite_loop(Die)
-    end.
 
 read_packets_test(R, RP, Msgs, Node) ->
     Receiver = self(),
@@ -577,19 +569,19 @@ active_n(Config) when is_list(Config) ->
 
 recvtos(_Config) ->
     test_recv_opts(
-      inet, [{recvtos,tos,96}],
+      inet, [{recvtos,tos,96}], false,
       fun recvtos_ok/2).
 
 recvtosttl(_Config) ->
     test_recv_opts(
-      inet, [{recvtos,tos,96},{recvttl,ttl,33}],
+      inet, [{recvtos,tos,96},{recvttl,ttl,33}], false,
       fun (OSType, OSVer) ->
               recvtos_ok(OSType, OSVer) andalso recvttl_ok(OSType, OSVer)
       end).
 
 recvttl(_Config) ->
     test_recv_opts(
-      inet, [{recvttl,ttl,33}],
+      inet, [{recvttl,ttl,33}], false,
       fun recvttl_ok/2).
 
 recvtclass(_Config) ->
@@ -601,15 +593,48 @@ recvtclass(_Config) ->
     of
         [_] ->
             test_recv_opts(
-              inet6, [{recvtclass,tclass,224}],
+              inet6, [{recvtclass,tclass,224}], false,
               fun recvtclass_ok/2);
+        [] ->
+            {skip,ipv6_not_supported,IFs}
+    end.
+
+
+sendtos(_Config) ->
+    test_recv_opts(
+      inet, [{recvtos,tos,96}], true,
+      fun sendtos_ok/2).
+
+sendtosttl(_Config) ->
+    test_recv_opts(
+      inet, [{recvtos,tos,96},{recvttl,ttl,33}], true,
+      fun (OSType, OSVer) ->
+              sendtos_ok(OSType, OSVer) andalso sendttl_ok(OSType, OSVer)
+      end).
+
+sendttl(_Config) ->
+    test_recv_opts(
+      inet, [{recvttl,ttl,33}], true,
+      fun sendttl_ok/2).
+
+sendtclass(_Config) ->
+    {ok,IFs} = inet:getifaddrs(),
+    case
+        [Name ||
+            {Name,Opts} <- IFs,
+            lists:member({addr,{0,0,0,0,0,0,0,1}}, Opts)]
+    of
+        [_] ->
+            test_recv_opts(
+              inet6, [{recvtclass,tclass,224}], true,
+              fun sendtclass_ok/2);
         [] ->
             {skip,ipv6_not_supported,IFs}
     end.
 
 %% These version numbers are just above the highest noted in daily tests
 %% where the test fails for a plausible reason, that is the lowest
-%% where we can expect that the test mighe succeed, so
+%% where we can expect that the test might succeed, so
 %% skip on platforms lower than this.
 %%
 %% On newer versions it might be fixed, but we'll see about that
@@ -628,15 +653,54 @@ recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 recvtos_ok({unix,_}, _) -> true;
 recvtos_ok(_, _) -> false.
 
+%% Option has no effect
+recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
+%%
 recvttl_ok({unix,_}, _) -> true;
 recvttl_ok(_, _) -> false.
 
 %% Using the option returns einval, so it is not implemented.
 recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {9,9,0});
 recvtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {2,6,11});
+%% Option has no effect
+recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %%
 recvtclass_ok({unix,_}, _) -> true;
 recvtclass_ok(_, _) -> false.
+
+
+%% To send ancillary data seems to require much higher version numbers
+%% than receiving it...
+%%
+
+%% Using the option returns einval, so it is not implemented.
+sendtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
+sendtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,5,0});
+sendtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
+sendtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
+sendtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,1,0});
+%%
+sendtos_ok({unix,_}, _) -> true;
+sendtos_ok(_, _) -> false.
+
+%% Using the option returns einval, so it is not implemented.
+sendttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
+sendttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
+%% Using the option returns enoprotoopt, so it is not implemented.
+sendttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,1,0});
+%% Option has no effect
+sendttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,5,0});
+%%
+sendttl_ok({unix,_}, _) -> true;
+sendttl_ok(_, _) -> false.
+
+%% Using the option returns einval, so it is not implemented.
+sendtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {9,9,0});
+sendtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {2,6,11});
+%%
+sendtclass_ok({unix,_}, _) -> true;
+sendtclass_ok(_, _) -> false.
+
 
 semver_lt({X1,Y1,Z1}, {X2,Y2,Z2}) ->
     if
@@ -650,18 +714,18 @@ semver_lt({X1,Y1,Z1}, {X2,Y2,Z2}) ->
     end;
 semver_lt(_, {_,_,_}) -> false.
 
-test_recv_opts(Family, Spec, OSFilter) ->
+test_recv_opts(Family, Spec, TestSend, OSFilter) ->
     OSType = os:type(),
     OSVer = os:version(),
     case OSFilter(OSType, OSVer) of
         true ->
             io:format("Os: ~p, ~p~n", [OSType,OSVer]),
-            test_recv_opts(Family, Spec, OSType, OSVer);
+            test_recv_opts(Family, Spec, TestSend, OSType, OSVer);
         false ->
             {skip,{not_supported_for_os_version,{OSType,OSVer}}}
     end.
 %%
-test_recv_opts(Family, Spec, _OSType, _OSVer) ->
+test_recv_opts(Family, Spec, TestSend, _OSType, _OSVer) ->
     Timeout = 5000,
     RecvOpts = [RecvOpt || {RecvOpt,_,_} <- Spec],
     TrueRecvOpts = [{RecvOpt,true} || {RecvOpt,_,_} <- Spec],
@@ -686,16 +750,33 @@ test_recv_opts(Family, Spec, _OSType, _OSVer) ->
     ok = inet:setopts(S1, TrueRecvOpts_OptsVals),
     {ok,TrueRecvOpts_OptsVals} = inet:getopts(S1, RecvOpts ++ Opts),
     %%
+    %% S1 now has true receive options and set option values
+    %%
     {ok,S2} =
         gen_udp:open(0, [Family,binary,{active,true}|FalseRecvOpts]),
     {ok,P2} = inet:port(S2),
     {ok,FalseRecvOpts_OptsVals2} = inet:getopts(S2, RecvOpts ++ Opts),
     OptsVals2 = FalseRecvOpts_OptsVals2 -- FalseRecvOpts,
     %%
-    ok = gen_udp:send(S2, Addr, P1, <<"abcde">>),
+    %% S2 now has false receive options and default option values,
+    %% OptsVals2 contains the default option values
+    %%
+    ok = gen_udp:send(S2, {Addr,P1}, <<"abcde">>),
     ok = gen_udp:send(S1, Addr, P2, <<"fghij">>),
+    TestSend andalso
+        begin
+            ok = gen_udp:send(S2, Addr, P1, OptsVals, <<"ABCDE">>),
+            ok = gen_udp:send(S2, {Addr,P1}, OptsVals, <<"12345">>)
+        end,
     {ok,{_,P2,OptsVals3,<<"abcde">>}} = gen_udp:recv(S1, 0, Timeout),
     verify_sets_eq(OptsVals3, OptsVals2),
+    TestSend andalso
+        begin
+            {ok,{_,P2,OptsVals0,<<"ABCDE">>}} = gen_udp:recv(S1, 0, Timeout),
+            {ok,{_,P2,OptsVals1,<<"12345">>}} = gen_udp:recv(S1, 0, Timeout),
+            verify_sets_eq(OptsVals0, OptsVals),
+            verify_sets_eq(OptsVals1, OptsVals)
+        end,
     receive
         {udp,S2,_,P1,<<"fghij">>} ->
             ok;
@@ -710,8 +791,16 @@ test_recv_opts(Family, Spec, _OSType, _OSVer) ->
     ok = inet:setopts(S2, TrueRecvOpts),
     {ok,TrueRecvOpts} = inet:getopts(S2, RecvOpts),
     %%
-    ok = gen_udp:send(S2, Addr, P1, <<"klmno">>),
-    ok = gen_udp:send(S1, Addr, P2, <<"pqrst">>),
+    %% S1 now has false receive options and set option values
+    %%
+    %% S2 now has true receive options and default option values
+    %%
+    ok = gen_udp:send(S2, {Addr,P1}, [], <<"klmno">>),
+    ok = gen_udp:send(S1, {Family,{loopback,P2}}, <<"pqrst">>),
+    TestSend andalso
+        begin
+            ok = gen_udp:send(S1, {Family,{loopback,P2}}, OptsVals2, <<"PQRST">>)
+        end,
     {ok,{_,P2,<<"klmno">>}} = gen_udp:recv(S1, 0, Timeout),
     receive
         {udp,S2,_,P1,OptsVals4,<<"pqrst">>} ->
@@ -721,9 +810,18 @@ test_recv_opts(Family, Spec, _OSType, _OSVer) ->
     after Timeout ->
             exit(timeout)
     end,
+    TestSend andalso
+        receive
+            {udp,S2,_,P1,OptsVals5,<<"PQRST">>} ->
+                verify_sets_eq(OptsVals5, OptsVals2);
+            Other3 ->
+                exit({unexpected,Other3})
+        after Timeout ->
+                exit(timeout)
+        end,
     ok = gen_udp:close(S1),
     ok = gen_udp:close(S2),
-%%    exit({{OSType,OSVer},success}), % In search for the truth
+%%%    exit({{_OSType,_OSVer},success}), % In search for the truth
     ok.
 
 verify_sets_eq(L1, L2) ->
@@ -877,6 +975,10 @@ connect(Config) when is_list(Config) ->
 implicit_inet6(Config) when is_list(Config) ->
     Host = ok(inet:gethostname()),
     case inet:getaddr(Host, inet6) of
+	{ok,{16#fe80,0,0,0,_,_,_,_} = Addr} ->
+	    {skip,
+	     "Got link local IPv6 address: "
+	     ++inet:ntoa(Addr)};
 	{ok,Addr} ->
 	    implicit_inet6(Host, Addr);
 	{error,Reason} ->
@@ -927,11 +1029,12 @@ ok({ok,V}) -> V;
 ok(NotOk) ->
     try throw(not_ok)
     catch
-	throw:Thrown:Stacktrace ->
-	    erlang:raise(
-	      error, {Thrown, NotOk}, tl(Stacktrace))
+	throw:not_ok:Stacktrace ->
+	    raise_error({not_ok, NotOk}, tl(Stacktrace))
     end.
 
+raise_error(Reason, Stacktrace) ->
+    erlang:raise(error, Reason, Stacktrace).
 
 local_filename(Tag) ->
     "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_" ++ atom_to_list(Tag).

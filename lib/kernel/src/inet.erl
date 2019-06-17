@@ -75,7 +75,8 @@
 
 -export_type([address_family/0, socket_protocol/0, hostent/0, hostname/0, ip4_address/0,
               ip6_address/0, ip_address/0, port_number/0,
-	      local_address/0, socket_address/0, returned_non_ip_address/0,
+	      family_address/0, local_address/0,
+              socket_address/0, returned_non_ip_address/0,
 	      socket_setopt/0, socket_getopt/0, ancillary_data/0,
 	      posix/0, socket/0, stat_option/0]).
 %% imports
@@ -100,11 +101,16 @@
 			0..65535,0..65535,0..65535,0..65535}.
 -type ip_address() :: ip4_address() | ip6_address().
 -type port_number() :: 0..65535.
--type local_address() :: {local, File :: binary() | string()}.
+-type family_address() :: inet_address() | inet6_address() | local_address().
+-type inet_address() ::
+        {'inet', {ip4_address() | 'any' | 'loopback', port_number()}}.
+-type inet6_address() ::
+        {'inet6', {ip6_address() | 'any' | 'loopback', port_number()}}.
+-type local_address() :: {'local', File :: binary() | string()}.
 -type returned_non_ip_address() ::
-	{local, binary()} |
-	{unspec, <<>>} |
-	{undefined, any()}.
+	{'local', binary()} |
+	{'unspec', <<>>} |
+	{'undefined', any()}.
 -type posix() ::
         'eaddrinuse' | 'eaddrnotavail' | 'eafnosupport' | 'ealready' |
         'econnaborted' | 'econnrefused' | 'econnreset' |
