@@ -713,7 +713,9 @@ trace_sched(Process *p, ErtsProcLocks locks, Eterm what)
     trace_sched_aux(p, locks, what);
 }
 
-/* Send {trace_ts, Pid, Send, Msg, DestPid, Timestamp}
+/* Send {trace_ts, Pid, Send, Msg, DestPid, PamResult, Timestamp}
+ * or   {trace_ts, Pid, Send, Msg, DestPid, Timestamp}
+ * or   {trace, Pid, Send, Msg, DestPid, PamResult}
  * or   {trace, Pid, Send, Msg, DestPid}
  *
  * where 'Send' is 'send' or 'send_to_non_existing_process'.
@@ -773,7 +775,9 @@ trace_send(Process *p, Eterm to, Eterm msg)
     erts_match_set_release_result_trace(p, pam_result);
 }
 
-/* Send {trace_ts, Pid, receive, Msg, Timestamp}
+/* Send {trace_ts, Pid, receive, Msg, PamResult, Timestamp}
+ * or   {trace_ts, Pid, receive, Msg, Timestamp}
+ * or   {trace, Pid, receive, Msg, PamResult}
  * or   {trace, Pid, receive, Msg}
  */
 void

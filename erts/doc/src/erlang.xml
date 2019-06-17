@@ -10129,6 +10129,11 @@ timestamp() ->
           time stamp flags are remembered, so if two are passed
           and the one with highest precedence later is disabled,
           the other one becomes active.</p>
+        <p>If a match specification (applicable only for <c>call</c>, <c>send</c>
+          and <c>'receive'</c> tracing) contains a <c>{message}</c> action
+          function with a non-boolean value, that value is added as an extra
+          element to the message tuple either in the last position or before
+          the timestamp (if it is present).</p>
         <p>Trace messages:</p>
         <marker id="trace_3_trace_messages"></marker>
         <taglist>
