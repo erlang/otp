@@ -196,9 +196,9 @@ parse_headers(<<?CR,?LF,?LF,Body/binary>>, [], [], Current, Max, Options, Result
     parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max,  
 		  Options, Result);
 
-parse_headers(<<?LF,?LF,Body/binary>>, [], [], Current, Max,  Options, Result) ->
+parse_headers(<<?LF,?LF,Body/binary>>, Header, Headers, Current, Max,  Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max, 
+    parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, Current, Max, 
 		  Options, Result);
 
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], _, _,  _, Result) ->
