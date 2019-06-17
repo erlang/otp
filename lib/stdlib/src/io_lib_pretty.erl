@@ -462,7 +462,9 @@ find_upper(Lower, Term, T, Dl, Dd, D, RF, Enc, Str) ->
     case If of
         {_, _, _Dots=0, _} -> % even if Len > T
             If;
-        {_, Len, _, _} when Len =< T, D1 < D orelse D < 0 ->
+        {_, _Len=T, _, _} ->  % increasing the depth is meaningless
+            If;
+        {_, Len, _, _} when Len < T, D1 < D orelse D < 0 ->
 	    find_upper(If, Term, T, D1, Dd2, D, RF, Enc, Str);
         _ ->
 	    search_depth(Lower, If, Term, T, Dl, D1, RF, Enc, Str)

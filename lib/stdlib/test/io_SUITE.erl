@@ -32,7 +32,7 @@
          io_with_huge_message_queue/1, format_string/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
-         otp_15159/1, otp_15639/1, otp_15847/1]).
+         otp_15159/1, otp_15639/1, otp_15847/1, otp_15875/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -65,7 +65,7 @@ all() ->
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
-     otp_15639, otp_15847].
+     otp_15639, otp_15847, otp_15875].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -2686,3 +2686,7 @@ otp_15847(_Config) ->
     "{someRecord,<<...>>,...}" =
         pretty(T, [{chars_limit,20}, {encoding,latin1}]),
     ok.
+
+otp_15875(_Config) ->
+    S = io_lib:format("~tp", [[{0, [<<"00">>]}]], [{chars_limit, 18}]),
+    "[{0,[<<48,...>>]}]" = lists:flatten(S).
