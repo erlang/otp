@@ -923,6 +923,12 @@ signature_scheme(rsa_pss_pss_sha384) -> ?RSA_PSS_PSS_SHA384;
 signature_scheme(rsa_pss_pss_sha512) -> ?RSA_PSS_PSS_SHA512;
 signature_scheme(rsa_pkcs1_sha1) -> ?RSA_PKCS1_SHA1;
 signature_scheme(ecdsa_sha1) -> ?ECDSA_SHA1;
+%% Handling legacy signature algorithms
+signature_scheme({Hash0, Sign0}) ->
+    Hash = hash_algorithm(Hash0),
+    Sign = sign_algorithm(Sign0),
+    <<?UINT16(SigAlg)>> = <<?BYTE(Hash),?BYTE(Sign)>>,
+    SigAlg;
 signature_scheme(?RSA_PKCS1_SHA256) -> rsa_pkcs1_sha256;
 signature_scheme(?RSA_PKCS1_SHA384) -> rsa_pkcs1_sha384;
 signature_scheme(?RSA_PKCS1_SHA512) -> rsa_pkcs1_sha512;
@@ -962,7 +968,9 @@ scheme_to_components(rsa_pss_pss_sha256) -> {sha256, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pkcs1_sha1) -> {sha1, rsa_pkcs1, undefined};
-scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined}.
+scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined};
+%% Handling legacy signature algorithms
+scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 
 
 %% TODO: Add support for EC and RSA-SSA signatures

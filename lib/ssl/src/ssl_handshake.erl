@@ -1186,10 +1186,7 @@ signature_algs_ext(undefined) ->
 signature_algs_ext(SignatureSchemes0) ->
     %% The SSL option signature_algs contains both hash-sign algorithms (tuples) and
     %% signature schemes (atoms) if TLS 1.3 is configured.
-    %% Filter out all hash-sign tuples when creating the signature_algs extension.
-    %% (TLS 1.3 specific record type)
-    SignatureSchemes = lists:filter(fun is_atom/1, SignatureSchemes0),
-    #signature_algorithms{signature_scheme_list = SignatureSchemes}.
+    #signature_algorithms{signature_scheme_list = SignatureSchemes0}.
 
 signature_algs_cert(undefined) ->
     undefined;
