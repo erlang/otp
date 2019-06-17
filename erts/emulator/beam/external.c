@@ -4011,73 +4011,6 @@ dec_term_atom_common:
 		next = &(funp->creator);
 		break;
 	    }
-	case FUN_EXT:
-	    {
-		ErlFunThing* funp = (ErlFunThing *) hp;
-		Eterm module;
-		Sint old_uniq;
-		Sint old_index;
-		unsigned num_free;
-		int i;
-		Eterm temp;
-
-		num_free = get_int32(ep);
-		ep += 4;
-		hp += ERL_FUN_SIZE;
-		hp += num_free;
-		factory->hp = hp;
-		funp->thing_word = HEADER_FUN;
-		funp->num_free = num_free;
-		*objp = make_fun(funp);
-
-		/* Creator pid */
-		if ((*ep != PID_EXT && *ep != NEW_PID_EXT)
-		    || (ep = dec_pid(edep, factory, ep+1,
-				     &funp->creator, *ep))==NULL) {
-		    goto error;
-		}
-
-		/* Module */
-		if ((ep = dec_atom(edep, ep, &module)) == NULL) {
-		    goto error;
-		}
-
-		/* Index */
-		if ((ep = dec_term(edep, factory, ep, &temp, NULL)) == NULL) {
-		    goto error;
-		}
-		if (!is_small(temp)) {
-		    goto error;
-		}
-		old_index = unsigned_val(temp);
-
-		/* Uniq */
-		if ((ep = dec_term(edep, factory, ep, &temp, NULL)) == NULL) {
-		    goto error;
-		}
-		if (!is_small(temp)) {
-		    goto error;
-		}
-		
-		/*
-		 * It is safe to link the fun into the fun list only when
-		 * no more validity tests can fail.
-		 */
-		funp->next = factory->off_heap->first;
-		factory->off_heap->first = (struct erl_off_heap_header*)funp;
-		old_uniq = unsigned_val(temp);
-
-		funp->fe = erts_put_fun_entry(module, old_uniq, old_index);
-		funp->arity = funp->fe->address[-1] - num_free;
-		hp = factory->hp;
-
-		/* Environment */
-		for (i = num_free-1; i >= 0; i--) {
-		    funp->env[i] = (Eterm) next;
-		    next = funp->env + i;
-		}
-		break;
-	    }
 	case ATOM_INTERNAL_REF2:
 	    n = get_int16(ep);
 	    ep += 2;
@@ -4836,9 +4769,6 @@ init_done:
 		total_size = get_int32(ep);
 		CHKSIZE(total_size);		
 		ep += 1+16+4+4;
-		/*FALLTHROUGH*/
-
-	    case FUN_EXT:
 		CHKSIZE(4);
 		num_free = get_int32(ep);
 		ep += 4;
@@ -4849,6 +4779,12 @@ init_done:
 		heap_size += ERL_FUN_SIZE + num_free;
 		break;
 	    }
+	case FUN_EXT:
+            /*
+             * OTP 23: No longer support decoding the old fun
+             * representation.
+             */
+            goto error;
 	case ATOM_INTERNAL_REF2:
 	    SKIP(2+atom_extra_skip);
 	    atom_extra_skip = 0;

@@ -81,8 +81,11 @@
 
 -export([module/2,format_error/1]).
 
--import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,
-		keyfind/3,partition/2,droplast/1,last/1,sort/1,reverse/1]).
+-import(lists, [droplast/1,flatten/1,foldl/3,foldr/3,
+                map/2,mapfoldl/3,member/2,
+		keyfind/3,keyreplace/4,
+                last/1,partition/2,reverse/1,
+                splitwith/2,sort/1]).
 -import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
 -import(cerl, [c_tuple/1]).
 
@@ -120,15 +123,19 @@ copy_anno(Kdst, Ksrc) ->
 	       funs=[],				%Fun functions
 	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
-	       guard_refc=0}).			%> 0 means in guard
+	       guard_refc=0, 			%> 0 means in guard
+               no_shared_fun_wrappers=false :: boolean()
+              }).
 
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', #k_mdef{}, [warning()]}.
 
-module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, _Options) ->
+module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, Options) ->
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
-    St0 = #kern{},
+    NoSharedFunWrappers = proplists:get_bool(no_shared_fun_wrappers,
+                                             Options),
+    St0 = #kern{no_shared_fun_wrappers=NoSharedFunWrappers},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
 		body=Kfs ++ St#kern.funs},lists:sort(St#kern.ws)}.
@@ -716,16 +723,27 @@ gexpr_test_add(Ke, St0) ->
 %% expr(Cexpr, Sub, State) -> {Kexpr,[PreKexpr],State}.
 %%  Convert a Core expression, flattening it at the same time.
 
-expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
-    %% A local in an expression.
-    %% For now, these are wrapped into a fun by reverse
-    %% eta-conversion, but really, there should be exactly one
-    %% such "lambda function" for each escaping local name,
-    %% instead of one for each occurrence as done now.
+expr(#c_var{anno=A0,name={Name,Arity}}=Fname, Sub, St) ->
     Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
-	     V <- integers(1, Arity)],
-    Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
-    expr(Fun, Sub, St);
+             V <- integers(1, Arity)],
+    case St#kern.no_shared_fun_wrappers of
+        false ->
+            %% Generate a (possibly shared) wrapper function for calling
+            %% this function.
+            Wrapper0 = ["-fun.",atom_to_list(Name),"/",integer_to_list(Arity),"-"],
+            Wrapper = list_to_atom(flatten(Wrapper0)),
+            Id = {id,{0,0,Wrapper}},
+            A = keyreplace(id, 1, A0, Id),
+            Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
+            expr(Fun, Sub, St);
+        true ->
+            %% For backward compatibility with OTP 22 and earlier,
+            %% use the pre-generated name for the fun wrapper.
+            %% There will be one wrapper function for each occurrence
+            %% of `fun F/A`.
+            Fun = #c_fun{anno=A0,vars=Vs,body=#c_apply{anno=A0,op=Fname,args=Vs}},
+            expr(Fun, Sub, St)
+    end;
 expr(#c_var{anno=A,name=V}, Sub, St) ->
     {#k_var{anno=A,name=get_vsub(V, Sub)},[],St};
 expr(#c_literal{anno=A,val=V}, _Sub, St) ->
@@ -2446,8 +2464,21 @@ uexpr(Lit, {break,Rs0}, St0) ->
     {#k_put{anno=#k{us=Used,ns=lit_list_vars(Rs),a=get_kanno(Lit)},
 	    arg=Lit,ret=Rs},Used,St1}.
 
-add_local_function(_, #kern{funs=ignore}=St) -> St;
-add_local_function(F, #kern{funs=Funs}=St) -> St#kern{funs=[F|Funs]}.
+add_local_function(_, #kern{funs=ignore}=St) ->
+    St;
+add_local_function(#k_fdef{func=Name,arity=Arity}=F, #kern{funs=Funs}=St) ->
+    case is_defined(Name, Arity, Funs) of
+        false ->
+            St#kern{funs=[F|Funs]};
+        true ->
+            St
+    end.
+
+is_defined(Name, Arity, [#k_fdef{func=Name,arity=Arity}|_]) ->
+    true;
+is_defined(Name, Arity, [#k_fdef{}|T]) ->
+    is_defined(Name, Arity, T);
+is_defined(_, _, []) -> false.
 
 %% Make a #k_fdef{}, making sure that the body is always a #k_match{}.
 make_fdef(Anno, Name, Arity, Vs, #k_match{}=Body) ->

@@ -64,11 +64,30 @@ module(Code, ExtraChunks, CompileInfo, CompilerOpts) ->
 assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
+    Dict2 = shared_fun_wrappers(CompilerOpts, Dict1),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = cerl_sets:from_list(Exp0),
-    {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
-    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, ExtraChunks, CompileInfo, CompilerOpts).
+    {Code,Dict} = assemble_1(Asm, Exp, Dict2, []),
+    build_file(Code, Attr, Dict, NumLabels, NumFuncs,
+               ExtraChunks, CompileInfo, CompilerOpts).
+
+shared_fun_wrappers(Opts, Dict) ->
+    case proplists:get_bool(no_shared_fun_wrappers, Opts) of
+        false ->
+            %% The compiler in OTP 23 depends on the on the loader
+            %% using the new indices in funs and being able to have
+            %% multiple make_fun2 instructions referring to the same
+            %% fun entry. Artificially set the highest opcode for the
+            %% module to ensure that it cannot be loaded in OTP 22
+            %% and earlier.
+            Swap = beam_opcodes:opcode(swap, 2),
+            beam_dict:opcode(Swap, Dict);
+        true ->
+            %% Fun wrappers are not shared for compatibility with a
+            %% previous OTP release.
+            Dict
+    end.
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of

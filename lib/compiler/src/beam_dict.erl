@@ -40,6 +40,7 @@
 
 -type lambda_info() :: {label(),{index(),label(),non_neg_integer()}}.
 -type lambda_tab() :: {non_neg_integer(),[lambda_info()]}.
+-type wrapper() :: #{label() => index()}.
 
 -record(asm,
 	{atoms = #{}                :: atom_tab(),
@@ -48,6 +49,7 @@
 	 imports = gb_trees:empty() :: import_tab(),
 	 strings = <<>>		    :: binary(),	%String pool
 	 lambdas = {0,[]}           :: lambda_tab(),
+         wrappers = #{}             :: wrapper(),
 	 literals = dict:new()	    :: literal_tab(),
 	 fnames = #{}               :: fname_tab(),
 	 lines = #{}                :: line_tab(),
@@ -147,11 +149,21 @@ string(BinString, Dict) when is_binary(BinString) ->
 -spec lambda(label(), non_neg_integer(), bdict()) ->
         {non_neg_integer(), bdict()}.
 
-lambda(Lbl, NumFree, #asm{lambdas={OldIndex,Lambdas0}}=Dict) ->
-    %% Set Index the same as OldIndex.
-    Index = OldIndex,
-    Lambdas = [{Lbl,{Index,Lbl,NumFree}}|Lambdas0],
-    {OldIndex,Dict#asm{lambdas={OldIndex+1,Lambdas}}}.
+lambda(Lbl, NumFree, #asm{wrappers=Wrappers0,
+                          lambdas={OldIndex,Lambdas0}}=Dict) ->
+    case Wrappers0 of
+        #{Lbl:=Index} ->
+            %% OTP 23: There old is a fun entry for this wrapper function.
+            %% Share the fun entry.
+            {Index,Dict};
+        #{} ->
+            %% Set Index the same as OldIndex.
+            Index = OldIndex,
+            Wrappers = Wrappers0#{Lbl=>Index},
+            Lambdas = [{Lbl,{Index,Lbl,NumFree}}|Lambdas0],
+            {OldIndex,Dict#asm{wrappers=Wrappers,
+                               lambdas={OldIndex+1,Lambdas}}}
+    end.
 
 %% Returns the index for a literal (adding it to the literal table if necessary).
 %%    literal(Literal, Dict) -> {Index,Dict'}
