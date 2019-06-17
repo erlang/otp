@@ -186,6 +186,21 @@
 
 </section>
 
+<section><title>Tools 2.11.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> would fail to start if two processes
+	    tried to start it at the exact same time.</p>
+          <p>
+	    Own Id: OTP-15813 Aux Id: ERL-943 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.11.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
