@@ -296,7 +296,8 @@ io_requests([], Stat, _) ->
 %%  port.
 
 put_port(List, Port) ->
-    send_port(Port, {command, List}).
+    true = port_command(Port, List),
+    ok.
 
 %% send_port(Port, Command)
 

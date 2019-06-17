@@ -543,19 +543,14 @@ set_unicode_state(Iport, Bool) ->
 %% io_request(Request, InPort, OutPort)
 %% io_requests(Requests, InPort, OutPort)
 %% Note: InPort is unused.
-
-io_request(Request, Iport, Oport) ->
-    try io_command(Request) of
-        {command,_} = Command ->
-            Oport ! {self(),Command},
-            ok;
-        {Command,Reply} ->
-            Oport ! {self(),Command},
-            Reply
-    catch
-        {requests,Rs} ->
-            io_requests(Rs, Iport, Oport);
-        _ ->
+io_request({requests,Rs}, Iport, Oport) ->
+    io_requests(Rs, Iport, Oport);
+io_request(Request, _Iport, Oport) ->
+    case io_command(Request) of
+        {Data, Reply} ->
+            true = port_command(Oport, Data),
+            Reply;
+        unhandled ->
             ok
     end.
 
@@ -575,19 +570,19 @@ put_int16(N, Tail) ->
 %% to the console before the vm stops when calling erlang:halt(integer()).
 -dialyzer({no_improper_lists, io_command/1}).
 io_command({put_chars_sync, unicode,Cs,Reply}) ->
-    {{command,[?OP_PUTC_SYNC|unicode:characters_to_binary(Cs,utf8)]},Reply};
+    {[?OP_PUTC_SYNC|unicode:characters_to_binary(Cs,utf8)], Reply};
 io_command({put_chars, unicode,Cs}) ->
-    {command,[?OP_PUTC|unicode:characters_to_binary(Cs,utf8)]};
+    {[?OP_PUTC|unicode:characters_to_binary(Cs,utf8)], ok};
 io_command({move_rel,N}) ->
-    {command,[?OP_MOVE|put_int16(N, [])]};
+    {[?OP_MOVE|put_int16(N, [])], ok};
 io_command({insert_chars,unicode,Cs}) ->
-    {command,[?OP_INSC|unicode:characters_to_binary(Cs,utf8)]};
+    {[?OP_INSC|unicode:characters_to_binary(Cs,utf8)], ok};
 io_command({delete_chars,N}) ->
-    {command,[?OP_DELC|put_int16(N, [])]};
+    {[?OP_DELC|put_int16(N, [])], ok};
 io_command(beep) ->
-    {command,[?OP_BEEP]};
-io_command(Else) ->
-    throw(Else).
+    {[?OP_BEEP], ok};
+io_command(_) ->
+    unhandled.
 
 %% gr_new()
 %% gr_get_num(Group, Index)
