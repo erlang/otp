@@ -36,7 +36,8 @@
 	 show_econnreset_passive/1, econnreset_after_sync_send/1,
 	 econnreset_after_async_send_active/1,
 	 econnreset_after_async_send_active_once/1,
-	 econnreset_after_async_send_passive/1, linger_zero/1,
+	 econnreset_after_async_send_passive/1,
+         linger_zero/1, linger_zero_sndbuf/1,
 	 default_options/1, http_bad_packet/1, 
 	 busy_send/1, busy_disconnect_passive/1, busy_disconnect_active/1,
 	 fill_sendq/1, partial_recv_and_close/1, 
@@ -80,7 +81,8 @@ all() ->
      show_econnreset_passive, econnreset_after_sync_send,
      econnreset_after_async_send_active,
      econnreset_after_async_send_active_once,
-     econnreset_after_async_send_passive, linger_zero,
+     econnreset_after_async_send_passive,
+     linger_zero, linger_zero_sndbuf,
      default_options, http_bad_packet, busy_send,
      busy_disconnect_passive, busy_disconnect_active,
      fill_sendq, partial_recv_and_close,
@@ -1356,7 +1358,42 @@ linger_zero(Config) when is_list(Config) ->
     ok = gen_tcp:close(Client),
     ok = ct:sleep(1),
     undefined = erlang:port_info(Client, connected),
-    {error, econnreset} = gen_tcp:recv(S, PayloadSize).
+    {error, econnreset} = gen_tcp:recv(S, PayloadSize),
+    ok.
+
+
+linger_zero_sndbuf(Config) when is_list(Config) ->
+    %% All the econnreset tests will prove that {linger, {true, 0}} aborts
+    %% a connection when the driver queue is empty. We will test here
+    %% that it also works when the driver queue is not empty
+    %% and the linger zero option is set on the listen socket.
+    {OS, _} = os:type(),
+    {ok, Listen} =
+        gen_tcp:listen(0, [{active, false},
+                           {recbuf, 4096},
+                           {show_econnreset, true},
+                           {linger, {true, 0}}]),
+    {ok, Port} = inet:port(Listen),
+    {ok, Client} =
+        gen_tcp:connect(localhost, Port,
+				   [{active, false},
+				    {sndbuf, 4096}]),
+    {ok, Server} = gen_tcp:accept(Listen),
+    ok = gen_tcp:close(Listen),
+    PayloadSize = 1024 * 1024,
+    Payload = binary:copy(<<"0123456789ABCDEF">>, 256 * 1024), % 1 MB
+    ok = gen_tcp:send(Server, Payload),
+    case erlang:port_info(Server, queue_size) of
+	{queue_size, N} when N > 0 -> ok;
+	{queue_size, 0} when OS =:= win32 -> ok;
+	{queue_size, 0} = T -> ct:fail(T)
+    end,
+    {ok, [{linger, {true, 0}}]} = inet:getopts(Server, [linger]),
+    ok = gen_tcp:close(Server),
+    ok = ct:sleep(1),
+    undefined = erlang:port_info(Server, connected),
+    {error, closed} = gen_tcp:recv(Client, PayloadSize),
+    ok.
 
 
 %% Thanks to Luke Gorrie. Tests for a very specific problem with 

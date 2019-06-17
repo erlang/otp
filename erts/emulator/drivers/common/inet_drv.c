@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -9846,10 +9846,8 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     copy_desc->send_timeout  = desc->send_timeout;
     copy_desc->send_timeout_close = desc->send_timeout_close;
 
-    if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET)
-	copy_desc->tcp_add_flags |= TCP_ADDF_SHOW_ECONNRESET;
-    else
-	copy_desc->tcp_add_flags &= ~TCP_ADDF_SHOW_ECONNRESET;
+    copy_desc->tcp_add_flags = desc->tcp_add_flags
+        & (TCP_ADDF_SHOW_ECONNRESET | TCP_ADDF_LINGER_ZERO);
     
     /* The new port will be linked and connected to the original caller */
     port = driver_create_port(port, owner, "tcp_inet", (ErlDrvData) copy_desc);
