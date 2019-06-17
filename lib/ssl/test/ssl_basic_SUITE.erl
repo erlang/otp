@@ -249,6 +249,7 @@ tls13_test_group() ->
      tls_record_1_3_encode_decode,
      tls13_finished_verify_data,
      tls13_1_RTT_handshake,
+     tls12_ssl_server_tls13_ssl_client,
      tls13_basic_ssl_server_openssl_client,
      tls13_basic_ssl_server_ssl_client,
      tls13_basic_openssl_server_ssl_client,
@@ -5366,6 +5367,41 @@ tls13_finished_verify_data(_Config) ->
 
     FinishedKey = tls_v1:finished_key(BaseKey, sha256),
     VerifyData = tls_v1:finished_verify_data(FinishedKey, sha256, Messages).
+
+
+tls12_ssl_server_tls13_ssl_client() ->
+     [{doc,"Test basic connection between TLS 1.2 server and TLS 1.3 client"}].
+
+tls12_ssl_server_tls13_ssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2']}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {signature_algs_cert, [ecdsa_secp384r1_sha384,
+                                         rsa_pss_rsae_sha256,
+                                         rsa_pkcs1_sha256,
+                                         {sha256,rsa},{sha256,dsa}]}|ClientOpts0],
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
 
 tls13_basic_ssl_server_openssl_client() ->
      [{doc,"Test TLS 1.3 basic connection between ssl server and openssl s_client"}].
