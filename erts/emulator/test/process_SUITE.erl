@@ -1089,41 +1089,85 @@ process_info_status_handled_signal(Config) when is_list(Config) ->
 %% OTP-15709
 %% Provoke a bug where process_info(reductions) returned wrong result
 %% because REDS_IN (def_arg_reg[5]) is read when the process in not running.
+%%
+%% And a bug where process_info(reductions) on a process which was releasing its
+%% main lock during execution could result in negative reduction diffs.
 process_info_reductions(Config) when is_list(Config) ->
-    pi_reductions_tester(spawn_link(fun() -> pi_reductions_spinnloop() end)),
-    pi_reductions_tester(spawn_link(fun() -> pi_reductions_recvloop() end)),
+    {S1, S2} = case erlang:system_info(schedulers) of
+                   1 -> {1,1};
+                   _ -> {1,2}
+               end,
+    io:format("Run on schedulers ~p and ~p\n", [S1,S2]),
+    Boss = self(),
+    Doer = spawn_opt(fun () ->
+                             pi_reductions_tester(true, 10, fun pi_reductions_spinnloop/0, S2),
+                             pi_reductions_tester(true, 10, fun pi_reductions_recvloop/0, S2),
+                             pi_reductions_tester(false, 100, fun pi_reductions_main_unlocker/0, S2),
+                             Boss ! {self(), done}
+                     end,
+                     [link, {scheduler, S1}]),
+
+    {Doer, done} = receive M -> M end,
     ok.
 
-pi_reductions_tester(Pid) ->
-    {_, DiffList} =
-        lists:foldl(fun(_, {Prev, Acc}) ->
-                        %% Add another item that force sending the request
-                        %% as a signal, like 'current_function'.
-                        PI = process_info(Pid, [reductions, current_function]),
-                        [{reductions,Reds}, {current_function,_}] = PI,
-                        Diff = Reds - Prev,
-                        {Diff, true} = {Diff, (Diff >= 0)},
-                        {Diff, true} = {Diff, (Diff =< 1000*1000)},
-                        {Reds, [Diff | Acc]}
-                    end,
-                    {0, []},
-                    lists:seq(1,10)),
+pi_reductions_tester(ForceSignal, MaxCalls, Fun, S2) ->
+    Pid = spawn_opt(Fun, [link, {scheduler,S2}]),
+    Extra = case ForceSignal of
+                true ->
+                    %% Add another item that force sending the request
+                    %% as a signal, like 'current_function'.
+                    [current_function];
+                false ->
+                    []
+            end,
+    LoopFun = fun Me(Calls, Prev, Acc0) ->
+                      PI = process_info(Pid, [reductions | Extra]),
+                      [{reductions,Reds} | _] = PI,
+                      Diff = Reds - Prev,
+                      %% Verify we get sane non-negative reduction diffs
+                      {Diff, true} = {Diff, (Diff >= 0)},
+                      {Diff, true} = {Diff, (Diff =< 1000*1000)},
+                      Acc1 = [Diff | Acc0],
+                      case Calls >= MaxCalls of
+                          true -> Acc1;
+                          false -> Me(Calls+1, Reds, Acc1)
+                      end
+              end,
+    DiffList = LoopFun(0, 0, []),
     unlink(Pid),
     exit(Pid,kill),
-    io:format("Reduction diffs: ~p\n", [DiffList]),
+    io:format("Reduction diffs: ~p\n", [lists:reverse(DiffList)]),
     ok.
 
 pi_reductions_spinnloop() ->
     %% 6 args to make use of def_arg_reg[5] which is also used as REDS_IN
-    pi_reductions_spinnloop(1, atom, "hej", self(), make_ref(), 3.14).
+    pi_reductions_spinnloop(999*1000, atom, "hej", self(), make_ref(), 3.14).
 
-pi_reductions_spinnloop(A,B,C,D,E,F) ->
-    pi_reductions_spinnloop(B,C,D,E,F,A).
+pi_reductions_spinnloop(N,A,B,C,D,E) when N > 0 ->
+    pi_reductions_spinnloop(N-1,B,C,D,E,A);
+pi_reductions_spinnloop(0,_,_,_,_,_) ->
+    %% Stop to limit max number of reductions consumed
+    pi_reductions_recvloop().
 
 pi_reductions_recvloop() ->
     receive
         "a free lunch" -> false
     end.
+
+pi_reductions_main_unlocker() ->
+    Other = spawn_link(fun() -> receive die -> ok end end),
+    pi_reductions_main_unlocker_loop(Other).
+
+pi_reductions_main_unlocker_loop(Other) ->
+    %% Assumption: register(OtherPid, Name) will unlock main lock of calling
+    %% process during execution.
+    register(pi_reductions_main_unlocker, Other),
+    unregister(pi_reductions_main_unlocker),
+
+    %% Yield in order to increase probability of process_info sometimes probing
+    %% this process when it's not RUNNING.
+    erlang:yield(),
+    pi_reductions_main_unlocker_loop(Other).
 
 
 %% Tests erlang:bump_reductions/1.
