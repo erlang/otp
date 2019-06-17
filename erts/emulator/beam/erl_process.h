@@ -1813,9 +1813,13 @@ void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp
 void erts_print_run_queue_info(fmtfn_t, void *to_arg, ErtsRunQueue*);
 void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
+typedef struct {
+    int ix;
+    Eterm arg;
+} ErtsPiItem;
 Eterm erts_process_info(Process *c_p, ErtsHeapFactory *hfact,
                         Process *rp, ErtsProcLocks rp_locks,
-                        int *item_ix, int item_ix_len,
+                        ErtsPiItem *item, int item_ix_len,
                         int flags, Uint reserve_size, Uint *reds);
 
 typedef struct {

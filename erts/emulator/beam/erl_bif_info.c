@@ -965,6 +965,7 @@ process_info_aux(Process *c_p,
 		 Process *rp,
 		 ErtsProcLocks rp_locks,
 		 int item_ix,
+		 Eterm item_arg,
 		 int flags,
                  Uint *reserve_sizep,
                  Uint *reds);
@@ -974,20 +975,20 @@ erts_process_info(Process *c_p,
                   ErtsHeapFactory *hfact,
                   Process *rp,
                   ErtsProcLocks rp_locks,
-                  int *item_ix,
-                  int item_ix_len,
+                  ErtsPiItem *item,
+                  int item_len,
                   int flags,
                   Uint reserve_size,
                   Uint *reds)
 {
     Eterm res;
     Eterm part_res[ERTS_PI_ARGS];
-    int item_ix_ix, ix;
+    int item_ix, ix;
 
     if (ERTS_PI_FLAG_SINGELTON & flags) {
-        ASSERT(item_ix_len == 1);
-	res = process_info_aux(c_p, hfact, rp, rp_locks, item_ix[0],
-                               flags, &reserve_size, reds);
+        ASSERT(item_len == 1);
+	res = process_info_aux(c_p, hfact, rp, rp_locks, item[0].ix,
+                               item[0].arg, flags, &reserve_size, reds);
         return res;
     }
 
@@ -1005,17 +1006,17 @@ erts_process_info(Process *c_p,
 	ix = pi_arg2ix(am_messages);
 	ASSERT(part_res[ix] == THE_NON_VALUE);
 	res = process_info_aux(c_p, hfact, rp, rp_locks, ix,
-                               flags, &reserve_size, reds);
+                               THE_NON_VALUE, flags, &reserve_size, reds);
 	ASSERT(res != am_undefined);
 	ASSERT(res != THE_NON_VALUE);
         part_res[ix] = res;
     }
 
-    for (item_ix_ix = item_ix_len - 1; item_ix_ix >= 0; item_ix_ix--) {
-	ix = item_ix[item_ix_ix];
+    for (item_ix = item_len - 1; item_ix >= 0; item_ix--) {
+	ix = item[item_ix].ix;
 	if (part_res[ix] == THE_NON_VALUE) {
 	    res = process_info_aux(c_p, hfact, rp, rp_locks, ix,
-                                   flags, &reserve_size, reds);
+                                   item[item_ix].arg, flags, &reserve_size, reds);
             ASSERT(res != am_undefined);
 	    ASSERT(res != THE_NON_VALUE);
             part_res[ix] = res;
@@ -1024,8 +1025,8 @@ erts_process_info(Process *c_p,
 
     res = NIL;
 
-    for (item_ix_ix = item_ix_len - 1; item_ix_ix >= 0; item_ix_ix--) {
-	ix = item_ix[item_ix_ix];
+    for (item_ix = item_len - 1; item_ix >= 0; item_ix--) {
+	ix = item[item_ix].ix;
 	ASSERT(part_res[ix] != THE_NON_VALUE);
 	/*
 	 * If we should ignore the value of registered_name,
@@ -1048,14 +1049,14 @@ erts_process_info(Process *c_p,
 }
 
 static void
-pi_setup_grow(int **arr, int *def_arr, Uint *sz, int ix);
+pi_setup_grow(ErtsPiItem **arr, ErtsPiItem *def_arr, Uint *sz, int ix);
 
 static BIF_RETTYPE
 process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 {
     ErtsHeapFactory hfact;
-    int def_arr[ERTS_PI_DEF_ARR_SZ];
-    int *item_ix = &def_arr[0];
+    ErtsPiItem def_arr[ERTS_PI_DEF_ARR_SZ];
+    ErtsPiItem *item = &def_arr[0];
     Process *rp = NULL;
     erts_aint32_t state;
     BIF_RETTYPE ret;
@@ -1105,7 +1106,8 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 
     if (is_atom(opt)) {
 	int ix = pi_arg2ix(opt);
-        item_ix[0] = ix;
+        item[0].ix = ix;
+        item[0].arg = THE_NON_VALUE;
         len = 1;
         locks = pi_ix2locks(ix);
         reserve_size = 3 + pi_ix2rsz(ix);
@@ -1126,14 +1128,25 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         while (is_list(list)) {
             Eterm *consp = list_val(list);
             Eterm arg = CAR(consp);
+            Eterm item_arg = THE_NON_VALUE;
             int ix = pi_arg2ix(arg);
-            if (ix < 0)
-                goto badarg;
+            if (ix < 0) {
+                if (is_tuple_arity(arg, 2) &&
+                    /* FIXME: permit item_arg to be non-immediate */
+                    is_immed(tuple_val(arg)[2]) &&
+                    tuple_val(arg)[1] == am_dictionary) {
+                    ix = ERTS_PI_IX_DICTIONARY;
+                    item_arg = tuple_val(arg)[2];
+                } else
+                    goto badarg;
+            }
 
             if (len >= size)
-                pi_setup_grow(&item_ix, def_arr, &size, len);
+                pi_setup_grow(&item, def_arr, &size, len);
 
-            item_ix[len++] = ix;
+            item[len].ix = ix;
+            item[len].arg = item_arg;
+            ++len;
 
             locks |= pi_ix2locks(ix);
             flags |= pi_ix2flags(ix);
@@ -1144,8 +1157,23 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
             list = CDR(consp);
         }
 
-        if (is_not_nil(list))
-            goto badarg;
+        if (is_not_nil(list)) {
+            if (list == opt &&
+                is_tuple_arity(opt, 2) &&
+                /* FIXME: permit item_arg to be non-immediate */
+                is_immed(tuple_val(opt)[2]) &&
+                tuple_val(opt)[1] == am_dictionary) {
+                int ix = ERTS_PI_IX_DICTIONARY;
+                item[0].ix = ix;
+                item[0].arg = tuple_val(opt)[2];
+                len = 1;
+                locks = pi_ix2locks(ix);
+                reserve_size = 3 + pi_ix2rsz(ix);
+                flags = ERTS_PI_FLAG_SINGELTON;
+                flags |= pi_ix2flags(ix);
+            } else
+                goto badarg;
+        }
     }
 
     if (is_not_internal_pid(pid)) {
@@ -1197,7 +1225,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
 
     erts_factory_proc_init(&hfact, c_p);
 
-    res = erts_process_info(c_p, &hfact, rp, locks, item_ix, len,
+    res = erts_process_info(c_p, &hfact, rp, locks, item, len,
                             flags, reserve_size, &reds);
 
     erts_factory_close(&hfact);
@@ -1229,8 +1257,8 @@ done:
     if (locks && rp)
 	erts_proc_unlock(rp, locks);
 
-    if (item_ix != def_arr)
-        erts_free(ERTS_ALC_T_TMP, item_ix);
+    if (item != def_arr)
+        erts_free(ERTS_ALC_T_TMP, item);
 
     return ret;
 
@@ -1266,7 +1294,7 @@ send_signal: {
          */
         ERTS_RECV_MARK_SAVE(c_p);
         ERTS_RECV_MARK_SET(c_p);
-        enqueued = erts_proc_sig_send_process_info_request(c_p, pid, item_ix,
+        enqueued = erts_proc_sig_send_process_info_request(c_p, pid, item,
                                                            len, need_msgq_len,
                                                            flags, reserve_size,
                                                            ref);
@@ -1281,15 +1309,15 @@ send_signal: {
 }
 
 static void
-pi_setup_grow(int **arr, int *def_arr, Uint *sz, int ix)
+pi_setup_grow(ErtsPiItem **arr, ErtsPiItem *def_arr, Uint *sz, int ix)
 {
     *sz = (ix+1) + ERTS_PI_DEF_ARR_SZ;
     if (*arr != def_arr)
-        *arr = erts_realloc(ERTS_ALC_T_TMP, *arr, (*sz)*sizeof(int));
+        *arr = erts_realloc(ERTS_ALC_T_TMP, *arr, (*sz)*sizeof(def_arr[0]));
     else {
-        int *new_arr = erts_alloc(ERTS_ALC_T_TMP, (*sz)*sizeof(int));
+        ErtsPiItem *new_arr = erts_alloc(ERTS_ALC_T_TMP, (*sz)*sizeof(def_arr[0]));
         sys_memcpy((void *) new_arr, (void *) def_arr,
-                   sizeof(int)*ERTS_PI_DEF_ARR_SZ);
+                   sizeof(def_arr[0])*ERTS_PI_DEF_ARR_SZ);
         *arr = new_arr;
     }
 }
@@ -1311,6 +1339,7 @@ process_info_aux(Process *c_p,
 		 Process *rp,
 		 ErtsProcLocks rp_locks,
 		 int item_ix,
+		 Eterm item_arg,
 		 int flags,
                  Uint *reserve_sizep,
                  Uint *reds)
@@ -1689,6 +1718,14 @@ process_info_aux(Process *c_p,
     case ERTS_PI_IX_DICTIONARY:
 	if (!rp->dictionary || (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE)) {
 	    res = NIL;
+        } else if (is_value(item_arg)) {
+	    Eterm tmp = erts_pd_hash_get(rp, item_arg);
+	    if (is_boxed(tmp)) {
+		Uint size = size_object(tmp);
+		hp = erts_produce_heap(hfact, size, reserve_size);
+		res = copy_struct(tmp, size, &hp, hfact->off_heap);
+	    } else
+		res = tmp;
 	} else {
             Uint num = rp->dictionary->numElements;
 	    res = erts_dictionary_copy(hfact, rp->dictionary, reserve_size);
@@ -1979,11 +2016,19 @@ process_info_aux(Process *c_p,
 
     }
 
-    ERTS_PI_UNRESERVE(reserve_size, 3);
-    *reserve_sizep = reserve_size;
-    hp = erts_produce_heap(hfact, 3, reserve_size);
-
-    return TUPLE2(hp, pi_ix2arg(item_ix), res);
+    if (is_value(item_arg)) {
+        Eterm tmp;
+        ERTS_PI_UNRESERVE(reserve_size, 6);
+        *reserve_sizep = reserve_size;
+        hp = erts_produce_heap(hfact, 6, reserve_size);
+        tmp = TUPLE2(hp + 3, pi_ix2arg(item_ix), item_arg);
+        return TUPLE2(hp, tmp, res);
+    } else {
+        ERTS_PI_UNRESERVE(reserve_size, 3);
+        *reserve_sizep = reserve_size;
+        hp = erts_produce_heap(hfact, 3, reserve_size);
+        return TUPLE2(hp, pi_ix2arg(item_ix), res);
+    }
 }
 #undef MI_INC
 

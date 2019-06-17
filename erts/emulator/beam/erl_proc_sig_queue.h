@@ -602,7 +602,7 @@ erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to,
 int
 erts_proc_sig_send_process_info_request(Process *c_p,
                                         Eterm to,
-                                        int *item_ix,
+                                        ErtsPiItem *item,
                                         int len,
                                         int need_msgq_len,
                                         int flags,
