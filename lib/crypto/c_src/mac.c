@@ -284,7 +284,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
             
-            if (FORBIDDEN_IN_FIPS(cipherp))
+            if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
                 {
                     return_term = EXCP_NOTSUP(env, "Cipher algorithm not supported in FIPS");
                     goto err;
@@ -553,7 +553,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
             
-            if (FORBIDDEN_IN_FIPS(cipherp))
+            if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
                 {
                     return_term = EXCP_NOTSUP(env, "Cipher algorithm not supported in FIPS");
                     goto err;
