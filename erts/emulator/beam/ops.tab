@@ -703,7 +703,7 @@ get_tuple_element Reg=x P1 D1=x | \
    get_tuple_element Reg=x P2 D2=x | \
    get_tuple_element Reg=x P3 D3=x | \
    succ(P1, P2) | succ(P2, P3) | succ(D1, D2) | succ(D2, D3) | \
-   distinct(D1, Reg) | distinct(D2, Reg) | distinct(D3, Reg) => \
+   distinct(D1, Reg) | distinct(D2, Reg) => \
       i_get_tuple_element3 Reg P1 D1
 
 get_tuple_element Reg=x P1 D1=x | \
