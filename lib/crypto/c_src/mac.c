@@ -245,7 +245,11 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     return_term = EXCP_NOTSUP(env, "Unsupported digest algorithm");
                     goto err;
                 }
-
+            if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+                {
+                    return_term = EXCP_NOTSUP(env, "Digest algorithm for HMAC forbidden in FIPS");
+                    goto err;
+                }
             md = digp->md.p;
 
 #ifdef HAS_EVP_PKEY_CTX
@@ -522,7 +526,11 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     return_term = EXCP_NOTSUP(env, "Unsupported digest algorithm");
                     goto err;
                 }
-
+            if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+                {
+                    return_term = EXCP_NOTSUP(env, "Digest algorithm for HMAC forbidden in FIPS");
+                    goto err;
+                }
             md = digp->md.p;
 
 # ifdef HAVE_PKEY_new_raw_private_key
