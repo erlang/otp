@@ -244,7 +244,8 @@ rizzo_tests() ->
 
 %% For testing TLS 1.3 features and possible regressions
 tls13_test_group() ->
-    [tls13_enable_client_side,
+    [handshake_continue_tls13_client,
+     tls13_enable_client_side,
      tls13_enable_server_side,
      tls_record_1_3_encode_decode,
      tls13_finished_verify_data,
@@ -670,6 +671,43 @@ handshake_continue(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+
+%%--------------------------------------------------------------------
+handshake_continue_tls13_client() ->
+    [{doc, "Test API function ssl:handshake_continue/3"}].
+handshake_continue_tls13_client(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+
+    ClientOptsHello0 = ssl_test_lib:ssl_options([{handshake, hello}], Config),
+    ClientOptsHello = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOptsHello0],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ssl_test_lib:ssl_options([{reuseaddr, true}, {handshake, hello}],
+                                                                           Config)},
+                                        {continue_options, proplists:delete(reuseaddr, ServerOpts)}
+                                       ]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ClientOptsHello},
+                                        {continue_options,  proplists:delete(reuseaddr, ClientOpts)}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%------------------------------------------------------------------
 handshake_continue_timeout() ->
