@@ -1479,7 +1479,16 @@ extension_value(#next_protocol_negotiation{extension_data = Data}) ->
 extension_value(#srp{username = Name}) ->
     Name;
 extension_value(#renegotiation_info{renegotiated_connection = Data}) ->
-    Data.
+    Data;
+extension_value(#signature_algorithms{signature_scheme_list = Schemes}) ->
+    Schemes;
+extension_value(#signature_algorithms_cert{signature_scheme_list = Schemes}) ->
+    Schemes;
+extension_value(#key_share_client_hello{client_shares = ClientShares}) ->
+    ClientShares;
+extension_value(#client_hello_versions{versions = Versions}) ->
+    Versions.
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
