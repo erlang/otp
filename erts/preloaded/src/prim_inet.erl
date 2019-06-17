@@ -553,34 +553,49 @@ send(S, Data) ->
 %% "sendto" is for UDP. IP and Port are set by the caller to 0 if the socket
 %% is known to be connected.
 
-sendto(S, Addr, _, Data) when is_port(S), tuple_size(Addr) =:= 2 ->
-    case type_value(set, addr, Addr) of
-	true ->
-	    ?DBG_FORMAT("prim_inet:sendto(~p, ~p, ~p)~n", [S,Addr,Data]),
-	    try
-		erlang:port_command(S, [enc_value(set, addr, Addr),Data])
-	    of
-		true ->
-		    receive
-			{inet_reply,S,Reply} ->
-			    ?DBG_FORMAT(
-			       "prim_inet:sendto() -> ~p~n", [Reply]),
-			    Reply
-		    end
-	    catch
-		error:_ ->
-		    ?DBG_FORMAT(
-		       "prim_inet:sendto() -> {error,einval}~n", []),
-		    {error,einval}
-	    end;
-	false ->
-	    ?DBG_FORMAT(
-	       "prim_inet:sendto() -> {error,einval}~n", []),
-	    {error,einval}
-    end;
-sendto(S, IP, Port, Data) ->
-    sendto(S, {IP, Port}, 0, Data).
-
+sendto(S, {_, _} = Address, AncOpts, Data)
+  when is_port(S), is_list(AncOpts) ->
+    case encode_opt_val(AncOpts) of
+        {ok, AncData} ->
+            AncDataLen = iolist_size(AncData),
+            case
+                type_value(set, addr, Address) andalso
+                type_value(set, uint32, AncDataLen)
+            of
+                true ->
+                    ?DBG_FORMAT("prim_inet:sendto(~p, ~p, ~p, ~p)~n",
+                                [S,Address,AncOpts,Data]),
+                    PortCommandData =
+                        [enc_value(set, addr, Address),
+                         enc_value(set, uint32, AncDataLen), AncData,
+                         Data],
+                    try erlang:port_command(S, PortCommandData) of
+                        true ->
+                            receive
+                                {inet_reply,S,Reply} ->
+                                    ?DBG_FORMAT(
+                                       "prim_inet:sendto() -> ~p~n", [Reply]),
+                                    Reply
+                            end
+                    catch
+                        _:_ ->
+                            ?DBG_FORMAT(
+                               "prim_inet:sendto() -> {error,einval}~n", []),
+                            {error,einval}
+                    end;
+                false ->
+                    ?DBG_FORMAT(
+                       "prim_inet:sendto() -> {error,einval}~n", []),
+                    {error,einval}
+            end;
+        {error,_} ->
+            ?DBG_FORMAT(
+               "prim_inet:sendto() -> {error,einval}~n", []),
+            {error,einval}
+    end;                        
+sendto(S, IP, Port, Data)
+  when is_port(S), is_integer(Port) ->
+    sendto(S, {IP, Port}, [], Data).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -1993,15 +2008,15 @@ enc_value_2(addr, {File,_}) when is_list(File); is_binary(File) ->
     [?INET_AF_LOCAL,iolist_size(File)|File];
 %%
 enc_value_2(addr, {inet,{any,Port}}) ->
-    [?INET_AF_INET,?int16(Port),0,0,0,0];
+    [?INET_AF_INET,?int16(Port)|ip4_to_bytes({0,0,0,0})];
 enc_value_2(addr, {inet,{loopback,Port}}) ->
-    [?INET_AF_INET,?int16(Port),127,0,0,1];
+    [?INET_AF_INET,?int16(Port)|ip4_to_bytes({127,0,0,1})];
 enc_value_2(addr, {inet,{IP,Port}}) ->
     [?INET_AF_INET,?int16(Port)|ip4_to_bytes(IP)];
 enc_value_2(addr, {inet6,{any,Port}}) ->
-    [?INET_AF_INET6,?int16(Port),0,0,0,0,0,0,0,0];
+    [?INET_AF_INET6,?int16(Port)|ip6_to_bytes({0,0,0,0,0,0,0,0})];
 enc_value_2(addr, {inet6,{loopback,Port}}) ->
-    [?INET_AF_INET6,?int16(Port),0,0,0,0,0,0,0,1];
+    [?INET_AF_INET6,?int16(Port)|ip6_to_bytes({0,0,0,0,0,0,0,1})];
 enc_value_2(addr, {inet6,{IP,Port}}) ->
     [?INET_AF_INET6,?int16(Port)|ip6_to_bytes(IP)];
 enc_value_2(addr, {local,Addr}) ->
@@ -2149,10 +2164,10 @@ enum_name(_, []) -> false.
 %% encode opt/val REVERSED since options are stored in reverse order
 %% i.e. the recent options first (we must process old -> new)
 encode_opt_val(Opts) -> 
-    try 
-	enc_opt_val(Opts, [])
+    try
+	{ok, enc_opt_val(Opts, [])}
     catch
-	Reason -> {error,Reason}
+	throw:Reason -> {error,Reason}
     end.
 
 %% {active, once} and {active, N} are specially optimized because they will
@@ -2171,17 +2186,21 @@ enc_opt_val([binary|Opts], Acc) ->
     enc_opt_val(Opts, Acc, mode, binary);
 enc_opt_val([list|Opts], Acc) ->
     enc_opt_val(Opts, Acc, mode, list);
-enc_opt_val([_|_], _) -> {error,einval};
-enc_opt_val([], Acc)  -> {ok,Acc}.
+enc_opt_val([_|_], _) ->
+    throw(einval);
+enc_opt_val([], Acc) ->
+    Acc.
 
 enc_opt_val(Opts, Acc, Opt, Val) when is_atom(Opt) ->
     Type = type_opt(set, Opt),
     case type_value(set, Type, Val) of
 	true -> 
 	    enc_opt_val(Opts, [enc_opt(Opt),enc_value(set, Type, Val)|Acc]);
-	false -> {error,einval}
+	false ->
+            throw(einval)
     end;
-enc_opt_val(_, _, _, _) -> {error,einval}.
+enc_opt_val(_, _, _, _) ->
+    throw(einval).
 
 
 
