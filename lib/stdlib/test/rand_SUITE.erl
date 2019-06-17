@@ -1257,12 +1257,17 @@ short_jump(Config) when is_list(Config) ->
       fun ({Alg,AlgState}) ->
 	      {Alg,rand:exro928_jump_2pow20(AlgState)}
       end),
-    short_jump(
-      crypto:rand_seed_alg_s(crypto_aes, integer_to_list(Seed)),
-      fun ({Alg,AlgState}) ->
-	      {Alg,crypto:rand_plugin_aes_jump_2pow20(AlgState)}
-      end),
-    ok.
+    try crypto:strong_rand_bytes(1) of
+        _ ->
+            short_jump(
+              crypto:rand_seed_alg_s(crypto_aes, integer_to_list(Seed)),
+              fun ({Alg,AlgState}) ->
+                      {Alg,crypto:rand_plugin_aes_jump_2pow20(AlgState)}
+              end),
+            ok
+    catch error:undef ->
+            {skip,no_crypto}
+    end.
 
 short_jump({#{bits := Bits},_} = State_0, Jump2Pow20) ->
     Range = 1 bsl Bits,
