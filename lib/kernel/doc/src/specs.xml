@@ -26,6 +26,7 @@
   <xi:include href="../specs/specs_logger_formatter.xml"/>
   <xi:include href="../specs/specs_logger_std_h.xml"/>
   <xi:include href="../specs/specs_logger_disk_log_h.xml"/>
+  <xi:include href="../specs/specs_net.xml"/>
   <xi:include href="../specs/specs_net_adm.xml"/>
   <xi:include href="../specs/specs_net_kernel.xml"/>
   <xi:include href="../specs/specs_os.xml"/>

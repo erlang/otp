@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -46,10 +46,9 @@
   <xi:include href="erts_alloc.xml"/>
   <xi:include href="escript.xml"/>
   <xi:include href="init.xml"/>
-  <xi:include href="net.xml"/>
   <xi:include href="persistent_term.xml"/>
   <xi:include href="run_erl.xml"/>
-  <xi:include href="socket.xml"/>
+  %ESOCK_USE_SOCKET_XML%
   <xi:include href="start.xml"/>
   <xi:include href="start_erl.xml"/>
   <xi:include href="werl.xml"/>

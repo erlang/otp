@@ -71,31 +71,24 @@
 
 
 -ifdef(USE_ESOCK).
--type name_info_flags()         :: prim_net:name_info_flags().
--type name_info_flag()          :: prim_net:name_info_flag().
--type name_info_flag_ext()      :: prim_net:name_info_flag_ext().
--type name_info()               :: prim_net:name_info().
--type address_info()            :: prim_net:address_info().
--type network_interface_name()  :: prim_net:network_interface_name().
--type network_interface_index() :: prim_net:network_interface_index().
 
-%% -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
-%% -type name_info_flag()          :: namereqd |
-%%                                    dgram |
-%%                                    nofqdn |
-%%                                    numerichost |
-%%                                    nomericserv.
-%% -type name_info_flag_ext()      :: idn |
-%%                                    idna_allow_unassigned |
-%%                                    idna_use_std3_ascii_rules.
-%% -type name_info()               :: #{host    := string(),
-%%                                      service := string()}.
-%% -type address_info()            :: #{family   := socket:domain(),
-%%                                      socktype := socket:type(),
-%%                                      protocol := socket:protocol(),
-%%                                      address  := socket:sockaddr()}.
-%% -type network_interface_name()  :: string().
-%% -type network_interface_index() :: non_neg_integer().
+-type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
+-type name_info_flag()          :: namereqd |
+                                   dgram |
+                                   nofqdn |
+                                   numerichost |
+                                   nomericserv.
+-type name_info_flag_ext()      :: idn |
+                                   idna_allow_unassigned |
+                                   idna_use_std3_ascii_rules.
+-type name_info()               :: #{host    := string(),
+                                     service := string()}.
+-type address_info()            :: #{family   := socket:domain(),
+                                     socktype := socket:type(),
+                                     protocol := socket:protocol(),
+                                     address  := socket:sockaddr()}.
+-type network_interface_name()  :: string().
+-type network_interface_index() :: non_neg_integer().
 
 -endif.
 

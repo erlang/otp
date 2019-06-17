@@ -49,8 +49,14 @@ XML_REF1_FILES = epmd.xml \
 
 ifeq ($(USE_ESOCK), yes)
 XML_REF3_ESOCK_EFILES = socket.xml
+XML_CHAPTER_ESOCK_EFILES = socket_usage.xml
+ESOCK_USE_SOCKET_XML=<xi:include href="socket.xml"\/>
+ESOCK_USE_SOCKET_USAGE_XML=<xi:include href="socket_usage.xml"/>
 else
 XML_REF3_ESOCK_EFILES =
+XML_CHAPTER_ESOCK_EFILES =
+ESOCK_USE_SOCKET_XML =
+ESOCK_USE_SOCKET_USAGE_XML =
 endif
 
 XML_REF3_EFILES = \
@@ -99,7 +105,7 @@ XML_CHAPTER_FILES = \
 	driver.xml \
 	absform.xml \
 	inet_cfg.xml \
-	socket_usage.xml \
+	$(XML_CHAPTER_ESOCK_EFILES) \
 	erl_ext_dist.xml \
 	erl_dist_protocol.xml \
 	communication.xml \
@@ -164,7 +170,7 @@ $(HTMLDIR)/%.gif: %.gif
 $(XML_FIGURE_DIR)/%.png: ../../emulator/internal_doc/figures/%.png
 	$(INSTALL_DATA) $< $@
 
-docs: figures man pdf html $(INFO_FILE)
+docs: part ref_man figures man pdf html $(INFO_FILE)
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -173,6 +179,9 @@ pdf: $(TOP_PDF_FILE)
 html: gifs $(HTML_REF_MAN_FILE)
 
 man: $(MAN1_FILES) $(MAN3_FILES)
+
+ref_man: ref_man.xml
+part: part.xml
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
@@ -200,6 +209,15 @@ $(SPECDIR)/specs_%.xml:
 
 $(XMLDIR)/%.xml: ../../emulator/internal_doc/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@
+
+ref_man.xml: ref_man.xml.src
+	($(PERL) -p -e 's?%ESOCK_USE_SOCKET_XML%?$(ESOCK_USE_SOCKET_XML)?' \
+            $<) > $@
+
+part.xml: part.xml.src
+	($(PERL) -p -e 's?%ESOCK_USE_SOCKET_USAGE_XML%?$(ESOCK_USE_SOCKET_USAGE_XML)?' \
+            $<) > $@
+
 
 # ----------------------------------------------------
 # Release Target
