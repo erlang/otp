@@ -70,11 +70,13 @@ open(0, Opts) ->
 	{ok, _} -> exit(badarg)
     end.
 
-send(S, Addr = {?FAMILY,_}, 0, Data) ->
-    prim_inet:sendto(S, Addr, 0, Data).
+send(S, {?FAMILY,_} = Addr, 0, Data) ->
+    prim_inet:sendto(S, Addr, [], Data);
+send(S, {?FAMILY,_} = Addr, AncData, Data) when is_list(AncData) ->
+    prim_inet:sendto(S, Addr, AncData, Data).
 %%
 send(S, Data) ->
-    prim_inet:sendto(S, {?FAMILY,<<>>}, 0, Data).
+    prim_inet:sendto(S, {?FAMILY,<<>>}, [], Data).
 
 connect(S, Addr = {?FAMILY,_}, 0) ->
     prim_inet:connect(S, Addr, 0).

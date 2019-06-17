@@ -66,16 +66,25 @@ open(Port, Opts) ->
 	{ok, _} -> exit(badarg)
     end.
 
-send(S, {A,B,C,D} = Addr, P, Data)
-  when ?ip(A,B,C,D), ?port(P) ->
-    prim_inet:sendto(S, Addr, P, Data).
+send(S, {A,B,C,D} = IP, Port, Data)
+  when ?ip(A,B,C,D), ?port(Port) ->
+    prim_inet:sendto(S, {IP, Port}, [], Data);
+send(S, {{A,B,C,D}, Port} = Addr, AncData, Data)
+  when ?ip(A,B,C,D), ?port(Port), is_list(AncData) ->
+    prim_inet:sendto(S, Addr, AncData, Data);
+send(S, {?FAMILY, {{A,B,C,D}, Port}} = Address, AncData, Data)
+  when ?ip(A,B,C,D), ?port(Port), is_list(AncData) ->
+    prim_inet:sendto(S, Address, AncData, Data);
+send(S, {?FAMILY, {loopback, Port}} = Address, AncData, Data)
+  when ?port(Port), is_list(AncData) ->
+    prim_inet:sendto(S, Address, AncData, Data).
 
 send(S, Data) ->
-    prim_inet:sendto(S, {0,0,0,0}, 0, Data).
+    prim_inet:sendto(S, {any, 0}, [], Data).
     
-connect(S, Addr = {A,B,C,D}, P)
-  when ?ip(A,B,C,D), ?port(P) ->
-    prim_inet:connect(S, Addr, P).
+connect(S, Addr = {A,B,C,D}, Port)
+  when ?ip(A,B,C,D), ?port(Port) ->
+    prim_inet:connect(S, Addr, Port).
 
 recv(S, Len) ->
     prim_inet:recvfrom(S, Len).
