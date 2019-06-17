@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.8.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug that could cause a loop when formatting
+	    terms using the control sequences <c>p</c> or <c>P</c>
+	    and limiting the output with the option
+	    <c>chars_limit</c>. </p>
+          <p>
+	    Own Id: OTP-15875 Aux Id: ERL-967 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.8.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -213,7 +213,7 @@
     </func>
 
     <func>
-      <name name="send" arity="3" since="OTP @OTP-15747@"/>
+      <name name="send" arity="3" since="OTP 21.3.8.4"/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>
@@ -242,7 +242,7 @@
     </func>
 
     <func>
-      <name name="send" arity="4" clause_i="2" anchor="send-4-AncData" since="OTP @OTP-15747@"/>
+      <name name="send" arity="4" clause_i="2" anchor="send-4-AncData" since="OTP 21.3.8.4"/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>
@@ -265,7 +265,7 @@
     </func>
 
     <func>
-      <name name="send" arity="4" clause_i="3" since="OTP @OTP-15747@"/>
+      <name name="send" arity="4" clause_i="3" since="OTP 21.3.8.4"/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>
@@ -284,7 +284,7 @@
     </func>
 
     <func>
-      <name name="send" arity="5" since="OTP @OTP-15747@"/>
+      <name name="send" arity="5" since="OTP 21.3.8.4"/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>
