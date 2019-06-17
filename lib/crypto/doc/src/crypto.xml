@@ -814,10 +814,16 @@
 	<p><c>SubType</c> depends on the MAC <c>Type</c>:
 	</p>
 	<list>
-	  <item>For <c>hmac</c> it is a hash algorithm</item>
-	  <item>For <c>cmac</c> it is a cipher suitable for cmac</item>
+	  <item>For <c>hmac</c> it is a hash algorithm, see
+	  <seealso marker="algorithm_details#hmac">Algorithm Details</seealso> in the User's Guide.
+	  </item>
+	  <item>For <c>cmac</c> it is a cipher suitable for cmac, see
+	  <seealso marker="algorithm_details#cmac">Algorithm Details</seealso> in the User's Guide.
+	  </item>
 	  <item>For <c>poly1305</c> it should be set to <c>undefined</c> or the
-	  <seealso marker="#mac-3">mac/3</seealso> function could be used instead.</item>
+	  <seealso marker="#mac_init-2">mac/2</seealso> function could be used instead, see
+	  <seealso marker="algorithm_details#poly1305">Algorithm Details</seealso> in the User's Guide.
+	  </item>
 	</list>
 
 	<p><c>Key</c> is the authentication key with a length according to the
@@ -832,6 +838,9 @@
 	<p>The <c>Mac</c> result will have a default length depending on the <c>Type</c> and <c>SubType</c>.
 	To set a shorter length, use <seealso marker="#macN-4">macN/4</seealso> or
 	<seealso marker="#macN-5">macN/5</seealso> instead.
+	The default length is documented in
+	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
+	in the User's Guide.
 	</p>
       </desc>
     </func>
@@ -857,6 +866,10 @@
 	bytes returned from the underlying hash, the returned hash will have
 	that shorter length instead.
 	</p>
+	<p>The max <c>MacLength</c> is documented in
+	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
+	in the User's Guide.
+	</p>
       </desc>
     </func>
 
@@ -881,10 +894,16 @@
 	<p><c>SubType</c> depends on the MAC <c>Type</c>:
 	</p>
 	<list>
-	  <item>For <c>hmac</c> it is a hash algorithm</item>
-	  <item>For <c>cmac</c> it is a cipher suitable for cmac</item>
+	  <item>For <c>hmac</c> it is a hash algorithm, see
+	  <seealso marker="algorithm_details#hmac">Algorithm Details</seealso> in the User's Guide.
+	  </item>
+	  <item>For <c>cmac</c> it is a cipher suitable for cmac, see
+	  <seealso marker="algorithm_details#cmac">Algorithm Details</seealso> in the User's Guide.
+	  </item>
 	  <item>For <c>poly1305</c> it should be set to <c>undefined</c> or the
-	  <seealso marker="#mac_init-2">mac/2</seealso> function could be used instead.</item>
+	  <seealso marker="#mac_init-2">mac/2</seealso> function could be used instead, see
+	  <seealso marker="algorithm_details#poly1305">Algorithm Details</seealso> in the User's Guide.
+	  </item>
 	</list>
 
 	<p><c>Key</c> is the authentication key with a length according to the
@@ -933,6 +952,9 @@
 	a default length depending on the <c>Type</c> and <c>SubType</c> in the
 	<seealso marker="#mac_init-3">mac_init/2,3</seealso> call.
 	To set a shorter length, use <seealso marker="#mac_finalN-2">mac_finalN/2</seealso> instead.
+	The default length is documented in
+	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
+	in the User's Guide.
 	</p>
       </desc>
     </func>
@@ -947,6 +969,10 @@
 	Note that if <c>MacLength</c> is greater than the actual number of
 	bytes returned from the underlying hash, the returned hash will have
 	that shorter length instead.
+	</p>
+	<p>The max <c>MacLength</c> is documented in
+	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
+	in the User's Guide.
 	</p>
       </desc>
     </func>
