@@ -27,6 +27,36 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handshake handling, might cause strange symptoms
+	    such as ASN.1 certificate decoding issues.</p>
+          <p>
+	    Own Id: OTP-15879 Aux Id: ERL-968 </p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of the signature_algorithms_cert extension
+	    in the ClientHello handshake message.</p>
+          <p>
+	    Own Id: OTP-15887 Aux Id: ERL-973 </p>
+        </item>
+        <item>
+          <p>
+	    Handle new ClientHello extensions when handshake is
+	    paused by the {handshake, hello} ssl option.</p>
+          <p>
+	    Own Id: OTP-15888 Aux Id: ERL-975 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
