@@ -28,7 +28,8 @@
 	 pcre_compile_workspace_overflow/1,re_infinite_loop/1, 
 	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
-	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1]).
+	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1,
+         yield_on_subject_validation/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -45,7 +46,8 @@ all() ->
      pcre_compile_workspace_overflow, re_infinite_loop, 
      re_backwards_accented, opt_dupnames, opt_all_names, 
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
-     match_limit, sub_binaries, re_version, global_unicode_validation].
+     match_limit, sub_binaries, re_version, global_unicode_validation,
+     yield_on_subject_validation].
 
 groups() -> 
     [].
@@ -225,6 +227,33 @@ take_time(Fun) ->
     Res = Fun(),
     End = erlang:monotonic_time(nanosecond),
     {End-Start, Res}.
+
+yield_on_subject_validation(Config) when is_list(Config) ->
+    Go = make_ref(),
+    Bin = binary:copy(<<"abc\n">>,100000),
+    {P, M} = spawn_opt(fun () ->
+                               receive Go -> ok end,
+                               {match,[{1,1}]} = re:run(Bin, <<"b">>, [unicode])
+                       end,
+                       [link, monitor]),
+    1 = erlang:trace(P, true, [running]),
+    P ! Go,
+    N = count_re_run_trap_out(P, M),
+    true = N >= 5,
+    ok.
+
+count_re_run_trap_out(P, M) when is_reference(M) ->
+    receive {'DOWN',M,process,P,normal} -> ok end,
+    TD = erlang:trace_delivered(P),
+    receive {trace_delivered, P, TD} -> ok end,
+    count_re_run_trap_out(P, 0);
+count_re_run_trap_out(P, N) when is_integer(N) ->
+    receive
+        {trace,P,out,{erlang,re_run_trap,3}} ->
+            count_re_run_trap_out(P, N+1)
+    after 0 ->
+            N
+    end.
 
 %% Test compile options given directly to run.
 combined_options(Config) when is_list(Config) ->

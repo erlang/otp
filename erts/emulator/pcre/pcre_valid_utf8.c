@@ -107,19 +107,80 @@ Returns:       = 0    if the string is a valid UTF-8 string
 int
 PRIV(valid_utf)(PCRE_PUCHAR string, int length, int *erroroffset)
 {
+
+#if defined(ERLANG_INTEGRATION)
+    return PRIV(yielding_valid_utf)(string, length, erroroffset, NULL);
+}
+
+int
+PRIV(yielding_valid_utf)(PCRE_PUCHAR string, int length, int *erroroffset, struct PRIV(valid_utf_ystate) *ystate)
+{
+#endif
+
 #ifdef SUPPORT_UTF
 register PCRE_PUCHAR p;
 
+#if defined(ERLANG_INTEGRATION)
+register long cnt;
+
+if (!ystate) {
+    cnt = -1;
+}
+else {
+    cnt = ystate->cnt;
+    if (ystate->yielded) {
+        p = ystate->p;
+        length = ystate->length;
+        if (length < 0) 
+            goto restart_length;
+        else
+            goto restart_validate;
+    }
+}
+#endif
+
 if (length < 0)
   {
-  for (p = string; *p != 0; p++);
-  length = (int)(p - string);
+      for (p = string; *p != 0; p++) {
+#if defined(ERLANG_INTEGRATION)
+          if (cnt > 0 && --cnt == 0) {
+              /*
+               * Return with cnt set to amount consumed;
+               * i.e. same amount as at start...
+               */
+              ystate->yielded = !0;
+              ystate->length = length;
+              ystate->p = p;
+              return PCRE_UTF8_YIELD;
+          }
+      restart_length:
+          (void) !0;
+#endif
+      }
+      length = (int)(p - string);
   }
 
 for (p = string; length-- > 0; p++)
   {
   register pcre_uchar ab, c, d;
 
+#if defined(ERLANG_INTEGRATION)
+
+  if (cnt > 0 && --cnt == 0) {
+      /*
+       * Return with cnt set to amount consumed;
+       * i.e. same amount as at start...
+       */
+      ystate->yielded = !0;
+      ystate->length = length;
+      ystate->p = p;
+      return PCRE_UTF8_YIELD;
+  }
+  
+  restart_validate:
+
+#endif
+  
   c = *p;
   if (c < 128) continue;                /* ASCII character */
 
@@ -289,6 +350,14 @@ for (p = string; length-- > 0; p++)
     return (ab == 4)? PCRE_UTF8_ERR11 : PCRE_UTF8_ERR12;
     }
   }
+
+#if defined(ERLANG_INTEGRATION)
+if (ystate) {
+    /* Return with cnt set to amount consumed... */
+    ystate->cnt -= cnt;
+    ystate->yielded = 0;
+}
+#endif
 
 #else  /* Not SUPPORT_UTF */
 (void)(string);  /* Keep picky compilers happy */
