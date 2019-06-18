@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>user</c>/<c>user_drv</c> could respond to io
+	    requests before they had been processed, which could
+	    cause data to be dropped if the emulator was halted soon
+	    after a call to <c>io:format/2</c>, such as in an
+	    escript.</p>
+          <p>
+	    Own Id: OTP-15805</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
