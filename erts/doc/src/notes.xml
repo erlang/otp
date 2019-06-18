@@ -564,6 +564,60 @@
 
 </section>
 
+<section><title>Erts 10.3.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If you set <c>{linger,{true,0}}</c> on a <c>gen_tcp</c>
+	    listen socket, accept a connection on that socket, and
+	    then close the accepted socket, now the linger zero
+	    setting is transferred to the accepted socket. Before
+	    this correction that information was lost and the close
+	    behaviour on the accepted socket incorrect.</p>
+          <p>
+	    Own Id: OTP-15370 Aux Id: ERIERL-353 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed <c>process_info(Pid,reductions)</c> to not
+	    categorically increase reduction count of the measured
+	    process <c>Pid</c>. Repeated reduction measure of an idle
+	    process will most often (but not guaranteed) return the
+	    same value, like it behaved before OTP 21.3.8.</p>
+          <p>
+	    Own Id: OTP-15865 Aux Id: ERL-964 </p>
+        </item>
+        <item>
+          <p>
+	    The runtime system disconnected a connection if it
+	    received an <c>exit/2</c> signal where the recipient was
+	    a process on an old incarnation of the current node. That
+	    is, the receiving node had the same node name, but
+	    another "creation" number. The signal will now just be
+	    dropped since the receiving process no longer exists.</p>
+          <p>
+	    Own Id: OTP-15867 Aux Id: ERIERL-373 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The possibility to send ancillary data, in particular the
+	    TOS field, has been added to <c>gen_udp:send/4,5</c>.</p>
+          <p>
+	    Own Id: OTP-15747 Aux Id: ERIERL-294 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
