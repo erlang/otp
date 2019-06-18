@@ -42,7 +42,7 @@ typedef struct {
 
 typedef struct {
     erts_rwmtx_t lock; /* The lock for this base node */
-    Sint lock_statistics;
+    erts_atomic_t lock_statistics;
     int is_valid; /* If this base node is still valid */
     TreeDbTerm *root; /* The root of the sequential tree */
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
