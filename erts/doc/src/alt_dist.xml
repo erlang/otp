@@ -680,7 +680,10 @@
 	    of the distribution controller, <c>Received</c>
 	    is received packets, <c>Sent</c> is
 	    sent packets, and <c>PendSend</c> is
-	    amount of packets in queue to be sent
+	    amount of data in queue to be sent
+	    (typically in bytes, but <c>dist_util</c>
+	    only checks whether the value is non-zero
+	    to know there is data in queue)
 	    or a <c>boolean()</c> indicating whether
 	    there are packets in queue to be sent.
 	  </p>
