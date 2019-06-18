@@ -3361,7 +3361,7 @@ dist_ctrl_get_opt(_DHandle, _Opt) ->
       DHandle :: dist_handle(),
       InputPackets :: non_neg_integer(),
       OutputPackets :: non_neg_integer(),
-      PendingOutputPackets :: boolean(),
+      PendingOutputPackets :: non_neg_integer(),
       Res :: {'ok', InputPackets, OutputPackets, PendingOutputPackets}.
 
 dist_get_stat(_DHandle) ->
