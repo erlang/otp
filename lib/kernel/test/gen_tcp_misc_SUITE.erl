@@ -25,6 +25,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 controlling_process/1, controlling_process_self/1,
 	 no_accept/1, close_with_pending_output/1, active_n/1,
+         active_n_closed/1,
 	 data_before_close/1,
 	 iter_max_socks/0, iter_max_socks/1,
 	 get_status/1,
@@ -74,7 +75,7 @@ suite() ->
 all() -> 
     [controlling_process, controlling_process_self, no_accept,
      close_with_pending_output, data_before_close,
-     iter_max_socks, passive_sockets, active_n,
+     iter_max_socks, passive_sockets, active_n, active_n_closed,
      accept_closed_by_other_process, otp_3924, closed_socket,
      shutdown_active, shutdown_passive, shutdown_pending,
      show_econnreset_active, show_econnreset_active_once,
@@ -2619,7 +2620,51 @@ active_once_closed(Config) when is_list(Config) ->
 	     ok = inet:setopts(A,[{active,once}]),
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end
      end)().
-   
+
+%% Check that active n and tcp_close messages behave as expected.
+active_n_closed(Config) when is_list(Config) ->
+    {ok, L} = gen_tcp:listen(0, [binary, {active, false}]),
+
+    P = self(),
+
+    {ok,Port} = inet:port(L),
+
+    spawn_link(fun() ->
+                       Payload = <<0:50000/unit:8>>,
+                       Cnt = 10000,
+                       P ! {size,Cnt * byte_size(Payload)},
+                       {ok, S} = gen_tcp:connect("localhost", Port, [binary, {active, false}]),
+                       _ = [gen_tcp:send(S, Payload) || _ <- lists:seq(1, Cnt)],
+                       gen_tcp:close(S)
+          end),
+
+    receive {size,SendSize} -> SendSize end,
+    {ok, S} = gen_tcp:accept(L),
+    inet:setopts(S, [{active, 10}]),
+    RecvSize =
+        (fun Server(Size) ->
+                 receive
+                     {tcp, S, Bin} ->
+                         Server(byte_size(Bin) + Size);
+                     {tcp_closed, S} ->
+                         Size;
+                     {tcp_passive, S} ->
+                         inet:setopts(S, [{active, 10}]),
+                         Server(Size);
+                     Msg ->
+                         io:format("~p~n", [Msg]),
+                         Server(Size)
+                 end
+         end)(0),
+
+    gen_tcp:close(L),
+
+    if SendSize =:= RecvSize ->
+            ok;
+       true ->
+            ct:fail("Send and Recv size not equal: ~p ~p",[SendSize, RecvSize])
+    end.
+
 %% Test the send_timeout socket option.
 send_timeout(Config) when is_list(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
