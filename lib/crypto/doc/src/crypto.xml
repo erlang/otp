@@ -2016,7 +2016,7 @@ FloatValue = rand:uniform().     % again
         <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
         <seealso marker="#stream_decrypt-2">stream_decrypt</seealso></p>
 	<p>For keylengths see the
-	<seealso marker="crypto:algorithm_details#stream-ciphers">User's Guide</seealso>.
+	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
 	</p>
       </desc>
     </func>
@@ -2032,7 +2032,7 @@ FloatValue = rand:uniform().     % again
         <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
         <seealso marker="#stream_decrypt-2">stream_decrypt</seealso>.</p>
 	<p>For keylengths and iv-sizes see the
-	<seealso marker="crypto:algorithm_details#stream-ciphers">User's Guide</seealso>.
+	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
 	</p>
       </desc>
     </func>
