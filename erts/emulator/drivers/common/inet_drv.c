@@ -1077,6 +1077,7 @@ typedef struct {
     long forced_events;           /* Mask of events that are forcefully signalled 
 				   on windows see winsock_event_select 
 				   for details */
+    int err;                      /* Keeps error code for closed socket */
     int send_would_block;       /* Last send attempt failed with "WOULDBLOCK" */
 #endif
     ErlDrvPort  port;           /* the port identifier */
@@ -9128,6 +9129,7 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->event_mask = 0;
 #ifdef __WIN32__
     desc->forced_events = 0;
+    desc->err = 0;
     desc->send_would_block = 0;
 #endif
     desc->port = port;
@@ -10977,7 +10979,7 @@ static int winsock_event_select(inet_descriptor *desc, int flags, int on)
 {
     int save_event_mask = desc->event_mask;
     
-    desc->forced_events = 0;
+    desc->forced_events &= FD_CLOSE;
     if (on) 
 	desc->event_mask |= flags;
     else
@@ -11029,7 +11031,7 @@ static int winsock_event_select(inet_descriptor *desc, int flags, int on)
 		TIMEVAL tmo = {0,0};
 		FD_SET fds;
 		int ret;
-		
+
 		FD_ZERO(&fds);
 		FD_SET(desc->s,&fds);
 		do_force = (select(desc->s+1,0,&fds,0,&tmo) > 0);
@@ -11046,7 +11048,7 @@ static int winsock_event_select(inet_descriptor *desc, int flags, int on)
 	    FD_SET fds;
 	    int ret;
 	    unsigned long arg;
-	  
+
 	    FD_ZERO(&fds);
 	    FD_SET(desc->s,&fds);
 	    ret = select(desc->s+1,&fds,0,0,&tmo);
@@ -11085,12 +11087,15 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
 	goto error;
     }
 
-    DEBUGF((" => event=%02X, mask=%02X\r\n",
-	    netEv.lNetworkEvents, desc->inet.event_mask));
+    DEBUGF((" => event=%02X, mask=%02X, forced=%02X\r\n",
+	    netEv.lNetworkEvents, desc->inet.event_mask,
+            desc->inet.forced_events));
 
     /* Add the forced events. */
-
     netEv.lNetworkEvents |= desc->inet.forced_events;
+
+    if (desc->inet.forced_events & FD_CLOSE)
+        netEv.iErrorCode[FD_CLOSE_BIT] = desc->inet.err;
 
     /*
      * Calling WSAEventSelect() with a mask of 0 doesn't always turn off
@@ -11111,16 +11116,29 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
 	    goto error;
 	}
 	if (netEv.lNetworkEvents & FD_CLOSE) {
-	    /*
+
+            /* We may not get any more FD_CLOSE events so we
+               keep this event and always signal it from
+               this moment on. */
+            if ((desc->inet.forced_events & FD_CLOSE) == 0) {
+                desc->inet.forced_events |= FD_CLOSE;
+                desc->inet.err = netEv.iErrorCode[FD_CLOSE_BIT];
+            }
+
+            /*
 	     * We must loop to read out the remaining packets (if any).
 	     */
 	    for (;;) {
-		DEBUGF(("Retrying read due to closed port\r\n"));
-		/* XXX The buffer will be thrown away on error (empty que).
-		   Possible SMP FIXME. */
-		if (!desc->inet.active && (desc->inet.opt) == NULL) {
-		    goto error;
-		}
+
+                /* if passive and no subscribers, break loop */
+                if (!desc->inet.active && desc->inet.opt == NULL) {
+                    /* do not trigger close event when socket is
+                       transitioned to passive */
+                    netEv.lNetworkEvents &= ~FD_CLOSE;
+                    break;
+                }
+
+		DEBUGF(("Retrying read due to FD_CLOSE\r\n"));
 		if (tcp_inet_input(desc, event) < 0) {
 		    goto error;
 		}
