@@ -31,6 +31,34 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a buffer overflow when
+	    <c>binary_to_existing_atom/2</c> and
+	    <c>list_to_existing_atom/2</c> was used with the
+	    <c>latin1</c> encoding.</p>
+          <p>
+	    Own Id: OTP-15819 Aux Id: ERL-944 </p>
+        </item>
+        <item>
+          <p>
+	    The runtime system disconnected a connection if it
+	    received an <c>exit/2</c> signal where the recipient was
+	    a process on an old incarnation of the current node. That
+	    is, the receiving node had the same node name, but
+	    another "creation" number. The signal will now just be
+	    dropped since the receiving process no longer exists.</p>
+          <p>
+	    Own Id: OTP-15867 Aux Id: ERIERL-373 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
