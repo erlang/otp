@@ -1062,10 +1062,37 @@ bad_dist_ext(ErtsDistExternal *edep)
 }
 
 Sint
-erts_decode_dist_ext_size(ErtsDistExternal *edep, int kill_connection)
+erts_decode_dist_ext_size(ErtsDistExternal *edep, int kill_connection, int payload)
 {
     Sint res;
     byte *ep;
+
+    if (edep->data->frag_id > 1 && payload) {
+        Uint sz = 0;
+        Binary *bin;
+        int i;
+        byte *ep;
+
+        for (i = 0; i < edep->data->frag_id; i++)
+            sz += edep->data[i].ext_endp - edep->data[i].extp;
+
+        bin = erts_bin_nrml_alloc(sz);
+        ep = (byte*)bin->orig_bytes;
+
+        for (i = 0; i < edep->data->frag_id; i++) {
+            sys_memcpy(ep, edep->data[i].extp, edep->data[i].ext_endp - edep->data[i].extp);
+            ep += edep->data[i].ext_endp - edep->data[i].extp;
+            erts_bin_release(edep->data[i].binp);
+            edep->data[i].binp = NULL;
+            edep->data[i].extp = NULL;
+            edep->data[i].ext_endp = NULL;
+        }
+
+        edep->data->frag_id = 1;
+        edep->data->extp = (byte*)bin->orig_bytes;
+        edep->data->ext_endp = ep;
+        edep->data->binp = bin;
+    }
 
     if (edep->data->extp >= edep->data->ext_endp)
 	goto fail;
@@ -1164,6 +1191,7 @@ Eterm erts_decode_ext(ErtsHeapFactory* factory, byte **ext, Uint32 flags)
     if (flags) {
         ASSERT(flags == ERTS_DIST_EXT_BTT_SAFE);
         ede.flags = flags; /* a dummy struct just for the flags */
+        ede.data = NULL;
         edep = &ede;
     } else {
         edep = NULL;
@@ -1233,8 +1261,10 @@ BIF_RETTYPE erts_debug_dist_ext_to_term_2(BIF_ALIST_2)
 
     ede.data->extp = binary_bytes(real_bin)+offset;
     ede.data->ext_endp = ede.data->extp + size;
+    ede.data->frag_id = 1;
+    ede.data->binp = NULL;
 
-    hsz = erts_decode_dist_ext_size(&ede, 1);
+    hsz = erts_decode_dist_ext_size(&ede, 1, 1);
     if (hsz < 0)
 	goto badarg;
 
@@ -1765,6 +1795,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
         case B2TDecodeBinary: {
 	    ErtsDistExternal fakedep;
             fakedep.flags = ctx->flags;
+            fakedep.data = NULL;
             dec_term(&fakedep, NULL, NULL, NULL, ctx);
             break;
 	}

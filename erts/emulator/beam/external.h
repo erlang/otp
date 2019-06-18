@@ -199,7 +199,7 @@ typedef enum {
 
 ErtsPrepDistExtRes erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint, struct binary *,
                                          DistEntry *, Uint32, ErtsAtomCache *);
-Sint erts_decode_dist_ext_size(ErtsDistExternal *, int);
+Sint erts_decode_dist_ext_size(ErtsDistExternal *, int, int);
 Eterm erts_decode_dist_ext(ErtsHeapFactory*, ErtsDistExternal *, int);
 
 Sint erts_decode_ext_size(byte*, Uint);

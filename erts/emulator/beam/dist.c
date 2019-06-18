@@ -80,7 +80,7 @@ dist_msg_dbg(ErtsDistExternal *edep, char *what, byte *buf, int sz)
     byte *extp = edep->data->extp;
     Eterm msg;
     Sint ctl_len;
-    Sint size = ctl_len = erts_decode_dist_ext_size(edep, 0);
+    Sint size = ctl_len = erts_decode_dist_ext_size(edep, 0, 0);
     if (size < 0) {
 	erts_fprintf(dbg_file,
 		     "DIST MSG DEBUG: erts_decode_dist_ext_size(%s) failed:\n",
@@ -1462,7 +1462,7 @@ int erts_net_message(Port *prt,
 #endif
         goto data_error;
     case ERTS_PREP_DIST_EXT_SUCCESS:
-	ctl_len = erts_decode_dist_ext_size(&ede, 1);
+	ctl_len = erts_decode_dist_ext_size(&ede, 1, 0);
         if (ctl_len < 0) {
 #ifdef ERTS_DIST_MSG_DBG
             erts_fprintf(dbg_file, "DIST MSG DEBUG: erts_decode_dist_ext_size(CTL) failed:\n");
@@ -1542,39 +1542,6 @@ int erts_net_message(Port *prt,
         erts_factory_heap_frag_init(&factory, &seq->hfrag);
         edep = erts_get_dist_ext(&seq->hfrag);
         ede_hfrag = &seq->hfrag;
-
-        /* If the sequence consisted of more than 1 fragment we create one large
-           binary out of all of the fragments. This because erts_decode_ext
-           cannot handle a segmented buffer.
-           TODO: Move this copy to as late as possible, preferably in in the
-           erts_decode_dist_ext in the receiving process.
-        */
-        if (edep->data->frag_id > 1) {
-            Uint sz = 0;
-            Binary *bin;
-            int i;
-            byte *ep;
-
-            for (i = 0; i < edep->data->frag_id; i++)
-                sz += edep->data[i].ext_endp - edep->data[i].extp;
-
-            bin = erts_bin_nrml_alloc(sz);
-            ep = (byte*)bin->orig_bytes;
-
-            for (i = 0; i < edep->data->frag_id; i++) {
-                sys_memcpy(ep, edep->data[i].extp, edep->data[i].ext_endp - edep->data[i].extp);
-                ep += edep->data[i].ext_endp - edep->data[i].extp;
-                erts_bin_release(edep->data[i].binp);
-                edep->data[i].binp = NULL;
-                edep->data[i].extp = NULL;
-                edep->data[i].ext_endp = NULL;
-            }
-
-            edep->data->frag_id = 1;
-            edep->data->extp = (byte*)bin->orig_bytes;
-            edep->data->ext_endp = ep;
-            edep->data->binp = bin;
-        }
 
         break;
     }
