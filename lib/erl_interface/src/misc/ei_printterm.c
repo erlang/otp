@@ -124,6 +124,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
     erlang_fun fun;
     double d;
     long l;
+    const char* delim;
 
     int tindex = *index;
 
@@ -240,41 +241,47 @@ static int print_term(FILE* fp, ei_x_buff* x,
 	    m = BINPRINTSIZE;
 	else
 	    m = l;
-	--m;
+        delim = "";
 	for (i = 0; i < m; ++i) {
-	    ch_written += xprintf(fp, x, "%d,", p[i]);
+	    ch_written += xprintf(fp, x, "%s%u", delim, (unsigned char)p[i]);
+            delim = ",";
 	}
-	ch_written += xprintf(fp, x, "%d", p[i]);
 	if (l > BINPRINTSIZE)
 	    ch_written += xprintf(fp, x, ",...");
 	xputc('>', fp, x); ++ch_written;
 	ei_free(p);
 	break;
     case ERL_BIT_BINARY_EXT: {
-        const char* cp;
+        const unsigned char* cp;
         size_t bits;
         unsigned int bitoffs;
         int trunc = 0;
 
-        if (ei_decode_bitstring(buf, index, &cp, &bitoffs, &bits) < 0
+        if (ei_decode_bitstring(buf, index, (const char**)&cp, &bitoffs, &bits) < 0
             || bitoffs != 0) {
             goto err;
         }
         ch_written += xprintf(fp, x, "#Bits<");
-        m = (bits+7) / 8;
-        if (m > BINPRINTSIZE) {
+        if ((bits+7) / 8 > BINPRINTSIZE) {
             m = BINPRINTSIZE;
             trunc = 1;
         }
-        --m;
+        else
+            m = bits / 8;
+
+        delim = "";
         for (i = 0; i < m; ++i) {
-            ch_written += xprintf(fp, x, "%d,", cp[i]);
+            ch_written += xprintf(fp, x, "%s%u", delim, cp[i]);
+            delim = ",";
         }
-        ch_written += xprintf(fp, x, "%d", cp[i]);
         if (trunc)
             ch_written += xprintf(fp, x, ",...");
-        else if (bits % 8 != 0)
-            ch_written += xprintf(fp, x, ":%u", (unsigned)(bits % 8));
+        else {
+            bits %= 8;
+            if (bits)
+                ch_written += xprintf(fp, x, "%s%u:%u", delim,
+                                      (cp[i] >> (8-bits)), bits);
+        }
         xputc('>', fp, x); ++ch_written;
         break;
     }
