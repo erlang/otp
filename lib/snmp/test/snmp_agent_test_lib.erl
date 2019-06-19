@@ -1160,6 +1160,18 @@ do_expect(trap, Enterp, Generic, Specific, ExpVBs, To) ->
 		     {PureE, Generic, Specific, ExpVBs}, 
 		     {Ent2, G2, Spec2, VBs}}};
 
+	{error, timeout} = Error ->
+            SysEvs = snmp_test_global_sys_monitor:events(),
+	    io_format_expect("[expecting trap] got timeout when system events:"
+                             "~n   ~p", [SysEvs]),
+            if
+                (SysEvs =:= []) ->
+                    Error;
+                true ->
+                    throw({skip, {system_events, SysEvs}})
+            end;
+
+
 	Error ->
 	    Error
     end.
@@ -1261,7 +1273,7 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	    io_format_expect("received unexpected pdu with (11) "
                              "~n   Type:         ~p"
                              "~n   ReqId:        ~p"
-                             "~n   Errot status: ~p"
+                             "~n   Error status: ~p"
                              "~n   Error index:  ~p",
                              [Type2, ReqId, Err2, Idx2]),
 	    {error, 
@@ -1324,7 +1336,7 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	    io_format_expect("received unexpected pdu with (15) "
                              "~n   Type:         ~p"
                              "~n   ReqId:        ~p"
-                             "~n   Errot status: ~p"
+                             "~n   Error status: ~p"
                              "~n   Error index:  ~p"
                              "~n   Varbinds:     ~p",
                              [Type2, ReqId, Err2, Idx2, VBs2]),

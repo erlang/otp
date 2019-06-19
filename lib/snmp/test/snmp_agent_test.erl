@@ -6593,7 +6593,6 @@ otp_4394_test() ->
     gn([[1,1]]),
     Res = 
 	case snmp_test_mgr:expect(1, [{[sysDescr,0],  "Erlang SNMP agent"}]) of
-	    %% {error, 1, {"?",[]}, {"~w",[timeout]}}
 	    {error, 1, _, {_, [timeout]}} ->
 		?DBG("otp_4394_test -> expected result: timeout", []),
 		ok;
