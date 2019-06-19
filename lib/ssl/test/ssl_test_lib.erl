@@ -2474,3 +2474,11 @@ digest() ->
         _ ->
             {digest, sha1}
     end.
+
+kill_openssl() ->
+    case os:type() of
+        {unix, _} ->
+            os:cmd("pkill openssl");
+        {win32, _} ->
+            os:cmd("cmd.exe /C \"taskkill /IM openssl.exe /F\"")
+    end.
