@@ -48,7 +48,7 @@
 	  usegc = false
 	}).
 
--record(paint, {font, pen, brush, sel, links}).
+-record(paint, {font, fg, pen, brush, sel, links}).
 
 -record(app, {ptree, n2p, links, dim}).
 -record(box, {x,y, w,h, s1}).
@@ -92,7 +92,8 @@ init([Notebook, Parent, _Config]) ->
     Extra = wxBoxSizer:new(?wxVERTICAL),
     DrawingArea = wxScrolledWindow:new(P2, [{winid, ?DRAWAREA},
 					    {style,?wxFULL_REPAINT_ON_RESIZE}]),
-    wxWindow:setBackgroundColour(DrawingArea, ?wxWHITE),
+    BG = wxWindow:getBackgroundColour(Apps),
+    wxWindow:setBackgroundStyle(DrawingArea, ?wxBG_STYLE_SYSTEM),
     wxWindow:setVirtualSize(DrawingArea, 800, 800),
     wxSplitterWindow:setMinimumPaneSize(Splitter,50),
     wxSizer:add(Extra, DrawingArea, [{flag, ?wxEXPAND},{proportion, 1}]),
@@ -127,7 +128,17 @@ init([Notebook, Parent, _Config]) ->
            Font0
 	   end,
     SelCol   = wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT),
-    GreyBrush = wxBrush:new({230,230,240}),
+    {Fg,BGBrush,Pen} =
+        case observer_lib:is_darkmode(BG) of
+            false ->
+                {wxSystemSettings:getColour(?wxSYS_COLOUR_BTNTEXT),
+                 wxBrush:new(wxSystemSettings:getColour(?wxSYS_COLOUR_BTNSHADOW)),
+                 wxPen:new({80,80,80}, [{width, Scale * 2}])};
+            true ->
+                {wxSystemSettings:getColour(?wxSYS_COLOUR_BTNTEXT),
+                 wxBrush:new(wxSystemSettings:getColour(?wxSYS_COLOUR_BTNSHADOW)),
+                 wxPen:new({0,0,0}, [{width, Scale * 2}])}
+        end,
     SelBrush = wxBrush:new(SelCol),
     LinkPen  = wxPen:new(SelCol, [{width, Scale * 2}]),
     process_flag(trap_exit, true),
@@ -137,8 +148,9 @@ init([Notebook, Parent, _Config]) ->
 		   app_w =DrawingArea,
 		   usegc = UseGC,
 		   paint=#paint{font = Font,
-				pen  = wxPen:new({80,80,80}, [{width, Scale * 2}]),
-				brush= GreyBrush,
+                                fg   = Fg,
+				pen  = Pen,
+				brush= BGBrush,
 				sel  = SelBrush,
 				links= LinkPen
 			       }
@@ -306,11 +318,11 @@ handle_info({delivery, _Pid, app, _Curr, {[], [], [], []}},
 
 handle_info({delivery, Pid, app, Curr, AppData},
 	    State = #state{panel=Panel, appmon=Pid, current=Curr, usegc=UseGC,
-			   app_w=AppWin, paint=#paint{font=Font}}) ->
+			   app_w=AppWin, paint=#paint{fg=Fg, font=Font}}) ->
     GC = if UseGC -> {?wxGC:create(AppWin), false};
 	    true ->  {false, wxWindowDC:new(AppWin)}
 	 end,
-    setFont(GC, Font, {0,0,0}),
+    setFont(GC, Font, Fg),
     App = build_tree(AppData, GC),
     destroy_gc(GC),
     setup_scrollbar(AppWin, App),
@@ -508,13 +520,13 @@ tree_map([], _ , Acc) -> Acc.
 draw(_DC, undefined, _, _) ->
     ok;
 draw(DC, #app{dim={_W,_H}, ptree=Tree, links=Links}, Sel,
-     #paint{font=Font, pen=Pen, brush=Brush, links=LPen, sel=SelBrush}) ->
+     #paint{font=Font, fg=Fg, pen=Pen, brush=Brush, links=LPen, sel=SelBrush}) ->
     setPen(DC, LPen),
     [draw_xlink(Link, DC) || Link <- Links],
     setPen(DC, Pen),
     %% ?wxGC:drawRectangle(DC, 2,2, _W-2,_H-2), %% DEBUG
     setBrush(DC, Brush),
-    setFont(DC, Font, {0,0,0}),
+    setFont(DC, Font, Fg),
     draw_tree(Tree, root, DC),
     case Sel of
 	undefined -> ok;

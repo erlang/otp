@@ -71,7 +71,7 @@ init([Notebook, Parent, Config]) ->
 
     Style = ?wxLC_REPORT bor ?wxLC_VIRTUAL bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES,
     Self = self(),
-    Attrs = observer_lib:create_attrs(),
+    Attrs = observer_lib:create_attrs(Panel),
     Holder = spawn_link(fun() -> init_table_holder(Self, Attrs) end),
     CBs = [{onGetItemText, fun(_, Item,Col) -> get_row(Holder, Item, Col) end},
            {onGetItemAttr, fun(_, Item) -> get_attr(Holder, Item) end}],
