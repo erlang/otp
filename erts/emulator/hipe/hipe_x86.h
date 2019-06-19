@@ -22,17 +22,28 @@
 #ifndef HIPE_X86_H
 #define HIPE_X86_H
 
-static __inline__ void hipe_flush_icache_word(void *address)
-{
-    /* Do nothing. This works as long as compiled code is
-       executed by a single CPU thread. */
-}
+#ifndef __has_builtin
+# define __has_builtin(x) 0
+#endif
 
 static __inline__ void
 hipe_flush_icache_range(void *address, unsigned int nbytes)
 {
-    /* Do nothing. This works as long as compiled code is
-       executed by a single CPU thread. */
+    void* end = (char*)address + nbytes;
+
+#if ERTS_AT_LEAST_GCC_VSN__(4, 3, 0) || __has_builtin(__builtin___clear_cache)
+    __builtin___clear_cache(address, end);
+#elif defined(__clang__)
+    void __clear_cache(void *start, void *end);
+    __clear_cache(address, end);
+#else
+# warning "Don't know how to flush instruction cache"
+#endif
+}
+
+static __inline__ void hipe_flush_icache_word(void *address)
+{
+    hipe_flush_icache_range(address, sizeof(void*));
 }
 
 /* for stack descriptor hash lookup */
