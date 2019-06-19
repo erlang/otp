@@ -22,8 +22,8 @@
 
 -compile([export_all, nowarn_export_all]).
 
-%% This module has only supports proper, as we don't have an eqc license to
-%% test with.
+%% This module only supports proper, as we don't have an eqc license to test
+%% with.
 
 -proptest([proper]).
 
@@ -34,31 +34,94 @@
 -include_lib("proper/include/proper.hrl").
 -define(MOD_eqc,proper).
 
-consistency() ->
+%% The default repetitions of 100 is a bit too low to reliably cover all type
+%% combinations, so we crank it up a bit.
+-define(REPETITIONS, 1000).
+
+absorption() ->
+    numtests(?REPETITIONS, absorption_1()).
+
+absorption_1() ->
     ?FORALL({TypeA, TypeB},
             ?LET(TypeA, type(),
                  ?LET(TypeB, type(), {TypeA, TypeB})),
-            consistency_check(TypeA, TypeB)).
+            absorption_check(TypeA, TypeB)).
 
-consistency_check(A, B) ->
-    consistency_check_1(A, B),
-    consistency_check_1(B, A),
+absorption_check(A, B) ->
+    %% a ∨ (a ∧ b) = a,
+    A = beam_types:join(A, beam_types:meet(A, B)),
+
+    %% a ∧ (a ∨ b) = a.
+    A = beam_types:meet(A, beam_types:join(A, B)),
+
     true.
 
-consistency_check_1(A, B) ->
-    A = beam_types:meet(A, beam_types:join(A, B)),
-    A = beam_types:join(A, beam_types:meet(A, B)),
-    ok.
+associativity() ->
+    numtests(?REPETITIONS, associativity_1()).
+
+associativity_1() ->
+    ?FORALL({TypeA, TypeB, TypeC},
+            ?LET(TypeA, type(),
+                 ?LET(TypeB, type(),
+                      ?LET(TypeC, type(), {TypeA, TypeB, TypeC}))),
+            associativity_check(TypeA, TypeB, TypeC)).
+
+associativity_check(A, B, C) ->
+    %% a ∨ (b ∨ c) = (a ∨ b) ∨ c,
+    LHS_Join = beam_types:join(A, beam_types:join(B, C)),
+    RHS_Join = beam_types:join(beam_types:join(A, B), C),
+    LHS_Join = RHS_Join,
+
+    %% a ∧ (b ∧ c) = (a ∧ b) ∧ c.
+    LHS_Meet = beam_types:meet(A, beam_types:meet(B, C)),
+    RHS_Meet = beam_types:meet(beam_types:meet(A, B), C),
+    LHS_Meet = RHS_Meet,
+
+    true.
 
 commutativity() ->
+    numtests(?REPETITIONS, commutativity_1()).
+
+commutativity_1() ->
     ?FORALL({TypeA, TypeB},
             ?LET(TypeA, type(),
                  ?LET(TypeB, type(), {TypeA, TypeB})),
-            commutativity_check(TypeA, TypeB)).
+             commutativity_check(TypeA, TypeB)).
 
 commutativity_check(A, B) ->
-    true = beam_types:meet(A, B) =:= beam_types:meet(B, A),
+    %% a ∨ b = b ∨ a,
     true = beam_types:join(A, B) =:= beam_types:join(B, A),
+
+    %% a ∧ b = b ∧ a.
+    true = beam_types:meet(A, B) =:= beam_types:meet(B, A),
+
+    true.
+
+idempotence() ->
+    numtests(?REPETITIONS, idempotence_1()).
+
+idempotence_1() ->
+    ?FORALL(Type, type(), idempotence_check(Type)).
+
+idempotence_check(Type) ->
+    %% a ∨ a = a,
+    Type = beam_types:join(Type, Type),
+
+    %% a ∧ a = a.
+    Type = beam_types:meet(Type, Type),
+
+    true.
+
+identity() ->
+    ?FORALL(Type, type(), identity_check(Type)).
+
+identity_check(Type) ->
+    %% a ∨ [bottom element] = a,
+    Type = beam_types:join(Type, none),
+
+    %% a ∧ [top element] = a.
+    Type = beam_types:meet(Type, any),
+
     true.
 
 %%%
@@ -75,7 +138,10 @@ type(Depth) ->
               other_types()).
 
 other_types() ->
-    [any, gen_atom(), gen_binary(), none].
+    [any,
+     gen_atom(),
+     gen_binary(),
+     none].
 
 list_types() ->
     [cons, list, nil].
@@ -106,21 +172,19 @@ gen_integer() ->
     oneof([gen_integer_bounded(), #t_integer{}]).
 
 gen_integer_bounded() ->
-    ?LET(A, integer(),
-         ?LET(B, integer(),
-              begin
-                  #t_integer{elements={min(A,B), max(A,B)}}
-              end)).
+    ?LET({A, B}, {integer(), integer()},
+         begin
+             #t_integer{elements={min(A,B), max(A,B)}}
+         end).
 
 gen_tuple(Depth) ->
     ?SIZED(Size,
-           ?LET(Exact, oneof([true, false]),
-                ?LET(Elements, gen_tuple_elements(Size, Depth),
-                     begin
-                         #t_tuple{exact=Exact,
-                                  size=Size,
-                                  elements=Elements}
-                     end))).
+           ?LET({Exact, Elements}, {boolean(), gen_tuple_elements(Size, Depth)},
+                begin
+                    #t_tuple{exact=Exact,
+                             size=Size,
+                             elements=Elements}
+                end)).
 
 gen_tuple_elements(Size, Depth) ->
     ?LET(Types, sized_list(rand:uniform(Size div 4 + 1), gen_element(Depth)),
@@ -133,6 +197,7 @@ gen_element(Depth) ->
                         none -> false;
                         _ -> true
                     end)).
+
 
 sized_list(0, _Gen) -> [];
 sized_list(N, Gen) -> [Gen | sized_list(N - 1, Gen)].
