@@ -288,3 +288,64 @@ TESTCASE(funs)
 
     report(1);
 }
+
+
+TESTCASE(binaries)
+{
+    char *buf;
+    long len;
+    int err, n, index;
+    ei_x_buff x;
+
+    ei_init();
+
+    for (n = 5; n; n--) {
+        buf = read_packet(NULL);
+
+        index = 0;
+        err = ei_decode_version(buf, &index, NULL);
+        if (err != 0)
+            fail1("ei_decode_version returned %d", err);
+        err = ei_decode_binary(buf, &index, NULL, &len);
+        if (err != 0)
+            fail1("ei_decode_binary returned %d", err);
+
+        ei_x_new(&x);
+        ei_x_append_buf(&x, buf, index);
+        send_printed_buf(&x);
+        ei_x_free(&x);
+
+        free_packet(buf);
+    }
+    report(1);
+}
+
+TESTCASE(bitstrings)
+{
+    char *buf;
+    long len;
+    int err, n, index;
+    ei_x_buff x;
+
+    ei_init();
+
+    for (n = 7; n; n--) {
+        buf = read_packet(NULL);
+
+        index = 0;
+        err = ei_decode_version(buf, &index, NULL);
+        if (err != 0)
+            fail1("ei_decode_version returned %d", err);
+        err = ei_decode_bitstring(buf, &index, NULL, NULL, NULL);
+        if (err != 0)
+            fail1("ei_decode_bitstring returned %d", err);
+
+        ei_x_new(&x);
+        ei_x_append_buf(&x, buf, index);
+        send_printed_buf(&x);
+        ei_x_free(&x);
+
+        free_packet(buf);
+    }
+    report(1);
+}
