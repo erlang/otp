@@ -18,6 +18,7 @@
  * %CopyrightEnd%
  */
 
+#ifdef __arm__
 
 #include <stddef.h>	/* offsetof() */
 #ifdef HAVE_CONFIG_H
@@ -285,3 +286,5 @@ void hipe_arch_print_pcb(struct hipe_process_state *p)
     U("narity     ", narity);
 #undef U
 }
+
+#endif /*__arm__*/
