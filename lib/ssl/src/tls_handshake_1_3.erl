@@ -802,7 +802,7 @@ validate_certificate_chain(Certs, CertDbHandle, CertDbRef, SslOptions, CRLDbHand
                                                            CertDbHandle, CertDbRef)
         end
     catch
-        error:{badmatch,{asn1, Asn1Reason}} ->
+        error:{badmatch,{error, {asn1, Asn1Reason}}} ->
             %% ASN-1 decode of certificate somehow failed
             {error, {certificate_unknown, {failed_to_decode_certificate, Asn1Reason}}};
         error:OtherReason ->
