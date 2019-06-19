@@ -1142,5 +1142,6 @@ bootstrap_clean:
 
 # ----------------------------------------------------------------------
 
-test: all release_tests
-	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+test: all release_tests release
+
+include $(ERL_TOP)/make/app_targets.mk

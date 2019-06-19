@@ -1,5 +1,25 @@
 #!/bin/sh
 
+# 
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# 
+# %CopyrightEnd%
+#
+
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -66,7 +86,6 @@ errors:
 
 EOM
         echo "$ERL_TOP/HOWTO/TESTING.md"
-        echo
     }
     print_highlighted_msg_with_printer $LIGHT_CYAN print_msg
 }
@@ -141,12 +160,18 @@ fi
 DIR=`pwd`
 if [ "$DIR" -ef "$ERL_TOP" ]
 then
-    cd release/tests/test_server
+    TARGET_SYS=`$ERL_TOP/erts/autoconf/config.guess`
+    REL_DIR="$ERL_TOP/release/$TARGET_SYS"
+    cd "$REL_DIR"
+    ./Install -sasl `pwd`
+    export PATH="$REL_DIR/bin:$PATH"
+    cd "$ERL_TOP/release/tests/test_server"
     print_all_tests_takes_long_time_warning
     echo "The tests will start in a few seconds..."
-    sleep 60
-    "$ERL_TOP"/bin/erl -eval "ts:install(),erlang:halt()"
-    "$ERL_TOP"/bin/erl -noinput -eval "ts:run([all_tests|batch]),erlang:halt()"
+    sleep 45
+    cd "$ERL_TOP/release/tests/test_server"
+    erl -eval "ts:install(),erlang:halt()"
+    erl -noinput -eval "ts:run([all_tests,batch]),erlang:halt()"
     exit $?
 fi
 
@@ -188,7 +213,6 @@ then
         ARGS="$SPEC_FLAG $SPEC_FILE"
     fi
     # Compile test server
-    echo "BEFORE COMPILE TEST SERVER"
     (cd "$ERL_TOP/lib/common_test/test_server" && make)
     # Run ct_run
     cd $MAKE_TEST_REL_DIR

@@ -1,7 +1,7 @@
-#
+# 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,23 +17,9 @@
 # 
 # %CopyrightEnd%
 #
-include $(ERL_TOP)/make/target.mk
-include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-#
-# Macros
-#
 
-SUB_DIRECTORIES = src doc/src examples
+.PHONY: test
 
-include vsn.mk
-VSN = $(STDLIB_VSN)
-
-SPECIAL_TARGETS = 
-
-#
-# Default Subdir Targets
-#
-include $(ERL_TOP)/make/otp_subdir.mk
-
-include $(ERL_TOP)/make/app_targets.mk
+test:
+	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
