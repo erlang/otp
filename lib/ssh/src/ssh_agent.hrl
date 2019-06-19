@@ -54,41 +54,41 @@
 %% 4.1 Generic server responses
 
 -record(ssh_agent_success,
-	{
-	 }).
+    {
+    }).
 
 -record(ssh_agent_failure,
-	{
-	 }).
+    {
+    }).
 
 %% 4.4 Requesting a list of keys
 
 -record(ssh_agent_identities_request,
-	{
-	 }).
+    {
+    }).
 
 -record(ssh_agent_identity,
     {
       key_blob, % string
       comment   % string
-     }).
+    }).
 
 -record(ssh_agent_identities_response,
     {
       nkeys, % integer
       keys   % list of ssh_agent_identity records
-     }).
+    }).
 
 %% 4.5 Private key operations
 
 -record(ssh_agent_sign_request,
-	{
-	  key_blob, % string
-	  data,		% string
-	  flags		% integer
-	 }).
+    {
+      key_blob, % string
+      data,     % string
+      flags     % integer
+    }).
 
 -record(ssh_agent_sign_response,
-	{
-	  signature % string
-  	 }).
+    {
+      signature % string
+    }).
