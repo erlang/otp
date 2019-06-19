@@ -3793,6 +3793,30 @@ dec_term_atom_common:
 		    hp += heap_bin_size(n);
 		    sys_memcpy(hb->data, ep, n);
 		    *objp = make_binary(hb);
+		} else if (edep && edep->data && edep->data->binp &&
+                           n > (edep->data->binp->orig_size / 4)) {
+                    /* If we decode a refc binary from a distribution data
+                       entry we know that it is a refc binary to begin with
+                       so we just increment it and use the reference. This
+                       means that the entire distribution data entry will
+                       remain until this binary is de-allocated so we only
+                       do it if a substantial part (> 25%) of the data
+                       is a binary. */
+                    ProcBin* pb = (ProcBin *) hp;
+                    Binary* bptr = edep->data->binp;
+                    erts_refc_inc(&bptr->intern.refc, 1);
+                    pb->thing_word = HEADER_PROC_BIN;
+                    pb->size = n;
+                    pb->next = factory->off_heap->first;
+                    factory->off_heap->first = (struct erl_off_heap_header*)pb;
+                    pb->val = bptr;
+                    pb->bytes = (byte*) ep;
+                    ERTS_ASSERT((byte*)(bptr->orig_bytes) < ep &&
+                                ep+n <= (byte*)(bptr->orig_bytes+bptr->orig_size));
+                    pb->flags = 0;
+                    OH_OVERHEAD(factory->off_heap, pb->size / sizeof(Eterm));
+                    hp += PROC_BIN_SIZE;
+                    *objp = make_binary(pb);
 		} else {
 		    Binary* dbin = erts_bin_nrml_alloc(n);
 
