@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+@ARGV == 2 or die "Usage: gcov-gen-html \$ERL_TOP <output directory>\n";
+
+my $srcdir = shift @ARGV;
+my $outdir = shift @ARGV;
+
+my $verbose = 1;
+my $flavor = "smp";
+
+# setup filenames and paths, observe geninfos --base-directory
+# it needs a correct path just after the $geninfo
+
+my $lcov_path = ""; #/usr/local/bin/";
+
+my $geninfo      = $lcov_path . "geninfo --no-checksum --base-directory";
+my $genhtml      = $lcov_path . "genhtml";
+
+# src paths
+
+my $emu_src_path  = "$srcdir/erts/emulator";
+my $elib_src_path = "$srcdir/erts/lib_src";
+my $pcre_src_path = "$emu_src_path";
+my $zlib_src_path = "$emu_src_path";
+
+# obj paths
+
+my $emu_obj_path  = <$emu_src_path/obj/*-linux-*/gcov/$flavor>;
+my $elib_obj_path = <$elib_src_path/obj/*-linux-*/gcov>;
+my $pcre_obj_path = <$emu_src_path/pcre/obj/*-linux-*/gcov>;
+my $zlib_obj_path = <$emu_src_path/zlib/obj/*-linux-*/gcov>;
+
+# info files
+
+my $emu_info  = "$srcdir/emulator-cover.info";
+my $elib_info = "$srcdir/elib-cover.info";
+my $pcre_info = "$srcdir/pcre-cover.info";
+
+my $infofiles = "$emu_info $elib_info $pcre_info";
+
+run("$geninfo $emu_src_path  -o $emu_info  $emu_obj_path");
+run("$geninfo $elib_src_path -o $elib_info $elib_obj_path");
+run("$geninfo $pcre_src_path -o $pcre_info $pcre_obj_path");
+
+if (<$zlib_obj_path/*.o>) {
+    my $zlib_info = "$srcdir/zlib-cover.info";
+    $infofiles .= " $zlib_info";
+    run("$geninfo $zlib_src_path -o $zlib_info $zlib_obj_path");
+}
+
+run("$genhtml -o $outdir $infofiles");
+
+
+
+sub run {
+    my $cmd = shift;
+    print STDERR "\nrun($cmd)\n" if $verbose > 0;
+    system("$cmd 2>&1") == 0 or die "\nCan't run \"$cmd\": $?";
+}
