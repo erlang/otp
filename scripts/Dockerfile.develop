@@ -1,6 +1,8 @@
 FROM erlang/ubuntu-build:64bit
 
-RUN apt-get update && apt-get install -y sudo && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+      && apt-get install -y libssl-dev sudo \
+      && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user to use for development -
 # test for applications like `ssh` fail when executed as root
