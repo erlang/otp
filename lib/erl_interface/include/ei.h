@@ -323,13 +323,24 @@ typedef struct {
 
 #define EI_SCLBK_FLG_FULL_IMPL (1 << 0)
 
+/*
+ * HACK: AIX defines many socket functions like accept to be naccept, which
+ * pollutes the global namespace. Set up an ugly ifdef for consumers of this
+ * API here so they get a mangled name for AIX and the sane name elsewhere.
+ */
+#ifdef _AIX
+#define EI_ACCEPT_NAME accept_ei
+#else
+#define EI_ACCEPT_NAME accept
+#endif
+
 typedef struct {
     int flags;
 
     int (*socket)(void **ctx, void *setup_ctx);
     int	(*close)(void *ctx);
     int (*listen)(void *ctx, void *addr, int *len, int backlog);
-    int (*accept)(void **ctx, void *addr, int *len, unsigned tmo);
+    int (*EI_ACCEPT_NAME)(void **ctx, void *addr, int *len, unsigned tmo);
     int (*connect)(void *ctx, void *addr, int len, unsigned tmo);
     int (*writev)(void *ctx, const void *iov, int iovcnt, ssize_t *len, unsigned tmo);
     int (*write)(void *ctx, const char *buf, ssize_t *len, unsigned tmo);

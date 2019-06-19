@@ -75,6 +75,10 @@
 #define SHELL "/bin/sh"
 #endif /* __ANDROID__ */
 
+#if !defined(MSG_DONTWAIT) && defined(MSG_NONBLOCK)
+#define MSG_DONTWAIT MSG_NONBLOCK
+#endif
+
 //#define HARD_DEBUG
 #ifdef HARD_DEBUG
 #define DEBUG_PRINT(fmt, ...) fprintf(stderr, "%d:" fmt "\r\n", getpid(), ##__VA_ARGS__)

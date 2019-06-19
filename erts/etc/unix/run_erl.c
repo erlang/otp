@@ -1201,7 +1201,19 @@ static void error_logf(int priority, int line, const char *format, ...)
 
 #ifdef HAVE_SYSLOG_H
     if (run_daemon) {
+#ifdef HAVE_VSYSLOG
 	vsyslog(priority,format,args);
+#else
+	/* Some OSes like AIX lack vsyslog. */
+	va_list ap;
+	char message[900]; /* AIX man page says truncation past this */
+
+	va_start (ap, format);
+	vsnprintf(message, 900, format, ap);
+	va_end(ap);
+
+	syslog(priority, message);
+#endif
     }
     else
 #endif

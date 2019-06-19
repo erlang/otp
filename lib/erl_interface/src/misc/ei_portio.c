@@ -622,7 +622,7 @@ int ei_accept_ctx_t__(ei_socket_callbacks *cbs, void **ctx,
         } while (error == EINTR);
     }
     do {
-        error = cbs->accept(ctx, addr, len, ms);
+        error = cbs->EI_ACCEPT_NAME(ctx, addr, len, ms);
     } while (error == EINTR);
     return error;
 }

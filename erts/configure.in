@@ -447,6 +447,12 @@ dnl ---------------------------------------------------------------------
 dnl NOTE: CPPFLAGS will be included in CFLAGS at the end
 case $host_os in
     linux*) CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE";; 
+    aix*|os400*)
+        # * _ALL_SOURCE: Required to get the winsize structure for TIOCSWINSZ.
+        # * _LINUX_SOURCE_COMPAT: Not required, but makes some libc functions
+        # behave closer to glibc assumptions.
+        CPPFLAGS="$CPPFLAGS -D_ALL_SOURCE -D_LINUX_SOURCE_COMPAT"
+        ;;
     win32)
 	# The ethread library requires _WIN32_WINNT of at least 0x0403.
 	# -D_WIN32_WINNT=* from CPPFLAGS is saved in ETHR_DEFS.
@@ -966,7 +972,7 @@ AC_SUBST(ERLANG_OSTYPE)
 AC_MSG_CHECKING(for extra flags needed to export symbols)
 DEXPORT=""
 case $host_os in
-	aix4*)
+	aix*|os400*)
 		DEXPORT=-Wl,-bexpall,-brtl
 	;;
 	bsdi*)
@@ -1427,7 +1433,7 @@ if test "$have_gethostbyname_r" = yes; then
 			AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_SOLARIS,
 				[Define to flavour of gethostbyname_r])
 		;;
-		aix4*)
+		aix*|os400*)
 			# AIX version also needs "struct hostent_data" defn
 			AC_TRY_COMPILE([#include <netdb.h>],
 				[struct hostent_data hd;],
@@ -2036,7 +2042,7 @@ AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlop
 		gethrtime localtime_r gmtime_r inet_pton mprotect \
 		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
-		setlocale nl_langinfo poll mlockall ppoll])
+		setlocale nl_langinfo poll mlockall ppoll vsyslog])
 
 AC_MSG_CHECKING([for isfinite])
 AC_TRY_LINK([#include <math.h>],

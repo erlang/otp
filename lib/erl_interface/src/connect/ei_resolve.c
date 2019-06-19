@@ -55,6 +55,16 @@
 #include "ei_resolve.h"
 #include "ei_locking.h"
 
+/* AIX has a totally different signature (allegedly shared with some other
+ * Unices) that isn't compatible. It turns out that the _r version isn't
+ * thread-safe according to curl - but bizarrely, since AIX 4.3, libc
+ * is thread-safe in a manner that makes the normal gethostbyname OK
+ * for re-entrant use.
+ */
+#ifdef _AIX
+#undef HAVE_GETHOSTBYNAME_R
+#endif
+
 #ifdef HAVE_GETHOSTBYNAME_R
 
 int ei_init_resolve(void)
@@ -75,7 +85,7 @@ int ei_init_resolve(void)
 static ei_mutex_t *ei_gethost_sem = NULL;
 #endif /* _REENTRANT */
 static int ei_resolve_initialized = 0;
-#ifndef __WIN32__
+#if !defined(__WIN32__) && !defined(_AIX)
 int h_errno;
 #endif
 

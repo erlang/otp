@@ -66,7 +66,7 @@
 #undef M_MMAP_THRESHOLD
 #undef M_MMAP_MAX
 
-#if defined(__GLIBC__) && defined(HAVE_MALLOC_H)
+#if (defined(__GLIBC__) || defined(_AIX)) && defined(HAVE_MALLOC_H)
 #include <malloc.h>
 #endif
 

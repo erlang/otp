@@ -740,10 +740,17 @@ void os_version(int *pMajor, int *pMinor, int *pBuild) {
 				 * X.Y or X.Y.Z.  */
 
     (void) uname(&uts);
+#ifdef _AIX
+    /* AIX stores the major in version and minor in release */
+    *pMajor = atoi(uts.version);
+    *pMinor = atoi(uts.release);
+    *pBuild = 0; /* XXX: get oslevel for AIX or TR on i */
+#else
     release = uts.release;
     *pMajor = get_number(&release); /* Pointer to major version. */
     *pMinor = get_number(&release); /* Pointer to minor version. */
     *pBuild = get_number(&release); /* Pointer to build number. */
+#endif
 }
 
 void erts_do_break_handling(void)
