@@ -111,7 +111,7 @@ add_signature_algorithms_cert(Extensions, undefined) ->
     Extensions;
 add_signature_algorithms_cert(Extensions, SignAlgsCert) ->
     Extensions#{signature_algorithms_cert =>
-                    #signature_algorithms{signature_scheme_list = SignAlgsCert}}.
+                    #signature_algorithms_cert{signature_scheme_list = SignAlgsCert}}.
 
 
 filter_tls13_algs(undefined) -> undefined;
