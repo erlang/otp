@@ -520,9 +520,9 @@ bad_tuples(Config) ->
      {{bad_tuples,long,2},
       {{put,{atom,too_long}},8,not_building_a_tuple}},
      {{bad_tuples,self_referential,1},
-      {{put,{x,1}},7,{tuple_in_progress,{x,1}}}},
+      {{put,{x,1}},7,{unfinished_tuple,{x,1}}}},
      {{bad_tuples,short,1},
-      {{move,{x,1},{x,0}},7,{tuple_in_progress,{x,1}}}}] = Errors,
+      {{move,{x,1},{x,0}},7,{unfinished_tuple,{x,1}}}}] = Errors,
 
     ok.
 

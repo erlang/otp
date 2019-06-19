@@ -37,8 +37,6 @@
 %%       -- cons         Cons (nonempty list).
 %%       -- nil          The empty list.
 %%    - #t_tuple{}       Tuple.
-%%    - #t_abstract{}    Psuedo-type used in the validator to track tuples
-%                        under construction, match context positions, etc.
 %%
 %%  none                 No type (bottom element).
 
@@ -54,7 +52,6 @@
 -record(t_tuple, {size=0 :: integer(),
                   exact=false :: boolean(),
                   elements=#{} :: tuple_elements()}).
--record(t_abstract, {kind :: atom()}).
 
 %% Known element types, unknown elements are assumed to be 'any'. The key is
 %% a 1-based integer index for tuples, and a plain literal for maps (that is,
@@ -67,6 +64,6 @@
 
 -type type() :: any | none |
                 list | number |
-                #t_atom{} | #t_bitstring{} | #t_bs_context{} | #t_fun{} |
-                #t_integer{} | #t_map{} | #t_tuple{} | #t_abstract{} |
+                #t_atom{} | #t_bitstring{} | #t_bs_context{} |
+                #t_fun{} | #t_integer{} | #t_map{} | #t_tuple{} |
                 'cons' | 'float' | 'nil'.

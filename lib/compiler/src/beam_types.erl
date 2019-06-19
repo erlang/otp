@@ -171,6 +171,18 @@ meet(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
     T;
 meet(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
     T;
+meet(#t_bs_context{slots=SlotCountA,valid=ValidSlotsA},
+     #t_bs_context{slots=SlotCountB,valid=ValidSlotsB}) ->
+    CommonSlotMask = (1 bsl min(SlotCountA, SlotCountB)) - 1,
+    CommonSlotsA = ValidSlotsA band CommonSlotMask,
+    CommonSlotsB = ValidSlotsB band CommonSlotMask,
+    if
+        CommonSlotsA =:= CommonSlotsB ->
+            #t_bs_context{slots=max(SlotCountA, SlotCountB),
+                          valid=ValidSlotsA bor ValidSlotsB};
+        CommonSlotsA =/= CommonSlotsB ->
+            none
+    end;
 meet(#t_fun{arity=any}, #t_fun{}=T) ->
     T;
 meet(#t_fun{}=T, #t_fun{arity=any}) ->

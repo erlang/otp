@@ -111,8 +111,15 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	    erlang:raise(Class, Error, Stack)
     end.
 
+%% This is a psuedo-type used to track tuples under construction, match context
+%% positions, and so on. It is not a part of the beam_types type lattice and
+%% should not leak outside this module.
+-record(t_abstract, {kind}).
+
+-type validator_type() :: #t_abstract{} | type().
+
 -record(value_ref, {id :: index()}).
--record(value, {op :: term(), args :: [argument()], type :: type()}).
+-record(value, {op :: term(), args :: [argument()], type :: validator_type()}).
 
 -type argument() :: #value_ref{} | literal().
 
@@ -328,7 +335,7 @@ valfun_1({try_case_end,Src}, Vst) ->
     kill_state(Vst);
 %% Instructions that cannot cause exceptions
 valfun_1({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
-    bsm_validate_context(Ctx, Vst0),
+    assert_type(#t_bs_context{}, Ctx, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
@@ -401,7 +408,7 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
     create_term(Type, put_tuple2, [], Dst, Vst);
 valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
     Vst1 = eat_heap(1, Vst0),
-    Vst = create_term(#t_abstract{kind=tuple_in_progress}, put_tuple, [],
+    Vst = create_term(#t_abstract{kind=unfinished_tuple}, put_tuple, [],
                       Dst, Vst1),
     #vst{current=St0} = Vst,
     St = St0#st{puts_left={Sz,{Dst,Sz,#{}}}},
@@ -756,17 +763,17 @@ valfun_4({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
 valfun_4({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst) ->
     validate_bs_start_match(Fail, Live, bsm_match_state(Slots), Src, Dst, Vst);
 valfun_4({test,bs_match_string,{f,Fail},[Ctx,_,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_skip_bits2,{f,Fail},[Ctx,Src,_,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     assert_term(Src, Vst),
     branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_test_tail2,{f,Fail},[Ctx,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_test_unit,{f,Fail},[Ctx,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_skip_utf8,{f,Fail},[Ctx,Live,_]}, Vst) ->
     validate_bs_skip_utf(Fail, Ctx, Live, Vst);
@@ -807,14 +814,14 @@ valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
 valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
     bsm_restore(Ctx, SavePoint, Vst);
 valfun_4({bs_get_position, Ctx, Dst, Live}, Vst0) ->
-    bsm_validate_context(Ctx, Vst0),
+    assert_type(#t_bs_context{}, Ctx, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
     create_term(#t_abstract{kind=ms_position}, bs_get_position, [Ctx],
                 Dst, Vst, Vst0);
 valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     assert_type(#t_abstract{kind=ms_position}, Pos, Vst),
     Vst;
 
@@ -1125,7 +1132,7 @@ validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
 %% Common code for validating bs_get* instructions.
 %%
 validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     verify_live(Live, Vst),
     verify_y_init(Vst),
 
@@ -1139,7 +1146,7 @@ validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst) ->
 %% Common code for validating bs_skip_utf* instructions.
 %%
 validate_bs_skip_utf(Fail, Ctx, Live, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     verify_y_init(Vst),
     verify_live(Live, Vst),
 
@@ -1462,44 +1469,35 @@ bsm_match_state() ->
 bsm_match_state(Slots) ->
     #t_bs_context{slots=Slots}.
 
-bsm_validate_context(Reg, Vst) ->
-    _ = bsm_get_context(Reg, Vst),
-    ok.
-
-bsm_get_context({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y->
-    case get_movable_term_type(Reg, Vst) of
-        #t_bs_context{}=Ctx -> Ctx;
-        _ -> error({no_bsm_context,Reg})
-    end;
-bsm_get_context(Reg, _) ->
-    error({bad_source,Reg}).
-
 bsm_save(Reg, {atom,start}, Vst) ->
     %% Save point refering to where the match started.
     %% It is always valid. But don't forget to validate the context register.
-    bsm_validate_context(Reg, Vst),
+    assert_type(#t_bs_context{}, Reg, Vst),
     Vst;
 bsm_save(Reg, SavePoint, Vst) ->
-    case bsm_get_context(Reg, Vst) of
-	#t_bs_context{valid=Bits,slots=Slots}=Ctxt0 when SavePoint < Slots ->
-	    Ctx = Ctxt0#t_bs_context{valid=Bits bor (1 bsl SavePoint),slots=Slots},
-	    override_type(Ctx, Reg, Vst);
-	_ -> error({illegal_save,SavePoint})
+    case get_movable_term_type(Reg, Vst) of
+        #t_bs_context{valid=Bits,slots=Slots}=Ctxt0 when SavePoint < Slots ->
+            Ctx = Ctxt0#t_bs_context{valid=Bits bor (1 bsl SavePoint),
+                                     slots=Slots},
+            override_type(Ctx, Reg, Vst);
+        _ ->
+            error({illegal_save, SavePoint})
     end.
 
 bsm_restore(Reg, {atom,start}, Vst) ->
     %% (Mostly) automatic save point refering to where the match started.
     %% It is always valid. But don't forget to validate the context register.
-    bsm_validate_context(Reg, Vst),
+    assert_type(#t_bs_context{}, Reg, Vst),
     Vst;
 bsm_restore(Reg, SavePoint, Vst) ->
-    case bsm_get_context(Reg, Vst) of
-	#t_bs_context{valid=Bits,slots=Slots} when SavePoint < Slots ->
-	    case Bits band (1 bsl SavePoint) of
-		0 -> error({illegal_restore,SavePoint,not_set});
-		_ -> Vst
-	    end;
-	_ -> error({illegal_restore,SavePoint,range})
+    case get_movable_term_type(Reg, Vst) of
+        #t_bs_context{valid=Bits,slots=Slots} when SavePoint < Slots ->
+            case Bits band (1 bsl SavePoint) of
+                0 -> error({illegal_restore, SavePoint, not_set});
+                _ -> Vst
+            end;
+        _ ->
+            error({illegal_restore, SavePoint, range})
     end.
 
 validate_select_val(_Fail, _Choices, _Src, #vst{current=none}=Vst) ->
@@ -1925,22 +1923,31 @@ is_literal(_) -> false.
 %% #t_bs_context{}	    A match context for bit syntax matching. We do allow
 %%	                    it to moved/to from stack, but otherwise it must only
 %%	                    be accessed by bit syntax matching instructions.
-%%
-%% These are simple wrappers around
 
-join(#t_abstract{}=Same, #t_abstract{}=Same) -> Same;
+%% These are just wrappers around their equivalents in beam_types, which
+%% handle the validator-specific #t_abstract{} type.
+
+join(Same, Same) -> Same;
+join(#t_abstract{}=A, B) -> #t_abstract{kind={join, A, B}};
+join(A, #t_abstract{}=B) -> #t_abstract{kind={join, A, B}};
 join(A, B) -> beam_types:join(A, B).
 
-meet(#t_abstract{}=Same, #t_abstract{}=Same) -> Same;
+meet(Same, Same) -> Same;
+meet(#t_abstract{}=A, B) -> #t_abstract{kind={meet, A, B}};
+meet(A, #t_abstract{}=B) -> #t_abstract{kind={meet, A, B}};
 meet(A, B) -> beam_types:meet(A, B).
 
+subtract(#t_abstract{}=A, B) -> #t_abstract{kind={subtract, A, B}};
+subtract(A, #t_abstract{}=B) -> #t_abstract{kind={subtract, A, B}};
 subtract(A, B) -> beam_types:subtract(A, B).
 
 assert_type(RequiredType, Term, Vst) ->
-    GivenType = get_term_type(Term, Vst),
+    GivenType = get_movable_term_type(Term, Vst),
     case meet(RequiredType, GivenType) of
-        GivenType -> ok;
-        _RequiredType -> error({bad_type,{needed,RequiredType},{actual,GivenType}})
+        GivenType ->
+            ok;
+        _RequiredType ->
+            error({bad_type,{needed,RequiredType},{actual,GivenType}})
     end.
 
 validate_src(Ss, Vst) when is_list(Ss) ->
@@ -1954,6 +1961,7 @@ validate_src(Ss, Vst) when is_list(Ss) ->
 get_term_type(Src, Vst) ->
     case get_movable_term_type(Src, Vst) of
         #t_bs_context{} -> error({match_context,Src});
+        #t_abstract{} -> error({abstract_term,Src});
         Type -> Type
     end.
 
@@ -1963,7 +1971,7 @@ get_term_type(Src, Vst) ->
 
 get_movable_term_type(Src, Vst) ->
     case get_raw_type(Src, Vst) of
-        #t_abstract{kind=tuple_in_progress=Kind} -> error({Kind,Src});
+        #t_abstract{kind=unfinished_tuple=Kind} -> error({Kind,Src});
         initialized -> error({unassigned,Src});
         uninitialized -> error({uninitialized_reg,Src});
         {catchtag,_} -> error({catchtag,Src});
