@@ -255,7 +255,9 @@ static char* key_val_name = ERLANG_VERSION; /* Used by the registry
 					   * access functions.
 					   */
 static char* boot_script = NULL; /* used by option -start_erl and -boot */
-static char* config_script = NULL; /* used by option -start_erl and -config */
+static char** config_scripts = NULL; /* used by option -start_erl and -config */
+static int config_script_cnt = 0;
+static int got_start_erl = 0;
 
 static HANDLE this_module_handle;
 static int run_werl;
@@ -390,6 +392,22 @@ add_extra_suffixes(char *prog)
 
    return res;
 }
+
+#ifdef __WIN32__
+static void add_boot_config(void)
+{
+    int i;
+    if (boot_script)
+	add_args("-boot", boot_script, NULL);
+    for (i = 0; i < config_script_cnt; i++) {
+        add_args("-config", config_scripts[i], NULL);
+    }
+}
+# define ADD_BOOT_CONFIG add_boot_config()
+#else
+# define ADD_BOOT_CONFIG
+#endif
+
 
 #ifdef __WIN32__
 __declspec(dllexport) int win_erlexec(int argc, char **argv, HANDLE module, int windowed)
@@ -581,16 +599,6 @@ int main(int argc, char **argv)
     
     i = 1;
 
-#ifdef __WIN32__
-#define ADD_BOOT_CONFIG					\
-    if (boot_script)					\
-	add_args("-boot", boot_script, NULL);		\
-    if (config_script)					\
-	add_args("-config", config_script, NULL);
-#else
-#define ADD_BOOT_CONFIG
-#endif
-
     get_home();
     add_args("-home", home, NULL);
 
@@ -610,7 +618,9 @@ int main(int argc, char **argv)
 		case 'b':
 		    if (strcmp(argv[i], "-boot") == 0) {
 			if (boot_script)
-			    error("Conflicting -start_erl and -boot options");
+			    error("Conflicting -boot options");
+                        if (got_start_erl)
+                            error("Conflicting -start_erl and -boot options");
 			if (i+1 >= argc)
 			    usage("-boot");
 			boot_script = strsave(argv[i+1]);
@@ -634,11 +644,14 @@ int main(int argc, char **argv)
 		    }
 #ifdef __WIN32__
 		    else if (strcmp(argv[i], "-config") == 0){
-			if (config_script)
+			if (got_start_erl)
 			    error("Conflicting -start_erl and -config options");
 			if (i+1 >= argc)
 			    usage("-config");
-			config_script = strsave(argv[i+1]);
+                        config_script_cnt++;
+                        config_scripts = erealloc(config_scripts,
+                                                  config_script_cnt * sizeof(char*));
+			config_scripts[config_script_cnt-1] = strsave(argv[i+1]);
 			i++;
 		    }
 #endif
@@ -1371,6 +1384,7 @@ strsave(char* string)
 
 static void get_start_erl_data(char *file)
 {
+    static char* a_config_script;
     int fp;
     char tmpbuffer[512];
     char start_erl_data[512];
@@ -1381,7 +1395,7 @@ static void get_start_erl_data(char *file)
     char* tprogname;
     if (boot_script) 
 	error("Conflicting -start_erl and -boot options");
-    if (config_script)
+    if (config_scripts)
 	error("Conflicting -start_erl and -config options");
     env = get_env("RELDIR");
     if (env)
@@ -1431,10 +1445,13 @@ static void get_start_erl_data(char *file)
     erts_snprintf(progname,strlen(tprogname) + 20,"%s -start_erl",tprogname);
 
     boot_script = emalloc(512);
-    config_script = emalloc(512);
+    a_config_script = emalloc(512);
     erts_snprintf(boot_script, 512, "%s/%s/start", reldir, otpstring);
-    erts_snprintf(config_script, 512, "%s/%s/sys", reldir, otpstring);
+    erts_snprintf(a_config_script, 512, "%s/%s/sys", reldir, otpstring);
+    config_scripts = &a_config_script;
+    config_script_cnt = 1;
        
+    got_start_erl = 1;
 }
 
 
