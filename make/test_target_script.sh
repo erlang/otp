@@ -146,7 +146,7 @@ then
     echo "The tests will start in a few seconds..."
     sleep 60
     "$ERL_TOP"/bin/erl -eval "ts:install(),erlang:halt()"
-    "$ERL_TOP"/bin/erl -eval "ts:run(),erlang:halt()"
+    "$ERL_TOP"/bin/erl -noinput -eval "ts:run([all_tests|batch]),erlang:halt()"
     exit $?
 fi
 
@@ -155,7 +155,6 @@ if [ -d test ]
 then
     APPLICATION=`basename $DIR`
     cd test
-    echo
     echo "The tests in test directory for $APPLICATION will be executed with ct_run"
     if [ -z "${ARGS}" ]
     then
@@ -191,7 +190,6 @@ then
     # Compile test server
     echo "BEFORE COMPILE TEST SERVER"
     (cd "$ERL_TOP/lib/common_test/test_server" && make)
-    echo "AFTER COMPILE TEST SERVER"
     # Run ct_run
     cd $MAKE_TEST_REL_DIR
     $CT_RUN -logdir $MAKE_TEST_CT_LOGS\
