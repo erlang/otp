@@ -984,10 +984,22 @@ expect2(Mod, Line, F) ->
 	
 %% ----------------------------------------------------------------------
 
-get_timeout() ->
-    get_timeout(os:type()).
+-define(BASE_REQ_TIMEOUT, 3500).
 
-get_timeout(_)       -> 3500.
+get_timeout() ->
+    %% Try to figure out how "fast" a machine is.
+    %% We assume that the number of schedulers
+    %% (which depends on the number of core:s)
+    %% effect the performance of the host...
+    %% This is obviously not enough. The network
+    %% also matterns, clock freq or the CPU, ...
+    %% But its better than what we had before...
+    case erlang:system_info(schedulers) of
+        N when is_integer(N) ->
+            ?BASE_REQ_TIMEOUT + timer:seconds(10 div N);
+        _ ->
+            ?BASE_REQ_TIMEOUT
+    end.
 
 receive_pdu(To) ->
     receive
