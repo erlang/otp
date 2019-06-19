@@ -28,11 +28,24 @@ struct digest_type_t {
 	const char*  str;        /* before init, NULL for end-of-table */
 	ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
     }type;
+    unsigned flags;
     union {
 	const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
 	const EVP_MD* p;               /* after init, NULL if notsup */
     }md;
 };
+
+/* masks in the flags field if digest_type_t */
+#define NO_FIPS_DIGEST 1
+
+#ifdef FIPS_SUPPORT
+/* May have FIPS support, must check dynamically if it is enabled */
+# define DIGEST_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_DIGEST) && FIPS_mode())
+#else
+/* No FIPS support since the symbol FIPS_SUPPORT is undefined */
+# define DIGEST_FORBIDDEN_IN_FIPS(P) 0
+#endif
+
 
 void init_digest_types(ErlNifEnv* env);
 struct digest_type_t* get_digest_type(ERL_NIF_TERM type);

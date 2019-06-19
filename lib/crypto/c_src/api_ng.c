@@ -100,7 +100,7 @@ static int get_init_args(ErlNifEnv* env,
         }
 
 
-    if (FORBIDDEN_IN_FIPS(*cipherp))
+    if (CIPHER_FORBIDDEN_IN_FIPS(*cipherp))
         {
             *return_term = EXCP_NOTSUP(env, "Forbidden in FIPS");
             goto err;

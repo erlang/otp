@@ -52,10 +52,10 @@ struct cipher_type_t {
 
 #ifdef FIPS_SUPPORT
 /* May have FIPS support, must check dynamically if it is enabled */
-# define FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_CIPHER) && FIPS_mode())
+# define CIPHER_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_CIPHER) && FIPS_mode())
 #else
 /* No FIPS support since the symbol FIPS_SUPPORT is undefined */
-# define FORBIDDEN_IN_FIPS(P) 0
+# define CIPHER_FORBIDDEN_IN_FIPS(P) 0
 #endif
 
 extern ErlNifResourceType* evp_cipher_ctx_rtype;
