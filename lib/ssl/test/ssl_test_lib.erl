@@ -45,9 +45,18 @@ run_where(_, ipv6) ->
     Host = rpc:call(ServerNode, net_adm, localhost, []),
     {ClientNode, ServerNode, Host}.
 
-node_to_hostip(Node) ->
+node_to_hostip(Node, Role) ->
     [_ , Host] = string:tokens(atom_to_list(Node), "@"),
     {ok, Address} = inet:getaddr(Host, inet),
+    %% Convert client addresses in 127.0.0.0/24 subnet to the atom 'localhost'.
+    %% This is a workaround for testcase problems caused by the fact that
+    %% inet:peername/1 and inet:getaddr/2 return different addresses when
+    %% running on localhost.
+    normalize_loopback(Address, Role).
+
+normalize_loopback({127,_,_,_}, client) ->
+    localhost;
+normalize_loopback(Address, _) ->
     Address.
 
 start_server(Args) ->
@@ -393,14 +402,16 @@ close(Pid, Timeout) ->
 	    exit(Pid, kill)
     end.
 
-check_result(Server, ServerMsg, Client, ClientMsg) -> 
+check_result(Server, ServerMsg, Client, ClientMsg) ->
+    {ClientIP, ClientPort} = get_ip_port(ServerMsg),
     receive 
 	{Server, ServerMsg} ->
 	    check_result(Client, ClientMsg);
-
+        %% Workaround to accept local addresses (127.0.0.0/24)
+        {Server, {ok, {{127,_,_,_}, ClientPort}}} when ClientIP =:= localhost  ->
+            check_result(Client, ClientMsg);
 	{Client, ClientMsg} ->
 	    check_result(Server, ServerMsg);
-
 	{Port, {data,Debug}} when is_port(Port) ->
 	    ct:log("~p:~p~n Openssl ~s~n",[?MODULE,?LINE, Debug]),
 	    check_result(Server, ServerMsg, Client, ClientMsg);
@@ -413,10 +424,14 @@ check_result(Server, ServerMsg, Client, ClientMsg) ->
 	    ct:fail(Reason)
     end.
 
-check_result(Pid, Msg) -> 
+check_result(Pid, Msg) ->
+    {ClientIP, ClientPort} = get_ip_port(Msg),
     receive 
 	{Pid, Msg} -> 
 	    ok;
+        %% Workaround to accept local addresses (127.0.0.0/24)
+        {Pid, {ok, {{127,_,_,_}, ClientPort}}} when ClientIP =:= localhost ->
+            ok;
 	{Port, {data,Debug}} when is_port(Port) ->
 	    ct:log("~p:~p~n Openssl ~s~n",[?MODULE,?LINE, Debug]),
 	    check_result(Pid,Msg);
@@ -428,6 +443,14 @@ check_result(Pid, Msg) ->
 		      {got, Unexpected}},
 	    ct:fail(Reason)
     end.
+
+
+get_ip_port({ok,{ClientIP, ClientPort}}) ->
+    {ClientIP, ClientPort};
+get_ip_port(_) ->
+    {undefined, undefined}.
+
+
 check_server_alert(Pid, Alert) ->
     receive
 	{Pid, {error, {tls_alert, {Alert, STxt}}}} ->
