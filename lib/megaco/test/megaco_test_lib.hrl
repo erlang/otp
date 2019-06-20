@@ -32,6 +32,8 @@
 -define(ERROR(Reason),
 	megaco_test_lib:error(Reason, ?MODULE, ?LINE)).
 
+-define(F(FMT, ARGS), lists:flatten(io_lib:format(FMT, ARGS))).
+
 -define(OS_BASED_SKIP(Skippable),
 	megaco_test_lib:os_based_skip(Skippable)).
 
