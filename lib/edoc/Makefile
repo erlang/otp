@@ -69,7 +69,7 @@ SPECIAL_TARGETS =
 include $(ERL_TOP)/make/otp_subdir.mk
 
 
-.PHONY: info version
+.PHONY: version
 
 
 version:
@@ -91,9 +91,6 @@ edocs:
 	erl -noshell -pa $(BINDIR) -pa $(SYNTAX_TOOLS_DIR)/ebin \
 	    -pa $(XMERL_DIR)/ebin -run edoc_run application \
 	    "'$(APPNAME)'" '"."' '$(DOC_OPTS)'
-
-info:
-	@echo $(HTML_FILES)
 
 
 app_release: tar
@@ -125,5 +122,6 @@ tar: $(APP_TAR_FILE)
 $(APP_TAR_FILE): $(APP_DIR)
 	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
 
+DIA_PLT_APPS=syntax_tools xmerl inets
 
 include $(ERL_TOP)/make/app_targets.mk

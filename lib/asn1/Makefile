@@ -54,12 +54,7 @@ SPECIAL_TARGETS =
 include $(ERL_TOP)/make/otp_subdir.mk
 
 
-.PHONY: info version
-
-info:
-	@echo "APP_RELEASE_DIR: $(APP_RELEASE_DIR)"
-	@echo "APP_DIR:         $(APP_DIR)"
-	@echo "APP_TAR_FILE:    $(APP_TAR_FILE)"
+.PHONY: version
 
 version:
 	@echo "$(VSN)"

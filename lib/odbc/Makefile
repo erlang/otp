@@ -69,12 +69,6 @@ do_configure: configure
 configure: configure.in
 	autoconf
 
-.PHONY: info
-
-info: 
-	@echo "ODBC_VSN:  $(ODBC_VSN)"
-
-
 # ----------------------------------------------------
 # Application (source) release targets
 # ----------------------------------------------------

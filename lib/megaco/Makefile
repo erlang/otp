@@ -110,7 +110,7 @@ DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
 
-.PHONY: reconf conf dconf econf configure setup info version \
+.PHONY: reconf conf dconf econf configure setup info_megaco version \
 	app_install dialyzer
 
 reconf:
@@ -136,16 +136,15 @@ configure: configure.in
 setup:
 	(cd src && $(MAKE) $@)
 
-info:
+info_megaco:
 	@echo "APP_RELEASE_DIR: $(APP_RELEASE_DIR)"
 	@echo "APP_DIR:         $(APP_DIR)"
 	@echo "APP_TAR_FILE:    $(APP_TAR_FILE)"
 	@echo "OTP_INSTALL_DIR: $(OTP_INSTALL_DIR)"
 	@echo "APP_INSTALL_DIR: $(APP_INSTALL_DIR)"
 	@echo ""
-	@echo "DIA_PLT:      $(DIA_PLT)"
-	@echo "DIA_ANALYSIS: $(DIA_ANALYSIS)"
-	@echo ""
+
+info: info_megaco
 
 version:
 	@echo "$(VSN)"
@@ -204,20 +203,6 @@ tar: $(APP_TAR_FILE)
 $(APP_TAR_FILE): $(APP_DIR)
 	(cd "$(APP_RELEASE_DIR)"; gtar zcf "$(subst $(space),\ ,$@)" $(DIR_NAME))
 
-dialyzer_plt: $(DIA_PLT)
-
-$(DIA_PLT): 
-	@echo "Building $(APPLICATION) plt file"
-	@dialyzer --build_plt \
-                  --output_plt $@ \
-                  -r ../$(APPLICATION)/ebin \
-                  --output $(DIA_ANALYSIS) \
-                  --verbose
-
-dialyzer: $(DIA_PLT)
-	@echo "Running dialyzer on $(APPLICATION)"
-	@dialyzer --plt $< \
-                  ../$(APPLICATION)/ebin \
-                  --verbose
+DIA_PLT_APPS=asn1 runtime_tools et debugger
 
 include $(ERL_TOP)/make/app_targets.mk

@@ -75,4 +75,6 @@ distclean:
 realclean:
 	$(V_at)$(MAKE) MAKETARGET="realclean" all-subdirs all-subdirs-x
 
+DIA_PLT_APPS=compiler syntax_tools
+
 include $(ERL_TOP)/make/app_targets.mk
