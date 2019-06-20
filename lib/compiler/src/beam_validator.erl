@@ -396,7 +396,7 @@ valfun_1({init,Reg}, Vst) ->
 valfun_1({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
 valfun_1({bif,Op,{f,_},Ss,Dst}=I, Vst) ->
-    case beam_call_types:never_throws(erlang, Op, length(Ss)) of
+    case erl_bifs:is_safe(erlang, Op, length(Ss)) of
         true ->
             %% It can't fail, so we finish handling it here (not updating
             %% catch state).
