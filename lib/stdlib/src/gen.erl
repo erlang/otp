@@ -233,17 +233,19 @@ do_for_proc(Process, Fun)
 	orelse
 	  (tuple_size(Process) == 3 andalso element(1, Process) == via)) ->
     case where(Process) of
-	Pid when is_pid(Pid) ->
-	    Node = node(Pid),
-	    try Fun(Pid)
+	undefined ->
+	    exit(noproc);
+	Proc when is_atom(Proc) ->
+	    do_for_proc(Proc, Fun);
+	Proc ->
+	    Node = get_node(Proc),
+	    try do_for_proc(Proc, Fun)
 	    catch
 		exit:{nodedown, Node} ->
 		    %% A nodedown not yet detected by global,
 		    %% pretend that it was.
 		    exit(noproc)
-	    end;
-	undefined ->
-	    exit(noproc)
+	    end
     end;
 %% Local by name in disguise
 do_for_proc({Name, Node}, Fun) when Node =:= node() ->
