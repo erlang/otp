@@ -785,15 +785,15 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
 
 static int fd_get_window_size(int fd, Uint32 *width, Uint32 *height)
 {
-#ifdef TIOCGWINSZ 
+#ifdef TIOCGWINSZ
     struct winsize ws;
     if (ioctl(fd,TIOCGWINSZ,&ws) == 0) {
 	*width = (Uint32) ws.ws_col;
 	*height = (Uint32) ws.ws_row;
-	return 0;
+	return 1;
     }
 #endif
-    return -1;
+    return 0;
 }
 
 static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
@@ -801,16 +801,28 @@ static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
 			       char *buf, ErlDrvSizeT len,
 			       char **rbuf, ErlDrvSizeT rlen)
 {
-    int fd = (int)(long)drv_data;
     char resbuff[2*sizeof(Uint32)];
-
+    ErtsSysDriverData* dd = (ErtsSysDriverData*)drv_data;
     command -= ERTS_TTYSL_DRV_CONTROL_MAGIC_NUMBER;
     switch (command) {
     case FD_CTRL_OP_GET_WINSIZE:
 	{
 	    Uint32 w,h;
-	    if (fd_get_window_size(fd,&w,&h)) 
-		return 0;
+            int success = 0;
+            if (dd->ofd != NULL) {
+                /* Try with output file descriptor */
+                int out_fd = dd->ofd->fd;
+                success = fd_get_window_size(out_fd,&w,&h);
+            }
+            if (!success && dd->ifd != NULL) {
+                /* Try with input file descriptor */
+                int in_fd = dd->ifd->fd;
+                success = fd_get_window_size(in_fd,&w,&h);
+            }
+            if (!success) {
+                return -1;
+            }
+            /* Succeeded */
 	    memcpy(resbuff,&w,sizeof(Uint32));
 	    memcpy(resbuff+sizeof(Uint32),&h,sizeof(Uint32));
 	}
