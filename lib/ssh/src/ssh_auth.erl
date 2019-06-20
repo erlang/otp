@@ -26,6 +26,7 @@
 
 -include("ssh.hrl").
 -include("ssh_auth.hrl").
+-include("ssh_agent.hrl").
 -include("ssh_transport.hrl").
 
 -export([get_public_key/2,
@@ -161,27 +162,68 @@ get_public_key(SigAlg, #ssh{opts = Opts}) ->
 publickey_msg([SigAlg, #ssh{user = User,
 		       session_id = SessionId,
 		       service = Service} = Ssh]) ->
-    case get_public_key(SigAlg, Ssh) of
-	{ok, {PrivKey,PubKeyBlob}} ->
-            SigAlgStr = atom_to_list(SigAlg),
-            SigData = build_sig_data(SessionId, User, Service,
-                                     PubKeyBlob, SigAlgStr),
-            Hash = ssh_transport:sha(SigAlg),
-            Sig = ssh_transport:sign(SigData, Hash, PrivKey),
-            SigBlob = list_to_binary([?string(SigAlgStr),
-                                      ?binary(Sig)]),
-            ssh_transport:ssh_packet(
-              #ssh_msg_userauth_request{user = User,
-                                        service = Service,
-                                        method = "publickey",
-                                        data = [?TRUE,
-                                                ?string(SigAlgStr),
-                                                ?binary(PubKeyBlob),
-                                                ?binary(SigBlob)]},
-              Ssh);
-     	_ ->
-	    {not_ok, Ssh}
-    end.
+    % List identities
+
+    Request = #ssh_agent_identities_request{},
+    Response = ssh_agent:send(Request),
+
+    #ssh_agent_identities_response{keys = Keys} = Response,
+    [#ssh_agent_identity{key_blob = PubKeyBlob} | _Rest] = Keys,
+
+    % Sign data
+
+    SigAlgStr = "rsa-sha2-256",
+    Data = build_sig_data(SessionId, User, Service, PubKeyBlob, SigAlgStr),
+
+    SignRequest = #ssh_agent_sign_request{
+      key_blob = PubKeyBlob,
+      data = Data,
+      flags = 2}, % SSH_AGENT_RSA_SHA2_256
+    SignResponse = ssh_agent:send(SignRequest),
+
+    #ssh_agent_sign_response{signature = #ssh_agent_signature{blob = Sig}} = SignResponse,
+
+    SigBlob = list_to_binary([?string(SigAlgStr),
+                              ?binary(Sig)]),
+    % SigBlob = Sig,
+
+    io:fwrite("Sig:~n~p~n~nSigBlob:~n~p~n~nPubKeyBlob:~n~p~n~n", [Sig, SigBlob, PubKeyBlob]),
+
+    ssh_transport:ssh_packet(
+      #ssh_msg_userauth_request{user = User,
+                                service = Service,
+                                method = "publickey",
+                                data = [?TRUE,
+                                        ?string(SigAlgStr),
+                                        ?binary(PubKeyBlob),
+                                        ?binary(SigBlob)]},
+      Ssh).
+
+    % TODO: Re-enable original behaviour and integrate agent support
+
+    % case get_public_key(SigAlg, Ssh) of
+    % {ok, {PrivKey,PubKeyBlob}} ->
+    %     SigAlgStr = atom_to_list(SigAlg),
+    %     SigData = build_sig_data(SessionId, User, Service,
+    %                              PubKeyBlob, SigAlgStr),
+    %     Hash = ssh_transport:sha(SigAlg),
+    %     Sig = ssh_transport:sign(SigData, Hash, PrivKey),
+    %     SigBlob = list_to_binary([?string(SigAlgStr),
+    %                               ?binary(Sig)]),
+
+    %     io:fwrite("Sig:~n~p~n~nSigBlob:~n~p~n~nPubKeyBlob:~n~p~n~n", [Sig, SigBlob, PubKeyBlob]),
+    %     ssh_transport:ssh_packet(
+    %         #ssh_msg_userauth_request{user = User,
+    %                                   service = Service,
+    %                                   method = "publickey",
+    %                                   data = [?TRUE,
+    %                                           ?string(SigAlgStr),
+    %                                           ?binary(PubKeyBlob),
+    %                                           ?binary(SigBlob)]},
+    %         Ssh);
+    % _ ->
+    %     {not_ok, Ssh}
+    % end.
 
 %%%----------------------------------------------------------------
 service_request_msg(Ssh) ->

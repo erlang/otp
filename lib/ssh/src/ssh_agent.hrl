@@ -88,7 +88,13 @@
       flags     % integer
     }).
 
+-record(ssh_agent_signature,
+    {
+      format, % string
+      blob    % binary
+    }).
+
 -record(ssh_agent_sign_response,
     {
-      signature % string
+      signature % ssh_agent_signature
     }).

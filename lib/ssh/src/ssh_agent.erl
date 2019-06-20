@@ -25,7 +25,29 @@
 -include("ssh.hrl").
 -include("ssh_agent.hrl").
 
--export([pack/1, unpack/1, encode/1, decode/1]).
+-export([send/1, pack/1, unpack/1, encode/1, decode/1]).
+
+%% Agent communication
+
+% TODO: Is it safe to issue multiple requests in parallel?
+% Do we need a dedicated process to handle agent access?
+send(Request) ->
+    SocketPath = os:getenv("SSH_AUTH_SOCK"),
+
+    ConnectOpts = [binary, {packet, 0}, {active, false}],
+    {ok, Socket} = gen_tcp:connect({local, SocketPath}, 0, ConnectOpts),
+
+    BinRequest = ssh_agent:pack(ssh_agent:encode(Request)),
+    ok = gen_tcp:send(Socket, BinRequest),
+
+    Timeout = 1000, % TODO: Make this a parameter? What is a sensible default value?
+    {ok, BinResponse} = gen_tcp:recv(Socket, 0, Timeout),
+
+    ok = gen_tcp:close(Socket),
+
+    Response = ssh_agent:decode(ssh_agent:unpack(BinResponse)),
+
+    Response.
 
 %% Message packing and unpacking
 
@@ -44,7 +66,7 @@ encode(#ssh_agent_sign_request{
       key_blob = KeyBlob,
       data = Data,
       flags = Flags}) ->
-    <<?Ebyte(?SSH_AGENTC_SIGN_REQUEST), ?Ebinary(KeyBlob), ?Ebinary(Data), ?Euint32(Flags)>>.
+    <<?Ebyte(?SSH_AGENTC_SIGN_REQUEST), ?Estring(KeyBlob), ?Estring(Data), ?Euint32(Flags)>>.
 
 %% SSH Agent message decoding
 
@@ -54,6 +76,15 @@ decode_identities(<<>>, Acc, 0) ->
 decode_identities(<<?DEC_BIN(KeyBlob, _KeyBlobLen), ?DEC_BIN(Comment, _CommentLen), Rest/binary>>, Acc, N) ->
     Identity = #ssh_agent_identity{key_blob = KeyBlob, comment = Comment},
     decode_identities(Rest, [Identity | Acc], N - 1).
+
+decode_signature(<<?DEC_BIN(Format, _FormatLen), Blob/binary>>) ->
+    % TODO: Decode signature depending on signature format as per
+    % https://tools.ietf.org/html/rfc4253#section-6.6
+    %
+    % Currently this just decodes RSA signatures correctly.
+    io:fwrite("Signature format: ~p~n~n", [Format]),
+    <<?DEC_BIN(RSASignBlob, _RSASignBlobLen)>> = Blob,
+    #ssh_agent_signature{format = Format, blob = RSASignBlob}.
 
 decode(<<?BYTE(?SSH_AGENT_SUCCESS)>>) ->
     #ssh_agent_success{};
@@ -66,4 +97,4 @@ decode(<<?BYTE(?SSH_AGENT_IDENTITIES_ANSWER), ?UINT32(NumKeys), KeyData/binary>>
     #ssh_agent_identities_response{nkeys = NumKeys, keys = Keys};
 
 decode(<<?BYTE(?SSH_AGENT_SIGN_RESPONSE), ?DEC_BIN(Signature, _SignatureLen)>>) ->
-    #ssh_agent_sign_response{signature = Signature}.
+    #ssh_agent_sign_response{signature = decode_signature(Signature)}.
