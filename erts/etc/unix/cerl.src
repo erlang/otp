@@ -293,7 +293,8 @@ if [ "x$GDB" = "x" ]; then
 	    fi
 	fi
 	if [ "x$VALGRIND_MISC_FLAGS" = "x" ]; then
-	    valgrind_misc_flags=
+	    valgrind_misc_flags="--show-possibly-lost=no --child-silent-after-fork=yes\
+	               --suppressions=$ROOTDIR/erts/emulator/valgrind/suppress.standard"
 	else
 	    valgrind_misc_flags="$VALGRIND_MISC_FLAGS"
 	fi
