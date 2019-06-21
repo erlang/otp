@@ -70,12 +70,12 @@ encode(#ssh_agent_sign_request{
 
 %% SSH Agent message decoding
 
-decode_identities(<<>>, Acc, 0) ->
+decode_keys(<<>>, Acc, 0) ->
     lists:reverse(Acc);
 
-decode_identities(<<?DEC_BIN(KeyBlob, _KeyBlobLen), ?DEC_BIN(Comment, _CommentLen), Rest/binary>>, Acc, N) ->
+decode_keys(<<?DEC_BIN(KeyBlob, _KeyBlobLen), ?DEC_BIN(Comment, _CommentLen), Rest/binary>>, Acc, N) ->
     Identity = #ssh_agent_identity{key_blob = KeyBlob, comment = Comment},
-    decode_identities(Rest, [Identity | Acc], N - 1).
+    decode_keys(Rest, [Identity | Acc], N - 1).
 
 decode_signature(<<?DEC_BIN(Format, _FormatLen), Blob/binary>>) ->
     % TODO: Decode signature depending on signature format as per
@@ -93,8 +93,7 @@ decode(<<?BYTE(?SSH_AGENT_FAILURE)>>) ->
     #ssh_agent_failure{};
 
 decode(<<?BYTE(?SSH_AGENT_IDENTITIES_ANSWER), ?UINT32(NumKeys), KeyData/binary>>) ->
-    Keys = decode_identities(KeyData, [], NumKeys),
-    #ssh_agent_identities_response{nkeys = NumKeys, keys = Keys};
+    #ssh_agent_identities_response{keys = decode_keys(KeyData, [], NumKeys)};
 
 decode(<<?BYTE(?SSH_AGENT_SIGN_RESPONSE), ?DEC_BIN(Signature, _SignatureLen)>>) ->
     #ssh_agent_sign_response{signature = decode_signature(Signature)}.

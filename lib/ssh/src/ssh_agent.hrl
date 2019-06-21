@@ -82,8 +82,7 @@
 
 -record(ssh_agent_identities_response,
     {
-      nkeys, % integer
-      keys   % list of ssh_agent_identity records
+      keys % list of ssh_agent_identity records
     }).
 
 %% 4.5 Private key operations
