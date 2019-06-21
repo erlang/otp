@@ -168,7 +168,7 @@ publickey_msg([SigAlg, #ssh{user = User,
     Response = ssh_agent:send(Request),
 
     #ssh_agent_identities_response{keys = Keys} = Response,
-    [#ssh_agent_identity{key_blob = PubKeyBlob} | _Rest] = Keys,
+    [#ssh_agent_key{blob = PubKeyBlob} | _Rest] = Keys,
 
     % Sign data
 

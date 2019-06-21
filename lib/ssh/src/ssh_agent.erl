@@ -72,8 +72,8 @@ decode_keys(<<>>, Acc, 0) ->
     lists:reverse(Acc);
 
 decode_keys(<<?DEC_BIN(KeyBlob, _KeyBlobLen), ?DEC_BIN(Comment, _CommentLen), Rest/binary>>, Acc, N) ->
-    Identity = #ssh_agent_identity{key_blob = KeyBlob, comment = Comment},
-    decode_keys(Rest, [Identity | Acc], N - 1).
+    Key = #ssh_agent_key{blob = KeyBlob, comment = Comment},
+    decode_keys(Rest, [Key | Acc], N - 1).
 
 decode_signature(<<?DEC_BIN(Format, _FormatLen), Blob/binary>>) ->
     % Decode signature according to https://tools.ietf.org/html/rfc4253#section-6.6

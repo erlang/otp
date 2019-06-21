@@ -74,15 +74,15 @@
     {
     }).
 
--record(ssh_agent_identity,
+-record(ssh_agent_key,
     {
-      key_blob, % string
-      comment   % string
+      blob,   % string
+      comment % string
     }).
 
 -record(ssh_agent_identities_response,
     {
-      keys % list of ssh_agent_identity records
+      keys % list of ssh_agent_key records
     }).
 
 %% 4.5 Private key operations
