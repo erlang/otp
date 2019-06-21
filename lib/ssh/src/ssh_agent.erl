@@ -29,8 +29,6 @@
 
 %% Agent communication
 
-% TODO: Is it safe to issue multiple requests in parallel?
-% Do we need a dedicated process to handle agent access?
 send(Request) ->
     SocketPath = os:getenv("SSH_AUTH_SOCK"),
 
