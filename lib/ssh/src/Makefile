@@ -62,6 +62,7 @@ MODULES= \
 	ssh_connection_sup \
 	ssh_dbg \
 	ssh_file \
+	ssh_file_with_agent \
 	ssh_info \
 	ssh_io \
 	ssh_message \
@@ -189,6 +190,8 @@ $(EBIN)/ssh_file.$(EMULATOR): ssh_file.erl \
   ../../public_key/include/OTP-PUB-KEY.hrl \
   ../../public_key/include/PKCS-FRAME.hrl \
   ../../kernel/include/file.hrl ssh.hrl
+$(EBIN)/ssh_file_with_agent.$(EMULATOR): ssh_file_with_agent.erl \
+  $(EBIN)/ssh_file.$(EMULATOR) ssh.hrl ssh_agent.hrl
 $(EBIN)/ssh_io.$(EMULATOR): ssh_io.erl ssh.hrl
 $(EBIN)/ssh_info.$(EMULATOR): ssh_info.erl
 $(EBIN)/ssh_message.$(EMULATOR): ssh_message.erl \

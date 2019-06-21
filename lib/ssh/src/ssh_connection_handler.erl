@@ -1832,17 +1832,13 @@ ext_info(_, D0) ->
     D0.
 
 %%%----------------------------------------------------------------
-is_usable_user_pubkey(_Alg, _Ssh) ->
-    true.
-
-% TODO: Re-enable once ssh_auth:get_public_key supports ssh-agent
-% is_usable_user_pubkey(Alg, Ssh) ->
-%     try ssh_auth:get_public_key(Alg, Ssh) of
-%         {ok,_} -> true;
-%         _ -> false
-%     catch
-%         _:_ -> false
-%     end.
+is_usable_user_pubkey(Alg, Ssh) ->
+    try ssh_auth:get_public_key(Alg, Ssh) of
+        {ok,_} -> true;
+        _ -> false
+    catch
+        _:_ -> false
+    end.
 
 %%%----------------------------------------------------------------
 is_usable_host_key(Alg, Opts) ->
