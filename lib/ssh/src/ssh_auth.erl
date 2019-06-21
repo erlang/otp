@@ -178,15 +178,13 @@ publickey_msg([SigAlg, #ssh{user = User,
     SignRequest = #ssh_agent_sign_request{
       key_blob = PubKeyBlob,
       data = Data,
-      flags = 2}, % SSH_AGENT_RSA_SHA2_256
+      flags = ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512},
     SignResponse = ssh_agent:send(SignRequest),
 
     #ssh_agent_sign_response{signature = #ssh_agent_signature{blob = Sig}} = SignResponse,
 
     SigBlob = list_to_binary([?string(SigAlgStr),
                               ?binary(Sig)]),
-    % SigBlob = Sig,
-
     io:fwrite("Sig:~n~p~n~nSigBlob:~n~p~n~nPubKeyBlob:~n~p~n~n", [Sig, SigBlob, PubKeyBlob]),
 
     ssh_transport:ssh_packet(

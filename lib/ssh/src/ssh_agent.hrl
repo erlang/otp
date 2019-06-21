@@ -47,6 +47,13 @@
 -define(SSH_AGENT_IDENTITIES_ANSWER,              12).
 -define(SSH_AGENT_SIGN_RESPONSE,                  14).
 
+%% SSH Agent signature flags
+%%
+%% Reference: https://tools.ietf.org/html/draft-miller-ssh-agent-02#section-5.3
+
+-define(SSH_AGENT_RSA_SHA2_256,                   2).
+-define(SSH_AGENT_RSA_SHA2_512,                   4).
+
 %% SSH Agent messages
 %%
 %% Reference: https://tools.ietf.org/html/draft-miller-ssh-agent-02#section-4
