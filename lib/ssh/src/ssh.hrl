@@ -485,13 +485,6 @@
 		  pixel_height = 768,
 		  modes = <<>>}).
 
-%% assertion macro
--define(ssh_assert(Expr, Reason),
-	case Expr of
-	    true -> ok;
-	    _ -> exit(Reason)
-	end).
-
 
 %% dbg help macros
 -define(wr_record(N,BlackList),
