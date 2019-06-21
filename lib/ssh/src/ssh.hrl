@@ -478,14 +478,6 @@
           recv_ext_info
 	 }).
 
--record(ssh_key,
-	{
-	  type,
-	  public,
-	  private,
-	  comment = ""
-	 }).
-
 -record(ssh_pty, {term = "", % e.g. "xterm"
 		  width = 80,
 		  height = 25,
