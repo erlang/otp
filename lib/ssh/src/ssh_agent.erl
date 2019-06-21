@@ -78,13 +78,9 @@ decode_keys(<<?DEC_BIN(KeyBlob, _KeyBlobLen), ?DEC_BIN(Comment, _CommentLen), Re
     decode_keys(Rest, [Identity | Acc], N - 1).
 
 decode_signature(<<?DEC_BIN(Format, _FormatLen), Blob/binary>>) ->
-    % TODO: Decode signature depending on signature format as per
-    % https://tools.ietf.org/html/rfc4253#section-6.6
-    %
-    % Currently this just decodes RSA signatures correctly.
-    io:fwrite("Signature format: ~p~n~n", [Format]),
-    <<?DEC_BIN(RSASignBlob, _RSASignBlobLen)>> = Blob,
-    #ssh_agent_signature{format = Format, blob = RSASignBlob}.
+    % Decode signature according to https://tools.ietf.org/html/rfc4253#section-6.6
+    <<?DEC_BIN(SignatureBlob, _SignatureBlobLen)>> = Blob,
+    #ssh_agent_signature{format = Format, blob = SignatureBlob}.
 
 decode(<<?BYTE(?SSH_AGENT_SUCCESS)>>) ->
     #ssh_agent_success{};
