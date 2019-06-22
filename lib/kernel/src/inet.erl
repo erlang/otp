@@ -1645,6 +1645,7 @@ fmt_addr({ok,Addr}, Proto) ->
 	{{0,0,0,0,0,0,0,0},Port} -> "*:" ++ fmt_port(Port, Proto);
 	{{127,0,0,1},Port} -> "localhost:" ++ fmt_port(Port, Proto);
 	{{0,0,0,0,0,0,0,1},Port} -> "localhost:" ++ fmt_port(Port, Proto);
+	{local, Path} -> "local:" ++ binary_to_list(Path);
 	{IP,Port} -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto)
     end.
 
