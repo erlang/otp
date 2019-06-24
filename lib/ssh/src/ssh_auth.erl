@@ -169,12 +169,12 @@ publickey_msg([SigAlg, #ssh{user = User,
     case get_public_key(SigAlg, Ssh) of
         % TODO: Integrate agent support (explicitly mark agent keys)
         {ok, {nil, PubKeyBlob}} ->
-            SigAlgStr = "rsa-sha2-256",
-            Data = build_sig_data(SessionId, User, Service, PubKeyBlob, SigAlgStr),
+            SigAlgStr = atom_to_list(SigAlg),
+            SigData = build_sig_data(SessionId, User, Service, PubKeyBlob, SigAlgStr),
 
             SignRequest = #ssh_agent_sign_request{
                 key_blob = PubKeyBlob,
-                data = Data,
+                data = SigData,
                 flags = ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512},
             SignResponse = ssh_agent:send(SignRequest),
 
