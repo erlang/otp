@@ -96,7 +96,8 @@
 %% To avoid the collapsing, change the value of SET_LIMIT to 50 in the
 %% file erl_types.erl in the hipe application.
 
--type prim_op() :: 'bs_add' | 'bs_extract' | 'bs_init' | 'bs_init_writable' |
+-type prim_op() :: 'bs_add' | 'bs_extract' | 'bs_get_tail' |
+                   'bs_init' | 'bs_init_writable' |
                    'bs_match' | 'bs_put' | 'bs_start_match' | 'bs_test_tail' |
                    'bs_utf16_size' | 'bs_utf8_size' | 'build_stacktrace' |
                    'call' | 'catch_end' |
@@ -117,9 +118,10 @@
                     '+' | '-' | '*' | '/'.
 
 %% Primops only used internally during code generation.
--type cg_prim_op() :: 'bs_get' | 'bs_match_string' | 'bs_restore' | 'bs_skip' |
+-type cg_prim_op() :: 'bs_get' | 'bs_get_position' | 'bs_match_string' |
+                      'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
                       'copy' | 'put_tuple_arity' | 'put_tuple_element' |
-                      'set_tuple_element'.
+                      'put_tuple_elements' | 'set_tuple_element'.
 
 -import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
 
