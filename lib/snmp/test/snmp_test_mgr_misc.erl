@@ -576,6 +576,7 @@ vsn('version-2') -> v2c.
 
 
 udp_send(UdpId, AgentIp, UdpPort, B) ->
+    ?vlog("attempt send message (~w bytes) to ~p", [sz(B), {AgentIp, UdpPort}]),
     case (catch gen_udp:send(UdpId, AgentIp, UdpPort, B)) of
 	{error,ErrorReason} ->
 	    error("failed (error) sending message to ~p:~p: "
@@ -880,7 +881,7 @@ display_prop_hdr(S) ->
 %%----------------------------------------------------------------------
 
 sz(L) when is_list(L) ->
-    length(lists:flatten(L));
+    iolist_size(L);
 sz(B) when is_binary(B) ->
     size(B);
 sz(O) ->

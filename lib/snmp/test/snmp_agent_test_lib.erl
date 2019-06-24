@@ -66,7 +66,7 @@
 	]).
 
 %% Internal exports
--export([wait/5, run/4]).
+-export([tc_wait/5, tc_run/4]).
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -276,36 +276,94 @@ init_case(Config) when is_list(Config) ->
 %%% configuration.
 %%%--------------------------------------------------
 
-try_test(Mod, Func) ->
-    call(get(mgr_node), ?MODULE, run, [Mod, Func, [], []]).
+try_test(TcRunMod, TcRunFunc) ->
+    try_test(TcRunMod, TcRunFunc, []).
 
-try_test(Mod, Func, A) ->
-    call(get(mgr_node), ?MODULE, run, [Mod, Func, A, []]).
+try_test(TcRunMod, TcRunFunc, TcRunArgs) ->
+    try_test(TcRunMod, TcRunFunc, TcRunArgs, []).
 
-try_test(Mod, Func, A, Opts) ->
-    call(get(mgr_node), ?MODULE, run, [Mod, Func, A, Opts]).
+try_test(TcRunMod, TcRunFunc, TcRunArgs, TcRunOpts) ->
+    Node      = get(mgr_node),
+    Mod       = ?MODULE,
+    Func      = tc_run,
+    Args      = [TcRunMod, TcRunFunc, TcRunArgs, TcRunOpts],
+    tc_try(Node, Mod, Func, Args).
 
-call(N,M,F,A) ->
-    ?DBG("call -> entry with~n"
-	   "    N:     ~p~n"
-	   "    M:     ~p~n"
-	   "    F:     ~p~n"
-	   "    A:     ~p~n"
-	   "  when~n"
-	   "    get(): ~p",
-	   [N,M,F,A,get()]),
-    spawn(N, ?MODULE, wait, [self(),get(),M,F,A]),
+%% We spawn a test case runner process on the manager node.
+%% The assumption is that the manager shall do something, but
+%% not all test cases have the manager perform actions.
+%% In some cases we make a rpc call back to the agent node directly
+%% and call something in the agent... (for example the info_test
+%% test case).
+%% We should use link (instead of monitor) in order for the test case
+%% timeout cleanup (kills) should have effect on the test case runner
+%% process as well.
+
+tc_try(N, M, F, A) ->
+    ?PRINT2("tc_try -> entry with"
+            "~n      N:     ~p"
+            "~n      M:     ~p"
+            "~n      F:     ~p"
+            "~n      A:     ~p"
+            "~n   when"
+            "~n      get(): ~p"
+            "~n", [N,
+                   M, F, A,
+                   get()]),
+    case net_adm:ping(N) of
+        pong ->
+            ?PRINT2("tc_try -> ~p still running - start runner~n", [N]),
+            OldFlag = trap_exit(true), % Make sure we catch it
+            Runner  = spawn_link(N, ?MODULE, tc_wait, [self(), get(), M, F, A]),
+            await_tc_runner_started(Runner, OldFlag),
+            await_tc_runner_done(Runner, OldFlag);
+        pang ->
+            ?EPRINT2("tc_try -> ~p *not* running~n", [N]),
+            exit({node_not_running, N})
+    end.
+
+await_tc_runner_started(Runner, OldFlag) ->
+    ?PRINT2("await tc-runner (~p) start ack~n", [Runner]),
     receive
-	{done, {'EXIT', Rn}, Loc} ->
-	    ?DBG("call -> done with exit: "
-		 "~n   Rn:  ~p"
-		 "~n   Loc: ~p", [Rn, Loc]),
+        {'EXIT', Runner, Reason} ->
+            ?EPRINT2("TC runner start failed: "
+                     "~n   ~p~n", [Reason]),
+            exit({tx_runner_start_failed, Reason});
+        {tc_runner_started, Runner} ->
+            ?PRINT2("TC runner start acknowledged~n"),
+            ok
+    after 10000 ->
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
+            RunnerInfo = process_info(Runner),
+            ?EPRINT2("TC runner start timeout: "
+                     "~n   ~p", [RunnerInfo]),
+            %% If we don't get a start ack within 10 seconds, we are f*ed
+            exit(Runner, kill),
+            exit({tc_runner_start, timeout, RunnerInfo})
+    end.
+
+await_tc_runner_done(Runner, OldFlag) ->
+    receive
+        {'EXIT', Runner, Reason} ->
+            ?EPRINT2("TC runner failed: "
+                     "~n   ~p~n", [Reason]),
+            exit({tx_runner_failed, Reason});
+	{tc_runner_done, Runner, {'EXIT', Rn}, Loc} ->
+	    ?PRINT2("call -> done with exit: "
+                    "~n   Rn:  ~p"
+                    "~n   Loc: ~p"
+                    "~n", [Rn, Loc]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
 	    put(test_server_loc, Loc),
 	    exit(Rn);
-	{done, Ret, _Zed} -> 
+	{tc_runner_done, Runner, Ret, _Zed} -> 
 	    ?DBG("call -> done:"
 		 "~n   Ret: ~p"
 		 "~n   Zed: ~p", [Ret, _Zed]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
 	    case Ret of
 		{error, Reason} ->
 		    exit(Reason);
@@ -314,49 +372,66 @@ call(N,M,F,A) ->
 	    end
     end.
 
-wait(From, Env, M, F, A) ->
-    ?DBG("wait -> entry with"
-	 "~n   From: ~p"
-	 "~n   Env:  ~p"
-	 "~n   M:    ~p"
-	 "~n   F:    ~p"
-	 "~n   A:    ~p", [From, Env, M, F, A]),
-    lists:foreach(fun({K,V}) -> put(K,V) end, Env),
-    Rn = (catch apply(M, F, A)),
-    ?DBG("wait -> Rn: ~n~p", [Rn]),
-    From ! {done, Rn, get(test_server_loc)},
-    exit(Rn).
+trap_exit(Flag) when is_boolean(Flag) ->    
+    erlang:process_flag(trap_exit, Flag).
 
-run(Mod, Func, Args, Opts) ->
-    ?DBG("run -> entry with"
-	 "~n   Mod:  ~p"
-	 "~n   Func: ~p"
-	 "~n   Args: ~p"
-	 "~n   Opts: ~p", [Mod, Func, Args, Opts]),
-    M = get(mib_dir),
-    Dir = get(mgr_dir),
-    User = snmp_misc:get_option(user, Opts, "all-rights"),
-    SecLevel = snmp_misc:get_option(sec_level, Opts, noAuthNoPriv),
-    EngineID = snmp_misc:get_option(engine_id, Opts, "agentEngine"),
+unlink_and_flush_exit(Pid) ->
+    unlink(Pid),
+    receive
+        {'EXIT', Pid, _} ->
+            ok
+    after 0 ->
+            ok
+    end.
+
+tc_wait(From, Env, M, F, A) ->
+    ?PRINT2("tc_wait -> entry with"
+            "~n   From: ~p"
+            "~n   Env:  ~p"
+            "~n   M:    ~p"
+            "~n   F:    ~p"
+            "~n   A:    ~p", [From, Env, M, F, A]),
+    From ! {tc_runner_started, self()},
+    lists:foreach(fun({K,V}) -> put(K,V) end, Env),
+    ?PRINT2("tc_wait -> env set - now run tc~n"),
+    Res = (catch apply(M, F, A)),
+    ?PRINT2("tc_wait -> tc run done: "
+            "~n   ~p"
+            "~n", [Res]),
+    From ! {tc_runner_done, self(), Res, get(test_server_loc)},
+    exit(Res).
+
+tc_run(Mod, Func, Args, Opts) ->
+    ?PRINT2("tc_run -> entry with"
+            "~n   Mod:  ~p"
+            "~n   Func: ~p"
+            "~n   Args: ~p"
+            "~n   Opts: ~p"
+            "~n", [Mod, Func, Args, Opts]),
+    (catch snmp_test_mgr:stop()), % If we had a running mgr from a failed case
+    M           = get(mib_dir),
+    Dir         = get(mgr_dir),
+    User        = snmp_misc:get_option(user, Opts, "all-rights"),
+    SecLevel    = snmp_misc:get_option(sec_level, Opts, noAuthNoPriv),
+    EngineID    = snmp_misc:get_option(engine_id, Opts, "agentEngine"),
     CtxEngineID = snmp_misc:get_option(context_engine_id, Opts, EngineID),
-    Community = snmp_misc:get_option(community, Opts, "all-rights"),
-    ?DBG("run -> start crypto app",[]),
-    _CryptoRes = ?CRYPTO_START(),
-    ?DBG("run -> Crypto: ~p", [_CryptoRes]),
-    catch snmp_test_mgr:stop(), % If we had a running mgr from a failed case
-    StdM = join(code:priv_dir(snmp), "mibs") ++ "/",
-    Vsn = get(vsn), 
-    ?DBG("run -> config:"
-	   "~n   M:           ~p"
-	   "~n   Vsn:         ~p"
-	   "~n   Dir:         ~p"
-	   "~n   User:        ~p"
-	   "~n   SecLevel:    ~p"
-	   "~n   EngineID:    ~p"
-	   "~n   CtxEngineID: ~p"
-	   "~n   Community:   ~p"
-	   "~n   StdM:        ~p",
-	   [M,Vsn,Dir,User,SecLevel,EngineID,CtxEngineID,Community,StdM]),
+    Community   = snmp_misc:get_option(community, Opts, "all-rights"),
+    ?DBG("tc_run -> start crypto app",[]),
+    _CryptoRes  = ?CRYPTO_START(),
+    ?DBG("tc_run -> Crypto: ~p", [_CryptoRes]),
+    StdM        = join(code:priv_dir(snmp), "mibs") ++ "/",
+    Vsn         = get(vsn), 
+    ?PRINT2("tc_run -> config:"
+            "~n   M:           ~p"
+            "~n   Vsn:         ~p"
+            "~n   Dir:         ~p"
+            "~n   User:        ~p"
+            "~n   SecLevel:    ~p"
+            "~n   EngineID:    ~p"
+            "~n   CtxEngineID: ~p"
+            "~n   Community:   ~p"
+            "~n   StdM:        ~p"
+            "~n", [M,Vsn,Dir,User,SecLevel,EngineID,CtxEngineID,Community,StdM]),
     case snmp_test_mgr:start([%% {agent, snmp_test_lib:hostname()},
 			      {packet_server_debug, true},
 			      {debug,               true},
@@ -377,23 +452,23 @@ run(Mod, Func, Args, Opts) ->
 	{ok, _Pid} ->
 	    case (catch apply(Mod, Func, Args)) of
 		{'EXIT', Reason} ->
-		    catch snmp_test_mgr:stop(),
+		    (catch snmp_test_mgr:stop()),
 		    ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
 		Res ->
-		    catch snmp_test_mgr:stop(),
+		    (catch snmp_test_mgr:stop()),
 		    Res
 	    end;
 
 	{error, Reason} ->
 	    ?EPRINT2("Failed starting (test) manager: "
                      "~n   ~p", [Reason]),
-	    catch snmp_test_mgr:stop(),
+	    (catch snmp_test_mgr:stop()),
 	    ?line ?FAIL({mgr_start_error, Reason});
 
 	Err ->
 	    ?EPRINT2("Failed starting (test) manager: "
                      "~n   ~p", [Err]),
-	    catch snmp_test_mgr:stop(),
+	    (catch snmp_test_mgr:stop()),
 	    ?line ?FAIL({mgr_start_failure, Err})
     end.
 
