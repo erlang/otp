@@ -37,9 +37,12 @@
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1,
          heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1,
+         procs_bug/1,
          ets_count/1, atom_count/1, system_logger/1]).
 
 -export([init/1, handle_event/2, handle_call/2]).
+
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -48,7 +51,19 @@ suite() ->
 all() -> 
     [process_count, system_version, misc_smoke_tests,
      ets_count, heap_size, wordsize, memory, ets_limit, atom_limit, atom_count,
+     procs_bug,
      system_logger].
+
+
+init_per_testcase(procs_bug, Config) ->
+    procs_bug(init_per_testcase, Config);
+init_per_testcase(_, Config) ->
+    Config.
+
+end_per_testcase(procs_bug, Config) ->
+    procs_bug(end_per_testcase, Config);
+end_per_testcase(_, _) ->
+    ok.
 
 %%%
 %%% The test cases -------------------------------------------------------------
@@ -654,3 +669,41 @@ handle_call(Msg, State) ->
 handle_event(Event, State) ->
     State ! {report_handler, Event},
     {ok, State}.
+
+
+%% OTP-15909: Provoke bug that would cause VM crash
+%% if doing system_info(procs) when process have queued exit/down signals.
+procs_bug(init_per_testcase, Config) ->
+    %% Use single scheduler and process prio to starve monitoring processes
+    %% from handling their received DOWN signals.
+    OldSchedOnline = erlang:system_flag(schedulers_online,1),
+    [{schedulers_online, OldSchedOnline} | Config];
+procs_bug(end_per_testcase, Config) ->
+    erlang:system_flag(schedulers_online,
+                       proplists:get_value(schedulers_online, Config)),
+    ok.
+
+procs_bug(Config) when is_list(Config) ->
+    {Monee,_} = spawn_opt(fun () -> receive die -> ok end end,
+                         [monitor,{priority,max}]),
+    Papa = self(),
+    Pids = [begin
+                P = spawn_opt(fun () ->
+                                      erlang:monitor(process, Monee),
+                                      Papa ! {self(),ready},
+                                      receive "nada" -> no end
+                              end,
+                              [link, {priority,normal}]),
+                {P, ready} = receive M -> M end,
+                P
+            end
+            || _ <- lists:seq(1,10)],
+    process_flag(priority,high),
+    Monee ! die,
+    {'DOWN',_,process,Monee,normal} = receive M -> M end,
+
+    %% This call did crash VM as Pids have pending DOWN signals.
+    erlang:system_info(procs),
+    process_flag(priority,normal),
+    [begin unlink(P), exit(P, kill) end || P <- Pids],
+    ok.
