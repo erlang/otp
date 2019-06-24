@@ -247,10 +247,21 @@ init({Options, CallerPid}) ->
 	    IpFamily = get_value(ipfamily, Options, inet),
 	    print("[~w] ~p -> IpFamily: ~p~n", [?MODULE, self(), IpFamily]),
 	    AgIp = case snmp_misc:assq(agent, Options) of
-		       {value, Tuple4} when is_tuple(Tuple4) andalso 
-					    (size(Tuple4) =:= 4) ->
-			   Tuple4;
+		       {value, Addr} when is_tuple(Addr) andalso 
+                                          (size(Addr) =:= 4) andalso
+                                          (IpFamily =:= inet) ->
+                           print("[~w] ~p -> Addr: ~p~n",
+                                 [?MODULE, self(), Addr]),
+			   Addr;
+		       {value, Addr} when is_tuple(Addr) andalso 
+                                          (size(Addr) =:= 8) andalso
+                                          (IpFamily =:= inet6) ->
+                           print("[~w] ~p -> Addr: ~p~n",
+                                 [?MODULE, self(), Addr]),
+			   Addr;
 		       {value, Host} when is_list(Host) ->
+                           print("[~w] ~p -> Host: ~p~n",
+                                 [?MODULE, self(), Host]),
 			   {ok, Ip} = snmp_misc:ip(Host, IpFamily),
 			   Ip
 		   end,

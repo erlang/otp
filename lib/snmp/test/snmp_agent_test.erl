@@ -667,22 +667,39 @@ init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
 init_per_group_ipv6(GroupName, Config, Init) ->
-    {ok, Hostname0} = inet:gethostname(),
-    case ct:require(ipv6_hosts) of
-	ok ->
-	  case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
-	      true ->
-		  Init(
-		    snmp_test_lib:init_group_top_dir(
-		      GroupName,
-		      [{ipfamily, inet6},
-		       {ip, ?LOCALHOST(inet6)}
-		       | lists:keydelete(ip, 1, Config)]));
-	      false ->
-		  {skip, "Host does not support IPV6"}
-	  end;
-	_ ->
-	    {skip, "Test config ipv6_hosts is missing"}
+    %% <OS-CONDITIONAL-SKIP>
+    %% This is a higly questionable test.
+    %% But until we have time to figure out what IPv6 issues
+    %% are actually causing the failures...
+    OSSkipable = [{unix, 
+                   [
+                    {darwin, fun(V) when (V > {9, 8, 0}) ->
+				     %% This version is OK: No Skip
+				     false;
+				(_) ->
+				     %% This version is *not* ok: Skip
+				     true
+                             end}
+                   ]
+                  }],
+    %% </OS-CONDITIONAL-SKIP>
+    case ?OS_BASED_SKIP(OSSkipable) of
+        true ->
+            {skip, "Host *may* not *properly* support IPV6"};
+        false ->
+            %% Even if this host supports IPv6 we don't use it unless its
+            %% one of the configured/supported IPv6 hosts...
+            case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
+                true ->
+                    Init(
+                      snmp_test_lib:init_group_top_dir(
+                        GroupName,
+                        [{ipfamily, inet6},
+                         {ip, ?LOCALHOST(inet6)}
+                         | lists:keydelete(ip, 1, Config)]));
+                false ->
+                    {skip, "Host does not support IPv6"}
+            end
     end.
 
 end_per_group(all_tcs, Config) ->

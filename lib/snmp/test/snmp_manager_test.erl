@@ -619,37 +619,46 @@ init_per_group(event_tests_mt = GroupName, Config) ->
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group(ipv6_mt = GroupName, Config) ->
-    {ok, Hostname0} = inet:gethostname(),
-    case ct:require(ipv6_hosts) of
-	ok ->
-	    case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
-		true ->
-		    ipv6_init(
-		      snmp_test_lib:init_group_top_dir(
-			GroupName,
-			[{manager_net_if_module, snmpm_net_if_mt}
-			 | Config]));
-		false ->
-		    {skip, "Host does not support IPv6"}
-	    end;
-	_ ->
-	    {skip, "Test config ipv6_hosts is missing"}
-    end;
+    init_per_group_ipv6(GroupName,
+                        [{manager_net_if_module, snmpm_net_if_mt} | Config]);   
 init_per_group(ipv6 = GroupName, Config) -> 
-    {ok, Hostname0} = inet:gethostname(),
-    case ct:require(ipv6_hosts) of
-	ok ->
-	    case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
-		true ->
-		    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
-		false ->
-		    {skip, "Host does not support IPv6"}
-	    end;
-	_ ->
-	    {skip, "Test config ipv6_hosts is missing"}
-    end;
+    init_per_group_ipv6(GroupName, Config);   
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
+
+
+init_per_group_ipv6(GroupName, Config) ->
+    %% <OS-CONDITIONAL-SKIP>
+    OSSkipable = [{unix, 
+                   [
+                    {darwin, fun(V) when (V > {9, 8, 0}) ->
+				     %% This version is OK: No Skip
+				     false;
+				(_) ->
+				     %% This version is *not* ok: Skip
+                                     %% We need a fully qualified hostname
+                                     %% to get a proper IPv6 address (in this
+                                     %% version), but its just to messy, so 
+                                     %% instead we skip this **OLD** darwin...
+				     true
+                             end}
+                   ]
+                  }],
+    %% </OS-CONDITIONAL-SKIP>
+    case ?OS_BASED_SKIP(OSSkipable) of
+        true ->
+            {skip, "Host *may* not *properly* support IPV6"};
+        false ->
+            %% Even if this host supports IPv6 we don't use it unless its
+            %% one of the configures/supported IPv6 hosts...
+            case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
+                true ->
+                    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+                false ->
+                    {skip, "Host does not support IPv6"}
+            end
+    end.
+
 
 end_per_group(_GroupName, Config) ->
     %% Do we really need to do this?

@@ -49,8 +49,12 @@
         snmp_test_lib:os_based_skip(Skippable)).
 -define(NON_PC_TC_MAYBE_SKIP(Config, Condition),
         snmp_test_lib:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).
--define(SKIP(Reason),   snmp_test_lib:skip(Reason, ?MODULE, ?LINE)).
--define(FAIL(Reason),   snmp_test_lib:fail(Reason, ?MODULE, ?LINE)).
+-define(SKIP(Reason),        snmp_test_lib:skip(Reason, ?MODULE, ?LINE)).
+-define(FAIL(Reason),        snmp_test_lib:fail(Reason, ?MODULE, ?LINE)).
+-define(IS_IPV6_HOST(),      snmp_test_lib:is_ipv6_host()).
+-define(IS_IPV6_HOST(H),     snmp_test_lib:is_ipv6_host(H)).
+-define(HAS_SUPPORT_IPV6(),  snmp_test_lib:has_support_ipv6()).
+-define(HAS_SUPPORT_IPV6(H), snmp_test_lib:has_support_ipv6(H)).
 
 
 %% - Time macros -
@@ -150,8 +154,10 @@
 	snmp_test_lib:print(P, ?MODULE, ?LINE, F, A)).
 
 -define(PRINT1(F, A),  snmp_test_lib:print1(F, A)).
+-define(PRINT1(F),     ?PRINT1(F, [])).
 -define(EPRINT1(F, A), ?PRINT1("<ERROR> " ++ F, A)).
 
 -define(PRINT2(F, A),  snmp_test_lib:print2(F, A)).
+-define(PRINT2(F),     ?PRINT2(F, [])).
 -define(EPRINT2(F, A), ?PRINT2("<ERROR> " ++ F, A)).
 

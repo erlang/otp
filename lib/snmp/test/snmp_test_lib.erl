@@ -25,7 +25,9 @@
 
 -export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
 	 display_suite_info/1]).
--export([non_pc_tc_maybe_skip/4, os_based_skip/1]).
+-export([non_pc_tc_maybe_skip/4, os_based_skip/1,
+         has_support_ipv6/0, has_support_ipv6/1,
+         is_ipv6_host/0, is_ipv6_host/1]).
 -export([fix_data_dir/1, 
 	 init_suite_top_dir/2, init_group_top_dir/2, init_testcase_top_dir/2, 
 	 lookup/2, 
@@ -52,11 +54,12 @@ hostname() ->
     hostname(node()).
 
 hostname(Node) ->
-    from($@, atom_to_list(Node)).
-
-from(H, [H | T]) -> T;
-from(H, [_ | T]) -> from(H, T);
-from(_H, []) -> [].
+    case string:tokens(atom_to_list(Node), [$@]) of
+        [_, Host] ->
+            Host;
+        _ ->
+            []
+    end.
 
 %% localhost() ->
 %%     {ok, Ip} = snmp_misc:ip(net_adm:localhost()),
@@ -78,7 +81,9 @@ localhost(Family) ->
                 {error, Reason1} ->
                     fail({getifaddrs, Reason1}, ?MODULE, ?LINE)
             end;
-        {ok, {0, _, _, _, _, _, _, _}} when (Family =:= inet6) ->
+        {ok, {A1, _, _, _, _, _, _, _}} when (Family =:= inet6) andalso
+                                             ((A1 =:= 0) orelse
+                                              (A1 =:= 16#fe80)) ->
             %% Ouch, we need to use something else
             case inet:getifaddrs() of
                 {ok, IfList} ->
@@ -207,53 +212,108 @@ non_pc_tc_maybe_skip(Config, Condition, File, Line)
     end.
 
 
+%% The type and spec'ing is just to increase readability
+-type os_family()  :: win32 | unix.
+-type os_name()    :: atom().
+-type os_version() :: string() | {non_neg_integer(),
+				  non_neg_integer(),
+				  non_neg_integer()}.
+-type os_skip_check() :: fun(() -> boolean()) | 
+			    fun((os_version()) -> boolean()).
+-type skippable() :: any | [os_family() | 
+			    {os_family(), os_name() |
+			                  [os_name() | {os_name(), 
+							os_skip_check()}]}].
+
+-spec os_based_skip(skippable()) -> boolean().
+
 os_based_skip(any) ->
-    io:format("os_based_skip(any) -> entry"
-	      "~n", []), 
     true;
 os_based_skip(Skippable) when is_list(Skippable) ->
-    io:format("os_based_skip -> entry with"
-	      "~n   Skippable: ~p"
-	      "~n", [Skippable]), 
-    {OsFam, OsName} =
-        case os:type() of
-            {_Fam, _Name} = FamAndName ->
-                FamAndName;
-            Fam ->
-                {Fam, undefined}
-        end,
-    io:format("os_based_skip -> os-type: "
-	      "~n   OsFam: ~p"
-	      "~n   OsName: ~p"
-	      "~n", [OsFam, OsName]), 
+    os_base_skip(Skippable, os:type());
+os_based_skip(_Crap) ->
+    false.
+
+os_base_skip(Skippable, {OsFam, OsName}) ->
+    os_base_skip(Skippable, OsFam, OsName);
+os_base_skip(Skippable, OsFam) ->
+    os_base_skip(Skippable, OsFam, undefined).
+
+os_base_skip(Skippable, OsFam, OsName) -> 
+    %% Check if the entire family is to be skipped
+    %% Example: [win32, unix]
     case lists:member(OsFam, Skippable) of
         true ->
             true;
         false ->
-            case lists:keysearch(OsFam, 1, Skippable) of
-                {value, {OsFam, OsName}} ->
-                    true;
-                {value, {OsFam, OsNames}} when is_list(OsNames) ->
+	    %% Example: [{unix, freebsd}] | [{unix, [freebsd, darwin]}]
+	    case lists:keysearch(OsFam, 1, Skippable) of
+		{value, {OsFam, OsName}} ->
+		    true;
+		{value, {OsFam, OsNames}} when is_list(OsNames) ->
+		    %% OsNames is a list of: 
+		    %%    [atom()|{atom(), function/0 | function/1}]
                     case lists:member(OsName, OsNames) of
 			true ->
 			    true;
 			false ->
-			    case lists:keymember(OsName, 1, OsNames) of
-				{value, {OsName, Check}} when is_function(Check) ->
-				    Check();
-				_ ->
-				    false
-			    end
+			    os_based_skip_check(OsName, OsNames)
 		    end;
-                _ ->
-                    false
-            end
-    end;
-os_based_skip(_Crap) ->
-    io:format("os_based_skip -> entry with"
-	      "~n   _Crap: ~p"
-	      "~n", [_Crap]), 
-    false.
+		_ ->
+		    false
+	    end
+    end.
+
+%% Performs a check via a provided fun with arity 0 or 1.
+%% The argument is the result of os:version().
+os_based_skip_check(OsName, OsNames) ->
+    case lists:keysearch(OsName, 1, OsNames) of
+	{value, {OsName, Check}} when is_function(Check, 0) ->
+	    Check();
+	{value, {OsName, Check}} when is_function(Check, 1) ->
+	    Check(os:version());
+	_ ->
+	    false
+    end.
+
+
+%% A basic test to check if current host supports IPv6
+has_support_ipv6() ->
+    case inet:gethostname() of
+        {ok, Hostname} ->
+            has_support_ipv6(Hostname);
+        _ ->
+            false
+    end.
+
+has_support_ipv6(Hostname) ->
+    case inet:getaddr(Hostname, inet6) of
+        {ok, Addr} when (size(Addr) =:= 8) andalso
+                        (element(1, Addr) =/= 0) andalso
+                        (element(1, Addr) =/= 16#fe80) ->
+            true;
+        {ok, _} ->
+            false;
+        {error, _} ->
+            false
+    end.
+		
+
+is_ipv6_host() ->
+    case inet:gethostname() of
+        {ok, Hostname} ->
+            is_ipv6_host(Hostname);
+        {error, _} ->
+            false
+    end.
+
+is_ipv6_host(Hostname) ->
+    case ct:require(ipv6_hosts) of
+        ok ->
+            lists:member(list_to_atom(Hostname), ct:get_config(ipv6_hosts));
+        _ ->
+            false
+    end.
 
 
 %% ----------------------------------------------------------------
