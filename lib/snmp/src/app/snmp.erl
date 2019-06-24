@@ -590,15 +590,6 @@ print_mod_info(Prefix, {Module, Info}) ->
             _ ->
                 "Not found"
         end,
-    CompDate =
-        case key1search(compile_time, Info) of
-            {value, {Year, Month, Day, Hour, Min, Sec}} ->
-                io_lib:format(
-		  "~w-~2..0w-~2..0w ~2..0w:~2..0w:~2..0w",
-		  [Year, Month, Day, Hour, Min, Sec]);
-            _ ->
-                "Not found"
-        end,
     Digest =
         case key1search(md5, Info) of
             {value, MD5} when is_binary(MD5) ->
@@ -610,13 +601,11 @@ print_mod_info(Prefix, {Module, Info}) ->
               "~s      Vsn:          ~s~n"
               "~s      App vsn:      ~s~n"
               "~s      Compiler ver: ~s~n"
-	      "~s      Compile time: ~s~n"
               "~s      MD5 digest:   ~s~n",
               [Prefix, Module, 
 	       Prefix, Vsn, 
 	       Prefix, AppVsn, 
 	       Prefix, CompVer,
-	       Prefix, CompDate,
 	       Prefix, Digest]),
     ok.
 
