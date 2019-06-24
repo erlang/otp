@@ -20,7 +20,13 @@
 
 -module(net).
 
--ifdef(USE_ESOCK).
+%% We should really ifdef this module depending on if we actually built
+%% the system with esock support (socket and prim_net), but our doc-building
+%% can't handle the "variables" we need (USE_ESOCK). So instead, we just
+%% leave everything hanging...
+%% If one of the "hanging" functions is called when esock has been disabled,
+%% the function will through a 'notsup' error (erlang:error/1).
+
 %% Administrative and utility functions
 -export([
 	 info/0,
@@ -36,7 +42,6 @@
          if_index2name/1,
          if_names/0
         ]).
--endif.
 
 %% Deprecated functions from the "old" net module
 -export([call/4,
@@ -45,8 +50,6 @@
 	 ping/1,
 	 relay/1,
 	 sleep/1]).
-
--ifdef(USE_ESOCK).
 
 %% Should we define these here or refer to the prim_net module
 -export_type([
@@ -60,7 +63,7 @@
               network_interface_name/0,
               network_interface_index/0
              ]).
--endif.
+
 
 -deprecated({call,      4, eventually}).
 -deprecated({cast,      4, eventually}).
@@ -70,34 +73,23 @@
 -deprecated({sleep,     1, eventually}).
 
 
--ifdef(USE_ESOCK).
--type name_info_flags()         :: prim_net:name_info_flags().
--type name_info_flag()          :: prim_net:name_info_flag().
--type name_info_flag_ext()      :: prim_net:name_info_flag_ext().
--type name_info()               :: prim_net:name_info().
--type address_info()            :: prim_net:address_info().
--type network_interface_name()  :: prim_net:network_interface_name().
--type network_interface_index() :: prim_net:network_interface_index().
-
-%% -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
-%% -type name_info_flag()          :: namereqd |
-%%                                    dgram |
-%%                                    nofqdn |
-%%                                    numerichost |
-%%                                    nomericserv.
-%% -type name_info_flag_ext()      :: idn |
-%%                                    idna_allow_unassigned |
-%%                                    idna_use_std3_ascii_rules.
-%% -type name_info()               :: #{host    := string(),
-%%                                      service := string()}.
-%% -type address_info()            :: #{family   := socket:domain(),
-%%                                      socktype := socket:type(),
-%%                                      protocol := socket:protocol(),
-%%                                      address  := socket:sockaddr()}.
-%% -type network_interface_name()  :: string().
-%% -type network_interface_index() :: non_neg_integer().
-
--endif.
+-type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
+-type name_info_flag()          :: namereqd |
+                                   dgram |
+                                   nofqdn |
+                                   numerichost |
+                                   nomericserv.
+-type name_info_flag_ext()      :: idn |
+                                   idna_allow_unassigned |
+                                   idna_use_std3_ascii_rules.
+-type name_info()               :: #{host    := string(),
+                                     service := string()}.
+-type address_info()            :: #{family   := socket:domain(),
+                                     socktype := socket:type(),
+                                     protocol := socket:protocol(),
+                                     address  := socket:sockaddr()}.
+-type network_interface_name()  :: string().
+-type network_interface_index() :: non_neg_integer().
 
 
 %% ===========================================================================
@@ -114,8 +106,6 @@ sleep(T) -> receive after T -> ok end.
 relay(X) -> slave:relay(X).
 
 
--ifdef(USE_ESOCK).
-
 %% ===========================================================================
 %%
 %% Administrative and utility API
@@ -124,14 +114,26 @@ relay(X) -> slave:relay(X).
 
 -spec info() -> list().
 
+-ifdef(USE_ESOCK).
 info() ->
     prim_net:info().
+-else.
+-dialyzer({nowarn_function, info/0}).
+info() ->
+    erlang:error(notsup).
+-endif.
 
 
 -spec command(Cmd :: term()) -> term().
 
+-ifdef(USE_ESOCK).
 command(Cmd) ->
     prim_net:command(Cmd).
+-else.
+-dialyzer({nowarn_function, command/1}).
+command(_Cmd) ->
+    erlang:error(notsup).
+-endif.
 
 
 
@@ -151,8 +153,14 @@ command(Cmd) ->
       HostName :: string(),
       Reason   :: term().
 
+-ifdef(USE_ESOCK).
 gethostname() ->
     prim_net:gethostname().
+-else.
+-dialyzer({nowarn_function, gethostname/0}).
+gethostname() ->
+    erlang:error(notsup).
+-endif.
 
 
 %% ===========================================================================
@@ -175,6 +183,7 @@ getnameinfo(SockAddr) ->
       Info     :: name_info(),
       Reason   :: term().
 
+-ifdef(USE_ESOCK).
 getnameinfo(SockAddr, [] = _Flags) ->
     getnameinfo(SockAddr, undefined);
 getnameinfo(#{family := Fam, addr := _Addr} = SockAddr, Flags)
@@ -184,7 +193,18 @@ getnameinfo(#{family := Fam, addr := _Addr} = SockAddr, Flags)
 getnameinfo(#{family := Fam, path := _Path} = SockAddr, Flags)
   when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
     prim_net:getnameinfo(SockAddr, Flags).
-
+-else.
+-dialyzer({nowarn_function, getnameinfo/2}).
+getnameinfo(SockAddr, [] = _Flags) ->
+    getnameinfo(SockAddr, undefined);
+getnameinfo(#{family := Fam, addr := _Addr} = _SockAddr, Flags)
+  when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso 
+       (is_list(Flags) orelse (Flags =:= undefined)) ->
+    erlang:error(notsup);
+getnameinfo(#{family := Fam, path := _Path} = _SockAddr, Flags)
+  when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
+    erlang:error(notsup).
+-endif.
 
 
 %% ===========================================================================
@@ -216,11 +236,21 @@ getaddrinfo(Host) when is_list(Host) ->
       Info    :: [address_info()],
       Reason  :: term().
 
+-ifdef(USE_ESOCK).
 getaddrinfo(Host, Service)
   when (is_list(Host) orelse (Host =:= undefined)) andalso
        (is_list(Service) orelse (Service =:= undefined)) andalso
        (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
     prim_net:getaddrinfo(Host, Service).
+-else.
+-dialyzer({nowarn_function, getaddrinfo/2}).
+getaddrinfo(Host, Service)
+  when (is_list(Host) orelse (Host =:= undefined)) andalso
+       (is_list(Service) orelse (Service =:= undefined)) andalso
+       (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
+    erlang:error(notsup).
+-endif.
+
 
 
 
@@ -236,8 +266,14 @@ getaddrinfo(Host, Service)
       Idx    :: network_interface_index(),
       Reason :: term().
 
+-ifdef(USE_ESOCK).
 if_name2index(If) when is_list(If) ->
     prim_net:if_name2index(If).
+-else.
+-dialyzer({nowarn_function, if_name2index/1}).
+if_name2index(If) when is_list(If) ->
+    erlang:error(notsup).
+-endif.
 
 
 
@@ -253,8 +289,14 @@ if_name2index(If) when is_list(If) ->
       Name   :: network_interface_name(),
       Reason :: term().
 
+-ifdef(USE_ESOCK).
 if_index2name(Idx) when is_integer(Idx) ->
     prim_net:if_index2name(Idx).
+-else.
+-dialyzer({nowarn_function, if_index2name/1}).
+if_index2name(Idx) when is_integer(Idx) ->
+    erlang:error(notsup).
+-endif.
 
 
 
@@ -270,9 +312,13 @@ if_index2name(Idx) when is_integer(Idx) ->
       If     :: network_interface_name(),
       Reason :: term().
 
+-ifdef(USE_ESOCK).
 if_names() ->
     prim_net:if_names().
-
-
-
+-else.
+-dialyzer({nowarn_function, if_names/0}).
+if_names() ->
+    erlang:error(notsup).
 -endif.
+
+

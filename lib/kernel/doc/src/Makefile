@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,18 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
+
+# The doc build has problems with if-defing out modules...
+ifeq ($(USE_ESOCK),yes)
+XML_REF3_ESOCK_FILES = net.xml
+ESOCK_USE_NET_XML=<xi:include href="net.xml"\/>
+ESOCK_USE_NET_SPECS_XML=<xi:include href="../specs/specs_net.xml"/>
+else
+XML_REF3_ESOCK_FILES =
+ESOCK_USE_NET_SPECS_XML =
+ESOCK_USE_NET_XML =
+endif
+
 XML_REF3_FILES = application.xml \
 	auth.xml \
 	code.xml \
@@ -62,6 +74,7 @@ XML_REF3_FILES = application.xml \
         logger_disk_log_h.xml \
         logger_filters.xml \
         logger_formatter.xml \
+	$(XML_REF3_ESOCK_FILES) \
 	net_adm.xml \
 	net_kernel.xml \
 	os.xml \
@@ -112,6 +125,7 @@ SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 
 TOP_SPECS_FILE = specs.xml
 
+
 # ----------------------------------------------------
 # FIGURES
 # ----------------------------------------------------
@@ -138,7 +152,7 @@ SPECS_FLAGS = -I../../include
 $(HTMLDIR)/%: %
 	$(INSTALL_DATA) $< $@
 
-docs: man pdf html
+docs: ref_man specs man pdf html
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -148,19 +162,32 @@ html: images $(HTML_REF_MAN_FILE)
 
 man: $(MAN3_FILES) $(MAN4_FILES) $(MAN6_FILES)
 
+ref_man: ref_man.xml
+specs: specs.xml
+
 images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
+
+info:
+	@echo "XML_APPLICATION_FILES: $(XML_APPLICATION_FILES)"
+	@echo "XML_REF3_ESOCK_FILES:  $(XML_REF3_ESOCK_FILES)"
+	@echo "XML_REF3_FILES:        $(XML_REF3_FILES)"
+	@echo "XML_REF4_FILES:        $(XML_REF4_FILES)"
+	@echo "XML_REF6_FILES:        $(XML_REF6_FILES)"
+	@echo "XML_PART_FILES:        $(XML_PART_FILES)"
+	@echo "XML_CHAPTER_FILES:     $(XML_CHAPTER_FILES)"
+	@echo "BOOK_FILES:            $(BOOK_FILES)"
 
 debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
 	rm -rf $(XMLDIR)
-	rm -f $(MAN3DIR)/*
-	rm -f $(MAN4DIR)/*
-	rm -f $(MAN6DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f $(SPECDIR)/*
-	rm -f errs core *~ *.eps
+	rm -f  $(MAN3DIR)/*
+	rm -f  $(MAN4DIR)/*
+	rm -f  $(MAN6DIR)/*
+	rm -f  $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f  $(SPECDIR)/*
+	rm -f  errs core *~ *.eps
 
 $(SPECDIR)/specs_erl_prim_loader_stub.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
@@ -174,6 +201,14 @@ $(SPECDIR)/specs_init_stub.xml:
 $(SPECDIR)/specs_zlib_stub.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module zlib_stub
+
+ref_man.xml: ref_man.xml.src
+	($(PERL) -p -e 's?%ESOCK_USE_NET_XML%?$(ESOCK_USE_NET_XML)?' \
+            $<) > $@
+specs.xml: specs.xml.src
+	($(PERL) -p -e 's?%ESOCK_USE_NET_SPECS_XML%?$(ESOCK_USE_NET_SPECS_XML)?' \
+            $<) > $@
+
 
 # ----------------------------------------------------
 # Release Target

@@ -50,7 +50,9 @@ run(M, F, A) ->
     end.
 
 conditional_load(CondMod, Mods2Load) ->
-    conditional_load(CondMod, erlang:loaded(), Mods2Load).
+    Loaded = erlang:loaded(),
+    %% erlang:display({?MODULE, conditional_load, Loaded}),
+    conditional_load(CondMod, Loaded, Mods2Load).
 
 conditional_load(_CondMod, [], _Mods2LOad) ->
     ok;
