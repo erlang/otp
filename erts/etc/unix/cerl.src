@@ -292,11 +292,20 @@ if [ "x$GDB" = "x" ]; then
 		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
 	    fi
 	fi
-	if [ "x$VALGRIND_MISC_FLAGS" = "x" ]; then
-	    valgrind_misc_flags="--show-possibly-lost=no --child-silent-after-fork=yes\
-	               --suppressions=$ROOTDIR/erts/emulator/valgrind/suppress.standard"
-	else
-	    valgrind_misc_flags="$VALGRIND_MISC_FLAGS"
+	# Add default flags
+	vgflags=$VALGRIND_MISC_FLAGS
+	if [ "x${vgflags#*--show-possibly-lost}" = "x$vgflags" ]; then
+	    vgflags="$vgflags --show-possibly-lost=no"
+	fi
+	if [ "x${vgflags#*--child-silent-after-fork}" = "x$vgflags" ]; then
+	    vgflags="$vgflags --child-silent-after-fork=yes"
+	fi
+	if [ "x${vgflags#*--suppressions}" = "x$vgflags" ]; then
+	    if [ "x$ERL_TOP" != "x" ]; then
+		vgflags="$vgflags --suppressions=$ERL_TOP/erts/emulator/valgrind/suppress.standard"
+	    else
+		echo "No valgrind suppression file found in \$VALGRIND_MISC_FLAGS and \$ERL_TOP not set."
+	    fi
 	fi
 	if which taskset > /dev/null && test -e /proc/cpuinfo; then
 	    # We only let valgrind utilize one core with "taskset 1" as it can be very slow
@@ -311,7 +320,7 @@ if [ "x$GDB" = "x" ]; then
 	    sched_arg=
 	fi
 
-	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
+	exec $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
 
     elif [ $run_rr = yes ]; then
         if [ $1 = replay ]; then
