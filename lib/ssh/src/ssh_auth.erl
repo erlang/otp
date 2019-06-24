@@ -172,10 +172,10 @@ publickey_msg([SigAlg, #ssh{user = User,
             SigAlgStr = atom_to_list(SigAlg),
             SigData = build_sig_data(SessionId, User, Service, PubKeyBlob, SigAlgStr),
 
-            SignRequest = #ssh_agent_sign_request{
-                key_blob = PubKeyBlob,
-                data = SigData,
-                flags = ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512},
+            % OpenSSH does not seem to care when these flags are set for
+            % signature algorithms other than RSA, so we always send them.
+            SignFlags = ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512,
+            SignRequest = #ssh_agent_sign_request{key_blob = PubKeyBlob, data = SigData, flags = SignFlags},
             SignResponse = ssh_agent:send(SignRequest),
 
             #ssh_agent_sign_response{signature = #ssh_agent_signature{blob = Sig}} = SignResponse,
