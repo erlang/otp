@@ -319,7 +319,7 @@ tc_try(N, M, F, A) ->
             await_tc_runner_done(Runner, OldFlag);
         pang ->
             ?EPRINT2("tc_try -> ~p *not* running~n", [N]),
-            exit({node_not_running, N})
+            skip({node_not_running, N})
     end.
 
 await_tc_runner_started(Runner, OldFlag) ->
@@ -346,9 +346,22 @@ await_tc_runner_started(Runner, OldFlag) ->
 await_tc_runner_done(Runner, OldFlag) ->
     receive
         {'EXIT', Runner, Reason} ->
-            ?EPRINT2("TC runner failed: "
-                     "~n   ~p~n", [Reason]),
-            exit({tx_runner_failed, Reason});
+            %% This is not a normal (tc) failure (that is the clause below).
+            %% Instead the tc runner process crashed, for some reason. So
+            %% check if have got any system events, and if so, skip.
+            SysEvs = snmp_test_global_sys_monitor:events(),
+            if
+                (SysEvs =:= []) ->
+                    ?EPRINT2("TC runner failed: "
+                             "~n   ~p~n", [Reason]),
+                    exit({tx_runner_failed, Reason});
+                true ->
+                    ?EPRINT2("TC runner failed when we got system events: "
+                             "~n   Reason:     ~p"
+                             "~n   Sys Events: ~p"
+                             "~n", [Reason, SysEvs]),
+                    skip([{reason, Reason}, {system_events, SysEvs}])
+            end;
 	{tc_runner_done, Runner, {'EXIT', Rn}, Loc} ->
 	    ?PRINT2("call -> done with exit: "
                     "~n   Rn:  ~p"
@@ -367,8 +380,8 @@ await_tc_runner_done(Runner, OldFlag) ->
 	    case Ret of
 		{error, Reason} ->
 		    exit(Reason);
-		{skip, _} = SKIP ->
-		    exit(SKIP);
+		{skip, Reason} ->
+		    skip(Reason);
 		OK ->
 		    OK
 	    end
@@ -460,6 +473,21 @@ tc_run(Mod, Func, Args, Opts) ->
 		    (catch snmp_test_mgr:stop()),
 		    Res
 	    end;
+            %% try apply(Mod, Func, Args) of
+            %%     Res ->
+            %%         (catch snmp_test_mgr:stop()),
+            %%         Res
+            %% catch
+            %%     throw:Res ->
+            %%         Res;
+            %%     C:E:S ->
+            %%         ?EPRINT2("Failed (tc) apply: "
+            %%                  "~n   Class: ~p"
+            %%                  "~n   Error: ~p"
+            %%                  "~n   Stack: ~p", [C, E, S]),
+            %%         (catch snmp_test_mgr:stop()),
+            %%         ?FAIL({apply_failed, {Mod, Func, Args}, {C, E, S}})
+            %% end;
 
 	{error, Reason} ->
 	    ?EPRINT2("Failed starting (test) manager: "
@@ -1180,7 +1208,7 @@ do_expect(trap, Enterp, Generic, Specific, ExpVBs, To) ->
                 (SysEvs =:= []) ->
                     Error;
                 true ->
-                    throw({skip, {system_events, SysEvs}})
+                    skip({system_events, SysEvs})
             end;
 
 
@@ -1367,7 +1395,7 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
                 (SysEvs =:= []) ->
                     Error;
                 true ->
-                    {skip, {system_events, SysEvs}}
+                    skip({system_events, SysEvs})
             end;
 
 
@@ -1817,6 +1845,10 @@ rpc(Node, F, A) ->
 
 join(Dir, File) ->
     filename:join(Dir, File).
+
+
+skip(R) ->
+    exit({skip, R}).
 
 %% await_pdu(To) ->
 %%     await_response(To, pdu).
