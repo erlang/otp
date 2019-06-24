@@ -163,7 +163,7 @@ then
     TARGET_SYS=`$ERL_TOP/erts/autoconf/config.guess`
     REL_DIR="$ERL_TOP/release/$TARGET_SYS"
     cd "$REL_DIR"
-    ./Install -sasl `pwd`
+    ./Install -minimal "`pwd`"
     export PATH="$REL_DIR/bin:$PATH"
     cd "$ERL_TOP/release/tests/test_server"
     print_all_tests_takes_long_time_warning
@@ -175,74 +175,80 @@ then
     exit $?
 fi
 
-# make test in application directory
-if [ -d test ]
+# check that there is a test directory
+if [ ! -d test ]
 then
-    APPLICATION=`basename $DIR`
-    cd test
-    echo "The tests in test directory for $APPLICATION will be executed with ct_run"
-    if [ -z "${ARGS}" ]
-    then
-        print_all_tests_for_application_notes
-        if find . -type f -name '*.c' | grep -q "."
-        then
-            print_c_files_warning
-        fi
-    fi
-    CT_RUN="$ERL_TOP/bin/ct_run"
-    MAKE_TEST_DIR="`pwd`/make_test_dir"
-    MAKE_TEST_REL_DIR="$MAKE_TEST_DIR/${APPLICATION}_test"
-    MAKE_TEST_CT_LOGS="$MAKE_TEST_DIR/ct_logs"
-    RELEASE_TEST_SPEC_LOG="$MAKE_TEST_CT_LOGS/release_tests_spec_log"
-    mkdir -p $MAKE_TEST_DIR
-    mkdir -p $MAKE_TEST_REL_DIR
-    mkdir -p $MAKE_TEST_CT_LOGS
-    make RELSYSDIR=$MAKE_TEST_REL_DIR release_tests_spec > $RELEASE_TEST_SPEC_LOG 2>&1
-    if [ $? != 0 ]
-    then
-        cat $RELEASE_TEST_SPEC_LOG
-        print_highlighted_msg $RED "\"make RELSYSDIR=$MAKE_TEST_REL_DIR release_tests_spec\" failed."
-        exit 1
-    fi
-    SPEC_FLAG=""
-    SPEC_FILE=""
-    if [ -z "${ARGS}" ]
-    then
-        SPEC_FLAG="-spec"
-        SPEC_FILE="$MAKE_TEST_REL_DIR/$APPLICATION.spec"
-        ARGS="$SPEC_FLAG $SPEC_FILE"
-    fi
-    # Compile test server
-    (cd "$ERL_TOP/lib/common_test/test_server" && make)
-    # Run ct_run
-    cd $MAKE_TEST_REL_DIR
-    $CT_RUN -logdir $MAKE_TEST_CT_LOGS\
-           -pa "$ERL_TOP/lib/common_test/test_server"\
-           ${ARGS}\
-           -erl_args\
-           -env "$PATH"\
-           -env ERL_CRASH_DUMP "$MAKE_TEST_DIR/${APPLICATION}_erl_crash.dump"\
-           -boot start_sasl\
-           -sasl errlog_type error\
-           -pz "$ERL_TOP/lib/common_test/test_server"\
-           -pz "."\
-           -ct_test_vars "{net_dir,\"\"}"\
-           -noshell\
-           -sname test_server\
-           -rsh ssh\
-           ${ERL_ARGS}
-    CT_RUN_STATUS=$?
-    if [ $CT_RUN_STATUS = "0" ]
-    then
-        print_highlighted_msg $GREEN "The test(s) ran successfully (ct_run returned a success code)"
-        exit 0
-    else
-        print_on_error_note
-        print_highlighted_msg $RED "ct_run returned an error code"
-        exit 1
-    fi
-else
     print_highlighted_msg $RED "This target only works in directories containing a test directory or\nin the root directory."
     exit 1
 fi
 
+
+APPLICATION="`basename $DIR`"
+CT_RUN="$ERL_TOP/bin/ct_run"
+MAKE_TEST_DIR="`pwd`/make_test_dir"
+MAKE_TEST_REL_DIR="$MAKE_TEST_DIR/${APPLICATION}_test"
+MAKE_TEST_CT_LOGS="$MAKE_TEST_DIR/ct_logs"
+RELEASE_TEST_SPEC_LOG="$MAKE_TEST_CT_LOGS/release_tests_spec_log"
+
+cd test
+echo "The tests in test directory for $APPLICATION will be executed with ct_run"
+if [ -z "${ARGS}" ]
+then
+    if [ ! -d "$MAKE_TEST_DIR" ]
+    then
+        print_all_tests_for_application_notes
+    fi
+    if find . -type f -name '*.c' | grep -q "."
+    then
+        print_c_files_warning
+    fi
+fi
+
+mkdir -p "$MAKE_TEST_DIR"
+mkdir -p "$MAKE_TEST_REL_DIR"
+mkdir -p "$MAKE_TEST_CT_LOGS"
+make RELSYSDIR=$MAKE_TEST_REL_DIR release_tests_spec > $RELEASE_TEST_SPEC_LOG 2>&1
+
+if [ $? != 0 ]
+then
+    cat $RELEASE_TEST_SPEC_LOG
+    print_highlighted_msg $RED "\"make RELSYSDIR="$MAKE_TEST_REL_DIR" release_tests_spec\" failed."
+    exit 1
+fi
+SPEC_FLAG=""
+SPEC_FILE=""
+if [ -z "${ARGS}" ]
+then
+    SPEC_FLAG="-spec"
+    SPEC_FILE="$MAKE_TEST_REL_DIR/$APPLICATION.spec"
+    ARGS="$SPEC_FLAG $SPEC_FILE"
+fi
+# Compile test server
+(cd "$ERL_TOP/lib/common_test/test_server" && make)
+# Run ct_run
+cd $MAKE_TEST_REL_DIR
+$CT_RUN -logdir $MAKE_TEST_CT_LOGS\
+        -pa "$ERL_TOP/lib/common_test/test_server"\
+        ${ARGS}\
+        -erl_args\
+        -env "$PATH"\
+        -env ERL_CRASH_DUMP "$MAKE_TEST_DIR/${APPLICATION}_erl_crash.dump"\
+        -boot start_sasl\
+        -sasl errlog_type error\
+        -pz "$ERL_TOP/lib/common_test/test_server"\
+        -pz "."\
+        -ct_test_vars "{net_dir,\"\"}"\
+        -noshell\
+        -sname test_server\
+        -rsh ssh\
+        ${ERL_ARGS}
+CT_RUN_STATUS=$?
+if [ $CT_RUN_STATUS = "0" ]
+then
+    print_highlighted_msg $GREEN "The test(s) ran successfully (ct_run returned a success code)\nTest logs: file://$MAKE_TEST_CT_LOGS/index.html"
+    exit 0
+else
+    print_on_error_note
+    print_highlighted_msg $RED "ct_run returned the error code $CT_RUN_STATUS\nTest logs: file://$MAKE_TEST_CT_LOGS/index.html"
+    exit $CT_RUN_STATUS
+fi
