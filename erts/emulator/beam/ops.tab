@@ -1692,6 +1692,7 @@ i_increment rxy W d
 
 # Handle unoptimized code.
 i_plus S1=c S2=c Fail Dst => move S1 x | i_plus x S2 Fail Dst
+i_plus S1=c S2=xy Fail Dst => i_plus S2 S1 Fail Dst
 
 i_plus xy xyc j? d
 
