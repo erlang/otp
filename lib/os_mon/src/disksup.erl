@@ -264,7 +264,7 @@ check_disk_space({unix, irix}, Port, Threshold) ->
     Result = my_cmd("/usr/sbin/df -lk",Port),
     check_disks_irix(skip_to_eol(Result), Threshold);
 check_disk_space({unix, linux}, Port, Threshold) ->
-    Result = my_cmd("/bin/df -lk", Port),
+    Result = my_cmd("/bin/df -lk -x squashfs", Port),
     check_disks_solaris(skip_to_eol(Result), Threshold);
 check_disk_space({unix, posix}, Port, Threshold) ->
     Result = my_cmd("df -k -P", Port),
