@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2018. All Rights Reserved.
+# Copyright Ericsson AB 1997-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,11 +51,13 @@ ifeq ($(USE_ESOCK), yes)
 XML_REF3_ESOCK_EFILES = socket.xml
 XML_CHAPTER_ESOCK_EFILES = socket_usage.xml
 ESOCK_USE_SOCKET_XML=<xi:include href="socket.xml"\/>
+ESOCK_USE_SOCKET_SPECS_XML=<xi:include href="../specs/specs_socket.xml"/>
 ESOCK_USE_SOCKET_USAGE_XML=<xi:include href="socket_usage.xml"/>
 else
 XML_REF3_ESOCK_EFILES =
 XML_CHAPTER_ESOCK_EFILES =
 ESOCK_USE_SOCKET_XML =
+ESOCK_USE_SOCKET_SPECS_XML =
 ESOCK_USE_SOCKET_USAGE_XML =
 endif
 
@@ -170,7 +172,7 @@ $(HTMLDIR)/%.gif: %.gif
 $(XML_FIGURE_DIR)/%.png: ../../emulator/internal_doc/figures/%.png
 	$(INSTALL_DATA) $< $@
 
-docs: part ref_man figures man pdf html $(INFO_FILE)
+docs: part ref_man specs figures man pdf html $(INFO_FILE)
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -182,6 +184,7 @@ man: $(MAN1_FILES) $(MAN3_FILES)
 
 ref_man: ref_man.xml
 part: part.xml
+specs: specs.xml
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
@@ -216,6 +219,10 @@ ref_man.xml: ref_man.xml.src
 
 part.xml: part.xml.src
 	($(PERL) -p -e 's?%ESOCK_USE_SOCKET_USAGE_XML%?$(ESOCK_USE_SOCKET_USAGE_XML)?' \
+            $<) > $@
+
+specs.xml: specs.xml.src
+	($(PERL) -p -e 's?%ESOCK_USE_SOCKET_SPECS_XML%?$(ESOCK_USE_SOCKET_SPECS_XML)?' \
             $<) > $@
 
 

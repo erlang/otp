@@ -41,8 +41,10 @@ XML_APPLICATION_FILES = ref_man.xml
 ifeq ($(USE_ESOCK),yes)
 XML_REF3_ESOCK_FILES = net.xml
 ESOCK_USE_NET_XML=<xi:include href="net.xml"\/>
+ESOCK_USE_NET_SPECS_XML=<xi:include href="../specs/specs_net.xml"/>
 else
 XML_REF3_ESOCK_FILES =
+ESOCK_USE_NET_SPECS_XML =
 ESOCK_USE_NET_XML =
 endif
 
@@ -150,7 +152,7 @@ SPECS_FLAGS = -I../../include
 $(HTMLDIR)/%: %
 	$(INSTALL_DATA) $< $@
 
-docs: ref_man man pdf html
+docs: ref_man specs man pdf html
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -161,6 +163,7 @@ html: images $(HTML_REF_MAN_FILE)
 man: $(MAN3_FILES) $(MAN4_FILES) $(MAN6_FILES)
 
 ref_man: ref_man.xml
+specs: specs.xml
 
 images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
 
@@ -201,6 +204,9 @@ $(SPECDIR)/specs_zlib_stub.xml:
 
 ref_man.xml: ref_man.xml.src
 	($(PERL) -p -e 's?%ESOCK_USE_NET_XML%?$(ESOCK_USE_NET_XML)?' \
+            $<) > $@
+specs.xml: specs.xml.src
+	($(PERL) -p -e 's?%ESOCK_USE_NET_SPECS_XML%?$(ESOCK_USE_NET_SPECS_XML)?' \
             $<) > $@
 
 
