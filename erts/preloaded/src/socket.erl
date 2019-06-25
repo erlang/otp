@@ -31,7 +31,7 @@
 
          debug/1,
          %% command/1,
-	 info/0,
+	 info/0, info/1,
          supports/0, supports/1, supports/2, supports/3
         ]).
 
@@ -879,7 +879,7 @@ on_load(Extra) ->
 
 
 
--spec info() -> list().
+-spec info() -> map().
 
 info() ->
     nif_info().
@@ -899,6 +899,24 @@ debug(D) when is_boolean(D) ->
 command(#{command := debug,
           data    := Dbg} = Command) when is_boolean(Dbg) ->
     nif_command(Command).
+
+
+
+%% ===========================================================================
+%%
+%% info - Get miscellaneous information about a socket.
+%%
+%% Generates a list of various info about the socket, such as counter values.
+%%
+%% Do *not* call this function often.
+%% 
+%% ===========================================================================
+
+-spec info(Socket) -> map() when
+      Socket :: socket().
+
+info(#socket{ref = SockRef}) ->
+    nif_info(SockRef).
 
 
 
@@ -3877,6 +3895,9 @@ error(Reason) ->
 %% ===========================================================================
 
 nif_info() ->
+    erlang:nif_error(undef).
+
+nif_info(_SRef) ->
     erlang:nif_error(undef).
 
 nif_command(_Command) ->
