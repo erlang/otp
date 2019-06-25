@@ -965,6 +965,12 @@ cg_block(Is0, Last, Next, St0) ->
     case Last of
         #cg_br{succ=Next,fail=Next} ->
             cg_block(Is0, none, St0);
+        #cg_br{succ=Same,fail=Same} when Same =:= ?BADARG_BLOCK ->
+            %% An expression in this block *always* throws an exception, so we
+            %% terminate it with an 'if_end' to make sure the validator knows
+            %% that the following instructions won't actually be reached.
+            {Is,St} = cg_block(Is0, none, St0),
+            {Is++[if_end],St};
         #cg_br{succ=Same,fail=Same} ->
             {Fail,St1} = use_block_label(Same, St0),
             {Is,St} = cg_block(Is0, none, St1),

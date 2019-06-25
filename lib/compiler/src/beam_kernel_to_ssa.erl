@@ -279,7 +279,7 @@ select_binary(#k_val_clause{val=#k_binary{segs=#k_var{name=Ctx0}},body=B},
               #k_var{}=Src, Tf, Vf, St0) ->
     {Ctx,St1} = new_ssa_var(Ctx0, St0),
     {Bis0,St2} = match_cg(B, Vf, St1),
-    {TestIs,St} = make_cond_branch(succeeded, [Ctx], Tf, St2),
+    {TestIs,St} = make_succeeded(Ctx, {guard, Tf}, St2),
     Bis1 = [#b_set{op=bs_start_match,dst=Ctx,
                    args=[ssa_arg(Src, St)]}] ++ TestIs ++ Bis0,
     Bis = finish_bs_matching(Bis1),
@@ -310,6 +310,35 @@ make_cond_branch(Cond, Args, Fail, St0) ->
 
 make_uncond_branch(Fail) ->
     #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail}.
+
+%%
+%% The 'succeeded' instruction needs special treatment in catch blocks to
+%% prevent the checked operation from being optimized away if a later pass
+%% determines that it always fails.
+%%
+
+make_succeeded(Var, {in_catch, CatchLbl}, St0) ->
+    {Bool, St1} = new_ssa_var('@ssa_bool', St0),
+    {Succ, St2} = new_label(St1),
+    {Fail, St} = new_label(St2),
+
+    Check = [#b_set{op=succeeded,dst=Bool,args=[Var]},
+             #b_br{bool=Bool,succ=Succ,fail=Fail}],
+
+    %% Add a dummy block that references the checked variable, ensuring it
+    %% stays alive and that it won't be merged with the landing pad.
+    Trampoline = [{label,Fail},
+                  #b_set{op=exception_trampoline,args=[Var]},
+                  make_uncond_branch(CatchLbl)],
+
+    {Check ++ Trampoline ++ [{label,Succ}], St};
+make_succeeded(Var, {no_catch, Fail}, St) ->
+    %% Ultimate failure raises an exception, so we must treat it as if it were
+    %% in a catch to keep it from being optimized out.
+    #cg{ultimate_failure=Fail} = St,            %Assertion
+    make_succeeded(Var, {in_catch, Fail}, St);
+make_succeeded(Var, {guard, Fail}, St) ->
+    make_cond_branch(succeeded, [Var], Fail, St).
 
 %% Instructions for selection of binary segments.
 
@@ -394,7 +423,7 @@ select_extract_int(#k_var{name=Tl}, Val, #k_int{val=Sz}, U, Fs, Vf,
                   <<Val:Bits/little>>
           end,
     Bits = bit_size(Bin),			%Assertion.
-    {TestIs,St} = make_cond_branch(succeeded, [Dst], Vf, St1),
+    {TestIs,St} = make_succeeded(Dst, {guard, Vf}, St1),
     Set = #b_set{op=bs_match,dst=Dst,
                  args=[#b_literal{val=string},Ctx,#b_literal{val=Bin}]},
     {[Set|TestIs],St}.
@@ -412,7 +441,7 @@ build_bs_instr(Anno, Type, Fail, Ctx, Size, Unit0, Flags0, Dst, St0) ->
                   #b_set{anno=Anno,op=bs_match,dst=Dst,
                          args=[TypeArg,Ctx,Flags]}
           end,
-    {Is,St} = make_cond_branch(succeeded, [Dst], Fail, St0),
+    {Is,St} = make_succeeded(Dst, {guard, Fail}, St0),
     {[Get|Is],St}.
 
 select_val(#k_val_clause{val=#k_tuple{es=Es},body=B}, V, Vf, St0) ->
@@ -475,7 +504,7 @@ select_extract_map([P|Ps], Src, Fail, St0) ->
     Key = ssa_arg(Key0, St0),
     {Dst,St1} = new_ssa_var(Dst0, St0),
     Set = #b_set{op=get_map_element,dst=Dst,args=[MapSrc,Key]},
-    {TestIs,St2} = make_cond_branch(succeeded, [Dst], Fail, St1),
+    {TestIs,St2} = make_succeeded(Dst, {guard, Fail}, St1),
     {Is,St} = select_extract_map(Ps, Src, Fail, St2),
     {[Set|TestIs]++Is,St};
 select_extract_map([], _, _, St) ->
@@ -596,7 +625,7 @@ match_fmf(F, LastFail, St0, [H|T]) ->
     {Rs,St3} = match_fmf(F, LastFail, St2, T),
     {R ++ [{label,Fail}] ++ Rs,St3}.
 
-%% fail_label(State) -> {Where,FailureLabel}.
+%% fail_context(State) -> {Where,FailureLabel}.
 %%       Where = guard | no_catch | in_catch
 %%  Return an indication of which part of a function code is
 %%  being generated for and the appropriate failure label to
@@ -609,7 +638,7 @@ match_fmf(F, LastFail, St0, [H|T]) ->
 %%                 a try/catch or catch.
 %%     in_catch  - In the scope of a try/catch or catch.
 
-fail_label(#cg{catch_label=Catch,bfail=Fail,ultimate_failure=Ult}) ->
+fail_context(#cg{catch_label=Catch,bfail=Fail,ultimate_failure=Ult}) ->
     if
         Fail =/= Ult ->
             {guard,Fail};
@@ -619,14 +648,6 @@ fail_label(#cg{catch_label=Catch,bfail=Fail,ultimate_failure=Ult}) ->
             {in_catch,Catch}
     end.
 
-%% bif_fail_label(State) -> FailureLabel.
-%%  Return the appropriate failure label for a guard BIF call or
-%%  primop that fails.
-
-bif_fail_label(St) ->
-    {_,Fail} = fail_label(St),
-    Fail.
-
 %% call_cg(Func, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
 %% enter_cg(Func, [Arg], Le, St) -> {[Ainstr],St}.
@@ -635,7 +656,7 @@ bif_fail_label(St) ->
 call_cg(Func, As, [], Le, St) ->
     call_cg(Func, As, [#k_var{name='@ssa_ignored'}], Le, St);
 call_cg(Func0, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
-    case fail_label(St0) of
+    case fail_context(St0) of
         {guard,Fail} ->
             %% Inside a guard. The only allowed function call is to
             %% erlang:error/1,2. We will generate a branch to the
@@ -645,7 +666,7 @@ call_cg(Func0, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
             [#k_var{name=DestVar}] = Rs,
             St = set_ssa_var(DestVar, #b_literal{val=unused}, St0),
             {[make_uncond_branch(Fail),#cg_unreachable{}],St};
-        {Catch,Fail} ->
+        FailCtx ->
             %% Ordinary function call in a function body.
             Args = ssa_args(As, St0),
             {Ret,St1} = new_ssa_var(R, St0),
@@ -657,11 +678,12 @@ call_cg(Func0, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
             St2 = foldl(fun(#k_var{name=Dummy}, S) ->
                                 set_ssa_var(Dummy, #b_literal{val=unused}, S)
                         end, St1, MoreRs),
-            case Catch of
-                no_catch ->
+
+            case FailCtx of
+                {no_catch, _} ->
                     {[Call],St2};
-                in_catch ->
-                    {TestIs,St} = make_cond_branch(succeeded, [Ret], Fail, St2),
+                {in_catch, _} ->
+                    {TestIs,St} = make_succeeded(Ret, FailCtx, St2),
                     {[Call|TestIs],St}
             end
     end.
@@ -748,8 +770,8 @@ bif_cg(Bif, As0, [#k_var{name=Dst0}], Le, St0) ->
             I = #b_set{anno=line_anno(Le),op={bif,Bif},dst=Dst,args=As},
             case erl_bifs:is_safe(erlang, Bif, length(As)) of
                 false ->
-                    Fail = bif_fail_label(St1),
-                    {Is,St} = make_cond_branch(succeeded, [Dst], Fail, St1),
+                    FailCtx = fail_context(St1),
+                    {Is,St} = make_succeeded(Dst, FailCtx, St1),
                     {[I|Is],St};
                 true->
                     {[I],St1}
@@ -797,7 +819,7 @@ cg_recv_mesg(#k_var{name=R}, Rm, Tl, Le, St0) ->
     {Dst,St1} = new_ssa_var(R, St0),
     {Mis,St2} = match_cg(Rm, none, St1),
     RecvLbl = St1#cg.recv,
-    {TestIs,St} = make_cond_branch(succeeded, [Dst], Tl, St2),
+    {TestIs,St} = make_succeeded(Dst, {guard, Tl}, St2),
     Is = [#b_br{anno=line_anno(Le),bool=#b_literal{val=true},
                 succ=RecvLbl,fail=RecvLbl},
           {label,RecvLbl},
@@ -813,7 +835,7 @@ cg_recv_wait(Te, Es, St0) ->
     {Tis,St1} = cg(Es, St0),
     Args = [ssa_arg(Te, St1)],
     {WaitDst,St2} = new_ssa_var('@ssa_wait', St1),
-    {WaitIs,St} = make_cond_branch(succeeded, [WaitDst], St1#cg.recv, St2),
+    {WaitIs,St} = make_succeeded(WaitDst, {guard, St1#cg.recv}, St2),
     %% Infinite timeout will be optimized later.
     Is = [#b_set{op=wait_timeout,dst=WaitDst,args=Args}] ++ WaitIs ++
         [#b_set{op=timeout}] ++ Tis,
@@ -924,9 +946,9 @@ put_cg([#k_var{name=R}], #k_tuple{es=Es}, _Le, St0) ->
     PutTuple = #b_set{op=put_tuple,dst=Ret,args=Args},
     {[PutTuple],St};
 put_cg([#k_var{name=R}], #k_binary{segs=Segs}, Le, St0) ->
-    Fail = bif_fail_label(St0),
+    FailCtx = fail_context(St0),
     {Dst,St1} = new_ssa_var(R, St0),
-    cg_binary(Dst, Segs, Fail, Le, St1);
+    cg_binary(Dst, Segs, FailCtx, Le, St1);
 put_cg([#k_var{name=R}], #k_map{op=Op,var=Map,
                                 es=[#k_map_pair{key=#k_var{}=K,val=V}]},
        Le, St0) ->
@@ -955,14 +977,14 @@ put_cg([#k_var{name=R}], Con0, _Le, St0) ->
     {[],St}.
 
 put_cg_map(LineAnno, Op, SrcMap, Dst, List, St0) ->
-    Fail = bif_fail_label(St0),
     Args = [#b_literal{val=Op},SrcMap|List],
     PutMap = #b_set{anno=LineAnno,op=put_map,dst=Dst,args=Args},
     if
         Op =:= assoc ->
             {[PutMap],St0};
         true ->
-            {Is,St} = make_cond_branch(succeeded, [Dst], Fail, St0),
+            FailCtx = fail_context(St0),
+            {Is,St} = make_succeeded(Dst, FailCtx, St0),
             {[PutMap|Is],St}
     end.
 
@@ -970,8 +992,8 @@ put_cg_map(LineAnno, Op, SrcMap, Dst, List, St0) ->
 %%% Code generation for constructing binaries.
 %%%
 
-cg_binary(Dst, Segs0, Fail, Le, St0) ->
-    {PutCode0,SzCalc0,St1} = cg_bin_put(Segs0, Fail, St0),
+cg_binary(Dst, Segs0, FailCtx, Le, St0) ->
+    {PutCode0,SzCalc0,St1} = cg_bin_put(Segs0, FailCtx, St0),
     LineAnno = line_anno(Le),
     Anno = Le#k.a,
     case PutCode0 of
@@ -980,8 +1002,8 @@ cg_binary(Dst, Segs0, Fail, Le, St0) ->
          {label,_}|_] ->
             #k_bin_seg{unit=Unit0,next=Segs} = Segs0,
             Unit = #b_literal{val=Unit0},
-            {PutCode,SzCalc1,St2} = cg_bin_put(Segs, Fail, St1),
-            {_,SzVar,SzCode0,St3} = cg_size_calc(1, SzCalc1, Fail, St2),
+            {PutCode,SzCalc1,St2} = cg_bin_put(Segs, FailCtx, St1),
+            {_,SzVar,SzCode0,St3} = cg_size_calc(1, SzCalc1, FailCtx, St2),
             SzCode = cg_bin_anno(SzCode0, LineAnno),
             Args = case member(single_use, Anno) of
                        true ->
@@ -990,14 +1012,14 @@ cg_binary(Dst, Segs0, Fail, Le, St0) ->
                            [#b_literal{val=append},Src,SzVar,Unit]
                    end,
             BsInit = #b_set{anno=LineAnno,op=bs_init,dst=Dst,args=Args},
-            {TestIs,St} = make_cond_branch(succeeded, [Dst], Fail, St3),
+            {TestIs,St} = make_succeeded(Dst, FailCtx, St3),
             {SzCode ++ [BsInit] ++ TestIs ++ PutCode,St};
         [#b_set{op=bs_put}|_] ->
-            {Unit,SzVar,SzCode0,St2} = cg_size_calc(8, SzCalc0, Fail, St1),
+            {Unit,SzVar,SzCode0,St2} = cg_size_calc(8, SzCalc0, FailCtx, St1),
             SzCode = cg_bin_anno(SzCode0, LineAnno),
             Args = [#b_literal{val=new},SzVar,Unit],
             BsInit = #b_set{anno=LineAnno,op=bs_init,dst=Dst,args=Args},
-            {TestIs,St} = make_cond_branch(succeeded, [Dst], Fail, St2),
+            {TestIs,St} = make_succeeded(Dst, FailCtx, St2),
             {SzCode ++ [BsInit] ++ TestIs ++ PutCode0,St}
     end.
 
@@ -1005,18 +1027,18 @@ cg_bin_anno([Set|Sets], Anno) ->
     [Set#b_set{anno=Anno}|Sets];
 cg_bin_anno([], _) -> [].
 
-%% cg_size_calc(PreferredUnit, SzCalc, Fail, St0) ->
+%% cg_size_calc(PreferredUnit, SzCalc, FailCtx, St0) ->
 %%         {ActualUnit,SizeVariable,SizeCode,St}.
 %%  Generate size calculation code.
 
-cg_size_calc(Unit, error, _Fail, St) ->
+cg_size_calc(Unit, error, _FailCtx, St) ->
     {#b_literal{val=Unit},#b_literal{val=badarg},[],St};
-cg_size_calc(8, [{1,_}|_]=SzCalc, Fail, St) ->
-    cg_size_calc(1, SzCalc, Fail, St);
-cg_size_calc(8, SzCalc, Fail, St0) ->
-    {Var,Pre,St} = cg_size_calc_1(SzCalc, Fail, St0),
+cg_size_calc(8, [{1,_}|_]=SzCalc, FailCtx, St) ->
+    cg_size_calc(1, SzCalc, FailCtx, St);
+cg_size_calc(8, SzCalc, FailCtx, St0) ->
+    {Var,Pre,St} = cg_size_calc_1(SzCalc, FailCtx, St0),
     {#b_literal{val=8},Var,Pre,St};
-cg_size_calc(1, SzCalc0, Fail, St0) ->
+cg_size_calc(1, SzCalc0, FailCtx, St0) ->
     SzCalc = map(fun({8,#b_literal{val=Size}}) ->
                          {1,#b_literal{val=8*Size}};
                     ({8,{{bif,byte_size},Src}}) ->
@@ -1026,54 +1048,54 @@ cg_size_calc(1, SzCalc0, Fail, St0) ->
                     ({_,_}=Pair) ->
                          Pair
                  end, SzCalc0),
-    {Var,Pre,St} = cg_size_calc_1(SzCalc, Fail, St0),
+    {Var,Pre,St} = cg_size_calc_1(SzCalc, FailCtx, St0),
     {#b_literal{val=1},Var,Pre,St}.
 
-cg_size_calc_1(SzCalc, Fail, St0) ->
-    cg_size_calc_2(SzCalc, #b_literal{val=0}, Fail, St0).
+cg_size_calc_1(SzCalc, FailCtx, St0) ->
+    cg_size_calc_2(SzCalc, #b_literal{val=0}, FailCtx, St0).
 
-cg_size_calc_2([{_,{'*',Unit,{_,_}=Bif}}|T], Sum0, Fail, St0) ->
-    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, Fail, St0),
-    {BifDst,Pre1,St2} = cg_size_bif(Bif, Fail, St1),
-    {Sum,Pre2,St} = cg_size_add(Sum1, BifDst, Unit, Fail, St2),
+cg_size_calc_2([{_,{'*',Unit,{_,_}=Bif}}|T], Sum0, FailCtx, St0) ->
+    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, FailCtx, St0),
+    {BifDst,Pre1,St2} = cg_size_bif(Bif, FailCtx, St1),
+    {Sum,Pre2,St} = cg_size_add(Sum1, BifDst, Unit, FailCtx, St2),
     {Sum,Pre0++Pre1++Pre2,St};
-cg_size_calc_2([{_,#b_literal{}=Sz}|T], Sum0, Fail, St0) ->
-    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, Fail, St0),
-    {Sum,Pre,St} = cg_size_add(Sum1, Sz, #b_literal{val=1}, Fail, St1),
+cg_size_calc_2([{_,#b_literal{}=Sz}|T], Sum0, FailCtx, St0) ->
+    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, FailCtx, St0),
+    {Sum,Pre,St} = cg_size_add(Sum1, Sz, #b_literal{val=1}, FailCtx, St1),
     {Sum,Pre0++Pre,St};
-cg_size_calc_2([{_,#b_var{}=Sz}|T], Sum0, Fail, St0) ->
-    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, Fail, St0),
-    {Sum,Pre,St} = cg_size_add(Sum1, Sz, #b_literal{val=1}, Fail, St1),
+cg_size_calc_2([{_,#b_var{}=Sz}|T], Sum0, FailCtx, St0) ->
+    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, FailCtx, St0),
+    {Sum,Pre,St} = cg_size_add(Sum1, Sz, #b_literal{val=1}, FailCtx, St1),
     {Sum,Pre0++Pre,St};
-cg_size_calc_2([{_,{_,_}=Bif}|T], Sum0, Fail, St0) ->
-    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, Fail, St0),
-    {BifDst,Pre1,St2} = cg_size_bif(Bif, Fail, St1),
-    {Sum,Pre2,St} = cg_size_add(Sum1, BifDst, #b_literal{val=1}, Fail, St2),
+cg_size_calc_2([{_,{_,_}=Bif}|T], Sum0, FailCtx, St0) ->
+    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, FailCtx, St0),
+    {BifDst,Pre1,St2} = cg_size_bif(Bif, FailCtx, St1),
+    {Sum,Pre2,St} = cg_size_add(Sum1, BifDst, #b_literal{val=1}, FailCtx, St2),
     {Sum,Pre0++Pre1++Pre2,St};
-cg_size_calc_2([], Sum, _Fail, St) ->
+cg_size_calc_2([], Sum, _FailCtx, St) ->
     {Sum,[],St}.
 
-cg_size_bif(#b_var{}=Var, _Fail, St) ->
+cg_size_bif(#b_var{}=Var, _FailCtx, St) ->
     {Var,[],St};
-cg_size_bif({Name,Src}, Fail, St0) ->
+cg_size_bif({Name,Src}, FailCtx, St0) ->
     {Dst,St1} = new_ssa_var('@ssa_bif', St0),
     Bif = #b_set{op=Name,dst=Dst,args=[Src]},
-    {TestIs,St} = make_cond_branch(succeeded, [Dst], Fail, St1),
+    {TestIs,St} = make_succeeded(Dst, FailCtx, St1),
     {Dst,[Bif|TestIs],St}.
 
-cg_size_add(#b_literal{val=0}, Val, #b_literal{val=1}, _Fail, St) ->
+cg_size_add(#b_literal{val=0}, Val, #b_literal{val=1}, _FailCtx, St) ->
     {Val,[],St};
-cg_size_add(A, B, Unit, Fail, St0) ->
+cg_size_add(A, B, Unit, FailCtx, St0) ->
     {Dst,St1} = new_ssa_var('@ssa_sum', St0),
-    {TestIs,St} = make_cond_branch(succeeded, [Dst], Fail, St1),
+    {TestIs,St} = make_succeeded(Dst, FailCtx, St1),
     BsAdd = #b_set{op=bs_add,dst=Dst,args=[A,B,Unit]},
     {Dst,[BsAdd|TestIs],St}.
 
-cg_bin_put(Seg, Fail, St) ->
-    cg_bin_put_1(Seg, Fail, [], [], St).
+cg_bin_put(Seg, FailCtx, St) ->
+    cg_bin_put_1(Seg, FailCtx, [], [], St).
 
 cg_bin_put_1(#k_bin_seg{size=Size0,unit=U,type=T,flags=Fs,seg=Src0,next=Next},
-           Fail, Acc, SzCalcAcc, St0) ->
+             FailCtx, Acc, SzCalcAcc, St0) ->
     [Src,Size] = ssa_args([Src0,Size0], St0),
     NeedSize = bs_need_size(T),
     TypeArg = #b_literal{val=T},
@@ -1083,9 +1105,12 @@ cg_bin_put_1(#k_bin_seg{size=Size0,unit=U,type=T,flags=Fs,seg=Src0,next=Next},
                true -> [TypeArg,Flags,Src,Size,Unit];
                false -> [TypeArg,Flags,Src]
            end,
-    {Is,St} = make_cond_branch(bs_put, Args, Fail, St0),
+    %% bs_put has its own 'succeeded' logic, and should always jump directly to
+    %% the fail label regardless of whether it's in a catch or not.
+    {_, FailLbl} = FailCtx,
+    {Is,St} = make_cond_branch(bs_put, Args, FailLbl, St0),
     SzCalc = bin_size_calc(T, Src, Size, U),
-    cg_bin_put_1(Next, Fail, reverse(Is, Acc), [SzCalc|SzCalcAcc], St);
+    cg_bin_put_1(Next, FailCtx, reverse(Is, Acc), [SzCalc|SzCalcAcc], St);
 cg_bin_put_1(#k_bin_end{}, _, Acc, SzCalcAcc, St) ->
     SzCalc = fold_size_calc(SzCalcAcc, 0, []),
     {reverse(Acc),SzCalc,St}.

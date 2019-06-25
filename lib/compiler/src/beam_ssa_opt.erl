@@ -901,6 +901,7 @@ cse_suitable(#b_set{}) -> false.
 -record(fs,
         {s=undefined :: 'undefined' | 'cleared',
          regs=#{} :: #{beam_ssa:b_var():=beam_ssa:b_var()},
+         vars=cerl_sets:new() :: cerl_sets:set(),
          fail=none :: 'none' | beam_ssa:label(),
          non_guards :: gb_sets:set(beam_ssa:label()),
          bs :: beam_ssa:block_map()
@@ -913,22 +914,39 @@ ssa_opt_float({#st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     {Linear,Count} = float_opt(Linear0, Count0, Fs),
     {St#st{ssa=Linear,cnt=Count}, FuncDb}.
 
-float_blk_is_in_guard(#b_blk{last=#b_br{fail=F}}, #fs{non_guards=NonGuards}) ->
-    not gb_sets:is_member(F, NonGuards);
-float_blk_is_in_guard(#b_blk{}, #fs{}) ->
+%% The fconv instruction doesn't support jumping to a fail label, so we have to
+%% skip this optimization if the fail block is a guard.
+%%
+%% We also skip the optimization in blocks that always fail, as it's both
+%% difficult and pointless to rewrite them to use float ops.
+float_can_optimize_blk(#b_blk{last=#b_br{bool=#b_var{},fail=F}},
+                       #fs{non_guards=NonGuards}) ->
+    gb_sets:is_member(F, NonGuards);
+float_can_optimize_blk(#b_blk{}, #fs{}) ->
     false.
 
+float_opt([{L,#b_blk{is=[#b_set{op=exception_trampoline,args=[Var]}]}=Blk0} |
+           Bs0], Count0, Fs) ->
+    %% If we've replaced a BIF with float operations, we'll have a lot of extra
+    %% blocks that jump to the same failure block, which may have a trampoline
+    %% that refers to the original operation.
+    %%
+    %% Since the point of the trampoline is to keep the BIF from being removed
+    %% by liveness optimization, we can discard it as the liveness pass leaves
+    %% floats alone.
+    Blk = case cerl_sets:is_element(Var, Fs#fs.vars) of
+              true -> Blk0#b_blk{is=[]};
+              false -> Blk0
+          end,
+    {Bs, Count} = float_opt(Bs0, Count0, Fs),
+    {[{L,Blk}|Bs],Count};
 float_opt([{L,Blk}|Bs0], Count0, Fs) ->
-    case float_blk_is_in_guard(Blk, Fs) of
+    case float_can_optimize_blk(Blk, Fs) of
         true ->
-            %% This block is inside a guard. Don't do
-            %% any floating point optimizations.
-            {Bs,Count} = float_opt(Bs0, Count0, Fs),
-            {[{L,Blk}|Bs],Count};
+            float_opt_1(L, Blk, Bs0, Count0, Fs);
         false ->
-            %% This block is not inside a guard.
-            %% We can do the optimization.
-            float_opt_1(L, Blk, Bs0, Count0, Fs)
+            {Bs,Count} = float_opt(Bs0, Count0, Fs),
+            {[{L,Blk}|Bs],Count}
     end;
 float_opt([], Count, _Fs) ->
     {[],Count}.
@@ -1007,12 +1025,12 @@ float_maybe_flush(Blk0, #fs{s=cleared,fail=Fail,bs=Blocks}=Fs0, Count0) ->
     #b_blk{last=#b_br{bool=#b_var{},succ=Succ}=Br} = Blk0,
 
     %% If the success block starts with a floating point operation, we can
-    %% defer flushing to that block as long as it isn't a guard.
+    %% defer flushing to that block as long as it's suitable for optimization.
     #b_blk{is=Is} = SuccBlk = map_get(Succ, Blocks),
-    SuccIsGuard = float_blk_is_in_guard(SuccBlk, Fs0),
+    CanOptimizeSucc = float_can_optimize_blk(SuccBlk, Fs0),
 
     case Is of
-        [#b_set{anno=#{float_op:=_}}|_] when not SuccIsGuard ->
+        [#b_set{anno=#{float_op:=_}}|_] when CanOptimizeSucc ->
             %% No flush needed.
             {[],Blk0,Fs0,Count0};
         _ ->
@@ -1068,21 +1086,22 @@ float_opt_is([], Fs, _Count, _Acc) ->
     none.
 
 float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0}=I0,
-              Ts, #fs{s=S,regs=Rs0}=Fs, Count0) ->
+              Ts, #fs{s=S,regs=Rs0,vars=Vs0}=Fs, Count0) ->
     {As1,Rs1,Count1} = float_load(As0, Ts, Rs0, Count0, []),
     {As,Is0} = unzip(As1),
     {Fr,Count2} = new_reg('@fr', Count1),
     FrDst = #b_var{name=Fr},
     I = I0#b_set{op={float,Op},dst=FrDst,args=As},
+    Vs = cerl_sets:add_element(Dst, Vs0),
     Rs = Rs1#{Dst=>FrDst},
     Is = append(Is0) ++ [I],
     case S of
         undefined ->
             {Ignore,Count} = new_reg('@ssa_ignore', Count2),
             C = #b_set{op={float,clearerror},dst=#b_var{name=Ignore}},
-            {[C|Is],Fs#fs{s=cleared,regs=Rs},Count};
+            {[C|Is],Fs#fs{s=cleared,regs=Rs,vars=Vs},Count};
         cleared ->
-            {Is,Fs#fs{regs=Rs},Count2}
+            {Is,Fs#fs{regs=Rs,vars=Vs},Count2}
     end.
 
 float_load([A|As], [T|Ts], Rs0, Count0, Acc) ->
@@ -1211,34 +1230,31 @@ live_opt_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Acc) ->
         false ->
             live_opt_is(Is, Live, Acc)
     end;
-live_opt_is([#b_set{op=succeeded,dst=SuccDst=SuccDstVar,
-                    args=[Dst]}=SuccI,
-             #b_set{dst=Dst}=I|Is], Live0, Acc) ->
-    case gb_sets:is_member(Dst, Live0) of
-        true ->
-            Live1 = gb_sets:add(Dst, Live0),
-            Live = gb_sets:delete_any(SuccDst, Live1),
-            live_opt_is([I|Is], Live, [SuccI|Acc]);
-        false ->
-            case live_opt_unused(I) of
-                {replace,NewI0} ->
-                    NewI = NewI0#b_set{dst=SuccDstVar},
-                    live_opt_is([NewI|Is], Live0, Acc);
-                keep ->
-                    case gb_sets:is_member(SuccDst, Live0) of
-                        true ->
-                            Live1 = gb_sets:add(Dst, Live0),
-                            Live = gb_sets:delete(SuccDst, Live1),
-                            live_opt_is([I|Is], Live, [SuccI|Acc]);
-                        false ->
-                            live_opt_is([I|Is], Live0, Acc)
-                    end
-            end
+live_opt_is([#b_set{op=succeeded,dst=SuccDst,args=[MapDst]}=SuccI,
+             #b_set{op=get_map_element,dst=MapDst}=MapI | Is],
+            Live0, Acc) ->
+    case {gb_sets:is_member(SuccDst, Live0),
+          gb_sets:is_member(MapDst, Live0)} of
+        {true, true} ->
+            Live = gb_sets:delete(SuccDst, Live0),
+            live_opt_is([MapI | Is], Live, [SuccI | Acc]);
+        {true, false} ->
+            %% 'get_map_element' is unused; replace 'succeeded' with
+            %% 'has_map_field'
+            NewI = MapI#b_set{op=has_map_field,dst=SuccDst},
+            live_opt_is([NewI | Is], Live0, Acc);
+        {false, true} ->
+            %% 'succeeded' is unused (we know it will succeed); discard it and
+            %% keep 'get_map_element'
+            live_opt_is([MapI | Is], Live0, Acc);
+        {false, false} ->
+            live_opt_is(Is, Live0, Acc)
     end;
 live_opt_is([#b_set{dst=Dst}=I|Is], Live0, Acc) ->
     case gb_sets:is_member(Dst, Live0) of
         true ->
-            Live1 = gb_sets:union(Live0, gb_sets:from_ordset(beam_ssa:used(I))),
+            LiveUsed = gb_sets:from_ordset(beam_ssa:used(I)),
+            Live1 = gb_sets:union(Live0, LiveUsed),
             Live = gb_sets:delete(Dst, Live1),
             live_opt_is(Is, Live, [I|Acc]);
         false ->
@@ -1246,16 +1262,13 @@ live_opt_is([#b_set{dst=Dst}=I|Is], Live0, Acc) ->
                 true ->
                     live_opt_is(Is, Live0, Acc);
                 false ->
-                    Live = gb_sets:union(Live0, gb_sets:from_ordset(beam_ssa:used(I))),
+                    LiveUsed = gb_sets:from_ordset(beam_ssa:used(I)),
+                    Live = gb_sets:union(Live0, LiveUsed),
                     live_opt_is(Is, Live, [I|Acc])
             end
     end;
 live_opt_is([], Live, Acc) ->
     {Acc,Live}.
-
-live_opt_unused(#b_set{op=get_map_element}=Set) ->
-    {replace,Set#b_set{op=has_map_field}};
-live_opt_unused(_) -> keep.
 
 %%%
 %%% Optimize binary matching.
@@ -1942,6 +1955,10 @@ verify_merge_is(_) ->
 
 is_merge_allowed(_, #b_blk{}, #b_blk{is=[#b_set{op=peek_message}|_]}) ->
     false;
+is_merge_allowed(_, #b_blk{}, #b_blk{is=[#b_set{op=exception_trampoline}|_]}) ->
+    false;
+is_merge_allowed(_, #b_blk{is=[#b_set{op=exception_trampoline}|_]}, #b_blk{}) ->
+    false;
 is_merge_allowed(L, #b_blk{last=#b_br{}}=Blk, #b_blk{}) ->
     %% The predecessor block must have exactly one successor (L) for
     %% the merge to be safe.
@@ -2040,6 +2057,7 @@ unsuitable_1([{L,#b_blk{is=[#b_set{op=Op}|_]}}|Bs]) ->
     Unsuitable = case Op of
                      bs_extract -> true;
                      bs_put -> true;
+                     exception_trampoline -> true;
                      {float,_} -> true;
                      landingpad -> true;
                      peek_message -> true;
@@ -2248,6 +2266,8 @@ non_guards(Linear) ->
 
 non_guards_1([{L,#b_blk{is=Is}}|Bs]) ->
     case Is of
+        [#b_set{op=exception_trampoline}|_] ->
+            [L | non_guards_1(Bs)];
         [#b_set{op=landingpad}|_] ->
             [L | non_guards_1(Bs)];
         _ ->
