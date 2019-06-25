@@ -413,6 +413,7 @@ bif re:compile/1
 bif re:compile/2
 bif re:run/2
 bif re:run/3
+bif re:internal_run/4
 
 #
 # Bifs in lists module.

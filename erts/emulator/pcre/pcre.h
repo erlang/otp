@@ -240,6 +240,9 @@ with J. */
 #define PCRE_UTF8_ERR20             20
 #define PCRE_UTF8_ERR21             21
 #define PCRE_UTF8_ERR22             22  /* Unused (was non-character) */
+#if defined(ERLANG_INTEGRATION)
+#define PCRE_UTF8_YIELD             23
+#endif
 
 /* Specific error codes for UTF-16 validity checks */
 

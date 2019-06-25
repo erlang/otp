@@ -28,7 +28,8 @@
 	 pcre_compile_workspace_overflow/1,re_infinite_loop/1, 
 	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
-	 match_limit/1,sub_binaries/1,copt/1]).
+	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1,
+         yield_on_subject_validation/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -45,7 +46,8 @@ all() ->
      pcre_compile_workspace_overflow, re_infinite_loop, 
      re_backwards_accented, opt_dupnames, opt_all_names, 
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
-     match_limit, sub_binaries, re_version].
+     match_limit, sub_binaries, re_version, global_unicode_validation,
+     yield_on_subject_validation].
 
 groups() -> 
     [].
@@ -200,7 +202,58 @@ re_version(_Config) ->
     {match,[Version]} = re:run(Version,"^[0-9]\\.[0-9]{2} 20[0-9]{2}-[0-9]{2}-[0-9]{2}",[{capture,all,binary}]),
     ok.
 
+global_unicode_validation(Config) when is_list(Config) ->
+    %% Test that unicode validation of the subject is not done
+    %% for every match found...
+    Bin = binary:copy(<<"abc\n">>,100000),
+    {TimeAscii, _} = take_time(fun () ->
+                                       re:run(Bin, <<"b">>, [global])
+                               end),
+    {TimeUnicode, _} = take_time(fun () ->
+                                         re:run(Bin, <<"b">>, [unicode,global])
+                                 end),
+    if TimeAscii == 0; TimeUnicode == 0 ->
+            {comment, "Not good enough resolution to compare results"};
+       true ->
+            %% The time the operations takes should be in the
+            %% same order of magnitude. If validation of the
+            %% whole subject occurs for every match, the unicode
+            %% variant will take way longer time...
+            true = TimeUnicode div TimeAscii < 10
+    end.
 
+take_time(Fun) ->
+    Start = erlang:monotonic_time(nanosecond),
+    Res = Fun(),
+    End = erlang:monotonic_time(nanosecond),
+    {End-Start, Res}.
+
+yield_on_subject_validation(Config) when is_list(Config) ->
+    Go = make_ref(),
+    Bin = binary:copy(<<"abc\n">>,100000),
+    {P, M} = spawn_opt(fun () ->
+                               receive Go -> ok end,
+                               {match,[{1,1}]} = re:run(Bin, <<"b">>, [unicode])
+                       end,
+                       [link, monitor]),
+    1 = erlang:trace(P, true, [running]),
+    P ! Go,
+    N = count_re_run_trap_out(P, M),
+    true = N >= 5,
+    ok.
+
+count_re_run_trap_out(P, M) when is_reference(M) ->
+    receive {'DOWN',M,process,P,normal} -> ok end,
+    TD = erlang:trace_delivered(P),
+    receive {trace_delivered, P, TD} -> ok end,
+    count_re_run_trap_out(P, 0);
+count_re_run_trap_out(P, N) when is_integer(N) ->
+    receive
+        {trace,P,out,{erlang,re_run_trap,3}} ->
+            count_re_run_trap_out(P, N+1)
+    after 0 ->
+            N
+    end.
 
 %% Test compile options given directly to run.
 combined_options(Config) when is_list(Config) ->
