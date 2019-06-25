@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2018</year>
+      <year>2003</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -140,8 +140,7 @@
         | nonempty_improper_list(Type1, Type2) %% Type1 and Type2 as above
         | nonempty_list(Type)                  %% Proper non-empty list
 
-  Map :: map()                                 %% denotes a map of any size
-       | #{}                                   %% denotes the empty map
+  Map :: #{}                                   %% denotes the empty map
        | #{AssociationList}
 
   Tuple :: tuple()                             %% denotes a tuple of any size
@@ -192,17 +191,16 @@
     <c>AssociationList</c> are allowed to overlap, and if they do, the
     leftmost association takes precedence. A map association has a key in
     <c>AssociationList</c> if it belongs to this type.
-    <c>AssociationList</c> can contain both mandatory and optional
-    association types.
+    <c>AssociationList</c> can contain both mandatory <c>(:=)</c> and
+    optional <c>(=&gt;)</c> association types.
     If an association type is mandatory, an association with that type
-    is to be present.
+    needs to be present.
     In the case of an optional association type it is not required for
     the key type to be present.
   </p>
   <p>
-    Notice that the syntactic representation of <c>map()</c> is
-    <c>#{any() =&gt; any()}</c> (or <c>#{_ =&gt; _}</c>), not <c>#{}</c>.
     The notation <c>#{}</c> specifies the singleton type for the empty map.
+    Note that this notation is not a shorthand for the <c>map()</c> type.
   </p>
   <p>
     For convenience, the following types are also built-in.
@@ -257,6 +255,9 @@
     </row>
     <row>
       <cell><c>iolist()</c></cell><cell><c>maybe_improper_list(byte() | binary() | iolist(), binary() | [])</c></cell>
+    </row>
+    <row>
+      <cell><c>map()</c></cell><cell><c>#{any() =&gt; any()}</c></cell>
     </row>
     <row>
       <cell><c>function()</c></cell><cell><c>fun()</c></cell>
