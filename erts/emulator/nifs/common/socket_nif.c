@@ -1006,6 +1006,9 @@ ESOCK_NIF_FUNCS
 #undef ESOCK_NIF_FUNC_DEF
 
 
+#if !defined(__WIN32__)
+
+/* And here comes the functions that does the actual work (for the most part) */
 static BOOLEAN_T ecommand2command(ErlNifEnv*    env,
                                   ERL_NIF_TERM  ecommand,
                                   Uint16*       command,
@@ -1015,8 +1018,6 @@ static ERL_NIF_TERM ncommand(ErlNifEnv*   env,
                              ERL_NIF_TERM ecdata);
 static ERL_NIF_TERM ncommand_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata);
 
-#if !defined(__WIN32__)
-/* And here comes the functions that does the actual work (for the most part) */
 static ERL_NIF_TERM nsupports(ErlNifEnv* env, int key);
 static ERL_NIF_TERM nsupports_options(ErlNifEnv* env);
 static ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env);
@@ -3088,6 +3089,9 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#else
     ERL_NIF_TERM ecmd, ecdata, result;
     Uint16       cmd;
 
@@ -3121,9 +3125,11 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
 
     return result;
 
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM ncommand(ErlNifEnv* env, Uint16 cmd, ERL_NIF_TERM ecdata)
 {
@@ -3167,7 +3173,7 @@ ERL_NIF_TERM ncommand_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
 
     return result;
 }
-
+#endif
 
 
 /* ----------------------------------------------------------------------
