@@ -174,8 +174,8 @@ opt_1(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
         {Is,Ts,Ds,Fdb,Sub} ->
             D1 = D0#d{ds=Ds,sub=Sub,func_db=Fdb},
             Last1 = simplify_terminator(Last0, Sub, Ts, Ds),
-            Last = opt_terminator(Last1, Ts, Ds),
-            D = update_successors(Last, Ts, D1),
+            Last2 = opt_terminator(Last1, Ts, Ds),
+            {Last,D} = update_successors(Last2, Ts, D1),
             Blk = Blk0#b_blk{is=Is,last=Last},
             opt(Bs, D, [{L,Blk}|Acc]);
         {no_return,Ret,Is,Ds,Fdb,Sub} ->
@@ -805,79 +805,92 @@ prune_switch_list([{Arg,_}=Pair|T], Fail, Type, Ts) ->
     end;
 prune_switch_list([], _, _, _) -> [].
 
-update_successors(#b_br{bool=#b_literal{val=true},succ=S}, Ts, D) ->
-    update_successor(S, Ts, D);
-update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}, Ts0, D0) ->
-    case cerl_sets:is_element(Bool, D0#d.once) of
-        true ->
-            %% This variable is defined in this block and is only
-            %% referenced by this br terminator. Therefore, there is
-            %% no need to include it in the type database passed on to
-            %% the successors of this block.
-            Ts = maps:remove(Bool, Ts0),
-            {SuccTs,FailTs} = infer_types_br(Bool, Ts, D0),
-            D = update_successor(Fail, FailTs, D0),
-            update_successor(Succ, SuccTs, D);
-        false ->
-            {SuccTs,FailTs} = infer_types_br(Bool, Ts0, D0),
-            D = update_successor_bool(Bool, false, Fail, FailTs, D0),
-            update_successor_bool(Bool, true, Succ, SuccTs, D)
+update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last, Ts, D0) ->
+    {Last, update_successor(Succ, Ts, D0)};
+update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
+                  Ts0, D0) ->
+    Ts = case cerl_sets:is_element(Bool, D0#d.once) of
+             true ->
+                 %% This variable is defined in this block and is only
+                 %% referenced by this br terminator. Therefore, there is
+                 %% no need to include it in the type database passed on to
+                 %% the successors of this block.
+                 maps:remove(Bool, Ts0);
+             false ->
+                 Ts0
+         end,
+    case infer_types_br(Bool, Ts, D0) of
+        {#{}=SuccTs, #{}=FailTs} ->
+            D1 = update_successor(Succ, SuccTs, D0),
+            D = update_successor(Fail, FailTs, D1),
+            {Last0, D};
+        {#{}=SuccTs, none} ->
+            Last = Last0#b_br{bool=#b_literal{val=true},fail=Succ},
+            {Last, update_successor(Succ, SuccTs, D0)};
+        {none, #{}=FailTs} ->
+            Last = Last0#b_br{bool=#b_literal{val=true},succ=Fail},
+            {Last, update_successor(Fail, FailTs, D0)}
     end;
-update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts, D0) ->
-    case cerl_sets:is_element(V, D0#d.once) of
-        true ->
-            %% This variable is defined in this block and is only
-            %% referenced by this switch terminator. Therefore, there is
-            %% no need to include it in the type database passed on to
-            %% the successors of this block.
-            D = update_successor(Fail, Ts, D0),
-            F = fun({Val,S}, A) ->
-                        SuccTs0 = infer_types_switch(V, Val, Ts, D),
-                        SuccTs = maps:remove(V, SuccTs0),
-                        update_successor(S, SuccTs, A)
-                end,
-            foldl(F, D, List);
-        false ->
-            %% V can not be equal to any of the values in List at the fail
-            %% block.
-            FailTs = subtract_sw_list(V, List, Ts),
-            D = update_successor(Fail, FailTs, D0),
-            F = fun({Val,S}, A) ->
-                        SuccTs = infer_types_switch(V, Val, Ts, D),
-                        update_successor(S, SuccTs, A)
-                end,
-            foldl(F, D, List)
-    end;
-update_successors(#b_ret{arg=Arg}, Ts, D) ->
-    FuncId = D#d.func_id,
-    case D#d.ds of
-        #{ Arg := #b_set{op=call,args=[FuncId | _]} } ->
-            %% Returning a call to ourselves doesn't affect our own return
-            %% type.
-            D;
+update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
+                  Ts, D0) ->
+    UsedOnce = cerl_sets:is_element(V, D0#d.once),
+
+    {List1, D1} = update_switch(List0, V, UsedOnce, Ts, [], D0),
+
+    FailTs = case UsedOnce of
+                 true -> maps:remove(V, Ts);
+                 false -> subtract_sw_list(V, List0, Ts)
+             end,
+
+    case FailTs of
+        none ->
+            [{_, Fail} | List] = List1,
+            Last = Last0#b_switch{fail=Fail,list=List},
+            {Last, D1};
         #{} ->
-            RetType = beam_types:join([get_type(Arg, Ts) | D#d.ret_type]),
-            D#d{ret_type=[RetType]}
-    end.
+            D = update_successor(Fail0, FailTs, D1),
+            Last = Last0#b_switch{list=List1},
+            {Last, D}
+    end;
+update_successors(#b_ret{arg=Arg}=Last, Ts, D0) ->
+    FuncId = D0#d.func_id,
+    D = case D0#d.ds of
+            #{ Arg := #b_set{op=call,args=[FuncId | _]} } ->
+                %% Returning a call to ourselves doesn't affect our own return
+                %% type.
+                D0;
+            #{} ->
+                RetType = beam_types:join([get_type(Arg, Ts) | D0#d.ret_type]),
+                D0#d{ret_type=[RetType]}
+        end,
+    {Last, D}.
+
+update_switch([{Val, Lbl}=Sw | List], V, UsedOnce, Ts, Acc, D0) ->
+    case infer_types_switch(V, Val, Ts, D0) of
+        none ->
+            update_switch(List, V, UsedOnce, Ts, Acc, D0);
+        SwTs0 ->
+            SwTs = case UsedOnce of
+                       true -> maps:remove(V, SwTs0);
+                       false -> SwTs0
+                   end,
+            D = update_successor(Lbl, SwTs, D0),
+            update_switch(List, V, UsedOnce, Ts, [Sw | Acc], D)
+    end;
+update_switch([], _V, _UsedOnce, _Ts, Acc, D) ->
+    {Acc, D}.
 
 subtract_sw_list(V, List, Ts) ->
-    Ts#{ V := sub_sw_list_1(get_type(V, Ts), List, Ts) }.
+    case sub_sw_list_1(get_type(V, Ts), List, Ts) of
+        none -> none;
+        Type -> Ts#{ V := Type }
+    end.
 
 sub_sw_list_1(Type, [{Val,_}|T], Ts) ->
     ValType = get_type(Val, Ts),
     sub_sw_list_1(beam_types:subtract(Type, ValType), T, Ts);
 sub_sw_list_1(Type, [], _Ts) ->
     Type.
-
-update_successor_bool(#b_var{}=Var, BoolValue, S, Ts, D) ->
-    case beam_types:is_boolean_type(get_type(Var, Ts)) of
-        true ->
-            update_successor(S, Ts#{ Var := beam_types:make_atom(BoolValue) }, D);
-        false ->
-            %% The `br` terminator is preceeded by an instruction that
-            %% does not produce a boolean value, such a `new_try_tag`.
-            update_successor(S, Ts, D)
-    end.
 
 update_successor(?BADARG_BLOCK, _Ts, #d{}=D) ->
     %% We KNOW that no variables are used in the ?BADARG_BLOCK,
@@ -1286,12 +1299,32 @@ infer_types_br(#b_var{}=V, Ts, #d{ds=Ds}) ->
     NegTypes1 = [P || {_,T}=P <- EqTypes, beam_types:is_singleton_type(T)],
 
     PosTypes = EqTypes ++ PosTypes0,
-    SuccTs = meet_types(PosTypes, Ts),
+    SuccTs1 = meet_types(PosTypes, Ts),
 
     NegTypes = NegTypes0 ++ NegTypes1,
-    FailTs = subtract_types(NegTypes, Ts),
+    FailTs1 = subtract_types(NegTypes, Ts),
 
-    {SuccTs,FailTs}.
+    SuccTs = infer_br_value(V, Ts, true, SuccTs1),
+    FailTs = infer_br_value(V, Ts, false, FailTs1),
+
+    {SuccTs, FailTs}.
+
+infer_br_value(_V, _OldTs, _Bool, none) ->
+    none;
+infer_br_value(V, OldTs, Bool, NewTs) ->
+    case OldTs of
+        #{ V := T } ->
+            case beam_types:is_boolean_type(T) of
+                true ->
+                    NewTs#{ V := beam_types:make_atom(Bool) };
+                false ->
+                    %% V is a try/catch tag or similar, leave it alone.
+                    NewTs
+            end;
+        #{} ->
+            %% V is only used in this branch; don't propagate its type.
+            NewTs
+    end.
 
 infer_types_switch(V, Lit, Ts, #d{ds=Ds}) ->
     Types = infer_eq_type({bif,'=:='}, [V, Lit], Ts, Ds),
@@ -1418,6 +1451,7 @@ join_types_1([], Ts0, Ts1) ->
 meet_types([{V,T0}|Vs], Ts) ->
     #{V:=T1} = Ts,
     case beam_types:meet(T0, T1) of
+        none -> none;
         T1 -> meet_types(Vs, Ts);
         T -> meet_types(Vs, Ts#{V:=T})
     end;
@@ -1426,7 +1460,9 @@ meet_types([], Ts) -> Ts.
 subtract_types([{V,T0}|Vs], Ts) ->
     #{V:=T1} = Ts,
     case beam_types:subtract(T1, T0) of
+        none -> none;
         T1 -> subtract_types(Vs, Ts);
         T -> subtract_types(Vs, Ts#{V:=T})
     end;
 subtract_types([], Ts) -> Ts.
+
