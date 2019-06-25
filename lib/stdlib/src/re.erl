@@ -33,6 +33,8 @@
 
 %%% BIFs
 
+-export([internal_run/4]).
+
 -export([version/0, compile/1, compile/2, run/2, run/3, inspect/2]).
 
 -spec version() -> binary().
@@ -98,6 +100,40 @@ run(_, _) ->
       CompileErr :: {ErrString :: string(), Position :: non_neg_integer()}.
 
 run(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec internal_run(Subject, RE, Options, FirstCall) -> {match, Captured} |
+                                                       match |
+                                                       nomatch |
+                                                       {error, ErrType} when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata() | unicode:charlist(),
+      Options :: [Option],
+      Option :: anchored | global | notbol | noteol | notempty 
+	      | notempty_atstart | report_errors
+              | {offset, non_neg_integer()} |
+		{match_limit, non_neg_integer()} |
+		{match_limit_recursion, non_neg_integer()} |
+                {newline, NLSpec :: nl_spec()} |
+                bsr_anycrlf | bsr_unicode | {capture, ValueSpec} |
+                {capture, ValueSpec, Type} | CompileOpt,
+      Type :: index | list | binary,
+      ValueSpec :: all | all_but_first | all_names | first | none | ValueList,
+      ValueList :: [ValueID],
+      ValueID :: integer() | string() | atom(),
+      CompileOpt :: compile_option(),
+      Captured :: [CaptureData] | [[CaptureData]],
+      CaptureData :: {integer(), integer()}
+                   | ListConversionData
+                   | binary(),
+      ListConversionData :: string()
+                          | {error, string(), binary()}
+                          | {incomplete, string(), binary()},
+      ErrType :: match_limit | match_limit_recursion | {compile,  CompileErr}, 
+      CompileErr :: {ErrString :: string(), Position :: non_neg_integer()},
+      FirstCall :: boolean().
+
+internal_run(_, _, _, _) ->
     erlang:nif_error(undef).
 
 -spec inspect(MP,Item) -> {namelist, [ binary() ]} when
@@ -765,17 +801,17 @@ do_grun(FlatSubject,Subject,Unicode,CRLF,RE,{Options0,NeedClean}) ->
     try
 	postprocess(loopexec(FlatSubject,RE,InitialOffset,
 			     byte_size(FlatSubject),
-			     Unicode,CRLF,StrippedOptions),
+			     Unicode,CRLF,StrippedOptions,true),
 		    SelectReturn,ConvertReturn,FlatSubject,Unicode)
     catch
 	throw:ErrTuple ->
 	    ErrTuple
     end.
 
-loopexec(_,_,X,Y,_,_,_) when X > Y ->
+loopexec(_,_,X,Y,_,_,_,_) when X > Y ->
     {match,[]};
-loopexec(Subject,RE,X,Y,Unicode,CRLF,Options) ->
-    case re:run(Subject,RE,[{offset,X}]++Options) of
+loopexec(Subject,RE,X,Y,Unicode,CRLF,Options, First) ->
+    case re:internal_run(Subject,RE,[{offset,X}]++Options,First) of
 	{error, Err} ->
 	    throw({error,Err});
 	nomatch ->
@@ -784,11 +820,11 @@ loopexec(Subject,RE,X,Y,Unicode,CRLF,Options) ->
 	    {match,Rest} = 
 		case B>0 of
 		    true ->
-			loopexec(Subject,RE,A+B,Y,Unicode,CRLF,Options);
+			loopexec(Subject,RE,A+B,Y,Unicode,CRLF,Options,false);
 		    false ->
 			{match,M} = 
-			    case re:run(Subject,RE,[{offset,X},notempty_atstart,
-						anchored]++Options) of
+			    case re:internal_run(Subject,RE,[{offset,X},notempty_atstart,
+                                                             anchored]++Options,false) of
 				nomatch ->
 				    {match,[]};
 				{match,Other} ->
@@ -801,7 +837,7 @@ loopexec(Subject,RE,X,Y,Unicode,CRLF,Options) ->
 				       forward(Subject,A,1,Unicode,CRLF)
 			       end,
 			{match,MM} = loopexec(Subject,RE,NewA,Y,
-					      Unicode,CRLF,Options),
+					      Unicode,CRLF,Options,false),
 			case M of 
 			    [] ->
 				{match,MM};
