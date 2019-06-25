@@ -332,7 +332,7 @@ integer_timer_start_and_expire(Config) when is_list(Config) ->
     receive
 	{timeout, Timeout} ->
 	    ok
-    after Timeout + 100 ->
+    after Timeout + 500 ->
 	    tmr_stop(Ref),
 	    error(no_timeout)
     end,
@@ -443,13 +443,6 @@ print1(_, _, _, _) ->
 print(Prefix, F, A) ->
     io:format("*** [~s] ~s ~p ~s:~w ***"
               "~n   " ++ F ++ "~n", 
-              [formated_timestamp(), Prefix, self(), get(sname), get(tc) | A]).
+              [?FTS(), Prefix, self(), get(sname), get(tc) | A]).
 
-    
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-formated_timestamp() ->
-    megaco:format_timestamp(os:timestamp()).
 
