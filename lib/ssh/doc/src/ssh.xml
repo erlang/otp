@@ -347,6 +347,7 @@
     
     <datatype>
       <name name="subsystem_daemon_option"/>
+      <name name="subsystem_specs"/>
       <name name="subsystem_spec"/>
       <desc>
 	<p>Defines a subsystem in the daemon.</p>
