@@ -85,7 +85,8 @@ init_old_comp_page(Parent, Info) ->
 init_info_page(Parent, undefined) ->
     init_info_page(Parent, "");
 init_info_page(Parent, String) ->
-    cdv_html_wx:start_link(Parent,observer_html_lib:plain_page(String)).
+    Cs = observer_lib:colors(Parent),
+    cdv_html_wx:start_link(Parent,observer_html_lib:plain_page(String,Cs)).
 
 format({Bin,q}) when is_binary(Bin) ->
     [$'|binary_to_list(Bin)];

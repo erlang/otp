@@ -36,6 +36,7 @@
 	 check = false
 	}).
 
+-record(colors, {fg, even, odd}).
 -record(attrs, {even, odd, searched, deleted, changed_odd, changed_even, new_odd, new_even}).
 -define(EVEN(Row), ((Row rem 2) =:= 0)).
 -define(BG_EVEN,    {230,230,250}).

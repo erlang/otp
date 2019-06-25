@@ -28,7 +28,7 @@
 	 interval_dialog/4, start_timer/1, start_timer/2, stop_timer/1, timer_config/1,
 	 display_info/2, display_info/3, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
-	 is_darkmode/1, create_attrs/1,
+	 is_darkmode/1, colors/1, create_attrs/1,
 	 set_listctrl_col_size/2, mix/3,
 	 create_status_bar/1,
 	 html_window/1, html_window/2,
@@ -373,15 +373,19 @@ create_menu_item(separator, Menu, Index) ->
     wxMenu:insertSeparator(Menu, Index),
     Index+1.
 
-create_attrs(Window) ->
+colors(Window) ->
     DarkMode = is_darkmode(wxWindow:getBackgroundColour(Window)),
-    Font = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
     Text = case wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOXTEXT) of
                {255,255,255,_} when not DarkMode -> {10,10,10}; %% Is white on Mac for some reason
                Color -> Color
            end,
     Even = wxSystemSettings:getColour(?wxSYS_COLOUR_LISTBOX),
     Odd = mix(Even, wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT), 0.8),
+    #colors{fg=rgb(Text), even=rgb(Even), odd=rgb(Odd)}.
+
+create_attrs(Window) ->
+    Font = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+    #colors{fg=Text, even=Even, odd=Odd} = colors(Window),
     #attrs{even = wxListItemAttr:new(Text, Even, Font),
            odd  = wxListItemAttr:new(Text, Odd, Font),
            deleted = wxListItemAttr:new(?FG_DELETED, ?BG_DELETED, Font),
@@ -391,6 +395,9 @@ create_attrs(Window) ->
            new_odd  = wxListItemAttr:new(Text, mix(?BG_NEW, ?BG_ODD, 0.9), Font),
            searched = wxListItemAttr:new(Text, ?BG_SEARCHED, Font)
           }.
+
+rgb({R,G,B,_}) -> {R,G,B};
+rgb({_,_,_}=RGB) -> RGB.
 
 mix(RGB,{MR,MG,MB,_}, V) ->
     mix(RGB, {MR,MG,MB}, V);

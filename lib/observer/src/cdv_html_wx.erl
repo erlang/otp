@@ -30,7 +30,8 @@
 
 %% Records
 -record(state,
-	{panel,
+	{parent,
+         panel,
 	 app,         %% which tool is the user
 	 expand_table,
          expand_wins=[],
@@ -62,7 +63,7 @@ init(ParentWin, HtmlText, Tab, App) ->
     HtmlWin = observer_lib:html_window(ParentWin),
     wxHtmlWindow:setPage(HtmlWin,HtmlText),
     wx_misc:endBusyCursor(),
-    {HtmlWin, #state{panel=HtmlWin,expand_table=Tab,app=App}}.
+    {HtmlWin, #state{parent=ParentWin, panel=HtmlWin,expand_table=Tab,app=App}}.
 
 init(ParentWin, Callback) ->
     {HtmlWin, State} = init(ParentWin, "", undefined, cdv),
@@ -70,12 +71,15 @@ init(ParentWin, Callback) ->
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-handle_info(active, #state{panel=HtmlWin,delayed_fetch=Callback}=State)
+handle_info(active, #state{parent=Parent, panel=HtmlWin,delayed_fetch=Callback}=State)
   when Callback=/=undefined ->
     observer_lib:display_progress_dialog(HtmlWin,
                                          "Crashdump Viewer",
                                          "Reading data"),
-    {{expand,HtmlText,Tab},TW} = Callback:get_info(),
+    {{expand,Title,Info,Tab},TW} = Callback:get_info(),
+    Cs = observer_lib:colors(Parent),
+    HtmlText = observer_html_lib:expandable_term(Title,Info,Tab,Cs),
+
     observer_lib:sync_destroy_progress_dialog(),
     wx_misc:beginBusyCursor(),
     wxHtmlWindow:setPage(HtmlWin,HtmlText),
