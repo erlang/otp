@@ -880,7 +880,7 @@ other_node(cleanup,_Config) ->
     ok.
 
 compare_levels(_Config) ->
-    Levels = [emergency,alert,critical,error,warning,notice,info,debug],
+    Levels = [none,emergency,alert,critical,error,warning,notice,info,debug,all],
     ok = compare(Levels),
     {error,badarg} = ?TRY(logger:compare_levels(bad,bad)),
     {error,badarg} = ?TRY(logger:compare_levels({bad},notice)),
