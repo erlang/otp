@@ -32,8 +32,6 @@ int get_bn_from_mpint(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
     if (bin.size > INT_MAX - 4)
         goto err;
 
-    ERL_VALGRIND_ASSERT_MEM_DEFINED(bin.data, bin.size);
-
     if (bin.size < 4)
         goto err;
     sz = (int)bin.size - 4;
@@ -59,8 +57,6 @@ int get_bn_from_bin(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
         goto err;
     if (bin.size > INT_MAX)
         goto err;
-
-    ERL_VALGRIND_ASSERT_MEM_DEFINED(bin.data, bin.size);
 
     if ((ret = BN_bin2bn(bin.data, (int)bin.size, NULL)) == NULL)
         goto err;
@@ -102,8 +98,6 @@ ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned bin_hdr; /* return type: 0=plain binary, 4: mpint */
     unsigned extra_byte;
     ERL_NIF_TERM ret;
-
-    ASSERT(argc == 4);
 
     if (!get_bn_from_bin(env, argv[0], &bn_base))
         goto bad_arg;
@@ -177,7 +171,6 @@ ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
 
     BN_bn2bin(bn, ptr);
 
-    ERL_VALGRIND_MAKE_MEM_DEFINED(ptr, dlen);
     return ret;
 
  err:
