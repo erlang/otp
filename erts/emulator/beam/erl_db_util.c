@@ -2612,7 +2612,10 @@ restart:
 	    break;
         case matchCaller:
             ASSERT(c_p == self);
-	    if (!(c_p->cp) || !(cp = find_function_from_pc(c_p->cp))) {
+            t = c_p->stop[0];
+            if (is_not_CP(t)) {
+                *esp++ = am_undefined;
+            } else if (!(cp = find_function_from_pc(cp_val(t)))) {
  		*esp++ = am_undefined;
  	    } else {
 		ehp = HAllocX(build_proc, 4, HEAP_XTRA);
@@ -5226,7 +5229,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
     Eterm l;
     Uint32 ret_flags;
     Uint sz;
-    BeamInstr *save_cp;
+    Eterm save_cp;
 
     if (trace && !(is_list(against) || against == NIL)) {
 	return THE_NON_VALUE;
@@ -5270,13 +5273,13 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 		++n;
 		l = CDR(list_val(l));
 	    }
-	    save_cp = p->cp;
-	    p->cp = NULL;
+	    save_cp = p->stop[0];
+	    p->stop[0] = NIL;
 	    res = erts_match_set_run_trace(p, p,
                       mps, arr, n,
 		      ERTS_PAM_COPY_RESULT|ERTS_PAM_IGNORE_TRACE_SILENT,
 		      &ret_flags);
-	    p->cp = save_cp;
+	    p->stop[0] = save_cp;
 	} else {
 	    n = 0;
 	    arr = NULL;

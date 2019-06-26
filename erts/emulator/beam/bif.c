@@ -5164,7 +5164,7 @@ erts_schedule_bif(Process *proc,
 	else if (proc->flags & F_HIPE_MODE) {
 	    /* Pointer to bif export in i */
 	    exp = (Export *) i;
-	    pc = c_p->cp;
+            pc = cp_val(c_p->stop[0]);
 	    mfa = &exp->info.mfa;
 	}
 #endif
@@ -5181,8 +5181,7 @@ erts_schedule_bif(Process *proc,
 	    mfa = &exp->info.mfa;
 	}
 	else if (BeamIsOpCode(*i, op_apply_bif)) {
-	    /* Pointer to bif in i+1, and mfa in i-3 */	    
-	    pc = c_p->cp;
+            pc = cp_val(c_p->stop[0]);
 	    mfa = erts_code_to_codemfa(i);
 	}
 	else {
@@ -5273,7 +5272,6 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
     dirty_shadow_proc->freason = c_p->freason;
     dirty_shadow_proc->fvalue = c_p->fvalue;
     dirty_shadow_proc->ftrace = c_p->ftrace;
-    dirty_shadow_proc->cp = c_p->cp;
     dirty_shadow_proc->i = c_p->i;
 
 #ifdef DEBUG
@@ -5320,7 +5318,6 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
 	c_p->freason = dirty_shadow_proc->freason;
 	c_p->fvalue = dirty_shadow_proc->fvalue;
 	c_p->ftrace = dirty_shadow_proc->ftrace;
-	c_p->cp = dirty_shadow_proc->cp;
 	c_p->i = dirty_shadow_proc->i;
 	c_p->arity = dirty_shadow_proc->arity;
     }

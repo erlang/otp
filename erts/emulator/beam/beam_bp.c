@@ -642,46 +642,35 @@ erts_clear_export_break(Module* modp, ErtsCodeInfo *ci)
 }
 
 /*
- * If c_p->cp is a trace return instruction, we set cp
- * to be the place where we again start to execute code.
+ * If the topmost continuation pointer on the stack is a trace return
+ * instruction, we modify it to be the place where we again start to
+ * execute code.
  *
- * cp is used by match spec {caller} to get the calling
- * function, and if we don't do this fixup it will be
- * 'undefined'. This has the odd side effect of {caller}
- * not really being which function is the caller, but
- * rather which function we are about to return to.
+ * This continuation pointer is used by match spec {caller} to get the
+ * calling function, and if we don't do this fixup it will be
+ * 'undefined'. This has the odd side effect of {caller} not really
+ * being the function which is the caller, but rather the function
+ * which we are about to return to.
  */
 static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
 {
-    Eterm *cpp, *E = c_p->stop;
-    BeamInstr w = *c_p->cp;
-    if (BeamIsOpCode(w, op_return_trace)) {
-        cpp = &E[2];
-    } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
-        *return_to_trace = 1;
-        cpp = &E[0];
-    } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
-        cpp = &E[0];
-    } else {
-        cpp = NULL;
-    }
-    if (cpp) {
-        for (;;) {
-            BeamInstr w = *cp_val(*cpp);
-            if (BeamIsOpCode(w, op_return_trace)) {
-                cpp += 3;
-            } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
-                *return_to_trace = 1;
-                cpp += 1;
-            } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
-                cpp += 2;
-            } else {
-                break;
-            }
+    Eterm *cpp = c_p->stop;
+
+    for (;;) {
+        BeamInstr w = *cp_val(*cpp);
+        if (BeamIsOpCode(w, op_return_trace)) {
+            cpp += 3;
+        } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
+            *return_to_trace = 1;
+            cpp += 1;
+        } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
+            cpp += 2;
+        } else {
+            break;
         }
-        c_p->cp = (BeamInstr *) cp_val(*cpp);
-        ASSERT(is_CP(*cpp));
     }
+    c_p->stop[0] = (Eterm) cp_val(*cpp);
+    ASSERT(is_CP(*cpp));
 }
 
 BeamInstr
@@ -743,12 +732,13 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
 	Eterm w;
+        Eterm* E;
 	erts_trace_time_call(c_p, info, bp->time);
-	w = (BeamInstr) *c_p->cp;
+        E = c_p->stop;
+        w = (BeamInstr) E[0];
 	if (! (BeamIsOpCode(w, op_i_return_time_trace) ||
 	       BeamIsOpCode(w, op_return_trace) ||
                BeamIsOpCode(w, op_i_return_to_trace)) ) {
-	    Eterm* E = c_p->stop;
 	    ASSERT(c_p->htop <= E && E <= c_p->hend);
 	    if (E - 2 < c_p->htop) {
 		(void) erts_garbage_collect(c_p, 2, reg, info->mfa.arity);
@@ -759,9 +749,8 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 	    ASSERT(c_p->htop <= E && E <= c_p->hend);
 
 	    E -= 2;
-	    E[0] = make_cp(erts_codeinfo_to_code(info));
-	    E[1] = make_cp(c_p->cp);     /* original return address */
-	    c_p->cp = beam_return_time_trace;
+	    E[1] = make_cp(erts_codeinfo_to_code(info));
+	    E[0] = (Eterm) beam_return_time_trace;
 	    c_p->stop = E;
 	}
     }
@@ -790,7 +779,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     int applying = (I == ep->beam); /* Yup, the apply code for a bif
                                       * is actually in the
                                       * export entry */
-    BeamInstr *cp = p->cp;
+    BeamInstr* cp = (BeamInstr *) p->stop[0];
     GenericBp* g;
     GenericBpData* bp = NULL;
     Uint bp_flags = 0;
@@ -809,7 +798,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
      * but it is correct during apply of bif.
      */
     if (!applying) {
-	p->cp = I;
+        p->stop[0] = (Eterm) I;
     } else {
         fixup_cp_before_trace(p, &return_to_trace);
     }
@@ -846,7 +835,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     }
 
     /* Restore original continuation pointer (if changed). */
-    p->cp = cp;
+    p->stop[0] = (Eterm) cp;
 
     func = bif_table[bif_index].f;
 
@@ -854,7 +843,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 
     if (erts_nif_export_check_save_trace(p, result,
 					 applying, ep,
-					 cp, flags,
+					 flags,
 					 flags_meta, I,
 					 meta_tracer)) {
 	/*
@@ -865,24 +854,31 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	return result;
     }
 
-    return erts_bif_trace_epilogue(p, result, applying, ep, cp,
+    return erts_bif_trace_epilogue(p, result, applying, ep,
 				   flags, flags_meta, I,
 				   meta_tracer);
 }
 
 Eterm
 erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
-			Export* ep, BeamInstr *cp, Uint32 flags,
+			Export* ep, Uint32 flags,
 			Uint32 flags_meta, BeamInstr* I,
 			ErtsTracer meta_tracer)
 {
+    BeamInstr *cp = NULL;
+
     if (applying && (flags & MATCH_SET_RETURN_TO_TRACE)) {
 	BeamInstr i_return_trace      = beam_return_trace[0];
 	BeamInstr i_return_to_trace   = beam_return_to_trace[0];
 	BeamInstr i_return_time_trace = beam_return_time_trace[0];
 	Eterm *cpp;
+
 	/* Maybe advance cp to skip trace stack frames */
-	for (cpp = p->stop;  ;  cp = cp_val(*cpp++)) {
+        cpp = p->stop;
+        while (is_not_CP(*cpp)) {
+            cpp++;
+        }
+        for (cp = cp_val(*cpp++); ;) {
 	    if (*cp == i_return_trace) {
 		/* Skip stack frame variables */
 		while (is_not_CP(*cpp)) cpp++;
@@ -897,8 +893,11 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
 		 */
 		cp = NULL;
 		break;
-	    } else break;
-	}
+	    } else {
+                break;
+            }
+            cp = cp_val(*cpp++);
+        }
     }
 
     /* Try to get these in the order
@@ -939,7 +938,7 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
 	    if ((flags & MATCH_SET_RETURN_TO_TRACE) && p->catches > 0) {
 		/* can only happen if(local)*/
 		Eterm *ptr = p->stop;
-		ASSERT(is_CP(*ptr));
+		ASSERT(!applying || is_CP(*ptr));
 		ASSERT(ptr <= STACK_START(p));
 		/* Search the nearest stack frame for a catch */
 		while (++ptr < STACK_START(p)) {
@@ -991,19 +990,19 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 	      int local, Binary* ms, ErtsTracer tracer)
 {
     int return_to_trace = 0;
-    BeamInstr *cp_save = c_p->cp;
     Uint32 flags;
     Uint need = 0;
+    Eterm cp_save;
     Eterm* E = c_p->stop;
 
-    fixup_cp_before_trace(c_p, &return_to_trace);
+    cp_save = E[0];
 
+    fixup_cp_before_trace(c_p, &return_to_trace);
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     flags = erts_call_trace(c_p, info, ms, reg, local, &tracer);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
 
-    /* restore cp after potential fixup */
-    c_p->cp = cp_save;
+    E[0] = cp_save;
 
     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     if ((flags & MATCH_SET_RETURN_TO_TRACE) && !return_to_trace) {
@@ -1023,28 +1022,23 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
     if (flags & MATCH_SET_RETURN_TO_TRACE && !return_to_trace) {
 	E -= 1;
 	ASSERT(c_p->htop <= E && E <= c_p->hend);
-	E[0] = make_cp(c_p->cp);
-	c_p->cp = beam_return_to_trace;
+	E[0] = (Eterm) beam_return_to_trace;
+        c_p->stop = E;
     }
-    if (flags & MATCH_SET_RX_TRACE)
-    {
+    if (flags & MATCH_SET_RX_TRACE) {
 	E -= 3;
         c_p->stop = E;
 	ASSERT(c_p->htop <= E && E <= c_p->hend);
 	ASSERT(is_CP((Eterm) (UWord) (&info->mfa.module)));
 	ASSERT(IS_TRACER_VALID(tracer));
-	E[2] = make_cp(c_p->cp);
-        E[1] = copy_object(tracer, c_p);
-	E[0] = make_cp(&info->mfa.module);
-                               /* We ARE at the beginning of an instruction,
-				  the funcinfo is above i. */
-	c_p->cp = (flags & MATCH_SET_EXCEPTION_TRACE) ?
-	    beam_exception_trace : beam_return_trace;
+        E[2] = copy_object(tracer, c_p);
+        E[1] = make_cp(&info->mfa.module);
+        E[0] = (Eterm) ((flags & MATCH_SET_EXCEPTION_TRACE) ?
+                        beam_exception_trace : beam_return_trace);
 	erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
 	erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-    } else
-        c_p->stop = E;
+    }
     return tracer;
 }
 

@@ -280,7 +280,7 @@ call_bif(Exp) {
          * erlang code or by nif_bif.epilogue() when the BIF
          * is done).
          */
-        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         SET_I(c_p->i);
         SWAPIN;
         Dispatch();
@@ -297,7 +297,7 @@ call_bif(Exp) {
 
 //
 // Call a BIF tail-recursively, storing the result in x(0) and doing
-// a return to the continuation poiner (c_p->cp).
+// a return to the continuation poiner.
 //
 
 call_bif_only(Exp) {
@@ -367,7 +367,7 @@ call_bif_only(Exp) {
     } else if (c_p->freason == TRAP) {
         /*
          * Dispatch to a trap. When the trap is done, a jump
-         * to the continuation pointer (c_p->cp) will be done.
+         * to the continuation pointer on the stack will be done.
          */
         SET_I(c_p->i);
         SWAPIN;
@@ -413,7 +413,7 @@ send() {
         r(0) = result;
         CHECK_TERM(r(0));
     } else if (c_p->freason == TRAP) {
-        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         SET_I(c_p->i);
         SWAPIN;
         Dispatch();
@@ -570,8 +570,7 @@ nif_bif.epilogue() {
     if (ERTS_LIKELY(is_value(nif_bif_result))) {
         r(0) = nif_bif_result;
         CHECK_TERM(r(0));
-        SET_I(c_p->cp);
-        c_p->cp = 0;
+        $RETURN();
         Goto(*I);
     } else if (c_p->freason == TRAP) {
         SET_I(c_p->i);
@@ -581,6 +580,10 @@ nif_bif.epilogue() {
         }
         Dispatch();
     }
-    I = handle_error(c_p, c_p->cp, reg, c_p->current);
+    {
+        BeamInstr *cp = cp_val(*E);
+        ASSERT(VALID_INSTR(*cp));
+        I = handle_error(c_p, cp, reg, c_p->current);
+    }
     goto post_error_handling;
 }

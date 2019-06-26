@@ -202,15 +202,13 @@ hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 	p->stop -= 2;
 	p->stop[1] = hipe_beam_catch_throw;
     }
-    p->stop[0] = make_cp(p->cp);
+    p->stop[0] = (BeamInstr) hipe_beam_pc_return;
     ++p->catches;
-    p->cp = hipe_beam_pc_return;
 }
 
 static __inline__ void hipe_pop_beam_trap_frame(Process *p)
 {
     ASSERT(p->stop[1] == hipe_beam_catch_throw);
-    p->cp = cp_val(p->stop[0]);
     --p->catches;
     p->stop += 2;
 }
@@ -263,7 +261,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  unsigned arity = cmd >> 8;
 
 	  /* p->hipe.u.ncallee set in beam_emu */
-	  if (p->cp == hipe_beam_pc_return) {
+	  if (cp_val(p->stop[0]) == hipe_beam_pc_return) {
 	    /* Native called BEAM, which now tailcalls native. */
 	    hipe_pop_beam_trap_frame(p);
 	    result = hipe_tailcall_to_native(p, arity, reg);
@@ -292,7 +290,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  /* just like a normal call from now on */
 
 	  /* p->hipe.u.ncallee set in beam_emu */
-	  if (p->cp == hipe_beam_pc_return) {
+	  if (cp_val(p->stop[0]) == hipe_beam_pc_return) {
 	      /* Native called BEAM, which now tailcalls native. */
 	      hipe_pop_beam_trap_frame(p);
 	      result = hipe_tailcall_to_native(p, arity, reg);

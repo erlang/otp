@@ -1125,13 +1125,12 @@ check_process_code(Process* rp, Module* modp, int *redsp, int fcalls)
     mod_size = modp->old.code_length;
 
     /*
-     * Check if current instruction or continuation pointer points into module.
+     * Check if the instruction pointer points into module.
      */
-    if (ErtsInArea(rp->i, mod_start, mod_size)
-	|| ErtsInArea(rp->cp, mod_start, mod_size)) {
+    if (ErtsInArea(rp->i, mod_start, mod_size)) {
 	return am_true;
     }
- 
+
     *redsp += 1;
 
     if (erts_check_nif_export_in_area(rp, mod_start, mod_size))

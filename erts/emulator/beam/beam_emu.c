@@ -141,10 +141,6 @@ do {                                     \
      BeamCodeAddr(IP) < (BeamInstr)LabelAddr(end_emulator_loop))
 #endif /* NO_JUMP_TABLE */
 
-#define SET_CP(p, ip)           \
-   ASSERT(VALID_INSTR(*(ip)));  \
-   (p)->cp = (ip)
-
 #define SET_I(ip) \
    ASSERT(VALID_INSTR(* (Eterm *)(ip))); \
    I = (ip)
@@ -524,7 +520,7 @@ init_emulator(void)
 #define DTRACE_RETURN_FROM_PC(p)                                                        \
     do {                                                                                \
         ErtsCodeMFA* cmfa;                                                                  \
-        if (DTRACE_ENABLED(function_return) && (cmfa = find_function_from_pc((p)->cp))) { \
+        if (DTRACE_ENABLED(function_return) && (cmfa = find_function_from_pc(cp_val((p)->stop[0])))) { \
             DTRACE_RETURN((p), cmfa);                               \
         }                                                                               \
     } while(0)
@@ -1443,7 +1439,7 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 	reg[2] = Value;
 	reg[3] = c_p->ftrace;
         if ((new_pc = next_catch(c_p, reg))) {
-	    c_p->cp = 0;	/* To avoid keeping stale references. */
+            c_p->stop[0] = NIL;  /* To avoid keeping stale references. */
             ERTS_RECV_MARK_CLEAR(c_p); /* No longer safe to use this position */
 	    return new_pc;
 	}
@@ -1481,35 +1477,6 @@ next_catch(Process* c_p, Eterm *reg) {
         return NULL;
     }
 
-    /*
-     * Better safe than sorry here. In debug builds, produce a core
-     * dump if the top of the stack doesn't point to a continuation
-     * pointer. In other builds, ignore a non-CP at the top of stack.
-     */
-    ASSERT(is_CP(*ptr));
-    if ((is_not_CP(*ptr) || (*cp_val(*ptr) != i_return_trace &&
-			     *cp_val(*ptr) != i_return_to_trace &&
-			     *cp_val(*ptr) != i_return_time_trace ))
-	&& c_p->cp) {
-	/* Can not follow cp here - code may be unloaded */
-	BeamInstr *cpp = c_p->cp;
-	if (cpp == beam_exception_trace) {
-            ErtsCodeMFA *mfa = (ErtsCodeMFA*)cp_val(ptr[0]);
-	    erts_trace_exception(c_p, mfa,
-				 reg[1], reg[2],
-                                 ERTS_TRACER_FROM_ETERM(ptr+1));
-	    /* Skip return_trace parameters */
-	    ptr += 2;
-	} else if (cpp == beam_return_trace) {
-	    /* Skip return_trace parameters */
-	    ptr += 2;
-	} else if (cpp == beam_return_time_trace) {
-	    /* Skip return_trace parameters */
-	    ptr += 1;
-	} else if (cpp == beam_return_to_trace) {
-	    have_return_to_trace = !0; /* Record next cp */
-	}
-    }
     while (ptr < STACK_START(c_p)) {
 	if (is_catch(*ptr)) {
 	    if (active_catches) goto found_catch;
@@ -1664,6 +1631,57 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
     return Value;
 }
 
+
+static void
+gather_stacktrace(Process* p, Eterm *ptr, struct StackTrace* s, int depth)
+{
+    BeamInstr *prev;
+    BeamInstr i_return_trace;
+    BeamInstr i_return_to_trace;
+
+    if (depth == 0) {
+        return;
+    }
+
+    prev = s->depth ? s->trace[s->depth-1] : s->pc;
+    i_return_trace = beam_return_trace[0];
+    i_return_to_trace = beam_return_to_trace[0];
+
+    /*
+     * Traverse the stack backwards and add all unique continuation
+     * pointers to the buffer, up to the maximum stack trace size.
+     *
+     * Skip trace stack frames.
+     */
+
+    ASSERT(ptr >= STACK_TOP(p) && ptr <= STACK_START(p));
+
+    while (ptr < STACK_START(p) && depth > 0) {
+        if (is_CP(*ptr)) {
+            if (*cp_val(*ptr) == i_return_trace) {
+                /* Skip stack frame variables */
+                do ++ptr; while (is_not_CP(*ptr));
+                /* Skip return_trace parameters */
+                ptr += 2;
+            } else if (*cp_val(*ptr) == i_return_to_trace) {
+                /* Skip stack frame variables */
+                do ++ptr; while (is_not_CP(*ptr));
+            } else {
+                BeamInstr *cp = cp_val(*ptr);
+                if (cp != prev) {
+                    /* Record non-duplicates only */
+                    prev = cp;
+                    s->trace[s->depth++] = cp - 1;
+                    depth--;
+                }
+                ptr++;
+            }
+        } else {
+            ptr++;
+        }
+    }
+}
+
 /*
  * Quick-saving the stack trace in an internal form on the heap. Note
  * that c_p->ftrace will point to a cons cell which holds the given args
@@ -1702,6 +1720,7 @@ static void
 save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 		ErtsCodeMFA *bif_mfa, Eterm args) {
     struct StackTrace* s;
+    Eterm *stack_start;
     int sz;
     int depth = erts_backtrace_depth;    /* max depth (never negative) */
 
@@ -1718,6 +1737,33 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
     s->header = make_pos_bignum_header(sz);
     s->freason = c_p->freason;
     s->depth = 0;
+
+    /*
+     * If we crash on an instruction that returns to a return/exception trace
+     * instruction, we must set the stacktrace 'pc' to the actual return
+     * address or we'll lose the top stackframe when gathering the stack
+     * trace.
+     */
+    stack_start = STACK_TOP(c_p);
+    if (stack_start < STACK_START(c_p) && is_CP(*stack_start)) {
+        BeamInstr *cp = cp_val(*stack_start);
+
+        if (cp == pc) {
+            if (pc == beam_exception_trace || pc == beam_return_trace) {
+                ASSERT(&stack_start[3] <= STACK_START(c_p));
+                /* Fake having failed on the first instruction in the function
+                 * pointed to by the tag. */
+                pc = cp_val(stack_start[1]);
+                stack_start += 3;
+            } else if (pc == beam_return_to_trace) {
+                ASSERT(&stack_start[2] <= STACK_START(c_p));
+                pc = cp_val(stack_start[1]);
+                /* Skip both the trace tag and the new 'pc' to avoid
+                 * duplicated entries. */
+                stack_start += 2;
+            }
+        }
+    }
 
     /*
      * If the failure was in a BIF other than 'error/1', 'error/2',
@@ -1750,11 +1796,6 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 	    s->trace[s->depth++] = pc;
 	    depth--;
 	}
-	/* Save second stack entry if CP is valid and different from pc */
-	if (depth > 0 && c_p->cp != 0 && c_p->cp != pc) {
-	    s->trace[s->depth++] = c_p->cp - 1;
-	    depth--;
-	}
 	s->pc = NULL;
 	args = make_arglist(c_p, reg, bif_mfa->arity); /* Overwrite CAR(c_p->ftrace) */
     } else {
@@ -1762,9 +1803,9 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
     non_bif_stacktrace:
 
 	s->current = c_p->current;
-        /* 
+        /*
 	 * For a function_clause error, the arguments are in the beam
-	 * registers, c_p->cp is valid, and c_p->current is set.
+	 * registers and c_p->current is set.
 	 */
 	if ( (GET_EXC_INDEX(s->freason)) ==
 	     (GET_EXC_INDEX(EXC_FUNCTION_CLAUSE)) ) {
@@ -1772,18 +1813,8 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 	    ASSERT(s->current);
 	    a = s->current->arity;
 	    args = make_arglist(c_p, reg, a); /* Overwrite CAR(c_p->ftrace) */
-	    /* Save first stack entry */
-	    ASSERT(c_p->cp);
-	    if (depth > 0) {
-		s->trace[s->depth++] = c_p->cp - 1;
-		depth--;
-	    }
 	    s->pc = NULL; /* Ignore pc */
 	} else {
-	    if (depth > 0 && c_p->cp != 0 && c_p->cp != pc) {
-		s->trace[s->depth++] = c_p->cp - 1;
-		depth--;
-	    }
 	    s->pc = pc;
 	}
     }
@@ -1796,80 +1827,13 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
     }
 
     /* Save the actual stack trace */
-    erts_save_stacktrace(c_p, s, depth);
+    gather_stacktrace(c_p, stack_start, s, depth);
 }
 
 void
 erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
 {
-    if (depth > 0) {
-	Eterm *ptr;
-	BeamInstr *prev = s->depth ? s->trace[s->depth-1] : NULL;
-	BeamInstr i_return_trace = beam_return_trace[0];
-	BeamInstr i_return_to_trace = beam_return_to_trace[0];
-
-	/*
-	 * Traverse the stack backwards and add all unique continuation
-	 * pointers to the buffer, up to the maximum stack trace size.
-	 * 
-	 * Skip trace stack frames.
-	 */
-	ptr = p->stop;
-	if (ptr < STACK_START(p) &&
-	    (is_not_CP(*ptr)|| (*cp_val(*ptr) != i_return_trace &&
-				*cp_val(*ptr) != i_return_to_trace)) &&
-	    p->cp) {
-	    /* Cannot follow cp here - code may be unloaded */
-	    BeamInstr *cpp = p->cp;
-	    int trace_cp;
-	    if (cpp == beam_exception_trace || cpp == beam_return_trace) {
-		/* Skip return_trace parameters */
-		ptr += 2;
-		trace_cp = 1;
-	    } else if (cpp == beam_return_to_trace) {
-		/* Skip return_to_trace parameters */
-		ptr += 1;
-		trace_cp = 1;
-	    }
-	    else {
-		trace_cp = 0;
-	    }
-	    if (trace_cp && s->pc == cpp) {
-		/*
-		 * If process 'cp' points to a return/exception trace
-		 * instruction and 'cp' has been saved as 'pc' in
-		 * stacktrace, we need to update 'pc' in stacktrace
-		 * with the actual 'cp' located on the top of the
-		 * stack; otherwise, we will lose the top stackframe
-		 * when building the stack trace.
-		 */
-		ASSERT(is_CP(p->stop[0]));
-		s->pc = cp_val(p->stop[0]);
-	    }
-	}
-	while (ptr < STACK_START(p) && depth > 0) {
-	    if (is_CP(*ptr)) {
-		if (*cp_val(*ptr) == i_return_trace) {
-		    /* Skip stack frame variables */
-		    do ++ptr; while (is_not_CP(*ptr));
-		    /* Skip return_trace parameters */
-		    ptr += 2;
-		} else if (*cp_val(*ptr) == i_return_to_trace) {
-		    /* Skip stack frame variables */
-		    do ++ptr; while (is_not_CP(*ptr));
-		} else {
-		    BeamInstr *cp = cp_val(*ptr);
-		    if (cp != prev) {
-			/* Record non-duplicates only */
-			prev = cp;
-			s->trace[s->depth++] = cp - 1;
-			depth--;
-		    }
-		    ptr++;
-		}
-	    } else ptr++;
-	}
-    }
+    gather_stacktrace(p, STACK_TOP(p), s, depth);
 }
 
 /*
@@ -2144,36 +2108,33 @@ apply_bif_error_adjustment(Process *p, Export *ep,
 	 * erlang:error/1, erlang:error/2, erlang:exit/1,
 	 * or erlang:throw/1. Error handling of these BIFs is
 	 * special!
+         *
+	 * We need the topmost continuation pointer to point into the
+	 * calling function when handling the error after the BIF has
+	 * been applied. This in order to get the topmost stackframe
+	 * correct.
 	 *
-	 * We need 'p->cp' to point into the calling
-	 * function when handling the error after the BIF has
-	 * been applied. This in order to get the topmost
-	 * stackframe correct. Without the following adjustment,
-	 * 'p->cp' will point into the function that called
-	 * current function when handling the error. We add a
-	 * dummy stackframe in order to achieve this.
-	 *
-	 * Note that these BIFs unconditionally will cause
-	 * an exception to be raised. That is, our modifications
-	 * of 'p->cp' as well as the stack will be corrected by
-	 * the error handling code.
-	 *
-	 * If we find an exception/return-to trace continuation
-	 * pointer as the topmost continuation pointer, we do not
-	 * need to do anything since the information already will
-	 * be available for generation of the stacktrace.
+	 * Note that these BIFs will unconditionally cause an
+	 * exception to be raised. That is, our modifications of the
+	 * stack will be corrected by the error handling code.
 	 */
 	int apply_only = stack_offset == 0;
 	BeamInstr *cpp;
+        Eterm *E;
 
-	if (apply_only) {
-	    ASSERT(p->cp != NULL);
-	    cpp = p->cp;
-	}
-	else {
-	    ASSERT(is_CP(p->stop[0]));
-	    cpp = cp_val(p->stop[0]);
-	}
+        E = p->stop;
+
+        while (is_not_CP(*E)) {
+            E++;
+        }
+        cpp = cp_val(E[0]);
+
+        /*
+	 * If we find an exception/return-to trace continuation
+	 * pointer as the topmost continuation pointer, we do not
+	 * need to do anything since the information will already
+	 * be available for generation of the stacktrace.
+         */
 
 	if (cpp != beam_exception_trace
 	    && cpp != beam_return_trace
@@ -2183,38 +2144,29 @@ apply_bif_error_adjustment(Process *p, Export *ep,
 		need = 1; /* i_apply_only */
 	    if (p->stop - p->htop < need)
 		erts_garbage_collect(p, (int) need, reg, arity+1);
-	    p->stop -= need;
-
 	    if (apply_only) {
 		/*
 		 * Called from the i_apply_only instruction.
 		 *
-		 * 'p->cp' contains continuation pointer pointing
-		 * into the function that called current function.
-		 * We push that continuation pointer onto the stack,
-		 * and set 'p->cp' to point into current function.
+                 * Push the continuation pointer for the current
+                 * function to the stack.
 		 */
-
-		p->stop[0] = make_cp(p->cp);
-		p->cp = I;
-	    }
-	    else {
+                p->stop -= need;
+                p->stop[0] = make_cp(I);
+	    } else {
 		/*
-		 * Called from an i_apply_last_p, or apply_last_IP,
-		 * instruction.
+		 * Called from an i_apply_last_* instruction.
 		 *
-		 * Calling instruction will after we return read
-		 * a continuation pointer from the stack and write
-		 * it to 'p->cp', and then remove the topmost
-		 * stackframe of size 'stack_offset'.
+                 * The calling instruction will deallocate a stack
+                 * frame of size 'stack_offset'.
 		 *
-		 * We have sized the dummy-stackframe so that it
-		 * will be removed by the instruction we currently
-		 * are executing, and leave the stackframe that
-		 * normally would have been removed intact.
-		 *
+                 * Push the continuation pointer for the current
+                 * function to the stack, and then add a dummy
+                 * stackframe for the i_apply_last* instruction
+                 * to discard.
 		 */
-		p->stop[0] = make_cp(I);
+                p->stop[0] = make_cp(I);
+                p->stop -= need;
 	    }
 	}
     }
@@ -2437,10 +2389,10 @@ erts_hibernate(Process* c_p, Eterm* reg)
     c_p->arg_reg[0] = module;
     c_p->arg_reg[1] = function;
     c_p->arg_reg[2] = args;
-    c_p->stop = STACK_START(c_p);
+    c_p->stop = c_p->hend - 1;  /* Keep first continuation pointer */
+    ASSERT(c_p->stop[0] == make_cp(beam_apply+1));
     c_p->catches = 0;
     c_p->i = beam_apply;
-    c_p->cp = (BeamInstr *) beam_apply+1;
 
     /*
      * If there are no waiting messages, garbage collect and

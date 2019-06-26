@@ -67,7 +67,7 @@ erts_destroy_nif_export(Process *p)
 
 void
 erts_nif_export_save_trace(Process *c_p, NifExport *nep, int applying,
-			   Export* ep, BeamInstr *cp, Uint32 flags,
+			   Export* ep, Uint32 flags,
 			   Uint32 flags_meta, BeamInstr* I,
 			   ErtsTracer meta_tracer)
 {
@@ -78,7 +78,6 @@ erts_nif_export_save_trace(Process *c_p, NifExport *nep, int applying,
 		      sizeof(NifExportTrace));
     netp->applying = applying;
     netp->ep = ep;
-    netp->cp = cp;
     netp->flags = flags;
     netp->flags_meta = flags_meta;
     netp->I = I;
@@ -93,7 +92,7 @@ erts_nif_export_restore_trace(Process *c_p, Eterm result, NifExport *nep)
     NifExportTrace *netp = nep->trace;
     nep->trace = NULL;
     erts_bif_trace_epilogue(c_p, result, netp->applying, netp->ep,
-			    netp->cp, netp->flags, netp->flags_meta,
+			    netp->flags, netp->flags_meta,
 			    netp->I, netp->meta_tracer);
     erts_tracer_update(&netp->meta_tracer, NIL);
     erts_free(ERTS_ALC_T_NIF_EXP_TRACE, netp);
@@ -148,7 +147,6 @@ erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
 	for (i = 0; i < (int) mfa->arity; i++)
 	    nep->argv[i] = reg[i];
 	nep->pc = pc;
-	nep->cp = c_p->cp;
 	nep->mfa = mfa;
 	nep->current = c_p->current;
 	ASSERT(argc >= 0);

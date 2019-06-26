@@ -145,7 +145,7 @@ int erts_trace_flags(Eterm List,
 Eterm erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr *I);
 Eterm
 erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
-			Export* ep, BeamInstr *cp, Uint32 flags,
+			Export* ep, Uint32 flags,
 			Uint32 flags_meta, BeamInstr* I,
 			ErtsTracer meta_tracer);
 

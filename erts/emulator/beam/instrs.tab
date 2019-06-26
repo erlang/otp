@@ -19,7 +19,12 @@
 // %CopyrightEnd%
 //
 
-// Stack manipulation instructions
+//
+// Stack manipulation instructions follow.
+//
+// See the comment for AH() in macros.tab for information about
+// the layout of stack frames.
+//
 
 allocate(NeedStack, Live) {
     $AH($NeedStack, 0, $Live);
@@ -58,15 +63,14 @@ allocate_heap_zero(NeedStack, NeedHeap, Live) {
 
 deallocate(Deallocate) {
     //| -no_prefetch
-    SET_CP(c_p, (BeamInstr *) cp_val(*E));
     E = ADD_BYTE_OFFSET(E, $Deallocate);
 }
 
 deallocate_return(Deallocate) {
     //| -no_next
     int words_to_pop = $Deallocate;
-    SET_I((BeamInstr *) cp_val(*E));
     E = ADD_BYTE_OFFSET(E, words_to_pop);
+    $RETURN();
     CHECK_TERM(x(0));
     DispatchReturn;
 }
@@ -93,13 +97,13 @@ DISPATCH_ABS(CallDest) {
 }
 
 i_call(CallDest) {
-    SET_CP(c_p, $NEXT_INSTRUCTION);
+    $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
     $DISPATCH_REL($CallDest);
 }
 
 move_call(Src, CallDest) {
     x(0) = $Src;
-    SET_CP(c_p, $NEXT_INSTRUCTION);
+    $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
     $DISPATCH_REL($CallDest);
 }
 
@@ -131,7 +135,7 @@ DISPATCHX(Dest) {
 }
 
 i_call_ext(Dest) {
-    SET_CP(c_p, $NEXT_INSTRUCTION);
+    $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
     $DISPATCHX($Dest);
 }
 
@@ -175,7 +179,7 @@ i_apply() {
     BeamInstr *next;
     $APPLY(NULL, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
-        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         $DISPATCH_ABS(next);
     }
     $HANDLE_APPLY_ERROR();
@@ -211,7 +215,7 @@ apply(Arity) {
     BeamInstr *next;
     $FIXED_APPLY($Arity, NULL, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
-        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         $DISPATCH_ABS(next);
     }
     $HANDLE_APPLY_ERROR();
@@ -247,7 +251,7 @@ i_apply_fun() {
     BeamInstr *next;
     $APPLY_FUN(next);
     if (ERTS_LIKELY(next != NULL)) {
-        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         $DISPATCH_FUN(next);
     }
     $HANDLE_APPLY_FUN_ERROR();
@@ -283,7 +287,7 @@ i_call_fun(Fun) {
     BeamInstr *next;
     $CALL_FUN($Fun, next);
     if (ERTS_LIKELY(next != NULL)) {
-        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $SAVE_CONTINUATION_POINTER($NEXT_INSTRUCTION);
         $DISPATCH_FUN(next);
     }
     $HANDLE_APPLY_FUN_ERROR();
@@ -301,15 +305,8 @@ i_call_fun_last(Fun, Deallocate) {
 
 return() {
     //| -no_next
-    SET_I(c_p->cp);
+    $RETURN();
     DTRACE_RETURN_FROM_PC(c_p);
-
-    /*
-     * We must clear the CP to make sure that a stale value do not
-     * create a false module dependcy preventing code upgrading.
-     * It also means that we can use the CP in stack backtraces.
-     */
-    c_p->cp = 0;
     CHECK_TERM(r(0));
     HEAP_SPACE_VERIFIED(0);
     DispatchReturn;
@@ -478,16 +475,21 @@ i_make_fun(FunP, NumFree) {
 }
 
 move_trim(Src, Dst, Words) {
-    Uint cp = E[0];
     $Dst = $Src;
-    E += $Words;
-    E[0] = cp;
+    $i_trim($Words);
 }
 
 i_trim(Words) {
-    Uint cp = E[0];
     E += $Words;
-    E[0] = cp;
+
+    /*
+     * Clear the reserved location for the continuation pointer at
+     * E[0]. This is not strictly necessary for correctness, but if a
+     * GC is triggered before E[0] is overwritten by another
+     * continuation pointer the now dead term at E[0] would be
+     * retained by the GC.
+     */
+    E[0] = NIL;
 }
 
 move(Src, Dst) {
@@ -599,8 +601,7 @@ move_window5(S1, S2, S3, S4, S5, D) {
 move_return(Src) {
     //| -no_next
     x(0) = $Src;
-    SET_I(c_p->cp);
-    c_p->cp = 0;
+    $RETURN();
     DispatchReturn;
 }
 

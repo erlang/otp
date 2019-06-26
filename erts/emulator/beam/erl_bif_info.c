@@ -2008,14 +2008,16 @@ current_function(Process *c_p, ErtsHeapFactory *hfact, Process* rp,
 
     if (c_p == rp && !(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER)) {
 	FunctionInfo fi2;
+        BeamInstr* continuation_ptr;
 
 	/*
 	 * The current function is erlang:process_info/{1,2},
 	 * which is not the answer that the application want.
-	 * We will use the function pointed into by rp->cp
-	 * instead if it can be looked up.
+         * We will use the continuation pointer stored at the
+         * top of the stack instead.
 	 */
-	erts_lookup_function_info(&fi2, rp->cp, full_info);
+        continuation_ptr = (BeamInstr *) rp->stop[0];
+        erts_lookup_function_info(&fi2, continuation_ptr, full_info);
 	if (fi2.mfa) {
 	    fi = fi2;
 	    rp->current = fi2.mfa;
@@ -2060,10 +2062,6 @@ current_stacktrace(ErtsHeapFactory *hfact, Process* rp,
     s->depth = 0;
     if (depth > 0 && rp->i) {
 	s->trace[s->depth++] = rp->i;
-	depth--;
-    }
-    if (depth > 0 && rp->cp != 0) {
-	s->trace[s->depth++] = rp->cp - 1;
 	depth--;
     }
     erts_save_stacktrace(rp, s, depth);

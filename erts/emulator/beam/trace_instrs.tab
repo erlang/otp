@@ -20,16 +20,15 @@
 //
 
 return_trace() {
-    ErtsCodeMFA* mfa = (ErtsCodeMFA *)(E[0]);
+    ErtsCodeMFA* mfa = (ErtsCodeMFA *)(E[1]);
 
     SWAPOUT;		/* Needed for shared heap */
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    erts_trace_return(c_p, mfa, r(0), ERTS_TRACER_FROM_ETERM(E+1)/* tracer */);
+    erts_trace_return(c_p, mfa, r(0), ERTS_TRACER_FROM_ETERM(E+2)/* tracer */);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     SWAPIN;
-    c_p->cp = NULL;
-    SET_I((BeamInstr *) cp_val(E[2]));
     E += 3;
+    $RETURN();
     Goto(*I);
     //| -no_next
 }
@@ -45,13 +44,12 @@ i_generic_breakpoint() {
 }
 
 i_return_time_trace() {
-    BeamInstr *pc = (BeamInstr *) (UWord) E[0];
+    BeamInstr *pc = (BeamInstr *) (UWord) E[1];
     SWAPOUT;
     erts_trace_time_return(c_p, erts_code_to_codeinfo(pc));
     SWAPIN;
-    c_p->cp = NULL;
-    SET_I((BeamInstr *) cp_val(E[1]));
     E += 2;
+    $RETURN();
     Goto(*I);
     //| -no_next
 }
@@ -59,8 +57,10 @@ i_return_time_trace() {
 i_return_to_trace() {
     if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
         Uint *cpp = (Uint*) E;
+        while (is_not_CP(*cpp)) {
+            cpp++;
+        }
         for(;;) {
-            ASSERT(is_CP(*cpp));
             if (IsOpCode(*cp_val(*cpp), return_trace)) {
                 do
                     ++cpp;
@@ -80,9 +80,8 @@ i_return_to_trace() {
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;
     }
-    c_p->cp = NULL;
-    SET_I((BeamInstr *) cp_val(E[0]));
     E += 1;
+    $RETURN();
     Goto(*I);
     //| -no_next
 }

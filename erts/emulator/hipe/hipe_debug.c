@@ -232,7 +232,6 @@ void hipe_print_pcb(Process *p)
     U("intial.fun ", u.initial.function);
     U("intial.ari ", u.initial.arity);
     U("current    ", current);
-    P("cp         ", cp);
     P("i          ", i);
     U("catches    ", catches);
     U("arity      ", arity);

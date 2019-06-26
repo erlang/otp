@@ -1187,12 +1187,14 @@ document etp-cp
 %---------------------------------------------------------------------------
 % etp-cp Eterm
 % 
-% Take a code continuation pointer and print 
+% Take a code continuation pointer or instruction pointer and print 
 % module, function, arity and offset. 
 % 
-% Code continuation pointers can be found in the process structure e.g
-% process_tab[i]->cp and process_tab[i]->i, the second is the
-% program counter, which is the same thing as a continuation pointer.
+% Code continuation pointers can be found on the stack. The instruction
+% pointer is found in the process struct. For example:
+%
+%    c_p->i
+%    process_tab[i]->i
 %---------------------------------------------------------------------------
 end
 
@@ -1462,10 +1464,6 @@ define etp-stack-preamble
     printf "I: "
     etp ((Eterm)($arg0)->i)
   end
-  if ($arg0)->cp != 0
-    printf "cp:"
-    etp ((Eterm)($arg0)->cp)
-  end
 end
 
 define etp-stack-preamble-emu
@@ -1474,10 +1472,6 @@ define etp-stack-preamble-emu
   printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
   printf "I: "
   etp ((BeamInstr)I)
-  if ($arg0)->cp != 0
-    printf "cp: "
-    etp ((Eterm)($arg0)->cp)
-  end
 end
 
 define etp-stacktrace-1
@@ -2183,13 +2177,6 @@ define etp-process-info-int
   else
     printf "unknown\n"
   end
-  printf "  CP: "
-  if ($etp_proc->cp)
-    etp-cp-1 $etp_proc->cp
-    printf "\n"
-  else
-    printf "unknown\n"
-  end
   printf "  I: "
   if ($etp_proc->i)
     etp-cp-1 $etp_proc->i
@@ -2419,11 +2406,6 @@ define etp-process-memory-info
       end
     end
 
-    if ($etp_pmem_proc->cp)
-      printf " CP: "
-      etp-cp-1 $etp_pmem_proc->cp
-      printf " "
-    end
     printf "\n"
   end
 end
