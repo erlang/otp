@@ -14974,6 +14974,10 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         res = esock_make_error(env, atom_closed);
         
+        // This is a bit overkill (to count here), but just in case...
+        // cnt_inc(&descP->readFails, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+
         /*
          * When a stream socket peer has performed an orderly shutdown,
          * the return value will be 0 (the traditional "end-of-file" return).
@@ -15536,6 +15540,12 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
             data = MKBIN(env, bufP);
             data = MKSBIN(env, data, 0, read);
         }
+
+        // cnt_inc(&descP->readPkgCnt,  1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+        // cnt_inc(&descP->readByteCnt, read);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                     &descP->readByteCnt, read);
 
         recv_update_current_reader(env, descP, sockRef);
         
