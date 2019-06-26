@@ -263,7 +263,7 @@
 %% @see subtrees/1
 %% @see meta/1
 
--type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitrst' | 'call' | 'case'
+-type ctype() :: 'alias'   | 'apply'  | 'binary' | 'bitstr' | 'call' | 'case'
                | 'catch'   | 'clause' | 'cons'   | 'fun'    | 'let'  | 'letrec'
                | 'literal' | 'map'  | 'map_pair' | 'module' | 'primop'
                | 'receive' | 'seq'    | 'try'    | 'tuple'  | 'values' | 'var'.
