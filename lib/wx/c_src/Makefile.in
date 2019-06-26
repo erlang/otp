@@ -70,7 +70,7 @@ else
 RC_FILE     = 
 endif
 
-WX_OBJECTS  = $(GENERAL_O) $(GENERATED_O) $(RC_FILE)
+WX_OBJECTS  =  $(GENERATED_O) $(GENERAL_O) $(RC_FILE)
 
 OBJECTS = $(WX_OBJECTS) $(GL_OBJECTS)
 
@@ -86,7 +86,7 @@ LD		= $(CXX)
 LDFLAGS		= @LDFLAGS@
 RESCOMP		= @WX_RESCOMP@
 
-ifeq (@WX_HAVE_STATIC_LIBS@,true) 
+ifeq (@WX_HAVE_STATIC_LIBS@,true)
 OPT_WX_LIBS      =  @WX_LIBS_STATIC@
 DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS_STATIC@
 else
@@ -97,14 +97,16 @@ endif
 ifeq ($(TYPE),debug)
 WX_CFLAGS	= @DEBUG_WX_CFLAGS@
 CFLAGS          = @DEBUG_CFLAGS@
-WX_CXX_FLAGS	= @DEBUG_WX_CXXFLAGS@ 
+WX_CXX_FLAGS	= @DEBUG_WX_CXXFLAGS@
 CXX_FLAGS       = @DEBUG_CXXFLAGS@
+CXX_NO_OPT_FLAGS = @DEBUG_CXXFLAGS@
 WX_LIBS		= $(DEBUG_WX_LIBS)
 else
 WX_CFLAGS	= @WX_CFLAGS@
 CFLAGS          = @CFLAGS@
-WX_CXX_FLAGS	= @WX_CXXFLAGS@ 
+WX_CXX_FLAGS	= @WX_CXXFLAGS@
 CXX_FLAGS       = @CXXFLAGS@
+CXX_NO_OPT_FLAGS = @CXXNOOPTFLAGS@
 WX_LIBS		= $(OPT_WX_LIBS)
 endif
 
@@ -113,6 +115,7 @@ GL_LIBS         = @GL_LIBS@
 CC_O		= $(V_CC) -c $(CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
 OBJC_CC_O	= $(OBJC_CC) -c $(CFLAGS) $(OBJC_CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
 CXX_O		= $(V_CXX) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS)
+CXX_O_NO_OPT    = $(V_CXX) -c $(CXX_NO_OPT_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS)
 
 # Targets
 
@@ -151,6 +154,10 @@ $(SYS_TYPE)/%.o: %.c
 $(SYS_TYPE)/wxe_ps_init.o: wxe_ps_init.c 
 	$(V_at)mkdir -p $(SYS_TYPE)
 	$(cc_verbose)$(OBJC_CC_O) $< -o $@
+
+$(SYS_TYPE)/wxe_funcs.o: gen/wxe_funcs.cpp
+	$(V_at)mkdir -p $(SYS_TYPE)
+	$(CXX_O_NO_OPT) $< -o $@
 
 $(SYS_TYPE)/%.o: gen/%.cpp 
 	$(V_at)mkdir -p $(SYS_TYPE)
