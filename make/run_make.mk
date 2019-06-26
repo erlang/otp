@@ -29,7 +29,7 @@
 include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 
-.PHONY: valgrind test
+.PHONY: valgrind
 
 opt debug purify quantify purecov valgrind gcov gprof lcnt frmptr icount:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
@@ -40,6 +40,3 @@ plain smp frag smp_frag:
 clean generate depend docs release release_spec release_docs release_docs_spec \
   tests release_tests release_tests_spec static_lib xmllint:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@
-
-test:
-	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
