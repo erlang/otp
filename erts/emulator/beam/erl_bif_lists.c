@@ -244,11 +244,24 @@ typedef struct {
 #define ERTS_RBT_GET_LEFT(T) ((T)->left)
 #define ERTS_RBT_SET_LEFT(T, L) ((T)->left = (L))
 #define ERTS_RBT_GET_KEY(T) ((T)->key)
-#define ERTS_RBT_CMP_KEYS(KX, KY) CMP_TERM(KX, KY)
+#define ERTS_RBT_CMP_KEYS(KX, KY) subtract_term_cmp((KX), (KY))
 #define ERTS_RBT_WANT_LOOKUP_INSERT
 #define ERTS_RBT_WANT_LOOKUP
 #define ERTS_RBT_WANT_DELETE
 #define ERTS_RBT_UNDEF
+
+/* erl_rbtree expects comparisons to return an int */
+static int subtract_term_cmp(Eterm a, Eterm b) {
+    Sint res = CMP_TERM(a, b);
+
+    if (res < 0) {
+        return -1;
+    } else if (res > 0) {
+        return 1;
+    }
+
+    return 0;
+}
 
 #include "erl_rbtree.h"
 
