@@ -312,7 +312,8 @@
       | gen_tcp:listen_option()
       | ?COMMON_OPTION .
 
--type subsystem_daemon_option() :: {subsystems, subsystem_spec()}.
+-type subsystem_daemon_option() :: {subsystems, subsystem_specs()}.
+-type subsystem_specs() :: [ subsystem_spec() ].
 
 -type shell_daemon_option()     :: {shell, mod_fun_args() | 'shell_fun/1'()  | 'shell_fun/2'() }.
 -type 'shell_fun/1'() :: fun((User::string()) -> pid()) .
