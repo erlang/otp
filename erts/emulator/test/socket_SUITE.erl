@@ -176,6 +176,8 @@
          traffic_sendmsg_and_recvmsg_counters_tcpL/1,
          traffic_sendto_and_recvfrom_counters_udp4/1,
          traffic_sendto_and_recvfrom_counters_udpL/1,
+         traffic_sendmsg_and_recvmsg_counters_udp4/1,
+         traffic_sendmsg_and_recvmsg_counters_udpL/1,
 
          traffic_send_and_recv_chunks_tcp4/1,
          traffic_send_and_recv_chunks_tcp6/1,
@@ -836,7 +838,9 @@ traffic_counters_cases() ->
      traffic_sendmsg_and_recvmsg_counters_tcp4,
      traffic_sendmsg_and_recvmsg_counters_tcpL,
      traffic_sendto_and_recvfrom_counters_udp4,
-     traffic_sendto_and_recvfrom_counters_udpL
+     traffic_sendto_and_recvfrom_counters_udpL,
+     traffic_sendmsg_and_recvmsg_counters_udp4,
+     traffic_sendmsg_and_recvmsg_counters_udpL
     ].
 
 traffic_chunks_cases() ->
@@ -14580,6 +14584,74 @@ traffic_sendto_and_recvfrom_counters_udpL(_Config) when is_list(_Config) ->
                                            end,
                                  send   => fun(S, Data, Dest) ->
                                                    socket:sendto(S, Data, Dest)
+                                           end},
+                   ok = traffic_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use UDP on IPv4.
+
+traffic_sendmsg_and_recvmsg_counters_udp4(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udp4(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_udp4,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => udp,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr  := Source,
+                                                              iov   := [Data]}} ->
+                                                           {ok, {Source, Data}};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data, Dest) ->
+                                                   MsgHdr = #{addr => Dest,
+                                                              iov  => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
+                                           end},
+                   ok = traffic_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use default (UDP) on local.
+
+traffic_sendmsg_and_recvmsg_counters_udpL(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udpL(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_udpL,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr  := Source,
+                                                              iov   := [Data]}} ->
+                                                           {ok, {Source, Data}};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data, Dest) ->
+                                                   MsgHdr = #{addr => Dest,
+                                                              iov  => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
                                            end},
                    ok = traffic_send_and_recv_udp(InitState)
            end).
