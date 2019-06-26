@@ -309,10 +309,17 @@ init_per_group(GroupName, Config) when GroupName == basic_tls;
                                        GroupName == options;
                                        GroupName == basic;
                                        GroupName == session;
-                                       GroupName == error_handling_tests_tls;
-                                       GroupName == tls13_test_group
-                                       ->
-    ssl_test_lib:clean_tls_version(Config);                          
+                                       GroupName == error_handling_tests_tls ->
+    ssl_test_lib:clean_tls_version(Config);
+%% Do not automatically configure TLS version for the 'tlsv1.3' group
+init_per_group('tlsv1.3' = GroupName, Config) ->
+    case ssl_test_lib:sufficient_crypto_support(GroupName) of
+        true ->
+            ssl:start(),
+            Config;
+        false ->
+            {skip, "Missing crypto support"}
+    end;
 init_per_group(GroupName, Config) ->
     ssl_test_lib:clean_tls_version(Config),                          
     case ssl_test_lib:is_tls_version(GroupName) andalso ssl_test_lib:sufficient_crypto_support(GroupName) of
