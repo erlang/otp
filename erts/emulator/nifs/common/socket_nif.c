@@ -15211,9 +15211,6 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
-    // cnt_inc(&descP->readFails, 1);
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
-
     FREE_BIN(buf1P); if (buf2P != NULL) FREE_BIN(buf2P);
 
     if (saveErrno == ECONNRESET)  {
@@ -15221,6 +15218,10 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
         /* +++ Oups - closed +++ */
 
         SSDBG( descP, ("SOCKET", "recv_check_fail -> closed\r\n") );
+
+        // This is a bit overkill (to count here), but just in case...
+        // cnt_inc(&descP->readFails, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         res = recv_check_fail_closed(env, descP, sockRef, recvRef);
 
@@ -15235,6 +15236,9 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
 
         SSDBG( descP, ("SOCKET", "recv_check_fail -> errno: %d\r\n",
                        saveErrno) );
+
+        // cnt_inc(&descP->readFails, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
     }
@@ -15400,7 +15404,7 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
 
     descP->rNumCnt = 0;
     // cnt_inc(&descP->readPkgCnt,  1);
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, read);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
     // cnt_inc(&descP->readByteCnt, read);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
 
