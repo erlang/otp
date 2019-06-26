@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15043,10 +15043,10 @@ def">> = iolist_to_binary(re:replace("abc
 def","abc$","\\1aguwNOw&Q&p&",[global])), 
     <<"abcSuqabcSwabcabcSabcsxWGOk">> = iolist_to_binary(re:replace("abcS","(abc)\\123","&uq&w\\1&\\1sxWGOk",[])), 
     <<"abcSuqabcSwabcabcSabcsxWGOk">> = iolist_to_binary(re:replace("abcS","(abc)\\123","&uq&w\\1&\\1sxWGOk",[global])), 
-    <<"dMwabcÂ“XqyabcÂ“abcÂ“i">> = iolist_to_binary(re:replace("abcÂ“","(abc)\\223","dMw&Xqy&&i",[])), 
-    <<"dMwabcÂ“XqyabcÂ“abcÂ“i">> = iolist_to_binary(re:replace("abcÂ“","(abc)\\223","dMw&Xqy&&i",[global])), 
-    <<"MiqonlGabcÃ“YdXabcf">> = iolist_to_binary(re:replace("abcÃ“","(abc)\\323","MiqonlG&YdX\\1f",[])), 
-    <<"MiqonlGabcÃ“YdXabcf">> = iolist_to_binary(re:replace("abcÃ“","(abc)\\323","MiqonlG&YdX\\1f",[global])), 
+    <<"dMwabc“Xqyabc“abc“i">> = iolist_to_binary(re:replace("abc“","(abc)\\223","dMw&Xqy&&i",[])), 
+    <<"dMwabc“Xqyabc“abc“i">> = iolist_to_binary(re:replace("abc“","(abc)\\223","dMw&Xqy&&i",[global])), 
+    <<"MiqonlGabcÓYdXabcf">> = iolist_to_binary(re:replace("abcÓ","(abc)\\323","MiqonlG&YdX\\1f",[])), 
+    <<"MiqonlGabcÓYdXabcf">> = iolist_to_binary(re:replace("abcÓ","(abc)\\323","MiqonlG&YdX\\1f",[global])), 
     <<"mTlabc@bdhBATwW">> = iolist_to_binary(re:replace("abc@","(abc)\\100","mTl&bdhBATwW",[])), 
     <<"mTlabc@bdhBATwW">> = iolist_to_binary(re:replace("abc@","(abc)\\100","mTl&bdhBATwW",[global])), 
     <<"QabcRSbUabc@Rabc@abc@fabckabcWabc">> = iolist_to_binary(re:replace("abc@","(abc)\\100","Q\\1RSbU&R&&f\\1k\\1W\\1",[])), 
@@ -18423,8 +18423,8 @@ run34() ->
     <<"FxjIeXxjLM">> = iolist_to_binary(re:replace("M","\\M","FxjIeXxjL&",[global])), 
     <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b","\\1AGI&o&owvv&Ew",[])), 
     <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b","\\1AGI&o&owvv&Ew",[global])), 
-    <<"Â„XAZidYPfGETo">> = iolist_to_binary(re:replace("Â„XAZXB","(?<=Z)X.","\\1\\1\\1idYPfGETo",[])), 
-    <<"Â„XAZidYPfGETo">> = iolist_to_binary(re:replace("Â„XAZXB","(?<=Z)X.","\\1\\1\\1idYPfGETo",[global])), 
+    <<"„XAZidYPfGETo">> = iolist_to_binary(re:replace("„XAZXB","(?<=Z)X.","\\1\\1\\1idYPfGETo",[])), 
+    <<"„XAZidYPfGETo">> = iolist_to_binary(re:replace("„XAZXB","(?<=Z)X.","\\1\\1\\1idYPfGETo",[global])), 
     <<"bNQDHCQab cd defgab cd defgLqxKPLt">> = iolist_to_binary(re:replace("ab cd defg","ab cd (?x) de fg","bNQDHCQ&&LqxKPLt",[])), 
     <<"bNQDHCQab cd defgab cd defgLqxKPLt">> = iolist_to_binary(re:replace("ab cd defg","ab cd (?x) de fg","bNQDHCQ&&LqxKPLt",[global])), 
     <<"kPHqOwBhoab cddefgWcAxPfqs">> = iolist_to_binary(re:replace("ab cddefg","ab cd(?x) de fg","k\\1PHqOwBho&WcAxP\\1fqs",[])), 
@@ -18950,37 +18950,37 @@ run40() ->
     <<"JqKpfdXTX	XMbyX	XX	X">> = iolist_to_binary(re:replace("X	X","\\H\\h\\V\\v","JqKpfdXT&Mby&\\1&",[global])), 
     <<"** Failers">> = iolist_to_binary(re:replace("** Failers","\\H\\h\\V\\v","FAmVe\\1O",[])), 
     <<"** Failers">> = iolist_to_binary(re:replace("** Failers","\\H\\h\\V\\v","FAmVe\\1O",[global])), 
-    <<"Â  X">> = iolist_to_binary(re:replace("Â  X","\\H\\h\\V\\v","\\1mSDSJp",[])), 
-    <<"Â  X">> = iolist_to_binary(re:replace("Â  X","\\H\\h\\V\\v","\\1mSDSJp",[global])), 
-    <<"JagFUGCxoJ	 Â X
-SMGCK">> = iolist_to_binary(re:replace("	 Â X
+    <<"  X">> = iolist_to_binary(re:replace("  X","\\H\\h\\V\\v","\\1mSDSJp",[])), 
+    <<"  X">> = iolist_to_binary(re:replace("  X","\\H\\h\\V\\v","\\1mSDSJp",[global])), 
+    <<"JagFUGCxoJ	  X
+SMGCK">> = iolist_to_binary(re:replace("	  X
 ","\\H*\\h+\\V?\\v{3,4}","JagFUGCxoJ&\\1SMGCK",[])), 
-    <<"JagFUGCxoJ	 Â X
-SMGCK">> = iolist_to_binary(re:replace("	 Â X
+    <<"JagFUGCxoJ	  X
+SMGCK">> = iolist_to_binary(re:replace("	  X
 ","\\H*\\h+\\V?\\v{3,4}","JagFUGCxoJ&\\1SMGCK",[global])), 
-    <<"	 Â 
-an	 Â 
-uIjsv">> = iolist_to_binary(re:replace("	 Â 
+    <<"	  
+an	  
+uIjsv">> = iolist_to_binary(re:replace("	  
 ","\\H*\\h+\\V?\\v{3,4}","&an&\\1uIjsv\\1",[])), 
-    <<"	 Â 
-an	 Â 
-uIjsv">> = iolist_to_binary(re:replace("	 Â 
+    <<"	  
+an	  
+uIjsv">> = iolist_to_binary(re:replace("	  
 ","\\H*\\h+\\V?\\v{3,4}","&an&\\1uIjsv\\1",[global])), 
-    <<"	 Â 
-Cnyt	 Â 
-sJWoCUIsrr">> = iolist_to_binary(re:replace("	 Â 
+    <<"	  
+Cnyt	  
+sJWoCUIsrr">> = iolist_to_binary(re:replace("	  
 ","\\H*\\h+\\V?\\v{3,4}","&C\\1nyt\\1\\1&\\1sJWoCUIsrr",[])), 
-    <<"	 Â 
-Cnyt	 Â 
-sJWoCUIsrr">> = iolist_to_binary(re:replace("	 Â 
+    <<"	  
+Cnyt	  
+sJWoCUIsrr">> = iolist_to_binary(re:replace("	  
 ","\\H*\\h+\\V?\\v{3,4}","&C\\1nyt\\1\\1&\\1sJWoCUIsrr",[global])), 
     <<"** Failers">> = iolist_to_binary(re:replace("** Failers","\\H*\\h+\\V?\\v{3,4}","heJfENVeR\\1TJ\\1&&Dvf",[])), 
     <<"** Failers">> = iolist_to_binary(re:replace("** Failers","\\H*\\h+\\V?\\v{3,4}","heJfENVeR\\1TJ\\1&&Dvf",[global])), 
-    <<"	 Â 
-">> = iolist_to_binary(re:replace("	 Â 
+    <<"	  
+">> = iolist_to_binary(re:replace("	  
 ","\\H*\\h+\\V?\\v{3,4}","g&",[])), 
-    <<"	 Â 
-">> = iolist_to_binary(re:replace("	 Â 
+    <<"	  
+">> = iolist_to_binary(re:replace("	  
 ","\\H*\\h+\\V?\\v{3,4}","g&",[global])), 
     <<"XY  bvHE">> = iolist_to_binary(re:replace("XY  ABCDE","\\H{3,4}","bvH",[])), 
     <<"XY  bvHE">> = iolist_to_binary(re:replace("XY  ABCDE","\\H{3,4}","bvH",[global])), 
@@ -19748,16 +19748,16 @@ run49() ->
     <<"aJcbatLdoGHtuOHxJ">> = iolist_to_binary(re:replace("aba","(?>.*?a)(?<=ba)","Jc&tLdoGHt\\1uOHxJ",[global])), 
     <<"jnJTr">> = iolist_to_binary(re:replace("aba","(?:.*?a)(?<=ba)","jnJTr",[])), 
     <<"jnJTr">> = iolist_to_binary(re:replace("aba","(?:.*?a)(?<=ba)","jnJTr",[global])), 
-    <<"aSSoEg">> = iolist_to_binary(re:replace("aab",".*?a(*PRUNE)b","SS\\1\\1oE\\1g",[])), 
-    <<"aSSoEg">> = iolist_to_binary(re:replace("aab",".*?a(*PRUNE)b","SS\\1\\1oE\\1g",[global])), 
-    <<"aOdJuWtvQ">> = iolist_to_binary(re:replace("aab",".*?a(*PRUNE)b","OdJuWtvQ",[dotall])), 
-    <<"aOdJuWtvQ">> = iolist_to_binary(re:replace("aab",".*?a(*PRUNE)b","OdJuWtvQ",[dotall,
+    <<"aab">> = iolist_to_binary(re:replace("aab",".*?a(*PRUNE)b","SS\\1\\1oE\\1g",[])), 
+    <<"aab">> = iolist_to_binary(re:replace("aab",".*?a(*PRUNE)b","SS\\1\\1oE\\1g",[global])), 
+    <<"aab">> = iolist_to_binary(re:replace("aab",".*?a(*PRUNE)b","OdJuWtvQ",[dotall])), 
+    <<"aab">> = iolist_to_binary(re:replace("aab",".*?a(*PRUNE)b","OdJuWtvQ",[dotall,
                                                                                                                                                                                          global])), 
     <<"aab">> = iolist_to_binary(re:replace("aab","^a(*PRUNE)b","u\\1oO\\1B\\1\\1",[dotall])), 
     <<"aab">> = iolist_to_binary(re:replace("aab","^a(*PRUNE)b","u\\1oO\\1B\\1\\1",[dotall,
                                                                                                                                                                                                          global])), 
-    <<"aUtmYVcabmqfPDm">> = iolist_to_binary(re:replace("aab",".*?a(*SKIP)b","\\1UtmYVc\\1&mq\\1fPDm",[])), 
-    <<"aUtmYVcabmqfPDm">> = iolist_to_binary(re:replace("aab",".*?a(*SKIP)b","\\1UtmYVc\\1&mq\\1fPDm",[global])), 
+    <<"aab">> = iolist_to_binary(re:replace("aab",".*?a(*SKIP)b","\\1UtmYVc\\1&mq\\1fPDm",[])), 
+    <<"aab">> = iolist_to_binary(re:replace("aab",".*?a(*SKIP)b","\\1UtmYVc\\1&mq\\1fPDm",[global])), 
     <<"amg">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","m\\1g",[dotall])), 
     <<"amg">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","m\\1g",[dotall,
                                                                                                                                                                             global])), 
@@ -20014,4 +20014,31 @@ run56() ->
     <<"  MumdPEeFred:099">> = iolist_to_binary(re:replace("  Fred:099","(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","\\1&M&umdPE&e",[global])), 
     <<"  ugxGKrBXEcHyG">> = iolist_to_binary(re:replace("  X","(?=.*X)X$","ugxGKrB&EcHyG",[])), 
     <<"  ugxGKrBXEcHyG">> = iolist_to_binary(re:replace("  X","(?=.*X)X$","ugxGKrB&EcHyG",[global])), 
+    <<">MHFvXX<">> = iolist_to_binary(re:replace(">XXX<","X+(?#comment)?","MHFv",[])), 
+    <<">MHFvMHFvMHFv<">> = iolist_to_binary(re:replace(">XXX<","X+(?#comment)?","MHFv",[global])), 
+    <<"lTpokusldxfHXOpokuswsrRorpokus.">> = iolist_to_binary(re:replace("pokus.","   (?<word> \\w+ )*    \\.   ","lT\\1ldxfHXO\\1wsrRor&",[extended,
+                                                                                                                                                                                                                                                                caseless])), 
+    <<"lTpokusldxfHXOpokuswsrRorpokus.">> = iolist_to_binary(re:replace("pokus.","   (?<word> \\w+ )*    \\.   ","lT\\1ldxfHXO\\1wsrRor&",[extended,
+                                                                                                                                                                                                                                                                 caseless,
+                                                                                                                                                                                                                                                                 global])), 
+    <<"Oeapokus.xo">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) (?&word)*   \\.","Oea&xo",[extended,
+                                                                                                                                                                                                                                                            caseless])), 
+    <<"Oeapokus.xo">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) (?&word)*   \\.","Oea&xo",[extended,
+                                                                                                                                                                                                                                                             caseless,
+                                                                                                                                                                                                                                                             global])), 
+    <<"Wpokus.pity">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) ( (?&word)* )   \\.","W&pity",[extended,
+                                                                                                                                                                                                                                                                    caseless])), 
+    <<"Wpokus.pity">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) ( (?&word)* )   \\.","W&pity",[extended,
+                                                                                                                                                                                                                                                                     caseless,
+                                                                                                                                                                                                                                                                     global])), 
+    <<"iujmNtBvmcyi">> = iolist_to_binary(re:replace("pokus.","(?&word)*  (?(DEFINE) (?<word> \\w+ ) )  \\.","iuj\\1m\\1NtBvmcyi\\1",[extended,
+                                                                                                                                                                                                                                                                                            caseless])), 
+    <<"iujmNtBvmcyi">> = iolist_to_binary(re:replace("pokus.","(?&word)*  (?(DEFINE) (?<word> \\w+ ) )  \\.","iuj\\1m\\1NtBvmcyi\\1",[extended,
+                                                                                                                                                                                                                                                                                             caseless,
+                                                                                                                                                                                                                                                                                             global])), 
+    <<"Ipokus.hokusbQpokus.hokusB">> = iolist_to_binary(re:replace("pokus.hokus","(?&word)*  \\. (?<word> \\w+ )","I&bQ&B",[extended,
+                                                                                                                                                                                                                                           caseless])), 
+    <<"Ipokus.hokusbQpokus.hokusB">> = iolist_to_binary(re:replace("pokus.hokus","(?&word)*  \\. (?<word> \\w+ )","I&bQ&B",[extended,
+                                                                                                                                                                                                                                            caseless,
+                                                                                                                                                                                                                                            global])), 
     ok.
