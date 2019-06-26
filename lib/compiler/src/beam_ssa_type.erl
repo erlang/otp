@@ -1328,22 +1328,19 @@ infer_eq_lit(_, _) -> [].
 
 infer_type(succeeded, [#b_var{}=Src], Ts, Ds) ->
     #b_set{op=Op,args=Args} = maps:get(Src, Ds),
-    infer_type(Op, Args, Ts, Ds);
-infer_type(bs_start_match, [#b_var{}=Bin], _Ts, _Ds) ->
-    T = {Bin,#t_bitstring{}},
-    {[T], [T]};
-infer_type(is_nonempty_list, [#b_var{}=Src], _Ts, _Ds) ->
-    T = {Src,cons},
-    {[T], [T]};
+    infer_success_type(Op, Args, Ts, Ds);
+
+%% Type tests are handled separately from other BIFs as we're inferring types
+%% based on their result, so we know that subtraction is safe even if we're
+%% not branching on 'succeeded'.
 infer_type(is_tagged_tuple, [#b_var{}=Src,#b_literal{val=Size},
                              #b_literal{}=Tag], _Ts, _Ds) ->
     Es = beam_types:set_element_type(1, get_type(Tag, #{}), #{}),
     T = {Src,#t_tuple{exact=true,size=Size,elements=Es}},
     {[T], [T]};
-
-%% Type tests are handled separately from other BIFs as we're inferring types
-%% based on their result rather than whether they succeeded, so we know that
-%% subtraction is always safe.
+infer_type(is_nonempty_list, [#b_var{}=Src], _Ts, _Ds) ->
+    T = {Src,cons},
+    {[T], [T]};
 infer_type({bif,is_atom}, [Arg], _Ts, _Ds) ->
     T = {Arg, #t_atom{}},
     {[T], [T]};
@@ -1374,8 +1371,10 @@ infer_type({bif,is_number}, [Arg], _Ts, _Ds) ->
 infer_type({bif,is_tuple}, [Arg], _Ts, _Ds) ->
     T = {Arg, #t_tuple{}},
     {[T], [T]};
+infer_type(_Op, _Args, _Ts, _Ds) ->
+    {[], []}.
 
-infer_type({bif,Op}, Args, Ts, _Ds) ->
+infer_success_type({bif,Op}, Args, Ts, _Ds) ->
     ArgTypes = get_types(Args, Ts),
 
     {_, PosTypes0, CanSubtract} = beam_call_types:types(erlang, Op, ArgTypes),
@@ -1385,8 +1384,10 @@ infer_type({bif,Op}, Args, Ts, _Ds) ->
         true -> {PosTypes, PosTypes};
         false -> {PosTypes, []}
     end;
-
-infer_type(_Op, _Args, _Ts, _Ds) ->
+infer_success_type(bs_start_match, [#b_var{}=Bin], _Ts, _Ds) ->
+    T = {Bin,#t_bitstring{}},
+    {[T], [T]};
+infer_success_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
 join_types(Ts0, Ts1) ->
