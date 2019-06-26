@@ -25,11 +25,14 @@
 -include("ssh.hrl").
 -include("ssh_agent.hrl").
 
--export([send/1]).
+-export([send/1, send/2]).
 
 %% Agent communication
 
 send(Request) ->
+    send(Request, infinity).
+
+send(Request, Timeout) ->
     SocketPath = os:getenv("SSH_AUTH_SOCK"),
 
     ConnectOpts = [binary, {packet, 0}, {active, false}],
@@ -38,7 +41,6 @@ send(Request) ->
     BinRequest = pack(encode(Request)),
     ok = gen_tcp:send(Socket, BinRequest),
 
-    Timeout = 1000, % TODO: Make this a parameter? What is a sensible default value?
     {ok, BinResponse} = gen_tcp:recv(Socket, 0, Timeout),
 
     ok = gen_tcp:close(Socket),
