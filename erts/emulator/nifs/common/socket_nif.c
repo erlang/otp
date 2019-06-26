@@ -14974,8 +14974,6 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         res = esock_make_error(env, atom_closed);
         
-        // This is a bit overkill (to count here), but just in case...
-        // cnt_inc(&descP->readFails, 1);
         SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         /*
@@ -15604,6 +15602,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
          * *We* do never actually try to read 0 bytes from a stream socket!
          */
 
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
 
@@ -15674,6 +15673,21 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
                 "recvmsg_check_result -> "
                 "(msghdr) encode failed: %s\r\n", xres) );
 
+        /* So this is a bit strange. We did "successfully" read 'read' bytes,
+         * but then we fail to process the message header. So what counters
+         * shall we increment?
+         *    Only failure?
+         *    Or only success (pkg and byte), since the read was "ok" (or was it?)
+         *    Or all of them?
+         *
+         * For now, we increment all three...
+         */
+         
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                     &descP->readByteCnt, read);
+
         recv_update_current_reader(env, descP, sockRef);
 
         FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
@@ -15684,6 +15698,10 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET", "recvmsg_check_result -> (msghdr) encode ok\r\n") );
+
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                     &descP->readByteCnt, read);
 
         recv_update_current_reader(env, descP, sockRef);
 
