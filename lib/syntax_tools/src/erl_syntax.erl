@@ -183,8 +183,6 @@
 	 comment/2,
 	 comment_padding/1,
 	 comment_text/1,
-	 cond_expr/1,
-	 cond_expr_clauses/1,
 	 conjunction/1,
 	 conjunction_body/1,
          constrained_function_type/2,
@@ -494,39 +492,38 @@
 %%   <td>class_qualifier</td>
 %%   <td>clause</td>
 %%   <td>comment</td>
-%%   <td>cond_expr</td>
-%%  </tr><tr>
 %%   <td>conjunction</td>
+%%  </tr><tr>
 %%   <td>constrained_function_type</td>
 %%   <td>constraint</td>
 %%   <td>disjunction</td>
-%%  </tr><tr>
 %%   <td>eof_marker</td>
+%%  </tr><tr>
 %%   <td>error_marker</td>
 %%   <td>float</td>
 %%   <td>form_list</td>
-%%  </tr><tr>
 %%   <td>fun_expr</td>
+%%  </tr><tr>
 %%   <td>fun_type</td>
 %%   <td>function</td>
 %%   <td>function_type</td>
-%%  </tr><tr>
 %%   <td>generator</td>
+%%  </tr><tr>
 %%   <td>if_expr</td>
 %%   <td>implicit_fun</td>
 %%   <td>infix_expr</td>
-%%  </tr><tr>
 %%   <td>integer</td>
+%%  </tr><tr>
 %%   <td>integer_range_type</td>
 %%   <td>list</td>
 %%   <td>list_comp</td>
-%%  </tr><tr>
 %%   <td>macro</td>
+%%  </tr><tr>
 %%   <td>map_expr</td>
 %%   <td>map_field_assoc</td>
 %%   <td>map_field_exact</td>
-%%  </tr><tr>
 %%   <td>map_type</td>
+%%  </tr><tr>
 %%   <td>map_type_assoc</td>
 %%   <td>map_type_exact</td>
 %%   <td>match_expr</td>
@@ -556,6 +553,7 @@
 %%   <td>tuple_type</td>
 %%   <td>typed_record_field</td>
 %%   <td>type_application</td>
+%%  </tr><tr>
 %%   <td>type_union</td>
 %%   <td>underscore</td>
 %%   <td>user_type_application</td>
@@ -587,7 +585,6 @@
 %% @see class_qualifier/2
 %% @see clause/3
 %% @see comment/2
-%% @see cond_expr/1
 %% @see conjunction/1
 %% @see constrained_function_type/2
 %% @see constraint/2
@@ -673,7 +670,6 @@ type(Node) ->
 	%% Composite types
 	{'case', _, _, _} -> case_expr;
 	{'catch', _, _} -> catch_expr;
-	{'cond', _, _} -> cond_expr;
 	{'fun', _, {clauses, _}} -> fun_expr;
 	{named_fun, _, _, _} -> named_fun_expr;
 	{'fun', _, {function, _, _}} -> implicit_fun;
@@ -6290,7 +6286,6 @@ if_expr_clauses(Node) ->
 %% @see case_expr_argument/1
 %% @see clause/3
 %% @see if_expr/1
-%% @see cond_expr/1
 
 -record(case_expr, {argument :: syntaxTree(), clauses :: [syntaxTree()]}).
 
@@ -6353,60 +6348,6 @@ case_expr_clauses(Node) ->
 	    Clauses;
 	Node1 ->
 	    (data(Node1))#case_expr.clauses
-    end.
-
-
-%% =====================================================================
-%% @doc Creates an abstract cond-expression. If `Clauses' is
-%% `[C1, ..., Cn]', the result represents "<code>cond
-%% <em>C1</em>; ...; <em>Cn</em> end</code>". More exactly, if each
-%% `Ci' represents "<code>() <em>Ei</em> ->
-%% <em>Bi</em></code>", then the result represents "<code>cond
-%% <em>E1</em> -> <em>B1</em>; ...; <em>En</em> -> <em>Bn</em>
-%% end</code>".
-%%
-%% @see cond_expr_clauses/1
-%% @see clause/3
-%% @see case_expr/2
-
-%% type(Node) = cond_expr
-%% data(Node) = Clauses
-%%
-%%	Clauses = [syntaxTree()]
-%%
-%% `erl_parse' representation:
-%%
-%% {'cond', Pos, Clauses}
-%%
-%%	Clauses = [Clause] \ []
-%%	Clause = {clause, ...}
-%%
-%%	See `clause' for documentation on `erl_parse' clauses.
-
--spec cond_expr([syntaxTree()]) -> syntaxTree().
-
-cond_expr(Clauses) ->
-    tree(cond_expr, Clauses).
-
-revert_cond_expr(Node) ->
-    Pos = get_pos(Node),
-    Clauses = [revert_clause(C) || C <- cond_expr_clauses(Node)],
-    {'cond', Pos, Clauses}.
-
-
-%% =====================================================================
-%% @doc Returns the list of clause subtrees of a `cond_expr' node.
-%%
-%% @see cond_expr/1
-
--spec cond_expr_clauses(syntaxTree()) -> [syntaxTree()].
-
-cond_expr_clauses(Node) ->
-    case unwrap(Node) of
-	{'cond', _, Clauses} ->
-	    Clauses;
-	Node1 ->
-	    data(Node1)
     end.
 
 
@@ -7534,8 +7475,6 @@ revert_root(Node) ->
 	    revert_char(Node);
 	clause ->
 	    revert_clause(Node);
-	cond_expr ->
-	    revert_cond_expr(Node);
         constrained_function_type ->
             revert_constrained_function_type(Node);
         constraint ->
@@ -7802,8 +7741,6 @@ subtrees(T) ->
 			    [clause_patterns(T), [G],
 			     clause_body(T)]
 		    end;
-		cond_expr ->
-		    [cond_expr_clauses(T)];
 		conjunction ->
 		    [conjunction_body(T)];
                 constrained_function_type ->
@@ -8017,7 +7954,6 @@ make_tree(class_qualifier, [[A], [B]]) -> class_qualifier(A, B);
 make_tree(class_qualifier, [[A], [B], [C]]) -> class_qualifier(A, B, C);
 make_tree(clause, [P, B]) -> clause(P, none, B);
 make_tree(clause, [P, [G], B]) -> clause(P, G, B);
-make_tree(cond_expr, [C]) -> cond_expr(C);
 make_tree(conjunction, [E]) -> conjunction(E);
 make_tree(constrained_function_type, [[F],C]) ->
     constrained_function_type(F, C);

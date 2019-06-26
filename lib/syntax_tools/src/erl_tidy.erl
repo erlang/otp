@@ -1551,19 +1551,7 @@ visit_match_body(Ps, P, B, Tree, Env, St0) ->
                 false ->
                     visit_match_expr_final(P, B, Tree, Env, St0)
             end;
-        cond_expr ->
-            Cs = erl_syntax:cond_expr_clauses(B),
-            case multival_clauses(Cs, length(Ps), Ps) of
-                {true, Cs1} ->
-                    report_export_vars(Env#env.file,
-				       erl_syntax:get_pos(B),
-				       "cond", Env#env.verbosity),
-                    Tree1 = erl_syntax:cond_expr(Cs1),
-                    {rewrite(Tree, Tree1), St0};
-                false ->
-                    visit_match_expr_final(P, B, Tree, Env, St0)
-            end;
-        receive_expr ->
+       receive_expr ->
             %% Handle the timeout case as an extra clause.
             As = erl_syntax:receive_expr_action(B),
             C = erl_syntax:clause([], As),

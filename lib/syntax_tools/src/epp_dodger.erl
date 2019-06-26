@@ -598,8 +598,6 @@ skip_macro_args([{'receive',_}=T | Ts], Es, As) ->
     skip_macro_args(Ts, ['end' | Es], [T | As]);
 skip_macro_args([{'try',_}=T | Ts], Es, As) ->
     skip_macro_args(Ts, ['end' | Es], [T | As]);
-skip_macro_args([{'cond',_}=T | Ts], Es, As) ->
-    skip_macro_args(Ts, ['end' | Es], [T | As]);
 skip_macro_args([{E,_}=T | Ts], [E], As) ->		%final close
     {lists:reverse([T | As]), Ts};
 skip_macro_args([{E,_}=T | Ts], [E | Es], As) ->	%matching close
