@@ -25,7 +25,7 @@
 -include("ssh.hrl").
 -include("ssh_agent.hrl").
 
--export([send/1, pack/1, unpack/1, encode/1, decode/1]).
+-export([send/1]).
 
 %% Agent communication
 
@@ -35,7 +35,7 @@ send(Request) ->
     ConnectOpts = [binary, {packet, 0}, {active, false}],
     {ok, Socket} = gen_tcp:connect({local, SocketPath}, 0, ConnectOpts),
 
-    BinRequest = ssh_agent:pack(ssh_agent:encode(Request)),
+    BinRequest = pack(encode(Request)),
     ok = gen_tcp:send(Socket, BinRequest),
 
     Timeout = 1000, % TODO: Make this a parameter? What is a sensible default value?
@@ -43,7 +43,7 @@ send(Request) ->
 
     ok = gen_tcp:close(Socket),
 
-    Response = ssh_agent:decode(ssh_agent:unpack(BinResponse)),
+    Response = decode(unpack(BinResponse)),
 
     Response.
 
@@ -60,10 +60,7 @@ unpack(<<Len:32/unsigned-big-integer, Data:Len/binary>>) ->
 encode(#ssh_agent_identities_request{}) ->
     <<?Ebyte(?SSH_AGENTC_REQUEST_IDENTITIES)>>;
 
-encode(#ssh_agent_sign_request{
-      key_blob = KeyBlob,
-      data = Data,
-      flags = Flags}) ->
+encode(#ssh_agent_sign_request{key_blob = KeyBlob, data = Data, flags = Flags}) ->
     <<?Ebyte(?SSH_AGENTC_SIGN_REQUEST), ?Estring(KeyBlob), ?Estring(Data), ?Euint32(Flags)>>.
 
 %% SSH Agent message decoding
