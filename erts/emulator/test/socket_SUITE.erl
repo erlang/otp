@@ -171,8 +171,10 @@
 
          %% *** Traffic ***
          traffic_send_and_recv_counters_tcp4/1,
-         traffic_sendto_and_recvfrom_counters_udp4/1,
          traffic_send_and_recv_counters_tcpL/1,
+         traffic_sendmsg_and_recvmsg_counters_tcp4/1,
+         traffic_sendmsg_and_recvmsg_counters_tcpL/1,
+         traffic_sendto_and_recvfrom_counters_udp4/1,
          traffic_sendto_and_recvfrom_counters_udpL/1,
 
          traffic_send_and_recv_chunks_tcp4/1,
@@ -831,6 +833,8 @@ traffic_counters_cases() ->
     [
      traffic_send_and_recv_counters_tcp4,
      traffic_send_and_recv_counters_tcpL,
+     traffic_sendmsg_and_recvmsg_counters_tcp4,
+     traffic_sendmsg_and_recvmsg_counters_tcpL,
      traffic_sendto_and_recvfrom_counters_udp4,
      traffic_sendto_and_recvfrom_counters_udpL
     ].
@@ -13597,6 +13601,72 @@ traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
                                  proto  => default,
                                  recv   => fun(S)    -> socket:recv(S)    end,
                                  send   => fun(S, D) -> socket:send(S, D) end},
+                   ok = traffic_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use TCP on IPv4.
+
+traffic_sendmsg_and_recvmsg_counters_tcp4(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcp4(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_tcp4,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr := _Source,
+                                                              iov  := [Data]}} ->
+                                                           {ok, Data};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data) ->
+                                                   MsgHdr = #{iov => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
+                                           end},
+                   ok = traffic_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use default (TCP) on local.
+
+traffic_sendmsg_and_recvmsg_counters_tcpL(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcpL(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_tcpL,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr := _Source,
+                                                              iov  := [Data]}} ->
+                                                           {ok, Data};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data) ->
+                                                   MsgHdr = #{iov => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
+                                           end},
                    ok = traffic_send_and_recv_tcp(InitState)
            end).
 
