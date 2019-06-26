@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
-	 job_control_remote/1,
+	 job_control_remote/1,stop_during_init/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1]).
 
@@ -44,7 +44,7 @@ all() ->
     [get_columns_and_rows_escript,get_columns_and_rows,
      exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
-     ctrl_keys].
+     ctrl_keys, stop_during_init].
 
 groups() -> 
     [].
@@ -204,6 +204,22 @@ exit_initial(Config) when is_list(Config) ->
 		    {putline,"35."},
 		    {getline_re,"35"}],[])
     end.
+
+stop_during_init(Config) when is_list(Config) ->
+    case get_progs() of
+	{error,_Reason} ->
+	    {skip,"No runerl present"};
+	{RunErl,_ToErl,Erl} ->
+	    case create_tempdir() of
+		{error, Reason2} ->
+		    {skip, Reason2};
+		Tempdir ->
+		    XArg = " -kernel shell_history true -s init stop",
+		    start_runerl_command(RunErl, Tempdir, "\\\""++Erl++"\\\""++XArg),
+		    {ok, Binary} = file:read_file(filename:join(Tempdir, "erlang.log.1")),
+		    nomatch = binary:match(Binary, <<"*** ERROR: Shell process terminated! ***">>)
+	    end
+     end.
 
 %% Tests that local shell can be started by means of job control.
 job_control_local(Config) when is_list(Config) ->
@@ -656,10 +672,10 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename) ->
 				end)++
 		       " -setcookie "++atom_to_list(erlang:get_cookie())
 	   end,
-    spawn(fun() ->
-		  os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++
-			     Erl++XArg++"\"")
-	  end).
+    spawn(fun() -> start_runerl_command(RunErl, Tempdir, Erl++XArg) end).
+
+start_runerl_command(RunErl, Tempdir, Cmd) ->
+    os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"").
 
 start_toerl_server(ToErl,Tempdir) ->
     Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir]),
