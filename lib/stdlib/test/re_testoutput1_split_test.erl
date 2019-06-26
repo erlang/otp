@@ -22940,14 +22940,14 @@ def","abc$",[]))),
     <<":abc:">> = iolist_to_binary(join(re:split("abcS","(abc)\\123",[{parts,
                                                                                                                                                                              2}]))),
     <<":abc:">> = iolist_to_binary(join(re:split("abcS","(abc)\\123",[]))),
-    <<":abc">> = iolist_to_binary(join(re:split("abc“","(abc)\\223",[trim]))),
-    <<":abc:">> = iolist_to_binary(join(re:split("abc“","(abc)\\223",[{parts,
+    <<":abc">> = iolist_to_binary(join(re:split("abcÂ“","(abc)\\223",[trim]))),
+    <<":abc:">> = iolist_to_binary(join(re:split("abcÂ“","(abc)\\223",[{parts,
                                                                                                                                                                              2}]))),
-    <<":abc:">> = iolist_to_binary(join(re:split("abc“","(abc)\\223",[]))),
-    <<":abc">> = iolist_to_binary(join(re:split("abcÓ","(abc)\\323",[trim]))),
-    <<":abc:">> = iolist_to_binary(join(re:split("abcÓ","(abc)\\323",[{parts,
+    <<":abc:">> = iolist_to_binary(join(re:split("abcÂ“","(abc)\\223",[]))),
+    <<":abc">> = iolist_to_binary(join(re:split("abcÃ“","(abc)\\323",[trim]))),
+    <<":abc:">> = iolist_to_binary(join(re:split("abcÃ“","(abc)\\323",[{parts,
                                                                                                                                                                              2}]))),
-    <<":abc:">> = iolist_to_binary(join(re:split("abcÓ","(abc)\\323",[]))),
+    <<":abc:">> = iolist_to_binary(join(re:split("abcÃ“","(abc)\\323",[]))),
     <<":abc">> = iolist_to_binary(join(re:split("abc@","(abc)\\100",[trim]))),
     <<":abc:">> = iolist_to_binary(join(re:split("abc@","(abc)\\100",[{parts,
                                                                                                                                                                              2}]))),
@@ -29024,10 +29024,10 @@ run34() ->
     <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(join(re:split("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b",[{parts,
                                                                                                                                                                                                                                                                                                         2}]))),
     <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(join(re:split("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b",[]))),
-    <<"„XAZ">> = iolist_to_binary(join(re:split("„XAZXB","(?<=Z)X.",[trim]))),
-    <<"„XAZ:">> = iolist_to_binary(join(re:split("„XAZXB","(?<=Z)X.",[{parts,
+    <<"Â„XAZ">> = iolist_to_binary(join(re:split("Â„XAZXB","(?<=Z)X.",[trim]))),
+    <<"Â„XAZ:">> = iolist_to_binary(join(re:split("Â„XAZXB","(?<=Z)X.",[{parts,
                                                                                                                                                                             2}]))),
-    <<"„XAZ:">> = iolist_to_binary(join(re:split("„XAZXB","(?<=Z)X.",[]))),
+    <<"Â„XAZ:">> = iolist_to_binary(join(re:split("Â„XAZXB","(?<=Z)X.",[]))),
     <<"">> = iolist_to_binary(join(re:split("ab cd defg","ab cd (?x) de fg",[trim]))),
     <<":">> = iolist_to_binary(join(re:split("ab cd defg","ab cd (?x) de fg",[{parts,
                                                                                                                                                                                                     2}]))),
@@ -30042,40 +30042,40 @@ run40() ->
     <<"** Failers">> = iolist_to_binary(join(re:split("** Failers","\\H\\h\\V\\v",[{parts,
                                                                                                                                                                                                 2}]))),
     <<"** Failers">> = iolist_to_binary(join(re:split("** Failers","\\H\\h\\V\\v",[]))),
-    <<"  X">> = iolist_to_binary(join(re:split("  X","\\H\\h\\V\\v",[trim]))),
-    <<"  X">> = iolist_to_binary(join(re:split("  X","\\H\\h\\V\\v",[{parts,
+    <<"Â  X">> = iolist_to_binary(join(re:split("Â  X","\\H\\h\\V\\v",[trim]))),
+    <<"Â  X">> = iolist_to_binary(join(re:split("Â  X","\\H\\h\\V\\v",[{parts,
                                                                                                                                                                                   2}]))),
-    <<"  X">> = iolist_to_binary(join(re:split("  X","\\H\\h\\V\\v",[]))),
-    <<"">> = iolist_to_binary(join(re:split("	  X
+    <<"Â  X">> = iolist_to_binary(join(re:split("Â  X","\\H\\h\\V\\v",[]))),
+    <<"">> = iolist_to_binary(join(re:split("	 Â X
 ","\\H*\\h+\\V?\\v{3,4}",[trim]))),
-    <<":">> = iolist_to_binary(join(re:split("	  X
+    <<":">> = iolist_to_binary(join(re:split("	 Â X
 ","\\H*\\h+\\V?\\v{3,4}",[{parts,2}]))),
-    <<":">> = iolist_to_binary(join(re:split("	  X
+    <<":">> = iolist_to_binary(join(re:split("	 Â X
 ","\\H*\\h+\\V?\\v{3,4}",[]))),
-    <<"">> = iolist_to_binary(join(re:split("	  
+    <<"">> = iolist_to_binary(join(re:split("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}",[trim]))),
-    <<":">> = iolist_to_binary(join(re:split("	  
+    <<":">> = iolist_to_binary(join(re:split("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}",[{parts,2}]))),
-    <<":">> = iolist_to_binary(join(re:split("	  
+    <<":">> = iolist_to_binary(join(re:split("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}",[]))),
-    <<"">> = iolist_to_binary(join(re:split("	  
+    <<"">> = iolist_to_binary(join(re:split("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}",[trim]))),
-    <<":">> = iolist_to_binary(join(re:split("	  
+    <<":">> = iolist_to_binary(join(re:split("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}",[{parts,2}]))),
-    <<":">> = iolist_to_binary(join(re:split("	  
+    <<":">> = iolist_to_binary(join(re:split("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}",[]))),
     <<"** Failers">> = iolist_to_binary(join(re:split("** Failers","\\H*\\h+\\V?\\v{3,4}",[trim]))),
     <<"** Failers">> = iolist_to_binary(join(re:split("** Failers","\\H*\\h+\\V?\\v{3,4}",[{parts,
                                                                                                                                                                                                                 2}]))),
     <<"** Failers">> = iolist_to_binary(join(re:split("** Failers","\\H*\\h+\\V?\\v{3,4}",[]))),
-    <<"	  
-">> = iolist_to_binary(join(re:split("	  
+    <<"	 Â 
+">> = iolist_to_binary(join(re:split("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}",[trim]))),
-    <<"	  
-">> = iolist_to_binary(join(re:split("	  
+    <<"	 Â 
+">> = iolist_to_binary(join(re:split("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}",[{parts,2}]))),
-    <<"	  
-">> = iolist_to_binary(join(re:split("	  
+    <<"	 Â 
+">> = iolist_to_binary(join(re:split("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}",[]))),
     <<"XY  :E">> = iolist_to_binary(join(re:split("XY  ABCDE","\\H{3,4}",[trim]))),
     <<"XY  :E">> = iolist_to_binary(join(re:split("XY  ABCDE","\\H{3,4}",[{parts,

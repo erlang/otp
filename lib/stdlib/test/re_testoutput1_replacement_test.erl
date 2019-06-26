@@ -15043,10 +15043,10 @@ def">> = iolist_to_binary(re:replace("abc
 def","abc$","\\1aguwNOw&Q&p&",[global])), 
     <<"abcSuqabcSwabcabcSabcsxWGOk">> = iolist_to_binary(re:replace("abcS","(abc)\\123","&uq&w\\1&\\1sxWGOk",[])), 
     <<"abcSuqabcSwabcabcSabcsxWGOk">> = iolist_to_binary(re:replace("abcS","(abc)\\123","&uq&w\\1&\\1sxWGOk",[global])), 
-    <<"dMwabc“Xqyabc“abc“i">> = iolist_to_binary(re:replace("abc“","(abc)\\223","dMw&Xqy&&i",[])), 
-    <<"dMwabc“Xqyabc“abc“i">> = iolist_to_binary(re:replace("abc“","(abc)\\223","dMw&Xqy&&i",[global])), 
-    <<"MiqonlGabcÓYdXabcf">> = iolist_to_binary(re:replace("abcÓ","(abc)\\323","MiqonlG&YdX\\1f",[])), 
-    <<"MiqonlGabcÓYdXabcf">> = iolist_to_binary(re:replace("abcÓ","(abc)\\323","MiqonlG&YdX\\1f",[global])), 
+    <<"dMwabcÂ“XqyabcÂ“abcÂ“i">> = iolist_to_binary(re:replace("abcÂ“","(abc)\\223","dMw&Xqy&&i",[])), 
+    <<"dMwabcÂ“XqyabcÂ“abcÂ“i">> = iolist_to_binary(re:replace("abcÂ“","(abc)\\223","dMw&Xqy&&i",[global])), 
+    <<"MiqonlGabcÃ“YdXabcf">> = iolist_to_binary(re:replace("abcÃ“","(abc)\\323","MiqonlG&YdX\\1f",[])), 
+    <<"MiqonlGabcÃ“YdXabcf">> = iolist_to_binary(re:replace("abcÃ“","(abc)\\323","MiqonlG&YdX\\1f",[global])), 
     <<"mTlabc@bdhBATwW">> = iolist_to_binary(re:replace("abc@","(abc)\\100","mTl&bdhBATwW",[])), 
     <<"mTlabc@bdhBATwW">> = iolist_to_binary(re:replace("abc@","(abc)\\100","mTl&bdhBATwW",[global])), 
     <<"QabcRSbUabc@Rabc@abc@fabckabcWabc">> = iolist_to_binary(re:replace("abc@","(abc)\\100","Q\\1RSbU&R&&f\\1k\\1W\\1",[])), 
@@ -18423,8 +18423,8 @@ run34() ->
     <<"FxjIeXxjLM">> = iolist_to_binary(re:replace("M","\\M","FxjIeXxjL&",[global])), 
     <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b","\\1AGI&o&owvv&Ew",[])), 
     <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b","\\1AGI&o&owvv&Ew",[global])), 
-    <<"„XAZidYPfGETo">> = iolist_to_binary(re:replace("„XAZXB","(?<=Z)X.","\\1\\1\\1idYPfGETo",[])), 
-    <<"„XAZidYPfGETo">> = iolist_to_binary(re:replace("„XAZXB","(?<=Z)X.","\\1\\1\\1idYPfGETo",[global])), 
+    <<"Â„XAZidYPfGETo">> = iolist_to_binary(re:replace("Â„XAZXB","(?<=Z)X.","\\1\\1\\1idYPfGETo",[])), 
+    <<"Â„XAZidYPfGETo">> = iolist_to_binary(re:replace("Â„XAZXB","(?<=Z)X.","\\1\\1\\1idYPfGETo",[global])), 
     <<"bNQDHCQab cd defgab cd defgLqxKPLt">> = iolist_to_binary(re:replace("ab cd defg","ab cd (?x) de fg","bNQDHCQ&&LqxKPLt",[])), 
     <<"bNQDHCQab cd defgab cd defgLqxKPLt">> = iolist_to_binary(re:replace("ab cd defg","ab cd (?x) de fg","bNQDHCQ&&LqxKPLt",[global])), 
     <<"kPHqOwBhoab cddefgWcAxPfqs">> = iolist_to_binary(re:replace("ab cddefg","ab cd(?x) de fg","k\\1PHqOwBho&WcAxP\\1fqs",[])), 
@@ -18950,37 +18950,37 @@ run40() ->
     <<"JqKpfdXTX	XMbyX	XX	X">> = iolist_to_binary(re:replace("X	X","\\H\\h\\V\\v","JqKpfdXT&Mby&\\1&",[global])), 
     <<"** Failers">> = iolist_to_binary(re:replace("** Failers","\\H\\h\\V\\v","FAmVe\\1O",[])), 
     <<"** Failers">> = iolist_to_binary(re:replace("** Failers","\\H\\h\\V\\v","FAmVe\\1O",[global])), 
-    <<"  X">> = iolist_to_binary(re:replace("  X","\\H\\h\\V\\v","\\1mSDSJp",[])), 
-    <<"  X">> = iolist_to_binary(re:replace("  X","\\H\\h\\V\\v","\\1mSDSJp",[global])), 
-    <<"JagFUGCxoJ	  X
-SMGCK">> = iolist_to_binary(re:replace("	  X
+    <<"Â  X">> = iolist_to_binary(re:replace("Â  X","\\H\\h\\V\\v","\\1mSDSJp",[])), 
+    <<"Â  X">> = iolist_to_binary(re:replace("Â  X","\\H\\h\\V\\v","\\1mSDSJp",[global])), 
+    <<"JagFUGCxoJ	 Â X
+SMGCK">> = iolist_to_binary(re:replace("	 Â X
 ","\\H*\\h+\\V?\\v{3,4}","JagFUGCxoJ&\\1SMGCK",[])), 
-    <<"JagFUGCxoJ	  X
-SMGCK">> = iolist_to_binary(re:replace("	  X
+    <<"JagFUGCxoJ	 Â X
+SMGCK">> = iolist_to_binary(re:replace("	 Â X
 ","\\H*\\h+\\V?\\v{3,4}","JagFUGCxoJ&\\1SMGCK",[global])), 
-    <<"	  
-an	  
-uIjsv">> = iolist_to_binary(re:replace("	  
+    <<"	 Â 
+an	 Â 
+uIjsv">> = iolist_to_binary(re:replace("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}","&an&\\1uIjsv\\1",[])), 
-    <<"	  
-an	  
-uIjsv">> = iolist_to_binary(re:replace("	  
+    <<"	 Â 
+an	 Â 
+uIjsv">> = iolist_to_binary(re:replace("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}","&an&\\1uIjsv\\1",[global])), 
-    <<"	  
-Cnyt	  
-sJWoCUIsrr">> = iolist_to_binary(re:replace("	  
+    <<"	 Â 
+Cnyt	 Â 
+sJWoCUIsrr">> = iolist_to_binary(re:replace("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}","&C\\1nyt\\1\\1&\\1sJWoCUIsrr",[])), 
-    <<"	  
-Cnyt	  
-sJWoCUIsrr">> = iolist_to_binary(re:replace("	  
+    <<"	 Â 
+Cnyt	 Â 
+sJWoCUIsrr">> = iolist_to_binary(re:replace("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}","&C\\1nyt\\1\\1&\\1sJWoCUIsrr",[global])), 
     <<"** Failers">> = iolist_to_binary(re:replace("** Failers","\\H*\\h+\\V?\\v{3,4}","heJfENVeR\\1TJ\\1&&Dvf",[])), 
     <<"** Failers">> = iolist_to_binary(re:replace("** Failers","\\H*\\h+\\V?\\v{3,4}","heJfENVeR\\1TJ\\1&&Dvf",[global])), 
-    <<"	  
-">> = iolist_to_binary(re:replace("	  
+    <<"	 Â 
+">> = iolist_to_binary(re:replace("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}","g&",[])), 
-    <<"	  
-">> = iolist_to_binary(re:replace("	  
+    <<"	 Â 
+">> = iolist_to_binary(re:replace("	 Â 
 ","\\H*\\h+\\V?\\v{3,4}","g&",[global])), 
     <<"XY  bvHE">> = iolist_to_binary(re:replace("XY  ABCDE","\\H{3,4}","bvH",[])), 
     <<"XY  bvHE">> = iolist_to_binary(re:replace("XY  ABCDE","\\H{3,4}","bvH",[global])), 
