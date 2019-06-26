@@ -130,6 +130,52 @@ i.e.
 Running [ct_run][] from the command line still requires you to do the
 `ts:install()` step above.
 
+### Convenience for running tests without the release and configuration steps
+
+It can be convenient to run tests with a single command. This way, one
+do not need to worry about missing to run `make release_tests` after
+changing a test suite. The `make test` command can be used for this
+purpose. The `make test` command works when the current directory
+contains a directory called test and in the root directory of the
+source code tree.
+
+*(Waring)* Some test cases do not run correctly or cannot be run at
+all through the `make test` command (typically test cases that require
+test specific C code to be compiled) because `make test` runs tests
+directly by invoking the `ct_run` command instead of using the `ts`
+wrapper. One has to follow the procedure described above to run test
+cases that do not work with `make test`.
+
+Below are some examples that illustrate how `make test` can be
+used:
+
+    # ERL_TOP needs to be set correctly
+    cd /path/to/otp
+    export ERL_TOP=`pwd`
+
+    # Build Erlang/OTP
+    #
+    # Note that make test will only compile test code except when
+    # make test is executed from $ERL_TOP.
+    ./otp_build setup -a
+
+    # Run a test case (The ARGS variable is passed to ct_run)
+    (cd $ERL_TOP/erts/emulator && make ARGS="-suite binary_SUITE -case deep_bitstr_lists" test)
+
+    # Run a test suite
+    (cd $ERL_TOP/lib/stdlib && make ARGS="-suite ets_SUITE" test)
+
+    # Run all test suites for an application
+    (cd $ERL_TOP/lib/asn1 && make test)
+
+    # Run all tests
+    #
+    # When executed from $ERL_TOP, "make test" will first release and
+    # configure all tests and then attempt to run all tests with `ts:run`.
+    # This will take several hours.
+    (cd $ERL_TOP && make test)
+
+
 Examining the results
 ---------------------
 

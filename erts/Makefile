@@ -153,3 +153,5 @@ release_docs:
 .PHONY: xmllint
 xmllint:
 	$(MAKE) -C doc/src $@
+
+include $(ERL_TOP)/make/app_targets.mk

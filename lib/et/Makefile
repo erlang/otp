@@ -35,3 +35,4 @@ SPECIAL_TARGETS =
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
 
+include $(ERL_TOP)/make/app_targets.mk
