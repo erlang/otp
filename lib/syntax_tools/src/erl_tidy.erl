@@ -1551,7 +1551,7 @@ visit_match_body(Ps, P, B, Tree, Env, St0) ->
                 false ->
                     visit_match_expr_final(P, B, Tree, Env, St0)
             end;
-       receive_expr ->
+        receive_expr ->
             %% Handle the timeout case as an extra clause.
             As = erl_syntax:receive_expr_action(B),
             C = erl_syntax:clause([], As),
