@@ -362,6 +362,15 @@ await_tc_runner_done(Runner, OldFlag) ->
                              "~n", [Reason, SysEvs]),
                     skip([{reason, Reason}, {system_events, SysEvs}])
             end;
+	{tc_runner_done, Runner, {'EXIT', {skip, Reason}}, Loc} ->
+	    ?PRINT2("call -> done with skip: "
+                    "~n   Reason: ~p"
+                    "~n   Loc:    ~p"
+                    "~n", [Reason, Loc]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
+	    put(test_server_loc, Loc),
+	    skip(Reason);
 	{tc_runner_done, Runner, {'EXIT', Rn}, Loc} ->
 	    ?PRINT2("call -> done with exit: "
                     "~n   Rn:  ~p"
@@ -466,28 +475,20 @@ tc_run(Mod, Func, Args, Opts) ->
 			      {mibs,                mibs(StdM, M)}]) of
 	{ok, _Pid} ->
 	    case (catch apply(Mod, Func, Args)) of
+		{'EXIT', {skip, Reason}} ->
+                    ?EPRINT2("apply skip detected: "
+                             "~n   ~p", [Reason]),
+		    (catch snmp_test_mgr:stop()),
+		    ?SKIP(Reason);
 		{'EXIT', Reason} ->
+                    ?EPRINT2("apply exit catched: "
+                             "~n   ~p", [Reason]),
 		    (catch snmp_test_mgr:stop()),
 		    ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
 		Res ->
 		    (catch snmp_test_mgr:stop()),
 		    Res
 	    end;
-            %% try apply(Mod, Func, Args) of
-            %%     Res ->
-            %%         (catch snmp_test_mgr:stop()),
-            %%         Res
-            %% catch
-            %%     throw:Res ->
-            %%         Res;
-            %%     C:E:S ->
-            %%         ?EPRINT2("Failed (tc) apply: "
-            %%                  "~n   Class: ~p"
-            %%                  "~n   Error: ~p"
-            %%                  "~n   Stack: ~p", [C, E, S]),
-            %%         (catch snmp_test_mgr:stop()),
-            %%         ?FAIL({apply_failed, {Mod, Func, Args}, {C, E, S}})
-            %% end;
 
 	{error, Reason} ->
 	    ?EPRINT2("Failed starting (test) manager: "
