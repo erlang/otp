@@ -9052,35 +9052,67 @@ ERL_NIF_TERM nsetopt_lvl_ip_update_membership(ErlNifEnv*       env,
 #endif
 
     // It must be a map
-    if (!IS_MAP(env, eVal))
+    if (!IS_MAP(env, eVal)) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ip_update_membership -> "
+                "value *not* a map\r\n") );
         return enif_make_badarg(env);
+    }
 
     // It must have atleast two attributes
-    if (!enif_get_map_size(env, eVal, &sz) || (sz >= 2))
+    if (!enif_get_map_size(env, eVal, &sz) || (sz < 2)) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ip_update_membership -> "
+                "invalid map value: %T\r\n", eVal) );
         return enif_make_badarg(env);
+    }
 
-    if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr))
+    if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ip_update_membership -> "
+                "failed get multiaddr (map) attribute\r\n") );
         return enif_make_badarg(env);
+    }
 
-    if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface))
+    if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface)) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ip_update_membership -> "
+                "failed get interface (map) attribute\r\n") );
         return enif_make_badarg(env);
+    }
 
     if ((xres = esock_decode_ip4_address(env,
                                          eMultiAddr,
-                                         &mreq.imr_multiaddr)) != NULL)
+                                         &mreq.imr_multiaddr)) != NULL) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ip_update_membership -> "
+                "failed decode multiaddr %T: %s\r\n", eMultiAddr, xres) );
         return esock_make_error_str(env, xres);
+    }
 
     if ((xres = esock_decode_ip4_address(env,
                                          eInterface,
-                                         &mreq.imr_interface)) != NULL)
+                                         &mreq.imr_interface)) != NULL) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ip_update_membership -> "
+                "failed decode interface %T: %s\r\n", eInterface, xres) );
         return esock_make_error_str(env, xres);
+    }
 
     res = socket_setopt(descP->sock, level, opt, &mreq, sizeof(mreq));
 
-    if (res != 0)
-        result = esock_make_error_errno(env, sock_errno());
-    else
+    if (res != 0) {
+        int save_errno = sock_errno();
+
+        result = esock_make_error_errno(env, save_errno);
+
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ip_update_membership -> "
+                "failed setopt: %T (%d)\r\n", result, save_errno) );
+
+    } else {
         result = esock_atom_ok;
+    }
 
     return result;
 }
@@ -9694,33 +9726,65 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*       env,
 #endif
 
     // It must be a map
-    if (!IS_MAP(env, eVal))
+    if (!IS_MAP(env, eVal)) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ipv6_update_membership -> "
+                "value *not* a map\r\n") );
         return enif_make_badarg(env);
+    }
 
     // It must have atleast two attributes
-    if (!enif_get_map_size(env, eVal, &sz) || (sz >= 2))
+    if (!enif_get_map_size(env, eVal, &sz) || (sz < 2)) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ipv6_update_membership -> "
+                "invalid map value: %T\r\n", eVal) );
         return enif_make_badarg(env);
+    }
 
-    if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr))
+    if (!GET_MAP_VAL(env, eVal, atom_multiaddr, &eMultiAddr)) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ipv6_update_membership -> "
+                "failed get multiaddr (map) attribute\r\n") );
         return enif_make_badarg(env);
+    }
 
-    if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface))
+    if (!GET_MAP_VAL(env, eVal, atom_interface, &eInterface)) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ipv6_update_membership -> "
+                "failed get interface (map) attribute\r\n") );
         return enif_make_badarg(env);
+    }
 
     if ((xres = esock_decode_ip6_address(env,
                                          eMultiAddr,
-                                         &mreq.ipv6mr_multiaddr)) != NULL)
+                                         &mreq.ipv6mr_multiaddr)) != NULL) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ipv6_update_membership -> "
+                "failed decode multiaddr %T: %s\r\n", eMultiAddr, xres) );
         return esock_make_error_str(env, xres);
+    }
 
-    if (!GET_UINT(env, eInterface, &mreq.ipv6mr_interface))
+    if (!GET_UINT(env, eInterface, &mreq.ipv6mr_interface)) {
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ip_update_membership -> "
+                "failed decode interface %T: %s\r\n", eInterface, xres) );
         return esock_make_error(env, esock_atom_einval);
+    }
 
     res = socket_setopt(descP->sock, level, opt, &mreq, sizeof(mreq));
 
-    if (res != 0)
-        result = esock_make_error_errno(env, sock_errno());
-    else
+    if (res != 0) {
+        int save_errno = sock_errno();
+
+        result = esock_make_error_errno(env, save_errno);
+
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_lvl_ipv6_update_membership -> "
+                "failed setopt: %T (%d)\r\n", result, save_errno) );
+
+    } else {
         result = esock_atom_ok;
+    }
 
     return result;
 }
