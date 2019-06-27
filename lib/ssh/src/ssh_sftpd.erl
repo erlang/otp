@@ -58,7 +58,17 @@
 %%====================================================================
 %% API
 %%====================================================================
--spec subsystem_spec(list()) -> subsystem_spec().
+-spec subsystem_spec(Options) -> Spec when
+      Options :: [ {cwd, string()} |
+                   {file_handler, CallbackModule::string()} |
+                   {max_files, integer()} |
+                   {root, string()} |
+                   {sftpd_vsn, integer()}
+                 ],
+      Spec :: {Name, {CbMod,Options}},
+      Name :: string(),
+      CbMod :: atom() .
+
 
 subsystem_spec(Options) ->
     {"sftp", {?MODULE, Options}}.
