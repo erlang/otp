@@ -67,6 +67,10 @@
               select_ref/0,
               select_info/0,
 
+              socket_counters/0,
+              socket_counter/0,
+              socket_info/0,
+
               %% command/0,
 
               domain/0,
@@ -152,6 +156,15 @@
                            data    := boolean()
                           }.
 %% -type command() :: debug_command().
+
+-type socket_counters() :: [{socket_counter(), non_neg_integer()}].
+-type socket_counter()  :: read_byte | read_fails | read_pkg | read_tries |
+                           read_waits | write_byte | write_fails | write_pkg |
+                           write_tries | write_waits.
+-type socket_info() :: #{counters      := socket_counters(),
+                         num_readers   := non_neg_integer(),
+                         num_writers   := non_neg_integer(),
+                         num_acceptors := non_neg_integer()}.
 
 -type uint8()  :: 0..16#FF.
 -type uint16() :: 0..16#FFFF.
@@ -912,7 +925,7 @@ command(#{command := debug,
 %% 
 %% ===========================================================================
 
--spec info(Socket) -> map() when
+-spec info(Socket) -> socket_info() when
       Socket :: socket().
 
 info(#socket{ref = SockRef}) ->
