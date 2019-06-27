@@ -479,27 +479,12 @@
           recv_ext_info
 	 }).
 
--record(ssh_key,
-	{
-	  type,
-	  public,
-	  private,
-	  comment = ""
-	 }).
-
 -record(ssh_pty, {term = "", % e.g. "xterm"
 		  width = 80,
 		  height = 25,
 		  pixel_width = 1024,
 		  pixel_height = 768,
 		  modes = <<>>}).
-
-%% assertion macro
--define(ssh_assert(Expr, Reason),
-	case Expr of
-	    true -> ok;
-	    _ -> exit(Reason)
-	end).
 
 
 %% dbg help macros
