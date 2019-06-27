@@ -527,7 +527,7 @@ erts_msg_attached_data_size_aux(ErtsMessage *msg)
 
     if (edep->heap_size < 0) {
 
-        sz = erts_decode_dist_ext_size(edep, 1);
+        sz = erts_decode_dist_ext_size(edep, 1, 1);
         if (sz < 0) {
             /* Bad external
              * We leave the message intact in this case as it's not worth the trouble

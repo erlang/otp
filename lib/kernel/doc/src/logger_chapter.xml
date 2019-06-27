@@ -89,8 +89,8 @@
     <p>Filter functions can be used for more sophisticated filtering
       than the log level check provides. A filter function can stop or
       pass a log event, based on any of the event's contents. It can
-      also modify all parts of the log event. See see
-      section <seealso marker="#filters">Filters</seealso> for more
+      also modify all parts of the log event. See section
+      <seealso marker="#filters">Filters</seealso> for more
       details.</p>
     <p>If a log event passes through all primary filters and all
       handler filters for a specific handler, Logger forwards the
