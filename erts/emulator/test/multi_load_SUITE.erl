@@ -30,7 +30,15 @@ all() ->
     [many,on_load,errors].
 
 many(_Config) ->
-    Ms = make_modules(100, fun many_module/1),
+
+    N = case erlang:system_info(build_type) of
+            valgrind ->
+                10;
+            _ ->
+                100
+        end,
+
+    Ms = make_modules(N, fun many_module/1),
 
     io:put_chars("Light load\n"
 		 "=========="),
