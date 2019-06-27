@@ -219,17 +219,8 @@ get_opts(Config) ->
 	      end,
     LogDir =
 	case os:getenv("CT_USE_TMP_DIR") of
-	    false ->
-		case os:type() of
-		    {win32,_} ->		
-			if TempDir == undefined -> PrivDir;
-			   true -> TempDir
-			end;
-		    _ ->
-			PrivDir
-		end;
-	    _ ->
-		TempDir
+	    false -> PrivDir;
+            _ -> TempDir
 	end,
 
     %% Copy test variables to app environment on new node
