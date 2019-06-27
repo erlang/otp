@@ -3121,6 +3121,7 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
 /*
  * This function return a property list containing "global" info.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
 {
@@ -3245,6 +3246,7 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
 
     return info;
 }
+#endif
 
 
 /* ----------------------------------------------------------------------
@@ -3363,6 +3365,7 @@ ERL_NIF_TERM ncommand_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
  *
  */
 
+#if !defined(__WIN32__)
 #define SOCKET_INFO_REQ_FUNCS                                                  \
     SOCKET_INFO_REQ_FUNC_DECL(readers,   readMtx,  currentReaderP,   readersQ) \
     SOCKET_INFO_REQ_FUNC_DECL(writers,   writeMtx, currentWriterP,   writersQ) \
@@ -3414,6 +3417,7 @@ ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
 
     return info;
 }
+#endif
 
 
 /* ----------------------------------------------------------------------
