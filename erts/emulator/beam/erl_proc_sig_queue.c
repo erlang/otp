@@ -3028,7 +3028,7 @@ erts_proc_sig_decode_dist(Process *proc, ErtsProcLocks proc_locks,
     if (edep->heap_size >= 0)
 	need = edep->heap_size;
     else {
-	need = erts_decode_dist_ext_size(edep, 1);
+	need = erts_decode_dist_ext_size(edep, 1, 1);
 	if (need < 0) {
 	    /* bad signal; remove it... */
 	    return 0;
