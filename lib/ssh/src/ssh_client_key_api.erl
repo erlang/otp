@@ -25,11 +25,11 @@
 
 -export_type([client_key_cb_options/0]).
 
--type client_key_cb_options() :: [{key_cb_private,term()} | ssh:client_option()].
+-type client_key_cb_options() :: [{key_cb_private, term()} | ssh:client_option()].
 
 -callback is_host_key(Key :: public_key:public_key(),
                       Host :: string(),
-		      Algorithm :: ssh:pubkey_alg(),
+                      Algorithm :: ssh:pubkey_alg(),
                       Options :: client_key_cb_options()
                      ) ->
     boolean().
@@ -37,11 +37,13 @@
 -callback user_key(Algorithm :: ssh:pubkey_alg(),
                    Options :: client_key_cb_options()
                   ) ->
-    {ok,  PrivateKey :: public_key:private_key()} | {error, string()}.
+    {ok, PrivateKey :: public_key:private_key()} |
+    {ok, PrivKeyBlob :: binary()} |
+    {error, string()}.
 
 
 -callback add_host_key(Host :: string(),
                        PublicKey :: public_key:public_key(),
                        Options :: client_key_cb_options()
                       ) ->
-    ok | {error, Error::term()}.
+    ok | {error, Error :: term()}.
