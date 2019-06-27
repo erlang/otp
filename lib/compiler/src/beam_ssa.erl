@@ -123,7 +123,7 @@
                       'copy' | 'put_tuple_arity' | 'put_tuple_element' |
                       'put_tuple_elements' | 'set_tuple_element'.
 
--import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
+-import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1,umerge/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
@@ -651,12 +651,18 @@ is_commutative('=/=') -> true;
 is_commutative('/=') -> true;
 is_commutative(_) -> false.
 
-def_used_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, Used0) ->
-    {Def,Used1} = def_used_is(Is, Preds, Def0, Used0),
-    Used = ordsets:union(used(Last), Used1),
-    def_used_1(Bs, Preds, Def, Used);
-def_used_1([], _Preds, Def, Used) ->
-    {ordsets:from_list(Def),Used}.
+def_used_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, UsedAcc) ->
+    {Def,Used} = def_used_is(Is, Preds, Def0, used(Last)),
+    case Used of
+        [] ->
+            def_used_1(Bs, Preds, Def, UsedAcc);
+        [_|_] ->
+            def_used_1(Bs, Preds, Def, [Used|UsedAcc])
+    end;
+def_used_1([], _Preds, Def0, UsedAcc) ->
+    Def = ordsets:from_list(Def0),
+    Used = umerge(UsedAcc),
+    {Def,Used}.
 
 def_used_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
             Preds, Def0, Used0) ->
