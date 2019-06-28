@@ -709,12 +709,12 @@ et_1([L | Ls], Trampolines, Blocks) ->
     case {Is, Last0} of
         {[#b_set{op=exception_trampoline}], #b_br{succ=Succ}} ->
             et_1(Ls, Trampolines#{ L => Succ }, maps:remove(L, Blocks));
-        {_, #b_br{succ=Same,fail=Same}} when Same =:= ?BADARG_BLOCK ->
-            %% The "badarg block" is just a marker saying that we should raise
+        {_, #b_br{succ=Same,fail=Same}} when Same =:= ?EXCEPTION_BLOCK ->
+            %% The exception block is just a marker saying that we should raise
             %% an exception (= {f,0}) instead of jumping to a particular fail
             %% block. Since it's not a reachable block we can't allow
             %% unconditional jumps to it except through a trampoline.
-            error({illegal_jump_to_badarg_block, L});
+            error({illegal_jump_to_exception_block, L});
         {_, #b_br{succ=Succ0,fail=Fail0}} ->
             Succ = maps:get(Succ0, Trampolines, Succ0),
             Fail = maps:get(Fail0, Trampolines, Fail0),
@@ -1338,10 +1338,10 @@ place_frame_here(L, Blocks, Doms, Frames) ->
             Descendants = beam_ssa:rpo([L], Blocks),
             PhiPredecessors = phi_predecessors(L, Blocks),
             MustDominate = ordsets:from_list(PhiPredecessors ++ Descendants),
-            Dominates = all(fun(?BADARG_BLOCK) ->
+            Dominates = all(fun(?EXCEPTION_BLOCK) ->
                                     %% This block defines no variables and calls
                                     %% erlang:error(badarg). It does not matter
-                                    %% whether L dominates ?BADARG_BLOCK or not;
+                                    %% whether L dominates ?EXCEPTION_BLOCK or not;
                                     %% it is still safe to put the frame in L.
                                     true;
                                (Bl) ->
@@ -1823,7 +1823,7 @@ collect_yregs([], Yregs) -> Yregs.
 copy_retval_2([L|Ls], Yregs, Copy0, Blocks0, Count0) ->
     #b_blk{is=Is0,last=Last} = Blk = map_get(L, Blocks0),
     RC = case {Last,Ls} of
-             {#b_br{succ=Succ,fail=?BADARG_BLOCK},[Succ|_]} ->
+             {#b_br{succ=Succ,fail=?EXCEPTION_BLOCK},[Succ|_]} ->
                  true;
              {_,_} ->
                  false
@@ -2562,9 +2562,9 @@ reserve_xregs_is([], Res, Xs, _Used) ->
     {Res,Xs}.
 
 %% Pick up register hints from the successors of this blocks.
-reserve_terminator(_L, _Is, #b_br{bool=#b_var{},succ=Succ,fail=?BADARG_BLOCK},
+reserve_terminator(_L, _Is, #b_br{bool=#b_var{},succ=Succ,fail=?EXCEPTION_BLOCK},
                    _Blocks, XsMap, _Res) ->
-    %% We know that no variables are used at ?BADARG_BLOCK, so
+    %% We know that no variables are used at ?EXCEPTION_BLOCK, so
     %% any register hints from the success blocks are safe to use.
     map_get(Succ, XsMap);
 reserve_terminator(L, Is, #b_br{bool=#b_var{},succ=Succ,fail=Fail},

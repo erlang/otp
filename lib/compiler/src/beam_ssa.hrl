@@ -62,5 +62,13 @@
 -record(b_local, {name  :: beam_ssa:b_literal(),
                   arity :: non_neg_integer()}).
 
-%% If this block exists, it calls erlang:error(badarg).
--define(BADARG_BLOCK, 1).
+%% This is a psuedo-block used to express that certain instructions and BIFs
+%% throw exceptions on failure. The code generator rewrites all branches to
+%% this block to {f,0} which causes the instruction to throw an exception
+%% instead of branching.
+%%
+%% Since this is not an ordinary block, it's illegal to merge it with other
+%% blocks, and jumps are only valid when we know that an exception will be
+%% thrown by the operation that branches here; the *block itself* does not
+%% throw an exception.
+-define(EXCEPTION_BLOCK, 1).

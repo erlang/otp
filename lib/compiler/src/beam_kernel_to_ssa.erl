@@ -34,7 +34,7 @@
 -type label() :: beam_ssa:label().
 
 %% Main codegen structure.
--record(cg, {lcount=1 :: label(),               %Label counter
+-record(cg, {lcount=1 :: label(),   %Label counter
              bfail=1 :: label(),
              catch_label=none :: 'none' | label(),
              vars=#{} :: map(),     %Defined variables.
@@ -83,6 +83,7 @@ function(#k_fdef{anno=Anno0,func=Name,arity=Arity,
 
 cg_fun(Ke, St0) ->
     {UltimateFail,FailIs,St1} = make_failure(badarg, St0),
+    ?EXCEPTION_BLOCK = UltimateFail,            %Assertion.
     St2 = St1#cg{bfail=UltimateFail,ultimate_failure=UltimateFail},
     {B,St} = cg(Ke, St2),
     Asm = [{label,0}|B++FailIs],

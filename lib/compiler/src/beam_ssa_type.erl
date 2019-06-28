@@ -108,7 +108,7 @@ opt_continue_1(Linear0, Args, Id, Ts, FuncDb0) ->
     D = #d{ func_db=FuncDb0,
             func_id=Id,
             ds=Defs,
-            ls=#{0=>Ts,?BADARG_BLOCK=>#{}},
+            ls=#{0=>Ts,?EXCEPTION_BLOCK=>#{}},
             once=UsedOnce },
 
     {Linear, FuncDb, NewRet} = opt(Linear0, D, []),
@@ -892,8 +892,8 @@ sub_sw_list_1(Type, [{Val,_}|T], Ts) ->
 sub_sw_list_1(Type, [], _Ts) ->
     Type.
 
-update_successor(?BADARG_BLOCK, _Ts, #d{}=D) ->
-    %% We KNOW that no variables are used in the ?BADARG_BLOCK,
+update_successor(?EXCEPTION_BLOCK, _Ts, #d{}=D) ->
+    %% We KNOW that no variables are used in the ?EXCEPTION_BLOCK,
     %% so there is no need to update the type information. That
     %% can be a huge timesaver for huge functions.
     D;

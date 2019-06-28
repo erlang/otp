@@ -115,14 +115,14 @@ functions(Forms, AtomMod) ->
 function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
     #{func_info:={_,Name,Arity}} = Anno,
     try
-        assert_badarg_block(Blocks),            %Assertion.
+        assert_exception_block(Blocks),            %Assertion.
         Regs = maps:get(registers, Anno),
         St1 = St0#cg{labels=#{},used_labels=gb_sets:empty(),
                      regs=Regs},
         {Fi,St2} = new_label(St1),              %FuncInfo label
         {Entry,St3} = local_func_label(Name, Arity, St2),
         {Ult,St4} = new_label(St3),             %Ultimate failure
-        Labels = (St4#cg.labels)#{0=>Entry,?BADARG_BLOCK=>0},
+        Labels = (St4#cg.labels)#{0=>Entry,?EXCEPTION_BLOCK=>0},
         St5 = St4#cg{labels=Labels,used_labels=gb_sets:singleton(Entry),
                      ultimate_fail=Ult},
         {Body,St} = cg_fun(Blocks, St5#cg{fc_label=Fi}),
@@ -138,10 +138,10 @@ function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
             erlang:raise(Class, Error, Stack)
     end.
 
-assert_badarg_block(Blocks) ->
-    %% Assertion: ?BADARG_BLOCK must be the call erlang:error(badarg).
+assert_exception_block(Blocks) ->
+    %% Assertion: ?EXCEPTION_BLOCK must be a call erlang:error(badarg).
     case Blocks of
-        #{?BADARG_BLOCK:=Blk} ->
+        #{?EXCEPTION_BLOCK:=Blk} ->
             #b_blk{is=[#b_set{op=call,dst=Ret,
                               args=[#b_remote{mod=#b_literal{val=erlang},
                                               name=#b_literal{val=error}},
@@ -149,7 +149,7 @@ assert_badarg_block(Blocks) ->
                    last=#b_ret{arg=Ret}} = Blk,
             ok;
         #{} ->
-            %% ?BADARG_BLOCK has been removed because it was never used.
+            %% ?EXCEPTION_BLOCK has been removed because it was never used.
             ok
     end.
 
@@ -631,7 +631,7 @@ liveness_get(S, LiveMap) ->
     end.
 
 liveness_successors(Terminator) ->
-    successors(Terminator) -- [?BADARG_BLOCK].
+    successors(Terminator) -- [?EXCEPTION_BLOCK].
 
 liveness_is([#cg_alloc{}=I0|Is], Regs, Live, Acc) ->
     I = I0#cg_alloc{live=num_live(Live, Regs)},
@@ -965,7 +965,7 @@ cg_block(Is0, Last, Next, St0) ->
     case Last of
         #cg_br{succ=Next,fail=Next} ->
             cg_block(Is0, none, St0);
-        #cg_br{succ=Same,fail=Same} when Same =:= ?BADARG_BLOCK ->
+        #cg_br{succ=Same,fail=Same} when Same =:= ?EXCEPTION_BLOCK ->
             %% An expression in this block *always* throws an exception, so we
             %% terminate it with an 'if_end' to make sure the validator knows
             %% that the following instructions won't actually be reached.
@@ -1839,7 +1839,7 @@ linearize(Blocks) ->
     Linear = beam_ssa:linearize(Blocks),
     linearize_1(Linear, Blocks).
 
-linearize_1([{?BADARG_BLOCK,_}|Ls], Blocks) ->
+linearize_1([{?EXCEPTION_BLOCK,_}|Ls], Blocks) ->
     linearize_1(Ls, Blocks);
 linearize_1([{L,Block0}|Ls], Blocks) ->
     Block = translate_block(L, Block0, Blocks),

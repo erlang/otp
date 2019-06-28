@@ -2274,7 +2274,7 @@ non_guards_1([{L,#b_blk{is=Is}}|Bs]) ->
             non_guards_1(Bs)
     end;
 non_guards_1([]) ->
-    [?BADARG_BLOCK].
+    [?EXCEPTION_BLOCK].
 
 rel2fam(S0) ->
     S1 = sofs:relation(S0),
