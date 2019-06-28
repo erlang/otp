@@ -1400,6 +1400,10 @@ get_conflicting_unicode_atoms(CIX, N) ->
 %% The message_latency_large tests that small distribution messages are
 %% not blocked by other large distribution messages. Basically it tests
 %% that fragmentation of distribution messages works.
+%%
+%% Because of large problems to get reliable values from these testcases
+%% they no longer fail when the latency is incorrect. However, they are
+%% kept as they continue to find bugs in the distribution implementation.
 message_latency_large_message(Config) when is_list(Config) ->
     measure_latency_large_message(?FUNCTION_NAME, fun(Dropper, Payload) -> Dropper ! Payload end).
 
@@ -1484,7 +1488,11 @@ measure_latency_large_message(Nodename, DataFun) ->
 
     case {lists:max(Times), lists:min(Times)} of
         {Max, Min} when Max * 0.25 > Min, BuildType =:= opt ->
-            ct:fail({incorrect_latency, IndexTimes});
+            %% We only issue a comment for this failure as the
+            %% testcases proved very difficult to run successfully
+            %% on many platforms.
+            ct:comment({incorrect_latency, IndexTimes}),
+            ok;
         _ ->
             ok
     end.
@@ -1503,10 +1511,7 @@ measure_latency(DataFun, Dropper, Echo, Payload) ->
                          end
                  end) || _ <- lists:seq(1,2)],
 
-    [receive
-         {monitor, _Sender, busy_dist_port, _Info} ->
-             ok
-     end || _ <- lists:seq(1,10)],
+    wait_for_busy_dist(2 * 60 * 1000, 10),
 
     {TS, Times} =
         timer:tc(fun() ->
@@ -1529,6 +1534,18 @@ measure_latency(DataFun, Dropper, Echo, Payload) ->
          end
      end || {Sender, Ref} <- Senders],
     TS.
+
+wait_for_busy_dist(_Tmo, 0) ->
+    ok;
+wait_for_busy_dist(Tmo, N) ->
+    T0 = erlang:monotonic_time(millisecond),
+    receive
+         {monitor, _Sender, busy_dist_port, _Info} ->
+             wait_for_busy_dist(Tmo - (erlang:monotonic_time(millisecond) - T0), N - 1)
+    after Tmo ->
+            ct:log("Timed out waiting for busy_dist, ~p left",[N]),
+            timeout
+    end.
 
 flush() ->
     receive
@@ -2600,7 +2617,7 @@ verify_nc(Node) ->
             demonitor(MonRef,[flush]),
             ok;
         {Ref, Error} ->
-            ct:log("~p",[Error]),
+            ct:log("~s",[Error]),
             ct:fail(failed_nc_refc_check);
         {'DOWN', MonRef, _, _, _} = Down ->
             ct:log("~p",[Down]),
