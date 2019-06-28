@@ -180,8 +180,9 @@ meet(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
 meet(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
     T;
 meet(#t_integer{elements={MinA,MaxA}}, #t_integer{elements={MinB,MaxB}})
-  when MinA >= MinB, MaxA =< MaxB;
-       MinB >= MinA, MaxB =< MaxA ->
+  when MinA >= MinB, MinA =< MaxB;
+       MinB >= MinA, MinB =< MaxA ->
+    true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
     #t_integer{elements={max(MinA, MinB),min(MaxA, MaxB)}};
 meet(#t_integer{}=T, number) -> T;
 meet(float=T, number) -> T;

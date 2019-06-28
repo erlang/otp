@@ -32,7 +32,8 @@
          identity/1]).
 
 -export([binary_absorption/1,
-         integer_absorption/1]).
+         integer_absorption/1,
+         integer_associativity/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -40,7 +41,8 @@ suite() ->
 all() ->
     [{group,property_tests},
      binary_absorption,
-     integer_absorption].
+     integer_absorption,
+     integer_associativity].
 
 groups() ->
     [{property_tests,[parallel],
@@ -91,15 +93,32 @@ binary_absorption(Config) when is_list(Config) ->
     ok.
 
 integer_absorption(Config) when is_list(Config) ->
-    %% Integers that don't overlap fully should never meet.
-    A = #t_integer{elements={3,5}},
-    B = #t_integer{elements={4,6}},
+    %% Integers that don't overlap at all should never meet.
+    A = #t_integer{elements={2,3}},
+    B = #t_integer{elements={4,5}},
 
     none = beam_types:meet(A, B),
-    #t_integer{elements={3,6}} = beam_types:join(A, B),
+    #t_integer{elements={2,5}} = beam_types:join(A, B),
 
     A = beam_types:meet(A, beam_types:join(A, B)),
     A = beam_types:join(A, beam_types:meet(A, B)),
+
+    ok.
+
+integer_associativity(Config) when is_list(Config) ->
+    A = #t_integer{elements={3,5}},
+    B = #t_integer{elements={4,6}},
+    C = #t_integer{elements={5,5}},
+
+    %% a ∨ (b ∨ c) = (a ∨ b) ∨ c,
+    LHS_Join = beam_types:join(A, beam_types:join(B, C)),
+    RHS_Join = beam_types:join(beam_types:join(A, B), C),
+    #t_integer{elements={3,6}} = LHS_Join = RHS_Join,
+
+    %% a ∧ (b ∧ c) = (a ∧ b) ∧ c.
+    LHS_Meet = beam_types:meet(A, beam_types:meet(B, C)),
+    RHS_Meet = beam_types:meet(beam_types:meet(A, B), C),
+    #t_integer{elements={5,5}} = LHS_Meet = RHS_Meet,
 
     ok.
 
