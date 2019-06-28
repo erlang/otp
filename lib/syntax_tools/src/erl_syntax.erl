@@ -429,6 +429,7 @@
 -record(tree, {type           :: atom(),
 	       attr = #attr{} :: #attr{},
 	       data           :: term()}).
+-type tree() :: #tree{}.
 
 %% `wrapper' records are used for attaching new-form node information to
 %% `erl_parse' trees.
@@ -444,18 +445,20 @@
 -record(wrapper, {type           :: atom(),
 		  attr = #attr{} :: #attr{},
 		  tree           :: erl_parse()}).
+-type wrapper() :: #wrapper{}.
 
 %% =====================================================================
 
--type syntaxTree() :: #tree{} | #wrapper{} | erl_parse().
+-type syntaxTree() :: tree() | wrapper() | erl_parse().
 
 -type erl_parse() :: erl_parse:abstract_clause()
                    | erl_parse:abstract_expr()
                    | erl_parse:abstract_form()
                    | erl_parse:abstract_type()
                    | erl_parse:form_info()
-                     %% To shut up Dialyzer:
-                   | {bin_element, _, _, _, _}.
+                   | erl_parse:af_binelement(term())
+                   | erl_parse:af_generator()
+                   | erl_parse:af_remote_function().
 
 %% The representation built by the Erlang standard library parser
 %% `erl_parse'. This is a subset of the {@link syntaxTree()} type.
@@ -8175,7 +8178,7 @@ meta_call(F, As) ->
 %% =====================================================================
 %% @equiv tree(Type, [])
 
--spec tree(atom()) -> #tree{}.
+-spec tree(atom()) -> tree().
 
 tree(Type) ->
     tree(Type, []).
@@ -8210,7 +8213,7 @@ tree(Type) ->
 %% @see data/1
 %% @see type/1
 
--spec tree(atom(), term()) -> #tree{}.
+-spec tree(atom(), term()) -> tree().
 
 tree(Type, Data) ->
     #tree{type = Type, data = Data}.
@@ -8266,7 +8269,7 @@ data(T) -> erlang:error({badarg, T}).
 %% trees. <em>Attaching a wrapper onto another wrapper structure is an
 %% error</em>.
 
--spec wrap(erl_parse()) -> #wrapper{}.
+-spec wrap(erl_parse()) -> wrapper().
 
 wrap(Node) ->
     %% We assume that Node is an old-school `erl_parse' tree.
@@ -8280,7 +8283,7 @@ wrap(Node) ->
 %% `erl_parse' tree; otherwise it returns `Node'
 %% itself.
 
--spec unwrap(syntaxTree()) -> #tree{} | erl_parse().
+-spec unwrap(syntaxTree()) -> tree() | erl_parse().
 
 unwrap(#wrapper{tree = Node}) -> Node;
 unwrap(Node) -> Node.	 % This could also be a new-form node.
