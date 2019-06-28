@@ -37,7 +37,7 @@ document etp-help
 % - GDB command toolbox for analyzing core dumps from the
 % Erlang emulator (BEAM).
 % 
-% Should work for 32-bit erts-5.2/R9B, ...
+% Should work for 32-bit and 64-bit unix gdb
 % 
 % The commands are prefixed with:
 %   etp:  Acronym for erts-term-print
@@ -55,7 +55,8 @@ document etp-help
 % Special commands for not really terms:
 %   etp-mfa, etp-cp, etp-disasm,
 %   etp-msgq, etpf-msgq, 
-%   etp-stacktrace, etp-stackdump, etpf-stackdump, etp-dictdump
+%   etp-stacktrace, etp-stacktrace-emu, etp-stackdump, etp-stackdump-emu,
+%   etpf-stackdump, etp-dictdump
 %   etp-process-info, etp-process-memory-info
 %   etp-port-info, etp-port-state, etp-port-sched-flags
 %   etp-heapdump, etp-offheapdump, etpf-offheapdump,
@@ -1452,15 +1453,65 @@ end
 define etp-stack-preamble
   set $etp_stack_p = ($arg0)->stop
   set $etp_stack_end = ($arg0)->hend
+  if ($arg0)->state.counter & 0x8000
+    printf "%%%%%% WARNING: The process is currently running, so c_p->stop will not be correct\r\n"
+    printf "%%%%%%          Consider using %s-emu instead\r\n", $arg1
+  end
   printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
   if ($arg0)->i != 0
-    etp-1 ((Eterm)($arg0)->i) 0
-    printf "  (I)\n"
+    printf "I: "
+    etp ((Eterm)($arg0)->i)
   end
   if ($arg0)->cp != 0
-    etp-1 ((Eterm)($arg0)->cp) 0
-    printf "  (cp)\n"
+    printf "cp:"
+    etp ((Eterm)($arg0)->cp)
   end
+end
+
+define etp-stack-preamble-emu
+  set $etp_stack_p = E
+  set $etp_stack_end = ($arg0)->hend
+  printf "%% Stacktrace (%u)\n", $etp_stack_end-$etp_stack_p
+  printf "I: "
+  etp ((BeamInstr)I)
+  if ($arg0)->cp != 0
+    printf "cp: "
+    etp ((Eterm)($arg0)->cp)
+  end
+end
+
+define etp-stacktrace-1
+  set $etp_stack_stop = (Eterm*)($arg0)
+  set $etp_stack_send = (Eterm*)($arg1)
+  set $etp_stack_cnt = 0
+  while $etp_stack_stop < $etp_stack_send
+    if ($etp_stack_stop[0] & 0x3) == 0x0
+      # Continuation pointer
+      printf "%d: ", $etp_stack_cnt
+      etp $etp_stack_stop[0]
+    end
+    set $etp_stack_stop++
+    set $etp_stack_cnt++
+  end
+end
+
+define etp-stacktrace-emu
+# Args: Process*
+#
+# Non-reentrant
+#
+  etp-stack-preamble-emu ($arg0)
+  etp-stacktrace-1 $etp_stack_p $etp_stack_end
+end
+
+document etp-stacktrace-emu
+%---------------------------------------------------------------------------
+% etp-stacktrace-emu Process*
+% 
+% Take an Process* and print a stactrace for the process.
+% This macro assumes that the current frame is the process_main frame
+% and that E is not optimized out.
+%---------------------------------------------------------------------------
 end
 
 define etp-stacktrace
@@ -1468,14 +1519,8 @@ define etp-stacktrace
 #
 # Non-reentrant
 #
-  etp-stack-preamble ($arg0)
-  while $etp_stack_p < $etp_stack_end
-    if ($etp_stack_p[0] & 0x3) == 0x0
-      # Continuation pointer
-      etp $etp_stack_p[0]
-    end
-    set $etp_stack_p++
-  end
+  etp-stack-preamble ($arg0) "etp-stacktrace"
+  etp-stacktrace-1 $etp_stack_p $etp_stack_end
 end
 
 document etp-stacktrace
@@ -1488,16 +1533,48 @@ document etp-stacktrace
 %---------------------------------------------------------------------------
 end
 
+define etp-stackdump-1
+  # Args: Eterm *stop, Eterm *hend
+  #
+  # Non-reentrant
+  #
+  set $etp_stackdump_stop = (Eterm*)($arg0)
+  set $etp_stackdump_send = (Eterm*)($arg1)
+  set $etp_stackdump_cnt = 0
+  while $etp_stackdump_stop < $etp_stackdump_send
+    printf "%d: ", $etp_stackdump_cnt
+    etp $etp_stackdump_stop[0]
+    set $etp_stackdump_stop++
+    set $etp_stackdump_cnt++
+  end
+end
+
+define etp-stackdump-emu
+# Args: Process*
+#
+# Non-reentrant
+#
+  etp-stack-preamble-emu ($arg0)
+  etp-stackdump-1 $etp_stack_p $etp_stack_end
+end
+
+document etp-stacktrace-emu
+%---------------------------------------------------------------------------
+% etp-stacktrace-emu Process*
+% 
+% Take an Process* and print a stactdump for the process.
+% This macro assumes that the current frame is the process_main frame
+% and that E is not optimized out.
+%---------------------------------------------------------------------------
+end
+
 define etp-stackdump
 # Args: Process*
 #
 # Non-reentrant
 #
-  etp-stack-preamble ($arg0)
-  while $etp_stack_p < $etp_stack_end
-    etp $etp_stack_p[0]
-    set $etp_stack_p++
-  end
+  etp-stack-preamble ($arg0) "etp-stackdump"
+  etp-stackdump-1 $etp_stack_p $etp_stack_end
 end
 
 document etp-stackdump
@@ -2959,12 +3036,21 @@ define etp-fds
   end
 end
 
+document etp-fds
+%---------------------------------------------------------------------------
+% etp-fds
+% 
+% Print the state of the fds currently in check_io. Only works in running systems.
+%---------------------------------------------------------------------------
+end
+
 define etp-disasm-1
-  set $code_ptr = ((BeamInstr*)$arg0)
-  set $addr = *$code_ptr
+  set $code_ptr = ((BeamInstr*)($arg0))
+  set $addr32 = (BeamInstr)(Uint32)*$code_ptr
+  set $addr64 = (BeamInstr)(Uint64)*$code_ptr
   set $i = 0
-  while $i < (sizeof(opc) / sizeof(OpEntry))
-    if $addr == beam_ops[$i]
+  while $i < num_instructions
+    if $addr32 == beam_ops[$i] || $addr64 == beam_ops[$i]
       printf "%s %d", opc[$i].name, opc[$i].sz
       set $next_i = $code_ptr + opc[$i].sz
       set $i += 4999
@@ -2974,6 +3060,11 @@ define etp-disasm-1
 end
 
 define etp-disasm
+  if $argc == 1
+    set $code_end = $arg0
+  else
+    set $code_end = $arg1
+  end
   etp-cp-func-info-1 $arg0
   if $etp_cp_p == 0
     printf "invalid argument"
@@ -2982,7 +3073,7 @@ define etp-disasm
     printf ": "
     etp-disasm-1 $arg0
     printf "\r\n"
-    while $next_i < ((BeamInstr*)$arg1)
+    while $next_i < ((BeamInstr*)$code_end)
       set $prev_i = $next_i
       etp-cp-func-info-1 $next_i
       etp-mfa-1 $etp_cp_p $cp_cp_p_offset
@@ -2996,6 +3087,16 @@ define etp-disasm
       printf "\r\n"
     end
   end
+end
+
+document etp-disasm
+%---------------------------------------------------------------------------
+% etp-fds BeamInstr* (BeamInstr*)
+% 
+% Disassemble the instructions inbetween arg0 and arg1,
+% if no second argument is given only the current
+% instruction is printed.
+%---------------------------------------------------------------------------
 end
 
 ############################################################################
