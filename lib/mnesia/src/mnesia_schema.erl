@@ -697,7 +697,7 @@ schema_coordinator(Client, _Fun, undefined) ->
 schema_coordinator(Client, Fun, Controller) when is_pid(Controller) ->
     %% Do not trap exit in order to automatically die
     %% when the controller dies
-
+    put(transaction_client, Client), %% debug
     link(Controller),
     unlink(Client),
 
