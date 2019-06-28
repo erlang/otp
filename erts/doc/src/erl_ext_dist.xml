@@ -637,11 +637,13 @@
 	  <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>.
 	  Port operations are not allowed across node boundaries.
 	</p>
-	<p>Introduced in OTP 19, but only to be decoded and echoed back. Not
-	  encoded for local ports. Planned to supersede <seealso marker="#PORT_EXT">
-	  <c>PORT_EXT</c></seealso> in OTP 23 when
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_BIG_CREATON</c></seealso>
-	  becomes mandatory.
+	<p><c>NEW_PORT_EXT</c> was introduced in OTP 19, but only to be decoded
+	  and echoed back. Not encoded for local ports.
+	</p>
+	<p>In OTP 23 distribution flag <seealso	marker="erl_dist_protocol#dflags">
+	  <c>DFLAG_BIG_CREATION</c></seealso> became mandatory. All ports are now
+	  encoded using <c>NEW_PORT_EXT</c>, even external ports received as <seealso
+	  marker="#PORT_EXT"><c>PORT_EXT</c></seealso> from older nodes.
 	</p>
     </section>
 
@@ -719,11 +721,13 @@
 	    erlang:list_to_pid/1</seealso>).</p>
 	  </item>
 	</taglist>
-	<p>Introduced in OTP 19, but only to be decoded and echoed back. Not
-	  encoded for local processes. Planned to supersede <seealso marker="#PID_EXT">
-	  <c>PID_EXT</c></seealso> in OTP 23 when
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_BIG_CREATON</c></seealso>
-	  becomes mandatory.
+	<p><c>NEW_PID_EXT</c> was introduced in OTP 19, but only to be decoded
+	  and echoed back. Not encoded for local processes.
+	</p>
+	<p>In OTP 23 distribution flag <seealso	marker="erl_dist_protocol#dflags">
+	  <c>DFLAG_BIG_CREATION</c></seealso> became mandatory. All pids are now
+	  encoded using <c>NEW_PID_EXT</c>, even external pids received as <seealso
+	  marker="#PID_EXT"><c>PID_EXT</c></seealso> from older nodes.
 	</p>
     </section>
 
@@ -1047,11 +1051,14 @@
 	  <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>.</p>
 	  </item>
 	</taglist>
-	<p>Introduced in OTP 19, but only to be decoded and echoed back. Not
-	  encoded for local references. Planned to supersede <seealso marker="#NEW_REFERENCE_EXT">
-	  <c>NEW_REFERENCE_EXT</c></seealso> in OTP 23 when
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_BIG_CREATON</c></seealso>
-	  becomes mandatory.
+	<p><c>NEWER_REFERENCE_EXT</c> was introduced in OTP 19, but only to be decoded
+	  and echoed back. Not encoded for local references.
+	</p>
+	<p>In OTP 23 distribution flag <seealso	marker="erl_dist_protocol#dflags">
+	  <c>DFLAG_BIG_CREATION</c></seealso> became mandatory. All references are now
+	  encoded using <c>NEWER_REFERENCE_EXT</c>, even external references
+	  received as <seealso marker="#NEW_REFERENCE_EXT"><c>NEW_REFERENCE_EXT</c>
+	  </seealso> from older nodes.
 	</p>
     </section>
 
