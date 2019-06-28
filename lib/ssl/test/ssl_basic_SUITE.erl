@@ -1312,14 +1312,14 @@ peername(Config) when is_list(Config) ->
 					{options, [{port, 0} | ClientOpts]}]),
     
     ClientPort = ssl_test_lib:inet_port(Client),
-    ServerIp = ssl_test_lib:node_to_hostip(ServerNode),
-    ClientIp = ssl_test_lib:node_to_hostip(ClientNode),
+    ServerIp = ssl_test_lib:node_to_hostip(ServerNode, server),
+    ClientIp = ssl_test_lib:node_to_hostip(ClientNode, client),
     ServerMsg = {ok, {ClientIp, ClientPort}},
     ClientMsg = {ok, {ServerIp, Port}},
-	
+
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
-		   
+
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
     
     ssl_test_lib:close(Server),
@@ -1422,10 +1422,10 @@ sockname(Config) when is_list(Config) ->
 		%% so we can only get a ClientIP, ServerIP will always be 0.0.0.0
 		{0,0,0,0};
 	    _ ->
-		ssl_test_lib:node_to_hostip(ServerNode)
+		ssl_test_lib:node_to_hostip(ServerNode, server)
 	end,
 
-    ClientIp = ssl_test_lib:node_to_hostip(ClientNode),
+    ClientIp = ssl_test_lib:node_to_hostip(ClientNode, client),
     ServerMsg = {ok, {ServerIp, Port}},
     ClientMsg = {ok, {ClientIp, ClientPort}},
 			   
