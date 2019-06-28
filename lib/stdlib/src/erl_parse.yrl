@@ -604,6 +604,8 @@ Erlang code.
 
 -export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
               abstract_type/0, form_info/0, error_info/0]).
+%% The following types are exported because they are used by syntax_tools
+-export_type([af_binelement/1, af_generator/0, af_remote_function/0]).
 
 %% Start of Abstract Format
 
