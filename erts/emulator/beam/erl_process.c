@@ -8568,9 +8568,6 @@ erts_start_schedulers(void)
 {
     ethr_tid tid;
     int res = 0;
-    Uint actual;
-    Uint wanted = erts_no_schedulers;
-    Uint wanted_no_schedulers = erts_no_schedulers;
     char name[16];
     ethr_thr_opts opts = ETHR_THR_OPTS_DEFAULT_INITER;
     int ix;
@@ -8584,40 +8581,34 @@ erts_start_schedulers(void)
         erts_snprintf(opts.name, 16, "runq_supervisor");
 	erts_atomic_init_nob(&runq_supervisor_sleeping, 0);
 	if (0 != ethr_event_init(&runq_supervision_event))
-	    erts_exit(ERTS_ERROR_EXIT, "Failed to create run-queue supervision event\n");
+	    erts_exit(ERTS_ABORT_EXIT, "Failed to create run-queue supervision event\n");
         res = ethr_thr_create(&runq_supervisor_tid,
                               runq_supervisor,
                               NULL,
                               &opts);
 	if (0 != res)
-	    erts_exit(ERTS_ERROR_EXIT, "Failed to create run-queue supervision thread, "
+	    erts_exit(ERTS_ABORT_EXIT, "Failed to create run-queue supervision thread, "
                       "error = %d\n", res);
 
     }
 
     opts.suggested_stack_size = erts_sched_thread_suggested_stack_size;
 
-    if (wanted < 1)
-	wanted = 1;
-    if (wanted > ERTS_MAX_NO_OF_SCHEDULERS) {
-	wanted = ERTS_MAX_NO_OF_SCHEDULERS;
-	res = ENOTSUP;
-    }
+    ASSERT(erts_no_schedulers > 0 && erts_no_schedulers <= ERTS_MAX_NO_OF_SCHEDULERS);
 
-    for (actual = 0; actual < wanted; actual++) {
-	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(actual);
-
-	ASSERT(actual == esdp->no - 1);
-
-	erts_snprintf(opts.name, 16, "%lu_scheduler", actual + 1);
-
+    for (ix = 0; ix < erts_no_schedulers; ix++) {
+	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
+	ASSERT(ix == esdp->no - 1);
+	erts_snprintf(opts.name, 16, "%lu_scheduler", ix + 1);
 	res = ethr_thr_create(&esdp->tid, sched_thread_func, (void*)esdp, &opts);
-
 	if (res != 0) {
-           break;
+           erts_exit(ERTS_ABORT_EXIT, "Failed to create scheduler thread %d, error = %d\n", ix, res);
 	}
     }
-    erts_no_schedulers = actual;
+
+    /* Probably not needed as thread create will imply a memory barrier,
+       but we do one just to be safe. */
+    ERTS_THR_MEMORY_BARRIER;
 
     {
 	for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++) {
@@ -8626,7 +8617,7 @@ erts_start_schedulers(void)
             opts.suggested_stack_size = erts_dcpu_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_cpu_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
-		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty cpu scheduler thread %d, error = %d\n", ix, res);
+		erts_exit(ERTS_ABORT_EXIT, "Failed to create dirty cpu scheduler thread %d, error = %d\n", ix, res);
 	}
 	for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
@@ -8634,40 +8625,22 @@ erts_start_schedulers(void)
             opts.suggested_stack_size = erts_dio_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_io_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
-		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty io scheduler thread %d, error = %d\n", ix, res);
+		erts_exit(ERTS_ABORT_EXIT, "Failed to create dirty io scheduler thread %d, error = %d\n", ix, res);
 	}
     }
-
-    ERTS_THR_MEMORY_BARRIER;
 
     erts_snprintf(opts.name, 16, "aux");
 
     res = ethr_thr_create(&tid, aux_thread, NULL, &opts);
     if (res != 0)
-	erts_exit(ERTS_ERROR_EXIT, "Failed to create aux thread, error = %d\n", res);
+	erts_exit(ERTS_ABORT_EXIT, "Failed to create aux thread, error = %d\n", res);
 
     for (ix = 0; ix < erts_no_poll_threads; ix++) {
         erts_snprintf(opts.name, 16, "%d_poller", ix);
 
         res = ethr_thr_create(&tid, poll_thread, (void*)(UWord)ix, &opts);
         if (res != 0)
-            erts_exit(ERTS_ERROR_EXIT, "Failed to create poll thread\n");
-    }
-
-    if (actual < 1)
-	erts_exit(ERTS_ERROR_EXIT,
-		 "Failed to create any scheduler-threads: %s (%d)\n",
-		 erl_errno_id(res),
-		 res);
-    if (res != 0) {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	ASSERT(actual != wanted_no_schedulers);
-	erts_dsprintf(dsbufp,
-		      "Failed to create %beu scheduler-threads (%s:%d); "
-		      "only %beu scheduler-thread%s created.\n",
-		      wanted_no_schedulers, erl_errno_id(res), res,
-		      actual, actual == 1 ? " was" : "s were");
-	erts_send_error_to_logger_nogl(dsbufp);
+            erts_exit(ERTS_ABORT_EXIT, "Failed to create poll thread\n");
     }
 }
 
@@ -12143,6 +12116,7 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     ErtsHeapFactory factory;
     Sint reds_consumed = 0;
 
+    ASSERT(c_p->flags & F_DISABLE_GC);
     ASSERT(erts_monitor_is_target(mon) && mon->type == ERTS_MON_TYPE_DIST_PROC);
 
     mdp = erts_monitor_to_data(mon);
@@ -12190,7 +12164,6 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         switch (code) {
         case ERTS_DSIG_SEND_CONTINUE:
         case ERTS_DSIG_SEND_YIELD:
-            erts_set_gc_state(c_p, 0);
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
             reds_consumed = reds; /* force yield */
             break;
@@ -12198,7 +12171,6 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             break;
         case ERTS_DSIG_SEND_TOO_LRG:
             erts_kill_dist_connection(dep, dist->connection_id);
-            erts_set_gc_state(c_p, 1);
             break;
         default:
             ASSERT(! "Invalid dsig send exit monitor result");
@@ -12402,6 +12374,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
     ErtsHeapFactory factory;
     Sint reds_consumed = 0;
 
+    ASSERT(c_p->flags & F_DISABLE_GC);
     ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
     dlnk = erts_link_to_other(lnk, &ldp);
     dist = ((ErtsLinkDataExtended *) ldp)->dist;
@@ -12441,7 +12414,6 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
         switch (code) {
         case ERTS_DSIG_SEND_YIELD:
         case ERTS_DSIG_SEND_CONTINUE:
-            erts_set_gc_state(c_p, 0);
             ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
             reds_consumed = reds; /* force yield */
             break;
@@ -12449,7 +12421,6 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
             break;
         case ERTS_DSIG_SEND_TOO_LRG:
             erts_kill_dist_connection(dep, dist->connection_id);
-            erts_set_gc_state(c_p, 1);
             break;
         default:
             ASSERT(! "Invalid dsig send exit monitor result");
@@ -12997,6 +12968,8 @@ restart:
         yield_allowed = 0;
 #endif
 
+        /* Enable GC again, through strictly not needed it puts
+           the process in a consistent state. */
         erts_set_gc_state(p, 1);
 
         /* Set state to not active as we don't want this process
