@@ -35,9 +35,12 @@ add_host_key(Host, Key, Opts) ->
 is_host_key(Key, PeerName, Algorithm, Opts) ->
     ssh_file:is_host_key(Key, PeerName, Algorithm, Opts).
 
-user_key(Algorithm, _Opts) ->
+user_key(Algorithm, Opts) ->
+    KeyCbOpts = proplists:get_value(key_cb_private, Opts, []),
+    Timeout = proplists:get_value(timeout, KeyCbOpts, 1000),
+
     Request = #ssh_agent_identities_request{},
-    Response = ssh_agent:send(Request),
+    Response = ssh_agent:send(Request, Timeout),
 
     #ssh_agent_identities_response{keys = Keys} = Response,
 

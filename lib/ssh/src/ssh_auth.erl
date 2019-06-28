@@ -164,11 +164,15 @@ get_public_key(SigAlg, #ssh{opts = Opts}) ->
 
 
 publickey_msg([SigAlg, #ssh{user = User,
-		       session_id = SessionId,
-		       service = Service} = Ssh]) ->
+                            session_id = SessionId,
+                            service = Service,
+                            opts = Opts} = Ssh]) ->
     case get_public_key(SigAlg, Ssh) of
         % TODO: Integrate agent support (explicitly mark agent keys)
         {ok, {nil, PubKeyBlob}} ->
+            {ssh_file_with_agent, KeyCbOpts} = ?GET_OPT(key_cb, Opts),
+            Timeout = proplists:get_value(timeout, KeyCbOpts, 1000),
+
             SigAlgStr = atom_to_list(SigAlg),
             SigData = build_sig_data(SessionId, User, Service, PubKeyBlob, SigAlgStr),
 
@@ -176,7 +180,7 @@ publickey_msg([SigAlg, #ssh{user = User,
             % signature algorithms other than RSA, so we always send them.
             SignFlags = ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512,
             SignRequest = #ssh_agent_sign_request{key_blob = PubKeyBlob, data = SigData, flags = SignFlags},
-            SignResponse = ssh_agent:send(SignRequest),
+            SignResponse = ssh_agent:send(SignRequest, Timeout),
 
             #ssh_agent_sign_response{signature = #ssh_agent_signature{blob = Sig}} = SignResponse,
 
