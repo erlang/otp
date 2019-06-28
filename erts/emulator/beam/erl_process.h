@@ -2355,6 +2355,8 @@ erts_try_change_runq_proc(Process *p, ErtsRunQueue *rq)
                                             old_rqint);
         if (act_rqint == old_rqint)
             return !0;
+
+        old_rqint = act_rqint;
     }
 }
 
