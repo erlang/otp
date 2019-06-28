@@ -386,16 +386,24 @@ init_connection_handler(Role, Socket, Opts) ->
                                   D);
 
         {stop, Error} ->
-            Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
-            C = #connection{system_supervisor =     proplists:get_value(system_sup,     Sups),
-                            sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
-                            connection_supervisor = proplists:get_value(connection_sup, Sups)
-                           },
+            D = try
+                    %% Only servers have supervisorts defined in Opts
+                    Sups = ?GET_INTERNAL_OPT(supervisors, Opts),
+                    #connection{system_supervisor =     proplists:get_value(system_sup,     Sups),
+                                sub_system_supervisor = proplists:get_value(subsystem_sup,  Sups),
+                                connection_supervisor = proplists:get_value(connection_sup, Sups)
+                               }
+                of
+                    C ->
+                        #data{connection_state=C}
+                catch
+                    _:_ ->
+                        #data{connection_state=#connection{}}
+                end,
             gen_statem:enter_loop(?MODULE,
                                   [],
                                   {init_error,Error},
-                                  #data{connection_state=C,
-                                        socket=Socket})
+                                  D#data{socket=Socket})
     end.
 
 
