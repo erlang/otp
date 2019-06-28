@@ -150,13 +150,8 @@ union(Es1, []) -> Es1.
       OrdsetList :: [ordset(T)],
       Ordset :: ordset(T).
 
-union([S1,S2|Ss]) ->
-    union1(union(S1, S2), Ss);
-union([S]) -> S;
-union([]) -> [].
-
-union1(S1, [S2|Ss]) -> union1(union(S1, S2), Ss);
-union1(S1, []) -> S1.
+union(OrdsetList) ->
+    lists:umerge(OrdsetList).
 
 %% intersection(OrdSet1, OrdSet2) -> OrdSet.
 %%  Return the intersection of OrdSet1 and OrdSet2.
