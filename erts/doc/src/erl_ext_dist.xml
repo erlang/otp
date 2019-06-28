@@ -264,7 +264,7 @@
         consists of. Length is a 2 byte big-endian integer
         if flag <c>LongAtoms</c> has been set, otherwise a 1 byte
         integer. When distribution flag
-        <seealso marker="erl_dist_protocol#dflags">
+        <seealso marker="erl_dist_protocol#DFLAG_UTF8_ATOMS">
         <c>DFLAG_UTF8_ATOMS</c></seealso>
         has been exchanged between both nodes in the
         <seealso marker="erl_dist_protocol#distribution_handshake">
@@ -316,8 +316,8 @@
       </p>
       <p>Fragmented distribution messages are only used if the receiving node
       signals that it supports them via the
-      <seealso marker="erl_dist_protocol#dflags">DFLAG_FRAGMENTS</seealso> distribution
-      flag.</p>
+      <seealso marker="erl_dist_protocol#DFLAG_FRAGMENTS">DFLAG_FRAGMENTS</seealso>
+      distribution flag.</p>
       <p>A process must complete the sending of a fragmented message before it
       can start sending any other message on the same distribution channel.</p>
 
@@ -640,8 +640,9 @@
 	<p><c>NEW_PORT_EXT</c> was introduced in OTP 19, but only to be decoded
 	  and echoed back. Not encoded for local ports.
 	</p>
-	<p>In OTP 23 distribution flag <seealso	marker="erl_dist_protocol#dflags">
-	  <c>DFLAG_BIG_CREATION</c></seealso> became mandatory. All ports are now
+	<p>In OTP 23 distribution flag
+	  <seealso marker="erl_dist_protocol#DFLAG_BIG_CREATION"><c>DFLAG_BIG_CREATION</c></seealso>
+	  became mandatory. All ports are now
 	  encoded using <c>NEW_PORT_EXT</c>, even external ports received as <seealso
 	  marker="#PORT_EXT"><c>PORT_EXT</c></seealso> from older nodes.
 	</p>
@@ -724,10 +725,11 @@
 	<p><c>NEW_PID_EXT</c> was introduced in OTP 19, but only to be decoded
 	  and echoed back. Not encoded for local processes.
 	</p>
-	<p>In OTP 23 distribution flag <seealso	marker="erl_dist_protocol#dflags">
-	  <c>DFLAG_BIG_CREATION</c></seealso> became mandatory. All pids are now
-	  encoded using <c>NEW_PID_EXT</c>, even external pids received as <seealso
-	  marker="#PID_EXT"><c>PID_EXT</c></seealso> from older nodes.
+	<p>In OTP 23 distribution flag
+	  <seealso marker="erl_dist_protocol#DFLAG_BIG_CREATION"><c>DFLAG_BIG_CREATION</c></seealso>
+	  became mandatory. All pids are now encoded using <c>NEW_PID_EXT</c>,
+	  even external pids received as
+	  <seealso marker="#PID_EXT"><c>PID_EXT</c></seealso> from older nodes.
 	</p>
     </section>
 
@@ -1054,11 +1056,12 @@
 	<p><c>NEWER_REFERENCE_EXT</c> was introduced in OTP 19, but only to be decoded
 	  and echoed back. Not encoded for local references.
 	</p>
-	<p>In OTP 23 distribution flag <seealso	marker="erl_dist_protocol#dflags">
-	  <c>DFLAG_BIG_CREATION</c></seealso> became mandatory. All references are now
-	  encoded using <c>NEWER_REFERENCE_EXT</c>, even external references
-	  received as <seealso marker="#NEW_REFERENCE_EXT"><c>NEW_REFERENCE_EXT</c>
-	  </seealso> from older nodes.
+	<p>In OTP 23 distribution flag
+	  <seealso marker="erl_dist_protocol#DFLAG_BIG_CREATION"><c>DFLAG_BIG_CREATION</c></seealso>
+	  became mandatory. All references are now encoded using
+	  <c>NEWER_REFERENCE_EXT</c>, even external references received as
+	  <seealso marker="#NEW_REFERENCE_EXT"><c>NEW_REFERENCE_EXT</c></seealso>
+	  from older nodes.
 	</p>
     </section>
 
@@ -1415,7 +1418,7 @@
 	<p>
 	  <c>SMALL_ATOM_EXT</c> was introduced in ERTS 5.7.2 and
 	  require an exchange of distribution flag
-	  <seealso marker="erl_dist_protocol#dflags">
+	  <seealso marker="erl_dist_protocol#DFLAG_SMALL_ATOM_TAGS">
 	  <c>DFLAG_SMALL_ATOM_TAGS</c></seealso> in the
 	  <seealso marker="erl_dist_protocol#distribution_handshake">
 	  distribution handshake</seealso>.

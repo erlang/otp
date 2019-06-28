@@ -811,7 +811,8 @@ DiB == gen_digest(ChA, ICA)?
         </item>
         <tag><c>-define(DFLAG_NEW_FUN_TAGS,16#80).</c></tag>
         <item>
-          <p>The node understand new fun tags.</p>
+	  <p>The node understands the <seealso marker="erl_ext_dist#NEW_FUN_EXT">
+	    <c>NEW_FUN_EXT</c></seealso> tag.</p>
         </item>
         <tag><c>-define(DFLAG_EXTENDED_PIDS_PORTS,16#100).</c></tag>
         <item>
@@ -820,13 +821,18 @@ DiB == gen_digest(ChA, ICA)?
         </item>
         <tag><c>-define(DFLAG_EXPORT_PTR_TAG,16#200).</c></tag>
         <item>
+	  <p>The node understands the <seealso marker="erl_ext_dist#EXPORT_EXT">
+	    <c>EXPORT_EXT</c></seealso> tag.</p>
         </item>
         <tag><c>-define(DFLAG_BIT_BINARIES,16#400).</c></tag>
         <item>
+	  <p>The node understands the <seealso marker="erl_ext_dist#BIT_BINARY_EXT">
+	    <c>BIT_BINARY_EXT</c></seealso> tag.</p>
         </item>
         <tag><c>-define(DFLAG_NEW_FLOATS,16#800).</c></tag>
         <item>
-          <p>The node understands new float format.</p>
+	  <p>The node understands the <seealso marker="erl_ext_dist#NEW_FLOAT_EXT">
+	    <c>NEW_FLOAT_EXT</c></seealso> tag.</p>
         </item>
         <tag><c>-define(DFLAG_UNICODE_IO,16#1000).</c></tag>
         <item>
@@ -835,21 +841,34 @@ DiB == gen_digest(ChA, ICA)?
         <item>
           <p>The node implements atom cache in distribution header.</p>
         </item>
+	<marker id="DFLAG_SMALL_ATOM_TAGS"/>
         <tag><c>-define(DFLAG_SMALL_ATOM_TAGS, 16#4000).</c></tag>
         <item>
-          <p>The node understand the <c>SMALL_ATOM_EXT</c> tag.</p>
+          <p>The node understands the <seealso marker="erl_ext_dist#SMALL_ATOM_EXT">
+	  <c>SMALL_ATOM_EXT</c></seealso> tag.</p>
         </item>
+	<marker id="DFLAG_UTF8_ATOMS"/>
         <tag><c>-define(DFLAG_UTF8_ATOMS, 16#10000).</c></tag>
         <item>
-          <p>The node understand UTF-8 encoded atoms.</p>
+          <p>The node understands UTF-8 atoms encoded with
+	    <seealso marker="erl_ext_dist#ATOM_UTF8_EXT">
+	    <c>ATOM_UTF8_EXT</c></seealso> and
+	    <seealso marker="erl_ext_dist#SMALL_ATOM_UTF8_EXT">
+	    <c>SMALL ATOM_UTF8_EXT</c></seealso>.</p>
         </item>
         <tag><c>-define(DFLAG_MAP_TAG, 16#20000).</c></tag>
         <item>
-          <p>The node understand the map tag.</p>
+          <p>The node understands the map tag
+	  <seealso marker="erl_ext_dist#MAP_EXT"><c>MAP_EXT</c></seealso>.</p>
         </item>
+	<marker id="DFLAG_BIG_CREATION"/>
         <tag><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
         <item>
-          <p>The node understand big node creation.</p>
+          <p>The node understands big node creation tags
+	  <seealso marker="erl_ext_dist#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>,
+	  <seealso marker="erl_ext_dist#NEW_PORT_EXT"><c>NEW_PORT_EXT</c></seealso> and
+	  <seealso marker="erl_ext_dist#NEWER_REFERENCE_EXT"><c>NEWER_REFERENCE_EXT</c></seealso>.
+	  </p>
         </item>
         <tag><c>-define(DFLAG_SEND_SENDER, 16#80000).</c></tag>
         <item>
@@ -873,6 +892,7 @@ DiB == gen_digest(ChA, ICA)?
             <seealso marker="#control_message">control message</seealso>s
             instead of the non-PAYLOAD variants.</p>
         </item>
+	<marker id="DFLAG_FRAGMENTS"/>
         <tag><c>-define(DFLAG_FRAGMENTS, 16#800000).</c></tag>
         <item>
           <p>Use <seealso marker="erl_ext_dist#fragments">fragmented</seealso>
