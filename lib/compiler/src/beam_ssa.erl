@@ -21,7 +21,7 @@
 
 -module(beam_ssa).
 -export([add_anno/3,get_anno/2,get_anno/3,
-         clobbers_xregs/1,def/2,def_used/2,
+         clobbers_xregs/1,def/2,def_unused/3,
          definitions/1,
          dominators/1,common_dominators/3,
          flatmapfold_instrs_rpo/4,
@@ -124,7 +124,7 @@
                       'put_tuple_element' | 'put_tuple_elements' |
                       'set_tuple_element'.
 
--import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1,umerge/1]).
+-import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
@@ -320,17 +320,18 @@ def(Ls, Blocks) ->
     Blks = [map_get(L, Blocks) || L <- Top],
     def_1(Blks, []).
 
--spec def_used(Ls, Blocks) -> {Def,Used} when
+-spec def_unused(Ls, Used, Blocks) -> {Def,Unused} when
       Ls :: [label()],
+      Used :: ordsets:ordset(var_name()),
       Blocks :: block_map(),
       Def :: ordsets:ordset(var_name()),
-      Used :: ordsets:ordset(var_name()).
+      Unused :: ordsets:ordset(var_name()).
 
-def_used(Ls, Blocks) ->
+def_unused(Ls, Unused, Blocks) ->
     Top = rpo(Ls, Blocks),
     Blks = [map_get(L, Blocks) || L <- Top],
     Preds = cerl_sets:from_list(Top),
-    def_used_1(Blks, Preds, [], []).
+    def_unused_1(Blks, Preds, [], Unused).
 
 %% dominators(BlockMap) -> {Dominators,Numbering}.
 %%  Calculate the dominator tree, returning a map where each entry
@@ -652,34 +653,28 @@ is_commutative('=/=') -> true;
 is_commutative('/=') -> true;
 is_commutative(_) -> false.
 
-def_used_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, UsedAcc) ->
-    {Def,Used} = def_used_is(Is, Preds, Def0, used(Last)),
-    case Used of
-        [] ->
-            def_used_1(Bs, Preds, Def, UsedAcc);
-        [_|_] ->
-            def_used_1(Bs, Preds, Def, [Used|UsedAcc])
-    end;
-def_used_1([], _Preds, Def0, UsedAcc) ->
-    Def = ordsets:from_list(Def0),
-    Used = umerge(UsedAcc),
-    {Def,Used}.
+def_unused_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, Unused0) ->
+    Unused1 = ordsets:subtract(Unused0, used(Last)),
+    {Def,Unused} = def_unused_is(Is, Preds, Def0, Unused1),
+    def_unused_1(Bs, Preds, Def, Unused);
+def_unused_1([], _Preds, Def, Unused) ->
+    {ordsets:from_list(Def), Unused}.
 
-def_used_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
-            Preds, Def0, Used0) ->
+def_unused_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
+            Preds, Def0, Unused0) ->
     Def = [Dst|Def0],
     %% We must be careful to only include variables that will
     %% be used when arriving from one of the predecessor blocks
     %% in Preds.
-    Used1 = [V || {#b_var{}=V,L} <- Args, cerl_sets:is_element(L, Preds)],
-    Used = ordsets:union(ordsets:from_list(Used1), Used0),
-    def_used_is(Is, Preds, Def, Used);
-def_used_is([#b_set{dst=Dst}=I|Is], Preds, Def0, Used0) ->
+    Unused1 = [V || {#b_var{}=V,L} <- Args, cerl_sets:is_element(L, Preds)],
+    Unused = ordsets:subtract(Unused0, ordsets:from_list(Unused1)),
+    def_unused_is(Is, Preds, Def, Unused);
+def_unused_is([#b_set{dst=Dst}=I|Is], Preds, Def0, Unused0) ->
     Def = [Dst|Def0],
-    Used = ordsets:union(used(I), Used0),
-    def_used_is(Is, Preds, Def, Used);
-def_used_is([], _Preds, Def, Used) ->
-    {Def,Used}.
+    Unused = ordsets:subtract(Unused0, used(I)),
+    def_unused_is(Is, Preds, Def, Unused);
+def_unused_is([], _Preds, Def, Unused) ->
+    {Def,Unused}.
 
 def_1([#b_blk{is=Is}|Bs], Def0) ->
     Def = def_is(Is, Def0),

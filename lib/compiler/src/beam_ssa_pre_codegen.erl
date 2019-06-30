@@ -1449,9 +1449,9 @@ recv_common(_Defs, none, _Blocks) ->
     %% in the tail position of a function.
     [];
 recv_common(Defs, Exit, Blocks) ->
-    {ExitDefs,ExitUsed} = beam_ssa:def_used([Exit], Blocks),
+    {ExitDefs,ExitUnused} = beam_ssa:def_unused([Exit], Defs, Blocks),
     Def = ordsets:subtract(Defs, ExitDefs),
-    ordsets:intersection(Def, ExitUsed).
+    ordsets:subtract(Def, ExitUnused).
 
 %% recv_fix_common([CommonVar], LoopExit, [RemoveMessageLabel],
 %%                 Blocks0, Count0) -> {Blocks,Count}.
@@ -1505,9 +1505,9 @@ exit_predecessors([], _Exit, _Blocks) -> [].
 %%  later used within a clause of the receive.
 
 fix_receive([L|Ls], Defs, Blocks0, Count0) ->
-    {RmDefs,Used0} = beam_ssa:def_used([L], Blocks0),
+    {RmDefs,Unused} = beam_ssa:def_unused([L], Defs, Blocks0),
     Def = ordsets:subtract(Defs, RmDefs),
-    Used = ordsets:intersection(Def, Used0),
+    Used = ordsets:subtract(Def, Unused),
     {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Used], Count0),
     Ren = zip(Used, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, [L], Blocks0),
@@ -2133,8 +2133,8 @@ reserve_yregs(#st{frames=Frames}=St0) ->
 reserve_yregs_1(L, #st{ssa=Blocks0,cnt=Count0,res=Res0}=St) ->
     Blk = map_get(L, Blocks0),
     Yregs = beam_ssa:get_anno(yregs, Blk),
-    {Def,Used} = beam_ssa:def_used([L], Blocks0),
-    UsedYregs = ordsets:intersection(Yregs, Used),
+    {Def,Unused} = beam_ssa:def_unused([L], Yregs, Blocks0),
+    UsedYregs = ordsets:subtract(Yregs, Unused),
     DefBefore = ordsets:subtract(UsedYregs, Def),
     {BeforeVars,Blocks,Count} = rename_vars(DefBefore, L, Blocks0, Count0),
     InsideVars = ordsets:subtract(UsedYregs, DefBefore),
