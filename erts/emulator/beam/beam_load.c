@@ -4615,7 +4615,15 @@ typedef struct SortGenOpArg {
 static int
 genopargtermcompare(SortGenOpArg* a, SortGenOpArg* b)
 {
-    return CMP_TERM(a->term, b->term);
+    Sint res = CMP_TERM(a->term, b->term);
+
+    if (res < 0) {
+        return -1;
+    } else if (res > 0) {
+        return 1;
+    }
+
+    return 0;
 }
 
 static int
