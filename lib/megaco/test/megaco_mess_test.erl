@@ -597,6 +597,7 @@ request_and_no_reply(Config) when is_list(Config) ->
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
 	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
+    ?SLEEP(?SECONDS(1)),
 
     i("[MG] start"),    
     Mg1Mid = {deviceName, "mg1"},
@@ -621,9 +622,13 @@ request_and_no_reply(Config) when is_list(Config) ->
 		{pending_timer,      PendingTmr},
 		{reply_timer,        ReplyTmr}],
     {ok, Mg1} = ?MG_START(Mg1Node, Mg1Mid, text, tcp, MgConfig, ?MG_VERBOSITY),
+    ?SLEEP(?SECONDS(1)),
     {ok, Mg2} = ?MG_START(Mg2Node, Mg2Mid, text, udp, MgConfig, ?MG_VERBOSITY),
+    ?SLEEP(?SECONDS(1)),
     {ok, Mg3} = ?MG_START(Mg3Node, Mg3Mid, binary, tcp, MgConfig, ?MG_VERBOSITY),
+    ?SLEEP(?SECONDS(1)),
     {ok, Mg4} = ?MG_START(Mg4Node, Mg4Mid, binary, udp, MgConfig, ?MG_VERBOSITY),
+    ?SLEEP(?SECONDS(1)),
 
     d("MG1 user info: ~p", [?MG_USER_INFO(Mg1, all)]),
     d("MG1 conn info: ~p", [?MG_CONN_INFO(Mg1, all)]),
@@ -639,55 +644,68 @@ request_and_no_reply(Config) when is_list(Config) ->
     d("service change result: ~p", [ServChRes1]),
     d("MG1 user info: ~p", [?MG_USER_INFO(Mg1, all)]),
     d("MG1 conn info: ~p", [?MG_CONN_INFO(Mg1, all)]),
+    ?SLEEP(?SECONDS(1)),
 
     i("[MG2] connect to the MGC (service change)"),    
     ServChRes2 = ?MG_SERV_CHANGE(Mg2),
     d("service change result: ~p", [ServChRes2]),
     d("MG2 user info: ~p", [?MG_USER_INFO(Mg2, all)]),
     d("MG2 conn info: ~p", [?MG_CONN_INFO(Mg2, all)]),
+    ?SLEEP(?SECONDS(1)),
 
     i("[MG3] connect to the MGC (service change)"),    
     ServChRes3 = ?MG_SERV_CHANGE(Mg3),
     d("service change result: ~p", [ServChRes3]),
     d("MG3 user info: ~p", [?MG_USER_INFO(Mg3, all)]),
     d("MG3 conn info: ~p", [?MG_CONN_INFO(Mg3, all)]),
+    ?SLEEP(?SECONDS(1)),
 
     i("[MG4] connect to the MGC (service change)"),    
     ServChRes4 = ?MG_SERV_CHANGE(Mg4),
     d("service change result: ~p", [ServChRes4]),
     d("MG4 user info: ~p", [?MG_USER_INFO(Mg4, all)]),
     d("MG4 conn info: ~p", [?MG_CONN_INFO(Mg4, all)]),
+    ?SLEEP(?SECONDS(1)),
 
     d("tell the MGC to ignore requests"),
     ?MGC_REQ_PEND(Mgc, infinity),
+    ?SLEEP(?SECONDS(1)),
 
     d("[MG1] send the notify"),
     ?MG_NOTIF_REQ(Mg1),
+    ?SLEEP(?SECONDS(1)),
 
     d("[MG2] send the notify"),
     ?MG_NOTIF_REQ(Mg2),
+    ?SLEEP(?SECONDS(1)),
 
     d("[MG3] send the notify"),
     ?MG_NOTIF_REQ(Mg3),
+    ?SLEEP(?SECONDS(1)),
 
     d("[MG4] send the notify"),
     ?MG_NOTIF_REQ(Mg4),
+    ?SLEEP(?SECONDS(1)),
 
     d("[MG1] await notify reply"),
     {ok, {_Vsn1, {error, timeout}}} = ?MG_AWAIT_NOTIF_REP(Mg1),
     d("[MG1] received expected reply"),
+    ?SLEEP(?SECONDS(1)),
 
     d("[MG2] await notify reply"),
     {ok, {_Vsn2, {error, timeout}}} = ?MG_AWAIT_NOTIF_REP(Mg2),
     d("[MG2] received expected reply"),
+    ?SLEEP(?SECONDS(1)),
 
     d("[MG3] await notify reply"),
     {ok, {_Vsn3, {error, timeout}}} = ?MG_AWAIT_NOTIF_REP(Mg3),
     d("[MG3] received expected reply"),
+    ?SLEEP(?SECONDS(1)),
 
     d("[MG4] await notify reply"),
     {ok, {_Vsn4, {error, timeout}}} = ?MG_AWAIT_NOTIF_REP(Mg4),
     d("[MG4] received expected reply"),
+    ?SLEEP(?SECONDS(1)),
 
     d("MG1 user info: ~p", [?MG_USER_INFO(Mg1, all)]),
     d("MG1 conn info: ~p", [?MG_CONN_INFO(Mg1, all)]),
@@ -13711,38 +13729,36 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), now(), get(tc), "INF", F, A).
+    print(info, "INF", F, A).
 
 
 d(F) ->
     d(F, []).
 
 d(F, A) ->
-    print(debug, get(verbosity), now(), get(tc), "DBG", F, A).
+    print(debug, "DBG", F, A).
+
+
+print(Severity, PRE, FMT, ARGS) ->
+    print(Severity, get(verbosity), erlang:timestamp(), get(tc), PRE, FMT, ARGS).
+
+print(Severity, Verbosity, Ts, Tc, P, F, A) ->
+    print(printable(Severity,Verbosity), Ts, Tc, P, F, A).
+
+print(true, TS, TC, P, F, A) ->
+    S = ?F("*** [~s] ~s ~p ~s:~w ***"
+           "~n   " ++ F ++ "~n", 
+           [megaco:format_timestamp(TS), P, self(), get(sname), TC | A]),
+    io:format("~s", [S]),
+    io:format(user, "~s", [S]);
+print(_, _, _, _, _, _) ->
+    ok.
 
 
 printable(_, debug)   -> true;
 printable(info, info) -> true;
 printable(_,_)        -> false.
 
-print(Severity, Verbosity, Ts, Tc, P, F, A) ->
-    print(printable(Severity,Verbosity), Ts, Tc, P, F, A).
-
-print(true, Ts, Tc, P, F, A) ->
-    io:format("*** [~s] ~s ~p ~s:~w ***"
-	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(Ts), P, self(), get(sname), Tc | A]);
-print(_, _, _, _, _, _) ->
-    ok.
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -13752,13 +13768,6 @@ to(To, Start) ->
 
 %% Time in milli seconds
 mtime() ->
-    {A,B,C} = erlang:now(),
+    {A,B,C} = erlang:timestamp(),
     A*1000000000+B*1000+(C div 1000).
-
-%% random_init() ->
-%%     {A,B,C} = now(),
-%%     random:seed(A,B,C).
-
-%% random() ->
-%%     10 * random:uniform(50).
 
