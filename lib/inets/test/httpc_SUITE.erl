@@ -106,7 +106,8 @@ real_requests()->
      streaming_error,
      inet_opts,
      invalid_headers,
-     invalid_body
+     invalid_body,
+     no_scheme
     ].
 
 real_requests_esi() ->
@@ -1230,6 +1231,16 @@ invalid_body(Config) ->
 	error:function_clause ->
 	    ok
     end.
+
+
+%%-------------------------------------------------------------------------
+
+no_scheme(_Config) ->
+    {error,{bad_scheme,"ftp"}} = httpc:request("ftp://foobar"),
+    {error,{no_scheme}} = httpc:request("//foobar"),
+    {error,{no_scheme}} = httpc:request("foobar"),
+    ok.
+
 
 %%-------------------------------------------------------------------------
 remote_socket_close(Config) when is_list(Config) ->
