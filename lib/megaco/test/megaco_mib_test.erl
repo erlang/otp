@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,32 @@
 %%----------------------------------------------------------------------
 -module(megaco_mib_test).
 
--compile(export_all).
+-export([
+         t/0, t/1,
+
+         all/0,
+         groups/0,
+         init_per_testcase/2,
+         end_per_testcase/2,
+         init_per_group/2,
+         end_per_group/2,
+
+         plain/1,
+         connect/1,
+         traffic/1,
+
+         mg/3,
+         mgc/3,
+
+         handle_connect/3,
+         handle_disconnect/4,
+         handle_syntax_error/4,
+         handle_message_error/4,
+         handle_trans_request/4,
+         handle_trans_long_request/4,
+         handle_trans_reply/5,
+         handle_trans_ack/5
+        ]).
 
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
@@ -54,6 +79,7 @@ t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 
 %% Test server callbacks
 init_per_testcase(Case, Config) ->
+    progress("init_per_testcase -> ~w", [Case]),
     process_flag(trap_exit, true),
     case Case of
 	traffic ->
@@ -65,6 +91,7 @@ init_per_testcase(Case, Config) ->
     end.
 
 end_per_testcase(Case, Config) ->
+    progress("end_per_testcase -> ~w", [Case]),
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config).
 
@@ -197,6 +224,7 @@ connect(Config) when is_list(Config) ->
     put(verbosity, ?TEST_VERBOSITY),
     put(sname,     "TEST"),
     i("connect -> starting"),
+    progress("start nodes"),
     MgcNode = make_node_name(mgc),
     Mg1Node = make_node_name(mg1),
     Mg2Node = make_node_name(mg2),
@@ -209,67 +237,85 @@ connect(Config) when is_list(Config) ->
 
     %% Start the MGC and MGs
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
+    progress("start MGC"),
     {ok, Mgc} = 
 	start_mgc(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+    progress("start MG1"),
     {ok, Mg1} = 
 	start_mg(Mg1Node,  {deviceName, "mg1"}, text,   tcp, ?MG_VERBOSITY),
+    progress("start MG2"),
     {ok, Mg2} = 
 	start_mg(Mg2Node,  {deviceName, "mg2"}, binary, udp, ?MG_VERBOSITY),
 
     %% Collect the initial statistics (should be zero if anything)
+    progress("collect initial MG1 stats"),
     {ok, Mg1Stats0} = get_stats(Mg1, 1),
     d("connect  -> stats for Mg1: ~n~p", [Mg1Stats0]),
+    progress("collect initial MG2 stats"),
     {ok, Mg2Stats0} = get_stats(Mg2, 1),
     d("connect  -> stats for Mg2: ~n~p", [Mg2Stats0]),
+    progress("collect initial MGC stats"),
     {ok, MgcStats0} = get_stats(Mgc, 1),
     d("connect  -> stats for Mgc: ~n~p", [MgcStats0]),
 
     %% Ask Mg1 to do a service change
+    progress("perform MG1 service change"),
     {ok, Res1} = service_change(Mg1),
     d("connect -> (Mg1) service change result: ~p", [Res1]),
 
     %% Collect the statistics
+    progress("collect MG1 statustics (after service change)"),
     {ok, Mg1Stats1} = get_stats(Mg1, 1),
     d("connect  -> stats for Mg1: ~n~p", [Mg1Stats1]),
+    progress("collect MGC statistics (after MG1 service change)"),
     {ok, MgcStats1} = get_stats(Mgc, 1),
     d("connect  -> stats (1) for Mgc: ~n~p", [MgcStats1]),
     {ok, MgcStats2} = get_stats(Mgc, 2),
     d("connect  -> stats (2) for Mgc: ~n~p", [MgcStats2]),
 
     %% Ask Mg2 to do a service change
+    progress("perform MG2 service change"),
     {ok, Res2} = service_change(Mg2),
     d("connect -> (Mg2) service change result: ~p", [Res2]),
 
     %% Collect the statistics
+    progress("collect MG2 statustics (after service change)"),
     {ok, Mg2Stats1} = get_stats(Mg2, 1),
     d("connect  -> stats for Mg1: ~n~p", [Mg2Stats1]),
+    progress("collect MGC statistics (after MG2 service change)"),
     {ok, MgcStats3} = get_stats(Mgc, 1),
     d("connect  -> stats (1) for Mgc: ~n~p", [MgcStats3]),
     {ok, MgcStats4} = get_stats(Mgc, 2),
     d("connect  -> stats (2) for Mgc: ~n~p", [MgcStats4]),
 
     %% Tell Mg1 to stop
+    progress("stop MG1"),
     stop(Mg1),
 
     %% Collect the statistics
+    progress("collect MGC statistics (after MG1 stop)"),
     {ok, MgcStats5} = get_stats(Mgc, 1),
     d("connect  -> stats (1) for Mgc: ~n~p", [MgcStats5]),
     {ok, MgcStats6} = get_stats(Mgc, 2),
     d("connect  -> stats (2) for Mgc: ~n~p", [MgcStats6]),
 
     %% Tell Mg2 to stop
+    progress("stop MG2"),
     stop(Mg2),
 
     %% Collect the statistics
+    progress("collect MGC statistics (after MG2 stop)"),
     {ok, MgcStats7} = get_stats(Mgc, 1),
     d("connect  -> stats (1) for Mgc: ~n~p", [MgcStats7]),
     {ok, MgcStats8} = get_stats(Mgc, 2),
     d("connect  -> stats (2) for Mgc: ~n~p", [MgcStats8]),
 
     %% Tell Mgc to stop
+    progress("stop MGC"),
     stop(Mgc),
 
     i("connect -> done", []),
+    progress("done"),
     ok.
 
 
@@ -284,6 +330,7 @@ traffic(Config) when is_list(Config) ->
     put(verbosity, ?TEST_VERBOSITY),
     put(sname,     "TEST"),
     i("traffic -> starting"),
+    progress("start nodes"),
     MgcNode = make_node_name(mgc),
     Mg1Node = make_node_name(mg1),
     Mg2Node = make_node_name(mg2),
@@ -302,11 +349,13 @@ traffic(Config) when is_list(Config) ->
 
     %% Start the MGC and MGs
     i("traffic -> start the MGC"),    
+    progress("start MGC"),
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
 	start_mgc(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
 
     i("traffic -> start and connect the MGs"),    
+    progress("start and connect MGs"),
     MgConf0 = [{Mg1Node, "mg1", text,   tcp},
 	       {Mg2Node, "mg2", text,   udp},
 	       {Mg3Node, "mg3", binary, tcp},
@@ -315,36 +364,42 @@ traffic(Config) when is_list(Config) ->
 
     %% Collect and check the MGs statistics
     i("traffic -> collect and check the MGs stats"),    
+    progress("collect and verify MGs (initial) stats"),
     traffic_verify_mg_stats(MgConf, 1, 1),
 
     %% Collect and check the MGC statistics
-    i("traffic -> collect and check the MGC stats"),    
+    i("traffic -> collect and check the MGC (initial) stats"),    
+    progress("collect and verify MGC stats"),
     {ok, MgcStats1} = get_stats(Mgc, 1),
     d("traffic  -> stats (1) for Mgc: ~n~p~n", [MgcStats1]),
     traffic_verify_mgc_stats(Mgc, 1, 1),
 
 
-    sleep(1000),
+    ?SLEEP(1000),
 
 
     %% And apply some load 
-    i("traffic -> apply traffic load"),
+    i("traffic -> apply traffic load (1)"),
+    progress("apply some load (1)"),
     ok = traffic_apply_load(MgConf),
 
     %% Await completion of load part and the collect traffic
-    i("traffic -> await load competion"),
+    i("traffic -> await load (1) competion"),
+    progress("await load (1) completion"),
     ok = traffic_await_load_complete(MgConf),
 
 
-    sleep(1000),
+    ?SLEEP(1000),
 
 
     i("traffic -> collect and check the MGs statistics"),
+    progress("collect and verify MGs (after load 1) stats"),
     traffic_verify_mg_stats(MgConf, 
 			    1 + ?LOAD_COUNTER_START, 
 			    1 + ?LOAD_COUNTER_START),
 
     i("traffic -> collect and check the MGC statistics"),
+    progress("collect and verify MGC (after load 1) stats"),
     {ok, MgcStats3} = get_stats(Mgc, 1),
     d("traffic  -> stats (1) for Mgc: ~n~p~n", [MgcStats3]),
     traffic_verify_mgc_stats(Mgc, 
@@ -352,60 +407,70 @@ traffic(Config) when is_list(Config) ->
 			     1 + ?LOAD_COUNTER_START),
 
 
-    sleep(1000),
+    ?SLEEP(1000),
 
 
     %% Reset counters
     i("traffic -> reset the MGs statistics"),
+    progress("reset MGs stats"),
     traffic_reset_mg_stats(MgConf),
     i("traffic -> collect and check the MGs statistics"),
+    progress("collect and verify MGs (after reset) stats"),
     traffic_verify_mg_stats(MgConf, 0, 0),
 
     i("traffic -> reset the MGC statistics"),
+    progress("reset MGC stats"),
     traffic_reset_mgc_stats(Mgc),
     i("traffic -> collect and check the MGC statistics"),
+    progress("collect and verify MGC (after reset) stats"),
     traffic_verify_mgc_stats(Mgc, 0, 0),
 
 
-    sleep(1000),
+    ?SLEEP(1000),
 
 
     %% And apply some load 
-    i("traffic -> apply traffic load"),
+    i("traffic -> apply traffic load (2)"),
+    progress("apply some load (2)"),
     ok = traffic_apply_load(MgConf),
 
     %% Await completion of load part and the collect traffic
-    i("traffic -> await load competion"),
+    i("traffic -> await load (2) competion"),
+    progress("await load (2) completion"),
     ok = traffic_await_load_complete(MgConf),
 
 
-    sleep(1000),
+    ?SLEEP(1000),
 
 
     i("traffic -> collect and check the MGs statistics"),
+    progress("collect and verify MGs (after load 2) stats"),
     traffic_verify_mg_stats(MgConf, 
 			    ?LOAD_COUNTER_START, 
 			    ?LOAD_COUNTER_START),
 
     i("traffic -> collect and check the MGC statistics"),
+    progress("collect and verify MGC (after load 2) stats"),
     traffic_verify_mgc_stats(Mgc, 
 			     ?LOAD_COUNTER_START, 
 			     ?LOAD_COUNTER_START),
 
 
-    sleep(1000),
+    ?SLEEP(1000),
 
 
     %% Tell MGs to stop
     i("traffic -> stop the MGs"),
+    progress("stop MGs"),
     traffic_stop_mg(MgConf),
 
 
-    sleep(1000),
+    ?SLEEP(1000),
 
 
     %% Collect the statistics
     i("traffic -> collect the MGC statistics"),
+    progress("collect and verify MGC (after MGs stop) stats"),
     {ok, MgcStats7} = get_stats(Mgc, 1),
     d("traffic -> stats (1) for Mgc: ~n~p~n", [MgcStats7]),
     {ok, MgcStats8} = get_stats(Mgc, 2),
@@ -413,9 +478,11 @@ traffic(Config) when is_list(Config) ->
 
     %% Tell Mgc to stop
     i("traffic -> stop the MGC"),
+    progress("stop MGC"),
     stop(Mgc),
 
     i("traffic -> done", []),
+    progress("done"),
     ok.
 
 
@@ -516,10 +583,15 @@ traffic_verify_get_stats(S, Stats) ->
 traffic_verify_counter(Name, Counter, Counters, Expected) ->
     case lists:keysearch(Counter, 1, Counters) of
 	{value, {Counter, Expected}} ->
+            i("counter ~w verified for ~p", [Counter, Name]),
 	    ok;
 	{value, {Counter, Val}} ->
+            i("counter ~w *not* verified for ~p: "
+              "~n   Expected: ~w"
+              "~n   Actual:   ~w", [Counter, Name, Expected, Val]),
 	    exit({illegal_counter_value, Counter, Val, Expected, Name});
 	false ->
+            i("counter ~w *not* found for ~p", [Counter, Name]),
 	    exit({not_found, Counter, Counters, Name, Expected})
     end.
     
@@ -536,8 +608,7 @@ traffic_connect_mg(Node, Name, Coding, Trans) ->
 
     %% Ask the MGs to do a service change
     {ok, Res} = service_change(Pid),
-    d("traffic_connect_mg -> (~s) service change result: ~p", [Name,Res]),
-
+    d("traffic_connect_mg -> (~s) service change result: ~p", [Name, Res]),
     Pid.
 
 
@@ -549,7 +620,9 @@ traffic_get_mg_stats([], Acc) ->
     lists:reverse(Acc);
 traffic_get_mg_stats([{Name, Pid}|Mgs], Acc) ->
     {ok, Stats} = get_stats(Pid, 1),
-    d("traffic_get_mg_stats -> stats for ~s: ~n~p~n", [Name, Stats]),
+    d("traffic_get_mg_stats -> stats for ~s: "
+      "~n   ~p"
+      "~n", [Name, Stats]),
     traffic_get_mg_stats(Mgs, [{Name, Stats}|Acc]).
 
 
@@ -903,7 +976,7 @@ mgc_tcp_create_listen(Sup, Opts, MaxN, N, _InitialReason)
 	ok ->
 	    Sup;
 	{error, {could_not_start_listener, {gen_tcp_listen, eaddrinuse} = Reason}} ->
-	    sleep(N * 200),
+	    ?SLEEP(N * 200),
 	    mgc_tcp_create_listen(Sup, Opts, MaxN, N + 1, Reason);
 	{error, Reason} ->
 	    throw({error, {failed_starting_tcp_listen, Reason}});
@@ -1044,7 +1117,6 @@ mg(Parent, Verbosity, Config) ->
 
 mg_init(Config) ->
     d("mg_init -> entry"),
-    random_init(),
     Mid = get_conf(local_mid, Config),
     RI  = get_conf(receive_info, Config),
     d("mg_init -> start megaco"),
@@ -1088,12 +1160,12 @@ mg_loop(#mg{state = State} = S) ->
 	%% Give me statistics
 	{statistics, 1, Parent} when S#mg.parent == Parent ->
 	    i("mg_loop(~p) -> got request for statistics 1", [State]),
-	    {ok, Gen} = megaco:get_stats(),
-	    CH = S#mg.conn_handle,
-	    Reason = {statistics, CH}, 
-	    Pid = megaco:conn_info(CH, control_pid),
-	    SendMod    = megaco:conn_info(CH, send_mod),
-	    SendHandle = megaco:conn_info(CH, send_handle),
+	    {ok, Gen}   = megaco:get_stats(),
+	    CH          = S#mg.conn_handle,
+	    Reason      = {statistics, CH}, 
+	    Pid         = megaco:conn_info(CH, control_pid),
+	    SendMod     = megaco:conn_info(CH, send_mod),
+	    SendHandle  = megaco:conn_info(CH, send_handle),
 	    {ok, Trans} = 
 		case SendMod of
 		    megaco_tcp -> megaco_tcp:get_stats(SendHandle);
@@ -1247,13 +1319,16 @@ mg_start_udp(MgcPort, RH) ->
     d("start udp transport"),
     case megaco_udp:start_transport() of
 	{ok, Sup} ->
-	    {ok, LocalHost} = inet:gethostname(),
+            %% Some linux (Ubuntu) has "crap" in their /etc/hosts, that 
+            %% causes problem for us in this case (UDP). So we can't use
+            %% local host. Try instead to "figure out" tha actual address...
+            LocalAddr = which_local_addr(),
 	    Opts = [{port, 0}, {receive_handle, RH}],
 	    case megaco_udp:open(Sup, Opts) of
 		{ok, Handle, ControlPid} ->
                     MgcMid = preliminary_mid,
                     SendHandle = megaco_udp:create_send_handle(Handle, 
-							       LocalHost, 
+							       LocalAddr, 
 							       MgcPort),
 		    {ok, ConnHandle} = 
 			megaco:connect(RH, MgcMid, 
@@ -1528,10 +1603,6 @@ request(Pid, Request) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sleep(X) ->
-    receive after X -> ok end.
-
-
 error_msg(F,A) -> error_logger:error_msg(F ++ "~n",A).
 
 
@@ -1583,6 +1654,44 @@ get_conf(Key, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+which_local_addr() ->
+    case inet:getifaddrs() of
+        {ok, IFs} ->
+            which_local_addr(IFs);
+        {error, Reason} ->
+            i("Failed get local address: "
+              "~n   ~p", [Reason]),
+            ?SKIP({failed_get_local_addr, Reason})
+    end.
+
+which_local_addr([]) ->
+    ?SKIP(failed_get_local_addr);
+which_local_addr([{"lo" = _IfName, _IfOpts}|IFs]) ->
+    which_local_addr(IFs);
+which_local_addr([{"br-" ++ _ = _IfName, _IfOpts}|IFs]) ->
+    which_local_addr(IFs);
+which_local_addr([{"docker" ++ _ = _IfName, _IfOpts}|IFs]) ->
+    which_local_addr(IFs);
+which_local_addr([{_IfName, IfOpts}|IFs]) ->
+    case which_local_addr2(IfOpts) of
+        {ok, Addr} ->
+            Addr;
+        error ->
+            which_local_addr(IFs)
+    end.
+
+
+which_local_addr2([]) ->
+    error;
+which_local_addr2([{addr, Addr}|_]) 
+  when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
+    {ok, Addr};
+which_local_addr2([_|T]) ->
+    which_local_addr2(T).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 i(F) ->
     i(F, []).
 
@@ -1605,19 +1714,22 @@ print(Severity, Verbosity, P, F, A) ->
     print(printable(Severity,Verbosity), P, F, A).
 
 print(true, P, F, A) ->
-    io:format("~s~p:~s: " ++ F ++ "~n", [P, self(), get(sname) | A]);
+    io:format("~s~p:~s:~s: " ++ F ++ "~n", [P, self(), get(sname), ?FT() | A]);
 print(_, _, _, _) ->
     ok.
 
 
+progress(F) ->
+    progress(F, []).
+
+progress(F, A) ->
+    io:format(user, "~s " ++ F ++ "~n", [?FT()|A]).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
-
 random() ->
-    10 * random:uniform(50).
+    10 * rand:uniform(50).
 
 apply_load_timer() ->
     erlang:send_after(random(), self(), apply_load_timeout).
