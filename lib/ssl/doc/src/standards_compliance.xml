@@ -135,8 +135,10 @@
       <item>Groups: all standard groups supported for the Diffie-Hellman key exchange</item>
       <item>Ciphers: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384,
       TLS_CHACHA20_POLY1305_SHA256 and TLS_AES_128_CCM_SHA256</item>
-      <item>Signature Algorithms: RSA and RSA PSS</item>
-      <item>Certificates: currently only certificates with RSA keys are supported</item>
+      <item>Signature Algorithms: rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pkcs1_sha512,
+      ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384, ecdsa_secp521r1_sha512, rsa_pss_rsae_sha256,
+      rsa_pss_rsae_sha384, rsa_pss_rsae_sha512, rsa_pkcs1_sha1 and ecdsa_sha1</item>
+      <item>Certificates: RSA (it MUST use the rsaEncryption OID) and ECDSA keys</item>
     </list>
     <p>Other notable features:</p>
     <list type="bulleted">
@@ -727,20 +729,20 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ecdsa_secp256r1_sha256</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ecdsa_secp384r1_sha384</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ecdsa_secp521r1_sha512</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -830,20 +832,20 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ecdsa_secp256r1_sha256</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ecdsa_secp384r1_sha384</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">ecdsa_secp521r1_sha512</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1956,8 +1958,8 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>PC</em></cell>
-	<cell align="left" valign="middle"><em>22</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1981,8 +1983,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Digital signatures</em></cell>
-	<cell align="left" valign="middle"><em>PC</em></cell>
-	<cell align="left" valign="middle"><em>22</em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -1999,8 +2001,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">MUST support ecdsa_secp256r1_sha256</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.1</em></cell>
       </row>
 
       <row>
