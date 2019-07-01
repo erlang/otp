@@ -433,6 +433,15 @@ certificate_entry(DER) ->
 %%    79
 %%    00
 %%    0101010101010101010101010101010101010101010101010101010101010101
+sign(THash, Context, HashAlgo, #'ECPrivateKey'{} = PrivateKey) ->
+    Content = build_content(Context, THash),
+    try public_key:sign(Content, HashAlgo, PrivateKey) of
+        Signature ->
+            {ok, Signature}
+    catch
+        error:badarg ->
+            {error, badarg}
+    end;
 sign(THash, Context, HashAlgo, PrivateKey) ->
     Content = build_content(Context, THash),
 
@@ -450,7 +459,16 @@ sign(THash, Context, HashAlgo, PrivateKey) ->
     end.
 
 
-verify(THash, Context, HashAlgo, Signature, PublicKey) ->
+verify(THash, Context, HashAlgo, Signature, {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
+    Content = build_content(Context, THash),
+    try public_key:verify(Content, HashAlgo, Signature, {PublicKey, PublicKeyParams}) of
+        Result ->
+            {ok, Result}
+    catch
+        error:badarg ->
+            {error, badarg}
+    end;
+verify(THash, Context, HashAlgo, Signature, {?rsaEncryption, PublicKey, _PubKeyParams}) ->
     Content = build_content(Context, THash),
 
     %% The length of the Salt MUST be equal to the length of the output
@@ -1323,11 +1341,6 @@ get_private_key(#key_share_entry{
                           {_, PrivateKey}}) ->
     PrivateKey.
 
-%% TODO: implement EC keys
-get_public_key({?'rsaEncryption', PublicKey, _}) ->
-    PublicKey.
-
-
 %% X25519, X448
 calculate_shared_secret(OthersKey, MyKey, Group)
   when is_binary(OthersKey) andalso is_binary(MyKey) andalso
@@ -1556,13 +1569,11 @@ verify_certificate_verify(#state{
     %% Transcript-Hash uses the HKDF hash function defined by the cipher suite.
     THash = tls_v1:transcript_hash(Context, HKDFAlgo),
 
-    PublicKey = get_public_key(PublicKeyInfo),
-
     ContextString = peer_context_string(Role),
 
     %% Digital signatures use the hash function defined by the selected signature
     %% scheme.
-    case verify(THash, ContextString, HashAlgo, Signature, PublicKey) of
+    case verify(THash, ContextString, HashAlgo, Signature, PublicKeyInfo) of
         {ok, true} ->
             {ok, {State0, wait_finished}};
         {ok, false} ->
@@ -1761,15 +1772,20 @@ check_cert_sign_algo(SignAlgo, SignHash, _, ClientSignAlgsCert) ->
 %% DSA keys are not supported by TLS 1.3
 select_sign_algo(dsa, _ClientSignAlgs, _ServerSignAlgs) ->
     {error, {insufficient_security, no_suitable_public_key}};
-%% TODO: Implement support for ECDSA keys!
 select_sign_algo(_, [], _) ->
     {error, {insufficient_security, no_suitable_signature_algorithm}};
 select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
     {_, S, _} = ssl_cipher:scheme_to_components(C),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
     %% TLS handshake messages: filter sha-1 and rsa_pkcs1.
+    %%
+    %% RSASSA-PSS RSAE algorithms: If the public key is carried in an X.509
+    %% certificate, it MUST use the rsaEncryption OID.
+    %% RSASSA-PSS PSS algorithms: If the public key is carried in an X.509 certificate,
+    %% it MUST use the RSASSA-PSS OID.
     case ((PublicKeyAlgo =:= rsa andalso S =:= rsa_pss_rsae)
-          orelse (PublicKeyAlgo =:= rsa_pss andalso S =:= rsa_pss_rsae))
+          orelse (PublicKeyAlgo =:= rsa_pss andalso S =:= rsa_pss_pss)
+          orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa))
         andalso
         lists:member(C, ServerSignAlgs) of
         true ->

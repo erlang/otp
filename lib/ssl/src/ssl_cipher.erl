@@ -973,15 +973,25 @@ scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined};
 scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 
 
-%% TODO: Add support for EC and RSA-SSA signatures
-signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha1WithRSAEncryption}) ->
-    rsa_pkcs1_sha1;
+%% TODO: Add support for ed25519, ed448, rsa_pss*
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha256WithRSAEncryption}) ->
     rsa_pkcs1_sha256;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha384WithRSAEncryption}) ->
     rsa_pkcs1_sha384;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha512WithRSAEncryption}) ->
-    rsa_pkcs1_sha512.
+    rsa_pkcs1_sha512;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA256'}) ->
+    ecdsa_secp256r1_sha256;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA384'}) ->
+    ecdsa_secp384r1_sha384;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA512'}) ->
+    ecdsa_secp512r1_sha512;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'sha-1WithRSAEncryption'}) ->
+    rsa_pkcs1_sha1;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha1WithRSAEncryption}) ->
+    rsa_pkcs1_sha1;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA1'}) ->
+    ecdsa_sha1.
 
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher

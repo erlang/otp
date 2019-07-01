@@ -278,7 +278,12 @@ tls13_test_group() ->
      tls13_ssl_server_with_alpn_ssl_client,
      tls13_ssl_server_with_alpn_ssl_client_empty_alpn,
      tls13_ssl_server_with_alpn_ssl_client_bad_alpn,
-     tls13_ssl_server_with_alpn_ssl_client_alpn].
+     tls13_ssl_server_with_alpn_ssl_client_alpn,
+     tls13_ecdsa_ssl_server_openssl_client,
+     tls13_ecdsa_ssl_server_ssl_client,
+     tls13_ecdsa_openssl_server_ssl_client,
+     tls13_ecdsa_client_auth_ssl_server_ssl_client
+    ].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
@@ -6320,6 +6325,135 @@ tls13_ssl_server_with_alpn_ssl_client_alpn(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(Client).
+
+
+tls13_ecdsa_ssl_server_openssl_client() ->
+     [{doc,"Test TLS 1.3 basic connection between ssl server and openssl s_client using ECDSA certificates"}].
+
+tls13_ecdsa_ssl_server_openssl_client(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_ecdsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+tls13_ecdsa_ssl_server_ssl_client() ->
+     [{doc,"Test TLS 1.3 basic connection between ssl server and ssl client using ECDSA certificates"}].
+
+tls13_ecdsa_ssl_server_ssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_ecdsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
+
+tls13_ecdsa_openssl_server_ssl_client() ->
+     [{doc,"Test TLS 1.3 basic connection between openssl server and ssl client using ECDSA certificates"}].
+
+tls13_ecdsa_openssl_server_ssl_client(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ssl_test_lib:ssl_options(server_ecdsa_verify_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_ecdsa_opts, Config),
+
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = "From openssl to erlang",
+
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+    Exe = "openssl",
+    Args = ["s_server", "-accept", integer_to_list(Port),
+            "-tls1_3",
+            "-cert", CertFile, "-CAfile", CaCertFile,
+            "-key", KeyFile, "-Verify", "2"],
+
+    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),
+
+    ssl_test_lib:wait_for_openssl_server(Port, tls),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {?MODULE,
+                                               erlang_ssl_receive, [Data]}},
+                                        {options, ClientOpts}]),
+    true = port_command(OpensslPort, Data),
+
+    ssl_test_lib:check_result(Client, ok),
+
+    %% Clean close down!   Server needs to be closed first !!
+    ssl_test_lib:close_port(OpensslPort),
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false).
+
+
+tls13_ecdsa_client_auth_ssl_server_ssl_client() ->
+     [{doc,"TLS 1.3: Test client authentication with ECDSA certificates."}].
+
+tls13_ecdsa_client_auth_ssl_server_ssl_client(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_ecdsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
+
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
+                  {verify, verify_peer},
+                  {fail_if_no_peer_cert, true}|ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    %%Client = ssl_test_lib:start_basic_client(openssl, 'tlsv1.3', Port, ClientOpts),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close_port(Client).
+
 
 
 %%--------------------------------------------------------------------
