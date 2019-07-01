@@ -1714,7 +1714,7 @@ print(Severity, Verbosity, P, F, A) ->
     print(printable(Severity,Verbosity), P, F, A).
 
 print(true, P, F, A) ->
-    io:format("~s~p:~s:~s: " ++ F ++ "~n", [P, self(), get(sname), ?FT() | A]);
+    io:format("~s~p:~s:~s: " ++ F ++ "~n", [P, self(), get(sname), ?FTS() | A]);
 print(_, _, _, _) ->
     ok.
 
@@ -1723,7 +1723,7 @@ progress(F) ->
     progress(F, []).
 
 progress(F, A) ->
-    io:format(user, "~s " ++ F ++ "~n", [?FT()|A]).
+    io:format(user, "~s " ++ F ++ "~n", [?FTS()|A]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
