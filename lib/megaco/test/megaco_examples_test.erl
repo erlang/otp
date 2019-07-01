@@ -357,6 +357,6 @@ d(F, A) ->
     d(get(dbg), F, A).
 
 d(true, F, A) ->
-    io:format("DBG: ~s " ++ F ++ "~n", [?FT() | A]);
+    io:format("DBG: ~s " ++ F ++ "~n", [?FTS() | A]);
 d(_, _F, _A) ->
     ok.
