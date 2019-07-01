@@ -165,7 +165,7 @@ protocol_version() = integer()    ]]></code>
   <funcs>
     <func>
       <name since="">handle_connect(ConnHandle, ProtocolVersion) -> ok | error | {error,ErrorDescr}</name>
-      <name since="">handle_connect(ConnHandle, ProtocolVersion, Extra]) -> ok | error | {error,ErrorDescr}</name>
+      <name since="">handle_connect(ConnHandle, ProtocolVersion, Extra) -> ok | error | {error,ErrorDescr}</name>
       <fsummary>Invoked when a new connection is established</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>

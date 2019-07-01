@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1728,7 +1728,7 @@ decode_nt({event_parameter, Item}, SubItem) ->
                 [16#00, 16#01] -> "cs"
             end;
         [16#00, 16#06] -> % Event qualert
-            case Item of
+            case SubItem of
                 [16#00, 16#01] -> "th"
             end
 	end;

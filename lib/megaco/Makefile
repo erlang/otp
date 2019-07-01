@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -206,11 +206,18 @@ $(APP_TAR_FILE): $(APP_DIR)
 
 dialyzer_plt: $(DIA_PLT)
 
-$(DIA_PLT): 
+$(DIA_PLT): Makefile
 	@echo "Building $(APPLICATION) plt file"
 	@dialyzer --build_plt \
                   --output_plt $@ \
                   -r ../$(APPLICATION)/ebin \
+                     ../../lib/kernel/ebin \
+                     ../../lib/stdlib/ebin \
+                     ../../lib/runtime_tools/ebin \
+                     ../../lib/asn1/ebin \
+                     ../../lib/debugger/ebin \
+                     ../../lib/et/ebin \
+                     ../../erts/preloaded/ebin \
                   --output $(DIA_ANALYSIS) \
                   --verbose
 
