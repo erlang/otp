@@ -137,6 +137,11 @@
 
 #define BUCKET(tb, i) SEGTAB(tb)[SLOT_IX_TO_SEG_IX(i)]->buckets[(i) & EXT_SEGSZ_MASK]
 
+#ifdef DEBUG
+#  define DBG_BUCKET_INACTIVE ((HashDbTerm*)0xdead5107)
+#endif
+
+
 /*
  * When deleting a table, the number of records to delete.
  * Approximate number, because we must delete entire buckets.
@@ -377,7 +382,7 @@ typedef int (*extra_match_validator_t)(int keypos, Eterm match, Eterm guard, Ete
 */
 static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix);
 static void alloc_seg(DbTableHash *tb);
-static int free_seg(DbTableHash *tb, int free_records);
+static int free_seg(DbTableHash *tb);
 static HashDbTerm* next_live(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
 			     HashDbTerm *list);
 static HashDbTerm* search_list(DbTableHash* tb, Eterm key, 
@@ -2466,7 +2471,7 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
     erts_atomic_set_relb(&tb->fixdel, (erts_aint_t)NULL);
 
     while(tb->nslots != 0) {
-	reds -= EXT_SEGSZ/64 + free_seg(tb, 1);
+	reds -= EXT_SEGSZ/64 + free_seg(tb);
 
 	/*
 	 * If we have done enough work, get out here.
@@ -2682,7 +2687,14 @@ static void alloc_seg(DbTableHash *tb)
     segtab[seg_ix] = (struct segment*) erts_db_alloc(ERTS_ALC_T_DB_SEG,
                                                      (DbTable *) tb,
                                                      SIZEOF_SEGMENT(EXT_SEGSZ));
-    sys_memset(segtab[seg_ix], 0, SIZEOF_SEGMENT(EXT_SEGSZ));
+#ifdef DEBUG
+    {
+        int i;
+        for (i = 0; i < EXT_SEGSZ; i++) {
+            segtab[seg_ix]->buckets[i] = DBG_BUCKET_INACTIVE;
+        }
+    }
+#endif
     tb->nslots += EXT_SEGSZ;
 }
 
@@ -2693,10 +2705,19 @@ static void dealloc_ext_segtab(void* lop_data)
     erts_free(ERTS_ALC_T_DB_SEG, est);
 }
 
-/* Shrink table by freeing the top segment
+struct dealloc_seg_ops {
+    struct segment* segp;
+    Uint seg_sz;
+
+    struct ext_segtab* est;
+};
+
+/* Shrink table by removing the top segment
 ** free_records: 1=free any records in segment, 0=assume segment is empty 
+** ds_ops: (out) Instructions for dealloc_seg().
 */
-static int free_seg(DbTableHash *tb, int free_records)
+static int remove_seg(DbTableHash *tb, int free_records,
+                      struct dealloc_seg_ops *ds_ops)
 {
     const int seg_ix = SLOT_IX_TO_SEG_IX(tb->nslots) - 1;
     struct segment** const segtab = SEGTAB(tb);
@@ -2704,24 +2725,47 @@ static int free_seg(DbTableHash *tb, int free_records)
     Uint seg_sz;
     int nrecords = 0;
 
+    ERTS_LC_ASSERT(IS_TAB_WLOCKED(tb) || tb->common.status & DB_DELETE
+                   || erts_atomic_read_nob(&tb->is_resizing));
+
     ASSERT(segp != NULL);
-#ifndef DEBUG
-    if (free_records)
-#endif
-    {	
-	int i = (seg_ix == 0) ? FIRST_SEGSZ : EXT_SEGSZ;
-	while (i--) {
-	    HashDbTerm* p = segp->buckets[i];
+    if (free_records) {
+        int ix, n;
+        if (seg_ix == 0) {
+            /* First segment (always fully active) */
+            n = FIRST_SEGSZ;
+            ix = FIRST_SEGSZ-1;
+        }
+        else if (NACTIVE(tb) < tb->nslots) {
+            /* Last extended segment partially active */
+            n = (NACTIVE(tb) - FIRST_SEGSZ) & EXT_SEGSZ_MASK;
+            ix = (NACTIVE(tb)-1) & EXT_SEGSZ_MASK;
+        }
+        else {
+            /* Full extended segment */
+            n = EXT_SEGSZ;
+            ix = EXT_SEGSZ - 1;
+        }
+        for ( ; n > 0; n--, ix--) {
+	    HashDbTerm* p = segp->buckets[ix & EXT_SEGSZ_MASK];
 	    while(p != 0) {		
 		HashDbTerm* nxt = p->next;
-		ASSERT(free_records); /* segment not empty as assumed? */
 		free_term(tb, p);
 		p = nxt;
 		++nrecords;
 	    }
 	}
     }
-    
+#ifdef DEBUG
+    else {
+        int ix = (seg_ix == 0) ? FIRST_SEGSZ-1 : EXT_SEGSZ-1;
+        for ( ; ix >= 0; ix--) {
+            ASSERT(segp->buckets[ix] == DBG_BUCKET_INACTIVE);
+        }
+    }
+#endif
+
+    ds_ops->est = NULL;
     if (seg_ix >= NSEG_1) {
         struct ext_segtab* est = ErtsContainerStruct_(segtab,struct ext_segtab,segtab);
 
@@ -2730,35 +2774,63 @@ static int free_seg(DbTableHash *tb, int free_records)
             SET_SEGTAB(tb, est->prev_segtab);
             tb->nsegs = est->prev_nsegs;
 
-            if (!tb->common.is_thread_safe) {
-                /*
-                 * Table is doing a graceful shrink operation and we must avoid
-                 * deallocating this segtab while it may still be read by other
-                 * threads. Schedule deallocation with thread progress to make
-                 * sure no lingering threads are still hanging in BUCKET macro
-                 * with an old segtab pointer.
-                 */
-                erts_schedule_db_free(&tb->common, dealloc_ext_segtab,
-                                      est, &est->lop,
-                                      SIZEOF_EXT_SEGTAB(est->nsegs));
-            }
-            else
-                erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable*)tb, est,
-                             SIZEOF_EXT_SEGTAB(est->nsegs));
+            ds_ops->est = est;
         }
     }
+
     seg_sz = (seg_ix == 0) ? FIRST_SEGSZ : EXT_SEGSZ;
-    erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb, segp, SIZEOF_SEGMENT(seg_sz));
+    tb->nslots -= seg_sz;
+    ASSERT(tb->nslots >= 0);
+
+    ds_ops->segp = segp;
+    ds_ops->seg_sz = seg_sz;
     
 #ifdef DEBUG
     if (seg_ix < tb->nsegs)
         SEGTAB(tb)[seg_ix] = NULL;
 #endif
-    tb->nslots -= seg_sz;
-    ASSERT(tb->nslots >= 0);
     return nrecords;
 }
 
+/*
+ * Deallocate segment removed by remove_seg()
+ */
+static void dealloc_seg(DbTableHash *tb, struct dealloc_seg_ops* ds_ops)
+{
+    struct ext_segtab* est = ds_ops->est;
+
+    if (est) {
+        if (!tb->common.is_thread_safe) {
+            /*
+             * Table is doing a graceful shrink operation and we must avoid
+             * deallocating this segtab while it may still be read by other
+             * threads. Schedule deallocation with thread progress to make
+             * sure no lingering threads are still hanging in BUCKET macro
+             * with an old segtab pointer.
+             */
+            erts_schedule_db_free(&tb->common, dealloc_ext_segtab,
+                                  est, &est->lop,
+                                  SIZEOF_EXT_SEGTAB(est->nsegs));
+        }
+        else
+            erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable*)tb, est,
+                         SIZEOF_EXT_SEGTAB(est->nsegs));
+    }
+
+    erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb,
+                 ds_ops->segp, SIZEOF_SEGMENT(ds_ops->seg_sz));
+}
+
+/* Remove and deallocate top segment and all its contained objects */
+static int free_seg(DbTableHash *tb)
+{
+    struct dealloc_seg_ops ds_ops;
+    int reds;
+
+    reds = remove_seg(tb, 1, &ds_ops);
+    dealloc_seg(tb, &ds_ops);
+    return reds;
+}
 
 /*
 ** Copy terms from ptr1 until ptr2
@@ -2880,6 +2952,7 @@ static void grow(DbTableHash* tb, int nitems)
         pnext = &BUCKET(tb, from_ix);
         p = *pnext;
         to_pnext = &BUCKET(tb, to_ix);
+        ASSERT(*to_pnext == DBG_BUCKET_INACTIVE);
         while (p != NULL) {
             if (is_pseudo_deleted(p)) { /* rare but possible with fine locking */
                 *pnext = p->next;
@@ -2916,14 +2989,16 @@ abort:
 */
 static void shrink(DbTableHash* tb, int nitems)
 {
-    HashDbTerm** src_bp;
-    HashDbTerm** dst_bp;
+    struct dealloc_seg_ops ds_ops;
+    HashDbTerm* src;
+    HashDbTerm* tail;
     HashDbTerm** bp;
     erts_rwmtx_t* lck;
     int src_ix, dst_ix, low_szm;
     int nactive;
     int loop_limit = 5;
 
+    ds_ops.segp = NULL;
     do {
         if (!begin_resizing(tb))
             return; /* already in progress */
@@ -2945,38 +3020,47 @@ static void shrink(DbTableHash* tb, int nitems)
             goto abort;
         }
 
-        src_bp = &BUCKET(tb, src_ix);
-        dst_bp = &BUCKET(tb, dst_ix);
-        bp = src_bp;
-
-        /*
-         * We join lists by appending "dst" at the end of "src"
-         * as we must step through "src" anyway to purge pseudo deleted.
-         */
-        while(*bp != NULL) {
-            if (is_pseudo_deleted(*bp)) {
-                HashDbTerm* deleted = *bp;
-                *bp = deleted->next;
-                free_term(tb, deleted);
-            } else {
-                bp = &(*bp)->next;
-            }
-        }
-        *bp = *dst_bp;
-        *dst_bp = *src_bp;
-        *src_bp = NULL;
-
+        src = BUCKET(tb, src_ix);
+#ifdef DEBUG
+        BUCKET(tb, src_ix) = DBG_BUCKET_INACTIVE;
+#endif
         nactive = src_ix;
         erts_atomic_set_nob(&tb->nactive, nactive);
         if (dst_ix == 0) {
             erts_atomic_set_relb(&tb->szm, low_szm);
         }
-        WUNLOCK_HASH(lck);
-
         if (tb->nslots - src_ix >= EXT_SEGSZ) {
-            free_seg(tb, 0);
+            remove_seg(tb, 0, &ds_ops);
         }
         done_resizing(tb);
+
+        if (src) {
+            /*
+             * We join buckets by appending "dst" list at the end of "src" list
+             * as we must step through "src" anyway to purge pseudo deleted.
+             */
+            bp = &BUCKET(tb, dst_ix);
+            tail = *bp;
+            *bp = src;
+
+            while(*bp != NULL) {
+                if (is_pseudo_deleted(*bp)) {
+                    HashDbTerm* deleted = *bp;
+                    *bp = deleted->next;
+                    free_term(tb, deleted);
+                } else {
+                    bp = &(*bp)->next;
+                }
+            }
+            *bp = tail;
+        }
+
+        WUNLOCK_HASH(lck);
+
+        if (ds_ops.segp) {
+            dealloc_seg(tb, &ds_ops);
+            ds_ops.segp = NULL;
+        }
 
     } while (--loop_limit
              && nactive > FIRST_SEGSZ && nitems < SHRINK_LIMIT(nactive));
