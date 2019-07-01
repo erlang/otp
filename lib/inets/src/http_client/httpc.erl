@@ -317,7 +317,7 @@ store_cookies(SetCookieHeaders, Url, Profile)
         {error, Bad, _} ->
             {error, {parse_failed, Bad}};
         URI ->
-            Scheme = scheme_to_atom(maps:get(scheme, URI, '')),
+            Scheme = scheme_to_atom(maps:get(scheme, URI, undefined)),
             Host = maps:get(host, URI, ""),
             Port = maps:get(port, URI, default_port(Scheme)),
             Path = uri_string:recompose(#{path => maps:get(path, URI, "")}),
@@ -536,7 +536,7 @@ handle_request(Method, Url,
             BracketedHost = proplists:get_value(ipv6_host_with_brackets,
                                                 Options),
 
-            Scheme        = scheme_to_atom(maps:get(scheme, URI, '')),
+            Scheme        = scheme_to_atom(maps:get(scheme, URI, undefined)),
             Userinfo      = maps:get(userinfo, URI, ""),
             Host          = http_util:maybe_add_brackets(maps:get(host, URI, ""), BracketedHost),
             Port          = maps:get(port, URI, default_port(Scheme)),
@@ -591,8 +591,8 @@ scheme_to_atom("http") ->
     http;
 scheme_to_atom("https") ->
     https;
-scheme_to_atom('') ->
-    '';
+scheme_to_atom(undefined) ->
+    throw({error, {no_scheme}});
 scheme_to_atom(Scheme) ->
     throw({error, {bad_scheme, Scheme}}).
 
