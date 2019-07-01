@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1391,7 +1391,7 @@ prepare_request(ConnData, T, Rest, AckList, ReqList, Extra) ->
             %% don't restart the reply_timer.
             ConnData2 = ConnData#conn_data{protocol_version = Version},
             ?report_trace(ConnData2, 
-			  "re-send trans reply", [T | {bytes, Bin}]),
+			  "re-send trans reply", [T, {bytes, Bin}]),
             case megaco_messenger_misc:send_message(ConnData2, true, Bin) of
 		{ok, _} ->
 		    ok;

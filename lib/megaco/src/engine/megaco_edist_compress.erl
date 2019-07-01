@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,10 +25,21 @@
 
 -module(megaco_edist_compress).
 
--export([behaviour_info/1]).
+-callback encode(R, Version) -> T when
+      R       :: megaco_encoder:megaco_message() |
+                 megaco_encoder:transaction() | 
+                 megaco_encoder:action_reply() | 
+                 megaco_encoder:action_request() | 
+                 megaco_encoder:command_request(),
+      Version :: megaco_encoder:protocol_version(),
+      T       :: term().
 
-behaviour_info(callbacks) ->
-    [{encode,2}, 
-     {decode,2}];
-behaviour_info(_) ->
-    undefined.
+-callback decode(T, Version) -> R when
+      T       :: term(),
+      Version :: megaco_encoder:protocol_version() | dynamic,
+      R       :: megaco_encoder:megaco_message() |
+                 megaco_encoder:transaction() | 
+                 megaco_encoder:action_reply() | 
+                 megaco_encoder:action_request() | 
+                 megaco_encoder:command_request().
+

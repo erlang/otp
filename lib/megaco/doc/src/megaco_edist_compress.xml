@@ -43,8 +43,8 @@
       <name since="">Module:encode(R, Version) -> T</name>
       <fsummary>Encode (compress) a megaco component.</fsummary>
       <type>
-        <v>R = megaco_message() | transaction() | action_reply() | action_request() | command_request()</v>
-        <v>Version = integer()</v>
+	<v>R = megaco_encoder:megaco_message() | megaco_encoder:transaction() | megaco_encoder:action_reply() | megaco_encoder:action_request() | megaco_encoder:command_request()</v>
+        <v>Version = megaco_encoder:protocol_version()</v>
         <v>T = term()</v>
       </type>
       <desc>
@@ -57,8 +57,8 @@
       <fsummary>Decode (decompress) a megaco component.</fsummary>
       <type>
         <v>T = term()</v>
-        <v>Version = integer()</v>
-        <v>R = megaco_message() | transaction() | action_reply() | action_request() | command_request()</v>
+        <v>Version = megaco_encoder:protocol_version()</v>
+        <v>R = megaco_encoder:megaco_message() | megaco_encoder:transaction() | megaco_encoder:action_reply() | megaco_encoder:action_request() | megaco_encoder:command_request()</v>
       </type>
       <desc>
         <p>Decompress a megaco component. </p>
