@@ -51,18 +51,17 @@
 
 #define MAX_STRING_LEN 0xffff
 
-/* MAX value for the creation field in pid, port and reference
-   for the local node and for the current external format.
-
-   Larger creation values than this are allowed in external pid, port and refs
-   encoded with NEW_PID_EXT, NEW_PORT_EXT and NEWER_REFERENCE_EXT.
-   The point here is to prepare for future upgrade to 32-bit creation.
-   OTP-19 (erts-8.0) can handle big creation values from other (newer) nodes,
-   but do not use big creation values for the local node yet,
-   as we still may have to communicate with older nodes.
+/*
+ * MAX value for the creation field in pid, port and reference
+ * for the old PID_EXT, PORT_EXT, REFERENCE_EXT and NEW_REFERENCE_EXT.
+ * Older nodes (OTP 19-22) will send us these so we must be able to decode them.
+ *
+ * From OTP 23 DFLAG_BIG_CREATION is mandatory so this node will always
+ * encode with new big 32-bit creations using NEW_PID_EXT, NEW_PORT_EXT
+ * and NEWER_REFERENCE_EXT.
 */
-#define ERTS_MAX_LOCAL_CREATION (3)
-#define is_valid_creation(Cre) ((unsigned)(Cre) <= ERTS_MAX_LOCAL_CREATION)
+#define ERTS_MAX_TINY_CREATION (3)
+#define is_tiny_creation(Cre) ((unsigned)(Cre) <= ERTS_MAX_TINY_CREATION)
 
 #undef ERTS_DEBUG_USE_DIST_SEP
 #ifdef DEBUG
@@ -2469,7 +2468,8 @@ enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
     Eterm sysname = ((is_internal_pid(pid) && (dflags & DFLAG_INTERNAL_TAGS))
 		      ? INTERNAL_LOCAL_SYSNAME : pid_node_name(pid));
     Uint32 creation = pid_creation(pid);
-    byte* tagp = ep++;
+
+    *ep++ = NEW_PID_EXT;
 
     /* insert  atom here containing host and sysname  */
     ep = enc_atom(acmp, sysname, ep, dflags);
@@ -2481,15 +2481,8 @@ enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
     ep += 4;
     put_int32(os, ep);
     ep += 4;
-    if (creation <= ERTS_MAX_LOCAL_CREATION) {
-        *tagp = PID_EXT;
-        *ep++ = creation;
-    } else {
-        ASSERT(is_external_pid(pid));
-        *tagp = NEW_PID_EXT;
-        put_int32(creation, ep);
-        ep += 4;
-    }
+    put_int32(creation, ep);
+    ep += 4;
     return ep;
 }
 
@@ -2609,7 +2602,7 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
     if (tag == PID_EXT) {
         cre = get_int8(ep);
         ep += 1;
-        if (!is_valid_creation(cre)) {
+        if (!is_tiny_creation(cre)) {
             return NULL;
         }
     } else {
@@ -2870,25 +2863,18 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_ref(obj))
 			     ? INTERNAL_LOCAL_SYSNAME : ref_node_name(obj));
             Uint32 creation = ref_creation(obj);
-            byte* tagp = ep++;
 
 	    ASSERT(dflags & DFLAG_EXTENDED_REFERENCES);
 
 	    erts_magic_ref_save_bin(obj);
 
+            *ep++ = NEWER_REFERENCE_EXT;
 	    i = ref_no_numbers(obj);
 	    put_int16(i, ep);
 	    ep += 2;
 	    ep = enc_atom(acmp, sysname, ep, dflags);
-            if (creation <= ERTS_MAX_LOCAL_CREATION) {
-                *tagp = NEW_REFERENCE_EXT;
-                *ep++ = creation;
-            } else {
-                ASSERT(is_external_ref(obj));
-                *tagp = NEWER_REFERENCE_EXT;
-                put_int32(creation, ep);
-                ep += 4;
-            }
+            put_int32(creation, ep);
+            ep += 4;
 	    ref_num = ref_numbers(obj);
 	    for (j = 0; j < i; j++) {
 		put_int32(ref_num[j], ep);
@@ -2901,21 +2887,14 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_port(obj))
 			     ? INTERNAL_LOCAL_SYSNAME : port_node_name(obj));
             Uint32 creation = port_creation(obj);
-            byte* tagp = ep++;
 
+            *ep++ = NEW_PORT_EXT;
 	    ep = enc_atom(acmp, sysname, ep, dflags);
 	    j = port_number(obj);
 	    put_int32(j, ep);
 	    ep += 4;
-            if (creation <= ERTS_MAX_LOCAL_CREATION) {
-                *tagp = PORT_EXT;
-                *ep++ = creation;
-            } else {
-                ASSERT(is_external_port(obj));
-                *tagp = NEW_PORT_EXT;
-                put_int32(creation, ep);
-                ep += 4;
-            }
+            put_int32(creation, ep);
+            ep += 4;
 	    break;
 	}
 	case LIST_DEF:
@@ -3610,7 +3589,7 @@ dec_term_atom_common:
                 if (tag == PORT_EXT) {
                     cre = get_int8(ep);
                     ep++;
-                    if (!is_valid_creation(cre)) {
+                    if (!is_tiny_creation(cre)) {
                         goto error;
                     }
                 }
@@ -3657,7 +3636,7 @@ dec_term_atom_common:
 
 		cre = get_int8(ep);
 		ep += 1;
-		if (!is_valid_creation(cre)) {
+		if (!is_tiny_creation(cre)) {
 		    goto error;
 		}
 		goto ref_ext_common;
@@ -3671,7 +3650,7 @@ dec_term_atom_common:
 
 		cre = get_int8(ep);
 		ep += 1;
-		if (!is_valid_creation(cre)) {
+		if (!is_tiny_creation(cre)) {
 		    goto error;
 		}
 		r0 = get_int32(ep);
@@ -4334,30 +4313,21 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		result += 1 + 4 + 1 + i;  /* tag,size,sign,digits */
 	    break;
         case EXTERNAL_PID_DEF:
-            if (external_pid_creation(obj) > ERTS_MAX_LOCAL_CREATION)
-                result += 3;
-            /*fall through*/
 	case PID_DEF:
 	    result += (1 + encode_size_struct2(acmp, pid_node_name(obj), dflags) +
-		       4 + 4 + 1);
+		       4 + 4 + 4);
 	    break;
         case EXTERNAL_REF_DEF:
-            if (external_ref_creation(obj) > ERTS_MAX_LOCAL_CREATION)
-                result += 3;
-            /*fall through*/
 	case REF_DEF:
 	    ASSERT(dflags & DFLAG_EXTENDED_REFERENCES);
 	    i = ref_no_numbers(obj);
 	    result += (1 + 2 + encode_size_struct2(acmp, ref_node_name(obj), dflags) +
-		       1 + 4*i);
+		       4 + 4*i);
 	    break;
         case EXTERNAL_PORT_DEF:
-            if (external_port_creation(obj) > ERTS_MAX_LOCAL_CREATION)
-                result += 3;
-            /*fall through*/
         case PORT_DEF:
 	    result += (1 + encode_size_struct2(acmp, port_node_name(obj), dflags) +
-		      4 + 1);
+		      4 + 4);
 	    break;
 	case LIST_DEF: {
 	    int is_str = is_external_string(obj, &m);

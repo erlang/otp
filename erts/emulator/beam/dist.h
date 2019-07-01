@@ -54,11 +54,12 @@
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
                               | DFLAG_EXTENDED_PIDS_PORTS       \
 			      | DFLAG_UTF8_ATOMS                \
-			      | DFLAG_NEW_FUN_TAGS)
+			      | DFLAG_NEW_FUN_TAGS              \
+                              | DFLAG_BIG_CREATION)
 
 /*
  * Additional optimistic flags when encoding toward pending connection.
- * If remote node (erl_interface) does not supporting these then we may need
+ * If remote node (erl_interface) does not support these then we may need
  * to transcode messages enqueued before connection setup was finished.
  */
 #define DFLAG_DIST_HOPEFULLY (DFLAG_EXPORT_PTR_TAG              \
@@ -75,7 +76,6 @@
                             | DFLAG_SMALL_ATOM_TAGS           \
                             | DFLAG_UTF8_ATOMS                \
                             | DFLAG_MAP_TAG                   \
-                            | DFLAG_BIG_CREATION              \
                             | DFLAG_SEND_SENDER               \
                             | DFLAG_BIG_SEQTRACE_LABELS       \
                             | DFLAG_EXIT_PAYLOAD              \

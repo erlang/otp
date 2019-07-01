@@ -47,6 +47,9 @@
 	        R
         end).
 
+-define(EPMD_DIST_HIGH, 6).
+-define(EPMD_DIST_LOW, 5).
+
 -define(DFLAG_PUBLISHED,1).
 -define(DFLAG_ATOM_CACHE,2).
 -define(DFLAG_EXTENDED_REFERENCES,4).
@@ -57,15 +60,18 @@
 -define(DFLAG_NEW_FUN_TAGS,16#80).
 -define(DFLAG_EXTENDED_PIDS_PORTS,16#100).
 -define(DFLAG_UTF8_ATOMS, 16#10000).
+-define(DFLAG_BIG_CREATION, 16#40000).
 
 %% From R9 and forward extended references is compulsory
 %% From R10 and forward extended pids and ports are compulsory
 %% From R20 and forward UTF8 atoms are compulsory
 %% From R21 and forward NEW_FUN_TAGS is compulsory (no more tuple fallback {fun, ...})
+%% From R23 and forward BIG_CREATION is compulsory
 -define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor
                             ?DFLAG_EXTENDED_PIDS_PORTS bor
                             ?DFLAG_UTF8_ATOMS bor
-                            ?DFLAG_NEW_FUN_TAGS)).
+                            ?DFLAG_NEW_FUN_TAGS bor
+                            ?DFLAG_BIG_CREATION)).
 
 -define(PASS_THROUGH, $p).
 
@@ -208,9 +214,9 @@ pending_up_md5(Node,OurName,Cookie) ->
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
 				    [{active,false},
 				     {packet,2}]),
-    send_name(SocketA,OurName,5),
+    send_name(SocketA,OurName, ?EPMD_DIST_HIGH),
     ok = recv_status(SocketA),
-    {hidden,Node,5,HisChallengeA} = recv_challenge(SocketA), % See 1)
+    {hidden,Node,?EPMD_DIST_HIGH,HisChallengeA} = recv_challenge(SocketA), % See 1)
     OurChallengeA = gen_challenge(),
     OurDigestA = gen_digest(HisChallengeA, Cookie),
     send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
@@ -224,11 +230,11 @@ pending_up_md5(Node,OurName,Cookie) ->
     {ok, SocketB} = gen_tcp:connect(atom_to_list(NB),PortNo,
 				    [{active,false},
 				     {packet,2}]),
-    send_name(SocketB,OurName,5),
+    send_name(SocketB,OurName, ?EPMD_DIST_HIGH),
     alive = recv_status(SocketB),
     send_status(SocketB, true),
     gen_tcp:close(SocketA),
-    {hidden,Node,5,HisChallengeB} = recv_challenge(SocketB), % See 1)
+    {hidden,Node,?EPMD_DIST_HIGH,HisChallengeB} = recv_challenge(SocketB), % See 1)
     OurChallengeB = gen_challenge(),
     OurDigestB = gen_digest(HisChallengeB, Cookie),
     send_challenge_reply(SocketB, OurChallengeB, OurDigestB),
@@ -254,7 +260,7 @@ simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
 		  Else ->
 		      exit(Else)
 	      end,
-    EpmdSocket = register(OurName, LSocket, 1, 5),
+    EpmdSocket = register_node(OurName, LSocket, ?EPMD_DIST_LOW, ?EPMD_DIST_HIGH),
     {NA, NB} = split(Node),
     rpc:cast(Node, net_adm, ping, [OurName]),
     receive after 1000 -> ok end,
@@ -262,7 +268,7 @@ simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
 				    [{active,false},
 				     {packet,2}]),
-    send_name(SocketA,OurName,5),
+    send_name(SocketA,OurName, ?EPMD_DIST_HIGH),
     %% We are still not marked up on the other side, as our first message 
     %% is not sent.
     SocketB = case gen_tcp:accept(LSocket) of
@@ -275,11 +281,11 @@ simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
     %% Now we are expected to close A
     gen_tcp:close(SocketA),
     %% But still Socket B will continue
-    {normal,Node,5} = recv_name(SocketB),  % See 1)
+    {normal,Node,?EPMD_DIST_HIGH} = recv_name(SocketB),  % See 1)
     send_status(SocketB, ok_simultaneous),
     MyChallengeB = gen_challenge(),
-    send_challenge(SocketB, OurName, MyChallengeB,5),
-    HisChallengeB = recv_challenge_reply(SocketB, MyChallengeB, Cookie),
+    send_challenge(SocketB, OurName, MyChallengeB, ?EPMD_DIST_HIGH),
+    {ok,HisChallengeB} = recv_challenge_reply(SocketB, MyChallengeB, Cookie),
     DigestB = gen_digest(HisChallengeB,Cookie),
     send_challenge_ack(SocketB, DigestB),
     inet:setopts(SocketB, [{active, false},
@@ -301,7 +307,8 @@ simultaneous_md5(Node, OurName, Cookie) when OurName > Node ->
 		  Else ->
 		      exit(Else)
 	      end,
-    EpmdSocket = register(OurName, LSocket, 1, 5),
+    EpmdSocket = register_node(OurName, LSocket,
+                               ?EPMD_DIST_LOW, ?EPMD_DIST_HIGH),
     {NA, NB} = split(Node),
     rpc:cast(Node, net_adm, ping, [OurName]),
     receive after 1000 -> ok end,
@@ -315,16 +322,16 @@ simultaneous_md5(Node, OurName, Cookie) when OurName > Node ->
 		  Else2 ->
 		      exit(Else2)
 	      end,
-    send_name(SocketA,OurName,5),
+    send_name(SocketA,OurName, ?EPMD_DIST_HIGH),
     ok_simultaneous = recv_status(SocketA),
     %% Socket B should die during this
     case catch begin
-		   {normal,Node,5} = recv_name(SocketB),  % See 1)
+		   {normal,Node,?EPMD_DIST_HIGH} = recv_name(SocketB),  % See 1)
 		   send_status(SocketB, ok_simultaneous),
 		   MyChallengeB = gen_challenge(),
 		   send_challenge(SocketB, OurName, MyChallengeB,
 				  5),
-		   HisChallengeB = recv_challenge_reply(
+		   {ok,HisChallengeB} = recv_challenge_reply(
 				     SocketB,
 				     MyChallengeB,
 				     Cookie),
@@ -346,7 +353,7 @@ simultaneous_md5(Node, OurName, Cookie) when OurName > Node ->
     end,
     gen_tcp:close(SocketB),
     %% But still Socket A will continue
-    {hidden,Node,5,HisChallengeA} = recv_challenge(SocketA), % See 1)
+    {hidden,Node,?EPMD_DIST_HIGH,HisChallengeA} = recv_challenge(SocketA), % See 1)
     OurChallengeA = gen_challenge(),
     OurDigestA = gen_digest(HisChallengeA, Cookie),
     send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
@@ -372,7 +379,7 @@ missing_compulsory_dflags(Config) when is_list(Config) ->
 				    [{active,false},
 				     {packet,2}]),
     BadNode = list_to_atom(atom_to_list(Name2)++"@"++atom_to_list(NB)),
-    send_name(SocketA,BadNode,5,0),
+    send_name(SocketA,BadNode, ?EPMD_DIST_HIGH, 0),
     not_allowed = recv_status(SocketA),
     gen_tcp:close(SocketA),
     stop_node(Node),
@@ -516,16 +523,16 @@ send_challenge_reply(Socket, Challenge, Digest) ->
 
 recv_challenge_reply(Socket, ChallengeA, Cookie) ->
     case gen_tcp:recv(Socket, 0) of
-	{ok,[$r,CB3,CB2,CB1,CB0 | SumB]} when length(SumB) == 16 ->
+	{ok,[$r,CB3,CB2,CB1,CB0 | SumB]=Data} when length(SumB) == 16 ->
 	    SumA = gen_digest(ChallengeA, Cookie),
 	    ChallengeB = ?u32(CB3,CB2,CB1,CB0),
 	    if SumB == SumA ->
-		    ChallengeB;
+		    {ok,ChallengeB};
 	       true ->
-		    ?shutdown(bad_challenge_reply)
+		    {error,Data}
 	    end;
-	_ ->
-	    ?shutdown(no_node)
+	Err ->
+            {error,Err}
     end.
 
 send_challenge_ack(Socket, Digest) ->
@@ -620,6 +627,13 @@ wait_for_reg_reply(Socket, SoFar) ->
     receive
 	{tcp, Socket, Data0} ->
 	    case SoFar ++ Data0 of
+		[$v, Result, A, B, C, D] ->
+		    case Result of
+			0 ->
+			    {alive, Socket, ?u32(A, B, C, D)};
+			_ ->
+			    {error, duplicate_name}
+		    end;
 		[$y, Result, A, B] ->
 		    case Result of
 			0 ->
@@ -640,7 +654,7 @@ wait_for_reg_reply(Socket, SoFar) ->
     end.
 
 
-register(NodeName, ListenSocket, VLow, VHigh) ->
+register_node(NodeName, ListenSocket, VLow, VHigh) ->
     {ok,{_,TcpPort}} = inet:sockname(ListenSocket),
     case do_register_node(NodeName, TcpPort, VLow, VHigh) of
 	{alive, Socket, _Creation} ->
