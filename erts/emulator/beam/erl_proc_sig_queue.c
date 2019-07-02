@@ -3865,6 +3865,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         case ERTS_MON_TYPE_DIST_PROC:
         case ERTS_MON_TYPE_NODE:
             size = erts_monitor_size((ErtsMonitor *) sig);
+            break;
         default:
             ERTS_INTERNAL_ERROR("Unexpected sig type");
             break;
