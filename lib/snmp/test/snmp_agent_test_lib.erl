@@ -481,10 +481,24 @@ tc_run(Mod, Func, Args, Opts) ->
 		    (catch snmp_test_mgr:stop()),
 		    ?SKIP(Reason);
 		{'EXIT', Reason} ->
-                    ?EPRINT2("apply exit catched: "
-                             "~n   ~p", [Reason]),
+                    %% We have hosts (mostly *very* slooow VMs) that
+                    %% can timeout anything. Since we are basically
+                    %% testing communication, we therefor must check
+                    %% for system events at every failure. Grrr!
+                    SysEvs = snmp_test_global_sys_monitor:events(),
 		    (catch snmp_test_mgr:stop()),
-		    ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
+                    if
+                        (SysEvs =:= []) ->
+                            ?EPRINT2("TC runner failed: "
+                                     "~n   ~p~n", [Reason]),
+                            ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
+                        true ->
+                            ?EPRINT2("apply exit catched when we got system events: "
+                                     "~n   Reason:     ~p"
+                                     "~n   Sys Events: ~p"
+                                     "~n", [Reason, SysEvs]),
+                            ?SKIP([{reason, Reason}, {system_events, SysEvs}])
+                    end;
 		Res ->
 		    (catch snmp_test_mgr:stop()),
 		    Res
