@@ -79,6 +79,7 @@
          api_opt_simple_otp_options/1,
          api_opt_simple_otp_rcvbuf_option/1,
          api_opt_simple_otp_controlling_process/1,
+         api_opt_ip_add_drop_membership/1,
 
          %% *** API Operation Timeout ***
          api_to_connect_tcp4/1,
@@ -511,6 +512,8 @@ groups() ->
     [{api,                 [], api_cases()},
      {api_basic,           [], api_basic_cases()},
      {api_options,         [], api_options_cases()},
+     {api_options_otp,     [], api_options_otp_cases()},
+     {api_options_ip,      [], api_options_ip_cases()},
      {api_op_with_timeout, [], api_op_with_timeout_cases()},
      {socket_closure,      [], socket_closure_cases()},
      {sc_ctrl_proc_exit,   [], sc_cp_exit_cases()},
@@ -596,9 +599,20 @@ api_basic_cases() ->
 
 api_options_cases() ->
     [
+     {group, api_options_otp},
+     {group, api_options_ip}
+    ].
+
+api_options_otp_cases() ->
+    [
      api_opt_simple_otp_options,
      api_opt_simple_otp_rcvbuf_option,
      api_opt_simple_otp_controlling_process
+    ].
+
+api_options_ip_cases() ->
+    [
+     api_opt_ip_add_drop_membership
     ].
 
 api_op_with_timeout_cases() ->
@@ -3173,7 +3187,7 @@ api_opt_simple_otp_controlling_process(suite) ->
 api_opt_simple_otp_controlling_process(doc) ->
     [];
 api_opt_simple_otp_controlling_process(_Config) when is_list(_Config) ->
-    ?TT(?SECS(5)),
+    ?TT(?SECS(30)),
     tc_try(api_opt_simple_otp_controlling_process,
            fun() -> api_opt_simple_otp_controlling_process() end).
 
@@ -3416,6 +3430,321 @@ api_opt_simple_otp_controlling_process() ->
     ok = ?SEV_AWAIT_FINISH([Tester2, Client2]).
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the add_mambership and drop_membership ip options work.
+%% We create one server and two clients. The server only send messages,
+%% the clients only receives messages.
+%% An UDP datagram is forbidden (RFC 1122) from having a source address
+%% that is a multicast address (or a broadcast address).
+%% So, the server create a socket "for sending" and the clients sockets
+%% "for receiving".
+%% Sending socket:   Bound to the local address (and any port).
+%%                   When sending, the dest will be the multicast address
+%%                   and port of the receiving socket.
+%% Receiving socket: Bound to the multicast address and port.
+api_opt_ip_add_drop_membership(suite) ->
+    [];
+api_opt_ip_add_drop_membership(doc) ->
+    ["OTP-15908 (ERL-980)"];
+api_opt_ip_add_drop_membership(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(api_opt_ip_add_drop_membership,
+           fun() ->
+                   has_ip_add_membership_support(),
+                   has_ip_drop_membership_support(),
+                   has_ip_multicast_support()
+           end,
+           fun() -> api_opt_ip_add_drop_membership() end).
+
+
+api_opt_ip_add_drop_membership() ->
+    Set = fun(S, Key, Val) ->
+                  socket:setopt(S, ip, Key, Val)
+          end,
+    AddMembership  = fun(S, Val) -> Set(S, add_membership,  Val) end,
+    DropMembership = fun(S, Val) -> Set(S, drop_membership, Val) end,
+
+    ServerSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           {Tester, MSA} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, msa => MSA}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{local_sa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make recv socket reuse addr",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case socket:setopt(Sock, socket, reuseaddr, true) of
+                               ok ->
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed set reuseaddr: "
+                                               "~n   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind recv socket to multicast address",
+           cmd  => fun(#{sock := Sock, msa := MSA} = State) ->
+                           case socket:bind(Sock, MSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to:"
+                                               "~n   ~p", [Port]),
+                                   {ok, State#{msa => MSA#{port => Port}}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (add_membership)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, add_membership)
+                   end},
+         #{desc => "add membership",
+           cmd  => fun(#{sock     := Sock,
+                         msa      := #{addr := MAddr},
+                         local_sa := #{addr := Addr}} = State) ->
+                           MReq = #{multiaddr => MAddr,
+                                    interface => Addr},
+                           ?SEV_IPRINT("try add membership to:"
+                                       "~n   ~p", [MReq]),
+                           case AddMembership(Sock, MReq) of
+                               ok ->
+                                   ?SEV_IPRINT("membership added"),
+                                   {ok, State#{mreq => MReq}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed adding membership to: "
+                                               "~n   ~p"
+                                               "~n   Reason:  ~p",
+                                               [MReq, Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (add-membership)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, add_membership),
+                           ok
+                   end},
+
+         #{desc => "await continue (drop_membership)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, drop_membership)
+                   end},
+         #{desc => "drop membership",
+           cmd  => fun(#{sock := Sock,
+                         mreq := MReq} = State) ->
+                           ?SEV_IPRINT("try drop membership from:"
+                                       "~n   ~p", [MReq]),
+                           case DropMembership(Sock, MReq) of
+                               ok ->
+                                   ?SEV_IPRINT("membership dropped"),
+                                   {ok, maps:remove(mreq, State)};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed drop membership from: "
+                                               "~n   ~p"
+                                               "~n   Reason:  ~p",
+                                               [MReq, Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (drop-membership)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, drop_membership),
+                           ok
+                   end},
+
+
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Server} = _State) ->
+                           _MRef = erlang:monitor(process, Server),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid, msa := MSA} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, MSA),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           case ?SEV_AWAIT_READY(Pid, server, init) of
+                               ok ->
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Start of server failed: "
+                                               "~n   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+
+         %% *** The actual test ***
+         #{desc => "order server to continue (add-membership)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, add_membership),
+                           ok
+                   end},
+         #{desc => "await server ready (add-membership)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, add_membership)
+                   end},
+
+         #{desc => "order server to continue (drop-membership)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, drop_membership),
+                           ok
+                   end},
+         #{desc => "await server ready (drop-membership)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, drop_membership)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         %% *** Termination ***
+         #{desc => "order server terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           {ok, maps:remove(server, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    i("get multicast address"),
+    Domain = inet,
+    MAddr  = which_ip_multicast_address(),
+    MSA    = #{family => Domain, addr => MAddr},
+
+    i("start server evaluator"),
+    ServerInitState = #{domain => Domain},
+    Server = ?SEV_START("server", ServerSeq, ServerInitState),
+
+    i("start tester evaluator"),
+    TesterInitState = #{domain  => Domain,
+                        msa     => MSA,
+                        server  => Server#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Tester, Server]).
+
+
+
+which_ip_multicast_address() ->
+    which_multicast_address(inet).
+
+which_multicast_address(Domain) ->
+    case os:type() of
+        {unix, linux} ->
+            WhichMAddr = fun([_, _, MAddr]) -> MAddr end,
+            which_multicast_address2(Domain, WhichMAddr);
+
+        {unix, sunos} ->
+            WhichMAddr = fun([_, MAddr, _]) -> MAddr end,
+            which_multicast_address2(Domain, WhichMAddr);
+
+        Type ->
+            not_supported({multicast, Type})
+    end.
+
+%% Note that the 'netstat -g' table looks different on linux and SunOS
+%% Linux: IfName - RefCnt - Group
+%% SunOS: IfName - Group  - RefCnt
+
+which_multicast_address2(Domain, WhichMAddr) ->
+    IfName           = which_local_host_ifname(Domain),
+    NetstatGroupsStr = os:cmd("netstat -g | grep " ++ IfName),
+    NetstatGroups0   = string:tokens(NetstatGroupsStr, [$\n]),
+    NetstatGroups    = [string:tokens(G, [$ ]) || G <- NetstatGroups0],
+    MAddrs           = [WhichMAddr(NetstatGroup) || NetstatGroup <-
+                                                        NetstatGroups],
+    which_multicast_address3(Domain, MAddrs).
+
+which_multicast_address3(_Domain, []) ->
+    not_supported({multicast, no_valid_addrs});
+which_multicast_address3(Domain, [MAddrStr|MAddrs]) ->
+    %% Even on linux some of these are not actually addresses, but
+    %% "host names", such as all-systems.mcast.net. But both
+    %% address strings, such as "224.0.0.251" and host name strings
+    %% gets translated into an address by the inet:inet:getaddr/2.
+    case inet:getaddr(MAddrStr, Domain) of
+        {ok, MAddr} ->
+            MAddr;
+        {error, _} ->
+            which_multicast_address3(Domain, MAddrs)
+    end.
+    
+which_local_host_ifname(Domain) ->
+    case which_local_host_info(Domain) of
+        {ok, {Name, _Addr, _Flags}} ->
+            Name;
+        {error, Reason} ->
+            not_supported({multicast, Reason})
+    end.
+
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -11304,7 +11633,7 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
                            LSA   = #{family => Domain, addr => LAddr},
                            {ok, State#{local_sa => LSA}}
                    end},
-         #{desc => "create listen socket",
+         #{desc => "create socket",
            cmd  => fun(#{domain := Domain} = State) ->
                            case socket:open(Domain, dgram, udp) of
                                {ok, Sock} ->
@@ -17899,47 +18228,146 @@ local_host() ->
     end.
 
 
+
+
 %% This gets the local address (not 127.0...)
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_addr(Domain) ->
-    case inet:getifaddrs() of
-        {ok, IFL} ->
-            which_addr(Domain, IFL);
+    case which_local_host_info(Domain) of
+        {ok, {_Name, _Flags, Addr}} ->
+            Addr;
         {error, Reason} ->
             ?FAIL({inet, getifaddrs, Reason})
     end.
 
-which_addr(_Domain, []) ->
+%% which_addr(_Domain, []) ->
+%%     ?FAIL(no_address);
+%% which_addr(Domain, [{"lo" ++ _, _}|IFL]) ->
+%%     which_addr(Domain, IFL);
+%% which_addr(Domain, [{"docker" ++ _, _}|IFL]) ->
+%%     which_addr(Domain, IFL);
+%% which_addr(Domain, [{"br-" ++ _, _}|IFL]) ->
+%%     which_addr(Domain, IFL);
+%% which_addr(Domain, [{_Name, IFO}|IFL]) ->
+%%     case which_addr2(Domain, IFO) of
+%%         {ok, Addr} ->
+%%             Addr;
+%%         {error, no_address} ->
+%%             which_addr(Domain, IFL)
+%%     end;
+%% which_addr(Domain, [_|IFL]) ->
+%%     which_addr(Domain, IFL).
+
+%% which_addr2(_Domain, []) ->
+%%     {error, no_address};
+%% which_addr2(inet = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 4) ->
+%%     {ok, Addr};
+%% which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 8) ->
+%%     {ok, Addr};
+%% which_addr2(Domain, [_|IFO]) ->
+%%     which_addr2(Domain, IFO).
+
+
+%% Returns the interface (name), flags and address (not 127...)
+%% of the local host.
+which_local_host_info(Domain) ->
+    case inet:getifaddrs() of
+        {ok, IFL} ->
+            which_local_host_info(Domain, IFL);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+which_local_host_info(_Domain, []) ->
     ?FAIL(no_address);
-which_addr(Domain, [{"lo" ++ _, _}|IFL]) ->
-    which_addr(Domain, IFL);
-which_addr(Domain, [{_Name, IFO}|IFL]) ->
-    case which_addr2(Domain, IFO) of
-        {ok, Addr} ->
-            Addr;
-        {error, no_address} ->
-            which_addr(Domain, IFL)
+which_local_host_info(Domain, [{"lo" ++ _, _}|IFL]) ->
+    which_local_host_info(Domain, IFL);
+which_local_host_info(Domain, [{"docker" ++ _, _}|IFL]) ->
+    which_local_host_info(Domain, IFL);
+which_local_host_info(Domain, [{"br-" ++ _, _}|IFL]) ->
+    which_local_host_info(Domain, IFL);
+which_local_host_info(Domain, [{Name, IFO}|IFL]) ->
+    case which_local_host_info2(Domain, IFO) of
+        {ok, {Flags, Addr}} ->
+            {ok, {Name, Flags, Addr}};
+        {error, _} ->
+            which_local_host_info(Domain, IFL)
     end;
-which_addr(Domain, [_|IFL]) ->
-    which_addr(Domain, IFL).
+which_local_host_info(Domain, [_|IFL]) ->
+    which_local_host_info(Domain, IFL).
 
-which_addr2(_Domain, []) ->
+which_local_host_info2(Domain, IFO) ->
+    case lists:keysearch(flags, 1, IFO) of
+        {value, {flags, Flags}} ->
+            which_local_host_info2(Domain, IFO, Flags);
+        false ->
+            {error, no_flags}
+    end.
+
+which_local_host_info2(_Domain, [], _Flags) ->
     {error, no_address};
-which_addr2(inet = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 4) ->
-    {ok, Addr};
-which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 8) ->
-    {ok, Addr};
-which_addr2(Domain, [_|IFO]) ->
-    which_addr2(Domain, IFO).
-
+which_local_host_info2(inet = _Domain, [{addr, Addr}|_IFO], Flags)
+  when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
+    {ok, {Flags, Addr}};
+which_local_host_info2(inet6 = _Domain, [{addr, Addr}|_IFO], Flags)
+  when (size(Addr) =:= 8) andalso 
+       (element(1, Addr) =/= 0) andalso
+       (element(1, Addr) =/= 16#fe80) ->
+    {ok, {Flags, Addr}};
+which_local_host_info2(Domain, [_|IFO], Flags) ->
+    which_local_host_info2(Domain, IFO, Flags).
 
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Here are all the *general* test vase condition functions.
+%% Here are all the *general* test case condition functions.
+
+%% We also need (be able) to figure out the the multicast address,
+%% which we only support for some platforms (linux and sunos).
+%% We don't do that here, but since we can only do that (find a
+%% multicast address) for specific platforms, we check that we are
+%% on of those platforms here.
+has_ip_multicast_support() ->
+    case os:type() of
+        {unix, OsName} when (OsName =:= linux) orelse
+                            (OsName =:= sunos) ->
+            case which_local_host_info(inet) of
+                {ok, {_Name, Flags, _Addr}} ->
+                    case lists:member(multicast, Flags) of
+                        true ->
+                            ok;
+                        false ->
+                            not_supported(multicast)
+                    end;
+                {error, Reason} ->
+                    not_supported({multicast, Reason})
+            end;
+        Type ->
+            not_supported({multicast, Type})
+    end.
+
+has_ip_add_membership_support() ->
+    has_socket_option_ip_support(add_membership).
+
+has_ip_drop_membership_support() ->
+    has_socket_option_ip_support(drop_membership).
+
+has_socket_option_ip_support(Opt) ->
+    has_socket_option_support(ip, Opt).
+
+has_socket_option_support(Level, Option) ->
+    case socket:supports(options, Level, Option) of
+        true ->
+            ok;
+        false ->
+            not_supported({options, Level, Option})
+    end.
+
+
+
 
 %% The idea is that this function shall test if the test host has 
 %% support for IPv6. If not, there is no point in running IPv6 tests.
@@ -17956,6 +18384,9 @@ has_support_ipv6() ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+not_supported(What) ->
+    skip({not_supported, What}).
 
 not_yet_implemented() ->
     skip("not yet implemented").
