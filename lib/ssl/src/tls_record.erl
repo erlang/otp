@@ -489,16 +489,19 @@ validate_tls_record_length(Versions, {_,Size0,_} = Q0, Acc, Type, Version, Lengt
     end.
 
 
-binary_from_front(SplitSize, {Front,Size,Rear}) ->
+binary_from_front(0, Q) ->
+    {<<>>, Q};
+binary_from_front(SplitSize, {Front,Size,Rear}) when SplitSize =< Size ->
     binary_from_front(SplitSize, Front, Size, Rear, []).
 %%
+%% SplitSize > 0 and there is at least SplitSize bytes buffered in Front and Rear
 binary_from_front(SplitSize, [], Size, [_] = Rear, Acc) ->
-    %% Optimize a simple case
+    %% Optimize a simple case - avoid lists:reverse/1
     binary_from_front(SplitSize, Rear, Size, [], Acc);
-binary_from_front(SplitSize, [], Size, Rear, Acc) ->
+binary_from_front(SplitSize, [], Size, [_|_] = Rear, Acc) ->
     binary_from_front(SplitSize, lists:reverse(Rear), Size, [], Acc);
 binary_from_front(SplitSize, [Bin|Front], Size, Rear, []) ->
-    %% Optimize a frequent case
+    %% Optimize the frequent case when the accumulator is empty
     BinSize = byte_size(Bin),
     if
         SplitSize < BinSize ->

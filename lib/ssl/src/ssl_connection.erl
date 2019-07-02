@@ -670,6 +670,8 @@ read_application_dist_data(DHandle, Front0, BufferSize, Rear0, Bin0) ->
             end
     end.
 
+iovec_from_front(0, Front, Rear, Acc) ->
+    {lists:reverse(Acc),Front,Rear};
 iovec_from_front(Size, [], Rear, Acc) ->
     iovec_from_front(Size, lists:reverse(Rear), [], Acc);
 iovec_from_front(Size, [Bin|Front], Rear, Acc) ->
