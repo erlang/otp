@@ -14721,4 +14721,8 @@ No need char
  0: ab
  1: a
 
+/(?(?=^))b/
+    abc
+ 0: b
+
 /-- End of testinput2 --/

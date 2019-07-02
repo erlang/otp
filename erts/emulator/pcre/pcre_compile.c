@@ -6,7 +6,7 @@
 and semantics are as close as possible to those of the Perl 5 language.
 
                        Written by Philip Hazel
-           Copyright (c) 1997-2016 University of Cambridge
+           Copyright (c) 1997-2018 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -3300,7 +3300,7 @@ for(;;)
       if ((*xclass_flags & XCL_MAP) == 0)
         {
         /* No bits are set for characters < 256. */
-        if (list[1] == 0) return TRUE;
+        if (list[1] == 0) return (*xclass_flags & XCL_NOT) == 0;
         /* Might be an empty repeat. */
         continue;
         }
@@ -7643,6 +7643,8 @@ for (;; ptr++)
         /* Can't determine a first byte now */
 
         if (firstcharflags == REQ_UNSET) firstcharflags = REQ_NONE;
+        zerofirstchar = firstchar;
+        zerofirstcharflags = firstcharflags;
         continue;
 
 
@@ -8683,10 +8685,18 @@ do {
      if (!is_anchored(scode, new_map, cd, atomcount)) return FALSE;
      }
 
-   /* Positive forward assertions and conditions */
+   /* Positive forward assertion */
 
-   else if (op == OP_ASSERT || op == OP_COND)
+   else if (op == OP_ASSERT)
      {
+     if (!is_anchored(scode, bracket_map, cd, atomcount)) return FALSE;
+     }
+
+   /* Condition; not anchored if no second branch */
+
+   else if (op == OP_COND)
+     {
+     if (scode[GET(scode,1)] != OP_ALT) return FALSE;
      if (!is_anchored(scode, bracket_map, cd, atomcount)) return FALSE;
      }
 
