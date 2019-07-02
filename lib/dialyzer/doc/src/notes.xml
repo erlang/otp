@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 4.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Make sure Dialyzer does not crash if the formatting
+	    of results fails. Instead of crashing, an unformatted
+	    version of the results is returned. </p>
+          <p>
+	    Own Id: OTP-15922 Aux Id: PR-2240, ERL-949 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
