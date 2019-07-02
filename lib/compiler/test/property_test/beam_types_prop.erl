@@ -165,8 +165,7 @@ gen_atom() ->
          end).
 
 gen_binary() ->
-    ?SHRINK(#t_bitstring{unit=range(1, 128)},
-            [#t_bitstring{unit=[1, 2, 3, 5, 7, 8, 16, 32, 64]}]).
+    ?SHRINK(#t_bitstring{unit=range(1, 128)}, [#t_bitstring{unit=1}]).
 
 gen_integer() ->
     oneof([gen_integer_bounded(), #t_integer{}]).
