@@ -3769,7 +3769,7 @@ hibernate(Config) ->
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     
-    timer:sleep(1500),
+    ct:sleep(1500),
     {current_function, {erlang, hibernate, 3}} =
 	process_info(Pid, current_function),
     
@@ -3805,6 +3805,8 @@ hibernate_right_away(Config) ->
                     [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Server1, ok, Client1, ok),
+    
+    ct:sleep(1000), %% Schedule out
   
      {current_function, {erlang, hibernate, 3}} =
 	process_info(Pid1, current_function),
