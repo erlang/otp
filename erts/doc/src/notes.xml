@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.3.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug causing VM crash when doing textual dump of a
+	    process containing an unhandled monitor down signal.
+	    Textual process dumps can be done with
+	    <c>erlang:system_info(procs)</c>, trace feature
+	    <c>process_dump</c>, Erlang shell break menu and a
+	    crashdump. Bug exist since OTP 21.0.</p>
+          <p>
+	    Own Id: OTP-15909 Aux Id: ERL-979 </p>
+        </item>
+        <item>
+	    <p><c>lists:subtract/2</c> would produce incorrect
+	    results for some inputs on 64-bit platforms.</p>
+          <p>
+	    Own Id: OTP-15938 Aux Id: ERL-986 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the loader that was similar to
+	    <c>OTP-15938</c>, yielding incorrect code for some inputs
+	    on 64-bit platforms.</p>
+          <p>
+	    Own Id: OTP-15939</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug causing scheduler threads in rare cases to
+	    block spinnning indefinitely. Bug exists since OTP 21.0.</p>
+          <p>
+	    Own Id: OTP-15941 Aux Id: PR-2313 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

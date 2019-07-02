@@ -27,6 +27,22 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.2.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Hibernation now works as expected in all cases, was
+	    accidently broken by optimization efforts.</p>
+          <p>
+	    Own Id: OTP-15910</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.2.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
