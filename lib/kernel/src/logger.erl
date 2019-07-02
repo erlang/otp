@@ -256,7 +256,7 @@ log(Level, FunOrFormat, Args, Metadata) ->
 -spec allow(Level,Module) -> boolean() when
       Level :: level(),
       Module :: module().
-allow(Level,Module) when ?IS_LEVEL(Level), is_atom(Module) ->
+allow(Level,Module) when is_atom(Module) ->
     logger_config:allow(?LOGGER_TABLE,Level,Module).
 
 

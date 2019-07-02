@@ -39,15 +39,16 @@ new(Name) ->
 delete(Tid,Id) ->
     ets:delete(Tid,table_key(Id)).
 
+%% Optimized for speed.
 allow(Tid,Level,Module) ->
     LevelInt = level_to_int(Level),
     case ets:lookup(Tid,Module) of
         [{Module,{ModLevel,cached}}] when is_integer(ModLevel),
                                           LevelInt =< ModLevel ->
-            true;
+            less_or_equal_level(Level,ModLevel);
         [{Module,ModLevel}] when is_integer(ModLevel),
                                  LevelInt =< ModLevel ->
-            true;
+            less_or_equal_level(Level,ModLevel);
         [] ->
             logger_server:cache_module_level(Module),
             allow(Tid,Level);
@@ -56,8 +57,17 @@ allow(Tid,Level,Module) ->
     end.
 
 allow(Tid,Level) ->
-    GlobalLevelInt = ets:lookup_element(Tid,?PRIMARY_KEY,2),
-    level_to_int(Level) =< GlobalLevelInt.
+    PrimaryLevelInt = ets:lookup_element(Tid,?PRIMARY_KEY,2),
+    less_or_equal_level(Level,PrimaryLevelInt).
+
+less_or_equal_level(emergency,ModLevel) -> ?EMERGENCY =< ModLevel;
+less_or_equal_level(alert,ModLevel) -> ?ALERT =< ModLevel;
+less_or_equal_level(critical,ModLevel) -> ?CRITICAL =< ModLevel;
+less_or_equal_level(error,ModLevel) -> ?ERROR =< ModLevel;
+less_or_equal_level(warning,ModLevel) -> ?WARNING =< ModLevel;
+less_or_equal_level(notice,ModLevel) -> ?NOTICE =< ModLevel;
+less_or_equal_level(info,ModLevel) -> ?INFO =< ModLevel;
+less_or_equal_level(debug,ModLevel) -> ?DEBUG =< ModLevel.
 
 exist(Tid,What) ->
     ets:member(Tid,table_key(What)).
