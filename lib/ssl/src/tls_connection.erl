@@ -258,7 +258,7 @@ next_event(StateName, Record, State) ->
 next_event(StateName, no_record, State0, Actions) ->
     case next_record(StateName, State0) of
  	{no_record, State} ->
-            {next_state, StateName, State, Actions};
+            ssl_connection:hibernate_after(StateName, State, Actions);
         {Record, State} ->
             next_event(StateName, Record, State, Actions)
     end;
