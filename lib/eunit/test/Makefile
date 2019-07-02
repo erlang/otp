@@ -22,6 +22,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES =  \
 	eunit_SUITE \
+	tc0 \
 	tlatin \
 	tutf8
 
