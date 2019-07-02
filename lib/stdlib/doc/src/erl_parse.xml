@@ -69,6 +69,25 @@
       <name name="erl_parse_tree"></name>
     </datatype>
     <datatype>
+      <name>af_binelement(_)</name>
+      <desc>
+	<p>Abstract representation of an element of a bitstring.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>af_generator()</name>
+      <desc>
+	<p>Abstract representation of a generator
+	or a bitstring generator.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>af_remote_function()></name>
+      <desc>
+	<p>Abstract representation of a remote function call.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="error_description"></name>
     </datatype>
     <datatype>
