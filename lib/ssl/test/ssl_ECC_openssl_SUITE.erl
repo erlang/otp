@@ -67,7 +67,8 @@ init_per_suite(Config0) ->
 
 end_per_suite(_Config) ->
     application:stop(ssl),
-    application:stop(crypto).
+    application:stop(crypto),
+    ssl_test_lib:kill_openssl().
 
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config) ->

@@ -179,8 +179,8 @@ init_per_suite(Config0) ->
 
 end_per_suite(_Config) ->
     ssl:stop(),
-    application:stop(crypto).
-
+    application:stop(crypto),
+    ssl_test_lib:kill_openssl().
 
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
