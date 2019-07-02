@@ -47,7 +47,9 @@ end_per_suite(_Config) ->
 init_per_testcase(major_fail_no_init, Config) ->
     Config;
 init_per_testcase(_Case, Config) ->
-    ct_release_test:init(Config).
+    Config1 = ct_release_test:init(Config),
+    ct:log("ct_release_test:init/1 returned:~n~p",[Config1]),
+    Config1.
 end_per_testcase(_Case, Config) ->
     ct_release_test:cleanup(Config).
 
