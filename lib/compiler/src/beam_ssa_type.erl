@@ -1293,25 +1293,10 @@ raw_type(V, Ts) ->
 
 infer_types_br(#b_var{}=V, Ts, #d{ds=Ds}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
-    {PosTypes0, NegTypes0} = infer_type(Op, Args, Ts, Ds),
 
-    %% We must be careful with types inferred from '=:='.
-    %%
-    %% If we have seen L =:= [a], we know that L is 'cons' if the
-    %% comparison succeeds. However, if the comparison fails, L could
-    %% still be 'cons'. Therefore, we must not subtract 'cons' from the
-    %% previous type of L.
-    %%
-    %% However, it is safe to subtract a type inferred from '=:=' if
-    %% it is single-valued, e.g. if it is [] or the atom 'true'.
+    {PosTypes, NegTypes} = infer_type(Op, Args, Ts, Ds),
 
-    EqTypes = infer_eq_type(Op, Args, Ts, Ds),
-    NegTypes1 = [P || {_,T}=P <- EqTypes, beam_types:is_singleton_type(T)],
-
-    PosTypes = EqTypes ++ PosTypes0,
     SuccTs1 = meet_types(PosTypes, Ts),
-
-    NegTypes = NegTypes0 ++ NegTypes1,
     FailTs1 = subtract_types(NegTypes, Ts),
 
     SuccTs = infer_br_value(V, Ts, true, SuccTs1),
@@ -1337,37 +1322,8 @@ infer_br_value(V, OldTs, Bool, NewTs) ->
     end.
 
 infer_types_switch(V, Lit, Ts, #d{ds=Ds}) ->
-    Types = infer_eq_type({bif,'=:='}, [V, Lit], Ts, Ds),
-    meet_types(Types, Ts).
-
-infer_eq_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
-    Def = maps:get(Src, Ds),
-    Type = raw_type(Lit, Ts),
-    [{Src,Type} | infer_eq_lit(Def, Lit)];
-infer_eq_type({bif,'=:='}, [#b_var{}=Arg0,#b_var{}=Arg1], Ts, _Ds) ->
-    %% As an example, assume that L1 is known to be 'list', and L2 is
-    %% known to be 'cons'. Then if 'L1 =:= L2' evaluates to 'true', it can
-    %% be inferred that L1 is 'cons' (the meet of 'cons' and 'list').
-    Type0 = raw_type(Arg0, Ts),
-    Type1 = raw_type(Arg1, Ts),
-    Type = beam_types:meet(Type0, Type1),
-    [{V,MeetType} ||
-        {V,OrigType,MeetType} <-
-            [{Arg0,Type0,Type},{Arg1,Type1,Type}],
-        OrigType =/= MeetType];
-infer_eq_type(_Op, _Args, _Ts, _Ds) ->
-    [].
-
-infer_eq_lit(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
-             #b_literal{val=Size}) when is_integer(Size) ->
-    [{Tuple,#t_tuple{exact=true,size=Size}}];
-infer_eq_lit(#b_set{op=get_tuple_element,
-                    args=[#b_var{}=Tuple,#b_literal{val=N}]},
-             #b_literal{}=Lit) ->
-    Index = N + 1,
-    Es = beam_types:set_element_type(Index, raw_type(Lit, #{}), #{}),
-    [{Tuple,#t_tuple{size=Index,elements=Es}}];
-infer_eq_lit(_, _) -> [].
+    {PosTypes, _} = infer_type({bif,'=:='}, [V, Lit], Ts, Ds),
+    meet_types(PosTypes, Ts).
 
 infer_type(succeeded, [#b_var{}=Src], Ts, Ds) ->
     #b_set{op=Op,args=Args} = maps:get(Src, Ds),
@@ -1414,6 +1370,38 @@ infer_type({bif,is_number}, [Arg], _Ts, _Ds) ->
 infer_type({bif,is_tuple}, [Arg], _Ts, _Ds) ->
     T = {Arg, #t_tuple{}},
     {[T], [T]};
+infer_type({bif,'=:='}, [#b_var{}=LHS,#b_var{}=RHS], Ts, _Ds) ->
+    %% As an example, assume that L1 is known to be 'list', and L2 is
+    %% known to be 'cons'. Then if 'L1 =:= L2' evaluates to 'true', it can
+    %% be inferred that L1 is 'cons' (the meet of 'cons' and 'list').
+    LType = raw_type(LHS, Ts),
+    RType = raw_type(RHS, Ts),
+    Type = beam_types:meet(LType, RType),
+
+    PosTypes = [{V,Type} || {V, OrigType} <- [{LHS, LType}, {RHS, RType}],
+                            OrigType =/= Type],
+
+    %% We must be careful with types inferred from '=:='.
+    %%
+    %% If we have seen L =:= [a], we know that L is 'cons' if the
+    %% comparison succeeds. However, if the comparison fails, L could
+    %% still be 'cons'. Therefore, we must not subtract 'cons' from the
+    %% previous type of L.
+    %%
+    %% However, it is safe to subtract a type inferred from '=:=' if
+    %% it is single-valued, e.g. if it is [] or the atom 'true'.
+    NegTypes = case beam_types:is_singleton_type(Type) of
+                   true -> PosTypes;
+                   false -> []
+               end,
+
+    {PosTypes, NegTypes};
+infer_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
+    Def = maps:get(Src, Ds),
+    Type = raw_type(Lit, Ts),
+    EqLitTypes = infer_eq_lit(Def, Lit),
+    PosTypes = [{Src,Type} | EqLitTypes],
+    {PosTypes, EqLitTypes};
 infer_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
@@ -1432,6 +1420,18 @@ infer_success_type(bs_start_match, [#b_var{}=Bin], _Ts, _Ds) ->
     {[T], [T]};
 infer_success_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
+
+infer_eq_lit(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
+             #b_literal{val=Size}) when is_integer(Size) ->
+    [{Tuple,#t_tuple{exact=true,size=Size}}];
+infer_eq_lit(#b_set{op=get_tuple_element,
+                    args=[#b_var{}=Tuple,#b_literal{val=N}]},
+             #b_literal{}=Lit) ->
+    Index = N + 1,
+    Es = beam_types:set_element_type(Index, raw_type(Lit, #{}), #{}),
+    [{Tuple,#t_tuple{size=Index,elements=Es}}];
+infer_eq_lit(_, _) ->
+    [].
 
 join_types(Ts0, Ts1) ->
     if
