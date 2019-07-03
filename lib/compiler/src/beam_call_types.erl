@@ -353,15 +353,27 @@ types(lists, zipwith3, [_,A,B,C]) ->
     sub_unsafe(ZipType, [#t_fun{arity=3}, ZipType, ZipType, ZipType]);
 
 %% Functions with complex return values.
-types(lists, partition, [_,_]) ->
-    sub_unsafe(make_two_tuple(list, list), [#t_fun{arity=1}, list]);
+types(lists, keyfind, [KeyType,PosType,_]) ->
+    TupleType = case PosType of
+                    #t_integer{elements={Index,Index}} when is_integer(Index),
+                                                            Index >= 1 ->
+                        Es = beam_types:set_element_type(Index, KeyType, #{}),
+                        #t_tuple{size=Index,elements=Es};
+                    _ ->
+                        #t_tuple{}
+                end,
+    RetType = beam_types:join(TupleType, beam_types:make_atom(false)),
+    sub_unsafe(RetType, [any, #t_integer{}, list]);
 types(lists, MapFold, [_Fun, _Init, List])
   when MapFold =:= mapfoldl; MapFold =:= mapfoldr ->
-    ListType = same_length_type(List),
-    RetType = #t_tuple{size=2,
-                       exact=true,
-                       elements=#{ 1 => ListType }},
+    RetType = make_two_tuple(same_length_type(List), any),
     sub_unsafe(RetType, [#t_fun{arity=2}, any, list]);
+types(lists, partition, [_,_]) ->
+    sub_unsafe(make_two_tuple(list, list), [#t_fun{arity=1}, list]);
+types(lists, search, [_,_]) ->
+    TupleType = make_two_tuple(beam_types:make_atom(value), any),
+    RetType = beam_types:join(TupleType, beam_types:make_atom(false)),
+    sub_unsafe(RetType, [#t_fun{arity=1}, list]);
 types(lists, splitwith, [_,_]) ->
     sub_unsafe(make_two_tuple(list, list), [#t_fun{arity=1}, list]);
 types(lists, unzip, [List]) ->
@@ -473,5 +485,6 @@ lists_zip_type(Types) ->
           end, list, Types).
 
 make_two_tuple(Type1, Type2) ->
-    #t_tuple{size=2,exact=true,
-             elements=#{1=>Type1,2=>Type2}}.
+    Es0 = beam_types:set_element_type(1, Type1, #{}),
+    Es = beam_types:set_element_type(2, Type2, Es0),
+    #t_tuple{size=2,exact=true,elements=Es}.
