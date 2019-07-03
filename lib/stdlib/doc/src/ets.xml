@@ -635,6 +635,14 @@ Error: fun containing local Erlang function calls
             the following items are allowed:</p>
         <list type="bulleted">
           <item>
+            <p><c>Item=binary, Value=BinInfo</c></p>
+	    <p><c>BinInfo</c> is a list containing miscellaneous
+              information about binaries kept by the table.
+              This <c><anno>Item</anno></c> can be changed or removed without
+	      prior notice. In the current implementation <c>BinInfo</c> is a
+	      list of tuples <c>{BinaryId,BinarySize,BinaryRefcCount}</c>.</p>
+          </item>
+          <item>
             <p><c>Item=fixed, Value=boolean()</c></p>
             <p>Indicates if the table is fixed by any process.</p>
           </item>

@@ -248,6 +248,7 @@ atom erts_debug
 atom erts_dflags
 atom erts_internal
 atom ets
+atom ets_info_binary
 atom ETS_TRANSFER='ETS-TRANSFER'
 atom exact_reductions
 atom exception_from
