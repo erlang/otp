@@ -12715,7 +12715,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
         len -= 4; ptr += 4;
         if (len < anc_len) goto return_einval;
 
-        if (anc_len == 0 && !!0/*XXX-short-circuit-for-testing*/) {
+        if (anc_len == 0) {
             /* Empty ancillary data */
             /* Now "ptr" is the user data ptr, "len" is data length: */
             inet_output_count(desc, len);
@@ -12754,10 +12754,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
             if (compile_ancillary_data(&mhdr, ptr, anc_len) != 0) {
                 goto return_einval;
             }
-            if (mhdr.msg_controllen == 0) {
-                /* XXX Testing - only possible for anc_len == 0 */
-                mhdr.msg_control = NULL;
-            }
+            ASSERT(mhdr.msg_controllen != 0);
             len -= anc_len;
             ptr += anc_len;
             /* Now "ptr" is the user data ptr, "len" is data length: */
