@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.0.8</title>
+  <section><title>Inets 7.0.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a regression in http client that causes a crash when
+	    request URI has no scheme.</p>
+          <p>
+	    Own Id: OTP-15930 Aux Id: ERL-969 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.0.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
