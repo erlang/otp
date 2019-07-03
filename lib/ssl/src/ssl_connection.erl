@@ -673,7 +673,18 @@ read_application_dist_data(DHandle, Front0, BufferSize, Rear0, Bin0) ->
 iovec_from_front(0, Front, Rear, Acc) ->
     {lists:reverse(Acc),Front,Rear};
 iovec_from_front(Size, [], Rear, Acc) ->
-    iovec_from_front(Size, lists:reverse(Rear), [], Acc);
+    case Rear of
+        %% Avoid lists:reverse/1 for simple cases.
+        %% Case clause for [] to avoid infinite loop.
+        [_] ->
+            iovec_from_front(Size, Rear, [], Acc);
+        [Bin2,Bin1] ->
+            iovec_from_front(Size, [Bin1,Bin2], [], Acc);
+        [Bin3,Bin2,Bin1] ->
+            iovec_from_front(Size, [Bin1,Bin2,Bin3], [], Acc);
+        [_,_,_|_] = Rear ->
+            iovec_from_front(Size, lists:reverse(Rear), [], Acc)
+    end;
 iovec_from_front(Size, [Bin|Front], Rear, Acc) ->
     case Bin of
         <<Last:Size/binary>> -> % Just enough

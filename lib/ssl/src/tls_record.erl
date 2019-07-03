@@ -495,11 +495,19 @@ binary_from_front(SplitSize, {Front,Size,Rear}) when SplitSize =< Size ->
     binary_from_front(SplitSize, Front, Size, Rear, []).
 %%
 %% SplitSize > 0 and there is at least SplitSize bytes buffered in Front and Rear
-binary_from_front(SplitSize, [], Size, [_] = Rear, Acc) ->
-    %% Optimize a simple case - avoid lists:reverse/1
-    binary_from_front(SplitSize, Rear, Size, [], Acc);
-binary_from_front(SplitSize, [], Size, [_|_] = Rear, Acc) ->
-    binary_from_front(SplitSize, lists:reverse(Rear), Size, [], Acc);
+binary_from_front(SplitSize, [], Size, Rear, Acc) ->
+    case Rear of
+        %% Avoid lists:reverse/1 for simple cases.
+        %% Case clause for [] to avoid infinite loop.
+        [_] ->
+            binary_from_front(SplitSize, Rear, Size, [], Acc);
+        [Bin2,Bin1] ->
+            binary_from_front(SplitSize, [Bin1,Bin2], Size, [], Acc);
+        [Bin3,Bin2,Bin1] ->
+            binary_from_front(SplitSize, [Bin1,Bin2,Bin3], Size, [], Acc);
+        [_,_,_|_] ->
+            binary_from_front(SplitSize, lists:reverse(Rear), Size, [], Acc)
+    end;
 binary_from_front(SplitSize, [Bin|Front], Size, Rear, []) ->
     %% Optimize the frequent case when the accumulator is empty
     BinSize = byte_size(Bin),
