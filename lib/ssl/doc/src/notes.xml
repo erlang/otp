@@ -27,6 +27,37 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of certificate decoding problems in TLS 1.3
+	    similarly as in TLS 1.2.</p>
+          <p>
+	    Own Id: OTP-15900</p>
+        </item>
+        <item>
+          <p>
+	    Hibernation now works as expected in all cases, was
+	    accidently broken by optimization efforts.</p>
+          <p>
+	    Own Id: OTP-15910</p>
+        </item>
+        <item>
+          <p>
+	    Fix interoperability problems with openssl when the TLS
+	    1.3 server is configured wirh the option
+	    signature_algs_cert.</p>
+          <p>
+	    Own Id: OTP-15913</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
