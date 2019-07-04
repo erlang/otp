@@ -1541,84 +1541,113 @@ validate_select_tuple_arity(Fail, [], _, #vst{}=Vst) ->
                    kill_state(SuccVst)
            end).
 
-infer_types({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
-    infer_types(get_reg_vref(Reg, Vst), Vst);
-infer_types(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
+%%
+%% Infers types from comparisons, looking at the expressions that produced the
+%% compared values and updates their types if we've learned something new from
+%% the comparison.
+%%
+
+infer_types(CompareOp, {Kind,_}=LHS, RHS, Vst) when Kind =:= x; Kind =:= y ->
+    infer_types(CompareOp, get_reg_vref(LHS, Vst), RHS, Vst);
+infer_types(CompareOp, LHS, {Kind,_}=RHS, Vst) when Kind =:= x; Kind =:= y ->
+    infer_types(CompareOp, LHS, get_reg_vref(RHS, Vst), Vst);
+infer_types(CompareOp, LHS, RHS, #vst{current=#st{vs=Vs}}=Vst0) ->
     case Vs of
-        #{ Ref := Entry } -> infer_types_1(Entry);
-        #{} -> fun(_, S) -> S end
-    end;
-infer_types(_, #vst{}) ->
-    fun(_, S) -> S end.
-
-infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
-    fun({atom,true}, S) ->
-            %% Either side might contain something worth inferring, so we need
-            %% to check them both.
-            Infer_L = infer_types(RHS, S),
-            Infer_R = infer_types(LHS, S),
-            Infer_R(RHS, Infer_L(LHS, S));
-       (_, S) -> S
-    end;
-infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]}) ->
-    fun(Val, S) ->
-            case is_value_alive(Tuple, S) of
-                true ->
-                    ElementType = get_term_type(Val, S),
-                    Es = beam_types:set_element_type(Index, ElementType, #{}),
-                    Type = #t_tuple{size=Index,elements=Es},
-                    update_type(fun meet/2, Type, Tuple, S);
-                false ->
-                    S
-            end
-    end;
-infer_types_1(#value{op={bif,is_atom},args=[Src]}) ->
-    infer_type_test_bif(#t_atom{}, Src);
-infer_types_1(#value{op={bif,is_boolean},args=[Src]}) ->
-    infer_type_test_bif(beam_types:make_boolean(), Src);
-infer_types_1(#value{op={bif,is_binary},args=[Src]}) ->
-    infer_type_test_bif(#t_bitstring{unit=8}, Src);
-infer_types_1(#value{op={bif,is_bitstring},args=[Src]}) ->
-    infer_type_test_bif(#t_bitstring{}, Src);
-infer_types_1(#value{op={bif,is_float},args=[Src]}) ->
-    infer_type_test_bif(float, Src);
-infer_types_1(#value{op={bif,is_integer},args=[Src]}) ->
-    infer_type_test_bif(#t_integer{}, Src);
-infer_types_1(#value{op={bif,is_list},args=[Src]}) ->
-    infer_type_test_bif(list, Src);
-infer_types_1(#value{op={bif,is_map},args=[Src]}) ->
-    infer_type_test_bif(#t_map{}, Src);
-infer_types_1(#value{op={bif,is_number},args=[Src]}) ->
-    infer_type_test_bif(number, Src);
-infer_types_1(#value{op={bif,is_tuple},args=[Src]}) ->
-    infer_type_test_bif(#t_tuple{}, Src);
-infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]}) ->
-    fun({integer,Arity}, S) ->
-            case is_value_alive(Tuple, S) of
-                true ->
-                    Type = #t_tuple{exact=true,size=Arity},
-                    update_type(fun meet/2, Type, Tuple, S);
-                false ->
-                    S
-            end;
-       (_, S) -> S
-    end;
-infer_types_1(_) ->
-    fun(_, S) -> S end.
-
-infer_type_test_bif(Type, Src) ->
-    fun({atom,Bool}, S) when is_boolean(Bool) ->
-            case is_value_alive(Src, S) of
-                true when Bool =:= true ->
-                    update_type(fun meet/2, Type, Src, S);
-                true when Bool =:= false ->
-                    update_type(fun subtract/2, Type, Src, S);
-                false ->
-                    S
-            end;
-       (_, S) ->
-            S
+        #{ LHS := LEntry, RHS := REntry } ->
+            Vst = infer_types_1(LEntry, RHS, CompareOp, Vst0),
+            infer_types_1(REntry, LHS, CompareOp, Vst);
+        #{ LHS := LEntry } ->
+            infer_types_1(LEntry, RHS, CompareOp, Vst0);
+        #{ RHS := REntry } ->
+            infer_types_1(REntry, LHS, CompareOp, Vst0);
+        #{} ->
+            Vst0
     end.
+
+infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}, Val, Op, Vst0) ->
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            Vst = infer_types(eq_exact, RHS, LHS, Vst0),
+            infer_types(eq_exact, LHS, RHS, Vst);
+        {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
+            Vst = infer_types(ne_exact, RHS, LHS, Vst0),
+            infer_types(ne_exact, LHS, RHS, Vst);
+        _ ->
+            Vst0
+    end;
+infer_types_1(#value{op={bif,'=/='},args=[LHS,RHS]}, Val, Op, Vst0) ->
+    case Val of
+        {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
+            Vst = infer_types(ne_exact, RHS, LHS, Vst0),
+            infer_types(ne_exact, LHS, RHS, Vst);
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            Vst = infer_types(eq_exact, RHS, LHS, Vst0),
+            infer_types(eq_exact, LHS, RHS, Vst);
+        _ ->
+            Vst0
+    end;
+infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]},
+              Val, Op, Vst) when Index >= 1 ->
+    Merge = case Op of
+                eq_exact -> fun meet/2;
+                ne_exact -> fun subtract/2
+            end,
+    case is_value_alive(Tuple, Vst) of
+        true ->
+            ElementType = get_term_type(Val, Vst),
+            Es = beam_types:set_element_type(Index, ElementType, #{}),
+            Type = #t_tuple{size=Index,elements=Es},
+            update_type(Merge, Type, Tuple, Vst);
+        false ->
+            Vst
+    end;
+infer_types_1(#value{op={bif,is_atom},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_atom{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_boolean},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(beam_types:make_boolean(), Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_binary},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_bitstring{unit=8}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_bitstring},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_bitstring{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_float},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(float, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(list, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_map},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_map{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_number},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(number, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_tuple},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_tuple{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]},
+              {integer,Arity}, Op, Vst) ->
+    Merge = case Op of
+                eq_exact -> fun meet/2;
+                ne_exact -> fun subtract/2
+            end,
+    case is_value_alive(Tuple, Vst) of
+        true ->
+            Type = #t_tuple{exact=true,size=Arity},
+            update_type(Merge, Type, Tuple, Vst);
+        false ->
+            Vst
+    end;
+infer_types_1(_, _, _, Vst) ->
+    Vst.
+
+infer_type_test_bif(Type, Src, {atom, Bool}, Op, Vst) when is_boolean(Bool) ->
+    case is_value_alive(Src, Vst) of
+        true when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            update_type(fun meet/2, Type, Src, Vst);
+        true when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
+            update_type(fun subtract/2, Type, Src, Vst);
+        false ->
+            Vst
+    end;
+infer_type_test_bif(_, _, _, _, Vst) ->
+    Vst.
 
 %%%
 %%% Keeping track of types.
@@ -1736,33 +1765,18 @@ update_type(Merge, With, Literal, Vst) ->
         _Type -> Vst
     end.
 
-update_ne_types(LHS, {atom,Bool}=RHS, Vst) when is_boolean(Bool) ->
-    %% This is a stopgap to make negative inference work for type test BIFs
-    %% like is_tuple. Consider the following unoptimized code:
-    %%
-    %%    {call_ext,2,{extfunc,erlang,'--',2}}.
-    %%    {bif,is_tuple,{f,0},[{x,0}],{x,1}}.
-    %%    {test,is_eq_exact,{x,1},{f,2},{atom,false}}.
-    %%    ... snip ...
-    %%    {label,1}.
-    %%    {test,is_eq_exact,{x,1},{f,1},{atom,true}}.
-    %%    ... unreachable because {x,0} is known to be a list, so {x,1} can't
-    %%        be true ...
-    %%    {label,2}.
-    %%    ... unreachable because {x,1} is neither true nor false! ...
-    %%
-    %% If we fail to determine that the first is_eq_exact never fails, our
-    %% state will be inconsistent after the second is_eq_exact check; we know
-    %% for certain that {x,0} is a list so infer_types says it can't succeed,
-    %% but it can't fail either because we also know that {x,1} is a boolean,
-    %% and the first check ruled out 'false'.
-    LType = get_term_type(LHS, Vst),
-    RType = get_term_type(RHS, Vst),
-    case beam_types:is_boolean_type(LType) of
-        true -> update_eq_types(LHS, {atom, not Bool}, Vst);
-        false -> update_type(fun subtract/2, RType, LHS, Vst)
-    end;
-update_ne_types(LHS, RHS, Vst) ->
+update_eq_types(LHS, RHS, Vst0) ->
+    Vst1 = infer_types(eq_exact, LHS, RHS, Vst0),
+
+    T1 = get_term_type(LHS, Vst1),
+    T2 = get_term_type(RHS, Vst1),
+
+    Vst = update_type(fun meet/2, T2, LHS, Vst1),
+    update_type(fun meet/2, T1, RHS, Vst).
+
+update_ne_types(LHS, RHS, Vst0) ->
+    Vst = infer_types(ne_exact, LHS, RHS, Vst0),
+
     %% While updating types on equality is fairly straightforward, inequality
     %% is a bit trickier since all we know is that the *value* of LHS differs
     %% from RHS, so we can't blindly subtract their types.
@@ -1777,19 +1791,6 @@ update_ne_types(LHS, RHS, Vst) ->
         true -> update_type(fun subtract/2, RType, LHS, Vst);
         false -> Vst
     end.
-
-update_eq_types(LHS, RHS, Vst0) ->
-    %% Either side might contain something worth inferring, so we need
-    %% to check them both.
-    Infer_L = infer_types(RHS, Vst0),
-    Infer_R = infer_types(LHS, Vst0),
-    Vst1 = Infer_R(RHS, Infer_L(LHS, Vst0)),
-
-    T1 = get_term_type(LHS, Vst1),
-    T2 = get_term_type(RHS, Vst1),
-
-    Vst = update_type(fun meet/2, T2, LHS, Vst1),
-    update_type(fun meet/2, T1, RHS, Vst).
 
 %% Helper functions for the above.
 
