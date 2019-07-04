@@ -158,6 +158,7 @@ repeated_passes(Opts) ->
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),
           ?PASS(ssa_opt_tail_phis),
+          ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
           ?PASS(ssa_opt_type_continue)],        %Must run after ssa_opt_dead to
@@ -175,8 +176,8 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_units),
           ?PASS(ssa_opt_bsm_shortcut),
-          ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_sink),
+          ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_merge_blocks),
           ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_trim_unreachable)],
@@ -1985,9 +1986,7 @@ is_merge_allowed(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
 %%% extracted values.
 %%%
 
-ssa_opt_sink({#st{ssa=Blocks0}=St, FuncDb}) ->
-    Linear = beam_ssa:linearize(Blocks0),
-
+ssa_opt_sink({#st{ssa=Linear}=St, FuncDb}) ->
     %% Create a map with all variables that define get_tuple_element
     %% instructions. The variable name map to the block it is defined in.
     case def_blocks(Linear) of
@@ -1996,10 +1995,12 @@ ssa_opt_sink({#st{ssa=Blocks0}=St, FuncDb}) ->
             {St, FuncDb};
         [_|_]=Defs0 ->
             Defs = maps:from_list(Defs0),
-            {do_ssa_opt_sink(Linear, Defs, St), FuncDb}
+            {do_ssa_opt_sink(Defs, St), FuncDb}
     end.
 
-do_ssa_opt_sink(Linear, Defs, #st{ssa=Blocks0}=St) ->
+do_ssa_opt_sink(Defs, #st{ssa=Linear}=St) ->
+    Blocks0 = maps:from_list(Linear),
+
     %% Now find all the blocks that use variables defined by get_tuple_element
     %% instructions.
     Used = used_blocks(Linear, Defs, []),
@@ -2024,7 +2025,8 @@ do_ssa_opt_sink(Linear, Defs, #st{ssa=Blocks0}=St) ->
                            From = map_get(V, Defs),
                            move_defs(V, From, To, A)
                    end, Blocks0, DefLoc),
-    St#st{ssa=Blocks}.
+
+    St#st{ssa=beam_ssa:linearize(Blocks)}.
 
 def_blocks([{L,#b_blk{is=Is}}|Bs]) ->
     def_blocks_is(Is, L, def_blocks(Bs));
