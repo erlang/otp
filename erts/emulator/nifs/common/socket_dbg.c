@@ -67,7 +67,7 @@ extern
 void esock_dbg_printf( const char* prefix, const char* format, ... )
 {
   va_list         args;
-  char            f[512 + sizeof(format)]; // This has to suffice...
+  char            f[512 + strlen(format)]; // This has to suffice...
   char            stamp[30];
   int             res;
 
