@@ -2191,7 +2191,7 @@ check_cookie([_Head | Tail]) ->
 
 content_length([]) ->
     0;
-content_length(["content-length:" ++ Value | _]) ->
+content_length([{"content-length", Value}|_]) ->
     list_to_integer(string:strip(Value));
 content_length([_Head | Tail]) ->
    content_length(Tail).
