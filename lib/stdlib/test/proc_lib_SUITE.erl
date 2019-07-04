@@ -39,7 +39,7 @@
 
 -export([otp_6345_init/1, init_dont_hang_init/1]).
 
--export([report_cb/1, log/2]).
+-export([report_cb/1, report_cb_chars_limit/1, log/2, rcb_tester/0]).
 
 -export([system_terminate/4]).
 
@@ -715,7 +715,74 @@ report_cb(_Config) ->
     ExpectedNeighbours6 = "; neighbours: ["++NPidStr++"]",
     ExpectedNeighbours6 = lists:dropwhile(SplitFun, Str6),
 
+    ok = logger:remove_handler(?MODULE),
     ok.
+
+report_cb_chars_limit(_Config) ->
+    %% This test does not really test anything, it just formats the
+    %% crash reports with different settings and prints the result. It
+    %% could be used as an example if report_cb was to be modified
+    %% for better utilization of the available number of characters
+    %% according to the chars_limit setting.
+    %%
+    %% Currently, multi-line formatting with chars_limit=1024 gives
+    %% a final report of 1392 character.
+    %%
+    %% Single-line formatting with chars_limit=1024 gives a final
+    %% report of 778 characters.
+
+    ok = logger:add_handler(?MODULE,?MODULE,#{config=>self()}),
+    Pid = proc_lib:spawn(?MODULE, rcb_tester, []),
+    ct:sleep(500),
+    Pid ! die,
+    Report =
+        receive
+            {report,R} ->
+                R
+        after 5000 ->
+                ct:fail(no_report_received)
+        end,
+
+    Str1 = flatten_report_cb(Report,#{}),
+    L1 = length(Str1),
+    ct:log("Multi-line, no size limit:~n~s",[Str1]),
+    ct:log("Length, multi-line, no size limit: ~p",[L1]),
+
+    FormatOpts2 = #{chars_limit=>1024},
+    Str2 = flatten_report_cb(Report,FormatOpts2),
+    L2 = length(Str2),
+    ct:log("Multi-line, chars_limit=1024:~n~s",[Str2]),
+    ct:log("Length, multi-line, chars_limit=1024: ~p",[L2]),
+
+    FormatOpts3 = #{single_line=>true, chars_limit=>1024},
+    Str3 = flatten_report_cb(Report,FormatOpts3),
+    L3 = length(Str3),
+    ct:log("Single-line, chars_limit=1024:~n~s",[Str3]),
+    ct:log("Length, single-line, chars_limit=1024: ~p",[L3]),
+
+    ok = logger:remove_handler(?MODULE),
+    ok.
+
+rcb_tester() ->
+    L = lists:seq(1,255),
+    Term = [{some_data,#{pids=>processes(),
+                         info=>process_info(self())}},
+            {tabs,ets:all()},
+            {bin,list_to_binary(L)},
+            {list,L}],
+
+    %% Put something in process dictionary
+    [put(K,V) ||{K,V} <- Term],
+
+    %% Add some messages
+    [self() ! {some_message,T} || T <- Term],
+
+    %% Create some neighbours
+    [_ = proc_lib:spawn_link(?MODULE,sp1,[]) || _ <- lists:seq(1,5)],
+
+    receive
+	die -> error({badmatch,Term})
+    end.
 
 flatten_report_cb(Report, Format) ->
     lists:flatten(proc_lib:report_cb(Report, Format)).
