@@ -1531,8 +1531,21 @@ validate_select_val(Fail, [Val,{f,L}|T], Src, Vst0) ->
                          update_ne_types(Src, Val, FailVst)
                  end),
     validate_select_val(Fail, T, Src, Vst);
-validate_select_val(Fail, [], _, Vst) ->
+validate_select_val(Fail, [], Src, Vst) ->
     branch(Fail, Vst,
+           fun(FailVst) ->
+                    FailType = get_term_type(Src, FailVst),
+                    case beam_types:get_singleton_value(FailType) of
+                       {ok, Value} ->
+                           %% This is the only possible value at the fail
+                           %% label, so we can infer types as if we matched it
+                           %% directly.
+                           Lit = value_to_literal(Value),
+                           update_eq_types(Src, Lit, FailVst);
+                       error ->
+                           FailVst
+                   end
+           end,
            fun(SuccVst) ->
                    %% The next instruction is never executed.
                    kill_state(SuccVst)
@@ -1920,6 +1933,13 @@ is_literal({float,F}) when is_float(F) -> true;
 is_literal({integer,I}) when is_integer(I) -> true;
 is_literal({literal,_L}) -> true;
 is_literal(_) -> false.
+
+%% `dialyzer` complains about the float and general literal cases never being
+%% matched and I don't like suppressing warnings. Should they become possible
+%% I'm sure `dialyzer` will warn about it.
+value_to_literal([]) -> nil;
+value_to_literal(A) when is_atom(A) -> {atom,A};
+value_to_literal(I) when is_integer(I) -> {integer,I}.
 
 %% These are just wrappers around their equivalents in beam_types, which
 %% handle the validator-specific #t_abstract{} type.

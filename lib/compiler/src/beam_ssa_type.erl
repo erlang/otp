@@ -814,18 +814,9 @@ prune_switch_list([], _, _, _) -> [].
 update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last, Ts, D0) ->
     {Last, update_successor(Succ, Ts, D0)};
 update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
-                  Ts0, D0) ->
-    Ts = case cerl_sets:is_element(Bool, D0#d.once) of
-             true ->
-                 %% This variable is defined in this block and is only
-                 %% referenced by this br terminator. Therefore, there is
-                 %% no need to include it in the type database passed on to
-                 %% the successors of this block.
-                 maps:remove(Bool, Ts0);
-             false ->
-                 Ts0
-         end,
-    case infer_types_br(Bool, Ts, D0) of
+                  Ts, D0) ->
+    UsedOnce = cerl_sets:is_element(Bool, D0#d.once),
+    case infer_types_br(Bool, Ts, UsedOnce, D0) of
         {#{}=SuccTs, #{}=FailTs} ->
             D1 = update_successor(Succ, SuccTs, D0),
             D = update_successor(Fail, FailTs, D1),
@@ -841,15 +832,12 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
                   Ts, D0) ->
     UsedOnce = cerl_sets:is_element(V, D0#d.once),
 
-    {List1, D1} = update_switch(List0, V, UsedOnce, Ts, [], D0),
-
-    FailTs = case UsedOnce of
-                 true -> maps:remove(V, Ts);
-                 false -> subtract_sw_list(V, List0, Ts)
-             end,
+    {List1, D1} = update_switch(List0, V, Ts, UsedOnce, [], D0),
+    FailTs = update_switch_failure(V, List0, Ts, UsedOnce, D1),
 
     case FailTs of
         none ->
+            %% The fail block is unreachable; swap it with one of the choices.
             [{_, Fail} | List] = List1,
             Last = Last0#b_switch{fail=Fail,list=List},
             {Last, D1};
@@ -871,25 +859,33 @@ update_successors(#b_ret{arg=Arg}=Last, Ts, D0) ->
         end,
     {Last, D}.
 
-update_switch([{Val, Lbl}=Sw | List], V, UsedOnce, Ts, Acc, D0) ->
-    case infer_types_switch(V, Val, Ts, D0) of
+update_switch([{Val, Lbl}=Sw | List], V, Ts, UsedOnce, Acc, D0) ->
+    case infer_types_switch(V, Val, Ts, UsedOnce, D0) of
         none ->
-            update_switch(List, V, UsedOnce, Ts, Acc, D0);
-        SwTs0 ->
-            SwTs = case UsedOnce of
-                       true -> maps:remove(V, SwTs0);
-                       false -> SwTs0
-                   end,
+            update_switch(List, V, Ts, UsedOnce, Acc, D0);
+        SwTs ->
             D = update_successor(Lbl, SwTs, D0),
-            update_switch(List, V, UsedOnce, Ts, [Sw | Acc], D)
+            update_switch(List, V, Ts, UsedOnce, [Sw | Acc], D)
     end;
-update_switch([], _V, _UsedOnce, _Ts, Acc, D) ->
-    {Acc, D}.
+update_switch([], _V, _Ts, _UsedOnce, Acc, D) ->
+    {reverse(Acc), D}.
 
-subtract_sw_list(V, List, Ts) ->
+update_switch_failure(V, List, Ts, UsedOnce, D) ->
     case sub_sw_list_1(raw_type(V, Ts), List, Ts) of
-        none -> none;
-        Type -> Ts#{ V := Type }
+        none ->
+            none;
+        FailType ->
+            case beam_types:get_singleton_value(FailType) of
+                {ok, Value} ->
+                    %% This is the only possible value at the fail label, so we
+                    %% can infer types as if we matched it directly.
+                    Lit = #b_literal{val=Value},
+                    infer_types_switch(V, Lit, Ts, UsedOnce, D);
+                error when UsedOnce ->
+                    ts_remove_var(V, Ts);
+                error ->
+                    Ts
+            end
     end.
 
 sub_sw_list_1(Type, [{Val,_}|T], Ts) ->
@@ -1291,39 +1287,51 @@ raw_type(V, Ts) ->
 %%  'cons' would give 'nil' as the only possible type. The result of the
 %%  subtraction for L will be added to FailTypes.
 
-infer_types_br(#b_var{}=V, Ts, #d{ds=Ds}) ->
+infer_types_br(#b_var{}=V, Ts, UsedOnce, #d{ds=Ds}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
 
     {PosTypes, NegTypes} = infer_type(Op, Args, Ts, Ds),
 
-    SuccTs1 = meet_types(PosTypes, Ts),
-    FailTs1 = subtract_types(NegTypes, Ts),
+    SuccTs0 = meet_types(PosTypes, Ts),
+    FailTs0 = subtract_types(NegTypes, Ts),
 
-    SuccTs = infer_br_value(V, Ts, true, SuccTs1),
-    FailTs = infer_br_value(V, Ts, false, FailTs1),
+    case UsedOnce of
+        true ->
+            %% The branch variable is defined in this block and is only
+            %% referenced by this terminator. Therefore, there is no need to
+            %% include it in the type database passed on to the successors of
+            %% of this block.
+            SuccTs = ts_remove_var(V, SuccTs0),
+            FailTs = ts_remove_var(V, FailTs0),
+            {SuccTs, FailTs};
+        false ->
+            SuccTs = infer_br_value(V, true, SuccTs0),
+            FailTs = infer_br_value(V, false, FailTs0),
+            {SuccTs, FailTs}
+    end.
 
-    {SuccTs, FailTs}.
-
-infer_br_value(_V, _OldTs, _Bool, none) ->
+infer_br_value(_V, _Bool, none) ->
     none;
-infer_br_value(V, OldTs, Bool, NewTs) ->
-    case OldTs of
-        #{ V := T } ->
-            case beam_types:is_boolean_type(T) of
-                true ->
-                    NewTs#{ V := beam_types:make_atom(Bool) };
-                false ->
-                    %% V is a try/catch tag or similar, leave it alone.
-                    NewTs
-            end;
-        #{} ->
-            %% V is only used in this branch; don't propagate its type.
+infer_br_value(V, Bool, NewTs) ->
+    #{ V := T } = NewTs,
+    case beam_types:is_boolean_type(T) of
+        true ->
+            NewTs#{ V := beam_types:make_atom(Bool) };
+        false ->
+            %% V is a try/catch tag or similar, leave it alone.
             NewTs
     end.
 
-infer_types_switch(V, Lit, Ts, #d{ds=Ds}) ->
-    {PosTypes, _} = infer_type({bif,'=:='}, [V, Lit], Ts, Ds),
-    meet_types(PosTypes, Ts).
+infer_types_switch(V, Lit, Ts0, UsedOnce, #d{ds=Ds}) ->
+    {PosTypes, _} = infer_type({bif,'=:='}, [V, Lit], Ts0, Ds),
+    Ts = meet_types(PosTypes, Ts0),
+    case UsedOnce of
+        true -> ts_remove_var(V, Ts);
+        false -> Ts
+    end.
+
+ts_remove_var(_V, none) -> none;
+ts_remove_var(V, Ts) -> maps:remove(V, Ts).
 
 infer_type(succeeded, [#b_var{}=Src], Ts, Ds) ->
     #b_set{op=Op,args=Args} = maps:get(Src, Ds),
