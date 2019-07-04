@@ -907,8 +907,7 @@ cse_suitable(#b_set{}) -> false.
         }).
 
 ssa_opt_float({#st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
-    NonGuards0 = float_non_guards(Linear0),
-    NonGuards = gb_sets:from_list(NonGuards0),
+    NonGuards = non_guards(Linear0),
     Blocks = maps:from_list(Linear0),
     Fs = #fs{non_guards=NonGuards,bs=Blocks},
     {Linear,Count} = float_opt(Linear0, Count0, Fs),
@@ -918,15 +917,6 @@ float_blk_is_in_guard(#b_blk{last=#b_br{fail=F}}, #fs{non_guards=NonGuards}) ->
     not gb_sets:is_member(F, NonGuards);
 float_blk_is_in_guard(#b_blk{}, #fs{}) ->
     false.
-
-float_non_guards([{L,#b_blk{is=Is}}|Bs]) ->
-    case Is of
-        [#b_set{op=landingpad}|_] ->
-            [L|float_non_guards(Bs)];
-        _ ->
-            float_non_guards(Bs)
-    end;
-float_non_guards([]) -> [?BADARG_BLOCK].
 
 float_opt([{L,Blk}|Bs0], Count0, Fs) ->
     case float_blk_is_in_guard(Blk, Fs) of
@@ -1777,35 +1767,44 @@ opt_bs_put_split_int_1(Int, L, R) ->
 %%%
 
 ssa_opt_tuple_size({#st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
-    {Linear,Count} = opt_tup_size(Linear0, Count0, []),
+    %% This optimization is only safe in guards, as prefixing tuple_size with
+    %% an is_tuple check prevents it from throwing an exception.
+    NonGuards = non_guards(Linear0),
+    {Linear,Count} = opt_tup_size(Linear0, NonGuards, Count0, []),
     {St#st{ssa=Linear,cnt=Count}, FuncDb}.
 
-opt_tup_size([{L,#b_blk{is=Is,last=Last}=Blk}|Bs], Count0, Acc0) ->
+opt_tup_size([{L,#b_blk{is=Is,last=Last}=Blk}|Bs], NonGuards, Count0, Acc0) ->
     case {Is,Last} of
         {[#b_set{op={bif,'=:='},dst=Bool,args=[#b_var{}=Tup,#b_literal{val=Arity}]}],
          #b_br{bool=Bool}} when is_integer(Arity), Arity >= 0 ->
-            {Acc,Count} = opt_tup_size_1(Tup, L, Count0, Acc0),
-            opt_tup_size(Bs, Count, [{L,Blk}|Acc]);
+            {Acc,Count} = opt_tup_size_1(Tup, L, NonGuards, Count0, Acc0),
+            opt_tup_size(Bs, NonGuards, Count, [{L,Blk}|Acc]);
         {_,_} ->
-            opt_tup_size(Bs, Count0, [{L,Blk}|Acc0])
+            opt_tup_size(Bs, NonGuards, Count0, [{L,Blk}|Acc0])
     end;
-opt_tup_size([], Count, Acc) ->
+opt_tup_size([], _NonGuards, Count, Acc) ->
     {reverse(Acc),Count}.
 
-opt_tup_size_1(Size, EqL, Count0, [{L,Blk0}|Acc]) ->
-    case Blk0 of
-        #b_blk{is=Is0,last=#b_br{bool=Bool,succ=EqL,fail=Fail}} ->
-            case opt_tup_size_is(Is0, Bool, Size, []) of
-                none ->
+opt_tup_size_1(Size, EqL, NonGuards, Count0, [{L,Blk0}|Acc]) ->
+    #b_blk{is=Is0,last=Last} = Blk0,
+    case Last of
+        #b_br{bool=Bool,succ=EqL,fail=Fail} ->
+            case gb_sets:is_member(Fail, NonGuards) of
+                true ->
                     {[{L,Blk0}|Acc],Count0};
-                {PreIs,TupleSizeIs,Tuple} ->
-                    opt_tup_size_2(PreIs, TupleSizeIs, L, EqL,
-                                   Tuple, Fail, Count0, Acc)
+                false ->
+                    case opt_tup_size_is(Is0, Bool, Size, []) of
+                        none ->
+                            {[{L,Blk0}|Acc],Count0};
+                        {PreIs,TupleSizeIs,Tuple} ->
+                            opt_tup_size_2(PreIs, TupleSizeIs, L, EqL,
+                                           Tuple, Fail, Count0, Acc)
+                    end
             end;
-        #b_blk{} ->
+        _ ->
             {[{L,Blk0}|Acc],Count0}
     end;
-opt_tup_size_1(_, _, Count, Acc) ->
+opt_tup_size_1(_, _, _, Count, Acc) ->
     {Acc,Count}.
 
 opt_tup_size_2(PreIs, TupleSizeIs, PreL, EqL, Tuple, Fail, Count0, Acc) ->
@@ -2243,6 +2242,19 @@ gcd(A, B) ->
         0 -> B;
         X -> gcd(B, X)
     end.
+
+non_guards(Linear) ->
+    gb_sets:from_list(non_guards_1(Linear)).
+
+non_guards_1([{L,#b_blk{is=Is}}|Bs]) ->
+    case Is of
+        [#b_set{op=landingpad}|_] ->
+            [L | non_guards_1(Bs)];
+        _ ->
+            non_guards_1(Bs)
+    end;
+non_guards_1([]) ->
+    [?BADARG_BLOCK].
 
 rel2fam(S0) ->
     S1 = sofs:relation(S0),

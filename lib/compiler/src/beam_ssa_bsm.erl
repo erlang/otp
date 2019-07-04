@@ -684,8 +684,12 @@ aca_copy_successors(Lbl0, Blocks0, Counter0) ->
     Lbl = maps:get(Lbl0, BRs),
     {Lbl, Blocks, Counter}.
 
+aca_cs_build_brs([?BADARG_BLOCK=Lbl | Path], Counter, Acc) ->
+    %% ?BADARG_BLOCK is a marker and not an actual block, so renaming it will
+    %% break exception handling.
+    aca_cs_build_brs(Path, Counter, Acc#{ Lbl => Lbl });
 aca_cs_build_brs([Lbl | Path], Counter0, Acc) ->
-    aca_cs_build_brs(Path, Counter0 + 1, maps:put(Lbl, Counter0, Acc));
+    aca_cs_build_brs(Path, Counter0 + 1, Acc#{ Lbl => Counter0 });
 aca_cs_build_brs([], Counter, Acc) ->
     {Acc, Counter}.
 
