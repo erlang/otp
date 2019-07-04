@@ -750,7 +750,7 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     b = next_live(tb, &ix, &lck, b->next);
     if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
 	while (b != 0) {
-	    if (!has_live_key(tb, b, key, hval)) {
+	    if (!has_key(tb, b, key, hval)) {
 		break;
 	    }
 	    b = next_live(tb, &ix, &lck, b->next);
@@ -760,6 +760,7 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 	*ret = am_EOT;
     }
     else {
+        ASSERT(!is_pseudo_deleted(b));
 	*ret = db_copy_key(p, tbl, &b->dbterm);
 	RUNLOCK_HASH(lck);
     }    

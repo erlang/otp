@@ -44,7 +44,8 @@
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,t_ets_dets/1]).
 
 -export([ordered/1, ordered_match/1, interface_equality/1,
-	 fixtable_next/1, fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
+	 fixtable_next/1, fixtable_iter_bag/1,
+         fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
 	 update_element/1, update_counter/1, evil_update_counter/1, partly_bound/1, match_heavy/1]).
 -export([update_counter_with_default/1]).
 -export([update_counter_table_growth/1]).
@@ -117,7 +118,7 @@ all() ->
      {group, match}, t_match_spec_run,
      {group, lookup_element}, {group, misc}, {group, files},
      {group, heavy}, ordered, ordered_match,
-     interface_equality, fixtable_next, fixtable_insert,
+     interface_equality, fixtable_next, fixtable_iter_bag, fixtable_insert,
      rename, rename_unnamed, evil_rename, update_element,
      update_counter, evil_update_counter,
      update_counter_with_default, partly_bound,
@@ -2309,6 +2310,135 @@ do_fixtable_next(Tab) ->
     ets:safe_fixtable(Tab, false),
     false = ets:info(Tab, fixed),
     ets:delete(Tab).
+
+%% Check that iteration of bags find all live objects and nothing else.
+fixtable_iter_bag(Config) when is_list(Config) ->
+    repeat_for_opts(fun fixtable_iter_do/1,
+                    [write_concurrency,[bag,duplicate_bag]]).
+
+fixtable_iter_do(Opts) ->
+    EtsMem = etsmem(),
+    do_fixtable_iter_bag(ets_new(fixtable_iter_bag,Opts)),
+    verify_etsmem(EtsMem).
+
+do_fixtable_iter_bag(T) ->
+    MaxValues = 4,
+    %% Create 1 to MaxValues objects for each key
+    %% and then delete every possible combination of those objects
+    %% in every possible order.
+    %% Then test iteration returns all live objects and nothing else.
+
+    CrDelOps = [begin
+                    Values = lists:seq(1,N),
+                    %% All ways of deleting any number of the Values in any order
+                    Combos = combs(Values),
+                    DeleteOps = concat_lists([perms(C) || C <- Combos]),
+                    {N, DeleteOps}
+                end
+                || N <- lists:seq(1,MaxValues)],
+
+    %%io:format("~p\n", [CrDelOps]),
+
+    NKeys = lists:foldl(fun({_, DeleteOps}, Cnt) ->
+                               Cnt + length(DeleteOps)
+                       end,
+                       0,
+                       CrDelOps),
+
+    io:format("Create ~p keys\n", [NKeys]),
+
+    %% Fixate even before inserts just to maintain small table size
+    %% and increase likelyhood of different keys in same bucket.
+    ets:safe_fixtable(T,true),
+    InsRes = [begin
+                  [begin
+                       Key = {NValues,ValueList},
+                       [begin
+                            Tpl = {Key, V},
+                            %%io:format("Insert object ~p", [Tpl]),
+                            ets:insert(T, Tpl),
+                            Tpl
+                        end
+                        || V <- lists:seq(1,NValues)]
+                   end
+                   || ValueList <- DeleteOps]
+              end
+              || {NValues, DeleteOps} <- CrDelOps],
+
+    Inserted = lists:flatten(InsRes),
+    InSorted = lists:sort(Inserted),
+    InSorted = lists:usort(Inserted),  %% No duplicates
+    NObjs = length(Inserted),
+
+    DelRes = [begin
+                  [begin
+                       Key = {NValues,ValueList},
+                       [begin
+                            Tpl = {Key, V},
+                            %%io:format("Delete object ~p", [Tpl]),
+                            ets:delete_object(T, Tpl),
+                            Tpl
+                        end
+                        || V <- ValueList]
+                   end
+                   || ValueList <- DeleteOps]
+              end
+              || {NValues, DeleteOps} <- CrDelOps],
+
+    Deleted = lists:flatten(DelRes),
+    DelSorted = lists:sort(Deleted),
+    DelSorted = lists:usort(Deleted),  %% No duplicates
+    NDels = length(Deleted),
+    
+    %% Nr of keys where all values were deleted.
+    NDeletedKeys = lists:sum([factorial(N) || N <- lists:seq(1,MaxValues)]),
+
+    CountKeysFun = fun Me(K1, Cnt) ->
+                           case ets:next(T, K1) of
+                               '$end_of_table' ->
+                                   Cnt;
+                               K2 ->
+                                   Objs = ets:lookup(T, K2),
+                                   [{{NValues, ValueList}, _V} | _] = Objs,
+                                   ExpectedLive = NValues - length(ValueList),
+                                   ExpectedLive = length(Objs),
+                                   Me(K2, Cnt+1)
+                           end
+                   end,
+
+    ExpectedKeys = NKeys - NDeletedKeys,
+    io:format("Expected keys: ~p\n", [ExpectedKeys]),
+    FoundKeys = CountKeysFun(ets:first(T), 1),
+    io:format("Found keys: ~p\n", [FoundKeys]),
+    ExpectedKeys = FoundKeys,
+
+    ExpectedObjs = NObjs - NDels,
+    io:format("Expected objects: ~p\n", [ExpectedObjs]),
+    FoundObjs = ets:select_count(T, [{{'_','_'}, [], [true]}]),
+    io:format("Found objects: ~p\n", [FoundObjs]),
+    ExpectedObjs = FoundObjs,
+
+    ets:delete(T).
+
+%% All permutations of list
+perms([]) -> [[]];
+perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].
+
+%% All combinations of picking the element (or not) from list
+combs([]) -> [[]];
+combs([H|T]) ->
+    Tcombs = combs(T),
+    Tcombs ++ [[H | C] || C <- Tcombs].
+
+factorial(0) -> 1;
+factorial(N) when N > 0 ->
+    N * factorial(N - 1).
+
+concat_lists([]) ->
+    [];
+concat_lists([H|T]) ->
+    H ++ concat_lists(T).
+
 
 %% Check inserts of deleted keys in fixed bags.
 fixtable_insert(Config) when is_list(Config) ->
