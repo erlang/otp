@@ -1664,9 +1664,33 @@ api_m_debug(doc) ->
 api_m_debug(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_m_debug,
+           fun() -> has_bugfree_gcc() end,
            fun() ->
                    ok = api_m_debug()
            end).
+
+%% For some reason this test case triggers a gcc bug, which causes
+%% a segfault, on an ancient Fedora 16 VM. So, check the version of gcc...
+%% Not pretty, but the simplest way to skip (without actually testing for the host).
+has_bugfree_gcc() ->
+    has_bugfree_gcc(os:type()).
+
+%% Make sure we are on linux
+has_bugfree_gcc({unix, linux}) ->
+    has_bugfree_gcc2(os:cmd("cat /etc/issue"));
+has_bugfree_gcc(_) ->
+    ok.
+
+%% Make sure we are on Fedora 16
+has_bugfree_gcc2("Fedora release 16 " ++ _) ->
+    has_bugfree_gcc3(os:cmd("gcc --version"));
+has_bugfree_gcc2(_) ->
+    ok.
+
+has_bugfree_gcc3("gcc (GCC) 4.6.3 20120306 (Red Hat 4.6.3-2" ++ _) ->
+    skip("Buggy GCC");
+has_bugfree_gcc3(_) ->
+    ok.
 
 api_m_debug() ->
     i("get initial info"),
