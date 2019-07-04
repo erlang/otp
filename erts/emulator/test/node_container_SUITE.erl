@@ -583,7 +583,17 @@ node_controller_refc(Config) when is_list(Config) ->
     wait_until(fun () -> not is_process_alive(P) end),
     lists:foreach(fun (Proc) -> garbage_collect(Proc) end, processes()),
     false = get_node_references({Node,Creation}),
-    false = get_dist_references(Node),
+    wait_until(fun () ->
+                       case get_dist_references(Node) of
+                           false ->
+                               true;
+                           [{{system,thread_progress_delete_timer},
+                             [{system,1}]}] ->
+                               false;
+                           Other ->
+                               ct:fail(Other)
+                       end
+               end),
     false = lists:member(Node, nodes(known)),
     nc_refc_check(node()),
     erts_debug:set_internal_state(node_tab_delayed_delete, -1), %% restore original value
