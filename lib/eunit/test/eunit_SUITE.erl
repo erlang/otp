@@ -21,14 +21,16 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 app_test/1,appup_test/1,eunit_test/1,surefire_utf8_test/1,surefire_latin_test/1]).
+	 app_test/1,appup_test/1,eunit_test/1,surefire_utf8_test/1,surefire_latin_test/1,
+	 surefire_c0_test/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [app_test, appup_test, eunit_test, surefire_utf8_test, surefire_latin_test].
+    [app_test, appup_test, eunit_test, surefire_utf8_test, surefire_latin_test,
+     surefire_c0_test].
 
 groups() ->
     [].
@@ -65,11 +67,24 @@ surefire_utf8_test(Config) when is_list(Config) ->
 	check_surefire(tutf8),
 	ok.
 
+surefire_c0_test(Config) when is_list(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config, ".")),
+    Chars = check_surefire(tc0),
+    %% Check that these characters were not stripped
+    true = lists:member($\n, Chars),
+    true = lists:member($\r, Chars),
+    true = lists:member($\t, Chars),
+    ok.
+
 check_surefire(Module) ->
 	File = "TEST-"++atom_to_list(Module)++".xml",
 	file:delete(File),
 	% ignore test result, some fail on purpose
 	eunit:test(Module, [{report,{eunit_surefire,[{dir,"."}]}}]),
 	{ok, Bin} = file:read_file(File),
-	[_|_] = unicode:characters_to_list(Bin, unicode),
-	ok.
+	Chars = unicode:characters_to_list(Bin, unicode),
+	%% Check that unicode decoding succeeded
+	[_|_] = Chars,
+	%% Check that file is valid XML
+	xmerl_scan:file(File),
+	Chars.
