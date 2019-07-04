@@ -363,6 +363,18 @@ static unsigned long one_value = 1;
 #include <setns.h>
 #endif
 
+#if defined(__linux__) && !defined(HAVE_SETNS)
+/* This is defined to enable unconditional compilation of setns support
+ * even if neither sched.h nor setns.h are present/provide setns
+ * the real existence of such support is checked in runtime.
+ * This is done only for Linux as other systems do not have namespaces
+ * and HAVE_SETNS would be undefined for those systems anyway */
+#define HAVE_SETNS
+#define CLONE_NEWNET 0x40000000
+#endif // __linux__ && !HAVE_SETNS
+int is_ns_available(void);
+static int setns_available = 0;
+
 #define HAVE_UDP
 
 /* SCTP support -- currently for UNIX platforms only: */
@@ -4206,6 +4218,10 @@ static int inet_init()
     INIT_ATOM(sendfile);
 #endif
 
+#ifdef __linux__
+    setns_available = is_ns_available();
+#endif
+
     /* add TCP, UDP and SCTP drivers */
     add_driver_entry(&tcp_inet_driver_entry);
 #ifdef HAVE_UDP
@@ -4732,7 +4748,7 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 	return ctl_xerror(EXBADSEQ, rbuf, rsize);
 
 #ifdef HAVE_SETNS
-    if (desc->netns != NULL) {
+    if (setns_available && desc->netns != NULL) {
 	/* Temporarily change network namespace for this thread
 	 * while creating the socket
 	 */
@@ -4767,7 +4783,7 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
     if ((desc->s = sock_open(domain, type, protocol)) == INVALID_SOCKET)
 	save_errno = sock_errno();
 #ifdef HAVE_SETNS
-    if (desc->netns != NULL) {
+    if (setns_available && desc->netns != NULL) {
 	/* Restore network namespace */
 	if (setns(current_ns, CLONE_NEWNET) != 0) {
 	    /* XXX Failed to restore network namespace.

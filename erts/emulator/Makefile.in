@@ -821,14 +821,17 @@ $(OBJDIR)/%.o: nifs/common/%.c
 $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) $(CFLAGS) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
 
+$(OBJDIR)/%.o: wrappers/%.c
+	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
 # ----------------------------------------------------------------------
 # Specials
 #
-CS_OBJ = $(OBJDIR)/erl_child_setup.o $(OBJDIR)/sys_uds.o $(OBJDIR)/hash.o
+CS_OBJ = $(OBJDIR)/erl_child_setup.o $(OBJDIR)/sys_uds.o $(OBJDIR)/hash.o $(WRAPPER_OBJS)
 
 $(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(PRELOAD_SRC) $(CS_OBJ) $(ERTS_LIB)
-	$(ld_verbose)$(CS_PURIFY) $(LD) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
-               $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_OBJ) $(CS_LIBS)
+	$(ld_verbose)$(CS_PURIFY) $(LD) $(CS_LDFLAGS) $(WRAP_FLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
+               $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_OBJ) $(CS_LIBS) -ldl
 
 ifeq ($(GCC),yes)
 
@@ -1025,6 +1028,10 @@ ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
 OS_OBJS += 	$(OBJDIR)/erl_poll.flbk.o
 endif
 
+ifeq ($(OPSYS),linux)
+WRAPPER_OBJS = $(OBJDIR)/setns.o
+endif
+
 HIPE_ARCH64_OBJS=$(OBJDIR)/hipe_bif64.o
 
 HIPE_x86_OS_OBJS=$(HIPE_x86_$(OPSYS)_OBJS)
@@ -1054,7 +1061,7 @@ EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
 
 BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) \
-	$(LTTNG_OBJS) $(DRV_OBJS) $(NIF_OBJS)
+	$(LTTNG_OBJS) $(DRV_OBJS) $(NIF_OBJS) $(WRAPPER_OBJS)
 
 PROF_OBJS = $(patsubst %.o,%$(PROFILE_MARKER).o,$(PROFILE_OBJS)) $(BASE_OBJS)
 
@@ -1152,6 +1159,11 @@ $(OBJDIR)/hipe_arm.o:           hipe/hipe_arm.c
 # The emulator itself
 #
 
+# Wrappers linking
+ifeq ($(OPSYS),linux)
+WRAP_FLAGS = -Wl,--wrap=setns -ldl
+endif
+
 ifeq ($(TARGET), win32)
 # Only the basic erlang to begin with eh?
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
@@ -1161,7 +1173,7 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 
 else
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
-	$(ld_verbose)$(PURIFY) $(LD) -o $@ \
+	$(ld_verbose)$(PURIFY) $(LD) $(WRAP_FLAGS) -o $@ \
 	$(HIPEBEAMLDFLAGS) $(PROFILE_LDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
 	$(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS) $(LIBS)
 
