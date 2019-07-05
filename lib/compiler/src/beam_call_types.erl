@@ -198,7 +198,7 @@ types(erlang, element, [PosType, TupleType]) ->
 types(erlang, setelement, [PosType, TupleType, ArgType]) ->
     RetType = case {PosType,TupleType} of
                   {#t_integer{elements={Index,Index}},
-                   #t_tuple{elements=Es0,size=Size}=T} ->
+                   #t_tuple{elements=Es0,size=Size}=T} when Index >= 1 ->
                       %% This is an exact index, update the type of said
                       %% element or return 'none' if it's known to be out of
                       %% bounds.
@@ -212,7 +212,7 @@ types(erlang, setelement, [PosType, TupleType, ArgType]) ->
                               none
                       end;
                   {#t_integer{elements={Min,Max}},
-                   #t_tuple{elements=Es0,size=Size}=T} ->
+                   #t_tuple{elements=Es0,size=Size}=T} when Min >= 1 ->
                       %% We know this will land between Min and Max, so kill
                       %% the types for those indexes.
                       Es = discard_tuple_element_info(Min, Max, Es0),
