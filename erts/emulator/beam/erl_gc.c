@@ -151,6 +151,7 @@ static void grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj);
 static void sweep_off_heap(Process *p, int fullsweep);
 static void offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
 static void offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
+static void offset_heap_ptr_nstack(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
 static void offset_rootset(Process *p, Sint offs, char* area, Uint area_size,
 			   Eterm* objv, int nobj);
 static void offset_off_heap(Process* p, Sint offs, char* area, Uint area_size);
@@ -1054,9 +1055,10 @@ erts_garbage_collect_hibernate(Process* p)
 		n_htop = tmp_n_htop;					\
 	} while(0)
 
+
 /*
  * offset_nstack() can ignore the descriptor-based traversal the other
- * nstack procedures use and simply call offset_heap_ptr() instead.
+ * nstack procedures use and do a simpler word by word traversal instead.
  * This relies on two facts:
  * 1. The only live non-Erlang terms on an nstack are return addresses,
  *    and they will be skipped thanks to the low/high range check.
@@ -1071,13 +1073,50 @@ static ERTS_INLINE void offset_nstack(Process* p, Sint offs,
 {
     if (p->hipe.nstack) {
 	ASSERT(p->hipe.nsp && p->hipe.nstend);
-	offset_heap_ptr(hipe_nstack_start(p), hipe_nstack_used(p),
-			offs, area, area_size);
+	offset_heap_ptr_nstack(hipe_nstack_start(p), hipe_nstack_used(p),
+                               offs, area, area_size);
     }
     else {
 	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
     }
 }
+
+/*
+ * This is the same as offset_heap_ptr()
+ *
+ * Except for VALGRIND. It allows benign offsetting of undefined (dead) words
+ * on the nstack while also retaining them as undefined. This suppresses
+ * valgrinds "Conditional jump or move depends on uninitialised value(s)".
+ */
+static void
+offset_heap_ptr_nstack(Eterm* hp, Uint sz, Sint offs,
+                       char* area, Uint area_size)
+{
+    while (sz--) {
+	Eterm val = *hp;
+#ifdef VALGRIND
+        Eterm val_vbits;
+        VALGRIND_GET_VBITS(&val, &val_vbits, sizeof(val));
+        VALGRIND_MAKE_MEM_DEFINED(&val, sizeof(val));
+#endif
+	switch (primary_tag(val)) {
+	case TAG_PRIMARY_LIST:
+	case TAG_PRIMARY_BOXED:
+	    if (ErtsInArea(ptr_val(val), area, area_size)) {
+#ifdef VALGRIND
+                VALGRIND_SET_VBITS(&val, val_vbits, sizeof(val));
+#endif
+		*hp = offset_ptr(val, offs);
+	    }
+	    hp++;
+	    break;
+	default:
+	    hp++;
+	    break;
+	}
+    }
+}
+
 
 #else /* !HIPE */
 
