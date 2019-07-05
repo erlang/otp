@@ -894,7 +894,22 @@ magic_ref(Config) when is_list(Config) ->
 	{'DOWN', Mon, process, Pid, _} ->
 	    ok
     end,
-    {Addr0, 2, true} = erts_debug:get_internal_state({magic_ref,MRef0}),
+    MaxTime = erlang:monotonic_time(millisecond) + 1000,
+    %% The DOWN signal is sent before heap is cleaned up,
+    %% so we might need to wait some time after the DOWN
+    %% signal has been received before the heap actually
+    %% has been cleaned up...
+    wait_until(fun () ->
+                       case erts_debug:get_internal_state({magic_ref,MRef0}) of
+                           {Addr0, 2, true} ->
+                               true;
+                           {Addr0, 3, true} ->
+                               true = MaxTime >= erlang:monotonic_time(millisecond),
+                               false;
+                           Error ->
+                               ct:fail(Error)
+                       end
+               end),
     id(MRef0),
     id(MRef1),
     MRefExt = term_to_binary(erts_debug:set_internal_state(make, magic_ref)),
