@@ -111,11 +111,11 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	    erlang:raise(Class, Error, Stack)
     end.
 
-%% This is a psuedo-type used to track tuples under construction, match context
-%% positions, and so on. It is not a part of the beam_types type lattice and
-%% should not leak outside this module.
 -record(t_abstract, {kind}).
 
+%% The types are the same as in 'beam_types.hrl', with the addition of
+%% #t_abstract{} that describes tuples under construction, match context
+%% positions, and so on.
 -type validator_type() :: #t_abstract{} | type().
 
 -record(value_ref, {id :: index()}).
@@ -131,6 +131,24 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
                    {literal, term()} |
                    nil.
 
+%% Register tags describe the state of the register rather than the value they
+%% contain (if any).
+%%
+%% initialized          The register has been initialized with some valid term
+%%                      so that it is safe to pass to the garbage collector.
+%%                      NOT safe to use in any other way (will not crash the
+%%                      emulator, but clearly points to a bug in the compiler).
+%%
+%% uninitialized        The register contains any old garbage and can not be
+%%                      passed to the garbage collector.
+%%
+%% {catchtag,[Lbl]}     A special term used within a catch. Must only be used
+%%                      by the catch instructions; NOT safe to use in other
+%%                      instructions.
+%%
+%% {trytag,[Lbl]}       A special term used within a try block. Must only be
+%%                      used by the catch instructions; NOT safe to use in other
+%%                      instructions.
 -type tag() :: initialized |
                uninitialized |
                {catchtag, [label()]} |
@@ -1903,30 +1921,11 @@ is_literal({integer,I}) when is_integer(I) -> true;
 is_literal({literal,_L}) -> true;
 is_literal(_) -> false.
 
-%% The possible types.
-%%
-%% First non-term types:
-%%
-%% initialized          Only for Y registers. Means that the Y register
-%%                      has been initialized with some valid term so that
-%%	                    it is safe to pass to the garbage collector.
-%%	                    NOT safe to use in any other way (will not crash the
-%%	                    emulator, but clearly points to a bug in the compiler).
-%%
-%% {catchtag,[Lbl]}     A special term used within a catch. Must only be used
-%%	                    by the catch instructions; NOT safe to use in other
-%%	                    instructions.
-%%
-%% {trytag,[Lbl]}       A special term used within a try block. Must only be
-%%	                    used by the catch instructions; NOT safe to use in other
-%%	                    instructions.
-%%
-%% #t_bs_context{}	    A match context for bit syntax matching. We do allow
-%%	                    it to moved/to from stack, but otherwise it must only
-%%	                    be accessed by bit syntax matching instructions.
-
 %% These are just wrappers around their equivalents in beam_types, which
 %% handle the validator-specific #t_abstract{} type.
+%%
+%% The funny-looking abstract types produced here are intended to provoke
+%% errors on actual use; they do no harm just lying around.
 
 join(Same, Same) -> Same;
 join(#t_abstract{}=A, B) -> #t_abstract{kind={join, A, B}};
