@@ -63,9 +63,10 @@ typedef struct db_table_hash_fine_locks {
 typedef struct db_table_hash {
     DbTableCommon common;
 
-    /* SMP: szm and nactive are write-protected by is_resizing or table write lock */
+    /* szm, nactive, shrink_limit are write-protected by is_resizing or table write lock */
     erts_atomic_t szm;     /* current size mask. */
     erts_atomic_t nactive; /* Number of "active" slots */
+    erts_atomic_t shrink_limit; /* Shrink table when fewer objects than this */
 
     erts_atomic_t segtab;  /* The segment table (struct segment**) */
     struct segment* first_segtab[1];
