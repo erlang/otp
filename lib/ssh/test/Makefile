@@ -39,6 +39,7 @@ MODULES= \
 	ssh_chan_behaviours_SUITE \
 	ssh_compat_SUITE \
 	ssh_connection_SUITE \
+	ssh_agent_SUITE \
 	ssh_dbg_SUITE \
 	ssh_engine_SUITE \
 	ssh_protocol_SUITE \
