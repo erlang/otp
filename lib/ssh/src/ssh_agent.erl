@@ -25,7 +25,7 @@
 -include("ssh.hrl").
 -include("ssh_agent.hrl").
 
--export([send/1, send/2]).
+-export([send/1, send/2, send/3]).
 
 %% Agent communication
 
@@ -33,10 +33,12 @@ send(Request) ->
     send(Request, infinity).
 
 send(Request, Timeout) ->
-    SocketPath = os:getenv("SSH_AUTH_SOCK"),
+    send(Request, os:getenv("SSH_AUTH_SOCK"), Timeout).
 
+
+send(Request, SocketPath, Timeout) ->
     ConnectOpts = [binary, {packet, 0}, {active, false}],
-    {ok, Socket} = gen_tcp:connect({local, SocketPath}, 0, ConnectOpts),
+    {ok, Socket} = gen_tcp:connect({local, SocketPath}, 0, ConnectOpts, Timeout),
 
     BinRequest = pack(encode(Request)),
     ok = gen_tcp:send(Socket, BinRequest),
