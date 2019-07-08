@@ -68,12 +68,14 @@ signal_abort(Config) ->
 
     {ok, Node} = start_node(Config),
 
-    _P1 = spawn(Node, ?MODULE, load, []),
-    _P2 = spawn(Node, ?MODULE, load, []),
-    _P3 = spawn(Node, ?MODULE, load, []),
-    _P4 = spawn(Node, ?MODULE, load, []),
-    _P5 = spawn(Node, ?MODULE, load, []),
-    _P6 = spawn(Node, ?MODULE, load, []),
+    SO = rpc:call(Node, erlang, system_info, [schedulers_online]),
+
+    _P1 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (0 rem SO) + 1}]),
+    _P2 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (1 rem SO) + 1}]),
+    _P3 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (2 rem SO) + 1}]),
+    _P4 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (3 rem SO) + 1}]),
+    _P5 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (4 rem SO) + 1}]),
+    _P6 = spawn_opt(Node, ?MODULE, load, [], [{scheduler, (5 rem SO) + 1}]),
 
     timer:sleep(500),
 
