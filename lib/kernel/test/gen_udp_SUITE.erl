@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -646,7 +646,7 @@ sendtclass(_Config) ->
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
 %% Using the option returns einval, so it is not implemented.
-recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,6,0});
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %%
@@ -675,7 +675,7 @@ recvtclass_ok(_, _) -> false.
 
 %% Using the option returns einval, so it is not implemented.
 sendtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
-sendtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,5,0});
+sendtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,6,0});
 sendtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 sendtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
 sendtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,1,0});
@@ -689,7 +689,8 @@ sendttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {4,0,0});
 %% Using the option returns enoprotoopt, so it is not implemented.
 sendttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,1,0});
 %% Option has no effect
-sendttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,5,0});
+sendttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
+sendttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,6,0});
 %%
 sendttl_ok({unix,_}, _) -> true;
 sendttl_ok(_, _) -> false.
@@ -697,6 +698,8 @@ sendttl_ok(_, _) -> false.
 %% Using the option returns einval, so it is not implemented.
 sendtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {9,9,0});
 sendtclass_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {2,6,11});
+%% Option has no effect
+sendtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %%
 sendtclass_ok({unix,_}, _) -> true;
 sendtclass_ok(_, _) -> false.
