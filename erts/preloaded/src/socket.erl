@@ -31,7 +31,7 @@
 
          debug/1,
          %% command/1,
-	 info/0,
+	 info/0, info/1,
          supports/0, supports/1, supports/2, supports/3
         ]).
 
@@ -66,6 +66,10 @@
               select_tag/0,
               select_ref/0,
               select_info/0,
+
+              socket_counters/0,
+              socket_counter/0,
+              socket_info/0,
 
               %% command/0,
 
@@ -152,6 +156,15 @@
                            data    := boolean()
                           }.
 %% -type command() :: debug_command().
+
+-type socket_counters() :: [{socket_counter(), non_neg_integer()}].
+-type socket_counter()  :: read_byte | read_fails | read_pkg | read_tries |
+                           read_waits | write_byte | write_fails | write_pkg |
+                           write_tries | write_waits.
+-type socket_info() :: #{counters      := socket_counters(),
+                         num_readers   := non_neg_integer(),
+                         num_writers   := non_neg_integer(),
+                         num_acceptors := non_neg_integer()}.
 
 -type uint8()  :: 0..16#FF.
 -type uint16() :: 0..16#FFFF.
@@ -879,7 +892,7 @@ on_load(Extra) ->
 
 
 
--spec info() -> list().
+-spec info() -> map().
 
 info() ->
     nif_info().
@@ -899,6 +912,24 @@ debug(D) when is_boolean(D) ->
 command(#{command := debug,
           data    := Dbg} = Command) when is_boolean(Dbg) ->
     nif_command(Command).
+
+
+
+%% ===========================================================================
+%%
+%% info - Get miscellaneous information about a socket.
+%%
+%% Generates a list of various info about the socket, such as counter values.
+%%
+%% Do *not* call this function often.
+%% 
+%% ===========================================================================
+
+-spec info(Socket) -> socket_info() when
+      Socket :: socket().
+
+info(#socket{ref = SockRef}) ->
+    nif_info(SockRef).
 
 
 
@@ -3877,6 +3908,9 @@ error(Reason) ->
 %% ===========================================================================
 
 nif_info() ->
+    erlang:nif_error(undef).
+
+nif_info(_SRef) ->
     erlang:nif_error(undef).
 
 nif_command(_Command) ->

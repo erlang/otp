@@ -112,6 +112,15 @@
       <name name="select_info"/>
     </datatype>
     <datatype>
+      <name name="socket_counters"/>
+    </datatype>
+    <datatype>
+      <name name="socket_counter"/>
+    </datatype>
+    <datatype>
+      <name name="socket_info"/>
+    </datatype>
+    <datatype>
       <name name="ip4_address"/>
     </datatype>
     <datatype>
@@ -452,6 +461,20 @@
 	<note><p>Not all options are valid on all platforms. That is,
 	even if "we" support an option, that does not mean that the
 	underlying OS does.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="info" arity="1" since="OTP @OTP-15818@"/>
+      <fsummary>Get miscellaneous socket info.</fsummary>
+      <desc>
+        <p>Get miscellaneous info about the socket.</p>
+	<p>The function returns a map with each info item as a key-value
+	binding. It reflects the "current" state of the socket. </p>
+	<note>
+	  <p>In order to ensure data integrity, mutex'es are taken when
+	  needed. So, do not call this function often. </p>
+	</note>
       </desc>
     </func>
 

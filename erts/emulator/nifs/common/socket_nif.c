@@ -673,7 +673,7 @@ typedef union {
 
 /* =================================================================== *
  *                                                                     *
- *                        Various enif macros                          *
+ *                        Various esockmacros                          *
  *                                                                     *
  * =================================================================== */
 
@@ -682,6 +682,12 @@ typedef union {
 /* Socket specific debug */
 #define SSDBG( __D__ , proto ) ESOCK_DBG_PRINTF( (__D__)->dbg , proto )
 
+#define SOCK_CNT_INC( __E__, __D__, SF, ACNT, CNT, INC)  \
+    {                                                    \
+        if (cnt_inc(CNT, INC) && (__D__)->iow) {         \
+            esock_send_wrap_msg(__E__, __D__, SF, ACNT); \
+        }                                                \
+    }
 
 
 /* =================================================================== *
@@ -866,6 +872,7 @@ typedef struct {
     Uint32             readByteCnt;
     Uint32             readTries;
     Uint32             readWaits;
+    Uint32             readFails;
 
     /* +++ Accept stuff +++ */
     ErlNifMutex*       accMtx;
@@ -1009,6 +1016,7 @@ ESOCK_NIF_FUNCS
 #if !defined(__WIN32__)
 
 /* And here comes the functions that does the actual work (for the most part) */
+
 static BOOLEAN_T ecommand2command(ErlNifEnv*    env,
                                   ERL_NIF_TERM  ecommand,
                                   Uint16*       command,
@@ -1017,6 +1025,28 @@ static ERL_NIF_TERM ncommand(ErlNifEnv*   env,
                              Uint16       cmd,
                              ERL_NIF_TERM ecdata);
 static ERL_NIF_TERM ncommand_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata);
+
+static ERL_NIF_TERM esock_global_info(ErlNifEnv* env);
+static ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
+                                      ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
+#define ESOCK_SOCKET_INFO_REQ_FUNCS              \
+    ESOCK_SOCKET_INFO_REQ_FUNC_DEF(readers);     \
+    ESOCK_SOCKET_INFO_REQ_FUNC_DEF(writers);     \
+    ESOCK_SOCKET_INFO_REQ_FUNC_DEF(acceptors);
+
+#define ESOCK_SOCKET_INFO_REQ_FUNC_DEF(F)                               \
+    static ERL_NIF_TERM esock_socket_info_##F(ErlNifEnv*         env,   \
+                                              ESockDescriptor*   descP);
+ESOCK_SOCKET_INFO_REQ_FUNCS
+#undef ESOCK_SOCKET_INFO_REQ_FUNC_DEF
+
+static ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
+                                     ESockDescriptor*   descP,
+                                     ErlNifMutex*       mtx,
+                                     ESockRequestor*    crp,
+                                     ESockRequestQueue* q);
 
 static ERL_NIF_TERM nsupports(ErlNifEnv* env, int key);
 static ERL_NIF_TERM nsupports_options(ErlNifEnv* env);
@@ -2555,6 +2585,10 @@ static void socket_down_reader(ErlNifEnv*       env,
                                ERL_NIF_TERM     sockRef,
                                const ErlNifPid* pid);
 
+static char* esock_send_wrap_msg(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     cnt);
 static char* esock_send_close_msg(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
                                   ErlNifPid*       pid);
@@ -2573,6 +2607,9 @@ static ERL_NIF_TERM mk_abort_msg(ErlNifEnv*   env,
                                  ERL_NIF_TERM sockRef,
                                  ERL_NIF_TERM opRef,
                                  ERL_NIF_TERM reason);
+static ERL_NIF_TERM mk_wrap_msg(ErlNifEnv*   env,
+                                ERL_NIF_TERM sockRef,
+                                ERL_NIF_TERM cnt);
 static ERL_NIF_TERM mk_close_msg(ErlNifEnv*   env,
                                  ERL_NIF_TERM sockRef,
                                  ERL_NIF_TERM closeRef);
@@ -2647,7 +2684,10 @@ static char str_exsend[]         = "exsend";     // failed send
 
 
 
-/* *** Global atoms *** */
+/* *** Global atoms *** 
+ * Note that when an (global) atom is added here, it must also be added
+ * in the socket_int.h file!
+ */
 #define GLOBAL_ATOMS                                   \
     GLOBAL_ATOM_DECL(abort);                           \
     GLOBAL_ATOM_DECL(accept);                          \
@@ -2871,6 +2911,8 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(closed);           \
     LOCAL_ATOM_DECL(closing);          \
     LOCAL_ATOM_DECL(cookie_life);      \
+    LOCAL_ATOM_DECL(counter_wrap);     \
+    LOCAL_ATOM_DECL(counters);         \
     LOCAL_ATOM_DECL(data_in);          \
     LOCAL_ATOM_DECL(do);               \
     LOCAL_ATOM_DECL(dont);             \
@@ -2894,6 +2936,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(mode);             \
     LOCAL_ATOM_DECL(multiaddr);        \
     LOCAL_ATOM_DECL(null);             \
+    LOCAL_ATOM_DECL(num_acceptors);    \
     LOCAL_ATOM_DECL(num_dinet);        \
     LOCAL_ATOM_DECL(num_dinet6);       \
     LOCAL_ATOM_DECL(num_dlocal);       \
@@ -2903,14 +2946,21 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(num_psctp);        \
     LOCAL_ATOM_DECL(num_ptcp);         \
     LOCAL_ATOM_DECL(num_pudp);         \
+    LOCAL_ATOM_DECL(num_readers);      \
     LOCAL_ATOM_DECL(num_sockets);      \
     LOCAL_ATOM_DECL(num_tdgrams);      \
     LOCAL_ATOM_DECL(num_tseqpkgs);     \
     LOCAL_ATOM_DECL(num_tstreams);     \
+    LOCAL_ATOM_DECL(num_writers);      \
     LOCAL_ATOM_DECL(partial_delivery); \
     LOCAL_ATOM_DECL(peer_error);       \
     LOCAL_ATOM_DECL(peer_rwnd);        \
     LOCAL_ATOM_DECL(probe);            \
+    LOCAL_ATOM_DECL(read_byte);        \
+    LOCAL_ATOM_DECL(read_fails);       \
+    LOCAL_ATOM_DECL(read_pkg);         \
+    LOCAL_ATOM_DECL(read_tries);       \
+    LOCAL_ATOM_DECL(read_waits);       \
     LOCAL_ATOM_DECL(select);           \
     LOCAL_ATOM_DECL(sender_dry);       \
     LOCAL_ATOM_DECL(send_failure);     \
@@ -2919,7 +2969,12 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(sourceaddr);       \
     LOCAL_ATOM_DECL(timeout);          \
     LOCAL_ATOM_DECL(true);             \
-    LOCAL_ATOM_DECL(want);
+    LOCAL_ATOM_DECL(want);             \
+    LOCAL_ATOM_DECL(write_byte);       \
+    LOCAL_ATOM_DECL(write_fails);      \
+    LOCAL_ATOM_DECL(write_pkg);        \
+    LOCAL_ATOM_DECL(write_tries);      \
+    LOCAL_ATOM_DECL(write_waits);
 
 /* Local error reason atoms */
 #define LOCAL_ERROR_REASON_ATOMS                \
@@ -3022,7 +3077,7 @@ static ESOCK_INLINE ErlNifEnv* esock_alloc_env(const char* slogan)
  * Description:
  * This is currently just a placeholder...
  */
-#define MKCT(E, T, C) MKT2((E), (T), MKI((E), (C)))
+#define MKCT(E, T, C) MKT2((E), (T), MKUI((E), (C)))
 
 static
 ERL_NIF_TERM nif_info(ErlNifEnv*         env,
@@ -3032,41 +3087,166 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    if (argc != 0) {
-        return enif_make_badarg(env);
-    } else {
-        ERL_NIF_TERM numSockets     = MKCT(env, atom_num_sockets,  data.numSockets);
-        ERL_NIF_TERM numTypeDGrams  = MKCT(env, atom_num_tdgrams,  data.numTypeDGrams);
-        ERL_NIF_TERM numTypeStreams = MKCT(env, atom_num_tstreams, data.numTypeStreams);
-        ERL_NIF_TERM numTypeSeqPkgs = MKCT(env, atom_num_tseqpkgs, data.numTypeSeqPkgs);
-        ERL_NIF_TERM numDomLocal    = MKCT(env, atom_num_dlocal,   data.numDomainLocal);
-        ERL_NIF_TERM numDomInet     = MKCT(env, atom_num_dinet,    data.numDomainInet);
-        ERL_NIF_TERM numDomInet6    = MKCT(env, atom_num_dinet6,   data.numDomainInet6);
-        ERL_NIF_TERM numProtoIP     = MKCT(env, atom_num_pip,      data.numProtoIP);
-        ERL_NIF_TERM numProtoTCP    = MKCT(env, atom_num_ptcp,     data.numProtoTCP);
-        ERL_NIF_TERM numProtoUDP    = MKCT(env, atom_num_pudp,     data.numProtoUDP);
-        ERL_NIF_TERM numProtoSCTP   = MKCT(env, atom_num_psctp,    data.numProtoSCTP);
-        ERL_NIF_TERM gcnt[]  = {numSockets,
-                                numTypeDGrams, numTypeStreams, numTypeSeqPkgs,
-                                numDomLocal, numDomInet, numDomInet6,
-                                numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP};
-        unsigned int lenGCnt = sizeof(gcnt) / sizeof(ERL_NIF_TERM);
-        ERL_NIF_TERM lgcnt   = MKLA(env, gcnt, lenGCnt);
-        ERL_NIF_TERM keys[]  = {esock_atom_debug, atom_iow, atom_global_counters};
-        ERL_NIF_TERM vals[]  = {BOOL2ATOM(data.dbg), BOOL2ATOM(data.iow), lgcnt};
-        ERL_NIF_TERM info;
-        unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-        unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM info;
 
-        ESOCK_ASSERT( (numKeys == numVals) );
-
-        if (!MKMA(env, keys, vals, numKeys, &info))
-            return enif_make_badarg(env);
+    SGDBG( ("SOCKET", "nif_info -> entry with %d args\r\n", argc) );
     
-        return info;
+    switch (argc) {
+    case 0:
+        info = esock_global_info(env);
+        break;
+
+    case 1:
+        {
+            ESockDescriptor* descP;
+
+            if (!enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
+                return enif_make_badarg(env);
+            }
+            SSDBG( descP, ("SOCKET", "nif_info -> get socket info\r\n") );
+            info = esock_socket_info(env, descP);
+        }
+        break;
+        
+    default:
+        return enif_make_badarg(env);
     }
+
+    return info;
+
 #endif
 }
+
+
+/*
+ * This function return a property list containing "global" info.
+ */
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
+{
+    ERL_NIF_TERM numSockets     = MKCT(env, atom_num_sockets,  data.numSockets);
+    ERL_NIF_TERM numTypeDGrams  = MKCT(env, atom_num_tdgrams,  data.numTypeDGrams);
+    ERL_NIF_TERM numTypeStreams = MKCT(env, atom_num_tstreams, data.numTypeStreams);
+    ERL_NIF_TERM numTypeSeqPkgs = MKCT(env, atom_num_tseqpkgs, data.numTypeSeqPkgs);
+    ERL_NIF_TERM numDomLocal    = MKCT(env, atom_num_dlocal,   data.numDomainLocal);
+    ERL_NIF_TERM numDomInet     = MKCT(env, atom_num_dinet,    data.numDomainInet);
+    ERL_NIF_TERM numDomInet6    = MKCT(env, atom_num_dinet6,   data.numDomainInet6);
+    ERL_NIF_TERM numProtoIP     = MKCT(env, atom_num_pip,      data.numProtoIP);
+    ERL_NIF_TERM numProtoTCP    = MKCT(env, atom_num_ptcp,     data.numProtoTCP);
+    ERL_NIF_TERM numProtoUDP    = MKCT(env, atom_num_pudp,     data.numProtoUDP);
+    ERL_NIF_TERM numProtoSCTP   = MKCT(env, atom_num_psctp,    data.numProtoSCTP);
+    ERL_NIF_TERM gcnt[]  = {numSockets,
+                            numTypeDGrams, numTypeStreams, numTypeSeqPkgs,
+                            numDomLocal, numDomInet, numDomInet6,
+                            numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP};
+    unsigned int lenGCnt = sizeof(gcnt) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM lgcnt   = MKLA(env, gcnt, lenGCnt);
+    ERL_NIF_TERM keys[]  = {esock_atom_debug, atom_iow, atom_global_counters};
+    ERL_NIF_TERM vals[]  = {BOOL2ATOM(data.dbg), BOOL2ATOM(data.iow), lgcnt};
+    ERL_NIF_TERM info;
+    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+
+    ESOCK_ASSERT( (numKeys == numVals) );
+
+    if (!MKMA(env, keys, vals, numKeys, &info))
+        return enif_make_badarg(env);
+
+    return info;
+}
+
+
+
+/*
+ * This function return a property *map*. The properties are: 
+ *    counters:  A list of each socket counter and there current values
+ *    readers:   The number of current and waiting readers
+ *    writers:   The number of current and waiting writers
+ *    acceptors: The number of current and waiting acceptors
+ */
+static
+ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
+                               ESockDescriptor* descP)
+{
+    ERL_NIF_TERM counters  = esock_socket_info_counters(env, descP);
+    ERL_NIF_TERM readers   = esock_socket_info_readers(env, descP);
+    ERL_NIF_TERM writers   = esock_socket_info_writers(env, descP);
+    ERL_NIF_TERM acceptors = esock_socket_info_acceptors(env, descP);
+    ERL_NIF_TERM keys[]    = {atom_counters, atom_num_readers,
+                              atom_num_writers, atom_num_acceptors};
+    ERL_NIF_TERM vals[]    = {counters, readers, writers, acceptors};
+    ERL_NIF_TERM info;
+    unsigned int numKeys  = sizeof(keys) / sizeof(ERL_NIF_TERM);
+    unsigned int numVals  = sizeof(vals) / sizeof(ERL_NIF_TERM);
+
+    SSDBG( descP, ("SOCKET", "esock_socket_info -> "
+                   "\r\n   numKeys: %d"
+                   "\r\n   numVals: %d"
+                   "\r\n", numKeys, numVals) );
+
+    ESOCK_ASSERT( (numKeys == numVals) );
+
+    if (!MKMA(env, keys, vals, numKeys, &info))
+        return enif_make_badarg(env);
+
+    SSDBG( descP, ("SOCKET", "esock_socket_info -> done with"
+                   "\r\n   info: %T"
+                   "\r\n", info) );
+
+    return info;
+    
+}
+
+
+/*
+ * Collect all counters for a socket.
+ */
+static
+ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
+{
+    ERL_NIF_TERM info;
+
+    MLOCK(descP->writeMtx);
+    MLOCK(descP->readMtx);
+
+    {
+        ERL_NIF_TERM readByteCnt  = MKCT(env, atom_read_byte, descP->readByteCnt);
+        ERL_NIF_TERM readFails    = MKCT(env, atom_read_fails, descP->readFails);
+        ERL_NIF_TERM readPkgCnt   = MKCT(env, atom_read_pkg, descP->readPkgCnt);
+        ERL_NIF_TERM readTries    = MKCT(env, atom_read_tries, descP->readTries);
+        ERL_NIF_TERM readWaits    = MKCT(env, atom_read_waits, descP->readWaits);
+        ERL_NIF_TERM writeByteCnt = MKCT(env, atom_write_byte, descP->writeByteCnt);
+        ERL_NIF_TERM writeFails   = MKCT(env, atom_write_fails, descP->writeFails);
+        ERL_NIF_TERM writePkgCnt  = MKCT(env, atom_write_pkg, descP->writePkgCnt);
+        ERL_NIF_TERM writeTries   = MKCT(env, atom_write_tries, descP->writeTries);
+        ERL_NIF_TERM writeWaits   = MKCT(env, atom_write_waits, descP->writeWaits);
+        ERL_NIF_TERM acnt[]       = {readByteCnt, readFails, readPkgCnt,
+                                     readTries, readWaits,
+                                     writeByteCnt, writeFails, writePkgCnt,
+                                     writeTries, writeWaits};
+        unsigned int lenACnt      = sizeof(acnt) / sizeof(ERL_NIF_TERM);
+
+        info = MKLA(env, acnt, lenACnt);
+
+        SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> "
+                       "\r\n   lenACnt: %d"
+                       "\r\n   info:    %T"
+                       "\r\n", lenACnt, info) );
+
+    }
+
+    MUNLOCK(descP->readMtx);
+    MUNLOCK(descP->writeMtx);
+
+    SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> done with"
+                   "\r\n   info: %T"
+                   "\r\n", info) );
+
+    return info;
+}
+#endif
 
 
 /* ----------------------------------------------------------------------
@@ -3172,6 +3352,70 @@ ERL_NIF_TERM ncommand_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
     }
 
     return result;
+}
+#endif
+
+
+/* *** esock_socket_info_readers   ***
+ * *** esock_socket_info_writers   ***
+ * *** esock_socket_info_acceptors ***
+ *
+ * Calculate how many readers | writers | acceptors we have for this socket.
+ * Current requestor + any waiting requestors (of the type).
+ *
+ */
+
+#if !defined(__WIN32__)
+#define SOCKET_INFO_REQ_FUNCS                                                  \
+    SOCKET_INFO_REQ_FUNC_DECL(readers,   readMtx,  currentReaderP,   readersQ) \
+    SOCKET_INFO_REQ_FUNC_DECL(writers,   writeMtx, currentWriterP,   writersQ) \
+    SOCKET_INFO_REQ_FUNC_DECL(acceptors, accMtx,   currentAcceptorP, acceptorsQ)
+
+#define SOCKET_INFO_REQ_FUNC_DECL(F, MTX, CRP, Q)                               \
+    static                                                                      \
+    ERL_NIF_TERM esock_socket_info_##F(ErlNifEnv*       env,                    \
+                                       ESockDescriptor* descP)                  \
+    {                                                                           \
+        return socket_info_reqs(env, descP, descP->MTX, descP->CRP, &descP->Q); \
+    }
+SOCKET_INFO_REQ_FUNCS
+#undef SOCKET_INFO_REQ_FUNC_DECL
+
+
+static
+ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
+                              ESockDescriptor*   descP,
+                              ErlNifMutex*       mtx,
+                              ESockRequestor*    crp,
+                              ESockRequestQueue* q)
+{
+    ESockRequestQueueElement* tmp;
+    ERL_NIF_TERM              info;
+    unsigned int              cnt = 0;
+
+    MLOCK(mtx);
+
+    if (crp != NULL) {
+        // We have an active requestor!
+        cnt++;
+
+        // And add all the waiting requestors
+        tmp = q->first;
+        while (tmp != NULL) {
+            cnt++;
+            tmp = tmp->nextP;
+        }
+    }
+
+    MUNLOCK(mtx);
+
+    info = MKUI(env, cnt);
+
+    SSDBG( descP, ("SOCKET", "socket_info_reqs -> done with"
+                   "\r\n   info: %T"
+                   "\r\n", info) );
+
+    return info;
 }
 #endif
 
@@ -6031,7 +6275,8 @@ ERL_NIF_TERM nsend(ErlNifEnv*       env,
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
      */
-    cnt_inc(&descP->writeTries, 1);
+    // cnt_inc(&descP->writeTries, 1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
 
     written = sock_send(descP->sock, sndDataP->data, sndDataP->size, flags);
     if (IS_SOCKET_ERROR(written))
@@ -6164,7 +6409,8 @@ ERL_NIF_TERM nsendto(ErlNifEnv*       env,
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
      */
-    cnt_inc(&descP->writeTries, 1);
+    // cnt_inc(&descP->writeTries, 1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
 
     if (toAddrP != NULL) {
         written = sock_sendto(descP->sock,
@@ -6393,7 +6639,8 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*       env,
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
      */
-    cnt_inc(&descP->writeTries, 1);
+    // cnt_inc(&descP->writeTries, 1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
 
     /* And now, finally, try to send the message */
     written = sock_sendmsg(descP->sock, &msgHdr, flags);
@@ -6591,10 +6838,8 @@ ERL_NIF_TERM nrecv(ErlNifEnv*       env,
     if (!ALLOC_BIN(bufSz, &buf))
         return esock_make_error(env, atom_exalloc);
 
-    /* We ignore the wrap for the moment.
-     * Maybe we should issue a wrap-message to controlling process...
-     */
-    cnt_inc(&descP->readTries, 1);
+    // cnt_inc(&descP->readTries, 1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     // If it fails (read = -1), we need errno...
     SSDBG( descP, ("SOCKET", "nrecv -> try read (%d)\r\n", buf.size) );
@@ -6756,10 +7001,8 @@ ERL_NIF_TERM nrecvfrom(ErlNifEnv*       env,
     if (!ALLOC_BIN(bufSz, &buf))
         return esock_make_error(env, atom_exalloc);
 
-    /* We ignore the wrap for the moment.
-     * Maybe we should issue a wrap-message to controlling process...
-     */
-    cnt_inc(&descP->readTries, 1);
+    // cnt_inc(&descP->readTries, 1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     addrLen = sizeof(fromAddr);
     sys_memzero((char*) &fromAddr, addrLen);
@@ -6946,10 +7189,8 @@ ERL_NIF_TERM nrecvmsg(ErlNifEnv*       env,
     if (!ALLOC_BIN(ctrlSz, &ctrl))
         return esock_make_error(env, atom_exalloc);
 
-    /* We ignore the wrap for the moment.
-     * Maybe we should issue a wrap-message to controlling process...
-     */
-    cnt_inc(&descP->readTries, 1);
+    // cnt_inc(&descP->readTries, 1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     addrLen = sizeof(addr);
     sys_memzero((char*) &addr,   addrLen);
@@ -14421,8 +14662,12 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
                            ssize_t          dataSize,
                            ERL_NIF_TERM     sockRef)
 {
-    cnt_inc(&descP->writePkgCnt,  1);
-    cnt_inc(&descP->writeByteCnt, written);
+    // cnt_inc(&descP->writePkgCnt,  1);
+    SOCK_CNT_INC(env, descP, sockRef,
+                 atom_write_pkg, &descP->writePkgCnt, 1);
+    // cnt_inc(&descP->writeByteCnt, written);
+    SOCK_CNT_INC(env, descP, sockRef,
+                 atom_write_byte, &descP->writeByteCnt, written);
 
     if (descP->currentWriterP != NULL) {
         DEMONP("send_check_ok -> current writer",
@@ -14468,7 +14713,8 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
     ERL_NIF_TERM   reason;
 
     req.env = NULL;
-    cnt_inc(&descP->writeFails, 1);
+    // cnt_inc(&descP->writeFails, 1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_write_fails, &descP->writeFails, 1);
 
     SSDBG( descP, ("SOCKET", "send_check_fail -> error: %d\r\n", saveErrno) );
 
@@ -14533,7 +14779,8 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
         }
     }
 
-    cnt_inc(&descP->writeWaits, 1);
+    // cnt_inc(&descP->writeWaits, 1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_write_waits, &descP->writeWaits, 1);
 
     sres = esock_select_write(env, descP->sock, descP, NULL, sockRef, sendRef);
 
@@ -14795,6 +15042,8 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         res = esock_make_error(env, atom_closed);
         
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+
         /*
          * When a stream socket peer has performed an orderly shutdown,
          * the return value will be 0 (the traditional "end-of-file" return).
@@ -14941,7 +15190,8 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 {
     char* xres;
 
-    cnt_inc(&descP->readByteCnt, read);
+    // cnt_inc(&descP->readByteCnt, read);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
 
     if (descP->rNum > 0) {
 
@@ -14950,7 +15200,8 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 
             descP->rNumCnt = 0;
 
-            cnt_inc(&descP->readPkgCnt, 1);
+            // cnt_inc(&descP->readPkgCnt, 1);
+            SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
 
             recv_update_current_reader(env, descP, sockRef);
 
@@ -14998,8 +15249,10 @@ ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
 {
     ERL_NIF_TERM data;
 
-    cnt_inc(&descP->readPkgCnt,  1);
-    cnt_inc(&descP->readByteCnt, read);
+    // cnt_inc(&descP->readPkgCnt,  1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+    // cnt_inc(&descP->readByteCnt, read);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
 
     recv_update_current_reader(env, descP, sockRef);
 
@@ -15036,6 +15289,10 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
 
         SSDBG( descP, ("SOCKET", "recv_check_fail -> closed\r\n") );
 
+        // This is a bit overkill (to count here), but just in case...
+        // cnt_inc(&descP->readFails, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+
         res = recv_check_fail_closed(env, descP, sockRef, recvRef);
 
     } else if ((saveErrno == ERRNO_BLOCK) ||
@@ -15049,6 +15306,9 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
 
         SSDBG( descP, ("SOCKET", "recv_check_fail -> errno: %d\r\n",
                        saveErrno) );
+
+        // cnt_inc(&descP->readFails, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
     }
@@ -15213,8 +15473,10 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
     ERL_NIF_TERM data;
 
     descP->rNumCnt = 0;
-    cnt_inc(&descP->readPkgCnt,  1);
-    cnt_inc(&descP->readByteCnt, read);
+    // cnt_inc(&descP->readPkgCnt,  1);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+    // cnt_inc(&descP->readByteCnt, read);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
 
     recv_update_current_reader(env, descP, sockRef);
 
@@ -15257,7 +15519,8 @@ ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
     data = MKBIN(env, bufP);
     data = MKSBIN(env, data, 0, read);
 
-    cnt_inc(&descP->readByteCnt, read);
+    // cnt_inc(&descP->readByteCnt, read);
+    SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
 
     /* SELECT for more data */
 
@@ -15344,6 +15607,12 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
             data = MKSBIN(env, data, 0, read);
         }
 
+        // cnt_inc(&descP->readPkgCnt,  1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+        // cnt_inc(&descP->readByteCnt, read);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                     &descP->readByteCnt, read);
+
         recv_update_current_reader(env, descP, sockRef);
         
         res = esock_make_ok2(env, MKT2(env, eSockAddr, data));
@@ -15401,6 +15670,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
          * *We* do never actually try to read 0 bytes from a stream socket!
          */
 
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
 
@@ -15471,6 +15741,21 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
                 "recvmsg_check_result -> "
                 "(msghdr) encode failed: %s\r\n", xres) );
 
+        /* So this is a bit strange. We did "successfully" read 'read' bytes,
+         * but then we fail to process the message header. So what counters
+         * shall we increment?
+         *    Only failure?
+         *    Or only success (pkg and byte), since the read was "ok" (or was it?)
+         *    Or all of them?
+         *
+         * For now, we increment all three...
+         */
+         
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                     &descP->readByteCnt, read);
+
         recv_update_current_reader(env, descP, sockRef);
 
         FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
@@ -15481,6 +15766,10 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET", "recvmsg_check_result -> (msghdr) encode ok\r\n") );
+
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+        SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                     &descP->readByteCnt, read);
 
         recv_update_current_reader(env, descP, sockRef);
 
@@ -17196,6 +17485,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->readByteCnt    = 0;
         descP->readTries      = 0;
         descP->readWaits      = 0;
+        descP->readFails      = 0;
 
         sprintf(buf, "esock[acc,%d]", sock);
         descP->accMtx           = MCREATE(buf);
@@ -17797,6 +18087,25 @@ size_t my_strnlen(const char *s, size_t maxlen)
 #endif
 
 
+/* Send an counter wrap message to the controlling process:
+ * A message in the form:
+ *
+ *     {'$socket', Socket, counter_wrap, Counter :: atom()}
+ *
+ * This message will only be sent if the iow (Inform On Wrap) is TRUE.
+ */
+static
+char* esock_send_wrap_msg(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     sockRef,
+                          ERL_NIF_TERM     cnt)
+{
+    ERL_NIF_TERM msg = mk_wrap_msg(env, sockRef, cnt);
+    
+    return esock_send_msg(env, &descP->ctrlPid, msg, NULL);
+}
+
+
 /* Send an close message to the specified process:
  * A message in the form:
  *
@@ -17891,6 +18200,22 @@ ERL_NIF_TERM mk_abort_msg(ErlNifEnv*   env,
     ERL_NIF_TERM info = MKT2(env, opRef, reason);
     
     return mk_socket_msg(env, sockRef, esock_atom_abort, info);
+}
+
+
+/* *** mk_wrap_msg ***
+ *
+ * Construct a counter wrap (socket) message. It has the form: 
+ *
+ *         {'$socket', Socket, counter_wrap, Counter}
+ *
+ */
+static
+ERL_NIF_TERM mk_wrap_msg(ErlNifEnv*   env,
+                         ERL_NIF_TERM sockRef,
+                         ERL_NIF_TERM cnt)
+{
+    return mk_socket_msg(env, sockRef, atom_counter_wrap, cnt);
 }
 
 
@@ -19191,10 +19516,13 @@ ErlNifFunc socket_funcs[] =
 {
     // Some utility and support functions
     {"nif_info",                0, nif_info, 0},
+    {"nif_info",                1, nif_info, 0},
     {"nif_supports",            1, nif_supports, 0},
     {"nif_command",             1, nif_command, 0},
 
     // The proper "socket" interface
+    // nif_open/1 is (supposed to be) used when we already have a file descriptor
+    // {"nif_open",                1, nif_open, 0},
     {"nif_open",                4, nif_open, 0},
     {"nif_bind",                2, nif_bind, 0},
     {"nif_connect",             2, nif_connect, 0},
