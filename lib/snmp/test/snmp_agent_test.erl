@@ -557,6 +557,8 @@ init_per_suite(Config0) when is_list(Config0) ->
 
     Config3 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2],
 
+    snmp_test_global_sys_monitor:start(),
+    snmp_test_sys_monitor:start(), % We need one on this node also
     snmp_test_mgr_counter_server:start(), 
 
     p("init_per_suite -> end when"
@@ -580,6 +582,8 @@ end_per_suite(Config) when is_list(Config) ->
     	    p("end_per_suite -> failed stopping counter server"
 	      "~n      Reason: ~p", [Reason])
     end,
+    snmp_test_sys_monitor:stop(),
+    snmp_test_global_sys_monitor:stop(),
 
     p("end_per_suite -> end when"
       "~n      Nodes:  ~p", [erlang:nodes()]),
@@ -768,6 +772,8 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 
     Result = init_per_testcase1(Case, Config),
 
+    snmp_test_global_sys_monitor:reset_events(),
+
     p("init_per_testcase -> done when"
       "~n      Result: ~p"
       "~n      Nodes:  ~p", [Result, erlang:nodes()]),
@@ -817,6 +823,9 @@ end_per_testcase(Case, Config) when is_list(Config) ->
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
     display_log(Config),
+
+    p("system events during test: "
+      "~n   ~p", [snmp_test_global_sys_monitor:events()]),
     
     Result = end_per_testcase1(Case, Config),
 
@@ -1654,7 +1663,7 @@ create_local_db_dir(Config) when is_list(Config) ->
     Name = list_to_atom(atom_to_list(create_local_db_dir)
                         ++"-"++As++"-"++Bs++"-"++Cs),
     Pa = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = ?t:start_node(Name, slave, [{args, "-pa "++Pa}]),
+    {ok,Node} = ?t:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
 
     %% first start with a nonexisting DbDir
     Fun1 = fun() ->
@@ -6584,7 +6593,6 @@ otp_4394_test() ->
     gn([[1,1]]),
     Res = 
 	case snmp_test_mgr:expect(1, [{[sysDescr,0],  "Erlang SNMP agent"}]) of
-	    %% {error, 1, {"?",[]}, {"~w",[timeout]}}
 	    {error, 1, _, {_, [timeout]}} ->
 		?DBG("otp_4394_test -> expected result: timeout", []),
 		ok;

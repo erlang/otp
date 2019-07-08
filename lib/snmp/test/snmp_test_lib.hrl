@@ -92,6 +92,7 @@
 -define(LNODES(),           snmp_test_lib:local_nodes()).
 -define(NODES(H),           snmp_test_lib:nodes_on(H)).
 -define(START_NODE(N,A),    snmp_test_lib:start_node(N,A)).
+-define(STOP_NODE(N),       snmp_test_lib:stop_node(N)).
 
 
 %% - Application and Crypto utility macros - 
