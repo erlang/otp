@@ -557,32 +557,21 @@ trans_fun([{move,Src,Dst}|Instructions], Env) ->
   Dst1 = mk_var(Dst),
   Src1 = trans_arg(Src),
   [hipe_icode:mk_move(Dst1,Src1) | trans_fun(Instructions,Env)];
-%%--- catch --- ITS PROCESSING IS POSTPONED
-trans_fun([{'catch',N,{_,EndLabel}}|Instructions], Env) ->
-  NewContLbl = mk_label(new),
-  [{'catch',N,EndLabel},NewContLbl | trans_fun(Instructions,Env)];
-%%--- catch_end --- ITS PROCESSING IS POSTPONED
-trans_fun([{catch_end,_N}=I|Instructions], Env) ->
-  [I | trans_fun(Instructions,Env)];
-%%--- try --- ITS PROCESSING IS POSTPONED
-trans_fun([{'try',N,{_,EndLabel}}|Instructions], Env) ->
-  NewContLbl = mk_label(new),
-  [{'try',N,EndLabel},NewContLbl | trans_fun(Instructions,Env)];
-%%--- try_end ---
-trans_fun([{try_end,_N}|Instructions], Env) ->
-  [hipe_icode:mk_end_try() | trans_fun(Instructions,Env)];
-%%--- try_case --- ITS PROCESSING IS POSTPONED
-trans_fun([{try_case,_N}=I|Instructions], Env) ->
-  [I | trans_fun(Instructions,Env)];
-%%--- try_case_end ---
-trans_fun([{try_case_end,Arg}|Instructions], Env) ->
-  BadArg = trans_arg(Arg),
-  ErrVar = mk_var(new),
-  Vs = [mk_var(new)],
-  Atom = hipe_icode:mk_move(ErrVar,hipe_icode:mk_const(try_clause)),
-  Tuple = hipe_icode:mk_primop(Vs,mktuple,[ErrVar,BadArg]),
-  Fail = hipe_icode:mk_fail(Vs,error),
-  [Atom,Tuple,Fail | trans_fun(Instructions,Env)];
+%%
+%% try/catch -- THESE ARE KNOWN TO MISCOMPILE, SEE OTP-15949
+%%
+trans_fun([{'catch'=Name,_,_}|_], _Env) ->
+  nyi(Name);
+trans_fun([{catch_end=Name,_}|_], _Env) ->
+  nyi(Name);
+trans_fun([{'try'=Name,_,_}|_], _Env) ->
+  nyi(Name);
+trans_fun([{try_end=Name,_}|_], _Env) ->
+  nyi(Name);
+trans_fun([{try_case=Name,_}|_], _Env) ->
+  nyi(Name);
+trans_fun([{try_case_end=Name,_}|_], _Env) ->
+  nyi(Name);
 %%--- raise ---
 trans_fun([{raise,{f,0},[Reg1,Reg2],{x,0}}|Instructions], Env) ->
   V1 = trans_arg(Reg1),
