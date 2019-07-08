@@ -86,6 +86,7 @@
 
          %% *** API async ***
          api_a_connect_tcp4/1,
+         api_a_connect_tcp6/1,
          api_a_sendto_and_recvfrom_udp4/1,
          api_a_sendmsg_and_recvmsg_udp4/1,
          api_a_send_and_recv_tcp4/1,
@@ -709,6 +710,7 @@ api_basic_cases() ->
 api_async_cases() ->
     [
      api_a_connect_tcp4,
+     api_a_connect_tcp6,
      api_a_sendto_and_recvfrom_udp4,
      api_a_sendmsg_and_recvmsg_udp4,
      api_a_send_and_recv_tcp4,
@@ -2776,7 +2778,7 @@ api_b_send_and_recv_tcp(InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Basically establish a TCP connection via an async connect. 
+%% Basically establish a TCP connection via an async connect. IPv4.
 
 api_a_connect_tcp4(suite) ->
     [];
@@ -2786,21 +2788,44 @@ api_a_connect_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_a_connect_tcp4,
            fun() ->
-                   Connect = fun(Sock, SockAddr) ->
-                                     socket:connect(Sock, SockAddr, nowait)
-                             end,
-                   Send = fun(Sock, Data) ->
-                                  socket:send(Sock, Data)
-                          end,
-                   Recv = fun(Sock) ->
-                                  socket:recv(Sock)
-                          end,
-                   InitState = #{domain  => inet,
-                                 connect => Connect,
-                                 send    => Send,
-                                 recv    => Recv},
-                   ok = api_a_connect_tcp(InitState)
+                   ok = api_a_connect_tcpD(inet)
            end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically establish a TCP connection via an async connect. IPv6.
+
+api_a_connect_tcp6(suite) ->
+    [];
+api_a_connect_tcp6(doc) ->
+    [];
+api_a_connect_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_connect_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   ok = api_a_connect_tcpD(inet6)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_a_connect_tcpD(Domain) ->
+    Connect = fun(Sock, SockAddr) ->
+                      socket:connect(Sock, SockAddr, nowait)
+              end,
+    Send = fun(Sock, Data) ->
+                   socket:send(Sock, Data)
+           end,
+    Recv = fun(Sock) ->
+                   socket:recv(Sock)
+           end,
+    InitState = #{domain  => Domain,
+                  connect => Connect,
+                  send    => Send,
+                  recv    => Recv},
+    api_a_connect_tcp(InitState).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
