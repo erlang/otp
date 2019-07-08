@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -342,9 +342,9 @@ validate_loop({Cont, Terms, BadBytes}, Log, Validator, PrevTS, PrevSN) ->
     ?vtrace("validate_loop -> "
 	    "~n   NextTS: ~p"
 	    "~n   NextSN: ~p", [NextTS, NextSN]),
-    validate_loop(disk_log:chunk(Log, Cont), Log, Validator, NextTS, NextSN);
-validate_loop(Error, _Log, _Write, _PrevTS, _PrevSN) ->
-    Error.
+    validate_loop(disk_log:chunk(Log, Cont), Log, Validator, NextTS, NextSN).
+%% validate_loop(Error, _Log, _Write, _PrevTS, _PrevSN) ->
+%%     Error.
     
 
 %% -- log ---
@@ -924,14 +924,7 @@ f(TimeStamp, SeqNo,
 	end,
     format_tab(
       "~w ~s - ~s [~s]~s ~w\n~s",
-      [Class, AddrStr, HdrStr, TimeStamp, SeqNo, Vsn, Str]);
-f(TimeStamp, SeqNo, Msg, AddrStr, _Mib) ->
-    io:format("<ERROR> Unexpected data: "
-              "~n   TimeStamp: ~s~s"
-              "~n   Msg:       ~p"
-              "~n   AddrStr:   ~p"
-              "~n", [TimeStamp, SeqNo, Msg, AddrStr]),
-    throw({error, 'invalid-message'}).
+      [Class, AddrStr, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).

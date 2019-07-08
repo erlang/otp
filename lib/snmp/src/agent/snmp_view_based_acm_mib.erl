@@ -654,7 +654,7 @@ vacmAccessTable(is_set_ok, RowIndex, Cols0) ->
 		{{Col, ?'RowStatus_createAndWait'}, _} ->
 		    %% Row already exists => inconsistentValue
 		    {inconsistentValue, Col};
-		{value, {_Col, ?'RowStatus_destroy'}} ->
+		{{_Col, ?'RowStatus_destroy'}, _} ->
 		    %% always ok!
 		    {noError, 0};
 		{_, false} ->
@@ -1115,9 +1115,7 @@ externalize_next(Name, Result) when is_list(Result) ->
     F = fun({[Col | _] = Idx, Val}) -> {Idx, externalize(Name, Col, Val)};
 	   (Other)                  -> Other
 	end,
-    [F(R) || R <- Result];
-externalize_next(_, Result) ->
-    Result.
+    [F(R) || R <- Result].
 
 
 externalize_get(Name, Cols, Result) when is_list(Result) ->
@@ -1127,9 +1125,7 @@ externalize_get(Name, Cols, Result) when is_list(Result) ->
 	end,
     %% Merge column numbers and return values. there must be as much
     %% return values as there are columns requested. And then patch all values
-    [F(R) || R <- lists:zip(Cols, Result)];
-externalize_get(_, _, Result) ->
-    Result. 
+    [F(R) || R <- lists:zip(Cols, Result)]. 
 
 externalize(vacmViewTreeFamilyTable, ?vacmViewTreeFamilyMask, Val) ->
     imask2emask(Val);

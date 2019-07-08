@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -356,6 +356,7 @@ read_config_file(Dir, File, Order, Check) ->
 
 %% ---- config file utility functions ----
 
+-dialyzer({nowarn_function, check_ok/1}). % Future compat
 check_ok(ok) ->
     ok;
 check_ok({ok, _}) ->

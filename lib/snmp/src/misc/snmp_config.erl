@@ -96,16 +96,14 @@
 	]).
 
 
--export_type([void/0,
-	      order_config_entry_function/0,
+-export_type([
+              order_config_entry_function/0,
 	      check_config_entry_function/0,
-	      write_config_function/0]).
+	      write_config_function/0
+             ]).
 
 
 %%----------------------------------------------------------------------
-
--type void() :: term(). % Any value - ignored
-
 
 %%----------------------------------------------------------------------
 %% Handy SNMP configuration
@@ -1106,6 +1104,7 @@ verify_sec_type(ST)         -> {error, "invalid security type: " ++ ST}.
 verify_address(A) ->
     verify_address(A, snmpUDPDomain).
 
+-dialyzer({nowarn_function, verify_address/2}). % Future compat
 verify_address(A, snmpUDPDomain = _Domain) ->
     do_verify_address(A, inet);
 verify_address(A, transportDomainUdpIpv4 = _Domain) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,6 +81,34 @@
  	 read_vacm_config/1
 	]).
 
+
+
+-export_type([
+              usm_entry/0
+             ]).
+
+-type usm_entry() :: {
+                      EngineID    :: string(),
+                      UserName    :: string(),
+                      SecName     :: string(),
+                      Clone       :: zeroDotZero | [non_neg_integer()],
+                      AuthP       :: usmNoAuthProtocol |
+                                     usmHMACMD5AuthProtocol |
+                                     usmHMACSHAAuthProtocol,
+                      AuthKeyC    :: string(),
+                      OwnAuthKeyC :: string(),
+                      PrivP       :: usmNoPrivProtocol |
+                                     usmDESPrivProtocol |
+                                     usmAesCfb128Protocol,
+                      PrivKeyC    :: string(),
+                      OwnPrivKeyC :: string(),
+                      Public      :: string(),
+                      %% Size 16 for usmHMACMD5AuthProtocol
+                      %% Size 20 for usmHMACSHAAuthProtocol
+                      AuthKey     :: [non_neg_integer()],
+                      %% Size 16 for usmDESPrivProtocol | usmAesCfb128Protocol
+                      PrivKey     :: [non_neg_integer()]
+                     }.
 
 
 %%
