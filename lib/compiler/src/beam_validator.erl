@@ -461,6 +461,9 @@ valfun_1(remove_message, Vst) ->
     %% The message term is no longer fragile. It can be used
     %% without restrictions.
     remove_fragility(Vst);
+valfun_1({'%', {type_info, _Reg, none}}, Vst) ->
+    %% Unreachable code, typically after a call that never returns.
+    kill_state(Vst);
 valfun_1({'%', {type_info, Reg, #t_bs_context{}=Type}}, Vst) ->
     %% This is a gross hack, but we'll be rid of it once we have proper union
     %% types.
@@ -1219,7 +1222,7 @@ call(Name, Live, #vst{current=St0}=Vst0) ->
     verify_call_args(Name, Live, Vst0),
     verify_y_init(Vst0),
     case call_types(Name, Live, Vst0) of
-        {RetType, _, _} ->
+        {RetType, _, _} when RetType =/= none ->
             %% Type is never 'none' because it has been handled earlier.
             St = St0#st{f=init_fregs()},
             Vst = prune_x_regs(0, Vst0#vst{current=St}),
