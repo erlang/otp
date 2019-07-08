@@ -42,6 +42,8 @@ SUITE_MODULES = \
 	snmp_manager_test
 
 TEST_UTIL_MODULES = \
+	snmp_test_global_sys_monitor \
+	snmp_test_sys_monitor \
 	snmp_test_lib \
 	snmp_test_manager \
 	snmp_test_mgr \

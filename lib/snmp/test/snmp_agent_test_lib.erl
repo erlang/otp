@@ -319,7 +319,7 @@ tc_try(N, M, F, A) ->
             await_tc_runner_done(Runner, OldFlag);
         pang ->
             ?EPRINT2("tc_try -> ~p *not* running~n", [N]),
-            exit({node_not_running, N})
+            skip({node_not_running, N})
     end.
 
 await_tc_runner_started(Runner, OldFlag) ->
@@ -332,7 +332,7 @@ await_tc_runner_started(Runner, OldFlag) ->
         {tc_runner_started, Runner} ->
             ?PRINT2("TC runner start acknowledged~n"),
             ok
-    after 10000 ->
+    after 10000 -> %% We should *really* not have to wait this long, but...
             trap_exit(OldFlag),
             unlink_and_flush_exit(Runner),
             RunnerInfo = process_info(Runner),
@@ -346,9 +346,31 @@ await_tc_runner_started(Runner, OldFlag) ->
 await_tc_runner_done(Runner, OldFlag) ->
     receive
         {'EXIT', Runner, Reason} ->
-            ?EPRINT2("TC runner failed: "
-                     "~n   ~p~n", [Reason]),
-            exit({tx_runner_failed, Reason});
+            %% This is not a normal (tc) failure (that is the clause below).
+            %% Instead the tc runner process crashed, for some reason. So
+            %% check if have got any system events, and if so, skip.
+            SysEvs = snmp_test_global_sys_monitor:events(),
+            if
+                (SysEvs =:= []) ->
+                    ?EPRINT2("TC runner failed: "
+                             "~n   ~p~n", [Reason]),
+                    exit({tx_runner_failed, Reason});
+                true ->
+                    ?EPRINT2("TC runner failed when we got system events: "
+                             "~n   Reason:     ~p"
+                             "~n   Sys Events: ~p"
+                             "~n", [Reason, SysEvs]),
+                    skip([{reason, Reason}, {system_events, SysEvs}])
+            end;
+	{tc_runner_done, Runner, {'EXIT', {skip, Reason}}, Loc} ->
+	    ?PRINT2("call -> done with skip: "
+                    "~n   Reason: ~p"
+                    "~n   Loc:    ~p"
+                    "~n", [Reason, Loc]),
+            trap_exit(OldFlag),
+            unlink_and_flush_exit(Runner),
+	    put(test_server_loc, Loc),
+	    skip(Reason);
 	{tc_runner_done, Runner, {'EXIT', Rn}, Loc} ->
 	    ?PRINT2("call -> done with exit: "
                     "~n   Rn:  ~p"
@@ -367,6 +389,8 @@ await_tc_runner_done(Runner, OldFlag) ->
 	    case Ret of
 		{error, Reason} ->
 		    exit(Reason);
+		{skip, Reason} ->
+		    skip(Reason);
 		OK ->
 		    OK
 	    end
@@ -451,9 +475,30 @@ tc_run(Mod, Func, Args, Opts) ->
 			      {mibs,                mibs(StdM, M)}]) of
 	{ok, _Pid} ->
 	    case (catch apply(Mod, Func, Args)) of
-		{'EXIT', Reason} ->
+		{'EXIT', {skip, Reason}} ->
+                    ?EPRINT2("apply skip detected: "
+                             "~n   ~p", [Reason]),
 		    (catch snmp_test_mgr:stop()),
-		    ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
+		    ?SKIP(Reason);
+		{'EXIT', Reason} ->
+                    %% We have hosts (mostly *very* slooow VMs) that
+                    %% can timeout anything. Since we are basically
+                    %% testing communication, we therefor must check
+                    %% for system events at every failure. Grrr!
+                    SysEvs = snmp_test_global_sys_monitor:events(),
+		    (catch snmp_test_mgr:stop()),
+                    if
+                        (SysEvs =:= []) ->
+                            ?EPRINT2("TC runner failed: "
+                                     "~n   ~p~n", [Reason]),
+                            ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
+                        true ->
+                            ?EPRINT2("apply exit catched when we got system events: "
+                                     "~n   Reason:     ~p"
+                                     "~n   Sys Events: ~p"
+                                     "~n", [Reason, SysEvs]),
+                            ?SKIP([{reason, Reason}, {system_events, SysEvs}])
+                    end;
 		Res ->
 		    (catch snmp_test_mgr:stop()),
 		    Res
@@ -982,10 +1027,22 @@ expect2(Mod, Line, F) ->
 	
 %% ----------------------------------------------------------------------
 
-get_timeout() ->
-    get_timeout(os:type()).
+-define(BASE_REQ_TIMEOUT, 3500).
 
-get_timeout(_)       -> 3500.
+get_timeout() ->
+    %% Try to figure out how "fast" a machine is.
+    %% We assume that the number of schedulers
+    %% (which depends on the number of core:s)
+    %% effect the performance of the host...
+    %% This is obviously not enough. The network
+    %% also matterns, clock freq or the CPU, ...
+    %% But its better than what we had before...
+    case erlang:system_info(schedulers) of
+        N when is_integer(N) ->
+            ?BASE_REQ_TIMEOUT + timer:seconds(10 div N);
+        _ ->
+            ?BASE_REQ_TIMEOUT
+    end.
 
 receive_pdu(To) ->
     receive
@@ -1158,6 +1215,18 @@ do_expect(trap, Enterp, Generic, Specific, ExpVBs, To) ->
 		     {PureE, Generic, Specific, ExpVBs}, 
 		     {Ent2, G2, Spec2, VBs}}};
 
+	{error, timeout} = Error ->
+            SysEvs = snmp_test_global_sys_monitor:events(),
+	    io_format_expect("[expecting trap] got timeout when system events:"
+                             "~n   ~p", [SysEvs]),
+            if
+                (SysEvs =:= []) ->
+                    Error;
+                true ->
+                    skip({system_events, SysEvs})
+            end;
+
+
 	Error ->
 	    Error
     end.
@@ -1259,7 +1328,7 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	    io_format_expect("received unexpected pdu with (11) "
                              "~n   Type:         ~p"
                              "~n   ReqId:        ~p"
-                             "~n   Errot status: ~p"
+                             "~n   Error status: ~p"
                              "~n   Error index:  ~p",
                              [Type2, ReqId, Err2, Idx2]),
 	    {error, 
@@ -1322,7 +1391,7 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	    io_format_expect("received unexpected pdu with (15) "
                              "~n   Type:         ~p"
                              "~n   ReqId:        ~p"
-                             "~n   Errot status: ~p"
+                             "~n   Error status: ~p"
                              "~n   Error index:  ~p"
                              "~n   Varbinds:     ~p",
                              [Type2, ReqId, Err2, Idx2, VBs2]),
@@ -1332,10 +1401,23 @@ do_expect2(Check, Type, Err, Idx, ExpVBs, To)
 	      {Type2, Err2, Idx2, VBs2}, 
 	      ReqId}};
 	
-	Error ->
-	    io_format_expect("received error (16):  "
+
+	{error, timeout} = Error ->
+            SysEvs = snmp_test_global_sys_monitor:events(),
+	    io_format_expect("got timeout (16) when system events:"
+                             "~n   ~p", [SysEvs]),
+            if
+                (SysEvs =:= []) ->
+                    Error;
+                true ->
+                    skip({system_events, SysEvs})
+            end;
+
+
+        Error ->
+            io_format_expect("received error (17):  "
                              "~n   Error: ~p", [Error]),
-	    Error
+            Error
     end.
 
 
@@ -1453,12 +1535,15 @@ start_node(Name) ->
 		      ""
 	      end,
     %% Do not use start_link!!! (the proc that calls this one is tmp)
-    ?DBG("start_node -> Args: ~p~n",[Args]),
-    A = Args ++ " -pa " ++ Pa,
+    ?DBG("start_node -> Args: ~p~n", [Args]),
+    A = Args ++ " -pa " ++ Pa ++ 
+        " -s " ++ atom_to_list(snmp_test_sys_monitor) ++ " start" ++ 
+        " -s global sync",
     case (catch ?START_NODE(Name, A)) of
 	{ok, Node} ->
 	    %% Tell the test_server to not clean up things it never started.
 	    ?DBG("start_node -> Node: ~p",[Node]),
+            global:sync(),
 	    {ok, Node};
 	Else  -> 
 	    ?ERR("start_node -> failed with(other): Else: ~p",[Else]),
@@ -1775,6 +1860,10 @@ rpc(Node, F, A) ->
 
 join(Dir, File) ->
     filename:join(Dir, File).
+
+
+skip(R) ->
+    exit({skip, R}).
 
 %% await_pdu(To) ->
 %%     await_response(To, pdu).

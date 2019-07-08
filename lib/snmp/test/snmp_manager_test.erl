@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -4841,7 +4841,7 @@ inform2(Config) when is_list(Config) ->
 			  "~n   ~p", [Addr]),
 			ok;
 		    {snmp_notification, inform2_tag1, {no_response, Addr}} ->
-			p("<ERROR> received expected \"no response\" "
+			e("Received unexpected \"no response\" "
 			  "notification from: "
 			  "~n   ~p", [Addr]),
 			{error, no_response}
@@ -4975,7 +4975,7 @@ inform3(Config) when is_list(Config) ->
 			  "~n   ~p", [Addr]),
 			ok;
 		    {snmp_notification, inform3_tag1, {got_response, Addr}} ->
-			p("<ERROR> received unexpected \"got response\" "
+			e("Received unexpected \"got response\" "
 			  "notification from: "
 			  "~n   ~p", 
 			  [Addr]),
@@ -5262,7 +5262,7 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 		    inform_swarm_collector(N, SentAckCnt, RecvCnt+1, RespCnt, 
 					   Timeout);
 		{Err, Idx, VBs} ->
-		    p("<ERROR> unexpected error status: "
+		    e("Unexpected error status: "
 		      "~n   Err: ~p"
 		      "~n   Idx: ~p"
 		      "~n   VBs: ~p", [Err, Idx, VBs]),
@@ -5281,7 +5281,7 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
 
 	%% The agent did not received ack from the manager in time 
 	{snmp_notification, inform2_tag1, {no_response, Addr}} ->
-	    p("<ERROR> received expected \"no response\" notification "
+	    e("Received expected \"no response\" notification "
 	      "from: "
 	      "~n   ~p", [Addr]),
 	    Reason = {no_response, Addr, {N, SentAckCnt, RecvCnt, RespCnt}},
@@ -5458,10 +5458,10 @@ command_handler([{No, Desc, Cmd}|Cmds]) ->
             p("command_handler -> ~w: ok",[No]),
             command_handler(Cmds);
         {error, Reason} ->
-            p("<ERROR> command_handler -> ~w error: ~n~p",[No, Reason]),
+            e("Command_handler -> ~w error: ~n~p",[No, Reason]),
             ?line ?FAIL({command_failed, No, Reason});
         Error ->
-            p("<ERROR> command_handler -> ~w unexpected: ~n~p",[No, Error]),
+            e("Command_handler -> ~w unexpected: ~n~p",[No, Error]),
             ?line ?FAIL({unexpected_command_result, No, Error})
     end.
 
@@ -6327,6 +6327,8 @@ start_manager_node() ->
     start_node(snmp_manager).
 
 start_node(Name) ->
+    start_node(Name, true).
+start_node(Name, Retry) ->
     Pa   = filename:dirname(code:which(?MODULE)),
     Args = case init:get_argument('CC_TEST') of
                {ok, [[]]} ->
@@ -6337,30 +6339,47 @@ start_node(Name) ->
                       ""
               end,
     A = Args ++ " -pa " ++ Pa,
-    case (catch ?START_NODE(Name, A)) of
+    try ?START_NODE(Name, A) of
 	{ok, Node} ->
 	    Node;
-	Else ->
-	    ?line ?FAIL(Else)
+	{error, timeout} ->
+            e("Failed starting node ~p: timeout", [Name]),
+	    ?line ?FAIL({error_starting_node, Name, timeout});
+	{error, {already_running, Node}} when (Retry =:= true) ->
+            %% Ouch
+            %% Either we previously failed to (properly) stop the node
+            %% or it was a failed start, that reported failure (for instance
+            %% timeout) but actually succeeded. Regardless, we don't know
+            %% the state of this node, so (try) stop it and then (re-) try
+            %% start again.
+            e("Failed starting node ~p: Already Running - try stop", [Node]),
+            case ?STOP_NODE(Node) of
+                true ->
+                    p("Successfully stopped old node ~p", [Node]),
+                    start_node(Name, false);
+                false ->
+                    e("Failed stop old node ~p", [Node]),
+                    ?line ?FAIL({error_starting_node, Node, Retry, already_running})
+            end;
+	{error, {already_running, Node}} ->
+            e("Failed starting node ~p: Already Running", [Node]),
+            ?line ?FAIL({error_starting_node, Node, Retry, already_running});
+	{error, Reason} ->
+            e("Failed starting node ~p: ~p", [Name, Reason]),
+	    ?line ?FAIL({error_starting_node, Name, Reason})
+    catch
+        exit:{suite_failed, Reason} ->
+            e("(suite) Failed starting node ~p: ~p", [Name, Reason]),
+            ?line ?FAIL({failed_starting_node, Name, Reason})
     end.
 
-stop_node(Node) ->
-    rpc:cast(Node, erlang, halt, []),
-    await_stopped(Node, 5).
 
-await_stopped(Node, 0) ->
-    p("await_stopped -> ~p still exist: giving up", [Node]),
-    ok;
-await_stopped(Node, N) ->
-    Nodes = erlang:nodes(),
-    case lists:member(Node, Nodes) of
-	true ->
-	    p("await_stopped -> ~p still exist: ~w", [Node, N]),
-	    ?SLEEP(1000),
-	    await_stopped(Node, N-1);
-	false ->
-	    p("await_stopped -> ~p gone: ~w", [Node, N]),
-	    ok
+stop_node(Node) ->
+    case ?STOP_NODE(Node) of
+        true ->
+            ok;
+        false ->
+            ?line ?FAIL({failed_stop_node, Node})
     end.
     
  
@@ -6605,12 +6624,15 @@ rcall(Node, Mod, Func, Args) ->
 
 %% ------
 
+e(F, A) ->
+    p("<ERROR> " ++ F, A).
+
 p(F) ->
     p(F, []).
  
 p(F, A) ->
     p(get(tname), F, A).
- 
+
 p(TName, F, A) ->
     io:format("*** [~w][~s] ***"
               "~n   " ++ F ++ "~n", [TName, formated_timestamp()|A]).

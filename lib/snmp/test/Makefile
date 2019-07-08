@@ -180,7 +180,7 @@ emakebuild: $(EMAKEFILE)
 targets: mib $(EMAKEFILE) 
 	erl -make
 
-old_targets: $(TARGET_FILES) $(TEST_SERVER_TARGETS)
+old_targets: mib $(TARGET_FILES) $(TEST_SERVER_TARGETS)
 
 $(EMAKEFILE):  Makefile
 	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' > $(EMAKEFILE)
