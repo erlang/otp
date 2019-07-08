@@ -1653,4 +1653,4 @@ LOCAL_ERROR_REASON_ATOMS
     return !net;
 }
 
-ERL_NIF_INIT(net, net_funcs, on_load, NULL, NULL, NULL)
+ERL_NIF_INIT(prim_net, net_funcs, on_load, NULL, NULL, NULL)

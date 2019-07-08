@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
--module(net).
+-module(prim_net).
 
 -compile(no_native).
 
@@ -31,21 +31,13 @@
 
 -export([
          gethostname/0,
-         getnameinfo/1, getnameinfo/2,
-         getaddrinfo/1, getaddrinfo/2,
+         getnameinfo/2,
+         getaddrinfo/2,
 
          if_name2index/1,
          if_index2name/1,
          if_names/0
         ]).
-
-%% Deprecated functions from the "old" net module
--export([call/4,
-	 cast/4,
-	 broadcast/3,
-	 ping/1,
-	 relay/1,
-	 sleep/1]).
 
 -export_type([
               address_info/0,
@@ -58,13 +50,6 @@
               network_interface_name/0,
               network_interface_index/0
              ]).
-
--deprecated({call,      4, eventually}).
--deprecated({cast,      4, eventually}).
--deprecated({broadcast, 3, eventually}).
--deprecated({ping,      1, eventually}).
--deprecated({relay,     1, eventually}).
--deprecated({sleep,     1, eventually}).
 
 
 -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
@@ -88,21 +73,6 @@
 
 %% ===========================================================================
 %%
-%% D E P R E C A T E D   F U N C T I O N S
-%%
-%% ===========================================================================
-
-call(N,M,F,A) -> rpc:call(N,M,F,A).
-cast(N,M,F,A) -> rpc:cast(N,M,F,A).
-broadcast(M,F,A) -> rpc:eval_everywhere(M,F,A).
-ping(Node) -> net_adm:ping(Node).
-sleep(T) -> receive after T -> ok end.
-relay(X) -> slave:relay(X).
-
-
-
-%% ===========================================================================
-%%
 %% Administrative and utility API
 %%
 %% ===========================================================================
@@ -117,7 +87,7 @@ on_load() ->
       Extra :: map().
 
 on_load(Extra) ->
-    ok = erlang:load_nif(atom_to_list(?MODULE), Extra).
+    ok = erlang:load_nif(atom_to_list(net), Extra).
 
 
 -spec info() -> list().
@@ -159,14 +129,6 @@ gethostname() ->
 %%
 %%
 
--spec getnameinfo(SockAddr) -> {ok, Info} | {error, Reason} when
-      SockAddr :: socket:sockaddr(),
-      Info     :: name_info(),
-      Reason   :: term().
-
-getnameinfo(SockAddr) ->
-    getnameinfo(SockAddr, undefined).
-
 -spec getnameinfo(SockAddr, Flags) -> {ok, Info} | {error, Reason} when
       SockAddr :: socket:sockaddr(),
       Flags    :: name_info_flags() | undefined,
@@ -178,43 +140,17 @@ getnameinfo(SockAddr, [] = _Flags) ->
 getnameinfo(#{family := Fam, addr := _Addr} = SockAddr, Flags)
   when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso 
        (is_list(Flags) orelse (Flags =:= undefined)) ->
-    nif_getnameinfo((catch ensure_sockaddr(SockAddr)), Flags);
+    nif_getnameinfo(socket:ensure_sockaddr(SockAddr), Flags);
 getnameinfo(#{family := Fam, path := _Path} = SockAddr, Flags)
   when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
     nif_getnameinfo(SockAddr, Flags).
 
-
-%% This function is intended to "handle" the case when the user
-%% has built their (OTP) system with "--disable-esock".
-%% That means the socket module does not exist. This is not really
-%% a problem since the nif_getnameinfo won't work either (since
-%% the nif file is not part of the system). The result of calling
-%% getnameinfo will be a undef exception (erlang:nif_error(undef)).
-%%
-%% The only functions in this module that actually work in this case
-%% (--disable-esock) is the depricated stuff (call, cast, ...).
-%%
-ensure_sockaddr(SockAddr) ->
-    try socket:ensure_sockaddr(SockAddr)
-    catch
-        error:undef:_ ->
-            undefined
-    end.
 
 %% ===========================================================================
 %%
 %% getaddrinfo - Network address and service translation
 %%
 %% There is also a "hint" argument that we "at some point" should implement.
-
--spec getaddrinfo(Host) -> {ok, Info} | {error, Reason} when
-      Host    :: string(),
-      Info    :: [address_info()],
-      Reason  :: term().
-
-getaddrinfo(Host) when is_list(Host) ->
-    getaddrinfo(Host, undefined).
-
 
 -spec getaddrinfo(Host, undefined) -> {ok, Info} | {error, Reason} when
       Host    :: string(),

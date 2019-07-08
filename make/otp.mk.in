@@ -110,6 +110,10 @@ ifdef BOOTSTRAP
 else
   ERL_COMPILE_FLAGS += +debug_info
 endif
+ifeq ($(USE_ESOCK),yes)
+ERL_COMPILE_FLAGS += -DUSE_ESOCK=true
+endif
+
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)
 ERL = erl -boot start_clean
