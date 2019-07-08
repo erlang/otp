@@ -102,6 +102,9 @@ typedef unsigned int BOOLEAN_T;
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * "Global" atoms
+ *
+ * Note that when an (global) atom is added here, it must also be added
+ * in the socket_nif.c file!
  */
 
 #define GLOBAL_ATOM_DEFS                       \

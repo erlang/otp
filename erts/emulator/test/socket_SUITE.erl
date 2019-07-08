@@ -171,6 +171,15 @@
          sc_rs_recvmsg_send_shutdown_receive_tcpL/1,
 
          %% *** Traffic ***
+         traffic_send_and_recv_counters_tcp4/1,
+         traffic_send_and_recv_counters_tcpL/1,
+         traffic_sendmsg_and_recvmsg_counters_tcp4/1,
+         traffic_sendmsg_and_recvmsg_counters_tcpL/1,
+         traffic_sendto_and_recvfrom_counters_udp4/1,
+         traffic_sendto_and_recvfrom_counters_udpL/1,
+         traffic_sendmsg_and_recvmsg_counters_udp4/1,
+         traffic_sendmsg_and_recvmsg_counters_udpL/1,
+
          traffic_send_and_recv_chunks_tcp4/1,
          traffic_send_and_recv_chunks_tcp6/1,
          traffic_send_and_recv_chunks_tcpL/1,
@@ -560,10 +569,10 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    Groups = [{api,            "ESOCK_TEST_API",        include},
-	      {socket_closure, "ESOCK_TEST_SOCK_CLOSE", include},
-	      {traffic,        "ESOCK_TEST_TRAFFIC",    include},
-	      {ttest,          "ESOCK_TEST_TTEST",      exclude}],
+    Groups = [{api,          "ESOCK_TEST_API",        include},
+	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
+	      {traffic,      "ESOCK_TEST_TRAFFIC",    include},
+	      {ttest,        "ESOCK_TEST_TTEST",      exclude}],
     [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
 
 use_group(Group, Env, Default) ->
@@ -593,12 +602,13 @@ groups() ->
      {api_options_otp,            [], api_options_otp_cases()},
      {api_options_ip,             [], api_options_ip_cases()},
      {api_op_with_timeout,        [], api_op_with_timeout_cases()},
-     {socket_closure,             [], socket_closure_cases()},
+     {socket_close,               [], socket_close_cases()},
      {sc_ctrl_proc_exit,          [], sc_cp_exit_cases()},
      {sc_local_close,             [], sc_lc_cases()},
      {sc_remote_close,            [], sc_rc_cases()},
      {sc_remote_shutdown,         [], sc_rs_cases()},
      {traffic,                    [], traffic_cases()},
+     {traffic_counters,           [], traffic_counters_cases()},
      {traffic_chunks,             [], traffic_chunks_cases()},
      {traffic_pp_send_recv,       [], traffic_pp_send_recv_cases()},
      {traffic_pp_sendto_recvfrom, [], traffic_pp_sendto_recvfrom_cases()},
@@ -757,7 +767,7 @@ api_op_with_timeout_cases() ->
 
 %% These cases tests what happens when the socket is closed/shutdown,
 %% locally or remotely.
-socket_closure_cases() ->
+socket_close_cases() ->
     [
      {group, sc_ctrl_proc_exit},
      {group, sc_local_close},
@@ -828,10 +838,23 @@ sc_rs_cases() ->
 
 traffic_cases() ->
     [
+     {group, traffic_counters},
      {group, traffic_chunks},
      {group, traffic_pp_send_recv},
      {group, traffic_pp_sendto_recvfrom},
      {group, traffic_pp_sendmsg_recvmsg}
+    ].
+
+traffic_counters_cases() ->
+    [
+     traffic_send_and_recv_counters_tcp4,
+     traffic_send_and_recv_counters_tcpL,
+     traffic_sendmsg_and_recvmsg_counters_tcp4,
+     traffic_sendmsg_and_recvmsg_counters_tcpL,
+     traffic_sendto_and_recvfrom_counters_udp4,
+     traffic_sendto_and_recvfrom_counters_udpL,
+     traffic_sendmsg_and_recvmsg_counters_udp4,
+     traffic_sendmsg_and_recvmsg_counters_udpL
     ].
 
 traffic_chunks_cases() ->
@@ -13892,6 +13915,1893 @@ sc_rs_recvmsg_send_shutdown_receive_tcpL(_Config) when is_list(_Config) ->
                                  data   => MsgData},
                    ok = sc_rs_send_shutdown_receive_tcp(InitState)
            end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use TCP on IPv4.
+
+traffic_send_and_recv_counters_tcp4(suite) ->
+    [];
+traffic_send_and_recv_counters_tcp4(doc) ->
+    [];
+traffic_send_and_recv_counters_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_send_and_recv_counters_tcp4,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 recv   => fun(S)    -> socket:recv(S)    end,
+                                 send   => fun(S, D) -> socket:send(S, D) end},
+                   ok = traffic_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use default (TCP) on local.
+
+traffic_send_and_recv_counters_tcpL(suite) ->
+    [];
+traffic_send_and_recv_counters_tcpL(doc) ->
+    [];
+traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_send_and_recv_counters_tcpL,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
+                                 recv   => fun(S)    -> socket:recv(S)    end,
+                                 send   => fun(S, D) -> socket:send(S, D) end},
+                   ok = traffic_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use TCP on IPv4.
+
+traffic_sendmsg_and_recvmsg_counters_tcp4(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcp4(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_tcp4,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr := _Source,
+                                                              iov  := [Data]}} ->
+                                                           {ok, Data};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data) ->
+                                                   MsgHdr = #{iov => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
+                                           end},
+                   ok = traffic_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use default (TCP) on local.
+
+traffic_sendmsg_and_recvmsg_counters_tcpL(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcpL(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_tcpL,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr := _Source,
+                                                              iov  := [Data]}} ->
+                                                           {ok, Data};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data) ->
+                                                   MsgHdr = #{iov => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
+                                           end},
+                   ok = traffic_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+traffic_send_and_recv_tcp(InitState) ->
+    ServerSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{local_sa => LSA}}
+                   end},
+         #{desc => "create listen socket",
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{domain   := local,
+                         lsock    := LSock,
+                         local_sa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock    := LSock,
+                         local_sa := LSA} = State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{lport => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{domain   := local,
+                         tester   := Tester,
+                         local_sa := #{path := Path}}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok;
+                      (#{tester   := Tester,
+                         lport    := Port}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Port),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
+                   end},
+         #{desc => "accept",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   {ok, State#{csock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "initial counter validation (=zero)",
+           cmd  => fun(#{csock := Sock} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("Validate initial counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(Counters)
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, accept),
+                           ok
+                   end},
+
+         #{desc => "await continue (recv_and_validate 1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_and_validate)
+                   end},
+         #{desc => "recv (1)",
+           cmd  => fun(#{csock := Sock,
+                         recv  := Recv} = State) ->
+                           case Recv(Sock) of
+                               {ok, Data} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{read_pkg  => 1,
+                                               read_byte => size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (recv 1)",
+           cmd  => fun(#{csock     := Sock,
+                         read_pkg  := Pkg,
+                         read_byte := Byte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,   Pkg},
+                                      {read_byte,  Byte},
+                                      {read_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (recv_and_validate 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (send_and_validate 1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_and_validate)
+                   end},
+         #{desc => "send (1)",
+           cmd  => fun(#{csock := Sock,
+                         send  := Send} = State) ->
+                           Data = ?DATA,
+                           case Send(Sock, Data) of
+                               ok ->
+                                   ?SEV_IPRINT("sent ~p bytes", [size(Data)]),
+                                   {ok, State#{write_pkg  => 1,
+                                               write_byte => size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (send 1)",
+           cmd  => fun(#{csock      := Sock,
+                         read_pkg   := RPkg,
+                         read_byte  := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (send_and_validate 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (recv_and_validate 2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_and_validate)
+                   end},
+         #{desc => "recv (2)",
+           cmd  => fun(#{csock     := Sock,
+                         recv      := Recv,
+                         read_pkg  := Pkg,
+                         read_byte := Byte} = State) ->
+                           case Recv(Sock) of
+                               {ok, Data} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{read_pkg  => Pkg + 1,
+                                               read_byte => Byte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (recv 2)",
+           cmd  => fun(#{csock      := Sock,
+                         read_pkg   := RPkg,
+                         read_byte  := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (recv_and_validate 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (send_and_validate 2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_and_validate)
+                   end},
+         #{desc => "send (2)",
+           cmd  => fun(#{csock      := Sock,
+                         send       := Send,
+                         write_pkg  := Pkg,
+                         write_byte := Byte} = State) ->
+                           Data = ?DATA,
+                           case Send(Sock, Data) of
+                               ok ->
+                                   ?SEV_IPRINT("sent ~p bytes", [size(Data)]),
+                                   {ok, State#{write_pkg  => Pkg + 1,
+                                               write_byte => Byte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (send 2)",
+           cmd  => fun(#{csock      := Sock,
+                         read_pkg   := RPkg,
+                         read_byte  := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (send_and_validate 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_and_validate),
+                           ok
+                   end},
+
+
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket (just in case)",
+           cmd  => fun(#{csock := Sock} = State) ->
+                           (catch socket:close(Sock)),
+                           {ok, maps:remove(csock, State)}
+                   end},
+         #{desc => "close listen socket",
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := Sock} = State) ->
+                           (catch socket:close(Sock)),
+                           {ok, maps:remove(lsock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    ClientSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(#{domain := local} = State) ->
+                           {Tester, Path} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_path => Path}};
+                      (State) ->
+                           {Tester, Port} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_port => Port}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which server (local) address",
+           cmd  => fun(#{domain      := local = Domain,
+                         server_path := Path} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = #{family => Domain, path => Path},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}};
+                      (#{domain := Domain, server_port := Port} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (connect)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, connect),
+                           ok
+                   end},
+         #{desc => "connect to server",
+           cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
+                           socket:connect(Sock, SSA)
+                   end},
+         #{desc => "announce ready (connect)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, connect),
+                           ok
+                   end},
+
+         #{desc => "await continue (send_and_validate 1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_and_validate)
+                   end},
+         #{desc => "send (1)",
+           cmd  => fun(#{sock := Sock,
+                         send := Send} = State) ->
+                           Data = ?DATA,
+                           case Send(Sock, Data) of
+                               ok ->
+                                   ?SEV_IPRINT("sent ~p bytes", [size(Data)]),
+                                   {ok, State#{write_pkg  => 1,
+                                               write_byte => size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (send 1)",
+           cmd  => fun(#{sock      := Sock,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (send_and_validate 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (recv_and_validate 1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_and_validate)
+                   end},
+         #{desc => "recv (1)",
+           cmd  => fun(#{sock := Sock,
+                         recv := Recv} = State) ->
+                           case Recv(Sock) of
+                               {ok, Data} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{read_pkg  => 1,
+                                               read_byte => size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (recv 1)",
+           cmd  => fun(#{sock      := Sock,
+                         read_pkg  := RPkg,
+                         read_byte := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (recv_and_validate 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (send_and_validate 2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_and_validate)
+                   end},
+         #{desc => "send (2)",
+           cmd  => fun(#{sock       := Sock,
+                         send       := Send,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = State) ->
+                           Data = ?DATA,
+                           case Send(Sock, Data) of
+                               ok ->
+                                   ?SEV_IPRINT("sent ~p bytes", [size(Data)]),
+                                   {ok, State#{write_pkg  => SPkg + 1,
+                                               write_byte => SByte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (send 2)",
+           cmd  => fun(#{sock      := Sock,
+                         read_pkg  := RPkg,
+                         read_byte := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (send_and_validate 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (recv_and_validate 2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_and_validate)
+                   end},
+         #{desc => "recv (2)",
+           cmd  => fun(#{sock      := Sock,
+                         recv      := Recv,
+                         read_pkg  := RPkg,
+                         read_byte := RByte} = State) ->
+                           case Recv(Sock) of
+                               {ok, Data} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{read_pkg  => RPkg + 1,
+                                               read_byte => RByte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (recv 2)",
+           cmd  => fun(#{sock      := Sock,
+                         read_pkg  := RPkg,
+                         read_byte := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (recv_and_validate 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_and_validate),
+                           ok
+                   end},
+
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket",
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock, State1)};
+                      (#{sock := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{domain := local,
+                         server := Pid} = State) ->
+                           {ok, Path} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{path => Path}};
+                      (#{server := Pid} = State) ->
+                           {ok, Port} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{port => Port}}
+                   end},
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{domain := local,
+                         client := Pid,
+                         path   := Path} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, Path),
+                           ok;
+                      (#{client := Pid,
+                         port   := Port} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, Port),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client, init)
+                   end},
+
+         %% *** The actual test ***
+
+         #{desc => "order server to continue (with accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, accept),
+                           ok
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order client to continue (with connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, connect),
+                           ok
+                   end},
+         #{desc => "await client ready (connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, connect)
+                   end},
+         #{desc => "await server ready (accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, accept)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order server to continue (recv_and_validate 1)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, recv_and_validate),
+                           ok
+                   end},
+         #{desc => "order client to continue (send_and_validate 1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send_and_validate),
+                           ok
+                   end},
+         #{desc => "await client ready (send_and_validate 1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, send_and_validate)
+                   end},
+         #{desc => "await server ready (recv_and_validate 1)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, recv_and_validate)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order client to continue (recv_and_validate 1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, recv_and_validate),
+                           ok
+                   end},
+         #{desc => "order server to continue (send_and_validate 1)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, send_and_validate),
+                           ok
+                   end},
+         #{desc => "await server ready (send_and_validate 1)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, send_and_validate)
+                   end},
+         #{desc => "await client ready (recv_and_validate 1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, recv_and_validate)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order server to continue (recv_and_validate 2)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, recv_and_validate),
+                           ok
+                   end},
+         #{desc => "order client to continue (send_and_validate 2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send_and_validate),
+                           ok
+                   end},
+         #{desc => "await client ready (send_and_validate 2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, send_and_validate)
+                   end},
+         #{desc => "await server ready (recv_and_validate 2)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, recv_and_validate)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order client to continue (recv_and_validate 2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, recv_and_validate),
+                           ok
+                   end},
+         #{desc => "order server to continue (send_and_validate 2)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, send_and_validate),
+                           ok
+                   end},
+         #{desc => "await server ready (send_and_validate 2)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, send_and_validate)
+                   end},
+         #{desc => "await client ready (recv_and_validate 2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, recv_and_validate)
+                   end},
+
+         %% *** Termination ***
+         #{desc => "order client to terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(client, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           State1 = maps:remove(server, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start server evaluator"),
+    ServerInitState = InitState#{host => local_host()},
+    Server = ?SEV_START("server", ServerSeq, ServerInitState),
+
+    i("start client evaluator(s)"),
+    ClientInitState = InitState#{host => local_host()},
+    Client = ?SEV_START("client", ClientSeq, ClientInitState),
+
+    i("start 'tester' evaluator"),
+    TesterInitState = #{server => Server#ev.pid,
+                        client => Client#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator"),
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
+
+traffic_sar_counters_validation(Counters) ->
+    traffic_sar_counters_validation(Counters, []).
+
+traffic_sar_counters_validation(Counters, []) ->
+    (catch lists:foreach(
+             fun({_Cnt, 0})   -> ok;
+                ({Cnt,  Val}) -> throw({error, {invalid_counter, Cnt, Val}})
+             end,
+             Counters));
+traffic_sar_counters_validation(Counters, [{Cnt, Val}|ValidateCounters]) ->
+    case lists:keysearch(Cnt, 1, Counters) of
+        {value, {Cnt, Val}} ->
+            Counters2 = lists:keydelete(Cnt, 1, Counters),
+            traffic_sar_counters_validation(Counters2, ValidateCounters);
+        {value, {Cnt, _Val}} when (Val =:= any) ->
+            Counters2 = lists:keydelete(Cnt, 1, Counters),
+            traffic_sar_counters_validation(Counters2, ValidateCounters);
+        {value, {Cnt, InvVal}} ->
+            {error, {invalid_counter, Cnt, InvVal, Val}};
+        false ->
+            {error, {unknown_counter, Cnt, Counters}}
+    end.
+
+                          
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use UDP on IPv4.
+
+traffic_sendto_and_recvfrom_counters_udp4(suite) ->
+    [];
+traffic_sendto_and_recvfrom_counters_udp4(doc) ->
+    [];
+traffic_sendto_and_recvfrom_counters_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendto_and_recvfrom_counters_udp4,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => udp,
+                                 recv   => fun(S) ->
+                                                   socket:recvfrom(S)
+                                           end,
+                                 send   => fun(S, Data, Dest) ->
+                                                   socket:sendto(S, Data, Dest)
+                                           end},
+                   ok = traffic_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use default (UDP) on local.
+
+traffic_sendto_and_recvfrom_counters_udpL(suite) ->
+    [];
+traffic_sendto_and_recvfrom_counters_udpL(doc) ->
+    [];
+traffic_sendto_and_recvfrom_counters_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendto_and_recvfrom_counters_udp4,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
+                                 recv   => fun(S) ->
+                                                   socket:recvfrom(S)
+                                           end,
+                                 send   => fun(S, Data, Dest) ->
+                                                   socket:sendto(S, Data, Dest)
+                                           end},
+                   ok = traffic_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use UDP on IPv4.
+
+traffic_sendmsg_and_recvmsg_counters_udp4(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udp4(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_udp4,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => udp,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr  := Source,
+                                                              iov   := [Data]}} ->
+                                                           {ok, {Source, Data}};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data, Dest) ->
+                                                   MsgHdr = #{addr => Dest,
+                                                              iov  => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
+                                           end},
+                   ok = traffic_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use default (UDP) on local.
+
+traffic_sendmsg_and_recvmsg_counters_udpL(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udpL(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_udpL,
+           fun() ->
+                   InitState = #{domain => local,
+                                 proto  => default,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr  := Source,
+                                                              iov   := [Data]}} ->
+                                                           {ok, {Source, Data}};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data, Dest) ->
+                                                   MsgHdr = #{addr => Dest,
+                                                              iov  => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
+                                           end},
+                   ok = traffic_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+traffic_send_and_recv_udp(InitState) ->
+    ServerSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{local_sa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           case socket:open(Domain, dgram, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{sock     := LSock,
+                         local_sa := LSA} = State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{lport => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "initial counter validation (=zero)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("Validate initial counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(Counters)
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{domain   := local,
+                         tester   := Tester,
+                         local_sa := #{path := Path}}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok;
+                      (#{tester   := Tester,
+                         lport    := Port}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Port),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (recv_and_validate 1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_and_validate)
+                   end},
+         #{desc => "recv (1)",
+           cmd  => fun(#{sock := Sock,
+                         recv := Recv} = State) ->
+                           case Recv(Sock) of
+                               {ok, {ClientSA, Data}} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{client_sa => ClientSA,
+                                               read_pkg  => 1,
+                                               read_byte => size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (recv 1)",
+           cmd  => fun(#{sock      := Sock,
+                         read_pkg  := Pkg,
+                         read_byte := Byte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,   Pkg},
+                                      {read_byte,  Byte},
+                                      {read_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (recv_and_validate 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (send_and_validate 1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_and_validate)
+                   end},
+         #{desc => "send (1)",
+           cmd  => fun(#{sock      := Sock,
+                         send      := Send,
+                         client_sa := ClientSA} = State) ->
+                           Data = ?DATA,
+                           case Send(Sock, Data, ClientSA) of
+                               ok ->
+                                   ?SEV_IPRINT("sent ~p bytes", [size(Data)]),
+                                   {ok, State#{write_pkg  => 1,
+                                               write_byte => size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (send 1)",
+           cmd  => fun(#{sock       := Sock,
+                         read_pkg   := RPkg,
+                         read_byte  := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (send_and_validate 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (recv_and_validate 2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_and_validate)
+                   end},
+         #{desc => "recv (2)",
+           cmd  => fun(#{sock      := Sock,
+                         recv      := Recv,
+                         read_pkg  := Pkg,
+                         read_byte := Byte} = State) ->
+                           case Recv(Sock) of
+                               {ok, {Source, Data}} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{client_sa => Source,
+                                               read_pkg  => Pkg + 1,
+                                               read_byte => Byte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (recv 2)",
+           cmd  => fun(#{sock       := Sock,
+                         read_pkg   := RPkg,
+                         read_byte  := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (recv_and_validate 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (send_and_validate 2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_and_validate)
+                   end},
+         #{desc => "send (2)",
+           cmd  => fun(#{sock       := Sock,
+                         client_sa  := ClientSA,
+                         send       := Send,
+                         write_pkg  := Pkg,
+                         write_byte := Byte} = State) ->
+                           Data = ?DATA,
+                           case Send(Sock, Data, ClientSA) of
+                               ok ->
+                                   ?SEV_IPRINT("sent ~p bytes", [size(Data)]),
+                                   {ok, State#{write_pkg  => Pkg + 1,
+                                               write_byte => Byte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (send 2)",
+           cmd  => fun(#{sock       := Sock,
+                         read_pkg   := RPkg,
+                         read_byte  := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (send_and_validate 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_and_validate),
+                           ok
+                   end},
+
+
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket (just in case)",
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(lsock, State1)};
+                      (#{sock := Sock} = State) ->
+                           (catch socket:close(Sock)),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    ClientSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(#{domain := local} = State) ->
+                           {Tester, Path} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_path => Path}};
+                      (State) ->
+                           {Tester, Port} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_port => Port}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which server (local) address",
+           cmd  => fun(#{domain      := local = Domain,
+                         server_path := Path} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = #{family => Domain, path => Path},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}};
+                      (#{domain := Domain, server_port := Port} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, dgram, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "initial counter validation (=zero)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("Validate initial counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(Counters)
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (send_and_validate 1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_and_validate)
+                   end},
+         #{desc => "send (1)",
+           cmd  => fun(#{sock      := Sock,
+                         send      := Send,
+                         server_sa := ServerSA} = State) ->
+                           Data = ?DATA,
+                           case Send(Sock, Data, ServerSA) of
+                               ok ->
+                                   ?SEV_IPRINT("sent ~p bytes", [size(Data)]),
+                                   {ok, State#{write_pkg  => 1,
+                                               write_byte => size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (send 1)",
+           cmd  => fun(#{sock       := Sock,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (send_and_validate 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (recv_and_validate 1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_and_validate)
+                   end},
+         #{desc => "recv (1)",
+           cmd  => fun(#{sock      := Sock,
+                         recv      := Recv,
+                         server_sa := ServerSA} = State) ->
+                           case Recv(Sock) of
+                               {ok, {ServerSA, Data}} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{read_pkg  => 1,
+                                               read_byte => size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (recv 1)",
+           cmd  => fun(#{sock      := Sock,
+                         read_pkg  := RPkg,
+                         read_byte := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (recv_and_validate 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (send_and_validate 2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_and_validate)
+                   end},
+         #{desc => "send (2)",
+           cmd  => fun(#{sock       := Sock,
+                         send       := Send,
+                         server_sa  := ServerSA,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = State) ->
+                           Data = ?DATA,
+                           case Send(Sock, Data, ServerSA) of
+                               ok ->
+                                   ?SEV_IPRINT("sent ~p bytes", [size(Data)]),
+                                   {ok, State#{write_pkg  => SPkg + 1,
+                                               write_byte => SByte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (send 2)",
+           cmd  => fun(#{sock       := Sock,
+                         read_pkg   := RPkg,
+                         read_byte  := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (send_and_validate 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_and_validate),
+                           ok
+                   end},
+
+         #{desc => "await continue (recv_and_validate 2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv_and_validate)
+                   end},
+         #{desc => "recv (2)",
+           cmd  => fun(#{sock      := Sock,
+                         server_sa := ServerSA,
+                         recv      := Recv,
+                         read_pkg  := RPkg,
+                         read_byte := RByte} = State) ->
+                           case Recv(Sock) of
+                               {ok, {ServerSA, Data}} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{read_pkg  => RPkg + 1,
+                                               read_byte => RByte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate (recv 2)",
+           cmd  => fun(#{sock      := Sock,
+                         read_pkg  := RPkg,
+                         read_byte := RByte,
+                         write_pkg  := SPkg,
+                         write_byte := SByte} = _State) ->
+                           try socket:info(Sock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("validate counters: "
+                                               "~n   ~p", [Counters]),
+                                   traffic_sar_counters_validation(
+                                     Counters,
+                                     [{read_pkg,    RPkg},
+                                      {read_byte,   RByte},
+                                      {write_pkg,   SPkg},
+                                      {write_byte,  SByte},
+                                      {read_tries,  any},
+                                      {write_tries, any}])
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
+         #{desc => "announce ready (recv_and_validate 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_and_validate),
+                           ok
+                   end},
+
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket",
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock, State1)};
+                      (#{sock := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{domain := local,
+                         server := Pid} = State) ->
+                           {ok, Path} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{path => Path}};
+                      (#{server := Pid} = State) ->
+                           {ok, Port} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{port => Port}}
+                   end},
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{domain := local,
+                         client := Pid,
+                         path   := Path} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, Path),
+                           ok;
+                      (#{client := Pid,
+                         port   := Port} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, Port),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client, init)
+                   end},
+
+         %% *** The actual test ***
+
+         #{desc => "order server to continue (recv_and_validate 1)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, recv_and_validate),
+                           ok
+                   end},
+         #{desc => "order client to continue (send_and_validate 1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send_and_validate),
+                           ok
+                   end},
+         #{desc => "await client ready (send_and_validate 1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, send_and_validate)
+                   end},
+         #{desc => "await server ready (recv_and_validate 1)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, recv_and_validate)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order client to continue (recv_and_validate 1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, recv_and_validate),
+                           ok
+                   end},
+         #{desc => "order server to continue (send_and_validate 1)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, send_and_validate),
+                           ok
+                   end},
+         #{desc => "await server ready (send_and_validate 1)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, send_and_validate)
+                   end},
+         #{desc => "await client ready (recv_and_validate 1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, recv_and_validate)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order server to continue (recv_and_validate 2)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, recv_and_validate),
+                           ok
+                   end},
+         #{desc => "order client to continue (send_and_validate 2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send_and_validate),
+                           ok
+                   end},
+         #{desc => "await client ready (send_and_validate 2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, send_and_validate)
+                   end},
+         #{desc => "await server ready (recv_and_validate 2)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, recv_and_validate)
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "order client to continue (recv_and_validate 2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, recv_and_validate),
+                           ok
+                   end},
+         #{desc => "order server to continue (send_and_validate 2)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, send_and_validate),
+                           ok
+                   end},
+         #{desc => "await server ready (send_and_validate 2)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, send_and_validate)
+                   end},
+         #{desc => "await client ready (recv_and_validate 2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, recv_and_validate)
+                   end},
+
+         %% *** Termination ***
+         #{desc => "order client to terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(client, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           State1 = maps:remove(server, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start server evaluator"),
+    ServerInitState = InitState#{host => local_host()},
+    Server = ?SEV_START("server", ServerSeq, ServerInitState),
+
+    i("start client evaluator(s)"),
+    ClientInitState = InitState#{host => local_host()},
+    Client = ?SEV_START("client", ClientSeq, ClientInitState),
+
+    i("start 'tester' evaluator"),
+    TesterInitState = #{server => Server#ev.pid,
+                        client => Client#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator"),
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
