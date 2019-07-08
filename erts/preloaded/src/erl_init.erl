@@ -35,7 +35,8 @@ start(Mod, BootArgs) ->
     erl_tracer:on_load(),
     prim_buffer:on_load(),
     prim_file:on_load(),
-    conditional_load(socket, [socket, net]), % socket:on_load(), net:on_load(),
+    %% socket:on_load(), prim_net:on_load(),
+    conditional_load(socket, [socket, prim_net]),
     %% Proceed to the specified boot module
     run(Mod, boot, BootArgs).
 
@@ -49,7 +50,9 @@ run(M, F, A) ->
     end.
 
 conditional_load(CondMod, Mods2Load) ->
-    conditional_load(CondMod, erlang:loaded(), Mods2Load).
+    Loaded = erlang:loaded(),
+    %% erlang:display({?MODULE, conditional_load, Loaded}),
+    conditional_load(CondMod, Loaded, Mods2Load).
 
 conditional_load(_CondMod, [], _Mods2LOad) ->
     ok;

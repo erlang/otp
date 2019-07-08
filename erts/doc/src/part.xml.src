@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,7 +42,7 @@
   <xi:include href="tty.xml"/>
   <xi:include href="driver.xml"/>
   <xi:include href="inet_cfg.xml"/>
-  <xi:include href="socket_usage.xml"/>
+  %ESOCK_USE_SOCKET_USAGE_XML%
   <xi:include href="erl_ext_dist.xml"/>
   <xi:include href="erl_dist_protocol.xml"/>
 </part>

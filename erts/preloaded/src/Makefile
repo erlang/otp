@@ -36,10 +36,9 @@ include $(ERL_TOP)/lib/kernel/vsn.mk
 ifeq ($(USE_ESOCK), yes)
 PRE_LOADED_ERL_ESOCK_MODULES = \
 	socket \
-	net
+	prim_net
 else
-PRE_LOADED_ERL_ESOCK_MODULES = \
-	net
+PRE_LOADED_ERL_ESOCK_MODULES =
 endif
 
 PRE_LOADED_ERL_MODULES = \
@@ -82,9 +81,9 @@ APP_FILE= erts.app
 APP_SRC= $(APP_FILE).src
 APP_TARGET= $(STATIC_EBIN)/$(APP_FILE)
 ifeq ($(USE_ESOCK), yes)
-APP_ESOCK_MODS= net, socket
+APP_ESOCK_MODS= prim_net, socket
 else
-APP_ESOCK_MODS= net
+APP_ESOCK_MODS=
 endif
 
 

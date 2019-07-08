@@ -20,6 +20,8 @@
 
 %%
 %% This test suite is basically a "placeholder" for a proper test suite...
+%% Also we should really call prim_net directly, and not net (since that does
+%% not even reside here).
 %%
 
 %% Run the entire test suite: 
@@ -127,6 +129,7 @@ api_basic_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
+    %% We test on the socket module for simplicity
     case lists:member(socket, erlang:loaded()) of
         true ->
             case os:type() of

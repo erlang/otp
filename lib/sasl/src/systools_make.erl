@@ -47,9 +47,11 @@
 -compile({inline,[{badarg,2}]}).
 
 -ifdef(USE_ESOCK).
--define(ESOCK_MODS, [socket]).
+-define(ESOCK_SOCKET_MODS, [socket]).
+-define(ESOCK_NET_MODS,    [prim_net]).
 -else.
--define(ESOCK_MODS, []).
+-define(ESOCK_SOCKET_MODS, []).
+-define(ESOCK_NET_MODS,    []).
 -endif.
 
 
@@ -1573,8 +1575,8 @@ preloaded() ->
     [atomics,counters,erl_init,erl_prim_loader,erl_tracer,erlang,
      erts_code_purger,erts_dirty_process_signal_handler,
      erts_internal,erts_literal_area_collector,
-     init,net,persistent_term,prim_buffer,prim_eval,prim_file,
-     prim_inet,prim_zip] ++ ?ESOCK_MODS ++ [zlib].
+     init,persistent_term,prim_buffer,prim_eval,prim_file,
+     prim_inet] ++ ?ESOCK_NET_MODS ++ [prim_zip] ++ ?ESOCK_SOCKET_MODS ++ [zlib].
 
 %%______________________________________________________________________
 %% Kernel processes; processes that are specially treated by the init
