@@ -8114,13 +8114,22 @@ which_multicast_address(Domain) ->
 %% SunOS: IfName - Group  - RefCnt
 
 which_multicast_address2(Domain, WhichMAddr) ->
-    IfName           = which_local_host_ifname(Domain),
-    NetstatGroupsStr = os:cmd("netstat -g | grep " ++ IfName),
-    NetstatGroups0   = string:tokens(NetstatGroupsStr, [$\n]),
-    NetstatGroups    = [string:tokens(G, [$ ]) || G <- NetstatGroups0],
-    MAddrs           = [WhichMAddr(NetstatGroup) || NetstatGroup <-
-                                                        NetstatGroups],
-    which_multicast_address3(Domain, MAddrs).
+    IfName = which_local_host_ifname(Domain),
+    try
+        begin
+            %% On some platforms the netstat barfs out some crap on stderr
+            %% before the actual info...
+            NetstatGroupsStr = os:cmd("netstat -g 2>/dev/null | grep " ++ IfName),
+            NetstatGroups0   = string:tokens(NetstatGroupsStr, [$\n]),
+            NetstatGroups    = [string:tokens(G, [$ ]) || G <- NetstatGroups0],
+            MAddrs           = [WhichMAddr(NetstatGroup) || NetstatGroup <-
+                                                                NetstatGroups],
+            which_multicast_address3(Domain, MAddrs)
+        end
+    catch
+        C:E:S ->
+            not_supported({multicast, {C,E,S}})
+    end.
 
 which_multicast_address3(_Domain, []) ->
     not_supported({multicast, no_valid_addrs});
