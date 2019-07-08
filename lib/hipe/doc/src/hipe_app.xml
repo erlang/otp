@@ -66,6 +66,10 @@
       <item><p>The HiPE compiler will crash on modules containing binary
       matching.</p>
       </item>
+      <tag>try/catch</tag>
+      <item><p>The HiPE compiler will crash on modules containing 'try' or
+      'catch'.</p>
+      </item>
 
       <tag>Stack traces</tag>
       <item><p>Stack traces returned from <seealso marker="erts:erlang#get_stacktrace/0">
