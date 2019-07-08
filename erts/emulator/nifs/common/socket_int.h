@@ -130,6 +130,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(busy_poll);                \
     GLOBAL_ATOM_DEF(checksum);                 \
     GLOBAL_ATOM_DEF(close);                    \
+    GLOBAL_ATOM_DEF(command);                  \
     GLOBAL_ATOM_DEF(connect);                  \
     GLOBAL_ATOM_DEF(congestion);               \
     GLOBAL_ATOM_DEF(context);                  \
