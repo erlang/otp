@@ -4689,10 +4689,12 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                 case ERTS_SIG_Q_OP_MONITOR_DOWN:
                     switch (type) {
                     case ERTS_SIG_Q_TYPE_GEN_EXIT:
-                        if (ERTS_SIG_IS_GEN_EXIT_EXTERNAL(sig))
-                            debug_foreach_sig_external(sig, ext_func, arg);
-                        else
+                        if (!ERTS_SIG_IS_GEN_EXIT_EXTERNAL(sig))
                             debug_foreach_sig_heap_frags(&sig->hfrag, oh_func, arg);
+                        else {
+                            oh_func(&sig->hfrag.off_heap, arg);
+                            debug_foreach_sig_external(sig, ext_func, arg);
+                        }
                         break;
                     case ERTS_LNK_TYPE_PORT:
                     case ERTS_LNK_TYPE_PROC:

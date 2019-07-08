@@ -1266,18 +1266,6 @@ erts_dsig_send_group_leader(ErtsDSigSendContext *ctx, Eterm leader, Eterm remote
     return dsig_send_ctl(ctx, ctl);
 }
 
-struct dist_sequences {
-    ErlHeapFragment hfrag;
-    struct dist_sequences *parent;
-    struct dist_sequences *left;
-    struct dist_sequences *right;
-    char is_red;
-
-    Uint64 seq_id;
-    int cnt;
-    Sint ctl_len;
-};
-
 #define ERTS_RBT_PREFIX dist_seq
 #define ERTS_RBT_T DistSeqNode
 #define ERTS_RBT_KEY_T Uint
@@ -1312,25 +1300,25 @@ struct dist_sequences {
 
 #include "erl_rbtree.h"
 
-struct erts_dist_seq_tree_foreach_iter_arg {
-    int (*func)(ErtsDistExternal *, void *, Sint);
+struct erts_debug_dist_seq_tree_foreach_iter_arg {
+    int (*func)(DistSeqNode *, void *, Sint);
     void *arg;
 };
 
 static int
-erts_dist_seq_tree_foreach_iter(DistSeqNode *seq, void *arg, Sint reds)
+erts_debug_dist_seq_tree_foreach_iter(DistSeqNode *seq, void *arg, Sint reds)
 {
-    struct erts_dist_seq_tree_foreach_iter_arg *state = arg;
-    return state->func(erts_get_dist_ext(&seq->hfrag), state->arg, reds);
+    struct erts_debug_dist_seq_tree_foreach_iter_arg *state = arg;
+    return state->func(seq, state->arg, reds);
 }
 
 void
-erts_dist_seq_tree_foreach(DistEntry *dep, int (*func)(ErtsDistExternal *, void *, Sint), void *arg)
+erts_debug_dist_seq_tree_foreach(DistEntry *dep, int (*func)(DistSeqNode *, void *, Sint), void *arg)
 {
-    struct erts_dist_seq_tree_foreach_iter_arg state;
+    struct erts_debug_dist_seq_tree_foreach_iter_arg state;
     state.func = func;
     state.arg = arg;
-    dist_seq_rbt_foreach(dep->sequences, erts_dist_seq_tree_foreach_iter, &state);
+    dist_seq_rbt_foreach(dep->sequences, erts_debug_dist_seq_tree_foreach_iter, &state);
 }
 
 static int dist_seq_cleanup(DistSeqNode *seq, void *unused, Sint reds)

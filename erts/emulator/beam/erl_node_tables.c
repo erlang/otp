@@ -1602,8 +1602,10 @@ insert_dist_monitors(DistEntry *dep)
 
 
 static int
-insert_sequence(ErtsDistExternal *edep, void *arg, Sint reds)
+insert_sequence(DistSeqNode *seq, void *arg, Sint reds)
 {
+    ErtsDistExternal *edep = erts_get_dist_ext(&seq->hfrag);
+    insert_offheap(&seq->hfrag.off_heap, SEQUENCE_REF, *(Eterm*)arg);
     insert_dist_entry(edep->dep, SEQUENCE_REF, *(Eterm*)arg, 0);
     return 1;
 }
@@ -1611,7 +1613,7 @@ insert_sequence(ErtsDistExternal *edep, void *arg, Sint reds)
 static void
 insert_dist_sequences(DistEntry *dep)
 {
-    erts_dist_seq_tree_foreach(dep, insert_sequence, (void *) &dep->sysname);
+    erts_debug_dist_seq_tree_foreach(dep, insert_sequence, (void *) &dep->sysname);
 }
 
 static void
