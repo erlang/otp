@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2019,7 +2019,7 @@ recvtclass(_Config) ->
 %% platforms - change {unix,_} to false?
 
 %% pktoptions is not supported for IPv4
-recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,6,0});
 recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,1,0});
@@ -2031,7 +2031,7 @@ recvtos_ok({unix,_}, _) -> true;
 recvtos_ok(_, _) -> false.
 
 %% pktoptions is not supported for IPv4
-recvttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+recvttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,6,0});
 recvttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 %% Using the option returns einval, so it is not implemented.
 recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {12,1,0});
@@ -2043,7 +2043,7 @@ recvttl_ok({unix,_}, _) -> true;
 recvttl_ok(_, _) -> false.
 
 %% pktoptions is not supported for IPv6
-recvtclass_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
+recvtclass_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,6,0});
 recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %% Using the option returns einval, so it is not implemented.
@@ -2224,18 +2224,19 @@ collect_accepts(N,Tmo) ->
     A = millis(),
     receive
 	{accepted,P,Msg} ->
-	    [{P,Msg}] ++ collect_accepts(N-1,Tmo-(millis() - A))
+            NextN = if N =:= infinity -> N; true -> N - 1 end,
+	    [{P,Msg}] ++ collect_accepts(NextN, Tmo - (millis()-A))
     after Tmo ->
 	    []
     end.
    
 -define(EXPECT_ACCEPTS(Pattern,N,Timeout),
 	(fun() ->
-                 case collect_accepts(if N =:= infinity -> -1; true -> N end,Timeout) of
+                 case collect_accepts((N), (Timeout)) of
 		     Pattern ->
 			 ok;
-		     Other ->
-			 {error,{unexpected,{Other,process_info(self(),messages)}}}
+		     Other__ ->
+			 {error,{unexpected,{Other__,process_info(self(),messages)}}}
 		 end
 	 end)()).
 	
