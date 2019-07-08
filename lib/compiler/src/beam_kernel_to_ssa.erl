@@ -680,13 +680,8 @@ call_cg(Func0, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
                                 set_ssa_var(Dummy, #b_literal{val=unused}, S)
                         end, St1, MoreRs),
 
-            case FailCtx of
-                {no_catch, _} ->
-                    {[Call],St2};
-                {in_catch, _} ->
-                    {TestIs,St} = make_succeeded(Ret, FailCtx, St2),
-                    {[Call|TestIs],St}
-            end
+            {TestIs,St} = make_succeeded(Ret, FailCtx, St2),
+            {[Call|TestIs],St}
     end.
 
 enter_cg(Func0, As0, Le, St0) ->
