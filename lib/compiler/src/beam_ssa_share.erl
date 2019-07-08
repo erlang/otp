@@ -117,8 +117,8 @@ share_terminator(_Last, _Blocks) -> none.
 %% possible if the blocks are not equivalent, as that is the common
 %% case.
 
-are_equivalent(_Succ, _, ?BADARG_BLOCK, _, _Blocks) ->
-    %% ?BADARG_BLOCK is special. Sharing could be incorrect.
+are_equivalent(_Succ, _, ?EXCEPTION_BLOCK, _, _Blocks) ->
+    %% ?EXCEPTION_BLOCK is special. Sharing could be incorrect.
     false;
 are_equivalent(_Succ, #b_blk{is=Is1,last=#b_ret{arg=RetVal1}=Ret1},
          _Fail, #b_blk{is=Is2,last=#b_ret{arg=RetVal2}=Ret2}, _Blocks) ->

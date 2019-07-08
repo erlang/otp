@@ -24,39 +24,7 @@
 
 -import(lists, [duplicate/2,foldl/3]).
 
--export([never_throws/3, types/3]).
-
--spec never_throws(Mod, Func, Arity) -> boolean() when
-      Mod :: atom(),
-      Func :: atom(),
-      Arity :: non_neg_integer().
-
-never_throws(erlang, '/=', 2) -> true;
-never_throws(erlang, '<', 2) -> true;
-never_throws(erlang, '=/=', 2) -> true;
-never_throws(erlang, '=:=', 2) -> true;
-never_throws(erlang, '=<', 2) -> true;
-never_throws(erlang, '==', 2) -> true;
-never_throws(erlang, '>', 2) -> true;
-never_throws(erlang, '>=', 2) -> true;
-never_throws(erlang, is_atom, 1) -> true;
-never_throws(erlang, is_boolean, 1) -> true;
-never_throws(erlang, is_binary, 1) -> true;
-never_throws(erlang, is_bitstring, 1) -> true;
-never_throws(erlang, is_float, 1) -> true;
-never_throws(erlang, is_function, 1) -> true;
-never_throws(erlang, is_integer, 1) -> true;
-never_throws(erlang, is_list, 1) -> true;
-never_throws(erlang, is_map, 1) -> true;
-never_throws(erlang, is_number, 1) -> true;
-never_throws(erlang, is_pid, 1) -> true;
-never_throws(erlang, is_port, 1) -> true;
-never_throws(erlang, is_reference, 1) -> true;
-never_throws(erlang, is_tuple, 1) -> true;
-never_throws(erlang, get, 1) -> true;
-never_throws(erlang, self, 0) -> true;
-never_throws(erlang, node, 0) -> true;
-never_throws(_, _, _) -> false.
+-export([types/3]).
 
 %%
 %% Returns the inferred return and argument types for known functions, and
@@ -69,7 +37,7 @@ never_throws(_, _, _) -> false.
 -spec types(Mod, Func, ArgTypes) -> {RetType, ArgTypes, CanSubtract} when
       Mod :: atom(),
       Func :: atom(),
-      ArgTypes :: [type()],
+      ArgTypes :: [normal_type()],
       RetType :: type(),
       CanSubtract :: boolean().
 
@@ -198,7 +166,7 @@ types(erlang, element, [PosType, TupleType]) ->
 types(erlang, setelement, [PosType, TupleType, ArgType]) ->
     RetType = case {PosType,TupleType} of
                   {#t_integer{elements={Index,Index}},
-                   #t_tuple{elements=Es0,size=Size}=T} ->
+                   #t_tuple{elements=Es0,size=Size}=T} when Index >= 1 ->
                       %% This is an exact index, update the type of said
                       %% element or return 'none' if it's known to be out of
                       %% bounds.
@@ -212,7 +180,7 @@ types(erlang, setelement, [PosType, TupleType, ArgType]) ->
                               none
                       end;
                   {#t_integer{elements={Min,Max}},
-                   #t_tuple{elements=Es0,size=Size}=T} ->
+                   #t_tuple{elements=Es0,size=Size}=T} when Min >= 1 ->
                       %% We know this will land between Min and Max, so kill
                       %% the types for those indexes.
                       Es = discard_tuple_element_info(Min, Max, Es0),
@@ -385,15 +353,27 @@ types(lists, zipwith3, [_,A,B,C]) ->
     sub_unsafe(ZipType, [#t_fun{arity=3}, ZipType, ZipType, ZipType]);
 
 %% Functions with complex return values.
-types(lists, partition, [_,_]) ->
-    sub_unsafe(make_two_tuple(list, list), [#t_fun{arity=1}, list]);
+types(lists, keyfind, [KeyType,PosType,_]) ->
+    TupleType = case PosType of
+                    #t_integer{elements={Index,Index}} when is_integer(Index),
+                                                            Index >= 1 ->
+                        Es = beam_types:set_element_type(Index, KeyType, #{}),
+                        #t_tuple{size=Index,elements=Es};
+                    _ ->
+                        #t_tuple{}
+                end,
+    RetType = beam_types:join(TupleType, beam_types:make_atom(false)),
+    sub_unsafe(RetType, [any, #t_integer{}, list]);
 types(lists, MapFold, [_Fun, _Init, List])
   when MapFold =:= mapfoldl; MapFold =:= mapfoldr ->
-    ListType = same_length_type(List),
-    RetType = #t_tuple{size=2,
-                       exact=true,
-                       elements=#{ 1 => ListType }},
+    RetType = make_two_tuple(same_length_type(List), any),
     sub_unsafe(RetType, [#t_fun{arity=2}, any, list]);
+types(lists, partition, [_,_]) ->
+    sub_unsafe(make_two_tuple(list, list), [#t_fun{arity=1}, list]);
+types(lists, search, [_,_]) ->
+    TupleType = make_two_tuple(beam_types:make_atom(value), any),
+    RetType = beam_types:join(TupleType, beam_types:make_atom(false)),
+    sub_unsafe(RetType, [#t_fun{arity=1}, list]);
 types(lists, splitwith, [_,_]) ->
     sub_unsafe(make_two_tuple(list, list), [#t_fun{arity=1}, list]);
 types(lists, unzip, [List]) ->
@@ -505,5 +485,6 @@ lists_zip_type(Types) ->
           end, list, Types).
 
 make_two_tuple(Type1, Type2) ->
-    #t_tuple{size=2,exact=true,
-             elements=#{1=>Type1,2=>Type2}}.
+    Es0 = beam_types:set_element_type(1, Type1, #{}),
+    Es = beam_types:set_element_type(2, Type2, Es0),
+    #t_tuple{size=2,exact=true,elements=Es}.

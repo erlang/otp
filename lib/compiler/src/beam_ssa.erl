@@ -101,7 +101,7 @@
                    'bs_match' | 'bs_put' | 'bs_start_match' | 'bs_test_tail' |
                    'bs_utf16_size' | 'bs_utf8_size' | 'build_stacktrace' |
                    'call' | 'catch_end' |
-                   'extract' |
+                   'extract' | 'exception_trampoline' |
                    'get_hd' | 'get_map_element' | 'get_tl' | 'get_tuple_element' |
                    'has_map_field' |
                    'is_nonempty_list' | 'is_tagged_tuple' |

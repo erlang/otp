@@ -111,8 +111,15 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	    erlang:raise(Class, Error, Stack)
     end.
 
+-record(t_abstract, {kind}).
+
+%% The types are the same as in 'beam_types.hrl', with the addition of
+%% #t_abstract{} that describes tuples under construction, match context
+%% positions, and so on.
+-type validator_type() :: #t_abstract{} | type().
+
 -record(value_ref, {id :: index()}).
--record(value, {op :: term(), args :: [argument()], type :: type()}).
+-record(value, {op :: term(), args :: [argument()], type :: validator_type()}).
 
 -type argument() :: #value_ref{} | literal().
 
@@ -124,6 +131,24 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
                    {literal, term()} |
                    nil.
 
+%% Register tags describe the state of the register rather than the value they
+%% contain (if any).
+%%
+%% initialized          The register has been initialized with some valid term
+%%                      so that it is safe to pass to the garbage collector.
+%%                      NOT safe to use in any other way (will not crash the
+%%                      emulator, but clearly points to a bug in the compiler).
+%%
+%% uninitialized        The register contains any old garbage and can not be
+%%                      passed to the garbage collector.
+%%
+%% {catchtag,[Lbl]}     A special term used within a catch. Must only be used
+%%                      by the catch instructions; NOT safe to use in other
+%%                      instructions.
+%%
+%% {trytag,[Lbl]}       A special term used within a try block. Must only be
+%%                      used by the catch instructions; NOT safe to use in other
+%%                      instructions.
 -type tag() :: initialized |
                uninitialized |
                {catchtag, [label()]} |
@@ -328,7 +353,7 @@ valfun_1({try_case_end,Src}, Vst) ->
     kill_state(Vst);
 %% Instructions that cannot cause exceptions
 valfun_1({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
-    bsm_validate_context(Ctx, Vst0),
+    assert_type(#t_bs_context{}, Ctx, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
@@ -371,7 +396,7 @@ valfun_1({init,Reg}, Vst) ->
 valfun_1({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
 valfun_1({bif,Op,{f,_},Ss,Dst}=I, Vst) ->
-    case beam_call_types:never_throws(erlang, Op, length(Ss)) of
+    case erl_bifs:is_safe(erlang, Op, length(Ss)) of
         true ->
             %% It can't fail, so we finish handling it here (not updating
             %% catch state).
@@ -401,7 +426,7 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
     create_term(Type, put_tuple2, [], Dst, Vst);
 valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
     Vst1 = eat_heap(1, Vst0),
-    Vst = create_term(#t_abstract{kind=tuple_in_progress}, put_tuple, [],
+    Vst = create_term(#t_abstract{kind=unfinished_tuple}, put_tuple, [],
                       Dst, Vst1),
     #vst{current=St0} = Vst,
     St = St0#st{puts_left={Sz,{Dst,Sz,#{}}}},
@@ -545,7 +570,7 @@ valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
     Index = N+1,
     assert_not_literal(Src),
     assert_type(#t_tuple{size=Index}, Src, Vst),
-    #t_tuple{elements=Es} = get_term_type(Src, Vst),
+    #t_tuple{elements=Es} = normalize(get_term_type(Src, Vst)),
     Type = beam_types:get_element_type(Index, Es),
     extract_term(Type, {bif,element}, [{integer,Index}, Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
@@ -737,7 +762,7 @@ valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
     %% helpers as we must support overwriting (rather than just widening or
     %% narrowing) known elements, and we can't use extract_term either since
     %% the source tuple may be aliased.
-    #t_tuple{elements=Es0}=Type = get_term_type(Tuple, Vst),
+    #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
     Es = beam_types:set_element_type(I, get_term_type(Src, Vst), Es0),
     override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
 %% Match instructions.
@@ -756,17 +781,17 @@ valfun_4({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
 valfun_4({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst) ->
     validate_bs_start_match(Fail, Live, bsm_match_state(Slots), Src, Dst, Vst);
 valfun_4({test,bs_match_string,{f,Fail},[Ctx,_,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_skip_bits2,{f,Fail},[Ctx,Src,_,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     assert_term(Src, Vst),
     branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_test_tail2,{f,Fail},[Ctx,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_test_unit,{f,Fail},[Ctx,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst, fun(V) -> V end);
 valfun_4({test,bs_skip_utf8,{f,Fail},[Ctx,Live,_]}, Vst) ->
     validate_bs_skip_utf(Fail, Ctx, Live, Vst);
@@ -807,14 +832,14 @@ valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
 valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
     bsm_restore(Ctx, SavePoint, Vst);
 valfun_4({bs_get_position, Ctx, Dst, Live}, Vst0) ->
-    bsm_validate_context(Ctx, Vst0),
+    assert_type(#t_bs_context{}, Ctx, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     Vst = prune_x_regs(Live, Vst0),
     create_term(#t_abstract{kind=ms_position}, bs_get_position, [Ctx],
                 Dst, Vst, Vst0);
 valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     assert_type(#t_abstract{kind=ms_position}, Pos, Vst),
     Vst;
 
@@ -1125,7 +1150,7 @@ validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
 %% Common code for validating bs_get* instructions.
 %%
 validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     verify_live(Live, Vst),
     verify_y_init(Vst),
 
@@ -1139,7 +1164,7 @@ validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst) ->
 %% Common code for validating bs_skip_utf* instructions.
 %%
 validate_bs_skip_utf(Fail, Ctx, Live, Vst) ->
-    bsm_validate_context(Ctx, Vst),
+    assert_type(#t_bs_context{}, Ctx, Vst),
     verify_y_init(Vst),
     verify_live(Live, Vst),
 
@@ -1462,44 +1487,35 @@ bsm_match_state() ->
 bsm_match_state(Slots) ->
     #t_bs_context{slots=Slots}.
 
-bsm_validate_context(Reg, Vst) ->
-    _ = bsm_get_context(Reg, Vst),
-    ok.
-
-bsm_get_context({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y->
-    case get_movable_term_type(Reg, Vst) of
-        #t_bs_context{}=Ctx -> Ctx;
-        _ -> error({no_bsm_context,Reg})
-    end;
-bsm_get_context(Reg, _) ->
-    error({bad_source,Reg}).
-
 bsm_save(Reg, {atom,start}, Vst) ->
     %% Save point refering to where the match started.
     %% It is always valid. But don't forget to validate the context register.
-    bsm_validate_context(Reg, Vst),
+    assert_type(#t_bs_context{}, Reg, Vst),
     Vst;
 bsm_save(Reg, SavePoint, Vst) ->
-    case bsm_get_context(Reg, Vst) of
-	#t_bs_context{valid=Bits,slots=Slots}=Ctxt0 when SavePoint < Slots ->
-	    Ctx = Ctxt0#t_bs_context{valid=Bits bor (1 bsl SavePoint),slots=Slots},
-	    override_type(Ctx, Reg, Vst);
-	_ -> error({illegal_save,SavePoint})
+    case get_movable_term_type(Reg, Vst) of
+        #t_bs_context{valid=Bits,slots=Slots}=Ctxt0 when SavePoint < Slots ->
+            Ctx = Ctxt0#t_bs_context{valid=Bits bor (1 bsl SavePoint),
+                                     slots=Slots},
+            override_type(Ctx, Reg, Vst);
+        _ ->
+            error({illegal_save, SavePoint})
     end.
 
 bsm_restore(Reg, {atom,start}, Vst) ->
     %% (Mostly) automatic save point refering to where the match started.
     %% It is always valid. But don't forget to validate the context register.
-    bsm_validate_context(Reg, Vst),
+    assert_type(#t_bs_context{}, Reg, Vst),
     Vst;
 bsm_restore(Reg, SavePoint, Vst) ->
-    case bsm_get_context(Reg, Vst) of
-	#t_bs_context{valid=Bits,slots=Slots} when SavePoint < Slots ->
-	    case Bits band (1 bsl SavePoint) of
-		0 -> error({illegal_restore,SavePoint,not_set});
-		_ -> Vst
-	    end;
-	_ -> error({illegal_restore,SavePoint,range})
+    case get_movable_term_type(Reg, Vst) of
+        #t_bs_context{valid=Bits,slots=Slots} when SavePoint < Slots ->
+            case Bits band (1 bsl SavePoint) of
+                0 -> error({illegal_restore, SavePoint, not_set});
+                _ -> Vst
+            end;
+        _ ->
+            error({illegal_restore, SavePoint, range})
     end.
 
 validate_select_val(_Fail, _Choices, _Src, #vst{current=none}=Vst) ->
@@ -1515,8 +1531,21 @@ validate_select_val(Fail, [Val,{f,L}|T], Src, Vst0) ->
                          update_ne_types(Src, Val, FailVst)
                  end),
     validate_select_val(Fail, T, Src, Vst);
-validate_select_val(Fail, [], _, Vst) ->
+validate_select_val(Fail, [], Src, Vst) ->
     branch(Fail, Vst,
+           fun(FailVst) ->
+                    FailType = get_term_type(Src, FailVst),
+                    case beam_types:get_singleton_value(FailType) of
+                       {ok, Value} ->
+                           %% This is the only possible value at the fail
+                           %% label, so we can infer types as if we matched it
+                           %% directly.
+                           Lit = value_to_literal(Value),
+                           update_eq_types(Src, Lit, FailVst);
+                       error ->
+                           FailVst
+                   end
+           end,
            fun(SuccVst) ->
                    %% The next instruction is never executed.
                    kill_state(SuccVst)
@@ -1543,84 +1572,113 @@ validate_select_tuple_arity(Fail, [], _, #vst{}=Vst) ->
                    kill_state(SuccVst)
            end).
 
-infer_types({Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
-    infer_types(get_reg_vref(Reg, Vst), Vst);
-infer_types(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
+%%
+%% Infers types from comparisons, looking at the expressions that produced the
+%% compared values and updates their types if we've learned something new from
+%% the comparison.
+%%
+
+infer_types(CompareOp, {Kind,_}=LHS, RHS, Vst) when Kind =:= x; Kind =:= y ->
+    infer_types(CompareOp, get_reg_vref(LHS, Vst), RHS, Vst);
+infer_types(CompareOp, LHS, {Kind,_}=RHS, Vst) when Kind =:= x; Kind =:= y ->
+    infer_types(CompareOp, LHS, get_reg_vref(RHS, Vst), Vst);
+infer_types(CompareOp, LHS, RHS, #vst{current=#st{vs=Vs}}=Vst0) ->
     case Vs of
-        #{ Ref := Entry } -> infer_types_1(Entry);
-        #{} -> fun(_, S) -> S end
-    end;
-infer_types(_, #vst{}) ->
-    fun(_, S) -> S end.
-
-infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}) ->
-    fun({atom,true}, S) ->
-            %% Either side might contain something worth inferring, so we need
-            %% to check them both.
-            Infer_L = infer_types(RHS, S),
-            Infer_R = infer_types(LHS, S),
-            Infer_R(RHS, Infer_L(LHS, S));
-       (_, S) -> S
-    end;
-infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]}) ->
-    fun(Val, S) ->
-            case is_value_alive(Tuple, S) of
-                true ->
-                    ElementType = get_term_type(Val, S),
-                    Es = beam_types:set_element_type(Index, ElementType, #{}),
-                    Type = #t_tuple{size=Index,elements=Es},
-                    update_type(fun meet/2, Type, Tuple, S);
-                false ->
-                    S
-            end
-    end;
-infer_types_1(#value{op={bif,is_atom},args=[Src]}) ->
-    infer_type_test_bif(#t_atom{}, Src);
-infer_types_1(#value{op={bif,is_boolean},args=[Src]}) ->
-    infer_type_test_bif(beam_types:make_boolean(), Src);
-infer_types_1(#value{op={bif,is_binary},args=[Src]}) ->
-    infer_type_test_bif(#t_bitstring{unit=8}, Src);
-infer_types_1(#value{op={bif,is_bitstring},args=[Src]}) ->
-    infer_type_test_bif(#t_bitstring{}, Src);
-infer_types_1(#value{op={bif,is_float},args=[Src]}) ->
-    infer_type_test_bif(float, Src);
-infer_types_1(#value{op={bif,is_integer},args=[Src]}) ->
-    infer_type_test_bif(#t_integer{}, Src);
-infer_types_1(#value{op={bif,is_list},args=[Src]}) ->
-    infer_type_test_bif(list, Src);
-infer_types_1(#value{op={bif,is_map},args=[Src]}) ->
-    infer_type_test_bif(#t_map{}, Src);
-infer_types_1(#value{op={bif,is_number},args=[Src]}) ->
-    infer_type_test_bif(number, Src);
-infer_types_1(#value{op={bif,is_tuple},args=[Src]}) ->
-    infer_type_test_bif(#t_tuple{}, Src);
-infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]}) ->
-    fun({integer,Arity}, S) ->
-            case is_value_alive(Tuple, S) of
-                true ->
-                    Type = #t_tuple{exact=true,size=Arity},
-                    update_type(fun meet/2, Type, Tuple, S);
-                false ->
-                    S
-            end;
-       (_, S) -> S
-    end;
-infer_types_1(_) ->
-    fun(_, S) -> S end.
-
-infer_type_test_bif(Type, Src) ->
-    fun({atom,Bool}, S) when is_boolean(Bool) ->
-            case is_value_alive(Src, S) of
-                true when Bool =:= true ->
-                    update_type(fun meet/2, Type, Src, S);
-                true when Bool =:= false ->
-                    update_type(fun subtract/2, Type, Src, S);
-                false ->
-                    S
-            end;
-       (_, S) ->
-            S
+        #{ LHS := LEntry, RHS := REntry } ->
+            Vst = infer_types_1(LEntry, RHS, CompareOp, Vst0),
+            infer_types_1(REntry, LHS, CompareOp, Vst);
+        #{ LHS := LEntry } ->
+            infer_types_1(LEntry, RHS, CompareOp, Vst0);
+        #{ RHS := REntry } ->
+            infer_types_1(REntry, LHS, CompareOp, Vst0);
+        #{} ->
+            Vst0
     end.
+
+infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}, Val, Op, Vst0) ->
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            Vst = infer_types(eq_exact, RHS, LHS, Vst0),
+            infer_types(eq_exact, LHS, RHS, Vst);
+        {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
+            Vst = infer_types(ne_exact, RHS, LHS, Vst0),
+            infer_types(ne_exact, LHS, RHS, Vst);
+        _ ->
+            Vst0
+    end;
+infer_types_1(#value{op={bif,'=/='},args=[LHS,RHS]}, Val, Op, Vst0) ->
+    case Val of
+        {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
+            Vst = infer_types(ne_exact, RHS, LHS, Vst0),
+            infer_types(ne_exact, LHS, RHS, Vst);
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            Vst = infer_types(eq_exact, RHS, LHS, Vst0),
+            infer_types(eq_exact, LHS, RHS, Vst);
+        _ ->
+            Vst0
+    end;
+infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]},
+              Val, Op, Vst) when Index >= 1 ->
+    Merge = case Op of
+                eq_exact -> fun meet/2;
+                ne_exact -> fun subtract/2
+            end,
+    case is_value_alive(Tuple, Vst) of
+        true ->
+            ElementType = get_term_type(Val, Vst),
+            Es = beam_types:set_element_type(Index, ElementType, #{}),
+            Type = #t_tuple{size=Index,elements=Es},
+            update_type(Merge, Type, Tuple, Vst);
+        false ->
+            Vst
+    end;
+infer_types_1(#value{op={bif,is_atom},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_atom{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_boolean},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(beam_types:make_boolean(), Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_binary},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_bitstring{unit=8}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_bitstring},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_bitstring{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_float},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(float, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(list, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_map},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_map{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_number},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(number, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_tuple},args=[Src]}, Val, Op, Vst) ->
+    infer_type_test_bif(#t_tuple{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]},
+              {integer,Arity}, Op, Vst) ->
+    Merge = case Op of
+                eq_exact -> fun meet/2;
+                ne_exact -> fun subtract/2
+            end,
+    case is_value_alive(Tuple, Vst) of
+        true ->
+            Type = #t_tuple{exact=true,size=Arity},
+            update_type(Merge, Type, Tuple, Vst);
+        false ->
+            Vst
+    end;
+infer_types_1(_, _, _, Vst) ->
+    Vst.
+
+infer_type_test_bif(Type, Src, {atom, Bool}, Op, Vst) when is_boolean(Bool) ->
+    case is_value_alive(Src, Vst) of
+        true when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            update_type(fun meet/2, Type, Src, Vst);
+        true when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
+            update_type(fun subtract/2, Type, Src, Vst);
+        false ->
+            Vst
+    end;
+infer_type_test_bif(_, _, _, _, Vst) ->
+    Vst.
 
 %%%
 %%% Keeping track of types.
@@ -1738,33 +1796,18 @@ update_type(Merge, With, Literal, Vst) ->
         _Type -> Vst
     end.
 
-update_ne_types(LHS, {atom,Bool}=RHS, Vst) when is_boolean(Bool) ->
-    %% This is a stopgap to make negative inference work for type test BIFs
-    %% like is_tuple. Consider the following unoptimized code:
-    %%
-    %%    {call_ext,2,{extfunc,erlang,'--',2}}.
-    %%    {bif,is_tuple,{f,0},[{x,0}],{x,1}}.
-    %%    {test,is_eq_exact,{x,1},{f,2},{atom,false}}.
-    %%    ... snip ...
-    %%    {label,1}.
-    %%    {test,is_eq_exact,{x,1},{f,1},{atom,true}}.
-    %%    ... unreachable because {x,0} is known to be a list, so {x,1} can't
-    %%        be true ...
-    %%    {label,2}.
-    %%    ... unreachable because {x,1} is neither true nor false! ...
-    %%
-    %% If we fail to determine that the first is_eq_exact never fails, our
-    %% state will be inconsistent after the second is_eq_exact check; we know
-    %% for certain that {x,0} is a list so infer_types says it can't succeed,
-    %% but it can't fail either because we also know that {x,1} is a boolean,
-    %% and the first check ruled out 'false'.
-    LType = get_term_type(LHS, Vst),
-    RType = get_term_type(RHS, Vst),
-    case beam_types:is_boolean_type(LType) of
-        true -> update_eq_types(LHS, {atom, not Bool}, Vst);
-        false -> update_type(fun subtract/2, RType, LHS, Vst)
-    end;
-update_ne_types(LHS, RHS, Vst) ->
+update_eq_types(LHS, RHS, Vst0) ->
+    Vst1 = infer_types(eq_exact, LHS, RHS, Vst0),
+
+    T1 = get_term_type(LHS, Vst1),
+    T2 = get_term_type(RHS, Vst1),
+
+    Vst = update_type(fun meet/2, T2, LHS, Vst1),
+    update_type(fun meet/2, T1, RHS, Vst).
+
+update_ne_types(LHS, RHS, Vst0) ->
+    Vst = infer_types(ne_exact, LHS, RHS, Vst0),
+
     %% While updating types on equality is fairly straightforward, inequality
     %% is a bit trickier since all we know is that the *value* of LHS differs
     %% from RHS, so we can't blindly subtract their types.
@@ -1779,19 +1822,6 @@ update_ne_types(LHS, RHS, Vst) ->
         true -> update_type(fun subtract/2, RType, LHS, Vst);
         false -> Vst
     end.
-
-update_eq_types(LHS, RHS, Vst0) ->
-    %% Either side might contain something worth inferring, so we need
-    %% to check them both.
-    Infer_L = infer_types(RHS, Vst0),
-    Infer_R = infer_types(LHS, Vst0),
-    Vst1 = Infer_R(RHS, Infer_L(LHS, Vst0)),
-
-    T1 = get_term_type(LHS, Vst1),
-    T2 = get_term_type(RHS, Vst1),
-
-    Vst = update_type(fun meet/2, T2, LHS, Vst1),
-    update_type(fun meet/2, T1, RHS, Vst).
 
 %% Helper functions for the above.
 
@@ -1904,43 +1934,43 @@ is_literal({integer,I}) when is_integer(I) -> true;
 is_literal({literal,_L}) -> true;
 is_literal(_) -> false.
 
-%% The possible types.
-%%
-%% First non-term types:
-%%
-%% initialized          Only for Y registers. Means that the Y register
-%%                      has been initialized with some valid term so that
-%%	                    it is safe to pass to the garbage collector.
-%%	                    NOT safe to use in any other way (will not crash the
-%%	                    emulator, but clearly points to a bug in the compiler).
-%%
-%% {catchtag,[Lbl]}     A special term used within a catch. Must only be used
-%%	                    by the catch instructions; NOT safe to use in other
-%%	                    instructions.
-%%
-%% {trytag,[Lbl]}       A special term used within a try block. Must only be
-%%	                    used by the catch instructions; NOT safe to use in other
-%%	                    instructions.
-%%
-%% #t_bs_context{}	    A match context for bit syntax matching. We do allow
-%%	                    it to moved/to from stack, but otherwise it must only
-%%	                    be accessed by bit syntax matching instructions.
-%%
-%% These are simple wrappers around
+%% `dialyzer` complains about the float and general literal cases never being
+%% matched and I don't like suppressing warnings. Should they become possible
+%% I'm sure `dialyzer` will warn about it.
+value_to_literal([]) -> nil;
+value_to_literal(A) when is_atom(A) -> {atom,A};
+value_to_literal(I) when is_integer(I) -> {integer,I}.
 
-join(#t_abstract{}=Same, #t_abstract{}=Same) -> Same;
+%% These are just wrappers around their equivalents in beam_types, which
+%% handle the validator-specific #t_abstract{} type.
+%%
+%% The funny-looking abstract types produced here are intended to provoke
+%% errors on actual use; they do no harm just lying around.
+
+normalize(#t_abstract{}=A) -> error({abstract_type, A});
+normalize(T) -> beam_types:normalize(T).
+
+join(Same, Same) -> Same;
+join(#t_abstract{}=A, B) -> #t_abstract{kind={join, A, B}};
+join(A, #t_abstract{}=B) -> #t_abstract{kind={join, A, B}};
 join(A, B) -> beam_types:join(A, B).
 
-meet(#t_abstract{}=Same, #t_abstract{}=Same) -> Same;
+meet(Same, Same) -> Same;
+meet(#t_abstract{}=A, B) -> #t_abstract{kind={meet, A, B}};
+meet(A, #t_abstract{}=B) -> #t_abstract{kind={meet, A, B}};
 meet(A, B) -> beam_types:meet(A, B).
 
+subtract(#t_abstract{}=A, B) -> #t_abstract{kind={subtract, A, B}};
+subtract(A, #t_abstract{}=B) -> #t_abstract{kind={subtract, A, B}};
 subtract(A, B) -> beam_types:subtract(A, B).
 
 assert_type(RequiredType, Term, Vst) ->
-    GivenType = get_term_type(Term, Vst),
+    GivenType = get_movable_term_type(Term, Vst),
     case meet(RequiredType, GivenType) of
-        GivenType -> ok;
-        _RequiredType -> error({bad_type,{needed,RequiredType},{actual,GivenType}})
+        GivenType ->
+            ok;
+        _RequiredType ->
+            error({bad_type,{needed,RequiredType},{actual,GivenType}})
     end.
 
 validate_src(Ss, Vst) when is_list(Ss) ->
@@ -1954,6 +1984,7 @@ validate_src(Ss, Vst) when is_list(Ss) ->
 get_term_type(Src, Vst) ->
     case get_movable_term_type(Src, Vst) of
         #t_bs_context{} -> error({match_context,Src});
+        #t_abstract{} -> error({abstract_term,Src});
         Type -> Type
     end.
 
@@ -1963,7 +1994,7 @@ get_term_type(Src, Vst) ->
 
 get_movable_term_type(Src, Vst) ->
     case get_raw_type(Src, Vst) of
-        #t_abstract{kind=tuple_in_progress=Kind} -> error({Kind,Src});
+        #t_abstract{kind=unfinished_tuple=Kind} -> error({Kind,Src});
         initialized -> error({unassigned,Src});
         uninitialized -> error({uninitialized_reg,Src});
         {catchtag,_} -> error({catchtag,Src});
@@ -2361,7 +2392,7 @@ assert_not_fragile(Lit, #vst{}) ->
 %%%
 
 bif_types(Op, Ss, Vst) ->
-    Args = [get_term_type(Arg, Vst) || Arg <- Ss],
+    Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
     beam_call_types:types(erlang, Op, Args).
 
 call_types({extfunc,M,F,A}, A, Vst) ->
@@ -2376,7 +2407,8 @@ get_call_args(Arity, Vst) ->
 get_call_args_1(Arity, Arity, _) ->
     [];
 get_call_args_1(N, Arity, Vst) when N < Arity ->
-    [get_movable_term_type({x,N}, Vst) | get_call_args_1(N + 1, Arity, Vst)].
+    ArgType = normalize(get_movable_term_type({x,N}, Vst)),
+    [ArgType | get_call_args_1(N + 1, Arity, Vst)].
 
 check_limit({x,X}=Src) when is_integer(X) ->
     if
