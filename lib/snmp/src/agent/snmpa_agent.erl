@@ -525,9 +525,25 @@ unregister_subagent(Agent, SubagentOidOrPid) ->
 %% These subagent_ functions either return a value, or exits
 %% with {nodedown, Node} | Reason.
 %%-----------------------------------------------------------------
-subagent_get(SubAgent, Varbinds, IsNotification) ->
+
+%% A proper spec for this would be something like this:
+%% But, there is now way to spec that a process *can* exit.
+%% -spec subagent_get(Agent, VBs, IsNotification) ->
+%%                           {noError, 0, NewVBs} |
+%%                           {ErrStatus, ErrIndex, []} |
+%%                           erlang:exit(Reason) when
+%%       Agent          :: pid(),
+%%       VBs            :: [snmp:varbind()],
+%%       IsNotification :: boolean(),
+%%       NewVBs         :: [snmp:varbind()],
+%%       ErrStatus      :: snmp:error_status(),
+%%       ErrIndex       :: snmp:error_index(),
+%%       Reason         :: {nodedown, Node} | term(),
+%%       Node           :: atom().
+
+subagent_get(SubAgent, VBs, IsNotification) ->
     PduData = get_pdu_data(),
-    call(SubAgent, {subagent_get, Varbinds, PduData, IsNotification}).
+    call(SubAgent, {subagent_get, VBs, PduData, IsNotification}).
 
 subagent_get_next(SubAgent, MibView, Varbinds) ->
     PduData = get_pdu_data(),

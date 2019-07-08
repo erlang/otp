@@ -164,6 +164,14 @@ no_filter(X) -> X.
 %% An ordering function (A, B) shall return true iff
 %% A is less than or equal to B i.e shall return
 %% false iff A is to be ordered after B.
+
+-spec keyorder(N, A, B, Keys) ->
+                      boolean() when
+      N    :: integer(),
+      A    :: tuple(),
+      B    :: tuple(),
+      Keys :: maybe_improper_list().
+
 keyorder(N, A, B, _) when element(N, A) == element(N, B) ->
     true;
 keyorder(N, A, B, [Key | _])

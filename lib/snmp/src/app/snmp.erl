@@ -95,6 +95,9 @@
 	      dir/0, 
 	      snmp_timer/0, 
 
+              atl_type/0,
+              verbosity/0,
+
 	      engine_id/0, 
 	      tdomain/0, 
 	      community/0, 
@@ -187,6 +190,9 @@
 
 -type dir()           :: string().
 -type snmp_timer()    :: #snmp_incr_timer{}.
+
+-type atl_type()      :: read | write | read_write.
+-type verbosity()     :: info | log | debug | trace | silence.
 
 -type engine_id()     :: string().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
@@ -711,13 +717,8 @@ sys_info() ->
     [{arch, SysArch}, {ver, SysVer}].
  
 os_info() ->
-    V = os:version(),
-    case os:type() of
-        {OsFam, OsName} ->
-            [{fam, OsFam}, {name, OsName}, {ver, V}];
-        OsFam ->
-            [{fam, OsFam}, {ver, V}]
-    end.
+    {OsFam, OsName} = os:type(),
+    [{fam, OsFam}, {name, OsName}, {ver, os:version()}].
 
 ms1() ->
     App    = ?APPLICATION,

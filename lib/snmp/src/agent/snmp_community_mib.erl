@@ -545,24 +545,16 @@ snmpTargetAddrExtTable(is_set_ok, RowIndex, Cols0) ->
     end.
 
 
-
 get_snmpTargetAddrTDomain(RowIndex, Col) ->
-    case
-	get(
-	  snmpTargetAddrTable, RowIndex,
-	  [?snmpTargetAddrRowStatus,?snmpTargetAddrTDomain])
-    of
-	[{value,?snmpTargetAddrRowStatus_active},ValueTDomain] ->
-	    case ValueTDomain of
-		{value,TDomain} ->
-		    TDomain;
-		_ ->
-		    ?snmpUDPDomain
-	    end;
-	_ ->
+    Cols = [?snmpTargetAddrRowStatus,?snmpTargetAddrTDomain],
+    case snmp_target_mib:snmpTargetAddrTable(get, RowIndex, Cols) of
+	[{value, ?snmpTargetAddrRowStatus_active}, {value, TDomain}] ->
+            TDomain;
+	[{value, ?snmpTargetAddrRowStatus_active}, _] ->
+            ?snmpUDPDomain;
+        _ ->
 	    wrongValue(Col)
     end.
-
 
 
 verify_snmpTargetAddrExtTable_cols([], _TDomain, Cols) ->

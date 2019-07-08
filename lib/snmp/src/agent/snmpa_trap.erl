@@ -1115,7 +1115,7 @@ transform_taddrs(TAddrs) ->
 
 %% v2
 transform_taddr({?snmpUDPDomain, Addr}) ->
-    transform_taddr(transportDomainIdpIpv4, Addr);
+    transform_taddr(transportDomainUdpIpv4, Addr);
 transform_taddr({?transportDomainUdpIpv4, Addr}) ->
     transform_taddr(transportDomainUdpIpv4, Addr);
 transform_taddr({?transportDomainUdpIpv6, Addr}) ->
