@@ -659,6 +659,7 @@ typedef union {
 /* We should *eventually* use this instead of hard-coding the size (to 1) */
 #define ESOCK_RECVMSG_IOVEC_SZ 1
 
+#define SOCKET_CMD_DEBUG        0x0001
 
 #define SOCKET_SUPPORTS_OPTIONS 0x0001
 #define SOCKET_SUPPORTS_SCTP    0x0002
@@ -948,6 +949,7 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
  * does the actual work. Except for the info function.
  *
  * nif_info
+ * nif_command
  * nif_supports
  * nif_open
  * nif_bind
@@ -973,6 +975,7 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
 
 #define ESOCK_NIF_FUNCS                             \
     ESOCK_NIF_FUNC_DEF(info);                       \
+    ESOCK_NIF_FUNC_DEF(command);                    \
     ESOCK_NIF_FUNC_DEF(supports);                   \
     ESOCK_NIF_FUNC_DEF(open);                       \
     ESOCK_NIF_FUNC_DEF(bind);                       \
@@ -1004,7 +1007,17 @@ ESOCK_NIF_FUNCS
 
 
 #if !defined(__WIN32__)
+
 /* And here comes the functions that does the actual work (for the most part) */
+static BOOLEAN_T ecommand2command(ErlNifEnv*    env,
+                                  ERL_NIF_TERM  ecommand,
+                                  Uint16*       command,
+                                  ERL_NIF_TERM* edata);
+static ERL_NIF_TERM ncommand(ErlNifEnv*   env,
+                             Uint16       cmd,
+                             ERL_NIF_TERM ecdata);
+static ERL_NIF_TERM ncommand_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata);
+
 static ERL_NIF_TERM nsupports(ErlNifEnv* env, int key);
 static ERL_NIF_TERM nsupports_options(ErlNifEnv* env);
 static ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env);
@@ -2661,6 +2674,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(busy_poll);                       \
     GLOBAL_ATOM_DECL(checksum);                        \
     GLOBAL_ATOM_DECL(close);                           \
+    GLOBAL_ATOM_DECL(command);                         \
     GLOBAL_ATOM_DECL(connect);                         \
     GLOBAL_ATOM_DECL(congestion);                      \
     GLOBAL_ATOM_DECL(context);                         \
@@ -2967,8 +2981,8 @@ static ESOCK_INLINE ErlNifEnv* esock_alloc_env(const char* slogan)
  * Utility and admin functions:
  * ----------------------------
  * nif_info/0
+ * nif_command/1
  * nif_supports/1
- * (nif_debug/1)
  *
  * The "proper" socket functions:
  * ------------------------------
@@ -3054,6 +3068,112 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
 #endif
 }
 
+
+/* ----------------------------------------------------------------------
+ * nif_command
+ *
+ * Description:
+ * This function is intended to handle "various" commands. That is,
+ * commands and operations that are not part of the socket API proper.
+ * Currently it handles setting the global debug. Its a map with two
+ * attributes command and (command) data:
+ * #{command :: atom(), data :: term()}
+ *
+ * Command                    Data
+ * debug                      boolean()
+ *
+ */
+
+static
+ERL_NIF_TERM nif_command(ErlNifEnv*         env,
+                         int                argc,
+                         const ERL_NIF_TERM argv[])
+{
+#if defined(__WIN32__)
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#else
+    ERL_NIF_TERM ecmd, ecdata, result;
+    Uint16       cmd;
+
+    SGDBG( ("SOCKET", "nif_command -> entry with %d args\r\n", argc) );
+
+    if ((argc != 1) ||
+        !IS_MAP(env,  argv[0])) {
+        return enif_make_badarg(env);
+    }
+    ecmd = argv[0];
+
+    SGDBG( ("SOCKET", "nif_command -> "
+            "\r\n   (e) command: %T"
+            "\r\n", ecmd) );
+
+    if (!ecommand2command(env, ecmd, &cmd, &ecdata)) {
+        SGDBG( ("SOCKET", "nif_command -> invalid command\r\n") );
+        return esock_make_error(env, esock_atom_einval);
+    }
+
+    SGDBG( ("SOCKET", "nif_command -> "
+            "\r\n   command:          %d"
+            "\r\n   (e) command data: %T"
+            "\r\n", cmd, ecdata) );
+
+    result = ncommand(env, cmd, ecdata);
+    
+    SGDBG( ("SOCKET", "nif_command -> done with result: "
+           "\r\n   %T"
+           "\r\n", result) );
+
+    return result;
+
+#endif
+}
+
+
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM ncommand(ErlNifEnv* env, Uint16 cmd, ERL_NIF_TERM ecdata)
+{
+    ERL_NIF_TERM result;
+
+    SGDBG( ("SOCKET", "ncommand -> entry with 0x%lX\r\n", cmd) );
+
+    switch (cmd) {
+    case SOCKET_CMD_DEBUG:
+        result = ncommand_debug(env, ecdata);
+        break;
+
+    default:
+        result = esock_make_error(env, esock_atom_einval);
+        break;
+    }
+
+    return result;
+}
+
+
+
+static
+ERL_NIF_TERM ncommand_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata)
+{
+    ERL_NIF_TERM result;
+
+    /* The data *should* be a boolean() */
+
+    if (COMPARE(ecdata, esock_atom_true) == 0) {
+        data.dbg = TRUE;
+        result   = esock_atom_ok;
+    } else if (COMPARE(ecdata, esock_atom_false) == 0) {
+        data.dbg = FALSE;
+        result   = esock_atom_ok;
+    } else {
+        SGDBG( ("SOCKET", "ncommand_debug -> invalid debug value: %T\r\n",
+                ecdata) );
+        result = esock_make_error(env, esock_atom_einval);
+    }
+
+    return result;
+}
+#endif
 
 
 /* ----------------------------------------------------------------------
@@ -17609,6 +17729,59 @@ BOOLEAN_T ehow2how(unsigned int ehow, int* how)
 
 
 
+/* ecommand2command - convert erlang command to "native" command (and data)
+ */
+static
+BOOLEAN_T ecommand2command(ErlNifEnv*    env,
+                           ERL_NIF_TERM  ecommand,
+                           Uint16*       command,
+                           ERL_NIF_TERM* edata)
+{
+    size_t       sz;
+    ERL_NIF_TERM ecmd;
+
+    if (!IS_MAP(env, ecommand)) {
+        SGDBG( ("SOCKET", "ecommand2command -> (e)command not a map\r\n") );
+        return FALSE;
+    }
+
+    /* The map shall have exactly two attrbutes: 
+     *          'command' and 'data'
+     */
+    if (!enif_get_map_size(env, ecommand, &sz) || (sz != 2)) {
+        SGDBG( ("SOCKET", "ecommand2command -> comamnd map size invalid\r\n") );
+        return FALSE;
+    }
+
+    /* Get the command value, and transform into integer
+     * (might as well do that, since theer is no point in
+     *  extracting the data if command is invalid).
+     */
+    if (!GET_MAP_VAL(env, ecommand, esock_atom_command, &ecmd)) {
+        SGDBG( ("SOCKET", "ecommand2command -> command attribute not found\r\n") );
+        return FALSE;
+    }
+    if (COMPARE(ecmd, esock_atom_debug) == 0) {
+        *command = SOCKET_CMD_DEBUG;
+    } else {
+        SGDBG( ("SOCKET", "ecommand2command -> unknown command %T\r\n", ecmd) );
+        return FALSE;
+    }
+
+    /* Get the command data value, we do *not* convert it to 
+     * the native form (here) since it may "in theory" be complex.
+     */
+    if (!GET_MAP_VAL(env, ecommand, esock_atom_data, edata)) {
+        SGDBG( ("SOCKET", "ecommand2command -> (command) data not found\r\n") );
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+
+
+
 #if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
 /* strnlen doesn't exist everywhere */
 /*
@@ -19019,12 +19192,9 @@ ErlNifFunc socket_funcs[] =
     // Some utility and support functions
     {"nif_info",                0, nif_info, 0},
     {"nif_supports",            1, nif_supports, 0},
-    // {"nif_debug",               1, nif_debug, 0},
-    // {"nif_command",             1, nif_command, 0},
+    {"nif_command",             1, nif_command, 0},
 
     // The proper "socket" interface
-    // nif_open/1 is used when we already have a file descriptor
-    // {"nif_open",                1, nif_open, 0},
     {"nif_open",                4, nif_open, 0},
     {"nif_bind",                2, nif_bind, 0},
     {"nif_connect",             2, nif_connect, 0},

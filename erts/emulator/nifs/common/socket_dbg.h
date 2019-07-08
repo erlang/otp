@@ -40,12 +40,12 @@
 #endif
 typedef unsigned long long llu_t;
 
-
+extern FILE* esock_dbgout; // Initiated by the 'init' function
 
 #define ESOCK_DBG_PRINTF( ___COND___ , proto ) \
     if ( ___COND___ ) {                        \
         esock_dbg_printf proto;                \
-        fflush(stdout);                        \
+        fflush(esock_dbgout);                  \
     }
 
 

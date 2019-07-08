@@ -37,23 +37,23 @@
 #define TNAME(__T__)       enif_thread_name( __T__ )
 #define TSNAME()           TNAME(TSELF())
 
-static FILE* dbgout = NULL;
+FILE* esock_dbgout = NULL;
 
 extern
 void esock_dbg_init(char* filename)
 {
   if (filename != NULL) {
     if (strcmp(filename, ESOCK_DBGOUT_DEFAULT) == 0) {
-      dbgout = stdout;
+        esock_dbgout = stdout;
     } else if (strcmp(filename, ESOCK_DBGOUT_UNIQUE) == 0) {
-      char template[] = "/tmp/esock-dbg-XXXXXX";
-      dbgout = fdopen(mkstemp(template), "w+");
+        char template[] = "/tmp/esock-dbg-XXXXXX";
+        esock_dbgout = fdopen(mkstemp(template), "w+");
     } else {
-      dbgout = fopen(filename, "w+");
+        esock_dbgout = fopen(filename, "w+");
     }
   } else {
     char template[] = "/tmp/esock-dbg-XXXXXX";
-    dbgout = fdopen(mkstemp(template), "w+");
+    esock_dbgout = fdopen(mkstemp(template), "w+");
   }
 }
 
@@ -67,7 +67,7 @@ extern
 void esock_dbg_printf( const char* prefix, const char* format, ... )
 {
   va_list         args;
-  char            f[512 + sizeof(format)]; // This has to suffice...
+  char            f[512 + strlen(format)]; // This has to suffice...
   char            stamp[30];
   int             res;
 
@@ -87,9 +87,9 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
   
   if (res > 0) {
       va_start (args, format);
-      enif_vfprintf (dbgout, f, args);
+      enif_vfprintf (esock_dbgout, f, args);
       va_end (args);
-      fflush(dbgout);
+      fflush(esock_dbgout);
   }
 
   return;

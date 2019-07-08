@@ -67,6 +67,9 @@
 
 %% Test cases
 -export([
+         %% *** API Misc ***
+         api_m_debug/1,
+
          %% *** API Basic ***
          api_b_open_and_close_udp4/1,
          api_b_open_and_close_tcp4/1,
@@ -583,6 +586,7 @@ use_group(Group, Env, Default) ->
 
 groups() -> 
     [{api,                        [], api_cases()},
+     {api_misc,                   [], api_misc_cases()},
      {api_basic,                  [], api_basic_cases()},
      {api_async,                  [], api_async_cases()},
      {api_options,                [], api_options_cases()},
@@ -660,10 +664,16 @@ groups() ->
      
 api_cases() ->
     [
+     {group, api_misc},
      {group, api_basic},
      {group, api_async},
      {group, api_options},
      {group, api_op_with_timeout}
+    ].
+
+api_misc_cases() ->
+    [
+     api_m_debug
     ].
 
 api_basic_cases() ->
@@ -1647,6 +1657,72 @@ quiet_mode(Config) ->
 
 
                 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                           API MISC                                  %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% A simple test case that tests that the global debug can be channged.
+%% At the same time, it will test the info function (since it uses it
+%% for verification).
+
+api_m_debug(suite) ->
+    [];
+api_m_debug(doc) ->
+    [];
+api_m_debug(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_m_debug,
+           fun() -> has_bugfree_gcc() end,
+           fun() ->
+                   ok = api_m_debug()
+           end).
+
+%% For some reason this test case triggers a gcc bug, which causes
+%% a segfault, on an ancient Fedora 16 VM. So, check the version of gcc...
+%% Not pretty, but the simplest way to skip (without actually testing for the host).
+has_bugfree_gcc() ->
+    has_bugfree_gcc(os:type()).
+
+%% Make sure we are on linux
+has_bugfree_gcc({unix, linux}) ->
+    has_bugfree_gcc2(os:cmd("cat /etc/issue"));
+has_bugfree_gcc(_) ->
+    ok.
+
+%% Make sure we are on Fedora 16
+has_bugfree_gcc2("Fedora release 16 " ++ _) ->
+    has_bugfree_gcc3(os:cmd("gcc --version"));
+has_bugfree_gcc2(_) ->
+    ok.
+
+has_bugfree_gcc3("gcc (GCC) 4.6.3 20120306 (Red Hat 4.6.3-2" ++ _) ->
+    skip("Buggy GCC");
+has_bugfree_gcc3(_) ->
+    ok.
+
+api_m_debug() ->
+    i("get initial info"),
+    #{debug := D0} = socket:info(),
+    D1 = not D0,
+    i("set new debug (~w => ~w)", [D0, D1]),
+    ok = socket:debug(D1),
+    i("get updated info (~w)", [D1]),
+    #{debug := D1} = socket:info(),
+    D2 = not D1,
+    i("set new debug (~w => ~w)", [D1, D2]),
+    ok = socket:debug(D2),
+    i("get updated info (~w)", [D2]),
+    #{debug := D2} = socket:info(),
+    i("ok"),
+    ok.
+    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                     %%
