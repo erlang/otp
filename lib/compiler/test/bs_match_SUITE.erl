@@ -44,7 +44,8 @@
          beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1,
          expression_before_match/1,erl_689/1,restore_on_call/1,
          restore_after_catch/1,matches_on_parameter/1,big_positions/1,
-         matching_meets_apply/1,bs_start_match2_defs/1]).
+         matching_meets_apply/1,bs_start_match2_defs/1,
+         exceptions_after_match_failure/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -80,7 +81,8 @@ groups() ->
        beam_bsm,guard,is_ascii,non_opt_eq,
        expression_before_match,erl_689,restore_on_call,
        matches_on_parameter,big_positions,
-       matching_meets_apply,bs_start_match2_defs]}].
+       matching_meets_apply,bs_start_match2_defs,
+       exceptions_after_match_failure]}].
 
 
 init_per_suite(Config) ->
@@ -2004,5 +2006,18 @@ do_matching_meets_apply(<<_/binary>>=Name, never_matches_b) ->
 do_matching_meets_apply(_Bin, {Handler, State}) ->
     %% Another case of the above.
     Handler:abs(State).
+
+%% Exception handling was broken on the failure path of bs_start_match as
+%% beam_ssa_bsm accidentally cloned and renamed the ?BADARG_BLOCK.
+exceptions_after_match_failure(_Config) ->
+    {'EXIT', {badarith, _}} = (catch do_exceptions_after_match_failure(atom)),
+    ok = do_exceptions_after_match_failure(<<0, 1, "gurka">>),
+    ok = do_exceptions_after_match_failure(2.0).
+
+do_exceptions_after_match_failure(<<_A, _B, "gurka">>) ->
+    ok;
+do_exceptions_after_match_failure(Other) ->
+    Other / 2.0,
+    ok.
 
 id(I) -> I.
