@@ -1752,19 +1752,26 @@ has_bugfree_gcc() ->
 
 %% Make sure we are on linux
 has_bugfree_gcc({unix, linux}) ->
-    has_bugfree_gcc2(os:cmd("cat /etc/issue"));
+    has_bugfree_gcc2(string:trim(os:cmd("cat /etc/issue")));
 has_bugfree_gcc(_) ->
     ok.
 
 %% Make sure we are on Fedora 16
 has_bugfree_gcc2("Fedora release 16 " ++ _) ->
     has_bugfree_gcc3(os:cmd("gcc --version"));
+has_bugfree_gcc2("Welcome to SUSE Linux " ++ _) ->
+    has_bugfree_gcc4(os:cmd("gcc --version"));
 has_bugfree_gcc2(_) ->
     ok.
 
 has_bugfree_gcc3("gcc (GCC) 4.6.3 20120306 (Red Hat 4.6.3-2" ++ _) ->
     skip("Buggy GCC");
 has_bugfree_gcc3(_) ->
+    ok.
+
+has_bugfree_gcc4("gcc (SUSE Linux) 4.3.2" ++ _) ->
+    skip("Buggy GCC");
+has_bugfree_gcc4(_) ->
     ok.
 
 api_m_debug() ->
@@ -1783,6 +1790,7 @@ api_m_debug() ->
     i("ok"),
     ok.
     
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -8591,6 +8599,7 @@ which_multicast_address(Domain) ->
             which_multicast_address2(Domain, WhichMAddr);
 
         Type ->
+            %% Actually, what is "not supported". is netstat!
             not_supported({multicast, Type})
     end.
 
@@ -8600,20 +8609,28 @@ which_multicast_address(Domain) ->
 
 which_multicast_address2(Domain, WhichMAddr) ->
     IfName = which_local_host_ifname(Domain),
-    try
-        begin
-            %% On some platforms the netstat barfs out some crap on stderr
-            %% before the actual info...
-            NetstatGroupsStr = os:cmd("netstat -g 2>/dev/null | grep " ++ IfName),
-            NetstatGroups0   = string:tokens(NetstatGroupsStr, [$\n]),
-            NetstatGroups    = [string:tokens(G, [$ ]) || G <- NetstatGroups0],
-            MAddrs           = [WhichMAddr(NetstatGroup) || NetstatGroup <-
-                                                                NetstatGroups],
-            which_multicast_address3(Domain, MAddrs)
-        end
-    catch
-        C:E:S ->
-            not_supported({multicast, {C,E,S}})
+    %% On some platforms the netstat barfs out some crap on stderr
+    %% before the actual info...
+    case os:cmd("netstat -g 2>/dev/null | grep " ++ IfName) of
+        [] ->
+            %% Can't figure out if we support multicast or not...
+            not_supported(no_netstat);
+        NetstatGroupsStr ->
+            try
+                begin
+                    NetstatGroups0   = string:tokens(NetstatGroupsStr, [$\n]),
+                    NetstatGroups    = [string:tokens(G, [$ ]) || 
+                                           G <- NetstatGroups0],
+                    MAddrs           = [WhichMAddr(NetstatGroup) || 
+                                           NetstatGroup <- NetstatGroups],
+                    which_multicast_address3(Domain, MAddrs)
+                end
+            catch
+                throw:E:_ ->
+                    throw(E);
+                C:E:S ->
+                    not_supported({multicast, {C,E,S}})
+            end
     end.
 
 which_multicast_address3(_Domain, []) ->
