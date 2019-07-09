@@ -15720,12 +15720,25 @@ traffic_send_and_recv_udp(InitState) ->
                    end},
          #{desc => "recv (2)",
            cmd  => fun(#{sock      := Sock,
-                         server_sa := ServerSA,
+                         server_sa := #{family := local} = ServerSA,
                          recv      := Recv,
                          read_pkg  := RPkg,
                          read_byte := RByte} = State) ->
                            case Recv(Sock) of
                                {ok, {ServerSA, Data}} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{read_pkg  => RPkg + 1,
+                                               read_byte => RByte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+		      (#{sock      := Sock,
+                         server_sa := #{addr := Addr, port := Port},
+                         recv      := Recv,
+                         read_pkg  := RPkg,
+                         read_byte := RByte} = State) ->
+                           case Recv(Sock) of
+                               {ok, {#{addr := Addr, port := Port}, Data}} ->
                                    ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
                                    {ok, State#{read_pkg  => RPkg + 1,
                                                read_byte => RByte + size(Data)}};
