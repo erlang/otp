@@ -25,7 +25,8 @@
 	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
 	 coverage/1,grab_bag/1,literal_binary/1,
-         unary_op/1,eq_types/1,match_after_return/1,match_right_tuple/1]).
+         unary_op/1,eq_types/1,match_after_return/1,match_right_tuple/1,
+         tuple_size_in_try/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -41,7 +42,8 @@ groups() ->
        shortcut_boolean,letify_guard,selectify,deselectify,
        underscore,match_map,map_vars_used,coverage,
        grab_bag,literal_binary,unary_op,eq_types,
-       match_after_return,match_right_tuple]}].
+       match_after_return,match_right_tuple,
+       tuple_size_in_try]}].
 
 
 init_per_suite(Config) ->
@@ -921,5 +923,20 @@ match_right_tuple_1(T) ->
     id(force_succ_regs(A, B)).
 
 force_succ_regs(_A, B) -> B.
+
+tuple_size_in_try(Config) when is_list(Config) ->
+    %% The tuple_size optimization was applied outside of guards, causing
+    %% either the emulator or compiler to crash.
+    ok = tsit(gurka),
+    ok = tsit(gaffel).
+
+tsit(A) ->
+    try
+        id(ignored),
+        1 = tuple_size(A),
+        error
+    catch
+        _:_ -> ok
+    end.
 
 id(I) -> I.
