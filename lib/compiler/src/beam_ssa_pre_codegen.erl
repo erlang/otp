@@ -159,7 +159,9 @@ passes(Opts) ->
           %% Allocate registers.
           ?PASS(linear_scan),
           ?PASS(frame_size),
-          ?PASS(turn_yregs)],
+          ?PASS(turn_yregs),
+
+          ?PASS(assert_no_critical_edges)],
     [P || P <- Ps, P =/= ignore].
 
 function(#b_function{anno=Anno,args=Args,bs=Blocks0,cnt=Count0}=F0,
@@ -1472,10 +1474,11 @@ fix_receives_1([{L,Blk}|Ls], Blocks0, Count0) ->
             LoopExit = find_loop_exit(Rm, Blocks0),
             Defs0 = beam_ssa:def([L], Blocks0),
             CommonUsed = recv_common(Defs0, LoopExit, Blocks0),
-            {Blocks1,Count1} = recv_fix_common(CommonUsed, LoopExit, Rm,
-                                               Blocks0, Count0),
+            {Blocks1,Count1} = recv_crit_edges(Rm, LoopExit, Blocks0, Count0),
+            {Blocks2,Count2} = recv_fix_common(CommonUsed, LoopExit, Rm,
+                                               Blocks1, Count1),
             Defs = ordsets:subtract(Defs0, CommonUsed),
-            {Blocks,Count} = fix_receive(Rm, Defs, Blocks1, Count1),
+            {Blocks,Count} = fix_receive(Rm, Defs, Blocks2, Count2),
             fix_receives_1(Ls, Blocks, Count);
         #b_blk{} ->
             fix_receives_1(Ls, Blocks0, Count0)
@@ -1491,6 +1494,57 @@ recv_common(Defs, Exit, Blocks) ->
     {ExitDefs,ExitUnused} = beam_ssa:def_unused([Exit], Defs, Blocks),
     Def = ordsets:subtract(Defs, ExitDefs),
     ordsets:subtract(Def, ExitUnused).
+
+%% recv_crit_edges([RemoveMessageLabel], LoopExit,
+%%                 Blocks0, Count0) -> {Blocks,Count}.
+%%
+%%  Adds dummy blocks on all conditional jumps to the exit block so that
+%%  recv_fix_common/5 can insert phi nodes without having to worry about
+%%  critical edges.
+
+recv_crit_edges(_Rms, none, Blocks0, Count0) ->
+    {Blocks0, Count0};
+recv_crit_edges(Rms, Exit, Blocks0, Count0) ->
+    Ls = beam_ssa:rpo(Rms, Blocks0),
+    rce_insert_edges(Ls, Exit, Count0, Blocks0).
+
+rce_insert_edges([L | Ls], Exit, Count0, Blocks0) ->
+    Successors = beam_ssa:successors(map_get(L, Blocks0)),
+    case member(Exit, Successors) of
+        true when Successors =/= [Exit] ->
+            {Blocks, Count} = rce_insert_edge(L, Exit, Count0, Blocks0),
+            rce_insert_edges(Ls, Exit, Count, Blocks);
+        _ ->
+            rce_insert_edges(Ls, Exit, Count0, Blocks0)
+    end;
+rce_insert_edges([], _Exit, Count, Blocks) ->
+    {Blocks, Count}.
+
+rce_insert_edge(L, Exit, Count, Blocks0) ->
+    #b_blk{last=Last0} = FromBlk0 = map_get(L, Blocks0),
+
+    ToExit = #b_br{bool=#b_literal{val=true},succ=Exit,fail=Exit},
+
+    FromBlk = FromBlk0#b_blk{last=rce_reroute_terminator(Last0, Exit, Count)},
+    EdgeBlk = #b_blk{anno=#{},is=[],last=ToExit},
+
+    Blocks = Blocks0#{ Count => EdgeBlk, L => FromBlk },
+    {Blocks, Count + 1}.
+
+rce_reroute_terminator(#b_br{succ=Exit}=Last, Exit, New) ->
+    rce_reroute_terminator(Last#b_br{succ=New}, Exit, New);
+rce_reroute_terminator(#b_br{fail=Exit}=Last, Exit, New) ->
+    rce_reroute_terminator(Last#b_br{fail=New}, Exit, New);
+rce_reroute_terminator(#b_br{}=Last, _Exit, _New) ->
+    Last;
+rce_reroute_terminator(#b_switch{fail=Exit}=Last, Exit, New) ->
+    rce_reroute_terminator(Last#b_switch{fail=New}, Exit, New);
+rce_reroute_terminator(#b_switch{list=List0}=Last, Exit, New) ->
+    List = [if
+                Lbl =:= Exit -> {Arg, New};
+                Lbl =/= Exit -> {Arg, Lbl}
+            end || {Arg, Lbl} <- List0],
+    Last#b_switch{list=List}.
 
 %% recv_fix_common([CommonVar], LoopExit, [RemoveMessageLabel],
 %%                 Blocks0, Count0) -> {Blocks,Count}.

@@ -190,6 +190,12 @@ recv(_Config) ->
     self() ! {[self(),r1],{2,99,<<"data">>}},
     {Parent,r1,<<1:32,2:8,99:8,"data">>} = tricky_recv_4(),
 
+    %% Test tricky_recv_5/0.
+    self() ! 1,
+    a = tricky_recv_5(),
+    self() ! 2,
+    b = tricky_recv_5(),
+
     ok.
 
 sync_wait_mon({Pid, Ref}, Timeout) ->
@@ -294,6 +300,26 @@ tricky_recv_4() ->
 		 <<1:32, 2:8, Proto1:8, Data1/binary>>}
 	end,
     id({Pid,R,Request}).
+
+%% beam_ssa_pre_codegen would accidentally create phi nodes on critical edges
+%% when fixing up receives; the call to id/2 can either succeed or land in the
+%% catch block, and we added a phi node to its immediate successor.
+tricky_recv_5() ->
+    try
+        receive
+            X=1 ->
+                id(42),
+                a;
+            X=2 ->
+                b
+        end,
+        case X of
+            1 -> a;
+            2 -> b
+        end
+    catch
+        _:_ -> c
+    end.
 
 maps(_Config) ->
     {'EXIT',{{badmatch,#{}},_}} = (catch maps_1(any)),
