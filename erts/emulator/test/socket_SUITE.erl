@@ -88,19 +88,33 @@
          api_a_connect_tcp4/1,
          api_a_connect_tcp6/1,
          api_a_sendto_and_recvfrom_udp4/1,
+         api_a_sendto_and_recvfrom_udp6/1,
          api_a_sendmsg_and_recvmsg_udp4/1,
+         api_a_sendmsg_and_recvmsg_udp6/1,
          api_a_send_and_recv_tcp4/1,
+         api_a_send_and_recv_tcp6/1,
          api_a_sendmsg_and_recvmsg_tcp4/1,
+         api_a_sendmsg_and_recvmsg_tcp6/1,
          api_a_recvfrom_cancel_udp4/1,
+         api_a_recvfrom_cancel_udp6/1,
          api_a_recvmsg_cancel_udp4/1,
+         api_a_recvmsg_cancel_udp6/1,
          api_a_accept_cancel_tcp4/1,
+         api_a_accept_cancel_tcp6/1,
          api_a_recv_cancel_tcp4/1,
+         api_a_recv_cancel_tcp6/1,
          api_a_recvmsg_cancel_tcp4/1,
+         api_a_recvmsg_cancel_tcp6/1,
          api_a_mrecvfrom_cancel_udp4/1,
+         api_a_mrecvfrom_cancel_udp6/1,
          api_a_mrecvmsg_cancel_udp4/1,
+         api_a_mrecvmsg_cancel_udp6/1,
          api_a_maccept_cancel_tcp4/1,
+         api_a_maccept_cancel_tcp6/1,
          api_a_mrecv_cancel_tcp4/1,
+         api_a_mrecv_cancel_tcp6/1,
          api_a_mrecvmsg_cancel_tcp4/1,
+         api_a_mrecvmsg_cancel_tcp6/1,
 
 
          %% *** API Options ***
@@ -712,19 +726,33 @@ api_async_cases() ->
      api_a_connect_tcp4,
      api_a_connect_tcp6,
      api_a_sendto_and_recvfrom_udp4,
+     api_a_sendto_and_recvfrom_udp6,
      api_a_sendmsg_and_recvmsg_udp4,
+     api_a_sendmsg_and_recvmsg_udp6,
      api_a_send_and_recv_tcp4,
+     api_a_send_and_recv_tcp6,
      api_a_sendmsg_and_recvmsg_tcp4,
+     api_a_sendmsg_and_recvmsg_tcp6,
      api_a_recvfrom_cancel_udp4,
+     api_a_recvfrom_cancel_udp6,
      api_a_recvmsg_cancel_udp4,
+     api_a_recvmsg_cancel_udp6,
      api_a_accept_cancel_tcp4,
+     api_a_accept_cancel_tcp6,
      api_a_recv_cancel_tcp4,
+     api_a_recv_cancel_tcp6,
      api_a_recvmsg_cancel_tcp4,
+     api_a_recvmsg_cancel_tcp6,
      api_a_mrecvfrom_cancel_udp4,
+     api_a_mrecvfrom_cancel_udp6,
      api_a_mrecvmsg_cancel_udp4,
+     api_a_mrecvmsg_cancel_udp6,
      api_a_maccept_cancel_tcp4,
+     api_a_maccept_cancel_tcp6,
      api_a_mrecv_cancel_tcp4,
-     api_a_mrecvmsg_cancel_tcp4
+     api_a_mrecv_cancel_tcp6,
+     api_a_mrecvmsg_cancel_tcp4,
+     api_a_mrecvmsg_cancel_tcp6
     ].
 
 api_options_cases() ->
@@ -3329,6 +3357,36 @@ api_a_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically send and receive on an IPv6 UDP (dgram) socket using
+%% sendto and recvfrom. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recvfrom,
+%% since its much more difficult to "arrange" for sendto.
+%%
+api_a_sendto_and_recvfrom_udp6(suite) ->
+    [];
+api_a_sendto_and_recvfrom_udp6(doc) ->
+    [];
+api_a_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_a_sendto_and_recvfrom_udp6,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  socket:sendto(Sock, Data, Dest)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recvfrom(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet6,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically send and receive on an IPv4 UDP (dgram) socket using
 %% sendto and recvfrom. But we try to be async. That is, we use
 %% the 'nowait' value for the Timeout argument (and await the eventual
@@ -3363,6 +3421,49 @@ api_a_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive on an IPv6 UDP (dgram) socket using
+%% sendto and recvfrom. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recvmsg,
+%% since its much more difficult to "arrange" for sendmsg.
+%%
+api_a_sendmsg_and_recvmsg_udp6(suite) ->
+    [];
+api_a_sendmsg_and_recvmsg_udp6(doc) ->
+    [];
+api_a_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_a_sendmsg_and_recvmsg_udp6,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  MsgHdr = #{addr => Dest,
+                                             %% ctrl => CMsgHdrs,
+                                             iov  => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, #{addr  := Source,
+                                             iov   := [Data]}} ->
+                                          {ok, {Source, Data}};
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_a_send_and_recv_udp(InitState)
@@ -3821,6 +3922,36 @@ api_a_send_and_recv_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically send and receive using the "common" functions (send and recv)
+%% on an IPv6 TCP (stream) socket. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recv,
+%% since its much more difficult to "arrange" for send.
+%% We *also* test async for accept.
+api_a_send_and_recv_tcp6(suite) ->
+    [];
+api_a_send_and_recv_tcp6(doc) ->
+    [];
+api_a_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_send_and_recv_tcp6,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet6,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically send and receive using the msg functions (sendmsg and recvmsg)
 %% on an IPv4 TCP (stream) socket. But we try to be async. That is, we use
 %% the 'nowait' value for the Timeout argument (and await the eventual
@@ -3848,7 +3979,7 @@ api_a_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                                           OK;
                                       {select, _} = SELECT ->
                                           SELECT;
-                                     {error, _} = ERROR ->
+				      {error, _} = ERROR ->
                                           ERROR
                                   end
                           end,
@@ -3857,6 +3988,48 @@ api_a_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                                  recv   => Recv},
                    ok = api_a_send_and_recv_tcp(InitState)
            end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the msg functions (sendmsg and recvmsg)
+%% on an IPv6 TCP (stream) socket. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recvmsg,
+%% since its much more difficult to "arrange" for sendmsg.
+%% We *also* test async for accept.
+api_a_sendmsg_and_recvmsg_tcp6(suite) ->
+    [];
+api_a_sendmsg_and_recvmsg_tcp6(doc) ->
+    [];
+api_a_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_sendmsg_and_recvmsg_tcp6,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+				      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_tcp(InitState)
+           end).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4359,7 +4532,7 @@ api_a_send_and_recv_tcp(InitState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically we make an async (Timeout = nowait) call to recvfrom,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_recvfrom_cancel_udp4(suite) ->
     [];
@@ -4388,8 +4561,38 @@ api_a_recvfrom_cancel_udp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically we make an async (Timeout = nowait) call to recvfrom,
+%% wait some time and then cancel. IPv6
+%%
+api_a_recvfrom_cancel_udp6(suite) ->
+    [];
+api_a_recvfrom_cancel_udp6(doc) ->
+    [];
+api_a_recvfrom_cancel_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_recvfrom_cancel_udp6,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  case socket:recvfrom(Sock, 0, nowait) of
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
+                                 recv   => Recv},
+                   ok = api_a_recv_cancel_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically we make an async (Timeout = nowait) call to recvmsg,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_recvmsg_cancel_udp4(suite) ->
     [];
@@ -4410,6 +4613,36 @@ api_a_recvmsg_cancel_udp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_recv_cancel_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make an async (Timeout = nowait) call to recvmsg,
+%% wait some time and then cancel. IPv6
+%%
+api_a_recvmsg_cancel_udp6(suite) ->
+    [];
+api_a_recvmsg_cancel_udp6(doc) ->
+    [];
+api_a_recvmsg_cancel_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_recvmsg_cancel_udp6,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
                                  recv   => Recv},
                    ok = api_a_recv_cancel_udp(InitState)
            end).
@@ -4623,7 +4856,7 @@ api_a_recv_cancel_udp(InitState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically we make an async (Timeout = nowait) call to accept,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_accept_cancel_tcp4(suite) ->
     [];
@@ -4644,6 +4877,37 @@ api_a_accept_cancel_tcp4(_Config) when is_list(_Config) ->
                                     end
                             end,
                    InitState = #{domain => inet,
+                                 accept => Accept},
+                   ok = api_a_accept_cancel_tcp(InitState)
+           end).
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make an async (Timeout = nowait) call to accept,
+%% wait some time and then cancel. IPv6
+%%
+api_a_accept_cancel_tcp6(suite) ->
+    [];
+api_a_accept_cancel_tcp6(doc) ->
+    [];
+api_a_accept_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_accept_cancel_tcp6,
+           fun() ->
+                   Accept = fun(Sock) ->
+                                    case socket:accept(Sock, nowait) of
+                                        {ok, _} = OK ->
+                                            OK;
+                                        {select, _} = SELECT ->
+                                            SELECT;
+                                        {error, _} = ERROR ->
+                                            ERROR
+                                    end
+                            end,
+                   InitState = #{domain => inet6,
                                  accept => Accept},
                    ok = api_a_accept_cancel_tcp(InitState)
            end).
@@ -4853,7 +5117,7 @@ api_a_accept_cancel_tcp(InitState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically we make an async (Timeout = nowait) call to recv,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_recv_cancel_tcp4(suite) ->
     [];
@@ -4875,8 +5139,31 @@ api_a_recv_cancel_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically we make an async (Timeout = nowait) call to recv,
+%% wait some time and then cancel. IPv6
+%%
+api_a_recv_cancel_tcp6(suite) ->
+    [];
+api_a_recv_cancel_tcp6(doc) ->
+    [];
+api_a_recv_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_recv_cancel_tcp6,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet6,
+                                 recv   => Recv},
+                   ok = api_a_recv_cancel_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically we make an async (Timeout = nowait) call to recvmsg,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_recvmsg_cancel_tcp4(suite) ->
     [];
@@ -4890,6 +5177,29 @@ api_a_recvmsg_cancel_tcp4(_Config) when is_list(_Config) ->
                                   socket:recvmsg(Sock, nowait)
                           end,
                    InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_recv_cancel_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make an async (Timeout = nowait) call to recvmsg,
+%% wait some time and then cancel. IPv6
+%%
+api_a_recvmsg_cancel_tcp6(suite) ->
+    [];
+api_a_recvmsg_cancel_tcp6(doc) ->
+    [];
+api_a_recvmsg_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_recvmsg_cancel_tcp6,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  socket:recvmsg(Sock, nowait)
+                          end,
+                   InitState = #{domain => inet6,
                                  recv   => Recv},
                    ok = api_a_recv_cancel_tcp(InitState)
            end).
@@ -5251,7 +5561,7 @@ api_a_recv_cancel_tcp(InitState) ->
 
 %% Basically we make multiple async (Timeout = nowait) call(s) to recvfrom
 %% (from *several* processes), wait some time and then cancel.
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_mrecvfrom_cancel_udp4(suite) ->
     [];
@@ -5280,9 +5590,40 @@ api_a_mrecvfrom_cancel_udp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically we make multiple async (Timeout = nowait) call(s) to recvfrom
+%% (from *several* processes), wait some time and then cancel.
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_mrecvfrom_cancel_udp6(suite) ->
+    [];
+api_a_mrecvfrom_cancel_udp6(doc) ->
+    [];
+api_a_mrecvfrom_cancel_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_mrecvfrom_cancel_udp6,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  case socket:recvfrom(Sock, 0, nowait) of
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
+                                 recv   => Recv},
+                   ok = api_a_mrecv_cancel_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically we make multiple async (Timeout = nowait) call(s) to recvmsg
 %% (from *several* processes), wait some time and then cancel.
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_mrecvmsg_cancel_udp4(suite) ->
     [];
@@ -5303,6 +5644,37 @@ api_a_mrecvmsg_cancel_udp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_mrecv_cancel_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make multiple async (Timeout = nowait) call(s) to recvmsg
+%% (from *several* processes), wait some time and then cancel.
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_mrecvmsg_cancel_udp6(suite) ->
+    [];
+api_a_mrecvmsg_cancel_udp6(doc) ->
+    [];
+api_a_mrecvmsg_cancel_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_mrecvmsg_cancel_udp6,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
                                  recv   => Recv},
                    ok = api_a_mrecv_cancel_udp(InitState)
            end).
@@ -5682,7 +6054,7 @@ api_a_mrecv_cancel_udp(InitState) ->
 
 %% Basically we make multiple async (Timeout = nowait) call(s) to accept
 %% (from *several* processes), wait some time and then cancel,
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_maccept_cancel_tcp4(suite) ->
     [];
@@ -5703,6 +6075,38 @@ api_a_maccept_cancel_tcp4(_Config) when is_list(_Config) ->
                                     end
                             end,
                    InitState = #{domain => inet,
+                                 accept => Accept},
+                   ok = api_a_maccept_cancel_tcp(InitState)
+           end).
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make multiple async (Timeout = nowait) call(s) to accept
+%% (from *several* processes), wait some time and then cancel,
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_maccept_cancel_tcp6(suite) ->
+    [];
+api_a_maccept_cancel_tcp6(doc) ->
+    [];
+api_a_maccept_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_maccept_cancel_tcp6,
+           fun() ->
+                   Accept = fun(Sock) ->
+                                    case socket:accept(Sock, nowait) of
+                                        {ok, _} = OK ->
+                                            OK;
+                                        {select, _} = SELECT ->
+                                            SELECT;
+                                        {error, _} = ERROR ->
+                                            ERROR
+                                    end
+                            end,
+                   InitState = #{domain => inet6,
                                  accept => Accept},
                    ok = api_a_maccept_cancel_tcp(InitState)
            end).
@@ -6080,7 +6484,7 @@ api_a_maccept_cancel_tcp(InitState) ->
 
 %% Basically we make multiple async (Timeout = nowait) call(s) to recv
 %% (from *several* processes), wait some time and then cancel,
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_mrecv_cancel_tcp4(suite) ->
     [];
@@ -6102,9 +6506,33 @@ api_a_mrecv_cancel_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically we make multiple async (Timeout = nowait) call(s) to recv
+%% (from *several* processes), wait some time and then cancel,
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_mrecv_cancel_tcp6(suite) ->
+    [];
+api_a_mrecv_cancel_tcp6(doc) ->
+    [];
+api_a_mrecv_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_mrecv_cancel_tcp6,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet6,
+                                 recv   => Recv},
+                   ok = api_a_mrecv_cancel_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically we make multiple async (Timeout = nowait) call(s) to recvmsg
 %% (from *several* processes), wait some time and then cancel,
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_mrecvmsg_cancel_tcp4(suite) ->
     [];
@@ -6118,6 +6546,30 @@ api_a_mrecvmsg_cancel_tcp4(_Config) when is_list(_Config) ->
                                   socket:recvmsg(Sock, nowait)
                           end,
                    InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_mrecv_cancel_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make multiple async (Timeout = nowait) call(s) to recvmsg
+%% (from *several* processes), wait some time and then cancel,
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_mrecvmsg_cancel_tcp6(suite) ->
+    [];
+api_a_mrecvmsg_cancel_tcp6(doc) ->
+    [];
+api_a_mrecvmsg_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_mrecvmsg_cancel_tcp6,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  socket:recvmsg(Sock, nowait)
+                          end,
+                   InitState = #{domain => inet6,
                                  recv   => Recv},
                    ok = api_a_mrecv_cancel_tcp(InitState)
            end).
