@@ -1062,9 +1062,8 @@ use_set_tuple_element(#st{ssa=Blocks0}=St) ->
     Blocks = use_ste_1(RPO, Uses, Blocks0),
     St#st{ssa=Blocks}.
 
-use_ste_1([L|Ls], Uses, Blocks0) ->
-    {Blk0,Blocks} = use_ste_across(L, Uses, Blocks0),
-    #b_blk{is=Is0} = Blk0,
+use_ste_1([L|Ls], Uses, Blocks) ->
+    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks),
     case use_ste_is(Is0, Uses) of
         Is0 ->
             use_ste_1(Ls, Uses, Blocks);
@@ -1127,69 +1126,6 @@ extract_ste(#b_set{op=call,dst=Dst,
     end;
 extract_ste(#b_set{}) -> none.
 
-%%% Optimize accross blocks within a try/catch block.
-
-use_ste_across(L, Uses, Blocks) ->
-    case map_get(L, Blocks) of
-        #b_blk{last=#b_br{bool=#b_var{}}}=Blk ->
-            try
-                use_ste_across_1(L, Blk, Uses, Blocks)
-            catch
-                throw:not_possible ->
-                    {Blk,Blocks}
-            end;
-        #b_blk{}=Blk ->
-            {Blk,Blocks}
-    end.
-
-use_ste_across_1(L, Blk0, Uses, Blocks0) ->
-    #b_blk{is=IsThis,last=#b_br{bool=Bool,succ=Next}} = Blk0,
-    case reverse(IsThis) of
-        [#b_set{op=succeeded,dst=Bool,args=[Result]}=Succ0,
-         #b_set{op=call,args=[#b_remote{}|_],dst=Result}=Call1|Prefix] ->
-            case is_single_use(Bool, Uses) andalso
-                is_n_uses(2, Result, Uses) of
-                true -> ok;
-                false -> throw(not_possible)
-            end,
-            Call2 = use_ste_across_next(Next, Uses, Blocks0),
-            Is = [Call1,Call2],
-            case use_ste_is(Is, decrement_uses(Result, Uses)) of
-                [#b_set{}=Call,#b_set{op=set_tuple_element}=Ste] ->
-                    Blocks1 = use_ste_fix_next(Ste, Next, Blocks0),
-                    Succ = Succ0#b_set{args=[Call#b_set.dst]},
-                    Blk = Blk0#b_blk{is=reverse(Prefix, [Call,Succ])},
-                    Blocks = Blocks1#{L:=Blk},
-                    {Blk,Blocks};
-                _ ->
-                    throw(not_possible)
-            end;
-        _ ->
-            throw(not_possible)
-    end.
-
-use_ste_across_next(Next, Uses, Blocks) ->
-    case map_get(Next, Blocks) of
-        #b_blk{is=[#b_set{op=call,dst=Result,args=[#b_remote{}|_]}=Call,
-                   #b_set{op=succeeded,dst=Bool,args=[Result]}],
-               last=#b_br{bool=Bool}} ->
-            case is_single_use(Bool, Uses) andalso
-                is_n_uses(2, Result, Uses) of
-                true -> ok;
-                false -> throw(not_possible)
-            end,
-            Call;
-        #b_blk{} ->
-            throw(not_possible)
-    end.
-
-use_ste_fix_next(Ste, Next, Blocks) ->
-    Blk0 = map_get(Next, Blocks),
-    #b_blk{is=[#b_set{op=call},#b_set{op=succeeded}],last=Br0} = Blk0,
-    Br = beam_ssa:normalize(Br0#b_br{bool=#b_literal{val=true}}),
-    Blk = Blk0#b_blk{is=[Ste],last=Br},
-    Blocks#{Next:=Blk}.
-
 %% Count how many times each variable is used.
 
 count_uses(Blocks) ->
@@ -1199,7 +1135,7 @@ count_uses_blk([#b_blk{is=Is,last=Last}|Bs], CountMap0) ->
     F = fun(I, CountMap) ->
                 foldl(fun(Var, Acc) ->
                               case Acc of
-                                  #{Var:=3} -> Acc;
+                                  #{Var:=2} -> Acc;
                                   #{Var:=C} -> Acc#{Var:=C+1};
                                   #{} ->       Acc#{Var=>1}
                               end
@@ -1208,16 +1144,6 @@ count_uses_blk([#b_blk{is=Is,last=Last}|Bs], CountMap0) ->
     CountMap = F(Last, foldl(F, CountMap0, Is)),
     count_uses_blk(Bs, CountMap);
 count_uses_blk([], CountMap) -> CountMap.
-
-decrement_uses(V, Uses) ->
-    #{V:=C} = Uses,
-    Uses#{V:=C-1}.
-
-is_n_uses(N, V, Uses) ->
-    case Uses of
-        #{V:=N} -> true;
-        #{} -> false
-    end.
 
 is_single_use(V, Uses) ->
     case Uses of

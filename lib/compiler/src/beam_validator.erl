@@ -463,6 +463,19 @@ valfun_1({put,Src}, Vst0) ->
             St = St0#st{puts_left={PutsLeft-1,{Dst,Sz,Es}}},
             Vst#vst{current=St}
     end;
+%% This instruction never fails, though it may be invalid in some contexts; see
+%% val_dsetel/2
+valfun_1({set_tuple_element,Src,Tuple,N}, Vst) ->
+    I = N + 1,
+    assert_term(Src, Vst),
+    assert_type(#t_tuple{size=I}, Tuple, Vst),
+    %% Manually update the tuple type; we can't rely on the ordinary update
+    %% helpers as we must support overwriting (rather than just widening or
+    %% narrowing) known elements, and we can't use extract_term either since
+    %% the source tuple may be aliased.
+    #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
+    Es = beam_types:set_element_type(I, get_term_type(Src, Vst), Es0),
+    override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
 %% Instructions for optimization of selective receives.
 valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
     Vst;
@@ -765,17 +778,6 @@ valfun_4(timeout, Vst) ->
     prune_x_regs(0, Vst);
 valfun_4(send, Vst) ->
     call(send, 2, Vst);
-valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
-    I = N + 1,
-    assert_term(Src, Vst),
-    assert_type(#t_tuple{size=I}, Tuple, Vst),
-    %% Manually update the tuple type; we can't rely on the ordinary update
-    %% helpers as we must support overwriting (rather than just widening or
-    %% narrowing) known elements, and we can't use extract_term either since
-    %% the source tuple may be aliased.
-    #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
-    Es = beam_types:set_element_type(I, get_term_type(Src, Vst), Es0),
-    override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
 %% Match instructions.
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
     assert_term(Src, Vst),

@@ -57,6 +57,13 @@ will_succeed(erlang, map_size, [Arg]) ->
     succeeds_if_type(Arg, #t_map{});
 will_succeed(erlang, 'not', [Arg]) ->
     succeeds_if_type(Arg, beam_types:make_boolean());
+will_succeed(erlang, setelement, [#t_integer{elements={Min,Max}},
+                                  #t_tuple{exact=Exact,size=Size}, _]) ->
+    case Min >= 1 andalso Max =< Size of
+        true -> yes;
+        false when Exact -> no;
+        false -> maybe
+    end;
 will_succeed(erlang, size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
 will_succeed(erlang, tuple_size, [Arg]) ->
