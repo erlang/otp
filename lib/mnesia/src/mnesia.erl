@@ -2731,7 +2731,7 @@ create_table(Arg) ->
 create_table(Name, Arg) when is_list(Arg) ->
     mnesia_schema:create_table([{name, Name}| Arg]);
 create_table(Name, Arg) ->
-    {aborted, badarg, Name, Arg}.
+    {aborted, {badarg, Name, Arg}}.
 
 -spec delete_table(Tab::table()) -> t_result('ok').
 delete_table(Tab) ->
