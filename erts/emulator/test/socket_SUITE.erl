@@ -122,6 +122,7 @@
          api_opt_simple_otp_rcvbuf_option/1,
          api_opt_simple_otp_controlling_process/1,
          api_opt_sock_acceptconn/1,
+         api_opt_sock_acceptfilter/1,
          api_opt_ip_add_drop_membership/1,
 
          %% *** API Operation Timeout ***
@@ -781,7 +782,8 @@ api_options_otp_cases() ->
 
 api_options_socket_cases() ->
     [
-     api_opt_sock_acceptconn
+     api_opt_sock_acceptconn,
+     api_opt_sock_acceptfilter
     ].
 
 api_options_ip_cases() ->
@@ -8793,6 +8795,22 @@ api_opt_sock_acceptconn() ->
 
     i("await evaluator(s)"),
     ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option acceptfilter. PLACEHOLDER!
+
+api_opt_sock_acceptfilter(suite) ->
+    [];
+api_opt_sock_acceptfilter(doc) ->
+    [];
+api_opt_sock_acceptfilter(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(api_opt_sock_acceptfilter,
+           fun() -> not_yet_implemented() end,
+           fun() -> ok end).
 
 
 
