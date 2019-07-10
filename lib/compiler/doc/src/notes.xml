@@ -32,6 +32,35 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed an unsafe optimization when matching
+	    <c>tuple_size/1</c> outside of guards, which could crash
+	    the emulator if the argument was not a tuple.</p>
+          <p>
+	    Own Id: OTP-15945</p>
+        </item>
+        <item>
+	    <p>Fixed a rare bug that could cause the wrong kind of
+	    exception to be thrown when a BIF failed in a function
+	    that matched bitstrings.</p>
+          <p>
+	    Own Id: OTP-15946</p>
+        </item>
+        <item>
+	    <p>Fixed a bug where receive statements inside try/catch
+	    blocks could return incorrect results.</p>
+          <p>
+	    Own Id: OTP-15952</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

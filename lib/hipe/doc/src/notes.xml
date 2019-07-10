@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.19.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The HiPE compiler would badly miscompile certain
+	    try/catch expressions, so it will now refuse to compile
+	    modules containing try or catch.</p> <p>As a consequence
+	    of this, <c>dialyzer</c> will no longer compile key
+	    modules to native code.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15949</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.19</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
