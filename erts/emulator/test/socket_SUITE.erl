@@ -3370,6 +3370,7 @@ api_a_sendto_and_recvfrom_udp6(doc) ->
 api_a_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_a_sendto_and_recvfrom_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
                                   socket:sendto(Sock, Data, Dest)
@@ -3443,6 +3444,7 @@ api_a_sendmsg_and_recvmsg_udp6(doc) ->
 api_a_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_a_sendmsg_and_recvmsg_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Send = fun(Sock, Data, Dest) ->
                                   MsgHdr = #{addr => Dest,
@@ -3935,6 +3937,7 @@ api_a_send_and_recv_tcp6(doc) ->
 api_a_send_and_recv_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_a_send_and_recv_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   socket:send(Sock, Data)
@@ -4006,6 +4009,7 @@ api_a_sendmsg_and_recvmsg_tcp6(doc) ->
 api_a_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_a_sendmsg_and_recvmsg_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Send = fun(Sock, Data) ->
                                   MsgHdr = #{iov => [Data]},
@@ -4571,6 +4575,7 @@ api_a_recvfrom_cancel_udp6(doc) ->
 api_a_recvfrom_cancel_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_a_recvfrom_cancel_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Recv = fun(Sock) ->
                                   case socket:recvfrom(Sock, 0, nowait) of
@@ -4631,6 +4636,7 @@ api_a_recvmsg_cancel_udp6(doc) ->
 api_a_recvmsg_cancel_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_a_recvmsg_cancel_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock, nowait) of
@@ -4896,6 +4902,7 @@ api_a_accept_cancel_tcp6(doc) ->
 api_a_accept_cancel_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_a_accept_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Accept = fun(Sock) ->
                                     case socket:accept(Sock, nowait) of
@@ -5149,6 +5156,7 @@ api_a_recv_cancel_tcp6(doc) ->
 api_a_recv_cancel_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_a_recv_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Recv = fun(Sock) ->
                                   socket:recv(Sock, 0, nowait)
@@ -5195,6 +5203,7 @@ api_a_recvmsg_cancel_tcp6(doc) ->
 api_a_recvmsg_cancel_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_a_recvmsg_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Recv = fun(Sock) ->
                                   socket:recvmsg(Sock, nowait)
@@ -5601,6 +5610,7 @@ api_a_mrecvfrom_cancel_udp6(doc) ->
 api_a_mrecvfrom_cancel_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(20)),
     tc_try(api_a_mrecvfrom_cancel_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Recv = fun(Sock) ->
                                   case socket:recvfrom(Sock, 0, nowait) of
@@ -5663,6 +5673,7 @@ api_a_mrecvmsg_cancel_udp6(doc) ->
 api_a_mrecvmsg_cancel_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(20)),
     tc_try(api_a_mrecvmsg_cancel_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock, nowait) of
@@ -6095,6 +6106,7 @@ api_a_maccept_cancel_tcp6(doc) ->
 api_a_maccept_cancel_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(20)),
     tc_try(api_a_maccept_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Accept = fun(Sock) ->
                                     case socket:accept(Sock, nowait) of
@@ -6517,6 +6529,7 @@ api_a_mrecv_cancel_tcp6(doc) ->
 api_a_mrecv_cancel_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(20)),
     tc_try(api_a_mrecv_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Recv = fun(Sock) ->
                                   socket:recv(Sock, 0, nowait)
@@ -6565,6 +6578,7 @@ api_a_mrecvmsg_cancel_tcp6(doc) ->
 api_a_mrecvmsg_cancel_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(20)),
     tc_try(api_a_mrecvmsg_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    Recv = fun(Sock) ->
                                   socket:recvmsg(Sock, nowait)
@@ -8338,9 +8352,9 @@ api_opt_ip_add_drop_membership(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
     tc_try(api_opt_ip_add_drop_membership,
            fun() ->
-                   has_ip_add_membership_support(),
-                   has_ip_drop_membership_support(),
-                   has_ip_multicast_support()
+                   has_support_ip_add_membership(),
+                   has_support_ip_drop_membership(),
+                   has_support_ip_multicast()
            end,
            fun() -> api_opt_ip_add_drop_membership() end).
 
@@ -9707,6 +9721,7 @@ api_to_send_tcp6(doc) ->
     [];
 api_to_send_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_send_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    not_yet_implemented()%% ,
                    %% ok = api_to_send_tcp(inet6)
@@ -9739,6 +9754,7 @@ api_to_sendto_udp6(doc) ->
     [];
 api_to_sendto_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_sendto_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    not_yet_implemented()%% ,
                    %% ok = api_to_sendto_to_udp(inet6)
@@ -9771,6 +9787,7 @@ api_to_sendmsg_tcp6(doc) ->
     [];
 api_to_sendmsg_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_sendmsg_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    not_yet_implemented()%% ,
                    %% ok = api_to_sendmsg_tcp(inet6)
@@ -9805,6 +9822,7 @@ api_to_recv_udp6(doc) ->
     [];
 api_to_recv_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recv_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    not_yet_implemented()%% ,
                    %% ok = api_to_recv_udp(inet6)
@@ -26997,7 +27015,7 @@ which_local_socket_addr(Domain) ->
 
 
 
-which_local_addr(local = Domain) ->
+which_local_addr(local = _Domain) ->
     mk_unique_path();
 
 %% This gets the local address (not 127.0...)
@@ -27022,7 +27040,7 @@ which_local_addr(Domain) ->
 %% We don't do that here, but since we can only do that (find a
 %% multicast address) for specific platforms, we check that we are
 %% on of those platforms here.
-has_ip_multicast_support() ->
+has_support_ip_multicast() ->
     case os:type() of
         {unix, OsName} when (OsName =:= linux) orelse
                             (OsName =:= sunos) ->
@@ -27041,17 +27059,17 @@ has_ip_multicast_support() ->
             not_supported({multicast, Type})
     end.
 
-has_ip_add_membership_support() ->
-    has_socket_option_ip_support(add_membership).
+has_support_ip_add_membership() ->
+    has_support_socket_option_ip(add_membership).
 
-has_ip_drop_membership_support() ->
-    has_socket_option_ip_support(drop_membership).
+has_support_ip_drop_membership() ->
+    has_support_socket_option_ip(drop_membership).
 
 
-has_socket_option_ip_support(Opt) ->
-    has_socket_option_support(ip, Opt).
+has_support_socket_option_ip(Opt) ->
+    has_support_socket_option(ip, Opt).
 
-has_socket_option_support(Level, Option) ->
+has_support_socket_option(Level, Option) ->
     case socket:supports(options, Level, Option) of
         true ->
             ok;
