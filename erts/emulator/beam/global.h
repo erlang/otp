@@ -902,7 +902,8 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 /* beam_bif_load.c */
 Eterm erts_check_process_code(Process *c_p, Eterm module, int *redsp, int fcalls);
 Eterm erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed);
-
+void erts_debug_foreach_release_literal_area_off_heap(void (*func)(ErlOffHeap *, void *),
+                                                      void *arg);
 typedef struct ErtsLiteralArea_ {
     struct erl_off_heap_header *off_heap;
     Eterm *end;
@@ -1251,6 +1252,10 @@ Uint erts_persistent_term_count(void);
 void erts_init_persistent_dumping(void);
 extern ErtsLiteralArea** erts_persistent_areas;
 extern Uint erts_num_persistent_areas;
+void erts_debug_foreach_persistent_term_off_heap(void (*func)(ErlOffHeap *, void *),
+                                                 void *arg);
+int erts_debug_have_accessed_literal_area(ErtsLiteralArea *lap);
+void erts_debug_save_accessed_literal_area(ErtsLiteralArea *lap);
 
 /* external.c */
 void erts_init_external(void);

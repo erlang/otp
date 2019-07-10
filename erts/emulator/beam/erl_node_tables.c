@@ -1178,6 +1178,7 @@ static Eterm AM_timer;
 static Eterm AM_delayed_delete_timer;
 static Eterm AM_thread_progress_delete_timer;
 static Eterm AM_signal;
+static Eterm AM_persistent_term;
 
 static void setup_reference_table(void);
 static Eterm reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp);
@@ -1272,6 +1273,7 @@ erts_get_node_and_dist_references(struct process *proc)
 	INIT_AM(delayed_delete_timer);
         INIT_AM(thread_progress_delete_timer);
 	INIT_AM(signal);
+	INIT_AM(persistent_term);
 	references_atoms_need_init = 0;
     }
 
@@ -1813,6 +1815,14 @@ insert_sig_link(ErtsLink *lnk, void *arg)
 }
 
 static void
+insert_persistent_term(ErlOffHeap *ohp, void *arg)
+{
+    Eterm heap[3];
+    insert_offheap(ohp, SYSTEM_REF,
+                   TUPLE2(&heap[0], AM_system, AM_persistent_term));
+}
+
+static void
 setup_reference_table(void)
 {
     ErlHeapFragment *hfp;
@@ -2007,6 +2017,10 @@ setup_reference_table(void)
 
     /* Insert all bif timers */
     erts_debug_bif_timer_foreach(insert_bif_timer, NULL);
+
+    /* Insert persistent term storage */
+    erts_debug_foreach_persistent_term_off_heap(insert_persistent_term,
+                                                NULL);
 
     /* Insert node table (references to dist) */
     hash_foreach(&erts_node_table, insert_erl_node, NULL);
