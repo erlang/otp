@@ -27,6 +27,22 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.3.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enhance error handling for erroneous alerts from the
+	    peer.</p>
+          <p>
+	    Own Id: OTP-15943</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
