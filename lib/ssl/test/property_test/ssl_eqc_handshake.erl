@@ -132,7 +132,7 @@ client_hello(Version) ->
 		  compression_methods = compressions(Version),
 		  random = client_random(Version),
 		  extensions = client_hello_extensions(Version)    
-                 }.
+                 };
 client_hello(?'SSL_v3' = Version) ->
     #client_hello{session_id = session_id(),
 		  client_version = Version,

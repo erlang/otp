@@ -58,7 +58,7 @@
 	]).
 
 %% Encode
--export([encode_handshake/2, encode_hello_extensions/1, encode_extensions/1, encode_extensions/2,
+-export([encode_handshake/2, encode_hello_extensions/2, encode_extensions/1, encode_extensions/2,
 	 encode_client_protocol_negotiation/2, encode_protocols_advertised_on_server/1]).
 %% Decode
 -export([decode_handshake/3, decode_vector/1, decode_hello_extensions/4, decode_extensions/3,
@@ -534,14 +534,14 @@ encode_handshake(#next_protocol{selected_protocol = SelectedProtocol}, _Version)
     PaddingLength = 32 - ((byte_size(SelectedProtocol) + 2) rem 32),
     {?NEXT_PROTOCOL, <<?BYTE((byte_size(SelectedProtocol))), SelectedProtocol/binary,
                          ?BYTE(PaddingLength), 0:(PaddingLength * 8)>>};
-encode_handshake(#server_hello{server_version = {Major, Minor},
+encode_handshake(#server_hello{server_version = {Major, Minor} = Version,
 			       random = Random,
 			       session_id = Session_ID,
 			       cipher_suite = CipherSuite,
 			       compression_method = Comp_method,
 			       extensions = Extensions}, _Version) ->
 			SID_length = byte_size(Session_ID),
-    ExtensionsBin = encode_hello_extensions(Extensions),
+    ExtensionsBin = encode_hello_extensions(Extensions, Version),
     {?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		     ?BYTE(SID_length), Session_ID/binary,
                      CipherSuite/binary, ?BYTE(Comp_method), ExtensionsBin/binary>>};
@@ -589,7 +589,9 @@ encode_handshake(#certificate_verify{signature = BinSig, hashsign_algorithm = Ha
 encode_handshake(#finished{verify_data = VerifyData}, _Version) ->
     {?FINISHED, VerifyData}.
 
-encode_hello_extensions(Extensions) ->
+encode_hello_extensions(_, {3, 0}) ->
+    <<>>;
+encode_hello_extensions(Extensions, _) ->
     encode_extensions(hello_extensions_list(Extensions), <<>>).
 
 encode_extensions(Exts) ->
@@ -1256,6 +1258,8 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
         %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
         [Protocol] when not Renegotiation ->
             {ConnectionStates, alpn, Protocol};
+        [_] when Renegotiation ->
+            {ConnectionStates, alpn, undefined};
         undefined ->
             NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
             Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation),
@@ -2666,7 +2670,7 @@ filter_unavailable_ecc_suites(_, Suites) ->
 handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, NegotiatedCipherSuite, 
 			       ClientCipherSuites, Compression,
 			       ConnectionStates0, Renegotiation, SecureRenegotation) ->
-    {ok, ConnectionStates} = handle_renegotiation_info(RecordCB, Role, Info, ConnectionStates0,
+    {ok, ConnectionStates} = handle_renegotiation_info(Version, RecordCB, Role, Info, ConnectionStates0,
                                                        Renegotiation, SecureRenegotation,
                                                        ClientCipherSuites),
     hello_pending_connection_states(RecordCB, Role,
@@ -2936,11 +2940,11 @@ renegotiation_info(_RecordCB, server, ConnectionStates, true) ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end.
 
-handle_renegotiation_info(_RecordCB, _, #renegotiation_info{renegotiated_connection = ?byte(0)},
+handle_renegotiation_info(_, _RecordCB, _, #renegotiation_info{renegotiated_connection = ?byte(0)},
 			  ConnectionStates, false, _, _) ->
     {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
 
-handle_renegotiation_info(_RecordCB, server, undefined, ConnectionStates, _, _, CipherSuites) ->
+handle_renegotiation_info(_, _RecordCB, server, undefined, ConnectionStates, _, _, CipherSuites) ->
     case is_member(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV, CipherSuites) of
 	true ->
 	    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
@@ -2948,10 +2952,10 @@ handle_renegotiation_info(_RecordCB, server, undefined, ConnectionStates, _, _, 
 	    {ok, ssl_record:set_renegotiation_flag(false, ConnectionStates)}
     end;
 
-handle_renegotiation_info(_RecordCB, _, undefined, ConnectionStates, false, _, _) ->
+handle_renegotiation_info(_, _RecordCB, _, undefined, ConnectionStates, false, _, _) ->
     {ok, ssl_record:set_renegotiation_flag(false, ConnectionStates)};
 
-handle_renegotiation_info(_RecordCB, client, #renegotiation_info{renegotiated_connection = ClientServerVerify},
+handle_renegotiation_info(_, _RecordCB, client, #renegotiation_info{renegotiated_connection = ClientServerVerify},
 			  ConnectionStates, true, _, _) ->
     ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
     CData = maps:get(client_verify_data, ConnectionState),
@@ -2962,7 +2966,7 @@ handle_renegotiation_info(_RecordCB, client, #renegotiation_info{renegotiated_co
 	false ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, client_renegotiation))
     end;
-handle_renegotiation_info(_RecordCB, server, #renegotiation_info{renegotiated_connection = ClientVerify},
+handle_renegotiation_info(_, _RecordCB, server, #renegotiation_info{renegotiated_connection = ClientVerify},
 			  ConnectionStates, true, _, CipherSuites) ->
 
       case is_member(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV, CipherSuites) of
@@ -2978,11 +2982,13 @@ handle_renegotiation_info(_RecordCB, server, #renegotiation_info{renegotiated_co
                       throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, server_renegotiation))
 	      end
       end;
+handle_renegotiation_info({3,0}, _RecordCB, client, undefined, ConnectionStates, true, _SecureRenegotation, _) ->
+    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
 
-handle_renegotiation_info(RecordCB, client, undefined, ConnectionStates, true, SecureRenegotation, _) ->
+handle_renegotiation_info(_, RecordCB, client, undefined, ConnectionStates, true, SecureRenegotation, _) ->
     handle_renegotiation_info(RecordCB, ConnectionStates, SecureRenegotation);
 
-handle_renegotiation_info(RecordCB, server, undefined, ConnectionStates, true, SecureRenegotation, CipherSuites) ->
+handle_renegotiation_info(_, RecordCB, server, undefined, ConnectionStates, true, SecureRenegotation, CipherSuites) ->
      case is_member(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV, CipherSuites) of
 	  true ->
              throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {server_renegotiation, empty_renegotiation_info_scsv}));

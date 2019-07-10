@@ -379,7 +379,7 @@ do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation) -
 %%--------------------------------------------------------------------
 enc_handshake(#hello_request{}, {3, N}) when N < 4 ->
     {?HELLO_REQUEST, <<>>};
-enc_handshake(#client_hello{client_version = {Major, Minor},
+enc_handshake(#client_hello{client_version = {Major, Minor} = Version,
 		     random = Random,
 		     session_id = SessionID,
 		     cipher_suites = CipherSuites,
@@ -390,7 +390,7 @@ enc_handshake(#client_hello{client_version = {Major, Minor},
     CmLength = byte_size(BinCompMethods),
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
-    ExtensionsBin = ssl_handshake:encode_hello_extensions(HelloExtensions),
+    ExtensionsBin = ssl_handshake:encode_hello_extensions(HelloExtensions, Version),
 
     {?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		      ?BYTE(SIDLength), SessionID/binary,

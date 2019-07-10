@@ -141,7 +141,7 @@ encode_single_hello_sni_extension_correctly(_Config) ->
 	    $t,    $e,    $s,    $t,    $.,    $c,    $o,    $m>>,
     ExtSize = byte_size(SNI),
     HelloExt = <<ExtSize:16/unsigned-big-integer, SNI/binary>>,
-    Encoded = ssl_handshake:encode_extensions([#sni{hostname = "test.com"}], {3,3}),
+    Encoded = ssl_handshake:encode_extensions([#sni{hostname = "test.com"}]),
     HelloExt = Encoded.
 
 decode_single_hello_sni_extension_correctly(_Config) ->
@@ -214,7 +214,7 @@ encode_decode_srp(_Config) ->
                     0,3,           % HostNameLength
                     98,97,114>>,     % hostname = "bar"
     EncodedExts0 = <<?UINT16(_),EncodedExts/binary>> =
-        ssl_handshake:encode_hello_extensions(Exts),
+        ssl_handshake:encode_hello_extensions(Exts, {3,3}),
     Exts = ssl_handshake:decode_hello_extensions(EncodedExts, {3,3}, {3,3}, client).
 
 signature_algorithms(Config) ->

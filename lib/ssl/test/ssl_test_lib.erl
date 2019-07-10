@@ -703,11 +703,7 @@ make_dsa_cert(Config) ->
             
           [{server_dsa_opts, ServerConf},
            {server_dsa_verify_opts, [{verify, verify_peer} | ServerConf]},
-           {client_dsa_opts, ClientConf},
-           {server_srp_dsa, [{user_lookup_fun, {fun user_lookup/3, undefined}},
-                             {ciphers, srp_dss_suites()} | ServerConf]},
-           {client_srp_dsa, [{srp_identity, {"Test-User", "secret"}}
-                             | ClientConf]}
+           {client_dsa_opts, ClientConf}
            | Config];
       false ->
           Config
@@ -2216,8 +2212,8 @@ filter_suites(Ciphers0, AtomVersion) ->
 	++ ssl_cipher:anonymous_suites(Version)
 	++ ssl_cipher:psk_suites(Version)
         ++ ssl_cipher:psk_suites_anon(Version)
-	++ ssl_cipher:srp_suites() 
-        ++ ssl_cipher:srp_suites_anon() 
+	++ ssl_cipher:srp_suites(Version) 
+        ++ ssl_cipher:srp_suites_anon(Version) 
 	++ ssl_cipher:rc4_suites(Version),
     Supported1 = ssl_cipher:filter_suites(Supported0),
     Supported2 = [ssl_cipher_format:suite_bin_to_map(S) || S <- Supported1],
