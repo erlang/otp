@@ -121,6 +121,7 @@
          api_opt_simple_otp_options/1,
          api_opt_simple_otp_rcvbuf_option/1,
          api_opt_simple_otp_controlling_process/1,
+         api_opt_sock_acceptconn/1,
          api_opt_ip_add_drop_membership/1,
 
          %% *** API Operation Timeout ***
@@ -619,7 +620,12 @@ groups() ->
      {api_async,                  [], api_async_cases()},
      {api_options,                [], api_options_cases()},
      {api_options_otp,            [], api_options_otp_cases()},
+     {api_options_socket,         [], api_options_socket_cases()},
      {api_options_ip,             [], api_options_ip_cases()},
+     %% {api_options_ipv6,           [], api_options_ipv6_cases()},
+     %% {api_options_tcp,            [], api_options_tcp_cases()},
+     %% {api_options_udp,            [], api_options_udp_cases()},
+     %% {api_options_sctp,           [], api_options_sctp_cases()},
      {api_op_with_timeout,        [], api_op_with_timeout_cases()},
      {socket_close,               [], socket_close_cases()},
      {sc_ctrl_proc_exit,          [], sc_cp_exit_cases()},
@@ -758,7 +764,12 @@ api_async_cases() ->
 api_options_cases() ->
     [
      {group, api_options_otp},
-     {group, api_options_ip}
+     {group, api_options_socket},
+     {group, api_options_ip}%% ,
+     %% {group, api_options_ipv6},
+     %% {group, api_options_tcp},
+     %% {group, api_options_udp},
+     %% {group, api_options_sctp}
     ].
 
 api_options_otp_cases() ->
@@ -768,10 +779,19 @@ api_options_otp_cases() ->
      api_opt_simple_otp_controlling_process
     ].
 
+api_options_socket_cases() ->
+    [
+     api_opt_sock_acceptconn
+    ].
+
 api_options_ip_cases() ->
     [
      api_opt_ip_add_drop_membership
     ].
+
+%% api_options_ipv6_cases() ->
+%%     [
+%%     ].
 
 api_op_with_timeout_cases() ->
     [
@@ -8336,6 +8356,443 @@ api_opt_simple_otp_controlling_process() ->
 
     i("await udp evaluator(s)"),
     ok = ?SEV_AWAIT_FINISH([Tester2, Client2]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option acceptcon. This should be possible to get
+%% but not set.
+
+api_opt_sock_acceptconn(suite) ->
+    [];
+api_opt_sock_acceptconn(doc) ->
+    [];
+api_opt_sock_acceptconn(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(api_opt_sock_acceptconn,
+           fun() ->
+                   has_sock_acceptconn_support()
+           end,
+           fun() -> api_opt_sock_acceptconn() end).
+
+
+
+api_opt_sock_acceptconn() ->
+    Opt = acceptconn,
+    Set = fun(S, Val) ->
+                  socket:setopt(S, socket, Opt, Val)
+          end,
+    Get = fun(S) ->
+                  socket:getopt(S, socket, Opt)
+          end,
+
+    TesterSeq =
+        [
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{local_sa => LSA}}
+                   end},
+         #{desc => "create UDP socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "[get] verify UDP socket (before bind)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "Not accepting connections"),
+                                   ok;
+                               {ok, true} ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Accepting connections"),
+                                   {error, {unexpected_success, {Opt, true}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[set] verify UDP socket (before bind)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case Set(Sock, true) of
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ok;
+                               ok ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Set acceptconn (=true)"),
+                                   {error, unexpected_success}
+                           end
+                   end},
+
+         #{desc => "bind UDP socket to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "[get] verify UDP socket (after bind)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "Not accepting connections"),
+                                   ok;
+                               {ok, true} ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Accepting connections"),
+                                   {error, {unexpected_success, {Opt, true}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[set] verify UDP socket (after bind)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case Set(Sock, true) of
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ok;
+                               ok ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Set acceptconn (=true)"),
+                                   {error, unexpected_success}
+                           end
+                   end},
+
+         #{desc => "close UDP socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "create TCP listen socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "[get] verify TCP listen socket (before bind)",
+           cmd  => fun(#{lsock := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "Not accepting connections"),
+                                   ok;
+                               {ok, true} ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Accepting connections"),
+                                   {error, {unexpected_success, {Opt, true}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[set] verify TCP listen socket (before bind)",
+           cmd  => fun(#{lsock := Sock} = _State) ->
+                           case Set(Sock, true) of
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ok;
+                               ok ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Set acceptconn (=true)"),
+                                   {error, unexpected_success}
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "bind TCP listen socket to local address",
+           cmd  => fun(#{lsock := Sock, local_sa := LSA} = State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{server_sa => LSA#{port => Port}}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "[get] verify TCP listen socket (after bind)",
+           cmd  => fun(#{lsock := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "Not accepting connections"),
+                                   ok;
+                               {ok, true} ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Accepting connections"),
+                                   {error, {unexpected_success, {Opt, true}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[set] verify TCP listen socket (after bind)",
+           cmd  => fun(#{lsock := Sock} = _State) ->
+                           case Set(Sock, true) of
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ok;
+                               ok ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Set acceptconn (=true)"),
+                                   {error, unexpected_success}
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "make TCP listen socket accept connections",
+           cmd  => fun(#{lsock := Sock} = _State) ->
+                           case socket:listen(Sock) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "[get] verify TCP listen socket (after listen)",
+           cmd  => fun(#{lsock := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, true} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "Accepting connections"),
+                                   ok;
+                               {ok, false} ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Not accepting connections"),
+                                   {error, {unexpected_success, {Opt, false}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[set] verify TCP listen socket (after listen)",
+           cmd  => fun(#{lsock := Sock} = _State) ->
+                           case Set(Sock, false) of
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ok;
+                               ok ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Set acceptconn (=false)"),
+                                   {error, unexpected_success}
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "create TCP (connecting) socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{csockc => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "bind TCP connecting socket to local address",
+           cmd  => fun(#{csockc := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "[get] verify TCP connecting socket (before connect)",
+           cmd  => fun(#{csockc := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "Not accepting connections"),
+                                   ok;
+                               {ok, true} ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Accepting connections"),
+                                   {error, {unexpected_success, {Opt, true}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[set] verify TCP connecting socket (before connect)",
+           cmd  => fun(#{csockc := Sock} = _State) ->
+                           case Set(Sock, true) of
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ok;
+                               ok ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Set acceptconn (=true)"),
+                                   {error, unexpected_success}
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "connect to server",
+           cmd  => fun(#{csockc := Sock, server_sa := SSA} = _State) ->
+                           case socket:connect(Sock, SSA) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "accept connection",
+           cmd  => fun(#{lsock := Sock} = State) ->
+                           case socket:accept(Sock) of
+                               {ok, CSock} ->
+                                   {ok, State#{csocks => CSock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "[get] verify TCP connecting socket (after connect)",
+           cmd  => fun(#{csockc := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "Not accepting connections"),
+                                   ok;
+                               {ok, true} ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Accepting connections"),
+                                   {error, {unexpected_success, {Opt, true}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[set] verify TCP connecting socket (after connect)",
+           cmd  => fun(#{csockc := Sock} = _State) ->
+                           case Set(Sock, true) of
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ok;
+                               ok ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Set acceptconn (=true)"),
+                                   {error, unexpected_success}
+                           end
+                   end},
+
+         #{desc => "[get] verify TCP connected socket",
+           cmd  => fun(#{csocks := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "Not accepting connections"),
+                                   ok;
+                               {ok, true} ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Accepting connections"),
+                                   {error, {unexpected_success, {Opt, true}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[set] verify TCP connected socket",
+           cmd  => fun(#{csocks := Sock} = _State) ->
+                           case Set(Sock, true) of
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ok;
+                               ok ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Set acceptconn (=true)"),
+                                   {error, unexpected_success}
+                           end
+                   end},
+
+         #{desc => "[get] verify TCP listen socket (after connect)",
+           cmd  => fun(#{lsock := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, true} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "Accepting connections"),
+                                   ok;
+                               {ok, false} ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Not accepting connections"),
+                                   {error, {unexpected_success, {Opt, false}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[set] verify TCP listen socket (after connect)",
+           cmd  => fun(#{lsock := Sock} = _State) ->
+                           case Set(Sock, false) of
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ok;
+                               ok ->
+                                   ?SEV_EPRINT("Unexpected Success: "
+                                               "Set acceptconn (=false)"),
+                                   {error, unexpected_success}
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "close TCP connecting socket(s)",
+           cmd  => fun(#{csockc := Sock} = State0) ->
+                           socket:close(Sock),
+                           State1 = maps:remove(csockc, State0),
+                           State2 = maps:remove(csocks, State1), %% Auto-close
+                           {ok, maps:remove(csockc, State2)}
+                   end},
+         #{desc => "close TCP listen socket",
+           cmd  => fun(#{lsock := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(lsock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    i("get multicast address"),
+    Domain = inet,
+
+    i("start tester evaluator"),
+    InitState = #{domain  => Domain},
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Tester]).
 
 
 
@@ -27076,6 +27533,9 @@ has_support_ip_multicast() ->
             not_supported({multicast, Type})
     end.
 
+has_support_sock_acceptconn() ->
+    has_support_socket_option_sock(acceptconn).
+
 has_support_ip_add_membership() ->
     has_support_socket_option_ip(add_membership).
 
@@ -27085,6 +27545,9 @@ has_support_ip_drop_membership() ->
 
 has_support_socket_option_ip(Opt) ->
     has_support_socket_option(ip, Opt).
+
+has_socket_option_sock_support(Opt) ->
+    has_socket_option_support(socket, Opt).
 
 has_support_socket_option(Level, Option) ->
     case socket:supports(options, Level, Option) of

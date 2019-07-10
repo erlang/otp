@@ -197,7 +197,7 @@
 	<cell><em>Other Requirements and comments</em></cell>
       </row>
       <row>
-	<cell>acceptcon</cell>
+	<cell>acceptconn</cell>
 	<cell>boolean()</cell>
 	<cell>no</cell>
 	<cell>yes</cell>

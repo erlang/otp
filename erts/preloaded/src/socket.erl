@@ -3377,6 +3377,8 @@ enc_sockopt_key(otp = L, Opt, _, _, _, _) ->
 %% +++ SOCKET socket options +++
 enc_sockopt_key(socket = _L, acceptconn = _Opt, get = _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_ACCEPTCONN;
+enc_sockopt_key(socket = L, acceptconn = Opt, Dir, _D, _T, _P) ->
+    not_supported({L, Opt, Dir});
 enc_sockopt_key(socket = L, acceptfilter = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% Before linux 3.8, this socket option could be set.
