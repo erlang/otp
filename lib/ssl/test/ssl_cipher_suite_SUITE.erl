@@ -45,7 +45,7 @@ groups() ->
      {'tlsv1.2', [], kex()},
      {'tlsv1.1', [], kex()},
      {'tlsv1', [], kex()},
-     {'sslv3', [], kex()},
+     {'sslv3', [], ssl3_kex()},
      {'dtlsv1.2', [], kex()},
      {'dtlsv1', [], kex()},
      {dhe_rsa, [],[dhe_rsa_3des_ede_cbc, 
@@ -130,12 +130,22 @@ groups() ->
 kex() ->
      rsa() ++ ecdsa() ++ dss() ++ anonymous().
 
+
+ssl3_kex() ->
+    ssl3_rsa() ++ ssl3_dss() ++ ssl3_anonymous().
+
+
 rsa() ->
     [{group, dhe_rsa},
      {group, ecdhe_rsa},
      {group, rsa},
      {group, srp_rsa},
      {group, rsa_psk}
+    ].
+
+ssl3_rsa() ->
+    [{group, dhe_rsa},
+     {group, rsa}
     ].
 
 ecdsa() ->
@@ -145,6 +155,10 @@ dss() ->
     [{group, dhe_dss},
      {group, srp_dss}].
 
+ssl3_dss() ->
+    [{group, dhe_dss}
+    ].
+
 anonymous() ->
     [{group, dh_anon},
      {group, ecdh_anon},
@@ -153,6 +167,10 @@ anonymous() ->
      {group, ecdhe_psk},
      {group, srp_anon}
     ].
+
+ssl3_anonymous() ->
+    [{group, dh_anon}].
+
 
 init_per_suite(Config) ->
     catch crypto:stop(),

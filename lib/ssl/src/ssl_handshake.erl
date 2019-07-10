@@ -3065,6 +3065,8 @@ empty_extensions({3,4}, hello_retry_request) ->
       key_share => undefined,
       pre_shared_key => undefined
      };
+empty_extensions({3,0}, _) ->
+    empty_extensions();
 empty_extensions(_, server_hello) ->
     #{renegotiation_info => undefined,
       alpn => undefined,

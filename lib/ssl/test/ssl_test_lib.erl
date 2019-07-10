@@ -218,6 +218,55 @@ start_server_transport_control(Args) ->
 	    Result
     end.
 
+start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, OpensslServerOpts, Data, Callback) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ClientOpts = ErlangClientOpts ++ ClientOpts0,
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = "From openssl to erlang",
+
+    Port = ssl_test_lib:inet_port(node()),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+    Version = ssl_test_lib:protocol_version(Config),
+
+    Exe = "openssl",
+    Args = case OpensslServerOpts of
+	       [] -> 
+		   ["s_server", "-accept", 
+		    integer_to_list(Port), ssl_test_lib:version_flag(Version),
+                    "-CAfile", CaCertFile,
+		    "-cert", CertFile,"-key", KeyFile];
+	       [Opt, Value] ->
+		   ["s_server", Opt, Value, "-accept", 
+		    integer_to_list(Port), ssl_test_lib:version_flag(Version),
+                    "-CAfile", CaCertFile,
+		    "-cert", CertFile,"-key", KeyFile]
+	   end,
+		   
+    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
+
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                    {host, Hostname},
+                    {from, self()},
+                    {mfa, {?MODULE,
+                           active_recv, [length(Data)]}},
+                    {options, ClientOpts}]),
+
+    Callback(Client, OpensslPort),
+
+    %% Clean close down!   Server needs to be closed first !!
+    ssl_test_lib:close_port(OpensslPort),
+
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false).
+
 
 transport_accept_abuse(Opts) ->
     Port = proplists:get_value(port, Opts),
@@ -233,6 +282,34 @@ transport_accept_abuse(Opts) ->
     _ = ssl:handshake(AcceptSocket, infinity),
     Pid ! {self(), ok}.
 
+start_erlang_server_and_openssl_client_with_opts(Config, ErlangServerOpts, OpenSSLClientOpts, Data, Callback) ->
+    process_flag(trap_exit, true),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts = ErlangServerOpts ++  ServerOpts0,
+
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                    {from, self()},
+                    {mfa, {?MODULE, active_recv, [length(Data)]}},
+                    {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Version = ssl_test_lib:protocol_version(Config),
+   
+    Exe = "openssl",
+    Args = ["s_client"] ++ OpenSSLClientOpts ++ ["-msg",  "-connect", 
+                                                 hostname_format(Hostname) ++ ":" ++ integer_to_list(Port),
+                                                 ssl_test_lib:version_flag(Version)],
+
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
+
+    Callback(Server, OpenSslPort),
+
+    ssl_test_lib:close(Server),
+
+    ssl_test_lib:close_port(OpenSslPort),
+    process_flag(trap_exit, false).
 
 transport_switch_control(Opts) ->
     Port = proplists:get_value(port, Opts),
@@ -586,30 +663,6 @@ cert_options(Config) ->
 				{ssl_imp, new}]},
      {server_opts, [{ssl_imp, new},{reuseaddr, true}, {cacertfile, ServerCaCertFile}, 
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {client_psk, [{ssl_imp, new},
-		   {psk_identity, "Test-User"},
-		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
-     {server_psk, [{ssl_imp, new},{reuseaddr, true},
-		   {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
-		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
-     {server_psk_hint, [{ssl_imp, new},{reuseaddr, true},
-			{certfile, ServerCertFile}, {keyfile, ServerKeyFile},
-			{psk_identity, "HINT"},
-			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
-     {server_psk_anon, [{ssl_imp, new},{reuseaddr, true},
-			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
-     {server_psk_anon_hint, [{ssl_imp, new},{reuseaddr, true},
-			     {psk_identity, "HINT"},
-			     {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
-     {client_srp, [{ssl_imp, new},
-		   {srp_identity, {"Test-User", "secret"}}]},
-     {server_srp, [{ssl_imp, new},{reuseaddr, true},
-		   {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
-		   {user_lookup_fun, {fun user_lookup/3, undefined}},
-		   {ciphers, srp_suites()}]},
-     {server_srp_anon, [{ssl_imp, new},{reuseaddr, true},
-			{user_lookup_fun, {fun user_lookup/3, undefined}},
-			{ciphers, srp_anon_suites()}]},
      {server_verification_opts, [{ssl_imp, new},{reuseaddr, true}, 
 		    {cacertfile, ClientCaCertFile},
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -659,6 +712,27 @@ make_dsa_cert(Config) ->
       false ->
           Config
   end.
+
+
+make_cert_chains_der(Alg, UserConf) ->
+    ClientChain = proplists:get_value(client_chain, UserConf, default_cert_chain_conf()),
+    ServerChain = proplists:get_value(server_chain, UserConf, default_cert_chain_conf()),
+    CertChainConf = gen_conf(Alg, Alg, ClientChain, ServerChain),
+    public_key:pkix_test_data(CertChainConf).
+
+make_cert_chains_pem(Alg, UserConf, Config, Suffix) ->
+    ClientChain = proplists:get_value(client_chain, UserConf, default_cert_chain_conf()),
+    ServerChain = proplists:get_value(server_chain, UserConf, default_cert_chain_conf()),
+    CertChainConf = gen_conf(Alg, Alg, ClientChain, ServerChain),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(Alg) ++ Suffix]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(Alg) ++ Suffix]),
+    GenCertData = public_key:pkix_test_data(CertChainConf),
+    Conf = x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
+    CConf = proplists:get_value(client_config, Conf),
+    SConf = proplists:get_value(server_config, Conf),
+    #{server_config => SConf,
+      client_config => CConf}.
+
 make_rsa_cert_chains(UserConf, Config, Suffix) ->
     ClientChain = proplists:get_value(client_chain, UserConf, default_cert_chain_conf()),
     ServerChain = proplists:get_value(server_chain, UserConf, default_cert_chain_conf()),
@@ -1156,6 +1230,24 @@ basic_test(COpts, SOpts, Config) ->
     gen_check_result(Server, SType, Client, CType),
     stop(Server, Client).    
 
+basic_alert(ClientOpts, ServerOpts, Config, Alert) ->
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = start_server_error([{node, ServerNode}, {port, 0},
+                                 {from, self()},
+                                 {mfa, {ssl_test_lib, no_result, []}},
+                                 {options, ServerOpts}]),
+    
+    Port  = inet_port(Server),
+    
+    Client = start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname},
+					      {from, self()},
+                                              {mfa, {ssl_test_lib, no_result, []}},
+					      {options, ClientOpts}]),
+
+    check_server_alert(Server, Client, Alert).
+
 ecc_test(Expect, COpts, SOpts, CECCOpts, SECCOpts, Config) ->
     {Server, Port} = start_server_ecc(erlang, SOpts, Expect, SECCOpts, Config),
     Client = start_client_ecc(erlang, Port, COpts, Expect, CECCOpts, Config),
@@ -1202,11 +1294,27 @@ start_client(openssl, Port, ClientOpts, Config) ->
     CA = proplists:get_value(cacertfile, ClientOpts),
     Version = ssl_test_lib:protocol_version(Config),
     Exe = "openssl",
+    Groups0 = proplists:get_value(groups, ClientOpts),
+    Exe = "openssl",
     Args0 = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
 	    ssl_test_lib:version_flag(Version),
-	    "-cert", Cert, "-CAfile", CA,
-	    "-key", Key, "-host","localhost", "-msg", "-debug"],
-    Args = maybe_force_ipv4(Args0),
+	    "-CAfile", CA, "-host", "localhost", "-msg", "-debug"],
+    Args1 =
+       case Groups0 of
+           undefined ->
+               Args0;
+           G ->
+               Args0 ++ ["-groups", G]
+       end,
+    Args2 =
+       case {Cert, Key} of
+           {C, K} when C =:= undefined orelse
+                       K =:= undefined ->
+               Args1;
+           {C, K} ->
+               Args1 ++ ["-cert", C, "-key", K]
+       end,
+    Args = maybe_force_ipv4(Args2),
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort;
@@ -1268,12 +1376,13 @@ start_server(openssl, ClientOpts, ServerOpts, Config) ->
 start_server(erlang, _, ServerOpts, Config) ->
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     KeyEx = proplists:get_value(check_keyex, Config, false),
+    Versions = protocol_versions(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
                            {from, self()},
                            {mfa, {ssl_test_lib,
                                   check_key_exchange_send_active,
                                   [KeyEx]}},
-                           {options, [{verify, verify_peer} | ServerOpts]}]),
+                           {options, [{verify, verify_peer}, {versions, Versions} | ServerOpts]}]),
     {Server, inet_port(Server)}.
 
 start_server_with_raw_key(erlang, ServerOpts, Config) ->
@@ -2011,6 +2120,53 @@ check_sane_openssl_version(Version) ->
 	false ->
 	    false
     end.
+check_sane_openssl_renegotaite(Config, Version) when Version == 'tlsv1.1';
+						     Version == 'tlsv1.2' ->
+    case os:cmd("openssl version") of     
+	"OpenSSL 1.0.1c" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	"OpenSSL 1.0.1b" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	"OpenSSL 1.0.1a" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	"OpenSSL 1.0.1 " ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	_ ->
+	    check_sane_openssl_renegotaite(Config)
+    end;
+check_sane_openssl_renegotaite(Config, _) ->
+    check_sane_openssl_renegotaite(Config).
+	
+check_sane_openssl_renegotaite(Config) ->
+    case os:cmd("openssl version") of  
+	"OpenSSL 1.0.0" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	"OpenSSL 0.9.8" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	"OpenSSL 0.9.7" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
+	_ ->
+	    Config
+    end.
+
+workaround_openssl_s_clinent() ->
+    %% http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=683159
+    %% https://bugs.archlinux.org/task/33919
+    %% Bug seems to manifests it self if TLS version is not
+    %% explicitly specified 
+    case os:cmd("openssl version") of 
+	"OpenSSL 1.0.1c" ++ _ ->
+	    ["-no_tls1_2"];
+	"OpenSSL 1.0.1d" ++ _ ->
+	    ["-no_tls1_2"];
+	"OpenSSL 1.0.1e" ++ _ ->
+	    ["-no_tls1_2"];
+	"OpenSSL 1.0.1f" ++ _ ->
+	    ["-no_tls1_2"];
+	_  ->
+	    []
+    end.
+
 enough_openssl_crl_support("OpenSSL 0." ++ _) -> false;
 enough_openssl_crl_support(_) -> true.
 
@@ -2178,6 +2334,14 @@ protocol_version(Config, atom) ->
            tls_record:protocol_version(protocol_version(Config, tuple))	
    end.
 
+protocol_versions(Config) ->
+    Version = protocol_version(Config),
+    case Version of
+        'tlsv1.3' -> %% TLS-1.3 servers shall also support 1.2
+            ['tlsv1.3', 'tlsv1.2'];
+        _ ->
+            [Version]
+    end.
 protocol_options(Config, Options) ->
     Protocol = proplists:get_value(protocol, Config, tls),
     {Protocol, Opts} = lists:keyfind(Protocol, 1, Options),
@@ -2504,3 +2668,48 @@ kill_openssl() ->
         {win32, _} ->
             os:cmd("cmd.exe /C \"taskkill /IM openssl.exe /F\"")
     end.
+
+hostname_format(Hostname) ->
+    case lists:member($., Hostname) of
+        true ->  
+            Hostname;
+        false ->
+            "localhost"   
+    end.
+
+erlang_ssl_receive_and_assert_negotiated_protocol(Socket, Protocol, Data) ->
+    case ssl:negotiated_protocol(Socket) of
+        {ok, Protocol} ->
+            active_recv(Socket, length(Data));
+        Result ->
+            {error, {{expected, Protocol}, {got, Result}}}
+    end. 
+
+check_openssl_npn_support(Config) ->
+    HelpText = os:cmd("openssl s_client --help"),
+    case string:str(HelpText, "nextprotoneg") of
+        0 ->
+            {skip, "Openssl not compiled with nextprotoneg support"};
+        _ ->
+            Config
+    end.
+
+new_config(PrivDir, ServerOpts0) ->
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts0),
+    CertFile = proplists:get_value(certfile, ServerOpts0),
+    KeyFile = proplists:get_value(keyfile, ServerOpts0),
+    NewCaCertFile = filename:join(PrivDir, "new_ca.pem"),
+    NewCertFile = filename:join(PrivDir, "new_cert.pem"),
+    NewKeyFile = filename:join(PrivDir, "new_key.pem"),
+    file:copy(CaCertFile, NewCaCertFile),
+    file:copy(CertFile, NewCertFile),
+    file:copy(KeyFile, NewKeyFile),
+    ServerOpts1 = proplists:delete(cacertfile, ServerOpts0),
+    ServerOpts2 = proplists:delete(certfile, ServerOpts1),
+    ServerOpts = proplists:delete(keyfile, ServerOpts2),
+
+    {ok, PEM} = file:read_file(NewCaCertFile),
+    ct:log("CA file content: ~p~n", [public_key:pem_decode(PEM)]),
+
+    [{cacertfile, NewCaCertFile}, {certfile, NewCertFile},
+     {keyfile, NewKeyFile} | ServerOpts].

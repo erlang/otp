@@ -141,7 +141,7 @@ encode_single_hello_sni_extension_correctly(_Config) ->
 	    $t,    $e,    $s,    $t,    $.,    $c,    $o,    $m>>,
     ExtSize = byte_size(SNI),
     HelloExt = <<ExtSize:16/unsigned-big-integer, SNI/binary>>,
-    Encoded = ssl_handshake:encode_extensions([#sni{hostname = "test.com"}]),
+    Encoded = ssl_handshake:encode_extensions([#sni{hostname = "test.com"}], {3,3}),
     HelloExt = Encoded.
 
 decode_single_hello_sni_extension_correctly(_Config) ->
