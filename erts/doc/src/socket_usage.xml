@@ -208,7 +208,9 @@
 	<cell>string()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>none</cell>
+	<cell>Before Linux 3.8, this socket option could be set, but not get.
+	Only works for some socket types (e.g. <c>inet</c>).
+	If empty value is set, the binding is removed.</cell>
       </row>
       <row>
 	<cell>broadcast</cell>

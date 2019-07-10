@@ -3381,8 +3381,8 @@ enc_sockopt_key(socket = L, acceptconn = Opt, Dir, _D, _T, _P) ->
     not_supported({L, Opt, Dir});
 enc_sockopt_key(socket = L, acceptfilter = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
-%% Before linux 3.8, this socket option could be set.
-%% Maximum size of buffer for name: IFNAMSZIZ
+%% Before linux 3.8, this socket option could be set but not get.
+%% Maximum size of buffer for name: IFNAMSIZ
 %% So, we let the implementation decide.
 enc_sockopt_key(socket = _L, bindtodevice = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_BINDTODEVICE;

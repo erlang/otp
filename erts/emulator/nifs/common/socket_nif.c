@@ -11919,7 +11919,7 @@ ERL_NIF_TERM ngetopt_lvl_sock_bindtodevice(ErlNifEnv*       env,
     SSDBG( descP,
            ("SOCKET", "ngetopt_lvl_sock_bindtodevice -> entry with\r\n") );
 
-    return ngetopt_str_opt(env, descP, SOL_SOCKET, SO_BROADCAST, IFNAMSIZ+1);
+    return ngetopt_str_opt(env, descP, SOL_SOCKET, SO_BINDTODEVICE, IFNAMSIZ+1);
 }
 #endif
 

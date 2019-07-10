@@ -123,6 +123,7 @@
          api_opt_simple_otp_controlling_process/1,
          api_opt_sock_acceptconn/1,
          api_opt_sock_acceptfilter/1,
+         api_opt_sock_bindtodevice/1,
          api_opt_ip_add_drop_membership/1,
 
          %% *** API Operation Timeout ***
@@ -783,7 +784,8 @@ api_options_otp_cases() ->
 api_options_socket_cases() ->
     [
      api_opt_sock_acceptconn,
-     api_opt_sock_acceptfilter
+     api_opt_sock_acceptfilter,
+     api_opt_sock_bindtodevice
     ].
 
 api_options_ip_cases() ->
@@ -8811,6 +8813,266 @@ api_opt_sock_acceptfilter(_Config) when is_list(_Config) ->
     tc_try(api_opt_sock_acceptfilter,
            fun() -> not_yet_implemented() end,
            fun() -> ok end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option bindtodevice.
+%% It has not always been possible to 'get' this option
+%% (atleast on linux).
+
+api_opt_sock_bindtodevice(suite) ->
+    [];
+api_opt_sock_bindtodevice(doc) ->
+    [];
+api_opt_sock_bindtodevice(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(api_opt_sock_bindtodevice,
+           fun() -> has_sock_bindtodevice_support() end,
+           fun() -> api_opt_sock_bindtodevice() end).
+
+
+api_opt_sock_bindtodevice() ->
+    Opt = bindtodevice,
+    Set = fun(S, Val) ->
+                  socket:setopt(S, socket, Opt, Val)
+          end,
+    Get = fun(S) ->
+                  socket:getopt(S, socket, Opt)
+          end,
+
+    TesterSeq =
+        [
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case which_local_host_info(Domain) of
+                               {ok, {Name, _, Addr}} ->
+                                   ?SEV_IPRINT("local host info (~p): "
+                                               "~n   Name: ~p"
+                                               "~n   Addr: ~p",
+                                               [Domain, Name, Addr]),
+                                   LSA = #{family => Domain,
+                                           addr   => Addr},
+                                   {ok, State#{dev      => Name,
+                                               local_sa => LSA}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "create UDP socket 1",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{usock1 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "create UDP socket 2",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{usock2 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "create TCP socket 1",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{tsock1 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "create TCP socket 2",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{tsock2 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "[get] verify UDP socket 1 (before bindtodevice)",
+           cmd  => fun(#{usock1 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Dev} ->
+                                   ?SEV_IPRINT("Expected Success: ~p", [Dev]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[get] verify UDP socket 2 (before bind)",
+           cmd  => fun(#{usock2 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Dev} ->
+                                   ?SEV_IPRINT("Expected Success: ~p", [Dev]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[get] verify TCP socket 1 (before bindtodevice)",
+           cmd  => fun(#{tsock1 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Dev} ->
+                                   ?SEV_IPRINT("Expected Success: ~p", [Dev]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[get] verify TCP socket 2 (before bind)",
+           cmd  => fun(#{tsock2 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Dev} ->
+                                   ?SEV_IPRINT("Expected Success: ~p", [Dev]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "Bind UDP socket 1 to device",
+           cmd  => fun(#{usock1 := Sock, dev := Dev} = _State) ->
+                           case Set(Sock, Dev) of
+                               ok ->
+                                   ?SEV_IPRINT("Expected Success"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Bind UDP socket 2 to local address",
+           cmd  => fun(#{usock2 := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("Expected Success"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Bind TCP socket 1 to device",
+           cmd  => fun(#{tsock1 := Sock, dev := Dev} = _State) ->
+                           case Set(Sock, Dev) of
+                               ok ->
+                                   ?SEV_IPRINT("Expected Success"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Bind TCP socket 2 to local address",
+           cmd  => fun(#{tsock2 := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ?SEV_IPRINT("Expected Success"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "[get] verify UDP socket 1 (after bindtodevice)",
+           cmd  => fun(#{usock1 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Dev} ->
+                                   ?SEV_IPRINT("Expected Success: ~p", [Dev]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[get] verify UDP socket 2 (after bind)",
+           cmd  => fun(#{usock2 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Dev} ->
+                                   ?SEV_IPRINT("Expected Success: ~p", [Dev]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[get] verify TCP socket 1 (after bindtodevice)",
+           cmd  => fun(#{tsock1 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Dev} ->
+                                   ?SEV_IPRINT("Expected Success: ~p", [Dev]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[get] verify TCP socket 2 (after bind)",
+           cmd  => fun(#{tsock2 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Dev} ->
+                                   ?SEV_IPRINT("Expected Success: ~p", [Dev]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         %% *** Termination ***
+         #{desc => "close UDP socket 1",
+           cmd  => fun(#{usock1 := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(usock1, State)}
+                   end},
+         #{desc => "close UDP socket 2",
+           cmd  => fun(#{usock2 := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(usock2, State)}
+                   end},
+         #{desc => "close TCP socket 1",
+           cmd  => fun(#{tsock1 := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(tsock1, State)}
+                   end},
+         #{desc => "close TCP socket 2",
+           cmd  => fun(#{tsock2 := Sock} = State) ->
+                           socket:close(Sock),
+                           {ok, maps:remove(tsock2, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("get multicast address"),
+    Domain = inet,
+
+    i("start tester evaluator"),
+    InitState = #{domain  => Domain},
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Tester]).
 
 
 
@@ -27553,6 +27815,9 @@ has_support_ip_multicast() ->
 
 has_support_sock_acceptconn() ->
     has_support_socket_option_sock(acceptconn).
+
+has_support_sock_bindtodevice() ->
+    has_support_socket_option_sock(bindtodevice).
 
 has_support_ip_add_membership() ->
     has_support_socket_option_ip(add_membership).
