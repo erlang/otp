@@ -49,9 +49,9 @@ expand_module_name(Prefix) ->
 expand_function_name(ModStr, FuncPrefix) ->
     case to_atom(ModStr) of
 	{ok, Mod} ->
+		L = Mod:module_info(),
 	    case erlang:module_loaded(Mod) of
 		true ->
-		    L = Mod:module_info(),
 		    case lists:keyfind(exports, 1, L) of
 			{_, Exports} ->
 			    match(FuncPrefix, Exports, "(");
