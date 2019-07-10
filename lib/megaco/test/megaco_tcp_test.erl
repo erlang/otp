@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1214,23 +1214,14 @@ p(F, A) ->
 p(S, F, A) when is_list(S) ->
     io:format("*** [~s] ~p ~s ***" 
 	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(now()), self(), S | A]);
+	      [?FTS(), self(), S | A]);
 p(_S, F, A) ->
     io:format("*** [~s] ~p ~s *** "
 	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(now()), self(), "undefined" | A]).
+	      [?FTS(), self(), "undefined" | A]).
 
 
 ms() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
-    
+    erlang:monotonic_time(milli_seconds).
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
+

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -219,18 +219,5 @@ p(F, A) ->
     TC = get(tc),
     io:format("*** [~s] ~p ~w ***"
               "~n   " ++ F ++ "~n",
-              [formated_timestamp(), self(), TC | A]).
-
-formated_timestamp() ->
-    format_timestamp(erlang:now()).
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}     = calendar:now_to_datetime(Now),
-    {YYYY, MM, DD}   = Date,
-    {Hour, Min, Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
-
+              [?FTS(), self(), TC | A]).
 

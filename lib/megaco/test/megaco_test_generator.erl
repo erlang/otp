@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@
 
 
 -include_lib("megaco/include/megaco.hrl").
+-include("megaco_test_lib.hrl").
 
 
 %%----------------------------------------------------------------------
@@ -533,22 +534,13 @@ print(P, F, A) ->
 print([], undefined, F, A) ->
     io:format("*** [~s] ~p *** " ++ 
 	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(now()),self()|A]);
+	      [?FTS(), self() | A]);
 print(P, undefined, F, A) ->
     io:format("*** [~s] ~p ~s *** " ++ 
 	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(now()),self(),P|A]);
+	      [?FTS(), self(), P | A]);
 print(P, N, F, A) ->
     io:format("*** [~s] ~p ~s~s *** " ++ 
 	      "~n   " ++ F ++ "~n", 
-	      [format_timestamp(now()),self(),N,P|A]).
+	      [?FTS(), self(), N, P | A]).
 
-
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}     = calendar:now_to_datetime(Now),
-    {YYYY, MM, DD}   = Date,
-    {Hour, Min, Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY, MM, DD, Hour, Min, Sec, round(N3/1000)]),  
-    lists:flatten(FormatDate).

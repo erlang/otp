@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1153,18 +1153,17 @@ get_conf(Key, Config, Default) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
+    ok.
 
 random(N) ->
-    random:uniform(N).
+    rand:uniform(N).
 
 
 display_system_info(Mid) ->
     display_system_info(Mid, "").
 
 display_system_info(Mid, Pre) ->
-    TimeStr = format_timestamp(now()),
+    TimeStr = ?FTS(),
     MibStr  = lists:flatten(io_lib:format("~p ", [Mid])), 
     megaco_test_lib:display_system_info(MibStr ++ Pre ++ TimeStr).
 
@@ -1209,14 +1208,6 @@ print(_, _, _, _) ->
 print(P, F, A) ->
     io:format("*** [~s] ~s ~p ~s ***"
 	      "~n   " ++ F ++ "~n~n", 
-	      [format_timestamp(now()), P, self(), get(sname) | A]).
+	      [?FTS(), P, self(), get(sname) | A]).
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).
 

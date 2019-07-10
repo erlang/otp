@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -456,7 +456,9 @@ print(Severity, Verbosity, P, F, A) ->
     print(printable(Severity,Verbosity), P, F, A).
 
 print(true, P, F, A) ->
-    io:format("~s~p:~s: " ++ F ++ "~n", [P, self(), get(sname) | A]);
+    io:format("*** [~s] ~s ~p ~s ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), P, self(), get(sname) | A]);
 print(_, _, _, _) ->
     ok.
 
@@ -464,11 +466,10 @@ print(_, _, _, _) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
+    ok.
 
 random() ->
-    10 * random:uniform(50).
+    10 * rand:uniform(50).
 
 apply_load_timer() ->
     erlang:send_after(random(), self(), apply_load_timeout).

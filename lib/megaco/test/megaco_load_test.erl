@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -630,8 +630,9 @@ make_mids([MgNode|MgNodes], Mids) ->
     end.
 
 tim() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
+    %% {A,B,C} = erlang:now(),
+    %% A*1000000000+B*1000+(C div 1000).
+    erlang:monotonic_time(milli_seconds).
 
 sleep(X) -> receive after X -> ok end.
 
@@ -651,46 +652,37 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), now(), get(tc), "INF", F, A).
+    print(info, get(verbosity), get(tc), "INF", F, A).
 
 d(F) ->
     d(F, []).
 
 d(F, A) ->
-    print(debug, get(verbosity), now(), get(tc), "DBG", F, A).
+    print(debug, get(verbosity), get(tc), "DBG", F, A).
 
 printable(_, debug)   -> true;
 printable(info, info) -> true;
 printable(_,_)        -> false.
 
-print(Severity, Verbosity, Ts, Tc, P, F, A) ->
-    print(printable(Severity,Verbosity), Ts, Tc, P, F, A).
+print(Severity, Verbosity, Tc, P, F, A) ->
+    print(printable(Severity,Verbosity), Tc, P, F, A).
 
-print(true, Ts, Tc, P, F, A) ->
+print(true, Tc, P, F, A) ->
     io:format("*** [~s] ~s ~p ~s:~w ***"
               "~n   " ++ F ++ "~n", 
-              [format_timestamp(Ts), P, self(), get(sname), Tc | A]);
-print(_, _, _, _, _, _) ->
+              [?FTS(), P, self(), get(sname), Tc | A]);
+print(_, _, _, _, _) ->
     ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 random_init() ->
-    {A,B,C} = now(),
-    random:seed(A,B,C).
+    ok.
 
 random() ->
-    10 * random:uniform(50).
+    10 * rand:uniform(50).
 
 apply_load_timer() ->
     erlang:send_after(random(), self(), apply_load_timeout).
 
-format_timestamp({_N1, _N2, N3} = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate = 
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),  
-    lists:flatten(FormatDate).

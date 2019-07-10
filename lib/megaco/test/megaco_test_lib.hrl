@@ -86,4 +86,5 @@
 -define(MINUTES(T),     megaco_test_lib:minutes(T)).
 -define(SECONDS(T),     megaco_test_lib:seconds(T)).
 -define(FTS(),          megaco:format_timestamp(erlang:timestamp())).
+-define(FTS(TS),        megaco:format_timestamp(TS)).
 
