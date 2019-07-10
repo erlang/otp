@@ -26102,7 +26102,7 @@ ttest_tcp(TC,
            fun() ->
                    if
                        (Domain =:= local) -> has_support_unix_domain_socket(); 
-                       (Domain =:= inet6) -> has_support_ipv6(); 
+                       (Domain =:= inet6) -> has_support_ipv6();
                        true -> ok 
                    end
            end,
@@ -26565,16 +26565,22 @@ ttest_tcp(InitState) ->
          ?SEV_FINISH_NORMAL
         ],
 
+    Domain = maps:get(domain, InitState),
+    LHost  = local_host(),
+    LAddr  = which_local_addr(Domain),
+
     i("start server evaluator"),
-    ServerInitState = #{host   => local_host(),
-                        domain => maps:get(domain,        InitState),
+    ServerInitState = #{host   => LHost,
+			addr   => LAddr,
+                        domain => Domain,
                         mod    => maps:get(server_mod,    InitState),
                         active => maps:get(server_active, InitState)},
     Server          = ?SEV_START("server", ServerSeq, ServerInitState),
 
     i("start client evaluator"),
-    ClientInitState = #{host            => local_host(),
-                        domain          => maps:get(domain,          InitState),
+    ClientInitState = #{host            => LHost,
+			addr            => LAddr,
+                        domain          => Domain,
                         mod             => maps:get(client_mod,      InitState),
                         active          => maps:get(client_active,   InitState),
                         msg_id          => maps:get(msg_id,          InitState),
@@ -26583,9 +26589,14 @@ ttest_tcp(InitState) ->
     Client          = ?SEV_START("client", ClientSeq, ClientInitState),
     
     i("start 'tester' evaluator"),
-    TesterInitState = #{domain => maps:get(domain, InitState),
-                        server => Server#ev.pid,
-                        client => Client#ev.pid},
+    TesterInitState = #{domain        => Domain,
+			msg_id        => maps:get(msg_id,        InitState),
+                        client        => Client#ev.pid,
+			client_mod    => maps:get(client_mod,    InitState),
+			client_active => maps:get(client_active, InitState),
+                        server        => Server#ev.pid,
+                        server_mod    => maps:get(server_mod,    InitState),
+                        server_active => maps:get(server_active, InitState)},
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     i("await evaluator(s)"),
@@ -26593,8 +26604,9 @@ ttest_tcp(InitState) ->
 
 
 
-ttest_tcp_server_start(Node, _Domain, gen, Active) ->
-    Transport = socket_test_ttest_tcp_gen,
+ttest_tcp_server_start(Node, Domain, gen, Active) ->
+    TransportMod = socket_test_ttest_tcp_gen,
+    Transport    = {TransportMod, #{domain => Domain}},
     socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active);
 ttest_tcp_server_start(Node, Domain, sock, Active) ->
     TransportMod = socket_test_ttest_tcp_socket,
@@ -26608,9 +26620,10 @@ ttest_tcp_server_stop(Pid) ->
 
 ttest_tcp_client_start(Node,
                        Notify,
-                       _Domain, gen,
+                       Domain, gen,
                        ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
-    Transport = socket_test_ttest_tcp_gen,
+    TransportMod = socket_test_ttest_tcp_gen,
+    Transport    = {TransportMod, #{domain => Domain}},    
     socket_test_ttest_tcp_client:start_monitor(Node,
                                                Notify,
                                                Transport,
@@ -26905,39 +26918,6 @@ sock_sockname(Sock) ->
             ?FAIL({sockname, C, E, S})
     end.
     
-
-%% sock_listen(Sock) ->
-%%     sock_listen2(fun() -> socket:listen(Sock) end).
-
-%% sock_listen(Sock, BackLog) ->
-%%     sock_listen2(fun() -> socket:listen(Sock, BackLog) end).
-
-%% sock_listen2(Listen) ->
-%%     try Listen() of
-%%         ok ->
-%%             ok;
-%%         {error, Reason} ->
-%%             ?FAIL({listen, Reason})
-%%     catch
-%%         C:E:S ->
-%%             ?FAIL({listen, C, E, S})
-%%     end.
-
-
-%% sock_accept(LSock) ->
-%%     try socket:accept(LSock) of
-%%         {ok, Sock} ->
-%%             Sock;
-%%         {error, Reason} ->
-%%             i("sock_accept -> error: ~p", [Reason]),
-%%             ?FAIL({accept, Reason})
-%%     catch
-%%         C:E:S ->
-%%             i("sock_accept -> failed: ~p, ~p, ~p", [C, E, S]),
-%%             ?FAIL({accept, C, E, S})
-%%     end.
-
-
 sock_close(Sock) ->
     try socket:close(Sock) of
         ok ->
@@ -27003,7 +26983,7 @@ which_local_socket_addr(local = Domain) ->
     #{family => Domain,
       path   => mk_unique_path()};
 
-%% This gets the local address (not 127.0...)
+%% This gets the local socket address (not 127.0...)
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_socket_addr(Domain) ->
@@ -27016,55 +26996,20 @@ which_local_socket_addr(Domain) ->
     end.
 
 
-%% Returns the interface (name), flags and address (not 127...)
-%% of the local host.
-%% which_local_host_info(Domain) ->
-%%     case inet:getifaddrs() of
-%%         {ok, IFL} ->
-%%             which_local_host_info(Domain, IFL);
-%%         {error, _} = ERROR ->
-%%             ERROR
-%%     end.
 
-%% which_local_host_info(_Domain, []) ->
-%%     ?FAIL(no_address);
-%% which_local_host_info(Domain, [{"lo" ++ _, _}|IFL]) ->
-%%     which_local_host_info(Domain, IFL);
-%% which_local_host_info(Domain, [{"docker" ++ _, _}|IFL]) ->
-%%     which_local_host_info(Domain, IFL);
-%% which_local_host_info(Domain, [{"br-" ++ _, _}|IFL]) ->
-%%     which_local_host_info(Domain, IFL);
-%% which_local_host_info(Domain, [{Name, IFO}|IFL]) ->
-%%     case which_local_host_info2(Domain, IFO) of
-%%         {ok, {Flags, Addr}} ->
-%%             {ok, {Name, Flags, Addr}};
-%%         {error, _} ->
-%%             which_local_host_info(Domain, IFL)
-%%     end;
-%% which_local_host_info(Domain, [_|IFL]) ->
-%%     which_local_host_info(Domain, IFL).
+which_local_addr(local = Domain) ->
+    mk_unique_path();
 
-%% which_local_host_info2(Domain, IFO) ->
-%%     case lists:keysearch(flags, 1, IFO) of
-%%         {value, {flags, Flags}} ->
-%%             which_local_host_info2(Domain, IFO, Flags);
-%%         false ->
-%%             {error, no_flags}
-%%     end.
-
-%% which_local_host_info2(_Domain, [], _Flags) ->
-%%     {error, no_address};
-%% which_local_host_info2(inet = _Domain, [{addr, Addr}|_IFO], Flags)
-%%   when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
-%%     {ok, {Flags, Addr}};
-%% which_local_host_info2(inet6 = _Domain, [{addr, Addr}|_IFO], Flags)
-%%   when (size(Addr) =:= 8) andalso 
-%%        (element(1, Addr) =/= 0) andalso
-%%        (element(1, Addr) =/= 16#fe80) ->
-%%     {ok, {Flags, Addr}};
-%% which_local_host_info2(Domain, [_|IFO], Flags) ->
-%%     which_local_host_info2(Domain, IFO, Flags).
-
+%% This gets the local address (not 127.0...)
+%% We should really implement this using the (new) net module,
+%% but until that gets the necessary functionality...
+which_local_addr(Domain) ->
+    case ?LIB:which_local_host_info(Domain) of
+        {ok, {_Name, _Flags, Addr}} ->
+            Addr;
+        {error, Reason} ->
+            ?FAIL(Reason)
+    end.
 
 
 
@@ -27143,7 +27088,6 @@ has_support_unix_domain_socket() ->
 %% support for IPv6. If not, there is no point in running IPv6 tests.
 %% Currently we just skip.
 has_support_ipv6() ->
-    %%not_yet_implemented().
     ?LIB:has_support_ipv6().
 
 

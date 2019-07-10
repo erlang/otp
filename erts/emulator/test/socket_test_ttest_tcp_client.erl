@@ -266,8 +266,9 @@ init(Quiet,
             (catch Mod:close(Sock)),
             exit(normal);
         {error, Reason} ->
-            ?E("connect failed: ~p", [Reason]),
-            exit({connect, Reason})
+            ?E("connect failed: ~p"
+	       "~n   ~p", [Reason, ServerInfo]),
+            exit({connect, Reason, ServerInfo})
     end.
 
 process_transport(Mod) when is_atom(Mod) ->

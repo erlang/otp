@@ -247,10 +247,16 @@ listen(Path, #{domain := local = Domain} = Opts)
 listen(Port, #{domain := Domain} = Opts)
   when is_integer(Port) andalso (Port >= 0) ->
     %% Bind fills in the rest
-    SA = #{family => Domain,
-           port   => Port},
-    Cleanup = fun() -> ok end,
-    do_listen(SA, Cleanup, Opts#{proto => tcp}).
+    case ?LIB:which_local_host_info(Domain) of
+	{ok, {_, _, Addr}} ->
+	    SA = #{family => Domain,
+		   addr   => Addr,
+		   port   => Port},
+	    Cleanup = fun() -> ok end,
+	    do_listen(SA, Cleanup, Opts#{proto => tcp});
+	{error, _} = ERROR ->
+	    ERROR
+    end.
 
 do_listen(SA,
           Cleanup,
