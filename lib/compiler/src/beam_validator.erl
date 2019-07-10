@@ -395,16 +395,28 @@ valfun_1({init,Reg}, Vst) ->
     create_tag(initialized, init, [], Reg, Vst);
 valfun_1({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
-valfun_1({bif,Op,{f,_},Ss,Dst}=I, Vst) ->
-    case erl_bifs:is_safe(erlang, Op, length(Ss)) of
-        true ->
-            %% It can't fail, so we finish handling it here (not updating
-            %% catch state).
-            {RetType, _, _} = bif_types(Op, Ss, Vst),
-            extract_term(RetType, {bif,Op}, Ss, Dst, Vst);
-        false ->
-            %% Since the BIF can fail, make sure that any catch state
-            %% is updated.
+valfun_1({bif,Op,{f,0},Ss,Dst}=I, Vst) ->
+    case will_bif_succeed(Op, Ss, Vst) of
+        yes ->
+            %% This BIF cannot fail, handle it here without updating catch
+            %% state.
+            validate_bif(Op, cannot_fail, Ss, Dst, Vst);
+        no ->
+            %% The stack will be scanned, so Y registers must be initialized.
+            verify_y_init(Vst),
+            kill_state(Vst);
+        maybe ->
+            %% The BIF can fail, make sure that any catch state is updated.
+            valfun_2(I, Vst)
+    end;
+valfun_1({gc_bif,Op,{f,0},Live,Ss,Dst}=I, Vst) ->
+    case will_bif_succeed(Op, Ss, Vst) of
+        yes ->
+            validate_gc_bif(Op, cannot_fail, Ss, Dst, Live, Vst);
+        no ->
+            verify_y_init(Vst),
+            kill_state(Vst);
+        maybe ->
             valfun_2(I, Vst)
     end;
 %% Put instructions.
@@ -487,14 +499,18 @@ valfun_1({line,_}, Vst) ->
     Vst;
 %% Exception generating calls
 valfun_1({call_ext,Live,Func}=I, Vst) ->
-    case call_types(Func, Live, Vst) of
-        {none, _, _} ->
+    case will_call_succeed(Func, Vst) of
+        yes ->
+            %% This call cannot fail, handle it here without updating catch
+            %% state.
+            call(Func, Live, Vst);
+        no ->
+            %% The stack will be scanned, so Y registers must be initialized.
             verify_live(Live, Vst),
-            %% The stack will be scanned, so Y registers
-            %% must be initialized.
             verify_y_init(Vst),
             kill_state(Vst);
-        _ ->
+        maybe ->
+            %% The call can fail, make sure that any catch state is updated.
             valfun_2(I, Vst)
     end;
 valfun_1(_I, #vst{current=#st{ct=undecided}}) ->
@@ -556,6 +572,7 @@ valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|_]}}=Vst0) ->
         Type ->
             error({wrong_tag_type,Type})
     end;
+%% Simple getters that can't fail.
 valfun_1({get_list,Src,D1,D2}, Vst0) ->
     assert_not_literal(Src),
     assert_type(cons, Src, Vst0),
@@ -717,18 +734,9 @@ valfun_4(raw_raise=I, Vst) ->
     call(I, 3, Vst);
 valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst) ->
     validate_src(Ss, Vst),
-    validate_bif(bif, Op, Fail, Ss, Dst, Vst, Vst);
-valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
-    validate_src(Ss, Vst0),
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-
-    %% Heap allocations and X registers are killed regardless of whether we
-    %% fail or not, as we may fail after GC.
-    St = kill_heap_allocation(St0),
-    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
-
-    validate_bif(gc_bif, Op, Fail, Ss, Dst, Vst0, Vst);
+    validate_bif(Op, Fail, Ss, Dst, Vst);
+valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst) ->
+    validate_gc_bif(Op, Fail, Ss, Dst, Live, Vst);
 valfun_4(return, #vst{current=#st{numy=none}}=Vst) ->
     assert_durable_term({x,0}, Vst),
     kill_state(Vst);
@@ -1100,7 +1108,40 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
 %% gc_bifs as X registers are pruned prior to calling this function, which may
 %% have clobbered the sources.
 %%
-validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
+
+validate_bif(Op, Fail, Ss, Dst, Vst) ->
+    validate_src(Ss, Vst),
+    validate_bif_1(bif, Op, Fail, Ss, Dst, Vst, Vst).
+
+validate_gc_bif(Op, Fail, Ss, Dst, Live, #vst{current=St0}=Vst0) ->
+    validate_src(Ss, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+
+    %% Heap allocations and X registers are killed regardless of whether we
+    %% fail or not, as we may fail after GC.
+    St = kill_heap_allocation(St0),
+    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
+    validate_src(Ss, Vst),
+
+    validate_bif_1(gc_bif, Op, Fail, Ss, Dst, Vst, Vst).
+
+validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst0) ->
+    %% This BIF explicitly cannot fail; it will not jump to a guard nor throw
+    %% an exception. Validation will fail if it returns 'none' or has a type
+    %% conflict on one of its arguments.
+
+    {Type, ArgTypes, _CanSubtract} = bif_types(Op, Ss, Vst0),
+    ZippedArgs = zip(Ss, ArgTypes),
+
+    Vst = foldl(fun({A, T}, V) ->
+                            update_type(fun meet/2, T, A, V)
+                    end, Vst0, ZippedArgs),
+
+    true = Type =/= none,                       %Assertion.
+
+    extract_term(Type, {Kind, Op}, Ss, Dst, Vst, OrigVst);
+validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
     {Type, ArgTypes, CanSubtract} = bif_types(Op, Ss, Vst),
     ZippedArgs = zip(Ss, ArgTypes),
 
@@ -1118,7 +1159,7 @@ validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
                   SuccVst = foldl(fun({A, T}, V) ->
                                           update_type(fun meet/2, T, A, V)
                                   end, SuccVst0, ZippedArgs),
-                  extract_term(Type, {Kind,Op}, Ss, Dst, SuccVst, OrigVst)
+                  extract_term(Type, {Kind, Op}, Ss, Dst, SuccVst, OrigVst)
               end,
 
     branch(Fail, Vst, FailFun, SuccFun).
@@ -1222,8 +1263,9 @@ call(Name, Live, #vst{current=St0}=Vst0) ->
     verify_call_args(Name, Live, Vst0),
     verify_y_init(Vst0),
     case call_types(Name, Live, Vst0) of
-        {RetType, _, _} when RetType =/= none ->
-            %% Type is never 'none' because it has been handled earlier.
+        {none, _, _} ->
+            kill_state(Vst0);
+        {RetType, _, _} ->
             St = St0#st{f=init_fregs()},
             Vst = prune_x_regs(0, Vst0#vst{current=St}),
             create_term(RetType, call, [], {x,0}, Vst)
@@ -2403,6 +2445,25 @@ call_types({extfunc,M,F,A}, A, Vst) ->
     beam_call_types:types(M, F, Args);
 call_types(_, A, Vst) ->
     {any, get_call_args(A, Vst), false}.
+
+will_bif_succeed(fadd, [_,_], _Vst) ->
+    maybe;
+will_bif_succeed(fdiv, [_,_], _Vst) ->
+    maybe;
+will_bif_succeed(fmul, [_,_], _Vst) ->
+    maybe;
+will_bif_succeed(fnegate, [_], _Vst) ->
+    maybe;
+will_bif_succeed(fsub, [_,_], _Vst) ->
+    maybe;
+will_bif_succeed(Op, Ss, Vst) ->
+    Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
+    beam_call_types:will_succeed(erlang, Op, Args).
+
+will_call_succeed({extfunc,M,F,A}, Vst) ->
+    beam_call_types:will_succeed(M, F, get_call_args(A, Vst));
+will_call_succeed(_Call, _Vst) ->
+    maybe.
 
 get_call_args(Arity, Vst) ->
     get_call_args_1(0, Arity, Vst).

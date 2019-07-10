@@ -901,32 +901,20 @@ type(succeeded, [#b_var{}=Src], _Anno, Ts, _Ds)
 type(succeeded, [#b_var{}=Src], _Anno, Ts, Ds) ->
     case maps:get(Src, Ds) of
         #b_set{op={bif,Bif},args=BifArgs} ->
-            Types = normalized_types(BifArgs, Ts),
-            case {Bif,Types} of
-                {BoolOp,[T1,T2]} when BoolOp =:= 'and'; BoolOp =:= 'or' ->
-                    BothBool = beam_types:is_boolean_type(T1) andalso
-                        beam_types:is_boolean_type(T2),
-                    case BothBool of
-                        true -> beam_types:make_atom(true);
-                        false -> beam_types:make_boolean()
-                    end;
-                {byte_size,[#t_bitstring{}]} ->
-                    beam_types:make_atom(true);
-                {bit_size,[#t_bitstring{}]} ->
-                    beam_types:make_atom(true);
-                {map_size,[#t_map{}]} ->
-                    beam_types:make_atom(true);
-                {'not',[Type]} ->
-                    case beam_types:is_boolean_type(Type) of
-                        true -> beam_types:make_atom(true);
-                        false -> beam_types:make_boolean()
-                    end;
-                {size,[#t_bitstring{}]} ->
-                    beam_types:make_atom(true);
-                {tuple_size,[#t_tuple{}]} ->
-                    beam_types:make_atom(true);
-                {_,_} ->
-                    beam_types:make_boolean()
+            ArgTypes = normalized_types(BifArgs, Ts),
+            case beam_call_types:will_succeed(erlang, Bif, ArgTypes) of
+                yes -> beam_types:make_atom(true);
+                no -> beam_types:make_atom(false);
+                maybe -> beam_types:make_boolean()
+            end;
+        #b_set{op=call,args=[#b_remote{mod=#b_literal{val=Mod},
+                                       name=#b_literal{val=Func}} |
+                             CallArgs]} ->
+            ArgTypes = normalized_types(CallArgs, Ts),
+            case beam_call_types:will_succeed(Mod, Func, ArgTypes) of
+                yes -> beam_types:make_atom(true);
+                no -> beam_types:make_atom(false);
+                maybe -> beam_types:make_boolean()
             end;
         #b_set{op=get_hd} ->
             beam_types:make_atom(true);

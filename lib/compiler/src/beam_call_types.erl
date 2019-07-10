@@ -24,7 +24,61 @@
 
 -import(lists, [duplicate/2,foldl/3]).
 
--export([types/3]).
+-export([will_succeed/3, types/3]).
+
+%%
+%% Returns whether a call will succeed or not.
+%%
+%% Note that it only answers 'yes' for functions in the 'erlang' module as
+%% calls to other modules may fail due to not being loaded, even if we consider
+%% the module to be known.
+%%
+
+-spec will_succeed(Mod, Func, ArgTypes) -> Result when
+      Mod :: atom(),
+      Func :: atom(),
+      ArgTypes :: [normal_type()],
+      Result :: yes | no | maybe.
+
+will_succeed(erlang, BoolOp, [LHS, RHS]) when BoolOp =:= 'and';
+                                              BoolOp =:= 'or' ->
+    case {succeeds_if_type(LHS, beam_types:make_boolean()),
+          succeeds_if_type(RHS, beam_types:make_boolean())} of
+        {yes, yes} -> yes;
+        {no, _} -> no;
+        {_, no} -> no;
+        {_, _} -> maybe
+    end;
+will_succeed(erlang, bit_size, [Arg]) ->
+    succeeds_if_type(Arg, #t_bitstring{});
+will_succeed(erlang, byte_size, [Arg]) ->
+    succeeds_if_type(Arg, #t_bitstring{});
+will_succeed(erlang, map_size, [Arg]) ->
+    succeeds_if_type(Arg, #t_map{});
+will_succeed(erlang, 'not', [Arg]) ->
+    succeeds_if_type(Arg, beam_types:make_boolean());
+will_succeed(erlang, size, [Arg]) ->
+    succeeds_if_type(Arg, #t_bitstring{});
+will_succeed(erlang, tuple_size, [Arg]) ->
+    succeeds_if_type(Arg, #t_tuple{});
+will_succeed(Mod, Func, Args) ->
+    Arity = length(Args),
+    case erl_bifs:is_safe(Mod, Func, Arity) of
+        true ->
+            yes;
+        false ->
+            case erl_bifs:is_exit_bif(Mod, Func, Arity) of
+                true -> no;
+                false -> maybe
+            end
+    end.
+
+succeeds_if_type(ArgType, Required) ->
+    case beam_types:meet(ArgType, Required) of
+        ArgType -> yes;
+        none -> no;
+        _ -> maybe
+    end.
 
 %%
 %% Returns the inferred return and argument types for known functions, and
