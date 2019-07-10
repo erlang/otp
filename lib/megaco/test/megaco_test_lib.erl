@@ -988,11 +988,14 @@ node_to_name_and_host(Node) ->
 start_nodes([Node | Nodes], File, Line) ->
     case net_adm:ping(Node) of
 	pong ->
+            p("node ~p already running", [Node]),
 	    start_nodes(Nodes, File, Line);
 	pang ->
 	    [Name, Host] = node_to_name_and_host(Node),
+            p("try start node ~p", [Node]),
 	    case slave:start_link(Host, Name) of
 		{ok, NewNode} when NewNode =:= Node ->
+                    p("node ~p started - now set path, cwd and sync", [Node]),
 		    Path = code:get_path(),
 		    {ok, Cwd} = file:get_cwd(),
 		    true = rpc:call(Node, code, set_path, [Path]),
@@ -1001,6 +1004,7 @@ start_nodes([Node | Nodes], File, Line) ->
 		    {_, []} = rpc:multicall(global, sync, []),
 		    start_nodes(Nodes, File, Line);
 		Other ->
+                    p("failed starting node ~p: ~p", [Node, Other]),
 		    fatal_skip({cannot_start_node, Node, Other}, File, Line)
 	    end
     end;
@@ -1014,4 +1018,4 @@ f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
 p(F, A) ->
-    io:format("~p~w:" ++ F ++ "~n", [self(), ?MODULE |A]).
+    io:format("~s ~p " ++ F ++ "~n", [?FTS(), self() | A]).
