@@ -196,6 +196,9 @@ recv(_Config) ->
     self() ! 2,
     b = tricky_recv_5(),
 
+    %% tricky_recv_6/0 is a compile-time error.
+    tricky_recv_6(),
+
     ok.
 
 sync_wait_mon({Pid, Ref}, Timeout) ->
@@ -319,6 +322,18 @@ tricky_recv_5() ->
         end
     catch
         _:_ -> c
+    end.
+
+%% When fixing tricky_recv_5, we introduced a compiler crash when the common
+%% exit block was ?EXCEPTION_BLOCK and floats were in the picture.
+tricky_recv_6() ->
+    RefA = make_ref(),
+    RefB = make_ref(),
+    receive
+        {RefA, Number} -> Number + 1.0;
+        {RefB, Number} -> Number + 2.0
+    after 0 ->
+        ok
     end.
 
 maps(_Config) ->

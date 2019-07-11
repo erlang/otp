@@ -1623,10 +1623,14 @@ find_loop_exit([L1,L2|_Ls], Blocks) ->
     find_loop_exit_1(Path1, cerl_sets:from_list(Path2));
 find_loop_exit(_, _) -> none.
 
+find_loop_exit_1([?EXCEPTION_BLOCK | T], OtherPath) ->
+    %% ?EXCEPTION_BLOCK is a marker and not an actual block, so we can't
+    %% consider it to be a common block even if both paths cross it.
+    find_loop_exit_1(T, OtherPath);
 find_loop_exit_1([H|T], OtherPath) ->
     case cerl_sets:is_element(H, OtherPath) of
         true -> H;
-        false ->  find_loop_exit_1(T, OtherPath)
+        false -> find_loop_exit_1(T, OtherPath)
     end;
 find_loop_exit_1([], _) -> none.
 
