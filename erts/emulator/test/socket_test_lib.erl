@@ -36,6 +36,7 @@
          has_support_ipv6/0,
 
          which_local_host_info/1,
+         which_local_addr/1,
 
          %% Skipping
          not_yet_implemented/0,
@@ -174,46 +175,12 @@ has_support_ipv6() ->
 %% but until that gets the necessary functionality...
 which_local_addr(Domain) ->
     case which_local_host_info(Domain) of
-        {ok, {_Name, _Flags, Addr}} ->
+        {ok, #{addr := Addr}} ->
             {ok, Addr};
         {error, _Reason} = ERROR ->
             ERROR
     end.
     
-%%     case inet:getifaddrs() of
-%%         {ok, IFL} ->
-%%             which_addr(Domain, IFL);
-%%         {error, Reason} ->
-%%             ?FAIL({inet, getifaddrs, Reason})
-%%     end.
-
-%% which_addr(_Domain, []) ->
-%%     ?FAIL(no_address);
-%% which_addr(Domain, [{"lo" ++ _, _}|IFL]) ->
-%%     which_addr(Domain, IFL);
-%% which_addr(Domain, [{_Name, IFO}|IFL]) ->
-%%     case which_addr2(Domain, IFO) of
-%%         {ok, Addr} ->
-%%             Addr;
-%%         {error, no_address} ->
-%%             which_addr(Domain, IFL)
-%%     end;
-%% which_addr(Domain, [_|IFL]) ->
-%%     which_addr(Domain, IFL).
-
-%% which_addr2(_Domain, []) ->
-%%     {error, no_address};
-%% which_addr2(inet = _Domain, [{addr, Addr}|_IFO])
-%%   when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
-%%     {ok, Addr};
-%% which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO])
-%%   when (size(Addr) =:= 8) andalso 
-%%        (element(1, Addr) =/= 0) andalso
-%%        (element(1, Addr) =/= 16#fe80) ->
-%%     {ok, Addr};
-%% which_addr2(Domain, [_|IFO]) ->
-%%     which_addr2(Domain, IFO).
-
 
 %% Returns the interface (name), flags and address (not 127...)
 %% of the local host.
@@ -234,35 +201,89 @@ which_local_host_info(Domain, [{"docker" ++ _, _}|IFL]) ->
 which_local_host_info(Domain, [{"br-" ++ _, _}|IFL]) ->
     which_local_host_info(Domain, IFL);
 which_local_host_info(Domain, [{Name, IFO}|IFL]) ->
-    case which_local_host_info2(Domain, IFO) of
-        {ok, {Flags, Addr}} ->
-            {ok, {Name, Flags, Addr}};
-        {error, _} ->
+    try which_local_host_info2(Domain, IFO) of
+        Info ->
+            {ok, Info#{name => Name}}
+    catch
+        throw:_:_ ->
             which_local_host_info(Domain, IFL)
     end;
 which_local_host_info(Domain, [_|IFL]) ->
     which_local_host_info(Domain, IFL).
 
-which_local_host_info2(Domain, IFO) ->
-    case lists:keysearch(flags, 1, IFO) of
-        {value, {flags, Flags}} ->
-            which_local_host_info2(Domain, IFO, Flags);
-        false ->
-            {error, no_flags}
-    end.
+%% which_local_host_info2(Domain, IFO) ->
+%%     case lists:keysearch(flags, 1, IFO) of
+%%         {value, {flags, Flags}} ->
+%%             which_local_host_info2(Domain, IFO, Flags);
+%%         false ->
+%%             {error, no_flags}
+%%     end.
 
-which_local_host_info2(_Domain, [], _Flags) ->
-    {error, no_address};
-which_local_host_info2(inet = _Domain, [{addr, Addr}|_IFO], Flags)
-  when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
-    {ok, {Flags, Addr}};
-which_local_host_info2(inet6 = _Domain, [{addr, Addr}|_IFO], Flags)
-  when (size(Addr) =:= 8) andalso 
-       (element(1, Addr) =/= 0) andalso
-       (element(1, Addr) =/= 16#fe80) ->
-    {ok, {Flags, Addr}};
-which_local_host_info2(Domain, [_|IFO], Flags) ->
-    which_local_host_info2(Domain, IFO, Flags).
+
+%% which_local_host_info2(_Domain, [], _Flags) ->
+%%     {error, no_address};
+%% which_local_host_info2(inet = _Domain, [{addr, Addr}|_IFO], Flags)
+%%   when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
+%%     {ok, {Flags, Addr}};
+%% which_local_host_info2(inet6 = _Domain, [{addr, Addr}|_IFO], Flags)
+%%   when (size(Addr) =:= 8) andalso 
+%%        (element(1, Addr) =/= 0) andalso
+%%        (element(1, Addr) =/= 16#fe80) ->
+%%     {ok, {Flags, Addr}};
+%% which_local_host_info2(Domain, [_|IFO], Flags) ->
+%%     which_local_host_info2(Domain, IFO, Flags).
+
+%% foo(Info, inet = Domain, IFO) ->
+%%     foo(Info, Domain, IFO, [flags, addr, netmask, broadaddr, hwaddr]);
+%% foo(Info, inet6 = Domain, IFO) ->
+%%     foo(Info, Domain, IFO, [flags, addr, netmask, hwaddr]).
+
+which_local_host_info2(inet = _Domain, IFO) ->
+    Addr      = which_local_host_info3(addr,  IFO,
+                                       fun({A, _, _, _}) when (A =/= 127) -> true;
+                                          (_) -> false
+                                       end),
+    NetMask   = which_local_host_info3(netmask,  IFO,
+                                       fun({_, _, _, _}) -> true;
+                                          (_) -> false
+                                       end),
+    BroadAddr = which_local_host_info3(broadaddr,  IFO,
+                                       fun({_, _, _, _}) -> true;
+                                          (_) -> false
+                                       end),
+    Flags     = which_local_host_info3(flags, IFO, fun(_) -> true end),
+    #{flags     => Flags,
+      addr      => Addr,
+      broadaddr => BroadAddr,
+      netmask   => NetMask};
+which_local_host_info2(inet6 = _Domain, IFO) ->
+    Addr    = which_local_host_info3(addr,  IFO,
+                                     fun({A, _, _, _, _, _, _, _}) 
+                                           when (A =/= 0) andalso 
+                                                (A =/= 16#fe80) -> true;
+                                        (_) -> false
+                                     end),
+    NetMask = which_local_host_info3(netmask,  IFO,
+                                       fun({_, _, _, _, _, _, _, _}) -> true;
+                                          (_) -> false
+                                       end),
+    Flags   = which_local_host_info3(flags, IFO, fun(_) -> true end),
+    #{flags   => Flags,
+      addr    => Addr,
+      netmask => NetMask}.
+
+which_local_host_info3(_Key, [], _) ->
+    throw({error, no_address});
+which_local_host_info3(Key, [{Key, Val}|IFO], Check) ->
+    case Check(Val) of
+        true ->
+            Val;
+        false ->
+            which_local_host_info3(Key, IFO, Check)
+    end;
+which_local_host_info3(Key, [_|IFO], Check) ->
+    which_local_host_info3(Key, IFO, Check).
+
 
 
 

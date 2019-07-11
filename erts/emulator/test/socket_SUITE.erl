@@ -124,6 +124,7 @@
          api_opt_sock_acceptconn/1,
          api_opt_sock_acceptfilter/1,
          api_opt_sock_bindtodevice/1,
+         api_opt_sock_broadcast/1,
          api_opt_ip_add_drop_membership/1,
 
          %% *** API Operation Timeout ***
@@ -785,7 +786,8 @@ api_options_socket_cases() ->
     [
      api_opt_sock_acceptconn,
      api_opt_sock_acceptfilter,
-     api_opt_sock_bindtodevice
+     api_opt_sock_bindtodevice,
+     api_opt_sock_broadcast
     ].
 
 api_options_ip_cases() ->
@@ -8847,7 +8849,7 @@ api_opt_sock_bindtodevice() ->
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            case ?LIB:which_local_host_info(Domain) of
-                               {ok, {Name, _, Addr}} ->
+                               {ok, #{name := Name, addr := Addr}} ->
                                    ?SEV_IPRINT("local host info (~p): "
                                                "~n   Name: ~p"
                                                "~n   Addr: ~p",
@@ -8903,8 +8905,13 @@ api_opt_sock_bindtodevice() ->
                                {ok, Dev} ->
                                    ?SEV_IPRINT("Expected Success: ~p", [Dev]),
                                    ok;
+                               {error, enoprotoopt = Reason} ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p => SKIP",
+					       [Reason]),
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
                                    ERROR
                            end
                    end},
@@ -9069,6 +9076,326 @@ api_opt_sock_bindtodevice() ->
 
     i("start tester evaluator"),
     InitState = #{domain  => Domain},
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option broadcast.
+%% Make it possible for datagram sockets to send packets to a broadcast
+%% address (IPv4 only).
+
+api_opt_sock_broadcast(suite) ->
+    [];
+api_opt_sock_broadcast(doc) ->
+    [];
+api_opt_sock_broadcast(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(api_opt_sock_broadcast,
+           fun() -> has_support_sock_broadcast() end,
+           fun() -> api_opt_sock_broadcast() end).
+
+
+api_opt_sock_broadcast() ->
+    Opt    = broadcast,
+    Set    = fun(S, Val) when is_boolean(Val) ->
+                     socket:setopt(S, socket, Opt, Val)
+             end,
+    Get    = fun(S) ->
+                     socket:getopt(S, socket, Opt)
+             end,
+
+    TesterSeq =
+        [
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case ?LIB:which_local_host_info(Domain) of
+                               {ok, #{name      := Name,
+                                      addr      := Addr,
+                                      broadaddr := BAddr}} ->
+                                   ?SEV_IPRINT("local host info: "
+                                               "~n   Name:           ~p"
+                                               "~n   Addr:           ~p"
+                                               "~n   Broadcast Addr: ~p",
+                                               [Name, Addr, BAddr]),
+                                   LSA = #{family => Domain,
+                                           addr   => Addr},
+                                   BSA = #{family => Domain,
+                                           addr   => BAddr},
+                                   {ok, State#{lsa => LSA,
+                                               bsa => BSA}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "[socket 1] create UDP socket (listening 1)",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock1 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 1] Bind UDP socket (to limited broadcast address)",
+           cmd  => fun(#{sock1 := Sock} = State) ->
+			   BSA = #{family => inet,
+				   addr   => broadcast},
+                           ?SEV_IPRINT("Try bind (socket 1) to: "
+                                       "~n   ~p", [BSA]),
+                           case socket:bind(Sock, BSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("Expected Success (bound): ~p",
+                                               [Port]),
+                                   {ok, State#{sa1 => BSA#{port => Port}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 1] UDP socket sockname",
+           cmd  => fun(#{sock1 := Sock} = _State) ->
+                           case socket:sockname(Sock) of
+                               {ok, SA} ->
+				   ?SEV_IPRINT("SA: ~p", [SA]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "[socket 2] create UDP socket (listening 2)",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock2 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 2] Bind UDP socket (to subnet-directed broadcast address)",
+           cmd  => fun(#{sock2 := Sock,
+			 bsa   := BSA} = State) ->
+                           ?SEV_IPRINT("Try bind (socket 1) to: "
+                                       "~n   ~p", [BSA]),
+                           case socket:bind(Sock, BSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("Expected Success (bound): ~p",
+                                               [Port]),
+                                   {ok, State#{sa2 => BSA#{port => Port}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 2] UDP socket sockname",
+           cmd  => fun(#{sock2 := Sock} = _State) ->
+                           case socket:sockname(Sock) of
+                               {ok, SA} ->
+				   ?SEV_IPRINT("SA: ~p", [SA]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "[socket 3] create UDP socket (sender)",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock3 => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 3][get] verify UDP socket (before bind and set)",
+           cmd  => fun(#{sock3 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "broadcast not allowed"),
+                                   ok;
+                               {ok, true} ->
+                                   ?SEV_IPRINT("Unexpected Success result: "
+                                               "broadcast already allowed"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 3] Try make broadcast allowed",
+           cmd  => fun(#{sock3 := Sock} = _State) ->
+                           case Set(Sock, true) of
+                               ok ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "broadcast now allowed"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 3] verify UDP socket broadcast allowed",
+           cmd  => fun(#{sock3 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, true} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "broadcast allowed"),
+                                   ok;
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Unexpected Success result: "
+                                               "broadcast *not* allowed"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 3] Bind UDP socket (to local address)",
+           cmd  => fun(#{sock3 := Sock, lsa := LSA} = State) ->
+                           ?SEV_IPRINT("Try bind (socket 2) to: "
+                                       "~n   ~p", [LSA]),
+                           case socket:bind(Sock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("Expected Success (bound): ~p",
+                                               [Port]),
+                                   {ok, State#{sa3 => LSA#{port => Port}}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 3] verify UDP socket (after bind and before set)",
+           cmd  => fun(#{sock3 := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "broadcast not allowed"),
+                                   ok;
+                               {ok, true} ->
+                                   ?SEV_IPRINT("Unexpected Success result: "
+                                               "broadcast already allowed"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+	 ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "[socket 3] try send to limited broadcast address",
+           cmd  => fun(#{sock3 := Sock,
+                         sa1   := Dest} = _State) ->
+                           Data = list_to_binary("hejsan"),
+                           ?SEV_IPRINT("try send to bradcast address: "
+                                       "~n   ~p", [Dest]),
+                           case socket:sendto(Sock, Data, Dest) of
+                               ok ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "broadcast message sent"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 1] try recv",
+           cmd  => fun(#{sock1 := Sock} = _State) ->
+                           case socket:recvfrom(Sock, 0, 5000) of
+                               {ok, _} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "received message"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+	 ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "[socket 3] try send to subnet-directed broadcast address",
+           cmd  => fun(#{sock3 := Sock,
+                         sa2   := Dest} = _State) ->
+                           Data = list_to_binary("hejsan"),
+                           ?SEV_IPRINT("try send to bradcast address: "
+                                       "~n   ~p", [Dest]),
+                           case socket:sendto(Sock, Data, Dest) of
+                               ok ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "broadcast message sent"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "[socket 2] try recv",
+           cmd  => fun(#{sock2 := Sock} = _State) ->
+                           case socket:recvfrom(Sock, 0, 5000) of
+                               {ok, _} ->
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "received message"),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "[socket 3] close UDP socket (sender)",
+           cmd  => fun(#{sock3 := Sock} = State0) ->
+                           socket:close(Sock),
+			   State1 = maps:remove(sock3, State0),
+			   State2 = maps:remove(sa3,   State1),
+			   {ok, State2}
+                   end},
+         #{desc => "[socket 2] close UDP socket (listener 2)",
+           cmd  => fun(#{sock2 := Sock} = State0) ->
+                           socket:close(Sock),
+			   State1 = maps:remove(sock2, State0),
+			   State2 = maps:remove(sa2,   State1),
+                           {ok, State2}
+                   end},
+         #{desc => "[socket 1] close UDP socket (listener 1)",
+           cmd  => fun(#{sock1 := Sock} = State0) ->
+                           socket:close(Sock),
+			   State1 = maps:remove(sock1, State0),
+			   State2 = maps:remove(sa1,   State1),
+                           {ok, State2}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    Domain = inet,
+
+    i("start tester evaluator"),
+    InitState = #{domain => Domain},
     Tester = ?SEV_START("tester", TesterSeq, InitState),
 
     i("await evaluator(s)"),
@@ -9400,7 +9727,7 @@ which_multicast_address3(Domain, [MAddrStr|MAddrs]) ->
     
 which_local_host_ifname(Domain) ->
     case ?LIB:which_local_host_info(Domain) of
-        {ok, {Name, _Addr, _Flags}} ->
+        {ok, #{name := Name}} ->
             Name;
         {error, Reason} ->
             not_supported({multicast, Reason})
@@ -27760,7 +28087,7 @@ which_local_socket_addr(local = Domain) ->
 %% but until that gets the necessary functionality...
 which_local_socket_addr(Domain) ->
     case ?LIB:which_local_host_info(Domain) of
-        {ok, {_Name, _Flags, Addr}} ->
+        {ok, #{addr := Addr}} ->
             #{family => Domain,
               addr   => Addr};
         {error, Reason} ->
@@ -27776,12 +28103,7 @@ which_local_addr(local = _Domain) ->
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_addr(Domain) ->
-    case ?LIB:which_local_host_info(Domain) of
-        {ok, {_Name, _Flags, Addr}} ->
-            Addr;
-        {error, Reason} ->
-            ?FAIL(Reason)
-    end.
+    ?LIB:which_local_addr(Domain).
 
 
 
@@ -27799,7 +28121,7 @@ has_support_ip_multicast() ->
         {unix, OsName} when (OsName =:= linux) orelse
                             (OsName =:= sunos) ->
             case ?LIB:which_local_host_info(inet) of
-                {ok, {_Name, Flags, _Addr}} ->
+                {ok, #{flags := Flags}} ->
                     case lists:member(multicast, Flags) of
                         true ->
                             ok;
@@ -27818,6 +28140,21 @@ has_support_sock_acceptconn() ->
 
 has_support_sock_bindtodevice() ->
     has_support_socket_option_sock(bindtodevice).
+
+has_support_sock_broadcast() ->
+    has_support_socket_option_sock(broadcast),
+    case ?LIB:which_local_host_info(inet) of
+        {ok, #{flags := Flags}} ->
+            case lists:member(broadcast, Flags) of
+                true ->
+                    ok;
+                false ->
+                    not_supported({broadcast, Flags})
+            end;
+        {error, Reason} ->
+            not_supported({broadcast, Reason})
+    end.
+
 
 has_support_ip_add_membership() ->
     has_support_socket_option_ip(add_membership).
