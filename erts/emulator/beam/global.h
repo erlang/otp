@@ -1073,9 +1073,34 @@ Uint size_object_x(Eterm, erts_literal_area_t*);
 #define size_object_litopt(Term,LitArea) size_object_x(Term,LitArea)
 
 Uint copy_shared_calculate(Eterm, erts_shcopy_t*);
-Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
-
 Uint size_shared(Eterm);
+
+/* #define ERTS_COPY_REGISTER_LOCATION */
+
+#ifdef ERTS_COPY_REGISTER_LOCATION
+
+#define copy_shared_perform(U, V, X, Y, Z) \
+    copy_shared_perform_x((U), (V), (X), (Y), (Z), __FILE__, __LINE__)
+Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*,
+                            char *file, int line);
+
+Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*,
+                    char *file, int line);
+#define copy_struct(Obj,Sz,HPP,OH) \
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,NULL,__FILE__,__LINE__)
+#define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea,__FILE__,__LINE__)
+
+#define copy_shallow(R, SZ, HPP, OH) \
+    copy_shallow_x((R), (SZ), (HPP), (OH), __FILE__, __LINE__)
+Eterm copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*,
+                     char *file, int line);
+
+#else
+
+#define copy_shared_perform(U, V, X, Y, Z) \
+    copy_shared_perform_x((U), (V), (X), (Y), (Z))
+Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 
 Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*);
 #define copy_struct(Obj,Sz,HPP,OH) \
@@ -1083,7 +1108,11 @@ Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_
 #define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
     copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea)
 
-Eterm copy_shallow(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
+#define copy_shallow(R, SZ, HPP, OH) \
+    copy_shallow_x((R), (SZ), (HPP), (OH))
+Eterm copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
+
+#endif
 
 void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
 			   Eterm* refs, unsigned nrefs, int literals);

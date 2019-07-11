@@ -187,6 +187,7 @@ set pagination off
 set $i = 0
 set $node = referred_nodes[$node_ix].node
 while $i < $node->slot.counter
+ printf "%s:%d ", $node->books[$i].file, $node->books[$i].line
  printf "%p: ", $node->books[$i].term
  etp-1 $node->books[$i].who
  printf " "
@@ -211,8 +212,12 @@ lists:usort(lists:filter(fun({V,N}) -> N /= 0 end, maps:to_list(Accs))).
 struct erl_node_bookkeeping {
     Eterm who;
     Eterm term;
+    char *file;
+    int line;
     enum { ERL_NODE_INC, ERL_NODE_DEC } what;
 };
+
+#define ERTS_BOOKKEEP_SIZE (1024)
 #endif
 
 typedef struct erl_node_ {
@@ -222,7 +227,7 @@ typedef struct erl_node_ {
   Uint32 creation;		/* Creation */
   DistEntry *dist_entry;	/* Corresponding dist entry */
 #ifdef ERL_NODE_BOOKKEEP
-  struct erl_node_bookkeeping books[1024];
+  struct erl_node_bookkeeping books[ERTS_BOOKKEEP_SIZE];
   erts_atomic_t slot;
 #endif
 } ErlNode;
@@ -276,14 +281,21 @@ Eterm erts_build_dhandle(Eterm **hpp, ErlOffHeap*, DistEntry*, Uint32 conn_id);
 Eterm erts_make_dhandle(Process *c_p, DistEntry*, Uint32 conn_id);
 
 ERTS_GLB_INLINE void erts_init_node_entry(ErlNode *np, erts_aint_t val);
+#ifdef ERL_NODE_BOOKKEEP
+#define erts_ref_node_entry(NP, MIN, T) erts_ref_node_entry__((NP), (MIN), (T), __FILE__, __LINE__)
+#define erts_deref_node_entry(NP, T) erts_deref_node_entry__((NP), (T), __FILE__, __LINE__)
+ERTS_GLB_INLINE erts_aint_t erts_ref_node_entry__(ErlNode *np, int min_val, Eterm term, char *file, int line);
+ERTS_GLB_INLINE void erts_deref_node_entry__(ErlNode *np, Eterm term, char *file, int line);
+#else
 ERTS_GLB_INLINE erts_aint_t erts_ref_node_entry(ErlNode *np, int min_val, Eterm term);
 ERTS_GLB_INLINE void erts_deref_node_entry(ErlNode *np, Eterm term);
+#endif
 ERTS_GLB_INLINE void erts_de_rlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_runlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_rwlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_rwunlock(DistEntry *dep);
 #ifdef ERL_NODE_BOOKKEEP
-void erts_node_bookkeep(ErlNode *, Eterm , int);
+void erts_node_bookkeep(ErlNode *, Eterm , int, char *file, int line);
 #else
 #define erts_node_bookkeep(...)
 #endif
@@ -296,20 +308,39 @@ erts_init_node_entry(ErlNode *np, erts_aint_t val)
     erts_refc_init(&np->refc, val);
 }
 
+#ifdef ERL_NODE_BOOKKEEP
+
+ERTS_GLB_INLINE erts_aint_t
+erts_ref_node_entry__(ErlNode *np, int min_val, Eterm term, char *file, int line)
+{
+    erts_node_bookkeep(np, term, ERL_NODE_INC, file, line);
+    return erts_refc_inctest(&np->refc, min_val);
+}
+
+ERTS_GLB_INLINE void
+erts_deref_node_entry__(ErlNode *np, Eterm term, char *file, int line)
+{
+    erts_node_bookkeep(np, term, ERL_NODE_DEC, file, line);
+    if (erts_refc_dectest(&np->refc, 0) == 0)
+	erts_schedule_delete_node(np);
+}
+
+#else
+
 ERTS_GLB_INLINE erts_aint_t
 erts_ref_node_entry(ErlNode *np, int min_val, Eterm term)
 {
-    erts_node_bookkeep(np, term, ERL_NODE_INC);
     return erts_refc_inctest(&np->refc, min_val);
 }
 
 ERTS_GLB_INLINE void
 erts_deref_node_entry(ErlNode *np, Eterm term)
 {
-    erts_node_bookkeep(np, term, ERL_NODE_DEC);
     if (erts_refc_dectest(&np->refc, 0) == 0)
 	erts_schedule_delete_node(np);
 }
+
+#endif
 
 ERTS_GLB_INLINE void
 erts_de_rlock(DistEntry *dep)

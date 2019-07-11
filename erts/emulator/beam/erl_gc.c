@@ -2848,7 +2848,7 @@ sweep_off_heap(Process *p, int fullsweep)
             if (is_external_header(((struct erl_off_heap_header*) boxed_val(ptr->thing_word))->thing_word))
                 erts_node_bookkeep(((ExternalThing*)ptr)->node,
                                    make_boxed(&ptr->thing_word),
-                                   ERL_NODE_DEC);
+                                   ERL_NODE_DEC, __FILE__, __LINE__);
             *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
 	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
 	    switch (ptr->thing_word) {
@@ -2879,7 +2879,7 @@ sweep_off_heap(Process *p, int fullsweep)
                 if (is_external_header(ptr->thing_word)) {
                     erts_node_bookkeep(((ExternalThing*)ptr)->node,
                                        make_boxed(&ptr->thing_word),
-                                       ERL_NODE_INC);
+                                       ERL_NODE_INC, __FILE__, __LINE__);
                 }
 		prev = &ptr->next;
 		ptr = ptr->next;
@@ -3050,9 +3050,11 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 
                       if (is_external_header(oh->thing_word)) {
                           erts_node_bookkeep(((ExternalThing*)oh)->node,
-                                             make_boxed(((Eterm*)oh)-offs), ERL_NODE_DEC);
+                                             make_boxed(((Eterm*)oh)-offs),
+                                             ERL_NODE_DEC, __FILE__, __LINE__);
                           erts_node_bookkeep(((ExternalThing*)oh)->node,
-                                             make_boxed((Eterm*)oh), ERL_NODE_INC);
+                                             make_boxed((Eterm*)oh), ERL_NODE_INC,
+                                             __FILE__, __LINE__);
                       }
 
 		      if (ErtsInArea(oh->next, area, area_size)) {

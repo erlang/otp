@@ -932,7 +932,8 @@ static void try_delete_node(void *venp)
      *
      * If refc > 0, the entry is in use. Keep the entry.
      */
-    erts_node_bookkeep(enp, THE_NON_VALUE, ERL_NODE_DEC);
+    erts_node_bookkeep(enp, THE_NON_VALUE, ERL_NODE_DEC,
+                       __FILE__, __LINE__);
     refc = erts_refc_dectest(&enp->refc, -1);
     if (refc == -1)
 	(void) hash_erase(&erts_node_table, (void *) enp);
@@ -1164,6 +1165,12 @@ void erts_lcnt_update_distribution_locks(int enable) {
  * can damage the real-time properties of the system.                        *
 \* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#ifdef ERL_NODE_BOOKKEEP
+#define ERTS_DBG_NC_ALLOC_TYPE ERTS_ALC_T_NC_STD
+#else
+#define ERTS_DBG_NC_ALLOC_TYPE ERTS_ALC_T_NC_TMP
+#endif
+
 #include "erl_db.h"
 
 #undef  INIT_AM
@@ -1193,6 +1200,7 @@ static Eterm AM_persistent_term;
 static void setup_reference_table(void);
 static Eterm reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp);
 static void delete_reference_table(void);
+static void cleanup_system(void);
 
 #undef ERTS_MAX__
 #define ERTS_MAX__(A, B) ((A) > (B) ? (A) : (B))
@@ -1245,11 +1253,11 @@ typedef struct inserted_bin_ {
     Binary *bin_val;
 } InsertedBin;
 
-static ReferredNode *referred_nodes;
+static ReferredNode *referred_nodes = NULL;
 static int no_referred_nodes;
-static ReferredDist *referred_dists;
+static ReferredDist *referred_dists = NULL;
 static int no_referred_dists;
-static InsertedBin *inserted_bins;
+static InsertedBin *inserted_bins = NULL;
 
 Eterm
 erts_get_node_and_dist_references(struct process *proc)
@@ -1289,6 +1297,11 @@ erts_get_node_and_dist_references(struct process *proc)
 	references_atoms_need_init = 0;
     }
 
+#ifdef ERL_NODE_BOOKKEEP
+    if (referred_nodes || referred_dists || inserted_bins)
+        delete_reference_table();
+#endif
+    
     setup_reference_table();
 
     /* Get term size */
@@ -1306,7 +1319,11 @@ erts_get_node_and_dist_references(struct process *proc)
 
     ASSERT(endp == hp);
 
+#ifndef ERL_NODE_BOOKKEEP
     delete_reference_table();
+#endif
+    
+    cleanup_system();
 
     erts_thr_progress_unblock();
     erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
@@ -1341,7 +1358,7 @@ insert_dist_referrer(ReferredDist *referred_dist,
 	    break;
 
     if(!drp) {
-	drp = (DistReferrer *) erts_alloc(ERTS_ALC_T_NC_TMP,
+	drp = (DistReferrer *) erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
 					  sizeof(DistReferrer));
 	drp->next = referred_dist->referrers;
 	referred_dist->referrers = drp;
@@ -1404,7 +1421,7 @@ insert_node_referrer(ReferredNode *referred_node, int type, Eterm id)
 	    break;
 
     if(!nrp) {
-	nrp = (NodeReferrer *) erts_alloc(ERTS_ALC_T_NC_TMP,
+	nrp = (NodeReferrer *) erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
 					  sizeof(NodeReferrer));
 	nrp->next = referred_node->referrers;
         ERTS_INIT_OFF_HEAP(&nrp->off_heap);
@@ -1518,7 +1535,8 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    erts_match_prog_foreach_offheap((Binary *) u.mref->mb,
 						    insert_offheap2,
 						    (void *) &a);
-		    nib = erts_alloc(ERTS_ALC_T_NC_TMP, sizeof(InsertedBin));
+		    nib = erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
+                                     sizeof(InsertedBin));
 		    nib->bin_val = (Binary *) u.mref->mb;
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
@@ -1938,14 +1956,16 @@ insert_ets_offheap_thr_prgr(ErlOffHeap *ohp, void *arg)
 
 #ifdef ERL_NODE_BOOKKEEP
 void
-erts_node_bookkeep(ErlNode *np, Eterm term, int what)
+erts_node_bookkeep(ErlNode *np, Eterm term, int what, char *f, int l)
 {
-    erts_aint_t slot = (erts_atomic_inc_read_nob(&np->slot) - 1) % 1024;
+    erts_aint_t slot = (erts_atomic_inc_read_nob(&np->slot) - 1) % ERTS_BOOKKEEP_SIZE;
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
     Eterm who = THE_NON_VALUE;
     ASSERT(np);
     np->books[slot].what = what;
     np->books[slot].term = term;
+    np->books[slot].file = f;
+    np->books[slot].line = l;
     if (esdp->current_process) {
         who = esdp->current_process->common.id;
     } else if (esdp->current_port) {
@@ -1966,14 +1986,14 @@ setup_reference_table(void)
     inserted_bins = NULL;
 
     hash_get_info(&hi, &erts_node_table);
-    referred_nodes = erts_alloc(ERTS_ALC_T_NC_TMP,
+    referred_nodes = erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
 				hi.objs*sizeof(ReferredNode));
     no_referred_nodes = 0;
     hash_foreach(&erts_node_table, init_referred_node, NULL);
     ASSERT(no_referred_nodes == hi.objs);
 
     hash_get_info(&hi, &erts_dist_table);
-    referred_dists = erts_alloc(ERTS_ALC_T_NC_TMP,
+    referred_dists = erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
 				hi.objs*sizeof(ReferredDist));
     no_referred_dists = 0;
     hash_foreach(&erts_dist_table, init_referred_dist, NULL);
@@ -2373,8 +2393,7 @@ static void noop_sig_ext(ErtsDistExternal *ext, void *arg)
 static void
 delete_reference_table(void)
 {
-    DistEntry *dep;
-    int i, max;
+    int i;
     for(i = 0; i < no_referred_nodes; i++) {
 	NodeReferrer *nrp;
 	NodeReferrer *tnrp;
@@ -2383,11 +2402,13 @@ delete_reference_table(void)
             erts_cleanup_offheap(&nrp->off_heap);
 	    tnrp = nrp;
 	    nrp = nrp->next;
-	    erts_free(ERTS_ALC_T_NC_TMP, (void *) tnrp);
+	    erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *) tnrp);
 	}
     }
-    if (referred_nodes)
-	erts_free(ERTS_ALC_T_NC_TMP, (void *) referred_nodes);
+    if (referred_nodes) {
+	erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *) referred_nodes);
+        referred_nodes = NULL;
+    }
 
     for(i = 0; i < no_referred_dists; i++) {
 	DistReferrer *drp;
@@ -2396,17 +2417,25 @@ delete_reference_table(void)
 	while(drp) {
 	    tdrp = drp;
 	    drp = drp->next;
-	    erts_free(ERTS_ALC_T_NC_TMP, (void *) tdrp);
+	    erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *) tdrp);
 	}
     }
-    if (referred_dists)
-	erts_free(ERTS_ALC_T_NC_TMP, (void *) referred_dists);
+    if (referred_dists) {
+	erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *) referred_dists);
+        referred_dists = NULL;
+    }
     while(inserted_bins) {
 	InsertedBin *ib = inserted_bins;
 	inserted_bins = inserted_bins->next;
-	erts_free(ERTS_ALC_T_NC_TMP, (void *)ib);
+	erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *)ib);
     }
+}
 
+static void
+cleanup_system(void)
+{
+    DistEntry *dep;
+    int i, max;
     /* Cleanup... */
 
     max = erts_ptab_max(&erts_proc);
