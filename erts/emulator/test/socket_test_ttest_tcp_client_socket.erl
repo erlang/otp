@@ -34,24 +34,24 @@ start(Method, Async, Active, ServerInfo)
   when is_list(ServerInfo) ->
     Domain = local,
     socket_test_ttest_tcp_client:start_monitor(?MOD(Domain, Async, Method),
-                                               Active, ServerInfo);
+                                               ServerInfo, Active);
 start(Method, Async, Active, ServerInfo = {Addr, _})
   when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
     Domain = inet,
     socket_test_ttest_tcp_client:start_monitor(?MOD(Domain, Async, Method),
-                                               Active, ServerInfo);
+                                               ServerInfo, Active);
 start(Method, Async, Active, ServerInfo = {Addr, _})
   when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
     Domain = inet6,
     socket_test_ttest_tcp_client:start_monitor(?MOD(Domain, Async, Method),
-                                               Active, ServerInfo).
+                                               ServerInfo, Active).
 
 start(Method, Async, Active, ServerInfo, MsgID)
   when is_list(ServerInfo) ->
     %% This is just a simplification
     Domain = local,
     socket_test_ttest_tcp_client:start(?MOD(Domain, Async, Method),
-                                       Active, ServerInfo, MsgID);
+                                       ServerInfo, Active, MsgID);
 start(Method, Async, Active, ServerInfo = {Addr, _}, MsgID)
   when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
     %% This is just a simplification
@@ -62,14 +62,14 @@ start(Method, Async, Active, ServerInfo = {Addr, _}, MsgID)
   when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
     Domain = inet6,
     socket_test_ttest_tcp_client:start(?MOD(Domain, Async, Method),
-                                       Active, ServerInfo, MsgID).
+                                       ServerInfo, Active, MsgID).
 
 start(Method, Async, Active, ServerInfo, MsgID, MaxOutstanding, RunTime)
   when is_list(ServerInfo) ->
     Domain = local,
     socket_test_ttest_tcp_client:start(false,
 				       ?MOD(Domain, Async, Method),
-                                       Active, ServerInfo, 
+                                       ServerInfo, Active,
                                        MsgID, MaxOutstanding, RunTime);
 start(Method, Async, Active, ServerInfo = {Addr, _},
       MsgID, MaxOutstanding, RunTime)
@@ -77,7 +77,7 @@ start(Method, Async, Active, ServerInfo = {Addr, _},
     Domain = inet,
     socket_test_ttest_tcp_client:start(false,
 				       ?MOD(Domain, Async, Method),
-                                       Active, ServerInfo,
+                                       ServerInfo, Active,
                                        MsgID, MaxOutstanding, RunTime);
 start(Method, Async, Active, ServerInfo = {Addr, _},
       MsgID, MaxOutstanding, RunTime)
@@ -85,7 +85,7 @@ start(Method, Async, Active, ServerInfo = {Addr, _},
     Domain = inet6,
     socket_test_ttest_tcp_client:start(false,
 				       ?MOD(Domain, Async, Method),
-                                       Active, ServerInfo,
+                                       ServerInfo, Active,
                                        MsgID, MaxOutstanding, RunTime).
 
 start(Quiet, Async, Active, Method, ServerInfo, MsgID, MaxOutstanding, RunTime)
@@ -93,7 +93,7 @@ start(Quiet, Async, Active, Method, ServerInfo, MsgID, MaxOutstanding, RunTime)
     Domain = local,
     socket_test_ttest_tcp_client:start(Quiet,
 				       ?MOD(Domain, Async, Method),
-                                       Active, ServerInfo,
+                                       ServerInfo, Active,
                                        MsgID, MaxOutstanding, RunTime);
 start(Quiet, Async, Active, Method, ServerInfo = {Addr, _},
       MsgID, MaxOutstanding, RunTime)
@@ -101,7 +101,7 @@ start(Quiet, Async, Active, Method, ServerInfo = {Addr, _},
     Domain = inet,
     socket_test_ttest_tcp_client:start(Quiet,
 				       ?MOD(Domain, Async, Method),
-                                       Active, ServerInfo,
+                                       ServerInfo, Active,
                                        MsgID, MaxOutstanding, RunTime);
 start(Quiet, Async, Active, Method, ServerInfo = {Addr, _}, 
       MsgID, MaxOutstanding, RunTime)
@@ -109,7 +109,7 @@ start(Quiet, Async, Active, Method, ServerInfo = {Addr, _},
     Domain = inet6,
     socket_test_ttest_tcp_client:start(Quiet,
 				       ?MOD(Domain, Async, Method),
-                                       Active, ServerInfo,
+                                       ServerInfo, Active,
                                        MsgID, MaxOutstanding, RunTime).
 
 stop(Pid) ->
