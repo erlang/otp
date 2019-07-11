@@ -27,6 +27,22 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.2.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handling of zero size fragments in TLS could cause an
+	    infinite loop. This has now been corrected.</p>
+          <p>
+	    Own Id: OTP-15328 Aux Id: ERIERL-379 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.2.3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
