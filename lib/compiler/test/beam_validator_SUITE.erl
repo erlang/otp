@@ -35,7 +35,7 @@
 	 map_field_lists/1,cover_bin_opt/1,
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
          receive_stacked/1,aliased_types/1,type_conflict/1,
-         infer_on_eq/1,infer_dead_value/1]).
+         infer_on_eq/1,infer_dead_value/1,infer_on_ne/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -65,7 +65,7 @@ groups() ->
        map_field_lists,cover_bin_opt,val_dsetel,
        bad_tuples,bad_try_catch_nesting,
        receive_stacked,aliased_types,type_conflict,
-       infer_on_eq,infer_dead_value]}].
+       infer_on_eq,infer_dead_value,infer_on_ne]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -699,6 +699,25 @@ idv_1({_A, _B, _C, _D, _E, F, G},
     c;
 idv_1(_A, _B) ->
     error.
+
+%% ERL-998; type inference for select_val (#b_switch{}) was more clever than
+%% that for is_ne_exact (#b_br{}), sometimes failing validation when the type
+%% optimization pass acted on the former and the validator got the latter.
+
+-record(ion, {state}).
+
+infer_on_ne(Config) when is_list(Config) ->
+    #ion{state = closing} = ion_1(#ion{ state = id(open) }),
+    #ion{state = closing} = ion_close(#ion{ state = open }),
+    ok.
+
+ion_1(State = #ion{state = open}) -> ion_2(State);
+ion_1(State = #ion{state = closing}) -> ion_2(State).
+
+ion_2(State = #ion{state = open}) -> ion_close(State);
+ion_2(#ion{state = closing}) -> ok.
+
+ion_close(State = #ion{}) -> State#ion{state = closing}.
 
 %%%-------------------------------------------------------------------------
 

@@ -1531,21 +1531,8 @@ validate_select_val(Fail, [Val,{f,L}|T], Src, Vst0) ->
                          update_ne_types(Src, Val, FailVst)
                  end),
     validate_select_val(Fail, T, Src, Vst);
-validate_select_val(Fail, [], Src, Vst) ->
+validate_select_val(Fail, [], _Src, Vst) ->
     branch(Fail, Vst,
-           fun(FailVst) ->
-                    FailType = get_term_type(Src, FailVst),
-                    case beam_types:get_singleton_value(FailType) of
-                       {ok, Value} ->
-                           %% This is the only possible value at the fail
-                           %% label, so we can infer types as if we matched it
-                           %% directly.
-                           Lit = value_to_literal(Value),
-                           update_eq_types(Src, Lit, FailVst);
-                       error ->
-                           FailVst
-                   end
-           end,
            fun(SuccVst) ->
                    %% The next instruction is never executed.
                    kill_state(SuccVst)
@@ -1793,17 +1780,21 @@ update_type(Merge, With, Literal, Vst) ->
     end.
 
 update_eq_types(LHS, RHS, Vst0) ->
-    Vst1 = infer_types(eq_exact, LHS, RHS, Vst0),
+    LType = get_term_type(LHS, Vst0),
+    RType = get_term_type(RHS, Vst0),
 
-    T1 = get_term_type(LHS, Vst1),
-    T2 = get_term_type(RHS, Vst1),
+    Vst1 = update_type(fun meet/2, RType, LHS, Vst0),
+    Vst = update_type(fun meet/2, LType, RHS, Vst1),
 
-    Vst = update_type(fun meet/2, T2, LHS, Vst1),
-    update_type(fun meet/2, T1, RHS, Vst).
+    infer_types(eq_exact, LHS, RHS, Vst).
 
 update_ne_types(LHS, RHS, Vst0) ->
-    Vst = infer_types(ne_exact, LHS, RHS, Vst0),
+    Vst1 = update_ne_types_1(LHS, RHS, Vst0),
+    Vst = update_ne_types_1(RHS, LHS, Vst1),
 
+    infer_types(ne_exact, LHS, RHS, Vst).
+
+update_ne_types_1(LHS, RHS, Vst0) ->
     %% While updating types on equality is fairly straightforward, inequality
     %% is a bit trickier since all we know is that the *value* of LHS differs
     %% from RHS, so we can't blindly subtract their types.
@@ -1813,10 +1804,23 @@ update_ne_types(LHS, RHS, Vst0) ->
     %% #t_integer{} we would erroneously infer that the new type is float.
     %%
     %% Therefore, we only subtract when we know that RHS has a specific value.
-    RType = get_term_type(RHS, Vst),
+    RType = get_term_type(RHS, Vst0),
     case beam_types:is_singleton_type(RType) of
-        true -> update_type(fun subtract/2, RType, LHS, Vst);
-        false -> Vst
+        true ->
+            Vst = update_type(fun subtract/2, RType, LHS, Vst0),
+
+            %% If LHS has a specific value after subtraction we can infer types
+            %% as if we've made an exact match, which is much stronger than
+            %% ne_exact.
+            LType = get_term_type(LHS, Vst),
+            case beam_types:get_singleton_value(LType) of
+                {ok, Value} ->
+                    infer_types(eq_exact, LHS, value_to_literal(Value), Vst);
+                error ->
+                    Vst
+            end;
+        false ->
+            Vst0
     end.
 
 %% Helper functions for the above.
