@@ -8376,7 +8376,7 @@ api_opt_sock_acceptconn(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
     tc_try(api_opt_sock_acceptconn,
            fun() ->
-                   has_sock_acceptconn_support()
+                   has_support_sock_acceptconn()
            end,
            fun() -> api_opt_sock_acceptconn() end).
 
@@ -8829,7 +8829,7 @@ api_opt_sock_bindtodevice(doc) ->
 api_opt_sock_bindtodevice(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
     tc_try(api_opt_sock_bindtodevice,
-           fun() -> has_sock_bindtodevice_support() end,
+           fun() -> has_support_sock_bindtodevice() end,
            fun() -> api_opt_sock_bindtodevice() end).
 
 
@@ -8846,7 +8846,7 @@ api_opt_sock_bindtodevice() ->
         [
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
-                           case which_local_host_info(Domain) of
+                           case ?LIB:which_local_host_info(Domain) of
                                {ok, {Name, _, Addr}} ->
                                    ?SEV_IPRINT("local host info (~p): "
                                                "~n   Name: ~p"
@@ -27829,8 +27829,8 @@ has_support_ip_drop_membership() ->
 has_support_socket_option_ip(Opt) ->
     has_support_socket_option(ip, Opt).
 
-has_socket_option_sock_support(Opt) ->
-    has_socket_option_support(socket, Opt).
+has_support_socket_option_sock(Opt) ->
+    has_support_socket_option(socket, Opt).
 
 has_support_socket_option(Level, Option) ->
     case socket:supports(options, Level, Option) of
