@@ -1595,27 +1595,23 @@ infer_types(CompareOp, LHS, RHS, #vst{current=#st{vs=Vs}}=Vst0) ->
             Vst0
     end.
 
-infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}, Val, Op, Vst0) ->
+infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}, Val, Op, Vst) ->
     case Val of
         {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
-            Vst = infer_types(eq_exact, RHS, LHS, Vst0),
             infer_types(eq_exact, LHS, RHS, Vst);
         {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
-            Vst = infer_types(ne_exact, RHS, LHS, Vst0),
             infer_types(ne_exact, LHS, RHS, Vst);
         _ ->
-            Vst0
+            Vst
     end;
-infer_types_1(#value{op={bif,'=/='},args=[LHS,RHS]}, Val, Op, Vst0) ->
+infer_types_1(#value{op={bif,'=/='},args=[LHS,RHS]}, Val, Op, Vst) ->
     case Val of
         {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
-            Vst = infer_types(ne_exact, RHS, LHS, Vst0),
             infer_types(ne_exact, LHS, RHS, Vst);
         {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
-            Vst = infer_types(eq_exact, RHS, LHS, Vst0),
             infer_types(eq_exact, LHS, RHS, Vst);
         _ ->
-            Vst0
+            Vst
     end;
 infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]},
               Val, Op, Vst) when Index >= 1 ->
