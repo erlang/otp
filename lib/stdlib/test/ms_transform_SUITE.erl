@@ -281,6 +281,8 @@ basic_ets(Config) when is_list(Config) ->
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> {B,A} end)">>),
     [{{'$1','$2'},[],[['$2','$1']]}] =
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> [B,A] end)">>),
+    [{{"foo" ++ '_','$1'},[],['$1']}] =
+        compile_and_run(<<"ets:fun2ms(fun({\"foo\" ++ _, X}) -> X end)">>),
     ok.
 
 %% Tests basic ets:fun2ms.
@@ -313,6 +315,8 @@ from_shell(Config) when is_list(Config) ->
     [{[a,b],[],[{message,banan},{return_trace}]}] =
 	do_eval(
 	  "dbg:fun2ms(fun([a,b]) -> message(banan), return_trace() end)"),
+    [{{"foo" ++ '_','$1'},[],['$1']}] =
+        do_eval("ets:fun2ms(fun({\"foo\" ++ _, X}) -> X end)"),
     ok.
 
 %% Tests expansion of records in fun2ms.
