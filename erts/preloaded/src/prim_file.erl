@@ -34,6 +34,7 @@
 -export([read_link/1, read_link_all/1,
          read_link_info/1, read_link_info/2,
          read_file_info/1, read_file_info/2,
+         read_handle_info/1, read_handle_info/2,
          write_file_info/2, write_file_info/3]).
 
 -export([list_dir/1, list_dir_all/1]).
@@ -497,6 +498,8 @@ get_handle_nif(_FileRef) ->
     erlang:nif_error(undef).
 delayed_close_nif(_FileRef) ->
     erlang:nif_error(undef).
+read_handle_info_nif(_FileRef) ->
+    erlang:nif_error(undef).
 
 %%
 %% Quality-of-life helpers
@@ -598,19 +601,36 @@ read_link_info(Name, Opts) ->
 read_info_1(Name, FollowLinks, TimeType) ->
     try
         case read_info_nif(encode_path(Name), FollowLinks) of
-            {error, Reason} ->
-                {error, Reason};
-            FileInfo ->
-                CTime = from_posix_seconds(FileInfo#file_info.ctime, TimeType),
-                MTime = from_posix_seconds(FileInfo#file_info.mtime, TimeType),
-                ATime = from_posix_seconds(FileInfo#file_info.atime, TimeType),
-                {ok, FileInfo#file_info{ ctime = CTime,
-                                         mtime = MTime,
-                                         atime = ATime }}
+            {error, Reason} -> {error, Reason};
+            FileInfo -> {ok, adjust_times(FileInfo, TimeType)}
         end
     catch
         error:_ -> {error, badarg}
     end.
+
+read_handle_info(Fd) ->
+  read_handle_info_1(Fd, local).
+read_handle_info(Fd, Opts) ->
+  read_handle_info_1(Fd, proplist_get_value(time, Opts, local)).
+
+read_handle_info_1(Fd, TimeType) ->
+    try
+        #{ handle := FRef } = get_fd_data(Fd),
+        case read_handle_info_nif(FRef) of
+            {error, Reason} -> {error, Reason};
+            FileInfo -> {ok, adjust_times(FileInfo, TimeType)}
+        end
+    catch
+        error:_ -> {error, badarg}
+    end.
+
+adjust_times(FileInfo, TimeType) ->
+    CTime = from_posix_seconds(FileInfo#file_info.ctime, TimeType),
+    MTime = from_posix_seconds(FileInfo#file_info.mtime, TimeType),
+    ATime = from_posix_seconds(FileInfo#file_info.atime, TimeType),
+    FileInfo#file_info{ ctime = CTime,
+                        mtime = MTime,
+                        atime = ATime }.
 
 write_file_info(Filename, Info) ->
     write_file_info_1(Filename, Info, local).

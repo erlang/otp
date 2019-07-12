@@ -1444,7 +1444,11 @@ f.txt:  {person, "kalle", 25}.
            break this module's atomicity guarantees as it can race with a
            concurrent call to
            <seealso marker="#write_file_info/2"><c>write_file_info/1,2</c>
-           </seealso></p>
+           </seealso>.</p>
+        <p>This option has no effect when the function is
+           given an I/O device instead of a file name. Use
+           <seealso marker="#open/2"><c>open/2</c></seealso> with the
+           <c>raw</c> mode to obtain a file descriptor first.</p>
 	  <note>
           <p>As file times are stored in POSIX time on most OS, it is faster to
 	  query file information with option <c>posix</c>.</p>

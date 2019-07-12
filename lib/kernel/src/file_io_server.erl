@@ -314,6 +314,14 @@ file_request(truncate,
 	Reply ->
 	    std_reply(Reply, State)
     end;
+file_request({read_handle_info, Opts},
+             #state{handle=Handle}=State) ->
+    case ?CALL_FD(Handle, read_handle_info, [Opts]) of
+        {error,Reason}=Reply ->
+            {stop,Reason,Reply,State};
+        Reply ->
+            {reply,Reply,State}
+    end;
 file_request(Unknown, 
 	     #state{}=State) ->
     Reason = {request, Unknown},
