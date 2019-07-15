@@ -114,10 +114,12 @@ void init_db(ErtsDbSpinCount);
 int erts_db_process_exiting(Process *, ErtsProcLocks, void **);
 int erts_db_execute_free_fixation(Process*, DbFixation*);
 void db_info(fmtfn_t, void *, int);
-void erts_db_foreach_table(void (*)(DbTable *, void *), void *);
+void erts_db_foreach_table(void (*)(DbTable *, void *), void *, int);
 void erts_db_foreach_offheap(DbTable *,
 			     void (*func)(ErlOffHeap *, void *),
 			     void *);
+void erts_db_foreach_thr_prgr_offheap(void (*func)(ErlOffHeap *, void *),
+                                      void *);
 
 extern int erts_ets_rwmtx_spin_count;
 extern int user_requested_db_max_tabs; /* set in erl_init */

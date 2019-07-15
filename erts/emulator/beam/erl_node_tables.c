@@ -1928,6 +1928,14 @@ insert_persistent_term(ErlOffHeap *ohp, void *arg)
                    TUPLE2(&heap[0], AM_system, AM_persistent_term));
 }
 
+static void
+insert_ets_offheap_thr_prgr(ErlOffHeap *ohp, void *arg)
+{
+    Eterm heap[3];
+    insert_offheap(ohp, ETS_REF,
+                   TUPLE2(&heap[0], AM_system, AM_ets));
+}
+
 #ifdef ERL_NODE_BOOKKEEP
 void
 erts_node_bookkeep(ErlNode *np, Eterm term, int what)
@@ -2103,7 +2111,8 @@ setup_reference_table(void)
     }
 
     /* Insert all ets tables */
-    erts_db_foreach_table(insert_ets_table, NULL);
+    erts_db_foreach_table(insert_ets_table, NULL, 0);
+    erts_db_foreach_thr_prgr_offheap(insert_ets_offheap_thr_prgr, NULL);
 
     /* Insert all bif timers */
     erts_debug_bif_timer_foreach(insert_bif_timer, NULL);

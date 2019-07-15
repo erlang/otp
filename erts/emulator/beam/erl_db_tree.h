@@ -53,4 +53,8 @@ void db_initialize_tree(void);
 
 int db_create_tree(Process *p, DbTable *tbl);
 
+void
+erts_db_foreach_thr_prgr_offheap_tree(void (*func)(ErlOffHeap *, void *),
+                                      void *arg);
+
 #endif /* _DB_TREE_H */
