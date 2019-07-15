@@ -44,21 +44,25 @@ expand(Bef0) ->
     end.
 
 expand_module_name(Prefix) ->
-    match(Prefix, code:all_loaded(), ":").
+    case match(Prefix, code:all_loaded(), ":") of
+    	{no, _, _} -> match(Prefix, find_modules(), ":");
+    	M ->  M
+    end.
 
 expand_function_name(ModStr, FuncPrefix) ->
     case to_atom(ModStr) of
 	{ok, Mod} ->
-	    case erlang:module_loaded(Mod) of
-		true ->
-		    L = Mod:module_info(),
-		    case lists:keyfind(exports, 1, L) of
-			{_, Exports} ->
-			    match(FuncPrefix, Exports, "(");
-			_ ->
-			    {no, [], []}
-		    end;
-		false ->
+	    L = case erlang:module_loaded(Mod) of
+		    true ->
+		    	Mod:module_info();
+		    false ->
+			% Find module not already loaded
+			get_exports(Mod)
+	    	end,
+	    case lists:keyfind(exports, 1, L) of
+		{_, Exports} ->
+		    match(FuncPrefix, Exports, "(");
+		_ ->
 		    {no, [], []}
 	    end;
 	error ->
@@ -223,3 +227,19 @@ over_white([$\t|Cs], Stack, N) ->
     over_white(Cs, [$\t|Stack], N+1);
 over_white(Cs, Stack, N) when is_list(Cs) ->
     {Cs,Stack,N}.
+
+get_exports(Mod) 
+	when is_atom(Mod) -> get_exports(erlang:atom_to_list(Mod));
+
+get_exports(Mod)
+	when is_list(Mod) -> 
+	case beam_lib:chunks(code:where_is_file(Mod ++ ".beam"), [exports]) of
+		{ok, {_,E}} -> E ;
+		{error, _, _} -> []
+	end.
+
+find_modules() ->
+	lists:flatmap(fun(X) -> 
+		[A | _] = string:split(filename:basename(filename:dirname(X)), "-"), 
+		[{erlang:list_to_atom(A), X}] 
+		end, code:get_path()).
