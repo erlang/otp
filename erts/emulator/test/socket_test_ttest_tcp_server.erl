@@ -134,12 +134,18 @@ server_init(Starter, Parent, Transport, Active) ->
                         if
                             is_integer(PortOrPath) ->
                                 %% This is just for convenience
-                                Addr = which_addr(),
-                                ?I("listening on:"
-                                   "~n   Addr: ~p (~s)"
-                                   "~n   Port: ~w"
-                                   "~n", [Addr, inet:ntoa(Addr), PortOrPath]),
-                                {Addr, PortOrPath};
+                                case Mod:sockname(LSock) of
+				    {ok, {Addr, _}} ->
+					?I("listening on:"
+					   "~n   Addr: ~p (~s)"
+					   "~n   Port: ~w"
+					   "~n", [Addr,
+						  inet:ntoa(Addr),
+						  PortOrPath]),
+					{Addr, PortOrPath};
+				    {error, SNReason} ->
+					exit({sockname, SNReason})
+				end;
                             is_list(PortOrPath) ->
                                 ?I("listening on:"
                                    "~n   Path: ~s"
@@ -569,51 +575,51 @@ handler_maybe_activate(_, _, _) ->
 
 %% ==========================================================================
 
-which_addr() ->
-    case inet:getifaddrs() of
-        {ok, IfAddrs} ->
-            which_addrs(inet, IfAddrs);
-        {error, Reason} ->
-            exit({getifaddrs, Reason})
-    end.
+%% which_addr() ->
+%%     case inet:getifaddrs() of
+%%         {ok, IfAddrs} ->
+%%             which_addrs(inet, IfAddrs);
+%%         {error, Reason} ->
+%%             exit({getifaddrs, Reason})
+%%     end.
 
-which_addrs(_Family, []) ->
-    exit({getifaddrs, not_found});
-which_addrs(Family, [{"lo", _} | IfAddrs]) ->
-    %% Skip
-    which_addrs(Family, IfAddrs);
-which_addrs(Family, [{"docker" ++ _, _} | IfAddrs]) ->
-    %% Skip docker
-    which_addrs(Family, IfAddrs);
-which_addrs(Family, [{"br-" ++ _, _} | IfAddrs]) ->
-    %% Skip docker
-    which_addrs(Family, IfAddrs);
-which_addrs(Family, [{"en" ++ _, IfOpts} | IfAddrs]) ->
-    %% Maybe take this one
-    case which_addr(Family, IfOpts) of
-        {ok, Addr} ->
-            Addr;
-        error ->
-            which_addrs(Family, IfAddrs)
-    end;
-which_addrs(Family, [{_IfName, IfOpts} | IfAddrs]) ->
-    case which_addr(Family, IfOpts) of
-        {ok, Addr} ->
-            Addr;
-        error ->
-            which_addrs(Family, IfAddrs)
-    end.
+%% which_addrs(_Family, []) ->
+%%     exit({getifaddrs, not_found});
+%% which_addrs(Family, [{"lo", _} | IfAddrs]) ->
+%%     %% Skip
+%%     which_addrs(Family, IfAddrs);
+%% which_addrs(Family, [{"docker" ++ _, _} | IfAddrs]) ->
+%%     %% Skip docker
+%%     which_addrs(Family, IfAddrs);
+%% which_addrs(Family, [{"br-" ++ _, _} | IfAddrs]) ->
+%%     %% Skip docker
+%%     which_addrs(Family, IfAddrs);
+%% which_addrs(Family, [{"en" ++ _, IfOpts} | IfAddrs]) ->
+%%     %% Maybe take this one
+%%     case which_addr(Family, IfOpts) of
+%%         {ok, Addr} ->
+%%             Addr;
+%%         error ->
+%%             which_addrs(Family, IfAddrs)
+%%     end;
+%% which_addrs(Family, [{_IfName, IfOpts} | IfAddrs]) ->
+%%     case which_addr(Family, IfOpts) of
+%%         {ok, Addr} ->
+%%             Addr;
+%%         error ->
+%%             which_addrs(Family, IfAddrs)
+%%     end.
 
-which_addr(_, []) ->
-    error;
-which_addr(inet, [{addr, Addr}|_])
-  when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
-    {ok, Addr};
-which_addr(inet6, [{addr, Addr}|_])
-  when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
-    {ok, Addr};
-which_addr(Family, [_|IfOpts]) ->
-    which_addr(Family, IfOpts).
+%% which_addr(_, []) ->
+%%     error;
+%% which_addr(inet, [{addr, Addr}|_])
+%%   when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
+%%     {ok, Addr};
+%% which_addr(inet6, [{addr, Addr}|_])
+%%   when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
+%%     {ok, Addr};
+%% which_addr(Family, [_|IfOpts]) ->
+%%     which_addr(Family, IfOpts).
 
 
 %% ==========================================================================

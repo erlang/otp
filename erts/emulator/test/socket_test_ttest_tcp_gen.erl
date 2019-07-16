@@ -36,19 +36,7 @@
 	]).
 
 
-%% ==========================================================================
-
-%% getopt(Sock, Opt) when is_atom(Opt) ->
-%%     case inet:getopts(Sock, [Opt]) of
-%%         {ok, [{Opt, Value}]} ->
-%%             {ok, Value};
-%%         {error, _} = ERROR ->
-%%             ERROR
-%%     end.
-
-%% setopt(Sock, Opt, Value) when is_atom(Opt) ->
-%%     inet:setopts(Sock, [{Opt, Value}]).
-
+-define(LIB, socket_test_lib).
 
 %% ==========================================================================
 
@@ -106,12 +94,12 @@ listen(Port) ->
     listen(Port, #{domain => inet}).
 
 listen(Port, #{domain := Domain}) when is_integer(Port) andalso (Port >= 0) ->
-    Opts = [Domain,
-            binary, {ip, {0,0,0,0}}, {packet, raw}, {active, false},
-            {buffer, 32*1024}],
-    case gen_tcp:listen(Port, Opts) of
-	{ok, Sock} ->
-	    {ok, Sock};
+    case ?LIB:which_local_host_info(Domain) of
+	{ok, {_, _, Addr}} ->
+	    Opts = [Domain,
+		    binary, {ip, Addr}, {packet, raw}, {active, false},
+		    {buffer, 32*1024}],
+	    gen_tcp:listen(Port, Opts);
 	{error, _} = ERROR ->
 	    ERROR
     end.
