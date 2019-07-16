@@ -1200,7 +1200,7 @@ static Eterm AM_persistent_term;
 static void setup_reference_table(void);
 static Eterm reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp);
 static void delete_reference_table(void);
-static void cleanup_system(void);
+static void clear_system(void);
 
 #undef ERTS_MAX__
 #define ERTS_MAX__(A, B) ((A) > (B) ? (A) : (B))
@@ -1323,7 +1323,7 @@ erts_get_node_and_dist_references(struct process *proc)
     delete_reference_table();
 #endif
     
-    cleanup_system();
+    clear_system();
 
     erts_thr_progress_unblock();
     erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
@@ -1594,18 +1594,6 @@ static int clear_visited_monitor(ErtsMonitor *mon, void *p, Sint reds)
 }
 
 static void
-insert_p_monitors(ErtsPTabElementCommon *p)
-{
-    Eterm id = p->id;
-    erts_monitor_tree_foreach(p->u.alive.monitors,
-                              insert_monitor,
-                              (void *) &id);
-    erts_monitor_list_foreach(p->u.alive.lt_monitors,
-                              insert_monitor,
-                              (void *) &id);
-}
-
-static void
 insert_dist_monitors(DistEntry *dep)
 {
     if (dep->mld) {
@@ -1632,17 +1620,6 @@ static void
 insert_dist_sequences(DistEntry *dep)
 {
     erts_debug_dist_seq_tree_foreach(dep, insert_sequence, (void *) &dep->sysname);
-}
-
-static void
-clear_visited_p_monitors(ErtsPTabElementCommon *p)
-{
-    erts_monitor_tree_foreach(p->u.alive.monitors,
-                              clear_visited_monitor,
-                              NULL);
-    erts_monitor_list_foreach(p->u.alive.lt_monitors,
-                              clear_visited_monitor,
-                              NULL);
 }
 
 static void
@@ -1689,27 +1666,12 @@ static int clear_visited_link(ErtsLink *lnk, void *p, Sint reds)
 }
 
 static void
-insert_p_links(ErtsPTabElementCommon *p)
-{
-    Eterm id = p->id;
-    erts_link_tree_foreach(p->u.alive.links, insert_link, (void *) &id);
-}
-
-static void
 insert_dist_links(DistEntry *dep)
 {
     if (dep->mld)
         erts_link_list_foreach(dep->mld->links,
                                insert_link,
                                (void *) &dep->sysname);
-}
-
-static void
-clear_visited_p_links(ErtsPTabElementCommon *p)
-{
-    erts_link_tree_foreach(p->u.alive.links,
-                           clear_visited_link,
-                           NULL);
 }
 
 static void
@@ -1907,15 +1869,11 @@ insert_process(Process *proc)
                                     insert_sig_ext,
                                     (void *) proc);
 
-    /* If the process is FREE, the proc->common field has been
-       re-used by the ptab delete, so we cannot trust it. */
-    if (!(erts_atomic32_read_nob(&proc->state) & ERTS_PSFLG_FREE)) {
-        /* Insert links */
-        insert_p_links(&proc->common);
-
-        /* Insert monitors */
-        insert_p_monitors(&proc->common);
-    }
+    /* Insert monitors and links... */
+    erts_debug_proc_monitor_link_foreach(proc,
+                                         insert_monitor,
+                                         insert_link,
+                                         (void *) &proc->common.id);
 
     {
         DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(proc);
@@ -1928,12 +1886,31 @@ insert_process(Process *proc)
 }
 
 static void
+insert_process2(Process *proc, void *arg)
+{
+    insert_process(proc);
+}
+
+static void
 insert_dist_suspended_procs(DistEntry *dep)
 {
     ErtsProcList *plist = erts_proclist_peek_first(dep->suspended);
     while (plist) {
         if (is_not_immed(plist->u.pid))
             insert_process(plist->u.p);
+        plist = erts_proclist_peek_next(dep->suspended, plist);
+    }
+}
+
+static void clear_process(Process *proc);
+
+static void
+clear_dist_suspended_procs(DistEntry *dep)
+{
+    ErtsProcList *plist = erts_proclist_peek_first(dep->suspended);
+    while (plist) {
+        if (is_not_immed(plist->u.pid))
+            clear_process(plist->u.p);
         plist = erts_proclist_peek_next(dep->suspended, plist);
     }
 }
@@ -2030,7 +2007,8 @@ setup_reference_table(void)
 	if (proc)
             insert_process(proc);
     }
-    
+    erts_debug_free_process_foreach(insert_process2, NULL);
+
     erts_debug_foreach_sys_msg_in_q(insert_sys_msg);
 
     /* Insert all ports */
@@ -2048,10 +2026,18 @@ setup_reference_table(void)
 	if (state & ERTS_PORT_SFLGS_DEAD)
 	    continue;
 
-	/* Insert links */
-        insert_p_links(&prt->common);
-	/* Insert monitors */
-        insert_p_monitors(&prt->common);
+        /* Insert links */
+        erts_link_tree_foreach(ERTS_P_LINKS(prt),
+                               insert_link,
+                               (void *) &prt->common.id);
+        /* Insert monitors */
+        erts_monitor_tree_foreach(ERTS_P_MONITORS(prt),
+                                  insert_monitor,
+                                  (void *) &prt->common.id);
+        /* Insert local target monitors */
+        erts_monitor_list_foreach(ERTS_P_LT_MONITORS(prt),
+                                  insert_monitor,
+                                  (void *) &prt->common.id);
 	/* Insert port data */
 	ohp = erts_port_data_offheap(prt);
 	if (ohp)
@@ -2431,28 +2417,43 @@ delete_reference_table(void)
     }
 }
 
+static void clear_process(Process *proc)
+{
+    erts_proc_sig_debug_foreach_sig(proc,
+                                    noop_sig_msg,
+                                    noop_sig_offheap,
+                                    clear_visited_monitor,
+                                    clear_visited_link,
+                                    noop_sig_ext,
+                                    (void *) proc);
+
+
+    /* Clear monitors and links... */
+    erts_debug_proc_monitor_link_foreach(proc,
+                                         clear_visited_monitor,
+                                         clear_visited_link,
+                                         (void *) &proc->common.id);
+}
+
+static void clear_process2(Process *proc, void *arg)
+{
+    clear_process(proc);
+}
+
 static void
-cleanup_system(void)
+clear_system(void)
 {
     DistEntry *dep;
     int i, max;
-    /* Cleanup... */
+    /* Clear... */
 
     max = erts_ptab_max(&erts_proc);
     for (i = 0; i < max; i++) {
 	Process *proc = erts_pix2proc(i);
-	if (proc) {
-            clear_visited_p_links(&proc->common);
-            clear_visited_p_monitors(&proc->common);
-            erts_proc_sig_debug_foreach_sig(proc,
-                                            noop_sig_msg,
-                                            noop_sig_offheap,
-                                            clear_visited_monitor,
-                                            clear_visited_link,
-                                            noop_sig_ext,
-                                            (void *) proc);
-        }
+	if (proc)
+            clear_process(proc);
     }
+    erts_debug_free_process_foreach(clear_process2, NULL);
 
     max = erts_ptab_max(&erts_port);
     for (i = 0; i < max; i++) {
@@ -2467,28 +2468,42 @@ cleanup_system(void)
 	if (state & ERTS_PORT_SFLGS_DEAD)
 	    continue;
 
-        clear_visited_p_links(&prt->common);
-        clear_visited_p_monitors(&prt->common);
+        /* Clear links */
+        erts_link_tree_foreach(ERTS_P_LINKS(prt),
+                               clear_visited_link,
+                               (void *) &prt->common.id);
+        /* Clear monitors */
+        erts_monitor_tree_foreach(ERTS_P_MONITORS(prt),
+                                  clear_visited_monitor,
+                                  (void *) &prt->common.id);
+        /* Clear local target monitors */
+        erts_monitor_list_foreach(ERTS_P_LT_MONITORS(prt),
+                                  clear_visited_monitor,
+                                  (void *) &prt->common.id);
     }
 
     for(dep = erts_visible_dist_entries; dep; dep = dep->next) {
         clear_visited_dist_links(dep);
         clear_visited_dist_monitors(dep);
+        clear_dist_suspended_procs(dep);
     }
 
     for(dep = erts_hidden_dist_entries; dep; dep = dep->next) {
         clear_visited_dist_links(dep);
         clear_visited_dist_monitors(dep);
+        clear_dist_suspended_procs(dep);
     }
 
     for(dep = erts_pending_dist_entries; dep; dep = dep->next) {
         clear_visited_dist_links(dep);
         clear_visited_dist_monitors(dep);
+        clear_dist_suspended_procs(dep);
     }
 
     for(dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
         clear_visited_dist_links(dep);
         clear_visited_dist_monitors(dep);
+        clear_dist_suspended_procs(dep);
     }
 }
 

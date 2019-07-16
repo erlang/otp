@@ -1509,6 +1509,17 @@ ERTS_GLB_INLINE ErtsMonitorSuspend *erts_monitor_suspend(ErtsMonitor *mon)
 
 #endif
 
+void
+erts_debug_monitor_tree_destroying_foreach(ErtsMonitor *root,
+                                           ErtsMonitorFunc func,
+                                           void *arg,
+                                           void *vysp);
+void
+erts_debug_monitor_list_destroying_foreach(ErtsMonitor *list,
+                                           ErtsMonitorFunc func,
+                                           void *arg,
+                                           void *vysp);
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Link Operations                                                           *
 \*                                                                           */
@@ -2364,5 +2375,11 @@ erts_link_dist_delete(ErtsLink *lnk)
 
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+void
+erts_debug_link_tree_destroying_foreach(ErtsLink *root,
+                                        ErtsLinkFunc func,
+                                        void *arg,
+                                        void *vysp);
 
 #endif /* ERL_MONITOR_LINK_H__ */
