@@ -86,20 +86,35 @@
 
          %% *** API async ***
          api_a_connect_tcp4/1,
+         api_a_connect_tcp6/1,
          api_a_sendto_and_recvfrom_udp4/1,
+         api_a_sendto_and_recvfrom_udp6/1,
          api_a_sendmsg_and_recvmsg_udp4/1,
+         api_a_sendmsg_and_recvmsg_udp6/1,
          api_a_send_and_recv_tcp4/1,
+         api_a_send_and_recv_tcp6/1,
          api_a_sendmsg_and_recvmsg_tcp4/1,
+         api_a_sendmsg_and_recvmsg_tcp6/1,
          api_a_recvfrom_cancel_udp4/1,
+         api_a_recvfrom_cancel_udp6/1,
          api_a_recvmsg_cancel_udp4/1,
+         api_a_recvmsg_cancel_udp6/1,
          api_a_accept_cancel_tcp4/1,
+         api_a_accept_cancel_tcp6/1,
          api_a_recv_cancel_tcp4/1,
+         api_a_recv_cancel_tcp6/1,
          api_a_recvmsg_cancel_tcp4/1,
+         api_a_recvmsg_cancel_tcp6/1,
          api_a_mrecvfrom_cancel_udp4/1,
+         api_a_mrecvfrom_cancel_udp6/1,
          api_a_mrecvmsg_cancel_udp4/1,
+         api_a_mrecvmsg_cancel_udp6/1,
          api_a_maccept_cancel_tcp4/1,
+         api_a_maccept_cancel_tcp6/1,
          api_a_mrecv_cancel_tcp4/1,
+         api_a_mrecv_cancel_tcp6/1,
          api_a_mrecvmsg_cancel_tcp4/1,
+         api_a_mrecvmsg_cancel_tcp6/1,
 
 
          %% *** API Options ***
@@ -172,12 +187,16 @@
 
          %% *** Traffic ***
          traffic_send_and_recv_counters_tcp4/1,
+         traffic_send_and_recv_counters_tcp6/1,
          traffic_send_and_recv_counters_tcpL/1,
          traffic_sendmsg_and_recvmsg_counters_tcp4/1,
+         traffic_sendmsg_and_recvmsg_counters_tcp6/1,
          traffic_sendmsg_and_recvmsg_counters_tcpL/1,
          traffic_sendto_and_recvfrom_counters_udp4/1,
+         traffic_sendto_and_recvfrom_counters_udp6/1,
          traffic_sendto_and_recvfrom_counters_udpL/1,
          traffic_sendmsg_and_recvmsg_counters_udp4/1,
+         traffic_sendmsg_and_recvmsg_counters_udp6/1,
          traffic_sendmsg_and_recvmsg_counters_udpL/1,
 
          traffic_send_and_recv_chunks_tcp4/1,
@@ -705,20 +724,35 @@ api_basic_cases() ->
 api_async_cases() ->
     [
      api_a_connect_tcp4,
+     api_a_connect_tcp6,
      api_a_sendto_and_recvfrom_udp4,
+     api_a_sendto_and_recvfrom_udp6,
      api_a_sendmsg_and_recvmsg_udp4,
+     api_a_sendmsg_and_recvmsg_udp6,
      api_a_send_and_recv_tcp4,
+     api_a_send_and_recv_tcp6,
      api_a_sendmsg_and_recvmsg_tcp4,
+     api_a_sendmsg_and_recvmsg_tcp6,
      api_a_recvfrom_cancel_udp4,
+     api_a_recvfrom_cancel_udp6,
      api_a_recvmsg_cancel_udp4,
+     api_a_recvmsg_cancel_udp6,
      api_a_accept_cancel_tcp4,
+     api_a_accept_cancel_tcp6,
      api_a_recv_cancel_tcp4,
+     api_a_recv_cancel_tcp6,
      api_a_recvmsg_cancel_tcp4,
+     api_a_recvmsg_cancel_tcp6,
      api_a_mrecvfrom_cancel_udp4,
+     api_a_mrecvfrom_cancel_udp6,
      api_a_mrecvmsg_cancel_udp4,
+     api_a_mrecvmsg_cancel_udp6,
      api_a_maccept_cancel_tcp4,
+     api_a_maccept_cancel_tcp6,
      api_a_mrecv_cancel_tcp4,
-     api_a_mrecvmsg_cancel_tcp4
+     api_a_mrecv_cancel_tcp6,
+     api_a_mrecvmsg_cancel_tcp4,
+     api_a_mrecvmsg_cancel_tcp6
     ].
 
 api_options_cases() ->
@@ -848,12 +882,16 @@ traffic_cases() ->
 traffic_counters_cases() ->
     [
      traffic_send_and_recv_counters_tcp4,
+     traffic_send_and_recv_counters_tcp6,
      traffic_send_and_recv_counters_tcpL,
      traffic_sendmsg_and_recvmsg_counters_tcp4,
+     traffic_sendmsg_and_recvmsg_counters_tcp6,
      traffic_sendmsg_and_recvmsg_counters_tcpL,
      traffic_sendto_and_recvfrom_counters_udp4,
+     traffic_sendto_and_recvfrom_counters_udp6,
      traffic_sendto_and_recvfrom_counters_udpL,
      traffic_sendmsg_and_recvmsg_counters_udp4,
+     traffic_sendmsg_and_recvmsg_counters_udp6,
      traffic_sendmsg_and_recvmsg_counters_udpL
     ].
 
@@ -2768,7 +2806,7 @@ api_b_send_and_recv_tcp(InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Basically establish a TCP connection via an async connect. 
+%% Basically establish a TCP connection via an async connect. IPv4.
 
 api_a_connect_tcp4(suite) ->
     [];
@@ -2778,21 +2816,44 @@ api_a_connect_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
     tc_try(api_a_connect_tcp4,
            fun() ->
-                   Connect = fun(Sock, SockAddr) ->
-                                     socket:connect(Sock, SockAddr, nowait)
-                             end,
-                   Send = fun(Sock, Data) ->
-                                  socket:send(Sock, Data)
-                          end,
-                   Recv = fun(Sock) ->
-                                  socket:recv(Sock)
-                          end,
-                   InitState = #{domain  => inet,
-                                 connect => Connect,
-                                 send    => Send,
-                                 recv    => Recv},
-                   ok = api_a_connect_tcp(InitState)
+                   ok = api_a_connect_tcpD(inet)
            end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically establish a TCP connection via an async connect. IPv6.
+
+api_a_connect_tcp6(suite) ->
+    [];
+api_a_connect_tcp6(doc) ->
+    [];
+api_a_connect_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_connect_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   ok = api_a_connect_tcpD(inet6)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_a_connect_tcpD(Domain) ->
+    Connect = fun(Sock, SockAddr) ->
+                      socket:connect(Sock, SockAddr, nowait)
+              end,
+    Send = fun(Sock, Data) ->
+                   socket:send(Sock, Data)
+           end,
+    Recv = fun(Sock) ->
+                   socket:recv(Sock)
+           end,
+    InitState = #{domain  => Domain,
+                  connect => Connect,
+                  send    => Send,
+                  recv    => Recv},
+    api_a_connect_tcp(InitState).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3296,6 +3357,37 @@ api_a_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically send and receive on an IPv6 UDP (dgram) socket using
+%% sendto and recvfrom. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recvfrom,
+%% since its much more difficult to "arrange" for sendto.
+%%
+api_a_sendto_and_recvfrom_udp6(suite) ->
+    [];
+api_a_sendto_and_recvfrom_udp6(doc) ->
+    [];
+api_a_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_a_sendto_and_recvfrom_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  socket:sendto(Sock, Data, Dest)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recvfrom(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet6,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically send and receive on an IPv4 UDP (dgram) socket using
 %% sendto and recvfrom. But we try to be async. That is, we use
 %% the 'nowait' value for the Timeout argument (and await the eventual
@@ -3330,6 +3422,50 @@ api_a_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive on an IPv6 UDP (dgram) socket using
+%% sendto and recvfrom. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recvmsg,
+%% since its much more difficult to "arrange" for sendmsg.
+%%
+api_a_sendmsg_and_recvmsg_udp6(suite) ->
+    [];
+api_a_sendmsg_and_recvmsg_udp6(doc) ->
+    [];
+api_a_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_a_sendmsg_and_recvmsg_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  MsgHdr = #{addr => Dest,
+                                             %% ctrl => CMsgHdrs,
+                                             iov  => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, #{addr  := Source,
+                                             iov   := [Data]}} ->
+                                          {ok, {Source, Data}};
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_a_send_and_recv_udp(InitState)
@@ -3788,6 +3924,37 @@ api_a_send_and_recv_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically send and receive using the "common" functions (send and recv)
+%% on an IPv6 TCP (stream) socket. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recv,
+%% since its much more difficult to "arrange" for send.
+%% We *also* test async for accept.
+api_a_send_and_recv_tcp6(suite) ->
+    [];
+api_a_send_and_recv_tcp6(doc) ->
+    [];
+api_a_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_send_and_recv_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet6,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically send and receive using the msg functions (sendmsg and recvmsg)
 %% on an IPv4 TCP (stream) socket. But we try to be async. That is, we use
 %% the 'nowait' value for the Timeout argument (and await the eventual
@@ -3815,7 +3982,7 @@ api_a_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                                           OK;
                                       {select, _} = SELECT ->
                                           SELECT;
-                                     {error, _} = ERROR ->
+				      {error, _} = ERROR ->
                                           ERROR
                                   end
                           end,
@@ -3824,6 +3991,49 @@ api_a_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                                  recv   => Recv},
                    ok = api_a_send_and_recv_tcp(InitState)
            end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the msg functions (sendmsg and recvmsg)
+%% on an IPv6 TCP (stream) socket. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recvmsg,
+%% since its much more difficult to "arrange" for sendmsg.
+%% We *also* test async for accept.
+api_a_sendmsg_and_recvmsg_tcp6(suite) ->
+    [];
+api_a_sendmsg_and_recvmsg_tcp6(doc) ->
+    [];
+api_a_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_sendmsg_and_recvmsg_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+				      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_a_send_and_recv_tcp(InitState)
+           end).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4326,7 +4536,7 @@ api_a_send_and_recv_tcp(InitState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically we make an async (Timeout = nowait) call to recvfrom,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_recvfrom_cancel_udp4(suite) ->
     [];
@@ -4355,8 +4565,39 @@ api_a_recvfrom_cancel_udp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically we make an async (Timeout = nowait) call to recvfrom,
+%% wait some time and then cancel. IPv6
+%%
+api_a_recvfrom_cancel_udp6(suite) ->
+    [];
+api_a_recvfrom_cancel_udp6(doc) ->
+    [];
+api_a_recvfrom_cancel_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_recvfrom_cancel_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  case socket:recvfrom(Sock, 0, nowait) of
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
+                                 recv   => Recv},
+                   ok = api_a_recv_cancel_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically we make an async (Timeout = nowait) call to recvmsg,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_recvmsg_cancel_udp4(suite) ->
     [];
@@ -4377,6 +4618,37 @@ api_a_recvmsg_cancel_udp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_recv_cancel_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make an async (Timeout = nowait) call to recvmsg,
+%% wait some time and then cancel. IPv6
+%%
+api_a_recvmsg_cancel_udp6(suite) ->
+    [];
+api_a_recvmsg_cancel_udp6(doc) ->
+    [];
+api_a_recvmsg_cancel_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_recvmsg_cancel_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
                                  recv   => Recv},
                    ok = api_a_recv_cancel_udp(InitState)
            end).
@@ -4590,7 +4862,7 @@ api_a_recv_cancel_udp(InitState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically we make an async (Timeout = nowait) call to accept,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_accept_cancel_tcp4(suite) ->
     [];
@@ -4611,6 +4883,38 @@ api_a_accept_cancel_tcp4(_Config) when is_list(_Config) ->
                                     end
                             end,
                    InitState = #{domain => inet,
+                                 accept => Accept},
+                   ok = api_a_accept_cancel_tcp(InitState)
+           end).
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make an async (Timeout = nowait) call to accept,
+%% wait some time and then cancel. IPv6
+%%
+api_a_accept_cancel_tcp6(suite) ->
+    [];
+api_a_accept_cancel_tcp6(doc) ->
+    [];
+api_a_accept_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_accept_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Accept = fun(Sock) ->
+                                    case socket:accept(Sock, nowait) of
+                                        {ok, _} = OK ->
+                                            OK;
+                                        {select, _} = SELECT ->
+                                            SELECT;
+                                        {error, _} = ERROR ->
+                                            ERROR
+                                    end
+                            end,
+                   InitState = #{domain => inet6,
                                  accept => Accept},
                    ok = api_a_accept_cancel_tcp(InitState)
            end).
@@ -4820,7 +5124,7 @@ api_a_accept_cancel_tcp(InitState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically we make an async (Timeout = nowait) call to recv,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_recv_cancel_tcp4(suite) ->
     [];
@@ -4842,8 +5146,32 @@ api_a_recv_cancel_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically we make an async (Timeout = nowait) call to recv,
+%% wait some time and then cancel. IPv6
+%%
+api_a_recv_cancel_tcp6(suite) ->
+    [];
+api_a_recv_cancel_tcp6(doc) ->
+    [];
+api_a_recv_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_recv_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet6,
+                                 recv   => Recv},
+                   ok = api_a_recv_cancel_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically we make an async (Timeout = nowait) call to recvmsg,
-%% wait some time and then cancel.
+%% wait some time and then cancel. IPv4
 %%
 api_a_recvmsg_cancel_tcp4(suite) ->
     [];
@@ -4857,6 +5185,30 @@ api_a_recvmsg_cancel_tcp4(_Config) when is_list(_Config) ->
                                   socket:recvmsg(Sock, nowait)
                           end,
                    InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_recv_cancel_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make an async (Timeout = nowait) call to recvmsg,
+%% wait some time and then cancel. IPv6
+%%
+api_a_recvmsg_cancel_tcp6(suite) ->
+    [];
+api_a_recvmsg_cancel_tcp6(doc) ->
+    [];
+api_a_recvmsg_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_a_recvmsg_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  socket:recvmsg(Sock, nowait)
+                          end,
+                   InitState = #{domain => inet6,
                                  recv   => Recv},
                    ok = api_a_recv_cancel_tcp(InitState)
            end).
@@ -5218,7 +5570,7 @@ api_a_recv_cancel_tcp(InitState) ->
 
 %% Basically we make multiple async (Timeout = nowait) call(s) to recvfrom
 %% (from *several* processes), wait some time and then cancel.
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_mrecvfrom_cancel_udp4(suite) ->
     [];
@@ -5247,9 +5599,41 @@ api_a_mrecvfrom_cancel_udp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically we make multiple async (Timeout = nowait) call(s) to recvfrom
+%% (from *several* processes), wait some time and then cancel.
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_mrecvfrom_cancel_udp6(suite) ->
+    [];
+api_a_mrecvfrom_cancel_udp6(doc) ->
+    [];
+api_a_mrecvfrom_cancel_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_mrecvfrom_cancel_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  case socket:recvfrom(Sock, 0, nowait) of
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
+                                 recv   => Recv},
+                   ok = api_a_mrecv_cancel_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically we make multiple async (Timeout = nowait) call(s) to recvmsg
 %% (from *several* processes), wait some time and then cancel.
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_mrecvmsg_cancel_udp4(suite) ->
     [];
@@ -5270,6 +5654,38 @@ api_a_mrecvmsg_cancel_udp4(_Config) when is_list(_Config) ->
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_mrecv_cancel_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make multiple async (Timeout = nowait) call(s) to recvmsg
+%% (from *several* processes), wait some time and then cancel.
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_mrecvmsg_cancel_udp6(suite) ->
+    [];
+api_a_mrecvmsg_cancel_udp6(doc) ->
+    [];
+api_a_mrecvmsg_cancel_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_mrecvmsg_cancel_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock, nowait) of
+                                      {ok, _} = OK ->
+                                          OK;
+                                      {select, _} = SELECT ->
+                                          SELECT;
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
                                  recv   => Recv},
                    ok = api_a_mrecv_cancel_udp(InitState)
            end).
@@ -5649,7 +6065,7 @@ api_a_mrecv_cancel_udp(InitState) ->
 
 %% Basically we make multiple async (Timeout = nowait) call(s) to accept
 %% (from *several* processes), wait some time and then cancel,
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_maccept_cancel_tcp4(suite) ->
     [];
@@ -5670,6 +6086,39 @@ api_a_maccept_cancel_tcp4(_Config) when is_list(_Config) ->
                                     end
                             end,
                    InitState = #{domain => inet,
+                                 accept => Accept},
+                   ok = api_a_maccept_cancel_tcp(InitState)
+           end).
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make multiple async (Timeout = nowait) call(s) to accept
+%% (from *several* processes), wait some time and then cancel,
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_maccept_cancel_tcp6(suite) ->
+    [];
+api_a_maccept_cancel_tcp6(doc) ->
+    [];
+api_a_maccept_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_maccept_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Accept = fun(Sock) ->
+                                    case socket:accept(Sock, nowait) of
+                                        {ok, _} = OK ->
+                                            OK;
+                                        {select, _} = SELECT ->
+                                            SELECT;
+                                        {error, _} = ERROR ->
+                                            ERROR
+                                    end
+                            end,
+                   InitState = #{domain => inet6,
                                  accept => Accept},
                    ok = api_a_maccept_cancel_tcp(InitState)
            end).
@@ -6047,7 +6496,7 @@ api_a_maccept_cancel_tcp(InitState) ->
 
 %% Basically we make multiple async (Timeout = nowait) call(s) to recv
 %% (from *several* processes), wait some time and then cancel,
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_mrecv_cancel_tcp4(suite) ->
     [];
@@ -6069,9 +6518,34 @@ api_a_mrecv_cancel_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically we make multiple async (Timeout = nowait) call(s) to recv
+%% (from *several* processes), wait some time and then cancel,
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_mrecv_cancel_tcp6(suite) ->
+    [];
+api_a_mrecv_cancel_tcp6(doc) ->
+    [];
+api_a_mrecv_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_mrecv_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock, 0, nowait)
+                          end,
+                   InitState = #{domain => inet6,
+                                 recv   => Recv},
+                   ok = api_a_mrecv_cancel_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically we make multiple async (Timeout = nowait) call(s) to recvmsg
 %% (from *several* processes), wait some time and then cancel,
-%% This should result in abort messages to the 'other' processes.
+%% This should result in abort messages to the 'other' processes. IPv4
 %%
 api_a_mrecvmsg_cancel_tcp4(suite) ->
     [];
@@ -6085,6 +6559,31 @@ api_a_mrecvmsg_cancel_tcp4(_Config) when is_list(_Config) ->
                                   socket:recvmsg(Sock, nowait)
                           end,
                    InitState = #{domain => inet,
+                                 recv   => Recv},
+                   ok = api_a_mrecv_cancel_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically we make multiple async (Timeout = nowait) call(s) to recvmsg
+%% (from *several* processes), wait some time and then cancel,
+%% This should result in abort messages to the 'other' processes. IPv6
+%%
+api_a_mrecvmsg_cancel_tcp6(suite) ->
+    [];
+api_a_mrecvmsg_cancel_tcp6(doc) ->
+    [];
+api_a_mrecvmsg_cancel_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
+    tc_try(api_a_mrecvmsg_cancel_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   Recv = fun(Sock) ->
+                                  socket:recvmsg(Sock, nowait)
+                          end,
+                   InitState = #{domain => inet6,
                                  recv   => Recv},
                    ok = api_a_mrecv_cancel_tcp(InitState)
            end).
@@ -7853,9 +8352,9 @@ api_opt_ip_add_drop_membership(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
     tc_try(api_opt_ip_add_drop_membership,
            fun() ->
-                   has_ip_add_membership_support(),
-                   has_ip_drop_membership_support(),
-                   has_ip_multicast_support()
+                   has_support_ip_add_membership(),
+                   has_support_ip_drop_membership(),
+                   has_support_ip_multicast()
            end,
            fun() -> api_opt_ip_add_drop_membership() end).
 
@@ -8146,7 +8645,7 @@ which_multicast_address3(Domain, [MAddrStr|MAddrs]) ->
     end.
     
 which_local_host_ifname(Domain) ->
-    case which_local_host_info(Domain) of
+    case ?LIB:which_local_host_info(Domain) of
         {ok, {Name, _Addr, _Flags}} ->
             Name;
         {error, Reason} ->
@@ -9222,6 +9721,7 @@ api_to_send_tcp6(doc) ->
     [];
 api_to_send_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_send_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    not_yet_implemented()%% ,
                    %% ok = api_to_send_tcp(inet6)
@@ -9254,6 +9754,7 @@ api_to_sendto_udp6(doc) ->
     [];
 api_to_sendto_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_sendto_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    not_yet_implemented()%% ,
                    %% ok = api_to_sendto_to_udp(inet6)
@@ -9286,6 +9787,7 @@ api_to_sendmsg_tcp6(doc) ->
     [];
 api_to_sendmsg_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_sendmsg_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    not_yet_implemented()%% ,
                    %% ok = api_to_sendmsg_tcp(inet6)
@@ -9320,6 +9822,7 @@ api_to_recv_udp6(doc) ->
     [];
 api_to_recv_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recv_udp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    not_yet_implemented()%% ,
                    %% ok = api_to_recv_udp(inet6)
@@ -13952,6 +14455,29 @@ traffic_send_and_recv_counters_tcp4(_Config) when is_list(_Config) ->
 %% This test case is intended to (simply) test that the counters
 %% for both read and write.
 %% So that its easy to extend, we use fun's for read and write.
+%% We use TCP on IPv6.
+
+traffic_send_and_recv_counters_tcp6(suite) ->
+    [];
+traffic_send_and_recv_counters_tcp6(doc) ->
+    [];
+traffic_send_and_recv_counters_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_send_and_recv_counters_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain => inet6,
+                                 proto  => tcp,
+                                 recv   => fun(S)    -> socket:recv(S)    end,
+                                 send   => fun(S, D) -> socket:send(S, D) end},
+                   ok = traffic_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
 %% We use default (TCP) on local.
 
 traffic_send_and_recv_counters_tcpL(suite) ->
@@ -13985,6 +14511,40 @@ traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
     tc_try(traffic_sendmsg_and_recvmsg_counters_tcp4,
            fun() ->
                    InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr := _Source,
+                                                              iov  := [Data]}} ->
+                                                           {ok, Data};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data) ->
+                                                   MsgHdr = #{iov => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
+                                           end},
+                   ok = traffic_send_and_recv_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use TCP on IPv6.
+
+traffic_sendmsg_and_recvmsg_counters_tcp6(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcp6(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain => inet6,
                                  proto  => tcp,
                                  recv   => fun(S) ->
                                                    case socket:recvmsg(S) of
@@ -14928,6 +15488,33 @@ traffic_sendto_and_recvfrom_counters_udp4(_Config) when is_list(_Config) ->
 %% This test case is intended to (simply) test that the counters
 %% for both read and write.
 %% So that its easy to extend, we use fun's for read and write.
+%% We use UDP on IPv6.
+
+traffic_sendto_and_recvfrom_counters_udp6(suite) ->
+    [];
+traffic_sendto_and_recvfrom_counters_udp6(doc) ->
+    [];
+traffic_sendto_and_recvfrom_counters_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendto_and_recvfrom_counters_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain => inet6,
+                                 proto  => udp,
+                                 recv   => fun(S) ->
+                                                   socket:recvfrom(S)
+                                           end,
+                                 send   => fun(S, Data, Dest) ->
+                                                   socket:sendto(S, Data, Dest)
+                                           end},
+                   ok = traffic_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
 %% We use default (UDP) on local.
 
 traffic_sendto_and_recvfrom_counters_udpL(suite) ->
@@ -14965,6 +15552,41 @@ traffic_sendmsg_and_recvmsg_counters_udp4(_Config) when is_list(_Config) ->
     tc_try(traffic_sendmsg_and_recvmsg_counters_udp4,
            fun() ->
                    InitState = #{domain => inet,
+                                 proto  => udp,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{addr  := Source,
+                                                              iov   := [Data]}} ->
+                                                           {ok, {Source, Data}};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data, Dest) ->
+                                                   MsgHdr = #{addr => Dest,
+                                                              iov  => [Data]},
+                                                   socket:sendmsg(S, MsgHdr)
+                                           end},
+                   ok = traffic_send_and_recv_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use UDP on IPv6.
+
+traffic_sendmsg_and_recvmsg_counters_udp6(suite) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udp6(doc) ->
+    [];
+traffic_sendmsg_and_recvmsg_counters_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(traffic_sendmsg_and_recvmsg_counters_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain => inet6,
                                  proto  => udp,
                                  recv   => fun(S) ->
                                                    case socket:recvmsg(S) of
@@ -15455,9 +16077,20 @@ traffic_send_and_recv_udp(InitState) ->
          #{desc => "recv (1)",
            cmd  => fun(#{sock      := Sock,
                          recv      := Recv,
-                         server_sa := ServerSA} = State) ->
+                         server_sa := #{family := local} = ServerSA} = State) ->
                            case Recv(Sock) of
                                {ok, {ServerSA, Data}} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{read_pkg  => 1,
+                                               read_byte => size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{sock      := Sock,
+                         recv      := Recv,
+                         server_sa := #{addr := Addr, port := Port}} = State) ->
+                           case Recv(Sock) of
+                               {ok, {#{addr := Addr, port := Port}, Data}} ->
                                    ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
                                    {ok, State#{read_pkg  => 1,
                                                read_byte => size(Data)}};
@@ -15557,12 +16190,25 @@ traffic_send_and_recv_udp(InitState) ->
                    end},
          #{desc => "recv (2)",
            cmd  => fun(#{sock      := Sock,
-                         server_sa := ServerSA,
+                         server_sa := #{family := local} = ServerSA,
                          recv      := Recv,
                          read_pkg  := RPkg,
                          read_byte := RByte} = State) ->
                            case Recv(Sock) of
                                {ok, {ServerSA, Data}} ->
+                                   ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
+                                   {ok, State#{read_pkg  => RPkg + 1,
+                                               read_byte => RByte + size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+		      (#{sock      := Sock,
+                         server_sa := #{addr := Addr, port := Port},
+                         recv      := Recv,
+                         read_pkg  := RPkg,
+                         read_byte := RByte} = State) ->
+                           case Recv(Sock) of
+                               {ok, {#{addr := Addr, port := Port}, Data}} ->
                                    ?SEV_IPRINT("recv ~p bytes", [size(Data)]),
                                    {ok, State#{read_pkg  => RPkg + 1,
                                                read_byte => RByte + size(Data)}};
@@ -19408,13 +20054,37 @@ tpp_udp_client_handler_msg_exchange_loop(_Sock, _Dest, _Send, _Recv, _Msg,
                                          Start) ->
     Stop = ?LIB:timestamp(),
     {Sent, Received, Start, Stop};
-tpp_udp_client_handler_msg_exchange_loop(Sock, Dest, Send, Recv, Data,
+tpp_udp_client_handler_msg_exchange_loop(Sock,
+					 #{family := local} = Dest,
+					 Send, Recv, Data,
                                          Num, N, Sent, Received, Start) ->
     case tpp_udp_send_req(Sock, Send, Data, Dest) of
         {ok, SendSz} ->
             case tpp_udp_recv_rep(Sock, Recv) of
                 {ok, NewData, RecvSz, Dest} ->
                     tpp_udp_client_handler_msg_exchange_loop(Sock, Dest,
+                                                             Send, Recv,
+                                                             NewData, Num, N+1,
+                                                             Sent+SendSz, 
+                                                             Received+RecvSz, 
+                                                             Start);
+                {error, RReason} ->
+                    ?SEV_EPRINT("recv (~w of ~w): ~p", [N, Num, RReason]),
+                    exit({recv, RReason, N})
+            end;
+        {error, SReason} ->
+            ?SEV_EPRINT("send (~w of ~w): ~p", [N, Num, SReason]),
+            exit({send, SReason, N})
+    end;
+tpp_udp_client_handler_msg_exchange_loop(Sock,
+					 #{addr := Addr, port := Port} = Dest0,
+					 Send, Recv, Data,
+                                         Num, N, Sent, Received, Start) ->
+    case tpp_udp_send_req(Sock, Send, Data, Dest0) of
+        {ok, SendSz} ->
+            case tpp_udp_recv_rep(Sock, Recv) of
+                {ok, NewData, RecvSz, #{addr := Addr, port := Port} = Dest1} ->
+                    tpp_udp_client_handler_msg_exchange_loop(Sock, Dest1,
                                                              Send, Recv,
                                                              NewData, Num, N+1,
                                                              Sent+SendSz, 
@@ -25450,7 +26120,7 @@ ttest_tcp(TC,
            fun() ->
                    if
                        (Domain =:= local) -> has_support_unix_domain_socket(); 
-                       (Domain =:= inet6) -> has_support_ipv6(); 
+                       (Domain =:= inet6) -> has_support_ipv6();
                        true -> ok 
                    end
            end,
@@ -25913,16 +26583,22 @@ ttest_tcp(InitState) ->
          ?SEV_FINISH_NORMAL
         ],
 
+    Domain = maps:get(domain, InitState),
+    LHost  = local_host(),
+    LAddr  = which_local_addr(Domain),
+
     i("start server evaluator"),
-    ServerInitState = #{host   => local_host(),
-                        domain => maps:get(domain,        InitState),
+    ServerInitState = #{host   => LHost,
+			addr   => LAddr,
+                        domain => Domain,
                         mod    => maps:get(server_mod,    InitState),
                         active => maps:get(server_active, InitState)},
     Server          = ?SEV_START("server", ServerSeq, ServerInitState),
 
     i("start client evaluator"),
-    ClientInitState = #{host            => local_host(),
-                        domain          => maps:get(domain,          InitState),
+    ClientInitState = #{host            => LHost,
+			addr            => LAddr,
+                        domain          => Domain,
                         mod             => maps:get(client_mod,      InitState),
                         active          => maps:get(client_active,   InitState),
                         msg_id          => maps:get(msg_id,          InitState),
@@ -25931,9 +26607,14 @@ ttest_tcp(InitState) ->
     Client          = ?SEV_START("client", ClientSeq, ClientInitState),
     
     i("start 'tester' evaluator"),
-    TesterInitState = #{domain => maps:get(domain, InitState),
-                        server => Server#ev.pid,
-                        client => Client#ev.pid},
+    TesterInitState = #{domain        => Domain,
+			msg_id        => maps:get(msg_id,        InitState),
+                        client        => Client#ev.pid,
+			client_mod    => maps:get(client_mod,    InitState),
+			client_active => maps:get(client_active, InitState),
+                        server        => Server#ev.pid,
+                        server_mod    => maps:get(server_mod,    InitState),
+                        server_active => maps:get(server_active, InitState)},
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     i("await evaluator(s)"),
@@ -25941,8 +26622,9 @@ ttest_tcp(InitState) ->
 
 
 
-ttest_tcp_server_start(Node, _Domain, gen, Active) ->
-    Transport = socket_test_ttest_tcp_gen,
+ttest_tcp_server_start(Node, Domain, gen, Active) ->
+    TransportMod = socket_test_ttest_tcp_gen,
+    Transport    = {TransportMod, #{domain => Domain}},
     socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active);
 ttest_tcp_server_start(Node, Domain, sock, Active) ->
     TransportMod = socket_test_ttest_tcp_socket,
@@ -25956,9 +26638,10 @@ ttest_tcp_server_stop(Pid) ->
 
 ttest_tcp_client_start(Node,
                        Notify,
-                       _Domain, gen,
+                       Domain, gen,
                        ServerInfo, Active, MsgID, MaxOutstanding, RunTime) ->
-    Transport = socket_test_ttest_tcp_gen,
+    TransportMod = socket_test_ttest_tcp_gen,
+    Transport    = {TransportMod, #{domain => Domain}},    
     socket_test_ttest_tcp_client:start_monitor(Node,
                                                Notify,
                                                Transport,
@@ -26253,39 +26936,6 @@ sock_sockname(Sock) ->
             ?FAIL({sockname, C, E, S})
     end.
     
-
-%% sock_listen(Sock) ->
-%%     sock_listen2(fun() -> socket:listen(Sock) end).
-
-%% sock_listen(Sock, BackLog) ->
-%%     sock_listen2(fun() -> socket:listen(Sock, BackLog) end).
-
-%% sock_listen2(Listen) ->
-%%     try Listen() of
-%%         ok ->
-%%             ok;
-%%         {error, Reason} ->
-%%             ?FAIL({listen, Reason})
-%%     catch
-%%         C:E:S ->
-%%             ?FAIL({listen, C, E, S})
-%%     end.
-
-
-%% sock_accept(LSock) ->
-%%     try socket:accept(LSock) of
-%%         {ok, Sock} ->
-%%             Sock;
-%%         {error, Reason} ->
-%%             i("sock_accept -> error: ~p", [Reason]),
-%%             ?FAIL({accept, Reason})
-%%     catch
-%%         C:E:S ->
-%%             i("sock_accept -> failed: ~p, ~p, ~p", [C, E, S]),
-%%             ?FAIL({accept, C, E, S})
-%%     end.
-
-
 sock_close(Sock) ->
     try socket:close(Sock) of
         ok ->
@@ -26351,11 +27001,11 @@ which_local_socket_addr(local = Domain) ->
     #{family => Domain,
       path   => mk_unique_path()};
 
-%% This gets the local address (not 127.0...)
+%% This gets the local socket address (not 127.0...)
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_socket_addr(Domain) ->
-    case which_local_host_info(Domain) of
+    case ?LIB:which_local_host_info(Domain) of
         {ok, {_Name, _Flags, Addr}} ->
             #{family => Domain,
               addr   => Addr};
@@ -26364,55 +27014,20 @@ which_local_socket_addr(Domain) ->
     end.
 
 
-%% Returns the interface (name), flags and address (not 127...)
-%% of the local host.
-which_local_host_info(Domain) ->
-    case inet:getifaddrs() of
-        {ok, IFL} ->
-            which_local_host_info(Domain, IFL);
-        {error, _} = ERROR ->
-            ERROR
+
+which_local_addr(local = _Domain) ->
+    mk_unique_path();
+
+%% This gets the local address (not 127.0...)
+%% We should really implement this using the (new) net module,
+%% but until that gets the necessary functionality...
+which_local_addr(Domain) ->
+    case ?LIB:which_local_host_info(Domain) of
+        {ok, {_Name, _Flags, Addr}} ->
+            Addr;
+        {error, Reason} ->
+            ?FAIL(Reason)
     end.
-
-which_local_host_info(_Domain, []) ->
-    ?FAIL(no_address);
-which_local_host_info(Domain, [{"lo" ++ _, _}|IFL]) ->
-    which_local_host_info(Domain, IFL);
-which_local_host_info(Domain, [{"docker" ++ _, _}|IFL]) ->
-    which_local_host_info(Domain, IFL);
-which_local_host_info(Domain, [{"br-" ++ _, _}|IFL]) ->
-    which_local_host_info(Domain, IFL);
-which_local_host_info(Domain, [{Name, IFO}|IFL]) ->
-    case which_local_host_info2(Domain, IFO) of
-        {ok, {Flags, Addr}} ->
-            {ok, {Name, Flags, Addr}};
-        {error, _} ->
-            which_local_host_info(Domain, IFL)
-    end;
-which_local_host_info(Domain, [_|IFL]) ->
-    which_local_host_info(Domain, IFL).
-
-which_local_host_info2(Domain, IFO) ->
-    case lists:keysearch(flags, 1, IFO) of
-        {value, {flags, Flags}} ->
-            which_local_host_info2(Domain, IFO, Flags);
-        false ->
-            {error, no_flags}
-    end.
-
-which_local_host_info2(_Domain, [], _Flags) ->
-    {error, no_address};
-which_local_host_info2(inet = _Domain, [{addr, Addr}|_IFO], Flags)
-  when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
-    {ok, {Flags, Addr}};
-which_local_host_info2(inet6 = _Domain, [{addr, Addr}|_IFO], Flags)
-  when (size(Addr) =:= 8) andalso 
-       (element(1, Addr) =/= 0) andalso
-       (element(1, Addr) =/= 16#fe80) ->
-    {ok, {Flags, Addr}};
-which_local_host_info2(Domain, [_|IFO], Flags) ->
-    which_local_host_info2(Domain, IFO, Flags).
-
 
 
 
@@ -26425,11 +27040,11 @@ which_local_host_info2(Domain, [_|IFO], Flags) ->
 %% We don't do that here, but since we can only do that (find a
 %% multicast address) for specific platforms, we check that we are
 %% on of those platforms here.
-has_ip_multicast_support() ->
+has_support_ip_multicast() ->
     case os:type() of
         {unix, OsName} when (OsName =:= linux) orelse
                             (OsName =:= sunos) ->
-            case which_local_host_info(inet) of
+            case ?LIB:which_local_host_info(inet) of
                 {ok, {_Name, Flags, _Addr}} ->
                     case lists:member(multicast, Flags) of
                         true ->
@@ -26444,17 +27059,17 @@ has_ip_multicast_support() ->
             not_supported({multicast, Type})
     end.
 
-has_ip_add_membership_support() ->
-    has_socket_option_ip_support(add_membership).
+has_support_ip_add_membership() ->
+    has_support_socket_option_ip(add_membership).
 
-has_ip_drop_membership_support() ->
-    has_socket_option_ip_support(drop_membership).
+has_support_ip_drop_membership() ->
+    has_support_socket_option_ip(drop_membership).
 
 
-has_socket_option_ip_support(Opt) ->
-    has_socket_option_support(ip, Opt).
+has_support_socket_option_ip(Opt) ->
+    has_support_socket_option(ip, Opt).
 
-has_socket_option_support(Level, Option) ->
+has_support_socket_option(Level, Option) ->
     case socket:supports(options, Level, Option) of
         true ->
             ok;
@@ -26491,13 +27106,7 @@ has_support_unix_domain_socket() ->
 %% support for IPv6. If not, there is no point in running IPv6 tests.
 %% Currently we just skip.
 has_support_ipv6() ->
-    %% case socket:supports(ipv6) of
-    %%     true ->
-    %%         ok;
-    %%     false ->
-    %%         {error, not_supported}
-    %% end.
-    not_yet_implemented().
+    ?LIB:has_support_ipv6().
 
 
 

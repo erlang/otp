@@ -20,23 +20,30 @@
 #  %CopyrightEnd%
 # 
 
+#
+# This is just a simple convenience wrapper to the esock-ttest.
+# That means that there are some options not available here.
+#
+
 EMU=$ERL_TOP/erts/emulator
 EMU_TEST=$EMU/test
 ESOCK_TTEST=$EMU_TEST/esock_ttest
 
 RUNTIME=30
+# RUNTIME=60
+# RUNTIME=600
 
 if [ $# = 3 ]; then
     MSGID=$1
     SERVER_INFO=$2:$3
 
     ITERATIONS="\
-       gen  false  $MSGID
-       gen  true   $MSGID
-       gen  once   $MSGID
-       sock false  $MSGID
-       sock true   $MSGID
-       sock once   $MSGID"
+       gen  false $MSGID
+       gen  true  $MSGID
+       gen  once  $MSGID
+       sock false $MSGID --async
+       sock true  $MSGID --async
+       sock once  $MSGID --async"
 
 else
     if [ $# = 2 ]; then
@@ -44,9 +51,9 @@ else
 	SERVER_INFO=$2
 
 	ITERATIONS="\
-           sock false  $MSGID
-           sock true   $MSGID
-           sock once   $MSGID"
+           sock false $MSGID --async
+           sock true  $MSGID --async
+           sock once  $MSGID --async"
 
     else
 	echo "Invalid number of args"
@@ -70,14 +77,14 @@ fi
 # ---------------------------------------------------------------------------
 
 echo "$ITERATIONS" |
-  while read TRANSPORT ACTIVE MSG_ID; do
+  while read TRANSPORT ACTIVE MSG_ID ASYNC; do
 
       echo ""
       echo "=========== transport = $TRANSPORT, active = $ACTIVE, msg-id = $MSG_ID ==========="
       # The /dev/null at the end is necessary because erlang "does things" with stdin
       # and this case would cause the 'while read' to "fail" so that we only would
       # loop one time
-      $ESOCK_TTEST/esock-ttest --client --transport $TRANSPORT --active $ACTIVE --msg-id $MSG_ID --scon $SERVER_INFO --runtime $RUNTIME </dev/null
+      $ESOCK_TTEST/esock-ttest --client --transport $TRANSPORT $ASYNC --active $ACTIVE --msg-id $MSG_ID --scon $SERVER_INFO --runtime $RUNTIME </dev/null
       echo ""
 
   done

@@ -203,7 +203,7 @@ process_client_args(["--max-outstanding", Max|Args], State) ->
     end;
 
 process_client_args(["--scon", Server|Args], State) ->
-    case string:tokens(Server, [$:]) of
+    case string:split(Server, ":", trailing) of
         [AddrStr,PortStr] ->
             Addr = case inet:parse_address(AddrStr) of
                        {ok, A} ->
@@ -343,9 +343,9 @@ exec(#{role            := client,
        runtime         := RunTime}) ->
     case socket_test_ttest_tcp_client_socket:start(true,
                                                    Async,
+						   Active,
                                                    Method,
                                                    ServerInfo,
-                                                   Active,
                                                    MsgID, MaxOutstanding,
                                                    RunTime) of
         {ok, Pid} ->
