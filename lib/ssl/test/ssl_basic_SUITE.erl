@@ -106,8 +106,7 @@ basic_tests() ->
      clear_pem_cache,
      defaults,
      fallback,
-     cipher_format,
-     suite_to_str
+     cipher_format
     ].
 
 basic_tests_tls() ->
@@ -1147,25 +1146,6 @@ cipher_format(Config) when is_list(Config) ->
     {ok, Socket2} = ssl:listen(0, [{ciphers, ssl:cipher_suites(openssl)}]),
     ssl:close(Socket2).
 
-%%--------------------------------------------------------------------
-suite_to_str() ->
-    [{doc, "Test that the suite_to_str API works"}].
-suite_to_str(Config) when is_list(Config) ->
-    "TLS_EMPTY_RENEGOTIATION_INFO_SCSV" =
-        ssl:suite_to_str(#{key_exchange => null,
-                           cipher => null,
-                           mac => null,
-                           prf => null}),
-    "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256" =
-        ssl:suite_to_str(#{key_exchange => ecdhe_ecdsa,
-                           cipher => aes_128_gcm,
-                           mac => aead,
-                           prf => sha256}),
-    "TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256" =
-        ssl:suite_to_str(#{key_exchange => ecdh_rsa,
-                           cipher => aes_128_cbc,
-                           mac => sha256,
-                           prf => sha256}).
 
 %%--------------------------------------------------------------------
 
