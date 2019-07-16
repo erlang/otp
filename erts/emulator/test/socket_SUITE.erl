@@ -9153,6 +9153,11 @@ api_opt_sock_broadcast() ->
                                    ?SEV_IPRINT("Expected Success (bound): ~p",
                                                [Port]),
                                    {ok, State#{sa1 => BSA#{port => Port}}};
+                               {error, eaddrnotavail = Reason} ->
+                                   ?SEV_IPRINT("~p => "
+					       "SKIP limited broadcast test",
+					       [Reason]),
+                                   {ok, State#{sa1 => skip}};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p",
 					       [Reason]),
@@ -9160,14 +9165,17 @@ api_opt_sock_broadcast() ->
                            end
                    end},
          #{desc => "[socket 1] UDP socket sockname",
-           cmd  => fun(#{sock1 := Sock} = _State) ->
-                           case socket:sockname(Sock) of
-                               {ok, SA} ->
+           cmd  => fun(#{sock1 := Sock, sa1 := skip} = _State) ->
+                           ?SEV_IPRINT("SKIP limited broadcast test"),
+                           ok;
+		      (#{sock1 := Sock} = _State) ->
+			   case socket:sockname(Sock) of
+			       {ok, SA} ->
 				   ?SEV_IPRINT("SA: ~p", [SA]),
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
+				   ok;
+			       {error, _} = ERROR ->
+				   ERROR
+			   end
                    end},
 
          ?SEV_SLEEP(?SECS(1)),
@@ -9281,17 +9289,17 @@ api_opt_sock_broadcast() ->
                                    ERROR
                            end
                    end},
-         #{desc => "[socket 3] verify UDP socket (after bind and before set)",
+         #{desc => "[socket 3] verify UDP socket (after set)",
            cmd  => fun(#{sock3 := Sock} = _State) ->
                            case Get(Sock) of
-                               {ok, false} ->
-                                   ?SEV_IPRINT("Expected Success: "
-                                               "broadcast not allowed"),
-                                   ok;
                                {ok, true} ->
-                                   ?SEV_IPRINT("Unexpected Success result: "
-                                               "broadcast already allowed"),
+                                   ?SEV_IPRINT("Expected Success: "
+                                               "broadcast allowed"),
                                    ok;
+                               {ok, false} ->
+                                   ?SEV_IPRINT("Unexpected Success result: "
+                                               "broadcast not allowed"),
+                                   {error, not_allowed};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p",
 					       [Reason]),
@@ -9303,23 +9311,31 @@ api_opt_sock_broadcast() ->
 
          #{desc => "[socket 3] try send to limited broadcast address",
            cmd  => fun(#{sock3 := Sock,
-                         sa1   := Dest} = _State) ->
-                           Data = list_to_binary("hejsan"),
-                           ?SEV_IPRINT("try send to bradcast address: "
-                                       "~n   ~p", [Dest]),
-                           case socket:sendto(Sock, Data, Dest) of
-                               ok ->
-                                   ?SEV_IPRINT("Expected Success: "
-                                               "broadcast message sent"),
-                                   ok;
-                               {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+                         sa1   := skip} = _State) ->
+                           ?SEV_IPRINT("SKIP limited broadcast test"),
+			   ok;
+		      (#{sock3 := Sock,
+			 sa1   := Dest} = _State) ->
+			   Data = list_to_binary("hejsan"),
+			   ?SEV_IPRINT("try send to bradcast address: "
+				       "~n   ~p", [Dest]),
+			   case socket:sendto(Sock, Data, Dest) of
+			       ok ->
+				   ?SEV_IPRINT("Expected Success: "
+					       "broadcast message sent"),
+				   ok;
+			       {error, Reason} = ERROR ->
+				   ?SEV_EPRINT("Unexpected Failure: ~p",
 					       [Reason]),
-                                   ERROR
-                           end
-                   end},
+				   ERROR
+			   end
+		   end},
          #{desc => "[socket 1] try recv",
-           cmd  => fun(#{sock1 := Sock} = _State) ->
+           cmd  => fun(#{sock1 := Sock,
+			 sa1   := skip} = _State) ->
+			   ?SEV_IPRINT("SKIP limited broadcast test"),
+			   ok;
+		      (#{sock1 := Sock} = _State) ->
                            case socket:recvfrom(Sock, 0, 5000) of
                                {ok, _} ->
                                    ?SEV_IPRINT("Expected Success: "
