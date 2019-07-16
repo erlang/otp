@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -311,9 +311,11 @@ listen_port_options(Config) when is_list(Config) ->
     catch
 	_:Reason ->
 	    stop_ssl_node(NH2),
+	    stop_ssl_node(NH1),
 	    ct:fail(Reason)
     end,
     stop_ssl_node(NH2),
+    stop_ssl_node(NH1),
     success(Config).
 
 %%--------------------------------------------------------------------
