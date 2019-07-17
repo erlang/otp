@@ -47,7 +47,6 @@
 	 print/3, print/4
 	]).
 
--export([behaviour_info/1]).
 
 %% Internal exports
 -export([start/4]).
@@ -91,15 +90,32 @@
 %%%  API
 %%%=========================================================================
 
-behaviour_info(callbacks) ->
-    [
-     {init,         1}, 
-     {handle_parse, 2},
-     {handle_exec,  2},
-     {terminate,    2}
-    ];
-behaviour_info(_Other) ->
-    undefined.
+-callback init(Args) -> {ok, State} | {error, Reason} when
+      Args :: term(),
+      State :: term(),
+      Reason :: term().
+
+-callback handle_parse(Instruction, State) -> 
+    {ok, NewInstruction, NewState} |
+    {error, Reason} when
+      Instruction    :: term(),
+      State          :: term(),
+      NewInstruction :: term(),
+      NewState       :: term(),
+      Reason         :: term().
+
+-callback handle_exec(Instruction, State) -> 
+    {ok, NewState} |
+    {error, Reason} when
+      Instruction :: term(),
+      State       :: term(),
+      NewState    :: term(),
+      Reason      :: term().
+
+-callback terminate(Reason, State) -> 
+    megaco:void() when
+      Reason :: term(),
+      State :: term().
 
 
 %%----------------------------------------------------------------------

@@ -118,7 +118,7 @@ init([]) ->
 %% ----- instruction parser -----
 
 handle_parse({debug, Debug} = Instruction, State)
-  when (Debug == true) orelse (Debug == false) ->
+  when is_boolean(Debug) ->
     {ok, Instruction, State};
 
 handle_parse({expect_nothing, To} = Instruction, State)
@@ -126,9 +126,9 @@ handle_parse({expect_nothing, To} = Instruction, State)
     {ok, Instruction, State};
 
 handle_parse({megaco_trace, Level} = Instruction, State)
-  when (Level == disable) orelse 
-       (Level == max)     orelse 
-       (Level == min)     orelse
+  when (Level =:= disable) orelse 
+       (Level =:= max)     orelse 
+       (Level =:= min)     orelse
        is_integer(Level) ->
     {ok, Instruction, State};
 
