@@ -9423,10 +9423,11 @@ api_opt_sock_broadcast() ->
 
 %% Tests the socket option debug.
 %% Only allowed for processes with the CAP_NET_ADMIN capability or an
-%% effective user ID of 0.
-%% Since we never run the test as root (I hope), this test will
-%% most likely be skipped (unless we give the test user CAP_NET_ADMIN
-%% capability).
+%% .
+%% On linux, this test requires that the user running the test to have
+%% CAP_NET_ADMIN capabilities or be root (effective user ID of 0), 
+%% therefor we explicitly test for the result eacces when attempting to
+%% set, and skip if we get it.
 
 api_opt_sock_debug(suite) ->
     [];
@@ -9494,17 +9495,30 @@ api_opt_sock_debug() ->
                            end
                    end},
          #{desc => "Try enable socket debug",
-           cmd  => fun(#{sock := Sock, debug := Debug} = _State) ->
-                           case Set(Sock, Debug + 1) of
+           cmd  => fun(#{sock := Sock, debug := Debug} = State) ->
+			   NewDebug = Debug + 1,
+                           case Set(Sock, NewDebug) of
                                ok ->
                                    ?SEV_IPRINT("Expected Success"),
-                                   ok;
+                                   {ok, State#{debug => NewDebug}};
                                {error, eacces = Reason} ->
                                    ?SEV_EPRINT("NO ACCESS => SKIP"),
                                    {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p",
 					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Get current (new) debug value",
+           cmd  => fun(#{sock := Sock, debug := Debug} = State) ->
+                           case Get(Sock) of
+                               {ok, Debug} when is_integer(Debug) ->
+                                   ?SEV_IPRINT("Success: ~p", [Debug]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected failure: ~p",
+                                               [Reason]),
                                    ERROR
                            end
                    end},
