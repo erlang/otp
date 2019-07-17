@@ -25,7 +25,24 @@
 
 -module(megaco_config_test).
 
--compile(export_all).
+-export([
+         all/0,
+         groups/0,
+
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         config/1,
+         transaction_id_counter_mg/1,
+         transaction_id_counter_mgc/1,
+         otp_7216/1,
+         otp_8167/1,
+         otp_8183/1,
+
+         t/0, t/1
+        ]).
 
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
@@ -60,20 +77,36 @@ end_per_testcase(Case, Config) ->
 %% Top test case
 
 all() -> 
-    [config, {group, transaction_id_counter},
-     {group, tickets}].
+    [
+     config,
+     {group, transaction_id_counter},
+     {group, tickets}
+    ].
 
 groups() -> 
-    [{transaction_id_counter, [],
-      [transaction_id_counter_mg,
-       transaction_id_counter_mgc]},
-     {tickets, [], [otp_7216, otp_8167, otp_8183]}].
+    [
+     {transaction_id_counter, [], transaction_id_counter_cases()},
+     {tickets,                [], tickets_cases()}
+    ].
 
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+transaction_id_counter_cases() ->
+    [
+     transaction_id_counter_mg,
+     transaction_id_counter_mgc
+    ].
+
+tickets_cases() ->
+    [
+     otp_7216,
+     otp_8167,
+     otp_8183
+    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
