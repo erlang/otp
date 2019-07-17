@@ -224,7 +224,7 @@
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>requires admin capability</cell>
+	<cell>may require admin capability</cell>
       </row>
       <row>
 	<cell>domain</cell>
