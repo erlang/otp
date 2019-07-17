@@ -1431,7 +1431,7 @@ setup_reference_table(void)
     }
     
 #ifdef ERTS_SMP
-    erts_foreach_sys_msg_in_q(insert_sys_msg);
+    erts_debug_foreach_sys_msg_in_q(insert_sys_msg);
 #endif
 
     /* Insert all ports */
