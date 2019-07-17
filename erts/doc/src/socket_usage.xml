@@ -56,14 +56,16 @@
       function with Timeout set to <c>nowait</c> (i.e. 
       <c>recv(Sock, 0, nowait)</c>)
       when there is actually nothing to read, it will return with
-      <c>{ok, </c>
-      <seealso marker="socket#type-select_info"><c>SelectInfo</c></seealso><c>}</c>.
+      <c>{select, </c>
+      <seealso marker="socket#type-select_info"><c>SelectInfo</c></seealso><c>}</c>
+      (<c>SelectInfo</c> contains the
+      <seealso marker="socket#type-select_ref">SelectRef</seealso>).
       When data eventually arrives a 'select message'
       will be sent to the caller:</p>
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
-	<item><c>{'$socket', socket(), select, select_ref()}</c></item>
+	<item><c>{'$socket', socket(), select, SelectRef}</c></item>
       </taglist>
       <p>The caller can then make another
       call to the recv function and now expect data.</p>
@@ -81,7 +83,7 @@
       <p>If the operation is aborted
       for whatever reason (e.g. if the socket is closed "by someone else").
       The <c>Info</c> part contains the abort reason (in this case that
-      the socket has been closed <c>Info = {select_ref(), closed}</c>). </p>
+      the socket has been closed <c>Info = {SelectRef, closed}</c>). </p>
       <p>Note that all other users are <em>locked out</em> until the
       'current user' has called the function (recv in this case). So either
       immediately call the function or
