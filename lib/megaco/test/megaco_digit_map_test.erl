@@ -24,7 +24,27 @@
 %%----------------------------------------------------------------------
 -module(megaco_digit_map_test).
 
--compile(export_all).
+-export([
+         all/0,
+         groups/0,
+
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         otp_5750_01/1,
+         otp_5750_02/1,
+         otp_5799_01/1,
+         otp_5826_01/1,
+         otp_5826_02/1,
+         otp_5826_03/1,
+         otp_7449_1/1,
+         otp_7449_2/1,
+
+         t/0, t/1
+        ]).
+
 
 -include("megaco_test_lib.hrl").
 
@@ -44,16 +64,18 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-    [{group, tickets}].
+    [
+     {group, tickets}
+    ].
 
 groups() -> 
-    [{tickets, [],
-      [{group, otp_5750}, {group, otp_5799},
-       {group, otp_5826}, {group, otp_7449}]},
-     {otp_5750, [], [otp_5750_01, otp_5750_02]},
-     {otp_5799, [], [otp_5799_01]},
-     {otp_5826, [], [otp_5826_01, otp_5826_02, otp_5826_03]},
-     {otp_7449, [], [otp_7449_1, otp_7449_2]}].
+    [
+     {tickets,  [], tickets_cases()},
+     {otp_5750, [], otp_5750_cases()},
+     {otp_5799, [], otp_5799_cases()},
+     {otp_5826, [], otp_5826_cases()},
+     {otp_7449, [], otp_7449_cases()}
+    ].
 
 init_per_group(_GroupName, Config) ->
 	Config.
@@ -61,6 +83,38 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
 	Config.
 
+
+tickets_cases() ->
+    [
+     {group, otp_5750},
+     {group, otp_5799},
+     {group, otp_5826},
+     {group, otp_7449}
+    ].
+
+otp_5750_cases() ->
+    [
+     otp_5750_01,
+     otp_5750_02
+    ].
+
+otp_5799_cases() ->
+    [
+     otp_5799_01
+    ].
+
+otp_5826_cases() ->
+    [
+     otp_5826_01,
+     otp_5826_02,
+     otp_5826_03
+    ].
+
+otp_7449_cases() ->
+    [
+     otp_7449_1,
+     otp_7449_2
+    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
