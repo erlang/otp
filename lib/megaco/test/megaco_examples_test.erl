@@ -25,7 +25,20 @@
 
 -module(megaco_examples_test).
 
--compile(export_all).
+-export([
+         all/0,
+         groups/0,
+
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         simple/1,
+
+         t/0, t/1
+        ]).
+
 
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
