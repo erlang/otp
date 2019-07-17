@@ -125,6 +125,7 @@
          api_opt_sock_acceptfilter/1,
          api_opt_sock_bindtodevice/1,
          api_opt_sock_broadcast/1,
+         api_opt_sock_debug/1,
          api_opt_ip_add_drop_membership/1,
 
          %% *** API Operation Timeout ***
@@ -787,7 +788,8 @@ api_options_socket_cases() ->
      api_opt_sock_acceptconn,
      api_opt_sock_acceptfilter,
      api_opt_sock_bindtodevice,
-     api_opt_sock_broadcast
+     api_opt_sock_broadcast,
+     api_opt_sock_debug
     ].
 
 api_options_ip_cases() ->
@@ -9165,7 +9167,7 @@ api_opt_sock_broadcast() ->
                            end
                    end},
          #{desc => "[socket 1] UDP socket sockname",
-           cmd  => fun(#{sock1 := Sock, sa1 := skip} = _State) ->
+           cmd  => fun(#{sa1 := skip} = _State) ->
                            ?SEV_IPRINT("SKIP limited broadcast test"),
                            ok;
 		      (#{sock1 := Sock} = _State) ->
@@ -9310,8 +9312,7 @@ api_opt_sock_broadcast() ->
 	 ?SEV_SLEEP(?SECS(1)),
 
          #{desc => "[socket 3] try send to limited broadcast address",
-           cmd  => fun(#{sock3 := Sock,
-                         sa1   := skip} = _State) ->
+           cmd  => fun(#{sa1 := skip} = _State) ->
                            ?SEV_IPRINT("SKIP limited broadcast test"),
 			   ok;
 		      (#{sock3 := Sock,
@@ -9331,8 +9332,7 @@ api_opt_sock_broadcast() ->
 			   end
 		   end},
          #{desc => "[socket 1] try recv",
-           cmd  => fun(#{sock1 := Sock,
-			 sa1   := skip} = _State) ->
+           cmd  => fun(#{sa1 := skip} = _State) ->
 			   ?SEV_IPRINT("SKIP limited broadcast test"),
 			   ok;
 		      (#{sock1 := Sock} = _State) ->
@@ -9402,6 +9402,119 @@ api_opt_sock_broadcast() ->
 			   State1 = maps:remove(sock1, State0),
 			   State2 = maps:remove(sa1,   State1),
                            {ok, State2}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    Domain = inet,
+
+    i("start tester evaluator"),
+    InitState = #{domain => Domain},
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option debug.
+%% Only allowed for processes with the CAP_NET_ADMIN capability or an
+%% effective user ID of 0.
+%% Since we never run the test as root (I hope), this test will
+%% most likely be skipped (unless we give the test user CAP_NET_ADMIN
+%% capability).
+
+api_opt_sock_debug(suite) ->
+    [];
+api_opt_sock_debug(doc) ->
+    [];
+api_opt_sock_debug(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_opt_sock_debug,
+           fun() -> has_support_sock_debug() end,
+           fun() -> api_opt_sock_debug() end).
+
+
+api_opt_sock_debug() ->
+    Opt    = debug,
+    Set    = fun(S, Val) when is_integer(Val) ->
+                     socket:setopt(S, socket, Opt, Val)
+             end,
+    Get    = fun(S) ->
+                     socket:getopt(S, socket, Opt)
+             end,
+
+    TesterSeq =
+        [
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case ?LIB:which_local_host_info(Domain) of
+                               {ok, #{name      := Name,
+                                      addr      := Addr,
+                                      broadaddr := BAddr}} ->
+                                   ?SEV_IPRINT("local host info: "
+                                               "~n   Name:           ~p"
+                                               "~n   Addr:           ~p"
+                                               "~n   Broadcast Addr: ~p",
+                                               [Name, Addr, BAddr]),
+                                   LSA = #{family => Domain,
+                                           addr   => Addr},
+                                   BSA = #{family => Domain,
+                                           addr   => BAddr},
+                                   {ok, State#{lsa => LSA,
+                                               bsa => BSA}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "create UDP socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Get current debug value",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case Get(Sock) of
+                               {ok, Debug} when is_integer(Debug) ->
+                                   ?SEV_IPRINT("Success: ~p", [Debug]),
+                                   {ok, State#{debug => Debug}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected failure: ~p",
+                                               [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Try enable socket debug",
+           cmd  => fun(#{sock := Sock, debug := Debug} = _State) ->
+                           case Set(Sock, Debug + 1) of
+                               ok ->
+                                   ?SEV_IPRINT("Expected Success"),
+                                   ok;
+                               {error, eacces = Reason} ->
+                                   ?SEV_EPRINT("NO ACCESS => SKIP"),
+                                   {skip, Reason};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "close UDP socket",
+           cmd  => fun(#{sock := Sock} = State0) ->
+                           socket:close(Sock),
+			   State1 = maps:remove(sock, State0),
+                           {ok, State1}
                    end},
 
          %% *** We are done ***
@@ -28170,6 +28283,9 @@ has_support_sock_broadcast() ->
         {error, Reason} ->
             not_supported({broadcast, Reason})
     end.
+
+has_support_sock_debug() ->
+    has_support_socket_option_sock(debug).
 
 
 has_support_ip_add_membership() ->
