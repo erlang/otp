@@ -1752,19 +1752,26 @@ has_bugfree_gcc() ->
 
 %% Make sure we are on linux
 has_bugfree_gcc({unix, linux}) ->
-    has_bugfree_gcc2(os:cmd("cat /etc/issue"));
+    has_bugfree_gcc2(string:trim(os:cmd("cat /etc/issue")));
 has_bugfree_gcc(_) ->
     ok.
 
 %% Make sure we are on Fedora 16
 has_bugfree_gcc2("Fedora release 16 " ++ _) ->
     has_bugfree_gcc3(os:cmd("gcc --version"));
+has_bugfree_gcc2("Welcome to SUSE Linux " ++ _) ->
+    has_bugfree_gcc4(os:cmd("gcc --version"));
 has_bugfree_gcc2(_) ->
     ok.
 
 has_bugfree_gcc3("gcc (GCC) 4.6.3 20120306 (Red Hat 4.6.3-2" ++ _) ->
     skip("Buggy GCC");
 has_bugfree_gcc3(_) ->
+    ok.
+
+has_bugfree_gcc4("gcc (SUSE Linux) 4.3.2" ++ _) ->
+    skip("Buggy GCC");
+has_bugfree_gcc4(_) ->
     ok.
 
 api_m_debug() ->
@@ -1783,6 +1790,7 @@ api_m_debug() ->
     i("ok"),
     ok.
     
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -8605,6 +8613,7 @@ which_multicast_address(Domain) ->
             which_multicast_address2(Domain, WhichMAddr);
 
         Type ->
+            %% Actually, what is "not supported". is netstat!
             not_supported({multicast, Type})
     end.
 
@@ -8614,20 +8623,28 @@ which_multicast_address(Domain) ->
 
 which_multicast_address2(Domain, WhichMAddr) ->
     IfName = which_local_host_ifname(Domain),
-    try
-        begin
-            %% On some platforms the netstat barfs out some crap on stderr
-            %% before the actual info...
-            NetstatGroupsStr = os:cmd("netstat -g 2>/dev/null | grep " ++ IfName),
-            NetstatGroups0   = string:tokens(NetstatGroupsStr, [$\n]),
-            NetstatGroups    = [string:tokens(G, [$ ]) || G <- NetstatGroups0],
-            MAddrs           = [WhichMAddr(NetstatGroup) || NetstatGroup <-
-                                                                NetstatGroups],
-            which_multicast_address3(Domain, MAddrs)
-        end
-    catch
-        C:E:S ->
-            not_supported({multicast, {C,E,S}})
+    %% On some platforms the netstat barfs out some crap on stderr
+    %% before the actual info...
+    case os:cmd("netstat -g 2>/dev/null | grep " ++ IfName) of
+        [] ->
+            %% Can't figure out if we support multicast or not...
+            not_supported(no_netstat);
+        NetstatGroupsStr ->
+            try
+                begin
+                    NetstatGroups0   = string:tokens(NetstatGroupsStr, [$\n]),
+                    NetstatGroups    = [string:tokens(G, [$ ]) || 
+                                           G <- NetstatGroups0],
+                    MAddrs           = [WhichMAddr(NetstatGroup) || 
+                                           NetstatGroup <- NetstatGroups],
+                    which_multicast_address3(Domain, MAddrs)
+                end
+            catch
+                throw:E:_ ->
+                    throw(E);
+                C:E:S ->
+                    not_supported({multicast, {C,E,S}})
+            end
     end.
 
 which_multicast_address3(_Domain, []) ->
@@ -17821,12 +17838,12 @@ traffic_ping_pong_small_sendto_and_recvfrom_udp6(suite) ->
 traffic_ping_pong_small_sendto_and_recvfrom_udp6(doc) ->
     [];
 traffic_ping_pong_small_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
-    ?TT(?SECS(45)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
+                   ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
                                  proto  => udp,
                                  msg    => Msg,
@@ -17850,12 +17867,12 @@ traffic_ping_pong_small_sendto_and_recvfrom_udpL(suite) ->
 traffic_ping_pong_small_sendto_and_recvfrom_udpL(doc) ->
     [];
 traffic_ping_pong_small_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
-    ?TT(?SECS(45)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
+                   ?TT(?SECS(45)),
                    InitState = #{domain => local,
                                  proto  => default,
                                  msg    => Msg,
@@ -18079,7 +18096,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config)
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(20)),
+                   ?TT(?SECS(30)),
                    InitState = #{domain => inet6,
                                  proto  => tcp,
                                  msg    => Msg,
@@ -18107,7 +18124,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config)
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
-                   ?TT(?SECS(20)),
+                   ?TT(?SECS(30)),
                    InitState = #{domain => local,
                                  proto  => default,
                                  msg    => Msg,
@@ -18135,7 +18152,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) 
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
            fun() -> traffic_ping_pong_large_sendmsg_and_recvmsg_cond() end,
            fun() ->
-                   ?TT(?SECS(30)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => inet,
                                  proto  => tcp,
                                  msg    => Msg,
@@ -18176,7 +18193,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
                    traffic_ping_pong_large_sendmsg_and_recvmsg_cond()
            end,
            fun() ->
-                   ?TT(?SECS(30)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => inet6,
                                  proto  => tcp,
                                  msg    => Msg,
@@ -18205,7 +18222,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) 
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
-                   ?TT(?SECS(30)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => local,
                                  proto  => default,
                                  msg    => Msg,
@@ -18261,7 +18278,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) 
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(30)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => inet6,
                                  proto  => udp,
                                  msg    => Msg,
@@ -18289,7 +18306,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) 
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
-                   ?TT(?SECS(30)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => local,
                                  proto  => default,
                                  msg    => Msg,
@@ -18316,7 +18333,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config)
     Num = ?TPP_MEDIUM_NUM,
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4,
            fun() ->
-                   ?TT(?SECS(30)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => inet,
                                  proto  => udp,
                                  msg    => Msg,
@@ -18344,7 +18361,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config)
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(20)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => inet6,
                                  proto  => udp,
                                  msg    => Msg,
@@ -18373,7 +18390,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config)
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
-                   ?TT(?SECS(20)),
+                   ?TT(?SECS(60)),
                    InitState = #{domain => local,
                                  proto  => default,
                                  msg    => Msg,
