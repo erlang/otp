@@ -940,6 +940,8 @@ escape_char(C) -> C.
 
 scan_number([C|Cs], St, Line, Col, Toks, Ncs) when ?DIGIT(C) ->
     scan_number(Cs, St, Line, Col, Toks, [C|Ncs]);
+scan_number([$_|Cs], St, Line, Col, Toks, Ncs) ->
+    scan_number(Cs, St, Line, Col, Toks, Ncs);
 scan_number([$.,C|Cs], St, Line, Col, Toks, Ncs) when ?DIGIT(C) ->
     scan_fraction(Cs, St, Line, Col, Toks, [C,$.|Ncs]);
 scan_number([$.]=Cs, _St, Line, Col, Toks, Ncs) ->
@@ -975,6 +977,8 @@ scan_based_int([C|Cs], St, Line, Col, Toks, {B,Ncs,Bcs})
 scan_based_int([C|Cs], St, Line, Col, Toks, {B,Ncs,Bcs})
     when C >= $a, B > 10, C < $a+B-10 ->
     scan_based_int(Cs, St, Line, Col, Toks, {B,[C|Ncs],Bcs});
+scan_based_int([$_|Cs], St, Line, Col, Toks, {B,Ncs,Bcs}) ->
+    scan_based_int(Cs, St, Line, Col, Toks, {B,Ncs,Bcs});
 scan_based_int([]=Cs, _St, Line, Col, Toks, State) ->
     {more,{Cs,Col,Toks,Line,State,fun scan_based_int/6}};
 scan_based_int(Cs, St, Line, Col, Toks, {B,Ncs0,Bcs}) ->
@@ -990,6 +994,8 @@ scan_based_int(Cs, St, Line, Col, Toks, {B,Ncs0,Bcs}) ->
 
 scan_fraction([C|Cs], St, Line, Col, Toks, Ncs) when ?DIGIT(C) ->
     scan_fraction(Cs, St, Line, Col, Toks, [C|Ncs]);
+scan_fraction([$_|Cs], St, Line, Col, Toks, Ncs) ->
+    scan_fraction(Cs, St, Line, Col, Toks, Ncs);
 scan_fraction([E|Cs], St, Line, Col, Toks, Ncs) when E =:= $e; E =:= $E ->
     scan_exponent_sign(Cs, St, Line, Col, Toks, [E|Ncs]);
 scan_fraction([]=Cs, _St, Line, Col, Toks, Ncs) ->
@@ -1006,6 +1012,8 @@ scan_exponent_sign(Cs, St, Line, Col, Toks, Ncs) ->
 
 scan_exponent([C|Cs], St, Line, Col, Toks, Ncs) when ?DIGIT(C) ->
     scan_exponent(Cs, St, Line, Col, Toks, [C|Ncs]);
+scan_exponent([$_|Cs], St, Line, Col, Toks, Ncs) ->
+    scan_exponent(Cs, St, Line, Col, Toks, Ncs);
 scan_exponent([]=Cs, _St, Line, Col, Toks, Ncs) ->
     {more,{Cs,Col,Toks,Line,Ncs,fun scan_exponent/6}};
 scan_exponent(Cs, St, Line, Col, Toks, Ncs) ->
