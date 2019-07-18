@@ -119,11 +119,11 @@ tls_msg(Version) ->
 %%
 client_hello(?'TLS_v1.3' = Version) ->
     #client_hello{session_id = session_id(),
-		  client_version = ?'TLS_v1.2',
-		  cipher_suites = cipher_suites(Version),
-		  compression_methods = compressions(Version),
-		  random = client_random(Version),
-		  extensions = client_hello_extensions(Version)    
+                  client_version = ?'TLS_v1.2',
+                  cipher_suites = cipher_suites(Version),
+                  compression_methods = compressions(Version),
+                  random = client_random(Version),
+                  extensions = client_hello_extensions(Version)
                  };
 client_hello(Version) ->
     #client_hello{session_id = session_id(),
@@ -323,7 +323,7 @@ extensions(?'TLS_v1.3' = Version, client_hello) ->
            %% Padding,
            KeyShare,
            %% PreSharedKey,
-           %% PSKKeyExchangeModes,
+           PSKKeyExchangeModes,
            %% EarlyData,
            %% Cookie,
            SupportedVersions,
@@ -346,7 +346,7 @@ extensions(?'TLS_v1.3' = Version, client_hello) ->
            %% oneof([padding(), undefined]),
            oneof([key_share(client_hello), undefined]),
            %% oneof([pre_shared_key(), undefined]),
-           %% oneof([psk_key_exchange_modes(), undefined]),
+           oneof([psk_key_exchange_modes(), undefined]),
            %% oneof([early_data(), undefined]),
            %% oneof([cookie(), undefined]),
            oneof([client_hello_versions(Version)]),
@@ -374,7 +374,7 @@ extensions(?'TLS_v1.3' = Version, client_hello) ->
                         %% padding => Padding,
                         key_share => KeyShare,
                         %% pre_shared_key => PreSharedKey,
-                        %% psk_key_exhange_modes => PSKKeyExchangeModes,
+                        psk_key_exchange_modes => PSKKeyExchangeModes,
                         %% early_data => EarlyData,
                         %% cookie => Cookie,
                         client_hello_versions => SupportedVersions,
@@ -826,3 +826,12 @@ group_list(N, Pool, Acc) ->
     R = rand:uniform(length(Pool)),
     G = lists:nth(R, Pool),
     group_list(N - 1, Pool -- [G], [G|Acc]).
+
+
+ke_modes() ->
+    oneof([[psk_ke],[psk_dhe_ke],[psk_ke,psk_dhe_ke]]).
+
+psk_key_exchange_modes() ->
+    ?LET(KEModes, ke_modes(),
+         #psk_key_exchange_modes{
+            ke_modes = KEModes}).
