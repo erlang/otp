@@ -126,6 +126,7 @@
          api_opt_sock_bindtodevice/1,
          api_opt_sock_broadcast/1,
          api_opt_sock_debug/1,
+         api_opt_sock_keepalive/1,
          api_opt_ip_add_drop_membership/1,
 
          %% *** API Operation Timeout ***
@@ -789,7 +790,8 @@ api_options_socket_cases() ->
      api_opt_sock_acceptfilter,
      api_opt_sock_bindtodevice,
      api_opt_sock_broadcast,
-     api_opt_sock_debug
+     api_opt_sock_debug,
+     api_opt_sock_keepalive
     ].
 
 api_options_ip_cases() ->
@@ -9511,11 +9513,139 @@ api_opt_sock_debug() ->
                            end
                    end},
          #{desc => "Get current (new) debug value",
-           cmd  => fun(#{sock := Sock, debug := Debug} = State) ->
+           cmd  => fun(#{sock := Sock, debug := Debug} = _State) ->
                            case Get(Sock) of
                                {ok, Debug} when is_integer(Debug) ->
                                    ?SEV_IPRINT("Success: ~p", [Debug]),
                                    ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected failure: ~p",
+                                               [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "close UDP socket",
+           cmd  => fun(#{sock := Sock} = State0) ->
+                           socket:close(Sock),
+			   State1 = maps:remove(sock, State0),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    Domain = inet,
+
+    i("start tester evaluator"),
+    InitState = #{domain => Domain},
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option keepalive.
+%% This is bit tricky to test, partly because we have no control over
+%% the underlying TCP timeouts. So, for now, we just test that we can
+%% change the value.
+
+api_opt_sock_keepalive(suite) ->
+    [];
+api_opt_sock_keepalive(doc) ->
+    [];
+api_opt_sock_keepalive(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_opt_sock_keepalive,
+           fun() -> has_support_sock_keepalive() end,
+           fun() -> api_opt_sock_keepalive() end).
+
+
+api_opt_sock_keepalive() ->
+    Opt    = keepalive,
+    Set    = fun(S, Val) when is_boolean(Val) ->
+                     socket:setopt(S, socket, Opt, Val)
+             end,
+    Get    = fun(S) ->
+                     socket:getopt(S, socket, Opt)
+             end,
+
+    TesterSeq =
+        [
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case ?LIB:which_local_host_info(Domain) of
+                               {ok, #{name      := Name,
+                                      addr      := Addr,
+                                      broadaddr := BAddr}} ->
+                                   ?SEV_IPRINT("local host info: "
+                                               "~n   Name:           ~p"
+                                               "~n   Addr:           ~p"
+                                               "~n   Broadcast Addr: ~p",
+                                               [Name, Addr, BAddr]),
+                                   LSA = #{family => Domain,
+                                           addr   => Addr},
+                                   BSA = #{family => Domain,
+                                           addr   => BAddr},
+                                   {ok, State#{lsa => LSA,
+                                               bsa => BSA}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "create TCP socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Get current value",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case Get(Sock) of
+                               {ok, Val} when is_boolean(Val) ->
+                                   ?SEV_IPRINT("Success: ~p", [Val]),
+                                   {ok, State#{keepalive => Val}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected failure: ~p",
+                                               [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Try change the value",
+           cmd  => fun(#{sock := Sock, keepalive := Current} = State) ->
+			   New = not Current,
+                           ?SEV_IPRINT("Try change value from ~p to ~p", 
+                                       [Current, New]),
+                           case Set(Sock, New) of
+                               ok ->
+                                   ?SEV_IPRINT("Expected Success"),
+                                   {ok, State#{keepalive => New}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+					       [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Verify (new) current value",
+           cmd  => fun(#{sock := Sock, keepalive := Val} = _State) ->
+                           case Get(Sock) of
+                               {ok, Val} ->
+                                   ?SEV_IPRINT("Expected Success (~p)", [Val]),
+                                   ok;
+                               {ok, OtherVal} ->
+                                   ?SEV_IPRINT("Unexpected Success: ~p",
+                                               [OtherVal]),
+                                   {error, {unexpected_success_value,
+                                            Val, OtherVal}};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected failure: ~p",
                                                [Reason]),
@@ -28300,6 +28430,9 @@ has_support_sock_broadcast() ->
 
 has_support_sock_debug() ->
     has_support_socket_option_sock(debug).
+
+has_support_sock_keepalive() ->
+    has_support_socket_option_sock(keepalive).
 
 
 has_support_ip_add_membership() ->
