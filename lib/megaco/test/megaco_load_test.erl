@@ -368,6 +368,17 @@ load_controller(Config, Fun) when is_list(Config) and is_function(Fun) ->
 	    d("load_controller -> "
 	      "loader [~p] terminated with ok~n", [Loader]),
 	    ok;
+	{'EXIT', Loader, {skipped, {fatal, Reason, File, Line}}} ->
+	    i("load_controller -> "
+	      "loader [~p] terminated with fatal skip"
+	      "~n   Reason: ~p"
+	      "~n   At:     ~p:~p", [Loader, Reason, File, Line]),
+	    ?SKIP(Reason);
+	{'EXIT', Loader, {skipped, Reason}} ->
+	    i("load_controller -> "
+	      "loader [~p] terminated with skip"
+	      "~n   Reason: ~p", [Loader, Reason]),
+	    ?SKIP(Reason);
 	{'EXIT', Loader, Reason} ->
 	    i("load_controller -> "
 	      "loader [~p] terminated with"
