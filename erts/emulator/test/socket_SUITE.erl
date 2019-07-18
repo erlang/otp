@@ -8419,7 +8419,7 @@ api_opt_sock_acceptconn() ->
                    end},
 
          #{desc => "[get] verify UDP socket (before bind)",
-           cmd  => fun(#{sock := Sock} = _State) ->
+           cmd  => fun(#{sock := Sock} = State) ->
                            case Get(Sock) of
                                {ok, false} ->
                                    ?SEV_IPRINT("Expected Success: "
@@ -8429,16 +8429,28 @@ api_opt_sock_acceptconn() ->
                                    ?SEV_EPRINT("Unexpected Success: "
                                                "Accepting connections"),
                                    {error, {unexpected_success, {Opt, true}}};
+                               {error, enoprotoopt = Reason} ->
+                                   %% On some platforms this is not accepted
+                                   %% for UDP, so skip this part (UDP).
+                                   ?SEV_EPRINT("Expected Failure: "
+                                               "~p => SKIP UDP", [Reason]),
+                                   (catch socket:close(Sock)),
+                                   {ok, State#{sock => skip}};
                                {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+                                               [Reason]),
                                    ERROR
                            end
                    end},
          #{desc => "[set] verify UDP socket (before bind)",
-           cmd  => fun(#{sock := Sock} = _State) ->
+           cmd  => fun(#{sock := skip} = _State) ->
+                           ?SEV_IPRINT("SKIP'ed"),
+                           ok;
+                      (#{sock := Sock} = _State) ->
                            case Set(Sock, true) of
                                {error, Reason} ->
-                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ?SEV_IPRINT("Expected Failure: ~p",
+                                               [Reason]),
                                    ok;
                                ok ->
                                    ?SEV_EPRINT("Unexpected Success: "
@@ -8448,7 +8460,10 @@ api_opt_sock_acceptconn() ->
                    end},
 
          #{desc => "bind UDP socket to local address",
-           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+           cmd  => fun(#{sock := skip} = _State) ->
+                           ?SEV_IPRINT("SKIP'ed"),
+                           ok;
+                      (#{sock := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, _} ->
                                    ok;
@@ -8460,7 +8475,10 @@ api_opt_sock_acceptconn() ->
          ?SEV_SLEEP(?SECS(1)),
 
          #{desc => "[get] verify UDP socket (after bind)",
-           cmd  => fun(#{sock := Sock} = _State) ->
+           cmd  => fun(#{sock := skip} = _State) ->
+                           ?SEV_IPRINT("SKIP'ed"),
+                           ok;
+                      (#{sock := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, false} ->
                                    ?SEV_IPRINT("Expected Success: "
@@ -8471,15 +8489,20 @@ api_opt_sock_acceptconn() ->
                                                "Accepting connections"),
                                    {error, {unexpected_success, {Opt, true}}};
                                {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+                                               [Reason]),
                                    ERROR
                            end
                    end},
          #{desc => "[set] verify UDP socket (after bind)",
-           cmd  => fun(#{sock := Sock} = _State) ->
+           cmd  => fun(#{sock := skip} = _State) ->
+                           ?SEV_IPRINT("SKIP'ed"),
+                           ok;
+                      (#{sock := Sock} = _State) ->
                            case Set(Sock, true) of
                                {error, Reason} ->
-                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   ?SEV_IPRINT("Expected Failure: ~p",
+                                               [Reason]),
                                    ok;
                                ok ->
                                    ?SEV_EPRINT("Unexpected Success: "
@@ -8489,7 +8512,10 @@ api_opt_sock_acceptconn() ->
                    end},
 
          #{desc => "close UDP socket",
-           cmd  => fun(#{sock := Sock} = State) ->
+           cmd  => fun(#{sock := skip} = State) ->
+                           ?SEV_IPRINT("SKIP'ed (already closed)"),
+                           {ok, maps:remove(sock, State)};
+                      (#{sock := Sock} = State) ->
                            socket:close(Sock),
                            {ok, maps:remove(sock, State)}
                    end},
@@ -8518,7 +8544,8 @@ api_opt_sock_acceptconn() ->
                                                "Accepting connections"),
                                    {error, {unexpected_success, {Opt, true}}};
                                {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
+                                   ?SEV_EPRINT("Unexpected Failure: ~p",
+                                               [Reason]),
                                    ERROR
                            end
                    end},
