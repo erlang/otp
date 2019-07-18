@@ -128,7 +128,9 @@
          api_opt_sock_debug/1,
          api_opt_sock_domain/1,
          api_opt_sock_dontroute/1,
+         api_opt_sock_error/1,
          api_opt_sock_keepalive/1,
+         api_opt_sock_linger/1,
          api_opt_ip_add_drop_membership/1,
 
          %% *** API Operation Timeout ***
@@ -795,7 +797,9 @@ api_options_socket_cases() ->
      api_opt_sock_debug,
      api_opt_sock_domain,
      api_opt_sock_dontroute,
-     api_opt_sock_keepalive
+     api_opt_sock_error,
+     api_opt_sock_keepalive,
+     api_opt_sock_linger
     ].
 
 api_options_ip_cases() ->
@@ -9859,6 +9863,22 @@ api_opt_sock_dontroute() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Tests the socket option error. PLACEHOLDER!
+
+api_opt_sock_error(suite) ->
+    [];
+api_opt_sock_error(doc) ->
+    [];
+api_opt_sock_error(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_opt_sock_error,
+           fun() -> not_yet_implemented() end,
+           fun() -> ok end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Tests the socket option keepalive.
 %% This is bit tricky to test, partly because we have no control over
 %% the underlying TCP timeouts. So, for now, we just test that we can
@@ -9982,6 +10002,22 @@ api_opt_sock_keepalive() ->
 
     i("await evaluator(s)"),
     ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option linger. PLACEHOLDER!
+
+api_opt_sock_linger(suite) ->
+    [];
+api_opt_sock_linger(doc) ->
+    [];
+api_opt_sock_linger(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_opt_sock_linger,
+           fun() -> not_yet_implemented() end,
+           fun() -> ok end).
 
 
 
