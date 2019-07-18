@@ -423,7 +423,18 @@ tc_wait(From, Env, M, F, A) ->
             "~n   ~p"
             "~n", [Res]),
     From ! {tc_runner_done, self(), Res, get(test_server_loc)},
-    exit(Res).
+    %% The point of this is that in some cases we have seen that the 
+    %% exit signal having been "passed on" to the CT, which consider any
+    %% exit a fail (even if its {'EXIT', ok}).
+    %% So, just to be on the safe side, convert an 'ok' to a 'normal'.
+    case Res of
+        ok ->
+            exit(normal);
+        {ok, _} ->
+            exit(normal);
+        _ ->
+            exit(Res)
+    end.
 
 tc_run(Mod, Func, Args, Opts) ->
     ?PRINT2("tc_run -> entry with"
