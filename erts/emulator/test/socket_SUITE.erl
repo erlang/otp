@@ -126,6 +126,7 @@
          api_opt_sock_bindtodevice/1,
          api_opt_sock_broadcast/1,
          api_opt_sock_debug/1,
+         api_opt_sock_domain/1,
          api_opt_ip_add_drop_membership/1,
 
          %% *** API Operation Timeout ***
@@ -789,7 +790,8 @@ api_options_socket_cases() ->
      api_opt_sock_acceptfilter,
      api_opt_sock_bindtodevice,
      api_opt_sock_broadcast,
-     api_opt_sock_debug
+     api_opt_sock_debug,
+     api_opt_sock_domain
     ].
 
 api_options_ip_cases() ->
@@ -9422,8 +9424,6 @@ api_opt_sock_broadcast() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Tests the socket option debug.
-%% Only allowed for processes with the CAP_NET_ADMIN capability or an
-%% .
 %% On linux, this test requires that the user running the test to have
 %% CAP_NET_ADMIN capabilities or be root (effective user ID of 0), 
 %% therefor we explicitly test for the result eacces when attempting to
@@ -9511,7 +9511,7 @@ api_opt_sock_debug() ->
                            end
                    end},
          #{desc => "Get current (new) debug value",
-           cmd  => fun(#{sock := Sock, debug := Debug} = State) ->
+           cmd  => fun(#{sock := Sock, debug := Debug} = _State) ->
                            case Get(Sock) of
                                {ok, Debug} when is_integer(Debug) ->
                                    ?SEV_IPRINT("Success: ~p", [Debug]),
@@ -9528,6 +9528,124 @@ api_opt_sock_debug() ->
            cmd  => fun(#{sock := Sock} = State0) ->
                            socket:close(Sock),
 			   State1 = maps:remove(sock, State0),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    Domain = inet,
+
+    i("start tester evaluator"),
+    InitState = #{domain => Domain},
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option domain.
+%% This is a read only option. Also not available on oll platforms.
+
+api_opt_sock_domain(suite) ->
+    [];
+api_opt_sock_domain(doc) ->
+    [];
+api_opt_sock_domain(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(api_opt_sock_domain,
+           fun() -> has_support_sock_domain() end,
+           fun() -> api_opt_sock_domain() end).
+
+
+api_opt_sock_domain() ->
+    Opt = domain,
+    Get = fun(S) ->
+                  socket:getopt(S, socket, Opt)
+          end,
+
+    TesterSeq =
+        [
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case ?LIB:which_local_host_info(Domain) of
+                               {ok, #{name      := Name,
+                                      addr      := Addr,
+                                      broadaddr := BAddr}} ->
+                                   ?SEV_IPRINT("local host info: "
+                                               "~n   Name:           ~p"
+                                               "~n   Addr:           ~p"
+                                               "~n   Broadcast Addr: ~p",
+                                               [Name, Addr, BAddr]),
+                                   LSA = #{family => Domain,
+                                           addr   => Addr},
+                                   BSA = #{family => Domain,
+                                           addr   => BAddr},
+                                   {ok, State#{lsa => LSA,
+                                               bsa => BSA}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "create IPv4 UDP socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{usock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Get domain for the UDP socket",
+           cmd  => fun(#{domain := Domain, usock := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Domain} ->
+                                   ?SEV_IPRINT("Success: ~p", [Domain]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected failure: ~p",
+                                               [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "create TCP socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{tsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "Get domain for the TCP socket",
+           cmd  => fun(#{domain := Domain, tsock := Sock} = _State) ->
+                           case Get(Sock) of
+                               {ok, Domain} ->
+                                   ?SEV_IPRINT("Success: ~p", [Domain]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Unexpected failure: ~p",
+                                               [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "close UDP socket",
+           cmd  => fun(#{usock := Sock} = State0) ->
+                           socket:close(Sock),
+			   State1 = maps:remove(usock, State0),
+                           {ok, State1}
+                   end},
+         #{desc => "close TCP socket",
+           cmd  => fun(#{tsock := Sock} = State0) ->
+                           socket:close(Sock),
+			   State1 = maps:remove(tsock, State0),
                            {ok, State1}
                    end},
 
@@ -28300,6 +28418,9 @@ has_support_sock_broadcast() ->
 
 has_support_sock_debug() ->
     has_support_socket_option_sock(debug).
+
+has_support_sock_domain() ->
+    has_support_socket_option_sock(domain).
 
 
 has_support_ip_add_membership() ->
