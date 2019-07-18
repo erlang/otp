@@ -8212,7 +8212,7 @@ ERL_NIF_TERM nsetopt_lvl_sock_bindtodevice(ErlNifEnv*       env,
                                            ERL_NIF_TERM     eVal)
 {
     return nsetopt_str_opt(env, descP,
-                           SOL_SOCKET, SO_BROADCAST,
+                           SOL_SOCKET, SO_BINDTODEVICE,
                            IFNAMSIZ, eVal);
 }
 #endif
