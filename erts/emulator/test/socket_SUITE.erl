@@ -8825,7 +8825,6 @@ api_opt_sock_acceptconn() ->
         ],
 
 
-    i("get multicast address"),
     Domain = inet,
 
     i("start tester evaluator"),
@@ -8987,11 +8986,15 @@ api_opt_sock_bindtodevice() ->
          ?SEV_SLEEP(?SECS(1)),
 
          #{desc => "Bind UDP socket 1 to device",
-           cmd  => fun(#{usock1 := Sock, dev := Dev} = _State) ->
+           cmd  => fun(#{usock1 := Sock, dev := Dev} = State) ->
                            case Set(Sock, Dev) of
                                ok ->
                                    ?SEV_IPRINT("Expected Success"),
                                    ok;
+                               {error, eperm = Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   (catch socket:close(Sock)),
+                                   {ok, State#{usock1 => skip}};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
                                    ERROR
@@ -9009,11 +9012,19 @@ api_opt_sock_bindtodevice() ->
                            end
                    end},
          #{desc => "Bind TCP socket 1 to device",
-           cmd  => fun(#{tsock1 := Sock, dev := Dev} = _State) ->
+           cmd  => fun(#{usock1 := USock1,
+                         tsock1 := Sock, dev := Dev} = State) ->
                            case Set(Sock, Dev) of
                                ok ->
                                    ?SEV_IPRINT("Expected Success"),
                                    ok;
+                               {error, eperm = Reason} when (USock1 =:= skip) ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   {skip, Reason};
+                               {error, eperm = Reason} ->
+                                   ?SEV_IPRINT("Expected Failure: ~p", [Reason]),
+                                   (catch socket:close(Sock)),
+                                   {ok, State#{tsock1 => skip}};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p", [Reason]),
                                    ERROR
@@ -9034,7 +9045,10 @@ api_opt_sock_bindtodevice() ->
          ?SEV_SLEEP(?SECS(1)),
 
          #{desc => "[get] verify UDP socket 1 (after bindtodevice)",
-           cmd  => fun(#{usock1 := Sock} = _State) ->
+           cmd  => fun(#{usock1 := skip} = _State) ->
+                           ?SEV_IPRINT("SKIP'ed (previous eperm)"),
+                           ok;
+                      (#{usock1 := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, Dev} ->
                                    ?SEV_IPRINT("Expected Success: ~p", [Dev]),
@@ -9056,7 +9070,10 @@ api_opt_sock_bindtodevice() ->
                            end
                    end},
          #{desc => "[get] verify TCP socket 1 (after bindtodevice)",
-           cmd  => fun(#{tsock1 := Sock} = _State) ->
+           cmd  => fun(#{tsock1 := skip} = _State) ->
+                           ?SEV_IPRINT("SKIP'ed (previous eperm)"),
+                           ok;
+                      (#{tsock1 := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, Dev} ->
                                    ?SEV_IPRINT("Expected Success: ~p", [Dev]),
@@ -9082,7 +9099,10 @@ api_opt_sock_bindtodevice() ->
 
          %% *** Termination ***
          #{desc => "close UDP socket 1",
-           cmd  => fun(#{usock1 := Sock} = State) ->
+           cmd  => fun(#{usock1 := skip} = State) ->
+                           ?SEV_IPRINT("SKIP'ed (already closed)"),
+                           {ok, maps:remove(usock1, State)};
+                      (#{usock1 := Sock} = State) ->
                            socket:close(Sock),
                            {ok, maps:remove(usock1, State)}
                    end},
@@ -9092,7 +9112,10 @@ api_opt_sock_bindtodevice() ->
                            {ok, maps:remove(usock2, State)}
                    end},
          #{desc => "close TCP socket 1",
-           cmd  => fun(#{tsock1 := Sock} = State) ->
+           cmd  => fun(#{tsock1 := skip} = State) ->
+                           ?SEV_IPRINT("SKIP'ed (already closed)"),
+                           {ok, maps:remove(tsock1, State)};
+                      (#{tsock1 := Sock} = State) ->
                            socket:close(Sock),
                            {ok, maps:remove(tsock1, State)}
                    end},
@@ -9106,7 +9129,6 @@ api_opt_sock_bindtodevice() ->
          ?SEV_FINISH_NORMAL
         ],
 
-    i("get multicast address"),
     Domain = inet,
 
     i("start tester evaluator"),
@@ -10203,8 +10225,8 @@ api_opt_ip_add_drop_membership() ->
         ],
 
 
-    i("get multicast address"),
     Domain = inet,
+    i("get multicast address"),
     MAddr  = which_ip_multicast_address(),
     MSA    = #{family => Domain, addr => MAddr},
 
