@@ -95,7 +95,7 @@ static ErlNifFunc nif_funcs[] = {
     {"dh_generate_key_nif", 4, dh_generate_key_nif, 0},
     {"dh_compute_key_nif", 3, dh_compute_key_nif, 0},
     {"evp_compute_key_nif", 3, evp_compute_key_nif, 0},
-    {"evp_generate_key_nif", 1, evp_generate_key_nif, 0},
+    {"evp_generate_key_nif", 2, evp_generate_key_nif, 0},
     {"privkey_to_pubkey_nif", 2, privkey_to_pubkey_nif, 0},
     {"srp_value_B_nif", 5, srp_value_B_nif, 0},
     {"srp_user_secret_nif", 7, srp_user_secret_nif, 0},

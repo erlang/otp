@@ -202,11 +202,13 @@ groups() ->
      {ecdsa,                [], [sign_verify
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
                                 ]},
-     {ed25519,              [], [sign_verify
+     {ed25519,              [], [sign_verify,
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
+                                 generate
                               ]},
-     {ed448,                [], [sign_verify
+     {ed448,                [], [sign_verify,
                                  %% Does not work yet:  ,public_encrypt, private_encrypt
+                                 generate
                                 ]},
      {dh,                   [], [generate_compute, compute_bug]},
      {ecdh,                 [], [use_all_elliptic_curves, compute, generate]},
@@ -1429,7 +1431,7 @@ do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
 	     ct:fail({{crypto, compute_key, [Type, Pub, Priv, Curve]}, {expected, SharedSecret}, {got, Other}})
      end.
 
-do_generate({ecdh = Type, Curve, Priv, Pub}) ->
+do_generate({Type, Curve, Priv, Pub}) when Type == ecdh ; Type == eddsa ->
     case crypto:generate_key(Type, Curve, Priv) of
 	{Pub, _} ->
 	    ok;
@@ -1854,13 +1856,16 @@ group_config(ecdsa = Type, Config) ->
     [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc} | Config];
 group_config(Type, Config) when Type == ed25519 ; Type == ed448 ->
     TestVectors = eddsa(Type),
-    [{sign_verify,TestVectors} | Config]; 
+    Generate = lists:map(fun({Curve, _Hash, Priv, Pub, _Msg, _Signature}) ->
+                             {eddsa, Curve, Priv, Pub}
+                         end, TestVectors),
+    [{sign_verify,TestVectors}, {generate, Generate} | Config]; 
 group_config(srp, Config) ->
     GenerateCompute = [srp3(), srp6(), srp6a(), srp6a_smaller_prime()],
     [{generate_compute, GenerateCompute} | Config];
 group_config(ecdh, Config) ->
     Compute = ecdh(),
-    Generate = ecc(),
+    Generate = ecc() ++ ecc(x25519) ++ ecc(x448),
     [{compute, Compute}, {generate, Generate} | Config];
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
@@ -3351,7 +3356,7 @@ srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPriv
 
 eddsa(ed25519) ->
     %% https://tools.ietf.org/html/rfc8032#section-7.1
-    %% {ALGORITHM, (SHA)}, SECRET KEY, PUBLIC KEY,  MESSAGE, SIGNATURE}
+    %% {ALGORITHM, (SHA), SECRET KEY, PUBLIC KEY,  MESSAGE, SIGNATURE}
     [
      %% TEST 1
      {ed25519, undefined,
@@ -3922,6 +3927,31 @@ ecc() ->
                          lists:member(Curve, Curves)
                  end,
                  TestCases).
+
+ecc(x25519) ->
+    %% RFC 7748, 6.1
+    [{ecdh, x25519,
+      hexstr2bin("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"),
+      hexstr2bin("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a")},
+     {ecdh, x25519,
+      hexstr2bin("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb"),
+      hexstr2bin("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")}
+    ];
+
+ecc(x448) ->
+    %% RFC 7748, 6.2
+    [{ecdh, x448,
+      hexstr2bin("9a8f4925d1519f5775cf46b04b5800d4ee9ee8bae8bc5565d498c28d"
+                 "d9c9baf574a9419744897391006382a6f127ab1d9ac2d8c0a598726b"),
+      hexstr2bin("9b08f7cc31b7e3e67d22d5aea121074a273bd2b83de09c63faa73d2c"
+                 "22c5d9bbc836647241d953d40c5b12da88120d53177f80e532c41fa0")},
+     {ecdh, x448,
+      hexstr2bin("1c306a7ac2a0e2e0990b294470cba339e6453772b075811d8fad0d1d"
+                 "6927c120bb5ee8972b0d3e21374c9c921b09d1b0366f10b65173992d"),
+      hexstr2bin("3eb7a829b0cd20f5bcfc0b599b6feccf6da4627107bdb0d4f345b430"
+                 "27d8b972fc3e34fb4232a13ca706dcb57aec3dae07bdc1c67bf33609")}
+    ].
+
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).

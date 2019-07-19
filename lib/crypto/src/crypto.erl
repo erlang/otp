@@ -1761,21 +1761,21 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 
 -spec generate_key(Type, Params)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | rsa | srp,
+                        when Type :: dh | ecdh | eddsa | rsa | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | rsa_params() | srp_gen_params()
+                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params()
                                        .
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
 -spec generate_key(Type, Params, PrivKeyIn)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | rsa | srp,
+                        when Type :: dh | ecdh | eddsa | rsa | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | rsa_params() | srp_comp_params()
+                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_comp_params()
                                        .
 
 generate_key(dh, DHParameters0, PrivateKey) ->
@@ -1813,15 +1813,17 @@ generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
             {lists:sublist(Private, 2), Private}
     end;
 
-
-generate_key(ecdh, Curve, undefined) when Curve == x448 ;
-                                          Curve == x25519 ->
-    evp_generate_key_nif(Curve);
+generate_key(ecdh, Curve, PrivKey) when Curve == x448 ;
+                                        Curve == x25519 ->
+    evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey));
 generate_key(ecdh, Curve, PrivKey) ->
-    ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey)).
+    ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey));
 
+generate_key(eddsa, Curve, PrivKey) when Curve == ed448 ;
+                                         Curve == ed25519 ->
+    evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)).
 
-evp_generate_key_nif(_Curve) -> ?nif_stub.
+evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
 
 
 -spec compute_key(Type, OthersPublicKey, MyPrivateKey, Params)

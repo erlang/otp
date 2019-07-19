@@ -93,6 +93,8 @@ extern ERL_NIF_TERM atom_ecdsa;
 #ifdef HAVE_ED_CURVE_DH
 extern ERL_NIF_TERM atom_x25519;
 extern ERL_NIF_TERM atom_x448;
+extern ERL_NIF_TERM atom_ed25519;
+extern ERL_NIF_TERM atom_ed448;
 #endif
 
 extern ERL_NIF_TERM atom_eddsa;
