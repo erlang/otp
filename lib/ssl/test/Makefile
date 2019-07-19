@@ -39,6 +39,8 @@ MODULES = \
 	ssl_test_lib \
 	ssl_bench_test_lib \
 	ssl_dist_test_lib \
+	ssl_api_SUITE\
+	tls_api_SUITE\
 	ssl_basic_SUITE \
 	ssl_bench_SUITE \
 	ssl_cipher_SUITE \
