@@ -1323,7 +1323,7 @@
         <pre>
 _ = crypto:rand_seed(),
 _IntegerValue = rand:uniform(42), % [1; 42]
-_FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
+_FloatValue = rand:uniform().     % [0.0; 1.0]</pre>
       </desc>
     </func>
 
@@ -1389,7 +1389,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
         <pre>
 _ = crypto:rand_seed_alg(crypto_cache),
 _IntegerValue = rand:uniform(42), % [1; 42]
-_FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
+_FloatValue = rand:uniform().     % [0.0; 1.0]</pre>
       </desc>
     </func>
 
@@ -1413,7 +1413,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
         <pre>
 _ = crypto:rand_seed_alg(crypto_aes, "my seed"),
 IntegerValue = rand:uniform(42), % [1; 42]
-FloatValue = rand:uniform(),     % [0.0; 1.0[
+FloatValue = rand:uniform(),     % [0.0; 1.0]
 _ = crypto:rand_seed_alg(crypto_aes, "my seed"),
 IntegerValue = rand:uniform(42), % Same values
 FloatValue = rand:uniform().     % again
