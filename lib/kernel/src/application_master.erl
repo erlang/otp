@@ -365,10 +365,10 @@ loop_it(Parent, Child, Mod, AppState) ->
 	    NewAppState = prep_stop(Mod, AppState),
 	    exit(Child, Reason),
 	    receive
-		{'EXIT', Child, Reason2} ->
-		    exit(Reason2)
+		{'EXIT', Child, _} -> ok
 	    end,
-	    catch Mod:stop(NewAppState);
+	    catch Mod:stop(NewAppState),
+	    exit(Reason);
 	{'EXIT', Child, Reason} -> % forward *all* exit reasons (inc. normal)
 	    NewAppState = prep_stop(Mod, AppState),
 	    catch Mod:stop(NewAppState),
