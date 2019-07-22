@@ -2190,17 +2190,20 @@ sys_msg_dispatcher_wait(void *vwait_p)
     erts_mtx_unlock(&smq_mtx);
 }
 
+static ErtsSysMsgQ *local_sys_message_queue = NULL;
+
 static void *
 sys_msg_dispatcher_func(void *unused)
 {
     ErtsThrPrgrCallbacks callbacks;
-    ErtsSysMsgQ *local_sys_message_queue = NULL;
     ErtsThrPrgrData *tpd;
     int wait = 0;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_set_thread_name("system message dispatcher");
 #endif
+
+    local_sys_message_queue = NULL;
 
     callbacks.arg = (void *) &wait;
     callbacks.wakeup = sys_msg_dispatcher_wakeup;
@@ -2257,6 +2260,8 @@ sys_msg_dispatcher_func(void *unused)
 	    ErtsProcLocks proc_locks = ERTS_PROC_LOCKS_MSG_SEND;
 	    Process *proc = NULL;
 	    Port *port = NULL;
+
+            ASSERT(is_value(smqp->msg));
 
 	    if (erts_thr_progress_update(tpd))
 		erts_thr_progress_leader_update(tpd);
@@ -2370,6 +2375,7 @@ sys_msg_dispatcher_func(void *unused)
 		erts_fprintf(stderr, "dropped\n");
 #endif
 	    }
+            smqp->msg = THE_NON_VALUE;
 	}
     }
 
@@ -2377,32 +2383,38 @@ sys_msg_dispatcher_func(void *unused)
 }
 
 void
-erts_foreach_sys_msg_in_q(void (*func)(Eterm,
-				       Eterm,
-				       Eterm,
-				       ErlHeapFragment *))
+erts_debug_foreach_sys_msg_in_q(void (*func)(Eterm,
+                                             Eterm,
+                                             Eterm,
+                                             ErlHeapFragment *))
 {
-    ErtsSysMsgQ *sm;
-    erts_mtx_lock(&smq_mtx);
-    for (sm = sys_message_queue; sm; sm = sm->next) {
-	Eterm to;
-	switch (sm->type) {
-	case SYS_MSG_TYPE_SYSMON:
-	    to = erts_get_system_monitor();
-	    break;
-	case SYS_MSG_TYPE_SYSPROF:
-	    to = erts_get_system_profile();
-	    break;
-	case SYS_MSG_TYPE_ERRLGR:
-	    to = erts_get_system_logger();
-	    break;
-	default:
-	    to = NIL;
-	    break;
-	}
-	(*func)(sm->from, to, sm->msg, sm->bp);
+    ErtsSysMsgQ *smq[] = {sys_message_queue, local_sys_message_queue};
+    int i;
+
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
+
+    for (i = 0; i < sizeof(smq)/sizeof(smq[0]); i++) {
+        ErtsSysMsgQ *sm;
+        for (sm = smq[i]; sm; sm = sm->next) {
+            Eterm to;
+            switch (sm->type) {
+            case SYS_MSG_TYPE_SYSMON:
+                to = erts_get_system_monitor();
+                break;
+            case SYS_MSG_TYPE_SYSPROF:
+                to = erts_get_system_profile();
+                break;
+            case SYS_MSG_TYPE_ERRLGR:
+                to = erts_get_system_logger();
+                break;
+            default:
+                to = NIL;
+                break;
+            }
+            if (is_value(sm->msg))
+                (*func)(sm->from, to, sm->msg, sm->bp);
+        }
     }
-    erts_mtx_unlock(&smq_mtx);
 }
 
 
