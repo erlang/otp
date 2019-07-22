@@ -1799,6 +1799,78 @@ erts_queue_release_literals(Process* c_p, ErtsLiteralArea* literals)
     }
 }
 
+struct debug_la_oh {
+    void (*func)(ErlOffHeap *, void *);
+    void *arg;
+};
+
+static void debug_later_cleanup_literal_area_off_heap(void *vfap,
+                                                      ErtsThrPrgrVal val,
+                                                      void *vlrlap)
+{
+    struct debug_la_oh *fap = vfap;
+    ErtsLaterReleasLiteralArea *lrlap = vlrlap;
+    ErtsLiteralArea *lap = lrlap->la;
+    if (!erts_debug_have_accessed_literal_area(lap)) {
+        ErlOffHeap oh;
+        ERTS_INIT_OFF_HEAP(&oh);
+        oh.first = lap->off_heap;
+        (*fap->func)(&oh, fap->arg);
+        erts_debug_save_accessed_literal_area(lap);
+    }
+}
+
+static void debug_later_complete_literal_area_switch_off_heap(void *vfap,
+                                                              ErtsThrPrgrVal val,
+                                                              void *vlap)
+{
+    struct debug_la_oh *fap = vfap;
+    ErtsLiteralArea *lap = vlap;
+    if (lap && !erts_debug_have_accessed_literal_area(lap)) {
+        ErlOffHeap oh;
+        ERTS_INIT_OFF_HEAP(&oh);
+        oh.first = lap->off_heap;
+        (*fap->func)(&oh, fap->arg);
+        erts_debug_save_accessed_literal_area(lap);
+    }
+}
+
+
+void
+erts_debug_foreach_release_literal_area_off_heap(void (*func)(ErlOffHeap *, void *), void *arg)
+{
+    ErtsLiteralArea *lap;
+    ErlOffHeap oh;
+    ErtsLiteralAreaRef *ref;
+    struct debug_la_oh fa;
+    erts_mtx_lock(&release_literal_areas.mtx);
+    for (ref = release_literal_areas.first; ref; ref = ref->next) {
+        lap = ref->literal_area;
+        if (!erts_debug_have_accessed_literal_area(lap)) {
+            ERTS_INIT_OFF_HEAP(&oh);
+            oh.first = lap->off_heap;
+            (*func)(&oh, arg);
+            erts_debug_save_accessed_literal_area(lap);
+        }
+    }
+    erts_mtx_unlock(&release_literal_areas.mtx);
+    lap = ERTS_COPY_LITERAL_AREA();
+    if (lap && !erts_debug_have_accessed_literal_area(lap)) {
+        ERTS_INIT_OFF_HEAP(&oh);
+        oh.first = lap->off_heap;
+        (*func)(&oh, arg);
+        erts_debug_save_accessed_literal_area(lap);
+    }
+    fa.func = func;
+    fa.arg = arg;
+    erts_debug_later_op_foreach(later_release_literal_area,
+                                debug_later_cleanup_literal_area_off_heap,
+                                (void *) &fa);
+    erts_debug_later_op_foreach(complete_literal_area_switch,
+                                debug_later_complete_literal_area_switch_off_heap,
+                                (void *) &fa);
+}
+
 /*
  * Move code from current to old and null all export entries for the module
  */

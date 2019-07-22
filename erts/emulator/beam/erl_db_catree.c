@@ -2395,6 +2395,34 @@ void db_calc_stats_catree(DbTableCATree* tb, DbCATreeStats* stats)
     } while (depth > 0);
 }
 
+struct debug_catree_fa {
+    void (*func)(ErlOffHeap *, void *);
+    void *arg;
+};
+
+static void debug_free_route_node(void *vfap, ErtsThrPrgrVal val, void *vnp)
+{
+    DbTableCATreeNode *np = vnp;
+    if (np->u.route.key.oh) {
+        struct debug_catree_fa *fap = vfap;
+        ErlOffHeap oh;
+        ERTS_INIT_OFF_HEAP(&oh);
+        oh.first = np->u.route.key.oh;
+        (*fap->func)(&oh, fap->arg);
+    }
+}
+
+void
+erts_db_foreach_thr_prgr_offheap_catree(void (*func)(ErlOffHeap *, void *),
+                                        void *arg)
+{
+    struct debug_catree_fa fa;
+    fa.func = func;
+    fa.arg = arg;
+    erts_debug_later_op_foreach(do_free_route_node, debug_free_route_node, &fa);
+}
+
+
 #ifdef HARDDEBUG
 
 /*

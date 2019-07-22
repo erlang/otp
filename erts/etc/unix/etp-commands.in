@@ -3993,22 +3993,79 @@ end
 # ETS table debug
 #
 
+define etp-ets-tab-status-int
+# Args:
+#
+# Non-reentrant
+  if ($arg0 & 0x1)
+    printf "priv"
+  end
+  if ($arg0 & 0x2)
+    printf "prot"
+  end
+  if ($arg0 & 0x4)
+    printf "pub"
+  end
+  if ($arg0 & 0x8)
+    printf "|del"
+  end
+  if ($arg0 & 0x10)
+    printf "|set"
+  end
+  if ($arg0 & 0x20)
+    printf "|bag"
+  end
+  if ($arg0 & 0x40)
+    printf "|dbag"
+  end
+  if ($arg0 & 0x80)
+    printf "|oset"
+  end
+  if ($arg0 & 0x100)
+    printf "|caoset"
+  end
+  if ($arg0 & 0x200)
+    printf "|flocked"
+  end
+  if ($arg0 & 0x400)
+    printf "|fread"
+  end
+  if ($arg0 & 0x800)
+    printf "|named"
+  end
+  if ($arg0 & 0x1000)
+    printf "|busy"
+  end
+end
+
 define etp-ets-tables
 # Args:
 #
 # Non-reentrant
-  printf "%% Dumping < %lu ETS tables\n", (unsigned long)db_max_tabs
-  while $etp_ets_tables_i < db_max_tabs
-    if (meta_main_tab[$etp_ets_tables_i].u.next_free & 3) == 0
-      printf "%% %d:", $etp_ets_tables_i
-      etp-1 ((Eterm)(meta_main_tab[$etp_ets_tables_i].u.tb->common.id)) 0
+  set $sched_ix = 0
+  while $sched_ix < erts_no_schedulers
+    set $ets_tabs = &erts_aligned_scheduler_data[$sched_ix].esd.ets_tables
+    set $no_ets_tabs = *(unsigned long *)&($ets_tabs->count)
+    printf "\n%% %lu ETS tables created on scheduler %lu...\n\n", $no_ets_tabs, (unsigned long)$sched_ix+1
+    set $ets_tab = $ets_tabs->clist
+    set $first_ets_tab = $ets_tab
+    while $ets_tab
+      set $refn = &((ErtsMagicBinary *)$ets_tab->common->btid)->refn
+      printf "%% "
+      etp-1 $ets_tab->common.the_name 0
+      printf " #Ref<0.%u.%u.%u> ", (unsigned)$refn[2], (unsigned)$refn[1], (unsigned)$refn[0]
+      etp-1 $ets_tab->common.owner 0
       printf " "
-      etp-1 ((Eterm)(meta_main_tab[$etp_ets_tables_i].u.tb->common.owner)) 0
-      printf "\n"
+      etp-ets-tab-status-int $ets_tab->common.status
+      printf " (DbTable*)%p\n", $ets_tab
+      if $ets_tab->common.all.next == $first_ets_tab
+	set $ets_tab = (DbTable *) 0
+      else
+	set $ets_tab = $ets_tab->common.all.next
+      end
     end
-    set $etp_ets_tables_i++
+    set $sched_ix++
   end
-  set $etp_ets_tables_i = 0
 end
 
 document etp-ets-tables

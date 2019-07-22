@@ -149,6 +149,7 @@ type	MODULE_TABLE	LONG_LIVED	CODE		module_tab
 type	TAINT		LONG_LIVED	CODE		taint_list
 type	MODULE_REFS	STANDARD	CODE		module_refs
 type	NC_TMP		TEMPORARY	SYSTEM		nc_tmp
+type	NC_STD		STANDARD	SYSTEM		nc_std
 type	TMP		TEMPORARY	SYSTEM		tmp
 type	UNDEF		SYSTEM		SYSTEM		undefined
 type	DCACHE		STANDARD	SYSTEM		dcache

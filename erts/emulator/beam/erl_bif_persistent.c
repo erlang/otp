@@ -1234,3 +1234,102 @@ next_to_delete(void)
     erts_mtx_unlock(&delete_queue_mtx);
     return table;
 }
+
+/*
+ * test/debug functionality follow...
+ */
+
+static Uint accessed_literal_areas_size;
+static Uint accessed_no_literal_areas;
+static ErtsLiteralArea **accessed_literal_areas;
+
+int
+erts_debug_have_accessed_literal_area(ErtsLiteralArea *lap)
+{
+    Uint i;
+    for (i = 0; i < accessed_no_literal_areas; i++) {
+        if (accessed_literal_areas[i] == lap)
+            return !0;
+    }
+    return 0;
+}
+
+void
+erts_debug_save_accessed_literal_area(ErtsLiteralArea *lap)
+{
+    if (accessed_no_literal_areas == accessed_literal_areas_size) {
+        accessed_literal_areas_size += 10;
+        accessed_literal_areas = erts_realloc(ERTS_ALC_T_TMP,
+                                              accessed_literal_areas,
+                                              (sizeof(ErtsLiteralArea *)
+                                               *accessed_literal_areas_size));
+    }
+    accessed_literal_areas[accessed_no_literal_areas++] = lap;
+}
+
+static void debug_foreach_off_heap(HashTable *tbl, void (*func)(ErlOffHeap *, void *), void *arg)
+{
+    int i;
+    
+    for (i = 0; i < tbl->allocated; i++) {
+        Eterm term = tbl->term[i];
+        if (is_tuple_arity(term, 2)) {
+            ErtsLiteralArea *lap = term_to_area(term);
+            ErlOffHeap oh;
+            if (!erts_debug_have_accessed_literal_area(lap)) {
+                ERTS_INIT_OFF_HEAP(&oh);
+                oh.first = lap->off_heap;
+                (*func)(&oh, arg);
+                erts_debug_save_accessed_literal_area(lap);
+            }
+        }
+    }
+}
+
+struct debug_la_oh {
+    void (*func)(ErlOffHeap *, void *);
+    void *arg;
+};
+
+static void debug_handle_table(void *vfap,
+                               ErtsThrPrgrVal val,
+                               void *vtbl)
+{
+    struct debug_la_oh *fap = vfap;
+    HashTable *tbl = vtbl;
+    debug_foreach_off_heap(tbl, fap->func, fap->arg);
+}
+
+void
+erts_debug_foreach_persistent_term_off_heap(void (*func)(ErlOffHeap *, void *), void *arg)
+{
+    HashTable *tbl;
+    struct debug_la_oh fa;
+    accessed_no_literal_areas = 0;
+    accessed_literal_areas_size = 10;
+    accessed_literal_areas = erts_alloc(ERTS_ALC_T_TMP,
+                                        (sizeof(ErtsLiteralArea *)
+                                         * accessed_literal_areas_size));
+    
+    tbl = (HashTable *) erts_atomic_read_nob(&the_hash_table);
+    debug_foreach_off_heap(tbl, func, arg);
+    erts_mtx_lock(&delete_queue_mtx);
+    for (tbl = delete_queue_head; tbl; tbl = tbl->delete_next)
+        debug_foreach_off_heap(tbl, func, arg);
+    erts_mtx_unlock(&delete_queue_mtx);
+    fa.func = func;
+    fa.arg = arg;
+    erts_debug_later_op_foreach(table_updater,
+                                debug_handle_table,
+                                (void *) &fa);
+    erts_debug_later_op_foreach(table_deleter,
+                                debug_handle_table,
+                                (void *) &fa);
+    erts_debug_foreach_release_literal_area_off_heap(func, arg);
+    
+    erts_free(ERTS_ALC_T_TMP, accessed_literal_areas);
+    accessed_no_literal_areas = 0;
+    accessed_literal_areas_size = 0;
+    accessed_literal_areas = NULL;
+}
+

@@ -132,6 +132,9 @@ typedef struct {
     Uint max_depth;
 } DbCATreeStats;
 void db_calc_stats_catree(DbTableCATree*, DbCATreeStats*);
+void
+erts_db_foreach_thr_prgr_offheap_catree(void (*func)(ErlOffHeap *, void *),
+                                        void *arg);
 
 
 #endif /* _DB_CATREE_H */

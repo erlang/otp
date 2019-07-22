@@ -932,7 +932,8 @@ static void try_delete_node(void *venp)
      *
      * If refc > 0, the entry is in use. Keep the entry.
      */
-    erts_node_bookkeep(enp, THE_NON_VALUE, ERL_NODE_DEC);
+    erts_node_bookkeep(enp, THE_NON_VALUE, ERL_NODE_DEC,
+                       __FILE__, __LINE__);
     refc = erts_refc_dectest(&enp->refc, -1);
     if (refc == -1)
 	(void) hash_erase(&erts_node_table, (void *) enp);
@@ -1164,6 +1165,12 @@ void erts_lcnt_update_distribution_locks(int enable) {
  * can damage the real-time properties of the system.                        *
 \* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#ifdef ERL_NODE_BOOKKEEP
+#define ERTS_DBG_NC_ALLOC_TYPE ERTS_ALC_T_NC_STD
+#else
+#define ERTS_DBG_NC_ALLOC_TYPE ERTS_ALC_T_NC_TMP
+#endif
+
 #include "erl_db.h"
 
 #undef  INIT_AM
@@ -1188,10 +1195,12 @@ static Eterm AM_delayed_delete_timer;
 static Eterm AM_thread_progress_delete_timer;
 static Eterm AM_sequence;
 static Eterm AM_signal;
+static Eterm AM_persistent_term;
 
 static void setup_reference_table(void);
 static Eterm reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp);
 static void delete_reference_table(void);
+static void clear_system(void);
 
 #undef ERTS_MAX__
 #define ERTS_MAX__(A, B) ((A) > (B) ? (A) : (B))
@@ -1244,11 +1253,11 @@ typedef struct inserted_bin_ {
     Binary *bin_val;
 } InsertedBin;
 
-static ReferredNode *referred_nodes;
+static ReferredNode *referred_nodes = NULL;
 static int no_referred_nodes;
-static ReferredDist *referred_dists;
+static ReferredDist *referred_dists = NULL;
 static int no_referred_dists;
-static InsertedBin *inserted_bins;
+static InsertedBin *inserted_bins = NULL;
 
 Eterm
 erts_get_node_and_dist_references(struct process *proc)
@@ -1284,9 +1293,15 @@ erts_get_node_and_dist_references(struct process *proc)
         INIT_AM(thread_progress_delete_timer);
 	INIT_AM(signal);
 	INIT_AM(sequence);
+	INIT_AM(persistent_term);
 	references_atoms_need_init = 0;
     }
 
+#ifdef ERL_NODE_BOOKKEEP
+    if (referred_nodes || referred_dists || inserted_bins)
+        delete_reference_table();
+#endif
+    
     setup_reference_table();
 
     /* Get term size */
@@ -1304,7 +1319,11 @@ erts_get_node_and_dist_references(struct process *proc)
 
     ASSERT(endp == hp);
 
+#ifndef ERL_NODE_BOOKKEEP
     delete_reference_table();
+#endif
+    
+    clear_system();
 
     erts_thr_progress_unblock();
     erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
@@ -1339,7 +1358,7 @@ insert_dist_referrer(ReferredDist *referred_dist,
 	    break;
 
     if(!drp) {
-	drp = (DistReferrer *) erts_alloc(ERTS_ALC_T_NC_TMP,
+	drp = (DistReferrer *) erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
 					  sizeof(DistReferrer));
 	drp->next = referred_dist->referrers;
 	referred_dist->referrers = drp;
@@ -1402,7 +1421,7 @@ insert_node_referrer(ReferredNode *referred_node, int type, Eterm id)
 	    break;
 
     if(!nrp) {
-	nrp = (NodeReferrer *) erts_alloc(ERTS_ALC_T_NC_TMP,
+	nrp = (NodeReferrer *) erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
 					  sizeof(NodeReferrer));
 	nrp->next = referred_node->referrers;
         ERTS_INIT_OFF_HEAP(&nrp->off_heap);
@@ -1516,7 +1535,8 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    erts_match_prog_foreach_offheap((Binary *) u.mref->mb,
 						    insert_offheap2,
 						    (void *) &a);
-		    nib = erts_alloc(ERTS_ALC_T_NC_TMP, sizeof(InsertedBin));
+		    nib = erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
+                                     sizeof(InsertedBin));
 		    nib->bin_val = (Binary *) u.mref->mb;
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
@@ -1574,18 +1594,6 @@ static int clear_visited_monitor(ErtsMonitor *mon, void *p, Sint reds)
 }
 
 static void
-insert_p_monitors(ErtsPTabElementCommon *p)
-{
-    Eterm id = p->id;
-    erts_monitor_tree_foreach(p->u.alive.monitors,
-                              insert_monitor,
-                              (void *) &id);
-    erts_monitor_list_foreach(p->u.alive.lt_monitors,
-                              insert_monitor,
-                              (void *) &id);
-}
-
-static void
 insert_dist_monitors(DistEntry *dep)
 {
     if (dep->mld) {
@@ -1600,8 +1608,10 @@ insert_dist_monitors(DistEntry *dep)
 
 
 static int
-insert_sequence(ErtsDistExternal *edep, void *arg, Sint reds)
+insert_sequence(DistSeqNode *seq, void *arg, Sint reds)
 {
+    ErtsDistExternal *edep = erts_get_dist_ext(&seq->hfrag);
+    insert_offheap(&seq->hfrag.off_heap, SEQUENCE_REF, *(Eterm*)arg);
     insert_dist_entry(edep->dep, SEQUENCE_REF, *(Eterm*)arg, 0);
     return 1;
 }
@@ -1609,18 +1619,7 @@ insert_sequence(ErtsDistExternal *edep, void *arg, Sint reds)
 static void
 insert_dist_sequences(DistEntry *dep)
 {
-    erts_dist_seq_tree_foreach(dep, insert_sequence, (void *) &dep->sysname);
-}
-
-static void
-clear_visited_p_monitors(ErtsPTabElementCommon *p)
-{
-    erts_monitor_tree_foreach(p->u.alive.monitors,
-                              clear_visited_monitor,
-                              NULL);
-    erts_monitor_list_foreach(p->u.alive.lt_monitors,
-                              clear_visited_monitor,
-                              NULL);
+    erts_debug_dist_seq_tree_foreach(dep, insert_sequence, (void *) &dep->sysname);
 }
 
 static void
@@ -1667,27 +1666,12 @@ static int clear_visited_link(ErtsLink *lnk, void *p, Sint reds)
 }
 
 static void
-insert_p_links(ErtsPTabElementCommon *p)
-{
-    Eterm id = p->id;
-    erts_link_tree_foreach(p->u.alive.links, insert_link, (void *) &id);
-}
-
-static void
 insert_dist_links(DistEntry *dep)
 {
     if (dep->mld)
         erts_link_list_foreach(dep->mld->links,
                                insert_link,
                                (void *) &dep->sysname);
-}
-
-static void
-clear_visited_p_links(ErtsPTabElementCommon *p)
-{
-    erts_link_tree_foreach(p->u.alive.links,
-                           clear_visited_link,
-                           NULL);
 }
 
 static void
@@ -1885,15 +1869,11 @@ insert_process(Process *proc)
                                     insert_sig_ext,
                                     (void *) proc);
 
-    /* If the process is FREE, the proc->common field has been
-       re-used by the ptab delete, so we cannot trust it. */
-    if (!(erts_atomic32_read_nob(&proc->state) & ERTS_PSFLG_FREE)) {
-        /* Insert links */
-        insert_p_links(&proc->common);
-
-        /* Insert monitors */
-        insert_p_monitors(&proc->common);
-    }
+    /* Insert monitors and links... */
+    erts_debug_proc_monitor_link_foreach(proc,
+                                         insert_monitor,
+                                         insert_link,
+                                         (void *) &proc->common.id);
 
     {
         DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(proc);
@@ -1903,6 +1883,12 @@ insert_process(Process *proc)
                               proc->common.id,
                               0);
     }
+}
+
+static void
+insert_process2(Process *proc, void *arg)
+{
+    insert_process(proc);
 }
 
 static void
@@ -1916,16 +1902,47 @@ insert_dist_suspended_procs(DistEntry *dep)
     }
 }
 
+static void clear_process(Process *proc);
+
+static void
+clear_dist_suspended_procs(DistEntry *dep)
+{
+    ErtsProcList *plist = erts_proclist_peek_first(dep->suspended);
+    while (plist) {
+        if (is_not_immed(plist->u.pid))
+            clear_process(plist->u.p);
+        plist = erts_proclist_peek_next(dep->suspended, plist);
+    }
+}
+
+static void
+insert_persistent_term(ErlOffHeap *ohp, void *arg)
+{
+    Eterm heap[3];
+    insert_offheap(ohp, SYSTEM_REF,
+                   TUPLE2(&heap[0], AM_system, AM_persistent_term));
+}
+
+static void
+insert_ets_offheap_thr_prgr(ErlOffHeap *ohp, void *arg)
+{
+    Eterm heap[3];
+    insert_offheap(ohp, ETS_REF,
+                   TUPLE2(&heap[0], AM_system, AM_ets));
+}
+
 #ifdef ERL_NODE_BOOKKEEP
 void
-erts_node_bookkeep(ErlNode *np, Eterm term, int what)
+erts_node_bookkeep(ErlNode *np, Eterm term, int what, char *f, int l)
 {
-    erts_aint_t slot = (erts_atomic_inc_read_nob(&np->slot) - 1) % 1024;
+    erts_aint_t slot = (erts_atomic_inc_read_nob(&np->slot) - 1) % ERTS_BOOKKEEP_SIZE;
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
     Eterm who = THE_NON_VALUE;
     ASSERT(np);
     np->books[slot].what = what;
     np->books[slot].term = term;
+    np->books[slot].file = f;
+    np->books[slot].line = l;
     if (esdp->current_process) {
         who = esdp->current_process->common.id;
     } else if (esdp->current_port) {
@@ -1946,14 +1963,14 @@ setup_reference_table(void)
     inserted_bins = NULL;
 
     hash_get_info(&hi, &erts_node_table);
-    referred_nodes = erts_alloc(ERTS_ALC_T_NC_TMP,
+    referred_nodes = erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
 				hi.objs*sizeof(ReferredNode));
     no_referred_nodes = 0;
     hash_foreach(&erts_node_table, init_referred_node, NULL);
     ASSERT(no_referred_nodes == hi.objs);
 
     hash_get_info(&hi, &erts_dist_table);
-    referred_dists = erts_alloc(ERTS_ALC_T_NC_TMP,
+    referred_dists = erts_alloc(ERTS_DBG_NC_ALLOC_TYPE,
 				hi.objs*sizeof(ReferredDist));
     no_referred_dists = 0;
     hash_foreach(&erts_dist_table, init_referred_dist, NULL);
@@ -1990,8 +2007,9 @@ setup_reference_table(void)
 	if (proc)
             insert_process(proc);
     }
+    erts_debug_free_process_foreach(insert_process2, NULL);
 
-    erts_foreach_sys_msg_in_q(insert_sys_msg);
+    erts_debug_foreach_sys_msg_in_q(insert_sys_msg);
 
     /* Insert all ports */
     max = erts_ptab_max(&erts_port);
@@ -2008,10 +2026,18 @@ setup_reference_table(void)
 	if (state & ERTS_PORT_SFLGS_DEAD)
 	    continue;
 
-	/* Insert links */
-        insert_p_links(&prt->common);
-	/* Insert monitors */
-        insert_p_monitors(&prt->common);
+        /* Insert links */
+        erts_link_tree_foreach(ERTS_P_LINKS(prt),
+                               insert_link,
+                               (void *) &prt->common.id);
+        /* Insert monitors */
+        erts_monitor_tree_foreach(ERTS_P_MONITORS(prt),
+                                  insert_monitor,
+                                  (void *) &prt->common.id);
+        /* Insert local target monitors */
+        erts_monitor_list_foreach(ERTS_P_LT_MONITORS(prt),
+                                  insert_monitor,
+                                  (void *) &prt->common.id);
 	/* Insert port data */
 	ohp = erts_port_data_offheap(prt);
 	if (ohp)
@@ -2091,10 +2117,15 @@ setup_reference_table(void)
     }
 
     /* Insert all ets tables */
-    erts_db_foreach_table(insert_ets_table, NULL);
+    erts_db_foreach_table(insert_ets_table, NULL, 0);
+    erts_db_foreach_thr_prgr_offheap(insert_ets_offheap_thr_prgr, NULL);
 
     /* Insert all bif timers */
     erts_debug_bif_timer_foreach(insert_bif_timer, NULL);
+
+    /* Insert persistent term storage */
+    erts_debug_foreach_persistent_term_off_heap(insert_persistent_term,
+                                                NULL);
 
     /* Insert node table (references to dist) */
     hash_foreach(&erts_node_table, insert_erl_node, NULL);
@@ -2348,8 +2379,7 @@ static void noop_sig_ext(ErtsDistExternal *ext, void *arg)
 static void
 delete_reference_table(void)
 {
-    DistEntry *dep;
-    int i, max;
+    int i;
     for(i = 0; i < no_referred_nodes; i++) {
 	NodeReferrer *nrp;
 	NodeReferrer *tnrp;
@@ -2358,11 +2388,13 @@ delete_reference_table(void)
             erts_cleanup_offheap(&nrp->off_heap);
 	    tnrp = nrp;
 	    nrp = nrp->next;
-	    erts_free(ERTS_ALC_T_NC_TMP, (void *) tnrp);
+	    erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *) tnrp);
 	}
     }
-    if (referred_nodes)
-	erts_free(ERTS_ALC_T_NC_TMP, (void *) referred_nodes);
+    if (referred_nodes) {
+	erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *) referred_nodes);
+        referred_nodes = NULL;
+    }
 
     for(i = 0; i < no_referred_dists; i++) {
 	DistReferrer *drp;
@@ -2371,34 +2403,57 @@ delete_reference_table(void)
 	while(drp) {
 	    tdrp = drp;
 	    drp = drp->next;
-	    erts_free(ERTS_ALC_T_NC_TMP, (void *) tdrp);
+	    erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *) tdrp);
 	}
     }
-    if (referred_dists)
-	erts_free(ERTS_ALC_T_NC_TMP, (void *) referred_dists);
+    if (referred_dists) {
+	erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *) referred_dists);
+        referred_dists = NULL;
+    }
     while(inserted_bins) {
 	InsertedBin *ib = inserted_bins;
 	inserted_bins = inserted_bins->next;
-	erts_free(ERTS_ALC_T_NC_TMP, (void *)ib);
+	erts_free(ERTS_DBG_NC_ALLOC_TYPE, (void *)ib);
     }
+}
 
-    /* Cleanup... */
+static void clear_process(Process *proc)
+{
+    erts_proc_sig_debug_foreach_sig(proc,
+                                    noop_sig_msg,
+                                    noop_sig_offheap,
+                                    clear_visited_monitor,
+                                    clear_visited_link,
+                                    noop_sig_ext,
+                                    (void *) proc);
+
+
+    /* Clear monitors and links... */
+    erts_debug_proc_monitor_link_foreach(proc,
+                                         clear_visited_monitor,
+                                         clear_visited_link,
+                                         (void *) &proc->common.id);
+}
+
+static void clear_process2(Process *proc, void *arg)
+{
+    clear_process(proc);
+}
+
+static void
+clear_system(void)
+{
+    DistEntry *dep;
+    int i, max;
+    /* Clear... */
 
     max = erts_ptab_max(&erts_proc);
     for (i = 0; i < max; i++) {
 	Process *proc = erts_pix2proc(i);
-	if (proc) {
-            clear_visited_p_links(&proc->common);
-            clear_visited_p_monitors(&proc->common);
-            erts_proc_sig_debug_foreach_sig(proc,
-                                            noop_sig_msg,
-                                            noop_sig_offheap,
-                                            clear_visited_monitor,
-                                            clear_visited_link,
-                                            noop_sig_ext,
-                                            (void *) proc);
-        }
+	if (proc)
+            clear_process(proc);
     }
+    erts_debug_free_process_foreach(clear_process2, NULL);
 
     max = erts_ptab_max(&erts_port);
     for (i = 0; i < max; i++) {
@@ -2413,28 +2468,42 @@ delete_reference_table(void)
 	if (state & ERTS_PORT_SFLGS_DEAD)
 	    continue;
 
-        clear_visited_p_links(&prt->common);
-        clear_visited_p_monitors(&prt->common);
+        /* Clear links */
+        erts_link_tree_foreach(ERTS_P_LINKS(prt),
+                               clear_visited_link,
+                               (void *) &prt->common.id);
+        /* Clear monitors */
+        erts_monitor_tree_foreach(ERTS_P_MONITORS(prt),
+                                  clear_visited_monitor,
+                                  (void *) &prt->common.id);
+        /* Clear local target monitors */
+        erts_monitor_list_foreach(ERTS_P_LT_MONITORS(prt),
+                                  clear_visited_monitor,
+                                  (void *) &prt->common.id);
     }
 
     for(dep = erts_visible_dist_entries; dep; dep = dep->next) {
         clear_visited_dist_links(dep);
         clear_visited_dist_monitors(dep);
+        clear_dist_suspended_procs(dep);
     }
 
     for(dep = erts_hidden_dist_entries; dep; dep = dep->next) {
         clear_visited_dist_links(dep);
         clear_visited_dist_monitors(dep);
+        clear_dist_suspended_procs(dep);
     }
 
     for(dep = erts_pending_dist_entries; dep; dep = dep->next) {
         clear_visited_dist_links(dep);
         clear_visited_dist_monitors(dep);
+        clear_dist_suspended_procs(dep);
     }
 
     for(dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
         clear_visited_dist_links(dep);
         clear_visited_dist_monitors(dep);
+        clear_dist_suspended_procs(dep);
     }
 }
 
