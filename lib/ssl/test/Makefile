@@ -37,6 +37,7 @@ VSN=$(SSL_VSN)
 
 MODULES = \
 	ssl_test_lib \
+	ssl_alert_SUITE\
 	ssl_bench_test_lib \
 	ssl_dist_test_lib \
 	ssl_api_SUITE\

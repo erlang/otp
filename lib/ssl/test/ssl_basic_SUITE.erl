@@ -49,7 +49,6 @@
 all() -> 
     [
      {group, basic},
-     {group, basic_tls},
      {group, options},
      {group, options_tls},
      {group, 'dtlsv1.2'},
@@ -63,39 +62,31 @@ all() ->
 
 groups() ->
     [{basic, [], basic_tests()},
-     {basic_tls, [], basic_tests_tls()},
      {options, [], options_tests()},
      {options_tls, [], options_tests_tls()},
      {'dtlsv1.2', [], all_versions_groups()},
      {'dtlsv1', [], all_versions_groups()},
      {'tlsv1.2', [], all_versions_groups() ++ tls_versions_groups() ++ [conf_signature_algs, no_common_signature_algs]},
      {'tlsv1.1', [], all_versions_groups() ++ tls_versions_groups()},
-     {'tlsv1', [], all_versions_groups() ++ tls_versions_groups() ++ rizzo_tests()},
-     {'sslv3', [], all_versions_groups() ++ tls_versions_groups() ++ rizzo_tests() -- [tls_ciphersuite_vs_version]},
+     {'tlsv1', [], all_versions_groups() ++ tls_versions_groups()},
+     {'sslv3', [], all_versions_groups() ++ tls_versions_groups() -- [tls_ciphersuite_vs_version]},
      {api,[], api_tests()},
      {api_tls,[], api_tests_tls()},
-     {ciphers, [], cipher_tests()},
-     {error_handling_tests, [], error_handling_tests()},
-     {error_handling_tests_tls, [], error_handling_tests_tls()}
+     {ciphers, [], cipher_tests()}
     ].
 
 tls_versions_groups ()->
     [
-     {group, api_tls},
-     {group, error_handling_tests_tls}].
+     {group, api_tls}].
 
 all_versions_groups ()->
     [{group, api},
-     {group, ciphers},
-     {group, error_handling_tests}].
+     {group, ciphers}].
 
 
 basic_tests() ->
     [app,
-     appup,
-     alerts,
-     alert_details,
-     alert_details_not_too_big,
+     appup,    
      version_option,
      connect_twice,
      connect_dist,
@@ -103,10 +94,6 @@ basic_tests() ->
      defaults,
      fallback,
      cipher_format
-    ].
-
-basic_tests_tls() ->
-    [tls_send_close
     ].
 
 options_tests() ->
@@ -151,18 +138,6 @@ cipher_tests() ->
      cipher_suites_mix,     
      default_reject_anonymous].
 
-error_handling_tests()->
-    [
-    ].
-
-error_handling_tests_tls()->
-    [
-    ].
-
-rizzo_tests() ->
-    [].
-
-
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -187,12 +162,10 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 
-init_per_group(GroupName, Config) when GroupName == basic_tls;
-                                       GroupName == options_tls;
+init_per_group(GroupName, Config) when GroupName == options_tls;
                                        GroupName == options;
                                        GroupName == basic;
-                                       GroupName == session;
-                                       GroupName == error_handling_tests_tls ->
+                                       GroupName == session ->
     ssl_test_lib:clean_tls_version(Config);
 %% Do not automatically configure TLS version for the 'tlsv1.3' group
 init_per_group('tlsv1.3' = GroupName, Config) ->
@@ -263,12 +236,6 @@ init_per_testcase(fallback, Config)  ->
 	_ ->
 	    {skip, "Not relevant if highest supported version is less than 3.2"}
     end;
-
-init_per_testcase(TestCase, Config) when TestCase == versions_option;
-					 TestCase == tls_tcp_connect_big ->
-    ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 60}),
-    Config;
 
 init_per_testcase(version_option, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
@@ -360,58 +327,6 @@ appup() ->
     [{doc, "Test that the ssl appup file is ok"}].
 appup(Config) when is_list(Config) ->
     ok = ?t:appup_test(ssl).
-%%--------------------------------------------------------------------
-alerts() ->
-    [{doc, "Test ssl_alert:alert_txt/1"}].
-alerts(Config) when is_list(Config) ->
-    Descriptions = [?CLOSE_NOTIFY, ?UNEXPECTED_MESSAGE, ?BAD_RECORD_MAC,
-		    ?DECRYPTION_FAILED_RESERVED, ?RECORD_OVERFLOW, ?DECOMPRESSION_FAILURE,
-		    ?HANDSHAKE_FAILURE, ?BAD_CERTIFICATE, ?UNSUPPORTED_CERTIFICATE,
-		    ?CERTIFICATE_REVOKED,?CERTIFICATE_EXPIRED, ?CERTIFICATE_UNKNOWN,
-		    ?ILLEGAL_PARAMETER, ?UNKNOWN_CA, ?ACCESS_DENIED, ?DECODE_ERROR,
-		    ?DECRYPT_ERROR, ?EXPORT_RESTRICTION, ?PROTOCOL_VERSION, 
-		    ?INSUFFICIENT_SECURITY, ?INTERNAL_ERROR, ?USER_CANCELED,
-		    ?NO_RENEGOTIATION, ?UNSUPPORTED_EXTENSION, ?CERTIFICATE_UNOBTAINABLE,
-		    ?UNRECOGNISED_NAME, ?BAD_CERTIFICATE_STATUS_RESPONSE,
-		    ?BAD_CERTIFICATE_HASH_VALUE, ?UNKNOWN_PSK_IDENTITY, 
-		    255 %% Unsupported/unknow alert will result in a description too
-		   ],
-    Alerts = [?ALERT_REC(?WARNING, ?CLOSE_NOTIFY) | 
-	      [?ALERT_REC(?FATAL, Desc) || Desc <- Descriptions]],
-    lists:foreach(fun(Alert) ->
-                          try ssl_alert:alert_txt(Alert)
-                          catch
-			    C:E:T ->
-                                  ct:fail({unexpected, {C, E, T}})
-			end 
-		  end, Alerts).
-%%--------------------------------------------------------------------
-alert_details() ->
-    [{doc, "Test that ssl_alert:alert_txt/1 result contains extendend error description"}].
-alert_details(Config) when is_list(Config) ->
-    Unique = make_ref(),
-    UniqueStr = lists:flatten(io_lib:format("~w", [Unique])),
-    Alert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY, Unique),
-    case string:str(ssl_alert:alert_txt(Alert), UniqueStr) of
-        0 ->
-            ct:fail(error_details_missing);
-        _ ->
-            ok
-    end.
-
-%%--------------------------------------------------------------------
-alert_details_not_too_big() ->
-    [{doc, "Test that ssl_alert:alert_txt/1 limits printed depth of extended error description"}].
-alert_details_not_too_big(Config) when is_list(Config) ->
-    Reason = lists:duplicate(10, lists:duplicate(10, lists:duplicate(10, {some, data}))),
-    Alert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY, Reason),
-    case length(ssl_alert:alert_txt(Alert)) < 1000 of
-        true ->
-            ok;
-        false ->
-            ct:fail(ssl_alert_text_too_big)
-    end.
-
 %%--------------------------------------------------------------------
 new_options_in_accept() ->
     [{doc,"Test that you can set ssl options in ssl_accept/3 and not only in tcp upgrade"}].
@@ -539,10 +454,6 @@ getstat(Config) when is_list(Config) ->
         || Name <- [send_cnt, send_oct]]),
 
     ok.
-
-
-
-
 
 %%--------------------------------------------------------------------
 connect_dist() ->
@@ -1140,31 +1051,6 @@ send_recv(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
-
-%%--------------------------------------------------------------------
-tls_send_close() ->
-    [{doc,""}].
-tls_send_close(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = 
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-				   {from, self()}, 
-				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options,  [{active, false} | ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-    {ok, TcpS} = rpc:call(ClientNode, gen_tcp, connect, 
-			  [Hostname,Port,[binary, {active, false}]]),
-    {ok, SslS} = rpc:call(ClientNode, ssl, connect, 
-			  [TcpS,[{active, false}|ClientOpts]]),
-    
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), self(), Server]),
-    ok = ssl:send(SslS, "Hello world"),      
-    {ok,<<"Hello world">>} = ssl:recv(SslS, 11),    
-    gen_tcp:close(TcpS),    
-    {error, _} = ssl:send(SslS, "Hello world").
 
 %%--------------------------------------------------------------------
 version_option() ->
@@ -1786,12 +1672,6 @@ basic_test(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
-
-
-
-
-
-
 
 result_ok(_Socket) ->
     ok.

@@ -69,7 +69,8 @@ api_tests() ->
      tls_tcp_error_propagation_in_active_mode,
      peername,
      sockname,
-     tls_server_handshake_timeout
+     tls_server_handshake_timeout,
+     transport_close
     ].
 
 init_per_suite(Config0) ->
@@ -575,6 +576,29 @@ tls_server_handshake_timeout(Config) ->
 		    [] = supervisor:which_children(tls_connection_sup)
 	    end
     end.
+transport_close() ->
+    [{doc, "Test what happens if socket is closed on TCP level after a while of normal operation"}].
+transport_close(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()}, 
+				   {mfa, {ssl_test_lib, send_recv_result, []}},
+				   {options,  [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, TcpS} = rpc:call(ClientNode, gen_tcp, connect, 
+			  [Hostname,Port,[binary, {active, false}]]),
+    {ok, SslS} = rpc:call(ClientNode, ssl, connect, 
+			  [TcpS,[{active, false}|ClientOpts]]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), self(), Server]),
+    ok = ssl:send(SslS, "Hello world"),      
+    {ok,<<"Hello world">>} = ssl:recv(SslS, 11),    
+    gen_tcp:close(TcpS),    
+    {error, _} = ssl:send(SslS, "Hello world").
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
