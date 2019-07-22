@@ -39,7 +39,7 @@
 %% Create handshake messages
 -export([certificate/5,
          certificate_verify/4,
-         encrypted_extensions/0]).
+         encrypted_extensions/1]).
 
 -export([do_start/2,
          do_negotiated/2,
@@ -61,10 +61,10 @@
 %% Create handshake messages
 %%====================================================================
 
-server_hello(MsgType, SessionId, KeyShare, ConnectionStates, ALPN) ->
+server_hello(MsgType, SessionId, KeyShare, ConnectionStates) ->
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
-    Extensions = server_hello_extensions(MsgType, KeyShare, ALPN),
+    Extensions = server_hello_extensions(MsgType, KeyShare),
     #server_hello{server_version = {3,3}, %% legacy_version
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
                   compression_method = 0, %% legacy attribute
@@ -73,6 +73,7 @@ server_hello(MsgType, SessionId, KeyShare, ConnectionStates, ALPN) ->
 		  extensions = Extensions
 		 }.
 
+
 %% The server's extensions MUST contain "supported_versions".
 %% Additionally, it SHOULD contain the minimal set of extensions
 %% necessary for the client to generate a correct ClientHello pair.  As
@@ -80,18 +81,14 @@ server_hello(MsgType, SessionId, KeyShare, ConnectionStates, ALPN) ->
 %% extensions that were not first offered by the client in its
 %% ClientHello, with the exception of optionally the "cookie" (see
 %% Section 4.2.2) extension.
-server_hello_extensions(hello_retry_request = MsgType, KeyShare, _) ->
+server_hello_extensions(hello_retry_request = MsgType, KeyShare) ->
     SupportedVersions = #server_hello_selected_version{selected_version = {3,4}},
     Extensions = #{server_hello_selected_version => SupportedVersions},
     ssl_handshake:add_server_share(MsgType, Extensions, KeyShare);
-server_hello_extensions(MsgType, KeyShare, undefined) ->
+server_hello_extensions(MsgType, KeyShare) ->
     SupportedVersions = #server_hello_selected_version{selected_version = {3,4}},
     Extensions = #{server_hello_selected_version => SupportedVersions},
-    ssl_handshake:add_server_share(MsgType, Extensions, KeyShare);
-server_hello_extensions(MsgType, KeyShare, ALPN0) ->
-    Extensions0 = ssl_handshake:add_selected_version(#{}),  %% {3,4} (TLS 1.3)
-    Extensions1 = ssl_handshake:add_alpn(Extensions0, ALPN0),
-    ssl_handshake:add_server_share(MsgType, Extensions1, KeyShare).
+    ssl_handshake:add_server_share(MsgType, Extensions, KeyShare).
 
 
 server_hello_random(server_hello, #security_parameters{server_random = Random}) ->
@@ -107,10 +104,14 @@ server_hello_random(hello_retry_request, _) ->
     ?HELLO_RETRY_REQUEST_RANDOM.
 
 
-%% TODO: implement support for encrypted_extensions
-encrypted_extensions() ->
+encrypted_extensions(#state{handshake_env = #handshake_env{alpn = undefined}}) ->
     #encrypted_extensions{
        extensions = #{}
+      };
+encrypted_extensions(#state{handshake_env = #handshake_env{alpn = ALPNProtocol}}) ->
+    Extensions = ssl_handshake:add_alpn(#{}, ALPNProtocol),
+    #encrypted_extensions{
+       extensions = Extensions
       }.
 
 
@@ -673,8 +674,7 @@ do_negotiated(start_handshake,
                                         dh_public_value = ClientPublicKey},
                      ssl_options = #ssl_options{} = SslOpts,
                      key_share = KeyShare,
-                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0,
-                                                    alpn = ALPN},
+                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
                      connection_env = #connection_env{private_key = CertPrivateKey},
                      static_env = #static_env{
                                      cert_db = CertDbHandle,
@@ -689,7 +689,7 @@ do_negotiated(start_handshake,
     try
         %% Create server_hello
         %% Extensions: supported_versions, key_share, (pre_shared_key)
-        ServerHello = server_hello(server_hello, SessionId, KeyShare, ConnectionStates0, ALPN),
+        ServerHello = server_hello(server_hello, SessionId, KeyShare, ConnectionStates0),
 
         {State1, _} = tls_connection:send_handshake(ServerHello, State0),
 
@@ -699,7 +699,7 @@ do_negotiated(start_handshake,
         State3 = ssl_record:step_encryption_state(State2),
 
         %% Create EncryptedExtensions
-        EncryptedExtensions = encrypted_extensions(),
+        EncryptedExtensions = encrypted_extensions(State2),
 
         %% Encode EncryptedExtensions
         State4 = tls_connection:queue_handshake(EncryptedExtensions, State3),
@@ -881,12 +881,19 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
     end.
 
 
-do_wait_ee(#encrypted_extensions{extensions = _Extensions}, State0) ->
+do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
+
+    ALPNProtocol0 = maps:get(alpn, Extensions, undefined),
+    ALPNProtocol = get_alpn(ALPNProtocol0),
 
     {Ref,_Maybe} = maybe(),
 
     try
-        {State0, wait_cert_cr}
+        %% Update state
+        #state{handshake_env = HsEnv} = State0,
+        State1 = State0#state{handshake_env = HsEnv#handshake_env{alpn = ALPNProtocol}},
+
+        {State1, wait_cert_cr}
     catch
         {Ref, {insufficient_security, no_suitable_groups}} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
@@ -1041,10 +1048,9 @@ compare_verify_data(_, _) ->
     {error, decrypt_error}.
 
 
-send_hello_retry_request(#state{connection_states = ConnectionStates0,
-                                handshake_env = #handshake_env{alpn = ALPN}} = State0,
+send_hello_retry_request(#state{connection_states = ConnectionStates0} = State0,
                          no_suitable_key, KeyShare, SessionId) ->
-    ServerHello = server_hello(hello_retry_request, SessionId, KeyShare, ConnectionStates0, ALPN),
+    ServerHello = server_hello(hello_retry_request, SessionId, KeyShare, ConnectionStates0),
     {State1, _} = tls_connection:send_handshake(ServerHello, State0),
 
     %% Update handshake history
@@ -1868,6 +1874,14 @@ get_key_shares(#key_share_server_hello{server_share = ServerShare}) ->
 
 get_selected_group(#key_share_hello_retry_request{selected_group = SelectedGroup}) ->
     SelectedGroup.
+
+get_alpn(ALPNProtocol0) ->
+    case ssl_handshake:decode_alpn(ALPNProtocol0) of
+        undefined ->
+            undefined;
+        [ALPNProtocol] ->
+            ALPNProtocol
+    end.
 
 maybe() ->
     Ref = erlang:make_ref(),

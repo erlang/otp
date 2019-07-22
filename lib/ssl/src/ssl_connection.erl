@@ -1275,10 +1275,17 @@ connection({call, From}, {connection_information, false}, State, _) ->
     Info = connection_info(State),
     hibernate_after(?FUNCTION_NAME, State, [{reply, From, {ok, Info}}]);
 connection({call, From}, negotiated_protocol, 
-	   #state{handshake_env = #handshake_env{negotiated_protocol = undefined}} = State, _) ->
+	   #state{handshake_env = #handshake_env{alpn = undefined,
+                                                 negotiated_protocol = undefined}} = State, _) ->
     hibernate_after(?FUNCTION_NAME, State, [{reply, From, {error, protocol_not_negotiated}}]);
 connection({call, From}, negotiated_protocol, 
-	   #state{handshake_env = #handshake_env{negotiated_protocol = SelectedProtocol}} = State, _) ->
+	   #state{handshake_env = #handshake_env{alpn = undefined,
+                                                 negotiated_protocol = SelectedProtocol}} = State, _) ->
+    hibernate_after(?FUNCTION_NAME, State,
+		    [{reply, From, {ok, SelectedProtocol}}]);
+connection({call, From}, negotiated_protocol,
+	   #state{handshake_env = #handshake_env{alpn = SelectedProtocol,
+                                                 negotiated_protocol = undefined}} = State, _) ->
     hibernate_after(?FUNCTION_NAME, State,
 		    [{reply, From, {ok, SelectedProtocol}}]);
 connection({call, From}, Msg, State, Connection) ->
