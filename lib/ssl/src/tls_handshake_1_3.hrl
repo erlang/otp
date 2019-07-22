@@ -105,9 +105,20 @@
          binders        % PskBinderEntry binders<33..2^16-1>; opaque PskBinderEntry<32..255>
         }).
 
--record(pre_shared_key,
+%% struct {
+%%     select (Handshake.msg_type) {
+%%         case client_hello: OfferedPsks;
+%%         case server_hello: uint16 selected_identity;
+%%     };
+%% } PreSharedKeyExtension;
+-record(pre_shared_key_client_hello,
         {
-         data          % OfferedPsks (client_hello) | uint16 selected_identity (server_hello)
+         offered_psks
+        }).
+
+-record(pre_shared_key_server_hello,
+        {
+         selected_identity
         }).
 
 %% RFC 8446 B.3.1.2.
