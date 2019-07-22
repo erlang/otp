@@ -1023,10 +1023,10 @@ notify_started02(Config) when is_list(Config) ->
 
     write_manager_conf(ConfDir),
 
-    Opts = [{server, [{verbosity, log}]},
-	    {net_if, [{verbosity, silence}]},
+    Opts = [{server,     [{verbosity, log}]},
+	    {net_if,     [{verbosity, silence}]},
 	    {note_store, [{verbosity, silence}]},
-	    {config, [{verbosity, log}, {dir, ConfDir}, {db_dir, DbDir}]}],
+	    {config,     [{verbosity, debug}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     p("start snmpm client process"),
     NumIterations = 5,
@@ -1056,8 +1056,14 @@ notify_started02(Config) when is_list(Config) ->
 
     p("await snmpm client process exit (max ~p+10000 msec)", [ApproxStartTime]),
     receive 
+        %% We take this opportunity to check if we got a skip from
+        %% the ctrl process.
+	{'EXIT', Pid2, {skip, SkipReason1}} ->
+	    ?SKIP(SkipReason1);
 	{'EXIT', Pid1, normal} ->
 	    ok;
+	{'EXIT', Pid1, {suite_failed, Reason1}} ->
+	    ?FAIL({client, Reason1});
 	{'EXIT', Pid1, Reason1} ->
 	    ?FAIL({client, Reason1})
     after ApproxStartTime + 10000 ->
@@ -1070,6 +1076,9 @@ notify_started02(Config) when is_list(Config) ->
     receive 
 	{'EXIT', Pid2, normal} ->
 	    ok;
+	{'EXIT', Pid2, {skip, SkipReason2}} ->
+            %% In case of a race
+	    ?SKIP(SkipReason2);
 	{'EXIT', Pid2, Reason2} ->
 	    ?FAIL({ctrl, Reason2})
     after 5000 ->
@@ -1159,6 +1168,12 @@ ns02_ctrl(Opts, N) ->
     p("starting"),
     ns02_ctrl_loop(Opts, N).
 
+
+%% We have seen that some times it takes unreasonably long time to
+%% start the manager (it got "stuck" in snmpm_config). But since
+%% we did not have enough verbosity, we do not know how far it got.
+%% So, we try to monitor each start attempt. We allow 5 sec (just 
+%% to give slow boxes a chance).
 ns02_ctrl_loop(_Opts, 0) ->
     p("done"),
     exit(normal);
@@ -1166,11 +1181,21 @@ ns02_ctrl_loop(Opts, N) ->
     p("entry when N: ~p", [N]),
     ?SLEEP(2000),
     p("start manager"),
-    snmpm:start(Opts),
+    %% snmpm:start(Opts),
+    {Pid, MRef} = erlang:spawn_monitor(fun() -> exit(snmpm:start(Opts)) end),
+    receive
+        {'DOWN', MRef, process, Pid, ok} ->
+            ok
+    after 5000 ->
+            p("start manager (~p) timeout - kill"),
+            exit(Pid, kill),
+            exit({skip, timeout})
+    end,
     ?SLEEP(2000),
     p("stop manager"),
     snmpm:stop(),
     ns02_ctrl_loop(Opts, N-1).
+
 
 
 %%======================================================================
