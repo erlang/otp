@@ -121,7 +121,8 @@
          api_opt_simple_otp_options/1,
          api_opt_simple_otp_rcvbuf_option/1,
          api_opt_simple_otp_controlling_process/1,
-         api_opt_sock_acceptconn/1,
+         api_opt_sock_acceptconn_udp/1,
+         api_opt_sock_acceptconn_tcp/1,
          api_opt_sock_acceptfilter/1,
          api_opt_sock_bindtodevice/1,
          api_opt_sock_broadcast/1,
@@ -623,85 +624,86 @@ use_group(Group, Env, Default) ->
     
 
 groups() -> 
-    [{api,                        [], api_cases()},
-     {api_misc,                   [], api_misc_cases()},
-     {api_basic,                  [], api_basic_cases()},
-     {api_async,                  [], api_async_cases()},
-     {api_options,                [], api_options_cases()},
-     {api_options_otp,            [], api_options_otp_cases()},
-     {api_options_socket,         [], api_options_socket_cases()},
-     {api_options_ip,             [], api_options_ip_cases()},
+    [{api,                         [], api_cases()},
+     {api_misc,                    [], api_misc_cases()},
+     {api_basic,                   [], api_basic_cases()},
+     {api_async,                   [], api_async_cases()},
+     {api_options,                 [], api_options_cases()},
+     {api_options_otp,             [], api_options_otp_cases()},
+     {api_options_socket,          [], api_options_socket_cases()},
+     {api_option_sock_acceptconn,  [], api_option_sock_acceptconn_cases()},
+     {api_options_ip,              [], api_options_ip_cases()},
      %% {api_options_ipv6,           [], api_options_ipv6_cases()},
      %% {api_options_tcp,            [], api_options_tcp_cases()},
      %% {api_options_udp,            [], api_options_udp_cases()},
      %% {api_options_sctp,           [], api_options_sctp_cases()},
-     {api_op_with_timeout,        [], api_op_with_timeout_cases()},
-     {socket_close,               [], socket_close_cases()},
-     {sc_ctrl_proc_exit,          [], sc_cp_exit_cases()},
-     {sc_local_close,             [], sc_lc_cases()},
-     {sc_remote_close,            [], sc_rc_cases()},
-     {sc_remote_shutdown,         [], sc_rs_cases()},
-     {traffic,                    [], traffic_cases()},
-     {traffic_counters,           [], traffic_counters_cases()},
-     {traffic_chunks,             [], traffic_chunks_cases()},
-     {traffic_pp_send_recv,       [], traffic_pp_send_recv_cases()},
-     {traffic_pp_sendto_recvfrom, [], traffic_pp_sendto_recvfrom_cases()},
-     {traffic_pp_sendmsg_recvmsg, [], traffic_pp_sendmsg_recvmsg_cases()},
-     {ttest,                      [], ttest_cases()},
-     {ttest_sgenf,                [], ttest_sgenf_cases()},
-     {ttest_sgenf_cgen,           [], ttest_sgenf_cgen_cases()},
-     {ttest_sgenf_cgenf,          [], ttest_sgenf_cgenf_cases()},
-     {ttest_sgenf_cgeno,          [], ttest_sgenf_cgeno_cases()},
-     {ttest_sgenf_cgent,          [], ttest_sgenf_cgent_cases()},
-     {ttest_sgenf_csock,          [], ttest_sgenf_csock_cases()},
-     {ttest_sgenf_csockf,         [], ttest_sgenf_csockf_cases()},
-     {ttest_sgenf_csocko,         [], ttest_sgenf_csocko_cases()},
-     {ttest_sgenf_csockt,         [], ttest_sgenf_csockt_cases()},
-     {ttest_sgeno,                [], ttest_sgeno_cases()},
-     {ttest_sgeno_cgen,           [], ttest_sgeno_cgen_cases()},
-     {ttest_sgeno_cgenf,          [], ttest_sgeno_cgenf_cases()},
-     {ttest_sgeno_cgeno,          [], ttest_sgeno_cgeno_cases()},
-     {ttest_sgeno_cgent,          [], ttest_sgeno_cgent_cases()},
-     {ttest_sgeno_csock,          [], ttest_sgeno_csock_cases()},
-     {ttest_sgeno_csockf,         [], ttest_sgeno_csockf_cases()},
-     {ttest_sgeno_csocko,         [], ttest_sgeno_csocko_cases()},
-     {ttest_sgeno_csockt,         [], ttest_sgeno_csockt_cases()},
-     {ttest_sgent,                [], ttest_sgent_cases()},
-     {ttest_sgent_cgen,           [], ttest_sgent_cgen_cases()},
-     {ttest_sgent_cgenf,          [], ttest_sgent_cgenf_cases()},
-     {ttest_sgent_cgeno,          [], ttest_sgent_cgeno_cases()},
-     {ttest_sgent_cgent,          [], ttest_sgent_cgent_cases()},
-     {ttest_sgent_csock,          [], ttest_sgent_csock_cases()},
-     {ttest_sgent_csockf,         [], ttest_sgent_csockf_cases()},
-     {ttest_sgent_csocko,         [], ttest_sgent_csocko_cases()},
-     {ttest_sgent_csockt,         [], ttest_sgent_csockt_cases()},
-     {ttest_ssockf,               [], ttest_ssockf_cases()},
-     {ttest_ssockf_cgen,          [], ttest_ssockf_cgen_cases()},
-     {ttest_ssockf_cgenf,         [], ttest_ssockf_cgenf_cases()},
-     {ttest_ssockf_cgeno,         [], ttest_ssockf_cgeno_cases()},
-     {ttest_ssockf_cgent,         [], ttest_ssockf_cgent_cases()},
-     {ttest_ssockf_csock,         [], ttest_ssockf_csock_cases()},
-     {ttest_ssockf_csockf,        [], ttest_ssockf_csockf_cases()},
-     {ttest_ssockf_csocko,        [], ttest_ssockf_csocko_cases()},
-     {ttest_ssockf_csockt,        [], ttest_ssockf_csockt_cases()},
-     {ttest_ssocko,               [], ttest_ssocko_cases()},
-     {ttest_ssocko_cgen,          [], ttest_ssocko_cgen_cases()},
-     {ttest_ssocko_cgenf,         [], ttest_ssocko_cgenf_cases()},
-     {ttest_ssocko_cgeno,         [], ttest_ssocko_cgeno_cases()},
-     {ttest_ssocko_cgent,         [], ttest_ssocko_cgent_cases()},
-     {ttest_ssocko_csock,         [], ttest_ssocko_csock_cases()},
-     {ttest_ssocko_csockf,        [], ttest_ssocko_csockf_cases()},
-     {ttest_ssocko_csocko,        [], ttest_ssocko_csocko_cases()},
-     {ttest_ssocko_csockt,        [], ttest_ssocko_csockt_cases()},
-     {ttest_ssockt,               [], ttest_ssockt_cases()},
-     {ttest_ssockt_cgen,          [], ttest_ssockt_cgen_cases()},
-     {ttest_ssockt_cgenf,         [], ttest_ssockt_cgenf_cases()},
-     {ttest_ssockt_cgeno,         [], ttest_ssockt_cgeno_cases()},
-     {ttest_ssockt_cgent,         [], ttest_ssockt_cgent_cases()},
-     {ttest_ssockt_csock,         [], ttest_ssockt_csock_cases()},
-     {ttest_ssockt_csockf,        [], ttest_ssockt_csockf_cases()},
-     {ttest_ssockt_csocko,        [], ttest_ssockt_csocko_cases()},
-     {ttest_ssockt_csockt,        [], ttest_ssockt_csockt_cases()}
+     {api_op_with_timeout,         [], api_op_with_timeout_cases()},
+     {socket_close,                [], socket_close_cases()},
+     {sc_ctrl_proc_exit,           [], sc_cp_exit_cases()},
+     {sc_local_close,              [], sc_lc_cases()},
+     {sc_remote_close,             [], sc_rc_cases()},
+     {sc_remote_shutdown,          [], sc_rs_cases()},
+     {traffic,                     [], traffic_cases()},
+     {traffic_counters,            [], traffic_counters_cases()},
+     {traffic_chunks,              [], traffic_chunks_cases()},
+     {traffic_pp_send_recv,        [], traffic_pp_send_recv_cases()},
+     {traffic_pp_sendto_recvfrom,  [], traffic_pp_sendto_recvfrom_cases()},
+     {traffic_pp_sendmsg_recvmsg,  [], traffic_pp_sendmsg_recvmsg_cases()},
+     {ttest,                       [], ttest_cases()},
+     {ttest_sgenf,                 [], ttest_sgenf_cases()},
+     {ttest_sgenf_cgen,            [], ttest_sgenf_cgen_cases()},
+     {ttest_sgenf_cgenf,           [], ttest_sgenf_cgenf_cases()},
+     {ttest_sgenf_cgeno,           [], ttest_sgenf_cgeno_cases()},
+     {ttest_sgenf_cgent,           [], ttest_sgenf_cgent_cases()},
+     {ttest_sgenf_csock,           [], ttest_sgenf_csock_cases()},
+     {ttest_sgenf_csockf,          [], ttest_sgenf_csockf_cases()},
+     {ttest_sgenf_csocko,          [], ttest_sgenf_csocko_cases()},
+     {ttest_sgenf_csockt,          [], ttest_sgenf_csockt_cases()},
+     {ttest_sgeno,                 [], ttest_sgeno_cases()},
+     {ttest_sgeno_cgen,            [], ttest_sgeno_cgen_cases()},
+     {ttest_sgeno_cgenf,           [], ttest_sgeno_cgenf_cases()},
+     {ttest_sgeno_cgeno,           [], ttest_sgeno_cgeno_cases()},
+     {ttest_sgeno_cgent,           [], ttest_sgeno_cgent_cases()},
+     {ttest_sgeno_csock,           [], ttest_sgeno_csock_cases()},
+     {ttest_sgeno_csockf,          [], ttest_sgeno_csockf_cases()},
+     {ttest_sgeno_csocko,          [], ttest_sgeno_csocko_cases()},
+     {ttest_sgeno_csockt,          [], ttest_sgeno_csockt_cases()},
+     {ttest_sgent,                 [], ttest_sgent_cases()},
+     {ttest_sgent_cgen,            [], ttest_sgent_cgen_cases()},
+     {ttest_sgent_cgenf,           [], ttest_sgent_cgenf_cases()},
+     {ttest_sgent_cgeno,           [], ttest_sgent_cgeno_cases()},
+     {ttest_sgent_cgent,           [], ttest_sgent_cgent_cases()},
+     {ttest_sgent_csock,           [], ttest_sgent_csock_cases()},
+     {ttest_sgent_csockf,          [], ttest_sgent_csockf_cases()},
+     {ttest_sgent_csocko,          [], ttest_sgent_csocko_cases()},
+     {ttest_sgent_csockt,          [], ttest_sgent_csockt_cases()},
+     {ttest_ssockf,                [], ttest_ssockf_cases()},
+     {ttest_ssockf_cgen,           [], ttest_ssockf_cgen_cases()},
+     {ttest_ssockf_cgenf,          [], ttest_ssockf_cgenf_cases()},
+     {ttest_ssockf_cgeno,          [], ttest_ssockf_cgeno_cases()},
+     {ttest_ssockf_cgent,          [], ttest_ssockf_cgent_cases()},
+     {ttest_ssockf_csock,          [], ttest_ssockf_csock_cases()},
+     {ttest_ssockf_csockf,         [], ttest_ssockf_csockf_cases()},
+     {ttest_ssockf_csocko,         [], ttest_ssockf_csocko_cases()},
+     {ttest_ssockf_csockt,         [], ttest_ssockf_csockt_cases()},
+     {ttest_ssocko,                [], ttest_ssocko_cases()},
+     {ttest_ssocko_cgen,           [], ttest_ssocko_cgen_cases()},
+     {ttest_ssocko_cgenf,          [], ttest_ssocko_cgenf_cases()},
+     {ttest_ssocko_cgeno,          [], ttest_ssocko_cgeno_cases()},
+     {ttest_ssocko_cgent,          [], ttest_ssocko_cgent_cases()},
+     {ttest_ssocko_csock,          [], ttest_ssocko_csock_cases()},
+     {ttest_ssocko_csockf,         [], ttest_ssocko_csockf_cases()},
+     {ttest_ssocko_csocko,         [], ttest_ssocko_csocko_cases()},
+     {ttest_ssocko_csockt,         [], ttest_ssocko_csockt_cases()},
+     {ttest_ssockt,                [], ttest_ssockt_cases()},
+     {ttest_ssockt_cgen,           [], ttest_ssockt_cgen_cases()},
+     {ttest_ssockt_cgenf,          [], ttest_ssockt_cgenf_cases()},
+     {ttest_ssockt_cgeno,          [], ttest_ssockt_cgeno_cases()},
+     {ttest_ssockt_cgent,          [], ttest_ssockt_cgent_cases()},
+     {ttest_ssockt_csock,          [], ttest_ssockt_csock_cases()},
+     {ttest_ssockt_csockf,         [], ttest_ssockt_csockf_cases()},
+     {ttest_ssockt_csocko,         [], ttest_ssockt_csocko_cases()},
+     {ttest_ssockt_csockt,         [], ttest_ssockt_csockt_cases()}
 
      %% {tickets,             [], ticket_cases()}
     ].
@@ -774,7 +776,7 @@ api_options_cases() ->
     [
      {group, api_options_otp},
      {group, api_options_socket},
-     {group, api_options_ip}%% ,
+     {group, api_options_ip}% ,
      %% {group, api_options_ipv6},
      %% {group, api_options_tcp},
      %% {group, api_options_udp},
@@ -790,7 +792,9 @@ api_options_otp_cases() ->
 
 api_options_socket_cases() ->
     [
-     api_opt_sock_acceptconn,
+     {group, api_option_sock_acceptconn},
+     %% api_opt_sock_acceptconn_udp,
+     %% api_opt_sock_acceptconn_tcp,
      api_opt_sock_acceptfilter,
      api_opt_sock_bindtodevice,
      api_opt_sock_broadcast,
@@ -800,6 +804,12 @@ api_options_socket_cases() ->
      api_opt_sock_error,
      api_opt_sock_keepalive,
      api_opt_sock_linger
+    ].
+
+api_option_sock_acceptconn_cases() ->
+    [
+     api_opt_sock_acceptconn_udp,
+     api_opt_sock_acceptconn_tcp
     ].
 
 api_options_ip_cases() ->
@@ -8379,24 +8389,24 @@ api_opt_simple_otp_controlling_process() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Tests the socket option acceptcon. This should be possible to get
-%% but not set.
+%% Tests the socket option acceptconn for UDP.
+%% This should be possible to get but not set.
 
-api_opt_sock_acceptconn(suite) ->
+api_opt_sock_acceptconn_udp(suite) ->
     [];
-api_opt_sock_acceptconn(doc) ->
+api_opt_sock_acceptconn_udp(doc) ->
     [];
-api_opt_sock_acceptconn(_Config) when is_list(_Config) ->
+api_opt_sock_acceptconn_udp(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(api_opt_sock_acceptconn,
+    tc_try(api_opt_sock_acceptconn_udp,
            fun() ->
                    has_support_sock_acceptconn()
            end,
-           fun() -> api_opt_sock_acceptconn() end).
+           fun() -> api_opt_sock_acceptconn_udp() end).
 
 
 
-api_opt_sock_acceptconn() ->
+api_opt_sock_acceptconn_udp() ->
     Opt = acceptconn,
     Set = fun(S, Val) ->
                   socket:setopt(S, socket, Opt, Val)
@@ -8412,7 +8422,7 @@ api_opt_sock_acceptconn() ->
                            LSA = which_local_socket_addr(Domain),
                            {ok, State#{local_sa => LSA}}
                    end},
-         #{desc => "create UDP socket",
+         #{desc => "create socket",
            cmd  => fun(#{domain := Domain} = State) ->
                            case socket:open(Domain, dgram, udp) of
                                {ok, Sock} ->
@@ -8422,8 +8432,8 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "[get] verify UDP socket (before bind)",
-           cmd  => fun(#{sock := Sock} = State) ->
+         #{desc => "[get] verify socket (before bind)",
+           cmd  => fun(#{sock := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, false} ->
                                    ?SEV_IPRINT("Expected Success: "
@@ -8437,20 +8447,17 @@ api_opt_sock_acceptconn() ->
                                    %% On some platforms this is not accepted
                                    %% for UDP, so skip this part (UDP).
                                    ?SEV_EPRINT("Expected Failure: "
-                                               "~p => SKIP UDP", [Reason]),
+                                               "~p => SKIP", [Reason]),
                                    (catch socket:close(Sock)),
-                                   {ok, State#{sock => skip}};
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p",
                                                [Reason]),
                                    ERROR
                            end
                    end},
-         #{desc => "[set] verify UDP socket (before bind)",
-           cmd  => fun(#{sock := skip} = _State) ->
-                           ?SEV_IPRINT("SKIP'ed"),
-                           ok;
-                      (#{sock := Sock} = _State) ->
+         #{desc => "[set] verify socket (before bind)",
+           cmd  => fun(#{sock := Sock} = _State) ->
                            case Set(Sock, true) of
                                {error, Reason} ->
                                    ?SEV_IPRINT("Expected Failure: ~p",
@@ -8463,11 +8470,8 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "bind UDP socket to local address",
-           cmd  => fun(#{sock := skip} = _State) ->
-                           ?SEV_IPRINT("SKIP'ed"),
-                           ok;
-                      (#{sock := Sock, local_sa := LSA} = _State) ->
+         #{desc => "bind socket to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, _} ->
                                    ok;
@@ -8478,11 +8482,8 @@ api_opt_sock_acceptconn() ->
 
          ?SEV_SLEEP(?SECS(1)),
 
-         #{desc => "[get] verify UDP socket (after bind)",
-           cmd  => fun(#{sock := skip} = _State) ->
-                           ?SEV_IPRINT("SKIP'ed"),
-                           ok;
-                      (#{sock := Sock} = _State) ->
+         #{desc => "[get] verify socket (after bind)",
+           cmd  => fun(#{sock := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, false} ->
                                    ?SEV_IPRINT("Expected Success: "
@@ -8498,11 +8499,8 @@ api_opt_sock_acceptconn() ->
                                    ERROR
                            end
                    end},
-         #{desc => "[set] verify UDP socket (after bind)",
-           cmd  => fun(#{sock := skip} = _State) ->
-                           ?SEV_IPRINT("SKIP'ed"),
-                           ok;
-                      (#{sock := Sock} = _State) ->
+         #{desc => "[set] verify socket (after bind)",
+           cmd  => fun(#{sock := Sock} = _State) ->
                            case Set(Sock, true) of
                                {error, Reason} ->
                                    ?SEV_IPRINT("Expected Failure: ~p",
@@ -8515,18 +8513,65 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "close UDP socket",
-           cmd  => fun(#{sock := skip} = State) ->
-                           ?SEV_IPRINT("SKIP'ed (already closed)"),
-                           {ok, maps:remove(sock, State)};
-                      (#{sock := Sock} = State) ->
+         %% *** Termination ***
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
                            socket:close(Sock),
                            {ok, maps:remove(sock, State)}
                    end},
 
-         ?SEV_SLEEP(?SECS(1)),
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
 
-         #{desc => "create TCP listen socket",
+    Domain = inet,
+
+    i("start tester evaluator"),
+    InitState = #{domain  => Domain},
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the socket option acceptconn for TCP.
+%% This should be possible to get but not set.
+
+api_opt_sock_acceptconn_tcp(suite) ->
+    [];
+api_opt_sock_acceptconn_tcp(doc) ->
+    [];
+api_opt_sock_acceptconn_tcp(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(api_opt_sock_acceptconn_tcp,
+           fun() ->
+                   has_support_sock_acceptconn()
+           end,
+           fun() -> api_opt_sock_acceptconn_tcp() end).
+
+
+
+api_opt_sock_acceptconn_tcp() ->
+    Opt = acceptconn,
+    Set = fun(S, Val) ->
+                  socket:setopt(S, socket, Opt, Val)
+          end,
+    Get = fun(S) ->
+                  socket:getopt(S, socket, Opt)
+          end,
+
+    TesterSeq =
+        [
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{local_sa => LSA}}
+                   end},
+
+         #{desc => "create listen socket",
            cmd  => fun(#{domain := Domain} = State) ->
                            case socket:open(Domain, stream, tcp) of
                                {ok, Sock} ->
@@ -8536,7 +8581,7 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "[get] verify TCP listen socket (before bind)",
+         #{desc => "[get] verify listen socket (before bind)",
            cmd  => fun(#{lsock := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, false} ->
@@ -8547,13 +8592,18 @@ api_opt_sock_acceptconn() ->
                                    ?SEV_EPRINT("Unexpected Success: "
                                                "Accepting connections"),
                                    {error, {unexpected_success, {Opt, true}}};
+                               {error, enoprotoopt = Reason} ->
+                                   ?SEV_EPRINT("Expected Failure: "
+                                               "~p => SKIP", [Reason]),
+                                   (catch socket:close(Sock)),
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p",
                                                [Reason]),
                                    ERROR
                            end
                    end},
-         #{desc => "[set] verify TCP listen socket (before bind)",
+         #{desc => "[set] verify listen socket (before bind)",
            cmd  => fun(#{lsock := Sock} = _State) ->
                            case Set(Sock, true) of
                                {error, Reason} ->
@@ -8568,7 +8618,7 @@ api_opt_sock_acceptconn() ->
 
          ?SEV_SLEEP(?SECS(1)),
 
-         #{desc => "bind TCP listen socket to local address",
+         #{desc => "bind listen socket to local address",
            cmd  => fun(#{lsock := Sock, local_sa := LSA} = State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, Port} ->
@@ -8578,7 +8628,7 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "[get] verify TCP listen socket (after bind)",
+         #{desc => "[get] verify listen socket (after bind)",
            cmd  => fun(#{lsock := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, false} ->
@@ -8594,7 +8644,7 @@ api_opt_sock_acceptconn() ->
                                    ERROR
                            end
                    end},
-         #{desc => "[set] verify TCP listen socket (after bind)",
+         #{desc => "[set] verify listen socket (after bind)",
            cmd  => fun(#{lsock := Sock} = _State) ->
                            case Set(Sock, true) of
                                {error, Reason} ->
@@ -8609,7 +8659,7 @@ api_opt_sock_acceptconn() ->
 
          ?SEV_SLEEP(?SECS(1)),
 
-         #{desc => "make TCP listen socket accept connections",
+         #{desc => "make listen socket accept connections",
            cmd  => fun(#{lsock := Sock} = _State) ->
                            case socket:listen(Sock) of
                                ok ->
@@ -8619,7 +8669,7 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "[get] verify TCP listen socket (after listen)",
+         #{desc => "[get] verify listen socket (after listen)",
            cmd  => fun(#{lsock := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, true} ->
@@ -8635,7 +8685,7 @@ api_opt_sock_acceptconn() ->
                                    ERROR
                            end
                    end},
-         #{desc => "[set] verify TCP listen socket (after listen)",
+         #{desc => "[set] verify listen socket (after listen)",
            cmd  => fun(#{lsock := Sock} = _State) ->
                            case Set(Sock, false) of
                                {error, Reason} ->
@@ -8650,7 +8700,7 @@ api_opt_sock_acceptconn() ->
 
          ?SEV_SLEEP(?SECS(1)),
 
-         #{desc => "create TCP (connecting) socket",
+         #{desc => "create (connecting) socket",
            cmd  => fun(#{domain := Domain} = State) ->
                            case socket:open(Domain, stream, tcp) of
                                {ok, Sock} ->
@@ -8660,7 +8710,7 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "bind TCP connecting socket to local address",
+         #{desc => "bind connecting socket to local address",
            cmd  => fun(#{csockc := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, _Port} ->
@@ -8672,7 +8722,7 @@ api_opt_sock_acceptconn() ->
 
          ?SEV_SLEEP(?SECS(1)),
 
-         #{desc => "[get] verify TCP connecting socket (before connect)",
+         #{desc => "[get] verify connecting socket (before connect)",
            cmd  => fun(#{csockc := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, false} ->
@@ -8688,7 +8738,7 @@ api_opt_sock_acceptconn() ->
                                    ERROR
                            end
                    end},
-         #{desc => "[set] verify TCP connecting socket (before connect)",
+         #{desc => "[set] verify connecting socket (before connect)",
            cmd  => fun(#{csockc := Sock} = _State) ->
                            case Set(Sock, true) of
                                {error, Reason} ->
@@ -8723,7 +8773,7 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "[get] verify TCP connecting socket (after connect)",
+         #{desc => "[get] verify connecting socket (after connect)",
            cmd  => fun(#{csockc := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, false} ->
@@ -8739,7 +8789,7 @@ api_opt_sock_acceptconn() ->
                                    ERROR
                            end
                    end},
-         #{desc => "[set] verify TCP connecting socket (after connect)",
+         #{desc => "[set] verify connecting socket (after connect)",
            cmd  => fun(#{csockc := Sock} = _State) ->
                            case Set(Sock, true) of
                                {error, Reason} ->
@@ -8752,7 +8802,7 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "[get] verify TCP connected socket",
+         #{desc => "[get] verify connected socket",
            cmd  => fun(#{csocks := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, false} ->
@@ -8768,7 +8818,7 @@ api_opt_sock_acceptconn() ->
                                    ERROR
                            end
                    end},
-         #{desc => "[set] verify TCP connected socket",
+         #{desc => "[set] verify connected socket",
            cmd  => fun(#{csocks := Sock} = _State) ->
                            case Set(Sock, true) of
                                {error, Reason} ->
@@ -8781,7 +8831,7 @@ api_opt_sock_acceptconn() ->
                            end
                    end},
 
-         #{desc => "[get] verify TCP listen socket (after connect)",
+         #{desc => "[get] verify listen socket (after connect)",
            cmd  => fun(#{lsock := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, true} ->
@@ -8797,7 +8847,7 @@ api_opt_sock_acceptconn() ->
                                    ERROR
                            end
                    end},
-         #{desc => "[set] verify TCP listen socket (after connect)",
+         #{desc => "[set] verify listen socket (after connect)",
            cmd  => fun(#{lsock := Sock} = _State) ->
                            case Set(Sock, false) of
                                {error, Reason} ->
@@ -8811,14 +8861,14 @@ api_opt_sock_acceptconn() ->
                    end},
 
          %% *** Termination ***
-         #{desc => "close TCP connecting socket(s)",
+         #{desc => "close connecting socket(s)",
            cmd  => fun(#{csockc := Sock} = State0) ->
                            socket:close(Sock),
                            State1 = maps:remove(csockc, State0),
                            State2 = maps:remove(csocks, State1), %% Auto-close
                            {ok, maps:remove(csockc, State2)}
                    end},
-         #{desc => "close TCP listen socket",
+         #{desc => "close listen socket",
            cmd  => fun(#{lsock := Sock} = State) ->
                            socket:close(Sock),
                            {ok, maps:remove(lsock, State)}
