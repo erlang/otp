@@ -54,6 +54,19 @@ t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 min(M) -> timer:minutes(M).
 
 %% Test server callbacks
+init_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
+                                     (Case =:= otp_8167) orelse
+                                     (Case =:= otp_8183) ->
+    i("try starting megaco_config"),
+    case megaco_config:start_link() of
+        {ok, _} ->
+            C = lists:keydelete(tc_timeout, 1, Config),
+            do_init_per_testcase(Case, [{tc_timeout, min(3)}|C]);
+        {error, Reason} ->
+            i("Failed starting megaco_config: "
+              "~n   ~p", [Reason]),
+            {skip, ?F("Failed starting config: ~p", [Reason])}
+    end;
 init_per_testcase(Case, Config) ->
     C = lists:keydelete(tc_timeout, 1, Config),
     do_init_per_testcase(Case, [{tc_timeout, min(3)}|C]).
@@ -62,6 +75,12 @@ do_init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
     megaco_test_lib:init_per_testcase(Case, Config).
 
+end_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
+                                     (Case =:= otp_8167) orelse
+                                     (Case =:= otp_8183) ->
+    (catch megaco_config:stop()),
+    process_flag(trap_exit, false),
+    megaco_test_lib:end_per_testcase(Case, Config);
 end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config).
@@ -769,9 +788,6 @@ otp_7216(Config) when is_list(Config) ->
     put(tc, otp_7216),
     p("start"),
 
-    p("start the megaco config process"),
-    megaco_config:start_link(),
-
     LocalMid1 = {deviceName, "local-mid-1"},
     %% LocalMid2 = {deviceName, "local-mid-2"},
     RemoteMid1 = {deviceName, "remote-mid-1"},
@@ -892,9 +908,6 @@ otp_8167(Config) when is_list(Config) ->
     put(tc, otp8167),
     p("start"),
 
-    p("start the megaco config process"),
-    megaco_config:start_link(),
-
     LocalMid1  = {deviceName, "local-mid-1"},
     LocalMid2  = {deviceName, "local-mid-2"},
     RemoteMid1 = {deviceName, "remote-mid-1"},
@@ -1013,9 +1026,6 @@ otp_8183(suite) ->
 otp_8183(Config) when is_list(Config) ->
     put(tc, otp8183),
     p("start"),
-
-    p("start the megaco config process"),
-    megaco_config:start_link(),
 
     LocalMid1  = {deviceName, "local-mid-1"},
     LocalMid2  = {deviceName, "local-mid-2"},
