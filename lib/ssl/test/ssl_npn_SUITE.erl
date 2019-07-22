@@ -19,7 +19,7 @@
 %%
 
 %%
--module(ssl_npn_handshake_SUITE).
+-module(ssl_npn_SUITE).
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).

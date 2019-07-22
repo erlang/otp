@@ -19,7 +19,7 @@
 %%
 
 %%
--module(ssl_alpn_handshake_SUITE).
+-module(ssl_alpn_SUITE).
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -32,7 +32,9 @@
 %%--------------------------------------------------------------------
 
 all() ->
-    [{group, 'tlsv1.2'},
+    [
+     {group, 'tlsv1.3'},
+     {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'sslv3'},
@@ -42,12 +44,13 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.2', [], alpn_tests()},
-     {'tlsv1.1', [], alpn_tests()},
-     {'tlsv1', [], alpn_tests()},
+     {'tlsv1.3', [], alpn_tests() -- [client_renegotiate, session_reused]},
+     {'tlsv1.2', [], alpn_tests() ++ alpn_npn_coexist()},
+     {'tlsv1.1', [], alpn_tests() ++ alpn_npn_coexist()},
+     {'tlsv1', [], alpn_tests() ++ alpn_npn_coexist()},
      {'sslv3', [], alpn_not_supported()},
-     {'dtlsv1.2', [], alpn_tests() -- [client_renegotiate]},
-     {'dtlsv1', [], alpn_tests() -- [client_renegotiate]}
+     {'dtlsv1.2', [], alpn_tests() ++ alpn_npn_coexist()},
+     {'dtlsv1', [], alpn_tests() ++ alpn_npn_coexist()}
     ].
 
 alpn_tests() ->
@@ -61,10 +64,14 @@ alpn_tests() ->
      client_alpn_and_server_no_support,
      client_no_support_and_server_alpn,
      client_alpn_npn_and_server_alpn,
-     client_alpn_npn_and_server_alpn_npn,
-     client_alpn_and_server_alpn_npn,
      client_renegotiate,
      session_reused
+    ].
+
+alpn_npn_coexist() ->
+    [
+     client_alpn_npn_and_server_alpn_npn,
+     client_alpn_and_server_alpn_npn
     ].
 
 alpn_not_supported() ->
@@ -77,8 +84,7 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    ssl_test_lib:clean_start(),
-	    Config = ssl_test_lib:make_rsa_cert(Config0),
-	    ssl_test_lib:cert_options(Config)
+	    ssl_test_lib:make_rsa_cert(Config0)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
