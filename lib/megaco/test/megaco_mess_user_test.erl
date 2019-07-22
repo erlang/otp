@@ -86,13 +86,13 @@ reply(Mod, Line, Fun) when is_function(Fun) ->
 	{?MODULE, Pid, UserCallback} ->
 	    UserReply = Fun(UserCallback),
 	    Pid ! {?MODULE, self(), UserReply},
-	    UserReply;
-	Other ->
-	    megaco_test_lib:error(Other, Mod, Line),
-	    {error, Other}
-%%     after 1000 ->
-%% 	       megaco_test_lib:error(timeout, Mod, Line),
-%% 	       {error, timeout}
+	    UserReply%% ;
+	%% Other ->
+	%%     megaco_test_lib:error(Other, Mod, Line),
+	%%     {error, Other}
+     after 10000 ->
+ 	       megaco_test_lib:error(timeout, Mod, Line),
+ 	       {error, timeout}
     end.
   
 call(UserCallback) ->

@@ -281,6 +281,8 @@
 
 -define(VERSION, 1).
 
+-define(USER_MOD, megaco_mess_user_test).
+
 -define(TEST_VERBOSITY, debug).
 -define(MGC_VERBOSITY,  debug).
 -define(MG_VERBOSITY,   debug).
@@ -303,20 +305,20 @@
 -define(MG_NOTIF_RAR(Pid), megaco_test_mg:notify_request_and_reply(Pid)).
 
 -define(SEND(Expr), 
-	?VERIFY(ok, megaco_mess_user_test:apply_proxy(fun() -> Expr end))).
+	?VERIFY(ok, ?USER_MOD:apply_proxy(fun() -> Expr end))).
 
 -define(USER(Expected, Reply),
-	megaco_mess_user_test:reply(?MODULE,
-				    ?LINE,
-				    fun(Actual) ->
-				       case ?VERIFY(Expected, Actual) of
-					   Expected   -> {ok, Reply};
-					   UnExpected -> {error, {reply_verify,
-								  ?MODULE,
-								  ?LINE,
-								  UnExpected}}
-				       end
-				    end)).
+	?USER_MOD:reply(?MODULE,
+                        ?LINE,
+                        fun(Actual) ->
+                                case ?VERIFY(Expected, Actual) of
+                                    Expected   -> {ok, Reply};
+                                    UnExpected -> {error, {reply_verify,
+                                                           ?MODULE,
+                                                           ?LINE,
+                                                           UnExpected}}
+                                end
+                        end)).
 	
 %% t()     -> megaco_test_lib:t(?MODULE).
 %% t(Case) -> megaco_test_lib:t({?MODULE, Case}).
@@ -491,12 +493,12 @@ request_and_reply_plain(suite) ->
 request_and_reply_plain(Config) when is_list(Config) ->
     ?ACQUIRE_NODES(1, Config),
     d("request_and_reply_plain -> start proxy",[]),
-    megaco_mess_user_test:start_proxy(),
+    ?USER_MOD:start_proxy(),
 
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
     MgcMid  = ipv4_mid(),
-    UserMod = megaco_mess_user_test,
+    UserMod = ?USER_MOD,
     d("request_and_reply_plain -> start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
     UserConfig = [{user_mod, UserMod}, {send_mod, UserMod},
@@ -564,6 +566,7 @@ request_and_reply_plain(Config) when is_list(Config) ->
     ok.
 
 
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% OTP-4760
@@ -6866,12 +6869,12 @@ dist(Config) when is_list(Config) ->
     ?SKIP("Needs a re-write..."),
     [_Local, Dist] = ?ACQUIRE_NODES(2, Config),
     d("dist -> start proxy",[]),
-    megaco_mess_user_test:start_proxy(),
+    ?USER_MOD:start_proxy(),
 
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
     MgcMid  = ipv4_mid(),
-    UserMod = megaco_mess_user_test,
+    UserMod = ?USER_MOD,
     d("dist -> start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
     UserConfig = [{user_mod, UserMod}, {send_mod, UserMod},
@@ -6977,7 +6980,7 @@ dist(Config) when is_list(Config) ->
     ?RECEIVE([]),
 
     d("dist -> stop proxy",[]),
-    megaco_mess_user_test:stop_proxy(),
+    ?USER_MOD:stop_proxy(),
 
     d("dist -> done", []),
     ok.
@@ -8362,7 +8365,7 @@ otp_6253(Config) when is_list(Config) ->
     MgMid   = ipv4_mid(4711),
 
     ?VERIFY(ok, application:start(megaco)),
-    ?VERIFY(ok,	megaco:start_user(MgMid, [{send_mod, megaco_mess_user_test},
+    ?VERIFY(ok,	megaco:start_user(MgMid, [{send_mod, ?USER_MOD},
 	                                  {request_timer, infinity},
 	                                  {reply_timer, infinity}])),
 
@@ -11015,12 +11018,12 @@ otp_6865_request_and_reply_plain_extra1(Config) when is_list(Config) ->
     ok = megaco_tc_controller:insert(extra_transport_info, ExtraInfo),
 
     d("start proxy",[]),
-    megaco_mess_user_test:start_proxy(),
+    ?USER_MOD:start_proxy(),
 
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
     MgcMid  = ipv4_mid(),
-    UserMod = megaco_mess_user_test,
+    UserMod = ?USER_MOD,
     d("start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
     UserConfig = [{user_mod, UserMod}, {send_mod, UserMod},
@@ -12832,13 +12835,13 @@ otp_7713(Config) when is_list(Config) ->
     i("starting"),
 
     d("start proxy",[]),
-    megaco_mess_user_test:start_proxy(),
+    ?USER_MOD:start_proxy(),
 
     Extra = otp7713_extra, 
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
     MgcMid  = ipv4_mid(),
-    UserMod = megaco_mess_user_test,
+    UserMod = ?USER_MOD,
     d("start megaco app",[]),
     ?VERIFY(ok, application:start(megaco)),
     UserConfig = [{user_mod, UserMod}, {send_mod, UserMod},
