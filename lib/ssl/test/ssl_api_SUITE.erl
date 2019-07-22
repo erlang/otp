@@ -48,8 +48,8 @@ groups() ->
      {'tlsv1.3', [], gen_api_tests() -- [secret_connection_info, dh_params, honor_server_cipher_order, honor_client_cipher_order]},
      {'tlsv1.2', [],  gen_api_tests() ++ handshake_paus_tests()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests()},
-     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests()},
-     {'sslv3', [],  gen_api_tests()},
+     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ beast_mitigation_test()},
+     {'sslv3', [],  gen_api_tests() ++ beast_mitigation_test()},
      {'dtlsv1.2', [], gen_api_tests() -- [invalid_keyfile, invalid_certfile, invalid_cacertfile]  ++ handshake_paus_tests()},
      {'dtlsv1', [],  gen_api_tests() -- [invalid_keyfile, invalid_certfile, invalid_cacertfile] ++ handshake_paus_tests()}
     ].
@@ -82,6 +82,7 @@ gen_api_tests() ->
      honor_server_cipher_order,
      honor_client_cipher_order,
      ipv6,
+     der_input,
      invalid_certfile,
      invalid_cacertfile,
      invalid_keyfile
@@ -95,6 +96,15 @@ handshake_paus_tests() ->
      hello_server_cancel
     ].
 
+%% Only relevant for SSL 3.0 and TLS 1.1
+beast_mitigation_test() ->
+    [%% Original option
+     rizzo_disabled,
+     %% Same effect as disable
+     rizzo_zero_n, 
+     %% Same as default
+     rizzo_one_n_minus_one 
+    ].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -117,7 +127,8 @@ init_per_group(GroupName, Config) ->
 	true ->
 	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
 		true ->
-		    ssl_test_lib:init_tls_version(GroupName, Config);
+		    [{client_type, erlang},
+                     {server_type, erlang} | ssl_test_lib:init_tls_version(GroupName, Config)];
 		false ->
 		    {skip, "Missing crypto support"}
 	    end;
@@ -1121,8 +1132,8 @@ ipv6(Config) when is_list(Config) ->
     
     case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
 	true ->
-	    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-	    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+	    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+	    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 	    {ClientNode, ServerNode, Hostname} = 
 		ssl_test_lib:run_where(Config, ipv6),
 	    Server = ssl_test_lib:start_server([{node, ServerNode}, 
@@ -1148,6 +1159,51 @@ ipv6(Config) when is_list(Config) ->
 	false ->
 	    {skip, "Host does not support IPv6"}
     end.
+
+%%--------------------------------------------------------------------
+der_input() ->
+    [{doc,"Test to input certs and key as der"}].
+
+der_input(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    DHParamFile = filename:join(DataDir, "dHParam.pem"),
+
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    [CADb | _] = element(6, State),
+
+    Size = ets:info(CADb, size),
+
+    SeverVerifyOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ServerCert, ServerKey, ServerCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
+								       SeverVerifyOpts]),
+    ClientVerifyOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    {ClientCert, ClientKey, ClientCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
+								       ClientVerifyOpts]),
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+		  {dh, DHParams},
+		  {cert, ServerCert}, {key, ServerKey}, {cacerts, ServerCaCerts}],
+    ClientOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+		  {dh, DHParams},
+		  {cert, ClientCert}, {key, ClientKey}, {cacerts, ClientCaCerts}],
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result, []}},
+					{options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result, []}},
+					{options, [{active, false} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    Size = ets:info(CADb, size).
+
 %%--------------------------------------------------------------------
 invalid_certfile() ->
     [{doc,"Test what happens with an invalid cert file"}].
@@ -1232,6 +1288,38 @@ invalid_cacertfile(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server1, {error, {options, {cacertfile, File,{error,enoent}}}},
 			      Client1, {error, closed}),
     ok.
+
+%% Note that these test only test that the options are valid to set. As application data
+%% is a stream you can not test that the send acctually splits it up as when it arrives
+%% again at the user layer it may be concatenated. But COVER can show that the split up
+%% code has been run.
+   
+rizzo_disabled() ->
+     [{doc, "Test original beast mitigation disable option for SSL 3.0 and TLS 1.0"}].
+
+rizzo_disabled(Config) ->
+    ClientOpts = [{beast_mitigation, disabled} | ssl_test_lib:ssl_options(client_rsa_opts, Config)],
+    ServerOpts =  [{beast_mitigation, disabled} | ssl_test_lib:ssl_options(server_rsa_opts, Config)],
+    
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+rizzo_zero_n() ->
+     [{doc, "Test zero_n beast mitigation option (same affect as original disable option) for SSL 3.0 and TLS 1.0"}].
+
+rizzo_zero_n(Config) ->
+    ClientOpts = [{beast_mitigation, zero_n} | ssl_test_lib:ssl_options(client_rsa_opts, Config)],
+    ServerOpts =  [{beast_mitigation, zero_n} | ssl_test_lib:ssl_options(server_rsa_opts, Config)],
+    
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+rizzo_one_n_minus_one () ->
+     [{doc, "Test beast_mitigation option one_n_minus_one (same affect as default) for SSL 3.0 and TLS 1.0"}].
+
+rizzo_one_n_minus_one (Config) ->
+    ClientOpts = [{beast_mitigation, one_n_minus_one } | ssl_test_lib:ssl_options(client_rsa_opts, Config)],
+    ServerOpts =  [{beast_mitigation, one_n_minus_one} | ssl_test_lib:ssl_options(server_rsa_opts, Config)],
+    
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -1535,3 +1623,18 @@ honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
 connection_info_result(Socket) ->
     {ok, Info} = ssl:connection_information(Socket, [protocol, selected_cipher_suite]),
     {ok, {proplists:get_value(protocol, Info), proplists:get_value(selected_cipher_suite, Info)}}.
+
+der_input_opts(Opts) ->
+    Certfile = proplists:get_value(certfile, Opts),
+    CaCertsfile = proplists:get_value(cacertfile, Opts),
+    Keyfile = proplists:get_value(keyfile, Opts),
+    Dhfile = proplists:get_value(dhfile, Opts),
+    [{_, Cert, _}] = ssl_test_lib:pem_to_der(Certfile),
+    [{Asn1Type, Key, _}]  = ssl_test_lib:pem_to_der(Keyfile),
+    [{_, DHParams, _}]  = ssl_test_lib:pem_to_der(Dhfile),
+    CaCerts =
+	lists:map(fun(Entry) ->
+			  {_, CaCert, _} = Entry,
+			  CaCert
+		  end, ssl_test_lib:pem_to_der(CaCertsfile)),
+    {Cert, {Asn1Type, Key}, CaCerts, DHParams}.

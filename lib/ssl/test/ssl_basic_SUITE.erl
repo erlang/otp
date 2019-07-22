@@ -111,7 +111,6 @@ basic_tests_tls() ->
 
 options_tests() ->
     [
-     %%der_input, Move/remove as redundent
      ssl_options_not_proplist,
      raw_ssl_option,
      invalid_inet_get_option,
@@ -123,12 +122,10 @@ options_tests() ->
      invalid_options,
      protocol_versions,
      empty_protocol_versions,
-     ipv6,
      reuseaddr,
      unordered_protocol_versions_server,
      unordered_protocol_versions_client,
-     max_handshake_size
-].
+     max_handshake_size].
 
 options_tests_tls() ->
     [tls_misc_ssl_options,
@@ -163,11 +160,7 @@ error_handling_tests_tls()->
     ].
 
 rizzo_tests() ->
-    [rizzo,
-     no_rizzo_rc4,
-     rizzo_one_n_minus_one,
-     rizzo_zero_n,
-     rizzo_disabled].
+    [].
 
 
 %%--------------------------------------------------------------------
@@ -287,30 +280,6 @@ init_per_testcase(reuse_session, Config) ->
     ct:timetrap({seconds, 10}),
     Config;
 
-init_per_testcase(rizzo, Config) ->
-    ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 60}),
-    Config;
-
-init_per_testcase(no_rizzo_rc4, Config) ->
-    ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 60}),
-    Config;
-
-init_per_testcase(rizzo_one_n_minus_one, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
-    ct:timetrap({seconds, 60}),
-    rizzo_add_mitigation_option(one_n_minus_one, Config);
-
-init_per_testcase(rizzo_zero_n, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
-    ct:timetrap({seconds, 60}),
-    rizzo_add_mitigation_option(zero_n, Config);
-
-init_per_testcase(rizzo_disabled, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
-    ct:timetrap({seconds, 60}),
-    rizzo_add_mitigation_option(disabled, Config);
 
 init_per_testcase(TestCase, Config) when TestCase == clear_pem_cache;
 						TestCase == der_input;
@@ -1229,46 +1198,6 @@ internal_active_1(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
-
-
-%%--------------------------------------------------------------------
-ipv6() ->
-    [{require, ipv6_hosts},
-     {doc,"Test ipv6."}].
-ipv6(Config) when is_list(Config) ->
-    {ok, Hostname0} = inet:gethostname(),
-    
-    case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
-	true ->
-	    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-	    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-	    {ClientNode, ServerNode, Hostname} = 
-		ssl_test_lib:run_where(Config, ipv6),
-	    Server = ssl_test_lib:start_server([{node, ServerNode}, 
-				   {port, 0}, {from, self()}, 
-				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options,  
-				    [inet6, {active, false} | ServerOpts]}]),
-	    Port = ssl_test_lib:inet_port(Server), 
-	    Client = ssl_test_lib:start_client([{node, ClientNode}, 
-				   {port, Port}, {host, Hostname},
-				   {from, self()}, 
-				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options, 
-				    [inet6, {active, false} | ClientOpts]}]),
-	    
-	    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-			       [self(), Client, Server]),
-	    
-	    ssl_test_lib:check_result(Server, ok, Client, ok),
-	    
-	    ssl_test_lib:close(Server),
-	    ssl_test_lib:close(Client);
-	false ->
-	    {skip, "Host does not support IPv6"}
-    end.
-
-
     
 
 %%--------------------------------------------------------------------
@@ -1355,68 +1284,6 @@ default_reject_anonymous(Config) when is_list(Config) ->
                                                 ClientOpts]}]),
 
     ssl_test_lib:check_server_alert(Server, Client, insufficient_security).
-
-
-%%--------------------------------------------------------------------
-der_input() ->
-    [{doc,"Test to input certs and key as der"}].
-
-der_input(Config) when is_list(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    DHParamFile = filename:join(DataDir, "dHParam.pem"),
-
-    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
-    [_, _,_, _, Prop] = StatusInfo,
-    State = ssl_test_lib:state(Prop),
-    [CADb | _] = element(6, State),
-
-    Size = ets:info(CADb, size),
-
-    SeverVerifyOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    {ServerCert, ServerKey, ServerCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
-								       SeverVerifyOpts]),
-    ClientVerifyOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    {ClientCert, ClientKey, ClientCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
-								       ClientVerifyOpts]),
-    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
-		  {dh, DHParams},
-		  {cert, ServerCert}, {key, ServerKey}, {cacerts, ServerCaCerts}],
-    ClientOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
-		  {dh, DHParams},
-		  {cert, ClientCert}, {key, ClientKey}, {cacerts, ClientCaCerts}],
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-					{mfa, {ssl_test_lib, send_recv_result, []}},
-					{options, [{active, false} | ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-					{from, self()},
-					{mfa, {ssl_test_lib, send_recv_result, []}},
-					{options, [{active, false} | ClientOpts]}]),
-
-    ssl_test_lib:check_result(Server, ok, Client, ok),
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client),
-    Size = ets:info(CADb, size).
-
-%%--------------------------------------------------------------------
-der_input_opts(Opts) ->
-    Certfile = proplists:get_value(certfile, Opts),
-    CaCertsfile = proplists:get_value(cacertfile, Opts),
-    Keyfile = proplists:get_value(keyfile, Opts),
-    Dhfile = proplists:get_value(dhfile, Opts),
-    [{_, Cert, _}] = ssl_test_lib:pem_to_der(Certfile),
-    [{Asn1Type, Key, _}]  = ssl_test_lib:pem_to_der(Keyfile),
-    [{_, DHParams, _}]  = ssl_test_lib:pem_to_der(Dhfile),
-    CaCerts =
-	lists:map(fun(Entry) ->
-			  {_, CaCert, _} = Entry,
-			  CaCert
-		  end, ssl_test_lib:pem_to_der(CaCertsfile)),
-    {Cert, {Asn1Type, Key}, CaCerts, DHParams}.
-
 
 %%--------------------------------------------------------------------
 defaults(Config) when is_list(Config)->
@@ -1651,113 +1518,6 @@ connect_twice(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
     ssl_test_lib:close(Client1).
-
-%%--------------------------------------------------------------------
-
-rizzo() ->
-    [{doc, "Test that there is a 1/n-1-split for non RC4 in 'TLS < 1.1' as it is
-    vunrable to Rizzo/Dungon attack"}].
-
-rizzo(Config) when is_list(Config) ->
-    Prop = proplists:get_value(tc_group_properties, Config),
-    Version = proplists:get_value(name, Prop),
-    NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers  = ssl:filter_cipher_suites(ssl:cipher_suites(all, NVersion),  
-                                        [{key_exchange, 
-                                          fun(Alg) when Alg == ecdh_rsa; Alg == ecdhe_rsa-> 
-                                                  true;
-                                             (_) -> 
-                                                  false 
-                                          end},
-                                         {cipher, 
-                                          fun(rc4_128) -> 
-                                                  false;
-                                             (chacha20_poly1305) ->
-                                                  false;
-                                             (_) -> 
-                                                  true 
-                                          end}]),
-
-    run_send_recv_rizzo(Ciphers, Config, Version,
-			 {?MODULE, send_recv_result_active_rizzo, []}).
-%%--------------------------------------------------------------------
-no_rizzo_rc4() ->
-    [{doc,"Test that there is no 1/n-1-split for RC4 as it is not vunrable to Rizzo/Dungon attack"}].
-
-no_rizzo_rc4(Config) when is_list(Config) ->
-    Prop = proplists:get_value(tc_group_properties, Config),
-    Version = proplists:get_value(name, Prop),
-    NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    %% Test uses RSA certs
-    Ciphers  = ssl:filter_cipher_suites(ssl_test_lib:rc4_suites(NVersion),  
-                                        [{key_exchange, 
-                                          fun(Alg) when Alg == ecdh_rsa; Alg == ecdhe_rsa-> 
-                                                  true;
-                                             (_) -> 
-                                                  false 
-                                          end}]),
-    run_send_recv_rizzo(Ciphers, Config, Version,
-			{?MODULE, send_recv_result_active_no_rizzo, []}).
-
-rizzo_one_n_minus_one() ->
-    [{doc,"Test that the 1/n-1-split mitigation of Rizzo/Dungon attack can be explicitly selected"}].
-
-rizzo_one_n_minus_one(Config) when is_list(Config) ->
-    Prop = proplists:get_value(tc_group_properties, Config),
-    Version = proplists:get_value(name, Prop),
-    NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers  = ssl:filter_cipher_suites(ssl:cipher_suites(all, NVersion),
-                                        [{key_exchange, 
-                                          fun(Alg) when Alg == ecdh_rsa; Alg == ecdhe_rsa-> 
-                                                  true;
-                                             (_) -> 
-                                                  false 
-                                          end}, 
-                                         {cipher, 
-                                          fun(rc4_128) ->
-                                                  false;
-                                             %% TODO: remove this clause when chacha is fixed!
-                                             (chacha20_poly1305) ->
-                                                  false;
-                                             (_) -> 
-                                                  true 
-                                          end}]),
-    run_send_recv_rizzo(Ciphers, Config, Version,
-                        {?MODULE, send_recv_result_active_rizzo, []}).
-
-rizzo_zero_n() ->
-    [{doc,"Test that the 0/n-split mitigation of Rizzo/Dungon attack can be explicitly selected"}].
-
-rizzo_zero_n(Config) when is_list(Config) ->
-    Prop = proplists:get_value(tc_group_properties, Config),
-    Version = proplists:get_value(name, Prop),
-    NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers  = ssl:filter_cipher_suites(ssl:cipher_suites(default, NVersion),
-                                        [{cipher, 
-                                          fun(rc4_128) ->
-                                                  false;
-                                             (_) -> 
-                                                  true 
-                                          end}]),
-    run_send_recv_rizzo(Ciphers, Config, Version,
-			 {?MODULE, send_recv_result_active_no_rizzo, []}).
-
-rizzo_disabled() ->
-    [{doc,"Test that the mitigation of Rizzo/Dungon attack can be explicitly disabled"}].
-
-rizzo_disabled(Config) when is_list(Config) ->
-    Prop = proplists:get_value(tc_group_properties, Config),
-    Version = proplists:get_value(name, Prop),
-    NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Ciphers  = ssl:filter_cipher_suites(ssl:cipher_suites(default, NVersion),
-                                        [{cipher, 
-                                          fun(rc4_128) ->
-                                                  false;
-                                             (_) -> 
-                                                  true 
-                                          end}]),
-    run_send_recv_rizzo(Ciphers, Config, Version,
-			 {?MODULE, send_recv_result_active_no_rizzo, []}).
 
 %%--------------------------------------------------------------------
 new_server_wants_peer_cert() ->
@@ -2031,100 +1791,11 @@ basic_test(Config) ->
 
 
 
-send_recv_result_active_rizzo(Socket) ->
-    ssl:send(Socket, "Hello world"),
-    "Hello world" = ssl_test_lib:active_recv(Socket, 11),
-    ok.
 
-send_recv_result_active_no_rizzo(Socket) ->
-    ssl:send(Socket, "Hello world"),
-    "Hello world" = ssl_test_lib:active_recv(Socket, 11),
-    ok.
 
 result_ok(_Socket) ->
     ok.
 
-rizzo_add_mitigation_option(Value, Config) ->
-    lists:foldl(fun(Opt, Acc) ->
-                    case proplists:get_value(Opt, Acc) of
-                      undefined -> Acc;
-                      C ->
-                        N = lists:keystore(beast_mitigation, 1, C,
-                                           {beast_mitigation, Value}),
-                        lists:keystore(Opt, 1, Acc, {Opt, N})
-                    end
-                end, Config,
-                [client_opts, client_dsa_opts, server_opts, server_dsa_opts,
-                 server_ecdsa_opts, server_ecdh_rsa_opts]).
-    
-
-erlang_ssl_receive(Socket, Data) ->
-    case ssl_test_lib:active_recv(Socket, length(Data)) of
-        Data ->
-            ok;
-        Other ->
-            ct:fail({{expected, Data}, {got, Other}})
-    end.
-
-
-
-run_send_recv_rizzo(Ciphers, Config, Version, Mfa) ->
-    Result =  lists:map(fun(Cipher) ->
-				rizzo_test(Cipher, Config, Version, Mfa) end,
-			Ciphers),
-    case lists:flatten(Result) of
-	[] ->
-	    ok;
-	Error ->
-	    ct:log("Cipher suite errors: ~p~n", [Error]),
-	    ct:fail(cipher_suite_failed_see_test_case_log)
-    end.
-
-
-
-rizzo_test(Cipher, Config, Version, Mfa) ->
-   {ClientOpts, ServerOpts} = client_server_opts(Cipher, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-			   {mfa, Mfa},
-			   {options, [{active, true}, {ciphers, [Cipher]},
-				       {versions, [Version]}
-				      | ServerOpts]}]),
-    Port  = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-			   {from, self()},
-			   {mfa, Mfa},
-			   {options, [{active, true}, {ciphers, [Cipher]}| ClientOpts]}]),
-
-    Result = ssl_test_lib:check_result(Server, ok, Client, ok),
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client),
-    case Result of
-	ok ->
-	    [];
-	Error ->
-	    [{Cipher, Error}]
-    end.
-
-client_server_opts(#{key_exchange := KeyAlgo}, Config)
-  when KeyAlgo == rsa orelse
-       KeyAlgo == dhe_rsa orelse
-       KeyAlgo == ecdhe_rsa orelse
-       KeyAlgo == rsa_psk orelse
-       KeyAlgo == srp_rsa ->
-    {ssl_test_lib:ssl_options(client_opts, Config),
-     ssl_test_lib:ssl_options(server_opts, Config)};
-client_server_opts(#{key_exchange := KeyAlgo}, Config) when KeyAlgo == dss orelse KeyAlgo == dhe_dss ->
-    {ssl_test_lib:ssl_options(client_dsa_opts, Config),
-     ssl_test_lib:ssl_options(server_dsa_opts, Config)};
-client_server_opts(#{key_exchange := KeyAlgo}, Config) when KeyAlgo == ecdh_ecdsa orelse KeyAlgo == ecdhe_ecdsa ->
-    {ssl_test_lib:ssl_options(client_opts, Config),
-     ssl_test_lib:ssl_options(server_ecdsa_opts, Config)};
-client_server_opts(#{key_exchange := KeyAlgo}, Config) when KeyAlgo == ecdh_rsa ->
-    {ssl_test_lib:ssl_options(client_opts, Config),
-     ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)}.
 
 protocol_info_result(Socket) ->
     {ok, [{protocol, PVersion}]} = ssl:connection_information(Socket, [protocol]),
@@ -2143,8 +1814,6 @@ connect_dist_c(S) ->
     Test = binary_to_list(term_to_binary({erlang,term})),
     {ok, Test} = ssl:recv(S, 0, 10000),
     ok.
-
-
 
 
 get_invalid_inet_option(Socket) ->
