@@ -24,10 +24,11 @@
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
--include("ssl_cipher.hrl").
--include("ssl_internal.hrl").
--include("tls_handshake.hrl").
--include("tls_record.hrl").
+
+-include_lib("ssl/src/tls_record.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
+-include_lib("ssl/src/ssl_cipher.hrl").
+-include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %%--------------------------------------------------------------------

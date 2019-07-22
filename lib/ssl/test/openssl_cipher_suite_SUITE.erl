@@ -20,7 +20,7 @@
 
 %%
 
--module(openssl_server_cipher_suite_SUITE).
+-module(openssl_cipher_suite_SUITE).
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -31,19 +31,26 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() -> 
-   [
-     {group, 'tlsv1.2'},
+    [
+     {group,  openssl_server},
+     {group,  openssl_client}
+    ].
+
+all_protocol_groups() ->
+    [{group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
-    ].
+     ].
 
 groups() ->
     %% TODO: Enable SRP, PSK suites (needs OpenSSL s_server conf)
     %% TODO: Enable all "kex" on DTLS
     [
+     {openssl_server, all_protocol_groups()},
+     {openssl_client, all_protocol_groups()},
      {'tlsv1.2', [], kex()},
      {'tlsv1.1', [], kex()},
      {'tlsv1', [], kex()},
@@ -135,6 +142,9 @@ kex() ->
 dtls_kex() -> %% Should be all kex in the future
       dtls_rsa() ++ dss() ++ anonymous().
 
+ssl3_kex() ->
+    ssl3_rsa() ++ ssl3_dss() ++ ssl3_anonymous().
+
 rsa() ->
     [{group, dhe_rsa},
      {group, ecdhe_rsa},
@@ -148,12 +158,21 @@ dtls_rsa() ->
      %%,{group, rsa_psk}
     ].
 
+ssl3_rsa() ->
+    [{group, dhe_rsa},
+     {group, rsa}
+    ].
+
 ecdsa() ->
     [{group, ecdhe_ecdsa}].
     
 dss() ->
     [{group, dhe_dss}
      %%{group, srp_dss}
+    ].
+
+ssl3_dss() ->
+    [{group, dhe_dss}
     ].
 
 anonymous() ->
@@ -164,6 +183,9 @@ anonymous() ->
      %%{group, ecdhe_psk}
      %%{group, srp_anon}
     ].
+
+ssl3_anonymous() ->
+    [{group, dh_anon}].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -199,7 +221,12 @@ init_per_group(GroupName, Config) ->
            false ->
                do_init_per_group(GroupName, Config)
        end.
-
+do_init_per_group(openssl_client, Config0) ->
+    Config = proplists:delete(server_type, proplists:delete(client_type, Config0)),
+    [{client_type, openssl}, {server_type, erlang} | Config];
+do_init_per_group(openssl_server, Config0) ->
+    Config = proplists:delete(server_type, proplists:delete(client_type, Config0)),
+    [{client_type, erlang}, {server_type, openssl} | Config];    
 do_init_per_group(GroupName, Config) when GroupName == ecdh_anon;
                                        GroupName == ecdhe_rsa;
                                        GroupName == ecdhe_psk ->
@@ -747,8 +774,7 @@ cipher_suite_test(CipherSuite, _Version, Config) ->
     ct:log("Testing CipherSuite ~p~n", [CipherSuite]),
     ct:log("Server Opts ~p~n", [ServerOpts]),
     ct:log("Client Opts ~p~n", [ClientOpts]),
-    ssl_test_lib:basic_test([{ciphers, [CipherSuite]} | COpts], SOpts, [{client_type, erlang},
-                                                                        {server_type, openssl} | Config]).
+    ssl_test_lib:basic_test([{ciphers, [CipherSuite]} | COpts], SOpts, Config).
 
 
 test_ciphers(Kex, Cipher, Version) ->

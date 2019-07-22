@@ -36,7 +36,6 @@ all() ->
     [{group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
@@ -46,7 +45,6 @@ groups() ->
      {'tlsv1.2', [], sni_tests()},
      {'tlsv1.1', [], sni_tests()},
      {'tlsv1', [], sni_tests()},
-     {'sslv3', [], sni_tests()},
      {'dtlsv1.2', [], sni_tests()},
      {'dtlsv1', [], sni_tests()}
     ].
@@ -61,7 +59,8 @@ sni_tests() ->
      dns_name,
      ip_fallback,
      no_ip_fallback,
-     dns_name_reuse].
+     dns_name_reuse,
+     customize_hostname_check].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -88,12 +87,10 @@ end_per_suite(_) ->
     ssl:stop(),
     application:stop(crypto).
 
-init_per_testcase(TestCase, Config) when TestCase == ip_fallback;
-                                         TestCase == no_ip_fallback;
-                                         TestCase == dns_name_reuse ->
+init_per_testcase(customize_hostname_check, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
-    ct:timetrap({seconds, 20}),
+    ssl_test_lib:clean_start(),
+    ct:timetrap({seconds, 5}),
     Config;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
@@ -236,7 +233,60 @@ dns_name_reuse(Config) ->
                                          {mfa, {ssl_test_lib, session_info_result, []}},
                                          {from, self()},  {options, [{verify, verify_peer} | ClientConf]}]),
     
-    ssl_test_lib:check_client_alert(Client1, handshake_failure).
+    ssl_test_lib:check_client_alert(Client1, handshake_failure),
+    ssl_test_lib:close(Client0).
+
+
+customize_hostname_check() ->
+    [{doc,"Test option customize_hostname_check."}].
+customize_hostname_check(Config) when is_list(Config) ->
+    Ext = [#'Extension'{extnID = ?'id-ce-subjectAltName',
+                        extnValue = [{dNSName, "*.example.org"}],
+                        critical = false}
+          ],
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0} = ssl_test_lib:make_cert_chains_pem(rsa, [{server_chain,
+                                                                               [[], 
+                                                                                [],
+                                                                                [{extensions, Ext}]
+                                                                               ]}], 
+                                                                        Config, "https_hostname_convention"),
+    ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),  
+                                        
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+  
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+                                        {host, Hostname},
+					{from, self()}, 
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    CustomFun = public_key:pkix_verify_hostname_match_fun(https),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+                                        {host, Hostname},
+					 {from, self()}, 
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options,
+                                         [{verify, verify_peer},
+                                          {server_name_indication, "other.example.org"},
+                                          {customize_hostname_check, 
+                                           [{match_fun, CustomFun}]} | ClientOpts]
+					 }]),    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
+                                        
+    Client1 = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+                                               {host, Hostname},
+                                               {from, self()}, 
+                                               {mfa, {ssl_test_lib, no_result, []}},
+                                               {options, [{verify, verify_peer},
+                                                          {server_name_indication, "other.example.org"} | ClientOpts]}
+                                              ]),    
+    ssl_test_lib:check_client_alert(Server, Client1, handshake_failure).
 
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
