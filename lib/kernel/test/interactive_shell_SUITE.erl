@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2, 
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
 	 job_control_remote/1,
-	 job_control_remote_noshell/1,ctrl_keys/1]).
+	 job_control_remote_noshell/1,ctrl_keys/1,
+         get_columns_and_rows_escript/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% For spawn
@@ -40,7 +41,8 @@ suite() ->
      {timetrap,{minutes,3}}].
 
 all() -> 
-    [get_columns_and_rows, exit_initial, job_control_local,
+    [get_columns_and_rows_escript,get_columns_and_rows,
+     exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
      ctrl_keys].
 
@@ -71,6 +73,60 @@ end_per_group(_GroupName, Config) ->
 -else.
 -define(dbg(Data),noop).
 -endif.
+
+string_to_term(Str) ->
+    {ok,Tokens,_EndLine} = erl_scan:string(Str ++ "."),
+    {ok,AbsForm} = erl_parse:parse_exprs(Tokens),
+    {value,Value,_Bs} = erl_eval:exprs(AbsForm, erl_eval:new_bindings()),
+    Value.
+
+run_unbuffer_escript(Rows, Columns, EScript, NoTermStdIn, NoTermStdOut) ->
+    DataDir = filename:join(filename:dirname(code:which(?MODULE)), "interactive_shell_SUITE_data"),
+    TmpFile = filename:join(DataDir, "tmp"),
+    ok = file:write_file(TmpFile, <<>>),
+    CommandModifier =
+        case {NoTermStdIn, NoTermStdOut} of
+            {false, false} -> "";
+            {true, false} -> io_lib:format(" < ~s", [TmpFile]);
+            {false, true} -> io_lib:format(" > ~s ; cat ~s", [TmpFile, TmpFile]);
+            {true, true} -> io_lib:format(" > ~s < ~s ; cat ~s", [TmpFile, TmpFile, TmpFile])
+        end,
+    Command = io_lib:format("unbuffer -p bash -c \"stty rows ~p; stty columns ~p; escript ~s ~s\"",
+                               [Rows, Columns, EScript, CommandModifier]),
+    %% io:format("Command: ~s ~n", [Command]),
+    Out = os:cmd(Command),
+    %% io:format("Out: ~p ~n", [Out]),
+    string_to_term(Out).
+
+get_columns_and_rows_escript(Config) when is_list(Config) ->
+    ExpectUnbufferInstalled =
+        try
+            "79" = string:trim(os:cmd("unbuffer -p bash -c \"stty columns 79 ; tput cols\"")),
+            true
+        catch
+            _:_ -> false
+        end,
+    case ExpectUnbufferInstalled of
+        false ->
+            {skip,
+             "The unbuffer tool (https://core.tcl-lang.org/expect/index) does not seem to be installed.~n"
+             "On Ubuntu/Debian: \"sudo apt-get install expect\""};
+        true ->
+            DataDir = filename:join(filename:dirname(code:which(?MODULE)), "interactive_shell_SUITE_data"),
+            IoColumnsErl = filename:join(DataDir, "io_columns.erl"),
+            IoRowsErl = filename:join(DataDir, "io_rows.erl"),
+            [
+             begin
+                 {ok, 42} = run_unbuffer_escript(99, 42, IoColumnsErl, NoTermStdIn, NoTermStdOut),
+                 {ok, 99} = run_unbuffer_escript(99, 42, IoRowsErl, NoTermStdIn, NoTermStdOut)
+             end
+             ||
+                {NoTermStdIn, NoTermStdOut} <- [{false, false}, {true, false}, {false, true}]
+            ],
+            {error,enotsup} = run_unbuffer_escript(99, 42, IoRowsErl, true, true),
+            {error,enotsup} = run_unbuffer_escript(99, 42, IoColumnsErl, true, true),
+            ok
+    end.
 
 %% Test that the shell can access columns and rows.
 get_columns_and_rows(Config) when is_list(Config) ->
