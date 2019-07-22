@@ -701,6 +701,13 @@ void
 erts_debug_later_op_foreach(void (*callback)(void*),
                             void (*func)(void *, ErtsThrPrgrVal, void *),
                             void *arg);
+void
+erts_debug_free_process_foreach(void (*func)(Process *, void *), void *arg);
+void
+erts_debug_proc_monitor_link_foreach(Process *proc,
+                                     int (*monitor_func)(ErtsMonitor *, void *, Sint ),
+                                     int (*link_func)(ErtsLink *, void *, Sint ),
+                                     void *arg);
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
 

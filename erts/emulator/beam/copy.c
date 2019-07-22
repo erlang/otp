@@ -604,7 +604,12 @@ cleanup:
 /*
  *  Copy a structure to a heap.
  */
-Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint *bsz, erts_literal_area_t *litopt)
+Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
+                    Uint *bsz, erts_literal_area_t *litopt
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                    , char *file, int line
+#endif
+    )
 {
     char* hstart;
     Uint hsize;
@@ -854,7 +859,11 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 	    case EXTERNAL_REF_SUBTAG:
 		{
 		  ExternalThing *etp = (ExternalThing *) objp;
+#if defined(ERTS_COPY_REGISTER_LOCATION) && defined(ERL_NODE_BOOKKEEP)
+		  erts_ref_node_entry__(etp->node, 2, make_boxed(htop), file, line);
+#else
 		  erts_ref_node_entry(etp->node, 2, make_boxed(htop));
+#endif
 		}
 	    L_off_heap_node_container_common:
 		{
@@ -1326,8 +1335,13 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
  *  Copy object "obj" preserving sharing.
  *  Second half: copy and restore the object.
  */
-Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
-                         Eterm** hpp, ErlOffHeap* off_heap) {
+Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
+                           Eterm** hpp, ErlOffHeap* off_heap
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                           , char *file, int line
+#endif
+    )
+{
     Uint e;
     unsigned sz;
     Eterm* ptr;
@@ -1393,7 +1407,11 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
-                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL); /* copy literal */
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                                          , file, line
+#endif
+                        ); /* copy literal */
                     hbot -= bsz;
                 }
 		goto cleanup_next;
@@ -1461,7 +1479,11 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
-                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL); /* copy literal */
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                                          , file, line
+#endif
+                        ); /* copy literal */
                     hbot -= bsz;
                 }
 		goto cleanup_next;
@@ -1660,7 +1682,12 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    case EXTERNAL_REF_SUBTAG:
 	    {
 		ExternalThing *etp = (ExternalThing *) ptr;
+                
+#if defined(ERTS_COPY_REGISTER_LOCATION) && defined(ERL_NODE_BOOKKEEP)
+                erts_ref_node_entry__(etp->node, 2, make_boxed(hp), file, line);
+#else
                 erts_ref_node_entry(etp->node, 2, make_boxed(hp));
+#endif
 	    }
 	  off_heap_node_container_common:
 	    {
@@ -1823,8 +1850,12 @@ all_clean:
  *
  * NOTE: Assumes that term is a tuple (ptr is an untagged tuple ptr).
  */
-Eterm copy_shallow(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp,
-                   ErlOffHeap* off_heap)
+Eterm
+copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap
+#ifdef ERTS_COPY_REGISTER_LOCATION
+               , char *file, int line
+#endif
+    )
 {
     Eterm* tp = ptr;
     Eterm* hp = *hpp;
@@ -1866,7 +1897,11 @@ Eterm copy_shallow(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp,
 	    case EXTERNAL_REF_SUBTAG:
 		{
 		    ExternalThing* etp = (ExternalThing *) (tp-1);
+#if defined(ERTS_COPY_REGISTER_LOCATION) && defined(ERL_NODE_BOOKKEEP)
+                    erts_ref_node_entry__(etp->node, 2, make_boxed(hp-1), file, line);
+#else
                     erts_ref_node_entry(etp->node, 2, make_boxed(hp-1));
+#endif
 		}
 	    off_heap_common:
 		{

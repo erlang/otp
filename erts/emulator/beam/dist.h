@@ -274,6 +274,18 @@ typedef struct erts_dsig_send_context {
 
 typedef struct dist_sequences DistSeqNode;
 
+struct dist_sequences {
+    ErlHeapFragment hfrag;
+    struct dist_sequences *parent;
+    struct dist_sequences *left;
+    struct dist_sequences *right;
+    char is_red;
+
+    Uint64 seq_id;
+    int cnt;
+    Sint ctl_len;
+};
+
 /*
  * erts_dsig_send_* return values.
  */
@@ -306,9 +318,9 @@ extern Uint erts_dist_cache_size(void);
 
 extern Sint erts_abort_connection_rwunlock(DistEntry *dep);
 
-extern void erts_dist_seq_tree_foreach(
+extern void erts_debug_dist_seq_tree_foreach(
     DistEntry *dep,
-    int (*func)(ErtsDistExternal *, void*, Sint), void *args);
+    int (*func)(DistSeqNode *, void*, Sint), void *args);
 
 extern int erts_dsig_prepare(ErtsDSigSendContext *,
                              DistEntry*,

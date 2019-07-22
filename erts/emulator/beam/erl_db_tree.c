@@ -3936,6 +3936,12 @@ static int doit_select_replace(DbTableCommon *tb, TreeDbTerm **this,
     return 1;
 }
 
+void
+erts_db_foreach_thr_prgr_offheap_tree(void (*func)(ErlOffHeap *, void *),
+                                      void *arg)
+{
+}
+
 #ifdef TREE_DEBUG
 static void do_dump_tree2(DbTableCommon* tb, int to, void *to_arg, int show,
 			  TreeDbTerm *t, int offset)

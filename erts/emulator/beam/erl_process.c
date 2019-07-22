@@ -13514,3 +13514,79 @@ erts_debug_later_op_foreach(void (*callback)(void*),
         }
     }
 }
+
+void
+erts_debug_free_process_foreach(void (*func)(Process *, void *), void *arg)
+{
+    ErtsRunQueue *rq;
+    int ix, prio;
+    for (ix = 0; ix < erts_no_run_queues; ix++) {
+        rq = ERTS_RUNQ_IX(ix);
+        for (prio = PRIORITY_MAX; prio < PRIORITY_LOW; prio++) {
+            Process *p = rq->procs.prio[prio].first;
+            for (; p; p = p->next) {
+                if (ERTS_PSFLG_FREE & erts_atomic32_read_nob(&p->state))
+                    (*func)(p, arg);
+            }
+        }
+    }
+}
+
+void
+erts_debug_proc_monitor_link_foreach(Process *proc,
+                                     int (*monitor_func)(ErtsMonitor *, void *, Sint ),
+                                     int (*link_func)(ErtsLink *, void *, Sint ),
+                                     void *arg)
+{
+    if (!(erts_atomic32_read_nob(&proc->state) & ERTS_PSFLG_FREE)) {
+        /* For all links */
+        erts_link_tree_foreach(ERTS_P_LINKS(proc),
+                               link_func,
+                               arg);
+        /* For all monitors */
+        erts_monitor_tree_foreach(ERTS_P_MONITORS(proc),
+                                  monitor_func,
+                                  arg);
+        /* For all local target monitors */
+        erts_monitor_list_foreach(ERTS_P_LT_MONITORS(proc),
+                                  monitor_func,
+                                  arg);
+    }
+    else {
+        struct continue_exit_state *ce_state = proc->u.terminate;
+
+        /* For all links */
+        if (ce_state->phase == ERTS_CONTINUE_EXIT_LINKS)
+            erts_debug_link_tree_destroying_foreach(ce_state->links,
+                                                    link_func,
+                                                    arg,
+                                                    ce_state->yield_state);
+        else
+            erts_link_tree_foreach(ce_state->links,
+                                   link_func,
+                                   arg);
+
+        /* For all monitors */
+        if (ce_state->phase == ERTS_CONTINUE_EXIT_MONITORS)
+            erts_debug_monitor_tree_destroying_foreach(ce_state->monitors,
+                                                       monitor_func,
+                                                       arg,
+                                                       ce_state->yield_state);
+        else
+            erts_monitor_tree_foreach(ce_state->monitors,
+                                      monitor_func,
+                                      arg);
+
+        /* For all local target monitors */
+        if (ce_state->phase == ERTS_CONTINUE_EXIT_LT_MONITORS)
+            erts_debug_monitor_list_destroying_foreach(ce_state->lt_monitors,
+                                                       monitor_func,
+                                                       arg,
+                                                       ce_state->yield_state);
+        else
+            erts_monitor_list_foreach(ce_state->lt_monitors,
+                                      monitor_func,
+                                      arg);
+
+    }
+}

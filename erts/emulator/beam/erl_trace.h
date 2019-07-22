@@ -90,10 +90,10 @@ int erts_is_tracer_valid(Process* p);
 void erts_check_my_tracer_proc(Process *);
 void erts_block_sys_msg_dispatcher(void);
 void erts_release_sys_msg_dispatcher(void);
-void erts_foreach_sys_msg_in_q(void (*func)(Eterm,
-					    Eterm,
-					    Eterm,
-					    ErlHeapFragment *));
+void erts_debug_foreach_sys_msg_in_q(void (*func)(Eterm,
+                                                  Eterm,
+                                                  Eterm,
+                                                  ErlHeapFragment *));
 Eterm erts_set_system_logger(Eterm);
 Eterm erts_get_system_logger(void);
 void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);

@@ -671,6 +671,24 @@ erts_monitor_tree_foreach(ErtsMonitor *root,
                    arg);
 }
 
+void
+erts_debug_monitor_tree_destroying_foreach(ErtsMonitor *root,
+                                           ErtsMonitorFunc func,
+                                           void *arg,
+                                           void *vysp)
+{
+    void *tmp_vysp = erts_alloc(ERTS_ALC_T_ML_YIELD_STATE,
+                                sizeof(ErtsMonLnkYieldState));
+    Sint reds;
+    sys_memcpy(tmp_vysp, tmp_vysp, sizeof(ErtsMonLnkYieldState));
+    do {
+        reds = ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
+                                       (ErtsMonLnkNodeFunc) func,
+                                       arg, &tmp_vysp, (Sint) INT_MAX);
+    } while (reds <= 0);
+    ERTS_ML_ASSERT(!tmp_vysp);
+}
+
 int
 erts_monitor_tree_foreach_yielding(ErtsMonitor *root,
                                    ErtsMonitorFunc func,
@@ -714,6 +732,19 @@ erts_monitor_list_foreach(ErtsMonitor *list,
     while (!ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
                                         (int (*)(ErtsMonLnkNode *, void *, Sint)) func,
                                         arg, &ystate, (Sint) INT_MAX));
+}
+
+void
+erts_debug_monitor_list_destroying_foreach(ErtsMonitor *list,
+                                           ErtsMonitorFunc func,
+                                           void *arg,
+                                           void *vysp)
+{
+    void *tmp_vysp = vysp;
+    while (!ml_dl_list_foreach_yielding((ErtsMonLnkNode *) list,
+                                        (int (*)(ErtsMonLnkNode *, void *, Sint)) func,
+                                        arg, &tmp_vysp, (Sint) INT_MAX));
+    ERTS_ML_ASSERT(!tmp_vysp);
 }
 
 int
@@ -1078,6 +1109,24 @@ erts_link_tree_foreach(ErtsLink *root,
                    (ErtsMonLnkNodeFunc) func,
                    arg);
 
+}
+
+void
+erts_debug_link_tree_destroying_foreach(ErtsLink *root,
+                                        ErtsLinkFunc func,
+                                        void *arg,
+                                        void *vysp)
+{
+    void *tmp_vysp = erts_alloc(ERTS_ALC_T_ML_YIELD_STATE,
+                                sizeof(ErtsMonLnkYieldState));
+    Sint reds;
+    sys_memcpy(tmp_vysp, vysp, sizeof(ErtsMonLnkYieldState));
+    do {
+        reds = ml_rbt_foreach_yielding((ErtsMonLnkNode *) root,
+                                       (ErtsMonLnkNodeFunc) func,
+                                       arg, &tmp_vysp, (Sint) INT_MAX);
+    } while (reds <= 0);
+    ERTS_ML_ASSERT(!tmp_vysp);
 }
 
 int

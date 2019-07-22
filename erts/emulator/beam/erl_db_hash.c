@@ -3374,6 +3374,12 @@ Eterm erts_ets_hash_sizeof_ext_segtab(void)
     return make_small(((SIZEOF_EXT_SEGTAB(0)-1) / sizeof(UWord)) + 1);
 }
 
+void
+erts_db_foreach_thr_prgr_offheap_hash(void (*func)(ErlOffHeap *, void *),
+                                      void *arg)
+{
+}
+
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_enable_db_hash_lock_count(DbTableHash *tb, int enable) {
     int i;

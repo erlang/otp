@@ -4415,7 +4415,7 @@ void db_info(fmtfn_t to, void *to_arg, int show)    /* Called by break handler *
     pdbi.to_arg = to_arg;
     pdbi.show = show;
 
-    erts_db_foreach_table(db_info_print, &pdbi);
+    erts_db_foreach_table(db_info_print, &pdbi, !0);
 }
 
 Uint
@@ -4428,7 +4428,7 @@ erts_get_ets_misc_mem_size(void)
 
 /* SMP Note: May only be used when system is locked */
 void
-erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg)
+erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg, int alive_only)
 {
     int ix;
 
@@ -4440,7 +4440,7 @@ erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg)
         if (first) {
             DbTable *tb = first;
             do {
-                if (is_table_alive(tb))
+                if (!alive_only || is_table_alive(tb))
                     (*func)(tb, arg);
                 tb = tb->common.all.next;
             } while (tb != first);
@@ -4455,6 +4455,15 @@ erts_db_foreach_offheap(DbTable *tb,
 			void *arg)
 {
     tb->common.meth->db_foreach_offheap(tb, func, arg);
+}
+
+void
+erts_db_foreach_thr_prgr_offheap(void (*func)(ErlOffHeap *, void *),
+                                 void *arg)
+{
+    erts_db_foreach_thr_prgr_offheap_hash(func, arg);
+    erts_db_foreach_thr_prgr_offheap_tree(func, arg);
+    erts_db_foreach_thr_prgr_offheap_catree(func, arg);
 }
 
 /* retrieve max number of ets tables */
