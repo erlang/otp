@@ -1911,7 +1911,7 @@ setup_reference_table(void)
 	}
     }
     
-    erts_foreach_sys_msg_in_q(insert_sys_msg);
+    erts_debug_foreach_sys_msg_in_q(insert_sys_msg);
 
     /* Insert all ports */
     max = erts_ptab_max(&erts_port);
