@@ -990,25 +990,23 @@ notify_started02(Config) when is_list(Config) ->
 
     %% <CONDITIONAL-SKIP>
     %% The point of this is to catch machines running 
-    %% SLES9 (2.6.5)
+    %% SLES9 (2.6.5).
     LinuxVersionVerify = 
 	fun() ->
 		case os:cmd("uname -m") of
 		    "i686" ++ _ ->
-%% 			io:format("found an i686 machine, "
-%% 				  "now check version~n", []),
 			case os:version() of
 			    {2, 6, Rev} when Rev >= 16 ->
-				true;
+				false;
 			    {2, Min, _} when Min > 6 ->
-				true;
+				false;
 			    {Maj, _, _} when Maj > 2 ->
-				true;
+				false;
 			    _ ->
-				false
+				true
 			end;
 		    _ ->
-			true
+			false
 		end
 	end,
     Skippable = [{unix, [{linux, LinuxVersionVerify}]}],
@@ -1103,7 +1101,7 @@ ns02_client_await_approx_runtime(Pid) ->
               "~n      ~p", [Pid, Reason]),
             {error, Reason}
                 
-    after 15000 ->
+    after 30000 ->
             %% Either something is *really* wrong or this machine 
             %% is dog slow. Either way, this is a skip-reason...
             {skip, approx_runtime_timeout}
@@ -1181,19 +1179,33 @@ ns02_ctrl_loop(Opts, N) ->
     p("entry when N: ~p", [N]),
     ?SLEEP(2000),
     p("start manager"),
-    %% snmpm:start(Opts),
-    {Pid, MRef} = erlang:spawn_monitor(fun() -> exit(snmpm:start(Opts)) end),
+    TS1 = erlang:system_time(millisecond),
+    {StarterPid, StarterMRef} =
+        erlang:spawn_monitor(fun() -> exit(snmpm:start(Opts)) end),
     receive
-        {'DOWN', MRef, process, Pid, ok} ->
+        {'DOWN', StarterMRef, process, StarterPid, ok} ->
+            TS2 = erlang:system_time(millisecond),
+            p("manager started: ~w ms", [TS2-TS1]),
             ok
     after 5000 ->
-            p("start manager (~p) timeout - kill"),
-            exit(Pid, kill),
-            exit({skip, timeout})
+            p("manager (~p) start timeout - kill", [StarterPid]),
+            exit(StarterPid, kill),
+            exit({skip, start_timeout})
     end,
     ?SLEEP(2000),
     p("stop manager"),
-    snmpm:stop(),
+    ?SLEEP(100), % Give the verbosity to take effect...
+    TS3 = erlang:system_time(millisecond),
+    case snmpm:stop(5000) of
+        ok ->
+            TS4 = erlang:system_time(millisecond),
+            p("manager stopped: ~p ms", [TS4-TS3]),
+            ok;
+        {error, timeout} ->
+            p("manager stop timeout - kill (cleanup) and skip"),
+            exit(whereis(snmpm_supervisor), kill),
+            exit({skip, stop_timeout})
+    end,
     ns02_ctrl_loop(Opts, N-1).
 
 
