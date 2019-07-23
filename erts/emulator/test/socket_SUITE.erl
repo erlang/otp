@@ -9790,11 +9790,12 @@ api_opt_sock_domain() ->
 %% Tests the socket option dontroute.
 %% The man page has the following to say:
 %% "Don't send via a gateway, send only to directly connected hosts.
-%%  The  same  effect  can  be achieved by setting the MSG_DONTROUTE
+%%  The same effect can be achieved by setting the MSG_DONTROUTE
 %%  flag on a socket send(2) operation."
 %% Since its "kind of" difficult to check if it actually takes an 
-%% effect (you would need a gateway for that), we only test if we
-%% can set and get the value. Better then nothing.
+%% effect (you would need a gateway for that and a machine "on the
+%% other side"), we only test if we can set and get the value.
+%% Better then nothing.
 
 api_opt_sock_dontroute(suite) ->
     [];
@@ -9869,6 +9870,10 @@ api_opt_sock_dontroute() ->
                                ok ->
                                    ?SEV_IPRINT("Expected Success"),
                                    {ok, State#{dontroute => New}};
+                               {error, eopnotsupp = Reason} ->
+                                   ?SEV_EPRINT("Expected Failure: ~p",
+					       [Reason]),
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Unexpected Failure: ~p",
 					       [Reason]),
