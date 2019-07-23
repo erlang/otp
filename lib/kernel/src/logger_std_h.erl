@@ -455,12 +455,12 @@ maybe_ensure_file(State) ->
 %% In order to play well with tools like logrotate, we need to be able
 %% to re-create the file if it has disappeared (e.g. if rotated by
 %% logrotate)
-ensure_file(#{fd:=Fd0,inode:=INode0,file_name:=FileName,modes:=Modes}=State) ->
+ensure_file(#{inode:=INode0,file_name:=FileName,modes:=Modes}=State) ->
     case file:read_file_info(FileName,[raw]) of
         {ok,#file_info{inode=INode0}} ->
             State#{last_check=>timestamp()};
         _ ->
-            close_log_file(Fd0),
+            close_log_file(State),
             case file:open(FileName,Modes) of
                 {ok,Fd} ->
                     {ok,#file_info{inode=INode}} =
