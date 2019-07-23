@@ -45,7 +45,7 @@ all() ->
 groups() ->
     [
      %%{'tlsv1.3', [], gen_api_tests() ++ handshake_paus_tests()},
-     {'tlsv1.3', [], (gen_api_tests() -- [dh_params, honor_server_cipher_order, honor_client_cipher_order,
+     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group()) -- [dh_params, honor_server_cipher_order, honor_client_cipher_order,
                                         new_options_in_handshake])
       ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
@@ -124,6 +124,12 @@ beast_mitigation_test() ->
      %% Same as default
      rizzo_one_n_minus_one 
     ].
+
+tls13_group() ->
+    [
+     supported_groups
+    ].
+
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -419,7 +425,32 @@ no_common_signature_algs(Config) when is_list(Config) ->
     ssl_test_lib:check_server_alert(Server, Client, insufficient_security).
 
 %%--------------------------------------------------------------------
+supported_groups() ->
+    [{doc,"Test the supported_groups option in TLS 1.3."}].
 
+supported_groups(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{supported_groups, [x448, x25519]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, [{supported_groups,[x448]} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
 handshake_continue() ->
     [{doc, "Test API function ssl:handshake_continue/3"}].
 handshake_continue(Config) when is_list(Config) -> 
