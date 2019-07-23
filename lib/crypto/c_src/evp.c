@@ -125,9 +125,9 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         if ((ctx = EVP_PKEY_CTX_new_id(type, NULL)) == NULL)
             goto bad_arg;
         if (EVP_PKEY_keygen_init(ctx) != 1)
-            goto bad_arg;
+            goto err;
         if (EVP_PKEY_keygen(ctx, &pkey) != 1)
-            goto bad_arg;
+            goto err;
     } else {
         if (!enif_inspect_binary(env, argv[1], &prv_key))
             goto bad_arg;
