@@ -45,7 +45,7 @@ all() ->
 groups() ->
     [
      %%{'tlsv1.3', [], gen_api_tests() ++ handshake_paus_tests()},
-     {'tlsv1.3', [], (gen_api_tests() -- [secret_connection_info, dh_params, honor_server_cipher_order, honor_client_cipher_order,
+     {'tlsv1.3', [], (gen_api_tests() -- [dh_params, honor_server_cipher_order, honor_client_cipher_order,
                                         new_options_in_handshake])
       ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
@@ -1618,10 +1618,23 @@ connection_information_result(Socket) ->
 	    ct:fail(no_ssl_options_returned)
     end.
 secret_connection_info_result(Socket) ->
-    {ok, [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}]} 
-        = ssl:connection_information(Socket, [client_random, server_random, master_secret]),
-    is_binary(ClientRand) andalso is_binary(ServerRand) andalso is_binary(MasterSecret). 
+    {ok, [{protocol, Protocol}]} = ssl:connection_information(Socket, [protocol]),
+    {ok, ConnInfo} = ssl:connection_information(Socket, [client_random, server_random, master_secret]),
+    check_connection_info(Protocol, ConnInfo).
   
+
+%% In TLS 1.3 the master_secret field is used to store multiple secrets from the key schedule and it is a tuple.
+%% client_random and server_random are not used in the TLS 1.3 key schedule.
+check_connection_info('tlsv1.3', [{client_random, ClientRand}, {master_secret, {master_secret, MasterSecret}}]) ->
+    is_binary(ClientRand) andalso is_binary(MasterSecret);
+check_connection_info('tlsv1.3', [{server_random, ServerRand}, {master_secret, {master_secret, MasterSecret}}]) ->
+    is_binary(ServerRand) andalso is_binary(MasterSecret);
+check_connection_info(_, [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}]) ->
+    is_binary(ClientRand) andalso is_binary(ServerRand) andalso is_binary(MasterSecret);
+check_connection_info(_, _) ->
+    false.
+
+
 prf_create_plan(TlsVersions, PRFs, Results) ->
     lists:foldl(fun(Ver, Acc) ->
                         A = prf_ciphers_and_expected(Ver, PRFs, Results),
