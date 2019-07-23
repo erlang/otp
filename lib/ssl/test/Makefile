@@ -82,6 +82,7 @@ MODULES = \
 	tls_1_3_record_SUITE\
 	openssl_tls_1_3_version_SUITE\
 	tls_1_3_version_SUITE\
+	ssl_socket_SUITE\
 	make_certs \
         x509_test \
 	inet_crypto_dist
