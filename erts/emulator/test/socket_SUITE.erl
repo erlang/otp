@@ -58,6 +58,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
+-include("socket_test_evaluator.hrl").
 
 %% Suite exports
 -export([suite/0, all/0, groups/0]).
@@ -555,8 +556,6 @@
          %% Tickets
         ]).
 
-
--include("socket_test_evaluator.hrl").
 
 %% Internal exports
 %% -export([]).
