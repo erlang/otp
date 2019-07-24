@@ -47,14 +47,16 @@
       <seealso marker="#recv_async"><c>recv/3</c></seealso>
       function with Timeout set to <c>nowait</c> (<c>recv(Sock, 0, nowait)</c>)
       when there is actually nothing to read, it will return with
-      <c>{ok, </c>
-      <seealso marker="#type-select_info"><c>SelectInfo</c></seealso><c>}</c>.
+      <c>{select, </c>
+      <seealso marker="#type-select_info"><c>SelectInfo</c></seealso><c>}</c>
+      (<c>SelectInfo</c> contains the
+      <seealso marker="socket#type-select_ref">SelectRef</seealso>).
       When data eventually arrives a 'select' message
       will be sent to the caller: </p>
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
 	<tag></tag>
-	<item><c>{'$socket', socket(), select, select_ref()}</c></item>
+	<item><c>{'$socket', socket(), select, SelectRef}</c></item>
       </taglist>
       <p>The caller can now make another
       call to the recv function and now expect data.</p>
@@ -70,7 +72,7 @@
       <p>This message indicates
       that the (asynchronous) operation has been aborted.
       If, for instance, the socket has been closed (by another process),
-      <c>Info</c> will be <c>{select_ref(), closed}</c>. </p>
+      <c>Info</c> will be <c>{SelectRef, closed}</c>. </p>
     </note>
     <note>
       <p>There is currently <em>no</em> support for Windows. </p>
@@ -338,7 +340,9 @@
 	<p>In the case when there is no connections waiting, the function 
 	will return with the <c>SelectInfo</c>. The caller can then await a 
 	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
+	<c>Info</c> is the
+	<seealso marker="socket#type-select_ref"><c>ref</c></seealso>
+	field from the <c>SelectInfo</c>),
 	when a client connects (a subsequent call to accept will then return 
 	the socket). </p>
       </desc>
@@ -410,7 +414,9 @@
 	<seealso marker="#type-select_info"><c>SelectInfo</c></seealso>.
 	The caller can then await a 
 	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>,
+	<c>Info</c> is the
+	<seealso marker="socket#type-select_ref"><c>ref</c></seealso>
+	field from the <c>SelectInfo</c>,
 	a subsequent call to connect will then 
 	establish the connection). </p>
      </desc>
@@ -551,7 +557,9 @@
 	<p>In the case when there is no data waiting, the function 
 	will return with the <c>SelectInfo</c>. The caller can then await a 
 	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
+	<c>Info</c> is the
+	<seealso marker="socket#type-select_ref"><c>ref</c></seealso>
+	field from the <c>SelectInfo</c>),
 	when data has arrived (a subsequent call to recv will then return 
 	the data). </p>
 	<p>Note that if a length (<c>> 0</c>) is specified, and only part
@@ -610,7 +618,9 @@
 	<p>In the case when there is no data waiting, the function 
 	will return with the <c>SelectInfo</c>. The caller can then await a 
 	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
+	<c>Info</c> is the
+	<seealso marker="socket#type-select_ref"><c>ref</c></seealso>
+	field from the <c>SelectInfo</c>),
 	when data has arrived (a subsequent call to recvfrom will then return 
 	the data). </p>
       </desc>
@@ -686,7 +696,9 @@
 	<p>In the case when there is no data waiting, the function 
 	will return with the <c>SelectInfo</c>. The caller can then await a 
 	select message, <c>{'$socket', Socket, select, Info}</c> (where
-	<c>Info</c> is the <c>select_ref()</c> from the <c>SelectInfo</c>),
+	<c>Info</c> is the
+	<seealso marker="socket#type-select_ref"><c>ref</c></seealso>
+	field from the <c>SelectInfo</c>),
 	when data has arrived (a subsequent call to recvmsg will then return 
 	the data). </p>
       </desc>
@@ -714,7 +726,9 @@
 	the function will return with the <c>SelectInfo</c>. The caller
 	can then await a select message,
 	<c>{'$socket', Socket, select, Info}</c>
-	(where <c>Info</c> is the <c>select_ref()</c> from the
+	(where <c>Info</c> is the
+	<seealso marker="socket#type-select_ref"><c>ref</c></seealso>
+	field from the
 	<c>SelectInfo</c>), when there is room for more data (a subsequent
 	call to send will then send the data). </p>
 	<p>Note that if not all the data was sent, the function will return
@@ -772,7 +786,9 @@
 	the function will return with the <c>SelectInfo</c>. The caller
 	can then await a select message,
 	<c>{'$socket', Socket, select, Info}</c>
-	(where <c>Info</c> is the <c>select_ref()</c> from the
+	(where <c>Info</c> is the
+	<seealso marker="socket#type-select_ref"><c>ref</c></seealso>
+	field from the
 	<c>SelectInfo</c>), when there is room for more data (a subsequent
 	call to sendmsg will then send the data). </p>
       </desc>
@@ -800,7 +816,9 @@
 	the function will return with the <c>SelectInfo</c>. The caller
 	can then await a select message,
 	<c>{'$socket', Socket, select, Info}</c>
-	(where <c>Info</c> is the <c>select_ref()</c> from the
+	(where <c>Info</c> is the
+	<seealso marker="socket#type-select_ref"><c>ref</c></seealso>
+	field from the
 	<c>SelectInfo</c>), when there is room for more data (a subsequent
 	call to sendto will then send the data). </p>
       </desc>
