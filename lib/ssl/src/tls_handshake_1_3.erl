@@ -504,7 +504,8 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                 ssl_options = #ssl_options{ciphers = ServerCiphers,
                                            signature_algs = ServerSignAlgs,
                                            supported_groups = ServerGroups0,
-                                           alpn_preferred_protocols = ALPNPreferredProtocols},
+                                           alpn_preferred_protocols = ALPNPreferredProtocols,
+                                           honor_cipher_order = HonorCipherOrder},
                 session = #session{own_certificate = Cert}} = State0) ->
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     ClientGroups = get_supported_groups(ClientGroups0),
@@ -531,7 +532,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% cipher suite, an (EC)DHE group and key share for key establishment,
         %% and a signature algorithm/certificate pair to authenticate itself to
         %% the client.
-        Cipher = Maybe(select_cipher_suite(ClientCiphers, ServerCiphers)),
+        Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
 
@@ -1731,15 +1732,19 @@ handle_alpn([ServerProtocol|T], ClientProtocols) ->
     end.
 
 
-select_cipher_suite([], _) ->
+select_cipher_suite(_, [], _) ->
     {error, no_suitable_cipher};
-select_cipher_suite([Cipher|ClientCiphers], ServerCiphers) ->
+%% If honor_cipher_order is set to true, use the server's preference for
+%% cipher suite selection.
+select_cipher_suite(true, ClientCiphers, ServerCiphers) ->
+    select_cipher_suite(false, ServerCiphers, ClientCiphers);
+select_cipher_suite(false, [Cipher|ClientCiphers], ServerCiphers) ->
     case lists:member(Cipher, tls_v1:suites('TLS_v1.3')) andalso
         lists:member(Cipher, ServerCiphers) of
         true ->
             {ok, Cipher};
         false ->
-            select_cipher_suite(ClientCiphers, ServerCiphers)
+            select_cipher_suite(false, ClientCiphers, ServerCiphers)
     end.
 
 

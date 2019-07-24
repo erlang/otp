@@ -127,7 +127,9 @@ beast_mitigation_test() ->
 
 tls13_group() ->
     [
-     supported_groups
+     supported_groups,
+     honor_server_cipher_order_tls13,
+     honor_client_cipher_order_tls13
     ].
 
 
@@ -1198,10 +1200,34 @@ honor_server_cipher_order(Config) when is_list(Config) ->
                        cipher => aes_128_cbc, 
                        mac => sha,
                        prf => default_prf}],
-    honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, #{key_exchange => dhe_rsa, 
-                                                                     cipher => aes_256_cbc, 
+    honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, #{key_exchange => dhe_rsa,
+                                                                     cipher => aes_256_cbc,
                                                                      mac => sha,
                                                                      prf => default_prf}).
+%%--------------------------------------------------------------------
+honor_server_cipher_order_tls13() ->
+    [{doc,"Test API honor server cipher order in TLS 1.3."}].
+honor_server_cipher_order_tls13(Config) when is_list(Config) ->
+    ClientCiphers = [#{key_exchange => any,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384},
+                     #{key_exchange => any,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256}],
+    ServerCiphers = [#{key_exchange => any,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256},
+                     #{key_exchange => any,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384}],
+    honor_cipher_order(Config, true, ServerCiphers, ClientCiphers, #{key_exchange => any,
+                                                                     cipher => aes_128_gcm,
+                                                                     mac => aead,
+                                                                     prf => sha256}).
 %%--------------------------------------------------------------------
 honor_client_cipher_order() ->
     [{doc,"Test API honor server cipher order."}].
@@ -1222,10 +1248,34 @@ honor_client_cipher_order(Config) when is_list(Config) ->
                        cipher => aes_128_cbc, 
                        mac => sha,
                        prf => default_prf}],
-honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, #{key_exchange => dhe_rsa, 
-                                                                  cipher => aes_128_cbc, 
-                                                                  mac => sha,
-                                                                  prf => default_prf}).
+    honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, #{key_exchange => dhe_rsa,
+                                                                      cipher => aes_128_cbc,
+                                                                      mac => sha,
+                                                                      prf => default_prf}).
+%%--------------------------------------------------------------------
+honor_client_cipher_order_tls13() ->
+    [{doc,"Test API honor server cipher order in TLS 1.3."}].
+honor_client_cipher_order_tls13(Config) when is_list(Config) ->
+    ClientCiphers = [#{key_exchange => any,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384},
+                     #{key_exchange => any,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256}],
+    ServerCiphers = [#{key_exchange => any,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256},
+                     #{key_exchange => any,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384}],
+    honor_cipher_order(Config, false, ServerCiphers, ClientCiphers, #{key_exchange => any,
+                                                                      cipher => aes_256_gcm,
+                                                                      mac => aead,
+                                                                      prf => sha384}).
 %%--------------------------------------------------------------------
 ipv6() ->
     [{require, ipv6_hosts},
