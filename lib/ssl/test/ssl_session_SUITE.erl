@@ -239,7 +239,6 @@ server_does_not_want_to_reuse_session(Config) when is_list(Config) ->
     
     %% Make sure session is registered
     ct:sleep(?SLEEP),
-    ssl_test_lib:close(Client0),
 
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
@@ -252,7 +251,7 @@ server_does_not_want_to_reuse_session(Config) when is_list(Config) ->
 	{Client1, _Other} ->
 	   ok
     end,
-
+    ssl_test_lib:close(Client0),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client1).
 
