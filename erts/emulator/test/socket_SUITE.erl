@@ -564,22 +564,25 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(BASIC_REQ, <<"hejsan">>).
--define(BASIC_REP, <<"hoppsan">>).
+-define(LIB,        socket_test_lib).
+-define(TTEST_LIB,  socket_test_ttest_lib).
+-define(LOGGER,     socket_test_logger).
 
--define(DATA,      <<"HOPPSAN">>). % Temporary
--define(FAIL(R), exit(R)).
+-define(BASIC_REQ,  <<"hejsan">>).
+-define(BASIC_REP,  <<"hoppsan">>).
 
--define(SLEEP(T), receive after T -> ok end).
+-define(DATA,       <<"HOPPSAN">>). % Temporary
+-define(FAIL(R),    exit(R)).
 
--define(MINS(M), timer:minutes(M)).
--define(SECS(S), timer:seconds(S)).
+-define(SLEEP(T),   receive after T -> ok end).
 
--define(TT(T),   ct:timetrap(T)).
+-define(MINS(M),    timer:minutes(M)).
+-define(SECS(S),    timer:seconds(S)).
 
--define(LIB,       socket_test_lib).
--define(TTEST_LIB, socket_test_ttest_lib).
--define(LOGGER,    socket_test_logger).
+-define(TT(T),      ct:timetrap(T)).
+
+-define(F(F, A),    ?LIB:f(F, A)).
+
 
 -define(TPP_SMALL,  lists:seq(1, 8)).
 -define(TPP_MEDIUM, lists:flatten(lists:duplicate(1024, ?TPP_SMALL))).
@@ -793,8 +796,6 @@ api_options_otp_cases() ->
 api_options_socket_cases() ->
     [
      {group, api_option_sock_acceptconn},
-     %% api_opt_sock_acceptconn_udp,
-     %% api_opt_sock_acceptconn_tcp,
      api_opt_sock_acceptfilter,
      api_opt_sock_bindtodevice,
      api_opt_sock_broadcast,
@@ -20199,12 +20200,14 @@ traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
 		  ?SEV_IPRINT("RcvBuf is ~p (needs atleast ~p)", 
 			      [RcvSz, 16+size(Msg)]),
                   if (RcvSz < size(Msg)) ->
-                          case socket:setopt(Sock,
-					     socket, rcvbuf, 1024+size(Msg)) of
+                          NewRcvSz = 1024+size(Msg),
+                          case socket:setopt(Sock, socket, rcvbuf, NewRcvSz) of
 			      ok ->
 				  ok;
 			      {error, enobufs} ->
-				  skip({failed_change, rcvbuf});
+				  skip(?F("Change ~w buffer size (to ~w) "
+                                          "not allowed", 
+                                          [rcvbuf, NewRcvSz]));
 			      {error, Reason1} ->
 				  ?FAIL({rcvbuf, Reason1})
 			  end;
@@ -20215,12 +20218,14 @@ traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
 		  ?SEV_IPRINT("SndBuf is ~p (needs atleast ~p)", 
 			      [SndSz, 16+size(Msg)]),
                   if (SndSz < size(Msg)) ->
-                          case socket:setopt(Sock,
-					     socket, sndbuf, 1024+size(Msg)) of
+                          NewSndSz = 1024+size(Msg),
+                          case socket:setopt(Sock, socket, sndbuf, NewSndSz) of
 			      ok ->
 				  ok;
 			      {error, enobufs} ->
-				  skip({failed_change, sndbuf});
+				  skip(?F("Change ~w buffer size (to ~w) "
+                                          "not allowed", 
+                                          [sndbuf, NewSndSz]));
 			      {error, Reason2} ->
 				  ?FAIL({sndbuf, Reason2})
 			  end;
@@ -28804,8 +28809,10 @@ has_support_ip_multicast() ->
                 {error, Reason} ->
                     not_supported({multicast, Reason})
             end;
+        {unix, OsName} ->
+            skip(?F("Not Supported: platform ~w", [OsName]));
         Type ->
-            not_supported({multicast, Type})
+            skip(?F("Not Supported: platform ~p", [Type]))
     end.
 
 has_support_sock_acceptconn() ->
@@ -28859,7 +28866,7 @@ has_support_socket_option(Level, Option) ->
         true ->
             ok;
         false ->
-            not_supported({options, Level, Option})
+            skip(?F("Not Supported: ~w option ~w", [Level, Option]))
     end.
 
 
