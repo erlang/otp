@@ -2696,17 +2696,17 @@ cancel(#socket{ref = SockRef}, #select_info{tag = Tag, ref = Ref}) ->
 %%
 %% ===========================================================================
 
--spec enc_domain(Domain) -> non_neg_integer() when
-      Domain :: domain().
+%% -spec enc_domain(Domain) -> non_neg_integer() when
+%%       Domain :: domain().
 
 enc_domain(local)  -> ?SOCKET_DOMAIN_LOCAL;
 enc_domain(inet)   -> ?SOCKET_DOMAIN_INET;
 enc_domain(inet6)  -> ?SOCKET_DOMAIN_INET6;
 enc_domain(Domain) -> invalid_domain(Domain).
 
--spec enc_type(Domain, Type) -> non_neg_integer() when
-      Domain :: domain(),
-      Type   :: type().
+%% -spec enc_type(Domain, Type) -> non_neg_integer() when
+%%       Domain :: domain(),
+%%       Type   :: type().
 
 %% What combos are valid?
 enc_type(_, stream)    -> ?SOCKET_TYPE_STREAM;
